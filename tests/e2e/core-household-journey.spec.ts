@@ -418,6 +418,10 @@ test.describe('Canonical household journey', () => {
 				await page.getByTestId('preview-plan-button').click()
 				await expect(page.getByTestId('plan-preview')).toBeVisible({ timeout: 20000 })
 
+				// WP2 (CS-PLAN-073): every fresh preview requires the owner's
+				// explicit consent attestation before apply unlocks.
+				await page.getByTestId('planner-consent').check()
+
 				const applyResponse = page.waitForResponse((response) =>
 					response.request().method() === 'POST'
 					&& response.url().includes('/api/v1/scheduling/apply'))

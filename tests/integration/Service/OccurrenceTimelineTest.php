@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
  * Occurrence timeline integration suite (CS-PLAN-072 WP1; parent
@@ -791,6 +792,871 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		);
 	}
 
+	// ------------------------------------------------------------------
+	// CS-PLAN-073 WP2 fix round: agreement command regressions
+	// (RF-073-WP2-01/02/04/05/07/19/20/22)
+	// ------------------------------------------------------------------
+
+	private function agreementService(): \OCA\ChoreStrike\Service\AgreementService {
+		return \OC::$server->get(\OCA\ChoreStrike\Service\AgreementService::class);
+	}
+
+	/**
+	 * Low-energy agreement fixture: owner + adult helper with bound
+	 * wallets, one interval task (energy 2 — handover/share amendments fit
+	 * the default daily budget of 10).
+	 *
+	 * @return array{houseId: int, roomTaskId: int, taskId: int, owner: string, helper: string}
+	 */
+	private function agreementFixture(array $taskOverrides = [], ?string $anchor = null, string $suffix = ''): array {
+		$owner = 'agr_owner' . $suffix;
+		$helper = 'agr_helper' . $suffix;
+		$houseId = $this->createHouse($owner, 'Agreement House');
+		$this->addHouseMember($houseId, $helper, 'Helper', 'member');
+		$houseUserMapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+		$walletService = \OC::$server->get(\OCA\ChoreStrike\Service\WalletService::class);
+		$walletService->ensureBinding($houseId, $houseUserMapper->findByNextcloudUserId($houseId, $owner));
+		$walletService->ensureBinding($houseId, $houseUserMapper->findByNextcloudUserId($houseId, $helper));
+
+		$floorId = $this->createFloor($houseId, 'Ground', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+		$taskId = $this->createTask($houseId, 'Dishes', '', 5, 2);
+		$qb = $this->db->getQueryBuilder();
+		$taskOverrides += [
+			'frequency_type' => 'daily',
+			'frequency_value' => 1,
+			'scheduling_mode' => 'dynamic',
+			'recurrence_mode' => 'recurring',
+		];
+		foreach ($taskOverrides as $column => $value) {
+			$qb->update('chorestrike_tasks')
+				->set($column, $qb->createNamedParameter($value))
+				->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+				->executeStatement();
+		}
+		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, $owner, $anchor);
+		return ['houseId' => $houseId, 'roomTaskId' => $roomTaskId, 'taskId' => $taskId, 'owner' => $owner, 'helper' => $helper];
+	}
+
+	/**
+	 * The canonical selection receipt of a room task (the same material a
+	 * rendered occurrence block hands the client).
+	 *
+	 * @return array{occurrenceId: string, expectedVersion: int, selectionToken: string, classification: string}
+	 */
+	private function agreementReceipt(int $houseId, int $roomTaskId): array {
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId);
+		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
+		self::assertNotNull($selection, 'the fixture must expose a canonical selection target');
+		return [
+			'occurrenceId' => $selection['occurrence']->toPublicKey(),
+			'expectedVersion' => $selection['occurrence']->getVersion(),
+			'selectionToken' => $this->occurrenceService->selectionToken(
+				$selection['occurrence'],
+				$selection['revision'],
+				$selection['classification'],
+				$houseId,
+				null,
+				$selection['workAppointment']
+			),
+			'classification' => $selection['classification'],
+		];
+	}
+
+	private function amendPayload(array $receipt, array $extra = []): array {
+		return array_merge([
+			'commandId' => self::uuid(),
+			'occurrenceId' => $receipt['occurrenceId'],
+			'expectedVersion' => $receipt['expectedVersion'],
+			'selectionToken' => $receipt['selectionToken'],
+			'consent' => true,
+		], $extra);
+	}
+
+	/**
+	 * RF-073-WP2-01: the agreement date command moves EXACTLY the
+	 * occurrence resolved from the client's key — never a re-selected
+	 * other one (the legacy self-selecting writer would have grabbed the
+	 * earliest expired miss and died on its deadline) — and the receipt
+	 * refs report the RESULTING version of the moved row.
+	 */
+	public function testAmendDate_ExplicitTarget_MovesResolvedOccurrenceOnly(): void {
+		$todayKey = (new \DateTime())->format('Y-m-d');
+		$tomorrowKey = (new \DateTime('+1 day'))->format('Y-m-d');
+		$f = $this->agreementFixture([
+			'frequency_type' => 'daily',
+			'scheduling_mode' => 'static',
+		], (new \DateTime('-2 days'))->format('Y-m-d') . ' 00:00:00');
+
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		self::assertSame('agreed', $receipt['classification'], 'the open today occurrence is the canonical target');
+
+		$beforeMisses = array_map(
+			static fn (Occurrence $o): array => [$o->getOrdinal(), $o->getPlannedDate()->format('Y-m-d'), $o->getVersion()],
+			array_values(array_filter(
+				$this->occurrenceMapper->findByRoomTask($f['roomTaskId']),
+				static fn (Occurrence $o): bool => $o->getPlannedDate()->format('Y-m-d') < $todayKey
+			))
+		);
+		self::assertNotEmpty($beforeMisses, 'the fixture owns expired misses a self-selecting writer would grab');
+
+		$refs = $this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, ['date' => $tomorrowKey]));
+
+		self::assertSame($receipt['occurrenceId'], $refs['occurrenceId'], 'the receipt refs report the RESOLVED target, not another occurrence');
+		self::assertGreaterThan($receipt['expectedVersion'], $refs['expectedVersion'], 'the refs carry the resulting version after the write');
+
+		$moved = null;
+		foreach ($this->occurrenceMapper->findByRoomTask($f['roomTaskId']) as $row) {
+			if ($row->toPublicKey() === $receipt['occurrenceId']) {
+				$moved = $row;
+			}
+		}
+		self::assertNotNull($moved);
+		self::assertSame($tomorrowKey, $moved->getPlannedDate()->format('Y-m-d'), 'exactly the requested occurrence moved');
+		self::assertSame($refs['expectedVersion'], $moved->getVersion());
+
+		$afterMisses = array_map(
+			static fn (Occurrence $o): array => [$o->getOrdinal(), $o->getPlannedDate()->format('Y-m-d'), $o->getVersion()],
+			array_values(array_filter(
+				$this->occurrenceMapper->findByRoomTask($f['roomTaskId']),
+				static fn (Occurrence $o): bool => $o->getPlannedDate()->format('Y-m-d') < $todayKey
+			))
+		);
+		self::assertSame($beforeMisses, $afterMisses, 'the expired misses are untouched — no other occurrence was amended');
+	}
+
+	/**
+	 * RF-073-WP2-02/18: a handover PERSISTS the neutral release of the
+	 * former responsibility (disposition `released`, obligation dropped,
+	 * former role/share snapshot retained) beside full consent evidence —
+	 * and a later share-only amendment of the same responsibility records
+	 * kind `share`, never `handover`.
+	 */
+	public function testHandover_PersistsNeutralReleaseAndConsentEvidence(): void {
+		$f = $this->agreementFixture();
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+
+		$refs = $this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+			'participants' => [
+				['userId' => $f['helper'], 'role' => 'responsible', 'sharePct' => 100],
+			],
+		]));
+		self::assertSame($receipt['occurrenceId'], $refs['occurrenceId']);
+
+		$occurrenceId = $this->occurrenceRowIdByKey($f['roomTaskId'], $receipt['occurrenceId']);
+		$members = $this->fetchRows('chorestrike_occ_members', ['occurrence_id' => $occurrenceId]);
+		self::assertCount(2, $members, 'the former responsible stays visible as a released row');
+		$byDisposition = [];
+		foreach ($members as $row) {
+			$byDisposition[$row['disposition']] = $row;
+		}
+		self::assertSame('responsible', $byDisposition['active']['role']);
+		self::assertSame(100, (int)$byDisposition['active']['share_pct']);
+		self::assertSame(1, (int)$byDisposition['active']['obligated']);
+		self::assertSame('released', $byDisposition['released']['disposition']);
+		self::assertSame(0, (int)$byDisposition['released']['obligated'], 'the release is neutral — no obligation remains');
+		self::assertSame('responsible', $byDisposition['released']['role'], 'the former role snapshot is retained');
+
+		$agreements = $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]);
+		$handover = null;
+		foreach ($agreements as $row) {
+			if ($row['kind'] === 'handover') {
+				$handover = $row;
+			}
+		}
+		self::assertNotNull($handover, 'the responsibility transfer records a handover evidence row');
+		$consent = json_decode((string)$handover['consent'], true);
+		self::assertIsArray($consent, 'the consent evidence is persisted, not dropped');
+		self::assertArrayHasKey('attestedBy', $consent);
+		self::assertNotEmpty($consent['subjects']);
+		$newState = json_decode((string)$handover['new_state'], true);
+		self::assertContains((int)$byDisposition['released']['wallet_id'], $newState['released'], 'the released wallet is part of the evidence');
+		$oldState = json_decode((string)$handover['old_state'], true);
+		self::assertNotEmpty($oldState['members'], 'the former arrangement is preserved in the evidence');
+
+		// A share-only amendment of the SAME responsibility records kind
+		// `share` (RF-073-WP2-18: `handover` labels only a real transfer).
+		$receipt2 = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt2, [
+			'participants' => [
+				['userId' => $f['helper'], 'role' => 'responsible', 'sharePct' => 60],
+				['userId' => $f['owner'], 'role' => 'joint', 'sharePct' => 40],
+			],
+		]));
+		$agreements = $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]);
+		$kinds = array_map(static fn (array $row): string => (string)$row['kind'], $agreements);
+		self::assertSame(1, count(array_filter($kinds, static fn (string $k): bool => $k === 'handover')), 'no second handover for a share change');
+		self::assertContains('share', $kinds);
+		$members = $this->fetchRows('chorestrike_occ_members', ['occurrence_id' => $occurrenceId]);
+		$active = array_values(array_filter($members, static fn (array $row): bool => $row['disposition'] === 'active'));
+		self::assertCount(2, $active, 'the re-joining former responsible is active again — one row per wallet');
+	}
+
+	/**
+	 * RF-073-WP2-04/20: a catch-up with participants keeps the agreed work
+	 * appointment INCLUDING its zone on the replaced rows, retains the
+	 * original planned date/window/miss, and the appointment projects into
+	 * the selection DTOs even though the house has NO pause at all
+	 * (appointment derivation is pause-independent).
+	 */
+	public function testCatchUp_WithParticipants_KeepsAppointmentIncludingZone(): void {
+		$f = $this->agreementFixture();
+		$tomorrowKey = (new \DateTime('+1 day'))->format('Y-m-d');
+
+		// Force the pending into an expired window (the catch-up target).
+		$pending = $this->occurrenceMapper->findByRoomTask($f['roomTaskId'])[0];
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_occurrences')
+			->set('planned_date', $qb->createNamedParameter((new \DateTime('-2 days'))->format('Y-m-d')))
+			->set('day_start', $qb->createNamedParameter((new \DateTime('-2 days'))->setTime(0, 0)->format('Y-m-d H:i:s')))
+			->set('window_start', $qb->createNamedParameter((new \DateTime('-2 days'))->setTime(0, 0)->format('Y-m-d H:i:s')))
+			->set('window_end', $qb->createNamedParameter((new \DateTime('-1 days'))->setTime(0, 0)->format('Y-m-d H:i:s')))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($pending->getId(), \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		self::assertSame('late', $receipt['classification'], 'the expired pending is the catch-up target');
+
+		$this->agreementService()->catchUp($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+			'workDate' => $tomorrowKey,
+			'workZone' => 'Europe/Berlin',
+			'participants' => [
+				['userId' => $f['helper'], 'role' => 'responsible', 'sharePct' => 100],
+			],
+		]));
+
+		$members = $this->fetchRows('chorestrike_occ_members', ['occurrence_id' => (int)$pending->getId()]);
+		$active = array_values(array_filter($members, static fn (array $row): bool => $row['disposition'] === 'active'));
+		self::assertCount(1, $active);
+		self::assertSame($tomorrowKey, substr((string)$active[0]['work_date'], 0, 10), 'the appointment rides the replaced participant row');
+		self::assertSame('Europe/Berlin', $active[0]['work_zone'], 'including its zone');
+
+		$row = $this->occurrenceMapper->find((int)$pending->getId());
+		self::assertSame((new \DateTime('-2 days'))->format('Y-m-d'), $row->getPlannedDate()->format('Y-m-d'), 'the miss keeps its planned date');
+		self::assertNull($row->getCompletionId());
+		self::assertNull($row->getCoveredByCompletionId());
+
+		// RF-073-WP2-20: the house has NO pause — the appointment still
+		// projects into the canonical selection (before the fix the
+		// stamping pass early-returned the planned-date default).
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
+		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime(), $f['houseId']);
+		self::assertNotNull($selection);
+		self::assertSame($tomorrowKey, $selection['workAppointment']['date']);
+		self::assertSame('Europe/Berlin', $selection['workAppointment']['zone']);
+	}
+
+	/**
+	 * RF-073-WP2-19: the receipt identity covers the ACTION and every
+	 * normalized semantic input — an identical repeat replays the original
+	 * result without a second effect, while the same UUID with a changed
+	 * date (or a different action) conflicts.
+	 */
+	public function testAgreementReceipt_SemanticInputsAndActionIdentity(): void {
+		$f = $this->agreementFixture([
+			'frequency_type' => 'daily',
+			'scheduling_mode' => 'static',
+		], (new \DateTime())->format('Y-m-d') . ' 00:00:00');
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$tomorrowKey = (new \DateTime('+1 day'))->format('Y-m-d');
+		$commandId = self::uuid();
+
+		$payload = $this->amendPayload($receipt, ['date' => $tomorrowKey]);
+		$payload['commandId'] = $commandId;
+		$first = $this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $payload);
+
+		$occurrenceId = $this->occurrenceRowIdByKey($f['roomTaskId'], $receipt['occurrenceId']);
+		$agreementsAfterFirst = count($this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]));
+
+		// Identical repeat → replay of the ORIGINAL identity, no second effect.
+		$replay = $this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $payload);
+		self::assertSame($first, $replay, 'the replay returns the original result refs');
+		self::assertCount($agreementsAfterFirst, $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]));
+
+		// Same UUID, changed semantic input → conflict, no writes.
+		try {
+			$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], array_merge($payload, [
+				'date' => (new \DateTime('+2 days'))->format('Y-m-d'),
+			]));
+			self::fail('the same UUID with a changed date must conflict');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertStringContainsString('different', $e->getMessage());
+		}
+
+		// Same UUID under a DIFFERENT action → conflict (the action
+		// identity is part of the receipt hash).
+		$catchUpPayload = $this->amendPayload($receipt, ['workDate' => $tomorrowKey]);
+		$catchUpPayload['commandId'] = $commandId;
+		try {
+			$this->agreementService()->catchUp($f['houseId'], $f['owner'], $f['roomTaskId'], $catchUpPayload);
+			self::fail('reusing the receipt UUID for another command must conflict');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertStringContainsString('different', $e->getMessage());
+		}
+		self::assertCount($agreementsAfterFirst, $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]));
+	}
+
+	/**
+	 * RF-073-WP2-22: an effective-state change invisible to the row
+	 * version invalidates the shown selection token — the command
+	 * conflicts with ZERO persisted writes. Part (b) is the core proof: a
+	 * READ-ONLY VIRTUAL target carries no row version to bump, so only the
+	 * token recomputation over the stamped pause facts can see the drift.
+	 */
+	public function testStaleSelectionToken_PauseDrift_ConflictsWithZeroWrites(): void {
+		$f = $this->agreementFixture();
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$occurrenceId = $this->occurrenceRowIdByKey($f['roomTaskId'], $receipt['occurrenceId']);
+
+		// (a) A bogus token conflicts immediately.
+		try {
+			$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+				'selectionToken' => 'bogus-token',
+				'date' => (new \DateTime('+1 day'))->format('Y-m-d'),
+			]));
+			self::fail('a non-matching token must conflict');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertStringContainsString('changed since', $e->getMessage());
+		}
+		$row = $this->occurrenceMapper->find($occurrenceId);
+		self::assertSame($receipt['expectedVersion'], $row->getVersion(), 'the conflicting command wrote nothing');
+		self::assertCount(0, $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId, 'kind' => 'date']));
+
+		// (b) Virtual target: delete the materialized pending row so the
+		// read path derives the VIRTUAL twin (version 0, no row to bump),
+		// render its token, then acknowledge a pause over it — the pause
+		// effects find no persisted row, so ONLY the token recomputation
+		// can detect the drift.
+		$staticFixture = $this->agreementFixture([
+			'frequency_type' => 'daily',
+			'scheduling_mode' => 'static',
+		], (new \DateTime())->format('Y-m-d') . ' 00:00:00', 'V');
+		$virtualReceipt = $this->agreementReceipt($staticFixture['houseId'], $staticFixture['roomTaskId']);
+		$pending = null;
+		foreach ($this->occurrenceMapper->findByRoomTask($staticFixture['roomTaskId']) as $candidate) {
+			if ($candidate->toPublicKey() === $virtualReceipt['occurrenceId']) {
+				$pending = $candidate;
+			}
+		}
+		self::assertNotNull($pending);
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_occurrences')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($pending->getId(), \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		self::assertSame(0, $virtualReceipt['expectedVersion'], 'the virtual twin always shows version 0');
+
+		$pauseService = \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class);
+		$pauseService->requestForSelf($staticFixture['houseId'], $staticFixture['owner'], [
+			'commandId' => self::uuid(),
+			'startDate' => (new \DateTime())->format('Y-m-d'),
+			'endDate' => (new \DateTime('+4 days'))->format('Y-m-d'),
+			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_TRAVEL,
+		]);
+
+		try {
+			$this->agreementService()->amend($staticFixture['houseId'], $staticFixture['owner'], $staticFixture['roomTaskId'], $this->amendPayload($virtualReceipt, [
+				'date' => (new \DateTime('+1 day'))->format('Y-m-d'),
+			]));
+			self::fail('a pause-invalidated token must conflict even with a matching version');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertStringContainsString('changed since', $e->getMessage());
+		}
+
+		// Zero persisted writes: the command materialized the virtual twin
+		// inside its transaction and the conflict rolled everything back.
+		$keys = array_map(static fn (Occurrence $o): string => $o->toPublicKey(), $this->occurrenceMapper->findByRoomTask($staticFixture['roomTaskId']));
+		self::assertNotContains($virtualReceipt['occurrenceId'], $keys, 'the rolled-back command left no materialized row');
+	}
+
+	/**
+	 * RF-073-WP2-05: the restart command derives the EFFECTIVE suspension
+	 * state through the projection — a legitimately suspended interval
+	 * predecessor whose persisted row still carries the materialization
+	 * default restarts (and the derived facts are persisted), while an
+	 * amendment of the same effectively-suspended target is rejected with
+	 * zero writes.
+	 */
+	public function testRestart_EffectiveSuspension_DerivedAtCommandBoundary(): void {
+		$f = $this->agreementFixture();
+		$pauseService = \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class);
+		$pauseService->requestForSelf($f['houseId'], $f['owner'], [
+			'commandId' => self::uuid(),
+			'startDate' => (new \DateTime())->format('Y-m-d'),
+			'endDate' => (new \DateTime('+4 days'))->format('Y-m-d'),
+			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_TRAVEL,
+		]);
+
+		$pending = $this->occurrenceMapper->findByRoomTask($f['roomTaskId'])[0];
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $pending->getSuspensionState(), 'the acknowledged pause suspended the pending row');
+		$suspendedVersion = $pending->getVersion();
+
+		// Simulate the virtual→materialized drift: the row carries the
+		// materialization default while the projection still derives
+		// suspended from the recognized pause.
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_occurrences')
+			->set('suspension_state', $qb->createNamedParameter('none'))
+			->set('suspension_evidence', $qb->createNamedParameter(null, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_NULL))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($pending->getId(), \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+
+		// The amendment of the effectively-suspended target is rejected.
+		try {
+			$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], [
+				'commandId' => self::uuid(),
+				'occurrenceId' => $pending->toPublicKey(),
+				'expectedVersion' => $suspendedVersion,
+				'selectionToken' => 'any',
+				'consent' => true,
+				'date' => (new \DateTime('+1 day'))->format('Y-m-d'),
+			]);
+			self::fail('an effectively-suspended occurrence is no date-amendment target');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			// Expected — token/version/suspension gates all conflict here.
+		}
+
+		// The restart succeeds through the derived state and persists it.
+		// The agreed restart day lies AFTER the pause range — future
+		// reactivation must fit capacity (plan §3.4), and the owner is
+		// paused through +4 days.
+		$refs = $this->agreementService()->restart($f['houseId'], $f['owner'], $f['roomTaskId'], [
+			'commandId' => self::uuid(),
+			'occurrenceId' => $pending->toPublicKey(),
+			'expectedVersion' => $suspendedVersion,
+			'consent' => true,
+			'workDate' => (new \DateTime('+5 days'))->format('Y-m-d'),
+		]);
+		self::assertArrayHasKey('occurrenceId', $refs);
+		self::assertNotSame($pending->toPublicKey(), $refs['occurrenceId'], 'the receipt reports the restart successor');
+
+		$predecessor = $this->occurrenceMapper->find((int)$pending->getId());
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $predecessor->getSuspensionState(), 'the derived suspension facts are persisted, not lost');
+		$rows = $this->occurrenceMapper->findByRoomTask($f['roomTaskId']);
+		$restarts = array_values(array_filter($rows, static fn (Occurrence $o): bool => $o->getRestartOfId() !== null));
+		self::assertCount(1, $restarts, 'exactly one linked restart successor exists');
+		self::assertSame((int)$pending->getId(), $restarts[0]->getRestartOfId());
+	}
+
+	/**
+	 * RF-073-WP2-07: a concretely agreed HELPER commitment is capacity-
+	 * checked with its exact share — an over-budget helper share conflicts
+	 * (the pre-fix code skipped non-obligated rows entirely), a fitting
+	 * helper share is installed.
+	 */
+	public function testHandover_HelperCommitment_CapacityCheckedWithExactShare(): void {
+		$f = $this->agreementFixture();
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+
+		// Shrink the helper's daily energy budget to 1 (100 minor): a
+		// helper share of 100% of the energy-2 revision (200 minor) no
+		// longer fits, while 50% (100 minor) exactly fits the budget.
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_house_users')
+			->set('scheduling_preferences', $qb->createNamedParameter(json_encode([
+				'energyBudget' => array_fill_keys(
+					['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+					1
+				),
+			])))
+			->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($f['helper'])))
+			->executeStatement();
+
+		try {
+			$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+				'participants' => [
+					['userId' => $f['owner'], 'role' => 'responsible', 'sharePct' => 100],
+					['userId' => $f['helper'], 'role' => 'helper', 'sharePct' => 100],
+				],
+			]));
+			self::fail('an over-budget helper commitment must conflict');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertStringContainsString('energy budget', $e->getMessage());
+		}
+
+		// A fitting helper share (50% of 2 = 100 minor ≤ 100 budget) installs.
+		$receipt2 = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt2, [
+			'participants' => [
+				['userId' => $f['owner'], 'role' => 'responsible', 'sharePct' => 100],
+				['userId' => $f['helper'], 'role' => 'helper', 'sharePct' => 50],
+			],
+		]));
+		$occurrenceId = $this->occurrenceRowIdByKey($f['roomTaskId'], $receipt['occurrenceId']);
+		$members = $this->fetchRows('chorestrike_occ_members', ['occurrence_id' => $occurrenceId]);
+		$helpers = array_values(array_filter($members, static fn (array $row): bool => $row['role'] === 'helper' && $row['disposition'] === 'active'));
+		self::assertCount(1, $helpers, 'the fitting helper commitment is installed');
+		self::assertSame(0, (int)$helpers[0]['obligated']);
+	}
+
+	// ------------------------------------------------------------------
+	// CS-PLAN-073 fix round R4/R5: concrete-arrangement validation and
+	// virtual/persisted projection parity (RF-073-WP2-26/27)
+	// ------------------------------------------------------------------
+
+	private function walletIdOf(int $houseId, string $userId): int {
+		$member = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByHouseAndUser($houseId, $userId);
+		self::assertNotNull($member);
+		self::assertNotNull($member->getWalletId());
+		return (int)$member->getWalletId();
+	}
+
+	private function acknowledgePause(int $houseId, string $userId, string $startKey, string $endKey): array {
+		return \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class)->requestForSelf($houseId, $userId, [
+			'commandId' => self::uuid(),
+			'startDate' => $startKey,
+			'endDate' => $endKey,
+			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_TRAVEL,
+		]);
+	}
+
+	/**
+	 * R5 / RF-073-WP2-27: after a concrete A-to-B handover, a follow-up
+	 * date-only amendment validates and records consent against the ACTUAL
+	 * occurrence participants (B) — the released former responsible (A,
+	 * still the revision default) is neither capacity-checked nor a consent
+	 * subject, so A's pause no longer blocks B's fitting arrangement.
+	 */
+	public function testAmend_DateOnly_AfterHandover_FollowsConcreteArrangement(): void {
+		$f = $this->agreementFixture([
+			'frequency_type' => 'daily',
+			'scheduling_mode' => 'static',
+		], (new \DateTime())->format('Y-m-d') . ' 00:00:00', 'R5a');
+		$tomorrowKey = (new \DateTime('+1 day'))->format('Y-m-d');
+
+		// Concrete handover owner -> helper on today's target.
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+			'participants' => [
+				['userId' => $f['helper'], 'role' => 'responsible', 'sharePct' => 100],
+			],
+		]));
+
+		// The OWNER (released, but still the revision default) pauses over
+		// the target day; the concrete responsible (helper) does not.
+		$this->acknowledgePause($f['houseId'], $f['owner'], (new \DateTime())->format('Y-m-d'), (new \DateTime('+4 days'))->format('Y-m-d'));
+
+		$receipt2 = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$refs = $this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt2, [
+			'date' => $tomorrowKey,
+		]));
+
+		self::assertSame($receipt2['occurrenceId'], $refs['occurrenceId']);
+		$moved = null;
+		foreach ($this->occurrenceMapper->findByRoomTask($f['roomTaskId']) as $row) {
+			if ($row->toPublicKey() === $refs['occurrenceId']) {
+				$moved = $row;
+			}
+		}
+		self::assertNotNull($moved);
+		self::assertSame($tomorrowKey, $moved->getPlannedDate()->format('Y-m-d'), 'the concrete arrangement moves even though the released default member is paused');
+
+		// The consent evidence names the ACTUAL responsible, not the default.
+		$agreements = $this->fetchRows('chorestrike_agreements', ['occurrence_id' => (int)$moved->getId(), 'kind' => 'date']);
+		self::assertCount(1, $agreements);
+		$affected = json_decode((string)$agreements[0]['affected_wallet_ids'], true);
+		self::assertSame([$this->walletIdOf($f['houseId'], $f['helper'])], array_map('intval', $affected));
+		$consent = json_decode((string)$agreements[0]['consent'], true);
+		self::assertIsArray($consent);
+		self::assertSame(
+			[$this->walletIdOf($f['houseId'], $f['helper'])],
+			array_map(static fn (array $subject): int => (int)$subject['walletId'], $consent['subjects'])
+		);
+	}
+
+	/**
+	 * R5 / RF-073-WP2-27 (denial direction): the concrete participant's
+	 * pause blocks the follow-up date amendment even though the released
+	 * revision-default member has room — validation follows the people the
+	 * writer will actually keep.
+	 */
+	public function testAmend_DateOnly_ConcreteParticipantPaused_ConflictsDespiteFreeDefault(): void {
+		$f = $this->agreementFixture([
+			'frequency_type' => 'daily',
+			'scheduling_mode' => 'static',
+		], (new \DateTime())->format('Y-m-d') . ' 00:00:00', 'R5b');
+		$tomorrowKey = (new \DateTime('+1 day'))->format('Y-m-d');
+
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+			'participants' => [
+				['userId' => $f['helper'], 'role' => 'responsible', 'sharePct' => 100],
+			],
+		]));
+		// The CONCRETE responsible pauses on the target day only.
+		$this->acknowledgePause($f['houseId'], $f['helper'], $tomorrowKey, $tomorrowKey);
+
+		$receipt2 = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		try {
+			$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt2, [
+				'date' => $tomorrowKey,
+			]));
+			self::fail('the paused concrete participant must block the move');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertStringContainsString('paused', $e->getMessage());
+		}
+
+		// Zero writes: the occurrence kept its planned date and version.
+		$unchanged = null;
+		foreach ($this->occurrenceMapper->findByRoomTask($f['roomTaskId']) as $row) {
+			if ($row->toPublicKey() === $receipt2['occurrenceId']) {
+				$unchanged = $row;
+			}
+		}
+		self::assertNotNull($unchanged);
+		self::assertSame($receipt2['expectedVersion'], $unchanged->getVersion());
+		self::assertNotSame($tomorrowKey, $unchanged->getPlannedDate()->format('Y-m-d'));
+	}
+
+	/**
+	 * R5: a catch-up WITHOUT a participant payload binds the concrete
+	 * current participants — the released revision default is irrelevant,
+	 * the concrete member's pause on the work day conflicts, and a fitting
+	 * day installs the appointment on the actual rows.
+	 */
+	public function testCatchUp_WithoutParticipants_FollowsConcreteArrangement(): void {
+		// A bounded lifetime ending yesterday leaves ONLY expired misses —
+		// the canonical selection classifies the latest one as `late`.
+		$f = $this->agreementFixture([
+			'frequency_type' => 'daily',
+			'scheduling_mode' => 'static',
+			'active_until' => (new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00',
+		], (new \DateTime('-2 days'))->format('Y-m-d') . ' 00:00:00', 'R5c');
+		$tomorrowKey = (new \DateTime('+1 day'))->format('Y-m-d');
+		$afterKey = (new \DateTime('+2 days'))->format('Y-m-d');
+
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		self::assertSame('late', $receipt['classification'], 'the expired miss is the catch-up target');
+		// The handover of a miss rides a catch-up WITH participants (an
+		// ordinary amendment cannot touch an expired window): the concrete
+		// arrangement becomes the helper on an appointed day that fits.
+		$this->agreementService()->catchUp($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+			'workDate' => $afterKey,
+			'participants' => [
+				['userId' => $f['helper'], 'role' => 'responsible', 'sharePct' => 100],
+			],
+		]));
+		$this->acknowledgePause($f['houseId'], $f['helper'], $tomorrowKey, $tomorrowKey);
+
+		// The follow-up catch-up WITHOUT participants binds the concrete
+		// helper — their pause on the proposed work day conflicts even
+		// though the released revision default (owner) has room.
+		$receipt2 = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		try {
+			$this->agreementService()->catchUp($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt2, [
+				'workDate' => $tomorrowKey,
+			]));
+			self::fail('the concrete participant is paused on the proposed work day');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertStringContainsString('paused', $e->getMessage());
+		}
+
+		// A day the concrete participant fits installs the appointment on
+		// the ACTUAL active rows.
+		$receipt3 = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$this->agreementService()->catchUp($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt3, [
+			'workDate' => $afterKey,
+		]));
+		$occurrenceId = $this->occurrenceRowIdByKey($f['roomTaskId'], $receipt3['occurrenceId']);
+		$active = array_values(array_filter(
+			$this->fetchRows('chorestrike_occ_members', ['occurrence_id' => $occurrenceId]),
+			static fn (array $row): bool => $row['disposition'] === 'active'
+		));
+		self::assertCount(1, $active);
+		self::assertSame($this->walletIdOf($f['houseId'], $f['helper']), (int)$active[0]['wallet_id']);
+		self::assertSame($afterKey, substr((string)$active[0]['work_date'], 0, 10), 'the appointment rides the concrete participant row');
+	}
+
+	/**
+	 * R4 / RF-073-WP2-26: with a stopped cron (the materialized row of an
+	 * agreed key is absent), the read path derives a VIRTUAL twin whose
+	 * suspension comes from the associated saved revision — identical to
+	 * the materialized twin the job pass later persists. The GET writes
+	 * nothing, the completion of the suspended virtual target conflicts
+	 * with zero committed writes, and the job replay converges to the same
+	 * public key, state and appointment.
+	 */
+	public function testStoppedCron_VirtualProjection_MatchesLaterMaterializedRow(): void {
+		$todayKey = (new \DateTime())->format('Y-m-d');
+		$f = $this->agreementFixture([
+			'frequency_type' => 'daily',
+			'scheduling_mode' => 'static',
+		], $todayKey . ' 00:00:00', 'R4');
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
+
+		// Simulate the stopped cron: today's agreed row never materialized.
+		$pending = null;
+		foreach ($this->occurrenceMapper->findByRoomTask($f['roomTaskId']) as $row) {
+			if ($row->getPlannedDate()->format('Y-m-d') === $todayKey) {
+				$pending = $row;
+			}
+		}
+		self::assertNotNull($pending);
+		$virtualKey = $pending->toPublicKey();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_occ_members')
+			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter((int)$pending->getId(), IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_occurrences')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter((int)$pending->getId(), IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+
+		// The owner's acknowledged pause covers today.
+		$pause = $this->acknowledgePause($f['houseId'], $f['owner'], $todayKey, (new \DateTime('+4 days'))->format('Y-m-d'));
+
+		$countsBefore = [
+			'occurrences' => count($this->occurrenceMapper->findByRoomTask($f['roomTaskId'])),
+			'commands' => $this->countTable('chorestrike_commands', 'house_id', $f['houseId']),
+		];
+
+		// The read path derives the virtual twin FROM THE SAVED REVISION.
+		$read = $this->occurrenceService->agreedOccurrencesForHouseTasks($f['houseId'], [$roomTask], $todayKey, $todayKey);
+		$entry = null;
+		foreach ($read[$f['roomTaskId']] as $candidate) {
+			if ($candidate['occurrence']->toPublicKey() === $virtualKey) {
+				$entry = $candidate;
+			}
+		}
+		self::assertNotNull($entry, 'the agreed key is rendered even without a materialized row');
+		self::assertNull($entry['occurrence']->getId(), 'the twin is genuinely virtual');
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $entry['occurrence']->getSuspensionState(), 'the virtual twin derives its suspension from the saved revision participants');
+		$virtualEvidence = $entry['occurrence']->getSuspensionEvidence();
+		self::assertIsArray($virtualEvidence);
+		self::assertSame($pause['pauseGroupId'], (int)$virtualEvidence[0]['pauseGroupId']);
+
+		// The GET created no occurrence, evidence or receipt.
+		self::assertSame($countsBefore['occurrences'], count($this->occurrenceMapper->findByRoomTask($f['roomTaskId'])));
+		self::assertSame($countsBefore['commands'], $this->countTable('chorestrike_commands', 'house_id', $f['houseId']));
+
+		// Completing the suspended virtual target conflicts with zero
+		// committed writes (the materialization inside the command rolls
+		// back with the conflict).
+		$token = $this->occurrenceService->selectionToken($entry['occurrence'], $entry['revision'], 'agreed', $f['houseId'], null, $entry['workAppointment']);
+		try {
+			$this->completionService->complete($f['houseId'], $f['owner'], $f['roomTaskId'], self::uuid(), $virtualKey, 0, $token);
+			self::fail('a suspended virtual target is no completion target');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			// Expected.
+		}
+		self::assertSame($countsBefore['occurrences'], count($this->occurrenceMapper->findByRoomTask($f['roomTaskId'])), 'the rolled-back command left no materialized row');
+		self::assertSame($countsBefore['commands'], $this->countTable('chorestrike_commands', 'house_id', $f['houseId']));
+
+		// Job replay: the late run materializes the missing agreed row and
+		// converges the persisted suspension facts (frontier pulled back to
+		// simulate the stopped cron's materialization gap).
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_schedule_revs')
+			->set('agreed_through', $qb->createNamedParameter((new \DateTime('-1 day'))->format('Y-m-d')))
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($f['roomTaskId'], IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$this->occurrenceService->reconcileRoomTask($f['houseId'], $f['roomTaskId']);
+		$pauseService = \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class);
+		$pauseService->applyPauseEffectsUnderLock($f['houseId']);
+
+		$materialized = null;
+		foreach ($this->occurrenceMapper->findByRoomTask($f['roomTaskId']) as $row) {
+			if ($row->toPublicKey() === $virtualKey) {
+				$materialized = $row;
+			}
+		}
+		self::assertNotNull($materialized, 'the job pass rematerialized the agreed key');
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $materialized->getSuspensionState(), 'the persisted twin carries the same effective suspension');
+		self::assertSame($virtualEvidence, $materialized->getSuspensionEvidence(), 'identical provenance before/after materialization');
+
+		// The read path after materialization agrees with the virtual read.
+		$readAfter = $this->occurrenceService->agreedOccurrencesForHouseTasks($f['houseId'], [$roomTask], $todayKey, $todayKey);
+		$entryAfter = null;
+		foreach ($readAfter[$f['roomTaskId']] as $candidate) {
+			if ($candidate['occurrence']->toPublicKey() === $virtualKey) {
+				$entryAfter = $candidate;
+			}
+		}
+		self::assertNotNull($entryAfter);
+		self::assertSame($entry['occurrence']->getSuspensionState(), $entryAfter['occurrence']->getSuspensionState());
+		self::assertSame($entry['workAppointment']['date'] ?? null, $entryAfter['workAppointment']['date'] ?? null);
+		self::assertSame($entry['workAppointment']['zone'] ?? null, $entryAfter['workAppointment']['zone'] ?? null);
+	}
+
+	/**
+	 * R4 boundary pin: the two virtual seams stay disjoint by the frozen
+	 * WP1 contract — virtual materialization exists for FIXED cadences
+	 * only, while restart requires an INTERVAL predecessor. A restart of a
+	 * suspended FIXED virtual twin is therefore an explicit conflict with
+	 * zero writes (the interval predecessor of a restart is always a
+	 * materialized row; `testRestart_EffectiveSuspension_*` covers its
+	 * derived-suspension path).
+	 */
+	public function testStoppedCron_RestartOfFixedVirtualTwin_ConflictsWithZeroWrites(): void {
+		$todayKey = (new \DateTime())->format('Y-m-d');
+		$f = $this->agreementFixture([
+			'frequency_type' => 'daily',
+			'scheduling_mode' => 'static',
+		], $todayKey . ' 00:00:00', 'R4restartfixed');
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
+
+		$pending = $this->occurrenceMapper->findByRoomTask($f['roomTaskId'])[0];
+		$virtualKey = $pending->toPublicKey();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_occ_members')
+			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter((int)$pending->getId(), IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_occurrences')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter((int)$pending->getId(), IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+
+		$this->acknowledgePause($f['houseId'], $f['owner'], $todayKey, (new \DateTime('+4 days'))->format('Y-m-d'));
+
+		// The read path shows the suspended virtual twin (RF-073-WP2-26).
+		$read = $this->occurrenceService->agreedOccurrencesForHouseTasks($f['houseId'], [$roomTask], $todayKey, $todayKey);
+		$entry = null;
+		foreach ($read[$f['roomTaskId']] as $candidate) {
+			if ($candidate['occurrence']->toPublicKey() === $virtualKey) {
+				$entry = $candidate;
+			}
+		}
+		self::assertNotNull($entry);
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $entry['occurrence']->getSuspensionState());
+
+		$commandsBefore = $this->countTable('chorestrike_commands', 'house_id', $f['houseId']);
+		try {
+			$this->agreementService()->restart($f['houseId'], $f['owner'], $f['roomTaskId'], [
+				'commandId' => self::uuid(),
+				'occurrenceId' => $virtualKey,
+				'expectedVersion' => 0,
+				'consent' => true,
+				'workDate' => (new \DateTime('+5 days'))->format('Y-m-d'),
+			]);
+			self::fail('a fixed-cadence occurrence is no restart predecessor');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			// Expected — the interval-predecessor gate rejects explicitly.
+		}
+
+		// Zero writes: no row materialized, no successor, no new receipt.
+		self::assertSame([], array_values(array_filter(
+			$this->occurrenceMapper->findByRoomTask($f['roomTaskId']),
+			static fn (Occurrence $o): bool => $o->toPublicKey() === $virtualKey || $o->getRestartOfId() !== null
+		)));
+		self::assertSame($commandsBefore, $this->countTable('chorestrike_commands', 'house_id', $f['houseId']), 'the rejected restart wrote no receipt');
+	}
+
+	private function countTable(string $table, string $column, int $value): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('id'))->from($table)
+			->where($qb->expr()->eq($column, $qb->createNamedParameter($value, IQueryBuilder::PARAM_INT)));
+		$count = (int)$qb->executeQuery()->fetchOne();
+		return $count;
+	}
+
+	private function occurrenceRowIdByKey(int $roomTaskId, string $publicKey): int {
+		foreach ($this->occurrenceMapper->findByRoomTask($roomTaskId) as $row) {
+			if ($row->toPublicKey() === $publicKey) {
+				return (int)$row->getId();
+			}
+		}
+		self::fail('occurrence row for key ' . $publicKey . ' must exist');
+	}
+
 	private function classificationOfCompletion(int $completionId): string {
 		$rows = $this->fetchRows('chorestrike_completed_tasks', ['id' => $completionId]);
 		return (string)$rows[0]['completion_class'];
@@ -822,7 +1688,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')->from($table);
 		foreach ($criteria as $column => $value) {
-			$qb->andWhere($qb->expr()->eq($column, $qb->createNamedParameter($value, is_int($value) ? \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT : \OCP\DB\QueryBuilder::PARAM_STR)));
+			$qb->andWhere($qb->expr()->eq($column, $qb->createNamedParameter($value, is_int($value) ? \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT : \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR)));
 		}
 		return $qb->executeQuery()->fetchAll();
 	}

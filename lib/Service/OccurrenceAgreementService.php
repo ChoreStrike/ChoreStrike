@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Db\OccurrenceMember;
 use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Exception\ConflictException;
@@ -81,7 +82,10 @@ class OccurrenceAgreementService {
 	 * the planner and manual moves address the NEXT obligation): only
 	 * before its old deadline, never a fulfilled one; identity is
 	 * retained, the saved zone resolves the new boundaries, the agreement
-	 * evidence row records old/new state.
+	 * evidence row records old/new state. WP2: neutrally suspended
+	 * occurrences are no amendment targets — a pause releases the duty
+	 * instead of moving it — and the recorded consent rides the evidence
+	 * row.
 	 */
 	public function amendOccurrenceDateUnderLock(
 		RoomTask $roomTask,
@@ -89,6 +93,7 @@ class OccurrenceAgreementService {
 		?array $affectedWalletIds,
 		string $newDateKey,
 		\DateTime $now,
+		?array $consent = null,
 	): Occurrence {
 		$target = null;
 		foreach ($this->selection->agreedOccurrencesForTask($roomTask, null, null) as $entry) {
@@ -99,6 +104,9 @@ class OccurrenceAgreementService {
 			if ($occurrence->getKind() === Occurrence::KIND_VOLUNTARY) {
 				continue;
 			}
+			if ($occurrence->getSuspensionState() === Occurrence::SUSPENSION_SUSPENDED) {
+				continue;
+			}
 			if ($target === null
 				|| $occurrence->getWindowEnd() < $target['occurrence']->getWindowEnd()) {
 				$target = $entry;
@@ -107,9 +115,75 @@ class OccurrenceAgreementService {
 		if ($target === null) {
 			throw new ConflictException($this->l10n->t('No unfulfilled occurrence can be amended'));
 		}
+		return $this->applyDateAmendmentUnderLock(
+			$target['occurrence'],
+			$target['revision'],
+			$roomTask,
+			$actorHouseUserId,
+			$affectedWalletIds,
+			$newDateKey,
+			$now,
+			$consent
+		);
+	}
 
-		$occurrence = $target['occurrence'];
-		$revision = $target['revision'];
+	/**
+	 * WP2 explicit-target date amendment UNDER LOCK (RF-073-WP2-01): moves
+	 * EXACTLY the occurrence the command resolved from the client's public
+	 * key — never a re-selected different one — and returns the moved row
+	 * with its RESULTING version for the receipt refs. Same invariants as
+	 * the self-selecting variant: unfulfilled, not neutrally suspended,
+	 * before the old deadline, materialized.
+	 */
+	public function amendOccurrenceDateForTargetUnderLock(
+		Occurrence $occurrence,
+		ScheduleRevision $revision,
+		RoomTask $roomTask,
+		?int $actorHouseUserId,
+		?array $affectedWalletIds,
+		string $newDateKey,
+		\DateTime $now,
+		?array $consent = null,
+	): Occurrence {
+		if ($occurrence->getCompletionId() !== null || $occurrence->getCoveredByCompletionId() !== null) {
+			throw new ConflictException($this->l10n->t('This occurrence is already completed'));
+		}
+		if ($occurrence->getKind() === Occurrence::KIND_VOLUNTARY) {
+			throw new ConflictException($this->l10n->t('Voluntary work needs no date amendment'));
+		}
+		if ($occurrence->getSuspensionState() === Occurrence::SUSPENSION_SUSPENDED) {
+			// Plan §3.4: a pause releases the duty instead of moving it.
+			throw new ConflictException($this->l10n->t('A paused occurrence cannot be amended'));
+		}
+		return $this->applyDateAmendmentUnderLock(
+			$occurrence,
+			$revision,
+			$roomTask,
+			$actorHouseUserId,
+			$affectedWalletIds,
+			$newDateKey,
+			$now,
+			$consent
+		);
+	}
+
+	/**
+	 * The shared date-amendment tail: deadline gate, materialization gate,
+	 * window re-derivation in the saved zone, version bump, evidence and
+	 * projection refresh. Both the self-selecting (planner/manual next
+	 * obligation) and the explicit-target (agreement command) variants
+	 * write through here — one writer, one evidence shape.
+	 */
+	private function applyDateAmendmentUnderLock(
+		Occurrence $occurrence,
+		ScheduleRevision $revision,
+		RoomTask $roomTask,
+		?int $actorHouseUserId,
+		?array $affectedWalletIds,
+		string $newDateKey,
+		\DateTime $now,
+		?array $consent,
+	): Occurrence {
 		if ($now >= $occurrence->getWindowEnd()) {
 			throw new ConflictException($this->l10n->t('The amendment deadline has passed'));
 		}
@@ -121,6 +195,7 @@ class OccurrenceAgreementService {
 
 		$old = [
 			'plannedDate' => $occurrence->getPlannedDate()->format('Y-m-d'),
+			'weekStart' => $occurrence->getWeekStart()->format('Y-m-d'),
 			'windowStart' => $occurrence->getWindowStart()->format('c'),
 			'windowEnd' => $occurrence->getWindowEnd()->format('c'),
 		];
@@ -137,13 +212,331 @@ class OccurrenceAgreementService {
 			$old,
 			[
 				'plannedDate' => $occurrence->getPlannedDate()->format('Y-m-d'),
+				'weekStart' => $occurrence->getWeekStart()->format('Y-m-d'),
 				'windowStart' => $occurrence->getWindowStart()->format('c'),
 				'windowEnd' => $occurrence->getWindowEnd()->format('c'),
-			]
+			],
+			$consent
 		);
 
 		$this->reconcile->updateNextDueProjectionUnderLock($roomTask, $now);
 		return $occurrence;
+	}
+
+	/**
+	 * WP2 single-occurrence participant amendment UNDER LOCK (plan §3.3):
+	 * handover/share/date-share changes touch THIS occurrence only — the
+	 * revision's future defaults stay untouched, so a one-time handover
+	 * can never become a silent default change.
+	 *
+	 * RF-073-WP2-02: a former participant leaving the arrangement is
+	 * PERSISTED as a neutral release (disposition `released`, obligation
+	 * dropped, former role/share snapshot retained) instead of being
+	 * deleted — the current rows stay a projection, the release remains
+	 * visible evidence beside the agreement row. RF-073-WP2-18: the
+	 * evidence kind is derived from the actual responsibility change —
+	 * `handover` only when the active RESPONSIBLE set changes, otherwise
+	 * `share`. An agreed catch-up work appointment rides the replaced
+	 * rows (RF-073-WP2-04).
+	 *
+	 * @param list<array{walletId: int, userId?: string, role: string, obligated: bool, sharePct: int}> $participants
+	 */
+	public function amendOccurrenceMembersUnderLock(
+		Occurrence $occurrence,
+		RoomTask $roomTask,
+		?int $actorHouseUserId,
+		array $participants,
+		array $consentSubjects,
+		\DateTime $now,
+	): Occurrence {
+		if ($occurrence->getId() === null) {
+			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+		}
+		if ($occurrence->getCompletionId() !== null || $occurrence->getCoveredByCompletionId() !== null) {
+			throw new ConflictException($this->l10n->t('This occurrence is already completed'));
+		}
+
+		$oldMemberRows = $this->occMemberMapper->findByOccurrence($occurrence->getId());
+		$oldMembers = array_map(
+			static fn (OccurrenceMember $member): array => $member->jsonSerialize(),
+			$oldMemberRows
+		);
+
+		// The occurrence-level agreed work appointment (a persisted
+		// catch-up) survives a participant change: continuing and new
+		// active rows all carry it.
+		[$appointmentDate, $appointmentZone] = $this->occurrenceAppointment($oldMembers);
+
+		$newWallets = [];
+		$activeRows = [];
+		foreach ($participants as $participant) {
+			$newWallets[(int)$participant['walletId']] = true;
+			$activeRows[] = [
+				'walletId' => (int)$participant['walletId'],
+				'role' => (string)$participant['role'],
+				'obligated' => (bool)$participant['obligated'],
+				'sharePct' => (int)$participant['sharePct'],
+				'workDate' => $appointmentDate,
+				'workZone' => $appointmentZone,
+				'disposition' => OccurrenceMember::DISPOSITION_ACTIVE,
+			];
+		}
+
+		// Neutral releases: every former ACTIVE participant not in the new
+		// arrangement keeps a released row (former role/share snapshot,
+		// obligation dropped) — never a silent deletion. Previously
+		// released/excused historical rows are preserved as they are; a
+		// wallet re-entering the arrangement is covered by its new active
+		// row (one row per wallet — the natural key).
+		$releasedWalletIds = [];
+		$releasedRows = [];
+		foreach ($oldMembers as $member) {
+			$walletId = (int)$member['walletId'];
+			if (isset($newWallets[$walletId])) {
+				continue;
+			}
+			$oldDisposition = (string)($member['disposition'] ?? OccurrenceMember::DISPOSITION_ACTIVE);
+			if ($oldDisposition === OccurrenceMember::DISPOSITION_ACTIVE) {
+				$releasedWalletIds[] = $walletId;
+			}
+			$releasedRows[] = [
+				'walletId' => $walletId,
+				'role' => (string)$member['role'],
+				'obligated' => false,
+				'sharePct' => (int)$member['sharePct'],
+				'workDate' => $member['workDate'] ?? null,
+				'workZone' => $member['workZone'] ?? null,
+				'disposition' => $oldDisposition === OccurrenceMember::DISPOSITION_ACTIVE
+					? OccurrenceMember::DISPOSITION_RELEASED
+					: $oldDisposition,
+			];
+		}
+
+		$this->occMemberMapper->replaceForOccurrence($occurrence->getId(), array_merge($activeRows, $releasedRows));
+		$occurrence->setVersion($occurrence->getVersion() + 1);
+		$this->occurrenceMapper->update($occurrence);
+
+		$kind = $this->memberAmendmentKind($oldMembers, $activeRows);
+		$walletIds = array_map(static fn (array $member): int => (int)$member['walletId'], $participants);
+		$this->agreementMapper->record(
+			$occurrence->getId(),
+			$kind,
+			$actorHouseUserId,
+			$walletIds,
+			['members' => array_values($oldMembers)],
+			['members' => $activeRows, 'released' => $releasedWalletIds],
+			['attestedBy' => $actorHouseUserId, 'subjects' => $consentSubjects]
+		);
+
+		$this->reconcile->updateNextDueProjectionUnderLock($roomTask, $now);
+		return $occurrence;
+	}
+
+	/**
+	 * The occurrence-level agreed work appointment from a member snapshot:
+	 * the first ACTIVE row carrying a work date, else null (planned day).
+	 *
+	 * @param list<array<string, mixed>> $members
+	 * @return array{0: string|null, 1: string|null}
+	 */
+	private function occurrenceAppointment(array $members): array {
+		foreach ($members as $member) {
+			if (($member['disposition'] ?? OccurrenceMember::DISPOSITION_ACTIVE) !== OccurrenceMember::DISPOSITION_ACTIVE) {
+				continue;
+			}
+			if (($member['workDate'] ?? null) !== null) {
+				return [(string)$member['workDate'], isset($member['workZone']) ? (string)$member['workZone'] : null];
+			}
+		}
+		return [null, null];
+	}
+
+	/**
+	 * RF-073-WP2-18: `handover` labels ONLY an actual responsibility
+	 * transfer — the active RESPONSIBLE wallet set changed. Any other
+	 * participant change (shares, joint set, added/released helper) is a
+	 * `share` amendment.
+	 *
+	 * @param list<array<string, mixed>> $oldMembers
+	 * @param list<array<string, mixed>> $newActiveRows
+	 */
+	private function memberAmendmentKind(array $oldMembers, array $newActiveRows): string {
+		$responsible = static function (array $members): array {
+			$wallets = [];
+			foreach ($members as $member) {
+				if (($member['disposition'] ?? OccurrenceMember::DISPOSITION_ACTIVE) !== OccurrenceMember::DISPOSITION_ACTIVE) {
+					continue;
+				}
+				if ((string)($member['role'] ?? '') === OccurrenceMember::ROLE_RESPONSIBLE) {
+					$wallets[] = (int)$member['walletId'];
+				}
+			}
+			sort($wallets);
+			return $wallets;
+		};
+		return $responsible($oldMembers) === $responsible($newActiveRows)
+			? Agreement::KIND_SHARE
+			: Agreement::KIND_HANDOVER;
+	}
+
+	/**
+	 * WP2 catch-up writer UNDER LOCK (plan §3.3.4): change the CURRENT
+	 * unfulfilled uncovered miss's work appointment (and participants)
+	 * within capacity while retaining the original planned date, window
+	 * and miss. The occurrence keeps its identity; a stale catch-up
+	 * appointment can never defeat the C1 current-occurrence precedence
+	 * (selection keeps following the planned window).
+	 *
+	 * RF-073-WP2-04: the agreed appointment INCLUDING its zone rides the
+	 * replaced participant rows — a catch-up with participants no longer
+	 * loses the work date/zone the same command just agreed. A participant
+	 * change persists neutral releases like every member amendment
+	 * (RF-073-WP2-02).
+	 *
+	 * @param list<array{walletId: int, role: string, obligated: bool, sharePct: int}> $participants
+	 */
+	public function setWorkAppointmentUnderLock(
+		Occurrence $occurrence,
+		RoomTask $roomTask,
+		?int $actorHouseUserId,
+		string $workDateKey,
+		string $workZone,
+		array $participants,
+		array $consentSubjects,
+		\DateTime $now,
+	): Occurrence {
+		if ($occurrence->getId() === null) {
+			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+		}
+		if ($occurrence->getCompletionId() !== null || $occurrence->getCoveredByCompletionId() !== null) {
+			throw new ConflictException($this->l10n->t('This occurrence is already completed'));
+		}
+
+		$oldMembers = array_map(
+			static fn (OccurrenceMember $member): array => $member->jsonSerialize(),
+			$this->occMemberMapper->findByOccurrence($occurrence->getId())
+		);
+		[$oldAppointmentDate, $oldAppointmentZone] = $this->occurrenceAppointment($oldMembers);
+		$oldAppointment = [
+			'plannedDate' => $occurrence->getPlannedDate()->format('Y-m-d'),
+			'workDate' => $oldAppointmentDate,
+			'workZone' => $oldAppointmentZone,
+		];
+
+		if ($participants !== []) {
+			$newWallets = [];
+			$rows = [];
+			foreach ($participants as $participant) {
+				$newWallets[(int)$participant['walletId']] = true;
+				$rows[] = [
+					'walletId' => (int)$participant['walletId'],
+					'role' => (string)$participant['role'],
+					'obligated' => (bool)$participant['obligated'],
+					'sharePct' => (int)$participant['sharePct'],
+					'workDate' => $workDateKey,
+					'workZone' => $workZone,
+					'disposition' => OccurrenceMember::DISPOSITION_ACTIVE,
+				];
+			}
+			foreach ($oldMembers as $member) {
+				$walletId = (int)$member['walletId'];
+				if (isset($newWallets[$walletId])) {
+					continue;
+				}
+				$oldDisposition = (string)($member['disposition'] ?? OccurrenceMember::DISPOSITION_ACTIVE);
+				$rows[] = [
+					'walletId' => $walletId,
+					'role' => (string)$member['role'],
+					'obligated' => false,
+					'sharePct' => (int)$member['sharePct'],
+					// A released row is history — it keeps its snapshot,
+					// the NEW appointment belongs to the active rows only.
+					'workDate' => $member['workDate'] ?? null,
+					'workZone' => $member['workZone'] ?? null,
+					'disposition' => $oldDisposition === OccurrenceMember::DISPOSITION_ACTIVE
+						? OccurrenceMember::DISPOSITION_RELEASED
+						: $oldDisposition,
+				];
+			}
+			$this->occMemberMapper->replaceForOccurrence($occurrence->getId(), $rows);
+		} else {
+			// No participant change: stamp the appointment on the ACTIVE
+			// rows only — released/excused history keeps its snapshot.
+			foreach ($this->occMemberMapper->findByOccurrence($occurrence->getId()) as $member) {
+				if ($member->getDisposition() !== OccurrenceMember::DISPOSITION_ACTIVE) {
+					continue;
+				}
+				$member->setWorkDate(RecurrenceCalculator::dayKeyToDate($workDateKey));
+				$member->setWorkZone($workZone);
+				$this->occMemberMapper->update($member);
+			}
+		}
+		$occurrence->setVersion($occurrence->getVersion() + 1);
+		$this->occurrenceMapper->update($occurrence);
+
+		$this->agreementMapper->record(
+			$occurrence->getId(),
+			Agreement::KIND_CATCHUP,
+			$actorHouseUserId,
+			array_map(static fn (array $member): int => (int)$member['walletId'], $participants ?: $oldMembers),
+			$oldAppointment,
+			['plannedDate' => $occurrence->getPlannedDate()->format('Y-m-d'), 'workDate' => $workDateKey, 'workZone' => $workZone],
+			['attestedBy' => $actorHouseUserId, 'subjects' => $consentSubjects]
+		);
+
+		$this->reconcile->updateNextDueProjectionUnderLock($roomTask, $now);
+		return $occurrence;
+	}
+
+	/**
+	 * WP2 linked interval restart writer UNDER LOCK (plan §3.3.5): create
+	 * ONE agreed restart successor of a neutrally suspended interval
+	 * predecessor through the existing revision/ordinal mechanism. The
+	 * predecessor keeps its neutral history; the restart links back via
+	 * `restart_of_id`; only the restart's real completion creates the
+	 * next completion-relative interval.
+	 */
+	public function createLinkedRestartUnderLock(
+		int $houseId,
+		Occurrence $predecessor,
+		RoomTask $roomTask,
+		ScheduleRevision $revision,
+		string $plannedDateKey,
+		?int $actorHouseUserId,
+		array $consentSubjects,
+		\DateTime $now,
+	): Occurrence {
+		if ($predecessor->getId() === null) {
+			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+		}
+		// Portable uniqueness invariant: the locked predecessor plus the
+		// open-restart scan prevents duplicate live restarts (plan §3.3.5).
+		foreach ($this->occurrenceMapper->findByRoomTask($roomTask->getId()) as $row) {
+			if ($row->getRestartOfId() === $predecessor->getId()
+				&& $row->getCompletionId() === null
+				&& $row->getCoveredByCompletionId() === null) {
+				throw new ConflictException($this->l10n->t('A restart already exists for this occurrence'));
+			}
+		}
+		$maxOrdinal = $this->reconcile->maxOrdinalOfRevision($revision->getId());
+		$restart = $this->rowFactory->buildOccurrence($houseId, $roomTask->getId(), $revision, $maxOrdinal + 1, $plannedDateKey, $now);
+		$restart->setRestartOfId($predecessor->getId());
+		$restart = $this->occurrenceMapper->insertOrGet($restart);
+		$this->reconcile->attachMembersUnderLock($revision, $restart);
+		$this->revisionMapper->advanceFrontier($revision, RecurrenceCalculator::dayKeyToDate($plannedDateKey));
+
+		$this->agreementMapper->record(
+			$restart->getId(),
+			Agreement::KIND_RESTART,
+			$actorHouseUserId,
+			null,
+			['restartOf' => $predecessor->toPublicKey(), 'plannedDate' => $predecessor->getPlannedDate()->format('Y-m-d')],
+			['plannedDate' => $restart->getPlannedDate()->format('Y-m-d')],
+			['attestedBy' => $actorHouseUserId, 'subjects' => $consentSubjects]
+		);
+
+		$this->reconcile->updateNextDueProjectionUnderLock($roomTask, $now);
+		return $restart;
 	}
 
 	/**
@@ -156,6 +549,7 @@ class OccurrenceAgreementService {
 	 * target day before any write.
 	 *
 	 * @param string[] $newAssigneeUserIds Canonical new assignee user ids
+	 * @param array{attestedBy: int, subjects: list<mixed>}|null $consent RF-073-WP2-06: the recorded owner attestation (planner apply)
 	 * @return array{revision: \OCA\ChoreStrike\Db\ScheduleRevision, amended: int}
 	 */
 	public function amendParticipantsUnderLock(
@@ -166,6 +560,7 @@ class OccurrenceAgreementService {
 		?int $actorHouseUserId,
 		array $newAssigneeUserIds,
 		\DateTime $now,
+		?array $consent = null,
 	): array {
 		$participants = $this->revisions->buildDefaultMembers($houseId, $newAssigneeUserIds);
 
@@ -206,7 +601,8 @@ class OccurrenceAgreementService {
 				$actorHouseUserId,
 				$walletIds,
 				['members' => $oldMembers],
-				['members' => $participants ?? []]
+				['members' => $participants ?? []],
+				$consent
 			);
 			$amended++;
 		}

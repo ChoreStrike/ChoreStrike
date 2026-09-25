@@ -71,12 +71,16 @@ class TestDataService {
 	 * `room_tasks`/`completed_tasks` referents (`agreements` →
 	 * `occ_members` → `occurrences` → `schedule_revs`).
 	 *
+	 * CS-PLAN-073 WP2: the pause lifecycle table clears with the timeline
+	 * block (its evidence references live in `agreements.pause_ref`).
+	 *
 	 * @var list<string>
 	 */
 	private const RESET_TABLES = [
 		'chorestrike_task_assignees',
 		'chorestrike_chk_progress',
 		'chorestrike_agreements',
+		'chorestrike_pauses',
 		'chorestrike_occ_members',
 		'chorestrike_occurrences',
 		'chorestrike_schedule_revs',

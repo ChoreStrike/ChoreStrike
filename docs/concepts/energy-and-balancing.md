@@ -143,7 +143,8 @@ canonical display sources.
 ### Approved Whole-Day Capacity C2 (2026-09-17)
 
 Target behavior only; these rules are not enforced by the current daily filter
-or all existing completion paths.
+or all existing completion paths. (Planning/amendment capacity IS enforced
+since CS-PLAN-073 WP2 — see *Delivered planning capacity* below.)
 
 - New planning, takeovers and offered optional work must account jointly for work
   already completed and outstanding daily commitments: regular, catch-up, early
@@ -185,12 +186,31 @@ Target rules only; current per-assignee accounting is not changed by this docume
   allocation/credit and rhythm contribution, including removed participants;
   see the [correction contract](task-model-and-sync.md#approved-correction-contract-c3-2026-09-17).
 
+### Delivered planning capacity and frozen energy (CS-PLAN-073 WP2, implemented 2026-09-24)
+
+The whole-day C2 rules are **enforced for the planning/amendment surfaces** by
+`DailyCapacityService` (ADR-013 §WP2): exact integer-hundredths ("minor units",
+E × P) shares per participant; occurrence-identity dedupe against the
+completion ledger (a fulfilled obligation is never planned AND completed);
+the saved work-date/zone time basis (Q-073-02 frozen vectors); **frozen
+completion energies joined from the SAVED occurrence** — a definition edit
+never re-prices recorded work and an unlinked ledger row is excluded instead
+of silently re-priced; suspended plans consume zero while retaining their
+frozen share snapshot; concretely agreed **helper** commitments are checked
+like every affected participant; a replacement removes exactly the row's old
+allocation before its new share vector is tested; and the gates answer stable
+conflicts (pause / availability / energy budget / child limit) without
+leaking third-party facts. Over-limit REAL work stays recordable — completion
+never consults the evaluator — and existing overload remains visible in the
+planner capacity grid (`{planned}/{budget} — over capacity`, `Paused`,
+`Away`). C3 actual-share reconciliation after completions remains WP3.
+
 ## Open Details
 
 - Whether energy costs can be personalized per member based on age/ability.
-- Exact persistence/concurrency enforcement for the approved owner-recorded
-  agreements, aggregate capacity and C3 actual-share reconciliation; policy and
-  precision are approved, not an implemented database/API contract.
+- Exact persistence/concurrency enforcement for C3 actual-share reconciliation
+  after completions (WP3 accounting); the owner-recorded agreement and
+  aggregate-capacity enforcement itself is delivered (CS-PLAN-073 WP2, above).
 - C5 local-day/UI integration of the approved pause restart and complete workload
   model. These are not permission to
   weaken the limits or block legitimate recording of already completed work.

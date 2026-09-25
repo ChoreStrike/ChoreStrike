@@ -89,7 +89,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			file_put_contents($goFile, 'go');
 			$mainConflict = false;
 			try {
-				$service->apply($houseId, $owner, $this->todayKey, [$roomTaskA, $roomTaskB], [], $preview['previewVersion']);
+				$service->apply($houseId, $owner, $this->todayKey, [$roomTaskA, $roomTaskB], [], $preview['previewVersion'], $this->planCommandUuid(), true);
 			} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
 				$mainConflict = true;
 			}
@@ -189,7 +189,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			// a moved due date, and the recomputation must answer the clean
 			// stale conflict instead of overwriting the winner.
 			try {
-				$service->apply($houseId, $owner, $this->todayKey, [$roomTaskId], [], $preview['previewVersion']);
+				$service->apply($houseId, $owner, $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], $this->planCommandUuid(), true);
 				self::fail('the apply must conflict against the concurrently committed due-date change');
 			} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
 				self::assertSame('The schedule preview is no longer current. Generate a new preview.', $e->getMessage());
@@ -218,6 +218,13 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 	}
 
 	// ========== Helpers ==========
+
+	/** WP2 §3.5: a fresh command UUID per apply receipt. */
+	private static int $planCommandSeq = 0;
+
+	private function planCommandUuid(): string {
+		return sprintf('b2c3d4e5-0000-4000-8000-%012d', ++self::$planCommandSeq);
+	}
 
 	/**
 	 * The T1 helper for the apply-vs-apply race: boot Nextcloud, preview,
@@ -251,7 +258,7 @@ try {
     }
 
     try {
-        $service->apply($houseId, $owner, $todayKey, [$firstId, $secondId], [], $preview['previewVersion']);
+        $service->apply($houseId, $owner, $todayKey, [$firstId, $secondId], [], $preview['previewVersion'], sprintf('b2c3d4e5-0000-4000-8000-%012d', random_int(1, 999999999999)), true);
         file_put_contents($resultFile, 'ok');
     } catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
         file_put_contents($resultFile, 'conflict');

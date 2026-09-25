@@ -45,6 +45,7 @@ class HouseService {
 	private WalletService $walletService;
 	private RewardConfigService $rewardConfigService;
 	private OccurrenceService $occurrenceService;
+	private PauseService $pauseService;
 	private IConfig $config;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
@@ -65,6 +66,7 @@ class HouseService {
 		WalletService $walletService,
 		RewardConfigService $rewardConfigService,
 		OccurrenceService $occurrenceService,
+		PauseService $pauseService,
 		IConfig $config,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
@@ -84,6 +86,7 @@ class HouseService {
 		$this->walletService = $walletService;
 		$this->rewardConfigService = $rewardConfigService;
 		$this->occurrenceService = $occurrenceService;
+		$this->pauseService = $pauseService;
 		$this->config = $config;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
@@ -199,13 +202,22 @@ class HouseService {
 
 		$ncUserId = $houseUser->getNextcloudUserId();
 		$houseId = $houseUser->getHouseId();
+		$walletId = $houseUser->getWalletId();
 
-		$this->transactions->run(function () use ($houseUser, $ncUserId, $houseId): void {
+		$this->transactions->run(function () use ($houseUser, $ncUserId, $houseId, $walletId): void {
 			// FIRST lock of the documented order: the house row.
 			$this->houseMapper->findForUpdate($houseId);
 
 			$this->taskAssigneeMapper->deleteByUserForHouse($ncUserId, $houseId);
 			$this->houseUserMapper->delete($houseUser);
+
+			// CS-PLAN-073 WP2 (Q-073-03): cancel the departing member's
+			// pending personal pause requests and converge the suspension
+			// facts — future personal-pause effects stop at departure
+			// (already neutral history stays), rejoin requires a new pause.
+			if ($walletId !== null) {
+				$this->pauseService->handleMembershipRemovedUnderLock($houseId, $walletId);
+			}
 		});
 	}
 

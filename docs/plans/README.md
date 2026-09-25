@@ -34,16 +34,19 @@ projections, `TimelineJob`, completion receipts via `CommandService`,
 occurrence-scoped checklist/undo, `agreements` persistence with the C2
 deadline/authorization/capacity checks, minimal client transport, ADR-013)
 is **delivered** — final Standard B `PASS-WITH-FIXES` 2026-09-23, plan in
-`done/`. The next behavior package is
-[CS-PLAN-073: WP2 - Agreements, Capacity and Pauses](active/cs-plan-073-wp2-agreements-capacity-pauses.md)
-(activated 2026-09-23 via Standard A `PASS-WITH-FIXES`; 5-7-day parent allowance
-after Q-072-01, confirmed at activation; Q-073-01/02/03 resolved with the
-recommended options). It reuses the WP1 agreement writer and specifies T2/T3
-planning-capacity coverage, minimal client integration and CR-SVC-64.
-Implementation has not started.
+`done/`. The next behavior package,
+[CS-PLAN-073: WP2 - Agreements, Capacity and Pauses](done/cs-plan-073-wp2-agreements-capacity-pauses.md)
+(activated 2026-09-23 via Standard A `PASS-WITH-FIXES`; Q-073-01/02/03 resolved
+with the recommended options), is **delivered** — final Standard B
+`PASS-WITH-FIXES` 2026-09-25 after the R0-R8 fix round resolved RF-073-WP2-23..28
+with maintained regressions; plan in `done/`. Implementation history, the
+blocked first final-review attempt and the original manifest are recorded in the
+[review record](../backlog/archive/CODE_REVIEW_2026-09-25.md).
 
-Latest completed: [CS-PLAN-072 — WP1: Occurrence Timeline](done/cs-plan-072-wp1-occurrence-timeline.md)
-(final Standard B `PASS-WITH-FIXES` 2026-09-23), preceded by
+Latest completed: [CS-PLAN-073 — WP2: Agreements, Capacity and Pauses](done/cs-plan-073-wp2-agreements-capacity-pauses.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-25), preceded by
+[CS-PLAN-072 — WP1: Occurrence Timeline](done/cs-plan-072-wp1-occurrence-timeline.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-23),
 [CS-PLAN-071 — WP0: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-19) and
 [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](done/cs-plan-058-core-workflow-bottom-up-masterplan.md)

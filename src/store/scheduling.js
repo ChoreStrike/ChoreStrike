@@ -25,6 +25,25 @@ function normalizeMaxDailyTasks(value) {
 }
 
 /**
+ * Generate a client idempotency UUID (CS-PLAN-073 WP2 §3.5): one UUID per
+ * logical plan command, retained across uncertain apply retries (a 409
+ * keeps the draft and the same UUID). Crypto RNG when available, otherwise
+ * an RFC 4122 v4 fallback.
+ * @return {string} Canonical lowercase UUID.
+ */
+function generateCommandId() {
+	const webCrypto = globalThis.crypto
+	if (webCrypto && typeof webCrypto.randomUUID === 'function') {
+		return webCrypto.randomUUID()
+	}
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+		const random = Math.random() * 16 | 0
+		const value = char === 'x' ? random : (random & 0x3 | 0x8)
+		return value.toString(16)
+	})
+}
+
+/**
  * Store for managing member availability, scheduling preferences and the
  * owner plan aggregate (CS-PLAN-065): preview -> review/adjust -> apply.
  */
@@ -60,6 +79,23 @@ export const useSchedulingStore = defineStore('scheduling', {
 		planPreview: null,
 		/** @type {object|null} The exact normalized input the preview was computed from */
 		planInput: null,
+		/**
+		 * Idempotency UUID of the current plan command (WP2 §3.5): minted
+		 * per preview, RETAINED across apply attempts so a retry after a
+		 * lost response or a 409 can never repeat a transition with a new
+		 * identity.
+		 * @type {string|null}
+		 */
+		planCommandId: null,
+		/**
+		 * Explicit owner consent attestation for the current preview
+		 * (WP2 §3.3.2/§3.5, RF-073-WP2-06): the owner confirms the plan
+		 * is agreed with the affected people. Reset on every fresh
+		 * preview, RETAINED across 409 retries with the preserved draft —
+		 * apply is refused (400) without it.
+		 * @type {boolean}
+		 */
+		planConsent: false,
 		/** Monotonic request token — an older preview can never replace newer input */
 		planRequestId: 0,
 	}),
@@ -337,6 +373,10 @@ export const useSchedulingStore = defineStore('scheduling', {
 					roomTaskIds: [...input.roomTaskIds],
 					overrides: input.overrides ? JSON.parse(JSON.stringify(input.overrides)) : {},
 				}
+				// A fresh preview is a fresh logical command — a fresh
+				// consent attestation is required for it too.
+				this.planCommandId = generateCommandId()
+				this.planConsent = false
 				this.planStatus = 'ready'
 				return data
 			} catch (error) {
@@ -364,6 +404,16 @@ export const useSchedulingStore = defineStore('scheduling', {
 		},
 
 		/**
+		 * Record the owner's explicit consent attestation for the current
+		 * preview (WP2 §3.3.2): apply sends it with the command; without
+		 * it the backend refuses the apply (400).
+		 * @param {boolean} given Whether the owner attests the agreement
+		 */
+		setPlanConsent(given) {
+			this.planConsent = given === true
+		},
+
+		/**
 		 * Apply the confirmed preview as one atomic batch and reconcile the
 		 * owning stores from the authoritative response (§3.4): returned
 		 * room tasks merge into the caches, then the active daily/overdue
@@ -377,6 +427,9 @@ export const useSchedulingStore = defineStore('scheduling', {
 			if (!this.planPreview || !this.planInput || this.planStatus === 'applying') {
 				return false
 			}
+			if (!this.planCommandId) {
+				this.planCommandId = generateCommandId()
+			}
 
 			this.planStatus = 'applying'
 			this.error = null
@@ -387,6 +440,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 					roomTaskIds: this.planInput.roomTaskIds,
 					overrides: this.planInput.overrides,
 					previewVersion: this.planPreview.previewVersion,
+					commandId: this.planCommandId,
+					consent: this.planConsent === true,
 				})
 
 				// Reconcile the returned room tasks into every cache slice.
@@ -451,6 +506,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 			this.planStatus = 'idle'
 			this.planPreview = null
 			this.planInput = null
+			this.planCommandId = null
+			this.planConsent = false
 		},
 
 		/**

@@ -16,6 +16,23 @@
 > mutating a projection outside an agreement. The planner fingerprint still reads
 > the derived projection, so stale-input rejection is unchanged.
 
+> **Agreements/capacity amendment (2026-09-24, CS-PLAN-073 WP2 / ADR-013):**
+> `apply` is a **CommandService command**: the payload carries a client
+> `commandId` (UUID receipt — an identical retry replays the original result,
+> a changed payload under the same UUID conflicts) and the owner's explicit
+> `consent: true` attestation, which rides the receipt identity and every
+> written `agreements` evidence row (§3.3.2: the recorded agreement with the
+> affected people). The fingerprint (v2) additionally covers the house
+> **pause/agreement facts** and the house-local **evaluation day** — a preview
+> that crosses local midnight is a write-free `409` on apply, checked BEFORE
+> the relative-date rejection (CR-SVC-64). Placement evaluates the FULL
+> proposed exact-share vector for preserved/overridden joint sets (every
+> member with their own share — never one member with the whole task energy,
+> never one fitting member dragging the set along), and a same-day
+> replacement is tested AFTER removing exactly the row's old allocation. The
+> capacity base is the WP2 whole-day minor-unit evaluator
+> (`DailyCapacityService`, ADR-013 §capacity).
+
 The scheduling surface could not produce an owner-confirmed plan over real
 room tasks. The `POST /scheduling/suggestions` endpoint accepted only a
 `taskCount` and returned weekday aggregates (counts and energy totals) — no
@@ -52,11 +69,13 @@ Introduce a single owner-only **preview/apply aggregate** in
   codes, a per-member/day `capacity` report, global `warnings`, and the
   `previewVersion`.
 - `POST /api/v1/scheduling/apply` — **apply** (owner-only): the exact
-  normalized preview input plus `previewVersion`. One transaction; success
-  returns the applied room tasks (with canonical assignees) for client
-  reconciliation; a stale confirmation is a `409`; a confirmed no-change
-  plan performs zero writes. The retired taskCount contract has no
-  compatibility fallback (a legacy payload is a 400).
+  normalized preview input plus `previewVersion`, the receipt `commandId`
+  and the explicit `consent: true` attestation (WP2). One transaction;
+  success returns the applied room tasks (with canonical assignees) for
+  client reconciliation; a stale confirmation is a `409`; a confirmed
+  no-change plan performs zero writes. The retired taskCount contract has
+  no compatibility fallback (a legacy payload is a 400); a missing consent
+  attestation is a 400, never a silent apply.
 
 ### Planning rules
 

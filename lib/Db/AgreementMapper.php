@@ -37,7 +37,8 @@ class AgreementMapper extends QBMapper {
 
 	/**
 	 * Record one agreement revision. Called inside the owning house-first
-	 * transaction.
+	 * transaction. WP2: `$consent` stores the recorded consenting subject
+	 * facts, `$pauseRef` links a pause-effect row to its pause group.
 	 */
 	public function record(
 		int $occurrenceId,
@@ -46,6 +47,8 @@ class AgreementMapper extends QBMapper {
 		?array $affectedWalletIds,
 		?array $oldState,
 		?array $newState,
+		?array $consent = null,
+		?int $pauseRef = null,
 	): Agreement {
 		$entity = new Agreement();
 		$entity->setOccurrenceId($occurrenceId);
@@ -55,6 +58,8 @@ class AgreementMapper extends QBMapper {
 		$entity->setAffectedWalletIds($affectedWalletIds);
 		$entity->setOldState($oldState);
 		$entity->setNewState($newState);
+		$entity->setConsent($consent);
+		$entity->setPauseRef($pauseRef);
 		$entity->setCreatedAt(new \DateTime());
 		return $this->insert($entity);
 	}
@@ -96,9 +101,11 @@ class AgreementMapper extends QBMapper {
 		foreach ($this->findEntities($qb) as $agreement) {
 			$oldState = self::scrubMemberUserIds($agreement->getOldState(), $walletId);
 			$newState = self::scrubMemberUserIds($agreement->getNewState(), $walletId);
-			if ($oldState !== $agreement->getOldState() || $newState !== $agreement->getNewState()) {
+			$consent = self::scrubConsentUserIds($agreement->getConsent(), $walletId);
+			if ($oldState !== $agreement->getOldState() || $newState !== $agreement->getNewState() || $consent !== $agreement->getConsent()) {
 				$agreement->setOldState($oldState);
 				$agreement->setNewState($newState);
+				$agreement->setConsent($consent);
 				$this->update($agreement);
 			}
 		}
@@ -121,6 +128,25 @@ class AgreementMapper extends QBMapper {
 			}
 		}
 		return $state;
+	}
+
+	/**
+	 * Null the `userId` of the erased wallet inside recorded consent
+	 * snapshots (WP2 erasure); the numeric wallet fact stays.
+	 *
+	 * @param array<string, mixed>|null $consent
+	 * @return array<string, mixed>|null
+	 */
+	private static function scrubConsentUserIds(?array $consent, int $walletId): ?array {
+		if ($consent === null || !isset($consent['subjects']) || !is_array($consent['subjects'])) {
+			return $consent;
+		}
+		foreach ($consent['subjects'] as $index => $subject) {
+			if (is_array($subject) && (int)($subject['walletId'] ?? 0) === $walletId) {
+				$consent['subjects'][$index]['userId'] = null;
+			}
+		}
+		return $consent;
 	}
 
 	/**

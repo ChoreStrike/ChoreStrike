@@ -8,8 +8,11 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\OccurrenceMapper;
+use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
+use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
 use OCA\ChoreStrike\Service\CalendarService;
@@ -20,6 +23,7 @@ use OCA\ChoreStrike\Service\OccurrenceRevisionService;
 use OCA\ChoreStrike\Service\OccurrenceRowFactory;
 use OCA\ChoreStrike\Service\OccurrenceSelectionService;
 use OCA\ChoreStrike\Service\OccurrenceService;
+use OCA\ChoreStrike\Service\PauseProjectionService;
 use OCA\ChoreStrike\Service\RecurrenceCalculator;
 use PHPUnit\Framework\TestCase;
 
@@ -49,6 +53,11 @@ class OccurrenceServiceTest extends TestCase {
 
 		$calendar = new CalendarService();
 		$reconcile = $this->createMock(OccurrenceReconcileService::class);
+		$pauseProjection = new PauseProjectionService(
+			$this->createMock(PauseMapper::class),
+			$this->createMock(HouseUserMapper::class),
+			$this->createMock(OccurrenceMemberMapper::class),
+		);
 		$selection = new OccurrenceSelectionService(
 			$this->createMock(ScheduleRevisionMapper::class),
 			$this->createMock(OccurrenceMapper::class),
@@ -56,6 +65,7 @@ class OccurrenceServiceTest extends TestCase {
 			$calendar,
 			new OccurrenceRowFactory($calendar),
 			$reconcile,
+			$pauseProjection,
 		);
 		$this->service = new OccurrenceService(
 			$reconcile,

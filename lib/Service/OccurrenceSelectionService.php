@@ -25,6 +25,14 @@ use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
  * beyond the frontier, and the shared occurrence DTO block / selection
  * token. Merely reading a preview agrees nothing: no method here
  * writes.
+ *
+ * WP2 (CS-PLAN-073): the derivation stamps the effective pause inputs
+ * (neutral suspension, agreed work appointment) onto every entry through
+ * the lower {@see PauseProjectionService} — materialized and virtual rows
+ * converge — and the selection token fingerprints them, so a
+ * pause/consent change invalidates stale tokens for virtual targets too
+ * (plan §3.5). A suspended obligation is neutral: it never blocks
+ * selection and never appears as the catch-up target.
  */
 class OccurrenceSelectionService {
 	/**
@@ -41,6 +49,7 @@ class OccurrenceSelectionService {
 	private CalendarService $calendar;
 	private OccurrenceRowFactory $rowFactory;
 	private OccurrenceReconcileService $reconcile;
+	private PauseProjectionService $pauseProjection;
 
 	public function __construct(
 		ScheduleRevisionMapper $revisionMapper,
@@ -49,6 +58,7 @@ class OccurrenceSelectionService {
 		CalendarService $calendar,
 		OccurrenceRowFactory $rowFactory,
 		OccurrenceReconcileService $reconcile,
+		PauseProjectionService $pauseProjection,
 	) {
 		$this->revisionMapper = $revisionMapper;
 		$this->occurrenceMapper = $occurrenceMapper;
@@ -56,6 +66,7 @@ class OccurrenceSelectionService {
 		$this->calendar = $calendar;
 		$this->rowFactory = $rowFactory;
 		$this->reconcile = $reconcile;
+		$this->pauseProjection = $pauseProjection;
 	}
 
 	/**
@@ -73,9 +84,26 @@ class OccurrenceSelectionService {
 	 *
 	 * @return array{occurrence: Occurrence, revision: ScheduleRevision, classification: string}|null
 	 */
-	public function selectionFor(RoomTask $roomTask, \DateTime $now): ?array {
-		$entries = $this->selectionEntriesForTasks([$roomTask], $now)[$roomTask->getId()] ?? [];
+	public function selectionFor(RoomTask $roomTask, \DateTime $now, int $houseId = 0): ?array {
+		$entries = $this->selectionEntriesForTasks([$roomTask], $now, $houseId)[$roomTask->getId()] ?? [];
 		return $this->selectFromAgreed($entries, $now);
+	}
+
+	/**
+	 * Stamp the WP2 projection facts of ONE entry in memory (effective
+	 * suspension) and return its derived work appointment — the
+	 * write-free twin of the batched derivation, used by the completion
+	 * re-validation so the token comparison sees the same material the
+	 * read path stamped.
+	 *
+	 * @return array{date: ?string, zone: string}
+	 */
+	public function stampProjection(int $houseId, Occurrence $occurrence, ScheduleRevision $revision): array {
+		$appointments = $this->pauseProjection->stampSuspensionOnEntries($houseId, [
+			['occurrence' => $occurrence, 'revision' => $revision],
+		]);
+		return $appointments[$occurrence->toPublicKey()]
+			?? PauseProjectionService::defaultAppointment($occurrence);
 	}
 
 	/**
@@ -91,6 +119,12 @@ class OccurrenceSelectionService {
 			if ($occ->getKind() === Occurrence::KIND_VOLUNTARY) {
 				continue;
 			}
+			// WP2: a neutrally suspended obligation has no open duty —
+			// it neither wins the open-window selection nor the catch-up
+			// target (plan §3.4; voluntary work stays recordable).
+			if ($occ->getSuspensionState() === Occurrence::SUSPENSION_SUSPENDED) {
+				continue;
+			}
 			$windowEnd = $occ->getWindowEnd();
 			$windowStart = $occ->getWindowStart();
 			if ($windowStart <= $now && $now < $windowEnd) {
@@ -104,7 +138,7 @@ class OccurrenceSelectionService {
 			}
 		}
 		if ($best !== null) {
-			return ['occurrence' => $best['entry']['occurrence'], 'revision' => $best['entry']['revision'], 'classification' => 'agreed'];
+			return ['occurrence' => $best['entry']['occurrence'], 'revision' => $best['entry']['revision'], 'classification' => 'agreed', 'workAppointment' => $best['entry']['workAppointment'] ?? null];
 		}
 
 		// Catch-up: the latest missed, uncovered occurrence (late work).
@@ -117,6 +151,9 @@ class OccurrenceSelectionService {
 			if ($occ->getKind() === Occurrence::KIND_VOLUNTARY) {
 				continue;
 			}
+			if ($occ->getSuspensionState() === Occurrence::SUSPENSION_SUSPENDED) {
+				continue;
+			}
 			if ($occ->getWindowEnd() <= $now) {
 				if ($latestMiss === null || $this->occurrenceSortKey($occ) > $this->occurrenceSortKey($latestMiss['occurrence'])) {
 					$latestMiss = $entry;
@@ -124,7 +161,7 @@ class OccurrenceSelectionService {
 			}
 		}
 		if ($latestMiss !== null) {
-			return ['occurrence' => $latestMiss['occurrence'], 'revision' => $latestMiss['revision'], 'classification' => 'late'];
+			return ['occurrence' => $latestMiss['occurrence'], 'revision' => $latestMiss['revision'], 'classification' => 'late', 'workAppointment' => $latestMiss['workAppointment'] ?? null];
 		}
 
 		// Voluntary actionable work stays recordable (server-selected kind);
@@ -134,7 +171,7 @@ class OccurrenceSelectionService {
 			if ($occ->getCompletionId() === null
 				&& $occ->getCoveredByCompletionId() === null
 				&& $occ->getKind() === Occurrence::KIND_VOLUNTARY) {
-				return ['occurrence' => $occ, 'revision' => $entry['revision'], 'classification' => 'voluntary'];
+				return ['occurrence' => $occ, 'revision' => $entry['revision'], 'classification' => 'voluntary', 'workAppointment' => $entry['workAppointment'] ?? null];
 			}
 		}
 
@@ -154,7 +191,7 @@ class OccurrenceSelectionService {
 	 * @param RoomTask[] $roomTasks
 	 * @return array<int, list<array{occurrence: Occurrence, revision: ScheduleRevision}>> Map room task id => selection entries
 	 */
-	private function selectionEntriesForTasks(array $roomTasks, \DateTime $now): array {
+	private function selectionEntriesForTasks(array $roomTasks, \DateTime $now, int $houseId = 0): array {
 		if ($roomTasks === []) {
 			return [];
 		}
@@ -239,6 +276,24 @@ class OccurrenceSelectionService {
 				<=> [$b['occurrence']->getScheduleRevId(), $b['occurrence']->getOrdinal()]);
 			$result[$taskKey] = array_values($entries);
 		}
+
+		// WP2: stamp the effective pause inputs (suspension, agreed work
+		// appointment) on every entry — persisted and virtual rows converge
+		// (write-free; a stopped cron never changes the read answer).
+		if ($houseId > 0) {
+			$flat = [];
+			foreach ($result as $entries) {
+				array_push($flat, ...$entries);
+			}
+			$appointments = $this->pauseProjection->stampSuspensionOnEntries($houseId, $flat);
+			foreach ($result as $taskKey => $entries) {
+				foreach ($entries as $index => $entry) {
+					$result[$taskKey][$index]['workAppointment']
+						= $appointments[$entry['occurrence']->toPublicKey()] ?? null;
+				}
+			}
+		}
+
 		return $result;
 	}
 
@@ -289,6 +344,21 @@ class OccurrenceSelectionService {
 				$toKey
 			);
 		}
+
+		// WP2: stamp the effective pause inputs on the windowed entries
+		// (write-free derivation; materialized and virtual rows agree).
+		$flat = [];
+		foreach ($result as $entries) {
+			array_push($flat, ...$entries);
+		}
+		$appointments = $this->pauseProjection->stampSuspensionOnEntries($houseId, $flat);
+		foreach ($result as $taskKey => $entries) {
+			foreach ($entries as $index => $entry) {
+				$result[$taskKey][$index]['workAppointment']
+					= $appointments[$entry['occurrence']->toPublicKey()] ?? null;
+			}
+		}
+
 		return $result;
 	}
 
@@ -301,7 +371,7 @@ class OccurrenceSelectionService {
 	 * @return array<int, array{occurrence: Occurrence, revision: ScheduleRevision, classification: string}|null>
 	 */
 	public function selectionsForHouseTasks(int $houseId, array $roomTasks, \DateTime $now): array {
-		$entriesByTask = $this->selectionEntriesForTasks($roomTasks, $now);
+		$entriesByTask = $this->selectionEntriesForTasks($roomTasks, $now, $houseId);
 		$selections = [];
 		foreach ($roomTasks as $roomTask) {
 			$selections[$roomTask->getId()] = $this->selectFromAgreed($entriesByTask[$roomTask->getId()] ?? [], $now);
@@ -312,19 +382,27 @@ class OccurrenceSelectionService {
 	/**
 	 * The occurrence DTO block of one entry (shared by every read path):
 	 * public key, version, classification, planned/work dates and the
-	 * saved window/zone.
+	 * saved window/zone plus the WP2 neutral-suspension facts and the
+	 * agreed work appointment (plan §3.5: exact capacity/agreement
+	 * exposure on the daily/detail/range/overdue reads).
 	 *
+	 * @param array{date: ?string, zone: string}|null $workAppointment The derived work appointment of the stamped entry
 	 * @return array<string, mixed>
 	 */
-	public function occurrenceBlock(Occurrence $occurrence, ScheduleRevision $revision, string $classification): array {
+	public function occurrenceBlock(Occurrence $occurrence, ScheduleRevision $revision, string $classification, int $houseId = 0, ?string $pauseFingerprint = null, ?array $workAppointment = null): array {
+		$appointment = $workAppointment;
+		$suspension = $occurrence->suspensionFacts();
 		return [
 			'occurrenceId' => $occurrence->toPublicKey(),
 			'expectedVersion' => $occurrence->getVersion(),
-			'selectionToken' => $this->selectionToken($occurrence, $revision, $classification),
+			'selectionToken' => $this->selectionToken($occurrence, $revision, $classification, $houseId, $pauseFingerprint, $appointment),
 			'classification' => $classification,
 			'kind' => $occurrence->getKind(),
 			'plannedDate' => $occurrence->getPlannedDate()?->format('Y-m-d'),
-			'workDate' => $occurrence->getPlannedDate()?->format('Y-m-d'),
+			'workDate' => $appointment['date'] ?? $occurrence->getPlannedDate()?->format('Y-m-d'),
+			'workZone' => $appointment['zone'] ?? $occurrence->getTimezone(),
+			'suspended' => $suspension['suspended'],
+			'suspensionEvidence' => $suspension['evidence'],
 			'windowStart' => $occurrence->getWindowStart()?->format('c'),
 			'windowEnd' => $occurrence->getWindowEnd()?->format('c'),
 			'timezone' => $occurrence->getTimezone(),
@@ -470,11 +548,16 @@ class OccurrenceSelectionService {
 
 	/**
 	 * Deterministic selection token (parent §3.4): fingerprints the shown
-	 * target identity, version, classification, saved window and the
-	 * relevant rule/participant inputs — never clock seconds. A window
-	 * boundary or changed candidate invalidates an old token.
+	 * target identity, version, classification, saved window, the
+	 * relevant rule/participant inputs, the effective pause inputs and
+	 * the house pause-revision fingerprint — never clock seconds. A
+	 * window boundary, a changed candidate or a pause/consent change
+	 * invalidates an old token (plan §3.5: a row version bump alone
+	 * cannot cover a read-only virtual target).
 	 */
-	public function selectionToken(Occurrence $occurrence, ScheduleRevision $revision, string $classification): string {
+	public function selectionToken(Occurrence $occurrence, ScheduleRevision $revision, string $classification, int $houseId = 0, ?string $pauseFingerprint = null, ?array $workAppointment = null): string {
+		$fingerprint = $pauseFingerprint
+			?? ($houseId > 0 ? $this->pauseProjection->housePauseFingerprint($houseId) : '');
 		$material = [
 			'key' => $occurrence->toPublicKey(),
 			'version' => $occurrence->getVersion(),
@@ -483,11 +566,19 @@ class OccurrenceSelectionService {
 			'windowStart' => $occurrence->getWindowStart()?->format('c'),
 			'windowEnd' => $occurrence->getWindowEnd()?->format('c'),
 			'revision' => $revision->getRevision(),
-			'frontier' => $revision->getAgreedThrough()->format('Y-m-d'),
 			'members' => $revision->getDefaultMembers(),
 			'energy' => $occurrence->getEnergy(),
+			'suspension' => $occurrence->getSuspensionState(),
+			'workAppointment' => $workAppointment,
+			'pauseFingerprint' => $fingerprint,
 		];
-		return sha1((string)json_encode($material, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+		// NOTE: the revision frontier is deliberately NOT fingerprinted —
+		// completing a virtual agreed key MATERIALIZES it and advances the
+		// frontier, so a frontier-bound token would always self-conflict
+		// at the materialization boundary. Frontier drift is covered by
+		// the occurrence version/staleness gates.
+		$json = (string)json_encode($material, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		return sha1($json);
 	}
 
 	private function occurrenceSortKey(Occurrence $occurrence): string {

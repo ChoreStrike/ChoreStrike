@@ -106,6 +106,21 @@ return [
         ['name' => 'scheduling#preview', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
         ['name' => 'scheduling#apply', 'url' => '/api/v1/scheduling/apply', 'verb' => 'POST'],
 
+        // Occurrence agreement API (CS-PLAN-073 WP2 §3.5): owner-recorded
+        // amendments, catch-up and restart as CommandService commands.
+        // `{id}` is the public occurrence key `<scheduleRevisionId>:<ordinal>`.
+        ['name' => 'occurrence#amend', 'url' => '/api/v1/occurrences/{id}/amend', 'verb' => 'POST', 'requirements' => ['id' => '\d+:\d+']],
+        ['name' => 'occurrence#catchUp', 'url' => '/api/v1/occurrences/{id}/catch-up', 'verb' => 'POST', 'requirements' => ['id' => '\d+:\d+']],
+        ['name' => 'occurrence#restart', 'url' => '/api/v1/occurrences/{id}/restart', 'verb' => 'POST', 'requirements' => ['id' => '\d+:\d+']],
+
+        // Pause API (CS-PLAN-073 WP2 §3.4/§3.5): revisioned pause lifecycle.
+        ['name' => 'pause#index', 'url' => '/api/v1/pauses', 'verb' => 'GET'],
+        ['name' => 'pause#create', 'url' => '/api/v1/pauses', 'verb' => 'POST'],
+        ['name' => 'pause#recognizeIllness', 'url' => '/api/v1/pauses/recognize-illness', 'verb' => 'POST'],
+        ['name' => 'pause#approve', 'url' => '/api/v1/pauses/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'pause#reject', 'url' => '/api/v1/pauses/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'pause#update', 'url' => '/api/v1/pauses/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+
         // Smart Scheduler API — removed 2026-07-28 (CS-016 review: the
         // SmartSchedulerController had no AuthorizationService, so all 7
         // endpoints were reachable by any authenticated user). The whole

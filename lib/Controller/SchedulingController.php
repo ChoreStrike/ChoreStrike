@@ -290,11 +290,14 @@ class SchedulingController extends Controller {
 	}
 
 	/**
-	 * Apply the confirmed plan as one all-or-nothing aggregate (owner only).
+	 * Apply the confirmed plan as one all-or-nothing command (owner only).
 	 *
 	 * Request: the exact normalized preview input plus its
-	 * `previewVersion`. A stale confirmation is a 409; a confirmed no-change
-	 * plan performs zero writes.
+	 * `previewVersion` and the client's `commandId` (WP2 plan §3.5 — one
+	 * UUID across uncertain retries, 409 keeps the draft). A stale
+	 * confirmation (including a preview that crossed local midnight,
+	 * CR-SVC-64) is a write-free 409; a confirmed no-change plan performs
+	 * zero writes.
 	 *
 	 * @NoAdminRequired
 	 * @return JSONResponse
@@ -310,6 +313,11 @@ class SchedulingController extends Controller {
 			if (!is_string($previewVersion) || $previewVersion === '') {
 				throw new \InvalidArgumentException($this->l->t('previewVersion is required'));
 			}
+			$commandId = $this->request->getParam('commandId');
+			// RF-073-WP2-06 (plan §3.5): the apply command carries the
+			// owner's explicit consent attestation — a missing/false flag
+			// is a malformed request (400), never a silent apply.
+			$consent = $this->request->getParam('consent');
 
 			$result = $this->schedulePlanService->apply(
 				$house->getId(),
@@ -317,7 +325,9 @@ class SchedulingController extends Controller {
 				$startDate,
 				$roomTaskIds,
 				$overrides,
-				$previewVersion
+				$previewVersion,
+				is_string($commandId) ? $commandId : '',
+				$consent === true
 			);
 
 			return new JSONResponse([

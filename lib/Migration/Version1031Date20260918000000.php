@@ -19,9 +19,10 @@ use OCP\Migration\SimpleMigrationStep;
  * Creates the immutable schedule revisions (`schedule_revs`), the durable
  * occurrence agreements (`occurrences`), their participant snapshots
  * (`occ_members`) and the agreement evidence log (`agreements`, moved into
- * WP1 by Q-072-01 Option A). WP2 extends this migration in place with
- * `pauses`; no upgrade/backfill exists for disposable pre-release data
- * (project-rules §1).
+ * WP1 by Q-072-01 Option A). WP2 (CS-PLAN-073) extends this migration in
+ * place with the revisioned pause lifecycle (`pauses`) and the occurrence
+ * neutral-suspension/restart provenance columns; no upgrade/backfill exists
+ * for disposable pre-release data (project-rules §1).
  *
  * Public occurrence identity is the canonical `<scheduleRevisionId>:<ordinal>`
  * key — never the `occurrences.id` surrogate. Constraints are portable unique
@@ -118,6 +119,16 @@ class Version1031Date20260918000000 extends SimpleMigrationStep {
 			$table->addColumn('covered_by_completion_id', 'bigint', ['notnull' => false]);
 			// Interval provenance: the completion that anchored this successor.
 			$table->addColumn('source_completion_id', 'bigint', ['notnull' => false]);
+			// WP2 neutral suspension: 'none' | 'suspended'. A suspended plan
+			// retains its frozen effort snapshot but consumes no live
+			// planned capacity and never blocks selection.
+			$table->addColumn('suspension_state', 'string', ['notnull' => true, 'length' => 16, 'default' => 'none']);
+			// Suspension provenance: [{pauseGroupId, revision}] of the
+			// recognized pauses that neutralized this occurrence.
+			$table->addColumn('suspension_evidence', 'json', ['notnull' => false]);
+			// WP2 linked interval restart: the neutral predecessor this
+			// agreed restart was created from (NULL = not a restart).
+			$table->addColumn('restart_of_id', 'bigint', ['notnull' => false]);
 			// Current valid completion reference (NULL = unfulfilled).
 			$table->addColumn('completion_id', 'bigint', ['notnull' => false]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
@@ -169,6 +180,46 @@ class Version1031Date20260918000000 extends SimpleMigrationStep {
 			// RF-072-WP1-17: no separate occurrence_id index — the leftmost
 			// prefix of uniq_agr_occ already serves those lookups.
 			$table->addUniqueIndex(['occurrence_id', 'revision'], 'uniq_agr_occ_rev');
+		}
+
+		// CS-PLAN-073 WP2: the revisioned pause lifecycle. Append-only
+		// revisions per stable pause group; the current row is a
+		// projection, the revisions are the evidence.
+		if (!$schema->hasTable('chorestrike_pauses')) {
+			$table = $schema->createTable('chorestrike_pauses');
+			$table->addColumn('id', 'bigint', ['autoincrement' => true, 'notnull' => true]);
+			$table->addColumn('house_id', 'bigint', ['notnull' => true]);
+			// Stable group identity across revisions (shared by every
+			// revision of one logical pause).
+			$table->addColumn('pause_group_id', 'bigint', ['notnull' => true]);
+			$table->addColumn('revision', 'bigint', ['notnull' => true, 'default' => 1]);
+			// 'personal' (subject wallet) | 'house'. The SQL defaults mirror
+			// the entity defaults (Nextcloud setters skip same-value writes,
+			// so NOT NULL columns need their own defaults).
+			$table->addColumn('scope', 'string', ['notnull' => true, 'length' => 16, 'default' => 'personal']);
+			// Subject wallet (NULL = house scope; no medical free text).
+			$table->addColumn('subject_wallet_id', 'bigint', ['notnull' => false]);
+			// Actor memberships; NULL after erasure (facts stay).
+			$table->addColumn('requester_house_user_id', 'bigint', ['notnull' => false]);
+			$table->addColumn('decider_house_user_id', 'bigint', ['notnull' => false]);
+			// 'requested' | 'acknowledged' | 'rejected' | 'cancelled'.
+			$table->addColumn('state', 'string', ['notnull' => true, 'length' => 16, 'default' => 'requested']);
+			// Bounded reason code ('illness' | 'travel' | 'overload' |
+			// 'other') — never free text.
+			$table->addColumn('reason_code', 'string', ['notnull' => true, 'length' => 32, 'default' => 'other']);
+			// Retrospective-illness audit marker (explicit owner action).
+			$table->addColumn('is_retrospective_illness', 'boolean', ['notnull' => false, 'default' => false]);
+			// Inclusive saved-zone date range.
+			$table->addColumn('start_date', 'date', ['notnull' => true]);
+			$table->addColumn('end_date', 'date', ['notnull' => true]);
+			// Saved IANA zone governing the next-day shortening boundary.
+			$table->addColumn('timezone', 'string', ['notnull' => true, 'length' => 64]);
+			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
+			$table->addColumn('updated_at', 'datetime', ['notnull' => true]);
+			$table->setPrimaryKey(['id'], 'pk_pauses');
+			$table->addUniqueIndex(['pause_group_id', 'revision'], 'uniq_pause_group_rev');
+			$table->addIndex(['house_id', 'start_date', 'end_date'], 'idx_pause_house_dates');
+			$table->addIndex(['subject_wallet_id'], 'idx_pause_subject');
 		}
 
 		return $schema;

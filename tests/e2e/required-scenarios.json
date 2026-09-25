@@ -34,6 +34,11 @@
     "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > rapid parallel navigation ends in the reconciled state — no stale overwrite"
   ],
   "family-rhythm.spec.ts": [
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a pending child request stays effect-free and a child approval is denied",
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a private task amendment stays a 404 for the house owner",
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an API-created house pause renders its neutral clarification in the owner planner",
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an overloaded child day renders the clarification amounts in the owner planner",
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > owner date amendment keeps the occurrence identity visible to the child",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a UI completion carries the full occurrence receipt",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a new command on a fulfilled occurrence conflicts 409, never credits another target",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a stale receipt after a due-date move conflicts 409",
@@ -198,6 +203,7 @@
   ],
   "scheduling-apply-flow.spec.ts": [
     "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > a stale preview answers 409 cleanly and leaves the planner usable",
+    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > an apply without the explicit consent attestation is rejected 400",
     "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > an overdue zero-flex task is reported unplaced, never rescheduled",
     "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > exit journey: owner creates a task, sets the child limit, applies the plan, and the child session sees exactly the persisted result",
     "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > member and child roles see no planner and are rejected by both plan endpoints",

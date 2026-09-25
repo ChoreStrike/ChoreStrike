@@ -164,6 +164,44 @@ describe('RoomTasks Store', () => {
 	})
 
 	describe('Actions', () => {
+		describe('WP2 client contract (CS-PLAN-073, RF-073-WP2-12/13)', () => {
+			it('keeps paused/suspended agreed rows and their full occurrence block verbatim', async () => {
+				const rows = [
+					{
+						id: 1,
+						roomId: 10,
+						isActive: true,
+						occurrence: occurrenceFixture({
+							suspended: true,
+							suspensionEvidence: [{ pauseGroupId: 4, revision: 2 }],
+							workDate: null,
+							workZone: null,
+						}),
+					},
+					{
+						id: 2,
+						roomId: 10,
+						isActive: true,
+						occurrence: occurrenceFixture({
+							occurrenceId: '5:2',
+							workDate: '2026-10-06',
+							workZone: 'Europe/Berlin',
+						}),
+					},
+				]
+				api.get.mockResolvedValue(rows)
+
+				await store.fetchRoomTasks(10)
+
+				// Paused/overloaded agreed rows are never dropped or
+				// rewritten client-side — the rendered DTO travels verbatim.
+				expect(store.roomTasks).toEqual(rows)
+				expect(store.roomTasks.filter((row) => row.occurrence?.suspended)).toHaveLength(1)
+				expect(store.roomTasks[1].occurrence.workDate).toBe('2026-10-06')
+				expect(store.roomTasks[1].occurrence.workZone).toBe('Europe/Berlin')
+			})
+		})
+
 		describe('fetchHouseRoomTasks (CS-PLAN-067 D1)', () => {
 			it('requests the house-wide list without a roomId and REPLACES the instance set', async () => {
 				store.roomTasks = [{ id: 1, roomId: 10 }]

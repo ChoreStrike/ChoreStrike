@@ -316,6 +316,23 @@ class OccurrenceReconcileService {
 	}
 
 	/**
+	 * Persist the IN-MEMORY stamped suspension facts of a materialized
+	 * occurrence row UNDER LOCK (RF-073-WP2-05: the virtual→materialized
+	 * command boundary derives the effective state through the same
+	 * projection the reads use, and a command that writes through this row
+	 * leaves the derived facts behind instead of the materialization
+	 * default). Bumps the row version — callers run the client staleness
+	 * gates BEFORE this write.
+	 */
+	public function persistSuspensionStampUnderLock(Occurrence $occurrence): void {
+		if ($occurrence->getId() === null) {
+			return;
+		}
+		$occurrence->setVersion($occurrence->getVersion() + 1);
+		$this->occurrenceMapper->update($occurrence);
+	}
+
+	/**
 	 * Guarantee exactly one pending occurrence for the interval authority
 	 * of a room task UNDER LOCK (creation/reconcile/undo paths; completion
 	 * normally inserts the successor itself). The pending check spans ALL

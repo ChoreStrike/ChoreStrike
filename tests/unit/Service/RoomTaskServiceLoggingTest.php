@@ -56,6 +56,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 				$this->createMock(TaskAccessPolicy::class),
 				new \OCA\ChoreStrike\Service\CalendarService(),
 				$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+				$this->createMock(\OCA\ChoreStrike\Service\PauseProjectionService::class),
 				$this->createIdentityL10n()
 			),
 			$roomService,

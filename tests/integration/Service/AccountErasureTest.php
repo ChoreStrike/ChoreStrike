@@ -43,8 +43,27 @@ class AccountErasureTest extends IntegrationTestCase {
 	private array $cleanupCompletionIds = [];
 	/** @var string[] */
 	private array $cleanupScoreUserIds = [];
+	/** @var int[] Houses whose WP2 pause/agreement facts this test created. */
+	private array $cleanupPauseHouseIds = [];
 
 	protected function tearDown(): void {
+		foreach ($this->cleanupPauseHouseIds as $houseId) {
+			$this->db->executeStatement(
+				'DELETE FROM *PREFIX*chorestrike_pauses WHERE house_id = ?',
+				[$houseId]
+			);
+			$this->db->executeStatement(
+				'DELETE FROM *PREFIX*chorestrike_agreements WHERE occurrence_id IN'
+				. ' (SELECT id FROM *PREFIX*chorestrike_occurrences WHERE house_id = ?)',
+				[$houseId]
+			);
+			$this->db->executeStatement(
+				'DELETE FROM *PREFIX*chorestrike_occ_members WHERE occurrence_id IN'
+				. ' (SELECT id FROM *PREFIX*chorestrike_occurrences WHERE house_id = ?)',
+				[$houseId]
+			);
+		}
+		$this->cleanupPauseHouseIds = [];
 		foreach ($this->cleanupWalletIds as $id) {
 			$this->deleteById('chorestrike_wallets', $id);
 		}
@@ -382,6 +401,121 @@ class AccountErasureTest extends IntegrationTestCase {
 			}
 		}
 		return $states;
+	}
+
+	/**
+	 * Erasure_PauseReferences_PersonalRowsRemovedAndSharedFactsAnonymized
+	 * (CS-PLAN-073 WP2 §3.6, RF-073-WP2-10): the erased account's PERSONAL
+	 * pause rows are removed with the wallet, no pause row keeps the
+	 * account as requester/decider, the shared house-pause facts survive
+	 * intact, and the recorded consent evidence loses its userId binding
+	 * while the anonymous wallet fact stays.
+	 */
+	public function testErasure_PauseReferences_PersonalRowsRemovedAndSharedFactsAnonymized(): void {
+		$f = $this->seedHouseWithTarget();
+		$this->cleanupPauseHouseIds[] = $f['houseId'];
+		$pauseService = \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class);
+		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
+		$uuid = static fn (): string => sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
+
+		// An owner-recorded handover onto the target — the consent evidence
+		// binds the target's userId + wallet. Recorded BEFORE the pauses so
+		// the target is not yet suspended (a paused member cannot take a
+		// new commitment).
+		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
+		$selection = $occurrenceService->selectionFor($roomTask, new \DateTime(), $f['houseId']);
+		self::assertNotNull($selection);
+		\OC::$server->get(\OCA\ChoreStrike\Service\AgreementService::class)->amend($f['houseId'], 'ae_owner', $f['roomTaskId'], [
+			'commandId' => $uuid(),
+			'occurrenceId' => $selection['occurrence']->toPublicKey(),
+			'expectedVersion' => $selection['occurrence']->getVersion(),
+			'selectionToken' => $occurrenceService->selectionToken(
+				$selection['occurrence'],
+				$selection['revision'],
+				$selection['classification'],
+				$f['houseId'],
+				null,
+				$selection['workAppointment']
+			),
+			'consent' => true,
+			'participants' => [
+				['userId' => 'ae_target', 'role' => 'responsible', 'sharePct' => 100],
+			],
+		]);
+		$consentBefore = $this->fetchConsents($f['roomTaskId']);
+		self::assertStringContainsString('ae_target', json_encode($consentBefore), 'the pre-erasure consent binds the target userId');
+
+		// Two personal pauses of the target (self-requested, acknowledged)
+		// and one shared house pause created by the owner.
+		$pauseService->requestForSelf($f['houseId'], 'ae_target', [
+			'commandId' => $uuid(),
+			'startDate' => $todayKey,
+			'endDate' => (new \DateTime($todayKey))->modify('+3 days')->format('Y-m-d'),
+			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_TRAVEL,
+		]);
+		$pauseService->requestForSelf($f['houseId'], 'ae_target', [
+			'commandId' => $uuid(),
+			'startDate' => (new \DateTime($todayKey))->modify('+5 days')->format('Y-m-d'),
+			'endDate' => (new \DateTime($todayKey))->modify('+8 days')->format('Y-m-d'),
+			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_ILLNESS,
+		]);
+		$housePause = $pauseService->createHousePause($f['houseId'], 'ae_owner', [
+			'commandId' => $uuid(),
+			'startDate' => $todayKey,
+			'endDate' => (new \DateTime($todayKey))->modify('+3 days')->format('Y-m-d'),
+			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_OTHER,
+		]);
+
+		\OC::$server->get(AccountErasureService::class)->eraseAccount('ae_target');
+
+		// The target's personal pause rows are gone with the wallet.
+		self::assertSame(0, $this->countIntBy('chorestrike_pauses', 'subject_wallet_id', $f['walletId']), 'personal pause rows are removed with the erased wallet');
+		$result = $this->db->executeQuery(
+			'SELECT COUNT(*) FROM *PREFIX*chorestrike_pauses WHERE requester_house_user_id = ? OR decider_house_user_id = ?',
+			[$f['targetHouseUserId'], $f['targetHouseUserId']]
+		);
+		self::assertSame(0, (int)$result->fetchOne(), 'no pause row keeps the erased account as requester/decider');
+		$result->closeCursor();
+
+		// The shared house-pause facts survive intact.
+		$result = $this->db->executeQuery(
+			'SELECT scope, state, start_date, end_date FROM *PREFIX*chorestrike_pauses WHERE pause_group_id = ?',
+			[$housePause['pauseGroupId']]
+		);
+		$houseRow = $result->fetch();
+		$result->closeCursor();
+		self::assertIsArray($houseRow, 'the house pause survives as a shared anonymous fact');
+		self::assertSame('house', $houseRow['scope']);
+		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_ACKNOWLEDGED, $houseRow['state']);
+		self::assertSame($todayKey, substr((string)$houseRow['start_date'], 0, 10));
+
+		// The consent evidence lost the userId binding, kept the wallet fact.
+		$consents = json_encode($this->fetchConsents($f['roomTaskId']));
+		self::assertStringNotContainsString('ae_target', (string)$consents, 'the erased userId must not survive in consent evidence');
+		self::assertStringContainsString((string)$f['walletId'], (string)$consents, 'the anonymous wallet fact stays');
+	}
+
+	/**
+	 * Decoded consent payloads of a room task's agreement evidence rows.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	private function fetchConsents(int $roomTaskId): array {
+		$result = $this->db->executeQuery(
+			'SELECT consent FROM *PREFIX*chorestrike_agreements'
+			. ' WHERE occurrence_id IN (SELECT id FROM *PREFIX*chorestrike_occurrences WHERE room_task_id = ?)',
+			[$roomTaskId]
+		);
+		$consents = [];
+		foreach ($result->fetchAll() as $row) {
+			$decoded = json_decode((string)$row['consent'], true);
+			if (is_array($decoded)) {
+				$consents[] = $decoded;
+			}
+		}
+		$result->closeCursor();
+		return $consents;
 	}
 
 	/**

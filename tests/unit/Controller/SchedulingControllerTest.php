@@ -603,12 +603,13 @@ class SchedulingControllerTest extends TestCase {
 			'roomTaskIds' => [11],
 			'overrides' => null,
 			'previewVersion' => 'abc123',
+			'commandId' => '11111111-2222-4333-8444-555555555555',
 			default => null,
 		});
 
 		$this->schedulePlanService->expects($this->once())
 			->method('apply')
-			->with(1, $this->isInstanceOf(HouseUser::class), '2026-09-10', [11], [], 'abc123')
+			->with(1, $this->isInstanceOf(HouseUser::class), '2026-09-10', [11], [], 'abc123', '11111111-2222-4333-8444-555555555555')
 			->willReturn($result);
 
 		$response = $this->controller->apply();
@@ -627,6 +628,7 @@ class SchedulingControllerTest extends TestCase {
 			'roomTaskIds' => [11],
 			'overrides' => null,
 			'previewVersion' => 'stale',
+			'commandId' => '11111111-2222-4333-8444-555555555555',
 			default => null,
 		});
 
@@ -646,10 +648,33 @@ class SchedulingControllerTest extends TestCase {
 			'startDate' => '2026-09-10',
 			'roomTaskIds' => [11],
 			'overrides' => null,
+			'commandId' => '11111111-2222-4333-8444-555555555555',
 			default => null,
 		});
 
 		$this->schedulePlanService->expects($this->never())->method('apply');
+
+		$response = $this->controller->apply();
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	public function testApply_RejectsMissingCommandId(): void {
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willReturn(new HouseUser());
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'startDate' => '2026-09-10',
+			'roomTaskIds' => [11],
+			'overrides' => null,
+			'previewVersion' => 'abc123',
+			default => null,
+		});
+
+		// The command UUID gate lives in the service (after the owner
+		// check), so the controller forwards and maps the 400.
+		$this->schedulePlanService->method('apply')
+			->willThrowException(new \InvalidArgumentException('A valid commandId (UUID) is required'));
 
 		$response = $this->controller->apply();
 

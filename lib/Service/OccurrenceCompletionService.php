@@ -158,8 +158,9 @@ class OccurrenceCompletionService {
 		// shown/canonical target must 409, never silently credit another
 		// occurrence. The bounded selection builder is the SAME derivation
 		// the read paths used to show the target (RF-072-WP1-10), so a
-		// shown selection always re-resolves identically.
-		$selection = $this->selection->selectionFor($roomTask, $now);
+		// shown selection always re-resolves identically — including the
+		// WP2 neutral-suspension inputs.
+		$selection = $this->selection->selectionFor($roomTask, $now, $houseId);
 		$voluntary = $occurrence->getKind() === Occurrence::KIND_VOLUNTARY;
 		if ($selection === null
 			|| ($selection['occurrence']->toPublicKey() !== $occurrence->toPublicKey() && !$voluntary)) {
@@ -167,11 +168,20 @@ class OccurrenceCompletionService {
 		}
 		$classification = $voluntary ? 'voluntary' : $selection['classification'];
 
+		// The resolved raw row is not projection-stamped: restore the same
+		// effective pause inputs (suspension, agreed work appointment) the
+		// read path stamped onto its block, so the token comparison below
+		// is apples-to-apples.
+		$workAppointment = $this->selection->stampProjection($houseId, $occurrence, $revision);
+
 		// Selection token check (parent §3.4): the fingerprint must match
 		// the server-computed token of the same target/classification — a
 		// stale shown state conflicts instead of crediting another window.
+		// WP2: the token fingerprints the effective pause inputs too, so a
+		// pause change behind the client's back is a 409, never a
+		// completion of neutralized work.
 		if ($selectionToken !== null
-			&& !hash_equals($this->selection->selectionToken($occurrence, $revision, $classification), $selectionToken)) {
+			&& !hash_equals($this->selection->selectionToken($occurrence, $revision, $classification, $houseId, null, $workAppointment), $selectionToken)) {
 			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 		}
 

@@ -26,17 +26,26 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\IL10N;
 
 /**
- * Owner of the scheduling preview/apply aggregate (CS-PLAN-065, ADR-012).
+ * Owner of the scheduling preview/apply aggregate (CS-PLAN-065, ADR-012;
+ * WP2 cutover CS-PLAN-073 §3.2/§3.5).
  *
  * Preview builds one deterministic plan over REAL active room tasks for a
  * seven-day house-local window: legal recurrence/flex slots first, then
- * member eligibility, then availability/energy capacity and child limits as
- * hard placement constraints (decision D6). It performs zero writes and
- * returns an opaque content fingerprint (`previewVersion`) over every
- * authoritative dependency, so a stale confirmation is detectable.
+ * member eligibility, then whole-day capacity (exact planned shares and
+ * frozen completion effort, minor units) and child limits as hard
+ * placement constraints. It performs zero writes and returns an opaque
+ * content fingerprint (`previewVersion`) over every authoritative
+ * dependency — occurrence/rule/member/pause inputs, saved zones,
+ * availability/limits, completed-work inputs, the proposal and the
+ * evaluation local day (CR-SVC-64: a valid preview crossing local
+ * midnight is stale and yields a write-free 409 on apply).
  *
- * Apply re-runs the identical build inside one transaction under the
- * documented lock order and rejects anything that no longer matches:
+ * Apply runs as ONE `CommandService` command (`scheduling.apply`): the
+ * house lock enters first, the identical build re-runs from the locked
+ * rows, the receipt replays idempotently per command UUID, and the
+ * confirmed preview version must still match before any relative-date
+ * rejection — domain facts, versions, evidence and receipt commit or roll
+ * back together:
  *
  *     house → room_task (ascending) → task definition (ascending)
  *           → house_user (ascending) → assignee writes
@@ -63,6 +72,17 @@ class SchedulePlanService {
 	/** Planning window length in days (decision D3). */
 	public const WINDOW_DAYS = 7;
 
+	/** Stable action identifier of the apply command (CommandService). */
+	public const APPLY_ACTION = 'scheduling.apply';
+
+	/**
+	 * Injected evaluation clock (§4 "use injected clocks"): null = real
+	 * time. The CR-SVC-64 midnight proof sets a fixed pre-midnight instant
+	 * for the preview and a post-midnight one for the apply — production
+	 * callers never touch this seam.
+	 */
+	private ?\DateTime $clockOverride = null;
+
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
@@ -71,6 +91,9 @@ class SchedulePlanService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private OccurrenceService $occurrenceService;
+	private CommandService $commands;
+	private DailyCapacityService $dailyCapacity;
+	private PauseProjectionService $pauseProjection;
 	private TransactionExecutor $transactions;
 	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
@@ -85,6 +108,9 @@ class SchedulePlanService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		OccurrenceService $occurrenceService,
+		CommandService $commands,
+		DailyCapacityService $dailyCapacity,
+		PauseProjectionService $pauseProjection,
 		TransactionExecutor $transactions,
 		CalendarService $calendarService,
 		TaskAccessPolicy $taskAccessPolicy,
@@ -98,10 +124,37 @@ class SchedulePlanService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->occurrenceService = $occurrenceService;
+		$this->commands = $commands;
+		$this->dailyCapacity = $dailyCapacity;
+		$this->pauseProjection = $pauseProjection;
 		$this->transactions = $transactions;
 		$this->calendarService = $calendarService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->l10n = $l10n;
+	}
+
+	/**
+	 * Set/clear the injected evaluation clock (test seam; see
+	 * `$clockOverride`).
+	 */
+	public function setClock(?\DateTime $now): void {
+		$this->clockOverride = $now;
+	}
+
+	private function now(): \DateTime {
+		return $this->clockOverride !== null ? clone $this->clockOverride : new \DateTime();
+	}
+
+	/**
+	 * The recorded owner consent attestation of one planner apply row
+	 * (RF-073-WP2-06, plan §3.3.2): the attesting owner plus the affected
+	 * proposed participants.
+	 *
+	 * @param list<string> $proposedAssignees
+	 * @return array{attestedBy: int, subjects: list<string>}
+	 */
+	private function applyConsent(HouseUser $actor, array $proposedAssignees): array {
+		return ['attestedBy' => (int)$actor->getId(), 'subjects' => array_values($proposedAssignees)];
 	}
 
 	/**
@@ -117,192 +170,285 @@ class SchedulePlanService {
 	}
 
 	/**
-	 * Apply the confirmed plan as one all-or-nothing aggregate.
+	 * Apply the confirmed plan as one all-or-nothing command.
 	 *
-	 * The exact preview input plus its `previewVersion` is re-validated from
-	 * freshly locked rows; any drift rejects the batch with a ConflictException
-	 * (409) and zero writes. A confirmed no-change plan performs zero writes.
+	 * The exact preview input plus its `previewVersion` and the client's
+	 * `commandId` run as one `CommandService` command (plan §3.5):
+	 * authorize BEFORE receipt replay, return the original identities on
+	 * an identical replay, conflict on a changed payload. Under the
+	 * receipt transaction the identical build re-runs from freshly locked
+	 * rows; any drift rejects the batch with a ConflictException (409)
+	 * and zero writes. A preview that crossed local midnight is stale by
+	 * its fingerprint and yields a write-free 409 BEFORE any
+	 * relative-date validation (CR-SVC-64); a newly malformed request
+	 * stays a 400. A confirmed no-change plan performs zero writes.
 	 *
 	 * @return array{appliedCount: int, windowStart: string, windowEndExclusive: string, roomTasks: list}
 	 */
-	public function apply(int $houseId, HouseUser $actor, string $startDate, array $roomTaskIds, array $overrides, string $previewVersion): array {
+	public function apply(
+		int $houseId,
+		HouseUser $actor,
+		string $startDate,
+		array $roomTaskIds,
+		array $overrides,
+		string $previewVersion,
+		string $commandId,
+		bool $consent = false,
+	): array {
 		$this->assertOwnerActor($houseId, $actor);
 		$this->assertValidRequest($startDate, $roomTaskIds, $overrides);
 		if (!is_string($previewVersion) || $previewVersion === '') {
 			throw new \InvalidArgumentException($this->l10n->t('previewVersion is required'));
 		}
+		// Command UUID validation runs AFTER the owner gate: authorization
+		// failures must not leak as 400s for unauthorized actors.
+		if (!is_string($commandId) || trim($commandId) === '' || strlen($commandId) > 36) {
+			throw new \InvalidArgumentException($this->l10n->t('A valid commandId (UUID) is required'));
+		}
+		// RF-073-WP2-06 (plan §3.3.2/§3.5): the owner records the agreement
+		// with the affected people as an EXPLICIT attestation on the apply
+		// command — it rides the receipt identity and the evidence rows.
+		if (!$consent) {
+			throw new \InvalidArgumentException($this->l10n->t('An explicit consent attestation is required'));
+		}
+		if ((int)$actor->getId() <= 0) {
+			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+		}
 
-		$result = $this->transactions->run(function () use ($houseId, $actor, $startDate, $roomTaskIds, $overrides, $previewVersion) {
-			// FIRST lock class: the house row — coordinates creation/setup
-			// writers and pins the timezone inputs for this transaction.
-			$this->houseMapper->findForUpdate($houseId);
+		$payload = [
+			'startDate' => $startDate,
+			'roomTaskIds' => $roomTaskIds,
+			'overrides' => $overrides,
+			'previewVersion' => $previewVersion,
+			'consent' => true,
+		];
 
-			// Under-lock actor re-validation (membership + owner role).
-			$freshActor = $this->houseUserMapper->findByHouseAndUser($houseId, $actor->getNextcloudUserId());
-			if ($freshActor === null) {
-				throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+		['result' => $refs] = $this->commands->runCommand(
+			$houseId,
+			(int)$actor->getId(),
+			$commandId,
+			self::APPLY_ACTION,
+			$payload,
+			function () use ($houseId, $actor, $startDate, $roomTaskIds, $overrides, $previewVersion): array {
+				return $this->applyAggregate($houseId, $actor, $startDate, $roomTaskIds, $overrides, $previewVersion);
 			}
-			if (!$freshActor->isOwner()) {
-				throw new ForbiddenException($this->l10n->t('Owner role required'));
-			}
+		);
 
-			// Lock all capacity-relevant room tasks ascending: the selected
-			// rows plus every active task that could recur into the window
-			// (phantom protection against concurrent completions/edits).
-			$endBound = $this->windowEndBound($houseId, $startDate);
-			$baseIds = [];
-			foreach ($this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $endBound) as $baseRow) {
-				$baseIds[(int)$baseRow->getId()] = true;
-			}
-			foreach ($roomTaskIds as $id) {
-				$baseIds[$id] = true;
-			}
-			$lockIds = array_keys($baseIds);
-			sort($lockIds);
-			foreach ($lockIds as $id) {
-				try {
-					$this->roomTaskMapper->lockForUpdate($id);
-				} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
-					// A base-set row vanished between the read and the lock —
-					// it no longer contributes capacity; a SELECTED row is
-					// re-resolved (and 404ed) inside buildPlan below.
-					if (in_array($id, $roomTaskIds, true)) {
-						throw new NotFoundException($this->l10n->t('Room task not found'));
-					}
-				}
-			}
+		// Both the fresh and the replay path answer with the ORIGINAL
+		// stored identities plus the CURRENT safe state — the receipt
+		// never carries full response bodies (CommandService size bound),
+		// so the changed rows are re-read authorized after the commit.
+		$changedIds = array_map('intval', $refs['roomTaskIds'] ?? []);
+		return [
+			'appliedCount' => (int)($refs['appliedCount'] ?? 0),
+			'windowStart' => (string)($refs['windowStart'] ?? $startDate),
+			'windowEndExclusive' => (string)($refs['windowEndExclusive'] ?? $startDate),
+			'roomTasks' => $this->authoritativeRoomTasks($houseId, $changedIds),
+		];
+	}
 
-			// Re-resolve the selected rows under the locks: cross-house or
-			// vanished ids are absent from the scoped fetch (→ 404).
-			$scopedIds = array_map(
-				static fn (RoomTask $row): int => (int)$row->getId(),
-				$this->roomTaskMapper->findByIdsScopedToHouse($roomTaskIds, $houseId)
-			);
-			foreach ($roomTaskIds as $id) {
-				if (!in_array($id, $scopedIds, true)) {
+	/**
+	 * The apply aggregate inside the receipt transaction (the house lock
+	 * is ALREADY held by CommandService — house-first is preserved).
+	 *
+	 * @return array<string, mixed> The stored result identity (refs)
+	 */
+	private function applyAggregate(
+		int $houseId,
+		HouseUser $actor,
+		string $startDate,
+		array $roomTaskIds,
+		array $overrides,
+		string $previewVersion,
+	): array {
+		// Under-lock actor re-validation (membership + owner role).
+		$freshActor = $this->houseUserMapper->findByHouseAndUser($houseId, $actor->getNextcloudUserId());
+		if ($freshActor === null) {
+			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+		}
+		if (!$freshActor->isOwner()) {
+			throw new ForbiddenException($this->l10n->t('Owner role required'));
+		}
+
+		// Lock all capacity-relevant room tasks ascending: the selected
+		// rows plus every active task that could recur into the window
+		// (phantom protection against concurrent completions/edits).
+		$endBound = $this->windowEndBound($houseId, $startDate);
+		$baseIds = [];
+		foreach ($this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $endBound) as $baseRow) {
+			$baseIds[(int)$baseRow->getId()] = true;
+		}
+		foreach ($roomTaskIds as $id) {
+			$baseIds[$id] = true;
+		}
+		$lockIds = array_keys($baseIds);
+		sort($lockIds);
+		foreach ($lockIds as $id) {
+			try {
+				$this->roomTaskMapper->lockForUpdate($id);
+			} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+				// A base-set row vanished between the read and the lock —
+				// it no longer contributes capacity; a SELECTED row is
+				// re-resolved (and 404ed) inside buildPlan below.
+				if (in_array($id, $roomTaskIds, true)) {
 					throw new NotFoundException($this->l10n->t('Room task not found'));
 				}
 			}
+		}
 
-			// SECOND lock class: task definitions ascending (blocks
-			// concurrent definition edits for the whole plan window).
-			$taskIds = [];
-			foreach ($this->roomTaskMapper->findByIdsScopedToHouse($lockIds, $houseId) as $lockedRow) {
-				$taskIds[(int)$lockedRow->getTaskId()] = true;
+		// Re-resolve the selected rows under the locks: cross-house or
+		// vanished ids are absent from the scoped fetch (→ 404).
+		$scopedIds = array_map(
+			static fn (RoomTask $row): int => (int)$row->getId(),
+			$this->roomTaskMapper->findByIdsScopedToHouse($roomTaskIds, $houseId)
+		);
+		foreach ($roomTaskIds as $id) {
+			if (!in_array($id, $scopedIds, true)) {
+				throw new NotFoundException($this->l10n->t('Room task not found'));
 			}
-			$definitionIds = array_keys($taskIds);
-			sort($definitionIds);
-			foreach ($definitionIds as $taskId) {
-				$this->taskMapper->lockForUpdate($taskId);
-			}
+		}
 
-			// THIRD lock class: house_user rows ascending (membership,
-			// role, preference and reward-row writers block here).
-			$memberRowIds = array_map(
-				static fn (HouseUser $member): int => (int)$member->getId(),
-				$this->houseUserMapper->findByHouseId($houseId)
-			);
-			sort($memberRowIds);
-			foreach ($memberRowIds as $memberRowId) {
-				$this->houseUserMapper->findForUpdate($memberRowId);
-			}
+		// SECOND lock class: task definitions ascending (blocks
+		// concurrent definition edits for the whole plan window).
+		$taskIds = [];
+		foreach ($this->roomTaskMapper->findByIdsScopedToHouse($lockIds, $houseId) as $lockedRow) {
+			$taskIds[(int)$lockedRow->getTaskId()] = true;
+		}
+		$definitionIds = array_keys($taskIds);
+		sort($definitionIds);
+		foreach ($definitionIds as $taskId) {
+			$this->taskMapper->lockForUpdate($taskId);
+		}
 
-			// Recompute the identical plan from the locked state; any drift
-			// from the confirmed preview rejects the batch.
-			$plan = $this->buildPlan($houseId, $freshActor, $startDate, $roomTaskIds, $overrides);
-			if (!hash_equals($previewVersion, $plan['response']['previewVersion'])) {
-				throw new ConflictException($this->l10n->t('The schedule preview is no longer current. Generate a new preview.'));
-			}
+		// THIRD lock class: house_user rows ascending (membership,
+		// role, preference and reward-row writers block here).
+		$memberRowIds = array_map(
+			static fn (HouseUser $member): int => (int)$member->getId(),
+			$this->houseUserMapper->findByHouseId($houseId)
+		);
+		sort($memberRowIds);
+		foreach ($memberRowIds as $memberRowId) {
+			$this->houseUserMapper->findForUpdate($memberRowId);
+		}
 
-			$changedIds = array_map(
-				static fn (array $change): int => (int)$change['roomTaskId'],
-				$plan['response']['changes']
-			);
+		// Recompute the identical plan from the locked state. The
+		// fingerprint FIRST: a preview that crossed local midnight (or any
+		// drifted dependency) is a write-free 409 BEFORE the
+		// relative-date rejection — CR-SVC-64 (plan §3.5). A newly
+		// malformed request never reaches here (shape validation stays
+		// 400 in apply()).
+		$plan = $this->buildPlan($houseId, $freshActor, $startDate, $roomTaskIds, $overrides, false);
+		if (!hash_equals($previewVersion, $plan['response']['previewVersion'])) {
+			throw new ConflictException($this->l10n->t('The schedule preview is no longer current. Generate a new preview.'));
+		}
 
-			if ($changedIds !== []) {
-				// CS-PLAN-072 WP1 (Q-072-01): the planner persists through
-				// the common agreement writers — due dates amend the target
-				// occurrence (identity retained, deadline/C2h checks
-				// enforced, agreement evidence recorded), assignees become
-				// the revision's default participant snapshot plus amended
-				// occurrence members. No path writes planning state outside
-				// an agreement anymore.
-				$now = new \DateTime();
-				$house = $this->houseMapper->find($houseId);
-				sort($changedIds);
-				foreach ($changedIds as $roomTaskId) {
-					$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
-					$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
-					if ($change['before']['dueDate'] !== $change['proposed']['dueDate']) {
-						$this->occurrenceService->amendOccurrenceDateUnderLock(
-							$roomTask,
-							(int)$freshActor->getId(),
-							null,
-							$change['proposed']['dueDate'],
-							$now
-						);
-					}
-				}
-				foreach ($changedIds as $roomTaskId) {
-					$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
-					$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
-					$this->taskAssigneeMapper->deleteByRoomTask($roomTaskId);
-					foreach ($change['proposed']['assignees'] as $assigneeUserId) {
-						$this->taskAssigneeMapper->addAssignee($roomTaskId, $assigneeUserId, $freshActor->getNextcloudUserId());
-					}
-					try {
-						$task = $this->taskMapper->find($roomTask->getTaskId());
-						$this->occurrenceService->amendParticipantsUnderLock(
-							$houseId,
-							$roomTask,
-							$task,
-							$house,
-							(int)$freshActor->getId(),
-							$change['proposed']['assignees'],
-							$now
-						);
-					} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
-						// Orphaned definition — the join-table write above
-						// remains the authority for this tombstone-bound row.
-					}
+		$changedIds = array_map(
+			static fn (array $change): int => (int)$change['roomTaskId'],
+			$plan['response']['changes']
+		);
+
+		if ($changedIds !== []) {
+			// CS-PLAN-072 WP1 (Q-072-01): the planner persists through
+			// the common agreement writers — due dates amend the target
+			// occurrence (identity retained, deadline/C2h checks
+			// enforced, agreement evidence recorded), assignees become
+			// the revision's default participant snapshot plus amended
+			// occurrence members. No path writes planning state outside
+			// an agreement anymore. RF-073-WP2-06: the owner's explicit
+			// consent attestation rides every planner agreement row.
+			$now = $this->now();
+			$house = $this->houseMapper->find($houseId);
+			sort($changedIds);
+			foreach ($changedIds as $roomTaskId) {
+				$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
+				$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
+				if ($change['before']['dueDate'] !== $change['proposed']['dueDate']) {
+					$this->occurrenceService->amendOccurrenceDateUnderLock(
+						$roomTask,
+						(int)$freshActor->getId(),
+						null,
+						$change['proposed']['dueDate'],
+						$now,
+						$this->applyConsent($freshActor, $change['proposed']['assignees'])
+					);
 				}
 			}
-
-			// Authoritative response rows (fresh entities + canonical
-			// assignees) for the client reconciliation.
-			$roomTasks = [];
-			if ($changedIds !== []) {
-				$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks($changedIds);
-				foreach ($this->roomTaskMapper->findByIdsScopedToHouse($changedIds, $houseId) as $row) {
-					$data = $row->jsonSerialize($tz);
-					$data['assignees'] = $assigneesByRoomTask[$row->getId()] ?? [];
-					$roomTasks[] = $data;
+			foreach ($changedIds as $roomTaskId) {
+				$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
+				$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
+				$this->taskAssigneeMapper->deleteByRoomTask($roomTaskId);
+				foreach ($change['proposed']['assignees'] as $assigneeUserId) {
+					$this->taskAssigneeMapper->addAssignee($roomTaskId, $assigneeUserId, $freshActor->getNextcloudUserId());
+				}
+				try {
+					$task = $this->taskMapper->find($roomTask->getTaskId());
+					$this->occurrenceService->amendParticipantsUnderLock(
+						$houseId,
+						$roomTask,
+						$task,
+						$house,
+						(int)$freshActor->getId(),
+						$change['proposed']['assignees'],
+						$now,
+						$this->applyConsent($freshActor, $change['proposed']['assignees'])
+					);
+				} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+					// Orphaned definition — the join-table write above
+					// remains the authority for this tombstone-bound row.
 				}
 			}
+		}
 
-			return [
-				'appliedCount' => count($changedIds),
-				'windowStart' => $plan['response']['startDate'],
-				'windowEndExclusive' => $plan['response']['endDateExclusive'],
-				'roomTasks' => $roomTasks,
-			];
-		});
+		// Compact stored identity — the receipt never carries full
+		// response bodies (CommandService size bound); apply() re-reads
+		// the changed rows authorized after the commit for BOTH the fresh
+		// and the replay answer.
+		return [
+			'appliedCount' => count($changedIds),
+			'windowStart' => $plan['response']['startDate'],
+			'windowEndExclusive' => $plan['response']['endDateExclusive'],
+			'roomTaskIds' => array_map('intval', $changedIds),
+		];
+	}
 
-		return $result;
+	/**
+	 * Freshly read, authorized room-task rows for the response (or replay
+	 * state). Empty selection/replay of a no-change plan yields [].
+	 *
+	 * @param int[] $roomTaskIds
+	 * @return list<array<string, mixed>>
+	 */
+	private function authoritativeRoomTasks(int $houseId, array $roomTaskIds): array {
+		if ($roomTaskIds === []) {
+			return [];
+		}
+		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
+		$roomTasks = [];
+		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
+		foreach ($this->roomTaskMapper->findByIdsScopedToHouse($roomTaskIds, $houseId) as $row) {
+			$data = $row->jsonSerialize($tz);
+			$data['assignees'] = $assigneesByRoomTask[$row->getId()] ?? [];
+			$roomTasks[] = $data;
+		}
+		return $roomTasks;
 	}
 
 	/**
 	 * Shared pure build: validation of the domain, deterministic proposal,
 	 * capacity accounting and the content fingerprint. Never writes.
 	 *
+	 * `$enforceToday = false` (apply path) defers the relative-date
+	 * rejection: the fingerprint comparison happens FIRST (CR-SVC-64), so
+	 * a valid preview that crossed local midnight is a write-free 409.
+	 *
 	 * @return array{response: array, material: array}
 	 */
-	private function buildPlan(int $houseId, HouseUser $actor, string $startDate, array $roomTaskIds, array $overrides): array {
+	private function buildPlan(int $houseId, HouseUser $actor, string $startDate, array $roomTaskIds, array $overrides, bool $enforceToday = true): array {
 		$house = $this->houseMapper->find($houseId);
 		$tz = $this->calendarService->getTimeZone($house);
 
-		$todayKey = $this->calendarService->dayKey(new \DateTime(), $tz);
-		if ($startDate < $todayKey) {
+		$todayKey = $this->calendarService->dayKey($this->now(), $tz);
+		if ($enforceToday && $startDate < $todayKey) {
 			throw new \InvalidArgumentException($this->l10n->t('startDate must be today or later'));
 		}
 
@@ -353,12 +499,21 @@ class SchedulePlanService {
 			$membersByUserId[$member->getNextcloudUserId()] = $member;
 		}
 
-		// Capacity accounting base: planned occurrences of every active
-		// house task inside the window (including rows outside the
-		// selection) plus non-undone completion effort (decision D11).
-		[$usage, $taskCounts] = $this->baselineCapacity($houseId, $house, $window);
-		$planned = $usage;
-		$counts = $taskCounts;
+		// Capacity accounting base (WP2 cutover, plan §3.2): whole-day
+		// exact planned SHARES (agreed occurrence participants — never the
+		// definition assignees) of every active house task inside the
+		// window, occurrence-identity deduplicated against the completion
+		// ledger, in integer hundredths. The whole-day evaluation report
+		// supplies the completed effort (frozen occurrence energies) and
+		// the per-member limits the placement constraints consume.
+		// RF-073-WP2-16: BOTH reads share ONE batched collection pass.
+		[$baseline, $capacityByDay] = $this->dailyCapacity->withSharedCollection(
+			fn (): array => [
+				$this->dailyCapacity->plannedBaseline($houseId, $window),
+				$this->dailyCapacity->evaluateDays($houseId, $window),
+			]
+		);
+		[$planned, $counts, $plannedByTask] = $baseline;
 
 		// Deterministic order: urgency (house-local due day), higher
 		// priority, then room-task id. Input and row order cannot leak.
@@ -396,6 +551,7 @@ class SchedulePlanService {
 			$row = $selectedById[$roomTaskId];
 			$task = $tasksById[$row->getTaskId()];
 			$energy = (int)$task->getEnergyCost();
+			$energyMinor = $energy * DailyCapacityService::ENERGY_MINOR;
 			$currentAssignees = self::sortedStrings($assigneesByRoomTask[$roomTaskId] ?? []);
 			$currentDueKey = $this->dueDayKey($row, $tz);
 			$override = $overrides[(string)$roomTaskId] ?? $overrides[$roomTaskId] ?? null;
@@ -443,11 +599,20 @@ class SchedulePlanService {
 				|| !in_array($currentDueKey, $legalDates, true);
 
 			if (!$needsPlacement) {
-				$warnings = $this->capacityWarnings($proposedAssignees, $currentDueKey, $energy, $planned, $counts, $membersByUserId, $window);
+				$warnings = $this->capacityWarnings($proposedAssignees, $currentDueKey, $capacityByDay, $window);
 				$unchanged[] = ['roomTaskId' => $roomTaskId, 'reason' => 'UP_TO_DATE', 'warnings' => $warnings];
 				$rowStates[$roomTaskId] = ['outcome' => 'unchanged', 'material' => $rowMaterial];
 				continue;
 			}
+
+			// RF-073-WP2-21: a same-day replacement must be tested AFTER
+			// removing exactly the old allocation this row currently holds
+			// — never against its own existing load. The adjusted copies
+			// feed the placement check; the real baseline is only mutated
+			// once a placement actually committed below.
+			$rowPlanned = $planned;
+			$rowCounts = $counts;
+			$this->removeRowAllocation($roomTaskId, $currentDueKey, $windowSet, $plannedByTask, $rowPlanned, $rowCounts);
 
 			$placement = $this->placeRow(
 				$override,
@@ -456,9 +621,10 @@ class SchedulePlanService {
 				$legalDates,
 				$currentDueKey,
 				$window,
-				$energy,
-				$planned,
-				$counts,
+				$energyMinor,
+				$rowPlanned,
+				$rowCounts,
+				$capacityByDay,
 				$membersByUserId,
 			);
 
@@ -478,16 +644,18 @@ class SchedulePlanService {
 				continue;
 			}
 
+			// Exact shares of the proposed set: stable WP0 wallet order for
+			// the remainders (34/33/33 — never role/name/request order).
+			$shares = $this->exactShares($placement['assignees'], $membersByUserId);
+
 			// Replace (not add again) the selected row's current in-window
-			// occurrence before booking the proposed one.
-			if ($currentDueKey !== null && isset($windowSet[$currentDueKey])) {
-				foreach ($currentAssignees as $userId) {
-					$planned[$userId][$currentDueKey] = max(0, ($planned[$userId][$currentDueKey] ?? 0) - $energy);
-					$counts[$userId][$currentDueKey] = max(0, ($counts[$userId][$currentDueKey] ?? 0) - 1);
-				}
-			}
+			// allocation before booking the proposed one (plan §3.2):
+			// subtract exactly the per-member shares the baseline charged,
+			// then add the proposed exact-share vector (integer hundredths).
+			$this->removeRowAllocation($roomTaskId, $currentDueKey, $windowSet, $plannedByTask, $planned, $counts);
 			foreach ($placement['assignees'] as $userId) {
-				$planned[$userId][$placement['date']] = ($planned[$userId][$placement['date']] ?? 0) + $energy;
+				$shareMinor = (int)round($energyMinor * ($shares[$userId] ?? 0) / 100);
+				$planned[$userId][$placement['date']] = ($planned[$userId][$placement['date']] ?? 0) + $shareMinor;
 				$counts[$userId][$placement['date']] = ($counts[$userId][$placement['date']] ?? 0) + 1;
 			}
 
@@ -504,11 +672,12 @@ class SchedulePlanService {
 				'taskName' => (string)$task->getName(),
 				'roomName' => $roomsById[$row->getRoomId()]->getName() ?? null,
 				'energyCost' => $energy,
+				'shares' => $shares,
 				'priority' => (int)$task->getPriority(),
 				'flexDays' => (int)$task->getFlexDays(),
 				'legalDates' => $legalDates,
 				'before' => ['assignees' => $currentAssignees, 'dueDate' => $currentDueKey],
-				'proposed' => ['assignees' => $placement['assignees'], 'dueDate' => $placement['date']],
+				'proposed' => ['assignees' => $placement['assignees'], 'dueDate' => $placement['date'], 'shares' => $shares],
 				'warnings' => $warnings,
 			];
 			$rowStates[$roomTaskId] = [
@@ -518,9 +687,9 @@ class SchedulePlanService {
 			];
 		}
 
-		$capacity = $this->capacityReport($window, $planned, $counts, $membersByUserId);
+		$capacity = $this->capacityReport($window, $planned, $counts, $capacityByDay);
 		$response = [
-			'previewVersion' => $this->fingerprint($startDate, $roomTaskIds, $overrides, $tz, $rowStates, $membersByUserId, $planned, $counts),
+			'previewVersion' => $this->fingerprint($startDate, $roomTaskIds, $overrides, $tz, $rowStates, $membersByUserId, $planned, $counts, $todayKey, $houseId),
 			'startDate' => $startDate,
 			'endDateExclusive' => $this->dayKeyOffset($startDate, self::WINDOW_DAYS),
 			'timezone' => $tz->getName(),
@@ -535,12 +704,80 @@ class SchedulePlanService {
 	}
 
 	/**
+	 * The exact equal share split (whole percent, total exactly 100) of a
+	 * participant set in stable WP0 wallet order — remainders go to the
+	 * lowest wallet ids (34/33/33), never by role/name/request order.
+	 *
+	 * @param list<string> $assignees
+	 * @param array<string, HouseUser> $membersByUserId
+	 * @return array<string, int>
+	 */
+	private function exactShares(array $assignees, array $membersByUserId): array {
+		$entries = [];
+		foreach ($assignees as $userId) {
+			$walletId = $membersByUserId[$userId]?->getWalletId();
+			$entries[] = ['userId' => $userId, 'walletId' => $walletId !== null ? (int)$walletId : PHP_INT_MAX];
+		}
+		usort($entries, static fn (array $a, array $b): int => $a['walletId'] <=> $b['walletId']);
+		$count = count($entries);
+		if ($count === 0) {
+			return [];
+		}
+		$base = intdiv(100, $count);
+		$remainder = 100 - $base * $count;
+		$shares = [];
+		foreach ($entries as $index => $entry) {
+			$shares[$entry['userId']] = $base + ($index < $remainder ? 1 : 0);
+		}
+		return $shares;
+	}
+
+	/**
+	 * Remove exactly the per-member allocation the baseline currently
+	 * charges for one room task's in-window due day (plan §3.2: replace,
+	 * never add again). Shared by the pre-check adjusted copies and the
+	 * committed baseline mutation (RF-073-WP2-21).
+	 *
+	 * @param array<string, bool> $windowSet
+	 * @param array<int, array<string, array<string, int>>> $plannedByTask
+	 * @param array<string, array<string, int>> $planned mutated
+	 * @param array<string, array<string, int>> $counts mutated
+	 */
+	private function removeRowAllocation(int $roomTaskId, ?string $currentDueKey, array $windowSet, array $plannedByTask, array &$planned, array &$counts): void {
+		if ($currentDueKey === null || !isset($windowSet[$currentDueKey])) {
+			return;
+		}
+		foreach ($plannedByTask[$roomTaskId] ?? [] as $userId => $perDay) {
+			$old = $perDay[$currentDueKey] ?? 0;
+			if ($old === 0) {
+				continue;
+			}
+			$planned[$userId][$currentDueKey] = max(0, ($planned[$userId][$currentDueKey] ?? 0) - $old);
+			$counts[$userId][$currentDueKey] = max(0, ($counts[$userId][$currentDueKey] ?? 0) - 1);
+		}
+	}
+
+	/**
 	 * Deterministic placement: prefer the nearest legal date, then the
 	 * eligible member with the most remaining capacity; stable tie-breakers
 	 * are the date key and the member's house-user id (plan §3.1 rule 5).
+	 * Whole-day minor-unit capacity (WP2): a placement fits only when
+	 * completed + planned + the new commitment stays within the member's
+	 * budget, and paused/unavailable members and child limits gate the
+	 * slot.
 	 *
-	 * @param array<string, array<string, int>> $planned member userId → dayKey → planned energy (mutated by callers, read here)
-	 * @param array<string, array<string, int>> $counts member userId → dayKey → planned task count
+	 * RF-073-WP2-21: a preserved or explicitly overridden JOINT candidate
+	 * set is validated as the FULL proposed share vector — every member
+	 * with their exact share (never one member with the whole task energy,
+	 * never one fitting member dragging the rest along). Only the
+	 * single-pick path (unassigned row, no assignee override) tests one
+	 * person with the whole energy. `$planned`/`$counts` arrive with the
+	 * row's own replaced allocation already removed.
+	 *
+	 * @param array<string, array<string, int>> $planned member userId → dayKey → planned minor (adjusted, read here)
+	 * @param array<string, array<string, int>> $counts member userId → dayKey → planned task count (adjusted)
+	 * @param array<string, array<string, array<string, mixed>>> $capacityByDay evaluation report (dayKey → userId → member-day)
+	 * @param array<string, HouseUser> $membersByUserId
 	 * @return array{date: string, assignees: list<string>}|null
 	 */
 	private function placeRow(
@@ -550,9 +787,10 @@ class SchedulePlanService {
 		array $legalDates,
 		?string $currentDueKey,
 		array $window,
-		int $energy,
+		int $energyMinor,
 		array $planned,
 		array $counts,
+		array $capacityByDay,
 		array $membersByUserId,
 	): ?array {
 		if ($legalDates === []) {
@@ -572,6 +810,7 @@ class SchedulePlanService {
 		// the candidate set only stays whole when it comes from the
 		// preserved or explicitly overridden assignment.
 		$singlePick = $proposedAssignees === [] && !isset($override['assigneeUserIds']);
+		$setShares = $singlePick ? null : $this->exactShares($candidateMemberIds, $membersByUserId);
 
 		if (isset($override['date'])) {
 			$dates = [$override['date']];
@@ -586,123 +825,67 @@ class SchedulePlanService {
 		}
 
 		foreach ($dates as $date) {
+			$dayMembers = $capacityByDay[$date] ?? [];
+
+			if (!$singlePick) {
+				// The WHOLE proposed set must fit with its exact shares —
+				// a paused, unavailable or over-budget member rejects the
+				// day for the entire joint arrangement (plan §3.2: no
+				// successful placement based on only one member).
+				$fits = true;
+				foreach ($candidateMemberIds as $userId) {
+					$memberDay = $dayMembers[$userId] ?? null;
+					if ($memberDay === null || $memberDay['paused'] || !$memberDay['available']) {
+						$fits = false;
+						break;
+					}
+					$shareMinor = (int)round($energyMinor * ($setShares[$userId] ?? 0) / 100);
+					$committed = ($planned[$userId][$date] ?? 0);
+					if (($memberDay['completedEnergyMinor'] ?? 0) + $committed + $shareMinor > $memberDay['budgetMinor']) {
+						$fits = false;
+						break;
+					}
+					$maxDaily = $memberDay['maxDailyTasks'];
+					if ($maxDaily !== null && ($counts[$userId][$date] ?? 0) + 1 > $maxDaily) {
+						$fits = false;
+						break;
+					}
+				}
+				if ($fits) {
+					return ['date' => $date, 'assignees' => $candidateMemberIds];
+				}
+				continue;
+			}
+
 			$orderedMembers = $candidateMemberIds;
-			usort($orderedMembers, function (string $a, string $b) use ($date, $planned, $membersByUserId): int {
-				$remainingA = $this->remainingFor($a, $date, $planned, $membersByUserId);
-				$remainingB = $this->remainingFor($b, $date, $planned, $membersByUserId);
+			usort($orderedMembers, function (string $a, string $b) use ($date, $dayMembers): int {
+				$remainingA = $dayMembers[$a]['remainingEnergyMinor'] ?? 0;
+				$remainingB = $dayMembers[$b]['remainingEnergyMinor'] ?? 0;
 				return $remainingB <=> $remainingA
-					?: (int)($membersByUserId[$a]?->getId() ?? 0) <=> (int)($membersByUserId[$b]?->getId() ?? 0)
 					?: strcmp($a, $b);
 			});
 
 			foreach ($orderedMembers as $userId) {
-				$member = $membersByUserId[$userId] ?? null;
-				if ($member === null || !$this->isMemberAvailableOn($member, $date)) {
+				$memberDay = $dayMembers[$userId] ?? null;
+				if ($memberDay === null) {
 					continue;
 				}
-				if ($this->remainingFor($userId, $date, $planned, $membersByUserId) < $energy) {
+				if ($memberDay['paused'] || !$memberDay['available']) {
 					continue;
 				}
-				if (!$this->childLimitAllows($member, $date, $counts)) {
+				$committed = ($planned[$userId][$date] ?? 0);
+				if (($memberDay['completedEnergyMinor'] ?? 0) + $committed + $energyMinor > $memberDay['budgetMinor']) {
 					continue;
 				}
-				return ['date' => $date, 'assignees' => $singlePick ? [$userId] : $candidateMemberIds];
+				$maxDaily = $memberDay['maxDailyTasks'];
+				if ($maxDaily !== null && ($counts[$userId][$date] ?? 0) >= $maxDaily) {
+					continue;
+				}
+				return ['date' => $date, 'assignees' => [$userId]];
 			}
 		}
 
 		return null;
-	}
-
-	/**
-	 * Baseline per-member/day planned effort and task counts: AGREED
-	 * unfulfilled occurrences and frontier projections of every active
-	 * house task in the window — the SAME occurrence enumeration the
-	 * calendar/execution reads consume (RF-072-WP1-12: no second
-	 * recurrence engine beside the agreement writer) — plus non-undone
-	 * completion effort (decision D11). Fulfilled occurrences are not
-	 * counted as planned load; their effort enters through the completion
-	 * ledger below.
-	 *
-	 * @return array{0: array<string, array<string, int>>, 1: array<string, array<string, int>>}
-	 */
-	private function baselineCapacity(int $houseId, House $house, array $window): array {
-		$tz = $this->calendarService->getTimeZone($house);
-		$windowSet = array_fill_keys($window, true);
-		$fromBound = (new \DateTime($window[0] . ' 00:00:00', $tz))->setTimezone(new \DateTimeZone('UTC'));
-		$fromKey = $window[0];
-		$toKey = $this->dayKeyOffset($window[0], self::WINDOW_DAYS - 1);
-		$toBound = (new \DateTime($toKey . ' 23:59:59', $tz))->setTimezone(new \DateTimeZone('UTC'));
-
-		$planned = [];
-		$counts = [];
-
-		$baseRows = $this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $toBound);
-		$baseIds = array_map(static fn (RoomTask $row): int => (int)$row->getId(), $baseRows);
-		$baseTasks = $this->taskMapper->findByIds(array_values(array_unique(array_map(
-			static fn (RoomTask $row): int => $row->getTaskId(),
-			$baseRows
-		))));
-		$baseAssignees = $this->taskAssigneeMapper->findUserIdsByRoomTasks($baseIds);
-
-		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $baseRows, $fromKey, $toKey);
-		foreach ($baseRows as $row) {
-			$task = $baseTasks[$row->getTaskId()] ?? null;
-			if ($task === null) {
-				continue;
-			}
-			$energy = (int)$task->getEnergyCost();
-			$assignees = self::sortedStrings($baseAssignees[$row->getId()] ?? []);
-			if ($assignees === []) {
-				continue;
-			}
-
-			$dayKeys = [];
-			foreach ($agreedByTask[$row->getId()] ?? [] as $entry) {
-				$occurrence = $entry['occurrence'];
-				if ($occurrence->getCompletionId() !== null || $occurrence->getCoveredByCompletionId() !== null) {
-					continue;
-				}
-				if ($occurrence->getKind() !== \OCA\ChoreStrike\Db\Occurrence::KIND_SCHEDULED) {
-					continue;
-				}
-				$dayKeys[] = $occurrence->getPlannedDate()->format('Y-m-d');
-			}
-			// Write-free projections beyond the frontier (same source the
-			// calendar range read uses).
-			foreach ($this->occurrenceService->projectionsForTask($row, $fromKey, $toKey) as $projection) {
-				$dayKeys[] = $projection['date'];
-			}
-
-			foreach (array_unique($dayKeys) as $dayKey) {
-				if (!isset($windowSet[$dayKey])) {
-					continue;
-				}
-				foreach ($assignees as $userId) {
-					$planned[$userId][$dayKey] = ($planned[$userId][$dayKey] ?? 0) + $energy;
-					$counts[$userId][$dayKey] = ($counts[$userId][$dayKey] ?? 0) + 1;
-				}
-			}
-		}
-
-		$membersByRowId = [];
-		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
-			$membersByRowId[(int)$member->getId()] = $member;
-		}
-
-		foreach ($this->completedTaskMapper->findEnergyUsageBetweenByHouse($houseId, $fromBound, $toBound) as $usageRow) {
-			$memberRow = $membersByRowId[$usageRow['houseUserId']] ?? null;
-			if ($memberRow === null) {
-				continue;
-			}
-			$dayKey = $this->calendarService->dayKey($usageRow['completedAt'], $tz);
-			if (!isset($windowSet[$dayKey])) {
-				continue;
-			}
-			$planned[$memberRow->getNextcloudUserId()][$dayKey]
-				= ($planned[$memberRow->getNextcloudUserId()][$dayKey] ?? 0) + $usageRow['energy'];
-		}
-
-		return [$planned, $counts];
 	}
 
 	// ------------------------------------------------------------------
@@ -729,66 +912,26 @@ class SchedulePlanService {
 		return self::sortedStrings($eligible);
 	}
 
-	private function isMemberAvailableOn(HouseUser $member, string $dayKey): bool {
-		$preferences = $member->getSchedulingPreferences() ?? [];
-		$availability = $preferences['weekdayAvailability'] ?? [];
-		return $availability[strtolower($this->dayName($dayKey))] ?? true;
-	}
-
-	private function energyBudgetFor(HouseUser $member, string $dayKey): int {
-		$preferences = $member->getSchedulingPreferences() ?? [];
-		$budget = $preferences['energyBudget'] ?? [];
-		$day = strtolower($this->dayName($dayKey));
-		if (isset($budget[$day])) {
-			return (int)$budget[$day];
-		}
-		return in_array($day, ['saturday', 'sunday'], true) ? 15 : 10;
-	}
-
 	/**
-	 * Whether placing another task for a member with a finite child limit
-	 * stays within the bound (decision D6).
+	 * Existing-overload warning for unchanged rows (plan §3.2): completed
+	 * + outstanding minor vs the member's budget, from the whole-day
+	 * evaluation — completed effort included, not just planned load.
 	 *
-	 * @param array<string, array<string, int>> $counts
-	 */
-	private function childLimitAllows(HouseUser $member, string $dayKey, array $counts): bool {
-		$preferences = $member->getSchedulingPreferences() ?? [];
-		$limit = $preferences['maxDailyTasks'] ?? null;
-		if (!is_int($limit)) {
-			return true;
-		}
-		return ($counts[$member->getNextcloudUserId()][$dayKey] ?? 0) < $limit;
-	}
-
-	/**
-	 * @param array<string, int> $planned
-	 * @param array<string, HouseUser> $membersByUserId
-	 */
-	private function remainingFor(string $userId, string $dayKey, array $planned, array $membersByUserId): int {
-		$member = $membersByUserId[$userId] ?? null;
-		if ($member === null) {
-			return 0;
-		}
-		return $this->energyBudgetFor($member, $dayKey) - ($planned[$userId][$dayKey] ?? 0);
-	}
-
-	/**
-	 * @param array<string> $assigneeIds
-	 * @param array<string, array<string, int>> $planned
-	 * @param array<string, array<string, int>> $counts
-	 * @param array<string, HouseUser> $membersByUserId
+	 * @param list<string> $assigneeIds
+	 * @param array<string, array<string, array<string, mixed>>> $capacityByDay
 	 * @return list<string>
 	 */
-	private function capacityWarnings(array $assigneeIds, string $dayKey, int $energy, array $planned, array $counts, array $membersByUserId, array $window): array {
+	private function capacityWarnings(array $assigneeIds, string $dayKey, array $capacityByDay, array $window): array {
 		if (!in_array($dayKey, $window, true)) {
 			return [];
 		}
+		$dayMembers = $capacityByDay[$dayKey] ?? [];
 		foreach ($assigneeIds as $userId) {
-			$member = $membersByUserId[$userId] ?? null;
-			if ($member === null) {
+			$memberDay = $dayMembers[$userId] ?? null;
+			if ($memberDay === null) {
 				continue;
 			}
-			if (($planned[$userId][$dayKey] ?? 0) > $this->energyBudgetFor($member, $dayKey)) {
+			if (($memberDay['completedEnergyMinor'] ?? 0) + ($memberDay['plannedEnergyMinor'] ?? 0) > $memberDay['budgetMinor']) {
 				return ['EXISTING_OVERLOAD'];
 			}
 		}
@@ -797,26 +940,38 @@ class SchedulePlanService {
 
 	/**
 	 * Per-day capacity report for the whole window (after proposals).
+	 * WP2 exact amounts (integer hundredths: completedEnergyMinor,
+	 * plannedEnergyMinor, remainingEnergyMinor) sit beside the historical
+	 * whole-number view the current clients render; overload keeps the
+	 * clarification flag with completed/outstanding/remaining amounts.
 	 *
 	 * @param array<string, int> $planned
 	 * @param array<string, array<string, int>> $counts
-	 * @param array<string, HouseUser> $membersByUserId
-	 * @return list<array{date: string, members: array<string, array{houseUserId: int, available: bool, budget: int, planned: int, remaining: int, taskCount: int}>}>
+	 * @param array<string, array<string, array<string, mixed>>> $capacityByDay
+	 * @return list<array{date: string, members: array<string, array{houseUserId: int, available: bool, budget: int, planned: int, remaining: int, taskCount: int, completedEnergyMinor: int, plannedEnergyMinor: int, remainingEnergyMinor: int, overloaded: bool, paused: bool, reasons: list<string>}>}>
 	 */
-	private function capacityReport(array $window, array $planned, array $counts, array $membersByUserId): array {
+	private function capacityReport(array $window, array $planned, array $counts, array $capacityByDay): array {
 		$report = [];
 		foreach ($window as $dayKey) {
 			$members = [];
-			foreach ($membersByUserId as $userId => $member) {
-				$budget = $this->energyBudgetFor($member, $dayKey);
-				$memberPlanned = $planned[$userId][$dayKey] ?? 0;
+			foreach ($capacityByDay[$dayKey] ?? [] as $userId => $memberDay) {
+				$budget = (int)$memberDay['budget'];
+				$committedMinor = ($planned[$userId][$dayKey] ?? 0);
+				$completedMinor = (int)$memberDay['completedEnergyMinor'];
+				$plannedMinor = $completedMinor + $committedMinor;
 				$members[$userId] = [
-					'houseUserId' => (int)$member->getId(),
-					'available' => $this->isMemberAvailableOn($member, $dayKey),
+					'houseUserId' => (int)$memberDay['houseUserId'],
+					'available' => (bool)$memberDay['available'],
 					'budget' => $budget,
-					'planned' => $memberPlanned,
-					'remaining' => max(0, $budget - $memberPlanned),
+					'planned' => (int)round($plannedMinor / DailyCapacityService::ENERGY_MINOR),
+					'remaining' => max(0, $budget - (int)round($plannedMinor / DailyCapacityService::ENERGY_MINOR)),
 					'taskCount' => $counts[$userId][$dayKey] ?? 0,
+					'completedEnergyMinor' => $completedMinor,
+					'plannedEnergyMinor' => $plannedMinor,
+					'remainingEnergyMinor' => max(0, (int)$memberDay['budgetMinor'] - $plannedMinor),
+					'overloaded' => $plannedMinor > (int)$memberDay['budgetMinor'],
+					'paused' => (bool)$memberDay['paused'],
+					'reasons' => $memberDay['reasons'],
 				];
 			}
 			$report[] = ['date' => $dayKey, 'members' => $members];
@@ -1057,8 +1212,11 @@ class SchedulePlanService {
 	/**
 	 * Opaque content fingerprint over the normalized request, the selected
 	 * rows' authoritative state, task scheduling inputs, the member roles
-	 * and preferences, the house timezone, the capacity-source rows and the
-	 * proposal result. Canonical sorting is part of the contract.
+	 * and preferences, the house timezone, the pause revisions, the
+	 * evaluation local day, the capacity-source rows and the proposal
+	 * result (WP2 plan §3.5: pause/completion/role/zone/limit drift and a
+	 * crossed local midnight all invalidate the confirmation). Canonical
+	 * sorting is part of the contract.
 	 *
 	 * @param array<int|string, mixed> $rowStates
 	 * @param array<string, HouseUser> $membersByUserId
@@ -1074,6 +1232,8 @@ class SchedulePlanService {
 		array $membersByUserId,
 		array $planned,
 		array $counts,
+		string $evaluationDayKey,
+		int $houseId,
 	): string {
 		$members = [];
 		foreach ($membersByUserId as $userId => $member) {
@@ -1085,13 +1245,15 @@ class SchedulePlanService {
 		}
 
 		$material = [
-			'version' => 1,
+			'version' => 2,
 			'request' => [
 				'startDate' => $startDate,
 				'roomTaskIds' => self::sortedInts($roomTaskIds),
 				'overrides' => $overrides,
 			],
 			'timezone' => $tz->getName(),
+			'evaluationDay' => $evaluationDayKey,
+			'pauseFingerprint' => $this->pauseProjection->housePauseFingerprint($houseId),
 			'rows' => $rowStates,
 			'members' => $members,
 			'planned' => $planned,

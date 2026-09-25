@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
+use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
@@ -56,9 +57,9 @@ use OCA\ChoreStrike\Db\WalletMapper;
  * render through the localized "Former member" placeholder in
  * {@see ActivityService}.
  *
- * Later-package surfaces (agreement snapshots, digest records, reward
- * wishes, audit reasons) extend this service in WP2/WP5/WP7; the complete
- * cross-domain gate is WP9 (parent §4).
+ * Later-package surfaces extend this service in WP5/WP7 (digest records,
+ * reward wishes, audit reasons); WP2's pause/consent surfaces are covered
+ * above, the complete cross-domain gate is WP9 (parent §4).
  */
 class AccountErasureService {
 	public function __construct(
@@ -74,6 +75,7 @@ class AccountErasureService {
 		private OccurrenceMemberMapper $occMemberMapper,
 		private ScheduleRevisionMapper $scheduleRevisionMapper,
 		private AgreementMapper $agreementMapper,
+		private PauseMapper $pauseMapper,
 		private TransactionExecutor $transactions,
 		private AppLogger $appLogger,
 	) {
@@ -187,7 +189,12 @@ class AccountErasureService {
 				$this->occMemberMapper->deleteByWalletId((int)$wallet->getId());
 				$this->scheduleRevisionMapper->anonymizeDefaultMembers($houseId, (int)$wallet->getId());
 				$this->agreementMapper->anonymizeMemberSnapshots($houseId, (int)$wallet->getId());
+				// CS-PLAN-073 WP2 (§3.6): personal pause rows of the wallet
+				// go; shared pause facts keep their non-reidentifiable
+				// content and lose the account references below.
+				$this->pauseMapper->deletePersonalByWalletId((int)$wallet->getId());
 			}
+			$this->pauseMapper->anonymizeActor($houseUserId);
 
 			// The receipts survive as anonymous facts.
 			$this->commandReceiptMapper->anonymizeActor($houseId, $houseUserId);

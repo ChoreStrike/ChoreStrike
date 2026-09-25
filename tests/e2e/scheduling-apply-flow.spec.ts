@@ -198,12 +198,22 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		expect(preview2Body.data.changes[0].proposed.dueDate).toBe(todayKey)
 		await expect(page.getByTestId('plan-stale')).toHaveCount(0)
 
+		// WP2 (RF-073-WP2-06/13): the exact share label rides the proposal
+		// and apply stays gated on the owner's explicit consent attestation.
+		await expect(page.getByTestId(`plan-change-shares-${roomTaskId}`)).toContainText('100%')
+		await expect(page.getByTestId('apply-plan-button')).toBeDisabled()
+		await expect(page.getByTestId('planner-consent-hint')).toBeVisible()
+		await page.getByTestId('planner-consent').check()
+		await expect(page.getByTestId('apply-plan-button')).toBeEnabled()
+
 		const applyResponse = page.waitForResponse((response) =>
 			response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/apply'))
 		await page.getByTestId('apply-plan-button').click()
 		const apply = await applyResponse
 		expect(apply.status()).toBe(200)
+		const applyRequestBody = JSON.parse(apply.request().postData() ?? '{}')
+		expect(applyRequestBody.consent).toBe(true)
 		const applyBody = await apply.json()
 		expect(applyBody.data.appliedCount).toBe(1)
 		expect(applyBody.data.roomTasks[0].id).toBe(roomTaskId)
@@ -294,6 +304,8 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 							roomTaskIds: [roomTaskId],
 							overrides: {},
 							previewVersion: 'forged-version',
+							commandId: 'c0ffee00-0000-4000-8000-000000000001',
+							consent: true,
 						})
 						return { preview, apply }
 					},
@@ -338,6 +350,12 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await page.keyboard.press('Enter')
 		await expect(page.getByTestId(`plan-change-${toilet.id}`)).toBeVisible()
 
+		// WP2: the consent attestation is a native checkbox — Space toggles
+		// it and only then does apply become reachable/enabled.
+		await tabUntil(page, 'planner-consent')
+		await page.keyboard.press('Space')
+		await expect(page.getByTestId('planner-consent')).toBeChecked()
+
 		await tabUntil(page, 'apply-plan-button')
 		const applyResponse = page.waitForResponse((response) =>
 			response.request().method() === 'POST'
@@ -378,7 +396,14 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 
 		const assigneeSelect = page.getByTestId(`planner-assignee-${toilet.id}`)
 		expect((await assigneeSelect.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+
+		// WP2: the consent attestation is a 44px touch target and gates apply.
+		const consentLabel = page.locator('label.consent-label')
+		expect((await consentLabel.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 		const applyButton = page.getByTestId('apply-plan-button')
+		await expect(applyButton).toBeDisabled()
+		await consentLabel.tap()
+		await expect(page.getByTestId('planner-consent')).toBeChecked()
 		await expect(applyButton).toBeEnabled()
 		expect((await applyButton.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 
@@ -403,6 +428,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await page.getByTestId(`planner-task-checkbox-${toilet.id}`).check()
 		await page.getByTestId('preview-plan-button').click()
 		await expect(page.getByTestId(`plan-change-${toilet.id}`)).toBeVisible()
+		await page.getByTestId('planner-consent').check()
 
 		// External mutation behind the preview's back: someone else assigns
 		// the vacuum task through the regular API.
@@ -432,10 +458,65 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await expect(page.getByTestId('plan-stale')).toBeVisible()
 		await expect(page.getByTestId('plan-applied')).toHaveCount(0)
 
+		// RF-073-WP2-13: the draft is preserved after the 409 — the task
+		// selection AND the recorded consent attestation survive the retry
+		// window (the command UUID is retained store-side, pinned by the
+		// scheduling store spec).
+		await expect(page.getByTestId(`planner-task-checkbox-${toilet.id}`)).toBeChecked()
+		await expect(page.getByTestId('planner-consent')).toBeChecked()
+
 		// The planner stays usable: a fresh preview succeeds and still
-		// proposes a change for the untouched sibling task.
+		// proposes a change for the untouched sibling task — and a fresh
+		// preview requires a FRESH consent attestation.
 		await page.getByTestId('preview-plan-button').click()
 		await expect(page.getByTestId(`plan-change-${toilet.id}`)).toBeVisible()
+		await expect(page.getByTestId('planner-consent')).not.toBeChecked()
+		await expect(page.getByTestId('apply-plan-button')).toBeDisabled()
+
+		await context.close()
+	})
+
+	test('an apply without the explicit consent attestation is rejected 400', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const toilet = roomTaskByName(seededData!, 'Clean toilet')
+
+		const { context, page } = await createUserContext(browser, 'dad')
+		await goToScheduling(page)
+
+		// The UI cannot produce this request (apply is gated on the
+		// checkbox) — the API must still refuse a consent-less apply.
+		const status = await page.evaluate(
+			async ({ todayKey, roomTaskId }: { todayKey: string; roomTaskId: number }) => {
+				const token = document.head.querySelector('meta[name="requesttoken"]')?.content
+				const post = async (url: string, body: object) => {
+					const response = await fetch(url, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							requesttoken: String(token ?? ''),
+						},
+						body: JSON.stringify(body),
+					})
+					return response
+				}
+				const preview = await post('/apps/chorestrike/api/v1/scheduling/suggestions', {
+					startDate: todayKey,
+					roomTaskIds: [roomTaskId],
+					overrides: {},
+				})
+				const previewBody = await preview.json()
+				const apply = await post('/apps/chorestrike/api/v1/scheduling/apply', {
+					startDate: todayKey,
+					roomTaskIds: [roomTaskId],
+					overrides: {},
+					previewVersion: previewBody.data.previewVersion,
+					commandId: 'c0ffee00-0000-4000-8000-000000000002',
+				})
+				return apply.status
+			},
+			{ todayKey: utcDayKey(0), roomTaskId: toilet.id },
+		)
+		expect(status).toBe(400)
 
 		await context.close()
 	})

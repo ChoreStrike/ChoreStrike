@@ -178,6 +178,15 @@ class OccurrenceService {
 		$this->reconcile->updateNextDueProjectionUnderLock($roomTask, $now);
 	}
 
+	/**
+	 * Persist the in-memory stamped suspension facts of a materialized
+	 * occurrence row UNDER LOCK (RF-073-WP2-05 command-boundary stamping;
+	 * bumps the row version — run staleness gates first).
+	 */
+	public function persistSuspensionStampUnderLock(Occurrence $occurrence): void {
+		$this->reconcile->persistSuspensionStampUnderLock($occurrence);
+	}
+
 	// ------------------------------------------------------------------
 	// Revision closure — edits, zone changes, tombstones ({@see OccurrenceRevisionService})
 	// ------------------------------------------------------------------
@@ -219,12 +228,13 @@ class OccurrenceService {
 
 	/**
 	 * The canonical completion target of a room task (open window, else
-	 * latest miss; never a future projection).
+	 * latest miss; never a future projection). Neutral suspension is
+	 * honored when the house context is supplied.
 	 *
 	 * @return array{occurrence: Occurrence, revision: ScheduleRevision, classification: string}|null
 	 */
-	public function selectionFor(RoomTask $roomTask, \DateTime $now): ?array {
-		return $this->selection->selectionFor($roomTask, $now);
+	public function selectionFor(RoomTask $roomTask, \DateTime $now, int $houseId = 0): ?array {
+		return $this->selection->selectionFor($roomTask, $now, $houseId);
 	}
 
 	/**
@@ -232,6 +242,17 @@ class OccurrenceService {
 	 */
 	public function selectFromAgreed(array $agreed, \DateTime $now): ?array {
 		return $this->selection->selectFromAgreed($agreed, $now);
+	}
+
+	/**
+	 * Stamp the WP2 projection facts of ONE occurrence in memory and
+	 * return its derived work appointment (write-free; the command
+	 * boundary's twin of the batched read stamping — RF-073-WP2-05/22).
+	 *
+	 * @return array{date: ?string, zone: string}
+	 */
+	public function stampProjection(int $houseId, Occurrence $occurrence, ScheduleRevision $revision): array {
+		return $this->selection->stampProjection($houseId, $occurrence, $revision);
 	}
 
 	/**
@@ -266,19 +287,25 @@ class OccurrenceService {
 	}
 
 	/**
-	 * The occurrence DTO block of one entry (shared by every read path).
+	 * The occurrence DTO block of one entry (shared by every read path);
+	 * carries the WP2 neutral-suspension facts and the agreed work
+	 * appointment.
 	 *
+	 * @param array{date: ?string, zone: string}|null $workAppointment
 	 * @return array<string, mixed>
 	 */
-	public function occurrenceBlock(Occurrence $occurrence, ScheduleRevision $revision, string $classification): array {
-		return $this->selection->occurrenceBlock($occurrence, $revision, $classification);
+	public function occurrenceBlock(Occurrence $occurrence, ScheduleRevision $revision, string $classification, int $houseId = 0, ?string $pauseFingerprint = null, ?array $workAppointment = null): array {
+		return $this->selection->occurrenceBlock($occurrence, $revision, $classification, $houseId, $pauseFingerprint, $workAppointment);
 	}
 
 	/**
-	 * Deterministic selection token (parent §3.4).
+	 * Deterministic selection token (parent §3.4); fingerprints the
+	 * effective pause inputs of the house context when supplied.
+	 *
+	 * @param array{date: ?string, zone: string}|null $workAppointment
 	 */
-	public function selectionToken(Occurrence $occurrence, ScheduleRevision $revision, string $classification): string {
-		return $this->selection->selectionToken($occurrence, $revision, $classification);
+	public function selectionToken(Occurrence $occurrence, ScheduleRevision $revision, string $classification, int $houseId = 0, ?string $pauseFingerprint = null, ?array $workAppointment = null): string {
+		return $this->selection->selectionToken($occurrence, $revision, $classification, $houseId, $pauseFingerprint, $workAppointment);
 	}
 
 	/**
@@ -372,8 +399,79 @@ class OccurrenceService {
 		?array $affectedWalletIds,
 		string $newDateKey,
 		\DateTime $now,
+		?array $consent = null,
 	): Occurrence {
-		return $this->agreements->amendOccurrenceDateUnderLock($roomTask, $actorHouseUserId, $affectedWalletIds, $newDateKey, $now);
+		return $this->agreements->amendOccurrenceDateUnderLock($roomTask, $actorHouseUserId, $affectedWalletIds, $newDateKey, $now, $consent);
+	}
+
+	/**
+	 * WP2 explicit-target date amendment UNDER LOCK (RF-073-WP2-01):
+	 * moves EXACTLY the resolved occurrence, never a re-selected one.
+	 */
+	public function amendOccurrenceDateForTargetUnderLock(
+		Occurrence $occurrence,
+		ScheduleRevision $revision,
+		RoomTask $roomTask,
+		?int $actorHouseUserId,
+		?array $affectedWalletIds,
+		string $newDateKey,
+		\DateTime $now,
+		?array $consent = null,
+	): Occurrence {
+		return $this->agreements->amendOccurrenceDateForTargetUnderLock($occurrence, $revision, $roomTask, $actorHouseUserId, $affectedWalletIds, $newDateKey, $now, $consent);
+	}
+
+	/**
+	 * WP2 single-occurrence participant amendment UNDER LOCK (handover /
+	 * share) — future revision defaults stay untouched; former participants
+	 * are persisted as neutral releases (RF-073-WP2-02) and the evidence
+	 * kind is derived from the actual responsibility change.
+	 *
+	 * @param list<array{walletId: int, userId?: string, role: string, obligated: bool, sharePct: int}> $participants
+	 */
+	public function amendOccurrenceMembersUnderLock(
+		Occurrence $occurrence,
+		RoomTask $roomTask,
+		?int $actorHouseUserId,
+		array $participants,
+		array $consentSubjects,
+		\DateTime $now,
+	): Occurrence {
+		return $this->agreements->amendOccurrenceMembersUnderLock($occurrence, $roomTask, $actorHouseUserId, $participants, $consentSubjects, $now);
+	}
+
+	/**
+	 * WP2 catch-up work-appointment writer UNDER LOCK.
+	 *
+	 * @param list<array{walletId: int, role: string, obligated: bool, sharePct: int}> $participants
+	 */
+	public function setWorkAppointmentUnderLock(
+		Occurrence $occurrence,
+		RoomTask $roomTask,
+		?int $actorHouseUserId,
+		string $workDateKey,
+		string $workZone,
+		array $participants,
+		array $consentSubjects,
+		\DateTime $now,
+	): Occurrence {
+		return $this->agreements->setWorkAppointmentUnderLock($occurrence, $roomTask, $actorHouseUserId, $workDateKey, $workZone, $participants, $consentSubjects, $now);
+	}
+
+	/**
+	 * WP2 linked interval restart writer UNDER LOCK.
+	 */
+	public function createLinkedRestartUnderLock(
+		int $houseId,
+		Occurrence $predecessor,
+		RoomTask $roomTask,
+		ScheduleRevision $revision,
+		string $plannedDateKey,
+		?int $actorHouseUserId,
+		array $consentSubjects,
+		\DateTime $now,
+	): Occurrence {
+		return $this->agreements->createLinkedRestartUnderLock($houseId, $predecessor, $roomTask, $revision, $plannedDateKey, $actorHouseUserId, $consentSubjects, $now);
 	}
 
 	/**
@@ -391,8 +489,9 @@ class OccurrenceService {
 		?int $actorHouseUserId,
 		array $newAssigneeUserIds,
 		\DateTime $now,
+		?array $consent = null,
 	): array {
-		return $this->agreements->amendParticipantsUnderLock($houseId, $roomTask, $task, $house, $actorHouseUserId, $newAssigneeUserIds, $now);
+		return $this->agreements->amendParticipantsUnderLock($houseId, $roomTask, $task, $house, $actorHouseUserId, $newAssigneeUserIds, $now, $consent);
 	}
 
 	/**

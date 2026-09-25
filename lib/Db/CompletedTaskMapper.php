@@ -150,26 +150,42 @@ class CompletedTaskMapper extends QBMapper {
 
 	/**
 	 * Find the non-undone completion effort of one house within a window,
-	 * bucketed per completer and house-local calendar day (CS-PLAN-065
-	 * §3.1 preview capacity input).
+	 * bucketed per completer (CS-PLAN-065 §3.1 preview capacity input,
+	 * CS-PLAN-073 WP2 cutover).
 	 *
 	 * Decision D11: `undone_at` rows are excluded — an undone completion is
-	 * no longer planned work. The rows carry the raw `completed_at` instant
-	 * and the task's `energy_cost`; the caller buckets the instants into
-	 * house-local day keys (CalendarService) so the SQL stays portable.
+	 * no longer planned work. WP2: the energy comes from the SAVED
+	 * occurrence joined by the frozen (schedule_rev_id, occurrence_ordinal)
+	 * key — never from the mutable `tasks.energy_cost` definition (plan
+	 * §3.2: frozen occurrence effort survives definition edits).
+	 * RF-073-WP2-15: the join is INNER — a completion row without its
+	 * occurrence link is an invariant violation and must never silently
+	 * fall back to the mutable definition energy; every completion path
+	 * records the frozen timeline evidence (CompletionService), so the
+	 * join is lossless for valid work. The rows carry the raw
+	 * `completed_at` instant plus the saved work-date/zone basis; the
+	 * caller buckets the instants into candidate-day intervals
+	 * (PauseProjectionService Q-073-02 mapping) so the SQL stays portable.
+	 * The recorded work stays with the recorded completer — it is never
+	 * split across planned assignees.
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $start Inclusive window start
 	 * @param \DateTimeInterface $end Exclusive window end
-	 * @return array<int, array{houseUserId: int, completedAt: \DateTime, energy: int}>
+	 * @return array<int, array{houseUserId: int, completedAt: \DateTime, energy: int, workDate: \DateTime|null, workZone: string|null, occurrenceKey: string|null}>
 	 */
 	public function findEnergyUsageBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('ct.user_id', 'ct.completed_at', 't.energy_cost')
+		$qb->select('ct.user_id', 'ct.completed_at', 'ct.work_date', 'ct.work_zone', 'ct.schedule_rev_id', 'ct.occurrence_ordinal')
+			->addSelect('o.energy')
 			->from($this->getTableName(), 'ct')
-			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
-			->innerJoin('rt', 'chorestrike_tasks', 't', $qb->expr()->eq('rt.task_id', 't.id'))
 			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
+			->innerJoin('ct', 'chorestrike_occurrences', 'o',
+				$qb->expr()->andX(
+					$qb->expr()->eq('o.schedule_rev_id', 'ct.schedule_rev_id'),
+					$qb->expr()->eq('o.ordinal', 'ct.occurrence_ordinal'),
+					$qb->expr()->eq('o.room_task_id', 'ct.room_task_id')
+				))
 			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
@@ -178,10 +194,15 @@ class CompletedTaskMapper extends QBMapper {
 		$result = $qb->executeQuery();
 		$rows = [];
 		while ($row = $result->fetch()) {
+			$revId = $row['schedule_rev_id'] !== null ? (int)$row['schedule_rev_id'] : null;
+			$ordinal = $row['occurrence_ordinal'] !== null ? (int)$row['occurrence_ordinal'] : null;
 			$rows[] = [
 				'houseUserId' => (int)$row['user_id'],
 				'completedAt' => new \DateTime((string)$row['completed_at']),
-				'energy' => (int)$row['energy_cost'],
+				'energy' => (int)$row['energy'],
+				'workDate' => $row['work_date'] !== null ? new \DateTime((string)$row['work_date']) : null,
+				'workZone' => $row['work_zone'] !== null ? (string)$row['work_zone'] : null,
+				'occurrenceKey' => $revId !== null && $ordinal !== null ? $revId . ':' . $ordinal : null,
 			];
 		}
 		$result->closeCursor();

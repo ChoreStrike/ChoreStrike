@@ -740,14 +740,18 @@ class CompletionService {
 	 * the house-relative saved-zone flag.
 	 */
 	private function selectionBlock(RoomTask $roomTask, House $house): ?array {
-		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime());
+		$houseId = (int)$house->getId();
+		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
 		if ($selection === null) {
 			return null;
 		}
 		return $this->occurrenceService->occurrenceBlock(
 			$selection['occurrence'],
 			$selection['revision'],
-			$selection['classification']
+			$selection['classification'],
+			$houseId,
+			null,
+			$selection['workAppointment'] ?? null
 		) + [
 			'savedZoneDiffers' => $selection['occurrence']->getTimezone() !== $this->calendarService->getTimeZone($house)->getName(),
 		];

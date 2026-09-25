@@ -102,33 +102,6 @@ No duplicate item, implementation or closure is implied by the product decision.
 
 ---
 
-### [P3] CR-SVC-64 — Midnight-crossing schedule apply answers 400 instead of 409 stale-preview
-**Status**: In Progress — owned by the [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md) preview/apply cutover (activated 2026-09-23) · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
-**Owning**: CS-PLAN-073 (WP2) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-17)
-
-When a preview is generated just before house-local midnight and applied just
-after, the apply's `startDate >= today` validation fires first and answers
-`400 VALIDATION_ERROR` ("startDate must be today or later") instead of the
-stale-preview `409 CONFLICT` — the fingerprint revalidation would reject the
-same request one code later. UX nit at the day boundary; fix: validate the
-fingerprint/staleness ordering before the startDate window check, or map a
-midnight-crossed startDate to the stale-preview conflict.
-
-**WP2 (2026-09-23):** [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md)
-assigns the fix and deterministic injected-clock regression to its preview/apply
-cutover; activated via Standard A `PASS-WITH-FIXES` (2026-09-23). Still open —
-close/archive only after the write-free midnight-409 proof passes.
-
-**WP2 review (2026-09-24):** the mechanism is implemented in the (still
-uncommitted) WP2 increment — preview fingerprint v2 includes the evaluation
-local day and apply compares the fingerprint BEFORE the relative-date
-rejection, so a midnight-crossed preview yields a write-free 409. The required
-injected-clock proof test is outstanding (plan §9 RF-073-WP2-11); the item
-stays In Progress until it passes in the fix round.
-
----
-
 ### [P4] CR-SEC-05 — Caller-gates-owner contract on removeHouseMember/updateUserRole
 **Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: authorization
 **Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -282,7 +255,7 @@ unchanged. Priority reflects its selected role in the reliable core, not activat
 ---
 
 ### [P1] FEAT-UX-025 — Vacation / house-pause mode
-**Status**: In Progress — backend pause/agreement/capacity slice via [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md) (activated 2026-09-23); full pause UI, rhythm and quiet-digest integration remain WP6/WP4/WP5 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
+**Status**: In Progress — backend pause/agreement/capacity slice DELIVERED via [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) (final Standard B `PASS-WITH-FIXES` 2026-09-25); full pause UI, rhythm and quiet-digest integration remain WP6/WP4/WP5 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
 **Owning**: CS-PLAN-073 (backend slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
@@ -291,12 +264,19 @@ freezes. Adults manage their own pauses, children request owner approval; owners
 manage household pauses and traceable retrospective illness. No fake completions
 or reminders during pauses. Recurring weekday availability is not this feature.
 
-**WP2 (2026-09-23):** [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md)
+**WP2 (2026-09-23):** [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md)
 specifies the backend pause/agreement/capacity slice and T2/T3 evidence, reusing
 delivered WP1; activated via Standard A `PASS-WITH-FIXES` (2026-09-23) with
 Q-073-01/02/03 resolved (helper-only pause, frozen cross-zone capacity/pause
 comparison, departure/rejoin). Full pause UI, new rhythm and quiet-digest
 integration remain WP6/WP4/WP5; activation does not close the whole item.
+
+**WP2 delivered (2026-09-25):** the backend slice — revisioned pause lifecycle
+(request/decision/illness/next-day shortening, viewer-safe whitelist), neutral
+suspension with virtual/persisted parity, whole-day exact-share capacity,
+owner-recorded amendments/catch-up/linked restart, planner consent/command
+cutover — passed the final Standard B review (`PASS-WITH-FIXES`; RF-01..28
+resolved; plan in `done/`). CR-SVC-64 closed with it.
 
 - [x] Core pause model, role boundaries and durable concept description approved.
 - [x] Specify pause/date/urgent-work interaction and history/denominator amendments (C1/C2). (C2d–g/i/j approved 2026-09-17; operationalized by CS-PLAN-073 §3.4 and the §10 resolutions, 2026-09-23.)
@@ -420,8 +400,9 @@ and — per Q-072-01 Option A — the minimal common agreement writer with
 `agreements` persistence and the necessary C2
 deadline/authorization/capacity checks; ADR-013 recorded. The WP2+
 behavior packages remain open in the parent; CONCEPT-001 remains open.
-WP2 is sub-planned and activated as [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md)
-(Standard A `PASS-WITH-FIXES` 2026-09-23; Q-073-01/02/03 resolved with the
+WP2 was sub-planned as [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md)
+(Standard A `PASS-WITH-FIXES` 2026-09-23; final Standard B `PASS-WITH-FIXES`
+2026-09-25 — delivered; Q-073-01/02/03 resolved with the
 recommended options, including the frozen cross-zone capacity/pause comparison):
 agreements, exact planned shares, whole-day capacity, pauses, catch-up/restart
 and midnight-stale 409, with concrete test/file ownership and explicit
@@ -441,7 +422,7 @@ closes no backlog item.
 
 ### [P3] TECH-JEST-001 — Exclude local worktree mocks from Jest discovery
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: testing
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CS-PLAN-073 Standard B re-review (2026-09-24): reproduced duplicate worktree mocks with 1070 passing Jest tests; repeated 2026-09-25 with 1073 passing tests; no suppression or worktree changes
 **Source**: Baseline verification during family-first concept review (2026-09-16)
 
 `npm test -- --runInBand` passes all 1056 tests but reports duplicate manual

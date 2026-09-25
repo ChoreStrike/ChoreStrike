@@ -4,6 +4,20 @@
 **Date**: 2026-09-20
 **Deciders**: ChoreStrike maintainers (ratified in CS-PLAN-070 / CS-PLAN-072 WP1)
 
+> **WP2 extension (2026-09-23, CS-PLAN-073):** the agreement surface grew the
+> command-level coordinator `AgreementService` (`occurrence.amend|catch-up|restart`
+> as `CommandService` commands: owner-recorded amendments with explicit consent
+> attestation, catch-up work appointments that retain the miss, linked interval
+> restarts), the whole-day capacity evaluator `DailyCapacityService` (exact
+> planned shares + frozen occurrence effort, minor units) and the revisioned
+> pause lifecycle (`pauses` table, `PauseService`, `PauseProjectionService` with
+> the frozen Q-073-01/Q-073-02 comparison rules). Neutral suspension persists as
+> occurrence provenance, invalidates selection tokens and consumes no live
+> planned capacity; a voluntary pause releases only the helper commitment. The
+> planner `apply` runs as one `scheduling.apply` command (command UUID, CR-SVC-64
+> write-free midnight 409). See `docs/plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md` for the
+> resolved decision record.
+
 ## Context
 
 Until CS-PLAN-072 WP1 the recurrence authority was the mutable
@@ -132,6 +146,94 @@ house timezone edit appends a revision (`reviseForZoneChangeUnderLock`): saved
 occurrences keep their zone/deadlines, only new agreements resolve in the new
 zone.
 
+### WP2 agreements, pauses and capacity (CS-PLAN-073, delivered 2026-09-24)
+
+> Corrected in the 2026-09-25 fix round: per-group revision precedence,
+> recognition-time eligibility, joint suspension on any paused obligated
+> participant, concrete-arrangement validation and the pause-list whitelist.
+
+**Agreement commands** (`AgreementService`, routes `occurrence#amend /
+catch-up / restart`) are owner-recorded CommandService commands under the
+house-first lock. The receipt identity covers the **action plus every
+normalized semantic input** (amend: `date` + the canonical participant set;
+catch-up: `workDate`/`workZone` + participants; restart: `workDate`) — an
+identical retry replays the original result, the same UUID with any changed
+fact conflicts. The command boundary resolves the shown target
+(materializing a virtual agreed key), stamps the **effective projection**
+(neutral suspension + agreed work appointment, derived exactly like the read
+paths) and enforces expected version **and** the recomputed authoritative
+`selectionToken` (`hash_equals`) — pause/consent drift on a read-only virtual
+target is a 409 with zero writes, which version equality alone cannot see.
+Derived suspension facts persist with the command's writes. The date writer
+moves **exactly the resolved occurrence** (`amendOccurrenceDateForTargetUnderLock`),
+never a re-selected other one; a neutrally suspended occurrence is no
+date-amendment target; `restart` requires the effectively-suspended interval
+predecessor and creates exactly one linked successor (the open-restart
+uniqueness makes duplicate restarts a clean conflict). Capacity and consent
+validation follow the arrangement the writer will actually persist:
+date-only amendments and catch-ups without a participant payload resolve the
+**concrete active occurrence members under the lock** (after a handover the
+actual people and exact shares on the occurrence's frozen energy, never the
+replaced revision defaults, which remain the basis only for virtual
+derivations and the restart successor), and a participant change re-derives
+the effective suspension from the new rows so an explicit feasible 100%
+agreement resumes a suspended occurrence with the next GET/job agreeing.
+
+**Neutral releases and evidence:** a former participant leaving an
+arrangement is persisted as a `released` member row (obligation dropped,
+former role/share snapshot retained) — never deleted; the evidence kind is
+derived from the actual responsibility change (`handover` only when the
+active responsible set changes, otherwise `share`), and the recorded consent
+(`attestedBy` + subjects) rides every agreement row, including the planner
+apply's explicit owner attestation. A catch-up work appointment **including
+its zone** rides the replaced participant rows; the miss keeps its planned
+date/window, and the appointment projects into DTOs/tokens **independently of
+pause presence**.
+
+**Pauses** (`PauseService` + `PauseProjectionService`): revisioned pause
+groups (personal request → child pending / adult acknowledged; house scope
+owner-only; retrospective illness owner-recognized; shortening scoped to
+acknowledged pauses). Only **recognized** revisions have execution effects,
+resolved with **per-group revision precedence**: within a group the latest
+acknowledged revision governs every date from its decision boundary (the day
+after the decision day in the pause's saved zone — derived from the persisted
+`updated_at` decision fact, reproducible after later revisions, house-zone
+edits and job replays), so a shortening actually removes its superseded
+future coverage while today's and earlier recognized excuses survive it; an
+undecided/rejected child shortening governs nothing, and different groups
+compose as a **union** with full provenance (every covering pause keeps its
+own evidence row and `pause_ref`). An **ordinary** recognition excuses an
+obligation only when its decision (the actual acknowledgment/approval time,
+never the child's earlier request time) predates the obligation's original
+exclusive deadline — reads, immediate writes and job materialization apply
+the same eligibility rule, and a late approval never erases an expired miss;
+only the explicit retrospective-illness marker neutralizes a qualifying old
+miss. Suspension triggers when **any** obligated (responsible/joint)
+participant is covered — pausing one partner of an explicit joint
+arrangement suspends the whole occurrence (frozen shares retained, zero
+outstanding capacity) until an explicit feasible agreement resumes it —
+while a helper-only pause releases only the helper commitment (Q-073-01).
+Materialized occurrences resolve participants from their concrete member
+rows and genuinely virtual twins from the saved revision's defaults, so both
+derive identical suspension facts (a stopped cron never changes the read
+answer, and a GET writes nothing). The viewer-safe pause list is an explicit
+field whitelist: pending personal requests are self/owner-only, and the
+personal reason plus the retrospective-illness marker stay self/owner data
+in every state — unrelated members receive only neutral shared facts.
+Departure cancels the member's pending requests and stops future
+personal effects while the retained wallet never re-binds facts (Q-073-03).
+
+**Whole-day capacity** (`DailyCapacityService`): exact minor-unit shares per
+participant (wallet-order remainder split), occurrence-identity dedupe
+against the completion ledger, **frozen energies joined from the SAVED
+occurrence** (INNER join — a definition edit can never re-price recorded
+work, and an unlinked ledger row is excluded instead of silently re-priced),
+saved-zone time-basis mapping (Q-073-02), suspended plans consume nothing,
+concretely agreed **helper** commitments are checked like every affected
+participant, and a replacement removes exactly the row's old allocation
+before its new commitments are tested. Command gates throw stable conflicts
+(pause/availability/energy budget/child limit) naming no third-party data.
+
 ### Checklist and undo seam
 
 Checklist progress is occurrence-scoped: a fulfilled occurrence keeps its
@@ -163,10 +265,11 @@ effect-record restore no longer touches `next_due`, `ideal_due_date`,
 
 ### Neutral
 - `next_due`/`ideal_due_date`/`last_completed` remain as projections for
-  existing read surfaces and ordering, but are recomputed from the timeline.
-- WP2 (pause/restart and the remaining full agreement-writer surface), WP3
-  (monetary/room replay cutover) and WP4 (family rhythm) build on this
-  foundation and remain pending; this ADR documents only the WP1 timeline.
+  existing read surfaces and ordering, but they are recomputed from the timeline.
+- WP2 (agreements, pauses/capacity and the receipt-hardened command boundary)
+  is **delivered** (CS-PLAN-073, see the WP2 section above); WP3 (monetary/
+  room replay cutover), WP4 (family-rhythm goals) and WP5/6 (presentation)
+  build on this foundation and remain pending.
 
 ## Alternatives Considered
 
@@ -185,6 +288,8 @@ effect-record restore no longer touches `next_due`, `ideal_due_date`,
   ADR-011 (transactional completion and undo), ADR-012 (scheduling preview/apply)
 - Concept: `docs/concepts/task-model-and-sync.md`
 - Code: `lib/Service/{RecurrenceCalculator,OccurrenceService,OccurrenceRowFactory,OccurrenceReconcileService,OccurrenceSelectionService,OccurrenceRevisionService,OccurrenceCompletionService,OccurrenceAgreementService}.php`,
+  WP2: `lib/Service/{AgreementService,AgreementCommandContext,PauseService,PauseProjectionService,DailyCapacityService,CommandService}.php`,
+  `lib/Controller/{OccurrenceController,PauseController}.php`,
   `lib/Db/{ScheduleRevision,Occurrence,OccurrenceMember,Agreement}.php`,
   `lib/Migration/Version1031Date20260918000000.php`,
   `lib/BackgroundJob/TimelineJob.php`

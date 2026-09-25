@@ -16,11 +16,15 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
  * Real-DB regression test for CompletedTaskMapper::findEnergyUsageBetweenByHouse
- * (CS-PLAN-065 §3.3, decision D11).
+ * (CS-PLAN-065 §3.3, decision D11; CS-PLAN-073 WP2 §3.2 frozen energy).
  *
  * The batched query is the preview's authoritative completed-effort input:
  * non-undone completions only, house-scoped, carrying the completer and the
- * task's energy_cost per row. The former per-user day query
+ * FROZEN energy of the SAVED occurrence joined by the frozen
+ * (schedule_rev_id, occurrence_ordinal) key. RF-073-WP2-15: the join is
+ * INNER — a completion row without its occurrence link never silently
+ * falls back to the mutable `tasks.energy_cost` definition; it is excluded
+ * as the invariant violation it is. The former per-user day query
  * (getConsumedEnergyForUserOnDate) was removed with the reader-less client
  * energy counter (decision D7); its boundary semantics survive here in the
  * window shape. A mock-based test cannot catch SQL shape errors, so this
@@ -32,6 +36,9 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 
 	/** @var array<int> Completed-task rows created by this test (not covered by the base cleanup). */
 	private array $createdCompletedTaskIds = [];
+
+	/** @var array<int> Occurrence rows created by this test's fixtures. */
+	private array $createdOccurrenceIds = [];
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -46,6 +53,13 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 				->where($qb->expr()->in('id', $qb->createNamedParameter($this->createdCompletedTaskIds, IQueryBuilder::PARAM_INT_ARRAY)));
 			$qb->executeStatement();
 			$this->createdCompletedTaskIds = [];
+		}
+		if (!empty($this->createdOccurrenceIds)) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_occurrences')
+				->where($qb->expr()->in('id', $qb->createNamedParameter($this->createdOccurrenceIds, IQueryBuilder::PARAM_INT_ARRAY)));
+			$qb->executeStatement();
+			$this->createdOccurrenceIds = [];
 		}
 
 		parent::tearDown();
@@ -80,6 +94,69 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 		$id = (int)$this->db->lastInsertId('chorestrike_completed_tasks');
 		$this->createdCompletedTaskIds[] = $id;
 		return $id;
+	}
+
+	/**
+	 * Insert a SAVED occurrence with an explicit frozen energy and link a
+	 * completion row to it through the frozen (rev, ordinal) key — the
+	 * production completion shape (CompletionService records the timeline
+	 * evidence on every completion).
+	 */
+	private function linkCompletionToFrozenOccurrence(int $houseId, int $roomTaskId, int $completionId, int $frozenEnergy, string $plannedDate = '2026-06-15'): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from('chorestrike_schedule_revs')
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('closed_at'))
+			->orderBy('id', 'DESC')
+			->setMaxResults(1);
+		$revId = (int)$qb->executeQuery()->fetchOne();
+		self::assertGreaterThan(0, $revId, 'the room task must own a live schedule revision');
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->max('ordinal'))
+			->from('chorestrike_occurrences')
+			->where($qb->expr()->eq('schedule_rev_id', $qb->createNamedParameter($revId, IQueryBuilder::PARAM_INT)));
+		$ordinal = ((int)$qb->executeQuery()->fetchOne()) + 1;
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('chorestrike_occurrences')
+			->values([
+				'house_id' => $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT),
+				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
+				'schedule_rev_id' => $qb->createNamedParameter($revId, IQueryBuilder::PARAM_INT),
+				'ordinal' => $qb->createNamedParameter($ordinal, IQueryBuilder::PARAM_INT),
+				'kind' => $qb->createNamedParameter('scheduled', IQueryBuilder::PARAM_STR),
+				'planned_date' => $qb->createNamedParameter($plannedDate, IQueryBuilder::PARAM_STR),
+				'week_start' => $qb->createNamedParameter($plannedDate, IQueryBuilder::PARAM_STR),
+				'timezone' => $qb->createNamedParameter('UTC', IQueryBuilder::PARAM_STR),
+				'day_start' => $qb->createNamedParameter($plannedDate . ' 00:00:00', IQueryBuilder::PARAM_STR),
+				'window_start' => $qb->createNamedParameter($plannedDate . ' 00:00:00', IQueryBuilder::PARAM_STR),
+				'window_end' => $qb->createNamedParameter($plannedDate . ' 23:59:59', IQueryBuilder::PARAM_STR),
+				'energy' => $qb->createNamedParameter($frozenEnergy, IQueryBuilder::PARAM_INT),
+				'is_public' => $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL),
+				'version' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
+				'created_at' => $qb->createNamedParameter('2026-06-15 00:00:00', IQueryBuilder::PARAM_STR),
+			]);
+		$qb->executeStatement();
+		$this->createdOccurrenceIds[] = (int)$this->db->lastInsertId('chorestrike_occurrences');
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_completed_tasks')
+			->set('schedule_rev_id', $qb->createNamedParameter($revId, IQueryBuilder::PARAM_INT))
+			->set('occurrence_ordinal', $qb->createNamedParameter($ordinal, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($completionId, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Insert a completion WITH its frozen occurrence link (the production
+	 * shape) and return the completion row id.
+	 */
+	private function insertLinkedCompletion(int $houseId, int $roomTaskId, int $houseUserId, string $completedAt, int $frozenEnergy, bool $undone = false): int {
+		$completionId = $this->insertCompletion($roomTaskId, $houseUserId, $completedAt, $undone);
+		$this->linkCompletionToFrozenOccurrence($houseId, $roomTaskId, $completionId, $frozenEnergy);
+		return $completionId;
 	}
 
 	/**
@@ -121,8 +198,8 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 		$rtLaundry = $this->assignTaskToRoom($this->createTask($houseId, 'Laundry', '', 5, 5), $roomId);
 
 		$houseUserId = $this->houseUserId($houseId, 'energy_sum_owner');
-		$this->insertCompletion($rtDishes, $houseUserId, '2026-06-15 08:30:00');
-		$this->insertCompletion($rtLaundry, $houseUserId, '2026-06-15 19:45:00');
+		$this->insertLinkedCompletion($houseId, $rtDishes, $houseUserId, '2026-06-15 08:30:00', 3);
+		$this->insertLinkedCompletion($houseId, $rtLaundry, $houseUserId, '2026-06-15 19:45:00', 5);
 
 		self::assertSame(
 			[3, 5],
@@ -143,13 +220,66 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 		$rtUndone = $this->assignTaskToRoom($this->createTask($houseId, 'Laundry', '', 5, 9), $roomId);
 
 		$houseUserId = $this->houseUserId($houseId, 'energy_undo_owner');
-		$this->insertCompletion($rtKept, $houseUserId, '2026-06-15 09:00:00');
-		$this->insertCompletion($rtUndone, $houseUserId, '2026-06-15 10:00:00', true);
+		$this->insertLinkedCompletion($houseId, $rtKept, $houseUserId, '2026-06-15 09:00:00', 3);
+		$this->insertLinkedCompletion($houseId, $rtUndone, $houseUserId, '2026-06-15 10:00:00', 9, true);
 
 		$rows = $this->usageFor($houseId);
 
 		self::assertCount(1, $rows);
 		self::assertSame(3, $rows[0]['energy']);
+	}
+
+	/**
+	 * FindEnergyUsage_FrozenOccurrenceEnergy_SurvivesDefinitionEdit
+	 * (RF-073-WP2-15): the energy comes from the SAVED occurrence — a
+	 * later definition edit never re-prices recorded work.
+	 */
+	public function testFindEnergyUsage_FrozenOccurrenceEnergy_SurvivesDefinitionEdit(): void {
+		$houseId = $this->createHouse('energy_frozen_owner', 'Energy Frozen House');
+		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+		$roomTaskId = $this->assignTaskToRoom($this->createTask($houseId, 'Dishes', '', 5, 3), $roomId);
+
+		$houseUserId = $this->houseUserId($houseId, 'energy_frozen_owner');
+		$this->insertLinkedCompletion($houseId, $roomTaskId, $houseUserId, '2026-06-15 09:00:00', 3);
+
+		// The definition is edited to a DIFFERENT energy after the work was
+		// recorded — the frozen occurrence energy must win.
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_tasks')
+			->set('energy_cost', $qb->createNamedParameter(9, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($this->taskIdOfRoomTask($roomTaskId), IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+
+		$rows = $this->usageFor($houseId);
+		self::assertCount(1, $rows);
+		self::assertSame(3, $rows[0]['energy'], 'the saved occurrence energy is frozen against definition edits');
+	}
+
+	/**
+	 * FindEnergyUsage_UnlinkedCompletion_NoSilentDefinitionFallback
+	 * (RF-073-WP2-15): a completion row without its occurrence link is an
+	 * invariant violation — it is excluded instead of silently re-priced
+	 * from the mutable definition.
+	 */
+	public function testFindEnergyUsage_UnlinkedCompletion_NoSilentDefinitionFallback(): void {
+		$houseId = $this->createHouse('energy_unlinked_owner', 'Energy Unlinked House');
+		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+		$roomTaskId = $this->assignTaskToRoom($this->createTask($houseId, 'Dishes', '', 5, 3), $roomId);
+
+		$houseUserId = $this->houseUserId($houseId, 'energy_unlinked_owner');
+		$this->insertCompletion($roomTaskId, $houseUserId, '2026-06-15 09:00:00');
+
+		self::assertSame([], $this->usageFor($houseId), 'an unlinked row never falls back to the definition energy');
+	}
+
+	private function taskIdOfRoomTask(int $roomTaskId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('task_id')
+			->from('chorestrike_room_tasks')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+		return (int)$qb->executeQuery()->fetchOne();
 	}
 
 	/**
@@ -166,10 +296,10 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 		$rtNextDay = $this->assignTaskToRoom($this->createTask($houseId, 'Vacuum', '', 5, 7), $roomId);
 
 		$houseUserId = $this->houseUserId($houseId, 'energy_edge_owner');
-		$this->insertCompletion($rtPreviousDay, $houseUserId, '2026-06-14 23:59:59'); // before window
-		$this->insertCompletion($rtStartEdge, $houseUserId, '2026-06-15 00:00:00');   // inclusive start
-		$this->insertCompletion($rtLateEvening, $houseUserId, '2026-06-15 23:59:59'); // last in-window second
-		$this->insertCompletion($rtNextDay, $houseUserId, '2026-06-16 00:00:00');     // exclusive end
+		$this->insertLinkedCompletion($houseId, $rtPreviousDay, $houseUserId, '2026-06-14 23:59:59', 6); // before window
+		$this->insertLinkedCompletion($houseId, $rtStartEdge, $houseUserId, '2026-06-15 00:00:00', 2);   // inclusive start
+		$this->insertLinkedCompletion($houseId, $rtLateEvening, $houseUserId, '2026-06-15 23:59:59', 4); // last in-window second
+		$this->insertLinkedCompletion($houseId, $rtNextDay, $houseUserId, '2026-06-16 00:00:00', 7);     // exclusive end
 
 		self::assertSame(
 			[2, 4],
@@ -191,8 +321,8 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 
 		$userA = $this->houseUserId($houseId, 'energy_iso_a');
 		$userB = $this->houseUserId($houseId, 'energy_iso_b');
-		$this->insertCompletion($rtMine, $userA, '2026-06-15 09:00:00');
-		$this->insertCompletion($rtTheirs, $userB, '2026-06-15 10:00:00');
+		$this->insertLinkedCompletion($houseId, $rtMine, $userA, '2026-06-15 09:00:00', 3);
+		$this->insertLinkedCompletion($houseId, $rtTheirs, $userB, '2026-06-15 10:00:00', 9);
 
 		$rows = $this->usageFor($houseId);
 

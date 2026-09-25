@@ -282,7 +282,10 @@ abstract class IntegrationTestCase extends TestCase {
 	protected function completionReceiptFor(int $roomTaskId): array {
 		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
 		$roomTaskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
-		$selection = $occurrenceService->selectionFor($roomTaskMapper->find($roomTaskId), new \DateTime());
+		$roomTask = $roomTaskMapper->find($roomTaskId);
+		$houseId = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class)
+			->houseIdForRoom($roomTask->getRoomId());
+		$selection = $occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
 		if ($selection === null) {
 			throw new \RuntimeException('No completable occurrence target for room task ' . $roomTaskId);
 		}
@@ -290,7 +293,7 @@ abstract class IntegrationTestCase extends TestCase {
 			sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
 			$selection['occurrence']->toPublicKey(),
 			$selection['occurrence']->getVersion(),
-			$occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification']),
+			$occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, null, $selection['workAppointment'] ?? null),
 		];
 	}
 
@@ -372,6 +375,9 @@ abstract class IntegrationTestCase extends TestCase {
 	private function cleanupCreatedRecords(): void {
 		$this->deleteTimelineByRoomTaskIds($this->createdRoomTaskIds);
 		$this->deleteAssigneesByRoomTaskIds($this->createdRoomTaskIds);
+		// WP2 pause/receipt facts are house-scoped — remove them before the
+		// house rows go so no test leaks pause groups into later suites.
+		$this->deletePauseFactsByHouseIds($this->createdHouseIds);
 		$this->deleteByIds('chorestrike_room_tasks', $this->createdRoomTaskIds);
 		$this->deleteByIds('chorestrike_tasks', $this->createdTaskIds);
 		$this->deleteByIds('chorestrike_rooms', $this->createdRoomIds);
@@ -386,6 +392,29 @@ abstract class IntegrationTestCase extends TestCase {
 		$this->createdFloorIds = [];
 		$this->createdHouseUserIds = [];
 		$this->createdHouseIds = [];
+	}
+
+	/**
+	 * Remove the WP2 house-scoped pause/command-receipt facts of fixture
+	 * houses (CS-PLAN-073): pauses carry no room-task reference and the
+	 * receipt log survives actors — both must not leak across suites
+	 * (the schema suite pins the global (pause_group_id, revision) key).
+	 *
+	 * @param array<int> $houseIds
+	 */
+	private function deletePauseFactsByHouseIds(array $houseIds): void {
+		if (empty($houseIds)) {
+			return;
+		}
+		$intArray = \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY;
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_pauses')
+			->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
+			->executeStatement();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_commands')
+			->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
+			->executeStatement();
 	}
 
 	/**

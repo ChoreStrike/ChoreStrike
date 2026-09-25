@@ -1281,4 +1281,148 @@ class CompletionServiceTest extends TestCase {
 		self::assertNotSame($insertedRows[0], $insertedRows[1]);
 		self::assertSame($first['rewards']['totalCoins'], $second['rewards']['totalCoins']);
 	}
+
+	// ------------------------------------------------------------------
+	// CS-PLAN-073 WP2 (RF-073-WP2-10, plan §4 T3-B)
+	// ------------------------------------------------------------------
+
+	/**
+	 * Complete_PlannedCollaborators_NeverConfuseTheActualWorker
+	 *
+	 * The ledger records the ACTUAL completer identity and the frozen
+	 * timeline evidence of the resolved occurrence — the planned
+	 * collaborator set travels separately into the teamwork fold and never
+	 * replaces the worker (plan §3.2: recorded work stays with the
+	 * recorded completer).
+	 */
+	public function testComplete_PlannedCollaborators_NeverConfuseTheActualWorker(): void {
+		$roomTask = $this->buildRoomTask();
+		$houseUser = $this->buildHouseUser(4, 'actual-worker');
+		$this->stubCompleteLookups(
+			$roomTask,
+			$this->buildRoom(),
+			$this->buildTask(),
+			$houseUser,
+			['planned-mom', 'planned-kid'],
+			[],
+			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
+				// The teamwork fold receives the PLANNED set separately,
+				// while the reward flow carries the ACTUAL worker identity.
+				self::assertSame(['planned-mom', 'planned-kid'], $assignees);
+				self::assertSame(4, $userId, 'the reward fold runs for the actual completer');
+				$row->setUserId($userId);
+				$row->setCoinsEarned(50);
+				$row->setWasCombo(false);
+				return [
+					'contributionScore' => 3, 'coins' => 50, 'teamworkBonus' => 0, 'isCombo' => false,
+					'currentStreak' => 1, 'longestStreak' => 1, 'totalContribution' => 3, 'totalCoins' => 50,
+					'streakFreezeUsed' => false, 'streakFreezesRemaining' => 1, 'comboBonusFreeze' => false,
+					'titlesAdded' => [], 'newTitle' => null,
+				];
+			}
+		);
+
+		$inserted = null;
+		$this->completedTaskMapper->expects($this->once())
+			->method('insert')
+			->willReturnCallback(function (CompletedTask $row) use (&$inserted) {
+				$row->setId(1);
+				$inserted = $row;
+				return $row;
+			});
+
+		$this->completeWithReceipt(1, 'actual-worker', 1);
+
+		self::assertNotNull($inserted);
+		self::assertSame(4, $inserted->getUserId(), 'the ledger row belongs to the ACTUAL completer, never a planned collaborator');
+		// The frozen timeline evidence lets the capacity evaluator join the
+		// SAVED occurrence energy — definition edits can never re-price it
+		// (RF-073-WP2-15 boundary).
+		self::assertSame(1, $inserted->getScheduleRevId());
+		self::assertSame(1, $inserted->getOccurrenceOrdinal());
+		self::assertSame('agreed', $inserted->getCompletionClass());
+	}
+
+	/**
+	 * Complete_IsNeverCapacityGated
+	 *
+	 * Over-limit completions are always accepted (plan §3.2): capacity
+	 * gates bind amendments and planning ONLY — recording real work is
+	 * never refused and never triggers an extra offer. The structural
+	 * contract: the completion aggregate has no capacity dependency at all.
+	 */
+	public function testComplete_IsNeverCapacityGated(): void {
+		$constructor = (new \ReflectionClass(\OCA\ChoreStrike\Service\CompletionService::class))->getConstructor();
+		self::assertNotNull($constructor);
+		foreach ($constructor->getParameters() as $parameter) {
+			$type = (string)$parameter->getType();
+			self::assertStringNotContainsString(
+				'DailyCapacityService',
+				$type,
+				'the completion aggregate must never consult the capacity evaluator'
+			);
+		}
+	}
+
+	/**
+	 * Undo_RemovesActualConsumption_KeepsNeutralEvidence
+	 *
+	 * The undo removes the ACTUAL consumption (the ledger row is marked
+	 * undone and drops out of every capacity read — D11) while the frozen
+	 * timeline evidence on the row and the neutral pause facts on the
+	 * released occurrence stay untouched.
+	 */
+	public function testUndo_RemovesActualConsumption_KeepsNeutralEvidence(): void {
+		$roomTask = $this->buildRoomTask();
+		$room = $this->buildRoom(1, 80);
+		$actor = $this->buildHouseUser(1, 'alice');
+		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
+
+		$completer = $this->buildHouseUser(1, 'alice');
+		$this->houseUserMapper->method('find')->willReturn($completer);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($completer);
+		$this->houseMapper->method('findForUpdate')->willReturn(new House());
+
+		$ledger = $this->buildLedgerRow($this->buildBeforeState(), [
+			'coinsAwarded' => 50, 'coins' => 50, 'teamworkBonus' => 0,
+			'contributionAwarded' => 3, 'streakBefore' => 3, 'streakAfter' => 4,
+			'freezeUsed' => false, 'freezeAwarded' => false, 'titlesAdded' => [],
+			'cleanlinessChange' => 30, 'takeoverClaimed' => false,
+		]);
+		$ledger->setScheduleRevId(1);
+		$ledger->setOccurrenceOrdinal(1);
+		$ledger->setWorkDate(new \DateTime('2026-09-06'));
+		$ledger->setWorkZone('UTC');
+		$ledger->setCompletionClass('agreed');
+		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
+
+		// The recorded occurrence carries neutral pause facts — the undo
+		// must not scrub them.
+		$occurrence = new Occurrence();
+		$occurrence->setId(9);
+		$occurrence->setSuspensionState(Occurrence::SUSPENSION_SUSPENDED);
+		$occurrence->setSuspensionEvidence([['pauseGroupId' => 4, 'revision' => 2]]);
+		$this->occurrenceService->method('occurrenceOfCompletion')->willReturn($occurrence);
+
+		$released = null;
+		$this->occurrenceService->expects($this->once())
+			->method('releaseCompletionUnderLock')
+			->willReturnCallback(function ($houseId, Occurrence $occ) use (&$released) {
+				$released = $occ;
+			});
+		$this->completedTaskMapper->expects($this->once())->method('markUndone');
+		$this->db->expects($this->once())->method('commit');
+
+		$result = $this->service->undo(1, $actor, 1);
+
+		self::assertTrue($result['undone']);
+		self::assertSame($occurrence, $released, 'the recorded occurrence itself is released');
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $occurrence->getSuspensionState(), 'the neutral suspension fact survives the undo');
+		self::assertSame([['pauseGroupId' => 4, 'revision' => 2]], $occurrence->getSuspensionEvidence());
+		// The frozen timeline evidence stays on the (now undone) row.
+		self::assertSame(1, $ledger->getScheduleRevId());
+		self::assertSame(1, $ledger->getOccurrenceOrdinal());
+		self::assertSame('UTC', $ledger->getWorkZone());
+		self::assertSame('agreed', $ledger->getCompletionClass());
+	}
 }

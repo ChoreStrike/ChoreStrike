@@ -41,6 +41,13 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 	private HouseService $houseService;
 	private string $todayKey;
 
+	/** WP2 §3.5: distinct command UUIDs per apply receipt. */
+	private static int $planCommandSeq = 0;
+
+	private static function planCommandUuid(): string {
+		return sprintf('a1b2c3d4-0000-4000-8000-%012d', ++self::$planCommandSeq);
+	}
+
 	/** @var array<int> Ledger rows created through the completion service. */
 	private array $cleanupLedgerRoomTaskIds = [];
 
@@ -53,6 +60,9 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 	}
 
 	protected function tearDown(): void {
+		// The injected evaluation clock must never leak across tests.
+		$this->service->setClock(null);
+
 		foreach ($this->cleanupLedgerRoomTaskIds as $roomTaskId) {
 			$qb = $this->db->getQueryBuilder();
 			$qb->delete('chorestrike_completed_tasks')
@@ -62,6 +72,187 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$this->cleanupLedgerRoomTaskIds = [];
 
 		parent::tearDown();
+	}
+
+	// -----------------------------------------------------------------
+	// RF-073-WP2-21: joint/replacement capacity in the planner
+	// -----------------------------------------------------------------
+
+	/**
+	 * A same-day REPLACEMENT is tested after removing exactly the row's
+	 * old allocation: collapsing a 50/50 joint plan onto dad alone
+	 * (100% of the energy) fits his budget although the baseline still
+	 * charges his old 50% share — the pre-fix planner double-counted the
+	 * replaced load and reported the feasible plan as unplaceable.
+	 */
+	public function testApply_SameDayReplacement_RemovesOldAllocationBeforeCheck(): void {
+		['houseId' => $houseId, 'makeTask' => $makeTask] = $this->familyHouse();
+		$roomTaskId = $makeTask('Joint dishes', 10);
+
+		// Pin dad's budget to exactly the task energy on every weekday
+		// (deterministic against the weekend default of 15).
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_house_users')
+			->set('scheduling_preferences', $qb->createNamedParameter(json_encode([
+				'energyBudget' => array_fill_keys(
+					['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+					10
+				),
+			])))
+			->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter('dad')))
+			->executeStatement();
+
+		$actor = $this->ownerActor($houseId);
+		$this->bindWallets($houseId, ['dad', 'mom']);
+		$roomTaskService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
+		$roomTaskService->setAssignees($roomTaskId, ['dad', 'mom'], $houseId, $actor);
+
+		$preview = $this->service->preview($houseId, $actor, $this->todayKey, [$roomTaskId], [
+			$roomTaskId => ['assigneeUserIds' => ['dad']],
+		]);
+
+		self::assertCount(1, $preview['changes'], 'the feasible same-day replacement must be a change, never unplaced');
+		self::assertEmpty($preview['unplaced']);
+		$change = $preview['changes'][0];
+		self::assertSame(['dad'], $change['proposed']['assignees']);
+		self::assertSame($this->todayKey, $change['proposed']['dueDate'], 'the replacement stays on the same day');
+		self::assertSame(['dad' => 100], $change['proposed']['shares'], 'the exact share vector rides the proposal');
+
+		$result = $this->service->apply($houseId, $actor, $this->todayKey, [$roomTaskId], [
+			$roomTaskId => ['assigneeUserIds' => ['dad']],
+		], $preview['previewVersion'], self::planCommandUuid(), true);
+		self::assertSame(1, $result['appliedCount']);
+		self::assertSame(['dad'], array_column($this->assigneeRows($roomTaskId), 'user_id'));
+	}
+
+	/**
+	 * A preserved/overridden JOINT candidate set is validated as the FULL
+	 * proposed share vector — no successful placement based on only one
+	 * member: the child's daily limit rejects the whole arrangement
+	 * (NO_CAPACITY) even though the co-member fits easily.
+	 */
+	public function testPreview_JointSet_FailsWhenAnyMemberDoesNotFit(): void {
+		['houseId' => $houseId, 'roomId' => $roomId, 'makeTask' => $makeTask] = $this->familyHouse();
+		$this->addHouseMember($houseId, 'kid', 'Kid', 'child');
+		$this->bindWallets($houseId, ['kid']);
+
+		$actor = $this->ownerActor($houseId);
+		$this->bindWallets($houseId, ['dad', 'mom']);
+		$roomTaskService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
+		$tomorrowKey = (new \DateTime($this->todayKey))->modify('+1 day')->format('Y-m-d');
+
+		// The child's only daily slot is consumed tomorrow by its own task.
+		$kidTask = $this->assignTaskToRoom($this->createTask($houseId, 'Kid own task', '', 5, 2), $roomId, null, $tomorrowKey . ' 00:00:00');
+		$roomTaskService->setAssignees($kidTask, ['kid'], $houseId, $actor);
+
+		// The joint plan (mom + kid, 50/50 of a small energy) gets a
+		// ±1-day flex window so tomorrow is a legal placement candidate.
+		$jointTaskDef = $this->createTask($houseId, 'Joint task', '', 5, 2);
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_tasks')
+			->set('flex_days', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($jointTaskDef, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$jointTask = $this->assignTaskToRoom($jointTaskDef, $roomId, null);
+		$roomTaskService->setAssignees($jointTask, ['mom', 'kid'], $houseId, $actor);
+
+		// Tighten the child's limit AFTER the assignments exist (a legal
+		// owner preference change): moving the joint plan onto the child's
+		// full day must now fail for the WHOLE set, even though mom fits.
+		$kidId = $this->findHouseUserIdForPlan($houseId, 'kid');
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_house_users')
+			->set('scheduling_preferences', $qb->createNamedParameter(json_encode(['maxDailyTasks' => 1])))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($kidId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+
+		$preview = $this->service->preview($houseId, $actor, $this->todayKey, [$jointTask], [
+			$jointTask => ['date' => $tomorrowKey],
+		]);
+
+		self::assertSame([], $preview['changes'], 'a joint set is never placed on the strength of one fitting member');
+		self::assertCount(1, $preview['unplaced']);
+		self::assertSame($jointTask, $preview['unplaced'][0]['roomTaskId']);
+		self::assertSame('NO_CAPACITY', $preview['unplaced'][0]['reason']);
+	}
+
+	private function findHouseUserIdForPlan(int $houseId, string $ncUserId): int {
+		return \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, $ncUserId)->getId();
+	}
+
+	/**
+	 * Production parity: bind the persistent WP0 wallet of each listed
+	 * member (the agreement defaults and the capacity evaluator resolve
+	 * per wallet).
+	 *
+	 * @param list<string> $userIds
+	 */
+	private function bindWallets(int $houseId, array $userIds): void {
+		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
+		$walletService = \OC::$server->get(\OCA\ChoreStrike\Service\WalletService::class);
+		foreach ($userIds as $userId) {
+			$walletService->ensureBinding($houseId, $houseUserMapper->findByNextcloudUserId($houseId, $userId));
+		}
+	}
+
+	// -----------------------------------------------------------------
+	// CR-SVC-64: the local-midnight crossing (RF-073-WP2-11)
+	// -----------------------------------------------------------------
+
+	/**
+	 * A valid preview taken BEFORE the house-local midnight crossing must
+	 * yield a WRITE-FREE 409 when the apply runs after midnight — the
+	 * fingerprint's evaluation day is part of the preview identity, and the
+	 * 409 fires BEFORE any relative-to-today rejection. A newly malformed
+	 * request stays a 400 (CR-SVC-64, plan §3.5).
+	 */
+	public function testApply_CrossingLocalMidnight_ConflictsWithoutWrites(): void {
+		['houseId' => $houseId, 'makeTask' => $makeTask] = $this->familyHouse();
+		$roomTaskId = $makeTask('Midnight dishes', 2);
+
+		// 23:50 UTC "yesterday evening" relative to the apply instant.
+		$beforeMidnight = new \DateTime($this->todayKey . ' 23:50:00', new \DateTimeZone('UTC'));
+		$afterMidnight = (clone $beforeMidnight)->modify('+20 minutes');
+		self::assertNotSame(
+			$beforeMidnight->format('Y-m-d'),
+			$afterMidnight->format('Y-m-d'),
+			'the fixture instants must straddle local midnight'
+		);
+
+		$this->service->setClock($beforeMidnight);
+		$preview = $this->service->preview($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], []);
+		self::assertNotEmpty($preview['changes'], 'the preview proposes the placement');
+
+		$before = $this->roomTaskRow($roomTaskId);
+		$assigneesBefore = $this->assigneeRows($roomTaskId);
+		$snapshot = $this->snapshotDomainCounts();
+
+		$this->service->setClock($afterMidnight);
+		try {
+			$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], self::planCommandUuid(), true);
+			self::fail('a preview that crossed local midnight must conflict');
+		} catch (ConflictException $e) {
+			self::assertSame('The schedule preview is no longer current. Generate a new preview.', $e->getMessage());
+		}
+
+		self::assertSame($before, $this->roomTaskRow($roomTaskId), 'the midnight conflict wrote nothing');
+		self::assertSame($assigneesBefore, $this->assigneeRows($roomTaskId));
+		self::assertSame($snapshot, $this->snapshotDomainCounts(), 'no receipt, agreement or occurrence row was persisted');
+
+		// A NEWLY malformed request remains a 400 — the shape validation
+		// runs before the fingerprint comparison even with the stale clock.
+		try {
+			$this->service->apply($houseId, $this->ownerActor($houseId), 'not-a-date', [$roomTaskId], [], $preview['previewVersion'], self::planCommandUuid(), true);
+			self::fail('a malformed startDate must stay a validation error');
+		} catch (\InvalidArgumentException $e) {
+			self::assertStringContainsString('startDate', $e->getMessage());
+		}
+
+		// With the clock back on the preview's day the SAME preview still
+		// applies — the conflict was the day crossing, not a consumed plan.
+		$this->service->setClock($beforeMidnight);
+		$result = $this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], self::planCommandUuid(), true);
+		self::assertSame(1, $result['appliedCount']);
 	}
 
 	// -----------------------------------------------------------------
@@ -144,7 +335,9 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 			$this->todayKey,
 			[$roomTaskId],
 			[],
-			$preview['previewVersion']
+			$preview['previewVersion'],
+			self::planCommandUuid(),
+			true
 		);
 
 		self::assertSame(1, $result['appliedCount']);
@@ -168,11 +361,11 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$roomTaskId = $makeTask('Dishes', 2);
 
 		$preview = $this->service->preview($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], []);
-		$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion']);
+		$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], self::planCommandUuid(), true);
 		$afterFirst = $this->roomTaskRow($roomTaskId);
 
 		try {
-			$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion']);
+			$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], self::planCommandUuid(), true);
 			self::fail('a consumed preview must conflict on retry');
 		} catch (ConflictException $e) {
 			self::assertSame('The schedule preview is no longer current. Generate a new preview.', $e->getMessage());
@@ -200,7 +393,9 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 			$this->todayKey,
 			[$roomTaskId],
 			[],
-			$preview['previewVersion']
+			$preview['previewVersion'],
+			self::planCommandUuid(),
+			true
 		);
 
 		self::assertSame(0, $result['appliedCount']);
@@ -253,6 +448,9 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 			$sabotaged,
 			$s->get(CompletedTaskMapper::class),
 			$s->get(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$s->get(\OCA\ChoreStrike\Service\CommandService::class),
+			$s->get(\OCA\ChoreStrike\Service\DailyCapacityService::class),
+			$s->get(\OCA\ChoreStrike\Service\PauseProjectionService::class),
 			$s->get(TransactionExecutor::class),
 			$s->get(CalendarService::class),
 			$s->get(TaskAccessPolicy::class),
@@ -266,7 +464,9 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 				$this->todayKey,
 				[$first, $second],
 				[],
-				$preview['previewVersion']
+				$preview['previewVersion'],
+				self::planCommandUuid(),
+				true
 			);
 			self::fail('the sabotaged apply must fail');
 		} catch (\RuntimeException $e) {
@@ -314,7 +514,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$assigneesBefore = $this->assigneeRows($roomTaskId);
 
 		try {
-			$this->service->apply($houseId, $this->ownerActor($houseId), $startKey ?? $this->todayKey, [$roomTaskId], [], $preview['previewVersion']);
+			$this->service->apply($houseId, $this->ownerActor($houseId), $startKey ?? $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], self::planCommandUuid(), true);
 			self::fail('a stale preview input must reject the batch');
 		} catch (ConflictException $e) {
 			self::assertSame('The schedule preview is no longer current. Generate a new preview.', $e->getMessage());
@@ -394,7 +594,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 	 */
 	public static function timezoneTransitions(): array {
 		return [
-			// Original defect: east of UTC (late UTC day → Berlin is tomorrow).
+			// Original defect: east of UTC (late UTC day â†’ Berlin is tomorrow).
 			'UTC to Europe/Berlin' => ['Europe/Berlin'],
 			// Opposite direction: west of UTC (house-local today falls behind).
 			'UTC to America/Los_Angeles' => ['America/Los_Angeles'],
@@ -467,7 +667,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 
 		$member = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, 'mom');
 		$this->expectException(ForbiddenException::class);
-		$this->service->apply($houseId, $member, $this->todayKey, [$roomTaskId], [], 'anything');
+		$this->service->apply($houseId, $member, $this->todayKey, [$roomTaskId], [], 'anything', self::planCommandUuid(), true);
 	}
 
 	public function testPreview_MemberActor_Rejected(): void {
@@ -493,7 +693,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 
 		$foreign = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($otherHouseId, 'other_owner');
 		$this->expectException(ForbiddenException::class);
-		$this->service->apply($f['houseId'], $foreign, $this->todayKey, [1], [], 'anything');
+		$this->service->apply($f['houseId'], $foreign, $this->todayKey, [1], [], 'anything', self::planCommandUuid(), true);
 	}
 
 	// -----------------------------------------------------------------
@@ -517,7 +717,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$roomTaskId = $makeTask('Dishes', 2);
 
 		$preview = $this->service->preview($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], []);
-		$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion']);
+		$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], self::planCommandUuid(), true);
 		$appliedDue = $this->roomTaskRow($roomTaskId)['next_due'];
 
 		$this->completeOccurrence($this->completionService, $houseId, 'dad', $roomTaskId);
@@ -560,7 +760,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		self::assertCount(1, $preview['changes'], 'the override within the flex window must produce a proposal');
 		$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [
 			$roomTaskId => ['date' => $appliedDate],
-		], $preview['previewVersion']);
+		], $preview['previewVersion'], self::planCommandUuid(), true);
 		self::assertSame(
 			$appliedDate,
 			substr((string)$this->roomTaskRow($roomTaskId)['next_due'], 0, 10)

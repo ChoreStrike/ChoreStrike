@@ -82,6 +82,7 @@ class HouseServiceLoggingTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Service\WalletService::class),
 			$rewardConfigService,
 			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$this->createMock(\OCA\ChoreStrike\Service\PauseService::class),
 			$config,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($db),
 			$this->createIdentityL10n(),

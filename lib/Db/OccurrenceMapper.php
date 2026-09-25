@@ -235,4 +235,26 @@ class OccurrenceMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
+	/**
+	 * Open (unfulfilled, uncovered) SCHEDULED occurrences of a house —
+	 * the batched capacity/parallel input of the WP2 pause projection and
+	 * the whole-day capacity evaluator (RF-072-WP1-10 sibling; no
+	 * fulfilled-row fan-out).
+	 *
+	 * @return Occurrence[]
+	 */
+	public function findOpenByHouseId(int $houseId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('completion_id'))
+			->andWhere($qb->expr()->isNull('covered_by_completion_id'))
+			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter(Occurrence::KIND_SCHEDULED, IQueryBuilder::PARAM_STR)))
+			->orderBy('room_task_id', 'ASC')
+			->addOrderBy('schedule_rev_id', 'ASC')
+			->addOrderBy('ordinal', 'ASC');
+		return $this->findEntities($qb);
+	}
+
 }

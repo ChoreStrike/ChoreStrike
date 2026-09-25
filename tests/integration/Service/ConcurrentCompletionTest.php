@@ -502,7 +502,10 @@ try {
     // UUID per helper run.
     $occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
     $roomTaskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
-    $selection = $occurrenceService->selectionFor($roomTaskMapper->find($roomTaskId), new DateTime());
+    $readService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+    $roomTask = $roomTaskMapper->find($roomTaskId);
+    $houseId = $readService->houseIdForRoom($roomTask->getRoomId());
+    $selection = $occurrenceService->selectionFor($roomTask, new DateTime(), $houseId);
     if ($selection === null) {
         throw new RuntimeException('no completable occurrence for room task ' . $roomTaskId);
     }
@@ -513,7 +516,7 @@ try {
         sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
         $selection['occurrence']->toPublicKey(),
         $selection['occurrence']->getVersion(),
-        $occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'])
+        $occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, null, $selection['workAppointment'] ?? null)
     );
     file_put_contents($doneFile, json_encode([
         'cleanlinessChange' => $result['rewards']['cleanlinessChange'],

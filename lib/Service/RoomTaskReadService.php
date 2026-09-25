@@ -44,6 +44,7 @@ class RoomTaskReadService {
 	private TaskAccessPolicy $taskAccessPolicy;
 	private CalendarService $calendarService;
 	private OccurrenceService $occurrenceService;
+	private PauseProjectionService $pauseProjection;
 	private IL10N $l10n;
 
 	public function __construct(
@@ -56,6 +57,7 @@ class RoomTaskReadService {
 		TaskAccessPolicy $taskAccessPolicy,
 		CalendarService $calendarService,
 		OccurrenceService $occurrenceService,
+		PauseProjectionService $pauseProjection,
 		IL10N $l10n,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -67,6 +69,7 @@ class RoomTaskReadService {
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->calendarService = $calendarService;
 		$this->occurrenceService = $occurrenceService;
+		$this->pauseProjection = $pauseProjection;
 		$this->l10n = $l10n;
 	}
 
@@ -93,12 +96,13 @@ class RoomTaskReadService {
 		}
 
 		$selections = $this->occurrenceSelectionsForHouse($houseId, $roomTasks);
+		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
 		foreach ($rows as &$row) {
 			$roomTask = $row['roomTask'] ?? null;
 			if ($roomTask instanceof RoomTask) {
 				$selection = $selections[$roomTask->getId()] ?? null;
 				$row['occurrence'] = $selection !== null
-					? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'])
+					? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 					: null;
 			}
 		}
@@ -111,7 +115,7 @@ class RoomTaskReadService {
 	 * delegate over the occurrence authority, write-free).
 	 *
 	 * @param RoomTask[] $roomTasks
-	 * @return array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string}|null>
+	 * @return array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string, workAppointment?: array{date: ?string, zone: string}}|null>
 	 */
 	public function occurrenceSelectionsForHouse(int $houseId, array $roomTasks): array {
 		if ($roomTasks === []) {
@@ -121,12 +125,23 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * The occurrence DTO block for a selection entry (thin delegate).
+	 * The occurrence DTO block for a selection entry (thin delegate); the
+	 * house context keeps the WP2 token fingerprint consistent between
+	 * the read that shows a target and the completion that re-validates
+	 * it. `$selection` carries the derived work appointment.
 	 *
+	 * @param array{date: ?string, zone: string}|null $workAppointment
 	 * @return array<string, mixed>
 	 */
-	public function occurrenceBlockFor(\OCA\ChoreStrike\Db\Occurrence $occurrence, \OCA\ChoreStrike\Db\ScheduleRevision $revision, string $classification): array {
-		return $this->occurrenceService->occurrenceBlock($occurrence, $revision, $classification);
+	public function occurrenceBlockFor(\OCA\ChoreStrike\Db\Occurrence $occurrence, \OCA\ChoreStrike\Db\ScheduleRevision $revision, string $classification, int $houseId = 0, ?string $pauseFingerprint = null, ?array $workAppointment = null): array {
+		return $this->occurrenceService->occurrenceBlock($occurrence, $revision, $classification, $houseId, $pauseFingerprint, $workAppointment);
+	}
+
+	/**
+	 * The house pause-revision fingerprint (WP2 token input, one query).
+	 */
+	public function pauseFingerprintForHouse(int $houseId): string {
+		return $this->pauseProjection->housePauseFingerprint($houseId);
 	}
 
 	/**
@@ -434,11 +449,12 @@ class RoomTaskReadService {
 
 		$rows = $this->rowsForVisibleRoomTasks($visible);
 		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $visible, $now);
+		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
 		foreach ($rows as $index => $row) {
 			$roomTask = $row['roomTask'];
 			$selection = $selections[$roomTask->getId()] ?? null;
 			$rows[$index]['occurrence'] = $selection !== null
-				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'])
+				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
 		}
 		return $rows;
@@ -457,11 +473,12 @@ class RoomTaskReadService {
 	public function getOverdueTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
 		$map = $this->overdueSelectionMap($houseId, $viewer, $roomId);
 		$rows = $this->rowsForVisibleRoomTasks($map['tasks']);
+		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
 		foreach ($rows as $index => $row) {
 			$roomTask = $row['roomTask'];
 			$selection = $map['selections'][$roomTask->getId()] ?? null;
 			$rows[$index]['occurrence'] = $selection !== null
-				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'])
+				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
 		}
 		return $rows;
@@ -664,7 +681,8 @@ class RoomTaskReadService {
 
 		$tz = $this->timeZoneForRoomEntity($room);
 		$houseId = $this->houseIdForRoom($room->getId());
-		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime());
+		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
+		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
 
 		return [
 			'roomTask' => $roomTask,
@@ -675,7 +693,7 @@ class RoomTaskReadService {
 			'isDueToday' => $roomTask->isDueToday($tz),
 			'daysUntilDue' => $roomTask->getDaysUntilDue($tz),
 			'occurrence' => $selection !== null
-				? $this->occurrenceService->occurrenceBlock($selection['occurrence'], $selection['revision'], $selection['classification'])
+				? $this->occurrenceService->occurrenceBlock($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null,
 		];
 	}

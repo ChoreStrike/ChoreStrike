@@ -205,13 +205,14 @@ class RoomTaskController extends Controller {
 	private function serializeFlatRoomTasks(array $roomTasks, \DateTimeZone $tz, int $houseId): array {
 		$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
 		$selections = $this->roomTaskReadService->occurrenceSelectionsForHouse($houseId, $roomTasks);
+		$pauseFingerprint = $this->roomTaskReadService->pauseFingerprintForHouse($houseId);
 
-		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $selections) {
+		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $selections, $houseId, $pauseFingerprint) {
 			$data = $roomTask->jsonSerialize($tz);
 			$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
 			$selection = $selections[$roomTask->getId()] ?? null;
 			$data['occurrence'] = $selection !== null
-				? $this->roomTaskReadService->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'])
+				? $this->roomTaskReadService->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
 			return $data;
 		}, $roomTasks);

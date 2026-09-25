@@ -215,6 +215,34 @@ The technical manifest must integrate these rules with the approved C3 correctio
 C5 local-day/UI rules before activation; unasked product behavior is not an
 implementation default.
 
+### Delivered agreement & pause surface (CS-PLAN-073 WP2, implemented 2026-09-24)
+
+The C1/C2/C3 contracts above are **implemented** by the WP2 package
+(ADR-013 §WP2, corrected in the 2026-09-25 fix round): owner-recorded
+agreement commands (`amend`, `catch-up`, `restart`) under receipt identity
+(action + all normalized semantic inputs), command-boundary staleness gates
+(version + recomputed selection token + effective suspension stamp),
+persisted neutral handover releases with consent evidence, follow-up
+date/catch-up validation against the **concrete** current participants
+(never the replaced revision defaults), catch-up appointments (date + zone)
+that survive participant changes and project independently of pauses,
+revisioned pause groups (personal/house; child requests pending;
+owner-recognized illness; acknowledged-only shortening whose superseded
+future coverage is actually removed while recognized today/past survives —
+per-group revision precedence from the persisted decision fact;
+union provenance across groups), recognition-time eligibility (an ordinary
+late acknowledgment never erases an expired miss; only the explicit
+retrospective-illness marker does), neutral suspension semantics (ANY
+paused obligated participant suspends the occurrence — including one
+partner of a joint arrangement until an explicit feasible agreement resumes
+it; helper-only release, frozen shares, zero outstanding capacity),
+virtual/materialized projection parity, a viewer-safe pause list as an
+explicit field whitelist (personal reason and illness marker are
+self/owner data in every state), interval restart with exactly one linked
+successor, and departure/erasure handling per Q-073-03/§3.6. The API surface
+is `/api/v1/occurrences/{key}/{amend,catch-up,restart}` and
+`/api/v1/pauses*`; a dedicated pause-management UI remains WP6.
+
 ## Reminder Configuration
 
 > **Status (verified 2026-08-29, CS-PLAN-055):** not implemented. What existed

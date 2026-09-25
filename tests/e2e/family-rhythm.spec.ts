@@ -211,3 +211,263 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 		}
 	})
 })
+
+/**
+ * CS-PLAN-073 WP2 browser slice (RF-073-WP2-12): the delivered agreement/
+ * pause contract through the real HTTP seam — owner-recorded amendments
+ * keep the occurrence identity for every member, API-created pauses render
+ * their NEUTRAL clarification state in the owner planner, pending child
+ * requests stay effect-free and child approvals are denied, and a private
+ * task stays a 404 even for the house owner. No not-yet-built pause
+ * management UI is claimed — pauses travel through the frozen §3.5 API.
+ */
+test.describe('Family rhythm — agreements & pauses (WP2)', () => {
+	test.use({ databaseProfile: 'family' })
+
+	test('owner date amendment keeps the occurrence identity visible to the child', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const todayKey = houseDateOffset(0, 'UTC')
+
+		const { context: momContext, page: momPage } = await createUserContext(browser, 'mom')
+		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
+		const { context: kidContext, page: kidPage } = await createUserContext(browser, 'kid')
+		try {
+			const roomTaskId = await createProbeTask(momPage, `Amend Probe ${Date.now()}`, ['mom'])
+			const receipt = await resolveOccurrenceReceipt(momPage, roomTaskId)
+			expect(receipt, 'the probe must expose an amendable target').not.toBeNull()
+
+			// The OWNER records the amendment through the closed §3.5 payload.
+			// The agreed date re-confirms TODAY (a real owner-recorded date
+			// amendment): the occurrence keeps its identity and open window
+			// while the version and the evidence advance.
+			const amend = await dadPage.request.post(
+				`/apps/chorestrike/api/v1/occurrences/${receipt!.occurrenceId}/amend`,
+				{
+					data: {
+						roomTaskId,
+						commandId: newCommandId(),
+						expectedVersion: receipt!.expectedVersion,
+						selectionToken: receipt!.selectionToken,
+						consent: true,
+						date: todayKey,
+					},
+					headers: { Accept: 'application/json' },
+				},
+			)
+			expect(amend.status(), await amend.text()).toBe(200)
+			const amendData = (await amend.json()).data
+			expect(amendData.occurrenceId).toBe(receipt!.occurrenceId)
+			expect(amendData.expectedVersion).toBeGreaterThan(receipt!.expectedVersion)
+
+			// The child sees the SAME agreed identity with the advanced
+			// version — agreements are house-visible facts, never
+			// owner-only shadows.
+			const kidRows = await kidPage.request.get('/apps/chorestrike/api/v1/room-tasks', {
+				headers: { Accept: 'application/json' },
+			})
+			expect(kidRows.status()).toBe(200)
+			const kidRow = ((await kidRows.json()).data ?? [])
+				.find((row: { id: number }) => row.id === roomTaskId)
+			expect(kidRow, 'the amended row stays visible to the child').toBeTruthy()
+			expect(kidRow.occurrence?.occurrenceId).toBe(receipt!.occurrenceId)
+			expect(kidRow.occurrence?.expectedVersion).toBe(amendData.expectedVersion)
+			expect(typeof kidRow.occurrence?.selectionToken).toBe('string')
+			expect(kidRow.occurrence?.suspended).toBe(false)
+			expect(kidRow.occurrence?.workDate).toBe(todayKey)
+		} finally {
+			await momContext.close()
+			await dadContext.close()
+			await kidContext.close()
+		}
+	})
+
+	test('an API-created house pause renders its neutral clarification in the owner planner', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'dad')
+		const { context: kidContext, page: kidPage } = await createUserContext(browser, 'kid')
+		try {
+			const roomTaskId = await createProbeTask(page, `Pause Probe ${Date.now()}`, ['mom'])
+
+			// The pause travels through the frozen §3.5 API — this spec
+			// claims NO pause-management UI.
+			const created = await page.request.post('/apps/chorestrike/api/v1/pauses', {
+				data: {
+					scope: 'house',
+					commandId: newCommandId(),
+					startDate: houseDateOffset(0, 'UTC'),
+					endDate: houseDateOffset(2, 'UTC'),
+					reasonCode: 'travel',
+				},
+				headers: { Accept: 'application/json' },
+			})
+			expect(created.status(), await created.text()).toBe(200)
+			expect((await created.json()).data.state).toBe('acknowledged')
+
+			// The neutral state rides the child-visible DTO: the row stays,
+			// its open duty is released (no completable target block).
+			const kidRows = await kidPage.request.get('/apps/chorestrike/api/v1/room-tasks', {
+				headers: { Accept: 'application/json' },
+			})
+			const kidRow = ((await kidRows.json()).data ?? [])
+				.find((row: { id: number }) => row.id === roomTaskId)
+			expect(kidRow, 'a paused row is neutral, never lost').toBeTruthy()
+			expect(kidRow.occurrence).toBeNull()
+
+			// The owner planner renders the clarification: covered days show
+			// the paused member state instead of silent capacity numbers.
+			await expect(async () => {
+				await page.goto('/apps/chorestrike/#/scheduling')
+				await page.getByTestId('schedule-planner').waitFor({ state: 'visible', timeout: 15000 })
+			}).toPass({ timeout: 45000 })
+			await page.getByTestId(`planner-task-checkbox-${roomTaskId}`).check()
+			await page.getByTestId('preview-plan-button').click()
+			await expect(page.getByTestId('plan-capacity')).toBeVisible({ timeout: 15000 })
+			await expect(page.getByTestId('plan-capacity')).toContainText('Paused')
+		} finally {
+			await context.close()
+			await kidContext.close()
+		}
+	})
+
+	test('a pending child request stays effect-free and a child approval is denied', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
+		const { context, page } = await createUserContext(browser, 'kid')
+		try {
+			// Task creation is adult-gated — the owner seeds the child's probe.
+			const roomTaskId = await createProbeTask(dadPage, `Request Probe ${Date.now()}`, ['kid'])
+
+			// A child request stays pending (no execution effect).
+			const created = await page.request.post('/apps/chorestrike/api/v1/pauses', {
+				data: {
+					commandId: newCommandId(),
+					startDate: houseDateOffset(0, 'UTC'),
+					endDate: houseDateOffset(2, 'UTC'),
+					reasonCode: 'other',
+				},
+				headers: { Accept: 'application/json' },
+			})
+			expect(created.status(), await created.text()).toBe(200)
+			const createdData = (await created.json()).data
+			expect(createdData.state).toBe('requested')
+
+			// The pending request suspends nothing — the target stays live.
+			const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
+			expect(receipt, 'a pending request has zero execution effect').not.toBeNull()
+
+			// The child may not approve its own (or any) request.
+			const approve = await page.request.post(
+				`/apps/chorestrike/api/v1/pauses/${createdData.pauseGroupId}/approve`,
+				{
+					data: { commandId: newCommandId(), expectedRevision: createdData.revision },
+					headers: { Accept: 'application/json' },
+				},
+			)
+			expect(approve.status()).toBe(403)
+
+			// Still effect-free after the denied approval.
+			const stillLive = await resolveOccurrenceReceipt(page, roomTaskId)
+			expect(stillLive).not.toBeNull()
+		} finally {
+			await context.close()
+			await dadContext.close()
+		}
+	})
+
+	test('a private task amendment stays a 404 for the house owner', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context: momContext, page: momPage } = await createUserContext(browser, 'mom')
+		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
+		try {
+			// Mom creates a PRIVATE task with a live occurrence target
+			// through the aggregate contract (CS-PLAN-063 shape).
+			const kitchen = await kitchenRoom(momPage)
+			const created = await momPage.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				data: {
+					roomId: kitchen.id,
+					assigneeUserIds: ['mom'],
+					nextDue: houseDateOffset(0, 'UTC'),
+					task: {
+						name: `Private Probe ${Date.now()}`,
+						energyCost: 1,
+						frequencyType: 'daily',
+						frequencyValue: 1,
+						visibilityType: 'private',
+					},
+				},
+				headers: { Accept: 'application/json' },
+			})
+			expect(created.status(), await created.text()).toBe(200)
+			const roomTaskId = (await created.json()).data?.roomTask?.id as number
+			expect(roomTaskId).toBeGreaterThan(0)
+
+			const receipt = await resolveOccurrenceReceipt(momPage, roomTaskId)
+			expect(receipt, 'the private target is live for its owner').not.toBeNull()
+
+			// The OWNER is outside the private visibility scope (D2): the
+			// agreement command answers the 404 anti-enumeration class even
+			// with a well-formed, leaked receipt.
+			const amend = await dadPage.request.post(
+				`/apps/chorestrike/api/v1/occurrences/${receipt!.occurrenceId}/amend`,
+				{
+					data: {
+						roomTaskId,
+						commandId: newCommandId(),
+						expectedVersion: receipt!.expectedVersion,
+						selectionToken: receipt!.selectionToken,
+						consent: true,
+						date: houseDateOffset(1, 'UTC'),
+					},
+					headers: { Accept: 'application/json' },
+				},
+			)
+			expect(amend.status()).toBe(404)
+		} finally {
+			await momContext.close()
+			await dadContext.close()
+		}
+	})
+
+	test('an overloaded child day renders the clarification amounts in the owner planner', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'dad')
+		const { context: kidContext, page: kidPage } = await createUserContext(browser, 'kid')
+		try {
+			// The child shrinks its own daily energy budget to 1 (self
+			// settings API — no owner involvement).
+			const prefs = await kidPage.request.put('/apps/chorestrike/api/v1/scheduling/preferences', {
+				data: {
+					energyBudget: {
+						monday: 1,
+						tuesday: 1,
+						wednesday: 1,
+						thursday: 1,
+						friday: 1,
+						saturday: 1,
+						sunday: 1,
+					},
+				},
+				headers: { Accept: 'application/json' },
+			})
+			expect(prefs.status(), await prefs.text()).toBe(200)
+
+			// Two energy-1 obligations due today overload the 1-energy day.
+			const first = await createProbeTask(page, `Overload A ${Date.now()}`, ['kid'])
+			await createProbeTask(page, `Overload B ${Date.now()}`, ['kid'])
+
+			await expect(async () => {
+				await page.goto('/apps/chorestrike/#/scheduling')
+				await page.getByTestId('schedule-planner').waitFor({ state: 'visible', timeout: 15000 })
+			}).toPass({ timeout: 45000 })
+			await page.getByTestId(`planner-task-checkbox-${first}`).check()
+			await page.getByTestId('preview-plan-button').click()
+			await expect(page.getByTestId('plan-capacity')).toBeVisible({ timeout: 15000 })
+			// The overload stays visible with its amounts and the
+			// clarification flag (never silently hidden).
+			await expect(page.getByTestId('plan-capacity')).toContainText('over capacity')
+		} finally {
+			await context.close()
+			await kidContext.close()
+		}
+	})
+})

@@ -264,6 +264,67 @@ class FamilyRhythmSchemaTest extends IntegrationTestCase {
 	/**
 	 * WP0 identity/receipt tables enforce their unique constraints.
 	 */
+	public function testFreshInstallSchema_CarriesWP2PauseSurface(): void {
+		// CS-PLAN-073 WP2 T0: the fresh-install chain carries the revisioned
+		// pause lifecycle table with the frozen defaults and indexes.
+		$houseId = $this->createHouse('frs_wp2_owner', 'FRS WP2 House');
+		$this->addHouseMember($houseId, 'frs_wp2_member', 'FRS WP2 Member');
+		$walletId = (int)\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
+			->findByNextcloudUserId($houseId, 'frs_wp2_member')->getWalletId();
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('chorestrike_pauses')->values([
+			'house_id' => $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT),
+			'pause_group_id' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+			'revision' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+			'subject_wallet_id' => $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT),
+			'timezone' => $qb->createNamedParameter('UTC'),
+			'start_date' => $qb->createNamedParameter(new \DateTime('2026-10-01'), IQueryBuilder::PARAM_DATE),
+			'end_date' => $qb->createNamedParameter(new \DateTime('2026-10-03'), IQueryBuilder::PARAM_DATE),
+			'created_at' => $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE),
+			'updated_at' => $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE),
+		]);
+		$qb->executeStatement();
+		$pauseId = (int)$this->db->lastInsertId('chorestrike_pauses');
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('scope', 'state', 'reason_code', 'is_retrospective_illness', 'revision')
+			->from('chorestrike_pauses')
+			->where($qb->expr()->eq('pause_group_id', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		self::assertIsArray($row, 'the pauses table exists');
+		self::assertSame('personal', $row['scope'], 'scope defaults to personal');
+		self::assertSame('requested', $row['state'], 'state defaults to requested (no execution effect)');
+		self::assertSame('other', $row['reason_code'], 'reason_code defaults to the bounded other');
+		self::assertSame(0, (int)$row['is_retrospective_illness'], 'the illness audit marker defaults to false');
+		self::assertSame(1, (int)$row['revision'], 'revisions start at 1');
+
+		// The (pause_group_id, revision) uniqueness holds on the real
+		// engine - the duplicate insert must fail.
+		try {
+			$qb = $this->db->getQueryBuilder();
+			$qb->insert('chorestrike_pauses')->values([
+				'house_id' => $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT),
+				'pause_group_id' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				'revision' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				'subject_wallet_id' => $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT),
+				'timezone' => $qb->createNamedParameter('UTC'),
+				'start_date' => $qb->createNamedParameter(new \DateTime('2026-10-01'), IQueryBuilder::PARAM_DATE),
+				'end_date' => $qb->createNamedParameter(new \DateTime('2026-10-03'), IQueryBuilder::PARAM_DATE),
+				'created_at' => $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE),
+				'updated_at' => $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE),
+			]);
+			$qb->executeStatement();
+			$duplicateSucceeded = true;
+		} catch (Exception $e) {
+			$duplicateSucceeded = false;
+		}
+		self::assertFalse($duplicateSucceeded, 'the (pause_group_id, revision) uniqueness rejects duplicate revisions');
+		$this->deleteById('chorestrike_pauses', $pauseId);
+	}
+
 	public function testWalletAndReceiptUniqueConstraintsHold(): void {
 		$houseId = $this->createHouse('frs_uq_owner', 'FRS Unique House');
 		$walletMapper = \OC::$server->get(WalletMapper::class);

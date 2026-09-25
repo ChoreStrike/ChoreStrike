@@ -121,6 +121,12 @@
 									to: describeRow(change.proposed),
 								}) }}
 							</span>
+							<span
+								v-if="shareLabel(change)"
+								class="change-shares"
+								:data-testid="`plan-change-shares-${change.roomTaskId}`">
+								{{ shareLabel(change) }}
+							</span>
 							<span v-if="change.warnings.length > 0" class="change-warnings">
 								{{ change.warnings.map(warningText).join(' · ') }}
 							</span>
@@ -208,7 +214,11 @@
 							<td
 								v-for="member in memberOptions"
 								:key="member"
-								:class="{ unavailable: !day.members[member]?.available }">
+								:class="{
+									unavailable: !day.members[member]?.available && !day.members[member]?.paused,
+									paused: day.members[member]?.paused === true,
+									overloaded: day.members[member]?.overloaded === true,
+								}">
 								{{ capacityCell(day.members[member]) }}
 							</td>
 						</tr>
@@ -217,6 +227,16 @@
 			</div>
 
 			<div class="apply-controls">
+				<label class="consent-label" for="planner-consent">
+					<input
+						id="planner-consent"
+						:checked="schedulingStore.planConsent"
+						type="checkbox"
+						class="consent-checkbox"
+						data-testid="planner-consent"
+						@change="onConsentChange">
+					<span class="consent-text">{{ t('chorestrike', 'Everyone affected has agreed to this plan') }}</span>
+				</label>
 				<button
 					class="apply-button"
 					:disabled="!canApply"
@@ -226,6 +246,9 @@
 				</button>
 				<p v-if="planStatus === 'stale'" class="control-hint">
 					{{ t('chorestrike', 'Confirming is disabled until you prepare a fresh plan.') }}
+				</p>
+				<p v-else-if="!schedulingStore.planConsent && hasChanges" class="control-hint" data-testid="planner-consent-hint">
+					{{ t('chorestrike', 'Confirm the agreement before applying the plan.') }}
 				</p>
 			</div>
 		</div>
@@ -293,7 +316,16 @@ const canPreview = computed(() =>
 const canApply = computed(() =>
 	hasPreview.value
 	&& schedulingStore.planStatus === 'ready'
-	&& (schedulingStore.planPreview?.changes?.length ?? 0) > 0)
+	&& (schedulingStore.planPreview?.changes?.length ?? 0) > 0
+	// WP2 §3.3.2 (RF-073-WP2-06/13): the explicit owner consent attestation
+	// gates the apply control — the backend refuses the command without it.
+	&& schedulingStore.planConsent === true)
+
+const hasChanges = computed(() => (schedulingStore.planPreview?.changes?.length ?? 0) > 0)
+
+const onConsentChange = (event) => {
+	schedulingStore.setPlanConsent(event.target.checked === true)
+}
 
 const statusAnnouncement = computed(() => {
 	if (planning.value) return t('chorestrike', 'Building the plan from your tasks…')
@@ -374,8 +406,33 @@ const reasonText = (code) => {
 
 const capacityCell = (entry) => {
 	if (!entry) return '—'
+	// WP2 neutral/overload clarification (RF-073-WP2-13): a paused member
+	// is neutral, an existing overload stays visible with its amounts —
+	// never silently hidden or truncated.
+	if (entry.paused) return t('chorestrike', 'Paused')
 	if (!entry.available) return t('chorestrike', 'Away')
+	if (entry.overloaded) {
+		return t('chorestrike', '{planned}/{budget} — over capacity', {
+			planned: entry.planned,
+			budget: entry.budget,
+		})
+	}
 	return t('chorestrike', '{remaining}/{budget} left', { remaining: entry.remaining, budget: entry.budget })
+}
+
+/**
+ * The exact agreed share labels of a proposed change (WP2 §3.5:
+ * exact-share preview labels — whole percents, wallet-order remainder
+ * split, e.g. 34/33/33).
+ * @param {object} change The preview change row
+ * @return {string} The rendered label (empty when no shares ride the row)
+ */
+const shareLabel = (change) => {
+	const shares = change?.proposed?.shares ?? change?.shares ?? null
+	if (!shares || Object.keys(shares).length === 0) return ''
+	const parts = Object.entries(shares)
+		.map(([userId, pct]) => `${memberDisplayName(userId)} ${pct}%`)
+	return t('chorestrike', 'Exact shares: {shares}', { shares: parts.join(', ') })
 }
 
 const ensureEditSlots = () => {
@@ -723,6 +780,48 @@ const apply = async () => {
 .capacity-table td.unavailable {
 	color: var(--color-text-maxcontrast);
 	background: var(--color-background-dark);
+}
+
+.capacity-table td.paused {
+	color: var(--color-text-maxcontrast);
+	background: var(--color-background-dark);
+	font-style: italic;
+}
+
+.capacity-table td.overloaded {
+	color: var(--color-error, #e9322d);
+	font-weight: 600;
+}
+
+.change-shares {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
+}
+
+.consent-label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 44px;
+	cursor: pointer;
+	color: var(--color-main-text);
+}
+
+.consent-checkbox {
+	width: 20px;
+	height: 20px;
+	min-width: 20px;
+	min-height: 20px;
+	cursor: pointer;
+}
+
+.consent-label:focus-within {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
+}
+
+.consent-text {
+	font-size: 0.95rem;
 }
 
 .apply-controls {

@@ -111,7 +111,11 @@ class CommandService {
 			throw new \InvalidArgumentException('action exceeds ' . self::MAX_ACTION_LENGTH . ' characters');
 		}
 
-		$payloadHash = $this->hashPayload($payload);
+		// RF-073-WP2-19: the ACTION IDENTITY is part of the receipt hash —
+		// one UUID reused across two different commands (even with an
+		// identical payload shape) must conflict, never replay the other
+		// command's result.
+		$payloadHash = $this->hashPayload(['action' => $action, 'payload' => $payload]);
 
 		return $this->transactions->run(function () use ($houseId, $actorHouseUserId, $commandUuid, $action, $payloadHash, $fn): array {
 			// FIRST lock of the documented order: the house row serializes

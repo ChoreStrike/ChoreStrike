@@ -58,8 +58,19 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
 class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	private const HOUSE_READ_BUDGET = 3;
 	private const UPDATE_DUE_DATE_BUDGET = 19;
-	private const COMPLETE_BUDGET = 45;
-	private const UNDO_BUDGET = 36;
+	// CS-PLAN-073 WP2: the completion re-validation re-resolves the canonical
+	// selection WITH the pause-projection stamp (pauses, current wallets,
+	// member snapshots) and re-fingerprints the pause inputs inside the token
+	// — a bounded +13 batched queries (measured 58 in the two-member house).
+	// RF-073-WP2-20 fix round: the stamping pass derives the agreed work
+	// appointment INDEPENDENTLY of pause presence, so each of the three
+	// stamp passes in this flow now always runs its ONE batched member-
+	// snapshot read (58 → 61; still constant-size, no N+1).
+	private const COMPLETE_BUDGET = 61;
+	// CS-PLAN-073 WP2: the undo response's detail row now fingerprints the
+	// pause inputs and re-resolves the selection with the projection stamp
+	// (pause fingerprint + batched pause/wallet/member reads) → +4.
+	private const UNDO_BUDGET = 40;
 
 	/**
 	 * HouseWideRead_ConstantQueryCount_10vs100Rows

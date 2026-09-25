@@ -615,6 +615,75 @@ Repository status:
 - Coverage includes controller, API, family, and extended room-task service scenarios.
 - Controller integration tests require the Docker/Nextcloud environment.
 
+#### WP2 agreement/pause/capacity test surface (CS-PLAN-073)
+
+The WP2 package added dedicated, canonical proof surfaces — extend these
+instead of duplicating their lock choreography elsewhere:
+
+- `tests/unit/Service/DailyCapacityServiceTest.php` — the whole-day
+  evaluator directly: exact minor-unit share vectors, occurrence-identity
+  dedupe, the frozen Q-073-02 saved-zone time basis, work appointments on
+  their actual (cross-zone) day, neutral suspension, helper-only release,
+  child limits/overload reasons, the commitment gates and the
+  replacement-removal rule (`assertCommitmentsFit(..., $replacedOccurrence)`).
+- `tests/unit/Service/{PauseService,PauseProjectionService}Test.php` —
+  pause lifecycle gates and the projection math (union provenance, helper
+  release, appointment intersection vectors). The 2026-09-25 fix round
+  added: per-group revision precedence over the FULL persisted history
+  (multi-shortening boundaries, pending/rejected govern nothing, saved-zone
+  midnight/DST boundaries, group independence — RF-073-WP2-23), the
+  recognition-eligibility gate (late ordinary acknowledgment vs original
+  deadline, decision time = approval, retrospective marker, day-level rule
+  — RF-073-WP2-25), joint suspension on ANY paused obligated participant
+  (RF-073-WP2-24), virtual/materialized participant parity
+  (RF-073-WP2-26) and the viewer-projection field whitelist
+  (RF-073-WP2-28).
+- `tests/integration/Service/PauseAgreementTest.php` — DB-backed pause ↔
+  occurrence agreement facts (suspension, catch-up appointments, union
+  provenance per `pause_ref`, shortening/illness/role gates). Fix round:
+  full-history shortening with inert job replay, pending child shortening
+  until owner acknowledgment, expired-miss eligibility (ordinary vs
+  retrospective), request-before/approval-after-expiry, and the joint
+  suspension → capacity-zero → explicit feasible resumption chain with
+  over-budget/after-deadline/no-consent zero-write rejections.
+- `tests/integration/Service/PauseAgreementConcurrencyTest.php` — REAL
+  two-connection races (second bootstrapped Nextcloud process via
+  `proc_open`, file barriers): plan-vs-pause serialization, duplicate
+  restarts (exactly one successor), same-revision shortening (one stale
+  conflict), replayed receipt UUIDs across connections (single effect) and
+  an injected failure after the pause insertion rolling back pause +
+  effects + receipt. Sequential calls never count as concurrency evidence.
+- `tests/integration/Service/OccurrenceTimelineTest.php` — the WP2 fix-round
+  agreement regressions: explicit-target amendments, persisted neutral
+  handover releases with consent evidence, appointment-carrying catch-ups,
+  receipt identity (semantic inputs + action), stale-token/zero-write
+  conflicts, derived suspension at the command boundary and helper capacity.
+  The 2026-09-25 fix round added: date-only/catch-up follow-ups after a
+  handover validating the CONCRETE arrangement in both directions (released
+  default paused → move succeeds; concrete participant paused → conflict,
+  RF-073-WP2-27) and the stopped-cron parity proof (write-free virtual GET
+  with revision-derived suspension, rejected completion, job materialization
+  converging to the same key/state/provenance/appointment,
+  RF-073-WP2-26).
+- `tests/integration/RoleGuardApiTest.php` — the role/visibility matrix on
+  the real HTTP surface; fix round: the pinned `GET /pauses` wire response
+  proving the field whitelist (personal reason/illness marker are
+  self/owner-only in every state, unrelated adults and children receive
+  neutral facts only, RF-073-WP2-28). A mocked-controller test cannot prove
+  field filtering.
+- `tests/integration/Service/SchedulePlanAggregateTest.php` — the CR-SVC-64
+  local-midnight proof via the injected `SchedulePlanService::setClock()`
+  seam (preview before midnight, apply after → write-free 409; malformed
+  input stays 400) and the joint/replacement placement rules.
+- Query-budget pins: `WorkflowQueryBudgetTest` (the completion flow budget
+  includes the pause-independent appointment stamping, RF-073-WP2-20).
+- Browser layer: `family-rhythm.spec.ts` describe *"Family rhythm —
+  agreements & pauses (WP2)"* (API-created pauses rendering neutral/overload
+  clarifications, child-visible agreement identity, denied child approvals,
+  owner 404 on private tasks) and `scheduling-apply-flow.spec.ts`
+  (shares/consent/draft retention, consent-less apply 400). Titles are pinned
+  in `tests/e2e/required-scenarios.json`.
+
 ## Without Docker (Limited)
 
 > **Not applicable on the main development machine** — Docker Desktop is installed there and is the canonical test path (see project-rules §2 "Test Environment (Docker)"). This fallback exists **only for machines without any Docker installation**. AI agents must not treat a failed `docker` probe as a reason to use this section; diagnose the daemon first.

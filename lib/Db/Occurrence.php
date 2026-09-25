@@ -58,6 +58,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setSourceCompletionId(?int $sourceCompletionId)
  * @method int|null getCompletionId()
  * @method void setCompletionId(?int $completionId)
+ * @method string getSuspensionState()
+ * @method void setSuspensionState(string $suspensionState)
+ * @method array|null getSuspensionEvidence()
+ * @method void setSuspensionEvidence(?array $suspensionEvidence)
+ * @method int|null getRestartOfId()
+ * @method void setRestartOfId(?int $restartOfId)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
@@ -68,6 +74,15 @@ class Occurrence extends Entity implements JsonSerializable {
 	public const KINDS = [
 		self::KIND_SCHEDULED,
 		self::KIND_VOLUNTARY,
+	];
+
+	/** WP2 neutral suspension states. */
+	public const SUSPENSION_NONE = 'none';
+	public const SUSPENSION_SUSPENDED = 'suspended';
+
+	public const SUSPENSION_STATES = [
+		self::SUSPENSION_NONE,
+		self::SUSPENSION_SUSPENDED,
 	];
 
 	/** Upper bound for ordinal values accepted in public keys. */
@@ -124,6 +139,15 @@ class Occurrence extends Entity implements JsonSerializable {
 	/** @var int|null Current valid completion (NULL = unfulfilled). */
 	protected $completionId;
 
+	/** @var string self::SUSPENSION_* (WP2 neutral suspension). */
+	protected $suspensionState = self::SUSPENSION_NONE;
+
+	/** @var array|null [{pauseGroupId, revision}] neutral-suspension provenance. */
+	protected $suspensionEvidence;
+
+	/** @var int|null Linked interval restart predecessor (WP2). */
+	protected $restartOfId;
+
 	/** @var \DateTime */
 	protected $createdAt;
 
@@ -146,6 +170,9 @@ class Occurrence extends Entity implements JsonSerializable {
 		$this->addType('coveredByCompletionId', 'integer');
 		$this->addType('sourceCompletionId', 'integer');
 		$this->addType('completionId', 'integer');
+		$this->addType('suspensionState', 'string');
+		$this->addType('suspensionEvidence', 'json');
+		$this->addType('restartOfId', 'integer');
 		$this->addType('createdAt', 'datetime');
 	}
 
@@ -195,6 +222,29 @@ class Occurrence extends Entity implements JsonSerializable {
 			'version' => $this->version,
 			'fulfilled' => $this->completionId !== null,
 			'covered' => $this->coveredByCompletionId !== null,
+			'suspended' => $this->suspensionState === self::SUSPENSION_SUSPENDED,
+		];
+	}
+
+	/**
+	 * The WP2 neutral suspension facts: state plus the recognized pause
+	 * provenance (CS-PLAN-073 §3.4).
+	 *
+	 * @return array{suspended: bool, evidence: list<array{pauseGroupId: int, revision: int}>}
+	 */
+	public function suspensionFacts(): array {
+		$evidence = [];
+		foreach (is_array($this->suspensionEvidence) ? $this->suspensionEvidence : [] as $entry) {
+			if (is_array($entry) && isset($entry['pauseGroupId'], $entry['revision'])) {
+				$evidence[] = [
+					'pauseGroupId' => (int)$entry['pauseGroupId'],
+					'revision' => (int)$entry['revision'],
+				];
+			}
+		}
+		return [
+			'suspended' => $this->suspensionState === self::SUSPENSION_SUSPENDED,
+			'evidence' => $evidence,
 		];
 	}
 }

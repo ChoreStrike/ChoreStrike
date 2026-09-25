@@ -54,6 +54,12 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 			$qb->delete('chorestrike_task_assignees')
 				->where($qb->expr()->in('room_task_id', $qb->createFunction($roomTasks->getSQL())));
 			$qb->executeStatement();
+
+			// WP2 pause rows of the fixture houses (FK-free schema).
+			$pauses = $this->db->getQueryBuilder();
+			$pauses->delete('chorestrike_pauses')
+				->where($pauses->expr()->eq('house_id', $pauses->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+			$pauses->executeStatement();
 		}
 
 		parent::tearDown();
@@ -100,6 +106,105 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		self::assertSame(1, $this->countHouseUsers($fixture['houseAId'], 'rmr_owner_a'));
 		self::assertSame(1, $this->countHouseUsers($fixture['houseAId'], 'rmr_member'));
 		self::assertSame(1, $this->countAssignees($fixture['roomTaskAId'], 'rmr_member'));
+	}
+
+	/**
+	 * RemoveHouseMember_Pauses_CancelPendingRetainHistoryStopFutureEffects
+	 * (CS-PLAN-073 Q-073-03, RF-073-WP2-10): departure cancels the
+	 * departing member's PENDING personal pause requests, preserves the
+	 * already-acknowledged neutral history (state/dates survive), and
+	 * stops FUTURE personal-pause effects — the former member's personal
+	 * pause no longer suspends occurrences once they left the house.
+	 */
+	public function testRemoveHouseMember_Pauses_CancelPendingRetainHistoryStopFutureEffects(): void {
+		$fixture = $this->seedFixture();
+		$houseAId = $fixture['houseAId'];
+		$this->addHouseMember($houseAId, 'rmr_child', 'Child', 'child');
+
+		$houseUserMapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+		$walletService = \OC::$server->get(\OCA\ChoreStrike\Service\WalletService::class);
+		foreach (['rmr_owner_a', 'rmr_member', 'rmr_child'] as $userId) {
+			$walletService->ensureBinding($houseAId, $houseUserMapper->findByNextcloudUserId($houseAId, $userId));
+		}
+		// The fixture assignment predates the wallet binding — re-record it
+		// so the revision defaults and the occurrence member rows carry the
+		// member's wallet (the suspension derivation resolves per wallet).
+		\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class)->setAssignees(
+			$fixture['roomTaskAId'],
+			['rmr_member'],
+			$houseAId,
+			$houseUserMapper->findByNextcloudUserId($houseAId, 'rmr_owner_a')
+		);
+
+		$pauseService = \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class);
+		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
+		$range = static function (string $reason) use ($todayKey): array {
+			return [
+				'startDate' => $todayKey,
+				'endDate' => (new \DateTime($todayKey))->modify('+5 days')->format('Y-m-d'),
+				'reasonCode' => $reason,
+			];
+		};
+
+		// The member's acknowledged personal pause suspends their task.
+		$memberPause = $pauseService->requestForSelf($houseAId, 'rmr_member', array_merge(['commandId' => $this->uuidRmr()], $range(\OCA\ChoreStrike\Db\Pause::REASON_TRAVEL)));
+		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_ACKNOWLEDGED, $memberPause['state']);
+		$occurrenceMapper = \OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMapper::class);
+		$memberOccurrence = null;
+		foreach ($occurrenceMapper->findByRoomTask($fixture['roomTaskAId']) as $row) {
+			if ($row->getCompletionId() === null) {
+				$memberOccurrence = $row;
+			}
+		}
+		self::assertNotNull($memberOccurrence);
+		self::assertSame(\OCA\ChoreStrike\Db\Occurrence::SUSPENSION_SUSPENDED, $memberOccurrence->getSuspensionState(), 'the acknowledged pause suspends the covered obligation');
+
+		// The child's request stays pending.
+		$childPause = $pauseService->requestForSelf($houseAId, 'rmr_child', array_merge(['commandId' => $this->uuidRmr()], $range(\OCA\ChoreStrike\Db\Pause::REASON_OTHER)));
+		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_REQUESTED, $childPause['state']);
+
+		$this->actingAs('rmr_owner_a');
+		$houseService = \OC::$server->get(HouseService::class);
+		$houseService->removeHouseMember($fixture['memberHouseUserIdA']);
+		$houseService->removeHouseMember($this->findHouseUserId($houseAId, 'rmr_child'));
+
+		// The child's pending request was cancelled — never silently kept.
+		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_CANCELLED, $this->currentPauseState($childPause['pauseGroupId']));
+
+		// The member's acknowledged history is preserved (neutral facts).
+		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_ACKNOWLEDGED, $this->currentPauseState($memberPause['pauseGroupId']));
+		self::assertSame($todayKey, $this->currentPauseStart($memberPause['pauseGroupId']));
+
+		// Future personal-pause effects stopped at departure: the former
+		// member's pause no longer keeps the occurrence suspended.
+		$after = $occurrenceMapper->find((int)$memberOccurrence->getId());
+		self::assertSame(\OCA\ChoreStrike\Db\Occurrence::SUSPENSION_NONE, $after->getSuspensionState(), 'the departed member\'s personal pause has no further effect');
+	}
+
+	private function uuidRmr(): string {
+		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
+	}
+
+	private function currentPauseState(int $pauseGroupId): string {
+		return (string)$this->currentPauseColumn($pauseGroupId, 'state');
+	}
+
+	private function currentPauseStart(int $pauseGroupId): string {
+		return substr((string)$this->currentPauseColumn($pauseGroupId, 'start_date'), 0, 10);
+	}
+
+	private function currentPauseColumn(int $pauseGroupId, string $column): mixed {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($column)
+			->from('chorestrike_pauses')
+			->where($qb->expr()->eq('pause_group_id', $qb->createNamedParameter($pauseGroupId, IQueryBuilder::PARAM_INT)))
+			->orderBy('revision', 'DESC')
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$value = $result->fetchOne();
+		$result->closeCursor();
+		self::assertNotFalse($value, 'the pause group must still own its current revision');
+		return $value;
 	}
 
 	/**

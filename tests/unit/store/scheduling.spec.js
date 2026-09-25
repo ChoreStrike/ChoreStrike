@@ -298,6 +298,23 @@ describe('Scheduling Store', () => {
 				expect(store.planPreview).toEqual(payload)
 				expect(store.planInput).toEqual({ startDate: '2026-09-10', roomTaskIds: [11, 12], overrides: {} })
 				expect(store.planStatus).toBe('ready')
+				// A fresh preview is a fresh logical command (WP2 §3.5).
+				expect(store.planCommandId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+			})
+
+			it('requires a fresh consent attestation for every preview (RF-073-WP2-06/13)', async () => {
+				api.post.mockResolvedValue({ previewVersion: 'abc' })
+				store.planConsent = true
+
+				await store.previewPlan({ ...input })
+
+				expect(store.planConsent).toBe(false)
+
+				// The attestation is an explicit boolean decision.
+				store.setPlanConsent('yes')
+				expect(store.planConsent).toBe(false)
+				store.setPlanConsent(true)
+				expect(store.planConsent).toBe(true)
 			})
 
 			it('does not touch the shared loading flag nor the view-wide error (plan failures stay scoped)', async () => {
@@ -326,14 +343,16 @@ describe('Scheduling Store', () => {
 			})
 		})
 
-		describe('applyPlan (CS-PLAN-065)', () => {
+		describe('applyPlan (CS-PLAN-065, CS-PLAN-073 WP2 §3.5)', () => {
 			const setupReady = () => {
 				store.planPreview = { previewVersion: 'abc', changes: [{ roomTaskId: 11 }] }
 				store.planInput = { startDate: '2026-09-10', roomTaskIds: [11], overrides: {} }
 				store.planStatus = 'ready'
+				store.planCommandId = '11111111-2222-4333-8444-555555555555'
+				store.planConsent = true
 			}
 
-			it('sends input + previewVersion, reconciles rows, refreshes readers and reports applied', async () => {
+			it('sends input + previewVersion + commandId + consent, reconciles rows, refreshes readers and reports applied', async () => {
 				setupReady()
 				api.post.mockImplementation(async (path) => {
 					if (path === '/api/v1/scheduling/apply') {
@@ -350,8 +369,26 @@ describe('Scheduling Store', () => {
 					roomTaskIds: [11],
 					overrides: {},
 					previewVersion: 'abc',
+					commandId: '11111111-2222-4333-8444-555555555555',
+					consent: true,
 				})
 				expect(store.planStatus).toBe('applied')
+			})
+
+			it('retains the same command UUID and consent across a failed attempt so a retry never repeats a transition', async () => {
+				setupReady()
+				const conflict = new Error('Conflict')
+				conflict.status = 409
+				api.post.mockRejectedValue(conflict)
+
+				await expect(store.applyPlan()).rejects.toThrow('Conflict')
+
+				// The draft keeps its command identity — a retry reuses the
+				// SAME UUID instead of minting a fresh command — and the
+				// recorded consent attestation survives the 409.
+				expect(store.planCommandId).toBe('11111111-2222-4333-8444-555555555555')
+				expect(store.planConsent).toBe(true)
+				expect(store.planStatus).toBe('stale')
 			})
 
 			it('maps a 409 to the stale state so Apply stays disabled', async () => {
@@ -404,12 +441,14 @@ describe('Scheduling Store', () => {
 				store.planPreview = { previewVersion: 'x' }
 				store.planInput = { startDate: '2026-09-10', roomTaskIds: [] }
 				store.planStatus = 'ready'
+				store.planConsent = true
 
 				store.resetPlan()
 
 				expect(store.planPreview).toBeNull()
 				expect(store.planInput).toBeNull()
 				expect(store.planStatus).toBe('idle')
+				expect(store.planConsent).toBe(false)
 			})
 		})
 

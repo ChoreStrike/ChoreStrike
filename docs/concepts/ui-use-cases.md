@@ -301,9 +301,14 @@ preview/apply). **Entry points:** SchedulingView.
 | Capacity calendar (members × days) | `ScheduleCalendar` | `GET /scheduling/members` + client getters | ✅ |
 | Preview a real-task plan | `SchedulePlanner` (owner only) | `POST /scheduling/suggestions` (`startDate` + selected `roomTaskIds` + optional `overrides`) | ✅ CS-PLAN-065 — deterministic proposal over real room tasks with per-row before/proposed, warnings and capacity report; the retired `{ taskCount }` advice contract is rejected |
 | Adjust a proposal | `SchedulePlanner` per-row person/day selects (from the preview's `legalDates`) | edit marks the preview stale → re-preview | ✅ CS-PLAN-065 — confirmation of an edited/stale preview is disabled |
-| Apply the confirmed plan | `SchedulePlanner` Apply button (owner only) | `POST /scheduling/apply` (exact input + `previewVersion`) | ✅ CS-PLAN-065 — one atomic batch; a stale confirmation is a clean 409; Calendar and My Day refresh from the reconciled stores |
+| Exact-share labels on a proposal | `SchedulePlanner` change rows (`proposed.shares`) | preview response | ✅ CS-PLAN-073 WP2 — whole-percent wallet-order shares (e.g. 34/33/33) rendered per change row |
+| Neutral/overload capacity clarifications | `SchedulePlanner` capacity grid | preview `capacity` report | ✅ CS-PLAN-073 WP2 — `Paused`, `Away` and `{planned}/{budget} — over capacity` labels; existing overload stays visible |
+| Consent attestation before apply | `SchedulePlanner` consent checkbox (`planner-consent`) | rides `POST /scheduling/apply` as `consent: true` | ✅ CS-PLAN-073 WP2 — apply is disabled until the owner attests the agreement; a fresh preview requires a fresh attestation; the attestation survives a 409 retry with the retained draft and command UUID |
+| Apply the confirmed plan | `SchedulePlanner` Apply button (owner only) | `POST /scheduling/apply` (exact input + `previewVersion` + `commandId` + `consent`) | ✅ CS-PLAN-065/073 — one atomic CommandService batch; a stale confirmation (incl. a local-midnight crossing) is a clean 409 with zero writes; identical retries replay the receipt; Calendar and My Day refresh from the reconciled stores |
+| Pause lifecycle (request/decide/shorten/illness) | **no dedicated UI yet (WP6)** — frozen HTTP contract | `POST/PUT /pauses*` | ✅ API CS-PLAN-073 WP2 — personal requests (child → pending), owner house pauses/approvals/illness recognition, acknowledged-only shortening; UI surfaces stay WP5/6 |
+| Occurrence agreements (amend/catch-up/restart) | **no dedicated UI yet (WP6)** — frozen HTTP contract | `POST /occurrences/{key}/{amend,catch-up,restart}` | ✅ API CS-PLAN-073 WP2 — owner-recorded, receipt-identity commands with version/token gates and persisted neutral releases |
 
-*Last verified: 2026-09-10 (CS-PLAN-065).*
+*Last verified: 2026-09-24 (CS-PLAN-073 WP2 fix round).*
 
 ## UC-11 — Progress & gamification
 

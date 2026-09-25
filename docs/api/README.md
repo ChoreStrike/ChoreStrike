@@ -911,6 +911,78 @@ insufficient coins, zero writes).
 
 ### Scheduling
 
+#### Occurrence agreement commands (CS-PLAN-073 WP2)
+
+`POST /occurrences/{id}/amend`, `POST /occurrences/{id}/catch-up`,
+`POST /occurrences/{id}/restart` — owner-recorded agreement commands over one
+occurrence (`{id}` = public occurrence key `<scheduleRevisionId>:<ordinal>`).
+Every command body carries `roomTaskId`, `commandId` (UUID, idempotent retry
+identity), `occurrenceId`, `expectedVersion`, `selectionToken` (amend/catch-up)
+and the explicit `consent: true` attestation (never a confirmation queue);
+`amend` accepts an optional `date` and/or explicit `participants`
+(`[{userId, role, sharePct}]`, active shares totaling exactly 100),
+`catch-up` requires `workDate` (`workZone`, optional `participants`),
+`restart` requires `workDate` and only accepts a neutrally suspended interval
+predecessor. A single-occurrence amendment never changes the revision's future
+defaults. Whole-day capacity of every affected participant — including
+concretely agreed helper commitments — plus the original deadline and child
+limits are enforced inside the locked aggregate; date-only amendments and
+catch-ups without a participant payload validate the **concrete current
+occurrence members** (after a handover the actual arrangement, never the
+replaced revision defaults), charging the occurrence's frozen energy with
+the exact shares. The receipt identity covers
+the action and every normalized semantic input (date, canonical participant
+set, work appointment): an identical retry replays the original result, the
+same UUID with any changed fact or a different action conflicts. A date
+amendment moves exactly the occurrence of the submitted key; a participant
+change persists the former arrangement as a neutral `released` member row
+with consent evidence, re-derives the effective suspension from the new
+rows (an explicit feasible 100% agreement before the original deadline is
+how a suspended joint occurrence resumes — no automatic redistribution),
+and a catch-up appointment keeps its zone on the
+replaced rows. Errors: 400 malformed, 403 visible role denial, 404
+invisible/foreign target, 409 stale version/token, passed deadline or
+business conflict.
+
+`GET|POST /pauses`, `POST /pauses/recognize-illness`,
+`POST /pauses/{id}/approve|reject`, `PUT /pauses/{id}` — the revisioned pause
+lifecycle. `POST /pauses` creates a personal pause for the caller (child →
+pending `requested`, adult → `acknowledged`) or a household pause with
+`scope: 'house'` (owner only); `PUT /pauses/{id}` shortens an **acknowledged**
+pause (a pending request is decided via approve/reject, never shortened) with
+the next-local-day boundary of the pause's saved zone. Within each pause
+group the latest acknowledged revision governs every date from its decision
+boundary on, so a shortening actually removes its superseded future coverage
+while today's and earlier recognized excuses survive it; different groups
+compose as a union and an undecided/rejected child shortening leaves
+acknowledged coverage unchanged. An **ordinary** recognition excuses an
+obligation only when its decision (the acknowledgment/approval time, never a
+child's earlier request time) predates the obligation's original exclusive
+deadline — a late approval cannot erase an expired miss; only
+`POST /pauses/recognize-illness` (owner-only, 404 anti-enumeration for a
+foreign/unknown subject) carries the explicit retrospective marker that can
+neutralize a qualifying unfulfilled historical obligation. Pause rows carry
+stable `pauseGroupId` + monotonic `revision`; mutations echo
+`{pauseGroupId, revision, state}` and require `expectedRevision` for
+decisions/updates plus a `commandId`. The list is viewer-safe through an
+explicit field whitelist: pending personal requests are self/owner data, and
+the personal `reasonCode`/`isRetrospectiveIllness` metadata stays
+self/owner-only in **every** state — unrelated members receive only the
+neutral shared facts (`pauseGroupId`, `revision`, `scope`, `subjectWalletId`,
+`subjectUserId`, `state`, `startDate`, `endDate`, `timezone`,
+`createdAt`/`updatedAt`); house-scope pauses stay fully visible. Suspending
+an occurrence requires ANY obligated (responsible/joint) participant to be
+covered — pausing one partner of an explicit joint arrangement suspends the
+whole occurrence (retained share snapshot, zero live planned capacity) until
+an explicit feasible agreement resumes it, while a helper-only pause releases
+just that commitment (Q-073-01). Suspended obligations stay
+visible for clarification with their frozen effort snapshot but consume no
+live planned capacity and never block selection; overlapping recognized
+pauses keep their union provenance (each covering pause referenceable by its
+own `pause_ref` evidence row). Virtual (not yet materialized) occurrences
+derive the identical suspension from their saved revision's default
+participants, so a stopped cron never changes the read answer.
+
 #### GET /scheduling/preferences
 Get the current user's scheduling preferences (member-gated).
 
@@ -1025,26 +1097,40 @@ non-owner actor), `404 RESOURCE_NOT_FOUND` (unknown, cross-house or
 invisible task), `409 CONFLICT` (inactive row).
 
 #### POST /scheduling/apply
-Apply the confirmed plan as one all-or-nothing aggregate (owner only,
-ADR-012). The request is the **exact normalized preview input** plus its
-`previewVersion`:
+Apply the confirmed plan as one all-or-nothing command (owner only,
+ADR-012; CS-PLAN-073 WP2 runs it as the `scheduling.apply` CommandService
+command). The request is the **exact normalized preview input** plus its
+`previewVersion`, the client's `commandId` UUID and the owner's explicit
+`consent: true` attestation (RF-073-WP2-06):
 
 ```json
 {
   "startDate": "2026-09-10",
   "roomTaskIds": [11, 12],
   "overrides": {},
-  "previewVersion": "sha1-content-fingerprint"
+  "previewVersion": "sha1-content-fingerprint",
+  "commandId": "uuid-v4",
+  "consent": true
 }
 ```
 
-The plan is recomputed under the documented lock order (house → room_task →
-task definition → house_user, ascending ids, then assignee writes) and any
-drift — assignment, date, definition, membership, role, preference,
-timezone, completion or undo state — rejects the batch with
-`409 CONFLICT` and zero writes. A confirmed no-change plan performs zero
-writes and answers `appliedCount: 0`. Claimed rows are never rescheduled;
-`idealDueDate` is not rewritten by an applied move.
+The client mints the UUID per preview and RETAINS it across uncertain
+retries (a 409 keeps the draft and the same UUID — a retry never repeats a
+transition with a fresh identity). The consent attestation records the
+owner's agreement with the affected people: it rides the receipt identity
+and every written `agreements` evidence row of the batch. The plan is
+recomputed under the
+documented lock order (house → room_task → task definition → house_user,
+ascending ids, then assignee writes) and any drift — assignment, date,
+definition, membership, role, preference, timezone, pause, completion or
+undo state — rejects the batch with `409 CONFLICT` and zero writes. A
+preview that crossed local midnight is stale by its fingerprint and
+yields the write-free 409 BEFORE any relative-date validation (CR-SVC-64);
+a newly malformed request stays a 400. A confirmed no-change plan performs
+zero writes and answers `appliedCount: 0`. Claimed rows are never
+rescheduled; `idealDueDate` is not rewritten by an applied move. An
+identical replay (same UUID + payload) returns the original identities plus
+the current authorized state.
 
 **Response `data`:**
 ```json
@@ -1057,7 +1143,10 @@ writes and answers `appliedCount: 0`. Claimed rows are never rescheduled;
 ```
 
 **Errors:** like preview, plus `409 CONFLICT` for a stale/mismatched
-`previewVersion` (retry requires a fresh preview).
+`previewVersion` (retry requires a fresh preview) and `400 VALIDATION_ERROR`
+for a missing/oversized `commandId` or a missing/false `consent` attestation
+(both validated after the owner gate, so unauthorized actors still receive
+their 403).
 
 ### Users
 

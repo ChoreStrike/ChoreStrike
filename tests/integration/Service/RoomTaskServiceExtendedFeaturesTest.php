@@ -98,6 +98,12 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$calendar,
 			$rowFactory,
 			$reconcileService,
+			new \OCA\ChoreStrike\Service\PauseProjectionService(
+				\OC::$server->get(\OCA\ChoreStrike\Db\PauseMapper::class),
+				\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class),
+				$occMemberMapper,
+				$calendar,
+			),
 		);
 		$revisionService = new \OCA\ChoreStrike\Service\OccurrenceRevisionService(
 			$transactions,
@@ -155,6 +161,12 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			new TaskAccessPolicy($taskAssigneeMapper, $l10n),
 			new \OCA\ChoreStrike\Service\CalendarService(),
 			$this->occurrenceService,
+			new \OCA\ChoreStrike\Service\PauseProjectionService(
+				\OC::$server->get(\OCA\ChoreStrike\Db\PauseMapper::class),
+				\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class),
+				$occMemberMapper,
+				new \OCA\ChoreStrike\Service\CalendarService(),
+			),
 			$l10n
 		);
 
@@ -312,6 +324,12 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			new TaskAccessPolicy($taskAssigneeMapper, $this->identityL10n()),
 			new \OCA\ChoreStrike\Service\CalendarService(),
 			$this->occurrenceService,
+			new \OCA\ChoreStrike\Service\PauseProjectionService(
+				\OC::$server->get(\OCA\ChoreStrike\Db\PauseMapper::class),
+				\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class),
+				\OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
+				new \OCA\ChoreStrike\Service\CalendarService(),
+			),
 			$this->identityL10n()
 		);
 

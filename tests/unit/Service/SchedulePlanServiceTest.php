@@ -46,6 +46,9 @@ class SchedulePlanServiceTest extends TestCase {
 	private CompletedTaskMapper|MockObject $completedTaskMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
 	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
+	private \OCA\ChoreStrike\Db\OccurrenceMapper|MockObject $dailyCapacityOccurrenceMapper;
+	private \OCA\ChoreStrike\Db\OccurrenceMemberMapper|MockObject $dailyCapacityOccMemberMapper;
+	private \OCA\ChoreStrike\Service\DailyCapacityService $dailyCapacity;
 	private SchedulePlanService $service;
 	private string $todayKey;
 	private HouseUser $owner;
@@ -71,6 +74,34 @@ class SchedulePlanServiceTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
+		// The WP2 whole-day capacity evaluator runs REAL against the same
+		// mapper mocks — planned shares, frozen completion effort and the
+		// member-day budgets flow through the production derivation.
+		$revisionMapper = $this->createMock(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class);
+		$revisionMapper->method('findByHouseId')->willReturn([]);
+		$this->dailyCapacityOccurrenceMapper = $this->createMock(\OCA\ChoreStrike\Db\OccurrenceMapper::class);
+		$this->dailyCapacityOccMemberMapper = $this->createMock(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class);
+		$this->roomTaskMapper->method('findByHouse')->willReturn([]);
+		$pauseProjection = new \OCA\ChoreStrike\Service\PauseProjectionService(
+			$this->createMock(\OCA\ChoreStrike\Db\PauseMapper::class),
+			$this->houseUserMapper,
+			$this->dailyCapacityOccMemberMapper,
+			new CalendarService(),
+		);
+		$this->dailyCapacity = new \OCA\ChoreStrike\Service\DailyCapacityService(
+			$this->houseMapper,
+			$this->roomTaskMapper,
+			$revisionMapper,
+			$this->dailyCapacityOccurrenceMapper,
+			$this->dailyCapacityOccMemberMapper,
+			$this->completedTaskMapper,
+			$this->houseUserMapper,
+			$pauseProjection,
+			$this->createMock(\OCA\ChoreStrike\Service\RecurrenceCalculator::class),
+			new CalendarService(),
+			$l10n,
+		);
+
 		$this->service = new SchedulePlanService(
 			$this->roomTaskMapper,
 			$this->taskMapper,
@@ -80,6 +111,9 @@ class SchedulePlanServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->completedTaskMapper,
 			$this->occurrenceService,
+			$this->createMock(\OCA\ChoreStrike\Service\CommandService::class),
+			$this->dailyCapacity,
+			$pauseProjection,
 			new TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			new CalendarService(),
 			$this->taskAccessPolicy,
@@ -101,6 +135,9 @@ class SchedulePlanServiceTest extends TestCase {
 		$member->setNextcloudUserId($userId);
 		$member->setDisplayName($userId);
 		$member->setRole($role);
+		// WP0 wallet identity — the capacity evaluator resolves planned
+		// effort per wallet, so fixtures bind one wallet per member.
+		$member->setWalletId($rowId);
 		$member->setSchedulingPreferences(array_merge($budget === [] ? [] : ['energyBudget' => $budget], $extraPreferences));
 		return $member;
 	}
@@ -209,6 +246,62 @@ class SchedulePlanServiceTest extends TestCase {
 			}
 		);
 		$this->occurrenceService->method('projectionsForTask')->willReturn([]);
+
+		// WP2 capacity sources: the whole-day evaluator consumes open
+		// occurrences with their member SHARES (wallet identity) and the
+		// frozen completion effort — mirror the agreed load fixture here.
+		$walletOfUser = [];
+		foreach ($members as $member) {
+			$walletOfUser[$member->getNextcloudUserId()] = (int)$member->getWalletId();
+		}
+		$openRows = [];
+		foreach (($baseRows + $rowsById) as $row) {
+			foreach ($agreedLoadByTask[$row->getId()] ?? [] as $index => $dayKey) {
+				$occurrence = new \OCA\ChoreStrike\Db\Occurrence();
+				$occurrence->setId($row->getId() * 100 + $index);
+				$occurrence->setHouseId(7);
+				$occurrence->setRoomTaskId($row->getId());
+				$occurrence->setScheduleRevId($row->getId());
+				$occurrence->setOrdinal($index + 1);
+				$occurrence->setKind(\OCA\ChoreStrike\Db\Occurrence::KIND_SCHEDULED);
+				$occurrence->setPlannedDate(new \DateTime($dayKey . ' 00:00:00', new \DateTimeZone('UTC')));
+				$occurrence->setTimezone('UTC');
+				$occurrence->setEnergy((int)($tasksById[$row->getTaskId()]?->getEnergyCost() ?? 2));
+				$openRows[] = $occurrence;
+			}
+		}
+		/** @var \OCA\ChoreStrike\Db\OccurrenceMapper|MockObject $openMapper */
+		$openMapper = $this->dailyCapacityOccurrenceMapper;
+		$openMapper->method('findOpenByHouseId')->willReturn($openRows);
+		/** @var \OCA\ChoreStrike\Db\OccurrenceMemberMapper|MockObject $memberMapper */
+		$memberMapper = $this->dailyCapacityOccMemberMapper;
+		$memberMapper->method('findByOccurrenceIds')->willReturnCallback(
+			static function (array $ids) use ($openRows, $assigneesByRoomTask, $walletOfUser): array {
+				$byId = [];
+				foreach ($openRows as $occurrence) {
+					$id = (int)$occurrence->getId();
+					if (!in_array($id, array_map('intval', $ids), true)) {
+						continue;
+					}
+					$assignees = array_values($assigneesByRoomTask[$occurrence->getRoomTaskId()] ?? []);
+					$count = max(1, count($assignees));
+					$base = intdiv(100, $count);
+					$remainder = 100 - $base * $count;
+					$membersById = [];
+					foreach ($assignees as $i => $userId) {
+						$occMember = new \OCA\ChoreStrike\Db\OccurrenceMember();
+						$occMember->setWalletId($walletOfUser[$userId] ?? ($i + 1));
+						$occMember->setRole(\OCA\ChoreStrike\Db\OccurrenceMember::ROLE_RESPONSIBLE);
+						$occMember->setObligated(true);
+						$occMember->setSharePct($base + ($i < $remainder ? 1 : 0));
+						$occMember->setDisposition(\OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_ACTIVE);
+						$membersById[] = $occMember;
+					}
+					$byId[$id] = $membersById;
+				}
+				return $byId;
+			}
+		);
 	}
 
 	private function dayOffset(int $days): string {
@@ -568,7 +661,7 @@ class SchedulePlanServiceTest extends TestCase {
 		$this->assertSame(['EXISTING_OVERLOAD'], $plan['warnings']);
 	}
 
-	public function testPreview_MultiAssigneeSet_CountsFullEffortPerAssignee(): void {
+	public function testPreview_MultiAssigneeSet_CountsExactSharePerAssignee(): void {
 		$dad = $this->member('dad', 1, 'owner', ['monday' => 6, 'tuesday' => 6, 'wednesday' => 6, 'thursday' => 6, 'friday' => 6, 'saturday' => 6, 'sunday' => 6]);
 		$mom = $this->member('mom', 2, 'member', ['monday' => 4, 'tuesday' => 4, 'wednesday' => 4, 'thursday' => 4, 'friday' => 4, 'saturday' => 4, 'sunday' => 4]);
 		$row = $this->roomTask(5, 10, $this->todayKey);
@@ -577,11 +670,15 @@ class SchedulePlanServiceTest extends TestCase {
 
 		$plan = $this->service->preview(7, $this->owner, $this->todayKey, [5], []);
 
-		// mom's budget (4) < full effort (5) → existing unavoidable overload.
-		$this->assertSame(['EXISTING_OVERLOAD'], $plan['unchanged'][0]['warnings']);
+		// WP2 exact shares: a shared task counts each member's agreed
+		// SHARE once (5 * 50% = 2.5 energy = 250 minor) — never the full
+		// effort per assignee and never once on only one member.
+		$this->assertSame([], $plan['unchanged'][0]['warnings'], 'a 50% share of a 5-energy task fits a 4-energy budget');
 		$today = array_values(array_filter($plan['capacity'], fn (array $day): bool => $day['date'] === $this->todayKey))[0];
-		$this->assertSame(5, $today['members']['dad']['planned']);
-		$this->assertSame(5, $today['members']['mom']['planned']);
+		$this->assertSame(250, $today['members']['dad']['plannedEnergyMinor']);
+		$this->assertSame(250, $today['members']['mom']['plannedEnergyMinor']);
+		$this->assertSame(3, $today['members']['mom']['planned'], 'the legacy whole-number view rounds the exact share');
+		$this->assertSame(1, $today['members']['mom']['taskCount'], 'each distinct occurrence counts once toward the limit');
 	}
 
 	public function testPreview_AdminOnlyTask_MemberAssigneeRejectedOwnerEligible(): void {

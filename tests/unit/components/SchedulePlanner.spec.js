@@ -119,6 +119,12 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 		return wrapper
 	}
 
+	// WP2 §3.3.2 (RF-073-WP2-06/13): the owner's explicit consent
+	// attestation gates the apply control.
+	const grantConsent = async (wrapper) => {
+		await wrapper.find('[data-testid="planner-consent"]').setValue(true)
+	}
+
 	it('renders the planner with selection UI and a disabled preview button', () => {
 		const wrapper = mountComponent()
 		expect(wrapper.find('[data-testid="schedule-planner"]').exists()).toBe(true)
@@ -136,6 +142,10 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 		})
 		expect(wrapper.find('[data-testid="plan-change-11"]').exists()).toBe(true)
 		expect(wrapper.text()).toContain('Dishes')
+		// Apply stays disabled until the explicit consent attestation.
+		expect(wrapper.find('[data-testid="apply-plan-button"]').attributes('disabled')).toBeDefined()
+		expect(wrapper.find('[data-testid="planner-consent-hint"]').exists()).toBe(true)
+		await grantConsent(wrapper)
 		expect(wrapper.find('[data-testid="apply-plan-button"]').attributes('disabled')).toBeUndefined()
 	})
 
@@ -158,6 +168,41 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 
 		expect(wrapper.find('[data-testid="plan-unplaced-11"]').exists()).toBe(true)
 		expect(wrapper.text()).toContain('no free capacity on any legal day')
+	})
+
+	it('renders exact share labels and neutral/overload capacity clarifications (RF-073-WP2-13)', async () => {
+		const wrapper = await previewAndApplyReady(mountComponent(), previewPayload({
+			changes: [{
+				roomTaskId: 11,
+				taskId: 1,
+				taskName: 'Dishes',
+				roomName: 'Kitchen',
+				energyCost: 2,
+				priority: 2,
+				flexDays: 3,
+				legalDates: ['2026-09-10'],
+				before: { assignees: ['dad'], dueDate: '2026-09-08' },
+				proposed: { assignees: ['dad', 'mom'], dueDate: '2026-09-10', shares: { dad: 34, mom: 66 } },
+				warnings: [],
+			}],
+			capacity: [{
+				date: '2026-09-10',
+				members: {
+					dad: { houseUserId: 1, available: true, paused: true, budget: 10, planned: 0, remaining: 10, taskCount: 0 },
+					mom: { houseUserId: 2, available: true, overloaded: true, budget: 10, planned: 12, remaining: 0, taskCount: 2 },
+				},
+			}],
+		}))
+
+		// The exact agreed shares ride the change row (whole percents).
+		const shares = wrapper.find('[data-testid="plan-change-shares-11"]')
+		expect(shares.exists()).toBe(true)
+		expect(shares.text()).toContain('Dad 34%')
+		expect(shares.text()).toContain('Mom 66%')
+
+		// Neutral pause and existing overload stay visible with amounts.
+		expect(wrapper.text()).toContain('Paused')
+		expect(wrapper.text()).toContain('12/10 — over capacity')
 	})
 
 	it('marks the preview stale when an override edit happens', async () => {
@@ -191,8 +236,9 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 		expect(wrapper.find('[data-testid="apply-plan-button"]').attributes('disabled')).toBeDefined()
 	})
 
-	it('applies the confirmed preview with input + previewVersion and reports success', async () => {
+	it('applies the confirmed preview with input + previewVersion + commandId + consent and reports success', async () => {
 		const wrapper = await previewAndApplyReady(mountComponent())
+		await grantConsent(wrapper)
 		api.post.mockResolvedValueOnce({
 			appliedCount: 1,
 			windowStart: '2026-09-10',
@@ -203,12 +249,16 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 		await wrapper.find('[data-testid="apply-plan-button"]').trigger('click')
 		await flushPromises()
 
-		expect(api.post).toHaveBeenLastCalledWith('/api/v1/scheduling/apply', {
+		const [, applyPayload] = api.post.mock.calls.find(([path]) => path === '/api/v1/scheduling/apply')
+		expect(applyPayload).toEqual({
 			startDate: todayKeyInZone('UTC'),
 			roomTaskIds: [11],
 			overrides: {},
 			previewVersion: 'v1',
+			commandId: schedulingStore.planCommandId,
+			consent: true,
 		})
+		expect(schedulingStore.planCommandId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
 		expect(schedulingStore.planStatus).toBe('applied')
 		expect(wrapper.find('[data-testid="plan-applied"]').exists()).toBe(true)
 		expect(showSuccess).toHaveBeenCalled()
@@ -216,6 +266,7 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 
 	it('maps a 409 apply to the stale state with an error toast', async () => {
 		const wrapper = await previewAndApplyReady(mountComponent())
+		await grantConsent(wrapper)
 		const conflict = new Error('Conflict')
 		conflict.status = 409
 		api.post.mockRejectedValueOnce(conflict)
@@ -226,6 +277,8 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 		expect(schedulingStore.planStatus).toBe('stale')
 		expect(wrapper.find('[data-testid="plan-stale"]').exists()).toBe(true)
 		expect(showError).toHaveBeenCalled()
+		// The draft keeps its consent attestation across the 409 retry.
+		expect(schedulingStore.planConsent).toBe(true)
 	})
 
 	it('shows an error toast and banner when the preview fails', async () => {
@@ -294,6 +347,11 @@ describe('SchedulePlanner — keyboard/mobile control contract', () => {
 		expect(wrapper.find('[data-testid="preview-plan-button"]').element.tagName).toBe('BUTTON')
 		expect(wrapper.find('[data-testid="apply-plan-button"]').element.tagName).toBe('BUTTON')
 
+		// The WP2 consent attestation is a native checkbox (space-operable).
+		const consent = wrapper.find('[data-testid="planner-consent"]')
+		expect(consent.element.tagName).toBe('INPUT')
+		expect(consent.attributes('type')).toBe('checkbox')
+
 		expect(wrapper.find('[data-testid="planner-assignee-11"]').element.tagName).toBe('SELECT')
 		expect(wrapper.find('[data-testid="planner-date-11"]').element.tagName).toBe('SELECT')
 
@@ -311,6 +369,10 @@ describe('SchedulePlanner — keyboard/mobile control contract', () => {
 		// The task checkbox is wrapped in its (clickable) label.
 		const checkbox = wrapper.find('[data-testid="planner-task-checkbox-11"]')
 		expect(checkbox.element.closest('label')).not.toBeNull()
+		// The consent checkbox is wrapped in its label with visible text.
+		const consent = wrapper.find('[data-testid="planner-consent"]')
+		expect(consent.element.closest('label')).not.toBeNull()
+		expect(consent.element.closest('label').textContent).toContain('Everyone affected has agreed to this plan')
 		// Both override selects are named by an explicit label[for].
 		expect(wrapper.find('label[for="assignee-11"]').exists()).toBe(true)
 		expect(wrapper.find('label[for="date-11"]').exists()).toBe(true)

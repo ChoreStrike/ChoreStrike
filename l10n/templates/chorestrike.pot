@@ -44,16 +44,34 @@ msgstr ""
 msgid "A maximum of %1$d rooms per floor is allowed"
 msgstr ""
 
+msgid "A paused occurrence cannot be amended"
+msgstr ""
+
 msgid "A plan may contain at most %1$s tasks"
+msgstr ""
+
+msgid "A plan may have at most %1$s participants"
+msgstr ""
+
+msgid "A restart already exists for this occurrence"
 msgstr ""
 
 msgid "A selectionToken is required"
 msgstr ""
 
+msgid "A subjectUserId is required"
+msgstr ""
+
 msgid "A valid commandId (UUID) is required"
 msgstr ""
 
+msgid "A valid expectedRevision is required"
+msgstr ""
+
 msgid "A valid expectedVersion is required"
+msgstr ""
+
+msgid "A valid roomTaskId is required"
 msgstr ""
 
 msgid "Active"
@@ -134,6 +152,12 @@ msgstr ""
 msgid "Already as planned"
 msgstr ""
 
+msgid "An amendment needs a date or participants"
+msgstr ""
+
+msgid "An explicit consent attestation is required"
+msgstr ""
+
 msgid "An occurrenceId is required"
 msgstr ""
 
@@ -189,6 +213,9 @@ msgid "Assignee is not a member of this house: %1$s"
 msgstr ""
 
 msgid "Assignees must be house members"
+msgstr ""
+
+msgid "Assigning this member would exceed their daily energy budget"
 msgstr ""
 
 msgid "Assigning this member would exceed their daily task limit"
@@ -494,6 +521,9 @@ msgstr ""
 msgid "Configure when each member is available for tasks"
 msgstr ""
 
+msgid "Confirm the agreement before applying the plan."
+msgstr ""
+
 msgid "Confirming is disabled until you prepare a fresh plan."
 msgstr ""
 
@@ -698,6 +728,9 @@ msgstr ""
 msgid "Each override must set assigneeUserIds or date"
 msgstr ""
 
+msgid "Each participant must be an object"
+msgstr ""
+
 msgid "Each person needs an existing Nextcloud account with this email address."
 msgstr ""
 
@@ -809,7 +842,13 @@ msgstr ""
 msgid "Everyone"
 msgstr ""
 
+msgid "Everyone affected has agreed to this plan"
+msgstr ""
+
 msgid "Everything shines! Lots of tasks, but everything is sparkling clean in no time."
+msgstr ""
+
+msgid "Exact shares: {shares}"
 msgstr ""
 
 msgid "Exactly one of task or taskId is required"
@@ -1514,6 +1553,9 @@ msgstr ""
 msgid "No unfulfilled occurrence can be amended"
 msgstr ""
 
+msgid "No wallet exists for this member"
+msgstr ""
+
 msgid "None"
 msgstr ""
 
@@ -1553,6 +1595,15 @@ msgstr ""
 msgid "One-time task"
 msgstr ""
 
+msgid "Only a paused occurrence can be restarted"
+msgstr ""
+
+msgid "Only a pending pause request can be decided"
+msgstr ""
+
+msgid "Only an acknowledged pause can be shortened"
+msgstr ""
+
 msgid "Only house members can complete tasks"
 msgstr ""
 
@@ -1572,6 +1623,9 @@ msgid "Only house owners may change the task tier"
 msgstr ""
 
 msgid "Only house owners may edit checklists"
+msgstr ""
+
+msgid "Only interval work needs an explicit restart"
 msgstr ""
 
 msgid "Only the completer or a house owner can undo a completion"
@@ -1620,6 +1674,9 @@ msgid "Owner role required"
 msgstr ""
 
 msgid "Past latest date"
+msgstr ""
+
+msgid "Pause not found"
 msgstr ""
 
 msgid "Paused"
@@ -1964,6 +2021,12 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
+msgid "Shares must be positive whole percents"
+msgstr ""
+
+msgid "Shares must total exactly 100 percent"
+msgstr ""
+
 msgid "Show details"
 msgstr ""
 
@@ -2213,6 +2276,12 @@ msgstr ""
 msgid "The house is already set up. Use the per-room template picker instead."
 msgstr ""
 
+msgid "The pause already covers no later date"
+msgstr ""
+
+msgid "The pause changed since it was displayed. Reload and try again."
+msgstr ""
+
 msgid "The person needs an existing Nextcloud account with this email address."
 msgstr ""
 
@@ -2246,6 +2315,9 @@ msgstr ""
 msgid "The selected occurrence is no longer valid"
 msgstr ""
 
+msgid "The shortened pause would lose its start date"
+msgstr ""
+
 msgid "The task changed since it was displayed. Reload and try again."
 msgstr ""
 
@@ -2262,6 +2334,12 @@ msgid "This Week's Medals"
 msgstr ""
 
 msgid "This house has already been set up."
+msgstr ""
+
+msgid "This member is not available on that day"
+msgstr ""
+
+msgid "This member is paused on that day"
 msgstr ""
 
 msgid "This occurrence is already completed"
@@ -2384,6 +2462,12 @@ msgstr ""
 msgid "Unknown override field: %1$s"
 msgstr ""
 
+msgid "Unknown participant role: %1$s"
+msgstr ""
+
+msgid "Unknown reason code: %1$s"
+msgstr ""
+
 msgid "Unknown task"
 msgstr ""
 
@@ -2472,6 +2556,9 @@ msgid "View Leaderboard"
 msgstr ""
 
 msgid "Visibility"
+msgstr ""
+
+msgid "Voluntary work needs no date amendment"
 msgstr ""
 
 msgid "Wash, dry, and fold a load."
@@ -2636,6 +2723,9 @@ msgstr ""
 msgid "completed"
 msgstr ""
 
+msgid "date must be a valid Y-m-d date"
+msgstr ""
+
 msgid "day"
 msgstr ""
 
@@ -2652,6 +2742,9 @@ msgid "e.g., Ground Floor"
 msgstr ""
 
 msgid "e.g., Vacuum living room"
+msgstr ""
+
+msgid "endDate must be a valid Y-m-d date"
 msgstr ""
 
 msgid "energy"
@@ -2699,6 +2792,12 @@ msgstr ""
 msgid "overrides must be an object keyed by room task ID"
 msgstr ""
 
+msgid "participants must be a non-empty array"
+msgstr ""
+
+msgid "participants must not contain duplicates"
+msgstr ""
+
 msgid "previewVersion is required"
 msgstr ""
 
@@ -2726,10 +2825,16 @@ msgstr ""
 msgid "rooms"
 msgstr ""
 
+msgid "scope must be personal or house"
+msgstr ""
+
 msgid "startDate must be a valid Y-m-d date"
 msgstr ""
 
 msgid "startDate must be today or later"
+msgstr ""
+
+msgid "startDate must not be after endDate"
 msgstr ""
 
 msgid "task must be an object"
@@ -2798,6 +2903,12 @@ msgstr ""
 msgid "weeks"
 msgstr ""
 
+msgid "workDate must be a valid Y-m-d date"
+msgstr ""
+
+msgid "workZone must be a valid IANA timezone"
+msgstr ""
+
 msgid "{assigned} task(s) assigned, {skipped} skipped"
 msgstr ""
 
@@ -2862,6 +2973,9 @@ msgid "{people}, {date}"
 msgstr ""
 
 msgid "{percent}% clean"
+msgstr ""
+
+msgid "{planned}/{budget} — over capacity"
 msgstr ""
 
 msgid "{remaining}/{budget} left"

@@ -59,7 +59,10 @@ class OccurrenceMemberMapper extends QBMapper {
 	/**
 	 * Insert a member row; tolerant of the natural-key race (the house lock
 	 * makes this unreachable in practice). Called inside the owning
-	 * transaction.
+	 * transaction. WP2 (RF-073-WP2-04): the agreed work appointment and the
+	 * disposition ride the row — a replacement never loses a persisted
+	 * catch-up appointment and a released former participant stays visible
+	 * as neutral history (RF-073-WP2-02).
 	 */
 	public function addMember(
 		int $occurrenceId,
@@ -67,6 +70,9 @@ class OccurrenceMemberMapper extends QBMapper {
 		string $role,
 		bool $obligated,
 		int $sharePct,
+		?\DateTime $workDate = null,
+		?string $workZone = null,
+		string $disposition = OccurrenceMember::DISPOSITION_ACTIVE,
 	): OccurrenceMember {
 		$member = new OccurrenceMember();
 		$member->setOccurrenceId($occurrenceId);
@@ -74,16 +80,20 @@ class OccurrenceMemberMapper extends QBMapper {
 		$member->setRole($role);
 		$member->setObligated($obligated);
 		$member->setSharePct($sharePct);
-		$member->setDisposition(OccurrenceMember::DISPOSITION_ACTIVE);
+		$member->setWorkDate($workDate);
+		$member->setWorkZone($workZone);
+		$member->setDisposition($disposition);
 		$member->setCreatedAt(new \DateTime());
 		return $this->insert($member);
 	}
 
 	/**
 	 * Replace the member set of an occurrence inside the owning transaction
-	 * (agreement writer path).
+	 * (agreement writer path). Rows may carry the optional `workDate`
+	 * (Y-m-d string or \DateTime), `workZone` and `disposition` keys; an
+	 * omitted disposition is `active`.
 	 *
-	 * @param array<int, array{walletId: int, role: string, obligated: bool, sharePct: int}> $members
+	 * @param array<int, array{walletId: int, role: string, obligated: bool, sharePct: int, workDate?: string|\DateTime|null, workZone?: string|null, disposition?: string}> $members
 	 */
 	public function replaceForOccurrence(int $occurrenceId, array $members): void {
 		$qb = $this->db->getQueryBuilder();
@@ -91,12 +101,23 @@ class OccurrenceMemberMapper extends QBMapper {
 			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter($occurrenceId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
 		foreach ($members as $member) {
+			$workDate = $member['workDate'] ?? null;
+			if (is_string($workDate)) {
+				$workDate = \DateTime::createFromFormat('!Y-m-d', $workDate) ?: null;
+			}
+			$disposition = (string)($member['disposition'] ?? OccurrenceMember::DISPOSITION_ACTIVE);
+			if (!in_array($disposition, OccurrenceMember::DISPOSITIONS, true)) {
+				throw new \InvalidArgumentException('Unknown member disposition: ' . $disposition);
+			}
 			$this->addMember(
 				$occurrenceId,
 				(int)$member['walletId'],
 				(string)$member['role'],
 				(bool)$member['obligated'],
 				(int)$member['sharePct'],
+				$workDate,
+				isset($member['workZone']) ? (string)$member['workZone'] : null,
+				$disposition,
 			);
 		}
 	}

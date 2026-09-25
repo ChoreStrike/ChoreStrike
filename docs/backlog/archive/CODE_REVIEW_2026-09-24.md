@@ -159,3 +159,164 @@ Evidence-only scoped commit on `master` (this record, the plan's §9/Review
 Outcome/status updates, `ACTIVE_TASKS.md`, the CR-SVC-64 backlog note). No
 implementation file, no lifecycle move, no branch/PR action. The unrelated
 `.gitkeep` deletions remain untouched in the working tree.
+
+---
+
+## Standard B Re-review at 75f2da3
+
+**Date:** 2026-09-24. **Tier:** Standard B, finalization attempt, no subagents.
+**Outcome:** `BLOCKED`. **Owning plan:**
+[CS-PLAN-073](../../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md).
+
+### Scope and Capture
+
+The explicit plan path identifies ownership; `uncommitted` selects the remaining
+WP2 package, not merely the unchanged plan Markdown. Captured 47 modified tracked
+files plus 15 untracked files. The three unrelated
+`docs/plans/{active,new,onhold}/.gitkeep` deletions remain excluded and untouched.
+
+- Branch: `master`; HEAD: `75f2da3e1fe3f8b3f46d128ad6f92263649bdb78`.
+- Index empty; index tree: `10c93ac062abac95b4707383becd2b65598b9142`.
+- Staged binary-diff SHA-256 (empty): `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+- Unstaged scoped binary-diff SHA-256: `6d935e5f602679abe058911827f5d9a1db063f0dd8a4db4d2e8a362799775f2a`.
+- Complete scope SHA-256: `fe55523f55f8792c402464a10a9dfdbca4601589b32d9d2191d51e441412e712`.
+- Recipe: SHA-256 of staged `git diff --cached --binary -- <manifest>`, NUL,
+  unstaged `git diff --binary -- <manifest>`, NUL, then compact JSON of sorted
+  `[relativePath, git hash-object contentHash]` pairs for every untracked path.
+  Review-owned documentation is outside this captured implementation fingerprint.
+
+Exact captured manifest:
+
+```text
+appinfo/routes.php
+docs/adr/ADR-013-occurrence-agreements-and-corrections.md
+docs/api/README.md
+l10n/de.json
+l10n/en.json
+l10n/templates/chorestrike.pot
+lib/BackgroundJob/TimelineJob.php
+lib/Controller/OccurrenceController.php
+lib/Controller/PauseController.php
+lib/Controller/RoomTaskController.php
+lib/Controller/SchedulingController.php
+lib/Db/AgreementMapper.php
+lib/Db/CompletedTaskMapper.php
+lib/Db/Occurrence.php
+lib/Db/OccurrenceMapper.php
+lib/Db/Pause.php
+lib/Db/PauseMapper.php
+lib/Migration/Version1031Date20260918000000.php
+lib/Service/AccountErasureService.php
+lib/Service/AgreementCommandContext.php
+lib/Service/AgreementService.php
+lib/Service/CompletionService.php
+lib/Service/DailyCapacityService.php
+lib/Service/HouseService.php
+lib/Service/OccurrenceAgreementService.php
+lib/Service/OccurrenceCompletionService.php
+lib/Service/OccurrenceSelectionService.php
+lib/Service/OccurrenceService.php
+lib/Service/PauseProjectionService.php
+lib/Service/PauseService.php
+lib/Service/RoomTaskReadService.php
+lib/Service/SchedulePlanService.php
+lib/Service/TestDataService.php
+src/store/scheduling.js
+tests/e2e/scheduling-apply-flow.spec.ts
+tests/integration/Db/FamilyRhythmSchemaTest.php
+tests/integration/Db/WorkflowQueryBudgetTest.php
+tests/integration/IntegrationTestCase.php
+tests/integration/Service/ConcurrentCompletionTest.php
+tests/integration/Service/PauseAgreementTest.php
+tests/integration/Service/RoomTaskServiceExtendedFeaturesTest.php
+tests/integration/Service/SchedulePlanAggregateTest.php
+tests/integration/Service/SchedulePlanConcurrencyTest.php
+tests/unit/BackgroundJob/TimelineJobTest.php
+tests/unit/Controller/OccurrenceControllerTest.php
+tests/unit/Controller/PauseControllerTest.php
+tests/unit/Controller/SchedulingControllerTest.php
+tests/unit/RouteMatrixTest.php
+tests/unit/Service/AccountErasureServiceTest.php
+tests/unit/Service/AgreementServiceTest.php
+tests/unit/Service/HouseServiceLoggingTest.php
+tests/unit/Service/HouseServiceTest.php
+tests/unit/Service/OccurrenceServiceTest.php
+tests/unit/Service/PauseProjectionServiceTest.php
+tests/unit/Service/PauseServiceTest.php
+tests/unit/Service/RoomTaskReadServiceTest.php
+tests/unit/Service/RoomTaskServiceDailyTest.php
+tests/unit/Service/RoomTaskServiceLoggingTest.php
+tests/unit/Service/RoomTaskServiceTest.php
+tests/unit/Service/SchedulePlanServiceTest.php
+tests/unit/components/SchedulePlanner.spec.js
+tests/unit/store/scheduling.spec.js
+```
+
+### Review Coverage and Findings
+
+Reviewed the canonical skills/checklist, active tracking, full owning plan and
+its manifest/test/acceptance requirements, previous review record and recent
+implementation history. Inspected agreement command normalization/writers,
+pause projection, planner/client changes, capacity gates, completed-energy
+query and agreement unit coverage. The missing required suites are a critical
+completion blocker; this round stops short of an exhaustive review of all 62
+paths and makes no security, fresh-migration or full-manifest clearance claim.
+
+| Severity | Finding | Current evidence | Status |
+|---|---|---|---|
+| block | RF-08/RF-09 required suites absent | No `DailyCapacityServiceTest.php` or `PauseAgreementConcurrencyTest.php` under `tests/`; plan section 4 explicitly requires both | Open |
+| major | RF-19 receipt hash omits semantic command inputs | `AgreementService.php:435-441` returns only common metadata; `CommandService.php:114-124` hashes that payload and replays before invoking the domain callback | New, plan-owned |
+| major | RF-20 catch-up projection depends on unrelated pause presence | `PauseProjectionService.php:148-156` returns the default appointment before reading members when no recognized pause exists | New, plan-owned |
+| major | RF-21 joint planner placement validates one member and double-counts replacements | `SchedulePlanService.php:739-768` returns the full candidate set after one full-energy check; old allocation removal happens afterwards at `:594-606` | New, plan-owned |
+| major | RF-22 selection token accepted but never checked | `AgreementService.php:358,373-388` stores the token but target validation only checks completion/version | New, plan-owned |
+| major | RF-01..07 remain | Wrong-target date selection, deleted release rows, overwritten pause provenance, lost catch-up appointment on member replacement, missing command suspension derivation, planner consent omission, skipped helper capacity | Open |
+| evidence/client/docs | RF-10..14 remain unclosed | Required test extensions, browser scenarios, minimum client and durable-doc requirements lack completion evidence | Open |
+
+No runtime fix applied: new findings require behavior/validation changes outside
+the safe review auto-fix categories. Corrected RF-01's overly broad wording:
+an expired older miss causes a conflict, not a successful date write; another
+amendable occurrence can still be selected instead of the supplied key. Existing
+RF-15..18 were not closed or treated as verified resolved.
+
+### Current Gate Results
+
+| Command | Result |
+|---|---|
+| `npm test -- --runInBand` | 100 suites / 1070 tests passed; known TECH-JEST-001 duplicate-worktree-mock warnings |
+| `npm run lint` | Passed, check-only |
+| `npm run build` | Production webpack build passed |
+| `docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped` | 1023 tests / 3005 assertions, zero skips |
+| `docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped` | 412 tests / 1866 assertions, zero skips |
+| `docker exec chorestrike-test composer cs:check` | 0 of 349 files need fixes |
+| `npm run l10n:check-keys` | 989 keys, exact source/POT/EN/DE coverage |
+| `npm run test:noise` | Passed; synthetic browser-gate failure output is a passing harness test, not E2E execution |
+| `npm run test:e2e:gate` | Not run, explicit decision below; still required |
+
+Docker containers were healthy and the existing environment was used. No
+disposable-volume reset/fresh-install proof or browser/mobile validation was
+repeated. Passing existing tests cannot replace the missing required suites.
+Post-edit gates passed: `npm run backlog:check` (26 scoped files),
+`npm run docs:encoding` (772 tracked files), and `git diff --check`.
+Final capture comparison reproduced the exact 62-path implementation hash
+`fe55523f55f8792c402464a10a9dfdbca4601589b32d9d2191d51e441412e712`;
+branch/HEAD and empty-index diff hash were unchanged.
+
+### Decision and Finalization
+
+The structured question offered `Retain deferral (Recommended)` versus
+`Run existing gate`. The user selected **Retain deferral (Recommended)**:
+run the complete browser gate in the fix round once required WP2 scenarios
+exist. This is not a scope reduction, test waiver, or permission to finalize.
+
+- Plan section 9 adds RF-19..22; no new in-scope backlog items.
+- TECH-JEST-001 absorbs this round's repeated warning evidence; its tooling
+  fix remains out of scope. No warnings suppressed or worktrees changed.
+- Plan header, Review Outcome and ACTIVE_TASKS updated; all acceptance and
+  backlog-completion states remain unchanged.
+- **No lifecycle transition or automatic commit.** Canonical review section 5
+  classifies missing required gates as `BLOCKED`, including where a previous
+  round used `NEEDS-FOLLOW-UP` with a deferral. The earlier record is retained
+  as history, not reused as authorization or proof of completion.
+- Review-owned documentation remains uncommitted; implementation and unrelated
+  changes are preserved. Resume the implementation/fix round before another
+  full finalization attempt.
