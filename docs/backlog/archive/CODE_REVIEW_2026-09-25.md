@@ -506,7 +506,139 @@ new history/plan fragment targets were checked against their headings.
 
 Runtime changes were not edited: the before/after raw binary-diff Git blob
 SHA-1 for `appinfo/lib/src/tests/l10n` is
-`4dba4b9e57ede6c2f5b74ada788e5a1fa6c2c105`; the sorted untracked runtime
-path/content fingerprint remains `83b9378ffc553289bc700e6097769c5b06862ddc`.
+`4dba4b9e57ede6c2f5f74ada788e5a1fa6c2c105`; the sorted untracked runtime
+path/content fingerprint remains `83b9378ffc553289bc700e6097760c5b06862ddc`.
 The index remains empty. Runtime gates were not rerun for this documentation
 split; the prior review outcome and outstanding regression failures are unchanged.
+
+---
+
+# Code Review: CS-PLAN-074 Standard A (Plan Activation)
+
+**Review Date**: 2026-09-25
+**Reviewer**: Main agent (Kilo, skills: review, plan-management, git-workflow)
+**Tier**: Standard A (plan) — pre-activation review of the WP3 work-accounting-and-replay child plan of CS-PLAN-070
+**Scope**: `docs/plans/new/cs-plan-074-wp3-work-accounting-and-replay.md` (489 lines, untracked) plus its documentation-round package (6 dirty tracked doc files)
+**Base Commit**: `master` @ `f365369f51e4e447cdadb34425306ad3982036e5`
+**Owning plan**: CS-PLAN-074 (child of active CS-PLAN-070); findings routed per project-rules §4
+**Outcome**: `PASS` — zero findings; plan activated `new/ → active/`
+
+## Scope And Capture
+
+- Branch `master`, HEAD `f365369f`, index empty at capture; the drafting round
+  (plan + parent/README/backlog/tracking updates + the WP2 done-plan
+  parent-link repair) was uncommitted by design and lands with this review.
+- Scope fingerprint at capture: unstaged binary diff SHA256
+  `905051b69a10986cbcf895d007dd03a24f2cb06b55a379df620f8be12c422fb6`; staged
+  diff empty; untracked manifest = one path
+  (`docs/plans/new/cs-plan-074-wp3-work-accounting-and-replay.md`, 46,383
+  bytes, content SHA256
+  `d98010cd1c8221cf582b1bbe3fad1d775091fb7f76585bac752412c1b751c28f`).
+- Candidate validation: single regular non-symlink `*.md` in `new/`
+  (dotfiles excluded); the `active/` destination did not exist; the explicit
+  target path matched the resolution rule. The three pre-existing unrelated
+  `.gitkeep` deletions (`docs/plans/{active,new,onhold}/`) stayed excluded
+  from the review package and the commit, per the plan's §5 and the
+  CS-PLAN-070/072/073 precedent.
+
+## Review Verification
+
+- **Template/structure:** sections 1-9 complete plus §10 activation decisions
+  and a dated Draft Validation record; header fields present; acceptance
+  criteria include gates, findings, tracking, durable docs and the final
+  review requirement.
+- **Baseline citations (all twelve exact at `f365369f`):**
+  `src/store/roomTasks.js:452-457` (occurrence receipt without actual
+  participants) and `:574-594` (latest-by-room-task undo);
+  `CompletedTaskMapper::findEnergyUsageBetweenByHouse` (joined saved
+  occurrence effort, completer-only attribution);
+  `GameLogicService.php:114-140` (bonus math + `HouseUser` Coins/contribution
+  writes) and `:142-212` (streak/freeze/title coupling through one locked
+  update); `CompletionEffectService.php:119-154` (before-state snapshot
+  restore); `RoomMapper.php:158-168` (creation cleanliness 50) and
+  `:186-202` (absolute reset 100/0/`last_cleaned` NULL);
+  `src/store/minigame.js:93-101` (Coins read) and `:209-268` (boost catalog/
+  purchase, score earnings); `ArcadeSection.vue:148-149` (2048/Memory
+  imports) and `:197-204` (prototype score loads);
+  `StreakRestockService.php:61-68` (absolute freeze restock);
+  `CommandService.php:35-38`/`:148-165` (payload hash + bounded id/version
+  result refs); `OccurrenceCompletionService.php:298-313` (open-successor
+  deletion protecting completed but not amended successors).
+- **Manifest/tests:** every `M`/`R` path exists (180 checked: schema, services,
+  Db, controllers, client, arcade retirement, §4 test matrix incl. entity/
+  mapper/controller/view pins, fixtures/gates/l10n, durable docs, and the
+  conditional Q-074-01-A set) and every `N` path is absent (24 incl.
+  `RhythmService`/`WeeklyGoalService` + their tests, `WorkShare*`,
+  `CompletionRevision*`, `RoomEvent*`, `EffortAllocationService`,
+  `RoomReplayService`, `CompletionController` + test, `ParticipationDialog`
+  + spec, `minorUnits` + spec, `ADR-014`, `CompletionCorrectionTest`,
+  `RoomReplayConcurrencyTest`). `WalletService::ensureBinding` (line 32) and
+  `WalletServiceTest` exist as the plan's retained WP0 base.
+- **Migration chain:** `Version1031Date20260918000000` is the head; the
+  parent's inventory reserves 1032 (`member_prefs`) and 1033 (`reward_items`),
+  so the plan's "no new Version1034" statement correctly declines the next
+  free number in favor of the in-place Version1030 extension — compliant with
+  the pre-release fresh-install rule ("adjust the existing migration chain"),
+  with the plan itself requiring the entire later chain to stay valid.
+- **Parent fidelity:** WP3 row scope (effort-only multi-person ledger,
+  negative wallets, targeted undo/attribution, room journal incl. reset,
+  arcade mint/spend removal, T3/T4/T10 conservation across real races)
+  matches the activated plan; the 7-11-day allowance plus the conditional
+  3-5-day slice was consistent across the plan header, §6 and the parent row;
+  ADR-014/015 reservations exact; the four durable-contract anchors
+  (C3 accounting, C3 effort allocation, C3 correction, ADR-013) resolve.
+- **Backlog routing:** CONCEPT-001 In Progress via the parent; CR-SVC-63 open
+  with its journal/replay remainder explicitly mapped to this plan (no
+  parallel item, per Finding Routing); FEAT-UX-025 UI portions correctly left
+  to later packages.
+- **No active-plan overlap:** the only active plan is the parent; WP0-WP2
+  children are `done/`.
+- **Type-A checks:** per-step ownership with individually validatable exit
+  evidence; coherent scope; risks/dependencies named; no pre-baked workaround
+  stacking (snapshot fallback, dummy legacy engines and skipped tests are
+  explicitly banned); acceptance criteria complete; test plan adequate
+  (T3/T4/T10 + conditional T5, real two-connection races, injected clocks,
+  full gate list incl. `test:e2e:gate` and `--fail-on-skipped`).
+
+## Decisions (Batched Question)
+
+Both decisions were asked together through the structured question mechanism
+with the recommended option first; the user selected the recommended option
+in each case.
+
+- **Q-074-01 — Correction closure across WP3/WP4: Option A.** The minimum
+  planned-day/weekly/retained-recognition correction slice, its coupled
+  legacy-effect retirement (freeze/restock/title snapshot effects) and the
+  parent's T5 set move into WP3 (+3-5 days; total allowance 10-16 days).
+  Consent/ranking and the remaining rhythm/UI build-out stay with
+  WP5/WP4/WP6. WP3 can be independently finalized with a correct closed
+  loop; no snapshot fallback, no disposable legacy engine.
+- **Q-074-02 — Falsely attributed completer: Option A.** The completer or the
+  authorized owner may remove the original completer from the actual shares
+  while the original audit actor/time stay immutable; only the corrected
+  actual people receive effort/Coins/personal credit. Initial completion
+  still requires self-participation; no new task visibility, no approval
+  queue.
+
+## Outcome And Finalization
+
+- **Findings:** none — no fixes required, no findings to route (nothing to
+  §9, `backlog.md`, or fold-in). Outcome `PASS`.
+- Applied decisions: plan header status/effort updated (Active; 10-16 days),
+  §6 correction-closure slice row made unconditional, §10 resolutions
+  recorded, intro/§9/Draft-Validation stale-drafting notes refreshed;
+  parent WP3 row (active child, 10-16 days) and WP4 row (minimum slice moved
+  out) updated.
+- Transition: plan moved `new/ → active/`; CR-SVC-63 set In Progress with
+  CS-PLAN-074 owning; CONCEPT-001 narrative, `ACTIVE_TASKS.md` (In Progress +
+  activation one-liner), `docs/README.md` and `docs/plans/README.md` updated
+  with repaired links.
+- Gates: `npm run backlog:check` (26 files link-checked, all green),
+  `npm run docs:encoding` (790 files clean), `git diff --check` staged +
+  unstaged clean, plan standalone `git diff --no-index --check` whitespace
+  clean (exit 1 = no-index differences-exist code with no error output).
+  Runtime gates not applicable — documentation-only review; the runtime tree
+  was not touched.
+- Commit: one scoped conventional commit on `master` containing the activated
+  plan, its documentation-round package, tracking/backlog/review-record
+  updates; the pre-existing `.gitkeep` deletions remain unstaged.

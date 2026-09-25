@@ -4,7 +4,7 @@
 > **Priority:** P1; the former block-level finding RF-28 was resolved under restricted handling (R1).
 > **Effort:** Original implementation allowance was 5-7 engineering days; the R0-R9 fix/closure round completed 2026-09-25.
 > **Depends on:** [WP1 / CS-PLAN-072](../done/cs-plan-072-wp1-occurrence-timeline.md) and [WP0 / CS-PLAN-071](../done/cs-plan-071-wp0-write-identity-foundation.md), delivered.
-> **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](cs-plan-070-family-rhythm-and-reward-clarification.md); FEAT-UX-025 backend slice (delivered; UI/digest portions open); CR-SVC-64 (closed → archive 2026-09).
+> **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md); FEAT-UX-025 backend slice (delivered; UI/digest portions open); CR-SVC-64 (closed → archive 2026-09).
 > **Last reviewed source:** `master` at `75f2da3` plus the committed WP2 increment (final review capture: unstaged diff `1cca50a9…`, 18 untracked, 96 paths).
 
 **Remaining work:** [section 6](#6-implementation-order). **Open findings:**

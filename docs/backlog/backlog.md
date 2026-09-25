@@ -74,8 +74,8 @@ leaderboard remainder keeps its ownership here; no whole-item closure is implied
 ---
 
 ### [P3] CR-SVC-63 — Manual cleanliness adjust stays an unlocked RMW against the WP5 room-row lock
-**Status**: Backlog (re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03) · **Effort**: XS · **Layer**: backend · **Journey stage**: completion/undo
-**Owning**: — (unscheduled standalone fix) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress — journal/replay remainder owned by [CS-PLAN-074](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) (Standard A activation 2026-09-25; previously re-sectioned 2026-09-14, D-FR-03) · **Effort**: XS · **Layer**: backend · **Journey stage**: completion/undo
+**Owning**: CS-PLAN-074 WP3 (journal/replay remainder) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-064 (Standard A, 2026-09-06)
 
 After WP5, completions/undos write room cleanliness on a locked room row,
@@ -99,6 +99,12 @@ requires this existing locking fix plus ordered replay evidence for manual room
 mutations. The current manual endpoint applies a delta, not an absolute set.
 Keep this item's ownership; the plan owns its broader effect-history design.
 No duplicate item, implementation or closure is implied by the product decision.
+
+**WP3 activation (2026-09-25):** [CS-PLAN-074](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md)
+is active (Standard A `PASS`; Q-074-01/02 resolved with Option A each) and owns
+this item's journal/replay remainder: room-writer/reset journal coverage,
+ordered replay and real race tests. This item stays open until that complete
+remaining contract passes; it closes with the plan's final review.
 
 ---
 
@@ -398,7 +404,7 @@ projections, `TimelineJob`, completion identity via `CommandService`
 receipts, occurrence-scoped checklist/undo, current-client integration
 and — per Q-072-01 Option A — the minimal common agreement writer with
 `agreements` persistence and the necessary C2
-deadline/authorization/capacity checks; ADR-013 recorded. The WP2+
+deadline/authorization/capacity checks; ADR-013 recorded. The WP3+
 behavior packages remain open in the parent; CONCEPT-001 remains open.
 WP2 was sub-planned as [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md)
 (Standard A `PASS-WITH-FIXES` 2026-09-23; final Standard B `PASS-WITH-FIXES`
@@ -406,8 +412,15 @@ WP2 was sub-planned as [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-ca
 recommended options, including the frozen cross-zone capacity/pause comparison):
 agreements, exact planned shares, whole-day capacity, pauses, catch-up/restart
 and midnight-stale 409, with concrete test/file ownership and explicit
-WP3/WP4/WP5/WP6 handoffs. Implementation has not started; activation alone
-closes no backlog item.
+WP3/WP4/WP5/WP6 handoffs. WP2 is delivered; later packages remain open.
+WP3 is sub-planned as [CS-PLAN-074](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md)
+(activated 2026-09-25, Standard A `PASS`; Q-074-01/02 resolved with the
+recommended options — the minimum correction-closure slice, its coupled
+legacy-effect retirement and T5 moved into WP3, and completer/owner
+false-attribution correction approved): actual shares, exact wallet accounting,
+targeted correction, room replay/reset, retention and minimal client/no-Coin
+arcade integration. WP3 implementation has not started; CONCEPT-001 remains
+open.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

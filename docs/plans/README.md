@@ -43,6 +43,13 @@ with maintained regressions; plan in `done/`. Implementation history, the
 blocked first final-review attempt and the original manifest are recorded in the
 [review record](../backlog/archive/CODE_REVIEW_2026-09-25.md).
 
+Active: [CS-PLAN-074: WP3 - Work Accounting and Replay](active/cs-plan-074-wp3-work-accounting-and-replay.md)
+(Standard A `PASS` 2026-09-25; Q-074-01/02 resolved with Option A each — the
+minimum correction-closure slice, its coupled legacy-effect retirement and T5
+are committed WP3 scope). Covers actual work shares, exact wallet accounting,
+targeted correction, room replay/reset and the necessary client/no-Coin arcade
+cutover. Implementation has not started.
+
 Latest completed: [CS-PLAN-073 — WP2: Agreements, Capacity and Pauses](done/cs-plan-073-wp2-agreements-capacity-pauses.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-25), preceded by
 [CS-PLAN-072 — WP1: Occurrence Timeline](done/cs-plan-072-wp1-occurrence-timeline.md)
