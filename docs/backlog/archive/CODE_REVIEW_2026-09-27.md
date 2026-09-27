@@ -299,3 +299,37 @@ WP-table rows, plans/docs READMEs, `ACTIVE_TASKS.md` and the ADR-014 plan link
 updated. The complete implementation package (implementation rounds 1–2 + both
 fix rounds + this review's in-round fixes and transition files) lands with the
 scoped final-review commit.
+
+---
+
+# CS-PLAN-075 WP4 — Standard A Plan Activation
+
+- **Date/tier/mode:** 2026-09-27; Standard A, Standard Batch Review (no subagents).
+- **Scope/owner:** [CS-PLAN-075](../../plans/active/cs-plan-075-wp4-rhythm-goals-and-ranking.md),
+  its pre-existing drafting deltas in the parent, plans/docs indexes, backlog and
+  `ACTIVE_TASKS.md`. `master` at `b3ff6dab8e290d2d2c73690b4d143c2c3aa2b977`;
+  index empty, staged binary diff empty. The original untracked plan had SHA256
+  `6B5E0383C7744D989F4619D7C3661F949F5B58514C4AC2B5FE079D521915D13D`;
+  the tracked drafting pointer binary diff SHA1 was
+  `ea51a4b51a4137625d8f605063045d7891e1ab6b`.
+- **Outcome:** `PASS-WITH-FIXES`. Checked parent C1/C2/C3/C5 and D3/D5/D7/D10,
+  delivered WP3 evaluator/recognition baseline, reserved Version1032/ADR-015,
+  one active parent (no competing child), backlog ownership, per-step validation,
+  acceptance and future PHPUnit/Jest/Playwright evidence. Manifest nits fixed:
+  section 4 listed nonexistent `tests/unit/components/Leaderboard.spec.js` as M;
+  the existing `tests/unit/views/Leaderboard.spec.js` now owns the pin, and
+  `TitlePicker.vue` is R rather than M. GET-purity assertion scoped to initialized
+  house. No open finding.
+- **Decisions:** In one structured batch the user selected Q-075-01 A (real
+  membership-bound ranking consent in Version1032 in WP4, WP5 extends in place;
+  5-9-day estimate, prior WP5-first ordering superseded) and Q-075-02 A (WP4
+  retires `selected_title_pack`, picker and selection route, retaining a slim
+  first-earned marker). Recorded in the child and parent; neither change has
+  been implemented yet.
+- **Gates:** documentation/link/encoding/backlog and whitespace checks after
+  finalization; no runtime code changed and section 4 implementation gates
+  remain due at delivery.
+- **Transition/tracking:** `new/ → active/`, indexes and live registry updated;
+  CONCEPT-001 remains In Progress, CR-053-11 remains open for independent Snake
+  leaderboard ordering. The three previously deleted `.gitkeep` files remain
+  untouched, unstaged and outside this commit.

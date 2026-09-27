@@ -71,6 +71,17 @@ the freeze/restock portion through the reviewed removal and replacement coverage
 not new freeze mechanics. Existing code is unchanged, and the independent
 leaderboard remainder keeps its ownership here; no whole-item closure is implied.
 
+**WP3/WP4 disposition (2026-09-27):** the freeze/restock services and jobs were
+retired with the WP3 legacy-effect cutover
+([CS-PLAN-074](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md),
+final Standard B `PASS-WITH-FIXES` 2026-09-27); the remaining consumers,
+columns and the availability-streak helper are owned by the activated WP4 child
+[CS-PLAN-075](../plans/active/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
+(Standard A `PASS-WITH-FIXES` 2026-09-27; implementation pending), which will
+replace the unconditional contribution leaderboard with exact-ratio
+consent-filtered ranking. The independent Snake leaderboard ordering remainder
+stays open here; no whole-item closure is implied by WP4 activation.
+
 ---
 
 ### [P4] CR-SEC-05 — Caller-gates-owner contract on removeHouseMember/updateUserRole
@@ -398,6 +409,13 @@ undo/attribution with departed-wallet conservation, room journal/replay
 correction closure, retention/erasure sweeps and the minimal client/no-Coin
 arcade cutover; RF-074-WP3-01..10 resolved. Later packages (WP4+) remain
 open in the parent; CONCEPT-001 remains open.
+WP4 (rhythm/goals/ranking) was sub-planned as
+[CS-PLAN-075](../plans/active/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
+(activated 2026-09-27 via Standard A `PASS-WITH-FIXES`; Q-075-01/02 Option A
+selected): rhythm/goal read contract, consent-filtered ranking with real
+consent persistence in WP4,
+single-series retained recognition and retired-mechanic removal. No WP4 runtime
+work has started; CONCEPT-001 remains In Progress.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

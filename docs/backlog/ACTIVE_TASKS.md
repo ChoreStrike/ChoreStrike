@@ -10,8 +10,16 @@
 
 ## In Progress
 
-*(none — WP3 delivered 2026-09-27; the next package is WP4 under the parent
-[CS-PLAN-070](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md))*
+- **CS-PLAN-075 / WP4 — rhythm, goals and ranking ACTIVATED** (Standard A
+  `PASS-WITH-FIXES` 2026-09-27, in `active/`): post-WP3 rhythm/goal read
+  contract, consent-filtered ranking,
+  single-series retained recognition (valid-history maximum, C3d/D7c) and
+  retired-mechanic removal (task tier fields, title packs, freeze/combo
+  leftovers, config overrides); concrete manifest, T5 remainder/T8 ranking
+  backend/T0 growth tests. Q-075-01/02 Option A selected (minimal Version1032
+  consent in WP4, title picker/storage retirement in WP4); implementation
+  pending. [Plan](../plans/active/cs-plan-075-wp4-rhythm-goals-and-ranking.md) ·
+  [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
