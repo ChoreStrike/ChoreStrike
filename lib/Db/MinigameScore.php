@@ -13,6 +13,10 @@ use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
 
 /**
+ * Arcade score row (CS-PLAN-070 WP3 §3.7: scores only). Never touches the
+ * family wallet, contribution or any reward — the former boost metadata
+ * and Coin awarding are retired with the no-Coin arcade cutover.
+ *
  * @method int getId()
  * @method void setId(int $id)
  * @method int getHouseId()
@@ -23,8 +27,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setGameId(string $gameId)
  * @method int getScore()
  * @method void setScore(int $score)
- * @method array|null getBoostsUsed()
- * @method void setBoostsUsed(?array $boostsUsed)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
@@ -41,9 +43,6 @@ class MinigameScore extends Entity implements JsonSerializable {
 	/** @var int */
 	protected $score = 0;
 
-	/** @var array|null */
-	protected $boostsUsed;
-
 	/** @var \DateTime */
 	protected $createdAt;
 
@@ -53,7 +52,6 @@ class MinigameScore extends Entity implements JsonSerializable {
 		$this->addType('userId', 'string');
 		$this->addType('gameId', 'string');
 		$this->addType('score', 'integer');
-		$this->addType('boostsUsed', 'json');
 		$this->addType('createdAt', 'datetime');
 	}
 
@@ -67,7 +65,6 @@ class MinigameScore extends Entity implements JsonSerializable {
 			'userId' => $this->userId,
 			'gameId' => $this->gameId,
 			'score' => $this->score,
-			'boostsUsed' => $this->boostsUsed,
 			'createdAt' => $this->createdAt?->format('c'),
 		];
 	}

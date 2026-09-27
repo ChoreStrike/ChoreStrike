@@ -1,10 +1,10 @@
 # CS-PLAN-074: WP3 - Work Accounting and Replay
 
-> **Status:** Active (Standard A PASS 2026-09-25; Q-074-01/02 resolved - Option A each; final Standard B **NEEDS-FOLLOW-UP** 2026-09-27 - RF-074-WP3-01..08 open in the Review Findings checklist, dedicated fix round before the final re-review)
+> **Status:** Done (Standard A PASS 2026-09-25; Q-074-01/02 resolved - Option A each; final Standard B NEEDS-FOLLOW-UP 2026-09-27 with RF-074-WP3-01..08 resolved in the dedicated fix round; **final Standard B re-review PASS-WITH-FIXES 2026-09-27** - RF-074-WP3-09 capacity-seam integration pin delivered per user decision, RF-074-WP3-10 doc drift auto-fixed; plan moved `active/ → done/`, CR-SVC-63 closed)
 > **Effort:** L/XL; 10-16 engineering days (parent WP3 allowance 7-11 plus the selected Q-074-01 Option A correction-closure slice 3-5)
 > **Priority:** P1
 > **Depends on:** [WP0 / CS-PLAN-071](../done/cs-plan-071-wp0-write-identity-foundation.md), [WP1 / CS-PLAN-072](../done/cs-plan-072-wp1-occurrence-timeline.md) and [WP2 / CS-PLAN-073](../done/cs-plan-073-wp2-agreements-capacity-pauses.md), delivered; activation decisions resolved 2026-09-25
-> **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](cs-plan-070-family-rhythm-and-reward-clarification.md); CR-SVC-63 journal/replay remainder (In Progress, owned here)
+> **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md); CR-SVC-63 journal/replay remainder (closed with this plan's final review)
 > **Planning baseline:** `f365369f51e4e447cdadb34425306ad3982036e5`, 2026-09-25, after the WP2 final review
 
 This is the implementation sub-plan for parent WP3. The parent C3 rules remain
@@ -299,15 +299,15 @@ or multiplier expectations no longer match.
 | Group | Required evidence | Concrete files (brace lists enumerate files) |
 |---|---|---|
 | T3 actual allocation / C2.1,8-11; C3.1-3,7 | Energy 1-5, equal groups 1-100, input/role order, custom partitions, invalid/duplicate/zero/fractional shares, overflow, frozen effort, absent assignees and explicit deviation review. | N `tests/unit/Service/EffortAllocationServiceTest.php`; M `tests/unit/Service/{GameLogicService,GameLogicServiceTeamwork,DailyCapacityService}Test.php`; M `tests/integration/Service/TeamworkRewardTest.php`. |
-| Capacity seam | Actual-share completed/outstanding dedupe, early/catch-up/helper work, overload accepted, extra plans rejected, Q-073-02 zone vector, correction invalidates stale previews without rewriting pauses. | M `tests/integration/Db/CompletedTaskMapperEnergyTest.php`; M `tests/integration/Service/{OccurrenceTimeline,SchedulePlanAggregate,SchedulePlanConcurrency}Test.php`. |
+| Capacity seam | Actual-share completed/outstanding dedupe, early/catch-up/helper work, overload accepted, extra plans rejected, Q-073-02 zone vector, correction invalidates stale previews without rewriting pauses. | N `tests/integration/Db/WorkShareMapperEnergyTest.php` (final-review mapping 2026-09-27, RF-074-WP3-09: real-DB selected-revision/valid-window/undo pins through `findSelectedSharesBetweenByHouse` + `evaluateDays`, replacing the retired completer-only `CompletedTaskMapperEnergyTest`); M `tests/integration/Service/{OccurrenceTimeline,SchedulePlanAggregate,SchedulePlanConcurrency}Test.php`. |
 | T4 wallets / C3.4-7,15 | Credit -> independent debit/earn -> older undo; corrected then undone allocations; negative balance/repayment; reservation hold arithmetic; ledger sums equal caches; injected failures after first wallet and room update roll everything back. | M `tests/unit/Service/WalletServiceTest.php`; N `tests/integration/Service/CompletionCorrectionTest.php`; M `tests/integration/Service/CompletionUndoStateEqualityTest.php`; M `tests/unit/Service/CompletionServiceTest.php`. |
 | T4 timeline / C3.5-7 | Older same-task undo retains later completions and explicit amendments/restarts; only open automatic interval successors change; unrelated checklist and coverage survive; attribution preserves time/occurrence/room. | M `tests/integration/Service/{OccurrenceTimeline,CompletionUndoStateEquality}Test.php`; N `tests/integration/Service/CompletionCorrectionTest.php`. |
 | T4 room / C3.12-14; CR-SVC-63 | Clamp example, manual delta, equal-time ordering, reset before/after undo, creation/setup coverage, retained `last_cleaned`, house/monster cache consistency and no unjournaled writer; command replay of manual delta/reset preserves later work. | N `tests/unit/Service/RoomReplayServiceTest.php`; N `tests/integration/Service/RoomReplayConcurrencyTest.php`; M `tests/unit/Service/{RoomService,HouseService}Test.php`. |
 | Real races | Complete/complete, correct/undo, correct/correct, older undo/newer completion, manual/reset vs correction, member removal/role loss/erasure vs work. Fresh connections inspect evidence, entry sums, projections and receipts. | M `tests/integration/Service/{CompletionConcurrency,ConcurrentCompletion,HouseMutationConcurrency}Test.php`; N `tests/integration/Service/{CompletionCorrection,RoomReplayConcurrency}Test.php`. |
-| API / T0 retention | Malformed/foreign/private targets, owner without private access, participant-only denial, rights on receipt replay, tombstones, departed wallet, erasure and same-UID non-rebinding; fresh indexes/test reset. | N `tests/unit/Controller/CompletionControllerTest.php`; M `tests/unit/Controller/RoomTaskControllerTest.php`; M `tests/integration/{RoleGuardApiTest,Db/FamilyRhythmSchemaTest}.php`; M `tests/integration/Service/{AccountErasure,HouseMemberRemovalIntegration}Test.php`. |
+| API / T0 retention | Malformed/foreign/private targets, owner without private access, participant-only denial, rights on receipt replay, tombstones, departed wallet, erasure and same-UID non-rebinding; fresh indexes/test reset. | N `tests/unit/Controller/CompletionControllerTest.php`; M `tests/unit/Controller/RoomTaskControllerTest.php`; M `tests/integration/{RoleGuardApiTest,Db/FamilyRhythmSchemaTest}.php`; M `tests/integration/Service/{AccountErasure,HouseMemberRemovalIntegration}Test.php`. Final-review mapping (2026-09-27, RF-074-WP3-09): `RoleGuardApiTest` is unchanged because WP3 adds no member-role semantics — the new completion routes' authorization is pinned in `CompletionControllerTest` (400 closed-set/403 no-authority/404 anti-enumeration/409 stale), the integration authority matrix in `CompletionCorrectionTest` (participant-only denial, replay after demotion/visibility revocation) and the insights-flow E2E wire flows. |
 | History / amount contract | Frozen multi-person history and correction authority; no foreign wallet totals or raw audit metadata; current actor-safe totals after owner corrections. | M `tests/unit/Service/ActivityServiceTest.php`; M `tests/integration/Controller/HouseActivityIntegrationTest.php`; M `tests/unit/store/{roomTasks,game,user,apiContract}.spec.js`; M `tests/unit/components/{ActivityFeed,MemberFairnessTable,UndoSnackbar}.spec.js`; N `tests/unit/utils/minorUnits.spec.js`. |
 | T10 / D7d | Snake saves and former monetary routes never write wallet entries/contribution; concurrency retains score limits; no active boost consumer. | M `tests/unit/Service/MinigameServiceTest.php`; M `tests/integration/Service/MinigameConcurrencyTest.php`; M `tests/unit/store/minigame.spec.js`; M `tests/unit/components/{ArcadeSection,SnakeGame}.spec.js`; M `tests/e2e/snake-game.spec.ts`. |
-| Minimal UI / browser | Actual 34/33/33 split, explicit changed proposal, earlier completion undo from history, owner attribution, negative decimals after reload, lost response replay, preserved 409 draft and no-Coin Snake. | N `tests/unit/components/ParticipationDialog.spec.js`; M `tests/unit/components/{TaskList,TaskListDetails}.spec.js`; M `tests/e2e/{teamwork-rewards,task-completion-full-flow,workflow-state-reconciliation,family-rhythm}.spec.ts`. |
+| Minimal UI / browser | Actual 34/33/33 split, explicit changed proposal, earlier completion undo from history, owner attribution, negative decimals after reload, lost response replay, preserved 409 draft and no-Coin Snake. | N `tests/unit/components/ParticipationDialog.spec.js`; M `tests/unit/components/{TaskList,TaskListDetails}.spec.js`; M `tests/e2e/{teamwork-rewards,task-completion-full-flow,workflow-state-reconciliation,family-rhythm}.spec.ts`. Fix-round mapping (2026-09-27): "owner attribution" + "preserved 409 draft" are browser-pinned in `tests/e2e/insights-flow.spec.ts` (*owner corrects a recorded work split from the activity history*) with the 409 draft retention pinned in `tests/unit/views/InsightsView.spec.js`; "earlier completion undo from history" remains the snackbar/history undo pinned in `today-view`/`task-completion-full-flow` + the targeted-undo contract in `release-task-lifecycle`; `workflow-state-reconciliation.spec.ts` covers navigation read-reconciliation only — the correction read-reconciliation cases map to `insights-flow.spec.ts` (feed → read model → corrected read model) and `CompletionConcurrencyTest` (stale-version conflicts). |
 
 Also update the existing serialization/route/consumer pins in
 `tests/unit/Db/Entity/{CompletedTask,HouseUser,MinigameScore}Test.php`,
@@ -389,7 +389,7 @@ at activation and keep edits limited to actual contract consumers.
 | Client cutover | M `src/store/{roomTasks,rooms,game,user,house,minigame}.js`; M `src/components/Tasks/{TaskList,TaskListItem,TaskListDetails}.vue`; M `src/components/Common/UndoSnackbar.vue`; M `src/components/Insights/{ActivityFeed,MemberFairnessTable}.vue`; M `src/components/Dashboard/{QuickStats,ArcadeSection}.vue`; M `src/components/Minigames/{SnakeGame,SnakeLeaderboard}.vue`; M `src/views/{InsightsView,Leaderboard,Settings}.vue`; N `src/components/Tasks/ParticipationDialog.vue`, `src/utils/minorUnits.js`. Existing `src/services/api.js` envelope/error transport is reused unchanged unless an actual contract need arises. |
 | Arcade retirement | R `src/components/Minigames/{BoostShop,Game2048,MemoryGame}.vue`, `tests/unit/components/{BoostShop,Game2048,MemoryGame}.spec.js`, `tests/e2e/release-boost-shop.spec.ts` only with pinned supported-Snake/no-Coin replacements and discovery changes. This is the necessary live-consumer pull-forward from WP6, not its full optional-area redesign. |
 | Fixtures / gates / l10n | M `tests/integration/IntegrationTestCase.php`, `tests/fixtures/{FamilyTestData,TestDataFixtures}.php`; M `tests/e2e/fixtures/{database-fixtures,test-house}.ts`, `tests/e2e/required-scenarios.json`, `scripts/run-e2e-gate.js`, `playwright.config.ts`; M `l10n/{en,de}.json`, `l10n/templates/chorestrike.pot`. |
-| Durable documentation | M `docs/api/README.md`, `docs/engineering/{architecture,testing}.md`, `docs/concepts/{task-model-and-sync,energy-and-balancing,gamification-and-rewards,ui-use-cases}.md`, `docs/testing/release-test-plan.md`; M `docs/adr/{ADR-004-multi-user-gamification,ADR-011-transactional-completion-and-undo,ADR-012-actionable-household-scheduling,ADR-013-occurrence-agreements-and-corrections}.md`, `docs/standards/ai/skills/gamification/SKILL.md`; N the parent-reserved `docs/adr/ADR-014-family-wallet-and-redemption.md` with WP3 accounting accepted and WP7 redemption explicitly pending; M `docs/adr/README.md`, `docs/README.md`. |
+| Durable documentation | M `docs/api/README.md`, `docs/engineering/{architecture,testing}.md`, `docs/concepts/{task-model-and-sync,energy-and-balancing,gamification-and-rewards,ui-use-cases}.md`, `docs/testing/release-test-plan.md`; M `docs/adr/{ADR-004-multi-user-gamification,ADR-011-transactional-completion-and-undo,ADR-012-actionable-household-scheduling,ADR-013-occurrence-agreements-and-corrections}.md`, `docs/standards/ai/skills/gamification/SKILL.md`; N the parent-reserved WP3 accounting ADR, delivered as `docs/adr/ADR-014-work-accounting-ledger-and-replay.md` (fix-round name refinement over the reserved `ADR-014-family-wallet-and-redemption.md` placeholder; WP3 accounting accepted, WP7 redemption explicitly marked pending in the ADR itself); M `docs/adr/README.md`, `docs/README.md`. |
 
 Conditional Q-074-01 option A also brings forward N
 `lib/Service/{RhythmService,WeeklyGoalService}.php` and the necessary M
@@ -447,22 +447,22 @@ Re-estimate after the activation decisions rather than silently hiding added wor
 
 ## 8. Acceptance Criteria
 
-- [ ] Q-074-01/02 resolved and recorded; exact package scope, estimates and manifest accepted through Standard A.
-- [ ] All valid work uses frozen effort, positive conserved actual shares and exactly 10 Coins per energy; planned names alone earn nothing.
-- [ ] Wallet entries are the sole monetary authority; every cache equals its entry sum, negative corrections are supported and independent reservations/debits survive.
-- [ ] All monetary writers/readers use safe integer minor units; no arcade mint/spend, multiplier, legacy Coin balance or disconnected live consumer remains.
-- [ ] Older completion undo and attribution are authorized, versioned, auditable and idempotent; all affected participants commit or roll back together.
-- [ ] Correction preserves later completions, explicit agreements, neutral pause facts, saved zones, independent checklist work and unrelated spending.
-- [ ] Full room journal/replay covers creation, completion, manual delta and reset, correct clamps/timestamps and derived caches; CR-SVC-63 regression passes.
-- [ ] Capacity and overload use selected actual shares with WP2's saved-zone/dedupe rules; actual work is never refused merely for exceeding a plan.
-- [ ] Correction-dependent progress is correct under the selected Q-074-01 closure; no snapshot restore or falsely successful projection is left behind.
-- [ ] Minimal participation, older-history correction, targeted snackbar, exact decimals and no-Coin Snake work after reload on desktop/mobile and keyboard.
-- [ ] Current authorization/privacy, tombstones, departure, account erasure and same-UID non-rebinding are proven for new evidence and response shapes.
-- [ ] Every section 4 required test/gate passes without new/unapproved skips; real races and rollback are demonstrated, not replaced by sequential calls.
-- [ ] All plan-owned findings resolved or explicitly user-rescoped; no required dependent test is deferred while marking this plan done.
-- [ ] Durable behavior integrated into concepts, ADRs, API, engineering/testing and gamification skill; the plan is not the only description.
-- [ ] CR-SVC-63 archived only after its complete remaining contract passes; CONCEPT-001 and partially fulfilled parent findings stay open.
-- [ ] Final Standard B or Full review passes, performs the eligible lifecycle move, and updates parent/index/backlog/`ACTIVE_TASKS.md` accurately.
+- [x] Q-074-01/02 resolved and recorded; exact package scope, estimates and manifest accepted through Standard A.
+- [x] All valid work uses frozen effort, positive conserved actual shares and exactly 10 Coins per energy; planned names alone earn nothing.
+- [x] Wallet entries are the sole monetary authority; every cache equals its entry sum, negative corrections are supported and independent reservations/debits survive.
+- [x] All monetary writers/readers use safe integer minor units; no arcade mint/spend, multiplier, legacy Coin balance or disconnected live consumer remains.
+- [x] Older completion undo and attribution are authorized, versioned, auditable and idempotent; all affected participants commit or roll back together.
+- [x] Correction preserves later completions, explicit agreements, neutral pause facts, saved zones, independent checklist work and unrelated spending.
+- [x] Full room journal/replay covers creation, completion, manual delta and reset, correct clamps/timestamps and derived caches; CR-SVC-63 regression passes.
+- [x] Capacity and overload use selected actual shares with WP2's saved-zone/dedupe rules; actual work is never refused merely for exceeding a plan.
+- [x] Correction-dependent progress is correct under the selected Q-074-01 closure; no snapshot restore or falsely successful projection is left behind.
+- [x] Minimal participation, older-history correction, targeted snackbar, exact decimals and no-Coin Snake work after reload on desktop/mobile and keyboard.
+- [x] Current authorization/privacy, tombstones, departure, account erasure and same-UID non-rebinding are proven for new evidence and response shapes.
+- [x] Every section 4 required test/gate passes without new/unapproved skips; real races and rollback are demonstrated, not replaced by sequential calls.
+- [x] All plan-owned findings resolved or explicitly user-rescoped; no required dependent test is deferred while marking this plan done.
+- [x] Durable behavior integrated into concepts, ADRs, API, engineering/testing and gamification skill; the plan is not the only description.
+- [x] CR-SVC-63 archived only after its complete remaining contract passes; CONCEPT-001 and partially fulfilled parent findings stay open.
+- [x] Final Standard B or Full review passes, performs the eligible lifecycle move, and updates parent/index/backlog/`ACTIVE_TASKS.md` accurately.
 
 ## 9. Review Findings (Plan-Owned)
 
@@ -737,7 +737,7 @@ plan's scope/domain; none reach `backlog.md`). The user selected one
 dedicated fix round for all findings (recommended option); the plan stays
 in `active/`.
 
-- [ ] **block** — **RF-074-WP3-01** — Durable-doc integration missing
+- [x] **block** — **RF-074-WP3-01** — Durable-doc integration missing
   (acceptance criterion 14, manifest "Durable documentation" row, the
   knowledge-integration gate): `docs/adr/ADR-014-family-wallet-and-redemption.md`
   (N path) absent; no changes to `docs/api/README.md`,
@@ -751,7 +751,19 @@ in `active/`.
   517 (now 529); the WP3-grown files need re-measurement. The plan must
   not remain the only description of the wallet/correction/journal
   contract.
-- [ ] **block** — **RF-074-WP3-02** — Attribution unreachable from the
+  **Resolved (fix round, 2026-09-27):** ADR-014 delivered
+  (`docs/adr/ADR-014-work-accounting-ledger-and-replay.md`, ADR README
+  indexed); ADR-004/011/012/013 status sections annotated;
+  `docs/api/README.md` WP3 completion/correction/history blocks;
+  `architecture.md` WP3 aggregate idiom + schema tables + Size Guideline
+  Exception Inventory re-measured 2026-09-27 (all rows refreshed, retired
+  files removed, `CompletionService` 1478 **named**);
+  `testing.md` WP3 unit/integration surface; concepts
+  `task-model-and-sync.md` §Completion and undo model (WP3 rewrite),
+  `gamification-and-rewards.md` (minor-unit economy, medals/titles/arcade),
+  `energy-and-balancing.md` (minor-unit rules), `design.md` WP3 note;
+  `gamification` SKILL.md rewritten; `release-test-plan.md` rows land.
+- [x] **block** — **RF-074-WP3-02** — Attribution unreachable from the
   client (§3.7 "reuse the form for attribution correction", §3.6
   "Activity history exposes authorized older-completion correction",
   acceptance criteria 5/10): zero `src/` caller of
@@ -760,7 +772,19 @@ in `active/`.
   completion (RoomDetail/TodayView/TaskManager). Only targeted undo is
   exposed; the backend attribution endpoint has no UI path and the §4
   minimal-UI "owner attribution" browser evidence cannot exist yet.
-- [ ] **major** — **RF-074-WP3-03** — Required §4 N test files missing /
+  **Resolved (fix round, 2026-09-27):** `roomTasks.fetchCompletion` +
+  `attributeCompletion` store actions (receipt-protected, reconcile from
+  the one payload); `ActivityService` exposes the viewer-scoped
+  `canCorrect` on the feed DTO; `ActivityFeed` renders the authorized
+  "Correct split" action; `InsightsView` hosts the correction session
+  (reused `ParticipationDialog` pre-filled with the recorded split,
+  correter need not participate per Q-074-02, a 409 keeps the draft and
+  refreshes the expected version); `ParticipationDialog` gained the
+  attribution-correction mode (`initialParticipants`/`heading`/`hint`/
+  `confirmLabel`). Browser evidence: `insights-flow.spec.ts` *owner
+  corrects a recorded work split from the activity history (WP3 §3.6)*
+  (full E2E gate green 2026-09-27).
+- [x] **major** — **RF-074-WP3-03** — Required §4 N test files missing /
   coverage not mapped: `tests/integration/Service/CompletionCorrectionTest.php`,
   `tests/unit/Service/RoomReplayServiceTest.php`,
   `tests/integration/Service/RoomReplayConcurrencyTest.php`,
@@ -778,7 +802,21 @@ in `active/`.
   named files or an explicit §4 matrix update mapping each required case
   to its delivered file) — attribution correction and rhythm projection
   need real integration coverage.
-- [ ] **major** — **RF-074-WP3-04** — Attribution skips departed
+  **Resolved (fix round, 2026-09-27):** all five N files delivered
+  (`CompletionCorrectionTest` 6 tests, `RoomReplayServiceTest` 11,
+  `RoomReplayConcurrencyTest` 5, `RhythmProjectionTest` 5,
+  `minorUnits.spec.js` 13) + `HouseMemberRemovalIntegrationTest`
+  departed-attribution regression; `workflow-state-reconciliation.spec.ts`
+  cases map to the §4 matrix update below; unit pins added
+  (`ActivityServiceTest` canCorrect authority, `ParticipationDialog.spec.js`
+  correction mode, `ActivityFeed.spec.js` correct action,
+  `InsightsView.spec.js` correction flow, `roomTasks.spec.js`
+  attribute/fetch actions); `required-scenarios.json` + `run-e2e-gate.js`
+  updated (insights-flow `minTests` 3→4). Bonus defect found and fixed by
+  the new `minorUnits.spec.js`: `formatCoinMinor` used the per-energy
+  scale (1000) instead of 100 coin minor per Coin — corrected with the
+  `COIN_MINOR_PER_UNIT = 100` constant.
+- [x] **major** — **RF-074-WP3-04** — Attribution skips departed
   participants' wallet reversal (correctness defect): `attributeAggregate`
   maps previous shares to users through CURRENT membership rows
   (`userIdOfWallet` over `findByHouseId`, `CompletionService.php:832`),
@@ -794,7 +832,15 @@ in `active/`.
   the departed wallet too), resolve display names separately; regression
   test: complete with two participants → one departs → owner attributes →
   departed wallet reversed.
-- [ ] **major** — **RF-074-WP3-05** — `GET /completions/{id}` 500s when
+  **Resolved (fix round, 2026-09-27):** the union is built from the share
+  rows by wallet id (`previousByWallet`), bindings + ONE sorted lock pass
+  cover departed wallets, deltas key wallet ids directly, recognition
+  recomputes over still-present previous owners; visibility checks skip
+  only previously-credited members (wallet-id match). Regression proofs:
+  `CompletionCorrectionTest::testAttribute_DepartedParticipantWalletIsReversed`
+  + `HouseMemberRemovalIntegrationTest::testRemoveHouseMember_LaterAttribution_ReversesTheDepartedWallet`
+  (frozen-total conservation asserted in both).
+- [x] **major** — **RF-074-WP3-05** — `GET /completions/{id}` 500s when
   an audit actor departed: `showCompletion` calls
   `houseUserMapper->find($revision->getActorHouseUserId())`
   (`CompletionService.php:1330`) without the `DoesNotExistException`
@@ -803,18 +849,76 @@ in `active/`.
   `completion_revs.actor_house_user_id` and the read model crashes
   instead of rendering the 'Removed member' fallback. Fix: same
   try/catch → null actor → localized placeholder; regression test.
-- [ ] **nit** — **RF-074-WP3-06** — `CompletionService.php:838-841`:
+  **Resolved (fix round, 2026-09-27):** try/catch around the actor lookup
+  → null actor → localized placeholder (same guard class as
+  undo/attribute). Regression proof:
+  `CompletionCorrectionTest::testShowCompletion_DepartedAuditActor_RendersRemovedMemberPlaceholder`
+  (200 + placeholder + owner `canCorrect` true).
+- [x] **nit** — **RF-074-WP3-06** — `CompletionService.php:838-841`:
   dead empty `if` branch (comment-only body); also the class docblock
   lock order (memberships → wallets → room) contradicts the implemented
   and inline-documented order (room BEFORE memberships/wallets,
   `:328-331`). Fix in the same round.
-- [ ] **nit** — **RF-074-WP3-07** — `RhythmService.php:104-113`:
+  **Resolved (fix round, 2026-09-27):** dead branch removed; the
+  deviation-review gate it hinted at is implemented for real — an
+  unreviewed deviation from the recorded allocation → 409
+  (`sameAllocation` over the currently-present participants; same-
+  allocation submissions stay valid without review). Class docblock lock
+  order corrected to room_task → room → memberships → wallets →
+  completion rows.
+- [x] **nit** — **RF-074-WP3-07** — `RhythmService.php:104-113`:
   redundant `if`/`elseif` — both branches assign the recomputed longest
   streak; simplify to a single `!==` comparison.
-- [ ] **nit** — **RF-074-WP3-08** — `CompletionController::attribute`
+  **Resolved (fix round, 2026-09-27):** collapsed to one `!==` branch
+  with the C3g comment.
+- [x] **nit** — **RF-074-WP3-08** — `CompletionController::attribute`
   duplicates the closed-payload validation inline instead of extending
   the shared `validateCorrectionPayload` helper (DRY); optional tidy in
   the fix round.
+  **Resolved (fix round, 2026-09-27):**
+  `validateCorrectionPayload(array $allowedFields, bool $withParticipants = false)`
+  now validates the closed set + commandId/expectedVersion/reasonCode +
+  participants/allocationReviewed; `attribute` consumes it (identical
+  error messages, `CompletionControllerTest` green).
+
+### Review Findings (final Standard B re-review 2026-09-27)
+
+Routed plan-owned per Finding Routing step 2; resolved in the same review
+round per the batched user decision (integration pin, recommended).
+
+- [x] **major** — **RF-074-WP3-09** — §4 capacity-seam mapper evidence
+  deleted without replacement: the §4-named
+  `tests/integration/Db/CompletedTaskMapperEnergyTest.php` was retired
+  with the completer-only query, leaving
+  `WorkShareMapper::findSelectedSharesBetweenByHouse` (selected-revision,
+  `undone_at` and half-open-window SQL filters) without a real-DB pin
+  while §7 explicitly requires mapper-level selected-share tests; the
+  unit suite mocks the mapper. The §4-listed `RoleGuardApiTest` is
+  unmodified (its member-role-guard scope is untouched by WP3).
+  **Resolved (final review round, 2026-09-27, user-selected fix round):**
+  N `tests/integration/Db/WorkShareMapperEnergyTest.php` (2 tests / 18
+  assertions, green) pins the selected-revision/valid-window/undo
+  behavior through real completions + `evaluateDays`
+  (`completedEnergyMinor`, fulfilled-never-planned, reopened-after-undo);
+  the §4 capacity-seam row and the API/T0 row carry explicit mapping
+  notes (RoleGuardApiTest unchanged by design; the completion routes'
+  authorization is pinned in `CompletionControllerTest`,
+  `CompletionCorrectionTest` and the insights-flow E2E).
+- [x] **nit** — **RF-074-WP3-10** — Doc drift fixed in-review (safe
+  auto-fixes): ADR-014 linked the non-existent
+  `docs/plans/done/cs-plan-071-wp0-schema.md` (repaired to
+  `cs-plan-071-wp0-write-identity-foundation.md`) and carried no
+  WP7-redemption-pending note (added); the delivered ADR name
+  (`ADR-014-work-accounting-ledger-and-replay.md`) deviated from the
+  parent's reserved placeholder name — the parent reservation line and
+  the §5 manifest row now record the delivered name and the WP7-pending
+  scope; the Size Guideline Exception Inventory was stale after the
+  follow-up fix round (8 rows re-measured: `CompletionService`
+  1478→1435, `HouseService` 477→489, `TestDataService` 577→649,
+  `RoomTask` 357→362, `CompletedTaskMapper` 525→567, `Dashboard.vue`
+  327→351, `InsightsView.vue` 342→531, `roomTasks.js` 1038→1064) and
+  missed the two newly crossing WP3 files (`MedalService` 331,
+  `RoomService` 328 — both added as accepted cohesive-domain entries).
 
 ## Review Outcome — Final Standard B (2026-09-27): NEEDS-FOLLOW-UP
 
@@ -877,3 +981,157 @@ Review record:
   plan owning) — its complete remaining contract is not fully proven
   while RF-074-WP3-03's room-replay evidence is open. Next: the fix
   round (RF-074-WP3-01..08), then the final re-review.
+
+## Fix Round Evidence (2026-09-27)
+
+All eight RF-074-WP3 findings resolved in one dedicated fix round (this
+working-tree increment, uncommitted per the NEEDS-FOLLOW-UP rule — no
+commit authorized by the implementation request):
+
+- **Backend:** `attributeAggregate` wallet-keyed reversal union
+  (departed wallets reverse; frozen total conserved) + the real
+  deviation-review gate replacing the dead branch; class docblock lock
+  order corrected; `showCompletion` departed-actor guard;
+  `RhythmService` longest-streak branch collapsed;
+  `CompletionController::attribute` on the shared
+  `validateCorrectionPayload` helper; `wallet_entries.delta_minor`
+  schema default 0 (entity setter-skip INSERT trap — same safety-net
+  pattern as the round-2 completed_tasks defaults; Version1030 amended,
+  fresh-install chain rebuilt per the pre-release fold policy).
+- **Client:** attribution correction reachable end to end — store
+  actions, viewer-scoped `canCorrect`, feed action, InsightsView
+  correction session reusing `ParticipationDialog` (409 keeps the
+  draft); new l10n keys with German copy (995-key exact coverage).
+- **Defect found by the new tests:** `formatCoinMinor` formatted at the
+  per-energy scale (1000 minor per Coin instead of 100) — corrected via
+  the `COIN_MINOR_PER_UNIT = 100` constant (`src/utils/minorUnits.js`).
+- **Gates (fix round, 2026-09-27, all green):** Docker unit `947 tests /
+  2912 assertions` and integration `448 tests / 2248 assertions`
+  `--fail-on-skipped` zero-skip (fresh-install chain after the
+  Version1030 amendment + family-profile env recreate); `php-cs-fixer`
+  dry-run 0-of-354; Jest `1040` / 96 suites; `test:noise` clean; `lint`
+  + `stylelint`; `l10n:check-keys` (995 keys exact EN/DE/POT);
+  `check-backlog` (27 files); `check-docs-encoding` (792 files);
+  webpack production build; full E2E gate `npm run test:e2e:gate` —
+  all three pools green (44 required specs, zero skipped/failed/flaky,
+  insights-flow now 4 scenarios incl. the owner-attribution browser
+  evidence).
+- **Next:** the final re-review (Standard B) over this fix-round
+  increment; a PASS owns the `active/ → done/` move.
+
+## Read-Only Review Follow-up Fix Round (2026-09-27)
+
+The uncommitted `/review` of this active-plan implementation reported 23
+in-plan findings (6 critical, 17 warning). The user selected **Fix all
+findings** after receiving the complete findings-only review. All 23 are
+resolved in this uncommitted fix round; no reviewed code was staged or
+committed by the read-only review or its implementation follow-up.
+
+- **Privacy and authorization:** hidden-task activity omits allocations and
+  frozen effort; correction/replay and score writes reauthorize under the
+  house lock; current and departed actor/wallet links anonymize on erasure.
+  The feed now batches shares and membership resolution.
+- **Receipts, claims, and room replay:** exact claim-source completion IDs
+  protect later claims; correction receipts retain bounded identities and
+  retry authorization; manual and reset commands use house-scoped checked
+  receipts; Settings sends its UUID/version. Room replay batches validity,
+  starts after the latest absolute reset and retains NULL-source events.
+- **Recognition:** actual selected shares, neutral pauses, chronological
+  pending days and deadline refresh govern personal rhythm; planned-week
+  due occurrences govern goals. Closed weeks are scanned in bounded pages
+  by the production timeline job; a unique `(house_id, week_start)` receipt
+  allows one household bell claim per week, including after job downtime or
+  retrospective correction. Corrected medals are reconciled, and members
+  joining after the saved week end cannot inherit an earlier milestone.
+- **Client:** a 409 preserves the correction draft and requires an explicit
+  review of the fresh allocation; uncertain replies retry the original
+  attribution UUID; history offers targeted undo; the own-wallet balance
+  displays exact negative/fractional Coins, with all four new medal types
+  and other changed labels in EN/DE/POT.
+- **Additional gate fixes:** the fresh-install receipt table name was
+  shortened to satisfy Nextcloud's 30-character prefixed limit; the query
+  builder uses grouped planned-week keys; the opt-in test-only family seed
+  supplies legitimate closed-week evidence for the required bell browser
+  scenario. The existing claim-before-dispatch path remains an at-most-once
+  attempt, not guaranteed delivery after a Nextcloud manager failure;
+  failures are logged and the broader outbox question is folded into
+  FEAT-UX-024 rather than silently weakening this plan's receipt contract.
+- **Verification (fresh `family` Docker install):** backend unit `981 tests /
+  3077 assertions` and integration `465 tests / 2363 assertions`, both
+  `--fail-on-skipped`; `composer cs:check` 0-of-356; Jest `1054` / 96 suites;
+  `test:noise`, lint, stylelint, `l10n:check-keys` (1003 exact keys),
+  backlog/encoding/diff checks and webpack production build all green.
+  `npm run test:e2e:gate` passed all three projects with 44 required specs
+  and zero skipped, failed or flaky required scenarios; Insights includes
+  the three newly pinned correction/wallet cases, and the closed-week bell
+  is exercised through the same timeline pass as cron. Raw local browser
+  traces remain under ignored `build/e2e-gate/` and are not published.
+- **Lifecycle:** no commit or transition. The plan stays in `active/` with
+  CR-SVC-63 owned here; the separate final Standard B re-review must verify
+  the whole plan before any `active/ → done/` move.
+
+## Review Outcome — Final Standard B re-review (2026-09-27): PASS-WITH-FIXES
+
+**Final Standard B re-review — PASS-WITH-FIXES** (2026-09-27, main agent;
+skills: review, plan-management, git-workflow, docker-dev). Review record:
+[CODE_REVIEW_2026-09-27.md](../../backlog/archive/CODE_REVIEW_2026-09-27.md#final-standard-b-re-review--pass-with-fixes).
+
+- **Scope/base:** the complete WP3 implementation increment (implementation
+  rounds 1-2 + the RF-074-WP3-01..08 fix round + the 23-finding read-only
+  follow-up fix round) — 217 changed tracked paths (186 M / 31 D) plus 26
+  untracked paths — against `master` @
+  `631f0221a288a7d728e27f72baa6a839adf37441`; index empty at capture.
+  Fingerprint: unstaged binary diff SHA1
+  `4ed47d4270f1d664479d666c6ce9c5ea1333fef4` (`git diff --binary |
+  git hash-object --stdin`); the sorted untracked manifest with per-file
+  SHA256 content hashes is recorded in the review record. The three
+  pre-existing `.gitkeep` deletions stayed excluded.
+- **Verification:** the whole owning plan re-verified — §5 manifest (every
+  delivered N source path exists; R paths retired with pinned supported-Snake/
+  no-Coin replacements; 29 retired sources preserved under the gitignored
+  `archive/2026-09/cs-plan-074-retired/`); §4 test matrix (all required N
+  files present; explicit mapping notes for the two deviations); all sixteen
+  acceptance criteria verified against source and gate evidence; every
+  RF-074-WP3-01..08 resolution re-verified in source (wallet-keyed
+  attribution union `previousByWallet`, `showCompletion` departed-actor
+  guard, client attribution path store → feed → InsightsView →
+  ParticipationDialog, shared `validateCorrectionPayload`, rhythm branch,
+  docblock lock order, `COIN_MINOR_PER_UNIT = 100`, `delta_minor` schema
+  default); the follow-up round's key changes spot-verified (viewer-scoped
+  `canCorrect`/redaction with batched share reads in `ActivityService`,
+  house-first re-authorization in `MinigameService`, unique
+  `(house_id, week_start)` weekly-goal receipt, erasure anonymization of the
+  new share/revision/wallet actor links, manual delta routed through
+  `room.manual_delta` commands); durable-doc integration verified (ADR-014
+  delivered and indexed; ADR-004/011/012/013 annotated; API/architecture/
+  testing/concepts/gamification-skill/release-test-plan updated).
+- **Findings:** two — RF-074-WP3-09 (major: §4 capacity-seam mapper
+  evidence deleted without replacement; resolved with N
+  `tests/integration/Db/WorkShareMapperEnergyTest.php`, 2 tests / 18
+  assertions, plus §4 mapping notes) and RF-074-WP3-10 (nit: ADR-014
+  broken link + missing WP7-pending note, ADR name/manifest alignment, 8
+  stale + 2 missing size-inventory rows; all auto-fixed). No finding
+  remains open; nothing reaches `backlog.md`.
+- **Decisions (batched structured question):** (1) E2E evidence — user
+  selected the recommended option: accept the mtime-verified passing gate
+  run `run-UK5bLd` (2026-09-27 15:16:20 local; all three pools
+  `processExit: 0`, zero violations, 95+124+39 tests; only review/tracking
+  docs changed after the run). (2) RF-074-WP3-09 — user selected the
+  recommended option: deliver the integration pin in this review round.
+- **Gates (rerun by this review on the reviewed source):** Docker unit
+  `981 tests / 3077 assertions` and integration `467 tests / 2402
+  assertions` `--fail-on-skipped` zero-skip (the +2 integration tests are
+  the new seam pin), `composer cs:check` 0-of-357, Jest `1054` / 96
+  suites, `test:noise` clean, `lint`, `stylelint`, `l10n:check-keys` (1003
+  keys exact EN/DE/POT), `backlog:check` (27 files), `docs:encoding` (792
+  files), `git diff --check`, webpack `build` — all green; E2E gate
+  evidence accepted per decision (1).
+- **Transition:** plan moved `active/ → done/`; CR-SVC-63 closed to
+  `docs/backlog/archive/2026-09.md` (its complete journal/replay remainder
+  passes: manual adjust routed through journaled `room.manual_delta`
+  commands with ordered replay evidence and real race coverage);
+  CONCEPT-001 and the partially fulfilled parent findings stay open (WP3
+  portions annotated in the parent); parent/header/child/WP-table rows,
+  READMEs, `ACTIVE_TASKS.md` and plan links updated; the complete
+  implementation package (rounds 1-2 + both fix rounds) lands with this
+  scoped final-review commit.

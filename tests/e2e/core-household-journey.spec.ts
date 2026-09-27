@@ -70,6 +70,7 @@ test.describe('Canonical household journey', () => {
 		let baselineCleanliness = 0
 		let kitchenRoomId = 0
 		let flexRoomTaskId = 0
+		let completionIdForUndo = 0
 
 		// ----------------------------------------------------------------
 		// Phase 1 — First owner (unbootstrapped instance)
@@ -455,7 +456,6 @@ test.describe('Canonical household journey', () => {
 		// UI state, so phase 7 undoes it in the same session.
 		// ----------------------------------------------------------------
 		let kidSession: { context: import('@playwright/test').BrowserContext; page: Page } | null = null
-		let receiptRewards: Record<string, unknown> | null = null
 		await test.step('the child executes the assigned task on My Day, completes it and queues the undo', async () => {
 			// Independently captured before-state (read-only API snapshots).
 			const kidPreview = await createUserContext(browser, 'kid')
@@ -505,20 +505,19 @@ test.describe('Canonical household journey', () => {
 				const receipt = await (await completeResponsePromise).json()
 				expect(receipt.success).toBe(true)
 				const rewards = receipt.data.rewards
-				receiptRewards = rewards
 
 				// Exact credited deltas against the independently captured
-				// before-state (never a value compared to itself).
+				// before-state (never a value compared to itself). WP3 §3.1:
+				// work evidence + own wallet in exact minor units (2 energy →
+				// +200 contribution minor, +2000 booked coin minor).
 				expect(rewards.energyCost).toBe(2)
-				expect(rewards.contributionScore).toBe(2)
+				expect(rewards.completion.totalEnergy).toBe(2)
 				expect(rewards.cleanlinessChange).toBe(20)
-				expect(rewards.teamworkBonus).toBe(0)
-				expect(rewards.coins).toBe(30)
-				expect(rewards.isCombo).toBe(false)
-				expect(rewards.totalCoins).toBe(baselineCoins + 30)
-				expect(rewards.totalContribution).toBe(baselineContribution + 2)
-				expect(rewards.currentStreak).toBe(1)
+				expect(rewards.contributionMinor).toBe(baselineContribution + 200)
+				expect(rewards.wallet.bookedMinor).toBe(baselineCoins + 2000)
+				expect(rewards.completion.undoneAt).toBeNull()
 				expect(receipt.data.room.cleanliness).toBe(Math.min(100, baselineCleanliness + 20))
+				completionIdForUndo = receipt.data.completionId
 			} catch (err) {
 				await kidSession.context.close()
 				kidSession = null
@@ -541,14 +540,15 @@ test.describe('Canonical household journey', () => {
 				const snackbar = kid.page.getByTestId(`undo-snackbar-undo-button-${flexRoomTaskId}`)
 				await expect(snackbar).toBeVisible({ timeout: 5000 })
 
-				// Persisted projections right after the completion (fast read).
-				const coinsAfter = await (await kid.page.request.get('/apps/chorestrike/api/v1/minigames/coins')).json()
-				expect(coinsAfter.data.currentCoins).toBe(baselineCoins + (receiptRewards!.coins as number))
+				// Persisted projections right after the completion (fast read —
+				// the kid's OWN wallet through the game state).
+				const stateAfter = await (await kid.page.request.get('/apps/chorestrike/api/v1/game/state')).json()
+				expect(stateAfter.data.wallet.bookedMinor).toBe(baselineCoins + 2000)
 
 				const undoResponsePromise = kid.page.waitForResponse((response) => {
 					const pathname = new URL(response.url()).pathname
 					return response.request().method() === 'POST'
-						&& pathname === `/apps/chorestrike/api/v1/room-tasks/${flexRoomTaskId}/undo`
+					&& pathname === `/apps/chorestrike/api/v1/completions/${completionIdForUndo}/undo`
 				})
 				await snackbar.click()
 				const undoBody = await (await undoResponsePromise).json()
@@ -570,7 +570,7 @@ test.describe('Canonical household journey', () => {
 				await kidAgain.page.goto('/apps/chorestrike/')
 				await expect(kidAgain.page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
 				const current = await (await kidAgain.page.request.get('/apps/chorestrike/api/v1/users/current')).json()
-				expect(current.data.contributionScore).toBe(baselineContribution)
+				expect(current.data.contributionMinor).toBe(baselineContribution)
 				expect(current.data.currentStreak).toBe(0)
 				expect(await walletOf(browser)).toBe(baselineCoins)
 				expect(await kitchenCleanliness(browser)).toBe(baselineCleanliness)
@@ -666,24 +666,27 @@ async function kitchenCleanliness(browser: Browser): Promise<number> {
 	}
 }
 
+/**
+ * The kid's OWN wallet booked total (WP3 §3.6: own wallet via /game/state —
+ * the retired /minigames/coins economy read is gone).
+ */
 async function walletOf(browser: Browser): Promise<number> {
 	const session = await createUserContext(browser, 'kid')
 	try {
-		const response = await session.page.request.get('/apps/chorestrike/api/v1/minigames/coins')
+		const response = await session.page.request.get('/apps/chorestrike/api/v1/game/state')
 		const body = await response.json()
-		return body.data.currentCoins
+		return body.data.wallet?.bookedMinor ?? 0
 	} finally {
 		await session.context.close()
 	}
 }
 
-async function userSnapshot(browser: Browser): Promise<{ coins: number; contribution: number; streak: number }> {
+async function userSnapshot(browser: Browser): Promise<{ contribution: number; streak: number }> {
 	const session = await createUserContext(browser, 'kid')
 	try {
 		const current = await (await session.page.request.get('/apps/chorestrike/api/v1/users/current')).json()
 		return {
-			coins: current.data.coins,
-			contribution: current.data.contributionScore,
+			contribution: current.data.contributionMinor,
 			streak: current.data.currentStreak,
 		}
 	} finally {

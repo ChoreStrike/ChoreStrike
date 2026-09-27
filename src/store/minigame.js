@@ -8,19 +8,11 @@ import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 /**
- * Boost display copy (name/icon/effect). Prices are NOT defined here —
- * they come exclusively from `GET /minigames/boosts` into the store
- * catalog so affordability check and purchase can never drift apart
- * (CS-PLAN-041, UX-013).
+ * Arcade store (CS-PLAN-070 WP3, T10/D7d no-Coin cutover): scores are
+ * family fun only. The Coin minting, boost shop/catalog and Coin balance
+ * reads are retired — nothing here touches the family wallet or
+ * contribution; refreshes refetch game state instead.
  */
-export const BOOST_DESCRIPTIONS = {
-	slow_motion: { name: 'Slow Motion', icon: '🐌', effect: '20% slower snake' },
-	ghost_mode: { name: 'Ghost Mode', icon: '👻', effect: '1 extra life' },
-	magnet: { name: 'Magnet', icon: '🧲', effect: 'Auto-collect nearby food' },
-	shrink: { name: 'Shrink', icon: '✂️', effect: 'Periodically shrink snake' },
-	no_obstacles: { name: 'No Obstacles', icon: '🛡️', effect: 'Remove all obstacles' },
-}
-
 export const useMinigameStore = defineStore('minigame', {
 	state: () => ({
 		// Current game state
@@ -29,18 +21,6 @@ export const useMinigameStore = defineStore('minigame', {
 		isPlaying: false,
 		isPaused: false,
 		gameOver: false,
-
-		// Boosts
-		activeBoosts: [],
-		purchasedBoosts: [],
-		boostsLoading: false,
-		// Authoritative boost price catalog from GET /minigames/boosts:
-		// `{ [boostId]: cost }`. Null until loaded; purchases stay
-		// disabled without it instead of falling back to stale prices.
-		boostCatalog: null,
-
-		// Coins
-		currentCoins: 0,
 
 		// Leaderboard
 		leaderboard: [],
@@ -52,30 +32,10 @@ export const useMinigameStore = defineStore('minigame', {
 		// UI state
 		loading: false,
 		error: null,
-		showBoostShop: false,
 		showLeaderboard: false,
 	}),
 
 	getters: {
-		/**
-		 * Whether the authoritative boost catalog has been loaded.
-		 * @param {object} state Pinia store state
-		 */
-		boostsLoaded: (state) => state.boostCatalog !== null,
-
-		/**
-		 * Catalog entries enriched with display copy, sorted by cost.
-		 * Empty until the catalog is loaded — consumers render a disabled
-		 * error state instead of stale prices.
-		 * @param {object} state Pinia store state
-		 */
-		availableBoosts: (state) => {
-			if (!state.boostCatalog) return []
-			return Object.entries(state.boostCatalog)
-				.map(([id, cost]) => ({ id, cost, ...BOOST_DESCRIPTIONS[id] }))
-				.sort((a, b) => a.cost - b.cost)
-		},
-
 		/**
 		 * Check if current score is a new personal best
 		 * @param {object} state Pinia store state
@@ -87,32 +47,6 @@ export const useMinigameStore = defineStore('minigame', {
 	},
 
 	actions: {
-		/**
-		 * Fetch current coins balance
-		 */
-		async fetchCoins() {
-			try {
-				const data = await api.get('/api/v1/minigames/coins')
-				this.currentCoins = data.currentCoins
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch coins', error, { store: 'minigame', action: 'fetchCoins' })
-			}
-		},
-
-		/**
-		 * Reconcile the coin wallet from the authoritative `totalCoins`
-		 * balance a completion/undo response carries (CS-PLAN-064 §3.5,
-		 * decision D10) — same HouseUser.coins field as fetchCoins(),
-		 * applied without an extra request or client-side arithmetic.
-		 * @param {number} totalCoins Post-transition wallet balance
-		 */
-		reconcileCoins(totalCoins) {
-			if (Number.isFinite(totalCoins)) {
-				this.currentCoins = totalCoins
-			}
-		},
-
 		/**
 		 * Fetch leaderboard for a game
 		 *
@@ -200,72 +134,14 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		/**
-		 * Fetch the authoritative boost price catalog.
-		 *
-		 * Prices live server-side only; until this succeeds every
-		 * affordability check fails and purchases are disabled so the UI can
-		 * never offer stale prices (UX-013).
-		 */
-		async fetchBoostCatalog() {
-			this.boostsLoading = true
-
-			try {
-				const data = await api.get('/api/v1/minigames/boosts')
-				this.boostCatalog = { ...data }
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch boost catalog', error, { store: 'minigame', action: 'fetchBoostCatalog' })
-				throw error
-			} finally {
-				this.boostsLoading = false
-			}
-		},
-
-		/**
-		 * Purchase a boost
-		 * @param {string} boostId Boost identifier to purchase
-		 */
-		async purchaseBoost(boostId) {
-			// No stale-price fallback: without the authoritative catalog the
-			// purchase is refused up front instead of guessing the cost.
-			if (!this.boostCatalog?.[boostId]) {
-				logger.error('Purchase blocked - boost catalog unavailable', undefined, { store: 'minigame', action: 'purchaseBoost', boostId })
-				return false
-			}
-
-			this.boostsLoading = true
-
-			try {
-				const data = await api.post(`/api/v1/minigames/boosts/${boostId}/purchase`)
-				this.currentCoins = data.remainingCoins
-				// The boost is ALREADY in purchasedBoosts — the shop's toggle
-				// owns the selection; a second push here duplicated the entry
-				// and doubled the displayed total (CS-PLAN-068 §3.6 fix).
-				return true
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to purchase boost', error, { store: 'minigame', action: 'purchaseBoost', boostId })
-			} finally {
-				this.boostsLoading = false
-			}
-
-			return false
-		},
-
-		/**
-		 * Save game score
+		 * Save game score (scores only — never wallet/contribution)
 		 * @param {string} gameId Game identifier (e.g. 'snake')
 		 */
 		async saveScore(gameId = 'snake') {
 			try {
 				const data = await api.post(`/api/v1/minigames/${gameId}/scores`, {
 					score: this.score,
-					boostsUsed: this.purchasedBoosts,
 				})
-
-				if (data.coinsEarned > 0) {
-					this.currentCoins += data.coinsEarned
-				}
 
 				await Promise.all([
 					this.fetchPersonalBest(gameId),
@@ -291,7 +167,6 @@ export const useMinigameStore = defineStore('minigame', {
 			this.isPlaying = true
 			this.isPaused = false
 			this.gameOver = false
-			this.activeBoosts = [...this.purchasedBoosts]
 		},
 
 		/**
@@ -321,10 +196,6 @@ export const useMinigameStore = defineStore('minigame', {
 				saveResult = await this.saveScore(this.currentGame)
 			}
 
-			// Clear boosts
-			this.activeBoosts = []
-			this.purchasedBoosts = []
-
 			return saveResult
 		},
 
@@ -337,24 +208,6 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		/**
-		 * Toggle boost shop visibility
-		 */
-		toggleBoostShop() {
-			this.showBoostShop = !this.showBoostShop
-		},
-
-		/**
-		 * Remove a purchased boost
-		 * @param {string} boostId Boost identifier to remove
-		 */
-		removePurchasedBoost(boostId) {
-			const index = this.purchasedBoosts.indexOf(boostId)
-			if (index > -1) {
-				this.purchasedBoosts.splice(index, 1)
-			}
-		},
-
-		/**
 		 * Initialize minigame data
 		 *
 		 * CS-PLAN-066 §3.4: the aggregate owns `loading` behind a
@@ -362,8 +215,7 @@ export const useMinigameStore = defineStore('minigame', {
 		 * stuck in a loading state, and the failure is propagated
 		 * recoverably to the caller for its error/retry UI. Child fetches
 		 * keep their own soft-fail behavior (partial data beats a blank
-		 * arcade); a rejection of ANY child (typically the boost catalog,
-		 * which rethrows) surfaces through the aggregate error.
+		 * arcade).
 		 * @param {string} gameId Game identifier (e.g. 'snake')
 		 * @throws {Error} When a child fetch fails (recoverable — retry by
 		 *   calling initialize again).
@@ -374,8 +226,6 @@ export const useMinigameStore = defineStore('minigame', {
 
 			try {
 				await Promise.all([
-					this.fetchCoins(),
-					this.fetchBoostCatalog(),
 					this.fetchLeaderboard(gameId),
 					this.fetchPersonalBest(gameId),
 					this.fetchUserRank(gameId),
@@ -405,10 +255,6 @@ export const useMinigameStore = defineStore('minigame', {
 			this.isPlaying = false
 			this.isPaused = false
 			this.gameOver = false
-			this.activeBoosts = []
-			this.purchasedBoosts = []
-			this.boostCatalog = null
-			this.currentCoins = 0
 			this.leaderboard = []
 			this.weeklyLeaderboard = []
 			this.personalBest = null
@@ -416,7 +262,6 @@ export const useMinigameStore = defineStore('minigame', {
 			this.recentScores = []
 			this.loading = false
 			this.error = null
-			this.showBoostShop = false
 			this.showLeaderboard = false
 		},
 	},

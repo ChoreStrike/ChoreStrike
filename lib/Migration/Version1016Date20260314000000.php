@@ -70,9 +70,8 @@ class Version1016Date20260314000000 extends SimpleMigrationStep {
 				'default' => 0,
 			]);
 
-			$table->addColumn('boosts_used', 'json', [
-				'notnull' => false,
-			]);
+			// CS-PLAN-070 WP3 (§3.1): the obsolete boost metadata is gone —
+			// the arcade is scores-only, no Coin spending/consumers remain.
 
 			$table->addColumn('created_at', 'datetime', [
 				'notnull' => true,

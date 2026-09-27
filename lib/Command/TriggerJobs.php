@@ -8,10 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Command;
 
-use OCA\ChoreStrike\Service\OccurrenceService;
-use OCA\ChoreStrike\Service\StreakAtRiskService;
-use OCA\ChoreStrike\Service\StreakFreezeService;
-use OCA\ChoreStrike\Service\StreakRestockService;
+use OCA\ChoreStrike\BackgroundJob\TimelineJob;
 use OCA\ChoreStrike\Service\TaskDueReminderService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -26,15 +23,13 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * The job bodies live in services (CS-PLAN-023 refactor), so this command
  * calls them directly — no cron, no multi-day waits. `--as-of` sets the
- * reference "now" day: "yesterday" is derived as as-of minus one day for the
- * streak passes, and the task-due reminder pass (CS-PLAN-030) uses the
+ * reference "now" day: the task-due reminder pass (CS-PLAN-030) uses the
  * as-of day itself, so an E2E can simulate "N days passed" with zero clock
- * trickery.
+ * trickery. The freeze/restock streak passes retired with the WP3
+ * legacy-effect cutover (CS-PLAN-070, Q-074-01 Option A).
  *
  * Usage:
- *   php occ chorestrike:trigger-jobs streak-freeze --as-of=2026-08-05
- *   php occ chorestrike:trigger-jobs daily-notification
- *   php occ chorestrike:trigger-jobs streak-restock
+ *   php occ chorestrike:trigger-jobs daily-notification --as-of=2026-08-05
  *   php occ chorestrike:trigger-jobs timeline --as-of=2026-09-21
  *   php occ chorestrike:trigger-jobs all
  *
@@ -43,20 +38,15 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class TriggerJobs extends Command {
 	/**
-	 * Valid job types. `all` runs daily-notification BEFORE streak-freeze:
-	 * the at-risk reminder must fire while the streak is still positive,
-	 * which the freeze pass can reset (deterministic resolution of the
-	 * 06:00 ordering race documented in appinfo/info.xml).
+	 * Valid job types (the freeze/restock passes retired with the WP3
+	 * legacy-effect cutover).
 	 */
-	public const TYPES = ['daily-notification', 'streak-freeze', 'streak-restock', 'timeline', 'all'];
+	public const TYPES = ['daily-notification', 'timeline', 'all'];
 
 	public function __construct(
 		private TestDataService $testDataService,
-		private StreakAtRiskService $atRiskService,
 		private TaskDueReminderService $taskDueReminderService,
-		private StreakFreezeService $freezeService,
-		private StreakRestockService $restockService,
-		private OccurrenceService $occurrenceService,
+		private TimelineJob $timelineJob,
 		private ITimeFactory $time,
 	) {
 		parent::__construct();
@@ -74,7 +64,7 @@ class TriggerJobs extends Command {
 			'as-of',
 			null,
 			InputOption::VALUE_OPTIONAL,
-			'Reference date (YYYY-MM-DD); "yesterday" (streak passes) is derived as as-of minus one day, the task-due pass uses the day itself. Defaults to now.'
+			'Reference date (YYYY-MM-DD); the task-due pass uses the day itself. Defaults to now.'
 		);
 		$this->addOption(
 			'user',
@@ -104,7 +94,6 @@ class TriggerJobs extends Command {
 			$output->writeln('<error>' . $e->getMessage() . '</error>');
 			return Command::FAILURE;
 		}
-		$yesterday = (clone $today)->modify('-1 day');
 
 		if ($input->getOption('user') !== null && $input->getOption('user') !== '') {
 			$output->writeln(
@@ -114,20 +103,13 @@ class TriggerJobs extends Command {
 
 		$results = [];
 		if ($type === 'daily-notification' || $type === 'all') {
-			$results['daily-notification'] = $this->atRiskService->process($yesterday);
 			$results['task-due-reminders'] = $this->taskDueReminderService->process($today);
 		}
-		if ($type === 'streak-freeze' || $type === 'all') {
-			$results['streak-freeze'] = $this->freezeService->process($yesterday);
-		}
-		if ($type === 'streak-restock' || $type === 'all') {
-			$results['streak-restock'] = $this->restockService->process();
-		}
 		if ($type === 'timeline' || $type === 'all') {
-			// Deterministic timeline trigger (CS-PLAN-072 WP1): the same
-			// generator pass the five-minute TimelineJob runs, with the
-			// --as-of clock substitution.
-			$results['timeline'] = $this->occurrenceService->reconcileHouseForJobs($today);
+			// Use the full cron pass so a simulated closed week also reconciles
+			// pause, rhythm, recognition, and its one-time household bell.
+			$this->timelineJob->reconcileAt($today);
+			$results['timeline'] = ['triggered' => 1];
 		}
 
 		foreach ($results as $name => $stats) {
@@ -145,8 +127,7 @@ class TriggerJobs extends Command {
 	 * Derive the "today" reference date passed to (or derived by) the services.
 	 *
 	 * Without --as-of the injected clock provides "now"; with --as-of the given
-	 * day is the reference. "Yesterday" (streak passes) is derived as today
-	 * minus one day by the caller; the task-due pass uses "today" itself.
+	 * day is the reference. The task-due pass uses "today" itself.
 	 *
 	 * @param string|null $asOf Optional reference date (YYYY-MM-DD)
 	 * @throws \InvalidArgumentException When --as-of is not a valid Y-m-d date

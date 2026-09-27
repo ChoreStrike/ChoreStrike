@@ -20,6 +20,8 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\WorkShare;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
@@ -37,6 +39,7 @@ class ActivityServiceTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private TaskAccessPolicy $taskAccessPolicy;
+	private WorkShareMapper $workShareMapper;
 	private ActivityService $service;
 
 	protected function setUp(): void {
@@ -49,6 +52,7 @@ class ActivityServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		$this->workShareMapper = $this->createMock(WorkShareMapper::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -61,6 +65,7 @@ class ActivityServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->taskAssigneeMapper,
 			$this->taskAccessPolicy,
+			$this->workShareMapper,
 			$l10n,
 		);
 	}
@@ -78,8 +83,12 @@ class ActivityServiceTest extends TestCase {
 		$completion->setUserId($userId);
 		$completion->setRoomTaskId($roomTaskId);
 		$completion->setCompletedAt(new \DateTime('2026-08-20 10:00:00'));
-		$completion->setCoinsEarned(12);
-		$completion->setWasCombo(true);
+		$completion->setTotalEnergy(3);
+		// WP3 frozen-fact columns carry no entity defaults — the writer
+		// always sets them; the test fixture mirrors the writer contract.
+		$completion->setRateMinor(1000);
+		$completion->setCompletionVersion(0);
+		$completion->setAllocationRevision(1);
 
 		return $completion;
 	}
@@ -127,10 +136,20 @@ class ActivityServiceTest extends TestCase {
 		$user7 = new HouseUser();
 		$user7->setId(7);
 		$user7->setDisplayName('Alice');
+		$user7->setNextcloudUserId('alice');
+		$user7->setWalletId(77);
 
 		$user8 = new HouseUser();
 		$user8->setId(8);
 		$user8->setDisplayName('Bob');
+		$user8->setNextcloudUserId('bob');
+		$user8->setWalletId(88);
+
+		$share = new WorkShare();
+		$share->setCompletionId(101);
+		$share->setWalletId(77);
+		$share->setSharePct(100);
+		$share->setEnergyMinor(300);
 
 		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([$c1, $c2]);
 		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(2);
@@ -138,6 +157,10 @@ class ActivityServiceTest extends TestCase {
 		$this->taskMapper->method('findByIds')->willReturn([5 => $task5, 6 => $task6]);
 		$this->roomMapper->method('findByIds')->willReturn([3 => $room3, 4 => $room4]);
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user7, $user8]);
+		$this->houseUserMapper->expects($this->never())->method('findByWalletId');
+		$this->workShareMapper->expects($this->once())->method('findSelectedByCompletionIds')
+			->with([101, 102])->willReturn([101 => [$share]]);
+		$this->workShareMapper->expects($this->never())->method('findByCompletionAndRevision');
 		$this->taskAccessPolicy->method('canView')->willReturn(true);
 
 		$result = $this->service->getActivity(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null, $this->makeViewer());
@@ -152,8 +175,11 @@ class ActivityServiceTest extends TestCase {
 		self::assertSame('Vacuum living room', $first['taskTitle']);
 		self::assertSame(3, $first['energyCost']);
 		self::assertSame('Living Room', $first['roomName']);
-		self::assertTrue($first['wasCombo']);
-		self::assertSame(12, $first['coinsEarned']);
+		// WP3: frozen work facts instead of reward outputs.
+		self::assertSame(3, $first['totalEnergy']);
+		self::assertSame([
+			['userId' => 'alice', 'displayName' => 'Alice', 'sharePct' => 100, 'energyMinor' => 300],
+		], $first['allocation']);
 
 		self::assertSame('Bob', $result['completions'][1]['displayName']);
 		self::assertSame('Bathroom', $result['completions'][1]['roomName']);
@@ -292,11 +318,11 @@ class ActivityServiceTest extends TestCase {
 	 * GetActivity_InvisibleTaskContent_RedactedToNull
 	 *
 	 * CS-PLAN-061 review fix: rows stay house-scoped (D9), but the title
-	 * and energy of a task the viewer cannot see are redacted — the feed
-	 * must not leak private task names to non-viewers.
+	 * and selected work facts of a task the viewer cannot see are redacted.
 	 */
 	public function testGetActivity_InvisibleTaskContent_RedactedToNull(): void {
 		$completion = $this->makeCompletion(301, 7, 31);
+		$completion->setTotalEnergy(12);
 		$roomTask = $this->makeRoomTask(31, 9, 3);
 
 		$privateTask = new Task();
@@ -312,6 +338,14 @@ class ActivityServiceTest extends TestCase {
 		$user7 = new HouseUser();
 		$user7->setId(7);
 		$user7->setDisplayName('Alice');
+		$user7->setNextcloudUserId('alice');
+		$user7->setWalletId(77);
+
+		$share = new WorkShare();
+		$share->setCompletionId(301);
+		$share->setWalletId(77);
+		$share->setSharePct(100);
+		$share->setEnergyMinor(1200);
 
 		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([$completion]);
 		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(1);
@@ -319,15 +353,145 @@ class ActivityServiceTest extends TestCase {
 		$this->taskMapper->method('findByIds')->willReturn([9 => $privateTask]);
 		$this->roomMapper->method('findByIds')->willReturn([3 => $room]);
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user7]);
-		$this->taskAccessPolicy->method('canView')->willReturn(false);
+		$this->workShareMapper->method('findSelectedByCompletionIds')->willReturn([301 => [$share]]);
+		$this->taskAccessPolicy->method('canView')->willReturnCallback(
+			static fn (Task $task, HouseUser $viewer): bool => $viewer->getId() === 7
+		);
 
-		$result = $this->service->getActivity(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null, $this->makeViewer());
+		$viewer = $this->makeViewer();
+		$viewer->setId(8);
+		$result = $this->service->getActivity(1, 30, 50, null, $viewer);
 
 		$item = $result['completions'][0];
 		self::assertSame('Alice', $item['displayName'], 'the aggregate row itself stays');
 		self::assertSame(9, $item['taskId']);
 		self::assertNull($item['taskTitle'], 'invisible task names are redacted');
 		self::assertNull($item['energyCost'], 'invisible task energy is redacted');
+		self::assertNull($item['totalEnergy'], 'frozen effort is private task content');
+		self::assertSame([], $item['allocation'], 'selected participants and shares must not leak');
+		self::assertFalse($item['canCorrect']);
 		self::assertSame('Kitchen', $item['roomName'], 'rooms are structural and stay visible');
+
+		$owner = $this->makeViewer();
+		$owner->setId(9);
+		$owner->setRole('owner');
+		$ownerItem = $this->service->getActivity(1, 30, 50, null, $owner)['completions'][0];
+		self::assertNull($ownerItem['totalEnergy'], 'owner status does not expose another member\'s private task');
+		self::assertSame([], $ownerItem['allocation']);
+		self::assertFalse($ownerItem['canCorrect'], 'an owner who cannot view the task cannot correct it');
+
+		$creator = $this->makeViewer();
+		$creator->setId(7);
+		$creatorItem = $this->service->getActivity(1, 30, 50, null, $creator)['completions'][0];
+		self::assertSame(12, $creatorItem['totalEnergy']);
+		self::assertSame('alice', $creatorItem['allocation'][0]['userId']);
+		self::assertSame(100, $creatorItem['allocation'][0]['sharePct']);
+		self::assertTrue($creatorItem['canCorrect']);
+	}
+
+	/**
+	 * GetActivity_MaxPage_BatchesSharesAndMembershipReads
+	 */
+	public function testGetActivity_MaxPage_BatchesSharesAndMembershipReads(): void {
+		$completions = [];
+		$shares = [];
+		for ($id = 1; $id <= ActivityService::MAX_LIMIT; $id++) {
+			$completions[] = $this->makeCompletion($id, 7, 21);
+			$share = new WorkShare();
+			$share->setCompletionId($id);
+			$share->setWalletId(77);
+			$share->setSharePct(100);
+			$share->setEnergyMinor(300);
+			$shares[$id] = [$share];
+		}
+		$roomTask = $this->makeRoomTask(21, 9, 3);
+		$task = new Task();
+		$task->setId(9);
+		$task->setName('Shared task');
+		$member = new HouseUser();
+		$member->setId(7);
+		$member->setWalletId(77);
+		$member->setNextcloudUserId('alice');
+		$member->setDisplayName('Alice');
+
+		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn($completions);
+		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(200);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$roomTask]);
+		$this->taskMapper->method('findByIds')->willReturn([9 => $task]);
+		$this->houseUserMapper->expects($this->once())->method('findByHouseId')->with(1)->willReturn([$member]);
+		$this->houseUserMapper->expects($this->never())->method('findByWalletId');
+		$this->workShareMapper->expects($this->once())->method('findSelectedByCompletionIds')
+			->with(range(1, 200))->willReturn($shares);
+		$this->workShareMapper->expects($this->never())->method('findByCompletionAndRevision');
+		$this->taskAccessPolicy->method('canView')->willReturn(true);
+
+		$items = $this->service->getActivity(1, 30, 200, null, $this->makeViewer())['completions'];
+		self::assertCount(200, $items);
+		self::assertSame('alice', $items[199]['allocation'][0]['userId']);
+		self::assertSame(300, $items[199]['allocation'][0]['energyMinor']);
+	}
+
+	/**
+	 * GetActivity_ViewerScopedCorrectionAuthority
+	 *
+	 * WP3 §3.6: the feed exposes the correction action through the
+	 * viewer-scoped `canCorrect` — completer or owner on a still-valid
+	 * completion; participation alone and undone rows never qualify.
+	 */
+	public function testGetActivity_ViewerScopedCorrectionAuthority(): void {
+		$completion = $this->makeCompletion(401, 7, 41);
+		$roomTask = $this->makeRoomTask(41, 9, 3);
+
+		$task = new Task();
+		$task->setId(9);
+		$task->setName('Vacuum');
+		$task->setEnergyCost(3);
+
+		$room = new Room();
+		$room->setId(3);
+		$room->setName('Kitchen');
+
+		$user7 = new HouseUser();
+		$user7->setId(7);
+		$user7->setDisplayName('Alice');
+
+		$rows = [$completion];
+		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturnCallback(
+			static function () use (&$rows): array {
+				return $rows;
+			}
+		);
+		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(1);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$roomTask]);
+		$this->taskMapper->method('findByIds')->willReturn([9 => $task]);
+		$this->roomMapper->method('findByIds')->willReturn([3 => $room]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user7]);
+		$this->taskAccessPolicy->method('canView')->willReturn(true);
+
+		// A member who is neither completer nor owner cannot correct.
+		$member = $this->makeViewer();
+		$member->setId(9);
+		$result = $this->service->getActivity(1, 30, 50, null, $member);
+		self::assertFalse($result['completions'][0]['canCorrect'], 'participation alone is no correction authority');
+
+		// The completer (house-user id match) can correct.
+		$completer = $this->makeViewer();
+		$completer->setId(7);
+		$result = $this->service->getActivity(1, 30, 50, null, $completer);
+		self::assertTrue($result['completions'][0]['canCorrect']);
+
+		// An owner can correct any live completion.
+		$owner = $this->makeViewer();
+		$owner->setId(9);
+		$owner->setRole('owner');
+		$result = $this->service->getActivity(1, 30, 50, null, $owner);
+		self::assertTrue($result['completions'][0]['canCorrect']);
+
+		// An undone completion is history — not correctable anymore.
+		$undone = $this->makeCompletion(402, 7, 41);
+		$undone->setUndoneAt(new \DateTime('2026-08-21 10:00:00'));
+		$rows = [$undone];
+		$result = $this->service->getActivity(1, 30, 50, null, $owner);
+		self::assertFalse($result['completions'][0]['canCorrect'], 'an undone target is terminal');
 	}
 }

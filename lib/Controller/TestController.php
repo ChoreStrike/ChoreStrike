@@ -64,9 +64,15 @@ class TestController extends Controller {
 				]
 			], 400);
 		}
+		$closedWeekEvidence = $this->request->getParam('closedWeekEvidence');
+		if ($closedWeekEvidence !== null && ($closedWeekEvidence !== '1' || $profile !== 'family')) {
+			return new JSONResponse(['success' => false, 'error' => ['code' => 'INVALID_SEED_OPTION']], 400);
+		}
 
 		try {
-			$result = $this->testDataService->seed($profile);
+			$result = $closedWeekEvidence === '1'
+				? $this->testDataService->seedFamily(true)
+				: $this->testDataService->seed($profile);
 
 			return new JSONResponse([
 				'success' => true,

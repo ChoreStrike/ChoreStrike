@@ -36,6 +36,10 @@ describe('MedalBadge', () => {
 				'room_guardian',
 				'team_player',
 				'streak_keeper',
+				'rhythm_3',
+				'rhythm_6',
+				'rhythm_12',
+				'weekly_milestone',
 			]
 
 			validTypes.forEach((type) => {
@@ -123,6 +127,18 @@ describe('MedalBadge', () => {
 			})
 			const label = wrapper.find('.medal-label')
 			expect(label.exists()).toBe(true)
+		})
+
+		it.each([
+			['rhythm_3', 'Rhythm 3'],
+			['rhythm_6', 'Rhythm 6'],
+			['rhythm_12', 'Rhythm 12'],
+			['weekly_milestone', 'Weekly Milestone'],
+		])('renders a localized label for %s', (type, label) => {
+			const wrapper = createWrapper({ type, showLabel: true })
+			expect(wrapper.find('.medal-label').text()).toBe(label)
+			expect(wrapper.attributes('title')).toBe(label)
+			expect(wrapper.find('.medal-icon').text()).not.toBe('')
 		})
 	})
 

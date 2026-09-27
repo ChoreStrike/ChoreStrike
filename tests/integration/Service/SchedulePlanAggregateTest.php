@@ -707,7 +707,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$preview = $this->service->preview($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], []);
 		$this->completeOccurrence($this->completionService, $houseId, 'dad', $roomTaskId);
 		$this->cleanupLedgerRoomTaskIds[] = $roomTaskId;
-		$this->completionService->undo($houseId, $this->ownerActor($houseId), $roomTaskId);
+		$this->undoLatestForRoomTask($this->completionService, $houseId, 'dad', $roomTaskId);
 
 		$this->assertStaleApplyConflictsWithoutWrites($houseId, $roomTaskId, $preview);
 	}
@@ -725,7 +725,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$afterComplete = $this->roomTaskRow($roomTaskId)['next_due'];
 		self::assertNotSame($appliedDue, $afterComplete, 'the completion must advance the recurrence');
 
-		$this->completionService->undo($houseId, $this->ownerActor($houseId), $roomTaskId);
+		$this->undoLatestForRoomTask($this->completionService, $houseId, 'dad', $roomTaskId);
 		self::assertSame(
 			$appliedDue,
 			$this->roomTaskRow($roomTaskId)['next_due'],
@@ -769,7 +769,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		// 3. The undo restores the LEDGER's recorded pre-completion state —
 		// it wins over the applied move (decision D8, ADR-011); the applied
 		// assignment survives because assignments are not ledger state.
-		$this->completionService->undo($houseId, $this->ownerActor($houseId), $roomTaskId);
+		$this->undoLatestForRoomTask($this->completionService, $houseId, 'dad', $roomTaskId);
 		self::assertSame($beforeComplete, $this->roomTaskRow($roomTaskId)['next_due']);
 		$assignees = array_map(static fn (array $r): string => (string)$r['user_id'], $this->assigneeRows($roomTaskId));
 		self::assertSame(['dad'], $assignees);

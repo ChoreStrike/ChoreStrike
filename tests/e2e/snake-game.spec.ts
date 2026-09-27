@@ -28,7 +28,10 @@ test.describe('Snake Arcade Game', () => {
 	test('Arcade section is visible on dashboard', async ({ page }) => {
 		test.setTimeout(60000)
 
-		await expect(page.getByTestId('coins-display')).toBeVisible()
+		// WP3 cutover (T10/D7d): the arcade is scores-only — no coin
+		// display, no boost shop entry.
+		await expect(page.getByTestId('coins-display')).toHaveCount(0)
+		await expect(page.getByTestId('boost-shop')).toHaveCount(0)
 		await expect(page.locator('.game-card').first()).toBeVisible()
 		await expect(page.locator('.game-card h3').first()).toContainText('Snake')
 	})
@@ -121,19 +124,6 @@ test.describe('Snake Arcade Game', () => {
 		await expect(page.locator('.control-btn')).toHaveCount(4)
 	})
 
-	test('Boost shop can be opened from start screen', async ({ page }) => {
-		test.setTimeout(60000)
-
-		await openSnake(page)
-		await page.locator('.start-overlay .btn-secondary').click()
-
-		await expect(page.getByTestId('boost-shop')).toBeVisible({ timeout: 10000 })
-		await expect(page.locator('.boost-card')).toHaveCount(5, { timeout: 5000 })
-
-		await page.locator('.boost-shop-overlay .btn-secondary').click()
-		await expect(page.getByTestId('boost-shop')).not.toBeVisible()
-	})
-
 	test('Leaderboard can be opened from arcade section', async ({ page }) => {
 		test.setTimeout(60000)
 
@@ -162,7 +152,7 @@ test.describe('Snake Arcade Game', () => {
 		await expect(page.getByRole('button', { name: 'All Time' })).toHaveClass(/active/)
 	})
 
-	test('Game over screen shows score and sparks earned', async ({ page }) => {
+	test('Game over screen shows the score (no coin outputs)', async ({ page }) => {
 		test.setTimeout(120000)
 
 		await openSnake(page)
@@ -179,6 +169,8 @@ test.describe('Snake Arcade Game', () => {
 		await expect(page.locator('.final-score')).toBeVisible()
 		await expect(page.locator('.game-over-buttons .btn-primary')).toBeVisible()
 		await expect(page.locator('.game-over-buttons .btn-secondary')).toBeVisible()
+		// Scores-only contract (WP3): the game-over screen mints no Coins.
+		await expect(page.locator('.game-over-overlay')).not.toContainText('Coins')
 	})
 
 	test('User can play again after game over', async ({ page }) => {
@@ -199,21 +191,15 @@ test.describe('Snake Arcade Game', () => {
 		await expect(page.locator('.score-value')).toContainText('0')
 	})
 
-	test('No active boosts displayed without purchase', async ({ page }) => {
-		test.setTimeout(90000)
+	test('No boost surfaces remain after the cutover', async ({ page }) => {
+		test.setTimeout(60000)
 
+		// WP3 (T10/D7d): boost purchase and the active-boost HUD retired
+		// with the wallet cutover — neither may linger in the arcade.
 		await openSnake(page)
 		await page.locator('.start-overlay .btn-primary').click()
 		await expect(page.locator('.start-overlay')).not.toBeVisible({ timeout: 5000 })
 
-		await expect(page.locator('.active-boosts')).not.toBeVisible()
-	})
-
-	test('Coins balance is displayed in arcade header', async ({ page }) => {
-		test.setTimeout(60000)
-
-		const coinsValue = page.getByTestId('coins-value')
-		await expect(coinsValue).toBeVisible()
-		expect(await coinsValue.textContent()).toMatch(/^\d+$/)
+		await expect(page.locator('.active-boosts')).toHaveCount(0)
 	})
 })

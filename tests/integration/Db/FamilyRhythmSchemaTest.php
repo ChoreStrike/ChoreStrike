@@ -106,32 +106,18 @@ class FamilyRhythmSchemaTest extends IntegrationTestCase {
 		self::assertSame(0, (int)$row['deleted_token'], 'deleted_token defaults to 0 (live)');
 		self::assertSame(1, (int)$row['is_active'], 'room tasks stay active');
 
-		// house_users.wallet_id exists and is NULL for unbound rows.
-		$this->addHouseMember($houseId, 'frs_member', 'FRS Member');
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('wallet_id')
-			->from('chorestrike_house_users')
-			->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter('frs_member')));
-		$result = $qb->executeQuery();
-		$walletId = $result->fetchOne();
-		$result->closeCursor();
-		self::assertNull($walletId, 'house_users.wallet_id exists and defaults to NULL');
+		// house_users.wallet_id exists and defaults to NULL (the column
+		// default, per information_schema — the production membership
+		// invariant binds wallets eagerly, so a member ROW is never NULL).
+		$columnDefault = $this->db->executeQuery(
+			'SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+			['oc_chorestrike_house_users', 'wallet_id']
+		)->fetchOne();
+		self::assertTrue($columnDefault === null || $columnDefault === 'NULL', 'house_users.wallet_id exists and defaults to NULL');
 
-		// completed_tasks.user_id is nullable (D3; combo partner facts since
-		// the CS-PLAN-064 reshape live in the deltas JSON, not a column).
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_completed_tasks')
-			->values([
-				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'user_id' => $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL),
-				'completed_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
-				'coins_earned' => $qb->createNamedParameter(5, IQueryBuilder::PARAM_INT),
-				'was_combo' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_BOOL),
-				'before_state' => $qb->createNamedParameter('{}'),
-				'deltas' => $qb->createNamedParameter('{}'),
-			])
-			->executeStatement();
-		$this->cleanupCompletionIds[] = (int)$this->db->lastInsertId('chorestrike_completed_tasks');
+		// completed_tasks.user_id is nullable (D3).
+		$id = $this->insertCompletionRow($roomTaskId, null, date('Y-m-d H:i:s'));
+		$this->cleanupCompletionIds[] = $id;
 
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('user_id')
@@ -160,19 +146,8 @@ class FamilyRhythmSchemaTest extends IntegrationTestCase {
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'frs_tomb_owner');
 
 		// Evidence row that must survive the tombstone.
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_completed_tasks')
-			->values([
-				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'user_id' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
-				'completed_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
-				'coins_earned' => $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT),
-				'was_combo' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_BOOL),
-				'before_state' => $qb->createNamedParameter('{}'),
-				'deltas' => $qb->createNamedParameter('{}'),
-			])
-			->executeStatement();
-		$this->cleanupCompletionIds[] = (int)$this->db->lastInsertId('chorestrike_completed_tasks');
+		$id = $this->insertCompletionRow($roomTaskId, 1, date('Y-m-d H:i:s'));
+		$this->cleanupCompletionIds[] = $id;
 
 		// Tombstone via the entity primitive (same semantics as production).
 		$roomTaskMapper = \OC::$server->get(RoomTaskMapper::class);

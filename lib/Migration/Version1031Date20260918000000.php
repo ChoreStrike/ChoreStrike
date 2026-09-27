@@ -135,6 +135,7 @@ class Version1031Date20260918000000 extends SimpleMigrationStep {
 			$table->setPrimaryKey(['id'], 'pk_occurrences');
 			$table->addUniqueIndex(['schedule_rev_id', 'ordinal'], 'uniq_occ_rev_ord');
 			$table->addIndex(['house_id', 'planned_date'], 'idx_occ_house_date');
+			$table->addIndex(['house_id', 'kind', 'week_start'], 'idx_occ_house_kind_week');
 			$table->addIndex(['room_task_id', 'window_end'], 'idx_occ_task_window');
 		}
 

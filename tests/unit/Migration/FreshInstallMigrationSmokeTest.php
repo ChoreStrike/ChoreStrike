@@ -73,16 +73,30 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 
 		// The four columns Version1027 re-adds via changeSchema() — absent on
 		// every historical broken fresh install. Asserting them proves this
-		// test would have caught the original defect.
+		// test would have caught the original defect. (The `coin_multiplier`
+		// fourth column retired with the WP3 wallet cutover.)
 		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'task_tier'));
 		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'flex_days'));
 		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'ideal_due_date'));
-		$this->assertTrue($schema->hasColumn('chorestrike_house_users', 'coin_multiplier'));
+		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'claimed_source_completion_id'));
+
+		// WP3 §3.1: exact minor-unit contribution and the work/audit/journal
+		// tables are part of the fresh chain.
+		$this->assertTrue($schema->hasColumn('chorestrike_house_users', 'contribution_minor'));
+		$this->assertTrue($schema->hasTable('chorestrike_work_shares'), 'work_shares table missing');
+		$this->assertTrue($schema->hasTable('chorestrike_completion_revs'), 'completion_revs table missing');
+		$this->assertTrue($schema->hasTable('chorestrike_room_events'), 'room_events table missing');
+		$this->assertTrue($schema->hasTable('chorestrike_wgoal_receipts'), 'weekly goal receipt table missing');
+		$this->assertLessThanOrEqual(30, strlen('oc_chorestrike_wgoal_receipts'), 'Nextcloud-prefixed receipt table name exceeds 30 characters');
+		$this->assertTrue($schema->hasColumn('chorestrike_wallet_entries', 'actor_wallet_id'));
+		$this->assertTrue($schema->getTable('chorestrike_room_events')->hasIndex('idx_revent_room_reset_time'));
 	}
 
 	/**
 	 * Isolated guard for the canonical historically-broken step: Version1027
-	 * must add all four columns through changeSchema() (not preSchemaChange).
+	 * must add the historically missing columns through changeSchema() (not
+	 * preSchemaChange), and the WP3 cutover must keep the retired freeze/
+	 * multiplier columns out of a fresh install.
 	 */
 	public function testVersion1027AddsHistoricallyMissingColumnsViaChangeSchema(): void {
 		$schema = new RecordingSchema();
@@ -103,7 +117,9 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'task_tier'));
 		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'flex_days'));
 		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'ideal_due_date'));
-		$this->assertTrue($schema->hasColumn('chorestrike_house_users', 'coin_multiplier'));
+		// Retired with the WP3 wallet cutover (Q-074-01 Option A).
+		$this->assertFalse($schema->hasColumn('chorestrike_house_users', 'coin_multiplier'));
+		$this->assertFalse($schema->hasColumn('chorestrike_house_users', 'last_freeze_date'));
 	}
 
 	/**
@@ -140,6 +156,14 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 			['chorestrike_room_tasks', 'assigned_at'],
 			['chorestrike_completed_tasks', 'nextcloud_task_id'],
 			['chorestrike_completed_tasks', 'synced_to_nextcloud'],
+			// WP3 cutover: the completion row is work evidence, not money.
+			['chorestrike_completed_tasks', 'coins_earned'],
+			['chorestrike_completed_tasks', 'was_combo'],
+			['chorestrike_house_users', 'coins'],
+			['chorestrike_house_users', 'streak_freezes'],
+			['chorestrike_house_users', 'coin_multiplier'],
+			['chorestrike_house_users', 'last_freeze_date'],
+			['chorestrike_minigame_scores', 'boosts_used'],
 		];
 		foreach ($absentColumns as [$table, $column]) {
 			$this->assertFalse(

@@ -11,7 +11,6 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
-use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AccountErasureService;
 use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\CompletionService;
@@ -65,9 +64,17 @@ class AccountErasureTest extends IntegrationTestCase {
 		}
 		$this->cleanupPauseHouseIds = [];
 		foreach ($this->cleanupWalletIds as $id) {
+			$this->db->executeStatement(
+				'DELETE FROM *PREFIX*chorestrike_wallet_entries WHERE wallet_id = ?',
+				[$id]
+			);
 			$this->deleteById('chorestrike_wallets', $id);
 		}
 		foreach ($this->cleanupCompletionIds as $id) {
+			$this->db->executeStatement(
+				'DELETE FROM *PREFIX*chorestrike_work_shares WHERE completion_id = ?',
+				[$id]
+			);
 			$this->deleteById('chorestrike_completed_tasks', $id);
 		}
 		foreach ($this->cleanupScoreUserIds as $uid) {
@@ -109,7 +116,7 @@ class AccountErasureTest extends IntegrationTestCase {
 		// Wallet + binding + one ledger entry.
 		$walletId = $this->createWallet($houseId, 'ae_target');
 		$this->bindWallet($targetHouseUserId, $walletId);
-		$this->createWalletEntry($walletId, $ownerHouseUserId);
+		$this->createWalletEntry($walletId, $ownerHouseUserId, $this->houseUserFor($houseId, 'ae_owner')->getWalletId());
 
 		// Medal row.
 		$qb = $this->db->getQueryBuilder();
@@ -182,7 +189,7 @@ class AccountErasureTest extends IntegrationTestCase {
 			->executeStatement();
 	}
 
-	private function createWalletEntry(int $walletId, int $actorHouseUserId): void {
+	private function createWalletEntry(int $walletId, int $actorHouseUserId, ?int $actorWalletId): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_wallet_entries')
 			->values([
@@ -193,6 +200,7 @@ class AccountErasureTest extends IntegrationTestCase {
 				'delta_minor' => $qb->createNamedParameter(250, IQueryBuilder::PARAM_INT),
 				'reason_code' => $qb->createNamedParameter('test.reason'),
 				'actor_house_user_id' => $qb->createNamedParameter($actorHouseUserId, IQueryBuilder::PARAM_INT),
+				'actor_wallet_id' => $qb->createNamedParameter($actorWalletId, IQueryBuilder::PARAM_INT),
 				'created_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
 			])
 			->executeStatement();
@@ -202,19 +210,7 @@ class AccountErasureTest extends IntegrationTestCase {
 		// One hour back: the activity window is half-open [start, end) — a
 		// same-second insert would fall outside the exclusive end.
 		$completedAt = date('Y-m-d H:i:s', time() - 3600);
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_completed_tasks')
-			->values([
-				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'user_id' => $qb->createNamedParameter($userId, $userId === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_INT),
-				'completed_at' => $qb->createNamedParameter($completedAt),
-				'coins_earned' => $qb->createNamedParameter(7, IQueryBuilder::PARAM_INT),
-				'was_combo' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_BOOL),
-				'before_state' => $qb->createNamedParameter('{}'),
-				'deltas' => $qb->createNamedParameter('{}'),
-			])
-			->executeStatement();
-		$id = (int)$this->db->lastInsertId('chorestrike_completed_tasks');
+		$id = $this->insertCompletionRow($roomTaskId, $userId, $completedAt);
 		$this->cleanupCompletionIds[] = $id;
 		return $id;
 	}
@@ -258,7 +254,7 @@ class AccountErasureTest extends IntegrationTestCase {
 
 	private function fetchCompletionRow(int $id): ?array {
 		$result = $this->db->executeQuery(
-			'SELECT user_id, coins_earned FROM *PREFIX*chorestrike_completed_tasks WHERE id = ?',
+			'SELECT user_id, total_energy, undone_at FROM *PREFIX*chorestrike_completed_tasks WHERE id = ?',
 			[$id]
 		);
 		$row = $result->fetch();
@@ -325,11 +321,35 @@ class AccountErasureTest extends IntegrationTestCase {
 		$byTarget = $this->fetchCompletionRow($f['completionByTarget']);
 		self::assertIsArray($byTarget, 'the completion row must survive erasure');
 		self::assertNull($byTarget['user_id'], 'the actor reference must be nulled');
-		self::assertSame(7, (int)$byTarget['coins_earned'], 'the anonymous shared work fact survives');
+		self::assertSame(3, (int)$byTarget['total_energy'], 'the anonymous shared work fact survives');
 
 		$ownerRow = $this->fetchCompletionRow($f['ownerCompletion']);
 		self::assertIsArray($ownerRow);
 		self::assertNotNull($ownerRow['user_id'], 'the other actor keeps their reference');
+	}
+
+	/**
+	 * Erasure_AnonymizesActorInOtherWallets_WhileKeepingLedgerFacts
+	 */
+	public function testErasure_AnonymizesActorInOtherWallets_WhileKeepingLedgerFacts(): void {
+		$f = $this->seedHouseWithTarget();
+		$ownerWalletId = $this->createWallet($f['houseId'], 'ae_owner');
+		$this->createWalletEntry($ownerWalletId, $f['targetHouseUserId'], $f['walletId']);
+		self::assertSame(1, $this->countIntBy('chorestrike_wallet_entries', 'wallet_id', $ownerWalletId));
+
+		\OC::$server->get(AccountErasureService::class)->eraseAccount('ae_target');
+
+		$result = $this->db->executeQuery(
+			'SELECT actor_house_user_id, actor_wallet_id, delta_minor FROM *PREFIX*chorestrike_wallet_entries WHERE wallet_id = ?',
+			[$ownerWalletId]
+		);
+		$rows = $result->fetchAll();
+		$result->closeCursor();
+		self::assertCount(1, $rows, 'the other member keeps their immutable ledger movement');
+		self::assertNull($rows[0]['actor_house_user_id'], 'the erased actor is detached from the surviving entry');
+		self::assertNull($rows[0]['actor_wallet_id'], 'the wallet-keyed provenance is detached too');
+		self::assertSame(250, (int)$rows[0]['delta_minor']);
+		self::assertSame(0, $this->countIntBy('chorestrike_wallet_entries', 'wallet_id', $f['walletId']));
 	}
 
 	/**
@@ -578,6 +598,26 @@ class AccountErasureTest extends IntegrationTestCase {
 		$memberHouseUserId = $this->findHouseUserId($houseId, 'ae_dp2_member');
 		$walletId = $this->createWallet($houseId, 'ae_dp2_member');
 		$this->bindWallet($memberHouseUserId, $walletId);
+		$ownerWalletId = $this->createWallet($houseId, 'ae_dp2_owner');
+		$this->createWalletEntry($ownerWalletId, $memberHouseUserId, $walletId);
+		$floorId = $this->createFloor($houseId, 'Departed Floor');
+		$roomId = $this->createRoom($houseId, $floorId, 'Departed Room');
+		$taskId = $this->createTask($houseId, 'Departed work');
+		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId);
+		$ownerId = $this->findHouseUserId($houseId, 'ae_dp2_owner');
+		$completionId = $this->createCompletion($roomTaskId, $ownerId);
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('chorestrike_work_shares')
+			->values([
+				'completion_id' => $qb->createNamedParameter($completionId, IQueryBuilder::PARAM_INT),
+				'allocation_revision' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				'wallet_id' => $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT),
+				'share_pct' => $qb->createNamedParameter(100, IQueryBuilder::PARAM_INT),
+				'energy_minor' => $qb->createNamedParameter(300, IQueryBuilder::PARAM_INT),
+				'coin_minor' => $qb->createNamedParameter(3000, IQueryBuilder::PARAM_INT),
+				'created_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
+			])
+			->executeStatement();
 
 		$insertScore = function (string $uid) use ($houseId): void {
 			$qb = $this->db->getQueryBuilder();
@@ -598,6 +638,7 @@ class AccountErasureTest extends IntegrationTestCase {
 
 		// Depart first — the wallet survives as dormant identity.
 		$houseService->removeHouseMember($memberHouseUserId);
+		self::assertSame(1, $this->countIntBy('chorestrike_work_shares', 'wallet_id', $walletId), 'departure keeps the wallet share');
 
 		$erasureService = \OC::$server->get(AccountErasureService::class);
 		$erasureService->eraseAccount('ae_dp2_member');
@@ -605,15 +646,35 @@ class AccountErasureTest extends IntegrationTestCase {
 		self::assertSame(0, $this->countBy('chorestrike_minigame_scores', 'user_id', 'ae_dp2_member'), 'the departed-only account\'s raw-UID scores must be swept');
 		self::assertSame(1, $this->countBy('chorestrike_minigame_scores', 'user_id', 'ae_dp2_owner'), 'other members keep their scores');
 		self::assertSame(0, $this->countIntBy('chorestrike_wallets', 'id', $walletId), 'the preserved wallet must be swept');
+		$result = $this->db->executeQuery(
+			'SELECT wallet_id, share_pct, energy_minor FROM *PREFIX*chorestrike_work_shares WHERE completion_id = ?',
+			[$completionId]
+		);
+		$share = $result->fetch();
+		$result->closeCursor();
+		self::assertIsArray($share, 'shared work evidence survives erasure');
+		self::assertNull($share['wallet_id'], 'departed wallet identity must be detached');
+		self::assertSame(100, (int)$share['share_pct']);
+		self::assertSame(300, (int)$share['energy_minor']);
+		$result = $this->db->executeQuery(
+			'SELECT actor_house_user_id, actor_wallet_id, delta_minor FROM *PREFIX*chorestrike_wallet_entries WHERE wallet_id = ?',
+			[$ownerWalletId]
+		);
+		$entry = $result->fetch();
+		$result->closeCursor();
+		self::assertIsArray($entry, 'another member\'s wallet entry survives the departed account erasure');
+		self::assertNull($entry['actor_house_user_id'], 'the departed actor reference is removed');
+		self::assertNull($entry['actor_wallet_id'], 'the departed wallet provenance is removed');
+		self::assertSame(250, (int)$entry['delta_minor']);
 	}
 
 	/**
-	 * UndoAfterErasure_YieldsClean403_NeverATypeError500
+	 * UndoAfterErasure_OwnerCorrectionSucceeds_NeverATypeError500
 	 *
-	 * The newest revertible completion may carry a NULL actor (erased
-	 * completer, Q-70-02): undo must answer the clean 403, not a
-	 * TypeError 500 from feeding null into the int-typed mapper
-	 * (review finding).
+	 * WP3 §3.4: an erased completer (NULL actor) leaves the OWNER route —
+	 * the owner's targeted correction of the erased member's completion
+	 * must complete cleanly (never a TypeError 500 from feeding the NULL
+	 * actor into an int-typed mapper).
 	 */
 	public function testUndoAfterErasure_YieldsClean403_NeverATypeError500(): void {
 		$f = $this->seedHouseWithTarget();
@@ -632,16 +693,19 @@ class AccountErasureTest extends IntegrationTestCase {
 		$erasureService->eraseAccount('ae_target');
 
 		$this->actingAs('ae_owner');
-		try {
-			\OC::$server->get(CompletionService::class)->undo(
-				$houseId,
-				$this->houseUserFor($houseId, 'ae_owner'),
-				$f['roomTaskId']
-			);
-			self::fail('undo of an erased completer\'s completion must be denied');
-		} catch (ForbiddenException $e) {
-			self::assertStringContainsString('no longer a member', $e->getMessage());
-		}
+		$result = \OC::$server->get(CompletionService::class)->undo(
+			$houseId,
+			$this->houseUserFor($houseId, 'ae_owner'),
+			(int)$f['completionByTarget'],
+			sprintf('c3d4e5f6-a7b8-4c9d-8e0f-%012d', random_int(0, 999999999999)),
+			0,
+			null
+		);
+
+		self::assertTrue($result['undone'], 'the owner corrects the erased completer\'s completion');
+		$row = $this->fetchCompletionRow((int)$f['completionByTarget']);
+		self::assertIsArray($row);
+		self::assertNotNull($row['undone_at'], 'the correction marks the evidence row undone');
 	}
 
 	/**

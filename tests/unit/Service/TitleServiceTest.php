@@ -12,7 +12,9 @@ use OCA\ChoreStrike\Titles\TitleCatalog;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for TitleService (CS-PLAN-006 Phase 2).
+ * Unit tests for TitleService (CS-PLAN-006 Phase 2; WP3 cutover per
+ * CS-PLAN-070 D7c/C3d: the coins-driven cozy_home pack is retired, the
+ * retained family_rhythm track keys off currentStreak 3/6/12).
  */
 class TitleServiceTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
@@ -39,28 +41,28 @@ class TitleServiceTest extends TestCase {
 		return $l10n;
 	}
 
-	private function userWithStats(int $contribution, int $longestStreak, int $totalSparks): HouseUser {
+	private function userWithStats(int $contributionMinor, int $longestStreak, int $currentStreak): HouseUser {
 		$user = new HouseUser();
 		$user->setId(1);
-		$user->setContributionScore($contribution);
+		$user->setContributionMinor($contributionMinor);
 		$user->setLongestStreak($longestStreak);
-		$user->setTotalSparksEarned($totalSparks);
+		$user->setCurrentStreak($currentStreak);
 		return $user;
 	}
 
 	public function testGetCurrentTitle_NoPackSelected_ReturnsNull(): void {
-		$user = $this->userWithStats(5000, 100, 20000);
+		$user = $this->userWithStats(5000, 100, 12);
 		$this->assertNull($this->service->getCurrentTitle($user));
 	}
 
 	public function testGetCurrentTitle_PackSelectedButBelowTier1_ReturnsNull(): void {
-		$user = $this->userWithStats(10, 1, 10);
+		$user = $this->userWithStats(100, 1, 1);
 		$user->setSelectedTitlePack('home_helpers');
 		$this->assertNull($this->service->getCurrentTitle($user));
 	}
 
 	public function testGetCurrentTitle_Tier1Unlocked_ReturnsTier1(): void {
-		$user = $this->userWithStats(60, 1, 10);
+		$user = $this->userWithStats(6000, 1, 1);
 		$user->setSelectedTitlePack('home_helpers');
 
 		$title = $this->service->getCurrentTitle($user);
@@ -69,10 +71,11 @@ class TitleServiceTest extends TestCase {
 		$this->assertSame('home_helpers', $title['pack']);
 		$this->assertSame(0, $title['tierIndex']);
 		$this->assertSame('helper', $title['tierKey']);
+		$this->assertSame(5000, $title['threshold']);
 	}
 
 	public function testGetCurrentTitle_Tier3Unlocked_ReturnsHighest(): void {
-		$user = $this->userWithStats(1500, 1, 10);
+		$user = $this->userWithStats(150000, 1, 1);
 		$user->setSelectedTitlePack('home_helpers');
 
 		$title = $this->service->getCurrentTitle($user);
@@ -94,34 +97,43 @@ class TitleServiceTest extends TestCase {
 		$this->assertSame('flow_keeper', $title['tierKey']);
 	}
 
-	public function testGetCurrentTitle_CozyHomePack_UsesCoins(): void {
-		// cozy_home is driven by the actively-maintained `coins` signal.
-		$user = $this->userWithStats(0, 0, 0);
-		$user->setCoins(3000);
-		$user->setSelectedTitlePack('cozy_home');
+	public function testGetCurrentTitle_FamilyRhythmPack_UsesCurrentStreak(): void {
+		// C3d: the retained rhythm track keys off currentStreak (3/6/12).
+		$user = $this->userWithStats(0, 0, 7);
+		$user->setSelectedTitlePack('family_rhythm');
 
 		$title = $this->service->getCurrentTitle($user);
 
 		$this->assertNotNull($title);
-		$this->assertSame('cozy_home', $title['pack']);
+		$this->assertSame('family_rhythm', $title['pack']);
 		$this->assertSame(1, $title['tierIndex']);
-		$this->assertSame('room_ranger', $title['tierKey']);
+		$this->assertSame('rhythm_6', $title['tierKey']);
+	}
+
+	public function testGetCurrentTitle_RetiredCozyHomePack_IsUnknown(): void {
+		// WP3 cutover: the coins-driven pack no longer exists.
+		$user = $this->userWithStats(0, 0, 0);
+		$user->setSelectedTitlePack('cozy_home');
+
+		$this->assertNull($this->service->getCurrentTitle($user));
 	}
 
 	public function testGetUnlockedTitles_AggregatesAcrossPacks(): void {
-		// contribution 60 → home_helpers.helper; longestStreak 8 → team_energy.spark_starter
-		$user = $this->userWithStats(60, 8, 0);
+		// contributionMinor 6000 → home_helpers.helper; longestStreak 8 →
+		// team_energy.spark_starter; currentStreak 3 → family_rhythm.rhythm_3
+		$user = $this->userWithStats(6000, 8, 3);
 
 		$unlocked = $this->service->getUnlockedTitles($user);
 
 		$tierIds = array_map(fn ($t) => $t['pack'] . '.' . $t['tierKey'], $unlocked);
 		$this->assertContains('home_helpers.helper', $tierIds);
 		$this->assertContains('team_energy.spark_starter', $tierIds);
-		$this->assertNotContains('cozy_home.cozy_buddy', $tierIds);
+		$this->assertContains('family_rhythm.rhythm_3', $tierIds);
+		$this->assertNotContains('home_helpers.care_captain', $tierIds);
 	}
 
 	public function testSelectPack_KnownPack_PersistsSelection(): void {
-		$user = $this->userWithStats(60, 8, 0);
+		$user = $this->userWithStats(6000, 8, 0);
 		$user->setNextcloudUserId('self-nc');
 		$actor = new HouseUser();
 		$actor->setNextcloudUserId('self-nc');
@@ -135,7 +147,7 @@ class TitleServiceTest extends TestCase {
 	}
 
 	public function testSelectPack_OwnerActor_PersistsSelectionForAnyTarget(): void {
-		$user = $this->userWithStats(60, 8, 0);
+		$user = $this->userWithStats(6000, 8, 0);
 		$user->setNextcloudUserId('member-nc');
 		$owner = new HouseUser();
 		$owner->setNextcloudUserId('owner-nc');
@@ -148,7 +160,7 @@ class TitleServiceTest extends TestCase {
 	}
 
 	public function testSelectPack_NonOwnerOtherTarget_ThrowsForbidden(): void {
-		$user = $this->userWithStats(60, 8, 0);
+		$user = $this->userWithStats(6000, 8, 0);
 		$user->setNextcloudUserId('member-nc');
 		$other = new HouseUser();
 		$other->setNextcloudUserId('other-nc');
@@ -160,7 +172,7 @@ class TitleServiceTest extends TestCase {
 	}
 
 	public function testSelectPack_UnknownPack_Throws(): void {
-		$user = $this->userWithStats(60, 8, 0);
+		$user = $this->userWithStats(6000, 8, 0);
 		$user->setNextcloudUserId('self-nc');
 		$actor = new HouseUser();
 		$actor->setNextcloudUserId('self-nc');
@@ -172,7 +184,7 @@ class TitleServiceTest extends TestCase {
 	}
 
 	public function testDetectUnlock_FirstCross_ReturnsNewTitlesAndMutatesCache(): void {
-		$user = $this->userWithStats(60, 8, 0);
+		$user = $this->userWithStats(6000, 8, 0);
 
 		$unlocked = $this->service->detectUnlock($user);
 
@@ -184,7 +196,7 @@ class TitleServiceTest extends TestCase {
 	}
 
 	public function testDetectUnlock_ReRunWithSameStats_IsIdempotentAndReturnsEmpty(): void {
-		$user = $this->userWithStats(60, 8, 0);
+		$user = $this->userWithStats(6000, 8, 0);
 
 		$first = $this->service->detectUnlock($user);
 		$this->assertNotEmpty($first);
@@ -200,26 +212,59 @@ class TitleServiceTest extends TestCase {
 	}
 
 	public function testDetectUnlock_HonoursConfigThresholdOverride(): void {
-		// Override home_helpers tier 0 threshold to 5 (lower than the stat of 60).
+		// Override home_helpers tier 0 threshold to 500 (lower than the stat of 6000).
 		$this->rewardConfig = $this->createMock(RewardConfigService::class);
 		$this->rewardConfig->method('getTitleThreshold')->willReturnMap([
-			['home_helpers', 0, 5],
-			['home_helpers', 1, 250],
-			['home_helpers', 2, 1000],
+			['home_helpers', 0, 500],
+			['home_helpers', 1, 25000],
+			['home_helpers', 2, 100000],
 			['team_energy', 0, 7],
 			['team_energy', 1, 30],
 			['team_energy', 2, 90],
-			['cozy_home', 0, 500],
-			['cozy_home', 1, 2500],
-			['cozy_home', 2, 10000],
+			['family_rhythm', 0, 3],
+			['family_rhythm', 1, 6],
+			['family_rhythm', 2, 12],
 		]);
 		$service = new TitleService($this->houseUserMapper, $this->rewardConfig, $this->createIdentityL10n());
 
-		$user = $this->userWithStats(60, 1, 1);
+		$user = $this->userWithStats(6000, 1, 1);
 
 		$unlocked = $service->detectUnlock($user);
 		$this->assertNotEmpty($unlocked);
 		$this->assertSame('home_helpers.helper', $unlocked[0]['pack'] . '.' . $unlocked[0]['tierKey']);
+	}
+
+	/**
+	 * ReconcileUnlocked_CorrectionRemovesOnlyUnsupportedTiers (C3g)
+	 *
+	 * WP3 correction reconciliation: a cached tier is revoked ONLY when
+	 * the corrected valid history no longer reaches its threshold. A
+	 * tier still supported by the corrected stats stays cached.
+	 */
+	public function testReconcileUnlocked_CorrectionRemovesOnlyUnsupportedTiers(): void {
+		$user = $this->userWithStats(6000, 8, 0);
+		$user->addUnlockedTitle('home_helpers.helper');
+		$user->addUnlockedTitle('team_energy.spark_starter');
+		$user->addUnlockedTitle('home_helpers.care_captain'); // unsupported (250000 needed)
+
+		$removed = $this->service->reconcileUnlocked($user);
+
+		$this->assertSame(['home_helpers.care_captain'], $removed);
+		$this->assertContains('home_helpers.helper', $user->getUnlockedTitles());
+		$this->assertContains('team_energy.spark_starter', $user->getUnlockedTitles());
+		$this->assertNotContains('home_helpers.care_captain', $user->getUnlockedTitles());
+	}
+
+	/**
+	 * ReconcileUnlocked_AllTiersSupported_ReturnsEmptyWithoutMutation
+	 */
+	public function testReconcileUnlocked_AllTiersSupported_ReturnsEmptyWithoutMutation(): void {
+		$user = $this->userWithStats(6000, 8, 0);
+		$user->addUnlockedTitle('home_helpers.helper');
+		$user->addUnlockedTitle('team_energy.spark_starter');
+
+		$this->assertSame([], $this->service->reconcileUnlocked($user));
+		$this->assertCount(2, $user->getUnlockedTitles());
 	}
 
 	public function testGetCatalogView_ReturnsAllPacksWithThresholds(): void {
@@ -227,7 +272,12 @@ class TitleServiceTest extends TestCase {
 
 		$this->assertCount(3, $view);
 		$this->assertArrayHasKey('home_helpers', $view);
+		$this->assertArrayHasKey('team_energy', $view);
+		$this->assertArrayHasKey('family_rhythm', $view);
+		$this->assertArrayNotHasKey('cozy_home', $view);
 		$this->assertCount(3, $view['home_helpers']['tiers']);
-		$this->assertSame(50, $view['home_helpers']['tiers'][0]['threshold']);
+		$this->assertSame(5000, $view['home_helpers']['tiers'][0]['threshold']);
+		$this->assertSame(3, $view['family_rhythm']['tiers'][0]['threshold']);
+		$this->assertSame(12, $view['family_rhythm']['tiers'][2]['threshold']);
 	}
 }

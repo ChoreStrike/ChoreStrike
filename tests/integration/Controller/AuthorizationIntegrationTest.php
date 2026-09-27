@@ -14,8 +14,8 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * Authorization integration tests exercising real DB via OC::$server.
  *
  * Verifies the post-CS-PLAN-002 security contract:
- * - Cross-house access (IDOR) → 404 RESOURCE_NOT_FOUND (prevents enumeration)
- * - Forbidden actions → 403 FORBIDDEN
+ * - Cross-house access (IDOR) â†’ 404 RESOURCE_NOT_FOUND (prevents enumeration)
+ * - Forbidden actions â†’ 403 FORBIDDEN
  * - Owner-only endpoints reject member/child roles
  *
  * @see docs/plans/active/cs-plan-004-build-gate-and-docker-test-infra.md Phase 3
@@ -38,13 +38,13 @@ class AuthorizationIntegrationTest extends IntegrationTestCase {
 		$this->house1Id = $this->createHouse('auth_owner', 'Auth House 1');
 		$this->floor1Id = $this->createFloor($this->house1Id, 'Floor 1', 1);
 		$this->room1Id = $this->createRoom($this->house1Id, $this->floor1Id, 'Kitchen');
-		$this->task1Id = $this->createTask($this->house1Id, 'Dishes', 'Wash dishes', 5, 10);
+		$this->task1Id = $this->createTask($this->house1Id, 'Dishes', 'Wash dishes', 5, 3);
 		$this->roomTask1Id = $this->assignTaskToRoom($this->task1Id, $this->room1Id, 'auth_owner');
 
 		$this->house2Id = $this->createHouse('auth_outsider', 'Auth House 2');
 		$this->floor2Id = $this->createFloor($this->house2Id, 'Floor 1', 1);
 		$this->room2Id = $this->createRoom($this->house2Id, $this->floor2Id, 'Bedroom');
-		$this->task2Id = $this->createTask($this->house2Id, 'Vacuum', 'Vacuum floor', 4, 20);
+		$this->task2Id = $this->createTask($this->house2Id, 'Vacuum', 'Vacuum floor', 4, 4);
 		$this->roomTask2Id = $this->assignTaskToRoom($this->task2Id, $this->room2Id, 'auth_outsider');
 	}
 
@@ -172,7 +172,7 @@ class AuthorizationIntegrationTest extends IntegrationTestCase {
 
 	/**
 	 * A private task (is_private=true) in House 1 must not be accessible
-	 * from House 2 context — same 404 as any cross-house IDOR.
+	 * from House 2 context ” same 404 as any cross-house IDOR.
 	 */
 	public function testPrivateTaskCrossHouseReturnsNotFound(): void {
 		$this->setTaskPrivate($this->task1Id);

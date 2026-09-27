@@ -20,6 +20,7 @@
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { runOcc } from './fixtures/occ-runner'
+import { completeWithOptionalDialog } from './fixtures/completion-api'
 
 test.describe('Family core UX (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })
@@ -129,15 +130,14 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await page.getByTestId('today-filter-all').click()
 
 			// Complete teen's counters task (owner may complete any row) —
-			// the daily-recurring row leaves Today, and the coordinated D3
+			// WP3 §3.6: the foreign-agreement proposal opens the
+			// participation dialog; confirming it posts the explicit split.
+			// The daily-recurring row leaves Today, and the coordinated D3
 			// refresh updates the overdue/due counts in place.
-			const putComplete = page.waitForResponse((response) => {
-				const pathname = new URL(response.url()).pathname
-				return response.request().method() === 'POST'
-					&& pathname === `/apps/chorestrike/api/v1/room-tasks/${countersRoomTask.id}/complete`
-			})
-			await page.getByTestId(`today-complete-button-${countersRoomTask.id}`).click()
-			const completeResponse = await putComplete
+			const completeResponse = await completeWithOptionalDialog(
+				page,
+				page.getByTestId(`today-complete-button-${countersRoomTask.id}`),
+			)
 			expect(completeResponse.ok()).toBeTruthy()
 			// Daily recurring task: the occurrence advances to tomorrow —
 			// that is what removes the row from Today (isActive stays true).
@@ -150,12 +150,13 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}`)).toHaveCount(0)
 			await expect(page.getByTestId(`undo-snackbar-entry-${countersRoomTask.id}`)).toBeVisible()
 
-			// Undo via the queue: the aggregate undo request restores the row
-			// and the derived counters refresh — still without a reload.
+			// Undo via the queue: the targeted correction request restores
+			// the row and the derived counters refresh — still without a
+			// reload (WP3 §3.4: POST /completions/{id}/undo).
 			const putUndo = page.waitForResponse((response) => {
 				const pathname = new URL(response.url()).pathname
 				return response.request().method() === 'POST'
-					&& pathname === `/apps/chorestrike/api/v1/room-tasks/${countersRoomTask.id}/undo`
+					&& /^\/apps\/chorestrike\/api\/v1\/completions\/\d+\/undo$/.test(pathname)
 			})
 			await page.getByTestId(`undo-snackbar-undo-button-${countersRoomTask.id}`).click()
 			const undoResponse = await putUndo
@@ -262,7 +263,16 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			expect(box).not.toBeNull()
 			expect(box!.height).toBeGreaterThanOrEqual(44)
 
+			// WP3 §3.6: the foreign-agreement proposal opens the
+			// participation dialog — settle it (tap-friendly confirm).
 			await page.getByTestId(`today-complete-button-${countersRoomTask.id}`).tap()
+			const dialog = page.getByTestId('participation-dialog')
+			if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
+				const confirmBox = await page.getByTestId('participation-confirm').boundingBox()
+				expect(confirmBox).not.toBeNull()
+				expect(confirmBox!.height).toBeGreaterThanOrEqual(44)
+				await page.getByTestId('participation-confirm').tap()
+			}
 			await expect(page.getByTestId(`undo-snackbar-entry-${countersRoomTask.id}`)).toBeVisible()
 			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}`)).toHaveCount(0)
 		} finally {

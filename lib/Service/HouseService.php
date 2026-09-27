@@ -46,6 +46,9 @@ class HouseService {
 	private RewardConfigService $rewardConfigService;
 	private OccurrenceService $occurrenceService;
 	private PauseService $pauseService;
+	private RoomReplayService $roomReplayService;
+	private CommandService $commandService;
+	private WeeklyGoalService $weeklyGoalService;
 	private IConfig $config;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
@@ -67,6 +70,9 @@ class HouseService {
 		RewardConfigService $rewardConfigService,
 		OccurrenceService $occurrenceService,
 		PauseService $pauseService,
+		RoomReplayService $roomReplayService,
+		CommandService $commandService,
+		WeeklyGoalService $weeklyGoalService,
 		IConfig $config,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
@@ -87,6 +93,9 @@ class HouseService {
 		$this->rewardConfigService = $rewardConfigService;
 		$this->occurrenceService = $occurrenceService;
 		$this->pauseService = $pauseService;
+		$this->roomReplayService = $roomReplayService;
+		$this->commandService = $commandService;
+		$this->weeklyGoalService = $weeklyGoalService;
 		$this->config = $config;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
@@ -437,24 +446,53 @@ class HouseService {
 	 * room state, and survive a production house reset. Tombstoned rooms
 	 * are not reset (they are gone from the active structure).
 	 *
+	 * CS-PLAN-070 WP3 (§3.5): the reset journals ONE absolute reset event
+	 * per live room (idempotent through the command UUID — a replayed
+	 * command never re-resets over later work) and rebuilds the room
+	 * caches by the chronological replay. A later reset remains
+	 * authoritative over earlier corrections.
+	 *
 	 * @param int $houseId The house ID
+	 * @param string $commandId Client idempotency UUID
+	 * @param int|null $expectedVersion Displayed house state version (stale → 409)
 	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
+	 * @throws \OCA\ChoreStrike\Exception\ConflictException on a stale state version
 	 */
-	public function resetHouse(int $houseId): void {
-		$this->authorization->requireHouseOwner($houseId);
-		$this->appLogger->warning('Resetting house to initial state', [
-			'service' => 'HouseService',
-			'houseId' => $houseId,
-		]);
+	public function resetHouse(int $houseId, string $commandId, ?int $expectedVersion = null): void {
+		$actor = $this->authorization->requireHouseOwner($houseId);
+		$command = $this->commandService->runCommand($houseId, (int)$actor->getId(), $commandId, 'house.reset', [
+			'expectedVersion' => $expectedVersion,
+		], function () use ($houseId, $commandId, $expectedVersion): array {
+			// The receipt holds the house lock; recheck role before any write.
+			$this->authorization->requireHouseOwner($houseId);
+			$house = $this->houseMapper->find($houseId);
+			if ($expectedVersion !== null && $house->getStateVersion() !== $expectedVersion) {
+				throw new ConflictException($this->l10n->t('The house state changed since it was displayed'));
+			}
+			$this->appLogger->warning('Resetting house to initial state', [
+				'service' => 'HouseService',
+				'houseId' => $houseId,
+			]);
 
-		$this->transactions->run(function () use ($houseId): void {
-			$house = $this->houseMapper->findForUpdate($houseId);
+			$at = new \DateTime();
+			foreach ($this->roomMapper->findByHouseId($houseId) as $room) {
+				if ($room->getDeletedAt() !== null) {
+					continue;
+				}
+				$this->roomReplayService->recordReset((int)$room->getId(), $commandId, $at);
+				$this->roomReplayService->resyncRoomCache($room);
+			}
+
 			$house->setHouseHealth(100);
+			$house->setStateVersion($house->getStateVersion() + 1);
 			$house->touch();
 			$this->houseMapper->update($house);
-
-			$this->roomMapper->resetByHouseId($houseId);
+			return ['houseId' => $houseId];
 		});
+		// The replay path skips the aggregate; authorization must still hold.
+		if ($command['replay']) {
+			$this->authorization->requireHouseOwner($houseId);
+		}
 	}
 
 	/**
@@ -481,82 +519,16 @@ class HouseService {
 	/**
 	 * Compute the weekly household goal progress for a house.
 	 *
-	 * The household "reaches" its goal when the share of completed work meets
-	 * the configured target percent (RewardConfigService key
-	 * `weekly_goal_target_percent`, default 80).
-	 *
-	 * Metric (KISS, no extra schema):
-	 *   - dueSet         = (active room_tasks with next_due in this week) ∪
-	 *                      (distinct room_tasks completed this week)
-	 *   - dueCount       = |dueSet|
-	 *   - completedCount = distinct room_tasks completed this week (⊆ dueSet
-	 *                      by construction, so completedCount ≤ dueCount always)
-	 *   - percent        = dueCount > 0 ? round(completedCount / dueCount * 100) : …
-	 *   - achieved       = percent >= targetPercent AND (dueCount > 0 OR completedCount > 0)
-	 *
-	 * Why the UNION: a recurring task that is completed shifts its next_due
-	 * forward (often out of this week) and a one-time task deactivates on
-	 * completion — both leave the "active-due-this-week" set even though they
-	 * are part of this week's planned work. Counting only active-due as the
-	 * denominator would shrink it as the week progresses and inflate the
-	 * percent prematurely (e.g. 4 of 5 done → dueCount=1, completedCount=4 →
-	 * bogus 400%). Unioning with completed-this-week keeps the denominator
-	 * stable for the whole week.
-	 *
-	 * Distinct room_task_id on both sides: a daily task completed three times
-	 * this week counts once (matches "this task was done this week", not "we
-	 * did N chores"), and a multi-assign task completed by three members
-	 * counts once for the household.
-	 *
-	 * The achieved-flag explicitly requires at least one due or completed task
-	 * so a brand-new empty house doesn't trigger a spurious celebration.
-	 *
-	 * Week bounds are the half-open window Monday 00:00:00 → next Monday
-	 * 00:00:00 in the house timezone (CS-PLAN-057, CS-PLAN-060 §3.6),
-	 * consistent with GameLogicService's medal week (both via
-	 * CalendarService::weekStart).
+	 * WP3 (Q-074-01A): the evaluation moved to the dedicated
+	 * {@see WeeklyGoalService} — correction-safe by construction, because
+	 * the input is always the valid (non-undone) completion set. This
+	 * delegating method stays for the existing controller/post-commit
+	 * consumers.
 	 *
 	 * @param int $houseId The house ID
 	 * @return array{dueCount: int, completedCount: int, percent: int, targetPercent: int, achieved: bool, weekStart: string, weekEnd: string}
 	 */
 	public function getWeeklyGoalProgress(int $houseId): array {
-		$house = $this->houseMapper->find($houseId);
-		$tz = $this->calendarService->getTimeZone($house);
-		$weekStart = $this->calendarService->weekStart(new \DateTime(), $tz);
-		// Half-open week window [weekStart, weekStart+7d) (CS-PLAN-060 §3.6):
-		// callers use gte/lt, so a completion at next Monday 00:00 belongs to
-		// exactly one window. The former `-1 second` clamp is gone.
-		$weekEnd = (clone $weekStart)->modify('+7 days');
-
-		$activeDueIds = $this->roomTaskMapper->findActiveDueIdsBetweenByHouse($houseId, $weekStart, $weekEnd);
-		$completedIds = $this->completedTaskMapper->findCompletedRoomTaskIdsBetweenByHouse($houseId, $weekStart, $weekEnd);
-		$targetPercent = $this->rewardConfigService->getWeeklyGoalTargetPercent();
-
-		// dueSet = active-due ∪ completed-this-week. array_flip+keys gives
-		// O(n) dedup on integer IDs without string-coercion surprises.
-		$dueSet = array_keys(array_flip(array_merge($activeDueIds, $completedIds)));
-		$dueCount = count($dueSet);
-		$completedCount = count($completedIds);
-
-		if ($dueCount === 0) {
-			// Cannot happen given the UNION (completedIds would be in dueSet),
-			// but defensive: empty house reports 0%.
-			$percent = 0;
-		} else {
-			// completedCount ≤ dueCount by construction, so no clamp needed.
-			$percent = (int)round(($completedCount / $dueCount) * 100);
-		}
-
-		$hasActivity = $dueCount > 0 || $completedCount > 0;
-
-		return [
-			'dueCount' => $dueCount,
-			'completedCount' => $completedCount,
-			'percent' => $percent,
-			'targetPercent' => $targetPercent,
-			'achieved' => $hasActivity && $percent >= $targetPercent,
-			'weekStart' => $weekStart->format('c'),
-			'weekEnd' => $weekEnd->format('c'),
-		];
+		return $this->weeklyGoalService->getWeeklyGoalProgress($houseId);
 	}
 }

@@ -95,6 +95,7 @@ class SchedulePlanServiceTest extends TestCase {
 			$this->dailyCapacityOccurrenceMapper,
 			$this->dailyCapacityOccMemberMapper,
 			$this->completedTaskMapper,
+			$this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class),
 			$this->houseUserMapper,
 			$pauseProjection,
 			$this->createMock(\OCA\ChoreStrike\Service\RecurrenceCalculator::class),
@@ -219,7 +220,9 @@ class SchedulePlanServiceTest extends TestCase {
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturnCallback(
 			static fn (array $ids): array => array_intersect_key($assigneesByRoomTask, array_flip($ids)) + array_fill_keys($ids, [])
 		);
-		$this->completedTaskMapper->method('findEnergyUsageBetweenByHouse')->willReturn([]);
+		// WP3 capacity seam: completed effort flows through the
+		// WorkShareMapper mock (default: no completed work) instead of a
+		// CompletedTaskMapper energy query.
 		$this->completedTaskMapper->method('findUndoStateByRoomTasks')->willReturn([]);
 		$this->occurrenceService->method('agreedOccurrencesForHouseTasks')->willReturnCallback(
 			function (int $houseId, array $rows, ?string $fromKey, ?string $toKey) use ($agreedLoadByTask): array {

@@ -53,6 +53,13 @@ class Version1009Date20260228200000 extends SimpleMigrationStep {
 				]);
 			}
 
+			if (!$table->hasColumn('claimed_source_completion_id')) {
+				$table->addColumn('claimed_source_completion_id', 'bigint', [
+					'notnull' => false,
+					'default' => null,
+				]);
+			}
+
 			// Index for claimed tasks
 			if (!$table->hasIndex('idx_tasks_claimed')) {
 				$table->addIndex(['was_claimed'], 'idx_tasks_claimed');

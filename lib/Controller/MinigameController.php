@@ -108,34 +108,25 @@ class MinigameController extends Controller {
 	}
 
 	/**
-	 * Save a game score
+	 * Save a game score (WP3: scores only — never wallet/contribution).
 	 *
 	 * @NoAdminRequired
 	 * @param string $gameId The game ID
 	 * @param int $score The achieved score
-	 * @param array $boostsUsed List of boost IDs used
 	 */
-	public function saveScore(string $gameId = 'snake', int $score = 0, array $boostsUsed = []): JSONResponse {
+	public function saveScore(string $gameId = 'snake', int $score = 0): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->assertHouseMember($house->getId());
 
 			$userId = $this->authService->getCurrentUserId();
-			$result = $this->minigameService->saveScore(
+			$savedScore = $this->minigameService->saveScore(
 				$house->getId(),
 				$userId,
 				$gameId,
-				$score,
-				$boostsUsed
+				$score
 			);
-
-			// CR-SVC-51: the service is the single source of truth for the
-			// awarded Coins (it knows whether a house_user row existed);
-			// recomputing floor(score/10) from client input here diverged
-			// from what was actually awarded.
-			$savedScore = $result['score'];
-			$coinsEarned = $result['coinsEarned'];
 
 			return new JSONResponse([
 				'success' => true,
@@ -143,9 +134,7 @@ class MinigameController extends Controller {
 					'id' => $savedScore->getId(),
 					'score' => $savedScore->getScore(),
 					'gameId' => $savedScore->getGameId(),
-					'boostsUsed' => $savedScore->getBoostsUsed(),
 					'createdAt' => $savedScore->getCreatedAt()?->format('c'),
-					'coinsEarned' => $coinsEarned,
 				]
 			]);
 		} catch (\InvalidArgumentException $e) {
@@ -170,40 +159,6 @@ class MinigameController extends Controller {
 				'success' => false,
 				'error' => [
 					'code' => 'SAVE_SCORE_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Get current user's coins balance.
-	 *
-	 * @NoAdminRequired
-	 */
-	public function coins(): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
-
-			$userId = $this->authService->getCurrentUserId();
-			$coins = $this->minigameService->getUserCoins($house->getId(), $userId);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => [
-					'currentCoins' => $coins
-				]
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('coins', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'COINS_ERROR',
 					'message' => ControllerErrorFormatter::safeMessage($e)
 				]
 			], 500);
@@ -273,68 +228,6 @@ class MinigameController extends Controller {
 				'success' => false,
 				'error' => [
 					'code' => 'USER_RANK_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Get available boosts and their costs
-	 *
-	 * @NoAdminRequired
-	 */
-	public function boosts(): JSONResponse {
-		try {
-			$boosts = $this->minigameService->getAvailableBoosts();
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $boosts
-			]);
-		} catch (\Exception $e) {
-			$this->logControllerException('boosts', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'BOOSTS_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Purchase a boost
-	 *
-	 * @NoAdminRequired
-	 * @param string $boostId The boost ID to purchase
-	 */
-	public function purchaseBoost(string $boostId): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
-
-			$userId = $this->authService->getCurrentUserId();
-			$result = $this->minigameService->purchaseBoost($house->getId(), $userId, $boostId);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $result
-			]);
-		} catch (\InvalidArgumentException $e) {
-			// Service-curated messages (unknown boost id, insufficient coins) —
-			// safe to surface verbatim; keeps the endpoint-specific error code.
-			return ControllerErrorFormatter::validation($e, 'PURCHASE_BOOST_ERROR');
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('purchaseBoost', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'PURCHASE_BOOST_ERROR',
 					'message' => ControllerErrorFormatter::safeMessage($e)
 				]
 			], 500);

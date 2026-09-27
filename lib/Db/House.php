@@ -24,8 +24,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCreatedAt(\DateTime $createdAt)
  * @method \DateTime getUpdatedAt()
  * @method void setUpdatedAt(\DateTime $updatedAt)
- * @method string|null getWeeklyGoalNotifiedWeek()
- * @method void setWeeklyGoalNotifiedWeek(?string $weeklyGoalNotifiedWeek)
  * @method string getTimezone()
  * @method void setTimezone(string $timezone)
  * @method int getStateVersion()
@@ -52,16 +50,6 @@ class House extends Entity implements JsonSerializable {
 
 	/** @var \DateTime */
 	protected $updatedAt;
-
-	/**
-	 * ISO week-start (Y-m-d, Monday) for which the weekly-goal-reached
-	 * notification has already been dispatched to this household. NULL or a
-	 * different week means a fresh transition can still claim dispatch.
-	 * Backed by Version1023 migration.
-	 *
-	 * @var string|null
-	 */
-	protected $weeklyGoalNotifiedWeek;
 
 	/**
 	 * IANA timezone id used for all calendar-day bucketing of the household
@@ -101,7 +89,6 @@ class House extends Entity implements JsonSerializable {
 		$this->addType('houseHealth', 'integer');
 		$this->addType('createdAt', 'datetime');
 		$this->addType('updatedAt', 'datetime');
-		$this->addType('weeklyGoalNotifiedWeek', 'string');
 		$this->addType('timezone', 'string');
 		$this->addType('stateVersion', 'integer');
 		$this->addType('timezoneVersion', 'integer');
@@ -118,6 +105,10 @@ class House extends Entity implements JsonSerializable {
 			'nextcloudInstanceId' => $this->nextcloudInstanceId,
 			'name' => $this->name,
 			'houseHealth' => $this->houseHealth,
+			// Aggregate mutation counter (WP3 §3.6): the optimistic version
+			// the cleanliness/reset commands expect against the displayed
+			// house state.
+			'stateVersion' => $this->stateVersion,
 			'createdAt' => $this->createdAt?->format('c'),
 			'updatedAt' => $this->updatedAt?->format('c'),
 			'timezone' => $this->timezone,

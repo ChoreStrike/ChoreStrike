@@ -8,7 +8,8 @@ use OCA\ChoreStrike\Db\MinigameScore;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for MinigameScore entity
+ * Unit tests for MinigameScore entity (CS-PLAN-070 WP3: scores-only —
+ * the boost metadata retired with the disappearing economy).
  */
 class MinigameScoreTest extends TestCase {
 	/**
@@ -21,7 +22,6 @@ class MinigameScoreTest extends TestCase {
 		$score->setUserId('mom');
 		$score->setGameId('snake');
 		$score->setScore(420);
-		$score->setBoostsUsed(['double_points']);
 		$createdAt = new \DateTime('2026-08-27 18:30:00');
 		$score->setCreatedAt($createdAt);
 
@@ -32,8 +32,10 @@ class MinigameScoreTest extends TestCase {
 		self::assertEquals('mom', $result['userId']);
 		self::assertEquals('snake', $result['gameId']);
 		self::assertEquals(420, $result['score']);
-		self::assertEquals(['double_points'], $result['boostsUsed']);
 		self::assertEquals($createdAt->format('c'), $result['createdAt']);
+		// WP3 cutover: no boost metadata on the score-only contract.
+		self::assertArrayNotHasKey('boostsUsed', $result);
+		self::assertArrayNotHasKey('coinsEarned', $result);
 	}
 
 	/**
@@ -45,7 +47,6 @@ class MinigameScoreTest extends TestCase {
 		$result = $score->jsonSerialize();
 
 		self::assertNull($result['id']);
-		self::assertNull($result['boostsUsed']);
 		self::assertNull($result['createdAt']);
 	}
 
@@ -56,17 +57,15 @@ class MinigameScoreTest extends TestCase {
 		$score = new MinigameScore();
 		$score->setHouseId(12);
 		$score->setUserId('kid');
-		$score->setGameId('2048');
+		$score->setGameId('snake');
 		$score->setScore(1337);
-		$score->setBoostsUsed(['extra_time', 'double_points']);
 		$createdAt = new \DateTime('2026-08-27 09:00:00');
 		$score->setCreatedAt($createdAt);
 
 		self::assertEquals(12, $score->getHouseId());
 		self::assertEquals('kid', $score->getUserId());
-		self::assertEquals('2048', $score->getGameId());
+		self::assertEquals('snake', $score->getGameId());
 		self::assertEquals(1337, $score->getScore());
-		self::assertEquals(['extra_time', 'double_points'], $score->getBoostsUsed());
 		self::assertSame($createdAt, $score->getCreatedAt());
 	}
 

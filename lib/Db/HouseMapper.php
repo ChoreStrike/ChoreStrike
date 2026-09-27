@@ -194,37 +194,4 @@ class HouseMapper extends QBMapper {
 		$qb->executeStatement();
 	}
 
-	/**
-	 * Atomically claim the weekly-goal-reached notification for a house+week.
-	 *
-	 * Issues a conditional UPDATE that sets `weekly_goal_notified_week` only
-	 * when the stored value differs from the supplied week. Returns true if
-	 * the row was updated (i.e. this caller is the first to claim dispatch
-	 * for the given week), false if another caller already claimed it.
-	 *
-	 * The single-statement conditional UPDATE is atomic on its own —
-	 * InnoDB/PostgreSQL serialise concurrent UPDATEs to the same row via
-	 * the storage-engine row lock, and SQLite serialises all writes at the
-	 * DB level. No surrounding transaction or explicit row lock is needed.
-	 * Two concurrent claimants for the same house+week can never both see
-	 * `=== 1` because only the first UPDATE matches the WHERE clause; the
-	 * second sees the column already set to the supplied week and matches
-	 * neither `IS NULL` nor `!= weekStart`, so its UPDATE affects 0 rows.
-	 *
-	 * @param int $houseId The house ID
-	 * @param string $weekStart ISO week-start (Y-m-d, Monday)
-	 * @return bool True if this caller claimed dispatch, false if already claimed
-	 */
-	public function claimWeeklyGoalNotification(int $houseId, string $weekStart): bool {
-		$qb = $this->db->getQueryBuilder();
-		$qb->update($this->getTableName())
-			->set('weekly_goal_notified_week', $qb->createNamedParameter($weekStart, IQueryBuilder::PARAM_STR))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->orX(
-				$qb->expr()->isNull('weekly_goal_notified_week'),
-				$qb->expr()->neq('weekly_goal_notified_week', $qb->createNamedParameter($weekStart, IQueryBuilder::PARAM_STR))
-			));
-
-		return $qb->executeStatement() === 1;
-	}
 }

@@ -156,34 +156,17 @@ class NotificationServiceTest extends TestCase {
 	}
 
 	/**
-	 * NotifyStreakAtRisk_BuildsAndNotifies
-	 */
-	public function testNotifyStreakAtRisk_BuildsAndNotifies(): void {
-		$this->wireRecordingNotification();
-
-		$this->service->notifyStreakAtRisk('alice', 5, new \DateTimeImmutable('2026-08-10 06:00:00'));
-
-		$this->assertSame('streak_at_risk', $this->lastSubjectName);
-		$this->assertSame(['currentStreak' => 5], $this->lastSubject);
-		$this->assertSame('streak', $this->lastObjectType);
-		// CR-SVC-27: day-qualified objectId (pass day + streak).
-		$this->assertSame('2026-08-10:5', $this->lastObjectId);
-	}
-
-	/**
-	 * NotifyStreakAtRisk_ConsecutiveDays_BuildDifferentObjectIds
+	 * NotifyStreakAtRisk_SurfaceRetired (WP3 legacy-effect cutover)
 	 *
-	 * CR-SVC-27 regression: the bare streak number made Nextcloud's
-	 * (app, user, objectType, objectId) dedup drop day 2's reminder whenever
-	 * the streak value repeated. Day-qualified objectIds must differ.
+	 * The streak-at-risk pass retired with the freeze/streak-snapshot
+	 * effects (CS-PLAN-070 WP3, Q-074-01 Option A) — the notification
+	 * surface must not silently linger on the service.
 	 */
-	public function testNotifyStreakAtRisk_ConsecutiveDays_BuildDifferentObjectIds(): void {
-		$this->wireRecordingNotification();
-
-		$this->service->notifyStreakAtRisk('alice', 5, new \DateTimeImmutable('2026-08-09 06:00:00'));
-		$this->service->notifyStreakAtRisk('alice', 5, new \DateTimeImmutable('2026-08-10 06:00:00'));
-
-		$this->assertSame(['2026-08-09:5', '2026-08-10:5'], $this->objectIds);
+	public function testNotifyStreakAtRisk_SurfaceRetired(): void {
+		$this->assertFalse(
+			method_exists($this->service, 'notifyStreakAtRisk'),
+			'the retired streak-at-risk notification surface must stay removed'
+		);
 	}
 
 	/**

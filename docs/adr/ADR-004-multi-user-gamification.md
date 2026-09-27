@@ -13,6 +13,13 @@
 > and the current streak is availability-day activity rather than planned-rhythm
 > adherence. See [current mechanics and proposed reward options](../concepts/gamification-and-rewards.md)
 > for the implementation baseline and the reopened family-first decisions.
+>
+> **Note (2026-09-27, ADR-014):** the Coins model itself is now superseded as a
+> currency: wallet value is exact **minor units** on an immutable ledger
+> (100 coin minor = 1 Coin, frozen rate 1000 coin minor per energy unit),
+> corrections move value between wallets with exact union deltas, and
+> combo/team-spark multipliers plus the boost economy are retired. This ADR's
+> body remains the historical record of the gamification architecture only.
 
 ## Context
 

@@ -16,15 +16,10 @@ jest.mock('vue-router', () => ({
 
 // Mock stores
 jest.mock('../../../src/store/user.js', () => {
-	const yesterday = new Date()
-	yesterday.setDate(yesterday.getDate() - 1)
-	const tomorrow = new Date()
-	tomorrow.setDate(tomorrow.getDate() + 1)
-
 	const houseUsers = [
-		{ id: 1, nextcloudUserId: 'user2', displayName: 'Alice', contributionScore: 200, currentStreak: 5, totalTasksCompleted: 42, currentTitle: { labelKey: 'titles.team_energy.team_anchor', tierIndex: 2, pack: 'team_energy' }, streakFreezes: 2, lastFreezeDate: yesterday.toISOString() },
-		{ id: 2, nextcloudUserId: 'user1', displayName: 'Current User', contributionScore: 150, currentStreak: 3, totalTasksCompleted: 35, streakFreezes: 1 },
-		{ id: 3, nextcloudUserId: 'user3', displayName: 'Bob', contributionScore: 100, currentStreak: 2, totalTasksCompleted: 28, streakFreezes: 0, lastFreezeDate: tomorrow.toISOString() },
+		{ id: 1, nextcloudUserId: 'user2', displayName: 'Alice', contributionMinor: 20000, currentStreak: 5, totalTasksCompleted: 42, currentTitle: { labelKey: 'titles.team_energy.team_anchor', tierIndex: 2, pack: 'team_energy' } },
+		{ id: 2, nextcloudUserId: 'user1', displayName: 'Current User', contributionMinor: 15000, currentStreak: 3, totalTasksCompleted: 35 },
+		{ id: 3, nextcloudUserId: 'user3', displayName: 'Bob', contributionMinor: 10000, currentStreak: 2, totalTasksCompleted: 28 },
 	]
 
 	return {
@@ -258,36 +253,6 @@ describe('Leaderboard.vue', () => {
 
 		const streaks = wrapper.findAll('.streak-badge')
 		expect(streaks.length).toBeGreaterThan(0)
-	})
-
-	it('renders the freeze indicator for users owning freezes', () => {
-		const wrapper = mount(Leaderboard, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		const indicators = wrapper.findAll('[data-testid="user-freezes-1"] .freeze-indicator')
-		expect(indicators).toHaveLength(1)
-		expect(indicators[0].text()).toContain('❄ 2')
-
-		// Bob owns no freezes → no indicator.
-		expect(wrapper.find('[data-testid="user-freezes-3"] .freeze-indicator').exists()).toBe(false)
-	})
-
-	it('applies frozen styling only when lastFreezeDate is yesterday', () => {
-		const wrapper = mount(Leaderboard, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		// Alice consumed a freeze yesterday → frozen.
-		expect(wrapper.find('[data-testid="user-freezes-1"].frozen').exists()).toBe(true)
-		// Bob's freeze date is tomorrow (not yesterday) → not frozen.
-		expect(wrapper.find('[data-testid="user-freezes-3"].frozen').exists()).toBe(false)
-		// Current User never consumed one → not frozen.
-		expect(wrapper.find('[data-testid="user-freezes-2"].frozen').exists()).toBe(false)
 	})
 
 	it('calculates initials from display name correctly', () => {

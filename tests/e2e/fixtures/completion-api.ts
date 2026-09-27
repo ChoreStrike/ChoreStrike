@@ -53,14 +53,24 @@ export async function resolveOccurrenceReceipt(page: Page, roomTaskId: number): 
 	}
 }
 
-/** Post a completion with an explicit receipt and a fresh command id. */
+/**
+ * Post a completion with an explicit receipt and a fresh command id.
+ * `$participants` adds the WP3 §3.6 explicit actual-work split (the actor
+ * takes part, Q-074-02) for non-assignee completions.
+ */
 export async function postCompletionWithReceipt(
 	page: Page,
 	roomTaskId: number,
 	receipt: OccurrenceReceipt,
+	participants?: Array<{ userId: string; sharePct: number }>,
 ): Promise<APIResponse> {
+	const data: Record<string, unknown> = { commandId: newCommandId(), ...receipt }
+	if (participants) {
+		data.participants = participants
+		data.allocationReviewed = true
+	}
 	return page.request.post(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`, {
-		data: { commandId: newCommandId(), ...receipt },
+		data,
 		headers: { Accept: 'application/json' },
 	})
 }
@@ -70,13 +80,72 @@ export async function postCompletionWithReceipt(
  * resolve the live receipt, then post it. Throws when no completable target
  * is visible (a stale/invisible row is a test-setup error, never a silent
  * completion of another occurrence).
+ *
+ * WP3 (Q-074-02): when the row's server proposal names someone else (or
+ * several people), the request carries the explicit solo split naming the
+ * actor — exactly what the participation dialog sends in the UI.
  */
 export async function completeRoomTaskViaApi(page: Page, roomTaskId: number): Promise<APIResponse> {
 	const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
 	if (!receipt) {
 		throw new Error(`No completable occurrence visible for room task ${roomTaskId}`)
 	}
-	return postCompletionWithReceipt(page, roomTaskId, receipt)
+	const userId = await currentPageUserId(page)
+	const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
+	const participants = ((rows.data ?? []) as Array<{ id: number; proposal: { participants: Array<{ userId: string }> } | null }>)
+		.find(row => row.id === roomTaskId)?.proposal?.participants ?? []
+	const needsSplit = participants.length > 1
+		|| (participants.length === 1 && userId !== null && participants[0].userId !== userId)
+	return postCompletionWithReceipt(
+		page,
+		roomTaskId,
+		receipt,
+		needsSplit && userId !== null ? [{ userId, sharePct: 100 }] : undefined,
+	)
+}
+
+/**
+ * The current page session's NC user id (null when unreachable — the
+ * caller then keeps the participant-less request).
+ */
+async function currentPageUserId(page: Page): Promise<string | null> {
+	try {
+		const body = await (await page.request.get('/apps/chorestrike/api/v1/users/current')).json()
+		return body?.data?.nextcloudUserId ?? null
+	} catch {
+		return null
+	}
+}
+
+/**
+ * Complete with an EXPLICIT solo split for a NON-assignee actor (WP3
+ * Q-074-02: the completer must take part in the work — a takeover names
+ * the helper).
+ */
+export async function completeAsSoleParticipantViaApi(page: Page, roomTaskId: number, userId: string): Promise<APIResponse> {
+	const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
+	if (!receipt) {
+		throw new Error(`No completable occurrence visible for room task ${roomTaskId}`)
+	}
+	return postCompletionWithReceipt(page, roomTaskId, receipt, [{ userId, sharePct: 100 }])
+}
+
+/**
+ * Click a UI complete button and settle the WP3 §3.6 participation dialog
+ * when the server proposal opens one (multi-person work, or an agreement
+ * naming someone else). Resolves with the completion response.
+ */
+export async function completeWithOptionalDialog(page: Page, button: { click(): Promise<void> }): Promise<APIResponse> {
+	const responsePromise = page.waitForResponse((response) => {
+		const pathname = new URL(response.url()).pathname
+		return response.request().method() === 'POST' && pathname.endsWith('/complete')
+	}, { timeout: 20000 })
+	await button.click()
+	const dialog = page.getByTestId('participation-dialog')
+	if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
+		await page.getByTestId('participation-confirm').click()
+	}
+	return responsePromise
 }
 
 /**

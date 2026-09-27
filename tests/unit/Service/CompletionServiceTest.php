@@ -6,117 +6,210 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\CompletionRevisionMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Occurrence;
+use OCA\ChoreStrike\Db\OccurrenceMember;
+use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgress;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\Wallet;
+use OCA\ChoreStrike\Db\WalletMapper;
+use OCA\ChoreStrike\Db\WorkShare;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CommandService;
+use OCA\ChoreStrike\Service\CompletionPostCommitService;
 use OCA\ChoreStrike\Service\CompletionService;
-use OCA\ChoreStrike\Service\GameLogicService;
-use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\NotificationService;
+use OCA\ChoreStrike\Service\EffortAllocationService;
 use OCA\ChoreStrike\Service\OccurrenceService;
+use OCA\ChoreStrike\Service\RewardConfigService;
+use OCA\ChoreStrike\Service\RhythmService;
+use OCA\ChoreStrike\Service\RoomReplayService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
-use OCP\AppFramework\Db\DoesNotExistException;
+use OCA\ChoreStrike\Service\WalletService;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for CompletionService (CS-PLAN-064 WP5; CS-PLAN-072 WP1
- * occurrence receipt contract): occurrence gates, before-state/deltas
- * snapshot discipline, teamwork fold, post-commit degradation, command
- * replay and the idempotent undo aggregate. Occurrence-resolution and
- * timeline effects delegate to a mocked OccurrenceService (real behavior
- * is covered by the Docker integration suites).
+ * Unit tests for the WP3 completion/undo/attribution aggregates
+ * (CS-PLAN-070 §3.3): frozen evidence writes, exact wallet credit, room
+ * journal, house state version bump, terminal-before-version undo
+ * ordering, the one-time reversal of the latest selected allocation and
+ * the exact union-delta attribution. Occurrence/timeline effects delegate
+ * to a mocked OccurrenceService (real behavior is covered by the Docker
+ * integration suites).
  */
 class CompletionServiceTest extends TestCase {
-	private CompletionService $service;
+	private IDBConnection $db;
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
 	private HouseMapper $houseMapper;
 	private HouseUserMapper $houseUserMapper;
+	private WalletMapper $walletMapper;
+	private OccurrenceMemberMapper $occMemberMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
-	private RoomTaskChecklistProgressMapper $checklistProgressMapper;
-	private GameLogicService $gameLogicService;
-	private HouseService $houseService;
-	private NotificationService $notificationService;
-	private IDBConnection $db;
-	private AppLogger $appLogger;
+	private WorkShareMapper $workShareMapper;
+	private CompletionRevisionMapper $completionRevisionMapper;
+	private CompletionPostCommitService $postCommitService;
+	private WalletService $walletService;
+	private RoomReplayService $roomReplayService;
+	private RhythmService $rhythmService;
+	private RewardConfigService $configService;
+	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private OccurrenceService $occurrenceService;
 	private CommandService $commandService;
+	private AppLogger $appLogger;
+	private CompletionService $service;
+
+	private HouseUser $actor;
+	private Wallet $wallet;
+	private RoomTask $roomTask;
+	private Room $room;
+	private Task $task;
+	private Occurrence $occurrence;
+	private ScheduleRevision $revision;
+	private House $house;
+	/** The completion row `CompletedTaskMapper::find` resolves (test seam). */
+	private ?CompletedTask $completionToFind = null;
+	/** House-user members resolvable by id (test seam). */
+	private array $membersById = [];
+	/** The live membership list of the house (test seam). */
+	private array $houseMembers = [];
+	/** Wallets resolvable by id (test seam). */
+	private array $walletsById = [];
+	private array $occurrenceMembers = [];
+	private array $lockedMemberIds = [];
+	private ?HouseUser $liveActor;
+	private ?\Closure $beforeCommand = null;
+	private bool $receiptReplay = false;
+	private bool $visibilityRevoked = false;
+	private array $receiptResult = [];
 
 	protected function setUp(): void {
+		$this->db = $this->createMock(IDBConnection::class);
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->walletMapper = $this->createMock(WalletMapper::class);
+		$this->occMemberMapper = $this->createMock(OccurrenceMemberMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-		$this->checklistProgressMapper = $this->createMock(RoomTaskChecklistProgressMapper::class);
-		$this->gameLogicService = $this->createMock(GameLogicService::class);
-		$this->houseService = $this->createMock(HouseService::class);
-		$this->notificationService = $this->createMock(NotificationService::class);
-		$this->db = $this->createMock(IDBConnection::class);
-		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->workShareMapper = $this->createMock(WorkShareMapper::class);
+		$this->completionRevisionMapper = $this->createMock(CompletionRevisionMapper::class);
+		$this->postCommitService = $this->createMock(CompletionPostCommitService::class);
+		$this->walletService = $this->createMock(WalletService::class);
+		$this->roomReplayService = $this->createMock(RoomReplayService::class);
+		$this->rhythmService = $this->createMock(RhythmService::class);
+		$this->configService = $this->createMock(RewardConfigService::class);
+		$this->calendarService = $this->createMock(CalendarService::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$this->occurrenceService = $this->createMock(OccurrenceService::class);
 		$this->commandService = $this->createMock(CommandService::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 
-		// CS-PLAN-072 WP1: the command wrapper runs the aggregate callback
-		// in a REAL TransactionExecutor over the mocked connection — the
-		// transaction begin/commit/rollback discipline stays observable
-		// (replay semantics are covered by the integration suites).
+		// The command wrapper runs the aggregate callback directly (the
+		// transaction/lock discipline is covered by the Docker suites).
 		$this->commandService->method('runCommand')->willReturnCallback(
 			function (int $houseId, int $actorHouseUserId, string $uuid, string $action, array $payload, callable $fn): array {
-				$result = (new \OCA\ChoreStrike\Db\TransactionExecutor($this->db))->run($fn);
+				if ($this->beforeCommand !== null) {
+					($this->beforeCommand)();
+				}
+				if ($this->receiptReplay) {
+					return ['result' => ['completionId' => 9], 'receipt' => null, 'replay' => true];
+				}
+				$this->receiptResult = (new \OCA\ChoreStrike\Db\TransactionExecutor($this->db))->run($fn);
 				return [
-					'result' => $result,
+					'result' => $this->receiptResult,
 					'receipt' => null,
 					'replay' => false,
 				];
 			}
 		);
 
-		$utcHouse = new House();
-		$utcHouse->setTimezone('UTC');
-		$this->houseMapper->method('find')->willReturn($utcHouse);
-		// CS-PLAN-071 WP0: completion/undo additionally call
-		// HouseMapper::findForUpdate as the FIRST in-transaction lock; the
-		// return value is unused, so tests that do not track lock order need
-		// no stub for it (PHPUnit keeps the FIRST stub per method, so the
-		// call-order test registers its own tracking stub).
+		$this->house = new House();
+		$this->house->setId(1);
+		$this->house->setStateVersion(4);
+		$this->houseMapper->method('find')->willReturn($this->house);
+		$this->houseMapper->method('findForUpdate')->willReturnCallback(function () {
+			return $this->house;
+		});
+		$this->calendarService->method('getTimeZone')->willReturn(new \DateTimeZone('UTC'));
+		$this->calendarService->method('dayKey')->willReturnCallback(
+			static fn (\DateTimeInterface $at, \DateTimeZone $tz): string => $at->setTimezone($tz)->format('Y-m-d')
+		);
 
-		$defaultSnapshot = [
-			'dueCount' => 0,
-			'completedCount' => 0,
-			'percent' => 0,
-			'targetPercent' => 80,
-			'achieved' => false,
-			'weekStart' => '2026-09-07T00:00:00+00:00',
-			'weekEnd' => '2026-09-13T23:59:59+00:00',
-		];
-		$this->houseService->method('getWeeklyGoalProgress')->willReturn($defaultSnapshot);
+		$this->actor = new HouseUser();
+		$this->actor->setId(7);
+		$this->actor->setHouseId(1);
+		$this->actor->setNextcloudUserId('mom');
+		$this->actor->setWalletId(500);
+		$this->liveActor = $this->actor;
+		$this->taskAccessPolicy->method('assertCanView')->willReturnCallback(function (): void {
+			if ($this->visibilityRevoked) {
+				throw new NotFoundException('Task not found');
+			}
+		});
+
+		$this->wallet = new Wallet();
+		$this->wallet->setId(500);
+		$this->wallet->setHouseId(1);
+		$this->wallet->setNextcloudUserId('mom');
+
+		$this->task = new Task();
+		$this->task->setId(5);
+		$this->task->setName('Vacuum');
+		$this->task->setEnergyCost(3);
+
+		$this->room = new Room();
+		$this->room->setId(10);
+		$this->room->setFloorId(2);
+		$this->room->setName('Living Room');
+
+		$this->roomTask = new RoomTask();
+		$this->roomTask->setId(11);
+		$this->roomTask->setRoomId(10);
+		$this->roomTask->setTaskId(5);
+		$this->roomTask->setIsActive(true);
+
+		$this->revision = new ScheduleRevision();
+		$this->revision->setId(1);
+		$this->revision->setRoomTaskId(11);
+
+		$this->occurrence = new Occurrence();
+		$this->occurrence->setId(21);
+		$this->occurrence->setRoomTaskId(11);
+		$this->occurrence->setScheduleRevId(1);
+		$this->occurrence->setOrdinal(1);
+		$this->occurrence->setEnergy(3);
+		$this->occurrence->setTimezone('UTC');
+		$this->occurrence->setPlannedDate(new \DateTime('2026-09-25'));
+
+		$this->postCommitService->method('runForCompletion')->willReturn(['weeklyGoal' => [], 'degraded' => false]);
+		$this->postCommitService->method('runForUndo')->willReturn(['weeklyGoal' => [], 'degraded' => false]);
+		$this->configService->method('getTitlesEnabled')->willReturn(false);
+		$this->roomReplayService->method('resyncRoomCache')->willReturnCallback(
+			fn (Room $room): Room => $room
+		);
 
 		$this->service = new CompletionService(
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
@@ -125,31 +218,25 @@ class CompletionServiceTest extends TestCase {
 			$this->roomMapper,
 			$this->houseMapper,
 			$this->houseUserMapper,
+			$this->walletMapper,
+			$this->occMemberMapper,
 			$this->taskAssigneeMapper,
 			$this->completedTaskMapper,
-			// CS-PLAN-067 §3.2: the extracted participants run REAL against
-			// the same mocks, so the degrade/snapshot contracts stay
-			// observable end-to-end.
-			new \OCA\ChoreStrike\Service\CompletionEffectService(
-				$this->roomTaskMapper,
-				$this->roomMapper,
-				$this->houseUserMapper,
-				$this->checklistProgressMapper
-			),
-			new \OCA\ChoreStrike\Service\CompletionPostCommitService(
-				$this->houseService,
-				$this->houseMapper,
-				$this->houseUserMapper,
-				$this->notificationService,
-				$this->appLogger
-			),
-			$this->gameLogicService,
-			new CalendarService(),
+			$this->workShareMapper,
+			$this->completionRevisionMapper,
+			$this->postCommitService,
+			$this->walletService,
+			$this->roomReplayService,
+			new EffortAllocationService(),
+			$this->rhythmService,
+			null,
+			$this->configService,
+			$this->calendarService,
 			$this->taskAccessPolicy,
 			$this->occurrenceService,
 			$this->commandService,
 			$this->createIdentityL10n(),
-			$this->appLogger
+			$this->appLogger,
 		);
 	}
 
@@ -160,1269 +247,621 @@ class CompletionServiceTest extends TestCase {
 	}
 
 	/**
-	 * complete() through the full occurrence receipt contract with a
-	 * well-formed default target (CS-PLAN-072 WP1).
+	 * Wire the default solo-completion mocks (one assignee = the actor).
 	 */
-	private function completeWithReceipt(int $houseId, string $userId, int $roomTaskId, string $occurrenceId = '1:1', int $expectedVersion = 0, string $selectionToken = 'token'): array {
-		return $this->service->complete(
-			$houseId,
-			$userId,
-			$roomTaskId,
-			'11111111-2222-4333-8444-555555555555',
-			$occurrenceId,
-			$expectedVersion,
-			$selectionToken
+	private function soloCompletionContext(): void {
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$this->roomTask]);
+		$this->roomTaskMapper->method('lockForUpdate')->willReturn($this->roomTask);
+		$this->roomTaskMapper->method('find')->willReturn($this->roomTask);
+		$this->taskMapper->method('find')->willReturn($this->task);
+		$this->roomMapper->method('lockForUpdate')->willReturn($this->room);
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturnCallback(fn (): ?HouseUser => $this->liveActor);
+		$this->houseUserMapper->method('findByHouseId')->willReturnCallback(
+			fn (): array => $this->houseMembers
 		);
-	}
+		$this->houseUserMapper->method('findForUpdate')->willReturnCallback(function (int $id): HouseUser {
+			$this->lockedMemberIds[] = $id;
+			return $this->membersById[$id];
+		});
+		$this->houseUserMapper->method('find')->willReturnCallback(
+			function (int $id): HouseUser {
+				if (!isset($this->membersById[$id])) {
+					throw new \OCP\AppFramework\Db\DoesNotExistException('no rows');
+				}
+				return $this->membersById[$id];
+			}
+		);
+		$this->houseUserMapper->method('findByWalletId')->willReturn($this->actor);
+		$this->houseMembers = [$this->actor];
+		$this->membersById = [7 => $this->actor];
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['mom']);
+		$this->walletMapper->method('findForUpdate')->willReturnCallback(
+			fn (int $id): Wallet => $this->walletsById[$id] ?? $this->wallet
+		);
+		$this->walletMapper->method('find')->willReturn($this->wallet);
+		$this->walletMapper->method('findByHouseAndUser')->willReturn($this->wallet);
+		$this->walletsById = [500 => $this->wallet];
+		// The binding helper passes the membership through unchanged (the
+		// binding already exists on the seeded rows).
+		$this->walletService->method('ensureBinding')->willReturnCallback(
+			static fn (int $houseId, HouseUser $member): HouseUser => $member
+		);
+		// The caller-safe wallet block is the serializer's contract (covered
+		// by WalletServiceTest); pin the shape here.
+		$this->walletService->method('serializeOwnWallet')->willReturn(
+			['bookedMinor' => 0, 'reservedMinor' => 0, 'availableMinor' => 0, 'fundingHold' => false]
+		);
+		$this->occMemberMapper->method('findByOccurrence')->willReturnCallback(fn (): array => $this->occurrenceMembers);
+		$this->occurrenceService->method('resolveForCompletionUnderLock')->willReturn([
+			'occurrence' => $this->occurrence,
+			'revision' => $this->revision,
+			'classification' => 'agreed',
+		]);
+		$this->occurrenceService->method('selectionFor')->willReturn(null);
 
-	// ------------------------------------------------------------------
-	// Fixture builders
-	// ------------------------------------------------------------------
-
-	private function buildTask(int $id = 1): Task {
-		$task = new Task();
-		$task->setId($id);
-		$task->setName('Test Task');
-		$task->setEnergyCost(3);
-		$task->setPriority(2);
-		$task->setFrequencyType('weekly');
-		$task->setFrequencyValue(1);
-		$task->setRecurrenceMode('recurring');
-		$task->setSchedulingMode('dynamic');
-		return $task;
-	}
-
-	private function buildRoom(int $id = 1, int $cleanliness = 50): Room {
-		$room = new Room();
-		$room->setId($id);
-		$room->setCleanliness($cleanliness);
-		return $room;
-	}
-
-	private function buildRoomTask(int $id = 1, bool $isActive = true): RoomTask {
-		$roomTask = new RoomTask();
-		$roomTask->setId($id);
-		$roomTask->setTaskId(1);
-		$roomTask->setRoomId(1);
-		$roomTask->setIsActive($isActive);
-		$roomTask->setNextDue(new \DateTime('today'));
-		return $roomTask;
-	}
-
-	private function buildHouseUser(int $id = 1, string $uid = 'user123'): HouseUser {
-		$houseUser = new HouseUser();
-		$houseUser->setId($id);
-		$houseUser->setNextcloudUserId($uid);
-		return $houseUser;
-	}
-
-	/**
-	 * The resolved completion target (CS-PLAN-072 WP1): an occurrence row
-	 * with a full saved window plus its revision.
-	 */
-	private function buildResolvedOccurrence(string $plannedDate = 'today'): array {
-		$planned = new \DateTime($plannedDate);
-		$planned->setTime(0, 0);
-		$windowStart = (clone $planned);
-		$windowEnd = (clone $planned)->modify('+1 day');
-
-		$occurrence = new Occurrence();
-		$occurrence->setId(9);
-		$occurrence->setHouseId(1);
-		$occurrence->setRoomTaskId(1);
-		$occurrence->setScheduleRevId(1);
-		$occurrence->setOrdinal(1);
-		$occurrence->setPlannedDate($planned);
-		$occurrence->setWeekStart((clone $planned)->modify('monday this week'));
-		$occurrence->setTimezone('UTC');
-		$occurrence->setDayStart(clone $planned);
-		$occurrence->setWindowStart($windowStart);
-		$occurrence->setWindowEnd($windowEnd);
-		$occurrence->setEnergy(3);
-		$occurrence->setIsPublic(true);
-		$occurrence->setVersion(0);
-
-		$revision = new ScheduleRevision();
-		$revision->setId(1);
-		$revision->setRoomTaskId(1);
-		$revision->setRevision(1);
-		$revision->setTimezone('UTC');
-		$revision->setAnchorDate(clone $planned);
-		$revision->setAgreedThrough((clone $planned)->modify('+7 days'));
-
-		return ['occurrence' => $occurrence, 'revision' => $revision, 'classification' => 'agreed'];
-	}
-
-	/**
-	 * Stub every pre-transaction and in-transaction lookup for the happy
-	 * completion path. Overridable collaborators are passed in explicitly —
-	 * a PHPUnit mock keeps its FIRST stub per method, so overrides must be
-	 * parameters, not re-registrations.
-	 */
-	private function stubCompleteLookups(
-		RoomTask $roomTask,
-		Room $room,
-		Task $task,
-		HouseUser $houseUser,
-		array $assigneeUserIds = [],
-		array $progressRows = [],
-		?\Closure $gameResult = null,
-		?array $resolvedOccurrence = null,
-	): void {
-		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$roomTask]);
-		$this->taskMapper->method('find')->willReturn($task);
-		$this->roomMapper->method('find')->willReturn($room);
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($houseUser);
-		$this->roomTaskMapper->method('lockForUpdate')->willReturn($roomTask);
-		$this->roomMapper->method('lockForUpdate')->willReturn($room);
-		$this->houseUserMapper->method('findForUpdate')->willReturn($houseUser);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn($assigneeUserIds);
-		$this->checklistProgressMapper->method('findByRoomTaskId')->willReturn($progressRows);
-		$this->roomMapper->method('update')->willReturn($room);
-
-		// The insert primitive returns the persisted row (id assigned by
-		// the database in production, by the stub here) — tests that pin
-		// rollback behavior override this expectation.
+		$insertedIds = 99;
 		$this->completedTaskMapper->method('insert')->willReturnCallback(
-			static function (CompletedTask $row): CompletedTask {
-				$row->setId($row->getId() ?? 1);
+			function (CompletedTask $row) use (&$insertedIds): CompletedTask {
+				$row->setId($insertedIds);
 				return $row;
 			}
 		);
-
-		// CS-PLAN-072 WP1: the occurrence resolver returns the shown target;
-		// timeline effects are observable through the mock's call recording.
-		$this->occurrenceService->method('resolveForCompletionUnderLock')
-			->willReturn($resolvedOccurrence ?? $this->buildResolvedOccurrence());
-
-		$this->gameLogicService->method('handleTaskCompletion')->willReturnCallback(
-			$gameResult ?? function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
-				$row->setCoinsEarned(50);
-				$row->setWasCombo(false);
-				return [
-					'contributionScore' => 3,
-					'coins' => 50,
-					'teamworkBonus' => 0,
-					'isCombo' => false,
-					'currentStreak' => 1,
-					'longestStreak' => 1,
-					'totalContribution' => 3,
-					'totalCoins' => 50,
-					'streakFreezeUsed' => false,
-					'streakFreezesRemaining' => 1,
-					'comboBonusFreeze' => false,
-					'titlesAdded' => [],
-					'newTitle' => null,
-				];
+		$this->completedTaskMapper->method('find')->willReturnCallback(
+			function (int $id): CompletedTask {
+				if ($this->completionToFind !== null) {
+					return $this->completionToFind;
+				}
+				$row = new CompletedTask();
+				$row->setId($id);
+				$row->setRoomTaskId(11);
+				$row->setUserId(7);
+				$row->setTotalEnergy(3);
+				$row->setRateMinor(1000);
+				$row->setCompletionVersion(0);
+				$row->setAllocationRevision(1);
+				$row->setCompletedAt(new \DateTime());
+				return $row;
+			}
+		);
+		$this->workShareMapper->method('insert')->willReturnArgument(0);
+		$this->completionRevisionMapper->method('insert')->willReturnArgument(0);
+		// Mapper UPDATEs mutate the seam row so the aggregate's final read
+		// reflects the corrected state (as the real UPDATE would).
+		$this->completedTaskMapper->method('markUndone')->willReturnCallback(
+			function (int $id, \DateTime $at): void {
+				$this->completionToFind?->setUndoneAt($at);
+			}
+		);
+		$this->completedTaskMapper->method('advanceVersion')->willReturnCallback(
+			function (int $id, int $newVersion, int $newAllocationRevision): void {
+				$this->completionToFind?->setCompletionVersion($newVersion);
+				$this->completionToFind?->setAllocationRevision($newAllocationRevision);
 			}
 		);
 	}
 
-	// ------------------------------------------------------------------
-	// complete(): occurrence gates (decision D4)
-	// ------------------------------------------------------------------
+	public function testComplete_SoloDefault_WritesFrozenEvidenceAndCreditsWallet(): void {
+		$this->soloCompletionContext();
 
-	/**
-	 * Complete_InactiveOccurrence_ConflictBeforeAnyMutation
-	 *
-	 * An inactive room task answers 409 BEFORE any mapper mutation call —
-	 * no timeline effect, no reward, no ledger row.
-	 */
-	public function testComplete_InactiveOccurrence_ConflictBeforeAnyMutation(): void {
-		$roomTask = $this->buildRoomTask(1, false);
-		$this->stubCompleteLookups($roomTask, $this->buildRoom(), $this->buildTask(), $this->buildHouseUser());
+		$insertedCompletion = null;
+		$this->completedTaskMapper->expects($this->once())
+			->method('insert')
+			->willReturnCallback(function (CompletedTask $row) use (&$insertedIds, &$insertedCompletion): CompletedTask {
+				$insertedCompletion = $row;
+				$row->setId(99);
+				return $row;
+			});
 
-		$this->roomTaskMapper->expects($this->never())->method('update');
-		$this->roomMapper->expects($this->never())->method('update');
-		$this->houseUserMapper->expects($this->never())->method('update');
-		$this->occurrenceService->expects($this->never())->method('applyCompletionUnderLock');
-		$this->completedTaskMapper->expects($this->never())->method('insert');
-		$this->db->expects($this->once())->method('rollBack');
-		$this->db->expects($this->never())->method('commit');
+		// The initial credit is the selected allocation: 3 energy solo =
+		// 300 energy minor / 3000 coin minor for the one wallet.
+		$this->walletService->expects($this->once())
+			->method('postEntries')
+			->with(
+				1,
+				WalletService::SOURCE_COMPLETION,
+				99,
+				1,
+				[500 => 3000],
+				WalletService::REASON_COMPLETION,
+				7,
+			);
+		$this->walletService->expects($this->once())->method('recalcContributionCache')->with([500]);
+
+		// The total-room effect journals once with the frozen delta E*10.
+		$this->roomReplayService->expects($this->once())
+			->method('recordCompletion')
+			->with(10, 99, 30, $this->anything());
+
+		// The house state version bumps so previews become stale.
+		$this->houseMapper->expects($this->atLeastOnce())->method('update');
+
+		$result = $this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', '1:1', 0, 'token');
+
+		// Frozen evidence: total effort/rate from the occurrence, version 0,
+		// allocation revision 1, the command receipt and the audit completer.
+		$this->assertNotNull($insertedCompletion);
+		$this->assertSame(3, $insertedCompletion->getTotalEnergy());
+		$this->assertSame(1000, $insertedCompletion->getRateMinor());
+		$this->assertSame(0, $insertedCompletion->getCompletionVersion());
+		$this->assertSame(1, $insertedCompletion->getAllocationRevision());
+		$this->assertSame('11111111-2222-4333-8444-555555555555', $insertedCompletion->getCommandUuid());
+		$this->assertSame(7, $insertedCompletion->getUserId());
+		$this->assertSame(99, $result['completionId']);
+		$this->assertSame(['completionId' => 99], $this->receiptResult, 'only stable identity belongs in the receipt');
+		// WP3 shape: no Coin/combo promises anywhere in the rewards block.
+		$this->assertArrayNotHasKey('coins', $result['rewards']);
+		$this->assertArrayNotHasKey('isCombo', $result['rewards']);
+		$this->assertSame(30, $result['rewards']['cleanlinessChange']);
+		// The caller's OWN wallet rides along in minor units.
+		$this->assertSame(
+			['bookedMinor' => 0, 'reservedMinor' => 0, 'availableMinor' => 0, 'fundingHold' => false],
+			$result['rewards']['wallet']
+		);
+	}
+
+	public function testComplete_AbsentObligatedMember_RecomputesWithoutWalletCredit(): void {
+		$this->soloCompletionContext();
+		$absent = $this->addObligatedNonWorker();
+		$absent->setCurrentStreak(2);
+		$this->rhythmService->expects($this->once())->method('recomputeForMembers')
+			->willReturnCallback(function (int $houseId, array $members) use ($absent): array {
+				$this->assertSame([7, 8], array_map(static fn (HouseUser $m): int => (int)$m->getId(), $members));
+				$absent->setCurrentStreak(0);
+				return [];
+			});
+		$this->walletService->expects($this->once())->method('postEntries')
+			->with(1, WalletService::SOURCE_COMPLETION, 99, 1, [500 => 3000], WalletService::REASON_COMPLETION, 7);
+
+		$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', '1:1', 0, 'token', [['userId' => 'mom', 'sharePct' => 100]], true);
+
+		$this->assertSame([7, 8], $this->lockedMemberIds);
+		$this->assertSame(0, $absent->getCurrentStreak());
+	}
+
+	public function testComplete_DeviatingSharesWithoutReview_Conflict(): void {
+		$this->soloCompletionContext();
 
 		$this->expectException(ConflictException::class);
-		$this->expectExceptionMessage('Task is not active');
-
-		$this->completeWithReceipt(1, 'user123', 1);
+		$this->service->complete(
+			1, 'mom', 11,
+			'11111111-2222-4333-8444-555555555555',
+			'1:1', 0, 'token',
+			[['userId' => 'mom', 'sharePct' => 60], ['userId' => 'dad', 'sharePct' => 40]],
+			false,
+		);
 	}
 
-	/**
-	 * Complete_NonMember_ForbiddenBeforeAnyLock
-	 */
-	public function testComplete_NonMember_ForbiddenBeforeAnyLock(): void {
-		$roomTask = $this->buildRoomTask();
-		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$roomTask]);
-		$this->taskMapper->method('find')->willReturn($this->buildTask());
-		$this->roomMapper->method('find')->willReturn($this->buildRoom());
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+	public function testComplete_ActorNotParticipant_Forbidden(): void {
+		$this->soloCompletionContext();
 
-		$this->roomTaskMapper->expects($this->never())->method('lockForUpdate');
+		$dad = new HouseUser();
+		$dad->setId(8);
+		$dad->setHouseId(1);
+		$dad->setNextcloudUserId('dad');
+		$dad->setWalletId(501);
+		$this->houseMembers = [$this->actor, $dad];
+		$this->membersById = [7 => $this->actor, 8 => $dad];
 
 		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Only house members can complete tasks');
-
-		$this->completeWithReceipt(1, 'stranger', 1);
-	}
-
-	/**
-	 * Complete_ForeignOrUnknownId_NotFound (404 anti-enumeration)
-	 */
-	public function testComplete_ForeignOrUnknownId_NotFound(): void {
-		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([]);
-
-		$this->expectException(NotFoundException::class);
-		$this->completeWithReceipt(1, 'user123', 99);
-	}
-
-	/**
-	 * Complete_InvisiblePrivateTask_NotFound
-	 */
-	public function testComplete_InvisiblePrivateTask_NotFound(): void {
-		$roomTask = $this->buildRoomTask();
-		$this->stubCompleteLookups($roomTask, $this->buildRoom(), $this->buildTask(), $this->buildHouseUser());
-		$this->taskAccessPolicy->method('assertCanView')
-			->willThrowException(new NotFoundException('Task not found'));
-
-		$this->roomTaskMapper->expects($this->never())->method('update');
-
-		$this->expectException(NotFoundException::class);
-		$this->completeWithReceipt(1, 'user123', 1);
-	}
-
-	// ------------------------------------------------------------------
-	// complete(): snapshot / ledger discipline (decision D1)
-	// ------------------------------------------------------------------
-
-	/**
-	 * Complete_HappyPath_InsertsLedgerRowWithBeforeStateOccurrenceEvidenceAndDeltas
-	 *
-	 * The before_state is captured from PRE-mutation values; the ledger
-	 * insert carries the occurrence's planned day (occurrence_due), the
-	 * frozen timeline evidence (public key parts, work date/zone,
-	 * classification) and the full delta record. The timeline effect runs
-	 * inside the command transaction (applyCompletionUnderLock).
-	 */
-	public function testComplete_HappyPath_InsertsLedgerRowWithBeforeStateOccurrenceDueAndDeltas(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom(1, 50);
-		$task = $this->buildTask();
-		$houseUser = $this->buildHouseUser();
-
-		$progressRow = new RoomTaskChecklistProgress();
-		$progressRow->setRoomTaskId(1);
-		$progressRow->setScheduleRevId(1);
-		$progressRow->setOrdinal(1);
-		$progressRow->setChecklistItemId(7);
-		$progressRow->setIsChecked(true);
-		$progressRow->setCheckedAt(new \DateTime('2026-09-06T10:00:00'));
-		$progressRow->setCheckedByUserId(3);
-
-		$nextDueBefore = $roomTask->getNextDue()->format('c');
-
-		/** @var CompletedTask|null $ledgerRow */
-		$ledgerRow = null;
-		$this->stubCompleteLookups(
-			$roomTask,
-			$room,
-			$task,
-			$houseUser,
-			[],
-			[$progressRow],
-			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
-				// The teamwork input threads the canonical assignee set (D9).
-				self::assertSame([], $assignees);
-				$row->setCoinsEarned(50);
-				$row->setWasCombo(false);
-				return [
-					'contributionScore' => 3,
-					'coins' => 50,
-					'teamworkBonus' => 4,
-					'isCombo' => false,
-					'currentStreak' => 2,
-					'longestStreak' => 5,
-					'totalContribution' => 3,
-					'totalCoins' => 54,
-					'streakFreezeUsed' => false,
-					'streakFreezesRemaining' => 1,
-					'comboBonusFreeze' => false,
-					'titlesAdded' => [],
-					'newTitle' => null,
-				];
-			}
+		$this->service->complete(
+			1, 'mom', 11,
+			'11111111-2222-4333-8444-555555555555',
+			'1:1', 0, 'token',
+			[['userId' => 'dad', 'sharePct' => 100]],
+			true,
 		);
+	}
 
-		$inserted = null;
-		$this->completedTaskMapper->expects($this->once())
-			->method('insert')
-			->willReturnCallback(function (CompletedTask $row) use (&$inserted) {
-				$row->setId(1);
-				$inserted = $row;
-				return $row;
-			});
+	public function testComplete_NonUniqueShares_Rejected(): void {
+		$this->soloCompletionContext();
 
-		// The timeline effect runs exactly once, inside the transaction,
-		// carrying the ledger row id and the server-derived work date.
-		$this->occurrenceService->expects($this->once())
-			->method('applyCompletionUnderLock')
+		$this->expectException(\InvalidArgumentException::class);
+		$this->service->complete(
+			1, 'mom', 11,
+			'11111111-2222-4333-8444-555555555555',
+			'1:1', 0, 'token',
+			[['userId' => 'mom', 'sharePct' => 50], ['userId' => 'mom', 'sharePct' => 50]],
+			true,
+		);
+	}
+
+	public function testUndo_TerminalAlreadyUndone_StableNoOp(): void {
+		$this->soloCompletionContext();
+
+		$done = new CompletedTask();
+		$done->setId(9);
+		$done->setRoomTaskId(11);
+		$done->setUserId(7);
+		$done->setTotalEnergy(3);
+		$done->setCompletionVersion(2);
+		$done->setAllocationRevision(1);
+		$done->setUndoneAt(new \DateTime('2026-09-20 08:00:00'));
+		$this->completionToFind = $done;
+
+		// Terminal handling BEFORE version handling: an already-undone
+		// target is a stable no-op even against a stale expectedVersion —
+		// and the no-op answers `undone: false` (§3.4: THIS command undid
+		// nothing) without post-commit effects.
+		$result = $this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, null);
+
+		$this->assertFalse($result['undone']);
+		$this->assertSame(['completionId' => 9, 'noop' => true], $this->receiptResult);
+	}
+
+	public function testUndo_StaleLiveTarget_Conflict(): void {
+		$this->soloCompletionContext();
+
+		$live = new CompletedTask();
+		$live->setId(9);
+		$live->setRoomTaskId(11);
+		$live->setUserId(7);
+		$live->setTotalEnergy(3);
+		$live->setCompletionVersion(2);
+		$live->setAllocationRevision(1);
+		$this->completionToFind = $live;
+
+		$this->expectException(ConflictException::class);
+		$this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 1, null);
+	}
+
+	public function testUndo_ReversesLatestSelectedAllocationOnce(): void {
+		$this->soloCompletionContext();
+
+		$live = new CompletedTask();
+		$live->setId(9);
+		$live->setRoomTaskId(11);
+		$live->setUserId(7);
+		$live->setTotalEnergy(3);
+		$live->setCompletionVersion(1);
+		$live->setAllocationRevision(2);
+		$this->completionToFind = $live;
+
+		$share = new WorkShare();
+		$share->setCompletionId(9);
+		$share->setAllocationRevision(2);
+		$share->setWalletId(500);
+		$share->setSharePct(100);
+		$share->setEnergyMinor(300);
+		$share->setCoinMinor(3000);
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$share]);
+		$this->occurrenceService->method('occurrenceOfCompletion')->willReturn(null);
+
+		// The mapper UPDATE marks the row undone — reflect it on the seam
+		// row so the aggregate's final read sees the corrected state.
+		// (Undo reversal assertions are pinned below.)
+
+		// The LATEST selected allocation reverses once (negative entries with
+		// the new completion version as source revision).
+		$this->walletService->expects($this->once())
+			->method('postEntries')
 			->with(
 				1,
-				$this->isInstanceOf(Occurrence::class),
-				$this->isInstanceOf(ScheduleRevision::class),
-				$this->callback(static fn (RoomTask $rt): bool => $rt->getId() === 1),
-				1,
-				$this->callback(static fn (string $workDate): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $workDate) === 1),
-				'agreed',
-				$this->isInstanceOf(\DateTime::class)
+				WalletService::SOURCE_COMPLETION_UNDO,
+				9,
+				2,
+				[500 => -3000],
+				WalletService::REASON_UNDO,
+				7,
 			);
 
-		$this->db->expects($this->once())->method('beginTransaction');
-		$this->db->expects($this->once())->method('commit');
+		$this->completedTaskMapper->expects($this->once())->method('markUndone')->with(9, $this->anything());
+		$this->completedTaskMapper->expects($this->once())->method('advanceVersion')->with(9, 2, 2);
 
-		$result = $this->completeWithReceipt(1, 'user123', 1);
-
-		self::assertNotNull($inserted, 'one ledger row must be inserted');
-		$before = $inserted->getBeforeState();
-		self::assertSame($nextDueBefore, $before['roomTask']['nextDue'], 'before_state.roomTask.nextDue is the pre-mutation value');
-		self::assertSame(true, $before['roomTask']['isActive']);
-		self::assertSame(null, $before['roomTask']['lastCompleted']);
-		self::assertSame(50, $before['room']['cleanliness']);
-		self::assertSame(0, $before['houseUser']['coins']);
-		self::assertSame([], $before['houseUser']['unlockedTitles']);
-		self::assertSame(
-			[[
-				'checklistItemId' => 7,
-				'occurrenceId' => '1:1',
-				'userId' => 3,
-				'checked' => true,
-				'checkedAt' => (new \DateTime('2026-09-06T10:00:00'))->format('c'),
-			]],
-			$before['checklist']
-		);
-		self::assertNotNull($inserted->getOccurrenceDue(), 'occurrence_due must be recorded');
-		self::assertSame(
-			(new \DateTime($nextDueBefore))->format('Y-m-d'),
-			$inserted->getOccurrenceDue()->format('Y-m-d'),
-			'occurrence_due is the planned local day of the completed occurrence'
-		);
-		// Frozen timeline evidence (WP1): public key parts + work basis.
-		self::assertSame(1, $inserted->getScheduleRevId());
-		self::assertSame(1, $inserted->getOccurrenceOrdinal());
-		self::assertNotNull($inserted->getWorkDate());
-		self::assertSame('UTC', $inserted->getWorkZone());
-		self::assertSame('agreed', $inserted->getCompletionClass());
-		self::assertNull($inserted->getUndoneAt(), 'a fresh completion is revertible');
-
-		$deltas = $inserted->getDeltas();
-		self::assertSame(54, $deltas['coinsAwarded'], 'coinsAwarded = base + teamwork');
-		self::assertSame(4, $deltas['teamworkBonus']);
-		self::assertSame(3, $deltas['contributionAwarded']);
-		self::assertSame(0, $deltas['streakBefore']);
-		self::assertSame(2, $deltas['streakAfter']);
-		self::assertFalse($deltas['freezeUsed']);
-		self::assertFalse($deltas['freezeAwarded']);
-		self::assertSame([], $deltas['titlesAdded']);
-		self::assertSame(30, $deltas['cleanlinessChange']);
-		self::assertFalse($deltas['takeoverClaimed']);
-
-		// Response (decision D10): authoritative totals reconcile stores.
-		self::assertSame(54, $result['rewards']['totalCoins']);
-		self::assertSame(3, $result['rewards']['totalContribution']);
-		self::assertSame(5, $result['rewards']['longestStreak']);
-		self::assertArrayNotHasKey('degraded', $result['rewards']);
-		// CS-PLAN-066 §3.4: newTitle is explicit and nullable — a null
-		// unlock still rides the response shape.
-		self::assertNull($result['rewards']['newTitle']);
-		// Receipt surface (WP1): the completion identity and replay flag.
-		self::assertSame(1, $result['completionId']);
-		self::assertFalse($result['replay']);
+		$result = $this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 1, 'test_reason');
+		$this->assertTrue($result['undone']);
+		$this->assertSame(['completionId' => 9, 'noop' => false, 'version' => 2], $this->receiptResult);
 	}
 
-	/**
-	 * Complete_ComputedNewTitle_TravelsInRewards
-	 *
-	 * CS-PLAN-066 §3.4: the completion aggregate carries the computed
-	 * unlock to the client so the title event fires exactly once per
-	 * successful completion response — independent of any post-commit
-	 * notification failure (the notification runs AFTER the payload is
-	 * built and cannot erase the unlock).
-	 */
-	public function testComplete_ComputedNewTitle_TravelsInRewards(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom(1, 50);
-		$task = $this->buildTask();
-		$houseUser = $this->buildHouseUser();
+	public function testUndo_ForeignCompletion_Forbidden(): void {
+		$this->soloCompletionContext();
 
-		$this->stubCompleteLookups(
-			$roomTask,
-			$room,
-			$task,
-			$houseUser,
-			[],
-			[],
-			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
-				$row->setCoinsEarned(50);
-				$row->setWasCombo(false);
-				return [
-					'contributionScore' => 3,
-					'coins' => 50,
-					'teamworkBonus' => 0,
-					'isCombo' => false,
-					'currentStreak' => 1,
-					'longestStreak' => 1,
-					'totalContribution' => 3,
-					'totalCoins' => 50,
-					'streakFreezeUsed' => false,
-					'streakFreezesRemaining' => 1,
-					'comboBonusFreeze' => false,
-					'titlesAdded' => [],
-					'newTitle' => [
-						'pack' => 'sparkling',
-						'labelKey' => 'titles.sparkling.bronze',
-						'tierIndex' => 0,
-					],
-				];
-			}
+		$foreign = new CompletedTask();
+		$foreign->setId(9);
+		$foreign->setRoomTaskId(11);
+		$foreign->setUserId(8); // someone else's completion
+		$foreign->setCompletionVersion(0);
+		$foreign->setAllocationRevision(1);
+		$this->completionToFind = $foreign;
+
+		$this->expectException(ForbiddenException::class);
+		// A non-owner actor (participation alone is no correction authority).
+		$this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, null);
+	}
+
+	public function testAttribute_WritesExactUnionDelta(): void {
+		$this->soloCompletionContext();
+
+		$live = new CompletedTask();
+		$live->setId(9);
+		$live->setRoomTaskId(11);
+		$live->setUserId(7);
+		$live->setTotalEnergy(3);
+		$live->setCompletionVersion(1);
+		$live->setAllocationRevision(1);
+		$this->completionToFind = $live;
+
+		$previous = new WorkShare();
+		$previous->setCompletionId(9);
+		$previous->setAllocationRevision(1);
+		$previous->setWalletId(500);
+		$previous->setSharePct(100);
+		$previous->setEnergyMinor(300);
+		$previous->setCoinMinor(3000);
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$previous]);
+
+		$coMember = new HouseUser();
+		$coMember->setId(8);
+		$coMember->setHouseId(1);
+		$coMember->setNextcloudUserId('dad');
+		$coMember->setWalletId(501);
+		$this->houseMembers = [$this->actor, $coMember];
+		$this->membersById = [7 => $this->actor, 8 => $coMember];
+
+		$coWallet = new Wallet();
+		$coWallet->setId(501);
+		$coWallet->setHouseId(1);
+		$coWallet->setNextcloudUserId('dad');
+		$this->walletsById = [500 => $this->wallet, 501 => $coWallet];
+
+		// Attribution writes ONLY newAllocation - oldAllocation for the
+		// union: mom 100% → 50/50 (−1500 coin minor), dad 0% → 50% (+1500).
+		$deltas = null;
+		$this->walletService->expects($this->once())
+			->method('postEntries')
+			->with(
+				1,
+				WalletService::SOURCE_COMPLETION,
+				9,
+				2,
+				$this->callback(function (array $d) use (&$deltas): bool {
+					$deltas = $d;
+					return true;
+				}),
+				WalletService::REASON_ATTRIBUTION,
+				7,
+			);
+
+		$result = $this->service->attribute(
+			1, $this->actor, 9,
+			'11111111-2222-4333-8444-555555555555',
+			1,
+			[['userId' => 'mom', 'sharePct' => 50], ['userId' => 'dad', 'sharePct' => 50]],
+			true,
+			'test_reason',
 		);
 
-		$this->completedTaskMapper->method('insert')->willReturnArgument(0);
-		$this->db->method('beginTransaction');
-		$this->db->method('commit');
+		$this->assertSame([500 => -1500, 501 => 1500], $deltas);
+		$this->assertSame(2, $result['rewards']['completion']['version']);
+		$this->assertSame(['completionId' => 9, 'noop' => false, 'version' => 2], $this->receiptResult);
+	}
 
-		$result = $this->completeWithReceipt(1, 'user123', 1);
+	public function testAttribute_TimeAndEnergyStayImmutable(): void {
+		$this->soloCompletionContext();
 
-		self::assertSame(
-			['pack' => 'sparkling', 'labelKey' => 'titles.sparkling.bronze', 'tierIndex' => 0],
-			$result['rewards']['newTitle']
+		$live = new CompletedTask();
+		$live->setId(9);
+		$live->setRoomTaskId(11);
+		$live->setUserId(7);
+		$live->setTotalEnergy(3);
+		$live->setCompletedAt(new \DateTime('2026-09-20 08:00:00'));
+		$live->setCompletionVersion(0);
+		$live->setAllocationRevision(1);
+		$this->completionToFind = $live;
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([]);
+		$this->houseMembers = [$this->actor];
+
+		// No room replay or occurrence write may happen on attribution —
+		// the work time, saved zone, occurrence and room event stay put.
+		$this->roomReplayService->expects($this->never())->method('recordCompletion');
+		$this->occurrenceService->expects($this->never())->method('releaseCompletionUnderLock');
+		$this->completedTaskMapper->expects($this->never())->method('markUndone');
+
+		$this->service->attribute(
+			1, $this->actor, 9,
+			'11111111-2222-4333-8444-555555555555',
+			0,
+			[['userId' => 'mom', 'sharePct' => 100]],
+			true,
+			null,
 		);
 	}
 
-	/**
-	 * The effect-record JSON contract (ADR-011): every recorded key of the
-	 * before_state is present with the documented type — restore reads
-	 * through typed accessors, so a shape drift must fail here, not at undo.
-	 */
-	public function testBeforeStateSerializationContract_IsPinned(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom(1, 42);
-		$task = $this->buildTask();
-		$houseUser = $this->buildHouseUser();
-		$houseUser->setCoins(11);
-		$houseUser->setContributionScore(7);
-		$houseUser->setCurrentStreak(2);
-		$houseUser->setLongestStreak(9);
-		$houseUser->setStreakFreezes(1);
-		$houseUser->setUnlockedTitles(['pack.tier']);
+	/** @return array<string, array{bool}> */
+	public static function liveCorrectionPaths(): array {
+		return ['undo' => [false], 'attribution' => [true]];
+	}
 
-		$roomTask->setWasClaimed(true);
-		$roomTask->setOriginalAssignee('orig');
-		$roomTask->setClaimedByUser('claimer');
-		$roomTask->setClaimedAt(new \DateTime('2026-09-01T08:00:00'));
-		$roomTask->setLastCompleted(new \DateTime('2026-08-30T08:00:00'));
-
-		$beforeState = null;
-		$this->stubCompleteLookups(
-			$roomTask,
-			$room,
-			$task,
-			$houseUser,
-			[],
-			[],
-			function ($rt, $userId, $t, $tz, $assignees, ?CompletedTask $row) {
-				return [
-					'contributionScore' => 3, 'coins' => 1, 'teamworkBonus' => 0, 'isCombo' => false,
-					'currentStreak' => 2, 'longestStreak' => 9, 'totalContribution' => 10, 'totalCoins' => 12,
-					'streakFreezeUsed' => false, 'streakFreezesRemaining' => 1, 'comboBonusFreeze' => false,
-					'titlesAdded' => [], 'newTitle' => null,
-				];
-			}
-		);
-		$this->completedTaskMapper->expects($this->once())
-			->method('insert')
-			->willReturnCallback(function (CompletedTask $row) use (&$beforeState) {
-				$beforeState = $row->getBeforeState();
-				return $row;
+	/** @dataProvider liveCorrectionPaths */
+	public function testCorrection_AbsentObligatedMember_RecomputesWithoutWalletCredit(bool $attribution): void {
+		$this->soloCompletionContext();
+		$absent = $this->addObligatedNonWorker();
+		$absent->setCurrentStreak(2);
+		$live = new CompletedTask();
+		$live->setId(9);
+		$live->setRoomTaskId(11);
+		$live->setUserId(7);
+		$live->setTotalEnergy(3);
+		$live->setCompletionVersion(0);
+		$live->setAllocationRevision(1);
+		$this->completionToFind = $live;
+		$previous = new WorkShare();
+		$previous->setWalletId(500);
+		$previous->setSharePct(100);
+		$previous->setCoinMinor(3000);
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$previous]);
+		$this->occurrenceService->method('occurrenceOfCompletion')->willReturn($this->occurrence);
+		$this->rhythmService->expects($this->once())->method('recomputeForMembers')
+			->willReturnCallback(function (int $houseId, array $members) use ($absent): array {
+				$this->assertSame([7, 8], array_map(static fn (HouseUser $m): int => (int)$m->getId(), $members));
+				$absent->setCurrentStreak(0);
+				return [];
+			});
+		$this->walletService->expects($this->once())->method('postEntries')
+			->willReturnCallback(function (int $houseId, string $source, int $id, int $version, array $deltas): void {
+				$this->assertSame([500], array_keys($deltas));
 			});
 
-		$this->completeWithReceipt(1, 'user123', 1);
+		$this->correctAs($attribution);
 
-		self::assertEqualsCanonicalizing(
-			['roomTask', 'room', 'houseUser', 'checklist'],
-			array_keys($beforeState)
-		);
-		self::assertEqualsCanonicalizing(
-			['nextDue', 'idealDueDate', 'isActive', 'lastCompleted', 'wasClaimed', 'originalAssignee', 'claimedByUser', 'claimedAt'],
-			array_keys($beforeState['roomTask'])
-		);
-		self::assertEqualsCanonicalizing(['cleanliness', 'lastCleaned'], array_keys($beforeState['room']));
-		self::assertEqualsCanonicalizing(
-			['coins', 'contributionScore', 'currentStreak', 'longestStreak', 'streakFreezes', 'lastFreezeDate', 'unlockedTitles', 'lastActivity'],
-			array_keys($beforeState['houseUser'])
-		);
-		self::assertSame(42, $beforeState['room']['cleanliness']);
-		self::assertSame(11, $beforeState['houseUser']['coins']);
-		self::assertSame(['pack.tier'], $beforeState['houseUser']['unlockedTitles']);
-		self::assertSame(true, $beforeState['roomTask']['wasClaimed']);
-		self::assertSame('claimer', $beforeState['roomTask']['claimedByUser']);
+		$this->assertSame([7, 8], $this->lockedMemberIds);
+		$this->assertSame(0, $absent->getCurrentStreak());
 	}
 
-	// ------------------------------------------------------------------
-	// complete(): rollback sabotage
-	// ------------------------------------------------------------------
-
-	/**
-	 * Complete_MapperFailureAfterLedgerInsert_RollsBackZeroWrites
-	 */
-	public function testComplete_MapperFailureAfterLedgerInsert_RollsBackZeroWrites(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom(1, 50);
-		$task = $this->buildTask();
-		$houseUser = $this->buildHouseUser();
-		$this->stubCompleteLookups($roomTask, $room, $task, $houseUser);
-
-		// A sabotage AFTER the reward phase already wrote its rows: the
-		// rollback must discard them all (ledger insert is the last write).
-		$this->completedTaskMapper->expects($this->once())
-			->method('insert')
-			->willThrowException(new \RuntimeException('db down'));
-
-		$this->db->expects($this->once())->method('rollBack');
-		$this->db->expects($this->never())->method('commit');
-
-		$this->appLogger->expects($this->once())->method('logException');
-
-		$this->expectException(\RuntimeException::class);
-		$this->expectExceptionMessage('db down');
-
-		$this->completeWithReceipt(1, 'user123', 1);
+	private function addObligatedNonWorker(): HouseUser {
+		$absent = new HouseUser();
+		$absent->setId(8);
+		$absent->setHouseId(1);
+		$absent->setNextcloudUserId('dad');
+		$absent->setWalletId(501);
+		$this->houseMembers[] = $absent;
+		$this->membersById[8] = $absent;
+		$obligation = new OccurrenceMember();
+		$obligation->setWalletId(501);
+		$obligation->setObligated(true);
+		$obligation->setDisposition(OccurrenceMember::DISPOSITION_ACTIVE);
+		$obligation->setSharePct(100);
+		$this->occurrenceMembers = [$obligation];
+		return $absent;
 	}
 
-	// ------------------------------------------------------------------
-	// complete(): post-commit degradation (decision D7)
-	// ------------------------------------------------------------------
-
-	/**
-	 * Complete_WeeklyGoalReadFails_StillSuccessWithDegradedFlag
-	 *
-	 * A post-commit failure must never turn a committed completion into an
-	 * ambiguous API failure: the response stays success with
-	 * `rewards.weeklyGoal = null`, `rewards.degraded = true`, and a logged
-	 * warning — no exception escapes.
-	 */
-	public function testComplete_WeeklyGoalReadFails_StillSuccessWithDegradedFlag(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom(1, 50);
-		$task = $this->buildTask();
-		$houseUser = $this->buildHouseUser();
-		$this->stubCompleteLookups($roomTask, $room, $task, $houseUser);
-		$this->houseService->method('getWeeklyGoalProgress')
-			->willThrowException(new \RuntimeException('goal read exploded'));
-
-		$this->appLogger->expects($this->once())
-			->method('warning')
-			->with(
-				'CompletionService: post-commit effects degraded',
-				$this->callback(function (array $context): bool {
-					return $context['event'] === 'completion_post_commit_degraded'
-						&& $context['service'] === 'CompletionService';
-				})
-			);
-
-		$result = $this->completeWithReceipt(1, 'user123', 1);
-
-		self::assertTrue($result['rewards']['degraded']);
-		self::assertNull($result['rewards']['weeklyGoal']);
-	}
-
-	/**
-	 * Complete_TeamworkFold_GamePhasePerformsTheOnlyHouseUserWrite
-	 *
-	 * Decision D9: the bonus is folded into handleTaskCompletion — the
-	 * completion service itself performs NO second house-user write (the
-	 * old unlocked RMW is gone).
-	 */
-	public function testComplete_TeamworkFold_NoSecondHouseUserWrite(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom(1, 50);
-		$task = $this->buildTask();
-		$houseUser = $this->buildHouseUser();
-
-		$this->stubCompleteLookups(
-			$roomTask,
-			$room,
-			$task,
-			$houseUser,
-			['alice', 'bob'],
-			[],
-			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
-				self::assertSame(['alice', 'bob'], $assignees, 'the canonical assignee set threads the teamwork input');
-				$row->setCoinsEarned(50);
-				$row->setWasCombo(false);
-				return [
-					'contributionScore' => 3, 'coins' => 50, 'teamworkBonus' => 2, 'isCombo' => false,
-					'currentStreak' => 1, 'longestStreak' => 1, 'totalContribution' => 3, 'totalCoins' => 52,
-					'streakFreezeUsed' => false, 'streakFreezesRemaining' => 1, 'comboBonusFreeze' => false,
-					'titlesAdded' => [], 'newTitle' => null,
-				];
-			}
-		);
-
-		$this->houseUserMapper->expects($this->never())->method('update');
-
-		$result = $this->completeWithReceipt(1, 'user123', 1);
-		self::assertSame(2, $result['rewards']['teamworkBonus']);
-		self::assertSame(52, $result['rewards']['totalCoins']);
-	}
-
-	// ------------------------------------------------------------------
-	// undo(): idempotency + actor gate (decision D3)
-	// ------------------------------------------------------------------
-
-	private function buildLedgerRow(array $beforeState, array $deltas): CompletedTask {
-		$row = new CompletedTask();
-		$row->setId(77);
-		$row->setRoomTaskId(1);
-		$row->setUserId(1);
-		$row->setCompletedAt(new \DateTime('-5 minutes'));
-		$row->setBeforeState($beforeState);
-		$row->setDeltas($deltas);
-		return $row;
-	}
-
-	private function buildBeforeState(): array {
+	/** @return array<string, array{bool, bool}> */
+	public static function correctionPaths(): array {
 		return [
-			'roomTask' => [
-				'nextDue' => '2026-09-06T00:00:00+00:00',
-				'idealDueDate' => null,
-				'isActive' => true,
-				'lastCompleted' => null,
-				'wasClaimed' => false,
-				'originalAssignee' => null,
-				'claimedByUser' => null,
-				'claimedAt' => null,
-			],
-			'room' => [
-				'cleanliness' => 40,
-				'lastCleaned' => '2026-09-04T18:00:00+00:00',
-			],
-			'houseUser' => [
-				'coins' => 10,
-				'contributionScore' => 4,
-				'currentStreak' => 3,
-				'longestStreak' => 8,
-				'streakFreezes' => 2,
-				'lastFreezeDate' => null,
-				'unlockedTitles' => ['pack.a'],
-				'lastActivity' => '2026-09-05T07:30:00+00:00',
-			],
-			'checklist' => [
-				['checklistItemId' => 5, 'userId' => 2, 'checked' => true, 'checkedAt' => '2026-09-05T09:00:00+00:00'],
-			],
+			'undo under lock' => [false, false],
+			'attribution under lock' => [true, false],
+			'undo receipt replay' => [false, true],
+			'attribution receipt replay' => [true, true],
 		];
 	}
 
-	private function stubUndoLookups(RoomTask $roomTask, Room $room, Task $task, HouseUser $actor): void {
-		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$roomTask]);
-		$this->taskMapper->method('find')->willReturn($task);
-		$this->roomMapper->method('find')->willReturn($room);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-		$this->roomTaskMapper->method('lockForUpdate')->willReturn($roomTask);
-		$this->roomMapper->method('lockForUpdate')->willReturn($room);
-		$this->roomMapper->method('update')->willReturn($room);
-	}
-
-	/**
-	 * Undo_NoRevertibleRow_ZeroWriteIdempotentSuccess
-	 */
-	public function testUndo_NoRevertibleRow_ZeroWriteIdempotentSuccess(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$actor = $this->buildHouseUser(1, 'user123');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn(null);
-
-		$this->db->expects($this->never())->method('beginTransaction');
-		$this->roomTaskMapper->expects($this->never())->method('update');
-		$this->completedTaskMapper->expects($this->never())->method('markUndone');
-
-		$result = $this->service->undo(1, $actor, 1);
-
-		self::assertFalse($result['undone']);
-		self::assertNull($result['rewards']);
-	}
-
-	/**
-	 * Undo_MemberWhoIsNotCompleter_Forbidden
-	 */
-	public function testUndo_MemberWhoIsNotCompleter_Forbidden(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$actor = $this->buildHouseUser(2, 'other-member');
-		$actor->setRole('member');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
-
-		$completer = $this->buildHouseUser(1, 'alice');
-		$this->houseUserMapper->method('find')->willReturn($completer);
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')
-			->willReturn($this->buildLedgerRow($this->buildBeforeState(), []));
-
-		$this->db->expects($this->never())->method('beginTransaction');
-
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Only the completer or a house owner can undo a completion');
-
-		$this->service->undo(1, $actor, 1);
-	}
-
-	/**
-	 * Undo_OwnerMayUndoSomeoneElsesCompletion_Allowed
-	 */
-	public function testUndo_OwnerMayUndoSomeoneElsesCompletion_Allowed(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$owner = $this->buildHouseUser(2, 'owner-user');
+	/** @dataProvider correctionPaths */
+	public function testCorrection_RoleDowngradedAfterInitialCheck_Forbidden(bool $attribution, bool $replay): void {
+		$this->soloCompletionContext();
+		$owner = clone $this->actor;
 		$owner->setRole('owner');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $owner);
+		$member = clone $owner;
+		$member->setRole('member');
+		$this->liveActor = $owner;
+		$this->receiptReplay = $replay;
+		$this->beforeCommand = function () use ($member): void {
+			$this->liveActor = $member;
+		};
+		$completion = new CompletedTask();
+		$completion->setId(9);
+		$completion->setRoomTaskId(11);
+		$completion->setUserId(8);
+		$completion->setCompletionVersion(0);
+		$completion->setAllocationRevision(1);
+		$this->completionToFind = $completion;
+		$this->walletService->expects($this->never())->method('postEntries');
 
-		$completer = $this->buildHouseUser(1, 'alice');
-		$this->houseUserMapper->method('find')->willReturn($completer);
-		$this->houseUserMapper->method('findForUpdate')->willReturn($completer);
-		$ledger = $this->buildLedgerRow($this->buildBeforeState(), [
-			'coinsAwarded' => 50,
-			'titlesAdded' => [],
-			'teamworkBonus' => 0,
-			'contributionAwarded' => 3,
-			'cleanlinessChange' => 30,
-		]);
-		// First probe finds the row; the under-lock re-check must find it again.
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
-
-		$this->db->expects($this->once())->method('commit');
-		$this->completedTaskMapper->expects($this->once())->method('markUndone')->with(77);
-
-		$result = $this->service->undo(1, $owner, 1);
-		self::assertTrue($result['undone']);
+		$this->expectException(ForbiddenException::class);
+		$this->correctAs($attribution);
 	}
 
-	/**
-	 * Undo_ChildCompleterUndoingOwnCompletion_Allowed
-	 */
-	public function testUndo_ChildCompleterUndoingOwnCompletion_Allowed(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$child = $this->buildHouseUser(3, 'kid-user');
-		$child->setRole('child');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $child);
+	/** @dataProvider correctionPaths */
+	public function testCorrection_VisibilityRevokedAfterInitialCheck_NotFound(bool $attribution, bool $replay): void {
+		$this->soloCompletionContext();
+		$this->receiptReplay = $replay;
+		$this->beforeCommand = function (): void {
+			$this->visibilityRevoked = true;
+		};
+		$completion = new CompletedTask();
+		$completion->setId(9);
+		$completion->setRoomTaskId(11);
+		$completion->setUserId(7);
+		$completion->setCompletionVersion(0);
+		$completion->setAllocationRevision(1);
+		$this->completionToFind = $completion;
+		$this->walletService->expects($this->never())->method('postEntries');
 
-		$this->houseUserMapper->method('find')->willReturn($child);
-		$this->houseUserMapper->method('findForUpdate')->willReturn($child);
-		$ledger = $this->buildLedgerRow($this->buildBeforeState(), ['titlesAdded' => []]);
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
-
-		$this->db->expects($this->once())->method('commit');
-
-		$result = $this->service->undo(1, $child, 1);
-		self::assertTrue($result['undone']);
+		$this->expectException(NotFoundException::class);
+		$this->correctAs($attribution);
 	}
 
-	// ------------------------------------------------------------------
-	// undo(): restore discipline (masterplan D2)
-	// ------------------------------------------------------------------
+	/** @dataProvider correctionPaths */
+	public function testCorrection_MembershipRemovedAfterInitialCheck_Forbidden(bool $attribution, bool $replay): void {
+		$this->soloCompletionContext();
+		$this->receiptReplay = $replay;
+		$this->beforeCommand = function (): void {
+			$this->liveActor = null;
+		};
+		$completion = new CompletedTask();
+		$completion->setId(9);
+		$completion->setRoomTaskId(11);
+		$completion->setUserId(7);
+		$completion->setCompletionVersion(0);
+		$completion->setAllocationRevision(1);
+		$this->completionToFind = $completion;
+		$this->walletService->expects($this->never())->method('postEntries');
 
-	/**
-	 * Undo_RestoresRecordedBeforeState_InDocumentedLockOrder
-	 *
-	 * Mock call order pin: lock room task → lock room → lock completer
-	 * house_user → restores → markUndone. Every before-state value is
-	 * assigned verbatim (restore, never recalculate).
-	 */
-	public function testUndo_RestoresRecordedBeforeState_InDocumentedLockOrder(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom(1, 80);
-		$actor = $this->buildHouseUser(1, 'alice');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
-
-		// The locked completer starts from the post-completion state; the
-		// restore must overwrite it with the recorded before-state values.
-		$completer = $this->buildHouseUser(1, 'alice');
-		$completer->setCoins(60);
-		$completer->setContributionScore(7);
-		$completer->setCurrentStreak(4);
-		$completer->setLongestStreak(9);
-		$completer->setStreakFreezes(1);
-		$completer->setUnlockedTitles(['pack.a', 'pack.b']);
-
-		$this->houseUserMapper->method('find')->willReturn($completer);
-		$this->houseUserMapper->method('findForUpdate')->willReturn($completer);
-
-		$before = $this->buildBeforeState();
-		$before['houseUser']['unlockedTitles'] = ['pack.a'];
-		$ledger = $this->buildLedgerRow($before, [
-			'coinsAwarded' => 50,
-			'coins' => 50,
-			'teamworkBonus' => 0,
-			'contributionAwarded' => 3,
-			'streakBefore' => 3,
-			'streakAfter' => 4,
-			'freezeUsed' => false,
-			'freezeAwarded' => false,
-			'titlesAdded' => ['pack.b'],
-			'cleanlinessChange' => 30,
-			'takeoverClaimed' => false,
-		]);
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
-
-		$callOrder = [];
-		$this->houseMapper->method('findForUpdate')->willReturnCallback(function () use (&$callOrder) {
-			$callOrder[] = 'lock_house';
-			return new House();
-		});
-		$this->roomTaskMapper->method('lockForUpdate')->willReturnCallback(function () use (&$callOrder, $roomTask) {
-			$callOrder[] = 'lock_room_task';
-			return $roomTask;
-		});
-		$this->roomMapper->method('lockForUpdate')->willReturnCallback(function () use (&$callOrder, $room) {
-			$callOrder[] = 'lock_room';
-			return $room;
-		});
-		$this->houseUserMapper->method('findForUpdate')->willReturnCallback(function () use (&$callOrder, $completer) {
-			$callOrder[] = 'lock_house_user';
-			return $completer;
-		});
-
-		$this->roomTaskMapper->expects($this->once())->method('update')->willReturnCallback(function (RoomTask $rt) use (&$callOrder) {
-			$callOrder[] = 'restore_room_task';
-			return $rt;
-		});
-		$this->roomMapper->expects($this->once())->method('update')->willReturnCallback(function (Room $r) use (&$callOrder) {
-			$callOrder[] = 'restore_room';
-			return $r;
-		});
-		$this->houseUserMapper->expects($this->once())->method('update')->willReturnCallback(function (HouseUser $u) use (&$callOrder) {
-			$callOrder[] = 'restore_house_user';
-			return $u;
-		});
-		// CS-PLAN-072 WP1: occurrence-scoped checklist progress is NEVER
-		// rewritten by an undo — the old room-task-wide reset/restore is
-		// gone (the timeline re-derives recurrence state instead).
-		$this->checklistProgressMapper->expects($this->never())->method('deleteByRoomTaskId');
-		$this->completedTaskMapper->expects($this->once())->method('markUndone')->willReturnCallback(function () use (&$callOrder) {
-			$callOrder[] = 'mark_undone';
-		});
-
-		$this->db->expects($this->once())->method('commit');
-
-		$result = $this->service->undo(1, $actor, 1);
-
-		self::assertSame([
-			'lock_house', 'lock_room_task', 'lock_room', 'lock_house_user',
-			'restore_room_task', 'restore_room', 'restore_house_user',
-			'mark_undone',
-		], $callOrder, 'restore must follow the documented house-first lock and write order');
-
-		// CS-PLAN-072 WP1: the recurrence projection fields (nextDue,
-		// lastCompleted, isActive) are re-derived by the timeline, not
-		// restored from the snapshot — the room task keeps its current
-		// projection; only claim markers restore verbatim.
-		self::assertTrue($roomTask->getIsActive());
-		self::assertFalse($roomTask->getWasClaimed());
-
-		// Cleanliness restored to the pre-completion value.
-		self::assertSame(40, $room->getCleanliness());
-		self::assertEquals(
-			new \DateTime('2026-09-04T18:00:00+00:00'),
-			$room->getLastCleaned(),
-			'lastCleaned (drives the room display) must be rewinded too'
-		);
-
-		// Reward fields restored to the recorded before-state.
-		self::assertSame(10, $completer->getCoins());
-		self::assertSame(4, $completer->getContributionScore());
-		self::assertSame(3, $completer->getCurrentStreak());
-		self::assertSame(8, $completer->getLongestStreak());
-		self::assertSame(2, $completer->getStreakFreezes());
-		self::assertEquals(
-			new \DateTime('2026-09-05T07:30:00+00:00'),
-			$completer->getLastActivity(),
-			'lastActivity drives the streak-absence calculation and must be rewinded'
-		);
-		// titlesAdded removal only for keys still present: pack.b (unlocked
-		// by a LATER completion) survives; pack.a (the before-state) stays.
-		self::assertSame(['pack.a'], $completer->getUnlockedTitles());
-
-		self::assertTrue($result['undone']);
-		self::assertSame(-50, $result['rewards']['coins']);
-		self::assertSame(-3, $result['rewards']['contributionScore']);
-		self::assertSame(-30, $result['rewards']['cleanlinessChange']);
-		self::assertSame(10, $result['rewards']['totalCoins']);
-		// CS-PLAN-066 §3.4: undo rewards never carry a newTitle (ADR-011
-		// title policy — undo emits no unlock event).
-		self::assertArrayNotHasKey('newTitle', $result['rewards']);
+		$this->expectException(ForbiddenException::class);
+		$this->correctAs($attribution);
 	}
 
-	/**
-	 * Undo_ConcurrentWinnerMakesThisTheNoOp
-	 *
-	 * The under-lock revertible re-check: a concurrent undo winner marks the
-	 * row undone first; this invocation writes nothing (the read-only
-	 * transaction commits zero writes under the run() retry contract) and
-	 * answers the idempotent `undone: false`.
-	 */
-	public function testUndo_ConcurrentWinner_MakesThisTheNoOp(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$actor = $this->buildHouseUser(1, 'alice');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
-
-		$completer = $this->buildHouseUser(1, 'alice');
-		$this->houseUserMapper->method('find')->willReturn($completer);
-
-		$ledger = $this->buildLedgerRow($this->buildBeforeState(), []);
-		// First probe: revertible. Under-lock re-check: gone (winner won).
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')
-			->willReturnOnConsecutiveCalls($ledger, null);
-
+	public function testUndo_OlderSameUserCompletion_DoesNotClearLaterClaim(): void {
+		$this->soloCompletionContext();
+		$old = new CompletedTask();
+		$old->setId(9);
+		$old->setRoomTaskId(11);
+		$old->setUserId(7);
+		$old->setTotalEnergy(3);
+		$old->setCompletionVersion(0);
+		$old->setAllocationRevision(1);
+		$old->setCompletedAt(new \DateTime('2026-09-20 08:00:00'));
+		$this->completionToFind = $old;
+		$this->roomTask->setWasClaimed(true);
+		$this->roomTask->setClaimedAt(new \DateTime('2026-09-20 08:00:00'));
+		$this->roomTask->setClaimedByUser('mom');
+		$this->roomTask->setClaimedSourceCompletionId(10);
 		$this->roomTaskMapper->expects($this->never())->method('update');
-		$this->completedTaskMapper->expects($this->never())->method('markUndone');
-		$this->db->expects($this->once())->method('commit');
-		$this->db->expects($this->never())->method('rollBack');
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([]);
+		$this->occurrenceService->method('occurrenceOfCompletion')->willReturn(null);
 
-		$result = $this->service->undo(1, $actor, 1);
-		self::assertFalse($result['undone']);
+		$this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, null);
+
+		$this->assertTrue($this->roomTask->getWasClaimed());
+		$this->assertSame(10, $this->roomTask->getClaimedSourceCompletionId());
+		$this->assertSame('mom', $this->roomTask->getClaimedByUser());
 	}
 
-	/**
-	 * Undo_MapperFailure_RollsBackAndRethrows
-	 */
-	public function testUndo_MapperFailure_RollsBackAndRethrows(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$actor = $this->buildHouseUser(1, 'alice');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
-
-		$completer = $this->buildHouseUser(1, 'alice');
-		$this->houseUserMapper->method('find')->willReturn($completer);
-		$this->houseUserMapper->method('findForUpdate')->willReturn($completer);
-
-		$ledger = $this->buildLedgerRow($this->buildBeforeState(), []);
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
-
-		$this->completedTaskMapper->method('markUndone')
-			->willThrowException(new \RuntimeException('db down'));
-
-		$this->db->expects($this->once())->method('rollBack');
-		$this->db->expects($this->never())->method('commit');
-		$this->appLogger->expects($this->once())->method('logException');
-
-		$this->expectException(\RuntimeException::class);
-		$this->service->undo(1, $actor, 1);
+	private function correctAs(bool $attribution): array {
+		return $attribution
+			? $this->service->attribute(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, [['userId' => 'mom', 'sharePct' => 100]], true, null)
+			: $this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, null);
 	}
 
-	/**
-	 * Undo_CompleterMembershipDeleted_CleanForbidden
-	 *
-	 * RF-05: the ledger row records an internal house_user id; when that
-	 * membership was deleted after the completion, the actor-gate resolution
-	 * must answer a clean undo-worded 403 — never a DoesNotExistException 500.
-	 */
-	public function testUndo_CompleterMembershipDeleted_CleanForbidden(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$actor = $this->buildHouseUser(2, 'owner-user');
-		$actor->setRole('owner');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
+	public function testShowCompletion_BuildsViewerSafeReadModel(): void {
+		$this->soloCompletionContext();
 
-		$this->houseUserMapper->method('find')
-			->willThrowException(new DoesNotExistException('completer gone'));
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')
-			->willReturn($this->buildLedgerRow($this->buildBeforeState(), []));
+		$done = new CompletedTask();
+		$done->setId(9);
+		$done->setRoomTaskId(11);
+		$done->setUserId(7);
+		$done->setTotalEnergy(3);
+		$done->setCompletionVersion(1);
+		$done->setAllocationRevision(2);
+		$done->setCompletedAt(new \DateTime('2026-09-20 08:00:00'));
+		$this->completionToFind = $done;
 
-		// No transaction may open, and nothing may be restored.
-		$this->db->expects($this->never())->method('beginTransaction');
-		$this->roomTaskMapper->expects($this->never())->method('update');
-		$this->roomMapper->expects($this->never())->method('update');
-		$this->houseUserMapper->expects($this->never())->method('update');
-		$this->completedTaskMapper->expects($this->never())->method('markUndone');
+		$share = new WorkShare();
+		$share->setCompletionId(9);
+		$share->setAllocationRevision(2);
+		$share->setWalletId(500);
+		$share->setSharePct(100);
+		$share->setEnergyMinor(300);
+		$share->setCoinMinor(3000);
+		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$share]);
 
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('The completer is no longer a member of this house');
+		$data = $this->service->showCompletion(1, $this->actor, 9);
 
-		$this->service->undo(1, $actor, 1);
-	}
-
-	/**
-	 * Undo_ErasedCompleter_CleanForbidden_NeverATypeError
-	 *
-	 * Q-70-02 (CS-PLAN-071): erasure nulls the ledger row's user_id —
-	 * the actor gate must answer the clean 403 instead of feeding null
-	 * into the int-typed mapper (TypeError 500, review finding).
-	 */
-	public function testUndo_ErasedCompleter_CleanForbidden_NeverATypeError(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$actor = $this->buildHouseUser(2, 'owner-user');
-		$actor->setRole('owner');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
-
-		$ledger = $this->buildLedgerRow($this->buildBeforeState(), []);
-		$ledger->setUserId(null);
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
-
-		// No transaction may open, and the mapper must never see a null id.
-		$this->db->expects($this->never())->method('beginTransaction');
-		$this->houseUserMapper->expects($this->never())->method('find');
-		$this->houseUserMapper->expects($this->never())->method('findForUpdate');
-
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('The completer is no longer a member of this house');
-
-		$this->service->undo(1, $actor, 1);
-	}
-
-	/**
-	 * Undo_CompleterRowVanishesUnderLock_AnswersUndoWording
-	 *
-	 * RF-05: when the completer's row vanishes between the actor gate and
-	 * the third lock, the undo context must not reuse the completion-worded
-	 * 403 ("Only house members can complete tasks").
-	 */
-	public function testUndo_CompleterRowVanishesUnderLock_AnswersUndoWording(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$actor = $this->buildHouseUser(1, 'alice');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
-
-		$completer = $this->buildHouseUser(1, 'alice');
-		$this->houseUserMapper->method('find')->willReturn($completer);
-		$this->houseUserMapper->method('findForUpdate')
-			->willThrowException(new DoesNotExistException('completer gone mid-undo'));
-
-		$ledger = $this->buildLedgerRow($this->buildBeforeState(), []);
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
-
-		$this->db->expects($this->once())->method('rollBack');
-		$this->db->expects($this->never())->method('commit');
-		$this->completedTaskMapper->expects($this->never())->method('markUndone');
-
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('The completer is no longer a member of this house');
-
-		$this->service->undo(1, $actor, 1);
-	}
-
-	/**
-	 * UndoThenSameDayRecomplete_Succeeds_WithFreshLedgerRow
-	 *
-	 * The service-level roundtrip (§4, D11): complete → undo → complete
-	 * again on the same day must succeed and insert a SECOND, distinct
-	 * ledger row — no service-side state (e.g. the reused entity) blocks
-	 * the re-completion; the undone row stays out of the duplicate guard.
-	 */
-	public function testUndoThenSameDayRecomplete_Succeeds_WithFreshLedgerRow(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom();
-		$task = $this->buildTask();
-		$houseUser = $this->buildHouseUser();
-		$this->stubCompleteLookups($roomTask, $room, $task, $houseUser);
-
-		$insertedRows = [];
-		$this->completedTaskMapper->expects($this->exactly(2))
-			->method('insert')
-			->willReturnCallback(function (CompletedTask $row) use (&$insertedRows) {
-				$row->setId(100 + count($insertedRows));
-				$insertedRows[] = $row;
-				return $row;
-			});
-		// The mocked reward phase must fill the ledger row's identity fields
-		// exactly like the real GameLogicService contract does — the undo
-		// actor gate resolves the completer through them.
-		$this->houseUserMapper->method('find')->willReturn($houseUser);
-		$this->gameLogicService->method('handleTaskCompletion')->willReturnCallback(
-			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
-				$row->setRoomTaskId($rt->getId());
-				$row->setUserId($userId);
-				$row->setCompletedAt(new \DateTime());
-				$row->setCoinsEarned(50);
-				$row->setWasCombo(false);
-				return [
-					'contributionScore' => 3, 'coins' => 50, 'teamworkBonus' => 0, 'isCombo' => false,
-					'currentStreak' => 1, 'longestStreak' => 1, 'totalContribution' => 3, 'totalCoins' => 50,
-					'streakFreezeUsed' => false, 'streakFreezesRemaining' => 1, 'comboBonusFreeze' => false,
-					'titlesAdded' => [], 'newTitle' => null,
-				];
-			}
-		);
-		// CS-PLAN-072 WP1: occurrence validity replaces the per-person/day
-		// duplicate guard — the re-completion resolves the (re-opened)
-		// target through the occurrence receipt contract.
-
-		// The revertible lookup: the first completion's row once inserted,
-		// NULL after the undo marked it (the re-complete then starts clean).
-		$undoneRowIds = [];
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')
-			->willReturnCallback(function (int $roomTaskId) use (&$insertedRows, &$undoneRowIds) {
-				foreach ($insertedRows as $row) {
-					if (!in_array($row->getId(), $undoneRowIds, true)) {
-						return $row;
-					}
-				}
-				return null;
-			});
-		$this->completedTaskMapper->method('markUndone')
-			->willReturnCallback(function (int $id) use (&$undoneRowIds) {
-				$undoneRowIds[] = $id;
-			});
-
-		$first = $this->completeWithReceipt(1, 'user123', 1);
-		$undone = $this->service->undo(1, $houseUser, 1);
-		$second = $this->completeWithReceipt(1, 'user123', 1);
-
-		self::assertTrue($undone['undone']);
-		self::assertCount(2, $insertedRows, 'the re-completion must write its own fresh ledger row');
-		self::assertNotSame($insertedRows[0], $insertedRows[1]);
-		self::assertSame($first['rewards']['totalCoins'], $second['rewards']['totalCoins']);
-	}
-
-	// ------------------------------------------------------------------
-	// CS-PLAN-073 WP2 (RF-073-WP2-10, plan §4 T3-B)
-	// ------------------------------------------------------------------
-
-	/**
-	 * Complete_PlannedCollaborators_NeverConfuseTheActualWorker
-	 *
-	 * The ledger records the ACTUAL completer identity and the frozen
-	 * timeline evidence of the resolved occurrence — the planned
-	 * collaborator set travels separately into the teamwork fold and never
-	 * replaces the worker (plan §3.2: recorded work stays with the
-	 * recorded completer).
-	 */
-	public function testComplete_PlannedCollaborators_NeverConfuseTheActualWorker(): void {
-		$roomTask = $this->buildRoomTask();
-		$houseUser = $this->buildHouseUser(4, 'actual-worker');
-		$this->stubCompleteLookups(
-			$roomTask,
-			$this->buildRoom(),
-			$this->buildTask(),
-			$houseUser,
-			['planned-mom', 'planned-kid'],
-			[],
-			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
-				// The teamwork fold receives the PLANNED set separately,
-				// while the reward flow carries the ACTUAL worker identity.
-				self::assertSame(['planned-mom', 'planned-kid'], $assignees);
-				self::assertSame(4, $userId, 'the reward fold runs for the actual completer');
-				$row->setUserId($userId);
-				$row->setCoinsEarned(50);
-				$row->setWasCombo(false);
-				return [
-					'contributionScore' => 3, 'coins' => 50, 'teamworkBonus' => 0, 'isCombo' => false,
-					'currentStreak' => 1, 'longestStreak' => 1, 'totalContribution' => 3, 'totalCoins' => 50,
-					'streakFreezeUsed' => false, 'streakFreezesRemaining' => 1, 'comboBonusFreeze' => false,
-					'titlesAdded' => [], 'newTitle' => null,
-				];
-			}
-		);
-
-		$inserted = null;
-		$this->completedTaskMapper->expects($this->once())
-			->method('insert')
-			->willReturnCallback(function (CompletedTask $row) use (&$inserted) {
-				$row->setId(1);
-				$inserted = $row;
-				return $row;
-			});
-
-		$this->completeWithReceipt(1, 'actual-worker', 1);
-
-		self::assertNotNull($inserted);
-		self::assertSame(4, $inserted->getUserId(), 'the ledger row belongs to the ACTUAL completer, never a planned collaborator');
-		// The frozen timeline evidence lets the capacity evaluator join the
-		// SAVED occurrence energy — definition edits can never re-price it
-		// (RF-073-WP2-15 boundary).
-		self::assertSame(1, $inserted->getScheduleRevId());
-		self::assertSame(1, $inserted->getOccurrenceOrdinal());
-		self::assertSame('agreed', $inserted->getCompletionClass());
-	}
-
-	/**
-	 * Complete_IsNeverCapacityGated
-	 *
-	 * Over-limit completions are always accepted (plan §3.2): capacity
-	 * gates bind amendments and planning ONLY — recording real work is
-	 * never refused and never triggers an extra offer. The structural
-	 * contract: the completion aggregate has no capacity dependency at all.
-	 */
-	public function testComplete_IsNeverCapacityGated(): void {
-		$constructor = (new \ReflectionClass(\OCA\ChoreStrike\Service\CompletionService::class))->getConstructor();
-		self::assertNotNull($constructor);
-		foreach ($constructor->getParameters() as $parameter) {
-			$type = (string)$parameter->getType();
-			self::assertStringNotContainsString(
-				'DailyCapacityService',
-				$type,
-				'the completion aggregate must never consult the capacity evaluator'
-			);
-		}
-	}
-
-	/**
-	 * Undo_RemovesActualConsumption_KeepsNeutralEvidence
-	 *
-	 * The undo removes the ACTUAL consumption (the ledger row is marked
-	 * undone and drops out of every capacity read — D11) while the frozen
-	 * timeline evidence on the row and the neutral pause facts on the
-	 * released occurrence stay untouched.
-	 */
-	public function testUndo_RemovesActualConsumption_KeepsNeutralEvidence(): void {
-		$roomTask = $this->buildRoomTask();
-		$room = $this->buildRoom(1, 80);
-		$actor = $this->buildHouseUser(1, 'alice');
-		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
-
-		$completer = $this->buildHouseUser(1, 'alice');
-		$this->houseUserMapper->method('find')->willReturn($completer);
-		$this->houseUserMapper->method('findForUpdate')->willReturn($completer);
-		$this->houseMapper->method('findForUpdate')->willReturn(new House());
-
-		$ledger = $this->buildLedgerRow($this->buildBeforeState(), [
-			'coinsAwarded' => 50, 'coins' => 50, 'teamworkBonus' => 0,
-			'contributionAwarded' => 3, 'streakBefore' => 3, 'streakAfter' => 4,
-			'freezeUsed' => false, 'freezeAwarded' => false, 'titlesAdded' => [],
-			'cleanlinessChange' => 30, 'takeoverClaimed' => false,
-		]);
-		$ledger->setScheduleRevId(1);
-		$ledger->setOccurrenceOrdinal(1);
-		$ledger->setWorkDate(new \DateTime('2026-09-06'));
-		$ledger->setWorkZone('UTC');
-		$ledger->setCompletionClass('agreed');
-		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
-
-		// The recorded occurrence carries neutral pause facts — the undo
-		// must not scrub them.
-		$occurrence = new Occurrence();
-		$occurrence->setId(9);
-		$occurrence->setSuspensionState(Occurrence::SUSPENSION_SUSPENDED);
-		$occurrence->setSuspensionEvidence([['pauseGroupId' => 4, 'revision' => 2]]);
-		$this->occurrenceService->method('occurrenceOfCompletion')->willReturn($occurrence);
-
-		$released = null;
-		$this->occurrenceService->expects($this->once())
-			->method('releaseCompletionUnderLock')
-			->willReturnCallback(function ($houseId, Occurrence $occ) use (&$released) {
-				$released = $occ;
-			});
-		$this->completedTaskMapper->expects($this->once())->method('markUndone');
-		$this->db->expects($this->once())->method('commit');
-
-		$result = $this->service->undo(1, $actor, 1);
-
-		self::assertTrue($result['undone']);
-		self::assertSame($occurrence, $released, 'the recorded occurrence itself is released');
-		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $occurrence->getSuspensionState(), 'the neutral suspension fact survives the undo');
-		self::assertSame([['pauseGroupId' => 4, 'revision' => 2]], $occurrence->getSuspensionEvidence());
-		// The frozen timeline evidence stays on the (now undone) row.
-		self::assertSame(1, $ledger->getScheduleRevId());
-		self::assertSame(1, $ledger->getOccurrenceOrdinal());
-		self::assertSame('UTC', $ledger->getWorkZone());
-		self::assertSame('agreed', $ledger->getCompletionClass());
+		$this->assertSame(9, $data['id']);
+		$this->assertSame(1, $data['version']);
+		$this->assertSame(2, $data['allocationRevision']);
+		// The selected allocation is viewer-safe (shares only, no foreign
+		// wallet totals) and `canCorrect` reflects the completer identity.
+		$this->assertSame('mom', $data['allocation'][0]['userId']);
+		$this->assertArrayNotHasKey('bookedMinor', $data['allocation'][0]);
+		$this->assertTrue($data['canCorrect']);
 	}
 }

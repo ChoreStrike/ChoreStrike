@@ -178,13 +178,21 @@ Target rules only; current per-assignee accounting is not changed by this docume
 - For energy 1 and three equal participants, use 34/33/33%: 0.34/0.33/0.33 energy
   and 3.4/3.3/3.3 Coins at the fixed rate of 10. Preserve total effort and total
   Coins exactly; do not round each participant independently into a larger reward.
-- Energy and Coins support up to two decimal places. Use exact integer hundredths:
-  for integer task energy E and whole percentage P, energy hundredths = E * P and
-  Coin hundredths = 10 * E * P. No floating-point conservation errors.
+- Energy and Coins are exact **integer minor units** since WP3
+  ([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)): 100 energy
+  minor = 1 energy, 100 coin minor = 1 Coin, 1000 coin minor per frozen energy
+  unit at the rate frozen at completion time. For integer task energy E and
+  whole percentage P: `energyMinor = E * P`, `coinMinor = 10 * E * P` — no
+  floating-point anywhere, the signed safe-integer envelope is enforced at every
+  accumulation boundary, and display trims fraction digits without rounding the
+  stored value.
 - After a real completion, correcting only attribution preserves the occurrence,
   actual time, total effort and room effect. Correct each affected person's
-  allocation/credit and rhythm contribution, including removed participants;
-  see the [correction contract](task-model-and-sync.md#approved-correction-contract-c3-2026-09-17).
+  allocation/credit and rhythm contribution, including removed participants
+  (their retained wallets are always part of the reversal union); see the
+  delivered WP3 correction contract in
+  [task-model-and-sync.md](task-model-and-sync.md) and
+  [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md).
 
 ### Delivered planning capacity and frozen energy (CS-PLAN-073 WP2, implemented 2026-09-24)
 
@@ -208,9 +216,6 @@ planner capacity grid (`{planned}/{budget} — over capacity`, `Paused`,
 ## Open Details
 
 - Whether energy costs can be personalized per member based on age/ability.
-- Exact persistence/concurrency enforcement for C3 actual-share reconciliation
-  after completions (WP3 accounting); the owner-recorded agreement and
-  aggregate-capacity enforcement itself is delivered (CS-PLAN-073 WP2, above).
 - C5 local-day/UI integration of the approved pause restart and complete workload
   model. These are not permission to
   weaken the limits or block legitimate recording of already completed work.
@@ -220,10 +225,12 @@ must derive from agreed due occurrences, not from every weekday marked available
 
 ## See Also
 
-- Implemented reward tokens driven by energy (coins, tier/early multipliers, streak
-  freezes, teamwork bonus, weekly goal) are documented in
+- The WP3 minor-unit accounting, work splits and corrections are delivered
+  (CS-PLAN-074, [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md))
+  and documented in
   [`gamification-and-rewards.md`](gamification-and-rewards.md) § Implemented Reward
-  Mechanics. Energy budgets are configurable per weekday and persisted in the
-  `scheduling_preferences` JSON column of `house_users` (the orphan
+  Mechanics and [`task-model-and-sync.md`](task-model-and-sync.md) § Completion
+  and undo model. Energy budgets are configurable per weekday and persisted in
+  the `scheduling_preferences` JSON column of `house_users` (the orphan
   `AvailabilitySettings` entity/table cluster was pruned in CS-PLAN-055; see
   [`../engineering/architecture.md`](../engineering/architecture.md)).

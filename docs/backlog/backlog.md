@@ -73,41 +73,6 @@ leaderboard remainder keeps its ownership here; no whole-item closure is implied
 
 ---
 
-### [P3] CR-SVC-63 — Manual cleanliness adjust stays an unlocked RMW against the WP5 room-row lock
-**Status**: In Progress — journal/replay remainder owned by [CS-PLAN-074](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) (Standard A activation 2026-09-25; previously re-sectioned 2026-09-14, D-FR-03) · **Effort**: XS · **Layer**: backend · **Journey stage**: completion/undo
-**Owning**: CS-PLAN-074 WP3 (journal/replay remainder) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-064 (Standard A, 2026-09-06)
-
-After WP5, completions/undos write room cleanliness on a locked room row,
-but the manual adjust endpoint (`RoomController#updateCleanliness` →
-`RoomService::updateRoomCleanliness`, find → `updateCleanliness` → update)
-remained an unlocked read-modify-write: a concurrent manual adjust can still
-lose (or clobber) a completion's cleanliness delta. Deferred by user decision
-to keep the WP5 scope guard (completion/undo critical path only). The authz
-defense-in-depth half was closed by the CS-PLAN-058 final Full review
-(RF-058-06: service-side room→floor→house chain validation).
-**CS-PLAN-071 WP0 (2026-09-18): the RMW half is narrowed, not closed — the
-manual adjust now runs house-first (`house → room` locks, serialized against
-every writer), but the WP3 `room_events` journal/replay remains open, so the
-item stays for its journal+replay remainder.** Fix remainder: route the
-manual adjust through the journal with ordered replay evidence; the
-two-connection adjust-vs-completion race is already serialized by the WP0
-lock order (regression value shifts to replay ordering).
-
-**C3 dependency (2026-09-17):** CS-PLAN-070's approved isolated room correction
-requires this existing locking fix plus ordered replay evidence for manual room
-mutations. The current manual endpoint applies a delta, not an absolute set.
-Keep this item's ownership; the plan owns its broader effect-history design.
-No duplicate item, implementation or closure is implied by the product decision.
-
-**WP3 activation (2026-09-25):** [CS-PLAN-074](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md)
-is active (Standard A `PASS`; Q-074-01/02 resolved with Option A each) and owns
-this item's journal/replay remainder: room-writer/reset journal coverage,
-ordered replay and real race tests. This item stays open until that complete
-remaining contract passes; it closes with the plan's final review.
-
----
-
 ### [P4] CR-SEC-05 — Caller-gates-owner contract on removeHouseMember/updateUserRole
 **Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: authorization
 **Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -236,7 +201,7 @@ profile or guardian-consent model should be implied by onboarding copy.
 
 ### [P1] FEAT-UX-024 — Notification settings
 **Status**: Planned (core policy approved; implementation not started) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001; CS-PLAN-074 WP3 closed-week delivery follow-up (2026-09-27)
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 UC-14 reminders are passive server jobs with no settings surface.
@@ -248,8 +213,18 @@ threats. C5 now specifies house-time/DST handling, a 60-minute same-day delivery
 window, personal quiet hours and one shared daily task/organization digest budget;
 missed-slot notices expire instead of becoming a future backlog. Opt-ins are
 personal/server-side, revocable and invalidated by departure.
-Same-day per-task dedup is not a digest or recipient budget; current jobs are
-unchanged. Priority reflects its selected role in the reliable core, not activation.
+Same-day per-task dedup is not a digest or recipient budget; the separate daily
+preference/quiet-hour job work is unchanged. Priority reflects its selected
+role in the reliable core, not activation.
+
+**WP3 delivery follow-up (2026-09-27):** the closed-week household milestone
+claims its durable per-week receipt before notifying Nextcloud recipients.
+That prevents duplicate dispatch attempts across corrections, retries and job
+outages, but a manager failure after the claim can leave one recipient without
+the bell. Dispatch failures are logged. Evaluate a per-recipient outbox or
+equivalent delivery acknowledgement with the C5 backend notification design;
+do not replace the per-week claim with a broad replay. This is a separate
+delivery guarantee, not a missing WP3 work-accounting test or a plan move.
 
 - [x] C5 delivery/category/consent policy recorded (2026-09-17); technical slot/claim/API design remains open.
 - [ ] Backend: per-user notification preferences (storage + membership-gated
@@ -413,14 +388,16 @@ recommended options, including the frozen cross-zone capacity/pause comparison):
 agreements, exact planned shares, whole-day capacity, pauses, catch-up/restart
 and midnight-stale 409, with concrete test/file ownership and explicit
 WP3/WP4/WP5/WP6 handoffs. WP2 is delivered; later packages remain open.
-WP3 is sub-planned as [CS-PLAN-074](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md)
-(activated 2026-09-25, Standard A `PASS`; Q-074-01/02 resolved with the
-recommended options — the minimum correction-closure slice, its coupled
-legacy-effect retirement and T5 moved into WP3, and completer/owner
-false-attribution correction approved): actual shares, exact wallet accounting,
-targeted correction, room replay/reset, retention and minimal client/no-Coin
-arcade integration. WP3 implementation has not started; CONCEPT-001 remains
-open.
+WP3 was sub-planned and delivered by the child
+[CS-PLAN-074](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md)
+(activated 2026-09-25, Standard A `PASS`; **final Standard B re-review
+`PASS-WITH-FIXES` 2026-09-27, plan in `done/`**): actual shares, exact
+minor-unit wallet accounting (sole ledger authority, ADR-014), targeted
+undo/attribution with departed-wallet conservation, room journal/replay
+(CR-SVC-63 closed), the Q-074-01A rhythm/weekly/retained-recognition
+correction closure, retention/erasure sweeps and the minimal client/no-Coin
+arcade cutover; RF-074-WP3-01..10 resolved. Later packages (WP4+) remain
+open in the parent; CONCEPT-001 remains open.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

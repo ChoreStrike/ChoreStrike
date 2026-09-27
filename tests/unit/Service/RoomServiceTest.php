@@ -6,6 +6,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -17,6 +18,7 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CommandService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\IDBConnection;
 use OCP\IL10N;
@@ -40,6 +42,8 @@ class RoomServiceTest extends TestCase {
 	private IDBConnection $db;
 	private AppLogger $appLogger;
 	private AuthorizationService $authorization;
+	private \OCA\ChoreStrike\Service\RoomReplayService $roomReplayService;
+	private CommandService $commandService;
 
 	protected function setUp(): void {
 		$this->roomMapper = $this->createMock(RoomMapper::class);
@@ -51,11 +55,22 @@ class RoomServiceTest extends TestCase {
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->authorization = $this->createMock(AuthorizationService::class);
+		$actor = new HouseUser();
+		$actor->setId(3);
+		$this->authorization->method('assertHouseMember')->willReturn($actor);
+		$this->commandService = $this->createMock(CommandService::class);
+		$this->commandService->method('runCommand')->willReturnCallback(static function (int $houseId, int $actorId, string $uuid, string $action, array $payload, callable $fn): array {
+			return ['result' => $fn(), 'replay' => false];
+		});
 
 		// CS-PLAN-071 WP0: structure mutations enter through the house row
 		// lock (findForUpdate) — a stub is enough for these unit tests.
 		$this->houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
 		$this->houseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
+
+		// WP3 §3.5: room creations journal a baseline; the replay service
+		// is mocked (no-op) except where a test asserts the journal seam.
+		$this->roomReplayService = $this->createMock(\OCA\ChoreStrike\Service\RoomReplayService::class);
 
 		$this->service = new RoomService(
 			$this->roomMapper,
@@ -66,6 +81,8 @@ class RoomServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->checklistProgressMapper,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
+			$this->roomReplayService,
+			$this->commandService,
 			$this->createIdentityL10n(),
 			$this->appLogger,
 			$this->authorization
@@ -492,15 +509,25 @@ class RoomServiceTest extends TestCase {
 	}
 
 	/**
-	 * UpdateRoomCleanliness_PositiveChange_UpdatesCleanliness
+	 * UpdateRoomCleanliness_RecordsRequestedDeltaAndRebuildsCache
 	 *
-	 * CS-PLAN-071 WP0: the manual delta runs house-first — the room row is
-	 * read under the ROOM LOCK inside the transaction (lockForUpdate), not
-	 * via a second unlocked find.
+	 * CS-PLAN-070 WP3 (§3.5, CR-SVC-63 closure): the manual path journals
+	 * the REQUESTED delta through the room journal (idempotent through the
+	 * command UUID) and rebuilds the room cache by the chronological
+	 * replay — house lock, journal write and cache update are ONE
+	 * transaction; the house state version bumps.
 	 */
-	public function testUpdateRoomCleanliness_PositiveChange_UpdatesCleanliness(): void {
+	public function testUpdateRoomCleanliness_RecordsRequestedDeltaAndRebuildsCache(): void {
 		$roomId = 1;
 		$cleanlinessChange = 20;
+
+		$house = new \OCA\ChoreStrike\Db\House();
+		$house->setId(1);
+		$house->setStateVersion(4);
+		$this->houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
+		$this->houseMapper->method('findForUpdate')->willReturn($house);
+		$this->houseMapper->method('find')->willReturn($house);
+		$this->rebuildService();
 
 		$room = new Room();
 		$room->setId($roomId);
@@ -511,37 +538,142 @@ class RoomServiceTest extends TestCase {
 		$floor->setId(7);
 		$floor->setHouseId(1);
 
-		$updatedRoom = new Room();
-		$updatedRoom->setId($roomId);
-		$updatedRoom->setCleanliness(70);
+		$replayed = new Room();
+		$replayed->setId($roomId);
+		$replayed->setFloorId(7);
+		$replayed->setCleanliness(70);
 
 		// RF-058-06: the service re-validates the room→floor→house chain
 		// before the write.
 		$this->roomMapper
-			->expects($this->once())
+			->expects($this->exactly(4))
 			->method('find')
 			->with($roomId)
-			->willReturn($room);
+			->willReturn($room, $room, $replayed, $replayed);
 
 		$this->floorMapper
 			->method('find')
 			->with(7)
 			->willReturn($floor);
 
+		// CS-PLAN-071 WP0: the room row is locked inside the transaction.
 		$this->roomMapper
 			->expects($this->once())
 			->method('lockForUpdate')
 			->with($roomId)
 			->willReturn($room);
 
-		$this->roomMapper
+		$this->roomReplayService
+			->expects($this->once())
+			->method('recordManualDelta')
+			->with($roomId, 20, 'cmd-manual-1', $this->isInstanceOf(\DateTime::class));
+		$this->roomReplayService
+			->expects($this->once())
+			->method('resyncRoomCache')
+			->with($room)
+			->willReturn($replayed);
+
+		$this->houseMapper
 			->expects($this->once())
 			->method('update')
-			->willReturn($updatedRoom);
+			->with($this->callback(static function ($h) {
+				return $h->getStateVersion() === 5;
+			}))
+			->willReturnArgument(0);
 
-		$result = $this->service->updateRoomCleanliness($roomId, 1, $cleanlinessChange);
+		// The replay service owns the room write — RoomService never
+		// writes the room row directly.
+		$this->roomMapper->expects($this->never())->method('update');
+		$this->commandService->expects($this->once())->method('runCommand')
+			->with(1, 3, 'cmd-manual-1', 'room.manual_delta', [
+				'roomId' => 1, 'cleanlinessChange' => 20, 'expectedVersion' => 4,
+			], $this->isType('callable'));
 
-		$this->assertSame($updatedRoom, $result);
+		$result = $this->service->updateRoomCleanliness($roomId, 1, $cleanlinessChange, 'cmd-manual-1', 4);
+
+		$this->assertSame($replayed, $result);
+	}
+
+	/**
+	 * UpdateRoomCleanliness_StaleExpectedVersion_ThrowsConflict
+	 *
+	 * §3.6: `expectedVersion` guards the delta against a house state the
+	 * caller has not seen (stale → 409, nothing journaled).
+	 */
+	public function testUpdateRoomCleanliness_StaleExpectedVersion_ThrowsConflict(): void {
+		$house = new \OCA\ChoreStrike\Db\House();
+		$house->setId(1);
+		$house->setStateVersion(9);
+		$this->houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
+		$this->houseMapper->method('findForUpdate')->willReturn($house);
+		$this->houseMapper->method('find')->willReturn($house);
+		$this->rebuildService();
+
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(1);
+
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
+
+		$this->roomReplayService->expects($this->never())->method('recordManualDelta');
+		$this->roomMapper->expects($this->never())->method('lockForUpdate');
+
+		$this->expectException(\OCA\ChoreStrike\Exception\ConflictException::class);
+		$this->service->updateRoomCleanliness(1, 1, 20, 'cmd-manual-stale', 8);
+	}
+
+	public function testUpdateRoomCleanliness_MemberRemovedBeforeHouseLock_DeniedWithoutJournal(): void {
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(7);
+		$floor = new Floor();
+		$floor->setHouseId(1);
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
+
+		$checks = 0;
+		$actor = new HouseUser();
+		$actor->setId(3);
+		$this->authorization->method('assertHouseMember')->willReturnCallback(
+			static function () use ($actor, &$checks): HouseUser {
+				if (++$checks > 1) {
+					throw new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member');
+				}
+				return $actor;
+			}
+		);
+		$this->roomReplayService->expects($this->never())->method('recordManualDelta');
+		$this->roomMapper->expects($this->never())->method('lockForUpdate');
+
+		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+		$this->service->updateRoomCleanliness(1, 1, 10, 'cmd-removed');
+	}
+
+	/**
+	 * UpdateRoomCleanliness_OutOfBoundsDelta_RejectedBeforeTransaction
+	 */
+	public function testUpdateRoomCleanliness_OutOfBoundsDelta_RejectedBeforeTransaction(): void {
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(1);
+
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
+
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->roomReplayService->expects($this->never())->method('recordManualDelta');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->service->updateRoomCleanliness(1, 1, 101, 'cmd-manual-101');
 	}
 
 	/**
@@ -560,9 +692,10 @@ class RoomServiceTest extends TestCase {
 		$this->floorMapper->method('find')->with(7)->willReturn($foreignFloor);
 
 		$this->roomMapper->expects($this->never())->method('update');
+		$this->roomReplayService->expects($this->never())->method('recordManualDelta');
 
-		$this->expectException(\OCA\ChoreStrike\Exception\NotFoundException::class);
-		$this->service->updateRoomCleanliness(1, 1, 20);
+		$this->expectException(NotFoundException::class);
+		$this->service->updateRoomCleanliness(1, 1, 20, 'cmd-manual-1');
 	}
 
 	/**
@@ -607,5 +740,23 @@ class RoomServiceTest extends TestCase {
 		$this->assertSame($roomTask, $result['roomTask']);
 		$this->assertSame($task, $result['task']);
 		$this->assertSame($room, $result['room']);
+	}
+
+	private function rebuildService(): void {
+		$this->service = new RoomService(
+			$this->roomMapper,
+			$this->roomTaskMapper,
+			$this->taskMapper,
+			$this->floorMapper,
+			$this->houseMapper,
+			$this->taskAssigneeMapper,
+			$this->checklistProgressMapper,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
+			$this->roomReplayService,
+			$this->commandService,
+			$this->createIdentityL10n(),
+			$this->appLogger,
+			$this->authorization
+		);
 	}
 }

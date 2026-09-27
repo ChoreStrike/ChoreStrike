@@ -334,50 +334,58 @@ A task instance can be completed from:
    status — see the prune note above; there is no external-completion path
    today.
 
-### Completion and undo model (CS-PLAN-064 WP5)
+### Completion and undo model (WP3, ADR-014 — implemented 2026-09-27)
 
-Completion and undo use one authoritative effect record and idempotent
-transitions. The recorded-state design is described in
-[ADR-011](../adr/ADR-011-transactional-completion-and-undo.md); this section
-records the domain model.
+> **Supersedes the CS-PLAN-064 WP5 snapshot-reversal model** (kept in
+> [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md) as the
+> historical record). The 2026-09-16 "snapshot restore is not an exact inverse"
+> limitation is closed: corrections now re-derive from the valid history
+> instead of restoring snapshots.
 
-**Known correctness limitation (2026-09-16):** undo restores shared wallet,
-contribution and room values from the earlier snapshot. It does not preserve
-independent later changes to those values. The operation is not an exact inverse
-of only that completion in an interleaved history. Define and test the
-cross-event reversal contract before attaching real-world value to coins;
-tracked in the family-rhythm clarification plan.
+Completion, undo and attribution share one transactional aggregate with one
+lock order and one command-receipt seam (every mutation carries a client
+`commandId` UUID; an identical retry replays the stored outcome, a changed
+payload under the same UUID conflicts). The domain model:
 
-- **One occurrence = one ledger row.** `POST /room-tasks/{id}/complete`
-  validates the occurrence *before* any mutation (inactive → 409, same-user
-  day duplicate → 403, visibility → 404/403) and writes one immutable effect
-  record: the house-local `occurrence_due` plus the full pre-mutation
-  `before_state` (room task, room cleanliness, completer rewards, checklist
-  progress) and every applied `delta` (coins, contribution, streak, freezes,
-  titles, cleanliness, takeover). The occurrence-scoped checklist progress is
-  reset in the same transaction, so checked items never leak into the next
-  occurrence.
-- **Undo restores, never recalculates.** `POST /room-tasks/{id}/undo` reverts
-  the *newest revertible* occurrence of that room task by assigning the
-  recorded before-state values back — recurrence dates, active flag, claim
-  fields, room cleanliness, completer coins/contribution/streaks/freezes, and
-  the snapshotted checklist rows. Only titles unlocked by the undone
-  completion (and not re-earned later) are removed; medals, the weekly-goal
-  notification claim, and dispatched notifications are documented
-  non-retractions. The actor must be the completer or a house owner; with no
-  revertible occurrence undo is a zero-write no-op (`undone: false`).
-- **An undone occurrence is not a completion anywhere.** Undone ledger rows
-  are excluded from the day-duplicate guard, the combo window, and the
-  weekly-goal count — undo-then-re-complete the same day is the supported
-  misclick-recovery flow.
-- **The client reconciles from the one response.** The completion/undo payload
-  carries authoritative totals (`totalCoins`, `totalContribution`,
-  `longestStreak`, room state; undo adds `completerUserId`); every owning
-  frontend store (room tasks, daily list, rooms, game, user, coin wallet) is
-  updated from that payload **before** the first celebration event fires —
-  celebration effects cannot run against stale caches. The global undo
-  snackbar is a queued list: each completion gets its own entry and countdown
-  (UX-015), so a second completion never destroys the first undo action.
+- **Work is the immutable fact.** A completion freezes the attributed work
+  evidence — the occurrence identity (`schedule_rev_id`, `occurrence_ordinal`),
+  house-local `work_date`/`work_zone`, `occurrence_due`, `total_energy` and
+  the frozen `rate_minor` — and records the actual participants as the
+  selected allocation revision (`work_shares`: wallet, exact share, minor
+  units, actor, review confirmation). The completer must take part in the
+  work; completing someone else's split unchanged is rejected.
+- **Rewards are exact derivations, never minted integers.** `energyMinor =
+  totalEnergy × sharePct`, `coinMinor = 10 × totalEnergy × sharePct` at the
+  frozen rate; wallet postings are immutable `wallet_entries` rows keyed by
+  `(wallet, source-kind, source-id, source-revision)` so every command commits
+  exactly once. Totals are conserved by construction.
+- **Undo reverses the latest selected allocation exactly once.**
+  `POST /completions/{id}/undo` (completer or owner authority) releases the
+  occurrence completion, posts the exact negative wallet-union deltas, replays
+  the room journal (the undone requested effect drops out; the correction
+  execution time never becomes `last_cleaned`) and recomputes the personal
+  recognition of everyone whose credit changed. No revertible target → a
+  zero-write `undone: false` success. The receipt/version staleness stays a
+  `409`.
+- **Attribution corrects who actually did the work.**
+  `PUT /completions/{id}/attribution` (completer or owner; participation
+  alone is no authority) rewrites the selected allocation with the explicit
+  deviation confirmation. The reversal union is keyed by **wallet id from the
+  share rows**: a departed participant's retained wallet is always reversed,
+  so a completion pays out exactly the frozen total and never more. The
+  frozen work facts and the room journal stay immutable; the audit chain
+  (`completion_revs`) is append-only and a departed-not-erased actor renders
+  as the localized 'Removed member' placeholder.
+- **An undone completion is not a completion anywhere.** Undone rows are
+  excluded from the weekly-goal count and the rhythm evaluation; the
+  supported misclick flow is undo-then-re-complete (a fresh command identity).
+- **The client reconciles from the one response.** Every owning store
+  (room tasks, rooms, game, user) updates from the authoritative payload
+  **before** the first UI event fires (CS-PLAN-066 D10); the payload carries
+  frozen work facts, the selected allocation and the caller's own wallet
+  totals in minor units. The global undo snackbar stays a queued list
+  (UX-015), and the activity feed exposes the authorized older-completion
+  correction through the viewer-scoped `canCorrect` flag (WP3 §3.6).
 
 ### Structural deletion and account erasure (CS-PLAN-071 WP0, implemented)
 

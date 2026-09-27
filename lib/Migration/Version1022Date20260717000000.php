@@ -14,8 +14,14 @@ use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
 /**
- * Migration for Phase 2 streak freeze:
- *  - adds `streak_freezes` int column (default 1) to `chorestrike_house_users`
+ * CS-PLAN-070 WP3 (Q-074-01 Option A — coupled legacy-effect retirement):
+ * the streak-freeze column is retired from the fresh-install chain.
+ *
+ * Dated recognized pauses replaced freezes as the neutral absence mechanism
+ * (parent D4b); the completion path no longer consumes or awards freezes and
+ * the freeze/restock jobs are gone. Fresh installs never receive the column;
+ * disposable dev databases are recreated (`down -v` + `up -d`, pre-release
+ * no-backcompat policy, project-rules §1).
  */
 class Version1022Date20260717000000 extends SimpleMigrationStep {
 	/**
@@ -24,22 +30,10 @@ class Version1022Date20260717000000 extends SimpleMigrationStep {
 	 * @param array $options
 	 */
 	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
-		/** @var ISchemaWrapper $schema */
-		$schema = $schemaClosure();
-
-		if ($schema->hasTable('chorestrike_house_users')) {
-			$table = $schema->getTable('chorestrike_house_users');
-			if (!$table->hasColumn('streak_freezes')) {
-				$table->addColumn('streak_freezes', 'integer', [
-					'notnull' => true,
-					'default' => 1,
-					'unsigned' => true,
-				]);
-			}
-		}
-
-		// The runner persists schema diffs produced by changeSchema(), so the
-		// modified wrapper MUST be returned (returning null silently drops it).
-		return $schema;
+		// Retained as a chain placeholder: the original `streak_freezes`
+		// column add is gone with its writers/readers. Keeping the version
+		// entry stable preserves the migration identity for existing tracked
+		// disposable databases without re-creating retired columns.
+		return $schemaClosure();
 	}
 }

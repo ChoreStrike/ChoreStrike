@@ -21,12 +21,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setNextcloudUserId(string $nextcloudUserId)
  * @method string getDisplayName()
  * @method void setDisplayName(string $displayName)
- * @method int getContributionScore()
- * @method void setContributionScore(int $contributionScore)
- * @method int getCoins()
- * @method void setCoins(int $coins)
- * @method float getCoinMultiplier()
- * @method void setCoinMultiplier(float $coinMultiplier)
+ * @method int getContributionMinor()
+ * @method void setContributionMinor(int $contributionMinor)
  * @method int getCurrentStreak()
  * @method void setCurrentStreak(int $currentStreak)
  * @method int getLongestStreak()
@@ -39,14 +35,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setJoinedAt(\DateTime $joinedAt)
  * @method array|null getSchedulingPreferences()
  * @method void setSchedulingPreferences(array $preferences)
- * @method int getStreakFreezes()
- * @method void setStreakFreezes(int $streakFreezes)
  * @method string|null getSelectedTitlePack()
  * @method void setSelectedTitlePack(?string $selectedTitlePack)
  * @method array getUnlockedTitles()
  * @method void setUnlockedTitles(array $unlockedTitles)
- * @method \DateTime|null getLastFreezeDate()
- * @method void setLastFreezeDate(?\DateTime $lastFreezeDate)
  * @method int|null getWalletId()
  * @method void setWalletId(?int $walletId)
  */
@@ -60,14 +52,15 @@ class HouseUser extends Entity implements JsonSerializable {
 	/** @var string */
 	protected $displayName;
 
-	/** @var int */
-	protected $contributionScore = 0;
-
-	/** @var int */
-	protected $coins = 0;
-
-	/** @var float */
-	protected $coinMultiplier = 1.0;
+	/**
+	 * Exact contribution in energy minor units (CS-PLAN-070 WP3 §3.1) —
+	 * derived from the member's valid selected work shares. Membership is
+	 * never a financial authority: a rejoining member's contribution is
+	 * re-derived from the retained work.
+	 *
+	 * @var int
+	 */
+	protected $contributionMinor = 0;
 
 	/** @var int */
 	protected $currentStreak = 0;
@@ -87,23 +80,17 @@ class HouseUser extends Entity implements JsonSerializable {
 	/** @var int */
 	protected $longestStreak = 0;
 
-	/** @var int */
-	protected $streakFreezes = 1;
-
 	/** @var string|null Selected title pack key (null = no pack chosen). */
 	protected $selectedTitlePack = null;
 
 	/** @var array Cache of `{pack}.{tier}` titles the user has unlocked. */
 	protected $unlockedTitles = [];
 
-	/** @var \DateTime|null Last day the streak-freeze job processed this user (CR-SVC-03 idempotency). */
-	protected $lastFreezeDate = null;
-
 	/**
-	 * Persistent wallet binding (CS-PLAN-071 WP0). Identity only — the
-	 * wallet survives departure and is erased only with the account.
-	 * Deliberately NOT exposed through jsonSerialize (financial identity
-	 * grants no access and leaks nothing).
+	 * Persistent wallet binding (CS-PLAN-071 WP0). The wallet — not this
+	 * row — is the monetary authority; contribution_minor is a derived
+	 * cache. Deliberately NOT exposed through jsonSerialize (financial
+	 * identity grants no access and leaks nothing).
 	 *
 	 * @var int|null
 	 */
@@ -114,19 +101,15 @@ class HouseUser extends Entity implements JsonSerializable {
 		$this->addType('houseId', 'integer');
 		$this->addType('nextcloudUserId', 'string');
 		$this->addType('displayName', 'string');
-		$this->addType('contributionScore', 'integer');
-		$this->addType('coins', 'integer');
-		$this->addType('coinMultiplier', 'decimal');
+		$this->addType('contributionMinor', 'integer');
 		$this->addType('currentStreak', 'integer');
 		$this->addType('longestStreak', 'integer');
 		$this->addType('lastActivity', 'datetime');
 		$this->addType('role', 'string');
 		$this->addType('joinedAt', 'datetime');
 		$this->addType('schedulingPreferences', 'json');
-		$this->addType('streakFreezes', 'integer');
 		$this->addType('selectedTitlePack', 'string');
 		$this->addType('unlockedTitles', 'json');
-		$this->addType('lastFreezeDate', 'date');
 		$this->addType('walletId', 'integer');
 	}
 
@@ -139,37 +122,22 @@ class HouseUser extends Entity implements JsonSerializable {
 			'houseId' => $this->houseId,
 			'nextcloudUserId' => $this->nextcloudUserId,
 			'displayName' => $this->displayName,
-			'contributionScore' => $this->contributionScore,
-			'coins' => $this->coins,
-			'coinMultiplier' => $this->coinMultiplier,
+			'contributionMinor' => $this->contributionMinor,
 			'currentStreak' => $this->currentStreak,
 			'longestStreak' => $this->longestStreak,
 			'lastActivity' => $this->lastActivity?->format('c'),
 			'role' => $this->role,
 			'joinedAt' => $this->joinedAt?->format('c'),
 			'schedulingPreferences' => $this->schedulingPreferences,
-			'streakFreezes' => $this->streakFreezes,
-			'lastFreezeDate' => $this->lastFreezeDate?->format('c'),
 			'selectedTitlePack' => $this->selectedTitlePack,
 		];
 	}
 
 	/**
-	 * Add contribution score
-	 *
-	 * @param int $points Points to add
+	 * Add contribution in minor units
 	 */
-	public function addContributionScore(int $points): void {
-		$this->setContributionScore($this->contributionScore + $points);
-	}
-
-	/**
-	 * Add coins
-	 *
-	 * @param int $coins Coins to add
-	 */
-	public function addCoins(int $coins): void {
-		$this->setCoins($this->coins + $coins);
+	public function addContributionMinor(int $minor): void {
+		$this->setContributionMinor($this->contributionMinor + $minor);
 	}
 
 	/**
@@ -261,44 +229,11 @@ class HouseUser extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Consume one streak freeze. Returns true if a freeze was consumed, false if none available.
-	 */
-	public function consumeFreeze(): bool {
-		if ($this->streakFreezes <= 0) {
-			return false;
-		}
-		$this->setStreakFreezes($this->streakFreezes - 1);
-		return true;
-	}
-
-	/**
-	 * Restock streak freezes to the configured amount, capped at the given maximum.
-	 *
-	 * @param int $count Target freeze count
-	 * @param int $cap Maximum allowed freezes
-	 */
-	public function restockFreezes(int $count, int $cap = 2): void {
-		$this->setStreakFreezes(min($count, $cap));
-	}
-
-	/**
-	 * Award a bonus freeze (e.g. from combo milestone), respecting the cap.
-	 *
-	 * @param int $cap Maximum allowed freezes
-	 */
-	public function awardBonusFreeze(int $cap = 2): void {
-		if ($this->streakFreezes < $cap) {
-			$this->setStreakFreezes($this->streakFreezes + 1);
-		}
-	}
-
-	/**
 	 * Append a `{pack}.{tier}` title id to the unlocked-titles cache.
 	 *
-	 * Idempotent: returns true only when the title was newly added (drives
-	 * the unlock-detection "is this a new unlock?" check). The cache is a
-	 * denormalized mirror of the stat-derived unlock set, so a house reset
-	 * clears it without data loss.
+	 * Idempotent: returns true only when the title was newly added. The
+	 * cache is a denormalized mirror of the stat-derived unlock set, so a
+	 * house reset clears it without data loss.
 	 *
 	 * @param string $tierId Canonical `{pack}.{tier}` identifier
 	 * @return bool True when the title was newly cached

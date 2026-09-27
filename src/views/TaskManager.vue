@@ -166,6 +166,14 @@
 			:loading="deleting"
 			@confirm="confirmDeleteTask"
 			@cancel="taskToDelete = null" />
+
+		<ParticipationDialog
+			v-if="participation"
+			:members="participationMembers()"
+			:proposal="participation.proposal ?? null"
+			:actor-user-id="userStore.currentUser?.nextcloudUserId ?? null"
+			@close="participation = null"
+			@confirm="confirmParticipation" />
 	</div>
 </template>
 
@@ -180,6 +188,7 @@ import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
+import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
@@ -197,6 +206,7 @@ export default {
 		Modal,
 		ConfirmDialog,
 		ErrorState,
+		ParticipationDialog,
 	},
 
 	setup() {
@@ -224,6 +234,9 @@ export default {
 			editingTask: null,
 			taskToDelete: null,
 			deleting: false,
+			// WP3 §3.6: the multi-person completion dialog target (the
+			// room-task row with its server proposal) while open.
+			participation: null,
 		}
 	},
 
@@ -346,17 +359,94 @@ export default {
 			}
 		},
 
-		handleCompleteTask(roomTaskId) {
-			this.roomTasksStore.completeRoomTask(roomTaskId)
-				.then(() => {
-					this.$emit('task-completed', roomTaskId)
-				})
-				.catch(error => {
-					// CS-PLAN-066 §3.5: mutation failures are visible toasts,
-					// not logger-only lines.
-					showError(t('chorestrike', 'Could not complete the task'))
-					logger.error('Failed to complete task', error, { view: 'TaskManager', action: 'handleCompleteTask', roomTaskId })
-				})
+		async handleCompleteTask(roomTaskId) {
+			// WP3 §3.6 (Q-074-02): a solo agreement naming the actor
+			// completes directly; multi-person work (or an agreement
+			// naming someone else) opens the participation dialog
+			// pre-filled with the server proposal.
+			const roomTask = this.roomTasksStore.roomTasks.find(row => row.id === roomTaskId)
+			if (this.needsParticipationDialog(roomTask?.proposal ?? null)) {
+				await this.openParticipation(roomTask)
+				return
+			}
+			this.performComplete(roomTaskId)
+		},
+
+		/**
+		 * Open the participation dialog with the actor identity resolved
+		 * (the actor joins a foreign split, Q-074-02).
+		 * @param {object} roomTask The room-task row with its proposal.
+		 */
+		async openParticipation(roomTask) {
+			if (!this.userStore.currentUser) {
+				await this.userStore.initializeCurrentUser().catch(() => {})
+			}
+			if ((this.userStore.houseUsers ?? []).length === 0) {
+				this.userStore.fetchHouseUsers().catch(() => {})
+			}
+			this.participation = roomTask
+		},
+
+		/**
+		 * Whether the completion needs the explicit participation dialog:
+		 * more than one proposed participant, or a sole proposed
+		 * participant who is not the acting user.
+		 * @param {?object} proposal The server proposal block.
+		 * @return {boolean}
+		 */
+		needsParticipationDialog(proposal) {
+			const participants = proposal?.participants ?? []
+			if (participants.length > 1) {
+				return true
+			}
+			if (participants.length === 1) {
+				const actorId = this.userStore.currentUser?.nextcloudUserId ?? null
+				// An unresolved identity still opens the dialog — the safe default
+				// never fires a participant-less completion into someone else's work.
+				return actorId === null || participants[0].userId !== actorId
+			}
+			return false
+		},
+
+		/**
+		 * Candidate members for the open participation dialog.
+		 * @return {Array<{userId: string, displayName: string}>}
+		 */
+		participationMembers() {
+			const roomTask = this.participation
+			if (!roomTask) return []
+			const namesByUser = {}
+			;(this.userStore.houseUsers ?? []).forEach(member => {
+				namesByUser[member.nextcloudUserId] = member.displayName
+			})
+			const assignees = roomTask.assignees ?? []
+			if (assignees.length > 0) {
+				return assignees.map(userId => ({ userId, displayName: namesByUser[userId] ?? userId }))
+			}
+			return Object.keys(namesByUser).map(userId => ({ userId, displayName: namesByUser[userId] }))
+		},
+
+		async confirmParticipation(payload) {
+			const roomTask = this.participation
+			this.participation = null
+			if (!roomTask) return
+			await this.performComplete(roomTask.id, payload)
+		},
+
+		async performComplete(roomTaskId, options = {}) {
+			try {
+				if (Object.keys(options).length > 0) {
+					await this.roomTasksStore.completeRoomTask(roomTaskId, options)
+				} else {
+					await this.roomTasksStore.completeRoomTask(roomTaskId)
+				}
+				this.$emit('task-completed', roomTaskId)
+			} catch (error) {
+				// CS-PLAN-066 §3.5: mutation failures are visible toasts,
+				// not logger-only lines.
+				showError(t('chorestrike', 'Could not complete the task'))
+				logger.error('Failed to complete task', error, { view: 'TaskManager', action: 'handleCompleteTask', roomTaskId })
+			}
 		},
 
 		handleEditTask(roomTask) {

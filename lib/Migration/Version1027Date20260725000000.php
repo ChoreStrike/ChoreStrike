@@ -64,29 +64,10 @@ class Version1027Date20260725000000 extends SimpleMigrationStep {
 			}
 		}
 
-		// chorestrike_house_users.coin_multiplier (DECIMAL 3,2, default 1.00)
-		if ($schema->hasTable('chorestrike_house_users')) {
-			$table = $schema->getTable('chorestrike_house_users');
-			if (!$table->hasColumn('coin_multiplier')) {
-				$table->addColumn('coin_multiplier', 'decimal', [
-					'notnull' => true,
-					'precision' => 3,
-					'scale' => 2,
-					'default' => 1.00,
-				]);
-			}
-			// chorestrike_house_users.last_freeze_date (DATE, nullable) — CR-SVC-03
-			// idempotency guard for the daily streak-freeze job: records the last
-			// day StreakFreezeService::process handled a user so a re-run (job
-			// retry / occ trigger-jobs) is a no-op instead of double-consuming a
-			// freeze or resetting an already-preserved streak.
-			if (!$table->hasColumn('last_freeze_date')) {
-				$table->addColumn('last_freeze_date', 'date', [
-					'notnull' => false,
-					'default' => null,
-				]);
-			}
-		}
+		// chorestrike_house_users.last_freeze_date — retired with the freeze
+		// mechanics (CS-PLAN-070 WP3, Q-074-01 Option A: the coupled
+		// legacy-effect retirement). The `coin_multiplier` earning multiplier
+		// is likewise gone — Coins are wallet minor units at the frozen rate.
 
 		// chorestrike_room_tasks.ideal_due_date (DATETIME, nullable)
 		if ($schema->hasTable('chorestrike_room_tasks')) {

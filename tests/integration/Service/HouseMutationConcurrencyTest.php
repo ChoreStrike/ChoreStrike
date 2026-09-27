@@ -101,7 +101,7 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			@unlink($helperScript);
 		}
 
-		// Zero writes: no ledger row, no coin delta.
+		// Zero writes: no ledger row, no work-share/wallet credit.
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('id'))
 			->from('chorestrike_completed_tasks')
@@ -111,12 +111,12 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		$result->closeCursor();
 		self::assertSame(0, $ledgerCount, 'the denied completion must not write a ledger row');
 
-		$coinsQb = $this->db->getQueryBuilder();
-		$coinsQb->select('coins')
+		$contributionQb = $this->db->getQueryBuilder();
+		$contributionQb->select('contribution_minor')
 			->from('chorestrike_house_users')
-			->where($coinsQb->expr()->eq('id', $coinsQb->createNamedParameter($completerHouseUserId, IQueryBuilder::PARAM_INT)));
-		$completerCoins = (int)$this->fetchScalar($coinsQb);
-		self::assertSame(0, $completerCoins, 'the denied completion must not award coins');
+			->where($contributionQb->expr()->eq('id', $contributionQb->createNamedParameter($completerHouseUserId, IQueryBuilder::PARAM_INT)));
+		$completerContribution = (int)$this->fetchScalar($contributionQb);
+		self::assertSame(0, $completerContribution, 'the denied completion must not credit work');
 	}
 
 	/**
@@ -368,6 +368,13 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		// process-global; requireHouseOwner needs the membership in place).
 		$this->actingAs('hmc_setup_owner');
 
+		// WP3 membership invariant: fixtures carry their (legitimate)
+		// bindings — the rollback claim is about the WIZARD's own writes.
+		$walletsBefore = (int)$this->fetchScalar(
+			$this->countQuery('chorestrike_wallets', 'house_id', $houseId)
+		);
+		self::assertSame(2, $walletsBefore, 'both fixture members are bound');
+
 		$setupService = \OC::$server->get(HouseSetupService::class);
 
 		// Sabotage the assignee writer — it runs AFTER ensureWallets in the
@@ -403,20 +410,21 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			self::assertSame('sabotaged assignee write', $e->getMessage());
 		}
 
-		// No member of this house gained a wallet identity.
-		$walletCount = (int)$this->fetchScalar(
+		// The wizard's own wallet writes rolled back: exactly the fixture
+		// identities remain, no additional row survived the failure.
+		$walletsAfter = (int)$this->fetchScalar(
 			$this->countQuery('chorestrike_wallets', 'house_id', $houseId)
 		);
-		self::assertSame(0, $walletCount, 'the failed wizard must not leave wallet identities behind');
+		self::assertSame($walletsBefore, $walletsAfter, 'the failed wizard must not leave wallet identities behind');
 
-		// And no member carries a binding.
+		// And exactly the two PRE-EXISTING fixture bindings remain.
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('id'))
 			->from('chorestrike_house_users')
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->isNotNull('wallet_id'));
 		$boundCount = (int)$this->fetchScalar($qb);
-		self::assertSame(0, $boundCount, 'the failed wizard must not leave wallet bindings behind');
+		self::assertSame(2, $boundCount, 'only the fixture members keep their bindings');
 
 		// The structural writes rolled back too.
 		$floorCount = (int)$this->fetchScalar(
@@ -593,9 +601,9 @@ file_put_contents($signalFile, 'locked');
 usleep(2000000);
 
 $db->executeStatement(
-    'INSERT INTO *PREFIX*chorestrike_completed_tasks (room_task_id, user_id, completed_at, coins_earned, was_combo, before_state, deltas) VALUES (:rtid, :uid, NOW(), 5, 0, :before, :deltas)',
-    ['rtid' => $roomTaskId, 'uid' => $houseUserId, 'before' => '{}', 'deltas' => '{}'],
-    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'uid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'before' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'deltas' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR]
+    'INSERT INTO *PREFIX*chorestrike_completed_tasks (room_task_id, user_id, completed_at, total_energy, rate_minor, completion_version, allocation_revision, occurrence_due, work_date, work_zone, completion_class) VALUES (:rtid, :uid, NOW(), 3, 1000, 0, 1, CURDATE(), CURDATE(), \'UTC\', \'agreed\')',
+    ['rtid' => $roomTaskId, 'uid' => $houseUserId],
+    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'uid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
 // CS-PLAN-072 WP1: the winner FULFILLS the shared occurrence target — the
 // loser's under-lock re-check reads this committed fulfillment (occurrence
@@ -665,7 +673,7 @@ $result->closeCursor();
 try {
     $now = date('Y-m-d H:i:s');
     $db->executeStatement(
-        'INSERT INTO *PREFIX*chorestrike_house_users (house_id, nextcloud_user_id, display_name, role, contribution_score, coins, current_streak, longest_streak, streak_freezes, unlocked_titles, joined_at) VALUES (:hid, :uid, :dn, :role, 0, 0, 0, 0, 1, :titles, :now)',
+        'INSERT INTO *PREFIX*chorestrike_house_users (house_id, nextcloud_user_id, display_name, role, contribution_minor, current_streak, longest_streak, unlocked_titles, joined_at) VALUES (:hid, :uid, :dn, :role, 0, 0, 0, :titles, :now)',
         ['hid' => $houseId, 'uid' => 'hmc_wallet_target', 'dn' => 'HMC Wallet Target', 'role' => 'member', 'titles' => '[]', 'now' => $now],
         ['hid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'uid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'dn' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'role' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'titles' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'now' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR]
     );

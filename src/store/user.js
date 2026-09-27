@@ -52,7 +52,7 @@ export const useUserStore = defineStore('user', {
 
 		getLeaderboard: (state) => {
 			return [...state.houseUsers]
-				.sort((a, b) => b.contributionScore - a.contributionScore)
+				.sort((a, b) => b.contributionMinor - a.contributionMinor)
 		},
 	},
 
@@ -279,43 +279,27 @@ export const useUserStore = defineStore('user', {
 		},
 
 		/**
-		 * Reconcile the current user's progression fields from an
-		 * authoritative completion/undo rewards payload (CS-PLAN-064
-		 * §3.5, decision D10). Only ever applied when the payload's
-		 * totals describe the CURRENT user (the completer) — caller
-		 * guards the completer-identity check; the undo actor may be a
-		 * house owner restoring someone else's state.
-		 * @param {object} rewards Completion/undo `rewards` object.
+		 * Reconcile the caller's OWN wallet/contribution from an
+		 * authoritative completion/undo rewards payload (WP3 §3.6):
+		 * wallet in minor units (booked/reserved/available/fundingHold),
+		 * exact contributionMinor. Called on every completion/undo
+		 * response that carries the block; unknown/null values keep the
+		 * current state.
+		 * @param {?object} wallet Own wallet block (minor units) or null.
+		 * @param {?number} contributionMinor Exact contribution minor units.
 		 */
-		applyRewardTotals(rewards) {
-			if (!rewards) return
-
+		applyOwnWallet(wallet, contributionMinor) {
+			if (!this.currentUser) return
 			const patch = {}
-			if (Number.isFinite(rewards.totalCoins)) {
-				patch.coins = rewards.totalCoins
+			if (wallet && typeof wallet === 'object') {
+				patch.wallet = wallet
 			}
-			if (Number.isFinite(rewards.totalContribution)) {
-				patch.contributionScore = rewards.totalContribution
+			if (Number.isFinite(contributionMinor)) {
+				patch.contributionMinor = contributionMinor
 			}
-			if (Number.isFinite(rewards.currentStreak)) {
-				patch.currentStreak = rewards.currentStreak
-			}
-			if (Number.isFinite(rewards.longestStreak)) {
-				patch.longestStreak = rewards.longestStreak
-			}
-			if (Number.isFinite(rewards.streakFreezesRemaining)) {
-				patch.streakFreezes = rewards.streakFreezesRemaining
-			}
-			if (Object.keys(patch).length === 0 || !this.currentUser) return
+			if (Object.keys(patch).length === 0) return
 
 			this.currentUser = { ...this.currentUser, ...patch }
-			// The leaderboard slice shows the same HouseUser rows — keep it
-			// consistent whenever the entry is loaded.
-			this.houseUsers = this.houseUsers.map(user => (
-				user.nextcloudUserId === this.currentUser.nextcloudUserId
-					? { ...user, ...patch }
-					: user
-			))
 		},
 
 		/**

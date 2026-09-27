@@ -47,17 +47,19 @@ let entryCounter = 0
 
 /**
  * Global "Task completed" snackbar queue with per-entry Undo actions
- * (CS-PLAN-041, UX-015 resolved by CS-PLAN-064 §3.5).
+ * (CS-PLAN-041, UX-015; WP3 completion-targeted undo).
  *
  * Listens for successful completions on the event bus and offers a ~5 s
  * undo window per completion — every entry keeps its own countdown and is
- * individually undoable/dismissible, so a second completion no longer
- * destroys the first undo action. Undoing calls the one idempotent undo
- * aggregate (`POST /room-tasks/{id}/undo`) through the store; the entry
- * drops out immediately (perceived instant revert) and a failed undo
- * surfaces an error toast while the server truth (completed) stays. When
- * the queue exceeds MAX_QUEUE_ENTRIES the oldest entry is evicted. No
- * reward internals are shown — the copy stays "Task completed / Undo".
+ * individually undoable/dismissible. Each entry carries the completion
+ * identity (`completionId` + `expectedVersion`) the WP3 targeted
+ * correction contract requires: undo runs
+ * `POST /completions/{id}/undo` on the EXACT completion (an undo unit),
+ * never a room-task-latest lookup. The entry drops out immediately
+ * (perceived instant revert); a failed undo surfaces an error toast while
+ * the server truth (completed) stays. When the queue exceeds
+ * MAX_QUEUE_ENTRIES the oldest entry is evicted. No reward internals are
+ * shown — the copy stays "Task completed / Undo".
  */
 export default {
 	name: 'UndoSnackbar',
@@ -70,7 +72,7 @@ export default {
 
 	mounted() {
 		this.timers = new Map()
-		this.handler = ({ roomTaskId }) => this.show(roomTaskId)
+		this.handler = (payload) => this.show(payload)
 		subscribe('chorestrike:task-completed', this.handler)
 	},
 
@@ -83,9 +85,14 @@ export default {
 	methods: {
 		t,
 
-		show(roomTaskId) {
+		show(payload) {
 			const key = `undo-${++entryCounter}`
-			this.entries.push({ key, roomTaskId })
+			this.entries.push({
+				key,
+				roomTaskId: payload.roomTaskId,
+				completionId: payload.completionId ?? null,
+				expectedVersion: payload.expectedVersion ?? 0,
+			})
 			while (this.entries.length > MAX_QUEUE_ENTRIES) {
 				this.dismiss(this.entries[0].key)
 			}
@@ -107,14 +114,23 @@ export default {
 		async handleUndo(entry) {
 			const roomTasksStore = useRoomTasksStore()
 
+			if (entry.completionId == null) {
+				// Without the completion identity no targeted undo can run —
+				// surface the failure instead of undoing a guessed target.
+				showError(t('chorestrike', 'Could not undo the completion'))
+				logger.error('Undo blocked: completion identity missing', undefined, { component: 'UndoSnackbar', action: 'handleUndo', roomTaskId: entry.roomTaskId })
+				this.dismiss(entry.key)
+				return
+			}
+
 			// Perceived instant revert: drop the entry before the call.
 			this.dismiss(entry.key)
 
 			try {
-				await roomTasksStore.undoRoomTaskCompletion(entry.roomTaskId)
+				await roomTasksStore.undoRoomTaskCompletion(entry.completionId, entry.expectedVersion)
 			} catch (error) {
 				showError(t('chorestrike', 'Could not undo the completion'))
-				logger.error('Failed to undo task completion', error, { component: 'UndoSnackbar', action: 'handleUndo', roomTaskId: entry.roomTaskId })
+				logger.error('Failed to undo task completion', error, { component: 'UndoSnackbar', action: 'handleUndo', completionId: entry.completionId })
 			}
 		},
 	},

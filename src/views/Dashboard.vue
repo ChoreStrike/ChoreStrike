@@ -49,6 +49,10 @@
 			</header>
 
 			<main class="dashboard-content">
+				<div v-if="gameStore.wallet" class="own-wallet" data-testid="own-wallet">
+					<span class="wallet-label">{{ t('chorestrike', 'Your Coins') }} ({{ t('chorestrike', 'Available') }})</span>
+					<strong data-testid="own-wallet-available">{{ formatCoinMinor(gameStore.wallet.availableMinor) }}</strong>
+				</div>
 				<HouseholdGoalBar class="household-goal-section" data-testid="household-goal-section" />
 				<QuickStats
 					class="quick-stats-section"
@@ -76,6 +80,7 @@ import { useGameStore } from '../store/game.js'
 import { useUserStore } from '../store/user.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { logger } from '../utils/logger.js'
+import { formatCoinMinor } from '../utils/minorUnits.js'
 import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import HouseHealthBar from '../components/Dashboard/HouseHealthBar.vue'
@@ -135,6 +140,7 @@ export default {
 
 	methods: {
 		t,
+		formatCoinMinor,
 		async initializeDashboard() {
 			this.initError = false
 			// Fetch house, floors, game state, and the due/overdue count
@@ -292,6 +298,27 @@ h1 {
 	display: flex;
 	flex-direction: column;
 	gap: 2rem;
+}
+
+.own-wallet {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 1rem 1.25rem;
+	background: var(--color-main-background);
+	border: 1px solid var(--color-border);
+	border-radius: 12px;
+}
+
+.wallet-label {
+	color: var(--color-text-maxcontrast);
+}
+
+.own-wallet strong {
+	color: var(--color-main-text);
+	font-size: 1.3rem;
+	font-variant-numeric: tabular-nums;
 }
 
 .quick-stats-section {

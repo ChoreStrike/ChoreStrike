@@ -181,6 +181,14 @@
 				<p>{{ t('chorestrike', 'All done — enjoy your day!') }}</p>
 			</div>
 		</template>
+
+		<ParticipationDialog
+			v-if="participation"
+			:members="participationMembers"
+			:proposal="participation.item.proposal ?? null"
+			:actor-user-id="userStore.currentUser?.nextcloudUserId ?? null"
+			@close="participation = null"
+			@confirm="confirmParticipation" />
 	</div>
 </template>
 
@@ -197,6 +205,7 @@ import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
 import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import TaskChecklist from '../components/Tasks/TaskChecklist.vue'
+import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
 
 export default {
 	name: 'TodayView',
@@ -205,6 +214,7 @@ export default {
 		Icon,
 		ErrorState,
 		TaskChecklist,
+		ParticipationDialog,
 	},
 
 	setup() {
@@ -222,6 +232,9 @@ export default {
 			filter: 'mine',
 			completingIds: new Set(),
 			expandedIds: [],
+			// WP3 §3.6: the multi-person completion dialog target
+			// (`{item}`) while open; solo work bypasses the dialog.
+			participation: null,
 			// Definitions whose checklist was discovered to be EMPTY: the
 			// toggle is hidden for them after the one-shot discovery so a
 			// checklist-less row never offers a dead control (manual a11y
@@ -233,6 +246,26 @@ export default {
 	computed: {
 		myUserId() {
 			return this.userStore.currentUser?.nextcloudUserId || null
+		},
+
+		/**
+		 * Candidate members for the open participation dialog (WP3 §3.6):
+		 * the canonical assignee set of the completing task, falling back
+		 * to the full house membership for unassigned work.
+		 * @return {Array<{userId: string, displayName: string}>}
+		 */
+		participationMembers() {
+			const item = this.participation?.item
+			if (!item) return []
+			const namesByUser = {}
+			;(this.userStore.houseUsers ?? []).forEach(member => {
+				namesByUser[member.nextcloudUserId] = member.displayName
+			})
+			const assignees = item.assignees ?? []
+			if (assignees.length > 0) {
+				return assignees.map(userId => ({ userId, displayName: namesByUser[userId] ?? userId }))
+			}
+			return Object.keys(namesByUser).map(userId => ({ userId, displayName: namesByUser[userId] }))
 		},
 
 		// CS-PLAN-066 §3.3: the rows are SELECTORS of their owning store
@@ -341,10 +374,72 @@ export default {
 		},
 
 		async complete(item) {
-			const roomTaskId = item.roomTask.id
+			// WP3 §3.6 (C2a, Q-074-02): a solo agreement naming the actor
+			// completes directly; multi-person work (or an agreement naming
+			// someone else) opens the participation dialog pre-filled with
+			// the server proposal (the effective concrete agreement).
+			if (this.needsParticipationDialog(item.proposal ?? null)) {
+				await this.openParticipation({ item })
+				return
+			}
+			await this.performComplete(item.roomTask.id)
+		},
+
+		/**
+		 * Open the participation dialog with the actor identity resolved:
+		 * the dialog needs the current user id AT CREATION (the actor
+		 * joins a foreign split, Q-074-02). Member display names load in
+		 * parallel and fall back to raw user ids.
+		 * @param {{item: object}} target The dialog target.
+		 */
+		async openParticipation(target) {
+			if (!this.userStore.currentUser) {
+				await this.userStore.initializeCurrentUser().catch(() => {})
+			}
+			if ((this.userStore.houseUsers ?? []).length === 0) {
+				this.userStore.fetchHouseUsers().catch(() => {})
+			}
+			this.participation = target
+		},
+
+		/**
+		 * Whether the completion needs the explicit participation dialog:
+		 * more than one proposed participant, or a sole proposed
+		 * participant who is not the acting user.
+		 * @param {?object} proposal The server proposal block.
+		 * @return {boolean}
+		 */
+		needsParticipationDialog(proposal) {
+			const participants = proposal?.participants ?? []
+			if (participants.length > 1) {
+				return true
+			}
+			if (participants.length === 1) {
+				const actorId = this.userStore.currentUser?.nextcloudUserId ?? null
+				// An unresolved identity still opens the dialog — the safe default
+				// never fires a participant-less completion into someone else's work.
+				return actorId === null || participants[0].userId !== actorId
+			}
+			return false
+		},
+
+		async confirmParticipation(payload) {
+			const item = this.participation?.item
+			this.participation = null
+			if (!item) return
+			await this.performComplete(item.roomTask.id, payload)
+		},
+
+		async performComplete(roomTaskId, options = {}) {
 			this.completingIds = new Set(this.completingIds).add(roomTaskId)
 			try {
-				await this.roomTasksStore.completeRoomTask(roomTaskId)
+				// Participant-less completion omits the options entirely —
+				// the server credits the effective concrete agreement.
+				if (Object.keys(options).length > 0) {
+					await this.roomTasksStore.completeRoomTask(roomTaskId, options)
+				} else {
+					await this.roomTasksStore.completeRoomTask(roomTaskId)
+				}
 				// The store reconciled every owning slice from this payload
 				// (D10) and refreshed the count projections (D3); this view's
 				// computed selectors re-derive their rows reactively.

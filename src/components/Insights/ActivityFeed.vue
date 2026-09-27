@@ -10,13 +10,14 @@
 				v-for="item in items"
 				:key="item.id"
 				class="activity-item"
+				:class="{ undone: item.undoneAt }"
 				data-testid="activity-item">
-				<span class="activity-icon" :class="{ combo: item.wasCombo }">
-					{{ item.wasCombo ? '🔥' : '✓' }}
+				<span class="activity-icon">
+					{{ item.undoneAt ? '↩' : '✓' }}
 				</span>
 				<span class="activity-text">
 					<strong class="activity-actor">{{ item.displayName || t('chorestrike', 'Unknown member') }}</strong>
-					{{ t('chorestrike', 'completed') }}
+					{{ item.undoneAt ? t('chorestrike', 'undid a completion of') : t('chorestrike', 'completed') }}
 					<strong class="activity-task">{{ item.taskTitle || t('chorestrike', 'Unknown task') }}</strong>
 					<span v-if="item.roomName" class="activity-room">
 						{{ t('chorestrike', 'in') }} {{ item.roomName }}
@@ -26,7 +27,31 @@
 					<span class="activity-time" :title="absoluteDate(item.completedAt)">
 						{{ relativeDate(item.completedAt) }}
 					</span>
-					<span v-if="item.coinsEarned" class="activity-coins">+{{ item.coinsEarned }} 🪙</span>
+					<!-- WP3: the frozen total effort — never the mutable live
+					     definition, never a Coin mint. -->
+					<span v-if="item.totalEnergy != null" class="activity-energy" :data-testid="`activity-energy-${item.id}`">
+						{{ item.totalEnergy }} ⚡
+					</span>
+					<!-- WP3 §3.6: authorized older-completion correction
+					     (completer or owner, still-valid target) — opens the
+					     attribution dialog reusing the participation form. -->
+					<button
+						v-if="item.canCorrect && !item.undoneAt"
+						class="activity-correct"
+						:data-testid="`activity-correct-${item.id}`"
+						:disabled="busyId === item.id || blockedIds.includes(item.id)"
+						@click="$emit('correct', item)">
+						{{ t('chorestrike', 'Correct split') }}
+					</button>
+					<button
+						v-if="item.canCorrect && !item.undoneAt"
+						class="activity-correct"
+						:data-testid="`activity-undo-${item.id}`"
+						:data-version="item.version"
+						:disabled="busyId === item.id || blockedIds.includes(item.id)"
+						@click="$emit('undo', item)">
+						{{ t('chorestrike', 'Undo') }}
+					</button>
 				</span>
 			</li>
 		</ul>
@@ -48,7 +73,17 @@ export default {
 			type: Array,
 			required: true,
 		},
+		busyId: {
+			type: Number,
+			default: null,
+		},
+		blockedIds: {
+			type: Array,
+			default: () => [],
+		},
 	},
+
+	emits: ['correct', 'undo'],
 
 	methods: {
 		t,
@@ -105,11 +140,6 @@ export default {
 	flex-shrink: 0;
 }
 
-.activity-icon.combo {
-	background: var(--color-warning-hover, #fef9e7);
-	color: var(--color-warning, #f39c12);
-}
-
 .activity-text {
 	flex: 1;
 	color: var(--color-main-text);
@@ -132,15 +162,48 @@ export default {
 	color: var(--color-text-maxcontrast);
 }
 
-.activity-coins {
+.activity-correct {
+	min-height: 44px;
+	padding: 0.3rem 0.75rem;
+	background: transparent;
+	color: var(--color-text-maxcontrast);
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	cursor: pointer;
 	font-size: 0.8rem;
 	font-weight: 600;
-	color: var(--color-warning, #f39c12);
+}
+
+.activity-correct:hover:not(:disabled) {
+	color: var(--color-main-text);
+	border-color: var(--color-main-text);
+}
+
+.activity-correct:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 .empty-state {
 	text-align: center;
 	padding: 2rem;
 	color: var(--color-text-maxcontrast);
+}
+
+@media (max-width: 600px) {
+	.activity-item {
+		flex-wrap: wrap;
+	}
+
+	.activity-text {
+		min-width: calc(100% - 44px);
+	}
+
+	.activity-meta {
+		margin-inline-start: 44px;
+		align-items: center;
+		flex-direction: row;
+		flex-wrap: wrap;
+	}
 }
 </style>

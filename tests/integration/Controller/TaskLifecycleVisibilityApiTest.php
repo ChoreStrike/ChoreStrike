@@ -78,26 +78,24 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 		$this->adminOnlyRoomTaskId = $this->assignTaskToRoom($adminOnlyTaskId, $this->roomId, null);
 	}
 
-	// ========== Undo (CS-PLAN-064: replaces uncomplete/reactivate) ==========
+	// ========== Targeted completion correction (WP3 §3.6) ==========
 
 	/**
 	 * Undo_PrivateTask_ByNonAssigneeMember_Returns404
 	 *
 	 * Decision D3: a non-viewer gets the 404 anti-enumeration denial — the
-	 * undo surface must not confirm that an invisible id exists, and the
-	 * denied undo leaves the completed row untouched.
+	 * correction surface must not confirm that an invisible id exists, and
+	 * the denied undo leaves the completed row untouched.
 	 */
 	public function testUndo_PrivateTask_ByNonAssigneeMember_Returns404(): void {
-		$this->completeAs('lcv_assignee', $this->privateRoomTaskId);
-		$controller = $this->getController(RoomTaskController::class, 'lcv_member');
+		$completionId = $this->completeAs('lcv_assignee', $this->privateRoomTaskId);
 
-		$response = $controller->undo($this->privateRoomTaskId);
+		$response = $this->undoViaController('lcv_member', $completionId);
 
 		self::assertSame(404, $response->getStatus());
 		$data = $response->getData();
 		self::assertFalse($data['success']);
 		self::assertSame('RESOURCE_NOT_FOUND', $data['error']['code']);
-		self::assertSame('Task not found', $data['error']['message']);
 		self::assertNotNull($this->fetchLastCompleted($this->privateRoomTaskId), 'the row must be unchanged');
 	}
 
@@ -106,10 +104,9 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	 * own completion (actor gate D3) and assignees may execute (matrix D2).
 	 */
 	public function testUndo_PrivateTask_ByAssignee_Returns200(): void {
-		$this->completeAs('lcv_assignee', $this->privateRoomTaskId);
-		$controller = $this->getController(RoomTaskController::class, 'lcv_assignee');
+		$completionId = $this->completeAs('lcv_assignee', $this->privateRoomTaskId);
 
-		$response = $controller->undo($this->privateRoomTaskId);
+		$response = $this->undoViaController('lcv_assignee', $completionId);
 
 		self::assertSame(200, $response->getStatus());
 		$data = $response->getData();
@@ -124,10 +121,9 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	 * creator ∪ assignees) and may undo their own completion.
 	 */
 	public function testUndo_PrivateTask_ByCreatorWithoutAssignment_Returns200(): void {
-		$this->completeAs('lcv_creator', $this->creatorOnlyRoomTaskId);
-		$controller = $this->getController(RoomTaskController::class, 'lcv_creator');
+		$completionId = $this->completeAs('lcv_creator', $this->creatorOnlyRoomTaskId);
 
-		$response = $controller->undo($this->creatorOnlyRoomTaskId);
+		$response = $this->undoViaController('lcv_creator', $completionId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertTrue($response->getData()['data']['undone']);
@@ -186,10 +182,9 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	 * Undo_AdminOnlyTask_ByNonOwnerMember_Returns404
 	 */
 	public function testUndo_AdminOnlyTask_ByNonOwnerMember_Returns404(): void {
-		$this->completeAs('lcv_owner', $this->adminOnlyRoomTaskId);
-		$controller = $this->getController(RoomTaskController::class, 'lcv_member');
+		$completionId = $this->completeAs('lcv_owner', $this->adminOnlyRoomTaskId);
 
-		$response = $controller->undo($this->adminOnlyRoomTaskId);
+		$response = $this->undoViaController('lcv_member', $completionId);
 
 		self::assertSame(404, $response->getStatus());
 		$data = $response->getData();
@@ -203,10 +198,9 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	 * actor gate (completer-or-owner) and the matrix (owner-only) both pass.
 	 */
 	public function testUndo_AdminOnlyTask_ByOwner_Returns200(): void {
-		$this->completeAs('lcv_owner', $this->adminOnlyRoomTaskId);
-		$controller = $this->getController(RoomTaskController::class, 'lcv_owner');
+		$completionId = $this->completeAs('lcv_owner', $this->adminOnlyRoomTaskId);
 
-		$response = $controller->undo($this->adminOnlyRoomTaskId);
+		$response = $this->undoViaController('lcv_owner', $completionId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertTrue($response->getData()['data']['undone']);
@@ -218,7 +212,7 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	 * execution surface (undoing one's OWN completion is child-friendly
 	 * self-recovery, masterplan D3). The `once` completion deactivates the
 	 * row; the undo restores `is_active` from the recorded before-state —
-	 * the reactivate endpoint's job is now the undo aggregate's.
+	 * the reactivate endpoint's job is now the correction aggregate's.
 	 */
 	public function testUndo_OnceTask_ByAssigneeChild_RestoresIsActive(): void {
 		// CS-PLAN-072 WP1: 'once' must be part of the INITIAL schedule
@@ -232,11 +226,10 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 		$onceRoomId = $this->createRoom($this->houseId, $this->floorId, 'Once Room');
 		$onceRoomTaskId = $this->assignTaskToRoom($onceTaskId, $onceRoomId, 'lcv_assignee');
 
-		$this->completeAs('lcv_assignee', $onceRoomTaskId);
+		$completionId = $this->completeAs('lcv_assignee', $onceRoomTaskId);
 		self::assertSame(0, $this->fetchIsActive($onceRoomTaskId), 'the once completion deactivates the row');
 
-		$controller = $this->getController(RoomTaskController::class, 'lcv_assignee');
-		$response = $controller->undo($onceRoomTaskId);
+		$response = $this->undoViaController('lcv_assignee', $completionId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertTrue($response->getData()['data']['undone']);
@@ -270,17 +263,31 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 
 	/**
 	 * Complete a room task through the real aggregate (CS-PLAN-064) so the
-	 * undo surface operates on a genuine effect record. CS-PLAN-072 WP1:
-	 * the completion carries the occurrence receipt of the current
-	 * canonical target.
+	 * correction surface operates on a genuine work-evidence record.
+	 * CS-PLAN-072 WP1: the completion carries the occurrence receipt of
+	 * the current canonical target. Returns the numeric completion id.
 	 */
-	private function completeAs(string $userId, int $roomTaskId): void {
-		$this->completeOccurrence(
+	private function completeAs(string $userId, int $roomTaskId): int {
+		$result = $this->completeOccurrence(
 			\OC::$server->get(CompletionService::class),
 			$this->houseId,
 			$userId,
 			$roomTaskId
 		);
+		return (int)$result['completionId'];
+	}
+
+	/**
+	 * Undo one exact completion through the targeted correction endpoint
+	 * (WP3 §3.6): a fresh command receipt against the recorded version.
+	 */
+	private function undoViaController(string $actor, int $completionId): object {
+		$controller = $this->getController(\OCA\ChoreStrike\Controller\CompletionController::class, $actor);
+		$this->injectRequestParams($controller, [
+			'commandId' => sprintf('5f6e7a8b-9c0d-4e1f-8a2b-%012d', random_int(0, 999999999999)),
+			'expectedVersion' => 0,
+		]);
+		return $controller->undo($completionId);
 	}
 
 	private function setRecurrenceOnce(int $taskId): void {

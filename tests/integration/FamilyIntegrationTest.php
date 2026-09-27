@@ -54,8 +54,9 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 	 *
 	 * The canonical family workflow: an assigned member completes their
 	 * daily task; the receipt and the independently captured before/after
-	 * totals must agree on every credited delta (contribution = energy cost,
-	 * CR-SVC-57; cleanliness = 10% per energy point; coins delta = receipt).
+	 * totals must agree on every credited delta (WP3 §3.1: contribution
+	 * and wallet derive from the selected work shares in exact minor
+	 * units; cleanliness = 10% per energy point).
 	 */
 	public function testFamilyTaskCompletionWorkflow(): void {
 		$ids = $this->familyHouseFixture();
@@ -68,46 +69,47 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$after = $this->memberRow($ids['houseId'], 'fam_parent');
 
 		self::assertSame(2, $rewards['energyCost']);
-		self::assertSame(2, $rewards['contributionScore'], 'contribution must equal the energy cost (CR-SVC-57)');
-		self::assertSame((int)$before['contribution_score'] + 2, (int)$after['contribution_score']);
-		self::assertSame((int)$before['coins'] + $rewards['coins'] + $rewards['teamworkBonus'], (int)$after['coins']);
-		self::assertGreaterThanOrEqual(1, $rewards['coins'], 'a base completion credits coins');
+		self::assertSame(2, $rewards['completion']['totalEnergy'], 'the frozen work evidence equals the task energy');
+		// WP3 §3.1: 2 energy solo = 200 energy minor contribution and a
+		// 2000 coin minor wallet credit (rate 10 Coins per energy).
+		self::assertSame((int)$before['contribution_minor'] + 200, (int)$after['contribution_minor']);
+		self::assertNotNull($after['wallet_id']);
+		self::assertSame(2000, $this->walletBookedMinor((int)$after['wallet_id']), 'the wallet ledger credits the frozen rate');
+		self::assertSame(2000, $rewards['wallet']['bookedMinor'], 'the receipt wallet block matches the persisted ledger');
 		self::assertSame(20, $rewards['cleanlinessChange'], 'cleanliness delta is 10% per energy point');
-		self::assertSame(1, $rewards['currentStreak'], 'a first completion starts the streak at 1');
-		self::assertFalse($rewards['streakFreezeUsed']);
-		self::assertSame((int)$before['current_streak'] + 1, (int)$after['current_streak']);
-		self::assertSame($rewards['totalCoins'], (int)$after['coins'], 'the receipt total must match the persisted wallet');
-		self::assertSame($rewards['totalContribution'], (int)$after['contribution_score']);
+		// C1f rhythm semantics: the parent has FOUR same-day obligations and
+		// fulfilled ONE — the day is held PENDING (neither step nor break)
+		// until every planned obligation of the day is fulfilled.
+		self::assertSame(0, (int)$after['current_streak'], 'a partially fulfilled planned day does not step the streak');
+		self::assertSame((int)$before['contribution_minor'] + 200, $rewards['contributionMinor']);
 	}
 
 	/**
-	 * ParentDailyRoutine_MultipleCompletions_AccumulateTotalsAndTriggerCombo
+	 * ParentDailyRoutine_MultipleCompletions_AccumulateExactMinorTotals
 	 *
 	 * A parent working through the daily routine is credited per task with
-	 * exact running totals; the third completion inside the combo window is
-	 * flagged as combo without changing the per-task contribution.
+	 * exact running totals (WP3: the combo flag retired — the evidence
+	 * rows accumulate; each share books its frozen rate).
 	 */
 	public function testParentDailyRoutine(): void {
 		$ids = $this->familyHouseFixture();
 
-		$first = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
-		$second = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['secondRoomTaskId']);
+		$this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['secondRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['secondRoomTaskId'];
-		$third = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['thirdRoomTaskId']);
+		$this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['thirdRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['thirdRoomTaskId'];
 
-		self::assertFalse($first['rewards']['isCombo']);
-		self::assertFalse($second['rewards']['isCombo'], 'the second completion sees only one recent row');
-		self::assertTrue($third['rewards']['isCombo'], 'two recent rows put the third completion into the combo window');
-
-		$expectedContribution = 2 + 3 + 2;
+		// (2 + 3 + 2) energy → 700 minor contribution, 7000 booked coins.
+		$expectedEnergy = 2 + 3 + 2;
 		$after = $this->memberRow($ids['houseId'], 'fam_parent');
-		self::assertSame($expectedContribution, (int)$after['contribution_score']);
-		// Same-day routine completions never inflate the streak: the first
-		// completion started it at 1 and the later ones keep it (the streak
-		// ADVANCE across days is proven by testDailyStreakCalculation).
-		self::assertSame(1, (int)$after['current_streak']);
+		self::assertSame($expectedEnergy * 100, (int)$after['contribution_minor']);
+		self::assertSame($expectedEnergy * 1000, $this->walletBookedMinor((int)$after['wallet_id']));
+		// Same-day routine completions never inflate the streak: with other
+		// same-day obligations still open the day stays PENDING (C1f —
+		// neither step nor break until all planned obligations are met).
+		self::assertSame(0, (int)$after['current_streak']);
 		// Cleanliness accumulates and clamps: 50 + 20 + 30 = 100, the third
 		// delta (+20) must not overshoot the cap.
 		self::assertSame(100, (int)$this->roomRow($ids['roomId'])['cleanliness']);
@@ -128,20 +130,23 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$result = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_teen', $ids['teenRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['teenRoomTaskId'];
 
-		self::assertSame(3, $result['rewards']['contributionScore']);
+		self::assertSame(3, $result['rewards']['completion']['totalEnergy']);
 		$after = $this->memberRow($ids['houseId'], 'fam_teen');
-		self::assertSame((int)$before['contribution_score'] + 3, (int)$after['contribution_score']);
+		self::assertSame((int)$before['contribution_minor'] + 300, (int)$after['contribution_minor']);
 		self::assertSame(1, (int)$after['current_streak']);
 		// The parent's row is untouched by the teen's completion.
-		self::assertSame(0, (int)$this->memberRow($ids['houseId'], 'fam_parent')['contribution_score']);
+		self::assertSame(0, (int)$this->memberRow($ids['houseId'], 'fam_parent')['contribution_minor']);
 	}
 
 	/**
-	 * DailyStreakCalculation_ExistingStreak_AdvancesAndTracksLongest
+	 * DailyStreakCalculation_DerivesFromValidHistory_OverridingTheCache
 	 *
-	 * Completing with an existing streak of 3 advances to 4 and lifts the
-	 * all-time longest streak; no freeze is consumed while the streak is
-	 * alive (freeze handling itself is owned by StreakFreezeIdempotencyTest).
+	 * WP3 (Q-074-01A): the confirmed streak is ALWAYS re-derived from the
+	 * valid occurrence history — a seeded cache value never survives a
+	 * completion. With the day PENDING (other same-day obligations open,
+	 * C1f) and no earlier history, both the current run AND the record
+	 * re-derive to the history truth (a corrected history that never
+	 * reached the cached record shrinks it).
 	 */
 	public function testDailyStreakCalculation(): void {
 		$ids = $this->familyHouseFixture();
@@ -149,20 +154,16 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$qb->update('chorestrike_house_users')
 			->set('current_streak', $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT))
 			->set('longest_streak', $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT))
-			->set('last_activity', $qb->createNamedParameter((new \DateTime('-1 day'))->format('Y-m-d H:i:s')))
 			->where($qb->expr()->eq('id', $qb->createNamedParameter((int)$this->memberRow($ids['houseId'], 'fam_parent')['id'], IQueryBuilder::PARAM_INT)))
 			->executeStatement();
 
 		$result = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
 
-		self::assertSame(4, $result['rewards']['currentStreak']);
-		self::assertSame(4, $result['rewards']['longestStreak']);
-		self::assertFalse($result['rewards']['streakFreezeUsed']);
 		$after = $this->memberRow($ids['houseId'], 'fam_parent');
-		self::assertSame(4, (int)$after['current_streak']);
-		self::assertSame(4, (int)$after['longest_streak']);
-		self::assertSame(1, (int)$after['streak_freezes'], 'no freeze consumed while the streak continues');
+		self::assertSame(0, (int)$after['current_streak'], 'the run derives from the valid history, not the seeded cache');
+		self::assertSame(0, (int)$after['longest_streak'], 'the record shrinks when the corrected history never reached the cached value');
+		self::assertGreaterThan(0, $result['rewards']['completion']['totalEnergy']);
 	}
 
 	/**
@@ -236,7 +237,7 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		self::assertGreaterThan((string)$before['next_due'], (string)$after['next_due'], 'the recurrence must advance');
 		self::assertSame($before['room_id'], $after['room_id']);
 		self::assertSame($before['task_id'], $after['task_id']);
-		self::assertGreaterThan(0, $result['rewards']['contributionScore']);
+		self::assertGreaterThan(0, $result['rewards']['completion']['totalEnergy']);
 	}
 
 	/**
@@ -258,8 +259,12 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$ledger = $this->ledgerRows('revertible');
 		self::assertCount(1, $ledger);
 		self::assertSame($ids['onceRoomTaskId'], (int)$ledger[0]['room_task_id']);
-		self::assertJson($ledger[0]['before_state']);
-		self::assertJson($ledger[0]['deltas']);
+		// WP3 §3.1: the evidence row carries the frozen work facts, not a
+		// serialized effect blob.
+		self::assertGreaterThan(0, (int)$ledger[0]['total_energy']);
+		self::assertSame(1000, (int)$ledger[0]['rate_minor']);
+		self::assertArrayNotHasKey('before_state', $ledger[0]);
+		self::assertArrayNotHasKey('deltas', $ledger[0]);
 	}
 
 	/**
@@ -364,6 +369,17 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$data = $qb->executeQuery()->fetch();
 		self::assertIsArray($data);
 		return $data;
+	}
+
+	/**
+	 * The wallet's booked minor total (WP3 §3.1 exact ledger read).
+	 */
+	private function walletBookedMinor(int $walletId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('booked_minor')
+			->from('chorestrike_wallets')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT)));
+		return (int)$qb->executeQuery()->fetchOne();
 	}
 
 	/**

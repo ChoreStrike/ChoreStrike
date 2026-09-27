@@ -124,22 +124,22 @@ class ChoreStrikeNotifierTest extends TestCase {
 		$this->notifier->prepare($notification, 'en');
 	}
 
-	public function testPrepare_StreakAtRisk_IncludesStreakCount(): void {
+	/**
+	 * Prepare_StreakAtRisk_SubjectRetired (WP3 legacy-effect cutover)
+	 *
+	 * The streak-at-risk pass retired with the freeze/streak-snapshot
+	 * effects (CS-PLAN-070 WP3, Q-074-01 Option A) — the notifier must
+	 * reject the removed subject, not render a retired reminder.
+	 */
+	public function testPrepare_StreakAtRisk_SubjectRetired(): void {
 		$notification = $this->buildNotification(
 			'chorestrike',
 			'streak_at_risk',
 			['currentStreak' => 7]
 		);
-		$notification->expects($this->once())->method('setParsedSubject')
-			->with('Your 7-day streak is at risk — complete a task today!');
 
-		$this->notifier->prepare($notification, 'en');
-	}
-
-	public function testPrepare_StreakAtRisk_MissingParams_DefaultsToZero(): void {
-		$notification = $this->buildNotification('chorestrike', 'streak_at_risk', []);
-		$notification->expects($this->once())->method('setParsedSubject')
-			->with('Your 0-day streak is at risk — complete a task today!');
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Unknown ChoreStrike notification subject');
 
 		$this->notifier->prepare($notification, 'en');
 	}

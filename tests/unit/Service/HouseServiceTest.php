@@ -20,8 +20,11 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
+use OCA\ChoreStrike\Service\CommandService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
+use OCA\ChoreStrike\Service\RoomReplayService;
+use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\IDBConnection;
@@ -43,6 +46,9 @@ class HouseServiceTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private RewardConfigService $rewardConfigService;
+	private RoomReplayService $roomReplayService;
+	private CommandService $commandService;
+	private WeeklyGoalService $weeklyGoalService;
 	private IConfig $config;
 	private IDBConnection $db;
 	private IUserSession $userSession;
@@ -60,6 +66,12 @@ class HouseServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->rewardConfigService = $this->createMock(RewardConfigService::class);
+		$this->roomReplayService = $this->createMock(RoomReplayService::class);
+		$this->commandService = $this->createMock(CommandService::class);
+		$this->commandService->method('runCommand')->willReturnCallback(static function (int $houseId, int $actorId, string $uuid, string $action, array $payload, callable $fn): array {
+			return ['result' => $fn(), 'replay' => false];
+		});
+		$this->weeklyGoalService = $this->createMock(WeeklyGoalService::class);
 		$this->config = $this->createMock(IConfig::class);
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->userSession = $this->createMock(IUserSession::class);
@@ -95,6 +107,39 @@ class HouseServiceTest extends TestCase {
 			$this->rewardConfigService,
 			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
 			$this->createMock(\OCA\ChoreStrike\Service\PauseService::class),
+			$this->roomReplayService,
+			$this->commandService,
+			$this->weeklyGoalService,
+			$this->config,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
+			$l10n,
+			$this->createMock(AppLogger::class),
+			$this->userSession,
+			new CalendarService(),
+			$this->authorization,
+			$this->userManager
+		);
+	}
+
+	/**
+	 * Build the service with a custom l10n (localized-default test).
+	 */
+	private function serviceWithL10n(IL10N $l10n): HouseService {
+		return new HouseService(
+			$this->houseMapper,
+			$this->floorMapper,
+			$this->roomMapper,
+			$this->roomTaskMapper,
+			$this->completedTaskMapper,
+			$this->houseUserMapper,
+			$this->taskAssigneeMapper,
+			$this->createMock(\OCA\ChoreStrike\Service\WalletService::class),
+			$this->rewardConfigService,
+			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$this->createMock(\OCA\ChoreStrike\Service\PauseService::class),
+			$this->roomReplayService,
+			$this->commandService,
+			$this->weeklyGoalService,
 			$this->config,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
@@ -185,27 +230,7 @@ class HouseServiceTest extends TestCase {
 			->with($instanceId, $localizedName, $this->isType('string'))
 			->willReturn($house);
 
-		$service = new HouseService(
-			$this->houseMapper,
-			$this->floorMapper,
-			$this->roomMapper,
-			$this->roomTaskMapper,
-			$this->completedTaskMapper,
-			$this->houseUserMapper,
-			$this->taskAssigneeMapper,
-			$this->createMock(\OCA\ChoreStrike\Service\WalletService::class),
-			$this->rewardConfigService,
-			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
-			$this->createMock(\OCA\ChoreStrike\Service\PauseService::class),
-			$this->config,
-			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
-			$l10n,
-			$this->createMock(AppLogger::class),
-			$this->userSession,
-			new CalendarService(),
-			$this->authorization,
-			$this->userManager
-		);
+		$service = $this->serviceWithL10n($l10n);
 
 		$result = $service->getOrCreateHouse($instanceId);
 
@@ -427,43 +452,98 @@ class HouseServiceTest extends TestCase {
 	}
 
 	/**
-	 * ResetHouse_UpdatesHealthAndResetsRoomsInBulk
+	 * ResetHouse_JournalsOneResetPerLiveRoomAndRebuildsCaches
 	 *
-	 * CS-PLAN-037: the floors → rooms loop is replaced by ONE
-	 * house-scoped subquery UPDATE; no floor fetch, no per-room update.
+	 * CS-PLAN-070 WP3 (§3.5): the production reset journals ONE absolute
+	 * reset event per LIVE room (idempotent through the command UUID) and
+	 * rebuilds each room cache by the chronological replay; the house
+	 * health returns to 100 and the state version bumps. Tombstoned rooms
+	 * are not reset; no bulk `resetByHouseId` write exists anymore.
 	 */
-	public function testResetHouse_UpdatesHealthAndResetsRoomsInBulk(): void {
+	public function testResetHouse_JournalsOneResetPerLiveRoomAndRebuildsCaches(): void {
 		$houseId = 1;
 
 		$house = new House();
 		$house->setId($houseId);
 		$house->setHouseHealth(50);
+		$house->setStateVersion(7);
 		$this->defaultHouse = $house;
+		$owner = new HouseUser();
+		$owner->setId(3);
+
+		$liveRoom = new Room();
+		$liveRoom->setId(11);
+		$liveRoom->setCleanliness(40);
+
+		$tombstoned = new Room();
+		$tombstoned->setId(12);
+		$tombstoned->setDeletedAt(new \DateTime());
 
 		// RF-058-02: the owner gate runs service-side before any write.
 		$this->authorization
-			->expects($this->once())
+			->expects($this->exactly(2))
 			->method('requireHouseOwner')
-			->with($houseId);
+			->with($houseId)
+			->willReturn($owner);
+		$this->commandService->expects($this->once())
+			->method('runCommand')
+			->with($houseId, 3, 'cmd-reset-1', 'house.reset', ['expectedVersion' => null], $this->isType('callable'));
+
+		$this->roomMapper
+			->expects($this->once())
+			->method('findByHouseId')
+			->with($houseId)
+			->willReturn([$liveRoom, $tombstoned]);
+
+		$this->roomReplayService
+			->expects($this->once())
+			->method('recordReset')
+			->with(11, 'cmd-reset-1', $this->isInstanceOf(\DateTime::class));
+		$this->roomReplayService
+			->expects($this->once())
+			->method('resyncRoomCache')
+			->with($liveRoom)
+			->willReturn($liveRoom);
+
+		// The tombstoned room is never journaled or resynced.
+		$this->roomReplayService->expects($this->never())->method('recordBaseline');
+		$this->roomReplayService->expects($this->never())->method('recordCompletion');
 
 		$this->houseMapper
 			->expects($this->once())
 			->method('update')
 			->with($this->callback(function ($h) {
-				return $h->getHouseHealth() === 100;
-			}));
+				return $h->getHouseHealth() === 100 && $h->getStateVersion() === 8;
+			}))
+			->willReturnCallback(static fn ($h) => $h);
 
-		$this->roomMapper
-			->expects($this->once())
-			->method('resetByHouseId')
-			->with($houseId);
-
-		// The bulk path never iterates floors or updates room entities.
-		$this->floorMapper->expects($this->never())->method('findByHouseId');
-		$this->roomMapper->expects($this->never())->method('findByFloorId');
+		$this->roomMapper->expects($this->never())->method('resetByHouseId');
 		$this->roomMapper->expects($this->never())->method('update');
 
-		$this->service->resetHouse($houseId);
+		$this->service->resetHouse($houseId, 'cmd-reset-1');
+	}
+
+	/**
+	 * ResetHouse_StaleExpectedVersion_ThrowsConflictWithoutAnyWrite
+	 *
+	 * §3.6: `expectedVersion` guards against resetting over a state the
+	 * caller has not seen (stale → 409, nothing journaled).
+	 */
+	public function testResetHouse_StaleExpectedVersion_ThrowsConflictWithoutAnyWrite(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setStateVersion(9);
+		$this->defaultHouse = $house;
+		$owner = new HouseUser();
+		$owner->setId(3);
+
+		$this->authorization->method('requireHouseOwner')->willReturn($owner);
+		$this->roomReplayService->expects($this->never())->method('recordReset');
+		$this->houseMapper->expects($this->never())->method('update');
+
+		$this->expectException(ConflictException::class);
+
+		$this->service->resetHouse(1, 'cmd-reset-stale', 8);
 	}
 
 	/**
@@ -476,10 +556,29 @@ class HouseServiceTest extends TestCase {
 			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
 
 		$this->houseMapper->expects($this->never())->method('update');
-		$this->roomMapper->expects($this->never())->method('resetByHouseId');
+		$this->roomReplayService->expects($this->never())->method('recordReset');
 
 		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
-		$this->service->resetHouse($houseId);
+		$this->service->resetHouse($houseId, 'cmd-reset-1');
+	}
+
+	public function testResetHouse_OwnerDemotedBeforeHouseLock_DeniedWithoutJournal(): void {
+		$owner = new HouseUser();
+		$owner->setId(3);
+		$checks = 0;
+		$this->authorization->method('requireHouseOwner')->willReturnCallback(
+			static function () use ($owner, &$checks): HouseUser {
+				if (++$checks > 1) {
+					throw new ForbiddenException('Owner role required');
+				}
+				return $owner;
+			}
+		);
+		$this->roomMapper->expects($this->never())->method('findByHouseId');
+		$this->houseMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->service->resetHouse(1, 'cmd-demoted');
 	}
 
 	/**
@@ -498,189 +597,31 @@ class HouseServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetWeeklyGoalProgress_EmptyWeek_NotAchievedZeroPercent
+	 * GetWeeklyGoalProgress_DelegatesToWeeklyGoalService
+	 *
+	 * WP3 (Q-074-01A): the evaluation moved to WeeklyGoalService
+	 * (correction-safe by construction — valid completion input). The
+	 * delegating method stays for the controller/post-commit consumers;
+	 * the goal semantics themselves are pinned in WeeklyGoalServiceTest.
 	 */
-	public function testGetWeeklyGoalProgress_EmptyWeek_NotAchievedZeroPercent(): void {
-		$houseId = 1;
+	public function testGetWeeklyGoalProgress_DelegatesToWeeklyGoalService(): void {
+		$payload = [
+			'dueCount' => 5,
+			'completedCount' => 4,
+			'percent' => 80,
+			'targetPercent' => 80,
+			'achieved' => true,
+			'weekStart' => '2026-09-21T00:00:00+00:00',
+			'weekEnd' => '2026-09-28T00:00:00+00:00',
+		];
 
-		$this->roomTaskMapper
+		$this->weeklyGoalService
 			->expects($this->once())
-			->method('findActiveDueIdsBetweenByHouse')
-			->willReturn([]);
-		$this->completedTaskMapper
-			->expects($this->once())
-			->method('findCompletedRoomTaskIdsBetweenByHouse')
-			->willReturn([]);
-		$this->rewardConfigService
-			->method('getWeeklyGoalTargetPercent')
-			->willReturn(80);
+			->method('getWeeklyGoalProgress')
+			->with(1)
+			->willReturn($payload);
 
-		$result = $this->service->getWeeklyGoalProgress($houseId);
-
-		$this->assertSame(0, $result['dueCount']);
-		$this->assertSame(0, $result['completedCount']);
-		$this->assertSame(0, $result['percent']);
-		$this->assertSame(80, $result['targetPercent']);
-		$this->assertFalse($result['achieved']);
-	}
-
-	/**
-	 * GetWeeklyGoalProgress_AllCompleted_AchievedHundredPercent
-	 *
-	 * 5 tasks active+due this week, the same 5 also completed this week →
-	 * dueSet has 5 entries (UNION), completedCount = 5 → 100%.
-	 */
-	public function testGetWeeklyGoalProgress_AllCompleted_AchievedHundredPercent(): void {
-		$this->roomTaskMapper->method('findActiveDueIdsBetweenByHouse')->willReturn([1, 2, 3, 4, 5]);
-		$this->completedTaskMapper->method('findCompletedRoomTaskIdsBetweenByHouse')->willReturn([1, 2, 3, 4, 5]);
-		$this->rewardConfigService->method('getWeeklyGoalTargetPercent')->willReturn(80);
-
-		$result = $this->service->getWeeklyGoalProgress(1);
-
-		$this->assertSame(5, $result['dueCount']);
-		$this->assertSame(5, $result['completedCount']);
-		$this->assertSame(100, $result['percent']);
-		$this->assertTrue($result['achieved']);
-	}
-
-	/**
-	 * GetWeeklyGoalProgress_PartialCompletion_BelowTarget
-	 *
-	 * 5 active+due, 1 completed → 20%, below the 80% target.
-	 */
-	public function testGetWeeklyGoalProgress_PartialCompletion_BelowTarget(): void {
-		$this->roomTaskMapper->method('findActiveDueIdsBetweenByHouse')->willReturn([1, 2, 3, 4, 5]);
-		$this->completedTaskMapper->method('findCompletedRoomTaskIdsBetweenByHouse')->willReturn([1]);
-		$this->rewardConfigService->method('getWeeklyGoalTargetPercent')->willReturn(80);
-
-		$result = $this->service->getWeeklyGoalProgress(1);
-
-		$this->assertSame(20, $result['percent']);
-		$this->assertFalse($result['achieved']);
-	}
-
-	/**
-	 * GetWeeklyGoalProgress_AtTarget_Achieved
-	 *
-	 * 5 active+due, 4 completed → 80%, exactly at the 80% target.
-	 */
-	public function testGetWeeklyGoalProgress_AtTarget_Achieved(): void {
-		$this->roomTaskMapper->method('findActiveDueIdsBetweenByHouse')->willReturn([1, 2, 3, 4, 5]);
-		$this->completedTaskMapper->method('findCompletedRoomTaskIdsBetweenByHouse')->willReturn([1, 2, 3, 4]);
-		$this->rewardConfigService->method('getWeeklyGoalTargetPercent')->willReturn(80);
-
-		$result = $this->service->getWeeklyGoalProgress(1);
-
-		$this->assertSame(80, $result['percent']);
-		$this->assertTrue($result['achieved']);
-	}
-
-	/**
-	 * GetWeeklyGoalProgress_DenominatorStableWhenCompletedShiftsOut
-	 *
-	 * Critical regression: 5 weekly tasks originally due this week; 4 of them
-	 * have been completed, shifting their next_due into next week. Active-due
-	 * list now has only the 1 remaining task, but the 4 completed ones must
-	 * still count in the denominator (via the UNION) so the percent stays at
-	 * 80% rather than inflating to 400%/capped-100%.
-	 */
-	public function testGetWeeklyGoalProgress_DenominatorStableWhenCompletedShiftsOut(): void {
-		// Only task #5 is still active+due this week (the other 4 moved on).
-		$this->roomTaskMapper->method('findActiveDueIdsBetweenByHouse')->willReturn([5]);
-		// But all of #1..#4 were completed this week.
-		$this->completedTaskMapper->method('findCompletedRoomTaskIdsBetweenByHouse')->willReturn([1, 2, 3, 4]);
-		$this->rewardConfigService->method('getWeeklyGoalTargetPercent')->willReturn(80);
-
-		$result = $this->service->getWeeklyGoalProgress(1);
-
-		// dueSet = {5} ∪ {1,2,3,4} = {1,2,3,4,5} → 5; completedCount = 4 → 80%.
-		$this->assertSame(5, $result['dueCount']);
-		$this->assertSame(4, $result['completedCount']);
-		$this->assertSame(80, $result['percent']);
-		$this->assertTrue($result['achieved']);
-	}
-
-	/**
-	 * GetWeeklyGoalProgress_DailyTaskDoneMultipleTimes_CountsAsOne
-	 *
-	 * A daily task completed three times this week (by different members or
-	 * on different days) must contribute 1 to the numerator, not 3.
-	 */
-	public function testGetWeeklyGoalProgress_DailyTaskDoneMultipleTimes_CountsAsOne(): void {
-		// Single active due task (its current next_due is in this week).
-		$this->roomTaskMapper->method('findActiveDueIdsBetweenByHouse')->willReturn([42]);
-		// Same task ID appears once in the distinct-completed list (mapper
-		// already dedupes via GROUP BY; HouseService also unions safely).
-		$this->completedTaskMapper->method('findCompletedRoomTaskIdsBetweenByHouse')->willReturn([42]);
-		$this->rewardConfigService->method('getWeeklyGoalTargetPercent')->willReturn(80);
-
-		$result = $this->service->getWeeklyGoalProgress(1);
-
-		$this->assertSame(1, $result['dueCount']);
-		$this->assertSame(1, $result['completedCount']);
-		$this->assertSame(100, $result['percent']);
-	}
-
-	/**
-	 * GetWeeklyGoalProgress_OverdueCompletedThisWeek_CountsAsCompleted
-	 *
-	 * An overdue task (next_due in a prior week, not active+due this week)
-	 * completed today must still be in both numerator and denominator — the
-	 * UNION of completedIds ensures it counts as planned work for this week.
-	 */
-	public function testGetWeeklyGoalProgress_OverdueCompletedThisWeek_CountsAsCompleted(): void {
-		$this->roomTaskMapper->method('findActiveDueIdsBetweenByHouse')->willReturn([]);
-		$this->completedTaskMapper->method('findCompletedRoomTaskIdsBetweenByHouse')->willReturn([7, 8]);
-		$this->rewardConfigService->method('getWeeklyGoalTargetPercent')->willReturn(80);
-
-		$result = $this->service->getWeeklyGoalProgress(1);
-
-		// dueSet = {} ∪ {7,8} = {7,8} → 2; completedCount = 2 → 100%.
-		$this->assertSame(2, $result['dueCount']);
-		$this->assertSame(2, $result['completedCount']);
-		$this->assertSame(100, $result['percent']);
-		$this->assertTrue($result['achieved']);
-	}
-
-	/**
-	 * GetWeeklyGoalProgress_RoundsToNearestPercent
-	 *
-	 * 3 distinct due, 1 distinct completed ≈ 33.33% → rounds to 33.
-	 */
-	public function testGetWeeklyGoalProgress_RoundsToNearestPercent(): void {
-		$this->roomTaskMapper->method('findActiveDueIdsBetweenByHouse')->willReturn([1, 2, 3]);
-		$this->completedTaskMapper->method('findCompletedRoomTaskIdsBetweenByHouse')->willReturn([1]);
-		$this->rewardConfigService->method('getWeeklyGoalTargetPercent')->willReturn(80);
-
-		$result = $this->service->getWeeklyGoalProgress(1);
-
-		$this->assertSame(33, $result['percent']);
-		$this->assertFalse($result['achieved']);
-	}
-
-	/**
-	 * GetWeeklyGoalProgress_IncludesWeekBounds
-	 */
-	public function testGetWeeklyGoalProgress_IncludesWeekBounds(): void {
-		$this->roomTaskMapper->method('findActiveDueIdsBetweenByHouse')->willReturn([]);
-		$this->completedTaskMapper->method('findCompletedRoomTaskIdsBetweenByHouse')->willReturn([]);
-		$this->rewardConfigService->method('getWeeklyGoalTargetPercent')->willReturn(80);
-
-		$result = $this->service->getWeeklyGoalProgress(1);
-
-		$this->assertArrayHasKey('weekStart', $result);
-		$this->assertArrayHasKey('weekEnd', $result);
-		$this->assertNotEmpty($result['weekStart']);
-		$this->assertNotEmpty($result['weekEnd']);
-
-		// weekStart must be a Monday (format 'N' = 1).
-		$monday = new \DateTimeImmutable($result['weekStart']);
-		$this->assertSame(1, (int)$monday->format('N'));
-		// Half-open week window (CS-PLAN-060 §3.6): weekEnd is the NEXT
-		// Monday 00:00:00 (exclusive bound), 7 days after weekStart.
-		$nextMonday = new \DateTimeImmutable($result['weekEnd']);
-		$this->assertSame(1, (int)$nextMonday->format('N'));
-		$this->assertSame(7, (int)$monday->diff($nextMonday)->days);
+		$this->assertSame($payload, $this->service->getWeeklyGoalProgress(1));
 	}
 
 	/**

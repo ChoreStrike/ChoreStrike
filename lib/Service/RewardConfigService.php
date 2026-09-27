@@ -12,26 +12,20 @@ use OCA\ChoreStrike\Titles\TitleCatalog;
 use OCP\IAppConfig;
 
 /**
- * Service for managing reward system configuration
+ * Service for managing reward system configuration.
+ *
+ * CS-PLAN-070 WP3 cutover: every earning multiplier, Coin-base, freeze and
+ * combo key is retired — money is wallet minor units at the FROZEN rate
+ * (EffortAllocationService::COIN_MINOR_PER_ENERGY), recognition is the
+ * valid-history rhythm. What remains: task-energy validation, the weekly
+ * goal target and the title system flag/thresholds.
  */
 class RewardConfigService {
 	private const APP_NAME = 'chorestrike';
 
 	// Config keys with defaults
-	public const KEY_TIER_BRONZE_MULTIPLIER = 'tier_bronze_multiplier';
-	public const KEY_TIER_SILVER_MULTIPLIER = 'tier_silver_multiplier';
-	public const KEY_TIER_GOLD_MULTIPLIER = 'tier_gold_multiplier';
-	public const KEY_EARLY_BONUS_THRESHOLD_DAYS = 'early_bonus_threshold_days';
-	public const KEY_EARLY_BONUS_MULTIPLIER = 'early_bonus_multiplier';
 	public const KEY_ENERGY_MAX_PER_TASK = 'energy_max_per_task';
-	public const KEY_COIN_BASE_PER_ENERGY = 'coin_base_per_energy';
-	public const KEY_STREAK_FREEZES_PER_WEEK = 'streak_freezes_per_week';
-	public const KEY_STREAK_FREEZE_CAP = 'streak_freeze_cap';
-	public const KEY_COMBO_BONUS_FREEZE_THRESHOLD = 'combo_bonus_freeze_threshold';
-	public const KEY_COMBO_MULTIPLIER = 'combo_multiplier';
 	public const KEY_WEEKLY_GOAL_TARGET_PERCENT = 'weekly_goal_target_percent';
-	public const KEY_TEAMWORK_BONUS_ENABLED = 'teamwork_bonus_enabled';
-	public const KEY_TEAMWORK_BONUS_MAX_PCT = 'teamwork_bonus_max_pct';
 	public const KEY_TITLES_ENABLED = 'titles_enabled';
 	/** Prefix for per-tier title thresholds; full key is `{prefix}_{pack}_{tierIndex}`. */
 	public const KEY_TITLE_THRESHOLD_PREFIX = 'title_threshold';
@@ -49,28 +43,9 @@ class RewardConfigService {
 	 * *TitleThreshold methods).
 	 */
 	private const REGISTRY = [
-		self::KEY_TIER_BRONZE_MULTIPLIER => ['type' => 'float', 'default' => '1.0', 'min' => 0.0, 'max' => null, 'apiField' => 'tierBronzeMultiplier'],
-		self::KEY_TIER_SILVER_MULTIPLIER => ['type' => 'float', 'default' => '1.5', 'min' => 0.0, 'max' => null, 'apiField' => 'tierSilverMultiplier'],
-		self::KEY_TIER_GOLD_MULTIPLIER => ['type' => 'float', 'default' => '2.0', 'min' => 0.0, 'max' => null, 'apiField' => 'tierGoldMultiplier'],
-		self::KEY_EARLY_BONUS_THRESHOLD_DAYS => ['type' => 'int', 'default' => '21', 'min' => 0, 'max' => null, 'apiField' => 'earlyBonusThresholdDays'],
-		self::KEY_EARLY_BONUS_MULTIPLIER => ['type' => 'float', 'default' => '1.5', 'min' => 1.0, 'max' => null, 'apiField' => 'earlyBonusMultiplier'],
 		self::KEY_ENERGY_MAX_PER_TASK => ['type' => 'int', 'default' => '9', 'min' => 0, 'max' => null, 'apiField' => 'energyMaxPerTask'],
-		self::KEY_COIN_BASE_PER_ENERGY => ['type' => 'int', 'default' => '10', 'min' => 0, 'max' => null, 'apiField' => 'coinBasePerEnergy'],
-		self::KEY_STREAK_FREEZES_PER_WEEK => ['type' => 'int', 'default' => '1', 'min' => 0, 'max' => null, 'apiField' => 'streakFreezesPerWeek'],
-		self::KEY_STREAK_FREEZE_CAP => ['type' => 'int', 'default' => '2', 'min' => 0, 'max' => null, 'apiField' => 'streakFreezeCap'],
-		self::KEY_COMBO_BONUS_FREEZE_THRESHOLD => ['type' => 'int', 'default' => '5', 'min' => 0, 'max' => null, 'apiField' => 'comboBonusFreezeThreshold'],
-		self::KEY_COMBO_MULTIPLIER => ['type' => 'float', 'default' => '2.0', 'min' => 0.0, 'max' => null, 'apiField' => 'comboMultiplier'],
 		self::KEY_WEEKLY_GOAL_TARGET_PERCENT => ['type' => 'int', 'default' => '80', 'min' => 1, 'max' => 100, 'apiField' => 'weeklyGoalTargetPercent'],
-		self::KEY_TEAMWORK_BONUS_ENABLED => ['type' => 'bool', 'default' => '1', 'min' => null, 'max' => null, 'apiField' => 'teamworkBonusEnabled'],
-		self::KEY_TEAMWORK_BONUS_MAX_PCT => ['type' => 'int', 'default' => '50', 'min' => 0, 'max' => 100, 'apiField' => 'teamworkBonusMaxPct'],
 		self::KEY_TITLES_ENABLED => ['type' => 'bool', 'default' => '1', 'min' => null, 'max' => null, 'apiField' => 'titlesEnabled'],
-	];
-
-	/** Tier name => registry key for the three tier multipliers. */
-	private const TIER_KEYS = [
-		'bronze' => self::KEY_TIER_BRONZE_MULTIPLIER,
-		'silver' => self::KEY_TIER_SILVER_MULTIPLIER,
-		'gold' => self::KEY_TIER_GOLD_MULTIPLIER,
 	];
 
 	private IAppConfig $config;
@@ -180,63 +155,10 @@ class RewardConfigService {
 	}
 
 	/**
-	 * Get early completion bonus threshold in days (clamped to >= 0, CR-SVC-19).
-	 */
-	public function getEarlyBonusThresholdDays(): int {
-		return (int)$this->readSpec(self::KEY_EARLY_BONUS_THRESHOLD_DAYS);
-	}
-
-	/**
-	 * Get early completion bonus multiplier (clamped to >= 1.0, CR-SVC-19:
-	 * below 1.0 the "bonus" would penalize early completion).
-	 */
-	public function getEarlyBonusMultiplier(): float {
-		return (float)$this->readSpec(self::KEY_EARLY_BONUS_MULTIPLIER);
-	}
-
-	/**
 	 * Get maximum energy per task (clamped to >= 0, CR-SVC-19).
 	 */
 	public function getEnergyMaxPerTask(): int {
 		return (int)$this->readSpec(self::KEY_ENERGY_MAX_PER_TASK);
-	}
-
-	/**
-	 * Get base coins per energy point (clamped to >= 0, CR-SVC-19: a negative
-	 * base would invert rewards).
-	 */
-	public function getCoinBasePerEnergy(): int {
-		return (int)$this->readSpec(self::KEY_COIN_BASE_PER_ENERGY);
-	}
-
-	/**
-	 * Get number of streak freezes restocked per week (clamped to >= 0, CR-SVC-19).
-	 */
-	public function getStreakFreezesPerWeek(): int {
-		return (int)$this->readSpec(self::KEY_STREAK_FREEZES_PER_WEEK);
-	}
-
-	/**
-	 * Get maximum number of streak freezes a user can hold (clamped to >= 0, CR-SVC-19).
-	 */
-	public function getStreakFreezeCap(): int {
-		return (int)$this->readSpec(self::KEY_STREAK_FREEZE_CAP);
-	}
-
-	/**
-	 * Get combo count threshold for earning a bonus freeze (clamped to >= 0, CR-SVC-19).
-	 */
-	public function getComboBonusFreezeThreshold(): int {
-		return (int)$this->readSpec(self::KEY_COMBO_BONUS_FREEZE_THRESHOLD);
-	}
-
-	/**
-	 * Get the combo multiplier applied when a user has an active combo.
-	 * Default 2.0 (doubles coins); clamped to >= 0 so a negative value can
-	 * never invert combo rewards.
-	 */
-	public function getComboMultiplier(): float {
-		return (float)$this->readSpec(self::KEY_COMBO_MULTIPLIER);
 	}
 
 	/**
@@ -251,54 +173,13 @@ class RewardConfigService {
 	}
 
 	/**
-	 * Whether the teamwork bonus is enabled.
-	 */
-	public function getTeamworkBonusEnabled(): bool {
-		return $this->readSpec(self::KEY_TEAMWORK_BONUS_ENABLED) === true;
-	}
-
-	/**
-	 * Get the teamwork bonus cap as a percentage of the base reward (0-100).
-	 */
-	public function getTeamworkBonusMaxPct(): int {
-		return (int)$this->readSpec(self::KEY_TEAMWORK_BONUS_MAX_PCT);
-	}
-
-	/**
 	 * Whether the role-title system is enabled (CS-PLAN-006 feature flag).
 	 *
-	 * Wraps the title unlock-detection in GameLogicService so an aggressive
+	 * Wraps the retained recognition unlock/reconcile path so an aggressive
 	 * celebration cadence can be disabled without a redeploy. Default true.
 	 */
 	public function getTitlesEnabled(): bool {
 		return $this->readSpec(self::KEY_TITLES_ENABLED) === true;
-	}
-
-	/**
-	 * Set tier multiplier (clamped to >= 0, CR-SVC-19). Unknown tiers are ignored.
-	 *
-	 * @param string $tier The tier (bronze, silver, gold)
-	 * @param float $value The multiplier value
-	 */
-	public function setTierMultiplier(string $tier, float $value): void {
-		$key = self::TIER_KEYS[$tier] ?? null;
-		if ($key !== null) {
-			$this->writeSpec($key, $value);
-		}
-	}
-
-	/**
-	 * Set early bonus threshold days (clamped to >= 0, CR-SVC-19).
-	 */
-	public function setEarlyBonusThresholdDays(int $days): void {
-		$this->writeSpec(self::KEY_EARLY_BONUS_THRESHOLD_DAYS, $days);
-	}
-
-	/**
-	 * Set early bonus multiplier (clamped to >= 1.0, CR-SVC-19).
-	 */
-	public function setEarlyBonusMultiplier(float $multiplier): void {
-		$this->writeSpec(self::KEY_EARLY_BONUS_MULTIPLIER, $multiplier);
 	}
 
 	/**
@@ -309,59 +190,10 @@ class RewardConfigService {
 	}
 
 	/**
-	 * Set base coins per energy (clamped to >= 0, CR-SVC-19).
-	 */
-	public function setCoinBasePerEnergy(int $base): void {
-		$this->writeSpec(self::KEY_COIN_BASE_PER_ENERGY, $base);
-	}
-
-	/**
-	 * Set streak freezes per week (clamped to >= 0, CR-SVC-19).
-	 */
-	public function setStreakFreezesPerWeek(int $count): void {
-		$this->writeSpec(self::KEY_STREAK_FREEZES_PER_WEEK, $count);
-	}
-
-	/**
-	 * Set streak freeze cap (clamped to >= 0, CR-SVC-19).
-	 */
-	public function setStreakFreezeCap(int $cap): void {
-		$this->writeSpec(self::KEY_STREAK_FREEZE_CAP, $cap);
-	}
-
-	/**
-	 * Set combo bonus freeze threshold (clamped to >= 0, CR-SVC-19).
-	 */
-	public function setComboBonusFreezeThreshold(int $threshold): void {
-		$this->writeSpec(self::KEY_COMBO_BONUS_FREEZE_THRESHOLD, $threshold);
-	}
-
-	/**
-	 * Set the combo multiplier (clamped to >= 0).
-	 */
-	public function setComboMultiplier(float $multiplier): void {
-		$this->writeSpec(self::KEY_COMBO_MULTIPLIER, $multiplier);
-	}
-
-	/**
 	 * Set weekly household goal target percent (clamped to 1-100).
 	 */
 	public function setWeeklyGoalTargetPercent(int $percent): void {
 		$this->writeSpec(self::KEY_WEEKLY_GOAL_TARGET_PERCENT, $percent);
-	}
-
-	/**
-	 * Set whether the teamwork bonus is enabled.
-	 */
-	public function setTeamworkBonusEnabled(bool $enabled): void {
-		$this->writeSpec(self::KEY_TEAMWORK_BONUS_ENABLED, $enabled);
-	}
-
-	/**
-	 * Set the teamwork bonus cap as a percentage of the base reward (clamped to 0-100).
-	 */
-	public function setTeamworkBonusMaxPct(int $pct): void {
-		$this->writeSpec(self::KEY_TEAMWORK_BONUS_MAX_PCT, $pct);
 	}
 
 	/**

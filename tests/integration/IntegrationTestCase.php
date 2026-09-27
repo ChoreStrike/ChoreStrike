@@ -35,6 +35,7 @@ abstract class IntegrationTestCase extends TestCase {
 	private array $createdRoomTaskIds = [];
 	/** @var array<int> */
 	private array $createdHouseUserIds = [];
+	private array $createdCompletionIds = [];
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -170,7 +171,7 @@ abstract class IntegrationTestCase extends TestCase {
 	 * @param int $houseId Unused — retained for caller API consistency
 	 * @return int The task ID
 	 */
-	protected function createTask(int $houseId, string $title, string $description = '', int $sparks = 5, int $energyCost = 10): int {
+	protected function createTask(int $houseId, string $title, string $description = '', int $sparks = 5, int $energyCost = 3): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_tasks')
 			->values([
@@ -307,18 +308,81 @@ abstract class IntegrationTestCase extends TestCase {
 	}
 
 	/**
+	 * Complete with an EXPLICIT actual-work split (WP3 §3.6): the
+	 * participants carry the actor, `allocationReviewed` covers a
+	 * deviation from the agreed proposal.
+	 *
+	 * @param array<int, array{userId: string, sharePct: int}> $participants
+	 */
+	protected function completeOccurrenceWithParticipants(
+		\OCA\ChoreStrike\Service\CompletionService $service,
+		int $houseId,
+		string $userId,
+		int $roomTaskId,
+		array $participants,
+	): array {
+		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
+		return $service->complete($houseId, $userId, $roomTaskId, $commandId, $occurrenceId, $expectedVersion, $selectionToken, $participants, true);
+	}
+
+	/**
+	 * Undo the LATEST completion of a room task through the targeted
+	 * correction endpoint (WP3 §3.4): exact completion id + a fresh
+	 * command receipt against the recorded version.
+	 */
+	protected function undoLatestForRoomTask(
+		\OCA\ChoreStrike\Service\CompletionService $service,
+		int $houseId,
+		string $actorUserId,
+		int $roomTaskId,
+		int $expectedVersion = 0,
+	): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from('chorestrike_completed_tasks')
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+			->orderBy('id', 'DESC')
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$id = $result->fetchOne();
+		$result->closeCursor();
+		if ($id === false || $id === null) {
+			throw new \RuntimeException('no completion row for room task ' . $roomTaskId);
+		}
+
+		$actor = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
+			->findByNextcloudUserId($houseId, $actorUserId);
+		return $service->undo(
+			$houseId,
+			$actor,
+			(int)$id,
+			sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
+			$expectedVersion,
+			null
+		);
+	}
+
+	/**
 	 * Complete through a REAL controller (CS-PLAN-072 WP1): injects the
 	 * occurrence receipt into the controller's request params and calls
-	 * the endpoint action.
+	 * the endpoint action. `$participants` adds an explicit actual-work
+	 * split (WP3 §3.6 — the actor takes part; Q-074-02).
+	 *
+	 * @param array<int, array{userId: string, sharePct: int}> $participants
 	 */
-	protected function completeViaController(object $controller, int $roomTaskId): object {
+	protected function completeViaController(object $controller, int $roomTaskId, ?array $participants = null): object {
 		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
-		$this->injectRequestParams($controller, [
+		$params = [
 			'commandId' => $commandId,
 			'occurrenceId' => $occurrenceId,
 			'expectedVersion' => $expectedVersion,
 			'selectionToken' => $selectionToken,
-		]);
+		];
+		if ($participants !== null) {
+			$params['participants'] = $participants;
+			$params['allocationReviewed'] = true;
+		}
+		$this->injectRequestParams($controller, $params);
 		return $controller->complete($roomTaskId);
 	}
 
@@ -340,7 +404,9 @@ abstract class IntegrationTestCase extends TestCase {
 	}
 
 	/**
-	 * Add a member to a house.
+	 * Add a member to a house through the PRODUCTION membership invariants
+	 * (WP3): a raw row plus the wallet binding every real membership
+	 * carries (the occurrence/rhythm participant chain is wallet-keyed).
 	 */
 	protected function addHouseMember(int $houseId, string $userId, string $displayName = '', string $role = 'member'): void {
 		$this->actingAs($userId);
@@ -352,11 +418,9 @@ abstract class IntegrationTestCase extends TestCase {
 				'nextcloud_user_id' => $qb->createNamedParameter($userId),
 				'display_name' => $qb->createNamedParameter($displayName ?: $userId),
 				'role' => $qb->createNamedParameter($role),
-				'contribution_score' => $qb->createNamedParameter(0),
-				'coins' => $qb->createNamedParameter(0),
+				'contribution_minor' => $qb->createNamedParameter(0),
 				'current_streak' => $qb->createNamedParameter(0),
 				'longest_streak' => $qb->createNamedParameter(0),
-				'streak_freezes' => $qb->createNamedParameter(1),
 				// Production memberships (HouseUserMapper::createOrGet) persist
 				// the json columns from the entity defaults — a raw NULL row is
 				// a state no real member ever has.
@@ -367,6 +431,37 @@ abstract class IntegrationTestCase extends TestCase {
 
 		$houseUserId = (int)$this->db->lastInsertId('chorestrike_house_users');
 		$this->createdHouseUserIds[] = $houseUserId;
+
+		\OC::$server->get(\OCA\ChoreStrike\Service\WalletService::class)
+			->ensureBinding($houseId, \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->find($houseUserId));
+	}
+
+	/**
+	 * Insert a raw work-evidence (completed task) row for read-path
+	 * fixtures (WP3 §3.1 shape: frozen energy/rate + versioning pair, no
+	 * monetary outputs). Writers that need the full aggregate should use
+	 * {@see completeOccurrence()} instead.
+	 */
+	protected function insertCompletionRow(int $roomTaskId, ?int $houseUserId, string $completedAt, int $totalEnergy = 3, ?string $occurrenceDue = null): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('chorestrike_completed_tasks')
+			->values([
+				'room_task_id' => $qb->createNamedParameter($roomTaskId),
+				'user_id' => $qb->createNamedParameter($houseUserId),
+				'completed_at' => $qb->createNamedParameter($completedAt),
+				'total_energy' => $qb->createNamedParameter($totalEnergy),
+				'rate_minor' => $qb->createNamedParameter(1000),
+				'completion_version' => $qb->createNamedParameter(0),
+				'allocation_revision' => $qb->createNamedParameter(1),
+				'occurrence_due' => $qb->createNamedParameter($occurrenceDue ?? substr($completedAt, 0, 10)),
+				'work_date' => $qb->createNamedParameter(substr($completedAt, 0, 10)),
+				'work_zone' => $qb->createNamedParameter('UTC'),
+				'completion_class' => $qb->createNamedParameter('agreed'),
+			])
+			->executeStatement();
+		$id = (int)$this->db->lastInsertId('chorestrike_completed_tasks');
+		$this->createdCompletionIds[] = $id;
+		return $id;
 	}
 
 	/**
@@ -379,6 +474,7 @@ abstract class IntegrationTestCase extends TestCase {
 		// house rows go so no test leaks pause groups into later suites.
 		$this->deletePauseFactsByHouseIds($this->createdHouseIds);
 		$this->deleteByIds('chorestrike_room_tasks', $this->createdRoomTaskIds);
+		$this->deleteByIds('chorestrike_completed_tasks', $this->createdCompletionIds);
 		$this->deleteByIds('chorestrike_tasks', $this->createdTaskIds);
 		$this->deleteByIds('chorestrike_rooms', $this->createdRoomIds);
 		$this->deleteByIds('chorestrike_floors', $this->createdFloorIds);
@@ -387,6 +483,7 @@ abstract class IntegrationTestCase extends TestCase {
 		$this->deleteByIds('chorestrike_houses', $this->createdHouseIds);
 
 		$this->createdRoomTaskIds = [];
+		$this->createdCompletionIds = [];
 		$this->createdTaskIds = [];
 		$this->createdRoomIds = [];
 		$this->createdFloorIds = [];

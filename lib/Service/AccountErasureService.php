@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\CommandReceiptMapper;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\CompletionRevisionMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
@@ -23,6 +24,7 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Db\WalletEntryMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 
 /**
  * Account erasure (CS-PLAN-071 WP0, Q-070-02 / RF-070-17 WP0 portion).
@@ -76,6 +78,8 @@ class AccountErasureService {
 		private ScheduleRevisionMapper $scheduleRevisionMapper,
 		private AgreementMapper $agreementMapper,
 		private PauseMapper $pauseMapper,
+		private CompletionRevisionMapper $completionRevisionMapper,
+		private WorkShareMapper $workShareMapper,
 		private TransactionExecutor $transactions,
 		private AppLogger $appLogger,
 	) {
@@ -123,6 +127,8 @@ class AccountErasureService {
 				$this->transactions->run(function () use ($wallet): void {
 					$this->houseMapper->findForUpdate($wallet->getHouseId());
 					$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
+					$this->walletEntryMapper->anonymizeActorWallet((int)$wallet->getId());
+					$this->workShareMapper->anonymizeWallet((int)$wallet->getId());
 					$this->walletMapper->delete($wallet);
 				});
 			} catch (\Throwable $e) {
@@ -180,6 +186,7 @@ class AccountErasureService {
 			$wallet = $this->walletMapper->findByHouseAndUser($houseId, $ncUserId);
 			if ($wallet !== null) {
 				$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
+				$this->walletEntryMapper->anonymizeActorWallet((int)$wallet->getId());
 				$this->walletMapper->delete($wallet);
 
 				// CS-PLAN-072 WP1 (T0): purge the account's occurrence
@@ -198,12 +205,23 @@ class AccountErasureService {
 
 			// The receipts survive as anonymous facts.
 			$this->commandReceiptMapper->anonymizeActor($houseId, $houseUserId);
+			$this->walletEntryMapper->anonymizeActor($houseUserId);
 
 			// Timeline agreement evidence survives, the actor does not.
 			$this->agreementMapper->anonymizeActor($houseUserId);
 
 			// Retain the anonymous shared work facts, lose the actor.
 			$this->completedTaskMapper->anonymizeActor($houseUserId);
+
+			// CS-PLAN-070 WP3 (§3.6): the new evidence tables anonymize
+			// their actor references too — correction audit rows lose the
+			// actor (bounded facts stay), work shares lose the wallet
+			// binding (only non-identifying shared work remains). The room
+			// journal carries no actor references.
+			$this->completionRevisionMapper->anonymizeActor($houseUserId);
+			if ($wallet !== null) {
+				$this->workShareMapper->anonymizeWallet((int)$wallet->getId());
+			}
 
 			// The membership row (and its scheduling preferences) dies last.
 			$this->houseUserMapper->delete($membership);

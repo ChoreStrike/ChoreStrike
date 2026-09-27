@@ -1,97 +1,149 @@
 ---
 name: gamification
-description: ChoreStrike gamification domain model — coins, combos, medals, energy, streaks, and fairness rules
+description: ChoreStrike gamification domain model — minor-unit wallet, work splits, rhythm recognition, medals, energy, streaks, and fairness rules
 ---
 
 # Skill: Gamification Domain
 
-**Load when:** Implementing or modifying reward mechanics, scoring, combos, medals, streaks, energy balancing, or role titles.
+**Load when:** Implementing or modifying reward mechanics, work splits, wallet
+postings, corrections, rhythm recognition, medals, streaks, energy balancing,
+or role titles.
 
 **Canonical references:**
 - [`gamification-and-rewards.md`](../../../../concepts/gamification-and-rewards.md)
 - [`energy-and-balancing.md`](../../../../concepts/energy-and-balancing.md)
-- [ADR-004: Multi-User Gamification](../../../../adr/ADR-004-multi-user-gamification.md)
-- [ADR-012: Actionable Household Scheduling](../../../../adr/ADR-012-actionable-household-scheduling.md)
+- [`task-model-and-sync.md`](../../../../concepts/task-model-and-sync.md) § Completion and undo model
+- [ADR-014: Work Accounting, Ledger and Replay](../../../../adr/ADR-014-work-accounting-ledger-and-replay.md)
+- [ADR-004: Multi-User Gamification](../../../../adr/ADR-004-multi-user-gamification.md) (historical)
 
-**Current versus intended behavior:** the concept document explicitly separates
-the available-day activity model from the proposed family-rhythm/reward rules.
-Do not implement proposals as if already approved, or describe absence handling
-as proof of obligation-aware streaks. ADR-004 retains historical formulas.
+**Current versus intended behavior:** WP3 (2026-09-27) retired the legacy
+economy — integer coin mints, tier/personal/early multipliers, combos,
+streak freezes, teamwork bonuses and the boost/arcade economy are gone.
+Rewards are exact minor-unit derivations of frozen work evidence on an
+immutable ledger. Do not re-introduce multipliers or snapshot reversal;
+describe the WP3 model as the shipped contract.
 
 ---
 
 ## Core Systems
 
-### 1. Contribution Score
-- Credited task energy reflecting work done, separate from spendable Coins.
-- Incremented by the task's energy cost on each completion (`GameLogicService::calculateContributionScore`).
-- Used for role title progression. Undo restores the recorded before-state;
-  cross-event preservation is a known follow-up, not a never-decreases guarantee.
+### 1. Wallet (exact minor units, immutable ledger)
+- One wallet per member (`chorestrike_wallets`, bound under lock; departed
+  members retain wallet + balance; never re-bind erased facts).
+- Value is exact integer minor units: **100 energy minor = 1 energy,
+  100 coin minor = 1 Coin, 1000 coin minor per frozen energy unit** (the
+  10-Coin rate frozen at completion time as `rate_minor`).
+- `chorestrike_wallet_entries` is the immutable ledger: one row per wallet,
+  source kind (`completion` / `completion_undo` / `attribution` / `manual`),
+  source id + revision, signed `delta_minor`, bounded reason, actor. The
+  unique `(wallet, source-kind, source-id, source-revision)` key is the
+  idempotency identity — every command commits exactly once.
+- Cached `booked/reserved/available` + funding-hold watermark are maintained
+  transactionally, never re-summed at read; safe-integer accumulation is
+  enforced at every boundary.
 
-### 2. Coins (renewable currency)
-- Earned on task completion, with combo and early-completion bonuses.
-- Formula (per task): `energy × baseRate × taskTierMultiplier × personalMultiplier × earlyMultiplier`, doubled on combo (see `GameLogicService::calculateCoins`). Held on `HouseUser.coins`.
-- Family-friendly terminology — never "points" or military terms.
+### 2. Work splits (the attributed fact)
+- The completer records the actual participants: 1–100 unique eligible house
+  members, positive whole percents summing to exactly 100; the completer must
+  take part (self-participation, Q-074-02).
+- Exact math: `energyMinor = totalEnergy × sharePct`, `coinMinor = 10 ×
+  totalEnergy × sharePct`. No floating point anywhere.
+- A later attribution (`PUT /completions/{id}/attribution`, completer or
+  owner authority + explicit `allocationReviewed` deviation confirmation)
+  rewrites the selected allocation. The reversal union is keyed by **wallet id
+  from the share rows** — departed participants' retained wallets always
+  reverse, so a completion pays out exactly the frozen total.
 
-### 3. Weekly Medals (recognition)
-- Catalogue (`lib/Db/Medal.php`): `team_anchor`, `flow_keeper`, `room_guardian`, `team_player`, `streak_keeper`.
-- All five types are evaluated by `MedalService::checkAndAwardMedals()`;
-  thresholds and their activity-based limitations are in the canonical concept.
-- Live award path: `MedalService::awardMedalIfNew()` (race-safe via unique-constraint handling).
+### 3. Corrections (C3e/C3f closure)
+- `POST /completions/{id}/undo` reverses the **latest selected allocation
+  revision** exactly once (occurrence release, exact negative wallet deltas,
+  room replay, recognition recompute). Idempotent; a stale version is a 409.
+- Attribution never rewrites the frozen work facts (time, zone, occurrence,
+  total energy, rate), the room journal or the audit chain
+  (`completion_revs` is append-only; a departed-not-erased actor renders as
+  the localized 'Removed member' placeholder).
 
-### 4. Combos
-- Consecutive completions by the **same user** (≥2 recent completions) double coins: `coins *= 2` in `GameLogicService::calculateCoins()`. This is a **personal** combo, not the cooperative ×1.5 multi-user concept from the foundational design.
-- Combo state is derived inline in `GameLogicService` from `CompletedTaskMapper::findRecentByUserId()` — there is no persistent combo table.
-- Combo milestone (≥ `combo_bonus_freeze_threshold`) awards a bonus streak freeze.
+### 4. Rhythm recognition (valid-history derivations)
+- `currentStreak`/`longestStreak` recompute from the valid planned-day
+  history inside every aggregate: a day is fulfilled / pending-neutral /
+  expired-miss from occurrence validity + window; a correction shrinks the
+  longest record only to the corrected valid-history maximum (C3g).
+- The weekly goal evaluates the union of due and validly completed room tasks
+  per house-local week (`weekly_goal_target_percent`, default 80).
 
-### 5. Energy Model
+### 5. Weekly Medals (recognition)
+- The old activity/combo catalog (`team_anchor`, `flow_keeper`,
+  `room_guardian`, `team_player`) retired with the wallet cutover.
+  `MedalService` carries the wallet-qualified **rhythm award cluster**
+  (`streak_keeper` from the valid planned-day history; further rhythm awards
+  follow the same rules), awarded read-triggered via `awardMedalIfNew()`
+  (race-safe, notifies once per user+type+week).
+
+### 6. Energy Model
 - Each task costs 1–5 energy (~5 min per unit).
 - Members define daily energy budgets and presence days.
-- Owner plan placement checks capacity/availability. Recurrence advancement is
-  separate; shared-placement and override gaps are documented in the concept.
+- Owner plan placement checks capacity/availability (`DailyCapacityService`,
+  exact minor-unit shares, frozen occurrence energies — a definition edit
+  never re-prices recorded work). Completion never consults the evaluator;
+  over-limit real work stays recordable.
 
-### 6. Config-driven reward tokens (defaults in `RewardConfigService`)
-Coins (`coin_base_per_energy` 10), tier multipliers (bronze/silver/gold 1.0/1.5/2.0), early bonus (`early_bonus_multiplier` 1.5, threshold 21d), streak freezes (`streak_freezes_per_week` 1, `streak_freeze_cap` 2), combo bonus freeze (`combo_bonus_freeze_threshold` 5), teamwork bonus (`teamwork_bonus_enabled`, `teamwork_bonus_max_pct` 50), weekly goal (`weekly_goal_target_percent` 80), role titles (`titles_enabled`, `title_threshold_*`). Full table: [`gamification-and-rewards.md`](../../../../concepts/gamification-and-rewards.md) § Implemented Reward Mechanics.
+### 7. Role Titles (localized packs)
+- Signals are `contributionMinor` (Home Helpers) and `longestStreak`
+  (Team Energy); the coins-driven pack retired with the spendable economy.
+- Server-authoritative unlocks; thresholds via `title_threshold_{pack}_{tier}`.
 
 ## Backend Services
 
 | Service | Responsibility |
 |---------|---------------|
-| `GameLogicService` | Core reward calculation and personal combo detection |
-| `MedalService` | Weekly medal evaluation and race-safe awards |
-| `RewardConfigService` | Instance-global reward configuration stored in Nextcloud app config |
-| `SchedulingService` | Live scheduling API (preferences, energy, availability, suggestions) |
-
-> Removed as dead code (CS-PLAN-025): `ComboService`, `UserStatsService`, `HouseUserService` (service), `SmartSchedulerService`, `TaskSchedulerService` — `GameLogicService` inlines the combo logic.
+| `CompletionService` | The completion/undo/attribution transaction aggregate (lock-order owner; collaborators: WalletService, RoomReplayService, RhythmService, EffortAllocationService) |
+| `CommandService` | Command log: execute-or-replay with the unique (house, UUID) receipt row committed in-transaction |
+| `WalletService` | Wallet binding, immutable ledger postings, cached balances, funding-hold |
+| `RoomReplayService` | Room journal fold (baseline/delta/manual/reset, clamps, `(effective_at, id)` order); the room cache is a derived projection |
+| `RhythmService` | Streak derivation from the valid planned-day history (neutral pending days; corrected-record shrinking) |
+| `WeeklyGoalService` | Due∪completed per-house-local-week evaluation |
+| `MedalService` | Rhythm medal evaluation and race-safe awards |
+| `EffortAllocationService` | Exact minor-unit share math |
+| `GameLogicService` | Viewer-safe game-state serialization only (legacy reward orchestration retired) |
 
 ## Persistence
 
 | Entity/Mapper | Stores |
 |---------------|--------|
-| `HouseUser` / `HouseUserMapper` | Coins, streak, streak-freeze, title state |
-| `Medal` / `MedalMapper` | Awarded medals (user, type, week) |
-| `CompletedTask` / `CompletedTaskMapper` | Completion history for scoring |
+| `Wallet` / `WalletMapper` | Cached balances + funding hold per member wallet |
+| `WalletEntry` / `WalletEntryMapper` | Immutable value ledger (idempotency-unique) |
+| `CompletedTask` / `CompletedTaskMapper` | Frozen work evidence + completion versions |
+| `WorkShare` / `WorkShareMapper` | Allocation revisions per completion |
+| `CompletionRevision` / `CompletionRevisionMapper` | Append-only audit chain |
+| `RoomEvent` / `RoomEventMapper` | Room journal (replay authority) |
+| `HouseUser` / `HouseUserMapper` | Membership, contributionMinor, streak records, title state |
+| `Medal` / `MedalMapper` | Awarded rhythm medals (user, type, week) |
 
 ## Design Rules
 
-- **Target: no punishment loops.** Current available-day streaks can reset even
-  without due chores; this must not be advertised as the requested rhythm model.
-- **Absence handling:** unavailable gap days are excluded; dated pause and
-  obligation-based protection remain undecided.
-- **Cooperative > competitive:** shared progress is preferred; team streaks and
-  ranking opt-out are not implemented guarantees.
-- **Configurable formulas:** reward calculations are policy, not hardcoded constants.
-- **Family-friendly language:** no military/aggressive terms. Use "Coins", not "points" or "XP".
-- **Fairness normalization:** compare contribution relative to available capacity, not raw counts.
-
-## Role Titles (localized packs)
-
-3 built-in packs with 3 progressive tiers each (low/medium/high contribution). All packs must be family-friendly. See [`gamification-and-rewards.md`](../../../../concepts/gamification-and-rewards.md) for current packs.
+- **Frozen facts, derived rewards.** Work evidence and rates are frozen at
+  completion; every reward is an exact derivation; corrections move value, they
+  never rewrite history.
+- **Totals are conserved.** The reversal union always includes every wallet
+  the share rows name (departed members included) — a completion pays out
+  exactly the frozen total.
+- **Target: no punishment loops.** Pending days are neutral, not misses;
+  expired windows become misses only after their deadline.
+- **Cooperative > competitive:** shared progress is preferred; capacity-normalized
+  fairness is a separate view.
+- **Family-friendly language:** no military/aggressive terms.
+- **No floating point:** integer minor units end to end; the signed
+  safe-integer envelope is enforced.
 
 ## When Modifying Gamification
 
-1. Check ADR-004 and the concept docs for locked decisions.
-2. Keep formulas in `RewardConfigService` — don't hardcode in `GameLogicService`.
-3. Update `HouseUser` calculations atomically (contribution + coins + streak in one transaction).
-4. Add regression tests for edge cases: absence days, combo expiry, weekly medal reset boundaries.
-5. Verify fairness: no single strategy should dominate all medal types.
+1. Check ADR-014 and the concept docs for the locked WP3 contract.
+2. Route every mutation through the `CompletionService` aggregate and the
+   `CommandService` receipt seam — never post ledger/journal effects outside
+   it.
+3. Keep exact minor-unit math in `EffortAllocationService`; enforce the
+   safe-integer envelope at every accumulation.
+4. Add regression tests for corrections: departed-wallet reversal, latest-
+   revision undo, deviation-review gating, corrected-record shrinking.
+5. Verify fairness: corrections re-derive recognition from the valid history —
+   no cached increment/decrement shortcuts.

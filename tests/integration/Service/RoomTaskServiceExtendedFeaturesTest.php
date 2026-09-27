@@ -121,6 +121,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$occurrenceMapper,
 			$occMemberMapper,
 			$completedTaskMapper,
+			$this->createMock(\OCA\ChoreStrike\Db\AgreementMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper::class),
 			$calculator,
 			$calendar,
 			$l10n,
@@ -167,6 +169,9 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 				$occMemberMapper,
 				new \OCA\ChoreStrike\Service\CalendarService(),
 			),
+			\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class),
+			\OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
+			new \OCA\ChoreStrike\Service\EffortAllocationService(),
 			$l10n
 		);
 
@@ -330,6 +335,9 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 				\OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
 				new \OCA\ChoreStrike\Service\CalendarService(),
 			),
+			\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class),
+			\OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
+			new \OCA\ChoreStrike\Service\EffortAllocationService(),
 			$this->identityL10n()
 		);
 

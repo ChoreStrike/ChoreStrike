@@ -10,46 +10,18 @@
 
 ## In Progress
 
-[CS-PLAN-074 / WP3](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) —
-active (Standard A `PASS` 2026-09-25; Q-074-01/02 resolved with Option A each,
-correction-closure slice committed, 10-16-day allowance). **Implementation
-round 2 done 2026-09-26 (working tree, uncommitted):** all five plan Review
-Findings resolved — the ~20 legacy backend suites re-cut to the WP3 contract
-(new `WeeklyGoalServiceTest`, `CompletionControllerTest`,
-`ParticipationDialog.spec.js`; retired suites archived under
-`archive/2026-09/cs-plan-074-retired/`), Docker unit 935 + integration 430
-green on a fresh-install chain (`down -v` rebuild), the query-budgeted
-`proposal` block on EVERY room-task read path (shared derivation with the
-completion writer) + participation dialog wiring in Today/RoomDetail/
-TaskManager (actor auto-joins foreign agreements), `lastFreezeDate`
-placeholder removed, E2E gate manifest/specs re-cut to the
-wallet-minor/targeted-undo contract (boost-shop/teamwork/streak-notification
-retired). Round-2 production fixes found by the suites: entity-default
-INSERT traps (CompletedTask/WorkShare/CompletionRevision), stale stats in
-recognition reconciliation, rhythm streak persistence, claim-revert id
-comparison, wallet binding on participant-less completions, stale
-own-wallet in the completion response, under-lock undo re-read, no-op undo
-semantics, MinigameService/GameController mapper defects, missing proposal
-serialization on three read paths, dialog 44px touch targets. **All gates
-green incl. E2E gate PASSED (3 pools, zero fail/skip/flaky).** Final
-Standard B **NEEDS-FOLLOW-UP 2026-09-27**: five plan-owned findings
-(RF-074-WP3-01..05 + three nits) block `done/` — durable-doc integration
-missing (ADR-014 + API/engineering/concepts/ADRs + stale size inventory),
-attribution unreachable from the client, required §4 test files missing
-(CompletionCorrection/RoomReplay/RhythmProjection/minorUnits), attribution
-skips departed participants' wallet reversal, `showCompletion` 500 on a
-departed audit actor; review-rerun gates all green, E2E accepted on the
-mtime-verified passing run per user decision; evidence-only review commit,
-implementation package stays uncommitted. **Next:** dedicated fix round
-(RF-074-WP3-01..08), then the final re-review.
+*(none — WP3 delivered 2026-09-27; the next package is WP4 under the parent
+[CS-PLAN-070](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md))*
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
-- **CS-PLAN-074 / WP3 — final Standard B NEEDS-FOLLOW-UP** (2026-09-27): complete uncommitted WP3 increment (178 tracked + 18 untracked paths at `master` `28755b6`) reviewed against the plan manifest, §4 matrix, acceptance criteria and durable-doc gate; checklist verified (thin correction controller, house-first receipt aggregates, exact union deltas, sole wallet authority, room journal/replay, Q-074-01A valid-history recognition, selected-share capacity, erasure sweeps, parameterized SQL, 987-key l10n); 5 plan-owned findings + 3 nits recorded (RF-074-WP3-01..08 — durable docs missing, attribution not client-wired, required §4 tests missing, departed-wallet attribution defect, showCompletion departed-actor 500); gates rerun green (Docker unit 935/2882 + integration 430/2143 zero-skip, cs:check 0-of-350, Jest 1015, lint/stylelint/l10n/backlog/encoding/diff-check/build); E2E accepted on mtime-verified run `run-qUhkY2` per user decision; plan stays `active/`, CR-SVC-63 stays open, evidence-only commit. [Plan](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review record](archive/CODE_REVIEW_2026-09-27.md).
+- **CS-PLAN-074 / WP3 — work accounting and replay DELIVERED** (final Standard B re-review `PASS-WITH-FIXES` 2026-09-27, plan moved to `done/`): the complete WP3 increment (217 tracked + 26 untracked paths at `master` `631f022`) re-verified against the full plan — §5 manifest, §4 matrix with explicit mapping notes, all 16 acceptance criteria, durable-doc integration (ADR-014 + API/engineering/concepts/ADRs/gamification-skill), RF-074-WP3-01..08 fix-round resolutions and the 23-finding follow-up round spot-verified in source; RF-074-WP3-09 resolved in-round (N `WorkShareMapperEnergyTest` real-DB capacity-seam pin per user decision), RF-074-WP3-10 doc drift auto-fixed (ADR-014 link/name + size inventory 8 rows re-measured + 2 added); gates rerun green (Docker unit 981/3077 + integration 467/2402 zero-skip, cs:check, Jest 1054, lint/stylelint/l10n 1003/backlog/encoding/diff-check/build); E2E accepted on mtime-verified run `run-UK5bLd` per user decision; plan `active/ → done/`, CR-SVC-63 closed to archive, CONCEPT-001 and parent findings stay open (WP3 portions annotated). [Plan](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review record](archive/CODE_REVIEW_2026-09-27.md).
 
-- **CS-PLAN-074 — Standard A activation** (2026-09-25): WP3 work-accounting-and-replay plan verified against the runtime at HEAD `f365369f` — all twelve §1 baseline citations exact, 180 `M`/`R` manifest paths exist and 24 `N` paths absent (incl. the conditional Q-074-01-A set, now committed scope), `Version1031` chain head with 1032/1033 reserved, ADR-014 reservation exact, C3 concept anchors resolve; zero findings (`PASS`); Q-074-01/02 answered with the recommended options (minimum correction-closure slice + legacy-effect retirement + T5 move into WP3, allowance 10-16 days; completer/owner may correct a false completer attribution with the audit actor/time immutable); plan `new/ → active/`, CR-SVC-63 In Progress with the plan owning, drafting round landed with the scoped review commit. [Plan](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review record](archive/CODE_REVIEW_2026-09-25.md#cs-plan-074-standard-a-plan-activation).
+- **CS-PLAN-074 / WP3 — final Standard B NEEDS-FOLLOW-UP** (2026-09-27): complete uncommitted WP3 increment (178 tracked + 18 untracked paths at `master` `28755b6`) reviewed against the plan manifest, §4 matrix, acceptance criteria and durable-doc gate; checklist verified (thin correction controller, house-first receipt aggregates, exact union deltas, sole wallet authority, room journal/replay, Q-074-01A valid-history recognition, selected-share capacity, erasure sweeps, parameterized SQL, 987-key l10n); 5 plan-owned findings + 3 nits recorded (RF-074-WP3-01..08 — durable docs missing, attribution not client-wired, required §4 tests missing, departed-wallet attribution defect, showCompletion departed-actor 500); gates rerun green (Docker unit 935/2882 + integration 430/2143 zero-skip, cs:check 0-of-350, Jest 1015, lint/stylelint/l10n/backlog/encoding/diff-check/build); E2E accepted on mtime-verified run `run-qUhkY2` per user decision; plan stays `active/`, CR-SVC-63 stays open, evidence-only commit. [Plan](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review record](archive/CODE_REVIEW_2026-09-27.md).
 
-- **CS-PLAN-074 / WP3 draft created** (2026-09-25): post-WP2 actual shares, exact wallet ledger, targeted undo/attribution, room replay/reset, retention and necessary client/no-Coin arcade cutover; concrete manifest, T3/T4/T10 and conditional T5 closure, existing WP0 wallet-binding helper/test retained. Q-074-01/02 remain open for Standard A; documentation checks passed including the untracked draft, the moved WP2 parent link was repaired; no runtime implementation, activation or commit. [Plan](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md).
+- **CS-PLAN-074 — Standard A activation** (2026-09-25): WP3 work-accounting-and-replay plan verified against the runtime at HEAD `f365369f` — all twelve §1 baseline citations exact, 180 `M`/`R` manifest paths exist and 24 `N` paths absent (incl. the conditional Q-074-01-A set, now committed scope), `Version1031` chain head with 1032/1033 reserved, ADR-014 reservation exact, C3 concept anchors resolve; zero findings (`PASS`); Q-074-01/02 answered with the recommended options (minimum correction-closure slice + legacy-effect retirement + T5 move into WP3, allowance 10-16 days; completer/owner may correct a false completer attribution with the audit actor/time immutable); plan `new/ → active/`, CR-SVC-63 In Progress with the plan owning, drafting round landed with the scoped review commit. [Plan](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review record](archive/CODE_REVIEW_2026-09-25.md#cs-plan-074-standard-a-plan-activation).
+
+- **CS-PLAN-074 / WP3 draft created** (2026-09-25): post-WP2 actual shares, exact wallet ledger, targeted undo/attribution, room replay/reset, retention and necessary client/no-Coin arcade cutover; concrete manifest, T3/T4/T10 and conditional T5 closure, existing WP0 wallet-binding helper/test retained. Q-074-01/02 remain open for Standard A; documentation checks passed including the untracked draft, the moved WP2 parent link was repaired; no runtime implementation, activation or commit. [Plan](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md).
 
 - **CS-PLAN-073 / WP2 — agreements, capacity and pauses DELIVERED** (final Standard B `PASS-WITH-FIXES` 2026-09-25, plan moved to `done/`): whole 96-path increment reviewed — revisioned pause lifecycle (`PauseService`/`PauseProjectionService`: per-group shortening precedence, recognition-deadline eligibility, any-obligated joint suspension + explicit resumption, virtual/concrete parity, viewer-safe whitelist RF-28 under restricted handling), whole-day exact-share capacity (`DailyCapacityService`), owner-recorded amendments/catch-up/linked restart (`AgreementService` + one occurrence writer), planner consent/command/capacity cutover (CR-SVC-64 closed → archive), erasure/departure/TimelineJob integration, minimal client surface; RF-01..28 resolved, two minor orphan-code findings fixed in-round (RF-29/30); gates: Docker unit 1073 / integration 450 zero-skip, Jest 1073, lint, cs:check 0-of-351, l10n 995, backlog/encoding/diff-check; E2E gate accepted on mtime-verified R8 evidence per user decision; plan `active/ → done/` with the scoped review commit, CR-SVC-64 archived, FEAT-UX-025 backend slice closed (UI/digest/rhythm open). [Plan](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) · [Final review](archive/CODE_REVIEW_2026-09-25.md#final-standard-b-review-r9--pass-with-fixes) · [Blocked attempt](archive/CODE_REVIEW_2026-09-25.md) · [History](archive/CODE_REVIEW_2026-09-25.md#implementation-history-extract).
 

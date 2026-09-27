@@ -135,17 +135,6 @@ class ChoreStrikeNotifier implements INotifier {
 				);
 				break;
 
-			case NotificationService::SUBJECT_STREAK_AT_RISK:
-				$params = $this->params($notification);
-				$currentStreak = (int)($params['currentStreak'] ?? 0);
-				$notification->setParsedSubject(
-					$l->t('Your %1$d-day streak is at risk — complete a task today!', [$currentStreak])
-				);
-				$notification->setParsedMessage(
-					$l->t('You did not complete any tasks yesterday and have no streak freeze left. Complete a task today to keep your streak alive.')
-				);
-				break;
-
 			case NotificationService::SUBJECT_TASK_DUE_TODAY:
 			case NotificationService::SUBJECT_TASK_DUE_TOMORROW:
 				$params = $this->params($notification);

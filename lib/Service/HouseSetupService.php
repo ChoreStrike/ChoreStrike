@@ -44,8 +44,7 @@ class HouseSetupService {
 	/** Hard cap on the number of floors a wizard payload may create. */
 	public const MAX_FLOORS = 6;
 	/** Hard cap on rooms per floor in a wizard payload. */
-	public const MAX_ROOMS_PER_FLOOR = 12;
-	/** Max length for a room, floor, or house name. */
+	public const MAX_ROOMS_PER_FLOOR = 12;	/** Max length for a room, floor, or house name. */
 	public const MAX_NAME_LENGTH = 255;
 
 	private FloorMapper $floorMapper;
@@ -59,6 +58,7 @@ class HouseSetupService {
 	private TemplateService $templateService;
 	private OccurrenceService $occurrenceService;
 	private CalendarService $calendarService;
+	private RoomReplayService $roomReplayService;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
@@ -76,6 +76,7 @@ class HouseSetupService {
 		TemplateService $templateService,
 		OccurrenceService $occurrenceService,
 		CalendarService $calendarService,
+		RoomReplayService $roomReplayService,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
@@ -92,6 +93,7 @@ class HouseSetupService {
 		$this->templateService = $templateService;
 		$this->occurrenceService = $occurrenceService;
 		$this->calendarService = $calendarService;
+		$this->roomReplayService = $roomReplayService;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
@@ -182,6 +184,9 @@ class HouseSetupService {
 						$room['icon'] ?? null,
 						$room['roomType']
 					);
+					// WP3 §3.5: the creation baseline is journaled before
+					// any room mutation (setup path).
+					$this->roomReplayService->recordBaseline($roomEntity);
 					$roomCount++;
 
 					$applicable = $this->templateService->getTemplatesForRoomType($room['roomType']);
@@ -450,10 +455,7 @@ class HouseSetupService {
 	 * Ensure every member (owner + invited members) carries their
 	 * persistent wallet inside the apply transaction (CS-PLAN-071 WP0,
 	 * decision D1): create the wallet when absent and bind its id on the
-	 * house_users row. Identity only — dormant zero balances, never exposed
-	 * through an API; the legacy `house_users.coins` writers stay
-	 * authoritative until WP3. At setup time the membership set IS the
-	 * owner-plus-invitees set.
+	 * house_users row. WP3: the wallet is the sole monetary authority.
 	 *
 	 * @param int $houseId The locked house ID
 	 */

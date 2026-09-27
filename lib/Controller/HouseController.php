@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
@@ -283,7 +284,29 @@ class HouseController extends Controller {
 			// Require house ownership for reset
 			$this->authService->requireHouseOwner($house->getId());
 
-			$this->houseService->resetHouse($house->getId());
+			// WP3 §3.6: the reset is a receipt-protected command — the
+			// journal and the receipt commit together and a replayed
+			// command never re-resets over later work.
+			$commandId = (string)$this->request->getParam('commandId', '');
+			if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $commandId)) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('A valid commandId (UUID) is required')],
+				], 400);
+			}
+			$expectedVersionRaw = $this->request->getParam('expectedVersion');
+			$expectedVersion = null;
+			if ($expectedVersionRaw !== null && $expectedVersionRaw !== '') {
+				if (!is_numeric($expectedVersionRaw) || (int)$expectedVersionRaw < 0) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('A valid expectedVersion is required')],
+					], 400);
+				}
+				$expectedVersion = (int)$expectedVersionRaw;
+			}
+
+			$this->houseService->resetHouse($house->getId(), strtolower($commandId), $expectedVersion);
 
 			// Return updated house
 			$updatedHouse = $this->houseService->getOrCreateHouse($instanceId);
@@ -295,6 +318,8 @@ class HouseController extends Controller {
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('reset', $e);
 			return new JSONResponse([

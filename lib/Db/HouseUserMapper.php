@@ -68,7 +68,7 @@ class HouseUserMapper extends QBMapper {
 		if ($this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE) {
 			$qb = $this->db->getQueryBuilder();
 			$qb->update($this->getTableName())
-				->set('contribution_score', $qb->createFunction('contribution_score'))
+				->set('contribution_minor', $qb->createFunction('contribution_minor'))
 				->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
 			$qb->executeStatement();
 
@@ -99,7 +99,7 @@ class HouseUserMapper extends QBMapper {
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->orderBy('contribution_score', 'DESC');
+			->orderBy('contribution_minor', 'DESC');
 
 		return $this->findEntities($qb);
 	}
@@ -200,6 +200,26 @@ class HouseUserMapper extends QBMapper {
 	 * @param string[] $ncUserIds The Nextcloud user IDs
 	 * @return array<string, HouseUser> Map of Nextcloud user ID → HouseUser
 	 */
+	/**
+	 * The live membership bound to a wallet id (wallet → member reverse
+	 * lookup; WP3 contribution-cache re-derivation). Departed memberships
+	 * have no bound row for new lookups? They keep the binding — this
+	 * read is also the rejoin path's cache source.
+	 */
+	public function findByWalletId(int $walletId): ?HouseUser {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('wallet_id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT)))
+			->setMaxResults(1);
+
+		try {
+			return $this->findEntity($qb);
+		} catch (DoesNotExistException $e) {
+			return null;
+		}
+	}
+
 	public function findByHouseIdAndNextcloudUserIds(int $houseId, array $ncUserIds): array {
 		if (empty($ncUserIds)) {
 			return [];

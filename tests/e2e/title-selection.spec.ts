@@ -31,9 +31,12 @@ test.describe('Role Title System', () => {
 		await page.click('[data-testid="change-title-button"]')
 
 		await page.waitForSelector('[data-testid="title-picker"]', { timeout: 10000 })
+		// WP3 cutover (D7c/C3d): the coins-driven cozy_home pack retired —
+		// the retained catalog is home_helpers, team_energy and the rhythm
+		// track (family_rhythm).
 		await expect(page.locator('[data-testid="title-pack-home_helpers"]')).toBeVisible()
 		await expect(page.locator('[data-testid="title-pack-team_energy"]')).toBeVisible()
-		await expect(page.locator('[data-testid="title-pack-cozy_home"]')).toBeVisible()
+		await expect(page.locator('[data-testid="title-pack-family_rhythm"]')).toBeVisible()
 	})
 
 	test('Selecting a pack marks it active', async ({ page }) => {

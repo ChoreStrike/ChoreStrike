@@ -38,7 +38,7 @@
 							:title="user.currentTitle"
 							compact />
 						<p class="podium-score">
-							{{ formatScore(user.contributionScore) }} {{ t('chorestrike', 'pts') }}
+							{{ formatScore(user.contributionMinor) }} {{ t('chorestrike', 'pts') }}
 						</p>
 					</div>
 					<div class="podium-bar" :style="{ height: `${getPodiumHeight(user.rank)}px` }" />
@@ -86,7 +86,7 @@
 							<span v-if="isCurrentUser(user)" class="you-badge">{{ t('chorestrike', 'You') }}</span>
 						</div>
 					</span>
-					<span class="score-col" data-testid="contribution-score">{{ formatScore(user.contributionScore) }}</span>
+					<span class="score-col" data-testid="contribution-score">{{ formatScore(user.contributionMinor) }}</span>
 					<span class="streak-col" data-testid="user-streak">
 						<span
 							class="streak-badge"
@@ -94,7 +94,6 @@
 							:data-testid="`user-freezes-${user.id}`">
 							<Icon name="Zap" :size="14" />
 							{{ user.currentStreak }}
-							<span v-if="user.streakFreezes > 0" class="freeze-indicator">❄ {{ user.streakFreezes }}</span>
 						</span>
 					</span>
 					<span class="tasks-col" data-testid="tasks-completed-stat">{{ user.totalTasksCompleted || 0 }}</span>
@@ -237,21 +236,13 @@ export default {
 		},
 
 		/**
-		 * Active-freeze display rule (CS-PLAN-040): the "frozen" styling
-		 * applies only when the last freeze consumption was yesterday —
-		 * compared on calendar dates, never on raw timestamps.
+		 * Freeze styling retired with the WP3 cutover (dated pauses are the
+		 * neutral absence mechanism) — the badge never renders frozen.
 		 *
-		 * @param {object} user Leaderboard user with lastFreezeDate
-		 * @return {boolean} True when the user's streak is freeze-protected
+		 * @return {boolean} Always false.
 		 */
-		isFrozen(user) {
-			if (!user.lastFreezeDate) return false
-			const freezeDate = new Date(user.lastFreezeDate)
-			const yesterday = new Date()
-			yesterday.setDate(yesterday.getDate() - 1)
-			return freezeDate.getFullYear() === yesterday.getFullYear()
-				&& freezeDate.getMonth() === yesterday.getMonth()
-				&& freezeDate.getDate() === yesterday.getDate()
+		isFrozen() {
+			return false
 		},
 
 		getPodiumHeight(rank) {

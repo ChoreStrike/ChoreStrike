@@ -275,10 +275,42 @@ class RoomTaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * Unknown receipt fields (future WP3 participants) are REJECTED with
-	 * 400, never silently ignored (parent §3.4).
+	 * Unknown receipt fields are REJECTED with 400, never silently
+	 * ignored (parent §3.4; `participants`/`allocationReviewed` are part
+	 * of the WP3 closed set now).
 	 */
 	public function testComplete_UnknownReceiptFieldAnswers400(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+		$this->request->method('getParams')->willReturn([
+			'commandId' => '11111111-2222-4333-8444-555555555555',
+			'occurrenceId' => '1:1',
+			'expectedVersion' => 0,
+			'selectionToken' => 'token',
+			'boosts' => ['double_points'],
+		]);
+
+		$this->completionService->expects($this->never())->method('complete');
+
+		$response = $this->controller->complete(1);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertStringContainsString('Unknown field', $response->getData()['error']['message']);
+	}
+
+	/**
+	 * Complete_MalformedParticipant_Answers400 (WP3 §3.6)
+	 *
+	 * The closed participant set requires {userId, sharePct} entries —
+	 * a legacy boost-style `{userId, share}` entry is rejected.
+	 */
+	public function testComplete_MalformedParticipant_Answers400(): void {
 		$house = new House();
 		$house->setId(1);
 
@@ -298,91 +330,25 @@ class RoomTaskControllerTest extends TestCase {
 
 		$response = $this->controller->complete(1);
 
-		$this->assertInstanceOf(JSONResponse::class, $response);
 		$this->assertEquals(400, $response->getStatus());
-		$this->assertStringContainsString('Unknown field', $response->getData()['error']['message']);
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+		$this->assertSame(
+			'Every participant needs a user id and a whole percent share',
+			$response->getData()['error']['message']
+		);
 	}
 
 	/**
-	 * Test POST /room-tasks/{id}/undo (CS-PLAN-064 WP5, decision D5): the
-	 * single undo operation delegates to the CompletionService undo
-	 * aggregate and carries the `undone` flag in the response.
+	 * Undo_SurfaceMovedToCompletionController (WP3 §3.4)
+	 *
+	 * The latest-by-room-task undo route is retired: correction targets a
+	 * specific numeric completion through the CompletionController.
 	 */
-	public function testUndo_DelegatesToCompletionService(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('assertHouseMember')
-			->willReturn($this->createHouseUser());
-		$this->roomTaskService->method('validateRoomTaskOwnership');
-
-		$this->completionService->expects($this->once())
-			->method('undo')
-			->with(1, $this->isInstanceOf(HouseUser::class), 1)
-			->willReturn([
-				'roomTask' => new RoomTask(),
-				'room' => new Room(),
-				'task' => new Task(),
-				'rewards' => ['coins' => -50],
-				'undone' => true,
-			]);
-
-		$response = $this->controller->undo(1);
-
-		$this->assertInstanceOf(JSONResponse::class, $response);
-		$this->assertEquals(200, $response->getStatus());
-
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertTrue($data['data']['undone']);
-		$this->assertSame(-50, $data['data']['rewards']['coins']);
-	}
-
-	/**
-	 * The undo endpoint maps the 404 anti-enumeration denial from the
-	 * service to the standard envelope.
-	 */
-	public function testUndo_Returns404ForUnknownRoomTask(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('assertHouseMember')
-			->willReturn($this->createHouseUser());
-		$this->roomTaskService->method('validateRoomTaskOwnership');
-
-		$this->completionService->method('undo')
-			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room task not found'));
-
-		$response = $this->controller->undo(99);
-
-		$this->assertEquals(404, $response->getStatus());
-		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
-	}
-
-	/**
-	 * The undo endpoint maps the actor-gate denial to 403.
-	 */
-	public function testUndo_Returns403ForActorGateDenial(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('assertHouseMember')
-			->willReturn($this->createHouseUser());
-		$this->roomTaskService->method('validateRoomTaskOwnership');
-
-		$this->completionService->method('undo')
-			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Only the completer or a house owner can undo a completion'));
-
-		$response = $this->controller->undo(1);
-
-		$this->assertEquals(403, $response->getStatus());
-		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	public function testUndo_SurfaceMovedToCompletionController(): void {
+		$this->assertFalse(
+			method_exists($this->controller, 'undo'),
+			'the latest-by-room-task undo endpoint must stay removed'
+		);
 	}
 
 	/**

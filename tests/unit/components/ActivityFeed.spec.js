@@ -27,8 +27,8 @@ describe('ActivityFeed', () => {
 
 	it('renders one row per completed task with actor, task and room', () => {
 		const wrapper = mountFeed([
-			{ id: 1, displayName: 'Mom', taskTitle: 'Do the dishes', roomName: 'Kitchen', completedAt: recentIso(2), coinsEarned: 4, wasCombo: false },
-			{ id: 2, displayName: 'Kid', taskTitle: 'Make bed', roomName: '', completedAt: recentIso(5), coinsEarned: 0, wasCombo: false },
+			{ id: 1, displayName: 'Mom', taskTitle: 'Do the dishes', roomName: 'Kitchen', completedAt: recentIso(2), totalEnergy: 2 },
+			{ id: 2, displayName: 'Kid', taskTitle: 'Make bed', roomName: '', completedAt: recentIso(5), totalEnergy: 1 },
 		])
 		const rows = wrapper.findAll('[data-testid="activity-item"]')
 		expect(rows).toHaveLength(2)
@@ -40,23 +40,61 @@ describe('ActivityFeed', () => {
 		expect(rows[1].find('.activity-room').exists()).toBe(false)
 	})
 
-	it('marks combo rows and falls back for unknown actor/task', () => {
+	it('marks undone rows and falls back for unknown actor/task', () => {
 		const wrapper = mountFeed([
-			{ id: 1, displayName: '', taskTitle: '', roomName: 'Kitchen', completedAt: recentIso(1), coinsEarned: 7, wasCombo: true },
+			{ id: 1, displayName: '', taskTitle: '', roomName: 'Kitchen', completedAt: recentIso(1), undoneAt: recentIso(0), totalEnergy: 2 },
 		])
 		const row = wrapper.find('[data-testid="activity-item"]')
-		expect(row.find('.activity-icon').classes()).toContain('combo')
-		expect(row.text()).toContain('🔥')
+		expect(row.classes()).toContain('undone')
+		expect(row.text()).toContain('\u21A9')
 		expect(row.text()).toContain('Unknown member')
 		expect(row.text()).toContain('Unknown task')
-		expect(row.text()).toContain('+7')
 	})
 
-	it('renders earned coins only when present', () => {
+	it('renders frozen effort only when the viewer may see it', () => {
 		const wrapper = mountFeed([
-			{ id: 1, displayName: 'Mom', taskTitle: 'T', roomName: '', completedAt: recentIso(3), coinsEarned: 0, wasCombo: false },
+			{ id: 1, displayName: 'Mom', taskTitle: 'T', roomName: '', completedAt: recentIso(3), totalEnergy: 3 },
+			{ id: 2, displayName: 'Dad', taskTitle: null, roomName: '', completedAt: recentIso(4), totalEnergy: null, canCorrect: false },
 		])
-		expect(wrapper.find('.activity-coins').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="activity-energy-1"]').text()).toContain('3')
+		expect(wrapper.find('[data-testid="activity-energy-2"]').exists()).toBe(false)
+	})
+
+	describe('WP3 history correction (§3.6)', () => {
+		it('offers the correction action only on correctable live rows', () => {
+			const wrapper = mountFeed([
+				{ id: 1, displayName: 'Mom', taskTitle: 'T', completedAt: recentIso(1), totalEnergy: 2, canCorrect: true },
+				{ id: 2, displayName: 'Dad', taskTitle: 'T', completedAt: recentIso(2), totalEnergy: 2, canCorrect: false },
+				{ id: 3, displayName: 'Kid', taskTitle: 'T', completedAt: recentIso(3), totalEnergy: 1, canCorrect: true, undoneAt: recentIso(0) },
+			])
+			expect(wrapper.find('[data-testid="activity-correct-1"]').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="activity-correct-2"]').exists()).toBe(false)
+			// An undone row keeps its history but is not correctable anymore.
+			expect(wrapper.find('[data-testid="activity-correct-3"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="activity-undo-1"]').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="activity-undo-2"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="activity-undo-3"]').exists()).toBe(false)
+		})
+
+		it('emits the correct event with the item when clicked', async () => {
+			const item = { id: 7, displayName: 'Mom', taskTitle: 'T', completedAt: recentIso(1), totalEnergy: 2, canCorrect: true }
+			const wrapper = mountFeed([item])
+			await wrapper.find('[data-testid="activity-correct-7"]').trigger('click')
+			expect(wrapper.emitted('correct')).toHaveLength(1)
+			expect(wrapper.emitted('correct')[0]).toEqual([item])
+		})
+
+		it('emits a targeted undo and disables stale or in-flight rows', async () => {
+			const item = { id: 7, version: 3, canCorrect: true, totalEnergy: 2 }
+			const wrapper = mountFeed([item])
+			expect(wrapper.find('[data-testid="activity-undo-7"]').attributes('data-version')).toBe('3')
+			await wrapper.find('[data-testid="activity-undo-7"]').trigger('click')
+			expect(wrapper.emitted('undo')).toEqual([[item]])
+			await wrapper.setProps({ busyId: 7 })
+			expect(wrapper.find('[data-testid="activity-undo-7"]').attributes('disabled')).toBeDefined()
+			await wrapper.setProps({ busyId: null, blockedIds: [7] })
+			expect(wrapper.find('[data-testid="activity-undo-7"]').attributes('disabled')).toBeDefined()
+		})
 	})
 
 	describe('relative date buckets', () => {

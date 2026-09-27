@@ -115,6 +115,22 @@ Update house name and (owner only) timezone.
 - Unknown IANA identifiers are rejected with 400 `VALIDATION_ERROR`
   ("Unknown timezone") — closed-set validation against the full IANA list.
 - Requires house ownership (403 otherwise).
+
+#### POST /house/reset
+Reset the owner's house health and room state with one receipt-protected
+command. Send a new UUID for each intended reset and retain it across an
+uncertain network response; replaying the same command never resets work done
+after the original request. A reused UUID with different input or a stale
+`expectedVersion` returns 409 `CONFLICT`.
+
+```json
+{ "commandId": "6f1e2a4c-9b7d-4e01-8a2f-3c5d6e7f8090", "expectedVersion": 4 }
+```
+
+`expectedVersion` is optional for callers without a displayed state version;
+the Settings client supplies the version from its current house read. Only
+the house owner can reset.
+
 #### GET /house/stats
 House overview statistics for the Insights view (CS-PLAN-040).
 
@@ -133,46 +149,127 @@ House overview statistics for the Insights view (CS-PLAN-040).
 ```
 
 #### GET /house/activity?days=&limit=&userId=
-Completion activity feed ("who did what when", CS-PLAN-040). Also the
-per-member completed-energy source for the Insights fairness table.
+Completion activity feed ("who did what when", CS-PLAN-040; WP3 §3.6 evidence
+shape). Also the per-member completed-energy source for the Insights fairness
+table.
 
 **Query parameters:**
 - `days` — period length in days, clamped to 1–90 (default 30)
 - `limit` — maximum completions, clamped to 1–200 (default 50)
 - `userId` — optional Nextcloud user ID filter; must be a member of the house (else 404 `USER_NOT_FOUND`)
 
-**Response:**
+**Response (WP3):** frozen work facts, the selected allocation and the
+viewer-scoped correction flags — never mutable reward outputs
+([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)):
+
 ```json
 {
   "completions": [
     {
       "id": 42,
       "completedAt": "2026-08-21T10:00:00+00:00",
-      "wasCombo": false,
-      "coinsEarned": 12,
-      "comboWithUserId": null,
-      "isTeamCompletion": false,
-      "participantCount": 1,
-      "teamSparkBonus": 0,
-      "wasClaimedCompletion": false,
-      "claimBonusSparks": 0,
+      "version": 1,
+      "allocationRevision": 2,
+      "totalEnergy": 3,
+      "undoneAt": null,
       "houseUserId": 7,
       "displayName": "Alice",
       "taskId": 5,
       "taskTitle": "Vacuum living room",
       "energyCost": 3,
       "roomId": 2,
-      "roomName": "Living Room"
+      "roomName": "Living Room",
+      "canCorrect": true,
+      "allocation": [
+        { "userId": "alice", "displayName": "Alice", "sharePct": 100, "energyMinor": 300, "coinMinor": 3000 }
+      ]
     }
   ],
   "total": 1
 }
 ```
 
-**Note:** completions whose room task was deleted later keep appearing with
-`taskId`/`taskTitle`/`energyCost`/`roomId`/`roomName` = `null` — the UI
-renders a fallback label for them (single-task deletion does not cascade its
-completion history).
+- `totalEnergy` is the frozen total effort; each allocation entry carries the
+  exact minor units (`energyMinor = totalEnergy * sharePct`, `coinMinor` at
+  the frozen rate). A departed participant's share serializes with
+  `userId: null` (wallet retained, membership gone) and stays auditable.
+- `canCorrect` — viewer-scoped: completer or house owner on a still-valid
+  completion. The feed exposes targeted correction and undo actions from this
+  flag; it is never true for undone rows or unrelated members.
+- When the viewer cannot see a private or admin-only task, the household feed
+  redacts its task details, frozen effort and selected work shares together;
+  the event itself remains visible as an aggregate (`totalEnergy: null`,
+  `allocation: []`, `canCorrect: false`).
+- Rows whose room task was deleted later keep appearing with
+  `taskId`/`taskTitle`/`energyCost`/`roomId`/`roomName` = `null` — the UI
+  renders a fallback label (single-task deletion does not cascade its
+  completion history).
+
+### Completions (WP3 §3.6 work-accounting API)
+
+Versioned, receipt-protected reads and corrections of ONE completion
+([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)). Every
+mutation is a `CommandService` command: the client generates one RFC 4122 v4
+`commandId` per logical command and retains it across uncertain retries —
+an identical retry replays the stored outcome (`replay: true`) with zero
+repeated effects, a changed payload under the same UUID conflicts.
+
+#### GET /completions/{id}
+The viewer-safe read model of one completion: frozen work facts
+(`completedAt`, `workDate`, `workZone`, `occurrenceDue`, `totalEnergy`,
+`rateMinor`), the currently selected `allocation` with the audit `history`
+(append-only revisions; a departed-not-erased actor renders as the localized
+'Removed member' placeholder) and the viewer-scoped `canCorrect`.
+
+**Response `data` excerpt:**
+```json
+{
+  "completion": { "id": 42, "version": 1, "allocationRevision": 2, "totalEnergy": 3 },
+  "allocation": [
+    { "userId": "alice", "displayName": "Alice", "sharePct": 100, "energyMinor": 300, "coinMinor": 3000 }
+  ],
+  "history": [
+    { "revision": 0, "action": "complete", "actor": { "userId": "alice", "displayName": "Alice" }, "reasonCode": null },
+    { "revision": 1, "action": "attribution", "actor": null, "actorDisplayName": "Removed member", "reasonCode": "wrong_split" }
+  ],
+  "canCorrect": true
+}
+```
+
+#### POST /completions/{id}/undo
+The targeted completion undo (C3e). Receipt: `commandId` (UUID),
+`expectedVersion`, optional bounded `reasonCode` (closed payload — unknown
+fields 400). Authority: the recorded completer or a house owner
+(participation alone is no authority; a departed completer leaves the owner
+as the only authority). A stale `expectedVersion` → `409 CONFLICT`. The
+aggregate reverses the **latest selected allocation revision** exactly once:
+wallet union deltas (`completion_undo` ledger entries), the occurrence
+completion release, the room replay (the undone effect drops out of the
+journal fold), and the personal-recognition recompute from the corrected
+valid history. Replaying the same `commandId` returns the original identity
+with no second effect; an already-undone target answers success with
+`undone: false` and zero writes.
+
+**Response `data` excerpt:** `{ "completionId": 42, "undone": true, "replay": false, "roomTask": {…}, "room": {…}, "task": {…}, "rewards": { "completion": {…}, "wallet": {…}, "contributionMinor": 3000 } }`
+
+#### PUT /completions/{id}/attribution
+The explicit allocation correction (C3f). Receipt: `commandId` (UUID),
+`expectedVersion`, non-empty `participants` (`[{userId, sharePct}]`, 1–100
+unique current house members, whole percents summing to exactly 100), the
+explicit `allocationReviewed: true` confirmation of any deviation from the
+recorded allocation (an unreviewed deviation is a `409 CONFLICT`), and an
+optional bounded `reasonCode` (closed payload — unknown fields 400).
+Authority: completer or house owner only.
+
+The correction rewrites the **selected allocation** and re-accounts value
+with exact wallet-union deltas: the union is keyed by **wallet id from the
+share rows** — a departed participant's retained wallet is always part of the
+reversal, so a completion pays out exactly the frozen total and never more.
+The frozen work facts (`completedAt`, `workDate`, `workZone`,
+`occurrenceDue`, `totalEnergy`, `rateMinor`), the room journal and the
+occurrence identity stay immutable; personal recognition recomputes from the
+corrected valid history. `expectedVersion` staleness → `409 CONFLICT`.
+
 
 ### Floors
 
@@ -511,55 +608,20 @@ are validated for house membership server-side. (Since CS-PLAN-067 §3.4 the
 GET route has no frontend consumer — list rows already carry their canonical
 `assignees` arrays — but it stays available for API consumers.)
 
-#### POST /room-tasks/{id}/undo (CS-PLAN-064 WP5)
-The one idempotent undo aggregate (replaces the pruned split
-`PUT /tasks/{id}/uncomplete` + `POST /room-tasks/{id}/reactivate` chain,
-decision D5). Restores the newest revertible completion of this room task
-from its recorded effect (see [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md)).
+#### POST /room-tasks/{id}/undo — removed in WP3
 
-> **Occurrence-timeline seam (CS-PLAN-072 WP1,
-> [ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md)):** the
-> ledger row is marked undone **before** the occurrence is released so
-> `last_completed` re-derives correctly; the release reopens the fulfilled
-> occurrence (version bump), deletes the completion-anchored successor, and
-> reactivates a once/bounded row via its open obligation. The effect restore no
-> longer writes `next_due`, `ideal_due_date`, `last_completed`, `is_active` or
-> the checklist - the timeline re-derives those projections - so undo cannot
-> re-introduce stale recurrence state over newer facts. The room/house_user
-> reward restore is unchanged.
-
-**Response (reverted):**
-```json
-{
-  "success": true,
-  "data": {
-    "roomTask": { "id": 12, "nextDue": "2026-02-24T15:30:00Z", "isActive": true, "lastCompleted": null },
-    "room": { "id": 3, "cleanliness": 55 },
-    "task": { "id": 7, "energyCost": 3, "priority": 2 },
-    "rewards": {
-      "coins": -45,
-      "contributionScore": -3,
-      "teamworkBonus": 0,
-      "currentStreak": 3,
-      "weeklyGoal": { "percent": 61, "achieved": false },
-      "totalCoins": 150,
-      "totalContribution": 320,
-      "longestStreak": 4,
-      "completerUserId": "mom",
-      "revertedCoinsEarned": 45,
-      "ledgerRowId": 88
-    },
-    "undone": true
-  }
-}
-```
+> **WP3 targeted correction (CS-PLAN-074 WP3, [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)):**
+> this latest-by-room-task route is gone. Undo runs exclusively through
+> [`POST /completions/{id}/undo`](#post-completionsidundo) — the exact
+> completion targeting contract (C3e) with the receipt envelope, completer/
+> owner authority and the latest-selected-allocation reversal.
 
 - **Actor gate:** the recorded completer or a house owner (masterplan decision
-  D3); otherwise `403 FORBIDDEN`. A completer who left the house gets a clean
-  403 ("The completer is no longer a member of this house").
-- **No revertible occurrence:** `200` with `undone: false`, `rewards: null`
-  and **zero writes** — undo is idempotent, and the current state is echoed
-  back for client reconciliation.
+  D3; participation alone is no authority). A completer who left the house
+  leaves the owner as the only authority.
+- **No revertible occurrence:** `200` with `undone: false` and **zero
+  writes** — undo is idempotent, and the current state is echoed back for
+  client reconciliation.
 - **Non-retractions (ADR-011, D8):** medals already awarded, the weekly-goal
   notification claim, and dispatched notifications survive an undo.
 
@@ -591,19 +653,23 @@ Remove task from room.
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
 #### POST /room-tasks/{id}/complete
-Complete the **shown occurrence** of a room task — one transactional aggregate
-(CS-PLAN-064 WP5, [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md);
-occurrence receipt contract CS-PLAN-072 WP1,
-[ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md)). The work
-timestamp is resolved server-side. The request body is a **closed set** receipt
-naming the exact target the client was shown; unknown fields are a `400`:
+Complete the **shown occurrence** of a room task — one transactional WP3
+aggregate (CS-PLAN-072 WP1 receipt + CS-PLAN-074 WP3 work accounting,
+[ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)). The work
+timestamp is resolved server-side. The request body is a **closed set**;
+unknown fields are a `400`:
 
 ```json
 {
   "commandId": "6f1e2a4c-9b7d-4e01-8a2f-3c5d6e7f8090",
   "occurrenceId": "41:3",
   "expectedVersion": 0,
-  "selectionToken": "9a8b7c6d5e4f3a2b1c0d"
+  "selectionToken": "9a8b7c6d5e4f3a2b1c0d",
+  "participants": [
+    { "userId": "mom", "sharePct": 50 },
+    { "userId": "dad", "sharePct": 50 }
+  ],
+  "allocationReviewed": true
 }
 ```
 
@@ -614,22 +680,30 @@ naming the exact target the client was shown; unknown fields are a `400`:
   key (from the row's `occurrence` block on any read endpoint).
 - `expectedVersion` / `selectionToken` — the optimistic-concurrency version and
   the server-computed selection hash echoed back.
+- `participants` (optional) — the explicit actual-work split: 1–100 unique
+  eligible house members with positive whole percents totaling exactly 100.
+  Absent → the server resolves the selection's default sharing (proposal
+  first, equal eligible-member mirror otherwise; assignee tasks fall back to
+  the completer-only default). The completer must take part in the work
+  (Q-074-02 self-participation: completing someone else's split unchanged is
+  rejected — the actor joins with an equal renormalized share).
+- `allocationReviewed` (optional, default `false`) — the explicit confirmation
+  when the submitted split deviates from the proposal; an unreviewed deviation
+  → `409 CONFLICT`.
 
-The transaction writes ONE immutable ledger effect record (frozen occurrence
-evidence + `before_state` + `deltas`) that `POST …/undo` later releases. Gates
-run before any write: inactive room task → `409 CONFLICT` ("Task is not
-active"), visibility → `404`/`403` per the standard above. The receipt is
-re-resolved under the house-first lock: a fulfilled target → `409` ("This
-occurrence is already completed"), a stale version/token/target → `409` ("The
-task changed since it was displayed…"). The former same-user **day-duplicate
-`403` is removed** — occurrence validity replaces it, so two legitimate
-occurrences on one day are permitted while two completions of one target are
-not. Post-commit effects (weekly-goal read, notification dispatches) are
-failure-isolated: the endpoint still answers `200` with `rewards.degraded =
-true` and `rewards.weeklyGoal = null` — a committed completion is never an
-ambiguous failure.
+The transaction freezes the work evidence (occurrence identity, work
+date/zone, total energy, frozen rate), writes the allocation revision +
+work shares, posts exact wallet-union deltas to the immutable
+`wallet_entries` ledger, appends the `room_events` journal delta (the saved
+**requested** effect — the replay clamps), advances the timeline projection
+and recomputes the personal recognition of every participant — all under the
+documented lock order. Gates run before any write: inactive room task →
+`409 CONFLICT`, visibility → `404`/`403` per the standard above, receipt
+staleness → `409` ("The task changed since it was displayed…"). Post-commit
+effects (weekly-goal read, notification dispatches) are failure-isolated: the
+endpoint still answers `200` with `rewards.weeklyGoal = null`.
 
-**Response:**
+**Response (WP3 evidence shape):**
 ```json
 {
   "success": true,
@@ -648,40 +722,28 @@ ambiguous failure.
       "fulfilled": false
     },
     "rewards": {
-      "cleanlinessChange": 30,
-      "energyCost": 3,
-      "priority": 2,
-      "contributionScore": 3,
-      "coins": 45,
-      "isCombo": true,
-      "currentStreak": 4,
-      "streakFreezeUsed": false,
-      "streakFreezesRemaining": 1,
-      "comboBonusFreeze": false,
-      "teamworkBonus": 0,
-      "weeklyGoal": { "percent": 72, "achieved": false },
-      "newTitle": { "pack": "sparkling", "labelKey": "titles.sparkling.bronze", "tierIndex": 0 },
-      "totalCoins": 195,
-      "totalContribution": 323,
-      "longestStreak": 4
+      "completion": {
+        "id": 88, "version": 0, "allocationRevision": 1,
+        "completedAt": "2026-02-25T10:00:00+00:00", "totalEnergy": 3
+      },
+      "participants": [
+        { "userId": "mom", "displayName": "Mom", "sharePct": 50, "energyMinor": 150, "coinMinor": 1500 },
+        { "userId": "dad", "displayName": "Dad", "sharePct": 50, "energyMinor": 150, "coinMinor": 1500 }
+      ],
+      "wallet": { "bookedMinor": 1500, "reservedMinor": 0, "availableMinor": 1500, "fundingHold": false },
+      "contributionMinor": 1500,
+      "weeklyGoal": { "dueCount": 5, "completedCount": 2, "percent": 40, "targetPercent": 80, "achieved": false, "weekStart": "2026-02-23T00:00:00+00:00", "weekEnd": "2026-03-01T23:59:59+00:00" }
     }
   }
 }
 ```
 
-> `occurrence` is the **fresh** selection block riding back so an immediate
-> follow-up aims at the current target, never the fulfilled one; it is `null`
-> when no next window is open yet. `completionId` + `replay` identify the
-> ledger row and whether this was an idempotent replay of `commandId`.
-> `totalCoins`, `totalContribution`, and `longestStreak` are the completer's
-> authoritative post-completion balances (decision D10) so the owning client
-> stores reconcile from this one response without arithmetic; `degraded: true`
-> appears only when a post-commit effect failed. `newTitle` (CS-PLAN-066 §3.4)
-> is explicit and nullable: the computed unlock travels with the successful
-> completion response — independent of any post-commit notification failure —
-> and the client fires the title-unlocked event exactly once per response
-> after re-syncing its titles store. Undo rewards never carry `newTitle`
-> (ADR-011: undo emits no unlock).
+> `occurrence` is the **fresh** selection block riding back; `completionId` +
+> `replay` identify the ledger row and the idempotent replay. The
+> `rewards.wallet` / `rewards.contributionMinor` describe the **caller's own**
+> totals in exact minor units (100 coin minor = 1 Coin; no coin integers, no
+> combo/team-spark fields anywhere — the legacy economy is retired). The owning
+> client stores reconcile from this one response without arithmetic.
 
 #### GET /room-tasks/range?from=&to=
 Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.
@@ -802,7 +864,9 @@ update gate).
 
 #### GET /game/state
 Get the current game state: the serialized house members with their
-gamification fields (camelCase).
+gamification fields (camelCase; WP3 shape — progression only, no Coin
+balances: the wallet is exposed exclusively as the caller's own state via
+`rewards.wallet` on completion responses and `GET /users/current`).
 
 **Response `data`:**
 ```json
@@ -813,16 +877,19 @@ gamification fields (camelCase).
       "nextcloudUserId": "mom",
       "displayName": "Mom",
       "role": "owner",
-      "contributionScore": 120,
-      "coins": 340,
+      "contributionMinor": 12000,
       "currentStreak": 5,
       "longestStreak": 9,
-      "streakFreezes": 1,
-      "currentTitle": "Anchor"
+      "selectedTitlePack": "home_helpers",
+      "currentTitle": { "pack": "home_helpers", "tierIndex": 1, "labelKey": "titles.home_helpers.steady_hand" }
     }
   ]
 }
 ```
+
+> WP3: `contributionScore` became `contributionMinor` (exact minor units) and
+> the coin/streak-freeze fields are retired with the legacy economy
+> ([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)).
 
 #### GET /game/medals
 Get medals for the current week (serialized `Medal` entities, camelCase).

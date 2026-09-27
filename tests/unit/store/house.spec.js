@@ -28,6 +28,11 @@ describe('House Store', () => {
 		setActivePinia(createPinia())
 		store = useHouseStore()
 		jest.clearAllMocks()
+		let uuidSequence = 0
+		Object.defineProperty(globalThis.crypto, 'randomUUID', {
+			configurable: true,
+			value: jest.fn(() => `12345678-1234-4234-8234-${String(++uuidSequence).padStart(12, '0')}`),
+		})
 	})
 
 	describe('State', () => {
@@ -303,13 +308,52 @@ describe('House Store', () => {
 		})
 
 		describe('resetHouse', () => {
-			it('resets house successfully', async () => {
-				const resetHouse = { id: 1, houseHealth: 100 }
+			it('posts a receipt UUID and the displayed version, then clears the pending command', async () => {
+				store.house = { id: 1, stateVersion: 7, houseHealth: 50 }
+				const resetHouse = { id: 1, stateVersion: 8, houseHealth: 100 }
 				api.post.mockResolvedValue(resetHouse)
 
 				await store.resetHouse()
 
+				expect(api.post).toHaveBeenCalledWith('/api/v1/house/reset', {
+					commandId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
+					expectedVersion: 7,
+				})
 				expect(store.house).toEqual(resetHouse)
+				expect(store.pendingResetCommand).toBeNull()
+			})
+
+			it('retries an uncertain reset with the same UUID and original version', async () => {
+				store.house = { id: 1, stateVersion: 7 }
+				api.post.mockRejectedValueOnce(new Error('Network error'))
+				api.post.mockResolvedValueOnce({ id: 1, stateVersion: 9 })
+
+				await expect(store.resetHouse()).rejects.toThrow('Network error')
+				const firstPayload = api.post.mock.calls[0][1]
+				store.house.stateVersion = 8
+				await store.resetHouse()
+
+				expect(api.post.mock.calls[1][1]).toEqual(firstPayload)
+				expect(store.pendingResetCommand).toBeNull()
+			})
+
+			it('uses a new UUID after a definitive conflict and drops pending on store reset', async () => {
+				store.house = { id: 1, stateVersion: 7 }
+				api.post.mockRejectedValueOnce(Object.assign(new Error('Conflict'), { status: 409 }))
+				api.post.mockResolvedValueOnce({ id: 1, stateVersion: 9 })
+
+				await expect(store.resetHouse()).rejects.toThrow('Conflict')
+				const firstPayload = api.post.mock.calls[0][1]
+				expect(store.pendingResetCommand).toBeNull()
+				store.house.stateVersion = 8
+				await store.resetHouse()
+
+				expect(api.post.mock.calls[1][1].commandId).not.toBe(firstPayload.commandId)
+				expect(api.post.mock.calls[1][1].expectedVersion).toBe(8)
+				api.post.mockRejectedValueOnce(new Error('Timeout'))
+				await expect(store.resetHouse()).rejects.toThrow('Timeout')
+				store.reset()
+				expect(store.pendingResetCommand).toBeNull()
 			})
 		})
 

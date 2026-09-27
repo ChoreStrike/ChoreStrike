@@ -277,22 +277,28 @@ class RouteMatrixTest extends TestCase {
 	 * contract on `POST /scheduling/suggestions` (preview) and added the
 	 * atomic `POST /scheduling/apply` → 70. CS-PLAN-073 WP2 added the
 	 * occurrence agreement commands (amend/catch-up/restart) and the
-	 * revisioned pause lifecycle (index/create/approve/reject/
-	 * recognize-illness/update) → 79. New routes must land with a
-	 * consumer (see the prune guards above) — the count only moves when
-	 * an expose decision updates this pin deliberately.
+	 * revisioned pause lifecycle → 79. CS-PLAN-070 WP3 retired the
+	 * latest-by-room-task undo (`POST /room-tasks/{id}/undo`) and the
+	 * arcade coin/boost economy routes in favor of the targeted
+	 * completion correction trio (GET /completions/{id}, POST
+	 * /completions/{id}/undo, PUT /completions/{id}/attribution) → 78.
+	 * New routes must land with a consumer (see the prune guards above) —
+	 * the count only moves when an expose decision updates this pin
+	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			79,
+			78,
 			$this->routes['routes'],
-			'Route count drifted from the pin (79 after CS-PLAN-073 WP2) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (78 after CS-PLAN-070 WP3) — add only with a consumer, then update deliberately'
 		);
 	}
 
 	/**
 	 * The split-undo chain pruned by CS-PLAN-064 (decision D5) must stay
-	 * gone: the one idempotent undo operation is POST /room-tasks/{id}/undo.
+	 * gone, and the WP3 cutover replaced the latest-by-room-task undo
+	 * aggregate with the targeted completion correction: the one idempotent
+	 * undo operation is POST /completions/{id}/undo (exact completion id).
 	 * Re-adding either legacy route requires a new expose decision.
 	 */
 	public function testPrunedUndoChainRoutesAreNotReintroduced(): void {
@@ -301,16 +307,23 @@ class RouteMatrixTest extends TestCase {
 			$this->routes['routes']
 		);
 
-		$this->assertContains('POST /api/v1/room-tasks/{id}/undo', $declared, 'The undo aggregate route must exist');
+		$this->assertContains('GET /api/v1/completions/{id}', $declared, 'The completion read route must exist');
+		$this->assertContains('POST /api/v1/completions/{id}/undo', $declared, 'The targeted undo route must exist');
+		$this->assertContains('PUT /api/v1/completions/{id}/attribution', $declared, 'The attribution route must exist');
+		$this->assertNotContains(
+			'POST /api/v1/room-tasks/{id}/undo',
+			$declared,
+			'CS-PLAN-070 WP3 retired the latest-by-room-task undo — use POST /completions/{id}/undo'
+		);
 		$this->assertNotContains(
 			'PUT /api/v1/tasks/{id}/uncomplete',
 			$declared,
-			'CS-PLAN-064 pruned PUT /tasks/{id}/uncomplete — use POST /room-tasks/{id}/undo'
+			'CS-PLAN-064 pruned PUT /tasks/{id}/uncomplete — use POST /completions/{id}/undo'
 		);
 		$this->assertNotContains(
 			'POST /api/v1/room-tasks/{id}/reactivate',
 			$declared,
-			'CS-PLAN-064 pruned POST /room-tasks/{id}/reactivate — use POST /room-tasks/{id}/undo'
+			'CS-PLAN-064 pruned POST /room-tasks/{id}/reactivate — undo is correction, not reactivation'
 		);
 	}
 

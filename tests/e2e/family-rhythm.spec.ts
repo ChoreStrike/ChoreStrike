@@ -34,6 +34,7 @@ import {
 	resolveOccurrenceReceipt,
 	postCompletionWithReceipt,
 	newCommandId,
+	completeWithOptionalDialog,
 } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
@@ -95,11 +96,10 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 				const pathname = new URL(request.url()).pathname
 				return request.method() === 'POST' && pathname.endsWith('/complete')
 			})
-			const responsePromise = page.waitForResponse((response) => {
-				const pathname = new URL(response.url()).pathname
-				return response.request().method() === 'POST' && pathname.endsWith('/complete')
-			})
-			await completeButton.click()
+			// WP3 §3.6: a multi-person proposal opens the participation
+			// dialog — settle it so the completion fires (the helper
+			// performs the click).
+			const responsePromise = completeWithOptionalDialog(page, completeButton)
 
 			const request = await requestPromise
 			const body = request.postDataJSON() as Record<string, unknown>

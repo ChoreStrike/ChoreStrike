@@ -257,4 +257,55 @@ class OccurrenceMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
+	/**
+	 * All scheduled occurrences of one house planned inside the bounded
+	 * day window (inclusive keys) — the rhythm evaluator's batched input
+	 * (fulfilled AND unfulfilled rows; validity is decided per row).
+	 *
+	 * @return Occurrence[]
+	 */
+	public function findByHousePlannedBetween(int $houseId, string $fromKey, string $toKey): array {
+		$qb = $this->db->getQueryBuilder();
+		// NOTE: the day keys bind as strings — Doctrine's PARAM_DATE
+		// conversion rejects plain 'Y-m-d' strings.
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter(Occurrence::KIND_SCHEDULED, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->gte('planned_date', $qb->createNamedParameter($fromKey, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->lte('planned_date', $qb->createNamedParameter($toKey, IQueryBuilder::PARAM_STR)))
+			->orderBy('room_task_id', 'ASC')
+			->addOrderBy('schedule_rev_id', 'ASC')
+			->addOrderBy('ordinal', 'ASC');
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Page scheduled history in planned-day/id order. A fixed-size page keeps
+	 * correction/reward projection reads bounded without dropping older runs.
+	 *
+	 * @return Occurrence[]
+	 */
+	public function findPlannedPage(int $houseId, string $throughKey, ?string $afterDay, int $afterId, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter(Occurrence::KIND_SCHEDULED, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->lte('planned_date', $qb->createNamedParameter($throughKey, IQueryBuilder::PARAM_STR)))
+			->orderBy('planned_date', 'ASC')
+			->addOrderBy('id', 'ASC')
+			->setMaxResults($limit);
+		if ($afterDay !== null) {
+			$qb->andWhere($qb->expr()->orX(
+				$qb->expr()->gt('planned_date', $qb->createNamedParameter($afterDay, IQueryBuilder::PARAM_STR)),
+				$qb->expr()->andX(
+					$qb->expr()->eq('planned_date', $qb->createNamedParameter($afterDay, IQueryBuilder::PARAM_STR)),
+					$qb->expr()->gt('id', $qb->createNamedParameter($afterId, IQueryBuilder::PARAM_INT))
+				)
+			));
+		}
+		return $this->findEntities($qb);
+	}
+
 }

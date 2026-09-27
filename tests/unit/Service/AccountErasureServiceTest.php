@@ -17,8 +17,10 @@ use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
+use OCA\ChoreStrike\Db\Wallet;
 use OCA\ChoreStrike\Db\WalletEntryMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Service\AccountErasureService;
 use OCA\ChoreStrike\Service\AppLogger;
 use PHPUnit\Framework\TestCase;
@@ -37,6 +39,8 @@ class AccountErasureServiceTest extends TestCase {
 	private WalletMapper $walletMapper;
 	private MinigameScoreMapper $minigameScoreMapper;
 	private MedalMapper $medalMapper;
+	private WalletEntryMapper $walletEntryMapper;
+	private WorkShareMapper $workShareMapper;
 	private TransactionExecutor $transactions;
 	private AppLogger $appLogger;
 
@@ -45,6 +49,8 @@ class AccountErasureServiceTest extends TestCase {
 		$this->walletMapper = $this->createMock(WalletMapper::class);
 		$this->minigameScoreMapper = $this->createMock(MinigameScoreMapper::class);
 		$this->medalMapper = $this->createMock(MedalMapper::class);
+		$this->walletEntryMapper = $this->createMock(WalletEntryMapper::class);
+		$this->workShareMapper = $this->createMock(WorkShareMapper::class);
 		$this->transactions = $this->createMock(TransactionExecutor::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 	}
@@ -65,13 +71,15 @@ class AccountErasureServiceTest extends TestCase {
 			$this->medalMapper,
 			$this->minigameScoreMapper,
 			$this->walletMapper,
-			$this->createMock(WalletEntryMapper::class),
+			$this->walletEntryMapper,
 			$this->createMock(CommandReceiptMapper::class),
 			$this->createMock(CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\AgreementMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\PauseMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\CompletionRevisionMapper::class),
+			$this->workShareMapper,
 			$this->transactions,
 			$this->appLogger
 		);
@@ -127,6 +135,44 @@ class AccountErasureServiceTest extends TestCase {
 			->with(['erased_user']);
 
 		$this->appLogger->expects($this->once())->method('info');
+
+		$this->service()->eraseAccount('erased_user');
+	}
+
+	/**
+	 * CurrentMemberErasure_AnonymizesActorInSurvivingWalletLedgers
+	 */
+	public function testCurrentMemberErasure_AnonymizesActorInSurvivingWalletLedgers(): void {
+		$membership = $this->membership(12, 10);
+		$wallet = new Wallet();
+		$wallet->setId(42);
+		$this->houseUserMapper->method('findAllByNextcloudUserId')->willReturn([$membership]);
+		$this->walletMapper->method('findByHouseAndUser')->with(10, 'erased_user')->willReturn($wallet);
+		$this->walletMapper->method('findAllByUserId')->willReturn([]);
+		$this->transactions->method('run')->willReturnCallback(static fn (callable $fn) => $fn());
+		$this->walletEntryMapper->expects($this->once())->method('deleteByWalletIds')->with([42]);
+		$this->walletEntryMapper->expects($this->once())->method('anonymizeActor')->with(12);
+		$this->walletEntryMapper->expects($this->once())->method('anonymizeActorWallet')->with(42);
+		$this->workShareMapper->expects($this->once())->method('anonymizeWallet')->with(42);
+		$this->houseUserMapper->expects($this->once())->method('delete')->with($membership);
+
+		$this->service()->eraseAccount('erased_user');
+	}
+
+	/**
+	 * DepartedWalletErasure_AnonymizesShareBeforeRemovingWallet
+	 */
+	public function testDepartedWalletErasure_AnonymizesShareBeforeRemovingWallet(): void {
+		$wallet = new Wallet();
+		$wallet->setId(42);
+		$wallet->setHouseId(10);
+		$this->houseUserMapper->method('findAllByNextcloudUserId')->willReturn([]);
+		$this->walletMapper->method('findAllByUserId')->willReturn([$wallet]);
+		$this->transactions->method('run')->willReturnCallback(static fn (callable $fn) => $fn());
+		$this->workShareMapper->expects($this->once())->method('anonymizeWallet')->with(42);
+		$this->walletEntryMapper->expects($this->once())->method('deleteByWalletIds')->with([42]);
+		$this->walletEntryMapper->expects($this->once())->method('anonymizeActorWallet')->with(42);
+		$this->walletMapper->expects($this->once())->method('delete')->with($wallet);
 
 		$this->service()->eraseAccount('erased_user');
 	}

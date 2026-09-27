@@ -8,12 +8,16 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\CompletedTask;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\Occurrence;
+use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -21,6 +25,8 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
+use OCA\ChoreStrike\Db\WorkShare;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCP\IConfig;
 use OCP\IDBConnection;
 
@@ -39,7 +45,8 @@ class TestDataService {
 	 * Reward-config overrides (appconfig keys) applied by the family profile.
 	 *
 	 * `release-notifications` needs a trivially-crossed weekly-goal target so
-	 * a single completion deterministically achieves it. The reward-config
+	 * one on-time agreed occurrence can qualify its planned week once closed.
+	 * A provisional current week must not send a bell. The reward-config
 	 * HTTP surface was pruned (CS-PLAN-055), so the knob is seeded instead;
 	 * `reset()` deletes the overrides again when a non-family profile seeds,
 	 * keeping `oc_appconfig` free of leaked test state. Keys reference the
@@ -74,6 +81,10 @@ class TestDataService {
 	 * CS-PLAN-073 WP2: the pause lifecycle table clears with the timeline
 	 * block (its evidence references live in `agreements.pause_ref`).
 	 *
+	 * CS-PLAN-070 WP3: the accounting/journal tables clear in safe order —
+	 * `work_shares`/`completion_revs`/`room_events` before their
+	 * `completed_tasks`/`rooms` referents; the wallet block stays last.
+	 *
 	 * @var list<string>
 	 */
 	private const RESET_TABLES = [
@@ -84,7 +95,10 @@ class TestDataService {
 		'chorestrike_occ_members',
 		'chorestrike_occurrences',
 		'chorestrike_schedule_revs',
+		'chorestrike_work_shares',
+		'chorestrike_completion_revs',
 		'chorestrike_completed_tasks',
+		'chorestrike_room_events',
 		'chorestrike_room_tasks',
 		'chorestrike_chk_items',
 		'chorestrike_tasks',
@@ -93,6 +107,7 @@ class TestDataService {
 		'chorestrike_wallet_entries',
 		'chorestrike_wallets',
 		'chorestrike_commands',
+		'chorestrike_wgoal_receipts',
 		'chorestrike_house_users',
 		'chorestrike_houses',
 		'chorestrike_medals',
@@ -111,6 +126,10 @@ class TestDataService {
 	private WalletMapper $walletMapper;
 	private OccurrenceService $occurrenceService;
 	private CalendarService $calendarService;
+	private RoomReplayService $roomReplayService;
+	private OccurrenceMapper $occurrenceMapper;
+	private CompletedTaskMapper $completedTaskMapper;
+	private WorkShareMapper $workShareMapper;
 
 	// CR-SVC-40 / CS-PLAN-060 WP1, decision D6 documented exemption: this
 	// service is NON-PRODUCTION test tooling (every entry point is guarded by
@@ -131,6 +150,10 @@ class TestDataService {
 		WalletMapper $walletMapper,
 		OccurrenceService $occurrenceService,
 		CalendarService $calendarService,
+		RoomReplayService $roomReplayService,
+		OccurrenceMapper $occurrenceMapper,
+		CompletedTaskMapper $completedTaskMapper,
+		WorkShareMapper $workShareMapper,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -144,6 +167,10 @@ class TestDataService {
 		$this->walletMapper = $walletMapper;
 		$this->occurrenceService = $occurrenceService;
 		$this->calendarService = $calendarService;
+		$this->roomReplayService = $roomReplayService;
+		$this->occurrenceMapper = $occurrenceMapper;
+		$this->completedTaskMapper = $completedTaskMapper;
+		$this->workShareMapper = $workShareMapper;
 	}
 
 	/**
@@ -358,14 +385,13 @@ class TestDataService {
 	 *
 	 * @return array Seeded data with IDs
 	 */
-	public function seedFamily(): array {
+	public function seedFamily(bool $closedWeekEvidence = false): array {
 		$this->assertTestMode();
 		$this->reset();
 
 		// Family-profile reward-config knobs (CS-PLAN-055): the
-		// `release-notifications` spec completes a single task and expects the
-		// weekly goal to be reached — a trivially-crossed target keeps that
-		// deterministic without the (pruned) reward-config HTTP surface.
+		// A single on-time planned occurrence can qualify its closed week
+		// for `release-notifications` without the (pruned) reward-config HTTP surface.
 		foreach (self::FAMILY_REWARD_CONFIG_OVERRIDES as $key => $value) {
 			$this->config->setAppValue('chorestrike', $key, $value);
 		}
@@ -408,19 +434,19 @@ class TestDataService {
 			$room->setCleanliness($data['cleanliness']);
 			$room->setCreatedAt(new \DateTime());
 			$room = $this->roomMapper->insert($room);
+			// WP3 §3.5: the seed baseline is journaled so test history
+			// contains coherent room facts (CR-SVC-63 coverage).
+			$this->roomReplayService->recordBaseline($room);
 			$rooms[$data['name']] = $room;
 		}
 
 		// Create users
 		$users = [];
 		$userData = [
-			// mom carries the time-travel streak state (CS-PLAN-023): a live
-			// streak with zero freezes and no completions, so the seeded
-			// family can exercise streak-freeze consumption / reset + the
-			// at-risk notification via `occ chorestrike:trigger-jobs --as-of`
-			// without any real multi-day wait. She is available every weekday,
-			// so the fairness skip never interferes regardless of run day.
-			['userId' => 'mom', 'displayName' => 'Mom', 'role' => 'owner', 'currentStreak' => 5, 'streakFreezes' => 0, 'preferences' => [
+			// mom carries a seeded rhythm streak value so the family can
+			// exercise rhythm thresholds; freeze mechanics are retired
+			// (CS-PLAN-070 WP3) — pauses are the neutral absence mechanism.
+			['userId' => 'mom', 'displayName' => 'Mom', 'role' => 'owner', 'currentStreak' => 5, 'preferences' => [
 				'weekdayAvailability' => ['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true],
 				'preferredTasks' => ['kitchen', 'laundry'],
 				'maxDailyTasks' => 5,
@@ -469,9 +495,6 @@ class TestDataService {
 			$houseUser->setJoinedAt(new \DateTime());
 			if (isset($data['currentStreak'])) {
 				$houseUser->setCurrentStreak($data['currentStreak']);
-			}
-			if (isset($data['streakFreezes'])) {
-				$houseUser->setStreakFreezes($data['streakFreezes']);
 			}
 			$houseUser = $this->houseUserMapper->insert($houseUser);
 			$users[$data['userId']] = $houseUser;
@@ -568,6 +591,9 @@ class TestDataService {
 				? [$data['assignedTo']]
 				: [];
 		}
+		if ($closedWeekEvidence) {
+			$this->seedClosedWeeklyGoal($house, $users['mom'], $roomTasks[0]);
+		}
 
 		return [
 			'profile' => 'family',
@@ -583,6 +609,62 @@ class TestDataService {
 				)),
 			],
 		];
+	}
+
+	/** Seed one fully linked past-week work record only for the notification E2E. */
+	private function seedClosedWeeklyGoal(House $house, HouseUser $member, RoomTask $roomTask): void {
+		$revision = $this->occurrenceMapper->findByRoomTask($roomTask->getId())[0] ?? null;
+		if ($revision === null) {
+			throw new \LogicException('Family seed must materialize an occurrence first');
+		}
+		$weekStart = new \DateTime('monday last week 00:00:00', new \DateTimeZone('UTC'));
+		$completedAt = (clone $weekStart)->modify('+12 hours');
+		$occurrence = new Occurrence();
+		$occurrence->setHouseId($house->getId());
+		$occurrence->setRoomTaskId($roomTask->getId());
+		$occurrence->setScheduleRevId($revision->getScheduleRevId());
+		$occurrence->setOrdinal(Occurrence::MAX_ORDINAL);
+		$occurrence->setKind(Occurrence::KIND_SCHEDULED);
+		$occurrence->setPlannedDate(clone $weekStart);
+		$occurrence->setWeekStart(clone $weekStart);
+		$occurrence->setTimezone('UTC');
+		$occurrence->setDayStart(clone $weekStart);
+		$occurrence->setWindowStart(clone $weekStart);
+		$occurrence->setWindowEnd((clone $weekStart)->modify('+1 day'));
+		$occurrence->setEnergy(3);
+		$occurrence->setIsPublic(true);
+		$occurrence->setVersion(0);
+		$occurrence->setCreatedAt(clone $completedAt);
+		$occurrence = $this->occurrenceMapper->insert($occurrence);
+
+		$completion = new CompletedTask();
+		$completion->setRoomTaskId($roomTask->getId());
+		$completion->setUserId($member->getId());
+		$completion->setCompletedAt(clone $completedAt);
+		$completion->setTotalEnergy(3);
+		$completion->setRateMinor(1000);
+		$completion->setCompletionVersion(0);
+		$completion->setAllocationRevision(1);
+		$completion->setCommandUuid('11111111-1111-4111-8111-111111111111');
+		$completion->setOccurrenceDue(clone $weekStart);
+		$completion->setScheduleRevId($occurrence->getScheduleRevId());
+		$completion->setOccurrenceOrdinal($occurrence->getOrdinal());
+		$completion->setWorkDate(clone $weekStart);
+		$completion->setWorkZone('UTC');
+		$completion->setCompletionClass(CompletedTask::CLASS_AGREED);
+		$completion = $this->completedTaskMapper->insert($completion);
+		$occurrence->setCompletionId($completion->getId());
+		$this->occurrenceMapper->update($occurrence);
+
+		$share = new WorkShare();
+		$share->setCompletionId($completion->getId());
+		$share->setAllocationRevision(1);
+		$share->setWalletId($member->getWalletId());
+		$share->setSharePct(100);
+		$share->setEnergyMinor(300);
+		$share->setCoinMinor(3000);
+		$share->setCreatedAt(clone $completedAt);
+		$this->workShareMapper->insert($share);
 	}
 
 	/**

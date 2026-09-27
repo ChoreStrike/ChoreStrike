@@ -6,25 +6,10 @@
 				<span class="score-label">{{ t('chorestrike', 'Score') }}</span>
 				<span class="score-value">{{ score }}</span>
 			</div>
-			<div class="coins-display">
-				<span class="coins-icon">⚡</span>
-				<span class="coins-value">{{ currentCoins }}</span>
-			</div>
 			<div v-if="personalBest" class="personal-best">
 				<span class="best-label">{{ t('chorestrike', 'Best') }}</span>
 				<span class="best-value">{{ personalBest.score }}</span>
 			</div>
-		</div>
-
-		<!-- Active Boosts Display -->
-		<div v-if="activeBoosts.length > 0" class="active-boosts">
-			<span
-				v-for="boostId in activeBoosts"
-				:key="boostId"
-				class="boost-badge"
-				:title="getBoostDescription(boostId)">
-				{{ getBoostIcon(boostId) }}
-			</span>
 		</div>
 
 		<!-- Game Board -->
@@ -48,9 +33,6 @@
 					<h2>{{ t('chorestrike', 'Game Over!') }}</h2>
 					<p class="final-score">
 						{{ t('chorestrike', 'Score: {score}', { score }) }}
-					</p>
-					<p v-if="coinsEarned > 0" class="coins-earned">
-						⚡ +{{ coinsEarned }} {{ t('chorestrike', 'Coins earned!') }}
 					</p>
 					<p v-if="isNewPersonalBest" class="new-best">
 						🎉 {{ t('chorestrike', 'New Personal Best!') }} 🎉
@@ -87,9 +69,6 @@
 						<button class="btn btn-primary" @click="startNewGame">
 							{{ t('chorestrike', 'Start Game') }}
 						</button>
-						<button class="btn btn-secondary" @click="openBoostShop">
-							{{ t('chorestrike', 'Buy Boosts') }}
-						</button>
 					</div>
 				</div>
 			</div>
@@ -113,12 +92,6 @@
 			</div>
 		</div>
 
-		<!-- Boost Shop Modal -->
-		<BoostShop
-			v-if="showBoostShop"
-			@close="closeBoostShop"
-			@purchase="handleBoostPurchase" />
-
 		<!-- Leaderboard Modal -->
 		<SnakeLeaderboard
 			v-if="showLeaderboard"
@@ -129,9 +102,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useMinigameStore, BOOST_DESCRIPTIONS } from '../../store/minigame.js'
+import { useMinigameStore } from '../../store/minigame.js'
 import { storeToRefs } from 'pinia'
-import BoostShop from './BoostShop.vue'
 import SnakeLeaderboard from './SnakeLeaderboard.vue'
 
 // Game configuration
@@ -148,10 +120,7 @@ const {
 	isPlaying,
 	isPaused,
 	gameOver,
-	activeBoosts,
-	currentCoins,
 	personalBest,
-	showBoostShop,
 	showLeaderboard,
 	isNewPersonalBest,
 } = storeToRefs(minigameStore)
@@ -166,7 +135,6 @@ const nextDirection = ref('right')
 const gameSpeed = ref(INITIAL_SPEED)
 const gameLoop = ref(null)
 const lives = ref(1)
-const coinsEarned = ref(0)
 
 // Computed
 const boardStyle = computed(() => ({
@@ -199,15 +167,6 @@ const getCellClass = (cell) => {
 	}
 }
 
-const getBoostIcon = (boostId) => {
-	return BOOST_DESCRIPTIONS[boostId]?.icon || '?'
-}
-
-const getBoostDescription = (boostId) => {
-	const boost = BOOST_DESCRIPTIONS[boostId]
-	return boost ? `${boost.name}: ${boost.effect}` : boostId
-}
-
 const generateFood = () => {
 	let newFood
 	do {
@@ -223,11 +182,6 @@ const generateFood = () => {
 }
 
 const generateObstacles = () => {
-	if (activeBoosts.value.includes('no_obstacles')) {
-		obstacles.value = []
-		return
-	}
-
 	const count = Math.floor(score.value / 50) + 1
 	const newObstacles = []
 
@@ -289,14 +243,7 @@ const moveSnake = () => {
 	// Check food collision
 	if (head.x === food.value.x && head.y === food.value.y) {
 		// Increase score
-		let points = 10
-
-		// Magnet boost: bonus points
-		if (activeBoosts.value.includes('magnet')) {
-			points += 5
-		}
-
-		minigameStore.updateScore(points)
+		minigameStore.updateScore(10)
 
 		// Speed up
 		gameSpeed.value = Math.max(MIN_SPEED, gameSpeed.value - SPEED_INCREMENT)
@@ -312,38 +259,15 @@ const moveSnake = () => {
 		// Remove tail if no food eaten
 		snake.value.pop()
 	}
-
-	// Shrink boost: periodically remove tail segment
-	if (activeBoosts.value.includes('shrink') && snake.value.length > 3 && score.value % 30 === 0) {
-		snake.value.pop()
-	}
 }
 
 const handleCollision = () => {
-	// Ghost mode: extra life
-	if (lives.value > 1) {
-		lives.value--
-		// Reset snake position but keep score
-		snake.value = [{ x: 10, y: 10 }]
-		direction.value = 'right'
-		nextDirection.value = 'right'
-		generateFood()
-		generateObstacles()
-		return
-	}
-
 	// Game over
 	endGame()
 }
 
 const startGameLoop = () => {
-	// Calculate effective speed with slow_motion boost
-	let effectiveSpeed = gameSpeed.value
-	if (activeBoosts.value.includes('slow_motion')) {
-		effectiveSpeed = Math.floor(effectiveSpeed * 1.2) // 20% slower
-	}
-
-	gameLoop.value = setInterval(moveSnake, effectiveSpeed)
+	gameLoop.value = setInterval(moveSnake, gameSpeed.value)
 }
 
 const changeDirection = (newDir) => {
@@ -398,8 +322,7 @@ const startNewGame = () => {
 	nextDirection.value = 'right'
 	gameSpeed.value = INITIAL_SPEED
 	obstacles.value = []
-	lives.value = activeBoosts.value.includes('ghost_mode') ? 2 : 1
-	coinsEarned.value = 0
+	lives.value = 1
 
 	// Generate initial food and obstacles
 	generateFood()
@@ -425,22 +348,7 @@ const resumeGame = () => {
 
 const endGame = async () => {
 	clearInterval(gameLoop.value)
-	const result = await minigameStore.endGame()
-	if (result?.coinsEarned) {
-		coinsEarned.value = result.coinsEarned
-	}
-}
-
-const openBoostShop = () => {
-	minigameStore.toggleBoostShop()
-}
-
-const closeBoostShop = () => {
-	minigameStore.showBoostShop = false
-}
-
-const handleBoostPurchase = (boostId) => {
-	// Boost is already added to purchasedBoosts in store
+	await minigameStore.endGame()
 }
 
 const showLeaderboardModal = () => {
@@ -457,8 +365,8 @@ onMounted(async () => {
 		await minigameStore.initialize('snake')
 	} catch (error) {
 		// Recoverable (CS-PLAN-066 §3.4): the store holds loading=false and
-		// the error state; the boost shop disables purchases without the
-		// catalog and the arcade surfaces the failure. Play stays available.
+		// the error state; the arcade surfaces the failure. Play stays
+		// available.
 	}
 	boardRef.value?.focus()
 
@@ -493,7 +401,6 @@ onUnmounted(() => {
 }
 
 .score-display,
-.coins-display,
 .personal-best {
 	display: flex;
 	flex-direction: column;
@@ -511,32 +418,6 @@ onUnmounted(() => {
 	font-size: 1.5rem;
 	font-weight: bold;
 	color: var(--color-primary);
-}
-
-.coins-icon {
-	font-size: 1.25rem;
-}
-
-.coins-value {
-	font-size: 1rem;
-	font-weight: bold;
-	color: var(--color-warning);
-}
-
-.active-boosts {
-	display: flex;
-	gap: 0.5rem;
-}
-
-.boost-badge {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 28px;
-	height: 28px;
-	background: var(--color-primary-light);
-	border-radius: 50%;
-	font-size: 1rem;
 }
 
 .game-board {
@@ -607,12 +488,6 @@ onUnmounted(() => {
 
 .final-score {
 	font-size: 1.5rem;
-	margin-bottom: 0.5rem;
-}
-
-.coins-earned {
-	font-size: 1.1rem;
-	color: #ffd700;
 	margin-bottom: 0.5rem;
 }
 

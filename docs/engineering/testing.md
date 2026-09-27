@@ -684,6 +684,63 @@ instead of duplicating their lock choreography elsewhere:
   (shares/consent/draft retention, consent-less apply 400). Titles are pinned
   in `tests/e2e/required-scenarios.json`.
 
+#### WP3 work-accounting test surface (CS-PLAN-074, ADR-014)
+
+The WP3 package added the canonical proof surfaces for the ledger, the room
+journal and the correction aggregates — extend these instead of duplicating
+the lock choreography:
+
+Unit (mock-based, `phpunit.unit.xml`):
+
+- `tests/unit/Service/CompletionServiceTest.php` — the completion/undo/
+  attribution aggregate seams (frozen facts, exact union deltas incl. the
+  departed-wallet union, deviation-review gate, wallet lock order, recognition
+  recompute, post-commit isolation).
+- `tests/unit/Service/RoomReplayServiceTest.php` — the journal fold: the
+  documented clamp example, undo invalidation (the correction time never
+  becomes `last_cleaned`), reset authority over earlier corrections,
+  `(effective_at, id)` ordering, batched cursor paging, command-UUID
+  idempotency of the manual/reset writers.
+- `tests/unit/Service/{WalletService,RhythmService,WeeklyGoalService,
+  EffortAllocationService,CommandService}Test.php` — exact minor-unit math,
+  safe-integer/negative gates, cached-balance + funding-hold maintenance,
+  streak derivation (neutral pending days, corrected-record shrinking), the
+  due∪completed weekly evaluation, command replay/conflict identity.
+- `tests/unit/Service/ActivityServiceTest.php` — the viewer-scoped
+  `canCorrect` authority pins (completer/owner vs participation-only vs
+  undone).
+- `tests/unit/Controller/CompletionControllerTest.php` — the closed-set
+  correction payloads (undo/attribution) and the shared validation helper.
+- `tests/unit/utils/minorUnits.spec.js` — exact minor-unit formatting incl.
+  negatives, sub-unit trimming and the signed safe-integer boundaries.
+
+Integration (real Nextcloud + DB, `phpunit.integration.xml`):
+
+- `tests/integration/Service/CompletionCorrectionTest.php` — the correction
+  contract end to end: attribution rewrites the selected allocation with
+  exact union deltas, the frozen work facts and the room journal stay
+  byte-identical, undo reverses the LATEST selected revision once, the
+  deviation requires the explicit review confirmation, participants without
+  authority are rejected, a departed audit actor renders the placeholder
+  (no 500), and the departed participant's retained wallet is reversed
+  exactly (no payout beyond the frozen total).
+- `tests/integration/Service/RoomReplayConcurrencyTest.php` — replay through
+  the real services: completion + undo folds, manual deltas journaling the
+  REQUESTED value with clamps, command-UUID replay no-ops (delta never
+  repeats, reset never re-resets over later work), reset authority after an
+  undone completion.
+- `tests/integration/Service/RhythmProjectionTest.php` — streaks and the
+  weekly goal re-derive from the valid history inside the aggregates
+  (multi-day runs, corrected-record shrinking C3g, neutral pending days,
+  50→100→undo percent re-evaluation, empty-week zero).
+- `tests/integration/Service/HouseMemberRemovalIntegrationTest.php` — the
+  removal cascade plus the WP3 §3.6 regression: departure preserves the
+  wallet, and a later owner attribution reverses the departed wallet exactly.
+- Browser layer: `insights-flow.spec.ts` *"owner corrects a recorded work
+  split from the activity history (WP3 §3.6)"* — the feed correction action,
+  the reused participation form pre-fill, the receipt-protected PUT and the
+  versioned read model (pinned in `tests/e2e/required-scenarios.json`).
+
 ## Without Docker (Limited)
 
 > **Not applicable on the main development machine** — Docker Desktop is installed there and is the canonical test path (see project-rules §2 "Test Environment (Docker)"). This fallback exists **only for machines without any Docker installation**. AI agents must not treat a failed `docker` probe as a reason to use this section; diagnose the daemon first.

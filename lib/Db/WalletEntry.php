@@ -34,6 +34,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setReasonCode(string $reasonCode)
  * @method int|null getActorHouseUserId()
  * @method void setActorHouseUserId(?int $actorHouseUserId)
+ * @method int|null getActorWalletId()
+ * @method void setActorWalletId(?int $actorWalletId)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
@@ -59,6 +61,9 @@ class WalletEntry extends Entity implements JsonSerializable {
 	/** @var int|null */
 	protected $actorHouseUserId;
 
+	/** @var int|null Internal erasure key retained across ordinary departure. */
+	protected $actorWalletId;
+
 	/** @var \DateTime */
 	protected $createdAt;
 
@@ -71,6 +76,7 @@ class WalletEntry extends Entity implements JsonSerializable {
 		$this->addType('deltaMinor', 'integer');
 		$this->addType('reasonCode', 'string');
 		$this->addType('actorHouseUserId', 'integer');
+		$this->addType('actorWalletId', 'integer');
 		$this->addType('createdAt', 'datetime');
 	}
 

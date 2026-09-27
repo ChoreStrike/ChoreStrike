@@ -25,6 +25,10 @@ export const MEDAL_LABELS = {
 	room_guardian: 'Room Guardian',
 	team_player: 'Team Player',
 	streak_keeper: 'Streak Keeper',
+	rhythm_3: 'Rhythm 3',
+	rhythm_6: 'Rhythm 6',
+	rhythm_12: 'Rhythm 12',
+	weekly_milestone: 'Weekly Milestone',
 }
 
 /**
@@ -64,6 +68,10 @@ export default {
 			room_guardian: '🛡️',
 			team_player: '🤝',
 			streak_keeper: '🔥',
+			rhythm_3: '🔥',
+			rhythm_6: '🔥',
+			rhythm_12: '🔥',
+			weekly_milestone: '🏅',
 		}
 
 		const label = computed(() => {
@@ -141,6 +149,18 @@ export default {
 
 .medal-streak_keeper {
 	background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+	color: white;
+}
+
+.medal-rhythm_3,
+.medal-rhythm_6,
+.medal-rhythm_12 {
+	background: linear-gradient(135deg, #ad4a42 0%, #e18d56 100%);
+	color: white;
+}
+
+.medal-weekly_milestone {
+	background: linear-gradient(135deg, #376989 0%, #6c9f9d 100%);
 	color: white;
 }
 </style>

@@ -32,6 +32,14 @@
 > replacement is tested AFTER removing exactly the row's old allocation. The
 > capacity base is the WP2 whole-day minor-unit evaluator
 > (`DailyCapacityService`, ADR-013 §capacity).
+>
+> **Work-accounting amendment (2026-09-27, ADR-014):** completion effects no
+> longer write planner-visible reward state. A confirmed `apply` placement
+> that gets completed freezes occurrence/work evidence (ADR-013 identities)
+> and derives exact minor-unit wallet/room effects through the WP3 ledger and
+> room-event journal; the planner itself stays a pure scheduling surface and
+> the `weeklyGoal` projection reads valid completion history (union of due and
+> validly completed room tasks per house-local week).
 
 The scheduling surface could not produce an owner-confirmed plan over real
 room tasks. The `POST /scheduling/suggestions` endpoint accepted only a

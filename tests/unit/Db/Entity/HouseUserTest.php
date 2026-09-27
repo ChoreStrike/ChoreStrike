@@ -8,7 +8,9 @@ use OCA\ChoreStrike\Db\HouseUser;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for HouseUser entity
+ * Unit tests for HouseUser entity (CS-PLAN-070 WP3 shape: exact
+ * contribution_minor derived from valid work shares; freeze inventory
+ * retired with the freeze lifecycle).
  */
 class HouseUserTest extends TestCase {
 	/**
@@ -20,16 +22,15 @@ class HouseUserTest extends TestCase {
 		$houseUser->setHouseId(2);
 		$houseUser->setNextcloudUserId('user123');
 		$houseUser->setDisplayName('Test User');
-		$houseUser->setRole('admin');
-		$houseUser->setContributionScore(150);
+		$houseUser->setRole('owner');
+		$houseUser->setContributionMinor(1500);
 		$houseUser->setCurrentStreak(5);
 		$houseUser->setLongestStreak(10);
 		$joinedAt = new \DateTime('2026-02-01 10:00:00');
 		$houseUser->setJoinedAt($joinedAt);
 		$lastActivity = new \DateTime('2026-02-24 15:30:00');
 		$houseUser->setLastActivity($lastActivity);
-		$lastFreezeDate = new \DateTime('2026-02-24 00:00:00');
-		$houseUser->setLastFreezeDate($lastFreezeDate);
+		$houseUser->setWalletId(42);
 
 		$result = $houseUser->jsonSerialize();
 
@@ -37,27 +38,19 @@ class HouseUserTest extends TestCase {
 		self::assertEquals(2, $result['houseId']);
 		self::assertEquals('user123', $result['nextcloudUserId']);
 		self::assertEquals('Test User', $result['displayName']);
-		self::assertEquals('admin', $result['role']);
-		self::assertEquals(150, $result['contributionScore']);
+		self::assertEquals('owner', $result['role']);
+		self::assertEquals(1500, $result['contributionMinor']);
 		self::assertEquals(5, $result['currentStreak']);
 		self::assertEquals(10, $result['longestStreak']);
 		self::assertEquals($joinedAt->format('c'), $result['joinedAt']);
 		self::assertEquals($lastActivity->format('c'), $result['lastActivity']);
-		// CS-PLAN-040 (FEAT-UX-020): freeze visibility data.
-		self::assertEquals($lastFreezeDate->format('c'), $result['lastFreezeDate']);
-	}
-
-	/**
-	 * JsonSerialize_WithoutFreeze_LastFreezeDateIsNull
-	 *
-	 * CS-PLAN-040 (FEAT-UX-020): users whose streak was never frozen must
-	 * serialize lastFreezeDate as null (not an epoch or empty string) so the
-	 * UI can distinguish "no active freeze".
-	 */
-	public function testJsonSerialize_WithoutFreeze_LastFreezeDateIsNull(): void {
-		$houseUser = new HouseUser();
-
-		self::assertNull($houseUser->jsonSerialize()['lastFreezeDate']);
+		// The wallet binding is financial identity, never serialized.
+		self::assertArrayNotHasKey('walletId', $result);
+		// WP3 cutover: freeze inventory and whole-unit contribution are
+		// gone; the lastFreezeDate placeholder left with its consumers.
+		self::assertArrayNotHasKey('streakFreezes', $result);
+		self::assertArrayNotHasKey('contributionScore', $result);
+		self::assertArrayNotHasKey('lastFreezeDate', $result);
 	}
 
 	/**
@@ -75,94 +68,58 @@ class HouseUserTest extends TestCase {
 	}
 
 	/**
-	 * ConsumeFreeze_WhenAvailable_ReturnsTrueAndDecrements
+	 * AddContributionMinor_AccumulatesExactMinorUnits
+	 *
+	 * WP3 §3.1: contribution is exact energy minor units derived from the
+	 * member's valid selected work shares (share energy_minor deltas).
 	 */
-	public function testConsumeFreeze_WhenAvailable_ReturnsTrueAndDecrements(): void {
+	public function testAddContributionMinor_AccumulatesExactMinorUnits(): void {
 		$houseUser = new HouseUser();
-		$houseUser->setStreakFreezes(2);
+		$houseUser->setContributionMinor(100);
 
-		self::assertTrue($houseUser->consumeFreeze());
-		self::assertEquals(1, $houseUser->getStreakFreezes());
+		$houseUser->addContributionMinor(34);
+		$houseUser->addContributionMinor(-33);
+
+		self::assertEquals(101, $houseUser->getContributionMinor());
 	}
 
 	/**
-	 * ConsumeFreeze_WhenNoneAvailable_ReturnsFalse
+	 * DefaultContributionMinor_IsZero
 	 */
-	public function testConsumeFreeze_WhenNoneAvailable_ReturnsFalse(): void {
+	public function testDefaultContributionMinor_IsZero(): void {
 		$houseUser = new HouseUser();
-		$houseUser->setStreakFreezes(0);
 
-		self::assertFalse($houseUser->consumeFreeze());
-		self::assertEquals(0, $houseUser->getStreakFreezes());
+		self::assertEquals(0, $houseUser->getContributionMinor());
+		self::assertNull($houseUser->getWalletId());
 	}
 
 	/**
-	 * RestockFreezes_SetsToConfiguredValue
+	 * IsOwnerAndIsChild_RolePredicates
 	 */
-	public function testRestockFreezes_SetsToConfiguredValue(): void {
-		$houseUser = new HouseUser();
-		$houseUser->setStreakFreezes(0);
+	public function testIsOwnerAndIsChild_RolePredicates(): void {
+		$owner = new HouseUser();
+		$owner->setRole('owner');
+		$child = new HouseUser();
+		$child->setRole('child');
+		$member = new HouseUser();
+		$member->setRole('member');
 
-		$houseUser->restockFreezes(1, 2);
-
-		self::assertEquals(1, $houseUser->getStreakFreezes());
+		self::assertTrue($owner->isOwner());
+		self::assertFalse($owner->isChild());
+		self::assertTrue($child->isChild());
+		self::assertFalse($child->isOwner());
+		self::assertFalse($member->isOwner());
+		self::assertFalse($member->isChild());
 	}
 
 	/**
-	 * RestockFreezes_RespectsCap
+	 * AddUnlockedTitle_IdempotentAndMutatesCache
 	 */
-	public function testRestockFreezes_RespectsCap(): void {
-		$houseUser = new HouseUser();
-		$houseUser->setStreakFreezes(0);
-
-		$houseUser->restockFreezes(5, 2);
-
-		self::assertEquals(2, $houseUser->getStreakFreezes());
-	}
-
-	/**
-	 * AwardBonusFreeze_IncrementsWhenBelowCap
-	 */
-	public function testAwardBonusFreeze_IncrementsWhenBelowCap(): void {
-		$houseUser = new HouseUser();
-		$houseUser->setStreakFreezes(1);
-
-		$houseUser->awardBonusFreeze(2);
-
-		self::assertEquals(2, $houseUser->getStreakFreezes());
-	}
-
-	/**
-	 * AwardBonusFreeze_NoOpWhenAtCap
-	 */
-	public function testAwardBonusFreeze_NoOpWhenAtCap(): void {
-		$houseUser = new HouseUser();
-		$houseUser->setStreakFreezes(2);
-
-		$houseUser->awardBonusFreeze(2);
-
-		self::assertEquals(2, $houseUser->getStreakFreezes());
-	}
-
-	/**
-	 * JsonSerialize_IncludesStreakFreezes
-	 */
-	public function testJsonSerialize_IncludesStreakFreezes(): void {
-		$houseUser = new HouseUser();
-		$houseUser->setStreakFreezes(2);
-
-		$result = $houseUser->jsonSerialize();
-
-		self::assertArrayHasKey('streakFreezes', $result);
-		self::assertEquals(2, $result['streakFreezes']);
-	}
-
-	/**
-	 * DefaultStreakFreezes_IsOne
-	 */
-	public function testDefaultStreakFreezes_IsOne(): void {
+	public function testAddUnlockedTitle_IdempotentAndMutatesCache(): void {
 		$houseUser = new HouseUser();
 
-		self::assertEquals(1, $houseUser->getStreakFreezes());
+		self::assertTrue($houseUser->addUnlockedTitle('family_rhythm.helper'));
+		self::assertFalse($houseUser->addUnlockedTitle('family_rhythm.helper'));
+		self::assertEquals(['family_rhythm.helper'], $houseUser->getUnlockedTitles());
 	}
 }

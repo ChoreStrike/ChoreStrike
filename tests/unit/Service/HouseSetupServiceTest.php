@@ -33,6 +33,7 @@ class HouseSetupServiceTest extends TestCase {
 	private $taskAssigneeMapper;
 	private $houseUserMapper;
 	private TemplateService $templateService;
+	private $roomReplayService;
 	private $db;
 	private int $nextId = 1000;
 
@@ -60,6 +61,11 @@ class HouseSetupServiceTest extends TestCase {
 		$walletService->method('ensureBinding')->willReturnCallback(static fn (int $houseId, $member) => $member);
 		$this->houseUserMapper->method('findByHouseId')->willReturn([]);
 
+		// WP3 §3.5: every created room gets a creation BASELINE journal
+		// event before any mutation (default mock = no-op; the baseline
+		// test asserts the explicit call).
+		$this->roomReplayService = $this->createMock(\OCA\ChoreStrike\Service\RoomReplayService::class);
+
 		$this->service = new HouseSetupService(
 			$this->floorMapper,
 			$this->houseMapper,
@@ -72,6 +78,7 @@ class HouseSetupServiceTest extends TestCase {
 			$this->templateService,
 			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
 			new \OCA\ChoreStrike\Service\CalendarService(),
+			$this->roomReplayService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
 			$this->createMock(AppLogger::class),
@@ -533,10 +540,43 @@ class HouseSetupServiceTest extends TestCase {
 			$this->templateService,
 			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
 			new \OCA\ChoreStrike\Service\CalendarService(),
+			$this->roomReplayService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
 			$this->createMock(AppLogger::class),
 			$this->authorization
 		);
+	}
+
+	/**
+	 * ApplySetup_JournalsCreationBaselinePerRoom (WP3 §3.5)
+	 *
+	 * Every created room gets a creation BASELINE journal event before any
+	 * room mutation can occur — the room replay needs an absolute starting
+	 * state, including for setup-created rooms.
+	 */
+	public function testApplySetup_JournalsCreationBaselinePerRoom(): void {
+		$this->stubPersistence();
+		$payload = $this->basePayload();
+		$payload['options'] = ['createHouseholdRoom' => true, 'createHallways' => false];
+
+		$baselinedRooms = [];
+		$this->roomReplayService = $this->createMock(\OCA\ChoreStrike\Service\RoomReplayService::class);
+		$this->roomReplayService->method('recordBaseline')->willReturnCallback(
+			static function ($room) use (&$baselinedRooms) {
+				$baselinedRooms[] = $room;
+				return new \OCA\ChoreStrike\Db\RoomEvent();
+			}
+		);
+		$this->rebuildService();
+
+		$this->service->applySetup(1, $payload);
+
+		// Kitchen (payload) + household (auto option) — one baseline each.
+		$this->assertCount(2, $baselinedRooms);
+		foreach ($baselinedRooms as $room) {
+			$this->assertInstanceOf(\OCA\ChoreStrike\Db\Room::class, $room);
+			$this->assertNotNull($room->getId());
+		}
 	}
 }

@@ -45,7 +45,7 @@ describe('UndoSnackbar (queued list, UX-015)', () => {
 		pinia = createPinia()
 		setActivePinia(pinia)
 		store = useRoomTasksStore()
-		store.undoRoomTaskCompletion = jest.fn().mockResolvedValue({ id: 1, isActive: true })
+		store.undoRoomTaskCompletion = jest.fn().mockResolvedValue({ roomTask: { id: 1 }, undone: true })
 		showError.mockClear()
 	})
 
@@ -59,7 +59,7 @@ describe('UndoSnackbar (queued list, UX-015)', () => {
 	const completeTask = async (wrapper, roomTaskId) => {
 		const handler = getCompletedHandler()
 		expect(handler).not.toBeNull()
-		handler({ roomTaskId })
+		handler({ roomTaskId, completionId: roomTaskId * 10, expectedVersion: 0 })
 		await wrapper.vm.$nextTick()
 	}
 
@@ -113,7 +113,7 @@ describe('UndoSnackbar (queued list, UX-015)', () => {
 		await flushMicrotasks()
 
 		expect(store.undoRoomTaskCompletion).toHaveBeenCalledTimes(1)
-		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(7)
+		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(70, 0)
 		// The second entry survives and stays independently undoable.
 		expect(wrapper.find(entryTestId(7)).exists()).toBe(false)
 		expect(wrapper.find(entryTestId(8)).exists()).toBe(true)
@@ -121,7 +121,7 @@ describe('UndoSnackbar (queued list, UX-015)', () => {
 		await wrapper.find(undoTestId(8)).trigger('click')
 		await flushMicrotasks()
 
-		expect(store.undoRoomTaskCompletion).toHaveBeenLastCalledWith(8)
+		expect(store.undoRoomTaskCompletion).toHaveBeenLastCalledWith(80, 0)
 		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)
 	})
 
@@ -145,7 +145,7 @@ describe('UndoSnackbar (queued list, UX-015)', () => {
 		await wrapper.find(undoTestId(7)).trigger('click')
 		await flushMicrotasks()
 
-		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(7)
+		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(70, 0)
 		expect(showError).not.toHaveBeenCalled()
 		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)
 	})
@@ -158,7 +158,7 @@ describe('UndoSnackbar (queued list, UX-015)', () => {
 		await wrapper.find(undoTestId(9)).trigger('click')
 		await flushMicrotasks()
 
-		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(9)
+		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(90, 0)
 		expect(showError).toHaveBeenCalled()
 		// The entry stays dismissed — server truth (completed) remains visible.
 		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)

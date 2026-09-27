@@ -8,12 +8,14 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Db\WalletMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MedalService;
+use OCA\ChoreStrike\Service\WalletService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -28,6 +30,8 @@ class GameController extends Controller {
 	private MedalService $medalService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private WalletService $walletService;
+	private WalletMapper $walletMapper;
 
 	public function __construct(
 		IRequest $request,
@@ -35,6 +39,8 @@ class GameController extends Controller {
 		MedalService $medalService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		WalletService $walletService,
+		WalletMapper $walletMapper,
 		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
@@ -42,11 +48,15 @@ class GameController extends Controller {
 		$this->medalService = $medalService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->walletService = $walletService;
+		$this->walletMapper = $walletMapper;
 		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
-	 * Get current game state
+	 * Get current game state — the caller's OWN wallet in minor units
+	 * (WP3 §3.6: no Coin totals in the member list; foreign member/fairness
+	 * DTOs contain no wallet balances).
 	 *
 	 * @NoAdminRequired
 	 */
@@ -54,10 +64,19 @@ class GameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$gameState = $this->gameLogicService->getGameState($house->getId());
 			$gameState['weeklyGoal'] = $this->houseService->getWeeklyGoalProgress($house->getId());
+			$gameState['stateVersion'] = $house->getStateVersion();
+
+			$wallet = $houseUser->getWalletId() !== null
+				? $this->walletMapper->findByHouseAndUser((int)$house->getId(), $houseUser->getNextcloudUserId())
+				: null;
+			$gameState['wallet'] = $wallet !== null
+				? $this->walletService->serializeOwnWallet($wallet)
+				: null;
+			$gameState['contributionMinor'] = $houseUser->getContributionMinor();
 
 			return new JSONResponse([
 				'success' => true,

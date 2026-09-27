@@ -11,20 +11,20 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
 /**
- * Task Authorization Integration Tests (CS-PLAN-061 §4, step 1).
+ * Task Authorization Integration Tests (CS-PLAN-061 Â§4, step 1).
  *
  * Exercises the REAL controllers end-to-end against the shared instance
  * house (the resolution path production uses). Covers:
  * - cross-house isolation: foreign ids are 404s on read and write, never
  *   leaks or 500s
- * - the 403/404 standard: foreign/nonexistent ids → 404 anti-enumeration,
- *   role denials → 403 (decision D3, D5)
+ * - the 403/404 standard: foreign/nonexistent ids â†’ 404 anti-enumeration,
+ *   role denials â†’ 403 (decision D3, D5)
  * - actor matrix: owner/member complete; children execute (complete,
  *   reactivate) but cannot manage (delete, assign)
  * - invite-only membership: a non-member gets 403 on every house read
  *
  * Full rewrite of the previously fully-skipped suite (the old scenarios
- * were skipped pending a rewrite to the instance-house API — see the old
+ * were skipped pending a rewrite to the instance-house API ” see the old
  * file header). Service-level isolation stays covered by
  * AuthorizationIntegrationTest / TaskMapperHouseScopeTest.
  */
@@ -60,10 +60,10 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		$this->floorId = $this->createFloor($this->houseId, 'Ground Floor', 1);
 		$this->roomId = $this->createRoom($this->houseId, $this->floorId, 'Kitchen');
 
-		$this->taskId = $this->createTask($this->houseId, 'Dishes', 'Do the dishes', 3, 30);
+		$this->taskId = $this->createTask($this->houseId, 'Dishes', 'Do the dishes', 3, 5);
 		$this->roomTaskId = $this->assignTaskToRoom($this->taskId, $this->roomId, 'ta_member');
 
-		// Private task of the owner in the same room — the residual-surface
+		// Private task of the owner in the same room ” the residual-surface
 		// fixtures (assignees read, room stats) of the review fixes.
 		$this->privateTaskId = $this->createTask($this->houseId, 'Private Note', 'Hidden from the house', 2, 5);
 		$this->setTaskVisibility($this->privateTaskId, Task::VISIBILITY_PRIVATE, 'ta_owner');
@@ -76,7 +76,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 			$this->createFloor($this->foreignHouseId, 'Ground Floor', 1),
 			'Kitchen',
 		);
-		$this->foreignTaskId = $this->createTask($this->foreignHouseId, 'Vacuum', 'Vacuum the floor', 4, 20);
+		$this->foreignTaskId = $this->createTask($this->foreignHouseId, 'Vacuum', 'Vacuum the floor', 4, 4);
 		$this->foreignRoomTaskId = $this->assignTaskToRoom($this->foreignTaskId, $this->foreignRoomId, null);
 	}
 
@@ -155,7 +155,11 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	public function testOwnerCanCompleteAnyTaskInTheirHouse(): void {
 		$controller = $this->getController(RoomTaskController::class, 'ta_owner');
 
-		$response = $this->completeViaController($controller, $this->roomTaskId);
+		// WP3 (Q-074-02): the non-assignee owner takes part explicitly —
+		// the split names the completing owner.
+		$response = $this->completeViaController($controller, $this->roomTaskId, [
+			['userId' => 'ta_owner', 'sharePct' => 100],
+		]);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertTrue($response->getData()['success']);
@@ -173,10 +177,13 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 
 	public function testMemberCanCompletePublicTaskAssignedToOtherUser(): void {
 		// Decision D2: PUBLIC tasks are completable by any house member —
-		// the household-collaboration contract.
+		// the household-collaboration contract. WP3 (Q-074-02): the
+		// non-assignee takes part explicitly — the split names them.
 		$controller = $this->getController(RoomTaskController::class, 'ta_other_member');
 
-		$response = $this->completeViaController($controller, $this->roomTaskId);
+		$response = $this->completeViaController($controller, $this->roomTaskId, [
+			['userId' => 'ta_other_member', 'sharePct' => 100],
+		]);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertSame(1, $this->countCompletions($this->roomTaskId));
@@ -273,7 +280,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	// ========== Residual surface visibility (CS-PLAN-061 review fixes) ==========
 
 	public function testAssigneesReadOfInvisibleTask_Returns404(): void {
-		// The assignee list of an invisible task is a 404 — reading it
+		// The assignee list of an invisible task is a 404 ” reading it
 		// would leak the assignment graph of a private task.
 		$controller = $this->getController(RoomTaskController::class, 'ta_child');
 

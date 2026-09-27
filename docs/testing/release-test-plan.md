@@ -42,7 +42,7 @@ the spec name. The manual tester may spot-check it but is not required to.
 | 6. Task calendar & daily views | full | full | full |
 | 7. Visibility & roles | full | full + new-feature focus | full |
 | 8. Gamification | full | full | full |
-| 9. Minigames & boosts | full | full | full |
+| 9. Minigames (play-only) | smoke | full | full |
 | 10. Overdue claiming & teamwork | full | full | full |
 | 11. Scheduling (member availability & energy) | full | full | full |
 | 12. Multi-user on one instance | full (Docker family) | full + real instance | full |
@@ -89,7 +89,7 @@ E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 
 - Core CRUD / scratch flow: `gui-scratch-flow`, `minimal-smoke-tests`, `fast-core-tests`, `core-functionality`, `3-floor-house`
 - Floors/rooms: `room-management`, `room-detail`
-- Tasks: `task-manager`, `task-completion`, `task-completion-full-flow`, `task-checklist-and-features`, `today-view`
+- Tasks: `task-manager`, `task-completion`, `task-completion-full-flow`, `task-checklist-and-features`, `today-view`, `insights-flow` (history correction, WP3 §3.6)
 - Visibility: `private-tasks`, `admin-only-tasks`
 - Gamification: `leaderboard`, `title-selection`, `teamwork-rewards`
 - Overdue/teamwork: `overdue-task-claiming`, `teamwork-rewards`, `multi-user-interactions`
@@ -100,9 +100,8 @@ E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 - Errors/validation: `error-handling`, `validation`
 - Release regression suite (CS-PLAN-024, `release-*`): task lifecycle
   (`release-task-lifecycle`), visibility/roles (`release-visibility-roles`),
-  reward config (`release-reward-config`), task templates
-  (`release-task-templates`), boost shop (`release-boost-shop`), notifications
-  (`release-notifications`).
+  task templates (`release-task-templates`), setup wizard
+  (`release-setup-wizard`), notifications (`release-notifications`).
 
 > **Drift rule:** if an E2E spec comes to cover a manual item reliably, mark the
 > manual row **Automated** (with the spec pointer) instead of removing the row —
@@ -169,8 +168,10 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
 | Create task | Add a task (set energy, priority, tier, frequency) | Task appears in the task list / room | `task-manager` |
-| Complete task | Mark a room-task complete | Status changes, coins awarded, celebration fires | `task-completion` |
-| Undo completion | Use the snackbar undo action after completion | Task state, recurrence, completion ledger, rewards/streak, and cleanliness are restored atomically by the one undo aggregate (CS-PLAN-064 / ADR-011); a second completion keeps the first entry's undo (UX-015 queue) | `release-task-lifecycle`, `task-completion`, `task-completion-full-flow`, `today-view` |
+| Complete task | Mark a room-task complete with the actual-work split | Work facts freeze (occurrence, work date/zone, total energy, rate); exact minor-unit wallet deltas post to the immutable ledger; the room journal records the requested effect (WP3 / ADR-014) | `task-completion`, `task-completion-full-flow`, `today-view` |
+| Undo completion | Use the snackbar undo action after completion | The targeted completion undo reverses the latest selected allocation exactly once: occurrence release, exact negative wallet deltas, room replay (the correction time never becomes `last_cleaned`), recognition recompute; idempotent, a second completion keeps the first entry's undo (UX-015 queue) | `release-task-lifecycle`, `task-completion`, `task-completion-full-flow`, `today-view` |
+| Correct the split (attribution) | Open a live completion from the Insights history, adjust the recorded participants | The reused participation form pre-fills the recorded split; the receipt-protected PUT re-accounts with exact wallet-union deltas (departed participants' retained wallets included) and the frozen work facts stay byte-identical (WP3 §3.4/§3.6) | `insights-flow` (owner attribution), `CompletionCorrectionTest`, `HouseMemberRemovalIntegrationTest` |
+| Replay a command | Retry the same completion/undo/attribution with the same command UUID | The stored outcome replays with zero repeated effects; a changed payload under the same UUID conflicts (CR-SVC-64) | PHPUnit `CommandServiceTest`, `CompletionConcurrencyTest`, `RoomReplayConcurrencyTest` |
 | Reschedule task | Change the due date | Due date updates | `release-task-lifecycle` |
 | Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | `family-rhythm` (occurrence receipt/replay/409 contract, CS-PLAN-072 WP1 / ADR-013); partial `today-view` (daily recurrence: completion shifts the next due out of today; weekly/monthly still manual) |
 | Assignees | Assign / unassign members; multi-assign | Assignee set persists; multi-assign works | `task-manager` |
@@ -212,48 +213,50 @@ Route surface: `task#myPrivate`, `visibility_type` (`public`/`private`/`admin-on
 
 ---
 
-## 8. Gamification
+## 8. Gamification (WP3 minor-unit economy)
 
-Route surface: `game#state/leaderboard/medals/checkMedals`, `house#health`, `user#titles/selectTitle`.
+Route surface: `completion#show/undo/attribute`, `room_task#complete`, `game#state/medals/checkMedals`, `house#health`, `user#titles/selectTitle`.
 
-> Currency is **coins** (the legacy "sparks" wording is retired — do not use it).
+> Currency is **Coins in exact minor units** (100 coin minor = 1 Coin) on an
+> immutable ledger (WP3 / ADR-014). The legacy tier/combo/early multipliers,
+> streak freezes, teamwork bonus and integer coin mints are retired — do not
+> test for them.
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| Earn coins | Complete a task | Coins added to the user total; `coins_earned` recorded | `task-completion` |
-| Coin tier / early bonus | Complete a gold/early task | Higher payout (tier × early multiplier) applied | PHPUnit `GameLogicServiceTest` |
-| Combo | Complete several tasks within the combo window | Combo indicator shows; combo bonus (×2, configurable) applied | `teamwork-rewards` |
-| Combo break | Wait past the window, then complete a task | Combo resets | — |
-| Streak & freeze | Maintain a daily streak; simulate a missed day | Streak grows; a streak freeze is consumed instead of resetting | PHPUnit `GameLogicServiceTest` |
-| Medals | Trigger each live medal type | `team_anchor`, `streak_keeper`, `flow_keeper`, `room_guardian`, `team_player` award correctly | PHPUnit `GameLogicServiceTest` |
-| Titles | Unlock and select a title | Title badge updates; selection persists | `title-selection` |
-| Leaderboard | Open **Leaderboard** in nav | Members ranked by contribution/coins; streak view available | `leaderboard` |
+| Earn wallet value | Complete a task with a recorded split | Exact minor-unit deltas post per participant (`coinMinor = 10 × E × P` at the frozen rate); the cached wallet balance and contribution update; the caller's own totals ride the response | `task-completion`, PHPUnit `WalletServiceTest` |
+| Exact minor-unit display | View wallet/fairness/leaderboard readouts | Minor units render with exact trimmed decimals; no Coin column or integer mint anywhere | `leaderboard`, `insights-flow`, Jest `minorUnits.spec.js` |
+| Conservation under correction | Complete, attribute a different split, then undo | Every reversal keys the share rows' wallets (departed members included); the completion pays out exactly the frozen total across its lifetime | PHPUnit `CompletionCorrectionTest`, `HouseMemberRemovalIntegrationTest` |
+| Rhythm streaks | Complete agreed planned days; undo one | Streaks re-derive from the valid planned-day history (pending days are neutral); a correction shrinks the record to the corrected valid-history maximum (C3g) | PHPUnit `RhythmProjectionTest`, `RhythmServiceTest` |
+| Weekly goal | Complete due tasks across the week; undo one | `completed/(due∪completed)` percent and the achieved flag re-evaluate from the valid set (80% target) | PHPUnit `RhythmProjectionTest`, `WeeklyGoalServiceTest` |
+| Medals | Trigger the live rhythm medal | `streak_keeper` (and further wallet-qualified rhythm awards) award correctly via `awardMedalIfNew()` | PHPUnit `MedalServiceTest` |
+| Titles | Unlock and select a title | Title badge updates (`contributionMinor` / `longestStreak` signals); selection persists | `title-selection` |
+| Leaderboard | Open **Leaderboard** in nav | Members ranked by contribution minor; streak view available | `leaderboard` |
 | House health | Drive overall completion up/down | House health bar reflects aggregate activity | `dashboard` |
 
 ---
 
-## 9. Minigames & Boosts
+## 9. Minigames (play-only)
 
-Route surface: `minigame#*`. Components: Snake, 2048, Memory, BoostShop (Dashboard arcade section).
+Route surface: `minigame#*`. Components: Snake, 2048, Memory (arcade section).
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
 | Play a minigame | Open the arcade on the Dashboard; play Snake/2048/Memory | Game is playable; score saved | `snake-game` |
 | Personal best / rank | Play repeatedly | Personal best and weekly leaderboard update | — |
-| Boost shop | Browse and purchase a boost with coins | Coins deducted; boost applied | `release-boost-shop` |
-| Coin spend balance | Spend coins, then complete a task | Earn/spend ledger stays consistent | `release-boost-shop` |
 
 ---
 
-## 10. Overdue Claiming & Teamwork
+## 10. Overdue Claiming & Shared Work
 
-Route surface: `room_task#overdueClaims/filteredDaily`, teamwork completion fields.
+Route surface: `room_task#overdueClaims/filteredDaily`, the completion work-split
+fields (`participants`/`allocationReviewed`).
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
 | Claim overdue task | Open the overdue-claim dialog; claim an overdue task | Task assigned to claimer; completed fairly | `overdue-task-claiming` |
-| Teamwork completion | Two members complete a task together | Team bonus applied; participants credited | `teamwork-rewards` |
-| Combo with user | Trigger a combo that involves another member | `combo_with_user_id` recorded; bonus fair | `teamwork-rewards` |
+| Shared completion | Two members record the actual work split on one completion | Both wallets receive their exact minor-unit shares; the allocation revision is auditable (WP3 — no team bonus dimension) | `task-completion-full-flow`, `today-view`, `insights-flow` |
+| Split correction | A completer/owner corrects the recorded split afterwards | Exact union deltas re-account every named wallet; frozen work facts unchanged | `insights-flow`, PHPUnit `CompletionCorrectionTest` |
 
 ---
 
@@ -393,8 +396,8 @@ Time-Travel Testing).
 - [ ] 6 Task calendar & daily views
 - [ ] 7 Visibility & roles
 - [ ] 8 Gamification
-- [ ] 9 Minigames & boosts
-- [ ] 10 Overdue claiming & teamwork
+- [ ] 9 Minigames (play-only)
+- [ ] 10 Overdue claiming & shared work
 - [ ] 11 Scheduling
 - [ ] 12 Multi-user on one instance
 - [ ] 13 Notifications

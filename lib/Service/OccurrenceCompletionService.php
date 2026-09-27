@@ -8,12 +8,14 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
 use OCA\ChoreStrike\Db\Task;
@@ -30,13 +32,18 @@ use OCP\IL10N;
  * selection for the completion aggregate, applies one completion's
  * timeline effects (fulfill, cover the latest older miss, anchor the
  * interval successor in the saved local basis) and releases them again
- * on undo — later valid work always survives.
+ * on undo — later valid work always survives. WP3 (§3.4): the open-
+ * successor re-derivation deletes ONLY still-open automatically derived
+ * rows — an explicit agreement (amendment/catch-up/restart) or surviving
+ * occurrence-scoped checklist progress pins the row and survives.
  */
 class OccurrenceCompletionService {
 	private ScheduleRevisionMapper $revisionMapper;
 	private OccurrenceMapper $occurrenceMapper;
 	private OccurrenceMemberMapper $occMemberMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private AgreementMapper $agreementMapper;
+	private RoomTaskChecklistProgressMapper $checklistProgressMapper;
 	private RecurrenceCalculator $calculator;
 	private CalendarService $calendar;
 	private IL10N $l10n;
@@ -49,6 +56,8 @@ class OccurrenceCompletionService {
 		OccurrenceMapper $occurrenceMapper,
 		OccurrenceMemberMapper $occMemberMapper,
 		CompletedTaskMapper $completedTaskMapper,
+		AgreementMapper $agreementMapper,
+		RoomTaskChecklistProgressMapper $checklistProgressMapper,
 		RecurrenceCalculator $calculator,
 		CalendarService $calendar,
 		IL10N $l10n,
@@ -60,6 +69,8 @@ class OccurrenceCompletionService {
 		$this->occurrenceMapper = $occurrenceMapper;
 		$this->occMemberMapper = $occMemberMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
+		$this->agreementMapper = $agreementMapper;
+		$this->checklistProgressMapper = $checklistProgressMapper;
 		$this->calculator = $calculator;
 		$this->calendar = $calendar;
 		$this->l10n = $l10n;
@@ -302,10 +313,18 @@ class OccurrenceCompletionService {
 			// task — a revision edit between completion and undo moves the
 			// successor's revision, and a current-revision-only match left
 			// TWO open interval pendings behind.
+			// WP3 §3.4 provenance check: an explicit agreement
+			// (amendment/catch-up/restart), a restart link, or surviving
+			// occurrence-scoped checklist progress pins the row — the
+			// re-derivation never deletes member/checklist evidence for a
+			// convenient recurrence result.
 			foreach ($this->occurrenceMapper->findByRoomTask($roomTask->getId()) as $row) {
 				if ($row->getSourceCompletionId() === $completion->getId()
 					&& $row->getCompletionId() === null
 					&& $row->getCoveredByCompletionId() === null) {
+					if ($this->hasExplicitProvenance($row)) {
+						continue;
+					}
 					$this->occMemberMapper->deleteByOccurrenceIds([$row->getId()]);
 					$this->occurrenceMapper->delete($row);
 				}
@@ -342,6 +361,26 @@ class OccurrenceCompletionService {
 
 	private function deleteFutureUnfulfilledOfRevisionFrom(ScheduleRevision $revision, string $successorKey): void {
 		$this->occurrenceMapper->deleteFutureUnfulfilledOfRevision($revision, RecurrenceCalculator::dayKeyToDate(RecurrenceCalculator::dayBefore($successorKey)));
+	}
+
+	/**
+	 * WP3 §3.4: explicit-agreement/progress provenance of an occurrence —
+	 * an owner-recorded agreement (any kind), a restart link, or surviving
+	 * occurrence-scoped checklist progress. Such rows are NEVER deleted by
+	 * the undo re-derivation.
+	 */
+	private function hasExplicitProvenance(Occurrence $row): bool {
+		if ($row->getRestartOfId() !== null) {
+			return true;
+		}
+		if ($this->agreementMapper->hasAgreementFor((int)$row->getId())) {
+			return true;
+		}
+		return $this->checklistProgressMapper->findByOccurrence(
+			$row->getRoomTaskId(),
+			$row->getScheduleRevId(),
+			$row->getOrdinal()
+		) !== [];
 	}
 
 	/**

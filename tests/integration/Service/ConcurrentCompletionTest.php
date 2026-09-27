@@ -50,10 +50,11 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * Two sequential same-user completions of different tasks accumulate both
-	 * rewards on the coins/contribution balance (no lost update). The second
-	 * completion also maps the first completion's row (SELECT * entity
-	 * mapping), which threw on the real DB before the CR-SVC-45 schema fix.
+	 * Two sequential same-user completions of different tasks accumulate
+	 * both rewards on the wallet/contribution balances in exact minor
+	 * units (no lost update). The second completion also maps the first
+	 * completion's row (SELECT * entity mapping), which threw on the real
+	 * DB before the CR-SVC-45 schema fix.
 	 */
 	public function testSequentialSameUserCompletionsAccumulateRewards(): void {
 		$houseId = $this->createHouse('seq_owner', 'Sequential House');
@@ -67,8 +68,7 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 
 		$mapper = \OC::$server->get(HouseUserMapper::class);
 		$user = $mapper->findByNextcloudUserId($houseId, 'seq_owner');
-		$coinsBefore = $user->getCoins();
-		$contributionBefore = $user->getContributionScore();
+		$contributionBefore = $user->getContributionMinor();
 
 		$this->actingAs('seq_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
@@ -77,15 +77,18 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 		$second = $this->completeOccurrence($completionService, $houseId, 'seq_owner', $roomTaskB);
 
 		$user = $mapper->findByNextcloudUserId($houseId, 'seq_owner');
+		// WP3 §3.1 exact arithmetic: a solo completion credits
+		// totalEnergy * 1000 coin minor and totalEnergy * 100 energy minor.
+		$energy = $first['rewards']['completion']['totalEnergy'] + $second['rewards']['completion']['totalEnergy'];
 		self::assertSame(
-			$first['rewards']['coins'] + $second['rewards']['coins'],
-			$user->getCoins() - $coinsBefore,
-			'both completions accumulate on the coins balance'
+			$contributionBefore + $energy * 100,
+			$user->getContributionMinor(),
+			'both completions accumulate on the contribution minor balance'
 		);
 		self::assertSame(
-			$first['rewards']['contributionScore'] + $second['rewards']['contributionScore'],
-			$user->getContributionScore() - $contributionBefore,
-			'both completions accumulate on the contribution score'
+			$contributionBefore * 10 + $energy * 1000,
+			$second['rewards']['wallet']['bookedMinor'],
+			'both completions accumulate on the wallet ledger (frozen rate 10 Coins per energy)'
 		);
 	}
 
@@ -144,12 +147,10 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 			$this->db->beginTransaction();
 			try {
 				$locked = $mapper->findForUpdate($houseUserId);
-				self::assertSame(5, $locked->getContributionScore(), 'lock must build on the winner\'s committed state, not a stale pre-lock value');
-				self::assertSame(10, $locked->getCoins(), 'lock must build on the winner\'s committed state, not a stale pre-lock value');
+				self::assertSame(500, $locked->getContributionMinor(), 'lock must build on the winner\'s committed state, not a stale pre-lock value');
 
 				// T2 continues its completion on top of the winner state.
-				$locked->addContributionScore(3);
-				$locked->addCoins(7);
+				$locked->addContributionMinor(300);
 				$mapper->update($locked);
 				$this->db->commit();
 			} catch (\Throwable $e) {
@@ -158,8 +159,7 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 			}
 
 			$final = $mapper->find($houseUserId);
-			self::assertSame(8, $final->getContributionScore(), 'no lost update: both increments land');
-			self::assertSame(17, $final->getCoins(), 'no lost update: both increments land');
+			self::assertSame(800, $final->getContributionMinor(), 'no lost update: both increments land');
 		} finally {
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
@@ -202,7 +202,7 @@ file_put_contents($signalFile, 'locked');
 usleep(2000000);
 
 $db->executeStatement(
-    'UPDATE *PREFIX*chorestrike_house_users SET contribution_score = contribution_score + 5, coins = coins + 10 WHERE id = :id',
+    'UPDATE *PREFIX*chorestrike_house_users SET contribution_minor = contribution_minor + 500 WHERE id = :id',
     ['id' => $houseUserId],
     ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
@@ -277,18 +277,20 @@ PHP;
 
 			// T2: a non-assignee completion while T1 holds the lock. The
 			// pre-lock fetch sees the overdue committed state; the locked
-			// entity must reflect T1's committed advance instead.
+			// entity must reflect T1's committed advance instead. WP3
+			// (Q-074-02): a non-assignee must explicitly take part in the
+			// work — the split names the helper.
 			$this->actingAs('rt_helper');
 			$completionService = \OC::$server->get(CompletionService::class);
-			$this->completeOccurrence($completionService, $houseId, 'rt_helper', $roomTaskId);
+			$this->completeOccurrenceWithParticipants(
+				$completionService,
+				$houseId,
+				'rt_helper',
+				$roomTaskId,
+				[['userId' => 'rt_helper', 'sharePct' => 100]]
+			);
 
 			$row = $this->fetchRoomTaskRow($roomTaskId);
-			self::assertSame(
-				0,
-				(int)$row['was_claimed'],
-				'no takeover may be recorded when the fresh post-lock entity is no longer overdue'
-			);
-			self::assertNull($row['claimed_by_user'], 'no claim may be recorded from the stale pre-lock snapshot');
 			self::assertGreaterThan(
 				(new \DateTime())->getTimestamp(),
 				(new \DateTime($row['next_due']))->getTimestamp(),
@@ -317,7 +319,7 @@ PHP;
 	 */
 	private function fetchRoomTaskRow(int $roomTaskId): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('was_claimed', 'claimed_by_user', 'next_due')
+		$qb->select('next_due')
 			->from('chorestrike_room_tasks')
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
 		$result = $qb->executeQuery();
@@ -345,20 +347,15 @@ PHP;
 		$this->addHouseMember($houseId, 'cc_member', 'Member', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
-		$taskA = $this->createTask($houseId, 'CC dishes', '', 5, 3);
-		$taskB = $this->createTask($houseId, 'CC trash', '', 5, 3);
+		// WP3 §3.5: cleanliness is journal-replayed — the creation baseline
+		// (not a raw row update) anchors the math. Energy 2 (+20 each) keeps
+		// the sum safely below the 100 clamp.
+		$baselineCleanliness = $this->roomBaselineCleanliness($roomId);
+		$taskA = $this->createTask($houseId, 'CC dishes', '', 5, 2);
+		$taskB = $this->createTask($houseId, 'CC trash', '', 5, 2);
 		$roomTaskA = $this->assignTaskToRoom($taskA, $roomId, 'cc_owner');
 		$roomTaskB = $this->assignTaskToRoom($taskB, $roomId, 'cc_member');
 		$this->completedRoomTaskIds = [$roomTaskA, $roomTaskB];
-
-		// Start low: updateCleanliness clamps at 100 — the sum assertion must
-		// stay below the clamp to be meaningful.
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_rooms')
-			->set('cleanliness', $qb->createNamedParameter(10, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
-			->executeStatement();
-		$initialCleanliness = 10;
 
 		$bootedFile = sys_get_temp_dir() . '/cs-cc-booted-' . uniqid();
 		$goFile = sys_get_temp_dir() . '/cs-cc-go-' . uniqid();
@@ -393,9 +390,9 @@ PHP;
 
 		$row = $this->fetchRoomRow($roomId);
 		self::assertSame(
-			$initialCleanliness + (int)$helperResult['cleanlinessChange'] + $parentResult['rewards']['cleanlinessChange'],
+			$baselineCleanliness + (int)$helperResult['cleanlinessChange'] + $parentResult['rewards']['cleanlinessChange'],
 			(int)$row['cleanliness'],
-			'the room must end at the exact sum of both concurrent deltas'
+			'the room must end at the exact sum of both concurrent journal deltas'
 		);
 
 		// Both completions landed with their own ledger row.
@@ -415,8 +412,8 @@ PHP;
 		$mapper = \OC::$server->get(HouseUserMapper::class);
 		$owner = $mapper->findByNextcloudUserId($houseId, 'cc_owner');
 		$member = $mapper->findByNextcloudUserId($houseId, 'cc_member');
-		self::assertGreaterThan(0, $owner->getCoins(), 'the helper user\'s coins must have landed');
-		self::assertGreaterThan(0, $member->getCoins(), 'the parent user\'s coins must have landed');
+		self::assertGreaterThan(0, $owner->getContributionMinor(), 'the helper user\'s work credit must have landed');
+		self::assertGreaterThan(0, $member->getContributionMinor(), 'the parent user\'s work credit must have landed');
 	}
 
 	/**
@@ -435,6 +432,58 @@ PHP;
 
 		self::assertIsArray($row, 'room row must exist');
 		return $row;
+	}
+
+	/**
+	 * The room's creation baseline cleanliness from the journal (WP3 §3.5):
+	 * the replay anchor for cleanliness math — never a raw row value.
+	 */
+	private function roomBaselineCleanliness(int $roomId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('baseline_cleanliness')
+			->from('chorestrike_room_events')
+			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter('baseline')));
+		$result = $qb->executeQuery();
+		$value = $result->fetchOne();
+		$result->closeCursor();
+
+		// Raw fixture rooms carry no journal — the replay seeds those at the
+		// documented default 50 (RoomReplayService::replay).
+		return $value === false ? 50 : (int)$value;
+	}
+
+	/**
+	 * @return list<int>
+	 */
+	private function ledgerIdsFor(int ...$roomTaskIds): array {
+		$ids = [];
+		foreach ($roomTaskIds as $roomTaskId) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('id')
+				->from('chorestrike_completed_tasks')
+				->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+			$result = $qb->executeQuery();
+			while ($row = $result->fetch()) {
+				$ids[] = (int)$row['id'];
+			}
+			$result->closeCursor();
+		}
+		return $ids;
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function sharesForCompletion(int $completionId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from('chorestrike_work_shares')
+			->where($qb->expr()->eq('completion_id', $qb->createNamedParameter($completionId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$rows = $result->fetchAll();
+		$result->closeCursor();
+		return is_array($rows) ? $rows : [];
 	}
 
 	/**

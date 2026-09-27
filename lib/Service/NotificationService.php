@@ -25,7 +25,7 @@ use OCP\Notification\IManager;
  * Dedup rule (Nextcloud key: app, user, objectType, objectId): any
  * notification that may legitimately repeat on later days MUST day-qualify
  * its objectId (`{identity}:{Y-m-d}`) so consecutive passes do not collapse
- * into one bell entry — see notifyStreakAtRisk (CR-SVC-27) and notifyTaskDue.
+ * into one bell entry — see notifyTaskDue.
  */
 class NotificationService {
 	public const APP_ID = 'chorestrike';
@@ -42,7 +42,6 @@ class NotificationService {
 	public const SUBJECT_OVERDUE_TAKEN_OVER = 'overdue_taken_over';
 	public const SUBJECT_MEDAL_AWARDED = 'medal_awarded';
 	public const SUBJECT_WEEKLY_GOAL_REACHED = 'weekly_goal_reached';
-	public const SUBJECT_STREAK_AT_RISK = 'streak_at_risk';
 	public const SUBJECT_TITLE_UNLOCKED = 'title_unlocked';
 	public const SUBJECT_TASK_DUE_TODAY = 'task_due_today';
 	public const SUBJECT_TASK_DUE_TOMORROW = 'task_due_tomorrow';
@@ -204,36 +203,6 @@ class NotificationService {
 			[
 				'titleLabelKey' => $titleLabelKey,
 				'packLabelKey' => $packLabelKey,
-			]
-		);
-	}
-
-	/**
-	 * Notify a user that their streak is at risk and they should complete a
-	 * task today to preserve it.
-	 *
-	 * The objectId is day-qualified (`{Y-m-d}:{streak}`, CR-SVC-27): Nextcloud
-	 * dedups on (app, user, objectType, objectId), so a bare streak number made
-	 * consecutive days' reminders collapse into one bell entry whenever the
-	 * streak value repeated. Keying on the pass's reference day keeps one entry
-	 * per pass while same-day re-runs still dedup.
-	 *
-	 * @param string $recipientNextcloudUserId Recipient's Nextcloud user ID
-	 * @param int $currentStreak The current streak count
-	 * @param \DateTimeInterface $passDay The pass's reference day (the evaluated "yesterday")
-	 */
-	public function notifyStreakAtRisk(
-		string $recipientNextcloudUserId,
-		int $currentStreak,
-		\DateTimeInterface $passDay,
-	): void {
-		$this->dispatch(
-			$recipientNextcloudUserId,
-			self::SUBJECT_STREAK_AT_RISK,
-			'streak',
-			$passDay->format('Y-m-d') . ':' . $currentStreak,
-			[
-				'currentStreak' => $currentStreak,
 			]
 		);
 	}

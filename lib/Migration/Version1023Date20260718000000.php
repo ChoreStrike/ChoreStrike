@@ -14,13 +14,8 @@ use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
 /**
- * Migration for Phase 4 weekly-goal-notification dedup:
- *  - adds `weekly_goal_notified_week` nullable string column to
- *    `chorestrike_houses`. Stores the ISO week-start (Y-m-d) for which the
- *    "weekly goal reached" notification has already been dispatched to the
- *    household. The conditional UPDATE in NotificationService::dispatch
- *    (or a caller) uses it to ensure exactly one notification per house per
- *    week even when multiple concurrent completions cross the threshold.
+ * One durable weekly-goal bell claim per house and planned week. A single
+ * last-notified column cannot represent late-closing or corrected old weeks.
  */
 class Version1023Date20260718000000 extends SimpleMigrationStep {
 	/**
@@ -32,15 +27,14 @@ class Version1023Date20260718000000 extends SimpleMigrationStep {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 
-		if ($schema->hasTable('chorestrike_houses')) {
-			$table = $schema->getTable('chorestrike_houses');
-			if (!$table->hasColumn('weekly_goal_notified_week')) {
-				$table->addColumn('weekly_goal_notified_week', 'string', [
-					'notnull' => false,
-					'length' => 10,
-					'default' => null,
-				]);
-			}
+		if (!$schema->hasTable('chorestrike_wgoal_receipts')) {
+			$table = $schema->createTable('chorestrike_wgoal_receipts');
+			$table->addColumn('id', 'bigint', ['autoincrement' => true, 'notnull' => true]);
+			$table->addColumn('house_id', 'bigint', ['notnull' => true]);
+			$table->addColumn('week_start', 'date', ['notnull' => true]);
+			$table->addColumn('claimed_at', 'datetime', ['notnull' => true]);
+			$table->setPrimaryKey(['id'], 'pk_weekly_goal_receipts');
+			$table->addUniqueIndex(['house_id', 'week_start'], 'uniq_weekly_goal_house_week');
 		}
 
 		// The runner persists schema diffs produced by changeSchema(), so the

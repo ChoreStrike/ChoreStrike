@@ -206,14 +206,19 @@ class RoomTaskController extends Controller {
 		$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
 		$selections = $this->roomTaskReadService->occurrenceSelectionsForHouse($houseId, $roomTasks);
 		$pauseFingerprint = $this->roomTaskReadService->pauseFingerprintForHouse($houseId);
+		// WP3 §3.6: the actual-work proposal block shares the SAME batched
+		// derivation as the due-today/overdue reads — the ParticipationDialog
+		// preview never depends on the read path.
+		$proposals = $this->roomTaskReadService->proposalBlocksFor($houseId, $selections);
 
-		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $selections, $houseId, $pauseFingerprint) {
+		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $selections, $houseId, $pauseFingerprint, $proposals) {
 			$data = $roomTask->jsonSerialize($tz);
 			$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
 			$selection = $selections[$roomTask->getId()] ?? null;
 			$data['occurrence'] = $selection !== null
 				? $this->roomTaskReadService->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
+			$data['proposal'] = $proposals[$roomTask->getId()] ?? null;
 			return $data;
 		}, $roomTasks);
 	}
@@ -465,18 +470,17 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * Complete one shown occurrence of a room task (CS-PLAN-064 D2 calls
-	 * the CompletionService aggregate directly; CS-PLAN-072 WP1 adds the
-	 * occurrence receipt contract).
+	 * Complete one shown occurrence of a room task (CS-PLAN-072 WP1
+	 * receipt contract; CS-PLAN-070 WP3 actual work).
 	 *
 	 * The body carries the shown target identity: `commandId` (client
 	 * idempotency UUID), `occurrenceId` (public
-	 * `<scheduleRevisionId>:<ordinal>` key), `expectedVersion` and
-	 * `selectionToken`. Input validation is a CLOSED SET — unknown fields
-	 * (e.g. share participants, WP3) are rejected with 400, never
-	 * silently ignored. The server owns work time and target effort;
-	 * replays of the same command return the original completion
-	 * identity without repeating effects.
+	 * `<scheduleRevisionId>:<ordinal>` key), `expectedVersion`,
+	 * `selectionToken` and the optional ACTUAL work split:
+	 * `participants: [{userId, sharePct}]` plus `allocationReviewed`.
+	 * Input validation is a CLOSED SET. The server owns work time and
+	 * target effort; replays of the same command return the original
+	 * completion identity without repeating effects.
 	 *
 	 * @NoAdminRequired
 	 */
@@ -506,11 +510,13 @@ class RoomTaskController extends Controller {
 				$receipt['occurrenceId'],
 				$receipt['expectedVersion'],
 				$receipt['selectionToken'],
+				$receipt['participants'],
+				$receipt['allocationReviewed'],
 			);
 
 			$data = [
 				'roomTask' => $result['roomTask']->jsonSerialize($this->timeZoneOf($house)),
-				'room' => $result['room']->jsonSerialize(),
+				'room' => $result['room']?->jsonSerialize(),
 				'task' => $result['task']->jsonSerialize(),
 				'rewards' => $result['rewards'],
 				'completionId' => $result['completionId'],
@@ -545,8 +551,7 @@ class RoomTaskController extends Controller {
 	 * Validate the completion receipt payload (closed set, parent §3.4).
 	 * Returns the validated fields or a ready-to-return 400 response.
 	 *
-	 * @param array $payload
-	 * @return array{commandId: string, occurrenceId: string, expectedVersion: int, selectionToken: string}|JSONResponse
+	 * @return array{commandId: string, occurrenceId: string, expectedVersion: int, selectionToken: string, participants: list<array{userId: string, sharePct: int}>, allocationReviewed: bool}|JSONResponse
 	 */
 	private function validateCompletionReceipt(array $payload): array|JSONResponse {
 		$badRequest = static fn (string $message): JSONResponse => new JSONResponse([
@@ -554,7 +559,7 @@ class RoomTaskController extends Controller {
 			'error' => ['code' => 'VALIDATION_ERROR', 'message' => $message],
 		], 400);
 
-		$allowed = ['commandId', 'occurrenceId', 'expectedVersion', 'selectionToken'];
+		$allowed = ['commandId', 'occurrenceId', 'expectedVersion', 'selectionToken', 'participants', 'allocationReviewed'];
 		foreach ($payload as $key => $value) {
 			if (!in_array($key, $allowed, true)) {
 				return $badRequest($this->l->t('Unknown field: %1$s', [$key]));
@@ -584,63 +589,36 @@ class RoomTaskController extends Controller {
 			return $badRequest($this->l->t('A selectionToken is required'));
 		}
 
+		// Actual work split (WP3 §3.6): optional explicit participants with
+		// whole-percent shares + the deviation review confirmation.
+		$participants = [];
+		if (isset($payload['participants'])) {
+			if (!is_array($payload['participants'])) {
+				return $badRequest($this->l->t('participants must be an array of {userId, sharePct}'));
+			}
+			foreach ($payload['participants'] as $participant) {
+				if (!is_array($participant) || !isset($participant['userId']) || !isset($participant['sharePct'])) {
+					return $badRequest($this->l->t('Every participant needs a user id and a whole percent share'));
+				}
+				$participants[] = [
+					'userId' => (string)$participant['userId'],
+					'sharePct' => $participant['sharePct'],
+				];
+			}
+		}
+		$reviewed = $payload['allocationReviewed'] ?? false;
+		if (!is_bool($reviewed)) {
+			return $badRequest($this->l->t('allocationReviewed must be a boolean'));
+		}
+
 		return [
 			'commandId' => strtolower($commandId),
 			'occurrenceId' => $occurrenceId,
 			'expectedVersion' => (int)$expectedVersion,
 			'selectionToken' => $selectionToken,
+			'participants' => $participants,
+			'allocationReviewed' => $reviewed,
 		];
-	}
-
-	/**
-	 * Undo the newest revertible completion of a room task (CS-PLAN-064 WP5).
-	 *
-	 * One idempotent aggregate: restores ledger marking,
-	 * rewards/streak/freezes/titles, cleanliness and claim markers
-	 * from the recorded effect, and re-derives the recorded occurrence's
-	 * timeline state (later valid work survives). Nothing revertible →
-	 * 200 with `undone: false` (zero writes).
-	 *
-	 * @NoAdminRequired
-	 */
-	public function undo(int $id): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
-
-			$result = $this->completionService->undo($house->getId(), $houseUser, $id);
-
-			$data = [
-				'roomTask' => $result['roomTask']->jsonSerialize($this->timeZoneOf($house)),
-				'room' => $result['room']->jsonSerialize(),
-				'task' => $result['task']->jsonSerialize(),
-				'rewards' => $result['rewards'],
-				'undone' => $result['undone'],
-				'occurrence' => $result['occurrence'] ?? null,
-			];
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $data
-			]);
-		} catch (NotFoundException $e) {
-			return ControllerErrorFormatter::notFoundResponse($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (ConflictException $e) {
-			return ControllerErrorFormatter::conflictResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('undo', $e, ['roomTaskId' => $id]);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'UNDO_TASK_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
 	}
 
 	/**
@@ -851,6 +829,9 @@ class RoomTaskController extends Controller {
 				'room' => $row['room']->jsonSerialize(),
 				'assignees' => $assigneesByTask[$row['roomTask']->getId()] ?? [],
 				'occurrence' => $row['occurrence'] ?? null,
+				// WP3 §3.6: the actual-work proposal block shares the
+				// ParticipationDialog preview across every read path.
+				'proposal' => $row['proposal'] ?? null,
 			];
 		}, $rows);
 	}
@@ -1014,6 +995,9 @@ class RoomTaskController extends Controller {
 					'room' => $item['room']->jsonSerialize(),
 					'assignees' => $item['assignees'],
 					'occurrence' => $item['occurrence'] ?? null,
+					// WP3 §3.6: the actual-work proposal block shares the
+					// ParticipationDialog preview across every read path.
+					'proposal' => $item['proposal'] ?? null,
 				], $filteredTasks)
 			]);
 		} catch (ForbiddenException $e) {

@@ -12,15 +12,18 @@ use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
 
 /**
- * Completion-ledger row = one completion occurrence = one undo unit
- * (CS-PLAN-064 WP5, decision D1 / ADR-011).
+ * Completion evidence row = one fulfilled occurrence = one undo unit
+ * (CS-PLAN-070 WP3 §3.1; formerly the ADR-011 effect-record ledger).
  *
- * Beyond the reward outputs the row carries the immutable effect record:
- * `occurrenceDue` (the house-local due date of the completed occurrence),
- * `beforeState` (authoritative pre-mutation snapshot) and `deltas` (every
- * applied domain delta). `undoneAt` is NULL while the occurrence is
- * revertible; an undone row is not a completion anywhere in the domain
- * (decision D11).
+ * WP3 cutover: the row is the immutable WORK evidence, no longer the
+ * monetary authority and no longer a before-state restore source. It
+ * freezes the occurrence key, the server work instant/date/zone, the audit
+ * completer, the total effort and the frozen rate, plus the versioning
+ * pair (`completionVersion`, `allocationRevision`) that selects the
+ * counted `work_shares` revision. Money lives in wallets/wallet_entries;
+ * room history lives in room_events; correction history lives in
+ * completion_revs. `undoneAt` is NULL while the occurrence is valid; an
+ * undone row is not a completion anywhere in the domain (decision D11).
  *
  * @method int getId()
  * @method void setId(int $id)
@@ -30,16 +33,18 @@ use OCP\AppFramework\Db\Entity;
  * @method void setUserId(?int $userId)
  * @method \DateTime getCompletedAt()
  * @method void setCompletedAt(\DateTime $completedAt)
- * @method int getCoinsEarned()
- * @method void setCoinsEarned(int $coinsEarned)
- * @method bool getWasCombo()
- * @method void setWasCombo(bool $wasCombo)
+ * @method int getTotalEnergy()
+ * @method void setTotalEnergy(int $totalEnergy)
+ * @method int getRateMinor()
+ * @method void setRateMinor(int $rateMinor)
+ * @method int getCompletionVersion()
+ * @method void setCompletionVersion(int $completionVersion)
+ * @method int getAllocationRevision()
+ * @method void setAllocationRevision(int $allocationRevision)
+ * @method string getCommandUuid()
+ * @method void setCommandUuid(string $commandUuid)
  * @method \DateTime|null getOccurrenceDue()
  * @method void setOccurrenceDue(?\DateTime $occurrenceDue)
- * @method array getBeforeState()
- * @method void setBeforeState(array $beforeState)
- * @method array getDeltas()
- * @method void setDeltas(array $deltas)
  * @method \DateTime|null getUndoneAt()
  * @method void setUndoneAt(?\DateTime $undoneAt)
  * @method int|null getScheduleRevId()
@@ -68,13 +73,15 @@ class CompletedTask extends Entity implements JsonSerializable {
 		self::CLASS_LATE,
 		self::CLASS_VOLUNTARY,
 	];
+
 	/** @var int */
 	protected $roomTaskId;
 
 	/**
-	 * Completer's house_user id. Nullable since CS-PLAN-071 (decision D3):
-	 * account erasure nulls the actor and retains the anonymous shared
-	 * work facts.
+	 * Audit completer's house_user id. Nullable since CS-PLAN-071
+	 * (decision D3): account erasure nulls the actor and retains the
+	 * anonymous shared work facts. Q-074-02: the audit actor stays
+	 * immutable across attribution corrections.
 	 *
 	 * @var int|null
 	 */
@@ -83,22 +90,35 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var \DateTime */
 	protected $completedAt;
 
-	/** @var int */
-	protected $coinsEarned = 0;
+	/**
+	 * NOTE: no property defaults on the writer-set columns — the OCP
+	 * Entity setter skips marking a field updated when the value equals
+	 * the property default, silently dropping the column from the INSERT
+	 * (a 1-energy completion IS the documented minimum; the frozen rate
+	 * IS 1000; the initial version/revision ARE 0/1). The schema carries
+	 * matching DB defaults as the safety net; the writer always sets
+	 * every field explicitly.
+	 *
+	 * @var int Frozen task effort 1-5 at completion.
+	 */
+	protected $totalEnergy;
 
-	/** @var bool */
-	protected $wasCombo = false;
+	/** @var int Frozen Coin minor per whole energy unit (10 Coins). */
+	protected $rateMinor;
+
+	/** @var int Initial 0; attribution and undo increment. */
+	protected $completionVersion;
+
+	/** @var int The selected work_shares revision (initial 1). */
+	protected $allocationRevision;
+
+	/** @var string Creating command receipt UUID. */
+	protected $commandUuid;
 
 	/** @var \DateTime|null House-local due date of the completed occurrence (ADR-009). */
 	protected $occurrenceDue;
 
-	/** @var array Authoritative pre-mutation snapshot (JSON). */
-	protected $beforeState = [];
-
-	/** @var array Every applied domain delta (JSON). */
-	protected $deltas = [];
-
-	/** @var \DateTime|null NULL = revertible occurrence. */
+	/** @var \DateTime|null NULL = valid completion. */
 	protected $undoneAt;
 
 	/**
@@ -126,11 +146,12 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('roomTaskId', 'integer');
 		$this->addType('userId', 'integer');
 		$this->addType('completedAt', 'datetime');
-		$this->addType('coinsEarned', 'integer');
-		$this->addType('wasCombo', 'boolean');
+		$this->addType('totalEnergy', 'integer');
+		$this->addType('rateMinor', 'integer');
+		$this->addType('completionVersion', 'integer');
+		$this->addType('allocationRevision', 'integer');
+		$this->addType('commandUuid', 'string');
 		$this->addType('occurrenceDue', 'datetime');
-		$this->addType('beforeState', 'json');
-		$this->addType('deltas', 'json');
 		$this->addType('undoneAt', 'datetime');
 		$this->addType('scheduleRevId', 'integer');
 		$this->addType('occurrenceOrdinal', 'integer');
@@ -148,9 +169,9 @@ class CompletedTask extends Entity implements JsonSerializable {
 			'roomTaskId' => $this->roomTaskId,
 			'userId' => $this->userId,
 			'completedAt' => $this->completedAt?->format('c'),
-			'coinsEarned' => $this->coinsEarned,
-			'wasCombo' => $this->wasCombo,
-			'occurrenceDue' => $this->occurrenceDue?->format('c'),
+			'totalEnergy' => $this->totalEnergy,
+			'completionVersion' => $this->completionVersion,
+			'allocationRevision' => $this->allocationRevision,
 			'undoneAt' => $this->undoneAt?->format('c'),
 			'occurrenceId' => $this->scheduleRevId !== null && $this->occurrenceOrdinal !== null
 				? $this->scheduleRevId . ':' . $this->occurrenceOrdinal
@@ -159,5 +180,4 @@ class CompletedTask extends Entity implements JsonSerializable {
 			'completionClass' => $this->completionClass,
 		];
 	}
-
 }

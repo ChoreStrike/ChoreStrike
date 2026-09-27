@@ -34,37 +34,41 @@ jest.mock('@/utils/logger', () => ({
 
 import { api } from '../../../src/services/api.js'
 
-// CS-PLAN-064 §3.5 aggregate shapes: completion totals describe the
-// current user; completion undo with completerUserId describes the
-// completer (the two differ on an owner undo of a child's completion).
+// WP3 §3.6 aggregate shapes: the completion carries the frozen work
+// evidence, the participants and the caller's OWN wallet; the undo totals
+// describe the completer (null wallet on an owner undo of a child's work).
 const completionFixture = () => ({
+	completionId: 91,
 	roomTask: { id: 1, roomId: 10, isActive: true, lastCompleted: '2026-09-06T10:00:00+00:00' },
 	room: { id: 10, cleanliness: 100 },
 	task: { id: 5 },
 	rewards: {
-		coins: 54,
-		totalCoins: 64,
-		totalContribution: 43,
-		currentStreak: 2,
-		longestStreak: 5,
-		streakFreezesRemaining: 1,
-		contributionScore: 3,
+		completion: { id: 91, version: 0, allocationRevision: 1, totalEnergy: 3, completedAt: '2026-09-06T10:00:00+00:00', undoneAt: null },
+		participants: [{ userId: 'mom', sharePct: 100 }],
+		wallet: { bookedMinor: 6400, reservedMinor: 0, availableMinor: 6400, fundingHold: false },
+		contributionMinor: 4300,
+		cleanlinessChange: 30,
 		energyCost: 3,
+		priority: 2,
 	},
+	replay: false,
 })
 
 const undoFixture = (completerUserId, roomTaskId = 7) => ({
+	completionId: 92,
 	roomTask: { id: roomTaskId, roomId: 10, isActive: true, lastCompleted: null },
 	room: { id: 10, cleanliness: 70 },
 	task: { id: 5 },
 	rewards: {
-		coins: -54,
-		totalCoins: 10,
-		totalContribution: 40,
-		currentStreak: 1,
-		longestStreak: 4,
-		streakFreezesRemaining: 1,
-		completerUserId,
+		completion: { id: 92, version: 1, allocationRevision: 1, totalEnergy: 3, completedAt: '2026-09-06T10:00:00+00:00', undoneAt: '2026-09-06T11:00:00+00:00' },
+		participants: [{ userId: completerUserId, sharePct: 100 }],
+		wallet: completerUserId === 'mom'
+			? { bookedMinor: 4000, reservedMinor: 0, availableMinor: 4000, fundingHold: false }
+			: null,
+		contributionMinor: completerUserId === 'mom' ? 4000 : null,
+		cleanlinessChange: -30,
+		energyCost: 3,
+		priority: 2,
 	},
 	undone: true,
 })
@@ -507,69 +511,69 @@ describe('RoomTasks Store', () => {
 				expect(store.dailyTasks[0].occurrence.selectionToken).toBe('next-tok')
 			})
 
-			it('reconciles every owning store BEFORE emitting task-completed (D10)', async () => {
-				const { emit } = await import('@nextcloud/event-bus')
-				const roomsStore = useRoomsStore()
-				const userStore = useUserStore()
-				const minigameStore = useMinigameStore()
+		it('reconciles every owning store BEFORE emitting task-completed (D10)', async () => {
+			const { emit } = await import('@nextcloud/event-bus')
+			const roomsStore = useRoomsStore()
+			const userStore = useUserStore()
 
-				store.roomTasks = [{ id: 1, roomId: 10, isActive: true, assignees: ['mom'], occurrence: occurrenceFixture() }]
-				roomsStore.rooms = [{ id: 10, cleanliness: 70 }]
-				userStore.currentUser = { nextcloudUserId: 'mom', coins: 10, contributionScore: 40, currentStreak: 1, longestStreak: 4, streakFreezes: 1 }
-				minigameStore.currentCoins = 10
+			store.roomTasks = [{ id: 1, roomId: 10, isActive: true, assignees: ['mom'], occurrence: occurrenceFixture() }]
+			roomsStore.rooms = [{ id: 10, cleanliness: 70 }]
+			userStore.currentUser = { nextcloudUserId: 'mom', contributionMinor: 4000, wallet: null }
 
-				const stateAtEmit = {}
-				emit.mockImplementation((event) => {
-					if (event === 'chorestrike:task-completed') {
-						stateAtEmit.roomTask = store.roomTasks[0]
-						stateAtEmit.cleanliness = roomsStore.rooms[0].cleanliness
-						stateAtEmit.coins = userStore.currentUser.coins
-						stateAtEmit.wallet = minigameStore.currentCoins
-					}
-				})
-				api.post.mockResolvedValue(completionFixture())
-
-				await store.completeRoomTask(1)
-
-				// At the moment the celebration event fires, every owning
-				// store already carries the authoritative response values —
-				// celebrations can no longer run on stale caches.
-				expect(Object.keys(stateAtEmit)).toHaveLength(4)
-				expect(stateAtEmit.roomTask.isActive).toBe(true)
-				expect(stateAtEmit.cleanliness).toBe(100)
-				expect(stateAtEmit.coins).toBe(64)
-				expect(stateAtEmit.wallet).toBe(64)
-				// The aggregate payload omits the assignee relation; the
-				// cached membership must survive the reconcile.
-				expect(stateAtEmit.roomTask.assignees).toEqual(['mom'])
-				emit.mockReset()
+			const stateAtEmit = {}
+			emit.mockImplementation((event) => {
+				if (event === 'chorestrike:task-completed') {
+					stateAtEmit.roomTask = store.roomTasks[0]
+					stateAtEmit.cleanliness = roomsStore.rooms[0].cleanliness
+					stateAtEmit.contribution = userStore.currentUser.contributionMinor
+					stateAtEmit.wallet = userStore.currentUser.wallet
+				}
 			})
+			api.post.mockResolvedValue(completionFixture())
 
-			it('reconciles the dailyTasks slice and gates user side effects on completer identity', async () => {
-				const userStore = useUserStore()
-				const minigameStore = useMinigameStore()
-				userStore.currentUser = { nextcloudUserId: 'mom', coins: 10 }
-				minigameStore.currentCoins = 10
-				store.roomTasks = [{ id: 1, assignees: ['mom'], occurrence: occurrenceFixture() }]
-				store.dailyTasks = [{ roomTask: { id: 1, isActive: true }, task: { id: 5 }, room: null }]
-				api.post.mockResolvedValue(completionFixture())
+			await store.completeRoomTask(1)
 
-				await store.completeRoomTask(1)
+			// At the moment the celebration event fires, every owning
+			// store already carries the authoritative response values —
+			// celebrations can no longer run on stale caches.
+			expect(Object.keys(stateAtEmit)).toHaveLength(4)
+			expect(stateAtEmit.roomTask.isActive).toBe(true)
+			expect(stateAtEmit.cleanliness).toBe(100)
+			// WP3 §3.6: the own-wallet block and the derived contribution
+			// minor total describe the current user.
+			expect(stateAtEmit.contribution).toBe(4300)
+			expect(stateAtEmit.wallet.bookedMinor).toBe(6400)
+			// The aggregate payload omits the assignee relation; the
+			// cached membership must survive the reconcile.
+			expect(stateAtEmit.roomTask.assignees).toEqual(['mom'])
+			emit.mockReset()
+		})
 
-				// A completion's totals always describe the current user.
-				expect(store.dailyTasks[0].roomTask.lastCompleted).toBe('2026-09-06T10:00:00+00:00')
-				expect(userStore.currentUser.coins).toBe(64)
-				expect(minigameStore.currentCoins).toBe(64)
+		it('reconciles the dailyTasks slice and gates user side effects on completer identity', async () => {
+			const userStore = useUserStore()
+			userStore.currentUser = { nextcloudUserId: 'mom', contributionMinor: 4000, wallet: null }
+			store.roomTasks = [{ id: 1, assignees: ['mom'], occurrence: occurrenceFixture() }]
+			store.dailyTasks = [{ roomTask: { id: 1, isActive: true }, task: { id: 5 }, room: null }]
+			api.post.mockResolvedValue(completionFixture())
 
-				// An owner undoing a CHILD's completion restores the child's
-				// state — the actor's own wallet and user row stay untouched.
-				api.post.mockResolvedValue(undoFixture('teen', 1))
+			await store.completeRoomTask(1)
 
-				await store.undoRoomTaskCompletion(1)
+			// A completion's wallet/contribution totals always describe the
+			// current user (WP3: exact minor units, no coin integers).
+			expect(store.dailyTasks[0].roomTask.lastCompleted).toBe('2026-09-06T10:00:00+00:00')
+			expect(userStore.currentUser.contributionMinor).toBe(4300)
+			expect(userStore.currentUser.wallet.bookedMinor).toBe(6400)
 
-				expect(userStore.currentUser.coins).toBe(64)
-				expect(minigameStore.currentCoins).toBe(64)
-			})
+			// An owner undoing a CHILD's completion restores the child's
+			// state — the actor's own wallet and user row stay untouched
+			// (the completer-describing payload carries a null own wallet).
+			api.post.mockResolvedValue(undoFixture('teen', 1))
+
+			await store.undoRoomTaskCompletion(92, 1)
+
+			expect(userStore.currentUser.contributionMinor).toBe(4300)
+			expect(userStore.currentUser.wallet.bookedMinor).toBe(6400)
+		})
 
 		it('does not touch the removed scheduling energy counter (D7)', async () => {
 			const schedulingStore = useSchedulingStore()
@@ -617,70 +621,183 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
-		describe('undoRoomTaskCompletion (CS-PLAN-064: one undo aggregate)', () => {
-			it('posts ONE undo request, applies the authoritative payload, and emits task-uncompleted', async () => {
-				const { emit } = await import('@nextcloud/event-bus')
-				const roomsStore = useRoomsStore()
-				const userStore = useUserStore()
-				const minigameStore = useMinigameStore()
+	describe('undoRoomTaskCompletion (WP3 §3.4: targeted correction)', () => {
+		it('posts ONE undo request, applies the authoritative payload, and emits task-uncompleted', async () => {
+			const { emit } = await import('@nextcloud/event-bus')
+			const roomsStore = useRoomsStore()
+			const userStore = useUserStore()
 
-				store.roomTasks = [{ id: 7, roomId: 10, isActive: false, lastCompleted: '2026-09-06T10:00:00+00:00', assignees: ['mom'] }]
-				store.dailyTasks = [{ roomTask: { id: 7, isActive: false }, task: { id: 5 }, room: null }]
-				roomsStore.rooms = [{ id: 10, cleanliness: 100 }]
-				userStore.currentUser = { nextcloudUserId: 'mom', coins: 64, contributionScore: 43, currentStreak: 2, longestStreak: 5, streakFreezes: 1 }
-				minigameStore.currentCoins = 64
-				api.post.mockResolvedValue(undoFixture('mom'))
+			store.roomTasks = [{ id: 7, roomId: 10, isActive: false, lastCompleted: '2026-09-06T10:00:00+00:00', assignees: ['mom'] }]
+			store.dailyTasks = [{ roomTask: { id: 7, isActive: false }, task: { id: 5 }, room: null }]
+			roomsStore.rooms = [{ id: 10, cleanliness: 100 }]
+			userStore.currentUser = { nextcloudUserId: 'mom', contributionMinor: 4300, wallet: { bookedMinor: 6400, availableMinor: 6400 } }
+			api.post.mockResolvedValue(undoFixture('mom'))
 
-				const result = await store.undoRoomTaskCompletion(7)
+			const result = await store.undoRoomTaskCompletion(92, 1)
 
-				// One request — the split uncomplete+reactivate chain is gone.
-				expect(api.post).toHaveBeenCalledTimes(1)
-				expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/7/undo')
-				expect(api.put).not.toHaveBeenCalled()
+			// One request — the targeted correction with its receipt.
+			expect(api.post).toHaveBeenCalledTimes(1)
+			expect(api.post).toHaveBeenCalledWith('/api/v1/completions/92/undo', {
+				commandId: expect.any(String),
+				expectedVersion: 1,
+				reasonCode: null,
+			})
+			expect(api.put).not.toHaveBeenCalled()
 
-				// The restored server state reconciles every owning store…
-				expect(store.roomTasks[0].isActive).toBe(true)
-				expect(store.roomTasks[0].lastCompleted).toBeNull()
-				expect(store.roomTasks[0].assignees).toEqual(['mom'])
-				expect(store.dailyTasks[0].roomTask.isActive).toBe(true)
-				expect(roomsStore.rooms[0].cleanliness).toBe(70)
-				expect(userStore.currentUser.coins).toBe(10)
-				expect(minigameStore.currentCoins).toBe(10)
+			// The restored server state reconciles every owning store…
+			expect(store.roomTasks[0].isActive).toBe(true)
+			expect(store.roomTasks[0].lastCompleted).toBeNull()
+			expect(store.roomTasks[0].assignees).toEqual(['mom'])
+			expect(store.dailyTasks[0].roomTask.isActive).toBe(true)
+			expect(roomsStore.rooms[0].cleanliness).toBe(70)
+			expect(userStore.currentUser.contributionMinor).toBe(4000)
+			expect(userStore.currentUser.wallet.bookedMinor).toBe(4000)
 
-				// …and the TodayView restore contract carries the final row.
-				const uncompleted = emit.mock.calls.find(([event]) => event === 'chorestrike:task-uncompleted')
-				expect(uncompleted).toBeDefined()
-				expect(uncompleted[1].roomTaskId).toBe(7)
-				expect(uncompleted[1].roomTask.isActive).toBe(true)
-				expect(result.isActive).toBe(true)
+			// …and the TodayView restore contract carries the final row.
+			const uncompleted = emit.mock.calls.find(([event]) => event === 'chorestrike:task-uncompleted')
+			expect(uncompleted).toBeDefined()
+			expect(uncompleted[1].roomTaskId).toBe(7)
+			expect(uncompleted[1].roomTask.isActive).toBe(true)
+			expect(result.roomTask.isActive).toBe(true)
+		})
+
+		it('treats the no-op undo (undone: false, null own wallet) as a zero side-effect success', async () => {
+			const roomsStore = useRoomsStore()
+			const userStore = useUserStore()
+			userStore.currentUser = { nextcloudUserId: 'mom', contributionMinor: 4300, wallet: { bookedMinor: 6400 } }
+			store.roomTasks = [{ id: 8, roomId: 10, isActive: true }]
+			roomsStore.rooms = [{ id: 10, cleanliness: 70 }]
+			api.post.mockResolvedValue({
+				completionId: 93,
+				roomTask: { id: 8, isActive: true, lastCompleted: null },
+				room: { id: 10, cleanliness: 70 },
+				task: { id: 5 },
+				rewards: {
+					completion: { id: 93, version: 0, totalEnergy: 3, undoneAt: '2026-09-06T11:00:00+00:00' },
+					wallet: null,
+					contributionMinor: null,
+				},
+				undone: false,
 			})
 
-			it('treats the no-op undo (undone: false, rewards null) as a zero side-effect success', async () => {
-				const roomsStore = useRoomsStore()
-				const userStore = useUserStore()
-				userStore.currentUser = { nextcloudUserId: 'mom', coins: 64 }
-				store.roomTasks = [{ id: 8, roomId: 10, isActive: true }]
-				roomsStore.rooms = [{ id: 10, cleanliness: 70 }]
-				api.post.mockResolvedValue({
-					roomTask: { id: 8, isActive: true, lastCompleted: null },
-					room: { id: 10, cleanliness: 70 },
-					task: { id: 5 },
-					rewards: null,
-					undone: false,
-				})
+			const result = await store.undoRoomTaskCompletion(93, 0)
 
-				const result = await store.undoRoomTaskCompletion(8)
-
-				expect(result.id).toBe(8)
-				expect(roomsStore.rooms[0].cleanliness).toBe(70)
-				expect(userStore.currentUser.coins).toBe(64)
-			})
+			expect(result.roomTask.id).toBe(8)
+			expect(roomsStore.rooms[0].cleanliness).toBe(70)
+			expect(userStore.currentUser.contributionMinor).toBe(4300)
+		})
 
 			it('propagates failures', async () => {
 				api.post.mockRejectedValue(new Error('Offline'))
 
 				await expect(store.undoRoomTaskCompletion(1)).rejects.toThrow('Offline')
 				expect(store.error).toBe('Offline')
+			})
+		})
+
+			describe('WP3 §3.6 completion correction reads/writes', () => {
+			it('fetchCompletion reads the viewer-safe completion model', async () => {
+				const model = {
+					id: 92,
+					version: 1,
+					allocationRevision: 2,
+					canCorrect: true,
+					allocation: [{ userId: 'mom', displayName: 'Mom', sharePct: 100, energyMinor: 300, coinMinor: 3000 }],
+					history: [],
+				}
+				api.get.mockResolvedValue(model)
+
+				const result = await store.fetchCompletion(92)
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/completions/92')
+				expect(result).toEqual(model)
+			})
+
+			it('attributeCompletion sends the receipt-corrected split and reconciles the payload', async () => {
+				const userStore = useUserStore()
+				userStore.currentUser = { nextcloudUserId: 'mom', contributionMinor: 3000, wallet: { bookedMinor: 3000 } }
+				store.roomTasks = [{ id: 7, roomId: 10, isActive: true, assignees: ['mom'] }]
+				api.put.mockResolvedValue({
+					completionId: 92,
+					roomTask: { id: 7, isActive: true, lastCompleted: '2026-09-06T10:00:00+00:00' },
+					rewards: {
+						completion: { id: 92, version: 2, allocationRevision: 3, totalEnergy: 3 },
+						wallet: { bookedMinor: 1500, reservedMinor: 0, availableMinor: 1500, fundingHold: false },
+						contributionMinor: 1500,
+					},
+				})
+
+				const result = await store.attributeCompletion(92, {
+					participants: [{ userId: 'mom', sharePct: 50 }, { userId: 'dad', sharePct: 50 }],
+					expectedVersion: 1,
+					reasonCode: 'wrong_split',
+				})
+
+				expect(api.put).toHaveBeenCalledTimes(1)
+				expect(api.put).toHaveBeenCalledWith('/api/v1/completions/92/attribution', {
+					commandId: expect.any(String),
+					expectedVersion: 1,
+					participants: [{ userId: 'mom', sharePct: 50 }, { userId: 'dad', sharePct: 50 }],
+					allocationReviewed: true,
+					reasonCode: 'wrong_split',
+				})
+
+				// The completed state never flips; the own wallet re-derives
+				// from the corrected payload.
+				expect(result.completionId).toBe(92)
+				expect(store.roomTasks[0].isActive).toBe(true)
+				expect(userStore.currentUser.contributionMinor).toBe(1500)
+			})
+
+			it('attributeCompletion propagates a 409 without mutating state (draft stays with the caller)', async () => {
+				const conflict = new Error('The completion changed since it was displayed')
+				conflict.status = 409
+				api.put.mockRejectedValue(conflict)
+				store.roomTasks = [{ id: 7, isActive: true }]
+
+				await expect(store.attributeCompletion(92, {
+					participants: [{ userId: 'mom', sharePct: 100 }],
+					expectedVersion: 1,
+				})).rejects.toThrow('changed since it was displayed')
+
+				expect(store.error).toBe('The completion changed since it was displayed')
+				expect(store.roomTasks[0].isActive).toBe(true)
+				expect(store.pendingAttributions).toEqual({})
+			})
+
+			it('replays the same attribution UUID and frozen payload after a lost response and a refetch', async () => {
+				const participants = [{ userId: 'mom', sharePct: 60 }, { userId: 'dad', sharePct: 40 }]
+				const offline = new Error('response lost after commit')
+				api.put.mockRejectedValueOnce(offline)
+				api.get.mockResolvedValueOnce({ id: 92, version: 2, allocationRevision: 3 })
+				api.put.mockResolvedValueOnce({ completionId: 92, replay: true })
+
+				await expect(store.attributeCompletion(92, { participants, expectedVersion: 1 })).rejects.toBe(offline)
+				participants[0].sharePct = 99
+				await store.fetchCompletion(92)
+				await store.attributeCompletion(92, {
+					participants: [{ userId: 'mom', sharePct: 60 }, { userId: 'dad', sharePct: 40 }],
+					expectedVersion: 1,
+				})
+
+				const first = api.put.mock.calls[0][1]
+				const replay = api.put.mock.calls[1][1]
+				expect(first.commandId).toMatch(/^[0-9a-f-]{36}$/i)
+				expect(replay).toEqual(first)
+				expect(store.pendingAttributions).toEqual({})
+			})
+
+			it('blocks a changed draft while an uncertain attribution command is pending', async () => {
+				api.put.mockRejectedValueOnce(Object.assign(new Error('server unavailable'), { status: 503 }))
+				await expect(store.attributeCompletion(92, {
+					participants: [{ userId: 'mom', sharePct: 100 }], expectedVersion: 1,
+				})).rejects.toThrow('server unavailable')
+				await expect(store.attributeCompletion(92, {
+					participants: [{ userId: 'dad', sharePct: 100 }], expectedVersion: 2,
+				})).rejects.toMatchObject({ code: 'PENDING_ATTRIBUTION' })
+				expect(api.put).toHaveBeenCalledTimes(1)
+				store.reset()
+				expect(store.pendingAttributions).toEqual({})
 			})
 		})
 

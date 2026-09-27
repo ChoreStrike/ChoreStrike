@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\DailyCapacityService;
@@ -48,6 +49,7 @@ class DailyCapacityServiceTest extends TestCase {
 	private OccurrenceMapper|MockObject $occurrenceMapper;
 	private OccurrenceMemberMapper|MockObject $occMemberMapper;
 	private CompletedTaskMapper|MockObject $completedTaskMapper;
+	private WorkShareMapper|MockObject $workShareMapper;
 	private HouseUserMapper|MockObject $houseUserMapper;
 	private PauseProjectionService|MockObject $pauseProjection;
 	private RecurrenceCalculator|MockObject $calculator;
@@ -95,7 +97,11 @@ class DailyCapacityServiceTest extends TestCase {
 		$this->occMemberMapper->method('findByOccurrence')
 			->willReturnCallback(fn (int $occurrenceId): array => $this->membersByOccurrence[$occurrenceId] ?? []);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-		$this->completedTaskMapper->method('findEnergyUsageBetweenByHouse')
+		// WP3 §3.2 capacity seam: completed effort arrives as each
+		// participant's SELECTED frozen work share of every valid
+		// completion (wallet-keyed, exact minor units).
+		$this->workShareMapper = $this->createMock(WorkShareMapper::class);
+		$this->workShareMapper->method('findSelectedSharesBetweenByHouse')
 			->willReturnCallback(fn (): array => $this->completions);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->houseUserMapper->method('findByHouseId')
@@ -127,6 +133,7 @@ class DailyCapacityServiceTest extends TestCase {
 			$this->occurrenceMapper,
 			$this->occMemberMapper,
 			$this->completedTaskMapper,
+			$this->workShareMapper,
 			$this->houseUserMapper,
 			$this->pauseProjection,
 			$this->calculator,
@@ -185,11 +192,15 @@ class DailyCapacityServiceTest extends TestCase {
 		return $row;
 	}
 
-	private function completion(int $houseUserId, int $energy, string $instant): void {
+	/**
+	 * One selected work-share row (wallet-keyed, exact energy minor).
+	 */
+	private function completion(int $walletId, int $energy, string $instant, int $completionId = 1): void {
 		$this->completions[] = [
-			'houseUserId' => $houseUserId,
+			'completionId' => $completionId,
+			'walletId' => $walletId,
+			'energyMinor' => $energy * 100,
 			'completedAt' => new \DateTime($instant),
-			'energy' => $energy,
 			'workDate' => null,
 			'workZone' => null,
 			'occurrenceKey' => null,
@@ -244,8 +255,8 @@ class DailyCapacityServiceTest extends TestCase {
 	public function testEvaluateDays_FulfilledObligation_NeverPlannedAndCompleted(): void {
 		$this->member(1, 'dad', 11);
 		// The fulfilled obligation is NOT in the open set (mapper contract);
-		// its frozen energy arrives through the completion ledger only.
-		$this->completion(1, 3, self::MON . ' 09:00:00 UTC');
+		// its frozen energy arrives through the selected work shares only.
+		$this->completion(11, 3, self::MON . ' 09:00:00 UTC');
 		// A distinct open occurrence of the same task plans separately.
 		$this->occurrence(10, 5, self::MON, 2);
 		$this->memberRow(10, 11, OccurrenceMember::ROLE_RESPONSIBLE, true, 100);
@@ -266,7 +277,7 @@ class DailyCapacityServiceTest extends TestCase {
 		$this->member(1, 'dad', 11);
 		// Frozen Q-073-02 vector: 2026-10-01T22:30:00Z is inside the New
 		// York October 1 interval [04:00Z, next-day 04:00Z).
-		$this->completion(1, 2, '2026-10-01T22:30:00+00:00');
+		$this->completion(11, 2, '2026-10-01T22:30:00+00:00');
 
 		$report = $this->service->evaluateDays(7, ['2026-10-01', '2026-10-02']);
 
@@ -468,6 +479,7 @@ class DailyCapacityServiceTest extends TestCase {
 			$this->occurrenceMapper,
 			$this->occMemberMapper,
 			$this->completedTaskMapper,
+			$this->workShareMapper,
 			$this->houseUserMapper,
 			$this->pauseProjection,
 			$this->calculator,

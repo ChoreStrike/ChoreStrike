@@ -9,54 +9,46 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\IL10N;
 
 /**
- * Service for managing minigame scores and leaderboards
+ * Service for managing minigame scores and leaderboards.
+ *
+ * CS-PLAN-070 WP3 (T10/D7d no-Coin arcade cutover): scores are family
+ * fun only — they never write wallet entries, contribution or any reward.
+ * The former Coin minting (floor(score/10)), boost purchase/catalog and
+ * Coin-balance reads are retired with their routes and client consumers.
  */
 class MinigameService {
 	/**
-	 * Available boosts with their costs in Coins
-	 */
-	public const BOOST_COSTS = [
-		'slow_motion' => 10,      // 20% slower
-		'ghost_mode' => 20,       // 1 extra life
-		'magnet' => 30,           // Auto-collect nearby
-		'shrink' => 15,           // Shrink snake periodically
-		'no_obstacles' => 25,     // Remove obstacles
-	];
-
-	/**
 	 * Sane per-game score ceiling (CR-SVC-05).
 	 *
-	 * Client scores are untrusted: an unbounded value minted unlimited Coins
-	 * via floor(score/10) and a negative value drained Coins. This ceiling is
-	 * generous for any realistic game (a snake high score is in the low
-	 * thousands) while blocking INT_MAX coin farming and negative drains.
+	 * Client scores are untrusted: the ceiling is generous for any
+	 * realistic game (a snake high score is in the low thousands) while
+	 * blocking INT_MAX farming and negative values.
 	 */
 	public const MAX_SCORE = 100000;
 
 	/**
 	 * Whitelist of game ids the API accepts (CS-PLAN-061 §3.7, decision D7):
-	 * an unknown gameId used to mint coins like any other — now it is a 400.
-	 * Keep in sync with the frontend game catalog (currently only snake).
+	 * an unknown gameId is a 400. Keep in sync with the frontend game
+	 * catalog (currently only snake).
 	 */
 	public const VALID_GAMES = ['snake'];
 
 	/**
 	 * Per-user daily saveScore cap (CS-PLAN-061 §3.7, decision D7): at most
-	 * this many score submissions per house-local day earn coins; further
-	 * submissions are rejected with 429 MINIGAME_RATE_LIMITED. Far above
-	 * legitimate play; bounds replay farming.
+	 * this many score submissions per house-local day; further submissions
+	 * are rejected with 429 MINIGAME_RATE_LIMITED.
 	 */
 	public const DAILY_SCORE_SAVE_LIMIT = 100;
 
 	private MinigameScoreMapper $scoreMapper;
-	private HouseUserMapper $houseUserMapper;
+	private \OCA\ChoreStrike\Db\HouseUserMapper $houseUserMapper;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
@@ -65,7 +57,7 @@ class MinigameService {
 
 	public function __construct(
 		MinigameScoreMapper $scoreMapper,
-		HouseUserMapper $houseUserMapper,
+		\OCA\ChoreStrike\Db\HouseUserMapper $houseUserMapper,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
@@ -82,38 +74,26 @@ class MinigameService {
 	}
 
 	/**
-	 * Save a game score and award the earned Coins atomically (CR-SVC-54).
-	 *
-	 * The score insert and the coin increment run in one transaction behind
-	 * `HouseUserMapper::findForUpdate()` (ADR-007 pattern): two concurrent
-	 * same-user submissions can no longer clobber each other's increment,
-	 * and a failure between insert and coin award rolls both back. A missing
-	 * house_user row keeps the previous behavior: the score is saved, 0
-	 * Coins are awarded — and the response now reports that honestly
-	 * (CR-SVC-51: the awarded amount is returned by the service instead of
-	 * being recomputed from client input by the controller).
+	 * Save a game score (scores only — no monetary effect by contract,
+	 * T10/D7d).
 	 *
 	 * @param int $houseId The house ID
 	 * @param string $userId The Nextcloud user ID
 	 * @param string $gameId The game ID (e.g., 'snake')
 	 * @param int $score The achieved score
-	 * @param array $boostsUsed List of boost IDs used during the game
-	 * @return array{score: MinigameScore, coinsEarned: int} The persisted score entity and the Coins actually awarded
+	 * @return MinigameScore The persisted score entity
 	 * @throws \InvalidArgumentException if the score is out of bounds (CR-SVC-05) or the gameId is unknown (D7)
 	 * @throws \OCA\ChoreStrike\Exception\RateLimitException when the per-user daily save cap is reached (D7)
 	 */
-	public function saveScore(int $houseId, string $userId, string $gameId, int $score, array $boostsUsed = []): array {
-		// CR-SVC-05: bound the client-supplied score before any insert or coin
-		// award. Reject negatives (coin drain) and over-cap values (coin
-		// farming via floor(score/10)).
+	public function saveScore(int $houseId, string $userId, string $gameId, int $score): MinigameScore {
+		// CR-SVC-05: bound the client-supplied score before any insert.
 		if ($score < 0 || $score > self::MAX_SCORE) {
 			throw new \InvalidArgumentException(
 				$this->l10n->t('Score must be between 0 and %1$d', [self::MAX_SCORE])
 			);
 		}
 
-		// D7: unknown gameIds are rejected outright — only whitelisted games
-		// may mint coins.
+		// D7: unknown gameIds are rejected outright.
 		if (!in_array($gameId, self::VALID_GAMES, true)) {
 			throw new \InvalidArgumentException($this->l10n->t('Unknown game'));
 		}
@@ -135,42 +115,27 @@ class MinigameService {
 			);
 		}
 
-		// Award Coins for playing (1 Coin per 10 points). Resolving the
-		// house_user id before the transaction is fine — the row is then
-		// locked by primary key inside it.
-		$coinsEarned = (int)floor($score / 10);
-		$user = $coinsEarned > 0
-			? $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId)
-			: null;
-
 		try {
-			$outcome = $this->transactions->run(function () use ($houseId, $userId, $gameId, $score, $boostsUsed, $coinsEarned, $user): array {
+			return $this->transactions->run(function () use ($houseId, $userId, $gameId, $score): MinigameScore {
 				// FIRST lock of the documented order (CS-PLAN-071 WP0): the
-				// house row — the score/coin writes serialize with all other
-				// house mutations. The score entity is created per attempt
-				// so a transient-lock retry inserts a clean row.
+				// house row — the score write serializes with all other house
+				// mutations. The score entity is created per attempt so a
+				// transient-lock retry inserts a clean row.
 				$this->houseMapper->findForUpdate($houseId);
+				if ($this->houseUserMapper->findByHouseAndUser($houseId, $userId) === null) {
+					throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+				}
 
 				$scoreEntity = new MinigameScore();
 				$scoreEntity->setHouseId($houseId);
 				$scoreEntity->setUserId($userId);
 				$scoreEntity->setGameId($gameId);
 				$scoreEntity->setScore($score);
-				$scoreEntity->setBoostsUsed(!empty($boostsUsed) ? $boostsUsed : null);
 				$scoreEntity->setCreatedAt(new \DateTime());
-				$savedScore = $this->scoreMapper->insert($scoreEntity);
-
-				$awardedCoins = 0;
-				if ($user !== null) {
-					$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
-					$lockedUser->addCoins($coinsEarned);
-					$lockedUser->touch();
-					$this->houseUserMapper->update($lockedUser);
-					$awardedCoins = $coinsEarned;
-				}
-
-				return ['score' => $savedScore, 'coinsEarned' => $awardedCoins];
+				return $this->scoreMapper->insert($scoreEntity);
 			});
+		} catch (ForbiddenException $e) {
+			throw $e;
 		} catch (\Throwable $e) {
 			$this->appLogger->logException('MinigameService: score save rolled back', $e, [
 				'event' => 'minigame_score_rollback',
@@ -181,11 +146,6 @@ class MinigameService {
 			]);
 			throw $e;
 		}
-
-		return [
-			'score' => $outcome['score'],
-			'coinsEarned' => $outcome['coinsEarned'],
-		];
 	}
 
 	/**
@@ -205,9 +165,7 @@ class MinigameService {
 	 * Get weekly leaderboard for a house and game
 	 *
 	 * The week runs Monday 00:00 (house TZ, CS-PLAN-057) → now. Built on
-	 * CalendarService::weekStart, which has correct "monday this week"
-	 * semantics — the former `'monday this week'` relative format returned
-	 * the NEXT Monday when queried on a Sunday (CR-P2-11 / CR-053-11a).
+	 * CalendarService::weekStart.
 	 *
 	 * @param int $houseId The house ID
 	 * @param string $gameId The game ID
@@ -223,9 +181,8 @@ class MinigameService {
 
 	/**
 	 * Enrich score rows with display names via one batch lookup (CR-SVC-56 /
-	 * CS-PLAN-036): a single findByHouseIdAndNextcloudUserIds query replaces
-	 * the per-row membership fetch. Members without a house_users row (e.g.
-	 * removed mid-flight) keep the userId-as-name fallback.
+	 * CS-PLAN-036). Members without a house_users row (e.g. removed
+	 * mid-flight) keep the userId-as-name fallback.
 	 *
 	 * @param int $houseId The house ID
 	 * @param MinigameScore[] $scores Score rows to enrich
@@ -246,7 +203,6 @@ class MinigameService {
 				'userId' => $score->getUserId(),
 				'displayName' => $user ? $user->getDisplayName() : $score->getUserId(),
 				'score' => $score->getScore(),
-				'boostsUsed' => $score->getBoostsUsed(),
 				'createdAt' => $score->getCreatedAt()?->format('c'),
 			];
 		}
@@ -272,7 +228,6 @@ class MinigameService {
 		return [
 			'id' => $score->getId(),
 			'score' => $score->getScore(),
-			'boostsUsed' => $score->getBoostsUsed(),
 			'createdAt' => $score->getCreatedAt()?->format('c'),
 		];
 	}
@@ -290,105 +245,6 @@ class MinigameService {
 	}
 
 	/**
-	 * Purchase a boost for a game
-	 *
-	 * Lock-check-deduct under a transaction (CR-SVC-23): the sufficiency
-	 * check runs on the locked house_user row, so two concurrent purchases
-	 * with a single-boost balance cannot both pass the check and buy two
-	 * boosts while paying once (ADR-007 lock pattern).
-	 *
-	 * The thrown messages are client-safe (surfaced verbatim by the
-	 * controller's validation() 400 envelope) and therefore localized
-	 * (CR-SVC-37); parameters use printf-style positional placeholders —
-	 * t() feeds them through vsprintf(), named {token}s would reach the
-	 * client unsubstituted.
-	 *
-	 * @param int $houseId The house ID
-	 * @param string $userId The Nextcloud user ID
-	 * @param string $boostId The boost ID to purchase
-	 * @return array Result with success status and remaining coins
-	 * @throws \InvalidArgumentException If boost is unknown or insufficient coins
-	 */
-	public function purchaseBoost(int $houseId, string $userId, string $boostId): array {
-		// Validate boost exists
-		if (!isset(self::BOOST_COSTS[$boostId])) {
-			throw new \InvalidArgumentException($this->l10n->t('Unknown boost: %1$s', [$boostId]));
-		}
-
-		$cost = self::BOOST_COSTS[$boostId];
-		$user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId);
-
-		if ($user === null) {
-			throw new \InvalidArgumentException($this->l10n->t('User not found in house'));
-		}
-
-		try {
-			$lockedUser = $this->transactions->run(function () use ($houseId, $user, $cost): \OCA\ChoreStrike\Db\HouseUser {
-				// FIRST lock of the documented order (CS-PLAN-071 WP0): the
-				// house row. Then check sufficiency on the LOCKED row — the
-				// authoritative balance. No max(0, …) mask on the deduction:
-				// the locked check guarantees sufficiency and the mask would
-				// only hide bugs.
-				$this->houseMapper->findForUpdate($houseId);
-				$locked = $this->houseUserMapper->findForUpdate($user->getId());
-				if ($locked->getCoins() < $cost) {
-					throw new \InvalidArgumentException(
-						$this->l10n->t('Insufficient coins. Need %1$d, have %2$d', [$cost, $locked->getCoins()])
-					);
-				}
-
-				$locked->setCoins($locked->getCoins() - $cost);
-				$locked->touch();
-				$this->houseUserMapper->update($locked);
-
-				return $locked;
-			});
-		} catch (\Throwable $e) {
-			$this->appLogger->logException('MinigameService: boost purchase rolled back', $e, [
-				'event' => 'minigame_boost_purchase_rollback',
-				'service' => 'MinigameService',
-				'houseId' => $houseId,
-				'userId' => $userId,
-				'boostId' => $boostId,
-			]);
-			throw $e;
-		}
-
-		return [
-			'success' => true,
-			'boostId' => $boostId,
-			'cost' => $cost,
-			'remainingCoins' => $lockedUser->getCoins(),
-		];
-	}
-
-	/**
-	 * Get available boosts and their costs
-	 *
-	 * @return array Map of boost ID to cost in Coins
-	 */
-	public function getAvailableBoosts(): array {
-		return self::BOOST_COSTS;
-	}
-
-	/**
-	 * Get user's current coins balance.
-	 *
-	 * @param int $houseId The house ID
-	 * @param string $userId The Nextcloud user ID
-	 * @return int Current coins balance
-	 */
-	public function getUserCoins(int $houseId, string $userId): int {
-		$user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId);
-
-		if ($user === null) {
-			return 0;
-		}
-
-		return $user->getCoins();
-	}
-
-	/**
 	 * Get recent scores for a user
 	 *
 	 * @param int $houseId The house ID
@@ -403,7 +259,6 @@ class MinigameService {
 		return array_map(fn ($score) => [
 			'id' => $score->getId(),
 			'score' => $score->getScore(),
-			'boostsUsed' => $score->getBoostsUsed(),
 			'createdAt' => $score->getCreatedAt()?->format('c'),
 		], $scores);
 	}

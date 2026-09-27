@@ -9,36 +9,25 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\TaskAssigneeMapper;
-use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Db\TransactionExecutor;
-use OCA\ChoreStrike\Service\AppLogger;
-use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CompletionService;
-use OCA\ChoreStrike\Service\GameLogicService;
-use OCA\ChoreStrike\Service\RewardConfigService;
-use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TitleService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
- * WP5 exit gate (CS-PLAN-064 §4): a full completion → undo roundtrip must
+ * WP5 exit gate (CS-PLAN-064 Â§4): a full completion â†’ undo roundtrip must
  * restore EXACT persisted domain state across every persisted row the
- * completion touches — room_tasks, rooms, house_users and chk_progress —
+ * completion touches ” room_tasks, rooms, house_users and chk_progress ”
  * for the recurrence permutations (once / recurring-dynamic / recurring-
  * static / recurring-flex), an overdue-takeover completion (claim fields),
- * and the D11 duplicate-guard roundtrip (complete → undo → same-day
- * re-complete → undo leaves two ledger rows, none revertible, final state
+ * and the D11 duplicate-guard roundtrip (complete â†’ undo â†’ same-day
+ * re-complete â†’ undo leaves two ledger rows, none revertible, final state
  * equal to the initial snapshot).
  *
  * The reward-side equality additionally proves the title LIFO interplay:
- * an undo removes only the title ids its OWN occurrence added — a title
+ * an undo removes only the title ids its OWN occurrence added ” a title
  * unlocked before the undone occurrence (or by a later one) survives.
  */
 class CompletionUndoStateEqualityTest extends IntegrationTestCase {
@@ -113,7 +102,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		// Sanity: the completion actually mutated the domain rows (the
 		// recurrence advance happened; for `once` the row deactivated).
 		// CS-PLAN-072 WP1 occurrence-scoped checklist: the fulfilled
-		// occurrence KEEPS its checked evidence — completion no longer
+		// occurrence KEEPS its checked evidence ” completion no longer
 		// resets progress; the next occurrence derives fresh state.
 		self::assertNotSame($before['roomTask'], $afterCompletion['roomTask'], 'completion must advance the recurrence state');
 		self::assertSame($before['progress'], $afterCompletion['progress'], 'completion must not touch the fulfilled occurrence\'s checklist evidence');
@@ -121,10 +110,14 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		self::assertCount(1, $ledger);
 		self::assertNull($ledger[0]['undone_at'], 'a fresh completion is revertible');
 		self::assertNotNull($ledger[0]['occurrence_due'], 'the ledger row records occurrence_due');
-		self::assertJson($ledger[0]['before_state']);
-		self::assertJson($ledger[0]['deltas']);
+		// WP3 §3.1: the evidence row carries frozen work facts, not a
+		// serialized effect blob.
+		self::assertGreaterThan(0, (int)$ledger[0]['total_energy']);
+		self::assertSame(1000, (int)$ledger[0]['rate_minor']);
+		self::assertArrayNotHasKey('before_state', $ledger[0]);
+		self::assertArrayNotHasKey('deltas', $ledger[0]);
 
-		$completionService->undo($ids['houseId'], $actor, $ids['roomTaskId']);
+		$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
 		$afterUndo = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 
@@ -141,12 +134,13 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * TakeoverCompletion_UndoRestoresClaimFields_AndExactState
+	 * TakeoverCompletion_WithExplicitSplit_UndoRestoresClaimFieldsAndState
 	 *
-	 * A non-assignee completing an overdue task claims it (markClaimed);
-	 * the undo restores was_claimed/original_assignee/claimed_by_user/
-	 * claimed_at — proven by exact state equality including an owner actor
-	 * undoing someone else's completion (D3 actor gate on the real DB).
+	 * A non-assignee completing an overdue task claims it (markClaimed,
+	 * retained through the WP3 cutover); under Q-074-02 the non-assignee
+	 * must take part explicitly — the split names the helper. The owner's
+	 * targeted undo restores the claim fields and the exact state (D3
+	 * actor gate on the real DB).
 	 */
 	public function testTakeoverCompletion_UndoRestoresClaimFields_AndExactState(): void {
 		// Overdue: the recorded claim precondition for a non-assignee.
@@ -157,12 +151,26 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$ids = $this->seedPermutationFixture([], $yesterday);
 
 		$completionService = \OC::$server->get(CompletionService::class);
-		$owner = $this->houseUser('ueq_owner', $ids['houseId']);
 
 		$before = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 		self::assertSame(0, (int)$before['roomTask']['was_claimed']);
 
-		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_helper', $ids['roomTaskId']);
+		// Participant-less: forbidden (the completer must take part).
+		try {
+			$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_helper', $ids['roomTaskId']);
+			self::fail('a non-participant must not complete participant-less');
+		} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
+			self::assertSame('The completer must take part in the work', $e->getMessage());
+		}
+
+		// Explicit split (the helper takes the work): claims and completes.
+		$this->completeOccurrenceWithParticipants(
+			$completionService,
+			$ids['houseId'],
+			'ueq_helper',
+			$ids['roomTaskId'],
+			[['userId' => 'ueq_helper', 'sharePct' => 100]]
+		);
 		$this->ledgerRoomTaskIds[] = $ids['roomTaskId'];
 
 		$afterCompletion = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
@@ -170,9 +178,10 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		self::assertSame('ueq_owner', $afterCompletion['roomTask']['original_assignee']);
 		self::assertSame('ueq_helper', $afterCompletion['roomTask']['claimed_by_user']);
 		self::assertNotNull($afterCompletion['roomTask']['claimed_at']);
+		self::assertSame((int)$this->ledgerRows($ids['roomTaskId'])[0]['id'], (int)$afterCompletion['roomTask']['claimed_source_completion_id']);
 
 		// The OWNER undoes the helper's completion (completer-or-owner, D3).
-		$completionService->undo($ids['houseId'], $owner, $ids['roomTaskId']);
+		$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
 		$afterUndo = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 		self::assertSame($before['roomTask'], $afterUndo['roomTask'], 'claim fields and recurrence must be exactly restored');
@@ -181,9 +190,40 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * A later claim by the SAME NC account, even in the same stored second,
+	 * belongs to its own completion and must survive an older targeted undo.
+	 */
+	public function testUndo_OlderSameUserClaim_PreservesLaterCompletionClaim(): void {
+		$ids = $this->seedPermutationFixture([], (new \DateTime('-1 day'))->format('Y-m-d 00:00:00'));
+		$this->ledgerRoomTaskIds[] = $ids['roomTaskId'];
+		$service = \OC::$server->get(CompletionService::class);
+		$this->completeOccurrenceWithParticipants(
+			$service, $ids['houseId'], 'ueq_helper', $ids['roomTaskId'],
+			[['userId' => 'ueq_helper', 'sharePct' => 100]]
+		);
+		$first = $this->ledgerRows($ids['roomTaskId'])[0];
+		$laterId = $this->insertCompletionRow(
+			$ids['roomTaskId'], (int)$this->houseUser('ueq_helper', $ids['houseId'])->getId(), $first['completed_at']
+		);
+		$roomTaskMapper = \OC::$server->get(RoomTaskMapper::class);
+		$roomTask = $roomTaskMapper->find($ids['roomTaskId']);
+		$roomTask->markClaimed('ueq_owner', 'ueq_helper', new \DateTime($first['completed_at']));
+		$roomTask->setClaimedSourceCompletionId($laterId);
+		$roomTaskMapper->update($roomTask);
+
+		$service->undo($ids['houseId'], $this->houseUser('ueq_owner', $ids['houseId']), (int)$first['id'],
+			sprintf('c7c8d9e0-f1a2-4b3c-9d8e-%012d', random_int(0, 999999999999)), 0, null);
+
+		$after = $roomTaskMapper->find($ids['roomTaskId']);
+		self::assertTrue($after->getWasClaimed());
+		self::assertSame('ueq_helper', $after->getClaimedByUser());
+		self::assertSame($laterId, $after->getClaimedSourceCompletionId());
+	}
+
+	/**
 	 * CompleteUndoRecompleteUndoRoundtrip_TwoLedgerRows_OneRevertibleAtATime
 	 *
-	 * The real-DB D11 proof (§4): undo → same-day re-complete is legal (the
+	 * The real-DB D11 proof (Â§4): undo â†’ same-day re-complete is legal (the
 	 * duplicate guard filters undone rows), producing a second ledger row
 	 * while exactly one row stays revertible at any time; the final undo
 	 * restores the initial snapshot exactly.
@@ -202,11 +242,11 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 		self::assertCount(1, $this->revertibleLedgerRows($ids['roomTaskId']));
 
-		$completionService->undo($ids['houseId'], $actor, $ids['roomTaskId']);
+		$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 		self::assertSame([], $this->revertibleLedgerRows($ids['roomTaskId']), 'after the undo nothing is revertible');
 		self::assertSame($before, $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']));
 
-		// 2nd occurrence on the SAME day — the D11 duplicate-guard proof:
+		// 2nd occurrence on the SAME day ” the D11 duplicate-guard proof:
 		// the undone 1st row must not trigger the day-duplicate 403.
 		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
@@ -219,7 +259,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 			'both occurrences record the same house-local occurrence day (the undo restored nextDue)'
 		);
 
-		$completionService->undo($ids['houseId'], $actor, $ids['roomTaskId']);
+		$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
 		self::assertSame([], $this->revertibleLedgerRows($ids['roomTaskId']));
 		self::assertSame($before, $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']), 'the roundtrip must land on the exact initial state');
@@ -228,70 +268,62 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	/**
 	 * RewardSideEquality_TitleUnlocksRemovedByTheirOwnUndo_LaterStateSurvives
 	 *
-	 * Titles unlocked by occurrence 1 (contribution ≥ the home_helpers tier
-	 * 1 threshold) are removed only by occurrence 1's undo; occurrence 2's
-	 * undo (with no own unlock) must not touch them (LIFO/D8), and after
-	 * both undos the completer's reward row equals the initial snapshot.
+	 * WP3: titles derive from the member's valid-history stats. Occurrence 1
+	 * (energy 5 → +500 minor on a 4500 base) crosses the home_helpers tier-0
+	 * threshold (5000); occurrence 2 adds no tier. Undoing 2 must keep the
+	 * tier (LIFO/own-occurrence), undoing 1 reconciles it away (C3g).
 	 */
 	public function testRewardSideEquality_TitleUnlocksRemovedByTheirOwnUndo_LaterStateSurvives(): void {
 		$ids = $this->seedPermutationFixture([]);
 		$this->ledgerRoomTaskIds[] = $ids['roomTaskId'];
 		$this->progressRoomTaskIds[] = $ids['roomTaskId'];
 
-		// Task B in the same room (energy 10 — below every title threshold).
-		$taskB = $this->createTask($ids['houseId'], 'UEQ small', '', 5, 10);
+		// Task B in the same room (energy 3 — adds no further tier).
+		$taskB = $this->createTask($ids['houseId'], 'UEQ small', '', 5, 3);
 		$roomTaskB = $this->assignTaskToRoom($taskB, $ids['roomId'], 'ueq_owner');
 		$this->ledgerRoomTaskIds[] = $roomTaskB;
 		$this->progressRoomTaskIds[] = $roomTaskB;
 
-		$completionService = $this->titleWiredCompletionService();
-		$actor = $this->houseUser('ueq_owner', $ids['houseId']);
+		// Deterministic tier windows via the documented config override:
+		// occurrence 1 (+500 minor) crosses tier 0 (400); occurrence 2's
+		// +300 lands below tier 1 (900).
+		$config = \OC::$server->get(\OCA\ChoreStrike\Service\RewardConfigService::class);
+		$originals = [
+			0 => $config->getTitleThreshold('home_helpers', 0),
+			1 => $config->getTitleThreshold('home_helpers', 1),
+		];
+		$config->setTitleThreshold('home_helpers', 0, 400);
+		$config->setTitleThreshold('home_helpers', 1, 900);
 
-		$usersBefore = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])['users'];
+		try {
+			$completionService = $this->titleWiredCompletionService();
 
-		// Occurrence 1 (energy 60 → contribution 60 ≥ threshold 50): unlocks
-		// the home_helpers.helper tier. The unlock is effect-record-visible
-		// in the ledger deltas (it is not part of the API reward payload).
-		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
-		$firstDeltas = json_decode(
-			(string)$this->ledgerRows($ids['roomTaskId'])[0]['deltas'],
-			true,
-			512,
-			JSON_THROW_ON_ERROR
-		);
-		self::assertSame(
-			['home_helpers.helper', 'cozy_home.cozy_buddy'],
-			$firstDeltas['titlesAdded'],
-			'the 60-energy completion must cross the contribution (≥50) and coins (≥500) tier-1 thresholds'
-		);
+			$usersBefore = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])['users'];
 
-		// Occurrence 2: no new unlock.
-		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $roomTaskB);
-		$secondDeltas = json_decode(
-			(string)$this->ledgerRows($roomTaskB)[0]['deltas'],
-			true,
-			512,
-			JSON_THROW_ON_ERROR
-		);
-		self::assertSame([], $secondDeltas['titlesAdded']);
+			// Occurrence 1 (energy 5 → +500 minor): crosses tier 0.
+			$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
+			self::assertContains('home_helpers.helper', $this->houseUser('ueq_owner', $ids['houseId'])->getUnlockedTitles());
 
-		$afterBoth = $this->houseUser('ueq_owner', $ids['houseId']);
-		self::assertContains('home_helpers.helper', $afterBoth->getUnlockedTitles());
-		self::assertContains('cozy_home.cozy_buddy', $afterBoth->getUnlockedTitles());
+			// Occurrence 2: no new unlock.
+			$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $roomTaskB);
+			$afterBoth = $this->houseUser('ueq_owner', $ids['houseId']);
+			self::assertContains('home_helpers.helper', $afterBoth->getUnlockedTitles());
+			self::assertNotContains('home_helpers.care_captain', $afterBoth->getUnlockedTitles());
 
-		// Undo occurrence 2 (LIFO): the occurrence-1 titles must survive.
-		$completionService->undo($ids['houseId'], $actor, $roomTaskB);
+			// Undo occurrence 2 (LIFO): the occurrence-1 title must survive.
+			$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $roomTaskB);
+			self::assertContains('home_helpers.helper', $this->houseUser('ueq_owner', $ids['houseId'])->getUnlockedTitles(), 'a title supported by an EARLIER occurrence must survive a later undo');
 
-		$afterSecondUndo = $this->houseUser('ueq_owner', $ids['houseId']);
-		self::assertContains('home_helpers.helper', $afterSecondUndo->getUnlockedTitles(), 'a title added by an EARLIER occurrence must survive a later undo');
-		self::assertContains('cozy_home.cozy_buddy', $afterSecondUndo->getUnlockedTitles());
+			// Undo occurrence 1: now its own title is reconciled away.
+			$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
-		// Undo occurrence 1: now its own title is removed.
-		$completionService->undo($ids['houseId'], $actor, $ids['roomTaskId']);
-
-		$usersAfter = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])['users'];
-		self::assertSame($usersBefore, $usersAfter, 'after both undos the reward rows equal the initial snapshot exactly');
-		self::assertNotContains('home_helpers.helper', $this->houseUser('ueq_owner', $ids['houseId'])->getUnlockedTitles());
+			$usersAfter = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])['users'];
+			self::assertSame($usersBefore, $usersAfter, 'after both undos the reward rows equal the initial snapshot exactly');
+			self::assertNotContains('home_helpers.helper', $this->houseUser('ueq_owner', $ids['houseId'])->getUnlockedTitles());
+		} finally {
+			$config->setTitleThreshold('home_helpers', 0, $originals[0]);
+			$config->setTitleThreshold('home_helpers', 1, $originals[1]);
+		}
 	}
 
 	// ========== Helpers ==========
@@ -313,7 +345,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$this->addHouseMember($houseId, 'ueq_helper', 'Helper', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
-		$taskId = $this->createTask($houseId, 'UEQ permuted', '', 5, 60);
+		$taskId = $this->createTask($houseId, 'UEQ permuted', '', 5, 5);
 
 		if ($taskColumns !== []) {
 			$qb = $this->db->getQueryBuilder();
@@ -329,7 +361,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$this->progressRoomTaskIds[] = $roomTaskId;
 
 		// One checklist item with a CHECKED progress row owned by the owner,
-		// keyed to the FIRST occurrence of the initial revision — the
+		// keyed to the FIRST occurrence of the initial revision ” the
 		// occurrence-scoped evidence subject (CS-PLAN-072 WP1: a fulfilled
 		// occurrence keeps its checklist state; nothing is reset/restored).
 		$scheduleRevId = \OC::$server->get(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class)
@@ -371,37 +403,18 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * A CompletionService whose GameLogicService definitely carries the
-	 * TitleService (unlock detection is the subject of the LIFO test and
-	 * must not depend on optional-injection resolution).
+	 * A CompletionService whose TitleService is definitely wired (unlock
+	 * reconciliation is the subject of the LIFO test and must not depend
+	 * on optional-injection resolution). WP3: TitleService is a first-class
+	 * collaborator — swap it on the DI instance instead of hand-maintaining
+	 * the constructor list.
 	 */
 	private function titleWiredCompletionService(): CompletionService {
-		$s = \OC::$server;
-
-		return new CompletionService(
-			$s->get(TransactionExecutor::class),
-			$s->get(RoomTaskMapper::class),
-			$s->get(TaskMapper::class),
-			$s->get(RoomMapper::class),
-			$s->get(HouseMapper::class),
-			$s->get(HouseUserMapper::class),
-			$s->get(TaskAssigneeMapper::class),
-			$s->get(CompletedTaskMapper::class),
-			$s->get(\OCA\ChoreStrike\Service\CompletionEffectService::class),
-			$s->get(\OCA\ChoreStrike\Service\CompletionPostCommitService::class),
-			new GameLogicService(
-				$s->get(HouseUserMapper::class),
-				$s->get(CompletedTaskMapper::class),
-				$s->get(RewardConfigService::class),
-				$s->get(TitleService::class),
-			),
-			$s->get(CalendarService::class),
-			$s->get(TaskAccessPolicy::class),
-			$s->get(\OCA\ChoreStrike\Service\OccurrenceService::class),
-			$s->get(\OCA\ChoreStrike\Service\CommandService::class),
-			$s->get(\OCP\L10N\IFactory::class)->get('chorestrike'),
-			$s->get(AppLogger::class),
-		);
+		$service = \OC::$server->get(CompletionService::class);
+		$prop = (new \ReflectionClass(CompletionService::class))->getProperty('titleService');
+		$prop->setAccessible(true);
+		$prop->setValue($service, \OC::$server->get(TitleService::class));
+		return $service;
 	}
 
 	/**
@@ -422,7 +435,16 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		return [
 			'roomTask' => $this->fetchRow('chorestrike_room_tasks', 'id', $roomTaskId),
 			'room' => $this->fetchRow('chorestrike_rooms', 'id', $roomId),
-			'users' => $this->fetchRowsBy('chorestrike_house_users', 'house_id', $houseId),
+			// WP3: the wallet binding is durable account identity — the
+			// completion lazily ensures it and the undo must NOT unbind.
+			// Work state excludes `wallet_id`.
+			'users' => array_map(
+				static function (array $user): array {
+					unset($user['wallet_id']);
+					return $user;
+				},
+				$this->fetchRowsBy('chorestrike_house_users', 'house_id', $houseId)
+			),
 			'progress' => $this->normalizeProgressRows(
 				$this->fetchRowsBy('chorestrike_chk_progress', 'room_task_id', $roomTaskId)
 			),

@@ -54,7 +54,7 @@ class HouseUserMapperTest extends TestCase {
 			->willReturn($this->qb);
 		$this->qb->expects($this->once())
 			->method('orderBy')
-			->with('contribution_score', 'DESC')
+			->with('contribution_minor', 'DESC')
 			->willReturn($this->qb);
 
 		$mockResult = $this->createMock(IResult::class);
@@ -64,7 +64,7 @@ class HouseUserMapperTest extends TestCase {
 				'house_id' => $houseId,
 				'nextcloud_user_id' => 'user1',
 				'display_name' => 'User One',
-				'contribution_score' => 500,
+				'contribution_minor' => 500,
 				'current_streak' => 5,
 				'longest_streak' => 10,
 				'role' => 'admin',
@@ -75,7 +75,7 @@ class HouseUserMapperTest extends TestCase {
 				'house_id' => $houseId,
 				'nextcloud_user_id' => 'user2',
 				'display_name' => 'User Two',
-				'contribution_score' => 300,
+				'contribution_minor' => 300,
 				'current_streak' => 3,
 				'longest_streak' => 5,
 				'role' => 'member',
@@ -92,9 +92,9 @@ class HouseUserMapperTest extends TestCase {
 		$this->assertCount(2, $results);
 		$this->assertInstanceOf(HouseUser::class, $results[0]);
 		$this->assertEquals('User One', $results[0]->getDisplayName());
-		$this->assertEquals(500, $results[0]->getContributionScore());
+		$this->assertEquals(500, $results[0]->getContributionMinor());
 		$this->assertEquals('User Two', $results[1]->getDisplayName());
-		$this->assertEquals(300, $results[1]->getContributionScore());
+		$this->assertEquals(300, $results[1]->getContributionMinor());
 	}
 
 	/**
@@ -176,7 +176,7 @@ class HouseUserMapperTest extends TestCase {
 			'nextcloud_user_id' => 'user1',
 			'display_name' => 'User One',
 			'role' => 'owner',
-			'contribution_score' => 15,
+			'contribution_minor' => 15,
 			'coins' => 10,
 		]);
 		$mockResult->expects($this->once())->method('closeCursor');
@@ -199,7 +199,7 @@ class HouseUserMapperTest extends TestCase {
 		$user = $this->mapper->findForUpdate(7);
 
 		$this->assertSame(7, $user->getId());
-		$this->assertSame(15, $user->getContributionScore());
+		$this->assertSame(15, $user->getContributionMinor());
 		$this->assertSame(10, $user->getCoins());
 	}
 
@@ -230,7 +230,7 @@ class HouseUserMapperTest extends TestCase {
 			->willReturn(IDBConnection::PLATFORM_SQLITE);
 
 		$this->qb->method('update')->willReturn($this->qb);
-		$this->qb->method('createFunction')->with('contribution_score')->willReturn('contribution_score');
+		$this->qb->method('createFunction')->with('contribution_minor')->willReturn('contribution_minor');
 		$this->qb->method('set')->willReturn($this->qb);
 		$this->qb->method('where')->willReturn($this->qb);
 		$this->qb->method('from')->willReturn($this->qb);
@@ -244,13 +244,13 @@ class HouseUserMapperTest extends TestCase {
 			'nextcloud_user_id' => 'user1',
 			'display_name' => 'User One',
 			'role' => 'owner',
-			'contribution_score' => 15,
+			'contribution_minor' => 15,
 			'coins' => 10,
 		]);
 		$this->qb->method('executeQuery')->willReturn($mockResult);
 
 		$user = $this->mapper->findForUpdate(7);
 
-		$this->assertSame(15, $user->getContributionScore());
+		$this->assertSame(15, $user->getContributionMinor());
 	}
 }

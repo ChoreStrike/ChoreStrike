@@ -13,7 +13,6 @@ import { useGameStore } from './game.js'
 import { useRoomsStore } from './rooms.js'
 import { useTasksStore } from './tasks.js'
 import { useUserStore } from './user.js'
-import { useMinigameStore } from './minigame.js'
 import { useTitlesStore } from './titles.js'
 
 /**
@@ -87,6 +86,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// conflicting on a new command against the fulfilled target. The
 		// entry clears on a definitive response (success or 4xx).
 		pendingCommands: {},
+		// Attribution retries with an uncertain response must replay the
+		// original command and its exact payload, even after a completion GET.
+		pendingAttributions: {},
 	}),
 
 	getters: {
@@ -422,9 +424,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * BEFORE any celebration event is emitted (decision D10), and
 		 * replays (`replay: true`) reconcile without repeating effects.
 		 * @param {number} roomTaskId Room task identifier to complete.
+		 * @param {object} [options] Actual work split (WP3 §3.6).
+		 * @param {Array<{userId: string, sharePct: number}>} [options.participants]
+		 *   Explicit actual participants; omitted = credit the effective
+		 *   agreement (server-side default).
+		 * @param {boolean} [options.allocationReviewed] Confirmation that a
+		 *   deviation from the effective agreement was reviewed.
 		 * @return {Promise<object>} The completion aggregate
 		 */
-		async completeRoomTask(roomTaskId) {
+		async completeRoomTask(roomTaskId, { participants, allocationReviewed } = {}) {
 			this._beginRead()
 			this.error = null
 
@@ -449,12 +457,20 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 
 				try {
-					const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/complete`, {
+					const payload = {
 						commandId,
 						occurrenceId: target.occurrenceId,
 						expectedVersion: target.expectedVersion,
 						selectionToken: target.selectionToken,
-					})
+					}
+					// WP3: the actual work split rides the receipt only when
+					// the user reviewed an allocation different from the
+					// effective agreement.
+					if (participants && participants.length > 0) {
+						payload.participants = participants
+						payload.allocationReviewed = Boolean(allocationReviewed)
+					}
+					const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/complete`, payload)
 
 					delete this.pendingCommands[commandKey]
 
@@ -463,20 +479,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					const rewards = data.rewards
 					emit('chorestrike:task-completed', {
 						roomTaskId,
-						coins: rewards?.coins,
-						isCombo: rewards?.isCombo,
-						currentStreak: rewards?.currentStreak,
-						streakFreezeUsed: rewards?.streakFreezeUsed,
-						streakFreezesRemaining: rewards?.streakFreezesRemaining,
-						comboBonusFreeze: rewards?.comboBonusFreeze,
-						contributionScore: rewards?.contributionScore,
+						completionId: data.completionId,
+						expectedVersion: rewards?.completion?.version ?? 0,
+						wallet: rewards?.wallet ?? null,
+						contributionMinor: rewards?.contributionMinor ?? null,
+						participants: rewards?.participants ?? [],
 					})
-
-					if (rewards?.streakFreezeUsed) {
-						emit('chorestrike:streak-freeze-used', {
-							remaining: rewards.streakFreezesRemaining,
-						})
-					}
 
 					// CS-PLAN-066 §3.4: the computed unlock reaches the existing
 					// event exactly once per successful completion response —
@@ -559,34 +567,126 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Undo the newest revertible completion of a room task — one
-		 * aggregate request (CS-PLAN-064 §3.5, decision D5):
-		 * `POST /room-tasks/{id}/undo` restores recurrence, ledger marking,
-		 * rewards/streak/freezes/titles, cleanliness, and checklist
-		 * progress server-side from the recorded effect. The response
-		 * reconciles the owning stores before
-		 * `chorestrike:task-uncompleted` restores open views (TodayView's
-		 * contract is preserved). No revertible occurrence → server-side
-		 * zero-write no-op with the current state echoed back.
-		 * @param {number} roomTaskId Room task identifier to restore.
-		 * @return {Promise<object>} Final room task state.
+		 * Undo ONE specific completion (WP3 §3.4 targeted correction): the
+		 * exact completion id — including older completions of a recurring
+		 * task — by its completer or a current house owner, as a
+		 * receipt-protected CommandService transaction
+		 * (`POST /completions/{id}/undo`). Reverses the latest selected
+		 * allocation once; recurrence/room journal/checklist effects are
+		 * re-derived server-side from valid history (no snapshot restore).
+		 * The response reconciles the owning stores before
+		 * `chorestrike:task-uncompleted` restores open views. An
+		 * already-undone target is a server-side no-op; a stale live
+		 * target 409s.
+		 * @param {number} completionId Completion identifier (undo unit).
+		 * @param {number} expectedVersion The displayed completion version.
+		 * @param {string} [reasonCode] Optional bounded caller reason.
+		 * @return {Promise<object>} Final completion/roomTask state.
 		 */
-		async undoRoomTaskCompletion(roomTaskId) {
+		async undoRoomTaskCompletion(completionId, expectedVersion, reasonCode = null) {
 			this._beginRead()
 			this.error = null
 
 			try {
-				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/undo`)
+				const data = await api.post(`/api/v1/completions/${completionId}/undo`, {
+					commandId: generateCommandId(),
+					expectedVersion,
+					reasonCode,
+				})
 
-				const roomTask = this.reconcileCompletionPayload(roomTaskId, data)
-				emit('chorestrike:task-uncompleted', { roomTaskId, roomTask })
+				const roomTask = this.reconcileCompletionPayload(data.roomTask?.id ?? null, data)
+				emit('chorestrike:task-uncompleted', { roomTaskId: data.roomTask?.id ?? null, roomTask })
 
 				this.refreshDerivedProjections()
 
-				return roomTask
+				return data
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to undo room task completion', error, { store: 'roomTasks', action: 'undoRoomTaskCompletion', roomTaskId })
+				logger.error('Failed to undo room task completion', error, { store: 'roomTasks', action: 'undoRoomTaskCompletion', completionId })
+				throw error
+			} finally {
+				this._endRead()
+			}
+		},
+
+		/**
+		 * Fetch ONE completion's viewer-safe read model (WP3 §3.6
+		 * `GET /completions/{id}`): versioned original work, the selected
+		 * allocation, the authorized correction history and `canCorrect`.
+		 * Write-free — the history correction dialog pre-fills from it.
+		 * @param {number} completionId Completion identifier.
+		 * @return {Promise<object>} The completion read model.
+		 */
+		async fetchCompletion(completionId) {
+			this._beginRead()
+			this.error = null
+			try {
+				return await api.get(`/api/v1/completions/${completionId}`)
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to fetch completion', error, { store: 'roomTasks', action: 'fetchCompletion', completionId })
+				throw error
+			} finally {
+				this._endRead()
+			}
+		},
+
+		/**
+		 * Correct the actual participants/shares of ONE completion
+		 * (WP3 §3.4 attribution; `PUT /completions/{id}/attribution`):
+		 * receipt-protected (one UUID per logical correction + the displayed
+		 * expectedVersion), exact wallet union deltas server-side. The
+		 * response reconciles the owning stores like a completion payload;
+		 * the completed state itself never flips. A 409 keeps the draft
+		 * for review — the caller re-reads the version before retrying.
+		 * @param {number} completionId Completion identifier.
+		 * @param {object} options Correction payload.
+		 * @param {Array<{userId: string, sharePct: number}>} options.participants Exact new split.
+		 * @param {number} options.expectedVersion The displayed completion version.
+		 * @param {string} [options.reasonCode] Optional bounded caller reason.
+		 * @return {Promise<object>} Final completion state.
+		 */
+		async attributeCompletion(completionId, { participants, expectedVersion, reasonCode = null }) {
+			this._beginRead()
+			this.error = null
+			try {
+				const pending = this.pendingAttributions[completionId]
+				const requested = {
+					expectedVersion,
+					participants: participants.map(({ userId, sharePct }) => ({ userId, sharePct })),
+					allocationReviewed: true,
+					reasonCode,
+				}
+				if (pending && JSON.stringify(requested) !== JSON.stringify(pending.requested)) {
+					const error = new Error('Retry the pending correction before changing its split')
+					error.code = 'PENDING_ATTRIBUTION'
+					throw error
+				}
+				const command = pending ?? { commandId: generateCommandId(), requested }
+				this.pendingAttributions[completionId] = command
+				let data
+				try {
+					data = await api.put(`/api/v1/completions/${completionId}/attribution`, {
+						commandId: command.commandId,
+						...command.requested,
+					})
+				} catch (error) {
+					// 409/other 4xx are definitive. A missing response or 5xx
+					// may have committed, so only those retain the receipt.
+					if (error?.status != null && error.status < 500) {
+						delete this.pendingAttributions[completionId]
+					}
+					throw error
+				}
+				delete this.pendingAttributions[completionId]
+
+				this.reconcileCompletionPayload(data.roomTask?.id ?? null, data)
+				this.refreshDerivedProjections()
+
+				return data
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to attribute completion', error, { store: 'roomTasks', action: 'attributeCompletion', completionId })
 				throw error
 			} finally {
 				this._endRead()
@@ -656,15 +756,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					useGameStore().setWeeklyGoal(rewards.weeklyGoal, { celebrateOnTransition: true })
 				}
 
-				// The totals describe the COMPLETER (ADR-011); a completion's
-				// completer is always the current user, an undo's actor may
-				// be a house owner restoring someone else's state — the
-				// completerUserId marker gates the user-side reconciliation.
-				const userStore = useUserStore()
-				const completerUid = rewards.completerUserId ?? userStore.currentUser?.nextcloudUserId
-				if (completerUid && completerUid === userStore.currentUser?.nextcloudUserId) {
-					userStore.applyRewardTotals(rewards)
-					useMinigameStore().reconcileCoins(rewards.totalCoins)
+				// WP3: the caller's OWN wallet/contribution live on the
+				// rewards block in minor units — reconcile the user store
+				// without an extra request.
+				if (rewards.wallet || rewards.contributionMinor != null) {
+					useUserStore().applyOwnWallet(rewards.wallet, rewards.contributionMinor)
+				}
+				if (rewards.completion?.id) {
+					useGameStore().fetchGameState().catch(() => {})
 				}
 			}
 
@@ -1055,6 +1154,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.refreshFailed = false
 			this.countsRefreshing = false
 			this.pendingCommands = {}
+			this.pendingAttributions = {}
 			this.roomRequestSeqs = {}
 			// Invalidate in-flight reads so a stale response cannot land
 			// after the reset (house/user change).

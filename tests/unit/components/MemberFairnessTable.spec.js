@@ -2,10 +2,10 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  *
- * MemberFairnessTable component suite (CR-053-22, CS-PLAN-068 §3.6).
- * Pins the fairness invariants: contribution and coins stay SEPARATE
- * columns (energy-and-balancing.md), capacity sums only available days and
- * the frozen badge appears only for a YESTERDAY freeze consumption.
+ * MemberFairnessTable component suite (CR-053-22; WP3 reshaped).
+ * Pins the fairness invariants after the CS-PLAN-070 WP3 cutover: the
+ * exact contributionMinor column, no Coin/freeze columns (money is the
+ * wallet, freezes are retired), and capacity sums only available days.
  */
 
 import { describe, it, expect } from '@jest/globals'
@@ -18,18 +18,6 @@ const FULL_WEEK = {
 	weekdayAvailability: { monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true, sunday: true },
 }
 
-function yesterdayKey() {
-	const yesterday = new Date()
-	yesterday.setDate(yesterday.getDate() - 1)
-	return `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
-}
-
-function twoDaysAgoKey() {
-	const day = new Date()
-	day.setDate(day.getDate() - 2)
-	return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
-}
-
 function mountTable(members, completedEnergyByUser = {}) {
 	return mount(MemberFairnessTable, {
 		props: { members, completedEnergyByUser },
@@ -40,26 +28,24 @@ const MEMBER = {
 	id: 7,
 	nextcloudUserId: 'mom',
 	displayName: 'Mom',
-	contributionScore: 120,
-	coins: 340,
+	contributionMinor: 12000,
 	currentStreak: 5,
-	streakFreezes: 1,
 	schedulingPreferences: FULL_WEEK,
-	lastFreezeDate: null,
 }
 
 describe('MemberFairnessTable', () => {
-	it('renders one row per member with separate contribution and coins columns', () => {
+	it('renders one row per member with the exact contributionMinor column', () => {
 		const wrapper = mountTable([MEMBER])
 		expect(wrapper.find('[data-testid="member-fairness-table"]').exists()).toBe(true)
 		expect(wrapper.findAll('[data-testid="fairness-row"]')).toHaveLength(1)
 
 		expect(wrapper.find('[data-testid="header-contribution"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="header-coins"]').exists()).toBe(true)
+		// WP3: exact minor units, 100 = 1 energy → 12000 renders as 120.
 		expect(wrapper.find('[data-testid="contribution-7"]').text()).toBe('120')
-		expect(wrapper.find('[data-testid="coins-7"]').text()).toBe('340')
-		// The two metrics must never merge into one cell.
-		expect(wrapper.find('[data-testid="contribution-7"]').text()).not.toBe(wrapper.find('[data-testid="coins-7"]').text())
+		// Coins/freezes are gone — money is the wallet, pauses replaced
+		// freezes (decision D8/D4b).
+		expect(wrapper.find('[data-testid="header-coins"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="freezes-7"]').exists()).toBe(false)
 	})
 
 	it('sums the weekly capacity only over available days', () => {
@@ -87,13 +73,9 @@ describe('MemberFairnessTable', () => {
 		expect(wrapper.find('[data-testid="load-7"] .load-label').text()).toContain('25 / 80')
 	})
 
-	it('shows the frozen badge only for a yesterday freeze consumption', () => {
-		const frozenYesterday = { ...MEMBER, lastFreezeDate: `${yesterdayKey()} 08:00:00` }
-		const frozenEarlier = { ...MEMBER, lastFreezeDate: `${twoDaysAgoKey()} 08:00:00` }
-		const wrapper = mountTable([frozenYesterday, frozenEarlier])
-		const rows = wrapper.findAll('[data-testid="fairness-row"]')
-		expect(rows[0].find('[data-testid="active-freeze-badge"]').exists()).toBe(true)
-		expect(rows[1].find('[data-testid="active-freeze-badge"]').exists()).toBe(false)
+	it('renders no freeze badge anymore (retired with the WP3 cutover)', () => {
+		const wrapper = mountTable([MEMBER])
+		expect(wrapper.find('[data-testid="active-freeze-badge"]').exists()).toBe(false)
 	})
 
 	it('marks overload bars and falls back to the user id as name', () => {

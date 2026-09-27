@@ -8,44 +8,40 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 
 /**
  * Post-commit boundary owner for completion/undo (CS-PLAN-067 §3.2,
  * decision D2 — the D7 log-and-degrade semantics are unchanged).
  *
- * The weekly-goal read, the notification claims and every dispatch run
+ * The weekly-goal read and post-completion dispatch run
  * AFTER the transaction has committed and are failure-isolated: a committed
  * completion always answers success, with `degraded = true` when any
  * post-commit effect failed. No notification dispatch ever moves under a
- * lock.
+ * lock. Closed-week bell claims are handled by the timeline job, not by a
+ * provisional current-week completion.
  */
 class CompletionPostCommitService {
 	private HouseService $houseService;
-	private HouseMapper $houseMapper;
 	private HouseUserMapper $houseUserMapper;
 	private NotificationService $notificationService;
 	private AppLogger $appLogger;
 
 	public function __construct(
 		HouseService $houseService,
-		HouseMapper $houseMapper,
 		HouseUserMapper $houseUserMapper,
 		NotificationService $notificationService,
 		AppLogger $appLogger,
 	) {
 		$this->houseService = $houseService;
-		$this->houseMapper = $houseMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->notificationService = $notificationService;
 		$this->appLogger = $appLogger;
 	}
 
 	/**
-	 * Run the completion post-commit phase: weekly-goal read, deferred
-	 * overdue-takeover dispatch, weekly-goal claim+dispatch on achievement,
-	 * and the title-unlock notification.
+	 * Run the completion post-commit phase: provisional weekly-goal read,
+	 * deferred overdue-takeover dispatch and title-unlock notification.
 	 *
 	 * @param array<string, mixed>|null $takeoverNotification Captured in-transaction, dispatched here
 	 * @param array<string, mixed> $gameResult Reward phase output (newTitle)
@@ -64,10 +60,6 @@ class CompletionPostCommitService {
 			$weeklyGoal = $this->houseService->getWeeklyGoalProgress($houseId);
 
 			$this->dispatchTakeoverNotification($takeoverNotification, $houseId);
-
-			if ($weeklyGoal !== null && $weeklyGoal['achieved']) {
-				$this->claimAndDispatchWeeklyGoal($houseId, $weeklyGoal);
-			}
 
 			$newTitle = $gameResult['newTitle'] ?? null;
 			if ($newTitle !== null && $userId !== '') {
@@ -97,8 +89,8 @@ class CompletionPostCommitService {
 
 	/**
 	 * Run the undo post-commit phase: the weekly-goal refresh in the same
-	 * log-and-degrade boundary (D7); the weekly-goal claim itself is a
-	 * non-retraction (D8).
+	 * log-and-degrade boundary (D7); closed-week bell receipts are not
+	 * retracted by a correction (D8).
 	 *
 	 * @return array{weeklyGoal: ?array<string, mixed>, degraded: bool}
 	 */
@@ -150,22 +142,4 @@ class CompletionPostCommitService {
 		);
 	}
 
-	/**
-	 * Claim the weekly-goal notification dispatch atomically (one bell per
-	 * house per achievement week) and dispatch on the win.
-	 *
-	 * @param array<string, mixed> $weeklyGoal
-	 */
-	private function claimAndDispatchWeeklyGoal(int $houseId, array $weeklyGoal): void {
-		$weekKey = substr((string)$weeklyGoal['weekStart'], 0, 10);
-		$claimed = $this->houseMapper->claimWeeklyGoalNotification($houseId, $weekKey);
-		if ($claimed) {
-			$this->notificationService->notifyWeeklyGoalReachedForHouse(
-				$houseId,
-				(int)$weeklyGoal['percent'],
-				(int)$weeklyGoal['targetPercent'],
-				(string)$weeklyGoal['weekStart']
-			);
-		}
-	}
 }

@@ -42,21 +42,50 @@ async function openKitchenRoomDetail(page: Page): Promise<void> {
 	await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
 }
 
+/**
+ * The Kitchen room task whose server proposal lets `userId` complete
+ * DIRECTLY (WP3 Q-074-02): no proposal (solo work) or a sole agreement
+ * naming the user — rows agreed to someone else would open the
+ * participation dialog instead.
+ */
+async function ownKitchenTask(page: Page, userId: string): Promise<{ id: number; name: string }> {
+	const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
+	const kitchen = await kitchenRoom(page)
+	const candidates = ((rows.data ?? []) as Array<{
+		id: number; roomId: number; taskId: number; occurrence: unknown; proposal: { participants: Array<{ userId: string }> } | null
+	}>).filter(row => row.roomId === kitchen.id && row.occurrence)
+	const own = candidates.find(row => {
+		const participants = row.proposal?.participants ?? []
+		return participants.length === 0 || (participants.length === 1 && participants[0].userId === userId)
+	})
+	expect(own, 'the family seed always provides a Kitchen task the user may complete directly').toBeTruthy()
+
+	const tasks = await (await page.request.get('/apps/chorestrike/api/v1/tasks')).json()
+	const name = ((tasks.data ?? []) as Array<{ id: number; name: string }>).find(task => task.id === own!.taskId)?.name
+	expect(name, 'the task definition must resolve').toBeTruthy()
+	return { id: own!.id, name: name! }
+}
+
 test.describe('Task Completion Full Flow', () => {
 	test.use({ databaseProfile: 'family' })
 
-	test('complete task shows rewards feedback and updates the score exactly', async ({ browser, seededData: _seededData }) => {
+	test('complete task shows rewards feedback and updates the wallet exactly', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			// Independently captured before-state: the wallet the completion
-			// must credit exactly (never a value compared to itself).
-			const coinsBefore = await (await page.request.get('/apps/chorestrike/api/v1/minigames/coins')).json()
+			// Independently captured before-state: the OWN wallet the
+			// completion must credit exactly (never a value compared to
+			// itself). WP3 §3.6: /game/state is the own-wallet surface.
+			const stateBefore = await (await page.request.get('/apps/chorestrike/api/v1/game/state')).json()
 
 			await openKitchenRoomDetail(page)
 
-			// Guaranteed precondition (family seed): the Kitchen always has an
-			// active task — a missing fixture is a FAILURE, not a skip.
-			const completeButton = page.getByTestId('complete-task-button').first()
+			// Guaranteed precondition (family seed): a Kitchen task mom may
+			// complete DIRECTLY — a missing fixture is a FAILURE, not a skip.
+			const own = await ownKitchenTask(page, 'mom')
+			const completeButton = page.locator('[data-testid="task-item"]')
+				.filter({ hasText: own.name })
+				.first()
+				.locator('[data-testid="complete-task-button"]')
 			await expect(completeButton).toBeVisible({ timeout: 15000 })
 
 			const completeResponsePromise = page.waitForResponse((response) => {
@@ -71,16 +100,17 @@ test.describe('Task Completion Full Flow', () => {
 			// reward summary) MUST appear — no swallowed expectation.
 			await expect(page.getByTestId('undo-snackbar')).toBeVisible({ timeout: 5000 })
 
-			// Exact credited coins: the persisted wallet equals the
-			// pre-completion balance plus the credited delta, and the
-			// receipt's authoritative total matches it.
-			const coinsAfter = await (await page.request.get('/apps/chorestrike/api/v1/minigames/coins')).json()
-			expect(receipt.data.rewards.totalCoins)
-				.toBe(coinsBefore.data.currentCoins + receipt.data.rewards.coins + receipt.data.rewards.teamworkBonus)
-			expect(coinsAfter.data.currentCoins).toBe(receipt.data.rewards.totalCoins)
+			// Exact credited minor units (WP3 §3.1): the frozen rate is
+			// 10 Coins per energy — the receipt's own-wallet block equals
+			// the before total plus totalEnergy * 1000.
+			const energy = receipt.data.rewards.completion.totalEnergy
+			expect(receipt.data.rewards.wallet.bookedMinor)
+				.toBe((stateBefore.data.wallet?.bookedMinor ?? 0) + energy * 1000)
+			const stateAfter = await (await page.request.get('/apps/chorestrike/api/v1/game/state')).json()
+			expect(stateAfter.data.wallet.bookedMinor).toBe(receipt.data.rewards.wallet.bookedMinor)
 
 			// Exact credited score: the LEADERBOARD row (the real member
-			// score surface) equals the receipt's authoritative total
+			// score surface) equals the receipt's contribution total
 			// (decision D10), not "some larger number".
 			await page.goto('/apps/chorestrike/#/leaderboard')
 			await expect(page.getByTestId('leaderboard-list')).toBeVisible({ timeout: 20000 })
@@ -88,36 +118,47 @@ test.describe('Task Completion Full Flow', () => {
 			await expect(momRow).toBeVisible({ timeout: 15000 })
 			const newScoreText = await momRow.locator('[data-testid="contribution-score"]').textContent()
 			const newScore = parseInt((newScoreText ?? '').replace(/\D/g, '')) || 0
-			expect(newScore).toBe(receipt.data.rewards.totalContribution)
+			expect(newScore).toBe(receipt.data.rewards.contributionMinor)
 
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('completing multiple tasks triggers the combo reward', async ({ browser, seededData: _seededData }) => {
+	test('completing multiple tasks books every receipt (combo retired)', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
+			// Three UNASSIGNED probe tasks (solo work — no participation
+			// dialog) give three always-completable rows; create them
+			// BEFORE opening the room so the list read includes them.
+			const kitchen = await kitchenRoom(page)
+			const probeNames: string[] = []
+			for (let i = 0; i < 3; i++) {
+				const name = `Sequence Probe ${Date.now()}-${i}`
+				const probe = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+					data: {
+						roomId: kitchen.id,
+						// CS-PLAN-072 WP1: due TODAY so the occurrence window is
+						// open and the UI completion resolves a shown target.
+						nextDue: houseDateOffset(0, 'UTC'),
+						task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
+					},
+				})
+				expect(probe.status()).toBe(200)
+				probeNames.push(name)
+			}
+
 			await openKitchenRoomDetail(page)
 
-			// Guarantee the combo precondition: two seeded completions within
-			// the combo window put the THIRD receipt into the combo state —
-			// the probe task provides a third always-completable row.
-			const kitchen = await kitchenRoom(page)
-			const probe = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
-				data: {
-					roomId: kitchen.id,
-					// CS-PLAN-072 WP1: due TODAY so the occurrence window is
-					// open and the UI completion resolves a shown target.
-					nextDue: houseDateOffset(0, 'UTC'),
-					task: { name: `Combo Probe ${Date.now()}`, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
-				},
-			})
-			expect(probe.status()).toBe(200)
+			// The retired combo flag is gone; the durable claim is that every
+			// completion books its own frozen-rate credit into the wallet.
 
-			const receipts: Array<{ isCombo: boolean }> = []
-			for (let i = 0; i < 3; i++) {
-				const button = page.getByTestId('complete-task-button').first()
+			const receipts: Array<{ bookedMinor: number; totalEnergy: number }> = []
+			for (const name of probeNames) {
+				const button = page.locator('[data-testid="task-item"]')
+					.filter({ hasText: name })
+					.first()
+					.locator('[data-testid="complete-task-button"]')
 				await expect(button).toBeVisible({ timeout: 15000 })
 				const completeResponsePromise = page.waitForResponse((response) => {
 					const pathname = new URL(response.url()).pathname
@@ -129,11 +170,16 @@ test.describe('Task Completion Full Flow', () => {
 				receipts.push(receipt.data.rewards)
 			}
 
-			// Exact combo semantics (frozen rules): the first two completions
-			// are no combo, the third (two recent rows in the window) is.
-			expect(receipts[0].isCombo).toBe(false)
-			expect(receipts[1].isCombo).toBe(false)
-			expect(receipts[2].isCombo).toBe(true)
+			// Every receipt booked its own frozen rate credit: consecutive
+			// receipt wallet totals differ by exactly the later completion's
+			// totalEnergy * 1000, and the final receipt matches the
+			// persisted own-wallet total.
+			const credit = (r: { completion: { totalEnergy: number } }) => r.completion.totalEnergy * 1000
+			for (let i = 1; i < receipts.length; i++) {
+				expect(receipts[i].wallet.bookedMinor - receipts[i - 1].wallet.bookedMinor).toBe(credit(receipts[i]))
+			}
+			const stateAfter = await (await page.request.get('/apps/chorestrike/api/v1/game/state')).json()
+			expect(receipts[2].wallet.bookedMinor).toBe(stateAfter.data.wallet.bookedMinor)
 		} finally {
 			await context.close()
 		}
@@ -243,7 +289,10 @@ test.describe('Task Completion Full Flow', () => {
 			expect(createResponse.status()).toBe(200)
 			const created = (await createResponse.json()).data.roomTask
 
-			const initialCoins = await (await page.request.get('/apps/chorestrike/api/v1/minigames/coins')).json()
+			// Independently captured before-state: the OWN wallet whose
+			// exact restoration the undo proves (WP3: /game/state).
+			const stateBefore = await (await page.request.get('/apps/chorestrike/api/v1/game/state')).json()
+			const walletBefore = stateBefore.data.wallet?.bookedMinor ?? 0
 
 			await openKitchenRoomDetail(page)
 
@@ -264,11 +313,13 @@ test.describe('Task Completion Full Flow', () => {
 			await expect(taskRow).toHaveClass(/completed/)
 			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${completeBody.data.room.cleanliness}%`)
 
-			// Undo through the snackbar → one POST /room-tasks/{id}/undo.
+			// Undo through the snackbar → one targeted correction
+			// (WP3 §3.4: POST /completions/{id}/undo with the receipt id).
 			await expect(page.getByTestId('undo-snackbar')).toBeVisible()
 			const undoResponsePromise = page.waitForResponse((response) => {
 				const pathname = new URL(response.url()).pathname
-				return response.request().method() === 'POST' && pathname === `/apps/chorestrike/api/v1/room-tasks/${created.id}/undo`
+				return response.request().method() === 'POST'
+					&& /^\/apps\/chorestrike\/api\/v1\/completions\/\d+\/undo$/.test(pathname)
 			})
 			await page.locator(`[data-testid="undo-snackbar-undo-button-${created.id}"]`).click()
 			const undoBody = await (await undoResponsePromise).json()
@@ -286,10 +337,10 @@ test.describe('Task Completion Full Flow', () => {
 			await expect(taskRow).not.toHaveClass(/completed/)
 			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
 
-			// …the coin wallet shows the PRE-COMPLETION balance again…
-			await page.goto('/apps/chorestrike/')
-			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
-			await expect(page.getByTestId('coins-value')).toHaveText(String(initialCoins.data.currentCoins))
+			// …the OWN wallet shows the PRE-COMPLETION booked total again
+			// (the correction posted the exact negative entries)…
+			const stateAfterUndo = await (await page.request.get('/apps/chorestrike/api/v1/game/state')).json()
+			expect(stateAfterUndo.data.wallet.bookedMinor).toBe(walletBefore)
 
 			// …and the persisted room task row equals its pre-completion
 			// state (recurrence inverse via the API ground truth).

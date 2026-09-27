@@ -17,6 +17,15 @@
 > planner `apply` runs as one `scheduling.apply` command (command UUID, CR-SVC-64
 > write-free midnight 409). See `docs/plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md` for the
 > resolved decision record.
+>
+> **WP3 extension (2026-09-27, ADR-014):** completed occurrences now freeze the
+> attributed work evidence (`completed_tasks.work_*`, `total_energy`,
+> `rate_minor`, occurrence identity) and the attributed shares live on
+> `work_shares` per allocation revision; attribution corrections
+> (`PUT /completions/{id}/attribution`) keep the occurrence identity and work
+> facts immutable and re-account value through the ledger. The occurrence
+> completion validity (`completion_id` release on undo) is the single input the
+> WP3 rhythm/weekly projections re-derive from.
 
 ## Context
 

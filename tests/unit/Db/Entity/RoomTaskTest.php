@@ -214,4 +214,15 @@ class RoomTaskTest extends TestCase {
 		self::assertArrayHasKey('originalAssignee', $json);
 		self::assertArrayHasKey('claimedAt', $json);
 	}
+
+	public function testClaimSourceCompletionId_StaysInternalToTheRoomTask(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setClaimedSourceCompletionId(42);
+
+		self::assertSame(42, $roomTask->getClaimedSourceCompletionId());
+		self::assertArrayNotHasKey('claimedSourceCompletionId', $roomTask->jsonSerialize());
+
+		$roomTask->setClaimedSourceCompletionId(null);
+		self::assertNull($roomTask->getClaimedSourceCompletionId());
+	}
 }

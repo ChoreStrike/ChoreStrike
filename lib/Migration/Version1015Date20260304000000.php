@@ -37,9 +37,10 @@ class Version1015Date20260304000000 extends SimpleMigrationStep {
 				$table->addIndex(['house_id', 'nextcloud_user_id'], 'hu_house_user_idx');
 			}
 
-			// Index for leaderboard ordering
+			// Index for leaderboard ordering (CS-PLAN-070 WP3: the whole-unit
+			// contribution_score column became exact contribution_minor).
 			if (!$table->hasIndex('hu_score_idx')) {
-				$table->addIndex(['house_id', 'contribution_score'], 'hu_score_idx');
+				$table->addIndex(['house_id', 'contribution_minor'], 'hu_score_idx');
 			}
 		}
 

@@ -57,7 +57,7 @@ const REQUIRED_SPECS = [
 	// Seed/reset-owned serial pool.
 	{ file: 'setup-wizard-journey.spec.ts', project: 'chromium-serial-db', scenarios: ['owner completes the wizard through the ui'], minTests: 3 },
 	{ file: 'task-completion-full-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['undo restores the exact state'], minTests: 5 },
-	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['overcapacity warning appears when a day exceeds its capacity'], minTests: 3 },
+	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['overcapacity warning appears when a day exceeds its capacity', 'owner corrects a recorded work split'], minTests: 4 },
 	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 5 },
 	{ file: 'workflow-state-reconciliation.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	// CS-PLAN-072 WP1: the occurrence-timeline client-contract slice.
@@ -72,11 +72,12 @@ const REQUIRED_SPECS = [
 	{ file: 'validation.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'multi-user-interactions.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'time-travel-overdue.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
-	{ file: 'time-travel-streak-notification.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
+	// WP3 cutover: time-travel-streak-notification (freeze/at-risk) and
+	// release-boost-shop retired with the legacy economy — the notification
+	// pass keeps its TriggerJobsIntegrationTest/TriggerJobs coverage.
 	{ file: 'release-task-lifecycle.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'release-visibility-roles.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'release-task-templates.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
-	{ file: 'release-boost-shop.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'release-notifications.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'release-setup-wizard.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	// Owner-scoped scheduling pool.
@@ -100,7 +101,7 @@ const REQUIRED_SPECS = [
 	{ file: 'snake-game.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'task-completion.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'task-manager.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
-	{ file: 'teamwork-rewards.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
+	// WP3 cutover: teamwork-rewards (teamwork bonus) retired.
 	{ file: 'title-selection.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'workflow-request-budgets.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	// Auth setup runs once as the dependency of every browser project.

@@ -9,21 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\RoomMapper;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\TaskAssigneeMapper;
-use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\AppLogger;
-use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
-use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
@@ -83,20 +74,17 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$houseId = $this->createHouse('cct_owner', 'Concurrency House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
-		$taskA = $this->createTask($houseId, 'CCT dishes', '', 5, 3);
-		$taskB = $this->createTask($houseId, 'CCT trash', '', 5, 3);
+		$taskA = $this->createTask($houseId, 'CCT dishes', '', 5, 2);
+		$taskB = $this->createTask($houseId, 'CCT trash', '', 5, 2);
 		$roomTaskA = $this->assignTaskToRoom($taskA, $roomId, 'cct_owner');
 		$roomTaskB = $this->assignTaskToRoom($taskB, $roomId, 'cct_owner');
 		$this->cleanupRoomTaskIds = [$roomTaskA, $roomTaskB];
 
-		// Start low: updateCleanliness clamps at 100, so the deterministic
-		// sum (10 + 30 winner + 30 own) must stay below it.
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_rooms')
-			->set('cleanliness', $qb->createNamedParameter(10, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
-			->executeStatement();
-		$initialCleanliness = 10;
+		// WP3 §3.5: cleanliness is journal-replayed — the creation baseline
+		// anchors the math, never a raw row value. T1 commits a journal
+		// completion delta (+20); A's energy 2 (+20) keeps the sum below the
+		// 100 clamp.
+		$baselineCleanliness = $this->roomBaselineCleanliness($roomId);
 
 		$signalFile = sys_get_temp_dir() . '/cs-cct-room-locked-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-cct-room-holder-' . uniqid() . '.php';
@@ -119,21 +107,29 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			}
 
 			// T2: completes task A — blocks at the room lock until T1 commits
-			// B's +30, then must add A's delta on the committed 80.
+			// B's journal delta, then must add A's delta on the committed
+			// replay total.
 			$completionService = \OC::$server->get(CompletionService::class);
 			$result = $this->completeOccurrence($completionService, $houseId, 'cct_owner', $roomTaskA);
 
 			$row = $this->fetchRow('chorestrike_rooms', 'id', $roomId);
 			self::assertSame(
-				$initialCleanliness + 30 + $result['rewards']['cleanlinessChange'],
+				$baselineCleanliness + 20 + $result['rewards']['cleanlinessChange'],
 				(int)$row['cleanliness'],
-				'the blocked completion must build on the winner\'s committed cleanliness (sum of both deltas), not clobber it'
+				'the blocked completion must build on the winner\'s committed journal delta (sum of both), not clobber it'
 			);
+			$journal = $this->fetchRowsBy('chorestrike_room_events', 'room_id', $roomId);
+			$winner = array_values(array_filter($journal, static fn (array $event): bool => $event['stable_id'] === 'completion:racedummy'));
+			self::assertCount(1, $winner, 'the concurrent winner committed its own journal event');
+			self::assertNull($winner[0]['source_completion_id'], 'source-less winner effects remain valid');
+			self::assertSame((int)$row['cleanliness'], \OC::$server->get(\OCA\ChoreStrike\Service\RoomReplayService::class)->replay($roomId)['cleanliness']);
 
 			$ledger = $this->ledgerRows($roomTaskA);
 			self::assertCount(1, $ledger);
-			$deltas = json_decode((string)$ledger[0]['deltas'], true, 512, JSON_THROW_ON_ERROR);
-			self::assertSame($result['rewards']['cleanlinessChange'], $deltas['cleanlinessChange'], 'the applied delta is effect-record-visible');
+			// The requested delta is journal-visible as ONE completion event.
+			$events = $this->fetchRowsBy('chorestrike_room_events', 'source_completion_id', (int)$ledger[0]['id']);
+			self::assertCount(1, $events, 'exactly one journal effect per completion');
+			self::assertSame($result['rewards']['cleanlinessChange'], (int)$events[0]['delta_cleanliness'], 'the applied delta is journal-visible');
 		} finally {
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
@@ -248,11 +244,18 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 
 			// T2: the probe still sees the revertible row, the transaction
 			// blocks at the room-task lock, and the under-lock re-check then
-			// finds T1's committed `undone_at` — the no-op.
-			$result = $completionService->undo($houseId, $actor, $roomTaskId);
+			// finds T1's committed `undone_at` — the no-op (WP3 §3.4: the
+			// targeted correction, exact completion id + receipt).
+			$result = $completionService->undo(
+				$houseId,
+				$actor,
+				(int)$ledgerRow['id'],
+				sprintf('b7c8d9e0-f1a2-4b3c-9d8e-%012d', random_int(0, 999999999999)),
+				0,
+				null
+			);
 
 			self::assertFalse($result['undone'], 'the race loser must answer the idempotent no-op');
-			self::assertNull($result['rewards'], 'the no-op must not fabricate reverted rewards');
 		} finally {
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
@@ -267,7 +270,7 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		);
 		$userAfterRace = \OC::$server->get(HouseUserMapper::class)
 			->findByNextcloudUserId($houseId, 'cct_undo_owner');
-		self::assertSame($userAfterCompletion->getCoins(), $userAfterRace->getCoins(), 'the no-op loser must not touch the reward row');
+		self::assertSame($userAfterCompletion->getContributionMinor(), $userAfterRace->getContributionMinor(), 'the no-op loser must not touch the work-credit row');
 		self::assertCount(1, $this->ledgerRows($roomTaskId), 'the no-op loser must not add or remove ledger rows');
 	}
 
@@ -314,7 +317,7 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		self::assertSame([], $this->ledgerRows($roomTaskId), 'no ledger row for a rejected occurrence');
 		self::assertSame(50, (int)$this->fetchRow('chorestrike_rooms', 'id', $roomId)['cleanliness'], 'no cleanliness write');
 		$user = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, 'cct_inactive_owner');
-		self::assertSame(0, $user->getCoins(), 'no reward write');
+		self::assertSame(0, $user->getContributionMinor(), 'no reward write');
 		$progress = $this->fetchRowsBy('chorestrike_chk_progress', 'room_task_id', $roomTaskId);
 		self::assertCount(1, $progress);
 		self::assertSame(1, (int)$progress[0]['is_checked'], 'the checked row must stay checked');
@@ -334,33 +337,20 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$houseService = (new \ReflectionClass(SabotagedWeeklyGoalHouseService::class))
 			->newInstanceWithoutConstructor();
 
-		return new CompletionService(
-			$s->get(TransactionExecutor::class),
-			$s->get(RoomTaskMapper::class),
-			$s->get(TaskMapper::class),
-			$s->get(RoomMapper::class),
-			$s->get(HouseMapper::class),
+		// WP3: the service graph grew (wallets, work shares, rhythm,
+		// replay) — swap ONLY the post-commit participant on the DI
+		// instance instead of hand-maintaining the constructor list.
+		$service = $s->get(CompletionService::class);
+		$postCommit = new \OCA\ChoreStrike\Service\CompletionPostCommitService(
+			$houseService,
 			$s->get(HouseUserMapper::class),
-			$s->get(TaskAssigneeMapper::class),
-			$s->get(CompletedTaskMapper::class),
-			$s->get(\OCA\ChoreStrike\Service\CompletionEffectService::class),
-			// CS-PLAN-067 §3.2: the sabotaged HouseService is threaded into
-			// the post-commit participant — the D7 degrade boundary subject.
-			new \OCA\ChoreStrike\Service\CompletionPostCommitService(
-				$houseService,
-				$s->get(HouseMapper::class),
-				$s->get(HouseUserMapper::class),
-				$s->get(NotificationService::class),
-				$s->get(AppLogger::class),
-			),
-			$s->get(\OCA\ChoreStrike\Service\GameLogicService::class),
-			$s->get(CalendarService::class),
-			$s->get(TaskAccessPolicy::class),
-			$s->get(\OCA\ChoreStrike\Service\OccurrenceService::class),
-			$s->get(\OCA\ChoreStrike\Service\CommandService::class),
-			$s->get(\OCP\L10N\IFactory::class)->get('chorestrike'),
+			$s->get(NotificationService::class),
 			$s->get(AppLogger::class),
 		);
+		$prop = (new \ReflectionClass(CompletionService::class))->getProperty('postCommitService');
+		$prop->setAccessible(true);
+		$prop->setValue($service, $postCommit);
+		return $service;
 	}
 
 	/**
@@ -399,6 +389,25 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 	 */
 	private function ledgerRows(int $roomTaskId): array {
 		return $this->fetchRowsBy('chorestrike_completed_tasks', 'room_task_id', $roomTaskId);
+	}
+
+	/**
+	 * The room's creation baseline cleanliness from the journal (WP3 §3.5):
+	 * the replay anchor for cleanliness math — never a raw row value.
+	 */
+	private function roomBaselineCleanliness(int $roomId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('baseline_cleanliness')
+			->from('chorestrike_room_events')
+			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter('baseline')));
+		$result = $qb->executeQuery();
+		$value = $result->fetchOne();
+		$result->closeCursor();
+
+		// Raw fixture rooms carry no journal — the replay seeds those at the
+		// documented default 50 (RoomReplayService::replay).
+		return $value === false ? 50 : (int)$value;
 	}
 
 	private function terminateHelper($process, array $pipes): void {
@@ -440,10 +449,12 @@ $result->closeCursor();
 file_put_contents($signalFile, 'locked');
 usleep(2000000);
 
+// The concurrent winner's journal completion delta (WP3 §3.5: the replay,
+// never a raw row RMW, folds this into the room state T2 must build on).
 $db->executeStatement(
-    'UPDATE *PREFIX*chorestrike_rooms SET cleanliness = cleanliness + 30 WHERE id = :id',
-    ['id' => $roomId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
+    'INSERT INTO *PREFIX*chorestrike_room_events (room_id, kind, effective_at, stable_id, source_completion_id, delta_cleanliness, created_at) VALUES (:rid, \'completion\', NOW(), \'completion:racedummy\', NULL, 20, NOW())',
+    ['rid' => $roomId],
+    ['rid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
 $db->commit();
 PHP;

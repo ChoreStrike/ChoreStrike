@@ -85,7 +85,13 @@ class TestDataServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->walletMapper,
 			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
-			new \OCA\ChoreStrike\Service\CalendarService()
+			new \OCA\ChoreStrike\Service\CalendarService(),
+			// WP3 §3.5: seeds journal room baselines through the replay
+			// service (mocked — the journal SQL is integration territory).
+			$this->createMock(\OCA\ChoreStrike\Service\RoomReplayService::class),
+			$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class),
 		);
 	}
 
@@ -289,10 +295,10 @@ class TestDataServiceTest extends TestCase {
 			'family seed must include at least one room task with a past due-date'
 		);
 
-		// Streak seed: mom has something to lose and no freeze to spend.
+		// Streak seed: mom carries a rhythm streak value so the family can
+		// see rhythm effects (the freeze inventory retired with WP3).
 		$this->assertArrayHasKey('mom', $seededUsers);
 		$this->assertSame(5, $seededUsers['mom']->getCurrentStreak());
-		$this->assertSame(0, $seededUsers['mom']->getStreakFreezes());
 	}
 
 	/**
@@ -411,6 +417,12 @@ class TestDataServiceTest extends TestCase {
 		$this->assertContains('chorestrike_wallet_entries', $deletedTables);
 		$this->assertContains('chorestrike_wallets', $deletedTables);
 		$this->assertContains('chorestrike_commands', $deletedTables);
+		$this->assertContains('chorestrike_wgoal_receipts', $deletedTables);
+		self::assertLessThan(
+			array_search('chorestrike_houses', $deletedTables, true),
+			array_search('chorestrike_wgoal_receipts', $deletedTables, true),
+			'weekly receipts must clear before houses'
+		);
 		self::assertLessThan(
 			array_search('chorestrike_wallets', $deletedTables, true),
 			array_search('chorestrike_wallet_entries', $deletedTables, true),

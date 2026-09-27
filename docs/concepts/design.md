@@ -14,6 +14,14 @@
 > defense, Task Pass, child approval and daily-streak ideas below are not approved
 > requirements for the new direction. Use the current product vision and
 > [reward options](gamification-and-rewards.md#reward-options-for-a-family-first-app).
+>
+> **WP3 work-accounting note (2026-09-27):** the combo multiplier, team-spark,
+> streak-freeze, boost/arcade-economy and integer-Coin ideas below were retired
+> with the WP3 cutover — rewards are exact minor-unit derivations of frozen work
+> evidence on an immutable ledger, corrections close via
+> completer/owner-attribution, and the UI has no coin column. See
+> [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md) and the current
+> contracts in [gamification-and-rewards.md](gamification-and-rewards.md).
 
 ## 🎯 Vision
 

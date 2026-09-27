@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
@@ -306,7 +307,9 @@ class RoomController extends Controller {
 	}
 
 	/**
-	 * Update room cleanliness
+	 * Update room cleanliness (WP3 §3.5: the requested delta is journaled
+	 * and the receipt-protected command identity keeps a replay from
+	 * repeating it over later work).
 	 *
 	 * @NoAdminRequired
 	 */
@@ -327,7 +330,32 @@ class RoomController extends Controller {
 				], 400);
 			}
 
-			$room = $this->roomService->updateRoomCleanliness($id, $house->getId(), $cleanlinessChange);
+			$commandId = (string)$this->request->getParam('commandId', '');
+			if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $commandId)) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => $this->l->t('A valid commandId (UUID) is required')
+					]
+				], 400);
+			}
+			$expectedVersionRaw = $this->request->getParam('expectedVersion');
+			$expectedVersion = null;
+			if ($expectedVersionRaw !== null && $expectedVersionRaw !== '') {
+				if (!is_numeric($expectedVersionRaw) || (int)$expectedVersionRaw < 0) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => [
+							'code' => 'VALIDATION_ERROR',
+							'message' => $this->l->t('A valid expectedVersion is required')
+						]
+					], 400);
+				}
+				$expectedVersion = (int)$expectedVersionRaw;
+			}
+
+			$room = $this->roomService->updateRoomCleanliness($id, $house->getId(), $cleanlinessChange, strtolower($commandId), $expectedVersion);
 
 			return new JSONResponse([
 				'success' => true,
@@ -337,6 +365,8 @@ class RoomController extends Controller {
 			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('updateCleanliness', $e, ['roomId' => $id]);
 			return new JSONResponse([

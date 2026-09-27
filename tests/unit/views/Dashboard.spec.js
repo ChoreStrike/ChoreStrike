@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
+import { reactive } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import Dashboard from '../../../src/views/Dashboard.vue'
 
@@ -35,10 +36,10 @@ jest.mock('../../../src/store/rooms.js', () => ({
 	useRoomsStore: () => mockRoomsState,
 }))
 
+const mockGameStore = reactive({ wallet: null, fetchGameState: jest.fn() })
+
 jest.mock('../../../src/store/game.js', () => ({
-	useGameStore: () => ({
-		fetchGameState: jest.fn().mockResolvedValue(undefined),
-	}),
+	useGameStore: () => mockGameStore,
 }))
 
 // Mock child components
@@ -82,6 +83,9 @@ describe('Dashboard.vue', () => {
 		pinia = createPinia()
 		setActivePinia(pinia)
 		mockWizardState.dismissed = false
+		mockGameStore.wallet = null
+		mockGameStore.fetchGameState.mockReset()
+		mockGameStore.fetchGameState.mockResolvedValue(undefined)
 	})
 
 	afterEach(() => {
@@ -169,6 +173,24 @@ describe('Dashboard.vue', () => {
 		})
 
 		expect(wrapper.find('.household-goal-bar').exists()).toBe(true)
+	})
+
+	it('shows only the caller wallet with an exact negative fractional Coin balance after a fresh load', async () => {
+		mockGameStore.fetchGameState.mockImplementation(async () => {
+			mockGameStore.wallet = { bookedMinor: -1125, reservedMinor: 130, availableMinor: -1255 }
+		})
+		const wrapper = mount(Dashboard, { global: { plugins: [pinia] } })
+		await flushPromises()
+		expect(mockGameStore.fetchGameState).toHaveBeenCalledTimes(1)
+		expect(wrapper.find('[data-testid="own-wallet"]').text()).toContain('Your Coins')
+		expect(wrapper.find('[data-testid="own-wallet-available"]').text()).toBe('-12.55')
+
+		wrapper.unmount()
+		mockGameStore.wallet = null
+		const reloaded = mount(Dashboard, { global: { plugins: [pinia] } })
+		await flushPromises()
+		expect(mockGameStore.fetchGameState).toHaveBeenCalledTimes(2)
+		expect(reloaded.find('[data-testid="own-wallet-available"]').text()).toBe('-12.55')
 	})
 
 	it('hides the manual setup entry point once the house has floors', () => {

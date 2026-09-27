@@ -62,27 +62,26 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get weekly statistics for ALL users of a house in one grouped query (CS-PLAN-036).
+	 * Get weekly valid-work statistics for ALL users of a house in one
+	 * grouped query (CS-PLAN-036; WP3 reshape: no Coin/combo aggregates —
+	 * money is wallet authority and combos are retired; medals evaluate
+	 * valid task counts and active days only).
 	 *
-	 * Grouped sibling of getUserStats: same aggregates and DATE() portability,
-	 * but GROUP BY user_id over the house's users (joined via
-	 * chorestrike_house_users.house_id) so the medal check makes one round
-	 * trip instead of one per user. Users without completions in the range
-	 * are absent from the map — callers treat a missing key as all-zero
-	 * stats (equivalent to getUserStats on an empty range).
+	 * Grouped sibling of getUserStats: DATE() portability, GROUP BY user_id
+	 * over the house's users (joined via chorestrike_house_users.house_id).
+	 * Users without completions in the range are absent from the map —
+	 * callers treat a missing key as all-zero stats.
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTime $startDate Start date
 	 * @param \DateTime $endDate End date
-	 * @return array<int, array{taskCount:int, totalCoins:int, comboCount:int, activeDays:int}> Map of house user ID → stats
+	 * @return array<int, array{taskCount:int, activeDays:int}> Map of house user ID → stats
 	 */
 	public function getUserStatsByHouse(int $houseId, \DateTime $startDate, \DateTime $endDate): array {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('ct.user_id')
 			->addSelect($qb->createFunction('COUNT(*) AS task_count'))
-			->addSelect($qb->createFunction('SUM(ct.coins_earned) AS total_coins'))
-			->addSelect($qb->createFunction('SUM(CASE WHEN ct.was_combo THEN 1 ELSE 0 END) AS combo_count'))
 			->addSelect($qb->createFunction('COUNT(DISTINCT DATE(ct.completed_at)) AS active_days'))
 			->from($this->getTableName(), 'ct')
 			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
@@ -92,6 +91,7 @@ class CompletedTaskMapper extends QBMapper {
 			// the exclusive upper bound, so a completion exactly at the next
 			// window start counts in exactly one window.
 			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($endDate, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->isNull('ct.undone_at'))
 			->groupBy('ct.user_id');
 
 		$result = $qb->executeQuery();
@@ -99,8 +99,6 @@ class CompletedTaskMapper extends QBMapper {
 		while ($row = $result->fetch()) {
 			$stats[(int)$row['user_id']] = [
 				'taskCount' => (int)($row['task_count'] ?? 0),
-				'totalCoins' => (int)($row['total_coins'] ?? 0),
-				'comboCount' => (int)($row['combo_count'] ?? 0),
 				'activeDays' => (int)($row['active_days'] ?? 0),
 			];
 		}
@@ -146,68 +144,6 @@ class CompletedTaskMapper extends QBMapper {
 		$result->closeCursor();
 
 		return $state;
-	}
-
-	/**
-	 * Find the non-undone completion effort of one house within a window,
-	 * bucketed per completer (CS-PLAN-065 §3.1 preview capacity input,
-	 * CS-PLAN-073 WP2 cutover).
-	 *
-	 * Decision D11: `undone_at` rows are excluded — an undone completion is
-	 * no longer planned work. WP2: the energy comes from the SAVED
-	 * occurrence joined by the frozen (schedule_rev_id, occurrence_ordinal)
-	 * key — never from the mutable `tasks.energy_cost` definition (plan
-	 * §3.2: frozen occurrence effort survives definition edits).
-	 * RF-073-WP2-15: the join is INNER — a completion row without its
-	 * occurrence link is an invariant violation and must never silently
-	 * fall back to the mutable definition energy; every completion path
-	 * records the frozen timeline evidence (CompletionService), so the
-	 * join is lossless for valid work. The rows carry the raw
-	 * `completed_at` instant plus the saved work-date/zone basis; the
-	 * caller buckets the instants into candidate-day intervals
-	 * (PauseProjectionService Q-073-02 mapping) so the SQL stays portable.
-	 * The recorded work stays with the recorded completer — it is never
-	 * split across planned assignees.
-	 *
-	 * @param int $houseId The house ID
-	 * @param \DateTimeInterface $start Inclusive window start
-	 * @param \DateTimeInterface $end Exclusive window end
-	 * @return array<int, array{houseUserId: int, completedAt: \DateTime, energy: int, workDate: \DateTime|null, workZone: string|null, occurrenceKey: string|null}>
-	 */
-	public function findEnergyUsageBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('ct.user_id', 'ct.completed_at', 'ct.work_date', 'ct.work_zone', 'ct.schedule_rev_id', 'ct.occurrence_ordinal')
-			->addSelect('o.energy')
-			->from($this->getTableName(), 'ct')
-			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
-			->innerJoin('ct', 'chorestrike_occurrences', 'o',
-				$qb->expr()->andX(
-					$qb->expr()->eq('o.schedule_rev_id', 'ct.schedule_rev_id'),
-					$qb->expr()->eq('o.ordinal', 'ct.occurrence_ordinal'),
-					$qb->expr()->eq('o.room_task_id', 'ct.room_task_id')
-				))
-			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->isNull('ct.undone_at'));
-
-		$result = $qb->executeQuery();
-		$rows = [];
-		while ($row = $result->fetch()) {
-			$revId = $row['schedule_rev_id'] !== null ? (int)$row['schedule_rev_id'] : null;
-			$ordinal = $row['occurrence_ordinal'] !== null ? (int)$row['occurrence_ordinal'] : null;
-			$rows[] = [
-				'houseUserId' => (int)$row['user_id'],
-				'completedAt' => new \DateTime((string)$row['completed_at']),
-				'energy' => (int)$row['energy'],
-				'workDate' => $row['work_date'] !== null ? new \DateTime((string)$row['work_date']) : null,
-				'workZone' => $row['work_zone'] !== null ? (string)$row['work_zone'] : null,
-				'occurrenceKey' => $revId !== null && $ordinal !== null ? $revId . ':' . $ordinal : null,
-			];
-		}
-		$result->closeCursor();
-
-		return $rows;
 	}
 
 	/**
@@ -567,6 +503,85 @@ class CompletedTaskMapper extends QBMapper {
 			->set('undone_at', $qb->createNamedParameter($at, IQueryBuilder::PARAM_DATE))
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
+	}
+
+	/**
+	 * Whether a completion row is still VALID (exists and is not undone) —
+	 * the rhythm evaluator's per-occurrence fulfilment probe.
+	 */
+	public function isValidCompletion(int $id): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*'))
+			->from($this->getTableName())
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('undone_at'));
+
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $count > 0;
+	}
+
+	/**
+	 * Valid completion IDs for one room-event batch (at most 500 IDs).
+	 *
+	 * @param int[] $ids
+	 * @return int[]
+	 */
+	public function findValidIds(array $ids): array {
+		if ($ids === []) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from($this->getTableName())
+			->where($qb->expr()->in('id', $qb->createNamedParameter(array_values(array_unique($ids)), IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->isNull('undone_at'));
+
+		$result = $qb->executeQuery();
+		$validIds = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+		$result->closeCursor();
+		return $validIds;
+	}
+
+	/**
+	 * Bump the optimistic completion version (WP3 §3.4): attribution
+	 * increments the version and moves the selected allocation revision.
+	 *
+	 * @return int The new version
+	 */
+	public function advanceVersion(int $id, int $newVersion, int $newAllocationRevision): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('completion_version', $qb->createNamedParameter($newVersion, IQueryBuilder::PARAM_INT))
+			->set('allocation_revision', $qb->createNamedParameter($newAllocationRevision, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
+
+	/**
+	 * Valid completion evidence for a bounded occurrence page. Work time and
+	 * class must be checked as well as undone_at before granting on-time credit.
+	 *
+	 * @param int[] $ids
+	 * @return array<int, CompletedTask>
+	 */
+	public function findValidByIds(array $ids): array {
+		if ($ids === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->in('id', $qb->createNamedParameter(array_values(array_unique($ids)), IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->isNull('undone_at'));
+		$byId = [];
+		foreach ($this->findEntities($qb) as $completion) {
+			$byId[(int)$completion->getId()] = $completion;
+		}
+		return $byId;
 	}
 
 	/**

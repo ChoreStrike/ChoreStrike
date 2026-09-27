@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -26,8 +27,43 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 	private int $houseAId = 0;
 	private int $houseBId = 0;
+	/** The WP3 attribution fixture house (work/wallet evidence cleanup). */
+	private int $attributionHouseId = 0;
 
 	protected function tearDown(): void {
+		// The WP3 attribution test writes completion/work-share/revision/
+		// room-event/wallet evidence — clear it before the structural rows
+		// go (FK-free schema).
+		if ($this->attributionHouseId !== 0) {
+			$completionIds = $this->completionIdsByHouse($this->attributionHouseId);
+			if ($completionIds !== []) {
+				$qb = $this->db->getQueryBuilder();
+				$qb->delete('chorestrike_work_shares')
+					->where($qb->expr()->in('completion_id', $qb->createNamedParameter($completionIds, IQueryBuilder::PARAM_INT_ARRAY)))
+					->executeStatement();
+				$qb = $this->db->getQueryBuilder();
+				$qb->delete('chorestrike_completion_revs')
+					->where($qb->expr()->in('completion_id', $qb->createNamedParameter($completionIds, IQueryBuilder::PARAM_INT_ARRAY)))
+					->executeStatement();
+			}
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_completed_tasks')
+				->where($qb->expr()->in('room_task_id', $qb->createFunction($this->roomTasksSubquery($qb, $this->attributionHouseId)->getSQL())))
+				->executeStatement();
+
+			$walletIds = $this->walletIdsByHouse($this->attributionHouseId);
+			if ($walletIds !== []) {
+				$qb = $this->db->getQueryBuilder();
+				$qb->delete('chorestrike_wallet_entries')
+					->where($qb->expr()->in('wallet_id', $qb->createNamedParameter($walletIds, IQueryBuilder::PARAM_INT_ARRAY)))
+					->executeStatement();
+			}
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_wallets')
+				->where($qb->expr()->eq('house_id', $qb->createNamedParameter($this->attributionHouseId, IQueryBuilder::PARAM_INT)))
+				->executeStatement();
+		}
+
 		// The base cleanup removes houses/floors/rooms/tasks/house_users by
 		// tracked ids, but not task_assignees rows created here. Clear them
 		// first (FK-free schema) so the shared Docker DB stays clean.
@@ -241,6 +277,144 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 			'roomTaskAId' => $roomTaskAId,
 			'roomTaskBId' => $roomTaskBId,
 		];
+	}
+
+	/**
+	 * RemoveHouseMember_LaterAttribution_ReversesTheDepartedWallet
+	 * (WP3 §3.6; RF-074-WP3-04 regression)
+	 *
+	 * Departure preserves the wallet but deletes the membership row. A
+	 * later owner correction MUST still reverse the departed participant's
+	 * frozen share — the share rows are the reversal authority, never the
+	 * live membership list — so the completion pays out exactly the
+	 * frozen total and no more.
+	 */
+	public function testRemoveHouseMember_LaterAttribution_ReversesTheDepartedWallet(): void {
+		$houseId = $this->createHouse('rmr_owner_a', 'Removal Attribution House');
+		$this->addHouseMember($houseId, 'rmr_member', 'Member A', 'member');
+		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+		$taskId = $this->createTask($houseId, 'Attribution task', 'Do the thing', 5, 3);
+		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'rmr_owner_a');
+		$this->houseAId = $houseId;
+		$this->attributionHouseId = $houseId;
+
+		$completionService = \OC::$server->get(CompletionService::class);
+		$this->completeOccurrenceWithParticipants(
+			$completionService,
+			$houseId,
+			'rmr_owner_a',
+			$roomTaskId,
+			[['userId' => 'rmr_owner_a', 'sharePct' => 50], ['userId' => 'rmr_member', 'sharePct' => 50]]
+		);
+		$memberWalletId = (int)\OC::$server->get(\OCA\ChoreStrike\Db\WalletMapper::class)
+			->findByHouseAndUser($houseId, 'rmr_member')
+			->getId();
+
+		// Departure: membership gone, wallet retained.
+		$this->actingAs('rmr_owner_a');
+		\OC::$server->get(HouseService::class)->removeHouseMember($this->findHouseUserId($houseId, 'rmr_member'));
+		self::assertSame(0, $this->countHouseUsers($houseId, 'rmr_member'));
+
+		// The owner corrects the split to 100/0 after the departure.
+		$completion = $this->latestCompletionRow($roomTaskId);
+		$owner = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByNextcloudUserId($houseId, 'rmr_owner_a');
+		$completionService->attribute(
+			$houseId,
+			$owner,
+			(int)$completion['id'],
+			$this->uuidRmr(),
+			(int)$completion['completion_version'],
+			[['userId' => 'rmr_owner_a', 'sharePct' => 100]],
+			true,
+			'departed_member'
+		);
+
+		self::assertSame(0, $this->bookedMinorByWalletId($memberWalletId), 'the departed wallet must be reversed by the correction');
+		self::assertSame(3000, $this->bookedMinorByHouseAndUser($houseId, 'rmr_owner_a'));
+		self::assertSame(
+			3000,
+			$this->bookedMinorByWalletId($memberWalletId) + $this->bookedMinorByHouseAndUser($houseId, 'rmr_owner_a'),
+			'the completion pays out exactly the frozen total'
+		);
+	}
+
+	/**
+	 * The completion ids of one house (room task → room → floor chain).
+	 *
+	 * @return int[]
+	 */
+	private function completionIdsByHouse(int $houseId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from('chorestrike_completed_tasks')
+			->where($qb->expr()->in('room_task_id', $qb->createFunction($this->roomTasksSubquery($qb, $houseId)->getSQL())));
+		$result = $qb->executeQuery();
+		$ids = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+		$result->closeCursor();
+		return $ids;
+	}
+
+	/**
+	 * The never-executed room-task id subquery of one house (the house
+	 * parameter binds on the OUTER builder of the caller).
+	 */
+	private function roomTasksSubquery(\OCP\DB\QueryBuilder\IQueryBuilder $outer, int $houseId): \OCP\DB\QueryBuilder\IQueryBuilder {
+		$sub = $this->db->getQueryBuilder();
+		$sub->select('rt.id')
+			->from('chorestrike_room_tasks', 'rt')
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $sub->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $sub->expr()->eq('r.floor_id', 'f.id'))
+			->where($sub->expr()->eq('f.house_id', $outer->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+		return $sub;
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function latestCompletionRow(int $roomTaskId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from('chorestrike_completed_tasks')
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->orderBy('id', 'DESC')
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		self::assertIsArray($row);
+		return $row;
+	}
+
+	/**
+	 * @return int[]
+	 */
+	private function walletIdsByHouse(int $houseId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from('chorestrike_wallets')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$ids = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+		$result->closeCursor();
+		return $ids;
+	}
+
+	private function bookedMinorByWalletId(int $walletId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('booked_minor')
+			->from('chorestrike_wallets')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$value = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $value;
+	}
+
+	private function bookedMinorByHouseAndUser(int $houseId, string $ncUserId): int {
+		return (int)\OC::$server->get(\OCA\ChoreStrike\Db\WalletMapper::class)
+			->findByHouseAndUser($houseId, $ncUserId)
+			->getBookedMinor();
 	}
 
 	private function findHouseUserId(int $houseId, string $ncUserId): int {

@@ -138,6 +138,36 @@ class TitleService {
 	}
 
 	/**
+	 * Correction reconciliation (CS-PLAN-070 WP3, Q-074-01 / C3g): revoke
+	 * a cached tier ONLY when the corrected valid history no longer
+	 * reaches its threshold — a tier supported by any surviving valid run
+	 * (earlier or later) stays cached, ordinary spending or later real
+	 * streak breaks never revoke earned recognition. The caller persists
+	 * the HouseUser; returns the removed tier ids.
+	 *
+	 * @return list<string>
+	 */
+	public function reconcileUnlocked(HouseUser $user): array {
+		$supported = [];
+		foreach ($this->qualifyingTiers($user) as $tier) {
+			$supported[TitleCatalog::tierId($tier['pack'], $tier['tierIndex'])] = true;
+		}
+		$removed = [];
+		$kept = [];
+		foreach ($user->getUnlockedTitles() ?? [] as $tierId) {
+			if (isset($supported[$tierId])) {
+				$kept[] = $tierId;
+			} else {
+				$removed[] = $tierId;
+			}
+		}
+		if ($removed !== []) {
+			$user->setUnlockedTitles(array_values($kept));
+		}
+		return $removed;
+	}
+
+	/**
 	 * The pack/tier catalog with effective (config-overridden) thresholds,
 	 * shaped for the title-picker API so the frontend can render progress
 	 * bars without a second call.

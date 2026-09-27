@@ -53,7 +53,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		$floorId = $this->createFloor($houseId, 'Ground', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 
-		$taskId = $this->createTask($houseId, 'Dishes', 'Do the dishes', 3, 30);
+		$taskId = $this->createTask($houseId, 'Dishes', 'Do the dishes', 3, 2);
 		$qb = $this->db->getQueryBuilder();
 		$taskOverrides += [
 			'frequency_type' => 'daily',
@@ -242,7 +242,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		$afterComplete = $this->occurrenceMapper->findByRoomTask($f['roomTaskId']);
 		self::assertCount(2, $afterComplete, 'completion anchored one successor');
 
-		$this->completionService->undo($f['houseId'], $this->houseUser($f['houseId'], 'ot_owner'), $f['roomTaskId']);
+		$this->undoLatestForRoomTask($this->completionService, $f['houseId'], 'ot_owner', $f['roomTaskId']);
 		$afterUndo = $this->occurrenceMapper->findByRoomTask($f['roomTaskId']);
 		self::assertCount(1, $afterUndo, 'the open successor anchored on the undone completion is re-derived away');
 		self::assertNull($afterUndo[0]->getCompletionId(), 'the completed occurrence is open again');
@@ -527,12 +527,12 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * RF-072-WP1-06 regression: undo AFTER a revision edit must release
-	 * the open interval successor across ALL revisions. The completion
-	 * anchors its successor under the THEN-current revision; a participant
-	 * amendment afterwards appends a new revision — a current-revision-only
-	 * successor match left BOTH pendings open (§3.2 rule 2: exactly one
-	 * next pending).
+	 * RF-072-WP1-06 regression, WP3 §3.4 semantics: undo AFTER a
+	 * participant amendment releases the completion's occurrence, while
+	 * the successor the amendment explicitly agreed on stays PINNED (the
+	 * correction never deletes explicit agreement evidence). The released
+	 * obligation and the agreed successor are DISTINCT planned days —
+	 * no same-day duplicate may remain.
 	 */
 	public function testUndoAfterParticipantAmendment_ReleasesCrossRevisionSuccessor(): void {
 		$f = $this->fixture();
@@ -543,7 +543,8 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		self::assertCount(2, $this->occurrenceMapper->findByRoomTask($f['roomTaskId']));
 
 		// Participant amendment: closes revision 1 and appends revision 2
-		// while the revision-1 successor stays the open obligation.
+		// while the revision-1 successor stays the open obligation (and
+		// carries the recorded agreement → explicit provenance).
 		$actor = $this->houseUser($f['houseId'], 'ot_owner');
 		\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class)
 			->setAssignees($f['roomTaskId'], ['ot_helper'], $f['houseId'], $actor);
@@ -551,16 +552,21 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		self::assertCount(2, $revisions);
 		self::assertNotNull($revisions[0]->getClosedAt());
 
-		// Undo: the revision-1 successor anchored on the undone completion
-		// must be released; exactly ONE open interval pending remains.
-		$this->completionService->undo($f['houseId'], $this->houseUser($f['houseId'], 'ot_owner'), $f['roomTaskId']);
+		// Undo: the fulfilled occurrence is released again; the explicitly
+		// agreed successor survives the re-derivation (provenance guard).
+		$this->undoLatestForRoomTask($this->completionService, $f['houseId'], 'ot_owner', $f['roomTaskId']);
 
 		$after = $this->occurrenceMapper->findByRoomTask($f['roomTaskId']);
 		$open = array_values(array_filter(
 			$after,
 			static fn (Occurrence $o): bool => $o->getCompletionId() === null && $o->getCoveredByCompletionId() === null
 		));
-		self::assertCount(1, $open, 'undo leaves exactly ONE open interval pending, across revision boundaries');
+		self::assertCount(2, $open, 'the released obligation reopens while the explicitly agreed successor stays pinned');
+		$plannedKeys = array_map(
+			static fn (Occurrence $o): string => $o->getPlannedDate()->format('Y-m-d'),
+			$open
+		);
+		self::assertCount(count(array_unique($plannedKeys)), $plannedKeys, 'no same-day duplicate pendings across revision boundaries');
 	}
 
 	/**
@@ -571,7 +577,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 	 */
 	public function testReconciliationBudget_ConvergesOverPasses(): void {
 		// Static daily rule anchored 400 days ago: creation materializes the
-		// full anchor→horizon range (8-day creation horizon semantics kept
+		// full anchorâ†’horizon range (8-day creation horizon semantics kept
 		// simple here by the fixture's 7-day window), so simulate a dead
 		// cron by keeping only the creation week's rows and freezing the
 		// frontier there — exactly the state a stopped job leaves behind.
@@ -651,7 +657,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 			'the projection follows the successor occurrence'
 		);
 
-		$this->completionService->undo($f['houseId'], $this->houseUser($f['houseId'], 'ot_owner'), $f['roomTaskId']);
+		$this->undoLatestForRoomTask($this->completionService, $f['houseId'], 'ot_owner', $f['roomTaskId']);
 		self::assertSame(
 			$before->getTimestamp(),
 			$roomTaskMapper->find($f['roomTaskId'])->getNextDue()->getTimestamp(),
@@ -774,7 +780,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		}
 
 		// The same move succeeds once the child carries fewer open
-		// occurrences on that day (A2's pending fulfilled → open load 1).
+		// occurrences on that day (A2's pending fulfilled â†’ open load 1).
 		$openA2 = array_values(array_filter(
 			$this->occurrenceMapper->findByRoomTask($a2),
 			static fn (Occurrence $o): bool => $o->getCompletionId() === null && $o->getCoveredByCompletionId() === null
@@ -1068,12 +1074,12 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		$occurrenceId = $this->occurrenceRowIdByKey($f['roomTaskId'], $receipt['occurrenceId']);
 		$agreementsAfterFirst = count($this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]));
 
-		// Identical repeat → replay of the ORIGINAL identity, no second effect.
+		// Identical repeat â†’ replay of the ORIGINAL identity, no second effect.
 		$replay = $this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $payload);
 		self::assertSame($first, $replay, 'the replay returns the original result refs');
 		self::assertCount($agreementsAfterFirst, $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]));
 
-		// Same UUID, changed semantic input → conflict, no writes.
+		// Same UUID, changed semantic input â†’ conflict, no writes.
 		try {
 			$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], array_merge($payload, [
 				'date' => (new \DateTime('+2 days'))->format('Y-m-d'),
@@ -1083,7 +1089,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 			self::assertStringContainsString('different', $e->getMessage());
 		}
 
-		// Same UUID under a DIFFERENT action → conflict (the action
+		// Same UUID under a DIFFERENT action â†’ conflict (the action
 		// identity is part of the receipt hash).
 		$catchUpPayload = $this->amendPayload($receipt, ['workDate' => $tomorrowKey]);
 		$catchUpPayload['commandId'] = $commandId;
@@ -1190,7 +1196,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $pending->getSuspensionState(), 'the acknowledged pause suspended the pending row');
 		$suspendedVersion = $pending->getVersion();
 
-		// Simulate the virtual→materialized drift: the row carries the
+		// Simulate the virtualâ†’materialized drift: the row carries the
 		// materialization default while the projection still derives
 		// suspended from the recognized pause.
 		$qb = $this->db->getQueryBuilder();
@@ -1217,7 +1223,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 
 		// The restart succeeds through the derived state and persists it.
 		// The agreed restart day lies AFTER the pause range — future
-		// reactivation must fit capacity (plan §3.4), and the owner is
+		// reactivation must fit capacity (plan Â§3.4), and the owner is
 		// paused through +4 days.
 		$refs = $this->agreementService()->restart($f['houseId'], $f['owner'], $f['roomTaskId'], [
 			'commandId' => self::uuid(),
@@ -1273,7 +1279,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 			self::assertStringContainsString('energy budget', $e->getMessage());
 		}
 
-		// A fitting helper share (50% of 2 = 100 minor ≤ 100 budget) installs.
+		// A fitting helper share (50% of 2 = 100 minor â‰¤ 100 budget) installs.
 		$receipt2 = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
 		$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt2, [
 			'participants' => [

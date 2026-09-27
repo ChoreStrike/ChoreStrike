@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Command;
 
+use OCA\ChoreStrike\BackgroundJob\TimelineJob;
 use OCA\ChoreStrike\Command\TriggerJobs;
-use OCA\ChoreStrike\Service\StreakAtRiskService;
-use OCA\ChoreStrike\Service\StreakFreezeService;
-use OCA\ChoreStrike\Service\StreakRestockService;
 use OCA\ChoreStrike\Service\TaskDueReminderService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -22,15 +20,14 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Unit tests for the chorestrike:trigger-jobs OCC command (CS-PLAN-023).
  *
  * Covers dispatch per job type, the `all` ordering, the isTestMode()
- * guard, unknown-type rejection and the --as-of time seam.
+ * guard, unknown-type rejection and the --as-of time seam. The
+ * freeze/restock/at-risk types retired with the WP3 legacy-effect
+ * cutover (CS-PLAN-070 WP3, Q-074-01 Option A).
  */
 class TriggerJobsTest extends TestCase {
 	private TestDataService&MockObject $testDataService;
-	private StreakAtRiskService&MockObject $atRiskService;
 	private TaskDueReminderService&MockObject $taskDueReminderService;
-	private StreakFreezeService&MockObject $freezeService;
-	private StreakRestockService&MockObject $restockService;
-	private \OCA\ChoreStrike\Service\OccurrenceService&MockObject $occurrenceService;
+	private TimelineJob&MockObject $timelineJob;
 	private ITimeFactory&MockObject $timeFactory;
 	private TriggerJobs $command;
 	private OutputInterface&MockObject $output;
@@ -39,20 +36,14 @@ class TriggerJobsTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->testDataService = $this->createMock(TestDataService::class);
-		$this->atRiskService = $this->createMock(StreakAtRiskService::class);
 		$this->taskDueReminderService = $this->createMock(TaskDueReminderService::class);
-		$this->freezeService = $this->createMock(StreakFreezeService::class);
-		$this->restockService = $this->createMock(StreakRestockService::class);
-		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
+		$this->timelineJob = $this->createMock(TimelineJob::class);
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
 
 		$this->command = new TriggerJobs(
 			$this->testDataService,
-			$this->atRiskService,
 			$this->taskDueReminderService,
-			$this->freezeService,
-			$this->restockService,
-			$this->occurrenceService,
+			$this->timelineJob,
 			$this->timeFactory,
 		);
 
@@ -77,21 +68,16 @@ class TriggerJobsTest extends TestCase {
 		$testDataService->method('isTestMode')->willReturn(false);
 		$command = new TriggerJobs(
 			$testDataService,
-			$this->atRiskService,
 			$this->taskDueReminderService,
-			$this->freezeService,
-			$this->restockService,
-			$this->occurrenceService,
+			$this->timelineJob,
 			$this->timeFactory,
 		);
 
-		$this->atRiskService->expects($this->never())->method('process');
 		$this->taskDueReminderService->expects($this->never())->method('process');
-		$this->freezeService->expects($this->never())->method('process');
-		$this->restockService->expects($this->never())->method('process');
+		$this->timelineJob->expects($this->never())->method('reconcileAt');
 
 		$exitCode = $command->run(
-			$this->makeInput('streak-freeze'),
+			$this->makeInput('timeline'),
 			$this->output
 		);
 
@@ -102,17 +88,14 @@ class TriggerJobsTest extends TestCase {
 	/**
 	 * Execute_DispatchesTimelineOnly
 	 *
-	 * CS-PLAN-072 WP1: the deterministic timeline trigger delegates to the
-	 * SAME generator pass the five-minute TimelineJob runs, with the
+	 * The deterministic timeline trigger delegates to the full pass the
+	 * five-minute TimelineJob runs, with the
 	 * --as-of clock substitution (here: the default clock's today).
 	 */
 	public function testExecute_DispatchesTimelineOnly(): void {
-		$this->atRiskService->expects($this->never())->method('process');
-		$this->freezeService->expects($this->never())->method('process');
-		$this->restockService->expects($this->never())->method('process');
-		$this->occurrenceService->expects($this->once())->method('reconcileHouseForJobs')
-			->with($this->callback(static fn (\DateTimeInterface $now): bool => $now->format('Y-m-d') === '2026-08-04'))
-			->willReturn(['houses' => 1, 'tasks' => 3, 'materialized' => 2]);
+		$this->taskDueReminderService->expects($this->never())->method('process');
+		$this->timelineJob->expects($this->once())->method('reconcileAt')
+			->with($this->callback(static fn (\DateTimeInterface $now): bool => $now->format('Y-m-d') === '2026-08-04'));
 
 		$exitCode = $this->command->run(
 			$this->makeInput('timeline'),
@@ -120,20 +103,20 @@ class TriggerJobsTest extends TestCase {
 		);
 
 		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
-		$this->assertStringContainsString('houses=1', implode("\n", $this->outputLines));
+		$this->assertStringContainsString('triggered=1', implode("\n", $this->outputLines));
 	}
 
 	/**
 	 * Execute_RejectsUnknownType
+	 *
+	 * The retired freeze/restock types are no longer valid dispatches.
 	 */
 	public function testExecute_RejectsUnknownType(): void {
-		$this->atRiskService->expects($this->never())->method('process');
 		$this->taskDueReminderService->expects($this->never())->method('process');
-		$this->freezeService->expects($this->never())->method('process');
-		$this->restockService->expects($this->never())->method('process');
+		$this->timelineJob->expects($this->never())->method('reconcileAt');
 
 		$exitCode = $this->command->run(
-			$this->makeInput('bogus-type'),
+			$this->makeInput('streak-freeze'),
 			$this->output
 		);
 
@@ -144,16 +127,13 @@ class TriggerJobsTest extends TestCase {
 	/**
 	 * Execute_DispatchesDailyNotificationOnly
 	 *
-	 * daily-notification covers both daily passes: the streak-at-risk pass
-	 * (yesterday) and the task-due reminder pass (today) — CS-PLAN-030.
+	 * daily-notification is the task-due reminder pass with the injected
+	 * day — the streak-at-risk pass retired with the freeze effects.
 	 */
 	public function testExecute_DispatchesDailyNotificationOnly(): void {
-		$this->atRiskService->expects($this->once())->method('process')
-			->willReturn(['processed' => 0, 'notified' => 0, 'skippedUnavailable' => 0]);
 		$this->taskDueReminderService->expects($this->once())->method('process')
 			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
-		$this->freezeService->expects($this->never())->method('process');
-		$this->restockService->expects($this->never())->method('process');
+		$this->timelineJob->expects($this->never())->method('reconcileAt');
 
 		$exitCode = $this->command->run(
 			$this->makeInput('daily-notification'),
@@ -164,71 +144,18 @@ class TriggerJobsTest extends TestCase {
 	}
 
 	/**
-	 * Execute_DispatchesStreakFreezeOnly
-	 */
-	public function testExecute_DispatchesStreakFreezeOnly(): void {
-		$this->atRiskService->expects($this->never())->method('process');
-		$this->freezeService->expects($this->once())->method('process')
-			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
-		$this->occurrenceService->method('reconcileHouseForJobs')
-			->willReturn(['houses' => 1, 'tasks' => 0, 'materialized' => 0]);
-		$this->restockService->expects($this->never())->method('process');
-
-		$exitCode = $this->command->run(
-			$this->makeInput('streak-freeze'),
-			$this->output
-		);
-
-		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
-	}
-
-	/**
-	 * Execute_DispatchesStreakRestockOnly
-	 *
-	 * The restock pass is time-independent — it is delegated without a date.
-	 */
-	public function testExecute_DispatchesStreakRestockOnly(): void {
-		$this->atRiskService->expects($this->never())->method('process');
-		$this->freezeService->expects($this->never())->method('process');
-		$this->restockService->expects($this->once())->method('process')
-			->willReturn(['processed' => 0, 'freezesPerWeek' => 1, 'cap' => 2]);
-
-		$exitCode = $this->command->run(
-			$this->makeInput('streak-restock'),
-			$this->output
-		);
-
-		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
-	}
-
-	/**
 	 * Execute_AllRunsEachServiceExactlyOnce
-	 *
-	 * `all` runs daily-notification BEFORE streak-freeze so the at-risk
-	 * reminder fires while the streak is still positive (deterministic
-	 * resolution of the 06:00 ordering race noted in appinfo/info.xml).
 	 */
 	public function testExecute_AllRunsEachServiceExactlyOnce(): void {
 		$order = [];
-		$this->atRiskService->expects($this->once())->method('process')
-			->willReturnCallback(function () use (&$order) {
-				$order[] = 'daily-notification';
-				return ['processed' => 0, 'notified' => 0, 'skippedUnavailable' => 0];
-			});
 		$this->taskDueReminderService->expects($this->once())->method('process')
 			->willReturnCallback(function () use (&$order) {
 				$order[] = 'task-due-reminders';
 				return ['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0];
 			});
-		$this->freezeService->expects($this->once())->method('process')
+		$this->timelineJob->expects($this->once())->method('reconcileAt')
 			->willReturnCallback(function () use (&$order) {
-				$order[] = 'streak-freeze';
-				return ['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0];
-			});
-		$this->restockService->expects($this->once())->method('process')
-			->willReturnCallback(function () use (&$order) {
-				$order[] = 'streak-restock';
-				return ['processed' => 0, 'freezesPerWeek' => 1, 'cap' => 2, 'failed' => 0];
+				$order[] = 'timeline';
 			});
 
 		$exitCode = $this->command->run(
@@ -237,28 +164,23 @@ class TriggerJobsTest extends TestCase {
 		);
 
 		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
-		$this->assertSame(['daily-notification', 'task-due-reminders', 'streak-freeze', 'streak-restock'], $order);
+		$this->assertSame(['task-due-reminders', 'timeline'], $order);
 	}
 
 	/**
-	 * Execute_DefaultAsOfDerivesTodayAndYesterdayFromInjectedFactory
+	 * Execute_DefaultAsOfDerivesTodayFromInjectedFactory
 	 *
-	 * Without --as-of the injected clock defines "today" (task-due pass) and
-	 * "yesterday" (streak passes).
+	 * Without --as-of the injected clock defines "today" (task-due and
+	 * timeline passes).
 	 */
-	public function testExecute_DefaultAsOfDerivesTodayAndYesterdayFromInjectedFactory(): void {
+	public function testExecute_DefaultAsOfDerivesTodayFromInjectedFactory(): void {
 		$this->taskDueReminderService->expects($this->once())->method('process')
 			->with($this->callback(function (\DateTimeInterface $today) {
 				return $today->format('Y-m-d') === '2026-08-04';
 			}))
 			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
-		$this->freezeService->expects($this->once())->method('process')
-			->with($this->callback(function (\DateTimeInterface $yesterday) {
-				return $yesterday->format('Y-m-d') === '2026-08-03';
-			}))
-			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
-		$this->occurrenceService->method('reconcileHouseForJobs')
-			->willReturn(['houses' => 1, 'tasks' => 0, 'materialized' => 0]);
+		$this->timelineJob->expects($this->once())->method('reconcileAt')
+			->with($this->callback(static fn (\DateTimeInterface $today): bool => $today->format('Y-m-d') === '2026-08-04'));
 
 		$this->command->run(
 			$this->makeInput('all'),
@@ -267,30 +189,19 @@ class TriggerJobsTest extends TestCase {
 	}
 
 	/**
-	 * Execute_AsOfControlsTodayAndYesterday
+	 * Execute_AsOfControlsToday
 	 *
-	 * --as-of=2026-08-10 makes "yesterday" 2026-08-09 for the streak passes
-	 * and "today" 2026-08-10 for the task-due pass — the E2E seam for
-	 * simulating "N days passed" with zero clock trickery.
+	 * --as-of=2026-08-10 makes "today" 2026-08-10 for both passes — the
+	 * E2E seam for simulating "N days passed" with zero clock trickery.
 	 */
-	public function testExecute_AsOfControlsTodayAndYesterday(): void {
-		$this->atRiskService->expects($this->once())->method('process')
-			->with($this->callback(function (\DateTimeInterface $yesterday) {
-				return $yesterday->format('Y-m-d') === '2026-08-09';
-			}))
-			->willReturn(['processed' => 0, 'notified' => 0, 'skippedUnavailable' => 0]);
+	public function testExecute_AsOfControlsToday(): void {
 		$this->taskDueReminderService->expects($this->once())->method('process')
 			->with($this->callback(function (\DateTimeInterface $today) {
 				return $today->format('Y-m-d') === '2026-08-10';
 			}))
 			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
-		$this->freezeService->expects($this->once())->method('process')
-			->with($this->callback(function (\DateTimeInterface $yesterday) {
-				return $yesterday->format('Y-m-d') === '2026-08-09';
-			}))
-			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
-		$this->occurrenceService->method('reconcileHouseForJobs')
-			->willReturn(['houses' => 1, 'tasks' => 0, 'materialized' => 0]);
+		$this->timelineJob->expects($this->once())->method('reconcileAt')
+			->with($this->callback(static fn (\DateTimeInterface $today): bool => $today->format('Y-m-d') === '2026-08-10'));
 
 		$exitCode = $this->command->run(
 			$this->makeInput('all', ['as-of' => '2026-08-10']),
@@ -304,10 +215,11 @@ class TriggerJobsTest extends TestCase {
 	 * Execute_InvalidAsOfRejected
 	 */
 	public function testExecute_InvalidAsOfRejected(): void {
-		$this->freezeService->expects($this->never())->method('process');
+		$this->taskDueReminderService->expects($this->never())->method('process');
+		$this->timelineJob->expects($this->never())->method('reconcileAt');
 
 		$exitCode = $this->command->run(
-			$this->makeInput('streak-freeze', ['as-of' => 'not-a-date']),
+			$this->makeInput('timeline', ['as-of' => 'not-a-date']),
 			$this->output
 		);
 
@@ -322,13 +234,10 @@ class TriggerJobsTest extends TestCase {
 	 * must say so and still run the full pass (scope documented in the AC).
 	 */
 	public function testExecute_UserOptionLogsNoticeAndRunsFullPass(): void {
-		$this->freezeService->expects($this->once())->method('process')
-			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
-		$this->occurrenceService->method('reconcileHouseForJobs')
-			->willReturn(['houses' => 1, 'tasks' => 0, 'materialized' => 0]);
+		$this->timelineJob->expects($this->once())->method('reconcileAt');
 
 		$exitCode = $this->command->run(
-			$this->makeInput('streak-freeze', ['user' => 'mom']),
+			$this->makeInput('timeline', ['user' => 'mom']),
 			$this->output
 		);
 

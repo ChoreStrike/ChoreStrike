@@ -17,9 +17,6 @@ msgstr ""
 msgid "15-20 energy per day"
 msgstr ""
 
-msgid "2048"
-msgstr ""
-
 msgid "5-8 energy per day"
 msgstr ""
 
@@ -33,6 +30,9 @@ msgid "A %1$s name must not exceed %2$d characters"
 msgstr ""
 
 msgid "A JSON request body is required"
+msgstr ""
+
+msgid "A former member was part of this split — reassign their share. Shares must total exactly 100%."
 msgstr ""
 
 msgid "A house name must be a string"
@@ -111,6 +111,9 @@ msgid "Add your first task to get started"
 msgstr ""
 
 msgid "Adjust"
+msgstr ""
+
+msgid "Adjust who actually did the work. Shares must total exactly 100%."
 msgstr ""
 
 msgid "Admin-only task"
@@ -278,15 +281,6 @@ msgstr ""
 msgid "Bonus freeze earned from combo!"
 msgstr ""
 
-msgid "Boost Shop"
-msgstr ""
-
-msgid "Boost prices could not be loaded. Purchases are disabled."
-msgstr ""
-
-msgid "Boosts"
-msgstr ""
-
 msgid "Boosts used"
 msgstr ""
 
@@ -294,9 +288,6 @@ msgid "Budget Analysis"
 msgstr ""
 
 msgid "Building the plan from your tasks…"
-msgstr ""
-
-msgid "Buy Boosts"
 msgstr ""
 
 msgid "Calendar"
@@ -485,12 +476,6 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-msgid "Coins"
-msgstr ""
-
-msgid "Coins earned!"
-msgstr ""
-
 msgid "Collapse floor"
 msgstr ""
 
@@ -506,6 +491,9 @@ msgstr ""
 msgid "Collect paper, plastic, and glass, sort them into the right bins, and take them out."
 msgstr ""
 
+msgid "Complete"
+msgstr ""
+
 msgid "Complete it today to collect your coins and keep your streak."
 msgstr ""
 
@@ -513,6 +501,9 @@ msgid "Completed"
 msgstr ""
 
 msgid "Completion"
+msgstr ""
+
+msgid "Completion not found"
 msgstr ""
 
 msgid "Configure daily energy budgets for optimal task distribution"
@@ -533,6 +524,12 @@ msgstr ""
 msgid "Contribution"
 msgstr ""
 
+msgid "Correct split"
+msgstr ""
+
+msgid "Correct the work split"
+msgstr ""
+
 msgid "Could not complete the task"
 msgstr ""
 
@@ -542,6 +539,9 @@ msgstr ""
 msgid "Could not load the checklist"
 msgstr ""
 
+msgid "Could not load the completion"
+msgstr ""
+
 msgid "Could not load this room"
 msgstr ""
 
@@ -549,6 +549,9 @@ msgid "Could not load your household"
 msgstr ""
 
 msgid "Could not load your tasks"
+msgstr ""
+
+msgid "Could not save the correction"
 msgstr ""
 
 msgid "Could not save the task"
@@ -573,6 +576,9 @@ msgid "Create your first floor to get started with organizing your home."
 msgstr ""
 
 msgid "Critical! 🚨"
+msgstr ""
+
+msgid "Current split"
 msgstr ""
 
 msgid "Custom"
@@ -830,6 +836,9 @@ msgstr ""
 msgid "Every"
 msgstr ""
 
+msgid "Every participant needs a user id and a whole percent share"
+msgstr ""
+
 msgid "Every {n} days"
 msgstr ""
 
@@ -989,9 +998,6 @@ msgstr ""
 msgid "Flexible scheduling window in days"
 msgstr ""
 
-msgid "Flip cards and match pairs. Train your brain!"
-msgstr ""
-
 msgid "Floor"
 msgstr ""
 
@@ -1037,9 +1043,6 @@ msgstr ""
 msgid "Former member"
 msgstr ""
 
-msgid "Freezes"
-msgstr ""
-
 msgid "Frequency"
 msgstr ""
 
@@ -1056,9 +1059,6 @@ msgid "Friendly competition for a cleaner home"
 msgstr ""
 
 msgid "From template"
-msgstr ""
-
-msgid "Frozen"
 msgstr ""
 
 msgid "Game Over!"
@@ -1107,9 +1107,6 @@ msgid "Heat a bowl of water for two minutes to loosen grime, wipe the interior, 
 msgstr ""
 
 msgid "Heavy Schedule"
-msgstr ""
-
-msgid "Hidden card"
 msgstr ""
 
 msgid "Hide rooms"
@@ -1170,9 +1167,6 @@ msgid "Insights"
 msgstr ""
 
 msgid "Instructions"
-msgstr ""
-
-msgid "Insufficient coins. Need %1$d, have %2$d"
 msgstr ""
 
 msgid "Intelligent task distribution based on member availability and preferences"
@@ -1379,9 +1373,6 @@ msgstr ""
 msgid "Mark as done"
 msgstr ""
 
-msgid "Matched"
-msgstr ""
-
 msgid "Max daily tasks must be an integer between 1 and 100"
 msgstr ""
 
@@ -1398,9 +1389,6 @@ msgid "Member availability updated"
 msgstr ""
 
 msgid "Members"
-msgstr ""
-
-msgid "Memory"
 msgstr ""
 
 msgid "Minimal"
@@ -1442,9 +1430,6 @@ msgstr ""
 msgid "Move small items aside, spray the counters, and wipe them down. Pay attention to corners and the area behind the sink."
 msgstr ""
 
-msgid "Moves"
-msgstr ""
-
 msgid "Moving this task would exceed a daily task limit"
 msgstr ""
 
@@ -1479,9 +1464,6 @@ msgid "New Personal Best!"
 msgstr ""
 
 msgid "New Task"
-msgstr ""
-
-msgid "New game"
 msgstr ""
 
 msgid "New room name"
@@ -1628,6 +1610,9 @@ msgstr ""
 msgid "Only interval work needs an explicit restart"
 msgstr ""
 
+msgid "Only the completer or a house owner can correct a completion"
+msgstr ""
+
 msgid "Only the completer or a house owner can undo a completion"
 msgstr ""
 
@@ -1673,6 +1658,12 @@ msgstr ""
 msgid "Owner role required"
 msgstr ""
 
+msgid "Participants must be house members"
+msgstr ""
+
+msgid "Participants must be unique"
+msgstr ""
+
 msgid "Past latest date"
 msgstr ""
 
@@ -1713,9 +1704,6 @@ msgid "Play"
 msgstr ""
 
 msgid "Play Again"
-msgstr ""
-
-msgid "Play again"
 msgstr ""
 
 msgid "Player"
@@ -1766,9 +1754,6 @@ msgstr ""
 msgid "Pull weeds by the root in the beds and on the balcony, and tidy the edges."
 msgstr ""
 
-msgid "Purchase"
-msgstr ""
-
 msgid "Put everything back in its place."
 msgstr ""
 
@@ -1811,6 +1796,9 @@ msgstr ""
 msgid "Reconnect and try again"
 msgstr ""
 
+msgid "Record the actual work split. Shares must total exactly 100%."
+msgstr ""
+
 msgid "Refresh"
 msgstr ""
 
@@ -1824,9 +1812,6 @@ msgid "Refresh the tile grout."
 msgstr ""
 
 msgid "Reload"
-msgstr ""
-
-msgid "Remaining"
 msgstr ""
 
 msgid "Remove"
@@ -1845,6 +1830,9 @@ msgid "Remove room"
 msgstr ""
 
 msgid "Remove {name} from the house?"
+msgstr ""
+
+msgid "Removed member"
 msgstr ""
 
 msgid "Rename Room"
@@ -1875,6 +1863,18 @@ msgid "Reset all progress and start fresh. This cannot be undone."
 msgstr ""
 
 msgid "Resume"
+msgstr ""
+
+msgid "Review current split"
+msgstr ""
+
+msgid "Rhythm 12"
+msgstr ""
+
+msgid "Rhythm 3"
+msgstr ""
+
+msgid "Rhythm 6"
 msgstr ""
 
 msgid "Role updated for {name}"
@@ -1947,6 +1947,9 @@ msgid "Save Changes"
 msgstr ""
 
 msgid "Save Energy Budget"
+msgstr ""
+
+msgid "Save correction"
 msgstr ""
 
 msgid "Saving..."
@@ -2042,9 +2045,6 @@ msgstr ""
 msgid "Skipped at this level: {templates}"
 msgstr ""
 
-msgid "Slide and merge matching tiles to reach 2048!"
-msgstr ""
-
 msgid "Smart Scheduling"
 msgstr ""
 
@@ -2109,9 +2109,6 @@ msgid "Streak"
 msgstr ""
 
 msgid "Streak Keeper"
-msgstr ""
-
-msgid "Streak protected by a freeze"
 msgstr ""
 
 msgid "Streak protected by freeze! {count} freeze remaining"
@@ -2264,7 +2261,10 @@ msgstr ""
 msgid "The checklist changed since it was displayed. Reload and try again."
 msgstr ""
 
-msgid "The completer is no longer a member of this house"
+msgid "The completer must take part in the work"
+msgstr ""
+
+msgid "The completion changed since it was displayed"
 msgstr ""
 
 msgid "The daily task limit must be between 1 and 100"
@@ -2274,6 +2274,9 @@ msgid "The due day moves."
 msgstr ""
 
 msgid "The house is already set up. Use the per-room template picker instead."
+msgstr ""
+
+msgid "The house state changed since it was displayed"
 msgstr ""
 
 msgid "The pause already covers no later date"
@@ -2313,6 +2316,12 @@ msgid "The schedule preview is no longer current. Generate a new preview."
 msgstr ""
 
 msgid "The selected occurrence is no longer valid"
+msgstr ""
+
+msgid "The share allocation deviates from the agreement and must be confirmed"
+msgstr ""
+
+msgid "The share allocation deviates from the recorded allocation and must be confirmed"
 msgstr ""
 
 msgid "The shortened pause would lose its start date"
@@ -2417,6 +2426,9 @@ msgstr ""
 msgid "Total Rooms"
 msgstr ""
 
+msgid "Total: {total}%"
+msgstr ""
+
 msgid "Try again"
 msgstr ""
 
@@ -2442,9 +2454,6 @@ msgid "Undo"
 msgstr ""
 
 msgid "Unknown Task"
-msgstr ""
-
-msgid "Unknown boost: %1$s"
 msgstr ""
 
 msgid "Unknown field: %1$s"
@@ -2486,9 +2495,6 @@ msgstr ""
 msgid "Use arrow keys or WASD to move"
 msgstr ""
 
-msgid "Use arrow keys or swipe to combine tiles."
-msgstr ""
-
 msgid "User ID is required"
 msgstr ""
 
@@ -2505,9 +2511,6 @@ msgid "User is not eligible for this task: %1$s"
 msgstr ""
 
 msgid "User not found"
-msgstr ""
-
-msgid "User not found in house"
 msgstr ""
 
 msgid "User removed from house"
@@ -2597,6 +2600,9 @@ msgstr ""
 msgid "Weekly Household Goal"
 msgstr ""
 
+msgid "Weekly Milestone"
+msgstr ""
+
 msgid "Weekly goal reached! {percent}% of target {target}%"
 msgstr ""
 
@@ -2607,6 +2613,9 @@ msgid "Welcome to ChoreStrike!"
 msgstr ""
 
 msgid "Where & Who"
+msgstr ""
+
+msgid "Who did the work?"
 msgstr ""
 
 msgid "Wipe down appliances"
@@ -2654,9 +2663,6 @@ msgstr ""
 msgid "You cannot change your own role"
 msgstr ""
 
-msgid "You did not complete any tasks yesterday and have no streak freeze left. Complete a task today to keep your streak alive."
-msgstr ""
-
 msgid "You earned a new medal!"
 msgstr ""
 
@@ -2666,19 +2672,16 @@ msgstr ""
 msgid "You earned the \"%1$s\" medal with a value of %2$d. Keep up the great work!"
 msgstr ""
 
-msgid "You matched them all!"
-msgstr ""
-
 msgid "You reached a new tier (\"%1$s\") in the \"%2$s\" pack. Set it as your title in Settings!"
 msgstr ""
 
 msgid "You unlocked a new title: %1$s"
 msgstr ""
 
-msgid "Your %1$d-day streak is at risk — complete a task today!"
+msgid "Your Best"
 msgstr ""
 
-msgid "Your Best"
+msgid "Your Coins"
 msgstr ""
 
 msgid "Your Rank"
@@ -2688,6 +2691,9 @@ msgid "Your Recent Games"
 msgstr ""
 
 msgid "Your Title"
+msgstr ""
+
+msgid "Your draft"
 msgstr ""
 
 msgid "Your home is set up!"
@@ -2700,6 +2706,9 @@ msgid "Your task \"%1$s\" was taken over by %2$s"
 msgstr ""
 
 msgid "Your task \"{task}\" was taken over by {claimer}"
+msgstr ""
+
+msgid "allocationReviewed must be a boolean"
 msgstr ""
 
 msgid "already scheduled as proposed"
@@ -2718,6 +2727,9 @@ msgid "assigneeUserIds must not contain duplicates"
 msgstr ""
 
 msgid "claimed by someone — resolve the claim first"
+msgstr ""
+
+msgid "cleanlinessChange must be between -100 and 100"
 msgstr ""
 
 msgid "completed"
@@ -2795,6 +2807,12 @@ msgstr ""
 msgid "participants must be a non-empty array"
 msgstr ""
 
+msgid "participants must be a non-empty array of {userId, sharePct}"
+msgstr ""
+
+msgid "participants must be an array of {userId, sharePct}"
+msgstr ""
+
 msgid "participants must not contain duplicates"
 msgstr ""
 
@@ -2802,6 +2820,9 @@ msgid "previewVersion is required"
 msgstr ""
 
 msgid "pts"
+msgstr ""
+
+msgid "reasonCode must be a string of at most 64 characters"
 msgstr ""
 
 msgid "roomId is required"
@@ -2852,13 +2873,13 @@ msgstr ""
 msgid "the chosen day is not allowed for this task"
 msgstr ""
 
-msgid "titles.cozy_home.cozy_buddy"
+msgid "titles.family_rhythm.rhythm_12"
 msgstr ""
 
-msgid "titles.cozy_home.home_guardian"
+msgid "titles.family_rhythm.rhythm_3"
 msgstr ""
 
-msgid "titles.cozy_home.room_ranger"
+msgid "titles.family_rhythm.rhythm_6"
 msgstr ""
 
 msgid "titles.home_helpers.care_captain"
@@ -2870,7 +2891,7 @@ msgstr ""
 msgid "titles.home_helpers.organizer"
 msgstr ""
 
-msgid "titles.pack.cozy_home"
+msgid "titles.pack.family_rhythm"
 msgstr ""
 
 msgid "titles.pack.home_helpers"
@@ -2895,6 +2916,9 @@ msgid "total energy/week"
 msgstr ""
 
 msgid "unassigned"
+msgstr ""
+
+msgid "undid a completion of"
 msgstr ""
 
 msgid "week"

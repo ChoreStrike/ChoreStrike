@@ -8,16 +8,20 @@
     "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > the wizard completes on a mobile touch viewport with keyboard-reachable controls (CS-PLAN-066 §3.5)"
   ],
   "task-completion-full-flow.spec.ts": [
-    "task-completion-full-flow.spec.ts > Task Completion Full Flow > complete task shows rewards feedback and updates the score exactly",
+    "task-completion-full-flow.spec.ts > Task Completion Full Flow > complete task shows rewards feedback and updates the wallet exactly",
     "task-completion-full-flow.spec.ts > Task Completion Full Flow > complete → undo restores the exact state, stable across reload (CS-PLAN-064)",
     "task-completion-full-flow.spec.ts > Task Completion Full Flow > completed task shows completed checkmark instead of button",
-    "task-completion-full-flow.spec.ts > Task Completion Full Flow > completing multiple tasks triggers the combo reward",
+    "task-completion-full-flow.spec.ts > Task Completion Full Flow > completing multiple tasks books every receipt (combo retired)",
     "task-completion-full-flow.spec.ts > Task Completion Full Flow > task completion updates room cleanliness by the exact delta"
   ],
   "insights-flow.spec.ts": [
+    "insights-flow.spec.ts > Release: Insights Flow > a concurrent correction requires explicit review before resubmission and history can undo it",
+    "insights-flow.spec.ts > Release: Insights Flow > a lost attribution response replays the same correction after a completion refetch",
     "insights-flow.spec.ts > Release: Insights Flow > insights renders stats cards, fairness table, and activity feed",
     "insights-flow.spec.ts > Release: Insights Flow > navigation exposes the insights entry between leaderboard and scheduling",
-    "insights-flow.spec.ts > Release: Insights Flow > overcapacity warning appears when a day exceeds its capacity"
+    "insights-flow.spec.ts > Release: Insights Flow > overcapacity warning appears when a day exceeds its capacity",
+    "insights-flow.spec.ts > Release: Insights Flow > owner corrects a recorded work split from the activity history (WP3 §3.6)",
+    "insights-flow.spec.ts > Release: Insights Flow > the caller wallet reads its exact minor-unit balance after a dashboard reload"
   ],
   "family-core-ux.spec.ts": [
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > child: My Day hides manage controls and executes the checklist read-only (D4)",
@@ -140,12 +144,8 @@
     "time-travel-overdue.spec.ts > Time-Travel: overdue via seeded past due-date > overdue endpoint returns the seeded overdue task",
     "time-travel-overdue.spec.ts > Time-Travel: overdue via seeded past due-date > seeded overdue task carries overdue semantics against the real clock"
   ],
-  "time-travel-streak-notification.spec.ts": [
-    "time-travel-streak-notification.spec.ts > Time-Travel: streak freeze + at-risk notification > seeded mom starts with a live streak and zero freezes",
-    "time-travel-streak-notification.spec.ts > Time-Travel: streak freeze + at-risk notification > trigger-jobs --as-of consumes the streak and delivers the at-risk notification"
-  ],
   "release-task-lifecycle.spec.ts": [
-    "release-task-lifecycle.spec.ts > Release: Task Lifecycle > completing then undoing restores the room task (one undo aggregate)",
+    "release-task-lifecycle.spec.ts > Release: Task Lifecycle > completing then undoing restores the room task (targeted correction)",
     "release-task-lifecycle.spec.ts > Release: Task Lifecycle > updating the due date persists the requested day"
   ],
   "release-visibility-roles.spec.ts": [
@@ -156,9 +156,6 @@
     "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > a room type exposes the templates that apply to it",
     "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > creating a room task from a template succeeds",
     "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > setup catalog returns levels, room types, and templates"
-  ],
-  "release-boost-shop.spec.ts": [
-    "release-boost-shop.spec.ts > Release: Boost Shop & Coin Ledger > boost catalogue is priced; purchase deducts coins; insufficient is rejected"
   ],
   "release-notifications.spec.ts": [
     "release-notifications.spec.ts > Release: Notifications — weekly goal > reaching the weekly goal delivers a de-duped bell notification"
@@ -301,13 +298,11 @@
   ],
   "snake-game.spec.ts": [
     "snake-game.spec.ts > Snake Arcade Game > Arcade section is visible on dashboard",
-    "snake-game.spec.ts > Snake Arcade Game > Boost shop can be opened from start screen",
-    "snake-game.spec.ts > Snake Arcade Game > Coins balance is displayed in arcade header",
-    "snake-game.spec.ts > Snake Arcade Game > Game over screen shows score and sparks earned",
+    "snake-game.spec.ts > Snake Arcade Game > Game over screen shows the score (no coin outputs)",
     "snake-game.spec.ts > Snake Arcade Game > Leaderboard can be opened from arcade section",
     "snake-game.spec.ts > Snake Arcade Game > Leaderboard tabs switch between all-time and weekly",
     "snake-game.spec.ts > Snake Arcade Game > Mobile controls are visible on touch devices",
-    "snake-game.spec.ts > Snake Arcade Game > No active boosts displayed without purchase",
+    "snake-game.spec.ts > Snake Arcade Game > No boost surfaces remain after the cutover",
     "snake-game.spec.ts > Snake Arcade Game > User can control snake with keyboard",
     "snake-game.spec.ts > Snake Arcade Game > User can pause and resume game",
     "snake-game.spec.ts > Snake Arcade Game > User can play again after game over",
@@ -329,11 +324,6 @@
     "task-manager.spec.ts > Task Manager > User can filter tasks by status",
     "task-manager.spec.ts > Task Manager > User can open add task modal from Task Manager",
     "task-manager.spec.ts > Task Manager > User can search for tasks"
-  ],
-  "teamwork-rewards.spec.ts": [
-    "teamwork-rewards.spec.ts > Teamwork Rewards > completing multi-assign task returns teamwork bonus via API",
-    "teamwork-rewards.spec.ts > Teamwork Rewards > multi-assign task shows teamwork bonus hint",
-    "teamwork-rewards.spec.ts > Teamwork Rewards > single-assign task has no teamwork bonus"
   ],
   "title-selection.spec.ts": [
     "title-selection.spec.ts > Role Title System > Opening the picker shows all three packs",

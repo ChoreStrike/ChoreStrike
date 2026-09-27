@@ -39,18 +39,30 @@ is **delivered** — final Standard B `PASS-WITH-FIXES` 2026-09-23, plan in
 (activated 2026-09-23 via Standard A `PASS-WITH-FIXES`; Q-073-01/02/03 resolved
 with the recommended options), is **delivered** — final Standard B
 `PASS-WITH-FIXES` 2026-09-25 after the R0-R8 fix round resolved RF-073-WP2-23..28
-with maintained regressions; plan in `done/`. Implementation history, the
+with maintained regressions; plan in `done/`. Its WP3 child
+[CS-PLAN-074: WP3 - Work Accounting and Replay](done/cs-plan-074-wp3-work-accounting-and-replay.md)
+(Standard A `PASS` 2026-09-25 with the Q-074-01 Option A correction-closure
+slice and Q-074-02 Option A false-attribution authority; actual shares, exact
+minor-unit wallet ledger, targeted undo/attribution, room journal/replay,
+recognition correction closure, no-Coin arcade, ADR-014)
+is **delivered** — final Standard B re-review `PASS-WITH-FIXES` 2026-09-27
+after the fix round resolved RF-074-WP3-01..10; plan in `done/`, CR-SVC-63
+closed. Implementation history, the
 blocked first final-review attempt and the original manifest are recorded in the
-[review record](../backlog/archive/CODE_REVIEW_2026-09-25.md).
+[review record](../backlog/archive/CODE_REVIEW_2026-09-25.md); the WP3 records
+live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
-Active: [CS-PLAN-074: WP3 - Work Accounting and Replay](active/cs-plan-074-wp3-work-accounting-and-replay.md)
-(Standard A `PASS` 2026-09-25; Q-074-01/02 resolved with Option A each — the
-minimum correction-closure slice, its coupled legacy-effect retirement and T5
-are committed WP3 scope). Covers actual work shares, exact wallet accounting,
-targeted correction, room replay/reset and the necessary client/no-Coin arcade
-cutover. Implementation has not started.
+Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+(parent plan; WP0-WP3 delivered, WP4 rhythm/goals/ranking is the next package).
 
-Latest completed: [CS-PLAN-073 — WP2: Agreements, Capacity and Pauses](done/cs-plan-073-wp2-agreements-capacity-pauses.md)
+Latest completed: [CS-PLAN-074 — WP3: Work Accounting and Replay](done/cs-plan-074-wp3-work-accounting-and-replay.md)
+(final Standard B re-review `PASS-WITH-FIXES` 2026-09-27 after the
+NEEDS-FOLLOW-UP fix round resolved RF-074-WP3-01..10; ADR-014 recorded,
+CR-SVC-63 closed). Covers actual work shares, the exact minor-unit wallet
+ledger, targeted undo/attribution, room journal/replay, the Q-074-01A
+recognition correction closure and the client/no-Coin arcade cutover.
+Review record: [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md). Preceded by
+[CS-PLAN-073 — WP2: Agreements, Capacity and Pauses](done/cs-plan-073-wp2-agreements-capacity-pauses.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-25), preceded by
 [CS-PLAN-072 — WP1: Occurrence Timeline](done/cs-plan-072-wp1-occurrence-timeline.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-23),

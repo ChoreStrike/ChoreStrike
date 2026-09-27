@@ -57,11 +57,19 @@ return [
         ['name' => 'room_task#assignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#setAssignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         // CS-PLAN-064 WP5: the one idempotent undo aggregate (decision D5)
-        // — replaces the pruned task#uncomplete + room_task#reactivate
-        // split chain.
-        ['name' => 'room_task#undo', 'url' => '/api/v1/room-tasks/{id}/undo', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        // — replaced by the WP3 targeted completion correction: undo runs
+        // exclusively through POST /completions/{id}/undo (exact
+        // completion targeting; the latest-by-room-task route is gone
+        // without a compatibility alias).
         ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET', 'requirements' => ['roomId' => '\d+']],
+
+        // Completion correction API (CS-PLAN-070 WP3 §3.6): versioned,
+        // receipt-protected reads of one completion and targeted undo /
+        // attribution — the exact correction contract (C3e/C3f).
+        ['name' => 'completion#show', 'url' => '/api/v1/completions/{id}', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
+        ['name' => 'completion#undo', 'url' => '/api/v1/completions/{id}/undo', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'completion#attribute', 'url' => '/api/v1/completions/{id}/attribution', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
 
         // Pruned 2026-08-21 (CS-PLAN-040): `userTasks` read only the legacy
         // single-assignee column (misleading since multi-assignee) and
@@ -161,9 +169,9 @@ return [
         ['name' => 'minigame#personalBest', 'url' => '/api/v1/minigames/{gameId}/personal-best', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
         ['name' => 'minigame#userRank', 'url' => '/api/v1/minigames/{gameId}/rank', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
         ['name' => 'minigame#recentScores', 'url' => '/api/v1/minigames/{gameId}/recent', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
-        ['name' => 'minigame#boosts', 'url' => '/api/v1/minigames/boosts', 'verb' => 'GET'],
-        ['name' => 'minigame#purchaseBoost', 'url' => '/api/v1/minigames/boosts/{boostId}/purchase', 'verb' => 'POST', 'requirements' => ['boostId' => '[a-z0-9_]+']],
-        ['name' => 'minigame#coins', 'url' => '/api/v1/minigames/coins', 'verb' => 'GET'],
+        // CS-PLAN-070 WP3 (T10/D7d): the boost catalog/purchase and Coin
+        // balance routes are removed — the arcade is scores-only and never
+        // touches the family wallet.
 
         // Reward Config API — removed (CS-PLAN-055): `reward_config#index` /
         // `reward_config#update` had no production consumer; the two E2E

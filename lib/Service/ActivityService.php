@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -43,6 +44,7 @@ class ActivityService {
 	private HouseUserMapper $houseUserMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private TaskAccessPolicy $taskAccessPolicy;
+	private WorkShareMapper $workShareMapper;
 	private IL10N $l10n;
 
 	public function __construct(
@@ -53,6 +55,7 @@ class ActivityService {
 		HouseUserMapper $houseUserMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		TaskAccessPolicy $taskAccessPolicy,
+		WorkShareMapper $workShareMapper,
 		IL10N $l10n,
 	) {
 		$this->completedTaskMapper = $completedTaskMapper;
@@ -62,6 +65,7 @@ class ActivityService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->taskAccessPolicy = $taskAccessPolicy;
+		$this->workShareMapper = $workShareMapper;
 		$this->l10n = $l10n;
 	}
 
@@ -69,10 +73,9 @@ class ActivityService {
 	 * Get the house's completion activity for a period.
 	 *
 	 * Rows stay house-scoped (decision D9), but task CONTENT of tasks the
-	 * viewer cannot see is redacted (CS-PLAN-061 review fix): the title and
-	 * energy of invisible private/admin-only tasks are nulled so the feed
-	 * cannot leak their names — the row itself (who completed when, coins)
-	 * remains as the household aggregate.
+	 * viewer cannot see is redacted: task title, energy and selected work
+	 * allocation of invisible private/admin-only tasks are withheld; the
+	 * row itself (who completed when) remains as the household aggregate.
 	 *
 	 * @param int $houseId The house ID
 	 * @param int $days Period length in days, clamped to [1, 90] (default 30)
@@ -159,13 +162,34 @@ class ActivityService {
 
 		// Houses are small — one membership fetch covers every completer.
 		$membersById = [];
+		$membersByWalletId = [];
 		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
 			$membersById[$member->getId()] = $member;
+			if ($member->getWalletId() !== null) {
+				$membersByWalletId[$member->getWalletId()] = $member;
+			}
 		}
+		$sharesByCompletion = $this->workShareMapper->findSelectedByCompletionIds(array_map(
+			static fn (CompletedTask $completion): int => (int)$completion->getId(),
+			$completions
+		));
 
 		$items = [];
 		foreach ($completions as $completion) {
-			$items[] = $this->serializeCompletion($completion, $roomTasksById, $tasksById, $roomsById, $membersById, $visibleTaskIds);
+			$item = $this->serializeCompletion($completion, $roomTasksById, $tasksById, $roomsById, $membersById, $visibleTaskIds, $viewer);
+			$item['allocation'] = [];
+			if ($item['totalEnergy'] !== null) {
+				foreach ($sharesByCompletion[$completion->getId()] ?? [] as $share) {
+					$shareMember = $membersByWalletId[$share->getWalletId()] ?? null;
+					$item['allocation'][] = [
+						'userId' => $shareMember?->getNextcloudUserId(),
+						'displayName' => $shareMember?->getDisplayName() ?? $this->l10n->t('Former member'),
+						'sharePct' => $share->getSharePct(),
+						'energyMinor' => $share->getEnergyMinor(),
+					];
+				}
+			}
+			$items[] = $item;
 		}
 
 		return $items;
@@ -177,6 +201,10 @@ class ActivityService {
 	 * invisible tasks redact to null (the UI renders its "Unknown task"
 	 * fallback), so the house-wide feed cannot leak private task names.
 	 *
+	 * WP3 shape: stable completion id + occurrence key, frozen total
+	 * effort, versioned correction state; `wasCombo` and live-definition
+	 * effort are gone.
+	 *
 	 * @param array<int, bool> $visibleTaskIds Task ids visible to the viewer
 	 * @return array<string, mixed>
 	 */
@@ -187,6 +215,7 @@ class ActivityService {
 		array $roomsById,
 		array $membersById,
 		array $visibleTaskIds,
+		HouseUser $viewer,
 	): array {
 		$roomTask = $roomTasksById[$completion->getRoomTaskId()] ?? null;
 		$task = $roomTask !== null ? ($tasksById[$roomTask->getTaskId()] ?? null) : null;
@@ -201,12 +230,16 @@ class ActivityService {
 
 		return [
 			'id' => $completion->getId(),
+			'occurrenceId' => $completion->getScheduleRevId() !== null && $completion->getOccurrenceOrdinal() !== null
+				? $completion->getScheduleRevId() . ':' . $completion->getOccurrenceOrdinal()
+				: null,
 			'completedAt' => $completion->getCompletedAt()?->format('c'),
-			'wasCombo' => $completion->getWasCombo(),
-			// Reward fields from CompletedTask (the never-written legacy
-			// sync-bookkeeping columns were dropped with the WP5 effect
-			// record, CS-PLAN-064).
-			'coinsEarned' => $completion->getCoinsEarned(),
+			// Frozen original work (server-owned); never the mutable
+			// live-definition energy.
+			'totalEnergy' => $taskVisible ? $completion->getTotalEnergy() : null,
+			'version' => $completion->getCompletionVersion(),
+			'allocationRevision' => $completion->getAllocationRevision(),
+			'undoneAt' => $completion->getUndoneAt()?->format('c'),
 			'houseUserId' => $completion->getUserId(),
 			'displayName' => $actorDisplayName,
 			'taskId' => $task?->getId(),
@@ -214,6 +247,14 @@ class ActivityService {
 			'energyCost' => $taskVisible ? $task->getEnergyCost() : null,
 			'roomId' => $room?->getId(),
 			'roomName' => $room?->getName(),
+			// Viewer-scoped correction authority (WP3 §3.6): the completer
+			// or a house owner may correct a still-valid completion — the
+			// history UI exposes the correction action from this flag.
+			'canCorrect' => $taskVisible && $completion->getUndoneAt() === null
+				&& ($viewer->isOwner() || (
+					$completion->getUserId() !== null
+					&& (int)$viewer->getId() === (int)$completion->getUserId()
+				)),
 		];
 	}
 }

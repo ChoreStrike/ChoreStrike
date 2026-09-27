@@ -11,11 +11,7 @@
 				<th data-testid="header-contribution">
 					{{ t('chorestrike', 'Contribution') }}
 				</th>
-				<th data-testid="header-coins">
-					{{ t('chorestrike', 'Coins') }}
-				</th>
 				<th>{{ t('chorestrike', 'Streak') }}</th>
-				<th>{{ t('chorestrike', 'Freezes') }}</th>
 				<th data-testid="header-load">
 					{{ t('chorestrike', 'Load') }}
 				</th>
@@ -29,27 +25,12 @@
 				data-testid="fairness-row">
 				<td class="member-cell">
 					<span class="member-name">{{ row.displayName }}</span>
-					<span
-						v-if="row.frozenToday"
-						class="freeze-badge active-freeze"
-						data-testid="active-freeze-badge"
-						:title="t('chorestrike', 'Streak protected by a freeze')">
-						❄ {{ t('chorestrike', 'Frozen') }}
-					</span>
 				</td>
 				<td class="numeric" :data-testid="`contribution-${row.id}`">
-					{{ formatNumber(row.contributionScore) }}
-				</td>
-				<!-- Coins stay a SEPARATE column — contribution and coins must
-				     never be merged into one metric (energy-and-balancing.md). -->
-				<td class="numeric coins" :data-testid="`coins-${row.id}`">
-					{{ formatNumber(row.coins) }}
+					{{ formatMinor(row.contributionMinor) }}
 				</td>
 				<td class="numeric">
 					{{ row.currentStreak }}
-				</td>
-				<td class="numeric freeze-count" :data-testid="`freezes-${row.id}`">
-					❄ {{ row.streakFreezes }}
 				</td>
 				<td class="load-cell" :data-testid="`load-${row.id}`">
 					<div class="load-bar" :class="{ over: row.loadRatio > 1 }">
@@ -63,7 +44,12 @@
 </template>
 
 <script>
+// CS-PLAN-070 WP3 cutover: the Coin column, freeze columns and freeze badge
+// are gone — money is the wallet (caller-safe own block only, never a
+// foreign balance in member DTOs) and dated pauses replaced freezes. The
+// exact contributionMinor is the work evidence (100 = 1 energy).
 import { translate as t } from '@nextcloud/l10n'
+import { formatMinor } from '../../utils/minorUnits.js'
 import { WEEKDAY_KEYS, resolveEnergyForDay } from '../../utils/energyBudgets.js'
 
 export default {
@@ -83,10 +69,6 @@ export default {
 
 	computed: {
 		rows() {
-			const yesterday = new Date()
-			yesterday.setDate(yesterday.getDate() - 1)
-			const yesterdayKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
-
 			return this.members.map(member => {
 				const preferences = member.schedulingPreferences || {}
 				const budgets = preferences.energyBudget || {}
@@ -100,23 +82,11 @@ export default {
 
 				const completedEnergy = this.completedEnergyByUser[member.id] ?? 0
 
-				// "Frozen" display rule: badge only when the last consumption
-				// was yesterday (server-timezone-normalized dates).
-				let frozenToday = false
-				if (member.lastFreezeDate) {
-					const freezeDate = new Date(member.lastFreezeDate)
-					const freezeKey = `${freezeDate.getFullYear()}-${String(freezeDate.getMonth() + 1).padStart(2, '0')}-${String(freezeDate.getDate()).padStart(2, '0')}`
-					frozenToday = freezeKey === yesterdayKey
-				}
-
 				return {
 					id: member.id,
 					displayName: member.displayName || member.nextcloudUserId,
-					contributionScore: member.contributionScore ?? 0,
-					coins: member.coins ?? 0,
+					contributionMinor: member.contributionMinor ?? 0,
 					currentStreak: member.currentStreak ?? 0,
-					streakFreezes: member.streakFreezes ?? 0,
-					frozenToday,
 					completedEnergy,
 					weeklyCapacity,
 					loadRatio: weeklyCapacity > 0 ? completedEnergy / weeklyCapacity : 0,
@@ -127,6 +97,7 @@ export default {
 
 	methods: {
 		t,
+		formatMinor,
 
 		formatNumber(value) {
 			return value?.toLocaleString() || '0'
@@ -171,20 +142,6 @@ export default {
 	color: var(--color-main-text);
 }
 
-.freeze-badge.active-freeze {
-	font-size: 0.75rem;
-	color: #4fc3f7;
-}
-
-.freeze-count {
-	color: #4fc3f7;
-}
-
-.coins {
-	font-weight: 600;
-	color: var(--color-warning, #f39c12);
-}
-
 .fairness-row td {
 	border-bottom: 1px solid var(--color-border);
 }
@@ -216,14 +173,5 @@ export default {
 .load-label {
 	font-size: 0.8rem;
 	color: var(--color-text-maxcontrast);
-}
-
-@media (max-width: 768px) {
-	.fairness-header th:nth-child(4),
-	.fairness-header th:nth-child(5),
-	.numeric:nth-child(4),
-	.numeric:nth-child(5) {
-		display: none;
-	}
 }
 </style>

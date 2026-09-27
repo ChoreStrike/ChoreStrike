@@ -13,6 +13,8 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -41,6 +43,8 @@ class RoomTaskReadServiceTest extends TestCase {
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
 	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
+	private HouseUserMapper|MockObject $houseUserMapper;
+	private OccurrenceMemberMapper|MockObject $occMemberMapper;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -51,6 +55,8 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
+		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->occMemberMapper = $this->createMock(OccurrenceMemberMapper::class);
 
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
@@ -67,6 +73,9 @@ class RoomTaskReadServiceTest extends TestCase {
 			new CalendarService(),
 			$this->occurrenceService,
 			$this->createMock(\OCA\ChoreStrike\Service\PauseProjectionService::class),
+			$this->houseUserMapper,
+			$this->occMemberMapper,
+			new \OCA\ChoreStrike\Service\EffortAllocationService(),
 			$this->createIdentityL10n()
 		);
 	}
@@ -442,5 +451,143 @@ class RoomTaskReadServiceTest extends TestCase {
 
 		$this->assertSame(['alice'], $result[1]);
 		$this->assertSame([], $result[2]);
+	}
+
+	// ------------------------------------------------------------------
+	// Actual-work proposal blocks (WP3 §3.6, RF-074-03)
+	// ------------------------------------------------------------------
+
+	/**
+	 * The shared member/wallet fixtures for the proposal tests.
+	 * @return list<HouseUser>
+	 */
+	private function proposalMembers(): array {
+		$dad = new HouseUser();
+		$dad->setId(11);
+		$dad->setNextcloudUserId('dad');
+		$dad->setWalletId(101);
+		$mom = new HouseUser();
+		$mom->setId(12);
+		$mom->setNextcloudUserId('mom');
+		$mom->setWalletId(102);
+		return [$dad, $mom];
+	}
+
+	private function proposalOccurrence(int $id): \OCA\ChoreStrike\Db\Occurrence {
+		$occurrence = new \OCA\ChoreStrike\Db\Occurrence();
+		$occurrence->setId($id);
+		$occurrence->setScheduleRevId(3);
+		$occurrence->setOrdinal(7);
+		return $occurrence;
+	}
+
+	private function proposalSelection(\OCA\ChoreStrike\Db\Occurrence $occurrence): array {
+		$revision = new \OCA\ChoreStrike\Db\ScheduleRevision();
+		$revision->setId((int)$occurrence->getScheduleRevId());
+		return ['occurrence' => $occurrence, 'revision' => $revision, 'classification' => 'agreed'];
+	}
+
+	/**
+	 * WithOccurrenceBlocks_AgreementShares_ExposeTheEffectiveProposal
+	 *
+	 * The dialog preview must show the agreed occurrence member shares —
+	 * exactly what a participant-less completion would credit (shared
+	 * derivation with CompletionService, RF-074-03).
+	 */
+	public function testWithOccurrenceBlocks_AgreementShares_ExposeTheEffectiveProposal(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$occurrence = $this->proposalOccurrence(50);
+
+		$this->occurrenceService->method('selectionsForHouseTasks')
+			->willReturn([1 => $this->proposalSelection($occurrence)]);
+		$this->occurrenceService->method('occurrenceBlock')->willReturn(['occurrenceId' => '3:7']);
+		$this->houseUserMapper->method('findByHouseId')->willReturn($this->proposalMembers());
+
+		$memberRow = new \OCA\ChoreStrike\Db\OccurrenceMember();
+		$memberRow->setOccurrenceId(50);
+		$memberRow->setWalletId(101);
+		$memberRow->setSharePct(70);
+		$memberRow->setDisposition(\OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_ACTIVE);
+		$withdrawn = new \OCA\ChoreStrike\Db\OccurrenceMember();
+		$withdrawn->setOccurrenceId(50);
+		$withdrawn->setWalletId(102);
+		$withdrawn->setSharePct(30);
+		$withdrawn->setDisposition(\OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_RELEASED);
+		$this->occMemberMapper->method('findByOccurrenceIds')->willReturn([50 => [$memberRow, $withdrawn]]);
+
+		$rows = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1);
+
+		$proposal = $rows[0]['proposal'];
+		$this->assertSame('3:7', $proposal['occurrenceId']);
+		$this->assertSame('agreement', $proposal['basis']);
+		// Only the ACTIVE member share — a withdrawn row is not proposed.
+		$this->assertSame([['userId' => 'dad', 'sharePct' => 70]], $proposal['participants']);
+	}
+
+	/**
+	 * WithOccurrenceBlocks_NoAgreement_EqualWalletOrderAssigneeProposal
+	 */
+	public function testWithOccurrenceBlocks_NoAgreement_EqualWalletOrderAssigneeProposal(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$occurrence = $this->proposalOccurrence(51);
+
+		$this->occurrenceService->method('selectionsForHouseTasks')
+			->willReturn([1 => $this->proposalSelection($occurrence)]);
+		$this->occurrenceService->method('occurrenceBlock')->willReturn(['occurrenceId' => '3:7']);
+		$this->houseUserMapper->method('findByHouseId')->willReturn($this->proposalMembers());
+		$this->occMemberMapper->method('findByOccurrenceIds')->willReturn([]);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturn([1 => ['dad', 'mom']]);
+
+		$rows = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1);
+
+		$proposal = $rows[0]['proposal'];
+		$this->assertSame('assignees', $proposal['basis']);
+		// Equal split via immutable wallet order (101 before 102).
+		$this->assertSame([
+			['userId' => 'dad', 'sharePct' => 50],
+			['userId' => 'mom', 'sharePct' => 50],
+		], $proposal['participants']);
+	}
+
+	/**
+	 * WithOccurrenceBlocks_UnassignedSoloWork_NoServerGuess
+	 */
+	public function testWithOccurrenceBlocks_UnassignedSoloWork_NoServerGuess(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$occurrence = $this->proposalOccurrence(52);
+
+		$this->occurrenceService->method('selectionsForHouseTasks')
+			->willReturn([1 => $this->proposalSelection($occurrence)]);
+		$this->occurrenceService->method('occurrenceBlock')->willReturn(['occurrenceId' => '3:7']);
+		$this->houseUserMapper->method('findByHouseId')->willReturn($this->proposalMembers());
+		$this->occMemberMapper->method('findByOccurrenceIds')->willReturn([]);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturn([1 => []]);
+
+		$rows = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1);
+
+		$proposal = $rows[0]['proposal'];
+		$this->assertSame('solo', $proposal['basis']);
+		$this->assertSame([], $proposal['participants']);
+	}
+
+	/**
+	 * WithOccurrenceBlocks_NoSelectableTarget_PropIsNull
+	 */
+	public function testWithOccurrenceBlocks_NoSelectableTarget_PropIsNull(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+
+		$this->occurrenceService->method('selectionsForHouseTasks')
+			->willReturn([1 => null]);
+		// No batched proposal reads fire without a target.
+		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
+		$this->occMemberMapper->expects($this->never())->method('findByOccurrenceIds');
+
+		$rows = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1);
+
+		$this->assertNull($rows[0]['proposal']);
 	}
 }

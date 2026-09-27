@@ -53,4 +53,28 @@ class WalletEntryMapper extends QBMapper {
 			->where($qb->expr()->in('wallet_id', $qb->createNamedParameter($walletIds, IQueryBuilder::PARAM_INT_ARRAY)))
 			->executeStatement();
 	}
+
+	/**
+	 * Keep other participants' ledger facts while detaching the erased actor.
+	 */
+	public function anonymizeActor(int $houseUserId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('actor_house_user_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+			->where($qb->expr()->eq('actor_house_user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
+
+	/**
+	 * Detach an actor even after their membership row was removed on departure.
+	 * The credit/debit itself stays in every other participant's wallet.
+	 */
+	public function anonymizeActorWallet(int $walletId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('actor_house_user_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+			->set('actor_wallet_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+			->where($qb->expr()->eq('actor_wallet_id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
 }

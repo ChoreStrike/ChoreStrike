@@ -45,7 +45,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 
 - [`concepts/product-vision.md`](concepts/product-vision.md) — product intent and positioning
 - [Family rhythm and reward clarification](plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md) - active program; WP0 delivered, [WP1 occurrence timeline](plans/done/cs-plan-072-wp1-occurrence-timeline.md) delivered, [WP2 agreements/capacity/pauses](plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) delivered (final Standard B `PASS-WITH-FIXES` 2026-09-25). Implementation history and review records: [CODE_REVIEW_2026-09-25.md](backlog/archive/CODE_REVIEW_2026-09-25.md).
-- [WP3 work accounting and replay](plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) - active (Standard A `PASS` 2026-09-25; Q-074-01/02 resolved, correction-closure slice committed): actual shares, exact Coins, targeted correction, room history and minimal client cutover; implementation not started.
+- [WP3 work accounting and replay](plans/done/cs-plan-074-wp3-work-accounting-and-replay.md) - **delivered** (final Standard B re-review `PASS-WITH-FIXES` 2026-09-27, plan in `done/`; ADR-014, CR-SVC-63 closed): actual shares, exact minor-unit Coins, targeted correction, room journal/replay and minimal client cutover.
 - [`concepts/design.md`](concepts/design.md) — foundational concept & UX design document
 - [`concepts/ui-use-cases.md`](concepts/ui-use-cases.md) — use-case/workflow inventory of required GUI elements & actions (with endpoint + status mapping)
 - [`concepts/gamification-and-rewards.md`](concepts/gamification-and-rewards.md) — reward model and motivation design

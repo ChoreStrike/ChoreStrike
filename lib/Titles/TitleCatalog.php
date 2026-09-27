@@ -11,39 +11,39 @@ namespace OCA\ChoreStrike\Titles;
 use OCA\ChoreStrike\Db\HouseUser;
 
 /**
- * Code-defined catalog of role-title packs and tiers (CS-PLAN-006).
+ * Code-defined catalog of role-title packs and tiers (CS-PLAN-006; WP3
+ * cutover per CS-PLAN-070 D7c/C3d).
  *
  * Pure constants — no DB, no DI. Three packs × three tiers = 9 titles.
- * Each pack is themed around a different progression signal so players with
- * different playstyles find a track that matches what they actually do:
+ * Each pack is themed around a different progression signal:
  *
- *  - Home Helpers  → contributionScore (total energy spent)
- *  - Team Energy   → longestStreak     (dependability)
- *  - Cozy Home     → coins             (household contribution)
+ *  - Home Helpers  → contributionMinor (exact work minor units)
+ *  - Team Energy   → longestStreak     (dependability record)
+ *  - Family Rhythm → currentStreak     (retained 3/6/12 rhythm tiers)
  *
- * Thresholds here are *defaults*. `RewardConfigService` overrides them
- * instance-wide via the `title_threshold_{pack}_{tier}` keys (one per tier, 9
- * total) so admins can tune difficulty without a code change. The
- * `RewardConfigService::getTitleThreshold()` getter falls back to the
- * catalog default when no override is stored.
+ * The former coins-driven Cozy Home pack is retired with the wallet
+ * cutover (C3d: no wallet-qualified titles); the rhythm tiers take its
+ * slot as the retained-recognition track. Thresholds here are *defaults*;
+ * `RewardConfigService` overrides them instance-wide via the
+ * `title_threshold_{pack}_{tier}` keys.
  *
  * Thresholds in a pack MUST be strictly ascending (tier 1 < tier 2 < tier 3)
  * — {@see self::isValidCatalog()} enforces this for the test suite.
  */
 class TitleCatalog {
-	/** Pack key: consistency / breadth — driven by contributionScore. */
+	/** Pack key: consistency / breadth — driven by contributionMinor. */
 	public const PACK_HOME_HELPERS = 'home_helpers';
 	/** Pack key: streak / dependability — driven by longestStreak. */
 	public const PACK_TEAM_ENERGY = 'team_energy';
-	/** Pack key: coins / household contribution — driven by `coins`. */
-	public const PACK_COZY_HOME = 'cozy_home';
+	/** Pack key: retained rhythm recognition (C3d) — driven by currentStreak. */
+	public const PACK_FAMILY_RHYTHM = 'family_rhythm';
 
 	/**
 	 * Progression signal identifiers. Each maps to a HouseUser getter.
 	 */
-	public const SIGNAL_CONTRIBUTION_SCORE = 'contributionScore';
+	public const SIGNAL_CONTRIBUTION_SCORE = 'contributionMinor';
 	public const SIGNAL_LONGEST_STREAK = 'longestStreak';
-	public const SIGNAL_COINS = 'coins';
+	public const SIGNAL_RHYTHM = 'currentStreak';
 
 	/**
 	 * The full pack/tier definition.
@@ -64,9 +64,10 @@ class TitleCatalog {
 			'labelKey' => 'titles.pack.home_helpers',
 			'signal' => self::SIGNAL_CONTRIBUTION_SCORE,
 			'tiers' => [
-				['key' => 'helper', 'labelKey' => 'titles.home_helpers.helper', 'threshold' => 50],
-				['key' => 'organizer', 'labelKey' => 'titles.home_helpers.organizer', 'threshold' => 250],
-				['key' => 'care_captain', 'labelKey' => 'titles.home_helpers.care_captain', 'threshold' => 1000],
+				// Thresholds in exact energy minor units (100 = 1 energy).
+				['key' => 'helper', 'labelKey' => 'titles.home_helpers.helper', 'threshold' => 5000],
+				['key' => 'organizer', 'labelKey' => 'titles.home_helpers.organizer', 'threshold' => 25000],
+				['key' => 'care_captain', 'labelKey' => 'titles.home_helpers.care_captain', 'threshold' => 100000],
 			],
 		],
 		self::PACK_TEAM_ENERGY => [
@@ -78,13 +79,15 @@ class TitleCatalog {
 				['key' => 'team_anchor', 'labelKey' => 'titles.team_energy.team_anchor', 'threshold' => 90],
 			],
 		],
-		self::PACK_COZY_HOME => [
-			'labelKey' => 'titles.pack.cozy_home',
-			'signal' => self::SIGNAL_COINS,
+		self::PACK_FAMILY_RHYTHM => [
+			'labelKey' => 'titles.pack.family_rhythm',
+			'signal' => self::SIGNAL_RHYTHM,
 			'tiers' => [
-				['key' => 'cozy_buddy', 'labelKey' => 'titles.cozy_home.cozy_buddy', 'threshold' => 500],
-				['key' => 'room_ranger', 'labelKey' => 'titles.cozy_home.room_ranger', 'threshold' => 2500],
-				['key' => 'home_guardian', 'labelKey' => 'titles.cozy_home.home_guardian', 'threshold' => 10000],
+				// C3d: retained personal rhythm awards at 3/6/12 consecutive
+				// successful planned task days.
+				['key' => 'rhythm_3', 'labelKey' => 'titles.family_rhythm.rhythm_3', 'threshold' => 3],
+				['key' => 'rhythm_6', 'labelKey' => 'titles.family_rhythm.rhythm_6', 'threshold' => 6],
+				['key' => 'rhythm_12', 'labelKey' => 'titles.family_rhythm.rhythm_12', 'threshold' => 12],
 			],
 		],
 	];
@@ -144,9 +147,9 @@ class TitleCatalog {
 	 */
 	public static function getSignalValue(HouseUser $user, string $signal): int {
 		return match ($signal) {
-			self::SIGNAL_CONTRIBUTION_SCORE => $user->getContributionScore(),
+			self::SIGNAL_CONTRIBUTION_SCORE => $user->getContributionMinor(),
 			self::SIGNAL_LONGEST_STREAK => $user->getLongestStreak(),
-			self::SIGNAL_COINS => $user->getCoins(),
+			self::SIGNAL_RHYTHM => $user->getCurrentStreak(),
 			default => 0,
 		};
 	}
@@ -161,7 +164,7 @@ class TitleCatalog {
 		$validSignals = [
 			self::SIGNAL_CONTRIBUTION_SCORE,
 			self::SIGNAL_LONGEST_STREAK,
-			self::SIGNAL_COINS,
+			self::SIGNAL_RHYTHM,
 		];
 
 		if (count(self::PACKS) !== 3) {

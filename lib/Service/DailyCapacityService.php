@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCP\IL10N;
 
@@ -59,6 +60,7 @@ class DailyCapacityService {
 	private OccurrenceMapper $occurrenceMapper;
 	private OccurrenceMemberMapper $occMemberMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private WorkShareMapper $workShareMapper;
 	private HouseUserMapper $houseUserMapper;
 	private PauseProjectionService $pauseProjection;
 	private RecurrenceCalculator $calculator;
@@ -72,6 +74,7 @@ class DailyCapacityService {
 		OccurrenceMapper $occurrenceMapper,
 		OccurrenceMemberMapper $occMemberMapper,
 		CompletedTaskMapper $completedTaskMapper,
+		WorkShareMapper $workShareMapper,
 		HouseUserMapper $houseUserMapper,
 		PauseProjectionService $pauseProjection,
 		RecurrenceCalculator $calculator,
@@ -84,6 +87,7 @@ class DailyCapacityService {
 		$this->occurrenceMapper = $occurrenceMapper;
 		$this->occMemberMapper = $occMemberMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
+		$this->workShareMapper = $workShareMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->pauseProjection = $pauseProjection;
 		$this->calculator = $calculator;
@@ -374,26 +378,34 @@ class DailyCapacityService {
 			}
 		}
 
-		// Completed effort: the frozen occurrence energies of the
-		// completion ledger, instants tested against candidate intervals
-		// (Q-073-02 rule 1: each instant falls in exactly one candidate
-		// day per zone). Early work consumes its actual work day, not the
-		// future planned day.
+		// Completed effort (WP3 §3.2 capacity seam): each participant's
+		// SELECTED frozen work share of every valid completion, instants
+		// tested against candidate intervals (Q-073-02 rule 1: each instant
+		// falls in exactly one candidate day per zone). Early work consumes
+		// its actual work day, not the future planned day. A fulfilled
+		// occurrence is counted once per actual participant — never as
+		// outstanding planned capacity for an absent assignee.
 		$completedMinor = [];
 		$completedCounts = [];
 		$fromBound = PauseProjectionService::candidateDayInterval($dayKeys[0], $houseZone)[0];
 		$toBound = PauseProjectionService::candidateDayInterval($dayKeys[count($dayKeys) - 1], $houseZone)[1];
-		foreach ($this->completedTaskMapper->findEnergyUsageBetweenByHouse($houseId, $fromBound, $toBound) as $row) {
-			$userId = $userIdByHouseUser[$row['houseUserId']] ?? null;
+		$seenCompletionByUserDay = [];
+		foreach ($this->workShareMapper->findSelectedSharesBetweenByHouse($houseId, $fromBound, $toBound) as $row) {
+			$userId = $row['walletId'] !== null ? ($userIdByWallet[$row['walletId']] ?? null) : null;
 			if ($userId === null) {
 				continue;
 			}
-			$minor = $row['energy'] * self::ENERGY_MINOR;
 			foreach ($dayKeys as $dayKey) {
 				[$start, $end] = PauseProjectionService::candidateDayInterval($dayKey, $houseZone);
 				if ($row['completedAt'] >= $start && $row['completedAt'] < $end) {
+					$minor = $row['energyMinor'];
 					$completedMinor[$userId][$dayKey] = ($completedMinor[$userId][$dayKey] ?? 0) + $minor;
-					$completedCounts[$userId][$dayKey] = ($completedCounts[$userId][$dayKey] ?? 0) + 1;
+					// Count each participated occurrence once per person.
+					$seenKey = $userId . '|' . $dayKey . '|' . $row['completionId'];
+					if (!isset($seenCompletionByUserDay[$seenKey])) {
+						$seenCompletionByUserDay[$seenKey] = true;
+						$completedCounts[$userId][$dayKey] = ($completedCounts[$userId][$dayKey] ?? 0) + 1;
+					}
 					break;
 				}
 			}

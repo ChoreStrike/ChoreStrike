@@ -83,20 +83,7 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 	 * Insert a completed_tasks row with an explicit UTC wall-clock timestamp.
 	 */
 	private function insertCompletion(int $roomTaskId, int $houseUserId, string $completedAtUtc): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_completed_tasks')
-			->values([
-				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'user_id' => $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT),
-				'completed_at' => $qb->createNamedParameter($completedAtUtc, IQueryBuilder::PARAM_STR),
-				'coins_earned' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
-				'was_combo' => $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL),
-				// WP5 effect-record columns are NOT NULL (CS-PLAN-064); the
-				// day-bucketing fixtures carry no undo semantics → empty JSON.
-				'before_state' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
-				'deltas' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
-			]);
-		$qb->executeStatement();
+		$this->insertCompletionRow($roomTaskId, $houseUserId, $completedAtUtc);
 	}
 
 	/**
@@ -204,7 +191,6 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 			$score->setUserId('tzlb_player-' . $key);
 			$score->setGameId('snake-tz-pin');
 			$score->setScore(100);
-			$score->setBoostsUsed(null);
 			$score->setCreatedAt($createdAt);
 			$this->createdScoreIds[] = $this->minigameScoreMapper->insert($score)->getId();
 		}

@@ -13,9 +13,12 @@ use OCA\ChoreStrike\Controller\HouseController;
 use OCA\ChoreStrike\Controller\RoomTaskController;
 use OCA\ChoreStrike\Controller\UserController;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\WorkShare;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\StreakFreezeService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
@@ -57,6 +60,10 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		}
 
 		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_work_shares')
+			->where($qb->expr()->in('completion_id', $qb->createNamedParameter($this->completedTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->executeStatement();
+		$qb = $this->db->getQueryBuilder();
 		$qb->delete('chorestrike_completed_tasks')
 			->where($qb->expr()->in('id', $qb->createNamedParameter($this->completedTaskIds, IQueryBuilder::PARAM_INT_ARRAY)));
 		$qb->executeStatement();
@@ -91,32 +98,28 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		return $mapper->findByNextcloudUserId($houseId, $ncUserId)->getId();
 	}
 
-	private function seedCompletion(int $roomTaskId, int $houseUserId, string $completedAt, int $coins = 10): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_completed_tasks')
-			->values([
-				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'user_id' => $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT),
-				'completed_at' => $qb->createNamedParameter($completedAt),
-				'coins_earned' => $qb->createNamedParameter($coins, IQueryBuilder::PARAM_INT),
-				'was_combo' => $qb->createNamedParameter(0),
-				// WP5 effect-record columns are NOT NULL (CS-PLAN-064); the
-				// activity fixtures carry no undo semantics → empty JSON.
-				'before_state' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
-				'deltas' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
-			]);
-		$qb->executeStatement();
-
-		$id = (int)$this->db->lastInsertId('chorestrike_completed_tasks');
+	private function seedCompletion(int $roomTaskId, int $houseUserId, string $completedAt, int $totalEnergy = 3): int {
+		$id = $this->insertCompletionRow($roomTaskId, $houseUserId, $completedAt, $totalEnergy);
 		$this->completedTaskIds[] = $id;
-
 		return $id;
+	}
+
+	private function seedShare(int $completionId, int $walletId, int $revision = 1, int $energyMinor = 300): void {
+		$share = new WorkShare();
+		$share->setCompletionId($completionId);
+		$share->setAllocationRevision($revision);
+		$share->setWalletId($walletId);
+		$share->setSharePct(100);
+		$share->setEnergyMinor($energyMinor);
+		$share->setCoinMinor($energyMinor * 10);
+		$share->setCreatedAt(new \DateTime());
+		\OC::$server->get(WorkShareMapper::class)->insert($share);
 	}
 
 	private function seedRoomTaskFixture(int $houseId, string $taskName): int {
 		$floorId = $this->createFloor($houseId, 'Activity Floor');
 		$roomId = $this->createRoom($houseId, $floorId, 'Activity Room');
-		$taskId = $this->createTask($houseId, $taskName, '', 5, 7);
+		$taskId = $this->createTask($houseId, $taskName, '', 5, 3);
 
 		return $this->assignTaskToRoom($taskId, $roomId);
 	}
@@ -131,7 +134,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		$memberAId = $this->houseUserId($houseId, self::MEMBER_A);
 
 		$roomTaskId = $this->seedRoomTaskFixture($houseId, 'Vacuum Activity Room');
-		$this->seedCompletion($roomTaskId, $memberAId, date('Y-m-d H:i:s', time() - 3600), 15);
+		$this->seedCompletion($roomTaskId, $memberAId, date('Y-m-d H:i:s', time() - 3600), 4);
 
 		/** @var HouseController $controller */
 		$controller = $this->getController(HouseController::class, self::MEMBER_A);
@@ -151,8 +154,11 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		self::assertSame(self::MEMBER_A, $item['displayName']);
 		self::assertSame($memberAId, $item['houseUserId']);
 		self::assertSame('Activity Room', $item['roomName']);
-		self::assertSame(7, $item['energyCost']);
-		self::assertSame(15, $item['coinsEarned']);
+		// WP3 §3.1: the frozen original work (totalEnergy) plus the live
+		// definition's energyCost — no monetary outputs in the feed.
+		self::assertSame(4, $item['totalEnergy']);
+		self::assertSame(3, $item['energyCost']);
+		self::assertArrayNotHasKey('coinsEarned', $item);
 		self::assertNotEmpty($item['completedAt']);
 	}
 
@@ -188,7 +194,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 	/**
 	 * Visibility redaction (CS-PLAN-061 review fix): the feed keeps rows
 	 * for every house member (D9), but the task CONTENT of a private task
-	 * is redacted for non-viewers — the creator sees the title, another
+	 * is redacted for non-viewers ” the creator sees the title, another
 	 * member sees the null fallback.
 	 */
 	public function testActivity_InvisiblePrivateTaskContent_Redacted(): void {
@@ -199,7 +205,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 
 		$floorId = $this->createFloor($houseId, 'Privacy Floor');
 		$roomId = $this->createRoom($houseId, $floorId, 'Privacy Room');
-		$taskId = $this->createTask($houseId, 'Secret Project', '', 5, 7);
+		$taskId = $this->createTask($houseId, 'Secret Project', '', 5, 3);
 
 		$qb = $this->db->getQueryBuilder();
 		$qb->update('chorestrike_tasks')
@@ -209,7 +215,9 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		$qb->executeStatement();
 
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, self::MEMBER_A);
-		$this->seedCompletion($roomTaskId, $memberAId, date('Y-m-d H:i:s', time() - 600), 12);
+		$completionId = $this->seedCompletion($roomTaskId, $memberAId, date('Y-m-d H:i:s', time() - 600), 12);
+		$walletId = \OC::$server->get(HouseUserMapper::class)->find($memberAId)->getWalletId();
+		$this->seedShare($completionId, $walletId, 1, 1200);
 
 		// MEMBER_B is neither creator nor assignee: content redacted, row kept.
 		/** @var HouseController $viewerController */
@@ -224,6 +232,9 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		self::assertCount(1, $viewerRows, 'the aggregate row stays visible (D9)');
 		self::assertNull($viewerRows[0]['taskTitle'], 'invisible task names are redacted');
 		self::assertNull($viewerRows[0]['energyCost'], 'invisible task energy is redacted');
+		self::assertNull($viewerRows[0]['totalEnergy'], 'frozen effort is private task content');
+		self::assertSame([], $viewerRows[0]['allocation'], 'private participant identities and shares are redacted');
+		self::assertFalse($viewerRows[0]['canCorrect']);
 		self::assertSame(self::MEMBER_A, $viewerRows[0]['displayName']);
 
 		// The creator sees the content.
@@ -238,7 +249,61 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		));
 		self::assertCount(1, $creatorRows);
 		self::assertSame('Secret Project', $creatorRows[0]['taskTitle']);
-		self::assertSame(7, $creatorRows[0]['energyCost']);
+		self::assertSame(3, $creatorRows[0]['energyCost']);
+		self::assertSame(12, $creatorRows[0]['totalEnergy']);
+		self::assertSame(self::MEMBER_A, $creatorRows[0]['allocation'][0]['userId']);
+		self::assertSame(100, $creatorRows[0]['allocation'][0]['sharePct']);
+	}
+
+	/**
+	 * Activity_MaxPage_SelectedSharesStayBatchBoundedAndCurrent
+	 */
+	public function testActivity_MaxPage_SelectedSharesStayBatchBoundedAndCurrent(): void {
+		$houseId = $this->createHouse('activity_budget_owner', 'Activity Budget');
+		$this->addHouseMember($houseId, 'activity_budget_partner', 'Partner');
+		$owner = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, 'activity_budget_owner');
+		$partner = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, 'activity_budget_partner');
+		$roomTaskId = $this->seedRoomTaskFixture($houseId, 'Budget task');
+		$completedAt = date('Y-m-d H:i:s', time() - 3600);
+		$firstId = 0;
+		for ($i = 0; $i < 200; $i++) {
+			$id = $this->seedCompletion($roomTaskId, $owner->getId(), $completedAt);
+			$this->seedShare($id, $owner->getWalletId());
+			if ($i === 0) {
+				$firstId = $id;
+			}
+		}
+		// A corrected completion selects revision 2, never the obsolete
+		// revision 1 share. The other 199 rows still select revision 1.
+		$this->seedShare($firstId, $partner->getWalletId(), 2);
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_completed_tasks')
+			->set('allocation_revision', $qb->createNamedParameter(2, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($firstId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+
+		$service = \OC::$server->get(\OCA\ChoreStrike\Service\ActivityService::class);
+		$counter = QueryCounter::attach($this->db);
+		try {
+			$counter->mark();
+			$small = $service->getActivity($houseId, 30, 10, null, $owner);
+			$smallQueries = $counter->count();
+			$counter->mark();
+			$full = $service->getActivity($houseId, 30, 200, null, $owner);
+			$fullQueries = $counter->count();
+		} finally {
+			$counter->detach();
+		}
+		self::assertSame(200, $full['total']);
+		self::assertCount(10, $small['completions']);
+		self::assertCount(200, $full['completions']);
+		$first = array_values(array_filter($full['completions'], static fn (array $item): bool => $item['id'] === $firstId));
+		self::assertCount(1, $first);
+		self::assertCount(1, $first[0]['allocation'], 'obsolete revisions are not double counted');
+		self::assertSame('activity_budget_partner', $first[0]['allocation'][0]['userId']);
+		self::assertSame('activity_budget_owner', $full['completions'][0]['allocation'][0]['userId']);
+		self::assertSame($smallQueries, $fullQueries, '200 rows do not trigger per-completion/share queries');
+		self::assertLessThanOrEqual(10, $fullQueries, 'feed enrichment has a fixed query budget');
 	}
 
 	/**
@@ -282,7 +347,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 	/**
 	 * roomStats cross-house regression (CS-PLAN-040): a caller whose house
 	 * membership is valid must still get 404 when the roomId belongs to a
-	 * different house — membership alone used to leak foreign room counts.
+	 * different house ” membership alone used to leak foreign room counts.
 	 */
 	public function testRoomStats_RejectsForeignHouseRoom(): void {
 		$houseId = $this->sharedHouseId();
@@ -303,22 +368,18 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * Freeze consumption stamps lastFreezeDate and it surfaces through the
-	 * serialized users (FEAT-UX-020 display data).
+	 * Freeze lifecycle surfaces retired (WP3 cutover, Q-074-01 Option A):
+	 * the freeze service no longer exists and the serialized member
+	 * carries neither streakFreezes nor lastFreezeDate.
 	 */
-	public function testFreezeConsumption_SurfacesLastFreezeDateInUsers(): void {
+	public function testFreezeSurfaces_RetiredInUsersPayload(): void {
 		$houseId = $this->sharedHouseId();
 		$this->seedMembership($houseId, self::MEMBER_A);
-		$mapper = \OC::$server->get(HouseUserMapper::class);
 
-		$user = $mapper->findByNextcloudUserId($houseId, self::MEMBER_A);
-		$user->setCurrentStreak(5);
-		$user->setStreakFreezes(2);
-		$mapper->update($user);
-
-		$yesterday = new \DateTime('2026-07-29'); // a Wednesday (no availability set ⇒ available)
-		$freezeService = \OC::$server->get(StreakFreezeService::class);
-		$freezeService->process($yesterday);
+		self::assertFalse(
+			class_exists(StreakFreezeService::class),
+			'the retired freeze service must stay removed'
+		);
 
 		/** @var UserController $controller */
 		$controller = $this->getController(UserController::class, self::MEMBER_A);
@@ -335,8 +396,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		}
 
 		self::assertNotNull($serialized, 'member must be in the users payload');
-		self::assertSame(1, $serialized['streakFreezes'], 'freeze pass consumes exactly one freeze');
-		self::assertNotNull($serialized['lastFreezeDate'], 'consumption must stamp lastFreezeDate');
-		self::assertStringStartsWith('2026-07-29', $serialized['lastFreezeDate']);
+		self::assertArrayNotHasKey('streakFreezes', $serialized);
+		self::assertArrayNotHasKey('lastFreezeDate', $serialized);
 	}
 }

@@ -117,20 +117,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 	}
 
 	private function insertCompletion(int $roomTaskId, int $houseUserId): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_completed_tasks')
-			->values([
-				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'user_id' => $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT),
-				'completed_at' => $qb->createNamedParameter('2026-08-20 10:00:00', IQueryBuilder::PARAM_STR),
-				'coins_earned' => $qb->createNamedParameter(10, IQueryBuilder::PARAM_INT),
-				'was_combo' => $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL),
-				// WP5 effect-record columns are NOT NULL (CS-PLAN-064); the
-				// cascade fixtures carry no undo semantics → empty JSON.
-				'before_state' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
-				'deltas' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
-			]);
-		$qb->executeStatement();
+		$this->insertCompletionRow($roomTaskId, $houseUserId, '2026-08-20 10:00:00');
 	}
 
 	private function insertAssignee(int $roomTaskId, string $ncUserId): void {

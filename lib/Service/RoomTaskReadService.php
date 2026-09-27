@@ -11,6 +11,8 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -45,6 +47,9 @@ class RoomTaskReadService {
 	private CalendarService $calendarService;
 	private OccurrenceService $occurrenceService;
 	private PauseProjectionService $pauseProjection;
+	private HouseUserMapper $houseUserMapper;
+	private OccurrenceMemberMapper $occMemberMapper;
+	private EffortAllocationService $allocationService;
 	private IL10N $l10n;
 
 	public function __construct(
@@ -58,6 +63,9 @@ class RoomTaskReadService {
 		CalendarService $calendarService,
 		OccurrenceService $occurrenceService,
 		PauseProjectionService $pauseProjection,
+		HouseUserMapper $houseUserMapper,
+		OccurrenceMemberMapper $occMemberMapper,
+		EffortAllocationService $allocationService,
 		IL10N $l10n,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -70,6 +78,9 @@ class RoomTaskReadService {
 		$this->calendarService = $calendarService;
 		$this->occurrenceService = $occurrenceService;
 		$this->pauseProjection = $pauseProjection;
+		$this->houseUserMapper = $houseUserMapper;
+		$this->occMemberMapper = $occMemberMapper;
+		$this->allocationService = $allocationService;
 		$this->l10n = $l10n;
 	}
 
@@ -97,6 +108,7 @@ class RoomTaskReadService {
 
 		$selections = $this->occurrenceSelectionsForHouse($houseId, $roomTasks);
 		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
+		$proposals = $this->buildProposalMapForSelections($houseId, $selections);
 		foreach ($rows as &$row) {
 			$roomTask = $row['roomTask'] ?? null;
 			if ($roomTask instanceof RoomTask) {
@@ -104,10 +116,127 @@ class RoomTaskReadService {
 				$row['occurrence'] = $selection !== null
 					? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 					: null;
+				$row['proposal'] = $proposals[$roomTask->getId()] ?? null;
 			}
 		}
 		unset($row);
 		return $rows;
+	}
+
+	/**
+	 * Attach the WP3 §3.6 proposal blocks to rows whose occurrence blocks
+	 * were built by an INLINE path (due-today/overdue reads): the
+	 * ParticipationDialog preview must not depend on the read path.
+	 *
+	 * @param list<array<string, mixed>> $rows Rows carrying `roomTask`
+	 * @param array<int, mixed> $selections The already-derived selection map
+	 * @return list<array<string, mixed>>
+	 */
+	private function attachProposalBlocks(array $rows, int $houseId, array $selections): array {
+		$proposals = $this->buildProposalMapForSelections($houseId, $selections);
+		foreach ($rows as &$row) {
+			$roomTask = $row['roomTask'] ?? null;
+			if ($roomTask instanceof RoomTask) {
+				$row['proposal'] = $proposals[$roomTask->getId()] ?? null;
+			}
+		}
+		unset($row);
+		return $rows;
+	}
+
+	/**
+	 * The actual-work proposal map for the selected occurrences (WP3 §3.6 /
+	 * C2a, RF-074-03): what a participant-less completion of the shown
+	 * target would credit — agreed occurrence member shares first, equal
+	 * wallet-order assignee shares without an agreement, solo otherwise.
+	 *
+	 * The SAME shared derivation as the completion writer
+	 * (EffortAllocationService::agreementShares/equalShares), so the
+	 * ParticipationDialog preview can never drift from the credited
+	 * result. Query-budgeted: exactly three batched reads regardless of
+	 * the row count (members, occurrence members, assignees); rows
+	 * without a target keep `proposal: null`.
+	 *
+	 * @param int $houseId
+	 * @param array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string, workAppointment?: array{date: ?string, zone: string}}|null> $selections
+	 * @return array<int, array{occurrenceId: string, basis: string, participants: list<array{userId: string, sharePct: int}>}>
+	 */
+	public function proposalBlocksFor(int $houseId, array $selections): array {
+		return $this->buildProposalMapForSelections($houseId, $selections);
+	}
+
+	/**
+	 * @see proposalBlocksFor
+	 */
+	private function buildProposalMapForSelections(int $houseId, array $selections): array {
+		$targets = [];
+		foreach ($selections as $roomTaskId => $selection) {
+			if ($selection !== null && $selection['occurrence'] !== null) {
+				$targets[(int)$roomTaskId] = $selection;
+			}
+		}
+		if ($targets === []) {
+			return [];
+		}
+
+		$walletIdByUser = [];
+		$userIdByWallet = [];
+		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
+			$walletIdByUser[$member->getNextcloudUserId()] = $member->getWalletId();
+			if ($member->getWalletId() !== null) {
+				$userIdByWallet[(int)$member->getWalletId()] = $member->getNextcloudUserId();
+			}
+		}
+
+		$membersByOccurrence = $this->occMemberMapper->findByOccurrenceIds(array_map(
+			static fn (array $selection): int => (int)$selection['occurrence']->getId(),
+			$targets
+		));
+		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(array_keys($targets));
+
+		$proposals = [];
+		foreach ($targets as $roomTaskId => $selection) {
+			$occurrenceId = (int)$selection['occurrence']->getId();
+			$basis = 'agreement';
+			$shares = $this->allocationService->agreementShares(
+				$membersByOccurrence[$occurrenceId] ?? [],
+				$userIdByWallet
+			);
+			if ($shares === []) {
+				$assignees = $assigneesByRoomTask[$roomTaskId] ?? [];
+				if ($assignees !== []) {
+					$subjects = [];
+					foreach ($assignees as $uid) {
+						$subjects[$uid] = $walletIdByUser[$uid] ?? null;
+					}
+					$shares = $this->allocationService->equalShares($subjects);
+					$basis = 'assignees';
+				} else {
+					// Unassigned solo work: the acting user takes 100% —
+					// the client resolves the current user, no server guess.
+					$basis = 'solo';
+				}
+			}
+			$proposals[$roomTaskId] = [
+				'occurrenceId' => $selection['occurrence']->getScheduleRevId() . ':' . $selection['occurrence']->getOrdinal(),
+				'basis' => $basis,
+				'participants' => $this->sortedParticipants($shares),
+			];
+		}
+		return $proposals;
+	}
+
+	/**
+	 * @param array<string, int> $shares userId => sharePct
+	 * @return list<array{userId: string, sharePct: int}>
+	 */
+	private function sortedParticipants(array $shares): array {
+		$participants = [];
+		foreach ($shares as $uid => $pct) {
+			$participants[] = ['userId' => $uid, 'sharePct' => $pct];
+		}
+		usort($participants, static fn (array $a, array $b): int => $a['userId'] <=> $b['userId']);
+		return $participants;
 	}
 
 	/**
@@ -457,7 +586,7 @@ class RoomTaskReadService {
 				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
 		}
-		return $rows;
+		return $this->attachProposalBlocks($rows, $houseId, $selections);
 	}
 
 	/**
@@ -481,7 +610,7 @@ class RoomTaskReadService {
 				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
 		}
-		return $rows;
+		return $this->attachProposalBlocks($rows, $houseId, $map['selections']);
 	}
 
 	/**

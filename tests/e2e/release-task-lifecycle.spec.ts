@@ -28,7 +28,7 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
-import { completeRoomTaskViaApi } from './fixtures/completion-api'
+import { completeAsSoleParticipantViaApi, completeRoomTaskViaApi } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
 interface RoomTaskJson {
@@ -115,7 +115,7 @@ test.describe('Release: Task Lifecycle', () => {
 		}
 	})
 
-	test('completing then undoing restores the room task (one undo aggregate)', async ({ browser, seededData }) => {
+	test('completing then undoing restores the room task (targeted correction)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
 		const { context, page } = await createUserContext(browser, 'mom')
@@ -123,21 +123,34 @@ test.describe('Release: Task Lifecycle', () => {
 			const target = await pickActiveRoomTask(page)
 			expect(target, 'family seed must provide an active occurrence').not.toBeNull()
 
-			const completeResponse = await completeRoomTaskViaApi(page, target.id)
+			// WP3 (Q-074-02): when the server proposal names someone else
+			// (or several people), the completion must carry the explicit
+			// split naming the actor; mom's own rows stay participant-less.
+			const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
+			const participants = ((rows.data ?? []) as Array<{ id: number; proposal: { participants: Array<{ userId: string }> } | null }>)
+				.find(row => row.id === target.id)?.proposal?.participants ?? []
+			const needsSplit = participants.length > 1
+				|| (participants.length === 1 && participants[0].userId !== 'mom')
+			const completeResponse = needsSplit
+				? await completeAsSoleParticipantViaApi(page, target.id, 'mom')
+				: await completeRoomTaskViaApi(page, target.id)
 			expect(completeResponse.status()).toBe(200)
 			const completed = (await completeResponse.json()).data
 			expect(completed.roomTask).toBeTruthy()
 			expect(completed.rewards).toBeTruthy()
-			// Effect record (decision D10): the response carries the
-			// completer's authoritative totals for owning-store reconcile.
-			expect(Number.isFinite(completed.rewards.totalCoins)).toBe(true)
+			// Work evidence (WP3 §3.6): the response carries the frozen
+			// evidence, the participants and the caller's OWN wallet.
+			expect(Number.isFinite(completed.rewards.completion.totalEnergy)).toBe(true)
+			expect(completed.rewards.wallet).toBeTruthy()
 
-			// Undo is the ONE idempotent aggregate (CS-PLAN-064 D3/D5): it
-			// restores the recorded before-state instead of only clearing
+			// Undo is the ONE idempotent targeted correction (CS-PLAN-064
+			// D3/D5 + WP3 §3.4: exact completion id + receipt) — it restores
+			// the recorded before-state instead of only clearing
 			// lastCompleted (the former split uncomplete+reactivate chain).
+			const commandId = crypto.randomUUID()
 			const undoResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${target.id}/undo`,
-				{ headers: { Accept: 'application/json' } },
+				`/apps/chorestrike/api/v1/completions/${completed.completionId}/undo`,
+				{ data: { commandId, expectedVersion: 0 }, headers: { Accept: 'application/json' } },
 			)
 			expect(undoResponse.status()).toBe(200)
 			const undone = (await undoResponse.json()).data
@@ -147,14 +160,15 @@ test.describe('Release: Task Lifecycle', () => {
 			// Exact recurrence inverse: the pre-completion nextDue is back.
 			expect(undone.roomTask.nextDue).toBe(target.nextDue)
 
-			// Second undo: nothing revertible anymore → 200 no-op
-			// (decision D3, zero writes).
-			const noopResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${target.id}/undo`,
-				{ headers: { Accept: 'application/json' } },
+			// Same command replay: the idempotent receipt hit returns the
+			// ORIGINAL identity — `undone: true` (THIS command did undo it,
+			// exactly once; §3.4 replay semantics, zero new writes).
+			const replayResponse = await page.request.post(
+				`/apps/chorestrike/api/v1/completions/${completed.completionId}/undo`,
+				{ data: { commandId, expectedVersion: 0 }, headers: { Accept: 'application/json' } },
 			)
-			expect(noopResponse.status()).toBe(200)
-			expect((await noopResponse.json()).data.undone).toBe(false)
+			expect(replayResponse.status()).toBe(200)
+			expect((await replayResponse.json()).data.undone).toBe(true)
 		} finally {
 			await context.close()
 		}

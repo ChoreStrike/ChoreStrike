@@ -1,9 +1,19 @@
 # ADR-011: Transactional Completion and Full Undo (Effect Record)
 
-**Status**: Accepted  
+**Status**: Accepted — snapshot reversal superseded by ADR-014 (2026-09-27)
 **Date**: 2026-09-06  
 **Deciders**: ChoreStrike maintainers (ratified in the CS-PLAN-064 Standard A review, decisions D1–D12)  
 **Source**: [CS-PLAN-058](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP5 · [CS-PLAN-064](../plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) · refines [ADR-007](ADR-007-concurrency-safe-task-completion.md)
+
+> **WP3 cutover note (2026-09-27, ADR-014):** the receipt seam introduced here
+> (command UUID + optimistic version, CR-SVC-64) is retained and generalized —
+> every WP3 mutation is a `CommandService` command. The JSON **effect
+> snapshot** reversal this ADR describes is superseded: undo now reverses the
+> latest selected allocation revision through exact wallet-union deltas on the
+> immutable `wallet_entries` ledger, room state replays from `room_events`,
+> and attribution (`PUT /completions/{id}/attribution`) corrects any live
+> completion by completer/owner authority. The body below remains the
+> historical record of the seam and the targeted-undo target contract.
 
 ## Context
 
@@ -229,7 +239,8 @@ boundary and reports it in its reverted `rewards` payload.
 **Documented non-retractions (D8):** medals already awarded, the house-level
 `weekly_goal_notified_week` claim, and dispatched notifications are **not**
 reverted — undo reverses recorded domain deltas, not derived side-channel
-history.
+history. This is the superseded effect-record behavior: ADR-014 uses per-week
+receipts for closed-week notification claims and re-evaluates medal support.
 
 ### 7. Frozen contracts
 

@@ -12,6 +12,11 @@ export const useGameStore = defineStore('game', {
 	state: () => ({
 		gameState: null,
 		medals: [],
+		// WP3 §3.6: the caller's OWN wallet (minor units) + exact
+		// contribution + house state version ride the game state payload.
+		wallet: null,
+		contributionMinor: 0,
+		stateVersion: 0,
 		loading: false,
 		error: null,
 		// The weekly household goal snapshot returned by
@@ -64,6 +69,17 @@ export const useGameStore = defineStore('game', {
 				const data = await api.get('/api/v1/game/state')
 
 				this.gameState = data
+				// WP3: own wallet (minor units), exact contribution and the
+				// house state version ride the state payload.
+				if ('wallet' in data) {
+					this.wallet = data.wallet
+				}
+				if (Number.isFinite(data.contributionMinor)) {
+					this.contributionMinor = data.contributionMinor
+				}
+				if (Number.isFinite(data.stateVersion)) {
+					this.stateVersion = data.stateVersion
+				}
 
 				// CS-PLAN-066 (D5): hydration — silent. First load, Dashboard
 				// remount, unchanged refetch and week rollover store the

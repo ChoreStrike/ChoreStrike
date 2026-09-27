@@ -39,7 +39,7 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
  *   (CS-PLAN-072 WP1: timeline read, occurrence amendment, agreement
  *   evidence insert, projection update), COMMIT and exactly ONE
  *   authoritative after-commit re-read that becomes the response.
- * - complete(): ≤ 45 observed statements for the whole aggregate —
+ * - complete(): see the measured WP3 budget below for the whole aggregate —
  *   the receipt resolution (timeline reads + selection), the command
  *   receipt read/insert, occurrence gates, the house-first locked entity
  *   reads (house → room_task → room → house_user, CS-PLAN-071 —
@@ -50,7 +50,7 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
  *   guarded post-commit weekly-goal cluster + response selection block.
  *   Per-class rule: at most two enrichment reads, exactly one ledger
  *   insert with a complete effect record (D1).
- * - undo(): ≤ 36 observed statements — same house-first gate/lock structure
+ * - undo(): see the measured WP3 budget below — same house-first gate/lock structure
  *   plus the effect-record restore (ledger read), the timeline release
  *   (occurrence reopen, successor deletion, projection re-derivation),
  *   transaction control and the post-commit weekly-goal read.
@@ -65,12 +65,28 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	// RF-073-WP2-20 fix round: the stamping pass derives the agreed work
 	// appointment INDEPENDENTLY of pause presence, so each of the three
 	// stamp passes in this flow now always runs its ONE batched member-
-	// snapshot read (58 → 61; still constant-size, no N+1).
-	private const COMPLETE_BUDGET = 61;
-	// CS-PLAN-073 WP2: the undo response's detail row now fingerprints the
-	// pause inputs and re-resolves the selection with the projection stamp
-	// (pause fingerprint + batched pause/wallet/member reads) → +4.
-	private const UNDO_BUDGET = 40;
+	// snapshot read.
+	// CS-PLAN-070 WP3 cutover: the aggregate additionally writes the work
+	// evidence/shares/audit trio, posts wallet entries with lazily ensured
+	// bindings, recalcs the derived contribution cache, replays the room
+	// journal, and re-derives rhythm + title tiers on re-loaded members.
+	// Correction safety adds under-lock membership/obligation reads; erasure
+	// provenance resolves the actor wallet; bounded room replay and selected
+	// work-share validity add one batch each. The compact receipt requires an
+	// after-commit viewer-safe read. Measured 94 on the fresh family profile;
+	// the share/occurrence lookups are batched rather than per participant.
+	private const COMPLETE_BUDGET = 94;
+	// CS-PLAN-070 WP3 cutover: the targeted undo is a full correction
+	// aggregate — under-lock completion re-read, wallet/member locking of
+	// the selected allocation, negative ledger entries, work-share-driven
+	// contribution recache, journal replay, rhythm re-derivation and the
+	// pause-stamped detail row (CS-PLAN-073 WP2), plus the under-lock
+	// completion re-read (the room-task lock is the serialization point).
+	// Under-lock re-authorization, obligated-member selection, actor-wallet
+	// provenance, reset-bounded journal replay and compact-response hydration
+	// bring the fresh family-profile measurement to 82. These are one batched
+	// read per concern, not one query per historical event or work share.
+	private const UNDO_BUDGET = 82;
 
 	/**
 	 * HouseWideRead_ConstantQueryCount_10vs100Rows
@@ -247,14 +263,6 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'WQB complete task');
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, $ownerId);
-		// The completion reaches the weekly goal (due today + completed =
-		// 100% ≥ any configured target). Pin the house's notification week
-		// to the CURRENT week so the claim deterministically LOSES — the
-		// branch is exercised, but the order-dependent notify INSERT stays
-		// out of the measured workload (full-suite runs leaked a global
-		// appconfig override into this branch).
-		$this->pinWeeklyGoalClaimAsDone($houseId);
-
 		$completion = \OC::$server->get(CompletionService::class);
 
 		$counter = QueryCounter::attach($this->db);
@@ -269,20 +277,24 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 
 		// Exact result identity/state.
 		self::assertSame($roomTaskId, $result['roomTask']->getId());
-		self::assertGreaterThan(0, $result['rewards']['coins']);
+		self::assertGreaterThan(0, $result['rewards']['wallet']['bookedMinor']);
 
-		// Exactly ONE ledger row with a COMPLETE effect record.
+		// Exactly ONE work-evidence row (WP3 §3.1) with the frozen work
+		// facts, ONE selected work share and ONE audit revision.
 		$ledgerRows = $this->ledgerRows($roomTaskId);
-		self::assertCount(1, $ledgerRows, 'exactly one ledger row per completion');
-		self::assertNotNull($ledgerRows[0]['occurrence_due'], 'the effect record carries occurrence_due');
-		self::assertNotSame('{}', (string)$ledgerRows[0]['before_state'], 'before_state is a real snapshot');
-		self::assertArrayHasKey('coinsAwarded', json_decode((string)$ledgerRows[0]['deltas'], true));
+		self::assertCount(1, $ledgerRows, 'exactly one evidence row per completion');
+		self::assertNotNull($ledgerRows[0]['occurrence_due'], 'the evidence row carries occurrence_due');
+		self::assertGreaterThan(0, (int)$ledgerRows[0]['total_energy']);
+		$shares = $this->rowsBy('chorestrike_work_shares', 'completion_id', (int)$ledgerRows[0]['id']);
+		self::assertCount(1, $shares, 'exactly one selected work share (solo completion)');
+		$revs = $this->rowsBy('chorestrike_completion_revs', 'completion_id', (int)$ledgerRows[0]['id']);
+		self::assertCount(1, $revs, 'the append-only audit records the completion');
 
-		// Five locked reads: house → room_task → room → house_user (the
-		// single house-first order, CS-PLAN-071 — supersedes the ADR-011
-		// entry order) plus the reward phase's findForUpdate inside the same
-		// locked section.
-		self::assertSame(5, $lockSelects);
+		// Locked reads in the single house-first order (CS-PLAN-071):
+		// house → room_task → room, then the member + wallet locks of the
+		// reward phase (including a lazily ensured wallet binding) inside
+		// the same locked section.
+		self::assertSame(7, $lockSelects);
 
 		self::assertLessThanOrEqual(self::COMPLETE_BUDGET, $count, implode("\n", $counter->sqlStatements()));
 	}
@@ -298,19 +310,18 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'WQB undo task');
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, $ownerId);
-		// Same determinism pin as the completion budget test.
-		$this->pinWeeklyGoalClaimAsDone($houseId);
-
 		$completion = \OC::$server->get(CompletionService::class);
-		$this->completeOccurrence($completion, $houseId, $ownerId, $roomTaskId);
+		$completed = $this->completeOccurrence($completion, $houseId, $ownerId, $roomTaskId);
 
 		$actor = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, $ownerId);
-		$coinsAfterCompletion = $actor->getCoins();
+		$walletMapper = \OC::$server->get(\OCA\ChoreStrike\Db\WalletMapper::class);
+		$wallet = $walletMapper->findByHouseAndUser($houseId, $ownerId);
+		$bookedAfterCompletion = $wallet->getBookedMinor();
 
 		$counter = QueryCounter::attach($this->db);
 		try {
 			$counter->mark();
-			$result = $completion->undo($houseId, $actor, $roomTaskId);
+			$result = $completion->undo($houseId, $actor, (int)$completed['completionId'], sprintf('d1c2e3f4-a5b6-4c7d-8e9f-%012d', random_int(0, 999999999999)), 0, null);
 			$count = $counter->count();
 			$lockSelects = $counter->countLockSelects();
 		} finally {
@@ -319,42 +330,39 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 
 		// Exact result identity/state.
 		self::assertTrue($result['undone']);
-		// Reconciliation: the post-undo totalCoins IS the pre-completion
-		// total; reverted coins + pre-total = the completion-time total.
+		// Reconciliation: the undo posts the exact negative wallet entries —
+		// the booked total returns to the pre-completion level (fresh
+		// fixture: completion credit = totalEnergy * 1000 minor).
+		$walletAfter = $walletMapper->findByHouseAndUser($houseId, $ownerId);
 		self::assertSame(
-			$coinsAfterCompletion,
-			$result['rewards']['totalCoins'] - $result['rewards']['coins'],
-			'the reverted coins reconcile the pre-completion total'
+			$completed['rewards']['wallet']['bookedMinor'] - $completed['rewards']['completion']['totalEnergy'] * 1000,
+			$walletAfter->getBookedMinor(),
+			'the reverted credit reconciles the pre-completion wallet total'
 		);
 
-		// The ledger row is marked undone, not deleted.
+		// The evidence row is marked undone, not deleted.
 		$ledgerRows = $this->ledgerRows($roomTaskId);
 		self::assertCount(1, $ledgerRows);
 		self::assertNotNull($ledgerRows[0]['undone_at'], 'undo marks the row undone');
 
-		// Four locked reads: house → room_task → room → house_user (the
-		// single house-first order, CS-PLAN-071); the undo path rebuilds
-		// rewards from the effect record instead of the reward phase, so no
-		// fifth lock occurs.
-		self::assertSame(4, $lockSelects);
+		self::assertSame(7, $lockSelects);
 		self::assertLessThanOrEqual(self::UNDO_BUDGET, $count, implode("\n", $counter->sqlStatements()));
 	}
 
 	// ========== Helpers ==========
 
 	/**
-	 * Set the house's weekly-goal notification week to the CURRENT week so
-	 * the post-commit claim in a completion deterministically loses the
-	 * week-change comparison (the branch runs, the order-dependent
-	 * notification INSERT does not).
+	 * @return array<int, array<string, mixed>>
 	 */
-	private function pinWeeklyGoalClaimAsDone(int $houseId): void {
-		$weekKey = (new \DateTime('monday this week'))->format('Y-m-d');
+	private function rowsBy(string $table, string $column, int $value): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_houses')
-			->set('weekly_goal_notified_week', $qb->createNamedParameter($weekKey))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($houseId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
-		$qb->executeStatement();
+		$qb->select('*')
+			->from($table)
+			->where($qb->expr()->eq($column, $qb->createNamedParameter($value, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$rows = $result->fetchAll();
+		$result->closeCursor();
+		return is_array($rows) ? $rows : [];
 	}
 
 	/**

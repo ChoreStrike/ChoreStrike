@@ -120,6 +120,7 @@ describe('Settings.vue', () => {
 		showSuccess.mockClear()
 		showError.mockClear()
 		mockHouseState.updateHouseName.mockClear().mockResolvedValue()
+		mockHouseState.resetHouse.mockClear().mockResolvedValue()
 		mockRoomsState.deleteFloor.mockClear().mockResolvedValue()
 		mockRoomsState.reorderFloors.mockClear().mockResolvedValue()
 		mockUserState.currentUser = { id: 1, role: 'owner' }
@@ -263,6 +264,19 @@ describe('Settings.vue', () => {
 
 		await wrapper.find('.danger-button').trigger('click')
 		expect(wrapper.vm.showResetModal).toBe(true)
+	})
+
+	it('submits the confirmed reset through the receipt-aware house store', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		await wrapper.find('.danger-button').trigger('click')
+		await wrapper.find('input[placeholder="RESET"]').setValue('RESET')
+		await wrapper.find('.modal-overlay .danger-button').trigger('click')
+		await flushPromises()
+
+		expect(mockHouseState.resetHouse).toHaveBeenCalledTimes(1)
+		expect(showSuccess).toHaveBeenCalled()
 	})
 
 	it('disables save button when house name is unchanged', () => {

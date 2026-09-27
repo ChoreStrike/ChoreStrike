@@ -41,8 +41,8 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 		$this->floorId = $this->createFloor($this->houseId, 'Ground Floor', 1);
 		$this->roomId = $this->createRoom($this->houseId, $this->floorId, 'Office');
 
-		$this->publicTaskId = $this->createTask($this->houseId, 'Public Sweep', 'Sweep floor', 4, 10);
-		$this->adminOnlyTaskId = $this->createTask($this->houseId, 'Admin Audit', 'Review finances', 8, 20);
+		$this->publicTaskId = $this->createTask($this->houseId, 'Public Sweep', 'Sweep floor', 4, 3);
+		$this->adminOnlyTaskId = $this->createTask($this->houseId, 'Admin Audit', 'Review finances', 8, 5);
 		$this->setTaskVisibility($this->adminOnlyTaskId, Task::VISIBILITY_ADMIN_ONLY);
 
 		$this->adminOnlyRoomTaskId = $this->assignTaskToRoom($this->adminOnlyTaskId, $this->roomId, 'admin_owner');
@@ -97,8 +97,9 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 
 		$result = $this->completeOccurrence($completionService, $this->houseId, 'admin_owner', $this->adminOnlyRoomTaskId);
 
+		// WP3 cutover: the reward block is work evidence, not coins.
 		self::assertArrayHasKey('rewards', $result);
-		self::assertGreaterThan(0, $result['rewards']['coins']);
+		self::assertNotEmpty($result['rewards']['participants']);
 	}
 
 	public function testMemberCannotCompleteAdminOnlyTask(): void {
@@ -121,19 +122,20 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 
 	// ========== Admin-Only Tasks Grant Rewards ==========
 
-	public function testAdminOnlyTaskCompletionAwardsCoins(): void {
+	public function testAdminOnlyTaskCompletionCreditsWallet(): void {
 		$this->actingAs('admin_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 
 		$before = $houseUserMapper->findByNextcloudUserId($this->houseId, 'admin_owner');
-		$coinsBefore = $before->getCoins();
 
 		$result = $this->completeOccurrence($completionService, $this->houseId, 'admin_owner', $this->adminOnlyRoomTaskId);
 
+		// WP3 §3.1: work pays the caller's OWN wallet in exact minor units;
+		// the member contribution derives from the same shares.
 		$after = $houseUserMapper->findByNextcloudUserId($this->houseId, 'admin_owner');
-		self::assertGreaterThan($coinsBefore, $after->getCoins());
-		self::assertGreaterThan(0, $result['rewards']['coins']);
+		self::assertGreaterThan($before->getContributionMinor(), $after->getContributionMinor());
+		self::assertGreaterThan(0, $result['rewards']['wallet']['availableMinor']);
 	}
 
 	// ========== Task Entity ==========

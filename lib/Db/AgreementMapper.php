@@ -36,6 +36,24 @@ class AgreementMapper extends QBMapper {
 	}
 
 	/**
+	 * Whether ANY explicit agreement revision exists for an occurrence
+	 * (WP3 §3.4 provenance probe — the undo re-derivation never deletes
+	 * explicitly amended rows).
+	 */
+	public function hasAgreementFor(int $occurrenceId): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*'))
+			->from($this->getTableName())
+			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter($occurrenceId, IQueryBuilder::PARAM_INT)));
+
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $count > 0;
+	}
+
+	/**
 	 * Record one agreement revision. Called inside the owning house-first
 	 * transaction. WP2: `$consent` stores the recorded consenting subject
 	 * facts, `$pauseRef` links a pause-effect row to its pause group.

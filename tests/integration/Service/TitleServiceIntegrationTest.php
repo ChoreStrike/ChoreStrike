@@ -31,7 +31,7 @@ class TitleServiceIntegrationTest extends IntegrationTestCase {
 	 * Create a member in a fresh house with the given stats and return the
 	 * reloaded HouseUser entity.
 	 */
-	private function memberWithStats(int $contribution, int $longestStreak, int $coins) {
+	private function memberWithStats(int $contributionMinor, int $longestStreak, int $currentStreak) {
 		$houseId = $this->createHouse('title-owner-' . uniqid());
 		$userId = 'title-member-' . uniqid();
 		$this->addHouseMember($houseId, $userId, 'Title Member', 'member');
@@ -39,9 +39,9 @@ class TitleServiceIntegrationTest extends IntegrationTestCase {
 		// Bump the stats directly so we don't have to grind completions.
 		$qb = $this->db->getQueryBuilder();
 		$qb->update('chorestrike_house_users')
-			->set('contribution_score', $qb->createNamedParameter($contribution))
+			->set('contribution_minor', $qb->createNamedParameter($contributionMinor))
 			->set('longest_streak', $qb->createNamedParameter($longestStreak))
-			->set('coins', $qb->createNamedParameter($coins))
+			->set('current_streak', $qb->createNamedParameter($currentStreak))
 			->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)))
 			->andWhere($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId)));
 		$qb->executeStatement();
@@ -50,7 +50,7 @@ class TitleServiceIntegrationTest extends IntegrationTestCase {
 	}
 
 	public function testSelectPack_PersistsAndGetCurrentTitleReadsLiveStats(): void {
-		$user = $this->memberWithStats(1500, 1, 0);
+		$user = $this->memberWithStats(150000, 1, 1);
 
 		$this->titleService->selectPack($user, $user, 'home_helpers');
 
@@ -64,7 +64,7 @@ class TitleServiceIntegrationTest extends IntegrationTestCase {
 	}
 
 	public function testDetectUnlock_PersistsCacheToTheJsonColumn(): void {
-		$user = $this->memberWithStats(60, 8, 0);
+		$user = $this->memberWithStats(6000, 8, 0);
 
 		$unlocked = $this->titleService->detectUnlock($user);
 		// detectUnlock only mutates in-memory — persist via the mapper.
@@ -84,7 +84,7 @@ class TitleServiceIntegrationTest extends IntegrationTestCase {
 		$original = $config->getTitleThreshold('home_helpers', 0);
 		try {
 			$config->setTitleThreshold('home_helpers', 0, 5);
-			$user = $this->memberWithStats(10, 1, 0);
+			$user = $this->memberWithStats(10, 1, 1);
 			$user->setSelectedTitlePack('home_helpers');
 
 			$title = $this->titleService->getCurrentTitle($user);

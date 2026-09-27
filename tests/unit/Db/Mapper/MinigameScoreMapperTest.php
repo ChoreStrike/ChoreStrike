@@ -81,13 +81,13 @@ class MinigameScoreMapperTest extends TestCase {
 		$score->setUserId('alice');
 		$score->setGameId('snake');
 		$score->setScore(150);
-		$score->setBoostsUsed(['speed' => 2]);
 		$score->setCreatedAt(new \DateTime('2026-01-15'));
 
 		$json = $score->jsonSerialize();
 
 		$this->assertEquals(1, $json['id']);
 		$this->assertEquals(150, $json['score']);
-		$this->assertEquals(['speed' => 2], $json['boostsUsed']);
+		// WP3 cutover: scores-only — no boost metadata is serialized.
+		$this->assertArrayNotHasKey('boostsUsed', $json);
 	}
 }

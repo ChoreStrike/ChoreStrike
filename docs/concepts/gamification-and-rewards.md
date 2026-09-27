@@ -20,10 +20,12 @@ of their suitability for that goal. Dated decision sections distinguish the
 
 - Avoid military reward terms.
 - Use friendly terms that fit family collaboration.
-- Use **Coins** as the reward currency (shipped). Tasks carry a tier
-  (Bronze/Silver/Gold) multiplier and each member has a personal coin multiplier
-  for balancing. Most global defaults are read through `RewardConfigService`;
-  member balancing uses the persisted member multiplier. The former
+- Use **Coins** as the reward currency (shipped). Wallet value is exact
+  **minor units** since WP3 (2026-09-27, [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)):
+  100 coin minor = 1 Coin, 1000 coin minor per frozen energy unit (10 Coins at
+  the frozen rate). Rewards are exact derivations of the frozen work evidence —
+  no integer mints, no tier/personal/early/combo multipliers (retired with the
+  legacy economy); the Coin column is gone from the UI. The former
   reward-config HTTP routes were pruned, not shipped as an admin API.
 
 ## Parent Contribution Balancing
@@ -51,45 +53,39 @@ reward merely to manufacture equal rankings is not an agreed requirement.
 
 ## Implemented Reward Mechanics
 
-> Current implementation, checked 2026-09-16. Most configuration is instance-wide
-> Nextcloud app config, not a household settings surface. The tier constants are
-> an exception to the intended config-driven policy.
+> Current implementation, WP3 (2026-09-27, ADR-014). Most configuration is
+> instance-wide Nextcloud app config, not a household settings surface. The
+> legacy economy columns/multipliers (tier coins, personal multiplier,
+> early bonus, combo, streak freezes, teamwork bonus, boosts) were retired
+> with the WP3 cutover — the rows below are the surviving mechanics.
 
 | Mechanic | Behaviour | Config key (default) |
 |----------|-----------|----------------------|
-| **Coins** (renewable currency) | `energy_cost × coin_base_per_energy × tier_multiplier × personal_multiplier × early_multiplier`; **×combo_multiplier on personal combo** (`GameLogicService::calculateCoins`). Tier values come from `Task::getTaskTierMultiplier`, not the stored `tier_*` keys. | `coin_base_per_energy` (10), fixed tiers (1.0/1.5/2.0), `early_bonus_multiplier` (1.5), `early_bonus_threshold_days` (21), `combo_multiplier` (2.0) |
-| **Contribution score** | Credits the task's `energy_cost`; no passive penalty. Undo restores the recorded before-state, not just a delta; see the cross-event limitation below. Leaderboard and `home_helpers` title signal. | None |
-| **Personal combo** | Rapid consecutive completions by the same user double coins (configurable multiplier). *Not* the cooperative ×1.5 multi-user concept from the foundational design — see Decision Point B (CS-PLAN-010). | `combo_multiplier` (2.0) |
-| **Streak freezes** | Protect a streak on a missed available day; consumed by completion and `StreakFreezeJob`; restocked weekly by `StreakRestockJob`. Job bodies live in `StreakFreezeService` / `StreakRestockService` (thin job delegates; triggerable with an injected date via `occ chorestrike:trigger-jobs`). | `streak_freezes_per_week` (1), `streak_freeze_cap` (2) |
-| **Combo bonus freeze** | A combo reaching the threshold awards one bonus freeze (respecting the cap). | `combo_bonus_freeze_threshold` (5) |
-| **Teamwork bonus** | Multi-assignee task completion grants the completer an additional bonus; it is not credited to every assignee. Configuration is instance-wide. | `teamwork_bonus_enabled` (true), `teamwork_bonus_max_pct` (50) |
-| **Weekly household goal** | Distinct completed room-task IDs divided by the union of currently due and completed room-task IDs that week; not completed due occurrences or an on-time rate. First achievement sends a notification. | `weekly_goal_target_percent` (80) |
+| **Coins (minor-unit wallet)** | Exact derivations of the frozen work evidence: `coinMinor = 10 × totalEnergy × sharePct` at the frozen `rate_minor` (1000 coin minor per energy). Booked through the immutable `wallet_entries` ledger (`(wallet, source-kind, source-id, source-revision)` idempotency identity); cached balance maintained transactionally, safe-integer envelope enforced. Corrections move value between wallets with exact union deltas — a completion pays out exactly the frozen total. | frozen `rate_minor` at completion |
+| **Contribution** | `energyMinor = totalEnergy × sharePct` accumulated per wallet (`contributionMinor`); leaderboard/fairness/title signal. Corrections re-derive it from the valid history — never a cached increment/decrement. | None |
+| **Work splits** | The completer records the actual participants (1–100 unique eligible members, whole percents summing to 100); the completer must take part. A later attribution corrects the split by completer/owner authority with the explicit review confirmation; departed participants' retained wallets are always part of the reversal. | None |
+| **Weekly household goal** | Agreed due occurrences completed validly inside their window, counted by planned house-local week. Daily repeats count separately, late catch-up does not move credit into the completion week, recognized pauses are neutral, and undo removes the valid result. The first qualifying closed-week pass claims one durable household bell receipt; an open week never sends it. | `weekly_goal_target_percent` (80) |
 | **Role titles** | Progression overlay (3 packs × 3 tiers); thresholds come from the server config/catalog. | `titles_enabled` (true), `title_threshold_{pack}_{tier}` (catalog defaults) |
+| **Streaks (planned-day rhythm)** | `currentStreak`/`longestStreak` recompute from the valid planned-day history after completion/undo/attribution and when a deadline expires: a day is fulfilled/pending-neutral/expired-miss per its actual participation and window; a correction shrinks the longest record only to the corrected valid-history maximum (C3g). | None |
 
-**Known mismatches requiring follow-up:** the early-bonus calculation sees the
-already-advanced next due date, not the completed occurrence's original due date.
-Undo restores old shared wallet/contribution values and can overwrite independent
-later changes. A daily task counts only once in the weekly goal, so completing it
-once can show 100% although further occurrences remain. These are not evidence of
-reliable on-time rewards; the [clarification plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md)
-tracks their contracts and required regression cases.
+**WP3 closure notes:** the early-bonus/midnight, snapshot-reversal and
+daily-count weekly-goal mismatches listed before 2026-09-27 are closed by the
+ADR-014 model (frozen rates/facts, valid-history re-derivation, due∪completed
+evaluation). Corrections, authority and audit are specified in
+[task-model-and-sync.md](task-model-and-sync.md) and the
+[clarification plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ### Weekly Medals
 
-> **Award reality (CS-PLAN-012, updated by CS-PLAN-067 WP8):** the medal enum
-> (`lib/Db/Medal.php`) catalogues `team_anchor`, `flow_keeper`, `room_guardian`,
-> `team_player`, `streak_keeper`. **All five are awarded** in the live
-> `MedalService::checkAndAwardMedals()` flow via `awardMedalIfNew()`
-> (idempotent, race-safe, notifies once per user+type+week — the cluster was
-> extracted out of `GameLogicService` in WP8):
-> - `team_anchor` — 10+ task completions in the week
-> - `streak_keeper` — 7+ day streak
-> - `flow_keeper` — 4+ distinct active days in the week
-> - `room_guardian` — 5+ completions in a single room (concentration)
-> - `team_player` — 3+ combo bonuses in the week (`comboCount` aggregation)
->
-> Integration coverage: `GameControllerIntegrationTest` pins the award from
-> real persisted completions plus the repeat-read idempotence.
+> **Award reality (WP3, ADR-014):** the old activity/combo medal catalog
+> (`team_anchor`, `flow_keeper`, `room_guardian`, `team_player`) retired with
+> the wallet cutover — no wallet-qualified or raw-activity medals remain, and
+> combo aggregation is gone with the combo mechanic. `MedalService` now
+> carries `rhythm_3`, `rhythm_6`, and `rhythm_12` from valid personal
+> planned-day history, plus `weekly_milestone` for members who had joined by
+> the qualifying planned week's end. Neither mints Coins. Corrections hide
+> unsupported awards, and `awardMedalIfNew()` remains race-safe and
+> idempotent per user/type/week without a second celebration.
 
 ## Role Title Systems (Localized)
 
@@ -97,25 +93,15 @@ tracks their contracts and required regression cases.
 > progression-overlay on top of the existing stats. Titles react to existing
 > progression signals only — no new core loop, currency, or completion path.
 
-### Arcade Coin Sink (shipped, CS-PLAN-068 §3.6 documentation)
+### Arcade (play-only since WP3, CS-PLAN-068 → ADR-014)
 
-Coins are also spent on Snake boosts in the household arcade. The retained
-2048/Memory component prototypes do not expand the server's `snake` score
-whitelist. Prices live **server-side only** (`MinigameService::BOOST_COSTS`
-via `GET /minigames/boosts`); the shop disables purchases without the
-authoritative catalog instead of guessing, the debit is an atomic
-`POST /minigames/boosts/{id}/purchase` with the exact catalog price, and
-score saves are capped (`MinigameService::MAX_SCORE` and
-`DAILY_SCORE_SAVE_LIMIT`, rather than a household-defined reward budget, per member and
-house-local day). The awarded coins for a game are server-computed
-(`floor(score / 10)`), never client-supplied. See the Minigames section in
+The minigames are play-only: the boost shop, the boost purchase flow and the
+arcade coin earnings were retired with the WP3 economy cutover (no shared
+wallet with chores, no redemption surface). Score saves stay capped
+(`MinigameService::MAX_SCORE` and `DAILY_SCORE_SAVE_LIMIT` per member and
+house-local day) and leaderboards remain house-scoped. Playable 2048/Memory
+prototypes do not have supported score saves. See the Minigames section in
 [`../api/README.md`](../api/README.md).
-
-Arcade earnings enter the same coin wallet as chores. Boosts are currently the
-only purchase flow; a family reward catalog, redemption requests and fulfillment
-do not exist. The approved target separates arcade from family Coins; the current
-shared economy must change before real-world redemption. Playable 2048/Memory
-prototypes do not have supported score saves.
 
 Role names must feel friendly and motivating.
 Use localized title packs so each household can choose a style.
@@ -127,26 +113,21 @@ Implementation (`lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php`):
 
 | Pack | Signal | Tier thresholds (defaults) |
 |------|--------|----------------------------|
-| Home Helpers | `contributionScore` | 50 / 250 / 1000 |
+| Home Helpers | `contributionMinor` | 50 / 250 / 1000 |
 | Team Energy | `longestStreak` | 7 / 30 / 90 |
-| Cozy Home | `coins` | 500 / 2500 / 10000 |
 
 - Server-authoritative unlocks: the client only displays what the server returns.
-- Each pack's signal is an **actively-maintained** stat: `contributionScore`
-  and `coins` are incremented on every task completion, and `longestStreak`
-  is tracked from the effective (post-freeze) streak in
-  `GameLogicService::handleTaskCompletion`.
+- Each pack's signal is an **actively-maintained** stat: `contributionMinor`
+  is the exact lifetime work in minor units (100 per energy) and
+  `longestStreak` is the corrected-record maximum from the valid planned-day
+  history (WP3 `RhythmService`).
 - Thresholds use `RewardConfigService` keys (`title_threshold_{pack}_{tier}`).
   There is no live reward-config HTTP API; API consumers must not rely on
   the retired configuration routes.
 - The user picks one active pack; within that pack the highest currently
   qualifying tier is shown, recomputed from live stats. Switching packs is free.
-- **Recognition limitation:** Cozy Home reads the current spendable coin balance,
-  not lifetime earnings or permanently retained unlocks. A member at 500 Coins
-  qualifies for Cozy Buddy; spending 10 Coins drops the balance to 490 and removes
-  that title on the next title computation. The `unlocked_titles` cache prevents
-  repeated celebrations; it is not the authority for title visibility. Separating
-  recognition from spending is an open reward-contract decision, not implemented.
+- The former `coins`-driven Cozy Home pack retired with the spendable-balance
+  economy (WP3); recognition never reads a spendable balance.
 - Unlock moments reuse the celebration layer (`chorestrike:title-unlocked`
   event → confetti + milestone SFX) and fire a best-effort Nextcloud
   notification. The whole subsystem can be disabled via the

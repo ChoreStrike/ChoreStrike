@@ -125,9 +125,12 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 			self::assertSame('Task not found', $e->getMessage());
 		}
 
-		// The join-table assignee completes successfully.
+		// The join-table assignee completes successfully; the WP3 reward
+		// block is work evidence (participants + own wallet), not coins.
 		$result = $this->completeOccurrence(\OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class), $houseId, 'asg_member3', $roomTaskId);
-		self::assertGreaterThan(0, $result['rewards']['coins']);
+		self::assertGreaterThan(0, (int)$result['completionId']);
+		self::assertNotEmpty($result['rewards']['participants']);
+		self::assertArrayNotHasKey('coins', $result['rewards']);
 	}
 
 	/**

@@ -216,9 +216,12 @@ export const useRoomsStore = defineStore('rooms', {
 		},
 
 		/**
-		 * Update room cleanliness
+		 * Update room cleanliness (WP3 §3.5: the REQUESTED delta is
+		 * journaled server-side under a receipt-protected command
+		 * identity — a replayed command never repeats a delta over later
+		 * work).
 		 * @param {number} roomId Room identifier to update.
-		 * @param {number} cleanlinessChange Delta to apply to cleanliness.
+		 * @param {number} cleanlinessChange Requested delta to apply to cleanliness.
 		 */
 		async updateRoomCleanliness(roomId, cleanlinessChange) {
 			this.loading = true
@@ -226,7 +229,10 @@ export const useRoomsStore = defineStore('rooms', {
 
 			try {
 				this.requestSeq++
-				const data = await api.put(`/api/v1/rooms/${roomId}/cleanliness`, { cleanlinessChange })
+				const data = await api.put(`/api/v1/rooms/${roomId}/cleanliness`, {
+					cleanlinessChange,
+					commandId: crypto.randomUUID(),
+				})
 
 				const roomIndex = this.rooms.findIndex(r => r.id === roomId)
 				if (roomIndex >= 0) {

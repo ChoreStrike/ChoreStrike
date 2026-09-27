@@ -4,221 +4,223 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Medal;
 use OCA\ChoreStrike\Db\MedalMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
+use OCA\ChoreStrike\Db\WeeklyGoalReceiptMapper;
 use OCA\ChoreStrike\Service\AppLogger;
-use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\MedalService;
 use OCA\ChoreStrike\Service\NotificationService;
+use OCA\ChoreStrike\Service\RhythmService;
+use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for MedalService (CS-PLAN-067 §3.2) — the weekly medal
- * cluster moved out of GameLogicService; predicates, award timing, race
- * handling and notification behavior are unchanged.
+ * Unit tests for MedalService (CS-PLAN-070 WP3, Q-074-01A): only the
+ * RETAINED recognition awards remain — the personal rhythm tiers at
+ * 3/6/12 consecutive successful planned task days (lifetime rows off the
+ * RhythmService-derived streak) plus the household weekly milestone.
+ * The old activity/combo catalog (team_anchor, flow_keeper,
+ * room_guardian, team_player) retired with the wallet cutover.
  */
 class MedalServiceTest extends TestCase {
 	private MedalService $service;
 	private HouseUserMapper $houseUserMapper;
-	private CompletedTaskMapper $completedTaskMapper;
 	private MedalMapper $medalMapper;
 	private NotificationService $notificationService;
 	private AppLogger $appLogger;
+	private WeeklyGoalService $weeklyGoalService;
+	private RhythmService $rhythmService;
 	private HouseMapper $houseMapper;
+	private WeeklyGoalReceiptMapper $weeklyGoalReceiptMapper;
+	private TransactionExecutor $transactions;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->medalMapper = $this->createMock(MedalMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->weeklyGoalService = $this->createMock(WeeklyGoalService::class);
+		$this->rhythmService = $this->createMock(RhythmService::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
-		// CS-PLAN-057: medal week resolves the house timezone — default to a
-		// UTC house.
-		$utcHouse = new House();
-		$utcHouse->setTimezone('UTC');
-		$this->houseMapper->method('find')->willReturn($utcHouse);
+		$this->weeklyGoalReceiptMapper = $this->createMock(WeeklyGoalReceiptMapper::class);
+		$this->transactions = $this->createMock(TransactionExecutor::class);
+		$this->transactions->method('run')->willReturnCallback(static fn (callable $fn): mixed => $fn());
+		$this->weeklyGoalService->method('getWeeklyGoalProgressForWeek')->willReturn([
+			'achieved' => false,
+			'percent' => 0,
+		]);
+
+		// Default: weekly goal not achieved (tests opt in explicitly).
+		$this->weeklyGoalService->method('getWeeklyGoalProgress')->willReturn([
+			'dueCount' => 5,
+			'completedCount' => 1,
+			'percent' => 20,
+			'targetPercent' => 80,
+			'achieved' => false,
+			'weekStart' => '2026-09-21T00:00:00+00:00',
+			'weekEnd' => '2026-09-28T00:00:00+00:00',
+			'weekKey' => '2026-09-21',
+		]);
 
 		$this->service = new MedalService(
 			$this->houseUserMapper,
-			$this->completedTaskMapper,
 			$this->medalMapper,
 			$this->notificationService,
 			$this->appLogger,
+			$this->weeklyGoalService,
+			$this->rhythmService,
 			$this->houseMapper,
-			new CalendarService()
+			$this->weeklyGoalReceiptMapper,
+			$this->transactions
 		);
 	}
 
-	/**
-	 * CheckAndAwardMedals_HighContributor_AwardsTeamAnchor
-	 */
-	public function testCheckAndAwardMedals_HighContributor_AwardsTeamAnchor(): void {
-		$houseId = 1;
-
+	private function member(int $id, string $ncId, int $streak): HouseUser {
 		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(3);
+		$user->setId($id);
+		$user->setNextcloudUserId($ncId);
+		$user->setCurrentStreak($streak);
+		$user->setLongestStreak($streak);
+		$user->setJoinedAt(new \DateTime('2025-01-01T00:00:00+00:00'));
+		return $user;
+	}
 
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn([$user]);
+	private function weeklyProgress(bool $achieved, int $percent = 100): void {
+		// A FRESH mock: PHPUnit keeps the first configured stub, so the
+		// setUp default (not achieved) must not shadow the test override.
+		$this->weeklyGoalService = $this->createMock(WeeklyGoalService::class);
+		$this->weeklyGoalService->method('getWeeklyGoalProgressForWeek')->willReturn([
+			'achieved' => false,
+			'percent' => 0,
+		]);
+		$this->weeklyGoalService->method('getWeeklyGoalProgress')->willReturn([
+			'dueCount' => 5,
+			'completedCount' => $achieved ? 5 : 1,
+			'percent' => $achieved ? $percent : 20,
+			'targetPercent' => 80,
+			'achieved' => $achieved,
+			'weekStart' => '2026-09-21T00:00:00+00:00',
+			'weekEnd' => '2026-09-28T00:00:00+00:00',
+			'weekKey' => '2026-09-21',
+		]);
+		$this->service = new MedalService(
+			$this->houseUserMapper,
+			$this->medalMapper,
+			$this->notificationService,
+			$this->appLogger,
+			$this->weeklyGoalService,
+			$this->rhythmService,
+			$this->houseMapper,
+			$this->weeklyGoalReceiptMapper,
+			$this->transactions
+		);
+	}
 
-		$this->completedTaskMapper
-			->expects($this->once())
-			->method('getUserStatsByHouse')
-			->willReturn([1 => ['taskCount' => 15, 'totalCoins' => 100]]);
+	public function testCheckAndAwardMedals_MemberJoinedAfterClosedWeek_DoesNotGetHistoricalMilestone(): void {
+		$user = $this->member(7, 'late_joiner', 0);
+		$user->setJoinedAt(new \DateTime('2026-09-29T00:00:00+00:00'));
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+		$this->weeklyProgress(true);
+		$this->medalMapper->expects($this->never())->method('insert');
+		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 
-		$this->medalMapper
-			->expects($this->once())
-			->method('findByUserTypeAndWeek')
-			->willThrowException(new DoesNotExistException());
-
-		$this->medalMapper
-			->expects($this->once())
-			->method('insert')
-			->willReturnCallback(function ($medal) {
-				return $medal;
-			});
-
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		$this->assertCount(1, $result);
-		$this->assertEquals('team_anchor', $result[0]->getMedalType());
+		self::assertSame([], $this->service->checkAndAwardMedals(1));
 	}
 
 	/**
-	 * CheckAndAwardMedals_LongStreak_AwardsStreakKeeper
+	 * CheckAndAwardMedals_RhythmStreak_AwardsRetainedTiers
+	 *
+	 * C3d: a currentStreak of 12 crosses all three retained rhythm tiers
+	 * (3/6/12) — lifetime rows, one award each.
 	 */
-	public function testCheckAndAwardMedals_LongStreak_AwardsStreakKeeper(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(10);
-
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn([$user]);
-
-		$this->completedTaskMapper
-			->expects($this->once())
-			->method('getUserStatsByHouse')
-			->willReturn([1 => ['taskCount' => 5, 'totalCoins' => 50]]);
-
-		$medal = new Medal();
-		$medal->setId(1);
-		$medal->setUserId(1);
-		$medal->setMedalType('streak_keeper');
-
-		$this->medalMapper
-			->expects($this->once())
-			->method('findByUserTypeAndWeek')
+	public function testCheckAndAwardMedals_RhythmStreak12_AwardsAllThreeTiers(): void {
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(1, 'alice', 12)]);
+		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
+		$this->medalMapper->method('insert')->willReturnArgument(0);
 
-		$this->medalMapper
-			->expects($this->once())
-			->method('insert')
-			->willReturn($medal);
+		$result = $this->service->checkAndAwardMedals(1);
 
-		$result = $this->service->checkAndAwardMedals($houseId);
+		$types = array_map(static fn (Medal $m) => $m->getMedalType(), $result);
+		$this->assertEquals(['rhythm_3', 'rhythm_6', 'rhythm_12'], $types);
+		foreach ($result as $medal) {
+			$this->assertSame(MedalService::LIFETIME_WEEK, $medal->getWeekStart());
+		}
+	}
+
+	/**
+	 * CheckAndAwardMedals_RhythmStreak3_AwardsOnlyRhythm3
+	 */
+	public function testCheckAndAwardMedals_RhythmStreak3_AwardsOnlyRhythm3(): void {
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(1, 'alice', 3)]);
+		$this->medalMapper->method('findByUserTypeAndWeek')
+			->willThrowException(new DoesNotExistException());
+		$this->medalMapper->method('insert')->willReturnArgument(0);
+
+		$result = $this->service->checkAndAwardMedals(1);
 
 		$this->assertCount(1, $result);
+		$this->assertEquals('rhythm_3', $result[0]->getMedalType());
+		$this->assertEquals(3, $result[0]->getValue());
+	}
+
+	/**
+	 * CheckAndAwardMedals_BelowRhythmThreshold_NoPersonalAward
+	 */
+	public function testCheckAndAwardMedals_BelowRhythmThreshold_NoPersonalAward(): void {
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(1, 'alice', 2)]);
+
+		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
+		$this->medalMapper->expects($this->never())->method('insert');
+
+		$this->assertCount(0, $this->service->checkAndAwardMedals(1));
 	}
 
 	/**
 	 * CheckAndAwardMedals_NewMedal_NotifiesRecipient
-	 *
-	 * A newly-awarded medal must dispatch a server-side notification to the
-	 * recipient's Nextcloud account (bell + mobile feed). The lookup uses
-	 * the house user's nextcloud_user_id.
 	 */
 	public function testCheckAndAwardMedals_NewMedal_NotifiesRecipient(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(7);
-		$user->setNextcloudUserId('alice');
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([7 => ['taskCount' => 15, 'totalCoins' => 100]]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(7, 'alice', 3)]);
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
 		$this->medalMapper->method('insert')->willReturnArgument(0);
 
 		$this->notificationService->expects($this->once())
 			->method('notifyMedalAwarded')
-			->with('alice', 'team_anchor', 15, $this->isType('string'));
+			->with('alice', 'rhythm_3', 3, MedalService::LIFETIME_WEEK);
 
-		$this->service->checkAndAwardMedals($houseId);
+		$this->service->checkAndAwardMedals(1);
 	}
 
 	/**
 	 * CheckAndAwardMedals_ExistingMedal_DoesNotNotifyAgain
-	 *
-	 * Idempotency: re-checking medals in a week that already saw an award
-	 * must NOT re-notify the user. The awardMedalIfNew helper returns null
-	 * for already-existing medals and skips the dispatch.
 	 */
 	public function testCheckAndAwardMedals_ExistingMedal_DoesNotNotifyAgain(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(7);
-		$user->setNextcloudUserId('alice');
-		$user->setCurrentStreak(10);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(7, 'alice', 3)]);
 
 		$existingMedal = new Medal();
 		$existingMedal->setId(99);
-		$existingMedal->setMedalType('streak_keeper');
+		$existingMedal->setMedalType('rhythm_3');
 		$existingMedal->setUserId(7);
 
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([7 => ['taskCount' => 5, 'totalCoins' => 50]]);
 		$this->medalMapper->method('findByUserTypeAndWeek')->willReturn($existingMedal);
 		$this->medalMapper->expects($this->never())->method('insert');
-
 		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		// Existing medal returns null from awardMedalIfNew → not collected.
-		$this->assertCount(0, $result);
+		$this->assertCount(0, $this->service->checkAndAwardMedals(1));
 	}
 
 	/**
 	 * CheckAndAwardMedals_InsertUniqueViolation_TreatsAsExistingAndSkipsNotify
-	 *
-	 * Race-loser scenario: two concurrent medal checks both find no existing
-	 * medal; the loser's insert throws a unique-constraint violation. The
-	 * awardMedalIfNew helper catches it via OCP\DB\Exception and returns null
-	 * (treats the medal as already-existing), so the API call doesn't fail
-	 * and no duplicate notification is dispatched.
 	 */
 	public function testCheckAndAwardMedals_InsertUniqueViolation_TreatsAsExistingAndSkipsNotify(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(7);
-		$user->setNextcloudUserId('alice');
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([7 => ['taskCount' => 15, 'totalCoins' => 100]]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(7, 'alice', 3)]);
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
 		$this->medalMapper->method('insert')
@@ -241,36 +243,19 @@ class MedalServiceTest extends TestCase {
 					return $context['event'] === 'medal_award_race_lost'
 						&& $context['service'] === 'MedalService'
 						&& $context['houseUserId'] === 7
-						&& $context['medalType'] === 'team_anchor'
-						&& is_string($context['weekStart'])
-						&& $context['weekStart'] !== '';
+						&& $context['medalType'] === 'rhythm_3'
+						&& $context['weekStart'] === MedalService::LIFETIME_WEEK;
 				})
 			);
 
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		$this->assertCount(0, $result);
+		$this->assertCount(0, $this->service->checkAndAwardMedals(1));
 	}
 
 	/**
 	 * CheckAndAwardMedals_InsertNonUniqueDbError_Propagates
-	 *
-	 * A non-unique-constraint DB error during medal insert (e.g. FK
-	 * violation, deadlock, connection loss) must propagate — the medal is
-	 * not silently swallowed as if it were a race-loser. Regression for the
-	 * over-broad catch.
 	 */
 	public function testCheckAndAwardMedals_InsertNonUniqueDbError_Propagates(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(7);
-		$user->setNextcloudUserId('alice');
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([7 => ['taskCount' => 15, 'totalCoins' => 100]]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member(7, 'alice', 3)]);
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
 		$this->medalMapper->method('insert')
@@ -284,193 +269,301 @@ class MedalServiceTest extends TestCase {
 		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 		$this->expectException(\OCP\DB\Exception::class);
 
-		$this->service->checkAndAwardMedals($houseId);
+		$this->service->checkAndAwardMedals(1);
 	}
 
 	/**
-	 * CheckAndAwardMedals_FrequentDailyActivity_AwardsFlowKeeper
-	 */
-	public function testCheckAndAwardMedals_FrequentDailyActivity_AwardsFlowKeeper(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 4]]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
-			->willReturn([1 => 2]);
-
-		$this->medalMapper->method('findByUserTypeAndWeek')
-			->willThrowException(new DoesNotExistException());
-		$this->medalMapper->method('insert')->willReturnArgument(0);
-
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		$this->assertCount(1, $result);
-		$this->assertEquals('flow_keeper', $result[0]->getMedalType());
-		$this->assertEquals(4, $result[0]->getValue());
-	}
-
-	/**
-	 * CheckAndAwardMedals_BelowFlowKeeperThreshold_NoAward
-	 */
-	public function testCheckAndAwardMedals_BelowFlowKeeperThreshold_NoAward(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 3]]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
-			->willReturn([1 => 2]);
-
-		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
-		$this->medalMapper->expects($this->never())->method('insert');
-
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		$this->assertCount(0, $result);
-	}
-
-	/**
-	 * CheckAndAwardMedals_RoomConcentration_AwardsRoomGuardian
-	 */
-	public function testCheckAndAwardMedals_RoomConcentration_AwardsRoomGuardian(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 2]]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
-			->willReturn([1 => 5]);
-
-		$this->medalMapper->method('findByUserTypeAndWeek')
-			->willThrowException(new DoesNotExistException());
-		$this->medalMapper->method('insert')->willReturnArgument(0);
-
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		$this->assertCount(1, $result);
-		$this->assertEquals('room_guardian', $result[0]->getMedalType());
-		$this->assertEquals(5, $result[0]->getValue());
-	}
-
-	/**
-	 * CheckAndAwardMedals_BelowRoomGuardianThreshold_NoAward
-	 */
-	public function testCheckAndAwardMedals_BelowRoomGuardianThreshold_NoAward(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 2]]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
-			->willReturn([1 => 4]);
-
-		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
-		$this->medalMapper->expects($this->never())->method('insert');
-
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		$this->assertCount(0, $result);
-	}
-
-	/**
-	 * CheckAndAwardMedals_ManyCombos_AwardsTeamPlayer
-	 */
-	public function testCheckAndAwardMedals_ManyCombos_AwardsTeamPlayer(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 3, 'activeDays' => 2]]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
-			->willReturn([1 => 2]);
-
-		$this->medalMapper->method('findByUserTypeAndWeek')
-			->willThrowException(new DoesNotExistException());
-		$this->medalMapper->method('insert')->willReturnArgument(0);
-
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		$this->assertCount(1, $result);
-		$this->assertEquals('team_player', $result[0]->getMedalType());
-		$this->assertEquals(3, $result[0]->getValue());
-	}
-
-	/**
-	 * CheckAndAwardMedals_BelowTeamPlayerThreshold_NoAward
-	 */
-	public function testCheckAndAwardMedals_BelowTeamPlayerThreshold_NoAward(): void {
-		$houseId = 1;
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(3);
-
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')
-			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 2, 'activeDays' => 2]]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
-			->willReturn([1 => 2]);
-
-		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
-		$this->medalMapper->expects($this->never())->method('insert');
-
-		$result = $this->service->checkAndAwardMedals($houseId);
-
-		$this->assertCount(0, $result);
-	}
-
-	/**
-	 * CheckAndAwardMedals_UserAbsentFromGroupedMaps_TreatedAsZero
+	 * CheckAndAwardMedals_WeeklyGoalAchieved_AwardsWeeklyMilestoneToEveryMember
 	 *
-	 * CS-PLAN-036: a user with no completions in the range is absent from
-	 * the grouped maps — medal checks must treat that as all-zero stats
-	 * (same as the old per-user getUserStats on an empty range).
+	 * The household weekly milestone (80% target) is a per-member medal
+	 * keyed by the current house-local week — no extra Coins.
 	 */
-	public function testCheckAndAwardMedals_UserAbsentFromGroupedMaps_TreatedAsZero(): void {
-		$houseId = 1;
+	public function testCheckAndAwardMedals_WeeklyGoalAchieved_AwardsWeeklyMilestoneToEveryMember(): void {
+		$this->houseUserMapper->method('findByHouseId')
+			->willReturn([$this->member(1, 'alice', 0), $this->member(2, 'bob', 0)]);
+		$this->medalMapper->method('findByUserTypeAndWeek')
+			->willThrowException(new DoesNotExistException());
+		$this->medalMapper->method('insert')->willReturnArgument(0);
+		$this->weeklyProgress(true, 100);
 
-		$user = new HouseUser();
-		$user->setId(42);
-		$user->setCurrentStreak(3);
+		$result = $this->service->checkAndAwardMedals(1);
 
-		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStatsByHouse')->willReturn([]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')->willReturn([]);
+		$this->assertCount(2, $result);
+		foreach ($result as $medal) {
+			$this->assertEquals('weekly_milestone', $medal->getMedalType());
+			$this->assertEquals(100, $medal->getValue());
+			$this->assertEquals('2026-09-21', $medal->getWeekStart());
+		}
+		$this->assertEquals([1, 2], array_map(static fn (Medal $m) => $m->getUserId(), $result));
+	}
 
-		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
+	/**
+	 * CheckAndAwardMedals_WeeklyGoalNotAchieved_NoWeeklyMilestone
+	 */
+	public function testCheckAndAwardMedals_WeeklyGoalNotAchieved_NoWeeklyMilestone(): void {
+		$this->houseUserMapper->method('findByHouseId')
+			->willReturn([$this->member(1, 'alice', 0)]);
+
 		$this->medalMapper->expects($this->never())->method('insert');
 
-		$result = $this->service->checkAndAwardMedals($houseId);
+		$this->assertCount(0, $this->service->checkAndAwardMedals(1));
+	}
 
-		$this->assertCount(0, $result);
+	public function testCheckAndAwardMedals_CorrectionRevokesThenRestoresSameLifetimeAwardWithoutCelebration(): void {
+		$user = $this->member(7, 'alice', 0);
+		$award = new Medal();
+		$award->setId(99);
+		$award->setUserId(7);
+		$award->setMedalType('rhythm_3');
+		$award->setWeekStart(MedalService::LIFETIME_WEEK);
+		$award->setValue(3);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+		$this->medalMapper->method('findByUserIds')->willReturn([7 => [$award]]);
+		$values = [];
+		$this->medalMapper->expects($this->exactly(2))->method('update')->willReturnCallback(
+			static function (Medal $medal) use (&$values): Medal {
+				$values[] = $medal->getValue();
+				return $medal;
+			}
+		);
+		$this->medalMapper->expects($this->never())->method('insert');
+		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
+
+		self::assertSame([], $this->service->checkAndAwardMedals(1));
+		$user->setLongestStreak(3);
+		self::assertSame([], $this->service->checkAndAwardMedals(1));
+		self::assertSame([0, 3], $values);
+	}
+
+	public function testCheckAndAwardMedals_IndependentPastRun_PreservesEarnedTierAfterRealBreak(): void {
+		$user = $this->member(7, 'alice', 0);
+		$user->setLongestStreak(6);
+		$award = new Medal();
+		$award->setUserId(7);
+		$award->setMedalType('rhythm_6');
+		$award->setWeekStart(MedalService::LIFETIME_WEEK);
+		$award->setValue(6);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+		$this->medalMapper->method('findByUserIds')->willReturn([7 => [$award]]);
+		$this->medalMapper->expects($this->never())->method('update');
+		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
+		$this->medalMapper->method('findByUserTypeAndWeek')->willReturn($award);
+
+		self::assertSame([], $this->service->checkAndAwardMedals(1));
+		self::assertSame(6, $award->getValue());
+	}
+
+	public function testGetMedals_CorrectedFalseWeeklyMilestone_IsHiddenWithoutReadWrites(): void {
+		$user = $this->member(7, 'alice', 0);
+		$award = new Medal();
+		$award->setUserId(7);
+		$award->setMedalType('weekly_milestone');
+		$award->setWeekStart('2026-09-14');
+		$award->setValue(100);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+		$this->medalMapper->method('findByUserIds')->willReturn([7 => [$award]]);
+		$this->medalMapper->expects($this->never())->method('update');
+
+		self::assertSame([], $this->service->getMedals(1));
+	}
+
+	public function testGetMedals_UnsupportedRhythmAward_IsHiddenBeforeNextAwardCheck(): void {
+		$user = $this->member(7, 'alice', 0);
+		$award = new Medal();
+		$award->setUserId(7);
+		$award->setMedalType('rhythm_3');
+		$award->setWeekStart(MedalService::LIFETIME_WEEK);
+		$award->setValue(3);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+		$this->medalMapper->method('findByUserIds')->willReturn([7 => [$award]]);
+		$this->medalMapper->expects($this->never())->method('update');
+
+		self::assertSame([], $this->service->getMedals(1));
+	}
+
+	public function testClosedWeekJob_WaitsForWindowThenClaimsOnceAcrossCorrectionAndRetry(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($house);
+		$this->houseMapper->method('findForUpdate')->willReturn($house);
+		$user = $this->member(1, 'alice', 0);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+		$key = '2026-09-28';
+		$eligible = true;
+		$claimed = false;
+		$award = null;
+		$this->weeklyGoalReceiptMapper->method('plannedWeeksPage')->willReturn([$key]);
+		$this->weeklyGoalReceiptMapper->method('claimedWeeks')->willReturnCallback(
+			static function () use (&$claimed, $key): array {
+				return $claimed ? [$key => true] : [];
+			}
+		);
+		$this->weeklyGoalReceiptMapper->expects($this->once())->method('claim')->willReturnCallback(
+			static function () use (&$claimed): bool {
+				$claimed = true;
+				return true;
+			}
+		);
+		$this->weeklyGoalService->method('progressForWeek')->willReturnCallback(
+			static fn (House $house, \DateTime $now): array => ['weekKey' => $now->format('Y-m-d') < '2026-10-12' ? '2026-10-05' : '2026-10-12']
+		);
+		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
+			static function (House $house, string $weekKey, \DateTime $now) use (&$eligible): array {
+				$open = $now->format('Y-m-d') < '2026-10-12';
+				return [
+					'weekKey' => $weekKey,
+					'weekStart' => '2026-09-28T00:00:00+00:00',
+					'weekEnd' => '2026-10-05T00:00:00+00:00',
+					'percent' => $eligible ? 100 : 0,
+					'targetPercent' => 80,
+					'provisional' => $open,
+					'achieved' => !$open && $eligible,
+				];
+			}
+		);
+		$this->medalMapper->method('findByUserIds')->willReturnCallback(
+			static function () use (&$award): array {
+				return $award === null ? [] : [1 => [$award]];
+			}
+		);
+		$this->medalMapper->method('findByUserTypeAndWeek')->willReturnCallback(
+			static function () use (&$award): Medal {
+				if ($award === null) {
+					throw new DoesNotExistException();
+				}
+				return $award;
+			}
+		);
+		$this->medalMapper->expects($this->once())->method('insert')->willReturnCallback(
+			static function (Medal $medal) use (&$award): Medal {
+				$award = $medal;
+				return $medal;
+			}
+		);
+		$this->medalMapper->expects($this->exactly(2))->method('update')->willReturnArgument(0);
+		$this->notificationService->expects($this->once())->method('notifyMedalAwarded')
+			->with('alice', 'weekly_milestone', 100, $key);
+		$this->notificationService->expects($this->once())->method('notifyWeeklyGoalReachedForHouse')
+			->with(1, 100, 80, '2026-09-28T00:00:00+00:00');
+
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
+		self::assertNull($award, 'an open prior-week window cannot grant recognition');
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-13 UTC'));
+		self::assertSame(100, $award->getValue());
+		$eligible = false;
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-14 UTC'));
+		self::assertSame(0, $award->getValue(), 'corrected unsupported award is revoked');
+		$eligible = true;
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-15 UTC'));
+		self::assertSame(100, $award->getValue(), 'requalification reuses the existing award and receipt');
+	}
+
+	public function testClosedWeekJob_ZeroOpportunityWeek_NeverClaimsOrAwards(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseMapper->method('find')->willReturn($house);
+		$this->weeklyGoalReceiptMapper->method('plannedWeeksPage')->willReturn(['2026-09-21']);
+		$this->weeklyGoalService->method('progressForWeek')->willReturn(['weekKey' => '2026-10-05']);
+		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturn([
+			'provisional' => false, 'achieved' => false, 'percent' => 0,
+		]);
+		$this->weeklyGoalReceiptMapper->expects($this->never())->method('claim');
+		$this->medalMapper->expects($this->never())->method('insert');
+		$this->notificationService->expects($this->never())->method('notifyWeeklyGoalReachedForHouse');
+
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
+	}
+
+	public function testClosedWeekJob_ConcurrentCorrectionBeforeLockedClaim_DoesNotMintFalseBellOrMedal(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseMapper->method('find')->willReturn($house);
+		$this->houseMapper->expects($this->once())->method('findForUpdate')->willReturn($house);
+		$this->weeklyGoalReceiptMapper->method('plannedWeeksPage')->willReturn(['2026-09-21']);
+		$this->weeklyGoalService->method('progressForWeek')->willReturn(['weekKey' => '2026-10-05']);
+		$reads = 0;
+		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
+			static function () use (&$reads): array {
+				$reads++;
+				return ['provisional' => false, 'achieved' => $reads === 1, 'percent' => $reads === 1 ? 100 : 0];
+			}
+		);
+		$this->weeklyGoalReceiptMapper->expects($this->never())->method('claim');
+		$this->medalMapper->expects($this->never())->method('insert');
+		$this->notificationService->expects($this->never())->method('notifyWeeklyGoalReachedForHouse');
+
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
+		self::assertSame(2, $reads, 'the corrected snapshot is re-read under the house lock and used for medals');
+	}
+
+	public function testClosedWeekJob_MissedCronWindow_PagesIntoOlderEligiblePlannedWeek(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseMapper->method('find')->willReturn($house);
+		$this->houseMapper->method('findForUpdate')->willReturn($house);
+		$firstPage = [];
+		for ($i = 0; $i < 50; $i++) {
+			$firstPage[] = (new \DateTime('2024-01-01 UTC'))->modify('+' . $i . ' weeks')->format('Y-m-d');
+		}
+		$this->weeklyGoalReceiptMapper->expects($this->exactly(2))->method('plannedWeeksPage')
+			->willReturnCallback(static function (int $houseId, string $before, ?string $after, int $limit) use ($firstPage): array {
+				self::assertSame(50, $limit);
+				self::assertSame('2026-10-05', $before);
+				return $after === null ? $firstPage : ($after === end($firstPage) ? ['2026-09-21'] : []);
+			});
+		$this->weeklyGoalService->method('progressForWeek')->willReturn(['weekKey' => '2026-10-05']);
+		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturnCallback(
+			static function (House $house, string $key): array {
+				$achieved = $key === '2026-09-21';
+				return [
+					'provisional' => false, 'achieved' => $achieved,
+					'percent' => $achieved ? 100 : 0, 'targetPercent' => 80,
+					'weekStart' => $key . 'T00:00:00+00:00',
+				];
+			}
+		);
+		$this->weeklyGoalReceiptMapper->expects($this->once())->method('claim')->with(1, '2026-09-21', $this->anything())->willReturn(true);
+		$this->notificationService->expects($this->once())->method('notifyWeeklyGoalReachedForHouse')
+			->with(1, 100, 80, '2026-09-21T00:00:00+00:00');
+
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-05 UTC'));
+	}
+
+	public function testClosedWeekJob_RecipientLookupFailsAfterClaim_LogsOnceWithoutRebell(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseMapper->method('find')->willReturn($house);
+		$this->houseMapper->method('findForUpdate')->willReturn($house);
+		$this->weeklyGoalReceiptMapper->method('plannedWeeksPage')->willReturn(['2026-09-21']);
+		$claimed = false;
+		$this->weeklyGoalReceiptMapper->method('claimedWeeks')->willReturnCallback(
+			static function () use (&$claimed): array {
+				return $claimed ? ['2026-09-21' => true] : [];
+			}
+		);
+		$this->weeklyGoalReceiptMapper->expects($this->once())->method('claim')->willReturnCallback(
+			static function () use (&$claimed): bool {
+				$claimed = true;
+				return true;
+			}
+		);
+		$this->weeklyGoalService->method('progressForWeek')->willReturn(['weekKey' => '2026-10-05']);
+		$this->weeklyGoalService->method('progressForPlannedWeek')->willReturn([
+			'provisional' => false, 'achieved' => true, 'percent' => 100,
+			'targetPercent' => 80, 'weekStart' => '2026-09-21T00:00:00+00:00',
+		]);
+		$this->notificationService->expects($this->once())->method('notifyWeeklyGoalReachedForHouse')
+			->willThrowException(new \RuntimeException('recipient lookup failed'));
+		$this->appLogger->expects($this->once())->method('logException')
+			->with('Failed to dispatch weekly goal notification', $this->isInstanceOf(\RuntimeException::class), $this->anything());
+
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
+		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
 	}
 
 	/**
 	 * GetMedals_ReturnsAllMedalsWithUserNames
-	 *
-	 * CS-PLAN-036: medals come from one findByUserIds batch fetch; the
-	 * payload shape (user order, then that user's medals) is unchanged.
 	 */
 	public function testGetMedals_ReturnsAllMedalsWithUserNames(): void {
 		$houseId = 1;
@@ -478,11 +571,13 @@ class MedalServiceTest extends TestCase {
 		$user = new HouseUser();
 		$user->setId(1);
 		$user->setDisplayName('Test User');
+		$user->setLongestStreak(6);
 
 		$medal = new Medal();
 		$medal->setId(1);
 		$medal->setUserId(1);
-		$medal->setMedalType('team_anchor');
+		$medal->setMedalType('rhythm_6');
+		$medal->setValue(6);
 		$medal->setAwardedAt(new \DateTime());
 
 		$this->houseUserMapper
@@ -500,7 +595,7 @@ class MedalServiceTest extends TestCase {
 		$result = $this->service->getMedals($houseId);
 
 		$this->assertCount(1, $result);
-		$this->assertEquals('team_anchor', $result[0]['medalType']);
+		$this->assertEquals('rhythm_6', $result[0]['medalType']);
 		$this->assertEquals('Test User', $result[0]['userName']);
 	}
 }

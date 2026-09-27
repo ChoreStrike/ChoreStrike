@@ -46,7 +46,7 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		$this->floorId = $this->createFloor($this->houseId, 'Ground Floor', 1);
 		$this->roomId = $this->createRoom($this->houseId, $this->floorId, 'Kitchen');
 
-		$this->publicTaskId = $this->createTask($this->houseId, 'Public Dishes', 'Wash dishes', 5, 10);
+		$this->publicTaskId = $this->createTask($this->houseId, 'Public Dishes', 'Wash dishes', 5, 3);
 		$this->privateTaskId = $this->createTask($this->houseId, 'Owner Reminder', 'Personal note', 3, 5);
 		$this->otherPrivateTaskId = $this->createTask($this->houseId, 'Member Reminder', 'Member note', 2, 5);
 
@@ -299,8 +299,12 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 
 		$result = $this->completeOccurrence($completionService, $this->houseId, 'priv_owner', $this->privateRoomTaskId);
 
+		// WP3 cutover: the reward block is work evidence — the participant
+		// shares and the caller's own wallet, never raw coin integers.
 		self::assertArrayHasKey('rewards', $result);
-		self::assertArrayHasKey('coins', $result['rewards']);
+		self::assertArrayHasKey('participants', $result['rewards']);
+		self::assertArrayHasKey('totalEnergy', $result['rewards']['completion']);
+		self::assertArrayNotHasKey('coins', $result['rewards']);
 	}
 
 	public function testNonAssigneeCannotCompletePrivateTask(): void {
@@ -327,11 +331,19 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 
 	public function testCreatorCanCompleteTheirOwnSecondRoomTask(): void {
 		// The creator (priv_owner) is not assigned to $assigneeRoomTaskId but
-		// IS the definition owner: creator ∪ assignees includes them.
+		// IS the definition owner: creator ∪ assignees includes them. WP3
+		// (Q-074-02): the actor must actually take part in the work — the
+		// completion carries an explicit split crediting the creator.
 		$this->actingAs('priv_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $this->completeOccurrence($completionService, $this->houseId, 'priv_owner', $this->assigneeRoomTaskId);
+		$result = $this->completeOccurrenceWithParticipants(
+			$completionService,
+			$this->houseId,
+			'priv_owner',
+			$this->assigneeRoomTaskId,
+			[['userId' => 'priv_owner', 'sharePct' => 100]]
+		);
 
 		self::assertArrayHasKey('rewards', $result);
 	}

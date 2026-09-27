@@ -27,6 +27,7 @@ export const useHouseStore = defineStore('house', {
 		houseRequestSeq: 0,
 		insightsRequestSeq: 0,
 		activityRequestSeq: 0,
+		pendingResetCommand: null,
 	}),
 
 	getters: {
@@ -208,9 +209,24 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const data = await api.post('/api/v1/house/reset')
+				if (!this.pendingResetCommand) {
+					if (!this.house) await this.fetchHouse()
+					if (!Number.isInteger(this.house?.stateVersion)) {
+						throw new Error('House state version is unavailable')
+					}
+					this.pendingResetCommand = {
+						commandId: crypto.randomUUID(),
+						expectedVersion: this.house.stateVersion,
+					}
+				}
+				const data = await api.post('/api/v1/house/reset', this.pendingResetCommand)
+				this.houseRequestSeq++
 				this.house = data
+				this.pendingResetCommand = null
 			} catch (error) {
+				// A timeout/5xx may mean the reset committed. Only a definitive
+				// rejection allows a new command identity on the next attempt.
+				if (error.status >= 400 && error.status < 500) this.pendingResetCommand = null
 				this.error = error.message
 				logger.error('Failed to reset house', error, { store: 'house', action: 'resetHouse' })
 				throw error
@@ -240,6 +256,7 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 			this.insights = null
 			this.activity = []
+			this.pendingResetCommand = null
 			this.activityLoading = false
 			this.activityError = null
 		},

@@ -34,8 +34,10 @@ class Version1004Date20260228131728 extends SimpleMigrationStep {
 			$table->addColumn('house_id', 'bigint', ['notnull' => true]);
 			$table->addColumn('nextcloud_user_id', 'string', ['notnull' => true, 'length' => 64]);
 			$table->addColumn('display_name', 'string', ['notnull' => true, 'length' => 255]);
-			$table->addColumn('contribution_score', 'integer', ['notnull' => true, 'default' => 0]);
-			$table->addColumn('coins', 'integer', ['notnull' => true, 'default' => 0]);
+			// CS-PLAN-070 WP3 (§3.1): the whole-unit contribution score became
+			// exact minor units — the sum of the member's valid selected work
+			// shares (1 energy = 100 energy minor = 1000 coin minor).
+			$table->addColumn('contribution_minor', 'bigint', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('current_sparks', 'integer', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('total_sparks_earned', 'integer', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('current_streak', 'integer', ['notnull' => true, 'default' => 0]);
@@ -65,9 +67,10 @@ class Version1004Date20260228131728 extends SimpleMigrationStep {
 			// work facts (time, energy, coins-earned totals, room effects).
 			$table->addColumn('user_id', 'bigint', ['notnull' => false]);
 			$table->addColumn('completed_at', 'datetime', ['notnull' => true]);
-			$table->addColumn('coins_earned', 'integer', ['notnull' => true, 'default' => 0]);
-			$table->addColumn('was_combo', 'boolean', ['notnull' => false, 'default' => 0]);
-			$table->addColumn('combo_with_user_id', 'bigint', ['notnull' => false]);
+			// CS-PLAN-070 WP3: the whole-unit reward outputs (`coins_earned`,
+			// `was_combo`) are gone — money lives in wallets/work_shares and
+			// the frozen work facts (total_energy/rate/version columns) are
+			// added by Version1029.
 			$table->setPrimaryKey(['id'], 'pk_completed_tasks');
 			$table->addIndex(['room_task_id'], 'idx_ct_rt');
 			$table->addIndex(['user_id'], 'idx_ct_user');

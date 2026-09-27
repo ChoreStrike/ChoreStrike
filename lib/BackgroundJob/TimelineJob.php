@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\BackgroundJob;
 
+use OCA\ChoreStrike\Service\MedalService;
 use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\PauseService;
+use OCA\ChoreStrike\Service\RhythmService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
@@ -27,23 +29,30 @@ use OCP\BackgroundJob\TimedJob;
  *
  * Job idempotency comes from natural revision/ordinal uniqueness and
  * monotonic frontiers — no fabricated member actor, no CommandService
- * receipt. No GET or timeline pass mints awards, credits or
- * notifications; WP4 adds the time-driven rhythm consumer.
+ * receipt. After materialization, pause convergence and rhythm refresh,
+ * closed planned weeks reconcile recognition and claim their weekly bell
+ * once, including when nobody completes work at the deadline.
  */
 class TimelineJob extends TimedJob {
 	private OccurrenceService $occurrenceService;
 	private PauseService $pauseService;
+	private RhythmService $rhythmService;
+	private MedalService $medalService;
 
 	public function __construct(
 		ITimeFactory $time,
 		OccurrenceService $occurrenceService,
 		PauseService $pauseService,
+		RhythmService $rhythmService,
+		MedalService $medalService,
 	) {
 		parent::__construct($time);
 		$this->setInterval(5 * 60);
 
 		$this->occurrenceService = $occurrenceService;
 		$this->pauseService = $pauseService;
+		$this->rhythmService = $rhythmService;
+		$this->medalService = $medalService;
 	}
 
 	/**
@@ -51,10 +60,17 @@ class TimelineJob extends TimedJob {
 	 */
 	protected function run($argument): void {
 		$now = clone $this->time->getDateTime();
+		$this->reconcileAt($now);
+	}
+
+	/** Shared cron/CLI seam; --as-of passes the simulated instant here. */
+	public function reconcileAt(\DateTime $now): void {
 		$this->occurrenceService->reconcileHouseForJobs($now);
 		// WP2: converge the persisted neutral-suspension facts with the
 		// write-free projection (a stopped cron plus read/complete
 		// converges here without receipts for fictional actors).
 		$this->pauseService->reconcilePauseEffectsForJobs($now);
+		$this->rhythmService->refreshForJobs($now);
+		$this->medalService->reconcileClosedWeeksForJobs($now);
 	}
 }

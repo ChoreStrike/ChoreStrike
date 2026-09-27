@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Controller\TestController;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -21,15 +22,16 @@ use PHPUnit\Framework\TestCase;
 class TestControllerTest extends TestCase {
 	private TestController $controller;
 	private TestDataService $testDataService;
+	private IRequest&MockObject $request;
 
 	protected function setUp(): void {
 		parent::setUp();
 
-		$request = $this->createMock(IRequest::class);
+		$this->request = $this->createMock(IRequest::class);
 		$this->testDataService = $this->createMock(TestDataService::class);
 
 		$this->controller = new TestController(
-			$request,
+			$this->request,
 			$this->testDataService,
 			\OC::$server->get(\OCA\ChoreStrike\Service\AppLogger::class)
 		);
@@ -83,6 +85,35 @@ class TestControllerTest extends TestCase {
 		$data = json_decode(json_encode($response->getData()), true);
 		$this->assertFalse($data['success']);
 		$this->assertEquals('INVALID_PROFILE', $data['error']['code']);
+	}
+
+	public function testSeedFamilyClosedWeekEvidenceIsOptInAndTestOnly(): void {
+		$this->testDataService->method('isTestMode')->willReturn(true);
+		$this->request->method('getParam')->willReturnCallback(static fn (string $name): ?string => match ($name) {
+			'profile' => 'family',
+			'closedWeekEvidence' => '1',
+			default => null,
+		});
+		$this->testDataService->expects($this->once())->method('seedFamily')
+			->with(true)->willReturn(['profile' => 'family', 'data' => []]);
+
+		$response = $this->controller->seed();
+		self::assertSame(200, $response->getStatus());
+		self::assertSame('family', $response->getData()['data']['profile']);
+	}
+
+	public function testSeedClosedWeekEvidenceRejectsNonFamilyProfiles(): void {
+		$this->testDataService->method('isTestMode')->willReturn(true);
+		$this->request->method('getParam')->willReturnCallback(static fn (string $name): ?string => match ($name) {
+			'profile' => 'minimal',
+			'closedWeekEvidence' => '1',
+			default => null,
+		});
+		$this->testDataService->expects($this->never())->method('seedFamily');
+
+		$response = $this->controller->seed();
+		self::assertSame(400, $response->getStatus());
+		self::assertSame('INVALID_SEED_OPTION', $response->getData()['error']['code']);
 	}
 
 	/**

@@ -36,6 +36,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setOriginalAssignee(?string $originalAssignee)
  * @method \DateTime|null getClaimedAt()
  * @method void setClaimedAt(?\DateTime $claimedAt)
+ * @method int|null getClaimedSourceCompletionId()
+ * @method void setClaimedSourceCompletionId(?int $claimedSourceCompletionId)
  * @method \DateTime|null getIdealDueDate()
  * @method void setIdealDueDate(?\DateTime $idealDueDate)
  * @method \DateTime|null getDeletedAt()
@@ -77,6 +79,9 @@ class RoomTask extends Entity implements JsonSerializable {
 	/** @var \DateTime|null */
 	protected $claimedAt;
 
+	/** @var int|null Source of the currently visible takeover claim. */
+	protected $claimedSourceCompletionId;
+
 	/** @var \DateTime|null */
 	protected $idealDueDate;
 
@@ -99,6 +104,7 @@ class RoomTask extends Entity implements JsonSerializable {
 		$this->addType('wasClaimed', 'boolean');
 		$this->addType('originalAssignee', 'string');
 		$this->addType('claimedAt', 'datetime');
+		$this->addType('claimedSourceCompletionId', 'integer');
 		$this->addType('idealDueDate', 'datetime');
 		$this->addType('deletedAt', 'datetime');
 		$this->addType('deletedToken', 'integer');

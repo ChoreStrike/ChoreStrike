@@ -15,6 +15,7 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { completeWithOptionalDialog } from './fixtures/completion-api'
 
 test.describe('Release: Today view', () => {
 	test.use({ databaseProfile: 'family' })
@@ -98,8 +99,15 @@ test.describe('Release: Today view', () => {
 			// is teen's; the owner may complete it).
 			await page.getByTestId('today-filter-all').click()
 
+			// Dishes is mom's own row (direct completion); counters belongs
+			// to teen — WP3 §3.6: the foreign-agreement proposal opens the
+			// participation dialog, confirming it posts the explicit split.
 			await page.getByTestId(`today-complete-button-${dishesId}`).click()
-			await page.getByTestId(`today-complete-button-${countersId}`).click()
+			const countersResponse = await completeWithOptionalDialog(
+				page,
+				page.getByTestId(`today-complete-button-${countersId}`),
+			)
+			expect(countersResponse.ok()).toBeTruthy()
 
 			// UX-015: the second completion must NOT destroy the first
 			// undo action — both queue entries are visible side by side.
@@ -109,11 +117,12 @@ test.describe('Release: Today view', () => {
 			await expect(secondEntry).toBeVisible()
 
 			// Undo the FIRST entry: it disappears, the second stays
-			// undoable until after its own click.
+			// undoable until after its own click. WP3 §3.4: the targeted
+			// correction posts to /completions/{id}/undo (exact numeric id).
 			const firstUndo = page.waitForResponse((response) => {
 				const pathname = new URL(response.url()).pathname
 				return response.request().method() === 'POST'
-					&& pathname === `/apps/chorestrike/api/v1/room-tasks/${dishesId}/undo`
+					&& /^\/apps\/chorestrike\/api\/v1\/completions\/\d+\/undo$/.test(pathname)
 			})
 			await page.getByTestId(`undo-snackbar-undo-button-${dishesId}`).click()
 			const firstUndoResponse = await firstUndo
@@ -125,7 +134,7 @@ test.describe('Release: Today view', () => {
 			const secondUndo = page.waitForResponse((response) => {
 				const pathname = new URL(response.url()).pathname
 				return response.request().method() === 'POST'
-					&& pathname === `/apps/chorestrike/api/v1/room-tasks/${countersId}/undo`
+					&& /^\/apps\/chorestrike\/api\/v1\/completions\/\d+\/undo$/.test(pathname)
 			})
 			await page.getByTestId(`undo-snackbar-undo-button-${countersId}`).click()
 			const secondUndoResponse = await secondUndo

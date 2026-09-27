@@ -152,6 +152,16 @@ class HouseControllerIntegrationTest extends TestCase {
 	public function testReset_AssertsMembershipBeforeOwnerCheck(): void {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+		// WP3 §3.5: the reset is a journalled idempotent command — the
+		// receipt carries commandId + expectedVersion.
+		$receipt = [
+			'commandId' => 'A1B2C3D4-E5F6-4A7B-8C9D-0123456789AB',
+			'expectedVersion' => 0,
+		];
+		$this->request->method('getParams')->willReturn($receipt);
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key, $default = null) => $receipt[$key] ?? $default
+		);
 
 		$callOrder = [];
 		$this->authService->method('assertHouseMember')
@@ -164,6 +174,8 @@ class HouseControllerIntegrationTest extends TestCase {
 				$callOrder[] = 'requireHouseOwner';
 				return $this->createMockHouseUser();
 			});
+		$this->houseService->expects($this->once())->method('resetHouse')
+			->with(1, 'a1b2c3d4-e5f6-4a7b-8c9d-0123456789ab', 0);
 
 		$response = $this->controller->reset();
 

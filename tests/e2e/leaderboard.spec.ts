@@ -70,8 +70,11 @@ test.describe('Leaderboard and Gamification', () => {
 		if (await medalSummary.isVisible()) {
 			const badges = page.getByTestId('medal-badge')
 			const count = await badges.count()
+			// WP3 cutover (Q-074-01A): the retained recognition catalog is
+			// the rhythm tiers plus the household weekly milestone — the
+			// activity/combo medals retired with the legacy economy.
 			for (let i = 0; i < count; i++) {
-				await expect(badges.nth(i)).toHaveAttribute('data-medal-type', /team_anchor|flow_keeper|room_guardian|team_player|streak_keeper/)
+				await expect(badges.nth(i)).toHaveAttribute('data-medal-type', /rhythm_[369]|rhythm_12|weekly_milestone/)
 			}
 		}
 	})

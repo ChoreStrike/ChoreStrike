@@ -21,7 +21,7 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
-import { completeRoomTaskViaApi, postCompletionWithReceipt, placeholderReceipt } from './fixtures/completion-api'
+import { completeAsSoleParticipantViaApi, postCompletionWithReceipt, placeholderReceipt } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
 test.describe('Overdue Task Claiming', () => {
@@ -131,13 +131,15 @@ test.describe('Overdue Task Claiming', () => {
 		try {
 			const overdueTaskId = await createOverdueProbe(page, `Takeover ${Date.now()}`, { assignees: ['dad'] })
 
-			const completeResponse = await completeRoomTaskViaApi(page, overdueTaskId)
+			// WP3 (Q-074-02): the non-assignee takes part explicitly — the
+			// split names mom as the sole participant of the takeover.
+			const completeResponse = await completeAsSoleParticipantViaApi(page, overdueTaskId, 'mom')
 
 			expect(completeResponse.status()).toBe(200)
 			const body = await completeResponse.json()
 			expect(body.success).toBe(true)
 			// The takeover is recorded on the completion receipt.
-			expect(body.data.rewards.contributionScore).toBeGreaterThan(0)
+			expect(body.data.rewards.completion.totalEnergy).toBeGreaterThan(0)
 		} finally {
 			await context.close()
 		}
@@ -154,7 +156,8 @@ test.describe('Overdue Task Claiming', () => {
 
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
-			const completeResponse = await completeRoomTaskViaApi(page, probeId)
+			// WP3 (Q-074-02): the non-assignee takes part explicitly.
+			const completeResponse = await completeAsSoleParticipantViaApi(page, probeId, 'teen')
 
 			expect(completeResponse.status()).toBe(200)
 			const body = await completeResponse.json()

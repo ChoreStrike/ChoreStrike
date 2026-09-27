@@ -11,6 +11,8 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Wallet;
+use OCA\ChoreStrike\Db\WalletEntry;
+use OCA\ChoreStrike\Db\WalletEntryMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
 use OCA\ChoreStrike\Service\WalletService;
 use PHPUnit\Framework\TestCase;
@@ -24,12 +26,22 @@ use PHPUnit\Framework\TestCase;
 class WalletServiceTest extends TestCase {
 	private WalletMapper $walletMapper;
 	private HouseUserMapper $houseUserMapper;
+	private WalletEntryMapper $walletEntryMapper;
 	private WalletService $service;
 
 	protected function setUp(): void {
 		$this->walletMapper = $this->createMock(WalletMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$this->service = new WalletService($this->walletMapper, $this->houseUserMapper);
+		$this->walletEntryMapper = $this->createMock(WalletEntryMapper::class);
+		// WP3: the ledger collaborators (entries, work shares, allocation
+		// arithmetic) are irrelevant to the binding tests — auto-mocked.
+		$this->service = new WalletService(
+			$this->walletMapper,
+			$this->walletEntryMapper,
+			$this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class),
+			$this->houseUserMapper,
+			$this->createMock(\OCA\ChoreStrike\Service\EffortAllocationService::class),
+		);
 	}
 
 	private function member(int $id, ?int $walletId): HouseUser {
@@ -96,5 +108,39 @@ class WalletServiceTest extends TestCase {
 		$result = $this->service->ensureBinding(1, $member);
 
 		$this->assertSame(77, $result->getWalletId(), 'a re-invited account reattaches the preserved wallet');
+	}
+
+	/**
+	 * PostEntries_RecordsActorWalletProvenanceOnceForEveryRecipient
+	 */
+	public function testPostEntries_RecordsActorWalletProvenanceOnceForEveryRecipient(): void {
+		$actor = $this->member(12, 99);
+		$recipientA = new Wallet();
+		$recipientA->setId(77);
+		$recipientA->setBookedMinor(0);
+		$recipientA->setVersion(0);
+		$recipientB = new Wallet();
+		$recipientB->setId(88);
+		$recipientB->setBookedMinor(0);
+		$recipientB->setVersion(0);
+		$this->houseUserMapper->expects($this->once())->method('find')->with(12)->willReturn($actor);
+		$entries = [];
+		$this->walletEntryMapper->expects($this->exactly(2))->method('insert')->willReturnCallback(
+			static function (WalletEntry $entry) use (&$entries): WalletEntry {
+				$entries[] = $entry;
+				return $entry;
+			}
+		);
+		$this->walletMapper->method('findForUpdate')->willReturnCallback(
+			static fn (int $id): Wallet => $id === 77 ? $recipientA : $recipientB
+		);
+		$this->walletMapper->method('update')->willReturnArgument(0);
+
+		$this->service->postEntries(1, WalletService::SOURCE_COMPLETION, 42, 1, [77 => 250, 88 => 350], WalletService::REASON_COMPLETION, 12);
+
+		self::assertSame([77, 88], array_map(static fn (WalletEntry $entry): int => $entry->getWalletId(), $entries));
+		self::assertSame([12, 12], array_map(static fn (WalletEntry $entry): int => $entry->getActorHouseUserId(), $entries));
+		self::assertSame([99, 99], array_map(static fn (WalletEntry $entry): int => $entry->getActorWalletId(), $entries));
+		self::assertSame([250, 350], array_map(static fn (WalletEntry $entry): int => $entry->getDeltaMinor(), $entries));
 	}
 }
