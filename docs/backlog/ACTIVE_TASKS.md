@@ -12,11 +12,40 @@
 
 [CS-PLAN-074 / WP3](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) —
 active (Standard A `PASS` 2026-09-25; Q-074-01/02 resolved with Option A each,
-correction-closure slice committed, 10-16-day allowance); implementation not
-started. CR-SVC-63's journal/replay remainder is owned by the plan (In
-Progress).
+correction-closure slice committed, 10-16-day allowance). **Implementation
+round 2 done 2026-09-26 (working tree, uncommitted):** all five plan Review
+Findings resolved — the ~20 legacy backend suites re-cut to the WP3 contract
+(new `WeeklyGoalServiceTest`, `CompletionControllerTest`,
+`ParticipationDialog.spec.js`; retired suites archived under
+`archive/2026-09/cs-plan-074-retired/`), Docker unit 935 + integration 430
+green on a fresh-install chain (`down -v` rebuild), the query-budgeted
+`proposal` block on EVERY room-task read path (shared derivation with the
+completion writer) + participation dialog wiring in Today/RoomDetail/
+TaskManager (actor auto-joins foreign agreements), `lastFreezeDate`
+placeholder removed, E2E gate manifest/specs re-cut to the
+wallet-minor/targeted-undo contract (boost-shop/teamwork/streak-notification
+retired). Round-2 production fixes found by the suites: entity-default
+INSERT traps (CompletedTask/WorkShare/CompletionRevision), stale stats in
+recognition reconciliation, rhythm streak persistence, claim-revert id
+comparison, wallet binding on participant-less completions, stale
+own-wallet in the completion response, under-lock undo re-read, no-op undo
+semantics, MinigameService/GameController mapper defects, missing proposal
+serialization on three read paths, dialog 44px touch targets. **All gates
+green incl. E2E gate PASSED (3 pools, zero fail/skip/flaky).** Final
+Standard B **NEEDS-FOLLOW-UP 2026-09-27**: five plan-owned findings
+(RF-074-WP3-01..05 + three nits) block `done/` — durable-doc integration
+missing (ADR-014 + API/engineering/concepts/ADRs + stale size inventory),
+attribution unreachable from the client, required §4 test files missing
+(CompletionCorrection/RoomReplay/RhythmProjection/minorUnits), attribution
+skips departed participants' wallet reversal, `showCompletion` 500 on a
+departed audit actor; review-rerun gates all green, E2E accepted on the
+mtime-verified passing run per user decision; evidence-only review commit,
+implementation package stays uncommitted. **Next:** dedicated fix round
+(RF-074-WP3-01..08), then the final re-review.
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-074 / WP3 — final Standard B NEEDS-FOLLOW-UP** (2026-09-27): complete uncommitted WP3 increment (178 tracked + 18 untracked paths at `master` `28755b6`) reviewed against the plan manifest, §4 matrix, acceptance criteria and durable-doc gate; checklist verified (thin correction controller, house-first receipt aggregates, exact union deltas, sole wallet authority, room journal/replay, Q-074-01A valid-history recognition, selected-share capacity, erasure sweeps, parameterized SQL, 987-key l10n); 5 plan-owned findings + 3 nits recorded (RF-074-WP3-01..08 — durable docs missing, attribution not client-wired, required §4 tests missing, departed-wallet attribution defect, showCompletion departed-actor 500); gates rerun green (Docker unit 935/2882 + integration 430/2143 zero-skip, cs:check 0-of-350, Jest 1015, lint/stylelint/l10n/backlog/encoding/diff-check/build); E2E accepted on mtime-verified run `run-qUhkY2` per user decision; plan stays `active/`, CR-SVC-63 stays open, evidence-only commit. [Plan](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review record](archive/CODE_REVIEW_2026-09-27.md).
 
 - **CS-PLAN-074 — Standard A activation** (2026-09-25): WP3 work-accounting-and-replay plan verified against the runtime at HEAD `f365369f` — all twelve §1 baseline citations exact, 180 `M`/`R` manifest paths exist and 24 `N` paths absent (incl. the conditional Q-074-01-A set, now committed scope), `Version1031` chain head with 1032/1033 reserved, ADR-014 reservation exact, C3 concept anchors resolve; zero findings (`PASS`); Q-074-01/02 answered with the recommended options (minimum correction-closure slice + legacy-effect retirement + T5 move into WP3, allowance 10-16 days; completer/owner may correct a false completer attribution with the audit actor/time immutable); plan `new/ → active/`, CR-SVC-63 In Progress with the plan owning, drafting round landed with the scoped review commit. [Plan](../plans/active/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review record](archive/CODE_REVIEW_2026-09-25.md#cs-plan-074-standard-a-plan-activation).
 

@@ -1,6 +1,6 @@
 # CS-PLAN-074: WP3 - Work Accounting and Replay
 
-> **Status:** Active (Standard A PASS 2026-09-25; Q-074-01/02 resolved - Option A each)
+> **Status:** Active (Standard A PASS 2026-09-25; Q-074-01/02 resolved - Option A each; final Standard B **NEEDS-FOLLOW-UP** 2026-09-27 - RF-074-WP3-01..08 open in the Review Findings checklist, dedicated fix round before the final re-review)
 > **Effort:** L/XL; 10-16 engineering days (parent WP3 allowance 7-11 plus the selected Q-074-01 Option A correction-closure slice 3-5)
 > **Priority:** P1
 > **Depends on:** [WP0 / CS-PLAN-071](../done/cs-plan-071-wp0-write-identity-foundation.md), [WP1 / CS-PLAN-072](../done/cs-plan-072-wp1-occurrence-timeline.md) and [WP2 / CS-PLAN-073](../done/cs-plan-073-wp2-agreements-capacity-pauses.md), delivered; activation decisions resolved 2026-09-25
@@ -351,6 +351,27 @@ Run `npm run test:e2e:gate`, not a substituted passing subset. Keep
 No new/unapproved skips, retries or test-noise suppression. WP9's repeated
 combined browser/DB/family gate is additional, not a substitute for WP3 tests.
 
+**E2E coverage notes (round 2, closes the Step 5 §D minor finding):**
+- **ActivityFeed `totalEnergy`** — the feed renders the frozen work evidence
+  (`totalEnergy` + live `energyCost`) with NO `coinsEarned`: pinned on the
+  API contract in `HouseActivityIntegrationTest` (integration, real rows)
+  and on the rendered feed in `insights-flow.spec.ts` (activity item
+  present, no coins column in the fairness table).
+- **CompletionController attribute payload** — the closed receipt set
+  (`commandId`, `expectedVersion`, `participants`, `allocationReviewed`,
+  `reasonCode`), the closed-set rejection of time/energy/occurrence edits
+  and the 400/403/404/409 mappings are pinned in
+  `tests/unit/Controller/CompletionControllerTest.php`; the wire behavior
+  (targeted `POST /completions/{id}/undo` with receipt + idempotent
+  replay) is covered by `release-task-lifecycle.spec.ts` and the undo
+  flows in `today-view`, `family-core-ux`, `task-completion-full-flow`
+  and `core-household-journey`.
+- **ParticipationDialog proposal** — the server proposal block (agreed
+  shares pre-fill) is unit-pinned (`RoomTaskReadServiceTest`,
+  `ParticipationDialog.spec.js`); a dedicated browser scenario for the
+  dialog remains owned by the minimal-client acceptance criterion
+  (§8 "Minimal participation ... work after reload").
+
 ## 5. File Manifest
 
 `M` means existing and modified; `N` means proposed new after activation;
@@ -460,8 +481,8 @@ evidence remain in the
 
 | ID | Decision and options | State |
 |---|---|---|
-| Q-074-01 | **Correction closure across WP3/WP4.** A (recommended): move the minimum planned-day/weekly/retained-recognition correction slice, its coupled legacy-effect retirement and T5 into WP3; leave consent/ranking and remaining UI with WP5/WP4/WP6. Update parent ownership and estimate explicitly. B: preserve package ownership but agree one coordinated WP3 -> WP5 -> WP4 implementation/finalization boundary; WP3 cannot be independently declared delivered while the required correction-dependent projections are unfinished. Neither option permits snapshot fallback, a dummy legacy engine or skipped required tests. | RESOLVED 2026-09-25: Option A — minimum slice committed to WP3 (+3-5 days). |
-| Q-074-02 | **Correcting a falsely attributed completer.** A (recommended): the completer or authorized owner may remove the original completer from actual shares while keeping the original audit actor/time immutable; only the corrected actual people receive effort/Coins/personal credit. Initial completion still requires self-participation. B: require an authorized owner for this particular correction while keeping ordinary share correction with the completer. Record the selected permission rule and tests, without adding task visibility or a general approval queue. | RESOLVED 2026-09-25: Option A — completer or authorized owner; audit actor/time immutable. |
+| Q-074-01 | **Correction closure across WP3/WP4.** A (recommended): move the minimum planned-day/weekly/retained-recognition correction slice, its coupled legacy-effect retirement and T5 into WP3; leave consent/ranking and remaining UI with WP5/WP4/WP6. Update parent ownership and estimate explicitly. B: preserve package ownership but agree one coordinated WP3 -> WP5 -> WP4 implementation/finalization boundary; WP3 cannot be independently declared delivered while the required correction-dependent projections are unfinished. Neither option permits snapshot fallback, a dummy legacy engine or skipped required tests. | RESOLVED 2026-09-25: Option A ” minimum slice committed to WP3 (+3-5 days). |
+| Q-074-02 | **Correcting a falsely attributed completer.** A (recommended): the completer or authorized owner may remove the original completer from actual shares while keeping the original audit actor/time immutable; only the corrected actual people receive effort/Coins/personal credit. Initial completion still requires self-participation. B: require an authorized owner for this particular correction while keeping ordinary share correction with the completer. Record the selected permission rule and tests, without adding task visibility or a general approval queue. | RESOLVED 2026-09-25: Option A ” completer or authorized owner; audit actor/time immutable. |
 
 **Q-074-01 resolution (Option A).** WP3 owns the minimum
 planned-day/weekly/retained-recognition correction evaluators, the coupled
@@ -507,7 +528,7 @@ later the same day; this file moved to `active/` with its scoped review commit.
 
 ## Review Outcome
 
-**Standard A plan review — PASS** (2026-09-25, main agent; skills: review,
+**Standard A plan review ” PASS** (2026-09-25, main agent; skills: review,
 plan-management, git-workflow). Activation record:
 [CODE_REVIEW_2026-09-25.md](../../backlog/archive/CODE_REVIEW_2026-09-25.md#cs-plan-074-standard-a-plan-activation).
 
@@ -531,7 +552,7 @@ plan-management, git-workflow). Activation record:
   exists (180 checked, including the conditional Q-074-01-A set now committed)
   and every `N` path is absent (24); `Version1031` is the migration chain head
   and the "no new Version1034" statement is coherent with the parent's
-  1032/1033 reservations — the in-place Version1030 extension follows the
+  1032/1033 reservations ” the in-place Version1030 extension follows the
   fresh-install rule; the ADR-014 reservation matches the plan's N path
   exactly; all three C3 concept anchors and ADR-013 resolve; CONCEPT-001 is
   In Progress via the parent, CR-SVC-63's open journal/replay remainder is
@@ -551,9 +572,308 @@ plan-management, git-workflow). Activation record:
 - **Gates:** `npm run backlog:check` (26 files link-checked), `npm run
   docs:encoding` (790 files), `git diff --check` staged+unstaged clean, plan
   standalone whitespace clean (`--no-index --check` reports no errors).
-  Runtime gates not applicable — documentation-only review, runtime tree
+  Runtime gates not applicable ” documentation-only review, runtime tree
   untouched.
 - **Transition:** plan moved `new/` → `active/`; CR-SVC-63 set In Progress
   with this plan owning; parent, READMEs, backlog and `ACTIVE_TASKS.md`
   links updated; activation record appended to `CODE_REVIEW_2026-09-25.md`;
   the drafting round lands with the scoped review commit.
+
+
+---
+
+## Implementation Status (2026-09-25, implementation round 1)
+
+**Scope committed in this round (working tree, uncommitted):** the Steps 2-5
+production cutover — schema (Version1030 in-place extension with
+`work_shares`/`completion_revs`/`room_events`; amended 1004/1015/1016/1022/
+1027/1029; freeze and boost columns retired), the new DB layer
+(WorkShare/CompletionRevision/RoomEvent + mappers, CompletedTask/HouseUser/
+MinigameScore reshaped), EffortAllocationService (moved WP2 arithmetic),
+WalletService ledger, RoomReplayService, RhythmService + WeeklyGoalService
+(Q-074-01A minimum slice), the CompletionService complete/undo/attribution
+aggregates via CommandService (no snapshot restore, targeted correction,
+exact union deltas), GameLogicService/MedalService/TitleCatalog recognition
+reshape (rhythm 3/6/12 + weekly milestone; coins/combo/freeze packs retired;
+StreakFreeze/StreakRestock/StreakAtRisk + jobs archived under
+`archive/2026-09/cs-plan-074-retired/`), no-Coin arcade
+(MinigameService/Controller scores-only), CompletionController + targeted
+undo/attribution routes (latest-by-room-task undo route removed), room journal
+writers (create/setup/seed baselines, manual delta with command UUID, reset),
+erasure sweep extension, capacity seam cutover (selected actual shares),
+client cutover (roomTasks/user/game/minigame/rooms stores, UndoSnackbar
+completion-targeted, ActivityFeed/MemberFairnessTable/Leaderboard reshaped,
+minorUnits util, ParticipationDialog component, BoostShop/Game2048/MemoryGame
+retired), l10n regeneration with German copy for all new keys, and
+frontend gates green: `npm run lint`, `npm test` (1009 pass), stylelint,
+`npm run build`, `l10n` gate.
+
+**New backend tests:** EffortAllocationServiceTest (12, conservation/bounds),
+RhythmServiceTest (C1f basics), CompletionServiceTest rewritten to the WP3
+aggregate contract (11: frozen evidence, one-time reversal, terminal-before-
+version ordering, exact union deltas, viewer-safe read model) — all green in
+Docker.
+
+## Implementation Status (2026-09-26, implementation round 2)
+
+**Review-findings resolution round (working tree, uncommitted):** all five
+plan-owned findings closed (see the resolved checklist above) — the ~20
+legacy suites reshaped to the WP3 contract (new `WeeklyGoalServiceTest`,
+`CompletionControllerTest`, `ParticipationDialog.spec.js`; teamwork/freeze/
+boost sources archived), the proposal block added to the room-task read DTO
+(shared `EffortAllocationService` derivation, query-budgeted three batched
+reads) with TodayView dialog wiring, `lastFreezeDate` removed, and the
+E2E manifest/gate re-cut to the wallet-minor/targeted-undo contract.
+
+**Production defects found and fixed by the re-cut suites:** stale member
+stats in the recognition phase (members now re-loaded after the wallet/
+contribution writes; complete/undo/attribute), `RhythmService` never
+persisting re-derived streaks, `revertClaimIfUnsuperseded` comparing the
+house-user id against the NC id (claim/`original_assignee` never reverted),
+wallet bindings not ensured for participant-less completions (null wallet
+reached the share writer), the completion response's own-wallet block read
+from the pre-credit locked entity, the targeted undo re-checking
+`undone_at` before the room-task lock, the no-op undo reporting
+`undone: true` and firing post-commit effects, `MinigameService` losing its
+`HouseUserMapper` collaborator (fatal leaderboard enrichment), the
+`GameController` own-wallet read calling a non-existent mapper method, and
+`HouseUserMapper` still writing/ordering by the retired `contribution_score`
+column.
+
+**Environment note:** the Docker test env was rebuilt fresh
+(`down -v`, pre-release fold policy) against the rewritten migration chain;
+the E2E gate requires the env started with `TEST_DB_PROFILE=family` (the
+entrypoint owns the NC account passwords the browser auth setup reuses).
+
+**Gates (round 2, final):** Docker unit `935 tests / 2882 assertions` and
+integration `430 tests` zero-fail/zero-skip (fresh-install chain), Jest
+`1015` (+noise clean), lint, build, stylelint, `l10n` (987 keys),
+`cs:check` 0-of-350, backlog/encoding/diff-check green, and the **E2E gate
+PASSED** — all three pools (chromium, chromium-serial-db,
+chromium-scheduling-owner) sequentially with zero skipped/failed/flaky
+required scenarios. The browser suites exposed and fixed two further
+round-2 defects before the passing run: the `CompletedTask` frozen-fact
+entity defaults silently dropping a 1-energy/1000-rate/0-version/1-revision
+INSERT (the OCP setter-skip trap — schema defaults added as the safety net)
+and the room-detail/task-manager/today completion paths bypassing the
+participation dialog on agreed-share work (the dialog now opens whenever
+the proposal is multi-person or names someone other than the actor, with
+the actor auto-joining a foreign split at an equal renormalized share; a
+solo agreement naming the actor completes directly; the proposal block is
+serialized on every read path — flat list, filtered-daily, due-today and
+overdue).
+
+### Review Findings (open, block `done/`)
+
+- [x] **block** — Legacy backend unit suites not yet re-cut to the WP3
+  contract (~254 errors / 14 failures across ~20 suites in Docker):
+  GameLogicService(+)Teamwork (coins/combo/streak orchestration tests vs. the
+  read-only serializer), HouseServiceTest (resetHouse signature/journal,
+  weekly-goal delegation, stats shape), RoomServiceTest (cleanliness journal
+  + expectedVersion), MedalServiceTest (old activity/combo catalog vs.
+  retained rhythm awards), TitleServiceTest (cozy-home coins pack vs.
+  family_rhythm), MinigameServiceTest (coins/boosts vs. scores-only),
+  AccountErasureServiceTest (new constructor args), DailyCapacityServiceTest
+  (work-share seam), SchedulePlanServiceTest (share-implementation move),
+  HouseSetupServiceTest (room baseline journal), TestData/TriggerJobs/
+  DailyNotificationJob/Notifier tests (freeze/at-risk passes retired),
+  entity/mapper tests (CompletedTask/HouseUser/MinigameScore shapes),
+  Migration smoke (Version1030 new tables), controller suites
+  (RoomTaskController closed-set participants, GameController wallet,
+  CompletionController new), route pin (undo route moved). These suites pin
+  the RETIRED behaviors and must be reshaped (not patched) in the next round;
+  archived-for-reference sources live in `archive/2026-09/cs-plan-074-retired/`.
+  **Resolved (round 2, 2026-09-26):** all ~20 suites reshaped; the full Docker
+  unit suite is green (`935 tests, 2882 assertions`, 0 skips) — the weekly-goal
+  evaluation moved to the new `WeeklyGoalServiceTest`, the participation
+  dialog got `ParticipationDialog.spec.js`, and retired suites are archived.
+- [x] **major** — E2E gate (`npm run test:e2e:gate`) and Docker
+  integration suites not yet updated/run against the new contract (fixtures
+  in `tests/fixtures/`, TestData seed reset for the new tables, Snake no-Coin
+  E2E, participation-dialog flows).
+  **Resolved (round 2, 2026-09-26):** Docker integration suite green
+  (`430 tests, 2143 assertions`) on a fresh-install chain (`down -v` rebuild —
+  pre-release fold policy); the shared fixture gained the wallet-binding
+  membership invariant, work-evidence/undo/proposal helpers; the boost-shop,
+  teamwork-bonus, streak-at-risk notification and minigame coin-race E2E
+  specs are archived; snake-game now pins the scores-only arcade; the
+  household journey, lifecycle, full-flow, today-view, family-core-ux,
+  insights and overdue-claiming specs re-cut to the wallet-minor/targeted
+  undo contract.
+- [x] **major** — Occurrence-proposal exposure for ParticipationDialog: the
+  dialog currently renders the assignee-default equal split client-side; the
+  server's effective concrete agreement (occurrence member shares) is not yet
+  exposed on the room-task read DTO, so an agreed-share proposal can differ
+  from the dialog preview. Requires a proposal block on the room-task read
+  path (query-budgeted) before the dialog can show the agreement truthfully.
+  **Resolved (round 2, 2026-074 §3.6):** `RoomTaskReadService::withOccurrenceBlocks`
+  attaches a query-budgeted `proposal` block (`occurrenceId`, `basis`
+  agreement|assignees|solo, `participants`) derived through the SAME shared
+  `EffortAllocationService::agreementShares`/`equalShares` implementation the
+  completion writer uses (preview == credited truth by construction); the
+  ParticipationDialog pre-fills from the proposal and TodayView mounts it for
+  multi-person completions (unit: RoomTaskReadServiceTest proposal cases +
+  ParticipationDialog.spec.js).
+- [x] **minor** — HouseUser::jsonSerialize keeps a null `lastFreezeDate`
+  placeholder for older client branches — remove once the client consumers
+  are confirmed cut over.
+  **Resolved (round 2):** no production consumer reads `lastFreezeDate`
+  anymore — the placeholder is removed from `jsonSerialize` and its absence
+  pinned in `HouseUserTest` and the users-payload integration test.
+- [x] **minor** — ActivityFeed `totalEnergy` and CompletionController
+  attribute payload need explicit E2E coverage notes in the gate plan
+  (Step 5 §D).
+  **Resolved (round 2):** gate-plan coverage notes added — see
+  `## 4. Tests` ? E2E coverage notes (ActivityFeed renders `totalEnergy`
+  work evidence with no `coinsEarned`; the attribution payload is covered
+  by `CompletionControllerTest` unit + the targeted-undo E2E flows; a
+  dedicated participation-dialog E2E flow remains plan-tracked via the
+  minimal-client acceptance criterion).
+
+### Review Findings (final Standard B 2026-09-27, open, block `done/`)
+
+Routed plan-owned per Finding Routing step 2 (all five lie inside this
+plan's scope/domain; none reach `backlog.md`). The user selected one
+dedicated fix round for all findings (recommended option); the plan stays
+in `active/`.
+
+- [ ] **block** — **RF-074-WP3-01** — Durable-doc integration missing
+  (acceptance criterion 14, manifest "Durable documentation" row, the
+  knowledge-integration gate): `docs/adr/ADR-014-family-wallet-and-redemption.md`
+  (N path) absent; no changes to `docs/api/README.md`,
+  `docs/engineering/{architecture,testing}.md`,
+  `docs/concepts/{task-model-and-sync,energy-and-balancing,gamification-and-rewards,ui-use-cases}.md`,
+  `docs/testing/release-test-plan.md`, `docs/adr/{ADR-004,ADR-011,ADR-012,ADR-013}*.md`,
+  `docs/standards/ai/skills/gamification/SKILL.md`, `docs/adr/README.md`,
+  `docs/README.md`. The Size Guideline Exception Inventory is stale both
+  ways: `CompletionService.php` listed at 730 (now ~1418 non-blank),
+  `GameLogicService.php` at 349 (now 54), `DailyCapacityService.php` at
+  517 (now 529); the WP3-grown files need re-measurement. The plan must
+  not remain the only description of the wallet/correction/journal
+  contract.
+- [ ] **block** — **RF-074-WP3-02** — Attribution unreachable from the
+  client (§3.7 "reuse the form for attribution correction", §3.6
+  "Activity history exposes authorized older-completion correction",
+  acceptance criteria 5/10): zero `src/` caller of
+  `PUT /completions/{id}/attribution` (no `attribut*` reference at all),
+  `canCorrect` unconsumed, `ParticipationDialog` mounted only for initial
+  completion (RoomDetail/TodayView/TaskManager). Only targeted undo is
+  exposed; the backend attribution endpoint has no UI path and the §4
+  minimal-UI "owner attribution" browser evidence cannot exist yet.
+- [ ] **major** — **RF-074-WP3-03** — Required §4 N test files missing /
+  coverage not mapped: `tests/integration/Service/CompletionCorrectionTest.php`,
+  `tests/unit/Service/RoomReplayServiceTest.php`,
+  `tests/integration/Service/RoomReplayConcurrencyTest.php`,
+  `tests/integration/Service/RhythmProjectionTest.php` and
+  `tests/unit/utils/minorUnits.spec.js` do not exist. Attribution is
+  pinned only in unit `CompletionServiceTest` (2 tests) + the route pin —
+  zero integration coverage; rhythm/weekly recognition has zero
+  integration coverage (unit-only); `minorUnits` formatting (negative
+  amounts, safe-integer boundaries) has zero direct tests;
+  `RoomReplayService` is only mocked in unit tests (indirect integration
+  via the completion/concurrency/undo-equality suites). §4-listed M
+  paths `tests/integration/Service/HouseMemberRemovalIntegrationTest.php`,
+  `tests/e2e/workflow-state-reconciliation.spec.ts` and the fixture rows
+  are unmodified. Fix round: deliver the required evidence (either the
+  named files or an explicit §4 matrix update mapping each required case
+  to its delivered file) — attribution correction and rhythm projection
+  need real integration coverage.
+- [ ] **major** — **RF-074-WP3-04** — Attribution skips departed
+  participants' wallet reversal (correctness defect): `attributeAggregate`
+  maps previous shares to users through CURRENT membership rows
+  (`userIdOfWallet` over `findByHouseId`, `CompletionService.php:832`),
+  but departure deletes the `house_users` row (`HouseService.php:218`).
+  A departed participant's share silently drops out of `$previous`, so
+  the union-delta loop (`:891`) never reverses their credit while the new
+  100% allocation credits the current members — the completion pays out
+  more than the frozen `1000*E` total, violating §3.6 ("later correction
+  can adjust that retained wallet without recreating membership;
+  historical departed shares remain auditable/removable"). `undoAggregate`
+  already does it correctly (deltas keyed by the share rows' `wallet_id`
+  directly). Fix: build the union from the share rows by wallet id (lock
+  the departed wallet too), resolve display names separately; regression
+  test: complete with two participants → one departs → owner attributes →
+  departed wallet reversed.
+- [ ] **major** — **RF-074-WP3-05** — `GET /completions/{id}` 500s when
+  an audit actor departed: `showCompletion` calls
+  `houseUserMapper->find($revision->getActorHouseUserId())`
+  (`CompletionService.php:1330`) without the `DoesNotExistException`
+  guard the undo/attribute authorization paths already have (`:519`,
+  `:737`) — a departed (not erased) corrector leaves a dangling
+  `completion_revs.actor_house_user_id` and the read model crashes
+  instead of rendering the 'Removed member' fallback. Fix: same
+  try/catch → null actor → localized placeholder; regression test.
+- [ ] **nit** — **RF-074-WP3-06** — `CompletionService.php:838-841`:
+  dead empty `if` branch (comment-only body); also the class docblock
+  lock order (memberships → wallets → room) contradicts the implemented
+  and inline-documented order (room BEFORE memberships/wallets,
+  `:328-331`). Fix in the same round.
+- [ ] **nit** — **RF-074-WP3-07** — `RhythmService.php:104-113`:
+  redundant `if`/`elseif` — both branches assign the recomputed longest
+  streak; simplify to a single `!==` comparison.
+- [ ] **nit** — **RF-074-WP3-08** — `CompletionController::attribute`
+  duplicates the closed-payload validation inline instead of extending
+  the shared `validateCorrectionPayload` helper (DRY); optional tidy in
+  the fix round.
+
+## Review Outcome — Final Standard B (2026-09-27): NEEDS-FOLLOW-UP
+
+**Final Standard B code review — NEEDS-FOLLOW-UP** (2026-09-27, main
+agent; skills: review, plan-management, git-workflow, docker-dev).
+Review record:
+[CODE_REVIEW_2026-09-27.md](../../backlog/archive/CODE_REVIEW_2026-09-27.md).
+
+- **Scope/base:** the complete uncommitted WP3 implementation increment
+  (rounds 1-2) — 178 changed tracked paths (modified + deleted) plus 18
+  untracked paths — against `master` @
+  `28755b6584d008db150ef76022e867930a7b3811`; index empty at capture.
+  Fingerprint: unstaged binary diff SHA1
+  `0edea0cf34d8a4f94173c4bde0c007f92cba635d` (`git diff --binary |
+  git hash-object --stdin`), staged diff hash `e69de29…` (empty); the
+  sorted untracked manifest with per-file SHA256 content hashes is
+  recorded in the review record. The three pre-existing `.gitkeep`
+  deletions stayed excluded.
+- **Verification:** full §5 manifest re-checked (every delivered N source
+  path exists; R paths retired with pinned replacements;
+  `archive/2026-09/cs-plan-074-retired/` holds 29 retired sources); the
+  round-2 resolved findings (RF checklist above) spot-verified in source
+  (proposal block via the shared `EffortAllocationService` derivation,
+  `lastFreezeDate` removal, entity-default safety nets); shared checklist
+  applied across the changed set — thin `CompletionController` with
+  closed payloads/`@NoAdminRequired`/membership gates and 404
+  anti-enumeration, house-first lock order in all three aggregates,
+  CommandService receipts with terminal-before-version handling and
+  authorization before replay, exact union-delta attribution, unique
+  ledger entry identities, sole-wallet-authority cutover
+  (`findEnergyUsageBetweenByHouse` completer-only attribution deleted),
+  selected-share capacity seam, room journal/replay with clamps and
+  timestamp rules, Q-074-01A valid-history recognition re-derivation,
+  parameterized SQL, no `@PublicPage`/`v-html`/raw `console.*`/secret
+  logging, i18n via `t()` with 987-key exact EN/DE/POT coverage.
+- **Findings:** 5 plan-owned (2 block, 3 major) + 3 nits recorded in the
+  checklist above — RF-074-WP3-01 durable-doc integration missing,
+  RF-074-WP3-02 attribution unreachable from the client, RF-074-WP3-03
+  required §4 test files missing/coverage unmapped, RF-074-WP3-04
+  attribution skips departed participants' wallets, RF-074-WP3-05
+  `showCompletion` 500 on a departed audit actor. All block the `done/`
+  move; no new backlog items (nothing out-of-scope, no `// HACK:`).
+- **Decisions:** batched structured question — (1) E2E evidence: accept
+  the mtime-verified passing gate run `run-qUhkY2` (2026-09-27 01:50:48,
+  all three pools exit 0, zero violations; no reviewed file changed
+  after the run) — the recommended option, same approach as the WP2
+  final review; (2) one dedicated fix round resolves all findings before
+  the final re-review (recommended). Both selected by the user.
+- **Gates (rerun by this review on the reviewed source):** Docker unit
+  `935 tests / 2882 assertions` and integration `430 tests / 2143
+  assertions` `--fail-on-skipped` zero-skip, `composer cs:check`
+  0-of-350, Jest `1015` / 95 suites, `test:noise` clean, `lint`,
+  `stylelint`, `l10n:check-keys` (987 keys exact), `backlog:check`
+  (27 files), `docs:encoding` (791 files), `git diff --check`, `build` —
+  all green; E2E gate evidence accepted per decision (1).
+- **Transition:** none — the plan stays in `active/`; the implementation
+  package stays uncommitted in the working tree per the NEEDS-FOLLOW-UP
+  rule; this evidence-only commit contains the plan updates, the review
+  record and `ACTIVE_TASKS.md`. CR-SVC-63 stays open (In Progress, this
+  plan owning) — its complete remaining contract is not fully proven
+  while RF-074-WP3-03's room-replay evidence is open. Next: the fix
+  round (RF-074-WP3-01..08), then the final re-review.
