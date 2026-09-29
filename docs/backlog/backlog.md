@@ -213,9 +213,15 @@ profile or guardian-consent model should be implied by onboarding copy.
 ---
 
 ### [P1] FEAT-UX-024 — Notification settings
-**Status**: Planned (core policy approved; implementation not started) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001; CS-PLAN-074 WP3 closed-week delivery follow-up (2026-09-27)
+**Status**: In Progress (WP5 plan active; implementation pending) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
+**Owning**: CS-PLAN-076 (WP5 slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001; CS-PLAN-074 WP3 closed-week delivery follow-up (2026-09-27)
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+**Sub-plan (2026-09-29):** the backend preferences/digest delivery slice
+[CS-PLAN-076](../plans/active/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+activated after Standard A `PASS-WITH-FIXES` (Q-076-01..04 answered; no runtime
+implementation yet). Whole-item closure awaits WP5 delivery and remaining WP6
+presentation work.
 
 UC-14 reminders are passive server jobs with no settings surface.
 
@@ -249,8 +255,8 @@ delivery guarantee, not a missing WP3 work-accounting test or a plan move.
 ---
 
 ### [P1] FEAT-UX-025 — Vacation / house-pause mode
-**Status**: In Progress — backend pause/agreement/capacity slice DELIVERED via [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) (final Standard B `PASS-WITH-FIXES` 2026-09-25); full pause UI, rhythm and quiet-digest integration remain WP6/WP4/WP5 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
-**Owning**: CS-PLAN-073 (backend slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Status**: In Progress — backend pause/agreement/capacity slice DELIVERED via [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) (final Standard B `PASS-WITH-FIXES` 2026-09-25); quiet-digest integration planned in active CS-PLAN-076, full pause UI remains WP6 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
+**Owning**: CS-PLAN-073 (delivered backend slice); CS-PLAN-076 (WP5 quiet-digest slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 CS-PLAN-070 D4 (2026-09-17) selects dated neutral member/house pauses instead of
@@ -271,6 +277,10 @@ suspension with virtual/persisted parity, whole-day exact-share capacity,
 owner-recorded amendments/catch-up/linked restart, planner consent/command
 cutover — passed the final Standard B review (`PASS-WITH-FIXES`; RF-01..28
 resolved; plan in `done/`). CR-SVC-64 closed with it.
+
+**WP5 plan activated (2026-09-29):** [CS-PLAN-076](../plans/active/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+owns the quiet-digest integration for recognized personal/house pauses; it is
+not delivered yet. Full pause UI stays WP6; this item remains open.
 
 - [x] Core pause model, role boundaries and durable concept description approved.
 - [x] Specify pause/date/urgent-work interaction and history/denominator amendments (C1/C2). (C2d–g/i/j approved 2026-09-17; operationalized by CS-PLAN-073 §3.4 and the §10 resolutions, 2026-09-23.)
@@ -418,6 +428,9 @@ selected) and **delivered** (final Standard B `PASS-WITH-FIXES` 2026-09-29):
 rhythm/goal read contract, consent-filtered ranking with real
 consent persistence in WP4,
 single-series retained recognition and retired-mechanic removal (ADR-015).
+WP5 (preferences/digest delivery) was sub-planned as
+[CS-PLAN-076](../plans/active/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+(activated 2026-09-29 via Standard A `PASS-WITH-FIXES`; implementation pending).
 CONCEPT-001 remains In Progress for WP5+.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).

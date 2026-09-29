@@ -141,3 +141,18 @@ Progress via the parent for WP5+; parent child-pointer, `docs/plans/README.md`,
 complete WP4 implementation package (round 1 + the in-review fix round) lands
 with this review's scoped commit; unrelated pre-existing `.gitkeep` deletions
 left unstaged.
+
+## CS-PLAN-076 / WP5 — Standard A: PASS-WITH-FIXES
+
+- **Date / tier / mode:** 2026-09-29; Standard A, Deep Slice plan review; no subagents.
+- **Scope / owner:** [CS-PLAN-076](../../plans/active/cs-plan-076-wp5-preferences-and-digest-delivery.md), child of active CS-PLAN-070. Reviewed plan feasibility, parent C5/D9/D10 ownership, code-baseline citations, risks, tests, manifest and backlog links. No runtime changes.
+- **Capture:** `master` HEAD `b5cc55fa2e768265d01ee646e85c93a8e88536a9`; index empty (staged binary diff SHA1 `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391`), unstaged binary diff SHA1 `871015765dd7c7c9e64c680f41a6eebc370009aa`; sole untracked plan SHA1 `99550fee377f9927ba67f5e12854d980b9814b7e`. Draft scope: this plan plus five draft tracking/link documents (`docs/README.md`, `docs/plans/README.md`, `docs/backlog/{ACTIVE_TASKS,backlog}.md`, parent CS-PLAN-070); three unrelated `.gitkeep` deletions excluded.
+
+| Finding | Severity | Evidence | Resolution |
+|---|---|---|---|
+| RF-076-01 | major | `RankingService.php:156-169` deletes the shared row during consent/re-consent; `Version1032Date20260918000000.php:65-67` requires ranking Monday/zone, making a preference-only row impossible. Draft §3.1 addressed withdraw/disable only. | Q-076-03 A includes in-place consent/re-consent, nullable inactive Monday/zone, generation 0, ranking-filtered reads and shared revision increments; lifecycle/conflict tests added to §4. Plan-level fixed; runtime pending. |
+| RF-076-02 | major | `CompletionService.php:230-240` invokes `CompletionPostCommitService.php:62,123-143` after commit; draft §3.3 assigned it a transactional queue write. | User selected queue insertion in the completion command transaction; §3/§4/manifest require rollback/replay pins; post-commit bell removed. Plan-level fixed; runtime pending. |
+
+**Batched decisions:** Q-076-01 A (minimal self-only Settings UI), Q-076-02 A (awards only in-app, remove bells), Q-076-03 A (shared-row in-place lifecycle including consent/re-consent), Q-076-04 A (new ADR-016) and RF-076-02 A (transactional takeover queue) were explicitly selected together through the structured question tool and recorded in plan §10. No unanswered decisions or open plan-design findings remain.
+
+**Validation:** `npm run backlog:check` green (29 scoped files, after staging the newly tracked plan); `npm run docs:encoding` green (804 tracked files); `git diff --cached --check` and `git diff --check` green. No runtime code changed; runtime tests remain implementation obligations in plan §4, not claimed passing in this review. Outcome `PASS-WITH-FIXES`: child moved `new/` → `active/`, parent/indices/backlog/tracking updated, FEAT-UX-024 WP5 slice In Progress, CONCEPT-001 and FEAT-UX-025 still open. Unrelated `.gitkeep` deletions excluded from the scoped commit.

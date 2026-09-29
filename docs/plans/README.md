@@ -62,7 +62,10 @@ live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
 Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
 (parent plan; WP0-WP4 delivered — WP4 rhythm/goals/ranking as
-[CS-PLAN-075](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)).
+[CS-PLAN-075](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)). The next
+package, WP5 preferences/digest delivery, is active as
+[CS-PLAN-076: WP5 - Preferences and Digest Delivery](active/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+(Standard A `PASS-WITH-FIXES` 2026-09-29; implementation pending).
 
 Latest completed: [CS-PLAN-075 — WP4: Rhythm, Goals and Ranking](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-29 after the in-review fix round
