@@ -383,61 +383,29 @@ class TaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * UpdateTask_MemberTaskTier_ThrowsForbidden
+	 * UpdateTask_TaskTierFields_Retired
 	 *
-	 * CR-053-04: taskTier drives the coin multiplier — a member must not
-	 * self-serve the 2x gold tier. (The plain whitelist loop regression —
-	 * member + name → ok — is pinned by testUpdateTask_PublicTask_AnyCaller_Succeeds.)
+	 * WP4 retirement pin (CS-PLAN-070 §3.4): the Coin-era taskTier/multiplier
+	 * authority is gone — the field is no longer a mutable or settable
+	 * surface anywhere.
 	 */
-	public function testUpdateTask_MemberTaskTier_ThrowsForbidden(): void {
+	public function testUpdateTask_TaskTierFields_Retired(): void {
+		$this->assertFalse(defined(TaskService::class . '::TASK_TIERS'), 'TASK_TIERS must be removed');
+		$this->assertFalse(method_exists(Task::class, 'setTaskTier'), 'Task::setTaskTier must be removed');
+		$this->assertFalse(method_exists(Task::class, 'setTeamSparkMultiplier'), 'Task::setTeamSparkMultiplier must be removed');
+
+		// A stale client payload hits the generic whitelist rejection (400).
 		$task = new Task();
 		$task->setId(1);
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
-
-		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
-		$this->stubTaskVisible();
-		$this->taskMapper->expects($this->never())->method('update');
-
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Only house owners may change the task tier');
-
-		$this->service->updateTask(1, ['taskTier' => 'gold'], $this->createHouseUser('member-user'));
-	}
-
-	/**
-	 * UpdateTask_OwnerInvalidTier_ThrowsInvalidArgument
-	 */
-	public function testUpdateTask_OwnerInvalidTier_ThrowsInvalidArgument(): void {
-		$task = new Task();
-		$task->setId(1);
-		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
-
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->never())->method('update');
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Invalid task tier');
+		$this->expectExceptionMessage('Unknown or immutable field: %1$s');
 
-		$this->service->updateTask(1, ['taskTier' => 'platinum'], $this->createHouseUser('house-owner', 'owner'));
-	}
-
-	/**
-	 * UpdateTask_OwnerValidTier_PersistsTier
-	 */
-	public function testUpdateTask_OwnerValidTier_PersistsTier(): void {
-		$task = new Task();
-		$task->setId(1);
-		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
-
-		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
-		$this->stubTaskVisible();
-		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
-		$this->stubLockedTask($task);
-
-		$result = $this->service->updateTask(1, ['taskTier' => 'gold'], $this->createHouseUser('house-owner', 'owner'));
-
-		$this->assertSame('gold', $result->getTaskTier());
+		$this->service->updateTask(1, ['taskTier' => 'gold'], $this->createHouseUser('house-owner', 'owner'));
 	}
 
 	/**

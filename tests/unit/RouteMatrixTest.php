@@ -282,15 +282,18 @@ class RouteMatrixTest extends TestCase {
 	 * arcade coin/boost economy routes in favor of the targeted
 	 * completion correction trio (GET /completions/{id}, POST
 	 * /completions/{id}/undo, PUT /completions/{id}/attribution) → 78.
+	 * CS-PLAN-070 WP4 retired `PUT /users/{id}/titles/select` and added
+	 * the consent-filtered ranking trio (GET /ranking, POST
+	 * /ranking/consent, POST /ranking/withdraw) → 80.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			78,
+			80,
 			$this->routes['routes'],
-			'Route count drifted from the pin (78 after CS-PLAN-070 WP3) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (80 after CS-PLAN-070 WP4) — add only with a consumer, then update deliberately'
 		);
 	}
 
@@ -343,6 +346,33 @@ class RouteMatrixTest extends TestCase {
 			'POST /api/v1/tasks',
 			$declared,
 			'CS-PLAN-063 pruned POST /tasks (task#create) — use POST /room-tasks (creation aggregate)'
+		);
+	}
+
+	/**
+	 * CS-PLAN-070 WP4 (Q-075-02 A / Q-075-01 A): the multi-pack title
+	 * selection route is retired — `currentTitle` is always the highest
+	 * qualifying retained tier — and the consent-filtered ranking trio is
+	 * the only ranking surface (no client-side leaderboard route returns).
+	 */
+	public function testRetiredTitleSelectRouteStaysGoneAndRankingTrioExists(): void {
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+
+		$this->assertNotContains(
+			'PUT /api/v1/users/{id}/titles/select',
+			$declared,
+			'CS-PLAN-070 WP4 retired the title pack selection — currentTitle derives from the valid-history maximum'
+		);
+		$this->assertContains('GET /api/v1/ranking', $declared, 'The consent-filtered ranking read must exist');
+		$this->assertContains('POST /api/v1/ranking/consent', $declared, 'The self-only consent mutation must exist');
+		$this->assertContains('POST /api/v1/ranking/withdraw', $declared, 'The self-only withdrawal mutation must exist');
+		$this->assertNotContains(
+			'GET /api/v1/game/leaderboard',
+			$declared,
+			'The unconditional game leaderboard route stays pruned'
 		);
 	}
 

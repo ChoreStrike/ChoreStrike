@@ -340,8 +340,9 @@ class UserController extends Controller {
 	}
 
 	/**
-	 * Get the role-title state for a user: current title, all unlocked
-	 * tiers (live-derived from stats), and the full pack/tier catalog.
+	 * Get the role-title state for a user: current title (always the
+	 * highest qualifying retained rhythm tier — no pack selection since
+	 * Q-075-02 A), all live-derived unlocked tiers, and the fixed catalog.
 	 *
 	 * @NoAdminRequired
 	 */
@@ -367,7 +368,6 @@ class UserController extends Controller {
 				'data' => [
 					'currentTitle' => $this->titleService->getCurrentTitle($houseUser),
 					'unlockedTitles' => $this->titleService->getUnlockedTitles($houseUser),
-					'selectedTitlePack' => $houseUser->getSelectedTitlePack(),
 					'catalog' => $this->titleService->getCatalogView(),
 				],
 			]);
@@ -385,79 +385,8 @@ class UserController extends Controller {
 		}
 	}
 
-	/**
-	 * Select the title pack the user displays.
-	 *
-	 * Titles are identity, not admin — a member picks their own pack. The
-	 * requester must be the target user or a house owner.
-	 *
-	 * @NoAdminRequired
-	 * @param int $id The internal house user identifier.
-	 * @param string $pack Pack key to display.
-	 */
-	public function selectTitle(int $id, string $pack): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$currentHouseUser = $this->authService->assertHouseMember($house->getId());
-
-			// Caller-scoped lookup (CS-PLAN-061 review fix): the membership
-			// gate runs BEFORE the target lookup, and a nonexistent and a
-			// foreign-house id both map to the same 404 — the old
-			// find-before-gate order leaked which global house_user ids
-			// exist to non-members (the selectTitle twin of the
-			// remove/updateRole oracle closed in §3.1).
-			$houseUser = $this->houseService->findHouseUserScopedToHouse($id, $house->getId());
-			if ($houseUser === null) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'USER_NOT_FOUND',
-						'message' => $this->l->t('User not found')
-					]
-				], 404);
-			}
-
-			$isOwner = $currentHouseUser->isOwner();
-			$isSelf = $currentHouseUser->getNextcloudUserId() === $houseUser->getNextcloudUserId();
-			if (!$isOwner && !$isSelf) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'FORBIDDEN',
-						'message' => $this->l->t('You are not allowed to update this user')
-					]
-				], 403);
-			}
-
-			$this->titleService->selectPack($houseUser, $currentHouseUser, $pack);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => [
-					'selectedTitlePack' => $houseUser->getSelectedTitlePack(),
-					'currentTitle' => $this->titleService->getCurrentTitle($houseUser),
-				],
-			]);
-		} catch (\InvalidArgumentException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => $this->l->t('Invalid title pack')
-				]
-			], 400);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('selectTitle', $e, ['userId' => $id]);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'SELECT_TITLE_ERROR',
-					'message' => $this->l->t('Failed to select title')
-				]
-			], 500);
-		}
-	}
+	// `selectTitle` was retired 2026-09-27 with the multi-pack surface
+	// (CS-PLAN-070 WP4, Q-075-02 Option A): the current title is always the
+	// highest qualifying retained rhythm tier, so there is nothing to
+	// select.
 }

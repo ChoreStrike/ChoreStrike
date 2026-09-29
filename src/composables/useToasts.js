@@ -5,7 +5,7 @@
 
 import { translate as t } from '@nextcloud/l10n'
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
-import { showSuccess, showWarning } from '@nextcloud/dialogs'
+import { showSuccess } from '@nextcloud/dialogs'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -32,15 +32,6 @@ export function useToasts() {
 		handlers.push({ event, handler })
 	}
 
-	on('chorestrike:streak-freeze-used', (data) => {
-		const remaining = Number.isFinite(data?.remaining) ? data.remaining : 0
-		showWarning(
-			remaining === 1
-				? t('chorestrike', 'Streak protected by freeze! {count} freeze remaining', { count: remaining })
-				: t('chorestrike', 'Streak protected by freeze! {count} freezes remaining', { count: remaining }),
-		)
-	})
-
 	on('chorestrike:weekly-goal-reached', (data) => {
 		const percent = Number.isFinite(data?.percent) ? data.percent : 0
 		const target = Number.isFinite(data?.targetPercent) ? data.targetPercent : 80
@@ -51,12 +42,6 @@ export function useToasts() {
 
 	on('chorestrike:medal-awarded', () => {
 		showSuccess(t('chorestrike', 'You earned a new medal!'))
-	})
-
-	on('chorestrike:task-completed', (data) => {
-		if (data?.comboBonusFreeze) {
-			showSuccess(t('chorestrike', 'Bonus freeze earned from combo!'))
-		}
 	})
 
 	logger.info('Toast notifications initialized')

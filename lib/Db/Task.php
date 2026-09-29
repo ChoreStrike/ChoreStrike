@@ -22,8 +22,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setEnergyCost(int $energyCost)
  * @method int getPriority()
  * @method void setPriority(int $priority)
- * @method string getTaskTier()
- * @method void setTaskTier(string $taskTier)
  * @method string getFrequencyType()
  * @method void setFrequencyType(string $frequencyType)
  * @method int getFrequencyValue()
@@ -64,8 +62,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setAllowTeamwork(bool $allowTeamwork)
  * @method int|null getMaxParticipants()
  * @method void setMaxParticipants(?int $maxParticipants)
- * @method float getTeamSparkMultiplier()
- * @method void setTeamSparkMultiplier(float $teamSparkMultiplier)
  * @method int getFlexDays()
  * @method void setFlexDays(int $flexDays)
  * @method string getVisibilityType()
@@ -121,9 +117,6 @@ class Task extends Entity implements JsonSerializable {
 
 	/** @var int */
 	protected $priority = 2;
-
-	/** @var string */
-	protected $taskTier = 'silver';
 
 	/** @var string */
 	protected $frequencyType = 'weekly';
@@ -185,9 +178,6 @@ class Task extends Entity implements JsonSerializable {
 	/** @var int|null */
 	protected $maxParticipants;
 
-	/** @var float */
-	protected $teamSparkMultiplier = 1.0;
-
 	/** @var int */
 	protected $flexDays = 0;
 
@@ -203,7 +193,6 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('description', 'string');
 		$this->addType('energyCost', 'integer');
 		$this->addType('priority', 'integer');
-		$this->addType('taskTier', 'string');
 		$this->addType('frequencyType', 'string');
 		$this->addType('frequencyValue', 'integer');
 		$this->addType('estimatedMinutes', 'integer');
@@ -224,7 +213,6 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('estimatedMinutesMax', 'integer');
 		$this->addType('allowTeamwork', 'boolean');
 		$this->addType('maxParticipants', 'integer');
-		$this->addType('teamSparkMultiplier', 'decimal');
 		$this->addType('flexDays', 'integer');
 		$this->addType('visibilityType', 'string');
 		$this->addType('ownerUserId', 'string');
@@ -242,7 +230,6 @@ class Task extends Entity implements JsonSerializable {
 			'tips' => $this->tips,
 			'energyCost' => $this->energyCost,
 			'priority' => $this->priority,
-			'taskTier' => $this->taskTier,
 			'frequencyType' => $this->frequencyType,
 			'frequencyValue' => $this->frequencyValue,
 			'estimatedMinutes' => $this->estimatedMinutes,
@@ -260,7 +247,6 @@ class Task extends Entity implements JsonSerializable {
 			'fixedScheduleDays' => $this->fixedScheduleDays,
 			'allowTeamwork' => $this->allowTeamwork,
 			'maxParticipants' => $this->maxParticipants,
-			'teamSparkMultiplier' => $this->teamSparkMultiplier,
 			'flexDays' => $this->flexDays,
 			'visibilityType' => $this->visibilityType,
 			'ownerUserId' => $this->ownerUserId,
@@ -276,30 +262,6 @@ class Task extends Entity implements JsonSerializable {
 			return "{$this->estimatedMinutesMin}-{$this->estimatedMinutesMax} min";
 		}
 		return "{$this->estimatedMinutes} min";
-	}
-
-	/**
-	 * Get task tier as label
-	 */
-	public function getTaskTierLabel(): string {
-		return match($this->taskTier) {
-			'bronze' => 'Bronze',
-			'silver' => 'Silver',
-			'gold' => 'Gold',
-			default => 'Silver'
-		};
-	}
-
-	/**
-	 * Get task tier multiplier
-	 */
-	public function getTaskTierMultiplier(): float {
-		return match($this->taskTier) {
-			'bronze' => 1.0,
-			'silver' => 1.5,
-			'gold' => 2.0,
-			default => 1.5
-		};
 	}
 
 	/**

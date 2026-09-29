@@ -142,9 +142,11 @@ class RhythmServiceTest extends TestCase {
 				14 => $this->completed(14, '2026-09-23'),
 			], [11 => [$this->share(100)], 13 => [$this->share(100)], 14 => [$this->share(100)]]);
 		$user = $this->user(1, 100);
-		self::assertSame(['currentStreak' => 1, 'longestStreak' => 1],
+		// WP4 §3.4: the evaluation also exposes the pending-hold indicator —
+		// the confirmed streak stays 1 while the 09-21 day is still open.
+		self::assertSame(['currentStreak' => 1, 'longestStreak' => 1, 'pending' => true],
 			$this->service->recomputeForMembers(1, [$user], new \DateTime('2026-09-25 12:00:00 UTC'))[1]);
-		self::assertSame(['currentStreak' => 2, 'longestStreak' => 2],
+		self::assertSame(['currentStreak' => 2, 'longestStreak' => 2, 'pending' => false],
 			$this->service->recomputeForMembers(1, [$user], new \DateTime('2026-09-28 12:00:00 UTC'))[1]);
 	}
 

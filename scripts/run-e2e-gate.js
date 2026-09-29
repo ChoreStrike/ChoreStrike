@@ -80,6 +80,9 @@ const REQUIRED_SPECS = [
 	{ file: 'release-task-templates.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'release-notifications.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'release-setup-wizard.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
+	// CS-PLAN-070 WP4: the consent lifecycle needs the owner + reset-owned
+	// family DB (flag flip + UI consent/withdraw).
+	{ file: 'ranking-consent.spec.ts', project: 'chromium-serial-db', scenarios: ['owner enables ranking; member joins pending and withdraws'], minTests: 1 },
 	// Owner-scoped scheduling pool.
 	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
 	{ file: 'flex-window-scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },

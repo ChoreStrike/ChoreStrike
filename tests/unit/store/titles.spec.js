@@ -39,23 +39,23 @@ describe('Titles Store', () => {
 	})
 
 	describe('Initial State', () => {
-		it('starts empty', () => {
+		it('starts empty without a pack selection surface (WP4, Q-075-02 A)', () => {
 			expect(store.currentTitle).toBeNull()
 			expect(store.unlockedTitles).toEqual([])
-			expect(store.selectedTitlePack).toBeNull()
+			expect(store.selectedTitlePack).toBeUndefined()
 			expect(store.catalog).toEqual({})
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
+			expect(store.selectPack).toBeUndefined()
 		})
 	})
 
 	describe('fetchTitles', () => {
-		it('loads current title, unlocked set, selected pack and catalog', async () => {
+		it('loads current title, unlocked set and the fixed catalog', async () => {
 			const payload = {
-				currentTitle: { labelKey: 'titles.team_energy.flow_keeper', tierIndex: 1 },
-				unlockedTitles: [{ pack: 'team_energy', tierIndex: 0 }],
-				selectedTitlePack: 'team_energy',
-				catalog: { team_energy: { tiers: [] } },
+				currentTitle: { labelKey: 'titles.family_rhythm.rhythm_6', tierIndex: 1 },
+				unlockedTitles: [{ pack: 'family_rhythm', tierIndex: 0 }],
+				catalog: { family_rhythm: { tiers: [] } },
 			}
 			api.get.mockResolvedValue(payload)
 
@@ -63,7 +63,6 @@ describe('Titles Store', () => {
 
 			expect(api.get).toHaveBeenCalledWith('/api/v1/users/7/titles')
 			expect(store.currentTitle).toEqual(payload.currentTitle)
-			expect(store.selectedTitlePack).toBe('team_energy')
 			expect(store.catalog).toEqual(payload.catalog)
 			expect(store.loading).toBe(false)
 		})
@@ -80,38 +79,17 @@ describe('Titles Store', () => {
 		})
 	})
 
-	describe('selectPack', () => {
-		it('updates the selected pack and current title from the response', async () => {
-			api.put.mockResolvedValue({
-				selectedTitlePack: 'cozy_home',
-				currentTitle: { labelKey: 'titles.cozy_home.cozy_buddy', tierIndex: 0 },
-			})
-
-			await store.selectPack(7, 'cozy_home')
-
-			expect(api.put).toHaveBeenCalledWith('/api/v1/users/7/titles/select', { pack: 'cozy_home' })
-			expect(store.selectedTitlePack).toBe('cozy_home')
-			expect(store.currentTitle.tierIndex).toBe(0)
-		})
-
-		it('rethrows on failure', async () => {
-			api.put.mockRejectedValue(new Error('nope'))
-			await expect(store.selectPack(7, 'cozy_home')).rejects.toThrow('nope')
-			expect(store.error).toBe('nope')
-		})
-	})
-
 	describe('reset', () => {
 		it('clears all state', () => {
 			store.currentTitle = { labelKey: 'x' }
-			store.selectedTitlePack = 'home_helpers'
+			store.unlockedTitles = [{ pack: 'family_rhythm' }]
 			store.catalog = { a: 1 }
 			store.error = 'err'
 
 			store.reset()
 
 			expect(store.currentTitle).toBeNull()
-			expect(store.selectedTitlePack).toBeNull()
+			expect(store.unlockedTitles).toEqual([])
 			expect(store.catalog).toEqual({})
 			expect(store.error).toBeNull()
 		})

@@ -14,6 +14,9 @@ msgstr ""
 msgid "(you)"
 msgstr ""
 
+msgid "* same on-time share — tied"
+msgstr ""
+
 msgid "15-20 energy per day"
 msgstr ""
 
@@ -149,9 +152,6 @@ msgstr ""
 msgid "All tasks in this room will be deleted."
 msgstr ""
 
-msgid "All tiers unlocked!"
-msgstr ""
-
 msgid "Already as planned"
 msgstr ""
 
@@ -278,9 +278,6 @@ msgstr ""
 msgid "Best"
 msgstr ""
 
-msgid "Bonus freeze earned from combo!"
-msgstr ""
-
 msgid "Boosts used"
 msgstr ""
 
@@ -326,9 +323,6 @@ msgstr ""
 msgid "Change role"
 msgstr ""
 
-msgid "Change title"
-msgstr ""
-
 msgid "Check the dishwasher, empty it if clean, and load or hand-wash any dirty dishes. Give the sink a quick wipe."
 msgstr ""
 
@@ -372,9 +366,6 @@ msgid "Children may view and complete tasks, but not manage them"
 msgstr ""
 
 msgid "Choose on which days you are available for tasks"
-msgstr ""
-
-msgid "Choose your title"
 msgstr ""
 
 msgid "Claim & Complete"
@@ -579,6 +570,9 @@ msgid "Critical! 🚨"
 msgstr ""
 
 msgid "Current split"
+msgstr ""
+
+msgid "Current week"
 msgstr ""
 
 msgid "Custom"
@@ -941,13 +935,16 @@ msgstr ""
 msgid "Failed to save house name"
 msgstr ""
 
+msgid "Failed to save the ranking setting"
+msgstr ""
+
 msgid "Failed to save timezone"
 msgstr ""
 
-msgid "Failed to select title"
+msgid "Failed to update floor"
 msgstr ""
 
-msgid "Failed to update floor"
+msgid "Failed to update participation"
 msgstr ""
 
 msgid "Failed to update sub-task"
@@ -1053,9 +1050,6 @@ msgid "Fri"
 msgstr ""
 
 msgid "Friday"
-msgstr ""
-
-msgid "Friendly competition for a cleaner home"
 msgstr ""
 
 msgid "From template"
@@ -1223,12 +1217,6 @@ msgstr ""
 msgid "Invalid scope type"
 msgstr ""
 
-msgid "Invalid task tier"
-msgstr ""
-
-msgid "Invalid title pack"
-msgstr ""
-
 msgid "Invalid value type for field: %1$s"
 msgstr ""
 
@@ -1247,9 +1235,6 @@ msgstr ""
 msgid "Invite failed"
 msgstr ""
 
-msgid "Invite family members to start competing!"
-msgstr ""
-
 msgid "Item orders array is required"
 msgstr ""
 
@@ -1257,6 +1242,9 @@ msgid "Item orders must map integer item ids to integer orders"
 msgstr ""
 
 msgid "Items reordered"
+msgstr ""
+
+msgid "Join next week"
 msgstr ""
 
 msgid "Just now"
@@ -1391,6 +1379,9 @@ msgstr ""
 msgid "Members"
 msgstr ""
 
+msgid "Members appear here after their consent becomes effective on a Monday."
+msgstr ""
+
 msgid "Minimal"
 msgstr ""
 
@@ -1457,6 +1448,9 @@ msgstr ""
 msgid "Needs attention ⚠️"
 msgstr ""
 
+msgid "Neutral"
+msgstr ""
+
 msgid "Never"
 msgstr ""
 
@@ -1505,9 +1499,6 @@ msgstr ""
 msgid "No members yet — invite your family to get started."
 msgstr ""
 
-msgid "No players yet"
-msgstr ""
-
 msgid "No prefill"
 msgstr ""
 
@@ -1529,13 +1520,16 @@ msgstr ""
 msgid "No tasks yet"
 msgstr ""
 
-msgid "No title yet — pick a track to get started!"
+msgid "No title yet — keep your rhythm going to earn one!"
 msgstr ""
 
 msgid "No unfulfilled occurrence can be amended"
 msgstr ""
 
 msgid "No wallet exists for this member"
+msgstr ""
+
+msgid "Nobody is ranked yet"
 msgstr ""
 
 msgid "None"
@@ -1571,6 +1565,9 @@ msgstr ""
 msgid "Office"
 msgstr ""
 
+msgid "On time"
+msgstr ""
+
 msgid "One-time"
 msgstr ""
 
@@ -1601,9 +1598,6 @@ msgstr ""
 msgid "Only house owners can set admin-only visibility"
 msgstr ""
 
-msgid "Only house owners may change the task tier"
-msgstr ""
-
 msgid "Only house owners may edit checklists"
 msgstr ""
 
@@ -1617,6 +1611,12 @@ msgid "Only the completer or a house owner can undo a completion"
 msgstr ""
 
 msgid "Only you and the assigned members can see and complete this task. Assigned members can also edit it."
+msgstr ""
+
+msgid "Opt-in comparison of on-time shares. Every member decides separately on their own participation; turning it off removes everyone immediately."
+msgstr ""
+
+msgid "Opt-in weekly rhythm ranking for your household"
 msgstr ""
 
 msgid "Optional description..."
@@ -1677,9 +1677,6 @@ msgid "Peak Day"
 msgstr ""
 
 msgid "Person"
-msgstr ""
-
-msgid "Pick a progression track. Tiers unlock automatically as you play."
 msgstr ""
 
 msgid "Pick real tasks, preview who does what on which day, then confirm once — nothing changes until you apply."
@@ -1745,6 +1742,9 @@ msgstr ""
 msgid "Proposed changes"
 msgstr ""
 
+msgid "Provisional — days are still open"
+msgstr ""
+
 msgid "Public"
 msgstr ""
 
@@ -1788,6 +1788,18 @@ msgid "Range must not exceed 60 days"
 msgstr ""
 
 msgid "Rank"
+msgstr ""
+
+msgid "Ranking consent recorded"
+msgstr ""
+
+msgid "Ranking consent withdrawn"
+msgstr ""
+
+msgid "Ranking enabled — every member decides on their own participation"
+msgstr ""
+
+msgid "Ranking turned off for everyone"
 msgstr ""
 
 msgid "Recent Activity"
@@ -2009,9 +2021,6 @@ msgstr ""
 msgid "Send invites"
 msgstr ""
 
-msgid "Set as my title"
-msgstr ""
-
 msgid "Set how much energy you have for tasks each day (1-20)"
 msgstr ""
 
@@ -2099,6 +2108,9 @@ msgstr ""
 msgid "Start with the highest surfaces and work down, hitting every room, and don't forget the ceiling fans and light fixtures."
 msgstr ""
 
+msgid "Starting next week"
+msgstr ""
+
 msgid "Status"
 msgstr ""
 
@@ -2109,12 +2121,6 @@ msgid "Streak"
 msgstr ""
 
 msgid "Streak Keeper"
-msgstr ""
-
-msgid "Streak protected by freeze! {count} freeze remaining"
-msgstr ""
-
-msgid "Streak protected by freeze! {count} freezes remaining"
 msgstr ""
 
 msgid "Strip the old sheets and pillowcases, put them in the laundry, and make the bed with fresh bedding."
@@ -2277,6 +2283,9 @@ msgid "The house is already set up. Use the per-room template picker instead."
 msgstr ""
 
 msgid "The house state changed since it was displayed"
+msgstr ""
+
+msgid "The household ranking is opt-in. A house owner can enable it in the settings — every member then decides on their own participation."
 msgstr ""
 
 msgid "The pause already covers no later date"
@@ -2609,6 +2618,12 @@ msgstr ""
 msgid "Weekly household goal reached!"
 msgstr ""
 
+msgid "Weekly ranking"
+msgstr ""
+
+msgid "Weekly ranking is off"
+msgstr ""
+
 msgid "Welcome to ChoreStrike!"
 msgstr ""
 
@@ -2636,6 +2651,9 @@ msgstr ""
 msgid "Wipe the microwave inside and out."
 msgstr ""
 
+msgid "Withdraw participation"
+msgstr ""
+
 msgid "Within optimal window"
 msgstr ""
 
@@ -2657,7 +2675,7 @@ msgstr ""
 msgid "You are not a member of this household yet"
 msgstr ""
 
-msgid "You are not allowed to update this user"
+msgid "You are not part of the ranking. Participation is voluntary and only ever shows your on-time share of agreed public tasks — starting next Monday."
 msgstr ""
 
 msgid "You cannot change your own role"
@@ -2672,7 +2690,16 @@ msgstr ""
 msgid "You earned the \"%1$s\" medal with a value of %2$d. Keep up the great work!"
 msgstr ""
 
+msgid "You join the ranking next Monday."
+msgstr ""
+
+msgid "You left the ranking."
+msgstr ""
+
 msgid "You reached a new tier (\"%1$s\") in the \"%2$s\" pack. Set it as your title in Settings!"
+msgstr ""
+
+msgid "You take part in this week's ranking."
 msgstr ""
 
 msgid "You unlocked a new title: %1$s"
@@ -2700,6 +2727,9 @@ msgid "Your home is set up!"
 msgstr ""
 
 msgid "Your household hit %1$d%% of this week's tasks (target: %2$d%%). Great teamwork!"
+msgstr ""
+
+msgid "Your participation starts on {monday}. Nothing is counted before then."
 msgstr ""
 
 msgid "Your task \"%1$s\" was taken over by %2$s"
@@ -2819,9 +2849,6 @@ msgstr ""
 msgid "previewVersion is required"
 msgstr ""
 
-msgid "pts"
-msgstr ""
-
 msgid "reasonCode must be a string of at most 64 characters"
 msgstr ""
 
@@ -2882,31 +2909,7 @@ msgstr ""
 msgid "titles.family_rhythm.rhythm_6"
 msgstr ""
 
-msgid "titles.home_helpers.care_captain"
-msgstr ""
-
-msgid "titles.home_helpers.helper"
-msgstr ""
-
-msgid "titles.home_helpers.organizer"
-msgstr ""
-
 msgid "titles.pack.family_rhythm"
-msgstr ""
-
-msgid "titles.pack.home_helpers"
-msgstr ""
-
-msgid "titles.pack.team_energy"
-msgstr ""
-
-msgid "titles.team_energy.flow_keeper"
-msgstr ""
-
-msgid "titles.team_energy.spark_starter"
-msgstr ""
-
-msgid "titles.team_energy.team_anchor"
 msgstr ""
 
 msgid "tomorrow"
@@ -2979,6 +2982,9 @@ msgid "{minutes} min ago"
 msgstr ""
 
 msgid "{name} joined the house"
+msgstr ""
+
+msgid "{name} joins on {monday}"
 msgstr ""
 
 msgid "{name} was removed from the house"

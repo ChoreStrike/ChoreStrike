@@ -46,7 +46,8 @@
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a UI completion carries the full occurrence receipt",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a new command on a fulfilled occurrence conflicts 409, never credits another target",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a stale receipt after a due-date move conflicts 409",
-    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > replaying the same command returns the original identity without a second effect"
+    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > replaying the same command returns the original identity without a second effect",
+    "family-rhythm.spec.ts > Family rhythm — read contract (WP4) > the state read carries the rhythm projection and the personal weekly slice after a completion"
   ],
   "today-view.spec.ts": [
     "today-view.spec.ts > Release: Today view > shows seeded due-today rows and completes one with row state change",
@@ -133,10 +134,10 @@
     "multi-user-interactions.spec.ts > Multi-User Family Interactions > family profile has all 6 users seeded",
     "multi-user-interactions.spec.ts > Multi-User Family Interactions > grandma can view but has limited tasks",
     "multi-user-interactions.spec.ts > Multi-User Family Interactions > kid can see their simple task list",
-    "multi-user-interactions.spec.ts > Multi-User Family Interactions > leaderboard shows all family members",
+    "multi-user-interactions.spec.ts > Multi-User Family Interactions > leaderboard shows the opt-in state for unconsented members (WP4)",
     "multi-user-interactions.spec.ts > Multi-User Family Interactions > mom can see assigned tasks on dashboard",
     "multi-user-interactions.spec.ts > Multi-User Family Interactions > teen can expand floors and see room cards",
-    "multi-user-interactions.spec.ts > Multi-User Task Interactions > leaderboard updates after task completion",
+    "multi-user-interactions.spec.ts > Multi-User Task Interactions > leaderboard state stays consistent after task completion (WP4)",
     "multi-user-interactions.spec.ts > Multi-User Task Interactions > task assignment persists across users",
     "multi-user-interactions.spec.ts > Multi-User Task Interactions > task completion updates house health"
   ],
@@ -163,6 +164,9 @@
   "release-setup-wizard.spec.ts": [
     "release-setup-wizard.spec.ts > Release: Setup Wizard > apply is rejected with 409 when the house already has floors",
     "release-setup-wizard.spec.ts > Release: Setup Wizard > setup catalog is available on a populated house"
+  ],
+  "ranking-consent.spec.ts": [
+    "ranking-consent.spec.ts > Ranking Consent Lifecycle (WP4) > owner enables ranking; member joins pending and withdraws"
   ],
   "scheduling.spec.ts": [
     "scheduling.spec.ts > Scheduling UI > can interact with energy slider",
@@ -249,13 +253,10 @@
     "fast-core-tests.spec.ts > Fast Core Tests > Task Manager basic functionality"
   ],
   "leaderboard.spec.ts": [
-    "leaderboard.spec.ts > Leaderboard and Gamification > Leaderboard shows contribution scores",
-    "leaderboard.spec.ts > Leaderboard and Gamification > Leaderboard updates after task completion",
-    "leaderboard.spec.ts > Leaderboard and Gamification > No dead period filter remains (CS-PLAN-041)",
-    "leaderboard.spec.ts > Leaderboard and Gamification > User can view leaderboard with rankings",
-    "leaderboard.spec.ts > Leaderboard and Gamification > User medals are displayed on leaderboard",
-    "leaderboard.spec.ts > Leaderboard and Gamification > Weekly medals render from the game store when medals exist",
-    "leaderboard.spec.ts > Leaderboard and Gamification > Weekly stats are displayed correctly"
+    "leaderboard.spec.ts > Leaderboard and Gamification (consent-filtered) > Disabled ranking shows the opt-in/closed state (default seed)",
+    "leaderboard.spec.ts > Leaderboard and Gamification (consent-filtered) > No freeze indicators or contribution score column remain",
+    "leaderboard.spec.ts > Leaderboard and Gamification (consent-filtered) > User can view leaderboard with rankings",
+    "leaderboard.spec.ts > Leaderboard and Gamification (consent-filtered) > Weekly medals render from the game store when medals exist"
   ],
   "minimal-smoke-tests.spec.ts": [
     "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > App loads with title and visible shell",
@@ -326,9 +327,8 @@
     "task-manager.spec.ts > Task Manager > User can search for tasks"
   ],
   "title-selection.spec.ts": [
-    "title-selection.spec.ts > Role Title System > Opening the picker shows all three packs",
-    "title-selection.spec.ts > Role Title System > Selecting a pack marks it active",
-    "title-selection.spec.ts > Role Title System > Title section renders with a change-title button"
+    "title-selection.spec.ts > Role Title System (single series) > The titles API carries no pack selection and the select route stays gone",
+    "title-selection.spec.ts > Role Title System (single series) > Title section renders without a change-title control (retired surface)"
   ],
   "workflow-request-budgets.spec.ts": [
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > SchedulingView preloads its planning candidates with ONE house-wide request",

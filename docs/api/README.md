@@ -100,13 +100,14 @@ Get current user's house information.
 the creator's Nextcloud timezone at house creation; `UTC` fallback.
 
 #### PUT /house
-Update house name and (owner only) timezone.
+Update house name and (owner only) timezone and ranking flag.
 
 **Request:**
 ```json
 {
   "name": "Updated Home Name",
-  "timezone": "Europe/Berlin"
+  "timezone": "Europe/Berlin",
+  "rankingEnabled": true
 }
 ```
 
@@ -114,6 +115,11 @@ Update house name and (owner only) timezone.
   current timezone unchanged.
 - Unknown IANA identifiers are rejected with 400 `VALIDATION_ERROR`
   ("Unknown timezone") — closed-set validation against the full IANA list.
+- `rankingEnabled` (CS-PLAN-070 WP4, C5i/D10b) is optional and owner-only:
+  the consent-filtered ranking gate, default off. Disabling removes all
+  visible participation immediately and invalidates every consent
+  generation; re-enabling starts everyone unconsented
+  ([ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md)).
 - Requires house ownership (403 otherwise).
 
 #### POST /house/reset
@@ -441,11 +447,11 @@ route internals (`id`, `_route`); a dispatcher-resolved `array $updates`
 argument can never bind from that shape and would 500 on every real HTTP call
 (the SchedulingController `memberUpdatesPayload` fix pattern, RF-065-05).
 
-> **`taskTier` (CR-053-04):** owner-only and value-checked — accepted values
-> are `bronze`, `silver`, `gold` (the tier drives the completion coin
-> multiplier). A member sending `taskTier` gets `403 FORBIDDEN`; any other
-> value gets `400 VALIDATION_ERROR`. All other whitelisted fields remain
-> member-writable.
+> **`taskTier` (retired, CS-PLAN-070 WP4):** the Coin-era bronze/silver/gold
+> tier and its multiplier authority were removed with the frozen-rate wallet
+> cutover. The field is no longer accepted by `PUT /tasks/{id}` — a stale
+> client sending it gets the generic whitelist rejection (`400 VALIDATION_ERROR`,
+> `Unknown or immutable field`).
 
 > **Closed constraint set (CS-PLAN-063 §3.1):** every accepted update field
 > is range/type-checked — `schedulingMode` ∈ `dynamic|static`, parseable
@@ -857,7 +863,8 @@ update gate).
 ### Game
 
 > `GET /game/leaderboard` was pruned in CS-PLAN-055 (test-only never became
-> production-consumed; the UI leaderboard is built from `GET /users`).
+> production-consumed; the consent-filtered ranking has its own
+> `GET /ranking` below).
 > `game#handleTaskCompletion` was pruned in CS-PLAN-055 — completion runs
 > through `POST /room-tasks/{id}/complete` (the CompletionService
 > aggregate); the prune is pinned by `RouteMatrixTest`.
@@ -867,6 +874,15 @@ Get the current game state: the serialized house members with their
 gamification fields (camelCase; WP3 shape — progression only, no Coin
 balances: the wallet is exposed exclusively as the caller's own state via
 `rewards.wallet` on completion responses and `GET /users/current`).
+
+WP4 §3.4 read contract: the response additionally carries the caller's
+rhythm projection (`rhythm` — confirmed/current/best from the valid-history
+evaluation plus the `pending` hold indicator), the caller's personal
+weekly-goal slice (`myWeeklyGoal`), and the house `weeklyGoal` block with
+the explicit `eligible`/`onTime`/`neutral` counts and the `provisional`
+flag. All of it is a PURE READ — on an initialized house the endpoint
+performs no award writes (minting lives in the TimelineJob closed-week
+reconciliation and `POST /game/check-medals`).
 
 **Response `data`:**
 ```json
@@ -880,19 +896,34 @@ balances: the wallet is exposed exclusively as the caller's own state via
       "contributionMinor": 12000,
       "currentStreak": 5,
       "longestStreak": 9,
-      "selectedTitlePack": "home_helpers",
-      "currentTitle": { "pack": "home_helpers", "tierIndex": 1, "labelKey": "titles.home_helpers.steady_hand" }
+      "currentTitle": { "pack": "family_rhythm", "tierIndex": 1, "labelKey": "titles.family_rhythm.rhythm_6" }
     }
-  ]
+  ],
+  "rhythm": { "confirmed": 5, "current": 5, "best": 9, "pending": true },
+  "weeklyGoal": {
+    "eligible": 7, "onTime": 6, "neutral": 1,
+    "percent": 86, "targetPercent": 80, "achieved": false,
+    "provisional": true, "weekKey": "2026-09-21",
+    "weekStart": "…", "weekEnd": "…"
+  },
+  "myWeeklyGoal": {
+    "eligible": 4, "onTime": 3, "neutral": 0, "provisional": true,
+    "weekKey": "2026-09-21", "weekStart": "…", "weekEnd": "…"
+  }
 }
 ```
 
 > WP3: `contributionScore` became `contributionMinor` (exact minor units) and
 > the coin/streak-freeze fields are retired with the legacy economy
 > ([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)).
+> WP4: `selectedTitlePack` left the member payload — the current title is
+> always the highest qualifying tier of the single retained rhythm series.
 
 #### GET /game/medals
 Get medals for the current week (serialized `Medal` entities, camelCase).
+The retained catalog is the rhythm tiers (`rhythm_3/6/12`) plus the
+household weekly milestone — the retired activity/combo types were dropped
+with the WP4 label cutover.
 
 **Response `data`:**
 ```json
@@ -900,11 +931,11 @@ Get medals for the current week (serialized `Medal` entities, camelCase).
   {
     "id": 4,
     "userId": 1,
-    "medalType": "team_anchor",
+    "medalType": "rhythm_3",
     "value": 12,
     "weekStart": "2026-09-07",
     "awardedAt": "2026-09-13 10:12:00",
-    "medalLabel": "Team Anchor",
+    "medalLabel": "Rhythm 3",
     "userName": "Mom"
   }
 ]
@@ -919,7 +950,7 @@ persist new awards. Idempotent: a repeat call awards nothing new.
 {
   "count": 1,
   "awardedMedals": [
-    { "id": 4, "userId": 1, "medalType": "team_anchor", "value": 10, "weekStart": "2026-09-07", "awardedAt": "2026-09-13 10:12:00", "medalLabel": "Team Anchor" }
+    { "id": 4, "userId": 1, "medalType": "rhythm_3", "value": 10, "weekStart": "2026-09-07", "awardedAt": "2026-09-13 10:12:00", "medalLabel": "Rhythm 3" }
   ]
 }
 ```
@@ -1218,9 +1249,10 @@ their 403).
 ### Users
 
 > **Title fields on user objects:** every user object returned by `GET /users`
-> and `GET /users/current` is enriched with two title fields:
-> - `selectedTitlePack` (`string|null`) — the pack the user has chosen to display (null = none chosen).
-> - `currentTitle` (`object|null`) — the server-computed highest tier the user qualifies for within `selectedTitlePack` (same shape as `currentTitle` under `GET /users/{id}/titles` below), or null.
+> and `GET /users/current` is enriched with one title field:
+> - `currentTitle` (`object|null`) — the server-computed highest qualifying
+>   tier of the single retained rhythm series (same shape as `currentTitle`
+>   under `GET /users/{id}/titles` below), or null.
 >
 > The full `unlockedTitles` list is **not** on the generic user payload — fetch it via `GET /users/{id}/titles`.
 
@@ -1278,39 +1310,103 @@ Remove user from house (owner only).
 > role changes through `PUT /users/{id}/role`.
 
 #### GET /users/{id}/titles
-Get the role-title state for a user: the current title (server-computed from
-live stats), every tier the user qualifies for across all packs, the selected
-pack, and the full pack/tier catalog (with per-house threshold overrides) so
-the frontend can render the picker without a second call. House-members only.
+Get the role-title state for a user: the current title — always the highest
+qualifying tier of the single retained rhythm series, derived live from the
+valid-history maximum (`longestStreak`; no pack selection since
+CS-PLAN-070 WP4, Q-075-02 A) — every qualifying tier, and the fixed
+series/tier catalog so the frontend can render progress without a second
+call. House-members only.
 
 **Response `data`:**
 ```json
 {
   "currentTitle": {
-    "pack": "team_energy",
-    "packLabelKey": "titles.pack.team_energy",
+    "pack": "family_rhythm",
+    "packLabelKey": "titles.pack.family_rhythm",
     "tierIndex": 1,
-    "tierKey": "flow_keeper",
-    "labelKey": "titles.team_energy.flow_keeper",
-    "threshold": 30
+    "tierKey": "rhythm_6",
+    "labelKey": "titles.family_rhythm.rhythm_6",
+    "threshold": 6
   },
   "unlockedTitles": [/* …tier descriptors… */],
-  "selectedTitlePack": "team_energy",
   "catalog": {
-    "home_helpers": { "labelKey": "…", "signal": "contributionScore", "tiers": [/* … */] }
+    "family_rhythm": { "labelKey": "titles.pack.family_rhythm", "signal": "longestStreak", "tiers": [
+      { "key": "rhythm_3", "labelKey": "titles.family_rhythm.rhythm_3", "threshold": 3 },
+      { "key": "rhythm_6", "labelKey": "titles.family_rhythm.rhythm_6", "threshold": 6 },
+      { "key": "rhythm_12", "labelKey": "titles.family_rhythm.rhythm_12", "threshold": 12 }
+    ] }
   }
 }
 ```
 
-#### PUT /users/{id}/titles/select
-Select the title pack the user displays. Titles are identity, not admin — the
-requester must be the target user or a house owner. Validates the pack key
-against the catalog.
+#### PUT /users/{id}/titles/select (pruned, CS-PLAN-070 WP4)
 
-**Request:**
+The multi-pack selection route was retired with the single-series cutover
+(Q-075-02 A): the current title derives from the valid-history maximum, so
+there is nothing to select. Re-adding it requires a new expose decision
+(guarded by `RouteMatrixTest`).
+
+### Ranking (CS-PLAN-070 WP4)
+
+Consent-filtered weekly chore ranking — the server is the sole ranking
+authority; the filter lives server-side, never client-side. No Coins,
+speed, contribution or private-task data exists anywhere in the payloads.
+
+#### GET /ranking
+The consent-filtered ranking view for the caller's house: the house flag
+state, the caller's OWN consent state, the visible entries (effective
+consents only) and pending consents without a rank. Non-consenting members
+and foreign consent states are never exposed.
+
+- `entries[]`: one per effectively-consented member — the on-time ratio of
+  that member's personal agreed occurrences on household-public tasks
+  (public-at-agreement flag). Exact rational comparison (no floats); equal
+  ratios share a rank and carry `tied`; zero-denominator members render
+  `neutral` and unranked. The week is labeled `provisional` while it or any
+  included window is open.
+- `pending[]`: consented-but-not-yet-effective members with their saved
+  activation Monday (C5l) — never ranked.
+- `me`: `none | pending | effective` with the caller's generation and
+  activation Monday.
+
 ```json
-{ "pack": "team_energy" }
+{
+  "rankingEnabled": true,
+  "week": { "weekKey": "2026-09-21", "weekStart": "…", "weekEnd": "…", "provisional": true },
+  "me": { "state": "effective", "generation": 3, "effectiveMonday": "2026-09-14" },
+  "entries": [
+    { "houseUserId": 2, "displayName": "Alice", "eligible": 4, "onTime": 3, "neutral": false, "rank": 1, "tied": true, "isMe": false },
+    { "houseUserId": 1, "displayName": "Bob", "eligible": 4, "onTime": 3, "neutral": false, "rank": 1, "tied": true, "isMe": true },
+    { "houseUserId": 5, "displayName": "Zoe", "eligible": 0, "onTime": 0, "neutral": true, "rank": null, "tied": false, "isMe": false }
+  ],
+  "pending": [
+    { "houseUserId": 7, "displayName": "Carol", "effectiveMonday": "2026-09-28" }
+  ]
+}
 ```
+
+#### POST /ranking/consent
+Give the CALLING person's ranking consent (children included — C5i). The
+mutation runs under the house-first lock and creates a fresh generation
+effective NEXT Monday 00:00 in the house timezone, saved with that zone;
+never retroactive. An existing pending generation is replaced.
+
+**Response `data`:** `{ "state": "pending", "generation": 4, "effectiveMonday": "2026-09-28" }`
+
+#### POST /ranking/withdraw
+Withdraw the CALLING person's ranking consent. Removes visible
+participation immediately and invalidates the generation (re-consent starts
+a fresh generation at the next full week). Idempotent.
+
+**Response `data`:** `{ "state": "none", "generation": null, "effectiveMonday": null }`
+
+> **House flag:** the owner-only `rankingEnabled` flag rides the existing
+> `PUT /house` update path (optional boolean; default off). Disabling
+> removes all visible participation immediately and invalidates every
+> generation; re-enabling starts everyone unconsented. Departure deletes
+> the departing membership's consent with the row; account erasure purges
+> it (`ranking consent is purged with the membership`). See
+> [ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md).
 
 ## Error Codes
 

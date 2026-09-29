@@ -4,9 +4,10 @@
  */
 
 /**
- * Tier index → CSS tier class + design token. Mirrors the task-tier palette
+ * Tier index → CSS tier class + design token. Mirrors the tier palette
  * (bronze/silver/gold) from src/styles/tokens.css so a title badge matches
- * the medal/tier visual language.
+ * the medal/tier visual language. The single retained rhythm series uses
+ * the three rungs in ascending order (CS-PLAN-070 WP4, Q-075-02 A).
  */
 export const TIER_STYLES = [
 	{ class: 'tier-bronze', color: 'var(--cs-tier-bronze)' },

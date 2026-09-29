@@ -71,11 +71,11 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 		$this->assertTrue($schema->hasTable('chorestrike_room_tasks'), 'chorestrike_room_tasks missing');
 		$this->assertTrue($schema->hasTable('chorestrike_house_users'), 'chorestrike_house_users missing');
 
-		// The four columns Version1027 re-adds via changeSchema() — absent on
+		// The columns Version1027 re-adds via changeSchema() — absent on
 		// every historical broken fresh install. Asserting them proves this
 		// test would have caught the original defect. (The `coin_multiplier`
-		// fourth column retired with the WP3 wallet cutover.)
-		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'task_tier'));
+		// column retired with the WP3 wallet cutover; the retired Coin-era
+		// `task_tier` multiplier column with the WP4 cutover.)
 		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'flex_days'));
 		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'ideal_due_date'));
 		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'claimed_source_completion_id'));
@@ -90,13 +90,21 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 		$this->assertLessThanOrEqual(30, strlen('oc_chorestrike_wgoal_receipts'), 'Nextcloud-prefixed receipt table name exceeds 30 characters');
 		$this->assertTrue($schema->hasColumn('chorestrike_wallet_entries', 'actor_wallet_id'));
 		$this->assertTrue($schema->getTable('chorestrike_room_events')->hasIndex('idx_revent_room_reset_time'));
+
+		// WP4 (Q-075-01 A): the ranking-consent preference table is part of
+		// the fresh chain; the retired tier/pack columns are not.
+		$this->assertTrue($schema->hasTable('chorestrike_member_prefs'), 'member_prefs consent table missing');
+		$this->assertFalse($schema->hasColumn('chorestrike_tasks', 'task_tier'), 'retired task_tier column must not be re-added');
+		$this->assertFalse($schema->hasColumn('chorestrike_tasks', 'team_spark_multiplier'), 'retired team_spark_multiplier column must not be re-added');
+		$this->assertFalse($schema->hasColumn('chorestrike_house_users', 'selected_title_pack'), 'retired selected_title_pack column must not be re-added');
+		$this->assertTrue($schema->hasColumn('chorestrike_house_users', 'unlocked_titles'), 'unlocked_titles marker column missing');
 	}
 
 	/**
 	 * Isolated guard for the canonical historically-broken step: Version1027
 	 * must add the historically missing columns through changeSchema() (not
-	 * preSchemaChange), and the WP3 cutover must keep the retired freeze/
-	 * multiplier columns out of a fresh install.
+	 * preSchemaChange), and the WP3/WP4 cutovers must keep the retired
+	 * freeze/multiplier/tier columns out of a fresh install.
 	 */
 	public function testVersion1027AddsHistoricallyMissingColumnsViaChangeSchema(): void {
 		$schema = new RecordingSchema();
@@ -114,12 +122,14 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 		);
 
 		$this->assertNotNull($result, 'Version1027 must return the schema so the runner persists its diff');
-		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'task_tier'));
 		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'flex_days'));
 		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'ideal_due_date'));
 		// Retired with the WP3 wallet cutover (Q-074-01 Option A).
 		$this->assertFalse($schema->hasColumn('chorestrike_house_users', 'coin_multiplier'));
 		$this->assertFalse($schema->hasColumn('chorestrike_house_users', 'last_freeze_date'));
+		// Retired with the WP4 cutover (CS-PLAN-070 §3.4): no Coin-era tier
+		// column returns through the re-add path.
+		$this->assertFalse($schema->hasColumn('chorestrike_tasks', 'task_tier'));
 	}
 
 	/**
@@ -164,6 +174,11 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 			['chorestrike_house_users', 'coin_multiplier'],
 			['chorestrike_house_users', 'last_freeze_date'],
 			['chorestrike_minigame_scores', 'boosts_used'],
+			// WP4 cutover (CS-PLAN-070 §3.4/Q-075-02 A): the Coin-era tier
+			// authority and the pack-selection preference are folded out.
+			['chorestrike_tasks', 'task_tier'],
+			['chorestrike_tasks', 'team_spark_multiplier'],
+			['chorestrike_house_users', 'selected_title_pack'],
 		];
 		foreach ($absentColumns as [$table, $column]) {
 			$this->assertFalse(

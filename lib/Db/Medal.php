@@ -67,16 +67,14 @@ class Medal extends Entity implements JsonSerializable {
 
 	/**
 	 * Get human-readable medal label
+	 *
+	 * The retired activity/combo medal types (team_anchor, flow_keeper,
+	 * room_guardian, team_player, streak_keeper) dropped with the WP4
+	 * label cutover (CS-PLAN-070) — only the retained rhythm tiers and
+	 * the weekly milestone exist.
 	 */
 	public function getMedalLabel(): string {
-		return match($this->medalType) {
-			'team_anchor' => 'Team Anchor',
-			'flow_keeper' => 'Flow Keeper',
-			'room_guardian' => 'Room Guardian',
-			'team_player' => 'Team Player',
-			'streak_keeper' => 'Streak Keeper',
-			default => ucfirst(str_replace('_', ' ', $this->medalType))
-		};
+		return ucfirst(str_replace('_', ' ', $this->medalType));
 	}
 
 }

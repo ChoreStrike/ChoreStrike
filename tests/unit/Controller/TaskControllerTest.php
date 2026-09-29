@@ -274,12 +274,11 @@ class TaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * CR-053-04: a member sending taskTier gets a plain 403 role denial —
-	 * NOT the 404 anti-enumeration mapping the inner NotFoundException
-	 * catch applies to visibility denials (the role denial leaks no task
-	 * existence, the task is already visible to the caller).
+	 * WP4 retirement pin (CS-PLAN-070 §3.4): the tier gate is gone — a
+	 * stale client sending `taskTier` flows through to the service and
+	 * dies on the generic whitelist rejection (400 via ValidationException).
 	 */
-	public function testUpdate_MemberTaskTier_Returns403(): void {
+	public function testUpdate_StaleTaskTierPayload_ServiceWhitelistRejection(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
 		$this->authService->method('assertHouseMember')
@@ -290,32 +289,11 @@ class TaskControllerTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
 		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
-		$this->taskService->expects($this->never())->method('updateTask');
+		$this->taskService->expects($this->once())
+			->method('updateTask')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ValidationException('Unknown or immutable field: taskTier'));
 
 		$this->mockUpdateRequest(['taskTier' => 'gold']);
-		$response = $this->controller->update(1);
-
-		$this->assertEquals(403, $response->getStatus());
-		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
-	}
-
-	/**
-	 * CR-053-04: an owner sending a tier outside the closed set gets 400.
-	 */
-	public function testUpdate_OwnerInvalidTaskTier_Returns400(): void {
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
-		$this->authService->method('assertHouseMember')
-			->willReturn($this->createHouseUserMock('owner', true));
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
-
-		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
-		$this->taskService->expects($this->never())->method('updateTask');
-
-		$this->mockUpdateRequest(['taskTier' => 'platinum']);
 		$response = $this->controller->update(1);
 
 		$this->assertEquals(400, $response->getStatus());

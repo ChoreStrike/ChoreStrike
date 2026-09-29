@@ -17,19 +17,18 @@ use OCP\Migration\SimpleMigrationStep;
  * Adds the role-title progression columns to `chorestrike_house_users`
  * (CS-PLAN-006 Phase 1).
  *
- * - `selected_title_pack` VARCHAR(20) NULL — the pack the user chose to
- *   display (null = no pack chosen yet; default).
  * - `unlocked_titles` JSON NULL — cache of `{pack}.{tier}` strings the user
- *   has ever unlocked (drives the title-history tooltip + the unlock
- *   detection). Recomputable from stats, so safe to clear on a house reset.
+ *   has ever unlocked (the single-series first-earned celebration marker
+ *   driving the unlock detection, C3g). Recomputable from stats, so safe
+ *   to clear on a house reset.
  *
- * Both columns are additive and nullable; uses the same native `json`
- * column + entity type as `scheduling_preferences` (proven portable across
- * SQLite/MariaDB/PostgreSQL in the NC 27+ test environment).
- *
- * The original postSchemaChange unlocked-titles backfill only made sense
- * for migrating veteran installs; dead on fresh installs and removed in
- * CS-PLAN-055 (pre-release: fresh installs only, project-rules §1).
+ * The former `selected_title_pack` display-preference column retired in
+ * place with the WP4 single-series cutover (CS-PLAN-070 WP4, Q-075-02
+ * Option A: `currentTitle` is always the highest qualifying retained
+ * tier; no selection surface exists). The original postSchemaChange
+ * unlocked-titles backfill only made sense for migrating veteran
+ * installs; dead on fresh installs and removed in CS-PLAN-055
+ * (pre-release: fresh installs only, project-rules §1).
  */
 class Version1025Date20260719000000 extends SimpleMigrationStep {
 	/**
@@ -46,14 +45,6 @@ class Version1025Date20260719000000 extends SimpleMigrationStep {
 		}
 
 		$table = $schema->getTable('chorestrike_house_users');
-
-		if (!$table->hasColumn('selected_title_pack')) {
-			$table->addColumn('selected_title_pack', 'string', [
-				'notnull' => false,
-				'length' => 20,
-				'default' => null,
-			]);
-		}
 
 		if (!$table->hasColumn('unlocked_titles')) {
 			$table->addColumn('unlocked_titles', 'json', [

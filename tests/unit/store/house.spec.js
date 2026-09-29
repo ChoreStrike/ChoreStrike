@@ -94,6 +94,14 @@ describe('House Store', () => {
 			store.house = { id: 1 }
 			expect(store.timezone).toBe('UTC')
 		})
+
+		it('rankingEnabled defaults to false and mirrors the loaded house flag', () => {
+			expect(store.rankingEnabled).toBe(false)
+			store.house = { id: 1, rankingEnabled: true }
+			expect(store.rankingEnabled).toBe(true)
+			store.house = { id: 1 }
+			expect(store.rankingEnabled).toBe(false)
+		})
 	})
 
 	describe('Actions', () => {
@@ -166,6 +174,30 @@ describe('House Store', () => {
 				await store.updateHouseName('New Name', null)
 
 				expect(api.put).toHaveBeenCalledWith('/api/v1/house', { name: 'New Name' })
+			})
+		})
+
+		// CS-PLAN-070 WP4: the owner ranking flag rides the shared endpoint.
+		describe('updateRankingEnabled', () => {
+			it('sends the current name plus the flag and stores the response', async () => {
+				store.house = { id: 1, name: 'Test House', rankingEnabled: false }
+				const updated = { id: 1, name: 'Test House', rankingEnabled: true }
+				api.put.mockResolvedValue(updated)
+
+				await store.updateRankingEnabled(true)
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/house', { name: 'Test House', rankingEnabled: true })
+				expect(store.house).toEqual(updated)
+				expect(store.rankingEnabled).toBe(true)
+			})
+
+			it('stores the error and rethrows on failure', async () => {
+				store.house = { id: 1, name: 'Test House' }
+				api.put.mockRejectedValue(new Error('Forbidden'))
+
+				await expect(store.updateRankingEnabled(true)).rejects.toThrow('Forbidden')
+				expect(store.error).toBe('Forbidden')
+				expect(store.loading).toBe(false)
 			})
 		})
 

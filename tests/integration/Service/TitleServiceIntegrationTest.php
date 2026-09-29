@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\TitleService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
 /**
  * Integration test for TitleService against the real Docker DB
- * (CS-PLAN-006 Phase 4).
+ * (CS-PLAN-006 Phase 4; WP4 single-series cutover per CS-PLAN-070
+ * C3d/D7c, Q-075-02 A).
  *
- * Verifies that selectPack persists, getCurrentTitle reads live stats, and
- * detectUnlock + the unlocked_titles cache round-trip through the mapper +
- * the new JSON column.
+ * Verifies that the current title derives from live stats only (no pack
+ * selection), and that detectUnlock + the unlocked_titles marker
+ * round-trip through the mapper and the JSON column.
  */
 class TitleServiceIntegrationTest extends IntegrationTestCase {
 	private TitleService $titleService;
@@ -49,22 +49,27 @@ class TitleServiceIntegrationTest extends IntegrationTestCase {
 		return $this->houseUserMapper->findByNextcloudUserId($houseId, $userId);
 	}
 
-	public function testSelectPack_PersistsAndGetCurrentTitleReadsLiveStats(): void {
-		$user = $this->memberWithStats(150000, 1, 1);
+	/**
+	 * Q-075-02 A: the current title is always the highest qualifying
+	 * retained rhythm tier — qualification reads the valid-history
+	 * maximum (longestStreak) and ignores the retired pack selection.
+	 */
+	public function testGetCurrentTitle_DerivesFromValidHistoryMaximum(): void {
+		// longestStreak 12 → rhythm_12 despite a broken current run.
+		$user = $this->memberWithStats(150000, 12, 1);
 
-		$this->titleService->selectPack($user, $user, 'home_helpers');
-
-		$reloaded = $this->houseUserMapper->find($user->getId());
-		$this->assertSame('home_helpers', $reloaded->getSelectedTitlePack());
-
-		$title = $this->titleService->getCurrentTitle($reloaded);
+		$title = $this->titleService->getCurrentTitle($user);
 		$this->assertNotNull($title);
-		$this->assertSame('home_helpers', $title['pack']);
-		$this->assertSame('care_captain', $title['tierKey']);
+		$this->assertSame('family_rhythm', $title['pack']);
+		$this->assertSame('rhythm_12', $title['tierKey']);
+
+		// Retired signals (contribution/current streak) alone qualify nothing.
+		$onlyContribution = $this->memberWithStats(150000, 0, 90);
+		$this->assertNull($this->titleService->getCurrentTitle($onlyContribution));
 	}
 
-	public function testDetectUnlock_PersistsCacheToTheJsonColumn(): void {
-		$user = $this->memberWithStats(6000, 8, 0);
+	public function testDetectUnlock_PersistsMarkerToTheJsonColumn(): void {
+		$user = $this->memberWithStats(0, 8, 8);
 
 		$unlocked = $this->titleService->detectUnlock($user);
 		// detectUnlock only mutates in-memory — persist via the mapper.
@@ -74,24 +79,25 @@ class TitleServiceIntegrationTest extends IntegrationTestCase {
 
 		$reloaded = $this->houseUserMapper->find($user->getId());
 		$cached = $reloaded->getUnlockedTitles();
-		$this->assertContains('home_helpers.helper', $cached);
-		$this->assertContains('team_energy.spark_starter', $cached);
+		$this->assertContains('family_rhythm.rhythm_3', $cached);
+		$this->assertContains('family_rhythm.rhythm_6', $cached);
+		$this->assertNotContains('family_rhythm.rhythm_12', $cached);
 	}
 
-	public function testGetCurrentTitle_WithConfigOverride_AppliesLowerThreshold(): void {
-		/** @var RewardConfigService $config */
-		$config = \OC::$server->get(RewardConfigService::class);
-		$original = $config->getTitleThreshold('home_helpers', 0);
-		try {
-			$config->setTitleThreshold('home_helpers', 0, 5);
-			$user = $this->memberWithStats(10, 1, 1);
-			$user->setSelectedTitlePack('home_helpers');
+	/**
+	 * WP4 pin: the threshold policy is fixed — no config override path
+	 * exists to bend the 3/6/12 rungs.
+	 */
+	public function testThresholds_AreFixedPolicy(): void {
+		$reflection = new \ReflectionClass(\OCA\ChoreStrike\Service\RewardConfigService::class);
+		$this->assertFalse($reflection->hasMethod('getTitleThreshold'));
+		$this->assertFalse($reflection->hasMethod('setTitleThreshold'));
 
-			$title = $this->titleService->getCurrentTitle($user);
-			$this->assertNotNull($title);
-			$this->assertSame('helper', $title['tierKey']);
-		} finally {
-			$config->setTitleThreshold('home_helpers', 0, $original);
-		}
+		// Exactly 3 still unlocks tier 1.
+		$user = $this->memberWithStats(0, 3, 3);
+		$title = $this->titleService->getCurrentTitle($user);
+		$this->assertNotNull($title);
+		$this->assertSame('rhythm_3', $title['tierKey']);
+		$this->assertSame(3, $title['threshold']);
 	}
 }

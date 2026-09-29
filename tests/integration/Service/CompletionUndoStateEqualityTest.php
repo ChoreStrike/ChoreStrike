@@ -266,64 +266,63 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * RewardSideEquality_TitleUnlocksRemovedByTheirOwnUndo_LaterStateSurvives
+	 * RewardSideEquality_TitleUnlockReconciledAwayByItsOwnUndo
 	 *
-	 * WP3: titles derive from the member's valid-history stats. Occurrence 1
-	 * (energy 5 → +500 minor on a 4500 base) crosses the home_helpers tier-0
-	 * threshold (5000); occurrence 2 adds no tier. Undoing 2 must keep the
-	 * tier (LIFO/own-occurrence), undoing 1 reconciles it away (C3g).
+	 * WP4 (C3g): titles derive from the member's valid-history rhythm
+	 * (fixed 3/6/12 rungs — no config override exists). The unlocked
+	 * marker is recomputable cache: the completion's re-evaluation
+	 * reconciles a stale cached tier the real history no longer supports,
+	 * and the undo restores every persisted column except the re-derived
+	 * rhythm stats and the reconciled marker.
 	 */
-	public function testRewardSideEquality_TitleUnlocksRemovedByTheirOwnUndo_LaterStateSurvives(): void {
+	public function testRewardSideEquality_TitleUnlockReconciledAwayByItsOwnUndo(): void {
 		$ids = $this->seedPermutationFixture([]);
 		$this->ledgerRoomTaskIds[] = $ids['roomTaskId'];
 		$this->progressRoomTaskIds[] = $ids['roomTaskId'];
 
-		// Task B in the same room (energy 3 — adds no further tier).
-		$taskB = $this->createTask($ids['houseId'], 'UEQ small', '', 5, 3);
-		$roomTaskB = $this->assignTaskToRoom($taskB, $ids['roomId'], 'ueq_owner');
-		$this->ledgerRoomTaskIds[] = $roomTaskB;
-		$this->progressRoomTaskIds[] = $roomTaskB;
+		// Seed a STALE marker + stats cache the real history cannot support
+		// (no valid occurrences exist yet): the completion aggregate must
+		// recompute both from real facts.
+		$memberId = $this->houseUser('ueq_owner', $ids['houseId'])->getId();
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_house_users')
+			->set('longest_streak', $qb->createNamedParameter(3, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT))
+			->set('unlocked_titles', $qb->createNamedParameter('["family_rhythm.rhythm_3"]'))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($memberId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+			->executeStatement();
 
-		// Deterministic tier windows via the documented config override:
-		// occurrence 1 (+500 minor) crosses tier 0 (400); occurrence 2's
-		// +300 lands below tier 1 (900).
-		$config = \OC::$server->get(\OCA\ChoreStrike\Service\RewardConfigService::class);
-		$originals = [
-			0 => $config->getTitleThreshold('home_helpers', 0),
-			1 => $config->getTitleThreshold('home_helpers', 1),
-		];
-		$config->setTitleThreshold('home_helpers', 0, 400);
-		$config->setTitleThreshold('home_helpers', 1, 900);
+		$completionService = $this->titleWiredCompletionService();
 
-		try {
-			$completionService = $this->titleWiredCompletionService();
+		$before = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])['users'];
+		self::assertContains('family_rhythm.rhythm_3', $this->houseUser('ueq_owner', $ids['houseId'])->getUnlockedTitles());
 
-			$usersBefore = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])['users'];
+		// The completion re-evaluates the valid history (one success →
+		// maximum 1 < 3): the stale cached tier is reconciled away (C3g)
+		// and never re-celebrates.
+		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
+		$afterCompletion = $this->houseUser('ueq_owner', $ids['houseId']);
+		self::assertSame([], $afterCompletion->getUnlockedTitles(), 'the tier the real valid history never reached is reconciled away');
+		self::assertSame(1, $afterCompletion->getCurrentStreak());
+		self::assertSame(1, $afterCompletion->getLongestStreak());
 
-			// Occurrence 1 (energy 5 → +500 minor): crosses tier 0.
-			$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
-			self::assertContains('home_helpers.helper', $this->houseUser('ueq_owner', $ids['houseId'])->getUnlockedTitles());
+		// Undo: the re-derived stats fall back to zero; every other
+		// persisted column equals the pre-completion snapshot exactly —
+		// only the re-derived rhythm facts (current/longest streak) and the
+		// reconciled marker differ by design.
+		$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
-			// Occurrence 2: no new unlock.
-			$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $roomTaskB);
-			$afterBoth = $this->houseUser('ueq_owner', $ids['houseId']);
-			self::assertContains('home_helpers.helper', $afterBoth->getUnlockedTitles());
-			self::assertNotContains('home_helpers.care_captain', $afterBoth->getUnlockedTitles());
+		$after = $this->houseUser('ueq_owner', $ids['houseId']);
+		self::assertSame([], $after->getUnlockedTitles());
+		self::assertSame(0, $after->getCurrentStreak());
+		self::assertSame(0, $after->getLongestStreak());
 
-			// Undo occurrence 2 (LIFO): the occurrence-1 title must survive.
-			$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $roomTaskB);
-			self::assertContains('home_helpers.helper', $this->houseUser('ueq_owner', $ids['houseId'])->getUnlockedTitles(), 'a title supported by an EARLIER occurrence must survive a later undo');
-
-			// Undo occurrence 1: now its own title is reconciled away.
-			$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
-
-			$usersAfter = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])['users'];
-			self::assertSame($usersBefore, $usersAfter, 'after both undos the reward rows equal the initial snapshot exactly');
-			self::assertNotContains('home_helpers.helper', $this->houseUser('ueq_owner', $ids['houseId'])->getUnlockedTitles());
-		} finally {
-			$config->setTitleThreshold('home_helpers', 0, $originals[0]);
-			$config->setTitleThreshold('home_helpers', 1, $originals[1]);
-		}
+		$stripDerived = static function (array $users): array {
+			return array_map(static function (array $user): array {
+				unset($user['unlocked_titles'], $user['current_streak'], $user['longest_streak']);
+				return $user;
+			}, $users);
+		};
+		self::assertSame($stripDerived($before), $stripDerived($this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])['users']), 'after the undo every persisted reward column except the re-derived rhythm facts equals the pre-completion state');
 	}
 
 	// ========== Helpers ==========

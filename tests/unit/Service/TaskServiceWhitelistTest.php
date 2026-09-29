@@ -154,9 +154,7 @@ class TaskServiceWhitelistTest extends TestCase {
 	}
 
 	/**
-	 * Multi-field atomicity for whitelist members only — `taskTier` left
-	 * the whitelist (CR-053-04: owner-only, handled explicitly in
-	 * updateTask), so a non-owner multi-field payload must be rejected.
+	 * Multi-field atomicity for whitelist members only.
 	 */
 	public function testUpdateTask_AppliesMultipleWhitelistedFieldsAtomically(): void {
 		$task = new Task();
@@ -175,16 +173,15 @@ class TaskServiceWhitelistTest extends TestCase {
 	}
 
 	/**
-	 * CR-053-04: taskTier is no longer a generic whitelist member — a
-	 * member sending it hits the explicit owner gate first (403), not the
-	 * whitelist loop.
+	 * WP4 retirement pin: the retired Coin-era `taskTier` key hits the
+	 * generic whitelist rejection (400), not a tier gate.
 	 */
-	public function testUpdateTask_MemberSendingTaskTier_ThrowsForbiddenBeforeWhitelist(): void {
+	public function testUpdateTask_MemberSendingTaskTier_HitsWhitelistRejection(): void {
 		$task = new Task();
 		$this->taskMapper->method('find')->willReturn($task);
 
-		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
-		$this->expectExceptionMessage('Only house owners may change the task tier');
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Unknown or immutable field: taskTier');
 		$this->service->updateTask(1, ['name' => 'Multi', 'taskTier' => 'gold'], $this->createHouseUser());
 	}
 

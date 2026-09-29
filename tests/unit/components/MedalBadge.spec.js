@@ -1,20 +1,20 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { ref } from 'vue'
-import MedalBadge from '../../../src/components/Common/MedalBadge.vue'
+import MedalBadge, { MEDAL_LABELS } from '../../../src/components/Common/MedalBadge.vue'
 
 /**
- * Unit tests for MedalBadge component
+ * Unit tests for MedalBadge component (WP4 label cutover: only the
+ * retained rhythm tiers and the weekly milestone remain).
  */
 
 describe('MedalBadge', () => {
 	const createWrapper = (props = {}) => {
 		const pinia = createPinia()
 		setActivePinia(pinia)
-		
+
 		return mount(MedalBadge, {
 			props: {
-				type: 'team_anchor',
+				type: 'rhythm_3',
 				...props,
 			},
 			global: {
@@ -25,27 +25,26 @@ describe('MedalBadge', () => {
 
 	describe('Props Validation', () => {
 		it('renders with required type prop', () => {
-			const wrapper = createWrapper({ type: 'team_anchor' })
+			const wrapper = createWrapper({ type: 'rhythm_3' })
 			expect(wrapper.exists()).toBe(true)
 		})
 
-		it('accepts all valid medal types', () => {
-			const validTypes = [
-				'team_anchor',
-				'flow_keeper',
-				'room_guardian',
-				'team_player',
-				'streak_keeper',
-				'rhythm_3',
-				'rhythm_6',
-				'rhythm_12',
-				'weekly_milestone',
-			]
+		it('accepts only the retained medal types', () => {
+			const validTypes = ['rhythm_3', 'rhythm_6', 'rhythm_12', 'weekly_milestone']
 
 			validTypes.forEach((type) => {
 				const wrapper = createWrapper({ type })
 				expect(wrapper.exists()).toBe(true)
 			})
+		})
+
+		it('exposes exactly the retained label mapping', () => {
+			expect(Object.keys(MEDAL_LABELS).sort()).toEqual([
+				'rhythm_12',
+				'rhythm_3',
+				'rhythm_6',
+				'weekly_milestone',
+			])
 		})
 
 		it('has correct default size', () => {
@@ -68,39 +67,16 @@ describe('MedalBadge', () => {
 	})
 
 	describe('Rendering', () => {
-		it('displays correct icon for team_anchor', () => {
-			const wrapper = createWrapper({ type: 'team_anchor' })
-			const icon = wrapper.find('.medal-icon')
-			expect(icon.text()).toBe('🛟')
-		})
-
-		it('displays correct icon for flow_keeper', () => {
-			const wrapper = createWrapper({ type: 'flow_keeper' })
-			const icon = wrapper.find('.medal-icon')
-			expect(icon.text()).toBe('🌊')
-		})
-
-		it('displays correct icon for room_guardian', () => {
-			const wrapper = createWrapper({ type: 'room_guardian' })
-			const icon = wrapper.find('.medal-icon')
-			expect(icon.text()).toBe('🛡️')
-		})
-
-		it('displays correct icon for team_player', () => {
-			const wrapper = createWrapper({ type: 'team_player' })
-			const icon = wrapper.find('.medal-icon')
-			expect(icon.text()).toBe('🤝')
-		})
-
-		it('displays correct icon for streak_keeper', () => {
-			const wrapper = createWrapper({ type: 'streak_keeper' })
-			const icon = wrapper.find('.medal-icon')
-			expect(icon.text()).toBe('🔥')
+		it('displays the rhythm icon for the retained tiers', () => {
+			;['rhythm_3', 'rhythm_6', 'rhythm_12'].forEach((type) => {
+				const wrapper = createWrapper({ type })
+				expect(wrapper.find('.medal-icon').text()).toBe('🔥')
+			})
 		})
 
 		it('shows medal type class', () => {
-			const wrapper = createWrapper({ type: 'team_anchor' })
-			expect(wrapper.classes()).toContain('medal-team_anchor')
+			const wrapper = createWrapper({ type: 'rhythm_6' })
+			expect(wrapper.classes()).toContain('medal-rhythm_6')
 		})
 
 		it('has medal-badge base class', () => {
@@ -120,15 +96,6 @@ describe('MedalBadge', () => {
 			expect(wrapper.find('.medal-label').exists()).toBe(true)
 		})
 
-		it('displays translated label text', () => {
-			const wrapper = createWrapper({
-				type: 'team_anchor',
-				showLabel: true,
-			})
-			const label = wrapper.find('.medal-label')
-			expect(label.exists()).toBe(true)
-		})
-
 		it.each([
 			['rhythm_3', 'Rhythm 3'],
 			['rhythm_6', 'Rhythm 6'],
@@ -144,7 +111,7 @@ describe('MedalBadge', () => {
 
 	describe('Accessibility', () => {
 		it('has title attribute with label', () => {
-			const wrapper = createWrapper({ type: 'team_anchor' })
+			const wrapper = createWrapper({ type: 'rhythm_3' })
 			expect(wrapper.attributes('title')).toBeDefined()
 		})
 	})

@@ -133,7 +133,6 @@ class TaskControllerIntegrationTest extends TestCase {
 		$task->setScopeType('house');
 		$task->setIsVoluntary(false);
 		$task->setAllowTeamwork(false);
-		$task->setTeamSparkMultiplier(1.0);
 		$task->setCreatedAt(new \DateTime());
 		return $task;
 	}

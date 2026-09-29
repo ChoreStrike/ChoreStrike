@@ -10,8 +10,9 @@ use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\OccurrenceMapper;
+use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
+use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Service\CalendarService;
-use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\WeeklyGoalService;
 use PHPUnit\Framework\TestCase;
 
@@ -29,9 +30,15 @@ class WeeklyGoalServiceTest extends TestCase {
 		$houses->method('find')->willReturn($this->house);
 		$this->occurrences = $this->createMock(OccurrenceMapper::class);
 		$this->completions = $this->createMock(CompletedTaskMapper::class);
-		$rewards = $this->createMock(RewardConfigService::class);
-		$rewards->method('getWeeklyGoalTargetPercent')->willReturn(80);
-		$this->service = new WeeklyGoalService($houses, $this->occurrences, $this->completions, $rewards, new CalendarService());
+		// WP4: the 80% target is fixed policy — no reward-config dependency.
+		$this->service = new WeeklyGoalService(
+			$houses,
+			$this->occurrences,
+			$this->completions,
+			$this->createMock(OccurrenceMemberMapper::class),
+			$this->createMock(WorkShareMapper::class),
+			new CalendarService()
+		);
 	}
 
 	private function occurrence(int $id, string $day, ?int $completionId, bool $suspended = false, ?string $end = null): Occurrence {
@@ -77,6 +84,11 @@ class WeeklyGoalServiceTest extends TestCase {
 		self::assertSame(14, $progress['percent']);
 		self::assertTrue($progress['provisional']);
 		self::assertFalse($progress['achieved']);
+		// §3.4 read-contract names mirror the house counts.
+		self::assertSame(7, $progress['eligible']);
+		self::assertSame(1, $progress['onTime']);
+		self::assertSame(0, $progress['neutral']);
+		self::assertSame(80, $progress['targetPercent']);
 	}
 
 	public function testProgressForPlannedWeek_OnTimeCrossWeekWindow_RemainsInPlannedWeek(): void {
@@ -103,12 +115,16 @@ class WeeklyGoalServiceTest extends TestCase {
 	}
 
 	public function testProgressForWeek_SuspendedAndEmptyWeek_AreNeutral(): void {
-		$this->seed([$this->occurrence(1, '2026-09-22', 11, true)],
-			[11 => $this->completion(11, '2026-09-29', CompletedTask::CLASS_LATE)]);
-		$progress = $this->service->progressForWeek($this->house, new \DateTime('2026-09-29 UTC'));
+		// The recognized suspension falls INSIDE the evaluated week (the
+		// Monday 2026-09-28 week) — it is the neutral remainder.
+		$this->seed([$this->occurrence(1, '2026-09-29', 11, true)],
+			[11 => $this->completion(11, '2026-09-30', CompletedTask::CLASS_LATE)]);
+		$progress = $this->service->progressForWeek($this->house, new \DateTime('2026-09-30 UTC'));
 		self::assertSame(0, $progress['dueCount']);
 		self::assertSame(0, $progress['percent']);
 		self::assertFalse($progress['achieved']);
+		self::assertSame(0, $progress['eligible']);
+		self::assertSame(1, $progress['neutral']);
 	}
 
 	public function testProgressForPlannedWeek_UndoDeflatesValidNumerator(): void {

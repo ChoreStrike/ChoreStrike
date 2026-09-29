@@ -10,18 +10,15 @@
 
 ## In Progress
 
-- **CS-PLAN-075 / WP4 — rhythm, goals and ranking ACTIVATED** (Standard A
-  `PASS-WITH-FIXES` 2026-09-27, in `active/`): post-WP3 rhythm/goal read
-  contract, consent-filtered ranking,
-  single-series retained recognition (valid-history maximum, C3d/D7c) and
-  retired-mechanic removal (task tier fields, title packs, freeze/combo
-  leftovers, config overrides); concrete manifest, T5 remainder/T8 ranking
-  backend/T0 growth tests. Q-075-01/02 Option A selected (minimal Version1032
-  consent in WP4, title picker/storage retirement in WP4); implementation
-  pending. [Plan](../plans/active/cs-plan-075-wp4-rhythm-goals-and-ranking.md) ·
+- **CS-PLAN-070 / parent — family rhythm and reward clarification OPEN**
+  (WP0-WP4 delivered; CONCEPT-001 stays In Progress for WP5+ — digest
+  delivery, quiet hours, notification opt-ins, non-ranking preferences;
+  next sub-plan not yet drafted).
   [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-075 / WP4 — rhythm, goals and ranking DELIVERED** (final Standard B `PASS-WITH-FIXES` 2026-09-29, plan moved to `done/`): complete WP4 increment (103 tracked + 12 untracked paths at `master` `a477c29`) verified against the plan — §5 manifest, §4 matrix with mapping notes, all acceptance criteria, durable-doc integration (ADR-015 + ADR-004 annotation, api/README ranking trio + state contract, engineering size inventory, testing E2E map, concepts, gamification skill, release-test-plan); RF-075-01..05 resolved in the in-review fix round with the recommended options (owner-only ranking toggle in Settings via `houseStore.updateRankingEnabled`, erasure-purge membership-keyed pin + N ranking store spec, dead wrapper removal, `CompletedTask::isAgreedOnTime()` predicate dedup, docker-dev skill note); gates rerun green on the post-fix tree (Docker unit 982/3125 + integration 475/2468 zero-skip, cs:check 0-of-365, Jest 1049/96, lint/stylelint/test:noise, l10n 1005 keys canonical, backlog/encoding/diff-check/build); E2E accepted on mtime-verified run `run-NSOUkr` per user decision; CR-053-11 freeze/tiebreaker remainders resolved without closure, CONCEPT-001 stays open (WP4 annotated), parent child-pointer updated. [Plan](../plans/done/cs-plan-075-wp4-rhythm-goals-and-ranking.md) · [Review record](archive/CODE_REVIEW_2026-09-29.md).
 
 - **CS-PLAN-074 / WP3 — work accounting and replay DELIVERED** (final Standard B re-review `PASS-WITH-FIXES` 2026-09-27, plan moved to `done/`): the complete WP3 increment (217 tracked + 26 untracked paths at `master` `631f022`) re-verified against the full plan — §5 manifest, §4 matrix with explicit mapping notes, all 16 acceptance criteria, durable-doc integration (ADR-014 + API/engineering/concepts/ADRs/gamification-skill), RF-074-WP3-01..08 fix-round resolutions and the 23-finding follow-up round spot-verified in source; RF-074-WP3-09 resolved in-round (N `WorkShareMapperEnergyTest` real-DB capacity-seam pin per user decision), RF-074-WP3-10 doc drift auto-fixed (ADR-014 link/name + size inventory 8 rows re-measured + 2 added); gates rerun green (Docker unit 981/3077 + integration 467/2402 zero-skip, cs:check, Jest 1054, lint/stylelint/l10n 1003/backlog/encoding/diff-check/build); E2E accepted on mtime-verified run `run-UK5bLd` per user decision; plan `active/ → done/`, CR-SVC-63 closed to archive, CONCEPT-001 and parent findings stay open (WP3 portions annotated). [Plan](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review record](archive/CODE_REVIEW_2026-09-27.md).
 

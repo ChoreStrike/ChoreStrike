@@ -76,6 +76,10 @@ const SEED_DEPENDENT_SPECS = [
 	// completes/fulfills them through the real receipt contract — it asserts
 	// per-target ledger/selection state a parallel reseed would corrupt.
 	/[/\\]family-rhythm\.spec\.ts$/,
+	// CS-PLAN-070 WP4: the ranking-consent lifecycle flips the owner-only
+	// house flag and consents/withdraws through the real API + UI — a
+	// parallel reseed mid-lifecycle would strand the flag state, serial only.
+	/[/\\]ranking-consent\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

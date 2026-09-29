@@ -11,7 +11,6 @@ export const useTitlesStore = defineStore('titles', {
 	state: () => ({
 		currentTitle: null,
 		unlockedTitles: [],
-		selectedTitlePack: null,
 		catalog: {},
 		loading: false,
 		error: null,
@@ -23,7 +22,9 @@ export const useTitlesStore = defineStore('titles', {
 
 	actions: {
 		/**
-		 * Fetch the active user's title state + catalog.
+		 * Fetch the active user's title state + fixed catalog (single
+		 * retained rhythm series; no pack selection since CS-PLAN-070 WP4,
+		 * Q-075-02 A).
 		 * @param {number} houseUserId Internal house user id.
 		 */
 		async fetchTitles(houseUserId) {
@@ -37,7 +38,6 @@ export const useTitlesStore = defineStore('titles', {
 				this.lastHouseUserId = houseUserId
 				this.currentTitle = data.currentTitle
 				this.unlockedTitles = data.unlockedTitles || []
-				this.selectedTitlePack = data.selectedTitlePack
 				this.catalog = data.catalog || {}
 				return data
 			} catch (error) {
@@ -67,33 +67,6 @@ export const useTitlesStore = defineStore('titles', {
 		},
 
 		/**
-		 * Select a title pack for the active user.
-		 * @param {number} houseUserId Internal house user id.
-		 * @param {string} packKey Pack key to display.
-		 */
-		async selectPack(houseUserId, packKey) {
-			if (!houseUserId) {
-				throw new Error('House user id is required')
-			}
-			this.loading = true
-			this.error = null
-			try {
-				const data = await api.put(
-					`/api/v1/users/${houseUserId}/titles/select`,
-					{ pack: packKey },
-				)
-				this.selectedTitlePack = data.selectedTitlePack
-				this.currentTitle = data.currentTitle
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to select title', error, { store: 'titles', action: 'selectPack', houseUserId, packKey })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
 		 * Clear error state.
 		 */
 		clearError() {
@@ -106,7 +79,6 @@ export const useTitlesStore = defineStore('titles', {
 		reset() {
 			this.currentTitle = null
 			this.unlockedTitles = []
-			this.selectedTitlePack = null
 			this.catalog = {}
 			this.loading = false
 			this.error = null

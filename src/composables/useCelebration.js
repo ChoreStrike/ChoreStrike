@@ -30,10 +30,6 @@ export function useCelebration() {
 		fireConfetti()
 		playSound('complete')
 
-		if (data?.isCombo) {
-			playSound('combo')
-		}
-
 		const streak = data?.currentStreak
 		if (streak && STREAK_MILESTONES.includes(streak)) {
 			fireMilestoneConfetti()
@@ -54,10 +50,6 @@ export function useCelebration() {
 	on('chorestrike:weekly-goal-reached', () => {
 		fireMilestoneConfetti()
 		playSound('milestone')
-	})
-
-	on('chorestrike:streak-freeze-used', () => {
-		logger.info('Streak freeze used — streak preserved')
 	})
 
 	logger.info('Celebration effects initialized')

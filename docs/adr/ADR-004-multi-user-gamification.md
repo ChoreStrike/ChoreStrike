@@ -20,6 +20,13 @@
 > corrections move value between wallets with exact union deltas, and
 > combo/team-spark multipliers plus the boost economy are retired. This ADR's
 > body remains the historical record of the gamification architecture only.
+>
+> **Note (2026-09-27, CS-PLAN-070 WP4 / ADR-015):** the task-tier multiplier
+> column and the multi-pack title selection are also retired — recognition is
+> the single fixed 3/6/12 rhythm series qualifying on the valid-history
+> maximum, and member comparison is the opt-in consent-filtered weekly
+> ranking ([ADR-015](ADR-015-ranking-consent-and-privacy.md)), not a
+> contribution leaderboard.
 
 ## Context
 

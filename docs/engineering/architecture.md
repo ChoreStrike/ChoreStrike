@@ -92,7 +92,8 @@ ChoreStrike/
 │   │   │                       #   TaskTemplatePicker, FlexWindowDisplay, OverdueClaimDialog
 │   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
-│   │   ├── Profile/            # TitleBadge, TitlePicker (CS-PLAN-006)
+│   │   ├── Profile/            # TitleBadge (single retained series; the
+│   │   │                       #   TitlePicker retired with CS-PLAN-070 WP4)
 │   │   └── Scheduling/         # SelfAvailabilitySettings, AvailabilitySettings, AvailabilityEditModal,
 │   │                           #   EnergyBudgetSettings, BudgetAnalysis, WeekBudgetGrid,
 │   │                           #   SchedulePlanner, ScheduleCalendar, OvercapacityWarning
@@ -102,7 +103,7 @@ ChoreStrike/
 │   │                           #   envelope unwrap, ApiError normalization)
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
 │   │                           #   user, scheduling, checklist, minigame, titles,
-│   │                           #   setup) + userAutoInit bootstrap plugin
+│   │                           #   ranking, setup) + userAutoInit bootstrap plugin
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
 │   ├── views/                  # Dashboard, Today, Insights, RoomDetail, TaskManager,
 │   │                           #   Leaderboard, Scheduling, Calendar, Settings
@@ -1076,7 +1077,13 @@ fix/follow-up rounds (`CompletionService` 1478→1435, `HouseService`
 477→489, `TestDataService` 577→649, `RoomTask` 357→362,
 `CompletedTaskMapper` 525→567, `Dashboard.vue` 327→351, `InsightsView.vue`
 342→531, `roomTasks.js` 1038→1064, plus the two newly crossing WP3 files
-`MedalService` and `RoomService` added below).
+`MedalService` and `RoomService` added below), and re-measured 2026-09-27
+after the CS-PLAN-070 WP4 rhythm/goals/ranking package: the retirement of
+the reward-config registry keys dropped `RewardConfigService` 328→164 below
+the guideline, the retired `TitlePicker.vue` left the inventory, the new
+`RankingService` entered it, `HouseService` 489→512 (house ranking flag +
+consent wipe on the existing update path) and `Settings.vue` 928→906
+(TitlePicker surface removed).
 WP8 already reduced its named hotspots
 (`TaskList.vue` ~1,160 → 357, `GameLogicService` 517 → 349,
 `RoomTaskService` 833 → 643, `CompletionService` 772 → 546 via extracted
@@ -1102,13 +1109,14 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Service/TaskCreationService.php` | 453 | WP4 atomic creation aggregate (custom/mount/template, one transaction; WP1: initial schedule revision) | accepted (transaction aggregate) |
 | `Service/HouseSetupService.php` | 492 | WP3 first-run setup transaction aggregate (first-run gate, structure, invites; WP1: schedule initialization) | accepted (transaction aggregate) |
 | `Service/TaskService.php` | 538 | Task-definition CRUD + validation set (WP1: definition edits revise schedules) | **remainder** (CR-SVC-15: `createTask` 24 positional params → param object) |
-| `Service/HouseService.php` | 489 | House aggregate: membership (invite/scoped lookups, RF-058-04), house stats, WP1 zone-change revision pass; the WP3 wallet-balance endpoint moved to the wallet read seam | accepted (cohesive aggregate) |
+| `Service/HouseService.php` | 512 | House aggregate: membership (invite/scoped lookups, RF-058-04), house stats, WP1 zone-change revision pass, WP4 ranking flag + consent-generation wipe on the shared update path; the WP3 wallet-balance endpoint moved to the wallet read seam | accepted (cohesive aggregate) |
 | `Service/ChecklistService.php` | 415 | Checklist domain: occurrence-scoped progress derivation, toggles, reset/restore seam (WP1) | accepted (cohesive checklist domain) |
 | `Service/SchedulingService.php` | 304 | Scheduling preferences/availability domain surface | accepted (cohesive domain) |
 | `Service/TemplateService.php` | 311 | Task catalog templates + level presets | accepted (catalog surface) |
-| `Service/RewardConfigService.php` | 328 | Static reward configuration registry (WP3: economy knobs pruned with the legacy economy) | **named** (CS-PLAN-067 §3.5 / CS-PLAN-049: static data table — not split to meet a physical target) |
+| `Service/RewardConfigService.php` | — | Static reward configuration registry — the WP4 retirement of the weekly-goal/threshold override keys dropped it BELOW the guideline (164 non-blank lines); entry retired | removed from the inventory (2026-09-27) |
 | `Service/MedalService.php` | 331 | WP3 retained-recognition owner (Q-074-01A): rhythm 3/6/12 + household weekly-milestone awards from valid history, correction reconciliation, weekly-goal receipt claim | accepted (cohesive recognition domain, one award writer) |
 | `Service/RoomService.php` | 328 | Room domain: structure mutations, cleanliness manual-delta command and reset through the WP3 room journal, derived cache updates | accepted (cohesive room domain + the journal writer seam) |
+| `Service/RankingService.php` | 437 | WP4 consent lifecycle + consent-filtered ranking: next-Monday generation allocation under the house lock, exact-rational on-time ratios over public agreed occurrences, tie/neutral semantics, departure/erasure/disable sweeps (ADR-015) | accepted (cohesive ranking authority — one owner of the ADR-015 semantics) |
 | `Service/TestDataService.php` | 649 | Test-only seeding tooling (documented exemption, WP1 D6; CS-PLAN-072/074 WP3 seed paths) | accepted (test tooling, explicitly classified) |
 | `Service/OccurrenceService.php` | 458 | Single-recurrence-authority facade: stable public seam, constants and transaction convention over the six collaborators below (CS-PLAN-072 WP1, RF-072-WP1-18 split; WP3 completion-resolution delegation) | accepted (delegation-only facade — the one authority every consumer talks to) |
 | `Service/OccurrenceSelectionService.php` | 551 | Write-free selection/read derivation, occurrence DTO block, selection token, projections (WP2: neutral-suspension stamp, agreed work appointment, token fact set) | accepted (cohesive collaborator of the occurrence authority) |
@@ -1128,7 +1136,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `views/Settings.vue` | 928 | Settings composition (house/floors/rooms/members/roles/energy sections) | accepted (section-per-concern template breadth; each section is independent UI) |
+| `views/Settings.vue` | 906 | Settings composition (house/floors/rooms/members/roles/energy/title sections; the WP4 TitlePicker surface removed) | accepted (section-per-concern template breadth; each section is independent UI) |
 | `components/Setup/SetupWizard.vue` | 816 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
 | `views/RoomDetail.vue` | 874 | Room composition root (stats, scoped list, dialogs) — rows carried by shared TaskList units | accepted (composition root) |
 | `views/TodayView.vue` | 690 | My Day surface (WP7 exit + WP3: explicit-split completion, undo, proposal pre-fill) | accepted (composition root) |
@@ -1142,13 +1150,13 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Scheduling/AvailabilityEditModal.vue` | 469 | Owner availability grid editor | accepted (grid editor surface) |
 | `components/Scheduling/ScheduleCalendar.vue` | 391 | Week grid + capacity/overcapacity display | accepted (presentational grid) |
 | `components/Members/MemberList.vue` | 412 | Member management surface | accepted (template+CSS dominant) |
-| `components/Profile/TitlePicker.vue` | 380 | Title pack/tier picker | accepted (presentational) |
+| `components/Profile/TitlePicker.vue` | — | Title pack/tier picker — retired with the CS-PLAN-070 WP4 single-series cutover | removed from the inventory (2026-09-27; archived under the gitignored `archive/`) |
 | `components/Dashboard/FloorList.vue` | 462 | Floor/room dashboard list | accepted (presentational) |
 | `components/Dashboard/RoomCard.vue` | 445 | Room status card | accepted (presentational) |
 | `components/Dashboard/QuickStats.vue` | 372 | Stat cards | accepted (presentational) |
 | `components/Minigames/SnakeGame.vue` | 505 | Complete Snake game (loop, rendering, scoring; boost surfaces retired with the legacy economy) | accepted (self-contained game domain) |
 | `components/Minigames/SnakeLeaderboard.vue` | 344 | Snake leaderboard | accepted (presentational) |
-| `views/Leaderboard.vue` | 503 | Ranking surface with medal display (contribution minor, no coin column) | accepted (presentational) |
+| `views/Leaderboard.vue` | 496 | Consent-filtered ranking surface (opt-in/closed state, entries/pending, provisional week) with the weekly-medal display — no unconditional member ranking, contribution column or freeze indicator (CS-PLAN-070 WP4) | accepted (presentational) |
 | `views/TaskManager.vue` | 614 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
 | `views/Dashboard.vue` | 351 | Dashboard composition | accepted (composition root) |
 | `views/CalendarView.vue` | 301 | Calendar composition | accepted (composition root) |

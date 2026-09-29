@@ -85,17 +85,6 @@ class Version1008Date20260228190000 extends SimpleMigrationStep {
 					'comment' => 'Maximum participants allowed (null = unlimited)',
 				]);
 			}
-
-			// Team spark multiplier
-			if (!$table->hasColumn('team_spark_multiplier')) {
-				$table->addColumn('team_spark_multiplier', 'decimal', [
-					'notnull' => true,
-					'precision' => 3,
-					'scale' => 2,
-					'default' => 1.00,
-					'comment' => 'Spark multiplier per additional participant',
-				]);
-			}
 		}
 
 		return $schema;

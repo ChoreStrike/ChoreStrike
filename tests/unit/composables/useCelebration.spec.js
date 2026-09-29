@@ -38,15 +38,16 @@ describe('useCelebration composable', () => {
 		jest.restoreAllMocks()
 	})
 
-	it('subscribes to all celebration events', () => {
+	it('subscribes to the retained celebration events', () => {
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:task-completed', expect.any(Function))
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:medal-awarded', expect.any(Function))
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:weekly-goal-reached', expect.any(Function))
-		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:streak-freeze-used', expect.any(Function))
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:title-unlocked', expect.any(Function))
+		// WP4 retirement pins: no freeze/combo celebration surfaces remain.
+		expect(mockSubscribe).not.toHaveBeenCalledWith('chorestrike:streak-freeze-used', expect.any(Function))
 	})
 
 	it('fires confetti and plays complete sound on task completion', () => {
@@ -59,13 +60,13 @@ describe('useCelebration composable', () => {
 		expect(mockPlaySound).toHaveBeenCalledWith('complete')
 	})
 
-	it('plays combo sound when task is combo', () => {
+	it('never plays the retired combo sound (WP4 pin)', () => {
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
-		handlers['chorestrike:task-completed']({ isCombo: true })
+		handlers['chorestrike:task-completed']({ isCombo: true, comboBonusFreeze: true })
 
-		expect(mockPlaySound).toHaveBeenCalledWith('combo')
+		expect(mockPlaySound).not.toHaveBeenCalledWith('combo')
 	})
 
 	it('fires milestone confetti on streak milestone', () => {
@@ -104,6 +105,6 @@ describe('useCelebration composable', () => {
 
 		cleanup()
 
-		expect(mockUnsubscribe).toHaveBeenCalledTimes(5)
+		expect(mockUnsubscribe).toHaveBeenCalledTimes(4)
 	})
 })

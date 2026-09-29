@@ -101,7 +101,16 @@ return [
         ['name' => 'user#remove', 'url' => '/api/v1/users/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
         ['name' => 'user#updateRole', 'url' => '/api/v1/users/{id}/role', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         ['name' => 'user#titles', 'url' => '/api/v1/users/{id}/titles', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
-        ['name' => 'user#selectTitle', 'url' => '/api/v1/users/{id}/titles/select', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // Pruned 2026-09-27 (CS-PLAN-070 WP4, Q-075-02 A): `user#selectTitle`
+        // retired with the multi-pack surface — `currentTitle` is always the
+        // highest qualifying tier of the single retained rhythm series.
+
+        // Consent-filtered ranking API (CS-PLAN-070 WP4, C5i/C5l/D10b):
+        // visible entries are effective consents only; consent/withdraw are
+        // self-only mutations activating the next full week.
+        ['name' => 'ranking#index', 'url' => '/api/v1/ranking', 'verb' => 'GET'],
+        ['name' => 'ranking#consent', 'url' => '/api/v1/ranking/consent', 'verb' => 'POST'],
+        ['name' => 'ranking#withdraw', 'url' => '/api/v1/ranking/withdraw', 'verb' => 'POST'],
 
         // Scheduling API
         ['name' => 'scheduling#getPreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'GET'],

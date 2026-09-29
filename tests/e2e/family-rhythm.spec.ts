@@ -471,3 +471,55 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 		}
 	})
 })
+
+test.describe('Family rhythm — read contract (WP4)', () => {
+	test.use({ databaseProfile: 'family' })
+
+	test('the state read carries the rhythm projection and the personal weekly slice after a completion', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			// One fulfilled, window-open occurrence via the real receipt
+			// contract (the rhythm evaluation consumes the same facts).
+			const roomTaskId = await createProbeTask(page, `Read Contract Probe ${Date.now()}`, ['mom'])
+			const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
+			expect(receipt, 'the probe must expose a completable occurrence').not.toBeNull()
+			const completion = await postCompletionWithReceipt(page, roomTaskId, receipt!)
+			expect(completion.status()).toBe(200)
+
+			// CS-PLAN-070 WP4 §3.4 read contract: the pure state read exposes
+			// the caller's rhythm projection and the personal weekly-goal
+			// slice from the SAME occurrence facts — no award write happens
+			// on the GET. C1f: the just-fulfilled occurrence's window is
+			// still open, so the day is pending-neutral — the confirmed
+			// streak has not stepped yet (confirmed == current), while the
+			// weekly goal already counts the valid on-time work and the
+			// week stays provisional.
+			const state = await page.request.get('/apps/chorestrike/api/v1/game/state', {
+				headers: { Accept: 'application/json' },
+			})
+			expect(state.status()).toBe(200)
+			const data = (await state.json()).data
+
+			expect(data.rhythm).toBeTruthy()
+			expect(data.rhythm.current).toBe(data.rhythm.confirmed)
+			expect(data.rhythm.best).toBeGreaterThanOrEqual(data.rhythm.current)
+			expect(data.rhythm.pending).toBe(true)
+
+			expect(data.myWeeklyGoal).toBeTruthy()
+			expect(data.myWeeklyGoal.eligible).toBeGreaterThanOrEqual(1)
+			expect(data.myWeeklyGoal.onTime).toBeGreaterThanOrEqual(1)
+			expect(data.myWeeklyGoal.onTime).toBeLessThanOrEqual(data.myWeeklyGoal.eligible)
+			expect(typeof data.myWeeklyGoal.neutral).toBe('number')
+			// The probe's window is still open → the week stays provisional.
+			expect(data.myWeeklyGoal.provisional).toBe(true)
+
+			// The house goal block carries the explicit counts and the fixed
+			// 80% target (no config override exists since WP4).
+			expect(data.weeklyGoal.targetPercent).toBe(80)
+			expect(data.weeklyGoal.eligible).toBeGreaterThanOrEqual(data.weeklyGoal.onTime)
+		} finally {
+			await context.close()
+		}
+	})
+})

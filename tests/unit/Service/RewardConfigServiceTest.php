@@ -10,13 +10,15 @@ use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for RewardConfigService (WP3-reshaped registry).
+ * Unit tests for RewardConfigService (WP4-reshaped registry).
  *
  * CS-PLAN-070 WP3: every earning multiplier, Coin-base, freeze and combo
  * key is retired — money is wallet minor units at the frozen rate, and
- * recognition is valid-history rhythm. This suite pins the REMAINING
- * registry (energyMaxPerTask, weeklyGoalTargetPercent, titlesEnabled)
- * plus the title-threshold read/clamp/write path.
+ * recognition is valid-history rhythm. CS-PLAN-070 WP4: the weekly-goal
+ * target (fixed 80%) and the per-tier title thresholds (fixed 3/6/12)
+ * are fixed policy — no override keys exist. This suite pins the
+ * REMAINING registry (energyMaxPerTask, titlesEnabled) and the absence
+ * of the retired override surfaces.
  */
 class RewardConfigServiceTest extends TestCase {
 	private RewardConfigService $service;
@@ -42,28 +44,6 @@ class RewardConfigServiceTest extends TestCase {
 		$this->service->setEnergyMaxPerTask(-10);
 	}
 
-	public function testGetWeeklyGoalTargetPercent_ReturnsDefault(): void {
-		$this->config->method('getValueString')->willReturnCallback(static fn ($app, $key, $default) => $default);
-		$this->assertSame(80, $this->service->getWeeklyGoalTargetPercent());
-	}
-
-	public function testGetWeeklyGoalTargetPercent_ClampsOutOfRange(): void {
-		$this->config->method('getValueString')->willReturn('0');
-		$this->assertSame(1, $this->service->getWeeklyGoalTargetPercent());
-	}
-
-	public function testGetWeeklyGoalTargetPercent_ClampsAboveHundred(): void {
-		$this->config->method('getValueString')->willReturn('140');
-		$this->assertSame(100, $this->service->getWeeklyGoalTargetPercent());
-	}
-
-	public function testSetWeeklyGoalTargetPercent_StoresClampedValue(): void {
-		$this->config->expects($this->once())
-			->method('setValueString')
-			->with('chorestrike', 'weekly_goal_target_percent', '100');
-		$this->service->setWeeklyGoalTargetPercent(120);
-	}
-
 	public function testGetTitlesEnabled_ReturnsDefaultTrue(): void {
 		$this->config->method('getValueString')->willReturnCallback(static fn ($app, $key, $default) => $default);
 		$this->assertTrue($this->service->getTitlesEnabled());
@@ -76,31 +56,24 @@ class RewardConfigServiceTest extends TestCase {
 		$this->service->setTitlesEnabled(false);
 	}
 
-	public function testGetTitleThreshold_ReturnsCatalogDefaultWhenUnset(): void {
-		$this->config->method('getValueString')->willReturnCallback(static fn ($app, $key, $default) => $default);
-		// home_helpers tier 0 catalog default = 5000 energy minor.
-		$this->assertSame(5000, $this->service->getTitleThreshold('home_helpers', 0));
-	}
-
-	public function testGetTitleThreshold_ClampsBelowOneToOne(): void {
-		$this->config->method('getValueString')->willReturn('0');
-		$this->assertSame(1, $this->service->getTitleThreshold('home_helpers', 0));
-	}
-
-	public function testSetTitleThreshold_StoresClampedValue(): void {
-		$this->config->expects($this->once())
-			->method('setValueString')
-			->with('chorestrike', 'title_threshold_home_helpers_0', '1');
-		$this->service->setTitleThreshold('home_helpers', 0, -5);
+	/** WP4: the weekly-goal target override is retired with its key. */
+	public function testWeeklyGoalTargetPercent_OverrideIsRetired(): void {
+		$reflection = new \ReflectionClass(RewardConfigService::class);
+		$this->assertFalse($reflection->hasConstant('KEY_WEEKLY_GOAL_TARGET_PERCENT'));
+		$this->assertFalse($reflection->hasConstant('KEY_TITLE_THRESHOLD_PREFIX'));
+		$this->assertFalse($reflection->hasMethod('getWeeklyGoalTargetPercent'));
+		$this->assertFalse($reflection->hasMethod('setWeeklyGoalTargetPercent'));
+		$this->assertFalse($reflection->hasMethod('getTitleThreshold'));
+		$this->assertFalse($reflection->hasMethod('setTitleThreshold'));
 	}
 
 	public function testGetAllConfig_ContainsOnlyRetainedFields(): void {
 		$this->config->method('getValueString')->willReturnCallback(static fn ($app, $key, $default) => $default);
 		$config = $this->service->getAllConfig();
 
-		// WP3: multiplier/freeze/combo/teamwork fields are retired — the
-		// config surface carries exactly the retained keys + thresholds.
-		$this->assertSame(['energyMaxPerTask', 'weeklyGoalTargetPercent', 'titlesEnabled', 'titleThresholds'], array_keys($config));
+		// WP3/WP4: multiplier/freeze/combo/teamwork/goal/threshold fields
+		// are retired — the config surface carries exactly the retained keys.
+		$this->assertSame(['energyMaxPerTask', 'titlesEnabled'], array_keys($config));
 	}
 
 	public function testUpdateConfig_IgnoresRetiredFields(): void {
@@ -111,18 +84,16 @@ class RewardConfigServiceTest extends TestCase {
 			'comboMultiplier' => 9.0,
 			'streakFreezeCap' => 99,
 			'coinBasePerEnergy' => 42,
+			'weeklyGoalTargetPercent' => 90,
+			'titleThresholds' => ['family_rhythm' => [0 => 1]],
 		]);
 	}
 
-	public function testUpdateConfig_AppliesWeeklyGoalAndTitles(): void {
-		$this->config->expects($this->exactly(2))
+	public function testUpdateConfig_AppliesTitles(): void {
+		$this->config->expects($this->once())
 			->method('setValueString')
-			->withConsecutive(
-				['chorestrike', 'weekly_goal_target_percent', '90'],
-				['chorestrike', 'titles_enabled', '0'],
-			);
+			->with('chorestrike', 'titles_enabled', '0');
 		$this->service->updateConfig([
-			'weeklyGoalTargetPercent' => 90,
 			'titlesEnabled' => false,
 		]);
 	}

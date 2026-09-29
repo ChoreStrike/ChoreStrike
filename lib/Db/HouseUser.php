@@ -35,8 +35,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setJoinedAt(\DateTime $joinedAt)
  * @method array|null getSchedulingPreferences()
  * @method void setSchedulingPreferences(array $preferences)
- * @method string|null getSelectedTitlePack()
- * @method void setSelectedTitlePack(?string $selectedTitlePack)
  * @method array getUnlockedTitles()
  * @method void setUnlockedTitles(array $unlockedTitles)
  * @method int|null getWalletId()
@@ -80,10 +78,14 @@ class HouseUser extends Entity implements JsonSerializable {
 	/** @var int */
 	protected $longestStreak = 0;
 
-	/** @var string|null Selected title pack key (null = no pack chosen). */
-	protected $selectedTitlePack = null;
-
-	/** @var array Cache of `{pack}.{tier}` titles the user has unlocked. */
+	/**
+	 * Single-series unlocked-tier marker (CS-PLAN-070 WP4, Q-075-02 A):
+	 * cache of `{pack}.{tier}` strings the user has EVER unlocked — the
+	 * first-earned celebration evidence (C3g no-repeat). Recomputable from
+	 * stats, so safe to clear on a house reset.
+	 *
+	 * @var array
+	 */
 	protected $unlockedTitles = [];
 
 	/**
@@ -108,7 +110,6 @@ class HouseUser extends Entity implements JsonSerializable {
 		$this->addType('role', 'string');
 		$this->addType('joinedAt', 'datetime');
 		$this->addType('schedulingPreferences', 'json');
-		$this->addType('selectedTitlePack', 'string');
 		$this->addType('unlockedTitles', 'json');
 		$this->addType('walletId', 'integer');
 	}
@@ -129,7 +130,6 @@ class HouseUser extends Entity implements JsonSerializable {
 			'role' => $this->role,
 			'joinedAt' => $this->joinedAt?->format('c'),
 			'schedulingPreferences' => $this->schedulingPreferences,
-			'selectedTitlePack' => $this->selectedTitlePack,
 		];
 	}
 
@@ -138,66 +138,6 @@ class HouseUser extends Entity implements JsonSerializable {
 	 */
 	public function addContributionMinor(int $minor): void {
 		$this->setContributionMinor($this->contributionMinor + $minor);
-	}
-
-	/**
-	 * Calculate streak with respect to absence days
-	 *
-	 * CS-PLAN-057: with $timeZone supplied, the today/last-activity day keys
-	 * are computed in the house timezone (CalendarService day-key
-	 * convention); otherwise the server timezone.
-	 *
-	 * @param array $weekdayAvailability Weekday availability from scheduling preferences
-	 * @param \DateTimeZone|null $timeZone House timezone for the day keys
-	 * @return int New streak value
-	 */
-	public function calculateStreakWithAbsence(array $weekdayAvailability, ?\DateTimeZone $timeZone = null): int {
-		$lastActivity = $this->getLastActivity();
-
-		// If no previous activity, start streak at 1
-		if ($lastActivity === null) {
-			return 1;
-		}
-
-		$today = new \DateTime('now', $timeZone);
-		$today->setTime(0, 0, 0);
-		$lastActivityDate = clone $lastActivity;
-		if ($timeZone !== null) {
-			$lastActivityDate->setTimezone($timeZone);
-		}
-		$lastActivityDate->setTime(0, 0, 0);
-
-		// Check if last activity was today already
-		if ($lastActivityDate->format('Y-m-d') === $today->format('Y-m-d')) {
-			return $this->currentStreak; // Already completed today
-		}
-
-		// Check for missed available days between last activity and today
-		$daysSinceLastActivity = (int)$lastActivityDate->diff($today)->days;
-
-		// If last activity was yesterday, increment streak
-		if ($daysSinceLastActivity === 1) {
-			return $this->currentStreak + 1;
-		}
-
-		// Check each day between last activity and today (excluding yesterday and today)
-		$checkDate = clone $lastActivityDate;
-		$checkDate->modify('+1 day');
-
-		while ($checkDate < $today) {
-			$dayName = strtolower($checkDate->format('l'));
-			$isAvailable = $weekdayAvailability[$dayName] ?? true;
-
-			// If user was available but didn't complete a task, reset streak
-			if ($isAvailable) {
-				return 1; // Reset to 1 (today's completion)
-			}
-
-			$checkDate->modify('+1 day');
-		}
-
-		// No missed available days found, increment streak
-		return $this->currentStreak + 1;
 	}
 
 	/**

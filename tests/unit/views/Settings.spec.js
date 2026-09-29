@@ -42,9 +42,11 @@ import { showSuccess, showError } from '@nextcloud/dialogs'
 const mockHouseState = {
 	house: { id: 1, name: 'Test House' },
 	houseName: 'Test House',
+	rankingEnabled: false,
 	loading: false,
 	fetchHouse: jest.fn(),
 	updateHouseName: jest.fn().mockResolvedValue(),
+	updateRankingEnabled: jest.fn().mockResolvedValue(),
 	resetHouse: jest.fn(),
 }
 
@@ -120,6 +122,7 @@ describe('Settings.vue', () => {
 		showSuccess.mockClear()
 		showError.mockClear()
 		mockHouseState.updateHouseName.mockClear().mockResolvedValue()
+		mockHouseState.updateRankingEnabled.mockClear().mockResolvedValue()
 		mockHouseState.resetHouse.mockClear().mockResolvedValue()
 		mockRoomsState.deleteFloor.mockClear().mockResolvedValue()
 		mockRoomsState.reorderFloors.mockClear().mockResolvedValue()
@@ -340,6 +343,55 @@ describe('Settings.vue', () => {
 
 		expect(mockHouseState.updateHouseName).toHaveBeenCalledWith('Renamed House')
 		expect(showSuccess).toHaveBeenCalled()
+	})
+
+	// --- Owner ranking toggle (CS-PLAN-070 WP4, C5i/D10b) ---
+
+	it('offers the owner the ranking toggle initialized from the house flag', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		const toggle = wrapper.find('[data-testid="ranking-toggle"]')
+		expect(toggle.exists()).toBe(true)
+		expect(toggle.element.checked).toBe(false)
+		// Unchanged flag keeps the save button disabled.
+		expect(wrapper.find('[data-testid="save-house-ranking"]').attributes('disabled')).toBeDefined()
+	})
+
+	it('saves the ranking flag through the house store when toggled on', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		await wrapper.find('[data-testid="ranking-toggle"]').setValue(true)
+		await wrapper.find('[data-testid="save-house-ranking"]').trigger('click')
+		await flushPromises()
+
+		expect(mockHouseState.updateRankingEnabled).toHaveBeenCalledWith(true)
+		expect(showSuccess).toHaveBeenCalled()
+	})
+
+	it('re-syncs the ranking checkbox when the save fails', async () => {
+		mockHouseState.updateRankingEnabled.mockRejectedValueOnce(new Error('boom'))
+
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		await wrapper.find('[data-testid="ranking-toggle"]').setValue(true)
+		await wrapper.find('[data-testid="save-house-ranking"]').trigger('click')
+		await flushPromises()
+
+		expect(showError).toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="ranking-toggle"]').element.checked).toBe(false)
+	})
+
+	it('hides the ranking toggle from members with the owner-only house section', async () => {
+		mockUserState.currentUser = { id: 1, role: 'member' }
+		mockUserState.isHouseOwner = false
+
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="ranking-toggle"]').exists()).toBe(false)
 	})
 
 	it('deletes a floor via the styled confirm dialog (CS-PLAN-041)', async () => {

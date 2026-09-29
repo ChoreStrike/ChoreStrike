@@ -83,11 +83,12 @@ class HouseController extends Controller {
 	}
 
 	/**
-	 * Update house name and (optionally) timezone
+	 * Update house name, (optionally) timezone and (optionally) the
+	 * owner-only ranking flag (CS-PLAN-070 WP4, C5i/D10b).
 	 *
 	 * @NoAdminRequired
 	 */
-	public function update(string $name, string $timezone = ''): JSONResponse {
+	public function update(string $name, string $timezone = '', ?bool $rankingEnabled = null): JSONResponse {
 		try {
 			if (empty(trim($name))) {
 				return new JSONResponse([
@@ -124,7 +125,8 @@ class HouseController extends Controller {
 			$updatedHouse = $this->houseService->updateHouse(
 				$house->getId(),
 				$name,
-				$timezone !== '' ? $timezone : null
+				$timezone !== '' ? $timezone : null,
+				$rankingEnabled
 			);
 
 			return new JSONResponse([

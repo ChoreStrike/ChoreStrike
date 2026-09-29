@@ -14,7 +14,7 @@ use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
 /**
- * Persists four columns that were never written to a fresh database.
+ * Persists columns that were never written to a fresh database.
  *
  * Background (CODE_REVIEW_2026-07-24 [P2] fresh-install schema gap): the
  * columns `task_tier`, `coin_multiplier`, `flex_days` and `ideal_due_date`
@@ -34,6 +34,12 @@ use OCP\Migration\SimpleMigrationStep;
  * The original steps `Version1018`–`Version1020` were deleted from the chain
  * in CS-PLAN-055 (their only lasting effect was this provenance note — on a
  * fresh install this file is now the sole creator of all four columns).
+ *
+ * CS-PLAN-070 WP4: the retired Coin-era `task_tier` earning-multiplier
+ * column is gone from the fresh-install chain (total effort lives on the
+ * occurrence, payout on the frozen completion rate); `last_freeze_date`
+ * was already retired with the freeze mechanics (WP3, Q-074-01 Option A)
+ * and `coin_multiplier` with the wallet cutover.
  */
 class Version1027Date20260725000000 extends SimpleMigrationStep {
 	/**
@@ -45,17 +51,9 @@ class Version1027Date20260725000000 extends SimpleMigrationStep {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 
-		// chorestrike_tasks.task_tier (VARCHAR 10, default 'silver')
+		// chorestrike_tasks.flex_days (INT, default 0)
 		if ($schema->hasTable('chorestrike_tasks')) {
 			$table = $schema->getTable('chorestrike_tasks');
-			if (!$table->hasColumn('task_tier')) {
-				$table->addColumn('task_tier', 'string', [
-					'notnull' => true,
-					'length' => 10,
-					'default' => 'silver',
-				]);
-			}
-			// chorestrike_tasks.flex_days (INT, default 0)
 			if (!$table->hasColumn('flex_days')) {
 				$table->addColumn('flex_days', 'integer', [
 					'notnull' => true,

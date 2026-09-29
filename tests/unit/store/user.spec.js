@@ -98,16 +98,8 @@ describe('User Store', () => {
 			expect(store.canManageTasks).toBe(false)
 		})
 
-		it('getLeaderboard sorts by exact contributionMinor (WP3)', () => {
-			store.houseUsers = [
-				{ id: 1, contributionMinor: 5000 },
-				{ id: 2, contributionMinor: 10000 },
-				{ id: 3, contributionMinor: 7500 },
-			]
-			const leaderboard = store.getLeaderboard
-			expect(leaderboard[0].id).toBe(2)
-			expect(leaderboard[1].id).toBe(3)
-			expect(leaderboard[2].id).toBe(1)
+		it('getLeaderboard is retired (WP4: ranking is consent-filtered server-side)', () => {
+			expect(store.getLeaderboard).toBeUndefined()
 		})
 
 	})

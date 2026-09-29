@@ -15,7 +15,7 @@
 
 :root {
 	/* === Tier palette (bronze / silver / gold) =========================
-	 * Used by task badges, coin multipliers and the medal display.
+	 * Used by task badges and the medal/title tier display.
 	 * Light-mode values; the dark block below overrides for dark themes.
 	 */
 	--cs-tier-bronze: #CD7F32;

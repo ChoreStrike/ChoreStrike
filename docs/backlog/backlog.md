@@ -75,12 +75,14 @@ leaderboard remainder keeps its ownership here; no whole-item closure is implied
 retired with the WP3 legacy-effect cutover
 ([CS-PLAN-074](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md),
 final Standard B `PASS-WITH-FIXES` 2026-09-27); the remaining consumers,
-columns and the availability-streak helper are owned by the activated WP4 child
-[CS-PLAN-075](../plans/active/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
-(Standard A `PASS-WITH-FIXES` 2026-09-27; implementation pending), which will
-replace the unconditional contribution leaderboard with exact-ratio
-consent-filtered ranking. The independent Snake leaderboard ordering remainder
-stays open here; no whole-item closure is implied by WP4 activation.
+columns and the availability-streak helper were removed by the implemented WP4
+child [CS-PLAN-075](../plans/done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
+(implementation round 2026-09-27, delivered 2026-09-29: `calculateStreakWithAbsence`, the freeze
+columns/handlers and the unconditional contribution leaderboard are gone —
+member comparison is the consent-filtered exact-ratio ranking,
+[ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md)). The independent
+Snake leaderboard ordering remainder stays open here; no whole-item closure is
+implied.
 
 ---
 
@@ -410,12 +412,13 @@ correction closure, retention/erasure sweeps and the minimal client/no-Coin
 arcade cutover; RF-074-WP3-01..10 resolved. Later packages (WP4+) remain
 open in the parent; CONCEPT-001 remains open.
 WP4 (rhythm/goals/ranking) was sub-planned as
-[CS-PLAN-075](../plans/active/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
+[CS-PLAN-075](../plans/done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
 (activated 2026-09-27 via Standard A `PASS-WITH-FIXES`; Q-075-01/02 Option A
-selected): rhythm/goal read contract, consent-filtered ranking with real
+selected) and **delivered** (final Standard B `PASS-WITH-FIXES` 2026-09-29):
+rhythm/goal read contract, consent-filtered ranking with real
 consent persistence in WP4,
-single-series retained recognition and retired-mechanic removal. No WP4 runtime
-work has started; CONCEPT-001 remains In Progress.
+single-series retained recognition and retired-mechanic removal (ADR-015).
+CONCEPT-001 remains In Progress for WP5+.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

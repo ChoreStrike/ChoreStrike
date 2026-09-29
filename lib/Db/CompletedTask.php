@@ -161,6 +161,19 @@ class CompletedTask extends Entity implements JsonSerializable {
 	}
 
 	/**
+	 * Whether this completion is a VALID CLASS_AGREED on-time completion
+	 * inside the given occurrence window (half-open: `>= start`, `< end`,
+	 * a null bound is unbounded). The single shared on-time predicate of
+	 * the rhythm, weekly-goal and ranking evaluators (C1f semantics —
+	 * RF-075-04: extracted at the rule of three).
+	 */
+	public function isAgreedOnTime(?\DateTime $windowStart, ?\DateTime $windowEnd): bool {
+		return $this->completionClass === self::CLASS_AGREED
+			&& ($windowStart === null || $this->completedAt >= $windowStart)
+			&& ($windowEnd === null || $this->completedAt < $windowEnd);
+	}
+
+	/**
 	 * Convert completed task to JSON representation
 	 */
 	public function jsonSerialize(): array {

@@ -19,8 +19,8 @@ use OCP\AppFramework\Db\Entity;
  *
  * WP0 boundary: identity only. Balances stay dormant zeros, no API exposes
  * the entity and `wallet_entries` has no runtime writer before WP3's single
- * economy cutover; `house_users.coins` and the existing reward writers stay
- * authoritative (decision D1/D2).
+ * economy cutover (the WP3 ledger is now the sole monetary authority —
+ * decision D1/D2).
  *
  * @method int getId()
  * @method void setId(int $id)

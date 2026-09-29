@@ -47,19 +47,33 @@ minor-unit wallet ledger, targeted undo/attribution, room journal/replay,
 recognition correction closure, no-Coin arcade, ADR-014)
 is **delivered** — final Standard B re-review `PASS-WITH-FIXES` 2026-09-27
 after the fix round resolved RF-074-WP3-01..10; plan in `done/`, CR-SVC-63
-closed. The next package, WP4 rhythm/goals/ranking, is activated as
-[CS-PLAN-075: WP4 - Rhythm, Goals and Ranking](active/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
-(activated 2026-09-27 via Standard A `PASS-WITH-FIXES`, Q-075-01/02 Option A;
-implementation pending). Implementation history, the
+closed. The next package, WP4 rhythm/goals/ranking,
+[CS-PLAN-075: WP4 - Rhythm, Goals and Ranking](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
+(activated 2026-09-27 via Standard A `PASS-WITH-FIXES`, Q-075-01/02 Option A),
+is **delivered** — final Standard B `PASS-WITH-FIXES` 2026-09-29 after the
+in-review fix round resolved RF-075-01..05 (owner ranking toggle, erasure
+purge + ranking store pins, predicate dedup, stale skill note); plan in
+`done/`, review record in
+[CODE_REVIEW_2026-09-29](../backlog/archive/CODE_REVIEW_2026-09-29.md).
+Implementation history, the
 blocked first final-review attempt and the original manifest are recorded in the
 [review record](../backlog/archive/CODE_REVIEW_2026-09-25.md); the WP3 records
 live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
 Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-(parent plan; WP0-WP3 delivered, WP4 rhythm/goals/ranking activated as
-[CS-PLAN-075](active/cs-plan-075-wp4-rhythm-goals-and-ranking.md)).
+(parent plan; WP0-WP4 delivered — WP4 rhythm/goals/ranking as
+[CS-PLAN-075](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)).
 
-Latest completed: [CS-PLAN-074 — WP3: Work Accounting and Replay](done/cs-plan-074-wp3-work-accounting-and-replay.md)
+Latest completed: [CS-PLAN-075 — WP4: Rhythm, Goals and Ranking](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-29 after the in-review fix round
+resolved RF-075-01..05; ADR-015 recorded, CR-053-11 freeze/tiebreaker
+remainders resolved by removal-with-replacement). Covers the rhythm/goal read
+contract, consent-filtered exact-ratio ranking on persisted consent
+(Version1032 + generation watermark), the single-series recognition cutover
+and the retired-mechanic removal. Review record:
+[CODE_REVIEW_2026-09-29](../backlog/archive/CODE_REVIEW_2026-09-29.md).
+Preceded by
+[CS-PLAN-074 — WP3: Work Accounting and Replay](done/cs-plan-074-wp3-work-accounting-and-replay.md)
 (final Standard B re-review `PASS-WITH-FIXES` 2026-09-27 after the
 NEEDS-FOLLOW-UP fix round resolved RF-074-WP3-01..10; ADR-014 recorded,
 CR-SVC-63 closed). Covers actual work shares, the exact minor-unit wallet

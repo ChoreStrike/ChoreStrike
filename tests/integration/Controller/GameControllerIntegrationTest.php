@@ -89,7 +89,8 @@ class GameControllerIntegrationTest extends IntegrationTestCase {
 	 *
 	 * WP3 §3.6: the state carries the member progression (viewer-safe)
 	 * and the caller's OWN wallet in minor units; no aggregate coin
-	 * totals or combo state exist anymore.
+	 * totals or combo state exist anymore. WP4 §3.4 read contract: the
+	 * rhythm projection and the personal weekly-goal slice ride along.
 	 */
 	public function testState_InstanceMember_ReturnsProgressionAndOwnWallet(): void {
 		$this->addInstanceMembership('game_parent', 'Game Parent');
@@ -103,6 +104,28 @@ class GameControllerIntegrationTest extends IntegrationTestCase {
 		self::assertArrayHasKey('users', $data['data']);
 		self::assertArrayHasKey('weeklyGoal', $data['data']);
 
+		// WP4 §3.4: the house goal block carries the explicit counts and
+		// the provisional flag; the caller gets the rhythm projection and
+		// the personal slice from the SAME occurrence facts.
+		self::assertArrayHasKey('eligible', $data['data']['weeklyGoal']);
+		self::assertArrayHasKey('onTime', $data['data']['weeklyGoal']);
+		self::assertArrayHasKey('neutral', $data['data']['weeklyGoal']);
+		self::assertArrayHasKey('provisional', $data['data']['weeklyGoal']);
+		self::assertSame(80, $data['data']['weeklyGoal']['targetPercent']);
+
+		self::assertArrayHasKey('rhythm', $data['data']);
+		self::assertArrayHasKey('confirmed', $data['data']['rhythm']);
+		self::assertArrayHasKey('current', $data['data']['rhythm']);
+		self::assertArrayHasKey('best', $data['data']['rhythm']);
+		self::assertArrayHasKey('pending', $data['data']['rhythm']);
+		self::assertSame($data['data']['rhythm']['confirmed'], $data['data']['rhythm']['current']);
+
+		self::assertArrayHasKey('myWeeklyGoal', $data['data']);
+		self::assertArrayHasKey('eligible', $data['data']['myWeeklyGoal']);
+		self::assertArrayHasKey('onTime', $data['data']['myWeeklyGoal']);
+		self::assertArrayHasKey('neutral', $data['data']['myWeeklyGoal']);
+		self::assertArrayHasKey('provisional', $data['data']['myWeeklyGoal']);
+
 		// The caller's own wallet is exposed in exact minor units.
 		self::assertArrayHasKey('wallet', $data['data']);
 		self::assertIsArray($data['data']['wallet']);
@@ -113,6 +136,36 @@ class GameControllerIntegrationTest extends IntegrationTestCase {
 		// The retired aggregate economy fields stay gone.
 		self::assertArrayNotHasKey('totalCoins', $data['data']);
 		self::assertArrayNotHasKey('activeCombos', $data['data']);
+	}
+
+	/**
+	 * State_GetPurity_InitializedHouse_NoAwardWrites
+	 *
+	 * WP4 §3.4 GET purity (parent decision): on an already initialized
+	 * house, `state()` and `medals()` are pure reads — medal minting
+	 * lives in the TimelineJob closed-week reconciliation and the explicit
+	 * POST check-medals. A state read must leave the medals table
+	 * untouched.
+	 */
+	public function testState_GetPurity_InitializedHouse_NoAwardWrites(): void {
+		$this->addInstanceMembership('game_pure', 'Pure Reader');
+
+		$countMedals = static function (): int {
+			$db = \OC::$server->get(\OCP\IDBConnection::class);
+			return (int)$db->getQueryBuilder()
+				->select($db->getQueryBuilder()->func()->count('id'))
+				->from('chorestrike_medals')
+				->executeQuery()
+				->fetchOne();
+		};
+
+		$before = $countMedals();
+
+		$controller = $this->getController(GameController::class, 'game_pure');
+		$controller->state();
+		$controller->medals();
+
+		self::assertSame($before, $countMedals(), 'GET /game/state and /game/medals must not mint awards on an initialized house');
 	}
 
 	/**

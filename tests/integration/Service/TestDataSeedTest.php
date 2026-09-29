@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
-use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -100,8 +99,6 @@ class TestDataSeedTest extends IntegrationTestCase {
 		foreach ($this->appRowCounts() as $table => $count) {
 			self::assertSame(0, $count, "{$profile} must leave {$table} empty");
 		}
-		// The reward-config knob is deleted with the reset (no leaked state).
-		self::assertSame('', $config->getAppValue('chorestrike', RewardConfigService::KEY_WEEKLY_GOAL_TARGET_PERCENT, ''));
 		// Unrelated app config survives.
 		self::assertSame('intact', $config->getAppValue('another_app_probe', 'survival_key', ''));
 		$config->deleteAppValue('another_app_probe', 'survival_key');
@@ -191,9 +188,10 @@ class TestDataSeedTest extends IntegrationTestCase {
 		self::assertContains('mom', $assignees, 'the dishes room task is assigned to mom');
 		self::assertNotContains('admin', $assignees, 'the admin invite must not grab an assignment');
 
-		// The family reward-config knob is set for release-notifications.
+		// WP4 pin: no reward-config knob is seeded — the weekly-goal target
+		// is fixed policy.
 		$config = \OC::$server->get(IConfig::class);
-		self::assertSame('1', $config->getAppValue('chorestrike', RewardConfigService::KEY_WEEKLY_GOAL_TARGET_PERCENT, ''));
+		self::assertSame('', $config->getAppValue('chorestrike', 'weekly_goal_target_percent', ''));
 	}
 
 	/**

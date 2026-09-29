@@ -42,23 +42,6 @@ use OCP\IDBConnection;
  */
 class TestDataService {
 	/**
-	 * Reward-config overrides (appconfig keys) applied by the family profile.
-	 *
-	 * `release-notifications` needs a trivially-crossed weekly-goal target so
-	 * one on-time agreed occurrence can qualify its planned week once closed.
-	 * A provisional current week must not send a bell. The reward-config
-	 * HTTP surface was pruned (CS-PLAN-055), so the knob is seeded instead;
-	 * `reset()` deletes the overrides again when a non-family profile seeds,
-	 * keeping `oc_appconfig` free of leaked test state. Keys reference the
-	 * RewardConfigService registry consts (single source of truth).
-	 *
-	 * @var array<string, string>
-	 */
-	private const FAMILY_REWARD_CONFIG_OVERRIDES = [
-		RewardConfigService::KEY_WEEKLY_GOAL_TARGET_PERCENT => '1',
-	];
-
-	/**
 	 * Tables to clear during test-data reset.
 	 *
 	 * Canonical tables only, audited against the current migration chain
@@ -85,6 +68,9 @@ class TestDataService {
 	 * `work_shares`/`completion_revs`/`room_events` before their
 	 * `completed_tasks`/`rooms` referents; the wallet block stays last.
 	 *
+	 * CS-PLAN-070 WP4: `member_prefs` clears with the house blocks (the
+	 * consent rows reference house_users and are wiped with them).
+	 *
 	 * @var list<string>
 	 */
 	private const RESET_TABLES = [
@@ -92,6 +78,7 @@ class TestDataService {
 		'chorestrike_chk_progress',
 		'chorestrike_agreements',
 		'chorestrike_pauses',
+		'chorestrike_member_prefs',
 		'chorestrike_occ_members',
 		'chorestrike_occurrences',
 		'chorestrike_schedule_revs',
@@ -212,10 +199,6 @@ class TestDataService {
 	 */
 	public function reset(): void {
 		$this->assertTestMode();
-
-		foreach (array_keys(self::FAMILY_REWARD_CONFIG_OVERRIDES) as $key) {
-			$this->config->deleteAppValue('chorestrike', $key);
-		}
 
 		foreach (self::RESET_TABLES as $table) {
 			$qb = $this->db->getQueryBuilder();
@@ -388,13 +371,6 @@ class TestDataService {
 	public function seedFamily(bool $closedWeekEvidence = false): array {
 		$this->assertTestMode();
 		$this->reset();
-
-		// Family-profile reward-config knobs (CS-PLAN-055): the
-		// A single on-time planned occurrence can qualify its closed week
-		// for `release-notifications` without the (pruned) reward-config HTTP surface.
-		foreach (self::FAMILY_REWARD_CONFIG_OVERRIDES as $key => $value) {
-			$this->config->setAppValue('chorestrike', $key, $value);
-		}
 
 		// Create house with real instance ID
 		$instanceId = $this->getInstanceId();

@@ -10,7 +10,6 @@ let audioContext = null
 
 const SOUND_PROFILES = {
 	complete: { frequency: 523.25, duration: 0.15, type: 'sine', ramp: 784 },
-	combo: { frequency: 659.25, duration: 0.1, type: 'square', ramp: 880 },
 	medal: { frequency: 440, duration: 0.3, type: 'sine', ramp: 880 },
 	milestone: { frequency: 392, duration: 0.4, type: 'sine', ramp: 784 },
 }
@@ -30,7 +29,7 @@ function getContext() {
 /**
  * Play a synthesised sound effect. No-op when muted.
  *
- * @param {string} name Sound name (complete, combo, medal, milestone)
+ * @param {string} name Sound name (complete, medal, milestone)
  */
 export function playSound(name) {
 	if (muted) {

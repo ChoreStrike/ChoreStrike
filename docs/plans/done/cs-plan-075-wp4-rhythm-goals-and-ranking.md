@@ -1,6 +1,8 @@
 # CS-PLAN-075: WP4 - Rhythm, Goals and Ranking
 
-> **Status:** Active (implementation not started) — Standard A `PASS-WITH-FIXES` 2026-09-27
+> **Status:** Done (final Standard B `PASS-WITH-FIXES` 2026-09-29, fix round
+> in-review; implementation round 1 complete 2026-09-27) — Standard A
+> `PASS-WITH-FIXES` 2026-09-27
 > **Effort:** M/L; 5-9 engineering days (4-7 WP4 allowance plus 1-2 for consent)
 > **Priority:** P1
 > **Depends on:** [WP0 / CS-PLAN-071](../done/cs-plan-071-wp0-write-identity-foundation.md),
@@ -17,6 +19,63 @@ This is the implementation sub-plan for parent WP4. The parent D3/D5/D7/D10,
 C1f, C2g, C3d/C3g and C5i/C5l rules remain authoritative. Section 10 records
 the Standard A decisions; the engineering proposals below are not additional
 product choices beyond the parent's approvals.
+
+## Implementation Round 1 (2026-09-27)
+
+Delivered against the §5 manifest with these recorded deviations (all
+Q-075-consistent, to be verified by the Standard B review):
+
+- **Generation watermark** (Q-075-01 A refinement): consent rows are
+  deletable, so the monotonic per-house generation counter lives on the
+  house row (`houses.ranking_generation_seq`, added in the same
+  `Version1032` amendment, allocated under the house lock) instead of a
+  max-row heuristic — a withdrawn generation can never be reused.
+- **Nextcloud Entity setter semantics**: `MemberPreference` defaults are
+  neutral (`version 0`, `generation 0`, `savedZone ''`) because the base
+  Entity only marks a field updated when the value CHANGES — realistic
+  defaults would silently drop columns from the INSERT.
+- **`ranking-consent.spec.ts` is the new serial-pool E2E** (owner enables,
+  member joins pending, withdraws) because the read-only pool's invited
+  admin cannot flip the owner flag and the gate rejects runtime skips;
+  `leaderboard.spec.ts` pins the disabled/opt-in surface.
+- **`family-rhythm.spec.ts` gained the WP4 read-contract pin**: after a
+  receipt-contract completion, `GET /game/state` carries the rhythm
+  projection (confirmed == current, `pending` true — the just-fulfilled
+  occurrence's window is still open, so the day stays pending-neutral per
+  C1f) and the personal weekly slice (onTime counts the valid work, the
+  week stays provisional); the house block pins the fixed 80% target.
+- **`fast-core-tests.spec.ts` "Settings page loads"** still asserted the
+  retired `change-title-button` — replaced with the absence pin
+  (`toHaveCount(0)`), consistent with `title-selection.spec.ts`.
+- **Environment note (not a code change):** the test container was
+  recreated without `TEST_DB_PROFILE=family`, so the entrypoint's family
+  user set was missing/lowercase-named and the gate's auth setup failed
+  with mass skips; users were recreated with the canonical
+  passwords/display names per `docker/README.md` and the gate re-run —
+  no production code involved.
+- **HouseService::updateHouse carries the flag** (single house-update
+  authority incl. the consent wipe on disable) instead of a separate
+  RankingService mutation; the owner gate stays in the controller and
+  service.
+- **CompletionUndoStateEquality** C3g proof restructured: titles derive
+  from real valid history, so the seeded stale marker reconciles at the
+  completion (not the undo); the undo snapshot-equality excludes exactly
+  the re-derived rhythm facts + reconciled marker.
+
+Gates at round end (all green): Docker PHPUnit unit 983 OK / integration
+475 OK (zero skip, incl. N `RankingConsentTest`), Jest 1032 passed,
+`npm run lint` 0 problems + stylelint + php-cs-fixer + l10n (1000 keys)
++ `docs:encoding` + `backlog:check` + `git diff --check` + webpack build,
+and the full `run-e2e-gate` — all three pools (chromium /
+chromium-serial-db / chromium-scheduling-owner) PASSED with zero
+skipped/failed/flaky required scenarios. Durable docs: ADR-015,
+ADR-004 annotation, api/README (ranking trio, titles, state contract,
+`PUT /house` flag), release-test-plan §8, ui-use-cases UC-11,
+gamification skill §4/5/7/8, architecture.md size inventory
+(`RewardConfigService` 328→164 below the guideline, `TitlePicker`
+retired, N `RankingService` 437 accepted, `HouseService` 489→512,
+`Settings.vue` 928→906, `Leaderboard.vue` 496) + store tree, testing.md
+E2E map, docs/README.md index, backlog CR-053-11 disposition.
 
 ## 1. Problem Summary
 
@@ -301,22 +360,50 @@ silently absorbing added scope.
 ## 8. Acceptance Criteria
 
 - [x] Q-075-01/02 resolved and recorded; exact package scope, estimates and manifest accepted through Standard A (2026-09-27).
-- [ ] Reads expose confirmed/current/best rhythm, pending state and eligible/onTime/neutral/provisional weekly fields; no GET read mints, revokes or reconciles awards.
-- [ ] Ranking shows only consenting members' current-week public-task on-time ratios with exact ties, neutral zero denominators, next-Monday activation and immediate withdrawal/disable removal (Q-075-01 A); the unconditional contribution ranking is gone.
-- [ ] One retained 3/6/12 title series qualifies on the valid-history maximum; earned titles survive ordinary streak breaks and spending, and only genuine correction revokes them; no config threshold override remains.
-- [ ] `selected_title_pack`/multi-pack surface and the `Task` tier/multiplier fields, availability-streak helper, freeze/combo client handlers, retired medal labels, stale marketing and obsolete config overrides are removed with their consumers and negative pins.
-- [ ] Consent/departure/erasure lifecycle proven: delete on leave, purge on account deletion, no rejoin restore, no same-UID rebinding (Q-075-01 A).
-- [ ] Every section 4 required test/gate passes without new/unapproved skips; real consent/departure races use two connections.
-- [ ] All plan-owned findings resolved or explicitly user-rescoped; no required dependent test deferred while marking this plan done.
-- [ ] Durable behavior integrated into concepts, ADR-004 (and ADR-015 under Q-075-01 A), API, engineering/testing and the gamification skill; the plan is not the only description.
-- [ ] CR-053-11 updated for its freeze-removal/tiebreaker portions without whole-item closure; CONCEPT-001 and remaining parent findings stay accurately open.
-- [ ] Final Standard B or Full review passes, performs the eligible lifecycle move, and updates parent/index/backlog/`ACTIVE_TASKS.md` accurately.
+- [x] Reads expose confirmed/current/best rhythm, pending state and eligible/onTime/neutral/provisional weekly fields; no GET read mints, revokes or reconciles awards (GET-purity pin on both `state()` and `medals()`, `GameControllerIntegrationTest`).
+- [x] Ranking shows only consenting members' current-week public-task on-time ratios with exact ties, neutral zero denominators, next-Monday activation and immediate withdrawal/disable removal (Q-075-01 A); the unconditional contribution ranking is gone.
+- [x] One retained 3/6/12 title series qualifies on the valid-history maximum; earned titles survive ordinary streak breaks and spending, and only genuine correction revokes them; no config threshold override remains.
+- [x] `selected_title_pack`/multi-pack surface and the `Task` tier/multiplier fields, availability-streak helper, freeze/combo client handlers, retired medal labels, stale marketing and obsolete config overrides are removed with their consumers and negative pins.
+- [x] Consent/departure/erasure lifecycle proven: delete on leave, purge on account deletion (RF-075-02 membership-keyed pin), no rejoin restore, no same-UID rebinding (Q-075-01 A).
+- [x] Every section 4 required test/gate passes without new/unapproved skips; real consent/departure races use two connections.
+- [x] All plan-owned findings resolved or explicitly user-rescoped; no required dependent test deferred while marking this plan done.
+- [x] Durable behavior integrated into concepts, ADR-004 (and ADR-015 under Q-075-01 A), API, engineering/testing and the gamification skill; the plan is not the only description.
+- [x] CR-053-11 updated for its freeze-removal/tiebreaker portions without whole-item closure; CONCEPT-001 and remaining parent findings stay accurately open.
+- [x] Final Standard B or Full review passes, performs the eligible lifecycle move, and updates parent/index/backlog/`ACTIVE_TASKS.md` accurately.
 
 ## 9. Review Findings (Plan-Owned)
 
-(none yet — route newly discovered in-scope implementation/review findings
-here; existing parent findings and CR-053-11 keep the ownership described in
-section 2. The section 10 decisions are activation decisions, not findings.)
+Final Standard B (2026-09-29) — all found and resolved in the same review's
+fix round (user-selected recommended options; none rescoped to the backlog):
+
+- **RF-075-01 · major · resolved** — Settings/`rankingEnabled`: no owner UI
+  existed for the ranking flag while the Leaderboard disabled-state copy and
+  the E2E spec comment promised "the settings"; ranking was enableable only
+  via direct API. Fix: minimal owner-only toggle in the Settings house card
+  (`ranking-toggle`/`save-house-ranking`) through the new
+  `houseStore.updateRankingEnabled()` on the shared `PUT /house` path, with
+  EN/DE/POT l10n, house/settings store+view specs.
+- **RF-075-02 · major · resolved** — missing §4 test evidence: (a) the
+  erasure consent purge had no pin (mock injected, zero expectations; no
+  same-UID non-rebinding proof) →
+  `AccountErasureServiceTest::testCurrentMemberErasure_PurgesRankingConsentByMembershipId`
+  asserts the purge keyed by the MEMBERSHIP id; (b) the new `ranking` store
+  had no direct spec (the view spec fully mocks it) → N
+  `tests/unit/store/ranking.spec.js` (view apply, consent/withdraw refresh,
+  error paths, reset).
+- **RF-075-03 · minor · resolved** — dead wrappers
+  `RankingService::handleMembershipRemoved`/`purgeForErasure` (zero
+  production callers; HouseService/AccountErasureService use the mapper
+  under their transactions) deleted with their two wrapper-only unit tests;
+  real-path coverage stays in `RankingConsentTest` (departure, disable) and
+  the new erasure pin.
+- **RF-075-04 · minor · resolved** — the valid-CLASS_AGREED on-time
+  predicate existed 4× (RhythmService, WeeklyGoalService ×2, RankingService)
+  → extracted to `CompletedTask::isAgreedOnTime()` (half-open window,
+  behavior-neutral) with all four call sites de-duplicated.
+- **RF-075-05 · nit · resolved** — stale `docker-dev` SKILL.md note still
+  documented the retired family-profile 1%-target appconfig seed; updated to
+  the `seedClosedWeeklyGoal` deterministic closed-week behavior.
 
 ## 10. Activation Decisions
 
@@ -373,3 +460,49 @@ Standard A plan review resolved Q-075-01/02.
   runtime/E2E implementation gates remain required by section 4 at delivery.
 - **Transition:** `new/` to `active/`; CONCEPT-001 remains In Progress and
   CR-053-11 remains open for its independent Snake ordering remainder.
+
+## Review Outcome (Final Standard B, 2026-09-29)
+
+- **Scope/base:** the complete uncommitted WP4 increment on `master` at
+  `a477c292fcf3122fca96e590e29869b54d34cf23` — 103 tracked paths (102 M /
+  1 D `TitlePicker.vue`) + 11 untracked (ADR-015, RankingController/Service,
+  MemberPreference/Mapper, Version1032, ranking store, ranking E2E + three
+  ranking test files). Index empty at capture (empty-blob hash
+  `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391`); pre-review unstaged binary
+  diff SHA1 `cd204cafba4e2eba303180a3bf68aff1c812a9ff`; pre-review untracked
+  SHA1s recorded in the review record. Post-fix untracked manifest: the same
+  11 + N `tests/unit/store/ranking.spec.js` (per-file hashes in the review
+  record).
+- **Outcome:** `PASS-WITH-FIXES`. The whole plan was verified against the
+  §5 manifest, §4 test matrix (with mapping notes: the read-contract pins
+  landed in `GameControllerIntegrationTest` incl. the GET-purity proof for
+  both reads; `RhythmProjectionTest`/`FamilyRhythmSchemaTest` stayed
+  unmodified because their WP3 scope was already conformant — the §4 fresh
+  schema pins live in `FreshInstallMigrationSmokeTest`), all acceptance
+  criteria, and the durable-doc gate (ADR-015 + ADR-004 annotation,
+  api/README ranking trio/state contract/titles, engineering size inventory
+  re-measured, testing E2E map, concepts, gamification skill,
+  release-test-plan §8, docs/README index, CR-053-11 annotation without
+  closure). Five findings (2 major, 2 minor, 1 nit) were resolved in the
+  in-review fix round — see §9.
+- **Decisions (batched, recommended options selected):** add the minimal
+  owner ranking toggle now; deliver both missing §4 pins in the fix round;
+  apply all three minor cleanups in-round; accept the mtime-verified E2E
+  gate run `run-NSOUkr` (2026-09-27 22:19-22:45, all three pools exit 0,
+  zero violations, 91+126+39 tests, ranking-consent in the serial pool; no
+  reviewed file changed after 22:19:19) — the fix round's later changes are
+  unit/integration-covered and behavior-neutral on every E2E-asserted
+  surface (new Settings section, store action addition, predicate
+  extraction, dead-code removal, l10n additions).
+- **Gates (re-run by this review on the post-fix tree):** Docker PHPUnit
+  unit 982 OK / 3125 assertions and integration 475 OK / 2468 assertions,
+  both `--fail-on-skipped` with zero skips; `composer cs:check` 0 of 365;
+  Jest 1049 passed / 96 suites incl. `test:noise`; `npm run lint`
+  (src + e2e) 0 problems; stylelint clean; webpack build green;
+  `l10n:check-keys` 1005 keys exact EN/DE/POT (canonical regeneration,
+  localizationGate green); `backlog:check` 28 files; `docs:encoding` 792
+  files; `git diff --check` clean.
+- **Transition:** `active/` to `done/`. CR-053-11 stays open for its
+  independent Snake ordering remainder; CONCEPT-001 stays In Progress via
+  the parent; the parent WP4/child pointers, `docs/plans/README.md`,
+  `docs/README.md`, `backlog.md` links and `ACTIVE_TASKS.md` updated.

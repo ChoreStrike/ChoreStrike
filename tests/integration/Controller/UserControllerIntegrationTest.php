@@ -203,13 +203,15 @@ class UserControllerIntegrationTest extends TestCase {
 	}
 
 	/**
-	 * SelectTitle_NonMemberProbe_DeniedBeforeTargetLookup
+	 * Titles_NonMemberProbe_DeniedBeforeTargetLookup
 	 *
 	 * CS-PLAN-061 review fix: the membership gate runs BEFORE the target
 	 * lookup — a non-member probing global house_user ids gets a uniform
-	 * 403, never a 403/404 split that confirms which ids exist.
+	 * 403, never a 403/404 split that confirms which ids exist. (The
+	 * former selectTitle surface retired with the WP4 single-series
+	 * cutover; the read endpoint keeps the same gate order.)
 	 */
-	public function testSelectTitle_NonMemberProbe_DeniedBeforeTargetLookup(): void {
+	public function testTitles_NonMemberProbe_DeniedBeforeTargetLookup(): void {
 		$house = $this->createHouse();
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
@@ -220,19 +222,19 @@ class UserControllerIntegrationTest extends TestCase {
 
 		$this->houseService->expects($this->never())->method('findHouseUserScopedToHouse');
 
-		$response = $this->controller->selectTitle(42, 'some_pack');
+		$response = $this->controller->titles(42);
 
 		$this->assertEquals(403, $response->getStatus());
 		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
 	}
 
 	/**
-	 * SelectTitle_MemberNonexistentTarget_Returns404
+	 * Titles_MemberNonexistentTarget_Returns404
 	 *
 	 * For a member, a nonexistent and a foreign-house id both map to the
 	 * same 404 USER_NOT_FOUND (scoped lookup, D3 anti-enumeration).
 	 */
-	public function testSelectTitle_MemberNonexistentTarget_Returns404(): void {
+	public function testTitles_MemberNonexistentTarget_Returns404(): void {
 		$house = $this->createHouse();
 		$member = $this->createHouseUser(5, $house->getId(), 'member1', 'Member', 'member');
 
@@ -244,31 +246,10 @@ class UserControllerIntegrationTest extends TestCase {
 			->with(999, $house->getId())
 			->willReturn(null);
 
-		$response = $this->controller->selectTitle(999, 'some_pack');
+		$response = $this->controller->titles(999);
 
 		$this->assertEquals(404, $response->getStatus());
 		$this->assertEquals('USER_NOT_FOUND', $response->getData()['error']['code']);
-	}
-
-	/**
-	 * SelectTitle_MemberOwnPack_ReturnsSuccess
-	 */
-	public function testSelectTitle_MemberOwnPack_ReturnsSuccess(): void {
-		$house = $this->createHouse();
-		$member = $this->createHouseUser(5, $house->getId(), 'member1', 'Member', 'member');
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
-		$this->authService->method('assertHouseMember')->with($house->getId())->willReturn($member);
-		$this->houseService->method('findHouseUserScopedToHouse')->with(5, $house->getId())->willReturn($member);
-		$this->titleService->expects($this->once())
-			->method('selectPack')
-			->with($this->identicalTo($member), $this->identicalTo($member), 'some_pack');
-
-		$response = $this->controller->selectTitle(5, 'some_pack');
-
-		$this->assertEquals(200, $response->getStatus());
-		$this->assertTrue($response->getData()['success']);
 	}
 
 	/**

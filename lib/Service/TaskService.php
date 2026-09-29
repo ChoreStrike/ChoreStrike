@@ -33,10 +33,6 @@ class TaskService {
 	 * `ownerUserId` is whitelisted for transfer, but *who* may change it is
 	 * still governed by the controller authorization (CS-PLAN-005) — the
 	 * whitelist is defense-in-depth, not an authorization bypass.
-	 *
-	 * `taskTier` is NOT whitelisted: it is owner-only and value-checked
-	 * explicitly in {@see updateTask()} (CR-053-04) because it drives the
-	 * coin multiplier.
 	 */
 	private const MUTABLE_FIELDS = [
 		'name', 'description', 'energyCost', 'priority',
@@ -47,9 +43,6 @@ class TaskService {
 		'instructions', 'tips', 'estimatedMinutesMin', 'estimatedMinutesMax',
 		'visibilityType', 'ownerUserId', 'flexDays',
 	];
-
-	/** Allowed taskTier values (CR-053-04 closed set). */
-	public const TASK_TIERS = ['bronze', 'silver', 'gold'];
 
 	/** Fields whose value is a date and must be parsed from string input. */
 	private const DATE_FIELDS = ['activeFrom', 'activeUntil', 'fixedScheduleTime'];
@@ -143,8 +136,7 @@ class TaskService {
 	 * Applies only the whitelisted {@see MUTABLE_FIELDS} from `$updates`;
 	 * any key not on the whitelist is rejected with
 	 * {@see \InvalidArgumentException} (translated to 400 by the controller)
-	 * to prevent mass-assignment of internal columns. `taskTier` is handled
-	 * separately (owner-only + closed set, CR-053-04).
+	 * to prevent mass-assignment of internal columns.
 	 *
 	 * Enforces the ONE visibility matrix via {@see TaskAccessPolicy}
 	 * (CS-PLAN-061 §3.2, D2): a caller that cannot even see the task is
@@ -185,20 +177,6 @@ class TaskService {
 
 		$isOwner = $actor->isOwner();
 
-		// CR-053-04: taskTier is owner-only and value-checked outside the
-		// generic whitelist loop — a member must not be able to self-serve
-		// the gold coin multiplier. Role denial is a ForbiddenException
-		// (403); a bad value is an InvalidArgumentException (400). The
-		// value is validated here and applied under the locks below.
-		if (array_key_exists('taskTier', $updates)) {
-			if (!$isOwner) {
-				throw new ForbiddenException($this->l10n->t('Only house owners may change the task tier'));
-			}
-			if (!in_array($updates['taskTier'], self::TASK_TIERS, true)) {
-				throw new \InvalidArgumentException($this->l10n->t('Invalid task tier'));
-			}
-		}
-
 		// Admin-only visibility is owner-only (ADR-010 matrix, RF-058-03):
 		// setting AND unsetting is a role denial (403) for non-owners. The
 		// controller gate is defense in depth; this service-side mirror
@@ -228,12 +206,7 @@ class TaskService {
 
 		// Whitelist first (mass-assignment defense, unchanged semantics):
 		// an unknown or immutable key is rejected before any value check.
-		// `taskTier` is not on the generic whitelist — it was owner- and
-		// value-validated above and is applied explicitly under the locks.
 		foreach ($updates as $field => $value) {
-			if ($field === 'taskTier') {
-				continue;
-			}
 			if (!in_array($field, self::MUTABLE_FIELDS, true)) {
 				throw new \InvalidArgumentException($this->l10n->t('Unknown or immutable field: %1$s', [$field]));
 			}
@@ -251,8 +224,7 @@ class TaskService {
 
 		// CS-PLAN-071 WP0: apply the validated updates under the locks —
 		// house row first, then the task-definition row — on the FRESH
-		// entity. taskTier is not on the generic whitelist but was
-		// owner-validated above; it is applied explicitly.
+		// entity.
 		//
 		// CS-PLAN-072 WP1: when a rule-relevant definition input changed,
 		// every mounted room task's schedule is revised in the SAME
@@ -264,9 +236,6 @@ class TaskService {
 			$this->houseMapper->findForUpdate($actor->getHouseId());
 			$task = $this->taskMapper->lockForUpdate($taskId);
 			$before = clone $task;
-			if (array_key_exists('taskTier', $updates)) {
-				$task->setTaskTier($updates['taskTier']);
-			}
 			$this->applyUpdates($task, array_intersect_key($updates, array_flip(self::MUTABLE_FIELDS)));
 			$updated = $this->taskMapper->update($task);
 

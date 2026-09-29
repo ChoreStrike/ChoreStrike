@@ -15,7 +15,9 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MedalService;
+use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\WalletService;
+use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -32,6 +34,8 @@ class GameController extends Controller {
 	private AuthorizationService $authService;
 	private WalletService $walletService;
 	private WalletMapper $walletMapper;
+	private RhythmService $rhythmService;
+	private WeeklyGoalService $weeklyGoalService;
 
 	public function __construct(
 		IRequest $request,
@@ -41,6 +45,8 @@ class GameController extends Controller {
 		AuthorizationService $authService,
 		WalletService $walletService,
 		WalletMapper $walletMapper,
+		RhythmService $rhythmService,
+		WeeklyGoalService $weeklyGoalService,
 		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
@@ -50,6 +56,8 @@ class GameController extends Controller {
 		$this->authService = $authService;
 		$this->walletService = $walletService;
 		$this->walletMapper = $walletMapper;
+		$this->rhythmService = $rhythmService;
+		$this->weeklyGoalService = $weeklyGoalService;
 		$this->initializeControllerLogger($appLogger);
 	}
 
@@ -57,6 +65,15 @@ class GameController extends Controller {
 	 * Get current game state — the caller's OWN wallet in minor units
 	 * (WP3 §3.6: no Coin totals in the member list; foreign member/fairness
 	 * DTOs contain no wallet balances).
+	 *
+	 * CS-PLAN-070 WP4 (parent §3.4 read contract): the caller's own entry
+	 * carries the rhythm projection (confirmed/current/best + the
+	 * pending-hold indicator) and the personal weekly-goal slice;
+	 * the house `weeklyGoal` block carries eligible/onTime/neutral and the
+	 * provisional flag. Everything is a PURE READ — on an already
+	 * initialized house this endpoint performs no award writes (minting
+	 * lives in the TimelineJob closed-week reconciliation and the explicit
+	 * POST check-medals).
 	 *
 	 * @NoAdminRequired
 	 */
@@ -69,6 +86,23 @@ class GameController extends Controller {
 			$gameState = $this->gameLogicService->getGameState($house->getId());
 			$gameState['weeklyGoal'] = $this->houseService->getWeeklyGoalProgress($house->getId());
 			$gameState['stateVersion'] = $house->getStateVersion();
+
+			$now = new \DateTime();
+			$evaluation = $this->rhythmService->evaluateForMembers(
+				(int)$house->getId(),
+				[$houseUser],
+				$now
+			)[(int)$houseUser->getId()] ?? ['currentStreak' => 0, 'longestStreak' => 0, 'pending' => false];
+			$gameState['rhythm'] = [
+				// C1f: the evaluation confirms only closed successful days —
+				// the confirmed and the displayed current streak are the
+				// same valid-history value; `pending` marks the held day.
+				'confirmed' => $evaluation['currentStreak'],
+				'current' => $evaluation['currentStreak'],
+				'best' => $evaluation['longestStreak'],
+				'pending' => $evaluation['pending'],
+			];
+			$gameState['myWeeklyGoal'] = $this->weeklyGoalService->progressForMember($house, $houseUser, $now);
 
 			$wallet = $houseUser->getWalletId() !== null
 				? $this->walletMapper->findByHouseAndUser((int)$house->getId(), $houseUser->getNextcloudUserId())

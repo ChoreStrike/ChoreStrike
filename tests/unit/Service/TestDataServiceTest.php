@@ -22,7 +22,6 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\IConfig;
 use OCP\IDBConnection;
@@ -219,12 +218,10 @@ class TestDataServiceTest extends TestCase {
 			->method('create')
 			->willReturn($roomTask);
 
-		// CS-PLAN-055: the family profile seeds the weekly-goal test knob so
-		// `release-notifications` stays deterministic without the pruned
-		// reward-config HTTP surface.
-		$this->config->expects($this->once())
-			->method('setAppValue')
-			->with('chorestrike', RewardConfigService::KEY_WEEKLY_GOAL_TARGET_PERCENT, '1');
+		// WP4 retirement pin: no reward-config override is seeded — the
+		// weekly-goal target is fixed policy (the E2E gate drives the
+		// `release-notifications` evidence through real occurrences).
+		$this->config->expects($this->never())->method('setAppValue');
 
 		$result = $this->service->seedFamily();
 

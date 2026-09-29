@@ -17,14 +17,11 @@ import { translate as t } from '@nextcloud/l10n'
 /**
  * Medal type → translation key (source string). Exported so surfaces that
  * only need the label (e.g. the Leaderboard medal cards) stay in sync with
- * the badge without re-declaring the mapping.
+ * the badge without re-declaring the mapping. The retired activity/combo
+ * medal types dropped with the WP4 label cutover (CS-PLAN-070) — only the
+ * retained rhythm tiers and the weekly milestone exist.
  */
 export const MEDAL_LABELS = {
-	team_anchor: 'Team Anchor',
-	flow_keeper: 'Flow Keeper',
-	room_guardian: 'Room Guardian',
-	team_player: 'Team Player',
-	streak_keeper: 'Streak Keeper',
 	rhythm_3: 'Rhythm 3',
 	rhythm_6: 'Rhythm 6',
 	rhythm_12: 'Rhythm 12',
@@ -63,11 +60,6 @@ export default {
 	},
 	setup(props) {
 		const icons = {
-			team_anchor: '🛟',
-			flow_keeper: '🌊',
-			room_guardian: '🛡️',
-			team_player: '🤝',
-			streak_keeper: '🔥',
 			rhythm_3: '🔥',
 			rhythm_6: '🔥',
 			rhythm_12: '🔥',
@@ -127,31 +119,6 @@ export default {
 }
 
 /* Medal type colors */
-.medal-team_anchor {
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-	color: white;
-}
-
-.medal-flow_keeper {
-	background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-	color: white;
-}
-
-.medal-room_guardian {
-	background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
-	color: white;
-}
-
-.medal-team_player {
-	background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
-	color: white;
-}
-
-.medal-streak_keeper {
-	background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-	color: white;
-}
-
 .medal-rhythm_3,
 .medal-rhythm_6,
 .medal-rhythm_12 {

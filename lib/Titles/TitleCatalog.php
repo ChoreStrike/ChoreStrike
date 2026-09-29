@@ -11,80 +11,54 @@ namespace OCA\ChoreStrike\Titles;
 use OCA\ChoreStrike\Db\HouseUser;
 
 /**
- * Code-defined catalog of role-title packs and tiers (CS-PLAN-006; WP3
- * cutover per CS-PLAN-070 D7c/C3d).
+ * Code-defined catalog of the RETAINED role-title series (CS-PLAN-070
+ * WP4 cutover, C3d/D7c).
  *
- * Pure constants — no DB, no DI. Three packs × three tiers = 9 titles.
- * Each pack is themed around a different progression signal:
+ * Pure constants — no DB, no DI. One series × three tiers = 3 titles:
  *
- *  - Home Helpers  → contributionMinor (exact work minor units)
- *  - Team Energy   → longestStreak     (dependability record)
- *  - Family Rhythm → currentStreak     (retained 3/6/12 rhythm tiers)
+ *  - Family Rhythm → longestStreak (the valid-history maximum maintained
+ *    by RhythmService, C1f/C3g)
  *
- * The former coins-driven Cozy Home pack is retired with the wallet
- * cutover (C3d: no wallet-qualified titles); the rhythm tiers take its
- * slot as the retained-recognition track. Thresholds here are *defaults*;
- * `RewardConfigService` overrides them instance-wide via the
- * `title_threshold_{pack}_{tier}` keys.
+ * The former contribution-driven Home Helpers and streak-driven Team
+ * Energy packs are retired with the WP4 single-series cutover (C3d: no
+ * separate effort/wallet title series). Qualifying on the valid-history
+ * MAXIMUM (not the current streak) keeps an earned title alive through
+ * ordinary later streak breaks (D7c); only a genuine correction that
+ * lowers the valid-history maximum can shrink it (C3g). Thresholds are
+ * FIXED policy (10/80/3-6-12 first slice) — no config override exists.
  *
- * Thresholds in a pack MUST be strictly ascending (tier 1 < tier 2 < tier 3)
+ * Thresholds MUST be strictly ascending (tier 1 < tier 2 < tier 3)
  * — {@see self::isValidCatalog()} enforces this for the test suite.
  */
 class TitleCatalog {
-	/** Pack key: consistency / breadth — driven by contributionMinor. */
-	public const PACK_HOME_HELPERS = 'home_helpers';
-	/** Pack key: streak / dependability — driven by longestStreak. */
-	public const PACK_TEAM_ENERGY = 'team_energy';
-	/** Pack key: retained rhythm recognition (C3d) — driven by currentStreak. */
+	/** Series key: retained rhythm recognition (C3d) — driven by longestStreak. */
 	public const PACK_FAMILY_RHYTHM = 'family_rhythm';
 
 	/**
 	 * Progression signal identifiers. Each maps to a HouseUser getter.
 	 */
-	public const SIGNAL_CONTRIBUTION_SCORE = 'contributionMinor';
 	public const SIGNAL_LONGEST_STREAK = 'longestStreak';
-	public const SIGNAL_RHYTHM = 'currentStreak';
 
 	/**
-	 * The full pack/tier definition.
+	 * The full series definition.
 	 *
-	 * Structure per pack:
-	 *   - labelKey:   i18n key for the pack name.
+	 * Structure:
+	 *   - labelKey:   i18n key for the series name.
 	 *   - signal:     one of the SIGNAL_* constants.
 	 *   - tiers:      ordered list (ascending threshold) of:
 	 *       - key:        stable tier identifier (snake_case).
 	 *       - labelKey:   i18n key for the tier label.
-	 *       - threshold:  default unlock threshold (overridable via config).
+	 *       - threshold:  fixed unlock threshold.
 	 *
-	 * Tier index (0-based) is the canonical tier rank used by
-	 * RewardConfigService config keys and the TitleService.
+	 * Tier index (0-based) is the canonical tier rank used by TitleService.
 	 */
 	public const PACKS = [
-		self::PACK_HOME_HELPERS => [
-			'labelKey' => 'titles.pack.home_helpers',
-			'signal' => self::SIGNAL_CONTRIBUTION_SCORE,
-			'tiers' => [
-				// Thresholds in exact energy minor units (100 = 1 energy).
-				['key' => 'helper', 'labelKey' => 'titles.home_helpers.helper', 'threshold' => 5000],
-				['key' => 'organizer', 'labelKey' => 'titles.home_helpers.organizer', 'threshold' => 25000],
-				['key' => 'care_captain', 'labelKey' => 'titles.home_helpers.care_captain', 'threshold' => 100000],
-			],
-		],
-		self::PACK_TEAM_ENERGY => [
-			'labelKey' => 'titles.pack.team_energy',
-			'signal' => self::SIGNAL_LONGEST_STREAK,
-			'tiers' => [
-				['key' => 'spark_starter', 'labelKey' => 'titles.team_energy.spark_starter', 'threshold' => 7],
-				['key' => 'flow_keeper', 'labelKey' => 'titles.team_energy.flow_keeper', 'threshold' => 30],
-				['key' => 'team_anchor', 'labelKey' => 'titles.team_energy.team_anchor', 'threshold' => 90],
-			],
-		],
 		self::PACK_FAMILY_RHYTHM => [
 			'labelKey' => 'titles.pack.family_rhythm',
-			'signal' => self::SIGNAL_RHYTHM,
+			'signal' => self::SIGNAL_LONGEST_STREAK,
 			'tiers' => [
 				// C3d: retained personal rhythm awards at 3/6/12 consecutive
-				// successful planned task days.
+				// successful planned task days (valid-history maximum).
 				['key' => 'rhythm_3', 'labelKey' => 'titles.family_rhythm.rhythm_3', 'threshold' => 3],
 				['key' => 'rhythm_6', 'labelKey' => 'titles.family_rhythm.rhythm_6', 'threshold' => 6],
 				['key' => 'rhythm_12', 'labelKey' => 'titles.family_rhythm.rhythm_12', 'threshold' => 12],
@@ -93,7 +67,7 @@ class TitleCatalog {
 	];
 
 	/**
-	 * All pack keys in catalog order.
+	 * The single series key (kept for structural symmetry with consumers).
 	 *
 	 * @return string[]
 	 */
@@ -102,15 +76,15 @@ class TitleCatalog {
 	}
 
 	/**
-	 * Whether `$packKey` is a known pack.
+	 * Whether `$packKey` is the known retained series.
 	 */
 	public static function isValidPack(string $packKey): bool {
 		return isset(self::PACKS[$packKey]);
 	}
 
 	/**
-	 * Get a pack definition by key. Throws if unknown — callers validate
-	 * first via {@see isValidPack()}.
+	 * Get the series definition by key. Throws if unknown — callers
+	 * validate first via {@see isValidPack()}.
 	 *
 	 * @return array{labelKey: string, signal: string, tiers: array<int, array{key: string, labelKey: string, threshold: int}>}
 	 */
@@ -122,7 +96,7 @@ class TitleCatalog {
 	}
 
 	/**
-	 * Get the tiers for a pack (ordered ascending).
+	 * Get the tiers of a series (ordered ascending).
 	 *
 	 * @return array<int, array{key: string, labelKey: string, threshold: int}>
 	 */
@@ -133,8 +107,8 @@ class TitleCatalog {
 	/**
 	 * Build the stable `{pack}.{tier}` identifier for a tier.
 	 *
-	 * This is the canonical string stored in the `unlocked_titles` cache and
-	 * exchanged with the frontend.
+	 * This is the canonical string stored in the `unlocked_titles` marker
+	 * and exchanged with the frontend.
 	 */
 	public static function tierId(string $packKey, int $tierIndex): string {
 		return $packKey . '.' . self::getTiers($packKey)[$tierIndex]['key'];
@@ -147,9 +121,7 @@ class TitleCatalog {
 	 */
 	public static function getSignalValue(HouseUser $user, string $signal): int {
 		return match ($signal) {
-			self::SIGNAL_CONTRIBUTION_SCORE => $user->getContributionMinor(),
 			self::SIGNAL_LONGEST_STREAK => $user->getLongestStreak(),
-			self::SIGNAL_RHYTHM => $user->getCurrentStreak(),
 			default => 0,
 		};
 	}
@@ -157,22 +129,16 @@ class TitleCatalog {
 	/**
 	 * Validate the catalog invariants (used by the test suite).
 	 *
-	 * Returns true when every pack has 3 tiers, unique tier keys, a known
+	 * Returns true when the series has 3 tiers, unique tier keys, a known
 	 * signal, non-zero thresholds, and strictly ascending thresholds.
 	 */
 	public static function isValidCatalog(): bool {
-		$validSignals = [
-			self::SIGNAL_CONTRIBUTION_SCORE,
-			self::SIGNAL_LONGEST_STREAK,
-			self::SIGNAL_RHYTHM,
-		];
-
-		if (count(self::PACKS) !== 3) {
+		if (count(self::PACKS) !== 1) {
 			return false;
 		}
 
 		foreach (self::PACKS as $pack) {
-			if (!in_array($pack['signal'], $validSignals, true)) {
+			if ($pack['signal'] !== self::SIGNAL_LONGEST_STREAK) {
 				return false;
 			}
 			$tiers = $pack['tiers'];

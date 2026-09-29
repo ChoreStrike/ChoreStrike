@@ -381,7 +381,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `room-management.spec.ts`, `room-detail.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD, room-detail flows, full-house scenarios |
 | `task-manager.spec.ts`, `task-completion.spec.ts`, `task-completion-full-flow.spec.ts`, `task-checklist-and-features.spec.ts` | Task management, creation, checklist, and completion flows |
 | `settings.spec.ts`, `core-household-journey.spec.ts` | Settings and the canonical empty-house UI-only setup/invite/create/plan/complete/undo journey |
-| `leaderboard.spec.ts`, `title-selection.spec.ts` | Gamification, leaderboard, role titles |
+| `leaderboard.spec.ts`, `ranking-consent.spec.ts`, `title-selection.spec.ts` | Gamification: opt-in/closed leaderboard surface (WP4), the consent lifecycle (owner enable → join pending → withdraw, serial pool), and the single-series title surface (no pack selection) |
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
 | `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |

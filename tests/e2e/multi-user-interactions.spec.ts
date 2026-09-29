@@ -71,7 +71,7 @@ test.describe('Multi-User Family Interactions', () => {
 		}
 	})
 
-	test('leaderboard shows all family members', async ({ browser, seededData: _seededData }) => {
+	test('leaderboard shows the opt-in state for unconsented members (WP4)', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -80,9 +80,10 @@ test.describe('Multi-User Family Interactions', () => {
 			await page.getByTestId('nav-leaderboard').click()
 			await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })
 
-			const entries = page.locator('[data-testid="leaderboard-entry"]')
-			await expect(entries.first()).toBeVisible({ timeout: 10000 })
-			expect(await entries.count()).toBeGreaterThanOrEqual(1)
+			// The family seed leaves the ranking flag off: the opt-in/closed
+			// state shows and no unconditional member ranking renders.
+			await expect(page.getByTestId('ranking-disabled')).toBeVisible({ timeout: 15000 })
+			await expect(page.locator('[data-testid="leaderboard-entry"]')).toHaveCount(0)
 		} finally {
 			await context.close()
 		}
@@ -172,7 +173,7 @@ test.describe('Multi-User Task Interactions', () => {
 		}
 	})
 
-	test('leaderboard updates after task completion', async ({ browser, seededData: _seededData }) => {
+	test('leaderboard state stays consistent after task completion (WP4)', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -183,8 +184,9 @@ test.describe('Multi-User Task Interactions', () => {
 			await page.getByTestId('nav-leaderboard').click()
 			await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })
 
-			const entries = page.locator('[data-testid="leaderboard-entry"]')
-			await expect(entries.first()).toBeVisible({ timeout: 10000 })
+			// Without consent the completion never surfaces in a ranking —
+			// the opt-in state stays.
+			await expect(page.getByTestId('ranking-disabled')).toBeVisible({ timeout: 15000 })
 		} finally {
 			await context.close()
 		}

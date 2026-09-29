@@ -44,6 +44,14 @@ export const useHouseStore = defineStore('house', {
 		 * @return {string} IANA timezone id of the household
 		 */
 		timezone: (state) => state.house?.timezone || 'UTC',
+		/**
+		 * The owner-only ranking gate (CS-PLAN-070 WP4, C5i/D10b) —
+		 * false until the loaded house explicitly says otherwise.
+		 *
+		 * @param {object} state Pinia state
+		 * @return {boolean} Whether the consent-filtered ranking is enabled
+		 */
+		rankingEnabled: (state) => state.house?.rankingEnabled === true,
 	},
 
 	actions: {
@@ -100,6 +108,33 @@ export const useHouseStore = defineStore('house', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to update house', error, { store: 'house', action: 'updateHouseName' })
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Update the owner-only ranking flag (CS-PLAN-070 WP4, C5i/D10b)
+		 * on the shared house-update endpoint. The name rides along
+		 * unchanged (the API requires it); the server invalidates every
+		 * consent generation on disable.
+		 * @param {boolean} enabled New ranking flag.
+		 */
+		async updateRankingEnabled(enabled) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const payload = { name: this.house?.name || this.houseName, rankingEnabled: enabled }
+				const data = await api.put('/api/v1/house', payload)
+				// Accepted mutation invalidates pre-mutation house reads
+				// (CS-PLAN-066 §3.3) — the authoritative response lands.
+				this.houseRequestSeq++
+				this.house = data
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to update the ranking flag', error, { store: 'house', action: 'updateRankingEnabled' })
 				throw error
 			} finally {
 				this.loading = false

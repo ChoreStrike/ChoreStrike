@@ -213,25 +213,28 @@ Route surface: `task#myPrivate`, `visibility_type` (`public`/`private`/`admin-on
 
 ---
 
-## 8. Gamification (WP3 minor-unit economy)
+## 8. Gamification (WP3 minor-unit economy, WP4 rhythm recognition)
 
-Route surface: `completion#show/undo/attribute`, `room_task#complete`, `game#state/medals/checkMedals`, `house#health`, `user#titles/selectTitle`.
+Route surface: `completion#show/undo/attribute`, `room_task#complete`, `game#state/medals/checkMedals`, `house#health`, `ranking#index/consent/withdraw`, `user#titles`.
 
 > Currency is **Coins in exact minor units** (100 coin minor = 1 Coin) on an
 > immutable ledger (WP3 / ADR-014). The legacy tier/combo/early multipliers,
 > streak freezes, teamwork bonus and integer coin mints are retired — do not
-> test for them.
+> test for them. WP4: recognition is the single fixed 3/6/12 rhythm series
+> (valid-history maximum, no pack selection) and the ranking is opt-in,
+> consent-filtered ([ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md)).
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
 | Earn wallet value | Complete a task with a recorded split | Exact minor-unit deltas post per participant (`coinMinor = 10 × E × P` at the frozen rate); the cached wallet balance and contribution update; the caller's own totals ride the response | `task-completion`, PHPUnit `WalletServiceTest` |
-| Exact minor-unit display | View wallet/fairness/leaderboard readouts | Minor units render with exact trimmed decimals; no Coin column or integer mint anywhere | `leaderboard`, `insights-flow`, Jest `minorUnits.spec.js` |
+| Exact minor-unit display | View wallet/fairness readouts | Minor units render with exact trimmed decimals; no Coin column or integer mint anywhere | `insights-flow`, Jest `minorUnits.spec.js` |
 | Conservation under correction | Complete, attribute a different split, then undo | Every reversal keys the share rows' wallets (departed members included); the completion pays out exactly the frozen total across its lifetime | PHPUnit `CompletionCorrectionTest`, `HouseMemberRemovalIntegrationTest` |
 | Rhythm streaks | Complete agreed planned days; undo one | Streaks re-derive from the valid planned-day history (pending days are neutral); a correction shrinks the record to the corrected valid-history maximum (C3g) | PHPUnit `RhythmProjectionTest`, `RhythmServiceTest` |
-| Weekly goal | Complete due tasks across the week; undo one | `completed/(due∪completed)` percent and the achieved flag re-evaluate from the valid set (80% target) | PHPUnit `RhythmProjectionTest`, `WeeklyGoalServiceTest` |
-| Medals | Trigger the live rhythm medal | `streak_keeper` (and further wallet-qualified rhythm awards) award correctly via `awardMedalIfNew()` | PHPUnit `MedalServiceTest` |
-| Titles | Unlock and select a title | Title badge updates (`contributionMinor` / `longestStreak` signals); selection persists | `title-selection` |
-| Leaderboard | Open **Leaderboard** in nav | Members ranked by contribution minor; streak view available | `leaderboard` |
+| Weekly goal | Complete due tasks across the week; undo one | `completed/(due∪completed)` percent and the achieved flag re-evaluate from the valid set (fixed 80% target — no config override) | PHPUnit `RhythmProjectionTest`, `WeeklyGoalServiceTest` |
+| Medals | Trigger the live rhythm medal | `rhythm_3/6/12` and the weekly milestone award correctly via `awardMedalIfNew()`; retired activity/combo types stay gone | PHPUnit `MedalServiceTest` |
+| Titles | Cross a rhythm rung | Title badge shows the server-derived current title (valid-history maximum signal); no selection surface exists | `title-selection` |
+| Ranking opt-in | Open **Leaderboard** in nav with the flag off | Opt-in/closed state; no contribution ranking, no freeze indicators | `leaderboard` |
+| Ranking consent lifecycle | Owner enables the flag; member joins, withdraws | Join starts NEXT Monday (pending, unranked); withdraw removes immediately; non-consenting members never appear | `ranking-consent`, PHPUnit `RankingConsentTest` |
 | House health | Drive overall completion up/down | House health bar reflects aggregate activity | `dashboard` |
 
 ---

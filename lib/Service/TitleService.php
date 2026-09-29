@@ -9,64 +9,47 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Titles\TitleCatalog;
-use OCP\IL10N;
 
 /**
- * Server-authoritative role-title logic (CS-PLAN-006 Phase 2).
+ * Server-authoritative role-title logic (CS-PLAN-006 Phase 2; WP4
+ * single-series cutover per CS-PLAN-070 C3d/D7c, Q-075-02 Option A).
  *
- * Reads existing HouseUser progression stats (contributionScore,
- * longestStreak, coins) and resolves which title tiers a user
- * qualifies for. Unlocks are computed server-side only — the client displays
- * what the server returns.
+ * Reads existing HouseUser progression stats (the valid-history
+ * longestStreak maintained by RhythmService) and resolves which title
+ * tiers a user qualifies for. Unlocks are computed server-side only — the
+ * client displays what the server returns. There is NO pack selection:
+ * `currentTitle` is always the highest qualifying tier of the single
+ * retained rhythm series (Q-075-02 Option A).
  *
  * Two notions of "unlocked":
  *  - {@see getCurrentTitle()} / {@see getUnlockedTitles()} read **live**
- *    stats against the (config-overridden) thresholds, so the displayed
- *    title always reflects reality and is immune to cache staleness after a
+ *    stats against the fixed 3/6/12 thresholds, so the displayed title
+ *    always reflects reality and is immune to cache staleness after a
  *    reset.
  *  - {@see detectUnlock()} compares live stats against the user's
- *    `unlocked_titles` **cache** to find genuinely-new unlocks worth
- *    celebrating/notifying. It mutates the cache in-memory (the caller is
- *    responsible for persisting the HouseUser) and is idempotent — a second
- *    call with the same stats returns an empty list.
+ *    `unlocked_titles` **marker** (the first-earned celebration evidence,
+ *    C3g) to find genuinely-new unlocks worth celebrating/notifying. It
+ *    mutates the marker in-memory (the caller is responsible for
+ *    persisting the HouseUser) and is idempotent — a second call with the
+ *    same stats returns an empty list.
  */
 class TitleService {
-	private HouseUserMapper $houseUserMapper;
-	private RewardConfigService $rewardConfig;
-	private IL10N $l10n;
-
-	public function __construct(
-		HouseUserMapper $houseUserMapper,
-		RewardConfigService $rewardConfig,
-		IL10N $l10n,
-	) {
-		$this->houseUserMapper = $houseUserMapper;
-		$this->rewardConfig = $rewardConfig;
-		$this->l10n = $l10n;
-	}
 
 	/**
-	 * The highest tier in the user's selected pack that the user currently
-	 * qualifies for, or null when no pack is selected or no tier is reached.
+	 * The highest tier of the retained rhythm series the user currently
+	 * qualifies for, or null when no tier is reached.
 	 *
 	 * @return array{pack: string, packLabelKey: string, tierIndex: int, tierKey: string, labelKey: string, threshold: int}|null
 	 */
 	public function getCurrentTitle(HouseUser $user): ?array {
-		$packKey = $user->getSelectedTitlePack();
-		if ($packKey === null || !TitleCatalog::isValidPack($packKey)) {
-			return null;
-		}
-
-		$qualifying = $this->qualifyingTiers($user, $packKey);
+		$qualifying = $this->qualifyingTiers($user);
 		return $qualifying === [] ? null : $qualifying[count($qualifying) - 1];
 	}
 
 	/**
-	 * Every tier the user currently qualifies for across all packs, as a
-	 * list of tier descriptors. Recomputed live from stats on every call.
+	 * Every tier the user currently qualifies for, as a list of tier
+	 * descriptors. Recomputed live from stats on every call.
 	 *
 	 * @return array<int, array{pack: string, packLabelKey: string, tierIndex: int, tierKey: string, labelKey: string, threshold: int}>
 	 */
@@ -77,7 +60,7 @@ class TitleService {
 	/**
 	 * Enrich a serialized user payload with its server-computed current
 	 * title. Shared by UserController and GameLogicService so the
-	 * leaderboard, user-list and game-state views emit the same shape.
+	 * user-list and game-state views emit the same shape.
 	 *
 	 * @param array<string, mixed> $data Serialized user payload
 	 * @return array<string, mixed>
@@ -88,41 +71,18 @@ class TitleService {
 	}
 
 	/**
-	 * Select the pack the user displays. Validates the pack key and persists.
-	 *
-	 * Titles are identity, not admin: the actor must be the target user
-	 * or a house owner — enforced service-side (RF-058-07); the controller
-	 * check stays as defense in depth.
-	 *
-	 * @param HouseUser $target The user whose pack changes
-	 * @param HouseUser $actor The acting user's house membership
-	 * @param string $packKey Pack key to display
-	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the actor is neither the target nor an owner
-	 * @throws \InvalidArgumentException When the pack key is unknown.
-	 */
-	public function selectPack(HouseUser $target, HouseUser $actor, string $packKey): void {
-		if (!$actor->isOwner() && $actor->getNextcloudUserId() !== $target->getNextcloudUserId()) {
-			throw new ForbiddenException($this->l10n->t('You are not allowed to update this user'));
-		}
-		if (!TitleCatalog::isValidPack($packKey)) {
-			throw new \InvalidArgumentException('Unknown title pack: ' . $packKey);
-		}
-		$target->setSelectedTitlePack($packKey);
-		$this->houseUserMapper->update($target);
-	}
-
-	/**
 	 * Detect titles the user newly qualifies for since the last check.
 	 *
 	 * Compares the live-derived unlock set against the user's
-	 * `unlocked_titles` cache. Newly-crossed tiers are appended to the cache
-	 * (mutating the entity in-memory) and returned so the caller can fire a
-	 * notification + celebration. The caller persists the HouseUser (e.g.
-	 * GameLogicService's existing mapper update) — this method does NOT
-	 * persist, to avoid a double write.
+	 * `unlocked_titles` marker. Newly-crossed tiers are appended to the
+	 * marker (mutating the entity in-memory) and returned so the caller can
+	 * fire a notification + celebration. The caller persists the HouseUser
+	 * (e.g. the existing mapper update) — this method does NOT persist, to
+	 * avoid a double write.
 	 *
 	 * Idempotent: a second call with unchanged stats returns an empty list
-	 * (everything is already cached).
+	 * (everything is already marked) — earned recognition never re-celebrates
+	 * after spending, undo/redo or an ordinary later break (C3g).
 	 *
 	 * @return array<int, array{pack: string, packLabelKey: string, tierIndex: int, tierKey: string, labelKey: string, threshold: int}>
 	 */
@@ -138,12 +98,12 @@ class TitleService {
 	}
 
 	/**
-	 * Correction reconciliation (CS-PLAN-070 WP3, Q-074-01 / C3g): revoke
-	 * a cached tier ONLY when the corrected valid history no longer
-	 * reaches its threshold — a tier supported by any surviving valid run
-	 * (earlier or later) stays cached, ordinary spending or later real
-	 * streak breaks never revoke earned recognition. The caller persists
-	 * the HouseUser; returns the removed tier ids.
+	 * Correction reconciliation (CS-PLAN-070 WP3, Q-074-01 / C3g): revoke a
+	 * marked tier ONLY when the corrected valid history no longer reaches
+	 * its threshold — a tier supported by any surviving valid run (earlier
+	 * or later) stays marked, ordinary spending or later real streak breaks
+	 * never revoke earned recognition. The caller persists the HouseUser;
+	 * returns the removed tier ids.
 	 *
 	 * @return list<string>
 	 */
@@ -168,9 +128,9 @@ class TitleService {
 	}
 
 	/**
-	 * The pack/tier catalog with effective (config-overridden) thresholds,
-	 * shaped for the title-picker API so the frontend can render progress
-	 * bars without a second call.
+	 * The retained series/tier catalog with its fixed thresholds, shaped
+	 * for the titles API so the frontend can render progress without a
+	 * second call.
 	 *
 	 * @return array<string, array{labelKey: string, signal: string, tiers: array<int, array{key: string, labelKey: string, threshold: int}>}>
 	 */
@@ -179,11 +139,11 @@ class TitleService {
 		foreach (TitleCatalog::getPackKeys() as $packKey) {
 			$pack = TitleCatalog::getPack($packKey);
 			$tiers = [];
-			foreach ($pack['tiers'] as $index => $tier) {
+			foreach ($pack['tiers'] as $tier) {
 				$tiers[] = [
 					'key' => $tier['key'],
 					'labelKey' => $tier['labelKey'],
-					'threshold' => $this->rewardConfig->getTitleThreshold($packKey, $index),
+					'threshold' => $tier['threshold'],
 				];
 			}
 			$view[$packKey] = [
@@ -209,7 +169,7 @@ class TitleService {
 			'tierIndex' => $tierIndex,
 			'tierKey' => $tier['key'],
 			'labelKey' => $tier['labelKey'],
-			'threshold' => $this->rewardConfig->getTitleThreshold($packKey, $tierIndex),
+			'threshold' => $tier['threshold'],
 		];
 	}
 
@@ -217,26 +177,19 @@ class TitleService {
 	 * Single source of the `signalValue >= threshold` qualification check.
 	 *
 	 * Returns tier descriptors for every tier the user currently qualifies
-	 * for, optionally limited to one pack. Tiers are returned in ascending
-	 * tier order within each pack, so the last element is the highest tier.
-	 * getCurrentTitle/getUnlockedTitles/detectUnlock all derive from this
-	 * so the unlock semantics can never drift between them.
+	 * for. Tiers are returned in ascending tier order, so the last element
+	 * is the highest tier. getCurrentTitle/getUnlockedTitles/detectUnlock
+	 * all derive from this so the unlock semantics can never drift.
 	 *
-	 * @param string|null $packKey Limit to one pack, or null for all packs
 	 * @return array<int, array{pack: string, packLabelKey: string, tierIndex: int, tierKey: string, labelKey: string, threshold: int}>
 	 */
-	private function qualifyingTiers(HouseUser $user, ?string $packKey = null): array {
-		$packKeys = $packKey !== null && TitleCatalog::isValidPack($packKey)
-			? [$packKey]
-			: TitleCatalog::getPackKeys();
-
+	private function qualifyingTiers(HouseUser $user): array {
 		$result = [];
-		foreach ($packKeys as $key) {
+		foreach (TitleCatalog::getPackKeys() as $key) {
 			$pack = TitleCatalog::getPack($key);
 			$signalValue = TitleCatalog::getSignalValue($user, $pack['signal']);
 			foreach ($pack['tiers'] as $index => $tier) {
-				$threshold = $this->rewardConfig->getTitleThreshold($key, $index);
-				if ($signalValue >= $threshold) {
+				if ($signalValue >= $tier['threshold']) {
 					$result[] = $this->tierDescriptor($key, $index);
 				}
 			}

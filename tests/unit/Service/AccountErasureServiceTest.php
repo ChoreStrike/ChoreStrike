@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MedalMapper;
+use OCA\ChoreStrike\Db\MemberPreferenceMapper;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
@@ -41,6 +42,7 @@ class AccountErasureServiceTest extends TestCase {
 	private MedalMapper $medalMapper;
 	private WalletEntryMapper $walletEntryMapper;
 	private WorkShareMapper $workShareMapper;
+	private MemberPreferenceMapper $memberPreferenceMapper;
 	private TransactionExecutor $transactions;
 	private AppLogger $appLogger;
 
@@ -51,6 +53,7 @@ class AccountErasureServiceTest extends TestCase {
 		$this->medalMapper = $this->createMock(MedalMapper::class);
 		$this->walletEntryMapper = $this->createMock(WalletEntryMapper::class);
 		$this->workShareMapper = $this->createMock(WorkShareMapper::class);
+		$this->memberPreferenceMapper = $this->createMock(MemberPreferenceMapper::class);
 		$this->transactions = $this->createMock(TransactionExecutor::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 	}
@@ -78,6 +81,7 @@ class AccountErasureServiceTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\AgreementMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\PauseMapper::class),
+			$this->memberPreferenceMapper,
 			$this->createMock(\OCA\ChoreStrike\Db\CompletionRevisionMapper::class),
 			$this->workShareMapper,
 			$this->transactions,
@@ -155,6 +159,30 @@ class AccountErasureServiceTest extends TestCase {
 		$this->walletEntryMapper->expects($this->once())->method('anonymizeActorWallet')->with(42);
 		$this->workShareMapper->expects($this->once())->method('anonymizeWallet')->with(42);
 		$this->houseUserMapper->expects($this->once())->method('delete')->with($membership);
+
+		$this->service()->eraseAccount('erased_user');
+	}
+
+	/**
+	 * CurrentMemberErasure_PurgesRankingConsentByMembershipId
+	 *
+	 * CS-PLAN-070 WP4 (Q-075-01 A / Q-070-02): the ranking-consent row is
+	 * personal data — purged with the erased membership, keyed by the
+	 * MEMBERSHIP id (never the Nextcloud UID). A recreated same-UID
+	 * account gets a fresh membership id, so the deleted consent can
+	 * never rebind to it.
+	 */
+	public function testCurrentMemberErasure_PurgesRankingConsentByMembershipId(): void {
+		$membership = $this->membership(12, 10);
+		$this->houseUserMapper->method('findAllByNextcloudUserId')->willReturn([$membership]);
+		$this->walletMapper->method('findByHouseAndUser')->willReturn(null);
+		$this->walletMapper->method('findAllByUserId')->willReturn([]);
+		$this->transactions->method('run')->willReturnCallback(static fn (callable $fn) => $fn());
+		$this->houseUserMapper->expects($this->once())->method('delete')->with($membership);
+
+		$this->memberPreferenceMapper->expects($this->once())
+			->method('deleteByHouseAndUser')
+			->with(10, 12);
 
 		$this->service()->eraseAccount('erased_user');
 	}

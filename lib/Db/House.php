@@ -34,6 +34,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCatalogEnabled(bool $catalogEnabled)
  * @method bool getRankingEnabled()
  * @method void setRankingEnabled(bool $rankingEnabled)
+ * @method int getRankingGenerationSeq()
+ * @method void setRankingGenerationSeq(int $rankingGenerationSeq)
  */
 class House extends Entity implements JsonSerializable {
 	/** @var string */
@@ -82,6 +84,15 @@ class House extends Entity implements JsonSerializable {
 	/** @var bool Ranking flag, frozen default-false for WP4/WP7. */
 	protected $rankingEnabled = false;
 
+	/**
+	 * Per-house monotonic ranking generation watermark (CS-PLAN-070 WP4,
+	 * Q-075-01 A). Allocated under the house lock; survives the deletion of
+	 * every consent row so a withdrawn generation is never reused.
+	 *
+	 * @var int
+	 */
+	protected $rankingGenerationSeq = 0;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('nextcloudInstanceId', 'string');
@@ -94,6 +105,7 @@ class House extends Entity implements JsonSerializable {
 		$this->addType('timezoneVersion', 'integer');
 		$this->addType('catalogEnabled', 'boolean');
 		$this->addType('rankingEnabled', 'boolean');
+		$this->addType('rankingGenerationSeq', 'integer');
 	}
 
 	/**
@@ -112,6 +124,9 @@ class House extends Entity implements JsonSerializable {
 			'createdAt' => $this->createdAt?->format('c'),
 			'updatedAt' => $this->updatedAt?->format('c'),
 			'timezone' => $this->timezone,
+			// Consent-filtered ranking gate (CS-PLAN-070 WP4, C5i/D10b) —
+			// the Leaderboard's opt-in/closed state reads this.
+			'rankingEnabled' => $this->rankingEnabled,
 		];
 	}
 

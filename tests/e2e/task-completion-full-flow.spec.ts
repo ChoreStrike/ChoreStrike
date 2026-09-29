@@ -109,16 +109,11 @@ test.describe('Task Completion Full Flow', () => {
 			const stateAfter = await (await page.request.get('/apps/chorestrike/api/v1/game/state')).json()
 			expect(stateAfter.data.wallet.bookedMinor).toBe(receipt.data.rewards.wallet.bookedMinor)
 
-			// Exact credited score: the LEADERBOARD row (the real member
-			// score surface) equals the receipt's contribution total
-			// (decision D10), not "some larger number".
-			await page.goto('/apps/chorestrike/#/leaderboard')
-			await expect(page.getByTestId('leaderboard-list')).toBeVisible({ timeout: 20000 })
-			const momRow = page.locator('[data-testid="leaderboard-entry"]').filter({ hasText: 'Mom' }).first()
-			await expect(momRow).toBeVisible({ timeout: 15000 })
-			const newScoreText = await momRow.locator('[data-testid="contribution-score"]').textContent()
-			const newScore = parseInt((newScoreText ?? '').replace(/\D/g, '')) || 0
-			expect(newScore).toBe(receipt.data.rewards.contributionMinor)
+			// Exact credited minor units in the caller's own game-state
+			// projection (WP4 cutover: the leaderboard no longer renders
+			// contribution scores — the state endpoint is the authoritative
+			// read for the credited amount, decision D10).
+			expect(stateAfter.data.contributionMinor).toBe(receipt.data.rewards.contributionMinor)
 
 		} finally {
 			await context.close()

@@ -62,11 +62,12 @@ reward merely to manufacture equal rankings is not an agreed requirement.
 | Mechanic | Behaviour | Config key (default) |
 |----------|-----------|----------------------|
 | **Coins (minor-unit wallet)** | Exact derivations of the frozen work evidence: `coinMinor = 10 × totalEnergy × sharePct` at the frozen `rate_minor` (1000 coin minor per energy). Booked through the immutable `wallet_entries` ledger (`(wallet, source-kind, source-id, source-revision)` idempotency identity); cached balance maintained transactionally, safe-integer envelope enforced. Corrections move value between wallets with exact union deltas — a completion pays out exactly the frozen total. | frozen `rate_minor` at completion |
-| **Contribution** | `energyMinor = totalEnergy × sharePct` accumulated per wallet (`contributionMinor`); leaderboard/fairness/title signal. Corrections re-derive it from the valid history — never a cached increment/decrement. | None |
+| **Contribution** | `energyMinor = totalEnergy × sharePct` accumulated per wallet (`contributionMinor`); fairness signal. Corrections re-derive it from the valid history — never a cached increment/decrement. Not a ranking surface (see the consent-filtered ranking below). | None |
 | **Work splits** | The completer records the actual participants (1–100 unique eligible members, whole percents summing to 100); the completer must take part. A later attribution corrects the split by completer/owner authority with the explicit review confirmation; departed participants' retained wallets are always part of the reversal. | None |
-| **Weekly household goal** | Agreed due occurrences completed validly inside their window, counted by planned house-local week. Daily repeats count separately, late catch-up does not move credit into the completion week, recognized pauses are neutral, and undo removes the valid result. The first qualifying closed-week pass claims one durable household bell receipt; an open week never sends it. | `weekly_goal_target_percent` (80) |
-| **Role titles** | Progression overlay (3 packs × 3 tiers); thresholds come from the server config/catalog. | `titles_enabled` (true), `title_threshold_{pack}_{tier}` (catalog defaults) |
-| **Streaks (planned-day rhythm)** | `currentStreak`/`longestStreak` recompute from the valid planned-day history after completion/undo/attribution and when a deadline expires: a day is fulfilled/pending-neutral/expired-miss per its actual participation and window; a correction shrinks the longest record only to the corrected valid-history maximum (C3g). | None |
+| **Weekly household goal** | Agreed due occurrences completed validly inside their window, counted by planned house-local week. Daily repeats count separately, late catch-up does not move credit into the completion week, recognized pauses are neutral, and undo removes the valid result. The first qualifying closed-week pass claims one durable household bell receipt; an open week never sends it. The house progress and the caller's personal slice (WP4) carry explicit `eligible`/`onTime`/`neutral` counts and the `provisional` flag. | None — **fixed 80% target** (WP4 retired the `weekly_goal_target_percent` override) |
+| **Role titles** | Single retained series (WP4): Family Rhythm on the valid-history maximum, fixed 3/6/12 rungs, no pack selection. | `titles_enabled` (true) |
+| **Streaks (planned-day rhythm)** | `currentStreak`/`longestStreak` recompute from the valid planned-day history after completion/undo/attribution and when a deadline expires: a day is fulfilled/pending-neutral/expired-miss per its actual participation and window; a correction shrinks the longest record only to the corrected valid-history maximum (C3g). Evaluations also expose the pending-hold indicator. | None |
+| **Weekly ranking (WP4, ADR-015)** | Opt-in, consent-filtered comparison: one visible entry per effectively-consented member with the on-time ratio of that member's public agreed occurrences — exact-rational ties, neutral zero-denominators, provisional week, pending consents unranked. Consent activates the NEXT Monday (never retroactive), withdrawal is immediate, consent belongs to the active membership, and the owner-only `rankingEnabled` flag defaults off. The filter lives server-side; no Coins, speed, contribution or private-task data is exposed. | None — flag lives on the house row |
 
 **WP3 closure notes:** the early-bonus/midnight, snapshot-reversal and
 daily-count weekly-goal mismatches listed before 2026-09-27 are closed by the
@@ -87,11 +88,42 @@ evaluation). Corrections, authority and audit are specified in
 > unsupported awards, and `awardMedalIfNew()` remains race-safe and
 > idempotent per user/type/week without a second celebration.
 
-## Role Title Systems (Localized)
+## Role Title System (Single Series, since WP4)
 
-> **Status: Shipped (CS-PLAN-006).** Three title packs are live as a
-> progression-overlay on top of the existing stats. Titles react to existing
-> progression signals only — no new core loop, currency, or completion path.
+> **Status: Retained single series (CS-PLAN-070 WP4, Q-075-02 A).** The
+> multi-pack selection surface (picker, `PUT /users/{id}/titles/select`,
+> `selected_title_pack`) retired 2026-09-27: titles are derived identity,
+> not a preference. The section below is the historical pack design.
+
+One retained series is live as a progression overlay on top of the existing
+stats. Titles react to existing progression signals only — no new core loop,
+currency, or completion path:
+
+| Series | Signal | Fixed tier thresholds |
+|--------|--------|-----------------------|
+| Family Rhythm | `longestStreak` (valid-history maximum) | 3 / 6 / 12 |
+
+- Server-authoritative: the client only displays what the server returns.
+  `currentTitle` is always the highest qualifying tier of the single series
+  (an ordinary later streak break never strips an earned title — D7c).
+- `unlocked_titles` is the first-earned celebration marker (C3g no-repeat),
+  reconciled against the corrected valid history; recomputable from stats.
+- Thresholds are fixed policy — the `title_threshold_{pack}_{tier}` config
+  keys retired with WP4 (fixed 10/80/3-6-12 first slice).
+- Unlock moments reuse the celebration layer (`chorestrike:title-unlocked`
+  event → confetti + milestone SFX) and fire a best-effort Nextcloud
+  notification. The whole subsystem can be disabled via the
+  `titles_enabled` config flag.
+
+<details><summary>Historical: the retired multi-pack catalog</summary>
+
+The effort-driven Home Helpers (`contributionMinor` 50/250/1000) and
+streak-driven Team Energy (`longestStreak` 7/30/90) packs, and the earlier
+coins-driven Cozy Home pack, retired with the WP3/WP4 cutovers (C3d: no
+separate effort/wallet title series). Their l10n label keys were removed
+with the catalog.
+
+</details>
 
 ### Arcade (play-only since WP3, CS-PLAN-068 → ADR-014)
 
@@ -103,56 +135,10 @@ house-local day) and leaderboards remain house-scoped. Playable 2048/Memory
 prototypes do not have supported score saves. See the Minigames section in
 [`../api/README.md`](../api/README.md).
 
-Role names must feel friendly and motivating.
-Use localized title packs so each household can choose a style.
-Each pack includes 3 progressive titles (low/medium/high contribution).
-
-MVP scope: provide 3 built-in family-friendly packs.
-
-Implementation (`lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php`):
-
-| Pack | Signal | Tier thresholds (defaults) |
-|------|--------|----------------------------|
-| Home Helpers | `contributionMinor` | 50 / 250 / 1000 |
-| Team Energy | `longestStreak` | 7 / 30 / 90 |
-
-- Server-authoritative unlocks: the client only displays what the server returns.
-- Each pack's signal is an **actively-maintained** stat: `contributionMinor`
-  is the exact lifetime work in minor units (100 per energy) and
-  `longestStreak` is the corrected-record maximum from the valid planned-day
-  history (WP3 `RhythmService`).
-- Thresholds use `RewardConfigService` keys (`title_threshold_{pack}_{tier}`).
-  There is no live reward-config HTTP API; API consumers must not rely on
-  the retired configuration routes.
-- The user picks one active pack; within that pack the highest currently
-  qualifying tier is shown, recomputed from live stats. Switching packs is free.
-- The former `coins`-driven Cozy Home pack retired with the spendable-balance
-  economy (WP3); recognition never reads a spendable balance.
-- Unlock moments reuse the celebration layer (`chorestrike:title-unlocked`
-  event → confetti + milestone SFX) and fire a best-effort Nextcloud
-  notification. The whole subsystem can be disabled via the
-  `titles_enabled` config flag.
-
-### Pack A: Home Helpers (Neutral, Family-Friendly)
-
-- EN: Helper, Organizer, Care Captain
-- DE: Helfer, Organisator, Fürsorge-Captain
-
-### Pack B: Team Energy (Cooperative, Positive)
-
-- EN: Spark Starter, Flow Keeper, Team Anchor
-- DE: Funkenstarter, Flow-Hüter, Team-Anker
-
-### Pack C: Cozy Home (Warm, Inviting)
-
-- EN: Cozy Buddy, Room Ranger, Home Guardian
-- DE: Wohlfühl-Buddy, Raum-Ranger, Zuhause-Hüter
-
-### Post-MVP Extension
-
-- Additional built-in packs can be added after MVP.
-- Custom title packs are planned for post-MVP once stable pack management APIs exist.
-- All future packs must follow family-friendly, non-aggressive naming policy.
+The chore-ranking comparison between members is NOT the arcade leaderboard —
+it is the consent-filtered weekly ranking described above
+([ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md)); no unconditional
+contribution leaderboard exists.
 
 ## Streaks and Rewards
 

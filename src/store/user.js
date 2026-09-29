@@ -49,11 +49,6 @@ export const useUserStore = defineStore('user', {
 		 * @return {boolean} True when the current role may manage tasks.
 		 */
 		canManageTasks: (state) => ['owner', 'member'].includes(state.currentUser?.role),
-
-		getLeaderboard: (state) => {
-			return [...state.houseUsers]
-				.sort((a, b) => b.contributionMinor - a.contributionMinor)
-		},
 	},
 
 	actions: {

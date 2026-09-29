@@ -10,7 +10,6 @@ const EXCLUDED = new Set(['lib/Controller/TestController.php', 'lib/Service/Test
 // Exact variable consumers, each paired with a finite source owner below.
 const DYNAMIC = {
 	'src/constants/titles.js': ['title.labelKey'],
-	'src/components/Profile/TitlePicker.vue': ['key', 'tier.labelKey'],
 	'src/components/Common/MedalBadge.vue': ['key'],
 	'src/views/Leaderboard.vue': ['MEDAL_LABELS[medal.medalType]'],
 	'src/components/Tasks/TaskEditForm.vue': ['energyLabels[n]', 'frequencyLabel', 'everyKey'],

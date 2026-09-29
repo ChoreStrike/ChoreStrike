@@ -9,21 +9,29 @@ use OCA\ChoreStrike\Titles\TitleCatalog;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for the TitleCatalog constant definitions (CS-PLAN-006 Phase 1).
+ * Unit tests for the TitleCatalog constant definitions (CS-PLAN-006
+ * Phase 1; WP4 single-series cutover per CS-PLAN-070 C3d/D7c).
  */
 class TitleCatalogTest extends TestCase {
 	public function testIsValidCatalog_StockDefinition_ReturnsTrue(): void {
 		$this->assertTrue(TitleCatalog::isValidCatalog());
 	}
 
-	public function testGetPackKeys_ReturnsThreePacks(): void {
+	public function testGetPackKeys_ReturnsSingleRetainedSeries(): void {
 		$this->assertSame(
-			['home_helpers', 'team_energy', 'cozy_home'],
+			['family_rhythm'],
 			TitleCatalog::getPackKeys()
 		);
 	}
 
-	public function testEachPackHasThreeAscendingTiers(): void {
+	/** C3d: the effort/wallet title series (home_helpers/team_energy) retired. */
+	public function testRetiredPacks_AreAbsent(): void {
+		$this->assertFalse(TitleCatalog::isValidPack('home_helpers'));
+		$this->assertFalse(TitleCatalog::isValidPack('team_energy'));
+		$this->assertFalse(TitleCatalog::isValidPack('cozy_home'));
+	}
+
+	public function testSeriesHasThreeAscendingTiers(): void {
 		foreach (TitleCatalog::getPackKeys() as $packKey) {
 			$tiers = TitleCatalog::getTiers($packKey);
 			$this->assertCount(3, $tiers, $packKey . ' must have 3 tiers');
@@ -43,59 +51,43 @@ class TitleCatalogTest extends TestCase {
 		}
 	}
 
-	public function testEachPackHasKnownSignal(): void {
-		$validSignals = [
-			TitleCatalog::SIGNAL_CONTRIBUTION_SCORE,
+	/** The fixed 3/6/12 first-slice thresholds (WP4: not config-overridable). */
+	public function testRetainedThresholds_AreFixedAt3_6_12(): void {
+		$tiers = TitleCatalog::getTiers(TitleCatalog::PACK_FAMILY_RHYTHM);
+		$this->assertSame([3, 6, 12], array_column($tiers, 'threshold'));
+	}
+
+	public function testSeriesUsesTheValidHistoryMaximumSignal(): void {
+		$this->assertSame(
 			TitleCatalog::SIGNAL_LONGEST_STREAK,
-			TitleCatalog::SIGNAL_COINS,
-		];
-		foreach (TitleCatalog::getPackKeys() as $packKey) {
-			$signal = TitleCatalog::getPack($packKey)['signal'];
-			$this->assertContains($signal, $validSignals, $packKey . ' has an unknown signal');
-		}
+			TitleCatalog::getPack(TitleCatalog::PACK_FAMILY_RHYTHM)['signal']
+		);
 	}
 
-	public function testIsValidPack_KnownPack_ReturnsTrue(): void {
-		$this->assertTrue(TitleCatalog::isValidPack('home_helpers'));
+	public function testIsValidPack_RetainedSeries_ReturnsTrue(): void {
+		$this->assertTrue(TitleCatalog::isValidPack('family_rhythm'));
 	}
 
-	public function testIsValidPack_UnknownPack_ReturnsFalse(): void {
+	public function testIsValidPack_UnknownSeries_ReturnsFalse(): void {
 		$this->assertFalse(TitleCatalog::isValidPack('does_not_exist'));
 	}
 
-	public function testGetPack_UnknownPack_Throws(): void {
+	public function testGetPack_UnknownSeries_Throws(): void {
 		$this->expectException(\InvalidArgumentException::class);
 		TitleCatalog::getPack('nope');
 	}
 
 	public function testTierId_BuildsCanonicalIdentifier(): void {
-		$this->assertSame('home_helpers.helper', TitleCatalog::tierId('home_helpers', 0));
-		$this->assertSame('team_energy.team_anchor', TitleCatalog::tierId('team_energy', 2));
+		$this->assertSame('family_rhythm.rhythm_3', TitleCatalog::tierId('family_rhythm', 0));
+		$this->assertSame('family_rhythm.rhythm_12', TitleCatalog::tierId('family_rhythm', 2));
 	}
 
-	public function testGetSignalValue_ReadsCorrectStat(): void {
+	public function testGetSignalValue_ReadsTheValidHistoryMaximum(): void {
 		$user = new HouseUser();
-		$user->setContributionScore(123);
 		$user->setLongestStreak(42);
-		$user->setCoins(777);
+		$user->setCurrentStreak(1);
 
-		$this->assertSame(123, TitleCatalog::getSignalValue($user, TitleCatalog::SIGNAL_CONTRIBUTION_SCORE));
 		$this->assertSame(42, TitleCatalog::getSignalValue($user, TitleCatalog::SIGNAL_LONGEST_STREAK));
-		$this->assertSame(777, TitleCatalog::getSignalValue($user, TitleCatalog::SIGNAL_COINS));
-	}
-
-	/**
-	 * Regression (CS-PLAN-010): the catalog must validate without the removed
-	 * `SIGNAL_TOTAL_SPARKS_EARNED` (Sparks residue cleanup). Every pack signal
-	 * resolves to a live HouseUser stat.
-	 */
-	public function testCatalogHasNoSparksSignal_AfterRemoval(): void {
-		$reflection = new \ReflectionClass(TitleCatalog::class);
-		$this->assertFalse(
-			$reflection->hasConstant('SIGNAL_TOTAL_SPARKS_EARNED'),
-			'SIGNAL_TOTAL_SPARKS_EARNED must be removed from TitleCatalog'
-		);
-		$this->assertTrue(TitleCatalog::isValidCatalog());
 	}
 
 	public function testGetSignalValue_UnknownSignal_ReturnsZero(): void {

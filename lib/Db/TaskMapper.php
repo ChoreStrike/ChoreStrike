@@ -290,8 +290,9 @@ class TaskMapper extends QBMapper {
 				)
 			);
 
-		$qb->orderBy('t.task_tier', 'DESC')
-			->addOrderBy('t.name', 'ASC');
+		// CS-PLAN-070 WP4: the retired Coin-era task_tier ordering column is
+		// gone — the index sorts by name only.
+		$qb->orderBy('t.name', 'ASC');
 
 		return $this->findEntities($qb);
 	}

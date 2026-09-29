@@ -53,31 +53,11 @@ describe('useToasts composable', () => {
 		const { useToasts } = require('@/composables/useToasts')
 		useToasts()
 
-		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:streak-freeze-used', expect.any(Function))
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:weekly-goal-reached', expect.any(Function))
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:medal-awarded', expect.any(Function))
-		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:task-completed', expect.any(Function))
-	})
-
-	it('shows a warning toast on streak-freeze-used with remaining count', () => {
-		const { useToasts } = require('@/composables/useToasts')
-		useToasts()
-
-		handlers['chorestrike:streak-freeze-used']({ remaining: 1 })
-
-		expect(mockShowWarning).toHaveBeenCalledTimes(1)
-		// Pluralisation is reflected in the message text.
-		expect(mockShowWarning).toHaveBeenCalledWith(expect.stringContaining('Streak protected by freeze'))
-		expect(mockShowWarning).toHaveBeenCalledWith(expect.stringContaining('1 freeze remaining'))
-	})
-
-	it('uses plural form when more than one freeze remains', () => {
-		const { useToasts } = require('@/composables/useToasts')
-		useToasts()
-
-		handlers['chorestrike:streak-freeze-used']({ remaining: 3 })
-
-		expect(mockShowWarning).toHaveBeenCalledWith(expect.stringContaining('3 freezes remaining'))
+		// WP4 retirement pins: the freeze/combo event surfaces are gone.
+		expect(mockSubscribe).not.toHaveBeenCalledWith('chorestrike:streak-freeze-used', expect.any(Function))
+		expect(mockSubscribe).not.toHaveBeenCalledWith('chorestrike:task-completed', expect.any(Function))
 	})
 
 	it('shows a success toast on weekly-goal-reached with percent and target', () => {
@@ -101,22 +81,14 @@ describe('useToasts composable', () => {
 		expect(mockShowSuccess).toHaveBeenCalledWith(expect.stringContaining('medal'))
 	})
 
-	it('shows a bonus-freeze toast when task-completed carries comboBonusFreeze', () => {
+	it('never toasts for freeze/combo payloads (retired mechanics)', () => {
 		const { useToasts } = require('@/composables/useToasts')
 		useToasts()
 
-		handlers['chorestrike:task-completed']({ comboBonusFreeze: true })
-
-		expect(mockShowSuccess).toHaveBeenCalledWith(expect.stringContaining('Bonus freeze'))
-	})
-
-	it('does not toast on a plain task completion without combo bonus', () => {
-		const { useToasts } = require('@/composables/useToasts')
-		useToasts()
-
-		handlers['chorestrike:task-completed']({ comboBonusFreeze: false })
-
+		expect(handlers['chorestrike:streak-freeze-used']).toBeUndefined()
+		expect(handlers['chorestrike:task-completed']).toBeUndefined()
 		expect(mockShowSuccess).not.toHaveBeenCalled()
+		expect(mockShowWarning).not.toHaveBeenCalled()
 	})
 
 	it('returns a cleanup function that unsubscribes all handlers', () => {
@@ -125,15 +97,7 @@ describe('useToasts composable', () => {
 
 		cleanup()
 
-		// 4 subscriptions registered.
-		expect(mockUnsubscribe).toHaveBeenCalledTimes(4)
-	})
-
-	it('defaults missing freeze count to 0 without throwing', () => {
-		const { useToasts } = require('@/composables/useToasts')
-		useToasts()
-
-		expect(() => handlers['chorestrike:streak-freeze-used']({})).not.toThrow()
-		expect(mockShowWarning).toHaveBeenCalled()
+		// 2 subscriptions registered (weekly goal + medal).
+		expect(mockUnsubscribe).toHaveBeenCalledTimes(2)
 	})
 })

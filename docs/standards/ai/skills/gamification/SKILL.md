@@ -68,15 +68,18 @@ describe the WP3 model as the shipped contract.
   history inside every aggregate: a day is fulfilled / pending-neutral /
   expired-miss from occurrence validity + window; a correction shrinks the
   longest record only to the corrected valid-history maximum (C3g).
+  `RhythmService` evaluations also expose the pending-hold indicator.
 - The weekly goal evaluates the union of due and validly completed room tasks
-  per house-local week (`weekly_goal_target_percent`, default 80).
+  per house-local week at the FIXED 80% target (WP4: no config override);
+  house progress carries explicit eligible/onTime/neutral counts, and the
+  caller's personal slice derives from the same occurrence facts.
 
 ### 5. Weekly Medals (recognition)
 - The old activity/combo catalog (`team_anchor`, `flow_keeper`,
-  `room_guardian`, `team_player`) retired with the wallet cutover.
-  `MedalService` carries the wallet-qualified **rhythm award cluster**
-  (`streak_keeper` from the valid planned-day history; further rhythm awards
-  follow the same rules), awarded read-triggered via `awardMedalIfNew()`
+  `room_guardian`, `team_player`, `streak_keeper`) retired with the wallet
+  and WP4 label cutovers. `MedalService` carries the retained catalog — the
+  rhythm tiers (`rhythm_3/6/12` from the valid planned-day history) plus the
+  household weekly milestone — awarded read-triggered via `awardMedalIfNew()`
   (race-safe, notifies once per user+type+week).
 
 ### 6. Energy Model
@@ -87,10 +90,22 @@ describe the WP3 model as the shipped contract.
   never re-prices recorded work). Completion never consults the evaluator;
   over-limit real work stays recordable.
 
-### 7. Role Titles (localized packs)
-- Signals are `contributionMinor` (Home Helpers) and `longestStreak`
-  (Team Energy); the coins-driven pack retired with the spendable economy.
-- Server-authoritative unlocks; thresholds via `title_threshold_{pack}_{tier}`.
+### 7. Role Titles (single series)
+- One retained series: **Family Rhythm**, signal `longestStreak`
+  (the valid-history maximum), fixed 3/6/12 thresholds — the effort/wallet
+  packs and the config-overridable thresholds retired with WP4 (C3d/Q-075-02 A).
+  `currentTitle` is always the highest qualifying tier; `unlocked_titles`
+  stays as the first-earned celebration marker (no pack selection).
+- Server-authoritative: unlocks derive live from stats, never from the cache.
+
+### 8. Consent-filtered ranking (WP4, ADR-015)
+- Opt-in per membership (`ranking#index/consent/withdraw`), owner-only house
+  flag default off; consent activates the NEXT Monday (saved with the house
+  zone, never retroactive) and withdrawal is immediate.
+- Visible entries: effective consents only, on-time ratio over public
+  agreed occurrences, exact-rational ties, neutral zero-denominators,
+  pending consents unranked. Consent belongs to the membership (departure/
+  erasure/delete-on-disable; the house generation watermark survives).
 
 ## Backend Services
 
@@ -100,9 +115,10 @@ describe the WP3 model as the shipped contract.
 | `CommandService` | Command log: execute-or-replay with the unique (house, UUID) receipt row committed in-transaction |
 | `WalletService` | Wallet binding, immutable ledger postings, cached balances, funding-hold |
 | `RoomReplayService` | Room journal fold (baseline/delta/manual/reset, clamps, `(effective_at, id)` order); the room cache is a derived projection |
-| `RhythmService` | Streak derivation from the valid planned-day history (neutral pending days; corrected-record shrinking) |
-| `WeeklyGoalService` | Due∪completed per-house-local-week evaluation |
+| `RhythmService` | Streak derivation from the valid planned-day history (neutral pending days; corrected-record shrinking; pending-hold indicator) |
+| `WeeklyGoalService` | Due∪completed per-house-local-week evaluation + the personal member slice |
 | `MedalService` | Rhythm medal evaluation and race-safe awards |
+| `RankingService` | Consent lifecycle + exact-rational weekly ranking (ADR-015) |
 | `EffortAllocationService` | Exact minor-unit share math |
 | `GameLogicService` | Viewer-safe game-state serialization only (legacy reward orchestration retired) |
 
@@ -116,8 +132,9 @@ describe the WP3 model as the shipped contract.
 | `WorkShare` / `WorkShareMapper` | Allocation revisions per completion |
 | `CompletionRevision` / `CompletionRevisionMapper` | Append-only audit chain |
 | `RoomEvent` / `RoomEventMapper` | Room journal (replay authority) |
-| `HouseUser` / `HouseUserMapper` | Membership, contributionMinor, streak records, title state |
+| `HouseUser` / `HouseUserMapper` | Membership, contributionMinor, streak records, single-series unlocked-title marker |
 | `Medal` / `MedalMapper` | Awarded rhythm medals (user, type, week) |
+| `MemberPreference` / `MemberPreferenceMapper` | Ranking-consent row per membership (generation, saved Monday + zone) |
 
 ## Design Rules
 

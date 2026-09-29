@@ -156,7 +156,6 @@ class FamilyTestData {
 		$task->setIsVoluntary(false);
 		$task->setSchedulingMode('flexible');
 		$task->setAllowTeamwork(false);
-		$task->setTeamSparkMultiplier(1.0);
 		$task->setCreatedAt(new \DateTime('2024-01-01'));
 		return $task;
 	}

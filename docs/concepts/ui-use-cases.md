@@ -319,13 +319,14 @@ preview/apply). **Entry points:** SchedulingView.
 |---|---|---|---|
 | Coin balance | ArcadeSection | `GET /minigames/coins` | ✅ |
 | Game/global state (streaks, goal) | Dashboard | `GET /game/state` | ✅ |
-| Leaderboard (podium, streak badges, "You") | Leaderboard | `GET /users` (store `getLeaderboard`); `GET /game/leaderboard` pruned (CS-PLAN-055 — it was test-only) | ✅ |
-| Leaderboard period filter (week/month/all) | Leaderboard | — | ⛔ removed (CS-PLAN-041): `getLeaderboard` has no period parameter; a filter that changes nothing is dishonest UI |
+| Weekly ranking (opt-in, consent-filtered) | Leaderboard | `GET /ranking` + `POST /ranking/(consent\|withdraw)`; the unconditional `GET /users` ranking (`getLeaderboard`) and the pruned test-only `GET /game/leaderboard` are gone (CS-PLAN-070 WP4) | ✅ |
+| Ranking flag (owner) | Settings → House | `PUT /house` (`rankingEnabled`, default off) | ✅ |
+| Leaderboard period filter (week/month/all) | Leaderboard | — | ⛔ removed (CS-PLAN-041): the ranking view has no period parameter; a filter that changes nothing is dishonest UI |
 | Medals overview | Leaderboard medal cards | `GET /game/medals` | ✅ (store-driven, CS-PLAN-041) |
 | Medal evaluation trigger | Leaderboard mount (pre-pass) | `POST /game/check-medals` | ✅ (CS-PLAN-041) |
-| Unlock & select title | Settings → `TitlePicker` | `GET+PUT /users/{id}/titles(/select)` | ✅ |
-| Weekly goal progress | HouseholdGoalBar | client state | ✅ |
-| Reward rules configuration (coin/combo values) | — | `GET+PUT /reward-config` | ⛔ HTTP surface pruned (CS-PLAN-055); `RewardConfigService` stays as the internal store (appconfig) |
+| Title display (single series, no selection) | Settings | `GET /users/{id}/titles`; `PUT …/titles/select` pruned (CS-PLAN-070 WP4 — `currentTitle` always derives from the valid-history maximum) | ✅ |
+| Weekly goal progress | HouseholdGoalBar | `GET /game/state` (`weeklyGoal` + personal `myWeeklyGoal`) | ✅ |
+| Reward rules configuration (coin/combo values) | — | `GET+PUT /reward-config` | ⛔ HTTP surface pruned (CS-PLAN-055); the WP4 retirement removed the weekly-goal/threshold override keys — only `energyMaxPerTask` and `titlesEnabled` remain |
 
 ## UC-12 — Minigames & boosts
 

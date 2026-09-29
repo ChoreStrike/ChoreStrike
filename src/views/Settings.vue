@@ -22,16 +22,9 @@
 							:title="currentTitle"
 							:unlocked="titlesStore.unlockedTitles" />
 						<span v-else class="no-title" data-testid="no-title">
-							{{ t('chorestrike', 'No title yet — pick a track to get started!') }}
+							{{ t('chorestrike', 'No title yet — keep your rhythm going to earn one!') }}
 						</span>
 					</div>
-					<button
-						class="primary-button"
-						data-testid="change-title-button"
-						@click="openTitlePicker">
-						<Icon name="Award" :size="16" />
-						{{ t('chorestrike', 'Change title') }}
-					</button>
 				</div>
 			</section>
 
@@ -80,6 +73,29 @@
 								data-testid="save-house-timezone"
 								:disabled="!canSaveHouseTimezone || houseStore.loading"
 								@click="saveHouseTimezone">
+								<Icon name="Save" :size="16" />
+								{{ t('chorestrike', 'Save') }}
+							</button>
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="house-ranking">{{ t('chorestrike', 'Weekly ranking') }}</label>
+						<p class="setting-hint">
+							{{ t('chorestrike', 'Opt-in comparison of on-time shares. Every member decides separately on their own participation; turning it off removes everyone immediately.') }}
+						</p>
+						<div class="input-group">
+							<input
+								id="house-ranking"
+								v-model="rankingEnabled"
+								type="checkbox"
+								class="ranking-toggle"
+								data-testid="ranking-toggle"
+								:disabled="houseStore.loading">
+							<button
+								class="save-button"
+								data-testid="save-house-ranking"
+								:disabled="!canSaveRanking || houseStore.loading"
+								@click="saveRanking">
 								<Icon name="Save" :size="16" />
 								{{ t('chorestrike', 'Save') }}
 							</button>
@@ -313,13 +329,6 @@
 			</div>
 		</Modal>
 
-		<!-- Title Picker Modal -->
-		<TitlePicker
-			:show="showTitlePicker"
-			:house-user-id="houseUserId"
-			@close="showTitlePicker = false"
-			@selected="onTitleSelected" />
-
 		<!-- Delete Floor Confirmation -->
 		<ConfirmDialog
 			v-if="floorToDelete !== null"
@@ -354,7 +363,6 @@ import Modal from '../components/Common/Modal.vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import MemberList from '../components/Members/MemberList.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
-import TitlePicker from '../components/Profile/TitlePicker.vue'
 
 export default {
 	name: 'Settings',
@@ -365,7 +373,6 @@ export default {
 		ConfirmDialog,
 		MemberList,
 		TitleBadge,
-		TitlePicker,
 	},
 
 	setup() {
@@ -380,10 +387,10 @@ export default {
 		return {
 			houseName: '',
 			houseTimezone: 'UTC',
+			rankingEnabled: false,
 			showAddFloorModal: false,
 			showEditFloorModal: false,
 			showResetModal: false,
-			showTitlePicker: false,
 			newFloorName: '',
 			editingFloor: null,
 			editingFloorName: '',
@@ -404,6 +411,10 @@ export default {
 
 		canSaveHouseTimezone() {
 			return this.houseTimezone && this.houseTimezone !== this.houseStore.timezone
+		},
+
+		canSaveRanking() {
+			return this.rankingEnabled !== this.houseStore.rankingEnabled
 		},
 
 		curatedTimezones() {
@@ -450,6 +461,7 @@ export default {
 				await this.roomsStore.fetchFloorsWithRooms()
 				this.houseName = this.houseStore.houseName
 				this.houseTimezone = this.houseStore.timezone
+				this.rankingEnabled = this.houseStore.rankingEnabled
 				await this.loadTitle()
 			} catch (error) {
 				logger.error('Failed to initialize settings', error, { view: 'Settings', action: 'initializeSettings' })
@@ -465,14 +477,6 @@ export default {
 			} catch (error) {
 				logger.error('Failed to load title', error, { view: 'Settings', action: 'loadTitle' })
 			}
-		},
-
-		openTitlePicker() {
-			this.showTitlePicker = true
-		},
-
-		onTitleSelected() {
-			this.showTitlePicker = false
 		},
 
 		getRoomCount(floorId) {
@@ -546,6 +550,21 @@ export default {
 				logger.error('Failed to save timezone', error, { view: 'Settings', action: 'saveHouseTimezone' })
 				// Re-sync the select with the persisted value.
 				this.houseTimezone = this.houseStore.timezone
+			}
+		},
+
+		async saveRanking() {
+			if (!this.canSaveRanking) return
+			try {
+				await this.houseStore.updateRankingEnabled(this.rankingEnabled)
+				showSuccess(this.rankingEnabled
+					? t('chorestrike', 'Ranking enabled — every member decides on their own participation')
+					: t('chorestrike', 'Ranking turned off for everyone'))
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to save the ranking setting'))
+				logger.error('Failed to save the ranking setting', error, { view: 'Settings', action: 'saveRanking' })
+				// Re-sync the checkbox with the persisted value.
+				this.rankingEnabled = this.houseStore.rankingEnabled
 			}
 		},
 
@@ -733,6 +752,16 @@ export default {
 .input-group {
 	display: flex;
 	gap: 0.75rem;
+}
+
+/* The ranking checkbox aligns with the text inputs it shares the
+ * input-group with (CS-PLAN-070 WP4 owner toggle). */
+.ranking-toggle {
+	width: 1.1rem;
+	height: 1.1rem;
+	margin: 0.65rem 0;
+	accent-color: var(--color-primary);
+	cursor: pointer;
 }
 
 .text-input {

@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\MemberPreferenceMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
@@ -49,6 +50,7 @@ class HouseService {
 	private RoomReplayService $roomReplayService;
 	private CommandService $commandService;
 	private WeeklyGoalService $weeklyGoalService;
+	private MemberPreferenceMapper $memberPreferenceMapper;
 	private IConfig $config;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
@@ -73,6 +75,7 @@ class HouseService {
 		RoomReplayService $roomReplayService,
 		CommandService $commandService,
 		WeeklyGoalService $weeklyGoalService,
+		MemberPreferenceMapper $memberPreferenceMapper,
 		IConfig $config,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
@@ -96,6 +99,7 @@ class HouseService {
 		$this->roomReplayService = $roomReplayService;
 		$this->commandService = $commandService;
 		$this->weeklyGoalService = $weeklyGoalService;
+		$this->memberPreferenceMapper = $memberPreferenceMapper;
 		$this->config = $config;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
@@ -220,6 +224,11 @@ class HouseService {
 			$this->taskAssigneeMapper->deleteByUserForHouse($ncUserId, $houseId);
 			$this->houseUserMapper->delete($houseUser);
 
+			// CS-PLAN-070 WP4 (Q-075-01 A): consent belongs to the active
+			// membership — the departing member's ranking consent goes with
+			// the row; a rejoin starts quiet/unconsented (C5h).
+			$this->memberPreferenceMapper->deleteByHouseAndUser($houseId, (int)$houseUser->getId());
+
 			// CS-PLAN-073 WP2 (Q-073-03): cancel the departing member's
 			// pending personal pause requests and converge the suspension
 			// facts — future personal-pause effects stop at departure
@@ -323,23 +332,30 @@ class HouseService {
 	}
 
 	/**
-	 * Update house name and/or timezone (owner-only, CS-PLAN-061 §3.4 /
-	 * ADR-006 — controller checks remain as defense in depth).
+	 * Update house name, timezone and (optionally) the ranking flag
+	 * (owner-only, CS-PLAN-061 §3.4 / ADR-006 — controller checks remain
+	 * as defense in depth).
 	 *
 	 * CS-PLAN-071 WP0: the mutation runs under the house row lock and
 	 * bumps `timezone_version` on an actual timezone change (decision D7 —
 	 * the first consumer of the version counters; saved occurrence facts
 	 * keep their zone, WP1 owns the recurrence rewiring).
 	 *
+	 * CS-PLAN-070 WP4 (C5i/D10b): `rankingEnabled` is the owner-only
+	 * ranking gate on the existing update path. Disabling removes all
+	 * visible participation immediately and invalidates every consent
+	 * generation; re-enabling starts everyone unconsented. Default off.
+	 *
 	 * @param int $houseId The house ID
 	 * @param string $name The new name
 	 * @param string|null $timezone The new IANA timezone id (null = leave unchanged)
+	 * @param bool|null $rankingEnabled The new ranking flag (null = leave unchanged)
 	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
-	public function updateHouse(int $houseId, string $name, ?string $timezone = null): House {
+	public function updateHouse(int $houseId, string $name, ?string $timezone = null, ?bool $rankingEnabled = null): House {
 		$this->authorization->requireHouseOwner($houseId);
 
-		return $this->transactions->run(function () use ($houseId, $name, $timezone): House {
+		return $this->transactions->run(function () use ($houseId, $name, $timezone, $rankingEnabled): House {
 			$house = $this->houseMapper->findForUpdate($houseId);
 			$house->setName($name);
 			if ($timezone !== null) {
@@ -351,6 +367,14 @@ class HouseService {
 					// transaction — saved occurrences keep their zone and
 					// deadlines; only new agreements resolve in the new zone.
 					$this->occurrenceService->reviseForZoneChangeUnderLock($houseId, $timezone, new \DateTime());
+				}
+			}
+			if ($rankingEnabled !== null && $rankingEnabled !== $house->getRankingEnabled()) {
+				$house->setRankingEnabled($rankingEnabled);
+				if (!$rankingEnabled) {
+					// Disable invalidates every generation; nobody re-enters
+					// ranked without a fresh consent after re-enabling.
+					$this->memberPreferenceMapper->deleteByHouseId($houseId);
 				}
 			}
 			$house->touch();

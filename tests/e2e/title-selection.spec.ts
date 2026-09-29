@@ -1,16 +1,18 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * E2E test: Role title selection (CS-PLAN-006).
+ * E2E test: the single-series role title surface (CS-PLAN-070 WP4,
+ * Q-075-02 Option A).
  *
- * Verifies a member can open the title picker from Settings, the catalog
- * renders, selecting a pack marks it active, and the badge/active state
- * updates. Unlock thresholds are not exercised here (covered by the
- * TitleService integration test); this spec covers the selection UI flow.
+ * The multi-pack picker is retired: Settings renders the server-derived
+ * current title badge (or the empty hint) and there is NO selection
+ * control; the retired `PUT /users/{id}/titles/select` route stays gone
+ * (404). The unlock thresholds are not exercised here (covered by the
+ * TitleService unit/integration tests); this spec pins the UI contract.
  *
  * CS-PLAN-015b: admin auth via project-level storageState (no loginAsUser).
  */
-test.describe('Role Title System', () => {
+test.describe('Role Title System (single series)', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
@@ -23,76 +25,52 @@ test.describe('Role Title System', () => {
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 	})
 
-	test('Title section renders with a change-title button', async ({ page }) => {
-		await expect(page.locator('[data-testid="change-title-button"]')).toBeVisible()
+	test('Title section renders without a change-title control (retired surface)', async ({ page }) => {
+		// The title card exists; the picker trigger and picker are gone.
+		await expect(page.locator('[data-testid="change-title-button"]')).toHaveCount(0)
+		await expect(page.locator('[data-testid="title-picker"]')).toHaveCount(0)
+		// Exactly one of: the earned-title badge or the empty hint.
+		const badge = page.locator('[data-testid="title-badge"]')
+		const noTitle = page.locator('[data-testid="no-title"]')
+		await expect(badge.or(noTitle).first()).toBeVisible({ timeout: 10000 })
 	})
 
-	test('Opening the picker shows all three packs', async ({ page }) => {
-		await page.click('[data-testid="change-title-button"]')
-
-		await page.waitForSelector('[data-testid="title-picker"]', { timeout: 10000 })
-		// WP3 cutover (D7c/C3d): the coins-driven cozy_home pack retired —
-		// the retained catalog is home_helpers, team_energy and the rhythm
-		// track (family_rhythm).
-		await expect(page.locator('[data-testid="title-pack-home_helpers"]')).toBeVisible()
-		await expect(page.locator('[data-testid="title-pack-team_energy"]')).toBeVisible()
-		await expect(page.locator('[data-testid="title-pack-family_rhythm"]')).toBeVisible()
-	})
-
-	test('Selecting a pack marks it active', async ({ page }) => {
-		await page.click('[data-testid="change-title-button"]')
-		await page.waitForSelector('[data-testid="title-picker"]', { timeout: 10000 })
-
-		// Always choose an inactive pack, including after a preceding run.
-		const teamCard = page.locator('[data-testid^="title-pack-"]').filter({
-			has: page.getByTestId('select-pack-button'),
-		}).first()
-		await expect(teamCard).toBeVisible({ timeout: 10000 })
-		const selectedTestId = await teamCard.getAttribute('data-testid')
-		const selectButton = teamCard.locator('[data-testid="select-pack-button"]')
-
-		// The catalog renders asynchronously behind the loading hint; wait for
-		// the card before probing its selection state.
-		await expect(teamCard).toBeVisible({ timeout: 10000 })
-
-		// Pack selection is unavailable for users without a house membership;
-		// skip only when that is genuinely the case (no house user id) so a
-		// rendered-but-disabled button never masks a real defect. Transport
-		// errors must fail loudly, not skip.
-		const currentUserId = await page.evaluate(async () => {
-			const response = await window.fetch('/apps/chorestrike/api/v1/users/current', {
-				headers: {
-					Accept: 'application/json',
-					requesttoken: window.OC.requestToken,
-				},
-			})
-			if (!response.ok) {
-				throw new Error(`GET /users/current failed with ${response.status}`)
+	test('The titles API carries no pack selection and the select route stays gone', async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const headers = {
+				Accept: 'application/json',
+				'Content-Type': 'application/json',
+				requesttoken: window.OC.requestToken,
 			}
-			const body = await response.json()
-			return body?.data?.id ?? body?.id ?? null
+			const current = await window.fetch('/apps/chorestrike/api/v1/users/current', { headers })
+			const body = await current.json()
+			const userId = body?.data?.id ?? body?.id
+			if (!userId) {
+				return { error: 'no membership id' }
+			}
+			const titles = await window.fetch(`/apps/chorestrike/api/v1/users/${userId}/titles`, { headers })
+			const titlesBody = await titles.json()
+			const select = await window.fetch(`/apps/chorestrike/api/v1/users/${userId}/titles/select`, {
+				method: 'PUT',
+				headers,
+				body: JSON.stringify({ pack: 'family_rhythm' }),
+			})
+			return {
+				titlesStatus: titles.status,
+				titlesData: titlesBody?.data ?? null,
+				selectStatus: select.status,
+			}
 		})
-		expect(currentUserId, 'the invited admin must have a membership').toBeTruthy()
-		await expect(selectButton).toBeEnabled({ timeout: 10000 })
 
-		// Button is enabled: the click must persist the selection. A failed
-		// selection is a real defect, not a soft skip.
-		const selectPutPromise = page.waitForResponse((response) => {
-			const isPutRequest = response.request().method() === 'PUT'
-			const pathname = new URL(response.url()).pathname
-			return isPutRequest && pathname.endsWith('/titles/select')
-		})
-		await selectButton.click()
-		const selectResponse = await selectPutPromise
-		expect(selectResponse.ok()).toBeTruthy()
-
-		// A successful selection closes the picker (Settings @selected) —
-		// BUG-E2E-003: asserting the Active tag inside the closing modal was
-		// impossible by construction. The durable outcome lives in the
-		// reopened picker: the pack now renders as active.
-		await expect(page.locator('[data-testid="title-picker"]')).toHaveCount(0, { timeout: 10000 })
-		await page.click('[data-testid="change-title-button"]')
-		await page.waitForSelector('[data-testid="title-picker"]', { timeout: 10000 })
-		await expect(page.getByTestId(selectedTestId).getByTestId('active-pack-tag')).toBeVisible({ timeout: 10000 })
+		expect(result.error).toBeUndefined()
+		// The retained read: currentTitle + unlocked set + the fixed catalog.
+		expect(result.titlesStatus).toBe(200)
+		expect(result.titlesData).toHaveProperty('currentTitle')
+		expect(result.titlesData).toHaveProperty('unlockedTitles')
+		expect(result.titlesData.catalog).toHaveProperty('family_rhythm')
+		expect(Object.keys(result.titlesData.catalog)).toHaveLength(1)
+		expect(result.titlesData).not.toHaveProperty('selectedTitlePack')
+		// The retired selection route is gone.
+		expect(result.selectStatus).toBe(404)
 	})
 })

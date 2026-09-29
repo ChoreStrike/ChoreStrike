@@ -10,103 +10,128 @@
 				{{ t('chorestrike', 'Leaderboard') }}
 			</h1>
 			<p class="subtitle">
-				{{ t('chorestrike', 'Friendly competition for a cleaner home') }}
+				{{ t('chorestrike', 'Opt-in weekly rhythm ranking for your household') }}
 			</p>
 		</header>
 
 		<div class="leaderboard-content">
-			<!-- Podium for top 3 -->
-			<div v-if="leaderboard.length >= 3" class="podium" data-testid="podium-section">
-				<div
-					v-for="user in podiumUsers"
-					:key="user.id"
-					class="podium-item"
-					:data-testid="`podium-rank-${user.rank}`"
-					:class="`rank-${user.rank}`">
-					<div class="podium-avatar">
-						<div class="avatar-placeholder">
-							{{ getInitials(user.displayName) }}
-						</div>
-						<div class="rank-badge">
-							{{ user.rank }}
-						</div>
-					</div>
-					<div class="podium-info">
-						<h3>{{ user.displayName }}</h3>
-						<TitleBadge
-							v-if="user.currentTitle"
-							:title="user.currentTitle"
-							compact />
-						<p class="podium-score">
-							{{ formatScore(user.contributionMinor) }} {{ t('chorestrike', 'pts') }}
-						</p>
-					</div>
-					<div class="podium-bar" :style="{ height: `${getPodiumHeight(user.rank)}px` }" />
-				</div>
+			<!-- Opt-in / closed state: ranking disabled or no visible consent yet -->
+			<div v-if="!rankingStore.rankingEnabled" class="rank-closed" data-testid="ranking-disabled">
+				<Icon name="Users" :size="48" />
+				<h2>{{ t('chorestrike', 'Weekly ranking is off') }}</h2>
+				<p>
+					{{ t('chorestrike', 'The household ranking is opt-in. A house owner can enable it in the settings — every member then decides on their own participation.') }}
+				</p>
 			</div>
 
-			<!-- Full list -->
-			<div class="leaderboard-list" data-testid="leaderboard-list">
-				<div class="list-header">
-					<span class="rank-col">#</span>
-					<span class="user-col">{{ t('chorestrike', 'Player') }}</span>
-					<span class="score-col" data-testid="contribution-score-header">{{ t('chorestrike', 'Score') }}</span>
-					<span class="streak-col">{{ t('chorestrike', 'Streak') }}</span>
-					<span class="tasks-col">{{ t('chorestrike', 'Tasks') }}</span>
+			<template v-else>
+				<!-- Own participation panel -->
+				<div class="participation-panel" data-testid="ranking-participation">
+					<template v-if="isPending">
+						<p class="participation-state" data-testid="ranking-pending-state">
+							{{ t('chorestrike', 'Your participation starts on {monday}. Nothing is counted before then.', { monday: formattedPendingMonday }) }}
+						</p>
+						<button
+							class="secondary-button"
+							data-testid="ranking-withdraw-button"
+							@click="withdraw">
+							{{ t('chorestrike', 'Withdraw participation') }}
+						</button>
+					</template>
+					<template v-else-if="hasConsented">
+						<p class="participation-state">
+							{{ t('chorestrike', 'You take part in this week\'s ranking.') }}
+						</p>
+						<button
+							class="secondary-button"
+							data-testid="ranking-withdraw-button"
+							@click="withdraw">
+							{{ t('chorestrike', 'Withdraw participation') }}
+						</button>
+					</template>
+					<template v-else>
+						<p class="participation-state" data-testid="ranking-optin-hint">
+							{{ t('chorestrike', 'You are not part of the ranking. Participation is voluntary and only ever shows your on-time share of agreed public tasks — starting next Monday.') }}
+						</p>
+						<button
+							class="primary-button"
+							data-testid="ranking-consent-button"
+							@click="giveConsent">
+							{{ t('chorestrike', 'Join next week') }}
+						</button>
+					</template>
 				</div>
 
-				<div
-					v-for="user in rankedLeaderboard"
-					:key="user.id"
-					class="leaderboard-row"
-					data-testid="leaderboard-entry"
-					:class="{
-						'top-3': user.rank <= 3,
-						'current-user': isCurrentUser(user)
-					}">
-					<span class="rank-col" data-testid="user-rank">
-						<template v-if="user.rank <= 3">
-							<Icon
-								:name="user.rank === 1 ? 'Crown' : 'Medal'"
-								:size="20"
-								:class="`rank-${user.rank}-icon`" />
-						</template>
-						<template v-else>{{ user.rank }}</template>
+				<!-- Week header -->
+				<div class="week-header" data-testid="ranking-week">
+					<span>{{ t('chorestrike', 'Current week') }}</span>
+					<span
+						v-if="isProvisional"
+						class="provisional-badge"
+						data-testid="ranking-provisional">
+						{{ t('chorestrike', 'Provisional — days are still open') }}
 					</span>
-					<span class="user-col">
-						<div class="user-info">
-							<div class="avatar-small">
-								{{ getInitials(user.displayName) }}
-							</div>
-							<span class="user-name">{{ user.displayName }}</span>
-							<TitleBadge
-								v-if="user.currentTitle"
-								:title="user.currentTitle"
-								compact />
-							<span v-if="isCurrentUser(user)" class="you-badge">{{ t('chorestrike', 'You') }}</span>
-						</div>
-					</span>
-					<span class="score-col" data-testid="contribution-score">{{ formatScore(user.contributionMinor) }}</span>
-					<span class="streak-col" data-testid="user-streak">
-						<span
-							class="streak-badge"
-							:class="{ active: user.currentStreak > 0, frozen: isFrozen(user) }"
-							:data-testid="`user-freezes-${user.id}`">
-							<Icon name="Zap" :size="14" />
-							{{ user.currentStreak }}
+				</div>
+
+				<!-- Ranked entries (consented members only) -->
+				<div v-if="rankingStore.entries.length > 0" class="leaderboard-list" data-testid="leaderboard-list">
+					<div class="list-header">
+						<span class="rank-col">#</span>
+						<span class="user-col">{{ t('chorestrike', 'Player') }}</span>
+						<span class="ratio-col">{{ t('chorestrike', 'On time') }}</span>
+					</div>
+
+					<div
+						v-for="entry in rankingStore.entries"
+						:key="entry.houseUserId"
+						class="leaderboard-row"
+						data-testid="leaderboard-entry"
+						:class="{ 'current-user': entry.isMe, neutral: entry.neutral }">
+						<span class="rank-col" data-testid="user-rank">
+							<template v-if="entry.neutral">
+								<span class="neutral-badge" data-testid="ranking-neutral">{{ t('chorestrike', 'Neutral') }}</span>
+							</template>
+							<template v-else>{{ entry.rank }}<template v-if="entry.tied"> *</template></template>
 						</span>
-					</span>
-					<span class="tasks-col" data-testid="tasks-completed-stat">{{ user.totalTasksCompleted || 0 }}</span>
-				</div>
-
-				<div v-if="leaderboard.length === 0" class="empty-state" data-testid="empty-leaderboard">
-					<Icon name="Users" :size="48" />
-					<p>{{ t('chorestrike', 'No players yet') }}</p>
-					<p class="empty-hint">
-						{{ t('chorestrike', 'Invite family members to start competing!') }}
+						<span class="user-col">
+							<div class="user-info">
+								<div class="avatar-small">
+									{{ getInitials(entry.displayName) }}
+								</div>
+								<span class="user-name">{{ entry.displayName }}</span>
+								<span v-if="entry.isMe" class="you-badge">{{ t('chorestrike', 'You') }}</span>
+							</div>
+						</span>
+						<span class="ratio-col" data-testid="ranking-ratio">
+							<template v-if="!entry.neutral">{{ entry.onTime }}/{{ entry.eligible }}</template>
+							<template v-else>—</template>
+						</span>
+					</div>
+					<p class="tie-hint" data-testid="ranking-tie-hint">
+						{{ t('chorestrike', '* same on-time share — tied') }}
 					</p>
 				</div>
-			</div>
+
+				<div v-else class="empty-state" data-testid="empty-leaderboard">
+					<Icon name="Users" :size="48" />
+					<p>{{ t('chorestrike', 'Nobody is ranked yet') }}</p>
+					<p class="empty-hint">
+						{{ t('chorestrike', 'Members appear here after their consent becomes effective on a Monday.') }}
+					</p>
+				</div>
+
+				<!-- Pending consents (consented, not yet effective — C5l) -->
+				<div v-if="rankingStore.pending.length > 0" class="pending-section" data-testid="ranking-pending">
+					<h2>{{ t('chorestrike', 'Starting next week') }}</h2>
+					<p
+						v-for="entry in rankingStore.pending"
+						:key="entry.houseUserId"
+						class="pending-row"
+						:data-testid="`ranking-pending-${entry.houseUserId}`">
+						{{ t('chorestrike', '{name} joins on {monday}', { name: entry.displayName, monday: entry.effectiveMonday }) }}
+					</p>
+				</div>
+			</template>
 
 			<!-- Weekly medals (store-driven; CS-PLAN-041) -->
 			<div v-if="weeklyMedals.length > 0" class="medals-section" data-testid="medal-summary">
@@ -134,10 +159,11 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useUserStore } from '../store/user.js'
 import { useGameStore } from '../store/game.js'
+import { useRankingStore } from '../store/ranking.js'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import MedalBadge, { MEDAL_LABELS } from '../components/Common/MedalBadge.vue'
-import TitleBadge from '../components/Profile/TitleBadge.vue'
 
 export default {
 	name: 'Leaderboard',
@@ -145,35 +171,30 @@ export default {
 	components: {
 		Icon,
 		MedalBadge,
-		TitleBadge,
 	},
 
 	setup() {
 		const userStore = useUserStore()
 		const gameStore = useGameStore()
-		return { userStore, gameStore }
-	},
-
-	data() {
-		return {
-			loading: false,
-		}
+		const rankingStore = useRankingStore()
+		return { userStore, gameStore, rankingStore }
 	},
 
 	computed: {
-		leaderboard() {
-			return this.userStore.getLeaderboard
+		hasConsented() {
+			return this.rankingStore.me?.state === 'effective'
 		},
 
-		rankedLeaderboard() {
-			return this.leaderboard.map((user, index) => ({
-				...user,
-				rank: index + 1,
-			}))
+		isPending() {
+			return this.rankingStore.me?.state === 'pending'
 		},
 
-		podiumUsers() {
-			return this.rankedLeaderboard.slice(0, 3)
+		formattedPendingMonday() {
+			return this.rankingStore.me?.effectiveMonday ?? ''
+		},
+
+		isProvisional() {
+			return this.rankingStore.week?.provisional === true
 		},
 
 		/**
@@ -203,17 +224,37 @@ export default {
 		async initializeLeaderboard() {
 			this.loading = true
 			try {
+				await this.userStore.initializeCurrentUser()
+				// The consent-filtered server view is the sole ranking
+				// authority (D10b/C5i) — no client-side member ranking.
+				await this.rankingStore.fetchRanking()
 				// Evaluate any due weekly medals first so fetchMedals() picks
 				// up genuinely new awards (celebrations fire once, guarded by
 				// the previous snapshot inside the store).
-				await this.userStore.initializeCurrentUser()
-				await this.userStore.fetchHouseUsers()
 				await this.gameStore.checkMedals()
 				await this.gameStore.fetchMedals()
 			} catch (error) {
 				logger.error('Failed to initialize leaderboard', error, { view: 'Leaderboard', action: 'initializeLeaderboard' })
 			} finally {
 				this.loading = false
+			}
+		},
+
+		async giveConsent() {
+			try {
+				await this.rankingStore.giveConsent()
+				showSuccess(t('chorestrike', 'You join the ranking next Monday.'))
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to update participation'))
+			}
+		},
+
+		async withdraw() {
+			try {
+				await this.rankingStore.withdrawConsent()
+				showSuccess(t('chorestrike', 'You left the ranking.'))
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to update participation'))
 			}
 		},
 
@@ -225,29 +266,6 @@ export default {
 				.join('')
 				.toUpperCase()
 				.slice(0, 2)
-		},
-
-		formatScore(score) {
-			return score?.toLocaleString() || '0'
-		},
-
-		isCurrentUser(user) {
-			return user.nextcloudUserId === this.userStore.userId
-		},
-
-		/**
-		 * Freeze styling retired with the WP3 cutover (dated pauses are the
-		 * neutral absence mechanism) — the badge never renders frozen.
-		 *
-		 * @return {boolean} Always false.
-		 */
-		isFrozen() {
-			return false
-		},
-
-		getPodiumHeight(rank) {
-			const heights = { 1: 120, 2: 80, 3: 60 }
-			return heights[rank] || 40
 		},
 	},
 }
@@ -282,94 +300,58 @@ export default {
 	gap: 2rem;
 }
 
-/* Podium */
-.podium {
+/* Opt-in / closed state */
+.rank-closed {
+	text-align: center;
+	padding: 3rem 2rem;
+	background: var(--color-background-dark);
+	border-radius: 12px;
+	color: var(--color-text-maxcontrast);
+}
+
+.rank-closed h2 {
+	margin: 1rem 0 0.5rem 0;
+	font-size: 1.2rem;
+	color: var(--color-main-text);
+}
+
+.rank-closed p {
+	max-width: 480px;
+	margin: 0 auto;
+}
+
+/* Own participation panel */
+.participation-panel {
 	display: flex;
-	justify-content: center;
-	align-items: flex-end;
+	align-items: center;
+	justify-content: space-between;
 	gap: 1rem;
-	padding: 2rem;
+	padding: 1rem 1.5rem;
 	background: var(--color-background-dark);
 	border-radius: 12px;
 }
 
-.podium-item {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 0.75rem;
-}
-
-.podium-avatar {
-	position: relative;
-}
-
-.avatar-placeholder {
-	width: 64px;
-	height: 64px;
-	border-radius: 50%;
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 1.2rem;
-	font-weight: bold;
-}
-
-.rank-1 .avatar-placeholder {
-	width: 80px;
-	height: 80px;
-	font-size: 1.5rem;
-	background: linear-gradient(135deg, #ffd700, #ffb347);
-	color: #333;
-}
-
-.rank-2 .avatar-placeholder {
-	background: linear-gradient(135deg, #c0c0c0, #a0a0a0);
-	color: #333;
-}
-
-.rank-3 .avatar-placeholder {
-	background: linear-gradient(135deg, #cd7f32, #b87333);
-}
-
-.rank-badge {
-	position: absolute;
-	bottom: -4px;
-	inset-inline-end: -4px;
-	width: 24px;
-	height: 24px;
-	border-radius: 50%;
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 0.75rem;
-	font-weight: bold;
-}
-
-.podium-info {
-	text-align: center;
-}
-
-.podium-info h3 {
-	margin: 0 0 0.25rem 0;
-	font-size: 1rem;
-}
-
-.podium-score {
+.participation-state {
 	margin: 0;
 	color: var(--color-text-maxcontrast);
-	font-size: 0.9rem;
 }
 
-.podium-bar {
-	width: 80px;
-	background: var(--color-primary);
-	border-radius: 4px 4px 0 0;
-	opacity: 0.3;
+/* Week header */
+.week-header {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	font-weight: 500;
+}
+
+.provisional-badge {
+	font-size: 0.75rem;
+	padding: 0.15rem 0.6rem;
+	border-radius: 10px;
+	background: var(--color-background-dark);
+	color: var(--color-text-maxcontrast);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 }
 
 /* Leaderboard List */
@@ -381,7 +363,7 @@ export default {
 
 .list-header {
 	display: grid;
-	grid-template-columns: 50px 2fr 1fr 80px 80px;
+	grid-template-columns: 90px 2fr 1fr;
 	gap: 1rem;
 	padding: 1rem 1.5rem;
 	background: var(--color-main-background);
@@ -392,7 +374,7 @@ export default {
 
 .leaderboard-row {
 	display: grid;
-	grid-template-columns: 50px 2fr 1fr 80px 80px;
+	grid-template-columns: 90px 2fr 1fr;
 	gap: 1rem;
 	padding: 1rem 1.5rem;
 	align-items: center;
@@ -404,31 +386,28 @@ export default {
 	background: var(--color-main-background);
 }
 
-.leaderboard-row.top-3 {
-	background: rgba(var(--color-primary-rgb), 0.05);
-}
-
 .leaderboard-row.current-user {
 	background: rgba(var(--color-primary-rgb), 0.1);
 	font-weight: 500;
+}
+
+.leaderboard-row.neutral {
+	opacity: 0.75;
 }
 
 .rank-col {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	font-weight: 600;
 }
 
-.rank-1-icon {
-	color: #ffd700;
-}
-
-.rank-2-icon {
-	color: #c0c0c0;
-}
-
-.rank-3-icon {
-	color: #cd7f32;
+.neutral-badge {
+	font-size: 0.72rem;
+	padding: 0.15rem 0.5rem;
+	border-radius: 10px;
+	background: var(--color-background-dark);
+	color: var(--color-text-maxcontrast);
 }
 
 .user-col {
@@ -469,36 +448,49 @@ export default {
 	letter-spacing: 0.5px;
 }
 
-.score-col {
+.ratio-col {
 	font-weight: 600;
 	color: var(--color-primary);
+	text-align: center;
 }
 
-.streak-badge {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.25rem;
-	padding: 0.25rem 0.5rem;
-	background: var(--color-background-dark);
-	border-radius: 12px;
-	font-size: 0.85rem;
+.tie-hint {
+	margin: 0;
+	padding: 0.75rem 1.5rem;
+	font-size: 0.78rem;
 	color: var(--color-text-maxcontrast);
 }
 
-.streak-badge.active {
-	background: #ffeb3b;
-	color: #333;
+/* Pending consents */
+.pending-section h2 {
+	font-size: 1.1rem;
+	margin: 0 0 0.75rem 0;
 }
 
-.freeze-indicator {
-	font-size: 0.75rem;
-	padding-inline-start: 0.35rem;
-	border-inline-start: 1px solid currentcolor;
+.pending-row {
+	margin: 0 0 0.35rem 0;
+	color: var(--color-text-maxcontrast);
 }
 
-.streak-badge.frozen {
-	background: #b3e5fc;
-	color: #01579b;
+.primary-button,
+.secondary-button {
+	padding: 0.5rem 1rem;
+	border: none;
+	border-radius: var(--border-radius-pill, 999px);
+	cursor: pointer;
+	font-size: 0.9rem;
+	font-weight: 500;
+}
+
+.primary-button {
+	background: var(--color-primary);
+	color: var(--color-primary-text);
+}
+
+.secondary-button {
+	background: transparent;
+	color: var(--color-main-text);
+	border: 1px solid var(--color-border);
 }
 
 .empty-state {
@@ -556,22 +548,18 @@ export default {
 }
 
 @media (max-width: 768px) {
-	.podium {
-		padding: 1rem;
-	}
-
 	.list-header {
 		display: none;
 	}
 
 	.leaderboard-row {
-		grid-template-columns: 40px 1fr auto;
+		grid-template-columns: 60px 1fr auto;
 		gap: 0.75rem;
 	}
 
-	.streak-col,
-	.tasks-col {
-		display: none;
+	.participation-panel {
+		flex-direction: column;
+		align-items: flex-start;
 	}
 }
 </style>

@@ -50,9 +50,11 @@ test.describe('Fast Core Tests', () => {
 
 		// The chromium project runs as the plain member `admin`: the owner
 		// house section is hidden, but the profile-title section always
-		// renders.
+		// renders. WP4 (Q-075-02 A): the pack picker is retired — the title
+		// surface shows the derived badge or the empty hint, never a
+		// change-title control.
 		await expect(page.getByTestId('settings-title')).toBeVisible({ timeout: 15000 })
-		await expect(page.getByTestId('change-title-button')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('change-title-button')).toHaveCount(0)
 	})
 
 	test('Dashboard shows content', async ({ page }: { page: Page }) => {

@@ -1238,20 +1238,16 @@ class CompletionService {
 		foreach ($members as $member) {
 			$unlocked = $this->titleService->detectUnlock($member);
 			$removed = $this->titleService->reconcileUnlocked($member);
-			// The cache mutation (newly added OR reconciled-away tiers)
+			// The marker mutation (newly added OR reconciled-away tiers)
 			// persists here — the correction must survive the transaction.
 			if ($unlocked !== [] || $removed !== []) {
 				$this->houseUserMapper->update($member);
 			}
+			// The single retained series has one tier per rung: the actor's
+			// new unlock is the newly crossed tier (no pack preference since
+			// Q-075-02 A).
 			if ($actorUserId !== null && $member->getNextcloudUserId() === $actorUserId && $unlocked !== []) {
-				$selectedPack = $member->getSelectedTitlePack();
 				$newTitle = $unlocked[0];
-				foreach ($unlocked as $candidate) {
-					if ($candidate['pack'] === $selectedPack) {
-						$newTitle = $candidate;
-						break;
-					}
-				}
 			}
 		}
 		return $newTitle;

@@ -19,10 +19,10 @@ use OCA\ChoreStrike\Db\TaskMapper;
 /**
  * Daily task-due reminder pass (FEAT-NOTIFY-001 / CS-PLAN-030).
  *
- * Mirrors the StreakAtRiskService shape (CS-PLAN-023): the pass receives its
- * "today" as a parameter — the time seam that makes it testable and
- * triggerable via `occ chorestrike:trigger-jobs --as-of` — and dispatches
- * best-effort notifications through {@see NotificationService}.
+ * The pass receives its "today" as a parameter — the time seam that makes
+ * it testable and triggerable via `occ chorestrike:trigger-jobs --as-of` —
+ * and dispatches best-effort notifications through {@see NotificationService}
+ * (the retired streak passes' seam shape, kept for this retained pass).
  *
  * Recipients are assignees only (D1): users assigned via the
  * task_assignees join table. Unassigned tasks send nothing (they are

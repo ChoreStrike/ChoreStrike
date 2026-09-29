@@ -44,6 +44,12 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  * days. A fixed-size cursor page bounds memory/queries while retaining
  * lifetime history for corrected record and award eligibility. Persistence
  * runs inside the caller's transaction on already locked membership rows.
+ *
+ * CS-PLAN-070 WP4 (parent §3.4 read contract): the evaluation result also
+ * carries the pending-hold indicator (`pending` — a confirmed streak with
+ * a day still pending), so reads can show "confirmed streak, day pending"
+ * without re-implementing C1f. The completion transaction and TimelineJob
+ * remain the only writers; evaluation stays pure.
  */
 class RhythmService {
 	/** A page, not a time cutoff: old valid runs must survive corrections. */
@@ -110,7 +116,7 @@ class RhythmService {
 	 * @param int $houseId
 	 * @param HouseUser[] $members Locked membership rows
 	 * @param \DateTime $now Evaluation instant
-	 * @return array<int, array{currentStreak: int, longestStreak: int}> member id => values
+	 * @return array<int, array{currentStreak: int, longestStreak: int, pending: bool}> member id => values
 	 */
 	public function recomputeForMembers(int $houseId, array $members, \DateTime $now): array {
 		if ($members === []) {
@@ -145,7 +151,7 @@ class RhythmService {
 
 	/**
 	 * @param HouseUser[] $members
-	 * @return array<int, array{currentStreak: int, longestStreak: int}>
+	 * @return array<int, array{currentStreak: int, longestStreak: int, pending: bool}>
 	 */
 	public function evaluateForMembers(int $houseId, array $members, \DateTime $now): array {
 		$walletByMember = [];
@@ -157,7 +163,7 @@ class RhythmService {
 			}
 		}
 		if ($walletByMember === []) {
-			return array_map(static fn (array $entry): array => ['currentStreak' => 0, 'longestStreak' => 0], $state);
+			return array_map(static fn (array $entry): array => ['currentStreak' => 0, 'longestStreak' => 0, 'pending' => false], $state);
 		}
 		$tz = $this->calendar->getTimeZone($this->houseMapper->find($houseId));
 		$through = (new \DateTime($this->calendar->dayKey($now, $tz), $tz))->modify('+1 day')->format('Y-m-d');
@@ -216,6 +222,7 @@ class RhythmService {
 		return array_map(static fn (array $entry): array => [
 			'currentStreak' => $entry['currentStreak'],
 			'longestStreak' => $entry['longestStreak'],
+			'pending' => $entry['pending'],
 		], $state);
 	}
 
@@ -236,8 +243,6 @@ class RhythmService {
 
 	public function onTime(Occurrence $occurrence, ?CompletedTask $completion): bool {
 		return $completion !== null
-			&& $completion->getCompletionClass() === CompletedTask::CLASS_AGREED
-			&& ($occurrence->getWindowStart() === null || $completion->getCompletedAt() >= $occurrence->getWindowStart())
-			&& ($occurrence->getWindowEnd() === null || $completion->getCompletedAt() < $occurrence->getWindowEnd());
+			&& $completion->isAgreedOnTime($occurrence->getWindowStart(), $occurrence->getWindowEnd());
 	}
 }

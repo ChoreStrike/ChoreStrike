@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MedalMapper;
+use OCA\ChoreStrike\Db\MemberPreferenceMapper;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\PauseMapper;
@@ -46,6 +47,9 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  *    binding inside `schedule_revs` default-member snapshots (the numeric
  *    wallet fact is non-reidentifiable) and null the actor on
  *    `agreements` evidence rows,
+ *  - CS-PLAN-070 WP4 (Q-075-01 A): delete the account's
+ *    `member_prefs` consent row (ranking consent is purged with the
+ *    membership; a recreated same-UID account starts unconsented),
  *  - delete the `house_users` row (scheduling preferences die with it).
  *
  * Ordinary departure NEVER runs this path (decision D3): removal keeps the
@@ -78,6 +82,7 @@ class AccountErasureService {
 		private ScheduleRevisionMapper $scheduleRevisionMapper,
 		private AgreementMapper $agreementMapper,
 		private PauseMapper $pauseMapper,
+		private MemberPreferenceMapper $memberPreferenceMapper,
 		private CompletionRevisionMapper $completionRevisionMapper,
 		private WorkShareMapper $workShareMapper,
 		private TransactionExecutor $transactions,
@@ -202,6 +207,10 @@ class AccountErasureService {
 				$this->pauseMapper->deletePersonalByWalletId((int)$wallet->getId());
 			}
 			$this->pauseMapper->anonymizeActor($houseUserId);
+
+			// CS-PLAN-070 WP4 (Q-075-01 A): the ranking consent row is
+			// personal data — purged with the membership, never rebound.
+			$this->memberPreferenceMapper->deleteByHouseAndUser($houseId, $houseUserId);
 
 			// The receipts survive as anonymous facts.
 			$this->commandReceiptMapper->anonymizeActor($houseId, $houseUserId);
