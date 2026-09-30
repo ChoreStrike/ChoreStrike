@@ -10,9 +10,12 @@
 
 ## In Progress
 
-- **CS-PLAN-070 / parent - family rhythm and reward clarification OPEN** (WP0-WP5 delivered; CONCEPT-001 remains In Progress for WP6-WP9 and family evidence; no successor activation is part of the WP5 review). [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
+- **CS-PLAN-077 / WP6 calm core UI ACTIVE** (activated 2026-09-30 via Standard A `PASS-WITH-FIXES`; Q-077-01..05 all Option A; RF-077-01/02 resolved in-round). Implementation not started — next: §6 step 1 baseline lock at the then-current HEAD. [Plan](../plans/active/cs-plan-077-wp6-calm-core-ui.md).
+- **CS-PLAN-070 / parent - family rhythm and reward clarification OPEN** (WP0-WP5 delivered; CONCEPT-001 remains In Progress for WP6-WP9 and family evidence; WP6 successor CS-PLAN-077 activated 2026-09-30). [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
+
+- **CS-PLAN-077 / WP6 draft created and activated** (2026-09-30): calm-core-UI sub-plan — all-age My Day landing/content, preference-gated celebration with reduced-motion override, full `NotificationPreferences.vue` + optional-area toggles/arcade consumer, pause UI on the delivered WP2 API, occurrence agreement entry points, shared-device store reset, no-Coin UI remnants, essential help slice; the same day's Standard A resolved Q-077-01..05 (all Option A) and activated the plan. The original uncommitted draft was lost with the WP5 scoped commit and was recreated at baseline `fd70cd7` (2026-09-30); documentation gates only, no runtime implementation in the drafting round. [Plan](../plans/active/cs-plan-077-wp6-calm-core-ui.md) · [Review](archive/CODE_REVIEW_2026-09-30.md).
 
 - **CS-PLAN-076 / WP5 delivered** (2026-09-30): final Standard B `PASS-WITH-FIXES`, RF-076-01..11 resolved; self-only preferences, quiet at-most-once digest and transactional source queue; unit 1028, integration 493, Jest 1062 and complete E2E `run-xpEKYP` green; plan moved to `done/`, WP6 draft/metadata excluded from the scoped commit. [Plan](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md) · [Review](archive/CODE_REVIEW_2026-09-30.md).
 - **CS-PLAN-075 / WP4 delivered** (2026-09-29): final Standard B `PASS-WITH-FIXES`, RF-075-01..05 resolved; rhythm/goals/ranking, ADR-015, consent persistence and single-series recognition; plan in `done/`, CONCEPT-001 remains open. [Plan](../plans/done/cs-plan-075-wp4-rhythm-goals-and-ranking.md) · [Review](archive/CODE_REVIEW_2026-09-29.md).

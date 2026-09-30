@@ -192,9 +192,14 @@ approved responsibility model; a future product decision is still required.
 ---
 
 ### [P3] FEAT-UX-023 — Onboarding & help layer
-**Status**: Backlog · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Status**: In Progress — essential help slice WP6; tour/catalog remainder WP8 · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
+**Owning**: CS-PLAN-077 WP6 (essential help slice); tour/catalog remainder WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+**WP6 slice active (2026-09-30):** [CS-PLAN-077](../plans/active/cs-plan-077-wp6-calm-core-ui.md)
+(Standard A `PASS-WITH-FIXES`) owns the essential slice (help entry points
+on Dashboard/My Day/Scheduling, UX-007 glossary, rhythm/pause hints; Q-077-02
+resolved Option A). Tour/catalog help and whole-item closure stay with WP8.
 
 No tour, glossary, or contextual hints; vocabulary drift (UX-007) makes
 self-service discovery harder.
@@ -214,7 +219,7 @@ profile or guardian-consent model should be implied by onboarding copy.
 
 ### [P1] FEAT-UX-024 — Notification settings
 **Status**: In Progress (WP5 backend/minimal Settings DELIVERED; full presentation remains WP6) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
-**Owning**: CS-PLAN-070 WP6 (remaining presentation); CS-PLAN-076 (delivered WP5 slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001; CS-PLAN-074 WP3 closed-week delivery follow-up (2026-09-27)
+**Owning**: CS-PLAN-077 WP6 (remaining presentation); CS-PLAN-076 (delivered WP5 slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001; CS-PLAN-074 WP3 closed-week delivery follow-up (2026-09-27)
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 **WP5 delivered (2026-09-30):** [CS-PLAN-076](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
@@ -223,6 +228,12 @@ minimal Settings save/conflict handling, quiet/DST-aware schedule,
 transactional coalescing queue and one bounded at-most-once daily summary.
 Backend and minimum Settings tests pass; the whole item remains open for
 the full WP6 presentation and sound/animation/optional-area consumers.
+
+**WP6 slice active (2026-09-30):** [CS-PLAN-077](../plans/active/cs-plan-077-wp6-calm-core-ui.md)
+(Standard A `PASS-WITH-FIXES`; Q-077-05 resolved Option A) owns the remaining
+presentation work (full `NotificationPreferences.vue`, optional-area toggles
+with the immediate arcade consumer and persisting catalog toggle, celebration
+gating). Closure evaluation happens at the WP6 final review.
 
 UC-14 now has a minimal self-only Settings surface and optional shared digest;
 the polished component and full presentation remain undelivered.
@@ -257,7 +268,7 @@ monthly archive; no broader presentation work is declared complete.
 
 ### [P1] FEAT-UX-025 — Vacation / house-pause mode
 **Status**: In Progress — backend pause/agreement/capacity slice DELIVERED via [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md); quiet-digest integration DELIVERED via CS-PLAN-076 (2026-09-30); full pause UI remains WP6 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
-**Owning**: CS-PLAN-073 (delivered backend slice); CS-PLAN-076 (WP5 quiet-digest slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Owning**: CS-PLAN-073 (delivered backend slice); CS-PLAN-076 (WP5 quiet-digest slice); CS-PLAN-077 (full pause UI) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 CS-PLAN-070 D4 (2026-09-17) selects dated neutral member/house pauses instead of
@@ -284,6 +295,12 @@ implements quiet-digest integration for recognized personal/house pauses,
 including day-level catch-up suppression and current-source rechecks.
 Unit/integration/browser gates are green. Full pause UI stays WP6; this item
 remains open.
+
+**WP6 slice active (2026-09-30):** [CS-PLAN-077](../plans/active/cs-plan-077-wp6-calm-core-ui.md)
+(Standard A `PASS-WITH-FIXES`) owns the full pause UI (`PauseSettings.vue` +
+pause store on the delivered WP2 API; Q-077-03 resolved Option A — self-only
+Settings section plus owner house controls). Closure evaluation happens at
+the WP6 final review.
 
 - [x] Core pause model, role boundaries and durable concept description approved.
 - [x] Specify pause/date/urgent-work interaction and history/denominator amendments (C1/C2). (C2d–g/i/j approved 2026-09-17; operationalized by CS-PLAN-073 §3.4 and the §10 resolutions, 2026-09-23.)
@@ -435,6 +452,10 @@ WP5 (preferences/digest delivery) was sub-planned as
 [CS-PLAN-076](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-30; delivered with ADR-016,
 self-only preferences, quiet shared digest and complete T7 evidence).
+
+WP6 (calm core UI) was sub-planned as
+[CS-PLAN-077](../plans/active/cs-plan-077-wp6-calm-core-ui.md) and activated
+2026-09-30 via Standard A `PASS-WITH-FIXES` (Q-077-01..05 all Option A).
 CONCEPT-001 remains In Progress for WP6-WP9 and the family evidence gate.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).

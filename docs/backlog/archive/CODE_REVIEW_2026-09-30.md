@@ -327,3 +327,75 @@ Because excluded WP6 metadata can reference the now-absent draft in the
 working tree, final documentation gates also run against an export of the
 proposed index. This verifies the actual WP5 commit tree without deleting
 or staging anyone else's metadata or claiming the excluded draft was reviewed.
+
+---
+
+# Plan Review: CS-PLAN-077 WP6 — Standard A (Activation)
+
+- **Review Date**: 2026-09-30
+- **Reviewer**: Kilo
+- **Tier**: Standard A (plan), single target; no subagents
+- **Scope**: `docs/plans/new/cs-plan-077-wp6-calm-core-ui.md` plus the WP6 drafting-round metadata package preserved uncommitted by the RF-076-11 decision (parent WP6 pointer/staleness annotations, `docs/plans/README.md`, `docs/README.md`, `backlog.md` WP6-slice annotations, `ACTIVE_TASKS.md`)
+- **Base Commit**: `fd70cd735283f0715b30a1cd96776be49aff4711` (`master`; index empty; the plan file was the only untracked review path)
+**Outcome**: `PASS-WITH-FIXES` — eligible `new/ → active/` transition and one scoped activation commit
+
+## Verification
+
+All §1 baseline citations spot-verified exact at base: router landing special
+case (`src/router.js:12`, `:76`), `App.vue:145` application, Dashboard tagline
+and wallet (`:36`, `:53`), `useCelebration.js:30-52` unconditional
+confetti/sound, `confetti.js:10` reduced-motion, module-local mute
+(`sound.js:8`), Settings inline section (`:36-151`), `arcadeVisible` /
+`catalogVisible` with no consumer outside `store/preferences.js`, no pause
+functions in `api.js`, occurrence agreement routes (`routes.php:135-137`) and
+pause lifecycle routes (`:140-145`), planner `Paused` label (`:412`),
+Leaderboard consent-flow ranges, all eleven store `reset()` sites at the cited
+lines, `user.js:311-327` resetting only user+preferences, SnakeLeaderboard
+"Boosts used" (`:64`) with l10n keys (`en.json:99`), dead
+`release-boost-shop` regex (`playwright.config.ts:29`), 1014-key l10n
+baseline, every §4/§5 N path absent and every M path present (eighteen §4
+M-files, including `tests/unit/composables/useCelebration.spec.js` — see
+RF-077-02).
+
+Plan-only checks passed: per-step ownership with exit evidence, coherent
+single-package scope, no overlap with the only active plan (the parent),
+risks and mitigations named, acceptance criteria complete, test plan adequate
+for every §3 surface, backlog ownership wired (CONCEPT-001, FEAT-UX-023
+essential slice, FEAT-UX-024/025 remainders), dependencies WP0-5 in `done/`.
+
+## Findings
+
+- RF-077-01 · minor · plan §5 · the drafting-round provenance sentence claimed
+  the WP6 metadata "already shipped with the WP5 review round" while it was
+  excluded from the scoped commit and uncommitted — **fixed** in-round; the
+  metadata lands with the activation commit.
+- RF-077-02 · minor · plan §4 · `tests/unit/composables/useCelebration.spec.js`
+  marked N although it exists at baseline — **fixed** to M in-round.
+
+No findings remain open.
+
+## Decisions (batched structured question; recommendations first)
+
+- Q-077-01 **Option A** — all roles land on My Day; Dashboard secondary
+  household overview.
+- Q-077-02 **Option A** — essential help slice only; tour/catalog stay WP8.
+- Q-077-03 **Option A** — `PauseSettings.vue` self-only in Settings plus owner
+  house controls in the owner House section (parent WP6 row drift annotated).
+- Q-077-04 **Option A** — quiet in-app award toasts; effects opt-in;
+  reduced-motion override; no modal.
+- Q-077-05 **Option A** — both optional-area toggles now; arcade consumed,
+  catalog persists until WP8.
+
+## Finalization
+
+Plan updated (header status, §4 manifest fix, §5 provenance fix, §6 step 0,
+§9 findings resolved, §10 decisions, Review Outcome) and moved
+`new/ → active/`. Parent WP6 row, `docs/README.md`, `docs/plans/README.md`,
+`backlog.md` (FEAT-UX-023 set In Progress with CS-PLAN-077 owning; 024/025
+owning updated; stale "awaits its final review" sentences corrected;
+CONCEPT-001 narrative) and `ACTIVE_TASKS.md` (In Progress entry plus draft
+entry consolidation) updated with the activation. Pre-existing
+`docs/plans/{new,active,onhold}/.gitkeep` deletions preserved unstaged.
+Gates on the reviewed package: `npm run backlog:check`, `npm run
+docs:encoding`, `git diff --check`, plan standalone whitespace check.
+Runtime tree untouched; no runtime suites apply to a documentation-only round.

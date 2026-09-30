@@ -66,6 +66,11 @@ Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070
 final Standard B `PASS-WITH-FIXES` on 2026-09-30. The parent remains open
 for WP6-WP9; no successor activation is part of this review.
 
+Its successor, WP6 calm core UI, is
+[CS-PLAN-077: WP6 - Calm Core UI](active/cs-plan-077-wp6-calm-core-ui.md),
+activated 2026-09-30 via Standard A `PASS-WITH-FIXES` (Q-077-01..05 all
+Option A); implementation not started.
+
 Latest completed: [CS-PLAN-076: WP5 - Preferences and Digest Delivery](done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-30): self-only settings, bounded
 at-most-once combined digest, transactional source queue, full regression/
