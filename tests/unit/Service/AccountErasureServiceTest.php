@@ -82,6 +82,8 @@ class AccountErasureServiceTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Db\AgreementMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\PauseMapper::class),
 			$this->memberPreferenceMapper,
+			$this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\DigestSlotMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\CompletionRevisionMapper::class),
 			$this->workShareMapper,
 			$this->transactions,

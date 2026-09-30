@@ -135,4 +135,92 @@ class CalendarService {
 		}
 		return $local->setTimezone(new \DateTimeZone(self::DEFAULT_TIMEZONE));
 	}
+
+	/**
+	 * Whether `$value` is a bare `HH:mm` local-time label (00-23 hours,
+	 * 00-59 minutes).
+	 */
+	public static function isLocalTime(?string $value): bool {
+		if ($value === null || preg_match('/^(\d{2}):(\d{2})$/', $value, $m) !== 1) {
+			return false;
+		}
+		return (int)$m[1] <= 23 && (int)$m[2] <= 59;
+	}
+
+	/**
+	 * Resolve a house-local wall time on a given day to its UTC instant
+	 * with the C5b DST rules (CS-PLAN-076 §3.2):
+	 *
+	 *  - a nonexistent time (spring gap) resolves to the FIRST VALID
+	 *    LATER instant — the transition instant itself (Europe/Berlin
+	 *    02:30 on the gap day → 03:00 CEST);
+	 *  - a repeated time (autumn fold) resolves to its FIRST occurrence
+	 *    (02:30 on the fold day → the CEST one, not the CET repeat);
+	 *  - an ordinary time resolves exactly.
+	 *
+	 * All arithmetic uses ABSOLUTE timestamps — relative minute modify()
+	 * is wall-clock based across transitions and must not be used here.
+	 * The returned DateTime is UTC-normalized (class convention).
+	 *
+	 * @param string $dayKey House-local `Y-m-d` label
+	 * @param string $localTime `HH:mm` wall time
+	 * @throws \InvalidArgumentException on a malformed day key or time
+	 */
+	public function localTimeToInstant(string $dayKey, string $localTime, \DateTimeZone $timeZone): \DateTime {
+		if (!$this->isDayKey($dayKey) || !self::isLocalTime($localTime)) {
+			throw new \InvalidArgumentException('Invalid day key or local time (expected Y-m-d / HH:mm)');
+		}
+
+		// Local midnight as an absolute instant (dayStartInstant is
+		// UTC-normalized; the timestamp is what matters here).
+		$dayStart = $this->dayStartInstant($dayKey, $timeZone);
+		$baseTs = (int)$dayStart->getTimestamp();
+		[$hours, $minutes] = sscanf($localTime, '%d:%d') ?? [0, 0];
+		$seconds = ((int)$hours) * 3600 + ((int)$minutes) * 60;
+
+		// Offsets before and after the day's (single) transition — equal
+		// offsets mean an ordinary day.
+		$offsetStart = $timeZone->getOffset($dayStart);
+		$dayEndProbe = (clone $dayStart)->setTimestamp($baseTs + 86399);
+		$offsetEnd = $timeZone->getOffset($dayEndProbe);
+
+		// Interpret the wall time under BOTH candidate offsets. baseTs +
+		// seconds already encodes offsetStart, so re-interpreting at
+		// offsetEnd shifts by their difference.
+		$candidateTimestamps = $offsetStart === $offsetEnd
+			? [$baseTs + $seconds]
+			: [$baseTs + $seconds, $baseTs + $seconds + ($offsetStart - $offsetEnd)];
+
+		$renderValid = static function (int $ts) use ($timeZone, $localTime): bool {
+			return (new \DateTime('@' . $ts))->setTimezone($timeZone)->format('H:i') === $localTime;
+		};
+		$valid = array_values(array_filter($candidateTimestamps, $renderValid));
+		if ($valid !== []) {
+			// Ordinary day: the single exact hit. Fold: the smaller
+			// timestamp IS the first occurrence (C5b).
+			$instant = min($valid);
+			return (new \DateTime('@' . $instant))->setTimezone(new \DateTimeZone(self::DEFAULT_TIMEZONE));
+		}
+
+		// Gap: the wall time does not exist — the first valid LATER
+		// instant is the transition itself. Walk forward with absolute
+		// timestamps from the lower candidate (bounded: real gaps are at
+		// most one hour).
+		$ts = min($candidateTimestamps);
+		for ($i = 0; $i < 120; $i++) {
+			$rendered = (new \DateTime('@' . $ts))->setTimezone($timeZone)->format('H:i');
+			if ($rendered >= $localTime) {
+				break;
+			}
+			$ts += 60;
+		}
+		return (new \DateTime('@' . $ts))->setTimezone(new \DateTimeZone(self::DEFAULT_TIMEZONE));
+	}
+
+	/**
+	 * The house-local `HH:mm` wall time of the given instant.
+	 */
+	public function localTimeKey(\DateTimeInterface $now, \DateTimeZone $timeZone): string {
+		return \DateTime::createFromInterface($now)->setTimezone($timeZone)->format('H:i');
+	}
 }

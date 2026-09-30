@@ -254,16 +254,17 @@ is `/api/v1/occurrences/{key}/{amend,catch-up,restart}` and
 > Re-introducing this surface needs a real CalDAV/Task interaction design and
 > a consumer (FEAT-UX-021 closed as moot by the prune).
 
-Per-task reminder settings remain a proposal. Current background jobs send
-individual due-today/tomorrow and streak-at-risk notifications; there is no
-ChoreStrike digest, quiet-hours setting or global per-recipient notification
-budget. House-local date selection does not guarantee house-local delivery time:
-delivery depends on Nextcloud running the eligible background job.
+Per-task reminder settings remain a historical proposal. WP5 replaces
+individual due/streak/award notifications with the optional, quiet-by-default
+combined daily digest and self-only Settings preferences. The house-local
+schedule, quiet range and shared per-recipient budget are described in
+[Notifications](notifications.md); timely delivery still requires Nextcloud
+cron to run within the bounded same-day window.
 
 The earlier per-task reminder ideas below are not the selected first delivery
 scope; repeated overdue reminders are not an approved default.
 
-**Approved target (2026-09-17; not implemented):** task reminders are off by
+**Approved target (2026-09-17; WP5 delivery implemented):** task reminders are off by
 default. Members can enable at most one summary per person/day at their chosen
 time, only for relevant planned work, never on free/paused days or with streak
 threats. Respect quiet hours. C5 below defines delivery and category policy. The per-task
@@ -271,8 +272,9 @@ ideas below are historical alternatives, not the approved first reminder scope.
 
 ### Approved Delivery Contract C5 (2026-09-17)
 
-Target behavior only; the existing individual notification jobs do not implement
-this digest. Use household-local time, never device/travel timezone, for the
+The WP5 backend and minimal Settings surface implement the delivery slice;
+the complete calm-UX redesign and sound/animation consumers remain WP6.
+Use household-local time, never device/travel timezone, for the
 selected time, quiet hours and daily budget; visibly identify that timezone.
 
 - Resolve a nonexistent local time to the first valid later instant (e.g. 02:30

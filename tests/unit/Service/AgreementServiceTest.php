@@ -134,6 +134,8 @@ class AgreementServiceTest extends TestCase {
 			$this->taskAccessPolicy,
 			$this->commands,
 			new CalendarService(),
+			$this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Service\DigestScheduleService::class),
 			$l10n,
 		);
 	}

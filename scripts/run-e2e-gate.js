@@ -73,12 +73,13 @@ const REQUIRED_SPECS = [
 	{ file: 'multi-user-interactions.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'time-travel-overdue.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	// WP3 cutover: time-travel-streak-notification (freeze/at-risk) and
-	// release-boost-shop retired with the legacy economy — the notification
-	// pass keeps its TriggerJobsIntegrationTest/TriggerJobs coverage.
+	// release-boost-shop retired with the legacy economy.
 	{ file: 'release-task-lifecycle.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'release-visibility-roles.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'release-task-templates.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
-	{ file: 'release-notifications.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
+	// CS-PLAN-070 WP5: release-notifications (weekly-goal bell) is replaced
+	// by the opt-in quiet-hours digest — the app's ONLY notification path.
+	{ file: 'quiet-digest.spec.ts', project: 'chromium-serial-db', scenarios: ['quiet hours gate the delivery attempt'], minTests: 2 },
 	{ file: 'release-setup-wizard.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	// CS-PLAN-070 WP4: the consent lifecycle needs the owner + reset-owned
 	// family DB (flag flip + UI consent/withdraw).

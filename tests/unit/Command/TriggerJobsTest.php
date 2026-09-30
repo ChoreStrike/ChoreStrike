@@ -6,7 +6,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Command;
 
 use OCA\ChoreStrike\BackgroundJob\TimelineJob;
 use OCA\ChoreStrike\Command\TriggerJobs;
-use OCA\ChoreStrike\Service\TaskDueReminderService;
+use OCA\ChoreStrike\Service\DigestService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -20,13 +20,14 @@ use Symfony\Component\Console\Output\OutputInterface;
  * Unit tests for the chorestrike:trigger-jobs OCC command (CS-PLAN-023).
  *
  * Covers dispatch per job type, the `all` ordering, the isTestMode()
- * guard, unknown-type rejection and the --as-of time seam. The
- * freeze/restock/at-risk types retired with the WP3 legacy-effect
- * cutover (CS-PLAN-070 WP3, Q-074-01 Option A).
+ * guard, unknown-type rejection and the --as-of time seam. WP5
+ * (CS-PLAN-076): the `daily-notification` type triggers the SAME pass
+ * the five-minute cron job runs — the digest delivery pass; the former
+ * task-due reminder service is retired.
  */
 class TriggerJobsTest extends TestCase {
 	private TestDataService&MockObject $testDataService;
-	private TaskDueReminderService&MockObject $taskDueReminderService;
+	private DigestService&MockObject $digestService;
 	private TimelineJob&MockObject $timelineJob;
 	private ITimeFactory&MockObject $timeFactory;
 	private TriggerJobs $command;
@@ -36,13 +37,13 @@ class TriggerJobsTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->testDataService = $this->createMock(TestDataService::class);
-		$this->taskDueReminderService = $this->createMock(TaskDueReminderService::class);
+		$this->digestService = $this->createMock(DigestService::class);
 		$this->timelineJob = $this->createMock(TimelineJob::class);
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
 
 		$this->command = new TriggerJobs(
 			$this->testDataService,
-			$this->taskDueReminderService,
+			$this->digestService,
 			$this->timelineJob,
 			$this->timeFactory,
 		);
@@ -68,12 +69,12 @@ class TriggerJobsTest extends TestCase {
 		$testDataService->method('isTestMode')->willReturn(false);
 		$command = new TriggerJobs(
 			$testDataService,
-			$this->taskDueReminderService,
+			$this->digestService,
 			$this->timelineJob,
 			$this->timeFactory,
 		);
 
-		$this->taskDueReminderService->expects($this->never())->method('process');
+		$this->digestService->expects($this->never())->method('processDueSlots');
 		$this->timelineJob->expects($this->never())->method('reconcileAt');
 
 		$exitCode = $command->run(
@@ -89,11 +90,11 @@ class TriggerJobsTest extends TestCase {
 	 * Execute_DispatchesTimelineOnly
 	 *
 	 * The deterministic timeline trigger delegates to the full pass the
-	 * five-minute TimelineJob runs, with the
-	 * --as-of clock substitution (here: the default clock's today).
+	 * five-minute TimelineJob runs, with the --as-of clock substitution
+	 * (here: the default clock's today).
 	 */
 	public function testExecute_DispatchesTimelineOnly(): void {
-		$this->taskDueReminderService->expects($this->never())->method('process');
+		$this->digestService->expects($this->never())->method('processDueSlots');
 		$this->timelineJob->expects($this->once())->method('reconcileAt')
 			->with($this->callback(static fn (\DateTimeInterface $now): bool => $now->format('Y-m-d') === '2026-08-04'));
 
@@ -112,7 +113,7 @@ class TriggerJobsTest extends TestCase {
 	 * The retired freeze/restock types are no longer valid dispatches.
 	 */
 	public function testExecute_RejectsUnknownType(): void {
-		$this->taskDueReminderService->expects($this->never())->method('process');
+		$this->digestService->expects($this->never())->method('processDueSlots');
 		$this->timelineJob->expects($this->never())->method('reconcileAt');
 
 		$exitCode = $this->command->run(
@@ -127,12 +128,12 @@ class TriggerJobsTest extends TestCase {
 	/**
 	 * Execute_DispatchesDailyNotificationOnly
 	 *
-	 * daily-notification is the task-due reminder pass with the injected
-	 * day — the streak-at-risk pass retired with the freeze effects.
+	 * WP5: `daily-notification` triggers the digest pass with the
+	 * injected instant — the SAME pass the five-minute cron job runs.
 	 */
 	public function testExecute_DispatchesDailyNotificationOnly(): void {
-		$this->taskDueReminderService->expects($this->once())->method('process')
-			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
+		$this->digestService->expects($this->once())->method('processDueSlots')
+			->willReturn($this->digestStats());
 		$this->timelineJob->expects($this->never())->method('reconcileAt');
 
 		$exitCode = $this->command->run(
@@ -141,6 +142,7 @@ class TriggerJobsTest extends TestCase {
 		);
 
 		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
+		$this->assertStringContainsString('digest-pass', implode("\n", $this->outputLines));
 	}
 
 	/**
@@ -148,10 +150,10 @@ class TriggerJobsTest extends TestCase {
 	 */
 	public function testExecute_AllRunsEachServiceExactlyOnce(): void {
 		$order = [];
-		$this->taskDueReminderService->expects($this->once())->method('process')
+		$this->digestService->expects($this->once())->method('processDueSlots')
 			->willReturnCallback(function () use (&$order) {
-				$order[] = 'task-due-reminders';
-				return ['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0];
+				$order[] = 'digest-pass';
+				return $this->digestStats();
 			});
 		$this->timelineJob->expects($this->once())->method('reconcileAt')
 			->willReturnCallback(function () use (&$order) {
@@ -164,23 +166,23 @@ class TriggerJobsTest extends TestCase {
 		);
 
 		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
-		$this->assertSame(['task-due-reminders', 'timeline'], $order);
+		$this->assertSame(['digest-pass', 'timeline'], $order);
 	}
 
 	/**
 	 * Execute_DefaultAsOfDerivesTodayFromInjectedFactory
 	 *
-	 * Without --as-of the injected clock defines "today" (task-due and
+	 * Without --as-of the injected clock defines "now" (digest and
 	 * timeline passes).
 	 */
 	public function testExecute_DefaultAsOfDerivesTodayFromInjectedFactory(): void {
-		$this->taskDueReminderService->expects($this->once())->method('process')
-			->with($this->callback(function (\DateTimeInterface $today) {
-				return $today->format('Y-m-d') === '2026-08-04';
+		$this->digestService->expects($this->once())->method('processDueSlots')
+			->with($this->callback(function (\DateTimeInterface $now) {
+				return $now->format('Y-m-d') === '2026-08-04';
 			}))
-			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
+			->willReturn($this->digestStats());
 		$this->timelineJob->expects($this->once())->method('reconcileAt')
-			->with($this->callback(static fn (\DateTimeInterface $today): bool => $today->format('Y-m-d') === '2026-08-04'));
+			->with($this->callback(static fn (\DateTimeInterface $now): bool => $now->format('Y-m-d') === '2026-08-04'));
 
 		$this->command->run(
 			$this->makeInput('all'),
@@ -195,13 +197,13 @@ class TriggerJobsTest extends TestCase {
 	 * E2E seam for simulating "N days passed" with zero clock trickery.
 	 */
 	public function testExecute_AsOfControlsToday(): void {
-		$this->taskDueReminderService->expects($this->once())->method('process')
-			->with($this->callback(function (\DateTimeInterface $today) {
-				return $today->format('Y-m-d') === '2026-08-10';
+		$this->digestService->expects($this->once())->method('processDueSlots')
+			->with($this->callback(function (\DateTimeInterface $now) {
+				return $now->format('Y-m-d') === '2026-08-10';
 			}))
-			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
+			->willReturn($this->digestStats());
 		$this->timelineJob->expects($this->once())->method('reconcileAt')
-			->with($this->callback(static fn (\DateTimeInterface $today): bool => $today->format('Y-m-d') === '2026-08-10'));
+			->with($this->callback(static fn (\DateTimeInterface $now): bool => $now->format('Y-m-d') === '2026-08-10'));
 
 		$exitCode = $this->command->run(
 			$this->makeInput('all', ['as-of' => '2026-08-10']),
@@ -212,10 +214,33 @@ class TriggerJobsTest extends TestCase {
 	}
 
 	/**
+	 * Execute_AsOfAcceptsWallTime
+	 *
+	 * The digest schedule resolves wall times, so the E2E seam accepts
+	 * `YYYY-MM-DD HH:MM[:SS]` in addition to the bare day.
+	 */
+	public function testExecute_AsOfAcceptsWallTime(): void {
+		$this->digestService->expects($this->once())->method('processDueSlots')
+			->with($this->callback(function (\DateTimeInterface $now) {
+				return $now->format('Y-m-d H:i') === '2026-08-10 18:30';
+			}))
+			->willReturn($this->digestStats());
+		$this->timelineJob->expects($this->once())->method('reconcileAt')
+			->with($this->callback(static fn (\DateTimeInterface $now): bool => $now->format('Y-m-d H:i') === '2026-08-10 18:30'));
+
+		$exitCode = $this->command->run(
+			$this->makeInput('all', ['as-of' => '2026-08-10 18:30']),
+			$this->output
+		);
+
+		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
+	}
+
+	/**
 	 * Execute_InvalidAsOfRejected
 	 */
 	public function testExecute_InvalidAsOfRejected(): void {
-		$this->taskDueReminderService->expects($this->never())->method('process');
+		$this->digestService->expects($this->never())->method('processDueSlots');
 		$this->timelineJob->expects($this->never())->method('reconcileAt');
 
 		$exitCode = $this->command->run(
@@ -224,7 +249,7 @@ class TriggerJobsTest extends TestCase {
 		);
 
 		$this->assertSame(TriggerJobs::FAILURE, $exitCode);
-		$this->assertStringContainsString('Invalid --as-of date', implode("\n", $this->outputLines));
+		$this->assertStringContainsString('Invalid --as-of', implode("\n", $this->outputLines));
 	}
 
 	/**
@@ -261,6 +286,22 @@ class TriggerJobsTest extends TestCase {
 		$this->assertSame(InputOption::VALUE_OPTIONAL, $options['as-of']['mode']);
 		$this->assertArrayHasKey('user', $options);
 		$this->assertSame(InputOption::VALUE_OPTIONAL, $options['user']['mode']);
+	}
+
+	/**
+	 * @return array<string, int>
+	 */
+	private function digestStats(): array {
+		return [
+			'materialized' => 0,
+			'reResolved' => 0,
+			'expiredSlots' => 0,
+			'dispatched' => 0,
+			'skipped' => 0,
+			'quiet' => 0,
+			'contended' => 0,
+			'uncertain' => 0,
+		];
 	}
 
 	/**

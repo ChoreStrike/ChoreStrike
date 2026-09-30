@@ -101,7 +101,8 @@ E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 - Release regression suite (CS-PLAN-024, `release-*`): task lifecycle
   (`release-task-lifecycle`), visibility/roles (`release-visibility-roles`),
   task templates (`release-task-templates`), setup wizard
-  (`release-setup-wizard`), notifications (`release-notifications`).
+  (`release-setup-wizard`); the notifications row is covered by the WP5
+  digest release spec (`quiet-digest`, CS-PLAN-070 WP5).
 
 > **Drift rule:** if an E2E spec comes to cover a manual item reliably, mark the
 > manual row **Automated** (with the spec pointer) instead of removing the row —
@@ -310,18 +311,23 @@ everyone; the owner-only Member Availability grid renders for owners only
 
 ## 13. Notifications
 
-Route surface: background jobs (`DailyNotificationJob`, `StreakFreezeJob`,
-`StreakRestockJob` — thin delegates over `StreakAtRiskService` /
-`StreakFreezeService` / `StreakRestockService` since CS-PLAN-023) +
-`ChoreStrikeNotifier`. Time-dependent flows are testable without waiting via
-`occ chorestrike:trigger-jobs --as-of` (see `docs/engineering/testing.md` §
-Time-Travel Testing).
+Route surface: the five-minute digest pass (`DailyNotificationJob` →
+`DigestService`, CS-PLAN-070 WP5 / ADR-016) + `ChoreStrikeNotifier`.
+Time-dependent flows are testable without waiting via
+`occ chorestrike:trigger-jobs daily-notification --as-of="YYYY-MM-DD HH:MM"`
+(see `docs/engineering/testing.md` § Time-Travel Testing).
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| Daily reminder | Trigger/await the daily notification job | A localized task reminder is delivered via Nextcloud notifications | `time-travel-streak-notification` (at-risk reminder via `trigger-jobs --as-of`, CS-PLAN-023) |
-| Streak freeze/restock | Consume then restock a streak freeze via the jobs | Freeze consumed on a miss; restocked per job schedule | `time-travel-streak-notification` (freeze/reset) + `TriggerJobsIntegrationTest` (restock covered by unit/integration) |
-| Weekly goal | Reach the house weekly goal | Weekly-goal-reached notification fires once per week (de-duped) | `release-notifications` |
+| Silent by default | Load Settings as any member; trigger the digest pass | The notifications section renders self-only; nothing is dispatched while the digest is off | `quiet-digest` + `PreferenceServiceTest` |
+| Daily summary | Opt in (Settings or `PUT /preferences/me`), create due work, trigger the pass at the slot time | Exactly ONE combined `digest` bell; a replay delivers nothing further (at-most-once) | `quiet-digest`, `TriggerJobsIntegrationTest`, `DigestServiceTest` |
+| Quiet hours | Set a quiet range covering the dispatch instant, trigger the pass | No bell during quiet hours; a missed window expires without a late burst | `quiet-digest`, `DigestDeliveryTest` |
+| Schedule correctness | Set digest times around DST gap/fold (Europe/Berlin) | Gap → first valid later instant; fold → first occurrence | `DigestScheduleServiceTest`, `TimezoneDayBucketingTest` |
+| Opt-out/departure | Toggle off or remove the member before the claim | The slot is skipped/consumed; no bell after opt-out | `DigestDeliveryTest`, `HouseMemberRemovalIntegrationTest` |
+
+The retired per-event rows (daily task reminder, streak freeze/restock,
+weekly-goal bell) were removed with the WP5 cutover — pressure
+notifications no longer exist (ADR-016).
 
 ---
 

@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\DigestChange;
+use OCA\ChoreStrike\Db\DigestChangeMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Occurrence;
@@ -65,6 +67,8 @@ class AgreementService {
 	private TaskAccessPolicy $taskAccessPolicy;
 	private CommandService $commands;
 	private CalendarService $calendar;
+	private DigestChangeMapper $digestChangeMapper;
+	private DigestScheduleService $digestScheduleService;
 	private IL10N $l10n;
 
 	public function __construct(
@@ -79,6 +83,8 @@ class AgreementService {
 		TaskAccessPolicy $taskAccessPolicy,
 		CommandService $commands,
 		CalendarService $calendar,
+		DigestChangeMapper $digestChangeMapper,
+		DigestScheduleService $digestScheduleService,
 		IL10N $l10n,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -92,6 +98,8 @@ class AgreementService {
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->commands = $commands;
 		$this->calendar = $calendar;
+		$this->digestChangeMapper = $digestChangeMapper;
+		$this->digestScheduleService = $digestScheduleService;
 		$this->l10n = $l10n;
 	}
 
@@ -205,6 +213,11 @@ class AgreementService {
 						['attestedBy' => $ctx->actorHouseUserId, 'subjects' => array_values($consentSubjects)]
 					);
 				}
+				// WP5 (C5m): the organizational queue write joins THIS
+				// command transaction — the affected members learn about
+				// the amendment through their opted-in digest, never
+				// through a bell.
+				$this->queueAgreementChanges($ctx->houseId, (int)$ctx->actorHouseUserId, $occurrence, $consentSubjects, $ctx->now);
 				return $this->resultRefs($occurrence);
 			}
 		);
@@ -295,6 +308,9 @@ class AgreementService {
 				if ($participants !== null) {
 					$this->restampSuspensionAfterMemberWrite($ctx->houseId, $occurrence, $revision, $stateBefore, $evidenceBefore);
 				}
+				// WP5 (C5m): transactional queue write for the affected
+				// members' opted-in digest.
+				$this->queueAgreementChanges($ctx->houseId, (int)$ctx->actorHouseUserId, $occurrence, $consentSubjects, $ctx->now);
 				return $this->resultRefs($occurrence);
 			}
 		);
@@ -361,6 +377,10 @@ class AgreementService {
 					array_values($consentSubjects),
 					$ctx->now
 				);
+				// WP5 (C5m): transactional queue write for the affected
+				// members' opted-in digest (the restart's own occurrence
+				// identity).
+				$this->queueAgreementChanges($ctx->houseId, (int)$ctx->actorHouseUserId, $restart, $consentSubjects, $ctx->now);
 				return $this->resultRefs($restart);
 			}
 		);
@@ -369,6 +389,40 @@ class AgreementService {
 	// ------------------------------------------------------------------
 	// Shared command plumbing
 	// ------------------------------------------------------------------
+
+	/**
+	 * Queue the organizational digest change for every AFFECTED member of
+	 * an agreement recording (CS-PLAN-070 WP5 §3.3, C5m): handover/date/
+	 * share amendments touch the consent subjects — the actor's own row
+	 * is skipped (they made the change). Identity rows only (occurrence
+	 * id + revision); rights and relevance are rechecked at dispatch.
+	 * Runs INSIDE the owning command transaction (the house lock is
+	 * already held); retry/replay coalesces on the unique identity.
+	 *
+	 * @param array<int, array{walletId: int, userId: string}> $consentSubjects
+	 */
+	private function queueAgreementChanges(int $houseId, int $actorHouseUserId, Occurrence $occurrence, array $consentSubjects, \DateTimeInterface $now): void {
+		foreach ($consentSubjects as $subject) {
+			$member = $this->houseUserMapper->findByHouseAndUser($houseId, $subject['userId']);
+			if ($member === null || (int)$member->getId() === $actorHouseUserId) {
+				// Rows carry only recipients authorized at write time.
+				continue;
+			}
+			$change = new DigestChange();
+			$change->setHouseId($houseId);
+			$change->setHouseUserId((int)$member->getId());
+			$change->setObjectType('agreement');
+			$change->setObjectId((string)$occurrence->getId());
+			$change->setObjectRevision($occurrence->getVersion());
+			$change->setCategory(DigestChange::CATEGORY_ORG);
+			$change->setChangeTime(\DateTime::createFromInterface($now));
+			$change->setTargetSlot($this->digestScheduleService->resolveTargetSlotUnderLock($houseId, (int)$member->getId(), $now));
+			$change->setDisposition(DigestChange::DISPOSITION_QUEUED);
+			$change->setCreatedAt(\DateTime::createFromInterface($now));
+			$change->setUpdatedAt(\DateTime::createFromInterface($now));
+			$this->digestChangeMapper->queueOrCoalesce($change);
+		}
+	}
 
 	/**
 	 * @param callable(AgreementCommandContext): array<string, mixed> $fn

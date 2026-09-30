@@ -422,6 +422,53 @@ class FamilyRhythmSchemaTest extends IntegrationTestCase {
 		self::assertSame(0, (int)$this->fetchHouseColumn($houseId, 'timezone_version'), 'the timezone counter is untouched');
 	}
 
+	/**
+	 * FreshInstallSchema_CarriesWP5DigestTables
+	 *
+	 * T0 growth (CS-PLAN-070 WP5): the digest tables exist with the C5c
+	 * daily-budget identity (unique house+membership+day) and the C5m
+	 * coalescing identity (unique membership+object+slot); the slot
+	 * schedule read has its due-scan index; the preference row carries
+	 * the C5h delivery columns with the neutral defaults.
+	 */
+	public function testFreshInstallSchema_CarriesWP5DigestTables(): void {
+		$schemaManager = $this->db->createSchema();
+
+		// The DBAL schema carries the Nextcloud table prefix.
+		self::assertTrue($schemaManager->hasTable('oc_chorestrike_digest_slots'), 'digest_slots missing');
+		self::assertTrue($schemaManager->hasTable('oc_chorestrike_digest_changes'), 'digest_changes missing');
+
+		$slots = $schemaManager->getTable('oc_chorestrike_digest_slots');
+		$slotUniques = array_map(
+			static fn ($index) => array_map('strtolower', $index->getUnquotedColumns()),
+			array_filter($slots->getIndexes(), static fn ($index) => $index->isUnique() && !$index->isPrimary())
+		);
+		self::assertContains(['house_id', 'house_user_id', 'local_day'], $slotUniques, 'the daily budget identity (C5c) is missing');
+		self::assertTrue($slots->hasIndex('idx_dslot_status_sched'), 'the due-scan index is missing');
+		foreach (['id', 'house_id', 'house_user_id', 'local_day', 'zone', 'pref_revision', 'scheduled_utc', 'window_end_utc', 'status', 'dispatch_token', 'dispatched_at', 'created_at', 'updated_at'] as $column) {
+			self::assertTrue($slots->hasColumn($column), "digest_slots column $column missing");
+		}
+
+		$changes = $schemaManager->getTable('oc_chorestrike_digest_changes');
+		$changeUniques = array_map(
+			static fn ($index) => array_map('strtolower', $index->getUnquotedColumns()),
+			array_filter($changes->getIndexes(), static fn ($index) => $index->isUnique() && !$index->isPrimary())
+		);
+		self::assertContains(['house_user_id', 'object_type', 'object_id', 'target_slot'], $changeUniques, 'the coalescing identity (C5m) is missing');
+		self::assertTrue($changes->hasIndex('idx_dchg_house_slot'), 'the expiry-sweep index is missing');
+		foreach (['id', 'house_id', 'house_user_id', 'object_type', 'object_id', 'object_revision', 'category', 'change_time', 'target_slot', 'disposition', 'created_at', 'updated_at'] as $column) {
+			self::assertTrue($changes->hasColumn($column), "digest_changes column $column missing");
+		}
+
+		$prefs = $schemaManager->getTable('oc_chorestrike_member_prefs');
+		foreach (['task_digest_enabled', 'org_digest_enabled', 'digest_time', 'quiet_start', 'quiet_end', 'sound_enabled', 'animation_enabled', 'arcade_visible', 'catalog_visible'] as $column) {
+			self::assertTrue($prefs->hasColumn($column), "member_prefs delivery column $column missing");
+		}
+		self::assertSame('18:00', $prefs->getColumn('digest_time')->getDefault(), 'the neutral digest time default (C5h) is missing');
+		self::assertTrue($prefs->getColumn('ranking_effective_monday')->getNotnull() === false, 'ranking_effective_monday must be nullable (Q-076-03)');
+		self::assertTrue($prefs->getColumn('ranking_saved_zone')->getNotnull() === false, 'ranking_saved_zone must be nullable (Q-076-03)');
+	}
+
 	private function fetchHouseColumn(int $houseId, string $column): mixed {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($column)

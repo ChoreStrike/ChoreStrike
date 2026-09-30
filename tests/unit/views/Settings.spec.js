@@ -99,6 +99,33 @@ jest.mock('../../../src/store/user.js', () => ({
 	useUserStore: () => mockUserState,
 }))
 
+// CS-PLAN-070 WP5: the self-only notification preferences section. The
+// store is mocked — the cross-layer contract lives in preferences.spec.js.
+const mockPreferencesState = {
+	version: 0,
+	taskDigestEnabled: false,
+	orgDigestEnabled: false,
+	digestTime: '18:00',
+	quietStart: null,
+	quietEnd: null,
+	soundEnabled: false,
+	animationEnabled: false,
+	arcadeVisible: true,
+	catalogVisible: true,
+	loading: false,
+	saving: false,
+	error: null,
+	conflict: false,
+	fetchPreferences: jest.fn().mockResolvedValue(),
+	savePreferences: jest.fn().mockResolvedValue(true),
+}
+
+jest.mock('../../../src/store/preferences.js', () => ({
+	// Reactive wrapper so store mutations (e.g. the 409 conflict flag)
+	// actually re-render the component under test.
+	usePreferencesStore: () => require('vue').reactive(mockPreferencesState),
+}))
+
 // Mock child components
 jest.mock('../../../src/components/Common/Icon.vue', () => ({
 	name: 'Icon',
@@ -129,6 +156,16 @@ describe('Settings.vue', () => {
 		mockUserState.currentUser = { id: 1, role: 'owner' }
 		mockUserState.isHouseOwner = true
 		mockUserState.initializeCurrentUser.mockClear().mockResolvedValue()
+		mockPreferencesState.version = 0
+		mockPreferencesState.taskDigestEnabled = false
+		mockPreferencesState.orgDigestEnabled = false
+		mockPreferencesState.digestTime = '18:00'
+		mockPreferencesState.quietStart = null
+		mockPreferencesState.quietEnd = null
+		mockPreferencesState.saving = false
+		mockPreferencesState.conflict = false
+		mockPreferencesState.fetchPreferences.mockClear().mockResolvedValue()
+		mockPreferencesState.savePreferences.mockClear().mockResolvedValue(true)
 	})
 
 	it('renders settings component', () => {
@@ -182,7 +219,7 @@ describe('Settings.vue', () => {
 			},
 		})
 
-		expect(wrapper.find('.save-button').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="house-section"] .save-button').exists()).toBe(true)
 	})
 
 	it('has floors and rooms section', () => {
@@ -289,7 +326,7 @@ describe('Settings.vue', () => {
 			},
 		})
 
-		const saveButton = wrapper.find('.save-button')
+		const saveButton = wrapper.find('[data-testid="house-section"] .save-button')
 		expect(saveButton.attributes('disabled')).toBeDefined()
 	})
 
@@ -557,5 +594,87 @@ describe('Settings.vue', () => {
 		await flushPromises()
 
 		expect(mockRoomsState.deleteRoom).toHaveBeenCalledWith(2)
+	})
+
+	// ------------------------------------------------------------------
+	// Notifications section (CS-PLAN-070 WP5, Q-076-01 A): self-only
+	// delivery preferences — every member sees it, owner or not.
+	// ------------------------------------------------------------------
+
+	it('renders the notifications section for every member (not only owners)', async () => {
+		mockUserState.isHouseOwner = false
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="notifications-section"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="task-digest-toggle"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="org-digest-toggle"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="digest-time-input"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="quiet-start-input"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="quiet-end-input"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="sound-toggle"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="animation-toggle"]').exists()).toBe(true)
+	})
+
+	it('loads the own preferences into the form on mount', async () => {
+		mockPreferencesState.taskDigestEnabled = true
+		mockPreferencesState.digestTime = '19:30'
+		mockPreferencesState.quietStart = '21:00'
+		mockPreferencesState.quietEnd = '07:00'
+
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		expect(mockPreferencesState.fetchPreferences).toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="task-digest-toggle"]').element.checked).toBe(true)
+		expect(wrapper.find('[data-testid="digest-time-input"]').element.value).toBe('19:30')
+		expect(wrapper.find('[data-testid="quiet-start-input"]').element.value).toBe('21:00')
+		expect(wrapper.find('[data-testid="quiet-end-input"]').element.value).toBe('07:00')
+	})
+
+	it('saves the edited delivery preferences through the version-aware store', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		await wrapper.find('[data-testid="task-digest-toggle"]').setValue(true)
+		await wrapper.find('[data-testid="save-preferences"]').trigger('click')
+		await flushPromises()
+
+		expect(mockPreferencesState.savePreferences).toHaveBeenCalledWith(expect.objectContaining({
+			taskDigestEnabled: true,
+		}))
+		expect(showSuccess).toHaveBeenCalled()
+	})
+
+	it('pre-fills the quiet inputs with the 20:00/08:00 suggestion while enabling and they are empty', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		await wrapper.find('[data-testid="task-digest-toggle"]').setValue(true)
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="quiet-start-input"]').element.value).toBe('20:00')
+		expect(wrapper.find('[data-testid="quiet-end-input"]').element.value).toBe('08:00')
+	})
+
+	it('keeps the draft and shows the conflict hint on a 409', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		mockPreferencesState.savePreferences.mockImplementation(async () => {
+			// The real store flags the conflict and refreshes the server
+			// state while preserving the caller's draft — mutate through
+			// the reactive proxy so the component re-renders.
+			require('vue').reactive(mockPreferencesState).conflict = true
+			return false
+		})
+		await wrapper.find('[data-testid="task-digest-toggle"]').setValue(true)
+		await wrapper.find('[data-testid="save-preferences"]').trigger('click')
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="preferences-conflict"]').exists()).toBe(true)
+		// Draft preservation: the local edit is still on the form.
+		expect(wrapper.find('[data-testid="task-digest-toggle"]').element.checked).toBe(true)
+		expect(showSuccess).not.toHaveBeenCalled()
 	})
 })

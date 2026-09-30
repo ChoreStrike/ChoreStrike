@@ -24,6 +24,15 @@
 > the preserved historical/agreed time base the C5 target requires for the
 > timeline portion (bounded digest delivery remains a later package).
 
+> **Digest-schedule amendment (2026-09-29, CS-PLAN-070 WP5 / ADR-016):**
+> `CalendarService::localTimeToInstant(dayKey, 'HH:mm', tz)` resolves
+> house-local wall times to UTC instants with the C5b DST rules (spring gap →
+> first valid later instant, autumn fold → first occurrence) — the primitive
+> behind the digest slot schedule (`DigestScheduleService`). A timezone edit
+> re-resolves pending digest slots in the new zone under the 24-elapsed-hour
+> spacing rule (`DigestScheduleService::reviseForZoneChangeUnderLock`),
+> completing the bounded digest delivery the C5 target asked for.
+
 Every calendar-day semantic in ChoreStrike — streak days, freeze coverage,
 at-risk detection, due-today windows, energy windows, medal/leaderboard
 weeks, and the duplicate-completion guard — bucketed days at **server-TZ

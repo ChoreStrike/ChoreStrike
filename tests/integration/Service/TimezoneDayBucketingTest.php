@@ -201,4 +201,34 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 		self::assertContains('tzlb_player-in-week', $userIds, 'A score inside the house week must be listed');
 		self::assertNotContains('tzlb_player-before-week', $userIds, 'A score before the house-local Monday midnight must be excluded');
 	}
+
+	/**
+	 * LocalTimeResolution_FollowsDstGapAndFoldRules (CS-PLAN-070 WP5,
+	 * C5b): the digest schedule resolves house-local wall times against
+	 * the real tz database — a nonexistent spring-gap time resolves to
+	 * the first valid LATER instant (the transition itself), an autumn
+	 * fold time to its FIRST occurrence, and ordinary times exactly.
+	 */
+	public function testLocalTimeResolution_FollowsDstGapAndFoldRules(): void {
+		$house = $this->createHouseIn('tzdg_owner', 'Europe/Berlin');
+		$tz = $this->calendar->getTimeZone($house);
+
+		// Spring gap 2026-03-29: 02:00 CET → 03:00 CEST. '02:30' does not
+		// exist — the first valid later instant is the transition itself
+		// (03:00 CEST = 01:00 UTC).
+		$gap = $this->calendar->localTimeToInstant('2026-03-29', '02:30', $tz);
+		self::assertSame('2026-03-29T01:00:00+00:00', $gap->format('c'), 'gap → first valid later instant');
+
+		// Ordinary CEST time.
+		$summer = $this->calendar->localTimeToInstant('2026-07-15', '18:00', $tz);
+		self::assertSame('2026-07-15T16:00:00+00:00', $summer->format('c'));
+
+		// Autumn fold 2026-10-25: 02:30 occurs twice — the FIRST
+		// occurrence (CEST = 00:30 UTC) wins.
+		$fold = $this->calendar->localTimeToInstant('2026-10-25', '02:30', $tz);
+		self::assertSame('2026-10-25T00:30:00+00:00', $fold->format('c'), 'fold → first occurrence');
+
+		// The gap resolution renders AFTER the requested wall time.
+		self::assertGreaterThan('02:30', $gap->setTimezone($tz)->format('H:i'));
+	}
 }

@@ -80,7 +80,11 @@ describe the WP3 model as the shipped contract.
   and WP4 label cutovers. `MedalService` carries the retained catalog — the
   rhythm tiers (`rhythm_3/6/12` from the valid planned-day history) plus the
   household weekly milestone — awarded read-triggered via `awardMedalIfNew()`
-  (race-safe, notifies once per user+type+week).
+  (race-safe, retained in-app once per user+type+week). WP5 removed external
+  medal/title/weekly-goal bells; the weekly receipt is the in-app celebration
+  marker only. Notifications use the self-opted-in shared daily digest
+  ([pipeline](../../../../engineering/notifications.md), ADR-016), never
+  recognition pressure.
 
 ### 6. Energy Model
 - Each task costs 1–5 energy (~5 min per unit).

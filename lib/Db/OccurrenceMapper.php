@@ -281,6 +281,32 @@ class OccurrenceMapper extends QBMapper {
 	}
 
 	/**
+	 * All scheduled occurrences of one house whose agreed work appointment
+	 * for ONE member's wallet falls on the given day key (CS-PLAN-070 WP5
+	 * dispatch-time task relevance: explicitly agreed catch-up work for
+	 * today, regardless of the occurrence's planned date). Unfulfilled
+	 * rows only — completed work never re-enters a summary.
+	 *
+	 * @return Occurrence[]
+	 */
+	public function findByHouseMemberWorkDate(int $houseId, int $walletId, string $workDateKey): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('o.*')
+			->from($this->getTableName(), 'o')
+			->innerJoin('o', 'chorestrike_occ_members', 'om', $qb->expr()->eq('om.occurrence_id', 'o.id'))
+			->where($qb->expr()->eq('o.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('o.kind', $qb->createNamedParameter(Occurrence::KIND_SCHEDULED, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->isNull('o.completion_id'))
+			->andWhere($qb->expr()->isNull('o.covered_by_completion_id'))
+			->andWhere($qb->expr()->eq('om.wallet_id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('om.work_date', $qb->createNamedParameter($workDateKey, IQueryBuilder::PARAM_STR)))
+			->orderBy('o.room_task_id', 'ASC')
+			->addOrderBy('o.schedule_rev_id', 'ASC')
+			->addOrderBy('o.ordinal', 'ASC');
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Page scheduled history in planned-day/id order. A fixed-size page keeps
 	 * correction/reward projection reads bounded without dropping older runs.
 	 *

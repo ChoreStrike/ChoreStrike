@@ -1,6 +1,6 @@
 # CS-PLAN-076: WP5 - Preferences and Digest Delivery
 
-> **Status:** Active; Standard A `PASS-WITH-FIXES` (2026-09-29); implementation not started
+> **Status:** Done; final Standard B `PASS-WITH-FIXES` (2026-09-30). RF-076-01..11 resolved, required gates green, durable documentation integrated; WP6 draft and its metadata explicitly excluded from the scoped review commit. The initial blocked attempt is preserved below. Standard A `PASS-WITH-FIXES` (2026-09-29).
 > **Effort:** M/L; 5-8 engineering days (parent WP5 allowance)
 > **Priority:** P1
 > **Depends on:** [WP0 / CS-PLAN-071](../done/cs-plan-071-wp0-write-identity-foundation.md),
@@ -329,6 +329,40 @@ staleness annotations, `docs/plans/README.md`, `docs/README.md`,
 `docs/plans/{new,active,onhold}/.gitkeep` deletions without staging or
 restoring them.
 
+### Implementation and Evidence Mapping (2026-09-30)
+
+No required behavior or test was waived. The concrete implementation uses
+`docs/adr/ADR-016-opt-in-digest-notifications.md` for ADR-016; section 10's
+original filename remains the historical activation choice. Durable API,
+engineering and concept descriptions also live in their `notifications.md`
+pages, now linked from the canonical entry points named in the manifest.
+The reset inventory lives in `TestDataService` and `IntegrationTestCase`;
+the two proposed fixture classes needed no additional digest seed state.
+
+Section 4 evidence is mapped to the actual seams:
+
+- Calendar helper behavior is tested through the real `CalendarService`
+  injected into `DigestScheduleServiceTest` (UTC, Berlin gap/fold, midnight
+  clamp and spacing); `TimezoneDayBucketingTest` adds real calendar pins.
+- `DigestConcurrencyTest` now has six two-connection, pipe-barrier proofs:
+  simultaneous dispatch, crash-after-claim, materialization, opt-out,
+  digest-time change and timezone change. No sleeps or newly skipped tests.
+- `DigestDeliveryTest` has real-DB expiry/coalescing, source-transaction
+  sabotage/rollback, receipt replay and current-policy negative evidence.
+  `TriggerJobsIntegrationTest` uses a real source identity instead of a mock
+  organizational reference; it proves the actual notification adapter.
+- The nonexistent proposed `CompletionPostCommitServiceTest` is not a
+  missing behavior waiver: cutover/negative pins reside in
+  `MedalServiceTest`, `NotificationServiceTest`, `ChoreStrikeNotifierTest`
+  and the completion/job tests. Existing `RhythmProjectionTest` and
+  `CompletionCorrectionTest` stay green without a dispatch expectation
+  change; the weekly receipt's in-app semantics remain pinned.
+- Existing schema, ranking, membership-removal and erasure suites cover
+  the shared version, inactive consent and membership-keyed cleanup.
+  Preferences store/Settings tests and the existing user-reset wiring
+  remain green. `quiet-digest` now proves both real categories in one bell,
+  silent defaults, replay suppression and quiet/missed-window suppression.
+
 ## 6. Implementation Order
 
 One implementation owner coordinates shared files. Internal read-only lookups
@@ -362,29 +396,54 @@ silently absorbing added scope.
 | Queue leaks private or stale content | High | No rendered payloads in `digest_changes`; recipients fixed at write, rights/visibility rechecked at dispatch; drop-on-deny tests; membership-keyed sweeps. |
 | Consent/delivery coupling reintroduces a mock contract | Low | Real persistence in the WP4-created table per Q-075-01 A; no client-side-only flags; T0 fresh-install schema pins. |
 | Scope creep into WP6 presentation | Medium | Q-076-01 minimal-surface guard: plain Settings section + persistence only; sound/animation consumers and the component redesign stay WP6. |
-| SQLite slot-claim serialization gap | Medium | Unique day key + conditional status update as the claim; house-first lock order; two-connection SQLite-verified race tests (WP0 portability doctrine). |
+| SQLite slot-claim serialization gap | Medium | Portable unique day key + conditional claim, shared house-first lock order and WP5 two-connection proofs in the canonical MariaDB test environment; the parent's WP9 explicitly owns the isolated SQLite/PostgreSQL verification matrix. No SQLite run is claimed by this WP5 review. |
 
 ## 8. Acceptance Criteria
 
 - [x] Q-076-01..04 and RF-076-02 transaction choice resolved and recorded; package scope, estimate and manifest accepted through Standard A (2026-09-29).
-- [ ] Preferences are self-only and server-side: task/org opt-ins, digest time, quiet range and sound/animation/optional-area choices persist per active membership with validation, `expectedVersion` conflict handling and no owner access to foreign preferences (C5h); leave/rejoin resets to quiet/off.
-- [ ] Slots resolve in the house timezone with DST gap/fold rules, a 60-minute same-day window and quiet-hours gating; a zone change re-resolves future slots and enforces the 24-elapsed-hour spacing (C5a/b/c/k).
-- [ ] At most one combined summary per person/day across both categories; task relevance is computed at dispatch from occurrences; organizational changes queue transactionally, coalesce per slot and expire with a missed slot; opt-out/departure before the claim wins (C5d/e/m).
-- [ ] At-most-once dispatch holds under concurrent workers, retries, toggles and crashes: an uncertain post-claim result consumes the slot and is never resent; pre-claim failures retry only inside the window.
-- [ ] Pressure notifications are gone: `TaskDueReminderService` retired, award/title/takeover bells removed (Q-076-02) with the weekly receipt kept as the in-app celebration marker and takeover routed to the queue; negative pins prove no retired subject or dispatch path remains (RF-070-10).
-- [ ] Ranking withdraw/disable invalidate consent without deleting delivery preferences (Q-076-03); departure deletes and account erasure purges all preference/digest rows membership-keyed, with same-UID non-rebinding.
-- [ ] Ranking first-consent and re-consent also preserve delivery settings; inactive rows cannot enter rankings; all preference/consent writes advance the shared version (RF-076-01).
-- [ ] Takeover queue insertion commits or rolls back with the completion, and command replay does not enqueue again (RF-076-02).
-- [ ] Every section 4 required test/gate passes without new/unapproved skips; real claim/worker/zone races use two connections.
-- [ ] All plan-owned findings resolved or explicitly user-rescoped; no required dependent test deferred while marking this plan done.
-- [ ] Durable behavior integrated into concepts, ADR-016, API, engineering/testing and the gamification skill; the plan is not the only description.
-- [ ] FEAT-UX-024 backend/minimal-surface items and the FEAT-UX-025 quiet-digest portion updated for their real completion state without whole-item closure; CONCEPT-001 stays accurately open.
-- [ ] Final Standard B or Full review passes, performs the eligible lifecycle move, and updates parent/index/backlog/`ACTIVE_TASKS.md` accurately.
+- [x] Preferences are self-only and server-side: task/org opt-ins, digest time, quiet range and sound/animation/optional-area choices persist per active membership with validation, `expectedVersion` conflict handling and no owner access to foreign preferences (C5h); leave/rejoin resets to quiet/off.
+- [x] Slots resolve in the house timezone with DST gap/fold rules, a 60-minute same-day window and quiet-hours gating; a zone change re-resolves future slots and enforces the 24-elapsed-hour spacing (C5a/b/c/k).
+- [x] At most one combined summary per person/day across both categories; task relevance is computed at dispatch from occurrences; organizational changes queue transactionally, coalesce per slot and expire with a missed slot; opt-out/departure before the claim wins (C5d/e/m).
+- [x] At-most-once dispatch holds under concurrent workers, retries, toggles and crashes: an uncertain post-claim result consumes the slot and is never resent; pre-claim failures retry only inside the window.
+- [x] Pressure notifications are gone: `TaskDueReminderService` retired, award/title/takeover bells removed (Q-076-02) with the weekly receipt kept as the in-app celebration marker and takeover routed to the queue; negative pins prove no retired subject or dispatch path remains (RF-070-10).
+- [x] Ranking withdraw/disable invalidate consent without deleting delivery preferences (Q-076-03); departure deletes and account erasure purges all preference/digest rows membership-keyed, with same-UID non-rebinding.
+- [x] Ranking first-consent and re-consent also preserve delivery settings; inactive rows cannot enter rankings; all preference/consent writes advance the shared version (RF-076-01).
+- [x] Takeover queue insertion commits or rolls back with the completion, and command replay does not enqueue again (RF-076-02).
+- [x] Every section 4 required test/gate passes without new/unapproved skips; real claim/worker/zone races use two connections.
+- [x] All plan-owned findings resolved or explicitly user-rescoped; no required dependent test deferred while marking this plan done.
+- [x] Durable behavior integrated into concepts, ADR-016, API, engineering/testing and the gamification skill; the plan is not the only description.
+- [x] FEAT-UX-024 backend/minimal-surface items and the FEAT-UX-025 quiet-digest portion updated for their real completion state without whole-item closure; CONCEPT-001 stays accurately open.
+- [x] Final Standard B or Full review passes, performs the eligible lifecycle move, and updates parent/index/backlog/`ACTIVE_TASKS.md` accurately.
 
 ## 9. Review Findings (Plan-Owned)
 
 - [x] **RF-076-01 major · §3.1 / `RankingService::consent` / Version1032:** draft only changed withdraw/disable, but consent/re-consent also deletes the preference row, and required ranking Monday/zone fields prevent a preference-only row. Resolved in this plan review: Q-076-03 A extends to first consent/re-consent in-place, nullable inactive fields, generation 0, filtered ranking reads, shared version increments and lifecycle tests. Runtime work remains required by §4/§8.
 - [x] **RF-076-02 major · §3.3 / `CompletionPostCommitService`:** draft named the post-commit service as a transactional takeover queue writer, although it runs after completion commit. Resolved in this plan review: user chose the completion command's house-first transaction as queue owner, with rollback/replay coverage; post-commit service removes the old bell. Runtime work remains required by §4/§8.
+- [x] **RF-076-03 major · `DigestService::countRelevantTasks`:** resolved 2026-09-30: completed/covered, differently appointed and currently invisible work is excluded; recognized day-level pauses also suppress catch-up from another planned day. Unit and real-policy integration regressions green.
+- [x] **RF-076-04 major · digest claims/materialization/expiry:** resolved 2026-09-30: shared house-first locking, fresh slot re-read, current revision/zone re-resolution and schedule/window/day checks; expiry cannot overwrite a concurrent claim. Unit and six two-connection integration proofs green.
+- [x] **RF-076-05 major · `DigestScheduleService`:** resolved 2026-09-30: retained different-zone dispatch history gates both new and revised slots; ordinary same-zone days keep their chosen time. Schedule regressions green.
+- [x] **RF-076-06 major · queue cutoff:** resolved 2026-09-30: current preferences determine cutoff even without a materialized slot. Before/at-cutoff regressions and real combined browser digest green.
+- [x] **RF-076-07 major · required test matrix:** resolved 2026-09-30: pipe-barrier worker/claim/materialization/zone/toggle tests and real takeover rollback/replay pins added; takeover rows carry immutable completion identity. Full backend and three-pool browser gates green, no required test rescoped.
+- [x] **RF-076-08 major · dispatch source rechecks:** resolved with explicit user authorization 2026-09-30: current source facts and the existing visibility policy gate counts; negative unit and real-policy integration evidence green. Only sanitized evidence is recorded here.
+- [x] **RF-076-09 major · partial preference updates:** resolved with explicit user authorization 2026-09-30: resulting settings are validated under lock against stored/default values before writes. Partial-bound and enabled-empty-time no-write regressions green.
+- [x] **RF-076-10 minor · durable documentation/test mapping:** resolved 2026-09-30: API/testing/concept/gamification entry points, notification docs and changed-file size inventory repaired; actual filename and equivalent evidence seams are recorded above. Lifecycle/backlog closeout remains blocked by RF-076-11.
+- [x] **RF-076-11 block · finalization scope drift:** resolved on resumed finalization 2026-09-30: the user explicitly requested WP5 closure with the new plan excluded. A fresh stable capture verifies unchanged runtime/test fingerprints; WP6 draft and shared WP6 metadata are excluded through scoped staging, without reverting them. The earlier preserve-and-stop decision and blocked attempt remain historical evidence below.
+
+### Standard B Decisions (2026-09-30)
+
+- Q-076-B1: user selected **Fix in this review** instead of the recommended
+  blocked-record/dedicated-round option. Behavior corrections and the required
+  missing regression/concurrency evidence are authorized; no test is rescoped.
+- Q-076-B2: **Enforce rechecks (Recommended)** selected explicitly for current
+  organizational source state and the existing recipient visibility policy.
+- Q-076-B3: **Validate merged state (Recommended)** selected explicitly for
+  partial preference updates against the stored/default values under lock.
+- Q-076-B4: **Preserve and stop (Recommended)** selected for concurrent WP6
+  documentation; the alternative was a user-authorized expanded-scope
+  recapture. No expanded review, WP6 activation, move or commit is authorized.
+- Q-076-B5: subsequent explicit user instruction (2026-09-30) resumes WP5
+  closure and the scoped commit, while leaving the new WP6 plan outside scope.
+  It supersedes B4's stop for WP5 only; no WP6 review/activation is authorized.
 
 ## 10. Activation Decisions
 
@@ -414,6 +473,42 @@ index remain unchanged. No runtime suites, family trial, activation or commit
 were part of the preceding documentation round.
 
 ## Review Outcome
+
+- **2026-09-30 · Resumed final Standard B · PASS-WITH-FIXES.** Fresh capture:
+  `master` HEAD `ef417f2feb643dc7220558a80ab314802aa40e91`, empty index;
+  full unstaged fingerprint `2004c01dacaabee8f56a048528087daaaffc0e1f`.
+  Verified runtime/test tracked diff remains
+  `c580f4a139cdacac40b90875aec89b53f03c470b`, with all 17 untracked
+  runtime/test hashes matching the passing review. No runtime changes were
+  needed on resumption; full unit/integration/Jest/style/l10n evidence and
+  E2E `run-xpEKYP` remain valid. Documentation gates rerun after closeout.
+- Q-076-B5 resolves RF-076-11 by an explicit WP5-only recapture/exclusion,
+  not by treating the WP6 draft as reviewed. RF-076-01..11 and all section-8
+  criteria are complete. Parent/index/backlog/registry reflect WP5 delivery;
+  partially owned backlog items and the parent remain open for later packages.
+  This plan moves `active/` to `done/` with the one scoped review commit.
+
+- **2026-09-30 · Standard B · BLOCKED (finalization scope drift).** Initial
+  scope: 70 tracked WP5 paths plus 21 untracked paths (three pre-existing
+  `.gitkeep` deletions excluded), explicit owner this plan; `master` HEAD
+  `ef417f2feb643dc7220558a80ab314802aa40e91`, empty index. Initial full
+  working-tree unstaged binary-diff Git-object fingerprint:
+  `7b18334166e6451e8ed89a261317562a325330f1`; staged fingerprint
+  `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391`. The review record contains the
+  exact initial path/hash manifest and verified post-fix source fingerprint.
+- RF-076-03..10 resolved through authorized fixes, regression evidence and
+  durable-doc integration. Gates: Docker unit **1028/3287**, integration
+  **493/2645**, both `--fail-on-skipped`; PHP style **0-of-377**; Jest
+  **1062/97**; lint, test-noise and **1014** localization keys green;
+  production build, backlog/encoding/whitespace checks also run in this
+  review. Full E2E gate **`run-xpEKYP` passed all three pools**, with zero
+  failed/skipped/flaky required scenarios. Interrupted earlier browser runs
+  and the initial invalid-source integration fixture were not green evidence.
+- Q-076-B1..04 answered through structured questions. Concurrent WP6
+  documentation prevented a stable finalization package; the user chose
+  preservation rather than scope expansion. RF-076-11 remains open,
+  acceptance/lifecycle/backlog closeout is deliberately not certified,
+  the plan remains `active/`, and no files were staged or committed.
 
 - **2026-09-29 · Standard A · PASS-WITH-FIXES.** Scope: this WP5 plan and
   parent/backlog ownership, reviewed at `master` HEAD

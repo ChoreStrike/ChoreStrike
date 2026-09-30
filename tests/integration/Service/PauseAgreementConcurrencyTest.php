@@ -393,6 +393,8 @@ class PauseAgreementConcurrencyTest extends IntegrationTestCase {
 			\OC::$server->get(\OCA\ChoreStrike\Db\AgreementMapper::class),
 			\OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class),
 			\OC::$server->get(\OCA\ChoreStrike\Service\CalendarService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\DigestScheduleService::class),
 			\OC::$server->get(\OCP\L10N\IFactory::class)->get('chorestrike'),
 		);
 

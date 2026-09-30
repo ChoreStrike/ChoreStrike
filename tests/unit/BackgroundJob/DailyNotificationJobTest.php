@@ -5,56 +5,60 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\BackgroundJob;
 
 use OCA\ChoreStrike\BackgroundJob\DailyNotificationJob;
-use OCA\ChoreStrike\Service\TaskDueReminderService;
+use OCA\ChoreStrike\Service\DigestService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for DailyNotificationJob.
+ * Unit tests for DailyNotificationJob (CS-PLAN-070 WP5 digest pass).
  *
- * The former streak-at-risk pass retired with the freeze/streak-snapshot
- * effects (CS-PLAN-070 WP3, Q-074-01 Option A — the rhythm evaluator
- * derives pending/confirmed days instead). What remains is the thin
- * delegate for the TaskDueReminderService pass with the injected clock's
- * day; notification behaviour itself is covered by the service tests.
+ * The job is the app's ONLY notification driver: a five-minute TimedJob
+ * delegating the pass to {@see DigestService} with the injected clock's
+ * instant. The former 24-hour task-due reminder pass retired with the
+ * digest cutover; notification behaviour itself is covered by the
+ * service tests.
  */
 class DailyNotificationJobTest extends TestCase {
 	private ITimeFactory&MockObject $timeFactory;
-	private TaskDueReminderService&MockObject $taskDueReminderService;
+	private DigestService&MockObject $digestService;
 	private DailyNotificationJob $job;
 
 	protected function setUp(): void {
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
-		$this->taskDueReminderService = $this->createMock(TaskDueReminderService::class);
+		$this->digestService = $this->createMock(DigestService::class);
 
 		$this->job = new DailyNotificationJob(
 			$this->timeFactory,
-			$this->taskDueReminderService,
+			$this->digestService,
 		);
 	}
 
 	/**
-	 * Run_DelegatesDueRemindersWithCurrentDay
+	 * Run_DelegatesDigestPassWithCurrentInstant
 	 *
-	 * The time seam (CS-PLAN-023): the task-due pass receives the job's
-	 * "today" derived purely from the injected clock — no hardcoded
+	 * The time seam (CS-PLAN-023): the digest pass receives the job's
+	 * "now" derived purely from the injected clock — no hardcoded
 	 * `new \DateTime()`.
 	 */
-	public function testRun_DelegatesDueRemindersWithCurrentDay(): void {
-		$now = new \DateTime('2026-08-04 06:00:00');
+	public function testRun_DelegatesDigestPassWithCurrentInstant(): void {
+		$now = new \DateTime('2026-09-29 18:05:00');
 		$this->timeFactory->method('getDateTime')->willReturn($now);
 
-		$this->taskDueReminderService->expects($this->once())
-			->method('process')
-			->with($this->callback(function (\DateTimeInterface $today) {
-				return $today->format('Y-m-d') === '2026-08-04';
+		$this->digestService->expects($this->once())
+			->method('processDueSlots')
+			->with($this->callback(function (\DateTimeInterface $now) {
+				return $now->format('Y-m-d H:i') === '2026-09-29 18:05';
 			}))
 			->willReturn([
-				'processed' => 0,
-				'notifiedToday' => 0,
-				'notifiedTomorrow' => 0,
-				'skippedUnavailable' => 0,
+				'materialized' => 0,
+				'reResolved' => 0,
+				'expiredSlots' => 0,
+				'dispatched' => 0,
+				'skipped' => 0,
+				'quiet' => 0,
+				'contended' => 0,
+				'uncertain' => 0,
 			]);
 
 		$this->invokeRun($this->job, null);
@@ -67,18 +71,33 @@ class DailyNotificationJobTest extends TestCase {
 	 * against shared-instance clock drift).
 	 */
 	public function testRun_DoesNotMutateTheFactoryDateTime(): void {
-		$now = new \DateTime('2026-08-04 06:00:00');
+		$now = new \DateTime('2026-09-29 18:05:00');
 		$this->timeFactory->method('getDateTime')->willReturn($now);
-		$this->taskDueReminderService->method('process')->willReturn([
-			'processed' => 0,
-			'notifiedToday' => 0,
-			'notifiedTomorrow' => 0,
-			'skippedUnavailable' => 0,
+		$this->digestService->method('processDueSlots')->willReturn([
+			'materialized' => 0,
+			'reResolved' => 0,
+			'expiredSlots' => 0,
+			'dispatched' => 0,
+			'skipped' => 0,
+			'quiet' => 0,
+			'contended' => 0,
+			'uncertain' => 0,
 		]);
 
 		$this->invokeRun($this->job, null);
 
-		$this->assertSame('2026-08-04 06:00:00', $now->format('Y-m-d H:i:s'));
+		$this->assertSame('2026-09-29 18:05:00', $now->format('Y-m-d H:i:s'));
+	}
+
+	/**
+	 * Job_IsAFiveMinuteTimedJob
+	 *
+	 * Parent §3.6: the digest pass runs every five minutes (the former
+	 * 24-hour daily interval is retired with the task-due pass).
+	 */
+	public function testJob_IsAFiveMinuteTimedJob(): void {
+		$this->assertInstanceOf(\OCP\BackgroundJob\TimedJob::class, $this->job);
+		$this->assertSame(5 * 60, $this->job->getInterval(), 'the digest pass must run at a five-minute interval');
 	}
 
 	private function invokeRun(object $job, $argument): void {

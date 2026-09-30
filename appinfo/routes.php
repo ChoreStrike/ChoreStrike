@@ -112,6 +112,12 @@ return [
         ['name' => 'ranking#consent', 'url' => '/api/v1/ranking/consent', 'verb' => 'POST'],
         ['name' => 'ranking#withdraw', 'url' => '/api/v1/ranking/withdraw', 'verb' => 'POST'],
 
+        // Self-only personal preferences API (CS-PLAN-070 WP5, C5h):
+        // `/preferences/me` is the ONLY surface — no owner read/write of
+        // another member's preferences exists by design.
+        ['name' => 'preference#show', 'url' => '/api/v1/preferences/me', 'verb' => 'GET'],
+        ['name' => 'preference#update', 'url' => '/api/v1/preferences/me', 'verb' => 'PUT'],
+
         // Scheduling API
         ['name' => 'scheduling#getPreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'GET'],
         ['name' => 'scheduling#updatePreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'PUT'],

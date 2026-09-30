@@ -2,13 +2,16 @@ msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 
-msgid "%1$s completed your overdue task so your streak is safe. Be a hero and pick up one of theirs next time!"
-msgstr ""
-
 msgid "%1$s must contain all seven weekdays (missing: %2$s)"
 msgstr ""
 
 msgid "%1$s must not exceed %2$d characters"
+msgstr ""
+
+msgid "%n household update"
+msgstr ""
+
+msgid "%n planned task"
 msgstr ""
 
 msgid "(you)"
@@ -56,6 +59,9 @@ msgstr ""
 msgid "A plan may have at most %1$s participants"
 msgstr ""
 
+msgid "A quiet range needs both a start and an end"
+msgstr ""
+
 msgid "A restart already exists for this occurrence"
 msgstr ""
 
@@ -63,6 +69,9 @@ msgid "A selectionToken is required"
 msgstr ""
 
 msgid "A subjectUserId is required"
+msgstr ""
+
+msgid "A summary time is required while a summary is enabled"
 msgstr ""
 
 msgid "A valid commandId (UUID) is required"
@@ -162,6 +171,9 @@ msgid "An explicit consent attestation is required"
 msgstr ""
 
 msgid "An occurrenceId is required"
+msgstr ""
+
+msgid "Animations"
 msgstr ""
 
 msgid "Apartment"
@@ -485,9 +497,6 @@ msgstr ""
 msgid "Complete"
 msgstr ""
 
-msgid "Complete it today to collect your coins and keep your streak."
-msgstr ""
-
 msgid "Completed"
 msgstr ""
 
@@ -590,6 +599,15 @@ msgstr ""
 msgid "Daily Task Limit"
 msgstr ""
 
+msgid "Daily summary"
+msgstr ""
+
+msgid "Daily summary: %s"
+msgstr ""
+
+msgid "Daily task summary"
+msgstr ""
+
 msgid "Daily tasks: max {limit}"
 msgstr ""
 
@@ -678,6 +696,9 @@ msgid "Due tomorrow"
 msgstr ""
 
 msgid "Due {date}"
+msgstr ""
+
+msgid "During your quiet hours no summary is delivered — a range may run past midnight."
 msgstr ""
 
 msgid "Dust all the surfaces."
@@ -935,6 +956,9 @@ msgstr ""
 msgid "Failed to save house name"
 msgstr ""
 
+msgid "Failed to save the notification preferences"
+msgstr ""
+
 msgid "Failed to save the ranking setting"
 msgstr ""
 
@@ -1029,9 +1053,6 @@ msgid "Floor renamed"
 msgstr ""
 
 msgid "Floors & Rooms"
-msgstr ""
-
-msgid "Flow Keeper"
 msgstr ""
 
 msgid "For everyone"
@@ -1155,6 +1176,9 @@ msgid "How your household is really doing"
 msgstr ""
 
 msgid "Ideal"
+msgstr ""
+
+msgid "Include household updates"
 msgstr ""
 
 msgid "Insights"
@@ -1559,6 +1583,12 @@ msgstr ""
 msgid "Nothing to change — the selected tasks are already scheduled as proposed."
 msgstr ""
 
+msgid "Notification preferences saved"
+msgstr ""
+
+msgid "Notifications"
+msgstr ""
+
 msgid "Number of floors"
 msgstr ""
 
@@ -1566,6 +1596,9 @@ msgid "Office"
 msgstr ""
 
 msgid "On time"
+msgstr ""
+
+msgid "One overview of your planned work for the day."
 msgstr ""
 
 msgid "One-time"
@@ -1613,6 +1646,9 @@ msgstr ""
 msgid "Only you and the assigned members can see and complete this task. Assigned members can also edit it."
 msgstr ""
 
+msgid "Open My Day to see the details. You receive at most one summary per day."
+msgstr ""
+
 msgid "Opt-in comparison of on-time shares. Every member decides separately on their own participation; turning it off removes everyone immediately."
 msgstr ""
 
@@ -1623,6 +1659,9 @@ msgid "Optional description..."
 msgstr ""
 
 msgid "Optional step-by-step instructions..."
+msgstr ""
+
+msgid "Organizational changes like takeovers, agreements and pauses ride along in the same summary."
 msgstr ""
 
 msgid "Organize and declutter the basement."
@@ -1688,9 +1727,6 @@ msgstr ""
 msgid "Pick up toys first, then vacuum or sweep the whole floor, edges included."
 msgstr ""
 
-msgid "Plan ahead so the chore does not sneak up on you tomorrow."
-msgstr ""
-
 msgid "Plan the week"
 msgstr ""
 
@@ -1710,6 +1746,12 @@ msgid "Please select at least one day"
 msgstr ""
 
 msgid "Poor"
+msgstr ""
+
+msgid "Preference row missing after update"
+msgstr ""
+
+msgid "Preferences saved"
 msgstr ""
 
 msgid "Prefill from catalog"
@@ -1779,6 +1821,12 @@ msgid "Quick Templates"
 msgstr ""
 
 msgid "Quick clean (+10% cleanliness)"
+msgstr ""
+
+msgid "Quiet hours end"
+msgstr ""
+
+msgid "Quiet hours start"
 msgstr ""
 
 msgid "RESET"
@@ -1893,9 +1941,6 @@ msgid "Role updated for {name}"
 msgstr ""
 
 msgid "Room"
-msgstr ""
-
-msgid "Room Guardian"
 msgstr ""
 
 msgid "Room List"
@@ -2090,6 +2135,9 @@ msgstr ""
 msgid "Sort toys into their boxes, put away games and books, and clear the floor so you can vacuum."
 msgstr ""
 
+msgid "Sounds"
+msgstr ""
+
 msgid "Spray glass cleaner and wipe the mirror with a lint-free cloth."
 msgstr ""
 
@@ -2120,9 +2168,6 @@ msgstr ""
 msgid "Streak"
 msgstr ""
 
-msgid "Streak Keeper"
-msgstr ""
-
 msgid "Strip the old sheets and pillowcases, put them in the laundry, and make the bed with fresh bedding."
 msgstr ""
 
@@ -2133,6 +2178,9 @@ msgid "Sub-task title..."
 msgstr ""
 
 msgid "Suggestions for the selected room type — everything stays editable"
+msgstr ""
+
+msgid "Summary time"
 msgstr ""
 
 msgid "Sun"
@@ -2186,18 +2234,6 @@ msgstr ""
 msgid "Task"
 msgstr ""
 
-msgid "Task \"%1$s\" is due today"
-msgstr ""
-
-msgid "Task \"%1$s\" is due tomorrow"
-msgstr ""
-
-msgid "Task \"{task}\" is due today"
-msgstr ""
-
-msgid "Task \"{task}\" is due tomorrow"
-msgstr ""
-
 msgid "Task %1$d already exists in room %2$d"
 msgstr ""
 
@@ -2238,12 +2274,6 @@ msgid "Task updated"
 msgstr ""
 
 msgid "Tasks"
-msgstr ""
-
-msgid "Team Anchor"
-msgstr ""
-
-msgid "Team Player"
 msgstr ""
 
 msgid "Teamwork bonus"
@@ -2316,6 +2346,9 @@ msgid "The plan was applied."
 msgstr ""
 
 msgid "The plan was applied. Calendar and My Day are up to date."
+msgstr ""
+
+msgid "The preferences changed since they were displayed"
 msgstr ""
 
 msgid "The preview is stale."
@@ -2408,6 +2441,12 @@ msgstr ""
 msgid "Time of Day"
 msgstr ""
 
+msgid "Times must be HH:mm strings"
+msgstr ""
+
+msgid "Times must be valid HH:mm values"
+msgstr ""
+
 msgid "Timezone"
 msgstr ""
 
@@ -2418,6 +2457,9 @@ msgid "Title"
 msgstr ""
 
 msgid "Today"
+msgstr ""
+
+msgid "Toggles must be true or false"
 msgstr ""
 
 msgid "Tomorrow"
@@ -2481,6 +2523,9 @@ msgid "Unknown override field: %1$s"
 msgstr ""
 
 msgid "Unknown participant role: %1$s"
+msgstr ""
+
+msgid "Unknown preference field"
 msgstr ""
 
 msgid "Unknown reason code: %1$s"
@@ -2615,9 +2660,6 @@ msgstr ""
 msgid "Weekly goal reached! {percent}% of target {target}%"
 msgstr ""
 
-msgid "Weekly household goal reached!"
-msgstr ""
-
 msgid "Weekly ranking"
 msgstr ""
 
@@ -2684,25 +2726,16 @@ msgstr ""
 msgid "You earned a new medal!"
 msgstr ""
 
-msgid "You earned a new medal: %1$s"
-msgstr ""
-
-msgid "You earned the \"%1$s\" medal with a value of %2$d. Keep up the great work!"
-msgstr ""
-
 msgid "You join the ranking next Monday."
 msgstr ""
 
 msgid "You left the ranking."
 msgstr ""
 
-msgid "You reached a new tier (\"%1$s\") in the \"%2$s\" pack. Set it as your title in Settings!"
+msgid "You receive at most one summary per day. Awards and household updates stay inside the app."
 msgstr ""
 
 msgid "You take part in this week's ranking."
-msgstr ""
-
-msgid "You unlocked a new title: %1$s"
 msgstr ""
 
 msgid "Your Best"
@@ -2720,22 +2753,16 @@ msgstr ""
 msgid "Your Title"
 msgstr ""
 
+msgid "Your changes were saved elsewhere in the meantime. Save again to apply your edits."
+msgstr ""
+
 msgid "Your draft"
 msgstr ""
 
 msgid "Your home is set up!"
 msgstr ""
 
-msgid "Your household hit %1$d%% of this week's tasks (target: %2$d%%). Great teamwork!"
-msgstr ""
-
 msgid "Your participation starts on {monday}. Nothing is counted before then."
-msgstr ""
-
-msgid "Your task \"%1$s\" was taken over by %2$s"
-msgstr ""
-
-msgid "Your task \"{task}\" was taken over by {claimer}"
 msgstr ""
 
 msgid "allocationReviewed must be a boolean"

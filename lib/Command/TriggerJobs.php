@@ -9,7 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Command;
 
 use OCA\ChoreStrike\BackgroundJob\TimelineJob;
-use OCA\ChoreStrike\Service\TaskDueReminderService;
+use OCA\ChoreStrike\Service\DigestService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Symfony\Component\Console\Command\Command;
@@ -23,9 +23,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * The job bodies live in services (CS-PLAN-023 refactor), so this command
  * calls them directly — no cron, no multi-day waits. `--as-of` sets the
- * reference "now" day: the task-due reminder pass (CS-PLAN-030) uses the
- * as-of day itself, so an E2E can simulate "N days passed" with zero clock
- * trickery. The freeze/restock streak passes retired with the WP3
+ * reference "now" instant: the digest pass (CS-PLAN-070 WP5) uses the
+ * as-of instant itself, so an E2E can simulate "N days passed" with zero
+ * clock trickery. The former task-due reminder pass is retired with the
+ * digest cutover; the freeze/restock streak passes retired with the WP3
  * legacy-effect cutover (CS-PLAN-070, Q-074-01 Option A).
  *
  * Usage:
@@ -45,7 +46,7 @@ class TriggerJobs extends Command {
 
 	public function __construct(
 		private TestDataService $testDataService,
-		private TaskDueReminderService $taskDueReminderService,
+		private DigestService $digestService,
 		private TimelineJob $timelineJob,
 		private ITimeFactory $time,
 	) {
@@ -64,7 +65,7 @@ class TriggerJobs extends Command {
 			'as-of',
 			null,
 			InputOption::VALUE_OPTIONAL,
-			'Reference date (YYYY-MM-DD); the task-due pass uses the day itself. Defaults to now.'
+			'Reference instant (YYYY-MM-DD at 00:00); the digest pass uses the day itself. Defaults to now.'
 		);
 		$this->addOption(
 			'user',
@@ -103,7 +104,9 @@ class TriggerJobs extends Command {
 
 		$results = [];
 		if ($type === 'daily-notification' || $type === 'all') {
-			$results['task-due-reminders'] = $this->taskDueReminderService->process($today);
+			// WP5: the daily-notification type triggers the SAME pass the
+			// five-minute cron job runs — the digest delivery pass.
+			$results['digest-pass'] = $this->digestService->processDueSlots($today);
 		}
 		if ($type === 'timeline' || $type === 'all') {
 			// Use the full cron pass so a simulated closed week also reconciles
@@ -124,25 +127,33 @@ class TriggerJobs extends Command {
 	}
 
 	/**
-	 * Derive the "today" reference date passed to (or derived by) the services.
+	 * Derive the "now" reference instant passed to (or derived by) the services.
 	 *
-	 * Without --as-of the injected clock provides "now"; with --as-of the given
-	 * day is the reference. The task-due pass uses "today" itself.
+	 * Without --as-of the injected clock provides "now"; with --as-of the
+	 * given instant is the reference (a bare date resolves to 00:00:00;
+	 * the digest pass needs a wall time, so `YYYY-MM-DD HH:MM[:SS]` is
+	 * accepted too).
 	 *
-	 * @param string|null $asOf Optional reference date (YYYY-MM-DD)
-	 * @throws \InvalidArgumentException When --as-of is not a valid Y-m-d date
+	 * @param string|null $asOf Optional reference instant (Y-m-d[ H:i[:s]])
+	 * @throws \InvalidArgumentException When --as-of is not a valid date/instant
 	 */
 	private function resolveToday(?string $asOf): \DateTime {
 		if ($asOf === null || $asOf === '') {
 			return clone $this->time->getDateTime();
 		}
 
-		$parsed = \DateTime::createFromFormat('Y-m-d', $asOf);
-		if ($parsed === false || $parsed->format('Y-m-d') !== $asOf) {
-			throw new \InvalidArgumentException("Invalid --as-of date: {$asOf} (expected YYYY-MM-DD)");
+		$formats = ['Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d'];
+		foreach ($formats as $format) {
+			$parsed = \DateTime::createFromFormat($format, $asOf);
+			if ($parsed !== false && $parsed->format($format) === $asOf) {
+				// A bare date is the day's midnight — createFromFormat
+				// keeps the CURRENT wall time for unspecified fields.
+				if ($format === 'Y-m-d') {
+					$parsed->setTime(0, 0, 0);
+				}
+				return $parsed;
+			}
 		}
-
-		$parsed->setTime(0, 0, 0);
-		return $parsed;
+		throw new \InvalidArgumentException("Invalid --as-of instant: {$asOf} (expected YYYY-MM-DD[ HH:MM[:SS]])");
 	}
 }

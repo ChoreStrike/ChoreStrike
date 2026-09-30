@@ -473,6 +473,10 @@ abstract class IntegrationTestCase extends TestCase {
 		// WP2 pause/receipt facts are house-scoped — remove them before the
 		// house rows go so no test leaks pause groups into later suites.
 		$this->deletePauseFactsByHouseIds($this->createdHouseIds);
+		// CS-PLAN-070 WP5: the digest queue and slot history are
+		// house-scoped — the dispatch pass is instance-global and would
+		// otherwise see stale slots of already-deleted houses.
+		$this->deleteDigestRowsByHouseIds($this->createdHouseIds);
 		$this->deleteByIds('chorestrike_room_tasks', $this->createdRoomTaskIds);
 		$this->deleteByIds('chorestrike_completed_tasks', $this->createdCompletionIds);
 		$this->deleteByIds('chorestrike_tasks', $this->createdTaskIds);
@@ -510,6 +514,28 @@ abstract class IntegrationTestCase extends TestCase {
 			->executeStatement();
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete('chorestrike_commands')
+			->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
+			->executeStatement();
+	}
+
+	/**
+	 * Remove the WP5 house-scoped digest rows of fixture houses
+	 * (CS-PLAN-070 WP5): the dispatch pass is instance-global — stale
+	 * slots of already-deleted houses would poison later suites.
+	 *
+	 * @param array<int> $houseIds
+	 */
+	private function deleteDigestRowsByHouseIds(array $houseIds): void {
+		if (empty($houseIds)) {
+			return;
+		}
+		$intArray = \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY;
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_digest_changes')
+			->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
+			->executeStatement();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_digest_slots')
 			->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
 			->executeStatement();
 	}

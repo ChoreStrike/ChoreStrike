@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\DigestChangeMapper;
+use OCA\ChoreStrike\Db\DigestSlotMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
@@ -51,6 +53,9 @@ class HouseService {
 	private CommandService $commandService;
 	private WeeklyGoalService $weeklyGoalService;
 	private MemberPreferenceMapper $memberPreferenceMapper;
+	private DigestSlotMapper $digestSlotMapper;
+	private DigestChangeMapper $digestChangeMapper;
+	private DigestScheduleService $digestScheduleService;
 	private IConfig $config;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
@@ -76,6 +81,9 @@ class HouseService {
 		CommandService $commandService,
 		WeeklyGoalService $weeklyGoalService,
 		MemberPreferenceMapper $memberPreferenceMapper,
+		DigestSlotMapper $digestSlotMapper,
+		DigestChangeMapper $digestChangeMapper,
+		DigestScheduleService $digestScheduleService,
 		IConfig $config,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
@@ -100,6 +108,9 @@ class HouseService {
 		$this->commandService = $commandService;
 		$this->weeklyGoalService = $weeklyGoalService;
 		$this->memberPreferenceMapper = $memberPreferenceMapper;
+		$this->digestSlotMapper = $digestSlotMapper;
+		$this->digestChangeMapper = $digestChangeMapper;
+		$this->digestScheduleService = $digestScheduleService;
 		$this->config = $config;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
@@ -224,10 +235,13 @@ class HouseService {
 			$this->taskAssigneeMapper->deleteByUserForHouse($ncUserId, $houseId);
 			$this->houseUserMapper->delete($houseUser);
 
-			// CS-PLAN-070 WP4 (Q-075-01 A): consent belongs to the active
-			// membership — the departing member's ranking consent goes with
-			// the row; a rejoin starts quiet/unconsented (C5h).
+			// CS-PLAN-070 WP4 (Q-075-01 A) / WP5 (CS-PLAN-076 §3.7): the
+			// preference row AND both digest tables are membership-keyed —
+			// they die with the membership; a rejoin starts quiet/off
+			// (C5h).
 			$this->memberPreferenceMapper->deleteByHouseAndUser($houseId, (int)$houseUser->getId());
+			$this->digestSlotMapper->deleteByHouseAndUser($houseId, (int)$houseUser->getId());
+			$this->digestChangeMapper->deleteByHouseAndUser($houseId, (int)$houseUser->getId());
 
 			// CS-PLAN-073 WP2 (Q-073-03): cancel the departing member's
 			// pending personal pause requests and converge the suspension
@@ -367,14 +381,19 @@ class HouseService {
 					// transaction — saved occurrences keep their zone and
 					// deadlines; only new agreements resolve in the new zone.
 					$this->occurrenceService->reviseForZoneChangeUnderLock($houseId, $timezone, new \DateTime());
+					// CS-PLAN-070 WP5 (C5k): pending digest slots re-resolve
+					// in the new zone under the 24-elapsed-hour spacing rule.
+					$this->digestScheduleService->reviseForZoneChangeUnderLock($houseId, $timezone, new \DateTime());
 				}
 			}
 			if ($rankingEnabled !== null && $rankingEnabled !== $house->getRankingEnabled()) {
 				$house->setRankingEnabled($rankingEnabled);
 				if (!$rankingEnabled) {
-					// Disable invalidates every generation; nobody re-enters
-					// ranked without a fresh consent after re-enabling.
-					$this->memberPreferenceMapper->deleteByHouseId($houseId);
+					// Q-076-03 A: disable invalidates every generation by
+					// resetting ONLY the consent columns — delivery
+					// preferences survive; nobody re-enters ranked without
+					// a fresh consent after re-enabling.
+					$this->memberPreferenceMapper->clearRankingConsentByHouseId($houseId, new \DateTime());
 				}
 			}
 			$house->touch();

@@ -61,13 +61,18 @@ blocked first final-review attempt and the original manifest are recorded in the
 live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
 Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-(parent plan; WP0-WP4 delivered — WP4 rhythm/goals/ranking as
-[CS-PLAN-075](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)). The next
-package, WP5 preferences/digest delivery, is active as
-[CS-PLAN-076: WP5 - Preferences and Digest Delivery](active/cs-plan-076-wp5-preferences-and-digest-delivery.md)
-(Standard A `PASS-WITH-FIXES` 2026-09-29; implementation pending).
+(parent plan; WP0-WP5 delivered). WP5 preferences/digest delivery,
+[CS-PLAN-076](done/cs-plan-076-wp5-preferences-and-digest-delivery.md), passed
+final Standard B `PASS-WITH-FIXES` on 2026-09-30. The parent remains open
+for WP6-WP9; no successor activation is part of this review.
 
-Latest completed: [CS-PLAN-075 — WP4: Rhythm, Goals and Ranking](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
+Latest completed: [CS-PLAN-076: WP5 - Preferences and Digest Delivery](done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-30): self-only settings, bounded
+at-most-once combined digest, transactional source queue, full regression/
+concurrency evidence and ADR-016. Review record:
+[CODE_REVIEW_2026-09-30](../backlog/archive/CODE_REVIEW_2026-09-30.md).
+Preceded by
+[CS-PLAN-075 — WP4: Rhythm, Goals and Ranking](done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-29 after the in-review fix round
 resolved RF-075-01..05; ADR-015 recorded, CR-053-11 freeze/tiebreaker
 remainders resolved by removal-with-replacement). Covers the rhythm/goal read

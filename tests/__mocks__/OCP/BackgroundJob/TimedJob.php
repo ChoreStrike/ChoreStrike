@@ -20,6 +20,9 @@ use OCP\AppFramework\Utility\ITimeFactory;
 abstract class TimedJob {
 	protected ITimeFactory $time;
 
+	/** Stored for getInterval() like the real scheduler class. */
+	protected int $interval = 0;
+
 	public function __construct(ITimeFactory $time) {
 		$this->time = $time;
 	}
@@ -30,7 +33,14 @@ abstract class TimedJob {
 	 * @param int $interval Interval in seconds
 	 */
 	public function setInterval(int $interval): void {
-		// No-op for tests: the real impl stores this for the scheduler.
+		$this->interval = $interval;
+	}
+
+	/**
+	 * The configured run interval in seconds (mirrors the real class).
+	 */
+	public function getInterval(): int {
+		return $this->interval;
 	}
 
 	/**

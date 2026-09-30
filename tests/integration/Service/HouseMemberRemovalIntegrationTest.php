@@ -123,6 +123,64 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * RemoveHouseMember_SweepsMembershipKeyedPreferenceAndDigestRows
+	 * (CS-PLAN-070 WP4/WP5, Q-075-01 A + CS-PLAN-076 §3.7): the
+	 * preference row, the digest slot history and the queued changes die
+	 * with the membership; another house's rows for the same Nextcloud
+	 * user are untouched.
+	 */
+	public function testRemoveHouseMember_SweepsMembershipKeyedPreferenceAndDigestRows(): void {
+		$fixture = $this->seedFixture();
+
+		$prefMapper = \OC::$server->get(\OCA\ChoreStrike\Db\MemberPreferenceMapper::class);
+		$pref = new \OCA\ChoreStrike\Db\MemberPreference();
+		$pref->setHouseId($fixture['houseAId']);
+		$pref->setHouseUserId($fixture['memberHouseUserIdA']);
+		$pref->setVersion(1);
+		$pref->setTaskDigestEnabled(true);
+		$pref->setDigestTime('18:00');
+		$pref->setCreatedAt(new \DateTime());
+		$pref->setUpdatedAt(new \DateTime());
+		$prefMapper->insertOrGet($pref);
+		self::assertNotNull($prefMapper->findByHouseAndUser($fixture['houseAId'], $fixture['memberHouseUserIdA']));
+
+		$slotMapper = \OC::$server->get(\OCA\ChoreStrike\Db\DigestSlotMapper::class);
+		$slot = new \OCA\ChoreStrike\Db\DigestSlot();
+		$slot->setHouseId($fixture['houseAId']);
+		$slot->setHouseUserId($fixture['memberHouseUserIdA']);
+		$slot->setLocalDay('2026-09-29');
+		$slot->setZone('UTC');
+		$slot->setPrefRevision(1);
+		$slot->setScheduledUtc(new \DateTime('2026-09-29 18:00:00 UTC'));
+		$slot->setWindowEndUtc(new \DateTime('2026-09-29 19:00:00 UTC'));
+		$slot->setStatus(\OCA\ChoreStrike\Db\DigestSlot::STATUS_SENT);
+		$slot->setCreatedAt(new \DateTime());
+		$slot->setUpdatedAt(new \DateTime());
+		$slotMapper->insertOrGet($slot);
+
+		$changeMapper = \OC::$server->get(\OCA\ChoreStrike\Db\DigestChangeMapper::class);
+		$change = new \OCA\ChoreStrike\Db\DigestChange();
+		$change->setHouseId($fixture['houseAId']);
+		$change->setHouseUserId($fixture['memberHouseUserIdA']);
+		$change->setObjectType('takeover');
+		$change->setObjectId('11');
+		$change->setTargetSlot('2026-09-29');
+		$change->setCategory(\OCA\ChoreStrike\Db\DigestChange::CATEGORY_ORG);
+		$change->setChangeTime(new \DateTime());
+		$change->setDisposition(\OCA\ChoreStrike\Db\DigestChange::DISPOSITION_QUEUED);
+		$change->setCreatedAt(new \DateTime());
+		$change->setUpdatedAt(new \DateTime());
+		$changeMapper->queueOrCoalesce($change);
+
+		$this->actingAs('rmr_owner_a');
+		\OC::$server->get(HouseService::class)->removeHouseMember($fixture['memberHouseUserIdA']);
+
+		self::assertNull($prefMapper->findByHouseAndUser($fixture['houseAId'], $fixture['memberHouseUserIdA']), 'the preference row dies with the membership');
+		self::assertNull($slotMapper->findByHouseUserAndDay($fixture['houseAId'], $fixture['memberHouseUserIdA'], '2026-09-29'), 'the slot history dies with the membership');
+		self::assertSame([], $changeMapper->findBySlot($fixture['memberHouseUserIdA'], '2026-09-29'), 'the queued changes die with the membership');
+	}
+
+	/**
 	 * RemoveHouseMember_OwnerTarget_ThrowsForbidden
 	 */
 	public function testRemoveHouseMember_OwnerTarget_ThrowsForbidden(): void {

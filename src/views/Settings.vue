@@ -28,6 +28,128 @@
 				</div>
 			</section>
 
+			<!-- Notifications (CS-PLAN-070 WP5, Q-076-01 A): the self-only
+			     delivery preferences. Every member configures their own
+			     daily summary; there is no owner access to foreign
+			     preferences (C5h) and house feature enablement stays in
+			     the owner sections above. -->
+			<section class="settings-section" data-testid="notifications-section">
+				<h2>{{ t('chorestrike', 'Notifications') }}</h2>
+				<div class="setting-card">
+					<p class="setting-hint">
+						{{ t('chorestrike', 'You receive at most one summary per day. Awards and household updates stay inside the app.') }}
+					</p>
+					<div class="form-group">
+						<label for="pref-task-digest">{{ t('chorestrike', 'Daily task summary') }}</label>
+						<p class="setting-hint">
+							{{ t('chorestrike', 'One overview of your planned work for the day.') }}
+						</p>
+						<div class="input-group">
+							<input
+								id="pref-task-digest"
+								v-model="notificationDraft.taskDigestEnabled"
+								type="checkbox"
+								class="ranking-toggle"
+								data-testid="task-digest-toggle"
+								:disabled="preferencesStore.saving"
+								@change="maybeSuggestQuietHours">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="pref-org-digest">{{ t('chorestrike', 'Include household updates') }}</label>
+						<p class="setting-hint">
+							{{ t('chorestrike', 'Organizational changes like takeovers, agreements and pauses ride along in the same summary.') }}
+						</p>
+						<div class="input-group">
+							<input
+								id="pref-org-digest"
+								v-model="notificationDraft.orgDigestEnabled"
+								type="checkbox"
+								class="ranking-toggle"
+								data-testid="org-digest-toggle"
+								:disabled="preferencesStore.saving"
+								@change="maybeSuggestQuietHours">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="pref-digest-time">{{ t('chorestrike', 'Summary time') }}</label>
+						<div class="input-group">
+							<input
+								id="pref-digest-time"
+								v-model="notificationDraft.digestTime"
+								type="time"
+								class="text-input"
+								data-testid="digest-time-input"
+								:disabled="preferencesStore.saving">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="pref-quiet-start">{{ t('chorestrike', 'Quiet hours start') }}</label>
+						<p class="setting-hint">
+							{{ t('chorestrike', 'During your quiet hours no summary is delivered — a range may run past midnight.') }}
+						</p>
+						<div class="input-group">
+							<input
+								id="pref-quiet-start"
+								v-model="notificationDraft.quietStart"
+								type="time"
+								class="text-input"
+								data-testid="quiet-start-input"
+								:disabled="preferencesStore.saving">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="pref-quiet-end">{{ t('chorestrike', 'Quiet hours end') }}</label>
+						<div class="input-group">
+							<input
+								id="pref-quiet-end"
+								v-model="notificationDraft.quietEnd"
+								type="time"
+								class="text-input"
+								data-testid="quiet-end-input"
+								:disabled="preferencesStore.saving">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="pref-sound">{{ t('chorestrike', 'Sounds') }}</label>
+						<div class="input-group">
+							<input
+								id="pref-sound"
+								v-model="notificationDraft.soundEnabled"
+								type="checkbox"
+								class="ranking-toggle"
+								data-testid="sound-toggle"
+								:disabled="preferencesStore.saving">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="pref-animation">{{ t('chorestrike', 'Animations') }}</label>
+						<div class="input-group">
+							<input
+								id="pref-animation"
+								v-model="notificationDraft.animationEnabled"
+								type="checkbox"
+								class="ranking-toggle"
+								data-testid="animation-toggle"
+								:disabled="preferencesStore.saving">
+						</div>
+					</div>
+					<p v-if="preferencesConflict" class="setting-hint" data-testid="preferences-conflict">
+						{{ t('chorestrike', 'Your changes were saved elsewhere in the meantime. Save again to apply your edits.') }}
+					</p>
+					<div class="input-group">
+						<button
+							class="save-button"
+							data-testid="save-preferences"
+							:disabled="preferencesStore.saving"
+							@click="savePreferences">
+							<Icon name="Save" :size="16" />
+							{{ t('chorestrike', 'Save') }}
+						</button>
+					</div>
+				</div>
+			</section>
+
 			<!-- House Settings (owner only: PUT /house requires the owner role) -->
 			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="house-section">
 				<h2>{{ t('chorestrike', 'House') }}</h2>
@@ -351,11 +473,12 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { showError, showSuccess } from '@nextcloud/dialogs'
+import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useUserStore } from '../store/user.js'
 import { useTitlesStore } from '../store/titles.js'
+import { usePreferencesStore } from '../store/preferences.js'
 import { CURATED_TIMEZONES } from '../constants/timezones.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
@@ -380,7 +503,8 @@ export default {
 		const roomsStore = useRoomsStore()
 		const userStore = useUserStore()
 		const titlesStore = useTitlesStore()
-		return { houseStore, roomsStore, userStore, titlesStore }
+		const preferencesStore = usePreferencesStore()
+		return { houseStore, roomsStore, userStore, titlesStore, preferencesStore }
 	},
 
 	data() {
@@ -388,6 +512,15 @@ export default {
 			houseName: '',
 			houseTimezone: 'UTC',
 			rankingEnabled: false,
+			notificationDraft: {
+				taskDigestEnabled: false,
+				orgDigestEnabled: false,
+				digestTime: '18:00',
+				quietStart: null,
+				quietEnd: null,
+				soundEnabled: false,
+				animationEnabled: false,
+			},
 			showAddFloorModal: false,
 			showEditFloorModal: false,
 			showResetModal: false,
@@ -407,6 +540,10 @@ export default {
 	computed: {
 		canSaveHouseName() {
 			return this.houseName.trim() && this.houseName !== this.houseStore.houseName
+		},
+
+		preferencesConflict() {
+			return this.preferencesStore.conflict
 		},
 
 		canSaveHouseTimezone() {
@@ -463,8 +600,74 @@ export default {
 				this.houseTimezone = this.houseStore.timezone
 				this.rankingEnabled = this.houseStore.rankingEnabled
 				await this.loadTitle()
+				await this.loadPreferences()
 			} catch (error) {
 				logger.error('Failed to initialize settings', error, { view: 'Settings', action: 'initializeSettings' })
+			}
+		},
+
+		/**
+		 * Load the caller's own delivery preferences into the draft form
+		 * (self-only; the server payload is the sole source).
+		 */
+		async loadPreferences() {
+			try {
+				await this.preferencesStore.fetchPreferences()
+				this.syncNotificationDraft()
+			} catch (error) {
+				logger.error('Failed to load preferences', error, { view: 'Settings', action: 'loadPreferences' })
+			}
+		},
+
+		syncNotificationDraft() {
+			const store = this.preferencesStore
+			this.notificationDraft = {
+				taskDigestEnabled: store.taskDigestEnabled,
+				orgDigestEnabled: store.orgDigestEnabled,
+				digestTime: store.digestTime,
+				quietStart: store.quietStart,
+				quietEnd: store.quietEnd,
+				soundEnabled: store.soundEnabled,
+				animationEnabled: store.animationEnabled,
+			}
+		},
+
+		/**
+		 * C5c suggestion: enabling a digest category pre-fills the quiet
+		 * inputs with the 20:00/08:00 suggestion while they are empty.
+		 */
+		maybeSuggestQuietHours() {
+			const draft = this.notificationDraft
+			if ((draft.taskDigestEnabled || draft.orgDigestEnabled) && !draft.quietStart && !draft.quietEnd) {
+				draft.quietStart = '20:00'
+				draft.quietEnd = '08:00'
+			}
+		},
+
+		/**
+		 * Save the self-only notification preferences (version-aware PUT;
+		 * on 409 the draft is preserved and the conflict hint renders).
+		 */
+		async savePreferences() {
+			try {
+				const saved = await this.preferencesStore.savePreferences({
+					taskDigestEnabled: this.notificationDraft.taskDigestEnabled,
+					orgDigestEnabled: this.notificationDraft.orgDigestEnabled,
+					digestTime: this.notificationDraft.digestTime || null,
+					quietStart: this.notificationDraft.quietStart || null,
+					quietEnd: this.notificationDraft.quietEnd || null,
+					soundEnabled: this.notificationDraft.soundEnabled,
+					animationEnabled: this.notificationDraft.animationEnabled,
+				})
+				if (saved) {
+					showSuccess(t('chorestrike', 'Notification preferences saved'))
+					this.syncNotificationDraft()
+				} else {
+					showWarning(t('chorestrike', 'Your changes were saved elsewhere in the meantime. Save again to apply your edits.'))
+				}
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to save the notification preferences'))
+				logger.error('Failed to save the notification preferences', error, { view: 'Settings', action: 'savePreferences' })
 			}
 		},
 

@@ -326,6 +326,57 @@ class AccountErasureTest extends IntegrationTestCase {
 		$ownerRow = $this->fetchCompletionRow($f['ownerCompletion']);
 		self::assertIsArray($ownerRow);
 		self::assertNotNull($ownerRow['user_id'], 'the other actor keeps their reference');
+
+		// WP5 (CS-PLAN-076 §3.7): the membership-keyed digest rows are
+		// purged with the membership — never rebound, never surviving.
+		self::assertSame(0, $this->countIntBy('chorestrike_digest_slots', 'house_user_id', $f['targetHouseUserId']), 'digest slot history is purged with the membership');
+		self::assertSame(0, $this->countIntBy('chorestrike_digest_changes', 'house_user_id', $f['targetHouseUserId']), 'queued digest changes are purged with the membership');
+	}
+
+	/**
+	 * Erasure_PurgesDigestRows_QueuedHistoryNeverSurvives
+	 * (CS-PLAN-070 WP5 §3.7, Q-075-01 A): seeded digest rows die with the
+	 * account's membership, including rows for OTHER houses of the same
+	 * account.
+	 */
+	public function testErasure_PurgesDigestRows_QueuedHistoryNeverSurvives(): void {
+		$f = $this->seedHouseWithTarget();
+
+		$slotMapper = \OC::$server->get(\OCA\ChoreStrike\Db\DigestSlotMapper::class);
+		$slot = new \OCA\ChoreStrike\Db\DigestSlot();
+		$slot->setHouseId($f['houseId']);
+		$slot->setHouseUserId($f['targetHouseUserId']);
+		$slot->setLocalDay('2026-09-29');
+		$slot->setZone('UTC');
+		$slot->setPrefRevision(1);
+		$slot->setScheduledUtc(new \DateTime('2026-09-29 18:00:00 UTC'));
+		$slot->setWindowEndUtc(new \DateTime('2026-09-29 19:00:00 UTC'));
+		$slot->setStatus(\OCA\ChoreStrike\Db\DigestSlot::STATUS_SENT);
+		$slot->setCreatedAt(new \DateTime());
+		$slot->setUpdatedAt(new \DateTime());
+		$slotMapper->insertOrGet($slot);
+
+		$changeMapper = \OC::$server->get(\OCA\ChoreStrike\Db\DigestChangeMapper::class);
+		$change = new \OCA\ChoreStrike\Db\DigestChange();
+		$change->setHouseId($f['houseId']);
+		$change->setHouseUserId($f['targetHouseUserId']);
+		$change->setObjectType('takeover');
+		$change->setObjectId('9');
+		$change->setCategory(\OCA\ChoreStrike\Db\DigestChange::CATEGORY_ORG);
+		$change->setChangeTime(new \DateTime());
+		$change->setTargetSlot('2026-09-29');
+		$change->setDisposition(\OCA\ChoreStrike\Db\DigestChange::DISPOSITION_QUEUED);
+		$change->setCreatedAt(new \DateTime());
+		$change->setUpdatedAt(new \DateTime());
+		$changeMapper->queueOrCoalesce($change);
+
+		self::assertNotNull($slotMapper->findByHouseUserAndDay($f['houseId'], $f['targetHouseUserId'], '2026-09-29'));
+		self::assertCount(1, $changeMapper->findBySlot($f['targetHouseUserId'], '2026-09-29'));
+
+		\OC::$server->get(AccountErasureService::class)->eraseAccount('ae_target');
+
+		self::assertNull($slotMapper->findByHouseUserAndDay($f['houseId'], $f['targetHouseUserId'], '2026-09-29'), 'the slot history is swept');
+		self::assertSame([], $changeMapper->findBySlot($f['targetHouseUserId'], '2026-09-29'), 'the queued history is swept');
 	}
 
 	/**

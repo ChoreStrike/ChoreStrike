@@ -58,13 +58,20 @@ Complete agreed tasks, build a steady rhythm and keep your home tidy together. P
         The StreakFreeze/StreakRestock jobs retired with the WP3
         legacy-effect cutover (CS-PLAN-070, Q-074-01 Option A): dated
         recognized pauses are the neutral absence mechanism and the rhythm
-        evaluator re-derives streaks from valid history.
+        evaluator re-derives streaks from valid history. The former
+        24-hour task-due reminder pass and the award/takeover bells are
+        retired with the WP5 digest cutover (CS-PLAN-076) —
+        DailyNotificationJob IS the digest delivery pass.
 
-        TimelineJob (CS-PLAN-072 WP1) runs at a five-minute cadence on the
-        injected clock and advances the occurrence agreement frontier —
-        never awards, credits or notifications. Late cron runs reconcile
-        missed history from the immutable rule inputs; a stopped cron never
-        forces a write on GET.
+        DailyNotificationJob (CS-PLAN-076 WP5) runs at a five-minute
+        cadence: it materializes the opted-in digest slots, expires
+        missed slots permanently (the 60-minute same-day window is never
+        extended — the Nextcloud cron prerequisite is documented) and
+        dispatches at most one combined opt-in summary per person and
+        day. TimelineJob (CS-PLAN-072 WP1) advances the occurrence
+        agreement frontier — never awards, credits or notifications. Late
+        cron runs reconcile missed history from the immutable rule
+        inputs; a stopped cron never forces a write on GET.
     -->
     <backgroundjobs>
         <job>OCA\ChoreStrike\BackgroundJob\DailyNotificationJob</job>

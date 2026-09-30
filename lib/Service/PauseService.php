@@ -10,6 +10,8 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\Agreement;
 use OCA\ChoreStrike\Db\AgreementMapper;
+use OCA\ChoreStrike\Db\DigestChange;
+use OCA\ChoreStrike\Db\DigestChangeMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Occurrence;
@@ -66,6 +68,8 @@ class PauseService {
 	private AgreementMapper $agreementMapper;
 	private TransactionExecutor $transactions;
 	private CalendarService $calendar;
+	private DigestChangeMapper $digestChangeMapper;
+	private DigestScheduleService $digestScheduleService;
 	private IL10N $l10n;
 
 	public function __construct(
@@ -80,6 +84,8 @@ class PauseService {
 		AgreementMapper $agreementMapper,
 		TransactionExecutor $transactions,
 		CalendarService $calendar,
+		DigestChangeMapper $digestChangeMapper,
+		DigestScheduleService $digestScheduleService,
 		IL10N $l10n,
 	) {
 		$this->commands = $commands;
@@ -93,6 +99,8 @@ class PauseService {
 		$this->agreementMapper = $agreementMapper;
 		$this->transactions = $transactions;
 		$this->calendar = $calendar;
+		$this->digestChangeMapper = $digestChangeMapper;
+		$this->digestScheduleService = $digestScheduleService;
 		$this->l10n = $l10n;
 	}
 
@@ -243,6 +251,9 @@ class PauseService {
 				$this->applyRange($pause, $validated, $this->houseZone($houseId));
 				$pause = $this->pauseMapper->appendRevision($pause);
 				$this->applyPauseEffectsUnderLock($houseId);
+				// WP5 (C5m): a household pause affects every member —
+				// transactional queue write for the opted-in digest.
+				$this->queuePauseChange($houseId, (int)$actor->getId(), $pause, new \DateTime());
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
 			}
 		);
@@ -322,6 +333,9 @@ class PauseService {
 				$this->applyRange($pause, $validated, $this->houseZone($houseId));
 				$pause = $this->pauseMapper->appendRevision($pause);
 				$this->applyPauseEffectsUnderLock($houseId);
+				// WP5 (C5m): retrospective recognition is a pause decision
+				// affecting the subject — transactional queue write.
+				$this->queuePauseChange($houseId, (int)$actor->getId(), $pause, new \DateTime());
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
 			}
 		);
@@ -435,6 +449,13 @@ class PauseService {
 				$revision->setUpdatedAt($now);
 				$revision = $this->pauseMapper->appendRevision($revision);
 				$this->applyPauseEffectsUnderLock($houseId);
+				// WP5 (C5m): an acknowledged shortening/cancellation is a
+				// pause decision affecting the subject — transactional
+				// queue write (a pending child revision is a request, not
+				// a decision).
+				if ($revision->getState() === Pause::STATE_ACKNOWLEDGED) {
+					$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
+				}
 				return ['pauseGroupId' => $pauseGroupId, 'revision' => $revision->getRevision(), 'state' => $revision->getState()];
 			}
 		);
@@ -444,6 +465,45 @@ class PauseService {
 	// ------------------------------------------------------------------
 	// Effects, departure and job entry
 	// ------------------------------------------------------------------
+
+	/**
+	 * Queue the organizational digest change for a pause decision
+	 * (CS-PLAN-070 WP5 §3.3, C5m): personal pauses affect their subject,
+	 * household pauses affect every member. The deciding actor's own row
+	 * is skipped. Identity rows only (pause group + revision); rights
+	 * and relevance are rechecked at dispatch. Runs INSIDE the owning
+	 * command transaction (the house lock is already held).
+	 */
+	private function queuePauseChange(int $houseId, int $actorHouseUserId, Pause $pause, \DateTimeInterface $now): void {
+		$recipients = [];
+		if ($pause->getScope() === Pause::SCOPE_PERSONAL) {
+			$subject = $this->houseUserMapper->findByWalletId((int)($pause->getSubjectWalletId() ?? 0));
+			if ($subject !== null) {
+				$recipients[] = $subject;
+			}
+		} else {
+			$recipients = $this->houseUserMapper->findByHouseId($houseId);
+		}
+
+		foreach ($recipients as $member) {
+			if ((int)$member->getId() === $actorHouseUserId) {
+				continue;
+			}
+			$change = new DigestChange();
+			$change->setHouseId($houseId);
+			$change->setHouseUserId((int)$member->getId());
+			$change->setObjectType('pause');
+			$change->setObjectId((string)$pause->getPauseGroupId());
+			$change->setObjectRevision($pause->getRevision());
+			$change->setCategory(DigestChange::CATEGORY_ORG);
+			$change->setChangeTime(\DateTime::createFromInterface($now));
+			$change->setTargetSlot($this->digestScheduleService->resolveTargetSlotUnderLock($houseId, (int)$member->getId(), $now));
+			$change->setDisposition(DigestChange::DISPOSITION_QUEUED);
+			$change->setCreatedAt(\DateTime::createFromInterface($now));
+			$change->setUpdatedAt(\DateTime::createFromInterface($now));
+			$this->digestChangeMapper->queueOrCoalesce($change);
+		}
+	}
 
 	/**
 	 * Q-073-03 departure rule (called from the membership-removal
@@ -588,6 +648,10 @@ class PauseService {
 				$current->setUpdatedAt(new \DateTime());
 				$this->pauseMapper->update($current);
 				$this->applyPauseEffectsUnderLock($houseId);
+				// WP5 (C5m): transactional queue write — the subject
+				// learns about the owner decision through their opted-in
+				// digest, never through a bell.
+				$this->queuePauseChange($houseId, (int)$actor->getId(), $current, new \DateTime());
 				return ['pauseGroupId' => $pauseGroupId, 'revision' => $current->getRevision(), 'state' => $current->getState()];
 			}
 		);

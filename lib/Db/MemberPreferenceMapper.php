@@ -22,8 +22,8 @@ class MemberPreferenceMapper extends QBMapper {
 	}
 
 	/**
-	 * The preference row of one membership, or null when the member is
-	 * unconsented (the row exists exactly while one generation is live).
+	 * The preference row of one membership, or null when the member has
+	 * never saved preferences or consented.
 	 */
 	public function findByHouseAndUser(int $houseId, int $houseUserId): ?MemberPreference {
 		$qb = $this->db->getQueryBuilder();
@@ -53,8 +53,25 @@ class MemberPreferenceMapper extends QBMapper {
 	}
 
 	/**
+	 * Every preference row of one membership across all houses (erasure
+	 * sweep input for a specific membership id namespace).
+	 *
+	 * @return MemberPreference[]
+	 */
+	public function findAllByHouseUserIds(array $houseUserIds): array {
+		if ($houseUserIds === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->in('house_user_id', $qb->createNamedParameter($houseUserIds, IQueryBuilder::PARAM_INT_ARRAY)));
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Insert-or-return: the unique (house, membership) identity supplies
-	 * idempotency for concurrent first consents — a lost race re-reads the
+	 * idempotency for concurrent first writes — a lost race re-reads the
 	 * winner's row. Called inside the owning house-first transaction.
 	 *
 	 * @throws \OCP\DB\Exception when the insert fails for any reason other
@@ -79,26 +96,51 @@ class MemberPreferenceMapper extends QBMapper {
 	}
 
 	/**
-	 * Delete the membership's preference row (withdrawal / departure).
-	 * Idempotent — no row is a no-op.
+	 * Reset ONLY the ranking-consent columns of one membership's row
+	 * (withdraw, Q-076-03 A): generation 0, Monday/zone cleared, shared
+	 * version advanced. Delivery preferences survive. Idempotent — no
+	 * row is a no-op. Returns the affected row count.
 	 */
-	public function deleteByHouseAndUser(int $houseId, int $houseUserId): void {
+	public function clearRankingConsentByHouseAndUser(int $houseId, int $houseUserId, \DateTimeInterface $now): int {
 		$qb = $this->db->getQueryBuilder();
-		$qb->delete($this->getTableName())
+		return $qb->update($this->getTableName())
+			->set('ranking_consent_generation', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))
+			->set('ranking_effective_monday', $qb->createNamedParameter(null))
+			->set('ranking_saved_zone', $qb->createNamedParameter(null))
+			->set('version', $qb->createFunction('version + 1'))
+			->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_DATE))
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('house_user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
 	}
 
 	/**
-	 * Delete every preference row of a house (ranking-flag disable
-	 * invalidates every generation; re-enabling starts everyone
-	 * unconsented).
+	 * Reset ONLY the ranking-consent columns of EVERY row of a house
+	 * (house ranking flag disable, Q-076-03 A): delivery preferences
+	 * survive; re-enabling starts everyone unconsented.
 	 */
-	public function deleteByHouseId(int $houseId): void {
+	public function clearRankingConsentByHouseId(int $houseId, \DateTimeInterface $now): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('ranking_consent_generation', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))
+			->set('ranking_effective_monday', $qb->createNamedParameter(null))
+			->set('ranking_saved_zone', $qb->createNamedParameter(null))
+			->set('version', $qb->createFunction('version + 1'))
+			->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_DATE))
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
+
+	/**
+	 * Delete the membership's preference row (departure / account
+	 * erasure — the ONLY deletion paths, Q-076-03 A). Idempotent — no
+	 * row is a no-op.
+	 */
+	public function deleteByHouseAndUser(int $houseId, int $houseUserId): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete($this->getTableName())
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('house_user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
 	}
 }

@@ -1346,6 +1346,19 @@ The multi-pack selection route was retired with the single-series cutover
 there is nothing to select. Re-adding it requires a new expose decision
 (guarded by `RouteMatrixTest`).
 
+### Personal Preferences and Digest Delivery (WP5)
+
+`GET /preferences/me` and `PUT /preferences/me` expose only the caller's
+membership-owned settings, including children. The write requires a command
+UUID and `expectedVersion`; unknown fields and invalid resulting settings are
+400s, and stale drafts are 409s. Ranking changes preserve delivery preferences
+and advance the same version. Departure/erasure removes delivery state.
+
+The only app-originated Nextcloud notification is the optional combined daily
+digest. Awards/titles remain in-app. Timing, quiet hours, source rechecks,
+at-most-once outcome handling and the complete payload contract are documented
+in [Preferences and Digest](notifications.md).
+
 ### Ranking (CS-PLAN-070 WP4)
 
 Consent-filtered weekly chore ranking — the server is the sole ranking

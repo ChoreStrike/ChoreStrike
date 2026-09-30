@@ -145,7 +145,7 @@ left unstaged.
 ## CS-PLAN-076 / WP5 — Standard A: PASS-WITH-FIXES
 
 - **Date / tier / mode:** 2026-09-29; Standard A, Deep Slice plan review; no subagents.
-- **Scope / owner:** [CS-PLAN-076](../../plans/active/cs-plan-076-wp5-preferences-and-digest-delivery.md), child of active CS-PLAN-070. Reviewed plan feasibility, parent C5/D9/D10 ownership, code-baseline citations, risks, tests, manifest and backlog links. No runtime changes.
+- **Scope / owner:** [CS-PLAN-076](../../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md), child of active CS-PLAN-070. Reviewed plan feasibility, parent C5/D9/D10 ownership, code-baseline citations, risks, tests, manifest and backlog links. No runtime changes.
 - **Capture:** `master` HEAD `b5cc55fa2e768265d01ee646e85c93a8e88536a9`; index empty (staged binary diff SHA1 `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391`), unstaged binary diff SHA1 `871015765dd7c7c9e64c680f41a6eebc370009aa`; sole untracked plan SHA1 `99550fee377f9927ba67f5e12854d980b9814b7e`. Draft scope: this plan plus five draft tracking/link documents (`docs/README.md`, `docs/plans/README.md`, `docs/backlog/{ACTIVE_TASKS,backlog}.md`, parent CS-PLAN-070); three unrelated `.gitkeep` deletions excluded.
 
 | Finding | Severity | Evidence | Resolution |

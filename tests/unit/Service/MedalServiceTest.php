@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Db\WeeklyGoalReceiptMapper;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\MedalService;
-use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -32,7 +31,6 @@ class MedalServiceTest extends TestCase {
 	private MedalService $service;
 	private HouseUserMapper $houseUserMapper;
 	private MedalMapper $medalMapper;
-	private NotificationService $notificationService;
 	private AppLogger $appLogger;
 	private WeeklyGoalService $weeklyGoalService;
 	private RhythmService $rhythmService;
@@ -43,7 +41,6 @@ class MedalServiceTest extends TestCase {
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->medalMapper = $this->createMock(MedalMapper::class);
-		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->weeklyGoalService = $this->createMock(WeeklyGoalService::class);
 		$this->rhythmService = $this->createMock(RhythmService::class);
@@ -71,7 +68,6 @@ class MedalServiceTest extends TestCase {
 		$this->service = new MedalService(
 			$this->houseUserMapper,
 			$this->medalMapper,
-			$this->notificationService,
 			$this->appLogger,
 			$this->weeklyGoalService,
 			$this->rhythmService,
@@ -112,7 +108,6 @@ class MedalServiceTest extends TestCase {
 		$this->service = new MedalService(
 			$this->houseUserMapper,
 			$this->medalMapper,
-			$this->notificationService,
 			$this->appLogger,
 			$this->weeklyGoalService,
 			$this->rhythmService,
@@ -128,7 +123,6 @@ class MedalServiceTest extends TestCase {
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
 		$this->weeklyProgress(true);
 		$this->medalMapper->expects($this->never())->method('insert');
-		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 
 		self::assertSame([], $this->service->checkAndAwardMedals(1));
 	}
@@ -191,11 +185,12 @@ class MedalServiceTest extends TestCase {
 			->willThrowException(new DoesNotExistException());
 		$this->medalMapper->method('insert')->willReturnArgument(0);
 
-		$this->notificationService->expects($this->once())
-			->method('notifyMedalAwarded')
-			->with('alice', 'rhythm_3', 3, MedalService::LIFETIME_WEEK);
+		// Q-076-02: the award bell is retired — the medal row is the
+		// in-app celebration; no external dispatch exists at all.
+		$result = $this->service->checkAndAwardMedals(1);
 
-		$this->service->checkAndAwardMedals(1);
+		$types = array_map(static fn (Medal $m) => $m->getMedalType(), $result);
+		$this->assertSame(['rhythm_3'], $types, 'the award itself still happens — quietly, in-app');
 	}
 
 	/**
@@ -211,7 +206,6 @@ class MedalServiceTest extends TestCase {
 
 		$this->medalMapper->method('findByUserTypeAndWeek')->willReturn($existingMedal);
 		$this->medalMapper->expects($this->never())->method('insert');
-		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 
 		$this->assertCount(0, $this->service->checkAndAwardMedals(1));
 	}
@@ -231,7 +225,6 @@ class MedalServiceTest extends TestCase {
 				\OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION
 			));
 
-		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 
 		// CS-PLAN-052: the expected race-loser swallow must be observable —
 		// a warning with stable event + service context keys.
@@ -266,7 +259,6 @@ class MedalServiceTest extends TestCase {
 				\OCP\DB\Exception::REASON_OTHER
 			));
 
-		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 		$this->expectException(\OCP\DB\Exception::class);
 
 		$this->service->checkAndAwardMedals(1);
@@ -327,7 +319,6 @@ class MedalServiceTest extends TestCase {
 			}
 		);
 		$this->medalMapper->expects($this->never())->method('insert');
-		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 
 		self::assertSame([], $this->service->checkAndAwardMedals(1));
 		$user->setLongestStreak(3);
@@ -346,7 +337,6 @@ class MedalServiceTest extends TestCase {
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
 		$this->medalMapper->method('findByUserIds')->willReturn([7 => [$award]]);
 		$this->medalMapper->expects($this->never())->method('update');
-		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 		$this->medalMapper->method('findByUserTypeAndWeek')->willReturn($award);
 
 		self::assertSame([], $this->service->checkAndAwardMedals(1));
@@ -442,10 +432,9 @@ class MedalServiceTest extends TestCase {
 			}
 		);
 		$this->medalMapper->expects($this->exactly(2))->method('update')->willReturnArgument(0);
-		$this->notificationService->expects($this->once())->method('notifyMedalAwarded')
-			->with('alice', 'weekly_milestone', 100, $key);
-		$this->notificationService->expects($this->once())->method('notifyWeeklyGoalReachedForHouse')
-			->with(1, 100, 80, '2026-09-28T00:00:00+00:00');
+		// Q-076-02: the weekly-goal bell is retired — the receipt claim is
+		// the once-only in-app celebration marker; closed-week
+		// reconciliation logic is untouched.
 
 		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
 		self::assertNull($award, 'an open prior-week window cannot grant recognition');
@@ -470,7 +459,6 @@ class MedalServiceTest extends TestCase {
 		]);
 		$this->weeklyGoalReceiptMapper->expects($this->never())->method('claim');
 		$this->medalMapper->expects($this->never())->method('insert');
-		$this->notificationService->expects($this->never())->method('notifyWeeklyGoalReachedForHouse');
 
 		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
 	}
@@ -491,7 +479,6 @@ class MedalServiceTest extends TestCase {
 		);
 		$this->weeklyGoalReceiptMapper->expects($this->never())->method('claim');
 		$this->medalMapper->expects($this->never())->method('insert');
-		$this->notificationService->expects($this->never())->method('notifyWeeklyGoalReachedForHouse');
 
 		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
 		self::assertSame(2, $reads, 'the corrected snapshot is re-read under the house lock and used for medals');
@@ -524,13 +511,12 @@ class MedalServiceTest extends TestCase {
 			}
 		);
 		$this->weeklyGoalReceiptMapper->expects($this->once())->method('claim')->with(1, '2026-09-21', $this->anything())->willReturn(true);
-		$this->notificationService->expects($this->once())->method('notifyWeeklyGoalReachedForHouse')
-			->with(1, 100, 80, '2026-09-21T00:00:00+00:00');
+		// Q-076-02: the receipt is claimed without any bell dispatch.
 
 		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-05 UTC'));
 	}
 
-	public function testClosedWeekJob_RecipientLookupFailsAfterClaim_LogsOnceWithoutRebell(): void {
+	public function testClosedWeekJob_ReceiptClaimedOnce_RerunDoesNotReclaimOrRecelebrate(): void {
 		$house = new House();
 		$house->setId(1);
 		$this->houseMapper->method('find')->willReturn($house);
@@ -542,6 +528,8 @@ class MedalServiceTest extends TestCase {
 				return $claimed ? ['2026-09-21' => true] : [];
 			}
 		);
+		// The receipt stays the once-only celebration marker: the rerun
+		// sees the claimed week and claims nothing new.
 		$this->weeklyGoalReceiptMapper->expects($this->once())->method('claim')->willReturnCallback(
 			static function () use (&$claimed): bool {
 				$claimed = true;
@@ -553,10 +541,7 @@ class MedalServiceTest extends TestCase {
 			'provisional' => false, 'achieved' => true, 'percent' => 100,
 			'targetPercent' => 80, 'weekStart' => '2026-09-21T00:00:00+00:00',
 		]);
-		$this->notificationService->expects($this->once())->method('notifyWeeklyGoalReachedForHouse')
-			->willThrowException(new \RuntimeException('recipient lookup failed'));
-		$this->appLogger->expects($this->once())->method('logException')
-			->with('Failed to dispatch weekly goal notification', $this->isInstanceOf(\RuntimeException::class), $this->anything());
+		$this->appLogger->expects($this->never())->method('logException');
 
 		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
 		$this->service->reconcileClosedWeeksForHouse(1, new \DateTime('2026-10-06 UTC'));
@@ -597,5 +582,25 @@ class MedalServiceTest extends TestCase {
 		$this->assertCount(1, $result);
 		$this->assertEquals('rhythm_6', $result[0]['medalType']);
 		$this->assertEquals('Test User', $result[0]['userName']);
+	}
+
+	/**
+	 * MedalService_HasNoNotificationDependency (Q-076-02 negative pin)
+	 *
+	 * Awards stay quietly in-app: the medal service must not depend on
+	 * the notification choke point at all — a future bell path cannot
+	 * reappear through this class.
+	 */
+	public function testMedalService_HasNoNotificationDependency(): void {
+		$constructor = (new \ReflectionClass(MedalService::class))->getConstructor();
+		self::assertNotNull($constructor);
+		foreach ($constructor->getParameters() as $parameter) {
+			$type = (string)$parameter->getType();
+			self::assertNotSame(
+				\OCA\ChoreStrike\Service\NotificationService::class,
+				$type,
+				'MedalService must not gain a notification dependency again'
+			);
+		}
 	}
 }

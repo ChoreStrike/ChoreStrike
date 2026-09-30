@@ -47,7 +47,6 @@ class MedalService {
 
 	private HouseUserMapper $houseUserMapper;
 	private MedalMapper $medalMapper;
-	private NotificationService $notificationService;
 	private AppLogger $appLogger;
 	private WeeklyGoalService $weeklyGoalService;
 	private RhythmService $rhythmService;
@@ -58,7 +57,6 @@ class MedalService {
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
 		MedalMapper $medalMapper,
-		NotificationService $notificationService,
 		AppLogger $appLogger,
 		WeeklyGoalService $weeklyGoalService,
 		RhythmService $rhythmService,
@@ -68,7 +66,6 @@ class MedalService {
 	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->medalMapper = $medalMapper;
-		$this->notificationService = $notificationService;
 		$this->appLogger = $appLogger;
 		$this->weeklyGoalService = $weeklyGoalService;
 		$this->rhythmService = $rhythmService;
@@ -125,6 +122,10 @@ class MedalService {
 			array_push($awardedMedals, ...$this->reconcileWeeklyMedals($users, $existing, $key, $week));
 		}
 
+		// Q-076-02 (CS-PLAN-070 WP5): the former medal/weekly-goal bells
+		// are gone — awards stay quietly in-app (the existing medal
+		// surfaces); the weekly receipt remains the once-only celebration
+		// marker and nothing external is sent.
 		return $awardedMedals;
 	}
 
@@ -165,19 +166,10 @@ class MedalService {
 					continue;
 				}
 				$this->reconcileWeeklyMedals($users, $existing, $key, $progress);
-				$newClaim = $needsClaim && $progress['achieved'] ? $this->claimClosedWeek($houseId, $key, $now) : null;
-				if ($newClaim !== null) {
-					try {
-						$this->notificationService->notifyWeeklyGoalReachedForHouse(
-							$houseId, $newClaim['percent'], $newClaim['targetPercent'], $newClaim['weekStart']
-						);
-					} catch (\Throwable $e) {
-						$this->appLogger->logException('Failed to dispatch weekly goal notification', $e, [
-							'event' => 'weekly_goal_dispatch_failed',
-							'houseId' => $houseId,
-							'weekKey' => $key,
-						]);
-					}
+				// The receipt claim stays the once-only in-app celebration
+				// marker; the former household bell is retired (Q-076-02).
+				if ($needsClaim && $progress['achieved']) {
+					$this->claimClosedWeek($houseId, $key, $now);
 				}
 			}
 			$after = $weeks === [] ? $after : end($weeks);
@@ -295,11 +287,13 @@ class MedalService {
 
 	/**
 	 * Award a medal to a user if they don't already have one of this type
-	 * for the given week key, and notify them on the new award.
+	 * for the given week key.
 	 *
 	 * Returns null if the medal already existed (idempotent — re-checking
-	 * medals doesn't re-notify the user). Race-safe: the read-then-insert
-	 * window is closed by catching the unique-constraint violation on insert.
+	 * medals doesn't re-award). Race-safe: the read-then-insert window is
+	 * closed by catching the unique-constraint violation on insert. The
+	 * former award bell is retired (Q-076-02) — awards stay quietly
+	 * in-app.
 	 */
 	private function awardMedalIfNew(HouseUser $user, string $medalType, int $value, string $weekKey): ?Medal {
 		try {
@@ -307,7 +301,7 @@ class MedalService {
 			$this->medalMapper->findByUserTypeAndWeek($user->getId(), $medalType, $weekKey);
 			return null;
 		} catch (DoesNotExistException $e) {
-			// Not found — create + notify.
+			// Not found — create.
 		}
 
 		try {
@@ -328,16 +322,6 @@ class MedalService {
 				'weekStart' => $weekKey,
 			]);
 			return null;
-		}
-
-		$nextcloudUserId = $user->getNextcloudUserId();
-		if ($nextcloudUserId !== null && $nextcloudUserId !== '') {
-			$this->notificationService->notifyMedalAwarded(
-				$nextcloudUserId,
-				$medalType,
-				$value,
-				$weekKey
-			);
 		}
 
 		return $medal;

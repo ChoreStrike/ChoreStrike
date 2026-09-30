@@ -213,17 +213,19 @@ profile or guardian-consent model should be implied by onboarding copy.
 ---
 
 ### [P1] FEAT-UX-024 — Notification settings
-**Status**: In Progress (WP5 plan active; implementation pending) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
-**Owning**: CS-PLAN-076 (WP5 slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001; CS-PLAN-074 WP3 closed-week delivery follow-up (2026-09-27)
+**Status**: In Progress (WP5 backend/minimal Settings DELIVERED; full presentation remains WP6) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
+**Owning**: CS-PLAN-070 WP6 (remaining presentation); CS-PLAN-076 (delivered WP5 slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001; CS-PLAN-074 WP3 closed-week delivery follow-up (2026-09-27)
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
-**Sub-plan (2026-09-29):** the backend preferences/digest delivery slice
-[CS-PLAN-076](../plans/active/cs-plan-076-wp5-preferences-and-digest-delivery.md)
-activated after Standard A `PASS-WITH-FIXES` (Q-076-01..04 answered; no runtime
-implementation yet). Whole-item closure awaits WP5 delivery and remaining WP6
-presentation work.
+**WP5 delivered (2026-09-30):** [CS-PLAN-076](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+passed final Standard B `PASS-WITH-FIXES`: self-only persisted preferences,
+minimal Settings save/conflict handling, quiet/DST-aware schedule,
+transactional coalescing queue and one bounded at-most-once daily summary.
+Backend and minimum Settings tests pass; the whole item remains open for
+the full WP6 presentation and sound/animation/optional-area consumers.
 
-UC-14 reminders are passive server jobs with no settings surface.
+UC-14 now has a minimal self-only Settings surface and optional shared digest;
+the polished component and full presentation remain undelivered.
 
 CS-PLAN-070 D9 was approved on 2026-09-17: reminders off by default; optional
 summary at the chosen time, at most one task reminder per person/day, only for
@@ -232,30 +234,29 @@ threats. C5 now specifies house-time/DST handling, a 60-minute same-day delivery
 window, personal quiet hours and one shared daily task/organization digest budget;
 missed-slot notices expire instead of becoming a future backlog. Opt-ins are
 personal/server-side, revocable and invalidated by departure.
-Same-day per-task dedup is not a digest or recipient budget; the separate daily
-preference/quiet-hour job work is unchanged. Priority reflects its selected
-role in the reliable core, not activation.
+The membership/local-day claim is the shared recipient budget, not per-task
+dedup. Delivery and quiet-hour behavior are integrated into the five-minute
+Nextcloud job; late slots expire with no next-day catch-up.
 
-**WP3 delivery follow-up (2026-09-27):** the closed-week household milestone
-claims its durable per-week receipt before notifying Nextcloud recipients.
-That prevents duplicate dispatch attempts across corrections, retries and job
-outages, but a manager failure after the claim can leave one recipient without
-the bell. Dispatch failures are logged. Evaluate a per-recipient outbox or
-equivalent delivery acknowledgement with the C5 backend notification design;
-do not replace the per-week claim with a broad replay. This is a separate
-delivery guarantee, not a missing WP3 work-accounting test or a plan move.
+**WP3 delivery follow-up resolved by WP5 (2026-09-30):** external award bells
+are retired, not replayed through an outbox. The closed-week receipt remains
+the once-only in-app celebration marker. The optional digest uses the approved
+persist-before-notify, uncertain-consumes-slot contract (ADR-016); no
+exactly-once delivery is promised. The delivered slice is recorded in the
+monthly archive; no broader presentation work is declared complete.
 
-- [x] C5 delivery/category/consent policy recorded (2026-09-17); technical slot/claim/API design remains open.
-- [ ] Backend: per-user notification preferences (storage + membership-gated
+- [x] C5 delivery/category/consent policy and technical slot/claim/API contract implemented (ADR-016, WP5).
+- [x] Backend: per-user notification preferences (storage + membership-gated
       endpoints).
-- [ ] Settings surface: digest toggle, quiet hours; background jobs respect
+- [x] Minimal Settings surface: digest toggle, quiet hours; background jobs respect
       them.
-- [ ] Service + settings tests.
+- [x] Service and minimal Settings tests, complete three-pool browser gate.
+- [ ] Full notification preference component and sound/animation/optional-area presentation consumers (WP6).
 
 ---
 
 ### [P1] FEAT-UX-025 — Vacation / house-pause mode
-**Status**: In Progress — backend pause/agreement/capacity slice DELIVERED via [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) (final Standard B `PASS-WITH-FIXES` 2026-09-25); quiet-digest integration planned in active CS-PLAN-076, full pause UI remains WP6 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
+**Status**: In Progress — backend pause/agreement/capacity slice DELIVERED via [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md); quiet-digest integration DELIVERED via CS-PLAN-076 (2026-09-30); full pause UI remains WP6 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
 **Owning**: CS-PLAN-073 (delivered backend slice); CS-PLAN-076 (WP5 quiet-digest slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
@@ -278,9 +279,11 @@ owner-recorded amendments/catch-up/linked restart, planner consent/command
 cutover — passed the final Standard B review (`PASS-WITH-FIXES`; RF-01..28
 resolved; plan in `done/`). CR-SVC-64 closed with it.
 
-**WP5 plan activated (2026-09-29):** [CS-PLAN-076](../plans/active/cs-plan-076-wp5-preferences-and-digest-delivery.md)
-owns the quiet-digest integration for recognized personal/house pauses; it is
-not delivered yet. Full pause UI stays WP6; this item remains open.
+**WP5 delivered (2026-09-30):** [CS-PLAN-076](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+implements quiet-digest integration for recognized personal/house pauses,
+including day-level catch-up suppression and current-source rechecks.
+Unit/integration/browser gates are green. Full pause UI stays WP6; this item
+remains open.
 
 - [x] Core pause model, role boundaries and durable concept description approved.
 - [x] Specify pause/date/urgent-work interaction and history/denominator amendments (C1/C2). (C2d–g/i/j approved 2026-09-17; operationalized by CS-PLAN-073 §3.4 and the §10 resolutions, 2026-09-23.)
@@ -429,9 +432,10 @@ rhythm/goal read contract, consent-filtered ranking with real
 consent persistence in WP4,
 single-series retained recognition and retired-mechanic removal (ADR-015).
 WP5 (preferences/digest delivery) was sub-planned as
-[CS-PLAN-076](../plans/active/cs-plan-076-wp5-preferences-and-digest-delivery.md)
-(activated 2026-09-29 via Standard A `PASS-WITH-FIXES`; implementation pending).
-CONCEPT-001 remains In Progress for WP5+.
+[CS-PLAN-076](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-30; delivered with ADR-016,
+self-only preferences, quiet shared digest and complete T7 evidence).
+CONCEPT-001 remains In Progress for WP6-WP9 and the family evidence gate.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

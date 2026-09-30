@@ -71,6 +71,11 @@ class TestDataService {
 	 * CS-PLAN-070 WP4: `member_prefs` clears with the house blocks (the
 	 * consent rows reference house_users and are wiped with them).
 	 *
+	 * CS-PLAN-070 WP5: the digest queue and slot history clear with the
+	 * house blocks — they reference houses/house_users and must never
+	 * leak across seeded tests (the dispatch pass is instance-global and
+	 * would otherwise see stale slots).
+	 *
 	 * @var list<string>
 	 */
 	private const RESET_TABLES = [
@@ -79,6 +84,8 @@ class TestDataService {
 		'chorestrike_agreements',
 		'chorestrike_pauses',
 		'chorestrike_member_prefs',
+		'chorestrike_digest_changes',
+		'chorestrike_digest_slots',
 		'chorestrike_occ_members',
 		'chorestrike_occurrences',
 		'chorestrike_schedule_revs',

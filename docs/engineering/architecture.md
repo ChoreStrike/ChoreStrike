@@ -626,55 +626,51 @@ stale response can never win and a committed write is never misreported:
 
 ## Notifications (Nextcloud bell + mobile push)
 
-All ChoreStrike notifications are dispatched through
-`NotificationService` (thin wrapper around `OCP\Notification\IManager`) and
-rendered by `ChoreStrikeNotifier` (registered INotifier; rich-subject
-parameters for user-controlled strings like task names). The subject
-constants live on `NotificationService` and are referenced from both sides —
-a subject without a matching notifier case fails at render time.
+All ChoreStrike notifications are the ONE opt-in daily digest, dispatched
+through `NotificationService` (the single choke point around
+`OCP\Notification\IManager`) and rendered by `ChoreStrikeNotifier`
+(registered INotifier). The single subject constant
+(`SUBJECT_DIGEST = 'digest'`) lives on `NotificationService`; the
+notifier rejects unknown subjects. Full pipeline:
+[notifications.md](notifications.md); decision record: ADR-016
+(CS-PLAN-070 WP5 — the per-event bell model was retired with its
+callers).
 
 ### Subject catalog
 
 | Subject | Trigger point | objectType / objectId |
 |---------|--------------|----------------------|
-| `overdue_taken_over` | `RoomService` (overdue takeover) | `room_task` / roomTaskId |
-| `medal_awarded` | `MedalService::awardMedalIfNew` (CS-PLAN-067 §3.2) | `medal` / weekStart |
-| `weekly_goal_reached` | `HouseService` (per house-week, deduped) | `weekly_goal` / weekStart |
-| `title_unlocked` | `RoomService` post-commit (CR-SVC-12) | `title` / pack-qualified tier id |
-| `streak_at_risk` | `StreakAtRiskService` (daily job) | `streak` / `{pass-day Y-m-d}:{streak}` |
-| `task_due_today` / `task_due_tomorrow` | `TaskDueReminderService` (daily job, CS-PLAN-030) | `task_due` / `{roomTaskId}:{run-day Y-m-d}` |
+| `digest` | `DigestService::processDueSlots` (five-minute job; at-most-one per member and day) | `digest` / `{houseId}:{houseUserId}:{Y-m-d}` |
 
-### Dedup rule (day-qualified objectIds)
+The digest content is category/count-based only (planned/agreed-catch-up
+task count + queued organizational updates) — the notifier resolves no
+object references that could leak hidden work.
 
-Nextcloud deduplicates on `(app, user, objectType, objectId)`. Any
-notification that may legitimately repeat on later days MUST day-qualify its
-objectId (`{identity}:{Y-m-d}`) — a bare streak number made consecutive
-days' at-risk reminders collapse into one bell entry whenever the value
-repeated (CR-SVC-27). Run-date (not due-date) keying keeps the "due
-tomorrow" reminder of day D−1 and the "due today" reminder of day D as
-separate entries while same-day re-runs dedup.
+### Delivery contract (at-most-once)
 
-**Weekly-goal dedup is house-side, not notification-side (BUG-E2E-005
-docs note):** observed Nextcloud behavior can store two `weekly_goal` rows
-with an identical `(user, app, objectType, objectId)` key. The timeline job
-reconciles closed planned weeks in bounded pages and claims the unique
-`(house_id, week_start)` receipt before one notification dispatch attempt.
-Current weeks remain provisional; a missed job run can revisit older saved
-weeks without rewinding a single house-wide marker. A delivery failure after
-the receipt claim still requires separate outbox semantics to retry safely.
+The dispatch is a slot-identity claim (CS-PLAN-070 WP5, parent §3.6):
+`chorestrike_digest_slots` holds the unique (house, membership,
+local_day) daily budget; the pass claims one due slot via a conditional
+`pending → dispatching` write under the house-first lock, commits BEFORE
+`IManager::notify`, and marks `sent` only on acceptance. Uncertain
+outcomes (exception, timeout, crash after the claim) are consumed and
+never resent. Missed windows (60 elapsed minutes, capped at the local
+day end) expire permanently; personal quiet hours gate the attempt
+without shifting the slot. The organizational queue
+(`chorestrike_digest_changes`) coalesces per
+(membership, object, target slot) with identity rows written inside the
+source transactions (`CompletionService` takeover,
+`AgreementService` recordings, `PauseService` decisions).
 
-### Daily job passes
+### Daily job pass
 
-`DailyNotificationJob` (06:00 server time, 24 h interval) is a thin
-delegate that runs, in order: `StreakAtRiskService::process(yesterday)` and
-`TaskDueReminderService::process(today)`. Task-due reminders go to
-**assignees only** (join table + legacy column; unassigned tasks are
-visible in the daily dashboard instead), skip users unavailable on the due
-weekday, and need no completed-task guard (completion advances `next_due`
-or deactivates the row). Both passes are triggerable on demand with an
-injected reference day via `occ chorestrike:trigger-jobs --type
-daily-notification --as-of YYYY-MM-DD` (test mode only); `--as-of` sets
-"today", from which "yesterday" is derived for the streak passes.
+`DailyNotificationJob` is a five-minute TimedJob delegating to
+`DigestService::processDueSlots(now)`. The retired freeze/at-risk and
+task-due passes are gone (CS-PLAN-070 WP3/WP5 cutover). The pass is
+triggerable on demand with an injected reference instant via
+`occ chorestrike:trigger-jobs --type daily-notification --as-of
+"YYYY-MM-DD[ HH:MM[:SS]]]"` (test mode only) — the SAME pass the cron
+job runs.
 
 ## Security Considerations
 
@@ -1083,7 +1079,12 @@ the reward-config registry keys dropped `RewardConfigService` 328→164 below
 the guideline, the retired `TitlePicker.vue` left the inventory, the new
 `RankingService` entered it, `HouseService` 489→512 (house ranking flag +
 consent wipe on the existing update path) and `Settings.vue` 928→906
-(TitlePicker surface removed).
+(TitlePicker surface removed). WP5's changed files were re-measured on
+2026-09-30 during Standard B: the shared preference/queue hooks grew the
+completion/house/agreement/pause aggregates, consent and award retirement
+shrunk ranking/medal code, and the minimal personal Settings section grew
+the composition root. `DigestService` is the additional named exception:
+one visible persist-before-notify choreography with bounded relevance reads.
 WP8 already reduced its named hotspots
 (`TaskList.vue` ~1,160 → 357, `GameLogicService` 517 → 349,
 `RoomTaskService` 833 → 643, `CompletionService` 772 → 546 via extracted
@@ -1103,29 +1104,30 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Controller/RoomController.php` | 338 | Room route surface incl. the WP3 journal/manual-delta/reset seam; thin methods | accepted (endpoint breadth) |
 | `Controller/ChecklistController.php` | 307 | Checklist route surface incl. the WP1 occurrence-identity progress/toggle endpoints; thin methods | accepted (endpoint breadth) |
 | `Service/SchedulePlanService.php` | 1234 | WP6 preview/apply aggregate: fingerprint revalidation, capacity check, lock order, member-day writes (WP1: capacity from the occurrence authority; WP2: exact-share joint placement, replacement-first capacity, consent attestation, injected-clock seam) | **named** (CS-PLAN-067 §3.5: cohesive fingerprint/capacity aggregate; budgets only, no optimizer rewrite) |
-| `Service/CompletionService.php` | 1435 | WP3 completion/undo/attribution aggregate owner: transaction boundary, lock order, command-receipt seam, frozen work evidence, wallet-union deltas (departed wallets included), recognition recompute, journal writes (collaborators: WalletService/RoomReplayService/RhythmService/EffortAllocationService) | **named** (CS-PLAN-067 §3.5 / ADR-014: the one visible ordered aggregate — the complete correction choreography must stay readable as ONE transaction; further splitting would hide the lock/order contract) |
+| `Service/CompletionService.php` | 1447 | WP3 completion/undo/attribution aggregate plus WP5 transactional takeover queue: frozen work evidence, exact wallet-union deltas, recognition and journal writes | **named** (CS-PLAN-067 §3.5 / ADR-014: one visible ordered aggregate; further splitting would hide the lock/order contract) |
 | `Service/RoomTaskService.php` | 846 | Room-task mutations, bulk-assign partial-success semantics, room stats, calendar-range projection (WP1: agreement-writer seam) | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
 | `Service/RoomTaskReadService.php` | 758 | Batched read/enrichment cluster (house/room/scope/daily/due/claimable + timezone); WP8 product; WP1 occurrence-block enrichment; WP2 batched pause-fingerprint reads | accepted (read-surface breadth, one owner per D1) |
 | `Service/TaskCreationService.php` | 453 | WP4 atomic creation aggregate (custom/mount/template, one transaction; WP1: initial schedule revision) | accepted (transaction aggregate) |
 | `Service/HouseSetupService.php` | 492 | WP3 first-run setup transaction aggregate (first-run gate, structure, invites; WP1: schedule initialization) | accepted (transaction aggregate) |
 | `Service/TaskService.php` | 538 | Task-definition CRUD + validation set (WP1: definition edits revise schedules) | **remainder** (CR-SVC-15: `createTask` 24 positional params → param object) |
-| `Service/HouseService.php` | 512 | House aggregate: membership (invite/scoped lookups, RF-058-04), house stats, WP1 zone-change revision pass, WP4 ranking flag + consent-generation wipe on the shared update path; the WP3 wallet-balance endpoint moved to the wallet read seam | accepted (cohesive aggregate) |
+| `Service/HouseService.php` | 531 | House aggregate: membership, stats, timezone revision passes, ranking flag and consent-only reset, membership-keyed preference/digest cleanup | accepted (cohesive aggregate) |
 | `Service/ChecklistService.php` | 415 | Checklist domain: occurrence-scoped progress derivation, toggles, reset/restore seam (WP1) | accepted (cohesive checklist domain) |
 | `Service/SchedulingService.php` | 304 | Scheduling preferences/availability domain surface | accepted (cohesive domain) |
 | `Service/TemplateService.php` | 311 | Task catalog templates + level presets | accepted (catalog surface) |
 | `Service/RewardConfigService.php` | — | Static reward configuration registry — the WP4 retirement of the weekly-goal/threshold override keys dropped it BELOW the guideline (164 non-blank lines); entry retired | removed from the inventory (2026-09-27) |
-| `Service/MedalService.php` | 331 | WP3 retained-recognition owner (Q-074-01A): rhythm 3/6/12 + household weekly-milestone awards from valid history, correction reconciliation, weekly-goal receipt claim | accepted (cohesive recognition domain, one award writer) |
+| `Service/MedalService.php` | 316 | Retained rhythm/weekly recognition, correction reconciliation and in-app weekly receipt; WP5 removes external award bells | accepted (cohesive recognition domain, one award writer) |
 | `Service/RoomService.php` | 328 | Room domain: structure mutations, cleanliness manual-delta command and reset through the WP3 room journal, derived cache updates | accepted (cohesive room domain + the journal writer seam) |
-| `Service/RankingService.php` | 437 | WP4 consent lifecycle + consent-filtered ranking: next-Monday generation allocation under the house lock, exact-rational on-time ratios over public agreed occurrences, tie/neutral semantics, departure/erasure/disable sweeps (ADR-015) | accepted (cohesive ranking authority — one owner of the ADR-015 semantics) |
-| `Service/TestDataService.php` | 649 | Test-only seeding tooling (documented exemption, WP1 D6; CS-PLAN-072/074 WP3 seed paths) | accepted (test tooling, explicitly classified) |
+| `Service/RankingService.php` | 428 | Consent-filtered exact-ratio ranking and next-Monday generations; WP5 preserves delivery settings through every in-place consent transition | accepted (cohesive ranking authority, ADR-015) |
+| `Service/TestDataService.php` | 635 | Test-only seeding/reset tooling, including the WP5 digest table inventory | accepted (test tooling, explicitly classified) |
+| `Service/DigestService.php` | 361 | WP5 five-minute pass, current-source/visibility relevance, house-first claim, commit-before-notify and outcome bookkeeping | accepted (one visible at-most-once delivery choreography; scheduling and persistence remain in their existing owners) |
 | `Service/OccurrenceService.php` | 458 | Single-recurrence-authority facade: stable public seam, constants and transaction convention over the six collaborators below (CS-PLAN-072 WP1, RF-072-WP1-18 split; WP3 completion-resolution delegation) | accepted (delegation-only facade — the one authority every consumer talks to) |
 | `Service/OccurrenceSelectionService.php` | 551 | Write-free selection/read derivation, occurrence DTO block, selection token, projections (WP2: neutral-suspension stamp, agreed work appointment, token fact set) | accepted (cohesive collaborator of the occurrence authority) |
 | `Service/OccurrenceReconcileService.php` | 441 | Frontier, reconciliation, materialization, interval pending, end-of-life, `next_due` projection, timeline-job pass (WP2: command-boundary stamp persistence) | accepted (cohesive collaborator of the occurrence authority) |
 | `Service/OccurrenceRevisionService.php` | 385 | Rule inputs, revision-1 creation, edit/zone/tombstone revision lifecycle | accepted (cohesive collaborator of the occurrence authority) |
 | `Service/OccurrenceCompletionService.php` | 384 | Completion resolution (key/version/token), timeline effects, undo seam (WP3: share-row resolution for the correction aggregates) | accepted (cohesive collaborator of the occurrence authority) |
 | `Service/OccurrenceAgreementService.php` | 707 | C2 date/participant amendments + the shared whole-day child-capacity counter (WP2: explicit-target date writer, persisted neutral releases, appointment-carrying catch-up, derived evidence kinds) | accepted (cohesive collaborator of the occurrence authority — the single writer set for occurrence agreements; splitting would spread one lock choreography across files) |
-| `Service/AgreementService.php` | 763 | WP2 agreement command aggregate: closed payload validation, receipt identity, authorization, command-boundary staleness gates (version/token/suspension), whole-day capacity gates over the CONCRETE arrangement (RF-073-WP2-27), post-write suspension restamp (RF-073-WP2-24), result refs | accepted (D2-style visible ordered aggregate: the command boundary must stay readable as ONE transaction choreography) |
-| `Service/PauseService.php` | 666 | WP2 pause lifecycle aggregate: revisioned request/decision/shorten/illness commands under the house lock, receipt identity, whitelist viewer projection (RF-073-WP2-28), projection effect application with the deadline-eligibility input (RF-073-WP2-25), departure hook | accepted (transaction aggregate: every command is one ordered lock/revision/effect sequence) |
+| `Service/AgreementService.php` | 816 | WP2 agreement command aggregate: closed validation, authorization/receipt/staleness/capacity gates, suspension restamp and WP5 transactional queue writes | accepted (D2-style visible ordered transaction choreography) |
+| `Service/PauseService.php` | 728 | Revisioned pause lifecycle, viewer projection, deadline-aware effects, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/effect/queue sequence per command) |
 | `Service/PauseProjectionService.php` | 485 | WP2 projection derivation: per-group revision precedence + decision-boundary math (RF-073-WP2-23), recognition-eligibility gate (RF-073-WP2-25), recognized coverage union, suspension decision (any-obligated rule, RF-073-WP2-24), virtual/materialized participant resolution (RF-073-WP2-26), work-appointment derivation, frozen zone-intersection math | accepted (cohesive projection math, single owner of the Q-073-02 rules) |
 | `Service/DailyCapacityService.php` | 529 | WP2 whole-day capacity evaluator: exact minor-unit shares, occurrence-identity dedupe, saved-zone time basis, commitment gates with replacement removal, shared-collection pass | accepted (cohesive evaluator — one owner of the §3.2 accounting rules) |
 | `Db/RoomTask.php` | 362 | Central entity: domain accessors, status computation, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1, RF-072-WP1-12/16) | accepted (entity surface; data-driven) |
@@ -1136,7 +1138,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `views/Settings.vue` | 906 | Settings composition (house/floors/rooms/members/roles/energy/title sections; the WP4 TitlePicker surface removed) | accepted (section-per-concern template breadth; each section is independent UI) |
+| `views/Settings.vue` | 1154 | Settings composition plus the WP5 minimal self-only notification section; the full preference component/redesign stays WP6 | accepted (section-per-concern template breadth; each section is independent UI) |
 | `components/Setup/SetupWizard.vue` | 816 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
 | `views/RoomDetail.vue` | 874 | Room composition root (stats, scoped list, dialogs) — rows carried by shared TaskList units | accepted (composition root) |
 | `views/TodayView.vue` | 690 | My Day surface (WP7 exit + WP3: explicit-split completion, undo, proposal pre-fill) | accepted (composition root) |

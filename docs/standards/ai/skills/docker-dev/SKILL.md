@@ -79,7 +79,7 @@ Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 |---------|----------|
 | `empty` | Schema only, no seed data |
 | `minimal` | One house, one user, basic rooms |
-| `family` | Multi-user household with gamification data. Seeds a deterministic CLOSED weekly-goal week (realistic on-time completions crossing the fixed 80% target, `seedClosedWeeklyGoal`) so `release-notifications` stays deterministic; the reward-config appconfig override of the CS-PLAN-055 era was retired with the WP4 fixed-target cutover (CS-PLAN-075). |
+| `family` | Multi-user household with gamification data. Seeds a deterministic CLOSED weekly-goal week (realistic on-time completions crossing the fixed 80% target, `seedClosedWeeklyGoal`) — the closed-week receipt is now only an in-app celebration marker (WP5 digest cutover, CS-PLAN-076/ADR-016); the reward-config appconfig override of the CS-PLAN-055 era was retired with the WP4 fixed-target cutover (CS-PLAN-075). **E2E note (WP5):** the profile users' fixed passwords are provisioned by the container ENTRYPOINT at creation time — recreate the container with `TEST_DB_PROFILE='family'` (PowerShell: `$env:TEST_DB_PROFILE='family'; docker compose -f docker/compose.test.yml up -d`), not just a re-seed, or the profile logins fail. |
 
 ```powershell
 # PowerShell 5.1 (this repo's shell) — bash VAR=value syntax does NOT work here:

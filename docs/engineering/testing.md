@@ -4,6 +4,29 @@ This guide explains how to set up a Docker-based test environment for ChoreStrik
 
 ## Prerequisites
 
+### Preferences and Digest Evidence (WP5)
+
+The [notification pipeline](notifications.md) is covered by
+`PreferenceServiceTest`/`PreferenceControllerTest` (self-only transport and the
+merged validation matrix), `DigestScheduleServiceTest` (real calendar DST
+gap/fold, UTC control, windows, cutoff and retained-history spacing), and
+`DigestServiceTest` (dispatch-time relevance, current visibility, source-state
+checks, quiet hours, pre-claim retry and uncertain outcomes).
+
+`DigestDeliveryTest` verifies real-DB expiry/coalescing and a takeover queue
+write sabotaged after insertion: the source completion and queue roll back
+together, then the same receipt succeeds once and replays without another row.
+`DigestConcurrencyTest` uses pipe barriers and a held house lock, never sleep
+timing, with separate Nextcloud worker processes for materialization, claims,
+crash-after-claim, preference toggles/time changes and timezone changes.
+Preference/departure/erasure/schema extensions remain in their existing suites.
+
+`quiet-digest.spec.ts` replaces the retired award-bell scenario and belongs to
+`chromium-serial-db`: silent defaults and the Settings save, one combined
+task/organizational digest with replay suppression, and quiet/missed-window
+suppression. A passing subset is not the release gate; run
+`npm run test:e2e:gate` for all required scenarios in all three pools.
+
 ### All Platforms (Windows, Linux, macOS)
 
 - **Docker**: Version 20.10 or higher

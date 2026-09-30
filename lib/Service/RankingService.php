@@ -101,10 +101,14 @@ class RankingService {
 		$pending = [];
 
 		if ($house->getRankingEnabled()) {
-			// Key the consent rows by membership id (the mapper returns a list).
+			// Key the consent rows by membership id (the mapper returns a
+			// list). Ranking-inactive rows (generation 0 — delivery-only
+			// preference rows, RF-076-01) never enter the ranking.
 			$prefs = [];
 			foreach ($this->prefMapper->findByHouseId($houseId) as $pref) {
-				$prefs[(int)$pref->getHouseUserId()] = $pref;
+				if ($pref->getRankingConsentGeneration() > 0) {
+					$prefs[(int)$pref->getHouseUserId()] = $pref;
+				}
 			}
 			$members = [];
 			foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
@@ -133,6 +137,10 @@ class RankingService {
 	 * the house timezone, saved with that zone; never retroactive. An
 	 * existing pending generation is replaced by the new one.
 	 *
+	 * Q-076-03 A: the consent updates the membership's preference row IN
+	 * PLACE (or inserts it when absent) — delivery preferences and the
+	 * shared `version` chain survive every consent transition.
+	 *
 	 * @return array{state: string, generation: int, effectiveMonday: string}
 	 */
 	public function consent(int $houseId, HouseUser $actor, ?\DateTime $now = null): array {
@@ -147,31 +155,36 @@ class RankingService {
 			$tz = $this->calendar->getTimeZone($house);
 			$monday = $this->nextMonday($now, $tz);
 			// The generation watermark lives on the locked house row (consent
-			// rows are deletable — the max-row heuristic cannot survive a
+			// states are resettable — the max-row heuristic cannot survive a
 			// withdrawal, the watermark can).
 			$generation = $house->getRankingGenerationSeq() + 1;
 			$house->setRankingGenerationSeq($generation);
 			$this->houseMapper->update($house);
 
-			// Replace any live/pending generation with the fresh one (the
-			// unique (house, membership) identity keeps the row singular).
-			$this->prefMapper->deleteByHouseAndUser($houseId, (int)$locked->getId());
-
-			$pref = new MemberPreference();
-			$pref->setHouseId($houseId);
-			$pref->setHouseUserId((int)$locked->getId());
-			$pref->setVersion(1);
+			// In-place consent (Q-076-03 A): the singular row carries both
+			// the consent block and the delivery preferences.
+			$pref = $this->prefMapper->findByHouseAndUser($houseId, (int)$locked->getId());
+			if ($pref === null) {
+				$pref = new MemberPreference();
+				$pref->setHouseId($houseId);
+				$pref->setHouseUserId((int)$locked->getId());
+				$pref->setCreatedAt($now);
+				$pref->setVersion(1);
+				$created = true;
+			} else {
+				$pref->setVersion($pref->getVersion() + 1);
+				$created = false;
+			}
 			$pref->setRankingConsentGeneration($generation);
 			$pref->setRankingEffectiveMonday($monday);
 			$pref->setRankingSavedZone($tz->getName());
-			$pref->setCreatedAt($now);
 			$pref->setUpdatedAt($now);
-			$pref = $this->prefMapper->insertOrGet($pref);
+			$pref = $created ? $this->prefMapper->insertOrGet($pref) : $this->prefMapper->update($pref);
 
 			return [
 				'state' => 'pending',
 				'generation' => (int)$pref->getRankingConsentGeneration(),
-				'effectiveMonday' => $pref->getRankingEffectiveMonday()->format('Y-m-d'),
+				'effectiveMonday' => $pref->getRankingEffectiveMonday()?->format('Y-m-d'),
 			];
 		});
 	}
@@ -180,13 +193,15 @@ class RankingService {
 	 * Withdraw the calling membership's ranking consent. Removes the
 	 * member from the visible ranking immediately and invalidates the
 	 * generation (re-consent starts a fresh generation at the next full
-	 * week). Idempotent — withdrawing without consent is a no-op.
+	 * week). Q-076-03 A: ONLY the consent columns are reset — delivery
+	 * preferences survive. Idempotent — withdrawing without consent is a
+	 * no-op.
 	 */
 	public function withdraw(int $houseId, HouseUser $actor): void {
 		$this->transactions->run(function () use ($houseId, $actor): void {
 			$this->houseMapper->findForUpdate($houseId);
 			$locked = $this->houseUserMapper->findForUpdate((int)$actor->getId());
-			$this->prefMapper->deleteByHouseAndUser($houseId, (int)$locked->getId());
+			$this->prefMapper->clearRankingConsentByHouseAndUser($houseId, (int)$locked->getId(), new \DateTime());
 		});
 	}
 

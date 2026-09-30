@@ -124,4 +124,25 @@ export function del(path, config) {
 
 export const api = { get, post, put, patch, delete: del }
 
+/**
+ * GET the calling member's own preferences (CS-PLAN-070 WP5, C5h —
+ * self-only surface; there is deliberately no foreign-preferences
+ * endpoint).
+ * @return {Promise<object>} Versioned own preference payload.
+ */
+export function fetchMyPreferences() {
+	return get('/api/v1/preferences/me')
+}
+
+/**
+ * PUT the calling member's own delivery preferences (version-aware,
+ * receipt-protected; a stale expectedVersion answers 409 and the local
+ * draft is preserved).
+ * @param {object} payload Whitelisted fields + expectedVersion + commandId.
+ * @return {Promise<object>} The fresh versioned preference payload.
+ */
+export function updateMyPreferences(payload) {
+	return put('/api/v1/preferences/me', payload)
+}
+
 export default api

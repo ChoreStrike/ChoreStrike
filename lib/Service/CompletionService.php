@@ -12,6 +12,8 @@ use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\CompletionRevision;
 use OCA\ChoreStrike\Db\CompletionRevisionMapper;
+use OCA\ChoreStrike\Db\DigestChange;
+use OCA\ChoreStrike\Db\DigestChangeMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
@@ -77,6 +79,8 @@ class CompletionService {
 	private WorkShareMapper $workShareMapper;
 	private CompletionRevisionMapper $completionRevisionMapper;
 	private CompletionPostCommitService $postCommitService;
+	private DigestChangeMapper $digestChangeMapper;
+	private DigestScheduleService $digestScheduleService;
 	private WalletService $walletService;
 	private RoomReplayService $roomReplayService;
 	private EffortAllocationService $allocationService;
@@ -108,6 +112,8 @@ class CompletionService {
 		WorkShareMapper $workShareMapper,
 		CompletionRevisionMapper $completionRevisionMapper,
 		CompletionPostCommitService $postCommitService,
+		DigestChangeMapper $digestChangeMapper,
+		DigestScheduleService $digestScheduleService,
 		WalletService $walletService,
 		RoomReplayService $roomReplayService,
 		EffortAllocationService $allocationService,
@@ -134,6 +140,8 @@ class CompletionService {
 		$this->workShareMapper = $workShareMapper;
 		$this->completionRevisionMapper = $completionRevisionMapper;
 		$this->postCommitService = $postCommitService;
+		$this->digestChangeMapper = $digestChangeMapper;
+		$this->digestScheduleService = $digestScheduleService;
 		$this->walletService = $walletService;
 		$this->roomReplayService = $roomReplayService;
 		$this->allocationService = $allocationService;
@@ -234,9 +242,7 @@ class CompletionService {
 			$post = $this->postCommitService->runForCompletion(
 				$houseId,
 				$roomTaskId,
-				$userId,
-				$postCommitMetadata['newTitle'] !== null ? ['newTitle' => $postCommitMetadata['newTitle']] : [],
-				$postCommitMetadata['takeoverNotification']
+				$userId
 			);
 		}
 
@@ -354,22 +360,15 @@ class CompletionService {
 		$rateMinor = EffortAllocationService::COIN_MINOR_PER_ENERGY;
 
 		// Overdue-takeover: only record a takeover when a NON-assignee
-		// picks up an overdue task (fresh locked entity). Dispatch is
-		// deferred post-commit.
-		$takeoverNotification = null;
+		// picks up an overdue task (fresh locked entity).
 		$takeoverClaimed = false;
+		$originalMember = null;
 		if ($roomTask->isOverdue() && !in_array($userId, $assigneeUserIds, true)) {
 			$originalAssignee = $assigneeUserIds[0] ?? null;
 			if ($originalAssignee !== null && $originalAssignee !== '') {
 				$roomTask->markClaimed($originalAssignee, $userId);
 				$takeoverClaimed = true;
-				$takeoverNotification = [
-					'recipient' => $originalAssignee,
-					'taskName' => $task->getName(),
-					'claimerUserId' => $userId,
-					'claimerDisplayName' => $houseUser->getDisplayName(),
-					'roomTaskId' => $roomTaskId,
-				];
+				$originalMember = $this->houseUserMapper->findByHouseAndUser($houseId, $originalAssignee);
 			}
 		}
 
@@ -397,6 +396,23 @@ class CompletionService {
 
 		$inserted = $this->completedTaskMapper->insert($ledgerRow);
 		$completionId = (int)$inserted->getId();
+		// RF-076-02: the queue and completion commit together. Use the
+		// immutable completion identity, so an undone takeover is resolvable.
+		if ($originalMember !== null) {
+			$change = new DigestChange();
+			$change->setHouseId($houseId);
+			$change->setHouseUserId((int)$originalMember->getId());
+			$change->setObjectType('takeover');
+			$change->setObjectId((string)$completionId);
+			$change->setObjectRevision(0);
+			$change->setCategory(DigestChange::CATEGORY_ORG);
+			$change->setChangeTime($now);
+			$change->setTargetSlot($this->digestScheduleService->resolveTargetSlotUnderLock($houseId, (int)$originalMember->getId(), $now));
+			$change->setDisposition(DigestChange::DISPOSITION_QUEUED);
+			$change->setCreatedAt($now);
+			$change->setUpdatedAt($now);
+			$this->digestChangeMapper->queueOrCoalesce($change);
+		}
 		if ($takeoverClaimed) {
 			$roomTask->setClaimedSourceCompletionId($completionId);
 			// The timeline projection may be unchanged and skip its update.
@@ -461,7 +477,7 @@ class CompletionService {
 		// Bump the house state version: scheduling previews become stale.
 		$this->bumpHouseStateVersion($houseId);
 
-		$postCommitMetadata = ['newTitle' => $newTitle, 'takeoverNotification' => $takeoverNotification];
+		$postCommitMetadata = ['newTitle' => $newTitle];
 		return ['completionId' => $completionId];
 	}
 

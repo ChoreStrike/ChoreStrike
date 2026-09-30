@@ -90,6 +90,8 @@ class PauseServiceTest extends TestCase {
 			$this->createMock(AgreementMapper::class),
 			new TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			new CalendarService(),
+			$this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Service\DigestScheduleService::class),
 			$this->l10n,
 		);
 	}

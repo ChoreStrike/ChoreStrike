@@ -29,4 +29,13 @@ interface IURLGenerator {
 	 * @param array<string, mixed> $arguments Route arguments
 	 */
 	public function linkToRoute(string $routeName, array $arguments = []): string;
+
+	/**
+	 * Build an absolute web link to a named route (used by the digest
+	 * notifier, CS-PLAN-070 WP5).
+	 *
+	 * @param string $routeName Route name
+	 * @param array<string, mixed> $arguments Route arguments
+	 */
+	public function linkToRouteAbsolute(string $routeName, array $arguments = []): string;
 }

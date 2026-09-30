@@ -12,6 +12,8 @@ use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\CommandReceiptMapper;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\CompletionRevisionMapper;
+use OCA\ChoreStrike\Db\DigestChangeMapper;
+use OCA\ChoreStrike\Db\DigestSlotMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
@@ -50,6 +52,9 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  *  - CS-PLAN-070 WP4 (Q-075-01 A): delete the account's
  *    `member_prefs` consent row (ranking consent is purged with the
  *    membership; a recreated same-UID account starts unconsented),
+ *  - CS-PLAN-070 WP5 (CS-PLAN-076 §3.7): purge the account's digest
+ *    rows (`digest_changes` queued history + `digest_slots` delivery
+ *    history) — membership-keyed, never rebound,
  *  - delete the `house_users` row (scheduling preferences die with it).
  *
  * Ordinary departure NEVER runs this path (decision D3): removal keeps the
@@ -83,6 +88,8 @@ class AccountErasureService {
 		private AgreementMapper $agreementMapper,
 		private PauseMapper $pauseMapper,
 		private MemberPreferenceMapper $memberPreferenceMapper,
+		private DigestChangeMapper $digestChangeMapper,
+		private DigestSlotMapper $digestSlotMapper,
 		private CompletionRevisionMapper $completionRevisionMapper,
 		private WorkShareMapper $workShareMapper,
 		private TransactionExecutor $transactions,
@@ -211,6 +218,12 @@ class AccountErasureService {
 			// CS-PLAN-070 WP4 (Q-075-01 A): the ranking consent row is
 			// personal data — purged with the membership, never rebound.
 			$this->memberPreferenceMapper->deleteByHouseAndUser($houseId, $houseUserId);
+
+			// CS-PLAN-070 WP5 (CS-PLAN-076 §3.7): the digest queue and
+			// slot history are membership-keyed personal data — purged
+			// with the membership, never rebound.
+			$this->digestChangeMapper->deleteByHouseAndUser($houseId, $houseUserId);
+			$this->digestSlotMapper->deleteByHouseAndUser($houseId, $houseUserId);
 
 			// The receipts survive as anonymous facts.
 			$this->commandReceiptMapper->anonymizeActor($houseId, $houseUserId);

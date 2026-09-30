@@ -98,6 +98,21 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 		$this->assertFalse($schema->hasColumn('chorestrike_tasks', 'team_spark_multiplier'), 'retired team_spark_multiplier column must not be re-added');
 		$this->assertFalse($schema->hasColumn('chorestrike_house_users', 'selected_title_pack'), 'retired selected_title_pack column must not be re-added');
 		$this->assertTrue($schema->hasColumn('chorestrike_house_users', 'unlocked_titles'), 'unlocked_titles marker column missing');
+
+		// WP5 (CS-PLAN-076, in-place Version1032 amendment): the delivery
+		// columns and BOTH digest tables are part of the fresh chain; the
+		// digest table names must survive the 30-character Nextcloud
+		// prefix limit.
+		$this->assertTrue($schema->hasColumn('chorestrike_member_prefs', 'task_digest_enabled'), 'digest opt-in column missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_member_prefs', 'digest_time'), 'digest time column missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_member_prefs', 'quiet_start'), 'quiet hours column missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_member_prefs', 'ranking_saved_zone'), 'nullable saved-zone column missing');
+		$this->assertTrue($schema->hasTable('chorestrike_digest_slots'), 'digest slot table missing');
+		$this->assertTrue($schema->hasTable('chorestrike_digest_changes'), 'digest change table missing');
+		$this->assertLessThanOrEqual(30, strlen('oc_chorestrike_digest_slots'), 'Nextcloud-prefixed digest slot table name exceeds 30 characters');
+		$this->assertLessThanOrEqual(30, strlen('oc_chorestrike_digest_changes'), 'Nextcloud-prefixed digest change table name exceeds 30 characters');
+		$this->assertTrue($schema->getTable('chorestrike_digest_slots')->hasIndex('uniq_dslot_day'), 'the daily budget identity index missing');
+		$this->assertTrue($schema->getTable('chorestrike_digest_changes')->hasIndex('uniq_dchg_object_slot'), 'the coalescing identity index missing');
 	}
 
 	/**

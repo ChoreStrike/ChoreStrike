@@ -8,41 +8,43 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\BackgroundJob;
 
-use OCA\ChoreStrike\Service\TaskDueReminderService;
+use OCA\ChoreStrike\Service\DigestService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
 /**
- * Daily notification job (06:00 server time).
+ * Digest delivery pass (CS-PLAN-070 WP5, parent §3.6) — the app's ONLY
+ * notification path.
  *
- * Thin delegate (CS-PLAN-023): hands the pass to
- * {@see TaskDueReminderService}, which holds the task-due reminder logic
- * (CS-PLAN-030 / FEAT-NOTIFY-001). The former streak-at-risk pass retired
- * with the freeze/streak-snapshot effects (CS-PLAN-070 WP3, Q-074-01
- * Option A — the rhythm evaluator derives pending/confirmed days instead).
+ * Five-minute interval (the former 24-hour task-due pass is retired with
+ * TaskDueReminderService; the award/takeover bells are gone): every run
+ * materializes due/upcoming opt-in slots, expires missed slots
+ * permanently (the 60-minute same-day window is never extended to
+ * compensate cron lateness — the Nextcloud cron prerequisite is
+ * documented, not engineered around) and claims one due slot at a time
+ * for the bounded at-most-once dispatch in {@see DigestService}.
  *
- * Overdue-takeover, medal-awarded and weekly-goal-reached notifications are
- * fired from their respective trigger points and are NOT handled here —
- * this job covers only the time-based reminders that no single mutation
- * can detect.
+ * The former streak-at-risk pass retired with the freeze/streak-snapshot
+ * effects (CS-PLAN-070 WP3, Q-074-01 Option A — the rhythm evaluator
+ * derives pending/confirmed days instead).
  */
 class DailyNotificationJob extends TimedJob {
-	private TaskDueReminderService $taskDueReminderService;
+	private DigestService $digestService;
 
 	public function __construct(
 		ITimeFactory $time,
-		TaskDueReminderService $taskDueReminderService,
+		DigestService $digestService,
 	) {
 		parent::__construct($time);
-		$this->setInterval(24 * 60 * 60);
+		$this->setInterval(5 * 60);
 
-		$this->taskDueReminderService = $taskDueReminderService;
+		$this->digestService = $digestService;
 	}
 
 	/**
-	 * Run the daily task-due reminder pass
+	 * Run the five-minute digest pass
 	 */
 	protected function run($argument): void {
-		$this->taskDueReminderService->process($this->time->getDateTime());
+		$this->digestService->processDueSlots($this->time->getDateTime());
 	}
 }

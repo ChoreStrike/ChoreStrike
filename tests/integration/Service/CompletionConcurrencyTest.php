@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
@@ -339,12 +338,12 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 
 		// WP3: the service graph grew (wallets, work shares, rhythm,
 		// replay) — swap ONLY the post-commit participant on the DI
-		// instance instead of hand-maintaining the constructor list.
+		// instance instead of hand-maintaining the constructor list. WP5
+		// (Q-076-02) shrank it: no notification dispatch remains in the
+		// post-commit boundary.
 		$service = $s->get(CompletionService::class);
 		$postCommit = new \OCA\ChoreStrike\Service\CompletionPostCommitService(
 			$houseService,
-			$s->get(HouseUserMapper::class),
-			$s->get(NotificationService::class),
 			$s->get(AppLogger::class),
 		);
 		$prop = (new \ReflectionClass(CompletionService::class))->getProperty('postCommitService');

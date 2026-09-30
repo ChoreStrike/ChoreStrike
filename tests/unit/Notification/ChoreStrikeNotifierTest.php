@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Notification;
 
 use OCA\ChoreStrike\Notification\ChoreStrikeNotifier;
-use OCP\IL10n;
+use OCA\ChoreStrike\Service\NotificationService;
+use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\L10N\IFactory;
 use OCP\Notification\INotification;
@@ -13,18 +14,26 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for ChoreStrikeNotifier (INotifier implementation)
+ * Unit tests for ChoreStrikeNotifier (INotifier implementation).
+ *
+ * WP5 digest cutover (CS-PLAN-076 §3.5, C5e): the notifier renders
+ * exactly ONE subject — the count-based daily `digest` summary. The
+ * former pressure subjects (task due reminders, medal/weekly-goal/title
+ * bells, overdue-takeover) are rejected. Content is visibility-safe: the
+ * parameters carry counts only, and the notifier resolves no object
+ * references that could leak hidden task names or foreign request
+ * details.
  */
 class ChoreStrikeNotifierTest extends TestCase {
 	private IFactory&MockObject $l10nFactory;
 	private IURLGenerator&MockObject $url;
-	private IL10n&MockObject $l10n;
+	private IL10N&MockObject $l10n;
 	private ChoreStrikeNotifier $notifier;
 
 	protected function setUp(): void {
 		$this->l10nFactory = $this->createMock(IFactory::class);
 		$this->url = $this->createMock(IURLGenerator::class);
-		$this->l10n = $this->createMock(IL10n::class);
+		$this->l10n = $this->createMock(IL10N::class);
 
 		// Default: t() returns the concatenation of the format + params so we
 		// can assert the right key was used without depending on the l10n file.
@@ -32,14 +41,27 @@ class ChoreStrikeNotifierTest extends TestCase {
 			if (empty($args)) {
 				return $text;
 			}
-			// Replace %1$s, %2$d, etc. with the positional args for assertion clarity.
+			// Replace %s / %1$s-style placeholders with the args for
+			// assertion clarity.
 			$i = 1;
 			$out = $text;
 			foreach ($args as $value) {
 				$out = preg_replace('/%' . $i . '(\$[a-z])?/', (string)$value, $out, 1);
 				$i++;
 			}
+			// The combined-subject format uses %s with one joined argument.
+			$out = str_replace('%s', '%1$s', $out);
+			$i = 1;
+			foreach ($args as $value) {
+				$out = preg_replace('/%' . $i . '(\$[a-z])?/', (string)$value, $out, 1);
+				$i++;
+			}
 			return $out;
+		});
+		// n() plural forms: return the selected form with %n replaced.
+		$this->l10n->method('n')->willReturnCallback(function (string $singular, string $plural, int $count) {
+			$form = $count === 1 ? $singular : $plural;
+			return str_replace('%n', (string)$count, $form);
 		});
 
 		$this->l10nFactory->method('get')->willReturn($this->l10n);
@@ -58,29 +80,25 @@ class ChoreStrikeNotifierTest extends TestCase {
 
 	public function testPrepare_OtherApp_Throws(): void {
 		$this->expectException(\InvalidArgumentException::class);
-		$notification = $this->buildNotification('other_app', 'whatever');
+		$notification = $this->buildNotification('other_app', 'digest');
 
 		$this->notifier->prepare($notification, 'en');
 	}
 
-	public function testPrepare_UnknownSubject_Throws(): void {
-		$this->expectException(\InvalidArgumentException::class);
-		$notification = $this->buildNotification('chorestrike', 'unknown_subject');
-
-		$this->notifier->prepare($notification, 'en');
-	}
-
-	public function testPrepare_OverdueTakenOver_RendersSubjectAndMessage(): void {
+	/**
+	 * Prepare_Digest_CombinedCategories_RendersCountOnlySubject
+	 */
+	public function testPrepare_Digest_CombinedCategories_RendersCountOnlySubject(): void {
 		$notification = $this->buildNotification(
 			'chorestrike',
-			'overdue_taken_over',
-			['task' => 'Dishes', 'taskId' => 42, 'claimer' => 'Bob']
+			NotificationService::SUBJECT_DIGEST,
+			['taskCount' => 3, 'orgCount' => 2]
 		);
 		$notification->expects($this->once())->method('setIcon');
-		$notification->expects($this->once())->method('setRichSubject')
-			->with('Your task "{task}" was taken over by {claimer}');
 		$notification->expects($this->once())->method('setParsedSubject')
-			->with('Your task "Dishes" was taken over by Bob');
+			->with('Daily summary: 3 planned tasks · 2 household updates');
+		$notification->expects($this->once())->method('setRichSubject')
+			->with('Daily summary: 3 planned tasks · 2 household updates');
 		$notification->expects($this->once())->method('setParsedMessage');
 
 		$result = $this->notifier->prepare($notification, 'en');
@@ -88,90 +106,61 @@ class ChoreStrikeNotifierTest extends TestCase {
 		$this->assertSame($notification, $result);
 	}
 
-	public function testPrepare_MedalAwarded_RendersKnownMedalLabel(): void {
+	/**
+	 * Prepare_Digest_SingleTask_SingularPlural
+	 */
+	public function testPrepare_Digest_SingleTask_UsesSingularForm(): void {
 		$notification = $this->buildNotification(
 			'chorestrike',
-			'medal_awarded',
-			['medalType' => 'team_anchor', 'value' => 12]
+			NotificationService::SUBJECT_DIGEST,
+			['taskCount' => 1, 'orgCount' => 0]
 		);
 		$notification->expects($this->once())->method('setParsedSubject')
-			->with('You earned a new medal: Team Anchor');
-
-		$this->notifier->prepare($notification, 'en');
-	}
-
-	public function testPrepare_MedalAwarded_UnknownType_PrettifiesSnakeCase(): void {
-		$notification = $this->buildNotification(
-			'chorestrike',
-			'medal_awarded',
-			['medalType' => 'some_new_medal', 'value' => 3]
-		);
-		$notification->expects($this->once())->method('setParsedSubject')
-			->with('You earned a new medal: Some new medal');
-
-		$this->notifier->prepare($notification, 'en');
-	}
-
-	public function testPrepare_WeeklyGoalReached_RendersSubject(): void {
-		$notification = $this->buildNotification(
-			'chorestrike',
-			'weekly_goal_reached',
-			['percent' => 95, 'targetPercent' => 80]
-		);
-		$notification->expects($this->once())->method('setParsedSubject')
-			->with('Weekly household goal reached!');
+			->with('Daily summary: 1 planned task');
 
 		$this->notifier->prepare($notification, 'en');
 	}
 
 	/**
-	 * Prepare_StreakAtRisk_SubjectRetired (WP3 legacy-effect cutover)
-	 *
-	 * The streak-at-risk pass retired with the freeze/streak-snapshot
-	 * effects (CS-PLAN-070 WP3, Q-074-01 Option A) — the notifier must
-	 * reject the removed subject, not render a retired reminder.
+	 * Prepare_Digest_OrgOnly_RendersOrgSubject
 	 */
-	public function testPrepare_StreakAtRisk_SubjectRetired(): void {
+	public function testPrepare_Digest_OrgOnly_RendersOrgSubject(): void {
 		$notification = $this->buildNotification(
 			'chorestrike',
-			'streak_at_risk',
-			['currentStreak' => 7]
+			NotificationService::SUBJECT_DIGEST,
+			['taskCount' => 0, 'orgCount' => 4]
 		);
-
-		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Unknown ChoreStrike notification subject');
+		$notification->expects($this->once())->method('setParsedSubject')
+			->with('Daily summary: 4 household updates');
 
 		$this->notifier->prepare($notification, 'en');
 	}
 
-	public function testPrepare_TaskDueToday_RendersRichAndParsed(): void {
-		$notification = $this->buildNotification(
-			'chorestrike',
-			'task_due_today',
-			['task' => 'Dishes', 'taskId' => 42, 'dueDate' => '2026-08-18']
-		);
-		$notification->expects($this->once())->method('setRichSubject')
-			->with('Task "{task}" is due today');
-		$notification->expects($this->once())->method('setParsedSubject')
-			->with('Task "Dishes" is due today');
-		$notification->expects($this->once())->method('setParsedMessage');
-
-		$this->notifier->prepare($notification, 'en');
-	}
-
-	public function testPrepare_TaskDueTomorrow_RendersRichAndParsed(): void {
-		$notification = $this->buildNotification(
-			'chorestrike',
-			'task_due_tomorrow',
-			['task' => 'Dishes', 'taskId' => 42, 'dueDate' => '2026-08-18']
-		);
-		$notification->expects($this->once())->method('setRichSubject')
-			->with('Task "{task}" is due tomorrow');
-		$notification->expects($this->once())->method('setParsedSubject')
-			->with('Task "Dishes" is due tomorrow');
-		$notification->expects($this->once())->method('setParsedMessage');
-
-		$this->notifier->prepare($notification, 'en');
+	/**
+	 * Prepare_RetiredSubjects_Rejected (Q-076-02 negative pins)
+	 *
+	 * Every retired pressure subject must be rejected, not silently
+	 * rendered — the notifier's contract is the single digest subject.
+	 */
+	public function testPrepare_RetiredSubjects_Rejected(): void {
+		$retired = [
+			['overdue_taken_over', ['task' => 'Dishes', 'taskId' => 42, 'claimer' => 'Bob']],
+			['medal_awarded', ['medalType' => 'team_anchor', 'value' => 12]],
+			['weekly_goal_reached', ['percent' => 95, 'targetPercent' => 80]],
+			['title_unlocked', ['titleLabelKey' => 'x', 'packLabelKey' => 'y']],
+			['task_due_today', ['task' => 'Dishes', 'taskId' => 42, 'dueDate' => '2026-08-18']],
+			['task_due_tomorrow', ['task' => 'Dishes', 'taskId' => 42, 'dueDate' => '2026-08-18']],
+			['streak_at_risk', ['currentStreak' => 7]],
+		];
+		foreach ($retired as [$subject, $params]) {
+			$notification = $this->buildNotification('chorestrike', $subject, $params);
+			try {
+				$this->notifier->prepare($notification, 'en');
+				$this->fail("the retired subject {$subject} must be rejected");
+			} catch (\InvalidArgumentException $e) {
+				$this->assertSame('Unknown ChoreStrike notification subject', $e->getMessage());
+			}
+		}
 	}
 
 	/**

@@ -202,7 +202,15 @@ class RankingConsentTest extends IntegrationTestCase {
 
 		$this->setRankingFlag($houseId, false);
 
-		self::assertSame([], $this->prefMapper->findByHouseId($houseId), 'disable invalidates every generation');
+		// Q-076-03 A: disable resets ONLY the consent columns — the rows
+		// survive (delivery preferences), ranking-inactive.
+		$rows = $this->prefMapper->findByHouseId($houseId);
+		self::assertCount(2, $rows, 'disable never deletes the delivery preference rows');
+		foreach ($rows as $row) {
+			self::assertSame(0, $row->getRankingConsentGeneration(), 'the generation is invalidated');
+			self::assertNull($row->getRankingEffectiveMonday());
+			self::assertNull($row->getRankingSavedZone());
+		}
 		$view = $this->rankingIndex('rank_member', $houseId);
 		self::assertFalse($view['rankingEnabled']);
 		self::assertSame('none', $view['me']['state'], 're-enabling starts everyone unconsented');
@@ -220,6 +228,75 @@ class RankingConsentTest extends IntegrationTestCase {
 		$this->houseService->removeHouseMember((int)$member->getId());
 
 		self::assertNull($this->prefMapper->findByHouseAndUser($houseId, $member->getId()), 'consent belongs to the active membership');
+	}
+
+	/**
+	 * ConsentLifecycle_PreservesDeliveryPreferences (Q-076-03 / RF-076-01)
+	 *
+	 * A first preferences save creates a delivery-only row WITHOUT any
+	 * ranking consent; consent updates the SAME row in place (delivery
+	 * settings + shared version preserved), and withdrawal resets only
+	 * the consent columns. A delivery-only row never enters the ranking.
+	 */
+	public function testConsentLifecycle_PreservesDeliveryPreferences(): void {
+		$houseId = $this->seedHouseWithTwoMembers();
+		$member = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
+			->findByNextcloudUserId($houseId, 'rank_member');
+		$preferences = \OC::$server->get(\OCA\ChoreStrike\Service\PreferenceService::class);
+
+		// First preferences save: a delivery-only, ranking-inactive row
+		// (RF-076-01) at version 1.
+		$saved = $preferences->updateOwnPreferences($houseId, $member, [
+			'expectedVersion' => 0,
+			'taskDigestEnabled' => true,
+			'orgDigestEnabled' => true,
+			'digestTime' => '19:30',
+			'quietStart' => '21:00',
+			'quietEnd' => '07:00',
+		], '11111111-1111-4111-8111-111111111111');
+		self::assertSame(1, $saved['version']);
+		self::assertSame('none', $saved['ranking']['state']);
+
+		$row = $this->prefMapper->findByHouseAndUser($houseId, (int)$member->getId());
+		self::assertNotNull($row, 'the delivery-only row exists');
+		self::assertSame(0, $row->getRankingConsentGeneration());
+		self::assertNull($row->getRankingEffectiveMonday());
+		self::assertNull($row->getRankingSavedZone());
+		self::assertTrue($row->getTaskDigestEnabled());
+		self::assertSame('19:30', $row->getDigestTime());
+
+		// The delivery-only row never enters the ranking (generation > 0
+		// filter) even with the house flag on.
+		$this->setRankingFlag($houseId, true);
+		$view = $this->rankingIndex('rank_owner', $houseId);
+		self::assertSame([], $view['pending'], 'a delivery-only row is never a pending consent');
+
+		// Consent updates the SAME row in place — delivery settings and
+		// the shared version chain survive.
+		$this->giveConsent('rank_member', $houseId);
+		$row = $this->prefMapper->findByHouseAndUser($houseId, (int)$member->getId());
+		self::assertSame(1, $row->getRankingConsentGeneration(), 'the consent generation came from the house watermark');
+		self::assertNotNull($row->getRankingEffectiveMonday());
+		self::assertTrue($row->getTaskDigestEnabled(), 'delivery preferences survive consent');
+		self::assertSame('19:30', $row->getDigestTime());
+		self::assertGreaterThan(1, $row->getVersion(), 'every consent write advances the shared version');
+
+		// Withdrawal resets ONLY the consent columns — delivery survives.
+		$this->withdraw('rank_member', $houseId);
+		$row = $this->prefMapper->findByHouseAndUser($houseId, (int)$member->getId());
+		self::assertNotNull($row, 'withdrawal never deletes the delivery row');
+		self::assertSame(0, $row->getRankingConsentGeneration());
+		self::assertNull($row->getRankingEffectiveMonday());
+		self::assertNull($row->getRankingSavedZone());
+		self::assertTrue($row->getTaskDigestEnabled());
+		self::assertSame('19:30', $row->getDigestTime());
+
+		// Re-consent is in place again with a fresh generation and the
+		// delivery state still intact.
+		$this->giveConsent('rank_member', $houseId);
+		$row = $this->prefMapper->findByHouseAndUser($houseId, (int)$member->getId());
+		self::assertSame(2, $row->getRankingConsentGeneration(), 'a re-consent starts a fresh generation');
+		self::assertTrue($row->getTaskDigestEnabled());
 	}
 
 	public function testOnTimeRatio_CountsOnlyPublicAgreedOccurrences(): void {

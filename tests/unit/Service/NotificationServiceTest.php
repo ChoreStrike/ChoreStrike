@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCP\Notification\IManager;
@@ -14,11 +12,19 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for NotificationService
+ * Unit tests for the digest-only NotificationService
+ * (CS-PLAN-070 WP5 §3.4/§3.5, C5e, RF-070-10).
+ *
+ * The service is the app's ONE notification choke point and carries
+ * exactly one subject — the daily digest. Every former pressure subject
+ * (task due reminders, medal/weekly-goal/title bells, overdue-takeover)
+ * must stay removed (Q-076-02 negative pins). The dispatch outcome is
+ * explicit: an accepted send returns; an uncertain failure is logged
+ * (bounded, payload-free) and RETHROWN so the digest slot can be marked
+ * `uncertain` and never resent (parent §3.6 at-most-once doctrine).
  */
 class NotificationServiceTest extends TestCase {
 	private IManager&MockObject $manager;
-	private HouseUserMapper&MockObject $houseUserMapper;
 	private AppLogger&MockObject $appLogger;
 	private NotificationService $service;
 
@@ -28,16 +34,12 @@ class NotificationServiceTest extends TestCase {
 	private ?string $lastObjectType = null;
 	private ?string $lastObjectId = null;
 	private ?string $lastUser = null;
-	/** @var string[] Every dispatched objectId, in dispatch order. */
-	private array $objectIds = [];
 
 	protected function setUp(): void {
 		$this->manager = $this->createMock(IManager::class);
-		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->service = new NotificationService(
 			$this->manager,
-			$this->houseUserMapper,
 			$this->appLogger
 		);
 
@@ -46,7 +48,6 @@ class NotificationServiceTest extends TestCase {
 		$this->lastObjectType = null;
 		$this->lastObjectId = null;
 		$this->lastUser = null;
-		$this->objectIds = [];
 	}
 
 	/**
@@ -54,9 +55,7 @@ class NotificationServiceTest extends TestCase {
 	 */
 	private function wireRecordingNotification(): void {
 		$notification = $this->createMock(INotification::class);
-		$notification->method('setApp')->willReturnCallback(function (string $app) use ($notification) {
-			return $notification;
-		});
+		$notification->method('setApp')->willReturnCallback(fn (): INotification => $notification);
 		$notification->method('setUser')->willReturnCallback(function (string $user) use ($notification) {
 			$this->lastUser = $user;
 			return $notification;
@@ -66,7 +65,6 @@ class NotificationServiceTest extends TestCase {
 			function (string $type, string $id) use ($notification) {
 				$this->lastObjectType = $type;
 				$this->lastObjectId = $id;
-				$this->objectIds[] = $id;
 				return $notification;
 			}
 		);
@@ -83,161 +81,94 @@ class NotificationServiceTest extends TestCase {
 	}
 
 	/**
-	 * NotifyOverdueTakenOver_BuildsAndNotifies
+	 * NotifyDigest_BuildsDayQualifiedCombinedPayload
 	 */
-	public function testNotifyOverdueTakenOver_BuildsAndNotifies(): void {
+	public function testNotifyDigest_BuildsDayQualifiedCombinedPayload(): void {
 		$this->wireRecordingNotification();
 		$this->manager->expects($this->once())->method('notify');
 
-		$this->service->notifyOverdueTakenOver('alice', 'Dishes', 'bob', 'Bob', 42);
+		$this->service->notifyDigest('alice', 7, 42, '2026-09-29', 3, 2);
 
 		$this->assertSame('alice', $this->lastUser);
-		$this->assertSame('overdue_taken_over', $this->lastSubjectName);
-		$this->assertSame(
-			['task' => 'Dishes', 'taskId' => 42, 'claimer' => 'bob', 'claimerName' => 'Bob'],
-			$this->lastSubject
-		);
-		$this->assertSame('room_task', $this->lastObjectType);
-		$this->assertSame('42', $this->lastObjectId);
+		$this->assertSame('digest', $this->lastSubjectName);
+		// Counts only — no task names, no foreign request details.
+		$this->assertSame(['taskCount' => 3, 'orgCount' => 2], $this->lastSubject);
+		$this->assertSame('digest', $this->lastObjectType);
+		// The Nextcloud dedup key reinforces the day budget without being
+		// relied upon as the guarantee.
+		$this->assertSame('7:42:2026-09-29', $this->lastObjectId);
 	}
 
 	/**
-	 * NotifyMedalAwarded_BuildsAndNotifies
+	 * NotifyDigest_EmptyRecipient_SkipsSilently
 	 */
-	public function testNotifyMedalAwarded_BuildsAndNotifies(): void {
-		$this->wireRecordingNotification();
-
-		$this->service->notifyMedalAwarded('alice', 'team_anchor', 12, '2026-07-14');
-
-		$this->assertSame('medal_awarded', $this->lastSubjectName);
-		$this->assertSame(['medalType' => 'team_anchor', 'value' => 12], $this->lastSubject);
-		$this->assertSame('medal', $this->lastObjectType);
-		// CS-PLAN-061 §3.7: week+medal-qualified objectId keeps different
-		// medals in the same week from collapsing on the dedup key.
-		$this->assertSame('2026-07-14:team_anchor', $this->lastObjectId);
-	}
-
-	/**
-	 * NotifyWeeklyGoalReached_BuildsAndNotifies
-	 */
-	public function testNotifyWeeklyGoalReached_BuildsAndNotifies(): void {
-		$this->wireRecordingNotification();
-
-		$this->service->notifyWeeklyGoalReached('alice', 95, 80, '2026-07-14T00:00:00+00:00');
-
-		$this->assertSame('weekly_goal_reached', $this->lastSubjectName);
-		$this->assertSame(['percent' => 95, 'targetPercent' => 80], $this->lastSubject);
-	}
-
-	/**
-	 * NotifyWeeklyGoalReachedForHouse_NotifiesAllMembers
-	 */
-	public function testNotifyWeeklyGoalReachedForHouse_NotifiesAllMembers(): void {
-		$this->wireRecordingNotification();
-
-		$u1 = new HouseUser();
-		$u1->setNextcloudUserId('alice');
-		$u2 = new HouseUser();
-		$u2->setNextcloudUserId('bob');
-		$u3 = new HouseUser();
-		$u3->setNextcloudUserId('');
-
-		$this->houseUserMapper->expects($this->once())
-			->method('findByHouseId')
-			->with(7)
-			->willReturn([$u1, $u2, $u3]);
-
-		// Two real notifications (alice + bob); the empty user is skipped.
-		$this->manager->expects($this->exactly(2))->method('notify');
-
-		$sent = $this->service->notifyWeeklyGoalReachedForHouse(7, 90, 80, '2026-07-14T00:00:00+00:00');
-
-		$this->assertSame(2, $sent);
-	}
-
-	/**
-	 * NotifyStreakAtRisk_SurfaceRetired (WP3 legacy-effect cutover)
-	 *
-	 * The streak-at-risk pass retired with the freeze/streak-snapshot
-	 * effects (CS-PLAN-070 WP3, Q-074-01 Option A) — the notification
-	 * surface must not silently linger on the service.
-	 */
-	public function testNotifyStreakAtRisk_SurfaceRetired(): void {
-		$this->assertFalse(
-			method_exists($this->service, 'notifyStreakAtRisk'),
-			'the retired streak-at-risk notification surface must stay removed'
-		);
-	}
-
-	/**
-	 * NotifyTaskDue_DueToday_BuildsRunDateQualifiedObjectId
-	 */
-	public function testNotifyTaskDue_DueToday_BuildsRunDateQualifiedObjectId(): void {
-		$this->wireRecordingNotification();
-
-		$this->service->notifyTaskDue(
-			'alice',
-			'Dishes',
-			42,
-			new \DateTimeImmutable('2026-08-18 14:30:00'),
-			false
-		);
-
-		$this->assertSame('alice', $this->lastUser);
-		$this->assertSame('task_due_today', $this->lastSubjectName);
-		$this->assertSame(
-			['task' => 'Dishes', 'taskId' => 42, 'dueDate' => '2026-08-18'],
-			$this->lastSubject
-		);
-		$this->assertSame('task_due', $this->lastObjectType);
-		// Run-date keying: due today on the 18th → objectId day is the 18th.
-		$this->assertSame('42:2026-08-18', $this->lastObjectId);
-	}
-
-	/**
-	 * NotifyTaskDue_DueTomorrow_KeysObjectIdOnRunDateNotDueDate
-	 *
-	 * The "due tomorrow" pass runs one day before the due date, so the same
-	 * task reminded on day D−1 (tomorrow) and day D (today) produces two
-	 * distinct bell entries; a same-day re-run would collapse (same objectId).
-	 */
-	public function testNotifyTaskDue_DueTomorrow_KeysObjectIdOnRunDateNotDueDate(): void {
-		$this->wireRecordingNotification();
-
-		$this->service->notifyTaskDue(
-			'alice',
-			'Dishes',
-			42,
-			new \DateTimeImmutable('2026-08-18 14:30:00'),
-			true
-		);
-
-		$this->assertSame('task_due_tomorrow', $this->lastSubjectName);
-		// Run date = due date − 1 day for the tomorrow variant.
-		$this->assertSame('42:2026-08-17', $this->lastObjectId);
-	}
-
-	/**
-	 * Dispatch_EmptyRecipient_SkipsSilently
-	 */
-	public function testDispatch_EmptyRecipient_SkipsSilently(): void {
+	public function testNotifyDigest_EmptyRecipient_SkipsSilently(): void {
 		$this->manager->expects($this->never())->method('createNotification');
 		$this->manager->expects($this->never())->method('notify');
 
-		$this->service->notifyOverdueTakenOver('', 'Dishes', 'bob', 'Bob', 42);
+		$this->service->notifyDigest('', 7, 42, '2026-09-29', 1, 0);
 	}
 
 	/**
-	 * Dispatch_ManagerThrows_LogsAndSwallows
+	 * Dispatch_ManagerThrows_LogsAndRethrows_UncertainOutcome
 	 *
-	 * CS-PLAN-035: dispatch failures route through AppLogger::logException
-	 * (error level + standardized exception context).
+	 * The WP5 contract change: an uncertain result is no longer
+	 * catch-and-log-only — it propagates so DigestService marks the slot
+	 * `uncertain` and NEVER resends (parent §3.6).
 	 */
-	public function testDispatch_ManagerThrows_LogsAndSwallows(): void {
-		$this->manager->method('createNotification')->willThrowException(new \RuntimeException('boom'));
+	public function testDispatch_ManagerThrows_LogsAndRethrows(): void {
+		$this->wireRecordingNotification();
+		$this->manager->method('notify')->willThrowException(new \RuntimeException('boom'));
 		$this->appLogger->expects($this->once())->method('logException');
 
-		// Must not propagate the exception.
-		$this->service->notifyOverdueTakenOver('alice', 'Dishes', 'bob', 'Bob', 42);
+		try {
+			$this->service->notifyDigest('alice', 7, 42, '2026-09-29', 1, 0);
+			$this->fail('an uncertain dispatch outcome must propagate to the caller');
+		} catch (\RuntimeException $e) {
+			$this->assertSame('boom', $e->getMessage());
+		}
+	}
+
+	/**
+	 * RetiredSubjects_Removed (Q-076-02 negative pins)
+	 *
+	 * No pressure-notification surface may linger on the choke point:
+	 * task due reminders, medal/weekly-goal/title bells and the
+	 * overdue-takeover bell are gone with their callers (RF-070-10 —
+	 * removal-with-replacement, not repair).
+	 */
+	public function testRetiredSubjects_Removed(): void {
+		foreach ([
+			'notifyOverdueTakenOver',
+			'notifyMedalAwarded',
+			'notifyWeeklyGoalReached',
+			'notifyWeeklyGoalReachedForHouse',
+			'notifyTitleUnlocked',
+			'notifyTaskDue',
+			'notifyStreakAtRisk',
+		] as $retiredMethod) {
+			$this->assertFalse(
+				method_exists($this->service, $retiredMethod),
+				"the retired notification surface {$retiredMethod} must stay removed"
+			);
+		}
+		$this->assertFalse(defined('OCA\ChoreStrike\Service\NotificationService::SUBJECT_OVERDUE_TAKEN_OVER'));
+		$this->assertFalse(defined('OCA\ChoreStrike\Service\NotificationService::SUBJECT_MEDAL_AWARDED'));
+		$this->assertFalse(defined('OCA\ChoreStrike\Service\NotificationService::SUBJECT_WEEKLY_GOAL_REACHED'));
+		$this->assertFalse(defined('OCA\ChoreStrike\Service\NotificationService::SUBJECT_TITLE_UNLOCKED'));
+		$this->assertFalse(defined('OCA\ChoreStrike\Service\NotificationService::SUBJECT_TASK_DUE_TODAY'));
+		$this->assertFalse(defined('OCA\ChoreStrike\Service\NotificationService::SUBJECT_TASK_DUE_TOMORROW'));
+	}
+
+	/**
+	 * DigestSubject_IsTheOnlyDeclaredSubject
+	 */
+	public function testDigestSubject_IsTheOnlyDeclaredSubject(): void {
+		$reflection = new \ReflectionClass(NotificationService::class);
+		$subjectNames = array_values(array_filter(
+			array_keys($reflection->getConstants()),
+			static fn (string $name): bool => str_starts_with($name, 'SUBJECT')
+		));
+		$this->assertSame(['SUBJECT_DIGEST'], $subjectNames, 'the daily digest must be the only notification subject');
 	}
 }

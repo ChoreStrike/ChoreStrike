@@ -360,12 +360,15 @@ Member (self). **Entry points:** Settings → MemberList (since CS-PLAN-038).
 ## UC-14 — Notifications & reminders
 
 **Goal:** give useful information about agreed chores without engagement
-pressure. Currently server jobs only, with no ChoreStrike settings surface,
-digest aggregation, quiet hours or per-recipient notification budget.
+pressure. WP5 provides self-only Settings preferences and one optional shared
+daily digest with quiet hours, a bounded delivery window and a membership/day
+budget. See [Notifications](notifications.md); polished calm presentation
+and sound/animation consumers remain WP6.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Individual due-today/tomorrow and streak-at-risk reminders | Nextcloud notifications (job) | background job | Implemented; same-day dedup is not a digest or a delivery-time guarantee |
+| Optional combined daily task/organizational digest | Nextcloud notifications (five-minute job) | background job | WP5 implemented; opt-in only, no missed-slot catch-up or award bells |
+| Personal delivery preferences | Settings | `GET/PUT /preferences/me` | WP5 minimal self-only surface, shared-version conflict handling |
 | Reminder settings per task | — | — | ⛔ concept exists (`task-model-and-sync.md`), no endpoint, no UI |
 | NC-Tasks sync surface | — | `POST /task-sync/*` (6 routes) | ⛔ pruned (CS-PLAN-055 — controller/service/routes deleted; design intent kept marked in [task-model-and-sync.md](task-model-and-sync.md)) |
 
@@ -464,7 +467,7 @@ decisions update intent below, not the current implementation/route inventory.
 | Candidate | Decision tag | Source | Backlog |
 |---|---|---|---|
 | Onboarding & help layer (tour, glossary, contextual hints) | `build-new` | Usability review 2026-08-20 (UX-007 vocabulary) | FEAT-UX-023 |
-| Notification settings (opt-in summary, quiet hours) | Selected for the reliable core; not implemented | CS-PLAN-070 D9 | FEAT-UX-024 |
+| Notification settings (opt-in summary, quiet hours) | WP5 backend/minimal Settings implemented; WP6 presentation remains | CS-PLAN-070 D9 | FEAT-UX-024 |
 | Dated member/house pauses, with child approval | Selected for the reliable core; not implemented | CS-PLAN-070 D4 | FEAT-UX-025 |
 | Optional family reward catalog | Selected after the reliable core; not implemented | [Approved target](gamification-and-rewards.md) | FEAT-UX-026 |
 | Print view (weekly plan / calendar) | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-027 |

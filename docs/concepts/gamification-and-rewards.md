@@ -421,7 +421,7 @@ require review; no new external identity service is implied.
 
 ## Open Decisions
 
-The [clarification plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md)
+The [clarification plan](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md)
 records the approved core/C1-C5 product choices; exact technical mapping and
 cross-contract integration remain open, not implicitly approved implementation.
 The [C5 UI contract](ui-use-cases.md#approved-calm-ux-and-evidence-c5-2026-09-17)
@@ -430,3 +430,8 @@ rankings and the future family trial. The selected order is reliable core first,
 optional family catalog. Task Pass, cosmetics, external-task sync, local child
 profiles and general chore-approval workflows are explicitly outside this slice;
 existing backlog owners retain those future options.
+
+WP5 keeps medal/title/weekly-goal recognition quietly in-app; no award bell is
+sent. The weekly receipt remains the once-only celebration marker, not a
+delivery claim. Only self-opted-in task/organizational summaries use the
+[bounded digest](notifications.md), never streak threats or activity pressure.

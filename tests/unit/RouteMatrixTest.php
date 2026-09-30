@@ -284,16 +284,18 @@ class RouteMatrixTest extends TestCase {
 	 * /completions/{id}/undo, PUT /completions/{id}/attribution) → 78.
 	 * CS-PLAN-070 WP4 retired `PUT /users/{id}/titles/select` and added
 	 * the consent-filtered ranking trio (GET /ranking, POST
-	 * /ranking/consent, POST /ranking/withdraw) → 80.
+	 * /ranking/consent, POST /ranking/withdraw) → 80. CS-PLAN-070 WP5
+	 * added the self-only preferences pair (GET/PUT
+	 * /preferences/me) → 82.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			80,
+			82,
 			$this->routes['routes'],
-			'Route count drifted from the pin (80 after CS-PLAN-070 WP4) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (82 after CS-PLAN-070 WP5) — add only with a consumer, then update deliberately'
 		);
 	}
 

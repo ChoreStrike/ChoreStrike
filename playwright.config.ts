@@ -19,7 +19,6 @@ const SEED_DEPENDENT_SPECS = [
 	// CS-PLAN-023: time-travel specs re-seed the family profile and mutate
 	// job state via `occ chorestrike:trigger-jobs` — serial pool only.
 	/time-travel-overdue\.spec\.ts/,
-	/time-travel-streak-notification\.spec\.ts/,
 	// CS-PLAN-024: release regression specs mutate seed state (task lifecycle,
 	// role changes, global reward config, template imports, coin spend,
 	// weekly-goal completion) — serial pool only. Separator-anchored per the
@@ -28,7 +27,10 @@ const SEED_DEPENDENT_SPECS = [
 	/[/\\]release-visibility-roles\.spec\.ts$/,
 	/[/\\]release-task-templates\.spec\.ts$/,
 	/[/\\]release-boost-shop\.spec\.ts$/,
-	/[/\\]release-notifications\.spec\.ts$/,
+	// CS-PLAN-070 WP5: the quiet-digest release spec replaces the retired
+	// time-travel-streak-notification and release-notifications specs — it
+	// re-seeds the family profile and mutates notification/job state.
+	/[/\\]quiet-digest\.spec\.ts$/,
 	// CS-PLAN-027: setup-wizard re-seeds the family profile (catalog is
 	// read-only, but the `seededData` fixture wipes + reseeds the DB) and the
 	// template spec inserts rows — serial pool only, like the other release-*.

@@ -16,7 +16,6 @@ use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Db\WeeklyGoalReceiptMapper;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\MedalService;
-use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
@@ -71,13 +70,12 @@ class WeeklyGoalClosureTest extends IntegrationTestCase {
 		$occurrence->setCompletionId($completionId);
 		$mapper->update($occurrence);
 
-		$notify = $this->createMock(NotificationService::class);
-		$notify->expects($this->once())->method('notifyWeeklyGoalReachedForHouse')
-			->with($houseId, 100, $this->anything(), $this->anything());
+		// Q-076-02: the weekly-goal bell is retired — the receipt claim
+		// below IS the once-only celebration; no notification mock is
+		// involved in the closure path anymore.
 		$service = new MedalService(
 			\OC::$server->get(HouseUserMapper::class),
 			\OC::$server->get(MedalMapper::class),
-			$notify,
 			\OC::$server->get(AppLogger::class),
 			\OC::$server->get(WeeklyGoalService::class),
 			\OC::$server->get(RhythmService::class),

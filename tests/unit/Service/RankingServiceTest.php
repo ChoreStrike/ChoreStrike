@@ -399,13 +399,62 @@ class RankingServiceTest extends TestCase {
 		$this->assertSame('2026-09-28', $state['effectiveMonday']);
 	}
 
-	public function testWithdraw_DeletesTheMembershipRow(): void {
+	/**
+	 * Consent_UpdatesTheExistingRowInPlace (Q-076-03 A)
+	 *
+	 * First consent and re-consent update the membership's preference row
+	 * in place (or insert it when absent) — delivery preferences and the
+	 * shared version chain survive every consent transition.
+	 */
+	public function testConsent_UpdatesTheExistingRowInPlace(): void {
+		$house = $this->house();
+		$house->setRankingGenerationSeq(0);
+		$actor = $this->member(3, 'Carol');
+		$this->houseMapper->method('findForUpdate')->willReturn($house);
+		$this->houseMapper->method('update')->willReturnArgument(0);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($actor);
+
+		$existing = new MemberPreference();
+		$existing->setId(77);
+		$existing->setHouseId(1);
+		$existing->setHouseUserId(3);
+		$existing->setVersion(4);
+		$existing->setTaskDigestEnabled(true);
+		$existing->setUpdatedAt(new \DateTime('2026-09-01 10:00:00 UTC'));
+		$this->prefMapper->method('findByHouseAndUser')->willReturn($existing);
+		$this->prefMapper->expects($this->never())->method('insertOrGet');
+		$this->prefMapper->expects($this->once())->method('update')
+			->willReturnCallback(static function (MemberPreference $pref): MemberPreference {
+				return $pref;
+			});
+
+		$state = $this->service->consent(1, $actor, new \DateTime('2026-09-23 12:00:00 UTC'));
+
+		$this->assertSame(1, $state['generation']);
+		$this->assertSame('2026-09-28', $state['effectiveMonday']);
+		// Delivery preferences and the shared version chain survive: the
+		// in-place write advances the row version and keeps the digest
+		// opt-in.
+		$this->assertSame(5, $existing->getVersion());
+		$this->assertTrue($existing->getTaskDigestEnabled());
+		$this->assertSame(1, $existing->getRankingConsentGeneration());
+	}
+
+	/**
+	 * Withdraw_ResetsOnlyTheConsentColumns (Q-076-03 A)
+	 *
+	 * Withdrawal invalidates the generation by resetting ONLY the consent
+	 * columns — the delivery preferences survive (no row deletion).
+	 */
+	public function testWithdraw_ResetsOnlyTheConsentColumns(): void {
 		$this->house();
 		$actor = $this->member(3, 'Carol');
 		$this->houseUserMapper->method('findForUpdate')->willReturn($actor);
 		$this->prefMapper->expects($this->once())
-			->method('deleteByHouseAndUser')
-			->with(1, 3);
+			->method('clearRankingConsentByHouseAndUser')
+			->with(1, 3, $this->anything());
+		$this->prefMapper->expects($this->never())
+			->method('deleteByHouseAndUser');
 
 		$this->service->withdraw(1, $actor);
 	}

@@ -8,252 +8,85 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Titles\TitleCatalog;
 use OCP\Notification\IManager;
 
 /**
- * Thin wrapper around Nextcloud's OCP\Notification\IManager that builds and
- * dispatches ChoreStrike notifications.
+ * The ONE notification choke point of ChoreStrike — digest-only
+ * (CS-PLAN-076 §3.4/§3.5, C5e, D9, RF-070-10).
  *
- * Centralising the dispatch here keeps the subject/object identifiers and
- * parameter shapes consistent with the {@see ChoreStrikeNotifier} that
- * renders them, and lets every caller treat notifications as fire-and-forget
- * (every method logs and swallows — notifications are best-effort and must
- * never break a task completion or medal award).
+ * Every app-originated Nextcloud notification is the at-most-one daily
+ * opt-in summary. Awards, titles and in-app state stay in-app: the
+ * former pressure surfaces (task due reminders, medal/weekly-goal/title
+ * bells, overdue-takeover bell) are retired with their callers —
+ * nothing external is sent by default and there is no per-recipient
+ * activity pressure.
  *
- * Dedup rule (Nextcloud key: app, user, objectType, objectId): any
- * notification that may legitimately repeat on later days MUST day-qualify
- * its objectId (`{identity}:{Y-m-d}`) so consecutive passes do not collapse
- * into one bell entry — see notifyTaskDue.
+ * Outcome contract (parent §3.6): {@see notifyDigest()} either ACCEPTS
+ * (returns normally) or the attempt is UNCERTAIN (a throwable
+ * propagates after bounded, payload-free logging) — the caller marks
+ * the delivery slot `sent` only on acceptance and `uncertain`
+ * otherwise. An uncertain result is consumed and NEVER resent; the
+ * old catch-and-log-only dispatch (which made acceptance
+ * indistinguishable from an uncertain failure) is gone.
+ *
+ * The (app, user, objectType, objectId) dedup key reinforces the daily
+ * budget (objectId `{houseId}:{houseUserId}:{Y-m-d}`) but is never the
+ * guarantee — the slot identity is.
  */
 class NotificationService {
 	public const APP_ID = 'chorestrike';
 
-	/**
-	 * Subject identifiers for ChoreStrike notifications.
-	 *
-	 * Kept in sync with {@see \OCA\ChoreStrike\Notification\ChoreStrikeNotifier::prepare()}
-	 * by referencing these constants from both sides — adding a new subject
-	 * without a matching case in the notifier fails at render time
-	 * (InvalidArgumentException), so a missing constant is the single
-	 * canonical signal that the wiring is incomplete.
-	 */
-	public const SUBJECT_OVERDUE_TAKEN_OVER = 'overdue_taken_over';
-	public const SUBJECT_MEDAL_AWARDED = 'medal_awarded';
-	public const SUBJECT_WEEKLY_GOAL_REACHED = 'weekly_goal_reached';
-	public const SUBJECT_TITLE_UNLOCKED = 'title_unlocked';
-	public const SUBJECT_TASK_DUE_TODAY = 'task_due_today';
-	public const SUBJECT_TASK_DUE_TOMORROW = 'task_due_tomorrow';
+	/** The single retained subject (rendered by {@see \OCA\ChoreStrike\Notification\ChoreStrikeNotifier}). */
+	public const SUBJECT_DIGEST = 'digest';
 
 	public function __construct(
 		private IManager $notificationManager,
-		private HouseUserMapper $houseUserMapper,
 		private AppLogger $appLogger,
 	) {
 	}
 
 	/**
-	 * Notify the original assignee that their overdue task was taken over by
-	 * another member.
+	 * Dispatch the member's combined daily summary (both categories in
+	 * ONE notification).
 	 *
-	 * @param string $recipientNextcloudUserId Original assignee's Nextcloud user ID
-	 * @param string $taskName Display name of the task (for the message body)
-	 * @param string $claimerUserId Nextcloud user ID of the member who took it over
-	 *                              (the rich `user` param's `id` MUST be a uid)
-	 * @param string $claimerDisplayName Display name of the member who took it over
-	 * @param int $roomTaskId Room task ID (used as the notification object ID + rich param)
-	 */
-	public function notifyOverdueTakenOver(
-		string $recipientNextcloudUserId,
-		string $taskName,
-		string $claimerUserId,
-		string $claimerDisplayName,
-		int $roomTaskId,
-	): void {
-		$this->dispatch(
-			$recipientNextcloudUserId,
-			self::SUBJECT_OVERDUE_TAKEN_OVER,
-			'room_task',
-			(string)$roomTaskId,
-			[
-				'task' => $taskName,
-				'taskId' => $roomTaskId,
-				'claimer' => $claimerUserId,
-				'claimerName' => $claimerDisplayName,
-			]
-		);
-	}
-
-	/**
-	 * Notify a member that they earned a medal this week.
-	 *
-	 * The objectId is week+medal qualified (`{weekStart}:{medalType}`,
-	 * CS-PLAN-061 §3.7): Nextcloud dedups on (app, user, objectType,
-	 * objectId), so a bare weekStart made two different medals in the same
-	 * week collapse into one bell entry. Keying on both keeps one entry per
-	 * medal while a re-run of the same award still dedups.
-	 *
-	 * @param string $recipientNextcloudUserId The medal winner's Nextcloud user ID
-	 * @param string $medalType Medal type identifier (e.g. 'team_anchor')
-	 * @param int $value The medal's value (task count or streak length)
-	 * @param string $weekStart Week start (Y-m-d)
-	 */
-	public function notifyMedalAwarded(
-		string $recipientNextcloudUserId,
-		string $medalType,
-		int $value,
-		string $weekStart,
-	): void {
-		$this->dispatch(
-			$recipientNextcloudUserId,
-			self::SUBJECT_MEDAL_AWARDED,
-			'medal',
-			$weekStart . ':' . $medalType,
-			[
-				'medalType' => $medalType,
-				'value' => $value,
-			]
-		);
-	}
-
-	/**
-	 * Notify a member that the weekly household goal was reached.
+	 * Content is category/count-based only — no task names, no object
+	 * references the notifier would resolve, no foreign request details.
 	 *
 	 * @param string $recipientNextcloudUserId Recipient's Nextcloud user ID
-	 * @param int $percent Achieved percentage (0-100)
-	 * @param int $targetPercent Configured target percentage
-	 * @param string $weekStart Week start (ISO 8601)
+	 * @param int $houseId The house ID (dedup key part)
+	 * @param int $houseUserId The recipient's membership ID (dedup key part)
+	 * @param string $localDay House-local `Y-m-d` slot day (dedup key part)
+	 * @param int $taskCount Relevant planned/agreed-catch-up work items
+	 * @param int $orgCount Queued organizational updates
+	 * @throws \Throwable when the notification outcome is UNCERTAIN
+	 *                    (acceptance could not be confirmed) — the caller
+	 *                    consumes the slot without resending
 	 */
-	public function notifyWeeklyGoalReached(
+	public function notifyDigest(
 		string $recipientNextcloudUserId,
-		int $percent,
-		int $targetPercent,
-		string $weekStart,
-	): void {
-		$this->dispatch(
-			$recipientNextcloudUserId,
-			self::SUBJECT_WEEKLY_GOAL_REACHED,
-			'weekly_goal',
-			$weekStart,
-			[
-				'percent' => $percent,
-				'targetPercent' => $targetPercent,
-			]
-		);
-	}
-
-	/**
-	 * Notify every member of a house that the weekly goal was reached.
-	 *
-	 * Iterates all house users and dispatches a per-user notification so each
-	 * member sees the achievement in their own Nextcloud bell. Best-effort:
-	 * a failure for one user does not abort the loop.
-	 *
-	 * @param int $houseId The house ID
-	 * @param int $percent Achieved percentage (0-100)
-	 * @param int $targetPercent Configured target percentage
-	 * @param string $weekStart Week start (ISO 8601)
-	 */
-	public function notifyWeeklyGoalReachedForHouse(
 		int $houseId,
-		int $percent,
-		int $targetPercent,
-		string $weekStart,
-	): int {
-		$users = $this->houseUserMapper->findByHouseId($houseId);
-		$sent = 0;
-		foreach ($users as $user) {
-			$nextcloudUserId = $user->getNextcloudUserId();
-			if ($nextcloudUserId === null || $nextcloudUserId === '') {
-				continue;
-			}
-			$this->notifyWeeklyGoalReached($nextcloudUserId, $percent, $targetPercent, $weekStart);
-			$sent++;
-		}
-		return $sent;
-	}
-
-	/**
-	 * Notify a member that they unlocked a new role title.
-	 *
-	 * The notification object id is pack-qualified (`{pack}.{tier}`) so that
-	 * two different packs unlocking the same tier rank do NOT collide on the
-	 * Nextcloud dedup key (app, user, objectType, objectId) and drop each
-	 * other's notification.
-	 *
-	 * @param string $recipientNextcloudUserId The recipient's Nextcloud user ID
-	 * @param string $pack Pack key the unlocked tier belongs to
-	 * @param string $titleLabelKey i18n key for the unlocked tier label
-	 * @param string $packLabelKey i18n key for the pack the tier belongs to
-	 * @param int $tierIndex 0-based tier rank (for a stable, pack-qualified object id)
-	 */
-	public function notifyTitleUnlocked(
-		string $recipientNextcloudUserId,
-		string $pack,
-		string $titleLabelKey,
-		string $packLabelKey,
-		int $tierIndex,
+		int $houseUserId,
+		string $localDay,
+		int $taskCount,
+		int $orgCount,
 	): void {
 		$this->dispatch(
 			$recipientNextcloudUserId,
-			self::SUBJECT_TITLE_UNLOCKED,
-			'title',
-			TitleCatalog::tierId($pack, $tierIndex),
+			self::SUBJECT_DIGEST,
+			'digest',
+			$houseId . ':' . $houseUserId . ':' . $localDay,
 			[
-				'titleLabelKey' => $titleLabelKey,
-				'packLabelKey' => $packLabelKey,
+				'taskCount' => $taskCount,
+				'orgCount' => $orgCount,
 			]
 		);
 	}
 
 	/**
-	 * Notify an assignee that one of their tasks is due today or tomorrow
-	 * (FEAT-NOTIFY-001).
-	 *
-	 * The objectId is day-qualified with the PASS RUN DATE, not the due date:
-	 * `{roomTaskId}:{Y-m-d}` where Y-m-d is the day the reminder pass ran.
-	 * That keying keeps the "due tomorrow" reminder sent on day D−1 and the
-	 * "due today" reminder sent on day D as separate bell entries (different
-	 * objectIds) while a same-day re-run of the pass collapses into the same
-	 * objectId and is deduplicated by Nextcloud — the CR-SVC-27 lesson applied
-	 * from the start. Because the pass for "due tomorrow" always runs exactly
-	 * one day before the due date, the run date is derived as dueDate minus
-	 * one day for the tomorrow variant.
-	 *
-	 * @param string $recipientNextcloudUserId Assignee's Nextcloud user ID
-	 * @param string $taskName Display name of the task (user-controlled; rendered as a rich param)
-	 * @param int $roomTaskId Room task ID (object identity + rich param)
-	 * @param \DateTimeInterface $dueDate The task's due date (only the calendar day is used)
-	 * @param bool $dueTomorrow True for the "due tomorrow" pass, false for "due today"
-	 */
-	public function notifyTaskDue(
-		string $recipientNextcloudUserId,
-		string $taskName,
-		int $roomTaskId,
-		\DateTimeInterface $dueDate,
-		bool $dueTomorrow,
-	): void {
-		$dueDay = new \DateTimeImmutable($dueDate->format('Y-m-d'));
-		$runDate = $dueTomorrow ? $dueDay->modify('-1 day') : $dueDay;
-
-		$this->dispatch(
-			$recipientNextcloudUserId,
-			$dueTomorrow ? self::SUBJECT_TASK_DUE_TOMORROW : self::SUBJECT_TASK_DUE_TODAY,
-			'task_due',
-			$roomTaskId . ':' . $runDate->format('Y-m-d'),
-			[
-				'task' => $taskName,
-				'taskId' => $roomTaskId,
-				'dueDate' => $dueDate->format('Y-m-d'),
-			]
-		);
-	}
-
-	/**
-	 * Build and send a notification. Catches all errors: a notification
-	 * failure must never propagate to the caller (notifications are
-	 * best-effort and the triggering mutation has already succeeded).
+	 * Build and send a notification. An uncertain outcome is logged once
+	 * (bounded, payload-free context — identifiers only) and RETHROWN so
+	 * the caller can distinguish an accepted send from an uncertain one
+	 * (at-most-once doctrine: uncertain is consumed, never retried).
 	 *
 	 * @param string $recipientNextcloudUserId Nextcloud user ID of the recipient
 	 * @param string $subject Subject identifier (matched in ChoreStrikeNotifier::prepare)
@@ -288,6 +121,7 @@ class NotificationService {
 				'objectType' => $objectType,
 				'objectId' => $objectId,
 			]);
+			throw $e;
 		}
 	}
 }

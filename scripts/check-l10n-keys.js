@@ -14,7 +14,6 @@ const DYNAMIC = {
 	'src/views/Leaderboard.vue': ['MEDAL_LABELS[medal.medalType]'],
 	'src/components/Tasks/TaskEditForm.vue': ['energyLabels[n]', 'frequencyLabel', 'everyKey'],
 	'lib/Service/TaskService.php': ['$message'],
-	'lib/Notification/ChoreStrikeNotifier.php': ['$titleLabelKey', '$packLabelKey'],
 	'lib/Service/TemplateService.php': ["(string)$rt['defaultName']", "(string)$template['name']", "(string)($template['description']??'')", "(string)($template['instructions']??'')", "(string)$t['name']", "(string)($t['description']??'')", "(string)($t['instructions']??'')"],
 }
 
@@ -45,6 +44,7 @@ function extractKeysFromSource(file, content) {
 	const source = content.replace(/<!--[\s\S]*?-->/g, '').replace(TOKENS, token => token.startsWith('/') ? '' : token)
 	const php = file.endsWith('.php')
 	const calls = php ? /->t\s*\(\s*/g : /\bt\s*\(\s*(['"])chorestrike\1\s*,\s*/g
+	const pluralCalls = /->n\s*\(\s*/g
 	const keys = []
 	for (const match of source.matchAll(calls)) {
 		const argument = firstArgument(source.slice(match.index + match[0].length))
@@ -52,7 +52,20 @@ function extractKeysFromSource(file, content) {
 		if (literal?.[0] === argument) keys.push(decodeLiteral(argument, php))
 		else if (!(DYNAMIC[file] ?? []).includes(argument.replace(/\s+/g, ''))) throw new Error(`Unclassified dynamic localization: ${file}: ${argument}`)
 	}
+	// Plural forms (OCP\IL10N::n) contribute BOTH source keys — the
+	// singular and the plural (CS-PLAN-070 WP5 digest notifier).
+	for (const match of source.matchAll(pluralCalls)) {
+		let rest = source.slice(match.index + match[0].length)
+		for (let i = 0; i < 2; i++) {
+			const literal = rest.match(LITERAL)
+			if (!literal) break
+			keys.push(decodeLiteral(literal[0], php))
+			rest = rest.slice(literal[0].length)
+		}
+	}
 	// Local finite maps and ternary branches are owned by their declarations.
+	// (Leaderboard.vue imports MEDAL_LABELS from MedalBadge.vue — covered
+	// there; only MedalBadge and TaskEditForm own local maps.)
 	if (file === 'src/components/Tasks/TaskEditForm.vue' || file.endsWith('/MedalBadge.vue')) {
 		const name = file.endsWith('/MedalBadge.vue') ? 'MEDAL_LABELS' : 'energyLabels'
 		const map = source.match(new RegExp(`const ${name} = \\{([\\s\\S]*?)\\}`))

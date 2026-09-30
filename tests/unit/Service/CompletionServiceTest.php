@@ -225,6 +225,8 @@ class CompletionServiceTest extends TestCase {
 			$this->workShareMapper,
 			$this->completionRevisionMapper,
 			$this->postCommitService,
+			$this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Service\DigestScheduleService::class),
 			$this->walletService,
 			$this->roomReplayService,
 			new EffortAllocationService(),

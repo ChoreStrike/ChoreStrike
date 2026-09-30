@@ -158,8 +158,10 @@
     "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > creating a room task from a template succeeds",
     "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > setup catalog returns levels, room types, and templates"
   ],
-  "release-notifications.spec.ts": [
-    "release-notifications.spec.ts > Release: Notifications — weekly goal > reaching the weekly goal delivers a de-duped bell notification"
+  "quiet-digest.spec.ts": [
+    "quiet-digest.spec.ts > Release: Notifications — quiet-hours digest > an opted-in member with due work receives at most one daily summary bell",
+    "quiet-digest.spec.ts > Release: Notifications — quiet-hours digest > quiet hours gate the delivery attempt without shifting the slot",
+    "quiet-digest.spec.ts > Release: Notifications — quiet-hours digest > silent by default: an opted-out member gets no bell, and the settings save works"
   ],
   "release-setup-wizard.spec.ts": [
     "release-setup-wizard.spec.ts > Release: Setup Wizard > apply is rejected with 409 when the house already has floors",
