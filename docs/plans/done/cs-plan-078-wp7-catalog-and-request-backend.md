@@ -358,6 +358,52 @@ calendar promise. If erasure/locking evidence reveals extra scope, revise the
 estimate explicitly rather than dropping required tests. Parent G2/G3 remain
 open; WP8 activation and implementation are separate work.
 
+### Implementation Status (2026-10-01)
+
+Steps 1-6 of §6 are complete; step 7 (final Standard B / Full review and the
+`done/` transition) is the next lifecycle gate and has NOT run yet — no
+acceptance checkbox above is checked by implementation alone.
+
+- **Step 2 (schema):** `Version1033Date20260918000000` adds the three tables
+  (portable indexes, frozen defaults, nullable actor provenance, unique
+  `(request_id, revision)` audit identity); `Version1004`'s original
+  membership definition carries `role_revision` (bigint, default 0); reset
+  order and integration cleanup extended; schema test in
+  `FamilyRhythmSchemaTest`. Fresh chain verified on a rebuilt Docker DB.
+- **Step 3 (commands/money):** `CommandService::runCommand()` gained the
+  optional under-lock authorization guard (execution AND replay, before the
+  receipt lookup); `WalletService` gained `reserveReward`/`releaseReward`/
+  `settleReward`/`refundReward` and `postEntries` returns entry ids;
+  `RewardService` (catalog CRUD + gate command) and `RewardRequestService`
+  (lifecycle) landed with the routes
+  (`PUT /house/catalog`, `GET|POST /rewards`, `PUT /rewards/{id}`,
+  `GET|POST /reward-requests`, `GET /reward-requests/{id}`,
+  `POST /reward-requests/{id}/approve|reject|cancel|fulfill|correct` —
+  94-route pin updated).
+- **Step 4 (audit/ledger):** one immutable event per revision, ledger keys
+  `reward_settlement`/`reward_refund` (request id + effect revision),
+  stored settlement/refund references with server-side verification, exact
+  rollback proven by injected mid-aggregate failure.
+- **Step 5 (membership/erasure/digest):** role rebase via
+  `HouseService::updateUserRole` (no-op writes never advance
+  `role_revision`), departure cancels + releases before access ends, both
+  erasure paths purge wishes/requests/events + cross-recipient queue
+  references and anonymize retained actor refs; `DigestService` resolves
+  `reward_request` (same house, current revision, requester-or-owner
+  eligibility); producer queues identity-only rows for opted-in
+  requester/owners minus the actor.
+- **Step 6 (gates):** unit 1112 OK (host + container), Jest 1118 OK,
+  integration 527 OK (fresh family-profile Docker chain), `composer
+  cs:check` clean, `npm run lint` clean, `npm run l10n:check-keys` green
+  (28 new keys, EN/DE/POT exact coverage), docs encoding/backlog checkers
+  green, and the full E2E gate PASSED (`npm run test:e2e:gate` — all three
+  pools, zero skipped/failed/flaky required scenarios) with the new
+  `family-reward-api.spec.ts` browser contract (serial-DB pool).
+- **Implementation-round findings:** none outstanding — routing per §9
+  (fix-now items were fixed in-round: `find()` additions for the NC31
+  `QBMapper` gap on the new/wallet mappers, entity property defaults
+  aligned with the Nextcloud setter-tracking convention).
+
 ## 7. Risks & Mitigations
 
 | Risk | Likelihood | Mitigation |
@@ -373,29 +419,60 @@ open; WP8 activation and implementation are separate work.
 
 ## 8. Acceptance Criteria
 
-- [ ] Standard A passes; G1 applicability and all exposed decisions are recorded before runtime work.
-- [ ] Fresh schema has three reward tables, role revision, correct defaults/indexes and complete reset/cleanup; no upgrade/shim path.
-- [ ] Household catalog is owner-controlled and default off; personal catalog visibility remains self-only; planning works permanently off.
-- [ ] Catalog prices/amounts are exact bounded minor units; concurrent edits never change agreed request terms silently.
-- [ ] Every C4 actor/state case is implemented; underfunding is orthogonal, and no time/disable/archive transition expires or reopens promises.
-- [ ] B equals the ledger sum; R equals active request prices; settlement/refund/release occurs once and rollback leaves no partial effects.
-- [ ] Real undo/attribution after spending preserves independent value/history; spending/refund does not change legitimately earned recognition.
-- [ ] Current membership/roles gate commands AND replay; role changes, departure/rejoin and owner invariants are atomic and tested.
-- [ ] Active/departed erasure purges personal wishes and all affected queue/actor references; recreated UID cannot recover them.
-- [ ] Self/owner request DTOs and errors are privacy-safe; no foreign wallet, shared activity/ranking or notification detail leak.
-- [ ] Reward changes join the opted-in WP5 digest transactionally with current-rights checks and unchanged bounded at-most-once delivery.
-- [ ] Section 4 tests and complete build/lint/backend/browser/document/l10n gates pass with no missing/newly skipped required cases.
-- [ ] All plan-owned findings and implementation/review questions are resolved; durable API/ADR/concept/engineering docs are integrated.
-- [ ] Final Standard B or Full is PASS/PASS-WITH-FIXES; tracking reflects WP7 only, while FEAT-UX-026/WP8 and CONCEPT-001/WP9 remain open.
+- [x] Standard A passes; G1 applicability and all exposed decisions are recorded before runtime work. (2026-10-01, zero findings)
+- [x] Fresh schema has three reward tables, role revision, correct defaults/indexes and complete reset/cleanup; no upgrade/shim path. (Version1033 + Version1004 amendment; `FamilyRhythmSchemaTest`; rebuilt disposable chain)
+- [x] Household catalog is owner-controlled and default off; personal catalog visibility remains self-only; planning works permanently off. (`PUT /house/catalog` stateVersion contract; `catalogVisible` untouched; gate tests incl. disabled-state reads)
+- [x] Catalog prices/amounts are exact bounded minor units; concurrent edits never change agreed request terms silently. (strict `priceMinor` validation; frozen snapshots; displayed-terms drift is 409; price-change race coherent)
+- [x] Every C4 actor/state case is implemented; underfunding is orthogonal, and no time/disable/archive transition expires or reopens promises. (lifecycle suite C4.1-9, hold-cancellation, role rebase, departure/rejoin)
+- [x] B equals the ledger sum; R equals active request prices; settlement/refund/release occurs once and rollback leaves no partial effects. (reconciliation assertions; injected mid-aggregate failure rollback; idempotent replay; exactly-once refund retries)
+- [x] Real undo/attribution after spending preserves independent value/history; spending/refund does not change legitimately earned recognition. (separate `reward_settlement`/`reward_refund` ledger sources; the WP3 completion/attribution suites stay green unchanged)
+- [x] Current membership/roles gate commands AND replay; role changes, departure/rejoin and owner invariants are atomic and tested. (WP7 under-lock guard on execution+replay; role revision no-op rule; last-owner/self-demotion invariants green)
+- [x] Active/departed erasure purges personal wishes and all affected queue/actor references; recreated UID cannot recover them. (both erasure paths; cross-recipient digest purge; anonymization by wallet provenance; same-UID non-rebinding pinned by the WP0 suites)
+- [x] Self/owner request DTOs and errors are privacy-safe; no foreign wallet, shared activity/ranking or notification detail leak. (whitelist DTOs, own-wallet-only block, placeholder serialization, 404-vs-403 mapping, HTTP contract tests)
+- [x] Reward changes join the opted-in WP5 digest transactionally with current-rights checks and unchanged bounded at-most-once delivery. (identity-only producer rows, current-revision/requester-or-owner resolver, digest delivery tests)
+- [x] Section 4 tests and complete build/lint/backend/browser/document/l10n gates pass with no missing/newly skipped required cases. (unit 1116, Jest 1118, integration 529, php-cs/eslint/l10n/encoding/backlog checkers, full three-pool E2E gate PASSED)
+- [x] All plan-owned findings and implementation/review questions are resolved; durable API/ADR/concept/engineering docs are integrated. (§9 all resolved; `docs/api/rewards.md`, ADR-017, concept/architecture/notifications/testing/SKILL/development updates)
+- [x] Final Standard B or Full is PASS/PASS-WITH-FIXES; tracking reflects WP7 only, while FEAT-UX-026/WP8 and CONCEPT-001/WP9 remain open. (final Standard B 2026-10-01 `PASS-WITH-FIXES`; parent/ACTIVE_TASKS updated; WP8 and WP9 stay open)
 
 ## 9. Review Findings (Plan-Owned)
 
-None recorded in the drafting round. Standard A on 2026-10-01 verified every
-baseline citation, manifest path and parent-decision alignment with zero
-findings; nothing is parked here. Implementation and later review findings
-inside this scope belong here until resolved, not in parallel backlog entries.
-Out-of-scope findings follow the canonical scope-first routing. Any unresolved
-finding, question or required test blocks this child's done transition.
+Resolved during the final Standard B review round (2026-10-01; the full fix
+list lives in §Review Outcome):
+
+- [x] major · `Version1033` index led with `house_id` for wallet-led queries
+  (mine list / per-wallet hooks) — fixed to `(wallet_id, state, id)`.
+- [x] major · list-path N+1 serialization (per-request requester + wallet
+  lookups) — batched prefetch in `listForViewer`.
+- [x] major · `is_int` paging boundary broke real HTTP GET (`limit`/`cursor`
+  strings) — canonical digit strings accepted, non-canonical rejected.
+- [x] major · departure: stale pre-lock owner-invariant check and a null
+  audit/digest actor — under-lock recheck + acting owner forwarded.
+- [x] block · two race-test baseline bugs (post-race `$bookedBefore` capture
+  made the fulfilled branch unpassable and the rollback assertion vacuous).
+- [x] minor · no-op catalog toggle bumped `stateVersion`; `settleReward`
+  lacked the reservation undershoot guard; departure/role-rebase digest
+  recipient rules (per-request queue, requester inclusion, hoisted
+  `ownersOf`); dead mapper methods/docblocks; C4 matrix denial/replay
+  cases added.
+- [x] minor · `runLifecycleCommand()` (~97 lines) aggregated payload
+  normalization, the aggregate closure, event/financial wiring and digest
+  recipient selection — extracted into `executeLifecycleEffectUnderLock()`
+  and `digestRecipientsFor()`.
+- [x] minor · `requireCommandId`/`requireExpectedVersion` validators were
+  duplicated verbatim between `RewardService` and `RewardRequestService` —
+  deduplicated as `CommandService::requireCommandUuid()` /
+  `requireExpectedVersion()` statics.
+- [x] minor · `settleReward` re-locks the wallet row after `postEntries` —
+  RESOLVED BY ANALYSIS, not a defect: the reservation release must apply to
+  the row state AFTER `postEntries`' booked update, so the second
+  locked read is structurally required (folding it into the ledger writer
+  would couple reservation semantics into the generic ledger API).
+- [x] nit · audit-history serialization resolved event actors per row —
+  memoized per serialization call.
+
+Out-of-scope finding routed to the backlog: `DigestChangeMapper::
+expireQueuedBefore` uses `setMaxResults()` on an UPDATE (silently ignored by
+Doctrine DBAL — unbounded expiry), pre-existing WP5 defect (see backlog).
 
 ## Draft Validation
 
@@ -441,3 +518,46 @@ gate is Standard A; this draft remains in `new/` and is not activated or committ
 - **Transition:** `new/ → active/` with this outcome; FEAT-UX-026 set In Progress
   (backend slice); tracking docs, parent WP7 row and review record updated;
   unrelated `.gitkeep` deletions preserved unstaged.
+
+**Final Standard B (whole-plan) — 2026-10-01 · `PASS-WITH-FIXES`**
+
+- **Scope:** the complete WP7 change set at `master` `18eb7ad32e01c4015dc36c93c94c7cedab44e424`
+  (index empty at capture; capture-time unstaged-diff sha1
+  `200ab75fb3b2cb90557c2e14f364300b600370ec`; final reviewed tree after fixes
+  unstaged-diff sha1 `1daff20561b798611b7e827182e7bde285d0f4a7`; 54 modified +
+  22 untracked paths at capture; per-file untracked SHA256 inventory appended
+  to the review record in `docs/backlog/archive/CODE_REVIEW_2026-10-01.md`), reviewed in four read-only tracks
+  (correctness, architecture/ownership, security/auth/data-flow,
+  performance/code-quality) over the §5 file manifest plus every owning-plan
+  requirement: acceptance criteria, §4 test evidence, durable-doc integration.
+- **Findings:** 1 block + 8 major + 19 minor/nit consolidated across tracks;
+  every finding either fixed in-round or resolved by analysis (§9 records the
+  full routing; no open entries remain). Highlights: wallet-led request index
+  corrected, list-path N+1 batched, real-HTTP paging boundary fixed,
+  departure invariant re-checked under the house lock with the acting owner
+  forwarded, two race-test baseline bugs repaired, `settleReward` undershoot
+  guard added, `runLifecycleCommand` extracted, validators deduplicated onto
+  `CommandService`, C4 matrix denial/replay cases added.
+- **Safe fixes applied in-round:** all of the above (no security/auth
+  findings were auto-fixed; the auth-adjacent items were fixed deliberately
+  by the main agent with focused re-tests).
+- **Decisions:** no user questions were required — every behavior change
+  conforms to the approved C4/C5e text (departure digest per request,
+  role-rebase including the requester, no-op toggle not advancing the
+  version) and the fixes stay inside the plan's scope. Out-of-scope
+  pre-existing defect routed to the backlog (`TECH-DIGEST-001`:
+  `DigestChangeMapper::expireQueuedBefore` UPDATE-LIMIT silently ignored).
+- **Gates (rerun on the reviewed tree after every fix cluster):** unit 1116
+  OK (host + container), Jest 1118 OK, integration 529 OK on a rebuilt
+  family-profile fresh chain, `composer cs:check` 0-of-395, ESLint clean,
+  `l10n:check-keys` 1137 keys EN/DE/POT exact, docs encoding 842 files,
+  backlog checker green, `git diff --check` clean, and the full three-pool
+  E2E gate PASSED (`run-l4c22e`: chromium + serial-db + scheduling-owner,
+  zero skipped/failed/flaky required scenarios; an intermediate gate run
+  flaked in `3-floor-house.spec.ts` under host load — the spec passes
+  standalone and in the rerun).
+- **Transition:** `active/ → done/` with this outcome: every §8 criterion
+  verified and checked, all §9 findings resolved, durable docs integrated
+  (`docs/api/rewards.md`, ADR-017, concepts/architecture/notifications/
+  testing/SKILL/development/backlog). FEAT-UX-026 keeps its WP8 UI
+  remainder; CONCEPT-001 stays In Progress for WP8-WP9.
