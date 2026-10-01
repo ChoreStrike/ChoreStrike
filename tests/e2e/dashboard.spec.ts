@@ -10,7 +10,7 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('User Login and Dashboard', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 	})
 
@@ -82,7 +82,7 @@ test.describe('User Login and Dashboard', () => {
 		if (!await createTask('E2E Private Filter Task', 'private')) return
 
 		// The chip on the Dashboard routes to the pre-filtered task list.
-		await page.goto('/apps/chorestrike/#/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
 		await page.getByTestId('private-filter-toggle').click()
 

@@ -64,7 +64,7 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('User can create a custom task inside a room', async ({ page }) => {
-		await page.goto('/apps/chorestrike/#/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
 
 		// Click Living Room card, fallback to first room.
@@ -105,7 +105,7 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('User can complete a task and earn points', async ({ page }) => {
-		await page.goto('/apps/chorestrike/#/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
 
 		// Try Kitchen first, fallback to any room.
@@ -138,7 +138,7 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('Completion offers Undo which restores the task (CS-PLAN-041)', async ({ page }) => {
-		await page.goto('/apps/chorestrike/#/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
 
 		const kitchen = page.getByTestId('room-card-Kitchen')

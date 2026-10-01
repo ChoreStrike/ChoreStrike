@@ -9,7 +9,7 @@ test.describe('Availability Settings Flow', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 		await expect(async () => {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
 			await page.getByTestId('nav-scheduling').click()
 			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
@@ -18,7 +18,9 @@ test.describe('Availability Settings Flow', () => {
 
 	test('loads availability settings section', async ({ page }) => {
 		await expect(page.getByTestId('availability-settings')).toBeVisible()
-		await expect(page.getByRole('heading', { name: 'Member Availability' })).toBeVisible()
+		// Heading presence without locale coupling — profile users render
+		// in their own Nextcloud language.
+		await expect(page.locator('[data-testid="availability-settings"] h2')).toBeVisible()
 	})
 
 	test('displays availability grid with weekday slots', async ({ page }) => {

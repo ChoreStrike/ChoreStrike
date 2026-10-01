@@ -9,7 +9,7 @@ test.describe('Scheduling UI', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 		await expect(async () => {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
 			await page.getByTestId('nav-scheduling').click()
 			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
@@ -25,7 +25,10 @@ test.describe('Scheduling UI', () => {
 	})
 
 	test('displays the scheduling header', async ({ page }) => {
-		await expect(page.getByRole('heading', { name: 'Smart Scheduling' })).toBeVisible()
+		// Heading presence without locale coupling — profile users render
+		// in their own Nextcloud language.
+		await expect(page.getByTestId('scheduling-view')).toBeVisible()
+		await expect(page.getByTestId('scheduling-view').locator('h1')).toBeVisible()
 	})
 
 	test('navigates to scheduling via nav item', async ({ page }) => {
@@ -84,7 +87,7 @@ test.describe('Scheduling save flow', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 		await expect(async () => {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
 			await page.getByTestId('nav-scheduling').click()
 			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
@@ -114,7 +117,9 @@ test.describe('Scheduling save flow', () => {
 				&& response.url().includes('/scheduling/preferences'))
 			await page.getByTestId('save-energy-budget-button').click()
 			expect((await putResponse).ok()).toBe(true)
-			await expect(page.getByText('Energy budget saved successfully!')).toBeVisible()
+			// The success toast renders in the viewer's language — pin the
+			// toast, not its translated text.
+			await expect(page.locator('.toast-success').first()).toBeVisible()
 			// Exactly one bulk PUT — the per-day fallback is gone.
 			expect(putCount).toBe(1)
 

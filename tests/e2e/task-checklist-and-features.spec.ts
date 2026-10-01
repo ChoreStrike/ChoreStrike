@@ -21,7 +21,7 @@ test.describe('Task Checklist', () => {
 		test.setTimeout(60000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
@@ -62,7 +62,7 @@ test.describe('Task Checklist', () => {
 		// toggle test acts as the seeded owner `mom`.
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 			await page.getByTestId('nav-tasks').click()
 			await page.waitForSelector('[data-testid="task-manager-view"]')
@@ -141,7 +141,7 @@ test.describe('Group Assignment', () => {
 		test.setTimeout(60000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
@@ -167,7 +167,7 @@ test.describe('Task Scheduling Modes', () => {
 		test.setTimeout(60000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
@@ -214,7 +214,7 @@ test.describe('Template Selector', () => {
 		test.setTimeout(60000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})

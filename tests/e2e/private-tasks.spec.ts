@@ -101,7 +101,7 @@ test.describe('Private Tasks', () => {
 	test('my-private filter shows only own private tasks', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			const privateFilter = page.getByTestId('private-filter-toggle')

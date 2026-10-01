@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 /**
  * E2E test: Snake Arcade Game
- * Critical flow: Dashboard → Arcade → Game → Boost Shop → Leaderboard
+ * Critical flow: Arcade (own optional-area surface) → Game → Leaderboard
  *
  * CS-PLAN-015: auth via storageState (no inline form-login). The per-browser
  * 2000 ms render sleep is gone (replaced by an arcade-section visibility wait);
@@ -10,26 +10,30 @@ import { test, expect } from '@playwright/test'
  * `.tab-btn:nth-child()` selectors replaced by `getByRole('button', { name })`.
  * The "force game over" loops no longer sleep per key press — the following
  * `expect(game-over-overlay)` auto-waits until the snake hits the wall.
+ *
+ * CS-PLAN-070 WP6 (C5f/Q-077-05): the arcade is its own opt-in surface
+ * under `/arcade` — no longer a Dashboard section. The optional-area
+ * preference gates BOTH the navigation entry and the surface.
  */
 
-/** Open the Snake game modal from the arcade section. */
+/** Open the Snake game modal from the arcade surface. */
 async function openSnake(page: import('@playwright/test').Page): Promise<void> {
-	await expect(page.getByTestId('arcade-section')).toBeVisible({ timeout: 20000 })
+	await expect(page.getByTestId('arcade-surface')).toBeVisible({ timeout: 20000 })
 	await page.locator('.game-card').first().click()
 	await expect(page.getByTestId('snake-game')).toBeVisible({ timeout: 10000 })
 }
 
 test.describe('Snake Arcade Game', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/apps/chorestrike/')
-		await expect(page.getByTestId('arcade-section')).toBeVisible({ timeout: 30000 })
+		await page.goto('/apps/chorestrike/#/arcade')
+		await expect(page.getByTestId('arcade-surface')).toBeVisible({ timeout: 30000 })
 	})
 
-	test('Arcade section is visible on dashboard', async ({ page }) => {
+	test('Arcade surface is reachable and stays scores-only', async ({ page }) => {
 		test.setTimeout(60000)
 
-		// WP3 cutover (T10/D7d): the arcade is scores-only — no coin
-		// display, no boost shop entry.
+		// WP3/WP6 cutovers (T10/D7d, Q-077-05): the arcade is scores-only —
+		// no coin display, no boost shop entry, no Dashboard embedding.
 		await expect(page.getByTestId('coins-display')).toHaveCount(0)
 		await expect(page.getByTestId('boost-shop')).toHaveCount(0)
 		await expect(page.locator('.game-card').first()).toBeVisible()

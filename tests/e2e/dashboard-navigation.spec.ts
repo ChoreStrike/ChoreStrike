@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Dashboard', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('domcontentloaded')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 	})

@@ -17,6 +17,9 @@ jest.mock('../../../src/services/api.js', () => ({
 		put: jest.fn(),
 		post: jest.fn(),
 	},
+	amendOccurrence: jest.fn(),
+	catchUpOccurrence: jest.fn(),
+	restartOccurrence: jest.fn(),
 }))
 
 jest.mock('@/utils/logger', () => ({
@@ -486,6 +489,101 @@ describe('Scheduling Store', () => {
 				store.error = 'Some error'
 				store.clearError()
 				expect(store.error).toBeNull()
+			})
+		})
+
+		// --- Occurrence agreements (CS-PLAN-070 WP6 §3.5, CS-PLAN-073 WP2 §3.5) ---
+
+		describe('occurrence agreements', () => {
+			const occurrence = {
+				occurrenceId: '12:1',
+				expectedVersion: 3,
+				selectionToken: 'token-42',
+				classification: 'late',
+				timezone: 'Europe/Berlin',
+				suspended: false,
+				fulfilled: false,
+			}
+
+			it('sends the amend command with a fresh command UUID, shown version and consent', async () => {
+				const { amendOccurrence } = require('../../../src/services/api.js')
+				amendOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
+
+				await store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true })
+
+				expect(amendOccurrence).toHaveBeenCalledWith('12:1', {
+					roomTaskId: 42,
+					commandId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+					occurrenceId: '12:1',
+					expectedVersion: 3,
+					selectionToken: 'token-42',
+					consent: true,
+					date: '2026-10-05',
+				})
+			})
+
+			it('sends the catch-up command with workDate and the occurrence work zone', async () => {
+				const { catchUpOccurrence } = require('../../../src/services/api.js')
+				catchUpOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 5 })
+
+				await store.catchUpOccurrence({ roomTaskId: 42, occurrence, workDate: '2026-10-06', consent: true })
+
+				const [id, payload] = catchUpOccurrence.mock.calls[0]
+				expect(id).toBe('12:1')
+				expect(payload.workDate).toBe('2026-10-06')
+				expect(payload.workZone).toBe('Europe/Berlin')
+				expect(payload.expectedVersion).toBe(3)
+			})
+
+			it('sends the restart command for the suspended interval predecessor', async () => {
+				const { restartOccurrence } = require('../../../src/services/api.js')
+				restartOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 6 })
+
+				await store.restartOccurrence({ roomTaskId: 42, occurrence: { ...occurrence, suspended: true }, workDate: '2026-10-07', consent: true })
+
+				const [id, payload] = restartOccurrence.mock.calls[0]
+				expect(id).toBe('12:1')
+				expect(payload).toEqual(expect.objectContaining({
+					occurrenceId: '12:1',
+					expectedVersion: 3,
+					consent: true,
+					workDate: '2026-10-07',
+				}))
+			})
+
+			it('mints a FRESH command UUID per attempt (a 409 retry carries new input)', async () => {
+				const { amendOccurrence } = require('../../../src/services/api.js')
+				const conflict = new Error('Conflict')
+				conflict.status = 409
+				amendOccurrence
+					.mockRejectedValueOnce(conflict)
+					.mockResolvedValueOnce({ occurrenceId: '12:1', expectedVersion: 4 })
+
+				await expect(store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true })).rejects.toThrow('Conflict')
+				await store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true })
+
+				const first = amendOccurrence.mock.calls[0][1].commandId
+				const second = amendOccurrence.mock.calls[1][1].commandId
+				expect(first).not.toBe(second)
+			})
+
+			it('propagates a 409 untouched so the caller keeps the draft', async () => {
+				const { amendOccurrence } = require('../../../src/services/api.js')
+				const conflict = new Error('Conflict')
+				conflict.status = 409
+				amendOccurrence.mockRejectedValue(conflict)
+
+				await expect(store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true }))
+					.rejects.toMatchObject({ status: 409 })
+			})
+
+			it('sends consent=false through unchanged (the caller gates the attestation)', async () => {
+				const { amendOccurrence } = require('../../../src/services/api.js')
+				amendOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
+
+				await store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: false })
+
+				expect(amendOccurrence).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ consent: false }))
 			})
 		})
 

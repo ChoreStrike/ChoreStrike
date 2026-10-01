@@ -32,8 +32,8 @@
 							{{ houseName }}
 						</h1>
 					</div>
-					<p class="tagline">
-						{{ t('chorestrike', 'Defend your Home Base. Together.') }}
+					<p class="tagline" data-testid="dashboard-tagline">
+						{{ t('chorestrike', 'Your household, organized together.') }}
 					</p>
 					<button v-if="roomsStore.floors.length === 0 && userStore.isHouseOwner"
 						class="primary-button setup-entry-button"
@@ -58,7 +58,6 @@
 					class="quick-stats-section"
 					data-testid="quick-stats"
 					@toggle-private-filter="handleTogglePrivateFilter" />
-				<ArcadeSection class="arcade-section" data-testid="arcade-section" />
 				<FloorList class="floor-list-section" data-testid="floor-list" />
 			</main>
 		</template>
@@ -87,7 +86,6 @@ import HouseHealthBar from '../components/Dashboard/HouseHealthBar.vue'
 import HouseholdGoalBar from '../components/Dashboard/HouseholdGoalBar.vue'
 import QuickStats from '../components/Dashboard/QuickStats.vue'
 import FloorList from '../components/Dashboard/FloorList.vue'
-import ArcadeSection from '../components/Dashboard/ArcadeSection.vue'
 import SetupWizard, { isWizardDismissedForHouse } from '../components/Setup/SetupWizard.vue'
 
 export default {
@@ -100,7 +98,6 @@ export default {
 		HouseholdGoalBar,
 		QuickStats,
 		FloorList,
-		ArcadeSection,
 		SetupWizard,
 	},
 

@@ -7,7 +7,7 @@
 	<div class="room-detail" data-testid="room-detail-view">
 		<header class="room-header">
 			<div class="header-content">
-				<router-link to="/" class="back-link" data-testid="back-link">
+				<router-link :to="{ name: 'dashboard' }" class="back-link" data-testid="back-link">
 					<Icon name="ArrowLeft" :size="20" />
 					{{ t('chorestrike', 'Back to Dashboard') }}
 				</router-link>
@@ -601,7 +601,9 @@ export default {
 
 		/**
 		 * Owner-only room delete — deletes the room and returns to the
-		 * Dashboard (the room no longer exists to render).
+		 * Dashboard (the room no longer exists to render). The explicit
+		 * named route keeps the post-delete return on the Dashboard — the
+		 * bare root lands on My Day for every role (CS-PLAN-070 WP6).
 		 */
 		async confirmDeleteRoom() {
 			this.deletingRoom = true
@@ -609,7 +611,7 @@ export default {
 				await this.roomsStore.deleteRoom(this.roomId)
 				showSuccess(t('chorestrike', 'Room deleted'))
 				this.roomToDelete = false
-				this.$router.push('/')
+				this.$router.push({ name: 'dashboard' })
 			} catch (error) {
 				showError(t('chorestrike', 'Failed to delete room'))
 				logger.error('Failed to delete room', error, { view: 'RoomDetail', action: 'confirmDeleteRoom', roomId: this.roomId })

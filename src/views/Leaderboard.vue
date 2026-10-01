@@ -73,9 +73,23 @@
 					</span>
 				</div>
 
+				<!-- A11y pass (CS-PLAN-070 WP6 §3.6, T7): week and
+				     provisional-state changes are announced politely without
+				     moving focus. -->
+				<p class="visually-hidden"
+					role="status"
+					aria-live="polite"
+					data-testid="ranking-status">
+					{{ statusAnnouncement }}
+				</p>
+
 				<!-- Ranked entries (consented members only) -->
-				<div v-if="rankingStore.entries.length > 0" class="leaderboard-list" data-testid="leaderboard-list">
-					<div class="list-header">
+				<div v-if="rankingStore.entries.length > 0"
+					class="leaderboard-list"
+					data-testid="leaderboard-list"
+					role="list"
+					:aria-label="t('chorestrike', 'Ranked household members')">
+					<div class="list-header" aria-hidden="true">
 						<span class="rank-col">#</span>
 						<span class="user-col">{{ t('chorestrike', 'Player') }}</span>
 						<span class="ratio-col">{{ t('chorestrike', 'On time') }}</span>
@@ -85,6 +99,7 @@
 						v-for="entry in rankingStore.entries"
 						:key="entry.houseUserId"
 						class="leaderboard-row"
+						role="listitem"
 						data-testid="leaderboard-entry"
 						:class="{ 'current-user': entry.isMe, neutral: entry.neutral }">
 						<span class="rank-col" data-testid="user-rank">
@@ -181,6 +196,23 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * A11y pass (T7): the polite live-region text mirrors the visible
+		 * week/provisional state so screen-reader users hear state
+		 * changes without focus movement.
+		 */
+		statusAnnouncement() {
+			if (!this.rankingStore.rankingEnabled) {
+				return this.t('chorestrike', 'Weekly ranking is off')
+			}
+			if (this.rankingStore.entries.length === 0) {
+				return this.t('chorestrike', 'Nobody is ranked yet')
+			}
+			return this.isProvisional
+				? this.t('chorestrike', 'Provisional — days are still open')
+				: this.t('chorestrike', 'The weekly ranking is final.')
+		},
+
 		hasConsented() {
 			return this.rankingStore.me?.state === 'effective'
 		},
@@ -342,6 +374,19 @@ export default {
 	align-items: center;
 	gap: 0.75rem;
 	font-weight: 500;
+}
+
+/* Screen-reader-only live region (T7 a11y pass). */
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
 }
 
 .provisional-badge {

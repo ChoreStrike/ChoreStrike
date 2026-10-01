@@ -145,4 +145,99 @@ export function updateMyPreferences(payload) {
 	return put('/api/v1/preferences/me', payload)
 }
 
+// Pause API (CS-PLAN-073 WP2 §3.5, consumed by the WP6 pause UI): the
+// revisioned pause lifecycle with command UUIDs and expectedRevision.
+
+/**
+ * GET the viewer-safe pause list (bounded; pending personal requests are
+ * self/owner data).
+ * @return {Promise<Array>} Viewer-whitelisted pause entries.
+ */
+export function fetchPauses() {
+	return get('/api/v1/pauses')
+}
+
+/**
+ * POST a pause: personal for the caller (child → pending request, adult
+ * → acknowledged) or household (owner only) when `scope: 'house'`.
+ * @param {object} payload {commandId, startDate, endDate, reasonCode, scope?}.
+ * @return {Promise<object>} Identity refs {pauseGroupId, revision, state}.
+ */
+export function createPause(payload) {
+	return post('/api/v1/pauses', payload)
+}
+
+/**
+ * POST the explicit retrospective-illness recognition (owner only).
+ * @param {object} payload {commandId, subjectUserId, startDate, endDate}.
+ * @return {Promise<object>} Identity refs.
+ */
+export function recognizeIllness(payload) {
+	return post('/api/v1/pauses/recognize-illness', payload)
+}
+
+/**
+ * POST the owner approval of a pending pause request.
+ * @param {number} id Pause group id.
+ * @param {object} payload {commandId, expectedRevision}.
+ * @return {Promise<object>} Identity refs.
+ */
+export function approvePause(id, payload) {
+	return post(`/api/v1/pauses/${id}/approve`, payload)
+}
+
+/**
+ * POST the owner rejection of a pending pause request.
+ * @param {number} id Pause group id.
+ * @param {object} payload {commandId, expectedRevision}.
+ * @return {Promise<object>} Identity refs.
+ */
+export function rejectPause(id, payload) {
+	return post(`/api/v1/pauses/${id}/reject`, payload)
+}
+
+/**
+ * PUT the next-day shortening/revocation of an acknowledged pause.
+ * @param {number} id Pause group id.
+ * @param {object} payload {commandId, endDate, expectedRevision}.
+ * @return {Promise<object>} Identity refs.
+ */
+export function updatePause(id, payload) {
+	return put(`/api/v1/pauses/${id}`, payload)
+}
+
+// Occurrence agreement API (CS-PLAN-073 WP2 §3.5, consumed by the WP6
+// entry points): owner-recorded single-occurrence agreements. `{id}` is
+// the public occurrence key `<scheduleRevisionId>:<ordinal>`.
+
+/**
+ * POST the owner-recorded single-occurrence amendment (date/handover).
+ * @param {string} id Public occurrence key.
+ * @param {object} payload {roomTaskId, commandId, occurrenceId, expectedVersion, selectionToken, consent, date?, participants?}.
+ * @return {Promise<object>} Identity refs {occurrenceId, expectedVersion}.
+ */
+export function amendOccurrence(id, payload) {
+	return post(`/api/v1/occurrences/${id}/amend`, payload)
+}
+
+/**
+ * POST the agreed catch-up work appointment on the current miss.
+ * @param {string} id Public occurrence key.
+ * @param {object} payload {roomTaskId, commandId, occurrenceId, expectedVersion, selectionToken, consent, workDate, workZone?, participants?}.
+ * @return {Promise<object>} Identity refs.
+ */
+export function catchUpOccurrence(id, payload) {
+	return post(`/api/v1/occurrences/${id}/catch-up`, payload)
+}
+
+/**
+ * POST the linked restart of a neutrally suspended interval predecessor.
+ * @param {string} id Public occurrence key.
+ * @param {object} payload {roomTaskId, commandId, occurrenceId, expectedVersion, consent, workDate}.
+ * @return {Promise<object>} Identity refs.
+ */
+export function restartOccurrence(id, payload) {
+	return post(`/api/v1/occurrences/${id}/restart`, payload)
+}
+
 export default api

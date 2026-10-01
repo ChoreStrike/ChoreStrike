@@ -16,15 +16,15 @@
 		<template v-else>
 			<NcAppNavigation>
 				<NcAppNavigationItem
-					:to="{ name: 'dashboard' }"
-					icon="icon-home"
-					data-testid="nav-dashboard"
-					:name="t('chorestrike', 'Dashboard')" />
-				<NcAppNavigationItem
 					:to="{ name: 'today' }"
 					icon="icon-clock"
 					data-testid="nav-today"
 					:name="t('chorestrike', 'My Day')" />
+				<NcAppNavigationItem
+					:to="{ name: 'dashboard' }"
+					icon="icon-home"
+					data-testid="nav-dashboard"
+					:name="t('chorestrike', 'Dashboard')" />
 				<NcAppNavigationItem
 					:to="{ name: 'tasks' }"
 					icon="icon-checkmark"
@@ -50,11 +50,23 @@
 					icon="icon-calendar-dark"
 					data-testid="nav-calendar"
 					:name="t('chorestrike', 'Calendar')" />
+				<!-- Optional-area gating (C5h, Q-077-05): the opt-in arcade
+				     surface disappears from the navigation entirely while the
+				     personal arcadeVisible preference is off. -->
+				<NcAppNavigationItem
+					v-if="arcadeVisible"
+					:to="{ name: 'arcade' }"
+					icon="icon-game"
+					data-testid="nav-arcade"
+					:name="t('chorestrike', 'Arcade')" />
 				<NcAppNavigationItem
 					:to="{ name: 'settings' }"
 					icon="icon-settings"
 					data-testid="nav-settings"
 					:name="t('chorestrike', 'Settings')" />
+				<!-- Essential help slice (FEAT-UX-023, WP6 §3.7): the plain
+				     glossary, always reachable from the navigation. -->
+				<HelpEntry />
 			</NcAppNavigation>
 
 			<NcAppContent>
@@ -76,8 +88,10 @@ import {
 import { mapStores } from 'pinia'
 import UndoSnackbar from './components/Common/UndoSnackbar.vue'
 import NotAuthorizedState from './components/Common/NotAuthorizedState.vue'
+import HelpEntry from './components/Help/HelpEntry.vue'
 import { useUserStore } from './store/user.js'
-import { landingRouteForRole } from './router.js'
+import { usePreferencesStore } from './store/preferences.js'
+import { resetIdentityStores } from './composables/useStoreReset.js'
 
 export default {
 	name: 'App',
@@ -89,63 +103,36 @@ export default {
 		NcAppContent,
 		UndoSnackbar,
 		NotAuthorizedState,
-	},
-
-	data() {
-		return {
-			// CS-PLAN-066 (D4): the child landing redirect is a ONE-SHOT for
-			// the initial unqualified root visit — later explicit navigation
-			// back to the Dashboard stays allowed.
-			childLandingApplied: false,
-		}
+		HelpEntry,
 	},
 
 	computed: {
-		...mapStores(useUserStore),
+		...mapStores(useUserStore, usePreferencesStore),
 		membershipDenied() {
 			return this.userStore.membership === 'denied'
 		},
-	},
-
-	watch: {
-		// Membership resolution is async (userAutoInit fires the request);
-		// apply the landing decision as soon as the role is known.
-		'userStore.membership'() {
-			this.applyChildLanding()
+		/**
+		 * Optional-area consumer (C5h, Q-077-05): the arcade is an opt-in
+		 * surface — default-on, hideable per person. The preference loads
+		 * with the app's own Settings surface; before the first fetch the
+		 * persisted default (visible) applies.
+		 */
+		arcadeVisible() {
+			return this.preferencesStore.arcadeVisible !== false
 		},
-	},
-
-	mounted() {
-		this.applyChildLanding()
 	},
 
 	methods: {
 		t,
 		handleRetry() {
-			this.userStore.reset()
+			// CS-PLAN-070 WP6 §3.8 (C5h): a re-loaded identity drops EVERY
+			// house-scoped store first — a shared device never renders a
+			// previous login's data.
+			resetIdentityStores()
 			this.userStore.initializeCurrentUser().catch(() => {
 				// State stays 'denied' on another 403; single transient
 				// failures recover through the in-flight dedup retry.
 			})
-		},
-		/**
-		 * D4: after membership resolves, redirect ONLY the initial
-		 * unqualified root visit of a child to the shared My Day surface.
-		 * Deep links and permitted shared screens remain usable; owner and
-		 * member keep the Dashboard default.
-		 */
-		applyChildLanding() {
-			if (this.childLandingApplied) {
-				return
-			}
-			if (this.userStore.membership !== 'member') {
-				return
-			}
-			this.childLandingApplied = true
-			const target = landingRouteForRole(this.userStore.role, this.$route)
-			if (target) {
-				this.$router.replace(target)
-			}
 		},
 	},
 }

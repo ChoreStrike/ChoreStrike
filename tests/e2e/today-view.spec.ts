@@ -30,7 +30,7 @@ test.describe('Release: Today view', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 
 			await page.getByTestId('nav-today').click()
@@ -58,7 +58,7 @@ test.describe('Release: Today view', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 
 			await page.getByTestId('nav-today').click()
@@ -89,7 +89,7 @@ test.describe('Release: Today view', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 
 			await page.getByTestId('nav-today').click()

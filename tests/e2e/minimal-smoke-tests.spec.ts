@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Minimal Smoke Tests', () => {
 	test('App loads with title and visible shell', async ({ page }) => {
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 
 		const title = await page.title()
@@ -34,7 +34,7 @@ test.describe('Minimal Smoke Tests', () => {
 			}
 		})
 
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 
 		expect(errors).toHaveLength(0)

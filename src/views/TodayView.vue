@@ -38,6 +38,41 @@
 		</div>
 
 		<template v-else>
+			<!-- Calm progress line (C5f, C1e/C1f): the small confirmed
+			     streak plus the shared weekly-goal progress. Provisional
+			     while today's window is open; neutral wording, no Coins,
+			     no raw-activity metrics. -->
+			<div
+				v-if="hasProgress"
+				class="progress-line"
+				data-testid="today-progress-line"
+				role="status">
+				<span class="progress-item" data-testid="today-streak">
+					<Icon name="Flame" :size="16" class="progress-icon" />
+					{{ confirmedStreakLabel }}
+				</span>
+				<span class="progress-item" data-testid="today-weekly-goal">
+					<Icon name="Target" :size="16" class="progress-icon" />
+					{{ t('chorestrike', 'Shared weekly goal: {percent}% of {target}%', {
+						percent: weeklyGoal.percent,
+						target: weeklyGoal.targetPercent,
+					}) }}
+				</span>
+			</div>
+
+			<!-- Overload clarification (C5f): neutral, amounts visible,
+			     invites the owner to replan — never a threat. -->
+			<div
+				v-if="overload"
+				class="overload-banner"
+				data-testid="today-overload"
+				role="status">
+				<Icon name="AlertTriangle" :size="18" class="overload-icon" />
+				<p class="overload-text">
+					{{ t('chorestrike', '{total} of {capacity} daily capacity is planned or still outstanding. It is too much for one day — the house owner can replan it.', overload) }}
+				</p>
+			</div>
+
 			<!-- Partial derived refresh (CS-PLAN-066 D3): a committed action
 			     stays successful; stale projections surface a read-only
 			     retry — never a write replay. -->
@@ -55,15 +90,19 @@
 				</button>
 			</div>
 
-			<section v-if="visibleOverdueItems.length > 0" class="today-section overdue">
-				<h2 data-testid="today-section-overdue">
-					<Icon name="AlertCircle" :size="18" class="section-icon" />
-					{{ t('chorestrike', 'Overdue') }}
+			<!-- Catch-up (C5f, C1c/C1d): ONE card per chore with an
+			     unfulfilled miss. The attributed planned date and window
+			     stay visible; completing the shown occurrence covers the
+			     miss without relabeling it as on time. -->
+			<section v-if="visibleCatchUpItems.length > 0" class="today-section catchup" data-testid="today-section-catchup">
+				<h2>
+					<Icon name="Undo" :size="18" class="section-icon" />
+					{{ t('chorestrike', 'Catch-up') }}
 				</h2>
 				<div class="task-rows">
-					<div v-for="item in visibleOverdueItems" :key="item.roomTask.id" class="today-row-group">
+					<div v-for="item in visibleCatchUpItems" :key="item.roomTask.id" class="today-row-group">
 						<div
-							class="task-row overdue"
+							class="task-row catchup"
 							:class="{ completed: !item.roomTask.isActive }"
 							data-testid="today-task-item">
 							<button
@@ -83,6 +122,12 @@
 							<div class="task-info">
 								<span class="task-name">{{ item.task.name }}</span>
 								<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
+								<p v-if="catchUpDateLabel(item)" class="task-catchup-meta" data-testid="catchup-planned">
+									{{ catchUpDateLabel(item) }}
+								</p>
+								<p class="task-catchup-hint">
+									{{ t('chorestrike', 'Completing it now covers the miss — it stays a catch-up.') }}
+								</p>
 								<p v-if="taskInstructions(item)" class="task-instructions">
 									{{ taskInstructions(item) }}
 								</p>
@@ -176,9 +221,32 @@
 				</p>
 			</section>
 
+			<!-- Next appointments (C5f): upcoming AGREED occurrences from
+			     the delivered range read — read-only, no unsolicited
+			     backlog, no optional work. -->
+			<section v-if="nextAppointments.length > 0" class="today-section appointments" data-testid="today-section-appointments">
+				<h2>
+					<Icon name="Calendar" :size="18" class="section-icon" />
+					{{ t('chorestrike', 'Next appointments') }}
+				</h2>
+				<ul class="appointment-list">
+					<li
+						v-for="appointment in nextAppointments"
+						:key="`${appointment.occurrenceId}`"
+						class="appointment-row"
+						data-testid="today-appointment">
+						<span class="appointment-date">{{ appointment.dateLabel }}</span>
+						<span class="appointment-name">{{ appointment.task?.name }}</span>
+						<span class="appointment-room">{{ appointment.room?.name || t('chorestrike', 'Room') }}</span>
+					</li>
+				</ul>
+			</section>
+
+			<!-- Free day (C5f): a NEUTRAL empty state — no engagement
+			     prompt, no pressure, no celebration promise. -->
 			<div v-if="isEmpty" class="empty-state" data-testid="today-empty-state">
 				<Icon name="Sun" :size="48" />
-				<p>{{ t('chorestrike', 'All done — enjoy your day!') }}</p>
+				<p>{{ t('chorestrike', 'Nothing is planned for today.') }}</p>
 			</div>
 		</template>
 
@@ -200,12 +268,16 @@ import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useHouseStore } from '../store/house.js'
 import { useChecklistStore } from '../store/checklist.js'
 import { useUserStore } from '../store/user.js'
+import { useGameStore } from '../store/game.js'
+import { useSchedulingStore } from '../store/scheduling.js'
 import { logger } from '../utils/logger.js'
-import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
+import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import TaskChecklist from '../components/Tasks/TaskChecklist.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
+
+const APPOINTMENT_LIMIT = 5
 
 export default {
 	name: 'TodayView',
@@ -222,7 +294,9 @@ export default {
 		const houseStore = useHouseStore()
 		const checklistStore = useChecklistStore()
 		const userStore = useUserStore()
-		return { roomTasksStore, houseStore, checklistStore, userStore }
+		const gameStore = useGameStore()
+		const schedulingStore = useSchedulingStore()
+		return { roomTasksStore, houseStore, checklistStore, userStore, gameStore, schedulingStore }
 	},
 
 	data() {
@@ -298,13 +372,83 @@ export default {
 			return this.todayItems.filter(item => this.isMine(item))
 		},
 
-		visibleOverdueItems() {
+		visibleCatchUpItems() {
 			if (this.filter === 'all') return this.overdueItems
 			return this.overdueItems.filter(item => this.isMine(item))
 		},
 
 		isEmpty() {
-			return this.visibleTodayItems.length === 0 && this.visibleOverdueItems.length === 0
+			return this.visibleTodayItems.length === 0 && this.visibleCatchUpItems.length === 0
+		},
+
+		/**
+		 * Calm progress line (C1e/C1f): the server-evaluated confirmed
+		 * streak and the shared weekly-goal snapshot. Hidden entirely when
+		 * neither exists (fresh households) — never a zero-pressure prompt.
+		 */
+		hasProgress() {
+			return this.gameStore.gameState !== null
+		},
+
+		confirmedStreakLabel() {
+			const confirmed = this.gameStore.rhythm.confirmed
+			if (this.gameStore.rhythm.pending) {
+				return t('chorestrike', '{days} days confirmed — today pending', { days: confirmed })
+			}
+			return t('chorestrike', '{days} days confirmed', { days: confirmed })
+		},
+
+		weeklyGoal() {
+			return this.gameStore.weeklyGoal
+		},
+
+		/**
+		 * Overload clarification (C5f): planned + outstanding work exceeds
+		 * the member's capacity for today — the capacity facts come from
+		 * the delivered scheduling read surface, the amounts stay visible
+		 * and the invitation targets the owner replan, never the member.
+		 * Pure presentation aggregation of server facts — the capacity
+		 * policy itself stays server-side.
+		 */
+		overload() {
+			const capacity = this.schedulingStore.getCapacityForDay(weekdayOfKey(todayKeyInZone(this.houseStore.timezone)))
+			if (!Number.isFinite(capacity)) return null
+			const planned = this.visibleTodayItems
+				.filter(item => item.roomTask.isActive)
+				.reduce((sum, item) => sum + (item.task?.energyCost ?? 0), 0)
+			const outstanding = this.visibleCatchUpItems
+				.reduce((sum, item) => sum + (item.task?.energyCost ?? 0), 0)
+			const total = planned + outstanding
+			if (total === 0 || total <= capacity) return null
+			return { total, capacity }
+		},
+
+		/**
+		 * Next appointments (C5f): the next AGREED, unfulfilled occurrences
+		 * from the delivered range read (today onward). Projections and
+		 * already-completed occurrences never render — no unsolicited
+		 * backlog, no optional work.
+		 */
+		nextAppointments() {
+			const todayKey = todayKeyInZone(this.houseStore.timezone)
+			const appointments = []
+			for (const item of this.roomTasksStore.rangeTasks.scheduled) {
+				const details = Array.isArray(item.occurrenceDetails) ? item.occurrenceDetails : []
+				for (const detail of details) {
+					if (detail.classification !== 'agreed') continue
+					if (detail.fulfilled === true) continue
+					if (!detail.date || detail.date < todayKey) continue
+					appointments.push({
+						occurrenceId: detail.occurrenceId,
+						task: item.task,
+						room: item.room,
+						date: detail.date,
+						dateLabel: this.formatDayKey(detail.date),
+					})
+				}
+			}
+			appointments.sort((a, b) => a.date.localeCompare(b.date))
+			return appointments.slice(0, APPOINTMENT_LIMIT)
 		},
 	},
 
@@ -355,12 +499,32 @@ export default {
 					// Count projections refresh opportunistically; the view
 					// rows do not depend on them.
 				})
+				this.loadSidePanels()
 			} catch (error) {
 				this.error = true
 				logger.error('Failed to load today view', error, { view: 'TodayView', action: 'load' })
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * The calm side panels (progress line, next appointments, overload
+		 * facts) are OPTIONAL reads: a failure leaves the panel absent or
+		 * stale — never an error state for the day's work.
+		 */
+		loadSidePanels() {
+			const from = todayKeyInZone(this.houseStore.timezone)
+			const to = addDaysToKey(from, 7)
+			this.roomTasksStore.fetchRangeTasks(from, to).catch((error) => {
+				logger.error('Failed to load the appointment window', error, { view: 'TodayView', action: 'loadSidePanels' })
+			})
+			this.gameStore.fetchGameState().catch((error) => {
+				logger.error('Failed to load the progress snapshot', error, { view: 'TodayView', action: 'loadSidePanels' })
+			})
+			this.schedulingStore.fetchUserPreferences().catch((error) => {
+				logger.error('Failed to load the capacity facts', error, { view: 'TodayView', action: 'loadSidePanels' })
+			})
 		},
 
 		async retryDerivedRefresh() {
@@ -434,7 +598,7 @@ export default {
 			this.completingIds = new Set(this.completingIds).add(roomTaskId)
 			try {
 				// Participant-less completion omits the options entirely —
-				// the server credits the effective concrete agreement.
+				// the server credits the effective agreement.
 				if (Object.keys(options).length > 0) {
 					await this.roomTasksStore.completeRoomTask(roomTaskId, options)
 				} else {
@@ -458,6 +622,25 @@ export default {
 				next.delete(roomTaskId)
 				this.completingIds = next
 			}
+		},
+
+		/**
+		 * The attributed planned date and window of the catch-up card
+		 * (C1c): straight from the occurrence block of the delivered
+		 * overdue read — never recomputed client-side.
+		 * @param {object} item Enriched overdue row.
+		 * @return {string} The label (empty when no occurrence block).
+		 */
+		catchUpDateLabel(item) {
+			const occurrence = item.occurrence ?? item.roomTask?.occurrence
+			if (!occurrence?.plannedDate) return ''
+			const windowLabel = occurrence.windowEnd
+				? t('chorestrike', 'planned {date}, until {time}', {
+					date: this.formatDayKey(occurrence.plannedDate),
+					time: this.formatTime(occurrence.windowEnd),
+				})
+				: t('chorestrike', 'planned {date}', { date: this.formatDayKey(occurrence.plannedDate) })
+			return windowLabel
 		},
 
 		/**
@@ -532,6 +715,19 @@ export default {
 			return dateKeyInZone(roomTask.nextDue, this.houseStore.timezone)
 				=== todayKeyInZone(this.houseStore.timezone)
 		},
+
+		formatDayKey(key) {
+			if (!key) return '—'
+			const [year, month, day] = key.split('-').map(Number)
+			return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+		},
+
+		formatTime(iso) {
+			if (!iso) return '—'
+			const date = new Date(iso)
+			if (Number.isNaN(date.getTime())) return '—'
+			return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+		},
 	},
 }
 </script>
@@ -584,6 +780,54 @@ export default {
 	color: var(--color-primary-text);
 }
 
+.progress-line {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	flex-wrap: wrap;
+	padding: 0.5rem 1rem;
+	margin-bottom: 1rem;
+	border: 1px solid var(--color-border);
+	border-radius: 10px;
+	background: var(--color-background-dark);
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9rem;
+}
+
+.progress-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.progress-icon {
+	color: var(--color-text-maxcontrast);
+}
+
+.overload-banner {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	margin-bottom: 1rem;
+	border: 1px solid var(--color-border);
+	border-inline-start: 3px solid var(--color-warning);
+	border-radius: 10px;
+	background: var(--color-background-dark);
+}
+
+.overload-icon {
+	color: var(--color-warning);
+	margin-top: 0.15rem;
+}
+
+.overload-text {
+	margin: 0;
+	color: var(--color-main-text);
+	font-size: 0.9rem;
+	line-height: 1.4;
+}
+
 .refresh-banner {
 	display: flex;
 	align-items: center;
@@ -618,10 +862,6 @@ export default {
 	margin: 0 0 1rem 0;
 }
 
-.today-section.overdue h2 {
-	color: var(--color-error);
-}
-
 .section-icon {
 	color: currentColor;
 }
@@ -642,8 +882,9 @@ export default {
 	border-radius: 12px;
 }
 
-.task-row.overdue {
-	border-color: var(--color-error);
+.task-row.catchup {
+	border-color: var(--color-border);
+	border-inline-start: 3px solid var(--color-warning);
 }
 
 .task-row.completed {
@@ -720,6 +961,18 @@ export default {
 	color: var(--color-text-maxcontrast);
 }
 
+.task-catchup-meta {
+	margin: 0.25rem 0 0 0;
+	font-size: 0.85rem;
+	color: var(--color-main-text);
+}
+
+.task-catchup-hint {
+	margin: 0;
+	font-size: 0.8rem;
+	color: var(--color-text-maxcontrast);
+}
+
 /* Plain escaped user content — short instructions for the whole family. */
 .task-instructions {
 	margin: 0.25rem 0 0 0;
@@ -731,6 +984,41 @@ export default {
 
 .today-checklist {
 	margin-top: -0.25rem;
+}
+
+.appointment-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.appointment-row {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 0.6rem 1rem;
+	background: var(--color-background-dark);
+	border-radius: 10px;
+	font-size: 0.95rem;
+}
+
+.appointment-date {
+	min-width: 7.5rem;
+	color: var(--color-text-maxcontrast);
+	font-variant-numeric: tabular-nums;
+}
+
+.appointment-name {
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.appointment-room {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
 }
 
 .section-empty {
@@ -762,6 +1050,11 @@ export default {
 
 	.task-row {
 		flex-wrap: wrap;
+	}
+
+	.appointment-row {
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
 	}
 }
 </style>

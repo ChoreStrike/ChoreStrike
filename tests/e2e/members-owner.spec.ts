@@ -23,7 +23,7 @@ const ADMIN_EMAIL = 'admin@chorestrike.test'
 test.describe.configure({ mode: 'serial' })
 
 async function openMembersSection(page: import('@playwright/test').Page) {
-	await page.goto('/apps/chorestrike/')
+	await page.goto('/apps/chorestrike/#/dashboard')
 	await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 	await page.getByTestId('nav-settings').click()
 	await page.getByTestId('settings-view').waitFor({ state: 'visible' })

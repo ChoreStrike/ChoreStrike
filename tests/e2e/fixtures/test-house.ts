@@ -50,7 +50,7 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 	}
 
 	// Navigate to settings
-	await page.goto('/apps/chorestrike/')
+	await page.goto('/apps/chorestrike/#/dashboard')
 	await page.waitForLoadState('networkidle')
 	await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
 

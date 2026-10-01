@@ -300,7 +300,7 @@
     "settings.spec.ts > Settings > User can type in house name field"
   ],
   "snake-game.spec.ts": [
-    "snake-game.spec.ts > Snake Arcade Game > Arcade section is visible on dashboard",
+    "snake-game.spec.ts > Snake Arcade Game > Arcade surface is reachable and stays scores-only",
     "snake-game.spec.ts > Snake Arcade Game > Game over screen shows the score (no coin outputs)",
     "snake-game.spec.ts > Snake Arcade Game > Leaderboard can be opened from arcade section",
     "snake-game.spec.ts > Snake Arcade Game > Leaderboard tabs switch between all-time and weekly",
@@ -310,6 +310,12 @@
     "snake-game.spec.ts > Snake Arcade Game > User can pause and resume game",
     "snake-game.spec.ts > Snake Arcade Game > User can play again after game over",
     "snake-game.spec.ts > Snake Arcade Game > User can start Snake game"
+  ],
+  "calm-core-ui.spec.ts": [
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > My Day stays Coin-free while the wallet stays in the secondary overview",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > every role lands on My Day and the Dashboard stays reachable as the secondary overview",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the pause lifecycle stays neutral through request, owner decision and early end"
   ],
   "task-completion.spec.ts": [
     "task-completion.spec.ts > Task Creation and Completion > Completion offers Undo which restores the task (CS-PLAN-041)",

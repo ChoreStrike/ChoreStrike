@@ -37,8 +37,17 @@ describe('sound utility', () => {
 		delete global.webkitAudioContext
 	})
 
-	it('plays a sound with the correct profile', () => {
+	it('is silent by default — the personal opt-in gates all playback (C5g)', () => {
 		soundModule = require('@/utils/sound')
+		soundModule.playSound('complete')
+
+		expect(mockContext.createOscillator).not.toHaveBeenCalled()
+		expect(soundModule.isSoundEnabled()).toBe(false)
+	})
+
+	it('plays a sound with the correct profile after the explicit opt-in', () => {
+		soundModule = require('@/utils/sound')
+		soundModule.setSoundEnabled(true)
 		soundModule.playSound('complete')
 
 		expect(mockContext.createOscillator).toHaveBeenCalled()
@@ -46,8 +55,9 @@ describe('sound utility', () => {
 		expect(mockOscillator.stop).toHaveBeenCalled()
 	})
 
-	it('does not play when muted', () => {
+	it('does not play when muted, even with the opt-in set', () => {
 		soundModule = require('@/utils/sound')
+		soundModule.setSoundEnabled(true)
 		soundModule.setMuted(true)
 		soundModule.playSound('complete')
 
@@ -65,8 +75,18 @@ describe('sound utility', () => {
 		expect(soundModule.isMuted()).toBe(false)
 	})
 
+	it('a revoked opt-in silences the next effect', () => {
+		soundModule = require('@/utils/sound')
+		soundModule.setSoundEnabled(true)
+		soundModule.setSoundEnabled(false)
+		soundModule.playSound('complete')
+
+		expect(mockContext.createOscillator).not.toHaveBeenCalled()
+	})
+
 	it('ignores unknown sound names', () => {
 		soundModule = require('@/utils/sound')
+		soundModule.setSoundEnabled(true)
 		soundModule.playSound('nonexistent')
 
 		expect(mockContext.createOscillator).not.toHaveBeenCalled()

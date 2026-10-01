@@ -17,6 +17,16 @@ export const useGameStore = defineStore('game', {
 		wallet: null,
 		contributionMinor: 0,
 		stateVersion: 0,
+		// CS-PLAN-070 WP4 read contract: the caller's own rhythm
+		// projection (confirmed/current/best + the pending-hold
+		// indicator). Pure server payload — My Day renders the confirmed
+		// streak with its pending/neutral state from this slice only.
+		rhythm: {
+			confirmed: 0,
+			current: 0,
+			best: 0,
+			pending: false,
+		},
 		loading: false,
 		error: null,
 		// The weekly household goal snapshot returned by
@@ -79,6 +89,14 @@ export const useGameStore = defineStore('game', {
 				}
 				if (Number.isFinite(data.stateVersion)) {
 					this.stateVersion = data.stateVersion
+				}
+				if (data?.rhythm && typeof data.rhythm === 'object') {
+					this.rhythm = {
+						confirmed: Number.isFinite(data.rhythm.confirmed) ? data.rhythm.confirmed : 0,
+						current: Number.isFinite(data.rhythm.current) ? data.rhythm.current : 0,
+						best: Number.isFinite(data.rhythm.best) ? data.rhythm.best : 0,
+						pending: data.rhythm.pending === true,
+					}
 				}
 
 				// CS-PLAN-066 (D5): hydration — silent. First load, Dashboard
@@ -259,6 +277,12 @@ export const useGameStore = defineStore('game', {
 			this.medals = []
 			this.loading = false
 			this.error = null
+			this.rhythm = {
+				confirmed: 0,
+				current: 0,
+				best: 0,
+				pending: false,
+			}
 			this.householdProgress = {
 				weeklyGoal: {
 					dueCount: 0,

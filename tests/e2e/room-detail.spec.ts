@@ -14,7 +14,7 @@ import { expandUntilRoomVisible } from './fixtures/dashboard-floors'
 test.describe('Room Detail', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 	})
 

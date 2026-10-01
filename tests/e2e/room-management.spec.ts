@@ -27,7 +27,7 @@ test.describe('Room and Floor Management', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
@@ -188,7 +188,7 @@ test.describe('Room and Floor Management', () => {
 
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			// CS-PLAN-066 (D4): a child lands on My Day, a member on the
 			// Dashboard — the non-owner surface contract is the same.
 			await page.getByTestId('dashboard-view')

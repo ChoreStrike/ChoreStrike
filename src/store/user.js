@@ -7,7 +7,6 @@ import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
 import { translate as t } from '@nextcloud/l10n'
 import { logger } from '../utils/logger.js'
-import { usePreferencesStore } from './preferences.js'
 
 export const useUserStore = defineStore('user', {
 	state: () => ({
@@ -306,7 +305,10 @@ export const useUserStore = defineStore('user', {
 		},
 
 		/**
-		 * Reset store state
+		 * Reset store state. Own state only — the central identity-switch
+		 * orchestration (CS-PLAN-070 WP6 §3.8, C5h) lives in the
+		 * dedicated reset composable and calls this first, so the store
+		 * dependency graph stays a DAG (CS-PLAN-067 §3.1 D3 pin).
 		 */
 		reset() {
 			// CS-PLAN-066 §3.3: identity change — invalidate any in-flight
@@ -320,10 +322,6 @@ export const useUserStore = defineStore('user', {
 			this.loading = false
 			this.error = null
 			this.membership = 'unknown'
-			// CS-PLAN-070 WP5 (C5h): preferences are membership-keyed — an
-			// identity/house switch drops the local preference state like
-			// every other store.
-			usePreferencesStore().reset()
 		},
 	},
 })

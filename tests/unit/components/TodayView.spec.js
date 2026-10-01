@@ -4,7 +4,13 @@ import { createPinia, setActivePinia } from 'pinia'
 import TodayView from '@/views/TodayView.vue'
 
 jest.mock('@nextcloud/l10n', () => ({
-	translate: jest.fn((app, text) => text),
+	// Interpolating mock so placeholder-driven copy (the progress line,
+	// the overload amounts) can be asserted like the real UI renders it.
+	translate: jest.fn((app, text, params) => {
+		if (!params) return text
+		return Object.entries(params)
+			.reduce((acc, [key, value]) => acc.replaceAll(`{${key}}`, String(value)), text)
+	}),
 }))
 
 jest.mock('@nextcloud/dialogs', () => ({
@@ -58,6 +64,22 @@ const overdueFixture = () => ([
 		task: { id: 4, name: 'Take out trash', energyCost: 2 },
 		room: { id: 2, name: 'Living Room' },
 		assignees: ['dad'],
+		// WP2/WP6: the overdue read carries the occurrence block of the
+		// shown miss — the catch-up card renders its planned date/window.
+		occurrence: {
+			occurrenceId: '12:1',
+			expectedVersion: 3,
+			selectionToken: 'token-30',
+			classification: 'late',
+			kind: 'scheduled',
+			plannedDate: '2026-08-18',
+			workDate: '2026-08-18',
+			windowStart: '2026-08-18T06:00:00+00:00',
+			windowEnd: '2026-08-18T20:00:00+00:00',
+			suspended: false,
+			fulfilled: false,
+			covered: false,
+		},
 	},
 ])
 
@@ -65,6 +87,8 @@ let mockRoomTasksStore
 let mockHouseStore
 let mockChecklistStore
 let mockUserStore
+let mockGameStore
+let mockSchedulingStore
 
 jest.mock('@/store/roomTasks.js', () => ({
 	useRoomTasksStore: () => mockRoomTasksStore,
@@ -82,6 +106,14 @@ jest.mock('@/store/user.js', () => ({
 	useUserStore: () => mockUserStore,
 }))
 
+jest.mock('@/store/game.js', () => ({
+	useGameStore: () => mockGameStore,
+}))
+
+jest.mock('@/store/scheduling.js', () => ({
+	useSchedulingStore: () => mockSchedulingStore,
+}))
+
 describe('TodayView', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
@@ -93,11 +125,13 @@ describe('TodayView', () => {
 			// from the owning store slices.
 			dailyTasks: todayFixture(),
 			overdueTasks: overdueFixture(),
+			rangeTasks: { scheduled: [], completed: [], from: null, to: null },
 			refreshFailed: false,
 			countsRefreshing: false,
 			fetchFilteredDailyTasks: jest.fn().mockResolvedValue(todayFixture()),
 			fetchOverdueTasks: jest.fn().mockResolvedValue(overdueFixture()),
 			fetchDueTodayTasks: jest.fn().mockResolvedValue([]),
+			fetchRangeTasks: jest.fn().mockResolvedValue({ scheduled: [], completed: [] }),
 			refreshDerivedProjections: jest.fn().mockResolvedValue(true),
 			completeRoomTask: jest.fn().mockImplementation(async (roomTaskId) => {
 				// Mimic the store reconcile (D10): the owning slice is
@@ -135,6 +169,21 @@ describe('TodayView', () => {
 		mockUserStore = {
 			currentUser: { id: 1, nextcloudUserId: 'mom', role: 'owner' },
 		}
+		mockGameStore = {
+			gameState: {},
+			rhythm: { confirmed: 4, current: 4, best: 9, pending: true },
+			weeklyGoal: { dueCount: 10, completedCount: 6, percent: 60, targetPercent: 80, achieved: false, weekStart: null, weekEnd: null },
+			fetchGameState: jest.fn().mockResolvedValue({}),
+		}
+		mockSchedulingStore = {
+			energyBudget: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5, friday: 5, saturday: 5, sunday: 5 },
+			weekdayAvailability: { monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true, sunday: true },
+			memberAvailability: [],
+			getCapacityForDay() {
+				return mockSchedulingStore.memberAvailability.length > 0 ? 10 : 5
+			},
+			fetchUserPreferences: jest.fn().mockResolvedValue({}),
+		}
 	})
 
 	const flushAsync = () => new Promise(resolve => setTimeout(resolve, 0))
@@ -153,18 +202,127 @@ describe('TodayView', () => {
 		return wrapper
 	}
 
-	it('renders overdue and today sections from the loaded payload', async () => {
+	it('renders catch-up and today sections from the loaded payload', async () => {
 		const wrapper = await mountView()
 		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
 
-		expect(wrapper.find('[data-testid="today-section-overdue"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="today-section-catchup"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="today-section-today"]').exists()).toBe(true)
 		expect(wrapper.text()).toContain('Take out trash')
 		expect(wrapper.text()).toContain('Living Room')
 		expect(wrapper.text()).toContain('Do the dishes')
-		// A due-today task must not be duplicated into the overdue section
-		const overdueSection = wrapper.find('[data-testid="today-section-overdue"]')
-		expect(overdueSection.text()).not.toContain('Do the dishes')
+		// A due-today task must not be duplicated into the catch-up section
+		const catchupSection = wrapper.find('[data-testid="today-section-catchup"]')
+		expect(catchupSection.text()).not.toContain('Do the dishes')
+	})
+
+	it('renders ONE catch-up card per chore with the attributed planned date and cover semantics (C5f, C1c)', async () => {
+		const wrapper = await mountView()
+		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
+
+		const catchup = wrapper.find('[data-testid="today-section-catchup"]')
+		// The occurrence block's planned date stays visible on the card…
+		expect(catchup.find('[data-testid="catchup-planned"]').exists()).toBe(true)
+		expect(catchup.text()).toContain('Aug 18')
+		// …and the C1d cover hint is honest: completing covers without
+		// relabeling the miss as on time.
+		expect(catchup.text()).toContain('covers the miss')
+		// Exactly ONE card per chore (the overdue read resolves one miss).
+		expect(catchup.findAll('[data-testid="today-task-item"]')).toHaveLength(1)
+	})
+
+	it('renders the calm progress line with pending state and the shared weekly goal (C1e/C1f)', async () => {
+		const wrapper = await mountView()
+
+		const progress = wrapper.find('[data-testid="today-progress-line"]')
+		expect(progress.exists()).toBe(true)
+		expect(progress.find('[data-testid="today-streak"]').text()).toContain('4 days confirmed')
+		expect(progress.find('[data-testid="today-streak"]').text()).toContain('today pending')
+		expect(progress.find('[data-testid="today-weekly-goal"]').text()).toContain('60%')
+		expect(progress.find('[data-testid="today-weekly-goal"]').text()).toContain('80%')
+		// No Coins on My Day (C5f/D10a negative pin).
+		expect(progress.text()).not.toContain('Coins')
+	})
+
+	it('hides the progress line when no progress snapshot exists (neutral start)', async () => {
+		mockGameStore.gameState = null
+		const wrapper = await mountView()
+
+		expect(wrapper.find('[data-testid="today-progress-line"]').exists()).toBe(false)
+	})
+
+	it('renders the neutral overload clarification when planned plus outstanding exceeds the day capacity (C5f)', async () => {
+		// Capacity 5 (own weekday budget) vs. planned 3+2+1=6 plus
+		// outstanding 2 under the all filter.
+		const wrapper = await mountView()
+		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
+
+		const overload = wrapper.find('[data-testid="today-overload"]')
+		expect(overload.exists()).toBe(true)
+		// Amounts stay visible; the invitation targets the owner replan —
+		// neutral, never threatening.
+		expect(overload.text()).toContain('8')
+		expect(overload.text()).toContain('5')
+		expect(overload.text()).toContain('house owner can replan')
+	})
+
+	it('renders no overload banner when the day fits the capacity', async () => {
+		mockRoomTasksStore.overdueTasks = []
+		const wrapper = await mountView()
+
+		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
+	})
+
+	it('renders next agreed appointments from the delivered range read without optional work (C5f)', async () => {
+		const todayKey = new Date().toISOString().slice(0, 10)
+		const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+		mockRoomTasksStore.rangeTasks.scheduled = [
+			{
+				roomTask: { id: 11, taskId: 1, roomId: 1 },
+				task: { id: 1, name: 'Do the dishes' },
+				room: { id: 1, name: 'Kitchen' },
+				occurrenceDetails: [
+					{ date: tomorrow, occurrenceId: '12:2', classification: 'agreed', version: 4, fulfilled: false },
+					{ date: tomorrow, occurrenceId: '12:9', classification: 'projection', version: null, fulfilled: null },
+					{ date: '2026-01-01', occurrenceId: '12:0', classification: 'agreed', version: 1, fulfilled: true },
+				],
+			},
+			{
+				roomTask: { id: 21, taskId: 9, roomId: 3 },
+				task: { id: 9, name: 'Water the plants' },
+				room: { id: 3, name: 'Garden' },
+				occurrenceDetails: [
+					{ date: todayKey, occurrenceId: '19:1', classification: 'agreed', version: 2, fulfilled: false },
+				],
+			},
+		]
+		const wrapper = await mountView()
+
+		const section = wrapper.find('[data-testid="today-section-appointments"]')
+		expect(section.exists()).toBe(true)
+		const rows = section.findAll('[data-testid="today-appointment"]')
+		// Only agreed, unfulfilled, today-or-later occurrences; sorted by
+		// date, capped at the small appointment list.
+		expect(rows).toHaveLength(2)
+		expect(rows[0].text()).toContain('Water the plants')
+		expect(rows[1].text()).toContain('Do the dishes')
+		// Read-only surface: no completion or edit affordances.
+		expect(section.find('button').exists()).toBe(false)
+	})
+
+	it('renders the neutral free-day empty state without an engagement prompt (C5f)', async () => {
+		mockRoomTasksStore.dailyTasks = []
+		mockRoomTasksStore.overdueTasks = []
+
+		const wrapper = await mountView()
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.find('[data-testid="today-empty-state"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="today-empty-state"]').text()).toContain('Nothing is planned for today.')
+		// No arcade/catalog/ranking/Coins surface anywhere on My Day.
+		expect(wrapper.text()).not.toContain('Coins')
+		expect(wrapper.text()).not.toContain('Arcade')
+		expect(wrapper.text()).not.toContain('Leaderboard')
 	})
 
 	it('renders the short plain instructions of a row (CS-PLAN-066 §3.5)', async () => {
@@ -233,8 +391,8 @@ describe('TodayView', () => {
 		await wrapper.find('[data-testid="today-complete-button-30"]').trigger('click')
 		await flushAsync()
 
-		// Overdue section emptied out…
-		expect(wrapper.find('[data-testid="today-section-overdue"]').exists()).toBe(false)
+		// Catch-up section emptied out…
+		expect(wrapper.find('[data-testid="today-section-catchup"]').exists()).toBe(false)
 		// …and the row re-rendered as an active Today row (not dropped).
 		expect(wrapper.text()).toContain('Take out trash')
 		expect(wrapper.find('[data-testid="today-complete-button-30"]').exists()).toBe(true)

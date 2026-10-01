@@ -38,6 +38,9 @@ msgstr ""
 msgid "A JSON request body is required"
 msgstr ""
 
+msgid "A daily summary of the agreements for the coming day."
+msgstr ""
+
 msgid "A former member was part of this split — reassign their share. Shares must total exactly 100%."
 msgstr ""
 
@@ -48,6 +51,15 @@ msgid "A maximum of %1$d floors is allowed"
 msgstr ""
 
 msgid "A maximum of %1$d rooms per floor is allowed"
+msgstr ""
+
+msgid "A missed chore stays visible as catch-up with its original date. Completing it now covers the miss — it stays a catch-up."
+msgstr ""
+
+msgid "A pause is neutral: during a pause nothing counts for or against anyone. Illness, travel or simply too much at once are all fine reasons."
+msgstr ""
+
+msgid "A pause is neutral: during a pause nothing counts for or against anyone. Your own requests stay visible to you; owners decide pending child requests."
 msgstr ""
 
 msgid "A paused occurrence cannot be amended"
@@ -84,6 +96,18 @@ msgid "A valid expectedVersion is required"
 msgstr ""
 
 msgid "A valid roomTaskId is required"
+msgstr ""
+
+msgid "A weekly overview of catch-ups and pause activity."
+msgstr ""
+
+msgid "Acknowledge"
+msgstr ""
+
+msgid "Acknowledge a past illness for one member — neutral, like any other pause."
+msgstr ""
+
+msgid "Acknowledged"
 msgstr ""
 
 msgid "Active"
@@ -125,6 +149,9 @@ msgstr ""
 msgid "Adjust"
 msgstr ""
 
+msgid "Adjust occurrence"
+msgstr ""
+
 msgid "Adjust who actually did the work. Shares must total exactly 100%."
 msgstr ""
 
@@ -132,6 +159,12 @@ msgid "Admin-only task"
 msgstr ""
 
 msgid "Admins only"
+msgstr ""
+
+msgid "Agree a catch-up appointment on"
+msgstr ""
+
+msgid "Agreement"
 msgstr ""
 
 msgid "All"
@@ -147,9 +180,6 @@ msgid "All Tasks"
 msgstr ""
 
 msgid "All Time"
-msgstr ""
-
-msgid "All done — enjoy your day!"
 msgstr ""
 
 msgid "All house members can see and complete this task"
@@ -173,7 +203,10 @@ msgstr ""
 msgid "An occurrenceId is required"
 msgstr ""
 
-msgid "Animations"
+msgid "An optional play area outside the daily routine. You can hide it in the Settings."
+msgstr ""
+
+msgid "An optional weekly comparison of on-time shares. Participation is voluntary and shows shares, never amounts."
 msgstr ""
 
 msgid "Apartment"
@@ -290,7 +323,7 @@ msgstr ""
 msgid "Best"
 msgstr ""
 
-msgid "Boosts used"
+msgid "Both are off by default. Celebrations are never a requirement for the household routine."
 msgstr ""
 
 msgid "Budget Analysis"
@@ -326,7 +359,13 @@ msgstr ""
 msgid "Capacity per day"
 msgstr ""
 
+msgid "Catch-up"
+msgstr ""
+
 msgid "Category"
+msgstr ""
+
+msgid "Celebration animations"
 msgstr ""
 
 msgid "Change bed sheets"
@@ -479,6 +518,9 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
+msgid "Coins"
+msgstr ""
+
 msgid "Collapse floor"
 msgstr ""
 
@@ -498,6 +540,9 @@ msgid "Complete"
 msgstr ""
 
 msgid "Completed"
+msgstr ""
+
+msgid "Completing it now covers the miss — it stays a catch-up."
 msgstr ""
 
 msgid "Completion"
@@ -605,7 +650,7 @@ msgstr ""
 msgid "Daily summary: %s"
 msgstr ""
 
-msgid "Daily task summary"
+msgid "Daily task digest"
 msgstr ""
 
 msgid "Daily tasks: max {limit}"
@@ -629,13 +674,16 @@ msgstr ""
 msgid "Deal with the paper pile."
 msgstr ""
 
+msgid "Decline"
+msgstr ""
+
+msgid "Declined"
+msgstr ""
+
 msgid "Deep clean grout and tiles"
 msgstr ""
 
 msgid "Deep clean oven"
-msgstr ""
-
-msgid "Defend your Home Base. Together."
 msgstr ""
 
 msgid "Degrease the stovetop and knobs."
@@ -656,10 +704,16 @@ msgstr ""
 msgid "Delete this sub-task?"
 msgstr ""
 
+msgid "Delivery and attention are different things: the digests arrive as a Nextcloud notification or email at the chosen time — quiet times apply to these deliveries. In-app notifications, however, appear only while ChoreStrike is open and are never delayed by quiet times."
+msgstr ""
+
 msgid "Description"
 msgstr ""
 
 msgid "Difficulty"
+msgstr ""
+
+msgid "Digest delivery time"
 msgstr ""
 
 msgid "Dirty"
@@ -698,7 +752,7 @@ msgstr ""
 msgid "Due {date}"
 msgstr ""
 
-msgid "During your quiet hours no summary is delivered — a range may run past midnight."
+msgid "During your quiet time no summaries are delivered. In-app notifications are not affected."
 msgstr ""
 
 msgid "Dust all the surfaces."
@@ -807,6 +861,12 @@ msgid "Empty the recycling and sort it."
 msgstr ""
 
 msgid "Empty the sink, scrub the basin and drain, and wipe the tap until it shines."
+msgstr ""
+
+msgid "End early"
+msgstr ""
+
+msgid "End early on"
 msgstr ""
 
 msgid "Energy"
@@ -956,9 +1016,6 @@ msgstr ""
 msgid "Failed to save house name"
 msgstr ""
 
-msgid "Failed to save the notification preferences"
-msgstr ""
-
 msgid "Failed to save the ranking setting"
 msgstr ""
 
@@ -987,6 +1044,9 @@ msgid "Fair 📊"
 msgstr ""
 
 msgid "Fairness"
+msgstr ""
+
+msgid "Feedback effects"
 msgstr ""
 
 msgid "Finish"
@@ -1073,6 +1133,9 @@ msgstr ""
 msgid "Friday"
 msgstr ""
 
+msgid "From"
+msgstr ""
+
 msgid "From template"
 msgstr ""
 
@@ -1089,6 +1152,9 @@ msgid "Get the bathroom mirror streak-free."
 msgstr ""
 
 msgid "Give the plants a drink."
+msgstr ""
+
+msgid "Glossary"
 msgstr ""
 
 msgid "Go room to room, empty the small bins, replace the liners, and take everything to the outdoor bins."
@@ -1122,6 +1188,9 @@ msgid "Heat a bowl of water for two minutes to loosen grime, wipe the interior, 
 msgstr ""
 
 msgid "Heavy Schedule"
+msgstr ""
+
+msgid "Help"
 msgstr ""
 
 msgid "Hide rooms"
@@ -1163,6 +1232,9 @@ msgstr ""
 msgid "House name: {name}"
 msgstr ""
 
+msgid "House pause"
+msgstr ""
+
 msgid "House set up successfully"
 msgstr ""
 
@@ -1178,7 +1250,7 @@ msgstr ""
 msgid "Ideal"
 msgstr ""
 
-msgid "Include household updates"
+msgid "Illness"
 msgstr ""
 
 msgid "Insights"
@@ -1445,6 +1517,9 @@ msgstr ""
 msgid "Move small items aside, spray the counters, and wipe them down. Pay attention to corners and the area behind the sink."
 msgstr ""
 
+msgid "Move this occurrence to"
+msgstr ""
+
 msgid "Moving this task would exceed a daily task limit"
 msgstr ""
 
@@ -1490,6 +1565,9 @@ msgstr ""
 msgid "Next"
 msgstr ""
 
+msgid "Next appointments"
+msgstr ""
+
 msgid "Next due shifts based on when you complete the task"
 msgstr ""
 
@@ -1503,6 +1581,9 @@ msgid "No active tasks to schedule yet. Create tasks first."
 msgstr ""
 
 msgid "No activity in this period yet."
+msgstr ""
+
+msgid "No digest deliveries during the quiet time. Clear both fields to switch it off."
 msgstr ""
 
 msgid "No due date"
@@ -1521,6 +1602,9 @@ msgid "No member data available. Load scheduling data first."
 msgstr ""
 
 msgid "No members yet — invite your family to get started."
+msgstr ""
+
+msgid "No pauses recorded."
 msgstr ""
 
 msgid "No prefill"
@@ -1580,6 +1664,9 @@ msgstr ""
 msgid "Nothing here yet"
 msgstr ""
 
+msgid "Nothing is planned for today."
+msgstr ""
+
 msgid "Nothing to change — the selected tasks are already scheduled as proposed."
 msgstr ""
 
@@ -1596,9 +1683,6 @@ msgid "Office"
 msgstr ""
 
 msgid "On time"
-msgstr ""
-
-msgid "One overview of your planned work for the day."
 msgstr ""
 
 msgid "One-time"
@@ -1655,13 +1739,13 @@ msgstr ""
 msgid "Opt-in weekly rhythm ranking for your household"
 msgstr ""
 
+msgid "Optional areas"
+msgstr ""
+
 msgid "Optional description..."
 msgstr ""
 
 msgid "Optional step-by-step instructions..."
-msgstr ""
-
-msgid "Organizational changes like takeovers, agreements and pauses ride along in the same summary."
 msgstr ""
 
 msgid "Organize and declutter the basement."
@@ -1706,13 +1790,31 @@ msgstr ""
 msgid "Past latest date"
 msgstr ""
 
+msgid "Pause"
+msgstr ""
+
+msgid "Pause house"
+msgstr ""
+
 msgid "Pause not found"
 msgstr ""
 
 msgid "Paused"
 msgstr ""
 
+msgid "Pauses"
+msgstr ""
+
+msgid "Pauses the whole household neutrally — nothing counts for or against anyone during the pause."
+msgstr ""
+
 msgid "Peak Day"
+msgstr ""
+
+msgid "Pending child requests change nothing until you decide them."
+msgstr ""
+
+msgid "Pending pause requests"
 msgstr ""
 
 msgid "Person"
@@ -1823,10 +1925,13 @@ msgstr ""
 msgid "Quick clean (+10% cleanliness)"
 msgstr ""
 
-msgid "Quiet hours end"
+msgid "Quiet time"
 msgstr ""
 
-msgid "Quiet hours start"
+msgid "Quiet time ends"
+msgstr ""
+
+msgid "Quiet time starts"
 msgstr ""
 
 msgid "RESET"
@@ -1836,6 +1941,9 @@ msgid "Range must not exceed 60 days"
 msgstr ""
 
 msgid "Rank"
+msgstr ""
+
+msgid "Ranked household members"
 msgstr ""
 
 msgid "Ranking consent recorded"
@@ -1850,13 +1958,34 @@ msgstr ""
 msgid "Ranking turned off for everyone"
 msgstr ""
 
+msgid "Reason"
+msgstr ""
+
 msgid "Recent Activity"
 msgstr ""
 
 msgid "Reconnect and try again"
 msgstr ""
 
+msgid "Record"
+msgstr ""
+
+msgid "Record amendment"
+msgstr ""
+
+msgid "Record catch-up"
+msgstr ""
+
+msgid "Record illness retrospectively"
+msgstr ""
+
+msgid "Record restart"
+msgstr ""
+
 msgid "Record the actual work split. Shares must total exactly 100%."
+msgstr ""
+
+msgid "Recorded retrospectively by the house owner"
 msgstr ""
 
 msgid "Refresh"
@@ -1907,7 +2036,13 @@ msgstr ""
 msgid "Repeats"
 msgstr ""
 
+msgid "Request a pause"
+msgstr ""
+
 msgid "Request failed"
+msgstr ""
+
+msgid "Request pause"
 msgstr ""
 
 msgid "Reset"
@@ -1920,6 +2055,9 @@ msgid "Reset House?"
 msgstr ""
 
 msgid "Reset all progress and start fresh. This cannot be undone."
+msgstr ""
+
+msgid "Restart the linked interval work on"
 msgstr ""
 
 msgid "Resume"
@@ -2012,6 +2150,9 @@ msgstr ""
 msgid "Saving..."
 msgstr ""
 
+msgid "Saving…"
+msgstr ""
+
 msgid "Schedule & Recurrence"
 msgstr ""
 
@@ -2031,6 +2172,9 @@ msgid "Score must be between 0 and %1$d"
 msgstr ""
 
 msgid "Score: {score}"
+msgstr ""
+
+msgid "Scores-only family fun — outside the daily routine."
 msgstr ""
 
 msgid "Scrub the bowl, seat, and outside."
@@ -2066,6 +2210,9 @@ msgstr ""
 msgid "Send invites"
 msgstr ""
 
+msgid "Sending…"
+msgstr ""
+
 msgid "Set how much energy you have for tasks each day (1-20)"
 msgstr ""
 
@@ -2078,16 +2225,28 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
+msgid "Shared weekly goal: {percent}% of {target}%"
+msgstr ""
+
 msgid "Shares must be positive whole percents"
 msgstr ""
 
 msgid "Shares must total exactly 100 percent"
 msgstr ""
 
+msgid "Short explanations of the words ChoreStrike uses — in plain family language."
+msgstr ""
+
 msgid "Show details"
 msgstr ""
 
 msgid "Show rooms"
+msgstr ""
+
+msgid "Show the arcade"
+msgstr ""
+
+msgid "Show the reward catalog"
 msgstr ""
 
 msgid "Shown"
@@ -2135,7 +2294,7 @@ msgstr ""
 msgid "Sort toys into their boxes, put away games and books, and clear the floor so you can vacuum."
 msgstr ""
 
-msgid "Sounds"
+msgid "Sounds on completions and awards"
 msgstr ""
 
 msgid "Spray glass cleaner and wipe the mirror with a lint-free cloth."
@@ -2178,9 +2337,6 @@ msgid "Sub-task title..."
 msgstr ""
 
 msgid "Suggestions for the selected room type — everything stays editable"
-msgstr ""
-
-msgid "Summary time"
 msgstr ""
 
 msgid "Sun"
@@ -2288,7 +2444,22 @@ msgstr ""
 msgid "Terrible"
 msgstr ""
 
+msgid "The affected people have agreed to this change."
+msgstr ""
+
+msgid "The agreement could not be recorded."
+msgstr ""
+
+msgid "The agreement was recorded."
+msgstr ""
+
 msgid "The amendment deadline has passed"
+msgstr ""
+
+msgid "The arcade is hidden. You can turn it on again in the Settings."
+msgstr ""
+
+msgid "The arcade is opt-in and stays outside the daily surfaces. Hiding it removes its navigation entry immediately."
 msgstr ""
 
 msgid "The assigned people change."
@@ -2306,10 +2477,22 @@ msgstr ""
 msgid "The daily task limit must be between 1 and 100"
 msgstr ""
 
+msgid "The decision could not be recorded."
+msgstr ""
+
 msgid "The due day moves."
 msgstr ""
 
 msgid "The house is already set up. Use the per-room template picker instead."
+msgstr ""
+
+msgid "The house owner declined this request."
+msgstr ""
+
+msgid "The house pause could not be recorded."
+msgstr ""
+
+msgid "The house pause was recorded."
 msgstr ""
 
 msgid "The house state changed since it was displayed"
@@ -2318,10 +2501,43 @@ msgstr ""
 msgid "The household ranking is opt-in. A house owner can enable it in the settings — every member then decides on their own participation."
 msgstr ""
 
+msgid "The household reward currency for completed work. The balance lives in the household overview — never on My Day."
+msgstr ""
+
+msgid "The illness could not be recorded."
+msgstr ""
+
+msgid "The illness was recorded."
+msgstr ""
+
+msgid "The number of days in a row you kept your agreements. Today stays pending until the day closes."
+msgstr ""
+
+msgid "The occurrence changed in the meantime. Your entries were kept — review and send again."
+msgstr ""
+
 msgid "The pause already covers no later date"
 msgstr ""
 
+msgid "The pause changed in the meantime. Your entries were kept — review and send again."
+msgstr ""
+
 msgid "The pause changed since it was displayed. Reload and try again."
+msgstr ""
+
+msgid "The pause could not be shortened."
+msgstr ""
+
+msgid "The pause request was acknowledged."
+msgstr ""
+
+msgid "The pause request was declined."
+msgstr ""
+
+msgid "The pause was recorded."
+msgstr ""
+
+msgid "The pause was shortened."
 msgstr ""
 
 msgid "The person needs an existing Nextcloud account with this email address."
@@ -2354,16 +2570,31 @@ msgstr ""
 msgid "The preview is stale."
 msgstr ""
 
+msgid "The request could not be sent."
+msgstr ""
+
+msgid "The request could not be sent. Please try again."
+msgstr ""
+
+msgid "The reward catalog arrives with a later update — the switch is kept so your choice persists from day one."
+msgstr ""
+
 msgid "The schedule preview is no longer current. Generate a new preview."
 msgstr ""
 
 msgid "The selected occurrence is no longer valid"
 msgstr ""
 
+msgid "The settings could not be saved. Please try again."
+msgstr ""
+
 msgid "The share allocation deviates from the agreement and must be confirmed"
 msgstr ""
 
 msgid "The share allocation deviates from the recorded allocation and must be confirmed"
+msgstr ""
+
+msgid "The shared goal of the whole household for this week."
 msgstr ""
 
 msgid "The shortened pause would lose its start date"
@@ -2373,6 +2604,9 @@ msgid "The task changed since it was displayed. Reload and try again."
 msgstr ""
 
 msgid "The task has too many unreconciled occurrences to be edited safely. Run the timeline job first."
+msgstr ""
+
+msgid "The weekly ranking is final."
 msgstr ""
 
 msgid "They will lose access to all house tasks and progress."
@@ -2468,6 +2702,9 @@ msgstr ""
 msgid "Too many score submissions today. Try again tomorrow."
 msgstr ""
 
+msgid "Too much at once"
+msgstr ""
+
 msgid "Toss expired food and wipe the shelves."
 msgstr ""
 
@@ -2478,6 +2715,9 @@ msgid "Total Rooms"
 msgstr ""
 
 msgid "Total: {total}%"
+msgstr ""
+
+msgid "Travel"
 msgstr ""
 
 msgid "Try again"
@@ -2541,6 +2781,9 @@ msgid "Unknown update field: %1$s"
 msgstr ""
 
 msgid "Unlocked titles: {titles}"
+msgstr ""
+
+msgid "Until (inclusive)"
 msgstr ""
 
 msgid "Update Task"
@@ -2618,6 +2861,9 @@ msgstr ""
 msgid "Voluntary work needs no date amendment"
 msgstr ""
 
+msgid "Waiting for the house owner"
+msgstr ""
+
 msgid "Wash, dry, and fold a load."
 msgstr ""
 
@@ -2657,7 +2903,13 @@ msgstr ""
 msgid "Weekly Milestone"
 msgstr ""
 
+msgid "Weekly goal"
+msgstr ""
+
 msgid "Weekly goal reached! {percent}% of target {target}%"
+msgstr ""
+
+msgid "Weekly organization digest"
 msgstr ""
 
 msgid "Weekly ranking"
@@ -2667,6 +2919,9 @@ msgid "Weekly ranking is off"
 msgstr ""
 
 msgid "Welcome to ChoreStrike!"
+msgstr ""
+
+msgid "What the family has agreed for the coming days — nothing more. Work only counts once it is done."
 msgstr ""
 
 msgid "Where & Who"
@@ -2732,9 +2987,6 @@ msgstr ""
 msgid "You left the ranking."
 msgstr ""
 
-msgid "You receive at most one summary per day. Awards and household updates stay inside the app."
-msgstr ""
-
 msgid "You take part in this week's ranking."
 msgstr ""
 
@@ -2753,7 +3005,10 @@ msgstr ""
 msgid "Your Title"
 msgstr ""
 
-msgid "Your changes were saved elsewhere in the meantime. Save again to apply your edits."
+msgid "Your changes were kept — someone else updated the settings in the meantime. Review the server values and save again."
+msgstr ""
+
+msgid "Your day at a glance: what is due today, what is catch-up, and which appointments are coming."
 msgstr ""
 
 msgid "Your draft"
@@ -2762,7 +3017,16 @@ msgstr ""
 msgid "Your home is set up!"
 msgstr ""
 
+msgid "Your household, organized together."
+msgstr ""
+
 msgid "Your participation starts on {monday}. Nothing is counted before then."
+msgstr ""
+
+msgid "Your pauses"
+msgstr ""
+
+msgid "Your system reduced-motion setting always wins over this switch."
 msgstr ""
 
 msgid "allocationReviewed must be a boolean"
@@ -2871,6 +3135,12 @@ msgid "participants must be an array of {userId, sharePct}"
 msgstr ""
 
 msgid "participants must not contain duplicates"
+msgstr ""
+
+msgid "planned {date}"
+msgstr ""
+
+msgid "planned {date}, until {time}"
 msgstr ""
 
 msgid "previewVersion is required"
@@ -2993,6 +3263,12 @@ msgstr ""
 msgid "{days} d ago"
 msgstr ""
 
+msgid "{days} days confirmed"
+msgstr ""
+
+msgid "{days} days confirmed — today pending"
+msgstr ""
+
 msgid "{due} (±{days} days)"
 msgstr ""
 
@@ -3036,6 +3312,12 @@ msgid "{planned}/{budget} — over capacity"
 msgstr ""
 
 msgid "{remaining}/{budget} left"
+msgstr ""
+
+msgid "{start} – {end}"
+msgstr ""
+
+msgid "{total} of {capacity} daily capacity is planned or still outstanding. It is too much for one day — the house owner can replan it."
 msgstr ""
 
 msgid "≈ {n} tasks"

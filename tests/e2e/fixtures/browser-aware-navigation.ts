@@ -13,9 +13,11 @@ import { Page, TestInfo, Locator } from '@playwright/test'
 export class BrowserAwareNavigation {
 	/**
 	 * Navigate to the ChoreStrike app and wait for the dashboard shell.
+	 * CS-PLAN-070 WP6: the bare root lands on My Day for every role — the
+	 * dashboard shell is reached through its explicit secondary path.
 	 */
 	static async navigateToApp(page: Page, _testInfo?: TestInfo): Promise<void> {
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle')
 		await this.waitForDashboardContent(page)
 	}

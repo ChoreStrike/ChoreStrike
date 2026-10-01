@@ -467,8 +467,8 @@ decisions update intent below, not the current implementation/route inventory.
 | Candidate | Decision tag | Source | Backlog |
 |---|---|---|---|
 | Onboarding & help layer (tour, glossary, contextual hints) | `build-new` | Usability review 2026-08-20 (UX-007 vocabulary) | FEAT-UX-023 |
-| Notification settings (opt-in summary, quiet hours) | WP5 backend/minimal Settings implemented; WP6 presentation remains | CS-PLAN-070 D9 | FEAT-UX-024 |
-| Dated member/house pauses, with child approval | Selected for the reliable core; not implemented | CS-PLAN-070 D4 | FEAT-UX-025 |
+| Notification settings (opt-in summary, quiet hours) | Delivered (WP5 backend + WP6 presentation, 2026-10-01) | CS-PLAN-070 D9 | FEAT-UX-024 (closed) |
+| Dated member/house pauses, with child approval | Delivered (WP2 backend + WP5 digest + WP6 pause UI, 2026-10-01) | CS-PLAN-070 D4 | FEAT-UX-025 (closed) |
 | Optional family reward catalog | Selected after the reliable core; not implemented | [Approved target](gamification-and-rewards.md) | FEAT-UX-026 |
 | Print view (weekly plan / calendar) | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-027 |
 | Global search across tasks | `expose` (`GET /tasks/search`, dead wrapper) | Endpoint audit 2026-08-21 | FEAT-UX-028 |

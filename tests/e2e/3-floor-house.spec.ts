@@ -30,7 +30,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		test.setTimeout(90000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})

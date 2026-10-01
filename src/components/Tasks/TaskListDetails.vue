@@ -28,21 +28,118 @@
 			@update="handleUpdateChecklistItem"
 			@delete="handleDeleteChecklistItem"
 			@reorder="handleReorderChecklistItems" />
+
+		<!-- Occurrence agreements (CS-PLAN-070 WP6 §3.5 on the CS-PLAN-073
+		     WP2 commands): minimal OWNER entry points. The identity
+		     (occurrence key, shown version, selection token) comes straight
+		     from the row's occurrence block; a 409 keeps the drafts. -->
+		<div
+			v-if="isHouseOwner && occurrence && occurrence.fulfilled !== true"
+			class="agreements"
+			data-testid="occurrence-agreement">
+			<h4 class="agreements-title">
+				{{ t('chorestrike', 'Adjust occurrence') }}
+			</h4>
+
+			<div v-if="amendAvailable" class="agreement-form" data-testid="agreement-amend">
+				<label :for="`amend-date-${item.roomTask.id}`" class="agreement-label">
+					{{ t('chorestrike', 'Move this occurrence to') }}
+				</label>
+				<input
+					:id="`amend-date-${item.roomTask.id}`"
+					v-model="amendDraft.date"
+					type="date"
+					class="agreement-input"
+					data-testid="agreement-amend-date">
+				<button
+					type="button"
+					class="agreement-button"
+					data-testid="agreement-amend-submit"
+					:disabled="!amendDraft.date || !consent || submitting !== null"
+					@click="submitAmend">
+					{{ t('chorestrike', 'Record amendment') }}
+				</button>
+			</div>
+
+			<div v-if="catchUpAvailable" class="agreement-form" data-testid="agreement-catchup">
+				<label :for="`catchup-date-${item.roomTask.id}`" class="agreement-label">
+					{{ t('chorestrike', 'Agree a catch-up appointment on') }}
+				</label>
+				<input
+					:id="`catchup-date-${item.roomTask.id}`"
+					v-model="catchUpDraft.workDate"
+					type="date"
+					class="agreement-input"
+					data-testid="agreement-catchup-date">
+				<button
+					type="button"
+					class="agreement-button"
+					data-testid="agreement-catchup-submit"
+					:disabled="!catchUpDraft.workDate || !consent || submitting !== null"
+					@click="submitCatchUp">
+					{{ t('chorestrike', 'Record catch-up') }}
+				</button>
+			</div>
+
+			<div v-if="restartAvailable" class="agreement-form" data-testid="agreement-restart">
+				<label :for="`restart-date-${item.roomTask.id}`" class="agreement-label">
+					{{ t('chorestrike', 'Restart the linked interval work on') }}
+				</label>
+				<input
+					:id="`restart-date-${item.roomTask.id}`"
+					v-model="restartDraft.workDate"
+					type="date"
+					class="agreement-input"
+					data-testid="agreement-restart-date">
+				<button
+					type="button"
+					class="agreement-button"
+					data-testid="agreement-restart-submit"
+					:disabled="!restartDraft.workDate || !consent || submitting !== null"
+					@click="submitRestart">
+					{{ t('chorestrike', 'Record restart') }}
+				</button>
+			</div>
+
+			<label class="agreement-consent">
+				<input
+					v-model="consent"
+					type="checkbox"
+					data-testid="agreement-consent">
+				<span>{{ t('chorestrike', 'The affected people have agreed to this change.') }}</span>
+			</label>
+
+			<p
+				v-if="conflict"
+				class="agreement-note"
+				data-testid="agreement-conflict"
+				role="alert">
+				{{ t('chorestrike', 'The occurrence changed in the meantime. Your entries were kept — review and send again.') }}
+			</p>
+		</div>
 	</div>
 </template>
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { showError } from '@nextcloud/dialogs'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import AssigneeChips from './AssigneeChips.vue'
 import TaskChecklist from './TaskChecklist.vue'
 import { useChecklistStore } from '../../store/checklist.js'
+import { useSchedulingStore } from '../../store/scheduling.js'
 import { logger } from '../../utils/logger.js'
 
 /**
  * The expanded details surface of a TaskList row (CS-PLAN-067 §3.4): the
  * assignee multi-select (reuse of AssigneeChips, no per-row member fetch —
  * members arrive via the preloaded list) and the TaskChecklist wiring.
+ *
+ * CS-PLAN-070 WP6 §3.5 adds the OWNER agreement entry points: amend
+ * (single-occurrence date move), catch-up (agreed work date on the
+ * current miss) and restart (linked interval restart after a neutral
+ * suspension). Every command sends a fresh command UUID, the SHOWN
+ * occurrence identity and version, and the explicit consent attestation;
+ * a 409 PRESERVES the drafts.
  *
  * The optimistic assignee DRAFT stays owned by the TaskList orchestrator
  * (CS-PLAN-065 §3.5): this component diffs the AssigneeChips value change
@@ -87,6 +184,7 @@ export default {
 
 	setup(props, { emit }) {
 		const checklistStore = useChecklistStore()
+		const schedulingStore = useSchedulingStore()
 
 		/**
 		 * Diff the chips value to the single toggled member and report it —
@@ -148,6 +246,7 @@ export default {
 
 		return {
 			checklistStore,
+			schedulingStore,
 			onAssigneeDraftChange,
 			handleToggleChecklistItem,
 			handleAddChecklistItem,
@@ -156,6 +255,121 @@ export default {
 			handleReorderChecklistItems,
 			t,
 		}
+	},
+
+	data() {
+		return {
+			consent: false,
+			submitting: null,
+			conflict: false,
+			amendDraft: { date: '' },
+			catchUpDraft: { workDate: '' },
+			restartDraft: { workDate: '' },
+		}
+	},
+
+	computed: {
+		/**
+		 * The occurrence block of the delivered read (daily/overdue rows
+		 * carry it; definition-only rows do not).
+		 * @return {?object}
+		 */
+		occurrence() {
+			return this.item.occurrence ?? this.item.roomTask?.occurrence ?? null
+		},
+
+		amendAvailable() {
+			return this.occurrence !== null && this.occurrence.suspended !== true
+		},
+
+		/**
+		 * Catch-up applies to the CURRENT unfulfilled miss only (C5d) —
+		 * the delivered overdue selection (classification 'late').
+		 * @return {boolean}
+		 */
+		catchUpAvailable() {
+			return this.occurrence?.classification === 'late'
+		},
+
+		/**
+		 * Restart applies only to neutrally suspended interval-cadence
+		 * work; the task's schedulingMode carries the cadence fact.
+		 * @return {boolean}
+		 */
+		restartAvailable() {
+			return this.occurrence?.suspended === true
+				&& this.item.task?.schedulingMode === 'dynamic'
+		},
+	},
+
+	methods: {
+		/**
+		 * Run one agreement command: 409 keeps the draft and surfaces the
+		 * conflict note; any other failure toasts; success refreshes the
+		 * projections (the store already re-read the readers) and clears
+		 * the used draft.
+		 * @param {string} mode 'amend' | 'catchup' | 'restart'.
+		 * @param {function(): Promise<object>} command The store call.
+		 */
+		async runAgreement(mode, command) {
+			this.submitting = mode
+			this.conflict = false
+			try {
+				await command()
+				showSuccess(t('chorestrike', 'The agreement was recorded.'))
+				this.resetDraft(mode)
+			} catch (error) {
+				if (error?.status === 409 || error?.response?.status === 409) {
+					this.conflict = true
+				} else {
+					showError(t('chorestrike', 'The agreement could not be recorded.'))
+					logger.error('Failed to record the occurrence agreement', error, { component: 'TaskListDetails', action: 'runAgreement', mode })
+				}
+			} finally {
+				this.submitting = null
+			}
+		},
+
+		resetDraft(mode) {
+			if (mode === 'amend') {
+				this.amendDraft = { date: '' }
+			} else if (mode === 'catchup') {
+				this.catchUpDraft = { workDate: '' }
+			} else {
+				this.restartDraft = { workDate: '' }
+			}
+			this.consent = false
+		},
+
+		submitAmend() {
+			if (!this.amendDraft.date || !this.consent) return
+			return this.runAgreement('amend', () => this.schedulingStore.amendOccurrence({
+				roomTaskId: this.item.roomTask.id,
+				occurrence: this.occurrence,
+				date: this.amendDraft.date,
+				consent: this.consent,
+			}))
+		},
+
+		submitCatchUp() {
+			if (!this.catchUpDraft.workDate || !this.consent) return
+			return this.runAgreement('catchup', () => this.schedulingStore.catchUpOccurrence({
+				roomTaskId: this.item.roomTask.id,
+				occurrence: this.occurrence,
+				workDate: this.catchUpDraft.workDate,
+				consent: this.consent,
+			}))
+		},
+
+		submitRestart() {
+			if (!this.restartDraft.workDate || !this.consent) return
+			return this.runAgreement('restart', () => this.schedulingStore.restartOccurrence({
+				roomTaskId: this.item.roomTask.id,
+				occurrence: this.occurrence,
+				workDate: this.restartDraft.workDate,
+				consent: this.consent,
+			}))
+		},
 	},
 }
 </script>
@@ -176,6 +390,81 @@ export default {
 	margin-bottom: 0.4rem;
 	font-size: 0.85rem;
 	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.agreements {
+	margin-top: 1rem;
+	padding: 0.75rem;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.agreements-title {
+	margin: 0;
+	font-size: 0.95rem;
+}
+
+.agreement-form {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.agreement-label {
+	font-size: 0.85rem;
+	color: var(--color-text-maxcontrast);
+}
+
+.agreement-input {
+	padding: 0.3rem 0.5rem;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	min-height: 44px;
+}
+
+.agreement-button {
+	min-height: 44px;
+	padding: 0.35rem 0.9rem;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	cursor: pointer;
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+
+.agreement-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.agreement-consent {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.85rem;
+	color: var(--color-main-text);
+	cursor: pointer;
+}
+
+.agreement-consent input {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.agreement-note {
+	margin: 0;
+	font-size: 0.85rem;
+	padding: 0.4rem 0.6rem;
+	border-inline-start: 3px solid var(--color-warning);
 	color: var(--color-main-text);
 }
 </style>

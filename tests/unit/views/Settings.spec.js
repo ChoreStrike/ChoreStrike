@@ -126,6 +126,28 @@ jest.mock('../../../src/store/preferences.js', () => ({
 	usePreferencesStore: () => require('vue').reactive(mockPreferencesState),
 }))
 
+// WP6 pause administration (Q-077-03 A): the owner house controls and the
+// self-only PauseSettings surface read the pause store; the cross-layer
+// contract lives in pauses.spec.js.
+const mockPausesState = {
+	pauses: [],
+	// Plain projection (the real store derives it via a getter).
+	pendingRequests: [],
+	loading: false,
+	saving: false,
+	error: null,
+	conflict: false,
+	fetchPauses: jest.fn().mockResolvedValue([]),
+	createHousePause: jest.fn().mockResolvedValue({ pauseGroupId: 1, revision: 1 }),
+	approvePause: jest.fn().mockResolvedValue({ pauseGroupId: 1, revision: 2 }),
+	rejectPause: jest.fn().mockResolvedValue({ pauseGroupId: 1, revision: 2 }),
+	recognizeIllness: jest.fn().mockResolvedValue({ pauseGroupId: 2, revision: 1 }),
+}
+
+jest.mock('../../../src/store/pauses.js', () => ({
+	usePausesStore: () => require('vue').reactive(mockPausesState),
+}))
+
 // Mock child components
 jest.mock('../../../src/components/Common/Icon.vue', () => ({
 	name: 'Icon',
@@ -156,6 +178,18 @@ describe('Settings.vue', () => {
 		mockUserState.currentUser = { id: 1, role: 'owner' }
 		mockUserState.isHouseOwner = true
 		mockUserState.initializeCurrentUser.mockClear().mockResolvedValue()
+		mockUserState.fetchHouseUsers.mockClear().mockResolvedValue()
+		mockUserState.houseUsers = []
+		mockPausesState.pauses = []
+		mockPausesState.pendingRequests = []
+		mockPausesState.saving = false
+		mockPausesState.conflict = false
+		mockPausesState.error = null
+		mockPausesState.fetchPauses.mockClear().mockResolvedValue([])
+		mockPausesState.createHousePause.mockClear().mockResolvedValue({ pauseGroupId: 1, revision: 1 })
+		mockPausesState.approvePause.mockClear().mockResolvedValue({ pauseGroupId: 1, revision: 2 })
+		mockPausesState.rejectPause.mockClear().mockResolvedValue({ pauseGroupId: 1, revision: 2 })
+		mockPausesState.recognizeIllness.mockClear().mockResolvedValue({ pauseGroupId: 2, revision: 1 })
 		mockPreferencesState.version = 0
 		mockPreferencesState.taskDigestEnabled = false
 		mockPreferencesState.orgDigestEnabled = false
@@ -597,84 +631,79 @@ describe('Settings.vue', () => {
 	})
 
 	// ------------------------------------------------------------------
-	// Notifications section (CS-PLAN-070 WP5, Q-076-01 A): self-only
-	// delivery preferences — every member sees it, owner or not.
+	// Notifications section (CS-PLAN-070 WP6 §3.3): delegated to the
+	// dedicated self-only component — visible to every member, owner or
+	// not. The form contract lives in
+	// components/Settings/NotificationPreferences.spec.js.
 	// ------------------------------------------------------------------
 
-	it('renders the notifications section for every member (not only owners)', async () => {
+	it('renders the notifications delegation for every member (not only owners)', async () => {
 		mockUserState.isHouseOwner = false
 		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
 		await flushPromises()
 
 		expect(wrapper.find('[data-testid="notifications-section"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="task-digest-toggle"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="org-digest-toggle"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="digest-time-input"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="quiet-start-input"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="quiet-end-input"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="sound-toggle"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="animation-toggle"]').exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'NotificationPreferences' }).exists()).toBe(true)
 	})
 
-	it('loads the own preferences into the form on mount', async () => {
-		mockPreferencesState.taskDigestEnabled = true
-		mockPreferencesState.digestTime = '19:30'
-		mockPreferencesState.quietStart = '21:00'
-		mockPreferencesState.quietEnd = '07:00'
-
+	it('renders the notifications delegation for owners too', async () => {
 		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
 		await flushPromises()
 
-		expect(mockPreferencesState.fetchPreferences).toHaveBeenCalled()
-		expect(wrapper.find('[data-testid="task-digest-toggle"]').element.checked).toBe(true)
-		expect(wrapper.find('[data-testid="digest-time-input"]').element.value).toBe('19:30')
-		expect(wrapper.find('[data-testid="quiet-start-input"]').element.value).toBe('21:00')
-		expect(wrapper.find('[data-testid="quiet-end-input"]').element.value).toBe('07:00')
+		expect(wrapper.find('[data-testid="notifications-section"]').exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'NotificationPreferences' }).exists()).toBe(true)
 	})
 
-	it('saves the edited delivery preferences through the version-aware store', async () => {
+	// --- Pauses (CS-PLAN-070 WP6 §3.4, Q-077-03 A) ---
+
+	it('renders the self-only pause section for every member', async () => {
+		mockUserState.isHouseOwner = false
 		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
 		await flushPromises()
 
-		await wrapper.find('[data-testid="task-digest-toggle"]').setValue(true)
-		await wrapper.find('[data-testid="save-preferences"]').trigger('click')
-		await flushPromises()
-
-		expect(mockPreferencesState.savePreferences).toHaveBeenCalledWith(expect.objectContaining({
-			taskDigestEnabled: true,
-		}))
-		expect(showSuccess).toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="pause-section"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="pause-settings"]').exists()).toBe(true)
+		// Owner administration stays in the owner House section.
+		expect(wrapper.find('[data-testid="house-pause-section"]').exists()).toBe(false)
 	})
 
-	it('pre-fills the quiet inputs with the 20:00/08:00 suggestion while enabling and they are empty', async () => {
+	it('offers the owner the house pause, request decisions and illness recognition', async () => {
+		const pendingRequest = {
+			pauseGroupId: 5,
+			revision: 1,
+			scope: 'personal',
+			subjectUserId: 'teen',
+			state: 'requested',
+			startDate: '2026-10-01',
+			endDate: '2026-10-03',
+			reasonCode: 'illness',
+			isRetrospectiveIllness: false,
+		}
+		mockPausesState.pauses = [pendingRequest]
+		mockPausesState.pendingRequests = [pendingRequest]
+		mockUserState.houseUsers = [{ nextcloudUserId: 'teen', displayName: 'Teen' }]
 		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
 		await flushPromises()
 
-		await wrapper.find('[data-testid="task-digest-toggle"]').setValue(true)
+		expect(wrapper.find('[data-testid="house-pause-section"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="illness-recognition"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="pending-pause-requests"]').exists()).toBe(true)
+
+		// Approve sends the displayed expectedRevision.
+		await wrapper.find('[data-testid="pause-approve-5"]').trigger('click')
 		await flushPromises()
+		expect(mockPausesState.approvePause).toHaveBeenCalledWith(5, 1)
 
-		expect(wrapper.find('[data-testid="quiet-start-input"]').element.value).toBe('20:00')
-		expect(wrapper.find('[data-testid="quiet-end-input"]').element.value).toBe('08:00')
-	})
-
-	it('keeps the draft and shows the conflict hint on a 409', async () => {
-		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		// The house pause form sends the whitelisted fields.
+		await wrapper.find('[data-testid="house-pause-start-input"]').setValue('2026-12-01')
+		await wrapper.find('[data-testid="house-pause-end-input"]').setValue('2026-12-05')
+		await wrapper.find('[data-testid="house-pause-reason-select"]').setValue('travel')
+		await wrapper.find('[data-testid="house-pause-submit"]').trigger('click')
 		await flushPromises()
-
-		mockPreferencesState.savePreferences.mockImplementation(async () => {
-			// The real store flags the conflict and refreshes the server
-			// state while preserving the caller's draft — mutate through
-			// the reactive proxy so the component re-renders.
-			require('vue').reactive(mockPreferencesState).conflict = true
-			return false
+		expect(mockPausesState.createHousePause).toHaveBeenCalledWith({
+			startDate: '2026-12-01',
+			endDate: '2026-12-05',
+			reasonCode: 'travel',
 		})
-		await wrapper.find('[data-testid="task-digest-toggle"]').setValue(true)
-		await wrapper.find('[data-testid="save-preferences"]').trigger('click')
-		await flushPromises()
-
-		expect(wrapper.find('[data-testid="preferences-conflict"]').exists()).toBe(true)
-		// Draft preservation: the local edit is still on the form.
-		expect(wrapper.find('[data-testid="task-digest-toggle"]').element.checked).toBe(true)
-		expect(showSuccess).not.toHaveBeenCalled()
 	})
 })

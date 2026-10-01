@@ -53,7 +53,7 @@ test.describe('Setup wizard journey (empty house)', () => {
 		try {
 			// mom's first request bootstraps her to owner; the empty house
 			// auto-opens the wizard on the Dashboard.
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			const wizard = page.getByTestId('setup-wizard')
 			await expect(wizard).toBeVisible()
@@ -122,7 +122,7 @@ test.describe('Setup wizard journey (empty house)', () => {
 		// dad's own context sees the member view: no owner setup entry.
 		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
 		try {
-			await dadPage.goto('/apps/chorestrike/')
+			await dadPage.goto('/apps/chorestrike/#/dashboard')
 			await dadPage.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			await expect(dadPage.getByTestId('open-setup-wizard')).toHaveCount(0)
 			await expect(dadPage.getByTestId('floor-list')).toBeVisible()
@@ -141,7 +141,7 @@ test.describe('Setup wizard journey (empty house)', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			await expect(page.getByTestId('setup-wizard')).toBeVisible()
 
@@ -217,7 +217,7 @@ test.describe('Setup wizard journey (empty house)', () => {
 			hasTouch: true,
 		})
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			const wizard = page.getByTestId('setup-wizard')
 			await expect(wizard).toBeVisible()

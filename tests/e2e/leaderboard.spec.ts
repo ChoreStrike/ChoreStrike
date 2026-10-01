@@ -16,7 +16,7 @@ test.describe('Leaderboard and Gamification (consent-filtered)', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('domcontentloaded')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 	})

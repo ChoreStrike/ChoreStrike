@@ -325,7 +325,7 @@ test.describe('Release: Insights Flow', () => {
 			const fraction = String(Math.abs(minor) % 100).padStart(2, '0').replace(/0+$/, '')
 			const expected = `${minor < 0 ? '-' : ''}${whole}${fraction ? `.${fraction}` : ''}`
 
-			await owner.page.goto('/apps/chorestrike/')
+			await owner.page.goto('/apps/chorestrike/#/dashboard')
 			await expect(owner.page.getByTestId('own-wallet-available')).toHaveText(expected)
 			await owner.page.reload()
 			await expect(owner.page.getByTestId('own-wallet-available')).toHaveText(expected)

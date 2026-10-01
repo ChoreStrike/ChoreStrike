@@ -84,6 +84,10 @@ const REQUIRED_SPECS = [
 	// CS-PLAN-070 WP4: the consent lifecycle needs the owner + reset-owned
 	// family DB (flag flip + UI consent/withdraw).
 	{ file: 'ranking-consent.spec.ts', project: 'chromium-serial-db', scenarios: ['owner enables ranking; member joins pending and withdraws'], minTests: 1 },
+	// CS-PLAN-070 WP6: the calm-core spec flips the personal optional-area
+	// preference and walks the pause lifecycle through the real API — a
+	// parallel reseed would corrupt the preference/pause state, serial only.
+	{ file: 'calm-core-ui.spec.ts', project: 'chromium-serial-db', scenarios: ['every role lands on my day', 'optional arcade hides', 'pause lifecycle stays neutral'], minTests: 4 },
 	// Owner-scoped scheduling pool.
 	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
 	{ file: 'flex-window-scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },

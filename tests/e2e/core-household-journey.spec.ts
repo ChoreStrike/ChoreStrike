@@ -41,7 +41,7 @@ const ADMIN_TASK = 'Journey Admin Audit'
 
 /** Open the app and wait for the shell. */
 async function openApp(page: Page): Promise<void> {
-	await page.goto('/apps/chorestrike/')
+	await page.goto('/apps/chorestrike/#/dashboard')
 	await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 }
 

@@ -97,3 +97,130 @@ describe('TaskListDetails (CS-PLAN-067 §3.4)', () => {
 		expect(wrapper2.emitted('toggle-assignee')).toEqual([[42, 'u1']])
 	})
 })
+
+// --- Occurrence agreements (CS-PLAN-070 WP6 §3.5) ---
+
+describe('TaskListDetails occurrence agreements', () => {
+	const occurrence = (over = {}) => ({
+		occurrenceId: '12:1',
+		expectedVersion: 3,
+		selectionToken: 'token-42',
+		classification: 'agreed',
+		kind: 'scheduled',
+		plannedDate: '2999-01-01',
+		workDate: '2999-01-01',
+		timezone: 'Europe/Berlin',
+		suspended: false,
+		fulfilled: false,
+		covered: false,
+		...over,
+	})
+
+	/** Mount with an occurrence block; the store instance stays reachable
+	 * through the active pinia for spying. */
+	const mountWithOccurrence = (propsOver = {}, occurrenceOver = {}) => {
+		const wrapper = mountDetails({
+			isHouseOwner: true,
+			item: {
+				roomTask: roomTask({ occurrence: occurrence(occurrenceOver) }),
+				task: task({ schedulingMode: 'dynamic' }),
+			},
+			...propsOver,
+		})
+		const { useSchedulingStore } = require('../../../src/store/scheduling.js')
+		return { wrapper, store: useSchedulingStore() }
+	}
+
+	beforeEach(() => {
+		jest.clearAllMocks()
+		setActivePinia(createPinia())
+	})
+
+	it('renders the amend entry for owners with an occurrence and hides it from members', () => {
+		const { wrapper } = mountWithOccurrence()
+		expect(wrapper.find('[data-testid="agreement-amend"]').exists()).toBe(true)
+
+		const memberWrapper = mountDetails({
+			isHouseOwner: false,
+			item: { roomTask: roomTask({ occurrence: occurrence() }), task: task() },
+		})
+		expect(memberWrapper.find('[data-testid="occurrence-agreement"]').exists()).toBe(false)
+	})
+
+	it('sends the amend command with the shown identity, version and consent', async () => {
+		const { wrapper, store } = mountWithOccurrence()
+		const spy = jest.spyOn(store, 'amendOccurrence').mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
+
+		await wrapper.find('[data-testid="agreement-amend-date"]').setValue('2999-02-01')
+		// Consent gates the submit.
+		await wrapper.find('[data-testid="agreement-amend-submit"]').trigger('click')
+		expect(spy).not.toHaveBeenCalled()
+
+		await wrapper.find('[data-testid="agreement-consent"]').setValue(true)
+		await wrapper.find('[data-testid="agreement-amend-submit"]').trigger('click')
+
+		expect(spy).toHaveBeenCalledTimes(1)
+		expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+			roomTaskId: 42,
+			occurrence: expect.objectContaining({
+				occurrenceId: '12:1',
+				expectedVersion: 3,
+				selectionToken: 'token-42',
+			}),
+			date: '2999-02-01',
+			consent: true,
+		}))
+	})
+
+	it('shows the catch-up entry only for the current miss (classification late)', async () => {
+		const { wrapper } = mountWithOccurrence({}, { classification: 'late' })
+		expect(wrapper.find('[data-testid="agreement-catchup"]').exists()).toBe(true)
+
+		const { wrapper: agreedWrapper } = mountWithOccurrence({}, { classification: 'agreed' })
+		expect(agreedWrapper.find('[data-testid="agreement-catchup"]').exists()).toBe(false)
+	})
+
+	it('sends the catch-up command with the agreed work date and work zone', async () => {
+		const { wrapper, store } = mountWithOccurrence({}, { classification: 'late' })
+		const spy = jest.spyOn(store, 'catchUpOccurrence').mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 5 })
+
+		await wrapper.find('[data-testid="agreement-catchup-date"]').setValue('2999-02-02')
+		await wrapper.find('[data-testid="agreement-consent"]').setValue(true)
+		await wrapper.find('[data-testid="agreement-catchup-submit"]').trigger('click')
+
+		expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+			roomTaskId: 42,
+			occurrence: expect.objectContaining({ occurrenceId: '12:1', expectedVersion: 3 }),
+			workDate: '2999-02-02',
+			consent: true,
+		}))
+	})
+
+	it('offers the restart entry only for suspended interval-cadence work', () => {
+		const { wrapper } = mountWithOccurrence({}, { suspended: true })
+		expect(wrapper.find('[data-testid="agreement-restart"]').exists()).toBe(true)
+		// Static cadence tasks never offer the linked restart.
+		const { wrapper: staticWrapper } = mountWithOccurrence(
+			{ item: { roomTask: roomTask({ occurrence: occurrence({ suspended: true }) }), task: task({ schedulingMode: 'static' }) } },
+		)
+		expect(staticWrapper.find('[data-testid="agreement-restart"]').exists()).toBe(false)
+	})
+
+	it('keeps the draft on a 409 and shows the conflict note', async () => {
+		const { wrapper, store } = mountWithOccurrence()
+		const conflict = new Error('HTTP 409')
+		conflict.status = 409
+		jest.spyOn(store, 'amendOccurrence').mockRejectedValue(conflict)
+
+		await wrapper.find('[data-testid="agreement-amend-date"]').setValue('2999-02-01')
+		await wrapper.find('[data-testid="agreement-consent"]').setValue(true)
+		await wrapper.find('[data-testid="agreement-amend-submit"]').trigger('click')
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(wrapper.find('[data-testid="agreement-conflict"]').exists()).toBe(true)
+		// The entered date survived the conflict (draft preservation).
+		expect(wrapper.find('[data-testid="agreement-amend-date"]').element.value).toBe('2999-02-01')
+		// Consent re-attests for the retry.
+		expect(wrapper.find('[data-testid="agreement-consent"]').element.checked).toBe(true)
+	})
+})

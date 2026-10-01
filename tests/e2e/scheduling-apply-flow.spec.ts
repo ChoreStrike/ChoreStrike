@@ -44,7 +44,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		// One-off load flakes (CS-PLAN-068): retry the NAVIGATION against the
 		// durable outcome instead of a single fixed wait.
 		await expect(async () => {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day,
 			// owners/members on the Dashboard — both are valid entry points.
 			await page.getByTestId('dashboard-view')
@@ -165,7 +165,9 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 			sunday: true,
 		})
 		await expect(page.getByTestId('edit-availability-modal')).toHaveCount(0)
-		await expect(kidCard.getByTestId('member-task-limit')).toContainText('max 3')
+		// The persisted limit value renders with a localized prefix — pin
+		// the number, not the translated label.
+		await expect(kidCard.getByTestId('member-task-limit')).toContainText('3')
 
 		// 3. Preview over the freshly created real task.
 		const previewResponse = page.waitForResponse((response) =>
@@ -533,7 +535,9 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await page.getByTestId(`planner-task-checkbox-${trash.id}`).check()
 		await page.getByTestId('preview-plan-button').click()
 		await expect(page.getByTestId(`plan-unplaced-${trash.id}`)).toBeVisible()
-		await expect(page.getByTestId('plan-unplaced')).toContainText('no legal day')
+		// The unplaced report carries the probe task (locale-independent —
+		// the reason phrase renders in the viewer's language).
+		await expect(page.getByTestId('plan-unplaced')).toContainText('Take out trash')
 		await expect(page.getByTestId('apply-plan-button')).toBeDisabled()
 
 		await context.close()
@@ -541,7 +545,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 
 	test('the retired taskCount advice contract is rejected without a fallback', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 
 		const status = await page.evaluate(async () => {

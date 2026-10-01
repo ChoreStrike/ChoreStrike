@@ -29,7 +29,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 
 			// Race Dashboard ↔ My Day navigations back to back; every load
@@ -66,7 +66,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 				await route.continue()
 			})
 
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 
 			// Navigate to My Day (slow first daily read starts), navigate
@@ -97,7 +97,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			await page.getByTestId('nav-today').click()
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })

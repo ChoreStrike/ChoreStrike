@@ -1,13 +1,26 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals'
+
 describe('useCelebration composable', () => {
 	let mockSubscribe
 	let mockUnsubscribe
 	let mockFireConfetti
 	let mockFireMilestoneConfetti
 	let mockPlaySound
+	let mockSetSoundEnabled
+	let mockSetAnimationsEnabled
 	let handlers
 
 	beforeEach(() => {
 		jest.resetModules()
+		// Require AFTER resetModules so the fresh preferences module and
+		// this spec share the same pinia registry instance.
+		const { createPinia, setActivePinia } = require('pinia')
+		setActivePinia(createPinia())
 		handlers = {}
 
 		mockSubscribe = jest.fn((event, handler) => {
@@ -17,6 +30,8 @@ describe('useCelebration composable', () => {
 		mockFireConfetti = jest.fn()
 		mockFireMilestoneConfetti = jest.fn()
 		mockPlaySound = jest.fn()
+		mockSetSoundEnabled = jest.fn()
+		mockSetAnimationsEnabled = jest.fn()
 
 		jest.doMock('@nextcloud/event-bus', () => ({
 			subscribe: mockSubscribe,
@@ -25,9 +40,11 @@ describe('useCelebration composable', () => {
 		jest.doMock('@/utils/confetti', () => ({
 			fireConfetti: mockFireConfetti,
 			fireMilestoneConfetti: mockFireMilestoneConfetti,
+			setAnimationsEnabled: mockSetAnimationsEnabled,
 		}))
 		jest.doMock('@/utils/sound', () => ({
 			playSound: mockPlaySound,
+			setSoundEnabled: mockSetSoundEnabled,
 		}))
 		jest.doMock('@/utils/logger', () => ({
 			logger: { info: jest.fn(), error: jest.fn() },
@@ -38,7 +55,17 @@ describe('useCelebration composable', () => {
 		jest.restoreAllMocks()
 	})
 
+	/** Set the personal opt-ins on the preference store the composable reads. */
+	const setPreferences = ({ sound = false, animation = false }) => {
+		const { usePreferencesStore } = require('@/store/preferences')
+		const store = usePreferencesStore()
+		store.soundEnabled = sound
+		store.animationEnabled = animation
+		return store
+	}
+
 	it('subscribes to the retained celebration events', () => {
+		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
@@ -50,17 +77,49 @@ describe('useCelebration composable', () => {
 		expect(mockSubscribe).not.toHaveBeenCalledWith('chorestrike:streak-freeze-used', expect.any(Function))
 	})
 
-	it('fires confetti and plays complete sound on task completion', () => {
+	it('syncs the OFF gates per event and stays silent at the neutral defaults (C5g)', () => {
+		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
 		handlers['chorestrike:task-completed']({ currentStreak: 3 })
 
+		expect(mockSetSoundEnabled).toHaveBeenLastCalledWith(false)
+		expect(mockSetAnimationsEnabled).toHaveBeenLastCalledWith(false)
+		// The composable fires through the module gates — the modules decide.
 		expect(mockFireConfetti).toHaveBeenCalledTimes(1)
 		expect(mockPlaySound).toHaveBeenCalledWith('complete')
 	})
 
+	it('syncs the ON gates per event after an explicit opt-in', () => {
+		setPreferences({ sound: true, animation: true })
+		const { useCelebration } = require('@/composables/useCelebration')
+		useCelebration()
+
+		handlers['chorestrike:task-completed']({ currentStreak: 3 })
+
+		expect(mockSetSoundEnabled).toHaveBeenLastCalledWith(true)
+		expect(mockSetAnimationsEnabled).toHaveBeenLastCalledWith(true)
+		expect(mockPlaySound).toHaveBeenCalledWith('complete')
+	})
+
+	it('re-reads a mid-session preference change on the NEXT event', () => {
+		const store = setPreferences({})
+		const { useCelebration } = require('@/composables/useCelebration')
+		useCelebration()
+
+		handlers['chorestrike:medal-awarded']({})
+		expect(mockSetSoundEnabled).toHaveBeenLastCalledWith(false)
+
+		store.soundEnabled = true
+		store.animationEnabled = true
+		handlers['chorestrike:medal-awarded']({})
+		expect(mockSetSoundEnabled).toHaveBeenLastCalledWith(true)
+		expect(mockSetAnimationsEnabled).toHaveBeenLastCalledWith(true)
+	})
+
 	it('never plays the retired combo sound (WP4 pin)', () => {
+		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
@@ -69,7 +128,8 @@ describe('useCelebration composable', () => {
 		expect(mockPlaySound).not.toHaveBeenCalledWith('combo')
 	})
 
-	it('fires milestone confetti on streak milestone', () => {
+	it('plays the milestone profile on streak milestones', () => {
+		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
@@ -79,7 +139,8 @@ describe('useCelebration composable', () => {
 		expect(mockPlaySound).toHaveBeenCalledWith('milestone')
 	})
 
-	it('fires milestone confetti on medal awarded', () => {
+	it('fires milestone effects on medal awarded', () => {
+		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
@@ -89,7 +150,8 @@ describe('useCelebration composable', () => {
 		expect(mockPlaySound).toHaveBeenCalledWith('medal')
 	})
 
-	it('fires milestone confetti on title unlocked', () => {
+	it('fires milestone effects on title unlocked', () => {
+		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
@@ -100,6 +162,7 @@ describe('useCelebration composable', () => {
 	})
 
 	it('returns a cleanup function that unsubscribes all handlers', () => {
+		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		const cleanup = useCelebration()
 

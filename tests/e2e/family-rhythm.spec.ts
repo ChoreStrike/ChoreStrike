@@ -82,7 +82,7 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 			await expandAllFloors(page)
 			await page.getByTestId('room-card-Kitchen').first().click()
@@ -322,7 +322,11 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			await page.getByTestId(`planner-task-checkbox-${roomTaskId}`).check()
 			await page.getByTestId('preview-plan-button').click()
 			await expect(page.getByTestId('plan-capacity')).toBeVisible({ timeout: 15000 })
-			await expect(page.getByTestId('plan-capacity')).toContainText('Paused')
+			// Locale-independent state pin: the covered days render the
+			// paused member state (td.paused) instead of silent capacity
+			// numbers — profile users render in their own Nextcloud
+			// language, so the translated cell text is not a stable selector.
+			await expect(page.locator('[data-testid="plan-capacity"] td.paused').first()).toBeVisible({ timeout: 15000 })
 		} finally {
 			await context.close()
 			await kidContext.close()
@@ -463,8 +467,10 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			await page.getByTestId('preview-plan-button').click()
 			await expect(page.getByTestId('plan-capacity')).toBeVisible({ timeout: 15000 })
 			// The overload stays visible with its amounts and the
-			// clarification flag (never silently hidden).
-			await expect(page.getByTestId('plan-capacity')).toContainText('over capacity')
+			// clarification flag (never silently hidden) — pinned via the
+			// locale-independent td.overloaded state class (profile users
+			// render in their own Nextcloud language).
+			await expect(page.locator('[data-testid="plan-capacity"] td.overloaded').first()).toBeVisible({ timeout: 15000 })
 		} finally {
 			await context.close()
 			await kidContext.close()

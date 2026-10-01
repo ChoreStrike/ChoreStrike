@@ -156,12 +156,16 @@ test.describe('Release: Notifications — quiet-hours digest', () => {
 			await page.goto('/apps/chorestrike/#/settings')
 			await expect(page.getByTestId('notifications-section')).toBeVisible({ timeout: 20000 })
 
-			const taskToggle = page.getByTestId('task-digest-toggle')
-			await expect(taskToggle).not.toBeChecked()
+			// NcCheckboxRadioSwitch renders the actual input visually hidden
+			// behind its content span — click the visible switch label (the
+			// realistic user interaction; mom is pinned to English).
+			const taskSwitch = page.getByTestId('task-digest-switch')
+			await expect(taskSwitch).not.toBeChecked()
 
 			// Enabling pre-fills the quiet inputs with the 20:00/08:00
 			// suggestion while they are empty (C5c).
-			await taskToggle.check()
+			await page.getByText('Daily task digest', { exact: true }).click()
+			await expect(taskSwitch).toBeChecked()
 			await expect(page.getByTestId('quiet-start-input')).toHaveValue('20:00')
 			await expect(page.getByTestId('quiet-end-input')).toHaveValue('08:00')
 

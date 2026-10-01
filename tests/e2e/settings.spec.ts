@@ -16,7 +16,7 @@ test.describe('Settings', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })

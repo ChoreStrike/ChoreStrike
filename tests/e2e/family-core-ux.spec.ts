@@ -62,7 +62,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 
 			// QuickStats counters render from the dedicated projections —
@@ -80,7 +80,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			await page.getByTestId('nav-tasks').click()
 			await page.getByTestId('task-manager-view').waitFor({ state: 'visible' })
@@ -121,7 +121,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			await page.getByTestId('nav-today').click()
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
@@ -196,7 +196,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		const { context: ownerContext, page: ownerPage } = await createUserContext(browser, 'mom')
 		const itemLabel = `Checklist regression ${Date.now()}`
 		try {
-			await ownerPage.goto('/apps/chorestrike/')
+			await ownerPage.goto('/apps/chorestrike/#/dashboard')
 			await ownerPage.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			await ownerPage.getByTestId('nav-tasks').click()
 			await ownerPage.getByTestId('task-manager-view').waitFor({ state: 'visible' })

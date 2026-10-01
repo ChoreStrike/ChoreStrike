@@ -26,7 +26,11 @@ const SEED_DEPENDENT_SPECS = [
 	/[/\\]release-task-lifecycle\.spec\.ts$/,
 	/[/\\]release-visibility-roles\.spec\.ts$/,
 	/[/\\]release-task-templates\.spec\.ts$/,
-	/[/\\]release-boost-shop\.spec\.ts$/,
+	// CS-PLAN-070 WP6 (D12): the dead release-boost-shop regex left the
+	// config when the spec retired — removed. The calm-core spec joins the
+	// serial pool: it flips the personal arcadeVisible preference and
+	// pause lifecycle state a parallel reseed would corrupt.
+	/[/\\]calm-core-ui\.spec\.ts$/,
 	// CS-PLAN-070 WP5: the quiet-digest release spec replaces the retired
 	// time-travel-streak-notification and release-notifications specs — it
 	// re-seeds the family profile and mutates notification/job state.

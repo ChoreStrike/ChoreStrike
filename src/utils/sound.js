@@ -6,6 +6,10 @@
 import { logger } from './logger.js'
 
 let muted = false
+// CS-PLAN-070 WP6 (C5g): sounds are a PERSONAL OPT-IN (default off).
+// The preference store syncs this module gate; `muted` stays as the
+// additional local kill-switch.
+let soundEnabled = false
 let audioContext = null
 
 const SOUND_PROFILES = {
@@ -27,12 +31,13 @@ function getContext() {
 }
 
 /**
- * Play a synthesised sound effect. No-op when muted.
+ * Play a synthesised sound effect. No-op unless the personal opt-in is
+ * set (`setSoundEnabled`) and the module is not muted.
  *
  * @param {string} name Sound name (complete, medal, milestone)
  */
 export function playSound(name) {
-	if (muted) {
+	if (!soundEnabled || muted) {
 		return
 	}
 
@@ -98,6 +103,26 @@ export function setMuted(value) {
  */
 export function isMuted() {
 	return muted
+}
+
+/**
+ * Sync the personal sound opt-in (C5g, default off). Called from the
+ * celebration composable on every event so a mid-session preference
+ * change applies to the next effect.
+ *
+ * @param {boolean} value True when the user opted into sounds
+ */
+export function setSoundEnabled(value) {
+	soundEnabled = value === true
+}
+
+/**
+ * Get the current opt-in state.
+ *
+ * @return {boolean}
+ */
+export function isSoundEnabled() {
+	return soundEnabled
 }
 
 /**

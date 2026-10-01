@@ -37,20 +37,26 @@ describe('App', () => {
 		it('renders a data-testid on every navigation entry', () => {
 			const html = mountApp().html()
 
-			expect(html).toContain('data-testid="nav-dashboard"')
 			expect(html).toContain('data-testid="nav-today"')
+			expect(html).toContain('data-testid="nav-dashboard"')
 			expect(html).toContain('data-testid="nav-tasks"')
 			expect(html).toContain('data-testid="nav-leaderboard"')
 			expect(html).toContain('data-testid="nav-insights"')
 			expect(html).toContain('data-testid="nav-scheduling"')
 			expect(html).toContain('data-testid="nav-calendar"')
+			expect(html).toContain('data-testid="nav-arcade"')
 			expect(html).toContain('data-testid="nav-settings"')
 		})
 
-		it('renders all eight navigation entries', () => {
-			const navItems = mountApp().findAllComponents({ name: 'NcAppNavigationItem' })
+		it('renders all nine navigation entries with My Day first (C5f)', () => {
+			const wrapper = mountApp()
+			const navItems = wrapper.findAllComponents({ name: 'NcAppNavigationItem' })
 
-			expect(navItems).toHaveLength(8)
+			expect(navItems).toHaveLength(9)
+			// The shared My Day surface is the primary entry; the Dashboard
+			// follows as the secondary household overview (Q-077-01 A).
+			expect(wrapper.html()).toContain('data-testid="nav-today"')
+			expect(wrapper.find('[data-testid="nav-today"]').exists()).toBe(true)
 		})
 	})
 
@@ -94,9 +100,11 @@ describe('App', () => {
 		})
 	})
 
-	// CS-PLAN-066 (D4): after membership resolves, only the initial
-	// unqualified root visit of a child redirects to My Day.
-	describe('Child landing redirect (CS-PLAN-066 D4)', () => {
+	// CS-PLAN-070 WP6 (C5f, Q-077-01 A): the landing is a route-level
+	// redirect for EVERY role (pinned in router.spec.js) — App carries no
+	// one-shot redirect logic anymore; the arcade nav entry is the
+	// optional-area consumer of the personal arcadeVisible preference.
+	describe('All-age landing and optional-area navigation (CS-PLAN-070 WP6)', () => {
 		const mountWithRouter = (route, setupStore) => {
 			const pinia = createPinia()
 			setActivePinia(pinia)
@@ -121,9 +129,9 @@ describe('App', () => {
 			return { wrapper, routerReplace }
 		}
 
-		it('redirects the initial bare root visit of a resolved child to My Day', async () => {
+		it('applies no component-level landing redirect for any role', async () => {
 			const { wrapper, routerReplace } = mountWithRouter(
-				{ path: '/', name: 'dashboard', query: {} },
+				{ path: '/', name: 'today', query: {} },
 				store => {
 					store.currentUser = { nextcloudUserId: 'teen', role: 'child' }
 					store.membership = 'member'
@@ -131,53 +139,24 @@ describe('App', () => {
 			)
 			await wrapper.vm.$nextTick()
 
-			expect(routerReplace).toHaveBeenCalledWith({ name: 'today' })
+			expect(routerReplace).not.toHaveBeenCalled()
 		})
 
-		it('keeps owner and member on the Dashboard', async () => {
-			const { wrapper, routerReplace } = mountWithRouter(
-				{ path: '/', name: 'dashboard', query: {} },
+		it('hides the arcade navigation entry while arcadeVisible is false (Q-077-05 A)', async () => {
+			const { usePreferencesStore } = require('../../../src/store/preferences.js')
+			const { wrapper } = mountWithRouter(
+				{ path: '/today', name: 'today', query: {} },
 				store => {
 					store.currentUser = { nextcloudUserId: 'mom', role: 'owner' }
 					store.membership = 'member'
 				},
 			)
 			await wrapper.vm.$nextTick()
+			expect(wrapper.find('[data-testid="nav-arcade"]').exists()).toBe(true)
 
-			expect(routerReplace).not.toHaveBeenCalled()
-		})
-
-		it('keeps explicit deep links usable for children', async () => {
-			const { wrapper, routerReplace } = mountWithRouter(
-				{ path: '/tasks', name: 'tasks', query: {} },
-				store => {
-					store.currentUser = { nextcloudUserId: 'teen', role: 'child' }
-					store.membership = 'member'
-				},
-			)
+			usePreferencesStore().arcadeVisible = false
 			await wrapper.vm.$nextTick()
-
-			expect(routerReplace).not.toHaveBeenCalled()
-		})
-
-		it('applies the landing decision at most once (later Dashboard visits stay)', async () => {
-			const { wrapper, routerReplace } = mountWithRouter(
-				{ path: '/', name: 'dashboard', query: {} },
-				store => {
-					store.currentUser = { nextcloudUserId: 'teen', role: 'child' }
-					store.membership = 'member'
-				},
-			)
-			await wrapper.vm.$nextTick()
-
-			// A second membership reactivity tick must not re-trigger.
-			const store = useUserStore()
-			store.membership = 'unknown'
-			await wrapper.vm.$nextTick()
-			store.membership = 'member'
-			await wrapper.vm.$nextTick()
-
-			expect(routerReplace).toHaveBeenCalledTimes(1)
+			expect(wrapper.find('[data-testid="nav-arcade"]').exists()).toBe(false)
 		})
 	})
 })

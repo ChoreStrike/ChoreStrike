@@ -61,17 +61,19 @@ blocked first final-review attempt and the original manifest are recorded in the
 live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
 Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-(parent plan; WP0-WP5 delivered). WP5 preferences/digest delivery,
-[CS-PLAN-076](done/cs-plan-076-wp5-preferences-and-digest-delivery.md), passed
-final Standard B `PASS-WITH-FIXES` on 2026-09-30. The parent remains open
-for WP6-WP9; no successor activation is part of this review.
+(parent plan; WP0-WP6 delivered). WP6 calm core UI,
+[CS-PLAN-077: WP6 - Calm Core UI](done/cs-plan-077-wp6-calm-core-ui.md), passed
+final Standard B `PASS-WITH-FIXES` on 2026-10-01. The parent remains open
+for WP7-WP9; no successor activation is part of this review.
 
-Its successor, WP6 calm core UI, is
-[CS-PLAN-077: WP6 - Calm Core UI](active/cs-plan-077-wp6-calm-core-ui.md),
-activated 2026-09-30 via Standard A `PASS-WITH-FIXES` (Q-077-01..05 all
-Option A); implementation not started.
-
-Latest completed: [CS-PLAN-076: WP5 - Preferences and Digest Delivery](done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
+Latest completed: [CS-PLAN-077: WP6 - Calm Core UI](done/cs-plan-077-wp6-calm-core-ui.md)
+(final Standard B `PASS-WITH-FIXES` 2026-10-01): all-age My Day landing/content,
+preference-gated calm feedback with the reduced-motion hard floor, full
+`NotificationPreferences.vue` + optional-area consumers, pause UI on the WP2
+contract, occurrence agreement entry points, shared-device store reset, no-Coin
+UI closure and the essential help slice. Review record:
+[CODE_REVIEW_2026-10-01](../backlog/archive/CODE_REVIEW_2026-10-01.md).
+Preceded by [CS-PLAN-076: WP5 - Preferences and Digest Delivery](done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-30): self-only settings, bounded
 at-most-once combined digest, transactional source queue, full regression/
 concurrency evidence and ADR-016. Review record:

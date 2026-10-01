@@ -6,13 +6,22 @@
 import confetti from 'canvas-confetti'
 import { logger } from './logger.js'
 
-const reducedMotionQuery = typeof window !== 'undefined'
-	? window.matchMedia('(prefers-reduced-motion: reduce)')
-	: null
-
+/**
+ * Re-read the reduced-motion preference on EVERY call, so a live OS-level
+ * change applies to the next effect without a reload.
+ * @return {boolean}
+ */
 function prefersReducedMotion() {
-	return reducedMotionQuery?.matches ?? false
+	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+		return false
+	}
+	return window.matchMedia('(prefers-reduced-motion: reduce)').matches === true
 }
+
+// CS-PLAN-070 WP6 (C5g): animations are a PERSONAL OPT-IN (default off).
+// `prefers-reduced-motion` ALWAYS overrides even an explicit opt-in —
+// the module-level checks below are the hard floor.
+let animationsEnabled = false
 
 /**
  * Read the celebration palette from the design-token CSS variables.
@@ -41,12 +50,13 @@ export function getCelebrationPalette() {
 
 /**
  * Fire a burst of confetti from the center of the viewport.
- * No-op when the user prefers reduced motion.
+ * No-op unless the personal animation opt-in is set; reduced motion
+ * always wins, even over an explicit opt-in.
  *
  * @param {object} [options] Optional overrides forwarded to canvas-confetti
  */
 export function fireConfetti(options = {}) {
-	if (prefersReducedMotion()) {
+	if (!animationsEnabled || prefersReducedMotion()) {
 		return
 	}
 
@@ -66,11 +76,12 @@ export function fireConfetti(options = {}) {
 
 /**
  * Fire confetti from both sides of the viewport (milestone celebration).
+ * Same opt-in/reduced-motion rules as the single burst variant.
  *
  * @param {object} [options] Optional overrides forwarded to canvas-confetti
  */
 export function fireMilestoneConfetti(options = {}) {
-	if (prefersReducedMotion()) {
+	if (!animationsEnabled || prefersReducedMotion()) {
 		return
 	}
 
@@ -94,10 +105,22 @@ export function fireMilestoneConfetti(options = {}) {
 }
 
 /**
- * Check whether celebration effects are enabled (respects reduced motion).
+ * Sync the personal animation opt-in (C5g, default off). Called from the
+ * celebration composable on every event; the reduced-motion check stays
+ * the hard floor regardless of this flag.
+ *
+ * @param {boolean} value True when the user opted into animations
+ */
+export function setAnimationsEnabled(value) {
+	animationsEnabled = value === true
+}
+
+/**
+ * Check whether celebration effects are enabled (opt-in AND no
+ * reduced-motion preference).
  *
  * @return {boolean}
  */
 export function areCelebrationsEnabled() {
-	return !prefersReducedMotion()
+	return animationsEnabled && !prefersReducedMotion()
 }

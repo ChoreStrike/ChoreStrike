@@ -28,125 +28,21 @@
 				</div>
 			</section>
 
-			<!-- Notifications (CS-PLAN-070 WP5, Q-076-01 A): the self-only
-			     delivery preferences. Every member configures their own
-			     daily summary; there is no owner access to foreign
-			     preferences (C5h) and house feature enablement stays in
-			     the owner sections above. -->
+			<!-- Notifications (CS-PLAN-070 WP6 §3.3): the inline form was
+			     replaced by the dedicated self-only component (delivery vs.
+			     attention note, feedback-effect opt-ins, draft-preserving
+			     409 handling live there now). -->
 			<section class="settings-section" data-testid="notifications-section">
-				<h2>{{ t('chorestrike', 'Notifications') }}</h2>
+				<NotificationPreferences />
+			</section>
+
+			<!-- Pauses (CS-PLAN-070 WP6 §3.4, Q-077-03 A): the self-only
+			     pause surface for every member; owner administration lives
+			     in the House section above. -->
+			<section class="settings-section" data-testid="pause-section">
+				<h2>{{ t('chorestrike', 'Pauses') }}</h2>
 				<div class="setting-card">
-					<p class="setting-hint">
-						{{ t('chorestrike', 'You receive at most one summary per day. Awards and household updates stay inside the app.') }}
-					</p>
-					<div class="form-group">
-						<label for="pref-task-digest">{{ t('chorestrike', 'Daily task summary') }}</label>
-						<p class="setting-hint">
-							{{ t('chorestrike', 'One overview of your planned work for the day.') }}
-						</p>
-						<div class="input-group">
-							<input
-								id="pref-task-digest"
-								v-model="notificationDraft.taskDigestEnabled"
-								type="checkbox"
-								class="ranking-toggle"
-								data-testid="task-digest-toggle"
-								:disabled="preferencesStore.saving"
-								@change="maybeSuggestQuietHours">
-						</div>
-					</div>
-					<div class="form-group">
-						<label for="pref-org-digest">{{ t('chorestrike', 'Include household updates') }}</label>
-						<p class="setting-hint">
-							{{ t('chorestrike', 'Organizational changes like takeovers, agreements and pauses ride along in the same summary.') }}
-						</p>
-						<div class="input-group">
-							<input
-								id="pref-org-digest"
-								v-model="notificationDraft.orgDigestEnabled"
-								type="checkbox"
-								class="ranking-toggle"
-								data-testid="org-digest-toggle"
-								:disabled="preferencesStore.saving"
-								@change="maybeSuggestQuietHours">
-						</div>
-					</div>
-					<div class="form-group">
-						<label for="pref-digest-time">{{ t('chorestrike', 'Summary time') }}</label>
-						<div class="input-group">
-							<input
-								id="pref-digest-time"
-								v-model="notificationDraft.digestTime"
-								type="time"
-								class="text-input"
-								data-testid="digest-time-input"
-								:disabled="preferencesStore.saving">
-						</div>
-					</div>
-					<div class="form-group">
-						<label for="pref-quiet-start">{{ t('chorestrike', 'Quiet hours start') }}</label>
-						<p class="setting-hint">
-							{{ t('chorestrike', 'During your quiet hours no summary is delivered — a range may run past midnight.') }}
-						</p>
-						<div class="input-group">
-							<input
-								id="pref-quiet-start"
-								v-model="notificationDraft.quietStart"
-								type="time"
-								class="text-input"
-								data-testid="quiet-start-input"
-								:disabled="preferencesStore.saving">
-						</div>
-					</div>
-					<div class="form-group">
-						<label for="pref-quiet-end">{{ t('chorestrike', 'Quiet hours end') }}</label>
-						<div class="input-group">
-							<input
-								id="pref-quiet-end"
-								v-model="notificationDraft.quietEnd"
-								type="time"
-								class="text-input"
-								data-testid="quiet-end-input"
-								:disabled="preferencesStore.saving">
-						</div>
-					</div>
-					<div class="form-group">
-						<label for="pref-sound">{{ t('chorestrike', 'Sounds') }}</label>
-						<div class="input-group">
-							<input
-								id="pref-sound"
-								v-model="notificationDraft.soundEnabled"
-								type="checkbox"
-								class="ranking-toggle"
-								data-testid="sound-toggle"
-								:disabled="preferencesStore.saving">
-						</div>
-					</div>
-					<div class="form-group">
-						<label for="pref-animation">{{ t('chorestrike', 'Animations') }}</label>
-						<div class="input-group">
-							<input
-								id="pref-animation"
-								v-model="notificationDraft.animationEnabled"
-								type="checkbox"
-								class="ranking-toggle"
-								data-testid="animation-toggle"
-								:disabled="preferencesStore.saving">
-						</div>
-					</div>
-					<p v-if="preferencesConflict" class="setting-hint" data-testid="preferences-conflict">
-						{{ t('chorestrike', 'Your changes were saved elsewhere in the meantime. Save again to apply your edits.') }}
-					</p>
-					<div class="input-group">
-						<button
-							class="save-button"
-							data-testid="save-preferences"
-							:disabled="preferencesStore.saving"
-							@click="savePreferences">
-							<Icon name="Save" :size="16" />
-							{{ t('chorestrike', 'Save') }}
-						</button>
-					</div>
+					<PauseSettings />
 				</div>
 			</section>
 
@@ -220,6 +116,127 @@
 								@click="saveRanking">
 								<Icon name="Save" :size="16" />
 								{{ t('chorestrike', 'Save') }}
+							</button>
+						</div>
+					</div>
+
+					<!-- House pause controls (CS-PLAN-070 WP6 §3.4, Q-077-03 A):
+					     owner-only pause administration on the delivered
+					     CS-PLAN-073 WP2 contract. -->
+					<div class="form-group" data-testid="house-pause-section">
+						<label for="house-pause-start">{{ t('chorestrike', 'House pause') }}</label>
+						<p class="setting-hint">
+							{{ t('chorestrike', 'Pauses the whole household neutrally — nothing counts for or against anyone during the pause.') }}
+						</p>
+						<div class="input-group house-pause-row">
+							<input
+								id="house-pause-start"
+								v-model="housePauseDraft.startDate"
+								type="date"
+								class="text-input"
+								:aria-label="t('chorestrike', 'From')"
+								data-testid="house-pause-start-input">
+							<input
+								v-model="housePauseDraft.endDate"
+								type="date"
+								class="text-input"
+								:aria-label="t('chorestrike', 'Until (inclusive)')"
+								data-testid="house-pause-end-input">
+							<select
+								v-model="housePauseDraft.reasonCode"
+								class="text-input"
+								:aria-label="t('chorestrike', 'Reason')"
+								data-testid="house-pause-reason-select">
+								<option value="illness">
+									{{ t('chorestrike', 'Illness') }}
+								</option>
+								<option value="travel">
+									{{ t('chorestrike', 'Travel') }}
+								</option>
+								<option value="overload">
+									{{ t('chorestrike', 'Too much at once') }}
+								</option>
+								<option value="other">
+									{{ t('chorestrike', 'Other') }}
+								</option>
+							</select>
+							<button
+								class="save-button"
+								data-testid="house-pause-submit"
+								:disabled="!housePauseDraft.startDate || !housePauseDraft.endDate || pausesStore.saving"
+								@click="createHousePause">
+								{{ t('chorestrike', 'Pause house') }}
+							</button>
+						</div>
+					</div>
+
+					<div v-if="pendingPauseRequests.length > 0" class="form-group" data-testid="pending-pause-requests">
+						<label>{{ t('chorestrike', 'Pending pause requests') }}</label>
+						<p class="setting-hint">
+							{{ t('chorestrike', 'Pending child requests change nothing until you decide them.') }}
+						</p>
+						<ul class="pause-request-list">
+							<li
+								v-for="request in pendingPauseRequests"
+								:key="request.pauseGroupId"
+								class="pause-request-row"
+								:data-testid="`pause-request-${request.pauseGroupId}`">
+								<span class="pause-request-name">{{ memberName(request.subjectUserId) }}</span>
+								<span class="pause-request-range">
+									{{ t('chorestrike', '{start} – {end}', { start: request.startDate, end: request.endDate }) }}
+								</span>
+								<span v-if="request.reasonCode" class="pause-request-reason">{{ pauseReasonLabel(request.reasonCode) }}</span>
+								<button
+									class="save-button"
+									:data-testid="`pause-approve-${request.pauseGroupId}`"
+									:disabled="pausesStore.saving"
+									@click="decidePauseRequest(request, true)">
+									{{ t('chorestrike', 'Acknowledge') }}
+								</button>
+								<button
+									class="save-button danger"
+									:data-testid="`pause-reject-${request.pauseGroupId}`"
+									:disabled="pausesStore.saving"
+									@click="decidePauseRequest(request, false)">
+									{{ t('chorestrike', 'Decline') }}
+								</button>
+							</li>
+						</ul>
+					</div>
+
+					<div class="form-group" data-testid="illness-recognition">
+						<label for="illness-member">{{ t('chorestrike', 'Record illness retrospectively') }}</label>
+						<p class="setting-hint">
+							{{ t('chorestrike', 'Acknowledge a past illness for one member — neutral, like any other pause.') }}
+						</p>
+						<div class="input-group house-pause-row">
+							<select
+								id="illness-member"
+								v-model="illnessDraft.subjectUserId"
+								class="text-input"
+								data-testid="illness-member-select">
+								<option v-for="member in houseMembers" :key="member.nextcloudUserId" :value="member.nextcloudUserId">
+									{{ member.displayName }}
+								</option>
+							</select>
+							<input
+								v-model="illnessDraft.startDate"
+								type="date"
+								class="text-input"
+								:aria-label="t('chorestrike', 'From')"
+								data-testid="illness-start-input">
+							<input
+								v-model="illnessDraft.endDate"
+								type="date"
+								class="text-input"
+								:aria-label="t('chorestrike', 'Until (inclusive)')"
+								data-testid="illness-end-input">
+							<button
+								class="save-button"
+								data-testid="illness-submit"
+								:disabled="!illnessDraft.subjectUserId || !illnessDraft.startDate || !illnessDraft.endDate || pausesStore.saving"
+								@click="recordIllness">
+								{{ t('chorestrike', 'Record') }}
 							</button>
 						</div>
 					</div>
@@ -473,12 +490,13 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useUserStore } from '../store/user.js'
 import { useTitlesStore } from '../store/titles.js'
 import { usePreferencesStore } from '../store/preferences.js'
+import { usePausesStore } from '../store/pauses.js'
 import { CURATED_TIMEZONES } from '../constants/timezones.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
@@ -486,6 +504,8 @@ import Modal from '../components/Common/Modal.vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import MemberList from '../components/Members/MemberList.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
+import NotificationPreferences from '../components/Settings/NotificationPreferences.vue'
+import PauseSettings from '../components/Settings/PauseSettings.vue'
 
 export default {
 	name: 'Settings',
@@ -496,6 +516,8 @@ export default {
 		ConfirmDialog,
 		MemberList,
 		TitleBadge,
+		NotificationPreferences,
+		PauseSettings,
 	},
 
 	setup() {
@@ -504,7 +526,8 @@ export default {
 		const userStore = useUserStore()
 		const titlesStore = useTitlesStore()
 		const preferencesStore = usePreferencesStore()
-		return { houseStore, roomsStore, userStore, titlesStore, preferencesStore }
+		const pausesStore = usePausesStore()
+		return { houseStore, roomsStore, userStore, titlesStore, preferencesStore, pausesStore }
 	},
 
 	data() {
@@ -512,15 +535,8 @@ export default {
 			houseName: '',
 			houseTimezone: 'UTC',
 			rankingEnabled: false,
-			notificationDraft: {
-				taskDigestEnabled: false,
-				orgDigestEnabled: false,
-				digestTime: '18:00',
-				quietStart: null,
-				quietEnd: null,
-				soundEnabled: false,
-				animationEnabled: false,
-			},
+			housePauseDraft: { startDate: '', endDate: '', reasonCode: 'travel' },
+			illnessDraft: { subjectUserId: '', startDate: '', endDate: '' },
 			showAddFloorModal: false,
 			showEditFloorModal: false,
 			showResetModal: false,
@@ -542,8 +558,17 @@ export default {
 			return this.houseName.trim() && this.houseName !== this.houseStore.houseName
 		},
 
-		preferencesConflict() {
-			return this.preferencesStore.conflict
+		/**
+		 * Owner pause administration (Q-077-03 A): pending requests are
+		 * visible to owners only (the server whitelists them for the
+		 * owner role anyway).
+		 */
+		pendingPauseRequests() {
+			return this.pausesStore.pendingRequests
+		},
+
+		houseMembers() {
+			return this.userStore.houseUsers ?? []
 		},
 
 		canSaveHouseTimezone() {
@@ -600,75 +625,86 @@ export default {
 				this.houseTimezone = this.houseStore.timezone
 				this.rankingEnabled = this.houseStore.rankingEnabled
 				await this.loadTitle()
-				await this.loadPreferences()
+				// The delivery-preferences draft lives in
+				// NotificationPreferences (WP6 §3.3); the Settings view only
+				// keeps the store warm for the arcade/feedback consumers.
+				this.preferencesStore.fetchPreferences().catch(() => {})
+				// Member names + the viewer-whitelisted pause list feed the
+				// owner pause administration (Q-077-03 A).
+				this.userStore.fetchHouseUsers().catch(() => {})
+				this.pausesStore.fetchPauses().catch((error) => {
+					logger.error('Failed to load the pause list', error, { view: 'Settings', action: 'initializeSettings' })
+				})
 			} catch (error) {
 				logger.error('Failed to initialize settings', error, { view: 'Settings', action: 'initializeSettings' })
 			}
 		},
 
-		/**
-		 * Load the caller's own delivery preferences into the draft form
-		 * (self-only; the server payload is the sole source).
-		 */
-		async loadPreferences() {
+		async createHousePause() {
+			if (!this.housePauseDraft.startDate || !this.housePauseDraft.endDate) return
 			try {
-				await this.preferencesStore.fetchPreferences()
-				this.syncNotificationDraft()
-			} catch (error) {
-				logger.error('Failed to load preferences', error, { view: 'Settings', action: 'loadPreferences' })
-			}
-		},
-
-		syncNotificationDraft() {
-			const store = this.preferencesStore
-			this.notificationDraft = {
-				taskDigestEnabled: store.taskDigestEnabled,
-				orgDigestEnabled: store.orgDigestEnabled,
-				digestTime: store.digestTime,
-				quietStart: store.quietStart,
-				quietEnd: store.quietEnd,
-				soundEnabled: store.soundEnabled,
-				animationEnabled: store.animationEnabled,
-			}
-		},
-
-		/**
-		 * C5c suggestion: enabling a digest category pre-fills the quiet
-		 * inputs with the 20:00/08:00 suggestion while they are empty.
-		 */
-		maybeSuggestQuietHours() {
-			const draft = this.notificationDraft
-			if ((draft.taskDigestEnabled || draft.orgDigestEnabled) && !draft.quietStart && !draft.quietEnd) {
-				draft.quietStart = '20:00'
-				draft.quietEnd = '08:00'
-			}
-		},
-
-		/**
-		 * Save the self-only notification preferences (version-aware PUT;
-		 * on 409 the draft is preserved and the conflict hint renders).
-		 */
-		async savePreferences() {
-			try {
-				const saved = await this.preferencesStore.savePreferences({
-					taskDigestEnabled: this.notificationDraft.taskDigestEnabled,
-					orgDigestEnabled: this.notificationDraft.orgDigestEnabled,
-					digestTime: this.notificationDraft.digestTime || null,
-					quietStart: this.notificationDraft.quietStart || null,
-					quietEnd: this.notificationDraft.quietEnd || null,
-					soundEnabled: this.notificationDraft.soundEnabled,
-					animationEnabled: this.notificationDraft.animationEnabled,
+				await this.pausesStore.createHousePause({
+					startDate: this.housePauseDraft.startDate,
+					endDate: this.housePauseDraft.endDate,
+					reasonCode: this.housePauseDraft.reasonCode,
 				})
-				if (saved) {
-					showSuccess(t('chorestrike', 'Notification preferences saved'))
-					this.syncNotificationDraft()
+				showSuccess(t('chorestrike', 'The house pause was recorded.'))
+				this.housePauseDraft = { startDate: '', endDate: '', reasonCode: this.housePauseDraft.reasonCode }
+			} catch (error) {
+				if (error?.status !== 409) {
+					showError(t('chorestrike', 'The house pause could not be recorded.'))
+					logger.error('Failed to create the house pause', error, { view: 'Settings', action: 'createHousePause' })
+				}
+			}
+		},
+
+		async decidePauseRequest(request, approve) {
+			try {
+				if (approve) {
+					await this.pausesStore.approvePause(request.pauseGroupId, request.revision)
+					showSuccess(t('chorestrike', 'The pause request was acknowledged.'))
 				} else {
-					showWarning(t('chorestrike', 'Your changes were saved elsewhere in the meantime. Save again to apply your edits.'))
+					await this.pausesStore.rejectPause(request.pauseGroupId, request.revision)
+					showSuccess(t('chorestrike', 'The pause request was declined.'))
 				}
 			} catch (error) {
-				showError(t('chorestrike', 'Failed to save the notification preferences'))
-				logger.error('Failed to save the notification preferences', error, { view: 'Settings', action: 'savePreferences' })
+				if (error?.status !== 409) {
+					showError(t('chorestrike', 'The decision could not be recorded.'))
+					logger.error('Failed to decide the pause request', error, { view: 'Settings', action: 'decidePauseRequest', pauseGroupId: request.pauseGroupId, approve })
+				}
 			}
+		},
+
+		async recordIllness() {
+			if (!this.illnessDraft.subjectUserId || !this.illnessDraft.startDate || !this.illnessDraft.endDate) return
+			try {
+				await this.pausesStore.recognizeIllness({
+					subjectUserId: this.illnessDraft.subjectUserId,
+					startDate: this.illnessDraft.startDate,
+					endDate: this.illnessDraft.endDate,
+				})
+				showSuccess(t('chorestrike', 'The illness was recorded.'))
+				this.illnessDraft = { subjectUserId: this.illnessDraft.subjectUserId, startDate: '', endDate: '' }
+			} catch (error) {
+				if (error?.status !== 409) {
+					showError(t('chorestrike', 'The illness could not be recorded.'))
+					logger.error('Failed to record the illness', error, { view: 'Settings', action: 'recordIllness' })
+				}
+			}
+		},
+
+		memberName(userId) {
+			return this.houseMembers.find(member => member.nextcloudUserId === userId)?.displayName ?? userId
+		},
+
+		pauseReasonLabel(code) {
+			const labels = {
+				illness: t('chorestrike', 'Illness'),
+				travel: t('chorestrike', 'Travel'),
+				overload: t('chorestrike', 'Too much at once'),
+				other: t('chorestrike', 'Other'),
+			}
+			return labels[code] ?? code
 		},
 
 		async loadTitle() {
@@ -995,6 +1031,48 @@ export default {
 	font-size: 0.9rem;
 	font-weight: 500;
 	transition: opacity 0.2s;
+}
+
+.save-button.danger {
+	background: var(--color-error);
+	color: var(--color-primary-text);
+}
+
+.house-pause-row {
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	align-items: center;
+}
+
+.pause-request-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin: 0.5rem 0 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.pause-request-row {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	font-size: 0.9rem;
+}
+
+.pause-request-name {
+	font-weight: 600;
+}
+
+.pause-request-range,
+.pause-request-reason {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
 }
 
 .save-button:hover:not(:disabled) {

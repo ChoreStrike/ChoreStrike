@@ -40,7 +40,7 @@ test.describe('Multi-User Family Interactions', () => {
 	test('mom can see assigned tasks on dashboard', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			await expandAllFloors(page)
@@ -74,7 +74,7 @@ test.describe('Multi-User Family Interactions', () => {
 	test('leaderboard shows the opt-in state for unconsented members (WP4)', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			await page.getByTestId('nav-leaderboard').click()
@@ -112,7 +112,7 @@ test.describe('Multi-User Family Interactions', () => {
 	test('grandma can view but has limited tasks', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'grandma')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			await expandAllFloors(page)
@@ -134,7 +134,7 @@ test.describe('Multi-User Task Interactions', () => {
 		const teen = await createUserContext(browser, 'teen')
 
 		try {
-			await mom.page.goto('/apps/chorestrike/')
+			await mom.page.goto('/apps/chorestrike/#/dashboard')
 			await mom.page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 			await expandAllFloors(mom.page)
 
@@ -160,7 +160,7 @@ test.describe('Multi-User Task Interactions', () => {
 	test('task completion updates house health', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			const healthIndicator = page.locator('[data-testid="house-health"]')
@@ -176,7 +176,7 @@ test.describe('Multi-User Task Interactions', () => {
 	test('leaderboard state stays consistent after task completion (WP4)', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			await expect(page.getByTestId('quick-stats')).toBeVisible()

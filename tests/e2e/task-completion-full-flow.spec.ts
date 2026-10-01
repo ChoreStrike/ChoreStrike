@@ -35,7 +35,7 @@ async function kitchenRoom(page: Page): Promise<{ id: number; cleanliness: numbe
 }
 
 async function openKitchenRoomDetail(page: Page): Promise<void> {
-	await page.goto('/apps/chorestrike/')
+	await page.goto('/apps/chorestrike/#/dashboard')
 	await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 	await expandAllFloors(page)
 	await page.getByTestId('room-card-Kitchen').first().click()

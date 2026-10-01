@@ -14,8 +14,10 @@ import { expect, type Locator, type Page } from '@playwright/test'
  * Expand every dashboard floor section and wait for its content to render.
  *
  * Auto-waits per section: the toggle click is issued on the collapsed
- * button (matched via its translated aria-label) and the expanded content
- * assertion fails loudly instead of silently swallowing expansion errors.
+ * button (matched via the LOCALE-INDEPENDENT testid — profile users render
+ * in their own Nextcloud language, so the translated aria-label is not a
+ * stable selector) and the expanded content assertion fails loudly instead
+ * of silently swallowing expansion errors.
  *
  * @param page - Page showing the ChoreStrike dashboard.
  */
@@ -29,7 +31,7 @@ export async function expandAllFloors(page: Page): Promise<void> {
 		if (await content.isVisible()) {
 			continue
 		}
-		await section.getByRole('button', { name: 'Expand floor' }).click()
+		await section.getByTestId('floor-expand-toggle').click()
 		await expect(content).toBeVisible({ timeout: 5000 })
 	}
 }
@@ -55,7 +57,9 @@ export async function expandUntilRoomVisible(page: Page, roomCard: Locator): Pro
 		if (await roomCard.isVisible().catch(() => false)) {
 			return
 		}
-		const expandButtons = page.getByRole('button', { name: 'Expand floor' })
+		// Collapsed toggles only: the expanded state carries the same
+		// testid, so an unfiltered match would flip sections forever.
+		const expandButtons = page.locator('.floor-section .toggle-button:not(.expanded)')
 		const remaining = await expandButtons.count()
 		if (remaining === 0) {
 			return

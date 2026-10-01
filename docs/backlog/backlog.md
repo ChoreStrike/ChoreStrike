@@ -192,14 +192,17 @@ approved responsibility model; a future product decision is still required.
 ---
 
 ### [P3] FEAT-UX-023 — Onboarding & help layer
-**Status**: In Progress — essential help slice WP6; tour/catalog remainder WP8 · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
-**Owning**: CS-PLAN-077 WP6 (essential help slice); tour/catalog remainder WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Status**: In Progress — WP6 essential help slice DELIVERED (2026-09-30): navigation-level glossary entry with the plain-language term glossary ([calm-core-ux](../concepts/calm-core-ux.md)); tour/catalog remainder WP8 · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
+**Owning**: CS-PLAN-077 WP6 (essential help slice, delivered); tour/catalog remainder WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
-**WP6 slice active (2026-09-30):** [CS-PLAN-077](../plans/active/cs-plan-077-wp6-calm-core-ui.md)
-(Standard A `PASS-WITH-FIXES`) owns the essential slice (help entry points
-on Dashboard/My Day/Scheduling, UX-007 glossary, rhythm/pause hints; Q-077-02
-resolved Option A). Tour/catalog help and whole-item closure stay with WP8.
+**WP6 slice delivered (2026-09-30):** [CS-PLAN-077](../plans/done/cs-plan-077-wp6-calm-core-ui.md)
+delivered the essential slice as ONE navigation-level entry
+(`HelpEntry.vue` + `HelpGlossary.vue`, always reachable from the nav,
+modal glossary) instead of per-view entry points — one always-visible
+entry beat three scattered ones (scope consolidation recorded in the
+plan's Review Findings). Tour/catalog help and whole-item closure stay
+with WP8.
 
 No tour, glossary, or contextual hints; vocabulary drift (UX-007) makes
 self-service discovery harder.
@@ -209,102 +212,12 @@ accounts for children, wizard member invites versus child-role setup, shared
 device sign-in and optional work versus personal commitments. No local child
 profile or guardian-consent model should be implied by onboarding copy.
 
-- [ ] Help entry point per major view (Dashboard, TodayView, SchedulingView).
-- [ ] Glossary unifying the UX-007 vocabulary drift (priority labels,
-      Admin-Only, Scope).
+- [x] Help entry point reachable from the navigation (WP6 delivered one
+      nav-level entry; per-view contextual entry points remain WP8).
+- [x] Glossary unifying the core household vocabulary (Agreement,
+      Catch-up, Pause, Streak, Quiet time, Ranking, Arcade, Coins).
 - [ ] Contextual hints for the selected model (rhythm, completion window, pause,
       contribution, Coins); do not teach removed combo/freeze mechanics as target behavior.
-
----
-
-### [P1] FEAT-UX-024 — Notification settings
-**Status**: In Progress (WP5 backend/minimal Settings DELIVERED; full presentation remains WP6) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
-**Owning**: CS-PLAN-077 WP6 (remaining presentation); CS-PLAN-076 (delivered WP5 slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001; CS-PLAN-074 WP3 closed-week delivery follow-up (2026-09-27)
-**Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
-
-**WP5 delivered (2026-09-30):** [CS-PLAN-076](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
-passed final Standard B `PASS-WITH-FIXES`: self-only persisted preferences,
-minimal Settings save/conflict handling, quiet/DST-aware schedule,
-transactional coalescing queue and one bounded at-most-once daily summary.
-Backend and minimum Settings tests pass; the whole item remains open for
-the full WP6 presentation and sound/animation/optional-area consumers.
-
-**WP6 slice active (2026-09-30):** [CS-PLAN-077](../plans/active/cs-plan-077-wp6-calm-core-ui.md)
-(Standard A `PASS-WITH-FIXES`; Q-077-05 resolved Option A) owns the remaining
-presentation work (full `NotificationPreferences.vue`, optional-area toggles
-with the immediate arcade consumer and persisting catalog toggle, celebration
-gating). Closure evaluation happens at the WP6 final review.
-
-UC-14 now has a minimal self-only Settings surface and optional shared digest;
-the polished component and full presentation remain undelivered.
-
-CS-PLAN-070 D9 was approved on 2026-09-17: reminders off by default; optional
-summary at the chosen time, at most one task reminder per person/day, only for
-relevant planned work, respecting quiet hours and free/paused days. No streak
-threats. C5 now specifies house-time/DST handling, a 60-minute same-day delivery
-window, personal quiet hours and one shared daily task/organization digest budget;
-missed-slot notices expire instead of becoming a future backlog. Opt-ins are
-personal/server-side, revocable and invalidated by departure.
-The membership/local-day claim is the shared recipient budget, not per-task
-dedup. Delivery and quiet-hour behavior are integrated into the five-minute
-Nextcloud job; late slots expire with no next-day catch-up.
-
-**WP3 delivery follow-up resolved by WP5 (2026-09-30):** external award bells
-are retired, not replayed through an outbox. The closed-week receipt remains
-the once-only in-app celebration marker. The optional digest uses the approved
-persist-before-notify, uncertain-consumes-slot contract (ADR-016); no
-exactly-once delivery is promised. The delivered slice is recorded in the
-monthly archive; no broader presentation work is declared complete.
-
-- [x] C5 delivery/category/consent policy and technical slot/claim/API contract implemented (ADR-016, WP5).
-- [x] Backend: per-user notification preferences (storage + membership-gated
-      endpoints).
-- [x] Minimal Settings surface: digest toggle, quiet hours; background jobs respect
-      them.
-- [x] Service and minimal Settings tests, complete three-pool browser gate.
-- [ ] Full notification preference component and sound/animation/optional-area presentation consumers (WP6).
-
----
-
-### [P1] FEAT-UX-025 — Vacation / house-pause mode
-**Status**: In Progress — backend pause/agreement/capacity slice DELIVERED via [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md); quiet-digest integration DELIVERED via CS-PLAN-076 (2026-09-30); full pause UI remains WP6 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
-**Owning**: CS-PLAN-073 (delivered backend slice); CS-PLAN-076 (WP5 quiet-digest slice); CS-PLAN-077 (full pause UI) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
-**Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
-
-CS-PLAN-070 D4 (2026-09-17) selects dated neutral member/house pauses instead of
-freezes. Adults manage their own pauses, children request owner approval; owners
-manage household pauses and traceable retrospective illness. No fake completions
-or reminders during pauses. Recurring weekday availability is not this feature.
-
-**WP2 (2026-09-23):** [CS-PLAN-073](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md)
-specifies the backend pause/agreement/capacity slice and T2/T3 evidence, reusing
-delivered WP1; activated via Standard A `PASS-WITH-FIXES` (2026-09-23) with
-Q-073-01/02/03 resolved (helper-only pause, frozen cross-zone capacity/pause
-comparison, departure/rejoin). Full pause UI, new rhythm and quiet-digest
-integration remain WP6/WP4/WP5; activation does not close the whole item.
-
-**WP2 delivered (2026-09-25):** the backend slice — revisioned pause lifecycle
-(request/decision/illness/next-day shortening, viewer-safe whitelist), neutral
-suspension with virtual/persisted parity, whole-day exact-share capacity,
-owner-recorded amendments/catch-up/linked restart, planner consent/command
-cutover — passed the final Standard B review (`PASS-WITH-FIXES`; RF-01..28
-resolved; plan in `done/`). CR-SVC-64 closed with it.
-
-**WP5 delivered (2026-09-30):** [CS-PLAN-076](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md)
-implements quiet-digest integration for recognized personal/house pauses,
-including day-level catch-up suppression and current-source rechecks.
-Unit/integration/browser gates are green. Full pause UI stays WP6; this item
-remains open.
-
-**WP6 slice active (2026-09-30):** [CS-PLAN-077](../plans/active/cs-plan-077-wp6-calm-core-ui.md)
-(Standard A `PASS-WITH-FIXES`) owns the full pause UI (`PauseSettings.vue` +
-pause store on the delivered WP2 API; Q-077-03 resolved Option A — self-only
-Settings section plus owner house controls). Closure evaluation happens at
-the WP6 final review.
-
-- [x] Core pause model, role boundaries and durable concept description approved.
-- [x] Specify pause/date/urgent-work interaction and history/denominator amendments (C1/C2). (C2d–g/i/j approved 2026-09-17; operationalized by CS-PLAN-073 §3.4 and the §10 resolutions, 2026-09-23.)
-- [ ] Implement persistence, authorization, UI/job integration and required tests after plan activation.
 
 ---
 
@@ -454,9 +367,14 @@ WP5 (preferences/digest delivery) was sub-planned as
 self-only preferences, quiet shared digest and complete T7 evidence).
 
 WP6 (calm core UI) was sub-planned as
-[CS-PLAN-077](../plans/active/cs-plan-077-wp6-calm-core-ui.md) and activated
-2026-09-30 via Standard A `PASS-WITH-FIXES` (Q-077-01..05 all Option A).
-CONCEPT-001 remains In Progress for WP6-WP9 and the family evidence gate.
+[CS-PLAN-077](../plans/done/cs-plan-077-wp6-calm-core-ui.md) and activated
+2026-09-30 via Standard A `PASS-WITH-FIXES` (Q-077-01..05 all Option A);
+**delivered** (final Standard B `PASS-WITH-FIXES` 2026-10-01): all-age My Day
+landing/content, preference-gated calm feedback, full
+`NotificationPreferences.vue` + optional-area consumers, pause UI, occurrence
+agreement entry points, shared-device store reset, no-Coin closure and the
+essential help slice; FEAT-UX-024/025 closed with it.
+CONCEPT-001 remains In Progress for WP7-WP9 and the family evidence gate.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

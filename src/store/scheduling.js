@@ -5,7 +5,12 @@
 
 import { defineStore } from 'pinia'
 import { emit } from '@nextcloud/event-bus'
-import { api } from '../services/api.js'
+import {
+	api,
+	amendOccurrence as amendOccurrenceRequest,
+	catchUpOccurrence as catchUpOccurrenceRequest,
+	restartOccurrence as restartOccurrenceRequest,
+} from '../services/api.js'
 import { logger } from '../utils/logger.js'
 import { createDefaultEnergyBudget, resolveEnergyForDay } from '../utils/energyBudgets.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
@@ -495,6 +500,119 @@ export const useSchedulingStore = defineStore('scheduling', {
 			} catch (error) {
 				logger.error('Post-apply refresh failed', error, { store: 'scheduling', action: 'refreshAfterApply' })
 				return false
+			}
+		},
+
+		/**
+		 * Owner-recorded single-occurrence amendment (CS-PLAN-073 WP2 §3.5,
+		 * entry points CS-PLAN-070 WP6 §3.5): ONE FRESH command UUID per
+		 * attempt, the SHOWN occurrence identity and displayed version on
+		 * the command, the explicit owner consent attestation. A 409
+		 * rethrows — the caller keeps the draft and re-reads the
+		 * authoritative state through the regular refresh.
+		 *
+		 * @param {object} agreement The occurrence agreement identity.
+		 * @param {number} agreement.roomTaskId The owning room task id.
+		 * @param {object} agreement.occurrence The occurrence block
+		 *   (occurrenceId, expectedVersion, selectionToken, timezone).
+		 * @param {string} agreement.date The amended single-occurrence date.
+		 * @param {boolean} agreement.consent The owner consent attestation.
+		 * @return {Promise<object>} Identity refs {occurrenceId, expectedVersion}.
+		 */
+		async amendOccurrence({ roomTaskId, occurrence, date, consent }) {
+			return this.runOccurrenceAgreement('amend', occurrence, {
+				roomTaskId,
+				date,
+				consent,
+			})
+		},
+
+		/**
+		 * Agree the catch-up work appointment on the current miss.
+		 *
+		 * @param {object} agreement The occurrence agreement identity.
+		 * @param {number} agreement.roomTaskId The owning room task id.
+		 * @param {object} agreement.occurrence The occurrence block.
+		 * @param {string} agreement.workDate The agreed catch-up work date.
+		 * @param {boolean} agreement.consent The owner consent attestation.
+		 * @return {Promise<object>} Identity refs.
+		 */
+		async catchUpOccurrence({ roomTaskId, occurrence, workDate, consent }) {
+			return this.runOccurrenceAgreement('catch-up', occurrence, {
+				roomTaskId,
+				workDate,
+				consent,
+			})
+		},
+
+		/**
+		 * Linked restart of a neutrally suspended interval predecessor.
+		 *
+		 * @param {object} agreement The occurrence agreement identity.
+		 * @param {number} agreement.roomTaskId The owning room task id.
+		 * @param {object} agreement.occurrence The occurrence block.
+		 * @param {string} agreement.workDate The agreed restart work date.
+		 * @param {boolean} agreement.consent The owner consent attestation.
+		 * @return {Promise<object>} Identity refs.
+		 */
+		async restartOccurrence({ roomTaskId, occurrence, workDate, consent }) {
+			return this.runOccurrenceAgreement('restart', occurrence, {
+				roomTaskId,
+				workDate,
+				consent,
+			})
+		},
+
+		/**
+		 * Shared occurrence-agreement command runner: fresh command UUID,
+		 * shown version + selection token, consent passthrough, work-zone
+		 * from the occurrence block; post-success projection refresh; 409
+		 * rethrows for caller-side draft preservation.
+		 *
+		 * @param {string} action Path segment under /api/v1/occurrences/{id}.
+		 * @param {object} occurrence The occurrence block.
+		 * @param {object} fields The command fields.
+		 * @param {number} fields.roomTaskId The owning room task id.
+		 * @param {string} [fields.date] The amend target date.
+		 * @param {string} [fields.workDate] The catch-up/restart work date.
+		 * @param {boolean} fields.consent The owner consent attestation.
+		 * @return {Promise<object>} Identity refs.
+		 */
+		async runOccurrenceAgreement(action, occurrence, { roomTaskId, date, workDate, consent }) {
+			const payload = {
+				roomTaskId,
+				commandId: generateCommandId(),
+				occurrenceId: occurrence.occurrenceId,
+				expectedVersion: occurrence.expectedVersion,
+				selectionToken: occurrence.selectionToken,
+				consent: consent === true,
+			}
+			if (date !== undefined) {
+				payload.date = date
+			}
+			if (workDate !== undefined) {
+				payload.workDate = workDate
+				if (occurrence.timezone) {
+					payload.workZone = occurrence.timezone
+				}
+			}
+
+			this.error = null
+			try {
+				const command = { amend: amendOccurrenceRequest, 'catch-up': catchUpOccurrenceRequest, restart: restartOccurrenceRequest }[action]
+				const refs = await command(occurrence.occurrenceId, payload)
+				await this.refreshAfterApply()
+				return refs
+			} catch (error) {
+				if (error?.status === 409 || error?.response?.status === 409) {
+					// Draft preservation: rethrow untouched so the caller keeps
+					// the entered values; the regular readers re-fetch in the
+					// view on the next render cycle.
+					logger.warn('Occurrence agreement hit a conflict', { store: 'scheduling', action: `runOccurrenceAgreement${action}`, occurrenceId: occurrence.occurrenceId })
+				} else {
+					logger.error('Failed to run the occurrence agreement', error, { store: 'scheduling', action: `runOccurrenceAgreement${action}`, occurrenceId: occurrence.occurrenceId })
+				}
+				throw error
 			}
 		},
 

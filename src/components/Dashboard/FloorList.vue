@@ -67,6 +67,7 @@
 						<button
 							class="toggle-button"
 							:class="{ expanded: isFloorExpanded(floor.id) }"
+							data-testid="floor-expand-toggle"
 							:aria-label="isFloorExpanded(floor.id) ? t('chorestrike', 'Collapse floor') : t('chorestrike', 'Expand floor')"
 							:title="isFloorExpanded(floor.id) ? t('chorestrike', 'Collapse floor') : t('chorestrike', 'Expand floor')"
 							@click="toggleFloor(floor.id)">

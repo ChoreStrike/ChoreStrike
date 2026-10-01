@@ -115,7 +115,7 @@ test.describe('Dashboard Access', () => {
 	test('friend can access dashboard', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'friend')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 		} finally {
 			await context.close()
@@ -129,7 +129,7 @@ test.describe('Leaderboard Access', () => {
 	test('mom can view leaderboard', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
+			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			await page.goto('/apps/chorestrike/#/leaderboard')

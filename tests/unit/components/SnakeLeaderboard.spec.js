@@ -71,8 +71,8 @@ describe('SnakeLeaderboard', () => {
 		// The scores render in board order (already sorted by the backend).
 		expect(entries[0].text()).toContain('300')
 		expect(entries[0].text()).toContain('Mom')
-		// Boost usage is surfaced per entry.
-		expect(entries[1].text()).toContain('Boosts used')
+		// FEAT-GAME-016 de-scoped the boost metadata — the retired label never renders.
+		expect(entries[1].text()).not.toContain('Boosts used')
 		// The current user row is highlighted.
 		expect(entries[1].classes()).toContain('current-user')
 		// Personal stats block.

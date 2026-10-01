@@ -40,7 +40,7 @@ async function kitchenRoomId(page: Page): Promise<number> {
 test.describe('Core App Functionality', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-		await page.goto('/apps/chorestrike/')
+		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 	})
 

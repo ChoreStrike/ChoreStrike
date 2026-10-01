@@ -60,9 +60,6 @@
 						</div>
 						<div class="player-info">
 							<span class="player-name">{{ entry.displayName }}</span>
-							<span v-if="entry.boostsUsed?.length > 0" class="boosts-used">
-								{{ t('chorestrike', 'Boosts used') }}: {{ entry.boostsUsed.length }}
-							</span>
 						</div>
 						<div class="score">
 							{{ entry.score }}
@@ -318,11 +315,6 @@ onMounted(async () => {
 .player-name {
 	font-weight: 500;
 	color: var(--color-main-text);
-}
-
-.boosts-used {
-	font-size: 0.7rem;
-	color: var(--color-text-maxcontrast);
 }
 
 .score {

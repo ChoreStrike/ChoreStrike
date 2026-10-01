@@ -11,6 +11,7 @@ import App from './App.vue'
 import router from './router.js'
 import { initI18n } from './i18n.js'
 import { piniaUserAutoInitPlugin } from './store/userAutoInit.js'
+import { usePreferencesStore } from './store/preferences.js'
 import { logger } from './utils/logger.js'
 import { useCelebration } from './composables/useCelebration.js'
 import { useToasts } from './composables/useToasts.js'
@@ -43,6 +44,15 @@ async function bootstrap() {
 
 		useCelebration()
 		useToasts()
+
+		// CS-PLAN-070 WP6 (C5g/Q-077-05): the personal preference state
+		// (sound/animation opt-ins, optional-area visibility) loads once
+		// at bootstrap so the celebration gating and the arcade navigation
+		// reflect the caller's own settings without opening Settings.
+		// Fire-and-forget: the neutral defaults apply until it resolves.
+		usePreferencesStore().fetchPreferences().catch((error) => {
+			logger.error('Failed to load the personal preferences at startup', error, { module: 'main', action: 'fetchPreferences' })
+		})
 
 		document.addEventListener('click', unlockAudio, { once: true })
 		document.addEventListener('touchstart', unlockAudio, { once: true })

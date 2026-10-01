@@ -85,6 +85,12 @@ describe the WP3 model as the shipped contract.
   marker only. Notifications use the self-opted-in shared daily digest
   ([pipeline](../../../../engineering/notifications.md), ADR-016), never
   recognition pressure.
+- **Frontend celebration contract (WP6, C5g):** sound and confetti are
+  personal opt-ins (default off), synced from the preference store into
+  the effect module gates on every celebration event;
+  `prefers-reduced-motion` always overrides an animation opt-in. The
+  default completion feedback stays the accessible undo confirmation —
+  see [calm-core-ux](../../../../concepts/calm-core-ux.md).
 
 ### 6. Energy Model
 - Each task costs 1–5 energy (~5 min per unit).
