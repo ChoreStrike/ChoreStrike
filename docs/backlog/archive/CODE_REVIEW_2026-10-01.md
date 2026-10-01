@@ -67,3 +67,49 @@ Frontend-only package; no PHP file touched. Backend contract unchanged (consumed
 - Plan moved `active/ → done/`; all 15 acceptance criteria verified complete; §9 findings RF-077-01..09 resolved.
 - FEAT-UX-024 and FEAT-UX-025 closed to `archive/2026-10.md`; CONCEPT-001 narrative updated (WP6 delivered); parent CS-PLAN-070 WP6 row marked DELIVERED; `docs/README.md`, `docs/plans/README.md`, `docs/concepts/ui-use-cases.md` and `ACTIVE_TASKS.md` updated.
 - Durable knowledge integrated in the implementation round (`docs/concepts/calm-core-ux.md`, `docs/engineering/testing.md`, gamification skill celebration contract) — the plan is not the only description.
+
+---
+
+# Plan Activation: CS-PLAN-078 WP7 Catalog and Request Backend — Standard A
+
+## Executive Summary
+
+### Outcome
+
+**PASS** — plan activated `new/ → active/`; no findings, no fixes required.
+
+### What Was Reviewed
+
+- Scope: `docs/plans/new/cs-plan-078-wp7-catalog-and-request-backend.md` only (documentation round; runtime tree untouched).
+- Baseline: `master` at `4b5b089ea180ab6514eb94725eff78032f172138` (equals the planning baseline recorded in the header); index empty at capture; unstaged diff sha1 `2e01799d35b56001812661085a6cbf756ab66d34` (drafting metadata package plus unrelated `.gitkeep` deletions, both preserved unstaged where unrelated); untracked plan SHA256 `18EC3E9E222E780DA4DB3617B8655405AE84C4FDEF50FFDCB03A21AF66E9BEDC`.
+- Eligibility: sole regular non-symlink `*.md` in `docs/plans/new/` (pinned cloud-reparse attribute, `LinkType`/`Target` empty — regular file); destination `active/` did not exist; no ambiguity.
+
+### Verification Performed
+
+- Section-1 baseline citations checked exact against the runtime: `House::jsonSerialize()` omits `catalogEnabled` while the typed property and Version1000 flag exist; `WalletService::postEntries()` owns booked value with `reserved_minor` present and no reservation writer; own-wallet reads expose B/R/A + `fundingHold`; `HouseUser`/`Version1004Date20260228131728` (the `house_users` creator) have no `role_revision`; `DigestService::orgSourceIsRelevant()` closed over takeover/agreement/pause; `AccountErasureService` covers active memberships plus the orphan-wallet sweep; `ensureBinding()` on rejoin; `updateUserRole()`; `CommandService::runCommand()`; frozen house-first lock order with the final child-row group available for reward rows; `catalogVisible` persisted on `MemberPreference`; no reward routes/entities/services/controllers/tests exist; `PUT /house` (`house#update`) has no command/version contract while `house#reset` demonstrates the pattern the new `PUT /house/catalog` follows.
+- Manifest: all 26 M paths present, all 21 N paths absent; `Version1033Date20260918000000.php` matches the parent's reservation (CS-PLAN-070 line 1041); ADR-017 number free; all referenced npm gate scripts exist.
+- Parent alignment: §3.2 state/actor/accounting table matches the approved C4 matrix row for row; C4.1-14/T6/C3.10-11 enumerated in the parent (line 850); effort consistent with the WP7 row; no overlap with any other active plan.
+- Plan-only checks: 9 template sections complete; per-step ownership with exit evidence; coherent single-slice scope; risks with likelihoods and mitigations; acceptance criteria complete; test plan concrete (races with real connections, injected rollback, replay/authorization-on-replay, erasure, privacy HTTP matrix, browser contract).
+
+## Findings
+
+None. No open items to route (plan-owned, fold-in, or backlog).
+
+## Decisions
+
+None required — C4 product behavior was user-approved 2026-09-17 and the parent authorizes exactly this WP7 backend slice; in-plan "Proposal:" parameter choices (text bounds, list paging) fall inside that approval and need no separate authorization.
+
+## Gates (documentation-only round)
+
+- `npm run backlog:check` — green after activation edits
+- `npm run docs:encoding` — green after activation edits
+- `git diff --check` — clean
+- Plan standalone whitespace check — clean
+- Runtime gates (Jest, lint, build, Docker PHPUnit, browser gate) belong to implementation steps 2-7 of the plan and were intentionally not run (no runtime file changed).
+
+## Plan Lifecycle
+
+- Plan moved `new/ → active/` with header status and appended `## Review Outcome` (baseline, fingerprint, verification, outcome).
+- FEAT-UX-026 set **In Progress** (WP7 backend slice owned by CS-PLAN-078); Standard A sub-item checked, T6 implementation sub-item added.
+- Parent CS-PLAN-070 header and WP7 row updated (child activated, implementation not started); `docs/README.md`, `docs/plans/README.md` and `ACTIVE_TASKS.md` (In Progress entry + consolidated draft/activation line) updated.
+- Unrelated pre-existing `.gitkeep` deletions preserved unstaged, per plan §5 instruction and the prior reviews' handling.

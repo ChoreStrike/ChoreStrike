@@ -64,7 +64,13 @@ Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070
 (parent plan; WP0-WP6 delivered). WP6 calm core UI,
 [CS-PLAN-077: WP6 - Calm Core UI](done/cs-plan-077-wp6-calm-core-ui.md), passed
 final Standard B `PASS-WITH-FIXES` on 2026-10-01. The parent remains open
-for WP7-WP9; no successor activation is part of this review.
+for WP7-WP9. [CS-PLAN-078: WP7 - Catalog and Request Backend](active/cs-plan-078-wp7-catalog-and-request-backend.md)
+was drafted on 2026-10-01 and activated the same day after a Standard A `PASS`
+(zero findings, every baseline citation verified): catalog gate/CRUD, exact
+reservation/settlement/refund, current-role lifecycle, private reads,
+departure/rejoin/erasure and digest hooks. Runtime implementation is not
+started; it follows the plan's §6 order. Catalog UI remains WP8 and final
+family/DB-matrix evidence WP9.
 
 Latest completed: [CS-PLAN-077: WP6 - Calm Core UI](done/cs-plan-077-wp6-calm-core-ui.md)
 (final Standard B `PASS-WITH-FIXES` 2026-10-01): all-age My Day landing/content,

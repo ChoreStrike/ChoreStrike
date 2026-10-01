@@ -222,8 +222,8 @@ profile or guardian-consent model should be implied by onboarding copy.
 ---
 
 ### [P2] FEAT-UX-026 — Real-world reward shop
-**Status**: Planned (selected after the reliable core; implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Status**: In Progress (WP7 backend; CS-PLAN-078 activated 2026-10-01 after Standard A `PASS` — runtime implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
+**Owning**: CS-PLAN-070 WP7..WP8; CS-PLAN-078 WP7 · **Depends on**: CONCEPT-001 (reliable core/G1) · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 The [reward options](../concepts/gamification-and-rewards.md#reward-options-for-a-family-first-app)
@@ -237,8 +237,10 @@ without rewriting unrelated events or reclaiming fulfilled rewards.
 - [x] Core model/redemption decisions and concept extension recorded (D2/D7/D8/D11).
 - [x] C3 rate/share examples and aggregate-underfunding hold policy recorded (2026-09-17).
 - [x] Eight C4 actor, lifecycle, membership, visibility and refund decisions recorded (2026-09-17).
-- [ ] Map C3/C4 and approved C5 UI/delivery rules to exact APIs, financial identity, erasure integration, transactions and race tests.
-- [ ] Implement only after the reliable core and reviewed technical plan.
+- [x] Draft the WP7 backend API/schema/accounting/erasure/digest and race-test mapping in [CS-PLAN-078](../plans/active/cs-plan-078-wp7-catalog-and-request-backend.md) (2026-10-01); technical proposals, not implementation approval.
+- [x] Pass WP7 Standard A after checking the delivered reliable-core/G1 evidence (2026-10-01, `PASS` with zero findings; [CS-PLAN-078](../plans/active/cs-plan-078-wp7-catalog-and-request-backend.md) now in `active/`).
+- [ ] Implement and verify the T6 backend lifecycle in CS-PLAN-078 (schema, C4 lifecycle, money, membership/erasure, privacy, digest, races/replay, browser contract).
+- [ ] Complete WP8 catalog/request UI, C5 presentation/onboarding and T11 desktop/mobile/keyboard evidence; no whole-item closure from WP7 alone.
 
 ---
 
