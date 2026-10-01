@@ -1,6 +1,7 @@
 # CS-PLAN-077: WP6 - Calm Core UI
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` (2026-09-30); implementation not started. This file recreates the
+> **Status:** Done — final Standard B `PASS-WITH-FIXES` (2026-10-01); activated
+> via Standard A `PASS-WITH-FIXES` (2026-09-30). This file recreates the
 > 2026-09-30 drafting-round plan, which was excluded from the WP5 review commit
 > and lost uncommitted; Q numbering and scope follow the backlog/parent
 > annotations of that draft (Q-077-02 help slice, Q-077-03 pause placement).
@@ -313,26 +314,33 @@ absorbing added scope.
 
 ## 8. Acceptance Criteria
 
-- [ ] Q-077-01..05 resolved and recorded; package scope, estimate and manifest accepted through Standard A.
-- [ ] After setup every role lands on My Day; it shows today's agreements, one catch-up card per chore, next appointments, explicit overload clarification and a confirmed/provisional/neutral progress line; free days render a neutral empty state; no Coins/arcade/catalog/ranking in the primary area (C5f, D10a).
-- [ ] No military/pressure language remains; the Dashboard tagline is replaced with neutral copy (RF-070-11).
-- [ ] Completion feedback defaults to an accessible confirmation with undo; sound and confetti/animation play only behind the personal opt-ins and `prefers-reduced-motion` always wins; no award modal; award toasts stay quiet and in-app (C5g).
-- [ ] `NotificationPreferences.vue` is the full self-only preference surface with 409 preserved-draft handling; optional-area toggles persist and the arcade consumer hides/shows its surface; no owner can read or write another member's preferences (C5h, FEAT-UX-024 remainder).
-- [ ] Pause UI covers personal request/cancel, child pending visibility, owner approval/rejection, house pauses and retrospective illness on the delivered WP2 API with neutral wording and next-day shortening semantics (FEAT-UX-025 remainder).
-- [ ] Occurrence amend/catch-up/restart entry points exist with command identity, version conflicts preserving drafts and C2 precondition copy.
-- [ ] Ranking presentation is keyboard/ARIA accessible with pending/ties/neutral pins and no Coin/speed/private-task data (T8 remainder).
-- [ ] No boost/Coin UI remnant survives: SnakeLeaderboard label, dead gate regex and stale comments removed; Snake stays scores-only (T10 remainder, RF-070-13 remainder).
-- [ ] One identity/house switch centrally resets every house-scoped store; a second identity on a shared device sees none of the previous login's data (C5h).
-- [ ] Essential help slice shipped per Q-077-02 with current-mechanics copy only; FEAT-UX-023/024/025 updated for their real completion state without premature whole-item closure; CONCEPT-001 stays accurately open.
-- [ ] Every section 4 required test/gate passes without new/unapproved skips; EN/DE/POT artifacts synchronized (1014-key baseline plus this change).
-- [ ] All plan-owned findings resolved or explicitly user-rescoped; no required dependent test deferred while marking this plan done.
-- [ ] Durable behavior integrated into concepts/engineering/testing docs; the plan is not the only description.
-- [ ] Final Standard B or Full review passes, performs the eligible lifecycle move, and updates parent/index/backlog/`ACTIVE_TASKS.md` accurately.
+- [x] Q-077-01..05 resolved and recorded; package scope, estimate and manifest accepted through Standard A.
+- [x] After setup every role lands on My Day; it shows today's agreements, one catch-up card per chore, next appointments, explicit overload clarification and a confirmed/provisional/neutral progress line; free days render a neutral empty state; no Coins/arcade/catalog/ranking in the primary area (C5f, D10a).
+- [x] No military/pressure language remains; the Dashboard tagline is replaced with neutral copy (RF-070-11).
+- [x] Completion feedback defaults to an accessible confirmation with undo; sound and confetti/animation play only behind the personal opt-ins and `prefers-reduced-motion` always wins; no award modal; award toasts stay quiet and in-app (C5g).
+- [x] `NotificationPreferences.vue` is the full self-only preference surface with 409 preserved-draft handling; optional-area toggles persist and the arcade consumer hides/shows its surface; no owner can read or write another member's preferences (C5h, FEAT-UX-024 remainder).
+- [x] Pause UI covers personal request/cancel, child pending visibility, owner approval/rejection, house pauses and retrospective illness on the delivered WP2 API with neutral wording and next-day shortening semantics (FEAT-UX-025 remainder).
+- [x] Occurrence amend/catch-up/restart entry points exist with command identity, version conflicts preserving drafts and C2 precondition copy.
+- [x] Ranking presentation is keyboard/ARIA accessible with pending/ties/neutral pins and no Coin/speed/private-task data (T8 remainder).
+- [x] No boost/Coin UI remnant survives: SnakeLeaderboard label, dead gate regex and stale comments removed; Snake stays scores-only (T10 remainder, RF-070-13 remainder).
+- [x] One identity/house switch centrally resets every house-scoped store; a second identity on a shared device sees none of the previous login's data (C5h).
+- [x] Essential help slice shipped per Q-077-02 with current-mechanics copy only; FEAT-UX-023/024/025 updated for their real completion state without premature whole-item closure; CONCEPT-001 stays accurately open.
+- [x] Every section 4 required test/gate passes without new/unapproved skips; EN/DE/POT artifacts synchronized (1014-key baseline plus this change).
+- [x] All plan-owned findings resolved or explicitly user-rescoped; no required dependent test deferred while marking this plan done.
+- [x] Durable behavior integrated into concepts/engineering/testing docs; the plan is not the only description.
+- [x] Final Standard B or Full review passes, performs the eligible lifecycle move, and updates parent/index/backlog/`ACTIVE_TASKS.md` accurately.
 
 ## 9. Review Findings (Plan-Owned)
 
 - [x] RF-077-01 · minor · §5 draft-metadata provenance · the plan claimed the WP6 drafting-round metadata "already shipped with the WP5 review round" while it was excluded from the scoped WP5 commit and uncommitted — sentence corrected; the metadata lands with the activation commit (resolved in the 2026-09-30 Standard A round).
 - [x] RF-077-02 · minor · §4 test manifest · `tests/unit/composables/useCelebration.spec.js` was marked N although the file exists at baseline — corrected to M (resolved in the 2026-09-30 Standard A round).
+- [x] RF-077-03 · minor · §3.5/§5 manifest · the occurrence-agreement entry points were delivered in the **task-details context only** (`TaskListDetails.vue` + `scheduling` store actions); `SchedulePlanner.vue` stayed planning-only because its preview rows carry definition-level identity (task + weekday override), not occurrence keys — the delivered reads expose occurrence identity only on the daily/overdue/room-task surfaces, so a planner entry would have duplicated identity plumbing for a second owner surface. The `SchedulePlanner.vue` manifest line ("entry points only") is therefore unused; the delivered entry point covers the commands (amend/catch-up/restart with consent + 409 draft preservation, unit-pinned). **Resolved 2026-10-01 (final Standard B, user decision):** accepted as documented; revisit when the planner gains occurrence-row identity.
+- [x] RF-077-04 · minor · §3.7/§5 manifest · the essential help slice was delivered as ONE always-reachable navigation-level glossary entry (`HelpEntry.vue` + `HelpGlossary.vue`) instead of per-view entry points on Dashboard/My Day/Scheduling — one permanent entry beat three scattered ones for the essential slice; per-view contextual entry points remain with the WP8 tour work (recorded in FEAT-UX-023). **Resolved 2026-10-01 (final Standard B, user decision):** accepted as documented.
+- [x] RF-077-05 · minor · §3.1 · the My Day overdue section testid was renamed `today-section-overdue` → `today-section-catchup` with the C5f content set (catch-up is the plan's own term; C1c cards keep the attributed planned date). The unit spec was updated in the same change; no E2E spec referenced the old testid (grep-verified). **Resolved 2026-10-01 (final Standard B, user decision):** accepted as documented.
+- [x] RF-077-06 · minor · §5 manifest · the arcade moved OFF the Dashboard into its own gated route (`/arcade` + `ArcadeView.vue`, nav entry hidden while `arcadeVisible` is off) instead of staying a gated Dashboard section — a stronger C5f isolation (arcade/catalog/ranking fully outside the primary AND secondary landing surfaces). `ArcadeSection.vue` remains the visibility consumer inside `ArcadeView`; `snake-game.spec.ts` and the gate manifest were updated in the same change. **Resolved 2026-10-01 (final Standard B, user decision):** accepted as documented.
+- [x] RF-077-07 · major · HelpGlossary/PauseSettings i18n · the glossary term strings and the `Acknowledged`/`Declined` state labels were passed to `t()` through dynamic map lookups whitelisted in `check-l10n-keys.js` DYNAMIC — the checker never extracted the map values, so 20 glossary strings and 2 state labels were absent from POT/EN/DE and rendered untranslated outside English (§3.10 violation). **Resolved 2026-10-01 (final Standard B fix round):** literal `t()` keys in `HelpGlossary.vue` (computed terms) and `PauseSettings.vue` (label methods), both DYNAMIC whitelist rows removed, l10n artifacts regenerated (`--write`, 1108 keys) with full German copy supplied; `l10n:check-keys` green.
+- [x] RF-077-08 · minor · NotificationPreferences save payload · a cleared digest-time field sent `''` instead of `null` — a parity regression against the replaced WP5 inline form. **Resolved 2026-10-01 (final Standard B fix round):** `digestTime || null` restored.
+- [x] RF-077-09 · minor · `tests/e2e/zzdebug-dash.spec.ts` · untracked throwaway debug spec from the gate-debugging round (no assertions, one ESLint warning, would have run inside the gate). **Resolved 2026-10-01 (final Standard B, user decision):** deleted.
 
 ## 10. Activation Decisions
 
@@ -357,6 +365,74 @@ check for this new file are the applicable documentation gates and must pass
 with the metadata updates included. No runtime suites, family trial,
 activation or commit are part of this documentation round. None of the future
 section 4 tests is claimed passing from this evidence.
+
+## Implementation Record (2026-09-30)
+
+The implementation round completed the same day against the planning baseline
+`fd70cd7` (frontend-only change set — no PHP file touched). Delivered per §6:
+
+1. **Baseline lock** — §1 citations re-verified at HEAD; the bare-root
+   Dashboard-landing inventory (29 spec files) drove the E2E landing update.
+2. **Client foundation** — `services/api.js` pause + occurrence-agreement
+   functions; `store/pauses.js` (fresh command UUID per attempt, displayed
+   `expectedRevision`, 409 draft preservation, generation-guarded reads);
+   `composables/useStoreReset.js` central identity reset wired into the
+   App.vue retry path (store DAG stays acyclic — no store imports the
+   composable).
+3. **My Day cutover** — route-level `/` → `today` redirect for every role
+   (`/dashboard` explicit secondary path); App.vue one-shot child landing
+   removed; TodayView gained the C5f content set (catch-up cards with the
+   occurrence block's planned date/window + C1d cover hint, next agreed
+   appointments from the delivered range read, neutral overload
+   clarification, calm progress line from the game-state rhythm slice,
+   neutral free-day state); Dashboard tagline neutralized.
+4. **Calm feedback** — `sound.js`/`confetti.js` module opt-in gates
+   (default off); `useCelebration` re-syncs the gates from the preference
+   store on every event; reduced motion always overrides; `main.js` fetches
+   the personal preferences at bootstrap; full `NotificationPreferences.vue`
+   (delivery-vs-attention NcNoteCard, digest/quiet fields, sound/animation
+   opt-ins, arcade + catalog optional-area toggles per Q-077-05 A) with the
+   Settings surface delegating to it; arcade consumer = gated `/arcade`
+   route + nav entry (`ArcadeView.vue`).
+5. **Pause + agreements UI** — `PauseSettings.vue` (self-only request list,
+   request form, early end) + owner house administration in the House
+   section (house pause, pending request decisions with displayed
+   revision, retrospective illness); owner agreement entry points in
+   `TaskListDetails.vue` (amend/catch-up/restart with consent attestation,
+   409 draft preservation) via three typed scheduling-store actions.
+6. **Closure** — Leaderboard live-region/roles a11y pass; help slice
+   (`HelpEntry.vue` + `HelpGlossary.vue`); `SnakeLeaderboard` boosts label
+   removed; dead `release-boost-shop` regex removed; new
+   `calm-core-ui.spec.ts` (serial pool) + gate manifest + scenario
+   inventory; E2E landing updates across 31 spec files; l10n regenerated
+   (1090 keys, full EN/DE/POT coverage); durable docs
+   (`docs/concepts/calm-core-ux.md`, testing table, gamification skill
+   celebration contract); backlog FEAT-UX-023/024/025 updated.
+
+Scope consolidations are recorded as RF-077-03..06 in §9. Gate evidence at
+round end: Jest 1118 passed (103 suites), ESLint clean, stylelint clean,
+webpack build success, `l10n:check-keys` 1090/1090, `backlog:check` green,
+`docs:encoding` green (824 files), `git diff --check` clean, gate
+`--self-test` passed and the three-pool discovery check green (46 required
+specs, exactly one pool each). The browser gate run and the Docker backend
+suite (backend untouched — last green at the WP5 final review) belong to the
+final review round.
+
+**Final gate evidence (2026-10-01, run-1qZgwd):** the complete sequential
+three-pool browser gate PASSED — chromium 92, chromium-serial-db 132 and
+chromium-scheduling-owner 39 scenarios, all `expected`, zero skipped /
+failed / flaky, zero violations per pool. The run surfaced and fixed four
+test-infrastructure defects (documented as part of this round): two
+bare-root landings missed by the bulk update (dashboard-navigation,
+browser-aware-navigation helper, test-house fixture), the RoomDetail
+post-delete `router.push('/')` that now landed on My Day (changed to the
+named `dashboard` route), and locale-coupled selectors/expectations
+(floor-expand role name, planner 'Paused'/'over capacity' text, scheduling
+headings/toast/unplaced phrase, NcCheckboxRadioSwitch `.check()`
+interception) — profile users render in their own Nextcloud language
+(dad=de), so the affected pins were switched to testids, state classes and
+locale-independent values. The FloorList toggle gained a stable
+`floor-expand-toggle` testid for the helper.
 
 ## Review Outcome
 
@@ -389,3 +465,39 @@ untouched (no runtime suites apply to a documentation-only round). The plan
 moved `new/ → active/` with this review; the drafting-round metadata and the
 activation record land with the activation commit; pre-existing
 `docs/plans/{new,active,onhold}/.gitkeep` deletions stay unstaged.
+
+**Standard B (final) — 2026-10-01: `PASS-WITH-FIXES`.** Scope: the complete
+uncommitted WP6 implementation package (79 modified tracked files + the
+untracked new files — components, stores, specs, l10n, durable docs) against
+this plan's full manifest, acceptance criteria and §4 test evidence. Base:
+`2f1abd5` (`master`, index empty; unstaged-diff sha1
+`8e05ee65c9f6acbddf178e2ae143073595635de5`; untracked paths fingerprinted
+per-file SHA256 in the review record). Reviewed: routing/landing cutover,
+calm-feedback gating with the reduced-motion hard floor, full
+`NotificationPreferences.vue` + optional-area consumers, pause store/UI with
+owner administration, occurrence agreement entry points, fourteen-store
+identity reset, help slice, no-Coin closure, Leaderboard a11y, Jest/E2E/gate
+config, l10n artifacts and durable docs.
+
+Findings: RF-077-07 (major, i18n — dynamic `t()` map values invisible to the
+l10n key check; 20 glossary strings + `Acknowledged`/`Declined` absent from
+POT/EN/DE — fixed with literal keys, DYNAMIC rows removed, artifacts
+regenerated to 1108 keys with full German copy), RF-077-08 (minor — digestTime
+`''` vs `null` parity — fixed), RF-077-09 (minor — zzdebug spec — deleted).
+Decisions (batched structured question, recommendations first, all selected):
+zzdebug deletion; RF-077-03..06 resolved as accepted documented scope
+consolidations; full gate rerun for browser evidence; FEAT-UX-024 + FEAT-UX-025
+closed to `archive/2026-10.md` (FEAT-UX-023 keeps its WP8 remainder,
+CONCEPT-001 stays In Progress). Gates rerun green on the reviewed tree: Jest
+1118/103 suites, test:noise, ESLint/stylelint zero-warning, webpack build,
+`l10n:check-keys` 1108/1108, `backlog:check`, `docs:encoding` (824 files),
+`git diff --check`; Docker PHPUnit unit 1028 + integration 493 with
+`--fail-on-skipped` (zero skips), `composer cs:check` 0-of-377; full
+three-pool browser gate `run-jYP3nz` PASSED — chromium 91, serial-db 132,
+scheduling-owner 39, all expected, zero skipped/failed/flaky/violations (the
+first rerun attempt failed environmentally — `TEST_DB_PROFILE` defaulted to
+`minimal` after a volume reset; recreated with `family` per the canonical
+workflow, not a product defect). All 15 acceptance criteria verified; the plan
+moved `active/ → done/`; parent WP6 row, both READMEs, `ui-use-cases.md`,
+backlog/archive and `ACTIVE_TASKS.md` updated; review record
+[CODE_REVIEW_2026-10-01](../../backlog/archive/CODE_REVIEW_2026-10-01.md).
