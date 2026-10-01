@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Db;
 
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
@@ -18,6 +19,21 @@ use OCP\IDBConnection;
 class WalletEntryMapper extends QBMapper {
 	public function __construct(IDBConnection $db) {
 		parent::__construct($db, 'chorestrike_wallet_entries', WalletEntry::class);
+	}
+
+	/**
+	 * Find a ledger entry by ID (NC31 QBMapper carries no base find();
+	 * used by the WP7 correction's stored-reference verification).
+	 *
+	 * @throws DoesNotExistException if the row does not exist
+	 */
+	public function find(int $id): WalletEntry {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+
+		return $this->findEntity($qb);
 	}
 
 	/**

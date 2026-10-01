@@ -87,6 +87,7 @@ class DigestServiceTest extends TestCase {
 	private CompletedTask $currentCompletion;
 	private array $visibleRoomTasks = [];
 	private PauseMapper&MockObject $pauseMapper;
+	private \OCA\ChoreStrike\Db\RewardRequestMapper&MockObject $rewardRequestMapper;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -102,6 +103,7 @@ class DigestServiceTest extends TestCase {
 		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->completionMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->pauseMapper = $this->createMock(PauseMapper::class);
+		$this->rewardRequestMapper = $this->createMock(\OCA\ChoreStrike\Db\RewardRequestMapper::class);
 		$completion = new CompletedTask();
 		$completion->setRoomTaskId(11);
 		$this->currentCompletion = $completion;
@@ -192,6 +194,7 @@ class DigestServiceTest extends TestCase {
 			$this->appLogger,
 			$this->completionMapper,
 			$this->pauseMapper,
+			$this->rewardRequestMapper,
 			$this->readService,
 		);
 	}
@@ -543,6 +546,95 @@ class DigestServiceTest extends TestCase {
 		$pause->setCreatedAt(new \DateTime('2026-09-28 10:00:00 UTC'));
 		$pause->setUpdatedAt(new \DateTime('2026-09-28 10:00:00 UTC'));
 		$this->pauseMapper->method('findByHouseId')->willReturn([$pause]);
+		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
+		$this->assertNull($this->dispatched);
+	}
+
+	// ------------------------------------------------------------------
+	// WP7 reward-request org relevance (CS-PLAN-070 parent §3.3)
+	// ------------------------------------------------------------------
+
+	private function rewardRequest(int $id, int $version, int $walletId): \OCA\ChoreStrike\Db\RewardRequest {
+		$request = new \OCA\ChoreStrike\Db\RewardRequest();
+		$request->setId($id);
+		$request->setHouseId(1);
+		$request->setWalletId($walletId);
+		$request->setItemId(7);
+		$request->setTitle('Cinema night');
+		$request->setPriceMinor(1250);
+		$request->setState(\OCA\ChoreStrike\Db\RewardRequest::STATE_PENDING);
+		$request->setVersion($version);
+		$request->setCreatedAt(new \DateTime('2026-09-29 15:00:00 UTC'));
+		$request->setUpdatedAt(new \DateTime('2026-09-29 15:00:00 UTC'));
+		return $request;
+	}
+
+	private function rewardRow(int $id, int $requestId, int $revision): DigestChange {
+		$row = new DigestChange();
+		$row->setId($id);
+		$row->setHouseId(1);
+		$row->setHouseUserId(7);
+		$row->setObjectType('reward_request');
+		$row->setObjectId((string)$requestId);
+		$row->setObjectRevision($revision);
+		$row->setTargetSlot('2026-09-29');
+		$row->setDisposition(DigestChange::DISPOSITION_QUEUED);
+		return $row;
+	}
+
+	public function testPass_RewardRequestAtCurrentRevision_ReachesTheActiveRequester(): void {
+		$member = $this->member();
+		$member->setWalletId(500);
+		$this->membersById[7] = $member;
+		$this->prefsByKey['1:7'] = $this->pref();
+		$this->queuedBySlot['7:2026-09-29'] = [$this->rewardRow(1, 33, 2)];
+		$this->dueSlots = [$this->slot()];
+		$this->rewardRequestMapper->method('find')->willReturn($this->rewardRequest(33, 2, 500));
+
+		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['dispatched']);
+		$this->assertNotNull($this->dispatched, 'the request decision reaches its active requester');
+		$this->assertSame(1, $this->dispatched[5], 'exactly one organizational reference is summarized');
+	}
+
+	public function testPass_RewardRequestAdvancedPastQueuedRevision_IsSupersededAndSkipped(): void {
+		$member = $this->member();
+		$member->setWalletId(500);
+		$this->membersById[7] = $member;
+		$this->prefsByKey['1:7'] = $this->pref();
+		$this->queuedBySlot['7:2026-09-29'] = [$this->rewardRow(1, 33, 1)];
+		$this->dueSlots = [$this->slot()];
+		// The request advanced to revision 2 since the queue write.
+		$this->rewardRequestMapper->method('find')->willReturn($this->rewardRequest(33, 2, 500));
+
+		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
+		$this->assertNull($this->dispatched);
+	}
+
+	public function testPass_RewardRequestOwnerDecision_DoesNotReachADemotedOwner(): void {
+		// The recipient is neither the active requester (wallet 500 vs 500?)
+		// nor a current owner anymore.
+		$member = $this->member();
+		$member->setWalletId(777);
+		$member->setRole('member');
+		$this->membersById[7] = $member;
+		$this->prefsByKey['1:7'] = $this->pref();
+		$this->queuedBySlot['7:2026-09-29'] = [$this->rewardRow(1, 33, 2)];
+		$this->dueSlots = [$this->slot()];
+		$this->rewardRequestMapper->method('find')->willReturn($this->rewardRequest(33, 2, 500));
+
+		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
+		$this->assertNull($this->dispatched);
+	}
+
+	public function testPass_RewardRequestPurgedByErasure_IsDroppedQuietly(): void {
+		$member = $this->member();
+		$member->setWalletId(500);
+		$this->membersById[7] = $member;
+		$this->prefsByKey['1:7'] = $this->pref();
+		$this->queuedBySlot['7:2026-09-29'] = [$this->rewardRow(1, 33, 2)];
+		$this->dueSlots = [$this->slot()];
+		$this->rewardRequestMapper->method('find')->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('purged'));
+
 		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
 		$this->assertNull($this->dispatched);
 	}

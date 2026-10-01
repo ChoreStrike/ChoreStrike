@@ -400,6 +400,15 @@ badges. Shipped with CS-PLAN-040.
 
 ---
 
+> **UC-16 addendum (WP7, CS-PLAN-078):** the family reward catalog and
+> request lifecycle have a backend (ADR-017; [rewards.md](../api/rewards.md))
+> but **no UI yet** — the reward surface (catalog list, request flow, owner
+> approvals, wallet display) is the planned WP8 slice and lands as a new
+> use case here. Until then the browser contract is pinned by
+> `family-reward-api.spec.ts`.
+
+---
+
 ## Cross-cutting conventions (apply to every UC)
 
 - **Role gating:** hide owner-only controls from members instead of letting

@@ -150,6 +150,66 @@ class HouseController extends Controller {
 	}
 
 	/**
+	 * Owner-only reward-catalog gate (CS-PLAN-070 WP7, C4; CS-PLAN-078
+	 * §3.3): the narrow versioned writer — `expectedVersion` is the house
+	 * `stateVersion`, `commandId` makes the toggle idempotent. Personal
+	 * visibility preferences and existing requests are never touched.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function updateCatalog(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->assertHouseMember($house->getId());
+			$this->authService->requireHouseOwner($house->getId());
+
+			$catalogEnabled = $this->request->getParam('catalogEnabled');
+			if (!is_bool($catalogEnabled)) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('catalogEnabled must be a boolean')],
+				], 400);
+			}
+			$expectedVersionRaw = $this->request->getParam('expectedVersion');
+			if (!is_int($expectedVersionRaw) || $expectedVersionRaw < 0) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('A valid expectedVersion is required')],
+				], 400);
+			}
+			$commandId = (string)$this->request->getParam('commandId', '');
+			if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $commandId)) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('A valid commandId (UUID) is required')],
+				], 400);
+			}
+
+			$this->houseService->setCatalogEnabled($house->getId(), $catalogEnabled, $expectedVersionRaw, strtolower($commandId));
+
+			$updatedHouse = $this->houseService->getOrCreateHouse($instanceId);
+			return new JSONResponse([
+				'success' => true,
+				'data' => $updatedHouse->jsonSerialize(),
+			]);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('updateCatalog', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'HOUSE_UPDATE_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
+
+	/**
 	 * Get house statistics
 	 *
 	 * @NoAdminRequired

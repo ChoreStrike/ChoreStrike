@@ -225,10 +225,10 @@ class UserController extends Controller {
 				], 404);
 			}
 
-			$this->authService->requireHouseOwner($house->getId());
+			$actor = $this->authService->requireHouseOwner($house->getId());
 
 			try {
-				$this->houseService->removeHouseMember($houseUser->getId());
+				$this->houseService->removeHouseMember($houseUser->getId(), (string)$actor->getNextcloudUserId());
 			} catch (ForbiddenException $e) {
 				// The only ForbiddenException removeHouseMember throws is
 				// its owner-target guard — map it to the endpoint-specific

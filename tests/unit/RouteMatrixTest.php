@@ -286,17 +286,61 @@ class RouteMatrixTest extends TestCase {
 	 * the consent-filtered ranking trio (GET /ranking, POST
 	 * /ranking/consent, POST /ranking/withdraw) → 80. CS-PLAN-070 WP5
 	 * added the self-only preferences pair (GET/PUT
-	 * /preferences/me) → 82.
+	 * /preferences/me) → 82. CS-PLAN-070 WP7 (CS-PLAN-078) added the
+	 * owner-only catalog gate writer (PUT /house/catalog), the catalog
+	 * trio (GET/POST /rewards, PUT /rewards/{id}) and the reward-request
+	 * lifecycle octet (GET/POST /reward-requests, GET
+	 * /reward-requests/{id}, POST /reward-requests/{id}/approve|reject|
+	 * cancel|fulfill|correct) → 94.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			82,
+			94,
 			$this->routes['routes'],
-			'Route count drifted from the pin (82 after CS-PLAN-070 WP5) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (94 after CS-PLAN-070 WP7) — add only with a consumer, then update deliberately'
 		);
+	}
+
+	/**
+	 * CS-PLAN-070 WP7 (CS-PLAN-078 §3.3): the reward surface is exactly
+	 * the planned trio/octet plus the narrow house-catalog gate — no
+	 * wallet/ledger dump, house-reset or item-delete route exists (items
+	 * are archived, never deleted) and no second catalog writer competes
+	 * with PUT /house/catalog.
+	 */
+	public function testRewardSurfaceMatchesTheWP7Contract(): void {
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+
+		$expected = [
+			'PUT /api/v1/house/catalog',
+			'GET /api/v1/rewards',
+			'POST /api/v1/rewards',
+			'PUT /api/v1/rewards/{id}',
+			'GET /api/v1/reward-requests',
+			'POST /api/v1/reward-requests',
+			'GET /api/v1/reward-requests/{id}',
+			'POST /api/v1/reward-requests/{id}/approve',
+			'POST /api/v1/reward-requests/{id}/reject',
+			'POST /api/v1/reward-requests/{id}/cancel',
+			'POST /api/v1/reward-requests/{id}/fulfill',
+			'POST /api/v1/reward-requests/{id}/correct',
+		];
+		foreach ($expected as $route) {
+			$this->assertContains($route, $declared, "The WP7 route $route must exist");
+		}
+		// No destructive/leaky surface: items are archived, never deleted;
+		// no generic house-wide wallet or ledger read exists.
+		$this->assertNotContains('DELETE /api/v1/rewards/{id}', $declared, 'Items are archived, never deleted');
+		$this->assertNotContains('GET /api/v1/rewards/{id}', $declared, 'No single-item read exists (catalog list covers it)');
+		foreach ($declared as $route) {
+			$this->assertDoesNotMatchRegularExpression('#/(wallet|ledger|wallet-entries)#', $route, 'No wallet/ledger dump route exists');
+		}
 	}
 
 	/**

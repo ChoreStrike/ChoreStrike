@@ -64,6 +64,8 @@ class HouseService {
 	private CalendarService $calendarService;
 	private AuthorizationService $authorization;
 	private IUserManager $userManager;
+	private RewardService $rewardService;
+	private RewardRequestService $rewardRequestService;
 
 	public function __construct(
 		HouseMapper $houseMapper,
@@ -92,6 +94,8 @@ class HouseService {
 		CalendarService $calendarService,
 		AuthorizationService $authorization,
 		IUserManager $userManager,
+		RewardService $rewardService,
+		RewardRequestService $rewardRequestService,
 	) {
 		$this->houseMapper = $houseMapper;
 		$this->floorMapper = $floorMapper;
@@ -119,6 +123,8 @@ class HouseService {
 		$this->calendarService = $calendarService;
 		$this->authorization = $authorization;
 		$this->userManager = $userManager;
+		$this->rewardService = $rewardService;
+		$this->rewardRequestService = $rewardRequestService;
 	}
 
 	/**
@@ -205,8 +211,9 @@ class HouseService {
 	 * are untouched) and delete the `house_users` row. The member's WALLET
 	 * ROW IS PRESERVED — financial identity/history is separate from active
 	 * authorization (parent C4 preamble); a re-invitation reattaches it and
-	 * only account erasure removes it. Full C4e semantics (cancelling
-	 * unfulfilled reward requests) is WP7 — there are no requests yet.
+	 * only account erasure removes it. The C4e departure semantics
+	 * (cancelling every unfulfilled reward request and releasing its
+	 * reservation before access ends) is implemented by the WP7 hook below.
 	 *
 	 * The caller (controller) is responsible for the requireHouseOwner
 	 * gate; this method guards its own invariant: the target must not be
@@ -217,7 +224,7 @@ class HouseService {
 	 * @throws ForbiddenException if the target is the house owner
 	 * @throws DoesNotExistException if the house user does not exist
 	 */
-	public function removeHouseMember(int $houseUserId): void {
+	public function removeHouseMember(int $houseUserId, ?string $callerUserId = null): void {
 		$houseUser = $this->houseUserMapper->find($houseUserId);
 
 		if ($houseUser->isOwner()) {
@@ -228,9 +235,28 @@ class HouseService {
 		$houseId = $houseUser->getHouseId();
 		$walletId = $houseUser->getWalletId();
 
-		$this->transactions->run(function () use ($houseUser, $ncUserId, $houseId, $walletId): void {
-			// FIRST lock of the documented order: the house row.
+		$this->transactions->run(function () use ($houseUserId, $ncUserId, $houseId, $walletId, $callerUserId): void {
+			// FIRST lock of the documented order: the house row, then the
+			// membership row — the owner invariant is re-checked on the
+			// LOCKED row (a promotion racing the read can never slip an
+			// owner deletion through).
 			$this->houseMapper->findForUpdate($houseId);
+			$houseUser = $this->houseUserMapper->findForUpdate($houseUserId);
+			if ($houseUser->isOwner()) {
+				throw new ForbiddenException($this->l10n->t('Cannot remove the house owner'));
+			}
+
+			// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4, C4): cancel every
+			// unfulfilled reward request and release its reservation in the
+			// SAME source aggregate, BEFORE access ends — with the acting
+			// owner as the audit/digest actor. Booked value and terminal
+			// history are preserved for the retained wallet.
+			if ($walletId !== null) {
+				$actor = $callerUserId !== null
+					? $this->houseUserMapper->findByHouseAndUser($houseId, $callerUserId)
+					: null;
+				$this->rewardRequestService->handleMembershipRemovedUnderLock($houseId, $walletId, $actor);
+			}
 
 			$this->taskAssigneeMapper->deleteByUserForHouse($ncUserId, $houseId);
 			$this->houseUserMapper->delete($houseUser);
@@ -298,9 +324,44 @@ class HouseService {
 				}
 			}
 
+			$oldRole = $houseUser->getRole();
+			$oldRoleRevision = $houseUser->getRoleRevision();
+			$changed = $oldRole !== $role;
 			$houseUser->setRole($role);
-			return $this->houseUserMapper->update($houseUser);
+			if ($changed) {
+				// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4): only a REAL role change
+				// advances the revision — a no-op write never invalidates a
+				// fresh owner approval through the request hooks below.
+				$houseUser->setRoleRevision($oldRoleRevision + 1);
+			}
+			$updated = $this->houseUserMapper->update($houseUser);
+
+			if ($changed) {
+				$actor = $this->houseUserMapper->findByHouseAndUser($houseId, $callerUserId);
+				$this->rewardRequestService->handleRequesterRoleChangedUnderLock(
+					$houseId,
+					$updated,
+					$oldRole,
+					$oldRoleRevision,
+					$actor
+				);
+			}
+			return $updated;
 		});
+	}
+
+	/**
+	 * Owner-controlled reward-catalog gate (CS-PLAN-070 WP7, C4;
+	 * CS-PLAN-078 §3.3). Deliberately narrow: the only catalog writer is
+	 * PUT /house/catalog with the house `stateVersion` contract — the
+	 * shared PUT /house settings writer stays untouched. Delegates to
+	 * {@see RewardService::setCatalogEnabled()}; personal visibility
+	 * preferences and existing requests are never touched.
+	 *
+	 * @return array{catalogEnabled: bool, stateVersion: int}
+	 */
+	public function setCatalogEnabled(int $houseId, bool $catalogEnabled, int $expectedVersion, string $commandId): array {
+		return $this->rewardService->setCatalogEnabled($houseId, $catalogEnabled, $expectedVersion, $commandId);
 	}
 
 	/**

@@ -86,6 +86,18 @@ msgstr ""
 msgid "A summary time is required while a summary is enabled"
 msgstr ""
 
+msgid "A text field must be a string"
+msgstr ""
+
+msgid "A title and a positive priceMinor are required"
+msgstr ""
+
+msgid "A title is required"
+msgstr ""
+
+msgid "A valid %1$s is required"
+msgstr ""
+
 msgid "A valid commandId (UUID) is required"
 msgstr ""
 
@@ -93,6 +105,9 @@ msgid "A valid expectedRevision is required"
 msgstr ""
 
 msgid "A valid expectedVersion is required"
+msgstr ""
+
+msgid "A valid reasonCode is required"
 msgstr ""
 
 msgid "A valid roomTaskId is required"
@@ -270,6 +285,9 @@ msgid "Assigning this member would exceed their daily task limit"
 msgstr ""
 
 msgid "At least one floor is required"
+msgstr ""
+
+msgid "At least one item field is required"
 msgstr ""
 
 msgid "At least one room is required per floor"
@@ -569,10 +587,16 @@ msgstr ""
 msgid "Contribution"
 msgstr ""
 
+msgid "Control characters are not allowed"
+msgstr ""
+
 msgid "Correct split"
 msgstr ""
 
 msgid "Correct the work split"
+msgstr ""
+
+msgid "Correction requires the explicit notDelivered confirmation"
 msgstr ""
 
 msgid "Could not complete the task"
@@ -1139,6 +1163,9 @@ msgstr ""
 msgid "From template"
 msgstr ""
 
+msgid "Fulfillment requires the explicit delivered confirmation"
+msgstr ""
+
 msgid "Game Over!"
 msgstr ""
 
@@ -1652,6 +1679,9 @@ msgstr ""
 msgid "Not authenticated"
 msgstr ""
 
+msgid "Not enough available Coins for this request"
+msgstr ""
+
 msgid "Not in this level"
 msgstr ""
 
@@ -2066,6 +2096,12 @@ msgstr ""
 msgid "Review current split"
 msgstr ""
 
+msgid "Reward item not found"
+msgstr ""
+
+msgid "Reward request not found"
+msgstr ""
+
 msgid "Rhythm 12"
 msgstr ""
 
@@ -2444,6 +2480,9 @@ msgstr ""
 msgid "Terrible"
 msgstr ""
 
+msgid "Text"
+msgstr ""
+
 msgid "The affected people have agreed to this change."
 msgstr ""
 
@@ -2480,6 +2519,9 @@ msgstr ""
 msgid "The decision could not be recorded."
 msgstr ""
 
+msgid "The displayed item terms changed — reload before requesting"
+msgstr ""
+
 msgid "The due day moves."
 msgstr ""
 
@@ -2508,6 +2550,9 @@ msgid "The illness could not be recorded."
 msgstr ""
 
 msgid "The illness was recorded."
+msgstr ""
+
+msgid "The item changed since it was displayed"
 msgstr ""
 
 msgid "The number of days in a row you kept your agreements. Today stays pending until the day closes."
@@ -2570,6 +2615,9 @@ msgstr ""
 msgid "The preview is stale."
 msgstr ""
 
+msgid "The request changed since it was displayed"
+msgstr ""
+
 msgid "The request could not be sent."
 msgstr ""
 
@@ -2577,6 +2625,9 @@ msgid "The request could not be sent. Please try again."
 msgstr ""
 
 msgid "The reward catalog arrives with a later update — the switch is kept so your choice persists from day one."
+msgstr ""
+
+msgid "The reward catalog is not available for new requests"
 msgstr ""
 
 msgid "The schedule preview is no longer current. Generate a new preview."
@@ -2598,6 +2649,9 @@ msgid "The shared goal of the whole household for this week."
 msgstr ""
 
 msgid "The shortened pause would lose its start date"
+msgstr ""
+
+msgid "The supplied settlement reference does not match this request"
 msgstr ""
 
 msgid "The task changed since it was displayed. Reload and try again."
@@ -2634,6 +2688,15 @@ msgid "This preview is no longer current. Check your selection and prepare the p
 msgstr ""
 
 msgid "This preview is no longer current. Prepare the plan again."
+msgstr ""
+
+msgid "This request cannot be fulfilled while the wallet is underfunded"
+msgstr ""
+
+msgid "This request is already settled and can no longer be cancelled"
+msgstr ""
+
+msgid "This request is no longer in the required state"
 msgstr ""
 
 msgid "This room"
@@ -2747,6 +2810,9 @@ msgstr ""
 msgid "Unknown Task"
 msgstr ""
 
+msgid "Unknown field in the request"
+msgstr ""
+
 msgid "Unknown field: %1$s"
 msgstr ""
 
@@ -2769,6 +2835,9 @@ msgid "Unknown preference field"
 msgstr ""
 
 msgid "Unknown reason code: %1$s"
+msgstr ""
+
+msgid "Unknown state filter"
 msgstr ""
 
 msgid "Unknown task"
@@ -2972,6 +3041,9 @@ msgstr ""
 msgid "You are not a member of this household yet"
 msgstr ""
 
+msgid "You are not allowed to perform this action on this request"
+msgstr ""
+
 msgid "You are not part of the ranking. Participation is voluntary and only ever shows your on-time share of agreed public tasks — starting next Monday."
 msgstr ""
 
@@ -3038,6 +3110,9 @@ msgstr ""
 msgid "another member"
 msgstr ""
 
+msgid "archived must be a boolean"
+msgstr ""
+
 msgid "assigneeUserIds must be a non-empty array of user IDs"
 msgstr ""
 
@@ -3045,6 +3120,9 @@ msgid "assigneeUserIds must be an array of user IDs"
 msgstr ""
 
 msgid "assigneeUserIds must not contain duplicates"
+msgstr ""
+
+msgid "catalogEnabled must be a boolean"
 msgstr ""
 
 msgid "claimed by someone — resolve the claim first"
@@ -3146,6 +3224,9 @@ msgstr ""
 msgid "previewVersion is required"
 msgstr ""
 
+msgid "priceMinor must be a positive whole number of hundredths"
+msgstr ""
+
 msgid "reasonCode must be a string of at most 64 characters"
 msgstr ""
 
@@ -3168,6 +3249,12 @@ msgid "roomTaskIds must not contain duplicates"
 msgstr ""
 
 msgid "rooms"
+msgstr ""
+
+msgid "scope must be active or admin"
+msgstr ""
+
+msgid "scope must be mine or house"
 msgstr ""
 
 msgid "scope must be personal or house"

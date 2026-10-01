@@ -44,6 +44,11 @@ class Version1004Date20260228131728 extends SimpleMigrationStep {
 			$table->addColumn('longest_streak', 'integer', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('last_activity', 'datetime', ['notnull' => false]);
 			$table->addColumn('role', 'string', ['notnull' => true, 'length' => 20, 'default' => 'member']);
+			// CS-PLAN-070 WP7 (CS-PLAN-078 §3.1): count of the member's real
+			// role changes — approval provenance on reward requests binds to
+			// this revision so a role rebase is traceable and a no-op write
+			// never invalidates a fresh approval.
+			$table->addColumn('role_revision', 'bigint', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('joined_at', 'datetime', ['notnull' => true]);
 			$table->addColumn('scheduling_preferences', 'json', ['notnull' => false]);
 			// CS-PLAN-071 WP0: binding to the persistent wallet (financial

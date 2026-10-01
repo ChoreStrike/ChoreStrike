@@ -222,7 +222,7 @@ profile or guardian-consent model should be implied by onboarding copy.
 ---
 
 ### [P2] FEAT-UX-026 — Real-world reward shop
-**Status**: In Progress (WP7 backend; CS-PLAN-078 activated 2026-10-01 after Standard A `PASS` — runtime implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
+**Status**: In Progress (WP7 backend DELIVERED 2026-10-01; WP8 UI next) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
 **Owning**: CS-PLAN-070 WP7..WP8; CS-PLAN-078 WP7 · **Depends on**: CONCEPT-001 (reliable core/G1) · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
@@ -237,9 +237,9 @@ without rewriting unrelated events or reclaiming fulfilled rewards.
 - [x] Core model/redemption decisions and concept extension recorded (D2/D7/D8/D11).
 - [x] C3 rate/share examples and aggregate-underfunding hold policy recorded (2026-09-17).
 - [x] Eight C4 actor, lifecycle, membership, visibility and refund decisions recorded (2026-09-17).
-- [x] Draft the WP7 backend API/schema/accounting/erasure/digest and race-test mapping in [CS-PLAN-078](../plans/active/cs-plan-078-wp7-catalog-and-request-backend.md) (2026-10-01); technical proposals, not implementation approval.
-- [x] Pass WP7 Standard A after checking the delivered reliable-core/G1 evidence (2026-10-01, `PASS` with zero findings; [CS-PLAN-078](../plans/active/cs-plan-078-wp7-catalog-and-request-backend.md) now in `active/`).
-- [ ] Implement and verify the T6 backend lifecycle in CS-PLAN-078 (schema, C4 lifecycle, money, membership/erasure, privacy, digest, races/replay, browser contract).
+- [x] Draft the WP7 backend API/schema/accounting/erasure/digest and race-test mapping in [CS-PLAN-078](../plans/done/cs-plan-078-wp7-catalog-and-request-backend.md) (2026-10-01); technical proposals, not implementation approval.
+- [x] Pass WP7 Standard A after checking the delivered reliable-core/G1 evidence (2026-10-01, `PASS` with zero findings; [CS-PLAN-078](../plans/done/cs-plan-078-wp7-catalog-and-request-backend.md) now in `active/`).
+- [x] Implement and verify the T6 backend lifecycle in CS-PLAN-078 (schema, C4 lifecycle, money, membership/erasure, privacy, digest, races/replay, browser contract) — DELIVERED 2026-10-01, final Standard B `PASS-WITH-FIXES`, plan in `done/`.
 - [ ] Complete WP8 catalog/request UI, C5 presentation/onboarding and T11 desktop/mobile/keyboard evidence; no whole-item closure from WP7 alone.
 
 ---
@@ -446,6 +446,23 @@ the meantime.
 `--legacy-peer-deps`. Pre-existing (not introduced by CS-026), but now documented.
 Resolving it cleanly likely needs an `eslint-plugin-n`/`eslint-config-standard`
 bump coordinated with the Nextcloud eslint config.
+
+---
+
+### [P4] TECH-DIGEST-001 — `DigestChangeMapper::expireQueuedBefore` uses `setMaxResults()` on an UPDATE
+**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-078 WP7 final Standard B (2026-10-01)
+
+Doctrine DBAL's `getSQLForUpdate()` never emits LIMIT (verified on the NC31
+container), so the documented 500-row batch bound in
+`DigestChangeMapper::expireQueuedBefore()` never applies — the expiry sweep
+updates ALL matching queued rows in one statement. The expiry path is a
+maintenance sweep (not the hot digest pass), so the current behavior is
+functionally correct and merely unbounded; either drop the limit parameter
+and document unbounded expiry, or implement chunked expiry via a bounded
+SELECT of ids followed by UPDATE ... WHERE id IN (...). Not a WP7 regression
+(pre-existing WP5 defect).
 
 ---
 

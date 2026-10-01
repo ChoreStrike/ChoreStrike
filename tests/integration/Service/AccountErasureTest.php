@@ -788,6 +788,127 @@ class AccountErasureTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * ErasureActiveMembership_PurgesRewardRequestsEventsWishesAndQueuedRefs
+	 * (CS-PLAN-070 WP7, CS-PLAN-078 §3.4, Q-070-02): holds released, the
+	 * person's requests/events/wishes purged, queued reward references
+	 * removed from ALL recipients and the actor anonymized on OTHER
+	 * retained records. Repeated erasure is harmless.
+	 */
+	public function testErasureActiveMembership_PurgesRewardRequestsEventsWishesAndQueuedRefs(): void {
+		$f = $this->seedRewardErasureHouse();
+
+		$erasureService = \OC::$server->get(AccountErasureService::class);
+		$erasureService->eraseAccount('ae_rw_owner');
+		// Repeated erasure is harmless.
+		$erasureService->eraseAccount('ae_rw_owner');
+
+		// The erased owner's own requests/events are purged...
+		self::assertSame(0, $this->countBy('chorestrike_reward_requests', 'id', (string)$f['ownerRequestId']), 'the erased owner\'s request row is purged');
+		self::assertSame(0, $this->countBy('chorestrike_request_events', 'request_id', (string)$f['ownerRequestId']), 'the erased owner\'s audit events are purged');
+		// ...their created wishes are purged (both items)...
+		self::assertSame(0, $this->countBy('chorestrike_reward_items', 'id', (string)$f['ownerItemId']), 'the erased person\'s own wish is purged');
+		// ...and every queued reference to the purged request is gone for ALL recipients.
+		self::assertSame(0, $this->countBy('chorestrike_digest_changes', 'object_id', (string)$f['ownerRequestId']), 'queued references to the purged request die everywhere');
+		// The CHILD's cancelled request survives (third party) with the
+		// erased owner's actor reference detached.
+		$childRequest = $this->fetchRewardRequest((int)$f['requestId']);
+		self::assertIsArray($childRequest);
+		self::assertSame('cancelled', $childRequest['state']);
+		$events = $this->db->executeQuery(
+			'SELECT action, actor_house_user_id, actor_wallet_id FROM *PREFIX*chorestrike_request_events WHERE request_id = ? ORDER BY revision',
+			[$f['requestId']]
+		)->fetchAll();
+		self::assertCount(2, $events);
+		// The child's own create event keeps the live actor; the erased
+		// owner's cancel event is detached.
+		self::assertSame('create', $events[0]['action']);
+		self::assertNotNull($events[0]['actor_house_user_id']);
+		self::assertSame('cancel', $events[1]['action']);
+		self::assertNull($events[1]['actor_house_user_id'], 'the erased actor is detached from the retained event');
+		self::assertNull($events[1]['actor_wallet_id']);
+	}
+
+	/**
+	 * Seed a reward-erasure scenario: the OWNER created two items, their
+	 * own adult request, and cancelled the CHILD's request (owner-actor
+	 * event on a retained third-party record); a queued digest row for
+	 * the child references the owner's request.
+	 *
+	 * @return array{houseId: int, requestId: int, ownerItemId: int, ownerRequestId: int}
+	 */
+	private function seedRewardErasureHouse(): array {
+		$houseId = $this->createHouse('ae_rw_owner', 'AE Reward House');
+		$this->addHouseMember($houseId, 'ae_rw_target', 'Target', 'child');
+
+		$this->actingAs('ae_rw_owner');
+		$houseService = \OC::$server->get(HouseService::class);
+		$fixtureHouse = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($houseId);
+		$rewardService = \OC::$server->get(\OCA\ChoreStrike\Service\RewardService::class);
+		$rewardService->setCatalogEnabled($houseId, true, $fixtureHouse->getStateVersion(), $this->uuidAe());
+		$ownerItem = $rewardService->createItem($houseId, [
+			'title' => 'Owner prize', 'priceMinor' => 500, 'commandId' => $this->uuidAe(),
+		]);
+
+		// The child requests the owner's item (pending).
+		$target = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByNextcloudUserId($houseId, 'ae_rw_target');
+		$this->creditTestWallet($houseId, (int)$target->getWalletId(), 5000, null);
+		$requests = \OC::$server->get(\OCA\ChoreStrike\Service\RewardRequestService::class);
+		$created = $requests->create($houseId, 'ae_rw_target', [
+			'itemId' => (int)$ownerItem['id'], 'itemVersion' => 0, 'priceMinor' => 500, 'commandId' => $this->uuidAe(),
+		]);
+		$requestId = (int)$created['id'];
+
+		// The OWNER cancels the child's request — an owner-actor event on
+		// a RETAINED third-party record.
+		$requests->cancel($houseId, 'ae_rw_owner', $requestId, ['commandId' => $this->uuidAe(), 'expectedVersion' => 0]);
+
+		// The owner's own adult request (approved at creation) plus a
+		// queued digest reference to it for the CHILD.
+		$this->actingAs('ae_rw_owner');
+		$owner = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByNextcloudUserId($houseId, 'ae_rw_owner');
+		$this->creditTestWallet($houseId, (int)$owner->getWalletId(), 5000, null);
+		$ownerRequest = $requests->create($houseId, 'ae_rw_owner', [
+			'itemId' => (int)$ownerItem['id'], 'itemVersion' => 0, 'priceMinor' => 500, 'commandId' => $this->uuidAe(),
+		]);
+		$changeMapper = \OC::$server->get(\OCA\ChoreStrike\Db\DigestChangeMapper::class);
+		$change = new \OCA\ChoreStrike\Db\DigestChange();
+		$change->setHouseId($houseId);
+		$change->setHouseUserId((int)$target->getId());
+		$change->setObjectType('reward_request');
+		$change->setObjectId((string)(int)$ownerRequest['id']);
+		$change->setObjectRevision(0);
+		$change->setCategory(\OCA\ChoreStrike\Db\DigestChange::CATEGORY_ORG);
+		$change->setChangeTime(new \DateTime());
+		$change->setTargetSlot('2099-01-01');
+		$change->setDisposition(\OCA\ChoreStrike\Db\DigestChange::DISPOSITION_QUEUED);
+		$change->setCreatedAt(new \DateTime());
+		$change->setUpdatedAt(new \DateTime());
+		$changeMapper->queueOrCoalesce($change);
+
+		return [
+			'houseId' => $houseId,
+			'requestId' => $requestId,
+			'ownerItemId' => (int)$ownerItem['id'],
+			'ownerRequestId' => (int)$ownerRequest['id'],
+		];
+	}
+
+	private function fetchRewardRequest(int $requestId): ?array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from('chorestrike_reward_requests')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($requestId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		return $row === false ? null : $row;
+	}
+
+	private function uuidAe(): string {
+		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
+	}
+
+	/**
 	 * ActivityReads_AnonymizedActors_RenderLocalizedPlaceholder
 	 */
 	public function testActivityReads_AnonymizedActors_RenderLocalizedPlaceholder(): void {

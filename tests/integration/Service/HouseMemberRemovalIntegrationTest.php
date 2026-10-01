@@ -275,6 +275,91 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		self::assertSame(\OCA\ChoreStrike\Db\Occurrence::SUSPENSION_NONE, $after->getSuspensionState(), 'the departed member\'s personal pause has no further effect');
 	}
 
+	/**
+	 * RemoveHouseMember_CancelsUnfulfilledRewardRequestsAndReleasesHolds
+	 * (CS-PLAN-070 WP7, CS-PLAN-078 §3.4, C4.6): departure cancels every
+	 * pending/approved request of the departing wallet and releases its
+	 * reservation in the SAME aggregate, before access ends. Booked value
+	 * and terminal history are preserved for the retained wallet; another
+	 * house's requests for the same Nextcloud user are untouched.
+	 */
+	public function testRemoveHouseMember_CancelsUnfulfilledRewardRequestsAndReleasesHolds(): void {
+		$fixture = $this->seedFixture();
+		$houseAId = $fixture['houseAId'];
+		$this->addHouseMember($houseAId, 'rmr_child', 'Child A', 'child');
+
+		$rewardService = \OC::$server->get(\OCA\ChoreStrike\Service\RewardService::class);
+		$requests = \OC::$server->get(\OCA\ChoreStrike\Service\RewardRequestService::class);
+		$this->actingAs('rmr_owner_a');
+		$houseService = \OC::$server->get(HouseService::class);
+		$fixtureHouse = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($houseAId);
+		$rewardService->setCatalogEnabled($houseAId, true, $fixtureHouse->getStateVersion(), $this->uuidRmr());
+		$item = $rewardService->createItem($houseAId, [
+			'title' => 'Trip', 'priceMinor' => 500, 'commandId' => $this->uuidRmr(),
+		]);
+		// Fund the child wallet through the real ledger path.
+		$this->creditTestWallet($houseAId, $this->walletIdByUser($houseAId, 'rmr_child'), 5000, null);
+		$created = $requests->create($houseAId, 'rmr_child', [
+			'itemId' => (int)$item['id'], 'itemVersion' => 0, 'priceMinor' => 500, 'commandId' => $this->uuidRmr(),
+		]);
+		$requestId = (int)$created['id'];
+
+		// The CHILD departs (not the fixture's own member).
+		$this->actingAs('rmr_owner_a');
+		$houseService->removeHouseMember($this->findHouseUserId($houseAId, 'rmr_child'));
+
+		$row = $this->rewardRequestRow($requestId);
+		self::assertSame('cancelled', $row['state'], 'the unfulfilled request was cancelled at departure');
+		$walletId = $this->walletIdByUser($houseAId, 'rmr_child');
+		self::assertSame(0, $this->reservedMinorByWalletId($walletId), 'the reservation was released');
+		$events = $this->rewardEventActions($requestId);
+		self::assertContains('departure_cancel', $events, 'the departure append is audited');
+	}
+
+	private function rewardRequestRow(int $requestId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from('chorestrike_reward_requests')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($requestId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		self::assertIsArray($row, "reward request $requestId must exist");
+		return $row;
+	}
+
+	/**
+	 * @return string[]
+	 */
+	private function rewardEventActions(int $requestId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('action')
+			->from('chorestrike_request_events')
+			->where($qb->expr()->eq('request_id', $qb->createNamedParameter($requestId, IQueryBuilder::PARAM_INT)))
+			->orderBy('revision', 'ASC');
+		$result = $qb->executeQuery();
+		$actions = array_map('strval', $result->fetchAll(\PDO::FETCH_COLUMN));
+		$result->closeCursor();
+		return $actions;
+	}
+
+	private function walletIdByUser(int $houseId, string $ncUserId): int {
+		return (int)\OC::$server->get(\OCA\ChoreStrike\Db\WalletMapper::class)
+			->findByHouseAndUser($houseId, $ncUserId)
+			->getId();
+	}
+
+	private function reservedMinorByWalletId(int $walletId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('reserved_minor')
+			->from('chorestrike_wallets')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$value = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $value;
+	}
+
 	private function uuidRmr(): string {
 		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
 	}

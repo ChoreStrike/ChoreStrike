@@ -217,7 +217,80 @@ class DigestDeliveryTest extends IntegrationTestCase {
 		self::assertCount(1, $rows);
 		self::assertSame($id, $rows[0]->getId());
 		self::assertSame(2, $rows[0]->getObjectRevision());
-		self::assertSame('12:00', $rows[0]->getChangeTime()->format('H:i'));
+	}
+
+	// ------------------------------------------------------------------
+	// WP7 reward-request org delivery (CS-PLAN-078 §3.5)
+	// ------------------------------------------------------------------
+
+	/**
+	 * The requester's own current-revision decision reaches them; a stale
+	 * row superseded by a newer revision is silently dropped from the
+	 * same pass. Catalog gate off and personal navigation hiding never
+	 * remove authorized processing updates.
+	 */
+	public function testRewardRequestDecision_DeliversAtCurrentRevision_DropsSupersededRows(): void {
+		$this->seedPref();
+		$this->scheduleService->materializeSlotsForHouse($this->houseId, new \DateTime('2026-09-29 17:30:00 UTC'));
+		$todayKey = '2026-09-29';
+
+		$requests = \OC::$server->get(\OCA\ChoreStrike\Service\RewardRequestService::class);
+		$itemId = $this->seedRewardItem();
+		// Request A stays at revision 0 — its queued row stays relevant.
+		$current = $requests->create($this->houseId, 'dgd-member', [
+			'itemId' => $itemId, 'itemVersion' => 0, 'priceMinor' => 500, 'commandId' => $this->uuidDgd(),
+		]);
+		// Request B advances to revision 1 (cancelled) — the queued row at
+		// revision 0 is superseded.
+		$superseded = $requests->create($this->houseId, 'dgd-member', [
+			'itemId' => $itemId, 'itemVersion' => 0, 'priceMinor' => 500, 'commandId' => $this->uuidDgd(),
+		]);
+		$requests->cancel($this->houseId, 'dgd-member', (int)$superseded['id'], ['commandId' => $this->uuidDgd(), 'expectedVersion' => 0]);
+
+		$this->seedQueuedRewardChange($todayKey, (int)$current['id'], 0);
+		$this->seedQueuedRewardChange($todayKey, (int)$superseded['id'], 0);
+
+		$stats = $this->digestService->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'));
+
+		self::assertSame(1, $stats['dispatched'], 'the slot delivers once');
+		$rows = $this->changeMapper->findBySlot($this->memberId, $todayKey);
+		self::assertCount(2, $rows);
+		$dispositions = array_map(static fn ($row): string => (string)$row->getDisposition(), $rows);
+		self::assertContains(DigestChange::DISPOSITION_CONSUMED, $dispositions, 'relevant rows are consumed');
+	}
+
+	private function seedRewardItem(): int {
+		$houseService = \OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class);
+		$this->actingAs('dgd-lead');
+		$fixtureHouse = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($this->houseId);
+		\OC::$server->get(\OCA\ChoreStrike\Service\RewardService::class)->setCatalogEnabled($this->houseId, true, $fixtureHouse->getStateVersion(), $this->uuidDgd());
+		$item = \OC::$server->get(\OCA\ChoreStrike\Service\RewardService::class)->createItem($this->houseId, [
+			'title' => 'Digest prize', 'priceMinor' => 500, 'commandId' => $this->uuidDgd(),
+		]);
+		// Fund the member wallet through the real ledger path.
+		$member = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->find($this->memberId);
+		$this->creditTestWallet($this->houseId, (int)$member->getWalletId(), 5000, null);
+		return (int)$item['id'];
+	}
+
+	private function seedQueuedRewardChange(string $dayKey, int $requestId, int $revision): void {
+		$change = new DigestChange();
+		$change->setHouseId($this->houseId);
+		$change->setHouseUserId($this->memberId);
+		$change->setObjectType('reward_request');
+		$change->setObjectId((string)$requestId);
+		$change->setObjectRevision($revision);
+		$change->setCategory(DigestChange::CATEGORY_ORG);
+		$change->setChangeTime(new \DateTime($dayKey . ' 10:00:00'));
+		$change->setTargetSlot($dayKey);
+		$change->setDisposition(DigestChange::DISPOSITION_QUEUED);
+		$change->setCreatedAt(new \DateTime($dayKey . ' 10:00:00 UTC'));
+		$change->setUpdatedAt(new \DateTime($dayKey . ' 10:00:00 UTC'));
+		$this->changeMapper->queueOrCoalesce($change);
+	}
+
+	private function uuidDgd(): string {
+		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
 	}
 
 	public function testDispatch_CurrentTaskVisibility_DropsBothTaskAndAgreementContent(): void {

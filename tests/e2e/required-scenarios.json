@@ -49,6 +49,11 @@
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > replaying the same command returns the original identity without a second effect",
     "family-rhythm.spec.ts > Family rhythm — read contract (WP4) > the state read carries the rhythm projection and the personal weekly slice after a completion"
   ],
+  "family-reward-api.spec.ts": [
+    "family-reward-api.spec.ts > Family reward catalog & requests (WP7) > child request lifecycle: frozen terms, approve, fulfill, exact debit, exact refund",
+    "family-reward-api.spec.ts > Family reward catalog & requests (WP7) > disabled gate: active catalog is an explicit empty state while admin scope keeps working",
+    "family-reward-api.spec.ts > Family reward catalog & requests (WP7) > the catalog gate is owner-controlled, versioned and denied for members"
+  ],
   "today-view.spec.ts": [
     "today-view.spec.ts > Release: Today view > shows seeded due-today rows and completes one with row state change",
     "today-view.spec.ts > Release: Today view > the mine filter hides other members tasks, everyone shows them",
@@ -169,6 +174,12 @@
   ],
   "ranking-consent.spec.ts": [
     "ranking-consent.spec.ts > Ranking Consent Lifecycle (WP4) > owner enables ranking; member joins pending and withdraws"
+  ],
+  "calm-core-ui.spec.ts": [
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > My Day stays Coin-free while the wallet stays in the secondary overview",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > every role lands on My Day and the Dashboard stays reachable as the secondary overview",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the pause lifecycle stays neutral through request, owner decision and early end"
   ],
   "scheduling.spec.ts": [
     "scheduling.spec.ts > Scheduling UI > can interact with energy slider",
@@ -311,12 +322,6 @@
     "snake-game.spec.ts > Snake Arcade Game > User can play again after game over",
     "snake-game.spec.ts > Snake Arcade Game > User can start Snake game"
   ],
-  "calm-core-ui.spec.ts": [
-    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > My Day stays Coin-free while the wallet stays in the secondary overview",
-    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > every role lands on My Day and the Dashboard stays reachable as the secondary overview",
-    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off",
-    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the pause lifecycle stays neutral through request, owner decision and early end"
-  ],
   "task-completion.spec.ts": [
     "task-completion.spec.ts > Task Creation and Completion > Completion offers Undo which restores the task (CS-PLAN-041)",
     "task-completion.spec.ts > Task Creation and Completion > User can complete a task and earn points",
@@ -335,6 +340,7 @@
     "task-manager.spec.ts > Task Manager > User can search for tasks"
   ],
   "title-selection.spec.ts": [
+    "title-selection.spec.ts > Role Title System (single series) > Reward-request reads stay available while the catalog is disabled (fourth role-display surface)",
     "title-selection.spec.ts > Role Title System (single series) > The titles API carries no pack selection and the select route stays gone",
     "title-selection.spec.ts > Role Title System (single series) > Title section renders without a change-title control (retired surface)"
   ],

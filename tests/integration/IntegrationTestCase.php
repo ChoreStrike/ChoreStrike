@@ -477,6 +477,10 @@ abstract class IntegrationTestCase extends TestCase {
 		// house-scoped — the dispatch pass is instance-global and would
 		// otherwise see stale slots of already-deleted houses.
 		$this->deleteDigestRowsByHouseIds($this->createdHouseIds);
+		// CS-PLAN-070 WP7: the reward tables clear in dependency order —
+		// request-events → requests → items — before the wallet/
+		// membership/house rows go (no FK cascade exists).
+		$this->deleteRewardRowsByHouseIds($this->createdHouseIds);
 		$this->deleteByIds('chorestrike_room_tasks', $this->createdRoomTaskIds);
 		$this->deleteByIds('chorestrike_completed_tasks', $this->createdCompletionIds);
 		$this->deleteByIds('chorestrike_tasks', $this->createdTaskIds);
@@ -536,6 +540,60 @@ abstract class IntegrationTestCase extends TestCase {
 			->executeStatement();
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete('chorestrike_digest_slots')
+			->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
+			->executeStatement();
+	}
+
+	/**
+	 * Credit a fixture wallet through the REAL ledger path so the
+	 * integration fixture mirrors production earning (B equals the entry
+	 * sum by construction; the unique source identity avoids collisions
+	 * across tests).
+	 */
+	protected function creditTestWallet(int $houseId, int $walletId, int $amountMinor, ?int $actorHouseUserId): void {
+		\OC::$server->get(\OCA\ChoreStrike\Service\WalletService::class)->postEntries(
+			$houseId,
+			'test_credit',
+			random_int(1, 2147483000),
+			0,
+			[$walletId => $amountMinor],
+			'test.credit',
+			$actorHouseUserId,
+		);
+	}
+
+	/**
+	 * Remove the WP7 reward rows of fixture houses in dependency order
+	 * (CS-PLAN-078 §3.1): events → requests → items. Events carry no
+	 * house column, so they resolve through the request ids first.
+	 *
+	 * @param array<int> $houseIds
+	 */
+	private function deleteRewardRowsByHouseIds(array $houseIds): void {
+		if (empty($houseIds)) {
+			return;
+		}
+		$intArray = \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY;
+
+		$qb = $this->db->getQueryBuilder();
+		$requestIds = array_map(
+			static fn (array $row): int => (int)$row['id'],
+			$qb->select('id')->from('chorestrike_reward_requests')
+				->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
+				->executeQuery()->fetchAll()
+		);
+		if ($requestIds !== []) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_request_events')
+				->where($qb->expr()->in('request_id', $qb->createNamedParameter($requestIds, $intArray)))
+				->executeStatement();
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_reward_requests')
+			->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
+			->executeStatement();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_reward_items')
 			->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, $intArray)))
 			->executeStatement();
 	}

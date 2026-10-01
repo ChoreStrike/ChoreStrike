@@ -46,11 +46,27 @@ class HouseUserTest extends TestCase {
 		self::assertEquals($lastActivity->format('c'), $result['lastActivity']);
 		// The wallet binding is financial identity, never serialized.
 		self::assertArrayNotHasKey('walletId', $result);
+		// WP7: the internal role-revision provenance counter is likewise
+		// never part of the member payload.
+		self::assertArrayNotHasKey('roleRevision', $result);
 		// WP3 cutover: freeze inventory and whole-unit contribution are
 		// gone; the lastFreezeDate placeholder left with its consumers.
 		self::assertArrayNotHasKey('streakFreezes', $result);
 		self::assertArrayNotHasKey('contributionScore', $result);
 		self::assertArrayNotHasKey('lastFreezeDate', $result);
+	}
+
+	/**
+	 * RoleRevision_StartsAtZeroAndRoundTrips (CS-PLAN-070 WP7): the
+	 * approval-provenance counter defaults to 0 and only advances on real
+	 * role changes (the no-op rule is enforced by HouseService).
+	 */
+	public function testRoleRevision_StartsAtZeroAndRoundTrips(): void {
+		$houseUser = new HouseUser();
+		self::assertSame(0, $houseUser->getRoleRevision());
+
+		$houseUser->setRoleRevision(3);
+		self::assertSame(3, $houseUser->getRoleRevision());
 	}
 
 	/**

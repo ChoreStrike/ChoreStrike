@@ -22,6 +22,21 @@ class WalletMapper extends QBMapper {
 	}
 
 	/**
+	 * Find a wallet by ID (NC31 QBMapper carries no base find(); used by
+	 * the WP7 request DTO serialization).
+	 *
+	 * @throws DoesNotExistException if the row does not exist
+	 */
+	public function find(int $id): Wallet {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+
+		return $this->findEntity($qb);
+	}
+
+	/**
 	 * Find the wallet bound to a house + Nextcloud account, or null.
 	 */
 	public function findByHouseAndUser(int $houseId, string $nextcloudUserId): ?Wallet {
@@ -110,6 +125,22 @@ class WalletMapper extends QBMapper {
 	/**
 	 * Every wallet bound to a Nextcloud account across all houses
 	 * (account-erasure sweep; covers already-departed memberships).
+	 * /**
+	 * Find all wallets of one house (WP7 list-serialization prefetch).
+	 *
+	 * @return Wallet[]
+	 */
+	public function findAllByHouseId(int $houseId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->orderBy('id', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 *
 	 * @return Wallet[]
 	 */

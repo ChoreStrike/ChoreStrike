@@ -137,6 +137,14 @@ after the original request. A reused UUID with different input or a stale
 the Settings client supplies the version from its current house read. Only
 the house owner can reset.
 
+#### PUT /house/catalog
+Owner-only reward-catalog gate (CS-PLAN-070 WP7,
+[CS-PLAN-078](rewards.md)): the narrow versioned writer —
+`{ "catalogEnabled": bool, "expectedVersion": int, "commandId": "uuid" }`
+where `expectedVersion` is the house `stateVersion`. Default off. Response:
+the refreshed house payload. See [rewards.md](rewards.md) for the full
+reward surface contract.
+
 #### GET /house/stats
 House overview statistics for the Insights view (CS-PLAN-040).
 
@@ -1420,6 +1428,19 @@ a fresh generation at the next full week). Idempotent.
 > the departing membership's consent with the row; account erasure purges
 > it (`ranking consent is purged with the membership`). See
 > [ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md).
+
+### Rewards (CS-PLAN-070 WP7)
+
+The family reward catalog and the approved C4 request lifecycle — the
+household gate (`PUT /house/catalog` above), the owner-administered catalog
+(`GET|POST /rewards`, `PUT /rewards/{id}`) and the receipt-protected
+request lifecycle (`GET|POST /reward-requests`,
+`GET /reward-requests/{id}`, `POST /reward-requests/{id}/approve|reject|
+cancel|fulfill|correct`). Money is exact integer minor units; requests
+freeze the displayed terms; reserve at creation, settle only at confirmed
+delivery, refund only an owner-attested false fulfillment. The complete
+contract — DTO shapes, actor/state matrix, funding hold and privacy rules —
+lives in [rewards.md](rewards.md).
 
 ## Error Codes
 

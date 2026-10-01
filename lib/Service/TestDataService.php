@@ -76,6 +76,11 @@ class TestDataService {
 	 * leak across seeded tests (the dispatch pass is instance-global and
 	 * would otherwise see stale slots).
 	 *
+	 * CS-PLAN-070 WP7 (CS-PLAN-078 §3.1): the reward tables clear before
+	 * the wallet block in dependency order — `request_events` →
+	 * `reward_requests` → `reward_items` — so reserved/settled promise
+	 * rows never outlive their wallet or house referents.
+	 *
 	 * @var list<string>
 	 */
 	private const RESET_TABLES = [
@@ -86,6 +91,9 @@ class TestDataService {
 		'chorestrike_member_prefs',
 		'chorestrike_digest_changes',
 		'chorestrike_digest_slots',
+		'chorestrike_request_events',
+		'chorestrike_reward_requests',
+		'chorestrike_reward_items',
 		'chorestrike_occ_members',
 		'chorestrike_occurrences',
 		'chorestrike_schedule_revs',

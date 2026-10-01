@@ -54,6 +54,8 @@ class HouseServiceTest extends TestCase {
 	private IUserSession $userSession;
 	private AuthorizationService $authorization;
 	private \OCP\IUserManager $userManager;
+	private \OCA\ChoreStrike\Service\RewardService $rewardService;
+	private \OCA\ChoreStrike\Service\RewardRequestService $rewardRequestService;
 	/** House returned by houseMapper->find (swappable per test). */
 	private House $defaultHouse;
 
@@ -77,6 +79,8 @@ class HouseServiceTest extends TestCase {
 		$this->userSession = $this->createMock(IUserSession::class);
 		$this->authorization = $this->createMock(AuthorizationService::class);
 		$this->userManager = $this->createMock(\OCP\IUserManager::class);
+		$this->rewardService = $this->createMock(\OCA\ChoreStrike\Service\RewardService::class);
+		$this->rewardRequestService = $this->createMock(\OCA\ChoreStrike\Service\RewardRequestService::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -121,7 +125,9 @@ class HouseServiceTest extends TestCase {
 			$this->userSession,
 			new CalendarService(),
 			$this->authorization,
-			$this->userManager
+			$this->userManager,
+			$this->rewardService,
+			$this->rewardRequestService
 		);
 	}
 
@@ -155,7 +161,9 @@ class HouseServiceTest extends TestCase {
 			$this->userSession,
 			new CalendarService(),
 			$this->authorization,
-			$this->userManager
+			$this->userManager,
+			$this->createMock(\OCA\ChoreStrike\Service\RewardService::class),
+			$this->createMock(\OCA\ChoreStrike\Service\RewardRequestService::class)
 		);
 	}
 
@@ -651,6 +659,13 @@ class HouseServiceTest extends TestCase {
 			->with(11)
 			->willReturn($member);
 
+		// The invariant is re-checked on the LOCKED row inside the
+		// transaction — the same instance comes back.
+		$this->houseUserMapper->expects($this->once())
+			->method('findForUpdate')
+			->with(11)
+			->willReturn($member);
+
 		$this->taskAssigneeMapper->expects($this->once())
 			->method('deleteByUserForHouse')
 			->with('member-nc', 3);
@@ -866,6 +881,96 @@ class HouseServiceTest extends TestCase {
 		$result = $this->service->updateUserRole(12, 'owner', 'owner-nc');
 
 		$this->assertSame('owner', $result->getRole());
+	}
+
+	/**
+	 * UpdateUserRole_RealChange_AdvancesRoleRevisionAndCallsTheWP7Hook
+	 *
+	 * CS-PLAN-070 WP7 (CS-PLAN-078 §3.4): only a REAL role change advances
+	 * the membership's role-revision provenance and rebinds the reward
+	 * requests.
+	 */
+	public function testUpdateUserRole_RealChange_AdvancesRoleRevisionAndCallsTheWP7Hook(): void {
+		$member = $this->houseUserForRoleGuard(12, 'member-nc', 'member');
+		$member->setRoleRevision(2);
+
+		$this->houseUserMapper->method('find')->willReturn($member);
+		$this->houseUserMapper->method('update')->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
+
+		$this->rewardRequestService->expects($this->once())
+			->method('handleRequesterRoleChangedUnderLock')
+			->with(3, $this->identicalTo($member), 'member', 2, null);
+
+		$result = $this->service->updateUserRole(12, 'child', 'owner-nc');
+
+		$this->assertSame('child', $result->getRole());
+		$this->assertSame(3, $result->getRoleRevision(), 'a real change advances the provenance counter');
+	}
+
+	/**
+	 * UpdateUserRole_NoOpWrite_DoesNotAdvanceRevisionOrCallTheHook
+	 *
+	 * A no-op child write must never invalidate a fresh owner approval:
+	 * the revision stays and the request-rebind hook never fires.
+	 */
+	public function testUpdateUserRole_NoOpWrite_DoesNotAdvanceRevisionOrCallTheHook(): void {
+		$child = $this->houseUserForRoleGuard(12, 'child-nc', 'child');
+		$child->setRoleRevision(4);
+
+		$this->houseUserMapper->method('find')->willReturn($child);
+		$this->houseUserMapper->method('update')->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
+
+		$this->rewardRequestService->expects($this->never())->method('handleRequesterRoleChangedUnderLock');
+
+		$result = $this->service->updateUserRole(12, 'child', 'owner-nc');
+
+		$this->assertSame('child', $result->getRole());
+		$this->assertSame(4, $result->getRoleRevision(), 'a no-op write never advances the revision');
+	}
+
+	/**
+	 * RemoveHouseMember_CallsTheRewardDepartureHookBeforeAccessEnds
+	 */
+	public function testRemoveHouseMember_CallsTheRewardDepartureHookBeforeAccessEnds(): void {
+		$membership = new HouseUser();
+		$membership->setId(12);
+		$membership->setHouseId(3);
+		$membership->setNextcloudUserId('rm-member');
+		$membership->setWalletId(44);
+		$this->houseUserMapper->method('find')->willReturn($membership);
+		$this->houseUserMapper->method('delete');
+		$this->taskAssigneeMapper->method('deleteByUserForHouse');
+
+		$order = [];
+		$this->rewardRequestService->expects($this->once())
+			->method('handleMembershipRemovedUnderLock')
+			->with(3, 44, null)
+			->willReturnCallback(function () use (&$order): void {
+				$order[] = 'reward';
+			});
+		$this->houseUserMapper->expects($this->once())
+			->method('delete')
+			->willReturnCallback(function () use (&$order): void {
+				$order[] = 'delete';
+			});
+
+		$this->service->removeHouseMember(12);
+
+		$this->assertSame(['reward', 'delete'], $order, 'holds are released BEFORE the membership row is removed');
+	}
+
+	/**
+	 * SetCatalogEnabled_DelegatesToTheRewardService
+	 */
+	public function testSetCatalogEnabled_DelegatesToTheRewardService(): void {
+		$this->rewardService->expects($this->once())
+			->method('setCatalogEnabled')
+			->with(1, true, 5, '11111111-1111-4111-8111-111111111111')
+			->willReturn(['catalogEnabled' => true, 'stateVersion' => 6]);
+
+		$result = $this->service->setCatalogEnabled(1, true, 5, '11111111-1111-4111-8111-111111111111');
+
+		$this->assertSame(['catalogEnabled' => true, 'stateVersion' => 6], $result);
 	}
 
 	/**

@@ -319,6 +319,57 @@ class CommandServiceTest extends IntegrationTestCase {
 		$this->service()->hashPayload(['value' => \NAN]);
 	}
 
+	/**
+	 * WP7GuardRunsOnExecutionAndReplay_BeforeTheReceiptAnswers (§3.4)
+	 *
+	 * The optional under-lock authorization seam runs after the house
+	 * lock and BEFORE the receipt lookup on BOTH paths: a demoted or
+	 * departed actor can never replay an old receipt into an effect.
+	 */
+	public function testWp7GuardRunsOnExecutionAndReplay_BeforeTheReceiptAnswers(): void {
+		$houseId = $this->createTestHouse('cmd_owner', 'CMD Guard House');
+		$actorId = $this->findHouseUserId($houseId, 'cmd_owner');
+		$guardCalls = 0;
+
+		$run = static fn (): array => ['taskId' => 5];
+		$guard = function (int $guardedHouseId, int $guardedActorId) use (&$guardCalls, $houseId, $actorId): void {
+			$guardCalls++;
+			self::assertSame($houseId, $guardedHouseId);
+			self::assertSame($actorId, $guardedActorId);
+		};
+
+		$first = $this->service()->runCommand($houseId, $actorId, '99999999-9999-4999-8999-999999999999', 'test.action', ['taskId' => 5], $run, $guard);
+		self::assertFalse($first['replay']);
+		self::assertSame(1, $guardCalls, 'the guard runs on first execution');
+
+		$second = $this->service()->runCommand($houseId, $actorId, '99999999-9999-4999-8999-999999999999', 'test.action', ['taskId' => 5], $run, $guard);
+		self::assertTrue($second['replay'], 'the receipt replays');
+		self::assertSame(2, $guardCalls, 'the guard runs on replay too, before the receipt answers');
+	}
+
+	/**
+	 * Wp7GuardDenialOnReplay_NeverAnswersWithTheStoredIdentity
+	 */
+	public function testWp7GuardDenialOnReplay_NeverAnswersWithTheStoredIdentity(): void {
+		$houseId = $this->createTestHouse('cmd_owner', 'CMD Guard Deny House');
+		$actorId = $this->findHouseUserId($houseId, 'cmd_owner');
+
+		$guard = static function (int $houseId, int $actorHouseUserId): void {
+			throw new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member of this house');
+		};
+
+		$this->service()->runCommand($houseId, $actorId, 'aaaa9999-9999-4999-8999-999999999999', 'test.action', ['taskId' => 5], static fn (): array => ['taskId' => 5]);
+		self::assertNotNull($this->fetchReceipt($houseId, 'aaaa9999-9999-4999-8999-999999999999'));
+
+		// The demoted actor's replay dies on the guard — even though the
+		// aggregate would be skipped.
+		try {
+			$this->service()->runCommand($houseId, $actorId, 'aaaa9999-9999-4999-8999-999999999999', 'test.action', ['taskId' => 5], static fn (): array => ['taskId' => 5], $guard);
+			self::fail('a guard denial must deny the replay');
+		} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
+		}
+	}
+
 	private function fetchReceipt(int $houseId, string $uuid): ?array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')

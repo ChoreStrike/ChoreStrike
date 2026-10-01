@@ -325,6 +325,9 @@ summary below covers the core tables. Column types map to the entity PHP type
 | `chorestrike_occ_members` | Per-occurrence participant facts (role, obligation, exact share, agreed work appointment, active/released/excused disposition) | `OccurrenceMember` |
 | `chorestrike_agreements` | Agreement evidence log (kind, actor, old/new state, consent, pause_ref) | `Agreement` |
 | `chorestrike_pauses` | Revisioned pause groups (personal/house scope, requested/acknowledged/rejected/cancelled states, ranges, illness flag) | `Pause` |
+| `chorestrike_reward_items` | Owner-administered catalog wishes (WP7: title/description CONTENT, positive `price_minor`, archived flag, optimistic version, nullable creator membership/wallet provenance; archived, never deleted) | `RewardItem` |
+| `chorestrike_reward_requests` | C4 request lifecycle (WP7: requester wallet identity, frozen title/description/price snapshot, state, version, approval provenance incl. role revision, stored settlement/refund entry references) | `RewardRequest` |
+| `chorestrike_request_events` | Append-only request audit trail (WP7: unique `(request_id, revision)` identity, action, old/new state, nullable actor refs, role revisions, bounded reason code, financial entry reference, source command UUID; retained until authorized erasure) | `RewardRequestEvent` |
 
 > `chorestrike_availability` (orphan `AvailabilitySettings` entity/mapper) and
 > the never-referenced `chorestrike_task_scopes` / `chorestrike_task_parts` /
@@ -833,13 +836,18 @@ WP0 freezes the structural substrate every later family-rhythm package builds
 on; the domain behavior stays dormant until its owning package lands.
 
 - **Single house-first lock order** (full contract + audited writer inventory:
-  [development.md](development.md) "Locking and transactions"): `house →
-  room tasks → task definitions → rooms → active membership rows → wallets →
-  occurrence/completion rows → request/preference/digest rows`. Every writer
+  [development.md](development.md) "Locking and transactions"): `house â†’
+  room tasks â† task definitions â rooms â active membership rows â wallets â
+  occurrence/completion rows â request/preference/digest rows`. Every writer
   follows the order or a subsequence. This **supersedes** the former
-  two-family split (setup `house → room_task → …` vs the ADR-011/012
-  completion-only entry order `room_task → room → house_user`) — the ADRs
-  carry supersession notes and keep their historical context.
+  two-family split (setup `house â room_task â â¦` vs the ADR-011/012
+  completion-only entry order `room_task â room â house_user`) â the ADRs
+  carry supersession notes and keep their historical context. WP7 places the
+  reward-item/request/event rows in the final child-row group: no writer
+  locks a reward row before its house, and lifecycle commands read the
+  request only to resolve the wallet binding, then take the wallet lock
+  BEFORE the request row lock (fulfill/correct), keeping the documented
+  subsequence.
 - **`TransactionExecutor`** stays the only transaction owner; it adds a
   bounded SQLite `busy_timeout` and a small bounded retry for recognized
   transient lock/deadlock failures (never for authorization/validation/
@@ -865,6 +873,11 @@ on; the domain behavior stays dormant until its owning package lands.
   `AccountErasureService` deletes memberships/assignees/medals/scores and
   the wallet with its ledger per house (house-first), nulls receipt actors
   and completion actor references, and sweeps already-departed wallets.
+  WP7 (CS-PLAN-078): the same house-first aggregate first releases/cancels
+  the person's reward holds, purges their reward wishes/requests/events,
+  removes queued `reward_request` references from ALL recipients and
+  anonymizes their actor references on other retained records (wallet-id
+  provenance also finds already-departed actors).
   Anonymized activity actors render via the localized "Former member"
   placeholder; a recreated same-UID account gets fresh ids and cannot
   rebind prior data.
@@ -1046,6 +1059,42 @@ commits domain facts, versions, evidence and the receipt in ONE transaction:
   allocation before testing new commitments. `withSharedCollection()` scopes
   ONE batched collection per evaluation pass (no cross-pass memo staleness).
 
+### Aggregate Idiom: Reward Catalog & Request Lifecycle (CS-PLAN-070 WP7, ADR-017)
+
+The WP7 surfaces follow the same receipt + house-first-lock convention with
+one WP7-specific seam and three money moments:
+
+- **`CommandService::runCommand()` under-lock authorization guard (WP7 seam):**
+  commands accept an optional final guard callback, invoked after the house
+  lock and BEFORE the receipt lookup on BOTH execution and replay. It checks
+  fresh actor identity, visibility and CURRENT action authority - never
+  business version/funding/state preconditions, which the committed receipt
+  already answers. All WP7 commands supply it, so a demoted owner or
+  departed requester can never replay an old receipt into an effect.
+- **`RewardService`** - catalog reads/writes: owner-only item CRUD with
+  whitelisted fields, strict integer `priceMinor`, control-character
+  rejection, item-version optimistic concurrency, the narrow household-gate
+  command (`PUT /house/catalog`, house `stateVersion` contract) and the
+  scope matrix (`active` gated empty state vs owner `admin` scope).
+- **`RewardRequestService`** - the C4 lifecycle: reserve at creation
+  (`A >= P`, `R += P`), settle only at separately confirmed delivery
+  (`B -= P` and `R -= P` together, `reward_settlement` ledger keyed by
+  request id + effect revision), refund only an owner-attested false
+  fulfillment against the server's stored settlement entry (exact original
+  debit, once, `reward_refund`). Request terms freeze at creation; the
+  funding hold is derived (`booked < reserved`), never stored. The current-
+  role authority matrix is re-checked in the guard AND the aggregate; role
+  rebases (`HouseService::updateUserRole` hook) move unfulfilled requests
+  to pending when the requester becomes a child, departure releases holds
+  before access ends, and erasure purges requests/events/wishes plus every
+  recipient's queued digest reference. Lock order: house -> actor membership
+  -> wallet (locked before the request row) -> request/event rows ->
+  preference/digest rows.
+- **WalletService WP7 primitives** - `reserveReward` / `releaseReward` /
+  `settleReward` / `refundReward` under the caller's house-first
+  transaction; `postEntries` now returns the written entry ids so the
+  request rows can store their settlement/refund references.
+
 ### Size Guideline Exception Inventory (CS-PLAN-067 D6, 2026-09-13)
 
 The production size guideline is **~300 lines per file / ~30 lines per
@@ -1123,6 +1172,8 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Service/OccurrenceService.php` | 458 | Single-recurrence-authority facade: stable public seam, constants and transaction convention over the six collaborators below (CS-PLAN-072 WP1, RF-072-WP1-18 split; WP3 completion-resolution delegation) | accepted (delegation-only facade — the one authority every consumer talks to) |
 | `Service/OccurrenceSelectionService.php` | 551 | Write-free selection/read derivation, occurrence DTO block, selection token, projections (WP2: neutral-suspension stamp, agreed work appointment, token fact set) | accepted (cohesive collaborator of the occurrence authority) |
 | `Service/OccurrenceReconcileService.php` | 441 | Frontier, reconciliation, materialization, interval pending, end-of-life, `next_due` projection, timeline-job pass (WP2: command-boundary stamp persistence) | accepted (cohesive collaborator of the occurrence authority) |
+| `Service/RewardRequestService.php` | 995 | WP7 C4 request lifecycle: one ordered lock/authorization/receipt/effect/queue sequence per command, the role/departure/erasure hooks and the viewer-safe serialization |
+| `Service/RewardService.php` | 424 | WP7 catalog owner: item CRUD with strict terms, the household-gate command and the scope matrix |
 | `Service/OccurrenceRevisionService.php` | 385 | Rule inputs, revision-1 creation, edit/zone/tombstone revision lifecycle | accepted (cohesive collaborator of the occurrence authority) |
 | `Service/OccurrenceCompletionService.php` | 384 | Completion resolution (key/version/token), timeline effects, undo seam (WP3: share-row resolution for the correction aggregates) | accepted (cohesive collaborator of the occurrence authority) |
 | `Service/OccurrenceAgreementService.php` | 707 | C2 date/participant amendments + the shared whole-day child-capacity counter (WP2: explicit-target date writer, persisted neutral releases, appointment-carrying catch-up, derived evidence kinds) | accepted (cohesive collaborator of the occurrence authority — the single writer set for occurrence agreements; splitting would spread one lock choreography across files) |

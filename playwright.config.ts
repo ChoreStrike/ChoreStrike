@@ -86,6 +86,11 @@ const SEED_DEPENDENT_SPECS = [
 	// house flag and consents/withdraws through the real API + UI — a
 	// parallel reseed mid-lifecycle would strand the flag state, serial only.
 	/[/\\]ranking-consent\.spec\.ts$/,
+	// CS-PLAN-070 WP7 (CS-PLAN-078): the reward catalog/request contract
+	// flips the owner-only catalog gate, creates items, completes a seeded
+	// task for funding and walks the request lifecycle — a parallel reseed
+	// mid-lifecycle would strand the flag and request state, serial only.
+	/[/\\]family-reward-api\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

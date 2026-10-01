@@ -38,7 +38,9 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  *
  *  - delete `task_assignees`, `medals`, `minigame_scores` rows,
  *  - delete the wallet with its `wallet_entries` (personal finances
- *    removed; active reservations cannot exist before WP7),
+ *    removed; WP7 first releases/cancels outstanding reward holds and
+ *    purges the person's reward wishes/requests/events plus every other
+ *    recipient's queued reference to them),
  *  - null the actor on `commands` receipts (the receipts survive as
  *    anonymous facts),
  *  - null `completed_tasks.user_id` / `combo_with_user_id` (the anonymous
@@ -69,8 +71,9 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  * {@see ActivityService}.
  *
  * Later-package surfaces extend this service in WP5/WP7 (digest records,
- * reward wishes, audit reasons); WP2's pause/consent surfaces are covered
- * above, the complete cross-domain gate is WP9 (parent §4).
+ * reward wishes, requests/events via the WP7 erase hooks); WP2's
+ * pause/consent surfaces are covered above, the complete cross-domain
+ * gate is WP9 (parent §4).
  */
 class AccountErasureService {
 	public function __construct(
@@ -92,6 +95,8 @@ class AccountErasureService {
 		private DigestSlotMapper $digestSlotMapper,
 		private CompletionRevisionMapper $completionRevisionMapper,
 		private WorkShareMapper $workShareMapper,
+		private RewardRequestService $rewardRequestService,
+		private RewardService $rewardService,
 		private TransactionExecutor $transactions,
 		private AppLogger $appLogger,
 	) {
@@ -138,6 +143,13 @@ class AccountErasureService {
 			try {
 				$this->transactions->run(function () use ($wallet): void {
 					$this->houseMapper->findForUpdate($wallet->getHouseId());
+					// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4): the departed
+					// actor's reward data goes with the wallet — holds are
+					// released, requests/events/wishes purged and queued
+					// references removed from ALL recipients, before the
+					// wallet row dies (actor-wallet provenance finds them).
+					$this->rewardRequestService->eraseActorUnderLock((int)$wallet->getHouseId(), null, (int)$wallet->getId());
+					$this->rewardService->eraseActorItemsUnderLock(null, (int)$wallet->getId());
 					$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
 					$this->walletEntryMapper->anonymizeActorWallet((int)$wallet->getId());
 					$this->workShareMapper->anonymizeWallet((int)$wallet->getId());
@@ -194,9 +206,16 @@ class AccountErasureService {
 			$this->medalMapper->deleteByUserIds([$houseUserId]);
 			$this->minigameScoreMapper->deleteByUserIds([$ncUserId]);
 
-			// Personal finances removed (no active reservations before WP7).
+			// Personal finances removed (no active reservations survive:
+			// WP7 releases holds and purges the reward data first).
 			$wallet = $this->walletMapper->findByHouseAndUser($houseId, $ncUserId);
 			if ($wallet !== null) {
+				// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4): release/cancel holds,
+				// purge that person's requests/events/wishes, remove queued
+				// references to those requests from ALL recipients and
+				// anonymize the actor on other retained records.
+				$this->rewardRequestService->eraseActorUnderLock($houseId, $houseUserId, (int)$wallet->getId());
+				$this->rewardService->eraseActorItemsUnderLock($houseUserId, (int)$wallet->getId());
 				$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
 				$this->walletEntryMapper->anonymizeActorWallet((int)$wallet->getId());
 				$this->walletMapper->delete($wallet);

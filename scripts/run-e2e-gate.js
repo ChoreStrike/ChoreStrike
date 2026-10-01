@@ -62,6 +62,9 @@ const REQUIRED_SPECS = [
 	{ file: 'workflow-state-reconciliation.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	// CS-PLAN-072 WP1: the occurrence-timeline client-contract slice.
 	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full occurrence receipt'], minTests: 4 },
+	// CS-PLAN-070 WP7 (CS-PLAN-078): the reward catalog/request browser
+	// contract — gate flip, catalog scopes, full request lifecycle.
+	{ file: 'family-reward-api.spec.ts', project: 'chromium-serial-db', scenarios: ['the catalog gate is owner-controlled, versioned and denied for members', 'child request lifecycle: frozen terms, approve, fulfill, exact debit, exact refund'], minTests: 3 },
 	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'members-owner.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 3 },
 	{ file: 'room-management.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },

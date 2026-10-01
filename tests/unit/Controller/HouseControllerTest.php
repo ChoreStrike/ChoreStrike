@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\HouseController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
@@ -265,5 +266,98 @@ class HouseControllerTest extends TestCase {
 
 		$this->assertEquals(404, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
+	}
+
+	/**
+	 * PUT /house/catalog validates the strict payload (CS-PLAN-070 WP7).
+	 */
+	public function testUpdateCatalog_ValidatesStrictPayload(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->authService->method('requireHouseOwner');
+
+		// Non-boolean gate.
+		$this->setParams(['catalogEnabled' => 1, 'expectedVersion' => 0, 'commandId' => '11111111-1111-4111-8111-111111111111']);
+		$response = $this->controller->updateCatalog();
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+
+		// Non-integer version.
+		$this->setParams(['catalogEnabled' => true, 'expectedVersion' => '0', 'commandId' => '11111111-1111-4111-8111-111111111111']);
+		$response = $this->controller->updateCatalog();
+		$this->assertEquals(400, $response->getStatus());
+
+		// Malformed command UUID.
+		$this->setParams(['catalogEnabled' => true, 'expectedVersion' => 0, 'commandId' => 'nope']);
+		$response = $this->controller->updateCatalog();
+		$this->assertEquals(400, $response->getStatus());
+	}
+
+	/**
+	 * PUT /house/catalog delegates to the versioned owner command and
+	 * returns the refreshed house payload.
+	 */
+	public function testUpdateCatalog_DelegatesToHouseService(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setCatalogEnabled(true);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->authService->method('requireHouseOwner')->willReturn(new HouseUser());
+		$this->authService->method('requireCurrentUserId')->willReturn('owner');
+
+		$this->houseService->expects($this->once())
+			->method('setCatalogEnabled')
+			->with(1, true, 5, '11111111-1111-4111-8111-111111111111')
+			->willReturn(['catalogEnabled' => true, 'stateVersion' => 6]);
+
+		$this->setParams(['catalogEnabled' => true, 'expectedVersion' => 5, 'commandId' => '11111111-1111-4111-8111-111111111111']);
+		$response = $this->controller->updateCatalog();
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertTrue($response->getData()['data']['catalogEnabled']);
+	}
+
+	/**
+	 * PUT /house/catalog maps a stale version to 409.
+	 */
+	public function testUpdateCatalog_MapsStaleVersionTo409(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->authService->method('requireHouseOwner')->willReturn(new HouseUser());
+		$this->authService->method('requireCurrentUserId')->willReturn('owner');
+		$this->houseService->method('setCatalogEnabled')
+			->willThrowException(new ConflictException('The house state changed since it was displayed'));
+
+		$this->setParams(['catalogEnabled' => true, 'expectedVersion' => 5, 'commandId' => '11111111-1111-4111-8111-111111111111']);
+		$response = $this->controller->updateCatalog();
+
+		$this->assertEquals(409, $response->getStatus());
+		$this->assertEquals('CONFLICT', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * Swap the controller's request params (reflection on the protected
+	 * AppFramework property).
+	 *
+	 * @param array<string, mixed> $params
+	 */
+	private function setParams(array $params): void {
+		$mock = $this->getMockBuilder(IRequest::class)->getMock();
+		$mock->method('getParams')->willReturn($params);
+		$mock->method('getParam')->willReturnCallback(
+			static fn (string $key, $default = null) => $params[$key] ?? $default
+		);
+		$ref = new \ReflectionClass(\OCP\AppFramework\Controller::class);
+		$prop = $ref->getProperty('request');
+		$prop->setAccessible(true);
+		$prop->setValue($this->controller, $mock);
 	}
 }

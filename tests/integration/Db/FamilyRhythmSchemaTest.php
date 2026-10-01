@@ -469,6 +469,68 @@ class FamilyRhythmSchemaTest extends IntegrationTestCase {
 		self::assertTrue($prefs->getColumn('ranking_saved_zone')->getNotnull() === false, 'ranking_saved_zone must be nullable (Q-076-03)');
 	}
 
+	/**
+	 * FreshInstallSchema_CarriesWP7RewardTables
+	 *
+	 * T0 growth (CS-PLAN-070 WP7 / CS-PLAN-078 §3.1): the three feature
+	 * tables exist with their portable indexes, frozen defaults and
+	 * nullable actor provenance; house_users carries the role-revision
+	 * provenance column (Version1004 original definition, fresh chain).
+	 */
+	public function testFreshInstallSchema_CarriesWP7RewardTables(): void {
+		$schemaManager = $this->db->createSchema();
+
+		self::assertTrue($schemaManager->hasTable('oc_chorestrike_reward_items'), 'reward_items missing');
+		self::assertTrue($schemaManager->hasTable('oc_chorestrike_reward_requests'), 'reward_requests missing');
+		self::assertTrue($schemaManager->hasTable('oc_chorestrike_request_events'), 'request_events missing');
+
+		$items = $schemaManager->getTable('oc_chorestrike_reward_items');
+		foreach (['id', 'house_id', 'title', 'description', 'price_minor', 'archived', 'version', 'created_by_house_user_id', 'created_by_wallet_id', 'created_at', 'updated_at'] as $column) {
+			self::assertTrue($items->hasColumn($column), "reward_items column $column missing");
+		}
+		self::assertSame('0', (string)$items->getColumn('version')->getDefault(), 'item versions start at 0');
+		self::assertSame('0', (string)$items->getColumn('archived')->getDefault(), 'items ship live (not archived)');
+		self::assertTrue($items->getColumn('created_by_house_user_id')->getNotnull() === false, 'creator membership reference is nullable (erasure)');
+		self::assertTrue($items->getColumn('created_by_wallet_id')->getNotnull() === false, 'creator wallet provenance is nullable (erasure)');
+		$itemIndexes = array_map(
+			static fn ($index) => array_map('strtolower', $index->getUnquotedColumns()),
+			array_filter($items->getIndexes(), static fn ($index) => !$index->isPrimary())
+		);
+		self::assertContains(['house_id', 'archived', 'id'], $itemIndexes, 'the catalog page index is missing');
+
+		$requests = $schemaManager->getTable('oc_chorestrike_reward_requests');
+		foreach (['id', 'house_id', 'wallet_id', 'item_id', 'title', 'description', 'price_minor', 'state', 'version', 'approved_role_revision', 'approved_by_house_user_id', 'approved_by_wallet_id', 'approved_at', 'settlement_entry_id', 'refund_entry_id', 'created_at', 'updated_at'] as $column) {
+			self::assertTrue($requests->hasColumn($column), "reward_requests column $column missing");
+		}
+		self::assertSame('pending', $requests->getColumn('state')->getDefault(), 'requests ship pending');
+		self::assertSame('0', (string)$requests->getColumn('version')->getDefault(), 'request versions start at 0');
+		self::assertTrue($requests->getColumn('approved_role_revision')->getNotnull() === false, 'approval role provenance is nullable (child requests)');
+		self::assertTrue($requests->getColumn('settlement_entry_id')->getNotnull() === false, 'settlement reference is nullable');
+		self::assertTrue($requests->getColumn('refund_entry_id')->getNotnull() === false, 'refund reference is nullable');
+		$requestIndexes = array_map(
+			static fn ($index) => array_map('strtolower', $index->getUnquotedColumns()),
+			array_filter($requests->getIndexes(), static fn ($index) => !$index->isPrimary())
+		);
+		self::assertContains(['wallet_id', 'state', 'id'], $requestIndexes, 'the per-wallet state index is missing');
+		self::assertContains(['house_id', 'state', 'id'], $requestIndexes, 'the owner house list index is missing');
+
+		$events = $schemaManager->getTable('oc_chorestrike_request_events');
+		foreach (['id', 'request_id', 'revision', 'action', 'old_state', 'new_state', 'actor_house_user_id', 'actor_wallet_id', 'old_role_revision', 'new_role_revision', 'reason_code', 'financial_entry_id', 'source_command_uuid', 'created_at'] as $column) {
+			self::assertTrue($events->hasColumn($column), "request_events column $column missing");
+		}
+		$eventUniques = array_map(
+			static fn ($index) => array_map('strtolower', $index->getUnquotedColumns()),
+			array_filter($events->getIndexes(), static fn ($index) => $index->isUnique() && !$index->isPrimary())
+		);
+		self::assertContains(['request_id', 'revision'], $eventUniques, 'the append-only audit identity is missing');
+
+		// Version1004 amendment: the membership provenance column on the
+		// fresh chain (bigint, default 0).
+		$houseUsers = $schemaManager->getTable('oc_chorestrike_house_users');
+		self::assertTrue($houseUsers->hasColumn('role_revision'), 'house_users.role_revision missing');
+		self::assertSame('0', (string)$houseUsers->getColumn('role_revision')->getDefault(), 'role revisions start at 0');
+	}
+
 	private function fetchHouseColumn(int $houseId, string $column): mixed {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($column)

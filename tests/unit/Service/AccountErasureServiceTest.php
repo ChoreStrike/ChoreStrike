@@ -45,6 +45,8 @@ class AccountErasureServiceTest extends TestCase {
 	private MemberPreferenceMapper $memberPreferenceMapper;
 	private TransactionExecutor $transactions;
 	private AppLogger $appLogger;
+	private \OCA\ChoreStrike\Service\RewardRequestService&\PHPUnit\Framework\MockObject\MockObject $rewardRequestService;
+	private \OCA\ChoreStrike\Service\RewardService&\PHPUnit\Framework\MockObject\MockObject $rewardService;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
@@ -56,6 +58,8 @@ class AccountErasureServiceTest extends TestCase {
 		$this->memberPreferenceMapper = $this->createMock(MemberPreferenceMapper::class);
 		$this->transactions = $this->createMock(TransactionExecutor::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->rewardRequestService = $this->createMock(\OCA\ChoreStrike\Service\RewardRequestService::class);
+		$this->rewardService = $this->createMock(\OCA\ChoreStrike\Service\RewardService::class);
 	}
 
 	private function membership(int $id, int $houseId): HouseUser {
@@ -86,6 +90,8 @@ class AccountErasureServiceTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Db\DigestSlotMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\CompletionRevisionMapper::class),
 			$this->workShareMapper,
+			$this->rewardRequestService,
+			$this->rewardService,
 			$this->transactions,
 			$this->appLogger
 		);
@@ -203,6 +209,69 @@ class AccountErasureServiceTest extends TestCase {
 		$this->walletEntryMapper->expects($this->once())->method('deleteByWalletIds')->with([42]);
 		$this->walletEntryMapper->expects($this->once())->method('anonymizeActorWallet')->with(42);
 		$this->walletMapper->expects($this->once())->method('delete')->with($wallet);
+
+		$this->service()->eraseAccount('erased_user');
+	}
+
+	/**
+	 * ActiveMemberErasure_PurgesRewardDataBeforeTheWalletDies
+	 *
+	 * CS-PLAN-070 WP7 (CS-PLAN-078 §3.4, Q-070-02): holds are released,
+	 * requests/events/wishes purged and queued references removed from
+	 * ALL recipients BEFORE the wallet row dies — inside the same
+	 * per-house transaction.
+	 */
+	public function testActiveMemberErasure_PurgesRewardDataBeforeTheWalletDies(): void {
+		$membership = $this->membership(12, 10);
+		$wallet = new Wallet();
+		$wallet->setId(42);
+		$this->houseUserMapper->method('findAllByNextcloudUserId')->willReturn([$membership]);
+		$this->walletMapper->method('findByHouseAndUser')->with(10, 'erased_user')->willReturn($wallet);
+		$this->walletMapper->method('findAllByUserId')->willReturn([]);
+		$this->transactions->method('run')->willReturnCallback(static fn (callable $fn) => $fn());
+
+		$order = [];
+		$this->rewardRequestService->expects($this->once())
+			->method('eraseActorUnderLock')
+			->with(10, 12, 42)
+			->willReturnCallback(function () use (&$order): void {
+				$order[] = 'reward';
+			});
+		$this->rewardService->expects($this->once())
+			->method('eraseActorItemsUnderLock')
+			->with(12, 42)
+			->willReturnCallback(function () use (&$order): void {
+				$order[] = 'wishes';
+			});
+		$this->walletEntryMapper->expects($this->once())->method('deleteByWalletIds')->willReturnCallback(function () use (&$order): void {
+			$order[] = 'wallet';
+		});
+		$this->houseUserMapper->expects($this->once())->method('delete')->with($membership);
+
+		$this->service()->eraseAccount('erased_user');
+
+		self::assertSame(['reward', 'wishes', 'wallet'], $order, 'reward data goes before the wallet row');
+	}
+
+	/**
+	 * DepartedWalletErasure_PurgesRewardDataByWalletProvenance
+	 */
+	public function testDepartedWalletErasure_PurgesRewardDataByWalletProvenance(): void {
+		$wallet = new Wallet();
+		$wallet->setId(42);
+		$wallet->setHouseId(10);
+		$this->houseUserMapper->method('findAllByNextcloudUserId')->willReturn([]);
+		$this->walletMapper->method('findAllByUserId')->willReturn([$wallet]);
+		$this->transactions->method('run')->willReturnCallback(static fn (callable $fn) => $fn());
+
+		// The departed actor has no membership row: the wallet id is the
+		// provenance that still finds their reward data.
+		$this->rewardRequestService->expects($this->once())
+			->method('eraseActorUnderLock')
+			->with(10, null, 42);
+		$this->rewardService->expects($this->once())
+			->method('eraseActorItemsUnderLock')
+			->with(null, 42);
 
 		$this->service()->eraseAccount('erased_user');
 	}

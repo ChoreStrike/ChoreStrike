@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\CommandReceiptMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ConflictException;
+use OCP\IL10N;
 
 /**
  * Command receipt foundation (CS-PLAN-071 WP0; parent CS-PLAN-070 §3.2/§3.5).
@@ -57,6 +58,33 @@ class CommandService {
 
 	private TransactionExecutor $transactions;
 	private HouseMapper $houseMapper;
+	/**
+	 * The shared WP7 command-payload validators (RF-078 dedup): one home
+	 * for the receipt-key and optimistic-version rules every command
+	 * surface enforces.
+	 *
+	 * @param array<string, mixed> $payload
+	 */
+	public static function requireCommandUuid(array $payload, IL10N $l10n): string {
+		$commandId = $payload['commandId'] ?? null;
+		if (!is_string($commandId)
+			|| preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $commandId) !== 1) {
+			throw new \InvalidArgumentException($l10n->t('A valid commandId (UUID) is required'));
+		}
+		return $commandId;
+	}
+
+	/**
+	 * @param array<string, mixed> $payload
+	 */
+	public static function requireExpectedVersion(array $payload, IL10N $l10n): int {
+		$version = $payload['expectedVersion'] ?? null;
+		if (!is_int($version) || $version < 0) {
+			throw new \InvalidArgumentException($l10n->t('A valid expectedVersion is required'));
+		}
+		return $version;
+	}
+
 	private CommandReceiptMapper $receiptMapper;
 	private AppLogger $appLogger;
 
@@ -86,6 +114,11 @@ class CommandService {
 	 * @param string $action Stable action identifier (e.g. 'scheduling.apply', max 64 chars)
 	 * @param array<string, mixed> $payload The whitelisted normalized command fields
 	 * @param callable(): array<string, mixed> $fn The domain aggregate; returns the result identity to store
+	 * @param callable(int, int): void|null $authorizeUnderLock Optional under-lock authorization guard (CS-PLAN-070 WP7 §3.4),
+	 *                                                          invoked after the house lock and BEFORE the receipt lookup on BOTH execution and replay. It checks fresh
+	 *                                                          actor identity, visibility and current action authority — never business version/funding/state
+	 *                                                          preconditions, which the committed receipt already answers. All WP7 commands supply it so authorization
+	 *                                                          never lives only in the aggregate that replay skips.
 	 * @return array{result: array<string, mixed>, receipt: CommandReceipt, replay: bool}
 	 * @throws ConflictException on a reused key with a changed payload (409)
 	 * @throws \InvalidArgumentException on an empty/oversized UUID/action, a null actor or an unencodable result identity
@@ -97,6 +130,7 @@ class CommandService {
 		string $action,
 		array $payload,
 		callable $fn,
+		?callable $authorizeUnderLock = null,
 	): array {
 		if (trim($commandUuid) === '') {
 			throw new \InvalidArgumentException('commandUuid is required');
@@ -117,10 +151,18 @@ class CommandService {
 		// command's result.
 		$payloadHash = $this->hashPayload(['action' => $action, 'payload' => $payload]);
 
-		return $this->transactions->run(function () use ($houseId, $actorHouseUserId, $commandUuid, $action, $payloadHash, $fn): array {
+		return $this->transactions->run(function () use ($houseId, $actorHouseUserId, $commandUuid, $action, $payloadHash, $fn, $authorizeUnderLock): array {
 			// FIRST lock of the documented order: the house row serializes
 			// every same-house command (receipt lookup + unique-key insert).
 			$this->houseMapper->findForUpdate($houseId);
+
+			// WP7 under-lock guard (§3.4): fresh actor identity, visibility
+			// and current action authority — on execution AND replay, before
+			// any receipt answer. Demotions/departures therefore deny even
+			// a replayed command.
+			if ($authorizeUnderLock !== null) {
+				$authorizeUnderLock($houseId, $actorHouseUserId);
+			}
 
 			$existing = $this->receiptMapper->findByHouseActorUuid($houseId, $actorHouseUserId, $commandUuid);
 			if ($existing !== null) {

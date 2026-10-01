@@ -117,6 +117,24 @@ describe the WP3 model as the shipped contract.
   pending consents unranked. Consent belongs to the membership (departure/
   erasure/delete-on-disable; the house generation watermark survives).
 
+### 9. Reward catalog & requested redemption (WP7, ADR-017)
+- Household gate owner-controlled, default off (`houses.catalog_enabled`,
+  written only via `PUT /house/catalog` with the house `stateVersion`).
+- Owner-administered items (positive `price_minor`, archived never
+  deleted); requests freeze the displayed terms under lock (drift â 409).
+- C4 lifecycle: reserve at creation (`A >= P`), owner/adult-self approval
+  provenance, settle only at confirmed delivery (`B -= P` and `R -= P`
+  together), refund only an owner-attested false fulfillment against the
+  server's stored settlement entry (original debit, once). Rejection/
+  cancellation release the reservation only.
+- Funding hold is derived (`booked < reserved`), never stored: it blocks
+  all unfulfilled settlements and new requests but never approval/
+  cancellation, and never expires a request.
+- Identity is wallet-based (no raw UID/display-name snapshots); the
+  append-only `request_events` trail survives until authorized erasure,
+  which purges the person's wishes/requests/events and every recipient's
+  queued digest reference.
+
 ## Backend Services
 
 | Service | Responsibility |
@@ -129,6 +147,8 @@ describe the WP3 model as the shipped contract.
 | `WeeklyGoalService` | Due∪completed per-house-local-week evaluation + the personal member slice |
 | `MedalService` | Rhythm medal evaluation and race-safe awards |
 | `RankingService` | Consent lifecycle + exact-rational weekly ranking (ADR-015) |
+| `RewardService` | Catalog reads/writes: item CRUD, archive-only lifecycle, the household-gate command (WP7, ADR-017) |
+| `RewardRequestService` | The C4 request lifecycle with the under-lock authorization guard, role-rebase/departure/erasure hooks and the digest producer (WP7, ADR-017) |
 | `EffortAllocationService` | Exact minor-unit share math |
 | `GameLogicService` | Viewer-safe game-state serialization only (legacy reward orchestration retired) |
 
@@ -145,6 +165,9 @@ describe the WP3 model as the shipped contract.
 | `HouseUser` / `HouseUserMapper` | Membership, contributionMinor, streak records, single-series unlocked-title marker |
 | `Medal` / `MedalMapper` | Awarded rhythm medals (user, type, week) |
 | `MemberPreference` / `MemberPreferenceMapper` | Ranking-consent row per membership (generation, saved Monday + zone) |
+| `RewardItem` / `RewardItemMapper` | Catalog wishes (price, archive flag, version, creator provenance) |
+| `RewardRequest` / `RewardRequestMapper` | C4 request rows (frozen terms, state, approval provenance, settlement/refund references) |
+| `RewardRequestEvent` / `RewardRequestEventMapper` | Append-only request audit trail (unique request + revision) |
 
 ## Design Rules
 

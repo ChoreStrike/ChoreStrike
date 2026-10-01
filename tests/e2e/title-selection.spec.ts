@@ -73,4 +73,19 @@ test.describe('Role Title System (single series)', () => {
 		// The retired selection route is gone.
 		expect(result.selectStatus).toBe(404)
 	})
+
+	test('Reward-request reads stay available while the catalog is disabled (fourth role-display surface)', async ({ page }) => {
+		// CS-PLAN-070 WP7 (CS-PLAN-078 §3.3/C4.10): the mine scope answers
+		// for every member regardless of the gate/personal visibility —
+		// the requester reference/placeholder rendering arrives with WP8,
+		// the envelope is the pinned browser contract.
+		const result = await page.evaluate(async () => {
+			const headers = { Accept: 'application/json', requesttoken: window.OC.requestToken }
+			const mine = await window.fetch('/apps/chorestrike/api/v1/reward-requests?scope=mine', { headers })
+			return { status: mine.status, body: await mine.json() }
+		})
+		expect(result.status).toBe(200)
+		expect(result.body.success).toBe(true)
+		expect(Array.isArray(result.body.data.requests)).toBe(true)
+	})
 })

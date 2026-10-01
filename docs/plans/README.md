@@ -61,18 +61,22 @@ blocked first final-review attempt and the original manifest are recorded in the
 live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
 Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-(parent plan; WP0-WP6 delivered). WP6 calm core UI,
-[CS-PLAN-077: WP6 - Calm Core UI](done/cs-plan-077-wp6-calm-core-ui.md), passed
-final Standard B `PASS-WITH-FIXES` on 2026-10-01. The parent remains open
-for WP7-WP9. [CS-PLAN-078: WP7 - Catalog and Request Backend](active/cs-plan-078-wp7-catalog-and-request-backend.md)
-was drafted on 2026-10-01 and activated the same day after a Standard A `PASS`
-(zero findings, every baseline citation verified): catalog gate/CRUD, exact
-reservation/settlement/refund, current-role lifecycle, private reads,
-departure/rejoin/erasure and digest hooks. Runtime implementation is not
-started; it follows the plan's §6 order. Catalog UI remains WP8 and final
-family/DB-matrix evidence WP9.
+(parent plan; WP0-WP7 delivered). WP7 catalog and request backend,
+[CS-PLAN-078: WP7 - Catalog and Request Backend](done/cs-plan-078-wp7-catalog-and-request-backend.md),
+passed final Standard B `PASS-WITH-FIXES` on 2026-10-01 (owner-gated catalog,
+exact reservation/settlement/refund, current-role lifecycle with the WP7
+receipt guard, private reads, departure/rejoin/erasure and digest hooks,
+ADR-017). The parent remains open for WP8 (catalog/request UI) and WP9
+(final family/DB-matrix evidence).
 
-Latest completed: [CS-PLAN-077: WP6 - Calm Core UI](done/cs-plan-077-wp6-calm-core-ui.md)
+Latest completed: [CS-PLAN-078: WP7 - Catalog and Request Backend](done/cs-plan-078-wp7-catalog-and-request-backend.md)
+(final Standard B `PASS-WITH-FIXES` 2026-10-01): Version1033 schema +
+role-revision provenance, RewardService/RewardRequestService with the WP7
+under-lock receipt guard, exact reserve/approve/settle/refund money,
+role-rebase/departure/erasure/digest integration, `docs/api/rewards.md` and
+the browser-contract E2E slice. Review record:
+[CODE_REVIEW_2026-10-01](../backlog/archive/CODE_REVIEW_2026-10-01.md).
+Preceded by [CS-PLAN-077: WP6 - Calm Core UI](done/cs-plan-077-wp6-calm-core-ui.md)
 (final Standard B `PASS-WITH-FIXES` 2026-10-01): all-age My Day landing/content,
 preference-gated calm feedback with the reduced-motion hard floor, full
 `NotificationPreferences.vue` + optional-area consumers, pause UI on the WP2

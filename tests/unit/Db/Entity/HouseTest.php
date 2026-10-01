@@ -36,6 +36,21 @@ class HouseTest extends TestCase {
 	}
 
 	/**
+	 * CatalogGate_SerializesDefaultOffAndRoundTrips (CS-PLAN-070 WP7):
+	 * the house gate ships frozen false and is exposed to the GET /house
+	 * transport through the entity serialization.
+	 */
+	public function testCatalogGate_SerializesDefaultOffAndRoundTrips(): void {
+		$house = new House();
+		self::assertFalse($house->getCatalogEnabled(), 'the catalog gate defaults to off');
+		self::assertArrayHasKey('catalogEnabled', $house->jsonSerialize());
+		self::assertFalse($house->jsonSerialize()['catalogEnabled']);
+
+		$house->setCatalogEnabled(true);
+		self::assertTrue($house->jsonSerialize()['catalogEnabled']);
+	}
+
+	/**
 	 * Touch_UpdatesUpdatedAt
 	 */
 	public function testTouch_UpdatesUpdatedAt(): void {

@@ -123,6 +123,26 @@ class DigestChangeMapper extends QBMapper {
 			->executeStatement();
 	}
 
+	/**
+	 * Remove every queued/consumed row referencing the given objects of
+	 * one type in a house (WP7 erasure: references to purged reward
+	 * requests die for ALL recipients, not only the erased person's own
+	 * queue).
+	 *
+	 * @param string[] $objectIds
+	 */
+	public function deleteByObjectIds(int $houseId, string $objectType, array $objectIds): void {
+		if ($objectIds === []) {
+			return;
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('object_type', $qb->createNamedParameter($objectType, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->in('object_id', $qb->createNamedParameter($objectIds, IQueryBuilder::PARAM_STR_ARRAY)))
+			->executeStatement();
+	}
+
 	private function findByIdentity(int $houseUserId, string $objectType, string $objectId, string $targetSlot): ?DigestChange {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')

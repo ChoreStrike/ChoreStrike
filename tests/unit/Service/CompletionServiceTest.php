@@ -118,6 +118,9 @@ class CompletionServiceTest extends TestCase {
 		$this->completionRevisionMapper = $this->createMock(CompletionRevisionMapper::class);
 		$this->postCommitService = $this->createMock(CompletionPostCommitService::class);
 		$this->walletService = $this->createMock(WalletService::class);
+		// WP7: postEntries now returns the written entry ids (map); the
+		// completion aggregate ignores them.
+		$this->walletService->method('postEntries')->willReturn([]);
 		$this->roomReplayService = $this->createMock(RoomReplayService::class);
 		$this->rhythmService = $this->createMock(RhythmService::class);
 		$this->configService = $this->createMock(RewardConfigService::class);
@@ -699,8 +702,9 @@ class CompletionServiceTest extends TestCase {
 				return [];
 			});
 		$this->walletService->expects($this->once())->method('postEntries')
-			->willReturnCallback(function (int $houseId, string $source, int $id, int $version, array $deltas): void {
+			->willReturnCallback(function (int $houseId, string $source, int $id, int $version, array $deltas): array {
 				$this->assertSame([500], array_keys($deltas));
+				return [];
 			});
 
 		$this->correctAs($attribution);

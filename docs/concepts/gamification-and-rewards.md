@@ -336,7 +336,7 @@ and retain C1 chronological evaluation.
   amendments are approved; C3 correction policy still needs exact persistence and
   concurrency mapping alongside the approved C5 UI contract.
 
-### Approved Family Catalog Rules (2026-09-17; Not Yet Implemented)
+### Approved Family Catalog Rules (2026-09-17; backend implemented since WP7)
 
 - Families choose attainable, non-essential treats; affection, meals, rest and
   ordinary participation in family life are not conditional rewards.
@@ -418,6 +418,20 @@ The current `HouseService::removeHouseMember` deletes the wallet-bearing members
 row; do not mistake that for the approved retained-financial-identity model.
 Exact storage, API, erasure integration and lock order remain unimplemented and
 require review; no new external identity service is implied.
+
+> **Implemented (CS-PLAN-070 WP7, 2026-10-01 — [ADR-017](../adr/ADR-017-family-catalog-and-redemption.md)).**
+> The C4 lifecycle is live behind the owner-controlled household gate:
+> tables `chorestrike_reward_items` / `chorestrike_reward_requests` /
+> `chorestrike_request_events` (+ `house_users.role_revision`, migration
+> Version1033), services `RewardService` (catalog) and `RewardRequestService`
+> (lifecycle), API contract [rewards.md](../api/rewards.md). Reserved Coins
+> live in `wallets.reserved_minor`; settlement/refund are
+> `reward_settlement`/`reward_refund` ledger entries keyed by request id +
+> effect revision. Identity is wallet-based (no raw UID/display-name
+> snapshots); the funding hold is derived (`booked < reserved`), never
+> stored. Departure/erasure integration follows the rules above (erasure
+> purges requests/events/wishes and queued digest references, anonymizes
+> actor references elsewhere). The reward UI (WP8) is still pending.
 
 ## Open Decisions
 

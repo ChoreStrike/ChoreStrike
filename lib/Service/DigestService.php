@@ -23,6 +23,7 @@ use OCA\ChoreStrike\Db\OccurrenceMember;
 use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
+use OCA\ChoreStrike\Db\RewardRequestMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 
 /**
@@ -75,6 +76,7 @@ class DigestService {
 		private AppLogger $appLogger,
 		private CompletedTaskMapper $completionMapper,
 		private PauseMapper $pauseMapper,
+		private RewardRequestMapper $rewardRequestMapper,
 		private RoomTaskReadService $roomTaskReadService,
 	) {
 	}
@@ -383,6 +385,21 @@ class DigestService {
 					&& (int)$pause->getRevision() === (int)$row->getObjectRevision()
 					&& in_array($pause->getState(), [Pause::STATE_ACKNOWLEDGED, Pause::STATE_REJECTED, Pause::STATE_CANCELLED], true)
 					&& ($pause->getScope() === Pause::SCOPE_HOUSE || ($member->getWalletId() !== null && (int)$pause->getSubjectWalletId() === (int)$member->getWalletId()));
+			case 'reward_request':
+				// WP7 (CS-PLAN-078 §3.5): the request must still exist in
+				// the same house at the queued revision and the recipient
+				// must NOW be its active requester or a current owner.
+				// Demoted owners and departed/erased requesters lose
+				// eligibility; archive/disable/personal navigation hiding
+				// does not remove authorized processing updates.
+				try {
+					$request = $this->rewardRequestMapper->find((int)$row->getObjectId());
+				} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+					return false;
+				}
+				return (int)$request->getHouseId() === (int)$member->getHouseId()
+					&& (int)$request->getVersion() === (int)$row->getObjectRevision()
+					&& ($member->isOwner() || ($member->getWalletId() !== null && (int)$request->getWalletId() === (int)$member->getWalletId()));
 			default:
 				return false;
 		}

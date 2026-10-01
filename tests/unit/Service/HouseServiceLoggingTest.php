@@ -97,7 +97,9 @@ class HouseServiceLoggingTest extends TestCase {
 			$this->createMock(IUserSession::class),
 			new CalendarService(),
 			$this->createMock(AuthorizationService::class),
-			$this->createMock(\OCP\IUserManager::class)
+			$this->createMock(\OCP\IUserManager::class),
+			$this->createMock(\OCA\ChoreStrike\Service\RewardService::class),
+			$this->createMock(\OCA\ChoreStrike\Service\RewardRequestService::class)
 		);
 
 		$result = $service->getOrCreateHouse('instance-1', 'Family Home');

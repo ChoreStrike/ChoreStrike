@@ -11,6 +11,10 @@ return [
         ['name' => 'house#activity', 'url' => '/api/v1/house/activity', 'verb' => 'GET'],
         ['name' => 'house#health', 'url' => '/api/v1/house/health', 'verb' => 'GET'],
         ['name' => 'house#reset', 'url' => '/api/v1/house/reset', 'verb' => 'POST'],
+        // CS-PLAN-070 WP7 (CS-PLAN-078 §3.3): the owner-only, versioned
+        // reward-catalog gate writer (narrow refinement of the shared
+        // house settings; PUT /house stays unversioned).
+        ['name' => 'house#updateCatalog', 'url' => '/api/v1/house/catalog', 'verb' => 'PUT'],
 
         // Floor API
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],
@@ -117,6 +121,25 @@ return [
         // another member's preferences exists by design.
         ['name' => 'preference#show', 'url' => '/api/v1/preferences/me', 'verb' => 'GET'],
         ['name' => 'preference#update', 'url' => '/api/v1/preferences/me', 'verb' => 'PUT'],
+
+        // Reward catalog API (CS-PLAN-070 WP7, CS-PLAN-078 §3.3):
+        // owner-administered catalog, optional household gate default-off.
+        // Static single-segment routes precede the `{id}` route (shadowing
+        // rule). PUT /house/catalog lives in the House API block above.
+        ['name' => 'reward#index', 'url' => '/api/v1/rewards', 'verb' => 'GET'],
+        ['name' => 'reward#create', 'url' => '/api/v1/rewards', 'verb' => 'POST'],
+        ['name' => 'reward#update', 'url' => '/api/v1/rewards/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+
+        // Reward request lifecycle API (WP7 C4): viewer-safe reads plus the
+        // receipt-protected approve/reject/cancel/fulfill/correct commands.
+        ['name' => 'reward_request#index', 'url' => '/api/v1/reward-requests', 'verb' => 'GET'],
+        ['name' => 'reward_request#create', 'url' => '/api/v1/reward-requests', 'verb' => 'POST'],
+        ['name' => 'reward_request#show', 'url' => '/api/v1/reward-requests/{id}', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
+        ['name' => 'reward_request#approve', 'url' => '/api/v1/reward-requests/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'reward_request#reject', 'url' => '/api/v1/reward-requests/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'reward_request#cancel', 'url' => '/api/v1/reward-requests/{id}/cancel', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'reward_request#fulfill', 'url' => '/api/v1/reward-requests/{id}/fulfill', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'reward_request#correct', 'url' => '/api/v1/reward-requests/{id}/correct', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
 
         // Scheduling API
         ['name' => 'scheduling#getPreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'GET'],

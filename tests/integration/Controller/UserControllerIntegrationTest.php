@@ -385,6 +385,42 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
 	}
 
+	/**
+	 * UpdateRole_RoleChangeCarriesTheWP7RoleRevision
+	 *
+	 * CS-PLAN-070 WP7 (CS-PLAN-078 §3.4): a real role change through the
+	 * API advances the membership's role-revision provenance — the value
+	 * reward-request approval provenance binds to. The request-rebind
+	 * hook itself is exercised against the real DB in
+	 * RewardLifecycleTest.
+	 */
+	public function testUpdateRole_RoleChangeCarriesTheWP7RoleRevision(): void {
+		$house = $this->createHouse();
+		$houseUser = $this->createHouseUser(2, $house->getId(), 'user2', 'Bob', 'member');
+		$houseUser->setRoleRevision(5);
+		$updatedUser = $this->createHouseUser(2, $house->getId(), 'user2', 'Bob', 'child');
+		$updatedUser->setRoleRevision(6);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->method('assertHouseMember')->with($house->getId());
+		$this->houseService->method('findHouseUserScopedToHouse')->willReturn($houseUser);
+		$this->authService->method('requireHouseOwner')->with($house->getId());
+		$this->authService->method('requireCurrentUserId')->willReturn('owner1');
+		$this->houseService->expects($this->once())
+			->method('updateUserRole')
+			->with(2, 'child', 'owner1')
+			->willReturn($updatedUser);
+
+		$response = $this->controller->updateRole(2, 'child');
+
+		$this->assertEquals(200, $response->getStatus());
+		// roleRevision is internal provenance — never serialized to the
+		// client, but the entity the service returns carries it.
+		$this->assertArrayNotHasKey('roleRevision', $response->getData()['data']);
+		$this->assertSame(6, $updatedUser->getRoleRevision());
+	}
+
 	private function createHouse(int $id = 1): House {
 		$house = new House();
 		$house->setId($id);

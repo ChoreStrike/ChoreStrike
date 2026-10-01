@@ -59,9 +59,9 @@ anything external. There are no per-event bells.
 ## The Organizational Queue
 
 `chorestrike_digest_changes` holds identity rows only — object type
-(`takeover`/`agreement`/`pause`), object id, revision, category, source
-time, target slot, disposition. Writers run INSIDE their existing source
-transaction (the house lock is already held):
+(`takeover`/`agreement`/`pause`/`reward_request`), object id, revision,
+category, source time, target slot, disposition. Writers run INSIDE their
+existing source transaction (the house lock is already held):
 
 - `CompletionService` — overdue takeover (RF-076-02: the queue write
   joins the completion transaction; a rollback leaves no queued change).
@@ -70,6 +70,13 @@ transaction (the house lock is already held):
 - `PauseService` — acknowledge/reject/shorten/retrospective
   recognition/household pause; personal pauses notify the subject,
   household pauses every member.
+- `RewardRequestService` (WP7, CS-PLAN-078 Â§3.5) — reward-request
+  effects (`reward_request`): new child requests reach the opted-in
+  owners, owner decisions reach the requester, requester cancellations
+  reach the owners, role rebases reach the owners. Recipients are the
+  active requester and current owners minus the actor, only when their
+  own organizational opt-in is already enabled (no historical backfill).
+  Identity rows only — never title, price or reason codes.
 
 The unique (membership, object_type, object_id, target_slot) key
 coalesces retries; the cutoff rule sends changes at/after the slot's
@@ -79,6 +86,13 @@ a reusable room-task identity. Dispatch resolves current source facts, drops
 undone/deleted/superseded sources, applies the existing task visibility policy,
 and restricts personal pause facts to their recipient. No source name or reason
 is rendered in the notification.
+
+`reward_request` relevance (WP7): the request must still exist in the same
+house at the queued revision and the recipient must NOW be its active
+requester or a current owner — demoted owners and departed/erased
+requesters lose eligibility. Archive/disable and personal navigation
+hiding never remove authorized processing updates. Authorized erasure
+deletes queued references to purged requests from ALL recipients.
 
 ## Quiet Hours
 

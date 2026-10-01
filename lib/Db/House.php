@@ -124,6 +124,9 @@ class House extends Entity implements JsonSerializable {
 			'createdAt' => $this->createdAt?->format('c'),
 			'updatedAt' => $this->updatedAt?->format('c'),
 			'timezone' => $this->timezone,
+			// Owner-controlled catalog gate (CS-PLAN-070 WP7, C4): default
+			// off; the reward surface reads this, planning stays unaffected.
+			'catalogEnabled' => $this->catalogEnabled,
 			// Consent-filtered ranking gate (CS-PLAN-070 WP4, C5i/D10b) —
 			// the Leaderboard's opt-in/closed state reads this.
 			'rankingEnabled' => $this->rankingEnabled,

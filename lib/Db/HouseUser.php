@@ -31,6 +31,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setLastActivity(?\DateTime $lastActivity)
  * @method string getRole()
  * @method void setRole(string $role)
+ * @method int getRoleRevision()
+ * @method void setRoleRevision(int $roleRevision)
  * @method \DateTime getJoinedAt()
  * @method void setJoinedAt(\DateTime $joinedAt)
  * @method array|null getSchedulingPreferences()
@@ -68,6 +70,16 @@ class HouseUser extends Entity implements JsonSerializable {
 
 	/** @var string */
 	protected $role = 'member';
+
+	/**
+	 * Count of the member's real role changes (CS-PLAN-070 WP7,
+	 * CS-PLAN-078 §3.1). Reward-request approval provenance binds to this
+	 * revision so a role rebase is traceable; a no-op role write must not
+	 * advance it (a no-op child write never invalidates a fresh approval).
+	 *
+	 * @var int
+	 */
+	protected $roleRevision = 0;
 
 	/** @var \DateTime */
 	protected $joinedAt;
@@ -108,6 +120,7 @@ class HouseUser extends Entity implements JsonSerializable {
 		$this->addType('longestStreak', 'integer');
 		$this->addType('lastActivity', 'datetime');
 		$this->addType('role', 'string');
+		$this->addType('roleRevision', 'integer');
 		$this->addType('joinedAt', 'datetime');
 		$this->addType('schedulingPreferences', 'json');
 		$this->addType('unlockedTitles', 'json');

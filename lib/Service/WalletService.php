@@ -15,6 +15,8 @@ use OCA\ChoreStrike\Db\WalletEntry;
 use OCA\ChoreStrike\Db\WalletEntryMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
 use OCA\ChoreStrike\Db\WorkShareMapper;
+use OCA\ChoreStrike\Exception\ConflictException;
+use OCP\IL10N;
 
 /**
  * The sole monetary authority (CS-PLAN-070 WP3 §3.3; CS-PLAN-071 WP0
@@ -25,17 +27,26 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  * wallet's `booked_minor` cache is updated in the SAME transaction and
  * must always equal the entry sum. Negative booked/available balances are
  * valid correction results; `reserved_minor >= 0` and
- * `fundingHold = bookedMinor < reservedMinor` (no reservation lifecycle in
- * this slice). Lower service — it never calls the completion coordinator
- * back and runs inside the caller's house-first transaction.
+ * `fundingHold = bookedMinor < reservedMinor` (WP7: reservations live in
+ * the reward aggregate — reserve at request creation, settle only at
+ * confirmed delivery, refund only an owner-attested false fulfillment).
+ * B and R are the ONLY balance caches; neither is ever repaired at read
+ * time. Lower service — it never calls the completion coordinator back
+ * and runs inside the caller's house-first transaction (lock order:
+ * wallets by ID before the reward rows).
  */
 class WalletService {
 	public const SOURCE_COMPLETION = 'completion';
 	public const SOURCE_COMPLETION_UNDO = 'completion_undo';
+	/** WP7 §3.2: keyed by request ID + effect revision (event revision). */
+	public const SOURCE_REWARD_SETTLEMENT = 'reward_settlement';
+	public const SOURCE_REWARD_REFUND = 'reward_refund';
 
 	public const REASON_COMPLETION = 'completion.credit';
 	public const REASON_ATTRIBUTION = 'completion.attribution';
 	public const REASON_UNDO = 'completion.undo';
+	public const REASON_REWARD_SETTLEMENT = 'reward.settlement';
+	public const REASON_REWARD_REFUND = 'reward.refund';
 
 	public function __construct(
 		private WalletMapper $walletMapper,
@@ -43,6 +54,7 @@ class WalletService {
 		private WorkShareMapper $workShareMapper,
 		private HouseUserMapper $houseUserMapper,
 		private EffortAllocationService $allocation,
+		private IL10N $l10n,
 	) {
 	}
 
@@ -74,12 +86,15 @@ class WalletService {
 	 * revision exactly once.
 	 *
 	 * @param array<int, int> $deltasByWallet walletId => signed delta minor
+	 * @return array<int, int> walletId => written ledger entry id (the WP7
+	 *                         settlement/refund references are stored on the request row)
 	 */
-	public function postEntries(int $houseId, string $sourceKind, int $sourceId, int $sourceRevision, array $deltasByWallet, string $reasonCode, ?int $actorHouseUserId): void {
+	public function postEntries(int $houseId, string $sourceKind, int $sourceId, int $sourceRevision, array $deltasByWallet, string $reasonCode, ?int $actorHouseUserId): array {
 		$actor = $actorHouseUserId !== null ? $this->houseUserMapper->find($actorHouseUserId) : null;
 		if ($actor !== null && ($actor->getHouseId() !== $houseId || $actor->getWalletId() === null)) {
 			throw new \LogicException('Wallet entry actor must have a bound membership in this house');
 		}
+		$entryIds = [];
 		foreach ($deltasByWallet as $walletId => $deltaMinor) {
 			$walletId = (int)$walletId;
 			$deltaMinor = (int)$deltaMinor;
@@ -100,7 +115,7 @@ class WalletService {
 			$entry->setActorHouseUserId($actorHouseUserId);
 			$entry->setActorWalletId($actor?->getWalletId());
 			$entry->setCreatedAt(new \DateTime());
-			$this->walletEntryMapper->insert($entry);
+			$inserted = $this->walletEntryMapper->insert($entry);
 
 			$wallet = $this->walletMapper->findForUpdate($walletId);
 			$booked = $wallet->getBookedMinor() + $deltaMinor;
@@ -109,7 +124,120 @@ class WalletService {
 			$wallet->setVersion($wallet->getVersion() + 1);
 			$wallet->setUpdatedAt(new \DateTime());
 			$this->walletMapper->update($wallet);
+			$entryIds[$walletId] = (int)$inserted->getId();
 		}
+		return $entryIds;
+	}
+
+	/**
+	 * WP7 under-lock reservation (§3.2): `R += P` with the create-time
+	 * coverage requirement `A = B - R >= P`. B is unchanged; no booked
+	 * ledger entry exists for a reservation. The wallet row must be
+	 * writable under the caller's house-first transaction (wallet lock
+	 * taken here, after the house row per the documented order).
+	 *
+	 * @throws ConflictException on insufficient available coins (409)
+	 */
+	public function reserveReward(int $walletId, int $amountMinor): Wallet {
+		if ($amountMinor <= 0) {
+			throw new \InvalidArgumentException('A reservation requires a positive amount');
+		}
+		$wallet = $this->walletMapper->findForUpdate($walletId);
+		$available = $wallet->getBookedMinor() - $wallet->getReservedMinor();
+		if ($available < $amountMinor) {
+			throw new ConflictException($this->l10n->t('Not enough available Coins for this request'));
+		}
+		$reserved = $wallet->getReservedMinor() + $amountMinor;
+		$this->allocation->assertSafeAmount($reserved, 'wallet reservation');
+		$wallet->setReservedMinor($reserved);
+		$wallet->setVersion($wallet->getVersion() + 1);
+		$wallet->setUpdatedAt(new \DateTime());
+		return $this->walletMapper->update($wallet);
+	}
+
+	/**
+	 * WP7 under-lock release (§3.2): `R -= P` for a rejection/cancellation
+	 * — also valid while the request is underfunded (coverage is the
+	 * aggregate check, never a per-request lock). No booked ledger entry.
+	 */
+	public function releaseReward(int $walletId, int $amountMinor): Wallet {
+		if ($amountMinor <= 0) {
+			throw new \InvalidArgumentException('A release requires a positive amount');
+		}
+		$wallet = $this->walletMapper->findForUpdate($walletId);
+		$reserved = $wallet->getReservedMinor() - $amountMinor;
+		if ($reserved < 0) {
+			throw new \LogicException('Reservation release would undershoot zero');
+		}
+		$wallet->setReservedMinor($reserved);
+		$wallet->setVersion($wallet->getVersion() + 1);
+		$wallet->setUpdatedAt(new \DateTime());
+		return $this->walletMapper->update($wallet);
+	}
+
+	/**
+	 * WP7 settlement (§3.2): debit the booked balance through the ledger
+	 * (`reward_settlement`, keyed by request ID + effect revision) and
+	 * release the reservation in the SAME aggregate — `B -= P` and
+	 * `R -= P` together, exactly once per identity. The aggregate
+	 * coverage check `B >= R` is enforced here against the locked row.
+	 *
+	 * @return int The stored settlement ledger entry id
+	 * @throws ConflictException on a funding hold (409)
+	 */
+	public function settleReward(int $houseId, int $requestId, int $effectRevision, int $walletId, int $amountMinor, ?int $actorHouseUserId): int {
+		if ($amountMinor <= 0) {
+			throw new \InvalidArgumentException('A settlement requires a positive amount');
+		}
+		$wallet = $this->walletMapper->findForUpdate($walletId);
+		if ($wallet->getBookedMinor() < $wallet->getReservedMinor()) {
+			throw new ConflictException($this->l10n->t('This request cannot be fulfilled while the wallet is underfunded'));
+		}
+		$entryIds = $this->postEntries(
+			$houseId,
+			self::SOURCE_REWARD_SETTLEMENT,
+			$requestId,
+			$effectRevision,
+			[$walletId => -$amountMinor],
+			self::REASON_REWARD_SETTLEMENT,
+			$actorHouseUserId,
+		);
+		// The same locked wallet row: release the reservation together
+		// with the debit (one aggregate, no intermediate visible state).
+		$wallet = $this->walletMapper->findForUpdate($walletId);
+		$reserved = $wallet->getReservedMinor() - $amountMinor;
+		if ($reserved < 0) {
+			throw new \LogicException('Settlement would undershoot the reservation');
+		}
+		$wallet->setReservedMinor($reserved);
+		$wallet->setVersion($wallet->getVersion() + 1);
+		$wallet->setUpdatedAt(new \DateTime());
+		$this->walletMapper->update($wallet);
+		return $entryIds[$walletId];
+	}
+
+	/**
+	 * WP7 refund (§3.2): credit back an owner-attested false fulfillment
+	 * exactly once through the ledger (`reward_refund`, keyed by request
+	 * ID + effect revision). No reservation is created; the amount is the
+	 * ORIGINAL settlement debit, never the current item price.
+	 *
+	 * @return int The stored refund ledger entry id
+	 */
+	public function refundReward(int $houseId, int $requestId, int $effectRevision, int $walletId, int $amountMinor, ?int $actorHouseUserId): int {
+		if ($amountMinor <= 0) {
+			throw new \InvalidArgumentException('A refund requires a positive amount');
+		}
+		$entryIds = $this->postEntries(
+			$houseId,
+			self::SOURCE_REWARD_REFUND,
+			$requestId,
+			$effectRevision,
+			[$walletId => $amountMinor],
+			self::REASON_REWARD_REFUND,
+			$actorHouseUserId,
+		);
+		return $entryIds[$walletId];
 	}
 
 	/**

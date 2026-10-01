@@ -761,9 +761,51 @@ Integration (real Nextcloud + DB, `phpunit.integration.xml`):
   removal cascade plus the WP3 §3.6 regression: departure preserves the
   wallet, and a later owner attribution reverses the departed wallet exactly.
 - Browser layer: `insights-flow.spec.ts` *"owner corrects a recorded work
-  split from the activity history (WP3 §3.6)"* — the feed correction action,
+  split from the activity history (WP3 Â§3.6)"* — the feed correction action,
   the reused participation form pre-fill, the receipt-protected PUT and the
   versioned read model (pinned in `tests/e2e/required-scenarios.json`).
+
+#### WP7 reward catalog & request test surface (CS-PLAN-070 WP7 / CS-PLAN-078)
+
+Unit (mock-based, `phpunit.unit.xml`):
+
+- `tests/unit/Service/{RewardService,RewardRequestService}Test.php` — the
+  catalog scopes/validation, the versioned gate command, the C4 actor/state
+  matrix, immutable frozen terms, one-shot money effects, role rebase,
+  departure/erasure hooks and the digest recipient matrix.
+- `tests/unit/Service/WalletServiceTest.php` — the WP7 reserve/release/
+  settle/refund primitives incl. the C3.10 hold arithmetic.
+- `tests/unit/Controller/{RewardController,RewardRequestController}Test.php`
+  — strict payload validation and the 400/403/404/409 HTTP mapping.
+- `tests/unit/Service/HouseServiceTest.php` — role-revision provenance
+  (real change vs no-op write) and the departure-hook ordering.
+- `tests/unit/Service/DigestServiceTest.php` — `reward_request` relevance
+  (current revision, superseded rows, demoted owners, purged requests).
+- `tests/unit/Service/AccountErasureServiceTest.php` — the WP7 purge order
+  (reward data before the wallet dies, both erasure paths).
+- `tests/unit/RouteMatrixTest.php` — the 94-route pin + the WP7 surface
+  contract (no item-delete, no wallet/ledger dump routes).
+
+Integration (real Nextcloud + DB, `phpunit.integration.xml`):
+
+- `tests/integration/Service/RewardLifecycleTest.php` — the C4.1-9
+  lifecycle against the real DB: exact wallet/ledger reconciliation, audit
+  chain, role rebase, departure/rejoin, gate/archive/drift rules,
+  idempotent replay.
+- `tests/integration/Service/RewardConcurrencyTest.php` — C4.11-14
+  two-connection races: fulfill vs cancel exactly-once, approval vs role
+  rebase, mid-aggregate rollback, idempotent refund retries.
+- `tests/integration/Controller/RewardApiTest.php` — the HTTP contract
+  through real controllers (scopes, DTO whitelists, gate endpoint,
+  placeholder rendering).
+- `tests/integration/Service/CommandServiceTest.php` — the WP7 guard seam
+  on execution and replay.
+- `tests/integration/Db/FamilyRhythmSchemaTest.php` — the Version1033
+  tables/indexes/defaults + `role_revision`.
+- Browser layer: `family-reward-api.spec.ts` (serial pool — gate flip,
+  catalog scopes, the full request lifecycle through the real HTTP seam)
+  and the `title-selection.spec.ts` read-availability pin; titles are
+  pinned in `tests/e2e/required-scenarios.json`.
 
 ## Without Docker (Limited)
 

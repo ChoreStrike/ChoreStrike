@@ -58,6 +58,26 @@ class HouseControllerIntegrationTest extends TestCase {
 		$this->assertTrue($data['success']);
 	}
 
+	/**
+	 * Get_TransportsTheCatalogGateThroughTheHouseSerialization
+	 * (CS-PLAN-070 WP7): GET /house carries the owner-controlled gate
+	 * flag the WP8 reward surface reads.
+	 */
+	public function testGet_TransportsTheCatalogGateThroughTheHouseSerialization(): void {
+		$house = $this->createMockHouse();
+		$house->setCatalogEnabled(true);
+		$this->houseService->method('getInstanceId')->willReturn('test-instance');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+
+		$response = $this->controller->get();
+
+		$this->assertEquals(200, $response->getStatus());
+		$data = $response->getData()['data'];
+		$this->assertArrayHasKey('catalogEnabled', $data);
+		$this->assertTrue($data['catalogEnabled']);
+	}
+
 	private function createMockHouse(): \OCA\ChoreStrike\Db\House {
 		$house = new \OCA\ChoreStrike\Db\House();
 		$house->setId(1);
