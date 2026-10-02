@@ -111,6 +111,36 @@ export const useUserStore = defineStore('user', {
 		},
 
 		/**
+		 * Force a FRESH current-user read, bypassing the cached
+		 * `initializeCurrentUser()` resolution (CS-PLAN-070 WP8 §3.2): a
+		 * cached identity is not a fresh authority check — role changes,
+		 * departure/re-entry and demotions must reconcile against the
+		 * server before reward actions render. Generation-guarded so a
+		 * delayed answer can never land after a reset or a newer refresh.
+		 * @return {Promise<object>} The fresh current-user payload.
+		 */
+		async refreshCurrentUser() {
+			const seq = ++this.currentUserRequestSeq
+			try {
+				const data = await api.get('/api/v1/users/current')
+				if (seq === this.currentUserRequestSeq) {
+					this.currentUser = data
+					this.membership = 'member'
+				}
+				return data
+			} catch (error) {
+				if (seq === this.currentUserRequestSeq) {
+					if (error?.status === 403 || error?.code === 'FORBIDDEN') {
+						this.membership = 'denied'
+					}
+					this.error = error.message
+					logger.error('Failed to refresh the current user', error, { store: 'user', action: 'refreshCurrentUser' })
+				}
+				throw error
+			}
+		},
+
+		/**
 		 * Fetch all house members (authoritative membership list), guarded
 		 * by a request generation so a superseded read can never overwrite
 		 * a newer result or survive a reset.

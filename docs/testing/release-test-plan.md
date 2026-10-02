@@ -92,6 +92,7 @@ E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 - Tasks: `task-manager`, `task-completion`, `task-completion-full-flow`, `task-checklist-and-features`, `today-view`, `insights-flow` (history correction, WP3 §3.6)
 - Visibility: `private-tasks`, `admin-only-tasks`
 - Gamification: `leaderboard`, `title-selection`, `teamwork-rewards`
+- Rewards: `family-reward-api` (WP7 HTTP contract), `family-rewards` (WP8 UI flows)
 - Overdue/teamwork: `overdue-task-claiming`, `teamwork-rewards`, `multi-user-interactions`
 - Scheduling/calendar: `scheduling`, `availability-settings-flow`, `flex-window-scheduling`, `calendar`
 - Dashboard/nav: `dashboard`, `dashboard-navigation`
@@ -237,6 +238,25 @@ Route surface: `completion#show/undo/attribute`, `room_task#complete`, `game#sta
 | Ranking opt-in | Open **Leaderboard** in nav with the flag off | Opt-in/closed state; no contribution ranking, no freeze indicators | `leaderboard` |
 | Ranking consent lifecycle | Owner enables the flag; member joins, withdraws | Join starts NEXT Monday (pending, unranked); withdraw removes immediately; non-consenting members never appear | `ranking-consent`, PHPUnit `RankingConsentTest` |
 | House health | Drive overall completion up/down | House health bar reflects aggregate activity | `dashboard` |
+
+---
+
+## 8a. Reward Catalog & Requests (WP7 backend + WP8 UI)
+
+Route surface: `reward_catalog#*`, `reward_request#*`, `house#catalog`.
+Views: **Rewards** in nav (only while both gates are open) and **My
+Requests** in nav (persistent). Contract:
+[rewards.md](../api/rewards.md) ([ADR-017](../adr/ADR-017-family-catalog-and-redemption.md)).
+
+| Check | Steps | Expected | Automated? |
+|---|---|---|---|
+| Gate independence | Owner enables the household gate; a member toggles the personal catalog visibility | Browsing renders only while BOTH gates are open; either opt-out hides the entry and items but never My Requests or the owner Settings editor | `family-rewards` |
+| Owner administration | Settings → Rewards: toggle the gate; add/edit/archive items with prices like `12` and `12,50` | Exact hundredths parsing (no float math); rejected: `1.234,56`, `12,5.5`, `0`, negatives, exponents; a 409 keeps the draft; members/children never see the editor | `family-rewards` |
+| Child request flow | Child requests a reward; owner approves; owner confirms delivery | Request reserves first; approval spends nothing; delivery debits exactly once; the child cannot self-fulfill; totals/state reload correctly | `family-rewards` |
+| Adult flow and correction | Adult requests (explicit self-approval), cancels one; owner attests a false fulfillment | Cancellation releases only the reservation; the correction refunds the ORIGINAL settlement entry exactly once and stays terminal | `family-rewards` |
+| Funding hold | Create `B < R` (undo/attribution after spending) | New requests and deliveries blocked neutrally (no expiry, no pressure copy); approve/reject/cancel stay possible; coverage restoration refreshes the UI | `family-rewards` |
+| Privacy and identity | Member opens a foreign request id; a second identity signs in on the same device | Generic unavailable state (no existence leak); the identity switch clears wishes, drafts, scopes and unresolved commands | `family-rewards` |
+| Uncertain outcome | Lose a command response mid-click; use the banner retry | Same-key replay applies the effect exactly once; no duplicate submit while unresolved; reload never auto-submits | `family-rewards` |
 
 ---
 

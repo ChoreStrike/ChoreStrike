@@ -241,3 +241,133 @@ export function restartOccurrence(id, payload) {
 }
 
 export default api
+
+// Reward catalog & request API (CS-PLAN-070 WP8 on the delivered WP7
+// contract, docs/api/rewards.md): the store below owns catalog pages,
+// request pages/detail and every C4 command. All mutations are
+// CommandService commands (client commandId + expectedVersion) and every
+// read is a bounded ID cursor page — never an unbounded load-all.
+
+/**
+ * PUT the owner-only household catalog gate (the ONLY gate writer;
+ * `PUT /house` never touches it). Versioned by the house `stateVersion`.
+ * @param {object} payload {catalogEnabled, expectedVersion, commandId}.
+ * @return {Promise<object>} The refreshed house payload.
+ */
+export function setCatalogEnabled(payload) {
+	return put('/api/v1/house/catalog', payload)
+}
+
+/**
+ * GET a catalog page. `scope=active` (default) answers the disabled state
+ * while the gate is off; `scope=admin` is owner-only and includes
+ * archived items even while hidden.
+ * @param {object} params {scope?, cursor?, limit?}.
+ * @return {Promise<object>} {catalogEnabled, items}.
+ */
+export function fetchCatalog(params = {}) {
+	return get('/api/v1/rewards', { params })
+}
+
+/**
+ * POST a new catalog item (owner only).
+ * @param {object} payload {title, description?, priceMinor, commandId}.
+ * @return {Promise<object>} The created item DTO (version 0).
+ */
+export function createCatalogItem(payload) {
+	return post('/api/v1/rewards', payload)
+}
+
+/**
+ * PUT a catalog item change (owner only). Archiving uses `archived: true`
+ * on this route — the DELETE route deliberately does not exist.
+ * @param {number} id Item id.
+ * @param {object} payload Whitelisted fields + expectedVersion + commandId.
+ * @return {Promise<object>} The updated item DTO.
+ */
+export function updateCatalogItem(id, payload) {
+	return put(`/api/v1/rewards/${id}`, payload)
+}
+
+/**
+ * GET a request page. `scope=mine` (default) is the caller's own list;
+ * `scope=house` is owner-only household administration. Cursors advance
+ * on DESCENDING ids (newest first).
+ * @param {object} params {scope?, state?, cursor?, limit?}.
+ * @return {Promise<object>} {items} page.
+ */
+export function fetchRewardRequests(params = {}) {
+	return get('/api/v1/reward-requests', { params })
+}
+
+/**
+ * GET one authorized request detail including the on-demand audit trail.
+ * @param {number|string} id Request id.
+ * @return {Promise<object>} Request DTO + `audit`.
+ */
+export function fetchRewardRequest(id) {
+	return get(`/api/v1/reward-requests/${id}`)
+}
+
+/**
+ * POST a new own request for the displayed (explicitly reviewed) item
+ * terms. Role decides the initial state server-side.
+ * @param {object} payload {itemId, itemVersion, priceMinor, commandId}.
+ * @return {Promise<object>} The created request DTO.
+ */
+export function createRewardRequest(payload) {
+	return post('/api/v1/reward-requests', payload)
+}
+
+/**
+ * POST the owner approval of a child's pending request (or the explicit
+ * self-approval of an adult requester).
+ * @param {number|string} id Request id.
+ * @param {object} payload {commandId, expectedVersion}.
+ * @return {Promise<object>} The updated request DTO.
+ */
+export function approveRewardRequest(id, payload) {
+	return post(`/api/v1/reward-requests/${id}/approve`, payload)
+}
+
+/**
+ * POST the owner rejection of a child's pending request.
+ * @param {number|string} id Request id.
+ * @param {object} payload {commandId, expectedVersion, reasonCode?}.
+ * @return {Promise<object>} The updated request DTO.
+ */
+export function rejectRewardRequest(id, payload) {
+	return post(`/api/v1/reward-requests/${id}/reject`, payload)
+}
+
+/**
+ * POST the requester/owner cancellation of an unfulfilled request.
+ * @param {number|string} id Request id.
+ * @param {object} payload {commandId, expectedVersion, reasonCode?}.
+ * @return {Promise<object>} The updated request DTO.
+ */
+export function cancelRewardRequest(id, payload) {
+	return post(`/api/v1/reward-requests/${id}/cancel`, payload)
+}
+
+/**
+ * POST the explicit delivery confirmation. Approval is never fulfillment.
+ * @param {number|string} id Request id.
+ * @param {object} payload {commandId, expectedVersion, delivered: true}.
+ * @return {Promise<object>} The updated request DTO.
+ */
+export function fulfillRewardRequest(id, payload) {
+	return post(`/api/v1/reward-requests/${id}/fulfill`, payload)
+}
+
+/**
+ * POST the owner-attested false-fulfillment correction. The refund amount
+ * is the server's ORIGINAL settlement entry, referenced — never a client
+ * value and never the current item price.
+ * @param {number|string} id Request id.
+ * @param {object} payload {commandId, expectedVersion, notDelivered: true, reasonCode, settlementEntryId}.
+ * @return {Promise<object>} The corrected (terminal) request DTO.
+ */
+export function correctRewardRequest(id, payload) {
+	return post(`/api/v1/reward-requests/${id}/correct`, payload)
+}

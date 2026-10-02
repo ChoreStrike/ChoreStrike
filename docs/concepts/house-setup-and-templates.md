@@ -156,6 +156,12 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
   and a switch to the custom-task form (which reuses the unified
   `TaskEditForm` with the room preset+locked — see
   [`task-model-and-sync.md`](task-model-and-sync.md) §Creation Model).
+- **Essential onboarding help (WP8, CS-PLAN-079)**: the wizard's invite
+  step carries the contextual "Accounts and roles" explanation (shared
+  help modal) — every person, including a child, needs their own existing
+  Nextcloud account; a shared device uses separate sign-ins. The optional
+  reward catalog is administered by owners in Settings → Rewards, never
+  in the wizard.
 
 ## 7. Authorization
 

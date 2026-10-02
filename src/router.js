@@ -67,6 +67,27 @@ export const routes = [
 		name: 'settings',
 		component: () => import(/* webpackChunkName: "settings" */ './views/Settings.vue'),
 	},
+	// Reward catalog (CS-PLAN-070 WP8 §3.1): browsing is optional — the
+	// navigation entry only renders while BOTH the household gate and the
+	// current person's loaded catalogVisible preference are true. The
+	// request surfaces below are independent of BOTH gates and stay
+	// permanently reachable.
+	{
+		path: '/rewards',
+		name: 'rewards',
+		component: () => import(/* webpackChunkName: "rewards" */ './views/Rewards.vue'),
+	},
+	{
+		path: '/reward-requests',
+		name: 'reward-requests',
+		component: () => import(/* webpackChunkName: "rewards" */ './components/Rewards/RewardRequestList.vue'),
+	},
+	{
+		path: '/reward-requests/:requestId',
+		name: 'reward-request-detail',
+		component: () => import(/* webpackChunkName: "rewards" */ './components/Rewards/RewardRequestDetails.vue'),
+		props: true,
+	},
 ]
 
 const router = createRouter({

@@ -88,7 +88,22 @@ export default {
 				{
 					id: 'coins',
 					title: t('chorestrike', 'Coins'),
-					text: t('chorestrike', 'The household reward currency for completed work. The balance lives in the household overview — never on My Day.'),
+					text: t('chorestrike', 'The household reward currency for completed work. The balance lives in the household overview — never on My Day. Available Coins can be requested; reserved Coins back open requests and are only spent on actual delivery.'),
+				},
+				{
+					id: 'reward-catalog',
+					title: t('chorestrike', 'Reward catalog'),
+					text: t('chorestrike', 'The optional list of family-agreed rewards. Owners enable it for the household and each person decides whether to see it — the two choices are independent. Hiding it never touches existing requests.'),
+				},
+				{
+					id: 'reward-request',
+					title: t('chorestrike', 'Reward request'),
+					text: t('chorestrike', 'A request reserves the Coins first. A child\'s request waits for owner approval; adults confirm their own request explicitly. Delivery is confirmed separately — only then are the Coins actually spent.'),
+				},
+				{
+					id: 'balance-clarification',
+					title: t('chorestrike', 'Balance clarification'),
+					text: t('chorestrike', 'When a past correction is being clarified, new requests and deliveries wait neutrally — nothing is lost and nothing counts against anyone. Approvals, rejections and cancellations stay possible.'),
 				},
 			]
 		},

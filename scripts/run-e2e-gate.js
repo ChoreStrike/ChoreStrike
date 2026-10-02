@@ -65,6 +65,11 @@ const REQUIRED_SPECS = [
 	// CS-PLAN-070 WP7 (CS-PLAN-078): the reward catalog/request browser
 	// contract — gate flip, catalog scopes, full request lifecycle.
 	{ file: 'family-reward-api.spec.ts', project: 'chromium-serial-db', scenarios: ['the catalog gate is owner-controlled, versioned and denied for members', 'child request lifecycle: frozen terms, approve, fulfill, exact debit, exact refund'], minTests: 3 },
+	// CS-PLAN-070 WP8 (CS-PLAN-079): the reward UI and onboarding slice —
+	// two independent gates, exact prices, lifecycle, conflicts, funding
+	// hold, privacy boundaries, the uncertain-command replay and the
+	// mobile/keyboard/localization proof.
+	{ file: 'family-rewards.spec.ts', project: 'chromium-serial-db', scenarios: ['catalog-off core works for every role', 'owner administration works while the catalog is off', 'child request', 'adult self-approval, cancellation', 'changed terms require renewed review', 'funding hold', 'foreign requests stay invisible', 'uncertain command outcome replays', 'mobile targets, keyboard operation'], minTests: 9 },
 	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'members-owner.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 3 },
 	{ file: 'room-management.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },

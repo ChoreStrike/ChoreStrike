@@ -161,6 +161,13 @@ jest.mock('../../../src/components/Common/Modal.vue', () => ({
 	template: '<div class="modal-overlay"><slot /><button class="close-btn" @click="$emit(\'close\')">X</button></div>',
 }))
 
+// CS-PLAN-070 WP8: the owner catalog editor is a dedicated spec surface
+// (RewardCatalogEditor.spec.js); Settings only hosts the section card.
+jest.mock('../../../src/components/Rewards/RewardCatalogEditor.vue', () => ({
+	name: 'RewardCatalogEditor',
+	template: '<div data-testid="catalog-editor-stub" />',
+}))
+
 describe('Settings.vue', () => {
 	let pinia
 
@@ -502,6 +509,8 @@ describe('Settings.vue', () => {
 		expect(wrapper.find('[data-testid="floors-section"]').exists()).toBe(false)
 		expect(wrapper.find('[data-testid="danger-zone"]').exists()).toBe(false)
 		expect(wrapper.find('[data-testid="members-section"]').exists()).toBe(false)
+		// CS-PLAN-070 WP8: the owner catalog administration is owner-only.
+		expect(wrapper.find('[data-testid="catalog-section"]').exists()).toBe(false)
 		// The personal title section stays visible for members.
 		expect(wrapper.text()).toContain('Your Title')
 	})
@@ -517,6 +526,9 @@ describe('Settings.vue', () => {
 		expect(wrapper.find('[data-testid="house-section"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="floors-section"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="danger-zone"]').exists()).toBe(true)
+		// CS-PLAN-070 WP8: owner catalog administration hosts the editor.
+		expect(wrapper.find('[data-testid="catalog-section"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="catalog-editor-stub"]').exists()).toBe(true)
 	})
 
 	it('offers up/down reorder buttons per floor as owner', async () => {

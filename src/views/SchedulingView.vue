@@ -7,6 +7,9 @@
 	<div class="scheduling-view" data-testid="scheduling-view">
 		<header class="scheduling-header">
 			<h1>{{ t('chorestrike', 'Smart Scheduling') }}</h1>
+			<!-- Essential onboarding slice (WP8 §3.6): agreements vs
+			     voluntary help and how actual shares split the work. -->
+			<HelpEntry variant="context" topic="agreements" />
 			<p class="subtitle">
 				{{ t('chorestrike', 'Intelligent task distribution based on member availability and preferences') }}
 			</p>
@@ -65,6 +68,7 @@ import SchedulePlanner from '../components/Scheduling/SchedulePlanner.vue'
 import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
 import SelfAvailabilitySettings from '../components/Scheduling/SelfAvailabilitySettings.vue'
 import OvercapacityWarning from '../components/Scheduling/OvercapacityWarning.vue'
+import HelpEntry from '../components/Help/HelpEntry.vue'
 
 const schedulingStore = useSchedulingStore()
 const tasksStore = useTasksStore()

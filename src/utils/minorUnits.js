@@ -52,6 +52,67 @@ export function formatMinor(minor) {
 }
 
 /**
+ * Strict decimal parser for Coin prices (CS-PLAN-070 WP8 §3.3, decision
+ * D7/C3a): converts authored decimal text to exact integer minor units
+ * without ever touching float arithmetic.
+ *
+ * Accepted grammar (whole prices and at most two fractional digits):
+ *   `"12"` → 1200, `"12.5"` → 1250, `"0.99"` → 99, `"12,50"` → 1250
+ * Rejected: mixed or repeated separators, grouping (`1.234,56`), leading
+ * or trailing separators (`,5`, `12.`), signs, exponents (`1e3`, `1E2`),
+ * more than two fraction digits, zero, negatives and values whose minor
+ * units exceed `Number.MAX_SAFE_INTEGER`.
+ *
+ * @param {string} text Authored decimal price text (draft strings only).
+ * @return {number} Exact integer minor units (always positive).
+ * @throws {Error} With a stable English reason when the input is invalid.
+ */
+export function parseCoinMinor(text) {
+	const fail = (reason) => {
+		throw new Error(`Invalid coin price: ${reason}`)
+	}
+	if (typeof text !== 'string') {
+		fail('input must be a string')
+	}
+	const trimmed = text.trim()
+	if (trimmed === '') {
+		fail('empty input')
+	}
+	if (/[eE]/.test(trimmed)) {
+		fail('exponents are not allowed')
+	}
+	if (/[+-]/.test(trimmed)) {
+		fail('signs are not allowed')
+	}
+	const dotCount = (trimmed.match(/\./g) ?? []).length
+	const commaCount = (trimmed.match(/,/g) ?? []).length
+	if (dotCount + commaCount > 1) {
+		fail('only one decimal separator is allowed')
+	}
+	const separator = dotCount === 1 ? '.' : (commaCount === 1 ? ',' : null)
+	const [wholePart, fractionPart] = separator ? trimmed.split(separator) : [trimmed, '']
+	if (!/^\d+$/.test(wholePart)) {
+		fail('the whole part must be digits only')
+	}
+	if (separator !== null && !/^\d{1,2}$/.test(fractionPart)) {
+		fail('at most two decimal digits are allowed')
+	}
+	if (wholePart.length > 1 && wholePart.startsWith('0')) {
+		fail('leading zeros are not allowed')
+	}
+	const whole = Number.parseInt(wholePart, 10)
+	const fraction = fractionPart === '' ? 0 : Number.parseInt(fractionPart.padEnd(2, '0'), 10)
+	const minor = whole * COIN_MINOR_PER_UNIT + fraction
+	if (!Number.isSafeInteger(minor)) {
+		fail('the price is too large')
+	}
+	if (minor <= 0) {
+		fail('the price must be greater than zero')
+	}
+	return minor
+}
+
+/**
  * Integer-only decimal formatting: `(value - remainder) / scale` for the
  * whole part, remainder-based fraction digits — never `value / scale`
  * float division.

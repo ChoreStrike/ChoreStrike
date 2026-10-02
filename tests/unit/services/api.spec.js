@@ -15,7 +15,28 @@ jest.mock('@nextcloud/l10n', () => ({
 }))
 
 import axios from '@nextcloud/axios'
-import { api, get, post, put, patch, del, ApiError, API_PREFIX } from '../../../src/services/api.js'
+import {
+	api,
+	get,
+	post,
+	put,
+	patch,
+	del,
+	ApiError,
+	API_PREFIX,
+	setCatalogEnabled,
+	fetchCatalog,
+	createCatalogItem,
+	updateCatalogItem,
+	fetchRewardRequests,
+	fetchRewardRequest,
+	createRewardRequest,
+	approveRewardRequest,
+	rejectRewardRequest,
+	cancelRewardRequest,
+	fulfillRewardRequest,
+	correctRewardRequest,
+} from '../../../src/services/api.js'
 
 describe('api.js', () => {
 	beforeEach(() => {
@@ -193,6 +214,97 @@ describe('api.js', () => {
 			expect(api.put).toBe(put)
 			expect(api.patch).toBe(patch)
 			expect(api.delete).toBe(del)
+		})
+	})
+
+	describe('reward catalog & request wrappers (WP8 §3.2 on docs/api/rewards.md)', () => {
+		it('PUTs the narrow versioned catalog gate writer', async () => {
+			axios.mockResolvedValue({ data: { success: true, data: { catalogEnabled: true } } })
+			await setCatalogEnabled({ catalogEnabled: true, expectedVersion: 4, commandId: 'cmd-1' })
+
+			expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+				method: 'put',
+				url: '/apps/chorestrike/api/v1/house/catalog',
+				data: { catalogEnabled: true, expectedVersion: 4, commandId: 'cmd-1' },
+			}))
+		})
+
+		it('GETs catalog pages with scope/cursor/limit params', async () => {
+			axios.mockResolvedValue({ data: { success: true, data: { catalogEnabled: true, items: [] } } })
+			await fetchCatalog({ scope: 'admin', cursor: 12, limit: 50 })
+
+			expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+				method: 'get',
+				url: '/apps/chorestrike/api/v1/rewards',
+				params: { scope: 'admin', cursor: 12, limit: 50 },
+			}))
+		})
+
+		it('POSTs new catalog items and PUTs updates (never DELETE)', async () => {
+			axios.mockResolvedValue({ data: { success: true, data: { id: 1 } } })
+			await createCatalogItem({ title: 'Zoo', priceMinor: 500, commandId: 'cmd-2' })
+			expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+				method: 'post',
+				url: '/apps/chorestrike/api/v1/rewards',
+				data: { title: 'Zoo', priceMinor: 500, commandId: 'cmd-2' },
+			}))
+
+			await updateCatalogItem(7, { archived: true, expectedVersion: 3, commandId: 'cmd-3' })
+			expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+				method: 'put',
+				url: '/apps/chorestrike/api/v1/rewards/7',
+				data: { archived: true, expectedVersion: 3, commandId: 'cmd-3' },
+			}))
+		})
+
+		it('GETs request pages with scope/state/cursor params and the detail with audit', async () => {
+			axios.mockResolvedValue({ data: { success: true, data: { requests: [] } } })
+			await fetchRewardRequests({ scope: 'house', state: 'pending', cursor: 40, limit: 50 })
+			expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+				method: 'get',
+				url: '/apps/chorestrike/api/v1/reward-requests',
+				params: { scope: 'house', state: 'pending', cursor: 40, limit: 50 },
+			}))
+
+			await fetchRewardRequest(9)
+			expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+				method: 'get',
+				url: '/apps/chorestrike/api/v1/reward-requests/9',
+			}))
+		})
+
+		it('POSTs the frozen-terms request create', async () => {
+			axios.mockResolvedValue({ data: { success: true, data: { id: 5 } } })
+			await createRewardRequest({ itemId: 2, itemVersion: 1, priceMinor: 700, commandId: 'cmd-4' })
+			expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+				method: 'post',
+				url: '/apps/chorestrike/api/v1/reward-requests',
+				data: { itemId: 2, itemVersion: 1, priceMinor: 700, commandId: 'cmd-4' },
+			}))
+		})
+
+		it('POSTs each lifecycle command on its own sub-route', async () => {
+			axios.mockResolvedValue({ data: { success: true, data: { id: 5 } } })
+			await approveRewardRequest(5, { commandId: 'c', expectedVersion: 0 })
+			await rejectRewardRequest(5, { commandId: 'c', expectedVersion: 0, reasonCode: 'not_needed' })
+			await cancelRewardRequest(5, { commandId: 'c', expectedVersion: 1 })
+			await fulfillRewardRequest(5, { commandId: 'c', expectedVersion: 1, delivered: true })
+			await correctRewardRequest(5, {
+				commandId: 'c', expectedVersion: 2, notDelivered: true, reasonCode: 'not_delivered', settlementEntryId: 88,
+			})
+
+			const urls = axios.mock.calls.map(call => call[0].url)
+			expect(urls).toEqual([
+				'/apps/chorestrike/api/v1/reward-requests/5/approve',
+				'/apps/chorestrike/api/v1/reward-requests/5/reject',
+				'/apps/chorestrike/api/v1/reward-requests/5/cancel',
+				'/apps/chorestrike/api/v1/reward-requests/5/fulfill',
+				'/apps/chorestrike/api/v1/reward-requests/5/correct',
+			])
+			const correctCall = axios.mock.calls[4][0]
+			expect(correctCall.data).toEqual({
+				commandId: 'c', expectedVersion: 2, notDelivered: true, reasonCode: 'not_delivered', settlementEntryId: 88,
+			})
 		})
 	})
 

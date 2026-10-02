@@ -30,6 +30,7 @@ const {
 	useSetupStore,
 	useTitlesStore,
 	usePausesStore,
+	useRewardsStore,
 } = {
 	useUserStore: require('../../../src/store/user.js').useUserStore,
 	usePreferencesStore: require('../../../src/store/preferences.js').usePreferencesStore,
@@ -45,6 +46,7 @@ const {
 	useSetupStore: require('../../../src/store/setup.js').useSetupStore,
 	useTitlesStore: require('../../../src/store/titles.js').useTitlesStore,
 	usePausesStore: require('../../../src/store/pauses.js').usePausesStore,
+	useRewardsStore: require('../../../src/store/rewards.js').useRewardsStore,
 }
 
 /**
@@ -77,6 +79,8 @@ describe('useStoreReset composable', () => {
 		useSetupStore().catalog = { levels: [] }
 		useTitlesStore().currentTitle = { labelKey: 'x' }
 		usePausesStore().pauses = [{ pauseGroupId: 1 }]
+		useRewardsStore().requests.mine.items = [{ id: 1 }]
+		useRewardsStore().unresolvedCommand = { commandId: 'x', label: 'y' }
 	}
 
 	it('resets every house-scoped store in one call', () => {
@@ -100,6 +104,8 @@ describe('useStoreReset composable', () => {
 		expect(useSetupStore().catalog).toBeNull()
 		expect(useTitlesStore().currentTitle).toBeNull()
 		expect(usePausesStore().pauses).toEqual([])
+		expect(useRewardsStore().requests.mine.items).toEqual([])
+		expect(useRewardsStore().unresolvedCommand).toBeNull()
 	})
 
 	it('keeps every store importable without a cycle (DAG pin guard, CS-PLAN-067 §3.1 D3)', () => {

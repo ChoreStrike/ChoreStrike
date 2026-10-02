@@ -94,19 +94,24 @@ ChoreStrike/
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Profile/            # TitleBadge (single retained series; the
 │   │   │                       #   TitlePicker retired with CS-PLAN-070 WP4)
+│   │   ├── Rewards/            # RewardCatalogEditor (owner Settings section),
+│   │   │                       #   RewardRequestList, RewardRequestDetails
+│   │   │                       #   (CS-PLAN-070 WP8)
 │   │   └── Scheduling/         # SelfAvailabilitySettings, AvailabilitySettings, AvailabilityEditModal,
 │   │                           #   EnergyBudgetSettings, BudgetAnalysis, WeekBudgetGrid,
 │   │                           #   SchedulePlanner, ScheduleCalendar, OvercapacityWarning
-│   ├── composables/            # useCelebration (confetti + SFX), useToasts
+│   ├── composables/            # useCelebration (confetti + SFX), useToasts,
+│   │                           #   useStoreReset (central identity reset, WP6/WP8)
 │   ├── constants/              # Shared constants (taskVisibility, titles, scheduling)
 │   ├── services/               # Shared API client (api.js — single URL prefix,
 │   │                           #   envelope unwrap, ApiError normalization)
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
 │   │                           #   user, scheduling, checklist, minigame, titles,
-│   │                           #   ranking, setup) + userAutoInit bootstrap plugin
+│   │                           #   ranking, setup, preferences, pauses, rewards)
+│   │                           #   + userAutoInit bootstrap plugin
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
 │   ├── views/                  # Dashboard, Today, Insights, RoomDetail, TaskManager,
-│   │                           #   Leaderboard, Scheduling, Calendar, Settings
+│   │                           #   Leaderboard, Scheduling, Calendar, Settings, Rewards
 │   └── utils/                  # currentUser, dateKeys, icons, roomIcons, logger,
 │                               #   confetti, sound, energyBudgets
 ├── l10n/                       # Translations
@@ -575,6 +580,47 @@ stale response can never win and a committed write is never misreported:
   }
 }
 ```
+
+#### `useRewardsStore` (CS-PLAN-070 WP8)
+```javascript
+{
+  state: {
+    catalog: { active: pageCtx, admin: pageCtx },   // paged reads, ascending id cursor
+    requests: { mine: pageCtx, house: pageCtx },    // paged reads, descending id cursor + state filter
+    detail: { request, audit, … },                  // one authorized request + on-demand audit
+    saving: false,
+    error: null,
+    conflict: false,        // definitive 409: sources re-read, caller drafts survive
+    unresolvedCommand: null,// uncertain outcome: SAME UUID/payload replay (memory only)
+    refreshError: null      // command committed, follow-up read failed (visible, non-fatal)
+  },
+  actions: {
+    fetchCatalogPage(scope, {reset}),
+    fetchRequestPage(scope, {state, reset}),
+    fetchRequestDetail(id), clearDetail(),
+    createCatalogItem(fields), updateCatalogItem(item, changes),
+    createRequest(item),
+    approveRequest(r), rejectRequest(r, reason?), cancelRequest(r, reason?),
+    fulfillRequest(r), correctRequest(r, reason),
+    retryUnresolved(), dismissUnresolved(), clearError(), reset()
+  }
+}
+```
+
+> The store owns READ PAGES and COMMAND TRANSPORT — never accounting:
+> the wallet display source stays `game.wallet` (`fetchGameState()`), the
+> household catalog gate flag stays in the house store (narrow versioned
+> `updateCatalogEnabled` writer), and no balance/reservation is ever
+> incremented locally. Every command mints one RFC 4122 v4 UUID and keeps
+> it with the normalized payload until the outcome is known: a definitive
+> 4xx discards the identity (a 409 additionally re-reads the touched
+> authorized sources), while a transport/5xx outcome retains it for an
+> explicit same-key replay — never an automatic fresh-key resend. Each
+> page context carries its own read generation (`seq`), so a delayed
+> response can never cross a scope/filter switch or survive `reset()`
+> (client-state contract above). API contract:
+> [`docs/api/rewards.md`](../api/rewards.md); canonical definition:
+> [`src/store/rewards.js`](../../src/store/rewards.js).
 
 #### `useSchedulingStore`
 ```javascript

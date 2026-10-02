@@ -1,4 +1,4 @@
-# Backlog — Open Items
+﻿# Backlog — Open Items
 
 > **Single source of truth for everything not yet done.** Entries are organized
 > into the five dependency-oriented sections fixed by
@@ -192,7 +192,7 @@ approved responsibility model; a future product decision is still required.
 ---
 
 ### [P3] FEAT-UX-023 — Onboarding & help layer
-**Status**: In Progress - WP6 essential help slice DELIVERED; WP8 essential onboarding/catalog/contextual-help slice activated via CS-PLAN-079 (Standard A `PASS-WITH-FIXES` 2026-10-02); wider tour scope remains open · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
+**Status**: In Progress - WP6 essential help slice DELIVERED 2026-09-30; WP8 essential onboarding/catalog/contextual-help slice DELIVERED 2026-10-02 via CS-PLAN-079 (five contextual topics on the shared named Modal plus reward glossary terms); wider tour scope remains open · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
 **Owning**: CS-PLAN-077 WP6 (delivered); CS-PLAN-070 WP8 (essential slice); wider guided tour/help unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
@@ -217,36 +217,13 @@ profile or guardian-consent model should be implied by onboarding copy.
       nav-level entry; per-view contextual entry points remain WP8).
 - [x] Glossary unifying the core household vocabulary (Agreement,
       Catch-up, Pause, Streak, Quiet time, Ranking, Arcade, Coins).
-- [ ] Contextual hints for the selected model (rhythm, completion window, pause,
-      contribution, Coins); do not teach removed combo/freeze mechanics as target behavior.
-- [x] Detail the essential WP8 slice and its tests in [CS-PLAN-079](../plans/active/cs-plan-079-wp8-reward-ui-and-onboarding.md) (2026-10-02;
+- [x] Contextual hints for the selected model (accounts/roles, agreements/shares,
+      progress/windows, catalog gates, owner pricing) as manually triggered
+      context topics — delivered with the WP8 slice 2026-10-02; do not teach
+      removed combo/freeze mechanics as target behavior.
+- [x] Detail the essential WP8 slice and its tests in [CS-PLAN-079](../plans/done/cs-plan-079-wp8-reward-ui-and-onboarding.md) (2026-10-02;
       documentation only, no activation or runtime implementation).
 - [ ] Complete wider guided tour/help scope separately before whole-item closure.
-
----
-
-### [P2] FEAT-UX-026 — Real-world reward shop
-**Status**: In Progress (WP7 backend DELIVERED 2026-10-01; WP8 UI activated via CS-PLAN-079, Standard A `PASS-WITH-FIXES` 2026-10-02, implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
-**Owning**: CS-PLAN-070 WP7..WP8; CS-PLAN-078 WP7 (delivered); CS-PLAN-079 WP8 · **Depends on**: CONCEPT-001 (reliable core/G1) · **Blocks**: — · **Folded-in**: CONCEPT-001
-**Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
-
-The [reward options](../concepts/gamification-and-rewards.md#reward-options-for-a-family-first-app)
-record the 2026-09-17 selection: recognition first, optional family catalog with
-effort-only chore Coins, no arcade funding, retained awards. Children request with
-owner approval; adults redeem directly; owners administer the catalog. Reserve
-at request, settle at fulfillment, release on rejection/cancellation; existing
-requests keep their price. Genuine correction can create a negative balance,
-without rewriting unrelated events or reclaiming fulfilled rewards.
-
-- [x] Core model/redemption decisions and concept extension recorded (D2/D7/D8/D11).
-- [x] C3 rate/share examples and aggregate-underfunding hold policy recorded (2026-09-17).
-- [x] Eight C4 actor, lifecycle, membership, visibility and refund decisions recorded (2026-09-17).
-- [x] Draft the WP7 backend API/schema/accounting/erasure/digest and race-test mapping in [CS-PLAN-078](../plans/done/cs-plan-078-wp7-catalog-and-request-backend.md) (2026-10-01); technical proposals, not implementation approval.
-- [x] Pass WP7 Standard A after checking the delivered reliable-core/G1 evidence (2026-10-01, `PASS` with zero findings; [CS-PLAN-078](../plans/done/cs-plan-078-wp7-catalog-and-request-backend.md) now in `active/`).
-- [x] Implement and verify the T6 backend lifecycle in CS-PLAN-078 (schema, C4 lifecycle, money, membership/erasure, privacy, digest, races/replay, browser contract) — DELIVERED 2026-10-01, final Standard B `PASS-WITH-FIXES`, plan in `done/`.
-- [x] Draft WP8 catalog/request UI, essential onboarding/help and T11 mapping in [CS-PLAN-079](../plans/active/cs-plan-079-wp8-reward-ui-and-onboarding.md) (2026-10-02; no activation or runtime implementation).
-- [x] Pass WP8 Standard A before implementing the frontend slice (2026-10-02, `PASS-WITH-FIXES` with one safe wording fix; [CS-PLAN-079](../plans/active/cs-plan-079-wp8-reward-ui-and-onboarding.md) now in `active/`).
-- [ ] Complete WP8 catalog/request UI, C5 presentation/onboarding and T11 desktop/mobile/keyboard evidence; no whole-item closure from WP7 alone.
 
 ---
 
@@ -384,9 +361,10 @@ agreement entry points, shared-device store reset, no-Coin closure and the
 essential help slice; FEAT-UX-024/025 closed with it.
 WP7 was delivered via [CS-PLAN-078](../plans/done/cs-plan-078-wp7-catalog-and-request-backend.md)
 (final Standard B `PASS-WITH-FIXES` 2026-10-01; catalog/C4 backend, ADR-017).
-WP8 is detailed in [CS-PLAN-079](../plans/active/cs-plan-079-wp8-reward-ui-and-onboarding.md)
-(drafted and activated 2026-10-02, Standard A `PASS-WITH-FIXES`; implementation not started).
-CONCEPT-001 remains In Progress for WP8-WP9 and the family evidence gate.
+WP8 was delivered via [CS-PLAN-079](../plans/done/cs-plan-079-wp8-reward-ui-and-onboarding.md)
+(final Standard B `PASS-WITH-FIXES` 2026-10-02: reward UI/onboarding, two catalog gates,
+persistent request surfaces, exact prices, uncertain-command replay, essential help).
+CONCEPT-001 remains In Progress for WP9 (cross-DB/family evidence) — the closing gate.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

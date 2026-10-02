@@ -9,6 +9,9 @@
 			<h1 data-testid="today-title">
 				{{ t('chorestrike', 'My Day') }}
 			</h1>
+			<!-- Essential onboarding slice (WP8 §3.6): windows, rhythm,
+			     neutral days and the contribution-vs-Coins line. -->
+			<HelpEntry variant="context" topic="progress" />
 			<div class="filter-toggle" role="group" :aria-label="t('chorestrike', 'Task filter')">
 				<button
 					class="filter-button"
@@ -276,6 +279,7 @@ import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import TaskChecklist from '../components/Tasks/TaskChecklist.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
+import HelpEntry from '../components/Help/HelpEntry.vue'
 
 const APPOINTMENT_LIMIT = 5
 
@@ -287,6 +291,7 @@ export default {
 		ErrorState,
 		TaskChecklist,
 		ParticipationDialog,
+		HelpEntry,
 	},
 
 	setup() {

@@ -143,4 +143,11 @@ describe('SchedulingView', () => {
 
 		expect(wrapper.find('[data-testid="scheduling-error"]').exists()).toBe(true)
 	})
+
+	// CS-PLAN-070 WP8 §3.6: the essential agreements/shares help sits on
+	// the scheduling surface.
+	it('offers the contextual agreements help next to the header', () => {
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+		expect(wrapper.find('[data-testid="help-context-agreements"]').exists()).toBe(true)
+	})
 })

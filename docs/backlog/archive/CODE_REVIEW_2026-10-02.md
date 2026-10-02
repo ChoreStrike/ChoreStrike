@@ -61,3 +61,83 @@ None required — the parent authorizes exactly this WP8 slice and the WP7/C4 pr
 - CONCEPT-001: narrative updated (WP8 activated); stays In Progress for WP8-WP9 and family evidence.
 - Parent CS-PLAN-070 header/T11/WP8 rows, `docs/README.md`, `docs/plans/README.md` and `ACTIVE_TASKS.md` (In Progress entry + draft/activation line) updated.
 - Unrelated pre-existing `.gitkeep` deletions preserved unstaged, per the prior reviews' handling.
+
+---
+
+# Final Code Review: CS-PLAN-079 WP8 Reward UI and Onboarding — Standard B
+
+**Review Date**: 2026-10-02
+**Reviewer**: Kilo (main agent, no subagents — Standard B tier)
+**Mode**: Standard B (final implementation review; whole-owning-plan verification for the `active/` -> `done/` transition)
+**Scope**: the complete WP8 working-tree package (46 modified + 11 untracked files: reward store/view/components, API wrappers, stores/reset/router/App/help/l10n, Jest suites, `family-rewards.spec.ts` + gate registration) plus the plan's full file manifest, acceptance criteria, required test evidence, durable-doc integration and implementation history
+**Base Commit**: `812721a910bbd9aed3c9c282260d751645d22d2b` (`master`; index empty at capture — staged-diff sha1 `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391`; unstaged-diff sha1 `671e682493f453c1d8ddb2316d17cb98e77925b6`, 434254 bytes; 11 untracked files with per-file SHA256 captured before review; unrelated pre-existing `.gitkeep` deletions preserved unstaged)
+
+---
+
+## Executive Summary
+
+### Outcome
+- PASS-WITH-FIXES
+
+### What Was Reviewed
+- Full source review of every new/changed frontend file: `src/store/rewards.js`, `src/views/Rewards.vue`, `src/components/Rewards/{RewardCatalogEditor,RewardRequestList,RewardRequestDetails}.vue`, `src/services/api.js` wrappers, `src/utils/minorUnits.js` `parseCoinMinor`, house/preferences/game/user store extensions, `useStoreReset` enumeration (15 stores), router/App navigation gating, help/glossary extension, Settings/wizard/context placements, l10n artifacts, the Jest suites and the T11 browser spec + gate registration.
+- Contract verification against `docs/api/rewards.md`: exact command payloads (`expectedVersion`, `commandId`, closed reason sets, caller-own `wallet` snapshot, settlement-referenced correction), cursor directions/dedup/exhaustion, fail-closed two-gate browsing, persistent request surfaces, UUID identity retention with same-key replay, definitive-4xx discard, generation guards, no optimistic accounting, no foreign wallet display, escaped authored text, literal-`t()` label maps, no `console.*`/`v-html`.
+- Plan completion: manifest all-N present / all-M extended, 12/12 acceptance criteria, T11 registered (9/9 exact titles across `required-scenarios.json`, `run-e2e-gate.js`, `playwright.config.ts`), durable-doc integration performed in-review.
+
+### What Was Fixed Immediately (user-approved in-round fix cluster)
+1. RF-079-01 (minor) — `refreshAfterCommand` dropped the active state filter on post-command refreshes; now passes the context's `state` (regression added).
+2. RF-079-02 (minor) — `ensureCatalog` never released its one-shot guard on failure, breaking the ErrorState retry; guard releases on failure and `loadAll()` restarts the read on retry (regression added).
+3. RF-079-03 (minor) — `updateCatalogEnabled` left `stateVersion` stale after a 409; the catch now re-reads the house per plan §3.5 (regression added).
+4. RF-079-04 (nit) — `backlog.md` FEAT-UX-023 status line lost its closing parenthesis + hard wraps; fixed.
+
+### Main Risks Remaining
+1. None blocking. WP9 owns cross-DB verification, the final gate pair and voluntary family evidence (CONCEPT-001 stays open); FEAT-UX-023 keeps its wider guided-tour remainder.
+
+---
+
+## Findings
+
+| Severity | File:line | Issue | Status |
+|---|---|---|---|
+| minor | src/store/rewards.js:567 (`refreshAfterCommand`) | Post-command refresh reset touched request pages without their active state filter (filtered list silently flipped to All) | fixed in-round + regression |
+| minor | src/views/Rewards.vue (`ensureCatalog`) | One-shot `catalogRequested` never released on failure; ErrorState retry never re-fetched and degraded to the empty state | fixed in-round + regression |
+| minor | src/store/house.js (`updateCatalogEnabled`) | No authorized house re-read after a 409 - stale `stateVersion` until a Settings remount (plan §3.5 violation for this control) | fixed in-round + regression |
+| nit | docs/backlog/backlog.md (FEAT-UX-023 status) | Missing closing parenthesis + awkward hard wraps | fixed in-round |
+
+All findings plan-owned and resolved; nothing routed to the backlog; no `// HACK:` additions.
+
+## Questions and Decisions
+
+1. Disposition of RF-079-01..03 (logic changes - not silently auto-fixed)
+   - Option A (Recommended): fix all three in-round with regressions and rerun gates - selected.
+   - Option B: record as plan findings (`NEEDS-FOLLOW-UP`, plan stays active).
+   - Option C: fix only RF-079-02 now, park the rest.
+2. Browser evidence depth after the fixes
+   - Option A (Recommended): full canonical three-pool gate on the final tree - selected.
+   - Option B: serial pool only.
+   - Option C: Jest + unit gates only.
+
+## Gates (rerun green on the reviewed final tree)
+
+- `npm test -- --runInBand` - Jest 1219/1219, 108 suites (1216 + 3 review regressions)
+- `npm run lint` / `npm run stylelint` - zero problems
+- `npm run build` - webpack 5.105.2 compiled successfully
+- `npm run test:noise` - free of error-level log noise
+- `npm run l10n:check-keys` - 1269 keys, POT/EN/DE exact coverage
+- `npm run backlog:check` - 32 scoped files green; `npm run docs:encoding` - 865 files clean
+- `git diff --check` - clean
+- Docker: PHPUnit unit OK (1116 tests, 3616 assertions) + integration OK (529 tests, 2937 assertions), both `--fail-on-skipped` with zero skips (no PHP changed); `composer cs:check` 0/395 fixable
+- `node scripts/run-e2e-gate.js --self-test` - passed
+- `npm run test:e2e:gate` - **PASSED**: chromium -> chromium-serial-db -> chromium-scheduling-owner sequentially, zero skipped/failed/flaky required scenarios
+
+## Documentation and Backlog Updates
+
+- Durable docs integrated: UC-17 + gap-index/whitespace rows (`concepts/ui-use-cases.md`), `useRewardsStore` contract block + directory entries (`engineering/architecture.md`), optional-areas two-gate contract + fifteen-store reset (`concepts/calm-core-ux.md`), WP8 implemented note (`concepts/gamification-and-rewards.md`), serial-pool spec note (`engineering/testing.md`), release checklist 8a + coverage pointer (`testing/release-test-plan.md`), wizard help note (`concepts/house-setup-and-templates.md`). `docs/api/rewards.md` unchanged - the client mirrors the documented contract.
+- CS-PLAN-079 moved `active/` -> `done/` with all 12 acceptance criteria checked and RF-079-01..04 resolved in its Review Findings; final Review Outcome appended (baseline, fingerprint, verification, decisions, gates).
+- FEAT-UX-026 closed to `archive/2026-10.md` (whole scope satisfied by WP7+WP8); FEAT-UX-023 keeps its wider tour remainder; CONCEPT-001 stays In Progress for WP9.
+- Parent CS-PLAN-070 header + WP8 row marked DELIVERED (parent stays active for WP9); `docs/README.md`, `docs/plans/README.md`, `ACTIVE_TASKS.md` updated.
+
+## Plan Lifecycle
+
+- Final Standard B `PASS-WITH-FIXES` with the whole owning plan verified complete: eligible `active/` -> `done/` transition performed with this review's scoped commit.
+- Unrelated pre-existing `.gitkeep` deletions preserved unstaged, per the prior reviews' handling.

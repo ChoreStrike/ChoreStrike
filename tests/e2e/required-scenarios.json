@@ -2,6 +2,17 @@
   "core-household-journey.spec.ts": [
     "core-household-journey.spec.ts > Canonical household journey > canonical household journey: first owner, setup, invitations, tasks, scheduling, child My Day, completion and undo"
   ],
+  "family-rewards.spec.ts": [
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > a correction-related funding hold blocks new money neutrally and clears with coverage",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > adult self-approval, cancellation and the attested correction refund exactly once",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > an uncertain command outcome replays with the same key and never double-spends",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > catalog-off core works for every role and the two opt-ins stay independent",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > changed terms require renewed review and hidden promises stay reachable",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > child request → owner approval → delivery spends exactly once",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > foreign requests stay invisible, identities stay isolated and role changes re-require approval",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > mobile targets, keyboard operation and real EN/DE copy work",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > owner administration works while the catalog is off and prices are exact"
+  ],
   "setup-wizard-journey.spec.ts": [
     "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > forced failures keep the structure and offer recovery",
     "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > owner completes the wizard through the UI and invites dad",

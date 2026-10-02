@@ -5,8 +5,24 @@
 
 import { defineStore } from 'pinia'
 import { translate as t } from '@nextcloud/l10n'
-import { api } from '../services/api.js'
+import { api, setCatalogEnabled } from '../services/api.js'
 import { logger } from '../utils/logger.js'
+
+/**
+ * Client idempotency UUID for the catalog-gate command (RFC 4122 v4).
+ * @return {string} Canonical lowercase UUID.
+ */
+function generateCommandId() {
+	const webCrypto = globalThis.crypto
+	if (webCrypto && typeof webCrypto.randomUUID === 'function') {
+		return webCrypto.randomUUID()
+	}
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+		const random = Math.random() * 16 | 0
+		const value = char === 'x' ? random : (random & 0x3 | 0x8)
+		return value.toString(16)
+	})
+}
 
 export const useHouseStore = defineStore('house', {
 	state: () => ({
@@ -52,6 +68,18 @@ export const useHouseStore = defineStore('house', {
 		 * @return {boolean} Whether the consent-filtered ranking is enabled
 		 */
 		rankingEnabled: (state) => state.house?.rankingEnabled === true,
+		/**
+		 * The owner-controlled household reward-catalog gate
+		 * (CS-PLAN-070 WP7/WP8, ADR-017) — false until the loaded house
+		 * explicitly says otherwise. This is the ONLY flag the WP8 catalog
+		 * navigation consumes; the personal visibility preference lives
+		 * in the preferences store and never writes this flag (and this
+		 * flag never writes the preference).
+		 *
+		 * @param {object} state Pinia state
+		 * @return {boolean} Whether the household catalog is enabled
+		 */
+		catalogEnabled: (state) => state.house?.catalogEnabled === true,
 	},
 
 	actions: {
@@ -135,6 +163,57 @@ export const useHouseStore = defineStore('house', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to update the ranking flag', error, { store: 'house', action: 'updateRankingEnabled' })
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Toggle the owner-only household reward-catalog gate
+		 * (CS-PLAN-070 WP8, ADR-017) through its NARROW versioned writer
+		 * `PUT /house/catalog` — `PUT /house` never touches the flag. The
+		 * house `stateVersion` is the expected version; an accepted
+		 * command invalidates pre-mutation house reads and lands the
+		 * refreshed house payload. Toggling never resets personal
+		 * visibility preferences or existing requests.
+		 * @param {boolean} enabled New catalog gate flag.
+		 * @return {Promise<object>} The refreshed house payload.
+		 */
+		async updateCatalogEnabled(enabled) {
+			if (!Number.isInteger(this.house?.stateVersion)) {
+				const error = new Error('House state version is unavailable')
+				this.error = error.message
+				throw error
+			}
+			this.loading = true
+			this.error = null
+
+			try {
+				const data = await setCatalogEnabled({
+					catalogEnabled: enabled === true,
+					expectedVersion: this.house.stateVersion,
+					commandId: generateCommandId(),
+				})
+				// Accepted mutation invalidates pre-mutation house reads
+				// (CS-PLAN-066 §3.3) — the authoritative response lands.
+				this.houseRequestSeq++
+				this.house = data
+				return data
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to toggle the catalog gate', error, { store: 'house', action: 'updateCatalogEnabled' })
+				if (error?.status === 409) {
+					// A 409 refreshes the authorized house read
+					// (CS-PLAN-070 WP8 §3.5): the next attempt must carry
+					// the fresh stateVersion instead of repeating the
+					// conflict until a remount happens to re-fetch.
+					this.fetchHouse().catch(() => {
+						// fetchHouse already logged the failure and set
+						// its own error state; the gate UI keeps an error
+						// note either way.
+					})
+				}
 				throw error
 			} finally {
 				this.loading = false

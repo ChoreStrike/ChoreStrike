@@ -27,6 +27,15 @@ task/organizational digest with replay suppression, and quiet/missed-window
 suppression. A passing subset is not the release gate; run
 `npm run test:e2e:gate` for all required scenarios in all three pools.
 
+`family-rewards.spec.ts` (CS-PLAN-070 WP8, CS-PLAN-079) also belongs to
+`chromium-serial-db`: it flips the catalog gate, roles and wallets against
+the shared family seed and drives the reward UI flows through the browser
+(owner administration while the catalog is off, child request → approval →
+delivery, adult self-approval/cancellation/correction, funding hold,
+privacy/identity boundaries, uncertain-command replay, and the
+mobile/keyboard/EN-DE proof). APIs only set up data and stimulate
+concurrent changes; the measured actions run in the UI.
+
 ### All Platforms (Windows, Linux, macOS)
 
 - **Docker**: Version 20.10 or higher

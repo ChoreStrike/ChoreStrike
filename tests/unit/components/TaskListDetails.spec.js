@@ -59,6 +59,15 @@ const mountDetails = (propsOver = {}) => {
 	})
 }
 
+// CS-PLAN-070 WP8 §3.6: the essential agreements/shares help sits on the
+// expanded task details.
+describe('TaskListDetails contextual help (WP8 §3.6)', () => {
+	it('offers the contextual agreements help on the task details', () => {
+		const wrapper = mountDetails()
+		expect(wrapper.find('[data-testid="help-context-agreements"]').exists()).toBe(true)
+	})
+})
+
 describe('TaskListDetails (CS-PLAN-067 §3.4)', () => {
 	beforeEach(() => {
 		jest.clearAllMocks()

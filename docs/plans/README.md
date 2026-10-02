@@ -61,22 +61,23 @@ blocked first final-review attempt and the original manifest are recorded in the
 live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
 Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-(parent plan; WP0-WP7 delivered). WP7 catalog and request backend,
-[CS-PLAN-078: WP7 - Catalog and Request Backend](done/cs-plan-078-wp7-catalog-and-request-backend.md),
-passed final Standard B `PASS-WITH-FIXES` on 2026-10-01 (owner-gated catalog,
-exact reservation/settlement/refund, current-role lifecycle with the WP7
-receipt guard, private reads, departure/rejoin/erasure and digest hooks,
-ADR-017). The parent remains open for WP8 (catalog/request UI) and WP9
-(final family/DB-matrix evidence).
+(parent plan; WP0-WP8 delivered). WP8 reward UI and onboarding,
+[CS-PLAN-079: WP8 - Reward UI and Onboarding](done/cs-plan-079-wp8-reward-ui-and-onboarding.md),
+passed final Standard B `PASS-WITH-FIXES` on 2026-10-02 (two independent
+catalog gates, persistent own/owner request surfaces with all C4
+attestation forms, exact `parseCoinMinor` prices, uncertain-command
+same-key replay, 409 conflict-safe drafts, shared-device reset, essential
+onboarding/help; RF-079-01..04 resolved in-round; FEAT-UX-026 closed).
+The parent remains open for WP9 (final family/DB-matrix evidence).
 
-Currently active: [CS-PLAN-079: WP8 - Reward UI and Onboarding](active/cs-plan-079-wp8-reward-ui-and-onboarding.md)
-(drafted and activated 2026-10-02, Standard A `PASS-WITH-FIXES`; implementation
-not started): two independent catalog gates, continuously reachable own/owner
-request management, exact prices, current-role actions,
-uncertain-response/conflict reconciliation, shared-device privacy, essential
-onboarding/help and T11 desktop/mobile/keyboard evidence.
-
-Latest completed: [CS-PLAN-078: WP7 - Catalog and Request Backend](done/cs-plan-078-wp7-catalog-and-request-backend.md)
+Latest completed: [CS-PLAN-079: WP8 - Reward UI and Onboarding](done/cs-plan-079-wp8-reward-ui-and-onboarding.md)
+(final Standard B `PASS-WITH-FIXES` 2026-10-02): the reward Pinia client
+(`src/store/rewards.js`), `/rewards` + `/reward-requests` surfaces, owner
+catalog editor, strict decimal price parser, essential contextual help,
+EN/DE/POT (1269 keys) and the T11 browser slice
+(`family-rewards.spec.ts`, 9 required scenarios, gate-registered).
+Review record: [CODE_REVIEW_2026-10-02](../backlog/archive/CODE_REVIEW_2026-10-02.md).
+Preceded by [CS-PLAN-078: WP7 - Catalog and Request Backend](done/cs-plan-078-wp7-catalog-and-request-backend.md)
 (final Standard B `PASS-WITH-FIXES` 2026-10-01): Version1033 schema +
 role-revision provenance, RewardService/RewardRequestService with the WP7
 under-lock receipt guard, exact reserve/approve/settle/refund money,

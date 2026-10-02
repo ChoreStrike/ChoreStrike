@@ -243,6 +243,17 @@
 				</div>
 			</section>
 
+			<!-- Reward catalog administration (CS-PLAN-070 WP8 §3.1, owner
+		     only): the household gate toggle and the item editor live in
+		     the existing House section surface — owner administration
+		     works while browsing is hidden or the gate is off. -->
+			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="catalog-section">
+				<h2>{{ t('chorestrike', 'Rewards') }}</h2>
+				<div class="setting-card">
+					<RewardCatalogEditor />
+				</div>
+			</section>
+
 			<!-- House Members (owner only) -->
 			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="members-section">
 				<h2>{{ t('chorestrike', 'Members') }}</h2>
@@ -506,6 +517,7 @@ import MemberList from '../components/Members/MemberList.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
 import NotificationPreferences from '../components/Settings/NotificationPreferences.vue'
 import PauseSettings from '../components/Settings/PauseSettings.vue'
+import RewardCatalogEditor from '../components/Rewards/RewardCatalogEditor.vue'
 
 export default {
 	name: 'Settings',
@@ -518,6 +530,7 @@ export default {
 		TitleBadge,
 		NotificationPreferences,
 		PauseSettings,
+		RewardCatalogEditor,
 	},
 
 	setup() {

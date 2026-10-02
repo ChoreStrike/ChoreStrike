@@ -58,10 +58,16 @@ by quiet times.
 
 ## Optional areas
 
-- The **arcade** (and later the WP8 catalog) are opt-in surfaces outside
-  the daily routine. The personal `arcadeVisible` preference hides both
-  the arcade surface and its navigation entry **immediately**; a direct
-  link shows a neutral placeholder.
+- The **arcade** and the **reward catalog** (WP8) are opt-in surfaces
+  outside the daily routine. The personal `arcadeVisible` /
+  `catalogVisible` preferences hide the surface and its navigation entry
+  **immediately**; a direct link shows a neutral placeholder, never an
+  auto-opt-in.
+- The reward catalog has a second, independent gate: the owner-controlled
+  household flag (default off, `PUT /house/catalog`). Browsing renders
+  only while BOTH gates are open (fail-closed while a preference read is
+  pending); owner administration in Settings and the persistent My
+  Requests surface stay reachable with either gate closed.
 - Opt-out is per person and lives in the Settings delivery-preferences
   surface.
 
@@ -81,7 +87,7 @@ by quiet times.
 ## Identity switches reset every house-scoped store
 
 One orchestration (`src/composables/useStoreReset.js`) resets **all
-fourteen** house-scoped stores before another identity is loaded — a
+fifteen** house-scoped stores before another identity is loaded — a
 shared device never renders a previous login's data. Each store keeps its
 own in-flight read generation guards; the composable adds the missing
 caller, not a per-store mechanism. The store dependency graph stays a

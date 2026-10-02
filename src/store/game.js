@@ -17,6 +17,11 @@ export const useGameStore = defineStore('game', {
 		wallet: null,
 		contributionMinor: 0,
 		stateVersion: 0,
+		// CS-PLAN-070 WP8 §3.2: the game-state read generation — a
+		// superseded or post-reset wallet read can never overwrite the
+		// newer rendered state (the reward surfaces refresh this source
+		// after every money effect).
+		gameStateRequestSeq: 0,
 		// CS-PLAN-070 WP4 read contract: the caller's own rhythm
 		// projection (confirmed/current/best + the pending-hold
 		// indicator). Pure server payload — My Day renders the confirmed
@@ -72,11 +77,17 @@ export const useGameStore = defineStore('game', {
 		 * Fetch game state
 		 */
 		async fetchGameState() {
+			const seq = ++this.gameStateRequestSeq
 			this.loading = true
 			this.error = null
 
 			try {
 				const data = await api.get('/api/v1/game/state')
+
+				if (seq !== this.gameStateRequestSeq) {
+					logger.debug('Dropping superseded game-state read', { store: 'game', action: 'fetchGameState' })
+					return this.gameState
+				}
 
 				this.gameState = data
 				// WP3: own wallet (minor units), exact contribution and the
@@ -106,11 +117,15 @@ export const useGameStore = defineStore('game', {
 					this.setWeeklyGoal(data.weeklyGoal)
 				}
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.gameStateRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch game state', error, { store: 'game', action: 'fetchGameState' })
 				throw error
 			} finally {
-				this.loading = false
+				if (seq === this.gameStateRequestSeq) {
+					this.loading = false
+				}
 			}
 		},
 
@@ -270,11 +285,19 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
-		 * Reset store state
+		 * Reset store state. CS-PLAN-070 WP8 §3.2: the cached
+		 * wallet/contribution/version fields are cleared with everything
+		 * else — the shared-device reset must not leak a previous login's
+		 * balances into the reward surfaces.
 		 */
 		reset() {
+			// Invalidate any in-flight read before clearing.
+			this.gameStateRequestSeq++
 			this.gameState = null
 			this.medals = []
+			this.wallet = null
+			this.contributionMinor = 0
+			this.stateVersion = 0
 			this.loading = false
 			this.error = null
 			this.rhythm = {

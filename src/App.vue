@@ -59,6 +59,26 @@
 					icon="icon-game"
 					data-testid="nav-arcade"
 					:name="t('chorestrike', 'Arcade')" />
+				<!-- Reward catalog (WP8 §3.1): optional browsing behind BOTH
+			     independent gates — the household gate (owner-controlled,
+			     loaded through the guarded house read after membership
+			     resolves) and the current person's loaded catalogVisible
+			     preference. Fail-closed: unknown/loading/failed
+			     preferences are not browsable. -->
+				<NcAppNavigationItem
+					v-if="catalogBrowsable"
+					:to="{ name: 'rewards' }"
+					icon="icon-gift"
+					data-testid="nav-rewards"
+					:name="t('chorestrike', 'Rewards')" />
+				<!-- Own reward requests: ONE persistent entry, independent of
+			     BOTH catalog gates and the request count — hiding or
+			     disabling browsing never strands existing promises. -->
+				<NcAppNavigationItem
+					:to="{ name: 'reward-requests' }"
+					icon="icon-reward"
+					data-testid="nav-reward-requests"
+					:name="t('chorestrike', 'My Requests')" />
 				<NcAppNavigationItem
 					:to="{ name: 'settings' }"
 					icon="icon-settings"
@@ -91,6 +111,7 @@ import NotAuthorizedState from './components/Common/NotAuthorizedState.vue'
 import HelpEntry from './components/Help/HelpEntry.vue'
 import { useUserStore } from './store/user.js'
 import { usePreferencesStore } from './store/preferences.js'
+import { useHouseStore } from './store/house.js'
 import { resetIdentityStores } from './composables/useStoreReset.js'
 
 export default {
@@ -107,7 +128,7 @@ export default {
 	},
 
 	computed: {
-		...mapStores(useUserStore, usePreferencesStore),
+		...mapStores(useUserStore, usePreferencesStore, useHouseStore),
 		membershipDenied() {
 			return this.userStore.membership === 'denied'
 		},
@@ -120,10 +141,61 @@ export default {
 		arcadeVisible() {
 			return this.preferencesStore.arcadeVisible !== false
 		},
+		/**
+		 * Reward catalog browsing (WP8 §3.1): both independent gates must
+		 * be open — the household gate AND the current person's LOADED
+		 * catalogVisible preference. Unknown/loading/failed preferences
+		 * are fail-closed (not browsable); a personal opt-out always wins
+		 * over the house gate, and the house gate never enables personal
+		 * browsing by itself.
+		 */
+		catalogBrowsable() {
+			return this.houseStore.catalogEnabled
+				&& this.preferencesStore.loaded
+				&& this.preferencesStore.catalogVisible === true
+		},
+	},
+
+	watch: {
+		/**
+		 * Load the house flag and the personal preferences through their
+		 * guarded reads after membership resolves (WP8 §3.1) — never
+		 * before, and never eagerly fetching catalog items for a hidden
+		 * entry. The catalog navigation is fail-closed until BOTH reads
+		 * land: the initial neutral defaults are not a completed read.
+		 */
+		'userStore.membership': {
+			immediate: true,
+			handler(membership) {
+				if (membership === 'member') {
+					this.loadHouseGate()
+					this.loadPreferences()
+				}
+			},
+		},
 	},
 
 	methods: {
 		t,
+
+		loadHouseGate() {
+			this.houseStore.fetchHouse().catch(() => {
+				// The navigation stays fail-closed (catalog hidden); the
+				// requests surface does not depend on this optional read.
+			})
+		},
+
+		loadPreferences() {
+			if (this.preferencesStore.loaded) {
+				return
+			}
+			this.preferencesStore.fetchPreferences().catch(() => {
+				// Fail-closed: without an authoritative read the optional
+				// catalog stays hidden; the persistent surfaces do not
+				// depend on this optional read.
+			})
+		},
+
 		handleRetry() {
 			// CS-PLAN-070 WP6 §3.8 (C5h): a re-loaded identity drops EVERY
 			// house-scoped store first — a shared device never renders a

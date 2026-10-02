@@ -74,6 +74,9 @@ msgstr ""
 msgid "A quiet range needs both a start and an end"
 msgstr ""
 
+msgid "A request reserves the Coins first. A child's request waits for owner approval; adults confirm their own request explicitly. Delivery is confirmed separately — only then are the Coins actually spent."
+msgstr ""
+
 msgid "A restart already exists for this occurrence"
 msgstr ""
 
@@ -95,6 +98,9 @@ msgstr ""
 msgid "A title is required"
 msgstr ""
 
+msgid "A title is required."
+msgstr ""
+
 msgid "A valid %1$s is required"
 msgstr ""
 
@@ -114,6 +120,9 @@ msgid "A valid roomTaskId is required"
 msgstr ""
 
 msgid "A weekly overview of catch-ups and pause activity."
+msgstr ""
+
+msgid "Accounts and roles"
 msgstr ""
 
 msgid "Acknowledge"
@@ -182,6 +191,12 @@ msgstr ""
 msgid "Agreement"
 msgstr ""
 
+msgid "Agreements and shares"
+msgstr ""
+
+msgid "Agreements are what the family has planned — responsibility and joint obligations differ from voluntary help. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins."
+msgstr ""
+
 msgid "All"
 msgstr ""
 
@@ -224,6 +239,12 @@ msgstr ""
 msgid "An optional weekly comparison of on-time shares. Participation is voluntary and shows shares, never amounts."
 msgstr ""
 
+msgid "An owner can add rewards in the Settings."
+msgstr ""
+
+msgid "An owner can enable it in the Settings, and each person can show or hide it in their own notification settings. Your existing requests stay reachable under My Requests."
+msgstr ""
+
 msgid "Apartment"
 msgstr ""
 
@@ -248,7 +269,37 @@ msgstr ""
 msgid "Applying…"
 msgstr ""
 
+msgid "Approve"
+msgstr ""
+
+msgid "Approve the request of {name}?"
+msgstr ""
+
+msgid "Approve your own request?"
+msgstr ""
+
+msgid "Approved"
+msgstr ""
+
+msgid "Approved, not delivered"
+msgstr ""
+
+msgid "Approving reserves nothing new — the Coins stay reserved until delivery. A child’s request needs this owner approval; an adult explicitly approves their own request."
+msgstr ""
+
 msgid "Arcade"
+msgstr ""
+
+msgid "Archive"
+msgstr ""
+
+msgid "Archive \"{title}\"?"
+msgstr ""
+
+msgid "Archived"
+msgstr ""
+
+msgid "Archived rewards disappear from browsing. Existing requests keep their frozen terms and stay processable."
 msgstr ""
 
 msgid "Are you sure you want to delete this task?"
@@ -305,6 +356,9 @@ msgstr ""
 msgid "Available"
 msgstr ""
 
+msgid "Available:"
+msgstr ""
+
 msgid "Avg Cleanliness"
 msgstr ""
 
@@ -318,6 +372,12 @@ msgid "Back"
 msgstr ""
 
 msgid "Back to Dashboard"
+msgstr ""
+
+msgid "Back to requests"
+msgstr ""
+
+msgid "Balance clarification"
 msgstr ""
 
 msgid "Balanced"
@@ -359,6 +419,15 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
+msgid "Cancel request"
+msgstr ""
+
+msgid "Cancel the request?"
+msgstr ""
+
+msgid "Cancelled"
+msgstr ""
+
 msgid "Cannot demote the last house owner"
 msgstr ""
 
@@ -390,6 +459,9 @@ msgid "Change bed sheets"
 msgstr ""
 
 msgid "Change role"
+msgstr ""
+
+msgid "Changed mind"
 msgstr ""
 
 msgid "Check the dishwasher, empty it if clean, and load or hand-wash any dirty dishes. Give the sink a quick wipe."
@@ -432,6 +504,9 @@ msgid "Child"
 msgstr ""
 
 msgid "Children may view and complete tasks, but not manage them"
+msgstr ""
+
+msgid "Choose a reason"
 msgstr ""
 
 msgid "Choose on which days you are available for tasks"
@@ -575,6 +650,12 @@ msgstr ""
 msgid "Configure when each member is available for tasks"
 msgstr ""
 
+msgid "Confirm delivery"
+msgstr ""
+
+msgid "Confirm delivery of \"{title}\"?"
+msgstr ""
+
 msgid "Confirm the agreement before applying the plan."
 msgstr ""
 
@@ -594,6 +675,12 @@ msgid "Correct split"
 msgstr ""
 
 msgid "Correct the work split"
+msgstr ""
+
+msgid "Corrected"
+msgstr ""
+
+msgid "Corrected (not delivered)"
 msgstr ""
 
 msgid "Correction requires the explicit notDelivered confirmation"
@@ -701,6 +788,9 @@ msgstr ""
 msgid "Decline"
 msgstr ""
 
+msgid "Decline the request?"
+msgstr ""
+
 msgid "Declined"
 msgstr ""
 
@@ -728,10 +818,16 @@ msgstr ""
 msgid "Delete this sub-task?"
 msgstr ""
 
+msgid "Delivered"
+msgstr ""
+
 msgid "Delivery and attention are different things: the digests arrive as a Nextcloud notification or email at the chosen time — quiet times apply to these deliveries. In-app notifications, however, appear only while ChoreStrike is open and are never delayed by quiet times."
 msgstr ""
 
 msgid "Description"
+msgstr ""
+
+msgid "Description (optional)"
 msgstr ""
 
 msgid "Difficulty"
@@ -774,6 +870,9 @@ msgid "Due tomorrow"
 msgstr ""
 
 msgid "Due {date}"
+msgstr ""
+
+msgid "Duplicate"
 msgstr ""
 
 msgid "During your quiet time no summaries are delivered. In-app notifications are not affected."
@@ -821,6 +920,9 @@ msgstr ""
 msgid "Dust the surfaces in the room."
 msgstr ""
 
+msgid "Each chore has a completion window around its planned day. Free and paused days are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve."
+msgstr ""
+
 msgid "Each override must be an object"
 msgstr ""
 
@@ -858,6 +960,9 @@ msgid "Edit Task"
 msgstr ""
 
 msgid "Edit floor"
+msgstr ""
+
+msgid "Edit reward"
 msgstr ""
 
 msgid "Edit task"
@@ -914,6 +1019,9 @@ msgstr ""
 msgid "Energy values must be between 1 and 20"
 msgstr ""
 
+msgid "Enter a valid price, e.g. 12 or 12.50 — at most two decimals."
+msgstr ""
+
 msgid "Enter house name"
 msgstr ""
 
@@ -936,6 +1044,9 @@ msgid "Every"
 msgstr ""
 
 msgid "Every participant needs a user id and a whole percent share"
+msgstr ""
+
+msgid "Every person — including a child — needs their own existing Nextcloud account; creating accounts and signing in belongs to Nextcloud. Wizard invites add members, and an owner sets the child role in the member settings. On a shared device everyone uses their own sign-in — there are no local child profiles."
 msgstr ""
 
 msgid "Every {n} days"
@@ -1223,10 +1334,16 @@ msgstr ""
 msgid "Hide rooms"
 msgstr ""
 
+msgid "Hiding the catalog removes its navigation entry immediately — your requests stay reachable, and the household gate is set by an owner, not here."
+msgstr ""
+
 msgid "High"
 msgstr ""
 
 msgid "High energy on weekends"
+msgstr ""
+
+msgid "History"
 msgstr ""
 
 msgid "Home type"
@@ -1268,10 +1385,16 @@ msgstr ""
 msgid "House was reset"
 msgstr ""
 
+msgid "Household"
+msgstr ""
+
 msgid "Household & Co."
 msgstr ""
 
 msgid "How your household is really doing"
+msgstr ""
+
+msgid "I attest that this reward was never delivered."
 msgstr ""
 
 msgid "Ideal"
@@ -1358,6 +1481,12 @@ msgstr ""
 msgid "Invite failed"
 msgstr ""
 
+msgid "It may belong to someone else or no longer exist."
+msgstr ""
+
+msgid "It was delivered"
+msgstr ""
+
 msgid "Item orders array is required"
 msgstr ""
 
@@ -1436,6 +1565,9 @@ msgstr ""
 msgid "Load"
 msgstr ""
 
+msgid "Load more"
+msgstr ""
+
 msgid "Loading activity…"
 msgstr ""
 
@@ -1445,13 +1577,25 @@ msgstr ""
 msgid "Loading members…"
 msgstr ""
 
+msgid "Loading requests…"
+msgstr ""
+
 msgid "Loading rooms..."
+msgstr ""
+
+msgid "Loading the catalog…"
+msgstr ""
+
+msgid "Loading the request…"
 msgstr ""
 
 msgid "Loading your day…"
 msgstr ""
 
 msgid "Loading..."
+msgstr ""
+
+msgid "Loading…"
 msgstr ""
 
 msgid "Low"
@@ -1503,6 +1647,9 @@ msgid "Members"
 msgstr ""
 
 msgid "Members appear here after their consent becomes effective on a Monday."
+msgstr ""
+
+msgid "Mine"
 msgstr ""
 
 msgid "Minimal"
@@ -1565,6 +1712,9 @@ msgstr ""
 msgid "My Private Tasks"
 msgstr ""
 
+msgid "My Requests"
+msgstr ""
+
 msgid "My tasks"
 msgstr ""
 
@@ -1584,6 +1734,9 @@ msgid "New Personal Best!"
 msgstr ""
 
 msgid "New Task"
+msgstr ""
+
+msgid "New reward"
 msgstr ""
 
 msgid "New room name"
@@ -1622,7 +1775,13 @@ msgstr ""
 msgid "No floors yet"
 msgstr ""
 
+msgid "No history yet"
+msgstr ""
+
 msgid "No house members found"
+msgstr ""
+
+msgid "No longer available"
 msgstr ""
 
 msgid "No member data available. Load scheduling data first."
@@ -1635,6 +1794,12 @@ msgid "No pauses recorded."
 msgstr ""
 
 msgid "No prefill"
+msgstr ""
+
+msgid "No reason given"
+msgstr ""
+
+msgid "No rewards yet — add the first one above."
 msgstr ""
 
 msgid "No room selected"
@@ -1679,10 +1844,16 @@ msgstr ""
 msgid "Not authenticated"
 msgstr ""
 
+msgid "Not delivered"
+msgstr ""
+
 msgid "Not enough available Coins for this request"
 msgstr ""
 
 msgid "Not in this level"
+msgstr ""
+
+msgid "Not needed"
 msgstr ""
 
 msgid "Not schedulable right now"
@@ -1730,6 +1901,9 @@ msgstr ""
 msgid "Only an acknowledged pause can be shortened"
 msgstr ""
 
+msgid "Only confirm once the reward was actually handed over. The {price} Coins are then spent exactly once."
+msgstr ""
+
 msgid "Only house members can complete tasks"
 msgstr ""
 
@@ -1761,6 +1935,15 @@ msgid "Only you and the assigned members can see and complete this task. Assigne
 msgstr ""
 
 msgid "Open My Day to see the details. You receive at most one summary per day."
+msgstr ""
+
+msgid "Open My Requests"
+msgstr ""
+
+msgid "Open Rewards"
+msgstr ""
+
+msgid "Open the Rewards catalog to request a reward."
 msgstr ""
 
 msgid "Opt-in comparison of on-time shares. Every member decides separately on their own participation; turning it off removes everyone immediately."
@@ -1809,6 +1992,9 @@ msgid "Owner"
 msgstr ""
 
 msgid "Owner role required"
+msgstr ""
+
+msgid "Owners control the household catalog, and each person controls whether they see it — the two gates are independent. Child requests and owner approvals, and adult requests too, reserve the Coins first; delivery is confirmed separately afterwards. Hiding the catalog never touches existing requests, and spending Coins never removes earned rhythm titles or awards. Games only have their own scores."
 msgstr ""
 
 msgid "Participants must be house members"
@@ -1901,6 +2087,15 @@ msgstr ""
 msgid "Previous"
 msgstr ""
 
+msgid "Price in Coins"
+msgstr ""
+
+msgid "Price: {price} Coins"
+msgstr ""
+
+msgid "Pricing rewards as an owner"
+msgstr ""
+
 msgid "Priority"
 msgstr ""
 
@@ -1911,6 +2106,9 @@ msgid "Private"
 msgstr ""
 
 msgid "Private task"
+msgstr ""
+
+msgid "Progress, windows and rhythm"
 msgstr ""
 
 msgid "Proposed changes"
@@ -1991,6 +2189,9 @@ msgstr ""
 msgid "Reason"
 msgstr ""
 
+msgid "Reason (optional)"
+msgstr ""
+
 msgid "Recent Activity"
 msgstr ""
 
@@ -2030,6 +2231,9 @@ msgstr ""
 msgid "Refresh the tile grout."
 msgstr ""
 
+msgid "Refund the Coins"
+msgstr ""
+
 msgid "Reload"
 msgstr ""
 
@@ -2066,6 +2270,15 @@ msgstr ""
 msgid "Repeats"
 msgstr ""
 
+msgid "Report a reward as not delivered?"
+msgstr ""
+
+msgid "Report not delivered"
+msgstr ""
+
+msgid "Request"
+msgstr ""
+
 msgid "Request a pause"
 msgstr ""
 
@@ -2073,6 +2286,30 @@ msgid "Request failed"
 msgstr ""
 
 msgid "Request pause"
+msgstr ""
+
+msgid "Request scope"
+msgstr ""
+
+msgid "Request this reward?"
+msgstr ""
+
+msgid "Requested"
+msgstr ""
+
+msgid "Requested by {name}"
+msgstr ""
+
+msgid "Requesting…"
+msgstr ""
+
+msgid "Reserved Coins are set aside for your open requests. A request is only spent once a reward is actually delivered."
+msgstr ""
+
+msgid "Reserved Coins back your open requests. They are only spent once a reward is actually delivered."
+msgstr ""
+
+msgid "Reserved:"
 msgstr ""
 
 msgid "Reset"
@@ -2093,13 +2330,28 @@ msgstr ""
 msgid "Resume"
 msgstr ""
 
+msgid "Retry action"
+msgstr ""
+
+msgid "Retrying…"
+msgstr ""
+
 msgid "Review current split"
+msgstr ""
+
+msgid "Reward catalog"
 msgstr ""
 
 msgid "Reward item not found"
 msgstr ""
 
+msgid "Reward request"
+msgstr ""
+
 msgid "Reward request not found"
+msgstr ""
+
+msgid "Rewards"
 msgstr ""
 
 msgid "Rhythm 12"
@@ -2306,6 +2558,15 @@ msgstr ""
 msgid "Snake Leaderboard"
 msgstr ""
 
+msgid "Some balances are currently being clarified. Delivery and new requests wait until that is resolved — approval, rejection and cancellation stay possible."
+msgstr ""
+
+msgid "Some balances are currently being clarified. New requests and deliveries wait until that is resolved — nothing is lost."
+msgstr ""
+
+msgid "Some balances are currently being clarified. New requests and deliveries wait until that is resolved."
+msgstr ""
+
 msgid "Some days are already over capacity — existing overload is reported, not silently moved."
 msgstr ""
 
@@ -2370,6 +2631,9 @@ msgid "Sub-Tasks"
 msgstr ""
 
 msgid "Sub-task title..."
+msgstr ""
+
+msgid "Suggest affordable, family-agreed treats that are not essentials, measured against the child's own realistic effort and share — not adult output. Care, affection, meals, rest and necessary chore exemptions are not purchasable rewards. There are no automatic catalog templates and no household earning-rate controls."
 msgstr ""
 
 msgid "Suggestions for the selected room type — everything stays editable"
@@ -2483,6 +2747,24 @@ msgstr ""
 msgid "Text"
 msgstr ""
 
+msgid "The Coins are reserved now and only spent once the reward is actually delivered. You can cancel while it is not delivered."
+msgstr ""
+
+msgid "The action could not be recorded."
+msgstr ""
+
+msgid "The action could not be retried."
+msgstr ""
+
+msgid "The action succeeded, but refreshing failed. Please reload the page."
+msgstr ""
+
+msgid "The action succeeded, but refreshing the list failed. Please reload the page."
+msgstr ""
+
+msgid "The action was completed."
+msgstr ""
+
 msgid "The affected people have agreed to this change."
 msgstr ""
 
@@ -2504,6 +2786,24 @@ msgstr ""
 msgid "The assigned people change."
 msgstr ""
 
+msgid "The catalog changed in the meantime — the current items are shown. Your unsaved draft was kept."
+msgstr ""
+
+msgid "The catalog changed while you were looking — please review the current items before requesting again."
+msgstr ""
+
+msgid "The catalog could not be loaded."
+msgstr ""
+
+msgid "The catalog is empty."
+msgstr ""
+
+msgid "The catalog setting could not be saved. Please try again."
+msgstr ""
+
+msgid "The catalog setting was saved."
+msgstr ""
+
 msgid "The checklist changed since it was displayed. Reload and try again."
 msgstr ""
 
@@ -2513,10 +2813,19 @@ msgstr ""
 msgid "The completion changed since it was displayed"
 msgstr ""
 
+msgid "The correction was recorded and the Coins were refunded."
+msgstr ""
+
 msgid "The daily task limit must be between 1 and 100"
 msgstr ""
 
 msgid "The decision could not be recorded."
+msgstr ""
+
+msgid "The delivery was confirmed."
+msgstr ""
+
+msgid "The description must be at most 2000 characters long."
 msgstr ""
 
 msgid "The displayed item terms changed — reload before requesting"
@@ -2540,10 +2849,13 @@ msgstr ""
 msgid "The house state changed since it was displayed"
 msgstr ""
 
+msgid "The household catalog is off by default. Enabling it opens browsing for members who kept the catalog visible in their own settings — it never changes anyone’s personal choice."
+msgstr ""
+
 msgid "The household ranking is opt-in. A house owner can enable it in the settings — every member then decides on their own participation."
 msgstr ""
 
-msgid "The household reward currency for completed work. The balance lives in the household overview — never on My Day."
+msgid "The household reward currency for completed work. The balance lives in the household overview — never on My Day. Available Coins can be requested; reserved Coins back open requests and are only spent on actual delivery."
 msgstr ""
 
 msgid "The illness could not be recorded."
@@ -2555,10 +2867,16 @@ msgstr ""
 msgid "The item changed since it was displayed"
 msgstr ""
 
+msgid "The last action did not return a result. You can safely retry it — it will not be applied twice."
+msgstr ""
+
 msgid "The number of days in a row you kept your agreements. Today stays pending until the day closes."
 msgstr ""
 
 msgid "The occurrence changed in the meantime. Your entries were kept — review and send again."
+msgstr ""
+
+msgid "The optional list of family-agreed rewards. Owners enable it for the household and each person decides whether to see it — the two choices are independent. Hiding it never touches existing requests."
 msgstr ""
 
 msgid "The pause already covers no later date"
@@ -2615,7 +2933,16 @@ msgstr ""
 msgid "The preview is stale."
 msgstr ""
 
+msgid "The request changed in the meantime — please review it before acting again."
+msgstr ""
+
+msgid "The request changed in the meantime — the current state is shown. Please review it before acting again."
+msgstr ""
+
 msgid "The request changed since it was displayed"
+msgstr ""
+
+msgid "The request could not be created."
 msgstr ""
 
 msgid "The request could not be sent."
@@ -2624,10 +2951,52 @@ msgstr ""
 msgid "The request could not be sent. Please try again."
 msgstr ""
 
-msgid "The reward catalog arrives with a later update — the switch is kept so your choice persists from day one."
+msgid "The request was approved."
+msgstr ""
+
+msgid "The request was cancelled."
+msgstr ""
+
+msgid "The request was created."
+msgstr ""
+
+msgid "The request was declined."
+msgstr ""
+
+msgid "The request was saved, but the balance could not be refreshed."
+msgstr ""
+
+msgid "The requests could not be loaded."
+msgstr ""
+
+msgid "The reservation is released without a booked credit. Cancellation stays possible until the reward is delivered."
+msgstr ""
+
+msgid "The reserved Coins are released without a booked credit."
+msgstr ""
+
+msgid "The reward catalog"
 msgstr ""
 
 msgid "The reward catalog is not available for new requests"
+msgstr ""
+
+msgid "The reward catalog is not available right now."
+msgstr ""
+
+msgid "The reward could not be archived."
+msgstr ""
+
+msgid "The reward could not be saved."
+msgstr ""
+
+msgid "The reward was added."
+msgstr ""
+
+msgid "The reward was archived."
+msgstr ""
+
+msgid "The reward was updated."
 msgstr ""
 
 msgid "The schedule preview is no longer current. Generate a new preview."
@@ -2660,7 +3029,13 @@ msgstr ""
 msgid "The task has too many unreconciled occurrences to be edited safely. Run the timeline job first."
 msgstr ""
 
+msgid "The title must be at most 120 characters long."
+msgstr ""
+
 msgid "The weekly ranking is final."
+msgstr ""
+
+msgid "There are no household requests for this filter."
 msgstr ""
 
 msgid "They will lose access to all house tasks and progress."
@@ -2673,6 +3048,9 @@ msgid "This Week's Medals"
 msgstr ""
 
 msgid "This house has already been set up."
+msgstr ""
+
+msgid "This is only for a reward that was marked as delivered but never actually arrived. The original {price} Coins are refunded exactly once; there is no refund for a reward that was really delivered."
 msgstr ""
 
 msgid "This member is not available on that day"
@@ -2697,6 +3075,9 @@ msgid "This request is already settled and can no longer be cancelled"
 msgstr ""
 
 msgid "This request is no longer in the required state"
+msgstr ""
+
+msgid "This request is not available."
 msgstr ""
 
 msgid "This room"
@@ -2751,6 +3132,9 @@ msgid "Timezone saved"
 msgstr ""
 
 msgid "Title"
+msgstr ""
+
+msgid "Title (required)"
 msgstr ""
 
 msgid "Today"
@@ -2930,6 +3314,9 @@ msgstr ""
 msgid "Voluntary work needs no date amendment"
 msgstr ""
 
+msgid "Waiting for approval"
+msgstr ""
+
 msgid "Waiting for the house owner"
 msgstr ""
 
@@ -2993,6 +3380,9 @@ msgstr ""
 msgid "What the family has agreed for the coming days — nothing more. Work only counts once it is done."
 msgstr ""
 
+msgid "When a past correction is being clarified, new requests and deliveries wait neutrally — nothing is lost and nothing counts against anyone. Approvals, rejections and cancellations stay possible."
+msgstr ""
+
 msgid "Where & Who"
 msgstr ""
 
@@ -3051,6 +3441,9 @@ msgid "You cannot change your own role"
 msgstr ""
 
 msgid "You earned a new medal!"
+msgstr ""
+
+msgid "You have no reward requests yet."
 msgstr ""
 
 msgid "You join the ranking next Monday."
@@ -3144,6 +3537,9 @@ msgid "days"
 msgstr ""
 
 msgid "days available"
+msgstr ""
+
+msgid "e.g. 12.50"
 msgstr ""
 
 msgid "e.g., Family Home"

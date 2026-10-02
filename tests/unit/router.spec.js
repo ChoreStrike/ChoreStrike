@@ -24,6 +24,9 @@ jest.mock('../../src/views/ArcadeView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/SchedulingView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/CalendarView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/Settings.vue', () => ({ default: {} }))
+jest.mock('../../src/views/Rewards.vue', () => ({ default: {} }))
+jest.mock('../../src/components/Rewards/RewardRequestList.vue', () => ({ default: {} }))
+jest.mock('../../src/components/Rewards/RewardRequestDetails.vue', () => ({ default: {} }))
 
 const { routes, default: router } = require('../../src/router.js')
 describe('router routes (CS-PLAN-070 WP6)', () => {
@@ -41,6 +44,20 @@ describe('router routes (CS-PLAN-070 WP6)', () => {
 	it('exposes the gated arcade surface on its own path (Q-077-05 A)', () => {
 		const arcade = routes.find(route => route.name === 'arcade')
 		expect(arcade.path).toBe('/arcade')
+	})
+
+	// CS-PLAN-070 WP8 §3.1: one catalog surface with explicit modes and a
+	// persistent, gate-independent request surface (list + detail).
+	it('exposes the reward catalog and the persistent request routes', () => {
+		const rewards = routes.find(route => route.name === 'rewards')
+		expect(rewards.path).toBe('/rewards')
+
+		const requests = routes.find(route => route.name === 'reward-requests')
+		expect(requests.path).toBe('/reward-requests')
+
+		const detail = routes.find(route => route.name === 'reward-request-detail')
+		expect(detail.path).toBe('/reward-requests/:requestId')
+		expect(detail.props).toBe(true)
 	})
 
 	it('resolves the today route by name', () => {

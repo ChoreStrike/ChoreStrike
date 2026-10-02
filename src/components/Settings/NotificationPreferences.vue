@@ -123,7 +123,7 @@
 				{{ t('chorestrike', 'Show the reward catalog') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
-				{{ t('chorestrike', 'The reward catalog arrives with a later update — the switch is kept so your choice persists from day one.') }}
+				{{ t('chorestrike', 'Hiding the catalog removes its navigation entry immediately — your requests stay reachable, and the household gate is set by an owner, not here.') }}
 			</p>
 		</div>
 

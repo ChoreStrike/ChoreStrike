@@ -32,6 +32,13 @@ const DEFAULT_STATE = () => ({
 	arcadeVisible: true,
 	catalogVisible: true,
 	ranking: { state: 'none', generation: null, effectiveMonday: null },
+	/**
+	 * True only after an authoritative read/write landed (CS-PLAN-070 WP8
+	 * §3.1): the initial neutral defaults are NOT a completed preference
+	 * read — optional-area consumers must treat unknown/loading/failed
+	 * preferences as fail-closed instead of trusting the initial `true`.
+	 */
+	loaded: false,
 	loading: false,
 	saving: false,
 	error: null,
@@ -141,6 +148,7 @@ export const usePreferencesStore = defineStore('preferences', {
 			this.arcadeVisible = data.arcadeVisible
 			this.catalogVisible = data.catalogVisible
 			this.ranking = data.ranking || { state: 'none', generation: null, effectiveMonday: null }
+			this.loaded = true
 		},
 
 		/**

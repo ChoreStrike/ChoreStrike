@@ -8,6 +8,7 @@ jest.mock('../../../src/services/api.js', () => ({
 		put: jest.fn(),
 		post: jest.fn(),
 	},
+	setCatalogEnabled: jest.fn(),
 }))
 
 jest.mock('@/utils/logger', () => ({
@@ -19,7 +20,7 @@ jest.mock('@/utils/logger', () => ({
 	},
 }))
 
-import { api } from '../../../src/services/api.js'
+import { api, setCatalogEnabled } from '../../../src/services/api.js'
 
 describe('House Store', () => {
 	let store
@@ -101,6 +102,16 @@ describe('House Store', () => {
 			expect(store.rankingEnabled).toBe(true)
 			store.house = { id: 1 }
 			expect(store.rankingEnabled).toBe(false)
+		})
+
+		// CS-PLAN-070 WP8: the household catalog gate is fail-closed —
+		// false until the loaded house explicitly says otherwise.
+		it('catalogEnabled defaults to false and mirrors the loaded house flag', () => {
+			expect(store.catalogEnabled).toBe(false)
+			store.house = { id: 1, catalogEnabled: true }
+			expect(store.catalogEnabled).toBe(true)
+			store.house = { id: 1 }
+			expect(store.catalogEnabled).toBe(false)
 		})
 	})
 
@@ -198,6 +209,53 @@ describe('House Store', () => {
 				await expect(store.updateRankingEnabled(true)).rejects.toThrow('Forbidden')
 				expect(store.error).toBe('Forbidden')
 				expect(store.loading).toBe(false)
+			})
+		})
+
+		// CS-PLAN-070 WP8: the reward-catalog gate uses ONLY the narrow
+		// versioned writer — `PUT /house` never touches the flag.
+		describe('updateCatalogEnabled', () => {
+			it('sends the flag with the house stateVersion and a command UUID', async () => {
+				store.house = { id: 1, name: 'Test House', stateVersion: 4, catalogEnabled: false }
+				const updated = { id: 1, name: 'Test House', stateVersion: 5, catalogEnabled: true }
+				setCatalogEnabled.mockResolvedValue(updated)
+
+				await store.updateCatalogEnabled(true)
+
+				expect(setCatalogEnabled).toHaveBeenCalledWith(expect.objectContaining({
+					catalogEnabled: true,
+					expectedVersion: 4,
+				}))
+				expect(setCatalogEnabled.mock.calls[0][0].commandId).toMatch(/^[0-9a-f-]{36}$/)
+				expect(store.house).toEqual(updated)
+				expect(store.catalogEnabled).toBe(true)
+			})
+
+			it('refuses to send without a loaded house stateVersion', async () => {
+				await expect(store.updateCatalogEnabled(true)).rejects.toThrow('House state version is unavailable')
+				expect(setCatalogEnabled).not.toHaveBeenCalled()
+			})
+
+			it('stores the error and rethrows on failure', async () => {
+				store.house = { id: 1, stateVersion: 4 }
+				setCatalogEnabled.mockRejectedValue(new Error('Conflict'))
+
+				await expect(store.updateCatalogEnabled(true)).rejects.toThrow('Conflict')
+				expect(store.error).toBe('Conflict')
+				expect(store.loading).toBe(false)
+			})
+
+			it('re-reads the house after a 409 so the next attempt carries a fresh stateVersion', async () => {
+				store.house = { id: 1, stateVersion: 4, catalogEnabled: false }
+				setCatalogEnabled.mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409 }))
+				api.get.mockResolvedValue({ id: 1, name: 'Test House', stateVersion: 9, catalogEnabled: true })
+
+				await expect(store.updateCatalogEnabled(true)).rejects.toThrow('Conflict')
+				await new Promise(resolve => { setTimeout(resolve, 0) })
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/house')
+				expect(store.house.stateVersion).toBe(9)
+				expect(store.house.catalogEnabled).toBe(true)
 			})
 		})
 

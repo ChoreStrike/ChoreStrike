@@ -6,7 +6,9 @@ const { spawnSync } = require('node:child_process')
 const { collectSpecs, checkSelection, checkResults, runPlaywright, REQUIRED_SPECS, main } = require('../../../scripts/run-e2e-gate.js')
 
 jest.mock('node:child_process', () => ({ spawnSync: jest.fn() }))
-const required = REQUIRED_SPECS[0]
+// Pin the canonical journey (not a positional index): the manifest grows,
+// and REQUIRED_SPECS[0] must never silently change what this suite excludes.
+const required = REQUIRED_SPECS.find(row => row.file === 'core-household-journey.spec.ts')
 const reportFor = (entry = required) => ({ suites: [{ file: entry.file, specs: Array.from({ length: entry.minTests }, (_, i) => ({
 	title: `${entry.scenarios.join(' ')} case ${i}`,
 	tests: [{ projectName: entry.project, status: 'expected', expectedStatus: 'passed', results: [{ status: 'passed', retry: 0 }] }],
@@ -59,6 +61,15 @@ describe('canonical browser evidence', () => {
 		expect(checkSelection([], [required], inventory)).not.toEqual([])
 		expect(checkSelection([...rows, { ...rows[0], projectName: 'chromium' }], [required], inventory)).not.toEqual([])
 	})
+	// CS-PLAN-070 WP8 (T11): the reward UI scenarios join the serial pool.
+	it('pins the family-rewards spec to the serial pool with its UI scenarios', () => {
+		const entry = REQUIRED_SPECS.find(row => row.file === 'family-rewards.spec.ts')
+		expect(entry).toBeDefined()
+		expect(entry.project).toBe('chromium-serial-db')
+		expect(entry.minTests).toBeGreaterThanOrEqual(9)
+		expect(entry.scenarios.length).toBeGreaterThanOrEqual(8)
+	})
+
 	it('uses direct Node execution and fails on spawn errors or signals', () => {
 		spawnSync.mockReturnValue({ status: null, error: new Error('spawn failed') })
 		expect(runPlaywright([]).status).toBe(1)
@@ -69,6 +80,12 @@ describe('canonical browser evidence', () => {
 	it('the actual main pipeline rejects a missing journey even with zero process exits', () => {
 		const reports = REQUIRED_SPECS.map(entry => reportFor(entry))
 		const inventory = Object.fromEntries(reports.map(report => [report.suites[0].file, collectSpecs(report.suites).map(row => row.identity).sort()]))
+		// The gate logs its (expected) selection violations to the console;
+		// the assertion is the exit code, so the log noise is silenced —
+		// formatting dozens of buffered violation lines is not what this
+		// test exercises.
+		jest.spyOn(console, 'log').mockImplementation(() => {})
+		jest.spyOn(console, 'error').mockImplementation(() => {})
 		jest.spyOn(fs, 'mkdirSync').mockImplementation(() => {})
 		jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {})
 		jest.spyOn(fs, 'mkdtempSync').mockReturnValue('build/e2e-gate/review-fixture')

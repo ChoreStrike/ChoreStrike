@@ -402,10 +402,32 @@ badges. Shipped with CS-PLAN-040.
 
 > **UC-16 addendum (WP7, CS-PLAN-078):** the family reward catalog and
 > request lifecycle have a backend (ADR-017; [rewards.md](../api/rewards.md))
-> but **no UI yet** — the reward surface (catalog list, request flow, owner
-> approvals, wallet display) is the planned WP8 slice and lands as a new
-> use case here. Until then the browser contract is pinned by
-> `family-reward-api.spec.ts`.
+> and, since WP8 (CS-PLAN-079, 2026-10-02), the full UI — recorded as
+> UC-17 below. The browser contract is pinned by `family-reward-api.spec.ts`
+> (HTTP lifecycle/accounting) and `family-rewards.spec.ts` (UI flows).
+
+---
+
+## UC-17 — Reward catalog & reward requests (WP7 backend, WP8 UI)
+
+**Goal:** spend earned Coins on family-agreed rewards through an approval
+and delivery flow. **Personas:** all (child-relevant). **Entry points:**
+nav **Rewards** (only while both gates are open), nav **My Requests**
+(persistent), Settings → Rewards (owner).
+
+| Action | Where | Endpoint | Status |
+|---|---|---|---|
+| Browse active catalog | `Rewards.vue` (`/rewards`) | `GET /rewards?scope=active` | ✅ WP8 — entry only while the household gate AND the personal `catalogVisible` preference are open; a hidden direct entry shows a neutral explanation |
+| Owner gate, items, archive | Settings → Rewards (`RewardCatalogEditor.vue`) | `PUT /house/catalog`; `POST /rewards`; `PUT /rewards/{id}` | ✅ WP8 — owner-only, works while browsing is hidden or the gate is off; exact `parseCoinMinor` prices; a 409 keeps the draft |
+| Request a reward (frozen-terms confirmation) | `Rewards.vue` confirm modal | `POST /reward-requests` | ✅ WP8 — child request waits for owner approval; adult self-approves; a funding hold disables new requests neutrally |
+| Own / owner household request lists | `RewardRequestList.vue` (`/reward-requests`) | `GET /reward-requests?scope=mine\|house&state=` | ✅ WP8 — persistent nav entry independent of both gates; state filter; former members render as placeholders |
+| Request detail, audit, actions | `RewardRequestDetails.vue` (`/reward-requests/{id}`) | `GET /reward-requests/{id}`; `…/approve\|reject\|cancel\|fulfill\|correct` | ✅ WP8 — attestation dialogs; correction requires a reason and the original `settlementEntryId`; foreign ids get a generic unavailable state |
+| Uncertain-command replay | Requests list/detail banner | same command UUID | ✅ WP8 — in-memory identity, explicit retry only, never a fresh-key resend |
+| Available/reserved wallet + hold note | Rewards and Requests banners | `GET /game/state` (`wallet`) | ✅ WP8 — own totals only; no optimistic arithmetic; a hold clears on re-entry |
+
+Contract: [rewards.md](../api/rewards.md) · concept:
+[ADR-017](../adr/ADR-017-family-catalog-and-redemption.md) · client
+store: [`architecture.md → useRewardsStore`](../engineering/architecture.md).
 
 ---
 
@@ -439,6 +461,7 @@ badges. Shipped with CS-PLAN-040.
 | 13 | profile edit route pruned (CS-PLAN-055; re-needs expose), leave house (FEAT-UX-015); role guards backend-side ✅ since CS-PLAN-045; per-member history ✅ since CS-PLAN-040 (UC-16) |
 | 14 | reminder-settings concept → FEAT-UX-024; task-sync surface → ⛔ pruned (CS-PLAN-055, FEAT-UX-021 closed) |
 | 15 | complete/assign from a calendar day (W6) |
+| 17 | — (essential slice ✅ since CS-PLAN-079/WP8; wider guided tour/help → FEAT-UX-023 remainder; cross-DB/family evidence → CONCEPT-001/WP9) |
 | all | documented-but-unbuilt ideas → *Whitespace* below (FEAT-UX-016…031) |
 
 ---
@@ -478,7 +501,7 @@ decisions update intent below, not the current implementation/route inventory.
 | Onboarding & help layer (tour, glossary, contextual hints) | `build-new` | Usability review 2026-08-20 (UX-007 vocabulary) | FEAT-UX-023 |
 | Notification settings (opt-in summary, quiet hours) | Delivered (WP5 backend + WP6 presentation, 2026-10-01) | CS-PLAN-070 D9 | FEAT-UX-024 (closed) |
 | Dated member/house pauses, with child approval | Delivered (WP2 backend + WP5 digest + WP6 pause UI, 2026-10-01) | CS-PLAN-070 D4 | FEAT-UX-025 (closed) |
-| Optional family reward catalog | Selected after the reliable core; not implemented | [Approved target](gamification-and-rewards.md) | FEAT-UX-026 |
+| Optional family reward catalog | Delivered (WP7 backend 2026-10-01 + WP8 UI 2026-10-02, CS-PLAN-078/079; UC-17) | [Approved target](gamification-and-rewards.md) | FEAT-UX-026 |
 | Print view (weekly plan / calendar) | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-027 |
 | Global search across tasks | `expose` (`GET /tasks/search`, dead wrapper) | Endpoint audit 2026-08-21 | FEAT-UX-028 |
 | Bulk maintenance ops (reschedule overdue, seasonal deactivate) | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-029 |

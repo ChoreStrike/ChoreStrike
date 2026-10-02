@@ -17,6 +17,7 @@ import { useSchedulingStore } from '../store/scheduling.js'
 import { useSetupStore } from '../store/setup.js'
 import { useTitlesStore } from '../store/titles.js'
 import { usePausesStore } from '../store/pauses.js'
+import { useRewardsStore } from '../store/rewards.js'
 
 /**
  * Central identity/house-switch reset (CS-PLAN-070 WP6 §3.8, C5h): ONE
@@ -27,7 +28,7 @@ import { usePausesStore } from '../store/pauses.js'
  * mechanism per store.
  *
  * Explicit enumeration (no wildcard iteration over the Pinia registry):
- * the enumeration test pins exactly the fourteen house-scoped stores, so
+ * the enumeration test pins exactly the fifteen house-scoped stores, so
  * an added store without a reset can never silently keep foreign data.
  * The composable lives outside `src/store/` so the store dependency
  * graph (CS-PLAN-067 §3.1 D3 pin) stays a DAG — no store imports it.
@@ -47,4 +48,5 @@ export function resetIdentityStores() {
 	useSetupStore().reset()
 	useTitlesStore().reset()
 	usePausesStore().reset()
+	useRewardsStore().reset()
 }

@@ -431,7 +431,28 @@ require review; no new external identity service is implied.
 > snapshots); the funding hold is derived (`booked < reserved`), never
 > stored. Departure/erasure integration follows the rules above (erasure
 > purges requests/events/wishes and queued digest references, anonymizes
-> actor references elsewhere). The reward UI (WP8) is still pending.
+> actor references elsewhere). The reward UI (WP8) follows below
+> (delivered 2026-10-02).
+
+> **UI implemented (CS-PLAN-070 WP8 / [CS-PLAN-079](../plans/done/cs-plan-079-wp8-reward-ui-and-onboarding.md),
+> 2026-10-02).** The reward surfaces consume the WP7 API through one thin
+> Pinia client (`src/store/rewards.js` — pages, detail and command
+> transport, never accounting): `/rewards` catalog browsing behind BOTH
+> independent gates (household flag + personal `catalogVisible`,
+> fail-closed while the preference read is pending); the persistent
+> `/reward-requests` list/detail (own and owner-household scopes, state
+> filter, funding-hold badges, former-member placeholders); every C4
+> action as an explicit attestation form (delivery confirmation, reasoned
+> reject/cancel, owner-only false-fulfillment correction referencing the
+> server's original settlement entry); and the owner editor (gate toggle
+> plus item create/edit/archive with the strict `parseCoinMinor`
+> hundredths parser) in the Settings House section. Uncertain
+> transport/5xx outcomes retain the command UUID for an explicit
+> same-key replay; a 409 re-reads the authorized sources and keeps the
+> caller's draft. Essential contextual help (accounts/roles, agreements
+> and shares, progress/rhythm, catalog gates, owner pricing) rides the
+> shared help modal. Browser evidence: `tests/e2e/family-rewards.spec.ts`
+> (nine required scenarios, T11).
 
 ## Open Decisions
 

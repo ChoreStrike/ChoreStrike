@@ -16,6 +16,10 @@
 				@update:model-value="onAssigneeDraftChange" />
 		</div>
 
+		<!-- Essential onboarding slice (WP8 §3.6): how actual work
+		     shares split the total reward. -->
+		<HelpEntry variant="context" topic="agreements" />
+
 		<TaskChecklist
 			:items="checklistStore.getTaskItems(item.task.id)"
 			:progress="checklistStore.getRoomTaskProgress(item.roomTask.id)"
@@ -125,6 +129,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import AssigneeChips from './AssigneeChips.vue'
 import TaskChecklist from './TaskChecklist.vue'
+import HelpEntry from '../Help/HelpEntry.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { useSchedulingStore } from '../../store/scheduling.js'
 import { logger } from '../../utils/logger.js'
@@ -152,6 +157,7 @@ export default {
 	components: {
 		AssigneeChips,
 		TaskChecklist,
+		HelpEntry,
 	},
 
 	props: {

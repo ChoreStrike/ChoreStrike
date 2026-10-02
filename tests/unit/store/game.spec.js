@@ -176,6 +176,37 @@ describe('Game Store', () => {
 				expect(store.householdProgress.weeklyGoal.achieved).toBe(false)
 				expect(store.celebrations).toEqual([])
 			})
+
+			// CS-PLAN-070 WP8 §3.2: the cached wallet/contribution/version
+			// fields are shared-device reset surface too — a previous
+			// login's balances must never feed the reward UI.
+			it('clears the cached wallet, contribution and state version on reset', () => {
+				store.wallet = { bookedMinor: 500, reservedMinor: 100, availableMinor: 400, fundingHold: false }
+				store.contributionMinor = 2500
+				store.stateVersion = 12
+
+				store.reset()
+
+				expect(store.wallet).toBeNull()
+				expect(store.contributionMinor).toBe(0)
+				expect(store.stateVersion).toBe(0)
+			})
+		})
+
+		// CS-PLAN-070 WP8 §3.2: the wallet read is generation-guarded.
+		describe('fetchGameState generations', () => {
+			it('drops a superseded read so a delayed page never clobbers newer state', async () => {
+				let resolveFirst
+				api.get.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve }))
+					.mockResolvedValue({ wallet: { bookedMinor: 1, reservedMinor: 0, availableMinor: 1 } })
+				const first = store.fetchGameState()
+				const second = store.fetchGameState()
+				resolveFirst({ wallet: { bookedMinor: 999, reservedMinor: 0, availableMinor: 999 } })
+				await first
+				await second
+
+				expect(store.wallet.bookedMinor).toBe(1)
+			})
 		})
 
 		describe('setWeeklyGoal', () => {

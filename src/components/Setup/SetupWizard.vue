@@ -231,6 +231,9 @@
 				<p class="invite-hint">
 					{{ t('chorestrike', 'Each person needs an existing Nextcloud account with this email address.') }}
 				</p>
+				<!-- Essential onboarding slice (WP8 §3.6): accounts and roles
+			     on a shared device. -->
+				<HelpEntry variant="context" topic="setup" />
 
 				<div v-for="(invite, index) in invites" :key="index" class="invite-row">
 					<input
@@ -321,6 +324,7 @@ import { useSetupStore } from '../../store/setup.js'
 import { useUserStore } from '../../store/user.js'
 import { useHouseStore } from '../../store/house.js'
 import { iconForRoomType } from '../../utils/roomIcons.js'
+import HelpEntry from '../Help/HelpEntry.vue'
 import { logger } from '../../utils/logger.js'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -351,6 +355,10 @@ export const isWizardDismissedForHouse = (houseId) => {
 
 export default {
 	name: 'SetupWizard',
+
+	components: {
+		HelpEntry,
+	},
 
 	props: {
 		show: { type: Boolean, default: true },

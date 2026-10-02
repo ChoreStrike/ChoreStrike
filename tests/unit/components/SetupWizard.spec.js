@@ -515,4 +515,12 @@ describe('SetupWizard.vue', () => {
 		expect(wrapper.find('[data-testid="wizard-invite-remove-0"]').exists()).toBe(false) // single row hides it
 		expect(wrapper.find('[data-testid="wizard-invite-email-0"]').attributes('aria-label')).toBe('Email address')
 	})
+
+	// CS-PLAN-070 WP8 §3.6: the essential account/role help sits on the
+	// invite step (existing apply/invite/skip behavior is unchanged).
+	it('offers the contextual accounts-and-roles help on the invite step', async () => {
+		const wrapper = mountWizard()
+		await advanceToInviteStep(wrapper)
+		expect(wrapper.find('[data-testid="help-context-setup"]').exists()).toBe(true)
+	})
 })

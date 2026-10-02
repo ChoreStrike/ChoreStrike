@@ -493,4 +493,12 @@ describe('TodayView', () => {
 		// Sibling rows keep their toggle until their own discovery.
 		expect(wrapper.find('[data-testid="today-checklist-toggle-11"]').exists()).toBe(true)
 	})
+
+	// CS-PLAN-070 WP8 §3.6: the contextual progress/windows help sits on
+	// My Day (inline trigger text stays Coin-free, C5f).
+	it('offers the contextual progress help next to the My Day header', async () => {
+		const wrapper = await mountView()
+		expect(wrapper.find('[data-testid="help-context-progress"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="help-context-progress"]').text()).not.toContain('Coins')
+	})
 })

@@ -352,5 +352,44 @@ describe('User Store', () => {
 				expect(store.houseUsers).toEqual([{ id: 2, displayName: 'Newer' }])
 			})
 		})
+
+		// CS-PLAN-070 WP8 §3.2: role/membership reconciliation before
+		// reward actions — the cached initialization is not a fresh
+		// authority check.
+		describe('refreshCurrentUser', () => {
+			it('bypasses the cache and re-reads the current identity', async () => {
+				api.get.mockResolvedValueOnce({ id: 5, nextcloudUserId: 'mom', role: 'owner' })
+				await store.initializeCurrentUser()
+
+				api.get.mockResolvedValueOnce({ id: 5, nextcloudUserId: 'mom', role: 'member' })
+				const fresh = await store.refreshCurrentUser()
+
+				expect(api.get).toHaveBeenCalledTimes(2)
+				expect(api.get).toHaveBeenLastCalledWith('/api/v1/users/current')
+				expect(fresh.role).toBe('member')
+				expect(store.currentUser.role).toBe('member')
+			})
+
+			it('marks membership denied on a fresh 403', async () => {
+				const denied = new Error('Forbidden')
+				denied.status = 403
+				api.get.mockRejectedValue(denied)
+
+				await expect(store.refreshCurrentUser()).rejects.toThrow('Forbidden')
+				expect(store.membership).toBe('denied')
+			})
+
+			it('drops a delayed refresh that was superseded by reset', async () => {
+				let resolveFirst
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+				const pending = store.refreshCurrentUser()
+				store.reset()
+				resolveFirst({ id: 9, nextcloudUserId: 'other', role: 'owner' })
+				await pending
+
+				expect(store.currentUser).toBeNull()
+				expect(store.membership).toBe('unknown')
+			})
+		})
 	})
 })

@@ -181,4 +181,45 @@ describe('preferences store', () => {
 		expect(store.conflict).toBe(false)
 		expect(store.ranking.state).toBe('none')
 	})
+
+	// CS-PLAN-070 WP8 §3.1: the initial neutral defaults are NOT a
+	// completed preference read — optional-area consumers fail closed.
+	describe('loaded marker (WP8 fail-closed visibility)', () => {
+		it('starts unloaded even though the neutral defaults say visible', () => {
+			const store = usePreferencesStore()
+
+			expect(store.loaded).toBe(false)
+			expect(store.catalogVisible).toBe(true)
+		})
+
+		it('marks the preferences loaded after an authoritative fetch', async () => {
+			fetchMyPreferences.mockResolvedValue(serverPayload({ version: 1, catalogVisible: false }))
+			const store = usePreferencesStore()
+
+			await store.fetchPreferences()
+
+			expect(store.loaded).toBe(true)
+			expect(store.catalogVisible).toBe(false)
+		})
+
+		it('stays unloaded when the fetch fails (fail-closed, no stale read)', async () => {
+			fetchMyPreferences.mockRejectedValue(new Error('offline'))
+			const store = usePreferencesStore()
+
+			await expect(store.fetchPreferences()).rejects.toThrow('offline')
+
+			expect(store.loaded).toBe(false)
+		})
+
+		it('clears the loaded marker on reset', async () => {
+			fetchMyPreferences.mockResolvedValue(serverPayload({ version: 1 }))
+			const store = usePreferencesStore()
+			await store.fetchPreferences()
+			expect(store.loaded).toBe(true)
+
+			store.reset()
+
+			expect(store.loaded).toBe(false)
+		})
+	})
 })

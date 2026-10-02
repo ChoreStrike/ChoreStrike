@@ -1,6 +1,6 @@
 # CS-PLAN-079: WP8 - Reward UI and Onboarding
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-10-02; implementation not started)
+> **Status:** Done (implementation 2026-10-02; final Standard B `PASS-WITH-FIXES` 2026-10-02 — RF-079-01..04 resolved in-round, plan moved to `done/`)
 > **Effort:** L; 5-8 engineering days, including T11, documentation and one correction pass
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-078 / WP7](../done/cs-plan-078-wp7-catalog-and-request-backend.md), delivered 2026-10-01; WP0-WP6 and parent G1 delivered
@@ -412,41 +412,61 @@ requested by this plan.
 
 ## 8. Acceptance Criteria
 
-- [ ] All-age My Day/core planning still work with the catalog permanently off;
+- [x] All-age My Day/core planning still work with the catalog permanently off;
   optional areas stay outside the primary landing. Household catalog, consent
   and feedback/delivery defaults are preserved; personal visibility choices
   are honored without inventing another default or auto-opt-in.
-- [ ] House/personal catalog gates are independent; owner administration works
+- [x] House/personal catalog gates are independent; owner administration works
   while off/hidden and no owner can enable another person's preferences.
-- [ ] Own requests/detail and authorized owner processing stay reachable under
+- [x] Own requests/detail and authorized owner processing stay reachable under
   both hidden gates, archiving, negative balances and funding holds.
-- [ ] All C4 actor/state forms work, including promoted-adult explicit approval,
+- [x] All C4 actor/state forms work, including promoted-adult explicit approval,
   child reapproval, cancellation, explicit delivery and owner-only non-delivery
   correction with the original settlement reference and terminal outcome.
-- [ ] Exact price validation/display, frozen terms, no foreign wallet/request
+- [x] Exact price validation/display, frozen terms, no foreign wallet/request
   data and retained recognition after spending are proven in T11.
-- [ ] Changed terms/stale versions retain drafts and require renewed review;
+- [x] Changed terms/stale versions retain drafts and require renewed review;
   uncertain retries keep the same identity without duplicate money effects.
-- [ ] Pagination/filter/detail and delayed mutation/read responses cannot leak
+- [x] Pagination/filter/detail and delayed mutation/read responses cannot leak
   across scope, role, identity or house reset; no sensitive browser persistence.
-- [ ] Essential Nextcloud account/role/share/rhythm/pause/catalog/pricing help is
+- [x] Essential Nextcloud account/role/share/rhythm/pause/catalog/pricing help is
   reachable, truthful and tested without changing wizard/core semantics.
-- [ ] Desktop/mobile/keyboard, feedback/focus and real EN/DE presentation pass;
+- [x] Desktop/mobile/keyboard, feedback/focus and real EN/DE presentation pass;
   every new system string has complete synchronized EN/DE/POT artifacts.
-- [ ] All section 4 gates/tests pass with no missing/newly unapproved skipped
+- [x] All section 4 gates/tests pass with no missing/newly unapproved skipped
   scenarios; T11 is registered in the canonical browser gate, not deferred.
-- [ ] Durable docs are integrated, implementation/review questions resolved,
+- [x] Durable docs are integrated, implementation/review questions resolved,
   all section 9 findings fixed or explicitly user-rescoped, and final Standard B
   or Full review is PASS/PASS-WITH-FIXES before this child moves to done.
-- [ ] Parent/backlog/index/ACTIVE_TASKS reflect actual G2 completion; archive
+- [x] Parent/backlog/index/ACTIVE_TASKS reflect actual G2 completion; archive
   only fully completed owners. WP9/family evidence and wider help scope remain
   explicitly open, without fabricated family results or premature parent closure.
 
 ## 9. Review Findings (Plan-Owned)
 
-None recorded at drafting time. Standard A has not run. In-scope findings belong
-here until resolved; only genuinely out-of-scope work routes to the existing
-backlog according to project rules. No parent finding is closed by this draft.
+None at drafting/Standard A time. Final Standard B (2026-10-02) found and
+resolved all findings in-round — none remain open, nothing routed to the
+backlog:
+
+- RF-079-01 · minor · `src/store/rewards.js` `refreshAfterCommand` — a
+  post-command refresh reset touched request pages without their active
+  state filter, silently flipping a filtered list to All while the select
+  still showed the filter. **Fixed:** the refresh passes the context's
+  `state`; regression pins the filtered re-read.
+- RF-079-02 · minor · `src/views/Rewards.vue` `ensureCatalog` — the
+  one-shot `catalogRequested` guard was never released on a failed fetch,
+  so the ErrorState retry never re-fetched the catalog and the view
+  degraded to the empty state. **Fixed:** the guard releases on failure
+  and `loadAll()` restarts the catalog read on retry; regression covers
+  the retry path.
+- RF-079-03 · minor · `src/store/house.js` `updateCatalogEnabled` — a 409
+  left the house `stateVersion` stale (no authorized re-read), so further
+  gate toggles kept failing until a Settings remount. **Fixed:** the
+  catch re-reads the house after a 409 (§3.5 contract); regression pins
+  the fresh version.
+- RF-079-04 · nit · `docs/backlog/backlog.md` FEAT-UX-023 status — the
+  line lost its closing parenthesis and gained hard wraps. **Fixed**
+  in-round.
 
 ## Draft Validation
 
@@ -525,3 +545,124 @@ uncommitted, while the parent and existing backlog owners remain open.
   `docs/plans/README.md`, `docs/backlog/backlog.md` and `ACTIVE_TASKS.md`
   updated; activation record in
   `docs/backlog/archive/CODE_REVIEW_2026-10-02.md`.
+
+## Implementation Evidence
+
+**Implementation round 1 — 2026-10-02 — steps 2-6 delivered, all gates green.**
+
+- **Scope implemented (manifest M + N):** `parseCoinMinor` strict hundredths
+  parser (`src/utils/minorUnits.js`, integer-only, no float arithmetic); reward
+  API wrappers (`src/services/api.js`); new `src/store/rewards.js` (separate
+  paged contexts per scope/state with both cursor directions, UUID-per-command
+  identity retained across uncertain outcomes, definitive-4xx discard, 409
+  conflict flag + authorized re-read, touched-context-only refresh,
+  success-with-refresh-failure = visible `refreshError`, identity-reset
+  generation guards); house `catalogEnabled` getter + narrow versioned
+  `updateCatalogEnabled` writer (`PUT /house/catalog` only); preferences
+  `loaded` fail-closed marker; game read generation + full wallet-field reset;
+  `user.refreshCurrentUser()` forced identity re-read; central reset
+  enumeration extended (15 stores); routes `/rewards`, `/reward-requests`,
+  `/reward-requests/:requestId`; navigation (gated catalog entry + persistent
+  My Requests entry, bootstrap house/preference loads after membership
+  resolves); `Rewards.vue` (both-gate resolution before any catalog read via
+  watcher, wallet banner, frozen-terms confirmation, 409 conflict review,
+  funding-hold disablement, route re-entry wallet refresh);
+  `RewardCatalogEditor.vue` (gate toggle, exact price entry, edit/archive,
+  409 draft preservation) hosted in the owner-only Settings section;
+  `RewardRequestList.vue` (own/owner scopes, state filter, text state labels,
+  former-member placeholders, funding-hold badges, explicit same-key retry
+  banner) and `RewardRequestDetails.vue` (frozen terms, audit, allowedActions
+  forms, delivery attestation, reasoned reject/cancel, attested owner
+  correction referencing the server settlement entry, 403/404 generic
+  unavailable state); `HelpEntry` context variant on the shared named Modal
+  with five essential topics placed on My Day, Scheduling, task details, the
+  reward surfaces, Settings and the wizard invite step; glossary reward terms;
+  EN/DE/POT regenerated (1269 keys, 134 new German translations).
+- **Jest:** 1216/1216 across 108 suites (new: rewards store 23, Rewards view 7,
+  catalog editor 9, request list 8, request details 12, minorUnits parser 12,
+  api wrappers 7; extended: house, preferences, game, user, useStoreReset,
+  App nav gating, router, Settings, Help, TodayView/SchedulingView/
+  TaskListDetails/SetupWizard help presence, browserGate pin).
+- **Lint/stylelint/l10n/backlog/encoding/diff:** all green.
+- **Build:** `npm run build` green.
+- **Backend (Docker):** PHPUnit 1116 unit + 529 integration, zero failures
+  (no PHP changed).
+- **Browser evidence (T11):** `family-rewards.spec.ts` — 9 required scenarios
+  + mobile/keyboard/real-EN-DE proof, 12/12 green in `chromium-serial-db`
+  (gate-registered in `required-scenarios.json`, `run-e2e-gate.js`,
+  `playwright.config.ts`, runner self-test 14/14). Neighbor regression specs
+  re-run green: `calm-core-ui` 4/4, `family-reward-api` 3/3,
+  `family-core-ux` 7/7.
+- **Fixes found by the browser gate (root-caused, not worked around):**
+  catalog read moved behind a `browsable` watcher (bootstrap gate reads land
+  after mount; a one-shot mounted fetch silently skipped browsing); App
+  bootstrap loads house + preferences once membership resolves (the nav gate
+  requires an authoritative loaded preference); `Rewards.vue` refreshes the
+  wallet source on route re-entry (same-route navigation reuses the component,
+  so a hold cleared elsewhere kept buttons stalely disabled); owner
+  administration already works while the gate is off (verified by scenario 2).
+- **Spec/test-harness repairs:** e2e waits poll the authoritative API reads
+  (never UI toasts, which can still show a previous action's message);
+  `fetchOwnRequestId` ambiguity resolved by state-polling; browserGate
+  pipeline test pins its excluded journey by filename (manifest-order
+  independent) and silences the gate's expected violation logging.
+- **Findings/state changes:** none open; nothing routed to the backlog
+  (everything was plan-owned and fixed in-round). No rollbacks.
+- **Remaining:** final Standard B/Full code review for the `active/` →
+  `done/` transition; durable-doc integration of the delivered WP8 surfaces
+  is part of that review's completion criteria.
+
+## Review Outcome (Final Standard B)
+
+**Final Standard B - 2026-10-02 - `PASS-WITH-FIXES` (four fixes: three minor logic, one typo-class; zero open findings).**
+
+- **Scope:** the whole WP8 implementation package (46 modified + 11 untracked
+  reviewed files) plus this plan's completion criteria (file manifest,
+  acceptance criteria, required test evidence, durable-doc integration).
+- **Baseline:** `master` at `812721a910bbd9aed3c9c282260d751645d22d2b`; index
+  empty at capture (staged-diff sha1 `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391`);
+  unstaged-diff sha1 `671e682493f453c1d8ddb2316d17cb98e77925b6` (434254 bytes);
+  untracked manifest with per-file SHA256 captured before review; unrelated
+  pre-existing `.gitkeep` deletions preserved unstaged.
+- **Verification:** store/view/component contracts checked against
+  `docs/api/rewards.md` (exact command payloads incl. `expectedVersion` and
+  `commandId`, closed six-code reason set, caller-own `wallet` snapshot
+  semantics, settlement-referenced correction); two-gate fail-closed
+  navigation and persistent request surfaces; UUID identity retention with
+  same-key replay and definitive-4xx discard; per-context read generations
+  and the 15-store reset enumeration; strict `parseCoinMinor` grammar
+  (no float arithmetic); literal-`t()` label maps (l10n-extractable); no
+  raw `console.*`, no `v-html`; exact gate registration (9/9 scenario
+  titles across `required-scenarios.json`, `run-e2e-gate.js`,
+  `playwright.config.ts`).
+- **Questions/decisions:** one batched structured request, both
+  recommendations accepted - (1) fix RF-079-01..03 in-round with
+  regression tests; (2) re-run the FULL canonical three-pool browser gate
+  on the final tree (see gates).
+- **Gates (rerun green on the reviewed final tree):** Jest 1219/1219
+  (108 suites, +3 review regressions), ESLint/stylelint zero problems,
+  `npm run build` webpack compiled successfully, `npm run test:noise`
+  green, `npm run l10n:check-keys` 1269 keys EN/DE/POT,
+  `npm run backlog:check` 32 files, `npm run docs:encoding` 865 files,
+  `git diff --check` clean, `node scripts/run-e2e-gate.js --self-test`
+  passed, Docker PHPUnit unit 1116 + integration 529 (`--fail-on-skipped`,
+  zero skips; no PHP changed), `composer cs:check` 0/395 fixable, and the
+  full `npm run test:e2e:gate` **PASSED** - chromium ->
+  chromium-serial-db -> chromium-scheduling-owner sequentially with zero
+  skipped/failed/flaky required scenarios.
+- **Durable-doc integration:** UC-17 + gap-index/whitespace updates
+  (`ui-use-cases.md`), `useRewardsStore` contract block + directory
+  entries (`architecture.md`), optional-areas two-gate contract +
+  fifteen-store reset (`calm-core-ux.md`), WP8 implemented note
+  (`gamification-and-rewards.md`), serial-pool spec note (`testing.md`),
+  release checklist 8a + coverage pointer (`release-test-plan.md`),
+  wizard help note (`house-setup-and-templates.md`). `docs/api/rewards.md`
+  needed no change - the client mirrors the documented contract.
+- **Findings:** RF-079-01..04 recorded in section 9, all resolved
+  in-round; nothing out-of-scope, no `// HACK:` additions, no backlog
+  routing.
+- **Transition:** plan moved `active/` -> `done/`; FEAT-UX-026 archived
+  (whole scope satisfied by WP7+WP8); parent CS-PLAN-070 WP8 row marked
+  DELIVERED (parent stays active for WP9/family evidence); FEAT-UX-023
+  keeps its wider tour remainder; CONCEPT-001 stays In Progress;
+  ACTIVE_TASKS, docs READMEs and `CODE_REVIEW_2026-10-02.md` updated.
