@@ -192,8 +192,8 @@ approved responsibility model; a future product decision is still required.
 ---
 
 ### [P3] FEAT-UX-023 — Onboarding & help layer
-**Status**: In Progress — WP6 essential help slice DELIVERED (2026-09-30): navigation-level glossary entry with the plain-language term glossary ([calm-core-ux](../concepts/calm-core-ux.md)); tour/catalog remainder WP8 · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
-**Owning**: CS-PLAN-077 WP6 (essential help slice, delivered); tour/catalog remainder WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Status**: In Progress - WP6 essential help slice DELIVERED; WP8 essential onboarding/catalog/contextual-help slice activated via CS-PLAN-079 (Standard A `PASS-WITH-FIXES` 2026-10-02); wider tour scope remains open · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
+**Owning**: CS-PLAN-077 WP6 (delivered); CS-PLAN-070 WP8 (essential slice); wider guided tour/help unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 **WP6 slice delivered (2026-09-30):** [CS-PLAN-077](../plans/done/cs-plan-077-wp6-calm-core-ui.md)
@@ -201,11 +201,12 @@ delivered the essential slice as ONE navigation-level entry
 (`HelpEntry.vue` + `HelpGlossary.vue`, always reachable from the nav,
 modal glossary) instead of per-view entry points — one always-visible
 entry beat three scattered ones (scope consolidation recorded in the
-plan's Review Findings). Tour/catalog help and whole-item closure stay
-with WP8.
+plan's Review Findings). WP8 continues the parent's essential account/role,
+share/rhythm/pause and catalog/contextual-help slice; whole-item closure still
+requires any broader guided tour/help scope to be completed or explicitly scoped.
 
-No tour, glossary, or contextual hints; vocabulary drift (UX-007) makes
-self-service discovery harder.
+The navigation glossary is delivered. Contextual hints and onboarding/catalog
+guidance remain; a wider guided tour is not implied by the essential WP8 slice.
 
 Family-rhythm clarification (CS-PLAN-070 D10): explain existing Nextcloud
 accounts for children, wizard member invites versus child-role setup, shared
@@ -218,12 +219,15 @@ profile or guardian-consent model should be implied by onboarding copy.
       Catch-up, Pause, Streak, Quiet time, Ranking, Arcade, Coins).
 - [ ] Contextual hints for the selected model (rhythm, completion window, pause,
       contribution, Coins); do not teach removed combo/freeze mechanics as target behavior.
+- [x] Detail the essential WP8 slice and its tests in [CS-PLAN-079](../plans/active/cs-plan-079-wp8-reward-ui-and-onboarding.md) (2026-10-02;
+      documentation only, no activation or runtime implementation).
+- [ ] Complete wider guided tour/help scope separately before whole-item closure.
 
 ---
 
 ### [P2] FEAT-UX-026 — Real-world reward shop
-**Status**: In Progress (WP7 backend DELIVERED 2026-10-01; WP8 UI next) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
-**Owning**: CS-PLAN-070 WP7..WP8; CS-PLAN-078 WP7 · **Depends on**: CONCEPT-001 (reliable core/G1) · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Status**: In Progress (WP7 backend DELIVERED 2026-10-01; WP8 UI activated via CS-PLAN-079, Standard A `PASS-WITH-FIXES` 2026-10-02, implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
+**Owning**: CS-PLAN-070 WP7..WP8; CS-PLAN-078 WP7 (delivered); CS-PLAN-079 WP8 · **Depends on**: CONCEPT-001 (reliable core/G1) · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 The [reward options](../concepts/gamification-and-rewards.md#reward-options-for-a-family-first-app)
@@ -240,6 +244,8 @@ without rewriting unrelated events or reclaiming fulfilled rewards.
 - [x] Draft the WP7 backend API/schema/accounting/erasure/digest and race-test mapping in [CS-PLAN-078](../plans/done/cs-plan-078-wp7-catalog-and-request-backend.md) (2026-10-01); technical proposals, not implementation approval.
 - [x] Pass WP7 Standard A after checking the delivered reliable-core/G1 evidence (2026-10-01, `PASS` with zero findings; [CS-PLAN-078](../plans/done/cs-plan-078-wp7-catalog-and-request-backend.md) now in `active/`).
 - [x] Implement and verify the T6 backend lifecycle in CS-PLAN-078 (schema, C4 lifecycle, money, membership/erasure, privacy, digest, races/replay, browser contract) — DELIVERED 2026-10-01, final Standard B `PASS-WITH-FIXES`, plan in `done/`.
+- [x] Draft WP8 catalog/request UI, essential onboarding/help and T11 mapping in [CS-PLAN-079](../plans/active/cs-plan-079-wp8-reward-ui-and-onboarding.md) (2026-10-02; no activation or runtime implementation).
+- [x] Pass WP8 Standard A before implementing the frontend slice (2026-10-02, `PASS-WITH-FIXES` with one safe wording fix; [CS-PLAN-079](../plans/active/cs-plan-079-wp8-reward-ui-and-onboarding.md) now in `active/`).
 - [ ] Complete WP8 catalog/request UI, C5 presentation/onboarding and T11 desktop/mobile/keyboard evidence; no whole-item closure from WP7 alone.
 
 ---
@@ -303,7 +309,7 @@ component.
 
 ### [P1] CONCEPT-001 — Family-first rhythm and reward contracts
 **Status**: In Progress — CS-PLAN-070 activated via Standard A `PASS-WITH-FIXES` (2026-09-18) · **Effort**: XL implementation (clarification was M) · **Layer**: docs+backend+frontend · **Journey stage**: product definition
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: CS-PLAN-070 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: User-requested family-first concept review (2026-09-16)
 
 [CS-PLAN-070](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md)
@@ -376,7 +382,11 @@ landing/content, preference-gated calm feedback, full
 `NotificationPreferences.vue` + optional-area consumers, pause UI, occurrence
 agreement entry points, shared-device store reset, no-Coin closure and the
 essential help slice; FEAT-UX-024/025 closed with it.
-CONCEPT-001 remains In Progress for WP7-WP9 and the family evidence gate.
+WP7 was delivered via [CS-PLAN-078](../plans/done/cs-plan-078-wp7-catalog-and-request-backend.md)
+(final Standard B `PASS-WITH-FIXES` 2026-10-01; catalog/C4 backend, ADR-017).
+WP8 is detailed in [CS-PLAN-079](../plans/active/cs-plan-079-wp8-reward-ui-and-onboarding.md)
+(drafted and activated 2026-10-02, Standard A `PASS-WITH-FIXES`; implementation not started).
+CONCEPT-001 remains In Progress for WP8-WP9 and the family evidence gate.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

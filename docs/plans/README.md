@@ -69,6 +69,13 @@ receipt guard, private reads, departure/rejoin/erasure and digest hooks,
 ADR-017). The parent remains open for WP8 (catalog/request UI) and WP9
 (final family/DB-matrix evidence).
 
+Currently active: [CS-PLAN-079: WP8 - Reward UI and Onboarding](active/cs-plan-079-wp8-reward-ui-and-onboarding.md)
+(drafted and activated 2026-10-02, Standard A `PASS-WITH-FIXES`; implementation
+not started): two independent catalog gates, continuously reachable own/owner
+request management, exact prices, current-role actions,
+uncertain-response/conflict reconciliation, shared-device privacy, essential
+onboarding/help and T11 desktop/mobile/keyboard evidence.
+
 Latest completed: [CS-PLAN-078: WP7 - Catalog and Request Backend](done/cs-plan-078-wp7-catalog-and-request-backend.md)
 (final Standard B `PASS-WITH-FIXES` 2026-10-01): Version1033 schema +
 role-revision provenance, RewardService/RewardRequestService with the WP7
