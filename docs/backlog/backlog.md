@@ -39,8 +39,8 @@ below.)*
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
 ### [P2] CR-053-11 — Streak & leaderboard correctness cluster
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: gamification
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Status**: In Progress — Snake ordering remainder owned by CS-PLAN-081 H5 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: M · **Layer**: backend · **Journey stage**: gamification
+**Owning**: CS-PLAN-081 H5 (Snake remainder) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: CS-PLAN-053 full review (CR-P2-11/12/13/15/20, 2026-08-27)
 
 Referenced by no CS-PLAN-058 work package; independently schedulable.
@@ -84,11 +84,17 @@ member comparison is the consent-filtered exact-ratio ranking,
 Snake leaderboard ordering remainder stays open here; no whole-item closure is
 implied.
 
+**Preparation activated (2026-10-03):** the live Snake-only remainder is owned by
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H5 (Standard A `PASS-WITH-FIXES`; Q-081-01..05 resolved). Earlier freeze/restock
+descriptions above are historical, not new fixes to implement. No whole-item
+closure yet — only the ordering remainder transfers.
+
 ---
 
 ### [P4] CR-SEC-05 — Caller-gates-owner contract on removeHouseMember/updateUserRole
-**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: authorization
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress — CS-PLAN-081 H3 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: S · **Layer**: backend · **Journey stage**: authorization
+**Owning**: CS-PLAN-081 H3 · **Depends on**: — · **Blocks**: — · **Folded-in**: sibling inviteMember caller-only owner contract (2026-10-03 status inventory)
 **Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-15)
 
 `HouseService::removeHouseMember`/`updateUserRole` rely on a documented
@@ -98,6 +104,11 @@ invite paths, structure services) enforce owner-only service-side per
 ADR-006's defense-in-depth standard. Documented and not exploitable through
 current callers; align the two methods with the service-side pattern when
 next touched.
+
+**Preparation activated (2026-10-03):** [CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H3 (Standard A `PASS-WITH-FIXES`) owns the service-side/fresh-under-lock owner gate for
+removal, role changes and the folded-in `inviteMember` sibling. Current public
+callers remain gated until implemented.
 
 ---
 
@@ -140,8 +151,8 @@ re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 ---
 
 ### [P4] FEAT-UX-032 — SetupWizard silently drops the basement at the floor cap
-**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: setup
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress — CS-PLAN-081 H4 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: XS · **Layer**: frontend · **Journey stage**: setup
+**Owning**: CS-PLAN-081 H4 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-16)
 
 `SetupWizard` clamps `floorTotal = min(6, floorCount)` and appends the basement
@@ -150,6 +161,12 @@ checked, the basement is silently NOT added and the checkbox stays checked
 without effect. Cap edge only. Fix options: clamp floorCount to 5 when a
 basement is requested, or show an inline hint that the basement replaces the
 sixth floor.
+
+**Preparation activated (2026-10-03):** owned by
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H4 despite the original low priority because it affects first setup. Cap decision
+resolved (Q-081-05: visible five-above-ground limit with basement, six total);
+no runtime fix claimed yet.
 
 ---
 
@@ -244,11 +261,14 @@ Future: paper-friendly weekly plan for fridge-door households.
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
-`GET /tasks/search` exists with a dead store wrapper (`searchTasks`); no UI.
+Global search has no UI. **Status correction (2026-10-03):** the old
+`GET /tasks/search` route and `searchTasks` wrapper were already pruned; do not
+plan against an existing endpoint/wrapper. A future implementation must define
+the actual search contract, not revive a dead API by assumption.
 
 - [ ] Search entry point covering task definitions + room tasks (NC search
       integration or in-app field).
-- [ ] Decide fate of the dead `searchTasks` wrapper with the implementation.
+- [ ] Define the API or Nextcloud integration needed for the selected search scope.
 - [ ] Tests.
 
 ---
@@ -371,6 +391,13 @@ WP9 owner): isolated MariaDB/PostgreSQL/SQLite verification,
 two consecutive combined browser gates and voluntary adult/child comprehension
 plus 14-day everyday-use evidence. No WP9 runtime or human evidence is claimed yet.
 
+**Pre-WP9 preparation (2026-10-03):** the user selected
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+as the next execution; Standard A activated it (`PASS-WITH-FIXES`, Q-081-01..05 resolved).
+Its bounded H4 reset-copy clarification contributes to this existing parent
+owner; H6 retained-data/deployment preparation belongs to RELEASE-002. It does
+not close parent findings or replace WP9 evidence.
+
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).
 - [x] Nine C3 choices recorded with accounting/replay design consequences and future scenarios (2026-09-17).
@@ -383,8 +410,8 @@ plus 14-day everyday-use evidence. No WP9 runtime or human evidence is claimed y
 ---
 
 ### [P3] TECH-JEST-001 — Exclude local worktree mocks from Jest discovery
-**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: testing
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CS-PLAN-073 Standard B re-review (2026-09-24): reproduced duplicate worktree mocks with 1070 passing Jest tests; repeated 2026-09-25 with 1073 passing tests; no suppression or worktree changes
+**Status**: In Progress — CS-PLAN-081 H1 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: S · **Layer**: tooling · **Journey stage**: testing
+**Owning**: CS-PLAN-081 H1 · **Depends on**: — · **Blocks**: — · **Folded-in**: CS-PLAN-073 Standard B re-review (2026-09-24): reproduced duplicate worktree mocks with 1070 passing Jest tests; repeated 2026-09-25 with 1073 passing tests; no suppression or worktree changes
 **Source**: Baseline verification during family-first concept review (2026-09-16)
 
 `npm test -- --runInBand` passes all 1056 tests but reports duplicate manual
@@ -396,11 +423,15 @@ are indexed; do not delete the user's worktree, suppress the warnings or skip
 tests. The synthetic failure logs from `browserGate.spec.js` are expected test
 output and are not this warning.
 
+**Preparation activated (2026-10-03):** owned by
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H1 with a synthetic nested-worktree discovery regression.
+
 ---
 
 ### [P3] TECH-TEST-003 — Integration-suite first-run-after-reset flake: shared instance house missing during ChecklistApiTest fixtures
-**Status**: Backlog · **Effort**: M · **Layer**: tooling · **Journey stage**: testing
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress — CS-PLAN-081 H2 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: M · **Layer**: tooling · **Journey stage**: testing
+**Owning**: CS-PLAN-081 H2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-072 WP1 final Standard B (2026-09-23; the same class of flake was noted in the RF-072-WP1-18 resolving round, 2026-09-22)
 
 The Docker integration suite intermittently fails ONE
@@ -412,25 +443,29 @@ reset — observed twice, both times
 `RoomTaskReadService::timeZoneForHouse`. Immediate reruns on the same
 volume are green (two consecutive full runs 403 tests / 1831 assertions,
 2026-09-23). `ChecklistApiTest::setUp` resolves the shared house through
-the process-memoized `HouseService` DI singleton (`getOrCreateHouse`);
-investigation start: a preceding structural-deletion/tombstone test
-removing the shared house row on a fresh volume combined with the
-memoized resolution, first surfaced by the CS-PLAN-072 WP1 fixture seam
-(schedule initialization per created room task) being the first reader of
-the house row. Production behavior is correct — the house lookup SHOULD
-fail for a deleted house; the defect is the shared-house lifecycle in the
-integration harness. Root-cause and fix the harness (per-test house
-isolation or a non-memoized house resolution in fixtures) instead of
-relying on the rerun protocol; do not weaken the WP1 fixture seam.
+`HouseService::getOrCreateHouse`. **Hypothesis correction (2026-10-03):** the
+service re-queries the house; sharing the DI service does not memoize the entity.
+The original preceding-deletion hypothesis is not proven against the current
+tombstone-based tests. Preserve the observed historical failure, but reproduce
+the current fixture lifecycle/order before selecting a root-cause repair.
+Production lookup must still fail for a genuinely deleted house. Isolate/fix
+the test harness instead of relying on reruns or adding production fallbacks;
+do not weaken the WP1 schedule-initialization seam.
 Deferral reason: intermittent, harness-only, needs dedicated root-cause
 effort; the two-green-rerun protocol keeps gate evidence trustworthy in
 the meantime.
 
+**Preparation activated (2026-10-03):** owned by
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H2: deterministic lifecycle regression and three independently fresh first
+full integration passes. A superseded disposition needs explicit review evidence;
+static inspection or warm reruns alone do not close this item.
+
 ---
 
 ### [P3] TECH-LINT-006 — npm peer-dep ERESOLVE requires `--legacy-peer-deps`
-**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: dependency management
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress — CS-PLAN-081 H1 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: S · **Layer**: tooling · **Journey stage**: dependency management
+**Owning**: CS-PLAN-081 H1 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-026 dependency reinstall (2026-08-12)
 
 `npm install` fails with `ERESOLVE`: `eslint-config-standard@17.1.0` wants
@@ -439,6 +474,11 @@ the meantime.
 `--legacy-peer-deps`. Pre-existing (not introduced by CS-026), but now documented.
 Resolving it cleanly likely needs an `eslint-plugin-n`/`eslint-config-standard`
 bump coordinated with the Nextcloud eslint config.
+
+**Preparation activated (2026-10-03):** owned by
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H1. `.npmrc` currently enables the bypass; completion requires a clean install
+with `--legacy-peer-deps=false` before removing it, not another force/override.
 
 ---
 
@@ -460,8 +500,8 @@ SELECT of ids followed by UPDATE ... WHERE id IN (...). Not a WP7 regression
 ---
 
 ### [P3] BUG-SEC-001 — Dedicated security reporting address + GPG key
-**Status**: Backlog · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
-**Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
+**Status**: In Progress — CS-PLAN-081 H7 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`; Q-081-04: existing operator-approved mailbox/key) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
+**Owning**: CS-PLAN-081 H7 · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
 **Source**: CS-001 security review
 
 `SECURITY.md` points reporters to the Codeberg user profile (no private advisory
@@ -472,20 +512,32 @@ encrypted reporting frictionless.
 - [ ] GPG public key published; fingerprint referenced in `SECURITY.md`.
 - [ ] `SECURITY.md` "maintainer note" removed once the channel exists.
 
+**Preparation activated (2026-10-03):** owned by
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H7. Actual contact/key and external publication require operator approval and
+controlled receipt/decryption evidence; no invented public details.
+
 ---
 
 ### [P3] SEC-AUDIT-001 — Security hardening follow-ups from P8-SECURITY-001 audit
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: security hardening
-**Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
+**Status**: In Progress — CS-PLAN-081 H3 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: M · **Layer**: backend · **Journey stage**: security hardening
+**Owning**: CS-PLAN-081 H3 · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
 **Source**: security audit 2026-03-05 (record archived 2026-08-20, DOC-STD-001); re-verified by CS-PLAN-053 full review 2026-08-27
 
 - [ ] Rate limiting for sensitive endpoints (user management).
 - [ ] Audit logging for owner-level operations.
-- [x] Document security assumptions in the API documentation (`docs/api/README.md:836-838` documents "no rate limiting" explicitly; a full assumptions section is still to do — keep this bullet open at half-done).
+- [ ] Document the complete security assumptions, rate-limit scope and audit contract in the API documentation. Existing "no rate limiting" text is only partial documentation, not whole-bullet completion (current section: `docs/api/README.md:1581-1583`).
 
 Re-verification 2026-08-27: no rate-limit or audit-log implementation exists in `lib/`;
 review findings CR-053-17 (controller logging gaps in 10/15 controllers) and CR-053-18
 are adjacent hardening items.
+
+**Preparation activated (2026-10-03):** owned by
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H3: public Nextcloud membership throttling and privacy-aware AppLogger
+owner-operation events, not a new generic audit table. Contracts resolved
+(Q-081-02: 60/300 s per endpoint; Q-081-03: AppLogger operational contract);
+no implementation or closure claimed yet.
 
 ---
 
@@ -496,7 +548,7 @@ are adjacent hardening items.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
 **Status**: Backlog · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: unassigned · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
@@ -512,6 +564,18 @@ Exact blocking gates:
 
 Still blocking: the independent obligations above (BUG-SEC-001, SEC-AUDIT-001)
 and the deployment/field-usage work itself.
+
+**Retained-data preparation (2026-10-03):**
+[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H6 (activated via Standard A `PASS-WITH-FIXES`; Q-081-01 resolved to post-WP9 baseline
+adoption) prepares the first protected build/adoption boundary, future
+data-preserving migration rules, synthetic recovery rehearsal and truthful
+whole-Nextcloud rollback impact. This is a partial contribution, not deployment
+or field-usage completion. The intended family candidate must pass
+CS-PLAN-080's technical matrix/browser gates before real retained data; human
+evidence then remains with CS-PLAN-080/CONCEPT-001. No premature
+productive-use declaration or circular prerequisite on a completed human trial
+is introduced.
 
 ---
 

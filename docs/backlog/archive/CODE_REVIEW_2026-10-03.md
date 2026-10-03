@@ -59,3 +59,68 @@ None required — the parent authorizes exactly this WP9 slice and the C5j conse
 - Unrelated pre-existing `.gitkeep` deletions preserved unstaged, per the prior reviews' handling.
 
 ---
+
+# Plan Activation: CS-PLAN-081 Pre-WP9 Hardening and Retained-Data Readiness — Standard A
+
+**Review Date**: 2026-10-03
+**Reviewer**: Kilo (main agent, no subagents — Standard A tier)
+**Mode**: Standard A (plan review before `new/` → `active/`)
+**Scope**: `docs/plans/new/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md` plus its declared uncommitted drafting package (doc/plan indices, backlog/live registry, monthly archive rollover, parent/WP9 sequencing notes); runtime tree untouched
+**Base Commit**: `76e282ef774d63c802a537a489d42c781abe62c6` (`master`; index empty at capture — tree `5b868e3`; unstaged binary-diff SHA256 `E182140A555BD74DFB3095DF853AB9DC0B1D33D3B2DBB9F9EE8077EEEF10E617` covering the drafting package plus the unrelated pre-existing `.gitkeep` deletions, preserved unstaged; untracked plan SHA256 `CC506A10DE4A63AC19813CA1011E5A87AF5AF5146CD226E9318063847FB4C090`)
+
+## Executive Summary
+
+### Outcome
+- PASS-WITH-FIXES
+
+### What Was Reviewed
+- The complete preparation plan: problem summary with verified baseline, H1-H7 ownership/non-goal slices, membership gates/throttling/owner-operation audit logging, small user-facing corrections (basement cap, truthful reset copy, Snake ordering), first-retained-build/recovery contract, private reporting channel, H-T1..H-T11 test matrix, implementation gates, file manifest, implementation order, risks, acceptance criteria, decision proposals Q-081-01..05.
+- Eligibility: sole regular non-symlink `*.md` in `docs/plans/new/`; destination `active/cs-plan-081-…` did not exist; no ambiguity.
+
+### What Was Fixed Immediately
+- One minor manifest path: `RoleGuardApiTest.php` cited under `tests/integration/Controller/` but living at `tests/integration/RoleGuardApiTest.php` — corrected in the plan §5 manifest.
+
+### Main Risks Remaining
+1. None blocking. Implementation-phase risks (draft-approval/productive-use confusion, harness fix masking production gaps, throttle/fixture interactions, log overpromise, whole-server restore damage, silently deferred operator channel, scope absorption) are named in plan §7 with mitigations.
+
+## Verification Performed
+
+- **Baseline citations exact:** migration head `Version1033`; `HouseService::inviteMember(int $houseId, string $email, string $role)` has no owner parameter (lib/Service/HouseService.php:156), `removeHouseMember`/`updateUserRole` take caller parameters (:227/:303); all four ordered queries in `lib/Db/MinigameScoreMapper.php` sort only by `score DESC` with no `id` tiebreak; `SetupWizard.vue:551-555` clamps `floorTotal = min(6, …)` and appends the basement only when `floors.length < 6` (silent drop at the cap); `.npmrc` enables `legacy-peer-deps` citing TECH-LINT-006; `jest.config.js:4` ignores only `/node_modules/`, `/archive/`, `/\.kilo/` test paths while `moduleNameMapper` maps canonical mocks (duplicate-mock indexing unaddressed, as claimed).
+- **Manifest/commands:** every §4 gate command exists in package.json (`test:noise`, `l10n:check-keys`, `stylelint`, `test:e2e:gate`, `docs:encoding`, `backlog:check`); §5 manifest verified against the tree — every M path exists (after the RoleGuardApiTest fix) and no N path exists; all ten related backlog IDs exist and are open in `backlog.md`.
+- **Ownership/no overlap:** slices H1-H7 map to existing backlog owners (TECH-JEST-001/TECH-LINT-006 H1, TECH-TEST-003 H2, CR-SEC-05/SEC-AUDIT-001 H3, FEAT-UX-032 H4 + CONCEPT-001 partial, CR-053-11 Snake remainder H5, RELEASE-002 partial H6, BUG-SEC-001 H7); WP9/CONCEPT-001 remainders stay with CS-PLAN-080/070 (cross-referenced sequencing notes in both active plans).
+- **Plan-only checks:** nine template sections complete; per-step ownership with estimates; coherent preparation scope with explicit non-goals (no FEAT-UX-015, no chore approval, no Task Pass, no tour/search/print/bulk/perf sweep, no TECH-DIGEST-001); risks with likelihoods/mitigations; thirteen acceptance criteria; H-T1..H-T11 test matrix with primary evidence paths; drafting gates green and re-run by this review.
+
+## Findings
+
+| Severity | File:line | Issue | Status |
+|---|---|---|---|
+| minor | docs/plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md:268 (§5 manifest) | `RoleGuardApiTest.php` cited under `tests/integration/Controller/` but the file exists at `tests/integration/RoleGuardApiTest.php` | fixed in-round |
+
+No open findings to route (plan-owned, fold-in, or backlog).
+
+## Decisions
+
+Q-081-01..05 presented as one structured question batch; all recommended options approved by the user:
+1. **Q-081-01** — post-WP9 baseline adoption for retained-data protection (no retroactive support; the fresh-install rule stands until explicit adoption).
+2. **Q-081-02** — native `UserRateLimit`, 60 calls / 300 elapsed seconds / authenticated user, separately on invite/remove/updateRole.
+3. **Q-081-03** — AppLogger operational owner-change events with NC-managed retention and explicit durability limits (no dedicated ledger).
+4. **Q-081-04** — operator-approved existing dedicated mailbox and usable public key; H7 remains required.
+5. **Q-081-05** — visible five-above-ground cap with basement selected (six total), consistent input/preview/payload.
+
+Recorded in the plan §9 decision table and `## Review Outcome`.
+
+## Gates (documentation-only round)
+
+- `npm run backlog:check` — green after the activation edits
+- `npm run docs:encoding` — green after the activation edits
+- `git diff --check` — clean
+- Runtime gates belong to implementation H1-H7 and were intentionally not run (no runtime file changed).
+
+## Plan Lifecycle
+
+- Plan moved `new/` → `active/` with header status (`Active`, Standard A `PASS-WITH-FIXES` 2026-10-03) and an appended `## Review Outcome` (baseline, fingerprints, verification, decisions, fixes, gates, transition).
+- Standalone backlog owners marked In Progress under CS-PLAN-081: TECH-JEST-001, TECH-LINT-006 (H1), TECH-TEST-003 (H2), CR-SEC-05, SEC-AUDIT-001 (H3), FEAT-UX-032 (H4), CR-053-11 Snake remainder (H5), BUG-SEC-001 (H7); CONCEPT-001/RELEASE-002 keep parent/partial ownership.
+- `docs/README.md`, `docs/plans/README.md`, `docs/backlog/backlog.md`, `ACTIVE_TASKS.md` and the parent/WP9 sequencing notes updated to the active plan path and outcome.
+- Unrelated pre-existing `.gitkeep` deletions preserved unstaged, per the prior reviews' handling.
+
+---

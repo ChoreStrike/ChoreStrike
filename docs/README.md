@@ -28,6 +28,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 
 ## Workflow, Review & Plans
 
+- [Pre-WP9 hardening and retained-data readiness](plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) - active next work (CS-PLAN-081, activated 2026-10-03, Standard A `PASS-WITH-FIXES`): bounded backlog preparation and a future retained-data boundary before WP9 and the real-data trial; Q-081-01..05 resolved.
 - [`backlog/ACTIVE_TASKS.md`](backlog/ACTIVE_TASKS.md) — live task coordination
 - [`backlog/README.md`](backlog/README.md) — backlog structure and update workflow
 - [`plans/`](plans/README.md) — implementation plans (`new/`, `active/`, `onhold/`, `done/`); temporary working docs — durable outcomes are integrated into `concepts/`, `adr/`, `engineering/`, `api/`, `standards/`
