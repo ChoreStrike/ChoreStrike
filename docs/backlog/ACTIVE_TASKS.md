@@ -10,7 +10,7 @@
 
 ## In Progress
 
-- **CS-PLAN-070 / parent - family rhythm and reward clarification OPEN** (WP0-WP8 delivered; [WP8 / CS-PLAN-079](../plans/done/cs-plan-079-wp8-reward-ui-and-onboarding.md) passed final Standard B `PASS-WITH-FIXES` 2026-10-02; CONCEPT-001 remains In Progress for WP9 cross-DB/family evidence). [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
+- **CS-PLAN-070 / parent - family rhythm and reward clarification OPEN** (WP0-WP8 delivered; WP9 activated as [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md), Standard A `PASS` 2026-10-03, zero findings; CONCEPT-001 remains In Progress for cross-DB and family evidence). [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
 

@@ -365,6 +365,11 @@ WP8 was delivered via [CS-PLAN-079](../plans/done/cs-plan-079-wp8-reward-ui-and-
 (final Standard B `PASS-WITH-FIXES` 2026-10-02: reward UI/onboarding, two catalog gates,
 persistent request surfaces, exact prices, uncertain-command replay, essential help).
 CONCEPT-001 remains In Progress for WP9 (cross-DB/family evidence) — the closing gate.
+WP9 is planned as [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
+(drafted 2026-10-02, activated 2026-10-03 via Standard A `PASS`, zero findings;
+WP9 owner): isolated MariaDB/PostgreSQL/SQLite verification,
+two consecutive combined browser gates and voluntary adult/child comprehension
+plus 14-day everyday-use evidence. No WP9 runtime or human evidence is claimed yet.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

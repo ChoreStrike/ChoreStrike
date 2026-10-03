@@ -14,7 +14,9 @@ docs/plans/
 
 ## Lifecycle
 
-Current active plan: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md).
+Current active plans: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+(parent) and its WP9 child [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
+(activated 2026-10-03, Standard A `PASS`).
 Core product direction was approved through 24 explicit answers on 2026-09-17.
 The same day, 47 additional C1-C5 answers (6/11/9/8/13) resolved the presented
 product questions. The technical draft added on 2026-09-18 specifies persistence,
@@ -61,14 +63,20 @@ blocked first final-review attempt and the original manifest are recorded in the
 live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
 Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-(parent plan; WP0-WP8 delivered). WP8 reward UI and onboarding,
+(parent plan; WP0-WP8 delivered). Its WP9 child,
+[CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md),
+is **active** (drafted 2026-10-02, activated 2026-10-03 via Standard A `PASS`,
+zero findings): isolated MariaDB/PostgreSQL/SQLite verification, two
+consecutive combined browser gates and voluntary adult/child comprehension
+plus 14-day everyday-use evidence; no WP9 runtime or human evidence claimed.
+WP8 reward UI and onboarding,
 [CS-PLAN-079: WP8 - Reward UI and Onboarding](done/cs-plan-079-wp8-reward-ui-and-onboarding.md),
 passed final Standard B `PASS-WITH-FIXES` on 2026-10-02 (two independent
 catalog gates, persistent own/owner request surfaces with all C4
 attestation forms, exact `parseCoinMinor` prices, uncertain-command
 same-key replay, 409 conflict-safe drafts, shared-device reset, essential
 onboarding/help; RF-079-01..04 resolved in-round; FEAT-UX-026 closed).
-The parent remains open for WP9 (final family/DB-matrix evidence).
+The parent remains open for the WP9 final evidence gates (family/DB-matrix), now owned by the active CS-PLAN-080.
 
 Latest completed: [CS-PLAN-079: WP8 - Reward UI and Onboarding](done/cs-plan-079-wp8-reward-ui-and-onboarding.md)
 (final Standard B `PASS-WITH-FIXES` 2026-10-02): the reward Pinia client
