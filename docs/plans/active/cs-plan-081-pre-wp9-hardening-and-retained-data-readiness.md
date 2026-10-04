@@ -646,6 +646,37 @@ owner authority. Durable event semantics and diagnostic-vs-audit distinction
 are in `docs/standards/guidelines/logging.md`; native-cache test prerequisites
 and isolation are in `docs/engineering/testing.md`.
 
+### H6 Full Interim Review Evidence (2026-10-04)
+
+- [x] RF-081-H6-06 · minor · recovery readiness · user-authorized authenticated
+  TCP/application `SELECT 1` repair replaces socket-only ping. Rejection/retry,
+  bounded exhaustion and exact argument-vector self-tests pass; source follow-up
+  is clear. Corrected H-T10 `cs081-recovery-0f68dce7b4de` passes all 30 app
+  snapshots, whole DB/file equality, negative controls and complete owned cleanup.
+- [x] RF-081-H6-07 · minor · `tests/integration/Controller/TestModeApiTest.php` ·
+  randomized seed 8105 exposed an absolute zero-house assertion in the invalid-
+  profile no-writes proof. A test-owned nonempty house reproduces the old failure;
+  the authorized repair compares exact ordered house snapshots before/after.
+  Focused 8/61, randomized 568/3182 and default 568/3182 pass, zero skips; focused
+  read-only review reports no findings. No production behavior was changed.
+- [ ] RF-081-H6-05 · major · integration fixture/transaction diagnosis · earlier
+  due-date-holder failure and subsequent missing fixtures remain unexplained.
+  Same-process read-only DBAL/native-PDO probes record 2,272 before/after
+  boundaries across cached and randomized full runs: all nesting 0/native false,
+  no observed leak/desynchronization. This does not sample in-test/helper state
+  and cannot prove the earlier cascade's cause. The due-date helper signals before
+  commit without a separate commit barrier and computes its expected day
+  independently of the parent. These are concrete remaining diagnostic seams,
+  not proven production defects. Keep mandatory deterministic disposition open;
+  never repair by blindly committing inherited transaction state.
+
+**Decisions:** structured batches approved Full interim escalation, H6-06 repair,
+in-round H6-05 diagnosis, H6-07 repair, then keeping H6-05 open with the above
+evidence. No production/security repair, required-work rescoping, H7 publication,
+retained-baseline adoption or completed-plan claim was authorized. Private probe
+scripts/logs are diagnostic artifacts, not production code or a committed gate.
+H7/H-T11 remain required and operator-blocked.
+
 ### Decisions for Standard A
 
 All entries were presented as one structured question batch in the 2026-10-03
@@ -850,3 +881,34 @@ review. Unrelated pre-existing `.gitkeep` deletions remain untouched.
   review evidence), excluding the three unrelated `.gitkeep` deletions, per the
   automatic review-commit rule. No push, branch change, deployment or baseline
   adoption.
+
+### H6 Full Interim - 2026-10-04 - NEEDS-FOLLOW-UP
+
+- **Scope:** explicit CS-PLAN-081; 14 captured H6 implementation/evidence paths
+  plus the authorized `TestModeApiTest.php` regression. Three unrelated lifecycle
+  `.gitkeep` deletions excluded and preserved. Exact manifest in the review record.
+- **Identity:** `master` / `56697d273b0324d2b7d1a172d57569129438fc42`; initial
+  index empty, index-entry SHA-256
+  `39b326ce622cbf4356b331d32211c34fe3d3070e8081992c4b2afe9412930698`;
+  initial complete capture `1f7f986493ea080f79bc30f86c954b14b2d31acd3f054b4ea99f3260131be48d`;
+  repaired pre-finalization capture
+  `52d5a619789e45f733e5a3626d2d5d25ca7e01a49289c4e873deb120c2540063`.
+- **Review:** all four read-only Full tracks received/validated; architecture,
+  security/data-flow and quality clear; correctness H6-06 repaired and re-reviewed.
+  Authorized diagnosis found and repaired H6-07. H6-05 remains open; green reruns
+  and clean sampled boundaries are not a deterministic root-cause disposition.
+- **Gates:** minimum Node 20.19.0/npm 10.8.2; Jest/noise 109/1228, lint/stylelint,
+  production build, l10n 1270 and browser-runner self-test green. Docker unit
+  1314/4246; final default and random-seed-8105 integration each 568/3182,
+  `--fail-on-skipped`, zero skips; PHP style 0/405. Full three-pool browser
+  `run-oi7XAv` passes 49 required specs, zero required skipped/failed/flaky cases.
+  Corrected isolated recovery passes; no overlapping DB/browser/recovery jobs.
+  Backlog/encoding/whitespace gates pass. Initial diagnostic failure retained
+  above, then deterministically repaired, not hidden by a rerun.
+- **Routing/finalization:** H6-05 stays plan-owned; H7 remains required. No new
+  backlog item or standalone completion/archive. `NEEDS-FOLLOW-UP` authorizes
+  only evidence-only plan findings/outcome, review record, live registry and the
+  verified domain-neutral `TestModeApiTest.php` correction in the scoped commit.
+  Existing H6 implementation/policy/acceptance/manifest edits and the untracked
+  recovery runner/fixture are deliberately left out of the index and commit.
+  No `done/` move, branch change, push, deployment or retention adoption.

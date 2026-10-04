@@ -170,12 +170,15 @@ class TestModeApiTest extends IntegrationTestCase {
 	 */
 	public function testEnabledMode_UnknownProfile_Get400Envelope_WithoutWrites(): void {
 		$this->setTestMode('true');
+		$this->createBareHouse('Unknown profile survivor');
+		$query = $this->db->getQueryBuilder()->select('*')->from('chorestrike_houses')->orderBy('id');
+		$housesBefore = $query->executeQuery()->fetchAll();
 
 		$response = $this->controller()->seed('galaxy');
 
 		self::assertSame(400, $response->getStatus());
 		self::assertSame('INVALID_PROFILE', $response->getData()['error']['code']);
-		self::assertSame(0, $this->houseCount());
+		self::assertSame($housesBefore, $query->executeQuery()->fetchAll(), 'the refused profile must preserve existing houses');
 	}
 
 	/**
