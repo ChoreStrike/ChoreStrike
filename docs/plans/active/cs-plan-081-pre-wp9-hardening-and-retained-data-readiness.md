@@ -677,6 +677,66 @@ retained-baseline adoption or completed-plan claim was authorized. Private probe
 scripts/logs are diagnostic artifacts, not production code or a committed gate.
 H7/H-T11 remain required and operator-blocked.
 
+### H6-05 Deterministic Diagnosis And Authorized Holder Repair (2026-10-04)
+
+- **Capture before intervention:** `master`, HEAD
+  `46d37a29ce705fd187ceb43aacaa2d694dfff512`, index empty; full index-entry
+  SHA-256 `4dcd956c326aa8dc3e030072f8767cae742217810168b82bbac521409a2e4c9d`;
+  staged binary diff SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`;
+  unstaged binary diff SHA-256 `c4f08ea7358ad9c823860656b5adb688fabb071688c080a0261e95e28c3d948a`;
+  complete staged/unstaged/sorted-untracked capture SHA-256
+  `d9dd6d8ca586c40fdbb55d99ef134cf2bff118b54cee7e7fd2fd6702c1f28623`.
+  The capture includes, but every reviewed/write/commit set excludes, the three
+  unrelated lifecycle `.gitkeep` deletions. Untracked runner/fixture content
+  hashes match the preceding review exactly. Capture algorithm and manifest
+  are recorded in the review record.
+- **Observed, not inferred:** a private bootstrap instruments the unchanged
+  shared test base and executor in memory, without normalizing transactions.
+  The full default-order run passes 568/3183, zero skips. Its 12,843 same-process
+  records include 1,587 begin pairs, 1,465 commit pairs, 122 rollback pairs,
+  fixture inserts/account boundaries and 525 before/after base cleanup pairs.
+  Every sampled DBAL/native-PDO pair agrees; nesting is 0/false outside and
+  1/true inside the sampled transaction operations. No pre-cleanup leak was
+  observed. This is intermediate-state evidence, not a historical-cause proof.
+- **Deterministically reproduced harness failure class:** injecting an early
+  conflict before the holder commits produces the original assertion class
+  (expected next day, actual current day). The helper is still running when
+  the old `finally` terminates it; its independent uncommitted edit rolls back.
+  Normal real-apply tracing observes the parent's 1/true pre-rollback and
+  0/false post-rollback/cleanup, and the holder's successful native commit.
+  The injected conflict is a negative control, not proof of the original trigger.
+- **Timeout process fact:** a bounded, DB-free private PHPUnit test starts a
+  helper, then a two-second shell timeout kills the Docker client. `docker top`
+  subsequently observes both container PHPUnit and helper still alive (about
+  ten seconds elapsed); both exit within their bounded lifetimes. No later
+  mutation job starts before container-side exit is verified. Historical
+  timeout overlap remains a hypothesis, not an attributed original cause.
+- **Separate missing-fixture disposition:** killing the row holder's independent
+  transaction does not erase the parent's or later tests' house/member fixtures.
+  The four historical errors are therefore not attributed to this holder fix.
+  Original per-error names/stacks are absent from the available raw artifacts;
+  historical secondary investigation mentions scheduling preferences and seed
+  fixtures but cannot supply a defensible four-error mapping. Shared-connection
+  inheritance/desynchronization and overlapping timed-out writers remain
+  unconfirmed hypotheses. RF-081-H6-05 remains open; no rerun-only acceptance.
+- **Structured decisions:** the operator approved `Holder absichern`, explicitly
+  chose `Offen halten` for H6-05 and confirmed `Weiterhin nicht bereit` for H7.
+  H7 still lacks approved address/key/fingerprint, controlled receipt/decryption
+  and publication approval/evidence. No rescoping or external action authorized.
+- **Pinned bounded repair:** `tests/integration/Service/SchedulePlanConcurrencyTest.php`
+  now passes one parent-computed UTC target day, requires a separate post-commit
+  marker and successful helper exit before cleanup, and fails boundedly without
+  either proof. Real race, early-conflict wait, missing-commit rollback and stalled
+  helper rejection pass 5 tests/35 assertions. `IntegrationTestCase::actingAs`
+  and production `TransactionExecutor` are unchanged. Private probes remain
+  gitignored diagnostic aids, not the durable regression.
+- [x] RF-081-H6-08 · minor · holder timeout negative control · the initial
+  half-second sleep helper could exit before the parent checked its timeout
+  under load. Correctness-track finding repaired within the authorized bounded
+  holder scope: readiness signal plus a STDIN hold until parent cleanup replaces
+  the timer. Focused 5/35 and final complete integration 571/3202 pass, zero
+  skips; read-only correctness follow-up returns no remaining findings.
+
 ### Decisions for Standard A
 
 All entries were presented as one structured question batch in the 2026-10-03
@@ -912,3 +972,44 @@ review. Unrelated pre-existing `.gitkeep` deletions remain untouched.
   Existing H6 implementation/policy/acceptance/manifest edits and the untracked
   recovery runner/fixture are deliberately left out of the index and commit.
   No `done/` move, branch change, push, deployment or retention adoption.
+
+### H6-05 Continuation Full Interim - 2026-10-04 - NEEDS-FOLLOW-UP
+
+- **Owner/scope:** this active plan; complete remaining H6 implementation,
+  recovery runner/fixture and durable docs, plus the authorized holder regression.
+  Four read-only tracks validated; main owns every write. Exact 15-path reviewed
+  candidate plus the review record finalization path in the latest review entry.
+- **Identity:** `master` / `46d37a29ce705fd187ceb43aacaa2d694dfff512`, empty
+  captured index. Initial complete fingerprint
+  `d9dd6d8ca586c40fdbb55d99ef134cf2bff118b54cee7e7fd2fd6702c1f28623`;
+  reviewed pre-finalization fingerprint
+  `7646f9ee0cdf23d7d690e9ff48db9a6412a3d680f9c4d51fd1ec495af7a4912e`.
+  Evidence-only updates and the named recovery re-verification record follow that
+  snapshot. Untracked hashes unchanged; foreign `.gitkeep` deletions preserved.
+- **Disposition:** the holder-abort class and survival of PHPUnit/helper after a
+  client timeout are deterministically observed. The repaired holder requires one
+  parent-computed UTC day, successful commit marker and normal helper exit before
+  assertions/cleanup. In-process DBAL/native-PDO evidence observes no mismatch
+  in 12,843 original-candidate states. None proves the original four fixture
+  errors' cause; they remain separate and RF-081-H6-05 stays open by explicit
+  operator decision. H7 checkpoint remains not ready; H-T11 is still mandatory.
+- **Review fix:** RF-081-H6-08 timeout-test readiness/hold handshake repaired
+  within the approved bounded harness scope; correctness follow-up clear. Other
+  three tracks return no new findings. No unknown transaction commit/rollback,
+  production fallback, warning suppression or test skip added.
+- **Fresh gates:** minimum Node 20.19.0/npm 10.8.2; Jest/noise 109/1228,
+  lint/stylelint/build, l10n 1270 exact keys, runner self-test and dependency tree
+  pass. Docker unit 1314/4246, final uninstrumented default integration 571/3202,
+  zero skips; focused holder 5/35 and PHP standards 0/405 pass. Build-complete
+  isolated recovery `cs081-recovery-592eb59f90a0` passes all 30 app snapshots,
+  whole DB/files, divergence/negative controls and teardown. Full browser
+  `run-UfqJZd` passes all 49 required specs in three sequential pools, no required
+  skips/failures/flaky cases. Integration/recovery/browser never overlap; final
+  evidence documentation/backlog/whitespace checks rerun before commit.
+- **Finalization:** `NEEDS-FOLLOW-UP`, not whole-plan PASS. Only this round's
+  evidence-only findings/outcome hunks, review record, live registry and verified
+  `SchedulePlanConcurrencyTest.php` repair enter the one scoped review commit.
+  Remaining H6 policy/recovery/RewardService implementation and durable-doc
+  updates stay uncommitted. No duplicate backlog item, owner archive, `done/`
+  transition, branch change, amend, push, tag, publication, deployment, production
+  restore or baseline adoption.

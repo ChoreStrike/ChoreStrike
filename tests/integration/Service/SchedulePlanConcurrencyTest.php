@@ -149,8 +149,10 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 
 	/**
 	 * ApplyVsConcurrentDueDateEdit_BlockedOnRowLock_RecomputesAndConflicts
+	 *
+	 * @dataProvider dueDateHolderModes
 	 */
-	public function testApplyVsConcurrentDueDateEdit_BlockedOnRowLock_RecomputesAndConflicts(): void {
+	public function testApplyVsConcurrentDueDateEdit_BlockedOnRowLock_RecomputesAndConflicts(string $mode): void {
 		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
 			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
 		}
@@ -166,11 +168,13 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 		self::assertCount(1, $preview['changes']);
 
 		$signalFile = sys_get_temp_dir() . '/cs-spc2-locked-' . uniqid();
+		$resultFile = sys_get_temp_dir() . '/cs-spc2-committed-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-spc2-holder-' . uniqid() . '.php';
+		$targetDay = (new \DateTimeImmutable($this->todayKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d');
 		file_put_contents($helperScript, $this->buildDueDateHolderScript());
 
 		$process = proc_open(
-			[PHP_BINARY, $helperScript, (string)$roomTaskId, $signalFile],
+			[PHP_BINARY, $helperScript, (string)$roomTaskId, $signalFile, $resultFile, $targetDay, $mode],
 			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes
 		);
@@ -189,10 +193,21 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			// a moved due date, and the recomputation must answer the clean
 			// stale conflict instead of overwriting the winner.
 			try {
+				// Deterministic harness negative controls, not production conflict evidence.
+				if ($mode !== 'apply') {
+					throw new \OCA\ChoreStrike\Exception\ConflictException('The schedule preview is no longer current. Generate a new preview.');
+				}
 				$service->apply($houseId, $owner, $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], $this->planCommandUuid(), true);
 				self::fail('the apply must conflict against the concurrently committed due-date change');
 			} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
 				self::assertSame('The schedule preview is no longer current. Generate a new preview.', $e->getMessage());
+			}
+			try {
+				$this->waitForHolderCommit($process, $resultFile, $targetDay);
+				self::assertNotSame('abort-before-commit', $mode, 'an uncommitted holder must be rejected');
+			} catch (\RuntimeException $e) {
+				self::assertSame('abort-before-commit', $mode, $e->getMessage());
+				self::assertSame('The due-date holder exited without a successful commit proof.', $e->getMessage());
 			}
 		} finally {
 			$status = proc_get_status($process);
@@ -206,15 +221,58 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			}
 			proc_close($process);
 			@unlink($signalFile);
+			@unlink($resultFile);
 			@unlink($helperScript);
 		}
 
 		self::assertSame(
-			date('Y-m-d', strtotime('+1 day')),
+			$mode === 'abort-before-commit' ? $this->todayKey : $targetDay,
 			substr((string)$this->fetchRoomTask($roomTaskId)['next_due'], 0, 10),
 			'the holder\'s committed due date must survive (no stale overwrite)'
 		);
 		self::assertSame([], $this->fetchAssignees($roomTaskId), 'the conflicted apply must not write assignees');
+	}
+
+	/** @return array<string, array{string}> */
+	public static function dueDateHolderModes(): array {
+		return ['real apply race' => ['apply'], 'early conflict waits for commit' => ['early-conflict'], 'missing commit rejected' => ['abort-before-commit']];
+	}
+
+	public function testHolderCommit_StalledHelper_RejectsWithinBound(): void {
+		$process = proc_open(
+			[PHP_BINARY, '-r', 'fwrite(STDOUT, "ready\n"); fgets(STDIN);'],
+			[0 => ['pipe', 'r'], 1 => ['pipe', 'w']],
+			$pipes
+		);
+		self::assertIsResource($process);
+		try {
+			stream_set_timeout($pipes[1], 30);
+			self::assertSame("ready\n", fgets($pipes[1]));
+			$this->expectException(\RuntimeException::class);
+			$this->expectExceptionMessage('The due-date holder did not finish its commit in time.');
+			$this->waitForHolderCommit($process, sys_get_temp_dir() . '/cs-spc2-absent-' . uniqid(), $this->todayKey, 0.01);
+		} finally {
+			proc_terminate($process);
+			fclose($pipes[0]);
+			fclose($pipes[1]);
+			proc_close($process);
+		}
+	}
+
+	/** Require both the post-commit marker and a normal helper exit before cleanup. */
+	private function waitForHolderCommit($process, string $resultFile, string $targetDay, float $timeout = 30.0): void {
+		$deadline = microtime(true) + $timeout;
+		do {
+			$status = proc_get_status($process);
+			if ($status !== false && !$status['running']) {
+				if ($status['exitcode'] === 0 && file_exists($resultFile) && trim((string)file_get_contents($resultFile)) === $targetDay) {
+					return;
+				}
+				throw new \RuntimeException('The due-date holder exited without a successful commit proof.');
+			}
+			usleep(50000);
+		} while (microtime(true) < $deadline);
+		throw new \RuntimeException('The due-date holder did not finish its commit in time.');
 	}
 
 	// ========== Helpers ==========
@@ -281,6 +339,9 @@ require '/var/www/html/lib/base.php';
 
 $roomTaskId = (int)$argv[1];
 $signalFile = $argv[2];
+$resultFile = $argv[3];
+$targetDay = $argv[4];
+$mode = $argv[5];
 
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
@@ -300,10 +361,15 @@ usleep(2000000);
 // drift the planner fingerprint (a same-day rewrite is a value no-op).
 $db->executeStatement(
     'UPDATE *PREFIX*chorestrike_room_tasks SET next_due = :due WHERE id = :id',
-    ['due' => date('Y-m-d', strtotime('+1 day')) . ' 00:00:00', 'id' => $roomTaskId],
+    ['due' => $targetDay . ' 00:00:00', 'id' => $roomTaskId],
     ['due' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
+// A deliberate process exit must roll back only this helper's owned transaction.
+if ($mode === 'abort-before-commit') {
+    exit(7);
+}
 $db->commit();
+file_put_contents($resultFile, $targetDay);
 PHP;
 	}
 

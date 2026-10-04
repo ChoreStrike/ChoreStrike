@@ -229,3 +229,169 @@ pre-existing H6 policy/implementation/manifest/acceptance updates do not enter
 this evidence-only commit. All other captured H6 implementation/policy files,
 including recovery runner/fixture and optional-description implementation, remain
 uncommitted. No branch change, amend, push, PR, deployment or baseline adoption.
+
+---
+
+## H6-05 Continuation Full Interim Review - NEEDS-FOLLOW-UP (2026-10-04)
+
+**Owner:** CS-PLAN-081 in `active/`. **Tier:** Full interim, four read-only
+reviewer tracks; main owns all writes. This is not a whole-plan completion
+review: H6-05 and H7 remain required and explicitly unresolved.
+
+### Capture And Reviewed Manifest
+
+- Branch `master`, HEAD `46d37a29ce705fd187ceb43aacaa2d694dfff512`, index empty.
+- Index entries SHA-256 `4dcd956c326aa8dc3e030072f8767cae742217810168b82bbac521409a2e4c9d`.
+- Staged binary diff SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+- Initial unstaged binary diff SHA-256 `c4f08ea7358ad9c823860656b5adb688fabb071688c080a0261e95e28c3d948a`.
+- Initial complete fingerprint `d9dd6d8ca586c40fdbb55d99ef134cf2bff118b54cee7e7fd2fd6702c1f28623`.
+- Reviewed pre-finalization unstaged binary diff SHA-256 `6eda8fc264f35313fb85cc2942a655df6dcc083b9a92d2780ed5bafd6e16fb2b`.
+- Reviewed pre-finalization complete fingerprint `7646f9ee0cdf23d7d690e9ff48db9a6412a3d680f9c4d51fd1ec495af7a4912e`.
+
+Algorithm: raw `git diff --cached --binary --no-ext-diff` bytes, then raw
+`git diff --binary --no-ext-diff` bytes, then UTF-8 JSON of lexically sorted
+untracked `{path,sha256,blob}` records; SHA-256 of that concatenation. Index
+fingerprint hashes raw `git ls-files --stage -z`. Full captures include unrelated
+`.gitkeep` deletions for drift detection, but exclude them from reviewed/write/
+commit sets. No existing changes reset, stashed or overwritten.
+
+Untracked content identities are unchanged from the preceding review:
+
+| Path | Content SHA-256 | Git blob |
+| --- | --- | --- |
+| `scripts/run-recovery-rehearsal.ps1` | `89ec38d3336ef0df8390175f5f48ff2815cec49dfb5dc51bfe14ff0ff5efd925` | `152051a9ec133b09e56e2313a0a140de080f7268` |
+| `tests/recovery/fixture.php` | `5246278609fd3cc661fd072537a87cb720f1664e92fadc8672c1d86603068b12` | `b2e3fed91c47055d31abcf757bc7d6afed9c58e3` |
+
+Exact reviewed manifest (15 paths; this record is the additional finalization
+path). The new holder regression and live registry extend the initial 13-path
+H6 candidate:
+
+```text
+AGENTS.md
+docs/backlog/ACTIVE_TASKS.md
+docs/engineering/deployment.md
+docs/engineering/testing.md
+docs/plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md
+docs/release/release-strategy.md
+docs/standards/ai/rules/project-rules.md
+docs/standards/ai/skills/architecture/SKILL.md
+docs/standards/ai/skills/php-backend/SKILL.md
+docs/testing/release-test-plan.md
+lib/Service/RewardService.php
+tests/unit/Service/CatalogAuditTest.php
+tests/integration/Service/SchedulePlanConcurrencyTest.php
+scripts/run-recovery-rehearsal.ps1
+tests/recovery/fixture.php
+```
+
+Foreign `docs/plans/{active,new,onhold}/.gitkeep` deletions preserved unstaged.
+Private diagnostic bootstraps, transformed in-memory classes, JSONL, gate logs
+and raw recovery/browser evidence remain gitignored and are never committed.
+
+### Diagnosis: Facts, Reproduced Class, Hypotheses
+
+1. **Observed in-process transaction state:** the private bootstrap instruments
+   fixture/account/cleanup seams and executor begin/commit/rollback before the
+   original operations, without SQL, reconnect or transaction normalization in
+   the observer. The complete default-order diagnostic passes 568/3183, zero
+   skips. Its process produces 12,843 records: 1,587 begin pairs, 1,465 commit
+   pairs, 122 rollback pairs and 525 base cleanup pairs, plus fixture/account
+   seams. All sampled native-PDO and DBAL nesting states agree (0/false outside,
+   1/true inside sampled transaction operations); no open pre-cleanup state.
+   Holder-specific tracing observes 1/true before signal/commit and 0/false
+   after commit; the normal parent conflict rolls 1/true back to 0/false.
+2. **Deterministically reproduced holder-abort class:** an explicitly injected
+   early conflict returns before the old holder commits. Old `finally` sees the
+   helper running and terminates it; the due-date assertion fails (next-day
+   expected, current-day actual). This proves a harness weakness, not the original
+   conflict trigger. The original helper also calculated the target date
+   independently and had no separate successful-commit/exit proof.
+3. **Observed tool-timeout survival:** a DB-free private PHPUnit test starts a
+   bounded 12-second helper and waits in its parent. After a two-second shell
+   timeout kills the Docker client, `docker top` observes both container PHPUnit
+   and helper alive around ten seconds elapsed. Both terminate within their
+   bounded lifetimes; container-side exit is confirmed before any mutation run.
+   Thus a client timeout does not establish exclusive DB-job ownership.
+4. **Four missing-fixture errors separately unresolved:** the independent holder
+   rollback cannot erase later parent-process house/member fixtures. Available
+   raw artifacts do not retain the four original per-test names/stacks; secondary
+   investigation names scheduling preferences and seed fixtures, not a reliable
+   complete mapping. No precise attribution is invented. Unknown inherited
+   transaction, native/DBAL desynchronization and timed-out writer overlap remain
+   hypotheses, not reproduced historical root causes. Clean intermediate-state
+   records and later passes do not establish a historical opener or erase this
+   evidentiary gap.
+
+**H6-05 disposition:** explicitly OPEN. The user chose to repair the holder only
+and keep the unassigned historical fixture failures open. No rerun-only closure,
+accepted superseded disposition, blind commit/rollback, production fallback,
+warning suppression or required-test skip.
+
+### Four Tracks And Findings
+
+All four read-only deliverables validated. Architecture/ownership,
+security/auth/data-flow and performance/quality return `[]`. Correctness returns
+one minor timing gap in the newly added timeout negative control; main repairs
+it within the explicitly approved bounded holder scope and its source follow-up
+returns `[]`. No unremediated security detail or unanswered review question.
+
+| Finding | Severity | Status |
+| --- | --- | --- |
+| RF-081-H6-05 holder portion | major historical follow-up | Deterministic harness repair verified: one parent UTC target day, post-commit marker plus successful exit before assertion/cleanup; real race and early-conflict/missing-commit/timeout negative controls. Original trigger not established. |
+| RF-081-H6-05 four fixture errors | major | Open, plan-owned; not attributed to holder or green reruns. |
+| RF-081-H6-08 | minor | Resolved: stalled helper emits ready then blocks on STDIN until parent cleanup, rather than expiring after a short sleep under load. Correctness follow-up clear. |
+| H7/H-T11 | mandatory incomplete work | Operator confirmed not ready; approved contact/key/fingerprint, receipt/decryption and publication evidence still unavailable. |
+
+Optional description fix and its callback-executing regression re-verified;
+no new runtime authorization/schema behavior. Recovery isolation and permanent
+docs preserve the distinction between approved future retention policy and
+explicit post-WP9 baseline adoption, which has not occurred.
+
+### Fresh Gates On The Reviewed Candidate
+
+| Gate | Result |
+| --- | --- |
+| Minimum runtime wrapper | Node 20.19.0 / npm 10.8.2, no global configuration change |
+| Jest / noise | PASS, 109 suites / 1228 tests; error-level noise gate clean, approved warning baseline retained |
+| ESLint / stylelint / production build | PASS, exit 0; webpack 5.105.2 |
+| l10n / runner self-test / dependency tree | PASS, 1270 exact keys; discovery/failure/skip/flaky rejection; `npm ls --all --omit=optional` exit 0 |
+| Docker unit `--fail-on-skipped` | PASS, 1314 / 4246, zero skips |
+| Focused final holder regression | PASS, 5 / 35; ready/hold timeout control included |
+| Final uninstrumented default integration | PASS, 571 / 3202, `--order-by=default --do-not-cache-result --fail-on-skipped`, zero skips |
+| PHP coding standards | PASS, 0/405 after final handshake repair |
+| Recovery self-tests | PASS, authenticated TCP retry/exhaustion and independent cleanup failure propagation |
+| Final build-complete recovery | `cs081-recovery-592eb59f90a0` PASS: 30 snapshots, whole DB/all captured file equality, divergence/negative controls, 26 migration identities, complete owned teardown; recovery 28.48s, total 74.34s |
+| Full browser | `run-UfqJZd` PASS, 49 required specs across three sequential pools; zero required skips/failures/flaky cases/retries |
+| Documentation/backlog/whitespace | PASS after final evidence edits: 34 link-checked scoped files, 890 encoding-checked tracked files; `git diff --check` clean |
+
+Integration, recovery and browser mutation jobs do not overlap. Frontend build
+finishes before runtime archive capture. The browser process remains tracked
+through its long serial pool; monitoring timeout is not misreported as test
+failure or completion and no next DB job starts while it runs.
+
+### Decisions And Outcome-Specific Finalization
+
+One structured decision batch, recommendation first, all answered:
+
+1. `Holder absichern`: approve only the bounded holder test/commit-proof repair
+   and durable negative controls; unchanged shared fixture and production executor.
+2. `Offen halten`: keep H6-05 open; no historical-cause claim or rescoping.
+3. `Weiterhin nicht bereit`: H7/H-T11 remains mandatory/operator-blocked; no
+   external creation, identity publication or account/profile action.
+
+**Outcome: NEEDS-FOLLOW-UP** (Full interim). All applicable current review gates
+green and questions answered; H6-05/H7 prevent whole-plan completion. No plan
+move, closed-owner archive or duplicate backlog item. Known findings remain in
+the owning plan; durable H-T10 re-verification is recorded in the release test
+plan without adopting retention.
+
+Exactly one allowed scoped review commit: this round's evidence-only plan
+findings/outcome additions, this record, `ACTIVE_TASKS.md`, and the verified
+`SchedulePlanConcurrencyTest.php` repair. Selective plan staging excludes every
+pre-existing H6 policy/implementation/manifest/acceptance hunk. Other H6 files,
+including optional-description implementation/regression, durable policy/recovery
+docs and runner/fixture stay uncommitted despite their current passing checks.
+Foreign `.gitkeep` deletions remain unstaged. Branch/HEAD/index/full fingerprint
+checked against expected state immediately before staging and again before the
+commit; no branch change, amend, push, tag, deployment, production restore,
+external publication or retained-baseline adoption.
