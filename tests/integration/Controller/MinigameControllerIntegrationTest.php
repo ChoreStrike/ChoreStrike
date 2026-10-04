@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\MinigameController;
+use OCA\ChoreStrike\Db\MinigameScore;
+use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -71,8 +73,14 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 
 	/** @var array<int> Instance-house membership ids created by these tests. */
 	private array $instanceMembershipIds = [];
+	/** @var int[] */
+	private array $orderedScoreIds = [];
 
 	protected function tearDown(): void {
+		if ($this->orderedScoreIds !== []) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_minigame_scores')->where($qb->expr()->in('id', $qb->createNamedParameter($this->orderedScoreIds, IQueryBuilder::PARAM_INT_ARRAY)))->executeStatement();
+		}
 		if ($this->instanceMembershipIds !== []) {
 			// Scores carry the NC user id (string) and the instance house id;
 			// remove the arcade scores and memberships the tests created.
@@ -284,6 +292,36 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	// -----------------------------------------------------------------
 	// Helpers
 	// -----------------------------------------------------------------
+	public function testEqualScores_AllOrderedReads_KeepIdOrderAndTiedRanksWithinHouseAndPeriod(): void {
+		$houseId = $this->createHouse('mg_tie_owner');
+		$foreignId = $this->createHouse('mg_tie_foreign');
+		$mapper = \OC::$server->get(MinigameScoreMapper::class);
+		$insert = function (int $house, string $user, int $score, string $at = '2026-07-15 12:00:00', string $game = 'snake') use ($mapper): int {
+			$row = new MinigameScore();
+			$row->setHouseId($house);
+			$row->setUserId($user);
+			$row->setGameId($game);
+			$row->setScore($score);
+			$row->setCreatedAt(new \DateTime($at, new \DateTimeZone('UTC')));
+			$id = (int)$mapper->insert($row)->getId();
+			$this->orderedScoreIds[] = $id;
+			return $id;
+		};
+		$first = $insert($houseId, 'mg_tie_parent', 500);
+		$peer = $insert($houseId, 'mg_tie_teen', 500);
+		$again = $insert($houseId, 'mg_tie_parent', 500);
+		$low = $insert($houseId, 'mg_tie_parent', 100);
+		$old = $insert($houseId, 'mg_tie_old', 900, '2026-07-01 12:00:00');
+		$insert($foreignId, 'mg_tie_parent', 10000);
+		$insert($houseId, 'mg_tie_parent', 10000, '2026-07-15 12:00:00', 'other-game');
+		$ids = static fn (array $rows): array => array_map(static fn (MinigameScore $row): int => (int)$row->getId(), $rows);
+		self::assertSame([$old, $first, $peer, $again, $low], $ids($mapper->getLeaderboard($houseId, 'snake')));
+		self::assertSame([$first, $peer, $again, $low], $ids($mapper->getLeaderboardForPeriod($houseId, 'snake', new \DateTime('2026-07-13', new \DateTimeZone('UTC')))));
+		self::assertSame($first, (int)$mapper->getPersonalBest($houseId, 'mg_tie_parent', 'snake')->getId());
+		self::assertSame([$first, $again, $low], $ids($mapper->findByUserAndGame($houseId, 'mg_tie_parent', 'snake')));
+		self::assertSame(2, $mapper->getUserRank($houseId, 'mg_tie_parent', 'snake'));
+		self::assertSame(2, $mapper->getUserRank($houseId, 'mg_tie_teen', 'snake'), 'equal best scores stay tied regardless of row IDs');
+	}
 
 	private function scoreRowCount(int $houseId): int {
 		$qb = $this->db->getQueryBuilder();

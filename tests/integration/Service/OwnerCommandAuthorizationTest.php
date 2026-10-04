@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AgreementService;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CommandService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\PauseService;
 use OCA\ChoreStrike\Service\SchedulePlanService;
@@ -22,6 +23,17 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /** Real consumer/receipt proofs with an explicit two-connection lock barrier. */
 class OwnerCommandAuthorizationTest extends IntegrationTestCase {
+	/** @var int[] */
+	private array $resetRoomIds = [];
+
+	protected function tearDown(): void {
+		if ($this->resetRoomIds !== []) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_room_events')->where($qb->expr()->in('room_id', $qb->createNamedParameter($this->resetRoomIds, IQueryBuilder::PARAM_INT_ARRAY)))->executeStatement();
+		}
+		parent::tearDown();
+	}
+
 	/** @dataProvider lostAuthorityProvider */
 	public function testCommand_AuthorityLostBehindHouseLock_DeniesExecutionAndReplay(string $action, string $loss, bool $replay): void {
 		[$houseId, $actorId, $service, $invoke] = $this->commandFixture($action);
@@ -48,8 +60,8 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 
 	public static function lostAuthorityProvider(): array {
 		$cases = [];
-		foreach (['house', 'illness', 'approve', 'reject', 'shorten', 'apply', 'amend', 'catchUp', 'restart'] as $action) {
-			foreach (['demoted', 'departed'] as $loss) {
+		foreach (['house', 'illness', 'approve', 'reject', 'shorten', 'apply', 'amend', 'catchUp', 'restart', 'reset'] as $action) {
+			foreach ($action === 'reset' ? ['demoted', 'departed', 'replaced'] : ['demoted', 'departed'] as $loss) {
 				foreach ([false, true] as $replay) {
 					$cases[$action . ' ' . $loss . ' replay=' . (int)$replay] = [$action, $loss, $replay];
 				}
@@ -67,7 +79,16 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 		$uuid = sprintf('08100000-0000-4000-8000-%012x', random_int(0, 0xffffffffffff));
 		$payload = ['commandId' => $uuid, 'startDate' => $today,
 			'endDate' => (new \DateTime($today))->modify('+5 days')->format('Y-m-d'), 'reasonCode' => 'travel'];
-		if ($action === 'apply') {
+		if ($action === 'reset') {
+			$floor = $this->createFloor($houseId);
+			$this->resetRoomIds[] = $this->createRoom($houseId, $floor);
+			$this->actingAs('cmd_auth_owner');
+			$service = clone \OC::$server->get(HouseService::class);
+			$invoke = static function () use ($service, $houseId, $uuid): array {
+				$service->resetHouse($houseId, $uuid);
+				return ['houseId' => $houseId];
+			};
+		} elseif ($action === 'apply') {
 			$floor = $this->createFloor($houseId);
 			$room = $this->createRoom($houseId, $floor);
 			$rowId = $this->assignTaskToRoom($this->createTask($houseId, 'Command task'), $room, 'cmd_auth_owner');
@@ -144,18 +165,30 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 		});
 		$commands = new CommandService(new TransactionExecutor($this->db), $houses,
 			\OC::$server->get(CommandReceiptMapper::class), $logger);
-		$property = new \ReflectionProperty($service, 'commands');
+		$property = new \ReflectionProperty($service, $service instanceof HouseService ? 'commandService' : 'commands');
 		$property->setAccessible(true);
 		$property->setValue($service, $commands);
 	}
 
 	private function snapshot(int $houseId): array {
 		$rows = [];
-		foreach (['chorestrike_pauses', 'chorestrike_commands', 'chorestrike_agreements', 'chorestrike_occurrences', 'chorestrike_schedule_revs'] as $table) {
+		foreach (['chorestrike_houses', 'chorestrike_rooms', 'chorestrike_room_events', 'chorestrike_pauses', 'chorestrike_commands', 'chorestrike_agreements', 'chorestrike_occurrences', 'chorestrike_schedule_revs'] as $table) {
 			$qb = $this->db->getQueryBuilder();
 			$qb->select('facts.*')->from($table, 'facts')->orderBy('facts.id');
 			$houseColumn = 'facts.house_id';
-			if ($table === 'chorestrike_agreements') {
+			if ($table === 'chorestrike_houses') {
+				$houseColumn = 'facts.id';
+			} elseif ($table === 'chorestrike_rooms' || $table === 'chorestrike_room_events') {
+				if ($table === 'chorestrike_room_events') {
+					$qb->innerJoin('facts', 'chorestrike_rooms', 'r', $qb->expr()->eq('facts.room_id', 'r.id'));
+				} else {
+					$qb->innerJoin('facts', 'chorestrike_floors', 'f', $qb->expr()->eq('facts.floor_id', 'f.id'));
+				}
+				if ($table === 'chorestrike_room_events') {
+					$qb->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'));
+				}
+				$houseColumn = 'f.house_id';
+			} elseif ($table === 'chorestrike_agreements') {
 				$qb->innerJoin('facts', 'chorestrike_occurrences', 'occ', $qb->expr()->eq('facts.occurrence_id', 'occ.id'));
 				$houseColumn = 'occ.house_id';
 			} elseif ($table === 'chorestrike_schedule_revs') {
@@ -234,12 +267,29 @@ while (!file_exists($argv[5])) {
     usleep(10000);
 }
 $qb = $db->getQueryBuilder();
+if ($argv[3] === 'replaced') {
+    $result = $db->executeQuery('SELECT * FROM *PREFIX*chorestrike_house_users WHERE id = :id', ['id' => (int)$argv[2]]);
+    $replacement = $result->fetch();
+    $result->closeCursor();
+    unset($replacement['id']);
+}
 if ($argv[3] === 'demoted') {
     $qb->update('chorestrike_house_users')->set('role', $qb->createNamedParameter('member'));
 } else {
     $qb->delete('chorestrike_house_users');
 }
 $qb->where($qb->expr()->eq('id', $qb->createNamedParameter((int)$argv[2], \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))->executeStatement();
+if ($argv[3] === 'replaced') {
+    $qb = $db->getQueryBuilder();
+    $values = [];
+    foreach ($replacement as $column => $value) {
+        $values[$column] = $qb->createNamedParameter($value);
+    }
+    $qb->insert('chorestrike_house_users')->values($values)->executeStatement();
+    if ((int)$db->lastInsertId('chorestrike_house_users') === (int)$argv[2]) {
+        throw new \RuntimeException('Replacement must have a new membership identity');
+    }
+}
 $db->commit();
 PHP;
 	}

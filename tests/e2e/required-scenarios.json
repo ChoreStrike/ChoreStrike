@@ -16,6 +16,8 @@
   "setup-wizard-journey.spec.ts": [
     "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > forced failures keep the structure and offer recovery",
     "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > owner completes the wizard through the UI and invites dad",
+    "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > six-floor apartment cap and basement toggles match preview and persisted structure",
+    "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > six-floor house cap and basement toggles match preview and persisted structure",
     "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > the wizard completes on a mobile touch viewport with keyboard-reachable controls (CS-PLAN-066 §3.5)"
   ],
   "task-completion-full-flow.spec.ts": [

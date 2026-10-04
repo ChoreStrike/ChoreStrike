@@ -15,8 +15,8 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Service\CalendarService;
-use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MinigameService;
+use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -35,7 +35,7 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 	private HouseUserMapper $houseUserMapper;
 	private CalendarService $calendar;
 	private MinigameScoreMapper $minigameScoreMapper;
-	private HouseService $houseService;
+	private WeeklyGoalService $weeklyGoalService;
 	private MinigameService $minigameService;
 
 	/** @var array<int> Minigame score rows created by this test. */
@@ -48,7 +48,7 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 		$this->houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 		$this->calendar = new CalendarService();
 		$this->minigameScoreMapper = \OC::$server->get(MinigameScoreMapper::class);
-		$this->houseService = \OC::$server->get(HouseService::class);
+		$this->weeklyGoalService = \OC::$server->get(WeeklyGoalService::class);
 		$this->minigameService = \OC::$server->get(MinigameService::class);
 	}
 
@@ -134,14 +134,17 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 
 	/**
 	 * A Berlin house's weekly window starts at Berlin Monday midnight —
-	 * an earlier absolute instant than the UTC house's Monday midnight.
+	 * each zone independently selects the week containing the same instant.
+	 *
+	 * @dataProvider weeklyGoalInstants
 	 */
-	public function testWeeklyGoalWindow_FollowsHouseTimezone(): void {
+	public function testWeeklyGoalWindow_FollowsHouseTimezone(string $instant, string $berlinStart, string $utcStart): void {
 		$berlinHouse = $this->createHouseIn('tzweek_berlin', 'Europe/Berlin');
 		$utcHouse = $this->createHouseIn('tzweek_utc', 'UTC');
 
-		$berlin = $this->houseService->getWeeklyGoalProgress($berlinHouse->getId());
-		$utc = $this->houseService->getWeeklyGoalProgress($utcHouse->getId());
+		$now = new \DateTime($instant, new \DateTimeZone('UTC'));
+		$berlin = $this->weeklyGoalService->progressForWeek($berlinHouse, clone $now);
+		$utc = $this->weeklyGoalService->progressForWeek($utcHouse, clone $now);
 
 		$berlinWeekStart = new \DateTimeImmutable($berlin['weekStart']);
 		$utcWeekStart = new \DateTimeImmutable($utc['weekStart']);
@@ -162,14 +165,19 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 			'UTC week start must be a Monday in UTC'
 		);
 
-		// Berlin Monday midnight (CEST: Sunday 22:00 UTC) is 1-2 hours
-		// earlier in absolute terms than UTC Monday midnight — the windows
-		// genuinely differ.
-		$diffSeconds = $utcWeekStart->getTimestamp() - $berlinWeekStart->getTimestamp();
-		self::assertTrue(
-			$diffSeconds === 3600 || $diffSeconds === 7200,
-			"Berlin and UTC week starts must differ by the zone offset: berlin={$berlin['weekStart']} utc={$utc['weekStart']} diff={$diffSeconds}s"
-		);
+		// On Sunday evening Berlin can already be in NEXT week's window.
+		self::assertSame($berlinStart, $berlin['weekStart']);
+		self::assertSame($utcStart, $utc['weekStart']);
+	}
+
+	/** @return array<string, array{string, string, string}> */
+	public static function weeklyGoalInstants(): array {
+		return [
+			'summer same week' => ['2026-07-15 12:00:00', '2026-07-12T22:00:00+00:00', '2026-07-13T00:00:00+00:00'],
+			'winter same week' => ['2026-01-14 12:00:00', '2026-01-11T23:00:00+00:00', '2026-01-12T00:00:00+00:00'],
+			'summer Sunday crosses Berlin week' => ['2026-10-04 22:30:00', '2026-10-04T22:00:00+00:00', '2026-09-28T00:00:00+00:00'],
+			'winter Sunday crosses Berlin week' => ['2026-01-18 23:30:00', '2026-01-18T23:00:00+00:00', '2026-01-12T00:00:00+00:00'],
+		];
 	}
 
 	/**

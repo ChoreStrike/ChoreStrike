@@ -55,7 +55,7 @@ const REQUIRED_SPECS = [
 	// Canonical journey (replaces gui-scratch-flow, parent decision D5).
 	{ file: 'core-household-journey.spec.ts', project: 'chromium-serial-db', scenarios: ['canonical household journey'], minTests: 1 },
 	// Seed/reset-owned serial pool.
-	{ file: 'setup-wizard-journey.spec.ts', project: 'chromium-serial-db', scenarios: ['owner completes the wizard through the ui'], minTests: 3 },
+	{ file: 'setup-wizard-journey.spec.ts', project: 'chromium-serial-db', scenarios: ['owner completes the wizard through the ui', 'six-floor house cap', 'six-floor apartment cap'], minTests: 5 },
 	{ file: 'task-completion-full-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['undo restores the exact state'], minTests: 5 },
 	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['overcapacity warning appears when a day exceeds its capacity', 'owner corrects a recorded work split'], minTests: 4 },
 	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 5 },

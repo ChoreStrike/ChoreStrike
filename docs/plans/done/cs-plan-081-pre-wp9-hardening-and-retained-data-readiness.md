@@ -1,11 +1,11 @@
 # CS-PLAN-081: Pre-WP9 Hardening and Retained-Data Readiness
 
-> **Status:** Active — H6 retained-baseline/recovery docs and H-T10 implemented (2026-10-04); H7 operator material not ready, final gates/review and integration-gate anomaly disposition remain required; no baseline adoption
-> **Effort:** L, 6-10 engineering days plus operator availability for the reporting channel; re-estimate if fixture repairs or the audit-storage decision expand scope
+> **Status:** Done - final Full `PASS-WITH-FIXES` (2026-10-05); H1-H6 complete, H6-05 evidence-bound disposition explicitly accepted; H7/H-T11 user-rescoped, not passed; no deployment or baseline adoption
+> **Effort:** L, original estimate 6-10 engineering days; H7 operator work excluded by the 2026-10-04 scope decision; re-estimate if fixture repairs expand scope
 > **Priority:** P1 for the retained-data trial prerequisite, not a blanket reprioritization of every included backlog item
 > **Depends on:** WP0-WP8 delivered; Standard A before implementation
-> **Related backlog items:** TECH-JEST-001, TECH-LINT-006, TECH-TEST-003, CR-SEC-05, SEC-AUDIT-001, BUG-SEC-001, FEAT-UX-032, CR-053-11; bounded contributions to RELEASE-002 and CONCEPT-001
-> **Sequence:** This independent preparation slice runs next, before the technical execution of [CS-PLAN-080](../active/cs-plan-080-wp9-cross-db-and-family-evidence.md); it is not another WP of [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+> **Related backlog items:** TECH-JEST-001, TECH-LINT-006, TECH-TEST-003, CR-SEC-05, SEC-AUDIT-001, FEAT-UX-032, CR-053-11; bounded contributions to RELEASE-002 and CONCEPT-001; BUG-SEC-001 deferred outside this plan
+> **Sequence:** This independent preparation slice is delivered before technical execution of [CS-PLAN-080](../active/cs-plan-080-wp9-cross-db-and-family-evidence.md); it is not another WP of [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md)
 > **Drafting baseline:** `master` at `76e282e`, 2026-10-03; runtime evidence inspected, no new runtime gate executed
 
 ## 1. Problem Summary
@@ -16,7 +16,7 @@ WP0-WP8 are delivered, but independent hardening items remain and the current
 fresh-install-only policy does not promise preservation through future updates.
 Completing hypothetical features now would not solve that operational boundary.
 
-Verified baseline:
+Verified drafting baseline (historical, before implementation and rescoping):
 
 - No selected independent backlog fix currently requires a new app table.
   The migration head is Version1033; existing steps have been edited in place.
@@ -50,6 +50,13 @@ Close the bounded correctness/tooling/security remainders, clarify setup/reset
 behavior, and prepare an explicit first-retained-build contract. Then hand the
 final candidate to WP9 for its supported-DB matrix and repeated browser gates.
 
+**Current scope (user decision 2026-10-04):** the operator will initially test
+alone. H7/H-T11 are excluded from this preparation plan, not completed. Later
+email reporting is tracked in BUG-SEC-001; the possible Codeberg-to-GitHub move
+is tracked separately in TECH-REPO-001 in the [backlog](../../backlog/backlog.md).
+No GPG requirement remains. This does not waive technical gates, WP9 human
+evidence or the explicit retained-baseline adoption procedure.
+
 ### Ownership and Non-Goals
 
 | Slice | Existing backlog owner | Completion boundary |
@@ -60,7 +67,7 @@ final candidate to WP9 for its supported-DB matrix and repeated browser gates.
 | H4: setup and truthful reset UI | FEAT-UX-032; CONCEPT-001 for the reset clarification | Basement selection respected within the existing cap; UI matches the unchanged reset contract |
 | H5: Snake ordering remainder | CR-053-11 | Stable row order with equal-score rank semantics unchanged |
 | H6: retained-data and recovery preparation | RELEASE-002, partial only | Approved future boundary, rehearsal and deployment checklist; no deployment/field-usage closure |
-| H7: private reporting channel | BUG-SEC-001 | Operator-confirmed contact, usable approved public key and publication evidence |
+| H7: deferred reporting channel (outside current scope) | BUG-SEC-001, unassigned | Later approved, reachable email contact; not a prerequisite for operator-only self-testing or this plan's completion |
 
 No self-service leave feature (FEAT-UX-015), general chore approval, Task Pass,
 guided tour, search, print view, bulk maintenance, performance sweep, or
@@ -201,15 +208,17 @@ Do not introduce unsafe table-only restore or shared Redis `flushall` as an app
 recipe. Actual personal-server validation/adoption remains RELEASE-002 work after
 technical readiness, with explicit target/access authorization.
 
-### 3.5 H7 and Tracking
+### 3.5 Deferred H7 and Tracking
 
-Obtain an operator-approved dedicated reporting address and public GPG key,
-validate their fingerprint and perform a controlled receipt/decryption check.
-Only approved public material is published in `docs/SECURITY.md`; secrets/raw
-messages remain private. Confirm the Codeberg profile publication separately;
-the agent must not create accounts/mailboxes, publish unapproved identity details
-or modify external profiles without authorization. A supplied key alone is not
-proof that the reporting route works. Missing operator readiness blocks H7.
+The user explicitly removed H7 from this plan on 2026-10-04 because the next
+stage is operator-only self-testing. BUG-SEC-001 remains open outside this plan
+for a later ordinary private email reporting route, intended to use the new
+GitHub-associated email once available. A dedicated mailbox, GPG key,
+fingerprint/decryption test and Codeberg profile publication are no longer
+required here. The possible forge migration needs its own assessment and
+authorization (TECH-REPO-001); it is not implementation scope for this plan.
+Only operator-approved contact details may be published later. No account,
+mailbox, repository migration or external profile action is authorized now.
 
 Correct stale CR-053-11, FEAT-UX-028 and TECH-TEST-003 descriptions without
 pretending open behavior was fixed. On activation assign included standalone
@@ -231,7 +240,11 @@ Leave the broader release, tour/search/leave remainders and parent evidence open
 | H-T8 | Truthful reset card/confirmation/notice; cancel does nothing; reset retains populated setup/planning/history/finances/awards; retry does not erase later work | Settings/store Jest; `settings.spec.ts`; existing HouseService/RoomReplayConcurrency suites |
 | H-T9 | Stable equal-score row selection in all ordered reads; equal-score ranks remain tied; period/house isolation | MinigameScoreMapper unit tests; real-DB MinigameController integration suite |
 | H-T10 | Synthetic backup/restore retains core and financial relations and unrelated sentinel state; no production/shared-state damage | Named rehearsal record in `docs/testing/release-test-plan.md` |
-| H-T11 | Approved mailbox receives controlled report; approved key decrypts; fingerprint/publication match | Sanitized operator evidence; secret material private |
+
+H-T11 is removed from the required gate set by the explicit 2026-10-04 user
+rescoping. It was not executed or passed; the later reachable-email acceptance
+belongs to BUG-SEC-001, without a GPG/decryption requirement. H-T1..H-T10 and
+the implementation gates below remain unchanged.
 
 Rate-limit HTTP tests use a dedicated synthetic owner identity and bounded
 requests. If a supported Nextcloud test override shortens the limit/window,
@@ -271,7 +284,7 @@ parent/WP9 sequencing notes. No runtime or canonical-policy change in this round
 | M | `tests/unit/store/house.spec.js`, `tests/e2e/{setup-wizard-journey,settings}.spec.ts` | Reset identity/retention and cap journey |
 | M | `lib/Db/MinigameScoreMapper.php`, `tests/unit/Db/Mapper/MinigameScoreMapperTest.php`, `tests/integration/Controller/MinigameControllerIntegrationTest.php` | Deterministic Snake ordering |
 | M | `tests/e2e/required-scenarios.json`, `scripts/run-e2e-gate.js`, `playwright.config.ts`, `l10n/{en,de}.json`, `l10n/templates/chorestrike.pot` | Mandatory discovery/pools and complete translations |
-| M | `docs/SECURITY.md`, `docs/standards/guidelines/{security,logging}.md`, `docs/api/README.md` | Reporting channel, limits and audit contract |
+| M | `docs/SECURITY.md`, `docs/standards/guidelines/{security,logging}.md`, `docs/api/README.md` | Reporting-policy rescoping, limits and audit contract; no new contact publication |
 | M after approval | `AGENTS.md`, `docs/standards/ai/rules/project-rules.md`, `docs/standards/ai/skills/{php-backend,architecture}/SKILL.md`, `docs/engineering/{deployment,testing}.md`, `docs/testing/release-test-plan.md`, `docs/release/release-strategy.md` | Approved retained-data transition/recovery gates; no claim of premature adoption |
 | Conditional M | Existing owner-operation services/controllers and their logging tests | Only exact uncovered methods pinned in H0; not a general controller refactor |
 | M | This plan, CS-PLAN-070/080, `docs/{README,plans/README}.md`, `docs/backlog/{backlog,ACTIVE_TASKS}.md` | Sequencing, evidence, actual partial completion |
@@ -319,9 +332,9 @@ review record; it additionally declares the record as a finalization path.
    enumerated privacy-aware logs, with denial/race/rollback/HTTP tests (2-3 days).
 4. **H4-H5 / main:** basement/reset clarity and stable Snake ordering, complete
    l10n, regressions and required browser discovery (0.5-1 day).
-5. **H6-H7 / main + authorized operator:** approved boundary/docs, synthetic
-   recovery rehearsal and functioning reporting channel (1-2 days plus operator
-   availability). Missing key/contact/evidence remains an explicit blocker.
+5. **H6 / main:** approved boundary/docs and synthetic recovery rehearsal
+   (1-2 days). H7 is user-rescoped to later backlog work; missing contact/key
+   evidence no longer blocks this preparation plan.
 6. **Closure / main + independent reviewer:** all final gates, durable integration,
    scoped final Standard B or Full review, archive fully completed owners and
    leave partial release/parent items open (0.5-1 day). Re-estimate discoveries.
@@ -339,7 +352,7 @@ review record; it additionally declares the record as a finalization path.
 | Throttle breaks setup or shared browser fixtures | Medium | Membership routes only, approved generous per-user limits, dedicated test identities; full gate with real defaults |
 | Logs expose family data or overpromise durable audit | High | Minimal context, post-commit success, retention owned by NC; Q-081-03 contract explicit |
 | Whole-server restore/cache flush harms other apps | High | Owned synthetic rehearsal, quiescence and impact checklist; no production restore or shared flush recipe |
-| Operator channel silently deferred while marking done | Medium | H7 acceptance remains required unless explicitly user-rescoped |
+| Deferred reporting contact forgotten before external use | Medium | Explicit H7 rescoping recorded; BUG-SEC-001 retains the later external-use obligation, coordinated with TECH-REPO-001 |
 | Prep absorbs optional features or duplicates WP9 | Medium | Existing owner table, explicit non-goals and technical/human handoff |
 
 ## 8. Acceptance Criteria
@@ -365,17 +378,18 @@ review record; it additionally declares the record as a finalization path.
 - [x] H-T10 synthetic recovery succeeds; durable docs state other-app rollback
   impact and the future retained-baseline/adoption procedure without claiming
   a real-server test, actual upgrade or baseline adoption that did not happen.
-  (Named H-T10 `cs081-recovery-e6d385fad062` record in the release test plan:
+  (Final-candidate H-T10 `cs081-recovery-2f8aff4b3ee8` record in the release test plan:
   30 app snapshots, whole DB row equality, captured-file hash equality,
   negative controls and complete owned-resource cleanup all pass.)
-- [ ] H-T11 reporting/contact/key evidence and authorized publication are complete.
-- [ ] Final implementation build/backend/browser/documentation gates pass on the
+- **User-rescoped (2026-10-04):** H7/H-T11 are excluded for operator-only
+  self-testing and retained as later BUG-SEC-001 work, not marked passed or done.
+- [x] Final implementation build/backend/browser/documentation gates pass on the
   reviewed candidate; WP9's later matrix/gate-pair/human obligations remain explicit.
-- [ ] Durable decisions live in permanent docs; no completed standalone backlog
+- [x] Durable decisions live in permanent docs; no completed standalone backlog
   item remains open, and CONCEPT-001/RELEASE-002 retain their honest partial status.
-- [ ] All plan-owned findings and decisions are resolved or explicitly user-rescoped;
+- [x] All plan-owned findings and decisions are resolved or explicitly user-rescoped;
   required deferred work still blocks completion.
-- [ ] Final Standard B or Full review passes, tracking is updated and the complete
+- [x] Final Standard B or Full review passes, tracking is updated and the complete
   preparation plan moves to `done/`; no production deployment/tag/push is implied.
 
 ## 9. Review Findings (Plan-Owned)
@@ -384,6 +398,24 @@ Standard A ran 2026-10-03 and passed with one minor manifest-path finding fixed
 in-round (see ## Review Outcome). The reset-copy discrepancy is an in-scope deliverable
 under CONCEPT-001/H4, not a duplicate standalone backlog item. Record newly
 discovered in-scope findings here; out-of-scope findings follow canonical routing.
+
+### H7 Post-Review Scope Decision (2026-10-04)
+
+The user explicitly requested that H7 be left out at this stage because only the
+operator will test initially. This supersedes Q-081-04 and the historical
+operator-blocked H7/H-T11 statements below; those review snapshots remain intact.
+BUG-SEC-001 returns to the unassigned backlog for later private email reporting,
+without mandatory GPG. The intended contact is a new GitHub-associated email,
+subject to availability, actual mailbox reachability and publication approval.
+The likely Codeberg-to-GitHub migration is recorded as TECH-REPO-001 for a later
+decision and scoped effort, not assumed approved or already performed.
+
+This is an explicit scope change, not successful H-T11 evidence or a new review
+verdict. RF-081-H6-05, final implementation/documentation gates and the final
+Standard B/Full review remain required. The plan stays `active/`; RELEASE-002,
+CONCEPT-001, WP9 evidence and retained-baseline adoption are not closed or waived.
+No commit, publication, external account action, migration or deployment is
+authorized by this documentation request.
 
 ### Implementation round 1 (2026-10-03)
 
@@ -687,7 +719,7 @@ rescoping, external action, unapproved identity publication or completion.
   explicit exit codes now include archive capture, readiness, candidate identity,
   assertions and cleanup. Named actual sanitized record integrated into the
   permanent release test plan; raw manifests/config/data remain private.
-- [ ] RF-081-H6-05 · major · integration gate · after an initial tool-timeout/load
+- [x] RF-081-H6-05 · major · integration gate · after an initial tool-timeout/load
   episode, a complete run failed `SchedulePlanConcurrencyTest`'s due-date-holder
   final row assertion plus four subsequent missing-house/member fixture errors
   (568 tests, 1 failure/4 errors). The focused race passes 2/15; an exclusive full
@@ -705,7 +737,9 @@ rescoping, external action, unapproved identity publication or completion.
   Additional cache-independent `--order-by=default --do-not-cache-result` full
   run passes 568/3203 with zero skips after the browser gate. This removes the
   result-order confounder from the current green evidence but does not establish
-  the earlier failure's root cause; H6-05 stays open for deterministic disposition.
+  the earlier failure's root cause; H6-05 stayed open at this historical checkpoint.
+  Closed only by the explicit 2026-10-05 evidence-bound disposition and independent
+  correctness clearance below, not attributed to the holder or repaired by reruns.
 
 **H6 implementation evidence (2026-10-04):** future-only retention boundary
 integrated in bootstrap/canonical rules, backend/architecture skills and permanent
@@ -748,7 +782,7 @@ clearance: H7 and H6-05 remain open, no final review/commit/`done/` transition.
   the authorized repair compares exact ordered house snapshots before/after.
   Focused 8/61, randomized 568/3182 and default 568/3182 pass, zero skips; focused
   read-only review reports no findings. No production behavior was changed.
-- [ ] RF-081-H6-05 · major · integration fixture/transaction diagnosis · earlier
+- [x] RF-081-H6-05 · major · integration fixture/transaction diagnosis · earlier
   due-date-holder failure and subsequent missing fixtures remain unexplained.
   Same-process read-only DBAL/native-PDO probes record 2,272 before/after
   boundaries across cached and randomized full runs: all nesting 0/native false,
@@ -758,6 +792,8 @@ clearance: H7 and H6-05 remain open, no final review/commit/`done/` transition.
   independently of the parent. These are concrete remaining diagnostic seams,
   not proven production defects. Keep mandatory deterministic disposition open;
   never repair by blindly committing inherited transaction state.
+  Historical open checkpoint superseded solely by the user-approved 2026-10-05
+  disposition and independent clearance in Final-Candidate Investigation.
 
 **Decisions:** structured batches approved Full interim escalation, H6-06 repair,
 in-round H6-05 diagnosis, H6-07 repair, then keeping H6-05 open with the above
@@ -842,6 +878,152 @@ H7/H-T11 remain required and operator-blocked.
   zero unredacted occurrences) and recorded the fresh hashes in the release
   test plan. No rehearsal behavior, ownership or assertion change.
 
+### Final-Candidate Investigation (2026-10-05)
+
+- [x] RF-081-H6-10 · minor · `TimezoneDayBucketingTest.php:169` · the first
+  final default-order integration gate fails 571/3202 with one failure and zero
+  errors/skips: at Sunday 22:00+ UTC Berlin has entered Monday's week while UTC
+  remains in the previous week. The test incorrectly requires only a 1-2 hour
+  offset between independently sampled current-week starts. This is separate
+  from the historical H6-05 fixture errors. Pinned test-only repair:
+  `tests/integration/Service/TimezoneDayBucketingTest.php`, using the existing
+  `WeeklyGoalService::progressForWeek` explicit-clock seam and exact summer,
+  winter and cross-week Sunday boundary expectations. No production change.
+  The red run remains evidence; container process inspection confirms no
+  PHPUnit/helper survived before another mutation job started.
+  Fixed with four deterministic explicit-clock datasets: focused 7/29 and
+  uninstrumented full default-order 574/3219 pass, zero skips/errors/failures.
+
+**H6-05 bounded investigation:** read-only artifact inventory confirms the
+original four per-error names/stacks and contemporaneous command/process
+timestamps are absent. The retained plan/review summaries establish the
+568-test run's 1 failure/4 errors, not a defensible mapping of those four errors
+to individual tests. The original evidence gap cannot be reconstructed by a
+new green run. No root cause for that quartet is claimed.
+
+Source inspection confirms owned app-row cleanup, retained Nextcloud accounts,
+new-account-only H2 provisioning handling, instance-wide destructive test seeding
+and cached `depends,defects` ordering. Scheduling-preference fixtures use fresh
+unique account identities; the seed tests deliberately replace the disposable
+app state. These are lifecycle facts, not evidence that any specific historical
+test leaked a transaction or overlapped a writer.
+
+Exclusive bounded uninstrumented diagnosis covers `FixtureHouseLifecycleTest`,
+`SchedulePlanConcurrencyTest`, `SchedulingPreferencesIntegrationTest` and
+`TestDataSeedTest`: 21/147 pass. A separately logged same-process diagnostic of
+the identical set passes 21/147 and records 568 states: 105 begin pairs,
+103 commit pairs, 2 rollback pairs, 21 pre/post cleanup pairs and fixture/account
+boundaries. All sampled DBAL/native pairs agree; no sampled fixture, account-entry
+or cleanup boundary carries a transaction. This extends, but does not replace,
+the earlier 2,272 boundary and 12,843 intermediate records. The private probes
+are not committed gates, do not normalize transaction state and preserve the
+historical logs. No further mutation overlap or client timeout occurred here.
+
+**Accepted disposition (2026-10-05):** accept H6-05 as an unattributed
+historical integration anomaly with an explicit irrecoverable evidence
+gap, not a demonstrated fix of the four errors or a zero-risk guarantee. The
+separately repaired holder has deterministic regression coverage; fixture
+lifecycle and genuine-missing-house regressions remain mandatory. Enforce
+exclusive jobs and verify container process exit after client timeouts; on any
+recurrence retain exact failures and in-process/process evidence before reruns
+and reopen investigation. Root-cause attribution to holder, transaction leak or
+overlap remains prohibited without proof. The structured batch explicitly approved
+`Disposition freigeben (Recommended)`; the independent correctness follow-up
+explicitly accepted this evidence-backed disposition with no remaining finding.
+RF-081-H6-05 is closed as accepted uncertainty, not a demonstrated cause/fix of
+the quartet. No required gate,
+WP9 matrix/browser pair/human evidence or adoption obligation is waived.
+
+**Fresh final-candidate gates so far:** exact Node 20.19.0/npm 10.8.2 wrapper;
+strict clean `npm ci --engine-strict --legacy-peer-deps=false`, full `npm ls --all`
+and all 1,018 locked Node/npm engine ranges (including optional packages) pass.
+The first inline engine-check command had a PowerShell quoting/parser failure;
+it did not execute Node or mutate dependencies. A private script then completed
+the check without bypass/suppression. npm reports the unchanged 77 advisories
+(8 low/9 moderate/60 high); no audit-clean claim or force upgrade.
+Jest/noise 109/1228, lint/stylelint/build, l10n 1270 exact keys and runner self-test
+pass; Docker unit 1314/4246, post-repair default integration 574/3219
+(`--fail-on-skipped`, zero skips) and `composer cs:check` 0/405 pass. Unit/JS
+sources are unchanged by the timezone-test repair. Browser and final docs gates
+are still pending at this checkpoint; no final verdict, commit or transition.
+
+**Final Full review repair decision (2026-10-05):** all four independent tracks
+delivered valid findings. The user explicitly approved `Jetzt reparieren
+(Recommended)` for the bounded security/data-integrity fix, missing H-T7/H-T9
+regressions, gate reruns and sanitized public tracking; technical unremediated
+security details remain private. Main owns every write.
+
+- [x] RF-081-H6-11 · major · `docs/api/README.md` · missing/contradictory native
+  membership rate-limit and operational-audit contract. Corrected factual
+  documentation: per-user/per-endpoint 60/300 elapsed seconds, native 429 outside
+  app envelope, request-shared cache assumptions and post-commit numeric logging
+  with Nextcloud-managed retention/durability limits; separate minigame limit.
+- [x] RF-081-H6-12 · minor · `docs/release/release-strategy.md` · stale mandatory
+  reporting key/decryption requirement. Aligned with the approved H7 rescope and
+  later reachable-mailbox/publication obligation, GPG optional.
+- [x] RF-081-H6-13 · major · H-T7 · browser cap/basement/apartment-toggle evidence
+  missing despite the earlier completeness claim. Required new journeys belong
+  to the existing serial spec and required discovery manifest; no runtime change.
+  Added two required serial journeys covering input clamp/hint, off/on and
+  apartment/house toggles, six preview floors, submitted names and authoritative
+  persisted names with basement present only for the house case. Focused 5/5
+  actual journeys plus 3 setup projects pass first attempt, zero skips/retries.
+  The first focused run failed a new assertion that read `entry.name` instead of
+  the existing API's `entry.floor.name`; 3 later serial cases did not run. That
+  failed attempt remains private raw evidence, not valid completed coverage.
+- [x] RF-081-H6-14 · major · H-T9 · missing real-DB equal-score ordering/tied-rank
+  and period/house isolation proof. Add exact row-identity assertions for all
+  four ordered reads and equal-rank expectations; no ranking-rule change.
+  Exact real entity-ID expectations now cover global/period/personal-best/user
+  reads, strict tied ranks, foreign-house and other-game exclusion and an old
+  higher score excluded from the period. All rows/houses are explicitly owned
+  and cleaned; focused backend repair cluster passes 65/362, zero skips.
+- [x] RF-081-H6-15 · major · reset authority/receipt identity · independent security
+  review identified a remaining live-actor contract edge case. Repair explicitly
+  approved with execution/replay race regressions and no false-success evidence;
+  detailed unremediated evidence remains private. Clearance is required before
+  completion or commit.
+  Implemented minimal original/current membership-ID comparison before receipt
+  lookup on execution/replay. The real two-connection suite now covers reset
+  demotion, departure and replacement identity with domain/house/room/journal/
+  receipt equality and no extra success event: 42/260 pass. The validated
+  original-guard negative control fails both replacement cases (2 tests, 5
+  assertions), followed by green repaired coverage. Earlier scaffolding attempts
+  used unsupported `fetchAssociative` on a Nextcloud result and failed; these
+  are not valid original-defect proof. A private in-memory probe produced no
+  test output and is not accepted as a passing diagnostic. No blind transaction
+  normalization, production fallback or skip was added. Independent security
+  follow-up inspected the corrected guard/barrier/cleanup and returned no finding;
+  security clearance now covers the bounded repair (no independent gate execution).
+
+Pinned repair paths: `lib/Service/HouseService.php`,
+`tests/integration/Service/OwnerCommandAuthorizationTest.php`,
+`tests/integration/Controller/MinigameControllerIntegrationTest.php`,
+`tests/e2e/setup-wizard-journey.spec.ts`, `tests/e2e/required-scenarios.json`,
+`scripts/run-e2e-gate.js` and matching runner unit tests if required; permanent
+API/release/testing docs, owning plan/tracking/review record. No broad refactor.
+The pre-repair browser attempt was deliberately interrupted in the third pool
+before runtime edits; it is retained, has no complete-gate validity and is not
+relabelled PASS. Container process inspection showed no PHPUnit/OCC/helper writer
+after stop and before the repair tests. A complete post-repair gate is mandatory.
+
+**Post-repair evidence checkpoint:** Jest/noise 109/1229, unit 1314/4246,
+uninstrumented default-order integration 581/3282 (zero skips), lint/stylelint,
+build, l10n 1270, runner self-test and PHP standards 0/405 pass. Fresh H-T10
+`cs081-recovery-2f8aff4b3ee8` passes all snapshots/DB/files/negative controls and
+complete owned teardown on the changed runtime/build archive. Full browser
+gate is running exclusively; final tracking/docs gates and commit remain pending.
+The first post-repair whole browser attempt rejected the new scenario inventory
+ordering at discovery, before mutations. Corrected alphabetical ordering and a
+real-inventory Jest pin pass: final Jest/noise are 109/1230. The complete fresh
+post-inventory gate is required; no failed attempt is removed or relabelled.
+The first scoped PHP-fixer command rejected missing explicit configuration;
+the corrected four-path command changed zero files. A supplementary ESLint
+invocation incorrectly applied production-only rules to the CLI runner (16
+existing console errors/9 JSDoc warnings); it changed no unrelated code and is
+not the canonical lint gate. Canonical `npm run lint` passes with its intended
+source/E2E scope; CLI output is not suppressed or replaced by a production logger.
+
 ### Decisions for Standard A
 
 All entries were presented as one structured question batch in the 2026-10-03
@@ -853,7 +1035,7 @@ recorded per row below. They are resolved decisions, not pending proposals.
 | Q-081-01 | Preserve all data by default from one explicitly adopted post-WP9 technical baseline; no retroactive support for disposable installs | Enable preservation at this plan's activation instead: protect the current chain immediately and revise WP9's in-place fresh-chain repair assumption | Resolved 2026-10-03: post-WP9 baseline adoption (recommended option approved) |
 | Q-081-02 | Native UserRateLimit: 60 calls / 300 elapsed seconds / authenticated user / invite, remove and updateRole separately | 30 / 300 for the same routes: stricter; no new aggregate limiter/table selected by either option | Resolved 2026-10-03: 60 calls / 300 elapsed seconds per endpoint |
 | Q-081-03 | AppLogger operational owner-change events with NC-managed retention and explicit durability limits | Durable dedicated audit ledger: new schema/privacy/effort design required; revise before activation | Resolved 2026-10-03: AppLogger operational contract with NC-managed retention |
-| Q-081-04 | Use an operator-approved existing dedicated mailbox and usable public key; H7 remains required | Operator provisions a new dedicated mailbox/key with explicit authorization; no agent account creation or unapproved external publication | Resolved 2026-10-03: existing operator-approved mailbox/key (Q-081-04) |
+| Q-081-04 | Use an operator-approved existing dedicated mailbox and usable public key; H7 remains required | Operator provisions a new dedicated mailbox/key with explicit authorization; no agent account creation or unapproved external publication | Resolved 2026-10-03; superseded by explicit H7/H-T11 removal for operator-only self-testing on 2026-10-04 (see H7 Post-Review Scope Decision) |
 | Q-081-05 | Visible five-above-ground limit when basement selected, six total, consistently bounded input/preview | Explicitly explain basement replacement of the sixth floor before confirmation; no silent omission allowed | Resolved 2026-10-03: five above-ground floors with basement, six total (Q-081-05) |
 
 ## Draft Validation
@@ -872,6 +1054,10 @@ recovery rehearsal or deployment. Q-081-01..05 remain proposals for the required
 review. Unrelated pre-existing `.gitkeep` deletions remain untouched.
 
 ## Review Outcome
+
+The outcomes below are historical review evidence. The later H7 Post-Review
+Scope Decision in section 9 overrides their H7/H-T11 completion requirements,
+without changing the recorded verdicts or clearing RF-081-H6-05/final gates.
 
 **Standard A — 2026-10-03 — `PASS-WITH-FIXES`** (Kilo main agent; no subagents — Standard A tier; one minor manifest path fixed in-round).
 
@@ -1165,3 +1351,39 @@ review. Unrelated pre-existing `.gitkeep` deletions remain untouched.
   evidence, review record, live registry), excluding the three foreign
   `.gitkeep` deletions, per the automatic review-commit rule. No push, branch
   change, deployment, tag or baseline adoption.
+
+### Full Final - 2026-10-05 - PASS-WITH-FIXES
+
+- **Whole-plan scope:** delivered H1-H6, history and full manifest, acceptance,
+  gates and durable docs; four independent read-only tracks and final consistency
+  follow-ups return no remaining findings. Main owns all writes.
+- **Identity:** `master` at `2d0313f08c7be6dbc5a54cccfd620fa1a22f2ca5` plus the
+  authorized package; 100-path pre-finalization capture fingerprint
+  `b0289203c2e0fa06f0e4ae42180803993fb17cda96a806391c2d21e146bd564d`;
+  frozen non-doc implementation fingerprint
+  `f3a68b1291c9ec2da9c718acee32168c11f33b8c1a9d460597dcdd8d031e1eb9`.
+  Exact manifest/diff/index evidence in the [final record](../../backlog/archive/CODE_REVIEW_2026-10-05.md).
+- **Repairs/decisions:** RF-081-H6-10..15 resolved with permanent API/release/testing
+  integration and explicit reset-identity repair authorization. H6-05 closed by
+  the user-approved, independently accepted non-attributed historical anomaly
+  disposition with evidence gaps/recurrence duties, not a quartet cause/fix claim.
+  Red, invalid diagnostic, rejected-discovery and interrupted attempts remain
+  explicit. H7/H-T11 rescoped, never relabelled PASS.
+- **Fresh final evidence:** strict minimum Node 20.19.0/npm 10.8.2 clean install,
+  full peer tree and all 1,018 locked engine ranges; Jest/noise 109/1230,
+  lint/fixer/stylelint/build, l10n 1270 and runner self-test; Docker unit 1314/4246,
+  default integration 581/3282 (`--fail-on-skipped`, zero skips), PHP standards
+  0/405. Full browser `run-f45itl` passes 49 required specs in three sequential
+  pools, no required skips/failures/flaky cases/retries. A bounded wait timeout
+  did not cancel the tracked runner; actual completion/container exit were checked.
+- **Recovery:** fresh changed-runtime/build H-T10 `cs081-recovery-2f8aff4b3ee8`
+  passes 30 snapshots, whole DB/files, divergence/negative controls, 26 migrations
+  and owned teardown; permanent exact-runtime record in the release test plan.
+  No older archive substituted or DB mutation overlap.
+- **Transition:** eligible `active/` to `done/`; seven completed standalone owners
+  move to October history. BUG-SEC-001/TECH-REPO-001 remain later work;
+  CONCEPT-001/RELEASE-002 remain partial, WP9 retains matrix/browser-pair/human
+  evidence. Final tracking/link/encoding/whitespace and drift checks rerun before
+  exactly one scoped conventional review commit. Foreign `.gitkeep` deletions
+  excluded; no amend, branch change, push, tag, PR, publication, deployment,
+  personal-server access or retained-data adoption.

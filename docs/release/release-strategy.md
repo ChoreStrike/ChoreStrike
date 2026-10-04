@@ -107,8 +107,13 @@ Earlier disposable installations are not supported upgrade sources.
 
 Technical readiness, operator adoption, personal-server validation and voluntary
 family evidence are separate decisions. Synthetic recovery does not close
-RELEASE-002 or authorize production deployment; the reporting route also needs
-approved contact/key and demonstrated receipt/decryption before its gate closes.
+RELEASE-002 or authorize production deployment. The explicit 2026-10-04 H7/H-T11
+rescoping exempts operator-only self-testing and CS-PLAN-081 completion from the
+reporting-contact gate, not from technical readiness or adoption safeguards.
+BUG-SEC-001 remains open for an operator-approved, monitored reporting mailbox,
+demonstrated receipt of a test email and approved contact publication before
+later external onboarding/public release. GPG is optional; no mandatory key or
+decryption evidence, new address or completed forge migration is implied.
 
 ### Issue Types
 

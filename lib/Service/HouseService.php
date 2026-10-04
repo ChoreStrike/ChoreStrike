@@ -675,8 +675,11 @@ class HouseService {
 			$house->touch();
 			$this->houseMapper->update($house);
 			return ['houseId' => $houseId];
-		}, function () use ($houseId): void {
-			$this->authorization->requireHouseOwner($houseId);
+		}, function (int $lockedHouseId, int $actorId): void {
+			$owner = $this->authorization->requireHouseOwner($lockedHouseId);
+			if ((int)$owner->getId() !== $actorId) {
+				throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+			}
 		});
 	}
 

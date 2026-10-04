@@ -135,6 +135,61 @@ test.describe('Setup wizard journey (empty house)', () => {
 		}
 	})
 
+	for (const homeType of ['house', 'apartment']) {
+		test(`six-floor ${homeType} cap and basement toggles match preview and persisted structure`, async ({ browser, seededData }) => {
+			expect(seededData).not.toBeNull()
+			const { context, page } = await createUserContext(browser, 'mom')
+			try {
+				await page.goto('/apps/chorestrike/#/dashboard')
+				await expect(page.getByTestId('setup-wizard')).toBeVisible()
+				const count = page.getByTestId('wizard-floor-count')
+				const basement = page.getByTestId('wizard-basement')
+				await count.fill('6')
+				await basement.check()
+				await expect(count).toHaveValue('5')
+				await expect(count).toHaveAttribute('max', '5')
+				await expect(page.getByTestId('wizard-basement-hint')).toBeVisible()
+				await basement.uncheck()
+				await expect(count).toHaveAttribute('max', '6')
+				await expect(page.getByTestId('wizard-basement-hint')).toHaveCount(0)
+				await count.fill('6')
+				await basement.check()
+				await expect(count).toHaveValue('5')
+				await page.getByTestId('wizard-home-type').selectOption('apartment')
+				await expect(basement).toHaveCount(0)
+				await expect(count).toHaveValue('1')
+				await expect(count).toHaveAttribute('max', '6')
+				await count.fill('6')
+				if (homeType === 'house') {
+					await page.getByTestId('wizard-home-type').selectOption('house')
+					await expect(basement).not.toBeChecked()
+					await count.fill('6')
+					await basement.check()
+					await expect(count).toHaveValue('5')
+				}
+				await page.getByTestId('wizard-rooms-per-floor').fill('1')
+				await page.getByTestId('wizard-next').click()
+				const floorNames = await page.getByTestId('wizard-step-rooms').locator('.wizard-floor h3').allTextContents()
+				expect(floorNames).toHaveLength(6)
+				expect(floorNames.includes('Basement')).toBe(homeType === 'house')
+				await page.getByTestId('wizard-next').click()
+				await expect(page.getByTestId('wizard-step-preview').locator('.preview-floor')).toHaveCount(6)
+				expect(await page.getByTestId('wizard-step-preview').locator('.preview-floor h4').allTextContents()).toEqual(floorNames)
+				const apply = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/api/v1/setup/apply'))
+				await page.getByTestId('wizard-apply').click()
+				const response = await apply
+				expect(response.status()).toBe(200)
+				expect(response.request().postDataJSON().floors.map((floor: { name: string }) => floor.name)).toEqual(floorNames)
+				await expect(page.getByTestId('wizard-step-invite')).toBeVisible()
+				const persisted = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+				expect(persisted.ok()).toBeTruthy()
+				expect((await persisted.json()).data.map((entry: { floor: { name: string } }) => entry.floor.name)).toEqual(floorNames)
+			} finally {
+				await context.close()
+			}
+		})
+	}
+
 	test('forced failures keep the structure and offer recovery', async ({ browser, seededData }) => {
 		// The seededData fixture reset the DB again — a fresh empty house.
 		expect(seededData).not.toBeNull()

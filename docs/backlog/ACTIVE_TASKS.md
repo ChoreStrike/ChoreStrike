@@ -10,13 +10,11 @@
 
 ## In Progress
 
-- **CS-PLAN-081 / H6 package interim Standard B PASS-WITH-FIXES** (2026-10-04): remaining uncommitted H6 package reviewed and committed — retained-data/recovery durable docs (bootstrap/rules/skills/deployment/testing/release), recovery runner+fixture, RF-081-H6-01 optional-description fix with regression; new RF-081-H6-09 log-redaction gap fixed in-round with re-rehearsal `cs081-recovery-673681ab35b7` PASS; focused CatalogAuditTest 14/14, self-tests ×3, docs gates green, full suites inherited byte-identical from `run-UfqJZd` evidence. H6-05 remains open by operator decision, H7 still operator-blocked; plan active, no deployment/publication/adoption; foreign `.gitkeep` deletions preserved unstaged. [Plan/findings](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) · [Review](archive/CODE_REVIEW_2026-10-04.md).
-
 - **CS-PLAN-070 / parent - family rhythm and reward clarification OPEN** (WP0-WP8 delivered; WP9 activated as [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md), Standard A `PASS` 2026-10-03, zero findings; CONCEPT-001 remains In Progress for cross-DB and family evidence). [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
 
-- **CS-PLAN-081 / preparation draft created** (2026-10-03): bounded test/tooling/membership/security hardening, setup/reset clarity, Snake ordering and retained-data/recovery preparation before WP9; Q-081-01..05 remain proposals for Standard A; backlog/link/encoding gates passed including the untracked draft; no activation, policy adoption, runtime implementation, deployment or commit. [Plan](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md).
+- **CS-PLAN-081 delivered** (2026-10-05): final Full `PASS-WITH-FIXES`, H1-H6 complete with explicitly accepted non-attributed H6-05 disposition, required cap/tie/identity regressions, strict minimum-engine/full/backend/browser/recovery gates; H7/H-T11 user-rescoped, seven standalone owners archived, no deployment/adoption. [Plan](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) · [Review](archive/CODE_REVIEW_2026-10-05.md).
 
 - **CS-PLAN-079 / WP8 reward UI and onboarding delivered** (2026-10-02): final Standard B `PASS-WITH-FIXES` — RF-079-01..04 fixed in-round (state-filter refresh, catalog retry, gate-409 house re-read, backlog formatting) with regressions; durable docs integrated (UC-17, useRewardsStore, two-gate optional-areas, release checklist 8a); Jest 1219, Docker PHPUnit 1116+529, cs 0/395, full three-pool E2E gate PASSED on the final tree; FEAT-UX-026 closed to the 2026-10 archive; plan moved to `done/`. [Plan](../plans/done/cs-plan-079-wp8-reward-ui-and-onboarding.md) · [Review](archive/CODE_REVIEW_2026-10-02.md).
 

@@ -14,20 +14,21 @@ docs/plans/
 
 ## Lifecycle
 
-Next execution: [CS-PLAN-081: Pre-WP9 Hardening and Retained-Data Readiness](active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-(activated 2026-10-03, Standard A `PASS-WITH-FIXES`; Q-081-01..05 resolved — post-WP9
-retained-data baseline, 60/300 s membership throttling, AppLogger audit
-contract, existing approved reporting channel, five-above-ground basement cap):
-bounded backlog fixes, setup/reset clarity, security reporting and an
-approval-dependent first-retained-build/recovery contract. It precedes WP9
-technical execution without replacing the active parent/child or claiming
-productive-use compatibility is already enabled.
+Next execution: [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
+after refreshing its technical candidate identity and coverage mapping.
+[CS-PLAN-081: Pre-WP9 Hardening and Retained-Data Readiness](done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+is delivered (final Full `PASS-WITH-FIXES` 2026-10-05): H1-H6 complete, H6-05
+explicit evidence-bound disposition accepted; H7/H-T11 user-rescoped for
+operator-only self-testing, not passed. Seven standalone owners are archived;
+later email reporting (BUG-SEC-001) and possible GitHub move (TECH-REPO-001) stay
+in the [backlog](../backlog/backlog.md). The future retention boundary is approved
+but not adopted; no WP9 provider/pair/human gate or production deployment is
+claimed by this preparation delivery.
 
 Current active plans: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
 (parent), its WP9 child [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
-(activated 2026-10-03, Standard A `PASS`) and the independent preparation slice
-[CS-PLAN-081: Pre-WP9 Hardening and Retained-Data Readiness](active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-(activated 2026-10-03, Standard A `PASS-WITH-FIXES`).
+(activated 2026-10-03, Standard A `PASS`). The independent CS-PLAN-081 preparation
+slice is complete in `done/`; it does not close those parent/child plans.
 Core product direction was approved through 24 explicit answers on 2026-09-17.
 The same day, 47 additional C1-C5 answers (6/11/9/8/13) resolved the presented
 product questions. The technical draft added on 2026-09-18 specifies persistence,

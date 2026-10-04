@@ -1580,7 +1580,45 @@ Reset database (equivalent to seeding with `empty` profile).
 
 ## Rate Limiting
 
-No rate limiting currently implemented. May be added in future versions.
+Membership mutations `POST /users/invite`, `DELETE /users/{id}` and
+`PUT /users/{id}/role` use Nextcloud's public `UserRateLimit(60, 300)`
+middleware contract: 60 calls per 300 **elapsed seconds**, independently for
+each authenticated Nextcloud user and each endpoint. These are not calendar-day
+limits or one shared household counter. Ordinary chore execution is not subject
+to these membership limits.
+
+On exhaustion, native middleware rejects the request with HTTP **429 before the
+controller mutation**. Its response belongs to Nextcloud, not ChoreStrike's
+`success/data/error` envelope; clients must handle the HTTP status without
+assuming an app error code. Enforcement requires a working request-shared
+Nextcloud cache. An unconfigured `NullCache` does not retain attempts and is not
+proof that limits work. See [the native-cache prerequisites and real HTTP tests](../engineering/testing.md#native-user-rate-limits).
+
+The separate scores-only minigame save limit remains 100 accepted saves per
+user per house-local calendar day. That service-level rejection uses HTTP 429
+and the app error code `MINIGAME_RATE_LIMITED`; it is not the membership
+middleware contract.
+
+### Authorization and Operational Evidence
+
+Authenticated endpoints retain house membership checks; owner mutations resolve
+current owner authority in services and recheck it under the house-first lock.
+Limits supplement those checks, not replace them. Never trust client resource
+IDs or an earlier role snapshot as authorization for a later mutation/replay.
+
+The [owner-operation logging contract](../standards/guidelines/logging.md#owner-operation-events)
+covers membership, house settings/reset, setup/structure, checklist definitions,
+planner/agreement/pause and catalog/reward-request operations. Successful change
+events follow commit, use minimal numeric actor/resource context and contain no
+authored content or sensitive payload. Denial/rollback is not success; replay or
+no-change is not a new committed mutation. Shared command events also cover
+authorized self-service actions without implying that those callers are owners.
+
+These events are operational diagnostics, **not** a tamper-proof or exactly-once
+durable audit ledger. Nextcloud operators control log level, storage, access and
+retention; info events require info logging, and a crash after commit can lose
+an event. Persisted domain facts/receipts, not the log stream alone, establish
+the authoritative state. See [the security assumptions](../standards/guidelines/security.md).
 
 ## Webhooks (Future)
 

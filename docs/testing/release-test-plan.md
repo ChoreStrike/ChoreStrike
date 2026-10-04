@@ -497,6 +497,28 @@ upgrade proof, WP9 portability evidence, publication or adoption implied.
 
 ---
 
+### H-T10 Final-Candidate Reverification: `cs081-recovery-2f8aff4b3ee8` (2026-10-05)
+
+**Result: PASS**, after the final Full review's bounded reset-identity repair
+and a fresh production build. Candidate `master` at
+`2d0313f08c7be6dbc5a54cccfd620fa1a22f2ca5` plus the authorized final repair tree;
+runtime whitelist archive SHA-256
+`4b1576b5cd0ef6d9b15a93c0abe5c75ebdc1e78d93e24a9a3312995e993d7624`.
+The unchanged runner SHA-256 is
+`770093eebc9304e2377f523c78a586075822fb2489c17c7ab7c397d13933af1f`.
+Runtime is ChoreStrike `0.1.1`, Nextcloud `31.0.14`, PHP `8.2.34`, MariaDB
+`10.6.25`; image SHA-256
+`795f1662233b5012f584f30aae5eedbeaabf0b394598e74afc8570fd113f0067`,
+26 applied migration identities. All three runner self-tests, 30 app snapshots,
+corrected history/reservation and unrelated core/config/file sentinels, whole-DB
+row equality, captured-file hash equality, deliberate divergence and negative
+controls pass. Recovery 32.76 seconds, total preparation/capture/rehearsal 97.58
+seconds; complete removal of owned containers/volumes/network, zero cleanup
+failures. Integration and browser jobs did not overlap this isolated rehearsal.
+Earlier named records remain historical evidence, not substitutes for changed
+runtime bytes. No production restore, schema upgrade, WP9 provider matrix,
+human-use evidence, publication or retained-baseline adoption is implied.
+
 ## 17. Error Handling & Edge Cases
 
 | Check | Steps | Expected | Automated? |

@@ -223,6 +223,41 @@ sudo chown -R $USER:$USER .
 
 On Windows without WSL2, file operations can be slow. Enable WSL2 backend in Docker Desktop for better performance.
 
+### Interrupted DB Jobs and Fixture Diagnosis
+
+A client/tool timeout does **not** prove that container-side PHPUnit or its
+helper processes stopped. Before another integration, seeding, recovery or
+browser mutation job, inspect `docker top chorestrike-test -eo pid,ppid,etime,args`
+and verify that the previous PHPUnit/OCC/helper writers have exited. Wait for
+bounded owned workers or stop only positively identified test-owned processes;
+never start a second writer on the assumption that losing the Docker client
+cancelled the first. The CS-PLAN-081 DB-free timeout probe demonstrated this
+survival mechanism, not overlap during its historical failing run.
+
+Preserve each failed attempt's command, candidate identity, output/test names,
+stacks, ordering, timestamps and process state before rerunning. PHPUnit's
+`depends,defects` cache can reorder later runs. For an order-independent
+diagnostic comparison, explicitly use `--order-by=default --do-not-cache-result`
+alongside `--fail-on-skipped`; a green rerun is neither root-cause proof nor
+permission to discard the earlier failure. Probe both DBAL nesting and native
+transaction state without committing/rolling back unknown inherited state.
+The integration base cleans its owned app fixtures but retains Nextcloud
+accounts; new-account provisioning and reuse therefore exercise different paths.
+
+Concurrency helpers must prove successful commit **and normal exit** before
+parent cleanup or final assertions. A pre-commit readiness signal proves only
+that the worker reached that point. `SchedulePlanConcurrencyTest` covers real
+apply, early conflict, aborted commit and stalled-worker rejection with one
+parent-selected target day; an aborted independent row-holder transaction does
+not explain disappearance of other tests' house/member fixtures.
+
+Time-sensitive tests should use existing explicit-clock seams and fixed
+expectations. At Sunday 22:30 UTC in summer (23:30 in winter), Berlin and UTC
+can select different calendar weeks. `TimezoneDayBucketingTest` now pins both
+same-week offsets and these cross-week cases through
+`WeeklyGoalService::progressForWeek`; comparing live current-week starts as if
+they always differ by only one or two hours is invalid.
+
 ## Continuous Integration
 
 ### Retained-Baseline and Recovery Evidence
@@ -390,7 +425,8 @@ End-to-end tests run against a full Docker-based Nextcloud instance with the Cho
 ### Prerequisites
 
 - Docker and Docker Compose
-- Node.js 18+ with npm
+- Node.js 20.19.0 / npm 10.8.2 minimum within the supported major ranges; see
+  [the build prerequisites](development.md) and `package.json` engines.
 - Playwright browsers installed: `npx playwright install chromium`
 
 ### Setting up the Test Environment

@@ -82,15 +82,22 @@ describe('canonical browser evidence', () => {
 		expect(entry.scenarios.length).toBeGreaterThanOrEqual(8)
 	})
 
-	it.each(['family-membership-hardening.spec.ts', 'settings.spec.ts'])('requires exclusive serial discovery and first-attempt evidence for %s', file => {
+	it.each(['family-membership-hardening.spec.ts', 'settings.spec.ts', 'setup-wizard-journey.spec.ts'])('requires exclusive serial discovery and first-attempt evidence for %s', file => {
 		const entry = REQUIRED_SPECS.find(row => row.file === file)
 		expect(entry).toBeDefined()
 		expect(entry.project).toBe('chromium-serial-db')
-		expect(entry.minTests).toBeGreaterThanOrEqual(file.startsWith('family-') ? 3 : 8)
+		expect(entry.minTests).toBeGreaterThanOrEqual(file.startsWith('family-') ? 3 : file.startsWith('setup-') ? 5 : 8)
+		if (file.startsWith('setup-')) expect(entry.scenarios).toEqual(expect.arrayContaining(['six-floor house cap', 'six-floor apartment cap']))
 		expect(checkSelection([], [entry], {})).not.toEqual([])
 		const rows = collectSpecs(reportFor(entry).suites)
 		expect(checkSelection(rows.map(row => ({ ...row, projectName: 'chromium' })), [entry], {})).not.toEqual([])
 		expect(checkResults({ suites: [] }, [entry])).not.toEqual([])
+	})
+	it('pins the real wizard inventory in canonical discovery order', () => {
+		const file = 'setup-wizard-journey.spec.ts'
+		const inventory = require('../../e2e/required-scenarios.json')[file]
+		expect(inventory).toHaveLength(5)
+		expect(inventory).toEqual([...inventory].sort())
 	})
 
 	it('uses direct Node execution and fails on spawn errors or signals', () => {

@@ -38,80 +38,6 @@ below.)*
 > Standalone correctness, API, persistence, i18n, and security remainders. Each
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
-### [P2] CR-053-11 — Streak & leaderboard correctness cluster
-**Status**: In Progress — Snake ordering remainder owned by CS-PLAN-081 H5 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: M · **Layer**: backend · **Journey stage**: gamification
-**Owning**: CS-PLAN-081 H5 (Snake remainder) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
-**Source**: CS-PLAN-053 full review (CR-P2-11/12/13/15/20, 2026-08-27)
-
-Referenced by no CS-PLAN-058 work package; independently schedulable.
-(a) ~~Weekly leaderboard breaks all Sunday (`'monday this week'` → next Monday, `MinigameService:163`)~~
-**Partially closed 2026-08-30** (CS-PLAN-057 D3 fold-in: the weekly
-leaderboard and medal week run through `CalendarService::weekStart`, which
-has correct Sunday semantics; pinned by `CalendarServiceTest` unit pins and
-the `TimezoneDayBucketingTest` real-DB leaderboard window pin);
-(b) completion-path freeze consumption never stamps the covered day → one missed day can cost
-two freezes (`GameLogicService:131` + `HouseUser:294`); (c) at-risk pass vs freeze pass have
-undefined execution order → core notification suppressed; (d) weekly restock SETs
-`min(perWeek,cap)` instead of topping up — punishes earned bonus freezes (`HouseUser:308`);
-(e) leaderboard queries lack deterministic tiebreakers. Each fix is small + testable.
-
-**D5 rescoping (ratified 2026-09-12, CS-PLAN-067 Standard A):** cron
-freeze/restock *batching* (performance only, preserving per-user failure
-isolation) is owned here rather than in WP8; WP8 retains only the
-remainder-classification inventory. The correctness halves above are unchanged
-and remain independently schedulable.
-
-**Family-rhythm review (2026-09-16):** also cover a freeze consumed by the job
-followed by completion: `HouseUser::calculateStreakWithAbsence` ignores the
-covered date, allowing another consumption/reset. The existing idempotency test
-covers repeated jobs, not this cross-path sequence. D4 in the
-[clarification plan](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-now selects dated pauses instead of freezes (user decision 2026-09-17). Resolve
-the freeze/restock portion through the reviewed removal and replacement coverage,
-not new freeze mechanics. Existing code is unchanged, and the independent
-leaderboard remainder keeps its ownership here; no whole-item closure is implied.
-
-**WP3/WP4 disposition (2026-09-27):** the freeze/restock services and jobs were
-retired with the WP3 legacy-effect cutover
-([CS-PLAN-074](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md),
-final Standard B `PASS-WITH-FIXES` 2026-09-27); the remaining consumers,
-columns and the availability-streak helper were removed by the implemented WP4
-child [CS-PLAN-075](../plans/done/cs-plan-075-wp4-rhythm-goals-and-ranking.md)
-(implementation round 2026-09-27, delivered 2026-09-29: `calculateStreakWithAbsence`, the freeze
-columns/handlers and the unconditional contribution leaderboard are gone —
-member comparison is the consent-filtered exact-ratio ranking,
-[ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md)). The independent
-Snake leaderboard ordering remainder stays open here; no whole-item closure is
-implied.
-
-**Preparation activated (2026-10-03):** the live Snake-only remainder is owned by
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H5 (Standard A `PASS-WITH-FIXES`; Q-081-01..05 resolved). Earlier freeze/restock
-descriptions above are historical, not new fixes to implement. No whole-item
-closure yet — only the ordering remainder transfers.
-
----
-
-### [P4] CR-SEC-05 — Caller-gates-owner contract on removeHouseMember/updateUserRole
-**Status**: In Progress — CS-PLAN-081 H3 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: S · **Layer**: backend · **Journey stage**: authorization
-**Owning**: CS-PLAN-081 H3 · **Depends on**: — · **Blocks**: — · **Folded-in**: sibling inviteMember caller-only owner contract (2026-10-03 status inventory)
-**Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-15)
-
-`HouseService::removeHouseMember`/`updateUserRole` rely on a documented
-"caller is responsible for requireHouseOwner" contract (controller-only gate,
-tested), while sibling mutations (updateHouse, resetHouse since RF-058-02,
-invite paths, structure services) enforce owner-only service-side per
-ADR-006's defense-in-depth standard. Documented and not exploitable through
-current callers; align the two methods with the service-side pattern when
-next touched.
-
-**Preparation activated (2026-10-03):** [CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H3 (Standard A `PASS-WITH-FIXES`) owns the service-side/fresh-under-lock owner gate for
-removal, role changes and the folded-in `inviteMember` sibling. Current public
-callers remain gated until implemented.
-
----
-
 ### [P4] CR-PERF-01 — SchedulePlanService apply O(n²) row scans
 **Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
 **Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -147,26 +73,6 @@ re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 
 - [x] Decide owner-transfer/last-owner semantics for leaving. (D6, ADR-010, 2026-09-03)
 - [ ] Backend leave endpoint (+ guards) + Settings Leave button + tests.
-
----
-
-### [P4] FEAT-UX-032 — SetupWizard silently drops the basement at the floor cap
-**Status**: In Progress — CS-PLAN-081 H4 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: XS · **Layer**: frontend · **Journey stage**: setup
-**Owning**: CS-PLAN-081 H4 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-16)
-
-`SetupWizard` clamps `floorTotal = min(6, floorCount)` and appends the basement
-only when `floors.length < 6`: with `floorCount = 6` and the basement checkbox
-checked, the basement is silently NOT added and the checkbox stays checked
-without effect. Cap edge only. Fix options: clamp floorCount to 5 when a
-basement is requested, or show an inline hint that the basement replaces the
-sixth floor.
-
-**Preparation activated (2026-10-03):** owned by
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H4 despite the original low priority because it affects first setup. Cap decision
-resolved (Q-081-05: visible five-above-ground limit with basement, six total);
-no runtime fix claimed yet.
 
 ---
 
@@ -391,9 +297,9 @@ WP9 owner): isolated MariaDB/PostgreSQL/SQLite verification,
 two consecutive combined browser gates and voluntary adult/child comprehension
 plus 14-day everyday-use evidence. No WP9 runtime or human evidence is claimed yet.
 
-**Pre-WP9 preparation (2026-10-03):** the user selected
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-as the next execution; Standard A activated it (`PASS-WITH-FIXES`, Q-081-01..05 resolved).
+**Pre-WP9 preparation delivered (2026-10-05):**
+[CS-PLAN-081](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+passed its final Full review (`PASS-WITH-FIXES`).
 Its bounded H4 reset-copy clarification contributes to this existing parent
 owner; H6 retained-data/deployment preparation belongs to RELEASE-002. It does
 not close parent findings or replace WP9 evidence.
@@ -406,79 +312,6 @@ not close parent findings or replace WP9 evidence.
 - [x] Specify technical cross-contract draft, exact file/test manifest, work-package owners/dependencies and estimates (2026-09-18; not implementation approval).
 - [x] Resolve Q-070-01/02 explicitly and have Standard A accept the integrated design before activation (2026-09-18: tombstone retention + account erasure; Standard A `PASS-WITH-FIXES`).
 - [ ] Resolve the plan's findings or explicitly rescope to named owners before completion.
-
----
-
-### [P3] TECH-JEST-001 — Exclude local worktree mocks from Jest discovery
-**Status**: In Progress — CS-PLAN-081 H1 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: S · **Layer**: tooling · **Journey stage**: testing
-**Owning**: CS-PLAN-081 H1 · **Depends on**: — · **Blocks**: — · **Folded-in**: CS-PLAN-073 Standard B re-review (2026-09-24): reproduced duplicate worktree mocks with 1070 passing Jest tests; repeated 2026-09-25 with 1073 passing tests; no suppression or worktree changes
-**Source**: Baseline verification during family-first concept review (2026-09-16)
-
-`npm test -- --runInBand` passes all 1056 tests but reports duplicate manual
-mocks from `.kilo/worktrees/`. `jest.config.js:4` excludes worktree test paths,
-not the haste/module mock inventory. Defer the configuration change because
-this round is a concept/documentation review, not a test-discovery fix. Use a
-discovery-level exclusion and add a regression proving only the canonical mocks
-are indexed; do not delete the user's worktree, suppress the warnings or skip
-tests. The synthetic failure logs from `browserGate.spec.js` are expected test
-output and are not this warning.
-
-**Preparation activated (2026-10-03):** owned by
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H1 with a synthetic nested-worktree discovery regression.
-
----
-
-### [P3] TECH-TEST-003 — Integration-suite first-run-after-reset flake: shared instance house missing during ChecklistApiTest fixtures
-**Status**: In Progress — CS-PLAN-081 H2 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: M · **Layer**: tooling · **Journey stage**: testing
-**Owning**: CS-PLAN-081 H2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-072 WP1 final Standard B (2026-09-23; the same class of flake was noted in the RF-072-WP1-18 resolving round, 2026-09-22)
-
-The Docker integration suite intermittently fails ONE
-controller-validation test on the first run after a disposable-volume
-reset — observed twice, both times
-`ChecklistApiTest::testDeleteTaskItem_Member_Returns403` with
-`DoesNotExistException` on the shared instance house during
-`IntegrationTestCase::initializeScheduleForFixture` →
-`RoomTaskReadService::timeZoneForHouse`. Immediate reruns on the same
-volume are green (two consecutive full runs 403 tests / 1831 assertions,
-2026-09-23). `ChecklistApiTest::setUp` resolves the shared house through
-`HouseService::getOrCreateHouse`. **Hypothesis correction (2026-10-03):** the
-service re-queries the house; sharing the DI service does not memoize the entity.
-The original preceding-deletion hypothesis is not proven against the current
-tombstone-based tests. Preserve the observed historical failure, but reproduce
-the current fixture lifecycle/order before selecting a root-cause repair.
-Production lookup must still fail for a genuinely deleted house. Isolate/fix
-the test harness instead of relying on reruns or adding production fallbacks;
-do not weaken the WP1 schedule-initialization seam.
-Deferral reason: intermittent, harness-only, needs dedicated root-cause
-effort; the two-green-rerun protocol keeps gate evidence trustworthy in
-the meantime.
-
-**Preparation activated (2026-10-03):** owned by
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H2: deterministic lifecycle regression and three independently fresh first
-full integration passes. A superseded disposition needs explicit review evidence;
-static inspection or warm reruns alone do not close this item.
-
----
-
-### [P3] TECH-LINT-006 — npm peer-dep ERESOLVE requires `--legacy-peer-deps`
-**Status**: In Progress — CS-PLAN-081 H1 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: S · **Layer**: tooling · **Journey stage**: dependency management
-**Owning**: CS-PLAN-081 H1 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-026 dependency reinstall (2026-08-12)
-
-`npm install` fails with `ERESOLVE`: `eslint-config-standard@17.1.0` wants
-`eslint-plugin-n@^15 || ^16` but `package.json` pins `eslint-plugin-n@^17.24.0`
-(via `@nextcloud/eslint-config@8.3.0`). The repo therefore installs with
-`--legacy-peer-deps`. Pre-existing (not introduced by CS-026), but now documented.
-Resolving it cleanly likely needs an `eslint-plugin-n`/`eslint-config-standard`
-bump coordinated with the Nextcloud eslint config.
-
-**Preparation activated (2026-10-03):** owned by
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H1. `.npmrc` currently enables the bypass; completion requires a clean install
-with `--legacy-peer-deps=false` before removing it, not another force/override.
 
 ---
 
@@ -499,45 +332,42 @@ SELECT of ids followed by UPDATE ... WHERE id IN (...). Not a WP7 regression
 
 ---
 
-### [P3] BUG-SEC-001 — Dedicated security reporting address + GPG key
-**Status**: In Progress — CS-PLAN-081 H7 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`; Q-081-04: existing operator-approved mailbox/key) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
-**Owning**: CS-PLAN-081 H7 · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
-**Source**: CS-001 security review
+### [P3] BUG-SEC-001 — Security reporting contact for later external use
+**Status**: Backlog (user-deferred 2026-10-04; outside CS-PLAN-081, not completed) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
+**Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 (external-use stage only) · **Folded-in**: H7/H-T11 user rescoping and future GitHub-associated email contact (2026-10-04)
+**Source**: CS-001 security review; CS-PLAN-081 H7 Post-Review Scope Decision
 
-`SECURITY.md` points reporters to the Codeberg user profile (no private advisory
-feature). A dedicated `security@` address + published GPG key would make private,
-encrypted reporting frictionless.
+The operator initially tests alone and explicitly removed H7/H-T11 from
+[CS-PLAN-081](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+on 2026-10-04. No new reporting address or channel test is required for that
+self-test stage or preparation-plan completion. This item remains open for
+later external tester onboarding / public release, not a completed H7 claim.
 
-- [ ] Dedicated security contact published in `SECURITY.md` + Codeberg profile.
-- [ ] GPG public key published; fingerprint referenced in `SECURITY.md`.
-- [ ] `SECURITY.md` "maintainer note" removed once the channel exists.
+Use ordinary private email without mandatory GPG, a dedicated `security@`
+mailbox or Codeberg profile publication. The intended address is the new
+GitHub-associated email, coordinated with the possible forge move in
+TECH-REPO-001. It must be a monitored, deliverable mailbox, not a GitHub
+commit-only `noreply` address. No address is currently supplied or approved
+for publication; no account, mailbox or external profile action is authorized.
 
-**Preparation activated (2026-10-03):** owned by
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H7. Actual contact/key and external publication require operator approval and
-controlled receipt/decryption evidence; no invented public details.
+- [ ] Confirm the operator-approved reporting mailbox and receipt of a test email.
+- [ ] Publish the approved contact in `docs/SECURITY.md` and align links with the selected hosting platform; no public security issues or sensitive real-user payloads.
+- [ ] Remove the deferred-contact maintainer note once the route is available; GPG remains optional, not a completion requirement.
 
 ---
 
-### [P3] SEC-AUDIT-001 — Security hardening follow-ups from P8-SECURITY-001 audit
-**Status**: In Progress — CS-PLAN-081 H3 (activated 2026-10-03, Standard A `PASS-WITH-FIXES`) · **Effort**: M · **Layer**: backend · **Journey stage**: security hardening
-**Owning**: CS-PLAN-081 H3 · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
-**Source**: security audit 2026-03-05 (record archived 2026-08-20, DOC-STD-001); re-verified by CS-PLAN-053 full review 2026-08-27
+### [P3] TECH-REPO-001 — Evaluate Codeberg-to-GitHub migration
+**Status**: Backlog (candidate move, not yet approved) · **Effort**: M · **Layer**: tooling+docs · **Journey stage**: repository hosting
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: user request 2026-10-04; future contact setup related to BUG-SEC-001
 
-- [ ] Rate limiting for sensitive endpoints (user management).
-- [ ] Audit logging for owner-level operations.
-- [ ] Document the complete security assumptions, rate-limit scope and audit contract in the API documentation. Existing "no rate limiting" text is only partial documentation, not whole-bullet completion (current section: `docs/api/README.md:1581-1583`).
+The user expects a possible move from Codeberg to GitHub and intends to use a
+new GitHub-associated email for the later security contact. This is a separate
+effort, not a CS-PLAN-081 prerequisite or authorization to transfer anything.
 
-Re-verification 2026-08-27: no rate-limit or audit-log implementation exists in `lib/`;
-review findings CR-053-17 (controller logging gaps in 10/15 controllers) and CR-053-18
-are adjacent hardening items.
-
-**Preparation activated (2026-10-03):** owned by
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H3: public Nextcloud membership throttling and privacy-aware AppLogger
-owner-operation events, not a new generic audit table. Contracts resolved
-(Q-081-02: 60/300 s per endpoint; Q-081-03: AppLogger operational contract);
-no implementation or closure claimed yet.
+- [ ] Decide the target repository/account and migration scope with the operator.
+- [ ] Inventory Git history/tags, issues, release assets, remotes, documentation links and Forgejo CI/release workflows; scope GitHub equivalents and private credential handling before implementation.
+- [ ] After explicit migration approval, verify the transferred scope and update canonical links/workflows; coordinate the actual reporting mailbox with BUG-SEC-001.
 
 ---
 
@@ -562,13 +392,18 @@ Exact blocking gates:
   `PASS-WITH-FIXES` (CS-PLAN-058 §3 WP9) — Full review `PASS-WITH-FIXES`
   2026-09-14 incl. the D-FR-04 browser-gate pair.
 
-Still blocking: the independent obligations above (BUG-SEC-001, SEC-AUDIT-001)
-and the deployment/field-usage work itself.
+Still blocking: WP9's technical/provider and browser-pair gates, explicit safe
+deployment/adoption decisions and the deployment/field-usage work itself.
+SEC-AUDIT-001 is completed by CS-PLAN-081 (2026-10-05), not a deployment sign-off.
+BUG-SEC-001 remains required before later external tester onboarding / public
+release, but is explicitly not a blocker for operator-only self-testing or
+CS-PLAN-081 completion (user decision 2026-10-04). This limited exception does
+not waive deployment safety, technical readiness or retained-baseline adoption.
 
-**Retained-data preparation (2026-10-03):**
-[CS-PLAN-081](../plans/active/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
-H6 (activated via Standard A `PASS-WITH-FIXES`; Q-081-01 resolved to post-WP9 baseline
-adoption) prepares the first protected build/adoption boundary, future
+**Retained-data preparation delivered (2026-10-05):**
+[CS-PLAN-081](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
+H6 (final Full `PASS-WITH-FIXES`; Q-081-01 resolved to post-WP9 baseline
+adoption) documents the first protected build/adoption boundary, future
 data-preserving migration rules, synthetic recovery rehearsal and truthful
 whole-Nextcloud rollback impact. This is a partial contribution, not deployment
 or field-usage completion. The intended family candidate must pass
