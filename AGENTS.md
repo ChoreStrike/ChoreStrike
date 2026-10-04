@@ -19,7 +19,7 @@
 5. **Authorization:** `@NoAdminRequired` only (never `@PublicPage`); validate house membership/ownership on every mutation; never trust client input.
 6. **i18n:** every user-visible domain/UI string via `t()`; update `l10n/` artifacts in the same change. The sanitized generic formatter fallback is the sole documented exception (`i18n.md` D2).
 7. **Logging:** backend `AppLogger`, frontend `src/utils/logger.js`; no raw `console.*`.
-8. **Pre-release:** no backward compatibility until the user declares productive use (~V0.9) — fresh installs only, no upgrade paths/shims.
+8. **Data retention:** fresh installs only until the operator explicitly adopts one post-WP9 technical baseline. The approved future boundary is not yet adopted; after adoption preserve persisted data by default and freeze applied migrations (canonical rules §1; deployment checklist).
 9. **KISS & DRY:** simple, readable, minimal diffs; ~30 lines/method, ~300 lines/file; extract after the rule of three.
 10. **No completion without tests:** every feature/bug fix has a test; never done while required tests are missing, newly/unapproved skipped, or red.
 11. **Backlog discipline:** route findings scope-first — in-plan-scope findings live in the owning plan's `## Review Findings` until resolved; only out-of-scope open items live in [`docs/backlog/backlog.md`](docs/backlog/backlog.md); live coordination in [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md); done items move to `docs/backlog/archive/YYYY-MM.md` immediately.

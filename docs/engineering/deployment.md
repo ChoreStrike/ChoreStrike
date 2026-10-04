@@ -83,9 +83,33 @@ both defaults — individual users can switch to any available language.
 
 ### Database
 
-- [ ] Database backup created
-- [ ] Migration files reviewed for breaking changes
-- [ ] Rollback migration prepared (if needed)
+- [ ] Consistent code/config/database/applicable-data backup verified under write quiescence
+- [ ] Migration identity and data-preservation contract reviewed (see below)
+- [ ] Recovery target, window, acceptable data loss and other-app impact approved by the operator
+- [ ] Restore rehearsal passes; code downgrade alone is not the recovery plan
+
+## First Retained Baseline
+
+**The future contract is approved; no baseline has been adopted yet.**
+Disposable development installs remain fresh-install-only. After WP9's technical
+provider matrix and consecutive browser gates, the operator explicitly adopts
+one candidate before first real retained data. Voluntary family-use evidence
+can follow; it is not a circular prerequisite to adopting the technical baseline.
+
+The adoption record must include:
+
+- Explicit operator decision/date and target authorization (private instance details stay in `private/`).
+- Exact Git revision, build/artifact identity and actual installed app version from `appinfo/info.xml`/Nextcloud, not an assumed release label.
+- Nextcloud, PHP and DB provider/version; configured table prefix and backup scope recorded privately.
+- Ordered applied ChoreStrike migration identifiers from the installed DB and SHA-256 hashes of the matching migration files; reconcile the two inventories before approval.
+- Passing WP9 technical evidence, recovery rehearsal and first-deployment smoke; no untested upgrade claim or automatic tag/deployment.
+
+From that decision, preserve persisted facts by default and keep applied
+migrations immutable under the [canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary-approved-not-yet-adopted).
+Subsequent schema changes use new ordered steps and require real populated-
+baseline upgrades plus fresh/upgrade parity on all supported providers. An
+unchanged-app reinstall or backup restore is not an upgrade test. No support
+for earlier disposable development states is implied.
 
 ## Testing
 
@@ -131,8 +155,12 @@ chown -R www-data:www-data /var/www/html/custom_apps/chorestrike
 ### 3. Run migrations
 
 ```bash
-occ migrations:execute chorestrike
+occ upgrade
 ```
+
+Use the supported Nextcloud upgrade flow, with the matching app build and
+reviewed migration inventory. Never manually replay already-applied steps to
+repair a retained installation; stop and diagnose a mismatch instead.
 
 ### 4. Enable the app
 
@@ -173,34 +201,34 @@ sign-off record. **A release tag requires a completed record.**
 
 ## Rollback
 
-### Quick Rollback
+### Recovery Boundary
 
-```bash
-# Disable the app
-occ app:disable chorestrike
+A code downgrade does **not** reverse schema changes or restore data. Only use
+a previous build against the current DB when that compatibility is proven;
+otherwise recover a consistent whole-instance backup. A Nextcloud DB restore
+rolls back **all apps and core state** to the recovery point, not just ChoreStrike.
+Table-only restores are not an approved shortcut: cross-table/core identities,
+receipts and financial relations can become inconsistent.
 
-# Restore the previous version
-rm -rf /var/www/html/custom_apps/chorestrike
-cp -r /backup/chorestrike_YYYYMMDD /var/www/html/custom_apps/chorestrike
-chown -R www-data:www-data /var/www/html/custom_apps/chorestrike
+Before any production backup/restore, obtain explicit operator approval for
+the named instance, access, recovery point/window, acceptable loss of writes
+since that point, outage and other-app impact. Test authorization never grants
+personal-server access. Keep raw dumps, config, file manifests and identities
+in access-restricted gitignored private storage; do not print secrets in logs.
 
-# Restore the database (if needed)
-mysql -u nextcloud_user -p nextcloud_db < backup_YYYYMMDD.sql
+### Consistent Backup and Restore
 
-# Re-enable the app
-occ app:enable chorestrike
-```
+1. Identify the instance and every writer: web/API clients, cron/background workers, CLI jobs and other apps. Pause writers and scheduled tests; enable Nextcloud maintenance mode (`occ maintenance:mode --on`). Maintenance mode alone does not stop independent jobs.
+2. Capture one consistent recovery point: Nextcloud/app code and built dependencies, config, entire DB (provider-native consistent dump/snapshot), applicable data directory/external storage and deployment configuration. Record private checksums and versions. Keep writers paused until capture finishes.
+3. Rehearse first into a separately owned disposable target with isolated volumes/network and no outbound jobs/mail. Restore matched code/config/data and the complete DB there, never over an unrelated instance. Verify permissions and provider/runtime compatibility before starting services.
+4. If actual rollback is approved, repeat restoration only on the authorized target under quiescence; preserve pre-restore state for diagnosis. Restore the matched recovery set, not old code over a newer schema. Restart only the target's PHP/web processes for OPcache; never flush shared Redis or other apps' caches as an app recipe.
+5. Before reopening writes, compare structure IDs/relations, planning/occurrences/agreements/pauses, history/shares/journal, wallet balances/ledger/reservations and reward facts, plus unrelated core/other-app sentinel state. Verify app enablement, migration inventory and representative reads. Perform Nextcloud's maintenance data-fingerprint procedure when restoring user files, as required by the server's recovery guidance.
+6. Disable maintenance mode only after verification, resume named jobs/clients deliberately and monitor sanitized errors. Record actual outcome and restore time against the approved recovery window.
 
-### Full Rollback
-
-1. Disable the ChoreStrike app
-2. Restore the database from backup
-3. Restore the previous app version
-4. Clear caches — restart the web/PHP-FPM process (clears OPcache) and flush your
-   configured cache backend (e.g. `redis-cli flushall` for Redis). Nextcloud has no
-   single `occ cache:clear` command.
-5. Re-enable the app
-6. Verify functionality
+The synthetic rehearsal and required assertions live in
+[`release-test-plan.md` §16](../testing/release-test-plan.md#16-upgrade--recovery).
+It proves recovery of that disposable snapshot, not production recovery,
+future upgrades, WP9 portability or baseline adoption.
 
 ## Support
 

@@ -395,3 +395,94 @@ Foreign `.gitkeep` deletions remain unstaged. Branch/HEAD/index/full fingerprint
 checked against expected state immediately before staging and again before the
 commit; no branch change, amend, push, tag, deployment, production restore,
 external publication or retained-baseline adoption.
+
+---
+
+## Standard B Interim — Remaining H6 Package (2026-10-04)
+
+### Scope, Ownership and Identity
+
+Standard B (code) interim review of the remaining uncommitted CS-PLAN-081
+candidate — exactly the package the preceding `NEEDS-FOLLOW-UP` finalization
+left uncommitted: the H6 durable docs (`AGENTS.md`,
+`docs/standards/ai/rules/project-rules.md`, both skills, deployment/testing/
+release/release-test-plan docs), untracked `scripts/run-recovery-rehearsal.ps1`
+and `tests/recovery/fixture.php`, the RF-081-H6-01 `RewardService.php`
+null-description fix with its `CatalogAuditTest.php` regression, and the plan's
+H6 implementation/evidence hunks. Owning plan: explicit CS-PLAN-081; the scope
+is not a completion review (H6-05 open by operator decision, H7/H-T11
+operator-blocked), so the plan stays `active/` regardless of outcome.
+
+Capture before review: branch `master`, HEAD
+`172129ca49b7c7435e0567b838a70a0977e44e78`, index empty; staged binary diff
+SHA-256 (empty)
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; unstaged
+binary diff SHA-256
+`63a77c74a8762b53088632bc31ce4fd8134047433f2d796c0149f01d5d8fda64`; untracked
+content SHA-256 `89ec38d3336ef0df8390175f5f48ff2815cec49dfb5dc51bfe14ff0ff5efd925`
+(runner) and `5246278609fd3cc661fd072537a87cb720f1664e92fadc8672c1d86603068b12`
+(fixture). Drift validation: both untracked files byte-identical to the
+preceding review's gate-verified candidate (blobs `152051a9…`/`b2e3fed9…`), and
+the unstaged path set equals that review's 15-path manifest minus the two files
+committed clean in `172129c`; `172129c` touched only evidence/holder files.
+The recorded full-suite gates (Docker unit 1314/4246, integration 571/3202,
+Jest 109/1228, browser `run-UfqJZd`, recovery `cs081-recovery-592eb59f90a0`)
+therefore apply byte-for-byte to the captured candidate. Three foreign
+`docs/plans/{active,new,onhold}/.gitkeep` deletions excluded throughout.
+
+### Checklist Review and Finding
+
+Checklist pass (no subagents — Standard B): architecture (service-layer fix,
+services/mappers in the fixture), authorization (no HTTP surface; fixture
+guarded by CLI/env/DB_HOST-pattern/owned-evidence checks), security (isolated
+internal network, no published ports, whitelisted archive without `private/`/
+`.git`/`node_modules`, gitignored private evidence, synthetic-only credentials),
+workarounds (none; documented harness necessities only), logging (private
+evidence logs; no `console.*`/AppLogger surface), i18n (no user-visible
+strings), tests (regression for the code fix; self-tests and negative controls
+in the harness), docs/plan (retention boundary phrasing consistent across all
+seven documents; honest non-adoption claims throughout).
+
+| Finding | Severity | Evidence / status |
+| --- | --- | --- |
+| RF-081-H6-09 | minor | `run-recovery-rehearsal.ps1` sanitizer anchored `-p<value>` at argument start only; the synthetic root password embedded in dump/restore shell strings (lines 158–162, 170–171) reached the private `commands.log` unredacted while separate password arguments were redacted. Credential synthetic/public-in-script and log gitignored, but contradicts the runner's redaction intent and the RF-081-H6-04 claim. **Fixed in-round** after explicit user approval. |
+
+Repair (user-approved "Fix now + re-rehearse"): extracted testable
+`Get-SanitizedArguments` with `(?:^|\s)-p\w` embedded-token matching, replaced
+`Invoke-Docker`'s inline sanitization, added a dedicated self-test (embedded
+dump string redacted; non-password arguments untouched). Post-fix runner
+content SHA-256
+`770093eebc9304e2377f523c78a586075822fb2489c17c7ab7c397d13933af1f`
+(blob `190faebd71bb1d3f6fe6053756dc6874d4237b8d`); fixture unchanged
+(`52462786…`/`b2e3fed9…`). No rehearsal behavior, ownership or assertion change.
+
+### Fresh Gates (This Review)
+
+| Gate | Result |
+| --- | --- |
+| Runner self-tests | PASS ×3 (cleanup failure-path; authenticated TCP readiness retry/exhaustion; log sanitization) |
+| Full isolated rehearsal | `cs081-recovery-673681ab35b7` PASS — 30 app-table snapshots, whole-DB row equality, captured-file hash equality, deliberate divergence, ownership/manifest negative controls, complete owned teardown (recovery 28.12 s, total 69.98 s, zero cleanup failures); executed log contains zero unredacted password occurrences and 17 redacted elements |
+| Focused changed-PHP suite | `CatalogAuditTest` 14/14, 137 assertions, `--fail-on-skipped`, zero skips |
+| Documentation/backlog/whitespace | `backlog:check` 34 scoped files; `docs:encoding` 890 tracked files; `git diff --check` and staged check clean |
+| Inherited byte-identical evidence | Docker unit 1314/4246, integration 571/3202, Jest 109/1228, lint/stylelint/build, l10n 1270, `composer cs:check` 0/405, browser `run-UfqJZd` — recorded on the identical candidate by the preceding review; PHP/JS implementation bytes unchanged by this round's fix |
+
+Integration, recovery and browser mutation jobs did not overlap; the canonical
+test stack was idle during the rehearsal, which touches only the canonical
+image (read-only inspect) plus its own isolated containers/network.
+
+### Decision, Outcome and Commit
+
+One structured decision batch (recommendation first): RF-081-H6-09 handling —
+user approved "Fix now + re-rehearse" over parking the finding or accepting
+the boundary.
+
+**Outcome: PASS-WITH-FIXES** (Standard B interim). Interim passing review
+commits the reviewed package; the plan stays `active/` with H6-05 and H7/H-T11
+open, no `done/` move, no standalone-owner archive, no new backlog item. Fresh
+H-T10 reverification evidence (`cs081-recovery-673681ab35b7`) recorded in the
+release test plan; no retained-baseline adoption, deployment, push, tag or
+external publication. One scoped conventional commit contains the H6 durable
+docs, runner, fixture, RewardService fix + regression, plan evidence (findings
+entry + Review Outcome), this record's new section and `ACTIVE_TASKS.md`;
+foreign `.gitkeep` deletions remain unstaged. Branch/HEAD/index re-verified
+against the expected state immediately before staging and before the commit.

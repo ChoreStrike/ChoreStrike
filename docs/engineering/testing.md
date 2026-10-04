@@ -225,6 +225,28 @@ On Windows without WSL2, file operations can be slow. Enable WSL2 backend in Doc
 
 ## Continuous Integration
 
+### Retained-Baseline and Recovery Evidence
+
+The [canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary-approved-not-yet-adopted)
+is approved for future explicit adoption, not active for disposable dev installs.
+After adoption, exercise every new migration against a populated copy of that
+recorded baseline on all supported providers; assert preserved identifiers,
+relations, planning/history and financial facts and fresh/upgrade schema parity.
+An unchanged-app reinstall, edited already-applied step, or restore of the same
+build does not prove an upgrade.
+
+Recovery runs need exclusive ownership, with no integration/browser/cron mutation
+jobs overlapping the backup point or assertions. Use separately named disposable
+containers/volumes and isolated network; never restore into the personal server,
+the canonical browser pool or unrelated volumes. Capture matched code/config,
+whole DB and applicable data while writers are paused, then compare ChoreStrike
+facts **and unrelated Nextcloud sentinel state** after restoration. Test a
+deliberate post-backup divergence to show restoration actually replaced state.
+Raw artifacts/manifests remain private/gitignored. See the
+[release recovery record](../testing/release-test-plan.md#16-upgrade--recovery)
+for exact assertions and actual sanitized evidence; the
+[deployment procedure](deployment.md#rollback) owns operator approval and scope.
+
 The authoritative CI workflow is `.forgejo/workflows/release-gate.yml`
 (GHA-compatible, runs on Forgejo Actions / Codeberg CI and GitHub Actions).
 It is the single source of truth for blocking gate commands.

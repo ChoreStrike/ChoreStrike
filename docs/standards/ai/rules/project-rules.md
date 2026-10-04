@@ -35,11 +35,30 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 - No premature abstraction (rule of three). Prefer existing patterns.
 - Keep diffs minimal — no unrelated renames or formatting churn in feature work.
 
-### Pre-Release Compatibility (until explicitly lifted)
-- **Until the user declares the app productive (~V0.9), there is NO backward-compatibility requirement** — there is no release and no production database.
-- Schema changes: only **fresh installs** must work. Adjust the existing migration chain instead of writing upgrade paths, backfills, or data-preservation code for hypothetical older installs. Test/dev databases are disposable (`down -v` + `up -d`).
-- **No legacy shims, fallbacks, or deprecated-API wrappers** for older app versions — update the call sites and delete the old code instead of layering compatibility on top. Compat code this early only bloats the codebase and adds bug surface.
-- Backward compatibility starts **only** when the user explicitly declares "ab jetzt abwärtskompatibel" (productive use). Until then, never add compat code "just in case".
+### Data-Retention Boundary (approved, not yet adopted)
+- **Current state: fresh-install-only.** The approved future contract starts only
+  when the operator explicitly adopts one baseline after WP9's technical gates,
+  before entering real retained data. Plan approval, a green rehearsal, a version
+  number or a release tag alone does not adopt it. No retroactive support for
+  disposable development installs.
+- Until adoption, adjust the existing migration chain for fresh installs; no
+  speculative upgrade paths, backfills, no-op migrations or legacy shims. Only
+  explicitly owned disposable test databases may be recreated (`down -v`).
+- From adoption, preserve persisted data by default: setup/structure, task and
+  checklist definitions/assignments, recurrence/occurrences/agreements/pauses,
+  completions/work shares/corrections/journal, membership/preferences and
+  financial/reward facts. Scores/awards are separable but their reset still
+  requires an explicit future scoped decision; derived streak/title rows are
+  not independent history. This does not prevent authorized domain corrections,
+  deletion or privacy erasure under their documented contracts.
+- Already-applied migration files become immutable. Future schema changes use
+  new ordered steps, populated-baseline upgrade tests and fresh/upgrade parity
+  on all supported providers. Do not silently reset facts or add hypothetical
+  older-version compatibility wrappers.
+- Record explicit adoption and exact build/runtime/migration identity using
+  [`deployment.md`](../../../engineering/deployment.md#first-retained-baseline).
+  Whole-instance recovery and other-app rollback impact require operator
+  approval; a code downgrade is not a schema rollback.
 
 ## 2. Technical Requirements
 

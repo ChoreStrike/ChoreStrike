@@ -40,7 +40,7 @@ Controller (thin) → Service (logic) → Mapper/Entity (persistence)
 
 - Constructor injection via Nextcloud DI. No `new Service(...)` in controllers.
 - Throw domain exceptions in services; catch + translate in the controller.
-- Schema changes → a migration in `lib/Migration/` (`Version<seq>Date<UTC>.php`). Pre-release (until declared productive, project-rules §1): **fresh-install correctness only** — no upgrade paths, backfills, or legacy shims.
+- Schema changes → `lib/Migration/` (`Version<seq>Date<UTC>.php`). Before explicit retained-baseline adoption: fresh-install correctness only, no speculative upgrade paths/backfills/shims. After adoption: applied files are immutable; new ordered migrations must preserve facts, pass populated-baseline upgrades and fresh/upgrade parity on supported providers. See project-rules §1 and the [adoption checklist](../../../../engineering/deployment.md#first-retained-baseline); approval of the future policy is not adoption.
 
 ## Verification
 

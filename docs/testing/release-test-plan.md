@@ -4,7 +4,7 @@
 > for pre-release manual validation. Supersedes the former `manual-test-checklist.md`,
 > `alpha-test-guide.md`, `family-test-setup.md`, and `critical-tests.md` (archived
 > 2026-07 under `archive/2026-07/testing-docs/`).
-> **Scope:** manual, human-judgement testing only. Items already covered reliably
+> **Scope:** manual, human-judgement testing plus the operator recovery evidence in §16. Items already covered reliably
 > by automation are marked **Automated** with a pointer and need **not** be
 > re-executed manually unless called out by a stage protocol.
 > **Rule (release gate):** **a release tag (alpha / beta / stable) requires a
@@ -373,17 +373,127 @@ notifications no longer exist (ADR-016).
 
 ---
 
-## 16. Upgrade / Migration Smoke (Personal Instance)
+## 16. Upgrade & Recovery
 
-> **Back up the instance first.** Run on the personal Nextcloud instance, not
-> Docker throwaway data (real upgrade path matters here). Required for **stable**.
+### Personal-Instance Upgrade Smoke
+
+> **Explicit target/access authorization and a consistent backup are required.**
+> Personal-instance validation is RELEASE-002 work, not authorized by a synthetic
+> test. Required for stable; use the actually adopted retained baseline, not an
+> earlier disposable installation. Adoption procedure:
+> [deployment.md](../engineering/deployment.md#first-retained-baseline).
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
 | Upgrade install | Replace the app version on a previously-installed instance; run `occ upgrade` | App enables; migrations apply with no errors | — |
 | Data preserved | Open existing floors/rooms/tasks/history after upgrade | All prior data intact and correctly typed | — |
 | Schema fresh-install parity | (Separately) install fresh and compare schema | Fresh install and upgrade reach the same schema state | PHPUnit migration suite |
-| Rollback | Disable, restore the previous version, re-enable | App returns to the prior working state | — |
+| Rollback | Under operator-approved quiescence restore matched code/config/whole DB/applicable data; compare app and unrelated state | Prior recovery point restored within the approved window; other-app rollback acknowledged; code downgrade alone is not recovery | — |
+
+### Synthetic Whole-Instance Recovery (H-T10)
+
+Use an explicitly owned disposable environment, synthetic accounts/data only,
+and no overlapping integration/browser/background mutation jobs. Follow the
+[whole-instance procedure](../engineering/deployment.md#rollback), with isolated
+target volumes/network and no external delivery. Raw dumps, config and manifests
+stay gitignored/private; public evidence contains sanitized commands, target
+identity, assertions and actual outcomes only.
+
+Required record:
+
+- Candidate Git/build identity, actual app/NC/PHP/provider versions and ordered migration-file hash inventory (private raw manifest; sanitized summary).
+- Owned source/restore target identities, isolated volume scope, writer quiescence and consistent recovery point; included code/config/DB/applicable data.
+- Non-empty synthetic structure/definitions/room-task assignments/checklists; recurrence/occurrences/agreements/pauses; completion history/shares/corrections/journal; membership/preferences and wallet/ledger/reservation/reward facts, with IDs and relations compared before/after.
+- Synthetic unrelated Nextcloud/core sentinel state and a data-file sentinel; assert their restoration as well, not app tables only.
+- Deliberate post-backup changes proven different, followed by exact recovered snapshot equality and representative authoritative reads; app enablement/migration inventory unchanged.
+- Actual elapsed recovery time, command exit statuses, result and cleanup limited to owned resources. A passing rehearsal proves neither upgrade compatibility nor real-server validation/adoption.
+
+### H-T10 Record: `cs081-recovery-e6d385fad062` (2026-10-04)
+
+**Result: PASS**, including teardown. Synthetic instance only; this is not a
+release sign-off, real-server validation, upgrade test or retained-baseline adoption.
+
+| Evidence | Actual result |
+|---|---|
+| Candidate | `master` at `56697d273b0324d2b7d1a172d57569129438fc42` plus the bounded H6 working-tree fix/fixture; captured runtime/build archive SHA-256 `4bb54ad42098d9677b06907a04633ae7102d5fcbfbecf808ab171c130d7f5913` |
+| Runtime | Installed ChoreStrike `0.1.1`; Nextcloud `31.0.14`; PHP `8.2.34`; MariaDB `10.6.25` (test image `795f1662233b5012f584f30aae5eedbeaabf0b394598e74afc8570fd113f0067`) |
+| Migration identity | All 26 ordered applied identifiers match migration-file identifiers; matching migration/build file hashes retained privately; no new migration or schema edit |
+| Ownership/isolation | Unique `cs081-recovery-e6d385fad062-{db,source,restored}` containers and internal-only network; no published ports, cron/web writers, external deliveries or integration/browser jobs; no canonical-stack/other-container mutation |
+| Capture | Runtime whitelist includes built JS/CSS and PHP dependencies; full Nextcloud code/config/applicable data captured under maintenance mode, with no active writer; complete consistent DB dump, never app tables only |
+| Non-empty retained facts | Structure/task/assignment/checklist rows, recurrence/occurrences/members, amendment and pause, real completion plus corrected two-person allocation, room journal, member preferences, command receipts, wallet ledger and funded reward reservation/event history |
+| Deliberate divergence | House/wallet rows, unrelated core preference, system config and data sentinel changed after capture; an extra code sentinel added. DB digest changed; attempting verification in the divergent state is rejected (expected exit 255) |
+| Restore assertions | Whole-DB deterministic row dump SHA-256 equals before; every captured regular-file SHA-256 validates before bootstrap; all 30 ChoreStrike table count/hash snapshots equal; extra post-backup code sentinel absent |
+| Authoritative reads | Corrected two-person completion and reward request/event history readable; unrelated Nextcloud preference and config/data sentinels restored; `occ status` installed, maintenance on, no DB upgrade needed before reopening |
+| Failure-path checks | Disabled ownership flag rejects seeding (exit 255); upstream manifest-pipeline failure rejects capture (exit 1, `pipefail`); cleanup self-test continues after the first injected removal failure and retains its error |
+| Timing | Recovery/divergence/verification interval 29.50 seconds; full preparation/capture/rehearsal 70.62 seconds (teardown follows); no production RTO promise |
+| Cleanup | All three owned containers and their anonymous volumes plus the owned network removed successfully; zero cleanup failures; PASS evidence finalized only after cleanup |
+
+Sanitized command sequence (the runner supplies unique owned names and test-only
+credentials; its private operation log records redacted identities/exit codes):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-recovery-rehearsal.ps1 -SelfTest
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-recovery-rehearsal.ps1
+```
+
+The runner uses `docker create/start/exec` against the existing canonical **image**,
+not its DB or mounted source. It installs a separate synthetic Nextcloud, seeds
+through `tests/recovery/fixture.php`, executes `occ maintenance:mode --on`, hashes
+files with `bash -o pipefail -ec`, captures `tar` + `mysqldump --single-transaction`,
+proves divergence, stops the source, replaces the **owned** DB, and extracts the
+matched archive into a new target. It does not run the canonical seed entrypoint
+after restore. PHP/service reads verify retained facts before maintenance is
+turned off. Windows archive capture and container-local evidence avoid Docker
+bind-directory enumeration failures seen during harness development.
+
+Earlier harness-development attempts failed visibly (archive/CLI fixture/metadata
+errors); they are not passing recovery evidence. The final guarded runner passes
+the negative controls as well as the positive restore. OCC's optional-PCNTL
+interrupt advisory is retained in the private log; JSON/version records are
+parsed separately, not hidden or presented as an app defect. Raw instance
+code/config/data, DB dump, manifests and diagnostics remain gitignored/private.
+
+### H-T10 Reverification: `cs081-recovery-592eb59f90a0` (2026-10-04)
+
+**Result: PASS**, after the production build completed and the final integration
+process/helpers exited, before the exclusive full browser gate started.
+Candidate `master` at `46d37a29ce705fd187ceb43aacaa2d694dfff512` plus the
+reviewed H6 working tree; runtime whitelist archive SHA-256
+`d4f4436a916aba940c10f6a77e66846d0027061432c1788932d1cf085e5935c3`.
+Runtime remains ChoreStrike `0.1.1`, Nextcloud `31.0.14`, PHP `8.2.34`, MariaDB
+`10.6.25`; the same test image and all 26 migration identities match.
+
+Both runner self-tests pass (authenticated TCP retry/exhaustion and independent
+cleanup failure propagation). The actual isolated rehearsal repeats all 30
+app-table snapshots, corrected history/reservation/core/config/file sentinel
+reads, whole-DB row equality and every captured file hash. Deliberate divergence
+and the ownership/manifest negative controls are rejected as intended. Recovery
+and verification take 28.48 seconds; total preparation/capture/rehearsal 74.34
+seconds, followed by successful removal of all three owned containers/anonymous
+volumes and the owned internal network (zero cleanup failures). Raw evidence
+remains private. No production restore, upgrade proof, WP9 portability evidence,
+external publication or retained-baseline adoption is implied.
+
+### H-T10 Reverification: `cs081-recovery-673681ab35b7` (2026-10-04)
+
+**Result: PASS**, run by the interim Standard B review after its authorized
+log-sanitization repair: the runner's private `commands.log` now also redacts
+the synthetic root password embedded in dump/restore shell strings
+(`Get-SanitizedArguments`, covered by a dedicated self-test; the executed
+rehearsal log contains zero unredacted occurrences). Candidate `master` at
+`172129ca49b7c7435e0567b838a70a0977e44e78` plus the reviewed H6 working tree;
+runtime whitelist archive SHA-256
+`0d79f16a87781a801ffc49d4cbc0fc8c593660ef4c0fd38e9d8f71d677a3324a`; runner
+content SHA-256
+`770093eebc9304e2377f523c78a586075822fb2489c17c7ab7c397d13933af1f`.
+Runtime remains ChoreStrike `0.1.1`, Nextcloud `31.0.14`, PHP `8.2.34`, MariaDB
+`10.6.25`; same test image, all 26 migration identities match. All three
+self-tests, the 30 app-table snapshots, corrected history/reservation and
+core/config/file sentinel reads, whole-DB row equality, captured-file hash
+equality, deliberate divergence and the ownership/manifest negative controls
+pass; recovery 28.12 seconds, total 69.98 seconds, complete owned teardown with
+zero cleanup failures. Same synthetic-only scope: no production restore,
+upgrade proof, WP9 portability evidence, publication or adoption implied.
 
 ---
 

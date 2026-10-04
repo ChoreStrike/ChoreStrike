@@ -1,6 +1,6 @@
 # CS-PLAN-081: Pre-WP9 Hardening and Retained-Data Readiness
 
-> **Status:** Active — RF-081-B13..B16 repair round cleared by interim Standard B `PASS` (2026-10-04); RF-081-B02 engine compatibility resolved; H6 recovery/docs and H7 operator evidence remain required before the final review
+> **Status:** Active — H6 retained-baseline/recovery docs and H-T10 implemented (2026-10-04); H7 operator material not ready, final gates/review and integration-gate anomaly disposition remain required; no baseline adoption
 > **Effort:** L, 6-10 engineering days plus operator availability for the reporting channel; re-estimate if fixture repairs or the audit-storage decision expand scope
 > **Priority:** P1 for the retained-data trial prerequisite, not a blanket reprioritization of every included backlog item
 > **Depends on:** WP0-WP8 delivered; Standard A before implementation
@@ -277,6 +277,14 @@ parent/WP9 sequencing notes. No runtime or canonical-policy change in this round
 | M | This plan, CS-PLAN-070/080, `docs/{README,plans/README}.md`, `docs/backlog/{backlog,ACTIVE_TASKS}.md` | Sequencing, evidence, actual partial completion |
 | Completion only | Monthly backlog archive and final review record | Fully completed items only |
 
+**H6 executable rehearsal additions (pinned 2026-10-04 before edits):**
+`scripts/run-recovery-rehearsal.ps1` orchestrates explicitly named, isolated
+test-only containers with no published ports or canonical-stack mutation;
+`tests/recovery/fixture.php` seeds/validates synthetic non-empty retained facts
+through the existing services. Raw snapshots/dumps/code/config/data artifacts
+remain under gitignored `private/`; only sanitized evidence is public. No
+production migration, schema or runtime behavior change is included.
+
 No migration, new production table, deletion/archive of runtime files, new
 reset economy or local child profile is planned. Any evidenced need changes the
 scope/estimate explicitly before implementation, not through a hidden helper.
@@ -354,9 +362,12 @@ review record; it additionally declares the record as a finalization path.
   Standard B review 2026-10-04.)
 - [x] UI and l10n accurately explain the unchanged reset/cap contracts and the
   registered browser scenarios prove retained facts after reset.
-- [ ] H-T10 synthetic recovery succeeds; durable docs state other-app rollback
+- [x] H-T10 synthetic recovery succeeds; durable docs state other-app rollback
   impact and the future retained-baseline/adoption procedure without claiming
   a real-server test, actual upgrade or baseline adoption that did not happen.
+  (Named H-T10 `cs081-recovery-e6d385fad062` record in the release test plan:
+  30 app snapshots, whole DB row equality, captured-file hash equality,
+  negative controls and complete owned-resource cleanup all pass.)
 - [ ] H-T11 reporting/contact/key evidence and authorized publication are complete.
 - [ ] Final implementation build/backend/browser/documentation gates pass on the
   reviewed candidate; WP9's later matrix/gate-pair/human obligations remain explicit.
@@ -646,6 +657,84 @@ owner authority. Durable event semantics and diagnostic-vs-audit distinction
 are in `docs/standards/guidelines/logging.md`; native-cache test prerequisites
 and isolation are in `docs/engineering/testing.md`.
 
+### H6 Implementation Findings (2026-10-04)
+
+- [x] RF-081-H6-01 · minor · `RewardService::createItem` · strict synthetic
+  recovery seeding reproduces an undefined-key warning for an omitted optional
+  description. The normalization contract requires title/price only; the insert
+  must default the optional description to null. Bounded safe fix paths pinned:
+  `lib/Service/RewardService.php`, `tests/unit/Service/CatalogAuditTest.php`.
+  Real callback-execution regression reproduced the undefined-key error before
+  the fix; all 14 `CatalogAuditTest` cases pass after null-default insertion.
+  The warning-free rich recovery fixture also passes. No new feature,
+  authorization, schema or receipt contract.
+
+**H7 operator checkpoint (2026-10-04):** the structured question returned
+"Not ready yet" (`Noch nicht bereit`). No approved address/key/fingerprint,
+controlled receipt/decryption or authorized profile-publication evidence is
+available. H7/H-T11 remain required and explicitly operator-blocked; no
+rescoping, external action, unapproved identity publication or completion.
+
+- [x] RF-081-H6-02 · major · recovery runner · internal read-only check found
+  missing upstream failure propagation in the file-manifest pipeline. Repaired
+  with `bash -o pipefail -ec`, a non-empty manifest assertion and an executed
+  upstream-failure negative control; final H-T10 rejects it with expected exit 1.
+- [x] RF-081-H6-03 · minor · recovery runner · cleanup now attempts every owned
+  container/network independently, retains the original error plus teardown
+  failures, and finalizes PASS only after complete teardown. Injected first-
+  removal failure self-test and final positive teardown both pass.
+- [x] RF-081-H6-04 · minor · recovery evidence · redacted operation identities and
+  explicit exit codes now include archive capture, readiness, candidate identity,
+  assertions and cleanup. Named actual sanitized record integrated into the
+  permanent release test plan; raw manifests/config/data remain private.
+- [ ] RF-081-H6-05 · major · integration gate · after an initial tool-timeout/load
+  episode, a complete run failed `SchedulePlanConcurrencyTest`'s due-date-holder
+  final row assertion plus four subsequent missing-house/member fixture errors
+  (568 tests, 1 failure/4 errors). The focused race passes 2/15; an exclusive full
+  diagnostic repeat passes 568/3182, zero skips. That rerun is not root-cause
+  evidence or closure: investigate inherited transaction/fixture state and record
+  a deterministic regression/disposition before final review. No production
+  fallback or blind fixture commit is introduced.
+  Read-only investigation confirms that test cleanup retains NC accounts, the
+  H2 provisioning guard is limited to new-account creation, and PHPUnit's
+  `depends,defects` result cache can reorder the next run. An inherited outer
+  transaction or connection/nesting desynchronization remains a hypothesis, not
+  an established root cause. Required next diagnostic: boundary transaction
+  invariants/opener evidence and cache-independent full-suite ordering; do not
+  normalize unknown transaction state by blindly committing it.
+  Additional cache-independent `--order-by=default --do-not-cache-result` full
+  run passes 568/3203 with zero skips after the browser gate. This removes the
+  result-order confounder from the current green evidence but does not establish
+  the earlier failure's root cause; H6-05 stays open for deterministic disposition.
+
+**H6 implementation evidence (2026-10-04):** future-only retention boundary
+integrated in bootstrap/canonical rules, backend/architecture skills and permanent
+deployment/testing/release docs. Unsafe code-only rollback/shared Redis flushing
+recipes removed; quiescence, other-app impact, operator approval and exact
+baseline adoption identity explicit. New guarded executable recovery harness
+passes H-T10 (`cs081-recovery-e6d385fad062`, 29.50-second recovery interval,
+70.62-second full preparation/capture/rehearsal). This is a MariaDB synthetic
+same-build restore, not production validation, upgrade/WP9 portability evidence
+or adoption. H7 remains required; no plan closure, standalone backlog archive,
+commit, tag, deployment or external publication in this implementation round.
+Internal read-only safety follow-up closes H6-02..04 with no new H6 findings;
+this is not the final Standard B/Full review and does not clear H6-05/H7.
+
+**Current-candidate gates (2026-10-04):** Node 20.19.0/npm 10.8.2 used through
+the isolated `npx --package=node@20.19.0 --package=npm@10.8.2` wrapper (host
+defaults are newer; neither project engines nor global configuration changed).
+Jest `--runInBand`: 109 suites/1228 tests, zero pending; noise gate clear with the
+approved warning baseline unchanged; lint/stylelint/build, l10n 1270 exact keys,
+runner self-test green. Docker unit 1314/4246 assertions and integration
+568/3203 (`--fail-on-skipped`, zero skips; cache-independent final diagnostic
+run), `composer cs:check` 0/405. Full browser `run-ssTUDT` passes all 49 required
+specs in three sequential pools, no required skips/failures/flaky cases/retries;
+integration, recovery and browser mutation jobs did not overlap. Initial loaded
+120-second shell timeouts and the subsequent failing integration attempt are
+retained in H6-05, not erased by these passes. Backlog/encoding/whitespace checks
+pass. These are implementation checkpoint gates, not whole-plan final-review
+clearance: H7 and H6-05 remain open, no final review/commit/`done/` transition.
+
 ### H6 Full Interim Review Evidence (2026-10-04)
 
 - [x] RF-081-H6-06 · minor · recovery readiness · user-authorized authenticated
@@ -736,6 +825,22 @@ H7/H-T11 remain required and operator-blocked.
   holder scope: readiness signal plus a STDIN hold until parent cleanup replaces
   the timer. Focused 5/35 and final complete integration 571/3202 pass, zero
   skips; read-only correctness follow-up returns no remaining findings.
+
+### Remaining-Package Standard B Findings (2026-10-04)
+
+- [x] RF-081-H6-09 · minor · recovery runner log redaction · the private
+  `commands.log` sanitizer anchored its `-p<value>` pattern at argument start
+  only, so the synthetic root password embedded in the dump/restore shell
+  strings (`mysqldump -uroot -proot …`, lines 158–162/170–171) was logged
+  unredacted while every separate password argument was redacted. The
+  credential is synthetic, hardcoded in the tracked runner and confined to the
+  gitignored `private/` log, but this contradicted the runner's own redaction
+  intent and the RF-081-H6-04 evidence claim. User-approved in-round repair
+  ("Fix now + re-rehearse"): extracted testable `Get-SanitizedArguments` with
+  `(?:^|\s)-p\w` token matching, added a dedicated self-test, reran the full
+  isolated rehearsal `cs081-recovery-673681ab35b7` (PASS; executed log contains
+  zero unredacted occurrences) and recorded the fresh hashes in the release
+  test plan. No rehearsal behavior, ownership or assertion change.
 
 ### Decisions for Standard A
 
@@ -1013,3 +1118,50 @@ review. Unrelated pre-existing `.gitkeep` deletions remain untouched.
   updates stay uncommitted. No duplicate backlog item, owner archive, `done/`
   transition, branch change, amend, push, tag, publication, deployment, production
   restore or baseline adoption.
+
+### Remaining H6 Package Standard B - 2026-10-04 - PASS-WITH-FIXES
+
+- **Tier/scope:** Standard B (code) interim review of the remaining uncommitted
+  CS-PLAN-081 candidate — the H6 durable docs (bootstrap/canonical rules,
+  backend/architecture skills, deployment/testing/release/release-test-plan),
+  the untracked recovery runner/fixture, the RF-081-H6-01 RewardService
+  null-description fix with its `CatalogAuditTest` regression, and this plan's
+  H6 implementation/evidence hunks. Explicit plan owner CS-PLAN-081; not a
+  completion review: H6-05 (operator-approved open) and H7/H-T11
+  (operator-blocked) keep the plan in `active/` regardless of this outcome.
+  Three foreign lifecycle `.gitkeep` deletions excluded and preserved unstaged.
+- **Identity:** `master` / `172129ca49b7c7435e0567b838a70a0977e44e78`, index
+  empty at capture; unstaged binary-diff SHA-256
+  `63A77C74A8762B53088632BC31CE4FD8134047433F2D796C0149F01D5D8FDA64`;
+  untracked content SHA-256 at capture `89ec38d3336ef0df…` (runner) and
+  `5246278609fd3cc6…` (fixture) — byte-identical to the preceding review's
+  gate-verified candidate (runner blob `152051a9…`, fixture blob `b2e3fed9…`),
+  and the unstaged path set exactly matches that review's 15-path manifest
+  minus the two files it committed clean. Full-suite evidence (Docker unit
+  1314/4246, integration 571/3202, Jest 109/1228, browser `run-UfqJZd`,
+  recovery `cs081-recovery-592eb59f90a0`) therefore applies byte-for-byte to
+  the captured candidate.
+- **Review:** no subagents (Standard B). Checklist pass over architecture,
+  authorization, security (isolation, whitelist archive, gitignored private
+  evidence, credential redaction), workarounds, logging, i18n, tests and
+  docs. One new finding — RF-081-H6-09 (minor, runner log redaction gap) —
+  fixed in-round after explicit user approval ("Fix now + re-rehearse"):
+  testable `Get-SanitizedArguments` with embedded-token matching plus a
+  dedicated self-test. Post-fix runner content SHA-256
+  `770093eebc9304e2377f523c78a586075822fb2489c17c7ab7c397d13933af1f`
+  (blob `190faebd71bb1d3f6fe6053756dc6874d4237b8d`); fixture unchanged.
+- **Fresh gates:** all three runner self-tests PASS (cleanup failure-path,
+  authenticated TCP readiness, log sanitization); full isolated rehearsal
+  `cs081-recovery-673681ab35b7` PASS (30 snapshots, whole-DB row equality,
+  file-hash equality, divergence and negative controls, recovery 28.12 s /
+  total 69.98 s, zero cleanup failures; executed log has zero unredacted
+  password occurrences); focused `CatalogAuditTest` 14/14 (137 assertions)
+  with `--fail-on-skipped`; `backlog:check` 34 files, `docs:encoding` 890
+  files, `git diff --check` / staged check clean. PHP/JS implementation files
+  are byte-identical to the recorded full-suite green evidence above.
+- **Transition/commit:** interim passing review — no `done/` move (H6-05/H7
+  open). One scoped conventional commit of the complete reviewed H6 package
+  (durable docs, runner, fixture, RewardService fix + regression, plan
+  evidence, review record, live registry), excluding the three foreign
+  `.gitkeep` deletions, per the automatic review-commit rule. No push, branch
+  change, deployment, tag or baseline adoption.

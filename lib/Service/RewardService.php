@@ -184,7 +184,7 @@ class RewardService {
 				$item = new RewardItem();
 				$item->setHouseId($houseId);
 				$item->setTitle($terms['title']);
-				$item->setDescription($terms['description']);
+				$item->setDescription($terms['description'] ?? null);
 				$item->setPriceMinor($terms['priceMinor']);
 				$item->setArchived(false);
 				$item->setVersion(0);

@@ -94,6 +94,22 @@ Before App Store submission, ChoreStrike should have:
 
 ## Minimal Issue and Release Workflow
 
+### Retained Trial Data
+
+Retention starts at one **explicitly adopted post-WP9 technical baseline**, not
+automatically at alpha/beta, a tag, or plan approval. The future policy is approved
+but not yet adopted. Before first real data, follow the
+[baseline identity/adoption checklist](../engineering/deployment.md#first-retained-baseline)
+and [whole-instance recovery procedure](../engineering/deployment.md#rollback).
+Preserve persisted facts by default from adoption; applied migrations freeze and
+future changes require populated-baseline upgrade/provider parity evidence.
+Earlier disposable installations are not supported upgrade sources.
+
+Technical readiness, operator adoption, personal-server validation and voluntary
+family evidence are separate decisions. Synthetic recovery does not close
+RELEASE-002 or authorize production deployment; the reporting route also needs
+approved contact/key and demonstrated receipt/decryption before its gate closes.
+
 ### Issue Types
 
 - **Bug**: Something does not work as intended.

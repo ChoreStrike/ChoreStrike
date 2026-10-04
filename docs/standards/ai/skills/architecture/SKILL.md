@@ -36,9 +36,13 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 ## Schema & Migrations
 
 - Schema changes ship as a migration in `lib/Migration/`.
-- Until productive-use compatibility is explicitly enabled, optimize the
-  existing migration chain for fresh installs only. Edit or remove obsolete
-  steps instead of adding upgrade paths, backfills, or compatibility shims.
+- Until explicit retained-baseline adoption, optimize the existing chain for
+  fresh installs only; no speculative upgrade paths, backfills or shims.
+- After adoption, applied migrations are immutable; new ordered steps preserve
+  persisted facts by default and need populated-baseline upgrade tests plus
+  fresh/upgrade parity on supported providers. Approval of this future boundary
+  does not adopt it. Canonical scope: project-rules §1; operator procedure:
+  [deployment checklist](../../../../engineering/deployment.md#first-retained-baseline).
 
 ## Before a Structural Change
 

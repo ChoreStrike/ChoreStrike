@@ -64,7 +64,12 @@ class CatalogAuditTest extends TestCase {
 		$item->setHouseId(1);
 		$item->setVersion(0);
 		$items->method('find')->willReturn($item);
-		$items->method('insert')->willReturn($item);
+		$items->method('insert')->willReturnCallback(static function (RewardItem $created) use ($item, $mode): RewardItem {
+			if ($mode === 'without-description') {
+				self::assertNull($created->getDescription());
+			}
+			return $item;
+		});
 		$language = $this->createMock(IL10N::class);
 		$language->method('t')->willReturnArgument(0);
 		$service = new RewardService($commands, $items, $houses, $members, $authorization, new EffortAllocationService(), $language, $logger);
@@ -103,6 +108,9 @@ class CatalogAuditTest extends TestCase {
 			'updateItem' => [1, 9, ['title' => 'Private title', 'commandId' => $uuid, 'expectedVersion' => 0]],
 			'setCatalogEnabled' => [1, $mode !== 'no-change', 5, $uuid],
 		};
+		if ($mode === 'without-description') {
+			unset($args[1]['description']);
+		}
 		$service->{$method}(...$args);
 		if ($mode === 'replay') {
 			$committed = false;
@@ -123,6 +131,7 @@ class CatalogAuditTest extends TestCase {
 			}
 		}
 		$cases['gate no-change'] = ['setCatalogEnabled', 'no-change'];
+		$cases['create without optional description'] = ['createItem', 'without-description'];
 		return $cases;
 	}
 }
