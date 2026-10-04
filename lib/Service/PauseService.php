@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\DigestChange;
 use OCA\ChoreStrike\Db\DigestChangeMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\OccurrenceMapper;
@@ -192,9 +193,6 @@ class PauseService {
 	public function requestForSelf(int $houseId, string $actorUserId, array $payload): array {
 		$actor = $this->assertMember($houseId, $actorUserId);
 		$validated = $this->validateRangePayload($payload, self::ACTION_REQUEST);
-		$state = $actor->isOwner() || $actor->getRole() === 'member'
-			? Pause::STATE_ACKNOWLEDGED
-			: Pause::STATE_REQUESTED;
 
 		['result' => $refs] = $this->commands->runCommand(
 			$houseId,
@@ -202,7 +200,8 @@ class PauseService {
 			$validated['commandId'],
 			self::ACTION_REQUEST,
 			$validated['receipt'],
-			function () use ($houseId, $actor, $validated, $state): array {
+			function () use ($houseId, &$actor, $validated): array {
+				$state = $actor->isOwner() || $actor->getRole() === 'member' ? Pause::STATE_ACKNOWLEDGED : Pause::STATE_REQUESTED;
 				$wallet = $this->requireWallet($houseId, $actor->getNextcloudUserId());
 				$pause = new Pause();
 				$pause->setHouseId($houseId);
@@ -216,7 +215,8 @@ class PauseService {
 				$pause = $this->pauseMapper->appendRevision($pause);
 				$this->applyPauseEffectsUnderLock($houseId);
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
-			}
+			},
+			$this->actorGuard($actor)
 		);
 		return $refs;
 	}
@@ -255,7 +255,8 @@ class PauseService {
 				// transactional queue write for the opted-in digest.
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $pause, new \DateTime());
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
-			}
+			},
+			$this->actorGuard($actor, true)
 		);
 		return $refs;
 	}
@@ -337,7 +338,8 @@ class PauseService {
 				// affecting the subject — transactional queue write.
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $pause, new \DateTime());
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
-			}
+			},
+			$this->actorGuard($actor, true)
 		);
 		return $refs;
 	}
@@ -383,7 +385,7 @@ class PauseService {
 			strtolower($commandId),
 			self::ACTION_SHORTEN,
 			$receipt,
-			function () use ($houseId, $actor, $pauseGroupId, $expectedRevisionInt, $newEnd): array {
+			function () use ($houseId, &$actor, $pauseGroupId, $expectedRevisionInt, $newEnd): array {
 				$current = $this->pauseMapper->findCurrentByGroup($pauseGroupId);
 				if ($current->getHouseId() !== $houseId) {
 					throw new NotFoundException($this->l10n->t('Pause not found'));
@@ -395,16 +397,7 @@ class PauseService {
 				// personal pauses — the subject shortens their own, the
 				// owner may shorten anyone's; house scope is owner-only.
 				$isOwner = $actor->isOwner();
-				if ($current->getScope() === Pause::SCOPE_HOUSE && !$isOwner) {
-					throw new ForbiddenException($this->l10n->t('Owner role required'));
-				}
-				$subjectUserId = $current->getScope() === Pause::SCOPE_PERSONAL
-					? $this->userIdOfWallet($houseId, (int)($current->getSubjectWalletId() ?? 0))
-					: null;
-				$isSelf = $subjectUserId === $actor->getNextcloudUserId();
-				if (!$isOwner && !$isSelf) {
-					throw new ForbiddenException($this->l10n->t('Owner role required'));
-				}
+				$this->assertCanShortenPause($houseId, $actor, $current);
 				// Plan §3.4 row 6 scopes shortening/revocation to
 				// ACKNOWLEDGED pauses (RF-073-WP2-18): a pending request
 				// carries no recognized effect to shorten — it is decided
@@ -457,7 +450,8 @@ class PauseService {
 					$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
 				}
 				return ['pauseGroupId' => $pauseGroupId, 'revision' => $revision->getRevision(), 'state' => $revision->getState()];
-			}
+			},
+			$this->actorGuard($actor, false, $pauseGroupId)
 		);
 		return $refs;
 	}
@@ -653,7 +647,8 @@ class PauseService {
 				// digest, never through a bell.
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $current, new \DateTime());
 				return ['pauseGroupId' => $pauseGroupId, 'revision' => $current->getRevision(), 'state' => $current->getState()];
-			}
+			},
+			$this->actorGuard($actor, true, $pauseGroupId)
 		);
 		return $refs;
 	}
@@ -714,6 +709,44 @@ class PauseService {
 
 	private function nextGroupId(): int {
 		return $this->pauseMapper->maxGroupId();
+	}
+
+	/** Runs before receipt lookup; only current authority, never pause state/revision. */
+	private function actorGuard(HouseUser &$actor, bool $ownerOnly = false, ?int $pauseGroupId = null): \Closure {
+		return function (int $houseId, int $actorId) use (&$actor, $ownerOnly, $pauseGroupId): void {
+			$fresh = $this->assertMember($houseId, $actor->getNextcloudUserId());
+			if ((int)$fresh->getId() !== $actorId) {
+				throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+			}
+			if ($ownerOnly && !$fresh->isOwner()) {
+				throw new ForbiddenException($this->l10n->t('Owner role required'));
+			}
+			if ($pauseGroupId !== null) {
+				try {
+					$pause = $this->pauseMapper->findCurrentByGroup($pauseGroupId);
+				} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+					throw new NotFoundException($this->l10n->t('Pause not found'));
+				}
+				if ($pause->getHouseId() !== $houseId) {
+					throw new NotFoundException($this->l10n->t('Pause not found'));
+				}
+				if (!$ownerOnly) {
+					$this->assertCanShortenPause($houseId, $fresh, $pause);
+				}
+			}
+			$actor = $fresh;
+		};
+	}
+
+	private function assertCanShortenPause(int $houseId, HouseUser $actor, Pause $pause): void {
+		if ($actor->isOwner()) {
+			return;
+		}
+		$subjectUserId = $pause->getScope() === Pause::SCOPE_PERSONAL
+			? $this->userIdOfWallet($houseId, (int)($pause->getSubjectWalletId() ?? 0)) : null;
+		if ($subjectUserId !== $actor->getNextcloudUserId()) {
+			throw new ForbiddenException($this->l10n->t('Owner role required'));
+		}
 	}
 
 	private function assertMember(int $houseId, string $userId): \OCA\ChoreStrike\Db\HouseUser {

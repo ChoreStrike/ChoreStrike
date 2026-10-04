@@ -139,8 +139,10 @@ class RoomService {
 
 		// CS-PLAN-071 WP0: structure mutations enter through the house row
 		// lock (single house-first order).
-		return $this->transactions->run(function () use ($floor, $floorId, $name, $icon, $roomType): Room {
+		$actorId = 0;
+		$room = $this->transactions->run(function () use ($floor, $floorId, $name, $icon, $roomType, &$actorId): Room {
 			$this->houseMapper->findForUpdate($floor->getHouseId());
+			$actorId = (int)$this->authorization->requireHouseOwner($floor->getHouseId())->getId();
 
 			// Authoritative tombstone gate (Q-70-01): a floor deleted
 			// behind the pre-read still cannot gain rooms.
@@ -154,6 +156,12 @@ class RoomService {
 			$this->roomReplayService->recordBaseline($room);
 			return $room;
 		});
+		$this->appLogger->audit('Room created', [
+			'event' => 'house.room.created', 'service' => 'RoomService',
+			'houseId' => (int)$floor->getHouseId(), 'actorId' => $actorId,
+			'roomId' => (int)$room->getId(), 'outcome' => 'created',
+		]);
+		return $room;
 	}
 
 	/**
@@ -179,8 +187,11 @@ class RoomService {
 		}
 
 		$houseId = $floor->getHouseId();
-		return $this->transactions->run(function () use ($roomId, $name, $houseId): Room {
+		$actorId = 0;
+		$changed = false;
+		$updated = $this->transactions->run(function () use ($roomId, $name, $houseId, &$actorId, &$changed): Room {
 			$this->houseMapper->findForUpdate($houseId);
+			$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 			$fresh = $this->roomMapper->find($roomId);
 
 			// Authoritative tombstone gate (Q-70-01): a room deleted
@@ -189,9 +200,16 @@ class RoomService {
 				throw new NotFoundException($this->l10n->t('Room not found'));
 			}
 
+			$changed = $fresh->getName() !== $name;
 			$fresh->setName($name);
 			return $this->roomMapper->update($fresh);
 		});
+		$this->appLogger->audit('Room rename completed', [
+			'event' => 'house.room.renamed', 'service' => 'RoomService',
+			'houseId' => (int)$houseId, 'actorId' => $actorId,
+			'roomId' => $roomId, 'outcome' => $changed ? 'changed' : 'no-change',
+		]);
+		return $updated;
 	}
 
 	/**
@@ -224,10 +242,12 @@ class RoomService {
 			throw new NotFoundException($this->l10n->t('Room not found'));
 		}
 
+		$actorId = 0;
 		try {
-			$this->transactions->run(function () use ($roomId, $floor): void {
+			$this->transactions->run(function () use ($roomId, $floor, &$actorId): void {
 				// FIRST lock of the documented order: the house row.
 				$this->houseMapper->findForUpdate($floor->getHouseId());
+				$actorId = (int)$this->authorization->requireHouseOwner($floor->getHouseId())->getId();
 
 				// Authoritative tombstone gate on the FRESH locked row:
 				// a concurrent delete winner makes this invocation a clean
@@ -244,6 +264,11 @@ class RoomService {
 				$room->setDeletedAt($deletedAt);
 				$this->roomMapper->update($room);
 			});
+			$this->appLogger->audit('Room deleted', [
+				'event' => 'house.room.deleted', 'service' => 'RoomService',
+				'houseId' => (int)$floor->getHouseId(), 'actorId' => $actorId,
+				'roomId' => $roomId, 'outcome' => 'deleted',
+			]);
 		} catch (\Throwable $e) {
 			$this->appLogger->logException('RoomService: room tombstone rolled back', $e, [
 				'event' => 'room_delete_rollback',

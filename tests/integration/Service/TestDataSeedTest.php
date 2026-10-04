@@ -194,6 +194,22 @@ class TestDataSeedTest extends IntegrationTestCase {
 		self::assertSame('', $config->getAppValue('chorestrike', 'weekly_goal_target_percent', ''));
 	}
 
+	public function testClosedWeekFixture_PerformerJoinedBeforeWork_ReceivesQuietRecognition(): void {
+		$result = $this->service->seedFamily(true);
+		$houseId = (int)$result['data']['house']['id'];
+		$member = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByHouseAndUser($houseId, 'mom');
+		$weekStart = new \DateTime('monday last week 00:00:00', new \DateTimeZone('UTC'));
+		self::assertLessThanOrEqual($weekStart->getTimestamp(), $member->getJoinedAt()->getTimestamp());
+		$medals = \OC::$server->get(\OCA\ChoreStrike\Service\MedalService::class);
+		$medals->checkAndAwardMedals($houseId);
+		$awards = $medals->getMedals($houseId);
+		self::assertNotEmpty($awards);
+		self::assertSame('weekly_milestone', $awards[0]['medalType']);
+		self::assertSame((int)$member->getId(), (int)$awards[0]['userId']);
+		$medals->checkAndAwardMedals($houseId);
+		self::assertSame($awards, $medals->getMedals($houseId));
+	}
+
 	/**
 	 * RepeatedSeedAndReset_HasNoDuplicatesOrOrphans
 	 */

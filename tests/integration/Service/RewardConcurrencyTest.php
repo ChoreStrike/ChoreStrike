@@ -208,7 +208,7 @@ class RewardConcurrencyTest extends IntegrationTestCase {
 			function () use ($houseUserMapper, $f, $adultId): string {
 				try {
 					$this->actingAs($f['owner']);
-					\OC::$server->get(HouseService::class)->updateUserRole($adultId, 'child', $f['owner']);
+					\OC::$server->get(HouseService::class)->updateUserRole($adultId, 'child');
 					return 'rebased';
 				} catch (\Throwable $e) {
 					return 'error:' . get_class($e);

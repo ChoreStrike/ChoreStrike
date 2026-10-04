@@ -39,6 +39,10 @@ RUN apt-get update && apt-get install -y \
 RUN pecl install pcov && docker-php-ext-enable pcov \
     && echo "pcov.directory=/var/www/html/custom_apps/chorestrike/lib" > /usr/local/etc/php/conf.d/pcov.ini
 
+# Native Nextcloud UserRateLimit needs counters shared across HTTP requests.
+RUN pecl install apcu-5.1.24 && docker-php-ext-enable apcu \
+    && echo "apc.enable_cli=1" > /usr/local/etc/php/conf.d/apcu-cli.ini
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

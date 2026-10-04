@@ -337,7 +337,7 @@ class UserControllerTest extends TestCase {
 		$this->houseService->expects($this->once())
 			->method('removeHouseMember')
 			->with(7)
-			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Cannot remove the house owner'));
+			->willThrowException(new \OCA\ChoreStrike\Exception\CannotRemoveOwnerException('Cannot remove the house owner'));
 
 		$response = $this->controller->remove(7);
 
@@ -468,14 +468,10 @@ class UserControllerTest extends TestCase {
 			->method('requireHouseOwner')
 			->with(3);
 
-		$this->authService->expects($this->once())
-			->method('requireCurrentUserId')
-			->willReturn('owner1');
-
 		$updated = $this->houseUserForUpdateRole(7, 'member1', 'child');
 		$this->houseService->expects($this->once())
 			->method('updateUserRole')
-			->with(7, 'child', 'owner1')
+			->with(7, 'child')
 			->willReturn($updated);
 
 		$response = $this->controller->updateRole(7, 'child');
@@ -505,13 +501,9 @@ class UserControllerTest extends TestCase {
 			->method('requireHouseOwner')
 			->with(3);
 
-		$this->authService->expects($this->once())
-			->method('requireCurrentUserId')
-			->willReturn('owner1');
-
 		$this->houseService->expects($this->once())
 			->method('updateUserRole')
-			->with(7, 'superadmin', 'owner1')
+			->with(7, 'superadmin')
 			->willThrowException(new \InvalidArgumentException('Invalid role. Must be owner, member, or child'));
 
 		$response = $this->controller->updateRole(7, 'superadmin');
@@ -541,14 +533,10 @@ class UserControllerTest extends TestCase {
 			->method('requireHouseOwner')
 			->with(3);
 
-		$this->authService->expects($this->once())
-			->method('requireCurrentUserId')
-			->willReturn('owner1');
-
 		$this->houseService->expects($this->once())
 			->method('updateUserRole')
-			->with(7, 'member', 'owner1')
-			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Cannot demote yourself'));
+			->with(7, 'member')
+			->willThrowException(new \OCA\ChoreStrike\Exception\CannotDemoteSelfException('Cannot demote yourself'));
 
 		$response = $this->controller->updateRole(7, 'member');
 
@@ -557,6 +545,15 @@ class UserControllerTest extends TestCase {
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
 		$this->assertEquals('CANNOT_DEMOTE_SELF', $data['error']['code']);
+	}
+
+	public function testUpdateRole_ServiceOwnerDenial_ReturnsGenericForbidden(): void {
+		$this->expectInstanceHouse(3);
+		$this->houseService->method('findHouseUserScopedToHouse')->willReturn($this->houseUserForUpdateRole(7, 'other-owner', 'owner'));
+		$this->houseService->method('updateUserRole')->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
+		$response = $this->controller->updateRole(7, 'member');
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('FORBIDDEN', $response->getData()['error']['code']);
 	}
 
 	/**
@@ -577,13 +574,9 @@ class UserControllerTest extends TestCase {
 			->method('requireHouseOwner')
 			->with(3);
 
-		$this->authService->expects($this->once())
-			->method('requireCurrentUserId')
-			->willReturn('owner1');
-
 		$this->houseService->expects($this->once())
 			->method('updateUserRole')
-			->with(7, 'member', 'owner1')
+			->with(7, 'member')
 			->willThrowException(new \OCA\ChoreStrike\Exception\ConflictException('Cannot demote the last house owner'));
 
 		$response = $this->controller->updateRole(7, 'member');
@@ -645,5 +638,33 @@ class UserControllerTest extends TestCase {
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
 		$this->assertEquals('USER_NOT_FOUND', $data['error']['code']);
+	}
+
+	/**
+	 * CS-PLAN-081 H3 (Q-081-02): the membership mutation endpoints carry the
+	 * native per-user throttle contract — 60 calls per 300 elapsed seconds,
+	 * separately per endpoint — as a public UserRateLimit attribute.
+	 *
+	 * @dataProvider throttledEndpointProvider
+	 */
+	public function testMembershipEndpoints_CarryTheApprovedRateLimit(string $method): void {
+		$reflection = new \ReflectionMethod(UserController::class, $method);
+		$attributes = $reflection->getAttributes(\OCP\AppFramework\Http\Attribute\UserRateLimit::class);
+
+		$this->assertCount(1, $attributes, "$method must declare exactly one UserRateLimit attribute");
+		$limit = $attributes[0]->newInstance();
+		$this->assertSame(60, $limit->getLimit(), "$method limit must match the approved 60 calls");
+		$this->assertSame(300, $limit->getPeriod(), "$method period must match the approved 300 elapsed seconds");
+	}
+
+	/**
+	 * @return array<string, array{0: string}>
+	 */
+	public static function throttledEndpointProvider(): array {
+		return [
+			'invite' => ['invite'],
+			'remove' => ['remove'],
+			'updateRole' => ['updateRole'],
+		];
 	}
 }

@@ -16,7 +16,7 @@
  * Set NEXTCLOUD_CONTAINER to override detection.
  */
 
-import { execSync } from 'child_process'
+import { execSync, execFileSync } from 'child_process'
 
 const CONTAINER_CANDIDATES = ['chorestrike-test', 'nextcloud']
 
@@ -63,12 +63,14 @@ export function resolveNextcloudContainer(): string {
  * CI workflows (`su -s /bin/bash www-data -c "cd /var/www/html && php occ …"`).
  *
  * @param args OCC arguments, e.g. `chorestrike:trigger-jobs streak-freeze --as-of=2026-08-05`.
+ * @param environment Environment variables for non-interactive synthetic test-account provisioning.
  * @returns The command's stdout.
  */
-export function runOcc(args: string): string {
+export function runOcc(args: string, environment: Record<string, string> = {}): string {
 	const container = resolveNextcloudContainer()
-	const command = `docker exec ${container} su -s /bin/bash www-data -c "cd /var/www/html && php occ ${args}"`
-	return execSync(command, { encoding: 'utf8' })
+	const envArgs = Object.entries(environment).flatMap(([key, value]) => ['--env', `${key}=${value}`])
+	return execFileSync('docker', ['exec', ...envArgs, container, 'su', '-s', '/bin/bash', 'www-data',
+		'-c', `cd /var/www/html && php occ ${args}`], { encoding: 'utf8' })
 }
 
 /**

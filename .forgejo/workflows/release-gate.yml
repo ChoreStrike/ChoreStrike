@@ -44,11 +44,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          test "$(node --version)" = "v20.19.0"
+          test "$(npm --version)" = "10.8.2"
+          npm ci --engine-strict --legacy-peer-deps=false
 
       - name: ESLint (blocking)
         run: npm run lint
@@ -173,11 +176,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
 
       - name: Install JS dependencies
-        run: npm ci
+        run: |
+          test "$(node --version)" = "v20.19.0"
+          test "$(npm --version)" = "10.8.2"
+          npm ci --engine-strict --legacy-peer-deps=false
 
       - name: Build application browser assets
         run: npm run build
@@ -249,11 +255,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
 
       - name: Install JS dependencies
-        run: npm ci
+        run: |
+          test "$(node --version)" = "v20.19.0"
+          test "$(npm --version)" = "10.8.2"
+          npm ci --engine-strict --legacy-peer-deps=false
 
       - name: Jest coverage
         run: npm run test:coverage -- --ci

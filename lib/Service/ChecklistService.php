@@ -171,23 +171,23 @@ class ChecklistService {
 		$this->assertTaskAccessible($taskId, $houseId, $viewer);
 		$this->assertDefinitionManager($viewer);
 
-		return $this->transactions->run(function () use ($taskId, $label, $sortOrder, $houseId): TaskChecklistItem {
+		$actorId = 0;
+		$item = $this->transactions->run(function () use ($taskId, $label, $sortOrder, $houseId, &$actorId): TaskChecklistItem {
 			// FIRST lock of the documented order: the house row.
 			$this->houseMapper->findForUpdate($houseId);
+			$actor = $this->authorization->requireHouseOwner($houseId);
+			$actorId = (int)$actor->getId();
+			$this->assertTaskAccessible($taskId, $houseId, $actor);
 
 			$sortOrder ??= count($this->checklistItemMapper->findByTaskId($taskId));
-			$item = $this->checklistItemMapper->create($taskId, $label, $sortOrder);
-
-			$this->appLogger->info('Checklist item added', [
-				'service' => 'ChecklistService',
-				'action' => 'addTaskItem',
-				'taskId' => $taskId,
-				'houseId' => $houseId,
-				'itemId' => $item->getId(),
-			]);
-
-			return $item;
+			return $this->checklistItemMapper->create($taskId, $label, $sortOrder);
 		});
+		$this->appLogger->audit('Checklist item added', [
+			'event' => 'house.checklist.item_added', 'service' => 'ChecklistService',
+			'houseId' => $houseId, 'actorId' => $actorId, 'taskId' => $taskId,
+			'itemId' => (int)$item->getId(), 'outcome' => 'created',
+		]);
+		return $item;
 	}
 
 	/**
@@ -198,10 +198,21 @@ class ChecklistService {
 		$item = $this->findItemWithGuard($itemId, $houseId, $viewer);
 		$this->assertDefinitionManager($viewer);
 
-		return $this->transactions->run(function () use ($itemId, $label, $houseId): TaskChecklistItem {
+		$actorId = 0;
+		$updated = $this->transactions->run(function () use ($itemId, $label, $houseId, &$actorId): TaskChecklistItem {
 			$this->houseMapper->findForUpdate($houseId);
+			$actor = $this->authorization->requireHouseOwner($houseId);
+			$actorId = (int)$actor->getId();
+			$fresh = $this->checklistItemMapper->find($itemId);
+			$this->assertTaskAccessible($fresh->getTaskId(), $houseId, $actor);
 			return $this->checklistItemMapper->updateLabel($itemId, $label);
 		});
+		$this->appLogger->audit('Checklist item update completed', [
+			'event' => 'house.checklist.item_updated', 'service' => 'ChecklistService',
+			'houseId' => $houseId, 'actorId' => $actorId,
+			'itemId' => $itemId, 'outcome' => 'completed',
+		]);
+		return $updated;
 	}
 
 	/**
@@ -212,12 +223,20 @@ class ChecklistService {
 		$item = $this->findItemWithGuard($itemId, $houseId, $viewer);
 		$this->assertDefinitionManager($viewer);
 
-		$this->transactions->run(function () use ($itemId, $houseId, $item): void {
+		$actorId = 0;
+		$this->transactions->run(function () use ($itemId, $houseId, &$actorId): void {
 			$this->houseMapper->findForUpdate($houseId);
-			$this->checklistItemMapper->delete($item);
+			$actor = $this->authorization->requireHouseOwner($houseId);
+			$actorId = (int)$actor->getId();
+			$fresh = $this->checklistItemMapper->find($itemId);
+			$this->assertTaskAccessible($fresh->getTaskId(), $houseId, $actor);
+			$this->checklistItemMapper->delete($fresh);
 		});
 
-		$this->appLogger->info('Checklist item deleted', [
+		$this->appLogger->audit('Checklist item deleted', [
+			'event' => 'house.checklist.item_deleted',
+			'actorId' => $actorId,
+			'outcome' => 'deleted',
 			'service' => 'ChecklistService',
 			'action' => 'deleteTaskItem',
 			'taskId' => $item->getTaskId(),
@@ -261,11 +280,27 @@ class ChecklistService {
 		$this->assertTaskAccessible($taskIds[0], $houseId, $viewer);
 		$this->assertDefinitionManager($viewer);
 
-		$this->transactions->run(function () use ($sanitized, $houseId): void {
+		$actorId = 0;
+		$this->transactions->run(function () use ($sanitized, $houseId, &$actorId): void {
 			// FIRST lock of the documented order: the house row.
 			$this->houseMapper->findForUpdate($houseId);
+			$actor = $this->authorization->requireHouseOwner($houseId);
+			$actorId = (int)$actor->getId();
+			$freshItems = $this->checklistItemMapper->findByIds(array_keys($sanitized));
+			if (count($freshItems) !== count($sanitized)) {
+				throw new NotFoundException($this->l10n->t('Task not found'));
+			}
+			$freshTaskIds = array_unique(array_map(static fn (TaskChecklistItem $item): int => $item->getTaskId(), $freshItems));
+			foreach ($freshTaskIds as $taskId) {
+				$this->assertTaskAccessible($taskId, $houseId, $actor);
+			}
 			$this->checklistItemMapper->updateSortOrders($sanitized);
 		});
+		$this->appLogger->audit('Checklist reorder completed', [
+			'event' => 'house.checklist.reordered', 'service' => 'ChecklistService',
+			'houseId' => $houseId, 'actorId' => $actorId,
+			'taskId' => (int)$taskIds[0], 'outcome' => 'completed',
+		]);
 	}
 
 	/**

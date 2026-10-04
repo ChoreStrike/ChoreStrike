@@ -12,6 +12,8 @@ require_once __DIR__ . '/__mocks__/Doctrine/DBAL/Query/Expression/ExpressionBuil
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Controller.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/NotFoundException.php';
+require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/Attribute/ARateLimit.php';
+require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/Attribute/UserRateLimit.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/ForbiddenException.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/JSONResponse.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/DataResponse.php';

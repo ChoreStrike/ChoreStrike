@@ -95,6 +95,70 @@ class RoomServiceTest extends TestCase {
 		return $l10n;
 	}
 
+	/** @dataProvider ownerMutationProvider */
+	public function testOwnerMutation_DemotedUnderLock_DeniesWithoutWriteOrAudit(string $method, array $args): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(1);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->roomMapper->method('find')->willReturn($room);
+		$checks = 0;
+		$this->authorization->expects($this->exactly(2))->method('requireHouseOwner')->willReturnCallback(
+			static function () use (&$checks): HouseUser {
+				if (++$checks === 2) {
+					throw new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required');
+				}
+				return new HouseUser();
+			}
+		);
+		$this->roomMapper->expects($this->never())->method('create');
+		$this->roomMapper->expects($this->never())->method('update');
+		$this->roomTaskMapper->expects($this->never())->method('tombstoneByRoomIds');
+		$this->appLogger->expects($this->never())->method('audit');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+		$this->service->{$method}(...$args);
+	}
+
+	/** @dataProvider ownerMutationProvider */
+	public function testOwnerMutation_AuditOccursOnlyAfterCommit(string $method, array $args): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(1);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->roomMapper->method('create')->willReturn($room);
+		$this->roomMapper->method('update')->willReturn($room);
+		$actor = new HouseUser();
+		$actor->setId(7);
+		$this->authorization->method('requireHouseOwner')->willReturn($actor);
+		$committed = false;
+		$this->db->method('commit')->willReturnCallback(static function () use (&$committed): void {
+			$committed = true;
+		});
+		$this->appLogger->expects($this->once())->method('audit')->with($this->anything(),
+			$this->callback(static function (array $context) use (&$committed): bool {
+				return $committed && $context['houseId'] === 1 && $context['actorId'] === 7
+					&& $context['roomId'] === 1 && !isset($context['name']);
+			})
+		);
+		$this->service->{$method}(...$args);
+	}
+
+	public static function ownerMutationProvider(): array {
+		return [
+			'create' => ['createRoom', [1, 'Room']],
+			'rename' => ['updateRoomName', [1, 'Renamed']],
+			'delete' => ['deleteRoom', [1]],
+		];
+	}
+
 	/**
 	 * CreateRoom_ValidData_CreatesRoom
 	 */
@@ -122,7 +186,7 @@ class RoomServiceTest extends TestCase {
 			->willReturn($floor);
 
 		$this->authorization
-			->expects($this->once())
+			->expects($this->exactly(2))
 			->method('requireHouseOwner')
 			->with(1);
 
@@ -225,7 +289,7 @@ class RoomServiceTest extends TestCase {
 
 		// CS-PLAN-061 §3.4: structure mutation is owner-only in the service.
 		$this->authorization
-			->expects($this->once())
+			->expects($this->exactly(2))
 			->method('requireHouseOwner')
 			->with(1);
 
@@ -277,7 +341,7 @@ class RoomServiceTest extends TestCase {
 			->willReturn($floor);
 
 		$this->authorization
-			->expects($this->once())
+			->expects($this->exactly(2))
 			->method('requireHouseOwner')
 			->with(1);
 

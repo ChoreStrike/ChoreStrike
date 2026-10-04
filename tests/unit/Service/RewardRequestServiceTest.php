@@ -54,6 +54,8 @@ class RewardRequestServiceTest extends TestCase {
 	private WalletService $walletService;
 	private MemberPreferenceMapper $prefMapper;
 	private DigestChangeMapper $digestChangeMapper;
+	private AppLogger $appLogger;
+	private IL10N $l10n;
 	private RewardRequestService $service;
 
 	private House $house;
@@ -82,6 +84,7 @@ class RewardRequestServiceTest extends TestCase {
 		$this->walletService = $this->createMock(WalletService::class);
 		$this->prefMapper = $this->createMock(MemberPreferenceMapper::class);
 		$this->digestChangeMapper = $this->createMock(DigestChangeMapper::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->capturedGuards = [];
 		$this->requests = [];
 		$this->membersById = [];
@@ -161,6 +164,7 @@ class RewardRequestServiceTest extends TestCase {
 
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text, array $params = []) => vsprintf(preg_replace('/%[0-9]+\$[sd]/', '%s', $text), $params));
+		$this->l10n = $l10n;
 
 		$this->service = new RewardRequestService(
 			$this->commands,
@@ -176,7 +180,7 @@ class RewardRequestServiceTest extends TestCase {
 			$this->digestChangeMapper,
 			$this->createMock(DigestScheduleService::class),
 			$l10n,
-			$this->createMock(AppLogger::class),
+			$this->appLogger,
 		);
 
 		// Receipt contract stand-in: the WP7 guard runs BEFORE the
@@ -189,6 +193,93 @@ class RewardRequestServiceTest extends TestCase {
 				return ['result' => $fn(), 'receipt' => null, 'replay' => false];
 			}
 		);
+	}
+
+	/** @dataProvider lifecycleAuditProvider */
+	public function testLifecycleAudit_CommitReplayDenialAndRollback_EmitsOnePrivateSafeSuccess(string $method, string $mode): void {
+		$this->addChild();
+		$owner = $this->addOwner();
+		$this->addItem();
+		$this->service->create(1, 'child', $this->createPayload());
+		$requestId = (int)$this->requests[0]->getId();
+		if (in_array($method, ['fulfill', 'correct'], true)) {
+			$this->service->approve(1, 'owner', $requestId, ['commandId' => self::UUID, 'expectedVersion' => 0]);
+		}
+		$this->wallet->setReservedMinor(1250);
+		$this->walletService->method('settleReward')->willReturn(9001);
+		if ($method === 'correct') {
+			$this->service->fulfill(1, 'owner', $requestId, ['commandId' => self::UUID, 'expectedVersion' => 1, 'delivered' => true]);
+			$settlement = new WalletEntry();
+			$settlement->setId(9001);
+			$settlement->setWalletId(55);
+			$settlement->setSourceKind(WalletService::SOURCE_REWARD_SETTLEMENT);
+			$settlement->setSourceId($requestId);
+			$settlement->setDeltaMinor(-1250);
+			$this->walletEntryMapper->method('find')->willReturn($settlement);
+		}
+		$payload = ['commandId' => self::UUID, 'expectedVersion' => (int)$this->requests[0]->getVersion()];
+		if ($method === 'fulfill') {
+			$payload['delivered'] = true;
+		} elseif ($method === 'correct') {
+			$payload += ['notDelivered' => true, 'reasonCode' => 'not_delivered', 'settlementEntryId' => 9001];
+		}
+		$db = $this->createMock(\OCP\IDBConnection::class);
+		$receipts = $this->createMock(\OCA\ChoreStrike\Db\CommandReceiptMapper::class);
+		$receipt = null;
+		$receipts->method('findByHouseActorUuid')->willReturnCallback(static function () use (&$receipt): ?\OCA\ChoreStrike\Db\CommandReceipt {
+			return $receipt;
+		});
+		$receipts->method('insert')->willReturnCallback(static function (\OCA\ChoreStrike\Db\CommandReceipt $row) use (&$receipt): \OCA\ChoreStrike\Db\CommandReceipt {
+			$row->setId(5);
+			return $receipt = $row;
+		});
+		$commands = new CommandService(new \OCA\ChoreStrike\Db\TransactionExecutor($db), $this->houseMapper, $receipts, $this->appLogger);
+		$this->service = new RewardRequestService($commands, $this->requestMapper, $this->eventMapper,
+			$this->itemMapper, $this->houseMapper, $this->houseUserMapper, $this->walletMapper,
+			$this->walletEntryMapper, $this->walletService, $this->prefMapper, $this->digestChangeMapper,
+			$this->createMock(DigestScheduleService::class), $this->l10n, $this->appLogger);
+		$committed = false;
+		$db->method('commit')->willReturnCallback(static function () use (&$committed, $mode): void {
+			if ($mode === 'rollback') {
+				throw new \RuntimeException('Synthetic commit failure');
+			}
+			$committed = true;
+		});
+		$this->appLogger->expects(in_array($mode, ['denial', 'rollback'], true) ? $this->never() : $this->once())
+			->method('audit')->with('Reward request command committed',
+				$this->callback(static function (array $context) use (&$committed, $requestId, $method): bool {
+					return $committed && $context === [
+						'event' => 'reward.request.committed', 'service' => 'RewardRequestService',
+						'houseId' => 1, 'actorId' => 11, 'requestId' => $requestId,
+						'action' => 'reward.request.' . $method, 'outcome' => 'committed',
+					];
+				}));
+		if ($mode === 'denial') {
+			$owner->setRole('member');
+			$db->expects($this->never())->method('commit');
+			$db->expects($this->once())->method('rollBack');
+			$this->expectException(NotFoundException::class);
+		} elseif ($mode === 'rollback') {
+			$db->expects($this->once())->method('rollBack');
+			$this->expectException(\RuntimeException::class);
+		}
+		$this->service->{$method}(1, 'owner', $requestId, $payload);
+		if ($mode === 'replay') {
+			$version = $this->requests[0]->getVersion();
+			$committed = false;
+			$this->service->{$method}(1, 'owner', $requestId, $payload);
+			self::assertSame($version, $this->requests[0]->getVersion());
+		}
+	}
+
+	public static function lifecycleAuditProvider(): array {
+		$cases = [];
+		foreach (['approve', 'reject', 'cancel', 'fulfill', 'correct'] as $method) {
+			foreach (['commit', 'replay', 'denial', 'rollback'] as $mode) {
+				$cases[$method . ' ' . $mode] = [$method, $mode];
+			}
+		}
+		return $cases;
 	}
 
 	private function addChild(string $uid = 'child', int $id = 12): HouseUser {

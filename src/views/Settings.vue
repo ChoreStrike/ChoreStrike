@@ -381,7 +381,7 @@
 					<div class="danger-item">
 						<div class="danger-info">
 							<h3>{{ t('chorestrike', 'Reset House') }}</h3>
-							<p>{{ t('chorestrike', 'Reset all progress and start fresh. This cannot be undone.') }}</p>
+							<p>{{ t('chorestrike', 'Resets all rooms to a clean state and restores house health. Setup, tasks, agreements, completion history, finances, reward requests, and achievements are kept. This cannot be undone.') }}</p>
 						</div>
 						<button
 							class="danger-button"
@@ -456,7 +456,7 @@
 					<Icon name="AlertTriangle" :size="48" />
 				</div>
 				<h3>{{ t('chorestrike', 'Reset House?') }}</h3>
-				<p>{{ t('chorestrike', 'This will delete all floors, rooms, tasks, and progress. This action cannot be undone.') }}</p>
+				<p>{{ t('chorestrike', 'All rooms return to their initial clean state and house health is restored. Setup, structure, tasks, agreements, completion history, finances, reward requests, and achievements are kept.') }}</p>
 				<div class="confirmation-input">
 					<label>{{ t('chorestrike', 'Type "RESET" to confirm') }}</label>
 					<input
@@ -910,7 +910,7 @@ export default {
 			if (this.resetConfirmation !== 'RESET') return
 			try {
 				await this.houseStore.resetHouse()
-				showSuccess(t('chorestrike', 'House was reset'))
+				showSuccess(t('chorestrike', 'Rooms and house health were reset'))
 				this.resetConfirmation = ''
 				this.showResetModal = false
 				await this.initializeSettings()

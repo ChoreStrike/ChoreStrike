@@ -21,6 +21,29 @@ tracking, no full request payloads.
 - **Controllers:** unexpected exceptions at the boundary; authorization failures as `warning`-level security events. No full request bodies; no duplicated nested-layer exception logging.
 - **Services:** domain mutations at `info`; partial failures at `warning`; swallowed business failures at `error`; security decisions at `warning`. Log only where you add unique business context. Transaction rollback boundaries use `logException()` before the rethrow; expected-race swallows use `warning` (idempotent outcome unchanged, but observable).
 
+### Owner-Operation Events
+
+Use `AppLogger::audit()` for operational owner-change events. Unlike diagnostic
+methods, this path does not add a Nextcloud UID/session snapshot. Call sites use
+stable event/action/outcome metadata and numeric actor/resource IDs only; no
+email, names, authored text, reason text, medical details, credentials or payload.
+Emit success only after the transaction has committed. A denied or rolled-back
+command must not emit success; receipt replay must not emit another committed
+event. Explicit replay/no-change outcomes are not new mutations.
+
+Membership, house settings, setup, floor/room structure, checklist definitions,
+planner availability, catalog and reward-request lifecycle use this contract.
+`CommandService` emits the shared `house.command.committed` event for reset,
+schedule application, occurrence agreements and pause commands. These events
+identify the committed receipt, not its authored contents, and include self-service
+commands on those same surfaces without implying owner authority.
+
+This is operational logging, not a tamper-proof or exactly-once audit ledger.
+Nextcloud operators own log level, storage, access and retention; info events
+are filtered by the normal warning-level setting and are only available when
+info logging is enabled. A crash after commit can lose an event. Do not claim
+that the event stream alone proves a complete history of persisted changes.
+
 ## Frontend Rules
 
 - Use `src/utils/logger.js` exclusively — **no raw `console.*`** in production code.

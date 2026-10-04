@@ -561,6 +561,13 @@ class RewardRequestService {
 		);
 
 		$request = $this->requestMapper->find((int)$outcome['result']['requestId']);
+		if (!$outcome['replay']) {
+			$this->appLogger->audit('Reward request command committed', [
+				'event' => 'reward.request.committed', 'service' => 'RewardRequestService',
+				'houseId' => $houseId, 'actorId' => (int)$member->getId(),
+				'requestId' => (int)$request->getId(), 'action' => $action, 'outcome' => 'committed',
+			]);
+		}
 		return $this->serialize($request, $member, $member->isOwner(), null);
 	}
 
@@ -609,17 +616,6 @@ class RewardRequestService {
 			$this->eventMapper->update($event);
 		}
 		$this->houseMapper->bumpStateVersion($houseId);
-		if ($action === self::ACTION_FULFILL || $action === self::ACTION_CORRECT) {
-			$this->appLogger->info('Reward request settled or refunded', [
-				'event' => $action === self::ACTION_FULFILL ? 'reward_request_settled' : 'reward_request_refunded',
-				'service' => 'RewardRequestService',
-				'houseId' => $houseId,
-				'requestId' => $requestId,
-				'effectRevision' => (int)$request->getVersion(),
-				'amountMinor' => (int)$request->getPriceMinor(),
-			]);
-		}
-
 		$this->queueRewardChangeUnderLock($houseId, $request, $this->digestRecipientsFor($action, $requester, $actor, $houseId), (int)$actor->getId(), new \DateTime());
 		return ['requestId' => $requestId, 'requestVersion' => (int)$request->getVersion()];
 	}

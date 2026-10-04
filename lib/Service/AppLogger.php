@@ -61,6 +61,15 @@ class AppLogger {
 	}
 
 	/**
+	 * Operational owner-change event without session identity snapshots.
+	 *
+	 * @param array<string, mixed> $context Stable event metadata and numeric resource identifiers
+	 */
+	public function audit(string $message, array $context): void {
+		$this->logger->info($message, $this->sanitizeContext($context));
+	}
+
+	/**
 	 * Write a warning log entry.
 	 *
 	 * @param string $message Log message

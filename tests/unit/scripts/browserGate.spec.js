@@ -9,10 +9,15 @@ jest.mock('node:child_process', () => ({ spawnSync: jest.fn() }))
 // Pin the canonical journey (not a positional index): the manifest grows,
 // and REQUIRED_SPECS[0] must never silently change what this suite excludes.
 const required = REQUIRED_SPECS.find(row => row.file === 'core-household-journey.spec.ts')
-const reportFor = (entry = required) => ({ suites: [{ file: entry.file, specs: Array.from({ length: entry.minTests }, (_, i) => ({
-	title: `${entry.scenarios.join(' ')} case ${i}`,
-	tests: [{ projectName: entry.project, status: 'expected', expectedStatus: 'passed', results: [{ status: 'passed', retry: 0 }] }],
-})) }] })
+const reportFor = (entry = required) => ({
+	suites: [{
+		file: entry.file,
+		specs: Array.from({ length: entry.minTests }, (_, i) => ({
+			title: `${entry.scenarios.join(' ')} case ${i}`,
+			tests: [{ projectName: entry.project, status: 'expected', expectedStatus: 'passed', results: [{ status: 'passed', retry: 0 }] }],
+		})),
+	}],
+})
 
 afterEach(() => jest.restoreAllMocks())
 
@@ -25,10 +30,17 @@ describe('canonical browser evidence', () => {
 		const exit = jest.fn()
 		const console = { log: jest.fn(), error: jest.fn() }
 		const source = fs.readFileSync(path.resolve(__dirname, '../../../scripts/check-test-noise.js'), 'utf8')
-		vm.runInNewContext(source, { require: () => ({ spawn }), console, process: {
-			execPath: process.execPath, env: { npm_execpath: 'npm-cli.js' }, exit,
-			stdout: { write: jest.fn() }, stderr: { write: jest.fn() },
-		} })
+		vm.runInNewContext(source, {
+			require: () => ({ spawn }),
+			console,
+			process: {
+				execPath: process.execPath,
+				env: { npm_execpath: 'npm-cli.js' },
+				exit,
+				stdout: { write: jest.fn() },
+				stderr: { write: jest.fn() },
+			},
+		})
 		expect(spawn).toHaveBeenCalledWith(process.execPath, ['npm-cli.js', 'test'], expect.objectContaining({ env: expect.any(Object) }))
 		expect(spawn.mock.calls[0][2].shell).toBeUndefined()
 		child.emit('close', null)
@@ -70,6 +82,17 @@ describe('canonical browser evidence', () => {
 		expect(entry.scenarios.length).toBeGreaterThanOrEqual(8)
 	})
 
+	it.each(['family-membership-hardening.spec.ts', 'settings.spec.ts'])('requires exclusive serial discovery and first-attempt evidence for %s', file => {
+		const entry = REQUIRED_SPECS.find(row => row.file === file)
+		expect(entry).toBeDefined()
+		expect(entry.project).toBe('chromium-serial-db')
+		expect(entry.minTests).toBeGreaterThanOrEqual(file.startsWith('family-') ? 3 : 8)
+		expect(checkSelection([], [entry], {})).not.toEqual([])
+		const rows = collectSpecs(reportFor(entry).suites)
+		expect(checkSelection(rows.map(row => ({ ...row, projectName: 'chromium' })), [entry], {})).not.toEqual([])
+		expect(checkResults({ suites: [] }, [entry])).not.toEqual([])
+	})
+
 	it('uses direct Node execution and fails on spawn errors or signals', () => {
 		spawnSync.mockReturnValue({ status: null, error: new Error('spawn failed') })
 		expect(runPlaywright([]).status).toBe(1)
@@ -92,13 +115,21 @@ describe('canonical browser evidence', () => {
 		jest.spyOn(fs, 'readFileSync').mockImplementation(file => {
 			if (String(file).endsWith('required-scenarios.json')) return JSON.stringify(inventory)
 			const project = ['chromium', 'chromium-serial-db', 'chromium-scheduling-owner'].find(name => String(file).endsWith(`report-${name}.json`))
-			return JSON.stringify({ suites: reports.flatMap(report => report.suites).filter(suite => suite.file !== required.file
-				&& ['setup', project].includes(suite.specs[0].tests[0].projectName)) })
+			return JSON.stringify({
+				suites: reports.flatMap(report => report.suites).filter(suite => suite.file !== required.file
+				&& ['setup', project].includes(suite.specs[0].tests[0].projectName)),
+			})
 		})
 		spawnSync.mockImplementation((_command, args) => {
 			const project = args.find(arg => arg.startsWith('--project=')).slice(10)
-			return { status: 0, stdout: Buffer.from(JSON.stringify({ suites: reports.flatMap(report => report.suites)
-				.filter(suite => suite.specs[0].tests[0].projectName === project) })), stderr: Buffer.alloc(0) }
+			return {
+				status: 0,
+				stdout: Buffer.from(JSON.stringify({
+					suites: reports.flatMap(report => report.suites)
+						.filter(suite => suite.specs[0].tests[0].projectName === project),
+				})),
+				stderr: Buffer.alloc(0),
+			}
 		})
 		const argv = process.argv
 		process.argv = ['node', 'run-e2e-gate.js']

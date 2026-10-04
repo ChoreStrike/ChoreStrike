@@ -66,6 +66,13 @@ class AppLoggerTest extends TestCase {
 		], $request);
 	}
 
+	public function testAudit_AuthenticatedSession_DoesNotAddIdentitySnapshot(): void {
+		$this->user->expects($this->never())->method('getUID');
+		$context = ['event' => 'house.member.invited', 'houseId' => 3, 'actorId' => 7, 'memberId' => 21, 'outcome' => 'invited'];
+		$this->logger->expects($this->once())->method('info')->with('House member invite completed', $context);
+		$this->service->audit('House member invite completed', $context);
+	}
+
 	/**
 	 * LogException_IncludesExceptionMetadata.
 	 */

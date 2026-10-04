@@ -151,7 +151,7 @@ class CommandService {
 		// command's result.
 		$payloadHash = $this->hashPayload(['action' => $action, 'payload' => $payload]);
 
-		return $this->transactions->run(function () use ($houseId, $actorHouseUserId, $commandUuid, $action, $payloadHash, $fn, $authorizeUnderLock): array {
+		$outcome = $this->transactions->run(function () use ($houseId, $actorHouseUserId, $commandUuid, $action, $payloadHash, $fn, $authorizeUnderLock): array {
 			// FIRST lock of the documented order: the house row serializes
 			// every same-house command (receipt lookup + unique-key insert).
 			$this->houseMapper->findForUpdate($houseId);
@@ -223,6 +223,19 @@ class CommandService {
 				'replay' => false,
 			];
 		});
+		// These owner-capable command surfaces share one post-commit event;
+		// receipts distinguish committed commands from replay without payloads.
+		if (!$outcome['replay'] && in_array($action, [
+			'house.reset', 'scheduling.apply', 'occurrence.amend', 'occurrence.catch-up', 'occurrence.restart',
+			'pause.request', 'pause.house', 'pause.approve', 'pause.reject', 'pause.recognize-illness', 'pause.shorten',
+		], true)) {
+			$this->appLogger->audit('House command committed', [
+				'event' => 'house.command.committed', 'service' => 'CommandService',
+				'houseId' => $houseId, 'actorId' => $actorHouseUserId,
+				'receiptId' => (int)$outcome['receipt']->getId(), 'action' => $action, 'outcome' => 'committed',
+			]);
+		}
+		return $outcome;
 	}
 
 	/**

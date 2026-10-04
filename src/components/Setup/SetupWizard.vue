@@ -58,13 +58,18 @@
 				</label>
 
 				<label class="field">
-					<span>{{ t('chorestrike', 'Number of floors') }} (1–6)</span>
+					<span>{{ t('chorestrike', 'Number of floors') }} (1–{{ maxAboveGroundFloors }})</span>
 					<input v-model.number="quick.floorCount"
 						type="number"
 						min="1"
-						max="6"
+						:max="maxAboveGroundFloors"
 						data-testid="wizard-floor-count">
 				</label>
+				<p v-if="quick.basement && quick.homeType !== 'apartment'"
+					class="invite-hint"
+					data-testid="wizard-basement-hint">
+					{{ t('chorestrike', 'With a basement, the above-ground floors are limited to five. The basement counts toward the six-floor total.') }}
+				</p>
 
 				<label v-if="quick.homeType !== 'apartment'" class="field checkbox">
 					<input v-model="quick.basement" type="checkbox" data-testid="wizard-basement">
@@ -432,6 +437,15 @@ export default {
 			return ids.map(id => this.setupStore.templates.find(t => t.id === id)?.name || id)
 		},
 		/**
+		 * Q-081-05 (CS-PLAN-081 H4): a basement counts toward the six-floor
+		 * total, so the above-ground input caps at five while a basement is
+		 * selected (hint shown next to the input). Apartments have no
+		 * basement and keep the six-floor bound.
+		 */
+		maxAboveGroundFloors() {
+			return this.quick.basement && this.quick.homeType !== 'apartment' ? 5 : 6
+		},
+		/**
 		 * Floor index that receives the auto-created household room — mirrors
 		 * HouseSetupService::injectAutoRooms(): the ground floor, unless the
 		 * last floor holds a basement-typed room.
@@ -481,6 +495,18 @@ export default {
 				this.quick.basement = false
 			} else {
 				this.quick.floorCount = 2
+			}
+		},
+		/**
+		 * Q-081-05 (CS-PLAN-081 H4): selecting a basement clamps an
+		 * above-ground selection that would exceed the six-floor total —
+		 * visibly (the input bound and hint change), never silently.
+		 *
+		 * @param {boolean} selected Whether the basement checkbox is on
+		 */
+		'quick.basement'(selected) {
+			if (selected && this.quick.homeType !== 'apartment' && this.quick.floorCount > 5) {
+				this.quick.floorCount = 5
 			}
 		},
 	},
@@ -548,11 +574,12 @@ export default {
 		generateRooms() {
 			const roomTypes = this.setupStore.roomTypes
 			this.floors = []
-			const floorTotal = Math.min(6, Math.max(1, this.quick.floorCount))
+			const floorTotal = Math.min(this.maxAboveGroundFloors, Math.max(1, this.quick.floorCount))
 			for (let f = 0; f < floorTotal; f++) {
 				this.floors.push({ name: this.floorName(f, floorTotal), rooms: [] })
 			}
-			if (this.quick.basement && this.floors.length < 6) {
+			const wantsBasement = this.quick.basement && this.quick.homeType !== 'apartment'
+			if (wantsBasement && this.floors.length < 6) {
 				this.floors.push({ name: t('chorestrike', 'Basement'), rooms: [] })
 			}
 			const roomsPerFloor = Math.min(6, Math.max(1, this.quick.roomsPerFloor))

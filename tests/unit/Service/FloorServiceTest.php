@@ -63,9 +63,85 @@ class FloorServiceTest extends TestCase {
 		);
 	}
 
-	/**
-	 * CreateFloor_WithSortOrder_CreatesFloor
-	 */
+	/** @dataProvider ownerMutationProvider */
+	public function testOwnerMutation_DemotedBeforeHouseLock_DeniesWithoutWriteOrAudit(string $method, array $args): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$checks = 0;
+		$this->authorization->expects($this->exactly(2))->method('requireHouseOwner')->willReturnCallback(
+			static function () use (&$checks): \OCA\ChoreStrike\Db\HouseUser {
+				if (++$checks === 2) {
+					throw new ForbiddenException('Owner role required');
+				}
+				return new \OCA\ChoreStrike\Db\HouseUser();
+			}
+		);
+		$this->floorMapper->expects($this->never())->method('create');
+		$this->floorMapper->expects($this->never())->method('update');
+		$this->floorMapper->expects($this->never())->method('updateSortOrders');
+		$this->roomMapper->expects($this->never())->method('tombstoneByFloorId');
+		$this->appLogger->expects($this->never())->method('audit');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->expectException(ForbiddenException::class);
+		$this->service->{$method}(...$args);
+	}
+
+	/** @dataProvider ownerMutationProvider */
+	public function testOwnerMutation_AuditOccursOnlyAfterCommit(string $method, array $args): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->floorMapper->method('findByHouseId')->willReturn([$floor]);
+		$this->floorMapper->method('create')->willReturn($floor);
+		$this->floorMapper->method('update')->willReturn($floor);
+		$actor = new \OCA\ChoreStrike\Db\HouseUser();
+		$actor->setId(7);
+		$this->authorization->method('requireHouseOwner')->willReturn($actor);
+		$committed = false;
+		$this->db->method('commit')->willReturnCallback(static function () use (&$committed): void {
+			$committed = true;
+		});
+		$this->appLogger->expects($this->once())->method('audit')->with($this->anything(),
+			$this->callback(static function (array $context) use (&$committed): bool {
+				return $committed && $context['houseId'] === 1 && $context['actorId'] === 7
+					&& str_starts_with($context['event'], 'house.floor.') && !isset($context['name']);
+			})
+		);
+		$this->service->{$method}(...$args);
+	}
+
+	/** @dataProvider unchangedMutationProvider */
+	public function testOwnerMutation_UnchangedValues_ReportsNoChange(string $method, array $args): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+		$floor->setName('Same');
+		$floor->setSortOrder(0);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->floorMapper->method('findByHouseId')->willReturn([$floor]);
+		$this->floorMapper->method('update')->willReturn($floor);
+		$this->appLogger->expects($this->once())->method('audit')->with($this->anything(),
+			$this->callback(static fn (array $context): bool => $context['outcome'] === 'no-change'));
+		$this->service->{$method}(...$args);
+	}
+
+	public static function unchangedMutationProvider(): array {
+		return ['rename' => ['updateFloorName', [1, 'Same']], 'reorder' => ['reorderFloors', [1, [1]]], 'empty reorder' => ['reorderFloors', [1, []]]];
+	}
+
+	public static function ownerMutationProvider(): array {
+		return [
+			'create' => ['createFloor', [1, 'Floor']],
+			'rename' => ['updateFloorName', [1, 'Renamed']],
+			'reorder' => ['reorderFloors', [1, [1]]],
+			'delete' => ['deleteFloor', [1]],
+		];
+	}
+
+	/** CreateFloor_WithSortOrder_CreatesFloor */
 	public function testCreateFloor_WithSortOrder_CreatesFloor(): void {
 		$houseId = 1;
 		$name = 'New Floor';

@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Exception\CannotDemoteSelfException;
+use OCA\ChoreStrike\Exception\CannotRemoveOwnerException;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
@@ -17,6 +19,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TitleService;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -136,6 +139,7 @@ class UserController extends Controller {
 	 * @param string $email Email address of the user to invite.
 	 * @param string $role Role to assign to the invited user.
 	 */
+	#[UserRateLimit(limit: 60, period: 300)]
 	public function invite(string $email, string $role = 'member'): JSONResponse {
 		try {
 			$trimmedEmail = trim($email);
@@ -208,6 +212,7 @@ class UserController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 */
+	#[UserRateLimit(limit: 60, period: 300)]
 	public function remove(int $id): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
@@ -225,15 +230,16 @@ class UserController extends Controller {
 				], 404);
 			}
 
-			$actor = $this->authService->requireHouseOwner($house->getId());
+			$this->authService->requireHouseOwner($house->getId());
 
 			try {
-				$this->houseService->removeHouseMember($houseUser->getId(), (string)$actor->getNextcloudUserId());
-			} catch (ForbiddenException $e) {
-				// The only ForbiddenException removeHouseMember throws is
-				// its owner-target guard — map it to the endpoint-specific
-				// 403 code (response contract unchanged). House-access
-				// forbiddens are handled as 403 by the outer catch below.
+				// CS-PLAN-081 H3: the removal actor comes from the
+				// authoritative service-side owner gate, not a parameter.
+				$this->houseService->removeHouseMember($houseUser->getId());
+			} catch (CannotRemoveOwnerException $e) {
+				// The service's owner-target guard — map it to the
+				// endpoint-specific 403 code (response contract unchanged).
+				// A racing-demotion denial surfaces as the generic 403 below.
 				return new JSONResponse([
 					'success' => false,
 					'error' => [
@@ -270,6 +276,7 @@ class UserController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 */
+	#[UserRateLimit(limit: 60, period: 300)]
 	public function updateRole(int $id, string $role): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
@@ -288,10 +295,11 @@ class UserController extends Controller {
 			}
 
 			$this->authService->requireHouseOwner($house->getId());
-			$callerUserId = $this->authService->requireCurrentUserId();
 
 			try {
-				$updatedUser = $this->houseService->updateUserRole($id, $role, $callerUserId);
+				// CS-PLAN-081 H3: the self-demotion actor identity is derived
+				// from the session inside the service, not passed by callers.
+				$updatedUser = $this->houseService->updateUserRole($id, $role);
 			} catch (\InvalidArgumentException $e) {
 				return new JSONResponse([
 					'success' => false,
@@ -300,10 +308,7 @@ class UserController extends Controller {
 						'message' => $this->l->t('Invalid role. Must be owner, member, or child')
 					]
 				], 400);
-			} catch (ForbiddenException $e) {
-				// The only ForbiddenException updateUserRole throws is its
-				// self-demotion guard — map it to the endpoint-specific 403
-				// code (mirrors the CANNOT_REMOVE_OWNER precedent).
+			} catch (CannotDemoteSelfException $e) {
 				return new JSONResponse([
 					'success' => false,
 					'error' => [

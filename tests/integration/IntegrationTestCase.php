@@ -57,6 +57,17 @@ abstract class IntegrationTestCase extends TestCase {
 		$user = $this->userManager->get($userId);
 		if ($user === null) {
 			$user = $this->userManager->createUser($userId, 'test-password-' . $userId);
+			// TECH-TEST-003 (CS-PLAN-081 H2): first-time Nextcloud account
+			// provisioning on a FRESH install fires listeners that leave an
+			// open transaction on the shared connection. Fixture inserts
+			// below must not ride inside it — a later rollback erased them
+			// on the first run after a disposable-volume reset (deterministic
+			// mid-suite failure, rerun-green). Close the dangling transaction
+			// before any fixture write; the disposable env tolerates the
+			// commit (the listeners' own work completes atomically).
+			if ($this->db->inTransaction()) {
+				$this->db->commit();
+			}
 		}
 		$this->userSession->setUser($user);
 	}

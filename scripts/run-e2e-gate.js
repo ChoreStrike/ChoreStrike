@@ -72,6 +72,8 @@ const REQUIRED_SPECS = [
 	{ file: 'family-rewards.spec.ts', project: 'chromium-serial-db', scenarios: ['catalog-off core works for every role', 'owner administration works while the catalog is off', 'child request', 'adult self-approval, cancellation', 'changed terms require renewed review', 'funding hold', 'foreign requests stay invisible', 'uncertain command outcome replays', 'mobile targets, keyboard operation'], minTests: 9 },
 	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'members-owner.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 3 },
+	{ file: 'family-membership-hardening.spec.ts', project: 'chromium-serial-db', scenarios: ['invite enforces the approved 60/300 boundary', 'remove enforces the approved 60/300 boundary', 'updaterole enforces the approved 60/300 boundary'], minTests: 3 },
+	{ file: 'settings.spec.ts', project: 'chromium-serial-db', scenarios: ['reset keeps setup, structure, tasks and history'], minTests: 8 },
 	{ file: 'room-management.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'dashboard.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'task-checklist-and-features.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
@@ -113,7 +115,6 @@ const REQUIRED_SPECS = [
 	{ file: 'private-tasks.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'room-detail.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'self-availability-member.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
-	{ file: 'settings.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'snake-game.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'task-completion.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'task-manager.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
@@ -148,6 +149,7 @@ function collectSpecs(suites, out = [], parents = []) {
 /**
  * @param {Array<{file: string, title: string, projectName: string}>} discovered
  * @param {Array<{file: string, project: string, scenarios: string[], minTests: number}>} [manifest]
+ * @param scenarios
  * @return {string[]} violations
  */
 function checkSelection(discovered, manifest = REQUIRED_SPECS, scenarios) {
@@ -204,6 +206,7 @@ function checkSelection(discovered, manifest = REQUIRED_SPECS, scenarios) {
 /**
  * @param {object} report Parsed Playwright JSON report of one project run.
  * @param {Array<{file: string, project: string, scenarios: string[], minTests: number}>} [manifest]
+ * @param scenarios
  * @return {string[]} violations
  */
 function checkResults(report, manifest = REQUIRED_SPECS, scenarios) {
@@ -310,7 +313,7 @@ function discoverProject(project) {
 	const report = parseJsonFromStdout(result.stdout)
 	if (result.status !== 0 || !report || report.errors?.length) {
 		throw new Error(
-				`playwright --list failed for project '${project}' (exit ${result.status})`,
+			`playwright --list failed for project '${project}' (exit ${result.status})`,
 		)
 	}
 	return collectSpecs(report.suites ?? [])
@@ -391,7 +394,7 @@ function selfTest() {
 	const specIn = (status) => ({
 		suites: [{
 			file: `tests/e2e/${journey.file}`,
-				specs: [{ title: 'The canonical household journey walks every phase', tests: [{ status, expectedStatus: 'passed', results: [{ status: 'passed', retry: 0 }] }] }],
+			specs: [{ title: 'The canonical household journey walks every phase', tests: [{ status, expectedStatus: 'passed', results: [{ status: 'passed', retry: 0 }] }] }],
 		}],
 	})
 	const passing = checkResults(specIn('expected'), manifestOf(journey))
@@ -439,8 +442,7 @@ function main() {
 	}
 	if (args.includes('--write-manifest')) {
 		const inventory = Object.fromEntries(REQUIRED_SPECS.map(required => [required.file,
-			[...new Set(discovered.filter(entry => path.basename(entry.file) === required.file).map(entry => entry.identity))].sort(),
-		]))
+			[...new Set(discovered.filter(entry => path.basename(entry.file) === required.file).map(entry => entry.identity))].sort()]))
 		const violations = checkSelection(discovered)
 		if (violations.length) throw new Error(violations.join('\n'))
 		fs.writeFileSync(SCENARIO_FILE, JSON.stringify(inventory, null, 2) + '\n')
@@ -480,10 +482,18 @@ function main() {
 		const owned = REQUIRED_SPECS.filter(entry => entry.project === project || entry.project === SETUP_PROJECT)
 		const resultViolations = checkResults(report, owned, scenarios)
 		fs.writeFileSync(path.join(runDir, `summary-${project}.json`), JSON.stringify({
-			project, processExit: result.status, violations: resultViolations,
-			tests: collectSpecs(report.suites).map(spec => ({ file: path.basename(spec.file), title: spec.title,
-				results: spec.tests.map(test => ({ project: test.projectName, status: test.status,
-					attempts: test.results?.map(attempt => ({ status: attempt.status, retry: attempt.retry })) })) })),
+			project,
+			processExit: result.status,
+			violations: resultViolations,
+			tests: collectSpecs(report.suites).map(spec => ({
+				file: path.basename(spec.file),
+				title: spec.title,
+				results: spec.tests.map(test => ({
+					project: test.projectName,
+					status: test.status,
+					attempts: test.results?.map(attempt => ({ status: attempt.status, retry: attempt.retry })),
+				})),
+			})),
 		}, null, 2) + '\n')
 		if (resultViolations.length > 0) {
 			console.error(`[gate] RESULT CHECK FAILED for '${project}':`)

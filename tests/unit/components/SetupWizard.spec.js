@@ -6,7 +6,7 @@ import { useHouseStore } from '../../../src/store/house.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text, vars = {}) =>
-		text.replace(/\{(\w+)\}/g, (m, key) => (key in vars ? String(vars[key]) : m))
+		text.replace(/\{(\w+)\}/g, (m, key) => (key in vars ? String(vars[key]) : m)),
 	),
 }))
 
@@ -72,7 +72,10 @@ describe('SetupWizard.vue', () => {
 		global: { plugins: [pinia] },
 	})
 
-	/** Drive the wizard from step 1 to the preview step (3). */
+	/**
+	 * Drive the wizard from step 1 to the preview step (3).
+	 * @param wrapper
+	 */
 	const advanceToPreview = async (wrapper) => {
 		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
 		await wrapper.find('[data-testid="wizard-rooms-per-floor"]').setValue(1)
@@ -80,7 +83,10 @@ describe('SetupWizard.vue', () => {
 		await wrapper.find('[data-testid="wizard-next"]').trigger('click') // -> step 3
 	}
 
-	/** Drive the wizard through the apply to the invite step (4). */
+	/**
+	 * Drive the wizard through the apply to the invite step (4).
+	 * @param wrapper
+	 */
 	const advanceToInviteStep = async (wrapper) => {
 		await advanceToPreview(wrapper)
 		await wrapper.find('[data-testid="wizard-apply"]').trigger('click')
@@ -107,6 +113,45 @@ describe('SetupWizard.vue', () => {
 		// 2 rooms generated -> 2 name inputs
 		expect(wrapper.find('[data-testid="wizard-room-name-0-0"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="wizard-room-name-0-1"]').exists()).toBe(true)
+	})
+
+	it('caps above-ground floors at five with a basement and shows a hint (Q-081-05, CS-PLAN-081 H4)', async () => {
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+
+		// Without a basement the six-floor bound stays.
+		expect(wrapper.vm.maxAboveGroundFloors).toBe(6)
+		expect(wrapper.find('[data-testid="wizard-floor-count"]').attributes('max')).toBe('6')
+		expect(wrapper.find('[data-testid="wizard-basement-hint"]').exists()).toBe(false)
+
+		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(6)
+		await wrapper.find('[data-testid="wizard-basement"]').setValue(true)
+
+		// The selection is clamped visibly, not silently dropped.
+		expect(wrapper.vm.quick.floorCount).toBe(5)
+		expect(wrapper.vm.maxAboveGroundFloors).toBe(5)
+		expect(wrapper.find('[data-testid="wizard-floor-count"]').attributes('max')).toBe('5')
+		expect(wrapper.find('[data-testid="wizard-basement-hint"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="wizard-basement-hint"]').text()).toContain('The basement counts toward the six-floor total.')
+
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		// Five above-ground floors + basement = six total; the basement row
+		// survives instead of being dropped at the cap.
+		expect(wrapper.vm.floors).toHaveLength(6)
+		expect(wrapper.vm.floors[5].name).toBe('Basement')
+	})
+
+	it('apartment keeps six floors without a basement (Q-081-05, CS-PLAN-081 H4)', async () => {
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+
+		await wrapper.find('[data-testid="wizard-home-type"]').setValue('apartment')
+		expect(wrapper.vm.maxAboveGroundFloors).toBe(6)
+
+		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(6)
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		expect(wrapper.vm.floors).toHaveLength(6)
+		expect(wrapper.vm.floors.some(f => f.name === 'Basement')).toBe(false)
 	})
 
 	it('lets the user pick a cleaning level', async () => {
@@ -156,7 +201,10 @@ describe('SetupWizard.vue', () => {
 			{ id: 'k2', name: 'Wipe kitchen counters', roomTypes: ['kitchen'], levels: { putzteufel: {}, putzmuffel: null } },
 		]
 		mockSetupStore.applySetup.mockResolvedValue({
-			floors: 2, rooms: 5, tasks: 8, roomTasks: 8,
+			floors: 2,
+			rooms: 5,
+			tasks: 8,
+			roomTasks: 8,
 			skipped: ['k2'],
 			houseName: 'Family Home',
 		})

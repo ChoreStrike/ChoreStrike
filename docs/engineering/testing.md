@@ -108,6 +108,25 @@ docker exec chorestrike-test vendor/bin/phpunit --filter testCreate_ValidData_Re
 
 ### 4. Interactive Development
 
+#### Native User-Rate Limits
+
+The disposable test image installs APCu and the entrypoint configures
+`memcache.local` plus `ratelimit.protection.enabled=true`. Nextcloud 31's native
+rate-limiter uses its distributed-cache factory, which falls back to the local
+cache. A `NullCache` cannot retain attempts across requests and is not valid
+evidence for a 429 boundary. Production operators must likewise provide a
+working request-shared Nextcloud cache; the app does not implement a replacement
+limiter or assume that an unconfigured cache enforces the annotations.
+
+`family-membership-hardening.spec.ts` owns fresh synthetic NC accounts through
+OCC, verifies all three 60-calls/300-second endpoint boundaries and both
+identity/endpoint isolation, then deletes only those accounts. It runs solely
+in `chromium-serial-db`, without cache flushing or shortened limit windows.
+`settings.spec.ts` also owns the serial pool: its populated reset proof compares
+setup/structure, task/occurrence facts, completion allocation/history, wallet
+reservations, reward terms and earned recognition after cancel, failure, retry
+and receipt replay. Never run either spec concurrently with another DB writer.
+
 For interactive debugging or running commands inside the container:
 
 ```bash

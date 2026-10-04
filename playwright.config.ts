@@ -22,6 +22,9 @@ const SEED_DEPENDENT_SPECS = [
 	// CS-PLAN-070 WP8 (CS-PLAN-079): reward UI scenarios mutate the catalog
 	// gate, roles and wallets against the shared family seed — serial pool.
 	/[/\\]family-rewards\.spec\.ts$/,
+	// CS-PLAN-081: membership bursts and reset retention own the DB serially.
+	/[/\\]family-membership-hardening\.spec\.ts$/,
+	/[/\\]settings\.spec\.ts$/,
 	// CS-PLAN-024: release regression specs mutate seed state (task lifecycle,
 	// role changes, global reward config, template imports, coin spend,
 	// weekly-goal completion) — serial pool only. Separator-anchored per the

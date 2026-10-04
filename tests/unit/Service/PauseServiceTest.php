@@ -47,6 +47,7 @@ class PauseServiceTest extends TestCase {
 	private HouseMapper|MockObject $houseMapper;
 	private OccurrenceMapper|MockObject $occurrenceMapper;
 	private IL10N|MockObject $l10n;
+	private bool $commandReplay = false;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -68,8 +69,9 @@ class PauseServiceTest extends TestCase {
 		// no receipt round-trip.
 		$commands = $this->createMock(CommandService::class);
 		$commands->method('runCommand')->willReturnCallback(
-			static function (int $houseId, int $actorId, string $commandId, string $action, array $payload, callable $fn): array {
-				return ['result' => $fn(), 'replay' => false];
+			function (int $houseId, int $actorId, string $commandId, string $action, array $payload, callable $fn, ?callable $guard = null): array {
+				$guard?->__invoke($houseId, $actorId);
+				return ['result' => $this->commandReplay ? ['pauseGroupId' => 5] : $fn(), 'replay' => $this->commandReplay];
 			}
 		);
 
@@ -121,6 +123,82 @@ class PauseServiceTest extends TestCase {
 			'endDate' => '2026-10-09',
 			'reasonCode' => Pause::REASON_TRAVEL,
 		], $overrides);
+	}
+
+	/** @dataProvider lostAuthorityProvider */
+	public function testCommand_AuthorityChangedBeforeHouseLock_DeniesExecutionAndReplay(string $method, string $loss, bool $replay): void {
+		$actor = $this->member('dad', 'owner');
+		$fresh = clone $actor;
+		if ($loss === 'departed') {
+			$fresh = null;
+		} elseif ($loss === 'rejoined') {
+			$fresh->setId(99);
+		} else {
+			$fresh->setRole('member');
+		}
+		$this->commandReplay = $replay;
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturnOnConsecutiveCalls($actor, $fresh);
+		$this->pauseMapper->expects($this->never())->method('appendRevision');
+		$this->pauseMapper->expects($this->never())->method('update');
+		$this->occurrenceMapper->expects($this->never())->method('findOpenByHouseId');
+		$this->expectException(ForbiddenException::class);
+		match ($method) {
+			'createHousePause' => $this->service->createHousePause(7, 'dad', $this->payload()),
+			'recognizeIllness' => $this->service->recognizeIllness(7, 'dad', $this->payload(['subjectUserId' => 'kid'])),
+			'approve' => $this->service->approve(7, 'dad', 5, ['commandId' => $this->payload()['commandId'], 'expectedRevision' => 1]),
+			'reject' => $this->service->reject(7, 'dad', 5, ['commandId' => $this->payload()['commandId'], 'expectedRevision' => 1]),
+		};
+	}
+
+	public static function lostAuthorityProvider(): array {
+		$cases = [];
+		foreach (['createHousePause', 'recognizeIllness', 'approve', 'reject'] as $method) {
+			foreach (['demoted', 'departed', 'rejoined'] as $loss) {
+				foreach ([false, true] as $replay) {
+					$cases[$method . ' ' . $loss . ' replay=' . (int)$replay] = [$method, $loss, $replay];
+				}
+			}
+		}
+		return $cases;
+	}
+
+	public function testRequestForSelf_RoleChangedUnderLock_UsesFreshChildState(): void {
+		$actor = $this->member('dad', 'owner');
+		$fresh = clone $actor;
+		$fresh->setRole('child');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturnOnConsecutiveCalls($actor, $fresh);
+		$this->walletMapper->method('findByHouseAndUser')->willReturn($this->wallet(11));
+		$this->pauseMapper->method('maxGroupId')->willReturn(1);
+		$this->pauseMapper->method('appendRevision')->willReturnCallback(static function (Pause $pause): Pause {
+			self::assertSame(Pause::STATE_REQUESTED, $pause->getState());
+			$pause->setId(1);
+			$pause->setRevision(1);
+			return $pause;
+		});
+		self::assertSame(Pause::STATE_REQUESTED, $this->service->requestForSelf(7, 'dad', $this->payload())['state']);
+	}
+
+	/** @dataProvider shortenReplayProvider */
+	public function testShorten_ReplayAfterAuthorityLoss_DeniesWithoutNewRevision(string $loss): void {
+		$actor = $this->member('dad', 'owner');
+		$fresh = clone $actor;
+		if ($loss === 'departed') {
+			$fresh = null;
+		} else {
+			$fresh->setRole('member');
+		}
+		$this->commandReplay = true;
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturnOnConsecutiveCalls($actor, $fresh);
+		$pause = $this->pause();
+		$pause->setScope(Pause::SCOPE_HOUSE);
+		$this->pauseMapper->method('findCurrentByGroup')->willReturn($pause);
+		$this->pauseMapper->expects($this->never())->method('appendRevision');
+		$this->expectException(ForbiddenException::class);
+		$this->service->shorten(7, 'dad', 5, ['commandId' => $this->payload()['commandId'], 'expectedRevision' => 1, 'endDate' => '2026-10-06']);
+	}
+
+	public static function shortenReplayProvider(): array {
+		return ['demoted' => ['demoted'], 'departed' => ['departed']];
 	}
 
 	// -----------------------------------------------------------------

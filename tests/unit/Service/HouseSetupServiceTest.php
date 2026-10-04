@@ -25,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 class HouseSetupServiceTest extends TestCase {
 	private HouseSetupService $service;
 	private AuthorizationService $authorization;
+	private AppLogger $appLogger;
 	private $floorMapper;
 	private $houseMapper;
 	private $roomMapper;
@@ -49,6 +50,7 @@ class HouseSetupServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->authorization = $this->createMock(AuthorizationService::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(fn ($t) => $t);
@@ -81,7 +83,7 @@ class HouseSetupServiceTest extends TestCase {
 			$this->roomReplayService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
-			$this->createMock(AppLogger::class),
+			$this->appLogger,
 			$this->authorization
 		);
 	}
@@ -221,10 +223,38 @@ class HouseSetupServiceTest extends TestCase {
 		];
 	}
 
+	public function testApplySetup_DemotedBeforeHouseLock_DeniesWithoutWrites(): void {
+		$this->stubPersistence();
+		$checks = 0;
+		$this->authorization->expects($this->exactly(2))->method('requireHouseOwner')->willReturnCallback(
+			static function () use (&$checks): \OCA\ChoreStrike\Db\HouseUser {
+				if (++$checks === 2) {
+					throw new ForbiddenException('Owner role required');
+				}
+				return new \OCA\ChoreStrike\Db\HouseUser();
+			}
+		);
+		$this->floorMapper->expects($this->never())->method('create');
+		$this->roomMapper->expects($this->never())->method('create');
+		$this->appLogger->expects($this->never())->method('audit');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->expectException(ForbiddenException::class);
+		$this->service->applySetup(1, $this->basePayload());
+	}
+
 	public function testApplySetup_Putzteufel_CreatesAllApplicableTasks(): void {
 		$this->stubPersistence();
 		$this->db->expects($this->once())->method('beginTransaction');
-		$this->db->expects($this->once())->method('commit');
+		$committed = false;
+		$this->db->expects($this->once())->method('commit')->willReturnCallback(static function () use (&$committed): void {
+			$committed = true;
+		});
+		$this->appLogger->expects($this->once())->method('audit')->with('Setup applied',
+			$this->callback(static function (array $context) use (&$committed): bool {
+				return $committed && $context['event'] === 'house.setup.applied'
+					&& is_int($context['actorId']) && !isset($context['houseName'], $context['payload']);
+			})
+		);
 
 		$result = $this->service->applySetup(1, $this->basePayload());
 

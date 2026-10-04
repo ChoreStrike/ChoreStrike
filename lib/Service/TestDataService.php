@@ -602,13 +602,17 @@ class TestDataService {
 		];
 	}
 
-	/** Seed one fully linked past-week work record only for the notification E2E. */
+	/** Seed linked past-week work for notification and retention E2E. */
 	private function seedClosedWeeklyGoal(House $house, HouseUser $member, RoomTask $roomTask): void {
 		$revision = $this->occurrenceMapper->findByRoomTask($roomTask->getId())[0] ?? null;
 		if ($revision === null) {
 			throw new \LogicException('Family seed must materialize an occurrence first');
 		}
 		$weekStart = new \DateTime('monday last week 00:00:00', new \DateTimeZone('UTC'));
+		// A historical performer must already have belonged to the household;
+		// this also makes the fixture eligible for quiet weekly recognition.
+		$member->setJoinedAt(clone $weekStart);
+		$this->houseUserMapper->update($member);
 		$completedAt = (clone $weekStart)->modify('+12 hours');
 		$occurrence = new Occurrence();
 		$occurrence->setHouseId($house->getId());

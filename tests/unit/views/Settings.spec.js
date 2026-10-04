@@ -360,6 +360,32 @@ describe('Settings.vue', () => {
 		expect(showSuccess).toHaveBeenCalled()
 	})
 
+	it('describes the reset as room/house-health only and names the retained facts (CS-PLAN-081 H4)', () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+
+		// The danger-zone card must not promise a whole-house wipe: only
+		// rooms and house health reset; setup/planning/history/finances/
+		// rewards/achievements survive the unchanged backend contract.
+		const cardText = wrapper.find('.danger-zone').text()
+		expect(cardText).toContain('house health')
+		expect(cardText).toContain('achievements are kept')
+		expect(cardText).not.toContain('start fresh')
+	})
+
+	it('reset confirmation explains the retained setup, tasks and history and cancel does nothing (CS-PLAN-081 H4)', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+
+		await wrapper.find('.danger-button').trigger('click')
+		const modalText = wrapper.find('.modal-overlay').text()
+		expect(modalText).toContain('house health is restored')
+		expect(modalText).toContain('completion history')
+		expect(modalText).not.toContain('delete all floors')
+
+		await wrapper.find('.modal-overlay .secondary-button').trigger('click')
+		expect(wrapper.vm.showResetModal).toBe(false)
+		expect(mockHouseState.resetHouse).not.toHaveBeenCalled()
+	})
+
 	it('disables save button when house name is unchanged', () => {
 		const wrapper = mount(Settings, {
 			global: {

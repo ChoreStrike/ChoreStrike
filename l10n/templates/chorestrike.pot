@@ -218,6 +218,9 @@ msgstr ""
 msgid "All rooms and tasks on this floor will be deleted."
 msgstr ""
 
+msgid "All rooms return to their initial clean state and house health is restored. Setup, structure, tasks, agreements, completion history, finances, reward requests, and achievements are kept."
+msgstr ""
+
 msgid "All tasks in this room will be deleted."
 msgstr ""
 
@@ -1382,9 +1385,6 @@ msgstr ""
 msgid "House set up successfully"
 msgstr ""
 
-msgid "House was reset"
-msgstr ""
-
 msgid "Household"
 msgstr ""
 
@@ -2321,7 +2321,7 @@ msgstr ""
 msgid "Reset House?"
 msgstr ""
 
-msgid "Reset all progress and start fresh. This cannot be undone."
+msgid "Resets all rooms to a clean state and restores house health. Setup, tasks, agreements, completion history, finances, reward requests, and achievements are kept. This cannot be undone."
 msgstr ""
 
 msgid "Restart the linked interval work on"
@@ -2403,6 +2403,9 @@ msgid "Room type must be at most 50 characters"
 msgstr ""
 
 msgid "Rooms"
+msgstr ""
+
+msgid "Rooms and house health were reset"
 msgstr ""
 
 msgid "Rooms per floor"
@@ -3086,9 +3089,6 @@ msgstr ""
 msgid "This will be recorded as taken over from {assignee}."
 msgstr ""
 
-msgid "This will delete all floors, rooms, tasks, and progress. This action cannot be undone."
-msgstr ""
-
 msgid "Thu"
 msgstr ""
 
@@ -3405,6 +3405,9 @@ msgid "Wipe the fridge, dishwasher, and washing machine fronts, and clean the ha
 msgstr ""
 
 msgid "Wipe the microwave inside and out."
+msgstr ""
+
+msgid "With a basement, the above-ground floors are limited to five. The basement counts toward the six-floor total."
 msgstr ""
 
 msgid "Withdraw participation"

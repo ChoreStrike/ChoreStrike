@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Tests\Integration;
 
 use OCA\ChoreStrike\Controller\UserController;
 use OCA\ChoreStrike\Exception\ConflictException;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -182,13 +183,16 @@ class RoleGuardApiTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * UpdateUserRole_LastOwnerDemotion_ThrowsConflictAndKeepsRow
+	 * UpdateUserRole_NonOwnerDirectCall_ThrowsForbiddenAndKeepsRow (CS-PLAN-081 H3)
 	 *
-	 * Service-level pin of the 409 invariant against the real DB: the
-	 * caller is NOT the target (bypassing the endpoint's owner gate), so
-	 * the last-owner guard is the one that fires.
+	 * CR-SEC-05 service-side owner authority: a direct (non-controller)
+	 * service call with a member session is denied BEFORE any write — the
+	 * role guards (self-demotion, last-owner) never see the request. The
+	 * last-owner Conflict itself is unreachable with an owner session (an
+	 * owner caller who is not the target implies a second owner) and stays
+	 * pinned at unit level (HouseServiceTest).
 	 */
-	public function testUpdateUserRole_LastOwnerDemotion_ThrowsConflictAndKeepsRow(): void {
+	public function testUpdateUserRole_NonOwnerDirectCall_ThrowsForbiddenAndKeepsRow(): void {
 		$houseId = $this->createHouse('rg_last_owner', 'Role Guard House F');
 		$this->addHouseMember($houseId, 'rg_caller_f', 'Caller F', 'member');
 
@@ -197,10 +201,10 @@ class RoleGuardApiTest extends IntegrationTestCase {
 		$targetId = $this->findHouseUserId($houseId, 'rg_last_owner');
 
 		try {
-			$houseService->updateUserRole($targetId, 'member', 'rg_caller_f');
-			self::fail('demoting the last owner must be rejected');
-		} catch (ConflictException $e) {
-			self::assertStringContainsString('last house owner', $e->getMessage());
+			$houseService->updateUserRole($targetId, 'member');
+			self::fail('a direct non-owner role change must be rejected service-side');
+		} catch (ForbiddenException $e) {
+			self::assertStringContainsString('Owner role required', $e->getMessage());
 		}
 
 		self::assertSame('owner', $this->fetchRole($targetId), 'the role row must be unchanged');
@@ -225,7 +229,7 @@ class RoleGuardApiTest extends IntegrationTestCase {
 
 		$this->actingAs('rg_wallet_owner');
 		$houseService = \OC::$server->get(HouseService::class);
-		$houseService->updateUserRole($targetId, 'child', 'rg_wallet_owner');
+		$houseService->updateUserRole($targetId, 'child');
 
 		self::assertSame('child', $this->fetchRole($targetId));
 		self::assertSame((int)$wallet->getId(), $this->fetchWalletId($targetId), 'the wallet binding must survive the role change');

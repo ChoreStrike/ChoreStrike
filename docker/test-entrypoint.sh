@@ -85,6 +85,8 @@ fi
 echo "Configuring trusted domains and URL..."
 su -s /bin/bash www-data -c "php occ config:system:set trusted_domains 1 --value=localhost:8080"
 su -s /bin/bash www-data -c "php occ config:system:set overwrite.cli.url --value=http://localhost:8080"
+su -s /bin/bash www-data -c "php occ config:system:set memcache.local --value='\OC\Memcache\APCu'"
+su -s /bin/bash www-data -c "php occ config:system:set ratelimit.protection.enabled --value true --type boolean"
 
 # The E2E setup logs several users in per run (including expected failures for
 # profile users the active DB profile does not create). Without this, the

@@ -6,7 +6,7 @@
 //
 // This runs as a Jest `setupFiles` entry (before the test framework loads),
 // because the warning fires during early module loading. `--disable-warning`
-// is Node >=21 only, but `engines` declares `^20.0.0`, so overriding
+// is Node >=21 only, but `engines` declares `^20.19.0`, so overriding
 // `process.emitWarning` keeps the Node-20 floor valid.
 
 const originalEmitWarning = process.emitWarning.bind(process)

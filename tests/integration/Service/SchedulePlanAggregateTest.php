@@ -559,10 +559,13 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 
 	public function testApply_StaleMemberRoleInput_RejectsWithoutWrites(): void {
 		$f = $this->previewWithMemberBudget();
+		// CS-PLAN-081 H3: the role mutation is owner-gated service-side —
+		// act as the owner BEFORE the direct service call (the actor
+		// identity now comes from the session, not a parameter).
+		$this->actingAs('dad');
 		$this->houseService->updateUserRole(
 			(int)\OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($f['houseId'], 'mom')->getId(),
-			'child',
-			'dad'
+			'child'
 		);
 
 		$this->assertStaleApplyConflictsWithoutWrites($f['houseId'], $f['roomTaskId'], $f['preview']);

@@ -2,6 +2,16 @@ module.exports = {
 	testEnvironment: 'jsdom',
 	moduleFileExtensions: ['js', 'json', 'vue'],
 	testPathIgnorePatterns: ['/node_modules/', '/archive/', '/\\.kilo/'],
+	// testPathIgnorePatterns keeps worktree tests out of the run list, but
+	// haste/module discovery still indexes manual mocks inside them
+	// (duplicate-mock warnings, TECH-JEST-001). modulePathIgnorePatterns is
+	// the discovery-level exclusion: those paths leave the haste map entirely.
+	// Separator-agnostic dots: jest's Windows pattern normalization mangles
+	// explicit [/\\] character classes.
+	modulePathIgnorePatterns: [
+		'<rootDir>.archive.',
+		'<rootDir>.[.]kilo.worktrees.',
+	],
 	collectCoverageFrom: [
 		'src/**/*.{js,vue}',
 		'!src/**/*.d.ts',

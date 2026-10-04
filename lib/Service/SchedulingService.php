@@ -32,6 +32,7 @@ class SchedulingService {
 	private CalendarService $calendarService;
 	private AuthorizationService $authorization;
 	private TransactionExecutor $transactions;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
@@ -40,6 +41,7 @@ class SchedulingService {
 		CalendarService $calendarService,
 		AuthorizationService $authorization,
 		TransactionExecutor $transactions,
+		AppLogger $appLogger,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->l10n = $l10n;
@@ -47,6 +49,7 @@ class SchedulingService {
 		$this->calendarService = $calendarService;
 		$this->authorization = $authorization;
 		$this->transactions = $transactions;
+		$this->appLogger = $appLogger;
 	}
 
 	/**
@@ -244,7 +247,7 @@ class SchedulingService {
 	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function updateMemberAvailabilityByNextcloudUserId(int $houseId, string $nextcloudUserId, array $updates): void {
-		$this->authorization->requireHouseOwner($houseId);
+		$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
 
 		// CS-PLAN-071 WP0: owner preference mutations run house-first and
@@ -252,13 +255,27 @@ class SchedulingService {
 		// validated and merged on the FRESH locked entity, so a concurrent
 		// member self-update committed behind the pre-read is never
 		// clobbered by a stale base preference set.
-		$this->transactions->run(function () use ($houseId, $user, $updates): void {
+		$changed = $this->transactions->run(function () use ($houseId, $user, $updates, &$actorId): bool {
 			$this->houseMapper->findForUpdate($houseId);
+			$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 			$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
+			$previous = $lockedUser->getSchedulingPreferences();
 			$preferences = $this->prepareMemberUpdates($lockedUser, $updates);
 			$lockedUser->setSchedulingPreferences($preferences);
 			$this->houseUserMapper->update($lockedUser);
+			return $preferences !== $previous;
 		});
+
+		// Q-081-03 operational audit: post-commit, numeric ids only — the
+		// preference payload never enters the context.
+		$this->appLogger->audit('Member availability updated by owner', [
+			'event' => 'house.planner.member_availability_updated',
+			'service' => 'SchedulingService',
+			'houseId' => $houseId,
+			'actorId' => $actorId,
+			'memberId' => (int)$user->getId(),
+			'outcome' => $changed ? 'changed' : 'no-change',
+		]);
 	}
 
 	/**

@@ -11,18 +11,10 @@ module.exports = {
 			},
 		},
 		{
-			// `localStorage` is a standard browser global (not a Node
-			// experimental builtin) — used for the persistent setup-wizard
-			// dismissal (CS-PLAN-042).
-			files: ['src/**/*.js', 'src/**/*.vue'],
-			rules: {
-				// `crypto` (Web Crypto API, used for the completion command
-				// idempotency UUID, CS-PLAN-072 WP1) joins `localStorage` as a
-				// standard browser global the Node builtin rule must ignore.
-				'n/no-unsupported-features/node-builtins': ['error', { ignores: ['localStorage', 'crypto'] }],
-			},
-		},
-		{
+			// eslint-plugin-n@16 (TECH-LINT-006 peer graph) does not track
+			// Node's experimental `localStorage`, so the browser global needs
+			// no ignore; Node's `crypto` builtin is supported on all targeted
+			// versions, so Web Crypto usage needs none either.
 			files: ['tests/e2e/**/*.ts'],
 			parser: '@typescript-eslint/parser',
 			parserOptions: {

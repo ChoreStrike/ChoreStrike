@@ -22,6 +22,8 @@ class SchedulingServiceTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
 	private HouseMapper $houseMapper;
 	private \OCA\ChoreStrike\Service\AuthorizationService $authorization;
+	private IDBConnection $db;
+	private \OCA\ChoreStrike\Service\AppLogger $appLogger;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -31,6 +33,8 @@ class SchedulingServiceTest extends TestCase {
 		// RF-058-05: owner-only paths gate service-side; default mock lets
 		// the gate pass, denial tests override it.
 		$this->authorization = $this->createMock(\OCA\ChoreStrike\Service\AuthorizationService::class);
+		$this->db = $this->createMock(IDBConnection::class);
+		$this->appLogger = $this->createMock(\OCA\ChoreStrike\Service\AppLogger::class);
 		// CS-PLAN-057: today's-energy window resolves the house timezone.
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
@@ -49,7 +53,8 @@ class SchedulingServiceTest extends TestCase {
 			$this->houseMapper,
 			new CalendarService(),
 			$this->authorization,
-			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(IDBConnection::class))
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
+			$this->appLogger
 		);
 	}
 
@@ -57,6 +62,59 @@ class SchedulingServiceTest extends TestCase {
 	 * CS-PLAN-071 WP0: the under-lock membership re-read returns the same
 	 * prepared entity so the locked write targets it.
 	 */
+	public function testUpdateMemberAvailability_DemotedUnderLock_DeniesWithoutWrite(): void {
+		$user = new HouseUser();
+		$user->setId(3);
+		$this->houseUserMapper->method('findByNextcloudUserId')->willReturn($user);
+		$checks = 0;
+		$this->authorization->expects($this->exactly(2))->method('requireHouseOwner')->willReturnCallback(
+			static function () use (&$checks): HouseUser {
+				if (++$checks === 2) {
+					throw new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required');
+				}
+				return new HouseUser();
+			}
+		);
+		$this->houseUserMapper->expects($this->never())->method('update');
+		$this->appLogger->expects($this->never())->method('audit');
+		$this->db->expects($this->never())->method('commit');
+		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+		$this->service->updateMemberAvailabilityByNextcloudUserId(1, 'member', []);
+	}
+
+	/** @dataProvider availabilityAuditProvider */
+	public function testUpdateMemberAvailability_AuditIsNumericTruthfulAndPostCommit(array $updates, string $outcome): void {
+		$user = new HouseUser();
+		$user->setId(3);
+		$user->setSchedulingPreferences(['energyBudget' => ['monday' => 10], 'maxDailyTasks' => 4]);
+		$this->houseUserMapper->method('findByNextcloudUserId')->willReturn($user);
+		$this->stubLockedMember($user);
+		$actor = new HouseUser();
+		$actor->setId(7);
+		$this->authorization->method('requireHouseOwner')->willReturn($actor);
+		$committed = false;
+		$this->db->method('commit')->willReturnCallback(static function () use (&$committed): void {
+			$committed = true;
+		});
+		$this->appLogger->expects($this->once())->method('audit')->with($this->anything(),
+			$this->callback(static function (array $context) use (&$committed, $outcome): bool {
+				return $committed && $context['actorId'] === 7 && $context['memberId'] === 3
+					&& $context['outcome'] === $outcome
+					&& !isset($context['preferences'], $context['nextcloudUserId']);
+			})
+		);
+		$this->service->updateMemberAvailabilityByNextcloudUserId(1, 'member', $updates);
+	}
+
+	public static function availabilityAuditProvider(): array {
+		return [
+			'empty' => [[], 'no-change'],
+			'identical' => [['energyBudget' => ['Monday' => 10], 'maxDailyTasks' => 4], 'no-change'],
+			'changed' => [['energyBudget' => ['monday' => 11]], 'changed'],
+			'cleared limit' => [['maxDailyTasks' => null], 'changed'],
+		];
+	}
+
 	private function stubLockedMember(HouseUser $houseUser): void {
 		$this->houseUserMapper->method('findForUpdate')->willReturn($houseUser);
 	}

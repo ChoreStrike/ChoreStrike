@@ -115,7 +115,7 @@ class HouseSetupService {
 	 * @throws \InvalidArgumentException on any validation failure
 	 */
 	public function applySetup(int $houseId, array $payload): array {
-		$this->authorization->requireHouseOwner($houseId);
+		$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 
 		$level = $this->validateBasics($payload);
 		$options = $this->validateOptions($payload['options'] ?? []);
@@ -129,11 +129,12 @@ class HouseSetupService {
 		$nextDue = new \DateTime();
 		$nextDue->add(new \DateInterval('P1D'));
 
-		$outcome = $this->transactions->run(function () use ($houseId, $floors, $level, $houseName, $nextDue): array {
+		$outcome = $this->transactions->run(function () use ($houseId, $floors, $level, $houseName, $nextDue, &$actorId): array {
 			// First lock of the documented order (house → room_task →
 			// task/assignee/reward): serialize concurrent applies on the
 			// house row before the first-run gate recheck (CS-PLAN-062 §3.1).
 			$house = $this->houseMapper->findForUpdate($houseId);
+			$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 
 			// First-run gate, enforced INSIDE the transaction (CR-WF-03):
 			// under the lock the count cannot race a concurrent apply, so
@@ -276,7 +277,7 @@ class HouseSetupService {
 			];
 		});
 
-		return [
+		$result = [
 			'floors' => count($floors),
 			'rooms' => $outcome['roomCount'],
 			'tasks' => $outcome['taskCount'],
@@ -286,6 +287,20 @@ class HouseSetupService {
 			// can confirm it; otherwise the existing name).
 			'houseName' => $outcome['house']->getName(),
 		];
+
+		// Q-081-03 operational audit: post-commit, minimal numeric context —
+		// structure counts only, never names or template payloads.
+		$this->appLogger->audit('Setup applied', [
+			'event' => 'house.setup.applied',
+			'service' => 'HouseSetupService',
+			'houseId' => $houseId,
+			'actorId' => $actorId,
+			'floorCount' => count($floors),
+			'roomCount' => (int)$outcome['roomCount'],
+			'taskCount' => (int)$outcome['taskCount'],
+			'outcome' => 'applied',
+		]);
+		return $result;
 	}
 
 	/**

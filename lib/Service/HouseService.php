@@ -22,6 +22,8 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
+use OCA\ChoreStrike\Exception\CannotDemoteSelfException;
+use OCA\ChoreStrike\Exception\CannotRemoveOwnerException;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
@@ -133,11 +135,12 @@ class HouseService {
 	 * controllers must not persist through mappers directly; same
 	 * ownership contract as removeHouseMember/updateUserRole).
 	 *
-	 * The caller's authorization gates (bootstrap preamble, then
-	 * requireHouseOwner) run BEFORE this method, so a non-owner cannot
-	 * probe which Nextcloud accounts exist (404 vs 403 oracle,
-	 * CS-PLAN-061). This method resolves the account and performs the
-	 * idempotent membership write.
+	 * The owner authority is enforced SERVICE-SIDE here (CR-SEC-05 /
+	 * CS-PLAN-081 H3): the gate runs before the account/email lookup so a
+	 * non-owner cannot probe which Nextcloud accounts exist for a given
+	 * email (404 vs 403 oracle, CS-PLAN-061), and it is re-checked on the
+	 * house row inside the transaction. The HTTP layer may gate again —
+	 * defense in depth, no anonymous compatibility path.
 	 *
 	 * CS-PLAN-071 WP0: the invite runs as one house-first aggregate and
 	 * creates the member's persistent wallet inside it — the financial
@@ -151,9 +154,14 @@ class HouseService {
 	 * @param string $email Trimmed email address of the account to invite
 	 * @param string $role One of VALID_ROLES
 	 * @return HouseUser The invited (or already-member) house user
+	 * @throws ForbiddenException when the current user is not a house owner
 	 * @throws NotFoundException when no Nextcloud account matches the email
 	 */
 	public function inviteMember(int $houseId, string $email, string $role): HouseUser {
+		// CS-PLAN-081 H3: owner authority BEFORE the account lookup (the
+		// lookup itself must not leak account existence to non-owners).
+		$this->authorization->requireHouseOwner($houseId);
+
 		$ncUsers = $this->userManager->getByEmail($email);
 		if (empty($ncUsers)) {
 			throw new NotFoundException($this->l10n->t('No Nextcloud user found with this email address'));
@@ -164,13 +172,32 @@ class HouseService {
 		$uid = $ncUser->getUID();
 		$displayName = $ncUser->getDisplayName();
 
-		return $this->transactions->run(function () use ($houseId, $uid, $displayName, $role): HouseUser {
+		$created = false;
+		$actorId = 0;
+		$houseUser = $this->transactions->run(function () use ($houseId, $uid, $displayName, $role, &$created, &$actorId): HouseUser {
 			// FIRST lock of the documented order (house → membership → wallet).
 			$this->houseMapper->findForUpdate($houseId);
+			// Owner authority re-checked on the locked house row: a demotion
+			// racing the invite can never slip a write through.
+			$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 
+			$created = $this->houseUserMapper->findByHouseAndUser($houseId, $uid) === null;
 			$houseUser = $this->houseUserMapper->createOrGet($houseId, $uid, $displayName, $role);
 			return $this->walletService->ensureBinding($houseId, $houseUser);
 		});
+
+		// Q-081-03 operational audit: success only AFTER the transaction
+		// committed; a no-op re-invite is distinguishable by the outcome.
+		$this->appLogger->audit('House member invite completed', [
+			'event' => 'house.member.invited',
+			'service' => 'HouseService',
+			'houseId' => $houseId,
+			'actorId' => $actorId,
+			'memberId' => (int)$houseUser->getId(),
+			'role' => $houseUser->getRole(),
+			'outcome' => $created ? 'invited' : 'already-member',
+		]);
+		return $houseUser;
 	}
 
 	/**
@@ -215,35 +242,47 @@ class HouseService {
 	 * (cancelling every unfulfilled reward request and releasing its
 	 * reservation before access ends) is implemented by the WP7 hook below.
 	 *
-	 * The caller (controller) is responsible for the requireHouseOwner
-	 * gate; this method guards its own invariant: the target must not be
-	 * an owner (throws ForbiddenException so the API can map its
+	 * The owner authority is enforced SERVICE-SIDE here (CR-SEC-05 /
+	 * CS-PLAN-081 H3) before the transaction and re-checked on the locked
+	 * house row inside it; the actor for the C4e departure hook is the
+	 * authoritative owner from that gate, never an unchecked caller
+	 * parameter. The HTTP layer may gate again — defense in depth, no
+	 * anonymous compatibility path.
+	 *
+	 * The method guards its own invariant: the target must not be an owner
+	 * (throws CannotRemoveOwnerException so the API can map its
 	 * CANNOT_REMOVE_OWNER 403).
 	 *
 	 * @param int $houseUserId The house user ID of the member to remove
-	 * @throws ForbiddenException if the target is the house owner
+	 * @throws CannotRemoveOwnerException if the target is the house owner
+	 * @throws ForbiddenException if the current user is not a house owner
 	 * @throws DoesNotExistException if the house user does not exist
 	 */
-	public function removeHouseMember(int $houseUserId, ?string $callerUserId = null): void {
+	public function removeHouseMember(int $houseUserId): void {
 		$houseUser = $this->houseUserMapper->find($houseUserId);
 
 		if ($houseUser->isOwner()) {
-			throw new ForbiddenException($this->l10n->t('Cannot remove the house owner'));
+			throw new CannotRemoveOwnerException($this->l10n->t('Cannot remove the house owner'));
 		}
+
+		// CS-PLAN-081 H3: service-side owner gate before any write.
+		$this->authorization->requireHouseOwner($houseUser->getHouseId());
 
 		$ncUserId = $houseUser->getNextcloudUserId();
 		$houseId = $houseUser->getHouseId();
 		$walletId = $houseUser->getWalletId();
+		$actor = null;
 
-		$this->transactions->run(function () use ($houseUserId, $ncUserId, $houseId, $walletId, $callerUserId): void {
+		$this->transactions->run(function () use ($houseUserId, $ncUserId, $houseId, $walletId, &$actor): void {
 			// FIRST lock of the documented order: the house row, then the
-			// membership row — the owner invariant is re-checked on the
-			// LOCKED row (a promotion racing the read can never slip an
-			// owner deletion through).
+			// membership row — the owner invariants are re-checked on the
+			// LOCKED rows (a promotion/demotion racing the read can never
+			// slip through).
 			$this->houseMapper->findForUpdate($houseId);
+			$actor = $this->authorization->requireHouseOwner($houseId);
 			$houseUser = $this->houseUserMapper->findForUpdate($houseUserId);
 			if ($houseUser->isOwner()) {
-				throw new ForbiddenException($this->l10n->t('Cannot remove the house owner'));
+				throw new CannotRemoveOwnerException($this->l10n->t('Cannot remove the house owner'));
 			}
 
 			// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4, C4): cancel every
@@ -252,9 +291,6 @@ class HouseService {
 			// owner as the audit/digest actor. Booked value and terminal
 			// history are preserved for the retained wallet.
 			if ($walletId !== null) {
-				$actor = $callerUserId !== null
-					? $this->houseUserMapper->findByHouseAndUser($houseId, $callerUserId)
-					: null;
 				$this->rewardRequestService->handleMembershipRemovedUnderLock($houseId, $walletId, $actor);
 			}
 
@@ -277,6 +313,17 @@ class HouseService {
 				$this->pauseService->handleMembershipRemovedUnderLock($houseId, $walletId);
 			}
 		});
+
+		// Q-081-03 operational audit: success only AFTER the transaction
+		// committed, with the authoritative actor from the locked gate.
+		$this->appLogger->audit('House member removal completed', [
+			'event' => 'house.member.removed',
+			'service' => 'HouseService',
+			'houseId' => $houseId,
+			'actorId' => (int)$actor->getId(),
+			'memberId' => $houseUserId,
+			'outcome' => 'removed',
+		]);
 	}
 
 	/**
@@ -290,17 +337,21 @@ class HouseService {
 	 *  - the last remaining owner may not be demoted (throws
 	 *    ConflictException so the API can map CANNOT_DEMOTE_LAST_OWNER 409).
 	 *
-	 * The caller (controller) is responsible for the requireHouseOwner gate.
+	 * The owner authority is enforced SERVICE-SIDE here (CR-SEC-05 /
+	 * CS-PLAN-081 H3) before the transaction and re-checked on the locked
+	 * house row inside it. The self-demotion comparison uses the current
+	 * session identity from the authoritative authorization service —
+	 * never an unchecked caller parameter. The HTTP layer may gate again —
+	 * defense in depth, no anonymous compatibility path.
 	 *
 	 * @param int $houseUserId The house user ID of the member to change
 	 * @param string $role The new role (owner, member, child)
-	 * @param string $callerUserId Nextcloud user ID of the acting user
 	 * @throws \InvalidArgumentException if the role is not in the whitelist
-	 * @throws ForbiddenException if the caller demotes themselves
+	 * @throws ForbiddenException if the caller demotes themselves or is not a house owner
 	 * @throws ConflictException if the target is the last remaining owner
 	 * @throws DoesNotExistException if the house user does not exist
 	 */
-	public function updateUserRole(int $houseUserId, string $role, string $callerUserId): HouseUser {
+	public function updateUserRole(int $houseUserId, string $role): HouseUser {
 		if (!in_array($role, self::VALID_ROLES, true)) {
 			throw new \InvalidArgumentException('Invalid role. Must be owner, member, or child');
 		}
@@ -308,15 +359,24 @@ class HouseService {
 		$houseUser = $this->houseUserMapper->find($houseUserId);
 		$houseId = $houseUser->getHouseId();
 
-		return $this->transactions->run(function () use ($houseUserId, $role, $callerUserId, $houseId): HouseUser {
+		// CS-PLAN-081 H3: service-side owner gate before the transaction.
+		$this->authorization->requireHouseOwner($houseId);
+		// The actor identity is the authoritative session user (CR-SEC-05:
+		// not an unchecked caller parameter).
+		$callerUserId = $this->authorization->requireCurrentUserId();
+		$actor = null;
+		$changed = false;
+
+		$updated = $this->transactions->run(function () use ($houseUserId, $role, $callerUserId, $houseId, &$actor, &$changed): HouseUser {
 			// FIRST lock of the documented order: the house row, then the
 			// membership row — the guards below evaluate the FRESH state.
 			$this->houseMapper->findForUpdate($houseId);
+			$actor = $this->authorization->requireHouseOwner($houseId);
 			$houseUser = $this->houseUserMapper->findForUpdate($houseUserId);
 
 			if ($role !== 'owner') {
 				if ($houseUser->getNextcloudUserId() === $callerUserId) {
-					throw new ForbiddenException($this->l10n->t('Cannot demote yourself'));
+					throw new CannotDemoteSelfException($this->l10n->t('Cannot demote yourself'));
 				}
 				if ($houseUser->isOwner()
 					&& $this->houseUserMapper->countOwnersForHouse($houseUser->getHouseId()) <= 1) {
@@ -337,7 +397,6 @@ class HouseService {
 			$updated = $this->houseUserMapper->update($houseUser);
 
 			if ($changed) {
-				$actor = $this->houseUserMapper->findByHouseAndUser($houseId, $callerUserId);
 				$this->rewardRequestService->handleRequesterRoleChangedUnderLock(
 					$houseId,
 					$updated,
@@ -348,6 +407,19 @@ class HouseService {
 			}
 			return $updated;
 		});
+
+		// Q-081-03 operational audit: success only AFTER the transaction
+		// committed; a no-op role write is distinguishable by the outcome.
+		$this->appLogger->audit('House member role change completed', [
+			'event' => 'house.member.role_changed',
+			'service' => 'HouseService',
+			'houseId' => $houseId,
+			'actorId' => (int)$actor->getId(),
+			'memberId' => $houseUserId,
+			'role' => $updated->getRole(),
+			'outcome' => $changed ? 'changed' : 'no-change',
+		]);
+		return $updated;
 	}
 
 	/**
@@ -428,10 +500,15 @@ class HouseService {
 	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function updateHouse(int $houseId, string $name, ?string $timezone = null, ?bool $rankingEnabled = null): House {
-		$this->authorization->requireHouseOwner($houseId);
+		$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 
-		return $this->transactions->run(function () use ($houseId, $name, $timezone, $rankingEnabled): House {
+		$changed = false;
+		$updated = $this->transactions->run(function () use ($houseId, $name, $timezone, $rankingEnabled, &$actorId, &$changed): House {
 			$house = $this->houseMapper->findForUpdate($houseId);
+			$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
+			$changed = $house->getName() !== $name
+				|| ($timezone !== null && $house->getTimezone() !== $timezone)
+				|| ($rankingEnabled !== null && $house->getRankingEnabled() !== $rankingEnabled);
 			$house->setName($name);
 			if ($timezone !== null) {
 				if ($house->getTimezone() !== $timezone) {
@@ -460,6 +537,17 @@ class HouseService {
 			$house->touch();
 			return $this->houseMapper->update($house);
 		});
+
+		// Q-081-03 operational audit: success only AFTER the commit; the
+		// user-authored house name never enters the context.
+		$this->appLogger->audit('House settings update completed', [
+			'event' => 'house.settings.updated',
+			'service' => 'HouseService',
+			'houseId' => $houseId,
+			'actorId' => $actorId,
+			'outcome' => $changed ? 'changed' : 'no-change',
+		]);
+		return $updated;
 	}
 
 	/**
@@ -573,11 +661,6 @@ class HouseService {
 			if ($expectedVersion !== null && $house->getStateVersion() !== $expectedVersion) {
 				throw new ConflictException($this->l10n->t('The house state changed since it was displayed'));
 			}
-			$this->appLogger->warning('Resetting house to initial state', [
-				'service' => 'HouseService',
-				'houseId' => $houseId,
-			]);
-
 			$at = new \DateTime();
 			foreach ($this->roomMapper->findByHouseId($houseId) as $room) {
 				if ($room->getDeletedAt() !== null) {
@@ -592,11 +675,9 @@ class HouseService {
 			$house->touch();
 			$this->houseMapper->update($house);
 			return ['houseId' => $houseId];
-		});
-		// The replay path skips the aggregate; authorization must still hold.
-		if ($command['replay']) {
+		}, function () use ($houseId): void {
 			$this->authorization->requireHouseOwner($houseId);
-		}
+		});
 	}
 
 	/**

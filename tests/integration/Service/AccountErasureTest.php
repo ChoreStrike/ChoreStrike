@@ -597,6 +597,9 @@ class AccountErasureTest extends IntegrationTestCase {
 		$houseId = $this->createHouse('ae_dep_owner', 'AE Departure House');
 		$this->actingAs('ae_dep_owner');
 		$this->ensureUserWithEmail('ae_dep_member', 'ae_dep_member@example.com');
+		// CS-PLAN-081 H3: ensureUserWithEmail leaves the invited account in
+		// the session — the owner session must be explicit again.
+		$this->actingAs('ae_dep_owner');
 
 		// Invite (creates membership + wallet).
 		$houseService->inviteMember($houseId, 'ae_dep_member@example.com', 'member');
@@ -644,6 +647,9 @@ class AccountErasureTest extends IntegrationTestCase {
 		$houseId = $this->createHouse('ae_dp2_owner', 'AE Departed-Only House');
 		$this->actingAs('ae_dp2_owner');
 		$this->ensureUserWithEmail('ae_dp2_member', 'ae_dp2_member@example.com');
+		// CS-PLAN-081 H3: restore the owner session after provisioning the
+		// invited account (ensureUserWithEmail switches the session).
+		$this->actingAs('ae_dp2_owner');
 
 		$houseService->inviteMember($houseId, 'ae_dp2_member@example.com', 'member');
 		$memberHouseUserId = $this->findHouseUserId($houseId, 'ae_dp2_member');

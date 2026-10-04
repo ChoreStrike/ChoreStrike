@@ -34,6 +34,7 @@ class MinigameScoreMapper extends QBMapper {
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('game_id', $qb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)))
 			->orderBy('score', 'DESC')
+			->addOrderBy('id', 'ASC')
 			->setMaxResults($limit);
 
 		return $this->findEntities($qb);
@@ -51,6 +52,7 @@ class MinigameScoreMapper extends QBMapper {
 			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
 			->andWhere($qb->expr()->eq('game_id', $qb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)))
 			->orderBy('score', 'DESC')
+			->addOrderBy('id', 'ASC')
 			->setMaxResults(1);
 
 		try {
@@ -74,6 +76,7 @@ class MinigameScoreMapper extends QBMapper {
 			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
 			->andWhere($qb->expr()->eq('game_id', $qb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)))
 			->orderBy('score', 'DESC')
+			->addOrderBy('id', 'ASC')
 			->setMaxResults($limit);
 
 		return $this->findEntities($qb);
@@ -98,6 +101,7 @@ class MinigameScoreMapper extends QBMapper {
 			->andWhere($qb->expr()->eq('game_id', $qb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_DATE)))
 			->orderBy('score', 'DESC')
+			->addOrderBy('id', 'ASC')
 			->setMaxResults($limit);
 
 		return $this->findEntities($qb);

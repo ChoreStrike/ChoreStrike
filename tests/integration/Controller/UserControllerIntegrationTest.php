@@ -305,7 +305,7 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->expects($this->once())
 			->method('removeHouseMember')
 			->with(1)
-			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Cannot remove the house owner'));
+			->willThrowException(new \OCA\ChoreStrike\Exception\CannotRemoveOwnerException('Cannot remove the house owner'));
 
 		$response = $this->controller->remove(1);
 
@@ -336,12 +336,9 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
 			->with($houseUser->getHouseId());
-		$this->authService->expects($this->once())
-			->method('requireCurrentUserId')
-			->willReturn('owner1');
 		$this->houseService->expects($this->once())
 			->method('updateUserRole')
-			->with(2, 'child', 'owner1')
+			->with(2, 'child')
 			->willReturn($updatedUser);
 
 		$response = $this->controller->updateRole(2, 'child');
@@ -369,12 +366,9 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
 			->with($houseUser->getHouseId());
-		$this->authService->expects($this->once())
-			->method('requireCurrentUserId')
-			->willReturn('owner1');
 		$this->houseService->expects($this->once())
 			->method('updateUserRole')
-			->with(2, 'superadmin', 'owner1')
+			->with(2, 'superadmin')
 			->willThrowException(new \InvalidArgumentException('Invalid role. Must be owner, member, or child'));
 
 		$response = $this->controller->updateRole(2, 'superadmin');
@@ -406,10 +400,9 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->method('assertHouseMember')->with($house->getId());
 		$this->houseService->method('findHouseUserScopedToHouse')->willReturn($houseUser);
 		$this->authService->method('requireHouseOwner')->with($house->getId());
-		$this->authService->method('requireCurrentUserId')->willReturn('owner1');
 		$this->houseService->expects($this->once())
 			->method('updateUserRole')
-			->with(2, 'child', 'owner1')
+			->with(2, 'child')
 			->willReturn($updatedUser);
 
 		$response = $this->controller->updateRole(2, 'child');

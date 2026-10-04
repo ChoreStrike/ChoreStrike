@@ -257,7 +257,7 @@ class RewardLifecycleTest extends IntegrationTestCase {
 		$adultBefore = $houseUserMapper->findByNextcloudUserId($f['houseId'], $f['adultUid']);
 
 		$this->actingAs('rw_owner');
-		\OC::$server->get(HouseService::class)->updateUserRole((int)$adultBefore->getId(), 'child', 'rw_owner');
+		\OC::$server->get(HouseService::class)->updateUserRole((int)$adultBefore->getId(), 'child');
 
 		$row = $this->requestRow($requestId);
 		self::assertSame(RewardRequest::STATE_PENDING, $row['state'], 'fresh owner approval required after the rebase');
@@ -290,7 +290,7 @@ class RewardLifecycleTest extends IntegrationTestCase {
 		// A no-op child write.
 		$this->actingAs('rw_owner');
 		$child = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByNextcloudUserId($f['houseId'], $f['childUid']);
-		\OC::$server->get(HouseService::class)->updateUserRole((int)$child->getId(), 'child', 'rw_owner');
+		\OC::$server->get(HouseService::class)->updateUserRole((int)$child->getId(), 'child');
 
 		$row = $this->requestRow($requestId);
 		self::assertSame(RewardRequest::STATE_APPROVED, $row['state'], 'the fresh approval survives');

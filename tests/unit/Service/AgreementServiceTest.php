@@ -53,6 +53,7 @@ class AgreementServiceTest extends TestCase {
 	private DailyCapacityService|MockObject $dailyCapacity;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
 	private CommandService|MockObject $commands;
+	private bool $commandReplay = false;
 
 	/** @var list<array{action: string, payload: array<string, mixed>}> */
 	private array $capturedCommands = [];
@@ -107,9 +108,10 @@ class AgreementServiceTest extends TestCase {
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$this->commands = $this->createMock(CommandService::class);
 		$this->commands->method('runCommand')->willReturnCallback(
-			function (int $houseId, int $actorId, string $commandId, string $action, array $payload, callable $fn): array {
+			function (int $houseId, int $actorId, string $commandId, string $action, array $payload, callable $fn, ?callable $guard = null): array {
 				$this->capturedCommands[] = ['action' => $action, 'payload' => $payload];
-				return ['result' => $fn(), 'replay' => false];
+				$guard?->__invoke($houseId, $actorId);
+				return ['result' => $this->commandReplay ? ['roomTaskId' => 5] : $fn(), 'replay' => $this->commandReplay];
 			}
 		);
 
@@ -256,6 +258,49 @@ class AgreementServiceTest extends TestCase {
 		$task->setId(10);
 		$this->taskMapper->method('find')->willReturn($task);
 		$this->taskAccessPolicy->method('canViewTask')->willReturn(true);
+	}
+
+	/** @dataProvider authorityLossProvider */
+	public function testCommand_AuthorityChangedUnderLock_DeniesBeforeAggregateAndReplay(string $method, string $loss, bool $replay): void {
+		$actor = $this->actor();
+		$fresh = clone $actor;
+		if ($loss === 'departed') {
+			$fresh = null;
+		} elseif ($loss === 'rejoined') {
+			$fresh->setId(99);
+		} elseif ($loss === 'demoted') {
+			$fresh->setRole('member');
+		}
+		$this->commandReplay = $replay;
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturnOnConsecutiveCalls($actor, $fresh);
+		$roomTask = new RoomTask();
+		$roomTask->setId(5);
+		$roomTask->setTaskId(10);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturnOnConsecutiveCalls([$roomTask], $loss === 'foreign' ? [] : [$roomTask]);
+		$this->roomTaskMapper->expects($this->never())->method('lockForUpdate');
+		$this->taskMapper->method('find')->willReturn(new Task());
+		$this->taskAccessPolicy->method('canViewTask')->willReturnOnConsecutiveCalls(true, $loss !== 'invisible');
+		$this->occurrenceService->expects($this->never())->method('resolveAgreedKeyUnderLock');
+		$this->expectException(in_array($loss, ['foreign', 'invisible'], true) ? NotFoundException::class : ForbiddenException::class);
+		$payload = ['commandId' => $this->amendPayload()['commandId'], 'occurrenceId' => '3:1',
+			'expectedVersion' => 0, 'selectionToken' => 'tok', 'consent' => true, 'workDate' => '2026-10-07', 'workZone' => 'UTC'];
+		match ($method) {
+			'amend' => $this->service->amend(7, 'dad', 5, $this->amendPayload()),
+			'catchUp' => $this->service->catchUp(7, 'dad', 5, $payload),
+			'restart' => $this->service->restart(7, 'dad', 5, array_diff_key($payload, ['selectionToken' => true, 'workZone' => true])),
+		};
+	}
+
+	public static function authorityLossProvider(): array {
+		$cases = [];
+		foreach (['amend', 'catchUp', 'restart'] as $method) {
+			foreach (['demoted', 'departed', 'rejoined', 'foreign', 'invisible'] as $loss) {
+				foreach ([false, true] as $replay) {
+					$cases[$method . ' ' . $loss . ' replay=' . (int)$replay] = [$method, $loss, $replay];
+				}
+			}
+		}
+		return $cases;
 	}
 
 	public function testAmend_MemberActor_Forbidden(): void {

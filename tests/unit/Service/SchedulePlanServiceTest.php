@@ -52,6 +52,7 @@ class SchedulePlanServiceTest extends TestCase {
 	private SchedulePlanService $service;
 	private string $todayKey;
 	private HouseUser $owner;
+	private \OCA\ChoreStrike\Service\CommandService|MockObject $commands;
 	/** Toggled by visibility-denial tests (the stub reads this flag). */
 	private bool $allowView = true;
 
@@ -103,6 +104,7 @@ class SchedulePlanServiceTest extends TestCase {
 			$l10n,
 		);
 
+		$this->commands = $this->createMock(\OCA\ChoreStrike\Service\CommandService::class);
 		$this->service = new SchedulePlanService(
 			$this->roomTaskMapper,
 			$this->taskMapper,
@@ -112,7 +114,7 @@ class SchedulePlanServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->completedTaskMapper,
 			$this->occurrenceService,
-			$this->createMock(\OCA\ChoreStrike\Service\CommandService::class),
+			$this->commands,
 			$this->dailyCapacity,
 			$pauseProjection,
 			new TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
@@ -123,6 +125,43 @@ class SchedulePlanServiceTest extends TestCase {
 
 		$this->todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
 		$this->owner = $this->member('dad', 1, 'owner', ['monday' => 10, 'tuesday' => 10, 'wednesday' => 10, 'thursday' => 10, 'friday' => 10, 'saturday' => 10, 'sunday' => 10]);
+	}
+
+	/** @dataProvider applyAuthorityProvider */
+	public function testApply_AuthorityChangedUnderLock_DeniesBeforeReceiptOrAggregate(string $loss, bool $replay): void {
+		$fresh = clone $this->owner;
+		if ($loss === 'departed') {
+			$fresh = null;
+		} elseif ($loss === 'rejoined') {
+			$fresh->setId(99);
+		} elseif ($loss === 'demoted') {
+			$fresh->setRole('member');
+		}
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($fresh);
+		$row = $this->roomTask(5, 10, $this->todayKey);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn($loss === 'foreign' ? [] : [$row]);
+		$this->taskMapper->method('findByIds')->willReturn([10 => $this->definition(10)]);
+		$this->allowView = $loss !== 'invisible';
+		$this->roomTaskMapper->expects($this->never())->method('lockForUpdate');
+		$this->commands->method('runCommand')->willReturnCallback(
+			static function (int $houseId, int $actorId, string $uuid, string $action, array $payload, callable $aggregate, callable $guard) use ($replay): array {
+				$guard($houseId, $actorId);
+				self::fail('denied authority must not reach receipt lookup or aggregate');
+				return ['result' => [], 'replay' => $replay];
+			}
+		);
+		$this->expectException(in_array($loss, ['foreign', 'invisible'], true) ? NotFoundException::class : ForbiddenException::class);
+		$this->service->apply(7, $this->owner, $this->todayKey, [5], [], 'previous-preview', '11111111-2222-4333-8444-555555555555', true);
+	}
+
+	public static function applyAuthorityProvider(): array {
+		$cases = [];
+		foreach (['demoted', 'departed', 'rejoined', 'foreign', 'invisible'] as $loss) {
+			foreach ([false, true] as $replay) {
+				$cases[$loss . ' replay=' . (int)$replay] = [$loss, $replay];
+			}
+		}
+		return $cases;
 	}
 
 	// -----------------------------------------------------------------

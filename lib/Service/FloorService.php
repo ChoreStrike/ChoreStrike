@@ -88,17 +88,29 @@ class FloorService {
 	public function createFloor(int $houseId, string $name, ?int $sortOrder = null): Floor {
 		// Structure mutation → owner-only in the service (controller checks
 		// remain as defense in depth).
-		$this->authorization->requireHouseOwner($houseId);
+		$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 
-		return $this->transactions->run(function () use ($houseId, $name, $sortOrder): Floor {
+		$floor = $this->transactions->run(function () use ($houseId, $name, $sortOrder, &$actorId): Floor {
 			// FIRST lock of the documented order: the house row.
 			$this->houseMapper->findForUpdate($houseId);
+			$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 
 			// Auto-calculate sort order if not provided
 			$sortOrder ??= count($this->floorMapper->findByHouseId($houseId));
 
 			return $this->floorMapper->create($houseId, $name, $sortOrder);
 		});
+
+		// Q-081-03 operational audit: post-commit, minimal numeric context.
+		$this->appLogger->audit('Floor created', [
+			'event' => 'house.floor.created',
+			'service' => 'FloorService',
+			'houseId' => $houseId,
+			'actorId' => $actorId,
+			'floorId' => (int)$floor->getId(),
+			'outcome' => 'created',
+		]);
+		return $floor;
 	}
 
 	/**
@@ -114,7 +126,7 @@ class FloorService {
 	 */
 	public function updateFloorName(int $floorId, string $name): Floor {
 		$floor = $this->floorMapper->find($floorId);
-		$this->authorization->requireHouseOwner($floor->getHouseId());
+		$actorId = (int)$this->authorization->requireHouseOwner($floor->getHouseId())->getId();
 
 		// Q-70-01: tombstoned structure is immutable evidence — renames
 		// answer 404 like a missing floor.
@@ -122,8 +134,10 @@ class FloorService {
 			throw new NotFoundException($this->l10n->t('Floor not found'));
 		}
 
-		return $this->transactions->run(function () use ($floorId, $name, $floor): Floor {
+		$changed = false;
+		$updated = $this->transactions->run(function () use ($floorId, $name, $floor, &$actorId, &$changed): Floor {
 			$this->houseMapper->findForUpdate($floor->getHouseId());
+			$actorId = (int)$this->authorization->requireHouseOwner($floor->getHouseId())->getId();
 			$fresh = $this->floorMapper->find($floorId);
 
 			// Authoritative tombstone gate (Q-70-01): a floor deleted
@@ -132,9 +146,21 @@ class FloorService {
 				throw new NotFoundException($this->l10n->t('Floor not found'));
 			}
 
+			$changed = $fresh->getName() !== $name;
 			$fresh->setName($name);
 			return $this->floorMapper->update($fresh);
 		});
+
+		// Q-081-03 operational audit: post-commit, minimal numeric context.
+		$this->appLogger->audit('Floor rename completed', [
+			'event' => 'house.floor.renamed',
+			'service' => 'FloorService',
+			'houseId' => (int)$floor->getHouseId(),
+			'actorId' => $actorId,
+			'floorId' => $floorId,
+			'outcome' => $changed ? 'changed' : 'no-change',
+		]);
+		return $updated;
 	}
 
 	/**
@@ -150,11 +176,13 @@ class FloorService {
 	 */
 	public function reorderFloors(int $houseId, array $floorOrder): array {
 		// Structure mutation → owner-only in the service (CS-PLAN-061 §3.4).
-		$this->authorization->requireHouseOwner($houseId);
+		$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 
-		return $this->transactions->run(function () use ($houseId, $floorOrder): array {
+		$changed = false;
+		$updatedFloors = $this->transactions->run(function () use ($houseId, $floorOrder, &$actorId, &$changed): array {
 			// FIRST lock of the documented order: the house row.
 			$this->houseMapper->findForUpdate($houseId);
+			$actorId = (int)$this->authorization->requireHouseOwner($houseId)->getId();
 
 			$floors = $this->floorMapper->findByHouseId($houseId);
 
@@ -173,6 +201,7 @@ class FloorService {
 			$floorIdToOrder = [];
 			foreach ($floorOrder as $index => $floorId) {
 				$floorIdToOrder[$floorId] = $index;
+				$changed = $changed || (int)$floorsById[$floorId]->getSortOrder() !== $index;
 			}
 			$this->floorMapper->updateSortOrders($floorIdToOrder);
 
@@ -187,6 +216,17 @@ class FloorService {
 
 			return $updatedFloors;
 		});
+
+		// Q-081-03 operational audit: post-commit, minimal numeric context.
+		$this->appLogger->audit('Floor reorder completed', [
+			'event' => 'house.floor.reordered',
+			'service' => 'FloorService',
+			'houseId' => $houseId,
+			'actorId' => $actorId,
+			'floorCount' => count($updatedFloors),
+			'outcome' => $changed ? 'changed' : 'no-change',
+		]);
+		return $updatedFloors;
 	}
 
 	/**
@@ -208,7 +248,7 @@ class FloorService {
 	public function deleteFloor(int $floorId): void {
 		$floor = $this->floorMapper->find($floorId);
 		// Structure mutation → owner-only in the service (CS-PLAN-061 §3.4).
-		$this->authorization->requireHouseOwner($floor->getHouseId());
+		$actorId = (int)$this->authorization->requireHouseOwner($floor->getHouseId())->getId();
 
 		// Q-70-01: tombstoned structure is immutable evidence — a repeat
 		// delete answers 404 like a missing floor and never re-stamps the
@@ -218,9 +258,10 @@ class FloorService {
 		}
 
 		try {
-			$this->transactions->run(function () use ($floorId, $floor): void {
+			$this->transactions->run(function () use ($floorId, $floor, &$actorId): void {
 				// FIRST lock of the documented order: the house row.
 				$this->houseMapper->findForUpdate($floor->getHouseId());
+				$actorId = (int)$this->authorization->requireHouseOwner($floor->getHouseId())->getId();
 
 				// Authoritative tombstone gate on the FRESH locked row:
 				// a concurrent delete winner makes this invocation a clean
@@ -244,6 +285,16 @@ class FloorService {
 				$fresh->setDeletedAt($deletedAt);
 				$this->floorMapper->update($fresh);
 			});
+
+			// Q-081-03 operational audit: post-commit, minimal numeric context.
+			$this->appLogger->audit('Floor deleted', [
+				'event' => 'house.floor.deleted',
+				'service' => 'FloorService',
+				'houseId' => (int)$floor->getHouseId(),
+				'actorId' => $actorId,
+				'floorId' => $floorId,
+				'outcome' => 'deleted',
+			]);
 		} catch (\Throwable $e) {
 			$this->appLogger->logException('FloorService: floor tombstone rolled back', $e, [
 				'event' => 'floor_delete_rollback',

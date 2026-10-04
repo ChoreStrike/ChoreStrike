@@ -135,7 +135,8 @@ class RewardService {
 				if ($house->getStateVersion() !== $expectedVersion) {
 					throw new ConflictException($this->l10n->t('The house state changed since it was displayed'));
 				}
-				if ($house->getCatalogEnabled() !== $catalogEnabled) {
+				$changed = $house->getCatalogEnabled() !== $catalogEnabled;
+				if ($changed) {
 					$house->setCatalogEnabled($catalogEnabled);
 					$house->touch();
 					$this->houseMapper->update($house);
@@ -143,18 +144,19 @@ class RewardService {
 					// a no-op toggle is not a mutation.
 					$this->houseMapper->bumpStateVersion($houseId);
 				}
-				return ['catalogEnabled' => $catalogEnabled];
+				return ['catalogEnabled' => $catalogEnabled, 'changed' => $changed];
 			},
 			$this->ownerGuard(),
 		);
 
 		$house = $this->houseMapper->find($houseId);
-		$this->appLogger->info('Catalog gate updated', [
+		$this->appLogger->audit('Catalog gate update completed', [
 			'event' => 'reward_catalog_toggled',
 			'service' => 'RewardService',
 			'houseId' => $houseId,
+			'actorId' => (int)$actor->getId(),
 			'catalogEnabled' => $catalogEnabled,
-			'replay' => $outcome['replay'],
+			'outcome' => $outcome['replay'] ? 'replayed' : ($outcome['result']['changed'] ? 'changed' : 'no-change'),
 		]);
 		return ['catalogEnabled' => $house->getCatalogEnabled(), 'stateVersion' => $house->getStateVersion()];
 	}
@@ -198,6 +200,16 @@ class RewardService {
 		);
 
 		$itemId = (int)$outcome['result']['itemId'];
+		// Q-081-03 operational audit: post-commit, numeric ids only — the
+		// authored title/description/price never enter the context.
+		$this->appLogger->audit('Reward catalog item created', [
+			'event' => 'reward.catalog.item_created',
+			'service' => 'RewardService',
+			'houseId' => $houseId,
+			'actorId' => (int)$actor->getId(),
+			'itemId' => $itemId,
+			'outcome' => $outcome['replay'] ? 'replayed' : 'created',
+		]);
 		return $this->itemMapper->find($itemId)->jsonSerialize();
 	}
 
@@ -259,6 +271,16 @@ class RewardService {
 		);
 
 		$itemId = (int)$outcome['result']['itemId'];
+		// Q-081-03 operational audit: post-commit, numeric ids only — the
+		// authored terms never enter the context.
+		$this->appLogger->audit('Reward catalog item updated', [
+			'event' => 'reward.catalog.item_updated',
+			'service' => 'RewardService',
+			'houseId' => $houseId,
+			'actorId' => (int)$actor->getId(),
+			'itemId' => $itemId,
+			'outcome' => $outcome['replay'] ? 'replayed' : 'updated',
+		]);
 		return $this->itemMapper->find($itemId)->jsonSerialize();
 	}
 

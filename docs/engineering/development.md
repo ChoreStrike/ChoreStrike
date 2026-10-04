@@ -9,7 +9,7 @@ If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md
 ### Prerequisites
 
 - **PHP 8.2+** with extensions: `pdo`, `mbstring`, `curl`, `gd`, `zip`
-- **Node.js 20+** and npm 10+
+- **Node.js 20.19.0 or later within 20.x** and **npm 10.8.2 or later within 10.x**
 - **Nextcloud 27+** development instance
 - **Composer** for PHP dependencies
 - **Git** for version control
@@ -54,8 +54,14 @@ For isolated testing, use the included Docker setup:
 
 3. **Install Node dependencies**
    ```bash
-   npm install
+   npm ci --engine-strict --legacy-peer-deps=false
    ```
+
+   The supported build-engine ranges are `node: ^20.19.0` and `npm: ^10.8.2`
+   in `package.json`; newer major versions are not currently supported by the
+   complete toolchain. CI validates the exact minimum versions. Keep dialogs on
+   `~7.2.0`: its files 3 dependency supports Node 20, while dialogs 7.3 introduces
+   Node-24-only files 4. Do not bypass peer or engine validation to upgrade it.
 
 4. **Build frontend**
    ```bash

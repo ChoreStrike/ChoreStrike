@@ -9,7 +9,8 @@
 - PHP 8.2–8.3
 - MariaDB/MySQL/PostgreSQL/SQLite
 - Docker & Docker Compose (for the test environment)
-- Node.js 20+ & npm 10+ (for the frontend build)
+- Node.js 20.19.0 or later within 20.x and npm 10.8.2 or later within 10.x
+  (for the frontend build; see the [engine contract](development.md#initial-setup))
 
 ## Installation
 
@@ -24,7 +25,7 @@ cd chorestrike
 ### 2. Build the frontend
 
 ```bash
-npm ci
+npm ci --engine-strict --legacy-peer-deps=false
 npm run build
 ```
 

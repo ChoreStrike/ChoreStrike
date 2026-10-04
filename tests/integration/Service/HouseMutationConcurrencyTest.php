@@ -283,6 +283,11 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 
 		$houseId = $this->createBareHouse('HMC Wallet House');
 		$this->ensureUserWithEmail('hmc_wallet_target', 'hmc_wallet_target@example.com');
+		// CS-PLAN-081 H3: the invite is owner-gated service-side — the bare
+		// race house needs an owner membership for the inviting session. The
+		// raw row creates no wallet, so the one-wallet assertion below stays
+		// exact (the base teardown removes it with the tracked house).
+		$this->insertRawOwnerMembership($houseId, 'admin');
 
 		$signalFile = sys_get_temp_dir() . '/cs-hmc-wallet-locked-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-hmc-winner-' . uniqid() . '.php';
@@ -319,9 +324,9 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		}
 
 		$membershipCount = (int)$this->fetchScalar(
-			$this->countQuery('chorestrike_house_users', 'house_id', $houseId)
+			$this->countQuery('chorestrike_house_users', 'nextcloud_user_id', 'hmc_wallet_target')
 		);
-		self::assertSame(1, $membershipCount, 'exactly one membership exists');
+		self::assertSame(1, $membershipCount, 'exactly one membership exists for the invited account');
 
 		$walletCount = (int)$this->fetchScalar(
 			$this->countQuery('chorestrike_wallets', 'house_id', $houseId)
@@ -330,6 +335,23 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 
 		// Local cleanup (wallets are not covered by the base teardown).
 		$this->deleteByHouseId('chorestrike_wallets', $houseId);
+	}
+
+	private function insertRawOwnerMembership(int $houseId, string $userId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('chorestrike_house_users')
+			->values([
+				'house_id' => $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT),
+				'nextcloud_user_id' => $qb->createNamedParameter($userId),
+				'display_name' => $qb->createNamedParameter($userId),
+				'role' => $qb->createNamedParameter('owner'),
+				'contribution_minor' => $qb->createNamedParameter(0),
+				'current_streak' => $qb->createNamedParameter(0),
+				'longest_streak' => $qb->createNamedParameter(0),
+				'unlocked_titles' => $qb->createNamedParameter('[]'),
+				'joined_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
+			])
+			->executeStatement();
 	}
 
 	private function ensureUserWithEmail(string $userId, string $email): void {
@@ -510,11 +532,13 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		return $id;
 	}
 
-	private function countQuery(string $table, string $column, int $value): \OCP\DB\QueryBuilder\IQueryBuilder {
+	private function countQuery(string $table, string $column, int|string $value): \OCP\DB\QueryBuilder\IQueryBuilder {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('id'))
 			->from($table)
-			->where($qb->expr()->eq($column, $qb->createNamedParameter($value, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq($column, is_int($value)
+				? $qb->createNamedParameter($value, IQueryBuilder::PARAM_INT)
+				: $qb->createNamedParameter($value)));
 		return $qb;
 	}
 

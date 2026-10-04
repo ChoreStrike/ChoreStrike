@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\DigestChange;
 use OCA\ChoreStrike\Db\DigestChangeMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\OccurrenceMember;
@@ -429,28 +430,7 @@ class AgreementService {
 	 * @return array<string, mixed>
 	 */
 	private function runOccurrenceCommand(int $houseId, string $actorUserId, int $roomTaskId, string $action, array $receiptPayload, callable $fn): array {
-		// Authorize BEFORE receipt replay (plan §3.5): membership, target
-		// visibility and the owner-recording rule run outside the receipt
-		// transaction.
-		$actor = $this->houseUserMapper->findByHouseAndUser($houseId, $actorUserId);
-		if ($actor === null) {
-			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
-		}
-		$roomTask = $this->roomTaskMapper->findByIdsScopedToHouse([$roomTaskId], $houseId)[0] ?? null;
-		if ($roomTask === null) {
-			throw new NotFoundException($this->l10n->t('Room task not found'));
-		}
-		$task = $this->taskMapper->find($roomTask->getTaskId());
-		if (!$this->taskAccessPolicy->canViewTask($task, $actor)) {
-			// Invisible/foreign target: the 404 anti-enumeration standard.
-			throw new NotFoundException($this->l10n->t('Room task not found'));
-		}
-		if (!$actor->isOwner()) {
-			// Amendments are owner-recorded agreements (plan §3.3.2); the
-			// task itself is visible, so this is a visible role denial.
-			throw new ForbiddenException($this->l10n->t('Owner role required'));
-		}
-
+		$actor = $this->authorizeOccurrenceCommand($houseId, $actorUserId, $roomTaskId);
 		$actorHouseUserId = (int)$actor->getId();
 		['result' => $refs] = $this->commands->runCommand(
 			$houseId,
@@ -470,10 +450,39 @@ class AgreementService {
 				$ctx->expectedVersion = (int)$receiptPayload['expectedVersion'];
 				$ctx->selectionToken = (string)$receiptPayload['selectionToken'];
 				return $fn($ctx);
+			},
+			function (int $lockedHouseId, int $actorId) use ($actorUserId, $roomTaskId): void {
+				$this->authorizeOccurrenceCommand($lockedHouseId, $actorUserId, $roomTaskId, $actorId);
 			}
 		);
-
 		return $refs;
+	}
+
+	private function authorizeOccurrenceCommand(int $houseId, string $actorUserId, int $roomTaskId, ?int $expectedActorId = null): HouseUser {
+		$actor = $this->houseUserMapper->findByHouseAndUser($houseId, $actorUserId);
+		if ($actor === null || ($expectedActorId !== null && (int)$actor->getId() !== $expectedActorId)) {
+			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+		}
+		$roomTask = $this->roomTaskMapper->findByIdsScopedToHouse([$roomTaskId], $houseId)[0] ?? null;
+		if ($roomTask === null) {
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
+		try {
+			$task = $this->taskMapper->find($roomTask->getTaskId());
+		} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
+		if (!$this->taskAccessPolicy->canViewTask($task, $actor)) {
+			// Invisible/foreign target: the 404 anti-enumeration standard.
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
+		if (!$actor->isOwner()) {
+			// Amendments are owner-recorded agreements (plan §3.3.2); the
+			// task itself is visible, so this is a visible role denial.
+			throw new ForbiddenException($this->l10n->t('Owner role required'));
+		}
+
+		return $actor;
 	}
 
 	/**

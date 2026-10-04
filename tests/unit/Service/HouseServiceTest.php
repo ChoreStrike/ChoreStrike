@@ -781,7 +781,7 @@ class HouseServiceTest extends TestCase {
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Invalid role. Must be owner, member, or child');
 
-		$this->service->updateUserRole(11, 'superadmin', 'caller-nc');
+		$this->service->updateUserRole(11, 'superadmin');
 	}
 
 	/**
@@ -800,10 +800,14 @@ class HouseServiceTest extends TestCase {
 
 		$this->houseUserMapper->expects($this->never())->method('update');
 
+		// CS-PLAN-081 H3: the actor identity is the authoritative session
+		// user from the authorization service, not a caller parameter.
+		$this->authorization->method('requireCurrentUserId')->willReturn('owner-nc');
+
 		$this->expectException(ForbiddenException::class);
 		$this->expectExceptionMessage('Cannot demote yourself');
 
-		$this->service->updateUserRole(11, 'member', 'owner-nc');
+		$this->service->updateUserRole(11, 'member');
 	}
 
 	/**
@@ -830,7 +834,7 @@ class HouseServiceTest extends TestCase {
 		$this->expectException(ConflictException::class);
 		$this->expectExceptionMessage('Cannot demote the last house owner');
 
-		$this->service->updateUserRole(11, 'member', 'other-owner-nc');
+		$this->service->updateUserRole(11, 'member');
 	}
 
 	/**
@@ -854,7 +858,7 @@ class HouseServiceTest extends TestCase {
 			->with($this->callback(static fn (HouseUser $u): bool => $u->getRole() === 'member'))
 			->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
 
-		$result = $this->service->updateUserRole(11, 'member', 'primary-owner-nc');
+		$result = $this->service->updateUserRole(11, 'member');
 
 		$this->assertSame('member', $result->getRole());
 	}
@@ -878,7 +882,7 @@ class HouseServiceTest extends TestCase {
 			->with($this->callback(static fn (HouseUser $u): bool => $u->getRole() === 'owner'))
 			->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
 
-		$result = $this->service->updateUserRole(12, 'owner', 'owner-nc');
+		$result = $this->service->updateUserRole(12, 'owner');
 
 		$this->assertSame('owner', $result->getRole());
 	}
@@ -897,11 +901,17 @@ class HouseServiceTest extends TestCase {
 		$this->houseUserMapper->method('find')->willReturn($member);
 		$this->houseUserMapper->method('update')->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
 
+		// CS-PLAN-081 H3: the hook actor is the authoritative owner from the
+		// service-side gate, not a findByHouseAndUser lookup on a caller id.
+		$actor = new HouseUser();
+		$actor->setId(7);
+		$this->authorization->method('requireHouseOwner')->willReturn($actor);
+
 		$this->rewardRequestService->expects($this->once())
 			->method('handleRequesterRoleChangedUnderLock')
-			->with(3, $this->identicalTo($member), 'member', 2, null);
+			->with(3, $this->identicalTo($member), 'member', 2, $actor);
 
-		$result = $this->service->updateUserRole(12, 'child', 'owner-nc');
+		$result = $this->service->updateUserRole(12, 'child');
 
 		$this->assertSame('child', $result->getRole());
 		$this->assertSame(3, $result->getRoleRevision(), 'a real change advances the provenance counter');
@@ -922,7 +932,7 @@ class HouseServiceTest extends TestCase {
 
 		$this->rewardRequestService->expects($this->never())->method('handleRequesterRoleChangedUnderLock');
 
-		$result = $this->service->updateUserRole(12, 'child', 'owner-nc');
+		$result = $this->service->updateUserRole(12, 'child');
 
 		$this->assertSame('child', $result->getRole());
 		$this->assertSame(4, $result->getRoleRevision(), 'a no-op write never advances the revision');
@@ -942,9 +952,14 @@ class HouseServiceTest extends TestCase {
 		$this->taskAssigneeMapper->method('deleteByUserForHouse');
 
 		$order = [];
+		// CS-PLAN-081 H3: the departure hook actor is the authoritative owner
+		// from the service-side gate, never a caller parameter.
+		$actor = new HouseUser();
+		$actor->setId(7);
+		$this->authorization->method('requireHouseOwner')->willReturn($actor);
 		$this->rewardRequestService->expects($this->once())
 			->method('handleMembershipRemovedUnderLock')
-			->with(3, 44, null)
+			->with(3, 44, $actor)
 			->willReturnCallback(function () use (&$order): void {
 				$order[] = 'reward';
 			});
@@ -991,7 +1006,7 @@ class HouseServiceTest extends TestCase {
 			->method('update')
 			->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
 
-		$result = $this->service->updateUserRole(12, 'owner', 'member-nc');
+		$result = $this->service->updateUserRole(12, 'owner');
 
 		$this->assertSame('owner', $result->getRole());
 	}
@@ -1009,7 +1024,7 @@ class HouseServiceTest extends TestCase {
 
 		$this->expectException(DoesNotExistException::class);
 
-		$this->service->updateUserRole(999, 'member', 'caller-nc');
+		$this->service->updateUserRole(999, 'member');
 	}
 
 	/**
@@ -1043,6 +1058,115 @@ class HouseServiceTest extends TestCase {
 		$result = $this->service->inviteMember(1, 'invited@example.com', 'member');
 
 		$this->assertSame('invited-nc', $result->getNextcloudUserId());
+	}
+
+	/**
+	 * InviteMember_NonOwner_ThrowsForbiddenBeforeAccountLookup (CS-PLAN-081 H3)
+	 *
+	 * The service-side owner gate runs BEFORE the email/account lookup, so
+	 * a direct non-owner caller cannot probe which accounts exist.
+	 */
+	public function testInviteMember_NonOwner_ThrowsForbiddenBeforeAccountLookup(): void {
+		$this->authorization->expects($this->once())
+			->method('requireHouseOwner')
+			->with(1)
+			->willThrowException(new ForbiddenException('Owner role required'));
+
+		$this->userManager->expects($this->never())->method('getByEmail');
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Owner role required');
+
+		$this->service->inviteMember(1, 'probe@example.com', 'member');
+	}
+
+	/**
+	 * RemoveMember_NonOwner_ThrowsForbiddenWithoutAnyWrite (CS-PLAN-081 H3)
+	 */
+	public function testRemoveHouseMember_NonOwner_ThrowsForbiddenWithoutAnyWrite(): void {
+		$member = new HouseUser();
+		$member->setId(11);
+		$member->setHouseId(3);
+		$member->setNextcloudUserId('member-nc');
+		$member->setRole('member');
+		$this->houseUserMapper->method('find')->willReturn($member);
+
+		$this->authorization->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3)
+			->willThrowException(new ForbiddenException('Owner role required'));
+
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->houseUserMapper->expects($this->never())->method('delete');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Owner role required');
+
+		$this->service->removeHouseMember(11);
+	}
+
+	/**
+	 * UpdateUserRole_NonOwner_ThrowsForbiddenWithoutAnyWrite (CS-PLAN-081 H3)
+	 */
+	public function testUpdateUserRole_NonOwner_ThrowsForbiddenWithoutAnyWrite(): void {
+		$member = new HouseUser();
+		$member->setId(11);
+		$member->setHouseId(3);
+		$member->setNextcloudUserId('member-nc');
+		$member->setRole('member');
+		$this->houseUserMapper->method('find')->willReturn($member);
+
+		$this->authorization->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3)
+			->willThrowException(new ForbiddenException('Owner role required'));
+
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Owner role required');
+
+		$this->service->updateUserRole(11, 'owner');
+	}
+
+	/**
+	 * UpdateUserRole_OwnerDemotedBeforeHouseLock_Denied (CS-PLAN-081 H3)
+	 *
+	 * The pre-transaction owner check passes, but the re-check on the
+	 * LOCKED house row must deny the write when a demotion raced in between.
+	 */
+	public function testUpdateUserRole_OwnerDemotedBeforeHouseLock_Denied(): void {
+		$member = new HouseUser();
+		$member->setId(11);
+		$member->setHouseId(3);
+		$member->setNextcloudUserId('member-nc');
+		$member->setRole('member');
+		$this->houseUserMapper->method('find')->willReturn($member);
+
+		$this->authorization->method('requireCurrentUserId')->willReturn('owner-nc');
+
+		$checks = 0;
+		$this->authorization->method('requireHouseOwner')->willReturnCallback(
+			static function () use (&$checks): HouseUser {
+				if (++$checks > 1) {
+					throw new ForbiddenException('Owner role required');
+				}
+				$actor = new HouseUser();
+				$actor->setId(7);
+				return $actor;
+			}
+		);
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Owner role required');
+
+		$this->service->updateUserRole(11, 'owner');
 	}
 
 	/**

@@ -316,6 +316,7 @@
     "settings.spec.ts > Settings > Floors list or empty state is displayed",
     "settings.spec.ts > Settings > Floors section is displayed with add button",
     "settings.spec.ts > Settings > House name input is displayed and interactive",
+    "settings.spec.ts > Settings > Reset keeps setup, structure, tasks and history (CS-PLAN-081 H4)",
     "settings.spec.ts > Settings > Settings page has danger zone section",
     "settings.spec.ts > Settings > Settings page loads correctly",
     "settings.spec.ts > Settings > User can open add floor modal",
@@ -363,5 +364,10 @@
     "auth.setup.ts > authenticate as admin",
     "auth.setup.ts > authenticate profile users",
     "auth.setup.ts > seed profile users"
+  ],
+  "family-membership-hardening.spec.ts": [
+    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > invite enforces the approved 60/300 boundary with no rejected mutation and isolated counters",
+    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > remove enforces the approved 60/300 boundary with no rejected mutation and isolated counters",
+    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > updateRole enforces the approved 60/300 boundary with no rejected mutation and isolated counters"
   ]
 }

@@ -38,6 +38,7 @@ class MinigameScoreMapperTest extends TestCase {
 		$this->qb->method('where')->willReturnSelf();
 		$this->qb->method('andWhere')->willReturnSelf();
 		$this->qb->method('orderBy')->willReturnSelf();
+		$this->qb->method('addOrderBy')->willReturnSelf();
 		$this->qb->method('setMaxResults')->willReturnSelf();
 
 		$result = $this->createMock(IResult::class);
@@ -58,6 +59,7 @@ class MinigameScoreMapperTest extends TestCase {
 		$this->qb->method('where')->willReturnSelf();
 		$this->qb->method('andWhere')->willReturnSelf();
 		$this->qb->method('orderBy')->willReturnSelf();
+		$this->qb->method('addOrderBy')->willReturnSelf();
 		$this->qb->method('setMaxResults')->willReturnSelf();
 
 		$result = $this->createMock(IResult::class);
@@ -65,6 +67,74 @@ class MinigameScoreMapperTest extends TestCase {
 		$this->qb->method('executeQuery')->willReturn($result);
 
 		$this->assertNull($this->mapper->getPersonalBest(1, 'alice', 'snake'));
+	}
+
+	/**
+	 * CR-053-11 Snake remainder (CS-PLAN-081 H5): every ordered score read
+	 * must tiebreak equal scores by ascending id so row selection is
+	 * deterministic; getUserRank stays tie-tolerant by contract.
+	 *
+	 * @dataProvider orderedReadProvider
+	 */
+	public function testOrderedReads_TiebreakEqualScoresByIdAsc(string $method, array $args): void {
+		$callOrder = [];
+		$this->qb->method('select')->willReturnSelf();
+		$this->qb->method('from')->willReturnSelf();
+		$this->qb->method('where')->willReturnSelf();
+		$this->qb->method('andWhere')->willReturnSelf();
+		$this->qb->method('orderBy')->willReturnCallback(function ($field, $dir) use (&$callOrder) {
+			$callOrder[] = ['orderBy', $field, $dir];
+			return $this->qb;
+		});
+		$this->qb->method('addOrderBy')->willReturnCallback(function ($field, $dir) use (&$callOrder) {
+			$callOrder[] = ['addOrderBy', $field, $dir];
+			return $this->qb;
+		});
+		$this->qb->method('setMaxResults')->willReturnSelf();
+
+		$result = $this->createMock(IResult::class);
+		$result->method('fetch')->willReturn(false);
+		$this->qb->method('executeQuery')->willReturn($result);
+
+		$this->mapper->{$method}(...$args);
+
+		$this->assertSame(
+			[['orderBy', 'score', 'DESC'], ['addOrderBy', 'id', 'ASC']],
+			$callOrder,
+			"$method must order score DESC with an id ASC tiebreak"
+		);
+	}
+
+	/**
+	 * @return array<string, array{0: string, 1: array}>
+	 */
+	public static function orderedReadProvider(): array {
+		return [
+			'global leaderboard' => ['getLeaderboard', [1, 'snake', 10]],
+			'personal best row' => ['getPersonalBest', [1, 'alice', 'snake']],
+			'personal history' => ['findByUserAndGame', [1, 'alice', 'snake', 10]],
+			'period leaderboard' => ['getLeaderboardForPeriod', [1, 'snake', new \DateTime('2026-01-01'), 10]],
+		];
+	}
+
+	public function testGetUserRank_KeepsEqualScoresTied(): void {
+		// Rank counting uses a strict greater-than comparison, so equal
+		// best scores stay tied — no id tiebreak is applied here.
+		$this->qb->method('select')->willReturnSelf();
+		$this->qb->method('from')->willReturnSelf();
+		$this->qb->method('where')->willReturnSelf();
+		$this->qb->method('andWhere')->willReturnSelf();
+		$func = $this->createMock(\OCP\DB\QueryBuilder\IFunctionBuilder::class);
+		$func->method('max')->willReturn('MAX(score)');
+		$func->method('count')->willReturn('COUNT(id)');
+		$this->qb->method('func')->willReturn($func);
+		$this->qb->method('createFunction')->willReturn('COUNT(DISTINCT user_id)');
+
+		$result = $this->createMock(IResult::class);
+		$result->method('fetchOne')->willReturnOnConsecutiveCalls(200, 2);
+		$this->qb->method('executeQuery')->willReturn($result);
+
+		$this->assertSame(3, $this->mapper->getUserRank(1, 'alice', 'snake'));
 	}
 
 	public function testMinigameScoreEntity_DefaultGameId(): void {

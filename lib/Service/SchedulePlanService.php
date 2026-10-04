@@ -229,8 +229,11 @@ class SchedulePlanService {
 			$commandId,
 			self::APPLY_ACTION,
 			$payload,
-			function () use ($houseId, $actor, $startDate, $roomTaskIds, $overrides, $previewVersion): array {
+			function () use ($houseId, &$actor, $startDate, $roomTaskIds, $overrides, $previewVersion): array {
 				return $this->applyAggregate($houseId, $actor, $startDate, $roomTaskIds, $overrides, $previewVersion);
+			},
+			function (int $lockedHouseId, int $actorId) use (&$actor, $roomTaskIds): void {
+				$actor = $this->authorizeApplyUnderLock($lockedHouseId, $actorId, $actor->getNextcloudUserId(), $roomTaskIds);
 			}
 		);
 
@@ -245,6 +248,29 @@ class SchedulePlanService {
 			'windowEndExclusive' => (string)($refs['windowEndExclusive'] ?? $startDate),
 			'roomTasks' => $this->authoritativeRoomTasks($houseId, $changedIds),
 		];
+	}
+
+	/** Authorization only: receipt replay must not recheck planning/version rules. */
+	private function authorizeApplyUnderLock(int $houseId, int $actorId, string $actorUserId, array $roomTaskIds): HouseUser {
+		$actor = $this->houseUserMapper->findByHouseAndUser($houseId, $actorUserId);
+		if ($actor === null || (int)$actor->getId() !== $actorId) {
+			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+		}
+		$rows = $this->roomTaskMapper->findByIdsScopedToHouse($roomTaskIds, $houseId);
+		$tasks = $this->taskMapper->findByIds(array_values(array_unique(array_map(static fn (RoomTask $row): int => $row->getTaskId(), $rows))));
+		$assignees = $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
+		$visibleIds = [];
+		foreach ($rows as $row) {
+			$task = $tasks[$row->getTaskId()] ?? null;
+			if ($task !== null && $this->taskAccessPolicy->canView($task, $actor, $assignees[$row->getId()] ?? [])) {
+				$visibleIds[] = (int)$row->getId();
+			}
+		}
+		if (array_diff($roomTaskIds, $visibleIds) !== []) {
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
+		$this->assertOwnerActor($houseId, $actor);
+		return $actor;
 	}
 
 	/**
