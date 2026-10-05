@@ -11,6 +11,18 @@
 
 ## 1. Problem Summary
 
+**Target-runtime follow-up (2026-10-05):** the NC31 technical passes below remain
+historical evidence for their exact runtime. The user subsequently supplied
+Nextcloud 34.0.4.1 / PHP 8.4.25 / PostgreSQL 18.6 (AIO Stable 14.2.0) and requested
+that the regular local test baseline follow current stable.
+[CS-PLAN-082](../active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+(active, Standard A `PASS` 2026-10-05)
+owns that infrastructure/compatibility qualification and renewed target evidence.
+It does not reroute WP9's human gate or adopt retained data. Do not use the prior
+runtime's green checkboxes as target-server readiness; qualification must precede
+the separate RELEASE-002 deployment/adoption decision. No runtime change is
+authorized by drafting the follow-up.
+
 The implementation packages have passed their individual final reviews. This
 does not close the parent's cross-domain evidence gate. The latest WP8 record
 contains a full MariaDB backend pass and one combined browser-gate pass, not a

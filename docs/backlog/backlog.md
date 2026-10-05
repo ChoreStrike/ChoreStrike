@@ -315,6 +315,27 @@ not close parent findings or replace WP9 evidence.
 
 ---
 
+### [P1] TECH-RUNTIME-001 — Current-stable default test runtime and data-preservation verification
+**Status**: In Progress — CS-PLAN-082 activated via Standard A `PASS` (2026-10-05); implementation not started · **Effort**: L · **Layer**: tooling+backend+tests+docs · **Journey stage**: runtime compatibility and retained-data readiness
+**Owning**: CS-PLAN-082 · **Depends on**: CS-PLAN-080 technical candidate · **Blocks**: RELEASE-002 target-runtime readiness · **Folded-in**: —
+**Source**: User request 2026-10-05 to make current stable the regular local test baseline, with AIO-aligned runtime and preserved house/task setup
+
+[CS-PLAN-082](../plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+owns this independent infrastructure update. Initial target: Nextcloud 34.0.4
+(internal 34.0.4.1), PHP 8.4.25, PostgreSQL 18.6; AIO Stable 14.2.0 is the
+deployment reference, not a local full-AIO validation claim. Current NC31 gates
+do not cover it. Keep RELEASE-002's actual deployment/adoption and CONCEPT-001's
+human evidence separate; all future in-scope findings live in the new plan.
+
+- [x] Resolve advertised support scope in Standard A (Q-082-01: current stable major only — NC 34 / PHP 8.4 initial row, 2026-10-05).
+- [ ] Promote a verified current-stable PostgreSQL reference to regular local/CI defaults, retaining full supported-provider verification.
+- [ ] Freeze actual runtime artifacts and detect newer stable releases through a wired weekly/pre-release check without automatic deployment or unreviewed mutation.
+- [ ] Pass complete target backend/provider suites and consecutive three-pool browser gates; preserve existing assertions and fail-closed fixture ownership.
+- [ ] Verify synthetic populated-volume persistence, a genuine supported runtime update on all providers, and target PostgreSQL whole-instance recovery with negative controls.
+- [ ] Integrate durable rules and WP9/RELEASE-002 handoff; final review required, no implicit real-data adoption or productive access.
+
+---
+
 ### [P4] TECH-DIGEST-001 — `DigestChangeMapper::expireQueuedBefore` uses `setMaxResults()` on an UPDATE
 **Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —

@@ -10,9 +10,13 @@
 
 ## In Progress
 
+- **CS-PLAN-082 / current-stable test baseline and data preservation ACTIVE — implementation not started** (2026-10-05): activated via Standard A `PASS`, zero findings; Q-082-01 resolved — current stable major only (NC 34 / PHP 8.4 initial row). TECH-RUNTIME-001 In Progress under this plan; RELEASE-002 deployment/adoption and CONCEPT-001 human evidence stay separate. Preserved uncommitted WP9 round untouched by the activation commit. [Plan](../plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md).
+
 - **CS-PLAN-070 / parent - family rhythm and reward clarification OPEN** (WP0-WP8 delivered; WP9 activated as [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md), Standard A `PASS` 2026-10-03, zero findings; CONCEPT-001 remains In Progress for cross-DB and family evidence). [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
+
+- **CS-PLAN-082 draft created** (2026-10-05): regular current-stable local/CI baseline, frozen artifacts, stable tracking, target compatibility and synthetic populated-update/recovery gates; TECH-RUNTIME-001 owns implementation, documentation checks passed; no runtime change/commit/adoption. Same day: activated via Standard A `PASS` (zero findings), Q-082-01 resolved (current stable major only) — see In Progress above. [Plan](../plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md).
 
 - **CS-PLAN-081 delivered** (2026-10-05): final Full `PASS-WITH-FIXES`, H1-H6 complete with explicitly accepted non-attributed H6-05 disposition, required cap/tie/identity regressions, strict minimum-engine/full/backend/browser/recovery gates; H7/H-T11 user-rescoped, seven standalone owners archived, no deployment/adoption. [Plan](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) · [Review](archive/CODE_REVIEW_2026-10-05.md).
 

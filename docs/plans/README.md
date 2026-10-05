@@ -14,8 +14,13 @@ docs/plans/
 
 ## Lifecycle
 
-Next execution: [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
-after refreshing its technical candidate identity and coverage mapping.
+Active: [CS-PLAN-082: Current-Stable Test Baseline and Data Preservation](active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+(activated 2026-10-05 via Standard A `PASS`, zero findings; Q-082-01 resolved:
+current stable major only — NC 34 / PHP 8.4 initial row; implementation not
+started; TECH-RUNTIME-001 owner).
+[CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
+has passed its NC31 technical gates; target-runtime qualification, authorized
+human evidence and final review remain separate pending work.
 [CS-PLAN-081: Pre-WP9 Hardening and Retained-Data Readiness](done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
 is delivered (final Full `PASS-WITH-FIXES` 2026-10-05): H1-H6 complete, H6-05
 explicit evidence-bound disposition accepted; H7/H-T11 user-rescoped for
@@ -27,7 +32,9 @@ claimed by this preparation delivery.
 
 Current active plans: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
 (parent), its WP9 child [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
-(activated 2026-10-03, Standard A `PASS`). The independent CS-PLAN-081 preparation
+(activated 2026-10-03, Standard A `PASS`), and the independent runtime
+qualification owner [CS-PLAN-082](active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+(activated 2026-10-05, Standard A `PASS`; TECH-RUNTIME-001). The independent CS-PLAN-081 preparation
 slice is complete in `done/`; it does not close those parent/child plans.
 Core product direction was approved through 24 explicit answers on 2026-09-17.
 The same day, 47 additional C1-C5 answers (6/11/9/8/13) resolved the presented

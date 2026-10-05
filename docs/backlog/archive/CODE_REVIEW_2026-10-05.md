@@ -287,3 +287,52 @@ default rename-collapsed name set against the explicit old/new path set and
 rejected it; corrected `--no-renames` comparison checks both paths without
 changing the index or broadening scope. This diagnostic rejection is retained;
 no commit was attempted while it was unresolved.
+
+---
+
+## Plan Activation: CS-PLAN-082 Current-Stable Test Baseline and Data Preservation — Standard A
+
+**Review Date**: 2026-10-05
+**Reviewer**: Kilo (main agent, no subagents — Standard A tier)
+**Mode**: Standard A (plan review before `new/` → `active/`)
+**Scope**: `docs/plans/new/cs-plan-082-current-stable-test-baseline-and-data-preservation.md` plus its declared uncommitted drafting package (TECH-RUNTIME-001 backlog entry, plans/docs registry linkage, ACTIVE_TASKS entry, CS-PLAN-080 sequencing note); runtime tree untouched
+**Base Commit**: `bd7ba8c6642fcbaa82d4cee04b8493c8ec506e2f` (`master`; index empty at capture — full unstaged-diff SHA256 `FBAF8E559FDA60930BC633C8BC8108D781C63B1A4DE42CBBADE641028D7FDBAC` covering the preserved uncommitted WP9 implementation round, the 082 drafting package and the unrelated pre-existing `.gitkeep` deletions, all preserved unstaged; untracked plan SHA256 `7A58B6EBE32AF216C859E5E892F8620C85C9172DE5C340CE36EAC389B5B86AA2`)
+
+### Outcome
+
+**PASS** — zero findings, zero open decisions after the batched question.
+
+### Verification Performed
+
+- **Baseline citations exact against the runtime:** `docker/Dockerfile.test` uses `php:8.2-apache` (line 4), copies `composer:latest` (line 47), clones `stable31` server (line 60) and `stable31` notifications (line 70); `docker/compose.test.yml` uses `mariadb:10.6`; `docker/compose.test-matrix.yml` adds `postgres:16-alpine` and SQLite profiles; `appinfo/info.xml` declares Nextcloud 27-31 / PHP 8.2-8.3 (lines 38-39). External artifact preflight re-verified live: Nextcloud server tag `v34.0.4` exists (tag object `8f37732`), `php:8.4.25-apache` and `postgres:18.6-alpine` manifests are active on Docker Hub — availability only, as the plan itself states.
+- **Recovery/tooling claims exact:** `tests/recovery/fixture.php:30` enforces the `cs081-recovery-<hex>-db` ownership prefix; `scripts/run-recovery-rehearsal.ps1` checks the canonical local image digest (line 120), uses `mariadb:10.6` (line 125) and `mysqldump` dump/restore (lines 171, 71) — exactly the runtime assumptions the plan requires adapting.
+- **Manifest/commands:** every §4 gate command exists in `package.json` (`test`, `lint`, `stylelint`, `test:noise`, `build`, `l10n:check-keys`, `docs:encoding`, `backlog:check`, `run-e2e-gate.js`); §5 manifest paths all present, including `.forgejo/workflows/{release-gate,test,full-matrix}.yml`, `scripts/run-tests.sh`, `tests/e2e/fixtures/*`, `tests/unit/Command/TestEnvironmentProvisioningTest.php`, `tests/fixtures/provision-command.sh`, `tests/integration/Db/SupportedDatabaseSchemaTest.php`; currently-untracked WP9-round files are correctly treated as existing-to-modify relative to the declared WP9-candidate dependency.
+- **Ownership/no overlap:** TECH-RUNTIME-001 (primary), RELEASE-002 (bounded readiness contribution) and CONCEPT-001 (WP9 evidence consumer) exist, are open and consistently bounded in `backlog.md` and the plan; CS-PLAN-080's own "Target-runtime follow-up" note defers runtime qualification to CS-PLAN-082 and preserves NC31 passes as historical — boundaries consistent in both directions with active CS-PLAN-070/080.
+- **Plan-only checks:** nine template sections complete; per-step ownership mapped to R1-R8 and TECH-RUNTIME-001 work items; coherent single-slice scope with explicit non-goals (no deployment, no adoption, no AIO access, no speculative migrations); named risks with likelihoods/mitigations; twelve complete acceptance criteria including the retention boundary; R1-R8 test plan adequate with negative controls and fail-closed requirements; no pre-baked workaround stacking (warning suppression, fake upgrades, blanket skips all explicitly forbidden).
+
+### Findings
+
+| Severity | File:line | Issue | Status |
+|---|---|---|---|
+| — | — | none | — |
+
+No open findings to route (plan-owned, fold-in, or backlog).
+
+### Decisions
+
+Q-082-01 presented as one structured question batch; the recommended option was approved:
+**current stable major only** — advertise exactly the newly verified baseline (initial target Nextcloud 34 / PHP 8.4); expand later only with named passing matrix rows. Recorded in plan §2 and `## Review Outcome`.
+
+### Gates (documentation-only round)
+
+- `npm run docs:encoding` — green after the activation edits (includes the staged moved plan)
+- `npm run backlog:check` — green after the activation edits
+- `git diff --check` / `git diff --cached --check` — clean
+- Runtime gates (Jest, lint, build, Docker PHPUnit, browser/recovery rehearsals) belong to implementation steps 2-8 of the plan and were intentionally not run (no runtime file changed).
+
+### Plan Lifecycle
+
+- Plan moved `new/` → `active/` with header status (`Active`, Standard A `PASS` 2026-10-05, implementation not started) and an appended `## Review Outcome` (baseline, fingerprints, verification, decisions, gates, transition).
+- TECH-RUNTIME-001 marked In Progress under CS-PLAN-082; its scope-decision sub-item checked with the Q-082-01 answer; RELEASE-002 and CONCEPT-001 keep their existing owners/boundaries.
+- `docs/README.md`, `docs/plans/README.md`, `docs/backlog/backlog.md`, `ACTIVE_TASKS.md` and the CS-PLAN-080 sequencing note updated to the active plan path and outcome.
+- Unrelated preserved content — the uncommitted WP9 implementation round, WP9-owned registry/backlog hunks, and the `.gitkeep` deletions — left out of the activation commit via hunk-scoped staging; working-tree truthfulness of WP9-owned sentences updated without committing them.

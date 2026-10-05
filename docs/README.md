@@ -28,6 +28,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 
 ## Workflow, Review & Plans
 
+- [Current-stable test baseline and data preservation](plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md) - active (CS-PLAN-082, activated via Standard A `PASS` 2026-10-05; implementation not started): regular local/CI runtime renewal, reproducible stable tracking, supported-provider gates and synthetic populated-update/recovery proofs. Q-082-01 resolved: current stable major only; no deployment/adoption.
 - [Pre-WP9 hardening and retained-data readiness](plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) - delivered preparation (CS-PLAN-081, final Full `PASS-WITH-FIXES` 2026-10-05): bounded hardening and a future retained-data boundary/recovery contract; H6-05 evidence-bound disposition accepted, H7/H-T11 explicitly user-rescoped, not passed. WP9 matrix/browser-pair/human evidence, deployment and baseline adoption remain subsequent work; later reporting contact (BUG-SEC-001) and possible GitHub move (TECH-REPO-001) stay in the [backlog](backlog/backlog.md).
 - [`backlog/ACTIVE_TASKS.md`](backlog/ACTIVE_TASKS.md) — live task coordination
 - [`backlog/README.md`](backlog/README.md) — backlog structure and update workflow
