@@ -9,12 +9,17 @@ case "${0##*/}" in
         case "$*" in
             *maintenance:install*) echo INSTALL_FAILED; exit 1 ;;
             *'occ status'*)
-                if [ "$PROVISION_SCENARIO" = install-failure ]; then exit 1; fi
+                if [ "$PROVISION_SCENARIO" = install-failure ] || [ "$PROVISION_SCENARIO" = preserve-uninstalled ]; then exit 1; fi
                 echo 'installed: true' ;;
             *'config:system:get dbtype'*)
                 if [ "$PROVISION_SCENARIO" = wrong-provider ]; then echo pgsql; else echo mysql; fi ;;
             *'config:system:get version'*)
-                if [ "$PROVISION_SCENARIO" = old-volume ]; then echo 31.0.0.1; else echo "$TEST_RUNTIME_INTERNAL_VERSION"; fi ;;
+                if [ "$PROVISION_SCENARIO" = old-volume ]; then echo 31.0.0.1;
+                elif [[ "$PROVISION_SCENARIO" == preserve-upgrade* ]] && [ ! -f "${PROVISION_STATE:-/nonexistent}/upgraded" ]; then echo "$TEST_RUNTIME_UPGRADE_FROM";
+                else echo "$TEST_RUNTIME_INTERNAL_VERSION"; fi ;;
+            *'occ upgrade'*)
+                if [ "$PROVISION_SCENARIO" = preserve-upgrade-failure ]; then echo UPGRADE_FAILED; exit 1; fi
+                : > "${PROVISION_STATE:?}/upgraded"; echo UPGRADE_RAN ;;
             *'config:system:set'*) echo CONFIG_MUTATION ;;
             *'app:enable chorestrike'*)
                 if [ "$PROVISION_SCENARIO" = enable-failure ]; then echo ENABLE_FAILED; exit 1; fi ;;

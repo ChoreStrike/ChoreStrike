@@ -25,10 +25,15 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 
 // This executable fixture is not part of the HTTP app or PHPUnit lifecycle.
+// Owned targets only: the legacy cs081 rehearsal (<owned>-db), a staged cs082
+// P1/P2 compose installation (fixed db-<provider> service, empty for SQLite) or
+// a cs082 P3 restore rehearsal (<owned>-db). Anything else refuses before boot.
+$ownedTarget = is_file('/evidence/owned') ? trim((string)file_get_contents('/evidence/owned')) : '';
+$dbHost = getenv('DB_HOST') ?: '';
+$isOwnedTarget = require __DIR__ . '/owned-target.php';
+$owned = $isOwnedTarget($ownedTarget, $dbHost);
 if (PHP_SAPI !== 'cli' || getenv('CS_RECOVERY_REHEARSAL') !== 'true'
-	|| getenv('NEXTCLOUD_TEST_MODE') !== 'true'
-	|| !preg_match('/^cs081-recovery-[a-f0-9]+-db$/D', getenv('DB_HOST') ?: '')
-	|| !is_file('/evidence/owned')) {
+	|| getenv('NEXTCLOUD_TEST_MODE') !== 'true' || !$owned) {
 	throw new RuntimeException('Recovery fixture requires its isolated owned test target');
 }
 define('OC_CONSOLE', true);
@@ -190,7 +195,22 @@ switch ($mode) {
 		validateFacts();
 		echo count($before) . " app table snapshots equal; corrected history, reservation, core/config/file sentinels verified\n";
 		break;
+	case 'postcheck':
+		// Bounded post-update write through production services on the preserved copy:
+		// proves reads AND mutations work after a recreate/upgrade/restore.
+		$ids = json_decode(file_get_contents('/evidence/fixture.json'), true, 512, JSON_THROW_ON_ERROR);
+		$actor = owner($ids['houseId']);
+		$preferences = \OC::$server->get(PreferenceService::class);
+		$current = $preferences->getOwnPreferences($ids['houseId'], $actor);
+		$target = !$current['soundEnabled'];
+		$preferences->updateOwnPreferences($ids['houseId'], $actor,
+			['expectedVersion' => $current['version'], 'soundEnabled' => $target], uuid());
+		$after = $preferences->getOwnPreferences($ids['houseId'], $actor);
+		check($after['soundEnabled'] === $target && $after['version'] > $current['version'],
+			'Post-preservation preference mutation did not persist');
+		echo "Post-preservation read/mutation: PASS (preference version {$current['version']} -> {$after['version']})\n";
+		break;
 	default:
-		throw new InvalidArgumentException('Expected seed, diverge or verify');
+		throw new InvalidArgumentException('Expected seed, diverge, verify or postcheck');
 }
 echo "Recovery fixture $mode: PASS\n";

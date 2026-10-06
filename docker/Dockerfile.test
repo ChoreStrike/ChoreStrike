@@ -10,6 +10,8 @@ ARG NEXTCLOUD_REF=stable31
 ARG NEXTCLOUD_REVISION
 ARG NOTIFICATIONS_REF=stable31
 ARG NOTIFICATIONS_REVISION
+ARG VIEWER_REF=stable31
+ARG VIEWER_REVISION
 ARG PCOV_VERSION=1.0.12
 ARG APCU_VERSION=5.1.24
 ARG RUNTIME_INVENTORY_SHA256
@@ -88,6 +90,16 @@ RUN git clone --depth 1 --branch "${NOTIFICATIONS_REF}" https://github.com/nextc
     && git config --global --add safe.directory /var/www/html/apps/notifications \
     && if [ -n "${NOTIFICATIONS_REVISION}" ]; then \
         test "$(git -C /var/www/html/apps/notifications rev-parse HEAD)" = "${NOTIFICATIONS_REVISION}"; \
+    fi
+
+# The `viewer` app also ships only in release tarballs, not in the server git
+# clone. NC35's post-upgrade SchemaChecker resolves every alwaysEnabled app's
+# path, so the official `occ upgrade` path fails without it. Viewer has no
+# migrations and a committed static autoloader — no Composer install step.
+RUN git clone --depth 1 --branch "${VIEWER_REF}" https://github.com/nextcloud/viewer.git /var/www/html/apps/viewer \
+    && git config --global --add safe.directory /var/www/html/apps/viewer \
+    && if [ -n "${VIEWER_REVISION}" ]; then \
+        test "$(git -C /var/www/html/apps/viewer rev-parse HEAD)" = "${VIEWER_REVISION}"; \
     fi
 
 # Set up directory structure

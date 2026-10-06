@@ -102,6 +102,89 @@ class TestEnvironmentProvisioningTest extends TestCase {
 		];
 	}
 
+	/** @dataProvider preservationOutcomes */
+	public function testProvisioning_PreservationMode_NeverReseedsOrInstalls(string $scenario, array $settings, int $expectedExit, string $message): void {
+		$directory = sys_get_temp_dir() . '/cs-provision-' . bin2hex(random_bytes(8));
+		self::assertTrue(mkdir($directory));
+		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'ln', 'chown', 'rm', 'touch', 'bash'];
+		try {
+			foreach ($commands as $command) {
+				self::assertTrue(copy(__DIR__ . '/../../fixtures/provision-command.sh', $directory . '/' . $command));
+				self::assertTrue(chmod($directory . '/' . $command, 0700));
+			}
+			[$exit, $output] = $this->runEntrypoint([
+				'PATH' => $directory . ':' . getenv('PATH'),
+				'PROVISION_SCENARIO' => $scenario,
+				'PROVISION_STATE' => $directory,
+				'TEST_RUNTIME_INTERNAL_VERSION' => '35.0.1.1',
+				'TEST_RUNTIME_PHP_VERSION' => '8.4.25',
+				'TEST_SEED_SCRIPT' => __DIR__ . '/../../fixtures/provision-command.sh',
+			] + $settings, []);
+			self::assertSame($expectedExit, $exit, $output);
+			self::assertStringContainsString($message, $output);
+			if ($expectedExit === 0) {
+				self::assertStringContainsString('READY_MARKER', $output);
+				self::assertStringContainsString('Preservation mode', $output);
+			} else {
+				self::assertStringNotContainsString('READY_MARKER', $output);
+			}
+			if ($scenario === 'preserve-upgrade') {
+				self::assertStringContainsString('UPGRADE_RAN', $output);
+				// The container-local apps symlink must be restored before the upgrade runs.
+				self::assertLessThan(strpos($output, 'UPGRADE_RAN'), strpos($output, 'Linking local chorestrike app'));
+			} else {
+				self::assertStringNotContainsString('UPGRADE_RAN', $output);
+			}
+			self::assertStringNotContainsString('SEED_SUCCEEDED', $output);
+			self::assertStringNotContainsString('Creating family users', $output);
+			self::assertStringNotContainsString('Installing Composer dependencies', $output);
+			self::assertStringNotContainsString('Running initial Nextcloud installation', $output);
+			if ($scenario !== 'preserve-upgrade') {
+				self::assertStringNotContainsString('UPGRADE_RAN', $output);
+			}
+		} finally {
+			foreach ($commands as $command) {
+				unlink($directory . '/' . $command);
+			}
+			if (file_exists($directory . '/upgraded')) {
+				unlink($directory . '/upgraded');
+			}
+			rmdir($directory);
+		}
+	}
+
+	public static function preservationOutcomes(): array {
+		return [
+			['preserve-recreate', ['TEST_RUNTIME_PRESERVATION' => 'true'], 0, 'keeping the installed vendor tree'],
+			['preserve-upgrade', ['TEST_RUNTIME_PRESERVATION' => 'true', 'TEST_RUNTIME_UPGRADE_FROM' => '35.0.0.10'], 0,
+				'official Nextcloud upgrade path (35.0.0.10 -> 35.0.1.1)'],
+			['preserve-upgrade-failure', ['TEST_RUNTIME_PRESERVATION' => 'true', 'TEST_RUNTIME_UPGRADE_FROM' => '35.0.0.10'], 1, 'UPGRADE_FAILED'],
+			['preserve-wrong-source', ['TEST_RUNTIME_PRESERVATION' => 'true', 'TEST_RUNTIME_UPGRADE_FROM' => '35.0.0.10'], 1,
+				'Populated source version does not match the pinned update source'],
+			['preserve-same-build', ['TEST_RUNTIME_PRESERVATION' => 'true', 'TEST_RUNTIME_UPGRADE_FROM' => '35.0.1.1'], 1,
+				'a same-build reinstall is not a runtime update'],
+			['preserve-uninstalled', ['TEST_RUNTIME_PRESERVATION' => 'true'], 1, 'Preservation mode requires an already installed Nextcloud'],
+		];
+	}
+
+	/** @dataProvider preservationSettings */
+	public function testValidateOnly_PreservationSettings_RefuseBeforeInstallation(array $settings, string $message): void {
+		[$exit, $output] = $this->validate($settings);
+		self::assertSame(1, $exit, $output);
+		self::assertStringContainsString($message, $output);
+		self::assertStringNotContainsString('Installing Composer', $output);
+	}
+
+	public static function preservationSettings(): array {
+		return [
+			[['TEST_RUNTIME_PRESERVATION' => 'yes'], 'TEST_RUNTIME_PRESERVATION must be exactly true or false'],
+			[['TEST_RUNTIME_UPGRADE_FROM' => '35.0.0.10'], 'TEST_RUNTIME_UPGRADE_FROM requires preservation mode'],
+			[['TEST_RUNTIME_PRESERVATION' => 'true', 'TEST_RUNTIME_UPGRADE_FROM' => 'stable35'],
+				'TEST_RUNTIME_UPGRADE_FROM requires preservation mode and an exact internal version'],
+			[['TEST_RUNTIME_PRESERVATION' => 'true'], 'Preservation mode requires both frozen runtime versions'],
+		];
+	}
+
 	private function validate(array $settings): array {
 		return $this->runEntrypoint($settings, ['--validate-only']);
 	}

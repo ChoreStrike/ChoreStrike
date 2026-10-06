@@ -23,6 +23,23 @@ if [ -n "${TEST_RUNTIME_INTERNAL_VERSION:-}${TEST_RUNTIME_PHP_VERSION:-}" ]; the
             fwrite(STDERR, "Frozen code/PHP runtime mismatch.\n"); exit(1);
         }'
 fi
+TEST_RUNTIME_PRESERVATION="${TEST_RUNTIME_PRESERVATION:-false}"
+TEST_RUNTIME_UPGRADE_FROM="${TEST_RUNTIME_UPGRADE_FROM:-}"
+if [ "$TEST_RUNTIME_PRESERVATION" != true ] && [ "$TEST_RUNTIME_PRESERVATION" != false ]; then
+    echo "TEST_RUNTIME_PRESERVATION must be exactly true or false." >&2
+    exit 1
+fi
+if [ -n "$TEST_RUNTIME_UPGRADE_FROM" ]; then
+    if [ "$TEST_RUNTIME_PRESERVATION" != true ] \
+        || [[ ! "$TEST_RUNTIME_UPGRADE_FROM" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "TEST_RUNTIME_UPGRADE_FROM requires preservation mode and an exact internal version." >&2
+        exit 1
+    fi
+fi
+if [ "$TEST_RUNTIME_PRESERVATION" = true ] && [ -z "${TEST_RUNTIME_INTERNAL_VERSION:-}" ]; then
+    echo "Preservation mode requires both frozen runtime versions." >&2
+    exit 1
+fi
 if [ "$TEST_DB_TYPE" != sqlite ]; then
     for key in DB_HOST DB_PORT DB_NAME DB_USER DB_PASS; do
         if [ -z "${!key:-}" ]; then
@@ -81,9 +98,13 @@ occ() {
     su -s /bin/bash www-data -c "$command"
 }
 
-# Install dependencies
-echo "Installing Composer dependencies..."
-composer install --no-interaction --prefer-dist
+# Install dependencies (a preserved candidate is unchanged; never touch its vendor tree)
+if [ "$TEST_RUNTIME_PRESERVATION" = true ]; then
+    echo "Preservation mode: keeping the installed vendor tree and populated data..."
+else
+    echo "Installing Composer dependencies..."
+    composer install --no-interaction --prefer-dist
+fi
 
 # Install Nextcloud (if needed) and enable app
 echo "Preparing Nextcloud installation..."
@@ -92,6 +113,9 @@ cd /var/www/html
 # Check if Nextcloud is already installed
 if occ status | grep -q "installed: true"; then
     echo "Nextcloud is already installed, skipping installation..."
+elif [ "$TEST_RUNTIME_PRESERVATION" = true ]; then
+    echo "Preservation mode requires an already installed Nextcloud. Aborting." >&2
+    exit 1
 else
     echo "Running initial Nextcloud installation..."
     INSTALL_ARGS=(maintenance:install "--database=$TEST_DB_TYPE"
@@ -107,6 +131,13 @@ if ! occ status | grep -q "installed: true"; then
     echo "Nextcloud installation failed"
     exit 1
 fi
+
+# The apps symlink lives in the container filesystem, not a volume: a preserved
+# (recreated) container must restore it before any version check or occ upgrade.
+echo "Linking local chorestrike app into Nextcloud apps path..."
+ln -sfn /var/www/html/custom_apps/chorestrike /var/www/html/apps/chorestrike
+chown -h www-data:www-data /var/www/html/apps/chorestrike
+
 # Nextcloud installs SQLite via the sqlite selector but stores dbtype=sqlite3.
 EXPECTED_DB_TYPE="$TEST_DB_TYPE"
 if [ "$TEST_DB_TYPE" = sqlite ]; then
@@ -116,7 +147,26 @@ if ! occ config:system:get dbtype | grep -qx "$EXPECTED_DB_TYPE"; then
     echo "Installed database provider does not match TEST_DB_TYPE. Aborting setup." >&2
     exit 1
 fi
-if [ -n "${TEST_RUNTIME_INTERNAL_VERSION:-}" ] \
+if [ "$TEST_RUNTIME_PRESERVATION" = true ]; then
+    INSTALLED_VERSION="$(occ config:system:get version)"
+    if [ -n "$TEST_RUNTIME_UPGRADE_FROM" ]; then
+        if [ "$INSTALLED_VERSION" != "$TEST_RUNTIME_UPGRADE_FROM" ]; then
+            echo "Populated source version does not match the pinned update source. Aborting before any upgrade." >&2
+            exit 1
+        fi
+        if [ "$TEST_RUNTIME_UPGRADE_FROM" = "$TEST_RUNTIME_INTERNAL_VERSION" ]; then
+            echo "Update source equals the frozen target; a same-build reinstall is not a runtime update." >&2
+            exit 1
+        fi
+        echo "Running the official Nextcloud upgrade path ($INSTALLED_VERSION -> $TEST_RUNTIME_INTERNAL_VERSION)..."
+        occ upgrade
+        INSTALLED_VERSION="$(occ config:system:get version)"
+    fi
+    if [ "$INSTALLED_VERSION" != "$TEST_RUNTIME_INTERNAL_VERSION" ]; then
+        echo "Preserved runtime version does not match the frozen target. Aborting." >&2
+        exit 1
+    fi
+elif [ -n "${TEST_RUNTIME_INTERNAL_VERSION:-}" ] \
     && ! occ config:system:get version | grep -qx "$TEST_RUNTIME_INTERNAL_VERSION"; then
     echo "Installed Nextcloud version does not match the frozen runtime. Aborting before configuration or seed." >&2
     exit 1
@@ -136,10 +186,6 @@ occ background:cron
 echo "Disabling brute-force protection (disposable test environment)..."
 occ config:system:set auth.bruteforce.protection.enabled --value false --type boolean
 
-echo "Linking local chorestrike app into Nextcloud apps path..."
-ln -sfn /var/www/html/custom_apps/chorestrike /var/www/html/apps/chorestrike
-chown -h www-data:www-data /var/www/html/apps/chorestrike
-
 echo "Enabling notifications app (bell support for E2E, CS-PLAN-023)..."
 occ app:enable notifications
 
@@ -153,6 +199,9 @@ fi
 
 echo "Ensuring test users based on profile..."
 PROFILE="$TEST_DB_PROFILE"
+if [ "$TEST_RUNTIME_PRESERVATION" = true ]; then
+    echo "Preservation mode: keeping existing users and populated data (no user creation, no reseed)."
+fi
 
 ensure_user() {
     local user_id="$1"
@@ -171,6 +220,7 @@ ensure_user() {
 }
 
 # Create users based on profile
+if [ "$TEST_RUNTIME_PRESERVATION" != true ]; then
 case "$PROFILE" in
     family)
         echo "Creating family users (6 users)..."
@@ -190,6 +240,7 @@ case "$PROFILE" in
         echo "No users created for empty profile."
         ;;
 esac
+fi
 
 # Wait for Nextcloud to be fully ready via HTTP
 echo "Waiting for Nextcloud HTTP interface..."
@@ -214,14 +265,16 @@ if [ "$HTTP_READY" != true ]; then
     exit 1
 fi
 
-# Seed test data for E2E tests
-echo "Seeding test data..."
-SEED_SCRIPT="${TEST_SEED_SCRIPT:-/seed-test-data.sh}"
-if [ ! -f "$SEED_SCRIPT" ]; then
-    echo "Required seed script is missing. Aborting setup." >&2
-    exit 1
+# Seed test data for E2E tests (never on a preserved populated instance)
+if [ "$TEST_RUNTIME_PRESERVATION" != true ]; then
+    echo "Seeding test data..."
+    SEED_SCRIPT="${TEST_SEED_SCRIPT:-/seed-test-data.sh}"
+    if [ ! -f "$SEED_SCRIPT" ]; then
+        echo "Required seed script is missing. Aborting setup." >&2
+        exit 1
+    fi
+    bash "$SEED_SCRIPT"
 fi
-bash "$SEED_SCRIPT"
 
 # Health must include app enablement and required seed completion, not just HTTP.
 touch /tmp/chorestrike-ready

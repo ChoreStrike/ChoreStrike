@@ -186,7 +186,11 @@ existing runner cannot express the runtime-upgrade sequence; keep snapshots
 in the existing PHP helpers rather than inventing duplicate domain fixtures.
 The existing `scripts/run-recovery-rehearsal.ps1` assumes canonical-image lookup,
 MariaDB TCP/dump/restore commands and a `cs081-recovery-*` ownership prefix;
-`tests/recovery/fixture.php` checks that prefix plus the evidence ownership file.
+`tests/recovery/fixture.php` checks the evidence ownership file against the
+exact owned target (legacy `cs081-recovery-<hex>` with `<owned>-db`, staged
+`cs082-<run-id>-(p1|p2)-(mysql|pgsql|sqlite)[-aio]` with the fixed
+`db-<provider>` compose service or empty for SQLite, or `cs082-<run-id>-p3-pgsql`
+with `<owned>-db`) plus the armed/test-mode environment.
 Adapt provider/runtime/owned-target parameters and their refusal tests together,
 never weaken the fixture guard to accept arbitrary databases. Preserve password
 redaction, failure propagation and cleanup failure-path self-tests. Run the
@@ -288,13 +292,14 @@ note and preservation of its old-runtime evidence. No runtime file changes now.
 | M | `tests/unit/Command/TestEnvironmentProvisioningTest.php`, `tests/fixtures/provision-command.sh`, `tests/integration/Db/SupportedDatabaseSchemaTest.php` | Target/runtime/seed/provider regression proofs |
 | M | `playwright.config.ts`, `scripts/run-e2e-gate.js`, `tests/e2e/fixtures/{occ-runner,auth-contexts,database-fixtures}.ts`, `tests/e2e/auth.setup.ts`, `tests/unit/scripts/{databaseFixtures,browserGate}.spec.js` | Coherent owned HTTP/OCC/auth target, strict discovery and execution |
 | M | `.forgejo/workflows/{release-gate,test,full-matrix}.yml`, `scripts/run-tests.sh`, `package.json` | Canonical stack/inventory propagation, weekly/manual stable-check trigger and local commands; no forge migration |
-| M / conditional N | `scripts/run-recovery-rehearsal.ps1`, `tests/recovery/fixture.php`; new `scripts/test-runtime-preservation.ps1` only if needed | P1/P2/P3 orchestration, owned-target guards, provider-aware dump/restore and stored-fact comparisons |
+| M | `tests/recovery/fixture.php`; N: `scripts/test-runtime-preservation.ps1` (executed — the existing runner cannot express runtime upgrades, compose-project lifecycles or PostgreSQL dump/restore) | P1/P2/P3 orchestration, owned-target guards, provider-aware dump/restore and stored-fact comparisons |
 | M | `appinfo/info.xml`, `composer.json`, `composer.lock` | Approved compatibility bounds and only necessary verified tooling dependency updates |
 | Conditional M | Existing `lib/`, `src/`, unit/integration/E2E tests and `l10n/` owning evidenced incompatibilities | Bounded repairs/regressions; enumerate exact files in findings before editing |
 | M | `docs/engineering/{testing,development,deployment}.md`, `docs/testing/release-test-plan.md`, `docs/standards/guidelines/testing.md`, `docs/standards/ai/skills/docker-dev/SKILL.md`, root `README.md` | Durable default/update/support/preservation rules |
 | M (implementation audit) | `docs/standards/guidelines/e2e-testid-conventions.md` | Repair previously literal auth-state consumption guidance together with the scoped helper |
 | M | This plan, CS-PLAN-080, `docs/plans/README.md`, `docs/README.md`, `docs/backlog/{backlog,ACTIVE_TASKS}.md` | Ownership, evidence and truthful status |
 | Completion only | `docs/backlog/archive/YYYY-MM.md`, formal review record | Archive TECH-RUNTIME-001 only after final passing review; partial RELEASE-002/CONCEPT-001 stay open |
+| N (Full interim review) | `tests/recovery/owned-target.php`, `tests/unit/Command/RecoveryOwnershipTest.php` | Shared executable ownership predicate and direct/refusal regressions |
 
 No retirement of tracked files is planned. If implementation proves a runner is
 obsolete, record its replacement and archive it under the project archive policy.
@@ -331,7 +336,9 @@ obsolete, record its replacement and archive it under the project archive policy
 - [x] Resolve RF-082-02/04 before qualifying the named NC34 row/final dependency build.
   (Resolved 2026-10-06 by documented dispositions; NC34 row rebuilt, verified and
   backend-qualified on all three providers — see the 2026-10-06 slice below.)
-- [ ] Complete populated P1/P2/P3, canonical/CI promotion, final PostgreSQL browser
+- [x] Complete populated P1/P2/P3 on all providers and the named AIO row
+  (resolved 2026-10-06 — see the viewer/P1/P2/P3 slice below).
+- [ ] Complete canonical/CI promotion, final PostgreSQL browser
   pair, remaining durable handoff and final lifecycle review.
 
 ## 7. Risks & Mitigations
@@ -358,8 +365,9 @@ obsolete, record its replacement and archive it under the project archive policy
   stable releases are detected by the wired weekly/pre-release check.
 - [ ] Full target-provider suites and two consecutive complete PostgreSQL browser
   gates pass with no missing/unapproved-skipped tests or reduced assertions.
-- [ ] P1 and genuine P2 preserve non-empty setup/facts on all supported providers;
+- [x] P1 and genuine P2 preserve non-empty setup/facts on all supported providers;
   P3 target PostgreSQL whole-instance recovery and negative controls pass.
+  (2026-10-06, on the viewer-carrying rebuilt images; viewer has no migrations.)
 - [ ] No old development-install upgrade, future app migration or full AIO
   equivalence is claimed without corresponding executed evidence.
 - [ ] Support metadata matches the approved matrix; required quality gates pass.
@@ -441,7 +449,60 @@ completion.
    warnings stay visible on stderr, any deviation fails closed. The NC34 pin
    additionally emits a stale `vendor-bin/rector` dev-tool sub-lock warning
    through the upstream bamarni hooks; it does not affect the `--no-dev` runtime
-   dependency set and remains visible in build logs.
+    dependency set and remains visible in build logs.
+
+- [x] **RF-082-05 / major / NC35 `occ upgrade` requires the tarball-only `viewer`
+   app path:** the first P2 run (35.0.0→35.0.1) failed at the very end of the
+   official upgrade: NC35's new post-upgrade `SchemaChecker`
+   (`core/Command/Upgrade.php` `postUpgradeCheck`, SPDX 2026, also present in
+   NC34) replays every `getEnabledApps()` app, and `AppManager` force-merges
+   `alwaysEnabled` from `core/shipped.json` — which lists `viewer`, absent from
+   the server git clone (as on the NC31 canonical image, where this gate did
+   not exist). The upgrade itself had already succeeded (`Update successful`,
+   final version written), but the informational check escaped an
+   `AppPathNotFoundException` and the command exited 1. Patching core or
+   swallowing the exit code was rejected. **Resolved 2026-10-06 by documented
+   disposition (operator-approved through the structured question batch,
+   option A):** `docker/Dockerfile.test` now clones the pinned `viewer` source
+   per row/patch (`v35.0.1`/`v35.0.0`/`v34.0.4`/`v34.0.3`, exact revisions in
+   the inventory) exactly like notifications; viewer ships a committed static
+   autoloader and prebuilt assets, needs no Composer install, has no
+   migrations, and becomes enabled on fresh installs precisely as in production
+   tarballs. All four frozen images were rebuilt (primary current
+   `a097faa244205595d813622d920a5e54248fae98b2087d1c642e9fdce7066ff5`, primary
+   previous `6b0482964aec92d5909e752db91bfe2a3da28f9378b5881a35086e57f8151dc2`,
+   AIO current `8e5be4c1ce9a98438d35968bfd0c0bab75a18eadf163705b32c40c33ff01dd41`,
+   AIO previous `1a1fd73befb4b65ce4e2c865432aa063e2877e34d8ad7422d8370047121607fc`;
+   selection hashes primary `588009a2…`, AIO `eafff216…`, previous
+   `cd135c90…`/`f8ad19d8…`), re-verified with the fail-closed condition gates
+   (previous-patch gates recorded from real probes: 35.0.0 clean 3rdparty plus
+   the same single stale-lock warning shape as RF-082-04 with 19 locked
+   packages; 34.0.3 exactly the RF-082-02 lcobucci/clock shape with 17 locked
+   packages and zero warnings), and the R2/R3 matrices were renewed on the
+   rebuilt images.
+
+### Full Interim Review Fixes (2026-10-06)
+
+The operator explicitly authorized fixing all six consolidated findings from the
+Full interim review, including safety and recovery behavior changes. All are
+resolved in this slice; the final plan gates R4/R7/R8 remain open.
+
+- [x] **RF-082-06 / major / preservation source validation:** verify the complete
+  pinned source installation before teardown/recreation; seven refusal regressions
+  assert no mutating call for source target, volume, identity or preflight drift.
+- [x] **RF-082-07 / major / P3 recovery completeness:** capture PostgreSQL roles
+  privately and restore roles plus database into a fresh cluster, with source roles
+  asserted absent before restoration. The original same-cluster proof was insufficient.
+- [x] **RF-082-08 / major / manifest negative control:** corrupt a restored file,
+  require the actual checksum verifier and named file check to fail, then restore
+  the untouched archive and pass the same verifier. Pipeline failure is a separate control.
+- [x] **RF-082-09 / minor / network cleanup:** share lifecycle state across
+  function scopes; nested creation followed by outer success/failure cleanup is tested.
+- [x] **RF-082-10 / major / ownership regression fidelity:** replace the copied
+  PowerShell predicate with tests of the actual PHP predicate and an executable
+  fixture refusal before bootstrap (16 tests, including case and trailing-newline cases).
+- [x] **RF-082-11 / minor / PS5.1 evidence encoding:** append teardown diagnostics
+  as UTF-8 with preserved native exit status; strict UTF-8 self-test covers the whole log.
 
 ## Implementation Evidence
 
@@ -699,6 +760,90 @@ were performed. Next step: Standard A with the Q-082-01 support-scope decision.
   CS-PLAN-080 sequencing note and CODE_REVIEW_2026-10-05 activation record
   updated; unrelated WP9-round changes and `.gitkeep` deletions left unstaged.
 
+## Next Implementation Slice (2026-10-06, viewer disposition + P1/P2/P3)
+
+- **Scope:** R5/R6 execution. Added the operator-approved pinned `viewer` clone
+  (RF-082-05) to `docker/Dockerfile.test`; `docker/test-runtime.json` gained
+  per-row/patch viewer pins (`patches.previousViewer` alongside
+  `previousNotifications`); `scripts/test-runtime.js` splits shape/ordering
+  validation and adds `selectRuntimeSource` (row × patch), patch-aware
+  build/verify with patch-scoped upstream-condition gates, a `selection` CLI
+  probe and viewer revision/autoload identity; `scripts/test-runtime-stage.js`
+  threads the patch selector and adds the owned-volume `preserve` command
+  (compose `down` without `-v` + `up` in preservation mode, never a reseed);
+  `docker/test-entrypoint.sh` preservation mode refuses installs/reseeds and
+  runs the official `occ upgrade` for an exact pinned `TEST_RUNTIME_UPGRADE_FROM`;
+  `scripts/test-target.js` accepts pinned previous-patch update sources;
+  `tests/recovery/fixture.php` generalizes its owned-target guard (legacy
+  `cs081-recovery-*` unchanged, staged `cs082-*-(p1|p2)-*` on the fixed
+  `db-<provider>` service or empty SQLite, `cs082-*-p3-pgsql` rehearsal-style)
+  and adds the `postcheck` bounded post-preservation read/mutation mode; new
+  `scripts/test-runtime-preservation.ps1` orchestrates P1/P2/P3 with owned
+  prefixes, sanitized logs, refusal/divergence/manifest/wrong-version controls
+  and qualified teardown. The legacy `scripts/run-recovery-rehearsal.ps1` is
+  unchanged and remains the NC31 canonical rehearsal record.
+- **Regressions added:** Jest runtime/stage/target specs green; full Jest
+  1418/1418 in 112 suites (up from 1391);
+  `TestEnvironmentProvisioningTest` 35/35 with
+  preservation recreate/update/wrong-source/same-build/uninstalled/flag
+  refusal scenarios and the symlink-before-upgrade ordering regression;
+  orchestrator `-SelfTest` (cleanup failure path, log sanitization incl.
+  PGPASSWORD, proof routing, owned-target guard shapes).
+- **P1 (populated same-build persistence), all `cs082-20261006-p1-*`:** fresh
+  install on the rebuilt 35.0.1 image, populated fixture seeded, compose
+  `down`+`up` on the same named volumes (3 for network providers, 2 for SQLite —
+  volume set and `CreatedAt` identical before/after), then 30 app table
+  snapshots equal, corrected history/reservation/core/config/file sentinels
+  verified, instance identity + 26-migration inventory unchanged, post-recreate
+  preference mutation persists. pgsql 104s, mysql 98s, sqlite 71s — all PASS.
+- **P2 (real populated runtime update), `cs082-20261006-p2-pgsql/mysql/sqlite`
+  and `cs082-20261006-p2-pgsql-aio`:** pinned previous-patch source images
+  (35.0.0 `6b048296…`, 34.0.3 `1a1fd73b…`) staged, populated through production
+  services, then recreated on the frozen targets (35.0.1 `a097faa2…`, 34.0.4
+  `8e5be4c1…`) where the entrypoint ran the official `occ upgrade`
+  (35.0.0.10→35.0.1.1; 34.0.3.2→34.0.4.1) — no fake version bump (source
+  version equality enforced, same-build refusal tested). After each upgrade:
+  30 snapshots equal, sentinels verified, instance identity + migration
+  inventory equal, the two read-only schema/provider parity tests
+  (`SupportedDatabaseSchemaTest` selector + full-migration-chain schema match)
+  pass on the upgraded instance, and a post-update preference mutation
+  persists. All four runs PASS in 93–115s each.
+- **P3 (whole-instance recovery), `cs082-20261006-p3-pgsql`:**
+  **Historical attempt, superseded by the Full interim review below:** the
+  original run reused cluster roles, did not execute a corrupted-artifact
+  checksum control, and missed network cleanup. Its original PASS is not a
+  complete R6 proof. The following records what that attempt executed. Ownership-
+  preserving `pg_dump` (Nextcloud's installer uses the dedicated `oc_admin`
+  role — discovered in-round; a `--no-owner` restore strands it, so the dump
+  keeps ownership), drop/create + `ON_ERROR_STOP=1` restore into the same owned
+  DB container, restored container on the frozen image: all captured file
+  hashes equal, sorted whole-DB INSERT/setval hash equal before/after
+  (`wholeDbRowsEqual`), fixture verify PASS (30 snapshots + sentinels),
+  instance/migration identity equal, post-restore mutation persists, occ status
+  healthy at 35.0.1.1. Negative controls all fired: unarmed fixture refusal
+   (255), armed divergence verify failure (255), pipeline-failure propagation (not a tampered-manifest test), and
+  a code-downgrade control (config+data of the 35.0.1 backup onto the 35.0.0
+  build) loudly refused by Nextcloud's `HintException` downgrade guard.
+   Recovery in 74.95s; container teardown completed, network cleanup was incomplete.
+- **R2/R3 renewal on the rebuilt (viewer-carrying) images:** fresh
+  `cs082-20261006c-*` projects per row/provider with full suites —
+  primary NC35.0.1: unit 1351/4852 + integration pgsql 603/5070, mysql
+  603/5069, sqlite 603/5072; AIO NC34.0.4: unit 1351/4852 + integration pgsql
+  603/5069, mysql 603/5069, sqlite 603/5072 — zero failures/skips plus
+  `composer validate --strict` and `composer check-platform-reqs` green
+  in-app; staging verification PASS everywhere. Assertion-count deltas vs the
+  pre-viewer runs (integration +19…+22) stem from the 11 new provisioning
+  tests and the viewer-enabled environment; no assertion was removed. Pre-viewer
+  run evidence is retained under `private/` with `.previewer-image` markers and
+  the failed P2/P3 attempts with `.failed-*` markers.
+- **Quality gates:** full Jest 1418/1418; `npm run lint` 0; `npm run
+  test:noise` clean; PHPUnit unit 1351/4852 and provisioning 35/35 in the
+  staged container; `composer cs:check` 0/410 fixable; `php -l` clean.
+- **Boundary:** R7 canonical/CI promotion, the R4 final frozen PostgreSQL
+  browser pair, the R8 durable docs handoff, the operator decision gate and
+  the final review stay open; inventory status remains **candidate**; no
+  deployment, support claim or retained-baseline adoption.
+
 ### Interim Standard B — 2026-10-06 — `PASS-WITH-FIXES` (plan stays active)
 
 - **Scope:** the runtime-baseline slice of the remaining uncommitted round at
@@ -773,4 +918,41 @@ were performed. Next step: Standard A with the Q-082-01 support-scope decision.
 - **Boundary:** P1/P2/P3 (R5/R6), canonical/CI promotion (R7), the final
   frozen PostgreSQL browser pair (R4), remaining durable handoff (R8) and the
   final review stay open; inventory status remains **candidate**; no default
-  promotion, support claim, deployment or retained-baseline adoption.
+   promotion, support claim, deployment or retained-baseline adoption.
+
+### Full Interim Review - 2026-10-06 - `PASS-WITH-FIXES`
+
+- **Scope/decision:** explicit owning plan CS-PLAN-082; the operator selected
+  Full interim instead of Standard B because this slice changes preservation and
+  recovery boundaries. Four read-only tracks completed and rechecked the fixes.
+  The operator separately approved all six behavior/security fixes and permitted
+  a sanitized placeholder if a safety finding remained open; none remains open.
+- **Capture:** `master`, HEAD `b481e8146441970d9dd3cc26ab62c9a31e03878c`, empty
+  index; 14 modified tracked files plus the untracked preservation runner.
+  Combined staged/unstaged/untracked SHA-256
+  `dc66e0204de420c771e547874cf4b318103df809db350dcac1ab42a5691a8758`;
+  exact manifest and component hashes in the dated review record.
+- **Resolved:** RF-082-06..11 above. Source validation precedes mutations;
+  fresh-cluster recovery includes roles; real corrupted-file rejection,
+  actual PHP ownership tests, shared cleanup state and UTF-8 logs are verified.
+  Durable runner instructions are integrated into `docs/engineering/testing.md`.
+- **Renewed proofs:** P1 primary pgsql/mysql/sqlite (`a1060011`), P2 primary
+  pgsql (`a1060002`), mysql/sqlite (`a1060012`), P2 NC34/AIO pgsql (`a1060013`)
+  all PASS. P3 (`a1060003`) PASS on a fresh cluster with source roles initially
+  absent, roles restored, whole-DB rows/file hashes/sentinels equal, actual
+  corruption rejected, downgrade/divergence controls and post-restore mutation
+  passing. All report complete cleanup; Docker confirms no matching proof network
+  remains. Raw evidence and role credentials stay private. Historical P3 claims
+  above are corrected and superseded, not relabeled as the stronger proof.
+- **Gates:** Node20.19.0/npm10.8.2 Jest 1425/112 suites, noise/lint/build;
+  stylelint, 1275 l10n keys, browser-runner self-test, runtime validation,
+  docs/backlog/whitespace checks pass. Fresh NC35/PHP8.4/PG18 review project
+  `cs082-review1006-pgsql`: post-fix unit 1367/4870 and integration 603/5048,
+  zero skips, uncached PHP CS 0/412; Composer strict/platform checks pass.
+  The full six-row R2/R3 matrix recorded above remains inherited evidence, not
+  rerun here. No browser execution is claimed by the runner self-test.
+- **Post-fix implementation manifest SHA-256:**
+  `226aa137aef526eaa990771c09605921a4eb3c7ae82428c40744a0ca5c98aa09`.
+- **Lifecycle:** interim only; R4/R7/R8 and final review remain required.
+  Plan stays `active/`, TECH-RUNTIME-001 remains open, no backlog owner is archived,
+  no production deployment or retained-baseline adoption. One scoped review commit.

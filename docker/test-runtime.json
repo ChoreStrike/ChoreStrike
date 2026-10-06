@@ -19,6 +19,20 @@
     "ref": "v35.0.1",
     "revision": "0389f40a52d07663efa09de8750a2e26cb528144"
   },
+  "viewer": {
+    "ref": "v35.0.1",
+    "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
+  },
+  "patches": {
+    "previousNotifications": {
+      "ref": "v35.0.0",
+      "revision": "fe532372b98ed013321f95bc0095f19660191d09"
+    },
+    "previousViewer": {
+      "ref": "v35.0.0",
+      "revision": "cd26e86ac4123b5fcb90e523d257992f25ddf587"
+    }
+  },
   "php": {
     "version": "8.4.25",
     "image": "php:8.4.25-apache",
@@ -75,6 +89,20 @@
       "notifications": {
         "ref": "v34.0.4",
         "revision": "68bd4ea7773d24664425d525f3c87012e5313bfa"
+      },
+      "viewer": {
+        "ref": "v34.0.4",
+        "revision": "73ac591a6696b992e0009a71eef0f06c1c9e04a2"
+      },
+      "patches": {
+        "previousNotifications": {
+          "ref": "v34.0.3",
+          "revision": "2a62d472d31b97de522c897c979912cd49b820a9"
+        },
+        "previousViewer": {
+          "ref": "v34.0.3",
+          "revision": "1556dd3a53cc280a28eb082d1cca15b6eb8f3c96"
+        }
       }
     }
   }

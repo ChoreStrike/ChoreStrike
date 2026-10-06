@@ -279,7 +279,38 @@ final `aio` argument to the stage runner, with a distinct image/project/port.
 The row tests the Apache-based app runtime, not AIO packaging or production.
 Neither ordinary seeded staging nor a same-build recreate proves a genuine
 populated update or whole-instance recovery. Keep P1/P2/P3 fixtures separate;
-their still-required execution and final promotion belong to CS-PLAN-082.
+final qualification and promotion belong to CS-PLAN-082.
+
+The Windows PowerShell preservation runner uses fresh, synthetic, owned targets:
+
+```powershell
+powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -SelfTest
+powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p1 -Provider pgsql -Port 8198
+powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p2 -Provider pgsql -Port 8198
+powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p2 -Provider pgsql -Row aio -Port 8198
+powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p3
+```
+
+Run sequentially with an unused port. P1/P2 support `mysql`, `pgsql` and `sqlite`;
+P1 uses the primary row, P2 supports either pinned row, and P3 is primary PostgreSQL.
+Build and verify both frozen patch images before P2 (add `--patch=previous` to
+the source build/verification). P1 recreates the same build on retained volumes;
+P2 uses the official Nextcloud upgrade on populated facts without reseeding.
+The preservation operation verifies the complete pinned source installation,
+owned mounts, database peer and HTTP/test-mode target before any teardown, then
+verifies the target after recreation. Fixture ownership tests exercise the actual
+PHP predicate; the PowerShell self-test covers routing, cleanup and UTF-8 logs.
+
+P3 captures code/config/data plus PostgreSQL database and role/authentication
+state, and restores into a fresh owned cluster after stopping/disconnecting the
+source. Database dumps alone do not recreate PostgreSQL roles. Raw artifacts,
+including role credentials, stay under gitignored `private/`; never publish them.
+The proof checks whole-database rows, file hashes, app/core sentinels, migration
+identity and post-restore mutations. Negative controls separately test pipeline
+failure, corrupted-file checksum rejection, data divergence and wrong code version.
+Cleanup must report failures and remove owned networks as well as containers.
+These synthetic proofs neither adopt a retained baseline nor prove production AIO
+backup configuration. Never run ordinary reseeding suites on populated proof targets.
 
 Nextcloud 31's `QBMapper` binds mutable `date` properties using datetime
 parameters. SQLite therefore may retain a midnight suffix where MariaDB and

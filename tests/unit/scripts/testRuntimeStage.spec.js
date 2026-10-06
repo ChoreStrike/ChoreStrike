@@ -1,6 +1,6 @@
 /** @jest-environment node */
-const { readInventory, inventoryHash } = require('../../../scripts/test-runtime')
-const { stageSettings, composeArguments, assertFreshProject, assertProviderImage, verifyInstallation, stage } = require('../../../scripts/test-runtime-stage')
+const { readInventory, inventoryHash, selectionHash, selectRuntimeSource } = require('../../../scripts/test-runtime')
+const { stageSettings, composeArguments, assertFreshProject, assertOwnedProject, assertProviderImage, verifyInstallation, stage, preserve } = require('../../../scripts/test-runtime-stage')
 
 const inventory = readInventory('primary')
 const imageId = `sha256:${'1'.repeat(64)}`
@@ -26,6 +26,7 @@ function installationFixture(options = settings()) {
 	const actual = {
 		nextcloud: inventory.nextcloud.version, internalVersion: inventory.nextcloud.internalVersion,
 		revision: inventory.nextcloud.revision, notificationsRevision: inventory.notifications.revision,
+		viewerRevision: inventory.viewer.revision,
 		php: inventory.php.version, sqlite: inventory.databases.sqlite.version, pcov: inventory.tools.pcov, apcu: inventory.tools.apcu,
 		configuredVersion: inventory.nextcloud.internalVersion, provider: options.provider === 'sqlite' ? 'sqlite3' : options.provider,
 		databaseVersion: inventory.databases[options.provider].version, databaseTargetMatches: true, databasePeer: options.provider === 'sqlite' ? null : '172.20.0.2', enabled: true,
@@ -148,5 +149,113 @@ describe('installed runtime and provider identity', () => {
 		if (field === 'volume') fixture.container.Mounts[0].Name = 'old-pg16-data'
 		if (field === 'old mount') fixture.container.Mounts[0].Destination = '/var/lib/postgresql/data'
 		expect(() => assertProviderImage(inventory, settings(), fixture.container, fixture.image)).toThrow(/mismatch/)
+	})
+})
+
+describe('owned-volume preservation recreation', () => {
+	const targetImageId = `sha256:${'5'.repeat(64)}`
+	const sourceImageId = `sha256:${'4'.repeat(64)}`
+	const previous = selectRuntimeSource(readInventory(), 'primary', 'previous')
+
+	function preservationSettings(preservation = { mode: true, upgradeFrom: '35.0.0.10' }) {
+		const options = stageSettings(inventory, 'cs082-unit-pgsql', 'pgsql', targetImageId, 8182, preservation)
+		options.sourceImageId = sourceImageId
+		return options
+	}
+
+	function preservationFixture(options = preservationSettings()) {
+		const fixture = installationFixture(options)
+		fixture.container.Config.Labels['com.docker.compose.service'] = 'nextcloud-pgsql'
+		const sourceContainer = JSON.parse(JSON.stringify(fixture.container))
+		sourceContainer.Image = sourceImageId
+		sourceContainer.Config.Labels['org.chorestrike.test-runtime.inventory'] = selectionHash(previous)
+		const sourceActual = { ...fixture.actual, nextcloud: previous.nextcloud.version,
+			internalVersion: previous.nextcloud.internalVersion, configuredVersion: previous.nextcloud.internalVersion,
+			revision: previous.nextcloud.revision, notificationsRevision: previous.notifications.revision,
+			viewerRevision: previous.viewer.revision }
+		const targetContainer = JSON.parse(JSON.stringify(fixture.container))
+		targetContainer.Image = targetImageId
+		let inspections = 0
+		const run = jest.fn((command, args) => {
+			if (args[0] === 'ps') return 'owned-container-id\n'
+			if (args[0] === 'exec') return JSON.stringify(inspections <= 2 ? sourceActual : fixture.actual)
+			if (args[0] === 'image') return JSON.stringify([fixture.db.image])
+			if (args[0] === 'inspect' && args[1] === options.container) {
+				inspections++
+				return JSON.stringify([inspections <= 2 ? sourceContainer : targetContainer])
+			}
+			return JSON.stringify([fixture.db.container])
+		})
+		return { ...fixture, run, sourceContainer, targetContainer, sourceActual }
+	}
+
+	it('recreates only the owned project containers on the pinned target, never its volumes', () => {
+		const options = preservationSettings()
+		const fixture = preservationFixture(options)
+		const invoke = jest.fn(() => ({ status: 0 }))
+		expect(preserve(previous, inventory, options, invoke, fixture.run, fixture.preflight)).toMatchObject({
+			status: 'installed-runtime-provider-match', project: 'cs082-unit-pgsql', imageId: targetImageId,
+		})
+		const [downArgs, upArgs] = invoke.mock.calls.map(([, args]) => args)
+		expect(downArgs).toContain('down')
+		expect(downArgs.join(' ')).not.toMatch(/(^|\s)(-v|--volumes)(\s|$)/)
+		expect(upArgs).toEqual(expect.arrayContaining(['up', '--no-build', '--pull', 'never', '--wait']))
+		expect(invoke.mock.calls.every(([, args]) => args.includes('--project-name') && args.includes('cs082-unit-pgsql'))).toBe(true)
+		const override = JSON.parse(options.input)
+		expect(override.services['nextcloud-pgsql'].environment).toMatchObject({
+			TEST_RUNTIME_PRESERVATION: 'true', TEST_RUNTIME_UPGRADE_FROM: '35.0.0.10', TEST_RUNTIME_INTERNAL_VERSION: '35.0.1.1',
+		})
+	})
+	it('omits the update source for a same-build recreation', () => {
+		const options = preservationSettings({ mode: true })
+		expect(JSON.parse(options.input).services['nextcloud-pgsql'].environment).not.toHaveProperty('TEST_RUNTIME_UPGRADE_FROM')
+	})
+	it.each([
+		[{ mode: false, upgradeFrom: '35.0.0.10' }], [{ mode: true, upgradeFrom: '35.0' }],
+		[{ mode: true, upgradeFrom: 'stable35' }], [{ upgradeFrom: '35.0.0.10' }],
+	])('refuses invalid preservation settings before any Docker call: %j', preservation => {
+		expect(() => preservationSettings(preservation)).toThrow('Invalid preservation mode/update source')
+	})
+	it.each(['missing', 'wrong-image', 'unhealthy', 'foreign'])('refuses to preserve a %s source before teardown', state => {
+		const options = preservationSettings()
+		const fixture = preservationFixture(options)
+		if (state === 'missing') fixture.run = jest.fn((command, args) => args[0] === 'ps' ? '' : JSON.stringify([{}]))
+		if (state === 'wrong-image') fixture.sourceContainer.Image = `sha256:${'9'.repeat(64)}`
+		if (state === 'unhealthy') fixture.sourceContainer.State.Health.Status = 'starting'
+		if (state === 'foreign') fixture.sourceContainer.Config.Labels['com.docker.compose.project'] = 'cs-wp9-existing'
+		if (state !== 'missing') {
+			const source = fixture.sourceContainer
+			const run = fixture.run.getMockImplementation()
+			fixture.run = jest.fn((command, args) => args[0] === 'inspect' && args[1] === options.container ? JSON.stringify([source]) : run(command, args))
+		}
+		const invoke = jest.fn()
+		expect(() => preserve(previous, inventory, options, invoke, fixture.run, fixture.preflight)).toThrow(/Preservation (project is missing|source container ownership)/)
+		expect(invoke).not.toHaveBeenCalled()
+	})
+	it.each(['down', 'up'])('propagates a failed %s without claiming preservation', phase => {
+		const options = preservationSettings()
+		const fixture = preservationFixture(options)
+		const invoke = jest.fn((command, args) => ({ status: args.includes(phase) ? 1 : 0 }))
+		expect(() => preserve(previous, inventory, options, invoke, fixture.run, fixture.preflight)).toThrow(/preservation (teardown|re-creation) failed/i)
+	})
+	it.each(['endpoint', 'peer', 'volume', 'inventory', 'version', 'http', 'test-mode'])('refuses source %s drift before any mutation', field => {
+		const options = preservationSettings()
+		const fixture = preservationFixture(options)
+		if (field === 'endpoint') fixture.sourceActual.databaseTargetMatches = false
+		if (field === 'peer') fixture.sourceActual.databasePeer = '172.99.0.2'
+		if (field === 'volume') fixture.sourceContainer.Mounts[0].Name = 'foreign-config'
+		if (field === 'inventory') fixture.sourceContainer.Config.Labels['org.chorestrike.test-runtime.inventory'] = 'foreign'
+		if (field === 'version') fixture.sourceActual.configuredVersion = '34.0.4.1'
+		if (['http', 'test-mode'].includes(field)) fixture.preflight.mockImplementation(() => { throw new Error('source preflight refused') })
+		const invoke = jest.fn()
+		expect(() => preserve(previous, inventory, options, invoke, fixture.run, fixture.preflight)).toThrow()
+		expect(invoke).not.toHaveBeenCalled()
+	})
+	it('verifies the previous-patch source selection with its own identity hash', () => {
+		const previous = selectRuntimeSource(readInventory(), 'primary', 'previous')
+		const previousSettings = stageSettings(previous, 'cs082-unit-pgsql', 'pgsql', sourceImageId, 8182)
+		expect(JSON.parse(previousSettings.input).services['nextcloud-pgsql'].environment.TEST_RUNTIME_INTERNAL_VERSION).toBe('35.0.0.10')
+		expect(selectionHash(previous)).not.toBe(inventoryHash(inventory))
+		expect(previous.nextcloud.version).toBe('35.0.0')
 	})
 })

@@ -4,7 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
-const { readInventory, inventoryHash } = require('../../../scripts/test-runtime')
+const { readInventory, inventoryHash, selectRuntimeSource, selectionHash } = require('../../../scripts/test-runtime')
 const runtime = readInventory('primary')
 
 const environment = { NEXTCLOUD_URL: 'http://127.0.0.1:8082', NEXTCLOUD_CONTAINER: 'cs082-fixture-nextcloud-pgsql-1' }
@@ -58,6 +58,19 @@ describe('coherent owned browser/CLI target', () => {
 		expect(() => assertTargetIdentity(target, value, { ...state, version: aio.nextcloud.internalVersion }, { ...state, version: aio.nextcloud.internalVersion })).not.toThrow()
 		value.Config.Env.pop()
 		expect(() => assertTargetIdentity(target, value, { ...state, version: aio.nextcloud.internalVersion }, { ...state, version: aio.nextcloud.internalVersion })).toThrow('frozen runtime inventory')
+	})
+	it('accepts a pinned previous-patch update source, but never with the current hash or label drift', () => {
+		const full = readInventory()
+		const previous = selectRuntimeSource(full, 'primary', 'previous')
+		const value = container()
+		value.Config.Labels['org.chorestrike.test-runtime.inventory'] = selectionHash(previous)
+		value.Config.Env = ['NEXTCLOUD_TEST_MODE=true', 'NEXTCLOUD_TEST_ENV=true', `TEST_RUNTIME_INTERNAL_VERSION=${previous.nextcloud.internalVersion}`, `TEST_RUNTIME_PHP_VERSION=${previous.php.version}`]
+		const sourceState = { ...state, version: previous.nextcloud.internalVersion }
+		expect(() => assertTargetIdentity(target, value, sourceState, sourceState)).not.toThrow()
+		value.Config.Labels['org.chorestrike.test-runtime.inventory'] = inventoryHash(runtime)
+		expect(() => assertTargetIdentity(target, value, sourceState, sourceState)).toThrow('frozen runtime inventory')
+		value.Config.Labels['org.chorestrike.test-runtime.inventory'] = selectionHash(previous)
+		expect(() => assertTargetIdentity(target, value, { ...sourceState, version: '35.0.9.9' }, sourceState)).toThrow('HTTP/OCC test target mismatch')
 	})
 	it.each([
 		['wrong port', value => { value.NetworkSettings.Ports['80/tcp'][0].HostPort = '8080' }],

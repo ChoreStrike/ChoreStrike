@@ -204,3 +204,115 @@ default promotion, support claim, deployment or retained-baseline adoption.
 
 The automatic review commit stages the five reviewed files, this record
 append, and the plan's Review Outcome / ACTIVE_TASKS updates.
+
+---
+
+## Full Interim Review - CS-PLAN-082 Preservation Slice
+
+### Scope and Capture
+
+Explicit owner: `docs/plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md`.
+The operator approved escalation from requested Standard B to Full interim.
+All four read-only tracks completed; initial findings were consolidated and the
+operator explicitly approved all six fixes, including safety/behavior changes.
+Each track rechecked the repaired implementation; no unresolved finding remains.
+
+Base branch `master`, HEAD `b481e8146441970d9dd3cc26ab62c9a31e03878c`.
+The index was empty and its `git ls-files --stage -z` SHA-256 was
+`d673ef3ee67a79e0b9d4a8d2d615dc2e0111de6dd73d452776f48cae96092270`.
+Initial binary staged diff SHA-256:
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+Initial binary unstaged diff SHA-256:
+`50c173d69dca5dd16503a7f80f2e934fbdd9ef51f213f1cfe04d39d5710197ff`.
+The sole untracked file, `scripts/test-runtime-preservation.ps1`, had SHA-256
+`c74b8747b9e6e655af2c4fb8ca8abbc515769fea1cc7a43acd743915bd064875`.
+Combined SHA-256 (staged bytes, NUL, unstaged bytes, NUL, compact JSON sorted
+untracked `{path,sha256}` array):
+`dc66e0204de420c771e547874cf4b318103df809db350dcac1ab42a5691a8758`.
+
+Exact initial reviewed path manifest:
+
+```text
+docker/Dockerfile.test
+docker/test-entrypoint.sh
+docker/test-runtime.json
+docs/backlog/ACTIVE_TASKS.md
+docs/plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md
+scripts/test-runtime-preservation.ps1
+scripts/test-runtime-stage.js
+scripts/test-runtime.js
+scripts/test-target.js
+tests/fixtures/provision-command.sh
+tests/recovery/fixture.php
+tests/unit/Command/TestEnvironmentProvisioningTest.php
+tests/unit/scripts/testRuntime.spec.js
+tests/unit/scripts/testRuntimeStage.spec.js
+tests/unit/scripts/testTarget.spec.js
+```
+
+Review-owned additions to the allowed commit set: this record,
+`docs/engineering/testing.md`, `tests/recovery/owned-target.php` and
+`tests/unit/Command/RecoveryOwnershipTest.php`. No production domain, migration,
+frontend behavior, support metadata or canonical runtime promotion was changed
+by the review fixes.
+
+### Findings and Resolutions
+
+Locations below refer to the captured pre-fix state.
+
+| ID | Severity | Location | Finding and verified resolution |
+|---|---|---|---|
+| RF-082-06 | major | `scripts/test-runtime-stage.js:165` | Source installation validation occurred after mutation; complete pinned source preflight now precedes teardown, with seven refusal-before-mutation regressions. Safety recheck passed. |
+| RF-082-07 | major | `scripts/test-runtime-preservation.ps1:385` | Same-cluster restore relied on uncaptured roles; private roles backup now restores into a fresh cluster, with source roles absent before restoration and real app authentication/mutation passing. |
+| RF-082-08 | major | `scripts/test-runtime-preservation.ps1:378` | Pipeline failure was mislabeled as artifact rejection; real restored-file corruption now fails the actual checksum verifier before an untouched restore passes. Historical evidence corrected. |
+| RF-082-09 | minor | `scripts/test-runtime-preservation.ps1:337` | Function-local flag skipped network cleanup; shared lifecycle state and nested success/failure cleanup regressions now pass, and real proof networks are absent. |
+| RF-082-10 | major | `scripts/test-runtime-preservation.ps1:94` | Tests copied the PHP predicate in PowerShell; actual shared PHP predicate and executable pre-bootstrap refusal now have 16 regression cases. |
+| RF-082-11 | minor | `scripts/test-runtime-preservation.ps1:501` | PS5.1 appended UTF-16LE into UTF-8 logs; uniform UTF-8 append preserves exit code and passes strict whole-log encoding regression. |
+
+No open finding, workaround, weakened assertion or newly skipped test remains in
+this slice. The operator also allowed a sanitized public blocker placeholder if
+needed; no unresolved security detail is published. Raw recovery artifacts,
+database dumps, role authentication state and detailed logs stay private.
+
+### Verification
+
+- Full Jest on Node20.19.0/npm10.8.2: **1425 tests / 112 suites**, zero failures.
+  Full noise gate, canonical lint and production build pass on the same engines.
+  Host-default lint initially emitted Node's `DEP0180`; rerunning on the supported
+  minimum toolchain was clean, without changing dependencies or suppressing warnings.
+- Fresh isolated NC35.0.1/PHP8.4.25/PostgreSQL18.6 review target:
+  unit **1367 / 4870 assertions**, integration **603 / 5048 assertions**,
+  `--fail-on-skipped --do-not-cache-result` (integration `--order-by=default`).
+  Before fixes the same fresh target passed 1351/4852 and 603/5069; integration
+  assertions vary with persistent test state as documented by earlier runs.
+- Uncached PHP CS **0 / 412**; Composer strict validation and actual platform
+  requirements pass; stylelint, l10n exact keys (1275), runtime inventory,
+  browser-runner self-test, docs encoding, backlog links and whitespace pass.
+- Renewed P1 primary PostgreSQL/MariaDB/SQLite: `a1060011`, all PASS.
+  P2 primary PostgreSQL `a1060002`, MariaDB/SQLite `a1060012`, NC34/AIO
+  PostgreSQL `a1060013`, all PASS. Same named volumes, 26 migrations, 30 table
+  snapshots and core/config/file sentinels survive; real patch upgrades and
+  post-update mutations/schema parity pass, with no reset between comparisons.
+- Renewed P3 `a1060003`: **PASS**, fresh cluster with captured roles,
+  whole-database rows/file hashes equal, divergence/corrupted-file/downgrade
+  controls fired, post-restore mutation succeeds, cleanup succeeds with zero
+  errors. Docker confirms no `cs082-a106*` proof network remains.
+- Six-row rebuilt-image R2/R3 matrix is inherited from the implementation
+  evidence, not claimed as rerun by this review. The final PostgreSQL browser
+  pair is still open; the browser-runner self-test is not browser execution.
+
+Final implementation content manifest SHA-256:
+`226aa137aef526eaa990771c09605921a4eb3c7ae82428c40744a0ca5c98aa09`.
+Computed from compact JSON of sorted `{path,sha256}` entries for every changed
+non-doc path, including all untracked implementation files, before final docs.
+
+### Outcome and Finalization
+
+**PASS-WITH-FIXES**, Full interim. Durable preservation instructions integrated
+into `docs/engineering/testing.md`; RF-082-06..11 and the outcome are recorded
+in the owning plan, and ACTIVE_TASKS is updated. No new backlog item is needed:
+all findings were plan-owned and resolved in-round. R4/R7/R8 remain planned work.
+CS-PLAN-082 stays `active/`; TECH-RUNTIME-001, RELEASE-002 and CONCEPT-001 stay
+open. No deployment, retained-baseline adoption, branch switch, push or PR.
+The eligible scoped commit contains the reviewed slice and these verified fixes
+and review-owned records only; no lifecycle move or owner archival is eligible.

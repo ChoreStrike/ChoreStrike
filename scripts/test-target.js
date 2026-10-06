@@ -1,7 +1,7 @@
 /** Read-only HTTP/OCC coherence checks before any test mutation. */
 const { spawnSync } = require('node:child_process')
 const { createHash } = require('node:crypto')
-const { readInventory, selectRuntime, inventoryHash } = require('./test-runtime')
+const { readInventory, selectRuntimeSource, selectionHash } = require('./test-runtime')
 
 const DEFAULT_URL = 'http://localhost:8080'
 const CLI_IDENTITY = "require '/var/www/html/lib/base.php'; $config = \\OC::$server->get(\\OC\\SystemConfig::class);"
@@ -73,9 +73,11 @@ function assertTargetIdentity(target, container, cli, http) {
 	}
 	if (target.container.startsWith('cs082-')) {
 		const inventory = readInventory()
-		const runtime = [selectRuntime(inventory), selectRuntime(inventory, 'aio')]
-			.find(row => row.nextcloud.internalVersion === cli.version)
-		if (!runtime || container.Config.Labels['org.chorestrike.test-runtime.inventory'] !== inventoryHash(runtime)
+		const runtime = ['primary', 'aio'].flatMap(row => ['current', 'previous']
+			.map(patch => { try { return selectRuntimeSource(inventory, row, patch) } catch { return null } }))
+			.filter(Boolean)
+			.find(selection => selection.nextcloud.internalVersion === cli.version)
+		if (!runtime || container.Config.Labels['org.chorestrike.test-runtime.inventory'] !== selectionHash(runtime)
 			|| !container.Config.Env.includes(`TEST_RUNTIME_INTERNAL_VERSION=${runtime.nextcloud.internalVersion}`)
 			|| !container.Config.Env.includes(`TEST_RUNTIME_PHP_VERSION=${runtime.php.version}`)) {
 			throw new Error('HTTP/OCC test target mismatch: frozen runtime inventory')
