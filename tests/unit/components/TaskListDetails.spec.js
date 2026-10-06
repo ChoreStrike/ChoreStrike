@@ -154,6 +154,65 @@ describe('TaskListDetails occurrence agreements', () => {
 			item: { roomTask: roomTask({ occurrence: occurrence() }), task: task() },
 		})
 		expect(memberWrapper.find('[data-testid="occurrence-agreement"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="agreement-handover"]').exists()).toBe(true)
+	})
+
+	it('requires a recipient and consent, then records only the one-occurrence handover', async () => {
+		const { wrapper, store } = mountWithOccurrence()
+		const spy = jest.spyOn(store, 'amendOccurrence').mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
+		const submit = wrapper.find('[data-testid="agreement-handover-submit"]')
+		expect(submit.element.disabled).toBe(true)
+		await wrapper.find('[data-testid="agreement-handover-member"]').setValue('u2')
+		expect(submit.element.disabled).toBe(true)
+		await wrapper.find('[data-testid="agreement-consent"]').setValue(true)
+		await submit.trigger('click')
+		expect(spy).toHaveBeenCalledWith({
+			roomTaskId: 42,
+			occurrence: occurrence(),
+			participants: [{ userId: 'u2', role: 'responsible', sharePct: 100 }],
+			consent: true,
+		})
+		expect(wrapper.emitted('toggle-assignee')).toBeUndefined()
+		expect(wrapper.find('[data-testid="agreement-handover-member"]').element.value).toBe('')
+		expect(wrapper.find('[data-testid="agreement-consent"]').element.checked).toBe(false)
+	})
+
+	it('retains the handover recipient on conflict and does not offer it for fulfilled or suspended work', async () => {
+		const { wrapper, store } = mountWithOccurrence()
+		jest.spyOn(store, 'amendOccurrence').mockRejectedValue({ status: 409 })
+		await wrapper.find('[data-testid="agreement-handover-member"]').setValue('u2')
+		await wrapper.find('[data-testid="agreement-consent"]').setValue(true)
+		await wrapper.find('[data-testid="agreement-handover-submit"]').trigger('click')
+		await wrapper.vm.$nextTick()
+		expect(wrapper.find('[data-testid="agreement-conflict"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="agreement-handover-member"]').element.value).toBe('u2')
+		for (const state of [{ fulfilled: true }, { suspended: true }]) {
+			const { wrapper: unavailable } = mountWithOccurrence({}, state)
+			expect(unavailable.find('[data-testid="agreement-handover"]').exists()).toBe(false)
+		}
+	})
+
+	it.each(['12:1', '12:2'])('binds conflict drafts and consent to the shown occurrence (%s)', async (nextId) => {
+		const { wrapper, store } = mountWithOccurrence()
+		jest.spyOn(store, 'amendOccurrence').mockImplementation(async () => {
+			await wrapper.setProps({ item: {
+				roomTask: roomTask({ occurrence: occurrence({ occurrenceId: nextId, expectedVersion: 4 }) }),
+				task: task(),
+			} })
+			throw { status: 409 }
+		})
+		await wrapper.find('[data-testid="agreement-amend-date"]').setValue('2999-02-01')
+		await wrapper.find('[data-testid="agreement-handover-member"]').setValue('u2')
+		await wrapper.find('[data-testid="agreement-consent"]').setValue(true)
+		await wrapper.find('[data-testid="agreement-handover-submit"]').trigger('click')
+		await new Promise(resolve => setTimeout(resolve, 0))
+		const replaced = nextId !== '12:1'
+		expect(wrapper.find('[data-testid="agreement-handover-member"]').element.value).toBe(replaced ? '' : 'u2')
+		expect(wrapper.find('[data-testid="agreement-amend-date"]').element.value).toBe(replaced ? '' : '2999-02-01')
+		expect(wrapper.find('[data-testid="agreement-consent"]').element.checked).toBe(!replaced)
+		expect(wrapper.find('[data-testid="agreement-handover-submit"]').element.disabled).toBe(replaced)
+		expect(wrapper.find('[data-testid="agreement-replaced"]').exists()).toBe(replaced)
+		expect(wrapper.find('[data-testid="agreement-conflict"]').exists()).toBe(!replaced)
 	})
 
 	it('sends the amend command with the shown identity, version and consent', async () => {

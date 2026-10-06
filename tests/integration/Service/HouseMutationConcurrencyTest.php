@@ -14,8 +14,8 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseSetupService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 
 /**
  * CS-PLAN-071 WP0 T0: the house-first lock order on the REAL database
@@ -23,26 +23,13 @@ use OCP\IDBConnection;
  * mechanism on an isolated disposable SQLite environment.
  *
  * The DB races follow the repo's two-connection `proc_open` helper pattern
- * and are MySQL/MariaDB-only (SQLite has no row-level concurrency to prove
- * — its mechanism is proven in the dedicated D5 test below). Deterministic
+ * on every installed provider (SQLite serializes database writers; the
+ * isolated D5 test below remains supplemental). Deterministic
  * barrier: the T1 helper holds the HOUSE row lock (the FIRST lock of the
  * documented order) and commits a competing fact while T2's aggregate sits
  * blocked between its pre-transaction probe and that lock.
  */
 class HouseMutationConcurrencyTest extends IntegrationTestCase {
-	/** @var int[] Room tasks whose completed_tasks rows need cleanup */
-	private array $cleanupRoomTaskIds = [];
-
-	protected function tearDown(): void {
-		foreach ($this->cleanupRoomTaskIds as $roomTaskId) {
-			$qb = $this->db->getQueryBuilder();
-			$qb->delete('chorestrike_completed_tasks')
-				->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
-				->executeStatement();
-		}
-		parent::tearDown();
-	}
-
 	/**
 	 * CompleteVsMemberRemoval_MemberRemovedBehindHouseLock_Yields403ZeroWrites
 	 *
@@ -52,17 +39,12 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 	 * no coin delta).
 	 */
 	public function testCompleteVsMemberRemoval_MemberRemovedBehindHouseLock_Yields403ZeroWrites(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('hmc_owner', 'HMC Removal House');
 		$this->addHouseMember($houseId, 'hmc_completer', 'HMC Completer', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'HMC task');
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'hmc_completer');
-		$this->cleanupRoomTaskIds[] = $roomTaskId;
 
 		$completerHouseUserId = $this->findHouseUserId($houseId, 'hmc_completer');
 
@@ -76,6 +58,7 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the removal holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -95,7 +78,10 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			} catch (ForbiddenException $e) {
 				self::assertStringContainsString('member', $e->getMessage());
 			}
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -130,17 +116,12 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 	 * row.
 	 */
 	public function testCompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsOccurrenceConflict409(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('hmc_dup_owner', 'HMC Duplicate House');
 		$this->addHouseMember($houseId, 'hmc_dup_completer', 'HMC Dup Completer', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'HMC duplicate task');
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'hmc_dup_completer');
-		$this->cleanupRoomTaskIds[] = $roomTaskId;
 		$completerHouseUserId = $this->findHouseUserId($houseId, 'hmc_dup_completer');
 
 		// T2's receipt is resolved BEFORE the winner commits — the shown
@@ -158,11 +139,12 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		file_put_contents($helperScript, $this->buildDuplicateWinnerHolderScript());
 
 		$process = proc_open(
-			[PHP_BINARY, $helperScript, (string)$roomTaskId, (string)$completerHouseUserId, (string)$target->getId(), $signalFile],
+			[PHP_BINARY, $helperScript, (string)$roomTaskId, (string)$completerHouseUserId, (string)$target->getId(), $signalFile, (string)$houseId],
 			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the duplicate-winner holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -191,7 +173,10 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			} catch (ConflictException $e) {
 				self::assertSame('This occurrence is already completed', $e->getMessage());
 			}
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -214,27 +199,23 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 	 * must answer 409 with zero writes — the evidence stays untouched.
 	 */
 	public function testDeleteRoomTaskVsCompletion_RoomTaskTombstonedBehindHouseLock_Yields409ZeroWrites(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('hmc_tomb_owner', 'HMC Tombstone House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'HMC tombstone task');
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'hmc_tomb_owner');
-		$this->cleanupRoomTaskIds[] = $roomTaskId;
 
 		$signalFile = sys_get_temp_dir() . '/cs-hmc-tomb-locked-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-hmc-tombstoner-' . uniqid() . '.php';
 		file_put_contents($helperScript, $this->buildTombstoneHolderScript());
 
 		$process = proc_open(
-			[PHP_BINARY, $helperScript, (string)$roomTaskId, $signalFile],
+			[PHP_BINARY, $helperScript, (string)$roomTaskId, $signalFile, (string)$houseId],
 			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the tombstone holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -252,7 +233,10 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			} catch (ConflictException $e) {
 				self::assertSame('Task is not active', $e->getMessage());
 			}
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -277,10 +261,6 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 	 * (uniq_wallet_house_user + the house-first serialization).
 	 */
 	public function testConcurrentMembershipCreation_MembershipCreatedBehindHouseLock_OneWalletExactly(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createBareHouse('HMC Wallet House');
 		$this->ensureUserWithEmail('hmc_wallet_target', 'hmc_wallet_target@example.com');
 		// CS-PLAN-081 H3: the invite is owner-gated service-side — the bare
@@ -288,6 +268,7 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		// raw row creates no wallet, so the one-wallet assertion below stays
 		// exact (the base teardown removes it with the tracked house).
 		$this->insertRawOwnerMembership($houseId, 'admin');
+		$this->actingAs('admin');
 
 		$signalFile = sys_get_temp_dir() . '/cs-hmc-wallet-locked-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-hmc-winner-' . uniqid() . '.php';
@@ -299,6 +280,7 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the wallet-winner holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -312,12 +294,14 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			// T2: blocked at the house lock while T1 commits the membership
 			// + wallet; afterwards the invite finds both under the lock and
 			// creates no duplicates (createOrGet idempotence).
-			$this->actingAs('admin');
 			$houseService = \OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class);
 			$membership = $houseService->inviteMember($houseId, 'hmc_wallet_target@example.com', 'member');
 
 			self::assertNotNull($membership->getWalletId(), 'the membership carries the winner\'s wallet binding');
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -333,8 +317,6 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		);
 		self::assertSame(1, $walletCount, 'exactly one wallet identity exists');
 
-		// Local cleanup (wallets are not covered by the base teardown).
-		$this->deleteByHouseId('chorestrike_wallets', $houseId);
 	}
 
 	private function insertRawOwnerMembership(int $houseId, string $userId): void {
@@ -569,6 +551,7 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $houseUserId = (int)$argv[2];
@@ -577,18 +560,12 @@ $signalFile = $argv[3];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = :id FOR UPDATE',
-    ['id' => $houseId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 $db->executeStatement(
-    'DELETE FROM *PREFIX*chorestrike_task_assignees WHERE user_id = (SELECT nextcloud_user_id FROM *PREFIX*chorestrike_house_users WHERE id = :hid) AND 1 = 1',
+    'DELETE FROM *PREFIX*chorestrike_task_assignees WHERE user_id = (SELECT nextcloud_user_id FROM *PREFIX*chorestrike_house_users WHERE id = :hid)',
     ['hid' => $houseUserId],
     ['hid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
@@ -605,34 +582,30 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $roomTaskId = (int)$argv[1];
 $houseUserId = (int)$argv[2];
 $occurrenceId = (int)$argv[3];
 $signalFile = $argv[4];
+$houseId = (int)$argv[5];
 
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = (SELECT f.house_id FROM *PREFIX*chorestrike_floors f INNER JOIN *PREFIX*chorestrike_rooms r ON r.floor_id = f.id INNER JOIN *PREFIX*chorestrike_room_tasks rt ON rt.room_id = r.id WHERE rt.id = :rtid) FOR UPDATE',
-    ['rtid' => $roomTaskId],
-    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 $db->executeStatement(
-    'INSERT INTO *PREFIX*chorestrike_completed_tasks (room_task_id, user_id, completed_at, total_energy, rate_minor, completion_version, allocation_revision, occurrence_due, work_date, work_zone, completion_class) VALUES (:rtid, :uid, NOW(), 3, 1000, 0, 1, CURDATE(), CURDATE(), \'UTC\', \'agreed\')',
-    ['rtid' => $roomTaskId, 'uid' => $houseUserId],
-    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'uid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
+    'INSERT INTO *PREFIX*chorestrike_completed_tasks (room_task_id, user_id, completed_at, total_energy, rate_minor, completion_version, allocation_revision, occurrence_due, work_date, work_zone, completion_class) VALUES (:rtid, :uid, :now, 3, 1000, 0, 1, :due, :work, \'UTC\', \'agreed\')',
+    ['rtid' => $roomTaskId, 'uid' => $houseUserId, 'now' => date('Y-m-d H:i:s'), 'due' => date('Y-m-d'), 'work' => date('Y-m-d')],
+    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'uid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'now' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'due' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'work' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR]
 );
 // CS-PLAN-072 WP1: the winner FULFILLS the shared occurrence target — the
 // loser's under-lock re-check reads this committed fulfillment (occurrence
 // validity replaces the day-duplicate guard).
-$ledgerId = (int)$db->lastInsertId('*PREFIX*chorestrike_completed_tasks');
+$ledgerId = (int)$db->lastInsertId('chorestrike_completed_tasks');
 $db->executeStatement(
     'UPDATE *PREFIX*chorestrike_occurrences SET completion_id = :cid, version = version + 1 WHERE id = :oid',
     ['cid' => $ledgerId, 'oid' => $occurrenceId],
@@ -646,27 +619,23 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $roomTaskId = (int)$argv[1];
 $signalFile = $argv[2];
+$houseId = (int)$argv[3];
 
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = (SELECT f.house_id FROM *PREFIX*chorestrike_floors f INNER JOIN *PREFIX*chorestrike_rooms r ON r.floor_id = f.id INNER JOIN *PREFIX*chorestrike_room_tasks rt ON rt.room_id = r.id WHERE rt.id = :rtid) FOR UPDATE',
-    ['rtid' => $roomTaskId],
-    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 $db->executeStatement(
-    'UPDATE *PREFIX*chorestrike_room_tasks SET deleted_at = NOW(), deleted_token = id, is_active = 0 WHERE id = :rtid',
-    ['rtid' => $roomTaskId],
-    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
+    'UPDATE *PREFIX*chorestrike_room_tasks SET deleted_at = :now, deleted_token = id, is_active = :active WHERE id = :rtid',
+    ['rtid' => $roomTaskId, 'now' => date('Y-m-d H:i:s'), 'active' => false],
+    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'now' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'active' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_BOOL]
 );
 $db->commit();
 PHP;
@@ -676,6 +645,7 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -687,12 +657,7 @@ $db = \OC::$server->get(\OCP\IDBConnection::class);
 // T1: hold the house lock, then create the target's membership + wallet
 // INSIDE the held transaction (house-first), signal, hold, commit.
 $tx->begin();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = :id FOR UPDATE',
-    ['id' => $houseId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
 try {
     $now = date('Y-m-d H:i:s');
@@ -709,8 +674,7 @@ try {
         ['wid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'hid2' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
     );
 
-    file_put_contents($signalFile, 'locked');
-    usleep(2000000);
+    \OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
     $tx->commit();
 } catch (Throwable $e) {
     $tx->rollBack();

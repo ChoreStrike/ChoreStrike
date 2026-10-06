@@ -1,0 +1,156 @@
+#!/usr/bin/env node
+/** Fresh owned qualification only; never promotes or cleans an existing stack. */
+const { spawnSync } = require('node:child_process')
+const path = require('node:path')
+const { readInventory, validateInventory, inventoryHash, verifyImage, assertInstalled, execute, RUNTIME_FIELDS } = require('./test-runtime')
+const { assertTestTarget } = require('./test-target')
+
+function stageSettings(inventory, project, provider, imageId, port) {
+	validateInventory(inventory)
+	if (!/^cs082-[a-z0-9][a-z0-9-]*$/.test(project) || !['mysql', 'pgsql', 'sqlite'].includes(provider)
+		|| !/^sha256:[a-f0-9]{64}$/.test(imageId) || !Number.isInteger(port) || port < 1024 || port > 65535) {
+		throw new Error('Invalid owned staging project/provider/image/port')
+	}
+	return {
+		project, provider, imageId, port,
+		container: `${project}-nextcloud-${provider}-1`,
+		url: `http://127.0.0.1:${port}`,
+		environment: {
+			...process.env,
+			WP9_TEST_IMAGE: imageId,
+			WP9_MYSQL_IMAGE: `${inventory.databases.mysql.image}@${inventory.databases.mysql.digest}`,
+			WP9_PGSQL_IMAGE: `${inventory.databases.pgsql.image}@${inventory.databases.pgsql.digest}`,
+			WP9_PGDATA: `/var/lib/postgresql/${inventory.databases.pgsql.version.split('.')[0]}/docker`,
+			WP9_PGSQL_VOLUME_TARGET: '/var/lib/postgresql',
+		},
+		input: JSON.stringify({ services: { [`nextcloud-${provider}`]: {
+			ports: [`127.0.0.1:${port}:80`],
+			environment: {
+				TEST_HTTP_URL: `http://127.0.0.1:${port}`,
+				TEST_RUNTIME_INTERNAL_VERSION: inventory.nextcloud.internalVersion,
+				TEST_RUNTIME_PHP_VERSION: inventory.php.version,
+			},
+		} } }),
+	}
+}
+
+function composeArguments(settings, command) {
+	return ['compose', '--project-name', settings.project, '--file', 'docker/compose.test-matrix.yml',
+		'--file', '-', '--profile', settings.provider, ...command]
+}
+
+function assertFreshProject(project, run = execute) {
+	if (!/^cs082-[a-z0-9][a-z0-9-]*$/.test(project)) throw new Error('Invalid owned staging project')
+	for (const args of [
+		['ps', '-a', '--filter', `label=com.docker.compose.project=${project}`, '--format', '{{.ID}}'],
+		['volume', 'ls', '--filter', `label=com.docker.compose.project=${project}`, '--format', '{{.Name}}'],
+		['network', 'ls', '--filter', `label=com.docker.compose.project=${project}`, '--format', '{{.ID}}'],
+	]) {
+		if (run('docker', args).trim()) throw new Error('Staging project already exists; no old-volume fallback or automatic cleanup')
+	}
+	for (const args of [
+		['ps', '-a', '--format', '{{.Names}}'], ['volume', 'ls', '--format', '{{.Name}}'], ['network', 'ls', '--format', '{{.Name}}'],
+	]) {
+		if (run('docker', args).trim().split(/\r?\n/).some(name => name.startsWith(`${project}_`) || name.startsWith(`${project}-`))) {
+			throw new Error('Staging resource name already exists, including unlabelled resources')
+		}
+	}
+}
+
+function assertProviderImage(inventory, settings, container, image) {
+	const expected = inventory.databases[settings.provider]
+	const repository = expected.image.split(':')[0]
+	if (container?.Config?.Labels?.['com.docker.compose.project'] !== settings.project
+		|| container?.Config?.Labels?.['com.docker.compose.service'] !== `db-${settings.provider}`
+		|| container?.Config?.Image !== `${expected.image}@${expected.digest}`
+		|| container?.Image !== image?.Id || `${image?.Os}/${image?.Architecture}` !== inventory.platform
+		|| !image?.RepoDigests?.includes(`${repository}@${expected.digest}`)) {
+		throw new Error('Installed database image/ownership mismatch')
+	}
+	if (settings.provider === 'pgsql') {
+		const data = settings.environment.WP9_PGDATA
+		if (!container.Config.Env.includes(`PGDATA=${data}`)
+			|| !container.Mounts.some(mount => mount.Type === 'volume' && mount.Name === `${settings.project}_pgsql-db`
+				&& mount.Destination === '/var/lib/postgresql')
+			|| container.Mounts.some(mount => mount.Destination === '/var/lib/postgresql/data')) {
+			throw new Error('PostgreSQL owned volume/PGDATA mismatch')
+		}
+	}
+}
+
+function verifyInstallation(inventory, settings, run = execute, preflight = assertTestTarget) {
+	const target = { NEXTCLOUD_URL: settings.url, NEXTCLOUD_CONTAINER: settings.container }
+	preflight(settings.url, target)
+	const container = JSON.parse(run('docker', ['inspect', settings.container]))[0]
+	if (container?.Image !== settings.imageId || container?.Config?.Labels?.['org.chorestrike.test-runtime.inventory'] !== inventoryHash(inventory)
+		|| container?.Config?.Labels?.['com.docker.compose.project'] !== settings.project
+		|| container?.State?.Health?.Status !== 'healthy') throw new Error('Installed candidate image/readiness mismatch')
+	for (const directory of ['config', 'data']) {
+		if (!container.Mounts?.some(mount => mount.Type === 'volume' && mount.Name === `${settings.project}_${settings.provider}-${directory}`
+			&& mount.Destination === `/var/www/html/${directory}`)) throw new Error('Installed candidate owned volume mismatch')
+	}
+	const code = "require '/var/www/html/version.php'; require '/var/www/html/lib/base.php';"
+		+ "$cfg = \\OC::$server->get(\\OC\\SystemConfig::class);"
+		+ "$dbtype = $cfg->getValue('dbtype'); $db = \\OC::$server->get(\\OCP\\IDBConnection::class); $params = $db->getInner()->getParams();"
+		+ "$matches = $dbtype === 'sqlite3' ? $cfg->getValue('datadirectory') === '/var/www/html/data' && ($params['path'] ?? null) === '/var/www/html/data/owncloud.db'"
+		+ ` : ($params['host'] ?? null) === 'db-${settings.provider}' && (string) ($params['port'] ?? '') === '${settings.provider === 'pgsql' ? '5432' : '3306'}'`
+		+ " && ($params['dbname'] ?? null) === 'nextcloud';"
+		+ "if (!$matches) { fwrite(STDERR, 'Installed database target mismatch.'); exit(1); }"
+		+ "$qb = $db->getQueryBuilder(); $function = $dbtype === 'pgsql' ? \"current_setting('server_version')\" : ($dbtype === 'sqlite3' ? 'sqlite_version()' : 'VERSION()');"
+		+ "$result = $qb->select($qb->createFunction($function))->executeQuery(); $version = $result->fetchOne(); $result->closeCursor();"
+		+ `echo json_encode([${RUNTIME_FIELDS}, 'configuredVersion' => $cfg->getValue('version'), 'provider' => $dbtype, 'databaseVersion' => $version,`
+		+ "'databaseTargetMatches' => $matches, 'databasePeer' => $dbtype === 'sqlite3' ? null : gethostbyname($params['host']),"
+		+ "'enabled' => \\OC::$server->get(\\OCP\\App\\IAppManager::class)->isEnabledForUser('chorestrike')]);"
+	const actual = JSON.parse(run('docker', ['exec', '--user', 'www-data', settings.container, 'php', '-r', code]))
+	actual.inventoryHash = container.Config.Labels['org.chorestrike.test-runtime.inventory']
+	assertInstalled(inventory, actual)
+	if (actual.configuredVersion !== inventory.nextcloud.internalVersion || actual.enabled !== true || actual.databaseTargetMatches !== true
+		|| actual.provider !== (settings.provider === 'sqlite' ? 'sqlite3' : settings.provider)
+		|| actual.databaseVersion.match(/^\d+\.\d+(?:\.\d+)?/)?.[0] !== inventory.databases[settings.provider].version) {
+		throw new Error('Installed app/provider/database version mismatch')
+	}
+	if (settings.provider !== 'sqlite') {
+		const db = JSON.parse(run('docker', ['inspect', `${settings.project}-db-${settings.provider}-1`]))[0]
+		const image = JSON.parse(run('docker', ['image', 'inspect', db.Image]))[0]
+		assertProviderImage(inventory, settings, db, image)
+		const network = `${settings.project}_wp9`
+		if (!db.NetworkSettings?.Networks?.[network]?.IPAddress
+			|| db.NetworkSettings.Networks[network].IPAddress !== actual.databasePeer
+			|| !container.NetworkSettings?.Networks?.[network]) throw new Error('Installed database network peer mismatch')
+	}
+	return { status: 'installed-runtime-provider-match', qualification: inventory.status,
+		project: settings.project, provider: settings.provider, imageId: settings.imageId, ...actual }
+}
+
+function stage(inventory, settings, invoke = spawnSync, run = execute) {
+	assertFreshProject(settings.project, run)
+	if (settings.provider !== 'sqlite') {
+		const result = invoke('docker', ['pull', '--platform', inventory.platform,
+			`${inventory.databases[settings.provider].image}@${inventory.databases[settings.provider].digest}`], { cwd: path.resolve(__dirname, '..'), stdio: 'inherit' })
+		if (result.error || result.status !== 0) throw new Error('Frozen database pull failed')
+	}
+	const result = invoke('docker', composeArguments(settings, ['up', '--detach', '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '600']),
+		{ cwd: path.resolve(__dirname, '..'), env: settings.environment, input: settings.input, encoding: 'utf8', stdio: ['pipe', 'inherit', 'inherit'] })
+	if (result.error || result.status !== 0) throw new Error('Owned staging provisioning failed; resources retained for diagnosis')
+}
+
+function main(args) {
+	const [command, project, provider, imageName, port, row = 'primary'] = args
+	if (!['up', 'verify'].includes(command) || args.length < 5 || args.length > 6) {
+		throw new Error('Usage: node scripts/test-runtime-stage.js up|verify cs082-<run-id> mysql|pgsql|sqlite cs082-runtime-<name> <port> [primary|aio]')
+	}
+	const inventory = readInventory(row)
+	const image = verifyImage(inventory, imageName)
+	const settings = stageSettings(inventory, project, provider, image.imageId, Number(port))
+	if (command === 'up') stage(inventory, settings)
+	process.stdout.write(`${JSON.stringify(verifyInstallation(inventory, settings), null, 2)}\n`)
+}
+
+if (require.main === module) {
+	try { main(process.argv.slice(2)) } catch (error) {
+		process.stderr.write(`Runtime staging failed: ${error.message}\n`)
+		process.exitCode = 1
+	}
+}
+
+module.exports = { stageSettings, composeArguments, assertFreshProject, assertProviderImage, verifyInstallation, stage }

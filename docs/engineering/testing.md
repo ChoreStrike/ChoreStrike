@@ -23,9 +23,17 @@ Preference/departure/erasure/schema extensions remain in their existing suites.
 
 `quiet-digest.spec.ts` replaces the retired award-bell scenario and belongs to
 `chromium-serial-db`: silent defaults and the Settings save, one combined
-task/organizational digest with replay suppression, and quiet/missed-window
-suppression. A passing subset is not the release gate; run
+task/organizational digest with replay suppression, quiet/missed-window
+suppression, and opted-in free/recognized-paused days with an eligible-delivery
+positive control in the same job pass. A passing subset is not the release gate; run
 `npm run test:e2e:gate` for all required scenarios in all three pools.
+
+The [automated family evidence boundaries](../testing/release-test-plan.md#122-automated-family-evidence-boundaries)
+pin the neutral day, fixed/relative recurrence, same-browser login, real keyboard
+execution and reduced-motion proofs. Shared-device tests own fresh login
+sessions so logout cannot invalidate the gate's saved authentication states.
+Reduced-motion tests observe transient canvas insertions and include an
+opted-in positive control, rather than accepting a late empty DOM snapshot.
 
 `family-rewards.spec.ts` (CS-PLAN-070 WP8, CS-PLAN-079) also belongs to
 `chromium-serial-db`: it flips the catalog gate, roles and wallets against
@@ -46,6 +54,63 @@ concurrent changes; the measured actions run in the UI.
 - **Git**: For cloning the repository
 
 ## Quick Start
+
+### Frozen Runtime Candidate and Stable Discovery
+
+`docker/test-runtime.json` is the frozen **candidate** artifact inventory, not
+proof of compatibility, baseline adoption or a promoted default. Until
+CS-PLAN-082's target/support decision and qualification gates pass, the existing
+NC31 canonical environment remains unchanged. NC34.0.4 is the initial frozen
+candidate; upstream discovery currently reports NC35.0.1 separately from AIO's
+NC34.0.4 bundle. Do not relabel a candidate as current-upstream-stable.
+
+```powershell
+# Offline validation; ordinary unit tests use frozen official-response fixtures.
+npm run test:runtime:validate
+# Read-only official discovery: exit 0 = no drift, 2 = update needed,
+# 3 = unknown/error. Never rewrites inventory or running environments.
+npm run test:runtime:check
+# Explicit isolated image build, never the existing canonical image tag.
+node scripts/test-runtime.js build cs082-runtime-34.0.4-local
+node scripts/test-runtime.js verify-image cs082-runtime-34.0.4-local
+```
+
+The `runtime-check` Forgejo workflow runs weekly and via manual dispatch for
+pre-release checks. It uses the same inventory/checker and fails visibly on
+drift or unavailable/malformed metadata. Discovery compares official server
+and AIO release metadata separately, source-tag revisions and registry
+index/platform digests. Candidate execution uses only the frozen identities;
+it does not query mutable aliases while building or between browser pools.
+An image identity match is not an installed-provider, browser, populated-update
+or recovery pass. The maintainer must qualify and explicitly promote a newer
+candidate; the scheduled check never builds, deploys, commits or updates it.
+
+### Coherent Browser and OCC Targets
+
+The browser/OCC helpers share `scripts/test-target.js`. A non-default
+`NEXTCLOUD_URL` requires explicit `NEXTCLOUD_CONTAINER`; custom targets must use
+a numeric loopback origin, publish exclusively on loopback interfaces, belong
+to a `cs082-*` Compose project and a named
+`nextcloud-mysql`, `nextcloud-pgsql` or `nextcloud-sqlite` service. Before a
+seed/reset/job, the read-only preflight verifies both test-mode flags, the
+container's published HTTP port, installed CLI/HTTP version and readiness.
+Missing, ambiguous or mismatched targets fail before mutation. The HTTP test
+API's authenticated test-mode gate remains required in addition to this guard.
+
+Saved browser authentication is scoped by HTTP origin and OCC target under
+`build/.playwright-auth/<target-hash>/`; a staged target cannot reuse canonical
+sessions. Existing canonical local/CI names remain supported only when the
+default origin has one unambiguous running candidate. Configured target URLs
+must not contain credentials, query strings or fragments.
+
+The existing service-container CI transport is a separate explicit exception:
+`CI=true`, `NEXTCLOUD_CONTAINER=nextcloud`, `http://nextcloud:80`, both server
+test markers and the `org.chorestrike.test-ci=chorestrike-e2e` container label
+are required. Its probed HTTP peer address must match the inspected container's
+network address/alias before any mutation. No arbitrary non-loopback URL is
+accepted. Legacy `localhost:8080` routing requires both address families to map
+to the inspected canonical container; numeric origins avoid DNS ambiguity.
+Mutation callers use the validated normalized origin, never a raw URL prefix.
 
 ### Run Tests with Docker Compose
 
@@ -105,6 +170,152 @@ docker exec chorestrike-test vendor/bin/phpunit tests/unit/Service/TaskServiceTe
 # Run a specific test method
 docker exec chorestrike-test vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
 ```
+
+### Isolated Supported-Database Matrix
+
+`docker/compose.test-matrix.yml` is a **standalone companion**, not an override
+to merge with the canonical compose file. It reuses the test image and shared
+entrypoint, but has no fixed container names or published ports. Each provider
+has independent Nextcloud config/data volumes and its own database where needed.
+The `family` profile is mandatory in this matrix; SQLite uses the installed
+Nextcloud database on disk, not an in-memory substitute.
+
+Choose a new project name for each fresh-install run. Confirm that it has no
+existing volumes first. Start providers sequentially because Composer installs
+into the shared source mount; once provisioning finishes, their independent
+databases may be tested in parallel. Never overlap two mutation suites on one
+provider, and never use this companion to reset the canonical browser database.
+
+```powershell
+# Replace this example identity with a new, exclusively owned run identity.
+docker volume ls --filter label=com.docker.compose.project=cs-wp9-example
+docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml --profile mysql --profile pgsql --profile sqlite config --quiet
+docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml --profile mysql up -d --build --wait --wait-timeout 600
+docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml --profile pgsql up -d --wait --wait-timeout 600
+docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml --profile sqlite up -d --wait --wait-timeout 600
+
+# Repeat these gates for nextcloud-mysql, nextcloud-pgsql and nextcloud-sqlite.
+docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml exec -T nextcloud-pgsql vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
+docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml exec -T nextcloud-pgsql vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --order-by=default --do-not-cache-result
+docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml exec -T nextcloud-pgsql composer cs:check
+
+# Capture candidate/image/runtime identities and results BEFORE owned cleanup.
+docker image inspect chorestrike-wp9-test:local --format "{{.Id}}"
+docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml --profile mysql --profile pgsql --profile sqlite down -v
+```
+
+Health is fail-closed: validated selector/settings and PDO driver, authenticated
+DB readiness, successful Nextcloud installation on the expected provider, app
+enablement, HTTP readiness and successful required seed all precede the ready
+marker. `TEST_DB_TYPE` accepts `mysql` (canonical default), `pgsql` or `sqlite`;
+Nextcloud stores the latter as `sqlite3` and reports PostgreSQL as `postgres`.
+No native PostgreSQL/SQLite client is required: probes use the actual PDO driver.
+`TestEnvironmentProvisioningTest` checks selector refusal and readiness failure
+paths; `SupportedDatabaseSchemaTest` verifies the real migrated schema, applied
+migration identities, provider, family reset/bindings and quiet defaults.
+
+A healthy install or green schema subset is **not** a full matrix pass. WP9 still
+requires the complete no-skips integration suite and the separately owned
+browser/human evidence. Preserve failed attempts and do not replace full gates
+with filtered reruns. The current portability findings/evidence live in
+[CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md).
+
+Workflow query budgets retain their MariaDB ceilings. The provider checks pin
+PostgreSQL's exact `SELECT lastval()` count (1/8/3 for due-date/completion/undo)
+and SQLite's exact self-assignment lock count (2/7/7); only those documented
+transport/locking statements are added to the corresponding raw query ceiling.
+No arbitrary provider allowance or dropped result/lock assertion is permitted.
+
+#### Current-Stable Candidate Staging
+
+During CS-PLAN-082 qualification, the old canonical/WP9 resources are historical
+evidence, not the candidate default. `docker/test-runtime.json` pins NC35 primary
+and the separate NC34 AIO compatibility row; `status: candidate` is not support,
+promotion or retained-baseline adoption. `test-runtime.js check` checks upstream,
+the AIO bundle and every row's source/image identity without rewriting anything.
+Exit 2 means update-needed; malformed/unavailable metadata exits 3, never green.
+
+```powershell
+npm run test:runtime:validate
+npm run test:runtime:check
+node scripts/test-runtime.js build cs082-runtime-35.0.1-local
+node scripts/test-runtime.js verify-image cs082-runtime-35.0.1-local
+
+# Use distinct fresh projects and unused loopback ports; start sequentially.
+node scripts/test-runtime-stage.js up cs082-example-pgsql pgsql cs082-runtime-35.0.1-local 8182
+node scripts/test-runtime-stage.js up cs082-example-mysql mysql cs082-runtime-35.0.1-local 8183
+node scripts/test-runtime-stage.js up cs082-example-sqlite sqlite cs082-runtime-35.0.1-local 8184
+
+# Read-only verification of the installed, enabled, seeded provider target.
+node scripts/test-runtime-stage.js verify cs082-example-pgsql pgsql cs082-runtime-35.0.1-local 8182
+docker exec cs082-example-pgsql-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
+docker exec cs082-example-pgsql-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --order-by=default --do-not-cache-result
+```
+
+The stage runner uses the matrix companion plus an in-memory override. It pins
+immutable app-image IDs and database digests, publishes only numeric loopback,
+and refuses pre-existing labelled or name-colliding resources before pulling or
+provisioning. A failed run retains its own resources for diagnosis; rerunning
+`up` requires a new project, not automatic cleanup or reuse. `verify` never
+seeds/resets. PostgreSQL 18 mounts the owned database volume at
+`/var/lib/postgresql` and sets `PGDATA=/var/lib/postgresql/18/docker`; the old
+PostgreSQL 16 data-directory mount is rejected, never reused or upgraded here.
+
+Frozen code/PHP versions, installed configuration version and matching HTTP
+readiness precede the seed. After provisioning, actual source/runtime/provider
+versions, database image identity/layout, enabled app and complete health must
+match the inventory. The real configured connection must use the fixed matrix
+host/port/database and resolve to the owned companion on the project network;
+SQLite must use the fixed path below the checked owned data volume. Matching
+mutable configuration/environment selectors cannot certify an unused companion.
+Browser mutation preflights also require an exact matching
+CS082 runtime row, not merely equal older HTTP/CLI versions. Browser calls use
+`NEXTCLOUD_URL=http://127.0.0.1:8182` and
+`NEXTCLOUD_CONTAINER=cs082-example-pgsql-nextcloud-pgsql-1` together; authentication
+state is scoped to both. A port change alone must never reroute OCC implicitly.
+
+For the named AIO row, add `--runtime=aio` to image build/verification and the
+final `aio` argument to the stage runner, with a distinct image/project/port.
+The row tests the Apache-based app runtime, not AIO packaging or production.
+Neither ordinary seeded staging nor a same-build recreate proves a genuine
+populated update or whole-instance recovery. Keep P1/P2/P3 fixtures separate;
+their still-required execution and final promotion belong to CS-PLAN-082.
+
+Nextcloud 31's `QBMapper` binds mutable `date` properties using datetime
+parameters. SQLite therefore may retain a midnight suffix where MariaDB and
+PostgreSQL normalize a DATE column. Raw fixture queries use half-open local-day
+boundaries rather than date-string equality or an inclusive textual upper bound;
+entity/schema date semantics remain unchanged. The optional closed-week family
+evidence seed keeps its overdue example before that completed week, without
+fabricating a pause or a successful completion. Digest concurrency workers
+bootstrap/capture stale inputs before the parent holds SQLite's database write
+lock, then use a two-way go/attempt barrier to exercise the locked mutation.
+
+The portable bootstrap, completion, house-mutation, setup, task-creation and
+planner races use `tests/integration/Support/QueryBarrier.php`. The existing
+live DBAL SQL-logger seam releases the holder only when the contender reaches
+its required INSERT or locking statement. SQLite uses the production mapper's
+first-write primitive, not `FOR UPDATE`. Real-service pair races pause the
+helper immediately before its outer commit, after its real writes and locks;
+publishing a start signal alone cannot prove overlapping transactions. Require
+the contender marker, persisted competing effects and a normal helper exit with
+empty stderr. The barrier has bounded missing-signal/worker-exit controls and
+restores the previous logger; polling delays are not the ordering proof.
+
+Integration fixture cleanup is ownership-scoped, not a database reset.
+`IntegrationTestCase` discovers service/worker-created floors, rooms, mounts and
+completions beneath its registered fixture roots before deleting any parents.
+It removes completion shares/revisions, source-free room events, checklist
+progress, timelines and wallet entries before the corresponding parent rows.
+Do not delete completion or structure rows in subclass teardown ahead of this
+discovery. Task definitions are not owned merely because a fixture mounts them:
+register genuinely new service-created definitions with `registerCreatedTask()`.
+Setup controller tests override only instance routing to use an owned house,
+leaving the installed instance household intact. `Support/FixtureCleanupTest`
+executes the affected suites' real teardown and compares every app table with
+its pre-test snapshot, including unrelated fixtures, shared definitions and
+repeated/empty cleanup. This is fixture isolation evidence, not a substitute
+for a fresh-volume installation or the full provider suite.
 
 ### 4. Interactive Development
 
@@ -513,7 +724,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 - **Auth via per-user `storageState`:** the Playwright `setup` project
   ([`tests/e2e/auth.setup.ts`](../../tests/e2e/auth.setup.ts)) logs in the admin
   plus every **`family`** user once and saves the browser contexts to
-  `build/.playwright-auth/{userId}.json` (gitignored `build/` tree). Auth is
+  `build/.playwright-auth/<target-hash>/{userId}.json` (gitignored `build/` tree). Auth is
   **decoupled from
   `TEST_DB_PROFILE`**: the setup always seeds + authenticates the `family`
   identities every spec consumes (mom/dad/teen/kid/grandma/friend), while
@@ -543,7 +754,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 - **Scheduling owner-context (CS-PLAN-018 Phase 3b):** `scheduling.spec.ts` and
   `availability-settings-flow.spec.ts` run in a dedicated
   `chromium-scheduling-owner` project as `dad`
-  (`storageState: 'build/.playwright-auth/dad.json'`, `fullyParallel: false`,
+  (`storageState: userStatePath('dad')`, `fullyParallel: false`,
   `workers: 1`). Root cause: admin is a lone `member` (house 418) with no
   owner-only availability data; owners are `dad`/`mom` (house 420). The
   parallel pool excludes these specs via `testIgnore`.
@@ -1303,23 +1514,16 @@ Point-in-time inventory recorded as the CS-PLAN-058 program baseline. It is
 date-stamped, not self-updating: later work packages refresh their rows as
 part of their own documentation integration.
 
-### PHPUnit skip inventory (WP9 refresh, 2026-09-13)
+### PHPUnit Skip Inventory (CS-PLAN-080 Refresh, 2026-10-05)
 
-The unit suite has no skip call sites. The integration suite's remaining
-**18 `markTestSkipped` call sites** are ALL conditional engine guards in the
-two-connection concurrency suites — they run green inside the Docker gate
-(MySQL/MariaDB) and only skip on engines without the concurrency primitives:
-
-| File | Skips | Reason class |
-|---|---|---|
-| `tests/integration/Db/BootstrapConcurrencyTest.php` | 4 | Conditional MySQL two-connection guard. |
-| `tests/integration/Service/ConcurrentCompletionTest.php` | 3 | Same conditional environment guard. |
-| `tests/integration/Db/ChecklistToggleConcurrencyTest.php` | 1 | Same. |
-| `tests/integration/Service/CompletionConcurrencyTest.php` | 2 | Same. |
-| `tests/integration/Service/MinigameConcurrencyTest.php` | 2 | Same. |
-| `tests/integration/Service/SchedulePlanConcurrencyTest.php` | 2 | Same. |
-| `tests/integration/Service/TaskCreationConcurrencyTest.php` | 2 | Same. |
-| `tests/integration/Setup/SetupApplyConcurrencyTest.php` | 2 | Same. |
+The unit and integration suites have no `markTestSkipped` call sites. The
+former MySQL-only guards are removed: MariaDB/PostgreSQL row-lock races and
+SQLite write-serialization races execute against independently installed
+Nextcloud databases. The standalone SQLite lock helper remains supplemental,
+not a replacement for service-level proofs. Run both full configurations with
+`--fail-on-skipped`; see the [isolated matrix](#isolated-supported-database-matrix)
+for commands and [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
+for dated results and remaining acceptance limits.
 
 Closed by CS-PLAN-068 (WP9): the eight unconditional
 `FamilyIntegrationTest` skips (rewritten as real-DB `CompletionService`

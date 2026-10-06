@@ -486,6 +486,8 @@ export default {
 			// than an empty list. Canonical assignees ride the enriched row
 			// (D1) — top-level on the payload.
 			if (!this.myUserId) return true
+			const obligated = item.proposal?.obligatedUserIds
+			if (Array.isArray(obligated)) return obligated.includes(this.myUserId)
 			const assignees = item.assignees ?? item.roomTask.assignees ?? []
 			return assignees.length === 0 || assignees.includes(this.myUserId)
 		},

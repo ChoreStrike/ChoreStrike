@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -36,25 +37,9 @@ use OCP\IDBConnection;
  *  4. Inactive occurrence: 409 with zero writes (D4).
  *
  * The races follow the repo's two-connection `proc_open` helper pattern and
- * are MySQL/MariaDB-only (SQLite has no row-level concurrency to prove).
+ * prove row locking on MariaDB/PostgreSQL and write serialization on SQLite.
  */
 class CompletionConcurrencyTest extends IntegrationTestCase {
-	/** @var int[] Room task ids whose ledger/checklist rows need cleanup */
-	private array $cleanupRoomTaskIds = [];
-
-	protected function tearDown(): void {
-		foreach ($this->cleanupRoomTaskIds as $roomTaskId) {
-			foreach (['chorestrike_completed_tasks', 'chorestrike_chk_progress'] as $table) {
-				$qb = $this->db->getQueryBuilder();
-				$qb->delete($table)
-					->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
-					->executeStatement();
-			}
-		}
-
-		parent::tearDown();
-	}
-
 	/**
 	 * SameRoomCompletion_BlockedOnRoomLock_BuildsOnCommittedWinnerCleanliness
 	 *
@@ -66,10 +51,6 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 	 * pre-lock and wrote the clobbering 50 + deltaA.
 	 */
 	public function testSameRoomCompletion_BlockedOnRoomLock_BuildsOnCommittedWinnerCleanliness(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('cct_owner', 'Concurrency House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
@@ -77,7 +58,6 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$taskB = $this->createTask($houseId, 'CCT trash', '', 5, 2);
 		$roomTaskA = $this->assignTaskToRoom($taskA, $roomId, 'cct_owner');
 		$roomTaskB = $this->assignTaskToRoom($taskB, $roomId, 'cct_owner');
-		$this->cleanupRoomTaskIds = [$roomTaskA, $roomTaskB];
 
 		// WP3 §3.5: cleanliness is journal-replayed — the creation baseline
 		// anchors the math, never a raw row value. T1 commits a journal
@@ -95,6 +75,10 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the room-lock holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile,
+			$this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE
+				? '/^UPDATE .*chorestrike_houses/i'
+				: '/^SELECT .*chorestrike_rooms.*FOR UPDATE/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -110,6 +94,8 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			// replay total.
 			$completionService = \OC::$server->get(CompletionService::class);
 			$result = $this->completeOccurrence($completionService, $houseId, 'cct_owner', $roomTaskA);
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 
 			$row = $this->fetchRow('chorestrike_rooms', 'id', $roomId);
 			self::assertSame(
@@ -130,6 +116,7 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			self::assertCount(1, $events, 'exactly one journal effect per completion');
 			self::assertSame($result['rewards']['cleanlinessChange'], (int)$events[0]['delta_cleanliness'], 'the applied delta is journal-visible');
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -153,7 +140,6 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'CCT retry', '', 5, 3);
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'cct_retry_owner');
-		$this->cleanupRoomTaskIds[] = $roomTaskId;
 
 		$completionService = $this->sabotagedWeeklyGoalCompletionService();
 
@@ -198,16 +184,11 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 	 * `undone: false` and ZERO domain writes.
 	 */
 	public function testConcurrentUndo_LoserOfRevertibleRace_IsIdempotentZeroWriteNoOp(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('cct_undo_owner', 'Undo Race House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'CCT undo', '', 5, 3);
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'cct_undo_owner');
-		$this->cleanupRoomTaskIds[] = $roomTaskId;
 
 		$completionService = \OC::$server->get(CompletionService::class);
 		$actor = \OC::$server->get(HouseUserMapper::class)
@@ -231,6 +212,10 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the undo-winner holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile,
+			$this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE
+				? '/^UPDATE .*chorestrike_houses/i'
+				: '/^SELECT .*chorestrike_room_tasks.*FOR UPDATE/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -255,7 +240,10 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			);
 
 			self::assertFalse($result['undone'], 'the race loser must answer the idempotent no-op');
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -286,7 +274,6 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'CCT inactive', '', 5, 3);
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'cct_inactive_owner');
-		$this->cleanupRoomTaskIds[] = $roomTaskId;
 
 		$qb = $this->db->getQueryBuilder();
 		$qb->update('chorestrike_room_tasks')
@@ -431,6 +418,7 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $roomId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -438,22 +426,16 @@ $signalFile = $argv[2];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_rooms WHERE id = :id FOR UPDATE',
-    ['id' => $roomId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\RoomMapper::class)->lockForUpdate($roomId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 // The concurrent winner's journal completion delta (WP3 §3.5: the replay,
 // never a raw row RMW, folds this into the room state T2 must build on).
 $db->executeStatement(
-    'INSERT INTO *PREFIX*chorestrike_room_events (room_id, kind, effective_at, stable_id, source_completion_id, delta_cleanliness, created_at) VALUES (:rid, \'completion\', NOW(), \'completion:racedummy\', NULL, 20, NOW())',
-    ['rid' => $roomId],
-    ['rid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
+    'INSERT INTO *PREFIX*chorestrike_room_events (room_id, kind, effective_at, stable_id, source_completion_id, delta_cleanliness, created_at) VALUES (:rid, \'completion\', :effective, \'completion:racedummy\', NULL, 20, :created)',
+    ['rid' => $roomId, 'effective' => date('Y-m-d H:i:s'), 'created' => date('Y-m-d H:i:s')],
+    ['rid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'effective' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'created' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR]
 );
 $db->commit();
 PHP;
@@ -469,6 +451,7 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $roomTaskId = (int)$argv[1];
 $ledgerRowId = (int)$argv[2];
@@ -477,20 +460,14 @@ $signalFile = $argv[3];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_room_tasks WHERE id = :id FOR UPDATE',
-    ['id' => $roomTaskId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->lockForUpdate($roomTaskId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 $db->executeStatement(
-    'UPDATE *PREFIX*chorestrike_completed_tasks SET undone_at = NOW() WHERE id = :id',
-    ['id' => $ledgerRowId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
+    'UPDATE *PREFIX*chorestrike_completed_tasks SET undone_at = :now WHERE id = :id',
+    ['id' => $ledgerRowId, 'now' => date('Y-m-d H:i:s')],
+    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'now' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR]
 );
 $db->commit();
 PHP;

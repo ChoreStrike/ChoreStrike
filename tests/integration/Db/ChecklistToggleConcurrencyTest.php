@@ -12,14 +12,12 @@ namespace OCA\ChoreStrike\Tests\Integration\Db;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 
 /**
  * Mapper correctness minors (CS-PLAN-060 WP1 §3.6): bounded getUserRank and
  * the checklist toggle's locked RMW with unique-violation-tolerant insert.
  *
- * The toggle race is MySQL/MariaDB-only (SQLite has no row-level
- * concurrency to prove).
+ * MariaDB/PostgreSQL serialize the row; SQLite serializes database writers.
  */
 class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 	private int $checklistItemId = 0;
@@ -53,10 +51,6 @@ class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 	 * exactly one row, deterministic final state, no lost update.
 	 */
 	public function testToggle_TwoConcurrentFirstToggles_SingleRowFlippedOnce(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$this->seedFixture();
 
 		// T1 (helper): toggle inside an uncommitted transaction (inserts the
@@ -165,6 +159,48 @@ try {
     exit(1);
 }
 PHP;
+	}
+
+	/** @dataProvider aggregateOutcomes */
+	public function testToggleLocked_UniqueInsertLoser_PreservesOuterAggregate(bool $rollBack): void {
+		$this->seedFixture();
+		[$revId, $ordinal] = $this->fixtureOccurrenceKey();
+		$mapper = \OC::$server->get(RoomTaskChecklistProgressMapper::class);
+		$tx = \OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class);
+		$winner = $tx->run(fn () => $mapper->toggleLocked($this->roomTaskId, $revId, $ordinal, $this->checklistItemId, 55));
+		// Force the stale absent-row read, then use real SQL for the losing
+		// insert, savepoint recovery and locked re-read on every provider.
+		$loser = $this->getMockBuilder(RoomTaskChecklistProgressMapper::class)
+			->setConstructorArgs([$this->db])->onlyMethods(['findForUpdate'])->getMock();
+		$reads = 0;
+		$loser->method('findForUpdate')->willReturnCallback(function (...$args) use ($mapper, &$reads) {
+			return $reads++ === 0 ? null : $mapper->findForUpdate(...$args);
+		});
+		try {
+			$tx->run(function () use ($loser, $revId, $ordinal, $rollBack): void {
+				$qb = $this->db->getQueryBuilder();
+				$qb->update('chorestrike_room_tasks')->set('was_claimed', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL))
+					->where($qb->expr()->eq('id', $qb->createNamedParameter($this->roomTaskId, IQueryBuilder::PARAM_INT)))->executeStatement();
+				$progress = $loser->toggleLocked($this->roomTaskId, $revId, $ordinal, $this->checklistItemId, 77);
+				self::assertFalse($progress->getIsChecked());
+				self::assertSame(2, $progress->getRevision());
+				if ($rollBack) {
+					throw new \RuntimeException('injected aggregate failure');
+				}
+			});
+		} catch (\RuntimeException $e) {
+			self::assertTrue($rollBack);
+			self::assertSame('injected aggregate failure', $e->getMessage());
+		}
+		self::assertSame(2, $reads, 'the unique loser re-locks the committed winner');
+		$stored = $mapper->find($winner->getId());
+		self::assertSame($rollBack, $stored->getIsChecked());
+		self::assertSame($rollBack ? 1 : 2, $stored->getRevision());
+		self::assertSame(!$rollBack, \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($this->roomTaskId)->getWasClaimed());
+	}
+
+	public static function aggregateOutcomes(): array {
+		return ['commit' => [false], 'rollback' => [true]];
 	}
 
 	/**

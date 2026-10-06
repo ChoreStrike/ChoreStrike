@@ -22,6 +22,13 @@
 
 Backend tests that need Nextcloud core (`OCP\*`) **must** run inside the Docker test environment (`docker/compose.test.yml`). See [`testing.md`](../../engineering/testing.md).
 
+Supported-provider verification uses the [isolated matrix companion](../../engineering/testing.md#isolated-supported-database-matrix).
+All providers run the complete required suite with `--fail-on-skipped`; a green
+schema subset, provider-specific exclusion or supplemental toy lock test cannot
+replace production-path race/rollback evidence. Provider query budgets may
+account only for explicitly pinned identity-read/write-lock overhead, never an
+unexplained larger allowance.
+
 ## Naming
 
 - **BDD style:** `MethodName_Scenario_ExpectedResult` (PHPUnit) / `describe › it` (Jest).

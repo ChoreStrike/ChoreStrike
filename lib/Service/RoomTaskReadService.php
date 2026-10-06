@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\OccurrenceMember;
 use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
@@ -159,7 +160,7 @@ class RoomTaskReadService {
 	 *
 	 * @param int $houseId
 	 * @param array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string, workAppointment?: array{date: ?string, zone: string}}|null> $selections
-	 * @return array<int, array{occurrenceId: string, basis: string, participants: list<array{userId: string, sharePct: int}>}>
+	 * @return array<int, array{occurrenceId: string, basis: string, participants: list<array{userId: string, sharePct: int}>, obligatedUserIds: ?list<string>}>
 	 */
 	public function proposalBlocksFor(int $houseId, array $selections): array {
 		return $this->buildProposalMapForSelections($houseId, $selections);
@@ -221,9 +222,30 @@ class RoomTaskReadService {
 				'occurrenceId' => $selection['occurrence']->getScheduleRevId() . ':' . $selection['occurrence']->getOrdinal(),
 				'basis' => $basis,
 				'participants' => $this->sortedParticipants($shares),
+				'obligatedUserIds' => $basis === 'agreement'
+					? $this->obligatedUsers($membersByOccurrence[$occurrenceId] ?? [], $userIdByWallet)
+					: null,
 			];
 		}
 		return $proposals;
+	}
+
+	/**
+	 * Concrete responsibility is distinct from voluntary actual-work shares.
+	 * @param list<OccurrenceMember> $members
+	 * @param array<int, string> $userIdByWallet
+	 * @return list<string>
+	 */
+	private function obligatedUsers(array $members, array $userIdByWallet): array {
+		$users = [];
+		foreach ($members as $member) {
+			$userId = $userIdByWallet[(int)$member->getWalletId()] ?? null;
+			if ($member->getDisposition() === OccurrenceMember::DISPOSITION_ACTIVE && $member->getObligated() && $userId !== null) {
+				$users[] = $userId;
+			}
+		}
+		sort($users, SORT_STRING);
+		return $users;
 	}
 
 	/**
@@ -730,6 +752,10 @@ class RoomTaskReadService {
 		$eligible = array_values(array_filter(
 			$allTasks,
 			function (array $item) use ($assigneesByRoomTask, $viewer): bool {
+				$obligated = $item['proposal']['obligatedUserIds'] ?? null;
+				if ($obligated !== null) {
+					return in_array($viewer->getNextcloudUserId(), $obligated, true);
+				}
 				$assignees = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
 				return $assignees === [] || in_array($viewer->getNextcloudUserId(), $assignees, true);
 			}

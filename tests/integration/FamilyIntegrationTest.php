@@ -38,17 +38,6 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$this->completionService = \OC::$server->get(CompletionService::class);
 	}
 
-	protected function tearDown(): void {
-		if ($this->ledgerRoomTaskIds !== []) {
-			$qb = $this->db->getQueryBuilder();
-			$qb->delete('chorestrike_completed_tasks')
-				->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($this->ledgerRoomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
-				->executeStatement();
-			$this->ledgerRoomTaskIds = [];
-		}
-		parent::tearDown();
-	}
-
 	/**
 	 * FamilyTaskCompletionWorkflow_CompletesAssignedDailyTask_WithExactCreditedDeltas
 	 *

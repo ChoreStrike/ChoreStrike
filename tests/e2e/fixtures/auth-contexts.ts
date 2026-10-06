@@ -1,7 +1,8 @@
 import { type Browser, type BrowserContext, type BrowserContextOptions, type Page } from '@playwright/test'
+import { authScope } from '../../../scripts/test-target'
 
 // Auth storage states live in the gitignored build/ tree (CS-PLAN-069 WP4).
-export const AUTH_DIR = 'build/.playwright-auth'
+export const AUTH_DIR = `build/.playwright-auth/${authScope()}`
 
 const BASE_URL = process.env.NEXTCLOUD_URL || 'http://localhost:8080'
 

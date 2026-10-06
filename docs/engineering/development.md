@@ -8,15 +8,21 @@ If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md
 
 ### Prerequisites
 
-- **PHP 8.2+** with extensions: `pdo`, `mbstring`, `curl`, `gd`, `zip`
+- **PHP 8.4.x** for the CS-PLAN-082 qualification candidate, with extensions: `pdo`, `mbstring`, `curl`, `gd`, `zip`
 - **Node.js 20.19.0 or later within 20.x** and **npm 10.8.2 or later within 10.x**
-- **Nextcloud 27+** development instance
+- **Nextcloud 35 primary / 34 AIO compatibility row** for candidate qualification; final support/default promotion remains gated by CS-PLAN-082
 - **Composer** for PHP dependencies
 - **Git** for version control
 
 ### Docker Development Environment
 
 For isolated testing, use the included Docker setup:
+
+The historical canonical commands below still select NC31 until the verified
+candidate is promoted. They are not a fresh-install target for the new candidate
+metadata. For current-stable qualification, use the inventory-driven
+[staging commands](testing.md#current-stable-candidate-staging) instead; do not
+recreate/reset existing NC31 or WP9 installations to test NC35.
 
 1. **Start the test environment**
    ```bash
@@ -222,6 +228,14 @@ notification (`CompletionPostCommitService` runs outside the transaction).
 Recognized transient DB lock/deadlock failures are retried inside
 `TransactionExecutor::run()` with a small bounded retry policy; authorization,
 validation and conflict failures are never retried.
+
+The checklist first-toggle primitive isolates its speculative insert with a
+savepoint inside that caller-owned transaction. A unique-constraint loser rolls
+back only the insert and re-locks the winner before flipping it. This matters on
+PostgreSQL, where catching the duplicate exception alone leaves the transaction
+aborted. Releasing the savepoint never commits the surrounding aggregate; any
+unrelated failure propagates to the executor's full rollback. The installed-DB
+checklist suite proves both outer commit and outer rollback on all providers.
 
 **SQLite write acquisition (CS-PLAN-071 D5):** SQLite has no row-level
 `FOR UPDATE` and no `BEGIN IMMEDIATE` expressible through

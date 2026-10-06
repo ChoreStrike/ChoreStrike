@@ -1,6 +1,6 @@
 # CS-PLAN-082: Current-Stable Test Baseline and Data Preservation
 
-> **Status:** Active (activated via Standard A `PASS` 2026-10-05; implementation not started); drafted 2026-10-05
+> **Status:** Active (implementation started 2026-10-05; NC35 primary qualification in progress); drafted 2026-10-05
 > **Drafted:** 2026-10-05
 > **Effort:** L, 5-8 engineering days; re-estimate after the Nextcloud API/dependency audit
 > **Priority:** P1
@@ -80,7 +80,17 @@ the newly verified baseline (initial target Nextcloud 34 / PHP 8.4) in
 `appinfo/info.xml`, Composer and CI; expand later only with named passing
 matrix rows. The 27-31 declaration is neither silently widened to an untested
 27-34 range nor kept untested; metadata changes remain a candidate for testing
-until the gates pass.
+  until the gates pass.
+
+**Q-082-02: Upstream stable versus the AIO deployment reference.** Resolved
+2026-10-05 in the next implementation round through the structured question:
+**NC35 primary** (recommended option approved). Qualify NC35.0.1 as the primary
+candidate and retain NC34.0.4 as an explicitly named AIO compatibility row.
+Keep the NC34 evidence unchanged; it is not NC35 evidence. Pin a real NC35.0.0
+source for the primary P2 patch update in addition to NC34.0.3 for the AIO row.
+Metadata remains a qualification candidate, not a support claim; canonical
+promotion still requires the plan's technical gates. No deployment or retained
+baseline is authorized by this answer.
 
 ## 3. Backend / Frontend Changes
 
@@ -196,8 +206,8 @@ same frozen build. Verify configuration/instance identity, migration inventory,
 all setup IDs/values and stored facts survive. This is not an upgrade test.
 
 **P2 - real runtime update:** install a concrete previous stable patch in the
-same target major (proposed NC 34.0.3 -> 34.0.4, subject to artifact/support
-verification), populate it through production services, capture state, replace
+same target major (primary NC35.0.0 -> 35.0.1; named AIO row NC34.0.3 -> 34.0.4,
+subject to row qualification), populate it through production services, capture state, replace
 the runtime and run the official Nextcloud upgrade path with the same app
 candidate. Test all three supported DB providers, pin source and target
 artifacts, and compare app facts plus schema parity with fresh target installs.
@@ -271,7 +281,9 @@ note and preservation of its old-runtime evidence. No runtime file changes now.
 
 | Kind | Paths | Purpose |
 |---|---|---|
+| N (next implementation slice) | `scripts/test-runtime-stage.js`, `tests/unit/scripts/testRuntimeStage.spec.js` | Fresh owned inventory-driven provider staging and actual installed/image/volume identity regressions |
 | N | `docker/test-runtime.json`, `scripts/test-runtime.js`, `tests/unit/scripts/testRuntime.spec.js` | Single runtime inventory, stable checks/validation and negative controls |
+| N (implementation audit) | `scripts/test-target.js`, `tests/unit/scripts/testTarget.spec.js`, `.forgejo/workflows/runtime-check.yml` | Shared HTTP/OCC guard for three consumers; scoped-auth regression; isolated read-only weekly/manual drift job |
 | M | `docker/Dockerfile.test`, `docker/compose.test.yml`, `docker/compose.test-matrix.yml`, `docker/test-entrypoint.sh` | Pinned target build, PostgreSQL canonical stack, portable matrix, readiness/preservation modes |
 | M | `tests/unit/Command/TestEnvironmentProvisioningTest.php`, `tests/fixtures/provision-command.sh`, `tests/integration/Db/SupportedDatabaseSchemaTest.php` | Target/runtime/seed/provider regression proofs |
 | M | `playwright.config.ts`, `scripts/run-e2e-gate.js`, `tests/e2e/fixtures/{occ-runner,auth-contexts,database-fixtures}.ts`, `tests/e2e/auth.setup.ts`, `tests/unit/scripts/{databaseFixtures,browserGate}.spec.js` | Coherent owned HTTP/OCC/auth target, strict discovery and execution |
@@ -280,6 +292,7 @@ note and preservation of its old-runtime evidence. No runtime file changes now.
 | M | `appinfo/info.xml`, `composer.json`, `composer.lock` | Approved compatibility bounds and only necessary verified tooling dependency updates |
 | Conditional M | Existing `lib/`, `src/`, unit/integration/E2E tests and `l10n/` owning evidenced incompatibilities | Bounded repairs/regressions; enumerate exact files in findings before editing |
 | M | `docs/engineering/{testing,development,deployment}.md`, `docs/testing/release-test-plan.md`, `docs/standards/guidelines/testing.md`, `docs/standards/ai/skills/docker-dev/SKILL.md`, root `README.md` | Durable default/update/support/preservation rules |
+| M (implementation audit) | `docs/standards/guidelines/e2e-testid-conventions.md` | Repair previously literal auth-state consumption guidance together with the scoped helper |
 | M | This plan, CS-PLAN-080, `docs/plans/README.md`, `docs/README.md`, `docs/backlog/{backlog,ACTIVE_TASKS}.md` | Ownership, evidence and truthful status |
 | Completion only | `docs/backlog/archive/YYYY-MM.md`, formal review record | Archive TECH-RUNTIME-001 only after final passing review; partial RELEASE-002/CONCEPT-001 stay open |
 
@@ -304,6 +317,20 @@ obsolete, record its replacement and archive it under the project archive policy
    RELEASE-002. Leave actual deployment/adoption and human evidence unclaimed.
 8. Request final Standard B or Full review; only a passing complete review moves
    this plan to `done/` and archives its primary owner.
+
+### Next-Slice Progress (2026-10-05)
+
+- [x] Resolve Q-082-02 and freeze NC35.0.1/35.0.0 plus the separate NC34 AIO row.
+- [x] Implement inventory-driven fresh staging and installed-runtime/provider,
+  actual configured DB endpoint and owned-volume refusal regressions.
+- [x] Build the NC35 production Notifications prerequisites without forced app
+  enablement and provision fresh PostgreSQL18/MariaDB11.8/SQLite installations.
+- [x] Execute the complete NC35 primary provider unit/integration matrix with
+  no skips; repair the evidenced schema-wrapper test assumption without reducing
+  schema/default/index or concurrency assertions.
+- [ ] Resolve RF-082-02/04 before qualifying the named NC34 row/final dependency build.
+- [ ] Complete populated P1/P2/P3, canonical/CI promotion, final PostgreSQL browser
+  pair, remaining durable handoff and final lifecycle review.
 
 ## 7. Risks & Mitigations
 
@@ -345,11 +372,191 @@ obsolete, record its replacement and archive it under the project archive policy
 
 ## 9. Review Findings (Plan-Owned)
 
-Standard A `PASS` with zero findings on 2026-10-05 (see `## Review Outcome`);
-no plan-owned findings are open. Q-082-01 was resolved as a review decision,
+Standard A `PASS` with zero findings on 2026-10-05 (see `## Review Outcome`).
+Implementation findings are tracked below. Q-082-01 was resolved as a review decision,
 not an implementation approval. Record in-scope compatibility/test/tooling
 findings here; do not export blockers to unrelated backlog items to declare
 completion.
+
+- [x] **RF-082-01 / block / current-stable scope:** implementation preflight on
+  2026-10-05 found upstream `v35.0.1` (official server latest-release API and
+  stable administration manual), while AIO `v14.2.0` release notes name NC34.0.4.
+  **Q-082-02** asked whether to qualify NC35 as primary plus an explicit NC34
+  AIO compatibility row (recommended), or freeze NC34 first with NC35 pending.
+   The first structured question was dismissed. In the next implementation
+   round the operator selected **NC35 primary** through Q-082-02; the decision
+   is recorded in section 2. This resolves the scope blocker, not the still-open
+   runtime/preservation/promotion gates. No NC34 evidence will be described as
+   NC35 current-upstream-stable evidence.
+
+- [ ] **RF-082-02 / major / NC34 AIO core platform gate:** the authentic NC34
+   source image bundles `lcobucci/clock` 3.0.0 with PHP `~8.1.0 || ~8.2.0`.
+   Both lock and actual-installed core Composer platform checks fail on PHP8.4.25,
+   although core autoload and `SystemClock::now()` smoke pass. NC35 bundles 3.5.0
+   and its actual core platform check passes. Keep the named NC34 row unqualified
+   pending an upstream-supported artifact/disposition; never patch core vendor,
+   bypass requirements or relabel the successful smoke as a passed dependency gate.
+
+- [x] **RF-082-03 / major / Notifications build prerequisite:** the first fresh
+   NC35/PostgreSQL18 install stopped because the pinned notifications Git source
+   requires generated `vendor/autoload.php`, absent from a raw clone. Resolved
+   with the upstream production Composer hooks, actual platform check and an
+   image-level autoload regression. Rebuilt immutable image `18151889c738...`
+   installs/enables/seeds successfully on all three fresh `cs082-20261005c-*`
+   projects. Failed `cs082-20261005b-pgsql` resources are retained; no
+   canonical/WP9 resource was altered.
+
+- [ ] **RF-082-04 / minor / upstream Notifications lock freshness:** the pinned
+   NC35 notifications source emits Composer's stale-root-lock warning during its
+   authentic production install. Exact locked dependencies install, actual PHP
+   platform checks and generated autoload pass; the warning was not suppressed.
+   Preserve the upstream source/lock unchanged and resolve the upstream artifact
+   or disposition before final qualification. A passing app installation is not
+   a warning-free dependency build. Bamarni's notices about future 2.x defaults
+   likewise remain visible under its locked 1.9.1 production hooks.
+
+## Implementation Evidence
+
+- **Initial capture (2026-10-05):** HEAD
+  `5dd32a5ea048993f08d7b63caa343c032f21054d`; inherited tracked binary diff
+  SHA256 `9834da855a7452fa03354bb8c08b2e07ad44255a38f34dea3050b3ef8abaa76a`.
+  Inherited untracked WP9 fixtures/matrix remain present and unstaged. Existing
+  `chorestrike-test`, `chorestrike-db`, `cs-wp9-20261005a-*` and unrelated
+  containers were inventoried read-only, not stopped/recreated/reset.
+- **Artifact preflight:** NC34.0.4 source
+  `77c7284fed1f5c7b4bce1a94299e229f3281b606`, internal `34.0.4.1`;
+  previous patch NC34.0.3 source
+  `b11c68e25d6030187e02477d3d82013405f62965`, internal `34.0.3.2`.
+  PHP8.4.25/apache, PostgreSQL18.6/alpine, MariaDB11.8.6 and Composer2.9.5
+  registry manifests resolve on linux/amd64. Artifact availability is not a
+  passed runtime or preservation gate.
+- **First implementation slice:** candidate inventory/checker, official
+  upstream-versus-AIO discovery, pinned source/image/tool build arguments,
+  image-identity verification, weekly/manual read-only Forgejo check and shared
+  owned loopback HTTP/CLI preflight added. All five browser pools now consume
+  target-scoped auth paths; seed/reset/auth-setup/job entry points refuse an
+  invalid target before mutation. No scenario inventory was reduced.
+- **Build diagnosis resolved in-round:** pin verification initially ran before
+  Git's safe-directory configuration and rejected the Nextcloud checkout.
+  Both server/notifications checks now configure the exact repository first.
+  Missing PCNTL and redundant compilation of already bundled PHP extensions
+  were repaired; the final candidate reports PCNTL and all PDO providers.
+- **Frozen image proof:** `node scripts/test-runtime.js build
+  cs082-runtime-34.0.4-local` and `verify-image` pass. Image ID
+  `sha256:900a242700d35fbfea5d720b4f330a95906ebf8ae5e50c748ccfb19ede61e161`;
+  inventory hash `9a3e384c673473610ade6ca774dfd31d9b60c132dee4d05611e987fc729fb3c9`.
+  Actual NC34.0.4/internal34.0.4.1, both source revisions, PHP8.4.25,
+  SQLite3.46.1, PCOV1.0.12, APCu5.1.24 and Composer2.9.5 match. This was an
+  ephemeral network-disabled image probe, not an installed app/provider pass.
+- **Discovery proof:** `npm run test:runtime:validate` exits 0;
+  `npm run test:runtime:check` exits **2 (`update-needed`)** with upstream35.0.1,
+  AIO14.2.0/bundled34.0.4 and only `upstream-nextcloud` drift. Registry/source
+  checks pass. Unavailable/malformed responses and moved artifacts have frozen
+  unit fixtures; ordinary tests do not depend on live metadata.
+- **Quality evidence (2026-10-05):** Node20.19.0/npm10.8.2 verified via ephemeral
+  `npx --yes --package=node@20.19.0 --package=npm@10.8.2 --call ...` tooling;
+  full Jest `npm test -- --runInBand` **1325/1325** in **111 suites**, lint,
+  production build and full noise gate pass on those supported minimum engines.
+  Stylelint, l10n exact-key check (1275 keys), browser-runner self-test,
+  docs encoding (894 Git-known files), backlog check (35 scoped files) and
+  `git diff --check` pass. Serial-pool discovery finds 164 tests in 29 files,
+  including setup; this is discovery only, not browser execution.
+- **Inherited-runtime regression proof:** canonical NC31/PHP8.2.34 full unit
+  suite passes `--fail-on-skipped --do-not-cache-result`: **1334 tests / 4505
+  assertions**. A read-only preflight against its real HTTP/CLI installation
+  passes. No backend integration/reseeding/browser mutation suite was run on
+  the existing environments in this slice. These unit results do not satisfy
+  R3's newer-runtime provider matrix.
+- **Focused internal recheck:** five reported target/identity/CI-routing issues
+  were repaired with regressions, including the follow-up bare URL-delimiter
+  edge case. Custom publications are exclusively numeric loopback; legacy
+  localhost proves both address families; CI has an explicit owned-container
+  marker and verified HTTP peer address; every image probe uses the captured
+  immutable image ID; mutation callers use the validated normalized origin.
+  Native-probe diagnostics fail closed; Composer's two exact informational
+  version lines are validated and forwarded, not silently discarded. This is
+  an internal partial-slice recheck, not the plan's final lifecycle review.
+- **Remaining mandatory work:** isolated fresh installed-provider provisioning
+  and identity assertions (R2), actual app/core/dependency compatibility (R3),
+  P1/P2/P3 orchestration/execution (R5/R6), canonical/CI promotion (R7), final
+  frozen PostgreSQL browser pair (R4), full durable deployment/support guidance
+  (R8) and final review are still required. The weekly checker is wired but its
+  forge execution has not been observed locally. Q-082-02 is unresolved; no
+  acceptance checkbox, primary owner, deployment or retention boundary was
+  closed/adopted. Index remains untouched; no commit or plan move.
+
+## Next Implementation Slice (2026-10-05)
+
+- **Approved target:** Q-082-02 selects NC35 primary and a distinct NC34 AIO
+  compatibility row. Primary source NC35.0.1
+  `3c012e618ab46ac73c61a96f5bb7168a693ca1fb`, internal `35.0.1.1`; real previous
+  patch NC35.0.0 `da02f41d1cc73607084cd675ee1d849fc8cd2de1`, internal `35.0.0.10`;
+  notifications `0389f40a52d07663efa09de8750a2e26cb528144`. PHP8.4/PG18/MariaDB11.8
+  are upstream-supported NC35 combinations. Registry/source read-only discovery
+  exits **0/current**, upstream35.0.1 versus AIO14.2.0/bundled34.0.4, with no
+  drift. Inventory status remains **candidate**, not qualified.
+- **Frozen final image:** `cs082-runtime-35.0.1-local`, immutable
+  `sha256:18151889c7382d5c2af07760e41f44ba155604bff5de397da06320675a6848e5`,
+  selected inventory hash
+  `ac48918ac4b2e0080314507347c3d588cc7d031556279ca96f274a058184bcd8`.
+  Image/runtime/source/tool identity and generated Notifications autoload pass.
+  NC34 row selection preserves its original hash and historical image evidence;
+  the old raw-source image does not satisfy the newly added autoload gate.
+- **Failed attempt retained:** initial NC35 image `5f6577cb1940...` omitted the
+  Notifications production Composer hooks; fresh `cs082-20261005b-pgsql` stopped
+  during core installation before seed. Its owned resources remain diagnostic
+  evidence. The rebuilt image uses exact source locks and upstream hooks, no
+  forced enablement, ignored requirements or patched core vendor. RF-082-03 is
+  resolved; upstream dependency/build warning dispositions RF-082-02/04 remain.
+- **R2 primary installed providers:** sequential fresh projects
+  `cs082-20261005c-pgsql` (loopback8185, PG18.6),
+  `cs082-20261005c-mysql` (loopback8186, MariaDB11.8.6),
+  `cs082-20261005c-sqlite` (loopback8187, on-disk SQLite3.46.1) all install,
+  enable, family-seed and become healthy. Actual HTTP/CLI/config/source/PHP,
+  app image, provider version and owned config/data/database volumes match.
+  PG18 uses `/var/lib/postgresql/18/docker` below the owned root-volume mount.
+  No existing canonical/WP9 container or volume was stopped/recreated/reset.
+- **Scoped recheck repair:** actual DB version now comes from Nextcloud's real
+  configured `IDBConnection`, bound to the fixed matrix host/port/database,
+  inspected companion network peer and fixed SQLite path under its owned data
+  volume, not mutable environment selectors or a separate PDO. All three positive
+  installed checks pass; PostgreSQL/SQLite read-only negative probes inject
+  foreign connection-parameter copies (with a coherent foreign `DB_HOST` for
+  PostgreSQL) and refuse them before certification, without changing config/data.
+  A final bounded internal source recheck confirms this finding resolved.
+  Labelled and unlabelled old-resource, wrong-image/version, foreign volume,
+  HTTP/runtime and provider refusals have regressions.
+- **Complete primary backend matrix:** every provider discovers the same **603**
+  integration tests, discovery SHA256
+  `118c8a2301f10f2aacb6aa00ceff91c01389a506553ea79837ddd5931a06ee0e`.
+  Unit command `vendor/bin/phpunit --configuration phpunit.unit.xml
+  --fail-on-skipped --do-not-cache-result`: **1341 tests / 4636 assertions** per
+  provider. Integration command `vendor/bin/phpunit --configuration
+  phpunit.integration.xml --fail-on-skipped --order-by=default
+  --do-not-cache-result`: PostgreSQL **603 / 5050**, MariaDB **603 / 5050**,
+  SQLite **603 / 5052**, all exit 0 with no skips. The first complete attempts
+  each had one schema-parity test error (NC35 `OC\DB\Schema\Table` wrapper versus
+  the expected DBAL type); the test now compares the wrapper's underlying DBAL
+  schema, retaining every original column/type/default/index assertion. No app
+  domain fix, query-budget expansion or provider exclusion was required.
+- **Dependency/tool gates:** app `composer validate --strict` and lock platform
+  checks pass; every installed primary provider's app platform check is green.
+  Authentic NC35 core and built Notifications actual runtime platform checks
+  pass. Locked PHPUnit9.6.34/coding-standard1.4.0 remain sufficient; only app PHP
+  constraint and Composer lock content hash changed, no tooling packages updated.
+- **Final quality gates:** supported Node20.19.0/npm10.8.2 full Jest
+  **1375 / 112 suites**, full noise gate, lint, stylelint, production build, l10n exact-key coverage
+  (1275), browser-runner self-test, docs encoding, backlog check and
+  `git diff --check` pass. PHP coding standards report **0 / 410** required fixes
+  with cache disabled. This is primary backend/tooling evidence, not actual browser
+  execution or a final lifecycle review.
+- **Still open:** NC34 compatibility qualification and RF-082-02/04,
+  populated P1/P2/P3 (R5/R6), canonical/CI promotion and default-command checks
+  (R7), actual NC35 browser integration and the final frozen PostgreSQL pair
+  (R4), remaining durable release/deployment/WP9 handoff (R8) and final review.
+  This slice does not prove a populated update, preservation, recovery, AIO
+  installation, production deployment or retained-baseline adoption. No commit,
+  index change or plan move was performed.
 
 ## Draft Validation
 
@@ -405,3 +612,34 @@ were performed. Next step: Standard A with the Q-082-01 support-scope decision.
   CONCEPT-001 keep their existing owners/boundaries; registry linkage,
   CS-PLAN-080 sequencing note and CODE_REVIEW_2026-10-05 activation record
   updated; unrelated WP9-round changes and `.gitkeep` deletions left unstaged.
+
+### Interim Standard B — 2026-10-06 — `PASS-WITH-FIXES` (plan stays active)
+
+- **Scope:** the runtime-baseline slice of the remaining uncommitted round at
+  `master` `5dd32a5` (dual attribution with CS-PLAN-080, operator-resolved):
+  `docker/test-runtime.json`, `scripts/{test-runtime,test-runtime-stage,test-target}.js`,
+  `.forgejo/workflows/{runtime-check.yml,test.yml}`, pinned-parameter
+  `Dockerfile.test`/entrypoint/compose changes, `appinfo/info.xml` +
+  `composer.json/lock` candidate bounds, target-scoped browser auth/OCC
+  routing and their unit specs, plus this plan's evidence sections.
+- **Baseline:** index empty at capture; unstaged-diff SHA256
+  `4435B8C302140AE7E06A12F5060FF5312BE211D165637646794F6F8676B525BD`;
+  inventory hash `ac48918a…` verified unchanged against the recorded final
+  candidate.
+- **Findings fixed in-round (operator-approved):** the `test-runtime.js` CLI
+  catch-all discarded `error.message`, so the wired weekly drift job and
+  manual invocations only reported "failed (unknown)". The catch now prints
+  the specific message (mirroring `test-runtime-stage.js`); focused spec
+  45/45, `test:runtime:validate` unchanged.
+- **Decisions recorded:** dual-plan attribution; in-round fix; the three
+  pre-existing `docs/plans/{active,new,onhold}/.gitkeep` deletions are
+  included in the review commit by explicit operator decision.
+- **Verification:** fail-closed provisioning/staging/target preflight held up
+  under review (loopback-only, credential-free, owned-project, refusal before
+  mutation); metadata remains the Q-082-01/02 qualification candidate with
+  R8 still open; gates green per `CODE_REVIEW_2026-10-06.md`, including a
+  fresh NC35 MariaDB run of the full unit (1341) and integration (603, zero
+  skips) suites on the reviewed tree.
+- **Boundary:** RF-082-02/04 and R2-R8 remainder (browser pair, P1/P2/P3,
+  promotion, durable handoff, final review) stay open; no default promotion,
+  deployment or baseline adoption.

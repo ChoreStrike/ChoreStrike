@@ -21,6 +21,7 @@ import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { runOcc } from './fixtures/occ-runner'
 import { completeWithOptionalDialog } from './fixtures/completion-api'
+import type { Locator } from '@playwright/test'
 
 test.describe('Family core UX (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })
@@ -36,6 +37,12 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 					await expect(session.page.getByTestId('nav-today')).toContainText(myDay)
 					await session.page.getByTestId('nav-tasks').click()
 					await expect(session.page.getByTestId('task-manager-view').getByRole('heading', { level: 1 })).toHaveText(tasks)
+					const row = session.page.getByTestId('task-item').filter({ hasText: 'Wipe kitchen counters' }).first()
+					await row.getByRole('button', { name: language === 'de' ? 'Details anzeigen' : 'Show details', exact: true }).click()
+					const handover = row.getByTestId('agreement-handover')
+					await expect(handover).toContainText(language === 'de' ? 'Diesen Termin übergeben an' : 'Hand this occurrence to')
+					await expect(handover.getByTestId('agreement-handover-submit')).toHaveText(language === 'de' ? 'Vereinbarte Übergabe festhalten' : 'Record agreed handover')
+					await expect(handover).toContainText(language === 'de' ? 'Künftige Zuweisungen bleiben unverändert.' : 'Future assignments stay unchanged.')
 				} finally { await session.context.close() }
 			}
 		} finally { runOcc('user:setting mom core lang en') }
@@ -226,13 +233,33 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await expect(row.locator('button[title="Edit"]')).toHaveCount(0)
 			await expect(row.locator('.task-select')).toHaveCount(0)
 
-			await page.getByTestId(`today-checklist-toggle-${countersRoomTask.id}`).click()
+			// Traverse the actual tab order; programmatic focus would not prove reachability.
+			const tabTo = async (control: Locator) => {
+				for (let i = 0; i < 60; i++) {
+					await page.keyboard.press('Tab')
+					if (await control.evaluate(element => element === document.activeElement)) return
+				}
+				throw new Error('Core control is unreachable by keyboard')
+			}
+			const toggle = page.getByTestId(`today-checklist-toggle-${countersRoomTask.id}`)
+			await tabTo(toggle)
+			await expect(toggle).toBeFocused()
+			await page.keyboard.press('Enter')
 			const item = page.locator('.checklist-item', { hasText: itemLabel })
 			await expect(item).toBeVisible()
 			await expect(page.getByTestId('checklist-add-item-button')).toHaveCount(0)
 
-			await item.locator('label.item-checkbox').click()
+			await tabTo(item.getByRole('checkbox'))
+			await page.keyboard.press('Space')
 			await expect(item.locator('.item-content')).toHaveClass(/is-completed/)
+			const complete = page.getByTestId(`today-complete-button-${countersRoomTask.id}`)
+			await tabTo(complete)
+			await expect(complete).toBeFocused()
+			const response = page.waitForResponse(result => result.request().method() === 'POST' && result.url().endsWith(`/${countersRoomTask.id}/complete`))
+			await page.keyboard.press('Enter')
+			expect((await response).ok()).toBe(true)
+			await expect(complete).toHaveCount(0)
+			await expect(page.getByTestId(`undo-snackbar-entry-${countersRoomTask.id}`)).toBeVisible()
 		} finally {
 			await context.close()
 		}

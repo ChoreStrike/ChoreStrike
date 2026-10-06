@@ -47,6 +47,10 @@ jobs:
     name: E2E (${{ matrix.profile }} / ${{ matrix.browser }})
     runs-on: docker
     needs: phpunit
+    env:
+      CI: 'true'
+      NEXTCLOUD_CONTAINER: nextcloud
+      NEXTCLOUD_URL: http://nextcloud:80
     container:
       image: node:20.19.0
     strategy:
@@ -82,6 +86,7 @@ jobs:
           MYSQL_USER: nextcloud
           MYSQL_PASSWORD: nextcloud
           NEXTCLOUD_TEST_MODE: true
+          NEXTCLOUD_TEST_ENV: true
           TEST_DB_PROFILE: ${{ matrix.profile }}
         ports:
           - "8080:80"
@@ -91,6 +96,7 @@ jobs:
           --health-timeout 5s
           --health-retries 30
           --health-start-period 120s
+          --label org.chorestrike.test-ci=chorestrike-e2e
 
     steps:
       - name: Checkout
@@ -124,6 +130,7 @@ jobs:
 
       - name: Mount and enable ChoreStrike app
         run: |
+          node -e "require('./scripts/test-target').assertTestTarget(process.env.NEXTCLOUD_URL)"
           # Copy the app into the Nextcloud container's apps directory
           docker cp ${{ github.workspace }}/. nextcloud:/var/www/html/custom_apps/chorestrike
           # Enable the app via occ

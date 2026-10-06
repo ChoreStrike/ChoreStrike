@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { userStatePath } from './tests/e2e/fixtures/auth-contexts'
 
 /**
  * Playwright configuration for E2E testing
@@ -175,7 +176,7 @@ export default defineConfig({
 			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS],
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: 'build/.playwright-auth/admin.json',
+				storageState: userStatePath('admin'),
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
 			},
@@ -186,7 +187,7 @@ export default defineConfig({
 			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS],
 			use: {
 				...devices['Desktop Firefox'],
-				storageState: 'build/.playwright-auth/admin.json',
+				storageState: userStatePath('admin'),
 				actionTimeout: 25000,
 				navigationTimeout: 60000,
 			},
@@ -197,7 +198,7 @@ export default defineConfig({
 			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS],
 			use: {
 				...devices['Desktop Safari'],
-				storageState: 'build/.playwright-auth/admin.json',
+				storageState: userStatePath('admin'),
 				actionTimeout: 20000,
 				navigationTimeout: 45000,
 			},
@@ -213,7 +214,7 @@ export default defineConfig({
 			workers: 1,
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: 'build/.playwright-auth/admin.json',
+				storageState: userStatePath('admin'),
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
 			},
@@ -226,7 +227,7 @@ export default defineConfig({
 			workers: 1,
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: 'build/.playwright-auth/dad.json',
+				storageState: userStatePath('dad'),
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
 			},

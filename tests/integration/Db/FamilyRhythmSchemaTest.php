@@ -107,13 +107,12 @@ class FamilyRhythmSchemaTest extends IntegrationTestCase {
 		self::assertSame(1, (int)$row['is_active'], 'room tasks stay active');
 
 		// house_users.wallet_id exists and defaults to NULL (the column
-		// default, per information_schema — the production membership
+		// default, per the portable schema — the production membership
 		// invariant binds wallets eagerly, so a member ROW is never NULL).
-		$columnDefault = $this->db->executeQuery(
-			'SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
-			['oc_chorestrike_house_users', 'wallet_id']
-		)->fetchOne();
-		self::assertTrue($columnDefault === null || $columnDefault === 'NULL', 'house_users.wallet_id exists and defaults to NULL');
+		$prefix = \OC::$server->get(\OCP\IConfig::class)->getSystemValue('dbtableprefix', 'oc_');
+		$column = $this->db->createSchema()->getTable($prefix . 'chorestrike_house_users')->getColumn('wallet_id');
+		self::assertNull($column->getDefault(), 'house_users.wallet_id exists and defaults to NULL');
+		self::assertFalse($column->getNotnull());
 
 		// completed_tasks.user_id is nullable (D3).
 		$id = $this->insertCompletionRow($roomTaskId, null, date('Y-m-d H:i:s'));
@@ -489,7 +488,7 @@ class FamilyRhythmSchemaTest extends IntegrationTestCase {
 			self::assertTrue($items->hasColumn($column), "reward_items column $column missing");
 		}
 		self::assertSame('0', (string)$items->getColumn('version')->getDefault(), 'item versions start at 0');
-		self::assertSame('0', (string)$items->getColumn('archived')->getDefault(), 'items ship live (not archived)');
+		self::assertContains($items->getColumn('archived')->getDefault(), [false, 0, '0'], 'items ship live (not archived)');
 		self::assertTrue($items->getColumn('created_by_house_user_id')->getNotnull() === false, 'creator membership reference is nullable (erasure)');
 		self::assertTrue($items->getColumn('created_by_wallet_id')->getNotnull() === false, 'creator wallet provenance is nullable (erasure)');
 		$itemIndexes = array_map(

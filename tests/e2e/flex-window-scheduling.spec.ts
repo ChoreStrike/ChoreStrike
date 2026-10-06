@@ -20,7 +20,7 @@ test.describe('Flex Window Scheduling', () => {
 	test('scheduling view loads with calendar section', async ({ page }) => {
 		await expect(async () => {
 			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
 		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
 	})
@@ -28,7 +28,7 @@ test.describe('Flex Window Scheduling', () => {
 	test('calendar shows week navigation controls', async ({ page }) => {
 		await expect(async () => {
 			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('previous-week-button')).toBeVisible()
@@ -39,7 +39,7 @@ test.describe('Flex Window Scheduling', () => {
 	test('calendar navigates between weeks', async ({ page }) => {
 		await expect(async () => {
 			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
 
 		const weekRange = page.getByTestId('week-range')
@@ -57,7 +57,7 @@ test.describe('Flex Window Scheduling', () => {
 	test('calendar returns to current week with today button', async ({ page }) => {
 		await expect(async () => {
 			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
 
 		await page.getByTestId('next-week-button').click()
@@ -69,7 +69,7 @@ test.describe('Flex Window Scheduling', () => {
 	test('schedule planner section is accessible', async ({ page }) => {
 		await expect(async () => {
 			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('schedule-planner')).toBeVisible()
@@ -80,7 +80,7 @@ test.describe('Flex Window Scheduling', () => {
 	test('the plan preview requires an explicit task selection', async ({ page }) => {
 		await expect(async () => {
 			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('preview-plan-button')).toBeDisabled()
@@ -90,7 +90,7 @@ test.describe('Flex Window Scheduling', () => {
 	test('energy budget settings persist slider changes', async ({ page }) => {
 		await expect(async () => {
 			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
 
 		const slider = page.getByTestId('energy-slider-wednesday')

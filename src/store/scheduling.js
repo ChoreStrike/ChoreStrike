@@ -482,16 +482,19 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * window. The room-task store's request-order protection keeps a
 		 * pre-apply response from overwriting the refreshed results.
 		 *
+		 * @param {?number} roomTaskId Refresh the agreement's loaded room list as well.
 		 * @return {Promise<boolean>} Whether every refetch succeeded
 		 */
-		async refreshAfterApply() {
+		async refreshAfterApply(roomTaskId = null) {
 			const roomTasksStore = useRoomTasksStore()
 			try {
+				const cached = roomTasksStore.roomTasks.find(row => row.id === roomTaskId)
 				const jobs = [
 					roomTasksStore.fetchFilteredDailyTasks(),
 					roomTasksStore.fetchOverdueTasks(),
 				]
 				const { from, to } = roomTasksStore.rangeTasks
+				if (cached) jobs.push(roomTasksStore.fetchRoomTasks(cached.roomId))
 				if (from && to) {
 					jobs.push(roomTasksStore.fetchRangeTasks(from, to))
 				}
@@ -515,14 +518,16 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * @param {number} agreement.roomTaskId The owning room task id.
 		 * @param {object} agreement.occurrence The occurrence block
 		 *   (occurrenceId, expectedVersion, selectionToken, timezone).
-		 * @param {string} agreement.date The amended single-occurrence date.
+		 * @param {string} [agreement.date] The amended single-occurrence date.
+		 * @param {object[]} [agreement.participants] The agreed participant roles and shares.
 		 * @param {boolean} agreement.consent The owner consent attestation.
 		 * @return {Promise<object>} Identity refs {occurrenceId, expectedVersion}.
 		 */
-		async amendOccurrence({ roomTaskId, occurrence, date, consent }) {
+		async amendOccurrence({ roomTaskId, occurrence, date, participants, consent }) {
 			return this.runOccurrenceAgreement('amend', occurrence, {
 				roomTaskId,
 				date,
+				participants,
 				consent,
 			})
 		},
@@ -574,11 +579,12 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * @param {object} fields The command fields.
 		 * @param {number} fields.roomTaskId The owning room task id.
 		 * @param {string} [fields.date] The amend target date.
+		 * @param {object[]} [fields.participants] The agreed participant roles and shares.
 		 * @param {string} [fields.workDate] The catch-up/restart work date.
 		 * @param {boolean} fields.consent The owner consent attestation.
 		 * @return {Promise<object>} Identity refs.
 		 */
-		async runOccurrenceAgreement(action, occurrence, { roomTaskId, date, workDate, consent }) {
+		async runOccurrenceAgreement(action, occurrence, { roomTaskId, date, participants, workDate, consent }) {
 			const payload = {
 				roomTaskId,
 				commandId: generateCommandId(),
@@ -589,6 +595,9 @@ export const useSchedulingStore = defineStore('scheduling', {
 			}
 			if (date !== undefined) {
 				payload.date = date
+			}
+			if (participants !== undefined) {
+				payload.participants = participants
 			}
 			if (workDate !== undefined) {
 				payload.workDate = workDate
@@ -601,13 +610,12 @@ export const useSchedulingStore = defineStore('scheduling', {
 			try {
 				const command = { amend: amendOccurrenceRequest, 'catch-up': catchUpOccurrenceRequest, restart: restartOccurrenceRequest }[action]
 				const refs = await command(occurrence.occurrenceId, payload)
-				await this.refreshAfterApply()
-				return refs
+				const refreshed = await this.refreshAfterApply(roomTaskId)
+				return { ...refs, refreshFailed: !refreshed }
 			} catch (error) {
 				if (error?.status === 409 || error?.response?.status === 409) {
-					// Draft preservation: rethrow untouched so the caller keeps
-					// the entered values; the regular readers re-fetch in the
-					// view on the next render cycle.
+					// Keep drafts while replacing stale receipts before another attempt.
+					await this.refreshAfterApply(roomTaskId)
 					logger.warn('Occurrence agreement hit a conflict', { store: 'scheduling', action: `runOccurrenceAgreement${action}`, occurrenceId: occurrence.occurrenceId })
 				} else {
 					logger.error('Failed to run the occurrence agreement', error, { store: 'scheduling', action: `runOccurrenceAgreement${action}`, occurrenceId: occurrence.occurrenceId })

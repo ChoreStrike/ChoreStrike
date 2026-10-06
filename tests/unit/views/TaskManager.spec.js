@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import TaskManager from '@/views/TaskManager.vue'
 
@@ -117,6 +117,7 @@ describe('TaskManager', () => {
 	})
 
 	const openCreateModal = async (wrapper) => {
+		await flushPromises()
 		await wrapper.find('[data-testid="add-task-button"]').trigger('click')
 		const form = wrapper.findComponent({ name: 'TaskEditForm' })
 		expect(form.exists()).toBe(true)
@@ -126,6 +127,24 @@ describe('TaskManager', () => {
 	it('renders the view', () => {
 		const wrapper = mountView()
 		expect(wrapper.find('[data-testid="task-manager-view"]').exists()).toBe(true)
+	})
+
+	it.each(['definitions', 'instances'])('does not allow creation before the initial %s read finishes', async (resource) => {
+		let release
+		const read = resource === 'definitions' ? mockTasksStore.fetchTasks : mockRoomTasksStore.fetchHouseRoomTasks
+		read.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+		const wrapper = mountView()
+		await flushPromises()
+		const button = wrapper.find('[data-testid="add-task-button"]')
+		expect(button.element.disabled).toBe(true)
+		await button.trigger('click')
+		expect(wrapper.findComponent({ name: 'TaskEditForm' }).exists()).toBe(false)
+		expect(mockRoomTasksStore.createTaskAggregate).not.toHaveBeenCalled()
+		release([])
+		await flushPromises()
+		expect(button.element.disabled).toBe(false)
+		await button.trigger('click')
+		expect(wrapper.findComponent({ name: 'TaskEditForm' }).exists()).toBe(true)
 	})
 
 	it('sends ONE aggregate request on create with no redundant re-fetch (CS-PLAN-063 §3.5, CS-PLAN-067 §3.4)', async () => {
@@ -250,12 +269,14 @@ describe('TaskManager', () => {
 		await new Promise(resolve => setTimeout(resolve, 0))
 
 		expect(wrapper.find('[data-testid="task-manager-error"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="add-task-button"]').element.disabled).toBe(true)
 
 		mockRoomsStore.fetchFloorsWithRooms.mockResolvedValue([])
 		await wrapper.find('[data-testid="task-manager-error"] button').trigger('click')
 		await new Promise(resolve => setTimeout(resolve, 0))
 
 		expect(wrapper.find('[data-testid="task-manager-error"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="add-task-button"]').element.disabled).toBe(false)
 	})
 
 	it('surfaces a visible error toast when a completion fails (never logger-only)', async () => {

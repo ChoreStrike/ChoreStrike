@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Service\SchedulePlanService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -26,8 +27,8 @@ use OCP\IDBConnection;
  *     room-task row lock recomputes from the freshly committed state and
  *     conflicts — never a stale overwrite.
  *
- * The races follow the repo's `proc_open` helper pattern and are
- * MySQL/MariaDB-only (SQLite has no row-level concurrency to prove).
+ * Independent Nextcloud processes prove row locks on MariaDB/PostgreSQL
+ * and database write serialization on SQLite, using bounded barriers.
  */
 class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 	private string $todayKey;
@@ -41,10 +42,6 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 	 * TwoAppliesOppositeInputOrder_SerializeWithOneCleanConflict
 	 */
 	public function testTwoAppliesOppositeInputOrder_SerializeWithOneCleanConflict(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('spc_owner', 'Race House');
 		$this->addHouseMember($houseId, 'spc_mom', 'Mom', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
@@ -54,6 +51,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 
 		$previewFile = sys_get_temp_dir() . '/cs-spc-preview-' . uniqid();
 		$goFile = sys_get_temp_dir() . '/cs-spc-go-' . uniqid();
+		$lockedFile = $goFile . '.locked';
 		$resultFile = sys_get_temp_dir() . '/cs-spc-result-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-spc-helper-' . uniqid() . '.php';
 		file_put_contents($helperScript, $this->buildHelperScript());
@@ -66,6 +64,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the helper apply process');
+		$barrier = QueryBarrier::attach($this->db, $lockedFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 60.0;
@@ -87,6 +86,13 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			);
 
 			file_put_contents($goFile, 'go');
+			$deadline = microtime(true) + 30.0;
+			while (!file_exists($lockedFile)) {
+				if (microtime(true) > $deadline) {
+					self::fail('the helper must hold its real apply transaction before the contender starts');
+				}
+				usleep(10000);
+			}
 			$mainConflict = false;
 			try {
 				$service->apply($houseId, $owner, $this->todayKey, [$roomTaskA, $roomTaskB], [], $preview['previewVersion'], $this->planCommandUuid(), true);
@@ -103,6 +109,8 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 				usleep(50000);
 			}
 			$helperOutcome = trim((string)file_get_contents($resultFile));
+			QueryBarrier::finish($process, $pipes);
+			self::assertTrue($barrier->wasReached());
 
 			// Exactly one side commits; the loser answers the clean conflict.
 			$outcomes = [$helperOutcome, $mainConflict ? 'conflict' : 'ok'];
@@ -131,6 +139,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 				);
 			}
 		} finally {
+			$barrier->detach();
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
 				proc_terminate($process);
@@ -141,7 +150,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 				}
 			}
 			proc_close($process);
-			foreach ([$previewFile, $goFile, $resultFile, $helperScript] as $file) {
+			foreach ([$previewFile, $goFile, $lockedFile, $resultFile, $helperScript] as $file) {
 				@unlink($file);
 			}
 		}
@@ -153,10 +162,6 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 	 * @dataProvider dueDateHolderModes
 	 */
 	public function testApplyVsConcurrentDueDateEdit_BlockedOnRowLock_RecomputesAndConflicts(string $mode): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('spc2_owner', 'Race House 2');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
@@ -179,6 +184,10 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the due-date holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile,
+			$this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE
+				? '/^UPDATE .*chorestrike_houses/i'
+				: '/^SELECT .*chorestrike_room_tasks.*FOR UPDATE/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -195,6 +204,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			try {
 				// Deterministic harness negative controls, not production conflict evidence.
 				if ($mode !== 'apply') {
+					file_put_contents($signalFile . '.attempt', 'negative control');
 					throw new \OCA\ChoreStrike\Exception\ConflictException('The schedule preview is no longer current. Generate a new preview.');
 				}
 				$service->apply($houseId, $owner, $this->todayKey, [$roomTaskId], [], $preview['previewVersion'], $this->planCommandUuid(), true);
@@ -202,6 +212,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 			} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
 				self::assertSame('The schedule preview is no longer current. Generate a new preview.', $e->getMessage());
 			}
+			self::assertSame($mode === 'apply', $barrier->wasReached());
 			try {
 				$this->waitForHolderCommit($process, $resultFile, $targetDay);
 				self::assertNotSame('abort-before-commit', $mode, 'an uncommitted holder must be rejected');
@@ -210,6 +221,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 				self::assertSame('The due-date holder exited without a successful commit proof.', $e->getMessage());
 			}
 		} finally {
+			$barrier->detach();
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
 				proc_terminate($process);
@@ -292,6 +304,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 [$houseId, $firstId, $secondId] = [(int)$argv[1], (int)$argv[2], (int)$argv[3]];
 $todayKey = $argv[4];
@@ -316,7 +329,13 @@ try {
     }
 
     try {
+        $barrier = \OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::attach(
+            \OC::$server->get(\OCP\IDBConnection::class), $goFile . '.locked', '/^"COMMIT"$/', true
+        );
         $service->apply($houseId, $owner, $todayKey, [$firstId, $secondId], [], $preview['previewVersion'], sprintf('b2c3d4e5-0000-4000-8000-%012d', random_int(1, 999999999999)), true);
+        if (!$barrier->wasReached()) {
+            throw new \RuntimeException('The real apply never reached its commit barrier.');
+        }
         file_put_contents($resultFile, 'ok');
     } catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
         file_put_contents($resultFile, 'conflict');
@@ -336,6 +355,7 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $roomTaskId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -346,15 +366,9 @@ $mode = $argv[5];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_room_tasks WHERE id = :id FOR UPDATE',
-    ['id' => $roomTaskId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->lockForUpdate($roomTaskId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 // CS-PLAN-072 WP1: the timeline projection normalizes next_due to the
 // house-local day start, so the concurrent edit must move the DAY to

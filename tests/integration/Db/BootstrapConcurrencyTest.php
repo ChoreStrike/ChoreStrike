@@ -13,8 +13,8 @@ use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 
 /**
  * Integration tests for the bootstrap races (CR-053-07, CS-PLAN-060 WP1 §3.2).
@@ -25,8 +25,8 @@ use OCP\IDBConnection;
  * house-row lock), the test process plays the loser whose insert or lock
  * blocks until the winner commits.
  *
- * MySQL/MariaDB only — SQLite has no row-level concurrency to prove; the
- * tolerant code paths are exercised there as straight-line behavior.
+ * MariaDB/PostgreSQL row locks and SQLite write serialization use the same
+ * real installed database, with a query-attempt barrier instead of a delay.
  */
 class BootstrapConcurrencyTest extends IntegrationTestCase {
 	/** @var int[] */
@@ -55,10 +55,6 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 	 * and re-fetches the winner's committed row (first insert wins).
 	 */
 	public function testConcurrentCreateForInstance_ExactlyOneHouse(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$instanceId = 'race-inst-' . uniqid();
 
 		// T1 (helper): insert the house inside an uncommitted transaction,
@@ -73,6 +69,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the house-insert holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^INSERT INTO .*chorestrike_houses/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -91,10 +88,12 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			$houseMapper = \OC::$server->get(HouseMapper::class);
 			$house = $houseMapper->createForInstance($instanceId, 'Loser House', 'UTC');
 
-			$winnerHouseId = (int)$this->readHelperOutput($pipes[1]);
+			$winnerHouseId = (int)QueryBarrier::finish($process, $pipes);
 			self::assertSame($winnerHouseId, $house->getId(), 'the race loser must receive the winner\'s house');
 			self::assertSame('Winner House', $house->getName(), 'the loser re-fetched the winner\'s row');
+			self::assertTrue($barrier->wasReached());
 		} finally {
+			$barrier->detach();
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
 				proc_terminate($process);
@@ -131,12 +130,9 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 	 * throw ForbiddenException instead of auto-joining.
 	 */
 	public function testConcurrentEnsureHouseMember_ExactlyOneOwner_LoserDenied(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createBareHouse('Owner Race House');
 		$this->raceHouseIds[] = $houseId;
+		$this->actingAs('race-member-b');
 
 		// T1: lock the house row, insert user-a as owner (uncommitted), hold.
 		$signalFile = sys_get_temp_dir() . '/cs-owner-race-' . uniqid();
@@ -149,6 +145,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the owner-insert holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -162,12 +159,17 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			// T2: ensureHouseMember blocks on the house lock, then sees T1's
 			// committed owner membership and must be denied (invite-only):
 			// no membership row, ForbiddenException.
-			$this->actingAs('race-member-b');
 			$authService = \OC::$server->get(AuthorizationService::class);
 
-			$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
-			$authService->ensureHouseMember($houseId);
+			try {
+				$authService->ensureHouseMember($houseId);
+				self::fail('the concurrent non-owner must be denied');
+			} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
+				self::assertTrue($barrier->wasReached());
+			}
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
 				proc_terminate($process);
@@ -191,12 +193,9 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 	 * their own test on the same fixture pattern.
 	 */
 	public function testConcurrentEnsureHouseMember_ExactlyOneMembershipAfterRace(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createBareHouse('Owner Race House 2');
 		$this->raceHouseIds[] = $houseId;
+		$this->actingAs('race-member-b2');
 
 		$signalFile = sys_get_temp_dir() . '/cs-owner-race-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-owner-race-holder-' . uniqid() . '.php';
@@ -208,6 +207,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the owner-insert holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -218,7 +218,6 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 				usleep(50000);
 			}
 
-			$this->actingAs('race-member-b2');
 			$authService = \OC::$server->get(AuthorizationService::class);
 			try {
 				$authService->ensureHouseMember($houseId);
@@ -226,7 +225,10 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
 				// Expected: invite-only after the first owner.
 			}
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
 				proc_terminate($process);
@@ -268,10 +270,6 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 	 * no duplicate) — the unique-constraint violation is handled.
 	 */
 	public function testCreateOrGet_RaceLoserReceivesExistingRow(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createBareHouse('CreateOrGet Race House');
 		$this->raceHouseIds[] = $houseId;
 
@@ -286,6 +284,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the membership-insert holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^INSERT INTO .*chorestrike_house_users/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -302,7 +301,10 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			$houseUser = $mapper->createOrGet($houseId, 'race-cog-user', 'Race COG', 'member');
 
 			self::assertSame('owner', $houseUser->getRole(), 'the loser receives the winner\'s row (winner inserted role owner)');
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
 				proc_terminate($process);
@@ -337,6 +339,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $instanceId = $argv[1];
 $signalFile = $argv[2];
@@ -347,10 +350,9 @@ $mapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class);
 $db->beginTransaction();
 try {
     $house = $mapper->createForInstance($instanceId, 'Winner House', 'UTC');
-    file_put_contents($signalFile, 'locked');
-    echo $house->getId();
-    usleep(2000000);
+    \OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
     $db->commit();
+    echo $house->getId();
 } catch (Throwable $e) {
     $db->rollBack();
     file_put_contents($signalFile, 'locked');
@@ -369,6 +371,7 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -377,12 +380,7 @@ $userId = $argv[3];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = :id FOR UPDATE',
-    ['id' => $houseId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
 $qb = $db->getQueryBuilder();
 $qb->insert('chorestrike_house_users')
@@ -398,8 +396,7 @@ $qb->insert('chorestrike_house_users')
     ]);
 $qb->executeStatement();
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 $db->commit();
 PHP;
 	}
@@ -413,6 +410,7 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -435,17 +433,9 @@ $qb->insert('chorestrike_house_users')
     ]);
 $qb->executeStatement();
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 $db->commit();
 PHP;
 	}
 
-	/**
-	 * Read the helper's stdout (the committed house id in test 1).
-	 */
-	private function readHelperOutput($pipe): string {
-		$output = stream_get_contents($pipe);
-		return trim((string)$output);
-	}
 }

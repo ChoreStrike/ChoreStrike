@@ -353,6 +353,22 @@ describe('TodayView', () => {
 		expect(wrapper.text()).toContain('Take out trash')
 	})
 
+	it('uses current occurrence obligations for My Day, not future defaults or voluntary shares', async () => {
+		mockRoomTasksStore.dailyTasks[1].proposal = {
+			basis: 'agreement', obligatedUserIds: ['teen'], participants: [{ userId: 'teen', sharePct: 100 }],
+		}
+		mockRoomTasksStore.dailyTasks[2].proposal = {
+			basis: 'agreement', obligatedUserIds: ['mom'], participants: [{ userId: 'mom', sharePct: 100 }],
+		}
+		mockRoomTasksStore.overdueTasks[0].proposal = {
+			basis: 'agreement', obligatedUserIds: [], participants: [{ userId: 'mom', sharePct: 100 }],
+		}
+		const wrapper = await mountView()
+		expect(wrapper.text()).not.toContain('Wipe kitchen counters')
+		expect(wrapper.text()).toContain('Tidy up toys')
+		expect(wrapper.text()).not.toContain('Take out trash')
+	})
+
 	it('completing a task calls the store and marks the row completed', async () => {
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()

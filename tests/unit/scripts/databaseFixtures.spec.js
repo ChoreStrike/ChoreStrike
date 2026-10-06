@@ -3,16 +3,36 @@ const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
 
-function loadFixtures(fetch) {
+function loadFixtures(fetch, assertTestTarget = jest.fn(url => ({ url: url.replace(/\/$/, '') }))) {
 	const code = fs.readFileSync(path.resolve(__dirname, '../../e2e/fixtures/database-fixtures.ts'), 'utf8')
 	const exports = {}
 	const test = { extend: jest.fn(fixtures => fixtures) }
 	vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText,
-		{ exports, require: () => ({ test, expect }), process, Buffer, fetch, console })
+		{ exports, require: name => name.includes('test-target') ? { assertTestTarget } : { test, expect }, process, Buffer, fetch, console })
 	return exports
 }
 
 describe('destructive fixture ownership', () => {
+	it('constructs seed/reset requests from the normalized preflight origin', async () => {
+		const fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: {} }) })
+		const { DatabaseManager } = loadFixtures(fetch, jest.fn(() => ({ url: 'http://127.0.0.1:8082' })))
+		const manager = new DatabaseManager('http://127.0.0.1:8082/', 'chromium-serial-db')
+		await manager.seed('family')
+		await manager.reset()
+		expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+			'http://127.0.0.1:8082/apps/chorestrike/api/v1/test/seed/family',
+			'http://127.0.0.1:8082/apps/chorestrike/api/v1/test/reset',
+		])
+	})
+	it.each(['seed', 'reset'])('refuses %s on a mismatched target before sending a mutation', async operation => {
+		const fetch = jest.fn()
+		const assertTestTarget = jest.fn(() => { throw new Error('Test target preflight failed') })
+		const { DatabaseManager } = loadFixtures(fetch, assertTestTarget)
+		const manager = new DatabaseManager('http://localhost:8082', 'chromium-serial-db')
+		await expect(manager[operation]('family')).rejects.toThrow('Test target preflight failed')
+		expect(assertTestTarget).toHaveBeenCalledWith('http://localhost:8082')
+		expect(fetch).not.toHaveBeenCalled()
+	})
 	it.each(['chromium', 'firefox', 'webkit'])('refuses direct seed and reset from %s before a request', async project => {
 		const fetch = jest.fn()
 		const { DatabaseManager } = loadFixtures(fetch)

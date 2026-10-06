@@ -1,8 +1,8 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals'
-import { mount } from '@vue/test-utils'
+/* eslint-env jest */
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { flushPromises } from '@vue/test-utils'
 import { translate } from '@nextcloud/l10n'
+import { showSuccess, showError } from '@nextcloud/dialogs'
 import Settings from '../../../src/views/Settings.vue'
 
 jest.mock('@nextcloud/l10n', () => ({
@@ -35,8 +35,6 @@ jest.mock('@/utils/logger', () => ({
 		debug: jest.fn(),
 	},
 }))
-
-import { showSuccess, showError } from '@nextcloud/dialogs'
 
 // Mutable so individual tests can assert store interactions.
 const mockHouseState = {
@@ -690,6 +688,8 @@ describe('Settings.vue', () => {
 
 		expect(wrapper.find('[data-testid="notifications-section"]').exists()).toBe(true)
 		expect(wrapper.findComponent({ name: 'NotificationPreferences' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'NcNoteCard' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'NcCheckboxRadioSwitch' }).exists()).toBe(true)
 	})
 
 	// --- Pauses (CS-PLAN-070 WP6 §3.4, Q-077-03 A) ---

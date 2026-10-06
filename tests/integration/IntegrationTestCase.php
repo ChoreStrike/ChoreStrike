@@ -23,7 +23,7 @@ abstract class IntegrationTestCase extends TestCase {
 	protected IUserSession $userSession;
 	protected IUserManager $userManager;
 
-	/** @var array<string, int> Tracked house IDs for cleanup (tableName => [ids]) */
+	/** @var array<int> */
 	private array $createdHouseIds = [];
 	/** @var array<int> */
 	private array $createdFloorIds = [];
@@ -479,6 +479,17 @@ abstract class IntegrationTestCase extends TestCase {
 	 * Remove all records created during the test.
 	 */
 	private function cleanupCreatedRecords(): void {
+		// Discover service/worker-created descendants before any parent is removed.
+		$this->createdFloorIds = array_merge($this->createdFloorIds, $this->fixtureIds('chorestrike_floors', 'house_id', $this->createdHouseIds));
+		$this->createdRoomIds = array_merge($this->createdRoomIds, $this->fixtureIds('chorestrike_rooms', 'floor_id', $this->createdFloorIds));
+		$this->createdRoomTaskIds = array_merge($this->createdRoomTaskIds, $this->fixtureIds('chorestrike_room_tasks', 'room_id', $this->createdRoomIds));
+		$this->createdCompletionIds = array_merge($this->createdCompletionIds, $this->fixtureIds('chorestrike_completed_tasks', 'room_task_id', $this->createdRoomTaskIds));
+		$this->deleteFixtureRows('chorestrike_work_shares', 'completion_id', $this->createdCompletionIds);
+		$this->deleteFixtureRows('chorestrike_completion_revs', 'completion_id', $this->createdCompletionIds);
+		$this->deleteFixtureRows('chorestrike_room_events', 'source_completion_id', $this->createdCompletionIds);
+		// Baselines/manual events have no completion reference.
+		$this->deleteFixtureRows('chorestrike_room_events', 'room_id', $this->createdRoomIds);
+		$this->deleteFixtureRows('chorestrike_chk_progress', 'room_task_id', $this->createdRoomTaskIds);
 		$this->deleteTimelineByRoomTaskIds($this->createdRoomTaskIds);
 		$this->deleteAssigneesByRoomTaskIds($this->createdRoomTaskIds);
 		// WP2 pause/receipt facts are house-scoped — remove them before the
@@ -492,8 +503,17 @@ abstract class IntegrationTestCase extends TestCase {
 		// request-events → requests → items — before the wallet/
 		// membership/house rows go (no FK cascade exists).
 		$this->deleteRewardRowsByHouseIds($this->createdHouseIds);
-		$this->deleteByIds('chorestrike_room_tasks', $this->createdRoomTaskIds);
+		foreach (['chorestrike_member_prefs', 'chorestrike_wgoal_receipts', 'chorestrike_minigame_scores'] as $table) {
+			$this->deleteFixtureRows($table, 'house_id', $this->createdHouseIds);
+		}
+		$memberIds = array_merge($this->createdHouseUserIds, $this->fixtureIds('chorestrike_house_users', 'house_id', $this->createdHouseIds));
+		$this->deleteFixtureRows('chorestrike_medals', 'user_id', $memberIds);
+		$walletIds = $this->fixtureIds('chorestrike_wallets', 'house_id', $this->createdHouseIds);
+		$this->deleteFixtureRows('chorestrike_wallet_entries', 'wallet_id', $walletIds);
+		$this->deleteByIds('chorestrike_wallets', $walletIds);
 		$this->deleteByIds('chorestrike_completed_tasks', $this->createdCompletionIds);
+		$this->deleteByIds('chorestrike_room_tasks', $this->createdRoomTaskIds);
+		$this->deleteFixtureRows('chorestrike_chk_items', 'task_id', $this->createdTaskIds);
 		$this->deleteByIds('chorestrike_tasks', $this->createdTaskIds);
 		$this->deleteByIds('chorestrike_rooms', $this->createdRoomIds);
 		$this->deleteByIds('chorestrike_floors', $this->createdFloorIds);
@@ -508,6 +528,36 @@ abstract class IntegrationTestCase extends TestCase {
 		$this->createdFloorIds = [];
 		$this->createdHouseUserIds = [];
 		$this->createdHouseIds = [];
+	}
+
+	/** Register a definition created by a service, never infer ownership from a mount. */
+	protected function registerCreatedTask(int $taskId): void {
+		$this->createdTaskIds[] = $taskId;
+	}
+
+	/** @param int[] $ids @return int[] */
+	private function fixtureIds(string $table, string $column, array $ids): array {
+		if ($ids === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$result = $qb->select('id')->from($table)
+			->where($qb->expr()->in($column, $qb->createNamedParameter(array_values(array_unique($ids)), \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)))
+			->executeQuery();
+		$rows = $result->fetchAll();
+		$result->closeCursor();
+		return array_map(static fn (array $row): int => (int)$row['id'], $rows);
+	}
+
+	/** @param int[] $ids */
+	private function deleteFixtureRows(string $table, string $column, array $ids): void {
+		if ($ids === []) {
+			return;
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($table)
+			->where($qb->expr()->in($column, $qb->createNamedParameter(array_values(array_unique($ids)), \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)))
+			->executeStatement();
 	}
 
 	/**

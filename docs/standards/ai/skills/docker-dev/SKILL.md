@@ -73,6 +73,13 @@ docker inspect --format='{{.State.Health.Status}}' chorestrike-test
 
 ## DB Profiles
 
+For isolated MariaDB/PostgreSQL/SQLite fresh-install verification, use the
+standalone `docker/compose.test-matrix.yml` companion and the
+[matrix procedure](../../../../engineering/testing.md#isolated-supported-database-matrix).
+Never merge it with the canonical compose file or reuse another run's volumes.
+Start providers sequentially (shared Composer mount); run full suites with
+`--fail-on-skipped` and keep each database exclusive to its current test job.
+
 Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 
 | Profile | Use case |
@@ -99,7 +106,7 @@ configuration path.
 |---------|-----|
 | `docker` command fails / daemon unreachable | Start Docker Desktop, wait until `docker info` succeeds — do not conclude Docker is absent |
 | First build or test run hits a tool timeout | Expected (~3–5 min): raise shell timeout ≥ 300 s or run as background process, then retry |
-| `chorestrike-db` unhealthy | `docker compose -f docker/compose.test.yml down -v` then restart |
+| `chorestrike-db` unhealthy | Inspect logs/health first; recreate volumes only with explicit ownership of that disposable environment, never as an unqualified shared-environment recovery step |
 | Tests fail with "connection refused" | Wait for DB healthcheck: `docker inspect --format='{{.State.Health.Status}}' chorestrike-db` |
 | Stale vendor/ in container | Rebuild: `docker compose -f docker/compose.test.yml build --no-cache` |
 | Port 8080 conflict | Change port mapping in `docker/compose.test.yml` or stop conflicting service |
@@ -109,4 +116,4 @@ configuration path.
 
 - Never modify the container filesystem directly — all changes go through the bind mount.
 - Keep `docker/Dockerfile.test` and `docker/test-entrypoint.sh` deterministic and idempotent.
-- The test environment is disposable: `down -v` + `up -d` must always produce a clean state.
+- Only an explicitly owned disposable project's volumes may be removed. Its qualified `down -v` + `up -d` must produce a clean state; other sessions' and canonical environments stay untouched.

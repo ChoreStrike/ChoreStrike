@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Service\RewardRequestService;
 use OCA\ChoreStrike\Service\RewardService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 
 /**
  * Integration concurrency tests for the C4 reward lifecycle (CS-PLAN-070
@@ -22,17 +21,10 @@ use OCP\IDBConnection;
  * DB connections racing on one aggregate — exactly one financial effect,
  * full rollback on mid-aggregate failure, idempotent refund retries.
  *
- * The races follow the repo's two-connection `proc_open` helper pattern
- * and are skipped on non-MySQL providers (the SQLite fallback cannot
- * express row locks).
+ * Independent Nextcloud processes exercise row locks on MariaDB/PostgreSQL
+ * and database-wide write serialization on the installed SQLite database.
  */
 class RewardConcurrencyTest extends IntegrationTestCase {
-	private function skipUnlessMariaDb(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-	}
-
 	private function uuid(): string {
 		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
 	}
@@ -132,7 +124,6 @@ class RewardConcurrencyTest extends IntegrationTestCase {
 	 * FulfillVsCancelRace_ExactlyOneFinancialEffect (C4.13)
 	 */
 	public function testFulfillVsCancelRace_ExactlyOneFinancialEffect(): void {
-		$this->skipUnlessMariaDb();
 		$f = $this->raceHouse('F');
 		$requests = \OC::$server->get(RewardRequestService::class);
 		$created = $requests->create($f['houseId'], $f['child'], [
@@ -193,7 +184,6 @@ class RewardConcurrencyTest extends IntegrationTestCase {
 	 * serializations.
 	 */
 	public function testConcurrentOwnerCancelVsRoleRebase_BothSerializeCoherently(): void {
-		$this->skipUnlessMariaDb();
 		$f = $this->raceHouse('R');
 		$requests = \OC::$server->get(RewardRequestService::class);
 		$created = $requests->create($f['houseId'], $f['adult'], [

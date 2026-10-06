@@ -25,7 +25,7 @@ class HouseSetupIntegrationTest extends IntegrationTestCase {
 	private HouseSetupService $setupService;
 	private HouseService $houseService;
 	private int $houseId;
-	/** @var int[] Houses whose full subtree must be cleaned (service-created rows are not tracked by the base class). */
+	/** @var int[] Owned setup houses whose new task definitions must be registered. */
 	private array $setupHouseIds = [];
 
 	protected function setUp(): void {
@@ -41,33 +41,27 @@ class HouseSetupIntegrationTest extends IntegrationTestCase {
 
 	protected function tearDown(): void {
 		foreach ($this->setupHouseIds as $houseId) {
-			$this->deleteHouseSubtree($houseId);
+			$this->registerSetupTasks($houseId);
 		}
 		parent::tearDown();
 	}
 
 	/**
-	 * Delete all floors/rooms/tasks/room_tasks under a house (the service
-	 * creates these directly, so they are not registered with the base class).
+	 * Setup creates new definitions; register them before the base discovers
+	 * and clears their structure/timeline in dependency order.
 	 */
-	private function deleteHouseSubtree(int $houseId): void {
-		$db = $this->db;
-
+	private function registerSetupTasks(int $houseId): void {
 		$floorIds = $this->collectIds('chorestrike_floors', 'id', 'house_id', $houseId);
 		if ($floorIds === []) {
 			return;
 		}
 
 		$roomIds = $this->collectIdsIn('chorestrike_rooms', 'id', 'floor_id', $floorIds);
-		$taskIds = [];
 		if ($roomIds !== []) {
 			$taskIds = $this->collectIdsIn('chorestrike_room_tasks', 'task_id', 'room_id', $roomIds);
-			$this->deleteIn('chorestrike_room_tasks', 'room_id', $roomIds);
-			$this->deleteIn('chorestrike_rooms', 'floor_id', $floorIds);
-		}
-		$this->deleteIn('chorestrike_floors', 'id', $floorIds);
-		if ($taskIds !== []) {
-			$this->deleteIn('chorestrike_tasks', 'id', $taskIds);
+			foreach ($taskIds as $taskId) {
+				$this->registerCreatedTask($taskId);
+			}
 		}
 	}
 
@@ -97,14 +91,6 @@ class HouseSetupIntegrationTest extends IntegrationTestCase {
 		}
 		$res->closeCursor();
 		return $ids;
-	}
-
-	/** @param int[] $values */
-	private function deleteIn(string $table, string $whereCol, array $values): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete($table)
-			->where($qb->expr()->in($whereCol, $qb->createNamedParameter($values, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
-		$qb->executeStatement();
 	}
 
 	public function testApplySetupCreatesFloorsRoomsTasksAndRoomTasks(): void {

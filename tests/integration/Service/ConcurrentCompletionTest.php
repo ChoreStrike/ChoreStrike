@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -25,30 +26,11 @@ use OCP\IDBConnection;
  *
  * The race is reproduced deterministically with two real connections: the
  * shared Nextcloud connection plays T2 (opens its transaction and takes the
- * pre-lock read first), a second PDO connection plays T1 and commits its
+ * pre-lock read first), a second Nextcloud process plays T1 and commits its
  * increment while T2 sits between the pre-read and the lock — the exact
  * interleaving that clobbered the increment before the fix.
  */
 class ConcurrentCompletionTest extends IntegrationTestCase {
-	/** @var int[] Room task ids whose completion rows need cleanup */
-	private array $completedRoomTaskIds = [];
-
-	protected function tearDown(): void {
-		// The base cleanup does not track completed_tasks rows; remove the
-		// rows this test created so the shared Docker DB stays clean.
-		if (!empty($this->completedRoomTaskIds)) {
-			$qb = $this->db->getQueryBuilder();
-			$qb->delete('chorestrike_completed_tasks')
-				->where($qb->expr()->in(
-					'room_task_id',
-					$qb->createNamedParameter($this->completedRoomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)
-				));
-			$qb->executeStatement();
-		}
-
-		parent::tearDown();
-	}
-
 	/**
 	 * Two sequential same-user completions of different tasks accumulate
 	 * both rewards on the wallet/contribution balances in exact minor
@@ -64,7 +46,6 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 		$taskB = $this->createTask($houseId, 'Trash', 'Take out the trash', 5, 3);
 		$roomTaskA = $this->assignTaskToRoom($taskA, $roomId, 'seq_owner');
 		$roomTaskB = $this->assignTaskToRoom($taskB, $roomId, 'seq_owner');
-		$this->completedRoomTaskIds = [$roomTaskA, $roomTaskB];
 
 		$mapper = \OC::$server->get(HouseUserMapper::class);
 		$user = $mapper->findByNextcloudUserId($houseId, 'seq_owner');
@@ -111,10 +92,6 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 	 *   Final:               contribution 8, coins 17 — both increments landed
 	 */
 	public function testFindForUpdateBuildsOnCommittedWinnerState(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('race_owner', 'Race House');
 		$mapper = \OC::$server->get(HouseUserMapper::class);
 		$user = $mapper->findByNextcloudUserId($houseId, 'race_owner');
@@ -130,6 +107,7 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the lock-holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_house_users.*FOR UPDATE|UPDATE .*chorestrike_house_users)/i');
 
 		try {
 			// Wait until T1 holds the row lock.
@@ -160,7 +138,10 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 
 			$final = $mapper->find($houseUserId);
 			self::assertSame(800, $final->getContributionMinor(), 'no lost update: both increments land');
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
 				proc_terminate($process);
@@ -185,21 +166,16 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseUserId = (int)$argv[1];
 $signalFile = $argv[2];
 
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_house_users WHERE id = :id FOR UPDATE',
-    ['id' => $houseUserId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findForUpdate($houseUserId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 $db->executeStatement(
     'UPDATE *PREFIX*chorestrike_house_users SET contribution_minor = contribution_minor + 500 WHERE id = :id',
@@ -234,10 +210,6 @@ PHP;
 	 * the stale overdue snapshot → markClaimed() fired → was_claimed = 1.
 	 */
 	public function testCompleteRoomTaskAfterConcurrentWinner_NoSpuriousTakeover(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('rt_owner', 'Race House RT');
 		$this->addHouseMember($houseId, 'rt_helper', 'Helper', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
@@ -245,7 +217,6 @@ PHP;
 		$taskId = $this->createTask($houseId, 'Dishes', 'Do the dishes', 5, 3);
 		// Overdue and assigned to rt_owner; rt_helper is a non-assignee.
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'rt_owner');
-		$this->completedRoomTaskIds = [$roomTaskId];
 
 		$yesterday = (new \DateTime('-1 day'))->format('Y-m-d H:i:s');
 		$qb = $this->db->getQueryBuilder();
@@ -264,6 +235,10 @@ PHP;
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the lock-holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile,
+			$this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE
+				? '/^UPDATE .*chorestrike_houses/i'
+				: '/^SELECT .*chorestrike_room_tasks.*FOR UPDATE/i');
 
 		try {
 			// Wait until T1 holds the room task row lock.
@@ -289,6 +264,8 @@ PHP;
 				$roomTaskId,
 				[['userId' => 'rt_helper', 'sharePct' => 100]]
 			);
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 
 			$row = $this->fetchRoomTaskRow($roomTaskId);
 			self::assertGreaterThan(
@@ -297,6 +274,7 @@ PHP;
 				'completion must build on the winner-advanced next_due (in the future), not the stale overdue one'
 			);
 		} finally {
+			$barrier->detach();
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
 				proc_terminate($process);
@@ -339,10 +317,6 @@ PHP;
 	 * that lost room state under the old unlocked RMW.
 	 */
 	public function testTwoUsersSameRoomConcurrentCompletions_SumOfBothDeltasLand(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$houseId = $this->createHouse('cc_owner', 'Concurrent Room House');
 		$this->addHouseMember($houseId, 'cc_member', 'Member', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
@@ -355,10 +329,10 @@ PHP;
 		$taskB = $this->createTask($houseId, 'CC trash', '', 5, 2);
 		$roomTaskA = $this->assignTaskToRoom($taskA, $roomId, 'cc_owner');
 		$roomTaskB = $this->assignTaskToRoom($taskB, $roomId, 'cc_member');
-		$this->completedRoomTaskIds = [$roomTaskA, $roomTaskB];
 
 		$bootedFile = sys_get_temp_dir() . '/cs-cc-booted-' . uniqid();
 		$goFile = sys_get_temp_dir() . '/cs-cc-go-' . uniqid();
+		$lockedFile = $goFile . '.locked';
 		$doneFile = sys_get_temp_dir() . '/cs-cc-done-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-cc-completer-' . uniqid() . '.php';
 		file_put_contents($helperScript, $this->buildConcurrentCompleterScript());
@@ -369,21 +343,26 @@ PHP;
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the concurrent completer process');
+		$barrier = QueryBarrier::attach($this->db, $lockedFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$this->waitForFile($bootedFile, 'the helper process did not boot Nextcloud in time');
 			file_put_contents($goFile, 'go');
+			$this->waitForFile($lockedFile, 'the helper must hold its real completion transaction before the contender starts');
 
-			// Both completions now race; whoever takes the room lock second
-			// must build on the first one's committed cleanliness.
+			// The helper has written but not committed its real completion;
+			// our house-lock attempt releases it and must build on its effects.
 			$completionService = \OC::$server->get(CompletionService::class);
 			$parentResult = $this->completeOccurrence($completionService, $houseId, 'cc_member', $roomTaskB);
 
 			$this->waitForFile($doneFile, 'the helper completion did not finish in time');
 			$helperResult = json_decode((string)file_get_contents($doneFile), true, 512, JSON_THROW_ON_ERROR);
+			QueryBarrier::finish($process, $pipes);
+			self::assertTrue($barrier->wasReached());
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
-			foreach ([$bootedFile, $goFile, $doneFile, $helperScript] as $tmp) {
+			foreach ([$bootedFile, $goFile, $lockedFile, $doneFile, $helperScript] as $tmp) {
 				@unlink($tmp);
 			}
 		}
@@ -525,6 +504,7 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $roomTaskId = (int)$argv[2];
@@ -558,6 +538,9 @@ try {
     if ($selection === null) {
         throw new RuntimeException('no completable occurrence for room task ' . $roomTaskId);
     }
+    $barrier = \OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::attach(
+        \OC::$server->get(\OCP\IDBConnection::class), $goFile . '.locked', '/^"COMMIT"$/', true
+    );
     $result = $service->complete(
         $houseId,
         $userId,
@@ -567,6 +550,9 @@ try {
         $selection['occurrence']->getVersion(),
         $occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, null, $selection['workAppointment'] ?? null)
     );
+    if (!$barrier->wasReached()) {
+        throw new \RuntimeException('The real completion never reached its commit barrier.');
+    }
     file_put_contents($doneFile, json_encode([
         'cleanlinessChange' => $result['rewards']['cleanlinessChange'],
     ]));
@@ -588,21 +574,16 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $roomTaskId = (int)$argv[1];
 $signalFile = $argv[2];
 
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_room_tasks WHERE id = :id FOR UPDATE',
-    ['id' => $roomTaskId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->lockForUpdate($roomTaskId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 $tomorrow = (new DateTime('+1 day'))->format('Y-m-d H:i:s');
 $now = (new DateTime())->format('Y-m-d H:i:s');

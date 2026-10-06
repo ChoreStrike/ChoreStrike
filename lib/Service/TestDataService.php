@@ -538,12 +538,18 @@ class TestDataService {
 		// Time-travel overdue seed (CS-PLAN-023): a due-date already in the
 		// past, so the overdue flow (RoomTask::isOverdue / findOverdueByHouse)
 		// is exercisable against the real clock with no multi-day wait.
-		$threeDaysAgo = (clone $today)->modify('-3 days');
+		$overdueDue = (clone $today)->modify('-3 days');
+		if ($closedWeekEvidence) {
+			// Keep the overdue example outside the synthetic completed week
+			// on every weekday, without inventing a completion or a pause.
+			$overdueDue = new \DateTime('monday last week 00:00:00', new \DateTimeZone('UTC'));
+			$overdueDue->modify('-1 day');
+		}
 
 		$roomTaskData = [
 			['room' => 'Kitchen', 'task' => 'Do the dishes', 'due' => $today, 'assignedTo' => 'mom'],
 			['room' => 'Kitchen', 'task' => 'Wipe kitchen counters', 'due' => $today, 'assignedTo' => 'teen'],
-			['room' => 'Kitchen', 'task' => 'Take out trash', 'due' => $threeDaysAgo, 'assignedTo' => 'dad'],
+			['room' => 'Kitchen', 'task' => 'Take out trash', 'due' => $overdueDue, 'assignedTo' => 'dad'],
 			['room' => 'Living Room', 'task' => 'Tidy up toys', 'due' => $today, 'assignedTo' => 'kid'],
 			['room' => 'Living Room', 'task' => 'Vacuum living room', 'due' => $tomorrow, 'assignedTo' => null],
 			['room' => 'Living Room', 'task' => 'Dust furniture', 'due' => $tomorrow, 'assignedTo' => 'grandma'],

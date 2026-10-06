@@ -13,6 +13,13 @@ export const NcProgressBar = { name: 'NcProgressBar', template: '<div class="pro
 export const NcTextField = { name: 'NcTextField', template: '<input />' }
 export const NcTextarea = { name: 'NcTextarea', template: '<textarea></textarea>' }
 export const NcCheckbox = { name: 'NcCheckbox', template: '<input type="checkbox" />' }
+export const NcCheckboxRadioSwitch = {
+	name: 'NcCheckboxRadioSwitch',
+	props: ['checked', 'disabled'],
+	emits: ['update:checked'],
+	template: '<label><input type="checkbox" :checked="checked" :disabled="disabled" @change="$emit(\'update:checked\', $event.target.checked)" /><slot /></label>',
+}
+export const NcNoteCard = { name: 'NcNoteCard', template: '<div><slot /></div>' }
 export const NcRadio = { name: 'NcRadio', template: '<input type="radio" />' }
 export const NcSelect = { name: 'NcSelect', template: '<select><slot /></select>' }
 export const NcActions = { name: 'NcActions', template: '<div class="actions"><slot /></div>' }

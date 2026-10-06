@@ -18,11 +18,56 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { test, expect } from './fixtures/database-fixtures'
+import { test, expect, PROFILE_USERS } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 
 test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })
+
+	test('same-device logout and child login discard the prior wallet, undo queue and optional preferences', async ({ browser, baseURL, seededData }) => {
+		expect(seededData).not.toBeNull()
+		// Own fresh login sessions: logout must not invalidate shared setup storage states.
+		const context = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } })
+		const page = await context.newPage()
+		const login = async (userId: string) => {
+			const credentials = PROFILE_USERS.family.find(user => user.userId === userId)!
+			await page.goto('/login')
+			await page.locator('input[name="user"]').fill(credentials.userId)
+			await page.locator('input[name="password"]').fill(credentials.password)
+			await page.locator('button[type="submit"]').click()
+			await page.waitForURL('**/apps/**')
+		}
+		try {
+			await login('mom')
+			await page.goto('/apps/chorestrike/#/settings')
+			await expect(page.getByTestId('arcade-visible-switch')).toBeChecked()
+			await page.getByText('Show the arcade', { exact: true }).click()
+			await page.getByTestId('save-preferences').click()
+			await expect(page.getByTestId('nav-arcade')).toHaveCount(0)
+			await page.getByTestId('nav-today').click()
+			const row = page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })
+			await row.getByRole('button', { name: 'Done', exact: true }).click()
+			await expect(page.locator('[data-testid^="undo-snackbar-entry-"]')).toHaveCount(1)
+			await page.getByTestId('nav-dashboard').click()
+			await expect(page.getByTestId('own-wallet-available')).toBeVisible()
+			const priorWallet = await page.getByTestId('own-wallet-available').innerText()
+			const logout = await page.evaluate(() => '/logout?requesttoken=' + encodeURIComponent((window as unknown as { OC: { requestToken: string } }).OC.requestToken))
+			await expect(page.locator('[data-testid^="undo-snackbar-entry-"]')).toBeVisible()
+			await page.goto(logout)
+			await expect(page.locator('input[name="user"]')).toBeVisible()
+			await login('teen')
+			await page.goto('/apps/chorestrike/#/today')
+			await expect(page.getByTestId('today-task-item').filter({ hasText: 'Wipe kitchen counters' })).toBeVisible()
+			await expect(page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })).toHaveCount(0)
+			await expect(page.locator('[data-testid^="undo-snackbar-entry-"]')).toHaveCount(0)
+			await expect(page.getByTestId('nav-arcade')).toBeVisible()
+			await page.getByTestId('nav-dashboard').click()
+			await expect(page.getByTestId('own-wallet-available')).toBeVisible()
+			await expect(page.getByTestId('own-wallet-available')).not.toHaveText(priorWallet)
+			await page.getByTestId('nav-settings').click()
+			await expect(page.getByTestId('arcade-visible-switch')).toBeChecked()
+		} finally { await context.close() }
+	})
 
 	test('rapid parallel navigation ends in the reconciled state — no stale overwrite', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()

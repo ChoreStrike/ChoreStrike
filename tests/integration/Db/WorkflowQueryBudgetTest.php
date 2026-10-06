@@ -18,8 +18,9 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
 
 /**
  * CS-PLAN-067 §3.5 / §4.1 — workflow query budgets, measured with the
- * executed-query counter ({@see QueryCounter}) against the real MySQL
- * profile of the canonical Docker stack.
+ * executed-query counter ({@see QueryCounter}) against every supported DB.
+ * The MariaDB budgets stay frozen. Provider overhead is separately pinned:
+ * PostgreSQL identity reads and SQLite's write-lock-plus-read primitive.
  *
  * Budgets are LITERAL frozen integers, not relative assertions, so a
  * regression cannot silently re-baseline. Every budget also asserts the
@@ -194,8 +195,6 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		try {
 			$counter->mark();
 			$response = $service->updateDueDate($roomTaskId, $newDue, $viewer);
-			$count = $counter->count();
-			$lockSelects = $counter->countLockSelects();
 		} finally {
 			$counter->detach();
 		}
@@ -223,7 +222,7 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		// writer (timeline read, occurrence amendment, agreement evidence,
 		// projection refresh) + COMMIT + the single authoritative re-read.
 		// The counter observes transaction-control statements too, hence 19.
-		self::assertLessThanOrEqual(self::UPDATE_DUE_DATE_BUDGET, $count, implode("\n", $counter->sqlStatements()));
+		$this->assertPortableWriteBudget($counter, self::UPDATE_DUE_DATE_BUDGET, 2, 1);
 
 		// CS-PLAN-072 WP1: the transaction ends with the occurrence reload
 		// and the derived-projection update; exactly ONE authoritative
@@ -240,12 +239,10 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 				'SELECT * FROM `oc_chorestrike_occurrences` WHERE (`room_task_id` = :dcValue1) AND (`completion_id` IS NULL) AND (`covered_by_completion_id` IS NULL) AND (`kind` = :dcValue2) ORDER BY `day_start` ASC, `schedule_rev_id` ASC, `ordinal` ASC LIMIT 1',
 				'UPDATE `oc_chorestrike_room_tasks` SET `next_due` = :dcValue1, `ideal_due_date` = :dcValue2 WHERE `id` = :dcValue3',
 			],
-			$transactionTail,
+			array_map(static fn (string $sql): string => str_replace('"', '`', $sql), $transactionTail),
 			'the transaction ends with the timeline reload and the projection update'
 		);
 		self::assertCount($commitIndex + 2, $statements, 'exactly one authoritative re-read runs after commit');
-		// CS-PLAN-071: house lock first, then the room-task lock.
-		self::assertSame(2, $lockSelects, 'exactly two FOR UPDATE lock selects (house → room task)');
 	}
 
 	/**
@@ -269,8 +266,6 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		try {
 			$counter->mark();
 			$result = $this->completeOccurrence($completion, $houseId, $ownerId, $roomTaskId);
-			$count = $counter->count();
-			$lockSelects = $counter->countLockSelects();
 		} finally {
 			$counter->detach();
 		}
@@ -294,9 +289,7 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		// house → room_task → room, then the member + wallet locks of the
 		// reward phase (including a lazily ensured wallet binding) inside
 		// the same locked section.
-		self::assertSame(7, $lockSelects);
-
-		self::assertLessThanOrEqual(self::COMPLETE_BUDGET, $count, implode("\n", $counter->sqlStatements()));
+		$this->assertPortableWriteBudget($counter, self::COMPLETE_BUDGET, 7, 8);
 	}
 
 	/**
@@ -322,8 +315,6 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		try {
 			$counter->mark();
 			$result = $completion->undo($houseId, $actor, (int)$completed['completionId'], sprintf('d1c2e3f4-a5b6-4c7d-8e9f-%012d', random_int(0, 999999999999)), 0, null);
-			$count = $counter->count();
-			$lockSelects = $counter->countLockSelects();
 		} finally {
 			$counter->detach();
 		}
@@ -345,11 +336,23 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		self::assertCount(1, $ledgerRows);
 		self::assertNotNull($ledgerRows[0]['undone_at'], 'undo marks the row undone');
 
-		self::assertSame(7, $lockSelects);
-		self::assertLessThanOrEqual(self::UNDO_BUDGET, $count, implode("\n", $counter->sqlStatements()));
+		$this->assertPortableWriteBudget($counter, self::UNDO_BUDGET, 7, 3);
 	}
 
 	// ========== Helpers ==========
+
+	private function assertPortableWriteBudget(QueryCounter $counter, int $budget, int $locks, int $generatedIds): void {
+		$sql = array_map(static fn (string $query): string => str_replace(['`', '"'], '', $query), $counter->sqlStatements());
+		$lockWrites = preg_grep('/^UPDATE oc_chorestrike_\w+ SET (\w+) = \1 WHERE /', $sql);
+		$identityReads = preg_grep('/^SELECT lastval\(\)$/i', $sql);
+		$sqlite = $this->db->getDatabaseProvider() === \OCP\IDBConnection::PLATFORM_SQLITE;
+		$postgres = $this->db->getDatabaseProvider() === \OCP\IDBConnection::PLATFORM_POSTGRES;
+		self::assertCount($sqlite ? $locks : 0, $lockWrites, 'each SQLite lock is one self-assignment write plus its read');
+		self::assertSame($sqlite ? 0 : $locks, $counter->countLockSelects());
+		self::assertCount($postgres ? $generatedIds : 0, $identityReads, 'PostgreSQL identity reads are bounded, not arbitrary extra queries');
+		$overhead = ($sqlite ? $locks : 0) + ($postgres ? $generatedIds : 0);
+		self::assertLessThanOrEqual($budget + $overhead, $counter->count(), implode("\n", $counter->sqlStatements()));
+	}
 
 	/**
 	 * @return array<int, array<string, mixed>>

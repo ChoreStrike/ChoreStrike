@@ -36,4 +36,6 @@ interface IDBConnection {
 	 * @return \OCP\DB\IResult
 	 */
 	public function executeQuery(string $sql, array $params = [], $types = []);
+
+	public function executeStatement($sql, array $params = [], array $types = []): int;
 }

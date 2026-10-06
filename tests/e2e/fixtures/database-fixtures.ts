@@ -1,4 +1,5 @@
 import { test as baseTest, expect } from '@playwright/test'
+import { assertTestTarget } from '../../../scripts/test-target'
 
 /**
  * Database fixtures for ChoreStrike E2E tests
@@ -105,7 +106,8 @@ export class DatabaseManager {
 	 */
 	async seed(profile: DatabaseProfile): Promise<SeededData> {
 		this.assertResetOwner()
-		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/seed/${profile}`, {
+		const { url } = assertTestTarget(this.baseURL)
+		const response = await fetch(`${url}/apps/chorestrike/api/v1/test/seed/${profile}`, {
 			method: 'POST',
 			headers: this.authHeaders(),
 		})
@@ -127,7 +129,8 @@ export class DatabaseManager {
 	 */
 	async reset(): Promise<void> {
 		this.assertResetOwner()
-		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/reset`, {
+		const { url } = assertTestTarget(this.baseURL)
+		const response = await fetch(`${url}/apps/chorestrike/api/v1/test/reset`, {
 			method: 'POST',
 			headers: this.authHeaders(),
 		})

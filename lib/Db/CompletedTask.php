@@ -151,7 +151,7 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('completionVersion', 'integer');
 		$this->addType('allocationRevision', 'integer');
 		$this->addType('commandUuid', 'string');
-		$this->addType('occurrenceDue', 'datetime');
+		$this->addType('occurrenceDue', 'date');
 		$this->addType('undoneAt', 'datetime');
 		$this->addType('scheduleRevId', 'integer');
 		$this->addType('occurrenceOrdinal', 'integer');

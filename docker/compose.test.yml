@@ -46,7 +46,7 @@ services:
     networks:
       - chorestrike-test
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/status.php"]
+      test: ["CMD-SHELL", "test -f /tmp/chorestrike-ready && curl -fsS http://localhost:80/status.php | grep -q '\"installed\":true'"]
       interval: 10s
       timeout: 5s
       retries: 30

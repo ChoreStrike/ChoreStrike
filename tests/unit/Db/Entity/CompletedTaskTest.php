@@ -67,6 +67,7 @@ class CompletedTaskTest extends TestCase {
 		self::assertEquals(1000, $completedTask->getRateMinor());
 		self::assertSame('cmd-1', $completedTask->getCommandUuid());
 		self::assertSame($completedAt, $completedTask->getCompletedAt());
+		self::assertSame('date', $completedTask->getFieldTypes()['occurrenceDue'], 'the occurrence due value is a saved local date, not an instant');
 	}
 
 	/**

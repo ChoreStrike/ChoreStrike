@@ -136,6 +136,48 @@ function runDigestPass(asOf: string): void {
 test.describe('Release: Notifications — quiet-hours digest', () => {
 	test.use({ databaseProfile: 'family' })
 
+	test('opted-in free and paused days suppress task reminders while due work still delivers', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const free = await createUserContext(browser, 'friend')
+		const paused = await createUserContext(browser, 'mom')
+		const working = await createUserContext(browser, 'dad')
+		try {
+			for (const session of [free, paused, working]) {
+				await dismissDigestNotifications(session.page)
+				await optInViaApi(session.page, { digestTime: '00:00', orgDigestEnabled: false })
+			}
+			const slotDay = containerDate(1)
+			const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+			const available = Object.fromEntries(weekdays.map(day => [day, true]))
+			const setAvailability = async (weekdayAvailability: Record<string, boolean>) => {
+				const saved = await free.page.request.put('/apps/chorestrike/api/v1/scheduling/preferences', { data: { weekdayAvailability } })
+				expect(saved.status(), await saved.text()).toBe(200)
+			}
+			await setAvailability(available)
+			await createDueWork(paused.page, 'WP9 work on a subsequently free day', 'friend', slotDay)
+			const slotWeekday = new Intl.DateTimeFormat('en', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${slotDay}T12:00:00Z`)).toLowerCase()
+			await setAvailability({ ...available, [slotWeekday]: false })
+			await createDueWork(paused.page, 'WP9 paused planned work', 'mom', slotDay)
+			await createDueWork(working.page, 'WP9 reminder positive control', 'dad', slotDay)
+			const pause = await paused.page.request.post('/apps/chorestrike/api/v1/pauses', {
+				data: { scope: 'personal', commandId: crypto.randomUUID(), startDate: slotDay, endDate: slotDay, reasonCode: 'travel' },
+			})
+			expect(pause.status(), await pause.text()).toBe(200)
+			runDigestPass(`${slotDay} 00:05`)
+			for (const session of [free, paused]) {
+				const bells = (await fetchChoreStrikeNotifications(session.page)).filter(n => n.object_type === 'digest')
+				expect(bells, 'free or recognized-paused work never generates task reminders').toHaveLength(0)
+			}
+			const delivered = (await fetchChoreStrikeNotifications(working.page)).filter(n => n.object_type === 'digest')
+			expect(delivered, 'the same pass must actually deliver an eligible task reminder').toHaveLength(1)
+			expect(delivered[0].subject).toMatch(/planned task/)
+		} finally {
+			await free.context.close()
+			await paused.context.close()
+			await working.context.close()
+		}
+	})
+
 	test('silent by default: an opted-out member gets no bell, and the settings save works', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 

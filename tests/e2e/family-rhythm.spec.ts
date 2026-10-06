@@ -58,13 +58,13 @@ async function kitchenRoom(page: Page): Promise<{ id: number }> {
  * via the atomic aggregate. The explicit `nextDue` overrides the creation
  * default (tomorrow) so the occurrence window is open and the target is
  * completable/amendable now (CS-PLAN-072 WP1). */
-async function createProbeTask(page: Page, name: string, assignees: string[]): Promise<number> {
+async function createProbeTask(page: Page, name: string, assignees: string[], nextDue = houseDateOffset(0, 'UTC')): Promise<number> {
 	const kitchen = await kitchenRoom(page)
 	const createResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 		data: {
 			roomId: kitchen.id,
 			assigneeUserIds: assignees,
-			nextDue: houseDateOffset(0, 'UTC'),
+			nextDue,
 			task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
 		},
 		headers: { Accept: 'application/json' },
@@ -77,6 +77,49 @@ async function createProbeTask(page: Page, name: string, assignees: string[]): P
 
 test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 	test.use({ databaseProfile: 'family' })
+
+	test('fixed and relative schedules explain and preserve their different next dates after late work', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const kitchen = await kitchenRoom(page)
+			const yesterday = houseDateOffset(-1, 'UTC')
+			const weekday = new Intl.DateTimeFormat('en', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${yesterday}T12:00:00Z`)).toLowerCase()
+			for (const [mode, offset] of [['static', 6], ['dynamic', 7]] as const) {
+				const name = `WP9 ${mode} weekly`
+				const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+					data: {
+						roomId: kitchen.id,
+						assigneeUserIds: ['mom'],
+						nextDue: yesterday,
+						task: {
+							name,
+							energyCost: 1,
+							frequencyType: 'weekly',
+							frequencyValue: 1,
+							schedulingMode: mode,
+							...(mode === 'static' ? { fixedScheduleTime: '00:00', fixedScheduleDays: [weekday] } : {}),
+						},
+					},
+				})
+				expect(created.status(), await created.text()).toBe(200)
+				const id = (await created.json()).data.roomTask.id
+				await page.goto('/apps/chorestrike/#/tasks')
+				const row = page.getByTestId('task-item').filter({ hasText: name })
+				await row.getByRole('button', { name: 'Edit', exact: true }).click()
+				await expect(page.locator(`input[type="radio"][value="${mode}"]`)).toBeChecked()
+				await expect(page.getByText('Next due shifts based on when you complete the task', { exact: true })).toBeVisible()
+				await expect(page.getByText('Fixed schedule (e.g., every Monday 18:00)', { exact: true })).toBeVisible()
+				await page.goto('/apps/chorestrike/#/today')
+				const button = page.getByTestId(`today-complete-button-${id}`)
+				await expect(page.getByTestId('today-section-catchup').getByTestId(`today-complete-button-${id}`)).toBeVisible()
+				const response = await completeWithOptionalDialog(page, button)
+				expect(response.ok()).toBe(true)
+				expect(String((await response.json()).data.roomTask.nextDue)).toContain(houseDateOffset(offset, 'UTC'))
+				await expect(button).toHaveCount(0)
+			}
+		} finally { await context.close() }
+	})
 
 	test('a UI completion carries the full occurrence receipt', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
@@ -223,6 +266,99 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
  */
 test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 	test.use({ databaseProfile: 'family' })
+
+	test('an owner records an agreed handover in the UI without changing future assignments', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const owner = await createUserContext(browser, 'mom', { viewport: { width: 390, height: 844 }, hasTouch: true })
+		const child = await createUserContext(browser, 'kid')
+		try {
+			const available = await owner.page.request.put('/apps/chorestrike/api/v1/scheduling/members/kid', {
+				data: {
+					maxDailyTasks: 10,
+					weekdayAvailability: Object.fromEntries(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => [day, true])),
+				},
+			})
+			expect(available.status(), await available.text()).toBe(200)
+			const name = 'Single occurrence handover'
+			const roomTaskId = await createProbeTask(owner.page, name, ['mom'])
+			const receipt = await resolveOccurrenceReceipt(owner.page, roomTaskId)
+			expect(receipt).not.toBeNull()
+			await owner.page.goto('/apps/chorestrike/#/dashboard')
+			await expandAllFloors(owner.page)
+			await owner.page.getByTestId('room-card-Kitchen').first().click()
+			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
+			await row.getByRole('button', { name: 'Show details', exact: true }).click()
+			const handover = row.getByTestId('agreement-handover')
+			await expect(handover).toBeVisible()
+			const selectBox = await handover.getByTestId('agreement-handover-member').boundingBox()
+			expect(selectBox).not.toBeNull()
+			expect(selectBox!.height).toBeGreaterThanOrEqual(44)
+			expect(selectBox!.x + selectBox!.width).toBeLessThanOrEqual(390)
+			await handover.getByTestId('agreement-handover-member').selectOption('kid')
+			await expect(handover.getByTestId('agreement-handover-submit')).toBeDisabled()
+			await row.getByTestId('agreement-consent').check()
+			const amended = owner.page.waitForResponse(response => response.request().method() === 'POST'
+				&& response.url().endsWith(`/occurrences/${receipt!.occurrenceId}/amend`))
+			await handover.getByTestId('agreement-handover-submit').click()
+			const response = await amended
+			expect(response.status(), await response.text()).toBe(200)
+			expect(response.request().postDataJSON()).toMatchObject({
+				...receipt,
+				consent: true,
+				participants: [{ userId: 'kid', role: 'responsible', sharePct: 100 }],
+			})
+			expect(response.request().postDataJSON()).not.toHaveProperty('date')
+			await expect(handover.getByTestId('agreement-handover-member')).toHaveValue('')
+			// The same open details must now carry the refreshed receipt, not
+			// force every subsequent agreement into a stale-version conflict.
+			await row.getByTestId('agreement-amend-date').fill(houseDateOffset(0, 'UTC'))
+			await row.getByTestId('agreement-consent').check()
+			const secondAmendment = owner.page.waitForResponse(result => result.request().method() === 'POST'
+				&& result.url().endsWith(`/occurrences/${receipt!.occurrenceId}/amend`))
+			await row.getByTestId('agreement-amend-submit').click()
+			const second = await secondAmendment
+			expect(second.status(), await second.text()).toBe(200)
+			expect(second.request().postDataJSON().expectedVersion).toBe((await response.json()).data.expectedVersion)
+			const rows = await child.page.request.get('/apps/chorestrike/api/v1/room-tasks')
+			expect(rows.status()).toBe(200)
+			const handed = (await rows.json()).data.find((item: { id: number }) => item.id === roomTaskId)
+			expect(handed.assignees).toEqual(['mom'])
+			expect(handed.occurrence.occurrenceId).toBe(receipt!.occurrenceId)
+			expect(handed.occurrence.expectedVersion).toBeGreaterThan(receipt!.expectedVersion)
+			await owner.page.goto('/apps/chorestrike/#/today')
+			await expect(owner.page.getByTestId('today-section-today')).toBeVisible()
+			await expect(owner.page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(0)
+			await child.page.goto('/apps/chorestrike/#/today')
+			await expect(child.page.getByTestId(`today-complete-button-${roomTaskId}`)).toBeVisible()
+			const completed = child.page.waitForResponse(result => result.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
+			await child.page.getByTestId(`today-complete-button-${roomTaskId}`).click()
+			expect((await completed).status()).toBe(200)
+			await expect(child.page.getByTestId('participation-dialog')).toHaveCount(0)
+		} finally {
+			await owner.context.close()
+			await child.context.close()
+		}
+	})
+
+	test('My Day shows one catch-up card with its original planned date, not a duplicate today', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const name = 'One missed chore'
+			const plannedDate = houseDateOffset(-3, 'UTC')
+			const roomTaskId = await createProbeTask(page, name, ['mom'], plannedDate)
+			await page.goto('/apps/chorestrike/#/today')
+			const card = page.getByTestId('today-section-catchup').getByTestId('today-task-item').filter({ hasText: name })
+			await expect(card).toHaveCount(1)
+			const dateLabel = await page.evaluate(key => {
+				const [year, month, day] = key.split('-').map(Number)
+				return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+			}, plannedDate)
+			await expect(card.getByTestId('catchup-planned')).toContainText(dateLabel)
+			await expect(page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(1)
+			await expect(page.getByTestId('today-task-item').filter({ hasText: name })).toHaveCount(1)
+		} finally { await context.close() }
+	})
 
 	test('owner date amendment keeps the occurrence identity visible to the child', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()

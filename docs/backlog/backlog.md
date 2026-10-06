@@ -295,7 +295,10 @@ WP9 is planned as [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-fam
 (drafted 2026-10-02, activated 2026-10-03 via Standard A `PASS`, zero findings;
 WP9 owner): isolated MariaDB/PostgreSQL/SQLite verification,
 two consecutive combined browser gates and voluntary adult/child comprehension
-plus 14-day everyday-use evidence. No WP9 runtime or human evidence is claimed yet.
+plus 14-day everyday-use evidence. Its NC31 technical matrix and consecutive
+browser pair passed on 2026-10-05; human evidence remains unauthorized/uncollected.
+The newer deployment runtime requires the separate TECH-RUNTIME-001 validation
+before retained use; the old-runtime passes are not NC34 compatibility evidence.
 
 **Pre-WP9 preparation delivered (2026-10-05):**
 [CS-PLAN-081](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
@@ -316,7 +319,7 @@ not close parent findings or replace WP9 evidence.
 ---
 
 ### [P1] TECH-RUNTIME-001 — Current-stable default test runtime and data-preservation verification
-**Status**: In Progress — CS-PLAN-082 activated via Standard A `PASS` (2026-10-05); implementation not started · **Effort**: L · **Layer**: tooling+backend+tests+docs · **Journey stage**: runtime compatibility and retained-data readiness
+**Status**: In Progress — CS-PLAN-082 NC35 staging and primary backend matrix verified (2026-10-05); remaining preservation/browser/promotion gates and upstream dependency findings open · **Effort**: L · **Layer**: tooling+backend+tests+docs · **Journey stage**: runtime compatibility and retained-data readiness
 **Owning**: CS-PLAN-082 · **Depends on**: CS-PLAN-080 technical candidate · **Blocks**: RELEASE-002 target-runtime readiness · **Folded-in**: —
 **Source**: User request 2026-10-05 to make current stable the regular local test baseline, with AIO-aligned runtime and preserved house/task setup
 
@@ -326,6 +329,12 @@ owns this independent infrastructure update. Initial target: Nextcloud 34.0.4
 deployment reference, not a local full-AIO validation claim. Current NC31 gates
 do not cover it. Keep RELEASE-002's actual deployment/adoption and CONCEPT-001's
 human evidence separate; all future in-scope findings live in the new plan.
+Implementation discovery reports upstream NC35.0.1 versus AIO14.2.0/NC34.0.4;
+Q-082-02 is resolved: NC35 primary plus the explicit NC34 AIO compatibility row.
+Fresh NC35 provider identity and full unit/integration gates pass on all three
+providers; the NC34 row remains unqualified, with its core dependency discrepancy
+explicit in the plan. P1/P2/P3, the browser pair and promotion remain required;
+no final support/default promotion or adoption occurred.
 
 - [x] Resolve advertised support scope in Standard A (Q-082-01: current stable major only — NC 34 / PHP 8.4 initial row, 2026-10-05).
 - [ ] Promote a verified current-stable PostgreSQL reference to regular local/CI defaults, retaining full supported-provider verification.
@@ -413,8 +422,14 @@ Exact blocking gates:
   `PASS-WITH-FIXES` (CS-PLAN-058 §3 WP9) — Full review `PASS-WITH-FIXES`
   2026-09-14 incl. the D-FR-04 browser-gate pair.
 
-Still blocking: WP9's technical/provider and browser-pair gates, explicit safe
-deployment/adoption decisions and the deployment/field-usage work itself.
+The existing-runtime WP9 technical/provider and browser-pair gates passed on
+2026-10-05. Still blocking for the newer target: TECH-RUNTIME-001's current-stable
+runtime qualification, explicit safe deployment/adoption decisions and the
+deployment/field-usage work itself. Its plan is activated (Standard A `PASS`
+2026-10-05); Q-082-02 now selects NC35 primary plus the named NC34 AIO row.
+Primary fresh installations and full backend suites pass on every provider;
+dependency findings, populated preservation/recovery, browser and promotion
+gates remain open. This is not a deployment or retained-baseline sign-off.
 SEC-AUDIT-001 is completed by CS-PLAN-081 (2026-10-05), not a deployment sign-off.
 BUG-SEC-001 remains required before later external tester onboarding / public
 release, but is explicitly not a blocker for operator-only self-testing or

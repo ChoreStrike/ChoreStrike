@@ -1,6 +1,7 @@
 import { test as setup, expect, type Page } from '@playwright/test'
 import { PROFILE_USERS, type DatabaseProfile } from './fixtures/database-fixtures'
 import { userStatePath, AUTH_DIR } from './fixtures/auth-contexts'
+import { assertTestTarget } from '../../scripts/test-target'
 
 /**
  * Playwright auth setup (CS-PLAN-015b Phase 1)
@@ -10,7 +11,7 @@ import { userStatePath, AUTH_DIR } from './fixtures/auth-contexts'
  * re-submitting the login form on every spec.
  *
  * - `admin` login is REQUIRED: it is the default session every browser project
- *   starts from (`storageState: 'build/.playwright-auth/admin.json'` in the
+ *   starts from (`storageState: userStatePath('admin')` in the
  *   config).
  * - Profile users (mom/dad/teen/kid/grandma/friend/adult) are logged in once
  *   each; specs consume them via `test.use({ storageState })` or
@@ -59,7 +60,7 @@ async function loginAndSave(page: Page, user: string, password: string, statePat
 
 /** Seed a profile so its user accounts exist before specs run. */
 async function seedProfile(baseURL: string, profile: DatabaseProfile): Promise<void> {
-	const origin = baseURL.replace(/\/$/, '')
+	const { url: origin } = assertTestTarget(baseURL)
 	const response = await fetch(`${origin}/apps/chorestrike/api/v1/test/seed/${profile}`, {
 		method: 'POST',
 		headers: adminAuthHeader(),
@@ -68,7 +69,8 @@ async function seedProfile(baseURL: string, profile: DatabaseProfile): Promise<v
 	expect((await response.json()).success).toBe(true)
 }
 
-setup('authenticate as admin', async ({ page }) => {
+setup('authenticate as admin', async ({ page, baseURL }) => {
+	assertTestTarget(baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080')
 	await loginAndSave(page, ADMIN_USER, ADMIN_PASS, `${AUTH_DIR}/admin.json`)
 })
 

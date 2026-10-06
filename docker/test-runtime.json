@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate",
+  "verifiedAt": "2026-10-05",
+  "platform": "linux/amd64",
+  "nextcloud": {
+    "version": "35.0.1",
+    "internalVersion": "35.0.1.1",
+    "ref": "v35.0.1",
+    "revision": "3c012e618ab46ac73c61a96f5bb7168a693ca1fb"
+  },
+  "previous": {
+    "version": "35.0.0",
+    "internalVersion": "35.0.0.10",
+    "ref": "v35.0.0",
+    "revision": "da02f41d1cc73607084cd675ee1d849fc8cd2de1"
+  },
+  "notifications": {
+    "ref": "v35.0.1",
+    "revision": "0389f40a52d07663efa09de8750a2e26cb528144"
+  },
+  "php": {
+    "version": "8.4.25",
+    "image": "php:8.4.25-apache",
+    "digest": "sha256:bcdc7a2fe1003e50d80ef9c820f0ab00f9023c565c3a162e05d5825e20b04fc5",
+    "platformDigest": "sha256:82256e3beb70749ba80a2bfdaa005e35dd446678cd136c45a9de94ccad27cd74"
+  },
+  "composer": {
+    "version": "2.9.5",
+    "image": "composer:2.9.5",
+    "digest": "sha256:698d3801b2a622ace460c4743c781282fcbcb733a4cbf8b31c44731e846585e8",
+    "platformDigest": "sha256:dc21210ab4f258498cc741b3fcae648ecea0512bf1902f626258a5a2416dd65f"
+  },
+  "databases": {
+    "mysql": {
+      "version": "11.8.6",
+      "image": "mariadb:11.8.6",
+      "digest": "sha256:78a5047d3ba33975f183f183c2464cc7f1eab13ec8667e57cc9a5821d6da7577",
+      "platformDigest": "sha256:df764e5c6d6d3fcf4a6c298f9ab52d4e783d34f6dc0347da91933ad7f5f6ebb6"
+    },
+    "pgsql": {
+      "version": "18.6",
+      "image": "postgres:18.6-alpine",
+      "digest": "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+      "platformDigest": "sha256:d8703cd7fba306b9fec9268ecedfa8a966846c053036a60e3635791957eb2f66"
+    },
+    "sqlite": {
+      "version": "3.46.1"
+    }
+  },
+  "tools": {
+    "pcov": "1.0.12",
+    "apcu": "5.1.24",
+    "phpunit": "9.6.34",
+    "codingStandard": "1.4.0"
+  },
+  "aio": {
+    "version": "14.2.0",
+    "nextcloudVersion": "34.0.4"
+  },
+  "compatibility": {
+    "aio": {
+      "nextcloud": {
+        "version": "34.0.4",
+        "internalVersion": "34.0.4.1",
+        "ref": "v34.0.4",
+        "revision": "77c7284fed1f5c7b4bce1a94299e229f3281b606"
+      },
+      "previous": {
+        "version": "34.0.3",
+        "internalVersion": "34.0.3.2",
+        "ref": "v34.0.3",
+        "revision": "b11c68e25d6030187e02477d3d82013405f62965"
+      },
+      "notifications": {
+        "ref": "v34.0.4",
+        "revision": "68bd4ea7773d24664425d525f3c87012e5313bfa"
+      }
+    }
+  }
+}

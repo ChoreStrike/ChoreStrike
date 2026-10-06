@@ -13,6 +13,7 @@
 				v-if="canManageTasks"
 				class="primary-button"
 				data-testid="add-task-button"
+				:disabled="loading || initError"
 				@click="showAddTaskModal = true">
 				<Icon name="Plus" :size="16" class="icon" />
 				{{ t('chorestrike', 'New Task') }}

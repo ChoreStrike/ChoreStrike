@@ -17,6 +17,8 @@
     "test:coverage": "cross-env NODE_OPTIONS=\"--require ./tests/jest.setup.deprecations.js\" jest --coverage",
     "test:noise": "node scripts/check-test-noise.js",
     "test:e2e:gate": "node scripts/run-e2e-gate.js",
+    "test:runtime:validate": "node scripts/test-runtime.js validate",
+    "test:runtime:check": "node scripts/test-runtime.js check",
     "l10n:check-keys": "node scripts/check-l10n-keys.js",
     "docs:encoding": "node scripts/check-docs-encoding.js",
     "backlog:check": "node scripts/check-backlog.js"

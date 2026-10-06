@@ -95,9 +95,9 @@ class DigestConcurrencyTest extends IntegrationTestCase {
 	}
 
 	public function testConcurrentClaims_OneCommittedAttempt_OneDispatch(): void {
-		$this->holdHouseLock();
 		$first = $this->startWorker('dispatch');
 		$second = $this->startWorker('dispatch');
+		$this->holdHouseLock();
 		$this->releaseHouseLock();
 		$outcomes = [$this->finishWorker($first), $this->finishWorker($second)];
 		sort($outcomes);
@@ -107,8 +107,8 @@ class DigestConcurrencyTest extends IntegrationTestCase {
 	}
 
 	public function testCommittedClaimBeforeCrash_ConcurrentWorkerNeverRedelivers(): void {
-		$this->holdHouseLock();
 		$worker = $this->startWorker('dispatch');
+		$this->holdHouseLock();
 		\OC::$server->get(DigestSlotMapper::class)->claimPending((int)$this->slot->getId(), 'crashed-token', new \DateTime(self::NOW));
 		$this->releaseHouseLock();
 		self::assertSame('contended', $this->finishWorker($worker));
@@ -118,9 +118,9 @@ class DigestConcurrencyTest extends IntegrationTestCase {
 
 	public function testConcurrentMaterializers_UniqueSlots_ConvergeWithoutDuplicates(): void {
 		\OC::$server->get(DigestSlotMapper::class)->deleteByHouseAndUser($this->houseId, $this->memberId);
-		$this->holdHouseLock();
 		$first = $this->startWorker('materialize');
 		$second = $this->startWorker('materialize');
+		$this->holdHouseLock();
 		$this->releaseHouseLock();
 		$outcomes = [$this->finishWorker($first), $this->finishWorker($second)];
 		sort($outcomes);
@@ -129,8 +129,8 @@ class DigestConcurrencyTest extends IntegrationTestCase {
 	}
 
 	public function testClaimVersusPreferenceToggle_OptOutBeforeClaimWins(): void {
-		$this->holdHouseLock();
 		$worker = $this->startWorker('dispatch');
+		$this->holdHouseLock();
 		$this->pref->setOrgDigestEnabled(false);
 		$this->pref->setVersion(2);
 		\OC::$server->get(MemberPreferenceMapper::class)->update($this->pref);
@@ -141,8 +141,8 @@ class DigestConcurrencyTest extends IntegrationTestCase {
 	}
 
 	public function testClaimVersusPreferenceTimeChange_StaleDueScanDoesNotClaimEarly(): void {
-		$this->holdHouseLock();
 		$worker = $this->startWorker('dispatch');
+		$this->holdHouseLock();
 		$this->pref->setDigestTime('20:00');
 		$this->pref->setVersion(2);
 		\OC::$server->get(MemberPreferenceMapper::class)->update($this->pref);
@@ -153,8 +153,8 @@ class DigestConcurrencyTest extends IntegrationTestCase {
 	}
 
 	public function testClaimVersusZoneChange_StaleDueScanUsesTheNewResolvedSlot(): void {
-		$this->holdHouseLock();
 		$worker = $this->startWorker('dispatch');
+		$this->holdHouseLock();
 		$house = \OC::$server->get(HouseMapper::class)->find($this->houseId);
 		$house->setTimezone('America/New_York');
 		\OC::$server->get(HouseMapper::class)->update($house);
@@ -173,6 +173,10 @@ class DigestConcurrencyTest extends IntegrationTestCase {
 		\OC::$server->get(TransactionExecutor::class)->begin();
 		$this->holdingLock = true;
 		\OC::$server->get(HouseMapper::class)->findForUpdate($this->houseId);
+		foreach ($this->workers as [, $pipes]) {
+			fwrite($pipes[0], "go\n");
+			self::assertSame("attempting\n", fgets($pipes[1]), 'the captured worker starts its mutation while the parent holds the lock');
+		}
 	}
 
 	private function releaseHouseLock(): void {
@@ -183,7 +187,7 @@ class DigestConcurrencyTest extends IntegrationTestCase {
 	private function startWorker(string $mode): int {
 		$script = tempnam(sys_get_temp_dir(), 'dgc_worker_');
 		file_put_contents($script, $this->workerScript());
-		$process = proc_open([PHP_BINARY, $script, $mode, (string)$this->houseId, (string)$this->slot->getId(), $this->deliveryFile], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+		$process = proc_open([PHP_BINARY, $script, $mode, (string)$this->houseId, (string)$this->slot->getId(), $this->deliveryFile], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
 		self::assertIsResource($process);
 		stream_set_timeout($pipes[1], 30);
 		$this->workers[] = [$process, $pipes, $script];
@@ -219,6 +223,11 @@ $adapter = new class($argv[4]) extends \OCA\ChoreStrike\Service\NotificationServ
 };
 (new \ReflectionProperty($service, 'notificationService'))->setValue($service, $adapter);
 fwrite(STDOUT, "ready\n");
+stream_set_timeout(STDIN, 30);
+if (fgets(STDIN) !== "go\n") {
+    throw new \RuntimeException('The digest worker did not receive its go signal.');
+}
+fwrite(STDOUT, "attempting\n");
 $now = new \DateTime('2026-09-29 18:05:00 UTC');
 $result = $mode === 'dispatch'
     ? (new \ReflectionMethod($service, 'dispatchSlot'))->invoke($service, $slot, $now)

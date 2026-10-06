@@ -608,6 +608,34 @@ Mounting an existing definition uses `{ "roomId": 1, "taskId": 1,
 "assigneeUserIds": [] }` on the same atomic `POST /room-tasks` contract
 documented above. There is no snake_case multi-room create body.
 
+#### Execution Proposals and Personal Responsibility
+
+Execution reads (daily, filtered-daily, due-today and overdue) attach a nullable
+`proposal` to the selected occurrence:
+
+```json
+{
+  "occurrenceId": "41:3",
+  "basis": "agreement",
+  "participants": [{ "userId": "kid", "sharePct": 100 }],
+  "obligatedUserIds": ["kid"]
+}
+```
+
+`participants` previews actual-work shares, including agreed voluntary helpers.
+`obligatedUserIds` separately identifies active obligated members of a concrete
+agreement in sorted user-ID order; released, excused and helper-only members are
+not obligations. For `basis: "assignees"` or `"solo"` it is `null`, so the
+canonical `assignees` defaults still determine personal task eligibility. An
+empty concrete obligation array is not an unassigned task offered to everyone.
+No selectable target means `proposal: null`.
+
+Child daily eligibility applies concrete obligations before the daily limit;
+My Day uses the same field for its personal filter, including catch-up cards.
+The row's `assignees` remain the future/default assignment set. A one-occurrence
+handover must not rewrite them. This projection does not expand the task
+visibility policy: private/admin-only visibility is checked before enrichment.
+
 #### PUT /room-tasks/{id}/due-date
 Update a room task's next-due date / ideal due date. Payload: `{ "nextDue": … }`.
 A bare `Y-m-d` label denotes the **house-local day** (ADR-009): the server

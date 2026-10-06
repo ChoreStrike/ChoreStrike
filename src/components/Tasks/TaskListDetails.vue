@@ -44,6 +44,9 @@
 			<h4 class="agreements-title">
 				{{ t('chorestrike', 'Adjust occurrence') }}
 			</h4>
+			<p data-testid="agreement-target-date">
+				{{ t('chorestrike', 'planned {date}', { date: occurrence.workDate || occurrence.plannedDate }) }}
+			</p>
 
 			<div v-if="amendAvailable" class="agreement-form" data-testid="agreement-amend">
 				<label :for="`amend-date-${item.roomTask.id}`" class="agreement-label">
@@ -85,6 +88,33 @@
 				</button>
 			</div>
 
+			<div v-if="amendAvailable" class="agreement-form" data-testid="agreement-handover">
+				<label :for="`handover-member-${item.roomTask.id}`" class="agreement-label">
+					{{ t('chorestrike', 'Hand this occurrence to') }}
+				</label>
+				<select
+					:id="`handover-member-${item.roomTask.id}`"
+					v-model="handoverDraft"
+					class="agreement-input"
+					data-testid="agreement-handover-member">
+					<option value="" disabled>
+						{{ t('chorestrike', 'Choose a member') }}
+					</option>
+					<option v-for="member in members" :key="member.nextcloudUserId" :value="member.nextcloudUserId">
+						{{ member.displayName }}
+					</option>
+				</select>
+				<p>{{ t('chorestrike', 'This person takes full responsibility for this occurrence only. Future assignments stay unchanged.') }}</p>
+				<button
+					type="button"
+					class="agreement-button"
+					data-testid="agreement-handover-submit"
+					:disabled="!handoverDraft || !consent || submitting !== null"
+					@click="submitHandover">
+					{{ t('chorestrike', 'Record agreed handover') }}
+				</button>
+			</div>
+
 			<div v-if="restartAvailable" class="agreement-form" data-testid="agreement-restart">
 				<label :for="`restart-date-${item.roomTask.id}`" class="agreement-label">
 					{{ t('chorestrike', 'Restart the linked interval work on') }}
@@ -114,11 +144,18 @@
 			</label>
 
 			<p
-				v-if="conflict"
+				v-if="conflict && !occurrenceReplaced"
 				class="agreement-note"
 				data-testid="agreement-conflict"
 				role="alert">
 				{{ t('chorestrike', 'The occurrence changed in the meantime. Your entries were kept — review and send again.') }}
+			</p>
+			<p
+				v-if="occurrenceReplaced"
+				class="agreement-note"
+				data-testid="agreement-replaced"
+				role="alert">
+				{{ t('chorestrike', 'A different occurrence is now displayed. Choose a new agreement and confirm consent again.') }}
 			</p>
 		</div>
 	</div>
@@ -126,7 +163,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { showError, showSuccess } from '@nextcloud/dialogs'
+import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import AssigneeChips from './AssigneeChips.vue'
 import TaskChecklist from './TaskChecklist.vue'
 import HelpEntry from '../Help/HelpEntry.vue'
@@ -268,7 +305,9 @@ export default {
 			consent: false,
 			submitting: null,
 			conflict: false,
+			occurrenceReplaced: false,
 			amendDraft: { date: '' },
+			handoverDraft: '',
 			catchUpDraft: { workDate: '' },
 			restartDraft: { workDate: '' },
 		}
@@ -308,22 +347,35 @@ export default {
 		},
 	},
 
+	watch: {
+		'occurrence.occurrenceId'(next, previous) {
+			if (next === previous) return
+			for (const mode of ['amend', 'handover', 'catchup', 'restart']) this.resetDraft(mode)
+			this.occurrenceReplaced = true
+		},
+	},
+
 	methods: {
 		/**
 		 * Run one agreement command: 409 keeps the draft and surfaces the
 		 * conflict note; any other failure toasts; success refreshes the
 		 * projections (the store already re-read the readers) and clears
 		 * the used draft.
-		 * @param {string} mode 'amend' | 'catchup' | 'restart'.
+		 * @param {string} mode 'amend' | 'handover' | 'catchup' | 'restart'.
 		 * @param {function(): Promise<object>} command The store call.
 		 */
 		async runAgreement(mode, command) {
 			this.submitting = mode
 			this.conflict = false
 			try {
-				await command()
-				showSuccess(t('chorestrike', 'The agreement was recorded.'))
+				const result = await command()
+				if (result?.refreshFailed) {
+					showWarning(t('chorestrike', 'Some views could not be refreshed'))
+				} else {
+					showSuccess(t('chorestrike', 'The agreement was recorded.'))
+				}
 				this.resetDraft(mode)
+				this.occurrenceReplaced = false
 			} catch (error) {
 				if (error?.status === 409 || error?.response?.status === 409) {
 					this.conflict = true
@@ -339,6 +391,8 @@ export default {
 		resetDraft(mode) {
 			if (mode === 'amend') {
 				this.amendDraft = { date: '' }
+			} else if (mode === 'handover') {
+				this.handoverDraft = ''
 			} else if (mode === 'catchup') {
 				this.catchUpDraft = { workDate: '' }
 			} else {
@@ -353,6 +407,16 @@ export default {
 				roomTaskId: this.item.roomTask.id,
 				occurrence: this.occurrence,
 				date: this.amendDraft.date,
+				consent: this.consent,
+			}))
+		},
+
+		submitHandover() {
+			if (!this.handoverDraft || !this.consent || this.submitting !== null) return
+			return this.runAgreement('handover', () => this.schedulingStore.amendOccurrence({
+				roomTaskId: this.item.roomTask.id,
+				occurrence: this.occurrence,
+				participants: [{ userId: this.handoverDraft, role: 'responsible', sharePct: 100 }],
 				consent: this.consent,
 			}))
 		},

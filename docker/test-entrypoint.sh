@@ -1,48 +1,85 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== ChoreStrike Docker Test Environment ==="
-echo "Starting Apache immediately..."
+export TEST_DB_TYPE="${TEST_DB_TYPE:-mysql}"
+export TEST_DB_PROFILE="${TEST_DB_PROFILE:-minimal}"
+case "$TEST_DB_TYPE" in
+    mysql|pgsql|sqlite) ;;
+    *) echo "Unsupported TEST_DB_TYPE. Use mysql, pgsql or sqlite." >&2; exit 1 ;;
+esac
+case "$TEST_DB_PROFILE" in
+    empty|minimal|family) ;;
+    *) echo "Unsupported TEST_DB_PROFILE. Use empty, minimal or family." >&2; exit 1 ;;
+esac
+if [ -n "${TEST_RUNTIME_INTERNAL_VERSION:-}${TEST_RUNTIME_PHP_VERSION:-}" ]; then
+    if [[ ! "${TEST_RUNTIME_INTERNAL_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+        || [[ ! "${TEST_RUNTIME_PHP_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "Both frozen runtime versions are required and must be exact." >&2
+        exit 1
+    fi
+    php -r 'require "/var/www/html/version.php";
+        if (PHP_VERSION !== getenv("TEST_RUNTIME_PHP_VERSION")
+            || implode(".", $OC_Version) !== getenv("TEST_RUNTIME_INTERNAL_VERSION")) {
+            fwrite(STDERR, "Frozen code/PHP runtime mismatch.\n"); exit(1);
+        }'
+fi
+if [ "$TEST_DB_TYPE" != sqlite ]; then
+    for key in DB_HOST DB_PORT DB_NAME DB_USER DB_PASS; do
+        if [ -z "${!key:-}" ]; then
+            echo "Required database setting is missing: $key" >&2
+            exit 1
+        fi
+    done
+    if [[ ! "$DB_PORT" =~ ^[0-9]{1,5}$ ]] || (( 10#$DB_PORT < 1 || 10#$DB_PORT > 65535 )); then
+        echo "DB_PORT must be an integer between 1 and 65535." >&2
+        exit 1
+    fi
+fi
+php -r 'if (!in_array(getenv("TEST_DB_TYPE"), PDO::getAvailableDrivers(), true)) {
+    fwrite(STDERR, "Required PDO database driver is missing.\n"); exit(1);
+}'
+if [ "${1:-}" = --validate-only ] && [ "$#" -eq 1 ]; then
+    echo "Database selector, profile, settings and driver validated: $TEST_DB_TYPE"
+    exit 0
+elif [ "$#" -ne 0 ]; then
+    echo "Unsupported entrypoint argument." >&2
+    exit 1
+fi
 
-# Start Apache in background first
+rm -f /tmp/chorestrike-ready
+echo "=== ChoreStrike Docker Test Environment ($TEST_DB_TYPE) ==="
 apache2-foreground &
 APACHE_PID=$!
+trap 'kill "$APACHE_PID" 2>/dev/null || true' EXIT
 
-# Wait for database in background
-echo "Waiting for database..."
-DB_REACHABLE=false
-for i in {1..60}; do
-    if mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --skip-ssl --silent >/dev/null 2>&1; then
-        echo "Database is reachable!"
-        DB_REACHABLE=true
-        break
+# Probe authenticated TCP through the same PDO driver used by Nextcloud.
+# SQLite is created by maintenance:install in its isolated on-disk data directory.
+if [ "$TEST_DB_TYPE" != sqlite ]; then
+    DB_AUTH_OK=false
+    for i in {1..60}; do
+        if php -r 'try {
+            $dsn = getenv("TEST_DB_TYPE") . ":host=" . getenv("DB_HOST")
+                . ";port=" . getenv("DB_PORT") . ";dbname=" . getenv("DB_NAME");
+            $db = new PDO($dsn, getenv("DB_USER"), getenv("DB_PASS"));
+            exit($db->query("SELECT 1")->fetchColumn() == 1 ? 0 : 1);
+        } catch (Throwable $e) { exit(1); }'; then
+            DB_AUTH_OK=true
+            break
+        fi
+        echo "Database authentication pending... ($i/60)"
+        sleep 1
+    done
+    if [ "$DB_AUTH_OK" != true ]; then
+        echo "Database authentication failed after 60 attempts. Aborting setup." >&2
+        exit 1
     fi
-    echo "Database not ready yet... waiting ($i/60)"
-    sleep 1
-done
-
-if [ "$DB_REACHABLE" != true ]; then
-    echo "Database is not reachable after 60 seconds. Aborting setup."
-    exit 1
 fi
 
-# Verify database connection
-echo "Verifying database connection..."
-DB_AUTH_OK=false
-for i in {1..30}; do
-    if mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --skip-ssl -e "SELECT 1" >/dev/null 2>&1; then
-        echo "Database connection verified!"
-        DB_AUTH_OK=true
-        break
-    fi
-    echo "Database auth pending... ($i/30)"
-    sleep 1
-done
-
-if [ "$DB_AUTH_OK" != true ]; then
-    echo "Database authentication failed after 30 seconds. Aborting setup."
-    exit 1
-fi
+occ() {
+    local command
+    printf -v command '%q ' php /var/www/html/occ "$@"
+    su -s /bin/bash www-data -c "$command"
+}
 
 # Install dependencies
 echo "Installing Composer dependencies..."
@@ -53,76 +90,83 @@ echo "Preparing Nextcloud installation..."
 cd /var/www/html
 
 # Check if Nextcloud is already installed
-if su -s /bin/bash www-data -c "php occ status" 2>/dev/null | grep -q "installed: true"; then
+if occ status | grep -q "installed: true"; then
     echo "Nextcloud is already installed, skipping installation..."
-elif [ -f /var/www/html/config/config.php ] && grep -q "'installed' => true" /var/www/html/config/config.php 2>/dev/null; then
-    echo "Nextcloud config indicates installed, skipping installation..."
 else
     echo "Running initial Nextcloud installation..."
-    # Try installation with error handling
-    if ! su -s /bin/bash www-data -c "php occ maintenance:install \
-        --database='mysql' \
-        --database-host='${DB_HOST}' \
-        --database-port='${DB_PORT}' \
-        --database-name='${DB_NAME}' \
-        --database-user='${DB_USER}' \
-        --database-pass='${DB_PASS}' \
-        --admin-user='admin' \
-        --admin-pass='admin'" 2>&1; then
-        echo "Installation command failed, checking if already installed..."
-        if ! su -s /bin/bash www-data -c "php occ status" 2>/dev/null | grep -q "installed: true"; then
-            echo "Nextcloud installation failed and not already installed"
-            exit 1
-        fi
+    INSTALL_ARGS=(maintenance:install "--database=$TEST_DB_TYPE"
+        --admin-user=admin --admin-pass=admin --data-dir=/var/www/html/data)
+    if [ "$TEST_DB_TYPE" != sqlite ]; then
+        INSTALL_ARGS+=("--database-host=$DB_HOST" "--database-port=$DB_PORT"
+            "--database-name=$DB_NAME" "--database-user=$DB_USER" "--database-pass=$DB_PASS")
     fi
+    occ "${INSTALL_ARGS[@]}"
 fi
 
-if ! su -s /bin/bash www-data -c "php occ status" 2>/dev/null | grep -q "installed: true"; then
+if ! occ status | grep -q "installed: true"; then
     echo "Nextcloud installation failed"
+    exit 1
+fi
+# Nextcloud installs SQLite via the sqlite selector but stores dbtype=sqlite3.
+EXPECTED_DB_TYPE="$TEST_DB_TYPE"
+if [ "$TEST_DB_TYPE" = sqlite ]; then
+    EXPECTED_DB_TYPE=sqlite3
+fi
+if ! occ config:system:get dbtype | grep -qx "$EXPECTED_DB_TYPE"; then
+    echo "Installed database provider does not match TEST_DB_TYPE. Aborting setup." >&2
+    exit 1
+fi
+if [ -n "${TEST_RUNTIME_INTERNAL_VERSION:-}" ] \
+    && ! occ config:system:get version | grep -qx "$TEST_RUNTIME_INTERNAL_VERSION"; then
+    echo "Installed Nextcloud version does not match the frozen runtime. Aborting before configuration or seed." >&2
     exit 1
 fi
 
 echo "Configuring trusted domains and URL..."
-su -s /bin/bash www-data -c "php occ config:system:set trusted_domains 1 --value=localhost:8080"
-su -s /bin/bash www-data -c "php occ config:system:set overwrite.cli.url --value=http://localhost:8080"
-su -s /bin/bash www-data -c "php occ config:system:set memcache.local --value='\OC\Memcache\APCu'"
-su -s /bin/bash www-data -c "php occ config:system:set ratelimit.protection.enabled --value true --type boolean"
+TEST_HTTP_URL="${TEST_HTTP_URL:-http://localhost:8080}"
+occ config:system:set trusted_domains 1 "--value=${TEST_HTTP_URL#http://}"
+occ config:system:set overwrite.cli.url "--value=$TEST_HTTP_URL"
+occ config:system:set memcache.local '--value=\OC\Memcache\APCu'
+occ config:system:set ratelimit.protection.enabled --value true --type boolean
+occ background:cron
 
 # The E2E setup logs several users in per run (including expected failures for
 # profile users the active DB profile does not create). Without this, the
 # brute-force throttle delays logins exponentially and breaks the auth setup.
 echo "Disabling brute-force protection (disposable test environment)..."
-su -s /bin/bash www-data -c "php occ config:system:set auth.bruteforce.protection.enabled --value false --type boolean"
+occ config:system:set auth.bruteforce.protection.enabled --value false --type boolean
 
 echo "Linking local chorestrike app into Nextcloud apps path..."
 ln -sfn /var/www/html/custom_apps/chorestrike /var/www/html/apps/chorestrike
 chown -h www-data:www-data /var/www/html/apps/chorestrike
 
 echo "Enabling notifications app (bell support for E2E, CS-PLAN-023)..."
-su -s /bin/bash www-data -c "php occ app:enable notifications"
+occ app:enable notifications
 
 echo "Enabling chorestrike app..."
-su -s /bin/bash www-data -c "php occ app:enable chorestrike"
+occ app:enable chorestrike
 
-if ! su -s /bin/bash www-data -c "php occ app:list" | grep -A999 '^Enabled:' | grep -q '^  - chorestrike:'; then
+if ! occ app:list | grep -A999 '^Enabled:' | grep -q '^  - chorestrike:'; then
     echo "ChoreStrike app is not enabled. Aborting setup."
     exit 1
 fi
 
 echo "Ensuring test users based on profile..."
-PROFILE="${TEST_DB_PROFILE:-minimal}"
+PROFILE="$TEST_DB_PROFILE"
 
 ensure_user() {
     local user_id="$1"
     local user_pass="$2"
     local display_name="$3"
 
-    if su -s /bin/bash www-data -c "php occ user:info '${user_id}'" >/dev/null 2>&1; then
+    if occ user:info "$user_id" >/dev/null 2>&1; then
         echo "User '${user_id}' already exists."
         return 0
     fi
 
-    su -s /bin/bash www-data -c "OC_PASS='${user_pass}' php occ user:add --password-from-env --display-name='${display_name}' '${user_id}'"
+    export OC_PASS="$user_pass"
+    occ user:add --password-from-env "--display-name=$display_name" "$user_id"
+    unset OC_PASS
     echo "Created user '${user_id}' (${display_name})."
 }
 
@@ -145,35 +189,45 @@ case "$PROFILE" in
     empty)
         echo "No users created for empty profile."
         ;;
-    *)
-        echo "Unknown profile: $PROFILE, creating minimal users..."
-        ensure_user "adult" "Adult123!" "Adult User"
-        ensure_user "kid" "Kid123!" "Kid User"
-        ;;
 esac
 
 # Wait for Nextcloud to be fully ready via HTTP
 echo "Waiting for Nextcloud HTTP interface..."
+HTTP_READY=false
 for i in {1..60}; do
-    if curl -s http://localhost:80/status.php | grep -q '"installed":true'; then
+    if curl -fsS http://localhost:80/status.php | php -r '
+        $status = json_decode(file_get_contents("php://stdin"), true);
+        $expected = getenv("TEST_RUNTIME_INTERNAL_VERSION");
+        exit(($status["installed"] ?? null) === true
+            && ($status["maintenance"] ?? null) === false
+            && ($status["needsDbUpgrade"] ?? null) === false
+            && (!$expected || ($status["version"] ?? null) === $expected) ? 0 : 1);'; then
         echo "Nextcloud HTTP interface is ready!"
+        HTTP_READY=true
         break
     fi
     echo "Nextcloud HTTP not ready yet... ($i/60)"
     sleep 2
 done
+if [ "$HTTP_READY" != true ]; then
+    echo "Nextcloud HTTP readiness failed. Aborting setup." >&2
+    exit 1
+fi
 
 # Seed test data for E2E tests
 echo "Seeding test data..."
-if [ -f /seed-test-data.sh ]; then
-    chmod +x /seed-test-data.sh
-    /seed-test-data.sh || echo "Seed script failed, continuing anyway"
+SEED_SCRIPT="${TEST_SEED_SCRIPT:-/seed-test-data.sh}"
+if [ ! -f "$SEED_SCRIPT" ]; then
+    echo "Required seed script is missing. Aborting setup." >&2
+    exit 1
 fi
+bash "$SEED_SCRIPT"
+
+# Health must include app enablement and required seed completion, not just HTTP.
+touch /tmp/chorestrike-ready
 
 echo "=== Setup Complete ==="
-echo "ChoreStrike is ready at http://localhost:8080"
-echo "Login: admin / admin"
-echo "Additional realistic GUI users: adult / Adult123!, kid / Kid123!"
+echo "ChoreStrike is ready ($TEST_DB_TYPE, $PROFILE) at $TEST_HTTP_URL"
 
 # Keep Apache running
 wait $APACHE_PID

@@ -12,7 +12,7 @@ test.describe('Availability Settings Flow', () => {
 			await page.goto('/apps/chorestrike/#/dashboard')
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
 			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
 	})
 
@@ -33,10 +33,9 @@ test.describe('Availability Settings Flow', () => {
 
 	test('shows edit button for current user availability', async ({ page }) => {
 		const editButton = page.getByTestId('edit-availability-button').first()
-		if (await editButton.isVisible()) {
-			await editButton.click()
-			await expect(page.getByTestId('edit-availability-modal')).toBeVisible()
-		}
+		await expect(editButton).toBeVisible()
+		await editButton.click()
+		await expect(page.getByTestId('edit-availability-modal')).toBeVisible()
 	})
 
 	test('can toggle weekday availability in edit modal', async ({ page }) => {

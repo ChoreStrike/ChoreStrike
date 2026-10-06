@@ -16,44 +16,17 @@
  * Set NEXTCLOUD_CONTAINER to override detection.
  */
 
-import { execSync, execFileSync } from 'child_process'
-
-const CONTAINER_CANDIDATES = ['chorestrike-test', 'nextcloud']
-
-let resolvedContainer: string | null = null
+import { execFileSync } from 'child_process'
+import { configuredTarget, assertTestTarget } from '../../../scripts/test-target'
 
 /**
- * Resolve the Nextcloud container name (cached after first hit).
+ * Resolve the configured Nextcloud container without guessing a custom target.
  *
  * @returns The container name hosting the Nextcloud test instance.
  * @throws {Error} When no known Nextcloud container is running.
  */
 export function resolveNextcloudContainer(): string {
-	if (resolvedContainer) {
-		return resolvedContainer
-	}
-
-	if (process.env.NEXTCLOUD_CONTAINER) {
-		resolvedContainer = process.env.NEXTCLOUD_CONTAINER
-		return resolvedContainer
-	}
-
-	const names = execSync('docker ps --format "{{.Names}}"', { encoding: 'utf8' })
-		.split(/\r?\n/)
-		.map(name => name.trim())
-		.filter(name => name.length > 0)
-
-	for (const candidate of CONTAINER_CANDIDATES) {
-		if (names.includes(candidate)) {
-			resolvedContainer = candidate
-			return candidate
-		}
-	}
-
-	throw new Error(
-		`occ-runner: no Nextcloud container found among [${names.join(', ')}]. `
-		+ `Expected one of [${CONTAINER_CANDIDATES.join(', ')}] or set NEXTCLOUD_CONTAINER.`,
-	)
+	return configuredTarget().container
 }
 
 /**
@@ -67,7 +40,7 @@ export function resolveNextcloudContainer(): string {
  * @returns The command's stdout.
  */
 export function runOcc(args: string, environment: Record<string, string> = {}): string {
-	const container = resolveNextcloudContainer()
+	const { container } = assertTestTarget(process.env.NEXTCLOUD_URL || 'http://localhost:8080')
 	const envArgs = Object.entries(environment).flatMap(([key, value]) => ['--env', `${key}=${value}`])
 	return execFileSync('docker', ['exec', ...envArgs, container, 'su', '-s', '/bin/bash', 'www-data',
 		'-c', `cd /var/www/html && php occ ${args}`], { encoding: 'utf8' })
@@ -83,7 +56,7 @@ export function runOcc(args: string, environment: Record<string, string> = {}): 
  * @returns The date formatted as YYYY-MM-DD.
  */
 export function containerDate(offsetDays: number): string {
+	if (!Number.isSafeInteger(offsetDays)) throw new Error('Calendar offset must be an integer')
 	const container = resolveNextcloudContainer()
-	const command = `docker exec ${container} date -d "${offsetDays} day" +%Y-%m-%d`
-	return execSync(command, { encoding: 'utf8' }).trim()
+	return execFileSync('docker', ['exec', container, 'date', '-d', `${offsetDays} day`, '+%Y-%m-%d'], { encoding: 'utf8' }).trim()
 }

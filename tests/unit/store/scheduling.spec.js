@@ -535,6 +535,49 @@ describe('Scheduling Store', () => {
 				expect(payload.expectedVersion).toBe(3)
 			})
 
+			it('sends a handover with exact participants and no implicit date change', async () => {
+				const { amendOccurrence } = require('../../../src/services/api.js')
+				amendOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
+				const participants = [{ userId: 'child', role: 'responsible', sharePct: 100 }]
+				await store.amendOccurrence({ roomTaskId: 42, occurrence, participants, consent: true })
+				expect(amendOccurrence).toHaveBeenCalledWith('12:1', {
+					roomTaskId: 42,
+					commandId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+					occurrenceId: '12:1',
+					expectedVersion: 3,
+					selectionToken: 'token-42',
+					consent: true,
+					participants,
+				})
+			})
+
+			it.each([false, true])('refreshes the displayed room receipt after an agreement (conflict=%s)', async (conflict) => {
+				const { amendOccurrence } = require('../../../src/services/api.js')
+				const roomTasks = useRoomTasksStore()
+				roomTasks.roomTasks = [{ id: 42, roomId: 7, occurrence }]
+				jest.spyOn(roomTasks, 'fetchFilteredDailyTasks').mockResolvedValue([])
+				jest.spyOn(roomTasks, 'fetchOverdueTasks').mockResolvedValue([])
+				const refreshed = jest.spyOn(roomTasks, 'fetchRoomTasks').mockImplementation(async () => {
+					roomTasks.roomTasks[0].occurrence = { ...occurrence, expectedVersion: 4 }
+				})
+				if (conflict) amendOccurrence.mockRejectedValue({ status: 409 })
+				else amendOccurrence.mockResolvedValue({ expectedVersion: 4 })
+				const result = store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true })
+				if (conflict) await expect(result).rejects.toMatchObject({ status: 409 })
+				else await expect(result).resolves.toMatchObject({ refreshFailed: false })
+				expect(refreshed).toHaveBeenCalledWith(7)
+				expect(roomTasks.roomTasks[0].occurrence.expectedVersion).toBe(4)
+			})
+
+			it('does not turn a committed agreement into failure when its refresh fails', async () => {
+				const { amendOccurrence } = require('../../../src/services/api.js')
+				amendOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
+				jest.spyOn(store, 'refreshAfterApply').mockResolvedValue(false)
+				await expect(store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true }))
+					.resolves.toMatchObject({ occurrenceId: '12:1', expectedVersion: 4, refreshFailed: true })
+				expect(amendOccurrence).toHaveBeenCalledTimes(1)
+			})
+
 			it('sends the restart command for the suspended interval predecessor', async () => {
 				const { restartOccurrence } = require('../../../src/services/api.js')
 				restartOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 6 })

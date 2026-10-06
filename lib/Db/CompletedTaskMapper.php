@@ -430,7 +430,7 @@ class CompletedTaskMapper extends QBMapper {
 		?int $houseUserId = null,
 	): array {
 		$qb = $this->buildActivityQuery($houseId, $start, $end, $houseUserId);
-		$qb->setMaxResults($limit);
+		$qb->orderBy('ct.completed_at', 'DESC')->addOrderBy('ct.id', 'DESC')->setMaxResults($limit);
 
 		return $this->findEntities($qb);
 	}
@@ -610,8 +610,7 @@ class CompletedTaskMapper extends QBMapper {
 			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
 			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-			->orderBy('ct.completed_at', 'DESC');
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
 
 		if ($houseUserId !== null) {
 			$qb->andWhere($qb->expr()->eq('ct.user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)));

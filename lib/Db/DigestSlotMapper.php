@@ -66,7 +66,7 @@ class DigestSlotMapper extends QBMapper {
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('house_user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->neq('zone', $qb->createNamedParameter($differentFromZone)))
-			->andWhere($qb->expr()->nonEmptyString('dispatched_at'))
+			->andWhere($qb->expr()->isNotNull('dispatched_at'))
 			->orderBy('dispatched_at', 'DESC')
 			->setMaxResults(1);
 		$result = $qb->executeQuery();

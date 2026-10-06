@@ -329,6 +329,86 @@ everyone; the owner-only Member Availability grid renders for owners only
 
 ---
 
+### 12.1 Family Acceptance Evidence (C5j / WP9)
+
+The canonical [family acceptance protocol](../concepts/ui-use-cases.md#family-acceptance-protocol)
+defines this gate. The following is its execution record, not a competing
+protocol and not evidence of participation. **Current status: not authorized,
+not started; HUMAN-01 and HUMAN-02 remain open.** Automation cannot replace it.
+
+Start only after technical readiness and separately authorized coordination:
+voluntary adult participation, guardian consent for the child and agreed
+collection/retention limits. Present neutral scenarios, not click instructions;
+record requested operating help as assistance, never unaided success. Use
+synthetic cases for pause, catch-up, overload, agreed handover and reward
+decisions. Do not provoke illness, missed chores, spending or notifications.
+Withdrawal is permitted, with no activity target or minimum chore count.
+
+Only anonymous adult/child role results and consent-confirmed status belong in
+the public record. No names, ages, accounts, household details, medical reasons,
+raw quotations, recordings or raw notes. Necessary sensitive material requires
+separate authorization and belongs only in gitignored `/private/`, within the
+agreed retention limits. Do not add telemetry or engagement/pressure scores.
+
+**Session Record Template (Unfilled)**
+
+| Field | Recorded evidence |
+|---|---|
+| Candidate | Revision plus uncommitted runtime/fixture identity; image/runtime versions |
+| Technical readiness | Full DB matrix and consecutive browser-pair evidence references |
+| Authorization / consent | Not confirmed; record confirmation status only after coordination |
+| Roles | Adult / child, anonymous; no participant identifiers |
+| Comprehension date | Not performed |
+| Voluntary observation period | Not started; actual start/end dates and 14 observed calendar days |
+| Final applicability | Not evaluated; identify any build changes and affected retests |
+
+Use `unaided`, `uncertain`, `assisted`, `unable` or `not performed`, plus a short
+sanitized issue reference; never infer success from absence of feedback.
+
+| Neutral scenario prompt | Adult result | Child result |
+|---|---|---|
+| Find the next agreed chore and explain its planned date/window. | Not performed | Not performed |
+| Explain confirmed/pending rhythm, the weekly milestone and a neutral free/paused day. | Not performed | Not performed |
+| Disable reminders and optional areas; continue basic planning. | Not performed | Not performed |
+| Use synthetic pause/catch-up and an owner-recorded agreed handover; explain overload without extra offers. | Not performed | Not performed |
+| Explain effort-only Coins, fixed request terms, approval/delivery/cancellation and existing requests with browsing hidden. | Not performed | Not performed |
+
+For each of the 14 days, record only the date, whether voluntary observation
+was available (neutral/no-chore days are valid), the candidate identity if it
+changed, and sanitized comprehension/pressure/organizing findings or `none
+reported`. Do not publish a household activity diary or task counts. Conclude
+with anonymous role-level feedback on organizing effort, perceived pressure,
+optional-feature choices and comprehension; no numeric engagement target.
+
+Comprehension failures or pressure problems become plan-owned findings in
+[CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md).
+Resolve their causes and repeat affected checks; behavior changes require
+reassessing observation representativeness and renewing affected technical
+gates. Missing testers/consent, incomplete duration or unresolved findings keep
+WP9/G3/CONCEPT-001 open. This template does not authorize baseline adoption.
+
+### 12.2 Automated Family Evidence Boundaries
+
+The following required browser scenarios supplement, never replace, section
+12.1. They run in the reset-owning `chromium-serial-db` pool through
+`npm run test:e2e:gate`; their identities are pinned in the discovery inventory.
+
+| Contract | Required automated evidence | Boundary |
+|---|---|---|
+| Neutral empty day | `calm-core-ui.spec.ts`: `a free day stays neutral without catch-up, extra offers or invented success` | An unassigned-today member sees the empty state, no invented completion or extra work; not a human pressure evaluation. |
+| Fixed versus relative recurrence | `family-rhythm.spec.ts`: `fixed and relative schedules explain and preserve their different next dates after late work` | Real form explanations plus late weekly completions: the fixed weekday stays anchored, the relative successor follows the work day. |
+| Shared device | `workflow-state-reconciliation.spec.ts`: `same-device logout and child login discard the prior wallet, undo queue and optional preferences` | Fresh owned Nextcloud sessions in one browser context; a live undo entry precedes logout. This proves full login navigation, not arbitrary in-flight identity switching inside a surviving document. |
+| Free/paused task reminders | `quiet-digest.spec.ts`: `opted-in free and paused days suppress task reminders while due work still delivers` | Otherwise planned work on an explicitly unavailable weekday and a recognized personal pause produce no task bell; an eligible member receives one in the same real job pass. Organizational digests are disabled for this task-only proof. |
+| Keyboard core | `family-core-ux.spec.ts`: `child: My Day hides manage controls and executes the checklist read-only (D4)` | Actual Tab traversal, Enter expansion/completion and Space checkbox execution, followed by the real completion receipt and undo confirmation; no programmatic focus shortcut. |
+| Reduced motion | `calm-core-ui.spec.ts`: `reduced motion overrides an explicit animation opt-in on a real completion` | Personal opt-in remains enabled. Canvas insertion observation verifies suppression, then the same completion after undo and a live OS-preference change supplies the positive animation control. |
+
+For WP9 acceptance, run the entire three-pool gate twice consecutively on the
+same runtime/build/fixture/discovery candidate. Focused spec passes diagnose
+repairs but cannot replace that pair. Keep raw reports/traces under ignored
+`build/e2e-gate/`; publish only sanitized run identities, counts and outcomes.
+
+---
+
 ## 13. Notifications
 
 Route surface: the five-minute digest pass (`DailyNotificationJob` →

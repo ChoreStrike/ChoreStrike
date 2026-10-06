@@ -261,7 +261,7 @@ class TaskMapper extends QBMapper {
 				$qb->expr()->eq('t.visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE)),
 				$qb->expr()->orX(
 					$qb->expr()->eq('t.owner_user_id', $qb->createNamedParameter($viewer->getNextcloudUserId())),
-					$qb->expr()->eq($qb->createFunction('EXISTS (' . $assigneeLink->getSQL() . ')'), $qb->createFunction('1'))
+					$qb->expr()->eq($qb->createFunction('EXISTS (' . $assigneeLink->getSQL() . ')'), $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL))
 				)
 			),
 		];
@@ -284,8 +284,8 @@ class TaskMapper extends QBMapper {
 					// unlinked (D11 — unlinked = linked to the instance's
 					// house, keeps the create-then-link flow visible).
 					$qb->expr()->orX(
-						$qb->expr()->eq($qb->createFunction('EXISTS (' . $linkedToViewerHouse->getSQL() . ')'), $qb->createFunction('1')),
-						$qb->expr()->eq($qb->createFunction('EXISTS (' . $anyLink->getSQL() . ')'), $qb->createFunction('0'))
+						$qb->expr()->eq($qb->createFunction('EXISTS (' . $linkedToViewerHouse->getSQL() . ')'), $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)),
+						$qb->expr()->eq($qb->createFunction('EXISTS (' . $anyLink->getSQL() . ')'), $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL))
 					)
 				)
 			);

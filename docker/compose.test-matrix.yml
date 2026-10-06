@@ -1,0 +1,124 @@
+# Independent companion, never merge with compose.test.yml's fixed names/ports.
+# Use a unique owned project: docker compose -p cs-wp9-<run-id> -f ... --profile ...
+x-nextcloud: &nextcloud
+  image: ${WP9_TEST_IMAGE:-chorestrike-wp9-test:local}
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile.test
+  working_dir: /var/www/html/custom_apps/chorestrike
+  networks: [wp9]
+  healthcheck:
+    test: ["CMD-SHELL", "test -f /tmp/chorestrike-ready && curl -fsS http://localhost/status.php | grep -q '\"installed\":true'"]
+    interval: 5s
+    timeout: 5s
+    retries: 60
+    start_period: 60s
+  command: ["bash", "/test-entrypoint.sh"]
+
+x-environment: &environment
+  NEXTCLOUD_TEST_ENV: "true"
+  NEXTCLOUD_TEST_MODE: "true"
+  TEST_DB_PROFILE: family
+  TEST_HTTP_URL: http://localhost
+
+services:
+  db-mysql:
+    image: ${WP9_MYSQL_IMAGE:-mariadb:10.6}
+    profiles: [mysql]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: nextcloud
+    volumes: [mysql-db:/var/lib/mysql]
+    networks: [wp9]
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  db-pgsql:
+    image: ${WP9_PGSQL_IMAGE:-postgres:16-alpine}
+    profiles: [pgsql]
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: nextcloud
+      PGDATA: ${WP9_PGDATA:-/var/lib/postgresql/data}
+    volumes: ["pgsql-db:${WP9_PGSQL_VOLUME_TARGET:-/var/lib/postgresql/data}"]
+    networks: [wp9]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "nextcloud", "-d", "nextcloud"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  nextcloud-mysql:
+    <<: *nextcloud
+    profiles: [mysql]
+    depends_on:
+      db-mysql:
+        condition: service_healthy
+    environment:
+      <<: *environment
+      TEST_DB_TYPE: mysql
+      DB_HOST: db-mysql
+      DB_PORT: "3306"
+      DB_NAME: nextcloud
+      DB_USER: nextcloud
+      DB_PASS: nextcloud
+    volumes:
+      - ..:/var/www/html/custom_apps/chorestrike
+      - ./test-entrypoint.sh:/test-entrypoint.sh:ro
+      - ./seed-test-data.sh:/seed-test-data.sh:ro
+      - mysql-config:/var/www/html/config
+      - mysql-data:/var/www/html/data
+
+  nextcloud-pgsql:
+    <<: *nextcloud
+    profiles: [pgsql]
+    depends_on:
+      db-pgsql:
+        condition: service_healthy
+    environment:
+      <<: *environment
+      TEST_DB_TYPE: pgsql
+      DB_HOST: db-pgsql
+      DB_PORT: "5432"
+      DB_NAME: nextcloud
+      DB_USER: nextcloud
+      DB_PASS: nextcloud
+    volumes:
+      - ..:/var/www/html/custom_apps/chorestrike
+      - ./test-entrypoint.sh:/test-entrypoint.sh:ro
+      - ./seed-test-data.sh:/seed-test-data.sh:ro
+      - pgsql-config:/var/www/html/config
+      - pgsql-data:/var/www/html/data
+
+  nextcloud-sqlite:
+    <<: *nextcloud
+    profiles: [sqlite]
+    environment:
+      <<: *environment
+      TEST_DB_TYPE: sqlite
+    volumes:
+      - ..:/var/www/html/custom_apps/chorestrike
+      - ./test-entrypoint.sh:/test-entrypoint.sh:ro
+      - ./seed-test-data.sh:/seed-test-data.sh:ro
+      - sqlite-config:/var/www/html/config
+      - sqlite-data:/var/www/html/data
+
+networks:
+  wp9:
+    driver: bridge
+
+volumes:
+  mysql-db:
+  pgsql-db:
+  mysql-config:
+  mysql-data:
+  pgsql-config:
+  pgsql-data:
+  sqlite-config:
+  sqlite-data:

@@ -41,6 +41,9 @@ msgstr ""
 msgid "A daily summary of the agreements for the coming day."
 msgstr ""
 
+msgid "A different occurrence is now displayed. Choose a new agreement and confirm consent again."
+msgstr ""
+
 msgid "A former member was part of this split — reassign their share. Shares must total exactly 100%."
 msgstr ""
 
@@ -507,6 +510,9 @@ msgid "Child"
 msgstr ""
 
 msgid "Children may view and complete tasks, but not manage them"
+msgstr ""
+
+msgid "Choose a member"
 msgstr ""
 
 msgid "Choose a reason"
@@ -1317,6 +1323,9 @@ msgid "Ground Floor"
 msgstr ""
 
 msgid "Hallway & Stairs"
+msgstr ""
+
+msgid "Hand this occurrence to"
 msgstr ""
 
 msgid "Hard"
@@ -2201,6 +2210,9 @@ msgstr ""
 msgid "Record"
 msgstr ""
 
+msgid "Record agreed handover"
+msgstr ""
+
 msgid "Record amendment"
 msgstr ""
 
@@ -3063,6 +3075,9 @@ msgid "This member is paused on that day"
 msgstr ""
 
 msgid "This occurrence is already completed"
+msgstr ""
+
+msgid "This person takes full responsibility for this occurrence only. Future assignments stay unchanged."
 msgstr ""
 
 msgid "This preview is no longer current. Check your selection and prepare the plan again."

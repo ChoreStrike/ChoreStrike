@@ -14,12 +14,11 @@ use OCA\ChoreStrike\Service\PauseService;
 use OCA\ChoreStrike\Service\SchedulePlanService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 
 /**
  * Real two-connection race proofs for the WP2 pause/agreement surfaces
  * (CS-PLAN-073 §4 "Real races / rollback", RF-073-WP2-09). Every scenario
- * runs a SECOND Nextcloud-bootstrapped process against the same MariaDB —
+ * runs a SECOND Nextcloud-bootstrapped process against the same installed DB —
  * sequential calls are never passed off as concurrency evidence:
  *
  *  1. plan apply vs an acknowledged pause: the house-first lock order
@@ -33,7 +32,7 @@ use OCP\IDBConnection;
  *  5. an injected failure after the pause-row insertion rolls back the
  *     pause, its effects AND its receipt (nothing survives half-done).
  *
- * MySQL/MariaDB-only (SQLite has no row-level concurrency to prove).
+ * MariaDB/PostgreSQL use row locks; SQLite serializes database writers.
  *
  * @group DB
  */
@@ -73,12 +72,6 @@ class PauseAgreementConcurrencyTest extends IntegrationTestCase {
 		}
 		$this->cleanupHouseIds = [];
 		parent::tearDown();
-	}
-
-	private function skipUnlessMariaDb(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
 	}
 
 	private function uuidPac(): string {
@@ -192,7 +185,6 @@ class PauseAgreementConcurrencyTest extends IntegrationTestCase {
 	// ------------------------------------------------------------------
 
 	public function testPlanApplyVsPause_SerializesIntoOneConsistentState(): void {
-		$this->skipUnlessMariaDb();
 		$f = $this->raceHouse('P', null);
 
 		$planService = \OC::$server->get(SchedulePlanService::class);
@@ -256,7 +248,6 @@ class PauseAgreementConcurrencyTest extends IntegrationTestCase {
 	// ------------------------------------------------------------------
 
 	public function testDuplicateRestarts_ExactlyOneSuccessor(): void {
-		$this->skipUnlessMariaDb();
 		$f = $this->raceHouse('R');
 		$this->suspendPending($f['houseId'], $f['owner']);
 
@@ -283,7 +274,6 @@ class PauseAgreementConcurrencyTest extends IntegrationTestCase {
 	// ------------------------------------------------------------------
 
 	public function testConcurrentShortenings_SameExpectedRevision_OneStaleConflict(): void {
-		$this->skipUnlessMariaDb();
 		$f = $this->raceHouse('S');
 		$pauseService = \OC::$server->get(PauseService::class);
 		$created = $pauseService->requestForSelf($f['houseId'], $f['member'], [
@@ -320,7 +310,6 @@ class PauseAgreementConcurrencyTest extends IntegrationTestCase {
 	}
 
 	public function testReplayedReceiptUuid_TwoConnections_SingleEffect(): void {
-		$this->skipUnlessMariaDb();
 		$f = $this->raceHouse('Y');
 		$pauseService = \OC::$server->get(PauseService::class);
 		$created = $pauseService->requestForSelf($f['houseId'], $f['member'], [

@@ -142,6 +142,7 @@
 			:item="item"
 			:is-house-owner="userStore.isHouseOwner"
 			:can-manage-tasks="userStore.canManageTasks"
+			:members="userStore.houseUsers || []"
 			:assignee-draft="assigneeDraft"
 			@toggle-assignee="(...args) => $emit('toggle-assignee', ...args)" />
 	</div>

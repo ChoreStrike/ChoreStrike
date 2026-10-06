@@ -124,8 +124,12 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 	})
 
 	it('renders the expanded details through TaskListDetails', () => {
+		const members = [{ nextcloudUserId: 'u1', displayName: 'Alice' }, { nextcloudUserId: 'u2', displayName: 'Bob' }]
+		useUserStore().houseUsers = members
 		const wrapper = mountItem({ expanded: true, assigneeDraft: ['u1'] }, 'owner')
 		expect(wrapper.findComponent(TaskListDetails).exists()).toBe(true)
+		expect(wrapper.findComponent(TaskListDetails).props('members')).toEqual(members)
+		expect(wrapper.find('[data-testid="assignee-chip-u2"]').text()).toBe('Bob')
 		expect(wrapper.find('.assignee-picker').exists()).toBe(true)
 	})
 
@@ -139,4 +143,3 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 		expect(wrapper.emitted('toggle-assignee')).toEqual([[42, 'u2']])
 	})
 })
-

@@ -508,11 +508,13 @@ class RoomTaskReadServiceTest extends TestCase {
 		$memberRow->setOccurrenceId(50);
 		$memberRow->setWalletId(101);
 		$memberRow->setSharePct(70);
+		$memberRow->setObligated(true);
 		$memberRow->setDisposition(\OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_ACTIVE);
 		$withdrawn = new \OCA\ChoreStrike\Db\OccurrenceMember();
 		$withdrawn->setOccurrenceId(50);
 		$withdrawn->setWalletId(102);
 		$withdrawn->setSharePct(30);
+		$withdrawn->setObligated(true);
 		$withdrawn->setDisposition(\OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_RELEASED);
 		$this->occMemberMapper->method('findByOccurrenceIds')->willReturn([50 => [$memberRow, $withdrawn]]);
 
@@ -523,6 +525,11 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->assertSame('agreement', $proposal['basis']);
 		// Only the ACTIVE member share — a withdrawn row is not proposed.
 		$this->assertSame([['userId' => 'dad', 'sharePct' => 70]], $proposal['participants']);
+		$this->assertSame(['dad'], $proposal['obligatedUserIds']);
+		$memberRow->setObligated(false);
+		$helperProposal = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1)[0]['proposal'];
+		$this->assertSame([], $helperProposal['obligatedUserIds'], 'voluntary shares never create obligations');
+		$this->assertSame($proposal['participants'], $helperProposal['participants']);
 	}
 
 	/**
@@ -544,6 +551,7 @@ class RoomTaskReadServiceTest extends TestCase {
 
 		$proposal = $rows[0]['proposal'];
 		$this->assertSame('assignees', $proposal['basis']);
+		$this->assertNull($proposal['obligatedUserIds']);
 		// Equal split via immutable wallet order (101 before 102).
 		$this->assertSame([
 			['userId' => 'dad', 'sharePct' => 50],
@@ -570,6 +578,7 @@ class RoomTaskReadServiceTest extends TestCase {
 
 		$proposal = $rows[0]['proposal'];
 		$this->assertSame('solo', $proposal['basis']);
+		$this->assertNull($proposal['obligatedUserIds']);
 		$this->assertSame([], $proposal['participants']);
 	}
 

@@ -591,10 +591,11 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		// Shrink to the creation-week state: keep rows of the first 8 days,
 		// freeze the frontier at the last kept day.
 		$keepThrough = (new \DateTime($anchorKey))->modify('+7 days')->format('Y-m-d');
+		$deleteFrom = (new \DateTimeImmutable($anchorKey))->modify('+8 days')->format('Y-m-d');
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete('chorestrike_occurrences')
 			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($f['roomTaskId'], \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gt('planned_date', $qb->createNamedParameter($keepThrough, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->gte('planned_date', $qb->createNamedParameter($deleteFrom, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR)))
 			->executeStatement();
 		$revision = $this->revisionMapper->findCurrentByRoomTask($f['roomTaskId']);
 		$qb = $this->db->getQueryBuilder();
@@ -996,6 +997,40 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		$members = $this->fetchRows('chorestrike_occ_members', ['occurrence_id' => $occurrenceId]);
 		$active = array_values(array_filter($members, static fn (array $row): bool => $row['disposition'] === 'active'));
 		self::assertCount(2, $active, 'the re-joining former responsible is active again — one row per wallet');
+	}
+
+	public function testHandover_DailyEligibilityUsesConcreteObligationsNotDefaultsOrVoluntaryShares(): void {
+		$f = $this->agreementFixture([], (new \DateTime())->format('Y-m-d') . ' 00:00:00');
+		$members = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+		$child = $members->findByNextcloudUserId($f['houseId'], $f['helper']);
+		$child->setRole('child');
+		$members->update($child);
+		$read = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		self::assertSame([], $read->getFilteredDailyTasksForUser($f['houseId'], $child, new \DateTime()));
+
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+			'participants' => [['userId' => $f['helper'], 'role' => 'responsible', 'sharePct' => 100]],
+		]));
+		$rows = $read->getFilteredDailyTasksForUser($f['houseId'], $child, new \DateTime());
+		self::assertCount(1, $rows);
+		self::assertSame($f['roomTaskId'], (int)$rows[0]['roomTask']->getId());
+		self::assertSame([$f['owner']], $rows[0]['assignees'], 'future defaults stay unchanged');
+		self::assertSame([$f['helper']], $rows[0]['proposal']['obligatedUserIds']);
+		self::assertSame($receipt['occurrenceId'], $rows[0]['proposal']['occurrenceId']);
+
+		$receipt = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
+		$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt, [
+			'participants' => [
+				['userId' => $f['owner'], 'role' => 'responsible', 'sharePct' => 100],
+				['userId' => $f['helper'], 'role' => 'helper', 'sharePct' => 50],
+			],
+		]));
+		self::assertSame([], $read->getFilteredDailyTasksForUser($f['houseId'], $child, new \DateTime()), 'voluntary help is not a new obligation');
+		$owner = $members->findByNextcloudUserId($f['houseId'], $f['owner']);
+		$rows = $read->getFilteredDailyTasksForUser($f['houseId'], $owner, new \DateTime());
+		self::assertSame([$f['owner']], $rows[0]['proposal']['obligatedUserIds']);
+		self::assertCount(2, $rows[0]['proposal']['participants'], 'actual-work proposal still includes the helper');
 	}
 
 	/**

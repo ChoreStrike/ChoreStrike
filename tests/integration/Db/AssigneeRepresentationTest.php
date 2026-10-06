@@ -137,16 +137,9 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 	 * The folded schema carries no legacy assignee column.
 	 */
 	public function testSchemaHasNoLegacyAssigneeColumn(): void {
-		$result = $this->db->executeQuery(
-			'SELECT COUNT(*) FROM information_schema.COLUMNS'
-			. ' WHERE TABLE_SCHEMA = DATABASE()'
-			. " AND TABLE_NAME = '*PREFIX*chorestrike_room_tasks'"
-			. " AND COLUMN_NAME = 'assigned_to_user_id'"
-		);
-		$count = (int)$result->fetchOne();
-		$result->closeCursor();
-
-		self::assertSame(0, $count, 'room_tasks.assigned_to_user_id must be folded out of the schema');
+		$prefix = \OC::$server->get(\OCP\IConfig::class)->getSystemValue('dbtableprefix', 'oc_');
+		$table = $this->db->createSchema()->getTable($prefix . 'chorestrike_room_tasks');
+		self::assertFalse($table->hasColumn('assigned_to_user_id'), 'room_tasks.assigned_to_user_id must be folded out of the schema');
 	}
 
 	private function setTaskVisibility(int $taskId, string $visibilityType, ?string $ownerUserId): void {

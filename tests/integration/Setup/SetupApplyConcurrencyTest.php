@@ -17,8 +17,8 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\HouseSetupService;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 use OCP\IRequest;
 
 /**
@@ -31,38 +31,29 @@ use OCP\IRequest;
  * blocks at the lock and then either conflicts (409 path) or fails the
  * under-lock membership revalidation (400 path, zero writes).
  *
- * MySQL/MariaDB only — SQLite has no row-level concurrency to prove; the
- * tolerant code paths are exercised there as straight-line behavior.
+ * MariaDB/PostgreSQL use row locks; SQLite serializes real database writers.
  */
 class SetupApplyConcurrencyTest extends IntegrationTestCase {
-	/** @var int[] Houses whose helper-created structure must be cleaned. */
-	private array $raceHouseIds = [];
-
 	private int $instanceHouseId;
 
 	protected function setUp(): void {
 		parent::setUp();
 
-		$houseService = \OC::$server->get(HouseService::class);
-		$this->actingAs('sac_bootstrapper');
-		$this->instanceHouseId = $houseService->getOrCreateHouse($houseService->getInstanceId())->getId();
-		$this->purgeInstanceHouse();
+		$this->instanceHouseId = $this->createBareHouse('Isolated setup fixture');
 	}
 
 	protected function tearDown(): void {
-		if (!empty($this->raceHouseIds)) {
-			$qb = $this->db->getQueryBuilder();
-			$qb->delete('chorestrike_floors')
-				->where($qb->expr()->in('house_id', $qb->createNamedParameter($this->raceHouseIds, IQueryBuilder::PARAM_INT_ARRAY)));
-			$qb->executeStatement();
-
-			$qb = $this->db->getQueryBuilder();
-			$qb->delete('chorestrike_houses')
-				->where($qb->expr()->in('id', $qb->createNamedParameter($this->raceHouseIds, IQueryBuilder::PARAM_INT_ARRAY)));
-			$qb->executeStatement();
+		// applySetup creates new definitions in this exclusively owned house.
+		$qb = $this->db->getQueryBuilder();
+		$result = $qb->select('rt.task_id')->from('chorestrike_room_tasks', 'rt')
+			->innerJoin('rt', 'chorestrike_rooms', 'r', 'r.id = rt.room_id')
+			->innerJoin('r', 'chorestrike_floors', 'f', 'f.id = r.floor_id')
+			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($this->instanceHouseId, IQueryBuilder::PARAM_INT)))
+			->executeQuery();
+		foreach ($result->fetchAll() as $row) {
+			$this->registerCreatedTask((int)$row['task_id']);
 		}
-
-		$this->purgeInstanceHouse();
+		$result->closeCursor();
 		parent::tearDown();
 	}
 
@@ -72,13 +63,8 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 	 * must get ConflictException — exactly one structure, zero loser rows.
 	 */
 	public function testConcurrentApplyRace_ExactlyOneStructure_LoserGetsConflict(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$ownerUserId = 'sac-race-owner-' . uniqid();
 		$houseId = $this->createHouse($ownerUserId);
-		$this->raceHouseIds[] = $houseId;
 
 		// T1 (helper): lock the house row, insert the winning floor
 		// (uncommitted), signal, hold, commit.
@@ -92,6 +78,7 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the setup-race holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -113,7 +100,10 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 			} catch (ConflictException $e) {
 				self::assertStringContainsString('already set up', $e->getMessage());
 			}
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -136,14 +126,9 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 	 * floors/rooms/tasks/assignees (CS-PLAN-062 §3.3).
 	 */
 	public function testRemovedMemberAssigneeDuringApply_Yields400_AndZeroWrites(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$ownerUserId = 'sac-del-owner-' . uniqid();
 		$assigneeUserId = 'sac-del-assignee-' . uniqid();
 		$houseId = $this->createHouse($ownerUserId);
-		$this->raceHouseIds[] = $houseId;
 		$this->addHouseMember($houseId, $assigneeUserId, 'Race Assignee', 'member');
 
 		// T1 (helper): lock the house row, signal, hold, DELETE the assignee's
@@ -159,6 +144,7 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the membership-delete holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -181,7 +167,10 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 			} catch (\InvalidArgumentException $e) {
 				self::assertStringContainsString('Assignee is not a member', $e->getMessage());
 			}
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -208,7 +197,7 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * Controller-level matrix against the real instance house (CS-PLAN-062):
+	 * Controller-level matrix against an isolated installed-DB house (CS-PLAN-062):
 	 * first owner 200, member 403, non-member 403 (invite-only), and a
 	 * second apply on the now-set-up house 409 HOUSE_ALREADY_SET_UP.
 	 */
@@ -267,85 +256,23 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 	private function makeController(array $payload): SetupController {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getParams')->willReturn($payload);
+		$house = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($this->instanceHouseId);
+		// Override only instance routing; lookup, authorization and setup remain real.
+		$houseService = $this->createMock(HouseService::class);
+		$houseService->method('getInstanceId')->willReturn($house->getNextcloudInstanceId());
+		$houseService->method('getOrCreateHouse')->willReturnCallback(
+			static fn (string $instanceId) => \OC::$server->get(HouseService::class)->getOrCreateHouse($instanceId)
+		);
 
 		return new SetupController(
 			$request,
 			\OC::$server->get(TemplateService::class),
 			\OC::$server->get(HouseSetupService::class),
-			\OC::$server->get(HouseService::class),
+			$houseService,
 			\OC::$server->get(AuthorizationService::class),
 			\OC::$server->get(\OCP\L10N\IFactory::class)->get('chorestrike'),
 			\OC::$server->get(AppLogger::class),
 		);
-	}
-
-	/**
-	 * Remove all floors/rooms/tasks under the instance house and every
-	 * membership, so the shared instance house starts/ends structurally
-	 * empty (the controller matrix runs against it).
-	 */
-	private function purgeInstanceHouse(): void {
-		$floorIds = $this->collectColumn('chorestrike_floors', 'id', 'house_id', $this->instanceHouseId);
-		if ($floorIds !== []) {
-			$roomIds = $this->collectColumnIn('chorestrike_rooms', 'id', 'floor_id', $floorIds);
-			if ($roomIds !== []) {
-				$roomTaskIds = $this->collectColumnIn('chorestrike_room_tasks', 'id', 'room_id', $roomIds);
-				$taskIds = $this->collectColumnIn('chorestrike_room_tasks', 'task_id', 'room_id', $roomIds);
-				if ($roomTaskIds !== []) {
-					$qb = $this->db->getQueryBuilder();
-					$qb->delete('chorestrike_task_assignees')
-						->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)));
-					$qb->executeStatement();
-				}
-				$this->deleteColumnIn('chorestrike_room_tasks', 'room_id', $roomIds);
-				$this->deleteColumnIn('chorestrike_rooms', 'floor_id', $floorIds);
-				if ($taskIds !== []) {
-					$this->deleteColumnIn('chorestrike_tasks', 'id', $taskIds);
-				}
-			}
-			$this->deleteColumnIn('chorestrike_floors', 'id', $floorIds);
-		}
-
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete('chorestrike_house_users')
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($this->instanceHouseId, IQueryBuilder::PARAM_INT)));
-		$qb->executeStatement();
-	}
-
-	/** @return int[] */
-	private function collectColumn(string $table, string $selectCol, string $whereCol, int $value): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($selectCol)->from($table)
-			->where($qb->expr()->eq($whereCol, $qb->createNamedParameter($value, IQueryBuilder::PARAM_INT)));
-		$res = $qb->executeQuery();
-		$ids = [];
-		while ($row = $res->fetch()) {
-			$ids[] = (int)$row[$selectCol];
-		}
-		$res->closeCursor();
-		return $ids;
-	}
-
-	/** @param int[] $values @return int[] */
-	private function collectColumnIn(string $table, string $selectCol, string $whereCol, array $values): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($selectCol)->from($table)
-			->where($qb->expr()->in($whereCol, $qb->createNamedParameter($values, IQueryBuilder::PARAM_INT_ARRAY)));
-		$res = $qb->executeQuery();
-		$ids = [];
-		while ($row = $res->fetch()) {
-			$ids[] = (int)$row[$selectCol];
-		}
-		$res->closeCursor();
-		return $ids;
-	}
-
-	/** @param int[] $values */
-	private function deleteColumnIn(string $table, string $whereCol, array $values): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete($table)
-			->where($qb->expr()->in($whereCol, $qb->createNamedParameter($values, IQueryBuilder::PARAM_INT_ARRAY)));
-		$qb->executeStatement();
 	}
 
 	private function terminateHelper($process, array $pipes): void {
@@ -370,6 +297,7 @@ class SetupApplyConcurrencyTest extends IntegrationTestCase {
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -377,12 +305,7 @@ $signalFile = $argv[2];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = :id FOR UPDATE',
-    ['id' => $houseId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
 $qb = $db->getQueryBuilder();
 $qb->insert('chorestrike_floors')
@@ -394,8 +317,7 @@ $qb->insert('chorestrike_floors')
     ]);
 $qb->executeStatement();
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 $db->commit();
 PHP;
 	}
@@ -410,6 +332,7 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -418,15 +341,9 @@ $assigneeUserId = $argv[3];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = :id FOR UPDATE',
-    ['id' => $houseId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 $qb = $db->getQueryBuilder();
 $qb->delete('chorestrike_house_users')

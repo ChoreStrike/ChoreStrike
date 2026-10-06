@@ -96,4 +96,24 @@ class RoomTaskChecklistProgressMapperTest extends TestCase {
 		$this->assertSame([10, 11], $capturedParams[0]['value']);
 		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[0]['type']);
 	}
+
+	/** @dataProvider unexpectedInsertFailures */
+	public function testToggleLocked_UnexpectedInsertFailure_PropagatesWithoutFurtherSql(\Throwable $failure): void {
+		$mapper = $this->getMockBuilder(RoomTaskChecklistProgressMapper::class)
+			->setConstructorArgs([$this->db])->onlyMethods(['findForUpdate', 'insert'])->getMock();
+		$mapper->method('findForUpdate')->willReturn(null);
+		$mapper->method('insert')->willThrowException($failure);
+		// A deadlock can abort the whole transaction: no savepoint cleanup
+		// may mask the original error that the owning executor must handle.
+		$this->db->expects($this->once())->method('executeStatement')->with('SAVEPOINT cs_checklist_insert');
+		$this->expectExceptionObject($failure);
+		$mapper->toggleLocked(1, 2, 3, 4, 5);
+	}
+
+	public static function unexpectedInsertFailures(): array {
+		return [
+			'non-database failure' => [new \RuntimeException('injected insert failure')],
+			'non-unique database failure' => [new \OCP\DB\Exception('injected deadlock')],
+		];
+	}
 }

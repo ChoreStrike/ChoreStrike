@@ -11,8 +11,8 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 
 /**
  * Real-DB concurrency tests for the creation aggregate (CS-PLAN-063 §4).
@@ -26,8 +26,7 @@ use OCP\IDBConnection;
  * under-lock membership revalidation (removed-member race) — both with 400
  * and zero persisted writes.
  *
- * MySQL/MariaDB only — SQLite has no row-level concurrency to prove; the
- * tolerant code paths are exercised there as straight-line behavior.
+ * MariaDB/PostgreSQL use row locks; SQLite serializes real database writers.
  */
 class TaskCreationConcurrencyTest extends IntegrationTestCase {
 	protected function setUp(): void {
@@ -40,10 +39,6 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 	 * under the house lock, so the loser sees the winner's committed row.
 	 */
 	public function testConcurrentMountRace_ExactlyOneRow_LoserGets400(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$ownerUserId = 'tcc-mount-owner-' . uniqid();
 		$houseId = $this->createHouse($ownerUserId);
 		$floorId = $this->createFloor($houseId, 'Race Floor');
@@ -62,6 +57,7 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the mount-race holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -87,7 +83,10 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 			} catch (\InvalidArgumentException $e) {
 				self::assertStringContainsString('already exists in room', $e->getMessage());
 			}
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -103,10 +102,6 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 	 * and assignee rows persist (the DB-level orphan-definition proof).
 	 */
 	public function testRemovedMemberDuringCreate_Yields400_AndZeroWrites(): void {
-		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
-			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
-		}
-
 		$ownerUserId = 'tcc-del-owner-' . uniqid();
 		$assigneeUserId = 'tcc-del-assignee-' . uniqid();
 		$houseId = $this->createHouse($ownerUserId);
@@ -126,6 +121,7 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 			$pipes
 		);
 		self::assertIsResource($process, 'failed to start the membership-delete holder process');
+		$barrier = QueryBarrier::attach($this->db, $signalFile, '/^(?:SELECT .*chorestrike_houses.*FOR UPDATE|UPDATE .*chorestrike_houses)/i');
 
 		try {
 			$deadline = microtime(true) + 30.0;
@@ -158,7 +154,10 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 			} catch (\InvalidArgumentException $e) {
 				self::assertStringContainsString('not a member', $e->getMessage());
 			}
+			self::assertTrue($barrier->wasReached());
+			QueryBarrier::finish($process, $pipes);
 		} finally {
+			$barrier->detach();
 			$this->terminateHelper($process, $pipes);
 			@unlink($signalFile);
 			@unlink($helperScript);
@@ -166,18 +165,20 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 
 		// Zero writes survived the rollback.
 		self::assertSame(0, $this->countRowsByJoin('chorestrike_tasks', 'name', 'Race Orphan Proof'), 'zero definition rows');
-		self::assertSame(0, $this->countRoomTasksFor($roomId, 0), 'zero room-task rows in the race room');
+		self::assertSame(0, $this->countRoomTasksFor($roomId), 'zero room-task rows in the race room');
 		self::assertSame(0, $this->countAssigneeRowsFor($assigneeUserId), 'zero assignee rows');
 	}
 
 	// ========== Helpers ==========
 
-	private function countRoomTasksFor(int $roomId, int $taskId): int {
+	private function countRoomTasksFor(int $roomId, ?int $taskId = null): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('id'))
 			->from('chorestrike_room_tasks')
-			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+		if ($taskId !== null) {
+			$qb->andWhere($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
+		}
 		$result = $qb->executeQuery();
 		$count = (int)$result->fetchOne();
 		$result->closeCursor();
@@ -228,6 +229,7 @@ class TaskCreationConcurrencyTest extends IntegrationTestCase {
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -237,12 +239,7 @@ $taskId = (int)$argv[4];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = :id FOR UPDATE',
-    ['id' => $houseId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
 $qb = $db->getQueryBuilder();
 $qb->insert('chorestrike_room_tasks')
@@ -255,8 +252,7 @@ $qb->insert('chorestrike_room_tasks')
     ]);
 $qb->executeStatement();
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 $db->commit();
 PHP;
 	}
@@ -271,6 +267,7 @@ PHP;
 		return <<<'PHP'
 <?php
 require '/var/www/html/lib/base.php';
+require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBarrier.php';
 
 $houseId = (int)$argv[1];
 $signalFile = $argv[2];
@@ -279,15 +276,9 @@ $assigneeUserId = $argv[3];
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
 $db->beginTransaction();
-$result = $db->executeQuery(
-    'SELECT id FROM *PREFIX*chorestrike_houses WHERE id = :id FOR UPDATE',
-    ['id' => $houseId],
-    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
-);
-$result->closeCursor();
+\OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->findForUpdate($houseId);
 
-file_put_contents($signalFile, 'locked');
-usleep(2000000);
+\OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
 $qb = $db->getQueryBuilder();
 $qb->delete('chorestrike_house_users')

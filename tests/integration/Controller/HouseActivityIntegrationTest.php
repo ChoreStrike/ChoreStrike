@@ -297,6 +297,11 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		self::assertSame(200, $full['total']);
 		self::assertCount(10, $small['completions']);
 		self::assertCount(200, $full['completions']);
+		$ids = array_column($full['completions'], 'id');
+		$descendingIds = $ids;
+		rsort($descendingIds, SORT_NUMERIC);
+		self::assertSame($descendingIds, $ids, 'same-second activity ties use newest inserted id first');
+		self::assertSame(array_slice($ids, 0, 10), array_column($small['completions'], 'id'), 'the limited page uses the same stable ordering');
 		$first = array_values(array_filter($full['completions'], static fn (array $item): bool => $item['id'] === $firstId));
 		self::assertCount(1, $first);
 		self::assertCount(1, $first[0]['allocation'], 'obsolete revisions are not double counted');

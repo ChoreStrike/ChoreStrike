@@ -244,11 +244,13 @@ class RhythmProjectionTest extends IntegrationTestCase {
 	 * @return array<string, mixed>
 	 */
 	private function completionByDueDate(array $roomTaskIds, string $dueDate): array {
+		$nextDay = (new \DateTimeImmutable($dueDate))->modify('+1 day')->format('Y-m-d');
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from('chorestrike_completed_tasks')
 			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
-			->andWhere($qb->expr()->eq('occurrence_due', $qb->createNamedParameter($dueDate)))
+			->andWhere($qb->expr()->gte('occurrence_due', $qb->createNamedParameter($dueDate)))
+			->andWhere($qb->expr()->lt('occurrence_due', $qb->createNamedParameter($nextDay)))
 			->orderBy('id', 'DESC')
 			->setMaxResults(1);
 		$result = $qb->executeQuery();

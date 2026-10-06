@@ -183,23 +183,32 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 		$progress->setCheckedByUserId($userId);
 		$progress->setRevision(1);
 
+		// PostgreSQL aborts the transaction on a duplicate insert. Isolate
+		// only this speculative write, preserving the caller's aggregate.
+		$this->db->executeStatement('SAVEPOINT cs_checklist_insert');
 		try {
-			return $this->insert($progress);
+			$progress = $this->insert($progress);
 		} catch (\OCP\DB\Exception $insertException) {
 			if ($insertException->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
 				throw $insertException;
 			}
+			$this->db->executeStatement('ROLLBACK TO SAVEPOINT cs_checklist_insert');
 			// Lost the unique-constraint race against a concurrent first
 			// toggle for the same occurrence item: that row must now exist
 			// — re-read and flip it.
-			$progress = $this->findByOccurrenceAndItem($roomTaskId, $scheduleRevId, $ordinal, $checklistItemId);
+			$progress = $this->findForUpdate($roomTaskId, $scheduleRevId, $ordinal, $checklistItemId);
+			if ($progress === null) {
+				throw $insertException;
+			}
 			$progress->setIsChecked(!$progress->getIsChecked());
 			$progress->setCheckedAt($progress->getIsChecked() ? new \DateTime() : null);
 			$progress->setCheckedByUserId($progress->getIsChecked() ? $userId : null);
 			$progress->setRevision($progress->getRevision() + 1);
 
-			return $this->update($progress);
+			$progress = $this->update($progress);
 		}
+		$this->db->executeStatement('RELEASE SAVEPOINT cs_checklist_insert');
+		return $progress;
 	}
 
 	/**

@@ -21,6 +21,10 @@ if (!class_exists('OCP\AppFramework\Db\Entity')) {
 			$this->_fieldTypes[$fieldName] = $type;
 		}
 
+		public function getFieldTypes(): array {
+			return $this->_fieldTypes;
+		}
+
 		public function getId(): ?int {
 			return $this->id;
 		}

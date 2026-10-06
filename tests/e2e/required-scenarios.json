@@ -2,17 +2,6 @@
   "core-household-journey.spec.ts": [
     "core-household-journey.spec.ts > Canonical household journey > canonical household journey: first owner, setup, invitations, tasks, scheduling, child My Day, completion and undo"
   ],
-  "family-rewards.spec.ts": [
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > a correction-related funding hold blocks new money neutrally and clears with coverage",
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > adult self-approval, cancellation and the attested correction refund exactly once",
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > an uncertain command outcome replays with the same key and never double-spends",
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > catalog-off core works for every role and the two opt-ins stay independent",
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > changed terms require renewed review and hidden promises stay reachable",
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > child request → owner approval → delivery spends exactly once",
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > foreign requests stay invisible, identities stay isolated and role changes re-require approval",
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > mobile targets, keyboard operation and real EN/DE copy work",
-    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > owner administration works while the catalog is off and prices are exact"
-  ],
   "setup-wizard-journey.spec.ts": [
     "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > forced failures keep the structure and offer recovery",
     "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > owner completes the wizard through the UI and invites dad",
@@ -48,17 +37,21 @@
   "workflow-state-reconciliation.spec.ts": [
     "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > a committed completion survives a failing derived refresh; the retry is read-only (D3)",
     "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > a superseded slow read never overwrites the newer rendered state",
-    "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > rapid parallel navigation ends in the reconciled state — no stale overwrite"
+    "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > rapid parallel navigation ends in the reconciled state — no stale overwrite",
+    "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > same-device logout and child login discard the prior wallet, undo queue and optional preferences"
   ],
   "family-rhythm.spec.ts": [
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > My Day shows one catch-up card with its original planned date, not a duplicate today",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a pending child request stays effect-free and a child approval is denied",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a private task amendment stays a 404 for the house owner",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an API-created house pause renders its neutral clarification in the owner planner",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an overloaded child day renders the clarification amounts in the owner planner",
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an owner records an agreed handover in the UI without changing future assignments",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > owner date amendment keeps the occurrence identity visible to the child",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a UI completion carries the full occurrence receipt",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a new command on a fulfilled occurrence conflicts 409, never credits another target",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a stale receipt after a due-date move conflicts 409",
+    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > fixed and relative schedules explain and preserve their different next dates after late work",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > replaying the same command returns the original identity without a second effect",
     "family-rhythm.spec.ts > Family rhythm — read contract (WP4) > the state read carries the rhythm projection and the personal weekly slice after a completion"
   ],
@@ -66,6 +59,17 @@
     "family-reward-api.spec.ts > Family reward catalog & requests (WP7) > child request lifecycle: frozen terms, approve, fulfill, exact debit, exact refund",
     "family-reward-api.spec.ts > Family reward catalog & requests (WP7) > disabled gate: active catalog is an explicit empty state while admin scope keeps working",
     "family-reward-api.spec.ts > Family reward catalog & requests (WP7) > the catalog gate is owner-controlled, versioned and denied for members"
+  ],
+  "family-rewards.spec.ts": [
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > a correction-related funding hold blocks new money neutrally and clears with coverage",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > adult self-approval, cancellation and the attested correction refund exactly once",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > an uncertain command outcome replays with the same key and never double-spends",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > catalog-off core works for every role and the two opt-ins stay independent",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > changed terms require renewed review and hidden promises stay reachable",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > child request → owner approval → delivery spends exactly once",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > foreign requests stay invisible, identities stay isolated and role changes re-require approval",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > mobile targets, keyboard operation and real EN/DE copy work",
+    "family-rewards.spec.ts > Reward UI and onboarding (CS-PLAN-070 WP8) > owner administration works while the catalog is off and prices are exact"
   ],
   "today-view.spec.ts": [
     "today-view.spec.ts > Release: Today view > shows seeded due-today rows and completes one with row state change",
@@ -76,6 +80,21 @@
     "members-owner.spec.ts > Release: Members (owner) > invite by email adds an existing Nextcloud account to the house",
     "members-owner.spec.ts > Release: Members (owner) > removing a member requires the styled confirm dialog",
     "members-owner.spec.ts > Release: Members (owner) > role change updates the member row"
+  ],
+  "family-membership-hardening.spec.ts": [
+    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > invite enforces the approved 60/300 boundary with no rejected mutation and isolated counters",
+    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > remove enforces the approved 60/300 boundary with no rejected mutation and isolated counters",
+    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > updateRole enforces the approved 60/300 boundary with no rejected mutation and isolated counters"
+  ],
+  "settings.spec.ts": [
+    "settings.spec.ts > Settings > Floors list or empty state is displayed",
+    "settings.spec.ts > Settings > Floors section is displayed with add button",
+    "settings.spec.ts > Settings > House name input is displayed and interactive",
+    "settings.spec.ts > Settings > Reset keeps setup, structure, tasks and history (CS-PLAN-081 H4)",
+    "settings.spec.ts > Settings > Settings page has danger zone section",
+    "settings.spec.ts > Settings > Settings page loads correctly",
+    "settings.spec.ts > Settings > User can open add floor modal",
+    "settings.spec.ts > Settings > User can type in house name field"
   ],
   "room-management.spec.ts": [
     "room-management.spec.ts > Room and Floor Management > Dashboard FloorList is read-only (no structure controls)",
@@ -178,6 +197,7 @@
   ],
   "quiet-digest.spec.ts": [
     "quiet-digest.spec.ts > Release: Notifications — quiet-hours digest > an opted-in member with due work receives at most one daily summary bell",
+    "quiet-digest.spec.ts > Release: Notifications — quiet-hours digest > opted-in free and paused days suppress task reminders while due work still delivers",
     "quiet-digest.spec.ts > Release: Notifications — quiet-hours digest > quiet hours gate the delivery attempt without shifting the slot",
     "quiet-digest.spec.ts > Release: Notifications — quiet-hours digest > silent by default: an opted-out member gets no bell, and the settings save works"
   ],
@@ -190,7 +210,9 @@
   ],
   "calm-core-ui.spec.ts": [
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > My Day stays Coin-free while the wallet stays in the secondary overview",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > a free day stays neutral without catch-up, extra offers or invented success",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > every role lands on My Day and the Dashboard stays reachable as the secondary overview",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > reduced motion overrides an explicit animation opt-in on a real completion",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the pause lifecycle stays neutral through request, owner decision and early end"
   ],
@@ -314,16 +336,6 @@
     "self-availability-member.spec.ts > Self Availability (member) > restores the original weekday availability",
     "self-availability-member.spec.ts > Self Availability (member) > shows the My Availability section with seven weekday toggles"
   ],
-  "settings.spec.ts": [
-    "settings.spec.ts > Settings > Floors list or empty state is displayed",
-    "settings.spec.ts > Settings > Floors section is displayed with add button",
-    "settings.spec.ts > Settings > House name input is displayed and interactive",
-    "settings.spec.ts > Settings > Reset keeps setup, structure, tasks and history (CS-PLAN-081 H4)",
-    "settings.spec.ts > Settings > Settings page has danger zone section",
-    "settings.spec.ts > Settings > Settings page loads correctly",
-    "settings.spec.ts > Settings > User can open add floor modal",
-    "settings.spec.ts > Settings > User can type in house name field"
-  ],
   "snake-game.spec.ts": [
     "snake-game.spec.ts > Snake Arcade Game > Arcade surface is reachable and stays scores-only",
     "snake-game.spec.ts > Snake Arcade Game > Game over screen shows the score (no coin outputs)",
@@ -366,10 +378,5 @@
     "auth.setup.ts > authenticate as admin",
     "auth.setup.ts > authenticate profile users",
     "auth.setup.ts > seed profile users"
-  ],
-  "family-membership-hardening.spec.ts": [
-    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > invite enforces the approved 60/300 boundary with no rejected mutation and isolated counters",
-    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > remove enforces the approved 60/300 boundary with no rejected mutation and isolated counters",
-    "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > updateRole enforces the approved 60/300 boundary with no rejected mutation and isolated counters"
   ]
 }

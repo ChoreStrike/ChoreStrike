@@ -59,12 +59,21 @@ a Nextcloud instance may still have hosting costs.
 
 ### Requirements
 
-- Nextcloud 27–31
-- PHP 8.2 or 8.3
+- Nextcloud 35 primary; Nextcloud 34 is the explicitly named AIO compatibility candidate
+- PHP 8.4.x
 - MySQL/MariaDB, PostgreSQL or SQLite (via Nextcloud's database layer)
 
 ChoreStrike is a **pre-release app (0.1.x)**: fresh installs are supported;
 upgrade paths between versions are not provided yet.
+
+These are the current **qualification-candidate** bounds, not a completed
+support promotion. [CS-PLAN-082](docs/plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+has verified fresh NC35 installations and complete backend suites on all three
+providers; NC34 dependency findings, browser, populated update/recovery and
+default-promotion gates remain open. Use the
+[isolated staging procedure](docs/engineering/testing.md#current-stable-candidate-staging),
+not the still-historical NC31 default, for this candidate. Real retained use
+requires a separately approved deployment and explicit baseline adoption.
 
 ### Manual installation
 
@@ -101,7 +110,7 @@ Then enable **ChoreStrike** under **Apps** in your Nextcloud.
 - **Platform**: Nextcloud app (invite-only membership, role model, no
   external services — all data stays in your Nextcloud)
 - **Frontend**: Vue 3 (Composition API) + Pinia
-- **Backend**: PHP 8.2+ (Nextcloud App API, service architecture)
+- **Backend**: PHP 8.4.x candidate (Nextcloud App API, service architecture)
 - **Database**: SQLite / MySQL / PostgreSQL (via Nextcloud DB abstraction)
 - **Testing**: PHPUnit (backend), Jest (frontend), Playwright (E2E)
 

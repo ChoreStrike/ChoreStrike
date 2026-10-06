@@ -15,9 +15,10 @@ docs/plans/
 ## Lifecycle
 
 Active: [CS-PLAN-082: Current-Stable Test Baseline and Data Preservation](active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
-(activated 2026-10-05 via Standard A `PASS`, zero findings; Q-082-01 resolved:
-current stable major only — NC 34 / PHP 8.4 initial row; implementation not
-started; TECH-RUNTIME-001 owner).
+(activated 2026-10-05 via Standard A `PASS`, zero findings; Q-082-02 resolved:
+NC35 primary plus the named NC34 AIO row; primary fresh staging and full backend
+matrix verified, remaining preservation/browser/promotion gates and upstream
+dependency findings open; TECH-RUNTIME-001 owner).
 [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
 has passed its NC31 technical gates; target-runtime qualification, authorized
 human evidence and final review remain separate pending work.
@@ -85,9 +86,10 @@ Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070
 (parent plan; WP0-WP8 delivered). Its WP9 child,
 [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md),
 is **active** (drafted 2026-10-02, activated 2026-10-03 via Standard A `PASS`,
-zero findings): isolated MariaDB/PostgreSQL/SQLite verification, two
-consecutive combined browser gates and voluntary adult/child comprehension
-plus 14-day everyday-use evidence; no WP9 runtime or human evidence claimed.
+zero findings): isolated MariaDB/PostgreSQL/SQLite verification and two
+consecutive combined browser gates passed on NC31 on 2026-10-05. Voluntary
+adult/child comprehension plus 14-day everyday-use evidence remains uncollected;
+CS-PLAN-082 owns qualification for the newer deployment runtime.
 WP8 reward UI and onboarding,
 [CS-PLAN-079: WP8 - Reward UI and Onboarding](done/cs-plan-079-wp8-reward-ui-and-onboarding.md),
 passed final Standard B `PASS-WITH-FIXES` on 2026-10-02 (two independent

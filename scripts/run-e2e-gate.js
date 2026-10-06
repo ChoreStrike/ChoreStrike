@@ -58,10 +58,10 @@ const REQUIRED_SPECS = [
 	{ file: 'setup-wizard-journey.spec.ts', project: 'chromium-serial-db', scenarios: ['owner completes the wizard through the ui', 'six-floor house cap', 'six-floor apartment cap'], minTests: 5 },
 	{ file: 'task-completion-full-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['undo restores the exact state'], minTests: 5 },
 	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['overcapacity warning appears when a day exceeds its capacity', 'owner corrects a recorded work split'], minTests: 4 },
-	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 5 },
-	{ file: 'workflow-state-reconciliation.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
+	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: ['child: my day hides manage controls and executes the checklist'], minTests: 7 },
+	{ file: 'workflow-state-reconciliation.spec.ts', project: 'chromium-serial-db', scenarios: ['same-device logout and child login'], minTests: 4 },
 	// CS-PLAN-072 WP1: the occurrence-timeline client-contract slice.
-	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full occurrence receipt'], minTests: 4 },
+	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full occurrence receipt', 'an owner records an agreed handover in the ui', 'my day shows one catch-up card', 'fixed and relative schedules explain'], minTests: 13 },
 	// CS-PLAN-070 WP7 (CS-PLAN-078): the reward catalog/request browser
 	// contract — gate flip, catalog scopes, full request lifecycle.
 	{ file: 'family-reward-api.spec.ts', project: 'chromium-serial-db', scenarios: ['the catalog gate is owner-controlled, versioned and denied for members', 'child request lifecycle: frozen terms, approve, fulfill, exact debit, exact refund'], minTests: 3 },
@@ -89,7 +89,7 @@ const REQUIRED_SPECS = [
 	{ file: 'release-task-templates.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	// CS-PLAN-070 WP5: release-notifications (weekly-goal bell) is replaced
 	// by the opt-in quiet-hours digest — the app's ONLY notification path.
-	{ file: 'quiet-digest.spec.ts', project: 'chromium-serial-db', scenarios: ['quiet hours gate the delivery attempt'], minTests: 2 },
+	{ file: 'quiet-digest.spec.ts', project: 'chromium-serial-db', scenarios: ['quiet hours gate the delivery attempt', 'opted-in free and paused days suppress task reminders'], minTests: 4 },
 	{ file: 'release-setup-wizard.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	// CS-PLAN-070 WP4: the consent lifecycle needs the owner + reset-owned
 	// family DB (flag flip + UI consent/withdraw).
@@ -97,7 +97,7 @@ const REQUIRED_SPECS = [
 	// CS-PLAN-070 WP6: the calm-core spec flips the personal optional-area
 	// preference and walks the pause lifecycle through the real API — a
 	// parallel reseed would corrupt the preference/pause state, serial only.
-	{ file: 'calm-core-ui.spec.ts', project: 'chromium-serial-db', scenarios: ['every role lands on my day', 'optional arcade hides', 'pause lifecycle stays neutral'], minTests: 4 },
+	{ file: 'calm-core-ui.spec.ts', project: 'chromium-serial-db', scenarios: ['every role lands on my day', 'optional arcade hides', 'pause lifecycle stays neutral', 'a free day stays neutral', 'reduced motion overrides an explicit animation opt-in'], minTests: 6 },
 	// Owner-scoped scheduling pool.
 	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
 	{ file: 'flex-window-scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },

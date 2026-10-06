@@ -1,5 +1,6 @@
 import { test, expect, DatabaseProfile } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { completeWithOptionalDialog } from './fixtures/completion-api'
 
 /**
  * E2E test: the calm core UI (CS-PLAN-070 WP6) — serial family pool.
@@ -16,6 +17,64 @@ import { createUserContext } from './fixtures/auth-contexts'
 test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 	test.use({ databaseProfile: 'family' as DatabaseProfile })
 	test.setTimeout(120000)
+
+	test('a free day stays neutral without catch-up, extra offers or invented success', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'grandma')
+		try {
+			await page.goto('/apps/chorestrike/#/today')
+			await expect(page.getByTestId('today-empty-state')).toContainText('Nothing is planned for today.')
+			await expect(page.getByTestId('today-task-item')).toHaveCount(0)
+			await expect(page.getByTestId('today-section-catchup')).toHaveCount(0)
+			await expect(page.getByTestId('today-overload')).toHaveCount(0)
+			await expect(page.locator('[data-testid^="today-completed-check-"]')).toHaveCount(0)
+		} finally { await context.close() }
+	})
+
+	test('reduced motion overrides an explicit animation opt-in on a real completion', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const task = seededData.data.tasks.find(entry => entry.name === 'Do the dishes')!
+		const roomTask = seededData.data.roomTasks.find(entry => entry.taskId === task.id)!
+		const { context, page } = await createUserContext(browser, 'mom', { reducedMotion: 'reduce' })
+		try {
+			await page.goto('/apps/chorestrike/#/settings')
+			await expect(page.getByTestId('animation-toggle')).not.toBeChecked()
+			await page.getByText('Celebration animations', { exact: true }).click()
+			await expect(page.getByTestId('animation-toggle')).toBeChecked()
+			const saved = page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith('/preferences/me'))
+			await page.getByTestId('save-preferences').click()
+			expect((await saved).ok()).toBe(true)
+			await page.getByTestId('nav-today').click()
+			// Observe insertions, not a late snapshot that could miss transient confetti.
+			await page.evaluate(() => {
+				document.body.dataset.celebrationCanvases = '0'
+				new MutationObserver(records => {
+					for (const record of records) {
+						for (const node of record.addedNodes) {
+							if (node instanceof HTMLCanvasElement) {
+								document.body.dataset.celebrationCanvases = String(Number(document.body.dataset.celebrationCanvases) + 1)
+							}
+						}
+					}
+				}).observe(document.body, { childList: true })
+			})
+			const button = page.getByTestId(`today-complete-button-${roomTask.id}`)
+			expect((await completeWithOptionalDialog(page, button)).ok()).toBe(true)
+			await expect(button).toHaveCount(0)
+			await expect(page.getByTestId(`undo-snackbar-entry-${roomTask.id}`)).toBeVisible()
+			await expect(page.locator('body')).toHaveAttribute('data-celebration-canvases', '0')
+			await expect(page.locator('body > canvas')).toHaveCount(0)
+			await page.getByTestId(`undo-snackbar-undo-button-${roomTask.id}`).click()
+			await expect(button).toBeVisible()
+
+			// Positive control: the same opted-in session really animates once the OS permits it.
+			await page.emulateMedia({ reducedMotion: 'no-preference' })
+			expect((await completeWithOptionalDialog(page, button)).ok()).toBe(true)
+			await expect(button).toHaveCount(0)
+			await expect(page.getByTestId(`undo-snackbar-entry-${roomTask.id}`)).toBeVisible()
+			await expect(page.locator('body')).toHaveAttribute('data-celebration-canvases', '1')
+		} finally { await context.close() }
+	})
 
 	test('every role lands on My Day and the Dashboard stays reachable as the secondary overview', async ({ browser, seededData: _seededData }) => {
 		const owner = await createUserContext(browser, 'mom')
