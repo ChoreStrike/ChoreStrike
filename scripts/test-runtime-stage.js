@@ -140,7 +140,7 @@ function main(args) {
 		throw new Error('Usage: node scripts/test-runtime-stage.js up|verify cs082-<run-id> mysql|pgsql|sqlite cs082-runtime-<name> <port> [primary|aio]')
 	}
 	const inventory = readInventory(row)
-	const image = verifyImage(inventory, imageName)
+	const image = verifyImage(inventory, imageName, execute, row)
 	const settings = stageSettings(inventory, project, provider, image.imageId, Number(port))
 	if (command === 'up') stage(inventory, settings)
 	process.stdout.write(`${JSON.stringify(verifyInstallation(inventory, settings), null, 2)}\n`)

@@ -328,7 +328,9 @@ obsolete, record its replacement and archive it under the project archive policy
 - [x] Execute the complete NC35 primary provider unit/integration matrix with
   no skips; repair the evidenced schema-wrapper test assumption without reducing
   schema/default/index or concurrency assertions.
-- [ ] Resolve RF-082-02/04 before qualifying the named NC34 row/final dependency build.
+- [x] Resolve RF-082-02/04 before qualifying the named NC34 row/final dependency build.
+  (Resolved 2026-10-06 by documented dispositions; NC34 row rebuilt, verified and
+  backend-qualified on all three providers — see the 2026-10-06 slice below.)
 - [ ] Complete populated P1/P2/P3, canonical/CI promotion, final PostgreSQL browser
   pair, remaining durable handoff and final lifecycle review.
 
@@ -389,13 +391,26 @@ completion.
    runtime/preservation/promotion gates. No NC34 evidence will be described as
    NC35 current-upstream-stable evidence.
 
-- [ ] **RF-082-02 / major / NC34 AIO core platform gate:** the authentic NC34
+- [x] **RF-082-02 / major / NC34 AIO core platform gate:** the authentic NC34
    source image bundles `lcobucci/clock` 3.0.0 with PHP `~8.1.0 || ~8.2.0`.
    Both lock and actual-installed core Composer platform checks fail on PHP8.4.25,
    although core autoload and `SystemClock::now()` smoke pass. NC35 bundles 3.5.0
    and its actual core platform check passes. Keep the named NC34 row unqualified
    pending an upstream-supported artifact/disposition; never patch core vendor,
    bypass requirements or relabel the successful smoke as a passed dependency gate.
+   **Resolved 2026-10-06 by documented disposition (operator-approved through the
+   structured question batch):** upstream re-verification showed NC34.0.4 is the
+   latest NC34 patch (no newer artifact), the NC34 root platform check passes on
+   PHP8.4.25, the 3rdparty check fails on **exactly** `lcobucci/clock` 3.0.0
+   (`~8.1.0 || ~8.2.0`, JSON-verified), and **AIO v14.2.0 itself deploys
+   NC34.0.4 on `php:8.4.25-fpm-alpine3.24`** from the prebuilt release tarball —
+   upstream production carries this exact combination without Composer platform
+   enforcement. The row keeps PHP8.4.25 (identical to the deployment target);
+   `verify-image` now asserts fail-closed that the 3rdparty failure set is exactly
+   this one named package/constraint and reports it as `upstreamLimitations`
+   (`v34.0.4-3rdparty-lcobucci/clock-~8.1.0 || ~8.2.0-php-8.4.25`) — visible,
+   never relabeled as a passed gate. Any extra/different/missing failure fails
+   verification and forces re-review.
 
 - [x] **RF-082-03 / major / Notifications build prerequisite:** the first fresh
    NC35/PostgreSQL18 install stopped because the pinned notifications Git source
@@ -406,7 +421,7 @@ completion.
    projects. Failed `cs082-20261005b-pgsql` resources are retained; no
    canonical/WP9 resource was altered.
 
-- [ ] **RF-082-04 / minor / upstream Notifications lock freshness:** the pinned
+- [x] **RF-082-04 / minor / upstream Notifications lock freshness:** the pinned
    NC35 notifications source emits Composer's stale-root-lock warning during its
    authentic production install. Exact locked dependencies install, actual PHP
    platform checks and generated autoload pass; the warning was not suppressed.
@@ -414,6 +429,19 @@ completion.
    or disposition before final qualification. A passing app installation is not
    a warning-free dependency build. Bamarni's notices about future 2.x defaults
    likewise remain visible under its locked 1.9.1 production hooks.
+   **Resolved 2026-10-06 by documented disposition (operator-approved through the
+   same structured question batch):** the pinned v35.0.1 revision is
+   byte-identical in `composer.json` and lock content-hash to stable35 HEAD
+   (`8093a36ee220a4a72fa466084856ae76baf66c29`) — no upstream-fixed artifact
+   exists, so refreshing the hash in-build (`composer update --lock`) was
+   rejected to keep the upstream artifact unchanged. `verify-image` now asserts
+   the installed vendor package set equals the upstream lock exactly (19 packages
+   primary, 17 AIO row) and that a root production dry-run install emits exactly
+   the one named stale-lock warning on the primary row (none on the AIO row);
+   warnings stay visible on stderr, any deviation fails closed. The NC34 pin
+   additionally emits a stale `vendor-bin/rector` dev-tool sub-lock warning
+   through the upstream bamarni hooks; it does not affect the `--no-dev` runtime
+   dependency set and remains visible in build logs.
 
 ## Implementation Evidence
 
@@ -558,6 +586,64 @@ completion.
   installation, production deployment or retained-baseline adoption. No commit,
   index change or plan move was performed.
 
+## Next Implementation Slice (2026-10-06)
+
+- **RF-082-02/04 dispositions (operator-approved):** both resolved as documented
+  dispositions through one structured question batch after upstream
+  re-verification — NC34.0.4 is the latest NC34 patch (no newer artifact), its
+  3rdparty platform failure is exactly `lcobucci/clock` 3.0.0
+  (`~8.1.0 || ~8.2.0`, JSON-verified), and AIO v14.2.0 itself deploys NC34.0.4 on
+  `php:8.4.25-fpm-alpine3.24`; the NC35 notifications pin is byte-identical
+  (`composer.json` and lock content-hash) to stable35 HEAD `8093a36e`, so no
+  upstream-fixed artifact exists and `composer update --lock` was rejected to
+  preserve the upstream artifact. Details in `## Review Findings`.
+- **Fail-closed tooling assertions:** `verify-image` now runs row-aware upstream
+  condition gates — exact 3rdparty/core platform failure sets (aio: exactly the
+  named lcobucci/clock entry; primary: clean), notifications installed-vendor
+  versus upstream lock equality (19 packages primary, 17 AIO) and exact
+  production-install warning sets (primary: the one stale-root-lock line; AIO:
+  none). Deviations — extra, different or missing failures/warnings — fail
+  verification; warnings are forwarded visibly, never suppressed, and reported as
+  named `upstreamLimitations`, never relabeled as passed gates. 16 new unit
+  regressions cover both rows, all mismatch shapes and unknown-row refusal;
+  staging threads the row selector through.
+- **NC34 AIO row rebuilt and image-verified:** `cs082-runtime-34.0.4-local`
+  immutable `sha256:c5e645fdbd776e027b6f82ad83fbd7cd788a8d25d008c7e4185d08db8dedca2e`,
+  inventory hash `9a3e384c673473610ade6ca774dfd31d9b60c132dee4d05611e987fc729fb3c9`
+  (unchanged). Actual NC34.0.4/internal34.0.4.1, both pinned source revisions,
+  PHP8.4.25, SQLite3.46.1, PCOV1.0.12, APCu5.1.24, Composer2.9.5 and the generated
+  Notifications autoload (17 locked packages) match; the named lcobucci/clock
+  limitation is recorded. The primary image `18151889c738...` re-verified with the
+  new gates: 19 locked packages, named `v35.0.1-notifications-stale-root-lock`
+  limitation. The NC34 build log shows the additional stale
+  `vendor-bin/rector` dev-tool sub-lock warning (visible, runtime-irrelevant).
+- **NC34 row backend matrix qualified:** fresh owned sequential projects
+  `cs082-20261006a-pgsql` (loopback8188, PG18.6), `cs082-20261006a-mysql`
+  (loopback8189, MariaDB11.8.6-ubu2404), `cs082-20261006a-sqlite`
+  (loopback8190, on-disk SQLite3.46.1) all install, enable, family-seed, become
+  healthy and pass the installed runtime/provider/DB-endpoint/owned-volume
+  identity assertions on image `c5e645fd...`. Per provider:
+  unit **1341 tests / 4636 assertions**, integration PostgreSQL **603 / 5069**,
+  MariaDB **603 / 5069**, SQLite **603 / 5072**, all with
+  `--fail-on-skipped --do-not-cache-result` (integration also
+  `--order-by=default`), exit 0, zero skips. App `composer validate --strict`
+  and app platform check (`php 8.4.25 success`) pass on the NC34 row. No
+  canonical/WP9 resource was altered; the retained failed `cs082-20261005b-*`
+  and the three new `cs082-20261006a-*` projects remain as evidence.
+- **Quality gates:** full Jest **1391 / 112 suites** (`--runInBand`), noise gate,
+  lint, stylelint, production build, l10n exact-key (1275), browser-runner
+  self-test, docs encoding (907 files), backlog check (32 scoped files),
+  `git diff --check` all pass; `test:runtime:validate` valid and
+  `test:runtime:check` now exits **0/current** (upstream 35.0.1 equals the
+  primary candidate, AIO 14.2.0/34.0.4 unchanged, zero drift).
+- **Still open:** populated P1/P2/P3 (R5/R6 — P2's named AIO row 34.0.3→34.0.4
+  can now execute on the qualified row), canonical/CI promotion and
+  default-command checks (R7), actual NC35 browser integration and the final
+  frozen PostgreSQL pair (R4), remaining durable release/deployment/WP9 handoff
+  (R8) and final review. Inventory status stays **candidate**; no support claim,
+  deployment or retained-baseline adoption. No commit, index change or plan move
+  was performed.
+
 ## Draft Validation
 
 Documentation checks passed on 2026-10-05: `npm run docs:encoding` (894 files),
@@ -643,3 +729,48 @@ were performed. Next step: Standard A with the Q-082-01 support-scope decision.
 - **Boundary:** RF-082-02/04 and R2-R8 remainder (browser pair, P1/P2/P3,
   promotion, durable handoff, final review) stay open; no default promotion,
   deployment or baseline adoption.
+
+### Interim Standard B — 2026-10-06 (second) — `PASS-WITH-FIXES` (plan stays active)
+
+- **Scope:** the uncommitted NC34-row/disposition slice at `master` `5b30c53`:
+  `scripts/test-runtime.js` (fail-tolerant `probe`, `UPSTREAM_BUILD_CONDITIONS`
+  with the operator-approved RF-082-02/04 dispositions, row-aware
+  `assertPlatformGate`/`assertNotificationsBuild`, `upstreamLimitations`
+  reporting), the `test-runtime-stage.js` row threading, 16 new
+  `tests/unit/scripts/testRuntime.spec.js` regressions, plus this plan's
+  2026-10-06 slice evidence and ACTIVE_TASKS. Attribution unambiguous —
+  CS-PLAN-082 only (no WP9/080 file touched).
+- **Baseline:** index empty at capture; untracked: none; pre-fix unstaged
+  binary-diff `1307094136765a364cdb05b6fae10ee3d69eb3c5` over the five files.
+- **Findings fixed in-round:** unguarded `JSON.parse` of the notifications lock
+  probe output in `assertNotificationsBuild` now throws the descriptive
+  `lock probe malformed` error instead of a raw SyntaxError, mirroring the
+  sibling platform gate (error path only, behavior-neutral). Focused specs
+  105/105 green after the fix; `test:runtime:validate` unchanged
+  (`ac48918a…`).
+- **Verification:** the condition gates exact-match recorded upstream artifact
+  states and fail closed on every deviation shape (extra, different or missing
+  failures/warnings, unexpectedly clean AIO gate, probe diagnostics, malformed
+  output, vendor/lock divergence, unknown rows); warnings stay visible on
+  stderr and are reported as named `upstreamLimitations`, never relabeled as
+  passed gates; probes are network-disabled and pinned to the immutable image
+  ID; row selectors are validated end-to-end (`selectRuntime` plus
+  `rowConditions`).
+- **Observation (no action):** `scripts/` and `tests/unit` sit outside the
+  canonical `npm run lint` scope; a direct eslint run shows the files'
+  pre-existing compact-object style (HEAD already carries the same violation
+  class, e.g. `test-runtime-stage.js` identical). New lines follow the
+  established file convention; fixing would be formatting churn outside the
+  canonical gate. Recorded here for honesty, not churned.
+- **Gates (run by this review on the reviewed tree):** full Jest
+  `npm test -- --runInBand` **1391/1391 in 112 suites**; focused runtime specs
+  105/105; canonical `npm run lint` 0; `npm run docs:encoding` 907 files;
+  `npm run backlog:check` 32 files; `git diff --check` and
+  `git diff --cached --check` clean; `test:runtime:validate` valid. Docker
+  image/build evidence (NC34 row `c5e645fd…`, primary `18151889…`,
+  provider matrices) inherited from the round's recorded runs — no runtime or
+  frontend/style/l10n file changed in this slice.
+- **Boundary:** P1/P2/P3 (R5/R6), canonical/CI promotion (R7), the final
+  frozen PostgreSQL browser pair (R4), remaining durable handoff (R8) and the
+  final review stay open; inventory status remains **candidate**; no default
+  promotion, support claim, deployment or retained-baseline adoption.

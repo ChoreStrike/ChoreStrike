@@ -1,11 +1,33 @@
 /** @jest-environment node */
 const fs = require('node:fs')
 const path = require('node:path')
-const { validateInventory, selectRuntime, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, verifyImage, execute } = require('../../../scripts/test-runtime')
+const { validateInventory, selectRuntime, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, execute, UPSTREAM_BUILD_CONDITIONS } = require('../../../scripts/test-runtime')
 
 const frozen = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../docker/test-runtime.json'), 'utf8'))
 const copy = () => JSON.parse(JSON.stringify(frozen))
 const release = version => ({ tag_name: `v${version}`, draft: false, prerelease: false })
+
+const STALE_LOCK_WARNING = 'Warning: The lock file is not up to date with the latest changes in composer.json. You may be getting outdated dependencies. It is recommended that you run `composer update` or `composer update <package name>`.'
+const LCOBUCCI_FAILURE = { name: 'php', version: '8.4.25', status: 'failed', failed_requirement: { source: 'lcobucci/clock', type: 'requires', target: 'php', constraint: '~8.1.0 || ~8.2.0' }, provider: null }
+
+function probeFixtures(row = 'primary', overrides = {}) {
+	return jest.fn((command, args) => {
+		const line = args.join(' ')
+		if (line.includes('check-platform-reqs')) {
+			const thirdparty = line.includes('/var/www/html/3rdparty')
+			const failures = row === 'aio' && thirdparty ? [LCOBUCCI_FAILURE] : []
+			const response = {
+				status: failures.length ? 1 : 0,
+				stdout: JSON.stringify([{ name: 'php', version: '8.4.25', status: 'success', failed_requirement: null, provider: null }, ...failures]),
+				stderr: thirdparty ? 'Checking non-dev platform requirements for packages in the vendor dir' : 'No vendor dir present, checking non-dev platform requirements from the lock file',
+			}
+			return { ...response, ...(overrides[thirdparty ? 'thirdparty' : 'core'] || {}) }
+		}
+		if (args.includes('-r')) return { status: 0, stdout: JSON.stringify({ matches: true, locked: 15, installed: 15 }), stderr: '', ...overrides.lock }
+		if (args.includes('pipefail')) return { status: 0, stdout: row === 'primary' ? `${STALE_LOCK_WARNING}\n` : '', stderr: '', ...overrides.warnings }
+		throw new Error(`unexpected probe: ${line}`)
+	})
+}
 
 function officialFixtures(inventory = frozen) {
 	return {
@@ -187,13 +209,71 @@ describe('frozen candidate execution', () => {
 			if (args.at(-1).includes('notifications-ready')) return 'notifications-ready'
 			return JSON.stringify(actual)
 		})
-		expect(verifyImage(frozen, 'cs082-runtime-34.0.4-local', run)).toMatchObject({ status: 'frozen-image-identity-match', qualification: 'candidate', composer: frozen.composer.version })
+		const probe = probeFixtures()
+		expect(verifyImage(frozen, 'cs082-runtime-34.0.4-local', run, 'primary', probe)).toMatchObject({ status: 'frozen-image-identity-match', qualification: 'candidate', composer: frozen.composer.version,
+			notificationsLockedPackages: 15, upstreamLimitations: [`${frozen.notifications.ref}-notifications-stale-root-lock`] })
 		expect(run.mock.calls.slice(1).every(([, args]) => args.includes('--rm') && args.includes('none'))).toBe(true)
 		expect(run.mock.calls.slice(1).every(([, args]) => args.includes(`sha256:${'1'.repeat(64)}`) && !args.includes('cs082-runtime-34.0.4-local'))).toBe(true)
+		expect(probe.mock.calls.every(([, args]) => args.includes('--rm') && args.includes('none') && args.includes(`sha256:${'1'.repeat(64)}`))).toBe(true)
 		const original = run.getMockImplementation()
 		run.mockImplementation((command, args) => args.at(-1).includes('notifications-ready') ? '' : original(command, args))
-		expect(() => verifyImage(frozen, 'cs082-runtime-34.0.4-local', run)).toThrow('notifications runtime autoload mismatch')
+		expect(() => verifyImage(frozen, 'cs082-runtime-34.0.4-local', run, 'primary', probeFixtures())).toThrow('notifications runtime autoload mismatch')
 		run.mockImplementation((command, args) => args.includes('composer') ? 'Composer version 2.0.0' : original(command, args))
-		expect(() => verifyImage(frozen, 'cs082-runtime-34.0.4-local', run)).toThrow('mismatch: composer')
+		expect(() => verifyImage(frozen, 'cs082-runtime-34.0.4-local', run, 'primary', probeFixtures())).toThrow('mismatch: composer')
+	})
+})
+
+describe('upstream build condition dispositions', () => {
+	const imageId = `sha256:${'2'.repeat(64)}`
+	it('accepts the clean primary platform gate and records the exact notifications stale-lock warning', () => {
+		expect(assertPlatformGate('primary', imageId, probeFixtures())).toEqual([])
+		expect(assertNotificationsBuild('primary', imageId, probeFixtures())).toEqual({ lockedPackages: 15, warnings: [STALE_LOCK_WARNING] })
+	})
+	it('accepts the exact named NC34 lcobucci/clock limitation on the AIO row without relabeling it as passed', () => {
+		expect(assertPlatformGate('aio', imageId, probeFixtures('aio'))).toEqual([{ name: 'php', source: 'lcobucci/clock', constraint: '~8.1.0 || ~8.2.0' }])
+		expect(assertNotificationsBuild('aio', imageId, probeFixtures('aio'))).toEqual({ lockedPackages: 15, warnings: [] })
+	})
+	it.each([
+		['unexpected core failure', 'primary', { core: { status: 1, stdout: JSON.stringify([LCOBUCCI_FAILURE]) } }, 'core platform gate mismatch'],
+		['unexpected primary 3rdparty failure', 'primary', { thirdparty: { status: 1, stdout: JSON.stringify([LCOBUCCI_FAILURE]) } }, '3rdparty platform gate mismatch'],
+		['different AIO failure', 'aio', { thirdparty: { stdout: JSON.stringify([{ ...LCOBUCCI_FAILURE, failed_requirement: { ...LCOBUCCI_FAILURE.failed_requirement, constraint: '~8.2.0' } }]) } }, '3rdparty platform gate mismatch'],
+		['additional AIO failure', 'aio', { thirdparty: { stdout: JSON.stringify([LCOBUCCI_FAILURE, { ...LCOBUCCI_FAILURE, name: 'ext-gmp' }]) } }, '3rdparty platform gate mismatch'],
+		['unexpectedly clean AIO gate', 'aio', { thirdparty: { status: 0, stdout: JSON.stringify([{ name: 'php', version: '8.4.25', status: 'success', failed_requirement: null, provider: null }]) } }, '3rdparty platform gate mismatch'],
+		['probe diagnostics', 'primary', { core: { stderr: 'Deprecated: something' } }, 'core platform probe emitted unexpected diagnostics'],
+		['malformed probe output', 'primary', { core: { stdout: 'not json' } }, 'core platform probe malformed'],
+	])('fails closed on %s', (_, row, overrides, message) => {
+		expect(() => assertPlatformGate(row, imageId, probeFixtures(row, overrides))).toThrow(message)
+	})
+	it.each([
+		['vendor divergence', 'primary', { lock: { stdout: JSON.stringify({ matches: false, locked: 15, installed: 14 }) } }, 'diverges from the upstream lock'],
+		['lock probe failure', 'primary', { lock: { status: 1 } }, 'lock probe failed'],
+		['missing primary stale-lock warning', 'primary', { warnings: { stdout: '' } }, 'build warnings mismatch'],
+		['unexpected AIO warning', 'aio', { warnings: { stdout: `${STALE_LOCK_WARNING}\n` } }, 'build warnings mismatch'],
+		['warnings probe failure', 'primary', { warnings: { status: 1 } }, 'build probe failed'],
+	])('fails closed on %s', (_, row, overrides, message) => {
+		expect(() => assertNotificationsBuild(row, imageId, probeFixtures(row, overrides))).toThrow(message)
+	})
+	it('rejects unknown rows instead of defaulting to permissive expectations', () => {
+		expect(() => assertPlatformGate('unknown', imageId, probeFixtures())).toThrow('Unknown runtime row')
+		expect(UPSTREAM_BUILD_CONDITIONS.primary.notificationsWarnings).toEqual([STALE_LOCK_WARNING])
+		expect(UPSTREAM_BUILD_CONDITIONS.aio['3rdpartyFailures']).toEqual([{ name: 'php', source: 'lcobucci/clock', constraint: '~8.1.0 || ~8.2.0' }])
+	})
+	it('threads the row through verifyImage so the AIO image records its named limitation', () => {
+		const aio = selectRuntime(copy(), 'aio')
+		const actual = {
+			nextcloud: aio.nextcloud.version, internalVersion: aio.nextcloud.internalVersion,
+			revision: aio.nextcloud.revision, notificationsRevision: aio.notifications.revision,
+			php: aio.php.version, sqlite: aio.databases.sqlite.version, pcov: aio.tools.pcov, apcu: aio.tools.apcu,
+		}
+		const run = jest.fn((command, args) => {
+			if (args[0] === 'image') return JSON.stringify([{ Id: imageId, Os: 'linux', Architecture: 'amd64', Config: { Labels: { 'org.chorestrike.test-runtime.inventory': inventoryHash(aio) } } }])
+			if (args.includes('composer')) return `Composer version ${aio.composer.version}`
+			if (args.at(-1).includes('notifications-ready')) return 'notifications-ready'
+			return JSON.stringify(actual)
+		})
+		expect(verifyImage(aio, 'cs082-runtime-34.0.4-local', run, 'aio', probeFixtures('aio'))).toMatchObject({
+			status: 'frozen-image-identity-match',
+			upstreamLimitations: [`${aio.nextcloud.ref}-3rdparty-lcobucci/clock-~8.1.0 || ~8.2.0-php-${aio.php.version}`],
+		})
 	})
 })

@@ -106,6 +106,41 @@ function execute(command, args, expectedMetadata = '') {
 	return result.stdout
 }
 
+/** Fail-tolerant probe for assertions that inspect non-zero exits themselves. */
+function probe(command, args) {
+	const result = spawnSync(command, args, { cwd: ROOT, encoding: 'utf8', timeout: 120000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
+	if (result.error) throw new Error('Runtime probe execution failed')
+	return { status: result.status, stdout: result.stdout, stderr: result.stderr }
+}
+
+const PLATFORM_PROBE_NOTES = {
+	core: 'No vendor dir present, checking non-dev platform requirements from the lock file',
+	'3rdparty': 'Checking non-dev platform requirements for packages in the vendor dir',
+}
+
+/**
+ * Exact recorded upstream artifact conditions (RF-082-02/RF-082-04 dispositions).
+ * A failure listed here is a named, visible upstream packaging limitation, never a
+ * passed dependency gate; any deviation (extra, different or missing entries) fails
+ * closed so the disposition is re-reviewed instead of drifting silently.
+ */
+const UPSTREAM_BUILD_CONDITIONS = {
+	primary: {
+		'3rdpartyFailures': [],
+		notificationsWarnings: ['Warning: The lock file is not up to date with the latest changes in composer.json. You may be getting outdated dependencies. It is recommended that you run `composer update` or `composer update <package name>`.'],
+	},
+	aio: {
+		'3rdpartyFailures': [{ name: 'php', source: 'lcobucci/clock', constraint: '~8.1.0 || ~8.2.0' }],
+		notificationsWarnings: [],
+	},
+}
+
+function rowConditions(row) {
+	const conditions = UPSTREAM_BUILD_CONDITIONS[row]
+	if (!conditions) throw new Error(`Unknown runtime row for upstream conditions: ${row}`)
+	return conditions
+}
+
 async function fetchMetadata(url) {
 	const response = await fetch(url, { signal: AbortSignal.timeout(30000), headers: { 'User-Agent': 'ChoreStrike-runtime-check' } })
 	if (!response.ok) throw new Error('Official runtime metadata unavailable')
@@ -175,7 +210,53 @@ function assertInstalled(inventory, actual) {
 	return expected
 }
 
-function verifyImage(inventory, imageName, run = execute) {
+const NOTIFICATIONS_LOCK_COMPARE = "$l = json_decode(file_get_contents('/var/www/html/apps/notifications/composer.lock'), true);"
+	+ "$i = json_decode(file_get_contents('/var/www/html/apps/notifications/vendor/composer/installed.json'), true);"
+	+ "$f = function ($p) { return $p['name'] . ' ' . $p['version']; };"
+	+ "$a = array_map($f, $l['packages']); $b = array_map($f, $i['packages']); sort($a); sort($b);"
+	+ "echo json_encode(['matches' => $a === $b, 'locked' => count($a), 'installed' => count($b)]);"
+
+function assertPlatformGate(row, imageId, probeFn = probe) {
+	const conditions = rowConditions(row)
+	for (const [name, directory] of [['core', '/var/www/html'], ['3rdparty', '/var/www/html/3rdparty']]) {
+		const result = probeFn('docker', ['run', '--rm', '--network', 'none', imageId, 'sh', '-c',
+			`cd ${directory} && composer check-platform-reqs --no-dev --format=json`])
+		if (result.stderr.trim() !== PLATFORM_PROBE_NOTES[name]) throw new Error(`Candidate ${name} platform probe emitted unexpected diagnostics`)
+		let rows
+		try { rows = JSON.parse(result.stdout) } catch { throw new Error(`Candidate ${name} platform probe malformed`) }
+		if (!Array.isArray(rows) || rows.length === 0) throw new Error(`Candidate ${name} platform probe malformed`)
+		const failures = rows.filter(entry => entry?.status !== 'success').map(entry => ({
+			name: entry?.name, source: entry?.failed_requirement?.source, constraint: entry?.failed_requirement?.constraint,
+		}))
+		const expected = name === '3rdparty' ? conditions['3rdpartyFailures'] : []
+		if (result.status !== (expected.length ? 1 : 0) || JSON.stringify(failures) !== JSON.stringify(expected)) {
+			throw new Error(`Candidate ${name} platform gate mismatch: ${JSON.stringify(failures)}`)
+		}
+	}
+	return conditions['3rdpartyFailures']
+}
+
+function assertNotificationsBuild(row, imageId, probeFn = probe) {
+	const conditions = rowConditions(row)
+	const locked = probeFn('docker', ['run', '--rm', '--network', 'none', imageId, 'php', '-r', NOTIFICATIONS_LOCK_COMPARE])
+	if (locked.status !== 0 || locked.stderr.trim()) throw new Error('Candidate notifications lock probe failed or emitted diagnostics')
+	let sets
+	try { sets = JSON.parse(locked.stdout) } catch { throw new Error('Candidate notifications lock probe malformed') }
+	if (sets?.matches !== true || !Number.isInteger(sets.locked) || sets.locked === 0) {
+		throw new Error('Candidate notifications installed vendor diverges from the upstream lock')
+	}
+	const warnings = probeFn('docker', ['run', '--rm', '--network', 'none', imageId, 'bash', '-o', 'pipefail', '-c',
+		"cd /var/www/html/apps/notifications && composer install --no-dev --no-interaction --prefer-dist --dry-run 2>&1 | { grep '^Warning:' || true; }"])
+	if (warnings.status !== 0 || warnings.stderr.trim()) throw new Error('Candidate notifications build probe failed or emitted diagnostics')
+	const lines = warnings.stdout.split(/\r?\n/).filter(Boolean)
+	if (JSON.stringify(lines) !== JSON.stringify(conditions.notificationsWarnings)) {
+		throw new Error(`Candidate notifications build warnings mismatch: ${JSON.stringify(lines)}`)
+	}
+	for (const line of lines) process.stderr.write(`${line}\n`)
+	return { lockedPackages: sets.locked, warnings: lines }
+}
+
+function verifyImage(inventory, imageName, run = execute, row = 'primary', probeFn = probe) {
 	buildArguments(inventory, imageName)
 	const image = JSON.parse(run('docker', ['image', 'inspect', imageName]))[0]
 	if (`${image?.Os}/${image?.Architecture}` !== inventory.platform
@@ -197,7 +278,14 @@ function verifyImage(inventory, imageName, run = execute) {
 	const composer = run('docker', ['run', '--rm', '--network', 'none', image.Id, 'composer', '--version', '--no-ansi'],
 		`PHP version ${inventory.php.version} (/usr/local/bin/php)\nRun the "diagnose" command to get more detailed diagnostics output.`)
 	if (composer.match(/Composer version (\d+\.\d+\.\d+)/)?.[1] !== inventory.composer.version) throw new Error('Installed runtime mismatch: composer')
-	return { status: 'frozen-image-identity-match', qualification: inventory.status, ...actual, notificationsAutoload: true, composer: inventory.composer.version, imageId: image.Id }
+	const platformFailures = assertPlatformGate(row, image.Id, probeFn)
+	const notifications = assertNotificationsBuild(row, image.Id, probeFn)
+	const upstreamLimitations = [
+		...platformFailures.map(failure => `${inventory.nextcloud.ref}-3rdparty-${failure.source}-${failure.constraint}-php-${inventory.php.version}`),
+		...notifications.warnings.map(() => `${inventory.notifications.ref}-notifications-stale-root-lock`),
+	]
+	return { status: 'frozen-image-identity-match', qualification: inventory.status, ...actual, notificationsAutoload: true,
+		notificationsLockedPackages: notifications.lockedPackages, composer: inventory.composer.version, imageId: image.Id, upstreamLimitations }
 }
 
 async function main(args) {
@@ -214,7 +302,7 @@ async function main(args) {
 		const result = spawnSync('docker', buildArguments(inventory, args[1]), { cwd: ROOT, stdio: 'inherit' })
 		if (result.error || result.status !== 0) throw new Error('Candidate runtime build failed')
 	} else if (args.length === 2 && args[0] === 'verify-image') {
-		process.stdout.write(`${JSON.stringify(verifyImage(inventory, args[1]), null, 2)}\n`)
+		process.stdout.write(`${JSON.stringify(verifyImage(inventory, args[1], execute, selector), null, 2)}\n`)
 	} else {
 		throw new Error('Usage: node scripts/test-runtime.js validate|check|build|verify-image [cs082-runtime-<name>] [--runtime=primary|aio]')
 	}
@@ -225,4 +313,4 @@ if (require.main === module) main(process.argv.slice(2)).catch((error) => {
 	process.exitCode = 3
 })
 
-module.exports = { validateInventory, readInventory, selectRuntime, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, verifyImage, execute, RUNTIME_FIELDS }
+module.exports = { validateInventory, readInventory, selectRuntime, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS }
