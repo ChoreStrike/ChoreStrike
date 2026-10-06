@@ -46,12 +46,16 @@ jobs:
           test "$(npm --version)" = "10.8.2"
           npm ci --engine-strict --legacy-peer-deps=false
 
+      - name: Build application browser assets
+        run: npm run build
+
       - name: Install Playwright browsers (chromium, firefox, webkit)
         run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Bring up Docker test env (NC 31 + app + family seed)
+      - name: Bring up Docker test env (NC 35.0.1 / PHP 8.4 / PostgreSQL 18.6 + app + family seed)
         run: |
-          TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build
+          TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
+          npm run test:runtime:canonical
           # Wait for Nextcloud to report installed + healthy.
           for i in $(seq 1 60); do
             if curl -fs http://localhost:8080/status.php | grep -q '"installed":true'; then
@@ -72,24 +76,21 @@ jobs:
 
       - name: Run Playwright full matrix (non-blocking)
         run: |
-          npx playwright test --retries=0 --reporter=list,html
+          npx playwright test --retries=0 --reporter=./scripts/playwright-summary-reporter.js
         env:
           NEXTCLOUD_URL: http://localhost:8080
           TEST_DB_PROFILE: family
           NEXTCLOUD_TEST_MODE: "true"
           CI: "true"
-          # The CLI --reporter flag overrides the config's html options, so
-          # the output folder must be pinned via env (CS-PLAN-069 WP4).
-          PLAYWRIGHT_HTML_OUTPUT_DIR: build/playwright-report
+          PLAYWRIGHT_SUMMARY_NAME: full-matrix
 
-      - name: Upload Playwright report
+      - name: Upload sanitized Playwright summary
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-full-matrix
           path: |
-            build/test-results/
-            build/playwright-report/
+            build/e2e-summary/*.json
           retention-days: 14
           if-no-files-found: ignore
 

@@ -297,8 +297,9 @@ WP9 owner): isolated MariaDB/PostgreSQL/SQLite verification,
 two consecutive combined browser gates and voluntary adult/child comprehension
 plus 14-day everyday-use evidence. Its NC31 technical matrix and consecutive
 browser pair passed on 2026-10-05; human evidence remains unauthorized/uncollected.
-The newer deployment runtime requires the separate TECH-RUNTIME-001 validation
-before retained use; the old-runtime passes are not NC34 compatibility evidence.
+The separate TECH-RUNTIME-001 qualification is delivered by CS-PLAN-082
+(final Full `PASS-WITH-FIXES` 2026-10-06, archived); the old-runtime passes remain
+historical and do not replace its NC35/NC34 evidence or authorize retained use.
 
 **Pre-WP9 preparation delivered (2026-10-05):**
 [CS-PLAN-081](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
@@ -315,33 +316,6 @@ not close parent findings or replace WP9 evidence.
 - [x] Specify technical cross-contract draft, exact file/test manifest, work-package owners/dependencies and estimates (2026-09-18; not implementation approval).
 - [x] Resolve Q-070-01/02 explicitly and have Standard A accept the integrated design before activation (2026-09-18: tombstone retention + account erasure; Standard A `PASS-WITH-FIXES`).
 - [ ] Resolve the plan's findings or explicitly rescope to named owners before completion.
-
----
-
-### [P1] TECH-RUNTIME-001 — Current-stable default test runtime and data-preservation verification
-**Status**: In Progress — CS-PLAN-082 NC35 staging and primary backend matrix verified (2026-10-05); remaining preservation/browser/promotion gates and upstream dependency findings open · **Effort**: L · **Layer**: tooling+backend+tests+docs · **Journey stage**: runtime compatibility and retained-data readiness
-**Owning**: CS-PLAN-082 · **Depends on**: CS-PLAN-080 technical candidate · **Blocks**: RELEASE-002 target-runtime readiness · **Folded-in**: —
-**Source**: User request 2026-10-05 to make current stable the regular local test baseline, with AIO-aligned runtime and preserved house/task setup
-
-[CS-PLAN-082](../plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
-owns this independent infrastructure update. Initial target: Nextcloud 34.0.4
-(internal 34.0.4.1), PHP 8.4.25, PostgreSQL 18.6; AIO Stable 14.2.0 is the
-deployment reference, not a local full-AIO validation claim. Current NC31 gates
-do not cover it. Keep RELEASE-002's actual deployment/adoption and CONCEPT-001's
-human evidence separate; all future in-scope findings live in the new plan.
-Implementation discovery reports upstream NC35.0.1 versus AIO14.2.0/NC34.0.4;
-Q-082-02 is resolved: NC35 primary plus the explicit NC34 AIO compatibility row.
-Fresh NC35 provider identity and full unit/integration gates pass on all three
-providers; the NC34 row remains unqualified, with its core dependency discrepancy
-explicit in the plan. P1/P2/P3, the browser pair and promotion remain required;
-no final support/default promotion or adoption occurred.
-
-- [x] Resolve advertised support scope in Standard A (Q-082-01: current stable major only — NC 34 / PHP 8.4 initial row, 2026-10-05).
-- [ ] Promote a verified current-stable PostgreSQL reference to regular local/CI defaults, retaining full supported-provider verification.
-- [ ] Freeze actual runtime artifacts and detect newer stable releases through a wired weekly/pre-release check without automatic deployment or unreviewed mutation.
-- [ ] Pass complete target backend/provider suites and consecutive three-pool browser gates; preserve existing assertions and fail-closed fixture ownership.
-- [ ] Verify synthetic populated-volume persistence, a genuine supported runtime update on all providers, and target PostgreSQL whole-instance recovery with negative controls.
-- [ ] Integrate durable rules and WP9/RELEASE-002 handoff; final review required, no implicit real-data adoption or productive access.
 
 ---
 
@@ -423,13 +397,12 @@ Exact blocking gates:
   2026-09-14 incl. the D-FR-04 browser-gate pair.
 
 The existing-runtime WP9 technical/provider and browser-pair gates passed on
-2026-10-05. Still blocking for the newer target: TECH-RUNTIME-001's current-stable
-runtime qualification, explicit safe deployment/adoption decisions and the
-deployment/field-usage work itself. Its plan is activated (Standard A `PASS`
-2026-10-05); Q-082-02 now selects NC35 primary plus the named NC34 AIO row.
-Primary fresh installations and full backend suites pass on every provider;
-dependency findings, populated preservation/recovery, browser and promotion
-gates remain open. This is not a deployment or retained-baseline sign-off.
+2026-10-05. TECH-RUNTIME-001's current-stable qualification is delivered by
+[CS-PLAN-082](../plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+(final Full `PASS-WITH-FIXES` 2026-10-06): NC35 primary/NC34 AIO row, all providers,
+populated preservation/recovery, canonical/CI promotion and the post-repair browser
+pair pass. Still blocking: explicit safe deployment/adoption decisions and the
+deployment/field-usage work itself. This is not a deployment or retained-baseline sign-off.
 SEC-AUDIT-001 is completed by CS-PLAN-081 (2026-10-05), not a deployment sign-off.
 BUG-SEC-001 remains required before later external tester onboarding / public
 release, but is explicitly not a blocker for operator-only self-testing or

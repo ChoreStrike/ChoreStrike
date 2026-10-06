@@ -1,5 +1,7 @@
 # Independent companion, never merge with compose.test.yml's fixed names/ports.
 # Use a unique owned project: docker compose -p cs-wp9-<run-id> -f ... --profile ...
+# Database image defaults mirror the frozen docker/test-runtime.json pins;
+# scripts/test-runtime-stage.js always overrides them with image@digest values.
 x-nextcloud: &nextcloud
   image: ${WP9_TEST_IMAGE:-chorestrike-wp9-test:local}
   build:
@@ -23,7 +25,7 @@ x-environment: &environment
 
 services:
   db-mysql:
-    image: ${WP9_MYSQL_IMAGE:-mariadb:10.6}
+    image: ${WP9_MYSQL_IMAGE:-mariadb:11.8.6@sha256:78a5047d3ba33975f183f183c2464cc7f1eab13ec8667e57cc9a5821d6da7577}
     profiles: [mysql]
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -39,14 +41,14 @@ services:
       retries: 30
 
   db-pgsql:
-    image: ${WP9_PGSQL_IMAGE:-postgres:16-alpine}
+    image: ${WP9_PGSQL_IMAGE:-postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873}
     profiles: [pgsql]
     environment:
       POSTGRES_DB: nextcloud
       POSTGRES_USER: nextcloud
       POSTGRES_PASSWORD: nextcloud
-      PGDATA: ${WP9_PGDATA:-/var/lib/postgresql/data}
-    volumes: ["pgsql-db:${WP9_PGSQL_VOLUME_TARGET:-/var/lib/postgresql/data}"]
+      PGDATA: ${WP9_PGDATA:-/var/lib/postgresql/18/docker}
+    volumes: ["pgsql-db:${WP9_PGSQL_VOLUME_TARGET:-/var/lib/postgresql}"]
     networks: [wp9]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "nextcloud", "-d", "nextcloud"]

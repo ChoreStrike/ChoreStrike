@@ -17,42 +17,42 @@ jobs:
   # Backend PHP Unit Tests
   phpunit:
     name: PHPUnit (PHP ${{ matrix.php }})
-    runs-on: docker
-    container:
-      image: php:${{ matrix.php }}-cli
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        php: ['8.1', '8.2', '8.3']
+        # composer.json pins ~8.4.0 (CS-PLAN-082 promoted baseline).
+        php: ['8.4']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build frozen test runtime
+        run: docker build -f docker/Dockerfile.test -t chorestrike-test:ci .
+
       - name: Install dependencies
         run: |
-          apt-get update && apt-get install -y libzip-dev unzip
-          docker-php-ext-install zip pdo pdo_mysql mysqli
-          php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-          php composer-setup.php --quiet
-          php -r "unlink('composer-setup.php');"
-          php composer.phar install --no-interaction --prefer-dist
+          docker run --rm -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
+            chorestrike-test:ci composer install --no-interaction --prefer-dist
 
       - name: Run PHPUnit
         run: |
-          ./vendor/bin/phpunit --configuration phpunit.unit.xml
+          docker run --rm -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
+            -e NEXTCLOUD_TEST_ENV=true chorestrike-test:ci \
+            vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
         env:
           NEXTCLOUD_TEST_MODE: true
 
   # E2E Tests with Matrix Strategy
+  # Profile/browser smoke on the same frozen runtime as release-gate.yml.
+  # The upstream distribution image is not equivalent: its PHP may differ.
   e2e:
     name: E2E (${{ matrix.profile }} / ${{ matrix.browser }})
-    runs-on: docker
+    runs-on: ubuntu-latest
     needs: phpunit
     env:
       CI: 'true'
-      NEXTCLOUD_CONTAINER: nextcloud
-      NEXTCLOUD_URL: http://nextcloud:80
-    container:
-      image: node:20.19.0
+      NEXTCLOUD_CONTAINER: chorestrike-test
+      NEXTCLOUD_URL: http://localhost:8080
     strategy:
       fail-fast: false
       matrix:
@@ -62,42 +62,6 @@ jobs:
           # Skip firefox for empty profile to save CI time
           - profile: empty
             browser: firefox
-    services:
-      db:
-        image: mariadb:10.6
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: nextcloud
-          MYSQL_USER: nextcloud
-          MYSQL_PASSWORD: nextcloud
-        ports:
-          - "3306:3306"
-        options: >-
-          --health-cmd "mysqladmin ping -h localhost -u root -proot"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
-      nextcloud:
-        image: nextcloud:31-apache
-        env:
-          MYSQL_HOST: db
-          MYSQL_DATABASE: nextcloud
-          MYSQL_USER: nextcloud
-          MYSQL_PASSWORD: nextcloud
-          NEXTCLOUD_TEST_MODE: true
-          NEXTCLOUD_TEST_ENV: true
-          TEST_DB_PROFILE: ${{ matrix.profile }}
-        ports:
-          - "8080:80"
-        options: >-
-          --health-cmd "curl -f http://localhost/status.php"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 30
-          --health-start-period 120s
-          --label org.chorestrike.test-ci=chorestrike-e2e
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -114,58 +78,50 @@ jobs:
           test "$(npm --version)" = "10.8.2"
           npm ci --engine-strict --legacy-peer-deps=false
 
+      - name: Build application browser assets
+        run: npm run build
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
-      - name: Wait for Nextcloud
+      - name: Provision frozen test runtime
         run: |
-          for i in {1..60}; do
-            if curl -s http://nextcloud:80/status.php | grep -q '"installed":true'; then
-              echo "Nextcloud is ready!"
-              break
-            fi
-            echo "Waiting for Nextcloud... ($i/60)"
-            sleep 5
-          done
-
-      - name: Mount and enable ChoreStrike app
-        run: |
-          node -e "require('./scripts/test-target').assertTestTarget(process.env.NEXTCLOUD_URL)"
-          # Copy the app into the Nextcloud container's apps directory
-          docker cp ${{ github.workspace }}/. nextcloud:/var/www/html/custom_apps/chorestrike
-          # Enable the app via occ
-          docker exec nextcloud php occ app:enable chorestrike
-          # Seed test data via authenticated occ command (canonical path, CS-PLAN-019)
-          docker exec nextcloud su -s /bin/bash www-data -c "cd /var/www/html && php occ chorestrike:test-data:seed --profile=${{ matrix.profile }}"
+          # All auth identities are required; per-test fixtures select matrix.profile.
+          TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
+          npm run test:runtime:canonical
 
       - name: Run Playwright tests
         run: |
-          npx playwright test --project=${{ matrix.browser }} --reporter=list
+          npx playwright test --project=${{ matrix.browser }} --retries=0 --reporter=./scripts/playwright-summary-reporter.js
         env:
-          NEXTCLOUD_URL: http://nextcloud:80
+          NEXTCLOUD_URL: http://localhost:8080
           TEST_DB_PROFILE: ${{ matrix.profile }}
           NEXTCLOUD_TEST_MODE: true
+          PLAYWRIGHT_SUMMARY_NAME: ${{ matrix.browser }}
 
       - name: Run Playwright serial-db tests (chromium only)
         if: matrix.browser == 'chromium'
         run: |
-          npx playwright test --project=chromium-serial-db --reporter=list
+          npx playwright test --project=chromium-serial-db --retries=0 --reporter=./scripts/playwright-summary-reporter.js
         env:
-          NEXTCLOUD_URL: http://nextcloud:80
+          NEXTCLOUD_URL: http://localhost:8080
           TEST_DB_PROFILE: ${{ matrix.profile }}
           NEXTCLOUD_TEST_MODE: true
+          PLAYWRIGHT_SUMMARY_NAME: chromium-serial-db
 
-      - name: Upload test results
+      - name: Upload sanitized test summary
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-results-${{ matrix.profile }}-${{ matrix.browser }}
           path: |
-            build/test-results/
-            build/playwright-report/
+            build/e2e-summary/*.json
           retention-days: 7
-          # The list reporter writes no HTML report dir; don't warn about it.
           if-no-files-found: ignore
+
+      - name: Tear down owned test environment
+        if: always()
+        run: docker compose -f docker/compose.test.yml down -v
 
   # Docker Build Test
   docker:

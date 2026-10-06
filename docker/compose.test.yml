@@ -1,16 +1,28 @@
+# Canonical ChoreStrike test environment (CS-PLAN-082 promoted default):
+# Nextcloud 35.0.1 / PHP 8.4.25 on the frozen runtime image built from
+# docker/Dockerfile.test (defaults pinned to docker/test-runtime.json) with
+# PostgreSQL 18.6 as the reference provider. The fresh-build identity is
+# asserted by the entrypoint (TEST_RUNTIME_*) and scripts/test-runtime.js
+# verify-canonical. Config, data and database volumes survive container
+# recreation. A full reset requires explicit ownership/authorization.
 services:
   db:
-    image: mariadb:10.6
+    image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     container_name: chorestrike-db
     environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-      - MYSQL_PASSWORD=nextcloud
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD=nextcloud
+      # Same owned-volume layout as compose.test-matrix.yml: data lives in the
+      # named volume mounted at the PostgreSQL root, never in a reused
+      # PG16-style /var/lib/postgresql/data directory.
+      - PGDATA=/var/lib/postgresql/18/docker
+    volumes:
+      - canonical-db:/var/lib/postgresql
     networks:
       - chorestrike-test
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD", "pg_isready", "-U", "nextcloud", "-d", "nextcloud"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -25,7 +37,8 @@ services:
       dockerfile: docker/Dockerfile.test
     container_name: chorestrike-test
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
+      - "[::1]:8080:80"
     depends_on:
       db:
         condition: service_healthy
@@ -33,16 +46,24 @@ services:
       - ..:/var/www/html/custom_apps/chorestrike
       - ./test-entrypoint.sh:/test-entrypoint.sh
       - ./seed-test-data.sh:/seed-test-data.sh
+      - canonical-config:/var/www/html/config
+      - canonical-data:/var/www/html/data
     working_dir: /var/www/html/custom_apps/chorestrike
     environment:
       - NEXTCLOUD_TEST_ENV=true
       - NEXTCLOUD_TEST_MODE=true
       - TEST_DB_PROFILE=${TEST_DB_PROFILE:-minimal}
+      - TEST_DB_TYPE=pgsql
       - DB_HOST=chorestrike-db
       - DB_NAME=nextcloud
       - DB_USER=nextcloud
       - DB_PASS=nextcloud
-      - DB_PORT=3306
+      - DB_PORT=5432
+      # Frozen runtime identity (docker/test-runtime.json, primary current).
+      - TEST_RUNTIME_INTERNAL_VERSION=35.0.1.1
+      - TEST_RUNTIME_PHP_VERSION=8.4.25
+      - TEST_RUNTIME_PRESERVATION=${TEST_RUNTIME_PRESERVATION:-false}
+      - TEST_HTTP_URL=http://localhost:8080
     networks:
       - chorestrike-test
     healthcheck:
@@ -56,3 +77,8 @@ services:
 networks:
   chorestrike-test:
     driver: bridge
+
+volumes:
+  canonical-db:
+  canonical-config:
+  canonical-data:

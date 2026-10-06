@@ -7,6 +7,8 @@ const { spawnSync } = require('node:child_process')
 
 const ROOT = path.resolve(__dirname, '..')
 const INVENTORY_PATH = path.join(ROOT, 'docker/test-runtime.json')
+const CANONICAL_CONTAINER = 'chorestrike-test'
+const CANONICAL_DB_CONTAINER = 'chorestrike-db'
 const VERSION = /^\d+\.\d+\.\d+$/
 const REVISION = /^[a-f0-9]{40}$/
 const DIGEST = /^sha256:[a-f0-9]{64}$/
@@ -347,6 +349,60 @@ function verifyImage(selection, imageName, run = execute, row = 'primary', probe
 		notificationsLockedPackages: notifications.lockedPackages, composer: selection.composer.version, imageId: image.Id, upstreamLimitations }
 }
 
+/**
+ * R7 canonical check: the documented default stack (docker/compose.test.yml,
+ * chorestrike-test/chorestrike-db on the PostgreSQL reference provider) must be
+ * running the frozen primary selection — image label, frozen runtime
+ * environment, owned PostgreSQL layout and installed app/provider/database
+ * identity all asserted read-only before any seed/reset/job mutation.
+ */
+function verifyCanonical(selection, run = execute, preflight) {
+	validateRuntimeShape(selection)
+	// Lazy require: test-target.js already depends on this module.
+	const assertTestTarget = preflight ?? require('./test-target').assertTestTarget
+	const url = 'http://localhost:8080'
+	assertTestTarget(url, { NEXTCLOUD_URL: url, NEXTCLOUD_CONTAINER: CANONICAL_CONTAINER })
+	const container = JSON.parse(run('docker', ['inspect', CANONICAL_CONTAINER]))[0]
+	if (container?.Config?.Labels?.['org.chorestrike.test-runtime.inventory'] !== selectionHash(selection)
+		|| container?.Config?.Env?.includes(`TEST_RUNTIME_INTERNAL_VERSION=${selection.nextcloud.internalVersion}`) !== true
+		|| container?.Config?.Env?.includes(`TEST_RUNTIME_PHP_VERSION=${selection.php.version}`) !== true
+		|| container?.State?.Running !== true) {
+		throw new Error('Canonical container frozen-runtime mismatch')
+	}
+	if (!['config', 'data'].every(directory => container.Mounts?.some(mount => mount.Type === 'volume'
+		&& mount.Destination === `/var/www/html/${directory}`))) {
+		throw new Error('Canonical config/data persistence mismatch')
+	}
+	const database = selection.databases.pgsql
+	const db = JSON.parse(run('docker', ['inspect', CANONICAL_DB_CONTAINER]))[0]
+	if (db?.Config?.Image !== `${database.image}@${database.digest}`
+		|| db?.Config?.Env?.includes(`PGDATA=/var/lib/postgresql/${database.version.split('.')[0]}/docker`) !== true
+		|| db?.State?.Running !== true
+		|| !db.Mounts?.some(mount => mount.Type === 'volume' && mount.Destination === '/var/lib/postgresql')
+		|| db.Mounts?.some(mount => mount.Destination === '/var/lib/postgresql/data')) {
+		throw new Error('Canonical PostgreSQL image/PGDATA/volume mismatch')
+	}
+	const code = "require '/var/www/html/version.php'; require '/var/www/html/lib/base.php';"
+		+ "$cfg = \\OC::$server->get(\\OC\\SystemConfig::class);"
+		+ "$dbtype = $cfg->getValue('dbtype'); $db = \\OC::$server->get(\\OCP\\IDBConnection::class); $params = $db->getInner()->getParams();"
+		+ "$matches = ($dbtype === 'pgsql' && ($params['host'] ?? null) === '" + CANONICAL_DB_CONTAINER + "'"
+		+ " && (string) ($params['port'] ?? '') === '5432' && ($params['dbname'] ?? null) === 'nextcloud');"
+		+ "if (!$matches) { fwrite(STDERR, 'Canonical database target mismatch.'); exit(1); }"
+		+ "$qb = $db->getQueryBuilder(); $result = $qb->select($qb->createFunction(\"current_setting('server_version')\"))->executeQuery();"
+		+ "$version = $result->fetchOne(); $result->closeCursor();"
+		+ `echo json_encode([${RUNTIME_FIELDS}, 'configuredVersion' => $cfg->getValue('version'), 'provider' => $dbtype,`
+		+ "'databaseVersion' => $version, 'databaseTargetMatches' => $matches,"
+		+ "'enabled' => \\OC::$server->get(\\OCP\\App\\IAppManager::class)->isEnabledForUser('chorestrike')]);"
+	const actual = JSON.parse(run('docker', ['exec', '--user', 'www-data', CANONICAL_CONTAINER, 'php', '-r', code]))
+	actual.inventoryHash = container.Config.Labels['org.chorestrike.test-runtime.inventory']
+	assertInstalled(selection, actual)
+	if (actual.configuredVersion !== selection.nextcloud.internalVersion || actual.enabled !== true || actual.provider !== 'pgsql'
+		|| actual.databaseVersion.match(/^\d+\.\d+(?:\.\d+)?/)?.[0] !== database.version) {
+		throw new Error('Canonical installed app/provider/database version mismatch')
+	}
+	return { status: 'canonical-runtime-match', qualification: selection.status, url, ...actual }
+}
+
 async function main(args) {
 	let selector = 'primary'
 	let patch = 'current'
@@ -373,6 +429,9 @@ async function main(args) {
 			nextcloud: selection.nextcloud.version, internalVersion: selection.nextcloud.internalVersion,
 			revision: selection.nextcloud.revision, notifications: selection.notifications, php: selection.php.version,
 			qualification: selection.status }, null, 2)}\n`)
+	} else if (args.length === 1 && args[0] === 'verify-canonical') {
+		if (selector !== 'primary' || patch !== 'current') throw new Error('Canonical verification covers the primary current selection')
+		process.stdout.write(`${JSON.stringify(verifyCanonical(selectRuntimeSource(readInventory(), 'primary', 'current')), null, 2)}\n`)
 	} else if (args.length === 2 && ['build', 'verify-image'].includes(args[0])) {
 		const selection = selectRuntimeSource(readInventory(), selector, patch)
 		if (args[0] === 'build') {
@@ -382,13 +441,16 @@ async function main(args) {
 			process.stdout.write(`${JSON.stringify(verifyImage(selection, args[1], execute, selector, probe, patch), null, 2)}\n`)
 		}
 	} else {
-		throw new Error('Usage: node scripts/test-runtime.js validate|check|selection|build|verify-image [cs082-runtime-<name>] [--runtime=primary|aio] [--patch=current|previous]')
+		throw new Error('Usage: node scripts/test-runtime.js validate|check|selection|verify-canonical|build|verify-image [cs082-runtime-<name>] [--runtime=primary|aio] [--patch=current|previous]')
 	}
 }
+
+// The CLI entry point runs AFTER module.exports below: verify-canonical
+// lazily requires ./test-target, which requires this module back — invoking
+// main() before the exports are replaced would re-enter a circular require.
+module.exports = { validateInventory, validateRuntimeShape, readInventory, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS, CANONICAL_CONTAINER, CANONICAL_DB_CONTAINER }
 
 if (require.main === module) main(process.argv.slice(2)).catch((error) => {
 	process.stderr.write(`Runtime check/execution failed: ${error?.message ?? 'unknown'}; inventory and environments were not updated.\n`)
 	process.exitCode = 3
 })
-
-module.exports = { validateInventory, validateRuntimeShape, readInventory, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS }

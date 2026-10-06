@@ -15,20 +15,32 @@
 historical evidence for their exact runtime. The user subsequently supplied
 Nextcloud 34.0.4.1 / PHP 8.4.25 / PostgreSQL 18.6 (AIO Stable 14.2.0) and requested
 that the regular local test baseline follow current stable.
-[CS-PLAN-082](../active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
-(active, Standard A `PASS` 2026-10-05)
+[CS-PLAN-082](../done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+(delivered, final Full `PASS-WITH-FIXES` 2026-10-06)
 owns that infrastructure/compatibility qualification and renewed target evidence.
 Its implementation discovery now distinguishes upstream NC35.0.1 from
 AIO14.2.0/NC34.0.4; Q-082-02 now selects NC35 primary plus the named NC34 AIO row.
-Its next-slice evidence records fresh NC35 installs and complete no-skips backend
-gates on every provider. Preservation/recovery, actual browser integration and
-promotion remain open; this partial evidence does not replace the browser pair.
-The new target-routing/auth helpers and rebuilt assets require a renewed final
-browser pair; the recorded pre-CS-PLAN-082 runs below remain historical evidence.
+Its final evidence records both runtime rows, full no-skips provider gates,
+P1/P2/P3 preservation/recovery and canonical/CI promotion. The post-repair final
+PostgreSQL browser pair `run-29nxkD` + `run-Wy1fPg` passes all three pools (288
+executions per run, zero skips/failures/flakes). The pre-CS-PLAN-082 runs below
+remain historical evidence, not rewritten to the new runtime.
 It does not reroute WP9's human gate or adopt retained data. Do not use the prior
 runtime's green checkboxes as target-server readiness; qualification must precede
 the separate RELEASE-002 deployment/adoption decision. No runtime change is
 authorized by drafting the follow-up.
+
+**Sequencing note (2026-10-06, CS-PLAN-082 promotion slice):** CS-PLAN-082 promoted
+the verified NC35.0.1/PHP8.4.25/PostgreSQL18.6 candidate into the canonical
+default (`docker/compose.test.yml`, Dockerfile defaults and CI); the old
+disposable NC31 canonical stack was retired after evidence capture, while the
+`cs-wp9-20261005a-*` projects and this plan's recorded NC31 matrix/browser passes
+below remain untouched historical evidence. `compose.test-matrix.yml` default DB
+images now mirror the frozen inventory, so future WP9 reruns start from the new
+baseline; the recorded runs below predate that change and stay valid for their
+exact runtime. The renewed target-runtime browser pair runs as CS-PLAN-082's R4
+gate; its result is recorded there and linked, not written over this plan's
+historical passes.
 
 The implementation packages have passed their individual final reviews. This
 does not close the parent's cross-domain evidence gate. The latest WP8 record

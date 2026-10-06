@@ -55,14 +55,22 @@ concurrent changes; the measured actions run in the UI.
 
 ## Quick Start
 
-### Frozen Runtime Candidate and Stable Discovery
+### Runtime baseline (CS-PLAN-082)
 
-`docker/test-runtime.json` is the frozen **candidate** artifact inventory, not
-proof of compatibility, baseline adoption or a promoted default. Until
-CS-PLAN-082's target/support decision and qualification gates pass, the existing
-NC31 canonical environment remains unchanged. NC34.0.4 is the initial frozen
-candidate; upstream discovery currently reports NC35.0.1 separately from AIO's
-NC34.0.4 bundle. Do not relabel a candidate as current-upstream-stable.
+`docker/test-runtime.json` is the single machine-readable frozen runtime
+inventory. CS-PLAN-082 promoted the current-stable baseline on 2026-10-06: the
+canonical `docker/compose.test.yml` stack now provisions **Nextcloud 35.0.1
+(internal 35.0.1.1, source revision
+`3c012e618ab46ac73c61a96f5bb7168a693ca1fb`) / PHP 8.4.25 / PostgreSQL 18.6**
+(was: Nextcloud 31 / PHP 8.2 / MariaDB 10.6). `docker/Dockerfile.test` build
+defaults are pinned to the inventory (PHP image `php:8.4.25-apache` by digest,
+Composer 2.9.5 by digest, pinned server/notifications/viewer git revisions), so
+a plain `docker compose -f docker/compose.test.yml up --build` always builds
+this pinned runtime. The old disposable NC31 canonical stack was retired on
+2026-10-06 after recording evidence; the names
+`chorestrike-test`/`chorestrike-db` and port 8080 are reused by the new stack.
+Promotion is a test-runtime default only — the canonical environment remains
+disposable (fresh installs only) and no retained-baseline adoption has occurred.
 
 ```powershell
 # Offline validation; ordinary unit tests use frozen official-response fixtures.
@@ -70,20 +78,21 @@ npm run test:runtime:validate
 # Read-only official discovery: exit 0 = no drift, 2 = update needed,
 # 3 = unknown/error. Never rewrites inventory or running environments.
 npm run test:runtime:check
-# Explicit isolated image build, never the existing canonical image tag.
-node scripts/test-runtime.js build cs082-runtime-34.0.4-local
-node scripts/test-runtime.js verify-image cs082-runtime-34.0.4-local
+# Asserts the running canonical chorestrike-test/chorestrike-db stack matches
+# the frozen inventory.
+npm run test:runtime:canonical
 ```
 
-The `runtime-check` Forgejo workflow runs weekly and via manual dispatch for
-pre-release checks. It uses the same inventory/checker and fails visibly on
-drift or unavailable/malformed metadata. Discovery compares official server
-and AIO release metadata separately, source-tag revisions and registry
-index/platform digests. Candidate execution uses only the frozen identities;
-it does not query mutable aliases while building or between browser pools.
-An image identity match is not an installed-provider, browser, populated-update
-or recovery pass. The maintainer must qualify and explicitly promote a newer
-candidate; the scheduled check never builds, deploys, commits or updates it.
+The `runtime-check` Forgejo workflow (`.forgejo/workflows/runtime-check.yml`)
+runs weekly and via manual dispatch for pre-release checks. It uses the same
+inventory/checker and fails visibly on drift or unavailable/malformed metadata.
+Discovery compares official server and AIO release metadata separately,
+source-tag revisions and registry index/platform digests. Runtime execution
+uses only the frozen identities; it does not query mutable aliases while
+building or between browser pools. An image identity match is not an
+installed-provider, browser, populated-update or recovery pass. The maintainer
+must qualify and explicitly promote a newer baseline; the scheduled check never
+builds, deploys, commits or updates it.
 
 ### Coherent Browser and OCC Targets
 
@@ -115,7 +124,7 @@ Mutation callers use the validated normalized origin, never a raw URL prefix.
 ### Run Tests with Docker Compose
 
 ```bash
-# Build and run all tests
+# Build and provision the test environment (this does not run tests)
 docker compose -f docker/compose.test.yml up --build
 
 # Or with legacy docker-compose:
@@ -132,7 +141,29 @@ chmod +x scripts/run-tests.sh
 ./scripts/run-tests.sh
 ```
 
-**Note for Windows users**: Use Git Bash, WSL, or PowerShell to run the shell script.
+**Note for Windows users**: Use Git Bash/WSL for the shell wrapper, or invoke the Node runner directly from PowerShell.
+
+The shell wrapper delegates to `node scripts/run-tests.js` (also usable directly
+from PowerShell). It waits for full Compose health, verifies the frozen canonical
+runtime, then runs both complete PHPUnit suites with skips forbidden. It stops
+on the first failure and preserves its exit code. It uses the normal build cache
+and leaves the canonical environment running; it never tears down shared resources.
+Canonical config/data volumes and the database survive container recreation.
+Set `TEST_RUNTIME_PRESERVATION=true` for a same-build recreate that must not
+reseed existing facts; the default ordinary test provisioning deliberately seeds
+the selected disposable profile. Keep preservation proofs separate from tests.
+Only an explicitly authorized disposable-environment reset may remove these volumes.
+
+All three Forgejo browser workflows build application assets before provisioning.
+Their canonical startup awaits the app/seed readiness healthcheck and verifies
+the frozen runtime before mutation. The companion profile/browser matrix uses
+that same runtime: the mutable `nextcloud:35-apache` distribution image was
+observed with PHP8.5.11, outside the verified PHP8.4 support contract, and is not
+a substitute. Neither the companion matrix nor the source-built runtime claims
+AIO packaging equivalence. Companion uploads contain only fixed-schema numeric
+counts/status from `scripts/playwright-summary-reporter.js`; raw reports,
+authenticated traces and attachments must stay local. The release gate retains
+its existing sanitized per-scenario summaries.
 
 ## Manual Setup (Detailed)
 
@@ -207,7 +238,7 @@ docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml --profile mys
 Health is fail-closed: validated selector/settings and PDO driver, authenticated
 DB readiness, successful Nextcloud installation on the expected provider, app
 enablement, HTTP readiness and successful required seed all precede the ready
-marker. `TEST_DB_TYPE` accepts `mysql` (canonical default), `pgsql` or `sqlite`;
+marker. `TEST_DB_TYPE` accepts `pgsql` (canonical default), `mysql` or `sqlite`;
 Nextcloud stores the latter as `sqlite3` and reports PostgreSQL as `postgres`.
 No native PostgreSQL/SQLite client is required: probes use the actual PDO driver.
 `TestEnvironmentProvisioningTest` checks selector refusal and readiness failure
@@ -228,12 +259,15 @@ No arbitrary provider allowance or dropped result/lock assertion is permitted.
 
 #### Current-Stable Candidate Staging
 
-During CS-PLAN-082 qualification, the old canonical/WP9 resources are historical
-evidence, not the candidate default. `docker/test-runtime.json` pins NC35 primary
-and the separate NC34 AIO compatibility row; `status: candidate` is not support,
-promotion or retained-baseline adoption. `test-runtime.js check` checks upstream,
-the AIO bundle and every row's source/image identity without rewriting anything.
-Exit 2 means update-needed; malformed/unavailable metadata exits 3, never green.
+The canonical stack is the promoted CS-PLAN-082 baseline (see
+[Runtime baseline](#runtime-baseline-cs-plan-082) above); the old canonical/WP9
+resources remain historical evidence, not the default. The staging procedure
+below stays the way to run isolated, exclusively owned staging targets against
+the frozen inventory. `docker/test-runtime.json` pins the NC35 primary row and
+the separate NC34 AIO compatibility row. `test-runtime.js check` checks
+upstream, the AIO bundle and every row's source/image identity without
+rewriting anything. Exit 2 means update-needed; malformed/unavailable metadata
+exits 3, never green.
 
 ```powershell
 npm run test:runtime:validate
@@ -277,9 +311,34 @@ state is scoped to both. A port change alone must never reroute OCC implicitly.
 For the named AIO row, add `--runtime=aio` to image build/verification and the
 final `aio` argument to the stage runner, with a distinct image/project/port.
 The row tests the Apache-based app runtime, not AIO packaging or production.
+
+The frozen rows retain two explicitly reviewed upstream limitations rather than
+silently changing upstream vendor trees. `verify-image` reports them as
+`upstreamLimitations`, never as clean dependency gates:
+
+- NC34.0.4 and its NC34.0.3 update source on PHP8.4.25 have exactly the
+  `lcobucci/clock` 3.0.0 constraint `~8.1.0 || ~8.2.0` failing the core
+  **3rdparty** platform check; the core root check must pass. AIO v14.2.0 ships
+  NC34.0.4 with PHP8.4.25 itself. The operator approved retaining that authentic
+  combination on 2026-10-06 after finding no newer NC34 patch, without ignoring
+  platform requirements or patching dependencies.
+- The primary NC35 Notifications pin emits exactly one stale-root-lock warning
+  for both current and previous patches. Its upstream revision had no fixed
+  artifact at review; the operator approved keeping the original source/lock.
+  Installed production packages must equal the lock (19 primary, 17 AIO), and
+  production dry-run warning sets must match exactly. The NC34 bamarni dev-tool
+  sub-lock notice remains visible in build output, not a runtime exception.
+
+Extra, changed, **or missing** platform failures/warnings fail closed. A newer
+upstream artifact requires requalification and review of these exact assertions
+in `UPSTREAM_BUILD_CONDITIONS`; remove a disposition only after the replacement
+artifact passes its native platform/lock gates and the affected runtime matrix.
+Do not broaden the allowlist or suppress diagnostics during a promotion.
+
 Neither ordinary seeded staging nor a same-build recreate proves a genuine
 populated update or whole-instance recovery. Keep P1/P2/P3 fixtures separate;
-final qualification and promotion belong to CS-PLAN-082.
+populated preservation, real runtime update and whole-instance recovery proofs
+run through `scripts/test-runtime-preservation.ps1` (documented below).
 
 The Windows PowerShell preservation runner uses fresh, synthetic, owned targets:
 
@@ -676,7 +735,7 @@ End-to-end tests run against a full Docker-based Nextcloud instance with the Cho
 #### 1. Start Docker Test Environment
 
 ```bash
-# Start the test environment (Nextcloud + MariaDB)
+# Start the test environment (Nextcloud + PostgreSQL)
 docker compose -f docker/compose.test.yml up -d
 
 # Wait for services to be ready (~30 seconds)
@@ -684,8 +743,9 @@ docker compose -f docker/compose.test.yml logs -f nextcloud-test
 ```
 
 The test environment includes:
-- **MariaDB** (`chorestrike-db`): Database with healthchecks
-- **Nextcloud Test** (`chorestrike-test`): Apache + PHP with Nextcloud stable29
+- **PostgreSQL 18.6** (`chorestrike-db`): Database with healthchecks
+- **Nextcloud Test** (`chorestrike-test`): Apache + PHP 8.4 with Nextcloud 35.0.1
+  (pinned runtime; see [Runtime baseline](#runtime-baseline-cs-plan-082))
 - **Auto-setup**: Nextcloud installs automatically, ChoreStrike app is linked and enabled
 
 #### 2. Verify Environment is Ready
@@ -864,7 +924,7 @@ When changing task or room flows, update these layers together:
 - Verify app is enabled: `docker exec chorestrike-test occ app:list | grep chorestrike`
 
 **Database connection errors:**
-- Check MariaDB is healthy: `docker compose -f docker/compose.test.yml ps`
+- Check the PostgreSQL database container is healthy: `docker compose -f docker/compose.test.yml ps`
 - Restart environment: `docker compose -f docker/compose.test.yml restart`
 
 **Test flakiness:**
@@ -1387,7 +1447,7 @@ family profile):
 Performance budgets are enforced as **literal, frozen statement counts** in
 `tests/integration/Db/WorkflowQueryBudgetTest.php`, measured with
 `tests/integration/Support/QueryCounter.php` against the real MySQL/MariaDB
-profile of the canonical Docker stack.
+profile of the pre-promotion (NC31-era) canonical Docker stack.
 
 **Counting seam (slice-1 verification):** the bundled DBAL 3.10.4 marks
 `Configuration::setSQLLogger()` deprecated in favor of connection-time

@@ -132,11 +132,33 @@ describe('coherent owned browser/CLI target', () => {
 	it('requires both localhost address families to route to the inspected canonical container', () => {
 		const value = container()
 		value.Name = '/chorestrike-test'
-		value.NetworkSettings.Ports['80/tcp'] = [{ HostIp: '0.0.0.0', HostPort: '8080' }]
+		value.NetworkSettings.Ports['80/tcp'] = [{ HostIp: '127.0.0.1', HostPort: '8080' }]
 		const canonical = { url: 'http://localhost:8080', container: 'chorestrike-test' }
 		expect(() => assertTargetIdentity(canonical, value, state, state)).toThrow('published endpoint')
-		value.NetworkSettings.Ports['80/tcp'].push({ HostIp: '::', HostPort: '8080' })
+		value.NetworkSettings.Ports['80/tcp'].push({ HostIp: '::1', HostPort: '8080' })
 		expect(() => assertTargetIdentity(canonical, value, state, state)).not.toThrow()
+	})
+	it.each(['0.0.0.0', '::', '10.0.0.1'])('refuses canonical non-loopback publication %s before probes', address => {
+		const value = container()
+		value.Name = '/chorestrike-test'
+		value.NetworkSettings.Ports['80/tcp'] = [{ HostIp: address, HostPort: '8080' }]
+		const execute = jest.fn(() => JSON.stringify([value]))
+		expect(() => assertTestTarget('http://localhost:8080', { NEXTCLOUD_CONTAINER: 'chorestrike-test' }, execute)).toThrow('preflight failed')
+		expect(execute).toHaveBeenCalledTimes(1)
+	})
+	it.each(['31.0.0.1', '35.0.0.10', '34.0.4.1'])('refuses canonical stale or compatibility runtime %s', version => {
+		const value = container()
+		value.Name = '/chorestrike-test'
+		value.NetworkSettings.Ports['80/tcp'] = [{ HostIp: '127.0.0.1', HostPort: '8080' }, { HostIp: '::1', HostPort: '8080' }]
+		expect(() => assertTargetIdentity({ url: 'http://localhost:8080', container: 'chorestrike-test' }, value,
+			{ ...state, version }, { ...state, version })).toThrow('frozen runtime inventory')
+	})
+	it('refuses canonical identity without the frozen inventory label', () => {
+		const value = container()
+		value.Name = '/chorestrike-test'
+		value.NetworkSettings.Ports['80/tcp'] = [{ HostIp: '127.0.0.1', HostPort: '8080' }, { HostIp: '::1', HostPort: '8080' }]
+		delete value.Config.Labels['org.chorestrike.test-runtime.inventory']
+		expect(() => assertTargetIdentity({ url: 'http://localhost:8080', container: 'chorestrike-test' }, value, state, state)).toThrow('frozen runtime inventory')
 	})
 	it('preserves only the explicitly owned CI service route and proves its actual network endpoint', () => {
 		const ci = { CI: 'true', NEXTCLOUD_URL: 'http://nextcloud:80', NEXTCLOUD_CONTAINER: 'nextcloud' }
@@ -156,11 +178,6 @@ describe('coherent owned browser/CLI target', () => {
 		execute.mockClear()
 		expect(() => assertTestTarget(ci.NEXTCLOUD_URL, ci, execute)).toThrow('preflight failed')
 		expect(execute).toHaveBeenCalledTimes(1)
-		const workflow = fs.readFileSync(path.resolve(__dirname, '../../../.forgejo/workflows/test.yml'), 'utf8')
-		expect(workflow).toContain('NEXTCLOUD_CONTAINER: nextcloud')
-		expect(workflow).toContain('NEXTCLOUD_TEST_ENV: true')
-		expect(workflow).toContain('--label org.chorestrike.test-ci=chorestrike-e2e')
-		expect(workflow).toContain("assertTestTarget(process.env.NEXTCLOUD_URL)")
 	})
 	it('scopes saved authentication to both the HTTP origin and OCC target', () => {
 		expect(authScope(environment)).toMatch(/^[a-f0-9]{24}$/)

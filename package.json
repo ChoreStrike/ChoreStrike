@@ -19,6 +19,7 @@
     "test:e2e:gate": "node scripts/run-e2e-gate.js",
     "test:runtime:validate": "node scripts/test-runtime.js validate",
     "test:runtime:check": "node scripts/test-runtime.js check",
+    "test:runtime:canonical": "node scripts/test-runtime.js verify-canonical",
     "l10n:check-keys": "node scripts/check-l10n-keys.js",
     "docs:encoding": "node scripts/check-docs-encoding.js",
     "backlog:check": "node scripts/check-backlog.js"

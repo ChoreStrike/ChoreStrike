@@ -42,9 +42,9 @@ function assertOwnedTarget(target, container) {
 	const bindings = container?.NetworkSettings?.Ports?.['80/tcp'] || []
 	const testMode = container?.Config?.Env?.includes('NEXTCLOUD_TEST_MODE=true')
 	const testEnvironment = container?.Config?.Env?.includes('NEXTCLOUD_TEST_ENV=true')
-	const addresses = url.hostname === '[::1]' ? ['::', '::1'] : ['0.0.0.0', '127.0.0.1']
+	const addresses = url.hostname === '[::1]' ? ['::1'] : ['127.0.0.1']
 	if (!container?.State?.Running || !testMode || !testEnvironment) throw new Error('Test target is not running in explicit test mode')
-	const legacyCanonical = [DEFAULT_URL, 'http://127.0.0.1:8080'].includes(target.url) && ['chorestrike-test', 'nextcloud'].includes(target.container)
+	const legacyCanonical = [DEFAULT_URL, 'http://127.0.0.1:8080'].includes(target.url) && target.container === 'chorestrike-test'
 	const labels = container?.Config?.Labels || {}
 	if (target.url === 'http://nextcloud' && target.container === 'nextcloud') {
 		if (container.Name !== '/nextcloud' || labels['org.chorestrike.test-ci'] !== 'chorestrike-e2e') throw new Error('CI service target is not explicitly owned')
@@ -54,12 +54,12 @@ function assertOwnedTarget(target, container) {
 		|| !/^nextcloud-(mysql|pgsql|sqlite)$/.test(labels['com.docker.compose.service']))) {
 		throw new Error('Custom test target is not an owned CS082 installation')
 	}
-	if (!legacyCanonical && (url.hostname === 'localhost' || bindings.some(binding => !['127.0.0.1', '::1'].includes(binding.HostIp)))) {
-		throw new Error('Custom test target must publish exclusively on numeric loopback addresses')
+	if ((!legacyCanonical && url.hostname === 'localhost') || bindings.some(binding => !['127.0.0.1', '::1'].includes(binding.HostIp))) {
+		throw new Error('Test target must publish exclusively on loopback addresses')
 	}
 	if (container.Name !== `/${target.container}`
 		|| !bindings.some(binding => binding.HostPort === port && addresses.includes(binding.HostIp))
-		|| (url.hostname === 'localhost' && !bindings.some(binding => binding.HostPort === port && ['::', '::1'].includes(binding.HostIp)))) {
+		|| (url.hostname === 'localhost' && !bindings.some(binding => binding.HostPort === port && binding.HostIp === '::1'))) {
 		throw new Error('HTTP/OCC test target mismatch: published endpoint')
 	}
 }
@@ -71,10 +71,13 @@ function assertTargetIdentity(target, container, cli, http) {
 		|| !/^\d+\.\d+\.\d+\.\d+$/.test(cli?.version) || http?.version !== cli.version) {
 		throw new Error('HTTP/OCC test target mismatch: installed runtime/readiness')
 	}
-	if (target.container.startsWith('cs082-')) {
+	if (target.container === 'chorestrike-test' || target.container.startsWith('cs082-')) {
 		const inventory = readInventory()
-		const runtime = ['primary', 'aio'].flatMap(row => ['current', 'previous']
+		const selections = target.container === 'chorestrike-test'
+			? [selectRuntimeSource(inventory, 'primary', 'current')]
+			: ['primary', 'aio'].flatMap(row => ['current', 'previous']
 			.map(patch => { try { return selectRuntimeSource(inventory, row, patch) } catch { return null } }))
+		const runtime = selections
 			.filter(Boolean)
 			.find(selection => selection.nextcloud.internalVersion === cli.version)
 		if (!runtime || container.Config.Labels['org.chorestrike.test-runtime.inventory'] !== selectionHash(runtime)

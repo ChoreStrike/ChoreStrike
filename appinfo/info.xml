@@ -35,7 +35,10 @@ Complete agreed tasks, build a steady rhythm and keep your home tidy together. P
     <repository type="git">https://github.com/ChoreStrike/ChoreStrike.git</repository>
     
     <dependencies>
-        <!-- CS-PLAN-082 qualification candidate: primary NC35 plus the named NC34 AIO row. -->
+        <!-- CS-PLAN-082 verified baseline (Q-082-01/02): primary NC35 plus the
+             named NC34 AIO compatibility row. The local/CI test runtime is
+             pinned by docker/test-runtime.json; AIO deployment and retained
+             baseline adoption remain separate, explicitly authorized steps. -->
         <nextcloud min-version="34" max-version="35"/>
         <php min-version="8.4" max-version="8.4"/>
     </dependencies>

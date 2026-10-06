@@ -86,7 +86,8 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          # composer.json pins ~8.4.0 (CS-PLAN-082 promoted baseline).
+          php-version: '8.4'
 
       - name: Install Composer
         run: |
@@ -107,20 +108,31 @@ jobs:
   phpunit-unit:
     name: PHPUnit Unit (Docker)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build test image
-        run: docker build -f docker/Dockerfile.test -t chorestrike-test:ci .
+      - name: Setup supported Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+
+      # Frozen runtime image from docker/test-runtime.json (CS-PLAN-082):
+      # the inventory supplies every build argument; promotion updates the
+      # pinned image name below together with the inventory.
+      - name: Build frozen runtime image
+        run: node scripts/test-runtime.js build cs082-runtime-35.0.1-local
+
+      - name: Verify frozen runtime image identity
+        run: node scripts/test-runtime.js verify-image cs082-runtime-35.0.1-local
 
       - name: Install composer dependencies (cached)
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
             -w /var/www/html/custom_apps/chorestrike \
-            chorestrike-test:ci \
+            cs082-runtime-35.0.1-local \
             composer install --no-interaction --prefer-dist
 
       - name: Run PHPUnit unit (blocking)
@@ -129,26 +141,25 @@ jobs:
             -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
             -e NEXTCLOUD_TEST_ENV=true \
             -w /var/www/html/custom_apps/chorestrike \
-            chorestrike-test:ci \
+            cs082-runtime-35.0.1-local \
             vendor/bin/phpunit --configuration phpunit.unit.xml
 
   # ---------- Backend integration tests (Docker) ----------
   phpunit-integration:
     name: PHPUnit Integration (Docker)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build test image
-        run: docker build -f docker/Dockerfile.test -t chorestrike-test:ci .
+      - name: Bring up canonical test env (NC 35.0.1 / PHP 8.4 / PostgreSQL 18.6, frozen inventory build)
+        run: TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
 
       - name: Run PHPUnit integration (blocking)
         run: |
-          TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --wait --wait-timeout 600
           docker compose -f docker/compose.test.yml exec -T nextcloud-test \
-            vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped
+            vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --do-not-cache-result
 
       - name: Tear down integration environment
         if: always()
@@ -168,7 +179,7 @@ jobs:
   e2e:
     name: E2E (canonical gate)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -191,9 +202,10 @@ jobs:
       - name: Install Playwright browser (chromium)
         run: npx playwright install --with-deps chromium
 
-      - name: Bring up Docker test env (NC 31 + app + family seed)
+      - name: Bring up Docker test env (NC 35.0.1 / PHP 8.4 / PostgreSQL 18.6 + app + family seed)
         run: |
-          TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build
+          TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
+          npm run test:runtime:canonical
           # Wait for Nextcloud to report installed + healthy.
           for i in $(seq 1 60); do
             if curl -fs http://localhost:8080/status.php | grep -q '"installed":true'; then

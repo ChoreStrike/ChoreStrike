@@ -4,6 +4,8 @@ const path = require('node:path')
 const { EventEmitter } = require('node:events')
 const { spawnSync } = require('node:child_process')
 const { collectSpecs, checkSelection, checkResults, runPlaywright, REQUIRED_SPECS, main } = require('../../../scripts/run-e2e-gate.js')
+const target = require('../../../scripts/test-target')
+const runtime = require('../../../scripts/test-runtime')
 
 jest.mock('node:child_process', () => ({ spawnSync: jest.fn() }))
 // Pin the canonical journey (not a positional index): the manifest grows,
@@ -108,6 +110,10 @@ describe('canonical browser evidence', () => {
 		expect(runPlaywright([]).status).toBe(1)
 	})
 	it('the actual main pipeline rejects a missing journey even with zero process exits', () => {
+		jest.spyOn(target, 'configuredTarget').mockReturnValue({ url: 'http://localhost:8080', container: 'chorestrike-test' })
+		jest.spyOn(runtime, 'readInventory').mockReturnValue({})
+		jest.spyOn(runtime, 'selectRuntime').mockReturnValue({})
+		const verify = jest.spyOn(runtime, 'verifyCanonical').mockImplementation(() => {})
 		const reports = REQUIRED_SPECS.map(entry => reportFor(entry))
 		const inventory = Object.fromEntries(reports.map(report => [report.suites[0].file, collectSpecs(report.suites).map(row => row.identity).sort()]))
 		// The gate logs its (expected) selection violations to the console;
@@ -140,6 +146,13 @@ describe('canonical browser evidence', () => {
 		})
 		const argv = process.argv
 		process.argv = ['node', 'run-e2e-gate.js']
-		try { expect(main()).toBe(1) } finally { process.argv = argv }
+		try {
+			expect(main()).toBe(1)
+			expect(verify).toHaveBeenCalledTimes(1)
+			verify.mockImplementation(() => { throw new Error('stale canonical') })
+			spawnSync.mockClear()
+			expect(() => main()).toThrow('stale canonical')
+			expect(spawnSync.mock.calls.every(([, args]) => args.includes('--list'))).toBe(true)
+		} finally { process.argv = argv }
 	})
 })

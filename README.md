@@ -59,21 +59,23 @@ a Nextcloud instance may still have hosting costs.
 
 ### Requirements
 
-- Nextcloud 35 primary; Nextcloud 34 is the explicitly named AIO compatibility candidate
+- Nextcloud 35 primary; Nextcloud 34 is the explicitly named AIO compatibility row
 - PHP 8.4.x
 - MySQL/MariaDB, PostgreSQL or SQLite (via Nextcloud's database layer)
 
 ChoreStrike is a **pre-release app (0.1.x)**: fresh installs are supported;
 upgrade paths between versions are not provided yet.
 
-These are the current **qualification-candidate** bounds, not a completed
-support promotion. [CS-PLAN-082](docs/plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
-has verified fresh NC35 installations and complete backend suites on all three
-providers; NC34 dependency findings, browser, populated update/recovery and
-default-promotion gates remain open. Use the
-[isolated staging procedure](docs/engineering/testing.md#current-stable-candidate-staging),
-not the still-historical NC31 default, for this candidate. Real retained use
-requires a separately approved deployment and explicit baseline adoption.
+These bounds are the promoted current-stable baseline (CS-PLAN-082,
+2026-10-06), not a pending qualification candidate: fresh NC35 installations
+and the complete backend suite are verified on all three providers, and the
+canonical Docker test environment provisions this pinned runtime by default
+(Nextcloud 35.0.1 / PHP 8.4.25 / PostgreSQL 18.6; frozen inventory in
+`docker/test-runtime.json`). NC34 dependency findings and AIO deployment,
+production rollout and retained-baseline adoption remain separate, explicitly
+approved steps — see
+[CS-PLAN-082](docs/plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+and the [runtime baseline note](docs/engineering/testing.md#runtime-baseline-cs-plan-082).
 
 ### Manual installation
 

@@ -1,6 +1,6 @@
 # CS-PLAN-082: Current-Stable Test Baseline and Data Preservation
 
-> **Status:** Active (implementation started 2026-10-05; NC35 primary qualification in progress); drafted 2026-10-05
+> **Status:** Done (final Full `PASS-WITH-FIXES` 2026-10-06; RF-082-01..20 resolved, final PostgreSQL pair renewed after repairs); drafted 2026-10-05
 > **Drafted:** 2026-10-05
 > **Effort:** L, 5-8 engineering days; re-estimate after the Nextcloud API/dependency audit
 > **Priority:** P1
@@ -338,8 +338,11 @@ obsolete, record its replacement and archive it under the project archive policy
   backend-qualified on all three providers — see the 2026-10-06 slice below.)
 - [x] Complete populated P1/P2/P3 on all providers and the named AIO row
   (resolved 2026-10-06 — see the viewer/P1/P2/P3 slice below).
-- [ ] Complete canonical/CI promotion, final PostgreSQL browser
-  pair, remaining durable handoff and final lifecycle review.
+- [x] Complete canonical/CI promotion, the final PostgreSQL browser pair and
+  the remaining durable handoff (resolved 2026-10-06 — see the promotion/pair
+  slice below).
+- [x] Final Full lifecycle review `PASS-WITH-FIXES` (2026-10-06); required gates
+  complete, plan moved to `done/` and TECH-RUNTIME-001 archived.
 
 ## 7. Risks & Mitigations
 
@@ -359,28 +362,80 @@ obsolete, record its replacement and archive it under the project archive policy
 ## 8. Acceptance Criteria
 
 - [x] Standard A passed; Q-082-01 and all review decisions recorded.
-- [ ] The regular local and CI defaults run the current-stable target, not NC31
+- [x] The regular local and CI defaults run the current-stable target, not NC31
   with an optional newer side instance; PostgreSQL is the reference provider.
-- [ ] Frozen runtime inventory and actual installed identities match; newer
+  (2026-10-06: `docker compose -f docker/compose.test.yml up --build` provisions
+  the pinned NC35.0.1/PHP8.4.25/PG18.6 runtime; old canonical stack retired.)
+- [x] Frozen runtime inventory and actual installed identities match; newer
   stable releases are detected by the wired weekly/pre-release check.
-- [ ] Full target-provider suites and two consecutive complete PostgreSQL browser
+  (2026-10-06: `verify-canonical` reports `canonical-runtime-match`; live check
+  exits 0/current with zero drift on upstream35.0.1 and AIO14.2.0/34.0.4.)
+- [x] Full target-provider suites and two consecutive complete PostgreSQL browser
   gates pass with no missing/unapproved-skipped tests or reduced assertions.
+  (2026-10-06: pair `run-FQLmcV` + `run-u9ttbY`, 288 tests per pass across the
+  three pools, zero skips/failures/flakes; canonical PG integration 603/5069.)
 - [x] P1 and genuine P2 preserve non-empty setup/facts on all supported providers;
   P3 target PostgreSQL whole-instance recovery and negative controls pass.
   (2026-10-06, on the viewer-carrying rebuilt images; viewer has no migrations.)
-- [ ] No old development-install upgrade, future app migration or full AIO
+- [x] No old development-install upgrade, future app migration or full AIO
   equivalence is claimed without corresponding executed evidence.
-- [ ] Support metadata matches the approved matrix; required quality gates pass.
-- [ ] Durable test/update/backup/preservation rules are integrated; target evidence
+- [x] Support metadata matches the approved matrix; required quality gates pass.
+  (2026-10-06: `info.xml`/`composer.json` hold the Q-082-01/02 verified bounds
+  NC34–35/PHP8.4; Jest 1442, lint, stylelint, noise, l10n 1275 keys, build,
+  browser-runner self-test, docs encoding 910 files, backlog check, whitespace
+  and PHP CS 0/412 all green.)
+- [x] Durable test/update/backup/preservation rules are integrated; target evidence
   is linked from WP9 without rewriting historical runs.
-- [ ] All plan-owned findings are resolved or explicitly user-rescoped; required
-  deferred evidence still blocks completion.
-- [ ] Final Standard B/Full review passes; primary backlog owner archived and
+  (2026-10-06: engineering/testing/development/deployment, release-test-plan,
+  docker-dev skill, README and docs README updated; WP9 received a sequencing
+  note; its NC31 passes stay historical.)
+- [x] All plan-owned findings are resolved or explicitly user-rescoped; required
+  deferred evidence still blocks completion. (RF-082-01..11 all resolved.)
+- [x] Final Standard B/Full review passes; primary backlog owner archived and
   registry updated without closing RELEASE-002, CONCEPT-001 or human gates.
-- [ ] No productive deployment, retained-baseline adoption or access to the
+- [x] No productive deployment, retained-baseline adoption or access to the
   operator's server occurred without separate explicit authorization.
 
 ## 9. Review Findings (Plan-Owned)
+
+### Final Full Review Repair Round (2026-10-06)
+
+All four tracks completed. The operator explicitly approved repairing the five
+functional findings and both security findings in this review, with regressions
+and renewed affected gates. Sanitized public security placeholders are approved;
+unremediated technical security details remain private. A subsequent explicit
+decision approved repairing canonical config/data persistence and resetting only
+the inventoried synthetic canonical installation after its container recreation
+exposed the missing mounts. Other environments must remain untouched.
+
+The real distribution-smoke experiment installed `nextcloud:35-apache`, but its
+PHP8.5.11 is outside the approved `~8.4.0` application constraint; Composer
+correctly refused installation. The operator then selected **Use frozen runtime
+(recommended)**: keep the existing profile/browser matrix on the verified
+inventory runtime, do not widen PHP support, and do not claim distribution-image
+equivalence. The unshipped setup-script experiment is archived locally.
+
+- [x] **RF-082-12 / major / canonical runtime:** require frozen primary identity
+  before canonical browser execution; reject stale canonical versions and labels.
+- [x] **RF-082-13 / major / default PHPUnit runner:** execute full suites after
+  readiness, propagate exits, and never tear down another session's environment.
+- [x] **RF-082-14 / major / release E2E readiness:** await the full app-ready
+  healthcheck before seed or browser commands.
+- [x] **RF-082-15 / major / companion browser assets:** build application assets
+  in both companion browser workflows before execution.
+- [x] **RF-082-16 / major / smoke provisioning:** operator-approved replacement
+  uses the verified frozen runtime for the unchanged profile/browser matrix,
+  awaits full health and verifies runtime identity before browser tests.
+- [x] **RF-082-17 / major / security:** test endpoint isolation remediated and
+  verified with refusal regressions and live loopback-only bindings.
+- [x] **RF-082-18 / major / security:** browser artifact publication remediated;
+  fixed-schema counts-only reporter tested with sensitive synthetic payloads
+  and an actual authenticated browser smoke, allowlists pinned in both workflows.
+- [x] **RF-082-19 / minor / durable runtime guidance:** integrate the exact
+  upstream dependency dispositions and their requalification/removal conditions.
+- [x] **RF-082-20 / major / canonical persistence:** named configuration/data and
+  PostgreSQL volumes; exact config/data-sentinel/30-table facts equality after
+  both force-recreate and full down/up without volume removal or reseeding.
 
 Standard A `PASS` with zero findings on 2026-10-05 (see `## Review Outcome`).
 Implementation findings are tracked below. Q-082-01 was resolved as a review decision,
@@ -705,6 +760,91 @@ resolved in this slice; the final plan gates R4/R7/R8 remain open.
   deployment or retained-baseline adoption. No commit, index change or plan move
   was performed.
 
+## Next Implementation Slice (2026-10-06, canonical promotion + final browser pair)
+
+- **Scope:** R7 (canonical/CI promotion + default-command checks), R4 (final
+  frozen PostgreSQL browser pair) and R8 (support metadata + durable handoff).
+  Runtime/inventory source pins are untouched; inventory status stays
+  `candidate` deliberately — `selectionHash` covers the whole selection
+  including status, so a status flip would invalidate every frozen image label
+  and the pinned spec hashes without changing a single artifact. The
+  candidate→qualified transition belongs to the next runtime-promotion cycle
+  (it rebuilds and re-verifies all four images) and is not required by any
+  acceptance criterion; no support/deployment/adoption claim is made either way.
+- **Promotion:** `docker/Dockerfile.test` defaults are now pinned to the
+  inventory primary current selection (PHP `php:8.4.25-apache`@digest,
+  Composer 2.9.5@digest, NC `v35.0.1` `3c012e61…`, notifications `0389f40a…`,
+  viewer `3509a539…`, PCOV 1.0.12, APCu 5.1.24, label
+  `588009a22fadb122059d509a4dab3256241258052fe6e1daa5a9ebf0c6e5546f`), asserted
+  by a new Jest regression against `buildArguments(selectRuntime(inventory))`
+  so a future inventory edit cannot drift from the default build.
+  `docker/compose.test.yml` is the promoted canonical stack: PostgreSQL
+  18.6-alpine@digest with the owned PGDATA layout (`/var/lib/postgresql/18/docker`
+  on the `/var/lib/postgresql` anonymous volume — never a reused PG16 data
+  directory), `TEST_DB_TYPE=pgsql`, frozen `TEST_RUNTIME_INTERNAL_VERSION` /
+  `TEST_RUNTIME_PHP_VERSION` / `TEST_HTTP_URL` identity, fixed
+  `chorestrike-test`/`chorestrike-db` names and port 8080 reused.
+  `compose.test-matrix.yml` defaults mirror the frozen MariaDB 11.8.6 /
+  PostgreSQL 18.6 pins with explicit `WP9_*` overrides still taking precedence.
+  `scripts/test-runtime.js` gained `verify-canonical` (npm
+  `test:runtime:canonical`): read-only HTTP/OCC preflight first, then frozen
+  label/env, PostgreSQL image/PGDATA/volume and installed
+  app/provider/database identity assertions (12 refusal regressions).
+- **Old canonical retirement (recorded, qualified):** the disposable NC31
+  canonical stack (NC 31.0.14.1 / PHP 8.2.34 / MariaDB 10.6, image
+  `docker-nextcloud-test` `sha256:795f1662233b5012f584f30aae5eedbeaabf0b394598e74afc8570fd113f0067`)
+  was inventoried read-only and retired with `docker compose -f
+  docker/compose.test.yml down -v` (explicitly owned disposable test
+  resources only). No WP9 (`cs-wp9-*`), CS082 staged or third-party container,
+  volume or network was touched.
+- **R7 default-command proof:** the documented default command
+  (`TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d
+  --build --wait`) provisioned the promoted stack from a clean slate; the
+  compose-built image `sha256:ee373336225bedb514c4e6934189d01bdc4e1ee7d363ad25dec2e41f42d0960a`
+  passes `verify-image` (label `588009a2…`, NC 35.0.1.1/revision/notifications/
+  viewer/PHP/SQLite/PCOV/APCu identities, Composer 2.9.5, 19 locked
+  notifications packages, exactly the one named stale-root-lock upstream
+  limitation visible on stderr); `npm run test:runtime:canonical` reports
+  `canonical-runtime-match` (provider pgsql, database 18.6, app enabled,
+  configured 35.0.1.1). Live `npm run test:runtime:check` exits 0/`current`
+  with zero drift (upstream 35.0.1, AIO 14.2.0/34.0.4, no moved tags or image
+  digests).
+- **R4 final frozen PostgreSQL browser pair:** production webpack build first,
+  mandatory discovery ok both passes (49 required specs owned by exactly one
+  pool). Pass 1 `run-FQLmcV` and pass 2 `run-u9ttbY` each ran chromium (85),
+  chromium-serial-db (164) and chromium-scheduling-owner (39) — 288 tests per
+  pass, zero retries/skips/failures/flakes/interruptions and zero gate
+  violations, unchanged candidate (same stack, same image, same seed state)
+  between passes. This is the regular PostgreSQL browser result; the WP9 NC31
+  MariaDB-era passes remain linked historical evidence, not NC35 evidence.
+- **Canonical backend re-verification:** on the promoted canonical PG18 stack —
+  unit 1367 tests / 4870 assertions and integration 603 tests / 5069
+  assertions with `--fail-on-skipped --do-not-cache-result`, exit 0, zero
+  skips; `composer cs:check` 0/412; app `composer validate --strict` and
+  platform checks were green in the qualification slice and remain unchanged.
+- **CI propagation:** `release-gate.yml` builds/verifies the frozen image via
+  `node scripts/test-runtime.js build/verify-image cs082-runtime-35.0.1-local`
+  (inventory-supplied arguments) and brings the canonical compose up with
+  `--build --wait --wait-timeout 900`; the composer job moved to PHP 8.4
+  (`composer.json` requires `~8.4.0`); `test.yml` runs the phpunit matrix on
+  PHP 8.4 and keeps the distribution-image smoke matrix on `nextcloud:35-apache`
+  + `mariadb:11.8.6` (authoritative frozen-artifact gates stay in
+  release-gate); `full-matrix.yml` uses the same promoted bring-up;
+  `runtime-check.yml` is unchanged (read-only weekly/manual, never deploys).
+  `scripts/run-tests.sh` consumes the promoted compose file unchanged.
+- **Quality gates (2026-10-06):** full Jest `npm test -- --runInBand`
+  **1442/1442 in 112 suites**; `npm run lint` 0; `npm run stylelint` clean;
+  `npm run test:noise` clean; production build green; l10n exact-key coverage
+  1275; browser-runner `--self-test` green; `test:runtime:validate` valid
+  (hash `588009a2…` unchanged); docs encoding 910 files; backlog check 32
+  scoped files; `git diff --check` clean.
+- **Boundary:** the final Standard B/Full lifecycle review is the only
+  remaining item; it is operator-requested next and owns the `active/ → done/`
+  move and the TECH-RUNTIME-001 archival. Inventory status remains
+  `candidate` per the reasoning above; no deployment, no AIO installation
+  claim, no retained-baseline adoption, no support claim beyond the verified
+  matrix. No commit, index change or plan move was performed in this slice.
+
 ## Draft Validation
 
 Documentation checks passed on 2026-10-05: `npm run docs:encoding` (894 files),
@@ -955,4 +1095,46 @@ were performed. Next step: Standard A with the Q-082-01 support-scope decision.
   `226aa137aef526eaa990771c09605921a4eb3c7ae82428c40744a0ca5c98aa09`.
 - **Lifecycle:** interim only; R4/R7/R8 and final review remain required.
   Plan stays `active/`, TECH-RUNTIME-001 remains open, no backlog owner is archived,
-  no production deployment or retained-baseline adoption. One scoped review commit.
+   no production deployment or retained-baseline adoption. One scoped review commit.
+
+### Final Full Review - 2026-10-06 - `PASS-WITH-FIXES`
+
+- **Scope:** complete R1-R8 domain and manifest, earlier committed slices and the
+  uncommitted promotion. All four read-only reviewer tracks delivered findings;
+  coordinator consolidation and bounded repair rechecks closed RF-082-12..20.
+  Explicit owner remains this plan, not WP9's human-evidence work.
+- **Capture:** `master` at `a902f7f1c1cb5687d9950371b0e4151332d88b4b`, empty index,
+  no untracked files initially. Complete capture fingerprint
+  `783062002aa8740b054e411b75969ceb114e92fe85b7d69bf91fd26a9d6bcab5`;
+  component hashes and exact reviewed manifest in the dated review record.
+- **Decisions:** explicit structured approval for five functional repairs, two
+  security repairs and sanitized placeholders; separate approval for coherent
+  canonical persistence and owned synthetic reset; explicit selection of the
+  frozen runtime for the unchanged smoke profile/browser matrix after the real
+  upstream distribution image failed its PHP8.5.11 versus PHP8.4 platform gate.
+  No platform bypass, support widening or production authorization.
+- **Gates:** final Jest/noise 1466 tests in 113 suites; scoped tooling selection
+  176; actual default runner unit 1367/4870 and PG integration 603/5071, zero
+  skips; uncached PHP CS 0/412, Composer strict/platform, lint/fixer, stylelint,
+  l10n 1275, production build, browser/preservation self-tests, runtime identity
+  and live drift checks, docs/backlog/whitespace green. Supported minimum
+  Node20.19.0/npm10.8.2 used for frontend/tooling gates.
+- **Final R4 pair:** `run-29nxkD` then `run-Wy1fPg`; each 85 chromium + 164
+  serial-db + 39 scheduling-owner executions (288), all first-attempt passes,
+  zero skips/failures/flakes/interruptions/violations. Final source fingerprint
+  `9fb10bd844f6544d7ebf157274192be3e10de8eca2df36506f8dbf070e4da9cc`
+  unchanged across both passes. Earlier pairs remain historical evidence.
+- **Preservation:** added canonical config/data/30-table exact-snapshot proof for
+  recreation and down/up; earlier six-row provider and eight P1/P2/P3 proofs
+  independently inspected and inherited, not falsely described as rerun. Real
+  reporter smoke passes 6 tests with only sanitized counts published locally.
+- **Durable integration:** runtime/update/backup guidance, named-volume and
+  no-reseed instructions, exact upstream dispositions, CI runtime ownership and
+  artifact policy in permanent testing/development/deployment guidance and skill;
+  WP9 receives the final target-runtime evidence link. Forgejo execution itself
+  was not observed locally; actual default commands and workflow regressions pass.
+- **Lifecycle:** all acceptance criteria and plan-owned findings complete;
+  `active/` to `done/`, TECH-RUNTIME-001 archived, registry/indices updated.
+  RELEASE-002, CONCEPT-001 and CS-PLAN-080 human gates remain open. No production
+  deployment, AIO installation claim or retained-baseline adoption. One scoped
+  conventional review commit on the existing branch.

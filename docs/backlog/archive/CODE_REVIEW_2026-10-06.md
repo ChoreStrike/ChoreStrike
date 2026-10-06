@@ -1,5 +1,162 @@
 # Code Review - 2026-10-06
 
+## Final Full Review - CS-PLAN-082 (Repair and Verification Round)
+
+**Tier:** Full, all four read-only reviewer tracks completed; bounded repair
+rechecks requested. **Owner:** CS-PLAN-082 only; CS-PLAN-080 receives technical
+evidence, not human-gate closure. **Branch/base:** `master`,
+`a902f7f1c1cb5687d9950371b0e4151332d88b4b`. No `--no-commit` override.
+
+### Capture and Scope
+
+Index empty; no nonignored untracked files at capture. SHA-256 of the empty
+staged diff and untracked manifest:
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+Unstaged `git diff --binary --no-ext-diff` (PowerShell line output joined with LF)
+SHA-256: `eeb30692fdb363dec233060f2089bb2dd222d4eccfd931e2b42bfd468d69dcf0`.
+All tracked paths plus their `git hash-object` content hashes SHA-256:
+`cd04ada2cd4eab331123a0a0208da416fe89b694684f683d04ec4998ad320d07`.
+Combined staged/unstaged/paths/content/untracked fingerprint:
+`783062002aa8740b054e411b75969ceb114e92fe85b7d69bf91fd26a9d6bcab5`.
+The content hashes cover unchanged implementation as well as the dirty promotion
+slice; the review is not inferred from the narrow working-tree diff.
+
+Exact implementation/test/doc manifest (the owning plan's full domain, including
+earlier committed slices and the newly authorized repairs):
+
+```text
+.forgejo/workflows/runtime-check.yml
+.forgejo/workflows/release-gate.yml
+.forgejo/workflows/test.yml
+.forgejo/workflows/full-matrix.yml
+docker/test-runtime.json
+docker/Dockerfile.test
+docker/compose.test.yml
+docker/compose.test-matrix.yml
+docker/test-entrypoint.sh
+scripts/test-runtime.js
+scripts/test-runtime-stage.js
+scripts/test-runtime-preservation.ps1
+scripts/test-target.js
+scripts/run-tests.sh
+scripts/run-tests.js
+scripts/run-recovery-rehearsal.ps1
+scripts/run-e2e-gate.js
+scripts/playwright-summary-reporter.js
+tests/unit/scripts/testRuntime.spec.js
+tests/unit/scripts/testRuntimeStage.spec.js
+tests/unit/scripts/testTarget.spec.js
+tests/unit/scripts/databaseFixtures.spec.js
+tests/unit/scripts/browserGate.spec.js
+tests/unit/scripts/runtimeWorkflows.spec.js
+tests/unit/Command/TestEnvironmentProvisioningTest.php
+tests/unit/Command/RecoveryOwnershipTest.php
+tests/fixtures/provision-command.sh
+tests/integration/Db/SupportedDatabaseSchemaTest.php
+tests/recovery/fixture.php
+tests/recovery/owned-target.php
+playwright.config.ts
+tests/e2e/auth.setup.ts
+tests/e2e/fixtures/occ-runner.ts
+tests/e2e/fixtures/auth-contexts.ts
+tests/e2e/fixtures/database-fixtures.ts
+appinfo/info.xml
+composer.json
+composer.lock
+package.json
+README.md
+docs/README.md
+docs/engineering/testing.md
+docs/engineering/development.md
+docs/engineering/deployment.md
+docs/testing/release-test-plan.md
+docs/standards/guidelines/testing.md
+docs/standards/guidelines/e2e-testid-conventions.md
+docs/standards/ai/skills/docker-dev/SKILL.md
+docs/plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md
+docs/plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md
+docs/plans/README.md
+docs/backlog/backlog.md
+docs/backlog/ACTIVE_TASKS.md
+docs/backlog/archive/2026-10.md
+docs/backlog/archive/CODE_REVIEW_2026-10-06.md
+```
+
+### Findings and Decisions
+
+Four tracks: correctness/functionality, architecture/ownership, security/auth/data
+flow, performance/code quality. Consolidated findings are RF-082-12..20 in the
+owning plan; no out-of-scope backlog item was created. Initial seven major and
+one minor findings were supplemented by a major canonical persistence defect
+observed during authorized container recreation. No production app logic,
+migrations, test skips or required-scenario inventory were changed.
+
+The structured batch explicitly authorized all five functional behavior fixes,
+both security fixes, and sanitized public placeholders only. Security details
+were kept private. The follow-up decision authorized coherent canonical
+config/data/database persistence and reset of only the inventoried synthetic
+canonical installation. The removed original anonymous PostgreSQL volume was
+`bcb4a182e4c22173f80ab39ab92dfea10c041907418e5131f98ff74a511cadce`, owned by the
+`docker` compose project / `db` service. Other existing environments were not reset.
+
+A real isolated distribution-smoke experiment found `nextcloud:35-apache` uses
+PHP8.5.11, so Composer correctly rejected the approved PHP8.4 app constraint.
+The operator explicitly chose the same profile/browser matrix on the frozen
+runtime instead of expanding support or bypassing platform checks. The unshipped
+distribution setup script was archived locally, its experimental containers
+removed with qualified cleanup, and its draft target-selection issue eliminated
+with that path. Full and smoke companion uploads now use a counts-only reporter.
+
+### Verification
+
+- Pre-repair fresh Jest 1442/112 suites; unit 1367/4870; PostgreSQL integration
+  603/5048, zero skips; uncached PHP CS 0/412; Composer strict/platform gates pass.
+- Post-repair default Node runner actually provisions, awaits full health,
+  verifies the canonical runtime and executes both full suites: unit 1367/4870,
+  integration 603/5071, zero skips, on the final named-volume configuration.
+- Post-repair complete Jest/noise gate: 1466/113 suites on Node20.19.0/npm10.8.2.
+  Scoped runtime/browser/workflow regression selection: 176 passing tests.
+  Lint/fixer, stylelint, l10n 1275 keys, production build, browser-runner and
+  preservation self-tests, docs/backlog checks and whitespace checks passed.
+  Only the already approved upstream warning fixtures emit their named warnings.
+- Canonical preserved recreation **and full down/up** retain an identical config
+  hash, real synthetic data-file hash and facts hash over all 30 app tables.
+  Three named volumes stay together; preservation mode performs no reseed.
+- The actual sanitized Playwright reporter smoke passes 6 tests, zero failures,
+  skips or retries. Its output contains only status and counts.
+- Live stable discovery remains current (NC35.0.1, AIO14.2.0/NC34.0.4, no drift);
+  canonical image/runtime/provider identity passes. Inventory status remains
+  hash-coupled `candidate`, not a deployment/adoption decision.
+- Inherited, not rerun: eight post-interim P1/P2/P3 summaries all PASS with full
+  cleanup, source/target identities and preserved facts; P3 includes fresh roles,
+  full DB/file equality and corrupted-file/divergence/downgrade controls. Six
+  original NC35/NC34 provider logs end RESULT PASS. The earlier browser pair
+  remains historical and is not substituted for the post-repair pair.
+
+Final implementation/test path-and-content fingerprint (tracked source plus new
+script/spec files, excluding docs):
+`9fb10bd844f6544d7ebf157274192be3e10de8eca2df36506f8dbf070e4da9cc`.
+This fingerprint was rechecked unchanged between and after the final consecutive
+browser pair `run-29nxkD` + `run-Wy1fPg`. Each executed 85 chromium, 164 serial-db
+and 39 scheduling-owner tests (288 total), process exits 0, zero violations,
+skips/failures/flakes/interruptions/retries. The earlier pair is historical only.
+
+### Final Outcome
+
+**PASS-WITH-FIXES.** RF-082-12..20 resolved with explicit behavioral/security
+authorization, regressions and affected actual runtime/browser gates. No remaining
+plan-owned finding or unanswered question. Durable docs now cover all new rules,
+including exact upstream dispositions and sanitized artifacts. Forgejo remote
+execution was not observed; actual default provisioning/backend commands,
+workflow-structure regressions and local browser equivalents were verified.
+
+All acceptance criteria complete: CS-PLAN-082 moved `active/` to `done/`,
+TECH-RUNTIME-001 archived, registry/indices and WP9 evidence link updated.
+RELEASE-002, CONCEPT-001 and CS-PLAN-080/human evidence remain open. No production
+deployment, AIO packaging claim or retained-baseline adoption. The eligible
+package receives one scoped conventional commit on the existing `master` branch;
+private/raw evidence and the archived unshipped distribution experiment are excluded.
+
 ## Interim Standard B — Remaining Uncommitted Round (CS-PLAN-080 + CS-PLAN-082)
 
 ### Scope and Candidate

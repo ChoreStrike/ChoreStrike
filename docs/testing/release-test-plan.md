@@ -490,6 +490,10 @@ Required record:
 
 ### H-T10 Record: `cs081-recovery-e6d385fad062` (2026-10-04)
 
+> **Runtime note:** the H-T10 records below predate the 2026-10-06 CS-PLAN-082
+> canonical promotion; their NC31 / PHP 8.2 / MariaDB 10.6 runtime rows are the
+> retired canonical image, kept verbatim as dated evidence.
+
 **Result: PASS**, including teardown. Synthetic instance only; this is not a
 release sign-off, real-server validation, upgrade test or retained-baseline adoption.
 

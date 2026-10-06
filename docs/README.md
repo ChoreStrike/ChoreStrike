@@ -28,7 +28,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 
 ## Workflow, Review & Plans
 
-- [Current-stable test baseline and data preservation](plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md) - active (CS-PLAN-082, Standard A `PASS` 2026-10-05): Q-082-02 selects NC35 primary plus the named NC34 AIO row; primary fresh installations and full backend matrix verified. Remaining dependency findings, populated preservation/recovery, browser and default-promotion gates stay open; no deployment/adoption.
+- [Current-stable test baseline and data preservation](plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md) - delivered (CS-PLAN-082, final Full `PASS-WITH-FIXES` 2026-10-06): NC35/PHP8.4/PostgreSQL18.6 canonical and CI baseline, named NC34 AIO row, complete provider and populated preservation/recovery proofs, coherent canonical persistence and renewed final browser pair. TECH-RUNTIME-001 archived; no deployment/adoption.
 - [Pre-WP9 hardening and retained-data readiness](plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) - delivered preparation (CS-PLAN-081, final Full `PASS-WITH-FIXES` 2026-10-05): bounded hardening and a future retained-data boundary/recovery contract; H6-05 evidence-bound disposition accepted, H7/H-T11 explicitly user-rescoped, not passed. WP9 matrix/browser-pair/human evidence, deployment and baseline adoption remain subsequent work; later reporting contact (BUG-SEC-001) and possible GitHub move (TECH-REPO-001) stay in the [backlog](backlog/backlog.md).
 - [`backlog/ACTIVE_TASKS.md`](backlog/ACTIVE_TASKS.md) — live task coordination
 - [`backlog/README.md`](backlog/README.md) — backlog structure and update workflow
@@ -45,7 +45,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 
 ## Product and Concept Context
 
-- [WP9 cross-database verification and family evidence](plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md) - active: NC31 isolated provider matrix and consecutive browser gates passed 2026-10-05; newer target-runtime qualification is in progress in CS-PLAN-082, with the NC35 primary backend matrix verified. Voluntary comprehension/14-day evidence and final review remain open; no family trial or baseline adoption claimed.
+- [WP9 cross-database verification and family evidence](plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md) - active: NC31 isolated provider matrix and consecutive browser gates passed 2026-10-05; CS-PLAN-082 NC35 primary backend/browser qualification is complete and the canonical test baseline was promoted 2026-10-06. Voluntary comprehension/14-day evidence and final review remain open; no family trial or baseline adoption claimed.
 
 - [`concepts/product-vision.md`](concepts/product-vision.md) — product intent and positioning
 - [Family rhythm and reward clarification](plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md) - active program; WP0 delivered, [WP1 occurrence timeline](plans/done/cs-plan-072-wp1-occurrence-timeline.md) delivered, [WP2 agreements/capacity/pauses](plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) delivered (final Standard B `PASS-WITH-FIXES` 2026-09-25). Implementation history and review records: [CODE_REVIEW_2026-09-25.md](backlog/archive/CODE_REVIEW_2026-09-25.md).

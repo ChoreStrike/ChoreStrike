@@ -16,15 +16,22 @@ description: Docker test environment setup, container workflow, and debugging fo
 
 ```
 docker/compose.test.yml
-├── db (MariaDB 10.6)        — container: chorestrike-db
+├── db (PostgreSQL 18.6)     — container: chorestrike-db
 └── nextcloud-test (custom)  — container: chorestrike-test
-    ├── Dockerfile: docker/Dockerfile.test
+    ├── Dockerfile: docker/Dockerfile.test (pinned to docker/test-runtime.json)
     ├── Entrypoint: docker/test-entrypoint.sh
     ├── Seed script: docker/seed-test-data.sh
     └── App mounted at: /var/www/html/custom_apps/chorestrike
 ```
 
-The app source is **bind-mounted** into the container — code changes on the host are immediately visible inside.
+The app source is **bind-mounted** into the container — code changes on the host are immediately visible inside. The canonical runtime is the promoted CS-PLAN-082 baseline: Nextcloud 35.0.1 / PHP 8.4.25 / PostgreSQL 18.6 (was NC31 / PHP 8.2 / MariaDB 10.6, retired 2026-10-06).
+
+Canonical HTTP is published only on IPv4/IPv6 loopback. Named config, data and
+database volumes must travel together across recreation or `down`/`up`.
+Use `TEST_RUNTIME_PRESERVATION=true` for a same-build recreate without reseeding;
+ordinary disposable test provisioning deliberately seeds its selected profile.
+`node scripts/run-tests.js` provisions, verifies and runs both complete backend
+suites; it leaves the canonical stack running and never deletes volumes.
 
 ## Availability
 
@@ -63,6 +70,11 @@ docker exec -it chorestrike-test sh
 
 # Check container health
 docker inspect --format='{{.State.Health.Status}}' chorestrike-test
+
+# Runtime inventory checks (read-only; frozen inventory in docker/test-runtime.json)
+npm run test:runtime:validate    # offline inventory validation
+npm run test:runtime:check       # stable-drift check, exit 2 = update needed
+npm run test:runtime:canonical   # asserts the running canonical stack matches the inventory
 ```
 
 > **Always `exec` into the running container — never `docker compose run`.**
@@ -73,9 +85,12 @@ docker inspect --format='{{.State.Health.Status}}' chorestrike-test
 
 ## DB Profiles
 
-For isolated MariaDB/PostgreSQL/SQLite fresh-install verification, use the
+For isolated MySQL/MariaDB/PostgreSQL/SQLite fresh-install verification, use the
 standalone `docker/compose.test-matrix.yml` companion and the
 [matrix procedure](../../../../engineering/testing.md#isolated-supported-database-matrix).
+All three providers (mysql/pgsql/sqlite) are kept; the default DB images mirror
+the frozen inventory (`mariadb:11.8.6`, `postgres:18.6-alpine`), and explicit
+`WP9_*` env overrides still take precedence.
 Never merge it with the canonical compose file or reuse another run's volumes.
 Start providers sequentially (shared Composer mount); run full suites with
 `--fail-on-skipped` and keep each database exclusive to its current test job.

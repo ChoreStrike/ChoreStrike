@@ -14,14 +14,13 @@ docs/plans/
 
 ## Lifecycle
 
-Active: [CS-PLAN-082: Current-Stable Test Baseline and Data Preservation](active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
-(activated 2026-10-05 via Standard A `PASS`, zero findings; Q-082-02 resolved:
-NC35 primary plus the named NC34 AIO row; primary fresh staging and full backend
-matrix verified, remaining preservation/browser/promotion gates and upstream
-dependency findings open; TECH-RUNTIME-001 owner).
+Delivered: [CS-PLAN-082: Current-Stable Test Baseline and Data Preservation](done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+(final Full `PASS-WITH-FIXES` 2026-10-06; NC35/PHP8.4 primary plus named NC34 AIO
+row, all-provider backend and preservation/recovery proofs, canonical/CI promotion,
+post-repair browser pair and durable guidance complete; TECH-RUNTIME-001 archived).
 [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
-has passed its NC31 technical gates; target-runtime qualification, authorized
-human evidence and final review remain separate pending work.
+has passed its NC31 technical gates and receives the qualified target-runtime
+evidence; authorized human evidence and its final review remain open.
 [CS-PLAN-081: Pre-WP9 Hardening and Retained-Data Readiness](done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
 is delivered (final Full `PASS-WITH-FIXES` 2026-10-05): H1-H6 complete, H6-05
 explicit evidence-bound disposition accepted; H7/H-T11 user-rescoped for
@@ -33,10 +32,9 @@ claimed by this preparation delivery.
 
 Current active plans: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
 (parent), its WP9 child [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
-(activated 2026-10-03, Standard A `PASS`), and the independent runtime
-qualification owner [CS-PLAN-082](active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
-(activated 2026-10-05, Standard A `PASS`; TECH-RUNTIME-001). The independent CS-PLAN-081 preparation
-slice is complete in `done/`; it does not close those parent/child plans.
+(activated 2026-10-03, Standard A `PASS`). Independent runtime qualification
+[CS-PLAN-082](done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+and CS-PLAN-081 preparation are complete in `done/`; neither closes those parent/child plans.
 Core product direction was approved through 24 explicit answers on 2026-09-17.
 The same day, 47 additional C1-C5 answers (6/11/9/8/13) resolved the presented
 product questions. The technical draft added on 2026-09-18 specifies persistence,

@@ -460,6 +460,15 @@ function main() {
 	}
 	console.log(`[gate] discovery ok: ${REQUIRED_SPECS.length} required specs owned by exactly one pool each.`)
 
+	const { configuredTarget, assertTestTarget } = require('./test-target')
+	const target = configuredTarget()
+	if (target.container === 'chorestrike-test') {
+		const { readInventory, selectRuntime, verifyCanonical } = require('./test-runtime')
+		verifyCanonical(selectRuntime(readInventory()))
+	} else {
+		assertTestTarget(target.url)
+	}
+
 	let exitCode = 0
 	fs.mkdirSync(REPORT_DIR, { recursive: true })
 	const runDir = fs.mkdtempSync(path.join(REPORT_DIR, 'run-'))

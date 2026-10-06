@@ -8,9 +8,10 @@ If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md
 
 ### Prerequisites
 
-- **PHP 8.4.x** for the CS-PLAN-082 qualification candidate, with extensions: `pdo`, `mbstring`, `curl`, `gd`, `zip`
+- **PHP 8.4.x**, with extensions: `pdo`, `mbstring`, `curl`, `gd`, `zip`
 - **Node.js 20.19.0 or later within 20.x** and **npm 10.8.2 or later within 10.x**
-- **Nextcloud 35 primary / 34 AIO compatibility row** for candidate qualification; final support/default promotion remains gated by CS-PLAN-082
+- **Nextcloud 35 primary / 34 AIO compatibility row** — the promoted current-stable
+  baseline (declared in `appinfo/info.xml`; CS-PLAN-082, promoted 2026-10-06)
 - **Composer** for PHP dependencies
 - **Git** for version control
 
@@ -18,11 +19,22 @@ If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md
 
 For isolated testing, use the included Docker setup:
 
-The historical canonical commands below still select NC31 until the verified
-candidate is promoted. They are not a fresh-install target for the new candidate
-metadata. For current-stable qualification, use the inventory-driven
-[staging commands](testing.md#current-stable-candidate-staging) instead; do not
-recreate/reset existing NC31 or WP9 installations to test NC35.
+The canonical commands below provision the pinned current-stable test runtime
+directly: **Nextcloud 35.0.1 (internal 35.0.1.1) / PHP 8.4.25 / PostgreSQL
+18.6**, frozen in `docker/test-runtime.json` and built by
+`docker/Dockerfile.test`. The old disposable NC31/MariaDB canonical stack was
+retired on 2026-10-06 after recording evidence; the container names
+`chorestrike-test`/`chorestrike-db` and port 8080 are reused by the new stack.
+Runtime discovery and verification entry points:
+
+```bash
+# Offline inventory validation
+npm run test:runtime:validate
+# Weekly stable-drift check (exit 2 = update needed); wired in .forgejo/workflows/runtime-check.yml
+npm run test:runtime:check
+# Asserts the running canonical chorestrike-test/chorestrike-db stack matches the frozen inventory
+npm run test:runtime:canonical
+```
 
 1. **Start the test environment**
    ```bash

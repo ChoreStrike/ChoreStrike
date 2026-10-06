@@ -5,8 +5,8 @@
 
 ## Prerequisites
 
-- Nextcloud 27–31
-- PHP 8.2–8.3
+- Nextcloud 34–35
+- PHP 8.4
 - MariaDB/MySQL/PostgreSQL/SQLite
 - Docker & Docker Compose (for the test environment)
 - Node.js 20.19.0 or later within 20.x and npm 10.8.2 or later within 10.x
@@ -91,10 +91,16 @@ both defaults — individual users can switch to any available language.
 ## First Retained Baseline
 
 **The future contract is approved; no baseline has been adopted yet.**
-Disposable development installs remain fresh-install-only. After WP9's technical
+Disposable development installs remain fresh-install-only; the canonical test
+environment is the promoted current-stable qualified artifact (Nextcloud
+35.0.1 / PHP 8.4.25 / PostgreSQL 18.6; CS-PLAN-082 promotion 2026-10-06, frozen
+in `docker/test-runtime.json`) and stays disposable. After WP9's technical
 provider matrix and consecutive browser gates, the operator explicitly adopts
-one candidate before first real retained data. Voluntary family-use evidence
-can follow; it is not a circular prerequisite to adopting the technical baseline.
+one qualified baseline before first real retained data. Voluntary family-use
+evidence can follow; it is not a circular prerequisite to adopting the
+technical baseline. AIO packaging/deployment and retained-baseline adoption
+remain separate, explicitly approved steps — the test-runtime promotion is not
+a deployment completion.
 
 The adoption record must include:
 
@@ -124,6 +130,11 @@ npm test
 ```
 
 ### Integration & E2E Tests (Docker)
+
+The compose defaults provision the pinned current-stable test runtime
+(Nextcloud 35.0.1 / PHP 8.4.25 / PostgreSQL 18.6, CS-PLAN-082); see
+[testing.md](testing.md#runtime-baseline-cs-plan-082). The environment remains
+disposable (fresh installs only).
 
 ```bash
 # Start the test environment

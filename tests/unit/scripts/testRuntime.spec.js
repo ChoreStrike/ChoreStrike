@@ -1,7 +1,7 @@
 /** @jest-environment node */
 const fs = require('node:fs')
 const path = require('node:path')
-const { validateInventory, validateRuntimeShape, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, execute, UPSTREAM_BUILD_CONDITIONS } = require('../../../scripts/test-runtime')
+const { validateInventory, validateRuntimeShape, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, UPSTREAM_BUILD_CONDITIONS } = require('../../../scripts/test-runtime')
 
 const frozen = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../docker/test-runtime.json'), 'utf8'))
 const copy = () => JSON.parse(JSON.stringify(frozen))
@@ -366,5 +366,134 @@ describe('upstream build condition dispositions', () => {
 			status: 'frozen-image-identity-match',
 			upstreamLimitations: [`${aio.nextcloud.ref}-3rdparty-lcobucci/clock-~8.1.0 || ~8.2.0-php-${aio.php.version}`],
 		})
+	})
+})
+
+describe('promoted canonical default stack (R7)', () => {
+	const root = path.resolve(__dirname, '../../..')
+	const selection = selectRuntime(frozen)
+
+	it('pins Dockerfile.test defaults to the inventory primary selection so plain builds stay frozen', () => {
+		const dockerfile = fs.readFileSync(path.join(root, 'docker/Dockerfile.test'), 'utf8')
+		const defaults = Object.fromEntries([...dockerfile.matchAll(/^ARG ([A-Z0-9_]+)=([^\n]+)$/gm)].map(([, name, value]) => [name, value]))
+		expect(defaults).toMatchObject({
+			PHP_IMAGE: `${frozen.php.image}@${frozen.php.digest}`,
+			COMPOSER_IMAGE: `${frozen.composer.image}@${frozen.composer.digest}`,
+			NEXTCLOUD_REF: frozen.nextcloud.ref,
+			NEXTCLOUD_REVISION: frozen.nextcloud.revision,
+			NOTIFICATIONS_REF: frozen.notifications.ref,
+			NOTIFICATIONS_REVISION: frozen.notifications.revision,
+			VIEWER_REF: frozen.viewer.ref,
+			VIEWER_REVISION: frozen.viewer.revision,
+			PCOV_VERSION: frozen.tools.pcov,
+			APCU_VERSION: frozen.tools.apcu,
+			RUNTIME_INVENTORY_SHA256: selectionHash(selection),
+		})
+		expect(defaults.PHP_IMAGE).not.toContain('latest')
+	})
+
+	it('points compose.test.yml at the pinned PostgreSQL reference with frozen runtime identity', () => {
+		const compose = fs.readFileSync(path.join(root, 'docker/compose.test.yml'), 'utf8')
+		expect(compose).toContain(`image: ${frozen.databases.pgsql.image}@${frozen.databases.pgsql.digest}`)
+		expect(compose).toContain(`PGDATA=/var/lib/postgresql/${frozen.databases.pgsql.version.split('.')[0]}/docker`)
+		expect(compose).toContain('- canonical-db:/var/lib/postgresql')
+		expect(compose).not.toContain('mariadb:10.6')
+		expect(compose).toContain('- TEST_DB_TYPE=pgsql')
+		expect(compose).toContain(`- TEST_RUNTIME_INTERNAL_VERSION=${frozen.nextcloud.internalVersion}`)
+		expect(compose).toContain(`- TEST_RUNTIME_PHP_VERSION=${frozen.php.version}`)
+		expect(compose).toContain('- DB_PORT=5432')
+	})
+
+	it('mirrors the frozen pins in the standalone matrix defaults while keeping explicit overrides', () => {
+		const compose = fs.readFileSync(path.join(root, 'docker/compose.test-matrix.yml'), 'utf8')
+		expect(compose).toContain(`\${WP9_MYSQL_IMAGE:-${frozen.databases.mysql.image}@${frozen.databases.mysql.digest}}`)
+		expect(compose).toContain(`\${WP9_PGSQL_IMAGE:-${frozen.databases.pgsql.image}@${frozen.databases.pgsql.digest}}`)
+		expect(compose).toContain('WP9_PGDATA:-/var/lib/postgresql/18/docker')
+		expect(compose).toContain('WP9_PGSQL_VOLUME_TARGET:-/var/lib/postgresql}')
+		expect(compose).toContain('${WP9_TEST_IMAGE:-chorestrike-wp9-test:local}')
+	})
+
+	it('propagates the frozen build into the CI gates that consume the inventory', () => {
+		const releaseGate = fs.readFileSync(path.join(root, '.forgejo/workflows/release-gate.yml'), 'utf8')
+		expect(releaseGate).toContain('node scripts/test-runtime.js build cs082-runtime-35.0.1-local')
+		expect(releaseGate).toContain('node scripts/test-runtime.js verify-image cs082-runtime-35.0.1-local')
+		expect(releaseGate).toContain('docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900')
+		expect(releaseGate).toContain("php-version: '8.4'")
+		const test = fs.readFileSync(path.join(root, '.forgejo/workflows/test.yml'), 'utf8')
+		expect(test).toContain("php: ['8.4']")
+		expect(test).toContain('docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900')
+		expect(test).toContain('npm run test:runtime:canonical')
+		const fullMatrix = fs.readFileSync(path.join(root, '.forgejo/workflows/full-matrix.yml'), 'utf8')
+		expect(fullMatrix).toContain('docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900')
+	})
+
+	function canonicalFixtures(overrides = {}) {
+		const actual = {
+			nextcloud: frozen.nextcloud.version, internalVersion: frozen.nextcloud.internalVersion,
+			revision: frozen.nextcloud.revision, notificationsRevision: frozen.notifications.revision, viewerRevision: frozen.viewer.revision,
+			php: frozen.php.version, sqlite: frozen.databases.sqlite.version,
+			pcov: frozen.tools.pcov, apcu: frozen.tools.apcu,
+			configuredVersion: frozen.nextcloud.internalVersion, provider: 'pgsql',
+			databaseVersion: `${frozen.databases.pgsql.version} (Debian ...)`,
+			databaseTargetMatches: true, enabled: true,
+		}
+		const containers = {
+			'chorestrike-test': {
+				Config: {
+					Labels: { 'org.chorestrike.test-runtime.inventory': selectionHash(selection) },
+					Env: [`TEST_RUNTIME_INTERNAL_VERSION=${frozen.nextcloud.internalVersion}`, `TEST_RUNTIME_PHP_VERSION=${frozen.php.version}`],
+				},
+				State: { Running: true },
+				Mounts: ['config', 'data'].map(directory => ({ Type: 'volume', Destination: `/var/www/html/${directory}` })),
+			},
+			'chorestrike-db': {
+				Config: {
+					Image: `${frozen.databases.pgsql.image}@${frozen.databases.pgsql.digest}`,
+					Env: [`PGDATA=/var/lib/postgresql/${frozen.databases.pgsql.version.split('.')[0]}/docker`],
+				},
+				State: { Running: true },
+				Mounts: [{ Type: 'volume', Destination: '/var/lib/postgresql' }],
+			},
+		}
+		for (const [name, mutate] of Object.entries(overrides.containers || {})) mutate(containers[name])
+		const run = jest.fn((command, args) => {
+			if (args[0] === 'inspect') return JSON.stringify([containers[args[1]]])
+			if (args[0] === 'exec') return JSON.stringify({ ...actual, ...(overrides.actual || {}) })
+			throw new Error(`unexpected probe: ${args.join(' ')}`)
+		})
+		return { run, preflight: jest.fn(), containers }
+	}
+
+	it('accepts the promoted canonical stack only after the read-only preflight', () => {
+		const { run, preflight } = canonicalFixtures()
+		expect(verifyCanonical(selection, run, preflight)).toMatchObject({ status: 'canonical-runtime-match', qualification: 'candidate',
+			provider: 'pgsql', configuredVersion: frozen.nextcloud.internalVersion })
+		expect(preflight).toHaveBeenCalledWith('http://localhost:8080', { NEXTCLOUD_URL: 'http://localhost:8080', NEXTCLOUD_CONTAINER: 'chorestrike-test' })
+		expect(preflight.mock.invocationCallOrder[0]).toBeLessThan(run.mock.invocationCallOrder[0])
+	})
+
+	it.each([
+		['stale image label', { containers: { 'chorestrike-test': c => { c.Config.Labels['org.chorestrike.test-runtime.inventory'] = `sha256:${'9'.repeat(64)}` } } }, 'Canonical container frozen-runtime mismatch'],
+		['missing config/data persistence', { containers: { 'chorestrike-test': c => { c.Mounts = [] } } }, 'Canonical config/data persistence mismatch'],
+		['missing frozen runtime env', { containers: { 'chorestrike-test': c => { c.Config.Env = [] } } }, 'Canonical container frozen-runtime mismatch'],
+		['stopped canonical container', { containers: { 'chorestrike-test': c => { c.State.Running = false } } }, 'Canonical container frozen-runtime mismatch'],
+		['mutable database image', { containers: { 'chorestrike-db': c => { c.Config.Image = 'postgres:18-alpine' } } }, 'Canonical PostgreSQL image/PGDATA/volume mismatch'],
+		['PG16-style data directory', { containers: { 'chorestrike-db': c => { c.Config.Env = ['PGDATA=/var/lib/postgresql/data']; c.Mounts = [{ Type: 'volume', Destination: '/var/lib/postgresql/data' }] } } }, 'Canonical PostgreSQL image/PGDATA/volume mismatch'],
+		['database volume outside the owned root', { containers: { 'chorestrike-db': c => { c.Mounts = [{ Type: 'volume', Destination: '/var/lib/postgresql/data' }] } } }, 'Canonical PostgreSQL image/PGDATA/volume mismatch'],
+		['stopped database container', { containers: { 'chorestrike-db': c => { c.State.Running = false } } }, 'Canonical PostgreSQL image/PGDATA/volume mismatch'],
+		['wrong installed provider', { actual: { provider: 'mysql' } }, 'Canonical installed app/provider/database version mismatch'],
+		['older installed provider version', { actual: { databaseVersion: '16.4' } }, 'Canonical installed app/provider/database version mismatch'],
+		['app not enabled', { actual: { enabled: false } }, 'Canonical installed app/provider/database version mismatch'],
+		['older installed runtime', { actual: { internalVersion: '35.0.0.10' } }, 'Installed runtime mismatch: internalVersion'],
+	])('refuses the canonical stack on %s before any mutation', (_, overrides, message) => {
+		const { run, preflight } = canonicalFixtures(overrides)
+		expect(() => verifyCanonical(selection, run, preflight)).toThrow(message)
+	})
+
+	it('refuses before probing anything when the preflight fails', () => {
+		const { run, preflight } = canonicalFixtures()
+		preflight.mockImplementation(() => { throw new Error('Test target preflight failed; no seed/reset/job was executed') })
+		expect(() => verifyCanonical(selection, run, preflight)).toThrow('Test target preflight failed')
+		expect(run).not.toHaveBeenCalled()
 	})
 })
