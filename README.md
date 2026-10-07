@@ -1,13 +1,14 @@
 # ChoreStrike
 
-**The household app that keeps everyone moving.** | **Die Haushalts-App, die alle in Bewegung hält.**
+**Shared chores, fair plans, less reminding.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ChoreStrike is a gamified household task management app for Nextcloud.
 Families and flatmates organize their home in floors and rooms, plan fair
-weekly schedules, and keep each other motivated with coins, streaks, medals
-and a friendly leaderboard — all inside their own Nextcloud.
+weekly schedules, and recognize agreed work with effort-based Coins, rhythm
+medals and an opt-in ranking, all inside their own Nextcloud. Planning comes
+first; using the reward catalog and games is optional.
 
 ## Concept
 
@@ -18,14 +19,14 @@ and a friendly leaderboard — all inside their own Nextcloud.
   (who does what on which day) against each member's availability and daily
   energy budget, adjusts it, and applies it once — nothing changes until
   the plan is applied.
-- **Motivation as the goal**: Completing tasks earns coins and contribution;
-  current streaks measure available-day activity, not yet fulfillment of a
-  self-chosen chore rhythm. Rooms and the household show cleanliness/health.
-- **Built for families**: Children get the child role with their own
-  simplified "My Day" view and an owner-set planning/due-today limit. This
-  does not yet bound the whole overdue catch-up workload.
+- **Recognition without pressure**: Coins reflect actual effort and shared
+  work; rhythm progress reflects on-time agreed chores. Free days and recognized
+  pauses are neutral, not missed opportunities to earn a streak.
+- **Built for families**: Adults and children start in "My Day", with agreed
+  tasks, next appointments and honest catch-up dates. Capacity checks, child
+  limits, pauses and owner-recorded handovers support realistic planning.
 
-## Key Features (shipped)
+## Key Features (Implemented)
 
 - **Household structure** — floors and rooms, room cleanliness tracking,
   house health, per-house timezone for correct day boundaries.
@@ -35,22 +36,24 @@ and a friendly leaderboard — all inside their own Nextcloud.
 - **Weekly planner** — availability and energy budgets per member,
   preview → adjust → apply scheduling, capacity and fairness aware, with
   child daily-task limits.
-- **Execution** — a My Day view for every member, one-tap completion with
-  recorded-state undo, overdue claiming with takeover protection. Cross-event
-  undo correctness remains a [review follow-up](docs/plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md).
-- **Gamification** — coins, contribution scores, streaks and streak
-  freezes, combo and teamwork bonuses, weekly medals, titles,
-  Snake score/reward integration and a boost shop. Reachable 2048/Memory
-  prototypes do not support score persistence or rewards.
+- **Execution** - My Day for every member, checklists, shared-work allocation,
+  targeted undo/correction that preserves later work, and agreed catch-up and
+  handover flows.
+- **Recognition** - effort-only Coins with exact shared accounting, planned-day
+  rhythm streaks, medals, titles, a household weekly goal and voluntary ranking.
+- **Family rewards** - an optional owner-managed catalog, child requests with
+  approval, adult requests, reserved balances, fulfillment and cancellation.
+  Existing requests remain accessible when catalog browsing is hidden.
+- **Optional arcade** - Snake scores only, with no Coins, boosts or planning advantage.
 - **Insights** — activity feed, member fairness table, and overcapacity
   warnings before a plan is applied.
-- **Notifications** — Nextcloud notifications for relevant household
-  events (e.g. streak-saving claims).
+- **Quiet defaults** - reminders, sound and celebrations are off by default.
+  Personal preferences control a bounded daily Nextcloud digest and quiet hours;
+  reduced-motion settings override animations.
 - **Two languages** — English and German, fully translated.
 
-Not (yet) implemented: rhythm-based streaks, notification preferences/quiet
-hours, real-world reward redemption, task approval workflows, external-task
-sync or standalone mobile apps. The
+Not implemented: general chore-approval workflows, external-task/CalDAV sync,
+standalone mobile apps or additional arcade games. The
 [product vision](docs/concepts/product-vision.md) distinguishes the family-first
 target from today's implementation. The app is free and MIT-licensed; running
 a Nextcloud instance may still have hosting costs.
@@ -63,32 +66,31 @@ a Nextcloud instance may still have hosting costs.
 - PHP 8.4.x
 - MySQL/MariaDB, PostgreSQL or SQLite (via Nextcloud's database layer)
 
-ChoreStrike is a **pre-release app (0.1.x)**: fresh installs are supported;
-upgrade paths between versions are not provided yet.
+ChoreStrike is a **pre-release app (0.1.x)**. Disposable development installs
+are fresh-install-only. Before keeping real household data, explicitly adopt
+a verified [retained baseline](docs/engineering/deployment.md#first-retained-baseline);
+there is no upgrade promise for earlier disposable installations.
 
 These bounds are the promoted current-stable baseline (CS-PLAN-082,
 2026-10-06), not a pending qualification candidate: fresh NC35 installations
 and the complete backend suite are verified on all three providers, and the
 canonical Docker test environment provisions this pinned runtime by default
 (Nextcloud 35.0.1 / PHP 8.4.25 / PostgreSQL 18.6; frozen inventory in
-`docker/test-runtime.json`). NC34 dependency findings and AIO deployment,
-production rollout and retained-baseline adoption remain separate, explicitly
-approved steps — see
-[CS-PLAN-082](docs/plans/active/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
+`docker/test-runtime.json`). AIO deployment, production rollout and
+retained-baseline adoption remain separate, explicitly approved steps; see
+[CS-PLAN-082](docs/plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
 and the [runtime baseline note](docs/engineering/testing.md#runtime-baseline-cs-plan-082).
 
 ### Manual installation
 
-```bash
-cd /path/to/nextcloud/apps
-git clone https://github.com/ChoreStrike/ChoreStrike.git chorestrike
-cd chorestrike
-composer install --no-dev
-npm ci
-npm run build
-```
+Use the [deployment guide](docs/engineering/deployment.md) to select a verified
+commit, build a production artifact, back up the target and enable the app.
+Build tooling requires PHP 8.4, Composer, Node.js 20.19+ within 20.x and
+npm 10.8.2+ within 10.x. The guide's generic commands need adaptation to the
+actual AIO/container setup; they are not a complete AIO runbook.
 
-Then enable **ChoreStrike** under **Apps** in your Nextcloud.
+Do not deploy the Docker test environment or run its seeds/resets on a family
+instance. Installation and retained-baseline adoption are separate decisions.
 
 ## Getting Started
 
@@ -112,7 +114,7 @@ Then enable **ChoreStrike** under **Apps** in your Nextcloud.
 - **Platform**: Nextcloud app (invite-only membership, role model, no
   external services — all data stays in your Nextcloud)
 - **Frontend**: Vue 3 (Composition API) + Pinia
-- **Backend**: PHP 8.4.x candidate (Nextcloud App API, service architecture)
+- **Backend**: PHP 8.4.x (Nextcloud app framework, service architecture)
 - **Database**: SQLite / MySQL / PostgreSQL (via Nextcloud DB abstraction)
 - **Testing**: PHPUnit (backend), Jest (frontend), Playwright (E2E)
 
@@ -120,8 +122,11 @@ Then enable **ChoreStrike** under **Apps** in your Nextcloud.
 
 **v0.1.1 — early pre-release.** The core household workflow (setup wizard,
 invitations, tasks, scheduling, My Day, completion/undo, gamification,
-insights) is implemented and covered by an automated release gate. The app
-is not yet published in the Nextcloud App Store; roadmap targets are
+insights and optional rewards) is implemented. Cross-database verification and
+repeated browser gates have passed; voluntary family comprehension, 14-day
+everyday-use evidence and the final WP9 review remain open. Automated passes
+are not a production-deployment or family-acceptance sign-off. The app is not
+yet published in the Nextcloud App Store; roadmap targets are
 described in [roadmap.md](docs/release/roadmap.md).
 
 ## Contributing

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Current Pre-Release Summary (2026-10-07)
+
+- Delivered family-rhythm WP0-WP8: occurrence-based planning, agreements and
+  pauses, exact shared-work accounting, targeted corrections, rhythm recognition,
+  quiet opt-in daily digests, all-role My Day and the optional reward catalog
+  with requests, reservations, approval, fulfillment and cancellation.
+- Retired personal/teamwork multipliers, streak freezes, the boost shop and
+  game-earned Coins. Snake is scores-only; recognition uses the rhythm series
+  rather than selectable title packs.
+- Qualified Nextcloud 35/PHP 8.4 with a named Nextcloud 34 AIO compatibility row;
+  real MariaDB, PostgreSQL and SQLite gates and consecutive browser gates pass.
+- Family comprehension/14-day evidence, actual deployment and explicit retained-
+  baseline adoption remain pending. No stable release or upgrade support for
+  earlier disposable development installations is claimed.
+
+### Earlier Unreleased Development Notes
+
+The notes below preserve intermediate development history; mechanics and paths
+may have been superseded by the current summary. The installed app version
+remains `0.1.1`; older headings are not a claim of current stable-release status.
+
 ### Added
 - **Role Title System** (CS-PLAN-006): server-authoritative progression overlay on top of the existing gamification stats. Three title packs × three tiers (9 titles), each themed around a different progression signal — Home Helpers (`contributionScore`), Team Energy (`longestStreak`), Cozy Home (`coins`). New `lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php`; `selected_title_pack` + `unlocked_titles` columns on `chorestrike_house_users` (`Version1025`, with a `postSchemaChange` backfill so existing users aren't re-celebrated on deploy); configurable thresholds via `RewardConfigService` (`titles_enabled` flag + 9 `title_threshold_*` keys); `TitleBadge`/`TitlePicker` Vue components on Settings + Leaderboard; title-unlock celebration + Nextcloud notification; `GET /users/{id}/titles` + `PUT /users/{id}/titles/select` API. Closes `ROLE-TITLE-SYSTEM-001` / `GAMIFICATION-CONCEPTS-001`.
 

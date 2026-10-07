@@ -296,7 +296,9 @@ WP9 is planned as [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-fam
 WP9 owner): isolated MariaDB/PostgreSQL/SQLite verification,
 two consecutive combined browser gates and voluntary adult/child comprehension
 plus 14-day everyday-use evidence. Its NC31 technical matrix and consecutive
-browser pair passed on 2026-10-05; human evidence remains unauthorized/uncollected.
+browser pair passed on 2026-10-05; human coordination, guardian consent and
+minimum voluntary participation were confirmed on 2026-10-07, but comprehension
+and 14-day evidence remain uncollected.
 The separate TECH-RUNTIME-001 qualification is delivered by CS-PLAN-082
 (final Full `PASS-WITH-FIXES` 2026-10-06, archived); the old-runtime passes remain
 historical and do not replace its NC35/NC34 evidence or authorize retained use.
@@ -382,12 +384,18 @@ effort, not a CS-PLAN-081 prerequisite or authorization to transfer anything.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
 **Status**: Backlog · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: unassigned · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request)
+**Owning**: unassigned · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
 real-world `v0.8.x` alpha usage; (optional) private tester onboarding for
 `v0.9.x` beta with structured feedback intake.
+
+The generic deployment guide still needs a verified production package manifest,
+target-specific AIO commands and a concrete adoption record before independent
+execution. Resolve these in the deployment work, not by guessing container paths
+or treating the disposable test stack as a family installation. The 2026-10-07
+entry-document refresh adds safety boundaries, not a completed AIO runbook.
 
 Exact blocking gates:
 - [x] CS-PLAN-058 WP1..WP9 exit gates, each passed with its Standard B review

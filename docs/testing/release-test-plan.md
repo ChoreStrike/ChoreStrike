@@ -333,8 +333,10 @@ everyone; the owner-only Member Availability grid renders for owners only
 
 The canonical [family acceptance protocol](../concepts/ui-use-cases.md#family-acceptance-protocol)
 defines this gate. The following is its execution record, not a competing
-protocol and not evidence of participation. **Current status: not authorized,
-not started; HUMAN-01 and HUMAN-02 remain open.** Automation cannot replace it.
+protocol and not evidence of participation. **Current status (2026-10-07):
+coordination authorized, guardian consent and minimum adult/child voluntary
+participation confirmed; execution not started. HUMAN-01 and HUMAN-02 remain open.**
+Automation cannot replace them; authorization does not start the 14-day clock.
 
 Start only after technical readiness and separately authorized coordination:
 voluntary adult participation, guardian consent for the child and agreed
@@ -350,13 +352,42 @@ raw quotations, recordings or raw notes. Necessary sensitive material requires
 separate authorization and belongs only in gitignored `/private/`, within the
 agreed retention limits. Do not add telemetry or engagement/pressure scores.
 
-**Session Record Template (Unfilled)**
+**Start Checklist**
+
+- [x] Coordination authorized and guardian consent confirmed (2026-10-07);
+  record confirmation status only, not personal details or raw statements.
+- [x] Minimum adult/child voluntary participation confirmed (2026-10-07).
+- [ ] Before execution, explain that participants may decline any scenario or
+  stop without a penalty; confirm that they understand the withdrawal option.
+- [ ] Record the actual trial candidate/runtime and applicable technical evidence.
+  CS-PLAN-082 supplies renewed runtime qualification, not proof of what is
+  installed for this trial. Do not run fixture resets against a trial instance.
+- [ ] Confirm the trial environment and data boundary. Use synthetic cases for
+  comprehension; before real retained data, separately complete the operator's
+  [baseline adoption](../engineering/deployment.md#first-retained-baseline).
+  The disposable canonical test stack is not a retained family instance.
+- [ ] Confirm the participants understand that only sanitized role-level results
+  are retained in public Git history. This round collects no sensitive raw notes,
+  screenshots, recordings or telemetry; any later private collection needs
+  separately agreed scope and retention limits.
+
+The operator presents the scenarios below without demonstrating controls or
+giving navigation hints, records the actual outcome for each role, and supplies
+only sanitized results. Check each participant independently; where several
+participants share a role, retain separate anonymous outcomes within that role
+without names, accounts or persistent participant identifiers. Requested help
+is valid evidence, not a failure to hide.
+After comprehension checks, record the actual everyday-use start date; do not
+backdate it to the authorization date or prefill a successful end date.
+
+**Session Record (Authorization Recorded; Execution Pending)**
 
 | Field | Recorded evidence |
 |---|---|
-| Candidate | Revision plus uncommitted runtime/fixture identity; image/runtime versions |
-| Technical readiness | Full DB matrix and consecutive browser-pair evidence references |
-| Authorization / consent | Not confirmed; record confirmation status only after coordination |
+| Candidate | Not selected for the trial; record revision plus uncommitted runtime/fixture identity and actual image/runtime versions |
+| Technical readiness | Historical WP9 gates and renewed [CS-PLAN-082 evidence](../plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md); applicability to the actual trial candidate pending |
+| Authorization / guardian consent | Confirmed 2026-10-07; repository results must be anonymous |
+| Voluntary participation | Adult / child minimum confirmed 2026-10-07; no operating success inferred |
 | Roles | Adult / child, anonymous; no participant identifiers |
 | Comprehension date | Not performed |
 | Voluntary observation period | Not started; actual start/end dates and 14 observed calendar days |
@@ -379,6 +410,40 @@ changed, and sanitized comprehension/pressure/organizing findings or `none
 reported`. Do not publish a household activity diary or task counts. Conclude
 with anonymous role-level feedback on organizing effort, perceived pressure,
 optional-feature choices and comprehension; no numeric engagement target.
+
+**Observation Record (Unstarted)**
+
+`Pending` is not `none reported` and does not count as an observed day. Fill
+actual dates and availability honestly, including gaps or withdrawal; elapsed
+time alone does not establish 14 days of evidence. Reference the session
+candidate unless it changes. Do not copy task histories into this table.
+
+| Day | Actual date | Voluntary observation available | Candidate change | Sanitized findings |
+|---|---|---|---|---|
+| 1 | Pending | Pending | Pending | Pending |
+| 2 | Pending | Pending | Pending | Pending |
+| 3 | Pending | Pending | Pending | Pending |
+| 4 | Pending | Pending | Pending | Pending |
+| 5 | Pending | Pending | Pending | Pending |
+| 6 | Pending | Pending | Pending | Pending |
+| 7 | Pending | Pending | Pending | Pending |
+| 8 | Pending | Pending | Pending | Pending |
+| 9 | Pending | Pending | Pending | Pending |
+| 10 | Pending | Pending | Pending | Pending |
+| 11 | Pending | Pending | Pending | Pending |
+| 12 | Pending | Pending | Pending | Pending |
+| 13 | Pending | Pending | Pending | Pending |
+| 14 | Pending | Pending | Pending | Pending |
+
+**Final Evaluation (Pending)**
+
+| Anonymous role | Organizing effort feedback | Perceived pressure feedback | Optional-feature choices / comprehension |
+|---|---|---|---|
+| Adult | Not collected | Not collected | Not collected |
+| Child | Not collected | Not collected | Not collected |
+
+Final candidate applicability, finding resolution/retests and HUMAN-01/HUMAN-02
+verdicts remain pending. Do not turn missing feedback into a passing result.
 
 Comprehension failures or pressure problems become plan-owned findings in
 [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md).

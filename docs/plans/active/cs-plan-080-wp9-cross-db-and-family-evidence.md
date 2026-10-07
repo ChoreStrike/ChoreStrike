@@ -1,6 +1,6 @@
 # CS-PLAN-080: WP9 Cross-Database Verification and Family Evidence
 
-> **Status:** Active (technical gates passed 2026-10-05; human evidence not authorized/collected; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
+> **Status:** Active (technical gates passed; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
 > **Effort:** M, 4-6 engineering days plus 14 calendar days of voluntary everyday use; revise after the portability inventory if repairs exceed this allowance
 > **Priority:** P1
 > **Depends on:** WP0-WP8 delivered; Standard A before implementation; separately authorized, available consenting family testers before human evidence
@@ -381,7 +381,7 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 - [x] **RF-080-02 major:** all remaining 19 guards / 21 skipped cases in the seven worker files are ported. The original scenarios execute through independent installed Nextcloud connections, production mapper locks (SQLite first-write serialization), typed timestamps/Booleans and bounded query-attempt barriers with normal worker-exit checks. Two real-service pairs additionally hold before their actual outer commit to prevent sequential false positives; the focused independent recheck found no remaining issue in that delta. Final full integration: 593 tests on each provider, zero skips/errors/failures. This closes race portability, not RF-080-10 fixture isolation or whole WP9 acceptance.
 - [x] **RF-080-03 major:** `AssigneeRepresentationTest`, `FamilyRhythmSchemaTest` and `SupportedDatabaseSchemaTest` pass on all three installed providers. Nextcloud schema abstractions verify all 30 migrated tables, applied versions, columns/defaults/indexes, provider/on-disk SQLite identity, repeated family seeding and wallet/quiet defaults. PostgreSQL Boolean metadata is accepted in its actual typed representation, not cast to a MySQL string.
 - [x] **RF-080-04 major:** all six remaining browser proofs now join the earlier catch-up/handover and DE/EN evidence: neutral empty day; actual fixed/relative explanations and different successors after late work; fresh same-context logout/login with live prior undo and isolated wallet/preferences; opted-in free/paused reminder suppression with a working-member control; Tab/Enter/Space checklist and completion execution; reduced-motion suppression with a live opted-in animation control. Five new scenarios and the strengthened existing child-checklist scenario pass the complete affected specs (34 scenarios plus three setup tests) and full gate `run-7H4sub`. Discovery pins every identity without removing scenarios or lowering minimums. Independent focused checking identified two weak evidence setups, both fixed and rechecked; no remaining finding in that delta. This closes automated T12 gaps, never HUMAN-01/02 or whole WP9.
-- [ ] **RF-080-05 block:** HUMAN-01/HUMAN-02: the sanitized execution template is prepared in release test plan section 12.1 and links the canonical C5j protocol. No separately authorized participation/consent or 14-day trial evidence exists; leave WP9/G3/CONCEPT-001 open until actual authorized evidence or explicit user rescoping.
+- [ ] **RF-080-05 block:** HUMAN-01/HUMAN-02: coordination, guardian consent and minimum adult/child voluntary participation confirmed on 2026-10-07; only anonymous results may enter the repository. Release test plan section 12.1 records the decision, start checklist and unfilled execution record. Actual candidate/environment, comprehension results and 14-day evidence remain unconfirmed. Leave WP9/G3/CONCEPT-001 open until actual evidence or explicit user rescoping; authorization alone is not a test pass or retained-baseline adoption.
 - [x] **RF-080-06 major:** `RoomTaskChecklistProgressMapper` now protects the speculative insert with a savepoint and re-locks the winner before flipping. The reproduced PostgreSQL SQLSTATE 25P02 is fixed; real two-process/outer commit/outer rollback regressions pass on all three providers. Unit cases preserve the original non-unique DB exception and unexpected non-DB exception without further SQL. The focused independent read-only check's test-gap finding was fixed in-round; no production finding remained in its inspected scope.
 - [x] **RF-080-07 major:** `TaskMapper`, `DigestSlotMapper`, `CompletedTaskMapper` now use typed Boolean EXISTS comparisons, nullable timestamp checks and deterministic list-only activity ordering. All affected real-DB authorization, digest, activity and erasure tests pass on every provider; no predicate or visibility rule was weakened.
 - [x] **RF-080-08 major:** the optional closed-week seed places the still-uncompleted/unpaused overdue example before the synthetic completed week on every weekday. `TestDataSeedTest` pins this separation. `CompletedTask::occurrenceDue` declares the schema's date type, and raw timeline/rhythm fixture queries use half-open day boundaries because Nextcloud 31 binds mutable dates as datetime parameters on SQLite. The 48-test seed/timeline/rhythm/digest subset passes on every provider; entity metadata is pinned by unit regression.
@@ -395,6 +395,40 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 - [x] **RF-080-13 major:** full interim browser gate `run-KYwj6N` exposed premature task creation and six owner-scheduling readiness failures. The bounded `TaskManager.vue` initialization guard and loaded-content scheduling assertions retain their regression tests and unchanged timeouts; the discarded store-wide journal remains absent. Complete rerun `run-L6t9N6` passes all three pools with zero skips/failures/flakes, closing the previously incomplete `run-bCrhwS` handoff. The later full `run-7H4sub` also passes with the expanded T12 inventory. Earlier failed/incomplete attempts remain historical evidence, not qualifying passes.
 
 ## Implementation Evidence
+
+### Human Evidence Coordination (2026-10-07)
+
+- The user authorized coordination, confirmed guardian consent and subsequently
+  confirmed voluntary participation meeting the adult/child minimum. Public
+  evidence records only that confirmation and anonymous adult/child outcomes;
+  no personal relationship details, identifiers or raw statements are copied.
+- The existing [execution record](../../testing/release-test-plan.md#121-family-acceptance-evidence-c5j--wp9)
+  now separates confirmed authorization/participation from pending
+  candidate/environment selection, comprehension and actual observation dates.
+  No comprehension result or observation day has been supplied or inferred.
+- The operator conducts the neutral scenarios and supplies sanitized outcomes.
+  No automated recruitment, recording, telemetry or sensitive-note collection
+  is authorized or started. Private raw-note collection would need separately
+  agreed collection/retention limits; none is needed for the prepared record.
+- Technical evidence remains the recorded WP9 matrix/browser gates plus the
+  renewed runtime qualification in CS-PLAN-082, not a new execution claim.
+  Record the actual trial build/runtime and assess its applicability before use.
+  Real retained data requires the separate [baseline adoption](../../engineering/deployment.md#first-retained-baseline)
+  decision; the disposable canonical test stack is not a retained family instance.
+- Next: confirm the actual trial environment and remaining start checks, perform
+  HUMAN-01, then record the actual 14-day HUMAN-02 period and anonymous final
+  feedback. Keep RF-080-05, parent whole-item closure and final review open.
+  No deployment, adoption or lifecycle transition is performed here. The user
+  separately requested a documentation commit/push and a bounded public-entry
+  description refresh; this does not authorize a forge migration or trial start.
+- Validation: `npm run docs:encoding`, `npm run backlog:check` and
+  `git diff --check` pass for this documentation-only slice. Before the requested
+  publication, `npm run lint:fix` passes without source changes on Node 20.19.0;
+  `npm test -- --runInBand` passes 113 suites / 1466 tests. The printed Composer
+  stale-lock messages are explicit mocked upstream-warning cases in
+  `testRuntime.spec.js`, not a new installation failure. No runtime, test,
+  fixture or build inputs changed; backend/browser gates were not rerun and no
+  renewed runtime qualification or human pass is claimed.
 
 ### Baseline Refresh (2026-10-05)
 

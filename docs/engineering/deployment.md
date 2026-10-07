@@ -3,10 +3,18 @@
 > Single source of truth for installing, deploying, and rolling back ChoreStrike.
 > Consolidates the former root `DEPLOYMENT.md` and `docs/DEPLOYMENT_CHECKLIST.md`.
 
+> **Pre-release scope:** the commands below are generic examples, not a complete
+> AIO runbook. Select and record a verified commit, build a clean production
+> artifact, and resolve the actual container/user/persistent app path in the
+> server's operations project before executing them. Installation is not
+> retained-baseline adoption. Do not run test compose stacks, seeds or resets
+> against a real household instance.
+
 ## Prerequisites
 
 - Nextcloud 34–35
 - PHP 8.4
+- Composer in a PHP 8.4 build environment
 - MariaDB/MySQL/PostgreSQL/SQLite
 - Docker & Docker Compose (for the test environment)
 - Node.js 20.19.0 or later within 20.x and npm 10.8.2 or later within 10.x
@@ -148,10 +156,16 @@ See [`testing.md`](testing.md) for the full test strategy.
 
 ## Production Deployment
 
+Build from the selected commit in an isolated build directory. Deploy only the
+required app runtime files, built assets and production PHP dependencies; never
+copy a whole developer workspace with `.git`, `private/`, `archive/`,
+`node_modules`, test reports, dumps or local credentials. Record the artifact's
+SHA-256. The copy example below assumes an already prepared clean package.
+
 ### 1. Build the production bundle
 
 ```bash
-npm ci
+npm ci --engine-strict --legacy-peer-deps=false
 npm run build
 composer install --no-dev
 ```
@@ -200,8 +214,10 @@ sign-off record. **A release tag requires a completed record.**
 - [ ] Can create/view rooms
 - [ ] Can create/view tasks
 - [ ] Task completion works
-- [ ] Gamification features work (coins, combos)
+- [ ] Effort-based Coins, rhythm progress and optional rewards behave as expected
 - [ ] User management works (invite, remove)
+- [ ] Nextcloud cron runs regularly (normally every five minutes); timeline and optional digest processing are operational, not dependent on page visits
+- [ ] Test mode remains disabled; no test accounts, seeds or fixture resets were introduced
 - [ ] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`)
 
 ### Performance
@@ -244,5 +260,5 @@ future upgrades, WP9 portability or baseline adoption.
 ## Support
 
 - Issues: https://github.com/ChoreStrike/ChoreStrike/issues
-- Documentation: see the [`docs/`](.) folder
+- Documentation: see the [documentation map](../README.md)
 - Changelog: see [`CHANGELOG.md`](../../CHANGELOG.md)

@@ -1,6 +1,6 @@
 # ChoreStrike Development Roadmap
 
-## Current Capability Snapshot (2026-09, CS-PLAN-058/068 truth slice)
+## Current Capability Snapshot (2026-10-07, WP0-WP8 Delivered)
 
 The phases below are **historical delivery records** — several early phase
 descriptions contain ambitions that were later removed or never shipped (the
@@ -13,10 +13,16 @@ notes in each phase mark the corrections). What the app can do **today**
   per-task visibility; owner weekly planning (availability + energy budgets,
   preview → adjust → apply) with child daily-task limits; My Day execution
   with one-tap completion and exact undo; overdue claiming with takeover
-  protection; coins/contribution/streak rewards with combo and teamwork
-  bonuses, streak freezes, weekly medals and titles; arcade minigames with
-  an authoritative-catalog boost shop; insights (activity feed, member
-  fairness, overcapacity warnings); Nextcloud notifications; EN+DE.
+  protection; exact shared-effort Coins, planned-day rhythm, neutral dated
+  pauses, rhythm medals/titles and a household weekly goal; optional family
+  reward catalog with requests, approval and fulfillment; opt-in ranking;
+  Snake scores without Coins or boosts; insights (activity feed, member
+  fairness, overcapacity warnings); quiet defaults and one opt-in daily
+  Nextcloud digest; EN+DE.
+- **Verification**: WP9 cross-provider and consecutive browser gates passed;
+  CS-PLAN-082 qualified the NC35/PHP8.4 baseline and named NC34 AIO row.
+  Family comprehension/14-day evidence and final WP9 review remain open.
+  Deployment and retained-baseline adoption are separate operator decisions.
 - **Not implemented** (do not assume otherwise): task approval workflows,
   external-calendar sync, Home-Assistant/webhook integrations, mobile apps,
   AI task suggestions, App Store publication.
@@ -470,7 +476,7 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ---
 
-**Last Updated**: 2026-09-13
+**Last Updated**: 2026-10-07
 **Current Phase**: Phase 8 (Release Preparation) — In Progress on `v0.1.x`
 pre-release; see the Current Capability Snapshot at the top for what is
 shipped versus still open.

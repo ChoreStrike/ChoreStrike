@@ -24,9 +24,10 @@ not a feature-parity commitment.
 - Free, open-source Nextcloud app (MIT), without a paid planning tier.
   This is not a promise of free Nextcloud hosting or a standalone mobile app.
 
-These are the requested product goals. The exact streak, reminder and reward
-rules are not all implemented or decided; see the current-state distinction
-below and the [clarification plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md).
+The agreed planning, rhythm, reminder and reward contracts are implemented
+through WP0-WP8. WP9 technical gates have passed; family comprehension and
+everyday-use evidence remain open. See the current-state distinction below and
+the [program plan](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Design Principles
 
@@ -65,23 +66,22 @@ below and the [clarification plan](../plans/new/cs-plan-070-family-rhythm-and-re
 
 | Area | Current behavior | Remaining product gap |
 |---|---|---|
-| Planning | Recurrence, fixed weekdays, flex windows, availability, energy budgets, owner preview/apply, Calendar and My Day exist. | Clarify strict dates versus preferences, exceptions and recovery; do not rebuild the planner. |
-| Family use | Nextcloud-account membership, owner/member/child roles, child My Day and planning limits exist. | Account provisioning/shared devices, optional work versus obligations, and child-safe overload recovery need explicit guidance. |
-| Streaks | Available-day activity streaks with freezes. | Not yet a streak of on-time planned obligations; being available does not mean a chore is due. |
-| Rewards | Coins, separate contribution, personal combos, medals, titles, weekly goal and Snake rewards/boosts exist. | Approved effort-only, shared-allocation and optional catalog model is not implemented; technical integration remains. |
-| Calm UX | Completion feedback and server notifications exist. | No comprehensive quiet mode, notification preferences or ranking opt-out; current UI still contains pressure-oriented language. |
+| Planning | Fixed and interval recurrence, concrete occurrences, agreed amendments/handovers, pauses and whole-day capacity checks support owner preview/apply, Calendar and My Day. | Validate comprehension and organizing effort in everyday family use. |
+| Family use | Nextcloud-account membership, owner/member/child roles, all-role My Day, child limits and shared-device state reset are implemented. | Real-instance onboarding and voluntary adult/child evidence remain pending. |
+| Streaks | On-time planned-day fulfillment with neutral free days and recognized dated pauses; catch-up does not rewrite a miss as on-time work. | Confirm that participants understand pending, confirmed and neutral states. |
+| Rewards | Effort-only Coins, exact work shares, rhythm medals/titles, weekly goal and optional catalog/request lifecycle are implemented. Snake has scores only, without Coins or boosts. | Validate optional-feature comprehension and perceived pressure through WP9. |
+| Calm UX | Quiet completion feedback, personal opt-ins/quiet hours, at most one daily digest and voluntary ranking; reduced motion overrides animation. | Demonstrate unaided opt-out and collect anonymous family feedback. |
 | Completion | ChoreStrike UI and authenticated app API. | No Tasks/CalDAV client synchronization; the former stub was removed. |
 
 ## Existing Baseline, Not a New Reward Decision
 
-- Coins is the existing currency name. Contribution and spendable coins are
-  separate; the existing personal multiplier is not an automatic parent/child
-  role multiplier.
+- Coins is the currency name. Contribution and spendable Coins are separate;
+  actual work shares determine credit, without personal or role multipliers.
 - On 2026-09-17 the user chose planned-day streaks, neutral dated pauses instead
   of freezes, effort-based Coins without multipliers, retained recognition and an
   optional family reward catalog. The arcade is separate from the family economy.
-  These are approved target rules, not implemented behavior; see the concept's
-  dated decision sections and the clarification plan for remaining details.
+  These contracts are now implemented; see the concept's dated decisions and
+  the program plan for delivery evidence and the remaining human gate.
 - The approved default experience is planning-first: tasks/next appointments,
   small positive progress feedback, optional arcade/catalog, sound initially off
   and controllable animation. Rankings are initially off and include only
@@ -89,10 +89,10 @@ below and the [clarification plan](../plans/new/cs-plan-070-family-rhythm-and-re
   activity history and private-task visibility remain separate contracts.
 - C5 now specifies My Day entry for all ages, quiet feedback without default
   sound/confetti, personal cross-device opt-ins, one optional shared daily digest,
-  prospective voluntary plan-fulfillment rankings and a future comprehension test
+  prospective voluntary plan-fulfillment rankings and a required comprehension test
   plus two-week family trial. See the [UI/evidence contract](ui-use-cases.md#approved-calm-ux-and-evidence-c5-2026-09-17)
   and [delivery contract](task-model-and-sync.md#approved-delivery-contract-c5-2026-09-17).
-  These decisions do not claim runtime completion or already collected evidence.
+  Technical delivery does not establish comprehension or everyday-use evidence.
 - [Gamification and rewards](gamification-and-rewards.md) separates current
   mechanics from proposed options. [Task model](task-model-and-sync.md) and
   [energy and balancing](energy-and-balancing.md) describe the existing foundation.

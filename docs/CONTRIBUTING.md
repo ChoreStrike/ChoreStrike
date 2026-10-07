@@ -5,7 +5,7 @@ Thank you for your interest in contributing to ChoreStrike! This document provid
 ## 🌟 How to Contribute
 
 ### Reporting Bugs
-- Use the GitHub issue tracker
+- Use the [repository issue tracker](https://github.com/ChoreStrike/ChoreStrike/issues) for non-sensitive bugs; follow [SECURITY.md](SECURITY.md) for security reports
 - Describe the bug clearly with steps to reproduce
 - Include your Nextcloud version and browser information
 - Add screenshots if applicable
@@ -22,14 +22,14 @@ Thank you for your interest in contributing to ChoreStrike! This document provid
 3. **Follow the coding standards** — see [`../AGENTS.md`](../AGENTS.md) and [`standards/guidelines/`](standards/guidelines/) for the full conventions, security, i18n, and testing rules
 4. **Test your changes**
 5. **Lint/format** (`npm run lint:fix`)
-6. **Commit with clear messages** (`git commit -m 'Add amazing feature'`) — conventional commits preferred
+6. **Commit with clear messages** (`git commit -m 'feat: add amazing feature'`) - use conventional commits
 7. **Push to your fork** (`git push origin feature/amazing-feature`)
 8. **Open a Pull Request**
 
 ## 📝 Coding Standards
 
 ### PHP (Backend)
-- Follow [PSR-12](https://www.php-fig.org/psr/psr-12/) coding standard
+- Follow the Nextcloud coding standard enforced by `composer cs:check`
 - Use type hints where possible
 - Document all public methods with PHPDoc
 - Keep methods focused and small
