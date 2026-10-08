@@ -73,7 +73,7 @@ const REQUIRED_SPECS = [
 	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'members-owner.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 3 },
 	{ file: 'family-membership-hardening.spec.ts', project: 'chromium-serial-db', scenarios: ['invite enforces the approved 60/300 boundary', 'remove enforces the approved 60/300 boundary', 'updaterole enforces the approved 60/300 boundary'], minTests: 3 },
-	{ file: 'settings.spec.ts', project: 'chromium-serial-db', scenarios: ['reset keeps setup, structure, tasks and history'], minTests: 8 },
+	{ file: 'settings.spec.ts', project: 'chromium-serial-db', scenarios: ['reset keeps setup, structure, tasks and history', 'owner timezone and populated floor controls remain reachable at 390px', 'owner timezone and populated floor controls remain reachable at 1440px'], minTests: 10 },
 	{ file: 'room-management.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'dashboard.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'task-checklist-and-features.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },

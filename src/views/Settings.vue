@@ -1004,6 +1004,7 @@ export default {
 .input-group {
 	display: flex;
 	gap: 0.75rem;
+	flex-wrap: wrap;
 }
 
 /* The ranking checkbox aligns with the text inputs it shares the
@@ -1017,7 +1018,9 @@ export default {
 }
 
 .text-input {
-	flex: 1;
+	flex: 1 1 12rem;
+	min-width: 0;
+	max-width: 100%;
 	padding: 0.75rem;
 	border: 1px solid var(--color-border);
 	border-radius: 6px;
@@ -1149,6 +1152,8 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.75rem;
 }
 
 .floor-info {
@@ -1214,6 +1219,7 @@ export default {
 .floor-actions {
 	display: flex;
 	gap: 0.5rem;
+	flex-wrap: wrap;
 }
 
 .icon-button {

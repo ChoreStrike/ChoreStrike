@@ -189,12 +189,29 @@ class TestEnvironmentProvisioningTest extends TestCase {
 		return $this->runEntrypoint($settings, ['--validate-only']);
 	}
 
+	public function testValidateOnly_InheritedPreservationFlags_DoesNotChangeFixtureMode(): void {
+		$keys = ['TEST_RUNTIME_PRESERVATION', 'TEST_RUNTIME_UPGRADE_FROM'];
+		$original = array_combine($keys, array_map('getenv', $keys));
+		try {
+			putenv('TEST_RUNTIME_PRESERVATION=true');
+			putenv('TEST_RUNTIME_UPGRADE_FROM=35.0.0.10');
+			[$exit, $output] = $this->validate([]);
+			self::assertSame(0, $exit, $output);
+			self::assertStringContainsString('driver validated: mysql', $output);
+		} finally {
+			foreach ($original as $key => $value) {
+				putenv($value === false ? $key : $key . '=' . $value);
+			}
+		}
+	}
+
 	private function runEntrypoint(array $settings, array $arguments): array {
 		$environment = array_merge(getenv(), [
 			'TEST_DB_TYPE' => 'mysql', 'TEST_DB_PROFILE' => 'family',
 			'DB_HOST' => 'unused', 'DB_PORT' => '3306', 'DB_NAME' => 'nextcloud',
 			'DB_USER' => 'nextcloud', 'DB_PASS' => 'synthetic-test-only',
 			'TEST_RUNTIME_INTERNAL_VERSION' => '', 'TEST_RUNTIME_PHP_VERSION' => '',
+			'TEST_RUNTIME_PRESERVATION' => 'false', 'TEST_RUNTIME_UPGRADE_FROM' => '',
 		], $settings);
 		$process = proc_open(['/bin/bash', dirname(__DIR__, 3) . '/docker/test-entrypoint.sh', ...$arguments],
 			[0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $environment);

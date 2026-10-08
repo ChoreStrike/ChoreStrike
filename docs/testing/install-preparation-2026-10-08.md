@@ -1,11 +1,19 @@
 # Installation Candidate Qualification (2026-10-08)
 
-Status: scoped app-source/package qualification complete, with the explicitly
-retained dependency and native core-platform limitations below. This is not a
+Status: the owner-layout/map-free follow-up was qualified on a fingerprinted
+working tree based on `6a5c6e75b00bbb02e899a2a86a531cfba7c38beb`, before its
+source commit. Commit/push were separately authorized on 2026-10-08; source
+publication does not rebuild or publish the local binary archive.
+Use the [follow-up artifact and evidence](#owner-layout-follow-up), not the
+original archive below. The original mobile smoke did not require the owner
+controls; it did not cover the subsequently reproduced overflow. The explicitly
+retained dependency and native core-platform limitations still apply. This is not a
 deployment, production security clearance, release sign-off or retained-baseline
 adoption. WP9 comprehension and 14-day everyday-use evidence remain open.
 
 ## Source And Artifact Identity
+
+This section records the original qualification, not the follow-up build.
 
 - Starting branch: `master`, clean at `69af07f653c46383482c211f5cd70f600fbe9322`.
 - Compared with `d49d2db51a5b1c2373ed480450271b01edb7eb29`, the starting commit
@@ -185,12 +193,14 @@ final-source runs listed above form the renewed passing pairs.
 
 ## Packaging Handoff
 
-Use the exact hashed archive above; verify its digest before any later transfer
-or installation. The archive allowlist is `appinfo`, `lib`, `templates`, `l10n`,
-`img`, complete matching `js` output, licence, Composer manifest/lock and the
-generated production autoloader. It excludes `node_modules`, tests, private
-evidence, Docker tooling and stale/empty CSS. Keep lazy chunks and licence files
-with the main bundle.
+The original archive above is historical and is superseded by the separately
+hashed [map-free follow-up](#owner-layout-follow-up). The runtime allowlist is
+`appinfo`, `lib`, `templates`, `l10n`, `img`, matching JavaScript bundles and lazy
+chunks with their licence notices, licence, Composer manifest/lock and generated
+production autoloader. Exclude source maps (`*.map`), `node_modules`, tests,
+private evidence, Docker tooling and stale/empty CSS. The original archive
+included 21 source maps and therefore did not meet this corrected package
+contract; it is retained unchanged as historical evidence.
 
 The archive was extracted and bound read-only into each owned test app after
 the full pairs, retaining those projects' config/data/database volumes and
@@ -206,3 +216,94 @@ repack must be explicitly requalified and identified, never substituted silently
 Target-specific native Nextcloud checks, AIO packaging/runbook verification,
 operator deployment decisions and any eventual retained-baseline adoption
 remain subsequent work. No server connection, installation or adoption occurred.
+
+## Owner Layout Follow-Up
+
+### Correction And Coverage
+
+The operations feedback reproduced owner-only Settings overflow at 390x844 on
+the original runtime bytes. The new regression also fails against that original
+archive at 390px while its 1440px case passes. The earlier default-account asset
+smokes remain valid for their narrower role coverage, not proof of owner layout.
+
+`Settings.vue` now wraps input groups, floor header rows and floor actions;
+inputs/selects have a shrinkable, bounded width. Controls are neither hidden nor
+clipped. No UI string, authorization, business logic, schema or dependency changed.
+`settings.spec.ts` uses the real seeded house owner with populated floors and
+rooms, positively asserts the owner section and all five floor actions, checks
+actual container/control bounds at 390x844 and 1440x900, saves and reloads the
+timezone, restores it, and opens/cancels the floor deletion confirmation. Both
+cases are mandatory in the browser gate and its exact scenario inventory.
+
+Two test-only defects exposed during verification were repaired rather than
+suppressed. Provisioning fixtures now isolate inherited preservation/update
+environment flags, with a regression for a preserved parent environment. The
+due-date visibility integration test compares the persisted UTC instant in the
+house timezone, explicitly covers UTC and Europe/Berlin, and restores the shared
+house's original timezone in `finally`. No production persistence behavior changed.
+
+### Follow-Up Identity
+
+- Base commit: `6a5c6e75b00bbb02e899a2a86a531cfba7c38beb`; qualification preceded
+  the separately authorized source commit/push. This is not a clean-HEAD rebuild
+  or a published binary release.
+- Final source manifest: 757 files; SHA-256
+  `12da779ce0f0990f1a682d5e0524907249d63917c96ca8949b4d09ecc5c34f9c`.
+- Webpack 5.105.2 build hash: `991c004a7776f382ef39`; zero warnings/errors.
+- Runtime archive: `chorestrike-0.1.1-owner-layout-20261008-runtime-v2.tar.gz`.
+- Archive SHA-256:
+  `14ab05a4e73a89d85921c810656b5c91e818d9b7bcdb2dd17e710e64516dec75`.
+- Package: 229 files, including exactly the 29 matching emitted JavaScript/
+  licence assets; no source maps. Sorted compact JSON file/hash manifest SHA-256:
+  `46a8700fc51b15f680d77478783c89e28cde752ae1ed470efdabc0df0f37957e`.
+- Archive owner/group 0; files 0644, directories 0755. Extracted file hashes
+  match the package manifest; source, archive and extracted bytes were rechecked
+  after both package smokes. Earlier rejected packaging attempts were not
+  substituted for this named `v2` archive.
+
+### Follow-Up Verification
+
+| Check | Result |
+|---|---|
+| Node20.19.0/npm10.8.2 production build | Pass, with unchanged dependency lock |
+| Jest via `npm run test:noise` | 114 suites / 1,468 tests pass |
+| ESLint, Stylelint, l10n consistency | Pass; no changed strings |
+| Documentation encoding, backlog ownership and diff whitespace | Pass |
+| PHP CS for both changed test files | Pass without cache |
+| Browser selection/failure self-test and real inventory discovery | Pass; both owner-width cases required |
+| NC34 backend unit / PostgreSQL integration | 1,368 / 604 tests pass, `--fail-on-skipped` |
+| NC35 backend unit / PostgreSQL integration | 1,368 / 604 tests pass, `--fail-on-skipped` |
+| NC34 full browser gate | `run-9h8HNm`: 292 first-attempt executions, zero skips/failures/flakes |
+| NC35 full browser gate | `run-B3oUKu`: 292 first-attempt executions, zero skips/failures/flakes |
+| Production Composer install, app platform check and production-only autoloader | Pass on PHP8.4.25 in a network-disabled package builder |
+| Read-only extracted archive, explicit owner with populated floor | Pass on NC34 and NC35, each at 390px and 1440px |
+
+Each browser run comprises 87 Chromium, 166 serial-DB and 39 scheduling-owner
+executions, including setup, with one worker, zero retries and `--forbid-only`.
+This follow-up ran **one full gate per runtime**, not a new consecutive pair.
+The original paired evidence remains tied to its earlier candidate. The last
+source adjustment was test-only timezone cleanup, not app/browser code; both
+complete integration suites were rerun afterwards against the final fingerprint.
+
+The final package smokes use Chromium 145.0.7632.6 / Playwright 1.58.2, navigate
+from My Day to Settings, check global/scoped styles, and compare all five fetched
+app JavaScript responses byte-for-byte by SHA-256 with the extracted package.
+There are no console/page/resource/CSP errors. At 390px on both runtimes,
+`#app-content-vue` measures client/scroll width **390/390**, and Settings
+**358/358**. The timezone save button ends at **150.3125px** and the first
+floor's delete button at **285.5px**, inside their cards and viewport.
+
+These are owned synthetic PostgreSQL environments, with explicit family-profile
+preparation and test mode enabled; the follow-up does **not** claim a new
+test-mode-disabled first-install rehearsal, AIO installation or new MySQL/SQLite
+matrix. Only the existing two qualification projects were reused; their volumes
+were preserved across mount recreation and their app data was seeded only by
+the explicit test fixtures/preparation. Both now retain the new archive mounted
+read-only. Raw reports, screenshots and manifests remain local/private.
+
+The initial red checks (original 390px overflow, inherited fixture environment,
+UTC-date assertion and incomplete new scenario inventory) are diagnostic evidence,
+not passing runs. Local package-probe syntax/path mistakes and rejected archive
+permissions were corrected separately, not counted as application failures.
+Dependency deferrals, upstream platform limitations, operator installation
+approval, recovery disposition and retained-baseline adoption remain separate.

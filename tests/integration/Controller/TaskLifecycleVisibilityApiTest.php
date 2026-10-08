@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -150,18 +151,33 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 
 	/**
 	 * UpdateDueDate_AdminOnlyTask_ByOwner_Returns200
+	 * @dataProvider houseTimezones
 	 */
-	public function testUpdateDueDate_AdminOnlyTask_ByOwner_Returns200(): void {
-		$controller = $this->getController(RoomTaskController::class, 'lcv_owner');
+	public function testUpdateDueDate_AdminOnlyTask_ByOwner_Returns200(string $timezone): void {
+		$mapper = \OC::$server->get(HouseMapper::class);
+		$house = $mapper->find($this->houseId);
+		$originalTimezone = $house->getTimezone();
+		try {
+			$house->setTimezone($timezone);
+			$mapper->update($house);
+			$controller = $this->getController(RoomTaskController::class, 'lcv_owner');
+			$response = $controller->updateDueDate($this->adminOnlyRoomTaskId, '+3 days');
 
-		$response = $controller->updateDueDate($this->adminOnlyRoomTaskId, '+3 days');
+			self::assertSame(200, $response->getStatus());
+			self::assertTrue($response->getData()['success']);
+			self::assertSame(
+				(new \DateTime('+3 days'))->setTimezone(new \DateTimeZone($timezone))->format('Y-m-d'),
+				(new \DateTime((string)$this->fetchNextDue($this->adminOnlyRoomTaskId), new \DateTimeZone('UTC')))
+					->setTimezone(new \DateTimeZone($timezone))->format('Y-m-d')
+			);
+		} finally {
+			$house->setTimezone($originalTimezone);
+			$mapper->update($house);
+		}
+	}
 
-		self::assertSame(200, $response->getStatus());
-		self::assertTrue($response->getData()['success']);
-		self::assertSame(
-			(new \DateTime('+3 days'))->format('Y-m-d'),
-			substr((string)$this->fetchNextDue($this->adminOnlyRoomTaskId), 0, 10)
-		);
+	public static function houseTimezones(): array {
+		return [['UTC'], ['Europe/Berlin']];
 	}
 
 	/**

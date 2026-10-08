@@ -44,6 +44,60 @@ test.describe('Settings', () => {
 		await expect(page.locator('[data-testid="settings-title"]')).toContainText('Settings')
 	})
 
+	for (const width of [390, 1440]) {
+		test(`Owner timezone and populated floor controls remain reachable at ${width}px`, async ({ page }) => {
+			await page.setViewportSize({ width, height: width === 390 ? 844 : 900 })
+			await page.goto('/apps/chorestrike/')
+			await expect(page.getByTestId('today-view')).toBeVisible()
+			if (width < 768) await page.getByRole('button', { name: /Open navigation/i }).click()
+			await page.getByTestId('nav-settings').click()
+			await expect(page.getByTestId('house-section')).toBeVisible()
+			if (width < 768) await page.getByRole('button', { name: /Close navigation/i }).click()
+
+			const floor = page.getByTestId('floors-list').locator('.floor-item').first()
+			await expect(floor).toBeVisible()
+			await expect(floor.locator('.room-count')).toContainText(/[1-9]\d* rooms/)
+			const actions = floor.locator('.floor-actions button')
+			await expect(actions).toHaveCount(5)
+			const timezone = page.getByTestId('house-timezone-select')
+			const originalZone = await timezone.inputValue()
+			const changedZone = originalZone === 'Europe/Berlin' ? 'UTC' : 'Europe/Berlin'
+			await timezone.selectOption(changedZone)
+			await expect(page.getByTestId('save-house-timezone')).toBeEnabled()
+
+			for (const control of [timezone, page.getByTestId('save-house-timezone'), ...await actions.all()]) {
+				await expect(control).toBeVisible()
+				await control.scrollIntoViewIfNeeded()
+				await expect.poll(() => control.evaluate(element => {
+					const bounds = element.getBoundingClientRect()
+					const content = element.closest('.setting-card')!.getBoundingClientRect()
+					return bounds.width > 0 && bounds.left >= Math.max(0, content.left)
+						&& bounds.right <= Math.min(window.innerWidth, content.right)
+				})).toBe(true)
+			}
+			for (const container of [page.locator('#app-content-vue'), page.getByTestId('settings-view'), floor]) {
+				await expect.poll(() => container.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+			}
+
+			const saved = page.waitForResponse(response => response.url().endsWith(`${API}/house`) && response.request().method() === 'PUT')
+			await page.getByTestId('save-house-timezone').click()
+			expect((await saved).ok()).toBe(true)
+			await expect(page.getByTestId('save-house-timezone')).toBeDisabled()
+			await page.reload()
+			await expect(timezone).toHaveValue(changedZone)
+			await timezone.selectOption(originalZone)
+			const restored = page.waitForResponse(response => response.url().endsWith(`${API}/house`) && response.request().method() === 'PUT')
+			await page.getByTestId('save-house-timezone').click()
+			expect((await restored).ok()).toBe(true)
+			await expect(page.getByTestId('save-house-timezone')).toBeDisabled()
+			// Reach the far-right destructive action without deleting seeded facts.
+			await floor.getByTitle('Delete floor', { exact: true }).click()
+			await expect(page.getByTestId('confirm-dialog')).toBeVisible()
+			await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+			await expect(floor).toBeVisible()
+		})
+	}
+
 	test('House name input is displayed and interactive', async ({ page }) => {
 		await expect(page.locator('[data-testid="house-name-input"]')).toBeVisible()
 

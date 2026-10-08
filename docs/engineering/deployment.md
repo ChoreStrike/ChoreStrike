@@ -40,8 +40,10 @@ npm run build
 The app uses the shared webpack `style-loader` contract. Global CSS and Vue
 scoped styles are injected by the main JavaScript bundle and its lazy chunks;
 there is no generated `css/chorestrike-main.css` to register or package.
-Ship the complete matching `js/` output, including lazy chunks, from a clean
-build. Never add an empty CSS placeholder or copy a stale workspace stylesheet.
+Ship the matching runtime `js/` bundles, all lazy chunks and licence notices
+from a clean build, but exclude source maps (`*.map`) from the runtime package.
+Keep maps in private build evidence, not the deployed app. Never add an empty
+CSS placeholder or copy a stale workspace stylesheet.
 Webpack's timestamp-based cache busting means a later rebuild is a different
 artifact: hash and test the exact package that will be handed to operations.
 

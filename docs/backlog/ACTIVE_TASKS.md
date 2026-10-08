@@ -16,7 +16,7 @@
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
 
-- **Installation-preparation app qualification** (2026-10-08): JS-injected CSS contract and responsive fields repaired; compatible dependency updates, renewed NC34/NC35 browser pairs (290 each), backend/frontend gates and immutable production-archive smoke pass; bounded remaining tooling findings stay in RELEASE-002 and the native NC34 third-party platform condition stays explicit. Source commit/push separately authorized after qualification; no deployment/adoption or human-gate closure. [Evidence and artifact identity](../testing/install-preparation-2026-10-08.md).
+- **Installation handoff / owner-layout correction** (2026-10-08): owner timezone/floor overflow repaired with mandatory 390px/1440px populated-owner regressions; NC34/NC35 full gates pass (292 each), backend 1,368/604 per row, Jest/lint/build and read-only map-free archive smokes pass. Earlier qualification remains historical; source commit/push separately authorized after qualification, with no production installation/adoption or human-gate closure. [Evidence and artifact identity](../testing/install-preparation-2026-10-08.md#owner-layout-follow-up).
 
 - **CS-PLAN-082 delivered** (2026-10-06): final Full `PASS-WITH-FIXES`, RF-082-01..20 resolved; frozen NC35/PHP8.4/PG18 canonical/CI baseline with named NC34 row, provider and P1/P2/P3 proofs, coherent canonical persistence, repaired runners/CI/safety and post-repair browser pair `run-29nxkD` + `run-Wy1fPg` (288 each, zero skips/failures/flakes); TECH-RUNTIME-001 archived, no deployment/adoption. [Plan](../plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md) · [Review](archive/CODE_REVIEW_2026-10-06.md).
 

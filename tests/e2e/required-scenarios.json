@@ -90,6 +90,8 @@
     "settings.spec.ts > Settings > Floors list or empty state is displayed",
     "settings.spec.ts > Settings > Floors section is displayed with add button",
     "settings.spec.ts > Settings > House name input is displayed and interactive",
+    "settings.spec.ts > Settings > Owner timezone and populated floor controls remain reachable at 1440px",
+    "settings.spec.ts > Settings > Owner timezone and populated floor controls remain reachable at 390px",
     "settings.spec.ts > Settings > Reset keeps setup, structure, tasks and history (CS-PLAN-081 H4)",
     "settings.spec.ts > Settings > Settings page has danger zone section",
     "settings.spec.ts > Settings > Settings page loads correctly",
