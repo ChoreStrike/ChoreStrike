@@ -385,7 +385,7 @@ backdate it to the authorization date or prefill a successful end date.
 | Field | Recorded evidence |
 |---|---|
 | Candidate | Not selected for the trial; record revision plus uncommitted runtime/fixture identity and actual image/runtime versions |
-| Technical readiness | Historical WP9 gates and renewed [CS-PLAN-082 evidence](../plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md); applicability to the actual trial candidate pending |
+| Technical readiness | Historical WP9/CS-PLAN-082 evidence plus the separate [2026-10-08 app/package qualification](install-preparation-2026-10-08.md), including actual NC34/NC35 browser pairs and stated limitations; selection/applicability to the actual trial candidate remains pending |
 | Authorization / guardian consent | Confirmed 2026-10-07; repository results must be anonymous |
 | Voluntary participation | Adult / child minimum confirmed 2026-10-07; no operating success inferred |
 | Roles | Adult / child, anonymous; no participant identifiers |

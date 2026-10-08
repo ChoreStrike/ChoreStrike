@@ -396,6 +396,20 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 
 ## Implementation Evidence
 
+### Installation-Preparation Renewal (2026-10-08)
+
+The [scoped candidate record](../../testing/install-preparation-2026-10-08.md)
+separates new NC34 and NC35 browser evidence, fingerprinted pre-commit source/package
+hashes, dependency disposition and native platform limitations. It also retains
+the failed room-order snapshot and mobile-overflow attempts and their minimal
+test/CSS repairs. Final NC34 pair `run-X1Q29H` + `run-xhZQwU` and NC35 pair
+`run-qJq5WQ` + `run-FvG4KC` each pass 290 first-attempt executions per run with
+zero skips/failures/flakes; the same extracted production archive also passes
+desktop/mobile smoke on both rows. No historical NC35 run or backend-only NC34
+result is relabelled as current NC34 browser proof.
+The explicitly deferred cross-cutting tooling work belongs to RELEASE-002.
+RF-080-05, comprehension/14-day evidence and baseline adoption remain open.
+
 ### Human Evidence Coordination (2026-10-07)
 
 - The user authorized coordination, confirmed guardian consent and subsequently

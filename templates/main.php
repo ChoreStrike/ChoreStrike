@@ -1,6 +1,5 @@
 <?php
 script('chorestrike', 'chorestrike-main');
-style('chorestrike', 'chorestrike-main');
 ?>
 
 <div id="content" class="app-chorestrike">

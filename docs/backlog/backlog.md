@@ -384,7 +384,7 @@ effort, not a CS-PLAN-081 prerequisite or authorization to transfer anything.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
 **Status**: Backlog · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: unassigned · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07)
+**Owning**: unassigned · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
@@ -396,6 +396,14 @@ target-specific AIO commands and a concrete adoption record before independent
 execution. Resolve these in the deployment work, not by guessing container paths
 or treating the disposable test stack as a family installation. The 2026-10-07
 entry-document refresh adds safety boundaries, not a completed AIO runbook.
+
+The [2026-10-08 app qualification](../testing/install-preparation-2026-10-08.md)
+owns the corrected asset contract, exact candidate artifact and renewed runtime
+evidence. Six remaining build/test advisory roots are explicitly deferred here
+under bounded trusted-input/no-production-tooling conditions. Recheck stable
+fixes and review any necessary peer/engine migration before later builds; this
+is not operator risk acceptance, production approval or resolution of NC34's
+separately recorded native third-party platform failure.
 
 Exact blocking gates:
 - [x] CS-PLAN-058 WP1..WP9 exit gates, each passed with its Standard B review

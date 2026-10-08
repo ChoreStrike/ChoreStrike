@@ -309,6 +309,8 @@
   "minimal-smoke-tests.spec.ts": [
     "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > App loads with title and visible shell",
     "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Hash deep-links reach the tasks and settings views",
+    "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Injected styles and lazy assets work at 1440px without resource or CSP errors",
+    "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Injected styles and lazy assets work at 390px without resource or CSP errors",
     "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > No critical console errors on load"
   ],
   "overdue-task-claiming.spec.ts": [

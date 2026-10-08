@@ -150,11 +150,12 @@ test.describe('Settings', () => {
 					timezone: currentHouse.timezone,
 					catalogEnabled: currentHouse.catalogEnabled,
 				},
-				structure: structure.map((floor: { id: number; name: string; sortOrder: number; rooms: Array<{ id: number; floorId: number; name: string; icon: string; roomType: string }> }) => ({
-					id: floor.id,
-					name: floor.name,
-					sortOrder: floor.sortOrder,
-					rooms: floor.rooms.map(room => ({ id: room.id, floorId: room.floorId, name: room.name, icon: room.icon, roomType: room.roomType })),
+				structure: structure.map((entry: { floor: { id: number; name: string; sortOrder: number }; rooms: Array<{ id: number; floorId: number; name: string; icon: string; roomType: string }> }) => ({
+					id: entry.floor.id,
+					name: entry.floor.name,
+					sortOrder: entry.floor.sortOrder,
+					// The room query has no ORDER BY: retained facts, not physical row order, are the contract.
+					rooms: entry.rooms.map(room => ({ id: room.id, floorId: room.floorId, name: room.name, icon: room.icon, roomType: room.roomType })).sort((a, b) => a.id - b.id),
 				})),
 				tasks: await dataOf(await page.request.get(`${API}/tasks`)),
 				planning: taskRows.map((row: { id: number; roomId: number; taskId: number; assignees: string[]; occurrence?: { occurrenceId: string; expectedVersion: number; workDate: string } }) => ({
@@ -173,6 +174,9 @@ test.describe('Settings', () => {
 		}
 		const before = await snapshot()
 		expect(before.structure.length).toBeGreaterThan(0)
+		for (const floor of before.structure) {
+			expect(floor).toEqual(expect.objectContaining({ id: expect.any(Number), name: expect.any(String), sortOrder: expect.any(Number) }))
+		}
 		expect(before.history.id).toBe(completion.completionId)
 		expect(before.history.allocation.length).toBeGreaterThan(0)
 		expect(before.achievements.length).toBeGreaterThan(0)

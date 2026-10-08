@@ -40,6 +40,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 
 - [`engineering/deployment.md`](engineering/deployment.md) — installation, deployment, and rollback guide
 - [`testing/release-test-plan.md`](testing/release-test-plan.md) — authoritative manual release test plan + per-release sign-off record (release gate)
+- [`testing/install-preparation-2026-10-08.md`](testing/install-preparation-2026-10-08.md) - scoped asset/dependency candidate identity, audit disposition and separate NC34/NC35 evidence; not production or retained-baseline approval
 - [`release/release-strategy.md`](release/release-strategy.md) — release and versioning strategy
 - [`release/roadmap.md`](release/roadmap.md) — project roadmap
 - [`operations/realtime-updates.md`](operations/realtime-updates.md) — realtime update mechanism notes

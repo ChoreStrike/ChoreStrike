@@ -24,11 +24,8 @@ webpackConfig.output.path = path.resolve(__dirname, 'js')
 webpackConfig.output.filename = `chorestrike-[name].js?v=${buildTime}`
 webpackConfig.output.chunkFilename = `chorestrike-[name].js?v=${buildTime}`
 
-// Add CSS extraction
-const MiniCssExtractPlugin = require('mini-css-extract-plugin')
-webpackConfig.plugins.push(new MiniCssExtractPlugin({
-	filename: '../css/chorestrike-main.css',
-}))
+// Keep the shared style-loader contract: global and scoped styles travel
+// with their JavaScript entry/lazy chunks, not a separate app stylesheet.
 
 // Fix webpack 5 + axios compatibility
 webpackConfig.plugins.push(new NodePolyfillPlugin())

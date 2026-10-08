@@ -54,4 +54,68 @@ test.describe('Minimal Smoke Tests', () => {
 			expect(title).not.toContain('Not Found')
 		}
 	})
+
+	for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+		test(`Injected styles and lazy assets work at ${viewport.width}px without resource or CSP errors`, async ({ page }) => {
+			const errors: string[] = []
+			const scripts: string[] = []
+			await page.setViewportSize(viewport)
+			page.on('console', message => {
+				if (message.type() === 'error') errors.push(message.text())
+			})
+			page.on('pageerror', error => errors.push(error.message))
+			page.on('requestfailed', request => errors.push(`Failed request: ${new URL(request.url()).pathname}`))
+			page.on('response', response => {
+				if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${new URL(response.url()).pathname}`)
+				if (response.request().resourceType() === 'script') scripts.push(new URL(response.url()).pathname)
+			})
+			await page.addInitScript(() => {
+				const violations: string[] = []
+				Object.assign(window, { assetCspViolations: violations })
+				document.addEventListener('securitypolicyviolation', event => violations.push(event.effectiveDirective))
+			})
+
+			await page.goto('/apps/chorestrike/')
+			const today = page.getByTestId('today-view')
+			await expect(today).toBeVisible({ timeout: 30000 })
+			await expect(page.locator('html')).toHaveCSS('--cs-radius-md', '10px')
+			await expect(page.locator('body')).toHaveCSS('overflow-x', 'hidden')
+			await expect(today).toHaveCSS('max-width', '900px')
+			for (const container of [page.locator('#app-content-vue'), today]) {
+				await expect.poll(() => container.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+			}
+			expect(await today.evaluate(element => element.getAttributeNames().some(name => name.startsWith('data-v-')))).toBe(true)
+			expect(scripts.some(url => url.endsWith('/chorestrike-today.js'))).toBe(true)
+			expect(scripts.some(url => url.endsWith('/chorestrike-settings.js'))).toBe(false)
+
+			if (viewport.width < 768) {
+				await page.getByRole('button', { name: /Open navigation|Navigation \u00f6ffnen/i }).click()
+			}
+			await page.getByTestId('nav-settings').click()
+			const settings = page.getByTestId('settings-view')
+			await expect(settings).toBeVisible()
+			if (viewport.width < 768) {
+				await page.getByRole('button', { name: /Close navigation|Navigation schlie\u00dfen/i }).click()
+			}
+			await expect(settings).toHaveCSS('max-width', '1000px')
+			expect(await settings.evaluate(element => element.getAttributeNames().some(name => name.startsWith('data-v-')))).toBe(true)
+			expect(scripts.some(url => url.endsWith('/chorestrike-settings.js'))).toBe(true)
+			await expect(page.locator('link[rel="stylesheet"][href*="chorestrike-main.css"]')).toHaveCount(0)
+			expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+			for (const container of [page.locator('#app-content-vue'), settings]) {
+				await expect.poll(() => container.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+			}
+			for (const control of [page.getByTestId('settings-title'), page.getByTestId('task-digest-switch'), page.getByTestId('digest-time-input'), page.getByTestId('pause-reason-select')]) {
+				await expect(control).toBeVisible()
+				await expect.poll(() => control.evaluate(element => {
+					const bounds = element.getBoundingClientRect()
+					const content = element.closest('#app-content-vue')!.getBoundingClientRect()
+					return bounds.width > 0 && bounds.left >= Math.max(0, content.left)
+						&& bounds.right <= Math.min(window.innerWidth, content.right)
+				})).toBe(true)
+			}
+			expect(await page.evaluate(() => (window as unknown as { assetCspViolations: string[] }).assetCspViolations)).toEqual([])
+			expect(errors).toEqual([])
+		})
+	}
 })

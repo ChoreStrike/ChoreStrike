@@ -35,7 +35,6 @@ class PageController extends Controller {
 	 */
 	public function index(): TemplateResponse {
 		Util::addScript($this->appName, 'chorestrike-main');
-		Util::addStyle($this->appName, 'chorestrike-main');
 
 		$this->registerPwaHeaders();
 

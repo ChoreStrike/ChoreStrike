@@ -6,6 +6,13 @@
 > **Depends on:** none
 > **Related backlog items:** TECH-STRUCT-001
 
+> **Correction (2026-10-08):** the CSS-generation statements in sections 1 and 3
+> below were incorrect. The shared webpack config used `style-loader`; adding
+> `MiniCssExtractPlugin` without replacing that loader did not emit the named
+> stylesheet. The old stub's removal remains historical; the later asset repair
+> removes its PHP registration and the ineffective plugin, retaining JS style
+> injection. The current contract lives in [deployment.md](../../engineering/deployment.md#2-build-the-frontend).
+
 ## 1. Problem Summary
 
 The repository root carries 26 tracked files plus several local artifact

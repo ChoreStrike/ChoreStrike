@@ -16,6 +16,8 @@
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
 
+- **Installation-preparation app qualification** (2026-10-08): JS-injected CSS contract and responsive fields repaired; compatible dependency updates, renewed NC34/NC35 browser pairs (290 each), backend/frontend gates and immutable production-archive smoke pass; bounded remaining tooling findings stay in RELEASE-002 and the native NC34 third-party platform condition stays explicit. Source commit/push separately authorized after qualification; no deployment/adoption or human-gate closure. [Evidence and artifact identity](../testing/install-preparation-2026-10-08.md).
+
 - **CS-PLAN-082 delivered** (2026-10-06): final Full `PASS-WITH-FIXES`, RF-082-01..20 resolved; frozen NC35/PHP8.4/PG18 canonical/CI baseline with named NC34 row, provider and P1/P2/P3 proofs, coherent canonical persistence, repaired runners/CI/safety and post-repair browser pair `run-29nxkD` + `run-Wy1fPg` (288 each, zero skips/failures/flakes); TECH-RUNTIME-001 archived, no deployment/adoption. [Plan](../plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md) · [Review](archive/CODE_REVIEW_2026-10-06.md).
 
 - **CS-PLAN-081 delivered** (2026-10-05): final Full `PASS-WITH-FIXES`, H1-H6 complete with explicitly accepted non-attributed H6-05 disposition, required cap/tie/identity regressions, strict minimum-engine/full/backend/browser/recovery gates; H7/H-T11 user-rescoped, seven standalone owners archived, no deployment/adoption. [Plan](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) · [Review](archive/CODE_REVIEW_2026-10-05.md).
@@ -29,7 +31,6 @@
 - **CS-PLAN-076 / WP5 delivered** (2026-09-30): final Standard B `PASS-WITH-FIXES`, RF-076-01..11 resolved; self-only preferences, quiet at-most-once digest and transactional source queue; unit 1028, integration 493, Jest 1062 and complete E2E `run-xpEKYP` green; plan moved to `done/`, WP6 draft/metadata excluded from the scoped commit. [Plan](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md) · [Review](archive/CODE_REVIEW_2026-09-30.md).
 - **CS-PLAN-075 / WP4 delivered** (2026-09-29): final Standard B `PASS-WITH-FIXES`, RF-075-01..05 resolved; rhythm/goals/ranking, ADR-015, consent persistence and single-series recognition; plan in `done/`, CONCEPT-001 remains open. [Plan](../plans/done/cs-plan-075-wp4-rhythm-goals-and-ranking.md) · [Review](archive/CODE_REVIEW_2026-09-29.md).
 - **CS-PLAN-074 / WP3 delivered** (2026-09-27): final Standard B re-review `PASS-WITH-FIXES`, RF-074-WP3-01..10 resolved; exact work shares/wallet ledger, targeted corrections, room journal/replay, ADR-014 and no-Coin arcade; CR-SVC-63 archived, plan in `done/`. [Plan](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review](archive/CODE_REVIEW_2026-09-27.md).
-- **CS-PLAN-073 / WP2 delivered** (2026-09-25): final Standard B `PASS-WITH-FIXES`, RF-01..28 resolved; agreements/capacity/pauses, planner cutover and durable contracts; CR-SVC-64 archived, plan in `done/`, FEAT-UX-025 remains partially open. [Plan](../plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) · [Review](archive/CODE_REVIEW_2026-09-25.md).
 
 > One-line entries only. Older and interim history lives in the tracked
 > [`archive/`](archive/).

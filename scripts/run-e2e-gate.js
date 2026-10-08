@@ -110,7 +110,7 @@ const REQUIRED_SPECS = [
 	{ file: 'dashboard-navigation.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'fast-core-tests.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'leaderboard.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
-	{ file: 'minimal-smoke-tests.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
+	{ file: 'minimal-smoke-tests.spec.ts', project: 'chromium', scenarios: ['injected styles and lazy assets work at 1440px', 'injected styles and lazy assets work at 390px'], minTests: 5 },
 	{ file: 'overdue-task-claiming.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'private-tasks.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'room-detail.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
