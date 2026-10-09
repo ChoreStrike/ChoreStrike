@@ -4,6 +4,11 @@ module.exports = {
 	],
 	overrides: [
 		{
+			files: ['src/public-path.js'],
+			globals: { __webpack_public_path__: 'writable' },
+			rules: { camelcase: ['error', { allow: ['__webpack_public_path__'] }] },
+		},
+		{
 			files: ['**/*.vue'],
 			parser: 'vue-eslint-parser',
 			parserOptions: {

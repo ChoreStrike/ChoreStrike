@@ -47,4 +47,10 @@ describe('Phase 5 — design tokens + PWA scaffolding', () => {
 		expect(Array.isArray(manifest.icons)).toBe(true)
 		expect(manifest.icons[0].src).toMatch(/app\.svg$/)
 	})
+
+	it('leaves preference loading to the membership-gated app shell', () => {
+		const main = readFileSync(mainJsPath, 'utf8')
+		expect(main).not.toContain('fetchPreferences(')
+		expect(main).not.toContain('usePreferencesStore')
+	})
 })

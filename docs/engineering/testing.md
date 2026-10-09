@@ -123,6 +123,54 @@ Mutation callers use the validated normalized origin, never a raw URL prefix.
 
 ### Run Tests with Docker Compose
 
+#### Alias-Free Runtime Packages
+
+The ordinary test entrypoint creates an `/apps/chorestrike` symlink. Its passing
+browser gate does **not** prove an alias-free `custom_apps` deployment. Before
+handing off a runtime archive, also qualify its extracted bytes in a separate
+fresh, loopback-only PostgreSQL project on each supported Nextcloud runtime.
+
+Use `docker/package-smoke-entrypoint.sh` instead of `test-entrypoint.sh`, mount
+the extracted app read-only at `/var/www/html/custom_apps/chorestrike`, and set
+both `NEXTCLOUD_TEST_MODE` and `NEXTCLOUD_TEST_ENV` to `false`. The fixture
+imports complete `apps_paths` atomically and refuses an existing `/apps` alias.
+It creates a synthetic non-admin Nextcloud account, not app memberships/data;
+no seed/reset/test API is called. Never point this fixture at production or an
+existing household. Preserve failed fixtures for diagnosis rather than reset
+them into a passing first-install result.
+
+`tests/package/owner-smoke.cjs` accepts a private target JSON (`project`,
+`container`, `url`, `image`), extracted app directory, new private report path
+and explicit `setup` or `verify` action:
+
+```bash
+node tests/package/owner-smoke.cjs target.json unpacked/chorestrike setup.json setup
+node tests/package/owner-smoke.cjs target.json unpacked/chorestrike owners.json verify
+```
+
+The target must be a `cs082-*` Compose project with a `nextcloud-pgsql` service,
+`org.chorestrike.package-smoke=true` container label, only numeric IPv4 loopback
+bindings, matching HTTP port/image, both test markers false and the exact
+read-only package mount. These checks precede account-setting/UI mutations;
+this runner never weakens `scripts/test-target.js`'s test-mode requirement.
+
+`setup` asserts zero houses/members/floors/rooms before the normal bootstrap and
+drives the real wizard to one owner, floor and room. `verify` requires that
+persisted state and tests 390x844/1440x900 with browser locales `de-DE`, `de` and
+`en`. Native Nextcloud selects its `de` user catalog for the German cases;
+unit tests separately exercise exact regional `getLanguage()` inputs. Do not
+claim the core emitted `de-DE` when its actual language was `de`.
+
+Checks include translated text, global/scoped styles, real inner/control
+widths, timezone save/reload/restore, cancellation of floor deletion, and
+Dashboard/My Day/Settings lazy navigation. Every requested app script must use
+the exact `custom_apps` URL, HTTP 200, JavaScript MIME and matching package
+bytes. No l10n JSON request, scoped resource/console/page error or CSP violation
+is accepted. Requests begun on a preceding login page are not attributed to
+the app scope. Reports/screenshots remain private. Separately inventory/hash
+all packaged chunks/licences; observed navigation alone does not fetch every
+possible chunk. This supplements, not replaces, the full browser gate.
+
 ```bash
 # Build and provision the test environment (this does not run tests)
 docker compose -f docker/compose.test.yml up --build

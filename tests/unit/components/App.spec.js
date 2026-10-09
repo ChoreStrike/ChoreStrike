@@ -162,6 +162,24 @@ describe('App', () => {
 			expect(wrapper.find('[data-testid="nav-arcade"]').exists()).toBe(false)
 		})
 
+		it('requests preferences only after membership resolves, never while unknown or denied', async () => {
+			const { usePreferencesStore } = require('../../../src/store/preferences.js')
+			let fetchPreferences
+			const { wrapper } = mountWithRouter({ path: '/dashboard' }, () => {
+				fetchPreferences = jest.spyOn(usePreferencesStore(), 'fetchPreferences').mockResolvedValue({})
+			})
+			await wrapper.vm.$nextTick()
+			expect(fetchPreferences).not.toHaveBeenCalled()
+			useUserStore().membership = 'denied'
+			await wrapper.vm.$nextTick()
+			expect(fetchPreferences).not.toHaveBeenCalled()
+			useUserStore().currentUser = { nextcloudUserId: 'new-owner', role: 'owner' }
+			useUserStore().membership = 'member'
+			await wrapper.vm.$nextTick()
+			expect(fetchPreferences).toHaveBeenCalledTimes(1)
+			wrapper.unmount()
+		})
+
 		// CS-PLAN-070 WP8 §3.1: the catalog nav needs BOTH independent
 		// gates — the household gate AND the current person's LOADED
 		// catalogVisible preference. Fail-closed until both resolve.

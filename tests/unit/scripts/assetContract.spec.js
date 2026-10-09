@@ -4,6 +4,32 @@ const { execFileSync } = require('node:child_process')
 
 const root = path.resolve(__dirname, '../../..')
 
+describe('Deployment-aware lazy assets', () => {
+	it('initializes the runtime asset path before importing the app or router', () => {
+		const main = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8')
+		expect(main.match(/^import .+$/m)[0]).toBe("import './public-path.js'")
+	})
+
+	it.each(['/apps/chorestrike', '/custom_apps/chorestrike', '/cloud/custom_apps/chorestrike', '/cloud/apps/chorestrike'])(
+		'uses the real Nextcloud file resolver for %s without changing API routes', appRoot => {
+			const result = execFileSync(process.execPath, ['-e', `
+				const vm = require('node:vm')
+				global.window = { _oc_appswebroots: { chorestrike: ${JSON.stringify(appRoot)} },
+					_oc_webroot: ${JSON.stringify(appRoot.startsWith('/cloud/') ? '/cloud' : '')} }
+				const code = require('@babel/core').transformFileSync('src/public-path.js', {
+					configFile: false, presets: [['@babel/preset-env', { targets: { node: '20' } }]],
+				}).code
+				const context = { require, __webpack_public_path__: '\\\\apps\\\\chorestrike\\\\js\\\\' }
+				vm.runInNewContext(code, context)
+				process.stdout.write(JSON.stringify({ asset: context.__webpack_public_path__,
+					api: require('@nextcloud/router').generateUrl('/apps/chorestrike/api/v1/user') }))
+			`], { cwd: root, encoding: 'utf8' })
+			const webroot = appRoot.startsWith('/cloud/') ? '/cloud' : ''
+			expect(JSON.parse(result)).toEqual({ asset: `${appRoot}/js/`, api: `${webroot}/index.php/apps/chorestrike/api/v1/user` })
+		},
+	)
+})
+
 describe('JavaScript-injected app styles', () => {
 	it('registers the entry script without requesting a nonexistent stylesheet', () => {
 		const template = fs.readFileSync(path.join(root, 'templates/main.php'), 'utf8')

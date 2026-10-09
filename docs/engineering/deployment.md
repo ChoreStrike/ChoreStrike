@@ -47,6 +47,14 @@ CSS placeholder or copy a stale workspace stylesheet.
 Webpack's timestamp-based cache busting means a later rebuild is a different
 artifact: hash and test the exact package that will be handed to operations.
 
+`src/public-path.js` initializes Webpack's asset base with Nextcloud's
+`generateFilePath()` before app/router imports. Physical assets can live below
+`/apps`, `/custom_apps`, or a Nextcloud subwebroot; controller/API routes remain
+`/apps/chorestrike` through `generateUrl()`. Do not compensate for incorrect
+chunk URLs with an `/apps/chorestrike` symlink or proxy alias. Package acceptance
+must exercise alias-free lazy navigation and compare actual requested URLs,
+JavaScript MIME types and response bytes with the package.
+
 ### 3. Install PHP dependencies
 
 ```bash
@@ -66,9 +74,11 @@ occ app:enable chorestrike
 
 ChoreStrike declares `<default_language>de</default_language>` in `info.xml`, so
 users who have not chosen a Nextcloud language default to German. The frontend
-loads its own translation bundle via `@nextcloud/l10n`'s `loadTranslations()` at
-startup (`src/i18n.js`), so no server-side l10n injection is required for the UI
-to honor the user's language.
+registers its bundled German catalog via `@nextcloud/l10n` at startup
+(`src/i18n.js`), selected by the user's language, including regional German
+codes. It needs neither a static `l10n/*.json` HTTP response nor a webserver
+JSON allowlist change. English and unsupported languages use English source
+strings; selecting German must be verified by actual translated UI text.
 
 For a server-wide German default (e.g. a family instance with German children),
 also set in Nextcloud's `config/config.php`:

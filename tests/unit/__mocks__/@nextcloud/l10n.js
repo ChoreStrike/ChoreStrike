@@ -29,6 +29,7 @@ export function translatePlural(app, singular, plural, count) {
  */
 export const getLocale = jest.fn(() => 'en')
 export const getLanguage = jest.fn(() => 'en')
+export const register = jest.fn()
 
 export const getDayNames = jest.fn(() => [
 	'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
@@ -51,4 +52,3 @@ export const getMonthNamesShort = jest.fn(() => [
  * as a plain jest.fn().
  */
 export const loadTranslations = jest.fn(() => Promise.resolve({ translations: {} }))
-

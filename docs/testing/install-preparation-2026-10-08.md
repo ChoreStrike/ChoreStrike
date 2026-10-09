@@ -1,11 +1,20 @@
 # Installation Candidate Qualification (2026-10-08)
 
-Status: the owner-layout/map-free follow-up was qualified on a fingerprinted
+**2026-10-09 correction:** the unchanged owner-layout v2 archive failed the
+operator's production functional smoke: its lazy runtime requested `/apps`
+assets while the installation served them from `/custom_apps`. Earlier owner,
+style and hash measurements remain valid in their aliased test layout, not an
+alias-free deployment proof. The app-side follow-up is recorded under
+[Alias-Free Follow-Up](#alias-free-follow-up-2026-10-09); the final source gates
+and separate package smokes pass. No production update or baseline adoption is
+authorized by this work.
+
+Historical 2026-10-08 status: the owner-layout/map-free follow-up was qualified on a fingerprinted
 working tree based on `6a5c6e75b00bbb02e899a2a86a531cfba7c38beb`, before its
 source commit. Commit/push were separately authorized on 2026-10-08; source
 publication does not rebuild or publish the local binary archive.
-Use the [follow-up artifact and evidence](#owner-layout-follow-up), not the
-original archive below. The original mobile smoke did not require the owner
+The [owner-layout follow-up](#owner-layout-follow-up) superseded the original
+archive below at that time. The original mobile smoke did not require the owner
 controls; it did not cover the subsequently reproduced overflow. The explicitly
 retained dependency and native core-platform limitations still apply. This is not a
 deployment, production security clearance, release sign-off or retained-baseline
@@ -307,3 +316,112 @@ not passing runs. Local package-probe syntax/path mistakes and rejected archive
 permissions were corrected separately, not counted as application failures.
 Dependency deferrals, upstream platform limitations, operator installation
 approval, recovery disposition and retained-baseline adoption remain separate.
+
+## Alias-Free Follow-Up (2026-10-09)
+
+### Source Correction
+
+The working tree starts at `84e7f5f86ce20e1c24803772610bc32957db7944`.
+`src/public-path.js` runs before application/router imports and sets Webpack's
+asset base with Nextcloud's `generateFilePath()`. API/controller paths retain
+their separate `generateUrl('/apps/chorestrike/...')` contract. Regressions use
+the real installed router for `/apps`, `/custom_apps` and both subwebroot cases.
+
+German translations now travel in the JavaScript entry bundle, selected through
+`getLanguage()` and registered with Nextcloud's supported `register()` API.
+`de`, `de-DE`, `de-AT` and `de_CH` resolve the canonical German catalog; English
+and unsupported languages retain source strings. There is no static l10n JSON
+request and no new JSON allowlist, proxy alias or dependency change. The catalogs
+and all backend business logic, authorization, schemas and migrations are unchanged.
+
+The first genuinely fresh package smoke also reproduced a startup race on both
+runtimes: `main.js` requested preferences before `users/current` had committed
+the initial membership, producing HTTP 403. Removing that duplicate eager read
+leaves the existing `App.vue` membership watcher as the startup owner. Unit
+regressions pin both the absence of the bypass and the unknown/denied/member
+ordering. No authorization exception or retry hides the failure.
+
+### New Artifact
+
+The separately named candidate is
+`chorestrike-0.1.1-asset-path-20261009-runtime-v2.tar.gz`, SHA-256
+`8e13804b042cc98d5d2a1db9954b463c34ce3acbf906c26d1997dad347451ba1`.
+This is a fingerprinted working-tree build, not a new clean-commit release or
+published binary. The source has not been committed or pushed by this task.
+
+- Package inventory: 229 regular files / 22 directories; owner/group 0,
+  files 0644 and directories 0755, no links, duplicate or unsafe paths.
+- Exactly 24 JavaScript files and five nonempty licence notices match the
+  Webpack 5.105.2 build `9497cd0fdbe1b35e5a5b`; no source maps are shipped.
+- Compact sorted JSON package-manifest SHA-256:
+  `fa30e7bd469c98a280b1fe9207433011e50ac74502740337431eb023a0f93a25`.
+- Final source fingerprint: 760 build/runtime/test/configuration files;
+  compact sorted JSON source-manifest SHA-256
+  `1ed345c9d8900d90d4ba96f3993fcb316df2027ef4d650386cd8f69f9e7c5fda`.
+- Production Composer/autoload and app platform checks pass on PHP8.4.25.
+  All scripts also pass direct HTTP status/MIME/byte checks on each runtime.
+- The original 2026-10-08 owner-layout v2 archive and the intermediate
+  2026-10-09 asset-only archive are retained unchanged, not substituted or repacked.
+
+### Qualification Boundaries
+
+Fresh package fixtures on NC34.0.4.1 and NC35.0.1.1 / PHP8.4.25 / PostgreSQL18.6
+mount this extracted archive read-only with both test markers false. No app
+seed, reset, test API, `/apps/chorestrike` symlink, proxy alias or service-worker
+rewrite is used. Native bootstrap and wizard create one synthetic non-admin
+owner, one floor and one room from positively asserted empty app tables.
+
+Both fresh setups pass. Each runtime also passes six owner cases: browser
+locales `de-DE`, `de`, `en` at 390x844 and 1440x900. German text is positively
+asserted, not an accepted English fallback. The native core language is `de`
+in both German-browser cases; exact regional library inputs have separate unit
+coverage and an unmocked installed-library registry/translation proof. Every
+fetched script has the exact `custom_apps` path, HTTP 200,
+JavaScript MIME and package SHA-256; Dashboard/My Day/Settings, global/scoped
+styles, controls, timezone persistence and floor-dialog cancellation pass
+without scoped resource/console/page/CSP errors. Direct `/apps` asset probes
+return 404. The local Apache model serves existing `de.json` with 200; the app
+does not request it. This proves independence from static JSON delivery, not
+the cause of the operator's AIO JSON 404 or full AIO webserver equivalence.
+
+Initial fixture failures (database readiness, partial `apps_paths` import and
+missing CSRF on the probe's read) are retained separately from the real startup
+race. Later probe corrections cover native locale normalization, the existing
+translated room-count label, request-scope attribution across login navigation,
+and awaiting the actual timezone-write response before reload. No assertion was
+removed and no app state was reset into a passing first-install result.
+
+### Final Gates
+
+| Check | Result |
+|---|---|
+| Node20.19.0/npm10.8.2 production build | Pass; unchanged dependency lock, zero compilation warnings/errors |
+| Jest via `npm run test:noise` | 114 suites / 1,479 tests pass |
+| ESLint / Stylelint / l10n consistency / installed dependency tree | Pass |
+| NC34 backend unit / PostgreSQL integration | 1,368 / 604 tests pass, `--fail-on-skipped` |
+| NC35 backend unit / PostgreSQL integration | 1,368 / 604 tests pass, `--fail-on-skipped` |
+| NC34 full browser gate | `run-XGnifM`: 292 first-attempt executions; no skips/failures/flakes |
+| NC35 full browser gate | `run-qMME3O`: 292 first-attempt executions; no skips/failures/flakes |
+| Exact native library language inputs | German for `de`, `de-DE`, `de-AT`, `de_CH`; English fallback for `en`, `en-GB`, `fr` |
+| Read-only alias-free package | Two fresh owner setups plus six language/width cases on each runtime pass |
+| Package inventory / all 24 JS responses per runtime / licences | Pass; no source maps, missing licence, alias or byte mismatch |
+| Final source/archive/extracted-byte recheck | Pass after both complete gates |
+
+The source browser gates use their own seeded, test-mode-enabled projects;
+the fresh package fixtures are separate and never seeded. There is **one full
+browser gate per runtime**, not a new consecutive pair or provider/preservation
+matrix. Intermediate interrupted source gates are diagnostic only. No existing
+environment or old archive was reset or replaced. The initial package's
+startup race and the test-harness failures above are not relabelled as passes.
+Documentation encoding, backlog ownership and diff-whitespace checks also pass.
+All task-owned qualification containers were then stopped; containers, volumes
+and evidence remain available. Pre-existing environments were not stopped.
+
+Six advisory dispositions, the native NC34 third-party platform limitation,
+accepted untested recovery risk, WP9 human/14-day evidence and retained-baseline
+adoption remain separate. Any productive update requires the operator's own
+candidate/package check, current backup and explicit update authorization.
+The app version remains `0.1.1`: version alone cannot identify this correction.
+The operator must verify the newly served entry script and archive hashes,
+including client-cache behavior, rather than assume an automatic version-based
+cache invalidation or an already qualified production update.
