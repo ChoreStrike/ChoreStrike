@@ -161,10 +161,11 @@ function gzipDeterministic(buffer) {
 	return zlib.gzipSync(buffer, { level: 9, mtime: 0 })
 }
 
-/** Parse a ustar stream (regular files, directories, prefix splitting). */
+/** Parse a ustar/pax stream (regular files, directories, prefix splitting). */
 function readTar(buffer) {
 	const entries = []
 	let offset = 0
+	let longName = null
 	while (offset + 512 <= buffer.length) {
 		const header = buffer.subarray(offset, offset + 512)
 		if (header.every(byte => byte === 0)) break
@@ -174,10 +175,20 @@ function readTar(buffer) {
 		const prefix = readString(345, 155)
 		const name = (prefix ? prefix + '/' : '') + readString(0, 100)
 		offset += 512
-		if (type === '0' || type === '7') {
-			entries.push({ name, type: 'file', data: buffer.subarray(offset, offset + size) })
+		const data = buffer.subarray(offset, offset + size)
+		// git archive prefixes the stream with a pax global header carrying
+		// the commit ID; pax/GNU extended metadata members carry records in
+		// their data block and are skipped like the standard tools do.
+		if (type === 'g' || type === 'x' || type === 'X') {
+			longName = null
+		} else if (type === 'L') {
+			longName = data.toString('utf8').replace(/\0.*$/s, '')
+		} else if (type === '0' || type === '7') {
+			entries.push({ name: longName ?? name, type: 'file', data })
+			longName = null
 		} else if (type === '5') {
-			entries.push({ name, type: 'dir', data: Buffer.alloc(0) })
+			entries.push({ name: longName ?? name, type: 'dir', data: Buffer.alloc(0) })
+			longName = null
 		} else {
 			throw new Error(`Unsupported tar member type '${type}' for ${name}`)
 		}
@@ -577,6 +588,19 @@ function selfTest() {
 	const parsed = readTar(tarA)
 	ok('tar round-trip preserves names', parsed.map(entry => entry.name).join() === 'js,js/chorestrike-main.js,lib/AppInfo/Application.php')
 	ok('tar round-trip preserves bytes', parsed[1].data.toString() === 'main')
+	// git archive prefixes a pax global header (commit ID): it must be skipped.
+	const paxRecord = Buffer.from('52 comment=commit ' + 'e'.repeat(40) + '\n')
+	const paxHeader = Buffer.alloc(512)
+	paxHeader.write('pax_global_header', 0)
+	paxHeader.write(octal(0o644, 8), 100, 8)
+	paxHeader.write(octal(paxRecord.length, 12), 124, 12)
+	paxHeader.write('g', 156, 1)
+	let paxSum = 0
+	paxHeader.fill(0x20, 148, 156)
+	for (const byte of paxHeader) paxSum += byte
+	paxHeader.write(paxSum.toString(8).padStart(6, '0') + '\0 ', 148, 8)
+	const withPax = Buffer.concat([paxHeader, paxRecord, Buffer.alloc(512 - paxRecord.length), tarA])
+	ok('pax global headers are skipped', readTar(withPax).map(entry => entry.name).join() === parsed.map(entry => entry.name).join())
 	ok('ownership is 0:0', tarA.subarray(108, 124).equals(Buffer.from('0000000\0'.repeat(2))))
 	// The first sorted entry is the 'js' directory (0755); the file follows.
 	ok('file mode is 0644', tarA.subarray(512 + 100, 512 + 108).toString().startsWith('0000644'))

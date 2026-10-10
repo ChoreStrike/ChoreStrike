@@ -62,6 +62,21 @@ describe('build-package deterministic archive', () => {
 		expect(manifestOf(buildTar(entries))).toBe(manifestOf(buildTar([...entries].reverse())))
 	})
 
+	it('skips pax global/extended metadata members (git archive commit header)', () => {
+		const record = Buffer.from('52 comment=commit ' + 'e'.repeat(40) + '\n')
+		const paxHeader = Buffer.alloc(512)
+		paxHeader.write('pax_global_header', 0, 'utf8')
+		paxHeader.write((0o644).toString(8).padStart(7, '0') + '\0', 100, 8, 'utf8')
+		paxHeader.write(record.length.toString(8).padStart(11, '0') + '\0', 124, 12, 'utf8')
+		paxHeader.fill(0x20, 148, 156)
+		paxHeader.write('g', 156, 1, 'utf8')
+		let sum = 0
+		for (const byte of paxHeader) sum += byte
+		paxHeader.write(sum.toString(8).padStart(6, '0') + '\0 ', 148, 8, 'utf8')
+		const stream = Buffer.concat([paxHeader, record, Buffer.alloc(512 - record.length), buildTar(entries)])
+		expect(readTar(stream).map(entry => entry.name)).toEqual(['js', 'js/chorestrike-main.js', 'lib/AppInfo/Application.php'])
+	})
+
 	it('rejects traversal, absolute paths and host separators', () => {
 		expect(() => assertSafeArchiveName('a/../b')).toThrow(/traversal/)
 		expect(() => assertSafeArchiveName('/etc/passwd')).toThrow(/Unsafe/)
