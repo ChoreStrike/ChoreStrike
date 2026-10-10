@@ -347,16 +347,42 @@ function builderTag(head) {
 	return `chorestrike-package-builder:${head.slice(0, 12)}`
 }
 
+/** Local-only tag for a verified pinned base image (buildkit re-resolves
+ * digest-pinned FROM references against the registry, which is unreliable;
+ * the pin itself is enforced by the RepoDigests check below). */
+function pinnedBaseTag(tool) {
+	const repository = tool.image.split(':')[0]
+	return `chorestrike-package-base:${repository}-${tool.platformDigest.slice(7, 19)}`
+}
+
+/** Pull the pinned digest and verify the local tag carries exactly it. */
+function ensurePinnedBase(tool, invoke = run) {
+	const repository = tool.image.split(':')[0]
+	const pinned = `${repository}@${tool.platformDigest}`
+	const pull = invoke('docker', ['pull', '--platform', 'linux/amd64', pinned], { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
+	if (pull.status !== 0) throw new Error(`Cannot fetch the pinned base image ${pinned}; refusing to build with an unverifiable toolchain`)
+	const tag = pinnedBaseTag(tool)
+	if (invoke('docker', ['tag', pinned, tag], { encoding: 'utf8' }).status !== 0) {
+		throw new Error(`Cannot tag the pinned base image ${pinned}`)
+	}
+	const inspect = invoke('docker', ['image', 'inspect', tag, '--format', '{{json .RepoDigests}}'], { encoding: 'utf8' })
+	const digests = JSON.parse(inspect.stdout || '[]')
+	if (!digests.includes(pinned)) throw new Error(`Pinned base image verification failed: ${tag} does not carry ${pinned}`)
+	return tag
+}
+
 function buildBuilderImage(config, head, invoke = run) {
+	const nodeBase = ensurePinnedBase(config.node, invoke)
+	const composerBase = ensurePinnedBase(config.composer, invoke)
 	const args = ['build', '--platform', config.platform, '--file', 'docker/Dockerfile.package',
 		'--tag', builderTag(head),
-		'--build-arg', `NODE_IMAGE=${config.node.image}@${config.node.platformDigest}`,
-		'--build-arg', `COMPOSER_IMAGE=${config.composer.image}@${config.composer.platformDigest}`,
+		'--build-arg', `NODE_IMAGE=${nodeBase}`,
+		'--build-arg', `COMPOSER_IMAGE=${composerBase}`,
 		'.']
 	let lastError = null
-	// BuildKit occasionally re-resolves a locally present digest against the
-	// registry and hits a transient 404; the pinned digest makes a bounded
-	// retry safe (identical inputs, no downgrade possible).
+	// BuildKit occasionally fails transiently even on local inputs; the
+	// pinned, verified base tags make a bounded retry safe (identical
+	// inputs, no downgrade possible).
 	for (let attempt = 1; attempt <= 3; attempt++) {
 		const result = invoke('docker', args, { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
 		if (result.status === 0) return
@@ -711,7 +737,7 @@ function main() {
 module.exports = {
 	readGitState, readTree, buildTar, readTar, gzipDeterministic, assertSafeArchiveName,
 	selectRuntimeFiles, classifyLineEndings, compareToBlob, checkAssetContract,
-	validatePackageConfig, buildBuilderImage, buildInContainer, assemblePackage,
+	validatePackageConfig, pinnedBaseTag, ensurePinnedBase, buildBuilderImage, buildInContainer, assemblePackage,
 	buildManifests, buildPackage, verifyReproducible, sha256Hex, sha1Hex, octal, CONTAINER_BUILD_SCRIPT,
 }
 

@@ -3,7 +3,7 @@ const path = require('node:path')
 const {
 	readGitState, buildTar, readTar, gzipDeterministic, assertSafeArchiveName,
 	selectRuntimeFiles, classifyLineEndings, compareToBlob, checkAssetContract,
-	validatePackageConfig, assemblePackage, sha256Hex, sha1Hex,
+	validatePackageConfig, ensurePinnedBase, assemblePackage, sha256Hex, sha1Hex,
 } = require('../../../scripts/build-package')
 
 const root = path.resolve(__dirname, '../../..')
@@ -177,6 +177,37 @@ describe('build-package configuration', () => {
 		['missing referenced assets', { assetContract: { ...config.assetContract, referenced: [] } }],
 	])('rejects invalid configuration: %s', (label, override) => {
 		expect(() => validatePackageConfig({ ...config, ...override })).toThrow(/package-build\.json/)
+	})
+})
+
+describe('build-package pinned base images', () => {
+	const tool = config.node
+
+	it('tags the pulled digest only after the RepoDigests pin verifies', () => {
+		const calls = []
+		const invoke = (command, args) => {
+			calls.push(args.join(' '))
+			if (args[0] === 'pull') return { status: 0, stdout: '' }
+			if (args[0] === 'tag') return { status: 0, stdout: '' }
+			if (args[0] === 'image') return { status: 0, stdout: JSON.stringify([`node@${tool.platformDigest}`]) }
+			throw new Error('unexpected')
+		}
+		const tag = ensurePinnedBase(tool, invoke)
+		expect(tag).toMatch(/^chorestrike-package-base:node-/)
+		expect(calls[0]).toBe(`pull --platform linux/amd64 node@${tool.platformDigest}`)
+	})
+
+	it('refuses a base image whose RepoDigests do not carry the pin', () => {
+		const invoke = (command, args) => {
+			if (args[0] === 'pull') return { status: 0, stdout: '' }
+			if (args[0] === 'tag') return { status: 0, stdout: '' }
+			return { status: 0, stdout: JSON.stringify(['node@sha256:' + '0'.repeat(64)]) }
+		}
+		expect(() => ensurePinnedBase(tool, invoke)).toThrow(/verification failed/)
+	})
+
+	it('refuses when the pinned digest cannot be fetched', () => {
+		expect(() => ensurePinnedBase(tool, () => ({ status: 1, stdout: '', stderr: 'denied' }))).toThrow(/refusing/)
 	})
 })
 
