@@ -460,12 +460,14 @@ const CONTAINER_BUILD_SCRIPT = [
 	'mkdir -p /package',
 	'cd /package',
 	'tar -xf /inputs/source.tar', // build inputs: git archive HEAD (read-only mount)
-	'npm ci --no-audit --no-fund --loglevel=error',
-	'composer install --no-dev --no-interaction --prefer-dist --no-progress',
+	// Tool summaries must never touch stdout: it carries the transport tar.
+	// Logs travel inside the transport for the runner's evidence records.
+	'npm ci --no-audit --no-fund --loglevel=error >/tmp/npm.log 2>&1 || { cat /tmp/npm.log >&2; exit 1; }',
+	'composer install --no-dev --no-interaction --prefer-dist --no-progress >/tmp/composer.log 2>&1 || { cat /tmp/composer.log >&2; exit 1; }',
 	'NODE_ENV=production npx webpack --mode production --json /tmp/stats.json 1>/tmp/webpack.log',
 	'{ node --version; npm --version; composer --version --no-ansi 2>/dev/null | head -n 1; } > /tmp/versions.txt',
 	'tar --format=posix -C /package -czf /tmp/built.tar.gz js vendor',
-	'tar --format=posix -C /tmp -cf /tmp/transport.tar built.tar.gz stats.json versions.txt webpack.log',
+	'tar --format=posix -C /tmp -cf /tmp/transport.tar built.tar.gz stats.json versions.txt webpack.log npm.log composer.log',
 	'cat /tmp/transport.tar',
 ].join('\n')
 
@@ -483,14 +485,14 @@ function buildInContainer(config, state, archivePath, invoke = run) {
 	}
 	if (stderr.trim()) process.stderr.write(stderr)
 	const transport = new Map(readTar(stdout).map(entry => [entry.name, entry.data]))
-	for (const member of ['built.tar.gz', 'stats.json', 'versions.txt']) {
+	for (const member of ['built.tar.gz', 'stats.json', 'versions.txt', 'npm.log', 'composer.log']) {
 		if (!transport.has(member)) throw new Error(`Builder output is missing '${member}'`)
 	}
 	return {
 		files: readTar(zlib.gunzipSync(transport.get('built.tar.gz'))),
 		stats: JSON.parse(transport.get('stats.json').toString('utf8')),
 		versions: transport.get('versions.txt').toString('utf8').split('\n').filter(Boolean),
-		buildLog: transport.get('webpack.log').toString('utf8'),
+		buildLog: [transport.get('webpack.log').toString('utf8'), transport.get('npm.log').toString('utf8'), transport.get('composer.log').toString('utf8')].join('\n'),
 	}
 }
 
