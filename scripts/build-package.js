@@ -315,7 +315,11 @@ function compareToBlob(data, blobSha1) {
  */
 function checkAssetContract(stats, contract) {
 	const violations = []
-	const assets = new Set((stats.assets ?? []).map(asset => asset.name))
+	// Emitted asset names carry the deterministic cache-bust query
+	// (chorestrike-main.js?v=<epoch>); the reviewed inventory names assets
+	// without it. Reachability compares raw chunk files on both sides.
+	const baseName = name => String(name).split('?')[0]
+	const assets = new Set((stats.assets ?? []).map(asset => baseName(asset.name)))
 	const chunkFiles = new Map()
 	for (const chunk of stats.chunks ?? []) {
 		for (const file of chunk.files ?? []) chunkFiles.set(file, chunk)
