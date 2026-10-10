@@ -40,7 +40,7 @@ services:
     volumes:
       # The same extracted, manifest-verified archive bytes both runtime rows
       # consume — never a staging directory that could differ from the archive.
-      - ${PKG_EXTRACT_DIR:?Set PKG_EXTRACT_DIR to the hash-verified extraction}: /var/www/html/custom_apps/chorestrike:ro
+      - "${PKG_EXTRACT_DIR:?Set PKG_EXTRACT_DIR to the hash-verified extraction}:/var/www/html/custom_apps/chorestrike:ro"
       - ./package-smoke-entrypoint.sh:/package-smoke-entrypoint.sh:ro
       - config:/var/www/html/config
       - data:/var/www/html/data
