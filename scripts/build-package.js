@@ -473,7 +473,7 @@ const CONTAINER_BUILD_SCRIPT = [
 	// Logs travel inside the transport for the runner's evidence records.
 	'npm ci --no-audit --no-fund --loglevel=error >/tmp/npm.log 2>&1 || { cat /tmp/npm.log >&2; exit 1; }',
 	'composer install --no-dev --no-interaction --prefer-dist --no-progress >/tmp/composer.log 2>&1 || { cat /tmp/composer.log >&2; exit 1; }',
-	'NODE_ENV=production npx webpack --mode production --json /tmp/stats.json 1>/tmp/webpack.log',
+	'NODE_ENV=production CHORESTRIKE_PACKAGE_BUILD=true npx webpack --mode production --json /tmp/stats.json 1>/tmp/webpack.log',
 	'{ node --version; npm --version; composer --version --no-ansi 2>/dev/null | head -n 1; } > /tmp/versions.txt',
 	'tar --format=posix -C /package -czf /tmp/built.tar.gz js vendor',
 	'tar --format=posix -C /tmp -cf /tmp/transport.tar built.tar.gz stats.json versions.txt webpack.log npm.log composer.log',

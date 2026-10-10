@@ -68,4 +68,12 @@ webpackConfig.performance = {
 	maxEntrypointSize: 4 * 1024 * 1024,
 }
 
+// CS-PLAN-083 WP2: qualified runtime packages must not ship source maps
+// (docker/package-build.json forbids *.map in the archive); the shared config
+// enables them for production, so explicit builds opt out. Dev builds keep
+// their cheap-source-map behavior.
+if (process.env.CHORESTRIKE_PACKAGE_BUILD === 'true') {
+	webpackConfig.devtool = false
+}
+
 module.exports = webpackConfig

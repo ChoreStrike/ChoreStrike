@@ -56,4 +56,16 @@ describe('JavaScript-injected app styles', () => {
 		}
 		expect(plugins).not.toContain('MiniCssExtractPlugin')
 	})
+
+	it('omits source maps for qualified package builds only', () => {
+		// Native subprocesses avoid Jest substituting its Nextcloud module mocks.
+		const load = env => execFileSync(process.execPath, ['-e', `
+			delete process.env.CHORESTRIKE_PACKAGE_BUILD
+			${env ? `process.env.CHORESTRIKE_PACKAGE_BUILD=${JSON.stringify(env)};` : ''}
+			const config = require('./webpack.config.js')
+			process.stdout.write(String(config.devtool))
+		`], { cwd: root, encoding: 'utf8' })
+		expect(load('true')).toBe('false')
+		expect(load(null)).not.toBe('false')
+	})
 })
