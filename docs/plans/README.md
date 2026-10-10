@@ -14,6 +14,12 @@ docs/plans/
 
 ## Lifecycle
 
+Active: [CS-PLAN-083: Release Qualification Gates](active/cs-plan-083-release-qualification-gates.md)
+(Standard A `PASS-WITH-FIXES`, 2026-10-10). RELEASE-002's bounded WP1-WP3 slice
+owns alias-free canonical provisioning, reproducible clean-candidate packaging
+and same-archive NC35/NC34 smoke. Implementation and final Full review remain
+open; deployment/adoption and WP9 human evidence remain separate.
+
 Delivered: [CS-PLAN-082: Current-Stable Test Baseline and Data Preservation](done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
 (final Full `PASS-WITH-FIXES` 2026-10-06; NC35/PHP8.4 primary plus named NC34 AIO
 row, all-provider backend and preservation/recovery proofs, canonical/CI promotion,
@@ -32,7 +38,9 @@ claimed by this preparation delivery.
 
 Current active plans: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
 (parent), its WP9 child [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
-(activated 2026-10-03, Standard A `PASS`). Independent runtime qualification
+(activated 2026-10-03, Standard A `PASS`), and the independent
+[CS-PLAN-083 release qualification gates](active/cs-plan-083-release-qualification-gates.md).
+Independent runtime qualification
 [CS-PLAN-082](done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
 and CS-PLAN-081 preparation are complete in `done/`; neither closes those parent/child plans.
 Core product direction was approved through 24 explicit answers on 2026-09-17.

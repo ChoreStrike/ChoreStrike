@@ -417,13 +417,21 @@ effort, not a CS-PLAN-081 prerequisite or authorization to transfer anything.
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: Backlog · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: unassigned · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision)
+**Status**: In Progress (qualification slice; deployment/field use remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: CS-PLAN-083 (WP1-WP3 qualification only; deployment/adoption remains operator-owned) · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
 real-world `v0.8.x` alpha usage; (optional) private tester onboarding for
 `v0.9.x` beta with structured feedback intake.
+
+[CS-PLAN-083](../plans/active/cs-plan-083-release-qualification-gates.md) was
+activated by Standard A `PASS-WITH-FIXES` on 2026-10-10. It owns alias-free
+canonical provisioning, deterministic clean-candidate package identity and
+wired qualification of the same archive on NC35/NC34. Its three explicit
+decisions and four resolved design findings are recorded in the plan. This
+bounded contribution does not close RELEASE-002, perform deployment/adoption,
+or replace CS-PLAN-080's independent human evidence. Implementation is pending.
 
 The generic deployment guide still needs a verified production package manifest,
 target-specific AIO commands and a concrete adoption record before independent
