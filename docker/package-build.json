@@ -13,6 +13,12 @@
     "digest": "sha256:698d3801b2a622ace460c4743c781282fcbcb733a4cbf8b31c44731e846585e8",
     "platformDigest": "sha256:dc21210ab4f258498cc741b3fcae648ecea0512bf1902f626258a5a2416dd65f"
   },
+  "php": {
+    "version": "8.4.25",
+    "image": "php:8.4.25-apache",
+    "digest": "sha256:bcdc7a2fe1003e50d80ef9c820f0ab00f9023c565c3a162e05d5825e20b04fc5",
+    "platformDigest": "sha256:82256e3beb70749ba80a2bfdaa005e35dd446678cd136c45a9de94ccad27cd74"
+  },
   "runtimeAllowlist": [
     "appinfo",
     "lib",

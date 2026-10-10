@@ -173,6 +173,7 @@ describe('build-package configuration', () => {
 		['platform', { platform: 'windows/amd64' }],
 		['node digest', { node: { ...config.node, digest: 'sha256:xyz' } }],
 		['composer image', { composer: { ...config.composer, image: 'composer:latest' } }],
+		['php image', { php: { ...config.php, image: 'php:8.3-cli' } }],
 		['empty allowlist', { runtimeAllowlist: [] }],
 		['missing referenced assets', { assetContract: { ...config.assetContract, referenced: [] } }],
 	])('rejects invalid configuration: %s', (label, override) => {
@@ -195,7 +196,7 @@ describe('build-package pinned base images', () => {
 		}
 		const tag = ensurePinnedBase(tool, invoke)
 		expect(tag).toMatch(/^chorestrike-package-base:node-/)
-		expect(calls.find(call => call.startsWith('pull'))).toBe(`pull --platform linux/amd64 node@${tool.platformDigest}`)
+		expect(calls.find(call => call.startsWith('pull'))).toBe(`pull --quiet --platform linux/amd64 node@${tool.platformDigest}`)
 	})
 
 	it('reuses an already-verified local pinned image without pulling', () => {

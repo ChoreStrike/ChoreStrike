@@ -326,10 +326,10 @@ function validatePackageConfig(config) {
 	const fail = message => { throw new Error(`Invalid docker/package-build.json: ${message}`) }
 	if (config?.schemaVersion !== 1) fail('schemaVersion must be 1')
 	if (config.platform !== 'linux/amd64') fail('platform must be linux/amd64')
-	for (const [key, imagePrefix] of [['node', 'node'], ['composer', 'composer']]) {
+	for (const [key, imagePrefix] of [['node', 'node'], ['composer', 'composer'], ['php', 'php']]) {
 		const tool = config[key]
 		if (!VERSION.test(tool?.version)) fail(`${key}.version`)
-		const expectedImage = new RegExp(`^${imagePrefix}:${tool?.version.replaceAll('.', '\\.')}$`)
+		const expectedImage = new RegExp(`^${imagePrefix}:${tool?.version.replaceAll('.', '\\.')}(?:-[a-z0-9.-]+)?$`)
 		if (typeof tool?.image !== 'string' || !expectedImage.test(tool.image)) fail(`${key}.image`)
 		if (!DIGEST.test(tool?.digest) || !DIGEST.test(tool?.platformDigest)) fail(`${key}.digest`)
 	}
@@ -402,10 +402,12 @@ function ensurePinnedBase(tool, invoke = run) {
 function buildBuilderImage(config, head, invoke = run) {
 	const nodeBase = ensurePinnedBase(config.node, invoke)
 	const composerBase = ensurePinnedBase(config.composer, invoke)
+	const phpBase = ensurePinnedBase(config.php, invoke)
 	const args = ['build', '--quiet', '--platform', config.platform, '--file', 'docker/Dockerfile.package',
 		'--tag', builderTag(head),
 		'--build-arg', `NODE_IMAGE=${nodeBase}`,
 		'--build-arg', `COMPOSER_IMAGE=${composerBase}`,
+		'--build-arg', `PHP_IMAGE=${phpBase}`,
 		'.']
 	let lastError = null
 	// BuildKit occasionally fails transiently even on local inputs; the
@@ -504,9 +506,11 @@ function buildManifests(archiveBuffer, files, sourceEntries, contractReport, sta
 		tools: {
 			node: config.node.version,
 			npm: versions?.[1] ?? null,
+			php: config.php.version,
 			composer: versions?.[2] ?? null,
 			nodeImage: `${config.node.image}@${config.node.platformDigest}`,
 			composerImage: `${config.composer.image}@${config.composer.platformDigest}`,
+			phpImage: `${config.php.image}@${config.php.platformDigest}`,
 		},
 		files,
 		source: sourceEntries,
