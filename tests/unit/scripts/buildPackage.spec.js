@@ -77,6 +77,15 @@ describe('build-package deterministic archive', () => {
 		expect(readTar(stream).map(entry => entry.name)).toEqual(['js', 'js/chorestrike-main.js', 'lib/AppInfo/Application.php'])
 	})
 
+	it('round-trips overlong webpack vendor chunk names via pax path records', () => {
+		const longName = `js/chorestrike-vendors-${'node_modules_x_'.repeat(8)}bundle-BIbJGxX-515202.js`
+		const tar = buildTar([{ name: longName, type: 'file', mode: 0o644, mtime: 1700000000, data: Buffer.from('vendor') }])
+		const parsed = readTar(tar)
+		expect(parsed).toHaveLength(1)
+		expect(parsed[0].name).toBe(longName)
+		expect(parsed[0].data.toString()).toBe('vendor')
+	})
+
 	it('rejects traversal, absolute paths and host separators', () => {
 		expect(() => assertSafeArchiveName('a/../b')).toThrow(/traversal/)
 		expect(() => assertSafeArchiveName('/etc/passwd')).toThrow(/Unsafe/)

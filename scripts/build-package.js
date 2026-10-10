@@ -107,9 +107,22 @@ function octal(value, width) {
 	return value.toString(8).padStart(width - 1, '0') + '\0'
 }
 
-function ustarHeader(entry) {
+/** Format one pax extended header record (its length field includes itself). */
+function paxRecord(keyword, value) {
+	const body = ` ${keyword}=${value}\n`
+	return `${body.length + String(body.length + 2).length}${body}`
+}
+
+/** True when the name fits the ustar name+prefix fields. */
+function fitsUstar(name) {
+	if (Buffer.byteLength(name, 'utf8') <= 100) return true
+	const slash = name.lastIndexOf('/', name.length - 101)
+	return slash > 0 && slash <= 155 && Buffer.byteLength(name.slice(slash + 1), 'utf8') <= 100
+}
+
+function ustarHeader(entry, nameOverride = null) {
 	const header = Buffer.alloc(512)
-	const name = Buffer.from(entry.name, 'utf8')
+	const name = Buffer.from(nameOverride ?? entry.name, 'utf8')
 	if (name.length > 100) {
 		// ustar prefix split: prefix <= 155, leaf <= 100.
 		const slash = entry.name.lastIndexOf('/', entry.name.length - 101)
@@ -125,7 +138,7 @@ function ustarHeader(entry) {
 	header.write(octal(entry.type === 'dir' ? 0 : entry.data.length, 12), 124, 12)
 	header.write(octal(entry.mtime, 12), 136, 12)
 	header.fill(0x20, 148, 156) // checksum spaces
-	header.write(entry.type === 'dir' ? '5' : '0', 156, 1)
+	header.write(entry.typeflag ?? (entry.type === 'dir' ? '5' : '0'), 156, 1)
 	header.write('ustar\0', 257, 6)
 	header.write('00', 263, 2)
 	header.write('root\0', 265, 32)
@@ -146,7 +159,19 @@ function buildTar(entries) {
 	const parts = []
 	for (const entry of sorted) {
 		if (entry.type !== 'file' && entry.type !== 'dir') throw new Error(`Unsupported archive entry type: ${entry.type}`)
-		parts.push(ustarHeader(entry))
+		if (!fitsUstar(entry.name)) {
+			// Overlong webpack vendor chunk names travel in a pax extended
+			// header (parsed back by readTar); the ustar name field carries a
+			// deterministic truncated placeholder.
+			const record = Buffer.from(paxRecord('path', entry.name), 'utf8')
+			const pax = { name: `./PaxHeaders/${entry.name.slice(0, 60)}`, typeflag: 'x', type: 'file', mode: 0o644, mtime: entry.mtime, data: record }
+			parts.push(ustarHeader({ ...pax, type: 'file' }, pax.name), record)
+			const padding = (512 - (record.length % 512)) % 512
+			if (padding) parts.push(Buffer.alloc(padding))
+			parts.push(ustarHeader(entry, entry.name.slice(0, 100)))
+		} else {
+			parts.push(ustarHeader(entry))
+		}
 		if (entry.type === 'file') {
 			parts.push(entry.data)
 			const padding = (512 - (entry.data.length % 512)) % 512
@@ -179,9 +204,16 @@ function readTar(buffer) {
 		const data = buffer.subarray(offset, offset + size)
 		// git archive prefixes the stream with a pax global header carrying
 		// the commit ID; pax/GNU extended metadata members carry records in
-		// their data block and are skipped like the standard tools do.
+		// their data block. 'path' records override the FOLLOWING entry's name
+		// (used for overlong webpack vendor chunk names).
 		if (type === 'g' || type === 'x' || type === 'X') {
-			longName = null
+			if (type !== 'g') {
+				for (const match of data.toString('utf8').matchAll(/(?:^|\n)\d+ (\w+)=([^\n]*)\n/g)) {
+					if (match[1] === 'path') longName = match[2]
+				}
+			} else {
+				longName = null
+			}
 		} else if (type === 'L') {
 			longName = data.toString('utf8').replace(/\0.*$/s, '')
 		} else if (type === '0' || type === '7') {
@@ -432,8 +464,8 @@ const CONTAINER_BUILD_SCRIPT = [
 	'composer install --no-dev --no-interaction --prefer-dist --no-progress',
 	'NODE_ENV=production npx webpack --mode production --json /tmp/stats.json 1>/tmp/webpack.log',
 	'{ node --version; npm --version; composer --version --no-ansi 2>/dev/null | head -n 1; } > /tmp/versions.txt',
-	'tar --format=ustar -C /package -czf /tmp/built.tar.gz js vendor',
-	'tar --format=ustar -C /tmp -cf /tmp/transport.tar built.tar.gz stats.json versions.txt webpack.log',
+	'tar --format=posix -C /package -czf /tmp/built.tar.gz js vendor',
+	'tar --format=posix -C /tmp -cf /tmp/transport.tar built.tar.gz stats.json versions.txt webpack.log',
 	'cat /tmp/transport.tar',
 ].join('\n')
 
@@ -679,6 +711,11 @@ function selfTest() {
 	paxHeader.write(paxSum.toString(8).padStart(6, '0') + '\0 ', 148, 8)
 	const withPax = Buffer.concat([paxHeader, paxRecord, Buffer.alloc(512 - paxRecord.length), tarA])
 	ok('pax global headers are skipped', readTar(withPax).map(entry => entry.name).join() === parsed.map(entry => entry.name).join())
+	// Overlong webpack vendor chunk names travel in pax path records.
+	const longName = `js/chorestrike-vendors-${'node_modules_x_'.repeat(8)}bundle-BIbJGxX-515202.js`
+	const longTar = buildTar([{ name: longName, type: 'file', mode: 0o644, mtime: 1700000000, data: Buffer.from('vendor') }])
+	const longParsed = readTar(longTar)
+	ok('pax path records round-trip', longParsed.length === 1 && longParsed[0].name === longName && longParsed[0].data.toString() === 'vendor')
 	ok('ownership is 0:0', tarA.subarray(108, 124).equals(Buffer.from('0000000\0'.repeat(2))))
 	// The first sorted entry is the 'js' directory (0755); the file follows.
 	ok('file mode is 0644', tarA.subarray(512 + 100, 512 + 108).toString().startsWith('0000644'))
