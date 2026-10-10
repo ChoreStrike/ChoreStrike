@@ -44,7 +44,7 @@ const os = require('node:os')
 const path = require('node:path')
 const zlib = require('node:zlib')
 const { readGitState, readTar, buildTar, sha256Hex, buildPackage } = require('./build-package')
-const { readInventory, selectRuntime, selectionHash, verifyImage } = require('./test-runtime')
+const { readInventory, selectRuntime, selectionHash, verifyImage, execute, probe } = require('./test-runtime')
 
 const ROOT = path.resolve(__dirname, '..')
 const COMPOSE_FILE = path.join('docker', 'compose.package-smoke.yml')
@@ -256,7 +256,7 @@ function runQualification({ runId = Date.now().toString(36), outDir, io } = {}) 
 		imageName: defaultImageName,
 		verifyImage: (selection, imageName, row) => {
 			try {
-				return verifyImage(selection, imageName)
+				return verifyImage(selection, imageName, execute, row, probe, 'current')
 			} catch (error) {
 				throw new Error(`Frozen runtime image for row '${row}' is missing or unverified (${imageName}): ${error.message}. Build it via 'node scripts/test-runtime.js build --runtime=${row} ${imageName}' first.`)
 			}
