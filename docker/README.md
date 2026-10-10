@@ -31,15 +31,13 @@ Expected: `"installed":true` and `chorestrike: 0.1.1` in the enabled list.
 ## Run Integration Tests
 
 ```powershell
-docker compose -f docker/compose.test.yml exec nextcloud-test bash -c \
-  "cd /var/www/html/custom_apps/chorestrike && php -d memory_limit=512M vendor/bin/phpunit --configuration phpunit.integration.xml"
+docker compose -f docker/compose.test.yml exec nextcloud-test bash -c "cd /var/www/html/custom_apps/chorestrike && php -d memory_limit=512M vendor/bin/phpunit --configuration phpunit.integration.xml"
 ```
 
 ## Run Unit Tests (inside container)
 
 ```powershell
-docker compose -f docker/compose.test.yml exec nextcloud-test bash -c \
-  "cd /var/www/html/custom_apps/chorestrike && php -d memory_limit=512M vendor/bin/phpunit --configuration phpunit.unit.xml"
+docker compose -f docker/compose.test.yml exec nextcloud-test bash -c "cd /var/www/html/custom_apps/chorestrike && php -d memory_limit=512M vendor/bin/phpunit --configuration phpunit.unit.xml"
 ```
 
 ## Test Users

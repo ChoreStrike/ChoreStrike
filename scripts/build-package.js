@@ -76,27 +76,47 @@ function run(command, args, options = {}) {
 
 /** Read the HEAD-pinned candidate identity. Refuses dirty/detached trees. */
 function readGitState(probe = run) {
-	const head = probe('git', ['rev-parse', 'HEAD']).stdout.trim()
+	const checked = args => {
+		const result = probe('git', args)
+		if (result.status !== 0 || result.signal || result.error) throw new Error(`Git ${args[0]} probe failed; refusing to package`)
+		return result.stdout
+	}
+	const head = checked(['rev-parse', 'HEAD']).trim()
 	if (!/^[a-f0-9]{40}$/.test(head)) throw new Error('Cannot resolve HEAD; refusing to package')
-	const branch = probe('git', ['symbolic-ref', '-q', 'HEAD']).stdout.trim()
+	const branchResult = probe('git', ['symbolic-ref', '-q', 'HEAD'])
+	if (branchResult.status === 1) throw new Error('Refusing to package a detached HEAD; check out a branch tip')
+	if (branchResult.status !== 0 || branchResult.signal || branchResult.error) throw new Error('Git branch probe failed; refusing to package')
+	const branch = branchResult.stdout.trim()
 	if (!branch) throw new Error('Refusing to package a detached HEAD; check out a branch tip')
-	const status = probe('git', ['status', '--porcelain']).stdout
+	const status = checked(['status', '--porcelain'])
 	if (status.trim()) {
 		throw new Error(`Refusing to package a dirty tree (${status.trim().split('\n').length} change(s)); commit or explicitly reset first`)
 	}
-	const epoch = Number(probe('git', ['show', '-s', '--format=%ct', 'HEAD']).stdout.trim())
+	const epoch = Number(checked(['show', '-s', '--format=%ct', head]).trim())
 	if (!Number.isInteger(epoch) || epoch <= 0) throw new Error('Cannot derive the commit epoch for SOURCE_DATE_EPOCH')
 	return { head, branch, epoch }
 }
 
 /** Tracked files of the candidate: [{mode, type, sha1, path}]. */
-function readTree(probe = run) {
-	const output = probe('git', ['ls-tree', '-r', 'HEAD']).stdout
+function readTree(probe = run, head) {
+	const result = probe('git', ['ls-tree', '-r', head])
+	if (result.status !== 0 || result.signal || result.error) throw new Error('Git tree probe failed; refusing to package')
+	const output = result.stdout
 	return output.split('\n').filter(Boolean).map(line => {
 		const [meta, name] = line.split('\t')
 		const [mode, type, sha1] = meta.split(' ')
 		return { mode, type, sha1, path: name }
 	})
+}
+
+function captureCandidateSource(state, invoke = run) {
+	const source = invoke('git', ['archive', state.head], { encoding: 'buffer' })
+	if (source.status !== 0 || source.signal || source.error) throw new Error('Git archive probe failed; refusing to package')
+	return { archiveBuffer: source.stdout, tree: readTar(source.stdout), tracked: readTree(invoke, state.head) }
+}
+
+function assertCandidateUnchanged(state, invoke = run) {
+	if (JSON.stringify(readGitState(invoke)) !== JSON.stringify(state)) throw new Error('Candidate identity drifted during package construction')
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +258,7 @@ function readTar(buffer) {
 function assertSafeArchiveName(name) {
 	if (!name || name.includes('\0')) throw new Error(`Unsafe archive path: ${JSON.stringify(name)}`)
 	if (name.startsWith('/') || name.startsWith('~')) throw new Error(`Unsafe archive path: ${name}`)
+	if (name.includes(':')) throw new Error(`Unsafe archive path: ${name}`)
 	if (name.includes('\\')) throw new Error(`Archive path uses a host path separator: ${name}`)
 	const segments = name.split('/')
 	if (segments.some(segment => segment === '..' || segment === '.' || !segment)) {
@@ -440,16 +461,16 @@ function ensurePinnedBase(tool, invoke = run) {
 	throw new Error(`Cannot fetch the pinned base image ${pinned}; refusing to build with an unverifiable toolchain: ${(last?.stderr ?? '').trim().slice(0, 200)}`)
 }
 
-function buildBuilderImage(config, head, invoke = run) {
+function buildBuilderImage(config, head, invoke = run, context = ROOT) {
 	const nodeBase = ensurePinnedBase(config.node, invoke)
 	const composerBase = ensurePinnedBase(config.composer, invoke)
 	const phpBase = ensurePinnedBase(config.php, invoke)
-	const args = ['build', '--quiet', '--platform', config.platform, '--file', 'docker/Dockerfile.package',
+	const args = ['build', '--quiet', '--platform', config.platform, '--file', path.join(context, 'docker/Dockerfile.package'),
 		'--tag', builderTag(head),
 		'--build-arg', `NODE_IMAGE=${nodeBase}`,
 		'--build-arg', `COMPOSER_IMAGE=${composerBase}`,
 		'--build-arg', `PHP_IMAGE=${phpBase}`,
-		'.']
+		context]
 	let lastError = null
 	// BuildKit occasionally fails transiently even on local inputs; the
 	// pinned, verified base tags make a bounded retry safe (identical
@@ -474,19 +495,35 @@ const CONTAINER_BUILD_SCRIPT = [
 	'npm ci --no-audit --no-fund --loglevel=error >/tmp/npm.log 2>&1 || { cat /tmp/npm.log >&2; exit 1; }',
 	'composer install --no-dev --no-interaction --prefer-dist --no-progress >/tmp/composer.log 2>&1 || { cat /tmp/composer.log >&2; exit 1; }',
 	'NODE_ENV=production CHORESTRIKE_PACKAGE_BUILD=true npx webpack --mode production --json /tmp/stats.json 1>/tmp/webpack.log',
-	'{ node --version; npm --version; composer --version --no-ansi 2>/dev/null | head -n 1; } > /tmp/versions.txt',
-	'tar --format=posix -C /package -czf /tmp/built.tar.gz js vendor',
+	'node scripts/package-licenses.js /tmp/stats.json',
+	'{ node --version; npm --version; composer --version --no-ansi 2>/dev/null | head -n 1; node -p "process.versions.zlib"; } > /tmp/versions.txt',
+	'tar --format=posix -C /package -czf /tmp/built.tar.gz js vendor licenses',
 	'tar --format=posix -C /tmp -cf /tmp/transport.tar built.tar.gz stats.json versions.txt webpack.log npm.log composer.log',
 	'cat /tmp/transport.tar',
 ].join('\n')
 
-/** Build js/vendor + stats inside the pinned builder from a HEAD archive. */
+/** Execute a uniquely owned builder and stop its daemon container on failure. */
+function runOwnedBuilder(head, args, options, invoke = run) {
+	const token = crypto.randomUUID()
+	const name = `cs-package-build-${token}`
+	try {
+		return invoke('docker', ['run', '--rm', '--name', name, '--label', `org.chorestrike.package-builder=${token}`, ...args.slice(0, args.indexOf('--command')), builderTag(head), ...args.slice(args.indexOf('--command') + 1)], options)
+	} finally {
+		// A client timeout does not stop a daemon-managed container.
+		const inspect = invoke('docker', ['ps', '--all', '--filter', `label=org.chorestrike.package-builder=${token}`, '--filter', `name=^/${name}$`, '--format', '{{.ID}}'], { encoding: 'utf8' })
+		if (inspect.status !== 0) throw new Error('Cannot verify owned package builder cleanup')
+		if (inspect.stdout.trim()) {
+			if (!/^[a-f0-9]{12,64}$/.test(inspect.stdout.trim())) throw new Error('Ambiguous owned package builder identity')
+			const stopped = invoke('docker', ['rm', '--force', inspect.stdout.trim()], { encoding: 'utf8' })
+			if (stopped.status !== 0) throw new Error(`Cannot stop owned package builder ${name}`)
+		}
+	}
+}
+
+/** Build js/vendor + stats inside the pinned builder from a captured archive. */
 function buildInContainer(config, state, archivePath, invoke = run) {
-	const result = invoke('docker', ['run', '--rm',
-		'-v', `${archivePath}:/inputs/source.tar:ro`,
-		'-e', `SOURCE_DATE_EPOCH=${state.epoch}`,
-		builderTag(state.head), 'bash', '-c', CONTAINER_BUILD_SCRIPT],
-	{ encoding: 'buffer', timeout: 900000, maxBuffer: 512 * 1024 * 1024 })
+	const result = runOwnedBuilder(state.head, ['-v', `${archivePath}:/inputs/source.tar:ro`, '-e', `SOURCE_DATE_EPOCH=${state.epoch}`, '--command', 'bash', '-c', CONTAINER_BUILD_SCRIPT],
+		{ encoding: 'buffer', timeout: 900000, maxBuffer: 512 * 1024 * 1024 }, invoke)
 	const stdout = result.stdout ?? Buffer.alloc(0)
 	const stderr = result.stderr ? result.stderr.toString('utf8') : ''
 	if (result.status !== 0 || !stdout.length) {
@@ -503,6 +540,19 @@ function buildInContainer(config, state, archivePath, invoke = run) {
 		versions: transport.get('versions.txt').toString('utf8').split('\n').filter(Boolean),
 		buildLog: [transport.get('webpack.log').toString('utf8'), transport.get('npm.log').toString('utf8'), transport.get('composer.log').toString('utf8')].join('\n'),
 	}
+}
+
+function compressInBuilder(tar, state, invoke = run) {
+	const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-compress-'))
+	try {
+		const input = path.join(directory, 'runtime.tar')
+		fs.writeFileSync(input, tar)
+		const result = runOwnedBuilder(state.head, ['-v', `${input}:/inputs/runtime.tar:ro`, '--command', 'node', '-e', 'process.stdout.write(require("node:zlib").gzipSync(require("node:fs").readFileSync("/inputs/runtime.tar"),{level:9,mtime:0}))'],
+			{ encoding: 'buffer', timeout: 120000, maxBuffer: 512 * 1024 * 1024 }, invoke)
+		if (result.status !== 0 || !result.stdout?.length) throw new Error('Pinned package compression failed')
+		if (result.stdout[9] !== 3 || !zlib.gunzipSync(result.stdout).equals(tar)) throw new Error('Pinned compressor output identity mismatch')
+		return result.stdout
+	} finally { fs.rmSync(directory, { recursive: true, force: true }) }
 }
 
 // ---------------------------------------------------------------------------
@@ -554,6 +604,7 @@ function buildManifests(archiveBuffer, files, sourceEntries, contractReport, sta
 			nodeImage: `${config.node.image}@${config.node.platformDigest}`,
 			composerImage: `${config.composer.image}@${config.composer.platformDigest}`,
 			phpImage: `${config.php.image}@${config.php.platformDigest}`,
+			compressor: { node: versions?.[0] ?? null, zlib: versions?.[3] ?? null, platform: config.platform },
 		},
 		files,
 		source: sourceEntries,
@@ -565,20 +616,21 @@ function buildManifests(archiveBuffer, files, sourceEntries, contractReport, sta
 // Orchestration
 // ---------------------------------------------------------------------------
 
-function buildPackage({ outDir, io = { run, readConfig: () => JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) } } = {}) {
-	const config = validatePackageConfig(io.readConfig())
+function buildPackage({ outDir, io = { run } } = {}) {
 	const state = readGitState(io.run)
-	const archiveBuffer = io.run('git', ['archive', 'HEAD'], { encoding: 'buffer' }).stdout
-	const tree = readTar(archiveBuffer)
-	const tracked = readTree(io.run)
+	const { archiveBuffer, tree, tracked } = captureCandidateSource(state, io.run)
+	const config = validatePackageConfig(JSON.parse(tree.find(entry => entry.name === 'docker/package-build.json').data.toString('utf8')))
 
-	buildBuilderImage(config, state.head, io.run)
 	// Large stdin streams break spawnSync on Windows (libuv EOF); mount the
 	// HEAD archive read-only instead of piping it into the container.
 	const archivePath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cs-build-')), 'source.tar')
 	let built = null
 	try {
 		fs.writeFileSync(archivePath, archiveBuffer)
+		const context = path.join(path.dirname(archivePath), 'builder')
+		fs.mkdirSync(path.join(context, 'docker'), { recursive: true })
+		fs.writeFileSync(path.join(context, 'docker/Dockerfile.package'), tree.find(entry => entry.name === 'docker/Dockerfile.package').data)
+		buildBuilderImage(config, state.head, io.run, context)
 		built = buildInContainer(config, state, archivePath, io.run)
 	} finally {
 		fs.rmSync(path.dirname(archivePath), { recursive: true, force: true })
@@ -618,8 +670,9 @@ function buildPackage({ outDir, io = { run, readConfig: () => JSON.parse(fs.read
 		trackedFiles, builtFiles: built.files,
 		allowlist: config.runtimeAllowlist, forbidden: config.forbidden, epoch: state.epoch,
 	})
-	const archive = gzipDeterministic(assembled.tar)
+	const archive = compressInBuilder(assembled.tar, state, io.run)
 	const manifests = buildManifests(archive, assembled.files, sourceEntries, contractReport, state, config, built.versions)
+	assertCandidateUnchanged(state, io.run)
 
 	fs.mkdirSync(outDir, { recursive: true })
 	fs.writeFileSync(path.join(outDir, ARCHIVE_NAME), archive)
@@ -635,12 +688,14 @@ function buildPackage({ outDir, io = { run, readConfig: () => JSON.parse(fs.read
 
 function verifyReproducible(options = {}) {
 	const base = options.outDir ?? path.join('build', 'package', `run-${Date.now().toString(36)}`)
-	const first = buildPackage({ ...options, outDir: path.join(base, 'build-1') })
-	const second = buildPackage({ ...options, outDir: path.join(base, 'build-2') })
+	const build = options.buildPackageFn ?? buildPackage
+	const first = build({ ...options, outDir: path.join(base, 'build-1') })
+	const second = build({ ...options, outDir: path.join(base, 'build-2') })
 	const sameArchive = sha256Hex(first.archive) === sha256Hex(second.archive)
 	const sameFiles = JSON.stringify(first.manifests.files) === JSON.stringify(second.manifests.files)
-	if (!sameArchive || !sameFiles) {
-		throw new Error(`Reproducibility proof FAILED: archive match=${sameArchive}, per-file manifest match=${sameFiles}`)
+	const sameIdentity = JSON.stringify(first.manifests) === JSON.stringify(second.manifests)
+	if (!sameArchive || !sameFiles || !sameIdentity) {
+		throw new Error(`Reproducibility proof FAILED: archive match=${sameArchive}, per-file manifest match=${sameFiles}, candidate/input identity match=${sameIdentity}`)
 	}
 	return {
 		status: 'reproducible',
@@ -683,11 +738,12 @@ function selfTest() {
 	}
 
 	console.log('self-test: clean-HEAD gate')
-	const probeOf = stdout => () => ({ stdout })
+	const probeOf = stdout => () => ({ stdout, status: 0 })
 	ok('dirty tree is refused', throws(() => readGitState(probeOf('a'.repeat(40))), /dirty tree/))
 	ok('detached HEAD is refused', throws(
-		() => readGitState((command, args) => ({ stdout: args[0] === 'rev-parse' ? 'b'.repeat(40) : '' })), /detached HEAD/))
+		() => readGitState((command, args) => ({ status: 0, stdout: args[0] === 'rev-parse' ? 'b'.repeat(40) : '' })), /detached HEAD/))
 	ok('clean branch tip is accepted', readGitState((command, args) => ({
+		status: 0,
 		stdout: args[0] === 'rev-parse' ? 'c'.repeat(40)
 			: args[0] === 'symbolic-ref' ? 'refs/heads/master'
 				: args[0] === 'status' ? '' : '1700000000',
@@ -828,6 +884,8 @@ module.exports = {
 	readGitState, readTree, buildTar, readTar, gzipDeterministic, assertSafeArchiveName,
 	selectRuntimeFiles, classifyLineEndings, compareToBlob, gitBlobId, checkAssetContract,
 	validatePackageConfig, pinnedBaseTag, ensurePinnedBase, buildBuilderImage, buildInContainer, assemblePackage,
+	runOwnedBuilder, compressInBuilder,
+	captureCandidateSource, assertCandidateUnchanged,
 	buildManifests, buildPackage, verifyReproducible, sha256Hex, sha1Hex, octal, paxRecord, fitsUstar, CONTAINER_BUILD_SCRIPT,
 }
 

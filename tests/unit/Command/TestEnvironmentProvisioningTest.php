@@ -78,9 +78,12 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			} else {
 				self::assertStringNotContainsString('READY_MARKER', $output);
 				self::assertStringNotContainsString('Setup Complete', $output);
-				if (in_array($scenario, ['wrong-code-runtime', 'old-volume', 'unexpected-apps-paths', 'apps-paths-import-failure'], true)) {
+				if (in_array($scenario, ['wrong-code-runtime', 'old-volume', 'unexpected-apps-paths', 'apps-paths-import-failure', 'apps-paths-read-failure'], true)) {
 					self::assertStringNotContainsString('CONFIG_MUTATION', $output);
 					self::assertStringNotContainsString('SEED_SUCCEEDED', $output);
+				}
+				if ($scenario === 'apps-paths-read-failure') {
+					self::assertStringNotContainsString('APPS_PATHS_IMPORTED', $output);
 				}
 			}
 		} finally {
@@ -107,6 +110,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			['missing-seed', 1, 'Required seed script is missing'],
 			['unexpected-apps-paths', 1, 'unexpected existing apps_paths configuration'],
 			['apps-paths-import-failure', 1, 'APPS_PATHS_IMPORT_FAILED'],
+			['apps-paths-read-failure', 1, 'apps_paths configuration probe failed'],
 		];
 	}
 

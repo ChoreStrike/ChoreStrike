@@ -218,6 +218,10 @@ build and test inputs unchanged; otherwise rebuild and rerun affected gates.
 ```
 new:      scripts/build-package.js
 new:      scripts/run-package-smoke.js
+new:      scripts/package-target.js (shared package-only safety policy)
+new:      scripts/package-licenses.js (bundled dependency license closure)
+new:      docker/package-license-overrides.json
+new:      docker/package-license-texts/ (version-bound upstream MIT texts)
 new:      docker/compose.package-smoke.yml
 new:      docker/Dockerfile.package (pinned builder/toolchain)
 new:      docker/package-build.json (tool pins, runtime allowlist, asset inventory)
@@ -332,6 +336,22 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 These are resolved **plan-design findings**, not claims that implementation or
 runtime qualification has passed. All implementation acceptance criteria remain open.
 
+### Full Review Implementation Findings (2026-10-10)
+
+- [ ] RF-083-05 (major) - `scripts/run-package-smoke.js:165` (review base): container-only freshness omitted orphan volumes/networks and verified cleanup ownership. Authorized fix checks resource collisions, labels and stable inspected identities; new regression and runtime proof pending final verification.
+- [ ] RF-083-06 (major) - `scripts/run-package-smoke.js:124`: extraction checked only a manifest subset and followed links. Authorized fix requires new extraction and exact file/directory inventory without links; regression and qualification proof pending.
+- [ ] RF-083-07 (major) - `scripts/run-package-smoke.js:275`: HTTP/OCC comparison read only OCC. Authorized shared comparator probes direct HTTP and requires readiness/version parity; real comparator regressions and smoke proof pending.
+- [ ] RF-083-08 (major) - `scripts/build-package.js:83`: failed Git status accepted as clean. Authorized fix checks identity probe statuses; negative regressions pass, final verification pending.
+- [ ] RF-083-09 (major) - `docker/test-entrypoint.sh:149`: failed apps_paths read was treated as absence. Authorized explicit default sentinel distinguishes absence from probe failure; refusal regression passes, fresh/populated proof pending.
+- [ ] RF-083-10 (major) - `tests/package/owner-smoke.cjs:12`: standalone target policy diverged from orchestration. Authorized shared package-only validator now owns both paths; regressions and smoke proof pending.
+- [ ] RF-083-11 (major) - `scripts/build-package.js:571`: mutable HEAD and independent qualification capture could misidentify source bytes. Authorized fix captures all inputs by SHA, rejects candidate drift and manifest mismatch; regression and regenerated package proof pending.
+- [ ] RF-083-12 (major) - `scripts/build-package.js:478`: qualified archive contained notices, not complete third-party license texts. Authorized actual-module license/attribution collection and pinned omissions inventory implemented; completeness regressions pass, new artifact verification pending. No license-compatibility legal conclusion.
+- [ ] RF-083-13 (major) - `scripts/build-package.js:187`: host zlib made archive bytes host-dependent. Authorized pinned Linux final compression with actual compressor identity implemented; regression and cross-host/two-build proof pending.
+- [ ] RF-083-14 (minor) - `scripts/build-package.js:485`: Docker client timeout could leave its builder running. Authorized token-owned builder cleanup by ID implemented; regression passes, final verification pending.
+- [x] RF-083-15 (minor) - `docker/README.md:34`: Bash continuations in PowerShell examples. Fixed to single-line commands; documentation validation pending final gate.
+- [ ] RF-083-16 (major) - post-fix Architecture track: shared mount normalization lowercased distinct POSIX paths. Fixed to normalize case only for Windows drive paths; independent actual-POSIX recheck passes, final evidence pending.
+- [ ] RF-083-17 (major) - post-fix Correctness track: two equal runtime archives could come from different candidates between builds. Reproducibility now compares complete manifests including candidate/source/tool identity; regression and independent recheck pass, final two-build proof pending.
+
 ### WP1 Gate Evidence (2026-10-10)
 - Populated recreation of the owned canonical container (config/data/DB volumes
   retained from the pre-WP1 stack): entrypoint imported the complete
@@ -384,6 +404,12 @@ runtime qualification has passed. All implementation acceptance criteria remain 
   (gitignored). RELEASE-002 remains open (deployment/adoption/field use).
 
 ## Review Decisions
+
+Full-review remediation batch answered on 2026-10-10:
+
+- Q-083-04: **Authorize safety fixes** - explicitly authorized the six local tooling safety/validation fixes (RF-083-05..10), shared package-only policy and regressions. No demonstrated remote app vulnerability; no safety change was auto-fixed.
+- Q-083-05: **Authorize packaging fixes** - authorized immutable candidate binding, complete dependency-license packaging, pinned final compression and owned-builder cleanup (RF-083-11..14), tests and renewed qualification. No candidate checkpoint is implied by this decision; that remains separately authorized.
+- Q-083-06: **Authorize checkpoints (Recommended)** - explicitly authorized scoped implementation candidate checkpoint commits for this remediation and any qualification-exposed fixes, followed by the single eligible final review commit. No push, deployment or baseline adoption.
 
 Structured batch answered on 2026-10-10; all recommended options selected:
 

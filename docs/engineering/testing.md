@@ -150,7 +150,7 @@ existing household. Preserve failed fixtures for diagnosis rather than reset
 them into a passing first-install result.
 
 `tests/package/owner-smoke.cjs` accepts a private target JSON (`project`,
-`container`, `url`, `image`), extracted app directory, new private report path
+`container`, `url`, `image`, frozen `internalVersion`), extracted app directory, new private report path
 and explicit `setup` or `verify` action:
 
 ```bash
@@ -163,6 +163,10 @@ The target must be a `cs082-*` Compose project with a `nextcloud-pgsql` service,
 bindings, matching HTTP port/image, both test markers false and the exact
 read-only package mount. These checks precede account-setting/UI mutations;
 this runner never weakens `scripts/test-target.js`'s test-mode requirement.
+Both entry paths use `scripts/package-target.js`, reject conflicting markers
+and URL credentials/query/fragment, and directly compare numeric-loopback HTTP
+status with OCC (installed, frozen internal version, no maintenance or pending
+DB upgrade). HTTP probes bypass proxies and never follow redirects.
 
 `setup` asserts zero houses/members/floors/rooms before the normal **My Day**
 entry, requires successful daily/overdue reads, and then opens Dashboard and
@@ -194,11 +198,14 @@ checkout** (a dirty or detached tree is a hard failure). The production
 webpack bundle (locked `npm ci`) and the production Composer autoloader
 (locked `composer install --no-dev`) are built inside the digest/platform-pinned
 builder image `docker/Dockerfile.package` (pins in `docker/package-build.json`)
-from a `git archive HEAD` stream — host-OS path separators, ignored workspace
+from a captured commit-SHA archive stream, including builder/configuration
+inputs; unsuccessful Git probes and mid-run candidate drift fail closed. Host-OS path separators, ignored workspace
 outputs and host timestamps can never leak into a qualified package. An
 explicit commit-derived `SOURCE_DATE_EPOCH` feeds `webpack.config.js`; the
 runtime archive is assembled with sorted entries, `0:0` ownership,
-`0644/0755` modes, a fixed mtime and gzip mtime 0, so `--verify-reproducible`
+`0644/0755` modes and a fixed mtime. Final gzip compression also runs inside
+the pinned Linux builder (recorded Node/zlib/platform identity, gzip mtime 0),
+not the host's compressor, so `--verify-reproducible`
 proves two independent builds byte-identical. The gate emits a package
 manifest (per-file SHA-256), a source manifest (source-vs-git-blob comparison
 with documented CRLF/LF provenance; non-line-ending drift fails) and an
@@ -206,6 +213,16 @@ asset-contract check (every template/controller-referenced asset is emitted;
 every emitted chunk is reachable from the entrypoint chunk graph or an
 explicitly named, reviewed exception). All artifacts land in gitignored
 `build/package/<run-id>/`.
+
+`scripts/package-licenses.js` inventories dependency packages from the actual
+Webpack module graph and includes complete license texts, package attribution
+and a hash inventory under runtime `licenses/npm/`. SPDX/comment notices alone
+are insufficient. Missing standard copyleft/Apache texts use named locked
+dependency sources; three npm distributions missing their MIT text use the
+version-specific, immutable-upstream provenance in
+`docker/package-license-overrides.json`. Unknown missing texts fail packaging;
+the collector never fetches licenses at build time. Builder containers carry a
+unique ownership token and are removed by verified ID after a client timeout.
 
 `npm run test:package:smoke` is the one-command pre-handoff qualification:
 build-package → safe extraction of the manifest-verified archive → per
@@ -220,6 +237,13 @@ Both rows consume the same extracted, hash-verified archive bytes; the
 qualification record binds candidate/input/archive/runtime/run identities
 before and after the browser checks. Failed fixtures and evidence are
 retained; cleanup only touches resources created and verified for that run.
+Freshness checks refuse pre-existing containers, named volumes and networks,
+including orphaned resources without containers. Every created resource carries
+a unique run label; its inspected identity must remain unchanged before
+volume-removing teardown. Extraction uses a new directory, rejects links and
+unsafe/duplicate members, and verifies the complete file/directory inventory,
+not merely manifest-listed hashes. Candidate identity must match the package
+manifest and remain unchanged throughout qualification.
 The frozen runtime images must exist (`node scripts/test-runtime.js build
 --runtime=<row> cs082-runtime-<version>-local`). This gate supplements, never
 replaces, the full canonical browser gate.

@@ -19,7 +19,8 @@ case "${0##*/}" in
                         echo '[{"path":"\/var\/www\/html\/apps","url":"\/apps","writable":false},{"path":"\/var\/www\/html\/custom_apps","url":"\/custom_apps","writable":true}]' ;;
                     unexpected-apps-paths)
                         echo '[{"path":"/srv/foreign_apps","url":"/apps","writable":true}]' ;;
-                    *) exit 1 ;;
+                    apps-paths-read-failure) echo CONFIG_READ_FAILED >&2; exit 1 ;;
+                    *) echo '"__cs_missing__"' ;;
                 esac ;;
             *'config:system:get apps_paths 0 path'*) echo /var/www/html/apps ;;
             *'config:system:get apps_paths 1 url'*) echo /custom_apps ;;

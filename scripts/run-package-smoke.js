@@ -43,7 +43,8 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const zlib = require('node:zlib')
-const { readGitState, readTar, buildTar, sha256Hex, buildPackage } = require('./build-package')
+const { readGitState, readTar, buildTar, sha256Hex, buildPackage, assertSafeArchiveName } = require('./build-package')
+const { validatePackageTarget, assertPackageCoherence } = require('./package-target')
 const { readInventory, selectRuntime, selectionHash, verifyImage, execute, probe } = require('./test-runtime')
 
 const ROOT = path.resolve(__dirname, '..')
@@ -62,54 +63,17 @@ function run(command, args, options = {}) {
 // Deterministic, separately fail-closed package target validation
 // ---------------------------------------------------------------------------
 
-/**
- * The package validator: both test markers FALSE (the ordinary test-target
- * guard requires TRUE — this runner never weakens that; it is a separate
- * lane), explicit package-smoke label, numeric IPv4 loopback only, frozen
- * image identity, and the exact read-only mount of the hash-verified
- * extraction. Mirrors tests/package/owner-smoke.cjs's own assertions, which
- * re-check them immediately before any account/UI mutation.
- */
-function validatePackageTarget(container, target, extractDir) {
-	const labels = container?.Config?.Labels ?? {}
-	if (labels['org.chorestrike.package-smoke'] !== 'true') throw new Error('Package target is missing the package-smoke label')
-	if (labels['com.docker.compose.project'] !== target.project) throw new Error('Package target project ownership mismatch')
-	if (labels['com.docker.compose.service'] !== 'nextcloud-pgsql') throw new Error('Package target service mismatch')
-	if (container?.State?.Health?.Status !== 'healthy') throw new Error('Package target is not healthy')
-	if (container?.Image !== target.image) throw new Error('Package target frozen image mismatch')
-	const environment = container?.Config?.Env ?? []
-	if (!environment.includes('NEXTCLOUD_TEST_MODE=false') || !environment.includes('NEXTCLOUD_TEST_ENV=false')) {
-		throw new Error('Package target must run with both test markers false')
-	}
-	if (environment.includes('NEXTCLOUD_TEST_MODE=true') || environment.includes('NEXTCLOUD_TEST_ENV=true')) {
-		throw new Error('Package target carries a true test marker')
-	}
-	const url = new URL(target.url)
-	if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.pathname !== '/' || url.username || url.password) {
-		throw new Error('Package target URL must be a credential-free numeric loopback origin')
-	}
-	const bindings = Object.values(container?.NetworkSettings?.Ports ?? {}).flat().filter(Boolean)
-	if (bindings.length === 0 || bindings.some(binding => binding.HostIp !== '127.0.0.1')) {
-		throw new Error('Package target must publish exclusively on numeric IPv4 loopback')
-	}
-	if (!bindings.some(binding => binding.HostPort === url.port)) {
-		throw new Error('Package target HTTP port mismatch')
-	}
-	const normalize = value => value.replaceAll('\\', '/').replace(/^\/run\/desktop\/mnt\/host\/([a-z])\//i, '$1:/').toLowerCase()
-	const mount = (container?.Mounts ?? []).find(entry => entry.Destination === '/var/www/html/custom_apps/chorestrike')
-	if (!mount || mount.RW !== false || normalize(mount.Source) !== normalize(path.resolve(extractDir))) {
-		throw new Error('Package target must mount the exact extracted archive read-only')
-	}
-	return { url: url.origin, container: target.container, project: target.project }
-}
-
 // ---------------------------------------------------------------------------
 // Extraction + drift checks
 // ---------------------------------------------------------------------------
 
 function extractArchive(archiveBuffer, files, extractDir) {
-	const entries = new Map(readTar(zlib.gunzipSync(archiveBuffer)).filter(entry => entry.type === 'file').map(entry => [entry.name, entry.data]))
-	fs.mkdirSync(extractDir, { recursive: true })
+	const members = readTar(zlib.gunzipSync(archiveBuffer))
+	for (const entry of members) if (entry.name !== '.') assertSafeArchiveName(entry.name)
+	const entries = new Map(members.filter(entry => entry.type === 'file').map(entry => [entry.name, entry.data]))
+	if (entries.size !== files.length || members.filter(entry => entry.type === 'file').length !== files.length) throw new Error('Archive inventory mismatch against package manifest')
+	for (const file of files) assertSafeArchiveName(file.path)
+	fs.mkdirSync(extractDir)
 	for (const file of files) {
 		const data = entries.get(file.path)
 		if (!data) throw new Error(`Archive is missing a manifest file: ${file.path}`)
@@ -122,6 +86,22 @@ function extractArchive(archiveBuffer, files, extractDir) {
 }
 
 function verifyExtractedHashes(extractDir, files) {
+	const expected = new Set(files.map(file => assertSafeArchiveName(file.path)))
+	const directories = new Set([''])
+	for (const name of expected) {
+		const parts = name.split('/')
+		for (let i = 1; i < parts.length; i++) directories.add(parts.slice(0, i).join('/'))
+	}
+	const visit = relative => {
+		const full = path.join(extractDir, relative)
+		const stat = fs.lstatSync(full)
+		if (stat.isSymbolicLink()) throw new Error('Extracted archive contains a link')
+		if (stat.isDirectory()) {
+			if (!directories.has(relative)) throw new Error('Extracted archive directory inventory drift')
+			for (const name of fs.readdirSync(full)) visit(relative ? `${relative}/${name}` : name)
+		} else if (!stat.isFile() || !expected.has(relative)) throw new Error('Extracted archive file inventory drift')
+	}
+	visit('')
 	for (const file of files) {
 		const data = fs.readFileSync(path.join(extractDir, ...file.path.split('/')))
 		if (sha256Hex(data) !== file.sha256) throw new Error(`Extracted archive drifted from the package manifest: ${file.path}`)
@@ -157,17 +137,38 @@ function composeEnvironment(settings, selection) {
 		...process.env,
 		PKG_IMAGE: settings.imageId,
 		PKG_EXTRACT_DIR: settings.extractDir,
+		PKG_RUN_TOKEN: settings.token,
 		PKG_PGSQL_IMAGE: `${selection.databases.pgsql.image}@${selection.databases.pgsql.digest}`,
 	}
 }
 
 /** No leftover containers from a previous run may share the owned project. */
 function assertFreshProject(settings, execute = run) {
-	const result = execute('docker', ['ps', '--all', '--filter', `label=com.docker.compose.project=${settings.project}`, '--format', '{{.Names}}'])
-	const existing = result.stdout.trim()
-	if (result.status !== 0 || existing) {
-		throw new Error(`Package smoke project '${settings.project}' already has resources (${existing || 'probe failed'}); refusing to mutate foreign fixtures`)
+	for (const args of [
+		['ps', '--all', '--filter', `label=com.docker.compose.project=${settings.project}`, '--format', '{{.Names}}'],
+		['ps', '--all', '--filter', `name=^${settings.project}-`, '--format', '{{.Names}}'],
+		['volume', 'ls', '--filter', `name=${settings.project}_`, '--format', '{{.Name}}'],
+		['network', 'ls', '--filter', `name=${settings.project}_`, '--format', '{{.Name}}'],
+	]) {
+		const result = execute('docker', args)
+		if (result.status !== 0 || result.signal || result.error || result.stdout.trim()) throw new Error(`Package smoke project '${settings.project}' already has resources or its probe failed; refusing to mutate foreign fixtures`)
 	}
+}
+
+function inspectOwnedResources(settings, invoke = run) {
+	const resources = [
+		['container', `${settings.project}-db-pgsql-1`], ['container', `${settings.project}-nextcloud-pgsql-1`],
+		...['db', 'config', 'data'].map(name => ['volume', `${settings.project}_${name}`]),
+		['network', `${settings.project}_package-smoke`],
+	]
+	return resources.map(([kind, name]) => {
+		const result = invoke('docker', [kind, 'inspect', name])
+		if (result.status !== 0 || result.signal || result.error) throw new Error('Package resource ownership probe failed')
+		const resource = JSON.parse(result.stdout)[0]
+		const labels = kind === 'container' ? resource.Config?.Labels : resource.Labels
+		if (labels?.['com.docker.compose.project'] !== settings.project || labels?.['org.chorestrike.package-smoke-run'] !== settings.token) throw new Error('Package resource ownership mismatch')
+		return { kind, name, id: resource.Id ?? resource.Name, created: resource.Created ?? resource.CreatedAt }
+	})
 }
 
 function defaultImageName(selection) {
@@ -196,6 +197,7 @@ function runRow({ row, inventory, state, built, extractDir, runDir, project, io 
 		imageId: image.imageId,
 		extractDir: path.resolve(extractDir),
 		inventoryHash: selectionHash(selection),
+		token: crypto.randomUUID(),
 	}
 	if (!PROJECT_PATTERN.test(project)) throw new Error(`Invalid owned package project name: ${project}`)
 	io.assertFreshProject(settings)
@@ -211,12 +213,13 @@ function runRow({ row, inventory, state, built, extractDir, runDir, project, io 
 	}
 	try {
 		io.compose(settings, selection, ['up', '--detach', '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '600'])
+		const resources = io.inspectOwnedResources(settings)
 		const containerName = `${project}-nextcloud-pgsql-1`
 		const container = JSON.parse(io.run('docker', ['inspect', containerName]).stdout)[0]
 		const bindings = Object.values(container?.NetworkSettings?.Ports ?? {}).flat().filter(Boolean)
 		const port = bindings.find(binding => binding.HostIp === '127.0.0.1')?.HostPort
 		if (!port) throw new Error('Package smoke container published no numeric loopback port')
-		const target = { project, container: containerName, url: `http://127.0.0.1:${port}`, image: image.imageId }
+		const target = { project, container: containerName, url: `http://127.0.0.1:${port}`, image: image.imageId, internalVersion: selection.nextcloud.internalVersion }
 		validatePackageTarget(container, target, settings.extractDir)
 		io.assertAliasAbsence(target)
 		io.assertOccCoherence(target, selection)
@@ -235,6 +238,8 @@ function runRow({ row, inventory, state, built, extractDir, runDir, project, io 
 
 		verifyExtractedHashes(settings.extractDir, built.manifests.files)
 		evidence.extractedDriftCheck = 'post-run-rehash-ok'
+		if (JSON.stringify(io.inspectOwnedResources(settings)) !== JSON.stringify(resources)) throw new Error('Package resource identity drift before cleanup')
+		evidence.resources = resources
 		io.compose(settings, selection, ['down', '--volumes'])
 		evidence.teardown = 'owned-down-volumes'
 		return evidence
@@ -262,6 +267,7 @@ function runQualification({ runId = Date.now().toString(36), outDir, io } = {}) 
 			}
 		},
 		assertFreshProject,
+		inspectOwnedResources,
 		compose: (settings, selection, args) => {
 			const result = spawnSync('docker', composeArguments(settings, args), {
 				cwd: ROOT, env: composeEnvironment(settings, selection), stdio: 'inherit', encoding: 'utf8', timeout: 900000,
@@ -272,14 +278,7 @@ function runQualification({ runId = Date.now().toString(36), outDir, io } = {}) 
 			const result = run('docker', ['exec', target.container, 'bash', '-c', 'test ! -e /var/www/html/apps/chorestrike && test ! -L /var/www/html/apps/chorestrike'])
 			if (result.status !== 0) throw new Error('Package smoke environment carries an /apps/chorestrike alias')
 		},
-		assertOccCoherence: (target, selection) => {
-			const result = run('docker', ['exec', '--user', 'www-data', target.container, 'php', '/var/www/html/occ', 'status', '--output=json'])
-			if (result.status !== 0) throw new Error('Package smoke OCC preflight failed')
-			const status = JSON.parse(result.stdout)
-			if (status.installed !== true || status.version !== selection.nextcloud.internalVersion) {
-				throw new Error('Package smoke HTTP/OCC runtime coherence mismatch')
-			}
-		},
+		assertOccCoherence: (target, selection) => assertPackageCoherence(target, selection.nextcloud.internalVersion),
 		ownerSmoke,
 		writeFile: (file, content) => {
 			fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -290,10 +289,13 @@ function runQualification({ runId = Date.now().toString(36), outDir, io } = {}) 
 	}
 	const steps = { ...realIo, ...io }
 	fs.mkdirSync(runDir, { recursive: true })
+	if (!fs.lstatSync(runDir).isDirectory() || fs.lstatSync(runDir).isSymbolicLink() || fs.readdirSync(runDir).length) throw new Error('Package run directory must be new and empty, without links')
+	fs.writeFileSync(path.join(runDir, '.run-owner'), crypto.randomUUID(), { flag: 'wx' })
 
 	const state = readGitState(steps.run)
 	const inventory = readInventory()
 	const built = steps.buildPackageFn({ outDir: path.join(runDir, 'package') })
+	if (built.manifests.candidate?.commit !== state.head || built.manifests.candidate?.sourceDateEpoch !== state.epoch) throw new Error('Package candidate identity mismatch')
 	const extractDir = path.join(runDir, 'extracted')
 	extractArchive(built.archive, built.manifests.files, extractDir)
 
@@ -308,6 +310,7 @@ function runQualification({ runId = Date.now().toString(36), outDir, io } = {}) 
 	const archiveSha256 = sha256Hex(fs.readFileSync(archivePath))
 	if (archiveSha256 !== built.manifests.archive.sha256) throw new Error('Archive hash drifted after the smoke rows')
 	verifyExtractedHashes(extractDir, built.manifests.files)
+	if (JSON.stringify(readGitState(steps.run)) !== JSON.stringify(state)) throw new Error('Candidate identity drifted during qualification')
 
 	const record = {
 		status: 'package-qualified',
@@ -397,6 +400,7 @@ function selfTest() {
 		imageName: () => 'cs082-runtime-test',
 		verifyImage: () => ({ imageId: 'sha256:' + 'a'.repeat(64) }),
 		assertFreshProject: () => {},
+		inspectOwnedResources: () => [],
 		compose: () => ({ status: 0 }),
 		assertAliasAbsence: () => {},
 		assertOccCoherence: () => {},
@@ -405,17 +409,20 @@ function selfTest() {
 		now: () => Date.now(),
 		buildPackageFn: () => ({
 			archive: zlib.gzipSync(buildTar([])),
-			manifests: { archive: { sha256: sha256Hex(zlib.gzipSync(buildTar([]))) }, files: [] },
+			manifests: { candidate: { commit: 'd'.repeat(40), sourceDateEpoch: 1700000000 }, archive: { sha256: sha256Hex(zlib.gzipSync(buildTar([]))) }, files: [] },
 		}),
 		...overrides,
 	})
 	// Run the real orchestration far enough to hit each injected failure.
 	const orchestrate = io => {
+		const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-pkg-orchestrate-'))
 		try {
-			runQualification({ runId: 'selftest', outDir: path.join(os.tmpdir(), 'cs-pkg-orchestrate'), io: baseIo(io) })
+			runQualification({ runId: 'selftest', outDir, io: baseIo(io) })
 			return null
 		} catch (error) {
 			return error.message
+		} finally {
+			fs.rmSync(outDir, { recursive: true, force: true })
 		}
 	}
 	ok('resource collision fails before mutation', (m => m && m.includes('already has resources'))(orchestrate({
@@ -461,7 +468,7 @@ function main() {
 	return 0
 }
 
-module.exports = { validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh, composeArguments, composeEnvironment, assertFreshProject, defaultImageName, ownerSmoke, runRow, runQualification }
+module.exports = { validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh, composeArguments, composeEnvironment, assertFreshProject, inspectOwnedResources, defaultImageName, ownerSmoke, runRow, runQualification }
 
 if (require.main === module) {
 	try {

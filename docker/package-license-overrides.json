@@ -1,0 +1,14 @@
+{
+  "@fluentui/svg-icons@1.1.320": {
+    "file": "fluentui-svg-icons.txt",
+    "source": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/e940effc000de2521ce4cf47ef45499e921c66dc/LICENSE"
+  },
+  "@vue/devtools-api@6.6.4": {
+    "file": "vue-devtools-api.txt",
+    "source": "https://raw.githubusercontent.com/vuejs/devtools-v6/df6ab6bb7791a7a525a97990de73b3ea5e9a1941/LICENSE"
+  },
+  "blurhash@2.0.5": {
+    "file": "blurhash.txt",
+    "source": "https://raw.githubusercontent.com/woltapp/blurhash/712a47f946b98c30097eb1ada086ea00b18681ec/License.md"
+  }
+}

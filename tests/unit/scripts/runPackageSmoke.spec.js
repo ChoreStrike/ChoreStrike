@@ -4,9 +4,10 @@ const path = require('node:path')
 const zlib = require('node:zlib')
 const {
 	validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh,
-	composeArguments, assertFreshProject, runQualification,
+	composeArguments, assertFreshProject, inspectOwnedResources, runQualification,
 } = require('../../../scripts/run-package-smoke')
 const { buildTar, sha256Hex } = require('../../../scripts/build-package')
+const { validatePackageStatus, assertPackageCoherence } = require('../../../scripts/package-target')
 
 const imageId = 'sha256:' + 'a'.repeat(64)
 
@@ -50,8 +51,16 @@ describe('run-package-smoke target validation', () => {
 		['image drift', makeContainer({ Image: 'sha256:' + 'b'.repeat(64) }), /image/, null],
 		['HTTP port mismatch', makeContainer(), /port/, { ...target, url: 'http://127.0.0.1:49999' }],
 		['foreign project', makeContainer({ Config: { Labels: { ...makeContainer().Config.Labels, 'com.docker.compose.project': 'cs082-pkg-other' }, Env: makeContainer().Config.Env } }), /ownership/, null],
+		['wrong service', makeContainer({ Config: { Labels: { ...makeContainer().Config.Labels, 'com.docker.compose.service': 'foreign' }, Env: makeContainer().Config.Env } }), /service/, null],
+		['conflicting marker', makeContainer({ Config: { Labels: makeContainer().Config.Labels, Env: [...makeContainer().Config.Env, 'NEXTCLOUD_TEST_MODE=true'] } }), /false/, null],
+		['URL credentials', makeContainer(), /credential-free/, { ...target, url: 'http://user:password@127.0.0.1:49152' }],
 	])('rejects %s', (label, container, pattern, customTarget) => {
 		expect(() => validatePackageTarget(container, customTarget ?? target, '/tmp/extracted')).toThrow(pattern)
+	})
+
+	it('preserves case-sensitive Linux mount paths', () => {
+		const container = makeContainer({ Mounts: [{ Destination: '/var/www/html/custom_apps/chorestrike', Source: '/tmp/Extracted', RW: false }] })
+		expect(() => validatePackageTarget(container, target, '/tmp/extracted')).toThrow(/exact extracted/)
 	})
 })
 
@@ -64,10 +73,12 @@ describe('run-package-smoke extraction and drift checks', () => {
 				{ name: 'js', type: 'dir', mode: 0o755, mtime: 1700000000, data: Buffer.alloc(0) },
 				{ name: 'js/main.js', type: 'file', mode: 0o644, mtime: 1700000000, data },
 			]))
-			expect(extractArchive(archive, [{ path: 'js/main.js', sha256: sha256Hex(data) }], dir)).toBe(true)
-			expect(fs.readFileSync(path.join(dir, 'js', 'main.js'), 'utf8')).toBe('js')
-			expect(() => extractArchive(archive, [{ path: 'js/main.js', sha256: sha256Hex(Buffer.from('other')) }], dir)).toThrow(/drift/)
-			expect(() => extractArchive(archive, [{ path: 'js/missing.js', sha256: sha256Hex(data) }], dir)).toThrow(/missing/)
+			const extracted = path.join(dir, 'extracted')
+			expect(extractArchive(archive, [{ path: 'js/main.js', sha256: sha256Hex(data) }], extracted)).toBe(true)
+			expect(fs.readFileSync(path.join(extracted, 'js', 'main.js'), 'utf8')).toBe('js')
+			expect(() => extractArchive(archive, [{ path: 'js/main.js', sha256: sha256Hex(data) }], extracted)).toThrow(/EEXIST/)
+			expect(() => extractArchive(archive, [{ path: 'js/main.js', sha256: sha256Hex(Buffer.from('other')) }], path.join(dir, 'bad'))).toThrow(/drift/)
+			expect(() => extractArchive(archive, [{ path: 'js/missing.js', sha256: sha256Hex(data) }], path.join(dir, 'missing'))).toThrow(/missing/)
 		} finally {
 			fs.rmSync(dir, { recursive: true, force: true })
 		}
@@ -85,6 +96,39 @@ describe('run-package-smoke extraction and drift checks', () => {
 		} finally {
 			fs.rmSync(dir, { recursive: true, force: true })
 		}
+	})
+
+	it('rejects extra files, extra directories and directory links before accepting identity', () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-pkg-extra-'))
+		try {
+			fs.writeFileSync(path.join(dir, 'app.js'), 'app')
+			const files = [{ path: 'app.js', sha256: sha256Hex(Buffer.from('app')) }]
+			fs.writeFileSync(path.join(dir, 'extra.php'), 'extra')
+			expect(() => verifyExtractedHashes(dir, files)).toThrow(/inventory drift/)
+			fs.unlinkSync(path.join(dir, 'extra.php'))
+			fs.mkdirSync(path.join(dir, 'empty'))
+			expect(() => verifyExtractedHashes(dir, files)).toThrow(/inventory drift/)
+			fs.rmdirSync(path.join(dir, 'empty'))
+			fs.symlinkSync(dir, path.join(dir, 'link'), 'junction')
+			expect(() => verifyExtractedHashes(dir, files)).toThrow(/link/)
+		} finally { fs.rmSync(dir, { recursive: true, force: true }) }
+	})
+})
+
+describe('package HTTP/OCC comparator', () => {
+	const ready = { installed: true, version: '35.0.1.1', maintenance: false, needsDbUpgrade: false }
+	it.each([{ version: '34.0.4.1' }, { maintenance: true }, { needsDbUpgrade: true }, { installed: false }])('rejects unready or mismatched HTTP status %j', override => {
+		expect(() => validatePackageStatus(ready, { ...ready, ...override }, ready.version)).toThrow(/coherence/)
+	})
+	it('probes the real comparator without proxy or redirect following', () => {
+		const calls = []
+		assertPackageCoherence(target, ready.version, (command, args) => {
+			calls.push({ command, args })
+			return { status: 0, stdout: JSON.stringify(ready) }
+		})
+		expect(calls[1].command).toBe('curl')
+		expect(calls[1].args).toContain('--noproxy')
+		expect(calls[1].args).not.toContain('--location')
 	})
 })
 
@@ -135,6 +179,7 @@ describe('run-package-smoke orchestration negatives', () => {
 		imageName: () => 'cs082-runtime-test',
 		verifyImage: () => ({ imageId }),
 		assertFreshProject: () => {},
+		inspectOwnedResources: () => [],
 		compose: () => {},
 		assertAliasAbsence: () => {},
 		assertOccCoherence: () => {},
@@ -150,7 +195,7 @@ describe('run-package-smoke orchestration negatives', () => {
 				archive: { name: 'chorestrike.tar.gz', sha256: archiveHash, bytes: archive.length },
 				files: [{ path: 'app.js', sha256: sha256Hex(Buffer.from('app')), size: 3 }],
 			}))
-			return { archive, manifests: { archive: { sha256: archiveHash }, files: [{ path: 'app.js', sha256: sha256Hex(Buffer.from('app')) }] } }
+			return { archive, manifests: { candidate: { commit: 'd'.repeat(40), sourceDateEpoch: 1700000000 }, archive: { sha256: archiveHash }, files: [{ path: 'app.js', sha256: sha256Hex(Buffer.from('app')) }] } }
 		},
 		ownerSmoke: (targetFile, extractDir, reportFile, action) => {
 			const parsed = JSON.parse(fs.readFileSync(targetFile, 'utf8'))
@@ -213,7 +258,7 @@ describe('run-package-smoke orchestration negatives', () => {
 			buildPackageFn: ({ outDir }) => {
 				fs.mkdirSync(outDir, { recursive: true })
 				fs.writeFileSync(path.join(outDir, 'chorestrike.tar.gz'), archive)
-				return { archive, manifests: { archive: { sha256: archiveHash }, files: [{ path: 'app.js', sha256: sha256Hex(Buffer.from('DIFFERENT')) }] } }
+				return { archive, manifests: { candidate: { commit: 'd'.repeat(40), sourceDateEpoch: 1700000000 }, archive: { sha256: archiveHash }, files: [{ path: 'app.js', sha256: sha256Hex(Buffer.from('DIFFERENT')) }] } }
 			},
 		})
 		expect(message).toMatch(/drift|mismatch/)
@@ -270,5 +315,27 @@ describe('run-package-smoke orchestration negatives', () => {
 	it('refuses an occupied project in the real probe', () => {
 		const probe = () => ({ stdout: 'cs082-pkg-demo-nextcloud-pgsql-1\n', status: 0 })
 		expect(() => assertFreshProject({ project: 'cs082-pkg-demo' }, probe)).toThrow(/already has resources/)
+	})
+
+	it.each(['volume', 'network'])('refuses orphaned %s resources before provisioning', kind => {
+		const probe = (command, args) => ({ stdout: args[0] === kind ? 'retained-resource' : '', status: 0 })
+		expect(() => assertFreshProject({ project: 'cs082-pkg-demo' }, probe)).toThrow(/already has resources/)
+	})
+
+	it('refuses foreign resource labels before cleanup', () => {
+		expect(() => inspectOwnedResources({ project: 'cs082-pkg-demo', token: 'owned' }, () => ({ status: 0, stdout: '[{"Config":{"Labels":{}}}]' }))).toThrow(/ownership/)
+	})
+
+	it('rejects a package candidate different from qualification capture', () => {
+		const message = orchestrate({ buildPackageFn: () => ({ manifests: { candidate: { commit: 'a'.repeat(40) } } }) })
+		expect(message).toMatch(/candidate identity mismatch/)
+	})
+
+	it('never tears down resources whose identity changed during the browser run', () => {
+		let checks = 0
+		const compose = jest.fn()
+		const message = orchestrate({ compose, inspectOwnedResources: () => [{ id: String(++checks) }] })
+		expect(message).toMatch(/identity drift before cleanup/)
+		expect(compose.mock.calls.some(call => call[2][0] === 'down')).toBe(false)
 	})
 })

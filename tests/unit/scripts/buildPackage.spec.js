@@ -4,31 +4,112 @@ const {
 	readGitState, buildTar, readTar, gzipDeterministic, assertSafeArchiveName,
 	selectRuntimeFiles, classifyLineEndings, compareToBlob, gitBlobId, checkAssetContract,
 	validatePackageConfig, ensurePinnedBase, assemblePackage, sha256Hex, sha1Hex,
+	captureCandidateSource, assertCandidateUnchanged, runOwnedBuilder, compressInBuilder,
+	verifyReproducible,
 } = require('../../../scripts/build-package')
 
 const root = path.resolve(__dirname, '../../..')
 const fixtures = path.join(root, 'tests/package/fixtures')
 const config = JSON.parse(fs.readFileSync(path.join(root, 'docker/package-build.json'), 'utf8'))
+const os = require('node:os')
+const zlib = require('node:zlib')
+const { collectPackageLicenses, hasCompleteLicense } = require('../../../scripts/package-licenses')
 
 describe('build-package clean-HEAD gate', () => {
-	const probeOf = stdout => () => ({ stdout })
+	const probeOf = stdout => () => ({ stdout, status: 0 })
 
 	it('refuses a dirty tree', () => {
 		expect(() => readGitState(probeOf('a'.repeat(40)))).toThrow(/dirty tree/)
 	})
 
 	it('refuses a detached HEAD', () => {
-		expect(() => readGitState((command, args) => ({ stdout: args[0] === 'rev-parse' ? 'b'.repeat(40) : '' })))
+		expect(() => readGitState((command, args) => ({ status: 0, stdout: args[0] === 'rev-parse' ? 'b'.repeat(40) : '' })))
 			.toThrow(/detached HEAD/)
 	})
 
 	it('accepts a clean branch tip and derives the commit epoch', () => {
 		const state = readGitState((command, args) => ({
+			status: 0,
 			stdout: args[0] === 'rev-parse' ? 'c'.repeat(40)
 				: args[0] === 'symbolic-ref' ? 'refs/heads/master'
 					: args[0] === 'status' ? '' : '1700000000',
 		}))
 		expect(state).toEqual({ head: 'c'.repeat(40), branch: 'refs/heads/master', epoch: 1700000000 })
+	})
+
+	it.each(['rev-parse', 'symbolic-ref', 'status', 'show'])('refuses a failed %s identity probe', failing => {
+		expect(() => readGitState((command, args) => ({
+			status: args[0] === failing ? 128 : 0,
+			stdout: args[0] === failing ? '' : args[0] === 'rev-parse' ? 'c'.repeat(40) : args[0] === 'symbolic-ref' ? 'refs/heads/master' : args[0] === 'show' ? '1700000000' : '',
+		}))).toThrow(/probe failed/)
+	})
+})
+
+describe('package candidate and builder lifecycle', () => {
+	const state = { head: 'c'.repeat(40), branch: 'refs/heads/master', epoch: 1700000000 }
+	it('collects both archive and tree from the captured SHA rather than mutable HEAD', () => {
+		const calls = []
+		captureCandidateSource(state, (command, args) => {
+			calls.push(args)
+			return { status: 0, stdout: args[0] === 'archive' ? buildTar([]) : '' }
+		})
+		expect(calls).toEqual([['archive', state.head], ['ls-tree', '-r', state.head]])
+	})
+	it('refuses candidate drift after the build', () => {
+		expect(() => assertCandidateUnchanged(state, (command, args) => ({ status: 0, stdout: args[0] === 'rev-parse' ? 'd'.repeat(40) : args[0] === 'symbolic-ref' ? state.branch : args[0] === 'show' ? String(state.epoch) : '' }))).toThrow(/identity drift/)
+	})
+	it('refuses identical archives when the two builds identify different candidate inputs', () => {
+		let calls = 0
+		expect(() => verifyReproducible({ buildPackageFn: () => ({ archive: Buffer.from('same'), manifests: { candidate: { commit: (++calls === 1 ? 'c' : 'd').repeat(40) }, files: [] } }) })).toThrow(/candidate\/input identity match=false/)
+	})
+	it('stops only the token-owned builder when its client times out', () => {
+		const calls = []
+		expect(() => runOwnedBuilder(state.head, ['--command', 'false'], {}, (command, args) => {
+			calls.push(args)
+			if (args[0] === 'run') throw new Error('timeout')
+			return { status: 0, stdout: args[0] === 'ps' ? 'a'.repeat(12) : '' }
+		})).toThrow(/timeout/)
+		expect(calls[1]).toContain('--filter')
+		expect(calls[1].some(arg => arg.startsWith('label=org.chorestrike.package-builder='))).toBe(true)
+		expect(calls[2]).toEqual(['rm', '--force', 'a'.repeat(12)])
+	})
+	it('compresses the exact tar using the pinned Linux builder, never host zlib', () => {
+		const tar = buildTar([])
+		const archive = zlib.gzipSync(tar, { level: 9 })
+		archive[9] = 3
+		const calls = []
+		const result = compressInBuilder(tar, state, (command, args) => {
+			calls.push(args)
+			if (args[0] !== 'run') return { status: 0, stdout: '' }
+			const mount = args[args.indexOf('-v') + 1].replace(':/inputs/runtime.tar:ro', '')
+			expect(fs.readFileSync(mount)).toEqual(tar)
+			return { status: 0, stdout: archive }
+		})
+		expect(result).toEqual(archive)
+		expect(calls[0]).toContain(`chorestrike-package-builder:${state.head.slice(0, 12)}`)
+	})
+})
+
+describe('complete bundled dependency license collection', () => {
+	it('packages full license and attribution for a bundled module and rejects missing or notice-only text', () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-license-'))
+		try {
+			const dependency = path.join(dir, 'node_modules/example')
+			fs.mkdirSync(dependency, { recursive: true })
+			fs.writeFileSync(path.join(dependency, 'package.json'), JSON.stringify({ name: 'example', version: '1.0.0', license: 'MIT' }))
+			const stats = { modules: [{ name: './node_modules/example/index.js' }] }
+			expect(() => collectPackageLicenses(stats, dir)).toThrow(/Missing complete/)
+			fs.writeFileSync(path.join(dependency, 'LICENSE'), 'SPDX-License-Identifier: MIT\n')
+			expect(() => collectPackageLicenses(stats, dir)).toThrow(/Missing complete/)
+			fs.writeFileSync(path.join(dependency, 'LICENSE'), fs.readFileSync(path.join(root, 'LICENSE')))
+			const collected = collectPackageLicenses(stats, dir)
+			expect(collected.inventory[0].name).toBe('example')
+			expect(collected.files.map(file => file.name)).toContain('licenses/npm/example/1.0.0/LICENSE')
+			expect(collected.files.map(file => file.name)).toContain('licenses/npm/example/1.0.0/package.json')
+		} finally { fs.rmSync(dir, { recursive: true, force: true }) }
+	})
+	it('does not accept SPDX/comment notices as complete copyleft texts', () => {
+		expect(hasCompleteLicense([{ data: Buffer.from('GNU AFFERO GENERAL PUBLIC LICENSE SPDX-License-Identifier: AGPL-3.0-or-later') }], 'AGPL-3.0-or-later')).toBe(false)
 	})
 })
 

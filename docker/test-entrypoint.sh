@@ -146,7 +146,11 @@ if [ -e /var/www/html/apps/chorestrike ] || [ -L /var/www/html/apps/chorestrike 
     exit 1
 fi
 EXPECTED_APPS_PATHS='[{"path":"\/var\/www\/html\/apps","url":"\/apps","writable":false},{"path":"\/var\/www\/html\/custom_apps","url":"\/custom_apps","writable":true}]'
-if EXISTING_APPS_PATHS="$(occ config:system:get apps_paths --output=json 2>/dev/null)"; then
+if ! EXISTING_APPS_PATHS="$(occ config:system:get apps_paths --output=json --default-value=__cs_missing__)"; then
+    echo "Refusing to provision: apps_paths configuration probe failed." >&2
+    exit 1
+fi
+if [ "$EXISTING_APPS_PATHS" != '"__cs_missing__"' ]; then
     if [ "$EXISTING_APPS_PATHS" != "$EXPECTED_APPS_PATHS" ]; then
         echo "Refusing to provision: unexpected existing apps_paths configuration (${EXISTING_APPS_PATHS:-empty}). Not overwriting unrelated app roots." >&2
         exit 1

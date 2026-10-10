@@ -60,6 +60,13 @@ and `--verify-reproducible` proves the two-build byte-identity. `npm run
 test:package:smoke` (WP3) then qualifies the same extracted archive on the NC35
 canonical and NC34 compatibility runtime rows and writes the identity-bound
 qualification record. See `docs/engineering/testing.md` §Package Identity Gate.
+The captured SHA owns archive/tree/configuration inputs; Git failures or
+candidate drift refuse qualification. The pinned Linux builder also performs
+final gzip compression and records its compressor identity. Complete bundled
+dependency licenses and attribution ship under `licenses/npm/`; omitted npm
+license texts require a reviewed, version-bound upstream source, never a
+runtime network lookup. Existing smoke volumes/networks are not fresh fixtures,
+and only run-labelled, identity-verified resources may be removed after success.
 
 Capture the source/build-input manifest **before** compilation and compare it
 again after qualification. Keep the final source/test manifest, exact commands,
