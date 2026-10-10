@@ -384,7 +384,9 @@ function ensurePinnedBase(tool, invoke = run) {
 	}
 	let last = null
 	for (let attempt = 1; attempt <= 3; attempt++) {
-		const pull = invoke('docker', ['pull', '--platform', 'linux/amd64', pinned], { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
+		// --quiet keeps progress bars out of captured pipes (they can break
+		// nested stdio chains); the digest pin provides the identity.
+		const pull = invoke('docker', ['pull', '--quiet', '--platform', 'linux/amd64', pinned], { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
 		if (pull.status === 0) {
 			if (invoke('docker', ['tag', pinned, tag], { encoding: 'utf8' }).status !== 0) throw new Error(`Cannot tag the pinned base image ${pinned}`)
 			if (verifyPinnedTag(tool, tag, invoke)) return tag
@@ -399,7 +401,7 @@ function ensurePinnedBase(tool, invoke = run) {
 function buildBuilderImage(config, head, invoke = run) {
 	const nodeBase = ensurePinnedBase(config.node, invoke)
 	const composerBase = ensurePinnedBase(config.composer, invoke)
-	const args = ['build', '--platform', config.platform, '--file', 'docker/Dockerfile.package',
+	const args = ['build', '--quiet', '--platform', config.platform, '--file', 'docker/Dockerfile.package',
 		'--tag', builderTag(head),
 		'--build-arg', `NODE_IMAGE=${nodeBase}`,
 		'--build-arg', `COMPOSER_IMAGE=${composerBase}`,
