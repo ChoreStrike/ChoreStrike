@@ -195,7 +195,7 @@ describe('build-package pinned base images', () => {
 		}
 		const tag = ensurePinnedBase(tool, invoke)
 		expect(tag).toMatch(/^chorestrike-package-base:node-/)
-		expect(calls[1]).toBe(`pull --platform linux/amd64 node@${tool.platformDigest}`)
+		expect(calls.find(call => call.startsWith('pull'))).toBe(`pull --platform linux/amd64 node@${tool.platformDigest}`)
 	})
 
 	it('reuses an already-verified local pinned image without pulling', () => {

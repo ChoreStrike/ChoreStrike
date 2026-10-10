@@ -355,27 +355,45 @@ function pinnedBaseTag(tool) {
 	return `chorestrike-package-base:${repository}-${tool.platformDigest.slice(7, 19)}`
 }
 
-/** Pull the pinned digest if absent and verify the local tag carries exactly it. */
+function verifyPinnedTag(tool, tag, invoke) {
+	const pinned = `${tool.image.split(':')[0]}@${tool.platformDigest}`
+	const result = invoke('docker', ['image', 'inspect', tag, '--format', '{{json .RepoDigests}}'], { encoding: 'utf8' })
+	if (result.status !== 0) return false
+	let digests = []
+	try {
+		digests = JSON.parse(result.stdout || '[]')
+	} catch {
+		return false
+	}
+	return digests.includes(pinned)
+}
+
+/** Resolve the pinned base image to a verified local tag without depending
+ * on registry availability: reuse an already-verified local tag, otherwise
+ * adopt a locally present pinned digest, otherwise pull (bounded retries). */
 function ensurePinnedBase(tool, invoke = run) {
 	const repository = tool.image.split(':')[0]
 	const pinned = `${repository}@${tool.platformDigest}`
 	const tag = pinnedBaseTag(tool)
-	const inspect = () => JSON.parse(invoke('docker', ['image', 'inspect', tag, '--format', '{{json .RepoDigests}}'], { encoding: 'utf8' }).stdout || '[]')
-	// The RepoDigests check is the security anchor; pulling only warms the
-	// local cache. Prefer an already-verified local image so qualification
-	// does not depend on registry availability (or its flakiness).
-	if (invoke('docker', ['image', 'inspect', tag], { encoding: 'utf8' }).status === 0 && inspect().includes(pinned)) {
+	if (invoke('docker', ['image', 'inspect', tag], { encoding: 'utf8' }).status === 0 && verifyPinnedTag(tool, tag, invoke)) {
 		return tag
 	}
-	const pull = invoke('docker', ['pull', '--platform', 'linux/amd64', pinned], { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
-	if (pull.status !== 0 && invoke('docker', ['image', 'inspect', pinned], { encoding: 'utf8' }).status !== 0) {
-		throw new Error(`Cannot fetch the pinned base image ${pinned}; refusing to build with an unverifiable toolchain`)
+	if (invoke('docker', ['image', 'inspect', pinned], { encoding: 'utf8' }).status === 0) {
+		if (invoke('docker', ['tag', pinned, tag], { encoding: 'utf8' }).status !== 0) throw new Error(`Cannot tag the pinned base image ${pinned}`)
+		if (verifyPinnedTag(tool, tag, invoke)) return tag
 	}
-	if (invoke('docker', ['tag', pinned, tag], { encoding: 'utf8' }).status !== 0) {
-		throw new Error(`Cannot tag the pinned base image ${pinned}`)
+	let last = null
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		const pull = invoke('docker', ['pull', '--platform', 'linux/amd64', pinned], { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
+		if (pull.status === 0) {
+			if (invoke('docker', ['tag', pinned, tag], { encoding: 'utf8' }).status !== 0) throw new Error(`Cannot tag the pinned base image ${pinned}`)
+			if (verifyPinnedTag(tool, tag, invoke)) return tag
+			throw new Error(`Pinned base image verification failed: ${tag} does not carry ${pinned}`)
+		}
+		last = pull
+		if (attempt < 3) process.stderr.write(`[build-package] pinned base pull attempt ${attempt} failed; retrying ${pinned}\n`)
 	}
-	if (!inspect().includes(pinned)) throw new Error(`Pinned base image verification failed: ${tag} does not carry ${pinned}`)
-	return tag
+	throw new Error(`Cannot fetch the pinned base image ${pinned}; refusing to build with an unverifiable toolchain: ${(last?.stderr ?? '').trim().slice(0, 200)}`)
 }
 
 function buildBuilderImage(config, head, invoke = run) {
