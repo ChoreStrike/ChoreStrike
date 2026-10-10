@@ -353,11 +353,18 @@ function buildBuilderImage(config, head, invoke = run) {
 		'--build-arg', `NODE_IMAGE=${config.node.image}@${config.node.platformDigest}`,
 		'--build-arg', `COMPOSER_IMAGE=${config.composer.image}@${config.composer.platformDigest}`,
 		'.']
-	const result = invoke('docker', args, { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
-	if (result.status !== 0) {
-		const diagnostics = (result.stderr ?? '').split(/\r?\n/).filter(line => /error|not found|denied/i.test(line)).slice(-3)
-		throw new Error(`Package builder image build failed; inputs were not packaged${diagnostics.length ? `:\n  ${diagnostics.join('\n  ')}` : ''}`)
+	let lastError = null
+	// BuildKit occasionally re-resolves a locally present digest against the
+	// registry and hits a transient 404; the pinned digest makes a bounded
+	// retry safe (identical inputs, no downgrade possible).
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		const result = invoke('docker', args, { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
+		if (result.status === 0) return
+		lastError = result
+		if (attempt < 3) process.stderr.write(`[build-package] builder image build attempt ${attempt} failed; retrying with the same pinned inputs\n`)
 	}
+	const diagnostics = (lastError?.stderr ?? '').split(/\r?\n/).filter(line => /error|not found|denied/i.test(line)).slice(-3)
+	throw new Error(`Package builder image build failed; inputs were not packaged${diagnostics.length ? `:\n  ${diagnostics.join('\n  ')}` : ''}`)
 }
 
 const CONTAINER_BUILD_SCRIPT = [
