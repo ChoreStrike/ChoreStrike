@@ -424,8 +424,8 @@ const CONTAINER_BUILD_SCRIPT = [
 	'set -euo pipefail',
 	'mkdir -p /package',
 	'cd /package',
-	'tar -xz', // build inputs: git archive HEAD from stdin
-	'npm ci --no-audit --no-fund',
+	'tar -xf /inputs/source.tar', // build inputs: git archive HEAD (read-only mount)
+	'npm ci --no-audit --no-fund --loglevel=error',
 	'composer install --no-dev --no-interaction --prefer-dist --no-progress',
 	'NODE_ENV=production npx webpack --mode production --json /tmp/stats.json 1>/tmp/webpack.log',
 	'{ node --version; npm --version; composer --version --no-ansi 2>/dev/null | head -n 1; } > /tmp/versions.txt',
@@ -435,11 +435,12 @@ const CONTAINER_BUILD_SCRIPT = [
 ].join('\n')
 
 /** Build js/vendor + stats inside the pinned builder from a HEAD archive. */
-function buildInContainer(config, state, archiveBuffer, invoke = run) {
-	const result = invoke('docker', ['run', '--rm', '-i',
+function buildInContainer(config, state, archivePath, invoke = run) {
+	const result = invoke('docker', ['run', '--rm',
+		'-v', `${archivePath}:/inputs/source.tar:ro`,
 		'-e', `SOURCE_DATE_EPOCH=${state.epoch}`,
 		builderTag(state.head), 'bash', '-c', CONTAINER_BUILD_SCRIPT],
-	{ encoding: 'buffer', input: archiveBuffer, timeout: 900000, maxBuffer: 512 * 1024 * 1024 })
+	{ encoding: 'buffer', timeout: 900000, maxBuffer: 512 * 1024 * 1024 })
 	const stdout = result.stdout ?? Buffer.alloc(0)
 	const stderr = result.stderr ? result.stderr.toString('utf8') : ''
 	if (result.status !== 0 || !stdout.length) {
@@ -524,7 +525,16 @@ function buildPackage({ outDir, io = { run, readConfig: () => JSON.parse(fs.read
 	const tracked = readTree(io.run)
 
 	buildBuilderImage(config, state.head, io.run)
-	const built = buildInContainer(config, state, archiveBuffer, io.run)
+	// Large stdin streams break spawnSync on Windows (libuv EOF); mount the
+	// HEAD archive read-only instead of piping it into the container.
+	const archivePath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cs-build-')), 'source.tar')
+	let built = null
+	try {
+		fs.writeFileSync(archivePath, archiveBuffer)
+		built = buildInContainer(config, state, archivePath, io.run)
+	} finally {
+		fs.rmSync(path.dirname(archivePath), { recursive: true, force: true })
+	}
 
 	// Source-vs-blob identity: every tracked file must match its git blob,
 	// allowing CRLF->LF-only normalization with documented provenance.

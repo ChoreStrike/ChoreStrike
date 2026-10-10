@@ -18,10 +18,13 @@ COPY --from=composer-tool /usr/bin/composer /usr/bin/composer
 WORKDIR /package
 
 # The runner executes (approximately):
-#   git archive HEAD | docker run -i -e SOURCE_DATE_EPOCH=<commit epoch> \
-#     <builder> bash -c 'tar -xz && npm ci && composer install --no-dev \
+#   git archive HEAD -> source.tar (mounted read-only at /inputs/source.tar)
+#   docker run -v source.tar:/inputs/source.tar:ro -e SOURCE_DATE_EPOCH=<commit epoch> \
+#     <builder> bash -c 'tar -xf /inputs/source.tar && npm ci && composer install --no-dev \
 #       && npx webpack --mode production --json=/tmp/stats.json \
 #       && tar -C /package -czf /tmp/out.tar.gz js vendor \
 #       && cp /tmp/stats.json /tmp/'
+# (A file mount replaces stdin piping: large stdin streams break spawnSync
+# on Windows hosts.)
 # Build outputs are streamed back on stdout; nothing host-side is trusted.
 CMD ["bash", "-c", "echo 'Package builder toolchain only; drive via scripts/build-package.js' >&2; exit 1"]
