@@ -291,10 +291,15 @@ function classifyLineEndings(buffer) {
 	return crlf > 0 ? 'crlf' : 'lf'
 }
 
+/** Git object ID of a blob: sha1("blob <size>\0" + content). */
+function gitBlobId(data) {
+	return sha1Hex(Buffer.concat([Buffer.from(`blob ${data.length}\0`), data]))
+}
+
 /** Compare archived bytes with the captured git blob. */
 function compareToBlob(data, blobSha1) {
-	if (sha1Hex(data) === blobSha1) return 'match'
-	if (sha1Hex(Buffer.from(data.toString('utf8').replace(/\r\n/g, '\n'), 'utf8')) === blobSha1) return 'crlf'
+	if (gitBlobId(data) === blobSha1) return 'match'
+	if (gitBlobId(Buffer.from(data.toString('utf8').replace(/\r\n/g, '\n'), 'utf8')) === blobSha1) return 'crlf'
 	return 'drift'
 }
 
@@ -743,7 +748,7 @@ function selfTest() {
 	ok('node_modules is rejected', throws(() => selectRuntimeFiles([{ path: 'js/node_modules/x.js', mode: '100644' }], allowlist, forbidden), /Forbidden/))
 
 	console.log('self-test: source-vs-blob identity and CRLF provenance')
-	const blob = sha1Hex(Buffer.from('line\n'))
+	const blob = gitBlobId(Buffer.from('line\n'))
 	ok('exact blob match passes', compareToBlob(Buffer.from('line\n'), blob) === 'match')
 	ok('CRLF-only drift is classified provenance', compareToBlob(Buffer.from('line\r\n'), blob) === 'crlf')
 	ok('content drift fails', compareToBlob(Buffer.from('other\n'), blob) === 'drift')
@@ -817,9 +822,9 @@ function main() {
 
 module.exports = {
 	readGitState, readTree, buildTar, readTar, gzipDeterministic, assertSafeArchiveName,
-	selectRuntimeFiles, classifyLineEndings, compareToBlob, checkAssetContract,
+	selectRuntimeFiles, classifyLineEndings, compareToBlob, gitBlobId, checkAssetContract,
 	validatePackageConfig, pinnedBaseTag, ensurePinnedBase, buildBuilderImage, buildInContainer, assemblePackage,
-	buildManifests, buildPackage, verifyReproducible, sha256Hex, sha1Hex, octal, CONTAINER_BUILD_SCRIPT,
+	buildManifests, buildPackage, verifyReproducible, sha256Hex, sha1Hex, octal, paxRecord, fitsUstar, CONTAINER_BUILD_SCRIPT,
 }
 
 if (require.main === module) {

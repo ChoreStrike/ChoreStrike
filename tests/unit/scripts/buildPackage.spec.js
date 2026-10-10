@@ -2,7 +2,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const {
 	readGitState, buildTar, readTar, gzipDeterministic, assertSafeArchiveName,
-	selectRuntimeFiles, classifyLineEndings, compareToBlob, checkAssetContract,
+	selectRuntimeFiles, classifyLineEndings, compareToBlob, gitBlobId, checkAssetContract,
 	validatePackageConfig, ensurePinnedBase, assemblePackage, sha256Hex, sha1Hex,
 } = require('../../../scripts/build-package')
 
@@ -126,8 +126,12 @@ describe('build-package runtime selection', () => {
 })
 
 describe('build-package source-vs-blob identity', () => {
+	it('uses real git object IDs (blob header) for the comparison', () => {
+		expect(gitBlobId(Buffer.from('line\n'))).toBe(sha1Hex(Buffer.from('blob 5\0line\n')))
+	})
+
 	it('matches exact blobs and records CRLF-only provenance', () => {
-		const blob = sha1Hex(Buffer.from('line\n'))
+		const blob = gitBlobId(Buffer.from('line\n'))
 		expect(compareToBlob(Buffer.from('line\n'), blob)).toBe('match')
 		expect(compareToBlob(Buffer.from('line\r\n'), blob)).toBe('crlf')
 		expect(compareToBlob(Buffer.from('tampered\n'), blob)).toBe('drift')
