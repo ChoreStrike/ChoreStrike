@@ -354,7 +354,10 @@ function buildBuilderImage(config, head, invoke = run) {
 		'--build-arg', `COMPOSER_IMAGE=${config.composer.image}@${config.composer.platformDigest}`,
 		'.']
 	const result = invoke('docker', args, { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
-	if (result.status !== 0) throw new Error('Package builder image build failed; inputs were not packaged')
+	if (result.status !== 0) {
+		const diagnostics = (result.stderr ?? '').split(/\r?\n/).filter(line => /error|not found|denied/i.test(line)).slice(-3)
+		throw new Error(`Package builder image build failed; inputs were not packaged${diagnostics.length ? `:\n  ${diagnostics.join('\n  ')}` : ''}`)
+	}
 }
 
 const CONTAINER_BUILD_SCRIPT = [
