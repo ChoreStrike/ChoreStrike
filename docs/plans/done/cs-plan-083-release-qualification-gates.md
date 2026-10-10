@@ -1,15 +1,14 @@
 # CS-PLAN-083: Release Qualification Gates — Alias-Free Runtime, Cold Start, Package Identity
 
-> **Status:** Active (Standard A PASS-WITH-FIXES, 2026-10-10; WP1 implemented and
-> gate-proven 2026-10-10; WP2/WP3 implemented with unit + self-test coverage,
-> real candidate checkpoint and package qualification authorized by the user
-> 2026-10-10)
+> **Status:** Done (final Full PASS-WITH-FIXES, 2026-10-10; WP1-WP3 and
+> RF-083-01..17 complete, renewed candidate `853f661` qualified on both rows;
+> deployment, human evidence and retained-baseline adoption remain separate)
 > **Effort:** L
 > **Priority:** P2
 > **Depends on:** delivered CS-PLAN-082 runtime inventory; separately authorized clean candidate checkpoint before package qualification (CS-PLAN-080/WP9 human evidence stays independent)
 > **Related backlog items:** RELEASE-002
 
-## 1. Problem Summary
+## 1. Problem Summary (Before Implementation)
 
 The operator acceptance loop of 2026-10-07..10 (sanitized operations record,
 handed back per finding) caught five defect classes that our own gates let
@@ -283,43 +282,43 @@ modified: docs/backlog/ACTIVE_TASKS.md
 
 ## 8. Acceptance Criteria
 
-- [ ] Canonical browser gate passes with **no** `/apps/chorestrike` symlink
+- [x] Canonical browser gate passes with **no** `/apps/chorestrike` symlink
       present (entrypoint asserts alias absence by default), on NC35
       canonical and once on the NC34 compatibility row.
-- [ ] Safe complete `apps_paths` setup is verified on fresh start and populated
+- [x] Safe complete `apps_paths` setup is verified on fresh start and populated
       recreation without losing config/data/DB facts; unexpected configuration
       or aliases fail closed, and no legacy alias toggle exists.
-- [ ] `minimal-smoke-tests.spec.ts` asserts the exact
+- [x] `minimal-smoke-tests.spec.ts` asserts the exact
       `/custom_apps/chorestrike/js/` base for every fetched app script
       (HTTP 200, JavaScript MIME); no canonical alias-free browser assertion
       accepts the legacy asset base. Preserve unit resolver coverage for genuine
       `/apps` installations and subdirectory deployments; these are not aliases.
-- [ ] `npm run test:package:build` from a clean HEAD produces archive +
+- [x] `npm run test:package:build` from a clean HEAD produces archive +
       package/source manifests + git-blob identity proof, and refuses a dirty
       or detached tree (unit-proven).
-- [ ] Two independent builds of the same clean candidate and pinned tools have
+- [x] Two independent builds of the same clean candidate and pinned tools have
       identical archive/per-file hashes; runtime allowlist, production dependencies,
       licenses, safe archive metadata and deterministic Webpack epoch are verified.
-- [ ] Asset-contract check fails on a dangling referenced asset and on an
+- [x] Asset-contract check fails on a dangling referenced asset and on an
       orphaned chunk (negative unit fixtures), and passes on the real build.
-- [ ] `npm run test:package:smoke` runs build → alias-free environment →
+- [x] `npm run test:package:smoke` runs build → alias-free environment →
       `owner-smoke.cjs setup` + `verify` (six cases) green on NC35 and NC34
       without manual target JSON.
-- [ ] Both package rows use the same extracted, hash-verified archive; evidence
+- [x] Both package rows use the same extracted, hash-verified archive; evidence
       binds candidate/input/archive/runtime/run identities before and after.
       Target, report, failure/interruption and cleanup negative controls pass
       without weakening existing test guards or deleting failed fixtures.
-- [ ] No app runtime code changed unless recorded as a resolved §9 finding.
-- [ ] Build gate green (`npm test` + lint + backend tests)
-- [ ] Required tests ran without new or unapproved skips
-- [ ] All implementation decisions and review questions resolved and recorded
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
-- [ ] Owning backlog items updated or archived according to their actual
+- [x] No app runtime code changed unless recorded as a resolved §9 finding.
+- [x] Build gate green (`npm test` + lint + backend tests)
+- [x] Required tests ran without new or unapproved skips
+- [x] All implementation decisions and review questions resolved and recorded
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
+- [x] Owning backlog items updated or archived according to their actual
       completion state (RELEASE-002 fold-in recorded)
-- [ ] Durable concepts/decisions integrated into the permanent docs
+- [x] Durable concepts/decisions integrated into the permanent docs
       (`docs/engineering/testing.md`, `docs/engineering/deployment.md`)
-- [ ] Final Full review is `PASS` or `PASS-WITH-FIXES`
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] Final Full review is `PASS` or `PASS-WITH-FIXES`
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated
 
 ## 9. Review Findings (plan-owned)
 
@@ -333,24 +332,25 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-083-03 (major) - WP3 did not define the false-marker validation boundary, archive-to-mount chain, evidence identity and safe failure/cleanup contract. Q-083-03 approved separate package safety checks without weakening test guards; corrected in sections 2, 4-8.
 - [x] RF-083-04 (minor) - File/test manifest omitted provisioning/build prerequisites and final review allowed Standard B despite data-preservation/target-safety scope. Manifest and negative tests expanded; final Full required. Existing package asset coverage is no longer described as absent.
 
-These are resolved **plan-design findings**, not claims that implementation or
-runtime qualification has passed. All implementation acceptance criteria remain open.
+These four were resolved **plan-design findings** at Standard A, not claims of
+implementation/runtime acceptance. Completion is established by the final Full
+outcome and renewed evidence below.
 
 ### Full Review Implementation Findings (2026-10-10)
 
-- [ ] RF-083-05 (major) - `scripts/run-package-smoke.js:165` (review base): container-only freshness omitted orphan volumes/networks and verified cleanup ownership. Authorized fix checks resource collisions, labels and stable inspected identities; new regression and runtime proof pending final verification.
-- [ ] RF-083-06 (major) - `scripts/run-package-smoke.js:124`: extraction checked only a manifest subset and followed links. Authorized fix requires new extraction and exact file/directory inventory without links; regression and qualification proof pending.
-- [ ] RF-083-07 (major) - `scripts/run-package-smoke.js:275`: HTTP/OCC comparison read only OCC. Authorized shared comparator probes direct HTTP and requires readiness/version parity; real comparator regressions and smoke proof pending.
-- [ ] RF-083-08 (major) - `scripts/build-package.js:83`: failed Git status accepted as clean. Authorized fix checks identity probe statuses; negative regressions pass, final verification pending.
-- [ ] RF-083-09 (major) - `docker/test-entrypoint.sh:149`: failed apps_paths read was treated as absence. Authorized explicit default sentinel distinguishes absence from probe failure; refusal regression passes, fresh/populated proof pending.
-- [ ] RF-083-10 (major) - `tests/package/owner-smoke.cjs:12`: standalone target policy diverged from orchestration. Authorized shared package-only validator now owns both paths; regressions and smoke proof pending.
-- [ ] RF-083-11 (major) - `scripts/build-package.js:571`: mutable HEAD and independent qualification capture could misidentify source bytes. Authorized fix captures all inputs by SHA, rejects candidate drift and manifest mismatch; regression and regenerated package proof pending.
-- [ ] RF-083-12 (major) - `scripts/build-package.js:478`: qualified archive contained notices, not complete third-party license texts. Authorized actual-module license/attribution collection and pinned omissions inventory implemented; completeness regressions pass, new artifact verification pending. No license-compatibility legal conclusion.
-- [ ] RF-083-13 (major) - `scripts/build-package.js:187`: host zlib made archive bytes host-dependent. Authorized pinned Linux final compression with actual compressor identity implemented; regression and cross-host/two-build proof pending.
-- [ ] RF-083-14 (minor) - `scripts/build-package.js:485`: Docker client timeout could leave its builder running. Authorized token-owned builder cleanup by ID implemented; regression passes, final verification pending.
-- [x] RF-083-15 (minor) - `docker/README.md:34`: Bash continuations in PowerShell examples. Fixed to single-line commands; documentation validation pending final gate.
-- [ ] RF-083-16 (major) - post-fix Architecture track: shared mount normalization lowercased distinct POSIX paths. Fixed to normalize case only for Windows drive paths; independent actual-POSIX recheck passes, final evidence pending.
-- [ ] RF-083-17 (major) - post-fix Correctness track: two equal runtime archives could come from different candidates between builds. Reproducibility now compares complete manifests including candidate/source/tool identity; regression and independent recheck pass, final two-build proof pending.
+- [x] RF-083-05 (major) - `scripts/run-package-smoke.js:165` (review base): orphan volumes/networks and cleanup ownership. Authorized resource collision/label/stable-identity fix; negative regressions and both six-resource smoke/teardown proofs pass.
+- [x] RF-083-06 (major) - `scripts/run-package-smoke.js:124`: subset extraction hashing/link following. Authorized new-directory/exact-inventory fix; extra-file/directory/link and existing-directory regressions plus both rehash proofs pass.
+- [x] RF-083-07 (major) - `scripts/run-package-smoke.js:275`: OCC-only coherence. Authorized direct HTTP/OCC readiness/version comparator; real mismatch/unready regressions and both live preflights pass.
+- [x] RF-083-08 (major) - `scripts/build-package.js:83`: failed Git status accepted as clean. All identity probes now require success; negative tests and clean-candidate builds pass.
+- [x] RF-083-09 (major) - `docker/test-entrypoint.sh:149`: failed apps_paths read treated as absence. Explicit JSON default sentinel distinguishes absence/failure; no-import/no-seed refusal test and fresh/populated NC35/NC34 proofs pass.
+- [x] RF-083-10 (major) - `tests/package/owner-smoke.cjs:12`: divergent target policy. Authorized shared `scripts/package-target.js` enforces both entry paths; negative regressions and live setup/verify pass.
+- [x] RF-083-11 (major) - `scripts/build-package.js:571`: mutable source/candidate identity. Archive/tree/epoch/config/Dockerfile use captured SHA; final drift/manifest comparisons, injected mismatch tests and renewed identity records pass.
+- [x] RF-083-12 (major) - `scripts/build-package.js:478`: notices without complete third-party texts. Actual-module collection emits 145 dependency records and 293 license/attribution files with verified hashes; missing/notice-only negatives pass. No legal license-compatibility conclusion.
+- [x] RF-083-13 (major) - `scripts/build-package.js:187`: host-dependent gzip. Final compression runs in pinned Linux Node/zlib and records identity; two builds and independent Node24-host recompression match the Node20-host qualification bytes (Linux gzip OS=3).
+- [x] RF-083-14 (minor) - `scripts/build-package.js:485`: client timeout could leave builder alive. Token/name-owned lookup and exact-ID cleanup regression passes; live builds/compression leave no owned builder.
+- [x] RF-083-15 (minor) - `docker/README.md:34`: Bash continuations in PowerShell examples. Fixed to single-line commands; documentation gates pass.
+- [x] RF-083-16 (major) - post-fix Architecture track: case-insensitive POSIX mount comparison. Normalize case only for Windows drive paths; regression and independent actual-POSIX refusal probe pass.
+- [x] RF-083-17 (major) - post-fix Correctness track: two-build candidate drift. Compare complete candidate/source/tool manifests as well as bytes/files; equal-archive/different-SHA regression, independent recheck and real pair pass.
 
 ### WP1 Gate Evidence (2026-10-10)
 - Populated recreation of the owned canonical container (config/data/DB volumes
@@ -379,7 +379,11 @@ runtime qualification has passed. All implementation acceptance criteria remain 
   both are operator environment variables, recorded here for reruns
   (`$env:TEST_DB_PROFILE='family'` before `up`).
 
-## WP2/WP3 Qualification Evidence (2026-10-10)
+## WP2/WP3 Qualification Evidence (2026-10-10, Historical)
+
+The following original run remains immutable historical evidence. The final
+Full review found additional gate-contract gaps; the renewed evidence below
+supersedes it for this plan's completion.
 
 - Candidate: `325f23b7e051ec49c82846d87e6dace4f70fb52d` (master, clean tree;
   implementation commits `130e192`..`325f23b` including the in-qualification
@@ -402,6 +406,52 @@ runtime qualification has passed. All implementation acceptance criteria remain 
   both projects' containers/networks/volumes.
 - Qualification record: `build/package-smoke/run-mv2d82rq/qualification.json`
   (gitignored). RELEASE-002 remains open (deployment/adoption/field use).
+
+## Renewed Full Review Qualification (2026-10-10)
+
+- Clean candidate: `853f661f71e7916ad02e52426e5346fff4eb72c7`, `master`,
+  commit epoch `1791642259`; user-authorized implementation checkpoint.
+  Two independent package builds (`build/package/run-mv2hk5df`) and the
+  separately built smoke archive have identical SHA-256
+  `885f57e0306d8dae3d53190cc0aa605c998a07b8609751b7d11cfccf6584edd7`
+  (1,657,643 bytes, 522 files). Complete source/tool/file manifests match,
+  source-vs-blob and asset-contract proofs pass; no source maps.
+- Final compressor: Linux/amd64 Node v20.19.0, zlib
+  `1.3.0.1-motley-82a5fec`, gzip OS byte 3. Independent recompression called
+  from host Node 24.13.1 produces the same bytes; host zlib is not a package input.
+- The actual archive contains 145 dependency license records and 293
+  license/attribution files; every text hash matches its inventory, including
+  full AGPL/GPL and DOMPurify Apache/MPL texts. The source records explain
+  locked-package standard-text fallbacks and version-bound upstream MIT omissions.
+- Wired smoke `build/package-smoke/run-mv2hs127/qualification.json`: both
+  NC35 35.0.1.1 and NC34 34.0.4.1 pass cold setup plus six owner cases;
+  exact extraction, direct HTTP/OCC parity, false markers, frozen image
+  identity, six owned resource identities per row and owned teardown verified.
+- Fresh family provisioning and populated same-build recreation pass on newly
+  owned `cs082-review083-nc35-20261010` and `cs082-review083-nc34-20261010`.
+  Before/after ChoreStrike data-only dump hashes are unchanged:
+  NC35 `e3a7838ded5a4d3ae62683b1bf0e23e4387760490307a2ca65bd1a7a37ea5f83`,
+  NC34 `265a7108833cd8787410d452887ca3c41a7981ab798f89985ad62bad5db612d0`.
+  Before/after config hashes also match: NC35
+  `99f9c931cfdb7d25ec3b26f1b8144745568f698437a7a2a16a077c936c74173d`,
+  NC34 `29f84c31df00828e8720b93c505c269ea20eb8693e219f64b7ed0d4f62a4a089`.
+  Config/data/DB named volumes survive; aliases
+  stay absent and complete app-root discovery/installed identity is reverified.
+- Full browser pair: NC35 `run-IDVdFy`, NC34 `run-EpjkYH`. Each has
+  88/168/39 first-attempt passes across the three pools (295 executions,
+  including setup); 49 required specs uniquely owned, no failed/flaky/skipped
+  required scenario and no request/test retries. Exact alias-free asset-base
+  assertions remain mandatory.
+- Supported host Node 20.19.0/npm 10.8.2: Jest 116 suites / 1,606 tests;
+  lint and precommit lint fixer green. PHPUnit 1,372 unit + 604 integration
+  tests pass with `--fail-on-skipped` on each runtime row. Script self-tests,
+  docs encoding and backlog/link checks pass. Already frozen upstream NC35
+  notifications-lock and NC34 platform limitations remain unchanged, not suppressed.
+- Raw reports/builds remain gitignored. The final review commit is documentation,
+  tracking and plan-transition only; it is not a rebuild or a claim that the
+  archive came from the later evidence commit. No deployment/adoption/human-gate closure.
+  After all tests, both newly owned review fixtures were identity/volume-verified
+  again and removed with their volumes. The canonical stack was not torn down.
 
 ## Review Decisions
 
@@ -426,6 +476,32 @@ Structured batch answered on 2026-10-10; all recommended options selected:
   Alternative: keep WP3 open and the plan unactivated pending its safety contract.
 
 ## Review Outcome
+
+- **2026-10-10 - Final Full: PASS-WITH-FIXES.** Whole WP1-WP3 domain, plan
+  manifest, history, acceptance criteria, durable docs and required gates reviewed.
+  Four independent read-only tracks completed, then independently rechecked;
+  all 13 implementation findings (RF-083-05..17) resolved under explicit
+  Q-083-04..06 authorizations. No outstanding finding/question or deferred test.
+- Initial clean baseline: `master`, HEAD
+  `52423a077beab8bb91a900e1d0e06d2eff2ae844`; empty index/untracked set,
+  staged and unstaged binary-diff SHA-256 both
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+  Sorted initial Git-tree fingerprint:
+  `c42727ad3e5c444120b4594c00944d4e887a8f905f06f1e1edb34f9ee99473d7`.
+  Candidate Git-tree fingerprint:
+  `2646655313fd5d96decdcb743af446299676838d901690bced1059a43caf4ef1`.
+  Complete reviewed `e21643a..853f661` binary-diff fingerprint:
+  `3c38b6e0aea76f1f0f30c54b859082a1566f5202159b937cd7b286744056b497`.
+  Exact 32-path manifest and final gate evidence are in the dated review record.
+- Fixes: fail-closed identity/configuration probes, resource ownership/exact
+  extraction, shared target/HTTP-OCC validation, immutable candidate binding,
+  complete bundled licenses, pinned compression, builder cleanup and safe docs.
+  Gates: renewed qualification above; final docs/link/whitespace checks rerun
+  on the scoped transition before the final review commit.
+- Transition: `active/` to `done/`; durable contracts integrated in engineering
+  testing/deployment docs. RELEASE-002 receives this completed bounded slice
+  only and stays open for deployment/adoption/field use. CS-PLAN-080's human
+  evidence and the retained-baseline adoption boundary are unchanged.
 
 - **2026-10-10 - Standard A: PASS-WITH-FIXES.** Scope: this plan only, with
   implementation contracts inspected read-only; no subagents. RF-083-01..04

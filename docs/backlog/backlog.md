@@ -417,31 +417,24 @@ effort, not a CS-PLAN-081 prerequisite or authorization to transfer anything.
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (qualification slice; deployment/field use remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: CS-PLAN-083 (WP1-WP3 qualification only; deployment/adoption remains operator-owned) · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Status**: Backlog (qualification slice delivered; deployment/field use remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: unassigned (CS-PLAN-083 WP1-WP3 delivered; remaining deployment/adoption is operator-owned) · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
 real-world `v0.8.x` alpha usage; (optional) private tester onboarding for
 `v0.9.x` beta with structured feedback intake.
 
-[CS-PLAN-083](../plans/active/cs-plan-083-release-qualification-gates.md) was
-activated by Standard A `PASS-WITH-FIXES` on 2026-10-10. It owns alias-free
-canonical provisioning, deterministic clean-candidate package identity and
-wired qualification of the same archive on NC35/NC34. Its three explicit
-decisions and four resolved design findings are recorded in the plan. This
-bounded contribution does not close RELEASE-002, perform deployment/adoption,
-or replace CS-PLAN-080's independent human evidence. Implementation of WP1
-(alias-free canonical provisioning: safe complete `apps_paths`, refusal of
-unexpected configuration/aliases, exact `custom_apps` asset-base browser
-contract) and of the WP2/WP3 gates (`scripts/build-package.js` with pinned
-Docker builder, deterministic epoch and identity manifests;
-`scripts/run-package-smoke.js` with the owned two-row compose lane) was
-delivered and gate-proven on 2026-10-10: canonical browser gate green
-alias-free on NC35 + NC34, two-build byte reproducibility at candidate
-`325f23b` (archive `36aa2c5f…`) and the wired package smoke qualified on
-both runtime rows with identity-bound evidence. See the plan's WP1/WP2/WP3
-evidence sections; RELEASE-002 deployment/adoption/field use remain open.
+[CS-PLAN-083](../plans/done/cs-plan-083-release-qualification-gates.md) completed
+its bounded alias-free provisioning, deterministic clean-candidate identity
+and wired same-archive NC35/NC34 qualification slice on 2026-10-10 (final Full
+`PASS-WITH-FIXES`, all RF-083-01..17 resolved). Renewed candidate `853f661`
+produces the same 522-file archive in two builds and the strict package smoke;
+full browser pair `run-IDVdFy`/`run-EpjkYH` and fresh/populated preservation
+proofs pass. The initial `325f23b` qualification remains historical, superseded
+by the review-hardened candidate. This contribution does not close RELEASE-002,
+perform deployment/adoption or replace CS-PLAN-080's independent human evidence.
+See the [completion/review record](archive/CODE_REVIEW_2026-10-10.md).
 
 The generic deployment guide still needs a verified production package manifest,
 target-specific AIO commands and a concrete adoption record before independent

@@ -10,15 +10,13 @@
 
 ## In Progress
 
-- **CS-PLAN-083 / final Full review remediation and renewed qualification** (2026-10-10): four tracks complete; user explicitly authorized safety/packaging fixes and scoped candidate checkpoints. RF-083-05..17 implemented and independently rechecked; Jest 1606, backend unit 1372 and lint green, renewed clean-candidate package/browser/lifecycle evidence pending. Base HEAD `52423a0`, clean index/tree at capture. No deployment or retained-baseline adoption.
-
-- **CS-PLAN-083 / WP1-WP3 delivered; final Full review open** (2026-10-10): alias-free canonical provisioning gate-proven on NC35 + NC34 (browser gate `run-11fa0O`, populated + fresh lifecycle, refusal regressions); WP2 package identity gate reproducibility-proven at candidate `325f23b` (archive `36aa2c5f…`, 229 files, two identical builds, source-vs-blob identity, asset contract); WP3 wired package smoke qualified both rows (setup + six owner cases on NC35/NC34, run-mv2d82rq, identity-bound evidence). Jest 1576+, backend 1371/604 green. Remaining: final Full review (provisioning/data-preservation + target-safety boundaries) for the `active/ → done/` move. No deployment/adoption; RELEASE-002 stays open. [Plan](../plans/active/cs-plan-083-release-qualification-gates.md).
-
 - **CS-PLAN-080 / WP9 technical gates passed; interim Standard B `PASS-WITH-FIXES` 2026-10-06; human evidence and final review open** (updated 2026-10-07): RF-080-01..04/06..13 resolved; historical NC31 evidence and CS-PLAN-082's renewed runtime gates remain recorded separately. Coordination, guardian consent and minimum adult/child voluntary participation confirmed on 2026-10-07, with anonymous repository evidence only. Manual execution handoff and public-entry description refresh complete; documentation/lint/Jest checks pass. Awaiting operator-run deployment and evidence: actual trial candidate/environment and comprehension/14-day results remain unconfirmed; RF-080-05 and WP9/G3/CONCEPT-001 stay open. No deployment or retained-baseline adoption. [Plan](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md) · [Protocol](../testing/release-test-plan.md#121-family-acceptance-evidence-c5j--wp9) · [Review](archive/CODE_REVIEW_2026-10-06.md).
 
 - **CS-PLAN-070 / parent - family rhythm and reward clarification OPEN** (WP0-WP8 delivered; WP9 activated as [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md), Standard A `PASS` 2026-10-03, zero findings; CONCEPT-001 remains In Progress for cross-DB and family evidence). [Parent](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
+
+- **CS-PLAN-083 delivered** (2026-10-10): final Full `PASS-WITH-FIXES`, RF-083-01..17 resolved; clean candidate `853f661`, reproducible 522-file archive and strict same-archive NC35/NC34 smoke, fresh/populated preservation and complete browser pair (295 first-attempt passes per row), Jest 1606 and backend 1372/604 per row. RELEASE-002 deployment/adoption/field use and WP9 human evidence stay open. [Plan](../plans/done/cs-plan-083-release-qualification-gates.md) · [Review](archive/CODE_REVIEW_2026-10-10.md).
 
 - **Installation handoff / bootstrap and lifecycle follow-up** (2026-10-09; source publication authorized 2026-10-10): original startup/draft/structure defects and late cold-cache/reset findings fixed; immutable v5 supersedes v4. Jest 1,518, backend 1,368/604 and full browser 295 per NC34/NC35; strict alias-free package checks pass. Git source is matched to the qualified inputs with explicit line-ending provenance; no production update/adoption. TECH-TRANSPORT-001 remains separate. [Source/package identity](../testing/install-preparation-2026-10-08.md#source-publication-2026-10-10).
 
@@ -34,7 +32,6 @@
 
 - **CS-PLAN-076 / WP5 delivered** (2026-09-30): final Standard B `PASS-WITH-FIXES`, RF-076-01..11 resolved; self-only preferences, quiet at-most-once digest and transactional source queue; unit 1028, integration 493, Jest 1062 and complete E2E `run-xpEKYP` green; plan moved to `done/`, WP6 draft/metadata excluded from the scoped commit. [Plan](../plans/done/cs-plan-076-wp5-preferences-and-digest-delivery.md) · [Review](archive/CODE_REVIEW_2026-09-30.md).
 - **CS-PLAN-075 / WP4 delivered** (2026-09-29): final Standard B `PASS-WITH-FIXES`, RF-075-01..05 resolved; rhythm/goals/ranking, ADR-015, consent persistence and single-series recognition; plan in `done/`, CONCEPT-001 remains open. [Plan](../plans/done/cs-plan-075-wp4-rhythm-goals-and-ranking.md) · [Review](archive/CODE_REVIEW_2026-09-29.md).
-- **CS-PLAN-074 / WP3 delivered** (2026-09-27): final Standard B re-review `PASS-WITH-FIXES`, RF-074-WP3-01..10 resolved; exact work shares/wallet ledger, targeted corrections, room journal/replay, ADR-014 and no-Coin arcade; CR-SVC-63 archived, plan in `done/`. [Plan](../plans/done/cs-plan-074-wp3-work-accounting-and-replay.md) · [Review](archive/CODE_REVIEW_2026-09-27.md).
 
 > One-line entries only. Older and interim history lives in the tracked
 > [`archive/`](archive/).
