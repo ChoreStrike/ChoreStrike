@@ -42,6 +42,7 @@
 const { spawnSync } = require('node:child_process')
 const crypto = require('node:crypto')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const zlib = require('node:zlib')
 
