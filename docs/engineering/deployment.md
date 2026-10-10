@@ -46,6 +46,20 @@ Keep maps in private build evidence, not the deployed app. Never add an empty
 CSS placeholder or copy a stale workspace stylesheet.
 Webpack's timestamp-based cache busting means a later rebuild is a different
 artifact: hash and test the exact package that will be handed to operations.
+Qualified builds pin the cache-bust query to the commit-derived
+`SOURCE_DATE_EPOCH` packaging input instead of wall-clock time
+(`webpack.config.js`, CS-PLAN-083 WP2), so two independent builds of the same
+clean candidate and pinned tools produce byte-identical archives.
+
+The in-repo package identity gate produces the handoff record; do not assemble
+or hash archives manually. `npm run test:package:build` (CS-PLAN-083 WP2)
+packages only from a clean, HEAD-pinned checkout inside the pinned Docker
+builder, emits the archive plus package/source manifests, the source-vs-git-blob
+identity proof and the asset-contract report under gitignored `build/package/`,
+and `--verify-reproducible` proves the two-build byte-identity. `npm run
+test:package:smoke` (WP3) then qualifies the same extracted archive on the NC35
+canonical and NC34 compatibility runtime rows and writes the identity-bound
+qualification record. See `docs/engineering/testing.md` §Package Identity Gate.
 
 Capture the source/build-input manifest **before** compilation and compare it
 again after qualification. Keep the final source/test manifest, exact commands,
@@ -64,6 +78,17 @@ be identified by base commit plus patch/source fingerprint, not as clean commits
 chunk URLs with an `/apps/chorestrike` symlink or proxy alias. Package acceptance
 must exercise alias-free lazy navigation and compare actual requested URLs,
 JavaScript MIME types and response bytes with the package.
+
+This static-asset base is a **mandatory canonical-gate contract**
+(CS-PLAN-083 WP1): the contract chain is
+`window._oc_appswebroots` → `src/public-path.js` → emitted chunks, and the
+canonical browser gate (`tests/e2e/minimal-smoke-tests.spec.ts`) asserts the
+exact `/custom_apps/chorestrike/js/` base with HTTP 200 and JavaScript MIME
+for every fetched app script. No canonical alias-free browser assertion may
+accept the legacy `/apps` asset base; page/API `/apps/chorestrike/...` URLs
+stay untouched because index.php routing is independent of the physical app
+root. Unit resolver coverage for genuine `/apps` installations and
+subdirectory deployments remains in `tests/unit/scripts/assetContract.spec.js`.
 
 ### 3. Install PHP dependencies
 

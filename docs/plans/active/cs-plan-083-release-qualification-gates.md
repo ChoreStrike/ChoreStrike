@@ -1,6 +1,9 @@
 # CS-PLAN-083: Release Qualification Gates — Alias-Free Runtime, Cold Start, Package Identity
 
-> **Status:** Active (Standard A PASS-WITH-FIXES, 2026-10-10; implementation not started)
+> **Status:** Active (Standard A PASS-WITH-FIXES, 2026-10-10; WP1 implemented and
+> gate-proven 2026-10-10; WP2/WP3 implemented with unit + self-test coverage,
+> real candidate checkpoint and package qualification authorized by the user
+> 2026-10-10)
 > **Effort:** L
 > **Priority:** P2
 > **Depends on:** delivered CS-PLAN-082 runtime inventory; separately authorized clean candidate checkpoint before package qualification (CS-PLAN-080/WP9 human evidence stays independent)
@@ -128,6 +131,29 @@ evidence remain outside this plan. RELEASE-002 is not closed by this delivery.
 
 No app runtime behaviour change is intended. If WP1 exposes real static-asset
 assumptions in app code, they are fixed as plan-owned findings (§9).
+
+### WP1 Static-Asset Audit (2026-10-10, before entrypoint changes)
+
+Inventory of every static-asset URL assumption in `tests/` and `src/`
+(`/apps/chorestrike/js|css` literals, basename/hash-only acceptance):
+
+- `src/`: **none.** `src/public-path.js` derives the `js/` base at runtime from
+  `window._oc_appswebroots` via `generateFilePath` (fixed at source in `e873fa8`);
+  unit resolver coverage in `tests/unit/scripts/assetContract.spec.js` exercises
+  genuine `/apps` installs, `custom_apps` and subdirectory deployments — these
+  are distinct physical roots, not aliases.
+- `templates/main.php` / `lib/Controller/PageController.php`: register only
+  `chorestrike-main` through the app-id script API; no URL literals.
+- `tests/e2e/minimal-smoke-tests.spec.ts`: **found assumption** — the lazy-asset
+  assertions accepted any basename (`endsWith('/chorestrike-today.js')`), so a
+  regression serving from the legacy `/apps/chorestrike/js/` base would still
+  pass. Tightened to the exact `/custom_apps/chorestrike/js/` base with HTTP 200
+  and JavaScript MIME for every fetched app script.
+- `tests/package/owner-smoke.cjs`: already asserts the exact `custom_apps` URL,
+  HTTP 200, JavaScript MIME and byte equality with the mounted package.
+- No other `/apps/chorestrike/js|css` literal exists in `tests/` or `src/`
+  (repository-wide search). Result: one test-code tightening, no app runtime
+  change, no plan-owned finding required.
 
 Qualification requires a separately authorized implementation candidate commit
 or an eligible interim review commit before the clean-HEAD gate can execute.
@@ -305,6 +331,34 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 
 These are resolved **plan-design findings**, not claims that implementation or
 runtime qualification has passed. All implementation acceptance criteria remain open.
+
+### WP1 Gate Evidence (2026-10-10)
+
+- Populated recreation of the owned canonical container (config/data/DB volumes
+  retained from the pre-WP1 stack): entrypoint imported the complete
+  `apps_paths` array into the existing config volume, verified discovery
+  (`/apps` read-only + `/custom_apps` writable), completed setup without
+  reseeding; `/var/www/html/apps/chorestrike` absent (file and symlink);
+  app enabled; `/custom_apps/chorestrike/js/chorestrike-main.js` served HTTP
+  200 `text/javascript`; the legacy `/apps/chorestrike/js/...` path answers
+  404 — no alias fallback exists.
+- Fresh start (`down -v`, family profile): same alias-free provisioning path;
+  canonical browser gate `run-11fa0O` PASSED on NC35 (all three pools, zero
+  skipped/failed/flaky; the tightened `minimal-smoke-tests.spec.ts` exact
+  `custom_apps` base assertions ran green in the `chromium` pool).
+- NC34 compatibility row: `cs082-runtime-34.0.4-local` staged via
+  `scripts/test-runtime-stage.js` (installed identity 34.0.4.1 verified),
+  browser gate PASSED against `http://127.0.0.1:18081`; owned staging torn
+  down with its volumes.
+- Backend: PHPUnit unit 1371 and integration 604 green in the alias-free
+  container (includes the new provisioning setup/order/refusal regressions);
+  full Jest 116 suites / 1571 tests green on Node 20.19.0/npm 10.8.2; lint,
+  docs encoding and backlog checks green.
+- Environment note: two earlier gate attempts failed for environment reasons,
+  not code defects — once on 3-day-old seeded dates after volume-retained
+  recreation, once on the `minimal` profile when the gate requires `family`;
+  both are operator environment variables, recorded here for reruns
+  (`$env:TEST_DB_PROFILE='family'` before `up`).
 
 ## Review Decisions
 

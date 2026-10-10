@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "platform": "linux/amd64",
+  "node": {
+    "version": "20.19.0",
+    "image": "node:20.19.0",
+    "digest": "sha256:a5fb035ac1dff34a4ecaea85f90f7321185695d3fd22c12ba12f4535a4647cc5",
+    "platformDigest": "sha256:e44d951c16cd042012215a3473d69d3364e62ffcebf7e7acacf44163e0385327"
+  },
+  "composer": {
+    "version": "2.9.5",
+    "image": "composer:2.9.5",
+    "digest": "sha256:698d3801b2a622ace460c4743c781282fcbcb733a4cbf8b31c44731e846585e8",
+    "platformDigest": "sha256:dc21210ab4f258498cc741b3fcae648ecea0512bf1902f626258a5a2416dd65f"
+  },
+  "runtimeAllowlist": [
+    "appinfo",
+    "lib",
+    "templates",
+    "l10n",
+    "img",
+    "js",
+    "vendor",
+    "LICENSE",
+    "README.md",
+    "composer.json",
+    "composer.lock"
+  ],
+  "forbidden": [
+    "*.map",
+    "node_modules",
+    "tests",
+    "private",
+    "docker",
+    "docs",
+    "scripts",
+    "src",
+    "css",
+    "build",
+    "archive"
+  ],
+  "assetContract": {
+    "referenced": [
+      "chorestrike-main.js"
+    ],
+    "exceptions": []
+  }
+}

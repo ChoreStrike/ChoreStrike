@@ -132,11 +132,38 @@ if ! occ status | grep -q "installed: true"; then
     exit 1
 fi
 
-# The apps symlink lives in the container filesystem, not a volume: a preserved
-# (recreated) container must restore it before any version check or occ upgrade.
-echo "Linking local chorestrike app into Nextcloud apps path..."
-ln -sfn /var/www/html/custom_apps/chorestrike /var/www/html/apps/chorestrike
-chown -h www-data:www-data /var/www/html/apps/chorestrike
+# Alias-free app discovery (CS-PLAN-083 WP1): the app physically lives in
+# custom_apps and is NEVER linked into /apps — that symlink masked the
+# production ChunkLoadError defect class. The complete apps_paths array is
+# validated/imported atomically before any app-dependent OCC/version/upgrade
+# call. Unexpected existing configuration or an existing /apps alias fails
+# closed: never delete data or overwrite unrelated app roots. The old symlink
+# lived in the container filesystem (not a volume), so recreating the owned
+# container removes it while config/data/DB volumes are retained.
+echo "Configuring alias-free app discovery..."
+if [ -e /var/www/html/apps/chorestrike ] || [ -L /var/www/html/apps/chorestrike ]; then
+    echo "Refusing to provision: /var/www/html/apps/chorestrike exists (legacy alias or foreign app root). Recreate the owned container to remove the container-local alias; config/data/DB volumes are retained." >&2
+    exit 1
+fi
+EXPECTED_APPS_PATHS='[{"path":"\/var\/www\/html\/apps","url":"\/apps","writable":false},{"path":"\/var\/www\/html\/custom_apps","url":"\/custom_apps","writable":true}]'
+if EXISTING_APPS_PATHS="$(occ config:system:get apps_paths --output=json 2>/dev/null)"; then
+    if [ "$EXISTING_APPS_PATHS" != "$EXPECTED_APPS_PATHS" ]; then
+        echo "Refusing to provision: unexpected existing apps_paths configuration (${EXISTING_APPS_PATHS:-empty}). Not overwriting unrelated app roots." >&2
+        exit 1
+    fi
+    echo "Keeping existing alias-free apps_paths configuration."
+else
+    # Import the complete array atomically: a partial apps_paths breaks
+    # every later occ call (same contract as package-smoke-entrypoint.sh).
+    printf '%s' '{"system":{"apps_paths":[{"path":"/var/www/html/apps","url":"/apps","writable":false},{"path":"/var/www/html/custom_apps","url":"/custom_apps","writable":true}]}}' | occ config:import
+    echo "Imported complete apps_paths configuration."
+fi
+if ! occ config:system:get apps_paths 0 path | grep -qx /var/www/html/apps \
+    || ! occ config:system:get apps_paths 1 url | grep -qx /custom_apps; then
+    echo "apps_paths verification failed. Aborting setup." >&2
+    exit 1
+fi
+echo "App discovery: /apps (read-only) + /custom_apps (writable), no alias."
 
 # Nextcloud installs SQLite via the sqlite selector but stores dbtype=sqlite3.
 EXPECTED_DB_TYPE="$TEST_DB_TYPE"

@@ -13,6 +13,19 @@ case "${0##*/}" in
                 echo 'installed: true' ;;
             *'config:system:get dbtype'*)
                 if [ "$PROVISION_SCENARIO" = wrong-provider ]; then echo pgsql; else echo mysql; fi ;;
+            *'config:system:get apps_paths --output=json'*)
+                case "$PROVISION_SCENARIO" in
+                    preserve-*|existing-apps-paths)
+                        echo '[{"path":"\/var\/www\/html\/apps","url":"\/apps","writable":false},{"path":"\/var\/www\/html\/custom_apps","url":"\/custom_apps","writable":true}]' ;;
+                    unexpected-apps-paths)
+                        echo '[{"path":"/srv/foreign_apps","url":"/apps","writable":true}]' ;;
+                    *) exit 1 ;;
+                esac ;;
+            *'config:system:get apps_paths 0 path'*) echo /var/www/html/apps ;;
+            *'config:system:get apps_paths 1 url'*) echo /custom_apps ;;
+            *config:import*)
+                if [ "$PROVISION_SCENARIO" = apps-paths-import-failure ]; then echo APPS_PATHS_IMPORT_FAILED; exit 1; fi
+                echo APPS_PATHS_IMPORTED ;;
             *'config:system:get version'*)
                 if [ "$PROVISION_SCENARIO" = old-volume ]; then echo 31.0.0.1;
                 elif [[ "$PROVISION_SCENARIO" == preserve-upgrade* ]] && [ ! -f "${PROVISION_STATE:-/nonexistent}/upgraded" ]; then echo "$TEST_RUNTIME_UPGRADE_FROM";

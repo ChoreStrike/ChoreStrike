@@ -96,7 +96,18 @@ test.describe('Minimal Smoke Tests', () => {
 			page.on('requestfailed', request => errors.push(`Failed request: ${new URL(request.url()).pathname}`))
 			page.on('response', response => {
 				if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${new URL(response.url()).pathname}`)
-				if (response.request().resourceType() === 'script') scripts.push(new URL(response.url()).pathname)
+				if (response.request().resourceType() === 'script') {
+					const url = new URL(response.url())
+					scripts.push(url.pathname)
+					if (url.pathname.includes('/chorestrike/')) {
+						// CS-PLAN-083 WP1: every fetched app script must come from the
+						// exact physical custom_apps base — the legacy /apps alias
+						// masked the production ChunkLoadError defect class.
+						expect(url.pathname.startsWith('/custom_apps/chorestrike/js/')).toBe(true)
+						expect(response.status()).toBe(200)
+						expect(response.headers()['content-type']).toMatch(/^(?:application|text)\/javascript\b/)
+					}
+				}
 			})
 			await page.addInitScript(() => {
 				const violations: string[] = []

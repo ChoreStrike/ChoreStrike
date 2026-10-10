@@ -5,7 +5,7 @@ Canonical recipe for running the ChoreStrike integration/E2E test stack locally.
 ## Prerequisites
 
 - Docker Desktop (or Docker Engine + Docker Compose v2)
-- Ports `8080` (Nextcloud) and `3306` (MariaDB, internal only) available
+- Port `8080` (Nextcloud, loopback) available; the database is internal-only
 
 ## Quick Start
 
@@ -62,13 +62,12 @@ The `-v` flag removes the MariaDB volume for a clean slate on next start.
 
 ## Architecture
 
-- **Base image:** `php:8.2-apache`
-- **Nextcloud:** cloned from `stable31` branch at build time (currently resolves to NC 31.0.x)
-- **Database:** MariaDB 10.6 (service `db`, internal network)
+- **Base image:** frozen runtime built from `docker/Dockerfile.test` — Nextcloud 35.0.1 / PHP 8.4.25, pinned by `docker/test-runtime.json` (CS-PLAN-082)
+- **Database:** PostgreSQL 18.6 (service `db`, internal network)
 - **App mount:** the repository root is bind-mounted at `/var/www/html/custom_apps/chorestrike`
-- **Entrypoint:** `docker/test-entrypoint.sh` handles DB wait → Nextcloud install → app enable → user seeding
+- **Entrypoint:** `docker/test-entrypoint.sh` handles DB wait → Nextcloud install → **alias-free app discovery** (complete `apps_paths` array, no `/apps/chorestrike` symlink) → app enable → user seeding (CS-PLAN-083 WP1)
+- **Package lanes:** `docker/Dockerfile.package` (pinned package builder), `docker/compose.package-smoke.yml` + `scripts/run-package-smoke.js` (one-command package qualification, CS-PLAN-083 WP2/WP3) — see `docs/engineering/testing.md` §Package Identity Gate
 
 ## Known Issues & Fixes Applied
 
 - **PK name too long (2026-07):** `Version1021` originally called `setPrimaryKey(['id'])` without an explicit name. Nextcloud's `oc_` prefix made the auto-generated PK name exceed MariaDB's 64-char limit. Fixed by using `'pk_task_assignees'`.
-- **PCNTL warnings:** harmless — the `php:8.2-apache` image does not enable `pcntl` by default. Does not affect app functionality or tests.

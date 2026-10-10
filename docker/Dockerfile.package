@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+
+# CS-PLAN-083 WP2: pinned, digest-verified package builder toolchain.
+# Only the immutable toolchain lives in this image (Node/npm for the locked
+# webpack production build, Composer for the locked production autoloader);
+# the actual build inputs are streamed in by scripts/build-package.js as a
+# `git archive HEAD` tar via stdin, so a dirty workspace, ignored build
+# outputs or host-OS path separators can never leak into a qualified package.
+# Pin updates require re-running the two-build reproducibility proof.
+ARG NODE_IMAGE=node:20.19.0@sha256:e44d951c16cd042012215a3473d69d3364e62ffcebf7e7acccf44163e0385327
+ARG COMPOSER_IMAGE=composer:2.9.5@sha256:698d3801b2a622ace460c4743c781282fcbcb733a4cbf8b31c44731e846585e8
+
+FROM ${COMPOSER_IMAGE} AS composer-tool
+FROM ${NODE_IMAGE}
+
+COPY --from=composer-tool /usr/bin/composer /usr/bin/composer
+
+WORKDIR /package
+
+# The runner executes (approximately):
+#   git archive HEAD | docker run -i -e SOURCE_DATE_EPOCH=<commit epoch> \
+#     <builder> bash -c 'tar -xz && npm ci && composer install --no-dev \
+#       && npx webpack --mode production --json=/tmp/stats.json \
+#       && tar -C /package -czf /tmp/out.tar.gz js vendor \
+#       && cp /tmp/stats.json /tmp/'
+# Build outputs are streamed back on stdout; nothing host-side is trusted.
+CMD ["bash", "-c", "echo 'Package builder toolchain only; drive via scripts/build-package.js' >&2; exit 1"]

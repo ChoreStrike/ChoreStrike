@@ -1,0 +1,17 @@
+{
+  "hash": "synthetic-valid-graph",
+  "assets": [
+    { "name": "chorestrike-main.js" },
+    { "name": "chorestrike-vendors.js" },
+    { "name": "chorestrike-today.js" },
+    { "name": "chorestrike-main.js.LICENSE.txt" }
+  ],
+  "chunks": [
+    { "id": 0, "files": ["chorestrike-main.js"], "children": [1, 2], "parents": [] },
+    { "id": 1, "files": ["chorestrike-vendors.js"], "children": [], "parents": [0] },
+    { "id": 2, "files": ["chorestrike-today.js"], "children": [], "parents": [0] }
+  ],
+  "entrypoints": {
+    "main": { "chunks": [0] }
+  }
+}

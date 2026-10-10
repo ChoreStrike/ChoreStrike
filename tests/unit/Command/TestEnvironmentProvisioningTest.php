@@ -52,7 +52,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 	public function testProvisioning_RequiredStages_ControlReadiness(string $scenario, int $expectedExit, string $message): void {
 		$directory = sys_get_temp_dir() . '/cs-provision-' . bin2hex(random_bytes(8));
 		self::assertTrue(mkdir($directory));
-		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'ln', 'chown', 'rm', 'touch', 'bash'];
+		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'rm', 'touch', 'bash'];
 		try {
 			foreach ($commands as $command) {
 				self::assertTrue(copy(__DIR__ . '/../../fixtures/provision-command.sh', $directory . '/' . $command));
@@ -69,11 +69,16 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			self::assertStringContainsString($message, $output);
 			if ($expectedExit === 0) {
 				self::assertStringContainsString('READY_MARKER', $output);
+				self::assertStringContainsString('App discovery: /apps (read-only) + /custom_apps (writable), no alias.', $output);
+				// The complete apps_paths array must be configured before any
+				// app-dependent config mutation and before seeding.
+				self::assertLessThan(strpos($output, 'CONFIG_MUTATION'), strpos($output, 'App discovery:'));
+				self::assertLessThan(strpos($output, 'SEED_SUCCEEDED'), strpos($output, 'App discovery:'));
 				self::assertLessThan(strpos($output, 'READY_MARKER'), strpos($output, 'SEED_SUCCEEDED'));
 			} else {
 				self::assertStringNotContainsString('READY_MARKER', $output);
 				self::assertStringNotContainsString('Setup Complete', $output);
-				if (in_array($scenario, ['wrong-code-runtime', 'old-volume'], true)) {
+				if (in_array($scenario, ['wrong-code-runtime', 'old-volume', 'unexpected-apps-paths', 'apps-paths-import-failure'], true)) {
 					self::assertStringNotContainsString('CONFIG_MUTATION', $output);
 					self::assertStringNotContainsString('SEED_SUCCEEDED', $output);
 				}
@@ -89,6 +94,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 	public static function provisioningOutcomes(): array {
 		return [
 			['success', 0, 'Setup Complete'],
+			['existing-apps-paths', 0, 'Keeping existing alias-free apps_paths configuration.'],
 			['install-failure', 1, 'INSTALL_FAILED'],
 			['wrong-provider', 1, 'Installed database provider does not match'],
 			['wrong-code-runtime', 1, 'RUNTIME_FAILED'],
@@ -99,6 +105,8 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			['http-runtime-mismatch', 1, 'Nextcloud HTTP readiness failed'],
 			['seed-failure', 1, 'SEED_FAILED'],
 			['missing-seed', 1, 'Required seed script is missing'],
+			['unexpected-apps-paths', 1, 'unexpected existing apps_paths configuration'],
+			['apps-paths-import-failure', 1, 'APPS_PATHS_IMPORT_FAILED'],
 		];
 	}
 
@@ -106,7 +114,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 	public function testProvisioning_PreservationMode_NeverReseedsOrInstalls(string $scenario, array $settings, int $expectedExit, string $message): void {
 		$directory = sys_get_temp_dir() . '/cs-provision-' . bin2hex(random_bytes(8));
 		self::assertTrue(mkdir($directory));
-		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'ln', 'chown', 'rm', 'touch', 'bash'];
+		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'rm', 'touch', 'bash'];
 		try {
 			foreach ($commands as $command) {
 				self::assertTrue(copy(__DIR__ . '/../../fixtures/provision-command.sh', $directory . '/' . $command));
@@ -125,13 +133,16 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			if ($expectedExit === 0) {
 				self::assertStringContainsString('READY_MARKER', $output);
 				self::assertStringContainsString('Preservation mode', $output);
+				// Populated re-creation keeps the previously imported alias-free
+				// apps_paths instead of mutating configuration again.
+				self::assertStringContainsString('Keeping existing alias-free apps_paths configuration.', $output);
 			} else {
 				self::assertStringNotContainsString('READY_MARKER', $output);
 			}
 			if ($scenario === 'preserve-upgrade') {
 				self::assertStringContainsString('UPGRADE_RAN', $output);
-				// The container-local apps symlink must be restored before the upgrade runs.
-				self::assertLessThan(strpos($output, 'UPGRADE_RAN'), strpos($output, 'Linking local chorestrike app'));
+				// Alias-free app discovery must be verified before the upgrade runs.
+				self::assertLessThan(strpos($output, 'UPGRADE_RAN'), strpos($output, 'alias-free apps_paths'));
 			} else {
 				self::assertStringNotContainsString('UPGRADE_RAN', $output);
 			}

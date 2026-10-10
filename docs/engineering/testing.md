@@ -125,10 +125,20 @@ Mutation callers use the validated normalized origin, never a raw URL prefix.
 
 #### Alias-Free Runtime Packages
 
-The ordinary test entrypoint creates an `/apps/chorestrike` symlink. Its passing
-browser gate does **not** prove an alias-free `custom_apps` deployment. Before
-handing off a runtime archive, also qualify its extracted bytes in a separate
-fresh, loopback-only PostgreSQL project on each supported Nextcloud runtime.
+The ordinary test entrypoint (`docker/test-entrypoint.sh`, CS-PLAN-083 WP1)
+provisions **alias-free**: it configures the complete `apps_paths` array
+(`/apps` read-only + `/custom_apps` writable) atomically before any
+app-dependent OCC/version/upgrade call, asserts that no `/apps/chorestrike`
+alias exists and fails closed on unexpected existing configuration — every
+ordinary gate run now proves the production layout. The populated
+container-recreation flow keeps the previously imported configuration
+without reseeding; the legacy symlink lived in the container filesystem, so
+recreating the owned container removes it while config/data/DB volumes are
+retained.
+
+Before handing off a runtime archive, additionally qualify its extracted
+bytes in a separate fresh, loopback-only PostgreSQL project on each
+supported Nextcloud runtime.
 
 Use `docker/package-smoke-entrypoint.sh` instead of `test-entrypoint.sh`, mount
 the extracted app read-only at `/var/www/html/custom_apps/chorestrike`, and set
@@ -176,6 +186,43 @@ Requests begun on a preceding login page are not attributed to the app scope.
 Reports/screenshots remain private. Separately inventory/hash
 all packaged chunks/licences; observed navigation alone does not fetch every
 possible chunk. This supplements, not replaces, the full browser gate.
+
+#### Package Identity Gate (CS-PLAN-083 WP2/WP3)
+
+`npm run test:package:build` packages only from a **clean, HEAD-pinned
+checkout** (a dirty or detached tree is a hard failure). The production
+webpack bundle (locked `npm ci`) and the production Composer autoloader
+(locked `composer install --no-dev`) are built inside the digest/platform-pinned
+builder image `docker/Dockerfile.package` (pins in `docker/package-build.json`)
+from a `git archive HEAD` stream — host-OS path separators, ignored workspace
+outputs and host timestamps can never leak into a qualified package. An
+explicit commit-derived `SOURCE_DATE_EPOCH` feeds `webpack.config.js`; the
+runtime archive is assembled with sorted entries, `0:0` ownership,
+`0644/0755` modes, a fixed mtime and gzip mtime 0, so `--verify-reproducible`
+proves two independent builds byte-identical. The gate emits a package
+manifest (per-file SHA-256), a source manifest (source-vs-git-blob comparison
+with documented CRLF/LF provenance; non-line-ending drift fails) and an
+asset-contract check (every template/controller-referenced asset is emitted;
+every emitted chunk is reachable from the entrypoint chunk graph or an
+explicitly named, reviewed exception). All artifacts land in gitignored
+`build/package/<run-id>/`.
+
+`npm run test:package:smoke` is the one-command pre-handoff qualification:
+build-package → safe extraction of the manifest-verified archive → per
+runtime row (NC35 canonical, NC34 compatibility from
+`docker/test-runtime.json`) an owned `cs082-pkg-*` Compose project
+(`docker/compose.package-smoke.yml`, both test markers false, read-only
+package mount, `org.chorestrike.package-smoke=true`) → fail-closed package
+target validation (separate from the true-marker test-target guard) →
+alias-absence proof → `owner-smoke.cjs setup` (cold first bootstrap) →
+`verify` (six owner cases) → evidence identity checks → owned teardown.
+Both rows consume the same extracted, hash-verified archive bytes; the
+qualification record binds candidate/input/archive/runtime/run identities
+before and after the browser checks. Failed fixtures and evidence are
+retained; cleanup only touches resources created and verified for that run.
+The frozen runtime images must exist (`node scripts/test-runtime.js build
+--runtime=<row> cs082-runtime-<version>-local`). This gate supplements, never
+replaces, the full canonical browser gate.
 
 ```bash
 # Build and provision the test environment (this does not run tests)

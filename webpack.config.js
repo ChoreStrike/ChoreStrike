@@ -13,8 +13,16 @@ if (assetRule) {
 	assetRule.exclude = [path.resolve(__dirname, 'node_modules', '@fluentui', 'svg-icons')]
 }
 
-// Force cache bust
-const buildTime = Date.now()
+// Cache-bust query for emitted asset URLs. CS-PLAN-083 WP2: qualified package
+// builds pin an explicit commit-derived epoch (SOURCE_DATE_EPOCH, set by
+// scripts/build-package.js inside the pinned Docker builder) so two
+// independent builds of the same commit are byte-reproducible; normal dev
+// builds keep their current Date.now() behavior.
+const packagingEpoch = process.env.SOURCE_DATE_EPOCH
+if (packagingEpoch !== undefined && !/^\d{9,10}$/.test(packagingEpoch)) {
+	throw new Error('SOURCE_DATE_EPOCH must be a Unix epoch in seconds for qualified builds')
+}
+const buildTime = packagingEpoch ? Number(packagingEpoch) * 1000 : Date.now()
 
 webpackConfig.entry = {
 	main: path.join(__dirname, 'src', 'main.js'),

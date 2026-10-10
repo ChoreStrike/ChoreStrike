@@ -16,6 +16,8 @@
     "test:watch": "cross-env NODE_OPTIONS=\"--require ./tests/jest.setup.deprecations.js\" jest --watch",
     "test:coverage": "cross-env NODE_OPTIONS=\"--require ./tests/jest.setup.deprecations.js\" jest --coverage",
     "test:noise": "node scripts/check-test-noise.js",
+    "test:package:build": "node scripts/build-package.js",
+    "test:package:smoke": "node scripts/run-package-smoke.js",
     "test:e2e:gate": "node scripts/run-e2e-gate.js",
     "test:runtime:validate": "node scripts/test-runtime.js validate",
     "test:runtime:check": "node scripts/test-runtime.js check",

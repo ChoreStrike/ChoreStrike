@@ -1,0 +1,14 @@
+{
+  "hash": "synthetic-orphan-chunk",
+  "assets": [
+    { "name": "chorestrike-main.js" },
+    { "name": "chorestrike-orphan.js" }
+  ],
+  "chunks": [
+    { "id": 0, "files": ["chorestrike-main.js"], "children": [], "parents": [] },
+    { "id": 3, "files": ["chorestrike-orphan.js"], "children": [], "parents": [] }
+  ],
+  "entrypoints": {
+    "main": { "chunks": [0] }
+  }
+}
