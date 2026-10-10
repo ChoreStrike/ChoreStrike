@@ -187,6 +187,7 @@ describe('build-package pinned base images', () => {
 		const calls = []
 		const invoke = (command, args) => {
 			calls.push(args.join(' '))
+			if (args[0] === 'image' && args[1] === 'inspect' && !args.includes('--format')) return { status: 1, stdout: '' }
 			if (args[0] === 'pull') return { status: 0, stdout: '' }
 			if (args[0] === 'tag') return { status: 0, stdout: '' }
 			if (args[0] === 'image') return { status: 0, stdout: JSON.stringify([`node@${tool.platformDigest}`]) }
@@ -194,7 +195,19 @@ describe('build-package pinned base images', () => {
 		}
 		const tag = ensurePinnedBase(tool, invoke)
 		expect(tag).toMatch(/^chorestrike-package-base:node-/)
-		expect(calls[0]).toBe(`pull --platform linux/amd64 node@${tool.platformDigest}`)
+		expect(calls[1]).toBe(`pull --platform linux/amd64 node@${tool.platformDigest}`)
+	})
+
+	it('reuses an already-verified local pinned image without pulling', () => {
+		const calls = []
+		const invoke = (command, args) => {
+			calls.push(args.join(' '))
+			if (args[0] === 'image') return { status: 0, stdout: JSON.stringify([`node@${tool.platformDigest}`]) }
+			throw new Error('unexpected')
+		}
+		const tag = ensurePinnedBase(tool, invoke)
+		expect(tag).toMatch(/^chorestrike-package-base:node-/)
+		expect(calls.some(call => call.startsWith('pull'))).toBe(false)
 	})
 
 	it('refuses a base image whose RepoDigests do not carry the pin', () => {

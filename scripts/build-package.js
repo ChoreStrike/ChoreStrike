@@ -355,19 +355,26 @@ function pinnedBaseTag(tool) {
 	return `chorestrike-package-base:${repository}-${tool.platformDigest.slice(7, 19)}`
 }
 
-/** Pull the pinned digest and verify the local tag carries exactly it. */
+/** Pull the pinned digest if absent and verify the local tag carries exactly it. */
 function ensurePinnedBase(tool, invoke = run) {
 	const repository = tool.image.split(':')[0]
 	const pinned = `${repository}@${tool.platformDigest}`
-	const pull = invoke('docker', ['pull', '--platform', 'linux/amd64', pinned], { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
-	if (pull.status !== 0) throw new Error(`Cannot fetch the pinned base image ${pinned}; refusing to build with an unverifiable toolchain`)
 	const tag = pinnedBaseTag(tool)
+	const inspect = () => JSON.parse(invoke('docker', ['image', 'inspect', tag, '--format', '{{json .RepoDigests}}'], { encoding: 'utf8' }).stdout || '[]')
+	// The RepoDigests check is the security anchor; pulling only warms the
+	// local cache. Prefer an already-verified local image so qualification
+	// does not depend on registry availability (or its flakiness).
+	if (invoke('docker', ['image', 'inspect', tag], { encoding: 'utf8' }).status === 0 && inspect().includes(pinned)) {
+		return tag
+	}
+	const pull = invoke('docker', ['pull', '--platform', 'linux/amd64', pinned], { encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024 })
+	if (pull.status !== 0 && invoke('docker', ['image', 'inspect', pinned], { encoding: 'utf8' }).status !== 0) {
+		throw new Error(`Cannot fetch the pinned base image ${pinned}; refusing to build with an unverifiable toolchain`)
+	}
 	if (invoke('docker', ['tag', pinned, tag], { encoding: 'utf8' }).status !== 0) {
 		throw new Error(`Cannot tag the pinned base image ${pinned}`)
 	}
-	const inspect = invoke('docker', ['image', 'inspect', tag, '--format', '{{json .RepoDigests}}'], { encoding: 'utf8' })
-	const digests = JSON.parse(inspect.stdout || '[]')
-	if (!digests.includes(pinned)) throw new Error(`Pinned base image verification failed: ${tag} does not carry ${pinned}`)
+	if (!inspect().includes(pinned)) throw new Error(`Pinned base image verification failed: ${tag} does not carry ${pinned}`)
 	return tag
 }
 
