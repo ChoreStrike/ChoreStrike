@@ -63,9 +63,9 @@ describe('JavaScript-injected app styles', () => {
 			delete process.env.CHORESTRIKE_PACKAGE_BUILD
 			${env ? `process.env.CHORESTRIKE_PACKAGE_BUILD=${JSON.stringify(env)};` : ''}
 			const config = require('./webpack.config.js')
-			process.stdout.write(String(config.devtool))
-		`], { cwd: root, encoding: 'utf8' })
+			process.stdout.write('DEVTOOL=' + String(config.devtool))
+		`], { cwd: root, encoding: 'utf8' }).split('DEVTOOL=')[1]
 		expect(load('true')).toBe('false')
-		expect(load(null)).not.toBe('false')
+		expect(load(null)).toBe('source-map')
 	})
 })
