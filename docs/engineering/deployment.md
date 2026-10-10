@@ -47,6 +47,16 @@ CSS placeholder or copy a stale workspace stylesheet.
 Webpack's timestamp-based cache busting means a later rebuild is a different
 artifact: hash and test the exact package that will be handed to operations.
 
+Capture the source/build-input manifest **before** compilation and compare it
+again after qualification. Keep the final source/test manifest, exact commands,
+test counts and package hashes together. A runtime/build-input edit after the
+tests requires a new build and qualification; do not label the earlier bundle
+as a build of the later commit. A test-harness-only correction must be recorded
+separately, with unchanged runtime/build inputs and renewed relevant gates.
+Before source publication, compare the qualified files with the exact Git
+content, not just the branch name or app version. Working-tree candidates must
+be identified by base commit plus patch/source fingerprint, not as clean commits.
+
 `src/public-path.js` initializes Webpack's asset base with Nextcloud's
 `generateFilePath()` before app/router imports. Physical assets can live below
 `/apps`, `/custom_apps`, or a Nextcloud subwebroot; controller/API routes remain

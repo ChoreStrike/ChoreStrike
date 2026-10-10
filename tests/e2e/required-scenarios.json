@@ -87,8 +87,10 @@
     "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > updateRole enforces the approved 60/300 boundary with no rejected mutation and isolated counters"
   ],
   "settings.spec.ts": [
+    "settings.spec.ts > Settings > Cold structure hydration survives room reconciliation",
     "settings.spec.ts > Settings > Floors list or empty state is displayed",
     "settings.spec.ts > Settings > Floors section is displayed with add button",
+    "settings.spec.ts > Settings > House drafts wait for the winning read on a direct Settings load",
     "settings.spec.ts > Settings > House name input is displayed and interactive",
     "settings.spec.ts > Settings > Owner timezone and populated floor controls remain reachable at 1440px",
     "settings.spec.ts > Settings > Owner timezone and populated floor controls remain reachable at 390px",
@@ -313,7 +315,8 @@
     "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Hash deep-links reach the tasks and settings views",
     "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Injected styles and lazy assets work at 1440px without resource or CSP errors",
     "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Injected styles and lazy assets work at 390px without resource or CSP errors",
-    "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > No critical console errors on load"
+    "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > No critical console errors on load",
+    "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Protected views wait for membership bootstrap before issuing reads"
   ],
   "overdue-task-claiming.spec.ts": [
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > claim button opens confirmation dialog naming the assignee",

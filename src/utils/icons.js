@@ -40,6 +40,7 @@ import search20Regular from '@fluentui/svg-icons/icons/search_20_regular.svg'
 import star20Regular from '@fluentui/svg-icons/icons/star_20_regular.svg'
 import trophy20Regular from '@fluentui/svg-icons/icons/trophy_20_regular.svg'
 import warning20Regular from '@fluentui/svg-icons/icons/warning_20_regular.svg'
+import weatherSunny20Regular from '@fluentui/svg-icons/icons/weather_sunny_20_regular.svg'
 import bookOpen20Regular from '@fluentui/svg-icons/icons/book_open_20_regular.svg'
 import briefcase20Regular from '@fluentui/svg-icons/icons/briefcase_20_regular.svg'
 import couch20Regular from '@fluentui/svg-icons/icons/couch_20_regular.svg'
@@ -165,6 +166,7 @@ const fluentSvgIcons = {
 	DoorOpen: createFluentSvgComponent('DoorOpen', door20Regular),
 	Shirt: createFluentSvgComponent('Shirt', clothesHanger20Regular),
 	Star: createFluentSvgComponent('Star', star20Regular),
+	Sun: createFluentSvgComponent('Sun', weatherSunny20Regular),
 	Trophy: createFluentSvgComponent('Trophy', trophy20Regular),
 	Save: createFluentSvgComponent('Save', save20Regular),
 	LayoutGrid: createFluentSvgComponent('LayoutGrid', gridDots20Regular),

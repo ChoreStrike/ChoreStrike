@@ -478,6 +478,13 @@ stale response can never win and a committed write is never misreported:
 
 ### Store Structure
 
+The root `App.vue` mounts routed views only after `users/current` confirms
+`membership === 'member'`. Unknown membership shows a loading indicator (or a
+retryable error after a failed read); denied membership retains the dedicated
+authorization state. This ordering matters on a fresh installation: protected
+task reads must not race the first-owner transaction. It does not replace or
+weaken the backend membership checks.
+
 #### `useHouseStore`
 ```javascript
 {
@@ -516,7 +523,34 @@ stale response can never win and a committed write is never misreported:
 > `fetchHouseStats`/`initializeHouse` examples were fictional — removed,
 > CS-PLAN-068.)
 
+Full house reads are latest-wins. A superseded caller waits for the winning
+pending read rather than resolving against an empty store; only the owning
+promise clears its pending/loading state. Mutations and identity reset still
+invalidate old results. A partial health refresh waits for a pending full read
+so it cannot discard the required name/timezone payload. Settings initializes
+its house draft from that payload before the independent floor read completes,
+keeps controls disabled until ready, and offers retry on initialization failure.
+The localized display fallback is never a name to persist in timezone/ranking
+updates.
+Structure controls remain behind their own initial-read loading indicator, so
+cached rows cannot briefly offer actions before hydration disables them again.
+
 #### `useRoomsStore`
+Structure reads are invalidated both when a mutation starts and when its
+successful response is reconciled. A read started during the write can contain
+the old database snapshot and must not erase an accepted result. Creates also
+deduplicate by ID if an overlapping read already returned the new row;
+completion/undo room reconciliation invalidates earlier reads as well.
+
+A superseded structure caller waits for the latest valid full read, or starts
+a replacement when a mutation invalidated every available snapshot. It never
+reports a partial or empty cache as successful initial hydration. The latest
+settled read promise is retained so older callers share its result or failure;
+request errors are not retried automatically. Reset has a separate generation:
+old read/write callbacks cannot change the new generation's data, error, loading
+count or read validity. A cancelled pre-reset read returns `null`; Settings
+does not mark that result as ready.
+
 ```javascript
 {
   state: {

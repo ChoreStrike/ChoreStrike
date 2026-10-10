@@ -1,7 +1,11 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import axios from '@nextcloud/axios'
 import App from '../../../src/App.vue'
 import { useUserStore } from '../../../src/store/user.js'
+import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+
+jest.mock('@/utils/logger', () => ({ logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } }))
 
 /**
  * App root component
@@ -17,7 +21,7 @@ import { useUserStore } from '../../../src/store/user.js'
  * NotAuthorizedState gate.
  */
 describe('App', () => {
-	const mountApp = () => {
+	const mountApp = (routeView = true) => {
 		const pinia = createPinia()
 		setActivePinia(pinia)
 		return mount(App, {
@@ -26,7 +30,7 @@ describe('App', () => {
 				stubs: {
 					// vue-router is mocked globally (useRouter/useRoute only); stub
 					// the view + link components so App mounts without a router.
-					'router-view': true,
+					'router-view': routeView,
 					'router-link': true,
 				},
 			},
@@ -64,6 +68,46 @@ describe('App', () => {
 	})
 
 	describe('Membership denied gate (CS-PLAN-061 §3.9)', () => {
+		it('does not mount task-reading views until the first-owner bootstrap resolves', async () => {
+			const wrapper = mountApp({
+				template: '<div data-testid="task-view" />',
+				mounted() {
+					useRoomTasksStore().fetchFilteredDailyTasks()
+					useRoomTasksStore().fetchOverdueTasks()
+				},
+			})
+			const daily = jest.spyOn(useRoomTasksStore(), 'fetchFilteredDailyTasks').mockResolvedValue([])
+			const overdue = jest.spyOn(useRoomTasksStore(), 'fetchOverdueTasks').mockResolvedValue([])
+			let resolveBootstrap
+			axios.mockImplementationOnce(() => new Promise(resolve => { resolveBootstrap = resolve }))
+			const pending = useUserStore().initializeCurrentUser()
+			await flushPromises()
+			expect(wrapper.find('[data-testid="task-view"]').exists()).toBe(false)
+			expect(daily).not.toHaveBeenCalled()
+			expect(overdue).not.toHaveBeenCalled()
+			resolveBootstrap({ data: { success: true, data: { id: 1, role: 'owner' } } })
+			await pending
+			await flushPromises()
+			expect(wrapper.find('[data-testid="task-view"]').exists()).toBe(true)
+			expect(daily).toHaveBeenCalledTimes(1)
+			expect(overdue).toHaveBeenCalledTimes(1)
+			wrapper.unmount()
+		})
+
+		it('offers retry after a failed bootstrap without mounting the route', async () => {
+			const wrapper = mountApp()
+			const store = useUserStore()
+			store.error = 'Network error'
+			await wrapper.vm.$nextTick()
+			expect(wrapper.find('router-view-stub').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
+			const init = jest.spyOn(store, 'initializeCurrentUser').mockResolvedValue(null)
+			await wrapper.get('[data-testid="error-retry"]').trigger('click')
+			expect(init).toHaveBeenCalledTimes(1)
+			expect(store.error).toBeNull()
+			wrapper.unmount()
+		})
+
 		it('renders the normal app while membership is unknown or member', () => {
 			const wrapper = mountApp()
 			const store = useUserStore()

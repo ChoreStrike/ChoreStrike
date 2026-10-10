@@ -24,8 +24,9 @@ test.describe('Room and Floor Management', () => {
 	test.use({ storageState: userStatePath('mom') })
 	test.use({ databaseProfile: 'family' })
 
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page, seededData }) => {
 		test.setTimeout(60000)
+		expect(seededData).not.toBeNull()
 
 		await page.goto('/apps/chorestrike/#/dashboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })

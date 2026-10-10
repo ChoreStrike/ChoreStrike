@@ -154,8 +154,10 @@ bindings, matching HTTP port/image, both test markers false and the exact
 read-only package mount. These checks precede account-setting/UI mutations;
 this runner never weakens `scripts/test-target.js`'s test-mode requirement.
 
-`setup` asserts zero houses/members/floors/rooms before the normal bootstrap and
-drives the real wizard to one owner, floor and room. `verify` requires that
+`setup` asserts zero houses/members/floors/rooms before the normal **My Day**
+entry, requires successful daily/overdue reads, and then opens Dashboard and
+drives the real wizard to one owner, floor and room. Starting directly on
+Dashboard is not equivalent first-entry coverage. `verify` requires that
 persisted state and tests 390x844/1440x900 with browser locales `de-DE`, `de` and
 `en`. Native Nextcloud selects its `de` user catalog for the German cases;
 unit tests separately exercise exact regional `getLanguage()` inputs. Do not
@@ -166,8 +168,12 @@ widths, timezone save/reload/restore, cancellation of floor deletion, and
 Dashboard/My Day/Settings lazy navigation. Every requested app script must use
 the exact `custom_apps` URL, HTTP 200, JavaScript MIME and matching package
 bytes. No l10n JSON request, scoped resource/console/page error or CSP violation
-is accepted. Requests begun on a preceding login page are not attributed to
-the app scope. Reports/screenshots remain private. Separately inventory/hash
+is accepted. The runner also rejects console warnings and records sanitized
+API request/response ordering and error codes in its private reports, including
+failed attempts. Before an intentional timezone-check reload, it waits for
+outstanding reads to finish rather than filtering aborted requests into a pass.
+Requests begun on a preceding login page are not attributed to the app scope.
+Reports/screenshots remain private. Separately inventory/hash
 all packaged chunks/licences; observed navigation alone does not fetch every
 possible chunk. This supplements, not replaces, the full browser gate.
 

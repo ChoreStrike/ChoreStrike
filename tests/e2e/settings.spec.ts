@@ -44,6 +44,82 @@ test.describe('Settings', () => {
 		await expect(page.locator('[data-testid="settings-title"]')).toContainText('Settings')
 	})
 
+	test('House drafts wait for the winning read on a direct Settings load', async ({ page }) => {
+		await expect(page.getByTestId('house-name-input')).toBeEnabled()
+		const savedName = await page.getByTestId('house-name-input').inputValue()
+		expect(savedName).not.toBe('')
+		let requests = 0
+		let settingsDelivered = false
+		let releaseSettings!: () => void
+		let releaseLatest!: () => void
+		const settingsBarrier = new Promise<void>(resolve => { releaseSettings = resolve })
+		const latestBarrier = new Promise<void>(resolve => { releaseLatest = resolve })
+		await page.route(`**${API}/house`, async route => {
+			const index = ++requests
+			const response = await route.fetch()
+			if (index === 2) await settingsBarrier
+			if (index === 3) await latestBarrier
+			await route.fulfill({ response })
+			if (index === 2) settingsDelivered = true
+		})
+		try {
+			await page.reload()
+			await expect.poll(() => requests).toBe(2)
+			await page.evaluate(() => {
+				const app = (window as unknown as { chorestrike: { pinia: { _s: Map<string, { fetchHouse: () => Promise<unknown> }> } } }).chorestrike
+				app.pinia._s.get('house')!.fetchHouse()
+			})
+			await expect.poll(() => requests).toBe(3)
+			releaseSettings()
+			await expect.poll(() => settingsDelivered).toBe(true)
+			await expect(page.getByTestId('house-name-input')).toBeDisabled()
+			await expect(page.getByTestId('house-name-input')).toHaveValue('')
+			releaseLatest()
+			await expect(page.getByTestId('house-name-input')).toBeEnabled()
+			await expect(page.getByTestId('house-name-input')).toHaveValue(savedName)
+			await expect(page.getByTestId('save-house-name')).toBeDisabled()
+		} finally {
+			releaseSettings()
+			releaseLatest()
+		}
+	})
+
+	test('Cold structure hydration survives room reconciliation', async ({ page }) => {
+		let release!: () => void
+		const barrier = new Promise<void>(resolve => { release = resolve })
+		let snapshot: { floor: { id: number }, rooms: { id: number }[] }[] | null = null
+		let requests = 0
+		await page.route(`**${API}/floors/with-rooms`, async route => {
+			const index = ++requests
+			const response = await route.fetch()
+			if (index === 1) {
+				snapshot = (await response.json()).data
+				await barrier
+			}
+			await route.fulfill({ response })
+		})
+		try {
+			await page.reload()
+			await expect.poll(() => snapshot?.length || 0).toBeGreaterThan(0)
+			const room = snapshot!.flatMap(item => item.rooms)[0]
+			expect(room).toBeDefined()
+			await page.evaluate(room => {
+				const app = (window as unknown as { chorestrike: { pinia: { _s: Map<string, { floors: unknown[], rooms: unknown[], reconcileRoom: (room: unknown) => void }> } } }).chorestrike
+				const store = app.pinia._s.get('rooms')!
+				if (store.floors.length || store.rooms.length) throw new Error('Expected a cold structure cache')
+				store.reconcileRoom(room)
+			}, room)
+			await expect(page.getByTestId('structure-loading')).toBeVisible()
+			release()
+			await expect.poll(() => requests).toBe(2)
+			await expect(page.getByTestId('floors-list').locator('.floor-item')).toHaveCount(snapshot!.length)
+			await expect(page.getByTestId('structure-loading')).toHaveCount(0)
+			await expect(page.getByTestId('no-floors-message')).toHaveCount(0)
+		} finally {
+			release()
+		}
+	})
+
 	for (const width of [390, 1440]) {
 		test(`Owner timezone and populated floor controls remain reachable at ${width}px`, async ({ page }) => {
 			await page.setViewportSize({ width, height: width === 390 ? 844 : 900 })

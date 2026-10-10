@@ -117,6 +117,25 @@ describe('House Store', () => {
 
 	describe('Actions', () => {
 		describe('fetchHouse', () => {
+			it('keeps a superseded caller pending until the newest house read settles', async () => {
+				let resolveFirst, resolveLatest
+				api.get.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve }))
+				api.get.mockImplementationOnce(() => new Promise(resolve => { resolveLatest = resolve }))
+				let settled = false
+				const first = store.fetchHouse().then(house => { settled = true; return house })
+				const latest = store.fetchHouse()
+				resolveFirst({ id: 1, name: 'Before setup' })
+				await new Promise(resolve => { setTimeout(resolve, 0) })
+				expect(settled).toBe(false)
+				expect(store.loading).toBe(true)
+				const saved = { id: 1, name: 'Saved Home', timezone: 'Europe/Berlin' }
+				resolveLatest(saved)
+				expect(await first).toEqual(saved)
+				expect(await latest).toEqual(saved)
+				expect(store.house).toEqual(saved)
+				expect(store.loading).toBe(false)
+			})
+
 			it('fetches house successfully', async () => {
 				const mockHouse = { id: 1, name: 'Test House', houseHealth: 90 }
 				api.get.mockResolvedValue(mockHouse)
@@ -126,6 +145,41 @@ describe('House Store', () => {
 				expect(store.house).toEqual(mockHouse)
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
+			})
+
+			it('propagates the winning read failure to a caller waiting on a superseded read', async () => {
+				let resolveFirst, rejectLatest
+				api.get.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve }))
+				api.get.mockImplementationOnce(() => new Promise((resolve, reject) => { rejectLatest = reject }))
+				const first = store.fetchHouse()
+				const latest = store.fetchHouse()
+				resolveFirst({ id: 1, name: 'Stale' })
+				await new Promise(resolve => { setTimeout(resolve, 0) })
+				const failures = Promise.allSettled([first, latest])
+				rejectLatest(new Error('Network error'))
+				expect((await failures).map(result => result.status)).toEqual(['rejected', 'rejected'])
+				expect(store.house).toBeNull()
+				expect(store.error).toBe('Network error')
+				expect(store.loading).toBe(false)
+			})
+
+			it('does not clear a new identity read or its loading state when an old read resolves', async () => {
+				let resolveOld, resolveNew
+				api.get.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
+				api.get.mockImplementationOnce(() => new Promise(resolve => { resolveNew = resolve }))
+				const old = store.fetchHouse()
+				store.reset()
+				const current = store.fetchHouse()
+				const request = store.houseRequest
+				resolveOld({ id: 1, name: 'Old identity' })
+				await new Promise(resolve => { setTimeout(resolve, 0) })
+				expect(store.house).toBeNull()
+				expect(store.houseRequest).toBe(request)
+				expect(store.loading).toBe(true)
+				resolveNew({ id: 2, name: 'New identity' })
+				await Promise.all([old, current])
+				expect(store.house.name).toBe('New identity')
+				expect(store.houseRequest).toBeNull()
 			})
 
 			it('sets loading state while fetching', async () => {
@@ -190,6 +244,11 @@ describe('House Store', () => {
 
 		// CS-PLAN-070 WP4: the owner ranking flag rides the shared endpoint.
 		describe('updateRankingEnabled', () => {
+			it('never submits the display fallback as a persisted house name', async () => {
+				await expect(store.updateRankingEnabled(true)).rejects.toThrow('House name is required')
+				expect(api.put).not.toHaveBeenCalled()
+			})
+
 			it('sends the current name plus the flag and stores the response', async () => {
 				store.house = { id: 1, name: 'Test House', rankingEnabled: false }
 				const updated = { id: 1, name: 'Test House', rankingEnabled: true }
@@ -355,18 +414,19 @@ describe('House Store', () => {
 				expect(store.house.timezone).toBe('UTC')
 			})
 
-			it('a stale house fetch cannot overwrite a newer health refresh', async () => {
+			it('waits for the full house read before refreshing only its health', async () => {
 				let resolveFetch
 				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFetch = resolve }))
 				api.get.mockResolvedValueOnce({ houseHealth: 88 })
 
 				const houseFetch = store.fetchHouse()
-				await store.calculateHouseHealth()
-				store.house = { id: 1, name: 'Fresh', houseHealth: 88 }
-				resolveFetch({ id: 1, name: 'Stale', houseHealth: 10 })
+				const healthRefresh = store.calculateHouseHealth()
+				expect(api.get).toHaveBeenCalledTimes(1)
+				resolveFetch({ id: 1, name: 'Fresh', houseHealth: 10 })
 				await houseFetch
+				await healthRefresh
 
-				// The superseded pre-refresh fetch result is dropped.
+				// Partial health reads cannot invalidate required name/timezone data.
 				expect(store.house.name).toBe('Fresh')
 				expect(store.house.houseHealth).toBe(88)
 			})
@@ -393,6 +453,18 @@ describe('House Store', () => {
 				resolveFetch({ id: 1, name: 'Late' })
 				await pending
 
+				expect(store.house).toBeNull()
+			})
+
+			it('does not start a queued health read after the identity is reset', async () => {
+				let resolveHouse
+				api.get.mockImplementationOnce(() => new Promise(resolve => { resolveHouse = resolve }))
+				const house = store.fetchHouse()
+				const health = store.calculateHouseHealth()
+				store.reset()
+				resolveHouse({ id: 1, name: 'Old identity' })
+				await Promise.all([house, health])
+				expect(api.get).toHaveBeenCalledTimes(1)
 				expect(store.house).toBeNull()
 			})
 		})

@@ -20,6 +20,7 @@
 
 import { test, expect, PROFILE_USERS } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { formatCoinMinor } from '../../src/utils/minorUnits'
 
 test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })
@@ -46,10 +47,18 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			await expect(page.getByTestId('nav-arcade')).toHaveCount(0)
 			await page.getByTestId('nav-today').click()
 			const row = page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })
+			const completion = page.waitForResponse(response => response.request().method() === 'POST'
+				&& /\/api\/v1\/room-tasks\/\d+\/complete$/.test(new URL(response.url()).pathname))
 			await row.getByRole('button', { name: 'Done', exact: true }).click()
+			const receipt = await completion
+			expect(receipt.status()).toBe(200)
+			const priorMinor = (await receipt.json()).data.rewards.wallet.availableMinor
+			expect(priorMinor).toBeGreaterThan(0)
 			await expect(page.locator('[data-testid^="undo-snackbar-entry-"]')).toHaveCount(1)
 			await page.getByTestId('nav-dashboard').click()
 			await expect(page.getByTestId('own-wallet-available')).toBeVisible()
+			// A visible cached wallet is not proof that the new balance rendered.
+			await expect(page.getByTestId('own-wallet-available')).toHaveText(formatCoinMinor(priorMinor))
 			const priorWallet = await page.getByTestId('own-wallet-available').innerText()
 			const logout = await page.evaluate(() => '/logout?requesttoken=' + encodeURIComponent((window as unknown as { OC: { requestToken: string } }).OC.requestToken))
 			await expect(page.locator('[data-testid^="undo-snackbar-entry-"]')).toBeVisible()
@@ -61,8 +70,14 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			await expect(page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })).toHaveCount(0)
 			await expect(page.locator('[data-testid^="undo-snackbar-entry-"]')).toHaveCount(0)
 			await expect(page.getByTestId('nav-arcade')).toBeVisible()
+			const childState = page.waitForResponse('**/api/v1/game/state')
 			await page.getByTestId('nav-dashboard').click()
+			const childResponse = await childState
+			expect(childResponse.status()).toBe(200)
+			const childMinor = (await childResponse.json()).data.wallet.availableMinor
+			expect(childMinor).toBe(0)
 			await expect(page.getByTestId('own-wallet-available')).toBeVisible()
+			await expect(page.getByTestId('own-wallet-available')).toHaveText(formatCoinMinor(childMinor))
 			await expect(page.getByTestId('own-wallet-available')).not.toHaveText(priorWallet)
 			await page.getByTestId('nav-settings').click()
 			await expect(page.getByTestId('arcade-visible-switch')).toBeChecked()

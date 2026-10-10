@@ -90,7 +90,9 @@
 			</NcAppNavigation>
 
 			<NcAppContent>
-				<router-view />
+				<router-view v-if="userStore.membership === 'member'" />
+				<ErrorState v-else-if="userStore.error && !userStore.currentUserRequest" @retry="handleRetry" />
+				<NcLoadingIcon v-else data-testid="membership-loading" />
 				<UndoSnackbar />
 			</NcAppContent>
 		</template>
@@ -104,10 +106,12 @@ import {
 	NcAppNavigation,
 	NcAppNavigationItem,
 	NcAppContent,
+	NcLoadingIcon,
 } from '@nextcloud/vue'
 import { mapStores } from 'pinia'
 import UndoSnackbar from './components/Common/UndoSnackbar.vue'
 import NotAuthorizedState from './components/Common/NotAuthorizedState.vue'
+import ErrorState from './components/Common/ErrorState.vue'
 import HelpEntry from './components/Help/HelpEntry.vue'
 import { useUserStore } from './store/user.js'
 import { usePreferencesStore } from './store/preferences.js'
@@ -122,8 +126,10 @@ export default {
 		NcAppNavigation,
 		NcAppNavigationItem,
 		NcAppContent,
+		NcLoadingIcon,
 		UndoSnackbar,
 		NotAuthorizedState,
+		ErrorState,
 		HelpEntry,
 	},
 

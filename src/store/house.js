@@ -41,6 +41,7 @@ export const useHouseStore = defineStore('house', {
 		// stale house read can never overwrite newer navigation, mutation,
 		// or health-refresh results, and reset() discards in-flight ones.
 		houseRequestSeq: 0,
+		houseRequest: null,
 		insightsRequestSeq: 0,
 		activityRequestSeq: 0,
 		pendingResetCommand: null,
@@ -91,23 +92,31 @@ export const useHouseStore = defineStore('house', {
 			this.loading = true
 			this.error = null
 
-			try {
-				const data = await api.get('/api/v1/house')
-				if (seq !== this.houseRequestSeq) {
-					logger.debug('Dropping superseded house read', { store: 'house', action: 'fetchHouse' })
-					return this.house
+			const request = (async () => {
+				try {
+					const data = await api.get('/api/v1/house')
+					if (seq !== this.houseRequestSeq) {
+						// A caller initializing a draft must await the winning read,
+						// not mistake a still-empty store for a completed response.
+						return this.houseRequest !== request ? this.houseRequest ?? this.house : this.house
+					}
+					this.house = data
+					return data
+				} catch (error) {
+					if (seq === this.houseRequestSeq) {
+						this.error = error.message
+					}
+					logger.error('Failed to fetch house', error, { store: 'house', action: 'fetchHouse' })
+					throw error
+				} finally {
+					if (this.houseRequest === request) {
+						this.houseRequest = null
+						this.loading = false
+					}
 				}
-				this.house = data
-				return data
-			} catch (error) {
-				if (seq === this.houseRequestSeq) {
-					this.error = error.message
-				}
-				logger.error('Failed to fetch house', error, { store: 'house', action: 'fetchHouse' })
-				throw error
-			} finally {
-				this.loading = false
-			}
+			})()
+			this.houseRequest = request
+			return request
 		},
 
 		/**
@@ -150,11 +159,14 @@ export const useHouseStore = defineStore('house', {
 		 * @param {boolean} enabled New ranking flag.
 		 */
 		async updateRankingEnabled(enabled) {
+			if (!this.house?.name) {
+				throw new Error('House name is required')
+			}
 			this.loading = true
 			this.error = null
 
 			try {
-				const payload = { name: this.house?.name || this.houseName, rankingEnabled: enabled }
+				const payload = { name: this.house.name, rankingEnabled: enabled }
 				const data = await api.put('/api/v1/house', payload)
 				// Accepted mutation invalidates pre-mutation house reads
 				// (CS-PLAN-066 §3.3) — the authoritative response lands.
@@ -288,6 +300,11 @@ export const useHouseStore = defineStore('house', {
 		 * currently loaded house payload.
 		 */
 		async calculateHouseHealth() {
+			if (this.houseRequest) {
+				const pendingSeq = this.houseRequestSeq
+				await this.houseRequest
+				if (pendingSeq !== this.houseRequestSeq) return this.house?.houseHealth ?? null
+			}
 			const seq = ++this.houseRequestSeq
 			this.loading = true
 			this.error = null
@@ -311,7 +328,7 @@ export const useHouseStore = defineStore('house', {
 				logger.error('Failed to calculate house health', error, { store: 'house', action: 'calculateHouseHealth' })
 				throw error
 			} finally {
-				this.loading = false
+				if (seq === this.houseRequestSeq) this.loading = false
 			}
 		},
 
@@ -363,6 +380,7 @@ export const useHouseStore = defineStore('house', {
 			// Invalidate every in-flight read before clearing (CS-PLAN-066
 			// §3.3) — a late success can never land after the reset.
 			this.houseRequestSeq++
+			this.houseRequest = null
 			this.insightsRequestSeq++
 			this.activityRequestSeq++
 			this.house = null

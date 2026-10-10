@@ -210,6 +210,40 @@ component.
 > Backlog hygiene, lint/dependency, docs truth, and operational security.
 > Independently schedulable unless a gate depends on it (CS-PLAN-058 §2.2).
 
+### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
+**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
+
+An NC35 browser API GET terminated before any HTTP response during parallel
+local runtime qualification. Retained traces exclude an early context close or
+fixture teardown, but do not identify the terminating layer. This is distinct
+from the reproduced application races, which were repaired. Both subsequent
+complete sequential v4 gates pass without retries or skipped required tests.
+
+The initial v5 NC35 full gate later also recorded fixture seed POST failures
+(`fetch failed`, cause `SocketError: other side closed`) before application
+assertions, followed by an outer runner timeout. No restart/OOM or Apache fatal
+event was found. A controlled keep-alive hypothesis did not reproduce failure;
+no request-retry or speculative header change was made. The affected suite
+passes in isolation. Retain this additional evidence; do not narrow the item
+to parallel-runtime load or claim that the transport cause has been established.
+The complete unchanged-source NC35 requalification `run-RPFVu9` subsequently
+passes all 295 executions without retries; that does not close this attribution
+item or erase the failed run.
+
+**Deferral reason / scope:** attribution needs separate test-runtime/transport
+instrumentation and load comparison; it is not an outstanding bootstrap or
+Settings implementation criterion. Passing sequential gates are not proof of
+parallel-runtime reliability. No request-error filter or retry workaround was
+introduced, and raw traces/headers remain private.
+
+- [ ] Correlate sanitized client, server and Docker lifecycle evidence to identify the terminating layer.
+- [ ] Compare isolated and parallel runtime execution without changing required assertions or mutation retry semantics.
+- [ ] Fix a reproducible cause and add a targeted regression; otherwise record the bounded attribution result and remaining uncertainty.
+
+---
+
 ### [P1] CONCEPT-001 — Family-first rhythm and reward contracts
 **Status**: In Progress — CS-PLAN-070 activated via Standard A `PASS-WITH-FIXES` (2026-09-18) · **Effort**: XL implementation (clarification was M) · **Layer**: docs+backend+frontend · **Journey stage**: product definition
 **Owning**: CS-PLAN-070 · **Depends on**: — · **Blocks**: — · **Folded-in**: —

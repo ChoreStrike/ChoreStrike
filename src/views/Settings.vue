@@ -12,6 +12,7 @@
 		</header>
 
 		<div class="settings-content">
+			<ErrorState v-if="initializationError" @retry="initializeSettings" />
 			<!-- Profile title -->
 			<section class="settings-section">
 				<h2>{{ t('chorestrike', 'Your Title') }}</h2>
@@ -59,6 +60,7 @@
 								type="text"
 								class="text-input"
 								data-testid="house-name-input"
+								:disabled="!houseReady || houseStore.loading"
 								:placeholder="t('chorestrike', 'Enter house name')">
 							<button
 								class="save-button"
@@ -81,7 +83,7 @@
 								v-model="houseTimezone"
 								class="text-input"
 								data-testid="house-timezone-select"
-								:disabled="houseStore.loading">
+								:disabled="!houseReady || houseStore.loading">
 								<option v-for="zone in curatedTimezones" :key="zone" :value="zone">
 									{{ zone }}
 								</option>
@@ -108,7 +110,7 @@
 								type="checkbox"
 								class="ranking-toggle"
 								data-testid="ranking-toggle"
-								:disabled="houseStore.loading">
+								:disabled="!houseReady || houseStore.loading">
 							<button
 								class="save-button"
 								data-testid="save-house-ranking"
@@ -267,7 +269,8 @@
 			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="floors-section">
 				<h2>{{ t('chorestrike', 'Floors & Rooms') }}</h2>
 				<div class="setting-card">
-					<div class="floors-section">
+					<NcLoadingIcon v-if="!structureReady" data-testid="structure-loading" />
+					<div v-else class="floors-section">
 						<div class="floors-header">
 							<h3>{{ t('chorestrike', 'Manage Floors') }}</h3>
 							<button class="add-button" data-testid="add-floor-button" @click="showAddFloorModal = true">
@@ -510,9 +513,11 @@ import { usePreferencesStore } from '../store/preferences.js'
 import { usePausesStore } from '../store/pauses.js'
 import { CURATED_TIMEZONES } from '../constants/timezones.js'
 import { logger } from '../utils/logger.js'
+import { NcLoadingIcon } from '@nextcloud/vue'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
+import ErrorState from '../components/Common/ErrorState.vue'
 import MemberList from '../components/Members/MemberList.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
 import NotificationPreferences from '../components/Settings/NotificationPreferences.vue'
@@ -523,9 +528,11 @@ export default {
 	name: 'Settings',
 
 	components: {
+		NcLoadingIcon,
 		Icon,
 		Modal,
 		ConfirmDialog,
+		ErrorState,
 		MemberList,
 		TitleBadge,
 		NotificationPreferences,
@@ -545,6 +552,9 @@ export default {
 
 	data() {
 		return {
+			houseReady: false,
+			structureReady: false,
+			initializationError: false,
 			houseName: '',
 			houseTimezone: 'UTC',
 			rankingEnabled: false,
@@ -568,7 +578,7 @@ export default {
 
 	computed: {
 		canSaveHouseName() {
-			return this.houseName.trim() && this.houseName !== this.houseStore.houseName
+			return this.houseReady && this.houseStore.house?.name && this.houseName.trim() && this.houseName !== this.houseStore.houseName
 		},
 
 		/**
@@ -585,11 +595,11 @@ export default {
 		},
 
 		canSaveHouseTimezone() {
-			return this.houseTimezone && this.houseTimezone !== this.houseStore.timezone
+			return this.houseReady && this.houseStore.house?.name && this.houseTimezone && this.houseTimezone !== this.houseStore.timezone
 		},
 
 		canSaveRanking() {
-			return this.rankingEnabled !== this.houseStore.rankingEnabled
+			return this.houseReady && this.houseStore.house?.name && this.rankingEnabled !== this.houseStore.rankingEnabled
 		},
 
 		curatedTimezones() {
@@ -631,12 +641,19 @@ export default {
 		t,
 
 		async initializeSettings() {
+			this.houseReady = false
+			this.structureReady = false
+			this.initializationError = false
 			try {
 				await this.houseStore.fetchHouse()
-				await this.roomsStore.fetchFloorsWithRooms()
-				this.houseName = this.houseStore.houseName
+				if (!this.houseStore.house?.name) throw new Error('House name is required')
+				this.houseName = this.houseStore.house.name
 				this.houseTimezone = this.houseStore.timezone
 				this.rankingEnabled = this.houseStore.rankingEnabled
+				this.houseReady = true
+				const structure = await this.roomsStore.fetchFloorsWithRooms()
+				if (structure === null) return
+				this.structureReady = true
 				await this.loadTitle()
 				// The delivery-preferences draft lives in
 				// NotificationPreferences (WP6 §3.3); the Settings view only
@@ -649,6 +666,7 @@ export default {
 					logger.error('Failed to load the pause list', error, { view: 'Settings', action: 'initializeSettings' })
 				})
 			} catch (error) {
+				this.initializationError = true
 				logger.error('Failed to initialize settings', error, { view: 'Settings', action: 'initializeSettings' })
 			}
 		},
@@ -795,7 +813,7 @@ export default {
 			if (!this.canSaveHouseTimezone) return
 			try {
 				// Name is passed unchanged so the owner-gated PUT keeps it intact.
-				await this.houseStore.updateHouseName(this.houseStore.houseName, this.houseTimezone)
+				await this.houseStore.updateHouseName(this.houseStore.house.name, this.houseTimezone)
 				showSuccess(t('chorestrike', 'Timezone saved'))
 			} catch (error) {
 				showError(t('chorestrike', 'Failed to save timezone'))

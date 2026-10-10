@@ -175,6 +175,11 @@ describe('Settings.vue', () => {
 		translate.mockClear()
 		showSuccess.mockClear()
 		showError.mockClear()
+		mockHouseState.house = { id: 1, name: 'Test House' }
+		mockHouseState.houseName = 'Test House'
+		mockHouseState.timezone = 'UTC'
+		mockHouseState.fetchHouse.mockReset().mockResolvedValue()
+		mockRoomsState.fetchFloorsWithRooms.mockReset().mockResolvedValue()
 		mockHouseState.updateHouseName.mockClear().mockResolvedValue()
 		mockHouseState.updateRankingEnabled.mockClear().mockResolvedValue()
 		mockHouseState.resetHouse.mockClear().mockResolvedValue()
@@ -251,6 +256,80 @@ describe('Settings.vue', () => {
 		expect(input.element.value).toBe('Test House')
 	})
 
+	it('keeps house controls disabled until the actual house read completes', async () => {
+		let resolveHouse
+		mockHouseState.house = null
+		mockHouseState.houseName = 'My House'
+		mockHouseState.fetchHouse.mockImplementationOnce(() => new Promise(resolve => { resolveHouse = resolve }))
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		for (const id of ['house-name-input', 'house-timezone-select', 'ranking-toggle']) {
+			expect(wrapper.get(`[data-testid="${id}"]`).element.disabled).toBe(true)
+		}
+		await wrapper.setData({ houseTimezone: 'Europe/Berlin', rankingEnabled: true })
+		await wrapper.vm.saveHouseTimezone()
+		await wrapper.vm.saveRanking()
+		expect(mockHouseState.updateHouseName).not.toHaveBeenCalled()
+		expect(mockHouseState.updateRankingEnabled).not.toHaveBeenCalled()
+		mockHouseState.house = { id: 1, name: 'Saved Home' }
+		mockHouseState.houseName = 'Saved Home'
+		resolveHouse(mockHouseState.house)
+		await flushPromises()
+		expect(wrapper.get('#house-name').element.value).toBe('Saved Home')
+		wrapper.unmount()
+	})
+
+	it('initializes house drafts before a slow floor read and never overwrites typing when floors arrive', async () => {
+		let resolveFloors
+		mockRoomsState.fetchFloorsWithRooms.mockImplementationOnce(() => new Promise(resolve => { resolveFloors = resolve }))
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+		expect(wrapper.get('#house-name').element.value).toBe('Test House')
+		await wrapper.get('#house-name').setValue('Unsaved edit')
+		resolveFloors()
+		await flushPromises()
+		expect(wrapper.get('#house-name').element.value).toBe('Unsaved edit')
+		wrapper.unmount()
+	})
+
+	it('does not expose cached structure controls before the initial floor read finishes', async () => {
+		let resolveFloors
+		mockRoomsState.fetchFloorsWithRooms.mockImplementationOnce(() => new Promise(resolve => { resolveFloors = resolve }))
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		expect(wrapper.find('[data-testid="add-floor-button"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="floors-list"]').exists()).toBe(false)
+		await flushPromises()
+		expect(wrapper.find('[data-testid="add-floor-button"]').exists()).toBe(false)
+		resolveFloors()
+		await flushPromises()
+		expect(wrapper.get('[data-testid="add-floor-button"]').element.disabled).toBe(false)
+		expect(wrapper.find('[data-testid="floors-list"]').exists()).toBe(true)
+		wrapper.unmount()
+	})
+
+	it('does not mark structure ready when the initial read belongs to a cancelled reset generation', async () => {
+		mockRoomsState.fetchFloorsWithRooms.mockResolvedValueOnce(null)
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+		expect(wrapper.vm.structureReady).toBe(false)
+		expect(wrapper.find('[data-testid="floors-list"]').exists()).toBe(false)
+		wrapper.unmount()
+	})
+
+	it('offers retry after a failed house read without enabling fallback writes', async () => {
+		mockHouseState.house = null
+		mockHouseState.fetchHouse.mockRejectedValueOnce(new Error('Network error'))
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+		expect(wrapper.get('#house-name').element.disabled).toBe(true)
+		expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
+		mockHouseState.house = { id: 1, name: 'Test House' }
+		await wrapper.get('[data-testid="error-retry"]').trigger('click')
+		await flushPromises()
+		expect(wrapper.get('#house-name').element.value).toBe('Test House')
+		expect(wrapper.get('#house-name').element.disabled).toBe(false)
+		wrapper.unmount()
+	})
+
 	it('has save button for house name', () => {
 		const wrapper = mount(Settings, {
 			global: {
@@ -261,45 +340,49 @@ describe('Settings.vue', () => {
 		expect(wrapper.find('[data-testid="house-section"] .save-button').exists()).toBe(true)
 	})
 
-	it('has floors and rooms section', () => {
+	it('has floors and rooms section', async () => {
 		const wrapper = mount(Settings, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
+		await flushPromises()
 		expect(wrapper.find('.floors-section').exists()).toBe(true)
 	})
 
-	it('displays list of floors', () => {
+	it('displays list of floors', async () => {
 		const wrapper = mount(Settings, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
+		await flushPromises()
 		const floors = wrapper.findAll('.floor-item')
 		expect(floors.length).toBe(2)
 	})
 
-	it('displays room count for each floor', () => {
+	it('displays room count for each floor', async () => {
 		const wrapper = mount(Settings, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
+		await flushPromises()
 		const roomCounts = wrapper.findAll('.room-count')
 		expect(roomCounts.length).toBe(2)
 	})
 
-	it('has add floor button', () => {
+	it('has add floor button', async () => {
 		const wrapper = mount(Settings, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
+		await flushPromises()
 		expect(wrapper.find('.add-button').exists()).toBe(true)
 	})
 
@@ -330,6 +413,7 @@ describe('Settings.vue', () => {
 			},
 		})
 
+		await flushPromises()
 		await wrapper.find('.add-button').trigger('click')
 		expect(wrapper.vm.showAddFloorModal).toBe(true)
 	})
@@ -395,24 +479,26 @@ describe('Settings.vue', () => {
 		expect(saveButton.attributes('disabled')).toBeDefined()
 	})
 
-	it('has edit button for each floor', () => {
+	it('has edit button for each floor', async () => {
 		const wrapper = mount(Settings, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
+		await flushPromises()
 		const editButtons = wrapper.findAll('.icon-button')
 		expect(editButtons.length).toBeGreaterThanOrEqual(2)
 	})
 
-	it('has delete button for each floor', () => {
+	it('has delete button for each floor', async () => {
 		const wrapper = mount(Settings, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
+		await flushPromises()
 		const dangerButtons = wrapper.findAll('.icon-button.danger')
 		expect(dangerButtons.length).toBe(2)
 	})
@@ -424,6 +510,7 @@ describe('Settings.vue', () => {
 			},
 		})
 
+		await flushPromises()
 		expect(translate).toHaveBeenCalledWith('chorestrike', 'Edit floor')
 		expect(translate).toHaveBeenCalledWith('chorestrike', 'Delete floor')
 

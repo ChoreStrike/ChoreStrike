@@ -11,6 +11,35 @@ import { test, expect } from '@playwright/test'
  * `goto` so load-time errors are actually captured.
  */
 test.describe('Minimal Smoke Tests', () => {
+	test('Protected views wait for membership bootstrap before issuing reads', async ({ page }) => {
+		let release!: () => void
+		const bootstrapBarrier = new Promise<void>(resolve => { release = resolve })
+		const protectedReads: string[] = []
+		page.on('request', request => {
+			const pathname = new URL(request.url()).pathname
+			if (pathname.includes('/chorestrike/api/v1/') && !pathname.endsWith('/users/current')) protectedReads.push(pathname)
+		})
+		await page.route('**/api/v1/users/current', async route => {
+			await bootstrapBarrier
+			await route.continue()
+		})
+		try {
+			await page.goto('/apps/chorestrike/')
+			await expect(page.getByTestId('membership-loading')).toBeVisible()
+			await expect(page.getByTestId('today-view')).toHaveCount(0)
+			expect(protectedReads).toEqual([])
+			const daily = page.waitForResponse('**/api/v1/room-tasks/filtered-daily')
+			const overdue = page.waitForResponse('**/api/v1/room-tasks/overdue')
+			release()
+			expect((await daily).status()).toBe(200)
+			expect((await overdue).status()).toBe(200)
+			await expect(page.getByTestId('today-view')).toBeVisible()
+			await expect(page.getByTestId('error-state')).toHaveCount(0)
+		} finally {
+			release()
+		}
+	})
+
 	test('App loads with title and visible shell', async ({ page }) => {
 		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })

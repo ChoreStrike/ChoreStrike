@@ -33,6 +33,7 @@ docker(['exec', target.container, 'bash', '-c', 'test ! -e /var/www/html/apps/ch
 const occ = args => docker(['exec', '--user', 'www-data', target.container, 'php', '/var/www/html/occ', ...args])
 const sha256 = body => createHash('sha256').update(body).digest('hex')
 const appUrl = `${target.url}/apps/chorestrike/`
+const scopes = []
 function counts() {
 	const php = 'require "/var/www/html/lib/base.php"; $db=\\OC::$server->get(\\OCP\\IDBConnection::class); $counts=[];'
 		+ 'foreach (["chorestrike_houses","chorestrike_house_users","chorestrike_floors","chorestrike_rooms"] as $table) {'
@@ -48,19 +49,30 @@ async function login(page) {
 }
 async function instrument(page) {
 	const errors = [], assets = [], pending = [], jsonRequests = [], cspViolations = []
+	const apiEvents = []
+	const scope = { errors, assets, jsonRequests, cspViolations, apiEvents }
+	scopes.push(scope)
+	const started = Date.now()
 	const requests = new Set()
-	page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
+	page.on('console', message => { if (['error', 'warning'].includes(message.type())) errors.push(message.text()) })
 	page.on('pageerror', error => errors.push(error.message))
 	// Navigation can cancel an AJAX cron started on the preceding login page.
 	// Attribute failures/responses only to requests actually begun in this scope.
 	page.on('requestfailed', req => { if (requests.has(req)) errors.push(`Failed ${req.method()} request: ${req.url()} (${req.failure()?.errorText})`) })
 	page.on('request', req => {
 		requests.add(req)
+		const pathname = new URL(req.url()).pathname
+		if (pathname.includes('/chorestrike/api/v1/')) apiEvents.push({ phase: 'request', path: pathname, method: req.method(), elapsedMs: Date.now() - started })
 		if (/\/chorestrike\/l10n\/.+\.json/.test(req.url())) jsonRequests.push(req.url())
 	})
 	page.on('response', response => {
 		if (!requests.has(response.request())) return
 		const url = new URL(response.url())
+		if (url.pathname.includes('/chorestrike/api/v1/')) {
+			const event = { phase: 'response', path: url.pathname, method: response.request().method(), status: response.status(), elapsedMs: Date.now() - started }
+			apiEvents.push(event)
+			if (response.status() >= 400) pending.push(response.json().then(body => { event.code = body.error?.code }).catch(() => {}))
+		}
 		if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${url.pathname}`)
 		if (/\/chorestrike\/js\/.+\.js$/.test(url.pathname)) {
 			pending.push((async () => {
@@ -77,12 +89,13 @@ async function instrument(page) {
 	await page.exposeFunction('recordPackageCsp', directive => cspViolations.push(directive))
 	await page.addInitScript(() => document.addEventListener('securitypolicyviolation', event => window.recordPackageCsp(event.effectiveDirective)))
 	return async required => {
+		await page.waitForLoadState('networkidle')
 		await Promise.all(pending)
 		for (const name of required) expect(assets.some(asset => new URL(asset.url).pathname.endsWith(`/chorestrike-${name}.js`))).toBe(true)
 		expect(jsonRequests).toEqual([])
 		expect(cspViolations).toEqual([])
 		expect(errors).toEqual([])
-		return { assets, errors, jsonRequests, cspViolations }
+		return scope
 	}
 }
 async function setup(browser) {
@@ -95,7 +108,17 @@ async function setup(browser) {
 		const page = await context.newPage()
 		await login(page)
 		const finish = await instrument(page)
-		await page.goto(`${appUrl}#/dashboard`)
+		// The real first entry is My Day, not a bootstrap-capable Dashboard shortcut.
+		const daily = page.waitForResponse('**/api/v1/room-tasks/filtered-daily')
+		const overdue = page.waitForResponse('**/api/v1/room-tasks/overdue')
+		await page.goto(appUrl)
+		expect((await daily).status()).toBe(200)
+		expect((await overdue).status()).toBe(200)
+		await expect(page.getByTestId('today-view')).toBeVisible()
+		await expect(page.getByTestId('error-state')).toHaveCount(0)
+		await page.getByRole('button', { name: /Open navigation/i }).click()
+		await page.getByTestId('nav-dashboard').click()
+		await page.getByRole('button', { name: /Close navigation/i }).click()
 		await expect(page.getByTestId('setup-wizard')).toBeVisible({ timeout: 30000 })
 		const membersResponse = await page.request.get(`${appUrl}api/v1/users`, {
 			headers: { requesttoken: await page.evaluate(() => window.OC.requestToken) },
@@ -118,7 +141,7 @@ async function setup(browser) {
 		await page.getByTestId('wizard-finish').click()
 		await expect(page.getByTestId('setup-wizard')).toHaveCount(0)
 		expect(counts()).toEqual([1, 1, 1, 1])
-		return { normalOwnerBootstrap: true, counts: counts(), ...await finish(['main', 'dashboard']) }
+		return { normalOwnerBootstrap: true, counts: counts(), ...await finish(['main', 'today', 'dashboard']) }
 	} finally { await context.close() }
 }
 async function verify(browser, language, width) {
@@ -182,6 +205,7 @@ async function verify(browser, language, width) {
 			expect(response.status()).toBe(200)
 			expect((await response.json()).data.timezone).toBe(value)
 			await expect(page.getByTestId('save-house-timezone')).toBeDisabled()
+			await page.waitForLoadState('networkidle')
 			await page.reload()
 			await expect(page.getByTestId('house-name-input')).toHaveValue('Package Home')
 			await expect(timezone).toHaveValue(value)
@@ -204,6 +228,9 @@ async function main() {
 		}
 		fs.writeFileSync(reportFile, JSON.stringify({ project: target.project, action, browser: browser.version(), results }, null, 2), { flag: 'wx' })
 		console.log(JSON.stringify({ project: target.project, action, cases: results.length, passed: true }))
+	} catch (error) {
+		fs.writeFileSync(reportFile.replace(/\.json$/, '-failed.json'), JSON.stringify({ project: target.project, action, passed: false, error: error.message, scopes }, null, 2), { flag: 'wx' })
+		throw error
 	} finally { await browser.close() }
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })
