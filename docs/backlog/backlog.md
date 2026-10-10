@@ -432,13 +432,16 @@ wired qualification of the same archive on NC35/NC34. Its three explicit
 decisions and four resolved design findings are recorded in the plan. This
 bounded contribution does not close RELEASE-002, perform deployment/adoption,
 or replace CS-PLAN-080's independent human evidence. Implementation of WP1
-(alias-free canonical gate: safe complete `apps_paths`, refusal of unexpected
-configuration/aliases, exact `custom_apps` asset-base browser contract) and of
-the WP2/WP3 gates (`scripts/build-package.js` with pinned Docker builder,
-deterministic epoch and identity manifests; `scripts/run-package-smoke.js`
-with the owned two-row compose lane) is delivered in-repo; the real
-two-build reproducibility proof and the on-row package smoke require a
-separately authorized clean candidate checkpoint before execution.
+(alias-free canonical provisioning: safe complete `apps_paths`, refusal of
+unexpected configuration/aliases, exact `custom_apps` asset-base browser
+contract) and of the WP2/WP3 gates (`scripts/build-package.js` with pinned
+Docker builder, deterministic epoch and identity manifests;
+`scripts/run-package-smoke.js` with the owned two-row compose lane) was
+delivered and gate-proven on 2026-10-10: canonical browser gate green
+alias-free on NC35 + NC34, two-build byte reproducibility at candidate
+`325f23b` (archive `36aa2c5f…`) and the wired package smoke qualified on
+both runtime rows with identity-bound evidence. See the plan's WP1/WP2/WP3
+evidence sections; RELEASE-002 deployment/adoption/field use remain open.
 
 The generic deployment guide still needs a verified production package manifest,
 target-specific AIO commands and a concrete adoption record before independent

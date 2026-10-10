@@ -333,7 +333,6 @@ These are resolved **plan-design findings**, not claims that implementation or
 runtime qualification has passed. All implementation acceptance criteria remain open.
 
 ### WP1 Gate Evidence (2026-10-10)
-
 - Populated recreation of the owned canonical container (config/data/DB volumes
   retained from the pre-WP1 stack): entrypoint imported the complete
   `apps_paths` array into the existing config volume, verified discovery
@@ -359,6 +358,30 @@ runtime qualification has passed. All implementation acceptance criteria remain 
   recreation, once on the `minimal` profile when the gate requires `family`;
   both are operator environment variables, recorded here for reruns
   (`$env:TEST_DB_PROFILE='family'` before `up`).
+
+## WP2/WP3 Qualification Evidence (2026-10-10)
+
+- Candidate: `325f23b7e051ec49c82846d87e6dace4f70fb52d` (master, clean tree;
+  implementation commits `130e192`..`325f23b` including the in-qualification
+  hardening fixes the first real runs exposed: pax long-name support, git
+  blob-ID comparison, cache-bust query normalization, map-free package
+  builds, multi-stage PHP 8.4 builder, read-only archive mount).
+- Two-build reproducibility proof at the candidate
+  (`node scripts/build-package.js --verify-reproducible`, build/package/repro-325f23b):
+  two independent builds inside the pinned digest-verified builder produced
+  the identical archive SHA-256 `36aa2c5f60d32de4c70f48ae7e25dac78664d1555e386f26369e197dd362a498`
+  (229 runtime files, per-file manifest identical, no source maps, 0:0 /
+  0644-0755 metadata, commit-derived `SOURCE_DATE_EPOCH`).
+- Wired package smoke (`npm run test:package:smoke`, run-mv2d82rq): the same
+  extracted, manifest-verified archive bytes qualified on the NC35 canonical
+  row (35.0.1, image `cs082-runtime-35.0.1-local`) and the NC34 compatibility
+  row (34.0.4, image `cs082-runtime-34.0.4-local`); owner-smoke `setup` (cold
+  first bootstrap) plus all six owner cases (de-DE/de/en × 390x844/1440x900)
+  passed on both rows; evidence binds candidate, archive hash, frozen image
+  IDs and unique run/row identities before and after; owned teardown removed
+  both projects' containers/networks/volumes.
+- Qualification record: `build/package-smoke/run-mv2d82rq/qualification.json`
+  (gitignored). RELEASE-002 remains open (deployment/adoption/field use).
 
 ## Review Decisions
 
