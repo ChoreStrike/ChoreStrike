@@ -22,6 +22,7 @@
     "test:runtime:validate": "node scripts/test-runtime.js validate",
     "test:runtime:check": "node scripts/test-runtime.js check",
     "test:runtime:canonical": "node scripts/test-runtime.js verify-canonical",
+    "package:export": "node scripts/export-package.js",
     "l10n:check-keys": "node scripts/check-l10n-keys.js",
     "docs:encoding": "node scripts/check-docs-encoding.js",
     "backlog:check": "node scripts/check-backlog.js"

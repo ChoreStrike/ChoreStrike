@@ -57,6 +57,7 @@ describe('jest worktree mock discovery exclusion', () => {
 		const configSource = fs.readFileSync(path.join(ROOT, 'jest.config.js'), 'utf8')
 		expect(configSource).toContain('modulePathIgnorePatterns')
 		expect(configSource).toContain('<rootDir>.[.]kilo.worktrees.')
+		expect(configSource).toContain('<rootDir>.build.')
 	})
 
 	it('does not remove any worktree without an owned temporary fixture', () => {
@@ -88,5 +89,27 @@ describe('jest worktree mock discovery exclusion', () => {
 			removeFixture()
 		}
 		expect(fs.existsSync(ownedPath)).toBe(false)
+	})
+
+	it('does not index dependency package metadata from extracted build artifacts', () => {
+		const buildDir = path.join(ROOT, 'build')
+		fs.mkdirSync(buildDir, { recursive: true })
+		const fixture = fs.mkdtempSync(path.join(buildDir, 'synthetic-package-discovery-'))
+		try {
+			for (const version of ['1.0.0', '2.0.0']) {
+				const dir = path.join(fixture, 'licenses', 'npm', 'vue-router', version)
+				fs.mkdirSync(dir, { recursive: true })
+				fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'vue-router', version }))
+			}
+			const result = runJest([PROBE_SUITE, '--no-cache'])
+			expect(result.error).toBeUndefined()
+			expect(result.signal).toBeNull()
+			expect(result.status).toBe(0)
+			const output = `${result.stdout || ''}\n${result.stderr || ''}`
+			expect(output).not.toMatch(/Haste module naming collision/)
+			expect(output).toMatch(/Tests:\s+13 passed, 13 total/)
+		} finally {
+			fs.rmSync(fixture, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+		}
 	})
 })

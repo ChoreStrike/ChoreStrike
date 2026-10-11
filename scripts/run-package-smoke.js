@@ -453,22 +453,25 @@ function throws(fn, pattern) {
 // Main
 // ---------------------------------------------------------------------------
 
+function qualificationSummary(record) {
+	return {
+		status: record.status,
+		runDir: path.resolve(path.dirname(record.packageManifest), '..'),
+		candidate: record.candidate.commit,
+		archive: record.archive.sha256,
+		rows: record.rows.map(row => `${row.row}@${row.nextcloud}`),
+	}
+}
+
 function main() {
 	const args = process.argv.slice(2)
 	if (args.includes('--self-test')) return selfTest()
 	if (args.length) throw new Error(`Unknown run-package-smoke argument: ${args[0]}`)
-	const record = runQualification({})
-	console.log(JSON.stringify({
-		status: record.status,
-		runDir: path.resolve(path.dirname(record.packageManifest)),
-		candidate: record.candidate.commit,
-		archive: record.archive.sha256,
-		rows: record.rows.map(row => `${row.row}@${row.nextcloud}`),
-	}, null, 2))
+	console.log(JSON.stringify(qualificationSummary(runQualification({})), null, 2))
 	return 0
 }
 
-module.exports = { validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh, composeArguments, composeEnvironment, assertFreshProject, inspectOwnedResources, defaultImageName, ownerSmoke, runRow, runQualification }
+module.exports = { validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh, composeArguments, assertFreshProject, inspectOwnedResources, runQualification, qualificationSummary }
 
 if (require.main === module) {
 	try {

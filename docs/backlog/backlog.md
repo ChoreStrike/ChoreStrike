@@ -242,6 +242,24 @@ introduced, and raw traces/headers remain private.
 - [ ] Compare isolated and parallel runtime execution without changing required assertions or mutation retry semantics.
 - [ ] Fix a reproducible cause and add a targeted regression; otherwise record the bounded attribution result and remaining uncertainty.
 
+### [P4] TECH-PKG-001 — Single source for owner-smoke case-count expectations
+**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: release qualification
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of private exchange handoff tooling, 2026-10-11
+
+The package owner-smoke case counts (setup = 1, verify = 6) are hardcoded
+independently in `scripts/export-package.js` and
+`scripts/run-package-smoke.js`, while the authoritative derivation is the
+3-languages × 2-widths matrix in `tests/package/owner-smoke.cjs`. A matrix
+change currently needs three synchronized edits before the export and smoke
+validators agree with the produced evidence.
+
+**Deferral reason / scope:** all three validators currently agree and are
+regression-covered; consolidating them is a cross-file gate-contract refactor
+that should not ride on an unrelated review round.
+
+- [ ] Define the expected case counts once (shared constant or derivation from the language/width matrix) and consume them in both validators.
+
 ---
 
 ### [P1] CONCEPT-001 — Family-first rhythm and reward contracts

@@ -11,6 +11,10 @@ module.exports = {
 	modulePathIgnorePatterns: [
 		'<rootDir>.archive.',
 		'<rootDir>.[.]kilo.worktrees.',
+		// Extracted packages contain dependency license package.json copies.
+		// The boundary dots are any-char matches for path separators; unlike the
+		// kilo entry, the directory name itself contains no literal dot.
+		'<rootDir>.build.',
 	],
 	collectCoverageFrom: [
 		'src/**/*.{js,vue}',

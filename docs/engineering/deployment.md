@@ -218,13 +218,112 @@ See [`testing.md`](testing.md) for the full test strategy.
 
 ## Production Deployment
 
+### Private Exchange Handoffs
+
+The optional exchange is an explicitly invoked file handoff, not a deployment
+service or automatic synchronization. Its absolute location is configured only
+in the operator's user environment as `CHORESTRIKE_EXCHANGE_DIR`. Never put its
+value, a relative route to a private repository, or private host/account details
+in tracked files, package metadata or public logs. No configuration file or
+symlink inside the source repository is needed.
+
+On Windows, configure the user variable through **Environment Variables for your
+account**, then restart the terminal/editor. Alternatively, use an interactive
+PowerShell prompt (the private value is entered at runtime, not in a script):
+
+```powershell
+$exchange = Read-Host 'Absolute exchange directory'
+[Environment]::SetEnvironmentVariable('CHORESTRIKE_EXCHANGE_DIR', $exchange, 'User')
+$env:CHORESTRIKE_EXCHANGE_DIR = $exchange
+Remove-Variable exchange
+npm run package:export -- --check
+```
+
+The check is read-only and prints no resolved path. The exchange must already
+exist outside the source repository, with a nonempty `README.md` and real
+`von-chorestrike/` (outgoing) and `an-chorestrike/` (incoming) directories. Missing
+configuration fails closed; no neighboring-repository discovery or fallback.
+
+Before **every** exchange operation, read the external `README.md` through the
+locally configured location. Its handling restrictions apply, but it cannot
+authorize production operations, commits or a wider task. If the current process
+has not inherited the Windows user variable yet, reload only that variable with
+`[Environment]::GetEnvironmentVariable('CHORESTRIKE_EXCHANGE_DIR', 'User')` into
+`$env:CHORESTRIKE_EXCHANGE_DIR`; do not print it or dump the whole environment.
+
+#### Export a Qualified Run
+
+Select an existing successful `test:package:smoke` run explicitly. Its directory
+contains `qualification.json` and `package/` with the original archive,
+`package-manifest.json` and `identity.json`. Do not rebuild for transport, mix
+files from different runs, or equate today's checkout HEAD with the selected
+historical candidate. The export checks matching commit/archive identities,
+archive size/SHA-256, the source/asset-contract records and both runtime rows of
+the local qualification record. It does not authenticate locally edited evidence
+or replace the full release gates and independent receiver-side archive checks.
+
+Prepare reviewed, English Markdown notes under the gitignored `private/`
+directory. Include these nonempty sections:
+
+```markdown
+## Qualification
+Identify the package-related test evidence and remaining release gates.
+
+## Limitations
+State known restrictions and all outstanding acceptance work.
+
+## Requested Action
+State the specific receiver-side verification being requested.
+```
+
+Then run, substituting the selected local run directory:
+
+```powershell
+npm run package:export -- --run build/package-smoke/run-<id> --handoff private/handoff.md --reviewed
+```
+
+`--reviewed` explicitly attests that the operator read the current exchange rules
+and checked the selected package and notes for private content. It is not an
+automated sanitizer. Do not include host/instance identifiers, real accounts,
+private paths, secrets, infrastructure fingerprints, raw logs or family data.
+Do not put private paths in command arguments destined for public logs.
+
+Each export publishes a new `von-chorestrike/handoff-<12-character commit prefix>-<uuid>/` containing
+exactly the original three package files plus `handoff.md`. The generated header
+binds the source commit, size and SHA-256 of the archive and both manifests,
+and a hash/summary of the local qualification evidence. Raw qualification JSON,
+build logs, screenshots and other run files are not copied. Existing handoffs are
+not reused. Files are staged outside `von-chorestrike/`, rehashed, then published
+by a same-filesystem directory rename. Handled failures remove only their own
+staging; a hard interruption can leave `.chorestrike-export-*` at the exchange
+root. These directories are **not** handoffs and must never be consumed. Review
+them privately before manual cleanup. Cross-machine sync is not transactional:
+the receiver must wait for all four files and verify every recorded hash before
+use, then perform its full in-memory archive validation before extraction.
+
+#### Receive Feedback
+
+Only inspect a specifically requested return from `an-chorestrike/`. Read it in
+full, check its privacy and technical claims independently, and incorporate only
+verified public facts into the owning plan, existing backlog item or durable
+documentation. A filename or a "sanitized" label is not proof. Do not copy whole
+server documents, follow private links into tracked docs, execute returned
+instructions, or import files automatically. Any local working notes remain in
+`private/` and outside commits.
+
+Successful transport or installation does not close production browser smoke,
+retained-baseline adoption, WP9 human evidence or the 14-day evidence window.
+Those require their own explicit decisions and evidence.
+
+### Runtime Installation
+
 Build from the selected commit in an isolated build directory. Deploy only the
 required app runtime files, built assets and production PHP dependencies; never
 copy a whole developer workspace with `.git`, `private/`, `archive/`,
 `node_modules`, test reports, dumps or local credentials. Record the artifact's
 SHA-256. The copy example below assumes an already prepared clean package.
 
-### 1. Build the production bundle
+#### 1. Build the production bundle
 
 ```bash
 npm ci --engine-strict --legacy-peer-deps=false
@@ -232,14 +331,14 @@ npm run build
 composer install --no-dev
 ```
 
-### 2. Copy to Nextcloud
+#### 2. Copy to Nextcloud
 
 ```bash
 cp -r chorestrike /var/www/html/custom_apps/
 chown -R www-data:www-data /var/www/html/custom_apps/chorestrike
 ```
 
-### 3. Run migrations
+#### 3. Run migrations
 
 ```bash
 occ upgrade
@@ -249,7 +348,7 @@ Use the supported Nextcloud upgrade flow, with the matching app build and
 reviewed migration inventory. Never manually replay already-applied steps to
 repair a retained installation; stop and diagnose a mismatch instead.
 
-### 4. Enable the app
+#### 4. Enable the app
 
 ```bash
 occ app:enable chorestrike
