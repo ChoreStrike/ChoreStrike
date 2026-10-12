@@ -29,7 +29,7 @@ const members = [
 ]
 
 const mountDialog = (props = {}) => mount(ParticipationDialog, {
-	props: { members, ...props },
+	props: { members, actorUserId: 'dad', ...props },
 })
 
 describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
@@ -64,6 +64,7 @@ describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
 
 	it('falls back to raw user ids for proposal participants outside the member list', () => {
 		const wrapper = mountDialog({
+			actorUserId: 'grandma',
 			proposal: {
 				occurrenceId: '3:7',
 				basis: 'agreement',
@@ -114,6 +115,28 @@ describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
 
 		expect(wrapper.emitted('close')).toHaveLength(1)
 		expect(wrapper.emitted('confirm')).toBeUndefined()
+	})
+
+	it('refuses a completion split excluding the actor even when it totals 100', async () => {
+		const wrapper = mountDialog()
+		await wrapper.get('[data-testid="participant-active-dad"]').setValue(false)
+		await wrapper.get('[data-testid="participant-active-kid"]').setValue(false)
+		await wrapper.get('[data-testid="participant-share-mom"]').setValue('100')
+		expect(wrapper.vm.totalPct).toBe(100)
+		expect(wrapper.get('[data-testid="participation-confirm"]').element.disabled).toBe(true)
+		expect(wrapper.get('[data-testid="participation-actor-required"]').text()).toContain('include yourself')
+		wrapper.vm.confirm()
+		expect(wrapper.emitted('confirm')).toBeUndefined()
+	})
+
+	it('does not submit when actor initialization failed, but permits owner correction without participation', async () => {
+		const wrapper = mountDialog({ actorUserId: null })
+		expect(wrapper.get('[data-testid="participation-confirm"]').element.disabled).toBe(true)
+		wrapper.vm.confirm()
+		expect(wrapper.emitted('confirm')).toBeUndefined()
+		const correction = mountDialog({ initialParticipants: [{ userId: 'mom', sharePct: 100 }] })
+		await correction.get('[data-testid="participation-confirm"]').trigger('click')
+		expect(correction.emitted('confirm')[0][0].participants).toEqual([{ userId: 'mom', sharePct: 100 }])
 	})
 
 	describe('attribution correction mode (WP3 §3.7 reuse)', () => {

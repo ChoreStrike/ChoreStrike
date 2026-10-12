@@ -331,6 +331,15 @@ everyone; the owner-only Member Availability grid renders for owners only
 
 ### 12.1 Family Acceptance Evidence (C5j / WP9)
 
+**Operator feedback (2026-10-11):** initial manual production checks confirm app
+entry, structure/task creation and membership management. Member completion
+fails with a generic toast; task filters, assignment names, action clarity and
+appointment navigation need repairs (RF-080-14/15 in CS-PLAN-080). Prioritize core
+use, then test optional rewards later; this is not a reward pass or completed
+HUMAN-01/02 evidence. The actual candidate inventory and observation dates remain
+unconfirmed. Preserve existing production facts under the operator's explicit
+request; see the deployment guide. Do not reset the instance to obtain evidence.
+
 The canonical [family acceptance protocol](../concepts/ui-use-cases.md#family-acceptance-protocol)
 defines this gate. The following is its execution record, not a competing
 protocol and not evidence of participation. **Current status (2026-10-07):
@@ -534,6 +543,12 @@ notifications no longer exist (ADR-016).
 | Data preserved | Open existing floors/rooms/tasks/history after upgrade | All prior data intact and correctly typed | — |
 | Schema fresh-install parity | (Separately) install fresh and compare schema | Fresh install and upgrade reach the same schema state | PHPUnit migration suite |
 | Rollback | Under operator-approved quiescence restore matched code/config/whole DB/applicable data; compare app and unrelated state | Prior recovery point restored within the approved window; other-app rollback acknowledged; code downgrade alone is not recovery | — |
+
+The Rollback row describes an explicitly requested recovery exercise, not a
+required restore on each deployment. For operator readiness, reuse the confirmed
+previously tested Nextcloud recovery procedure and require a current completed
+backup. Do not repeat the restore test for initial adoption or ordinary updates.
+Synthetic app preservation/recovery qualification below remains separate.
 
 ### Synthetic Whole-Instance Recovery (H-T10)
 

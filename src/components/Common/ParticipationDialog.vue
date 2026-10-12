@@ -42,6 +42,9 @@
 			<p class="share-total" :class="{ invalid: !isValid }" data-testid="share-total">
 				{{ t('chorestrike', 'Total: {total}%', { total: totalPct }) }}
 			</p>
+			<p v-if="!actorParticipates" role="status" data-testid="participation-actor-required">
+				{{ t('chorestrike', 'To complete a task, include yourself in the work split. If your account is missing, close this dialog and reload.') }}
+			</p>
 
 			<div class="dialog-actions">
 				<button
@@ -165,8 +168,13 @@ export default {
 			return this.activeParticipants.reduce((sum, participant) => sum + (Number.isFinite(participant.sharePct) ? participant.sharePct : 0), 0)
 		},
 
+		actorParticipates() {
+			return this.initialParticipants !== null || (Boolean(this.actorUserId)
+				&& this.activeParticipants.some(participant => participant.userId === this.actorUserId && participant.sharePct > 0))
+		},
+
 		isValid() {
-			return this.activeParticipants.length > 0
+			return this.actorParticipates && this.activeParticipants.length > 0
 				&& this.totalPct === 100
 				&& this.activeParticipants.every(participant => Number.isInteger(participant.sharePct) && participant.sharePct >= 1 && participant.sharePct <= 100)
 		},
@@ -264,6 +272,7 @@ export default {
 		},
 
 		confirm() {
+			if (!this.isValid) return
 			this.$emit('confirm', {
 				participants: this.activeParticipants.map(participant => ({
 					userId: participant.userId,

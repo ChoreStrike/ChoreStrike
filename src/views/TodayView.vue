@@ -16,6 +16,7 @@
 				<button
 					class="filter-button"
 					:class="{ active: filter === 'mine' }"
+					:aria-pressed="filter === 'mine'"
 					data-testid="today-filter-mine"
 					@click="filter = 'mine'">
 					{{ t('chorestrike', 'My tasks') }}
@@ -23,6 +24,7 @@
 				<button
 					class="filter-button"
 					:class="{ active: filter === 'all' }"
+					:aria-pressed="filter === 'all'"
 					data-testid="today-filter-all"
 					@click="filter = 'all'">
 					{{ t('chorestrike', 'Everyone') }}
@@ -41,6 +43,11 @@
 		</div>
 
 		<template v-else>
+			<ErrorState
+				v-if="membersError"
+				data-testid="member-names-error"
+				:message="t('chorestrike', 'Failed to load members')"
+				@retry="loadMembers" />
 			<!-- Calm progress line (C5f, C1e/C1f): the small confirmed
 			     streak plus the shared weekly-goal progress. Provisional
 			     while today's window is open; neutral wording, no Coins,
@@ -125,6 +132,7 @@
 							<div class="task-info">
 								<span class="task-name">{{ item.task.name }}</span>
 								<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
+								<span class="task-assignees">{{ assigneeLabel(item) }}</span>
 								<p v-if="catchUpDateLabel(item)" class="task-catchup-meta" data-testid="catchup-planned">
 									{{ catchUpDateLabel(item) }}
 								</p>
@@ -190,6 +198,7 @@
 							<div class="task-info">
 								<span class="task-name">{{ item.task.name }}</span>
 								<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
+								<span class="task-assignees">{{ assigneeLabel(item) }}</span>
 								<p v-if="taskInstructions(item)" class="task-instructions">
 									{{ taskInstructions(item) }}
 								</p>
@@ -225,7 +234,7 @@
 			</section>
 
 			<!-- Next appointments (C5f): upcoming AGREED occurrences from
-			     the delivered range read — read-only, no unsolicited
+			     the delivered range read with room navigation, no unsolicited
 			     backlog, no optional work. -->
 			<section v-if="nextAppointments.length > 0" class="today-section appointments" data-testid="today-section-appointments">
 				<h2>
@@ -236,11 +245,16 @@
 					<li
 						v-for="appointment in nextAppointments"
 						:key="`${appointment.occurrenceId}`"
-						class="appointment-row"
 						data-testid="today-appointment">
-						<span class="appointment-date">{{ appointment.dateLabel }}</span>
-						<span class="appointment-name">{{ appointment.task?.name }}</span>
-						<span class="appointment-room">{{ appointment.room?.name || t('chorestrike', 'Room') }}</span>
+						<RouterLink
+							class="appointment-row"
+							:to="{ name: 'room', params: { id: appointment.roomId } }">
+							<span class="appointment-date">{{ appointment.dateLabel }}</span>
+							<span class="appointment-name">{{ appointment.task?.name }}</span>
+							<span class="appointment-room">{{ appointment.room?.name || t('chorestrike', 'Room') }}</span>
+							<span class="appointment-action">{{ t('chorestrike', 'Open room') }}</span>
+							<Icon name="ChevronRight" :size="18" />
+						</RouterLink>
 					</li>
 				</ul>
 			</section>
@@ -274,6 +288,8 @@ import { useUserStore } from '../store/user.js'
 import { useGameStore } from '../store/game.js'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { logger } from '../utils/logger.js'
+import { assignmentLabel } from '../utils/taskDisplay.js'
+import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
@@ -301,7 +317,7 @@ export default {
 		const userStore = useUserStore()
 		const gameStore = useGameStore()
 		const schedulingStore = useSchedulingStore()
-		return { roomTasksStore, houseStore, checklistStore, userStore, gameStore, schedulingStore }
+		return { roomTasksStore, houseStore, checklistStore, userStore, gameStore, schedulingStore, ...useHouseMemberNames(userStore) }
 	},
 
 	data() {
@@ -447,6 +463,7 @@ export default {
 						occurrenceId: detail.occurrenceId,
 						task: item.task,
 						room: item.room,
+						roomId: item.roomTask.roomId,
 						date: detail.date,
 						dateLabel: this.formatDayKey(detail.date),
 					})
@@ -480,6 +497,14 @@ export default {
 
 	methods: {
 		t,
+		assignmentLabel,
+
+		assigneeLabel(item) {
+			return this.assignmentLabel(
+				item.proposal?.obligatedUserIds ?? item.assignees ?? item.roomTask.assignees,
+				this.userStore.houseUsers,
+			)
+		},
 
 		isMine(item) {
 			// Unknown user (store not resolved yet): show everything rather
@@ -773,18 +798,19 @@ export default {
 .filter-button {
 	min-height: 44px;
 	padding: 0.5rem 1rem;
-	border: none;
+	border: 1px solid var(--color-text-maxcontrast);
 	border-radius: 8px;
-	background: transparent;
-	color: var(--color-text-maxcontrast);
+	background: var(--color-main-background);
+	color: var(--color-main-text);
 	cursor: pointer;
 	font-size: 0.9rem;
 	font-weight: 500;
 }
 
 .filter-button.active {
-	background: var(--color-primary);
-	color: var(--color-primary-text);
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
+	border-color: var(--color-primary-element);
 }
 
 .progress-line {
@@ -905,10 +931,10 @@ export default {
 	min-width: 44px;
 	min-height: 44px;
 	padding: 0.5rem 0.9rem;
-	border: 2px solid var(--color-primary);
+	border: 2px solid var(--color-primary-element);
 	border-radius: 22px;
-	background: transparent;
-	color: var(--color-primary);
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
 	cursor: pointer;
 	font-size: 1rem;
 	font-weight: 600;
@@ -916,8 +942,7 @@ export default {
 }
 
 .complete-button:hover:not(:disabled) {
-	background: var(--color-primary);
-	color: var(--color-primary-text);
+	background: var(--color-primary-element-hover);
 }
 
 .complete-button:disabled {
@@ -940,10 +965,10 @@ export default {
 	gap: 0.35rem;
 	min-height: 44px;
 	padding: 0.4rem 0.8rem;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--color-text-maxcontrast);
 	border-radius: 10px;
-	background: transparent;
-	color: var(--color-text-maxcontrast);
+	background: var(--color-main-background);
+	color: var(--color-main-text);
 	cursor: pointer;
 	font-size: 0.85rem;
 	font-weight: 500;
@@ -966,6 +991,12 @@ export default {
 .task-room {
 	font-size: 0.85rem;
 	color: var(--color-text-maxcontrast);
+}
+
+.task-assignees {
+	font-size: 0.85rem;
+	color: var(--color-main-text);
+	overflow-wrap: anywhere;
 }
 
 .task-catchup-meta {
@@ -1010,6 +1041,26 @@ export default {
 	background: var(--color-background-dark);
 	border-radius: 10px;
 	font-size: 0.95rem;
+	min-block-size: 44px;
+	border: 1px solid var(--color-text-maxcontrast);
+	color: var(--color-main-text);
+}
+
+.appointment-row:hover {
+	background: var(--color-background-hover);
+}
+
+.appointment-action {
+	text-decoration: underline;
+	margin-inline-start: auto;
+}
+
+.appointment-row:focus-visible,
+.filter-button:focus-visible,
+.complete-button:focus-visible,
+.checklist-toggle:focus-visible {
+	outline: 2px solid var(--color-main-text);
+	outline-offset: 2px;
 }
 
 .appointment-date {

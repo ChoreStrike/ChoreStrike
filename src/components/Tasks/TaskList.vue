@@ -183,8 +183,15 @@ export default {
 		// --- Overdue claim dialog (CS-PLAN-060 §3.4) ---
 
 		const claimDialogVisible = ref(false)
-		const claimAssigneeName = ref('')
+		const claimAssigneeId = ref('')
 		const claimRoomTaskId = ref(null)
+
+		// Resolved reactively so a dialog opened before the member list
+		// loaded picks up the display name once the read lands.
+		const claimAssigneeName = computed(() => {
+			const member = (userStore.houseUsers || []).find(u => u.nextcloudUserId === claimAssigneeId.value)
+			return member?.displayName || claimAssigneeId.value || t('chorestrike', 'another member')
+		})
 
 		const currentUserId = computed(() => userStore.currentUser?.nextcloudUserId || userStore.userId)
 
@@ -200,9 +207,7 @@ export default {
 		const openClaimDialog = (item) => {
 			if (!canClaimFromItem(item)) return
 			claimRoomTaskId.value = item.roomTask.id
-			const assigneeId = (item.roomTask.assignees || [])[0]
-			const member = (userStore.houseUsers || []).find(u => u.nextcloudUserId === assigneeId)
-			claimAssigneeName.value = member?.displayName || assigneeId || t('chorestrike', 'another member')
+			claimAssigneeId.value = (item.roomTask.assignees || [])[0] || ''
 			claimDialogVisible.value = true
 		}
 

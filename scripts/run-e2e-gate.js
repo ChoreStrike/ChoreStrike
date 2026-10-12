@@ -58,7 +58,7 @@ const REQUIRED_SPECS = [
 	{ file: 'setup-wizard-journey.spec.ts', project: 'chromium-serial-db', scenarios: ['owner completes the wizard through the ui', 'six-floor house cap', 'six-floor apartment cap'], minTests: 5 },
 	{ file: 'task-completion-full-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['undo restores the exact state'], minTests: 5 },
 	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['overcapacity warning appears when a day exceeds its capacity', 'owner corrects a recorded work split'], minTests: 4 },
-	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: ['child: my day hides manage controls and executes the checklist'], minTests: 7 },
+	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: ['child: my day hides manage controls and executes the checklist', 'core task filters show own and unassigned work'], minTests: 8 },
 	{ file: 'workflow-state-reconciliation.spec.ts', project: 'chromium-serial-db', scenarios: ['same-device logout and child login'], minTests: 4 },
 	// CS-PLAN-072 WP1: the occurrence-timeline client-contract slice.
 	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full occurrence receipt', 'an owner records an agreed handover in the ui', 'my day shows one catch-up card', 'fixed and relative schedules explain'], minTests: 13 },

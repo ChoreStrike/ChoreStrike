@@ -46,6 +46,8 @@ jest.mock('../../../src/store/user.js', () => ({
 		isHouseOwner: true,
 		role: 'owner',
 		canManageTasks: true,
+		houseUsers: [],
+		fetchHouseUsers: jest.fn().mockResolvedValue([]),
 	}),
 }))
 
@@ -96,6 +98,22 @@ jest.mock('../../../src/components/Common/Modal.vue', () => ({
 
 describe('RoomDetail.vue', () => {
 	let pinia
+
+	it('does not hide room tasks when member names fail and offers a read-only retry', async () => {
+		const wrapper = mount(RoomDetail, { props: { id: '1' }, global: { plugins: [pinia], stubs: { RouterLink: true } } })
+		await flushPromises()
+		wrapper.vm.userStore.fetchHouseUsers.mockRejectedValueOnce(new Error('offline'))
+		await wrapper.vm.loadMembers()
+		await flushPromises()
+		expect(wrapper.find('[data-testid="room-detail-error"]').exists()).toBe(false)
+		expect(wrapper.findComponent({ name: 'TaskList' }).exists()).toBe(true)
+		expect(wrapper.get('[data-testid="member-names-error"]').text()).toContain('Failed to load members')
+		const reads = wrapper.vm.roomTasksStore.fetchRoomTasks.mock.calls.length
+		await wrapper.get('[data-testid="member-names-error"] button').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="member-names-error"]').exists()).toBe(false)
+		expect(wrapper.vm.roomTasksStore.fetchRoomTasks).toHaveBeenCalledTimes(reads)
+	})
 
 	beforeEach(() => {
 		pinia = createPinia()

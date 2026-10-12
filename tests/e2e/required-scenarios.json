@@ -28,6 +28,7 @@
   "family-core-ux.spec.ts": [
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > child: My Day hides manage controls and executes the checklist read-only (D4)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > child: the initial bare root visit lands on My Day; deep links stay usable (D4)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > core task filters show own and unassigned work with names and clickable appointments",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > member mobile: My Day completion and checklist execution work at the mobile viewport with 44px targets",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: cold Dashboard counters are correct without any room visit (D2)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: complete from My Day reconciles counters without reload and the queued undo restores them (D3/D10)",

@@ -153,14 +153,20 @@ both defaults — individual users can switch to any available language.
 
 ### Database
 
-- [ ] Consistent code/config/database/applicable-data backup verified under write quiescence
+- [ ] A current, successfully completed, consistent Nextcloud backup is available (code/config/database/applicable data)
 - [ ] Migration identity and data-preservation contract reviewed (see below)
-- [ ] Recovery target, window, acceptable data loss and other-app impact approved by the operator
-- [ ] Restore rehearsal passes; code downgrade alone is not the recovery plan
+- [ ] The operator has an established recovery procedure; previously tested Nextcloud backups do not require a new restore test for each app deployment
+
+Operator confirmation of the existing, repeatedly tested recovery procedure is
+sufficient (confirmed 2026-10-11). Do not make another backup test a prerequisite
+for ordinary ChoreStrike deployment or first retained-baseline adoption. A current
+backup is still required. An actual restore needs separate approval for its target,
+recovery point, downtime and other-app impact. App migration/data-preservation
+tests remain required: a working backup does not prove an update preserves facts.
 
 ## First Retained Baseline
 
-**The future contract is approved; no baseline has been adopted yet.**
+**The future contract is approved; the exact adopted baseline is not yet recorded.**
 Disposable development installs remain fresh-install-only; the canonical test
 environment is the promoted current-stable qualified artifact (Nextcloud
 35.0.1 / PHP 8.4.25 / PostgreSQL 18.6; CS-PLAN-082 promotion 2026-10-06, frozen
@@ -172,13 +178,21 @@ technical baseline. AIO packaging/deployment and retained-baseline adoption
 remain separate, explicitly approved steps — the test-runtime promotion is not
 a deployment completion.
 
+The operator requested on 2026-10-11 that the existing production household be
+kept across updates. Treat those facts as non-disposable now: no reset, reseed,
+destructive reinstall or edits to its applied migrations to resolve a mismatch.
+An incomplete adoption inventory is a documentation/qualification gap, never
+permission to erase data. Record the actual installed baseline before an update;
+do not invent its identity or label an untested upgrade as supported. This does
+not convert the separately owned local Docker fixtures into production data.
+
 The adoption record must include:
 
 - Explicit operator decision/date and target authorization (private instance details stay in `private/`).
 - Exact Git revision, build/artifact identity and actual installed app version from `appinfo/info.xml`/Nextcloud, not an assumed release label.
 - Nextcloud, PHP and DB provider/version; configured table prefix and backup scope recorded privately.
 - Ordered applied ChoreStrike migration identifiers from the installed DB and SHA-256 hashes of the matching migration files; reconcile the two inventories before approval.
-- Passing WP9 technical evidence, recovery rehearsal and first-deployment smoke; no untested upgrade claim or automatic tag/deployment.
+- Passing WP9 technical evidence, first-deployment smoke and confirmation of the existing tested Nextcloud recovery procedure; reuse prior recovery evidence rather than requiring another operator restore test. No untested upgrade claim or automatic tag/deployment.
 
 From that decision, preserve persisted facts by default and keep applied
 migrations immutable under the [canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary-approved-not-yet-adopted).
@@ -368,15 +382,20 @@ sign-off record. **A release tag requires a completed record.**
 
 ## Post-Deployment Verification
 
-- [ ] App appears in Nextcloud app list
-- [ ] App icon visible in the app launcher
-- [ ] Main page loads without errors
-- [ ] Can create/view floors
-- [ ] Can create/view rooms
-- [ ] Can create/view tasks
+Operator-reported initial smoke (2026-10-11): the checks below are manual reports,
+not independent server verification. Core task workflows take priority. Member
+completion remains blocked by a generic failure toast; optional Coins/reward
+checks are deferred, not passed or removed from the eventual release gate.
+
+- [x] App appears in Nextcloud app list
+- [x] App icon visible in the app launcher
+- [x] Main page loads without errors
+- [x] Can create/view floors
+- [x] Can create/view rooms
+- [x] Can create/view tasks
 - [ ] Task completion works
-- [ ] Effort-based Coins, rhythm progress and optional rewards behave as expected
-- [ ] User management works (invite, remove)
+- [na] Effort-based Coins, rhythm progress and optional rewards behave as expected
+- [x] User management works (invite, remove)
 - [ ] Nextcloud cron runs regularly (normally every five minutes); timeline and optional digest processing are operational, not dependent on page visits
 - [ ] Test mode remains disabled; no test accounts, seeds or fixture resets were introduced
 - [ ] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`)
@@ -406,9 +425,14 @@ in access-restricted gitignored private storage; do not print secrets in logs.
 
 ### Consistent Backup and Restore
 
+For an ordinary app deployment, a completed current backup and the established
+recovery procedure suffice; do not execute a restore just to satisfy this guide.
+The following steps describe creating a consistent recovery point and conducting
+an explicitly requested recovery or rehearsal, not a mandatory per-deployment test.
+
 1. Identify the instance and every writer: web/API clients, cron/background workers, CLI jobs and other apps. Pause writers and scheduled tests; enable Nextcloud maintenance mode (`occ maintenance:mode --on`). Maintenance mode alone does not stop independent jobs.
 2. Capture one consistent recovery point: Nextcloud/app code and built dependencies, config, entire DB (provider-native consistent dump/snapshot), applicable data directory/external storage and deployment configuration. Record private checksums and versions. Keep writers paused until capture finishes.
-3. Rehearse first into a separately owned disposable target with isolated volumes/network and no outbound jobs/mail. Restore matched code/config/data and the complete DB there, never over an unrelated instance. Verify permissions and provider/runtime compatibility before starting services.
+3. Only when a new rehearsal is explicitly requested, restore into a separately owned disposable target with isolated volumes/network and no outbound jobs/mail. Existing operator-confirmed tested recovery is sufficient without repeating this step. Restore matched code/config/data and the complete DB there, never over an unrelated instance. Verify permissions and provider/runtime compatibility before starting services.
 4. If actual rollback is approved, repeat restoration only on the authorized target under quiescence; preserve pre-restore state for diagnosis. Restore the matched recovery set, not old code over a newer schema. Restart only the target's PHP/web processes for OPcache; never flush shared Redis or other apps' caches as an app recipe.
 5. Before reopening writes, compare structure IDs/relations, planning/occurrences/agreements/pauses, history/shares/journal, wallet balances/ledger/reservations and reward facts, plus unrelated core/other-app sentinel state. Verify app enablement, migration inventory and representative reads. Perform Nextcloud's maintenance data-fingerprint procedure when restoring user files, as required by the server's recovery guidance.
 6. Disable maintenance mode only after verification, resume named jobs/clients deliberately and monitor sanitized errors. Record actual outcome and restore time against the approved recovery window.
@@ -419,6 +443,17 @@ It proves recovery of that disposable snapshot, not production recovery,
 future upgrades, WP9 portability or baseline adoption.
 
 ## Support
+
+### Phone Access
+
+Open your Nextcloud in Safari or Chrome, sign in with your own invited account,
+and select ChoreStrike from the web app menu. The app opens on My Day; bookmark
+that actual URL so any Nextcloud subdirectory or `index.php` routing is preserved.
+On iOS use Share -> Add to Home Screen; on Android use the browser menu -> Add
+to home screen (wording varies). This is the web app, not a separate native
+ChoreStrike client inside the Nextcloud file-sync app. Server connectivity is
+required for loading, saving and completing tasks; a home-screen shortcut does
+not provide offline completion or guarantee native push notifications.
 
 - Issues: https://github.com/ChoreStrike/ChoreStrike/issues
 - Documentation: see the [documentation map](../README.md)

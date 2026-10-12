@@ -37,6 +37,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 					await expect(session.page.getByTestId('nav-today')).toContainText(myDay)
 					await session.page.getByTestId('nav-tasks').click()
 					await expect(session.page.getByTestId('task-manager-view').getByRole('heading', { level: 1 })).toHaveText(tasks)
+					await session.page.getByTestId('tasks-filter-all').click()
 					const row = session.page.getByTestId('task-item').filter({ hasText: 'Wipe kitchen counters' }).first()
 					await row.getByRole('button', { name: language === 'de' ? 'Details anzeigen' : 'Show details', exact: true }).click()
 					const handover = row.getByTestId('agreement-handover')
@@ -51,6 +52,58 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 	/** House-local day key — the Docker test environment runs the house on UTC. */
 	const utcDayKey = (offsetDays = 0): string =>
 		new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+	test('core task filters show own and unassigned work with names and clickable appointments', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const structureResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+			expect(structureResponse.ok()).toBe(true)
+			const floors = (await structureResponse.json()).data
+			const kitchenFloor = floors.find(entry => entry.rooms.some(room => room.name === 'Kitchen'))
+			const kitchen = kitchenFloor.rooms.find(room => room.name === 'Kitchen')
+			for (const [name, assignees] of [['Own filter probe', ['mom']], ['Unassigned filter probe', []], ['Other filter probe', ['teen']]] as const) {
+				const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+					data: { roomId: kitchen.id, assigneeUserIds: assignees, nextDue: utcDayKey(0), task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
+				})
+				expect(created.ok()).toBe(true)
+			}
+			for (const width of [390, 1440]) {
+				await page.setViewportSize({ width, height: 900 })
+				await page.goto('/apps/chorestrike/#/tasks')
+				const own = page.getByTestId('task-item').filter({ hasText: 'Own filter probe' })
+				const unassigned = page.getByTestId('task-item').filter({ hasText: 'Unassigned filter probe' })
+				const other = page.getByTestId('task-item').filter({ hasText: 'Other filter probe' })
+				await expect(own).toBeVisible()
+				await expect(unassigned).toBeVisible()
+				await expect(other).toHaveCount(0)
+				await expect(own.getByTestId('task-assignees')).toContainText('Assigned to: Mom')
+				await page.getByTestId('tasks-filter-unassigned').click()
+				await expect(own).toHaveCount(0)
+				await expect(unassigned).toBeVisible()
+				await page.getByTestId('person-filter').selectOption('teen')
+				await expect(other).toBeVisible()
+				await expect(unassigned).toHaveCount(0)
+				await page.getByTestId('floor-filter').selectOption(String(kitchenFloor.floor.id))
+				await page.getByTestId('room-filter').selectOption(String(kitchen.id))
+				await expect(other).toBeVisible()
+				await page.getByTestId('tasks-filter-mine').focus()
+				await page.keyboard.press('Enter')
+				await expect(own).toBeVisible()
+				await expect(other).toHaveCount(0)
+				expect(await page.getByTestId('tasks-filter-mine').evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
+				await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+				await page.goto('/apps/chorestrike/#/today')
+				const appointment = page.getByTestId('today-appointment').first().getByRole('link')
+				await expect(appointment).toBeVisible()
+				const appointmentName = await appointment.locator('.appointment-name').innerText()
+				await appointment.focus()
+				await page.keyboard.press('Enter')
+				await expect(page.getByTestId('room-detail-view')).toBeVisible()
+				await expect(page.getByTestId('task-item').filter({ hasText: appointmentName }).first()).toBeVisible()
+			}
+		} finally { await context.close() }
+	})
 
 	interface SeededShape {
 		data: {
@@ -208,6 +261,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await ownerPage.getByTestId('nav-tasks').click()
 			await ownerPage.getByTestId('task-manager-view').waitFor({ state: 'visible' })
 
+			await ownerPage.getByTestId('tasks-filter-all').click()
 			const row = ownerPage.locator('.task-item').filter({ hasText: 'Wipe kitchen counters' }).first()
 			await row.locator('button[title="Show details"]').click()
 			await ownerPage.locator('[data-testid="task-checklist"]').waitFor({ state: 'visible' })

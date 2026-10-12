@@ -26,10 +26,11 @@
 					v-if="item.roomTask.isActive"
 					class="complete-button"
 					data-testid="complete-task-button"
-					:aria-label="t('chorestrike', 'Mark as complete')"
+					:aria-label="t('chorestrike', 'Done')"
 					:title="t('chorestrike', 'Mark as complete')"
 					@click="$emit('complete', item.roomTask.id)">
-					<Icon name="Circle" :size="20" />
+					<Icon name="CheckCircle" :size="20" />
+					<span>{{ t('chorestrike', 'Done') }}</span>
 				</button>
 				<span v-else class="completed-check">
 					<Icon name="CheckCircle" :size="20" />
@@ -82,11 +83,9 @@
 					<span class="meta-item frequency">
 						<Icon name="RotateCcw" :size="16" /> {{ frequencyLabel(item.task) }}
 					</span>
-					<span v-if="assigneeCount > 0" class="meta-item assigned">
+					<span class="meta-item assigned" data-testid="task-assignees">
 						<Icon name="Users" :size="16" />
-						{{ assigneeCount > 1
-							? t('chorestrike', '{count} assigned', { count: assigneeCount })
-							: t('chorestrike', 'Assigned') }}
+						{{ assignmentLabel(item.roomTask.assignees, userStore.houseUsers) }}
 					</span>
 					<span v-if="assigneeCount > 1" class="meta-item teamwork-hint">
 						<Icon name="Sparkles" :size="16" />
@@ -157,6 +156,7 @@ import TaskListDetails from './TaskListDetails.vue'
 import { useUserStore } from '../../store/user.js'
 import { useHouseStore } from '../../store/house.js'
 import {
+	assignmentLabel,
 	isOverdue,
 	priorityClass,
 	priorityLabel,
@@ -229,6 +229,7 @@ export default {
 		const flexWindow = computed(() => flexWindowKeys(props.item))
 
 		return {
+			assignmentLabel,
 			userStore,
 			houseStore,
 			assigneeCount,
@@ -294,12 +295,14 @@ export default {
 }
 
 .complete-button {
-	width: 44px;
-	height: 44px;
-	border-radius: 50%;
-	border: 2px solid var(--color-primary);
-	background: transparent;
-	color: var(--color-primary);
+	min-inline-size: 44px;
+	min-block-size: 44px;
+	padding: 0.5rem;
+	gap: 0.35rem;
+	border-radius: 8px;
+	border: 2px solid var(--color-primary-element);
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
 	cursor: pointer;
 	font-size: 14px;
 	display: flex;
@@ -309,8 +312,7 @@ export default {
 }
 
 .complete-button:hover {
-	background: var(--color-primary);
-	color: var(--color-primary-text);
+	background: var(--color-primary-element-hover);
 }
 
 .completed-check {
@@ -414,15 +416,27 @@ export default {
 	min-width: 44px;
 	min-height: 44px;
 	padding: 0.25rem;
-	background: transparent;
-	border: none;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	border: 1px solid var(--color-text-maxcontrast);
+	border-radius: 8px;
 	cursor: pointer;
-	opacity: 0.6;
-	transition: opacity 0.2s ease;
 }
 
 .action-btn:hover {
-	opacity: 1;
+	background: var(--color-background-hover);
+}
+
+.action-btn:focus-visible,
+.complete-button:focus-visible,
+.claim-button:focus-visible {
+	outline: 2px solid var(--color-main-text);
+	outline-offset: 2px;
+}
+
+.assigned {
+	color: var(--color-main-text);
+	overflow-wrap: anywhere;
 }
 
 .visibility-icon {

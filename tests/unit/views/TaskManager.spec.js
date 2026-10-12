@@ -90,6 +90,9 @@ const mockRoomTasksStore = {
 }
 
 const mockUserStore = {
+	currentUser: { nextcloudUserId: 'mom' },
+	houseUsers: [{ nextcloudUserId: 'mom', displayName: 'Parent' }, { nextcloudUserId: 'teen', displayName: 'Teen' }],
+	fetchHouseUsers: jest.fn().mockResolvedValue([]),
 	isHouseOwner: true,
 	role: 'owner',
 	canManageTasks: true,
@@ -104,6 +107,8 @@ describe('TaskManager', () => {
 		roomTasksStore = mockRoomTasksStore
 		tasksStore = mockTasksStore
 		mockRoute = { query: {} }
+		mockUserStore.currentUser = { nextcloudUserId: 'mom' }
+		mockUserStore.houseUsers = [{ nextcloudUserId: 'mom', displayName: 'Parent' }, { nextcloudUserId: 'teen', displayName: 'Teen' }]
 		jest.clearAllMocks()
 	})
 
@@ -127,6 +132,73 @@ describe('TaskManager', () => {
 	it('renders the view', () => {
 		const wrapper = mountView()
 		expect(wrapper.find('[data-testid="task-manager-view"]').exists()).toBe(true)
+	})
+
+	it('keeps tasks usable when member names fail and retries only the member read', async () => {
+		mockUserStore.houseUsers = []
+		mockUserStore.fetchHouseUsers.mockRejectedValueOnce(new Error('offline'))
+		const wrapper = mountView()
+		await flushPromises()
+		expect(wrapper.get('[data-testid="member-names-error"]').text()).toContain('Failed to load members')
+		expect(wrapper.find('[data-testid="task-manager-error"]').exists()).toBe(false)
+		expect(wrapper.findComponent({ name: 'TaskList' }).exists()).toBe(true)
+		expect(wrapper.get('[data-testid="person-filter"]').element.disabled).toBe(true)
+		const reads = mockRoomTasksStore.fetchHouseRoomTasks.mock.calls.length
+		await wrapper.get('[data-testid="member-names-error"] button').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="member-names-error"]').exists()).toBe(false)
+		expect(wrapper.get('[data-testid="person-filter"]').element.disabled).toBe(false)
+		expect(mockRoomTasksStore.fetchHouseRoomTasks).toHaveBeenCalledTimes(reads)
+	})
+
+	it('defaults to own and unassigned tasks with directly operable scope and person filters', async () => {
+		mockRoomTasksStore.roomTasks = [
+			{ id: 1, taskId: 101, roomId: 12, assignees: ['mom'] },
+			{ id: 2, taskId: 102, roomId: 12, assignees: [] },
+			{ id: 3, taskId: 103, roomId: 12, assignees: ['teen'] },
+		]
+		const wrapper = mountView()
+		await flushPromises()
+		const shown = () => wrapper.findComponent({ name: 'TaskList' }).props('roomTasks').map(item => item.roomTask.id)
+		expect(shown()).toEqual([1, 2])
+		expect(wrapper.get('[data-testid="tasks-filter-mine"]').attributes('aria-pressed')).toBe('true')
+		await wrapper.get('[data-testid="tasks-filter-unassigned"]').trigger('click')
+		expect(shown()).toEqual([2])
+		await wrapper.get('[data-testid="tasks-filter-all"]').trigger('click')
+		expect(shown()).toEqual([1, 2, 3])
+		await wrapper.get('[data-testid="person-filter"]').setValue('teen')
+		expect(shown()).toEqual([3])
+		await wrapper.get('[data-testid="tasks-filter-mine"]').trigger('click')
+		expect(shown()).toEqual([1, 2])
+		expect(wrapper.get('[data-testid="person-filter"]').element.value).toBe('')
+	})
+
+	it('keeps assigned rows visible while the actor identity is unresolved', async () => {
+		mockUserStore.currentUser = null
+		mockRoomTasksStore.roomTasks = [
+			{ id: 1, taskId: 101, roomId: 12, assignees: ['mom'] },
+			{ id: 2, taskId: 102, roomId: 12, assignees: [] },
+			{ id: 3, taskId: 103, roomId: 12, assignees: ['teen'] },
+		]
+		const wrapper = mountView()
+		await flushPromises()
+		const shown = () => wrapper.findComponent({ name: 'TaskList' }).props('roomTasks').map(item => item.roomTask.id)
+		expect(shown()).toEqual([1, 2, 3])
+	})
+
+	it('combines floor and room filters and clears a room when switching floors', async () => {
+		mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor' }, { id: 2, name: 'Upstairs' }]
+		mockRoomsStore.rooms = [{ id: 12, floorId: 1, name: 'Kitchen' }, { id: 13, floorId: 2, name: 'Bedroom' }]
+		mockRoomTasksStore.roomTasks = [{ id: 1, taskId: 101, roomId: 12 }, { id: 2, taskId: 102, roomId: 13 }]
+		const wrapper = mountView()
+		await flushPromises()
+		const shown = () => wrapper.findComponent({ name: 'TaskList' }).props('roomTasks').map(item => item.roomTask.id)
+		await wrapper.get('[data-testid="room-filter"]').setValue('12')
+		expect(shown()).toEqual([1])
+		await wrapper.get('[data-testid="floor-filter"]').setValue('2')
+		expect(shown()).toEqual([2])
+		expect(wrapper.get('[data-testid="room-filter"]').element.value).toBe('')
+		expect(wrapper.get('[data-testid="room-filter"]').text()).not.toContain('Kitchen')
 	})
 
 	it.each(['definitions', 'instances'])('does not allow creation before the initial %s read finishes', async (resource) => {

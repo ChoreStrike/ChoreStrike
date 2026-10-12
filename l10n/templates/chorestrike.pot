@@ -215,7 +215,13 @@ msgstr ""
 msgid "All Time"
 msgstr ""
 
+msgid "All floors"
+msgstr ""
+
 msgid "All house members can see and complete this task"
+msgstr ""
+
+msgid "All rooms"
 msgstr ""
 
 msgid "All rooms and tasks on this floor will be deleted."
@@ -327,6 +333,9 @@ msgid "Assigned"
 msgstr ""
 
 msgid "Assigned members"
+msgstr ""
+
+msgid "Assigned to: {names}"
 msgstr ""
 
 msgid "Assignee is not a member of this house: %1$s"
@@ -1952,6 +1961,9 @@ msgstr ""
 msgid "Open Rewards"
 msgstr ""
 
+msgid "Open room"
+msgstr ""
+
 msgid "Open the Rewards catalog to request a reward."
 msgstr ""
 
@@ -3152,6 +3164,9 @@ msgstr ""
 msgid "Title (required)"
 msgstr ""
 
+msgid "To complete a task, include yourself in the work split. If your account is missing, close this dialog and reload."
+msgstr ""
+
 msgid "Today"
 msgstr ""
 
@@ -3512,6 +3527,9 @@ msgstr ""
 msgid "Your system reduced-motion setting always wins over this switch."
 msgstr ""
 
+msgid "Your tasks and unassigned tasks"
+msgstr ""
+
 msgid "allocationReviewed must be a boolean"
 msgstr ""
 
@@ -3738,9 +3756,6 @@ msgid "{assigned} task(s) assigned, {skipped} skipped"
 msgstr ""
 
 msgid "{completed} of {due} tasks this week"
-msgstr ""
-
-msgid "{count} assigned"
 msgstr ""
 
 msgid "{count} days ago"

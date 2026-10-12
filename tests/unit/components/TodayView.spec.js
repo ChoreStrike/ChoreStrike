@@ -168,6 +168,8 @@ describe('TodayView', () => {
 		}
 		mockUserStore = {
 			currentUser: { id: 1, nextcloudUserId: 'mom', role: 'owner' },
+			houseUsers: [{ nextcloudUserId: 'mom', displayName: 'Parent' }],
+			fetchHouseUsers: jest.fn().mockResolvedValue([]),
 		}
 		mockGameStore = {
 			gameState: {},
@@ -193,7 +195,7 @@ describe('TodayView', () => {
 			global: {
 				plugins: [createPinia()],
 				stubs: {
-					RouterLink: { template: '<a><slot /></a>' },
+					RouterLink: { props: ['to'], template: '<a :href="`#/room/${to.params.id}`"><slot /></a>' },
 				},
 			},
 		})
@@ -214,6 +216,20 @@ describe('TodayView', () => {
 		// A due-today task must not be duplicated into the catch-up section
 		const catchupSection = wrapper.find('[data-testid="today-section-catchup"]')
 		expect(catchupSection.text()).not.toContain('Do the dishes')
+	})
+
+	it('keeps completion available when names fail and retries the optional member read', async () => {
+		mockUserStore.houseUsers = []
+		mockUserStore.fetchHouseUsers.mockRejectedValueOnce(new Error('offline'))
+		const wrapper = await mountView()
+		expect(wrapper.find('[data-testid="today-error"]').exists()).toBe(false)
+		expect(wrapper.get('[data-testid="member-names-error"]').text()).toContain('Failed to load members')
+		await wrapper.get('[data-testid="today-complete-button-11"]').trigger('click')
+		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(11)
+		await wrapper.get('[data-testid="member-names-error"] button').trigger('click')
+		await flushAsync()
+		expect(wrapper.find('[data-testid="member-names-error"]').exists()).toBe(false)
+		expect(mockRoomTasksStore.fetchFilteredDailyTasks).toHaveBeenCalledTimes(1)
 	})
 
 	it('renders ONE catch-up card per chore with the attributed planned date and cover semantics (C5f, C1c)', async () => {
@@ -306,6 +322,9 @@ describe('TodayView', () => {
 		expect(rows).toHaveLength(2)
 		expect(rows[0].text()).toContain('Water the plants')
 		expect(rows[1].text()).toContain('Do the dishes')
+		expect(rows[0].get('a').attributes('href')).toBe('#/room/3')
+		expect(rows[1].get('a').attributes('href')).toBe('#/room/1')
+		expect(rows[1].get('a').text()).toContain('Open room')
 		// Read-only surface: no completion or edit affordances.
 		expect(section.find('button').exists()).toBe(false)
 	})
@@ -341,6 +360,8 @@ describe('TodayView', () => {
 		expect(wrapper.text()).toContain('Wipe kitchen counters')
 		expect(wrapper.text()).not.toContain('Tidy up toys')
 		expect(wrapper.text()).not.toContain('Take out trash')
+		expect(wrapper.text()).toContain('Assigned to: Parent')
+		expect(wrapper.text()).toContain('Unassigned')
 	})
 
 	it('shows everyone under the all filter', async () => {

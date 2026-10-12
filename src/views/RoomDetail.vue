@@ -69,6 +69,11 @@
 				@retry="initializeRoom" />
 
 			<template v-else>
+				<ErrorState
+					v-if="membersError"
+					data-testid="member-names-error"
+					:message="t('chorestrike', 'Failed to load members')"
+					@retry="loadMembers" />
 				<div class="room-overview" data-testid="room-overview">
 					<div class="cleanliness-ring" :class="cleanlinessClass">
 						<span class="cleanliness-ring-value">{{ cleanliness }}%</span>
@@ -232,6 +237,7 @@ import TaskTemplatePicker from '../components/Tasks/TaskTemplatePicker.vue'
 import Modal from '../components/Common/Modal.vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
+import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 
 export default {
 	name: 'RoomDetail',
@@ -260,7 +266,7 @@ export default {
 		const roomTasksStore = useRoomTasksStore()
 		const tasksStore = useTasksStore()
 		const userStore = useUserStore()
-		return { roomsStore, roomTasksStore, tasksStore, userStore }
+		return { roomsStore, roomTasksStore, tasksStore, userStore, ...useHouseMemberNames(userStore) }
 	},
 
 	data() {

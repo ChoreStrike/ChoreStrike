@@ -14,6 +14,20 @@ import { translate as t } from '@nextcloud/l10n'
 import { dateKeyInZone, todayKeyInZone } from './dateKeys.js'
 
 /**
+ * Visible assignment names, including the unassigned state.
+ * @param {string[]} userIds Assigned user identifiers.
+ * @param {object[]} members Loaded household members.
+ * @return {string}
+ */
+export const assignmentLabel = (userIds = [], members = []) => {
+	const ids = userIds ?? []
+	if (ids.length === 0) return t('chorestrike', 'Unassigned')
+	const namesById = new Map(members.map(member => [member.nextcloudUserId, member.displayName]))
+	const names = ids.map(id => namesById.get(id) || id)
+	return t('chorestrike', 'Assigned to: {names}', { names: names.join(', ') })
+}
+
+/**
  * Whether the room task's occurrence is in the past (active tasks only).
  * @param {object} roomTask Room task payload with nextDue/isActive.
  * @return {boolean}

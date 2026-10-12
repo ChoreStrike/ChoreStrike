@@ -59,6 +59,13 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
   [`deployment.md`](../../../engineering/deployment.md#first-retained-baseline).
   Whole-instance recovery and other-app rollback impact require operator
   approval; a code downgrade is not a schema rollback.
+- Operator-designated production facts are not disposable while that inventory
+  is being completed. The 2026-10-11 preservation request forbids resetting or
+  reseeding the existing household and changing its applied migrations; resolve
+  the installed identity and qualify populated updates instead. For ordinary
+  deployment/adoption, a current completed backup and operator confirmation of
+  the established tested recovery procedure suffice; no repeated operator restore
+  test is required. Keep app upgrade-preservation tests separate from backup tests.
 
 ## 2. Technical Requirements
 

@@ -29,7 +29,80 @@
 			@retry="initializeTasks" />
 
 		<template v-else>
+			<ErrorState
+				v-if="membersError"
+				data-testid="member-names-error"
+				:message="t('chorestrike', 'Failed to load members')"
+				@retry="loadMembers" />
+			<div class="scope-filters" role="group" :aria-label="t('chorestrike', 'Task filter')">
+				<button type="button"
+					:aria-pressed="filterScope === 'mine'"
+					data-testid="tasks-filter-mine"
+					@click="setScope('mine')">
+					{{ t('chorestrike', 'My tasks') }}
+				</button>
+				<button type="button"
+					:aria-pressed="filterScope === 'unassigned'"
+					data-testid="tasks-filter-unassigned"
+					@click="setScope('unassigned')">
+					{{ t('chorestrike', 'Unassigned') }}
+				</button>
+				<button type="button"
+					:aria-pressed="filterScope === 'all'"
+					data-testid="tasks-filter-all"
+					@click="setScope('all')">
+					{{ t('chorestrike', 'Everyone') }}
+				</button>
+			</div>
+			<p v-if="filterScope === 'mine'" class="scope-hint">
+				{{ t('chorestrike', 'Your tasks and unassigned tasks') }}
+			</p>
 			<div class="filters-section">
+				<div class="filter-group">
+					<label for="task-person-filter">{{ t('chorestrike', 'Person') }}</label>
+					<select id="task-person-filter"
+						v-model="filterPerson"
+						:disabled="membersLoading || membersError"
+						class="filter-select"
+						data-testid="person-filter"
+						@change="filterScope = 'all'">
+						<option value="">
+							{{ t('chorestrike', 'Everyone') }}
+						</option>
+						<option v-for="member in userStore.houseUsers" :key="member.nextcloudUserId" :value="member.nextcloudUserId">
+							{{ member.displayName || member.nextcloudUserId }}
+						</option>
+					</select>
+				</div>
+				<div class="filter-group">
+					<label for="task-floor-filter">{{ t('chorestrike', 'Floor') }}</label>
+					<select id="task-floor-filter"
+						v-model="filterFloor"
+						class="filter-select"
+						data-testid="floor-filter"
+						@change="filterRoom = ''">
+						<option value="">
+							{{ t('chorestrike', 'All floors') }}
+						</option>
+						<option v-for="floor in roomsStore.floors" :key="floor.id" :value="String(floor.id)">
+							{{ floor.name }}
+						</option>
+					</select>
+				</div>
+				<div class="filter-group">
+					<label for="task-room-filter">{{ t('chorestrike', 'Room') }}</label>
+					<select id="task-room-filter"
+						v-model="filterRoom"
+						class="filter-select"
+						data-testid="room-filter">
+						<option value="">
+							{{ t('chorestrike', 'All rooms') }}
+						</option>
+						<option v-for="room in filterRooms" :key="room.id" :value="String(room.id)">
+							{{ room.name }}
+						</option>
+					</select>
+				</div>
 				<div class="filter-group">
 					<label>{{ t('chorestrike', 'Status') }}</label>
 					<select v-model="filterStatus" class="filter-select" data-testid="status-filter">
@@ -196,6 +269,7 @@ import ErrorState from '../components/Common/ErrorState.vue'
 import { useUserStore } from '../store/user.js'
 import Modal from '../components/Common/Modal.vue'
 import { useRoute } from 'vue-router'
+import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 
 export default {
 	name: 'TaskManager',
@@ -217,7 +291,7 @@ export default {
 		const userStore = useUserStore()
 		const houseStore = useHouseStore()
 		const route = useRoute()
-		return { roomTasksStore, roomsStore, tasksStore, userStore, houseStore, route }
+		return { roomTasksStore, roomsStore, tasksStore, userStore, houseStore, route, ...useHouseMemberNames(userStore) }
 	},
 
 	data() {
@@ -225,6 +299,10 @@ export default {
 			loading: false,
 			creating: false,
 			initError: false,
+			filterScope: 'mine',
+			filterPerson: '',
+			filterFloor: '',
+			filterRoom: '',
 			filterStatus: 'all',
 			filterPriority: 'all',
 			filterDifficulty: 'all',
@@ -242,6 +320,10 @@ export default {
 	},
 
 	computed: {
+		filterRooms() {
+			return this.roomsStore.rooms.filter(room => !this.filterFloor || String(room.floorId) === this.filterFloor)
+		},
+
 		allTasks() {
 			return this.roomTasksStore.roomTasks.map(roomTask => ({
 				roomTask,
@@ -259,7 +341,8 @@ export default {
 		},
 
 		filteredTasks() {
-			let tasks = this.allTasks
+			const roomIds = new Set(this.filterRooms.map(room => room.id))
+			let tasks = this.allTasks.filter(({ roomTask }) => this.matchesScopeFilter(roomTask, roomIds))
 
 			// Status filter
 			if (this.filterStatus === 'active') {
@@ -329,12 +412,33 @@ export default {
 		// with ?visibility=private (CS-PLAN-041).
 		if (this.route?.query?.visibility === 'private') {
 			this.filterVisibility = 'private'
+			this.filterScope = 'all'
+		}
+		if (['mine', 'unassigned', 'all'].includes(this.route?.query?.scope)) {
+			this.filterScope = this.route.query.scope
 		}
 		await this.initializeTasks()
 	},
 
 	methods: {
 		t,
+
+		setScope(scope) {
+			this.filterScope = scope
+			this.filterPerson = ''
+		},
+
+		matchesScopeFilter(roomTask, roomIds) {
+			const actorId = this.userStore.currentUser?.nextcloudUserId
+			const assignees = roomTask.assignees ?? []
+			// Unknown user (identity not resolved yet): show assigned rows
+			// rather than an empty list, mirroring TodayView.isMine.
+			if (this.filterScope === 'mine' && actorId && assignees.length > 0 && !assignees.includes(actorId)) return false
+			if (this.filterScope === 'unassigned' && assignees.length > 0) return false
+			if (this.filterPerson && !assignees.includes(this.filterPerson)) return false
+			if (this.filterFloor && !roomIds.has(roomTask.roomId)) return false
+			return !this.filterRoom || String(roomTask.roomId) === this.filterRoom
+		},
 
 		async initializeTasks() {
 			this.loading = true
@@ -573,6 +677,41 @@ export default {
 	border-radius: 8px;
 }
 
+.scope-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-block-end: 0.5rem;
+}
+
+.scope-filters button {
+	min-block-size: 44px;
+	padding: 0.5rem 1rem;
+	border: 1px solid var(--color-text-maxcontrast);
+	border-radius: 8px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	cursor: pointer;
+}
+
+.scope-filters button[aria-pressed='true'] {
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
+	border-color: var(--color-primary-element);
+	font-weight: 700;
+}
+
+.scope-filters button:focus-visible,
+.filter-select:focus-visible {
+	outline: 2px solid var(--color-main-text);
+	outline-offset: 2px;
+}
+
+.scope-hint {
+	margin-block: 0 1rem;
+	color: var(--color-text-maxcontrast);
+}
+
 .filter-group {
 	display: flex;
 	flex-direction: column;
@@ -586,6 +725,7 @@ export default {
 }
 
 .filter-select {
+	min-block-size: 44px;
 	padding: 0.5rem 0.75rem;
 	border: 1px solid var(--color-border);
 	border-radius: 6px;

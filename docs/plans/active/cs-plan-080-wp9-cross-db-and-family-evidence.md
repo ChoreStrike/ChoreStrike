@@ -372,6 +372,10 @@ explicit estimate/scope decision, not a weaker test gate or fictional deadline.
 
 ## 9. Review Findings (Plan-Owned)
 
+- [ ] **RF-080-14 major (operator feedback, 2026-10-11):** member completion shows the generic failure toast; actual failed request status/code and installed candidate remain unconfirmed. Local investigation passed 35 focused backend cases without reproducing a role-only failure. Fixed a demonstrated dialog validation gap: missing actor identity or excluding the actor from a 100% split now blocks submission with an explanation, preserving correction-mode exemption and backend authorization. This is not proof of the reported incident's root cause. Further completion-path inspection flagged claim confirmation opening the participation dialog and occurrence replacement retaining the prior proposal; validate/fix those paths with dedicated regressions rather than infer incident causality. Obtain sanitized failed POST status/error code (or local STALE_TARGET/no POST) before declaring the production fault fixed.
+- [ ] **RF-080-15 major (operator feedback, 2026-10-11):** task management default/filters, assignment names, action clarity and My Day room links implemented with unit regressions and a desktop/mobile keyboard browser scenario. Optional member-name loading now has a non-blocking error/retry, and visible/accessibility completion labels agree. Focused family browser rerun passed all 11 executions including setup. Full gate `run-t4pJYd` exposed two old takeover tests assuming everyone-by-default (updated to click Everyone and expect the loaded display name), plus two fixture-seed connection closures before family-rhythm assertions. Full-gate requalification and production core-use retest remain open. Optional reward testing stays deferred, not passed.
+- [ ] **RF-080-16 minor (architecture, interim review 2026-10-12):** `TaskManager.vue` grew to ~818 lines with the WP9 scope/person/floor/room filter surface (guidance ~300 lines/file). The review round extracted `matchesScopeFilter` and the duplicated TodayView assignee-label expressions, but the self-contained presentational filter bar (scope buttons, person/floor/room selects and their styles) remains inline. Extract it (e.g. `components/Tasks/TaskFilterBar.vue`) in the next WP9 UI round together with renewed focused browser evidence. Deferred to keep the review round's diff minimal; no behavior defect — `TodayView.vue`/`RoomDetail.vue` already exceed the guidance, so this is debt reduction, not a shipping blocker.
+
 Standard A passed on 2026-10-03. Cross-DB provisioning and human evidence
 remain required deliverables, not already resolved findings. Record new in-scope
 findings here with severity, exact file/area, evidence and resolution; reconcile
@@ -395,6 +399,40 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 - [x] **RF-080-13 major:** full interim browser gate `run-KYwj6N` exposed premature task creation and six owner-scheduling readiness failures. The bounded `TaskManager.vue` initialization guard and loaded-content scheduling assertions retain their regression tests and unchanged timeouts; the discarded store-wide journal remains absent. Complete rerun `run-L6t9N6` passes all three pools with zero skips/failures/flakes, closing the previously incomplete `run-bCrhwS` handoff. The later full `run-7H4sub` also passes with the expanded T12 inventory. Earlier failed/incomplete attempts remain historical evidence, not qualifying passes.
 
 ## Implementation Evidence
+
+### Operator Core-Use Feedback (2026-10-11)
+
+- Scope: clearer task controls, own-plus-unassigned default and person/floor/room
+  filters, visible assignment names, My Day appointment-to-room links, and a
+  completion-dialog guard requiring actual actor participation. Backend rules,
+  schemas and applied migrations are unchanged. A member-name read failure has
+  a separate retry and does not hide task rows or disable completion.
+- Preserved the operator's deployment checklist edits. Core-use testing takes
+  priority over optional rewards; this is sequencing, not a reward test pass.
+  Deployment guidance now accepts the already-tested Nextcloud recovery procedure
+  without another restore test, requires a current backup, and explicitly protects
+  existing production facts while installed-baseline identity is still unresolved.
+- Supported Node 20.19.0: Jest 117 suites / 1665 tests, ESLint, Stylelint,
+  production build, exact POT/EN/DE coverage, docs encoding and backlog checks pass.
+  Canonical Docker backend: unit 1372 / 4916 assertions and integration
+  604 / 5074 assertions pass with skips forbidden. No backend/browser writers
+  overlapped; no production access or mutation occurred.
+- The first focused browser attempt failed on a mobile test trying to click
+  closed offscreen navigation and an old owner test assuming everyone-by-default.
+  Fixed test setup (direct My Day entry; explicit Everyone selection), retaining
+  the assertions. Focused family rerun passed 11 executions, including actual
+  desktop/390px keyboard filters/appointment navigation and DE/EN rendering.
+- Full gate `run-t4pJYd` completed all pools but failed: two takeover tests still
+  assumed everyone-by-default; two family-rhythm fixtures failed before assertions
+  with `fetch failed` / `SocketError: other side closed` (existing
+  TECH-TRANSPORT-001 symptom). The scheduling-owner pool passed. Corrected takeover
+  tests now choose Everyone and expect the loaded display name; isolated rerun
+  passed 8 executions including setup. This does not replace a green full gate
+  or erase the failed attempt. Raw reports remain local under `build/`.
+- RF-080-14/15 remain open: production completion needs actual sanitized failure
+  status/code and installed candidate identity; full browser requalification and
+  operator core-use retest remain required. No release, deployment, migration,
+  retained-baseline adoption, formal review or commit is claimed.
 
 ### Installation-Preparation Renewal (2026-10-08)
 
@@ -1042,3 +1080,43 @@ evidence. Unrelated pre-existing `.gitkeep` deletions were left untouched.
 - **Boundary:** RF-080-05 / HUMAN-01/02 still block WP9/G3/CONCEPT-001; the
   NC31 browser pair remains historical for the newer runtime (CS-PLAN-082 R4
   owns the renewed pair). No plan move, no human-evidence claim.
+
+### Interim Full — 2026-10-12 — `PASS-WITH-FIXES` (plan stays active)
+
+- **Scope:** the uncommitted WP9 operator core-use feedback round at `master`
+  `8e484bb` — 29 modified paths plus the new `src/composables/useHouseMemberNames.js`
+  (filters, assignment names, action contrast, My Day room links, participation
+  validation, e2e/gate hardening, l10n, plan/durable docs). Full tier: four
+  parallel read-only reviewer tracks (correctness, architecture,
+  security/privacy, performance/quality); record
+  `docs/backlog/archive/CODE_REVIEW_2026-10-12.md`.
+- **Baseline:** index empty at capture; unstaged-diff SHA256
+  `AABF9002CC989EF8F5CC65F96ADDD799A3E95B068604C05D44785796E0E0EA4D`;
+  untracked composable SHA256
+  `916D1B6CC8ABBA73221194C76EFD107ABD94BCE29244663AB7A30EC23C728A45`.
+- **Outcome:** `PASS-WITH-FIXES` (interim). Consolidated findings: 2 major,
+  5 minor, 8 nits; ten fixed in-round (three logic fixes user-approved in one
+  batched decision), one new plan-owned finding (RF-080-16), the rest recorded
+  nits without follow-up. Two reviewer suspicions disproven on verification
+  (InsightsView correction draft is always an array; other `#/tasks` consumers
+  covered by gate evidence).
+- **Fixes:** member-name fetch now cached across view mounts (TaskList guard
+  pattern) with composable unit spec; TaskList claim dialog resolves the
+  assignee name reactively plus regression; TaskManager keeps assigned rows
+  visible while the actor identity is unresolved (mirrors `TodayView.isMine`)
+  plus regression; `assignmentLabel` null-safe and Map-based; e2e claim-dialog
+  and overflow assertions hardened; TaskManager normalized to LF and its
+  scope predicate extracted; TodayView assignee-label duplication extracted.
+- **Decisions (batched, 2026-10-12):** (1) review commit carries the WP9 slice
+  only — the BUG-SEC-001 contact-documentation changes (README/SECURITY/
+  CONTRIBUTING/CODE_OF_CONDUCT and their backlog hunks) stay uncommitted until
+  the operator verifies mailbox receipt/reply; (2)(3)(4) the duplicate-fetch,
+  unresolved-identity and claim-dialog fixes were applied in-round.
+- **Gates:** Jest 118 suites / 1671 tests, ESLint, Stylelint, production build,
+  `l10n:check-keys` (1280 keys), `docs:encoding`, `backlog:check` green. No PHP
+  changed; the canonical Docker backend gates are unchanged from the 2026-10-12
+  record (unit 1372 / integration 604). Browser: the focused family/takeover
+  evidence predates the review hardening; full-gate requalification remains the
+  open RF-080-15 requirement and renews it.
+- **Boundary:** RF-080-05/14/15/16 keep the plan `active/`; no human-evidence,
+  deployment, adoption or production claim.

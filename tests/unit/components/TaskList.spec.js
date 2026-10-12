@@ -255,6 +255,28 @@ describe('TaskList', () => {
 			expect(wrapper.emitted('complete')[0]).toEqual([42])
 		})
 
+		it('resolves the claim dialog assignee name once members load after opening', async () => {
+			const userStore = useUserStore()
+			userStore.currentUser = { nextcloudUserId: 'mom' }
+			userStore.houseUsers = []
+			const tasks = [mockTask({
+				task: { visibilityType: 'public' },
+				roomTask: { assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString() },
+			})]
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: tasks },
+			})
+
+			await wrapper.find('[data-testid="claim-overdue-button"]').trigger('click')
+			const dialog = wrapper.get('[data-testid="overdue-claim-dialog"]')
+			expect(dialog.text()).toContain('dad')
+
+			userStore.houseUsers = [{ nextcloudUserId: 'dad', displayName: 'Dad' }]
+			await flushPromises()
+
+			expect(wrapper.get('[data-testid="overdue-claim-dialog"]').text()).toContain('Dad')
+		})
+
 		it('should emit edit event when edit button clicked', async () => {
 			const userStore = useUserStore()
 			userStore.currentUser = { id: 1, role: 'owner', nextcloudUserId: 'u1' }

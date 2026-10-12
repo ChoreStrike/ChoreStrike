@@ -83,6 +83,15 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 		expect(adminWrapper.find('[data-testid="visibility-crown-icon"]').exists()).toBe(true)
 	})
 
+	it('shows all assigned names without expanding, and labels unassigned work', () => {
+		useUserStore().houseUsers = [{ nextcloudUserId: 'u1', displayName: 'Alice' }, { nextcloudUserId: 'u2', displayName: 'Bob' }]
+		const wrapper = mountItem({ item: { roomTask: roomTask({ assignees: ['u1', 'u2'] }), task: task() } }, 'member')
+		expect(wrapper.get('[data-testid="task-assignees"]').text()).toContain('Assigned to: Alice, Bob')
+		expect(wrapper.get('[data-testid="complete-task-button"]').text()).toContain('Done')
+		expect(wrapper.get('[data-testid="complete-task-button"]').attributes('aria-label')).toBe('Done')
+		expect(mountItem().get('[data-testid="task-assignees"]').text()).toContain('Unassigned')
+	})
+
 	it('emits complete/edit/delete upward', async () => {
 		const wrapper = mountItem({}, 'owner')
 

@@ -89,6 +89,7 @@ test.describe('Overdue Task Claiming', () => {
 			// (TaskListItem), not on My Day.
 			await page.goto('/apps/chorestrike/#/tasks')
 			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+			await page.getByTestId('tasks-filter-all').click()
 
 			const overdueRow = page.locator('[data-testid="task-item"]')
 				.filter({ hasText: probeName })
@@ -107,17 +108,23 @@ test.describe('Overdue Task Claiming', () => {
 
 			await page.goto('/apps/chorestrike/#/tasks')
 			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+			await page.getByTestId('tasks-filter-all').click()
 
 			const overdueRow = page.locator('[data-testid="task-item"]')
 				.filter({ hasText: 'Claim Dialog' })
 				.first()
 			await expect(overdueRow).toBeVisible({ timeout: 15000 })
+			// The claim dialog snapshots the assignee name when it opens, so
+			// gate on the row's resolved display name first (TaskManager
+			// loads members on mount; the raw fallback would be the lower-
+			// case user id and never re-renders inside the open dialog).
+			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad')
 			await overdueRow.getByTestId('claim-overdue-button').click()
 
 			const dialog = page.getByTestId('overdue-claim-dialog')
 			await expect(dialog).toBeVisible({ timeout: 10000 })
-			// The dialog names the original assignee (user id).
-			await expect(dialog).toContainText('dad')
+			// The member list resolves the original assignee's display name.
+			await expect(dialog).toContainText('Dad')
 			// The dialog is only observed here — confirming happens in the
 			// API takeover proof below, so the probe row stays claimable.
 			await dialog.locator('.secondary-button').click()
