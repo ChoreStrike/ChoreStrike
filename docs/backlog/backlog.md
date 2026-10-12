@@ -210,6 +210,38 @@ component.
 > Backlog hygiene, lint/dependency, docs truth, and operational security.
 > Independently schedulable unless a gate depends on it (CS-PLAN-058 §2.2).
 
+### [P2] TECH-TEST-004 - Make package-smoke fixture report times deterministic
+**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-gate reliability
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: project-contact documentation validation, 2026-10-12 (Node 20.19.0 / npm 10.8.2; package-smoke source and tests unchanged)
+
+The full Jest gate passed 1664 tests but failed
+`runPackageSmoke.spec.js` / `fails on post-run extraction drift`: expected
+`/drift/`, received `Stale owner-smoke report (predates this run)`.
+The fixture writes a synthetic verification report using real filesystem
+timestamps, while orchestration samples `Date.now()` and checks report
+freshness before extraction hashes. The report compared older than the run
+start, so the intended drift assertion was never reached. Windows clock /
+filesystem timing is a plausible mechanism, not a measured root cause.
+Recurrence check 2026-10-12 (WP9 interim review): two complete Jest runs
+(1665 and 1671 tests) passed without reproducing the failure — consistent
+with an intermittent timing mechanism; the item stays open for the
+deterministic-clock fix.
+A further complete run for the documentation commit passed all 1671 tests
+on 2026-10-13 without package-smoke source/test changes. This does not resolve
+the fixture defect or replace the original failure evidence.
+
+**Deferral reason / scope:** this is outside contact-documentation work and
+distinct from TECH-PKG-001's case-count consolidation. No package validator,
+test assertion, timestamp tolerance or retry policy was changed. The failed
+full gate remains failed; documentation and backend checks do not replace it.
+
+- [ ] Give the orchestration fixture a deterministic logical clock and explicit report mtimes, preserving production freshness enforcement.
+- [ ] Cover older/equal/newer report timestamps and retain the extraction-drift assertion without sleeps, retries or alternate-error matching.
+- [ ] Run the focused package-smoke suite and the complete Jest gate with supported tooling; retain the original failure as historical evidence.
+
+---
+
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures
@@ -398,9 +430,9 @@ SELECT of ids followed by UPDATE ... WHERE id IN (...). Not a WP7 regression
 ---
 
 ### [P3] BUG-SEC-001 — Security reporting contact for later external use
-**Status**: Backlog (user-deferred 2026-10-04; outside CS-PLAN-081, not completed) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
-**Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 (external-use stage only) · **Folded-in**: H7/H-T11 user rescoping and future GitHub-associated email contact (2026-10-04)
-**Source**: CS-001 security review; CS-PLAN-081 H7 Post-Review Scope Decision
+**Status**: In Progress (contact documented; operator delivery test, authority feedback and remote publication pending) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
+**Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 (external-use stage only) · **Folded-in**: H7/H-T11 user rescoping (2026-10-04); operator-approved project mailbox and public-contact guidance (2026-10-12); reporting-policy refinements and legal-notice deferral (2026-10-13)
+**Source**: CS-001 security review; CS-PLAN-081 H7 Post-Review Scope Decision; user-provided project address 2026-10-12; explicit policy and scoped-commit request 2026-10-13
 
 The operator initially tests alone and explicitly removed H7/H-T11 from
 [CS-PLAN-081](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
@@ -408,16 +440,37 @@ on 2026-10-04. No new reporting address or channel test is required for that
 self-test stage or preparation-plan completion. This item remains open for
 later external tester onboarding / public release, not a completed H7 claim.
 
-Use ordinary private email without mandatory GPG, a dedicated `security@`
-mailbox or Codeberg profile publication. The intended address is the new
-GitHub-associated email, coordinated with the possible forge move in
-TECH-REPO-001. It must be a monitored, deliverable mailbox, not a GitHub
-commit-only `noreply` address. No address is currently supplied or approved
-for publication; no account, mailbox or external profile action is authorized.
+The operator supplied `chorestrike@gallero.de` on 2026-10-12 for public project
+contact. README and `docs/SECURITY.md` now document that mailbox; contributor
+and conduct guidance distinguish public issues from private reports. This
+ordinary-email route is independent of TECH-REPO-001 and does not require GPG,
+a separate `security@` alias or a GitHub-associated address. The operator
+authorized a scoped local documentation commit on 2026-10-13, not a push,
+mailbox login, test email or account/profile change.
 
-- [ ] Confirm the operator-approved reporting mailbox and receipt of a test email.
-- [ ] Publish the approved contact in `docs/SECURITY.md` and align links with the selected hosting platform; no public security issues or sensitive real-user payloads.
-- [ ] Remove the deferred-contact maintainer note once the route is available; GPG remains optional, not a completion requirement.
+The refined policy requires explicit permission before publicly crediting a
+reporter, explains that ordinary email is not end-to-end encrypted, requests
+notification when upstream issues affect the app, and distinguishes fixes on
+`master` / subsequent releases from unsupported older-release backports.
+
+**Operator decision (2026-10-13):** do not add a legal notice or separate
+privacy information while awaiting feedback from the responsible media
+authority. This is a temporary deferral, not a finding of compliance or an
+exemption. Incoming report emails and sender data are distinct from household
+data processed in other operators' Nextcloud installations; `docs/SECURITY.md`
+is an operational reporting policy, not complete data-protection information.
+
+Mailbox creation is operator-confirmed, but receipt and reply delivery have
+not been verified. The item remains open until that check and an explicitly
+approved source publication; the mailbox must be monitored, not commit-only
+`noreply`. No public security issues or sensitive real-user payloads.
+
+- [x] Record the operator-approved reporting mailbox (2026-10-12).
+- [x] Add the contact to local README/security guidance and replace the deferred-contact note; GPG remains optional.
+- [x] Refine public-credit consent, email limitations, affected-dependency reporting and release/backport wording (2026-10-13).
+- [ ] Confirm receipt of a test email and a reply sent from the project address without exposing a private sender address.
+- [ ] Reassess the deferred legal notice and privacy information after the authority's response, including the handling of incoming report emails.
+- [ ] Publish the verified contact with an explicitly approved source update before external-user onboarding; retain correct links for the selected hosting platform.
 
 ---
 
@@ -426,9 +479,10 @@ for publication; no account, mailbox or external profile action is authorized.
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: user request 2026-10-04; future contact setup related to BUG-SEC-001
 
-The user expects a possible move from Codeberg to GitHub and intends to use a
-new GitHub-associated email for the later security contact. This is a separate
-effort, not a CS-PLAN-081 prerequisite or authorization to transfer anything.
+The possible Codeberg-to-GitHub move is a separate effort, not a CS-PLAN-081
+prerequisite or authorization to transfer anything. The project mailbox is
+now documented independently under BUG-SEC-001; it does not depend on a
+GitHub account selection or migration.
 
 - [ ] Decide the target repository/account and migration scope with the operator.
 - [ ] Inventory Git history/tags, issues, release assets, remotes, documentation links and Forgejo CI/release workflows; scope GitHub equivalents and private credential handling before implementation.

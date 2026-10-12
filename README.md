@@ -111,14 +111,18 @@ instance. Installation and retained-baseline adoption are separate decisions.
 
 ## Technical Stack
 
-- **Platform**: Nextcloud app (invite-only membership, role model, no
-  external services — all data stays in your Nextcloud)
+- **Platform**: self-hosted Nextcloud app with invite-only membership and
+  role-based access. Email delivery uses your Nextcloud server's configured
+  mail service.
 - **Frontend**: Vue 3 (Composition API) + Pinia
 - **Backend**: PHP 8.4.x (Nextcloud app framework, service architecture)
 - **Database**: SQLite / MySQL / PostgreSQL (via Nextcloud DB abstraction)
 - **Testing**: PHPUnit (backend), Jest (frontend), Playwright (E2E)
 
 ## Project Status
+
+ChoreStrike is a privately maintained, non-commercial open source project,
+not a hosted service.
 
 **v0.1.1 — early pre-release.** The core household workflow (setup wizard,
 invitations, tasks, scheduling, My Day, completion/undo, gamification,
@@ -128,6 +132,17 @@ everyday-use evidence and the final WP9 review remain open. Automated passes
 are not a production-deployment or family-acceptance sign-off. The app is not
 yet published in the Nextcloud App Store; roadmap targets are
 described in [roadmap.md](docs/release/roadmap.md).
+
+## Contact
+
+For general project questions, email
+[chorestrike@gallero.de](mailto:chorestrike@gallero.de).
+For non-sensitive bug reports and feature requests, see
+[Contributing](docs/CONTRIBUTING.md).
+
+Report security vulnerabilities privately using the
+[security policy](docs/SECURITY.md), not a public issue. Do not include
+passwords, tokens or real household data in messages or attachments.
 
 ## Contributing
 

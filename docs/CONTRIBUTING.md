@@ -10,6 +10,9 @@ Thank you for your interest in contributing to ChoreStrike! This document provid
 - Include your Nextcloud version and browser information
 - Add screenshots if applicable
 
+Use synthetic examples and redact personal information from screenshots and
+logs. Never post passwords, tokens or real household data in public reports.
+
 ### Suggesting Features
 - Check if the feature has already been suggested
 - Describe the use case and expected behavior
@@ -84,7 +87,9 @@ See [standards/guidelines/i18n.md](standards/guidelines/i18n.md) for the full lo
 
 ## 🤔 Questions?
 
-Feel free to open an issue for questions or join our discussions.
+For non-sensitive questions, use the repository issue tracker. You can also
+reach the maintainer through the [project contact](../README.md#contact).
+Follow [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
 ## 📜 Code of Conduct
 

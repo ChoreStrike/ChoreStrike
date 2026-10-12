@@ -44,8 +44,9 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the repository maintainers via GitHub. All complaints will be
-reviewed and investigated promptly and fairly.
+reported privately to the maintainer through the
+[project contact](../README.md#contact). Do not post personal details in public
+issues. Complaints will be reviewed and investigated fairly.
 
 ## Attribution
 
