@@ -4,7 +4,8 @@ set -eu
 case "${0##*/}" in
     php)
         if [ "$PROVISION_SCENARIO" = wrong-code-runtime ]; then echo RUNTIME_FAILED; exit 1; fi
-        if [[ "$*" == *'php://stdin'* ]] && [ "$PROVISION_SCENARIO" = http-runtime-mismatch ]; then exit 1; fi ;;
+        if [[ "$*" == *'php://stdin'* ]] && [ "$PROVISION_SCENARIO" = http-runtime-mismatch ]; then exit 1; fi
+        if [[ "$*" == *'new Redis()'* ]] && [ "$PROVISION_SCENARIO" = redis-unreachable ]; then exit 1; fi ;;
     su)
         case "$*" in
             *maintenance:install*) echo INSTALL_FAILED; exit 1 ;;
@@ -22,10 +23,14 @@ case "${0##*/}" in
                     apps-paths-read-failure) echo CONFIG_READ_FAILED >&2; exit 1 ;;
                     *) echo '"__cs_missing__"' ;;
                 esac ;;
+            *'config:system:get memcache.locking'*)
+                if [ "$PROVISION_SCENARIO" = redis-config-failure ]; then echo '\OC\Memcache\APCu'; else echo '\OC\Memcache\Redis'; fi ;;
+            *'config:system:get redis host'*) echo "$REDIS_HOST" ;;
             *'config:system:get apps_paths 0 path'*) echo /var/www/html/apps ;;
             *'config:system:get apps_paths 1 url'*) echo /custom_apps ;;
             *config:import*)
                 if [ "$PROVISION_SCENARIO" = apps-paths-import-failure ]; then echo APPS_PATHS_IMPORT_FAILED; exit 1; fi
+                if [ -n "${REDIS_HOST:-}" ] && grep -q memcache.locking; then echo REDIS_CONFIG_IMPORTED; exit 0; fi
                 echo APPS_PATHS_IMPORTED ;;
             *'config:system:get version'*)
                 if [ "$PROVISION_SCENARIO" = old-volume ]; then echo 31.0.0.1;

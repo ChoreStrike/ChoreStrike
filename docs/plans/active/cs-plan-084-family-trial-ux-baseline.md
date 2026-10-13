@@ -107,6 +107,8 @@ noted). Frontend-heavy; backend touches are limited to tests and the runtime row
 - **D-084-06 Navigation:** unchanged for every role (operator decision); no
   "More" group. Ease of use comes from clickable overview tiles, the paged list
   and hold-to-confirm instead.
+- **D-084-08 Overdue boundary (interim review 2026-10-13):** a task is overdue
+  only after its due day has ended in the house time zone (RF-084-01).
 - **D-084-07 Completed filter:** kept; selecting it loads inactive (finished
   one-time or deactivated) tasks on demand with one additional house-wide read
   (`activeOnly=false`); the default view keeps the single active-only request.
@@ -305,7 +307,15 @@ the same round.
 
 ## 9. Review Findings (plan-owned)
 
-- [ ] (none yet)
+- [ ] **RF-084-01 major (interim Standard B 2026-10-13, pre-existing):** `RoomTask::isOverdue()`
+  (`lib/Db/RoomTask.php:156`) and `taskDisplay.isOverdue` compare the timestamp `next_due`
+  with now; projected `next_due` values are midnight (all 13 active canonical rows
+  `00:00:00`), so a task due today is `overdue` from midnight: red status
+  (`getStatus`), claim button for others, and a same-day non-assignee completion
+  recorded as a takeover with a digest change. Operator decision D-084-08: overdue
+  starts only after the due day ends in the house time zone, uniformly for status,
+  claim affordance and takeover recording; fix with unit/integration/E2E regressions
+  in the next round (WP-G scope).
 
 ## Boundaries
 
@@ -318,6 +328,65 @@ the same round.
 - Not in scope: navigation restructuring (D-084-06), PHP-FPM/AiO web-server emulation, rotation/round-robin assignment, new reward features, server-side
   paging, a staging AiO instance, deployment or retained-baseline adoption (those
   follow `deployment.md` after this plan, with backup and operator confirmation).
+
+## Implementation Evidence
+
+### Round 1 — WP-A + WP-G part 1 (2026-10-13)
+
+- **WP-A runtime currency:** project rule "Runtime Currency (Nextcloud AIO)" added
+  (`project-rules.md` §2, adapters re-synced); `deployment.md` pre-deployment
+  runtime checklist; `testing.md` "AIO-near runtime row"; `release`/`docker-dev`
+  skills. `test:runtime:check` now parses the AIO release's Nextcloud, Redis and
+  PostgreSQL container sources and reports `aio-php`/`aio-apcu`/`aio-phpredis`/
+  `aio-redis`/`aio-postgres` drift (fail-closed on unparsable sources). The first
+  live check found real AIO drift: APCu 5.1.28 (AIO) vs 5.1.24 (inventory);
+  Redis was not modeled. Inventory now pins APCu 5.1.28, phpredis 6.3.0 and
+  `cache.redis` = `redis:8.10.1-alpine@sha256:ef216d85…` (AIO 14.2.0). Live
+  check after the update: `current`, all five components equal.
+- **AIO row with Redis:** `Dockerfile.test` installs phpredis; the entrypoint
+  (with `REDIS_HOST`) writes the AIO `redis-session.ini` equivalent before Apache
+  starts and imports `memcache.distributed`/`memcache.locking` = Redis;
+  `test-runtime-stage.js ... aio` adds the pinned Redis companion and `verify`
+  proves a Nextcloud cache round trip, Redis session handler and the owned,
+  pinned, healthy Redis peer. Selection hashes: primary `4f98b19e…`, AIO
+  `c22ee177…`. `verify-image --runtime=aio` passes (NC 34.0.4.1, PHP 8.4.25,
+  APCu 5.1.28, phpredis 6.3.0; the known `lcobucci/clock` limitation unchanged).
+- **WP-G successor ownership** (`SuccessorOwnershipTest`, 3 tests / 42
+  assertions, children as viewers because adults see every house task):
+  overdue takeover and one-occurrence handover return the next occurrence to the
+  default assignee; reassignment moves the open and every following occurrence
+  and removes the task from the former child's day.
+- **Defect found and fixed (regression above):** completing an *agreed handover*
+  on a task due today (already `isOverdue()` by timestamp) was recorded as an
+  overdue **takeover** (`was_claimed`, claim fields) and queued a "taken over"
+  digest change for the default assignee. `CompletionService` now records a
+  takeover only when the completer is not obligated by the occurrence's concrete
+  agreement.
+- **Claim flow (RF-080-14 path):** confirming the overdue-claim dialog used to
+  open the participation dialog pre-filled with the original assignee — a third
+  step a child cannot resolve. The confirmed claim now completes directly with
+  the reviewed sole-participant allocation (TaskList → TaskManager/RoomDetail);
+  Jest regressions in `TaskList.spec.js`, `TaskManager.spec.js`,
+  `RoomDetail.spec.js`; E2E `overdue-task-claiming.spec.ts` gains a real UI
+  confirm test (claim fields, no participation dialog, undo entry, next
+  occurrence not overdue). This validates the path flagged in RF-080-14; it does
+  not prove the production incident's cause.
+- **Provider-order defect found on the AIO row and fixed:**
+  `HouseUserMapper::findByHouseIdAndNextcloudUserIds` returned PostgreSQL plan
+  order (BatchQueryRegressionTest failed once on the AIO row); the query now
+  orders by `id`; the test passed three reruns and the full suite rerun.
+- **Gates (round 1):** Jest 119 suites / 1703 tests; ESLint, Stylelint,
+  `l10n:check-keys` (1280 keys), `composer cs:check` (0/413), docs encoding,
+  backlog check, `agents:check`, `git diff --check` green. `test:runtime:check`
+  live `current`. AIO row `cs082-cs084-aio` (NC 34.0.4 / PHP 8.4.25 /
+  PostgreSQL 18.6 / Redis 8.10.1, sessions+cache+locking on Redis): unit
+  1379/5017, integration 607/5094 with skips forbidden (first integration run
+  1 failure → fixed above, rerun green). Rebuilt canonical stack
+  (`canonical-runtime-match`, NC 35.0.1, APCu 5.1.28, phpredis 6.3.0): unit
+  1379/5017, integration 607/5115. Browser (canonical, Chromium):
+  `overdue-task-claiming` 9/9 incl. setup; task-manager, task-completion,
+  task-completion-full-flow, room-detail, family-core-ux 33/33, no retries.
+  The full browser gate and the AIO-row browser gate follow in WP-G part 2.
 
 ## Review Outcome
 
@@ -355,3 +424,26 @@ the same round.
 - **Gates:** `backlog:check` green, `docs:encoding` green, `git diff --check`
   clean. No runtime code changed.
 - **Open plan-owned findings:** none.
+
+### Interim Standard B — 2026-10-13 — `PASS-WITH-FIXES` (plan stays active)
+
+- **Scope:** round 1 (WP-A + WP-G part 1) working tree at `305b62a`, index empty,
+  26 modified tracked paths (unstaged diff SHA256 prefix `8ed59da905f118b7` at
+  capture) plus untracked `tests/integration/Service/SuccessorOwnershipTest.php`
+  (`084c7e10d4d4a7c5`). [Record](../../backlog/archive/CODE_REVIEW_2026-10-13.md).
+- **Checked:** architecture (claim/takeover rule stays in `CompletionService`;
+  mapper ordering in the mapper; views only route the reviewed allocation),
+  authorization (claim allocation names only the actor; server still enforces
+  self-participation, visibility and private-task 404), no new user strings,
+  logging unchanged, runtime scripts fail closed on unparsable AIO sources and
+  foreign/unpinned Redis, entrypoint validates `REDIS_HOST`/`REDIS_PORT` before
+  any mutation, provisioning tests isolate `PHP_INI_DIR`/`REDIS_HOST`.
+- **Fixed in-round (1):** confirming a claim with an unresolved actor identity was
+  a silent no-op; it now falls back to the participation-dialog path (Jest
+  regression).
+- **Routed (1):** RF-084-01 pre-existing midnight overdue boundary → §9, decision
+  D-084-08, next round.
+- **Gates after fixes:** TaskList spec 32/32 + ESLint on changed files; full gates
+  of round 1 above (backend on canonical and AIO rows, focused browser 42/42,
+  lint/style/l10n/cs/docs/backlog/agents checks); full Jest rerun after the fix
+  119 suites / 1704 tests.

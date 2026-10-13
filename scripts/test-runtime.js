@@ -17,7 +17,7 @@ const RUNTIME_FIELDS = "'nextcloud' => $OC_VersionString, 'internalVersion' => i
 	+ "'notificationsRevision' => trim(shell_exec('git -C /var/www/html/apps/notifications rev-parse HEAD')),"
 	+ "'viewerRevision' => trim(shell_exec('git -C /var/www/html/apps/viewer rev-parse HEAD')),"
 	+ "'php' => PHP_VERSION, 'sqlite' => (new PDO('sqlite::memory:'))->query('select sqlite_version()')->fetchColumn(),"
-	+ "'pcov' => phpversion('pcov'), 'apcu' => phpversion('apcu')"
+	+ "'pcov' => phpversion('pcov'), 'apcu' => phpversion('apcu'), 'phpredis' => phpversion('redis')"
 
 function requireValue(condition, field) {
 	if (!condition) throw new Error(`Invalid runtime inventory: ${field}`)
@@ -48,6 +48,7 @@ function validateRuntimeShape(value) {
 	for (const [key, prefix, versionPattern] of [
 		['php', 'php', VERSION], ['composer', 'composer', VERSION],
 		['databases.mysql', 'mariadb', VERSION], ['databases.pgsql', 'postgres', /^\d+\.\d+$/],
+		['cache.redis', 'redis', VERSION],
 	]) {
 		const image = key.split('.').reduce((item, part) => item?.[part], value)
 		requireValue(versionPattern.test(image?.version), `${key}.version`)
@@ -56,7 +57,7 @@ function validateRuntimeShape(value) {
 		requireValue(DIGEST.test(image?.digest) && DIGEST.test(image?.platformDigest), `${key}.digest`)
 	}
 	requireValue(VERSION.test(value.databases?.sqlite?.version), 'databases.sqlite.version')
-	for (const key of ['pcov', 'apcu', 'phpunit', 'codingStandard']) requireValue(VERSION.test(value.tools?.[key]), `tools.${key}`)
+	for (const key of ['pcov', 'apcu', 'phpredis', 'phpunit', 'codingStandard']) requireValue(VERSION.test(value.tools?.[key]), `tools.${key}`)
 	requireValue(VERSION.test(value.aio?.version) && VERSION.test(value.aio?.nextcloudVersion), 'aio')
 	return value
 }
@@ -200,6 +201,34 @@ async function fetchMetadata(url) {
 	return response.text()
 }
 
+/**
+ * Versions of the AIO subcomponents the app runs against, parsed from the
+ * official AIO container sources of one release tag. Every value must parse;
+ * unknown/malformed metadata fails closed instead of reporting "current".
+ */
+async function aioComponents(io, aio, nextcloudFile) {
+	const source = file => io.fetchMetadata(`https://raw.githubusercontent.com/nextcloud/all-in-one/v${aio}/Containers/${file}/Dockerfile`)
+	const [redisFile, postgresFile] = [await source('redis'), await source('postgresql')]
+	const components = {
+		php: nextcloudFile.match(/^FROM php:(\d+\.\d+\.\d+)-fpm\S*\s*$/m)?.[1],
+		apcu: nextcloudFile.match(/pecl install (?:-\S+ )*APCu-(\d+\.\d+\.\d+);/)?.[1],
+		phpredis: nextcloudFile.match(/pecl install (?:-\S+ )*(?:'[^']*' )?redis-(\d+\.\d+\.\d+);/)?.[1],
+		redis: redisFile.match(/^FROM redis:(\d+\.\d+\.\d+)-alpine\S*\s*$/m)?.[1],
+		postgres: postgresFile.match(/^FROM postgres:(\d+\.\d+)-alpine\S*\s*$/m)?.[1],
+	}
+	for (const [name, version] of Object.entries(components)) requireValue(/^\d+\.\d+(\.\d+)?$/.test(version ?? ''), `AIO ${name} metadata`)
+	return components
+}
+
+/** Drift labels for AIO subcomponents that differ from the frozen inventory. */
+function aioComponentDrift(inventory, components) {
+	const expected = {
+		php: inventory.php.version, apcu: inventory.tools.apcu, phpredis: inventory.tools.phpredis,
+		redis: inventory.cache.redis.version, postgres: inventory.databases.pgsql.version,
+	}
+	return Object.keys(expected).filter(name => components[name] !== expected[name]).map(name => `aio-${name}`)
+}
+
 async function checkStable(inventory, io = { fetchMetadata, execute }) {
 	validateInventory(inventory)
 	const upstream = stableRelease(JSON.parse(await io.fetchMetadata('https://api.github.com/repos/nextcloud/server/releases/latest')), 'Nextcloud')
@@ -207,9 +236,11 @@ async function checkStable(inventory, io = { fetchMetadata, execute }) {
 	const aioFile = await io.fetchMetadata(`https://raw.githubusercontent.com/nextcloud/all-in-one/v${aio}/Containers/nextcloud/Dockerfile`)
 	const aioNextcloud = aioFile.match(/^ENV NEXTCLOUD_VERSION=(\d+\.\d+\.\d+)\s*$/m)?.[1]
 	requireValue(VERSION.test(aioNextcloud), 'AIO bundled Nextcloud metadata')
+	const components = await aioComponents(io, aio, aioFile)
 	const drift = []
 	if (upstream !== inventory.nextcloud.version) drift.push('upstream-nextcloud')
 	if (aio !== inventory.aio.version || aioNextcloud !== inventory.aio.nextcloudVersion) drift.push('aio-bundle')
+	drift.push(...aioComponentDrift(inventory, components))
 	for (const [repository, release] of [
 		['server', inventory.nextcloud], ['server', inventory.previous], ['notifications', inventory.notifications],
 		['notifications', inventory.patches?.previousNotifications], ['viewer', inventory.viewer],
@@ -224,11 +255,11 @@ async function checkStable(inventory, io = { fetchMetadata, execute }) {
 		const output = io.execute('git', ['ls-remote', `https://github.com/nextcloud/${repository}.git`, `refs/tags/${release.ref}`, `refs/tags/${release.ref}^{}`])
 		if (tagRevision(output, release.ref) !== release.revision) drift.push(`moved-${repository}-${release.ref}`)
 	}
-	for (const [name, image] of Object.entries({ php: inventory.php, composer: inventory.composer, mysql: inventory.databases.mysql, pgsql: inventory.databases.pgsql })) {
+	for (const [name, image] of Object.entries({ php: inventory.php, composer: inventory.composer, mysql: inventory.databases.mysql, pgsql: inventory.databases.pgsql, redis: inventory.cache.redis })) {
 		const current = registryIdentity(JSON.parse(io.execute('docker', ['buildx', 'imagetools', 'inspect', image.image, '--format', '{{json .Manifest}}'])), inventory.platform)
 		if (current.digest !== image.digest || current.platformDigest !== image.platformDigest) drift.push(`moved-${name}-image`)
 	}
-	return { status: drift.length ? 'update-needed' : 'current', upstream, aio, aioNextcloud, drift, qualification: inventory.status }
+	return { status: drift.length ? 'update-needed' : 'current', upstream, aio, aioNextcloud, aioComponents: components, drift, qualification: inventory.status }
 }
 
 function inventoryHash(inventory) {
@@ -249,6 +280,7 @@ function buildArguments(selection, imageName) {
 		VIEWER_REVISION: selection.viewer.revision,
 		PCOV_VERSION: selection.tools.pcov,
 		APCU_VERSION: selection.tools.apcu,
+		PHPREDIS_VERSION: selection.tools.phpredis,
 		RUNTIME_INVENTORY_SHA256: selectionHash(selection),
 	}
 	return ['build', '--platform', selection.platform, '--file', 'docker/Dockerfile.test', '--tag', imageName,
@@ -262,7 +294,7 @@ function assertInstalled(selection, actual) {
 		revision: selection.nextcloud.revision, notificationsRevision: selection.notifications.revision,
 		viewerRevision: selection.viewer.revision,
 		php: selection.php.version, sqlite: selection.databases.sqlite.version,
-		pcov: selection.tools.pcov, apcu: selection.tools.apcu,
+		pcov: selection.tools.pcov, apcu: selection.tools.apcu, phpredis: selection.tools.phpredis,
 		inventoryHash: selectionHash(selection),
 	}
 	for (const [key, value] of Object.entries(expected)) {
@@ -448,7 +480,7 @@ async function main(args) {
 // The CLI entry point runs AFTER module.exports below: verify-canonical
 // lazily requires ./test-target, which requires this module back — invoking
 // main() before the exports are replaced would re-enter a circular require.
-module.exports = { validateInventory, validateRuntimeShape, readInventory, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS, CANONICAL_CONTAINER, CANONICAL_DB_CONTAINER }
+module.exports = { validateInventory, validateRuntimeShape, readInventory, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, tagRevision, registryIdentity, aioComponents, aioComponentDrift, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS, CANONICAL_CONTAINER, CANONICAL_DB_CONTAINER }
 
 if (require.main === module) main(process.argv.slice(2)).catch((error) => {
 	process.stderr.write(`Runtime check/execution failed: ${error?.message ?? 'unknown'}; inventory and environments were not updated.\n`)

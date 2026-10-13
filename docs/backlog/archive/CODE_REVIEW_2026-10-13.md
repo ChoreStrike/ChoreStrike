@@ -57,3 +57,38 @@ batched operator question. No open findings remain.
 Plan moved `docs/plans/new/ → docs/plans/active/`; owning backlog items set to
 `In Progress`; `ACTIVE_TASKS.md` and plans README updated. No deployment,
 migration, retained-baseline adoption or production access.
+
+---
+
+# Code Review: CS-PLAN-084 Round 1 (WP-A + WP-G part 1) — Interim Standard B
+
+- **Review Date**: 2026-10-13/14
+- **Reviewer**: Claude Code
+- **Mode**: Standard B (interim; plan stays `active/`)
+- **Scope**: working tree at `305b62a` (index empty): AIO-current runtime rule and AIO component drift check, Redis AIO row (Dockerfile/entrypoint/inventory/stage runner + tests), successor-ownership integration tests, agreed-handover takeover fix (`CompletionService`), claim confirm without second dialog (TaskList/TaskManager/RoomDetail), deterministic `HouseUserMapper` map order, docs/rules/skills
+- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+
+## Captured Fingerprint
+
+- Unstaged diff (26 tracked paths) SHA256 prefix `8ed59da905f118b7`; untracked `tests/integration/Service/SuccessorOwnershipTest.php` SHA256 prefix `084c7e10d4d4a7c5`.
+
+## Findings
+
+| ID | Severity | Area | Issue | Status |
+|----|----------|------|-------|--------|
+| B-01 | minor | `src/components/Tasks/TaskList.vue` confirmClaim | Unresolved actor identity made a confirmed claim a silent no-op | fixed (falls back to participation path; Jest regression) |
+| RF-084-01 | major (pre-existing) | `lib/Db/RoomTask.php:156`, `src/utils/taskDisplay.js:35` | Midnight `next_due` makes a task overdue on its own due day (status, claim button, takeover recording) | routed to plan §9; decision D-084-08 (next round) |
+
+## Verified Non-Findings
+
+- Claim allocation cannot impersonate: it names only the actor; the server still enforces self-participation, visibility and the private-task 404.
+- Entrypoint Redis inputs are validated before any mutation; provisioning tests isolate `PHP_INI_DIR` and clear an inherited `REDIS_HOST`.
+- `aioComponents` and the stage Redis verification fail closed on unparsable sources, mutable images, foreign projects, unhealthy or foreign peers.
+
+## Gates
+
+Jest 119 / 1704; ESLint, Stylelint, `l10n:check-keys`, `composer cs:check`, docs encoding, backlog check, `agents:check`, `git diff --check` green; `test:runtime:check` live `current`. AIO row (NC 34.0.4, Redis 8.10.1, PostgreSQL 18.6): unit 1379, integration 607 (skips forbidden; first run's provider-order failure fixed in round). Canonical (rebuilt, `canonical-runtime-match`): unit 1379, integration 607. Browser (Chromium, canonical): claiming 9/9, completion/task-manager/room/family-core 33/33.
+
+## Outcome
+
+**PASS-WITH-FIXES (interim).** One finding fixed, one pre-existing plan-owned finding routed with an operator decision. Plan stays active.

@@ -45,6 +45,62 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			[['TEST_RUNTIME_INTERNAL_VERSION' => '35.0.1.1'], 'Both frozen runtime versions are required'],
 			[['TEST_RUNTIME_PHP_VERSION' => '8.4.25'], 'Both frozen runtime versions are required'],
 			[['TEST_RUNTIME_INTERNAL_VERSION' => 'stable35', 'TEST_RUNTIME_PHP_VERSION' => '8.4.25'], 'Both frozen runtime versions are required'],
+			[['REDIS_HOST' => 'redis;echo unsafe'], 'REDIS_HOST must be a plain host name'],
+			[['REDIS_HOST' => 'tcp://redis'], 'REDIS_HOST must be a plain host name'],
+			[['REDIS_HOST' => 'redis', 'REDIS_PORT' => '0'], 'REDIS_PORT an integer'],
+			[['REDIS_HOST' => 'redis', 'REDIS_PORT' => 'abc'], 'REDIS_PORT an integer'],
+		];
+	}
+
+	/** @dataProvider redisOutcomes */
+	public function testProvisioning_RedisRow_ConfiguresSessionsCacheAndLocking(string $scenario, int $expectedExit, string $message): void {
+		$directory = sys_get_temp_dir() . '/cs-provision-' . bin2hex(random_bytes(8));
+		self::assertTrue(mkdir($directory . '/conf.d', 0700, true));
+		$commands = ['php', 'su', 'composer', 'apache2-foreground', 'curl', 'sleep', 'rm', 'touch', 'bash'];
+		$ini = $directory . '/conf.d/zz-chorestrike-redis-session.ini';
+		try {
+			foreach ($commands as $command) {
+				self::assertTrue(copy(__DIR__ . '/../../fixtures/provision-command.sh', $directory . '/' . $command));
+				self::assertTrue(chmod($directory . '/' . $command, 0700));
+			}
+			[$exit, $output] = $this->runEntrypoint([
+				'PATH' => $directory . ':' . getenv('PATH'),
+				'PHP_INI_DIR' => $directory,
+				'PROVISION_SCENARIO' => $scenario,
+				'REDIS_HOST' => 'redis',
+				'TEST_RUNTIME_INTERNAL_VERSION' => '35.0.1.1',
+				'TEST_RUNTIME_PHP_VERSION' => '8.4.25',
+				'TEST_SEED_SCRIPT' => __DIR__ . '/../../fixtures/provision-command.sh',
+			], []);
+			self::assertSame($expectedExit, $exit, $output);
+			self::assertStringContainsString($message, $output);
+			self::assertStringContainsString('session.save_handler = redis', (string)file_get_contents($ini));
+			self::assertStringContainsString('session.save_path = "tcp://redis:6379?', (string)file_get_contents($ini));
+			self::assertStringContainsString('redis.session.locking_enabled = 1', (string)file_get_contents($ini));
+			if ($expectedExit === 0) {
+				self::assertStringContainsString('REDIS_CONFIG_IMPORTED', $output);
+				self::assertLessThan(strpos($output, 'SEED_SUCCEEDED'), strpos($output, 'REDIS_CONFIG_IMPORTED'));
+			} else {
+				self::assertStringNotContainsString('READY_MARKER', $output);
+				self::assertStringNotContainsString('SEED_SUCCEEDED', $output);
+			}
+		} finally {
+			foreach ($commands as $command) {
+				unlink($directory . '/' . $command);
+			}
+			if (file_exists($ini)) {
+				unlink($ini);
+			}
+			rmdir($directory . '/conf.d');
+			rmdir($directory);
+		}
+	}
+
+	public static function redisOutcomes(): array {
+		return [
+			['success', 0, 'Configuring Redis distributed cache and file locking'],
+			['redis-unreachable', 1, 'Redis is unreachable after 60 attempts'],
+			['redis-config-failure', 1, 'Redis cache/locking verification failed'],
 		];
 	}
 
@@ -225,6 +281,9 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			'TEST_DB_TYPE' => 'mysql', 'TEST_DB_PROFILE' => 'family',
 			'DB_HOST' => 'unused', 'DB_PORT' => '3306', 'DB_NAME' => 'nextcloud',
 			'DB_USER' => 'nextcloud', 'DB_PASS' => 'synthetic-test-only',
+			// The AIO-near row's own container exports REDIS_HOST; never let the
+			// fixture inherit it and rewrite the running container's PHP config.
+			'REDIS_HOST' => '', 'REDIS_PORT' => '',
 			'TEST_RUNTIME_INTERNAL_VERSION' => '', 'TEST_RUNTIME_PHP_VERSION' => '',
 			'TEST_RUNTIME_PRESERVATION' => 'false', 'TEST_RUNTIME_UPGRADE_FROM' => '',
 		], $settings);

@@ -389,7 +389,13 @@ export default {
 			}
 		},
 
-		async handleCompleteTask(roomTaskId) {
+		async handleCompleteTask(roomTaskId, claimAllocation = null) {
+			// A confirmed overdue claim carries its reviewed sole-participant
+			// allocation and completes directly.
+			if (claimAllocation) {
+				this.performComplete(roomTaskId, claimAllocation)
+				return
+			}
 			// WP3 §3.6 (Q-074-02): the actor must take part in the work.
 			// A solo agreement that already names the actor needs no
 			// review — it completes directly; multi-person work (or an

@@ -362,4 +362,17 @@ describe('TaskManager', () => {
 
 		expect(showError).toHaveBeenCalledWith('Could not complete the task')
 	})
+
+	it('completes a confirmed claim with its reviewed allocation, never reopening the participation dialog', async () => {
+		mockRoomTasksStore.completeRoomTask.mockResolvedValue({})
+		mockRoomTasksStore.roomTasks = [{ id: 9, taskId: 101, isActive: true,
+			proposal: { participants: [{ userId: 'dad', sharePct: 100 }] } }]
+		const claim = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
+
+		const wrapper = await mountView()
+		await wrapper.vm.handleCompleteTask(9, claim)
+
+		expect(wrapper.vm.participation).toBeNull()
+		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(9, claim)
+	})
 })

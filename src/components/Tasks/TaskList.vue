@@ -211,11 +211,21 @@ export default {
 			claimDialogVisible.value = true
 		}
 
+		// The confirmed claim IS the reviewed allocation: the claimer did the
+		// whole overdue work, so it completes as sole participant without a
+		// second participation dialog (CS-PLAN-084 WP-G, RF-080-14 path).
 		const confirmClaim = async () => {
 			claimDialogVisible.value = false
-			if (claimRoomTaskId.value) {
+			if (!claimRoomTaskId.value) return
+			if (!currentUserId.value) {
+				// Unresolved identity: the participation dialog's safe path decides.
 				emit('complete', claimRoomTaskId.value)
+				return
 			}
+			emit('complete', claimRoomTaskId.value, {
+				participants: [{ userId: currentUserId.value, sharePct: 100 }],
+				allocationReviewed: true,
+			})
 		}
 
 		// --- Bulk assignment selection (CS-PLAN-042, UX-008) ---

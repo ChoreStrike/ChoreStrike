@@ -72,6 +72,11 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 - First image builds take ~3–5 min: use a timeout ≥ 300 s or a background process; a tool timeout is not a Docker failure.
 - Env vars: PowerShell `$env:TEST_DB_PROFILE='family'; docker compose ...`; Bash `TEST_DB_PROFILE=family docker compose ...`. Commands: [`docker-dev`](../skills/docker-dev/SKILL.md).
 
+### Runtime Currency (Nextcloud AIO)
+- Gates always cover the **latest upstream stable** Nextcloud *and* the **exact Nextcloud release of the operator's current AIO**, including its PHP, APCu, phpredis, Redis and PostgreSQL versions (`docker/test-runtime.json`). AIO components are tested as AIO runs them: the AIO row uses Redis for sessions, distributed cache and file locking.
+- `npm run test:runtime:check` reports upstream/AIO drift (weekly CI + before every deployment). Drift is promoted promptly through a reviewed inventory update and requalification; never deploy to a runtime the inventory does not name.
+- Deploying to the production AIO requires a green AIO row (backend suites + browser gate) for the target version. Detail: [`testing.md`](../../../engineering/testing.md#aio-near-runtime-row), [`deployment.md`](../../../engineering/deployment.md#pre-deployment-checklist).
+
 ## 3. Error & Quality Management
 
 - **Build gate:** `npm test` + `npm run lint` + backend tests (Docker) green; a non-building tree is never done.

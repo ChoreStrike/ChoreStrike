@@ -27,7 +27,7 @@ function installationFixture(options = settings()) {
 		nextcloud: inventory.nextcloud.version, internalVersion: inventory.nextcloud.internalVersion,
 		revision: inventory.nextcloud.revision, notificationsRevision: inventory.notifications.revision,
 		viewerRevision: inventory.viewer.revision,
-		php: inventory.php.version, sqlite: inventory.databases.sqlite.version, pcov: inventory.tools.pcov, apcu: inventory.tools.apcu,
+		php: inventory.php.version, sqlite: inventory.databases.sqlite.version, pcov: inventory.tools.pcov, apcu: inventory.tools.apcu, phpredis: inventory.tools.phpredis,
 		configuredVersion: inventory.nextcloud.internalVersion, provider: options.provider === 'sqlite' ? 'sqlite3' : options.provider,
 		databaseVersion: inventory.databases[options.provider].version, databaseTargetMatches: true, databasePeer: options.provider === 'sqlite' ? null : '172.20.0.2', enabled: true,
 	}
@@ -153,6 +153,70 @@ describe('installed runtime and provider identity', () => {
 		if (field === 'volume') fixture.container.Mounts[0].Name = 'old-pg16-data'
 		if (field === 'old mount') fixture.container.Mounts[0].Destination = '/var/lib/postgresql/data'
 		expect(() => assertProviderImage(inventory, settings(), fixture.container, fixture.image)).toThrow(/mismatch/)
+	})
+})
+
+describe('AIO-near Redis cache row', () => {
+	const redisImage = `${inventory.cache.redis.image}@${inventory.cache.redis.digest}`
+	const aioSettings = () => stageSettings(inventory, 'cs082-unit-aio', 'pgsql', imageId, 8183, {}, 'aio')
+
+	function redisFixture(options = aioSettings()) {
+		const fixture = installationFixture(options)
+		const cache = { distributed: '\\OC\\Memcache\\Redis', locking: '\\OC\\Memcache\\Redis', host: 'redis',
+			roundTrip: true, sessionHandler: 'redis', peer: '172.20.0.4' }
+		const redis = { Config: { Image: redisImage, Labels: { 'com.docker.compose.project': options.project, 'com.docker.compose.service': 'redis' } },
+			State: { Health: { Status: 'healthy' } }, NetworkSettings: { Networks: { [`${options.project}_wp9`]: { IPAddress: '172.20.0.4' } } } }
+		const base = fixture.run.getMockImplementation()
+		fixture.run = jest.fn((command, args) => {
+			if (args[0] === 'exec' && args.at(-1).includes('cs084-probe')) return JSON.stringify(cache)
+			if (args[0] === 'inspect' && args[1] === `${options.project}-redis-1`) return JSON.stringify([redis])
+			return base(command, args)
+		})
+		return { ...fixture, cache, redis }
+	}
+
+	it('adds a pinned Redis companion and AIO session/cache environment only to the AIO row', () => {
+		const services = JSON.parse(aioSettings().input).services
+		expect(services.redis).toMatchObject({ image: redisImage, networks: ['wp9'], healthcheck: { test: ['CMD', 'redis-cli', 'ping'] } })
+		expect(services['nextcloud-pgsql']).toMatchObject({
+			depends_on: { redis: { condition: 'service_healthy' } },
+			environment: { REDIS_HOST: 'redis', REDIS_PORT: '6379', TEST_RUNTIME_INTERNAL_VERSION: inventory.nextcloud.internalVersion },
+			ports: ['127.0.0.1:8183:80'],
+		})
+		const primary = JSON.parse(settings().input).services
+		expect(primary).not.toHaveProperty('redis')
+		expect(primary['nextcloud-pgsql'].environment).not.toHaveProperty('REDIS_HOST')
+		expect(() => stageSettings(inventory, 'cs082-unit-aio', 'pgsql', imageId, 8183, {}, 'staging')).toThrow('Invalid runtime row')
+	})
+	it('pulls the frozen database and Redis images before provisioning', () => {
+		const invoke = jest.fn(() => ({ status: 0 }))
+		stage(inventory, aioSettings(), invoke, jest.fn(() => ''))
+		expect(invoke.mock.calls.slice(0, 2).map(([, args]) => args.at(-1))).toEqual([
+			`${inventory.databases.pgsql.image}@${inventory.databases.pgsql.digest}`, redisImage,
+		])
+		expect(invoke.mock.calls[2][1]).toEqual(expect.arrayContaining(['up', '--no-build', '--pull', 'never']))
+	})
+	it('proves Nextcloud really uses the owned Redis for cache, locking and sessions', () => {
+		const fixture = redisFixture()
+		expect(verifyInstallation(inventory, aioSettings(), fixture.run, fixture.preflight)).toMatchObject({
+			status: 'installed-runtime-provider-match', cache: 'redis', locking: 'redis', sessions: 'redis', redis: inventory.cache.redis.version,
+		})
+		expect(verifyInstallation(inventory, settings(), installationFixture().run, jest.fn())).toMatchObject({ cache: 'apcu' })
+	})
+	it.each([
+		['distributed cache', fixture => { fixture.cache.distributed = '\\OC\\Memcache\\APCu' }],
+		['file locking', fixture => { fixture.cache.locking = null }],
+		['foreign host', fixture => { fixture.cache.host = 'other-redis' }],
+		['failed round trip', fixture => { fixture.cache.roundTrip = false }],
+		['file sessions', fixture => { fixture.cache.sessionHandler = 'files' }],
+		['mutable image', fixture => { fixture.redis.Config.Image = 'redis:latest' }],
+		['foreign project', fixture => { fixture.redis.Config.Labels['com.docker.compose.project'] = 'other' }],
+		['unhealthy', fixture => { fixture.redis.State.Health.Status = 'starting' }],
+		['foreign peer', fixture => { fixture.cache.peer = '172.99.0.4' }],
+	])('fails closed on Redis %s drift', (_, mutate) => {
+		const fixture = redisFixture()
+		mutate(fixture)
+		expect(() => verifyInstallation(inventory, aioSettings(), fixture.run, fixture.preflight)).toThrow(/Redis .*mismatch/)
 	})
 })
 

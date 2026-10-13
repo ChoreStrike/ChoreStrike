@@ -437,6 +437,38 @@ For the named AIO row, add `--runtime=aio` to image build/verification and the
 final `aio` argument to the stage runner, with a distinct image/project/port.
 The row tests the Apache-based app runtime, not AIO packaging or production.
 
+#### AIO-Near Runtime Row
+
+The project rule ([Runtime Currency](../standards/ai/rules/project-rules.md#runtime-currency-nextcloud-aio))
+requires the exact Nextcloud release of the operator's current AIO in every
+deployment gate. `test:runtime:check` therefore reads the official AIO
+container sources of the latest AIO release tag and reports drift separately
+for the bundled Nextcloud (`aio-bundle`) and each subcomponent the app runs
+against: PHP (`aio-php`), APCu (`aio-apcu`), phpredis (`aio-phpredis`), Redis
+(`aio-redis`) and PostgreSQL (`aio-postgres`). Unparsable sources fail closed.
+
+The AIO row stage (`node scripts/test-runtime-stage.js up <project> pgsql
+cs082-runtime-<aio-version>-local <port> aio`) adds a pinned Redis companion
+(`cache.redis` in the inventory) on the project network. The entrypoint then
+mirrors the AIO Nextcloud container: PHP sessions in Redis with session
+locking, `memcache.distributed` and `memcache.locking` on Redis, APCu as
+`memcache.local`. `verify` proves a real cache round trip through Nextcloud's
+cache factory, the Redis session handler and the owned, pinned, healthy Redis
+peer. The primary row and the canonical stack stay APCu-only.
+
+```powershell
+node scripts/test-runtime.js build cs082-runtime-34.0.4-local --runtime=aio
+node scripts/test-runtime.js verify-image cs082-runtime-34.0.4-local --runtime=aio
+node scripts/test-runtime-stage.js up cs082-<run-id>-aio pgsql cs082-runtime-34.0.4-local 8185 aio
+docker exec cs082-<run-id>-aio-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
+docker exec cs082-<run-id>-aio-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --order-by=default --do-not-cache-result
+```
+
+Residual differences that remain unmodeled (named, not hidden): PHP-FPM behind
+AIO's Apache httpd/Caddy proxy instead of mod_php, igbinary serializers,
+memcached/imagick extensions, Redis authentication/TLS, notify_push, Imaginary
+and AIO's other optional containers.
+
 The frozen rows retain two explicitly reviewed upstream limitations rather than
 silently changing upstream vendor trees. `verify-image` reports them as
 `upstreamLimitations`, never as clean dependency gates:

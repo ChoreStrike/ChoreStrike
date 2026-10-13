@@ -133,6 +133,39 @@ test.describe('Overdue Task Claiming', () => {
 		}
 	})
 
+	test('confirming a claim in the UI completes it once and the next occurrence returns to the assignee', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const probeName = `Claim Confirm ${Date.now()}`
+			const roomTaskId = await createOverdueProbe(page, probeName, { assignees: ['dad'] })
+
+			await page.goto('/apps/chorestrike/#/tasks')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+			await page.getByTestId('tasks-filter-all').click()
+			const overdueRow = page.locator('[data-testid="task-item"]').filter({ hasText: probeName }).first()
+			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad', { timeout: 15000 })
+
+			const completion = page.waitForResponse(response => response.request().method() === 'POST'
+				&& response.url().includes(`/room-tasks/${roomTaskId}/complete`))
+			await overdueRow.getByTestId('claim-overdue-button').click()
+			await page.getByTestId('overdue-claim-dialog').getByTestId('confirm-claim-button').click()
+			// One confirmation is the reviewed allocation: no second participation dialog.
+			expect((await completion).status()).toBe(200)
+			await expect(page.getByTestId('participation-dialog')).toHaveCount(0)
+			await expect(page.getByTestId(`undo-snackbar-entry-${roomTaskId}`)).toBeVisible({ timeout: 10000 })
+
+			const rows = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
+			const row = ((await rows.json()).data as Array<{ id: number; wasClaimed: boolean; claimedByUser: string;
+				originalAssignee: string; assignees?: string[]; status: string }>).find(item => item.id === roomTaskId)
+			expect(row).toMatchObject({ wasClaimed: true, claimedByUser: 'mom', originalAssignee: 'dad' })
+			expect(row?.status, 'the claimed occurrence is done; the next one is not overdue').not.toBe('overdue')
+			await expect(overdueRow.getByTestId('claim-overdue-button')).toHaveCount(0)
+			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad')
+		} finally {
+			await context.close()
+		}
+	})
+
 	test('claiming overdue task via API records takeover', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {

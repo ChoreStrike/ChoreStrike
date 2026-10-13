@@ -144,6 +144,12 @@ both defaults — individual users can switch to any available language.
 - [ ] Security audit completed (see [`../standards/guidelines/security.md`](../standards/guidelines/security.md))
 - [ ] No hardcoded secrets or API keys in codebase
 
+### Runtime Currency (AIO)
+
+- [ ] `npm run test:runtime:check` reports `current` (no upstream, AIO bundle or AIO component drift); otherwise update and requalify the inventory first
+- [ ] The production AIO runs the Nextcloud version of the inventory's AIO row (`docker/test-runtime.json` → `aio.nextcloudVersion`)
+- [ ] The AIO row (Redis sessions/cache/locking, PostgreSQL) passed the backend suites and the browser gate for that version ([AIO-near runtime row](testing.md#aio-near-runtime-row))
+
 ### Versions & Metadata
 
 - [ ] `appinfo/info.xml` version updated

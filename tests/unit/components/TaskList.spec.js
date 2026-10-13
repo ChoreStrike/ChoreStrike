@@ -277,6 +277,43 @@ describe('TaskList', () => {
 			expect(wrapper.get('[data-testid="overdue-claim-dialog"]').text()).toContain('Dad')
 		})
 
+		it('completes a confirmed claim as the reviewed sole participant without a second dialog', async () => {
+			const userStore = useUserStore()
+			userStore.currentUser = { nextcloudUserId: 'mom' }
+			userStore.houseUsers = [{ nextcloudUserId: 'dad', displayName: 'Dad' }]
+			const tasks = [mockTask({
+				task: { visibilityType: 'public' },
+				roomTask: { id: 77, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString() },
+			})]
+			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
+
+			await wrapper.find('[data-testid="claim-overdue-button"]').trigger('click')
+			await wrapper.get('[data-testid="confirm-claim-button"]').trigger('click')
+
+			expect(wrapper.emitted('complete')).toEqual([[77, {
+				participants: [{ userId: 'mom', sharePct: 100 }],
+				allocationReviewed: true,
+			}]])
+			expect(wrapper.find('[data-testid="overdue-claim-dialog"]').exists()).toBe(false)
+		})
+
+		it('falls back to the participation path when the claimer identity is unresolved', async () => {
+			const userStore = useUserStore()
+			userStore.currentUser = null
+			userStore.userId = null
+			userStore.houseUsers = []
+			const tasks = [mockTask({
+				task: { visibilityType: 'public' },
+				roomTask: { id: 78, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString() },
+			})]
+			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
+
+			await wrapper.find('[data-testid="claim-overdue-button"]').trigger('click')
+			await wrapper.get('[data-testid="confirm-claim-button"]').trigger('click')
+
+			expect(wrapper.emitted('complete')).toEqual([[78]])
+		})
+
 		it('should emit edit event when edit button clicked', async () => {
 			const userStore = useUserStore()
 			userStore.currentUser = { id: 1, role: 'owner', nextcloudUserId: 'u1' }

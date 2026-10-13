@@ -23,6 +23,7 @@ description: Release qualification, package build/smoke, private exchange handof
 ## Qualification Pipeline
 
 ```bash
+npm run test:runtime:check            # must be current: upstream, AIO bundle and AIO components
 npm test && npm run lint && npm run stylelint && composer cs:check
 # backend suites in Docker (docker-dev skill), then:
 npm run test:e2e:gate                 # canonical browser gate

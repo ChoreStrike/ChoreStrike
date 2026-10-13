@@ -229,7 +229,10 @@ class HouseUserMapper extends QBMapper {
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->in('nextcloud_user_id', $qb->createNamedParameter($ncUserIds, IQueryBuilder::PARAM_STR_ARRAY)));
+			->andWhere($qb->expr()->in('nextcloud_user_id', $qb->createNamedParameter($ncUserIds, IQueryBuilder::PARAM_STR_ARRAY)))
+			// Deterministic map order on every provider (PostgreSQL returns
+			// unordered IN-lists in plan order).
+			->orderBy('id', 'ASC');
 
 		$result = $qb->executeQuery();
 		$map = [];

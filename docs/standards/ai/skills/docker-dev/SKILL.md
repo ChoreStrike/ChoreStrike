@@ -74,7 +74,7 @@ docker inspect --format='{{.State.Health.Status}}' chorestrike-test
 
 # Runtime inventory checks (read-only; frozen inventory in docker/test-runtime.json)
 npm run test:runtime:validate    # offline inventory validation
-npm run test:runtime:check       # stable-drift check, exit 2 = update needed
+npm run test:runtime:check       # upstream + AIO bundle/component drift, exit 2 = update needed
 npm run test:runtime:canonical   # asserts the running canonical stack matches the inventory
 ```
 
@@ -109,6 +109,13 @@ Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 # PowerShell 5.1 — bash VAR=value syntax does NOT work here (in Git Bash it does):
 $env:TEST_DB_PROFILE='family'; docker compose -f docker/compose.test.yml up -d
 ```
+
+## AIO-Near Row (Redis)
+
+The canonical stack and the primary row are APCu-only. The AIO row's staged
+project (`test-runtime-stage.js ... aio`) adds a pinned Redis companion and runs
+sessions, distributed cache and file locking on Redis like the production AIO.
+Run it before every deployment: [AIO-near runtime row](../../../../engineering/testing.md#aio-near-runtime-row).
 
 ## Interactive Browser Automation
 

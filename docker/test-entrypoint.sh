@@ -52,6 +52,19 @@ if [ "$TEST_DB_TYPE" != sqlite ]; then
         exit 1
     fi
 fi
+# AIO-near cache row (CS-PLAN-084 WP-A): with REDIS_HOST, PHP sessions,
+# the distributed cache and file locking use Redis exactly like the AIO
+# Nextcloud container. Without it the APCu-only default stays unchanged.
+REDIS_HOST="${REDIS_HOST:-}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+REDIS_SESSION_INI="${PHP_INI_DIR:-/usr/local/etc/php}/conf.d/zz-chorestrike-redis-session.ini"
+if [ -n "$REDIS_HOST" ]; then
+    if [[ ! "$REDIS_HOST" =~ ^[a-z0-9][a-z0-9.-]{0,62}$ ]] || [[ ! "$REDIS_PORT" =~ ^[0-9]{1,5}$ ]] \
+        || (( 10#$REDIS_PORT < 1 || 10#$REDIS_PORT > 65535 )); then
+        echo "REDIS_HOST must be a plain host name and REDIS_PORT an integer between 1 and 65535." >&2
+        exit 1
+    fi
+fi
 php -r 'if (!in_array(getenv("TEST_DB_TYPE"), PDO::getAvailableDrivers(), true)) {
     fwrite(STDERR, "Required PDO database driver is missing.\n"); exit(1);
 }'
@@ -65,6 +78,35 @@ fi
 
 rm -f /tmp/chorestrike-ready
 echo "=== ChoreStrike Docker Test Environment ($TEST_DB_TYPE) ==="
+
+# Redis sessions must be configured before Apache starts (AIO redis-session.ini).
+if [ -n "$REDIS_HOST" ]; then
+    {
+        echo 'session.save_handler = redis'
+        echo "session.save_path = \"tcp://${REDIS_HOST}:${REDIS_PORT}?timeout=3.0&read_timeout=10.0\""
+        echo 'redis.session.locking_enabled = 1'
+        echo 'redis.session.lock_retries = -1'
+        echo 'redis.session.lock_wait_time = 100000'
+        echo 'redis.session.lock_expire = 60'
+    } > "$REDIS_SESSION_INI"
+    REDIS_OK=false
+    for i in {1..60}; do
+        if php -r 'try { $r = new Redis(); $r->connect(getenv("REDIS_HOST"), (int) getenv("REDIS_PORT"), 2.0);
+            exit($r->ping() ? 0 : 1); } catch (Throwable $e) { exit(1); }'; then
+            REDIS_OK=true
+            break
+        fi
+        echo "Redis pending... ($i/60)"
+        sleep 1
+    done
+    if [ "$REDIS_OK" != true ]; then
+        echo "Redis is unreachable after 60 attempts. Aborting setup." >&2
+        exit 1
+    fi
+else
+    rm -f "$REDIS_SESSION_INI"
+fi
+
 apache2-foreground &
 APACHE_PID=$!
 trap 'kill "$APACHE_PID" 2>/dev/null || true' EXIT
@@ -208,6 +250,16 @@ TEST_HTTP_URL="${TEST_HTTP_URL:-http://localhost:8080}"
 occ config:system:set trusted_domains 1 "--value=${TEST_HTTP_URL#http://}"
 occ config:system:set overwrite.cli.url "--value=$TEST_HTTP_URL"
 occ config:system:set memcache.local '--value=\OC\Memcache\APCu'
+if [ -n "$REDIS_HOST" ]; then
+    echo "Configuring Redis distributed cache and file locking (AIO-near row)..."
+    printf '{"system":{"memcache.distributed":"\\\\OC\\\\Memcache\\\\Redis","memcache.locking":"\\\\OC\\\\Memcache\\\\Redis","redis":{"host":"%s","port":%d,"timeout":3.0,"read_timeout":10.0}}}' \
+        "$REDIS_HOST" "$((10#$REDIS_PORT))" | occ config:import
+    if ! occ config:system:get memcache.locking | grep -qx '\\OC\\Memcache\\Redis' \
+        || ! occ config:system:get redis host | grep -qx "$REDIS_HOST"; then
+        echo "Redis cache/locking verification failed. Aborting setup." >&2
+        exit 1
+    fi
+fi
 occ config:system:set ratelimit.protection.enabled --value true --type boolean
 occ background:cron
 

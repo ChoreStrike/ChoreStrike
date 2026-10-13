@@ -274,6 +274,15 @@ describe('RoomDetail.vue', () => {
 		expect(wrapper.vm.showAddTaskModal).toBe(true)
 	})
 
+	it('completes a confirmed claim with its reviewed allocation, never reopening the participation dialog', async () => {
+		const wrapper = mount(RoomDetail, { props: { id: '1' }, global: { plugins: [pinia], stubs: { RouterLink: true } } })
+		await flushPromises()
+		const claim = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
+		await wrapper.vm.handleCompleteTask(1, claim)
+		expect(wrapper.vm.participation).toBeNull()
+		expect(wrapper.vm.roomTasksStore.completeRoomTask).toHaveBeenCalledWith(1, claim)
+	})
+
 	it('parses room id from props correctly', () => {
 		const wrapper = mount(RoomDetail, {
 			props: { id: '1' },

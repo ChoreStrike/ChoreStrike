@@ -29,12 +29,24 @@ function probeFixtures(row = 'primary', overrides = {}) {
 	})
 }
 
+/** Official AIO container sources (shape of the v14.2.0 Dockerfiles) for one inventory. */
+function aioDockerfile(url, inventory = frozen, overrides = {}) {
+	const value = { nextcloud: inventory.aio.nextcloudVersion, php: inventory.php.version, apcu: inventory.tools.apcu,
+		phpredis: inventory.tools.phpredis, redis: inventory.cache.redis.version, postgres: inventory.databases.pgsql.version, ...overrides }
+	if (url.endsWith('/Containers/redis/Dockerfile')) return `# syntax=docker/dockerfile:latest\nFROM redis:${value.redis}-alpine\n`
+	if (url.endsWith('/Containers/postgresql/Dockerfile')) return `# syntax=docker/dockerfile:latest\nFROM postgres:${value.postgres}-alpine\n`
+	return `FROM php:${value.php}-fpm-alpine3.24\nENV NEXTCLOUD_VERSION=${value.nextcloud}\n`
+		+ `    pecl install -o igbinary-3.2.16; \\\n    pecl install APCu-${value.apcu}; \\\n`
+		+ `    pecl install -D 'enable-memcached-igbinary="yes"' memcached-3.4.0; \\\n`
+		+ `    pecl install -oD 'enable-redis-igbinary="yes" enable-redis-zstd="yes" enable-redis-lz4="yes"' redis-${value.phpredis}; \\\n`
+}
+
 function officialFixtures(inventory = frozen) {
 	return {
 		fetchMetadata: jest.fn(async url => {
 			if (url.includes('/server/releases/')) return JSON.stringify(release(inventory.nextcloud.version))
 			if (url.includes('/all-in-one/releases/')) return JSON.stringify(release(inventory.aio.version))
-			return `ENV NEXTCLOUD_VERSION=${inventory.aio.nextcloudVersion}\n`
+			return aioDockerfile(url, inventory)
 		}),
 		execute: jest.fn((command, args) => {
 			if (command === 'git') {
@@ -47,7 +59,7 @@ function officialFixtures(inventory = frozen) {
 				const source = sources.find(item => args[2] === `refs/tags/${item.ref}`)
 				return `${source.revision}\trefs/tags/${source.ref}\n`
 			}
-			const image = [inventory.php, inventory.composer, inventory.databases.mysql, inventory.databases.pgsql].find(item => item.image === args[3])
+			const image = [inventory.php, inventory.composer, inventory.databases.mysql, inventory.databases.pgsql, inventory.cache.redis].find(item => item.image === args[3])
 			return JSON.stringify({ digest: image.digest, manifests: [{ digest: image.platformDigest, platform: { os: 'linux', architecture: 'amd64' } }] })
 		}),
 	}
@@ -76,6 +88,10 @@ describe('frozen runtime inventory', () => {
 		['database digest', value => { value.databases.pgsql.platformDigest = 'unknown' }],
 		['unobserved SQLite', value => { value.databases.sqlite.version = null }],
 		['tool', value => { delete value.tools.apcu }],
+		['phpredis tool', value => { delete value.tools.phpredis }],
+		['missing Redis cache', value => { delete value.cache }],
+		['mutable Redis image', value => { value.cache.redis.image = 'redis:latest' }],
+		['Redis digest', value => { value.cache.redis.platformDigest = 'unknown' }],
 		['distribution', value => { value.aio.version = 'latest' }],
 		['AIO compatibility identity', value => { value.compatibility.aio.nextcloud.version = '34.0.5' }],
 		['AIO compatibility revision', value => { value.compatibility.aio.notifications.revision = 'HEAD' }],
@@ -92,7 +108,7 @@ describe('frozen runtime inventory', () => {
 		expect(primary.nextcloud.version).toBe('35.0.1')
 		expect(aio.nextcloud.version).toBe('34.0.4')
 		expect(aio.previous.version).toBe('34.0.3')
-		expect(inventoryHash(aio)).toBe('eafff216a7ebe4a6d8202e2cfc1fd33d4e3cf0fcd2475256e11dada0f2388469')
+		expect(inventoryHash(aio)).toBe('c22ee1772b5223bb386441219642b0767fb57b3e61fb74d3f75ed0fe71fb9b06')
 		expect(inventoryHash(primary)).not.toBe(inventoryHash(aio))
 		expect(value).toEqual(frozen)
 		expect(() => selectRuntime(value, 'unknown')).toThrow('runtime selector')
@@ -145,8 +161,8 @@ describe('pinned update-source (previous patch) selection', () => {
 		expect(previousAio.nextcloud.version).toBe('34.0.3')
 		expect(previousAio.notifications.ref).toBe('v34.0.3')
 		expect(previousAio.viewer).toEqual({ ref: 'v34.0.3', revision: '1556dd3a53cc280a28eb082d1cca15b6eb8f3c96' })
-		expect(selectionHash(currentPrimary)).toBe('588009a22fadb122059d509a4dab3256241258052fe6e1daa5a9ebf0c6e5546f')
-		expect(selectionHash(currentAio)).toBe('eafff216a7ebe4a6d8202e2cfc1fd33d4e3cf0fcd2475256e11dada0f2388469')
+		expect(selectionHash(currentPrimary)).toBe('4f98b19e9e42b9e0ca71420b432a7ce6304214a878a9e32218132ea18608df1b')
+		expect(selectionHash(currentAio)).toBe('c22ee1772b5223bb386441219642b0767fb57b3e61fb74d3f75ed0fe71fb9b06')
 		expect(selectionHash(previousPrimary)).not.toBe(selectionHash(currentPrimary))
 		expect(selectionHash(previousAio)).not.toBe(selectionHash(currentAio))
 		expect(value).toEqual(frozen)
@@ -177,7 +193,7 @@ describe('pinned update-source (previous patch) selection', () => {
 		const actual = {
 			nextcloud: previous.nextcloud.version, internalVersion: previous.nextcloud.internalVersion,
 			revision: previous.nextcloud.revision, notificationsRevision: previous.notifications.revision, viewerRevision: previous.viewer.revision,
-			php: previous.php.version, sqlite: previous.databases.sqlite.version, pcov: previous.tools.pcov, apcu: previous.tools.apcu,
+			php: previous.php.version, sqlite: previous.databases.sqlite.version, pcov: previous.tools.pcov, apcu: previous.tools.apcu, phpredis: previous.tools.phpredis,
 		}
 		const run = jest.fn((command, args) => {
 			if (args[0] === 'image') return JSON.stringify([{ Id: `sha256:${'3'.repeat(64)}`, Os: 'linux', Architecture: 'amd64', Config: { Labels: { 'org.chorestrike.test-runtime.inventory': selectionHash(previous) } } }])
@@ -211,15 +227,43 @@ describe('read-only stable discovery', () => {
 		const value = copy()
 		const io = officialFixtures()
 		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release('35.0.2'))
-			: url.includes('/releases/') ? JSON.stringify(release(frozen.aio.version)) : `ENV NEXTCLOUD_VERSION=${frozen.aio.nextcloudVersion}`)
+			: url.includes('/releases/') ? JSON.stringify(release(frozen.aio.version)) : aioDockerfile(url))
 		await expect(checkStable(value, io)).resolves.toMatchObject({ status: 'update-needed', upstream: '35.0.2', aioNextcloud: '34.0.4', drift: ['upstream-nextcloud'] })
 		expect(value).toEqual(frozen)
 	})
 	it('reports a different AIO bundle even when its Nextcloud version stays unchanged', async () => {
 		const io = officialFixtures()
 		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release(frozen.nextcloud.version))
-			: url.includes('/releases/') ? JSON.stringify(release('14.3.0')) : `ENV NEXTCLOUD_VERSION=${frozen.aio.nextcloudVersion}`)
+			: url.includes('/releases/') ? JSON.stringify(release('14.3.0')) : aioDockerfile(url))
 		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'update-needed', drift: ['aio-bundle'] })
+	})
+	it('reports matching AIO subcomponents read from the release tag of the AIO container sources', async () => {
+		const io = officialFixtures()
+		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'current', drift: [], aioComponents: {
+			php: frozen.php.version, apcu: frozen.tools.apcu, phpredis: frozen.tools.phpredis,
+			redis: frozen.cache.redis.version, postgres: frozen.databases.pgsql.version,
+		} })
+		const sources = io.fetchMetadata.mock.calls.map(([url]) => url).filter(url => url.endsWith('/Dockerfile'))
+		expect(sources).toEqual(['nextcloud', 'redis', 'postgresql'].map(name =>
+			`https://raw.githubusercontent.com/nextcloud/all-in-one/v${frozen.aio.version}/Containers/${name}/Dockerfile`))
+	})
+	it.each([
+		['php', '8.4.26', 'aio-php'], ['apcu', '5.1.29', 'aio-apcu'], ['phpredis', '6.3.1', 'aio-phpredis'],
+		['redis', '8.10.2', 'aio-redis'], ['postgres', '18.7', 'aio-postgres'],
+	])('reports an AIO %s update as drift even when the bundled Nextcloud stays unchanged', async (component, version, label) => {
+		const io = officialFixtures()
+		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release(frozen.nextcloud.version))
+			: url.includes('/releases/') ? JSON.stringify(release(frozen.aio.version)) : aioDockerfile(url, frozen, { [component]: version }))
+		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'update-needed', drift: [label] })
+	})
+	it.each([
+		['nextcloud', 'pecl install APCu-'], ['redis', 'FROM redis:'], ['postgresql', 'FROM postgres:'],
+	])('fails closed when the AIO %s source no longer exposes a parsable version', async (container, marker) => {
+		const io = officialFixtures()
+		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release(frozen.nextcloud.version))
+			: url.includes('/releases/') ? JSON.stringify(release(frozen.aio.version))
+				: url.endsWith(`/Containers/${container}/Dockerfile`) ? aioDockerfile(url).replace(marker, '') : aioDockerfile(url))
+		await expect(checkStable(frozen, io)).rejects.toThrow(/AIO .* metadata/)
 	})
 	it('detects moved source tags and image digests', async () => {
 		const io = officialFixtures()
@@ -228,7 +272,7 @@ describe('read-only stable discovery', () => {
 			: JSON.stringify({ ...JSON.parse(execute(command, args)), digest: `sha256:${'f'.repeat(64)}` }))
 		const result = await checkStable(frozen, io)
 		expect(result.status).toBe('update-needed')
-		expect(result.drift).toHaveLength(16)
+		expect(result.drift).toHaveLength(17)
 	})
 	it.each(['release network failure', 'registry failure', 'malformed release', 'malformed AIO bundle', 'prerelease'])('fails closed on %s', async failure => {
 		const io = officialFixtures()
@@ -275,7 +319,7 @@ describe('frozen candidate execution', () => {
 			nextcloud: frozen.nextcloud.version, internalVersion: frozen.nextcloud.internalVersion,
 			revision: frozen.nextcloud.revision, notificationsRevision: frozen.notifications.revision, viewerRevision: frozen.viewer.revision,
 			php: frozen.php.version, sqlite: frozen.databases.sqlite.version,
-			pcov: frozen.tools.pcov, apcu: frozen.tools.apcu, inventoryHash: inventoryHash(frozen),
+			pcov: frozen.tools.pcov, apcu: frozen.tools.apcu, phpredis: frozen.tools.phpredis, inventoryHash: inventoryHash(frozen),
 		}
 		expect(assertInstalled(selection, actual)).toEqual(actual)
 		for (const key of Object.keys(actual)) expect(() => assertInstalled(selection, { ...actual, [key]: 'older' })).toThrow(`Installed runtime mismatch: ${key}`)
@@ -291,7 +335,7 @@ describe('frozen candidate execution', () => {
 		const actual = {
 			nextcloud: frozen.nextcloud.version, internalVersion: frozen.nextcloud.internalVersion,
 			revision: frozen.nextcloud.revision, notificationsRevision: frozen.notifications.revision, viewerRevision: frozen.viewer.revision,
-			php: frozen.php.version, sqlite: frozen.databases.sqlite.version, pcov: frozen.tools.pcov, apcu: frozen.tools.apcu,
+			php: frozen.php.version, sqlite: frozen.databases.sqlite.version, pcov: frozen.tools.pcov, apcu: frozen.tools.apcu, phpredis: frozen.tools.phpredis,
 		}
 		const run = jest.fn((command, args) => {
 			if (args[0] === 'image') return JSON.stringify([{ Id: `sha256:${'1'.repeat(64)}`, Os: 'linux', Architecture: 'amd64', Config: { Labels: { 'org.chorestrike.test-runtime.inventory': inventoryHash(frozen) } } }])
@@ -354,7 +398,7 @@ describe('upstream build condition dispositions', () => {
 		const actual = {
 			nextcloud: aio.nextcloud.version, internalVersion: aio.nextcloud.internalVersion,
 			revision: aio.nextcloud.revision, notificationsRevision: aio.notifications.revision, viewerRevision: aio.viewer.revision,
-			php: aio.php.version, sqlite: aio.databases.sqlite.version, pcov: aio.tools.pcov, apcu: aio.tools.apcu,
+			php: aio.php.version, sqlite: aio.databases.sqlite.version, pcov: aio.tools.pcov, apcu: aio.tools.apcu, phpredis: aio.tools.phpredis,
 		}
 		const run = jest.fn((command, args) => {
 			if (args[0] === 'image') return JSON.stringify([{ Id: imageId, Os: 'linux', Architecture: 'amd64', Config: { Labels: { 'org.chorestrike.test-runtime.inventory': inventoryHash(aio) } } }])
@@ -387,6 +431,7 @@ describe('promoted canonical default stack (R7)', () => {
 			VIEWER_REVISION: frozen.viewer.revision,
 			PCOV_VERSION: frozen.tools.pcov,
 			APCU_VERSION: frozen.tools.apcu,
+			PHPREDIS_VERSION: frozen.tools.phpredis,
 			RUNTIME_INVENTORY_SHA256: selectionHash(selection),
 		})
 		expect(defaults.PHP_IMAGE).not.toContain('latest')
@@ -432,7 +477,7 @@ describe('promoted canonical default stack (R7)', () => {
 			nextcloud: frozen.nextcloud.version, internalVersion: frozen.nextcloud.internalVersion,
 			revision: frozen.nextcloud.revision, notificationsRevision: frozen.notifications.revision, viewerRevision: frozen.viewer.revision,
 			php: frozen.php.version, sqlite: frozen.databases.sqlite.version,
-			pcov: frozen.tools.pcov, apcu: frozen.tools.apcu,
+			pcov: frozen.tools.pcov, apcu: frozen.tools.apcu, phpredis: frozen.tools.phpredis,
 			configuredVersion: frozen.nextcloud.internalVersion, provider: 'pgsql',
 			databaseVersion: `${frozen.databases.pgsql.version} (Debian ...)`,
 			databaseTargetMatches: true, enabled: true,
