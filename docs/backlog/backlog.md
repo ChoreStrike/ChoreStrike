@@ -51,6 +51,69 @@ the changes array by roomTaskId once before the loops.
 
 ---
 
+### [P1] UX-017 — Theme-correct colors and contrast across core views
+**Status**: In Progress · **Effort**: M · **Layer**: frontend · **Journey stage**: theming
+**Owning**: CS-PLAN-084 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: operator first-use feedback "UI components hard to recognize" (2026-10-13)
+**Source**: CS-PLAN-044 known remaining, logged by Standard-B review (2026-08-23); scope extended by the 2026-10-13 UX inventory
+
+Originally: `AvailabilitySettings.vue` day-item borders hardcode `#4caf50`/`#f44336`.
+Extended: dark-mode overrides in `src/styles/tokens.css` never match Nextcloud's
+body theme attributes and the fallback follows the OS theme; pale neon
+foregrounds in QuickStats/RoomCard are illegible in the light theme;
+white-on-warning badges and warning/success text fail contrast. Replace with
+theme-aware semantic tokens and add automated light/dark contrast checks
+([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-B).
+
+---
+
+### [P2] FEAT-UX-033 — Clickable dashboard overview
+**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: navigation
+**Owning**: CS-PLAN-084 WP-C · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: operator first-use feedback, 2026-10-13
+
+Every dashboard overview tile routes to its filtered destination; room cards
+become keyboard-operable links; quick-clean gets a 44 px labelled target; the
+Dashboard loads the room tasks its cards count through the existing single
+house-wide request ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-C).
+
+---
+
+### [P2] FEAT-UX-034 — Paged, compact all-tasks list
+**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: task management
+**Owning**: CS-PLAN-084 WP-D · **Depends on**: — · **Blocks**: — · **Folded-in**: "Completed" status filter always empty (only active tasks are fetched)
+**Source**: operator first-use feedback, 2026-10-13
+
+`TaskManager.vue` renders one unpaged list under seven always-open selects.
+Client-side pages of 20, compact rows, collapsible filter panel in an extracted
+`TaskFilterBar.vue` (executes CS-PLAN-080 RF-080-16), "Completed" filter
+loading finished tasks on demand ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-D).
+
+---
+
+### [P1] FEAT-UX-035 — Hold-to-confirm for task completion
+**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
+**Owning**: CS-PLAN-084 WP-E · **Depends on**: — · **Blocks**: — · **Folded-in**: TaskManager Done button lacks an in-flight guard (double submit)
+**Source**: operator request, 2026-10-13
+
+Done and Quick clean complete only after a 600 ms press-and-hold (pointer and
+keyboard) with a progress ring; early release sends nothing and shows a hold
+hint; Claim overdue keeps its existing confirmation dialog; every
+completion entry point is guarded against double submission ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-E).
+
+---
+
+### [P2] FEAT-UX-036 — Subtle completion feedback and diagnosable failure toasts
+**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
+**Owning**: CS-PLAN-084 WP-F · **Depends on**: FEAT-UX-035 · **Blocks**: — · **Folded-in**: dead streak-milestone celebration branch (`currentStreak` absent from the completion event; milestones never implemented)
+**Source**: operator request, 2026-10-13
+
+Always-on subtle feedback (check-mark transition, haptics where supported) while
+confetti/sound stay opt-in; remove the dead streak-milestone branch; failure toasts append the
+API error `code` so production failures such as CS-PLAN-080 RF-080-14 become
+diagnosable ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-F).
+
+---
+
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
@@ -193,22 +256,36 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 
 ---
 
-### [P4] UX-017 — AvailabilitySettings day-item border hexes bypass tokens
-**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: theming
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-044 known remaining, logged by Standard-B review (2026-08-23)
-
-`AvailabilitySettings.vue` day-item borders hardcode `#4caf50`/`#f44336`
-(~lines 449/454). Outside the CS-PLAN-044 swept-component list; replace with
-`var(--color-success)`/`var(--color-error)` when a dark-mode pass touches the
-component.
-
----
-
 ## Infrastructure and Documentation
 
 > Backlog hygiene, lint/dependency, docs truth, and operational security.
 > Independently schedulable unless a gate depends on it (CS-PLAN-058 §2.2).
+
+### [P1] TECH-RUNTIME-002 — AiO-current test rule and AiO-near runtime row
+**Status**: In Progress · **Effort**: M · **Layer**: tooling · **Journey stage**: test-gate fidelity
+**Owning**: CS-PLAN-084 WP-A · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
+**Source**: operator request after the first AiO installation, 2026-10-13
+
+The current-stable policy lives only in CS-PLAN-082's decision record and the
+runtime inventory is still `candidate`. Make "latest upstream stable plus the
+exact Nextcloud version of the operator's AiO release" a project rule, add Redis
+cache/locking to the AiO row (the alias-free `custom_apps` path is already
+enforced since CS-PLAN-083), and promote the inventory ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-A).
+
+---
+
+### [P1] TECH-TEST-005 — Successor ownership and mobile lifecycle coverage
+**Status**: In Progress · **Effort**: M · **Layer**: tests · **Journey stage**: completion / handover
+**Owning**: CS-PLAN-084 WP-G · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: lifecycle test inventory, 2026-10-13
+
+No test asserts who owns the successor occurrence after takeover, handover or
+reassignment; the claim confirm UI path is never exercised; there is no
+Playwright mobile project and takeover/undo never run at phone size. Add
+integration proofs, a claim-confirm E2E, mobile Chromium/WebKit projects with a
+core `@mobile` set, and an operator real-device checklist ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-G).
+
+---
 
 ### [P2] TECH-TEST-004 - Make package-smoke fixture report times deterministic
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-gate reliability

@@ -36,6 +36,9 @@ in the [backlog](../backlog/backlog.md). The future retention boundary is approv
 but not adopted; no WP9 provider/pair/human gate or production deployment is
 claimed by this preparation delivery.
 
+Active: [CS-PLAN-084: Family-Trial UX Baseline](active/cs-plan-084-family-trial-ux-baseline.md)
+(activated 2026-10-13, Standard A `PASS-WITH-FIXES`) precedes CS-PLAN-080 family evidence collection.
+
 Current active plans: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
 (parent), its WP9 child [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
 (activated 2026-10-03, Standard A `PASS`). Independent
