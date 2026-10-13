@@ -39,7 +39,7 @@ unexplained larger allowance.
 Prioritize:
 
 1. Authorization & ownership (house membership, owner-only ops) — [`security.md`](./security.md).
-2. Core domain: tasks, rooms, floors, gamification (coins/combos), scheduling.
+2. Core domain: tasks, rooms, floors, rewards (wallet, work splits, corrections), scheduling.
 3. Cross-layer contracts (backend payload ↔ Pinia store ↔ Vue component ↔ Playwright selector).
 4. Failure paths — every swallowed/translated exception has a regression test.
 

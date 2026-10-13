@@ -15,11 +15,19 @@ fix-email.bat
 # Composer dependencies (installed via `composer install`; lock file stays tracked)
 /vendor/
 
-# Local AI tooling state; only thin command adapters are tracked
+# Local AI tooling state; only generated adapters (npm run agents:sync) and
+# shared Claude settings are tracked. Canonical sources: docs/standards/ai/.
 /.kilo/*
 !/.kilo/command/
 /.kilo/command/*
 !/.kilo/command/*.md
+/.claude/*
+!/.claude/settings.json
+!/.claude/skills/
+!/.claude/commands/
+!/.claude/agents/
+# Machine-specific MCP servers (mirrors the local .kilo/kilo.jsonc "mcp" block)
+/.mcp.json
 
 # Node modules
 node_modules/

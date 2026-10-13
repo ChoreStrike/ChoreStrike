@@ -25,7 +25,9 @@
     "package:export": "node scripts/export-package.js",
     "l10n:check-keys": "node scripts/check-l10n-keys.js",
     "docs:encoding": "node scripts/check-docs-encoding.js",
-    "backlog:check": "node scripts/check-backlog.js"
+    "backlog:check": "node scripts/check-backlog.js",
+    "agents:sync": "node scripts/sync-agent-adapters.js",
+    "agents:check": "node scripts/sync-agent-adapters.js --check"
   },
   "dependencies": {
     "@fluentui/svg-icons": "^1.1.320",

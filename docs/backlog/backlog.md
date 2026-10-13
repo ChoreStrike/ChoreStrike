@@ -281,6 +281,27 @@ introduced, and raw traces/headers remain private.
 - [ ] Compare isolated and parallel runtime execution without changing required assertions or mutation retry semantics.
 - [ ] Fix a reproducible cause and add a targeted regression; otherwise record the bounded attribution result and remaining uncertainty.
 
+### [P4] TECH-DOCS-004 — Docs encoding gate misses Latin-1/C1 mojibake
+**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: docs truth
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: AI standards consolidation, 2026-10-13
+
+`npm run docs:encoding` only flags the two cp1252 lead signatures (UTF-8
+`E2 80`/`E2 82` read as cp1252). A UTF-8 arrow (`E2 86 92`) misread as
+Latin-1 — lead `U+00E2` followed by the C1 controls `U+0086 U+0092` — passed
+the gate in the tracked gamification skill (fixed by hand in the same change).
+A C1 code point (`U+0080`–`U+009F`) after a Latin-1 lead (`U+00C2`, `U+00C3`,
+`U+00E2`) is a deterministic corruption signature that legitimate
+English/German docs never contain.
+
+**Deferral reason / scope:** the observed instance is fixed; extending the
+signature set needs a self-test fixture and a whole-tree rescan, which belong
+in a focused tooling change.
+
+- [ ] Add a C1-after-lead signature to `scripts/check-docs-encoding.js` with a self-test fixture and confirm the tree stays green.
+
+---
+
 ### [P4] TECH-PKG-001 — Single source for owner-smoke case-count expectations
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: release qualification
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —

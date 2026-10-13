@@ -55,49 +55,33 @@ never prove plan completion.
 ## 4. Full Review (subagent strategy)
 
 The main agent loads context and orchestrates; **four read-only `reviewer`
-subagents run in parallel** through the available task mechanism. Project-specific
-criteria come from this skill, not from a machine-specific agent prompt. The main
-agent owns all synthesis, fixes, questions, transitions, and commits.
+subagents run in parallel** (role and output contract:
+[`agents/reviewer.md`](../../agents/reviewer.md); tool mapping:
+[`agent-spawning.md`](../../../guidelines/agent-spawning.md) §3). The main agent
+owns all synthesis, fixes, questions, transitions, and commits.
 
-Flow: delegate the **prep lookups** ("where is X", inventories) to the cheap
-**`explore`** subagent first (see
-[`agent-spawning.md`](../../../guidelines/agent-spawning.md) §2) → set scope →
-spawn the 4 reviewers in parallel → validate all four deliverables → consolidate +
-deduplicate findings → auto-fix/question/follow-up. A failed, missing, or malformed
-reviewer result blocks a Full-review verdict; never silently omit a track. Escalate any genuinely complex slice
-(authorization trace, cross-service invariant) to the main agent instead of a
-`reviewer`.
+Flow: delegate **prep lookups** ("where is X", inventories) to `explore` → set
+scope → spawn the 4 reviewers in parallel → validate all four deliverables →
+consolidate + deduplicate → auto-fix/question/route. A failed, missing, or
+malformed reviewer result blocks a Full-review verdict; never silently omit a
+track. Escalate genuinely complex slices (authorization trace, cross-service
+invariant) to the main agent instead of a `reviewer`.
 
-| # | Subagent | Checks | Deliverable |
-| - | -------- | ------ | ----------- |
+| # | Track | Checks | Deliverable |
+| - | ----- | ------ | ----------- |
 | 1 | **Correctness & Functionality** | Logic errors, edge cases, missing/wrong validation, tests present & green, determinism | Findings |
 | 2 | **Architecture & Ownership** | Layering (controller/service/mapper), thin routes, reuse, file/method size, duplicates, circular deps | Findings + refactor notes |
-| 3 | **Security, Auth & Data-Flow** | `@NoAdminRequired` only, house membership/ownership, client-input validation, `createNamedParameter()`, no `v-html` user content, no secrets/PII in logs, exploit vectors (see [`security.md`](../../../guidelines/security.md)) | Findings (security = never auto-fix) |
+| 3 | **Security, Auth & Data-Flow** | `@NoAdminRequired` only, house membership/ownership, client-input validation, `createNamedParameter()`, no `v-html` user content, no secrets/PII in logs, exploit vectors ([`security.md`](../../../guidelines/security.md)) | Findings (security = never auto-fix) |
 | 4 | **Performance & Code Quality** | Hot loops/N+1 queries, allocations, `AppLogger`/`logger.js` usage & levels, PHPDoc/JSDoc, coding standards, i18n `t()` coverage | Findings + perf notes |
 
-### Subagent prompt frame
-
-Give every subagent the same skeleton, only the focus + criteria differ:
+Task prompt per reviewer (only focus + criteria differ):
 
 ```
-You are reviewing <module/path> for ChoreStrike. READ-ONLY: return findings, do not edit.
-
+Review <module/path> for ChoreStrike. Follow the read-only output contract in
+docs/standards/ai/agents/reviewer.md.
 Scope files: <list>
-Focus: <one of the 4 areas above>
-Criteria: <section from this skill / security.md / coding-conventions.md>
-
-Return ONLY findings as a fenced JSON array, one object per issue:
-{ "severity": "block|major|minor|nit",
-  "file": "<path>:<line>",
-  "issue": "<what is wrong>",
-  "suggested_fix": "<one-line fix idea>",
-  "auto_fixable": <true|false> }
-
-- severity "block" = must not ship; "major" = should fix before done;
-  "minor" = small bug/auto-fixable; "nit" = style/preference.
-- Mark auto_fixable=false for anything security/auth-relevant, architectural,
-  migration-related, or behavior-changing.
-- Do not propose workarounds. Do not restate code that is already correct.
+Focus: <one track above>
+Criteria: <section of this skill / security.md / coding-conventions.md>
 ```
 
 ## 5. Outcomes, Questions, and Plan Ownership
@@ -127,7 +111,7 @@ Use exactly these outcomes:
 ### Batched questions
 
 - Collect uncertainties during review and ask them together near the end through
-  the agent's structured question mechanism (`question` in Kilo).
+  the structured question tool (Kilo `question`, Claude Code `AskUserQuestion`).
 - Give 2–3 concrete, mutually exclusive options. Put the recommended option first,
   mark it **Recommended**, and explain the trade-off; never treat the recommendation
   as the user's consent.
@@ -141,22 +125,12 @@ Use exactly these outcomes:
 
 ## 6. Auto-fix Rule
 
-Apply fixes **directly** in the review for items in the left column. For items in
-the right column, ask when a decision is needed, then route every remaining
-open finding **scope-first** (project-rules §4 "Finding Routing"):
-
-1. **In the owning plan's scope/domain** → record it in the plan's
-   `## Review Findings` checklist (or fix it in the same round when feasible).
-   It blocks the plan's `done/` move; **no new backlog item**. Rescoping it to
-   the backlog requires explicit user approval.
-2. **Duplicating/extending an existing open backlog item** → fold it into that
-   item (`Folded-in` field); never create a parallel entry.
-3. **Outside the owning plan's scope** (other modules/domains, cross-cutting
-   work) or **no owning plan** (`plan: N/A`) → `backlog.md` with
-   `Source: Review of <scope>` (see [`backlog/README.md`](../../../../backlog/README.md)).
-
-`// HACK:` workarounds are the exception: they always get a `backlog.md`
-follow-up because the debt must outlive the plan.
+Apply fixes **directly** for items in the left column. For the right column, ask
+when a decision is needed, then route every remaining open finding per
+[`project-rules.md`](../../rules/project-rules.md) §4 "Finding Routing"
+(owning plan's `## Review Findings` → fold into an existing backlog item →
+`backlog.md` with `Source: Review of <scope>` only when out of scope or
+`plan: N/A`; `// HACK:` always gets a `backlog.md` follow-up).
 
 | Auto-fix inline | Discuss or log only |
 | --------------- | --------------------------- |
@@ -185,8 +159,8 @@ requires explicit disclosure approval.
 3. **Questions:** ask one batched structured request, record the answers, apply them, and rerun affected checks.
 4. **Docs:** update only where public API, workflow, rules, or durable plan outcomes changed.
 5. **Plan:** append a concise `## Review Outcome` (scope, base HEAD/diff fingerprint, outcome, fixes, findings, decisions, gates). On eligible Standard A, update status and owning backlog items, then move `new/ → active/`. On an eligible final Standard B/Full review, update status, archive completed owning backlog items, and move `active/ → done/`. Interim or `NEEDS-FOLLOW-UP` reviews leave the plan in place.
-6. **Findings routing/record:** route every non-sensitive open finding per §6 scope-first: plan-scope findings into the owning plan's `## Review Findings` checklist, duplicates/extensions into the existing backlog item (`Folded-in`), and only out-of-scope findings (or `plan: N/A`) as new `backlog.md` entries with `Source: Review of <scope>`; update `ACTIVE_TASKS.md`. A plan-owned review always updates the plan; a substantial review additionally creates/updates `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` from the playbook template. Any `NEEDS-FOLLOW-UP` evidence-only commit without an owning plan also requires that tracked review record, even when the review is otherwise small.
-7. **Commit:** the review request authorizes one scoped conventional commit on the current branch. Stage only reviewed files and review-owned follow-up/transition files; inspect status and staged diff; never include unrelated changes, secrets, private content, or artifacts. Do not create an empty commit. Do not create/switch branches, amend, push, or open a PR. If unrelated paths are already staged or concurrent edits changed the reviewed scope, use `BLOCKED` instead of altering them.
+6. **Findings routing/record:** route every non-sensitive open finding per §6; update `ACTIVE_TASKS.md`. A plan-owned review always updates the plan; a substantial review additionally creates/updates `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` from the playbook template. Any `NEEDS-FOLLOW-UP` evidence-only commit without an owning plan also requires that tracked review record, even when the review is otherwise small.
+7. **Commit:** one scoped conventional commit on the current branch, following the [`git-workflow`](../git-workflow/SKILL.md#automatic-review-commit) procedure exactly (drift check, exact allowed set, no empty commit, no branch/amend/push/PR). Unexpected staged paths or concurrent scope drift → `BLOCKED`.
 
 For `NEEDS-FOLLOW-UP`, commit only the owning plan's evidence-only Review Outcome
 and Review Findings updates, the review record, backlog updates, and verified safe fixes; leave affected

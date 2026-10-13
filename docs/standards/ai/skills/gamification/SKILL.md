@@ -121,7 +121,7 @@ describe the WP3 model as the shipped contract.
 - Household gate owner-controlled, default off (`houses.catalog_enabled`,
   written only via `PUT /house/catalog` with the house `stateVersion`).
 - Owner-administered items (positive `price_minor`, archived never
-  deleted); requests freeze the displayed terms under lock (drift â 409).
+  deleted); requests freeze the displayed terms under lock (drift → 409).
 - C4 lifecycle: reserve at creation (`A >= P`), owner/adult-self approval
   provenance, settle only at confirmed delivery (`B -= P` and `R -= P`
   together), refund only an owner-attested false fulfillment against the

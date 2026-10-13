@@ -9,7 +9,17 @@ Entry point for coding standards, conventions, and AI resources.
 | Path | Description |
 |------|-------------|
 | [`ai/rules/project-rules.md`](ai/rules/project-rules.md) | Canonical rule set (architecture, security, quality, archive, plans) |
-| [`ai/skills/`](ai/skills/) | Load-on-demand skills — one `SKILL.md` each (`php-backend`, `vue-frontend`, `testing`, `docker-dev`, `gamification`, `review`, `documentation`, `architecture`, `plan-management`, `git-workflow`, `i18n`) |
+| [`ai/skills/`](ai/skills/) | Load-on-demand skills — one `SKILL.md` each (`php-backend`, `vue-frontend`, `testing`, `docker-dev`, `gamification`, `review`, `documentation`, `architecture`, `plan-management`, `git-workflow`, `i18n`, `release`) |
+| [`ai/commands/`](ai/commands/) | Slash-command bodies (`/review-chorestrike`, `/review-chorestrike-full`, `/plan-review`) |
+| [`ai/agents/`](ai/agents/) | Subagent roles (`reviewer`) |
+
+**Tool adapters.** `docs/standards/ai/` is the only place to edit. Kilo reads the
+skills directly (`kilo.jsonc` → `skills.paths`) and loads the rules via
+`instructions`; Claude Code loads `AGENTS.md` + the rules through `CLAUDE.md`
+imports. `npm run agents:sync` generates `.claude/skills|commands|agents/` and
+`.kilo/command/`; `npm run agents:check` (also run by `npm test`) fails on drift.
+Frontmatter: skills need `name` (= directory) and `description`; agents may set
+`read-only: true` (mapped to read-only tools for Claude).
 
 ## Guidelines ([`guidelines/`](guidelines/))
 

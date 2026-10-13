@@ -21,10 +21,12 @@ description: Writing and reviewing ChoreStrike Vue 3 + Pinia frontend code
 ## Must-Haves for Any Change
 
 - User-visible text → `t()` from the Nextcloud l10n helper. No hardcoded EN/DE copy.
-- Network access → `@nextcloud/axios` via the Pinia stores (`src/store/*.js`). Don't scatter axios calls across components.
+- Network access → Pinia stores (`src/store/*.js`) through the shared `src/services/api.js` client (owns `@nextcloud/axios` and response normalization). No axios calls in components.
 - Logging → `src/utils/logger.js`. **No `console.*`** in production code.
 - **No `v-html`** with user-provided content.
 - Prefer `@nextcloud/vue` components over hand-rolled UI to stay consistent and accessible.
+- Feedback, dialogs, empty/error states, touch targets, and vocabulary follow [`design.md`](../../../guidelines/design.md) §5–§8 (`ConfirmDialog`, `Modal`, `EmptyState`/`ErrorState`, ≥44 px targets).
+- New E2E-touched elements need a role/label or `data-testid` ([`e2e-testid-conventions.md`](../../../guidelines/e2e-testid-conventions.md)).
 
 ## Patterns
 
@@ -42,4 +44,6 @@ When task/room payload shapes change, keep these in sync in the same change:
 ```bash
 npm test            # Jest unit (components, stores, l10n consistency)
 npm run lint        # ESLint (js + vue)
+npm run stylelint   # when styles changed
+npm run build       # when build config or entry points changed
 ```

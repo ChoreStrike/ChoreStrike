@@ -27,10 +27,11 @@ Controller (thin) → Service (logic) → Mapper/Entity (persistence)
 ## Must-Haves for Any Change
 
 - `@NoAdminRequired` annotation (never `@PublicPage`).
-- Authorization — two membership primitives in `AuthorizationService`, both throwing `ForbiddenException`:
-  - `ensureHouseMember($houseId)` — **auto-creates** membership only after the canonical `getOrCreateHouse` instance bootstrap; this is the standard controller preamble.
-  - `assertHouseMember($houseId)` — pure read-only gate for target-derived/existing house IDs where auto-join is not intended and for owner checks inside `AuthorizationService`.
-  - `requireHouseOwner($houseId)` for owner-only ops; `assertUserInHouse($houseId, $userId)` to guard endpoints that take an arbitrary target userId.
+- Authorization via `AuthorizationService` (denials throw `ForbiddenException` → 403; canonical detail and the 403-vs-404 rule: [`security.md`](../../../guidelines/security.md#authorization)):
+  - `assertHouseMember($houseId)` — **standard controller preamble**: pure read-only gate, never auto-joins.
+  - `ensureHouseMember($houseId)` — **bootstrap-only** (ADR-010 D1): creates a membership only while the house has zero members; only the five designated bootstrap endpoints may call it.
+  - `requireHouseOwner($houseId)` for owner-only ops; `assertCanManageTasks($houseUser)` for task-domain mutations (children → 403); `assertUserInHouse($houseId, $userId)` for endpoints taking an arbitrary target userId.
+  - Enforce mutation authorization **inside the service** too (ADR-006 defense in depth).
 - Input validation at the controller boundary → return `{ success: false, error: { code, message } }` with a stable code and HTTP status.
 - DB access via `IQueryBuilder` with `createNamedParameter()`. **Never** string-concatenate SQL.
 - Log failures once, at the boundary, with structured context (`AppLogger`).
@@ -44,11 +45,4 @@ Controller (thin) → Service (logic) → Mapper/Entity (persistence)
 
 ## Verification
 
-```bash
-# Unit (Docker) — services, mappers, entities
-docker compose -f docker/compose.test.yml exec -T nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.unit.xml
-# Integration (Docker) — controllers, API
-docker compose -f docker/compose.test.yml exec -T nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.integration.xml
-```
+`composer cs:check`, then the backend unit + integration suites in Docker — commands live only in the [`docker-dev`](../docker-dev/SKILL.md#essential-commands) skill.

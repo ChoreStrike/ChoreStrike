@@ -1,7 +1,7 @@
 module.exports = {
 	testEnvironment: 'jsdom',
 	moduleFileExtensions: ['js', 'json', 'vue'],
-	testPathIgnorePatterns: ['/node_modules/', '/archive/', '/\\.kilo/'],
+	testPathIgnorePatterns: ['/node_modules/', '/archive/', '/\\.kilo/', '/\\.claude/'],
 	// testPathIgnorePatterns keeps worktree tests out of the run list, but
 	// haste/module discovery still indexes manual mocks inside them
 	// (duplicate-mock warnings, TECH-JEST-001). modulePathIgnorePatterns is
@@ -11,6 +11,7 @@ module.exports = {
 	modulePathIgnorePatterns: [
 		'<rootDir>.archive.',
 		'<rootDir>.[.]kilo.worktrees.',
+		'<rootDir>.[.]claude.worktrees.',
 		// Extracted packages contain dependency license package.json copies.
 		// The boundary dots are any-char matches for path separators; unlike the
 		// kilo entry, the directory name itself contains no literal dot.

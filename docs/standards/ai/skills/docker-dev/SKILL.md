@@ -53,17 +53,18 @@ docker compose -f docker/compose.test.yml down
 # Full rebuild (after Dockerfile/composer changes)
 docker compose -f docker/compose.test.yml build --no-cache
 
-# Unit tests only
-docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
+# Unit tests (services, mappers, entities)
+docker compose -f docker/compose.test.yml exec -T nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
 
-# Integration tests only (real Nextcloud + DB bootstrap)
-docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml
+# Integration tests (controllers, API; real Nextcloud + DB bootstrap)
+docker compose -f docker/compose.test.yml exec -T nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
-# Single test file
-docker exec chorestrike-test vendor/bin/phpunit tests/unit/Service/TaskServiceTest.php
+# Single file / single method (append to the exec prefix above)
+... vendor/bin/phpunit tests/unit/Service/TaskServiceTest.php
+... vendor/bin/phpunit --configuration phpunit.unit.xml --filter testCreate_ValidData_ReturnsCreatedTask
 
-# Single test method
-docker exec chorestrike-test vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
+# Provision + verify + run both complete backend suites (leaves the stack running)
+node scripts/run-tests.js
 
 # Interactive shell in container
 docker exec -it chorestrike-test sh
@@ -100,11 +101,12 @@ Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 | Profile | Use case |
 |---------|----------|
 | `empty` | Schema only, no seed data |
+| `emptyhouse` | Clean ChoreStrike tables, reusing the seeded family Nextcloud accounts (canonical journey) |
 | `minimal` | One house, one user, basic rooms |
 | `family` | Multi-user household with gamification data. Seeds a deterministic CLOSED weekly-goal week (realistic on-time completions crossing the fixed 80% target, `seedClosedWeeklyGoal`) — the closed-week receipt is now only an in-app celebration marker (WP5 digest cutover, CS-PLAN-076/ADR-016); the reward-config appconfig override of the CS-PLAN-055 era was retired with the WP4 fixed-target cutover (CS-PLAN-075). **E2E note (WP5):** the profile users' fixed passwords are provisioned by the container ENTRYPOINT at creation time — recreate the container with `TEST_DB_PROFILE='family'` (PowerShell: `$env:TEST_DB_PROFILE='family'; docker compose -f docker/compose.test.yml up -d`), not just a re-seed, or the profile logins fail. |
 
 ```powershell
-# PowerShell 5.1 (this repo's shell) — bash VAR=value syntax does NOT work here:
+# PowerShell 5.1 — bash VAR=value syntax does NOT work here (in Git Bash it does):
 $env:TEST_DB_PROFILE='family'; docker compose -f docker/compose.test.yml up -d
 ```
 

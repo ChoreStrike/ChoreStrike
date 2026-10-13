@@ -1,7 +1,6 @@
 # E2E Stable Selector & Testid Conventions
 
-> How to keep the Playwright E2E suite (chromium + firefox + webkit) fast and
-> flake-free. Read this before adding or modifying any `tests/e2e/*.spec.ts`.
+> How to keep the Playwright E2E suite fast and flake-free. Read this before adding or modifying any `tests/e2e/*.spec.ts`.
 > Related: [testing.md](./testing.md) (strategy), [engineering/testing.md](../../engineering/testing.md) (env + commands).
 
 ---
@@ -143,4 +142,4 @@ spec on that worker pool. This is enforced by code review and a grep guard.
 - [ ] Every newly-touched element has a role/label or `data-testid`.
 - [ ] New testid added in the same change to the component that renders it.
 - [ ] If a testid was added/renamed, the component spec asserts it renders.
-- [ ] Spec passes locally with `--retries=0` on chromium + firefox + webkit.
+- [ ] Spec passes with `--retries=0` on its owning Chromium pool, and `npm run test:e2e:gate` is green (new required behavior gets a gate manifest row — see [testing.md](./testing.md#e2e-notes)). Firefox/WebKit projects are optional cross-browser checks, not the gate.

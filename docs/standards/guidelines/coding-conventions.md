@@ -64,14 +64,14 @@ public function create(int $floorId, string $name): JSONResponse {
 Conventional commits:
 
 ```
-<type>: <description>
+<type>(<scope>): <description>
 
 [optional body]
 
 [optional footer]
 ```
 
-Types: `feat`, `fix`, `docs`, `refactor`, `test`, `i18n`, `perf`, `chore`, `build`, `ci`.
+Types: `feat`, `fix`, `docs`, `refactor`, `test`, `i18n`, `perf`, `chore`, `build`, `ci`. The scope is optional, lowercase, and names the domain or gate area (`tasks`, `gates`, `release`, `security`, …).
 
 - One logical change per commit. Reference the issue/plan where relevant (`Closes #123`).
 - Never commit secrets, private content, or build artifacts.

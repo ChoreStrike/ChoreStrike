@@ -78,7 +78,11 @@ describe('isolated frozen runtime staging', () => {
 		expect(invoke.mock.calls[0][1]).toEqual(['pull', '--platform', inventory.platform, `${inventory.databases.pgsql.image}@${inventory.databases.pgsql.digest}`])
 		expect(invoke.mock.calls[1][1]).toEqual(expect.arrayContaining(['--no-build', '--pull', 'never', '--wait']))
 		expect(invoke.mock.calls[1][2]).toMatchObject({ input: settings().input })
-		expect(JSON.stringify(invoke.mock.calls)).not.toMatch(/down|force-recreate/)
+		// Check the Docker argument lists only: the inherited process env can
+		// legitimately contain these substrings (e.g. a value of "markdown").
+		const dockerArgs = invoke.mock.calls.flatMap(call => call[1])
+		expect(dockerArgs).not.toContain('down')
+		expect(dockerArgs).not.toContain('--force-recreate')
 	})
 	it.each(['pull', 'provision'])('propagates %s failure without destroying diagnostic resources', failure => {
 		const invoke = jest.fn().mockReturnValueOnce({ status: failure === 'pull' ? 1 : 0 }).mockReturnValue({ status: 1 })

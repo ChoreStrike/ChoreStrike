@@ -28,7 +28,7 @@ description: Writing and updating ChoreStrike documentation
 | Concept / design context | `docs/concepts/` |
 | Implementation plans (temporary working docs) | `docs/plans/{new,active,onhold,done}/` |
 | Standards & guidelines | `docs/standards/guidelines/` |
-| AI rules / skills | `docs/standards/ai/{rules,skills}/` |
+| AI rules / skills / commands / agents | `docs/standards/ai/{rules,skills,commands,agents}/` — then `npm run agents:sync` (tool folders are generated) |
 | API reference | `docs/api/README.md`, `docs/api/` |
 | Backlog & tasks | `docs/backlog/` |
 

@@ -1,0 +1,9 @@
+---
+description: Standard A plan review with automatic activation and commit
+---
+
+Load the canonical `review`, `plan-management`, and `git-workflow` skills, then perform a **Standard A** review on the target plan.
+
+Parse an optional `--no-commit` flag as the canonical read-only override. Target: the remaining `$ARGUMENTS` if given; otherwise the single regular non-symlink `*.md` plan in `docs/plans/new/`, tracked or untracked. Dotfiles/placeholders such as `.gitkeep` are never candidates. If the target is absent, outside `new/`, ambiguous, or its destination already exists, follow the review skill's blocking question/outcome rules instead of guessing.
+
+The skills are authoritative. Batch all decisions through the structured question tool (Kilo `question`, Claude Code `AskUserQuestion`) with the recommendation first, record answers, apply only safe fixes, use the canonical outcome, and run the finalization pipeline. Unless `--no-commit` is present, the pipeline performs every eligible transition and scoped commit; the override remains findings-only.

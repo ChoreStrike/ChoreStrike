@@ -26,13 +26,13 @@ description: Branching, conventional commits, and clean history for the single C
 
 - Follow the conventional-commit format and types in [`coding-conventions.md`](../../../guidelines/coding-conventions.md).
 - One logical unit per commit. Reference the issue/plan where relevant (`Closes #123`).
-- Run `npm run lint:fix` only when its write scope contains no unrelated dirty source files; otherwise use scoped fixers and repository-wide check-only lint.
+- Lint/format first per [`project-rules.md`](../../rules/project-rules.md) §3.
 
 ## Never Commit
 
 - Secrets, tokens, credentials.
 - Private content (belongs in `/private/`, gitignored).
-- Build artifacts and coverage (`js/`, `coverage/`, `line/`, `*.log`).
+- Build artifacts and coverage (`js/`, `css/`, `build/`, `coverage/`, `*.log`).
 - Anything from the repository-root `/archive/` (gitignored local reference). Tracked `docs/backlog/archive/` records are allowed.
 
 ## Automatic Review Commit
