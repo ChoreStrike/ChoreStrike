@@ -17,10 +17,11 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
+import { AxeBuilder } from '@axe-core/playwright'
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { runOcc } from './fixtures/occ-runner'
-import { completeWithOptionalDialog } from './fixtures/completion-api'
+import { completeRoomTaskViaApi, completeWithOptionalDialog } from './fixtures/completion-api'
 import { holdToConfirm } from './fixtures/hold-to-confirm'
 import type { Locator } from '@playwright/test'
 
@@ -82,6 +83,10 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				await page.getByTestId('tasks-filter-unassigned').click()
 				await expect(own).toHaveCount(0)
 				await expect(unassigned).toBeVisible()
+				// CS-PLAN-084 D-084-02: the filter panel starts collapsed on phones.
+				const filterToggle = page.getByTestId('tasks-filter-toggle')
+				await expect(filterToggle).toHaveAttribute('aria-expanded', width < 768 ? 'false' : 'true')
+				if (width < 768) await filterToggle.click()
 				await page.getByTestId('person-filter').selectOption('teen')
 				await expect(other).toBeVisible()
 				await expect(unassigned).toHaveCount(0)
@@ -103,6 +108,66 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				await expect(page.getByTestId('room-detail-view')).toBeVisible()
 				await expect(page.getByTestId('task-item').filter({ hasText: appointmentName }).first()).toBeVisible()
 			}
+		} finally { await context.close() }
+	})
+
+	test('owner phone: the all-tasks list pages by 20 and "Completed" loads finished work on demand (CS-PLAN-084 WP-D)', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		test.setTimeout(180000)
+		const { context, page } = await createUserContext(browser, 'mom', { viewport: { width: 390, height: 844 } })
+		try {
+			const structure = (await (await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')).json()).data
+			const kitchen = structure.flatMap(entry => entry.rooms).find(room => room.name === 'Kitchen')
+			const createTask = async (name: string, extra: Record<string, unknown> = {}) => {
+				const response = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+					data: { roomId: kitchen.id, assigneeUserIds: ['mom'], nextDue: utcDayKey(0), task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1, ...extra } },
+				})
+				expect(response.ok()).toBe(true)
+				return (await response.json()).data.roomTask.id as number
+			}
+			// A finished one-time task (completion deactivates it) and a deleted one.
+			const finishedId = await createTask('Finished once probe', { frequencyType: 'weekly', recurrenceMode: 'once' })
+			expect((await completeRoomTaskViaApi(page, finishedId)).ok()).toBe(true)
+			const deletedId = await createTask('Deleted probe')
+			expect((await page.request.delete(`/apps/chorestrike/api/v1/room-tasks/${deletedId}`)).ok()).toBe(true)
+			// At least 21 active household tasks → two pages.
+			const active = (await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()).data.length
+			for (let index = active; index < 21; index++) await createTask(`Paging probe ${index}`)
+			const total = Math.max(active, 21)
+			const pages = Math.ceil(total / 20)
+			const secondPageRows = Math.min(20, total - 20)
+
+			const roomTaskReads: string[] = []
+			page.on('request', request => {
+				const url = new URL(request.url())
+				if (url.pathname.endsWith('/api/v1/room-tasks')) roomTaskReads.push(url.searchParams.get('activeOnly') ?? '')
+			})
+			await page.goto('/apps/chorestrike/#/tasks?scope=all')
+			await expect(page.getByTestId('task-item')).toHaveCount(20)
+			await expect(page.getByTestId('tasks-filter-toggle')).toHaveAttribute('aria-expanded', 'false')
+			await expect(page.getByTestId('status-filter')).toBeHidden()
+			await expect(page.getByTestId('task-pager-status')).toHaveText(`Page 1 of ${pages}`)
+
+			await page.getByTestId('task-pager-next').click()
+			await expect(page).toHaveURL(/[?&]page=2/)
+			await expect(page.getByTestId('task-item')).toHaveCount(secondPageRows)
+			await page.reload()
+			await expect(page.getByTestId('task-pager-status')).toHaveText(`Page 2 of ${pages}`)
+			await expect(page.getByTestId('task-item')).toHaveCount(secondPageRows)
+			await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+			expect(roomTaskReads).toEqual(['true', 'true'])
+
+			await page.getByTestId('tasks-filter-toggle').click()
+			await page.getByTestId('status-filter').selectOption('completed')
+			const finished = page.getByTestId('task-item').filter({ hasText: 'Finished once probe' })
+			await expect(finished).toHaveClass(/completed/)
+			await expect(page.getByTestId('task-item').filter({ hasText: 'Deleted probe' })).toHaveCount(0)
+			await expect(page.locator('[data-testid="task-item"]:not(.completed)')).toHaveCount(0)
+			await expect(page).not.toHaveURL(/[?&]page=/)
+			await expect(page.getByTestId('tasks-filter-toggle')).toContainText('Filters (1 active)')
+			expect(roomTaskReads).toEqual(['true', 'true', 'false'])
+			const contrast = await new AxeBuilder({ page }).include('#content').withRules(['color-contrast']).analyze()
+			expect(contrast.violations.flatMap(violation => violation.nodes.map(node => node.target.join(' ')))).toEqual([])
 		} finally { await context.close() }
 	})
 

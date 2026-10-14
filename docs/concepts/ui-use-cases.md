@@ -229,16 +229,24 @@ points:** TaskManager.
 | Private (personal) task list | Dashboard chip → TaskManager visibility filter | `GET /tasks` + client-side `?visibility=private` scope | ✅ (CS-PLAN-041; `GET /tasks/my-private` was pruned in CS-PLAN-055 — the client-side filter is the only path) |
 | Task-level complete/skip/reschedule/daily | — | legacy `PUT /tasks/{id}/…`, `GET /tasks/daily` | ⛔ pruned (CS-PLAN-055; RoomTask equivalents are the live completion path; `PUT /tasks/{id}/uncomplete` stays as the undo primitive) |
 
-### `/tasks` query presets (router contract, CS-PLAN-084 WP-C)
+### `/tasks` query presets (router contract, CS-PLAN-084 WP-C/WP-D)
 
 Links into the TaskManager may preset its filters once on entry; unknown
 values keep the defaults, and the filters stay freely changeable afterwards.
+The list shows client-side pages of 20 compact rows (D-084-02); `page` mirrors
+the current page, is dropped on page 1 and resets whenever a filter changes. The
+scope buttons stay visible; the other filters sit in a panel behind a *Filters*
+toggle (with an active-filter count) that starts collapsed on phones (≤ 768 px).
+The default view issues one active-only house read; the *Completed* status
+loads finished (inactive, never deleted) tasks on demand with one extra
+`activeOnly=false` read each time it is selected (D-084-07).
 
 | Query | Values | Effect |
 |---|---|---|
 | `scope` | `mine`, `unassigned`, `all` | scope buttons (My tasks / Unassigned / Everyone) |
 | `status` | `active`, `overdue`, `due-today` | status filter (same rules as the select: the occurrence-based overdue boundary, D-084-08) |
 | `visibility` | `private` | visibility filter on private tasks, scope `all` (CS-PLAN-041) |
+| `page` | `2`, `3`, … | page of the filtered list; a page beyond the end shows the last page |
 
 ## UC-06 — Task creation (materialize room tasks)
 

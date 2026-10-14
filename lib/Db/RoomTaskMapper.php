@@ -85,7 +85,8 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all room tasks for a room
+	 * Get all room tasks for a room. Tombstoned (deleted) rows are never
+	 * listed; `$activeOnly = false` adds the finished/deactivated rows only.
 	 *
 	 * @param int $roomId The room ID
 	 * @param bool $activeOnly Whether to return only active tasks
@@ -96,7 +97,8 @@ class RoomTaskMapper extends QBMapper {
 
 		$qb->select('*')
 			->from($this->getTableName())
-			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('deleted_at'));
 
 		if ($activeOnly) {
 			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
@@ -111,7 +113,8 @@ class RoomTaskMapper extends QBMapper {
 	 * Find all room tasks of a house (joins through rooms → floors),
 	 * ordered by the deterministic `next_due, created_at, id` read order
 	 * (CS-PLAN-067 D1) — the one batched house-wide fetch that replaces the
-	 * per-room request loop of TaskManager and SchedulingView.
+	 * per-room request loop of TaskManager and SchedulingView. Tombstoned
+	 * (deleted) rows are never listed (CS-PLAN-084 D-084-07).
 	 *
 	 * @param int $houseId The house ID
 	 * @param bool $activeOnly Whether to return only active tasks
@@ -123,6 +126,7 @@ class RoomTaskMapper extends QBMapper {
 		$qb->select('rt.*')
 			->from($this->getTableName(), 'rt');
 		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->isNull('rt.deleted_at'));
 
 		if ($activeOnly) {
 			$qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
@@ -223,7 +227,7 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Find room tasks by scope ID
+	 * Find room tasks by scope ID (tombstoned rows are never listed)
 	 *
 	 * @param int $scopeId The scope ID
 	 * @param bool $activeOnly Whether to return only active tasks
@@ -234,7 +238,8 @@ class RoomTaskMapper extends QBMapper {
 
 		$qb->select('*')
 			->from($this->getTableName())
-			->where($qb->expr()->eq('scope_id', $qb->createNamedParameter($scopeId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('scope_id', $qb->createNamedParameter($scopeId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('deleted_at'));
 
 		if ($activeOnly) {
 			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));

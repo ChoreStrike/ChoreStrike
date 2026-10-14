@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–6 committed (WP-E, WP-F, WP-C)
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D)
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -233,18 +233,18 @@ documented router contract (`docs/concepts/ui-use-cases.md`).
 new:      src/components/Common/HoldButton.vue
 new:      src/components/Tasks/TaskFilterBar.vue
 new:      src/utils/haptics.js, src/utils/errorToast.js
-new:      tests/unit/components/HoldButton.spec.js (+ TaskFilterBar spec), tests/unit/utils/{haptics,errorToast}.spec.js,
+new:      tests/unit/components/{HoldButton,TaskFilterBar}.spec.js, tests/unit/utils/{haptics,errorToast}.spec.js,
           tests/unit/helpers/hold.js
-new:      tests/integration/Service/SuccessorOwnershipTest.php
+new:      tests/integration/Service/SuccessorOwnershipTest.php, tests/integration/Db/RoomTaskListReadTest.php
 new:      tests/e2e/mobile-core.spec.ts, tests/e2e/fixtures/hold-to-confirm.ts
 modified: src/styles/tokens.css, src/styles/mobile.css
 modified: tests/e2e/{dashboard-navigation,workflow-request-budgets,family-core-ux}.spec.ts,
           tests/unit/views/{Dashboard,TaskManager}.spec.js, tests/unit/components/{QuickStats,RoomCard,FloorList}.spec.js
 modified: lib/Service/RoomTaskService.php, tests/integration/Service/SuccessorOwnershipTest.php (RF-084-02),
-          docs/api/README.md
+          lib/Db/RoomTaskMapper.php (WP-D: list reads never return tombstones), docs/api/README.md
 modified: src/views/Dashboard.vue, TodayView.vue, TaskManager.vue, RoomDetail.vue
 modified: src/components/Dashboard/{QuickStats,RoomCard,FloorList,HouseHealthBar}.vue
-modified: src/components/Tasks/{TaskList,TaskListItem}.vue
+modified: src/components/Tasks/{TaskList,TaskListItem}.vue, src/utils/taskDisplay.js
 modified: src/components/Settings/AvailabilitySettings.vue (UX-017)
 modified: src/composables/useCelebration.js, src/store/roomTasks.js,
           src/components/Common/UndoSnackbar.vue, src/views/InsightsView.vue
@@ -296,7 +296,7 @@ the same round.
 - [ ] Standards state the AiO-current rule; AiO row (exact AiO NC version, Redis, `custom_apps`) and current upstream row both pass backend + browser gates; inventory promoted
 - [ ] No color-contrast violations (axe) on My Day, Dashboard, Tasks, Room detail in light and dark Nextcloud themes; dark tokens follow the Nextcloud theme, not the OS
 - [ ] Every dashboard overview tile navigates to its filtered destination; room cards keyboard-operable; quick-clean ≥ 44 px with label
-- [ ] All-tasks list paged (20), filters collapsible, "Completed" filter loads finished tasks on demand (default view stays one request)
+- [x] All-tasks list paged (20), filters collapsible, "Completed" filter loads finished tasks on demand (default view stays one request)
 - [ ] Done and Quick clean require a 600 ms hold (pointer and keyboard); early release sends no request and shows the hold hint; Claim keeps its dialog; no double submit
 - [ ] Subtle completion feedback always on (reduced-motion respected); haptics on supporting devices; dead streak-milestone branch removed; failure toasts show the API code
 - [ ] Successor ownership after takeover, handover and reassignment proven by integration tests and the mobile E2E set
@@ -633,6 +633,64 @@ the same round.
   10/10 isolated (family-core-ux, dashboard, task-completion-full-flow,
   core-household-journey in the 28).
 
+### Round 7 — WP-D paged, compact all-tasks list (2026-10-14)
+
+- **TaskFilterBar** (`src/components/Tasks/TaskFilterBar.vue`, executes RF-080-16):
+  stateless v-model over one filter object; scope buttons always visible; the
+  person/floor/room/status/priority/difficulty/visibility/search panel sits
+  behind a *Filters* toggle (`aria-expanded`/`aria-controls`, "Filters (n
+  active)", scope not counted) that starts collapsed at ≤ 768 px; coupled
+  resets kept (scope clears person, person selects *Everyone*, floor clears
+  room); every control now has a `<label for>`. `TaskManager.vue` 831 → 693
+  lines; the bar is 364 lines, ~200 of them its moved styles.
+- **Paging (D-084-02):** client-side pages of 20 after the shared list order
+  (`compareTaskItems` in `taskDisplay.js`, also used by TaskList; undated rows
+  last instead of the former `NaN` comparison); `NcButton` pager with
+  "Page {page} of {pages}" (`aria-live`), hidden for one page; `?page=` is
+  mirrored with `router.replace`, dropped on page 1, read on entry and on
+  back/forward, clamped to the last page; any filter change returns to page 1;
+  Next/Previous bring the list start into view. Compact rows (`compact` prop:
+  description only when expanded, tighter spacing). The completed row's `opacity: 0.6` was
+  dropped (contrast).
+- **Completed filter (D-084-07):** selecting it calls
+  `roomTasks.fetchInactiveHouseRoomTasks()` (one generation-guarded
+  `activeOnly=false` read; only inactive rows land in `inactiveRoomTasks`; the
+  active set and `houseLoaded` stay untouched); `finishedRoomTasks` merges rows
+  that became inactive locally; delete and `reset()` clear them; a failed read
+  toasts "Could not load finished tasks (<reference>)".
+- **Defect found and fixed:** `RoomTaskMapper::findByHouse/findByRoomId/
+  findByScopeId` filtered only `is_active`, so `activeOnly=false` also listed
+  tombstoned (deleted) room tasks — the *Completed* filter would have shown
+  deleted tasks, and the RoomDetail stats (`findByRoomId(…, false)`) already
+  counted them in `totalTasks`/`completionRate`. The list reads now always
+  exclude `deleted_at IS NOT NULL`. Regression `RoomTaskListReadTest` (house,
+  room and endpoint reads, room stats); negative control: both tests fail on
+  the old mapper.
+- **Tests:** Jest TaskFilterBar (5: wide/phone default, toggle, active count,
+  coupled resets, labels), TaskManager (+6: 20/page + compact + query, single
+  page, `?page=` entry/clamp/invalid, reset on filter change, on-demand
+  completed read once, failure toast), store (+4: inactive read params/isolation,
+  superseded + failure, merge/dedupe + reset, delete), `compareTaskItems`.
+  E2E: family-core-ux phone test (21+ household tasks → 20 rows, collapsed
+  panel, Next → `?page=2`, reload keeps page 2, no horizontal overflow, the
+  default view issues only active reads, *Completed* shows the finished one-time
+  task and never the deleted one with exactly one `activeOnly=false` read, axe
+  color-contrast on the completed rows); the 390/1440 px filter test asserts
+  the collapsed/expanded default; the TaskManager request budget now pins
+  `activeOnly=true`.
+- **Docs:** `ui-use-cases.md` `/tasks` contract (`page`, collapsible panel,
+  on-demand *Completed*), API `activeOnly` semantics, FEAT-UX-034 progress,
+  RF-080-16 closed in CS-PLAN-080. New strings: "Filters", "Filters ({count}
+  active)", "Page {page} of {pages}", "Task pages", "Could not load finished
+  tasks" (DE copy added).
+- **Gates:** Jest 123 / 1777 (after the review fix), `test:noise` clean; ESLint, Stylelint,
+  `l10n:check-keys` (1288), `composer cs:check` (0/414) green; bundle rebuilt.
+  PHPUnit (canonical NC35): unit 1385, integration 613 (full suites). Browser,
+  no retries: chromium 47/47 (task-manager, core-functionality,
+  workflow-request-budgets, dashboard-navigation, overdue-task-claiming,
+  private-tasks, color-contrast light+dark, room-detail, setup);
+  chromium-serial-db 17/17 (family-core-ux incl. the new test, dashboard).
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -786,3 +844,21 @@ the same round.
 - **Resolved:** RF-084-02.
 - **Gates after fixes:** Dashboard Jest 17/17, bundle rebuilt, family-core-ux
   12/12; round gates above stand.
+
+### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 7 WP-D, plan stays active)
+
+- **Scope:** WP-D round at `e5761bd`, index empty, 20 modified tracked paths
+  (unstaged diff SHA256 prefix `44c34281f7cbd353` at capture) plus 3 untracked
+  files (TaskFilterBar, its spec, RoomTaskListReadTest).
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-7).
+- **Checked:** D-084-02 (20 per page, collapsible filters, no grouping/infinite
+  scroll) and D-084-07 (default view one active-only read, Completed on demand);
+  mapper change only narrows reads, visibility filter unchanged; Completed read
+  isolated from the active set and projections; no swallowed errors; strings via
+  `t()` with DE copy; RF-080-16 extraction stateless.
+- **Fixed in-round (2):** D7-01 compact rows made descriptions unreachable →
+  shown when expanded (Jest regression); D7-02 E2E paging assertions assumed ≤ 40
+  household tasks → derived from the total.
+- **Resolved:** RF-080-16 (CS-PLAN-080).
+- **Gates after fixes:** Jest 123 / 1777, lint, build; browser family-core-ux
+  13/13, chromium 26/26; round gates above stand.

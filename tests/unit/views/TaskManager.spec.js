@@ -41,7 +41,7 @@ jest.mock('@/store/user.js', () => ({
 
 jest.mock('@/components/Tasks/TaskList.vue', () => ({
 	name: 'TaskList',
-	props: ['roomTasks', 'loading', 'showRoom'],
+	props: ['roomTasks', 'loading', 'showRoom', 'compact'],
 	template: '<div class="task-list-stub">tasks</div>',
 }))
 
@@ -59,9 +59,11 @@ jest.mock('@/components/Common/Modal.vue', () => ({
 }))
 
 let mockRoute = { query: {} }
+const mockRouter = { replace: jest.fn().mockResolvedValue() }
 
 jest.mock('vue-router', () => ({
 	useRoute: () => mockRoute,
+	useRouter: () => mockRouter,
 }))
 
 import { showSuccess, showError, showWarning } from '@nextcloud/dialogs'
@@ -80,6 +82,8 @@ const mockTasksStore = {
 
 const mockRoomTasksStore = {
 	roomTasks: [],
+	finishedRoomTasks: [],
+	fetchInactiveHouseRoomTasks: jest.fn().mockResolvedValue([]),
 	fetchRoomTasks: jest.fn().mockResolvedValue([]),
 	fetchHouseRoomTasks: jest.fn().mockResolvedValue([]),
 	fetchDueTodayTasks: jest.fn().mockResolvedValue([]),
@@ -109,6 +113,7 @@ describe('TaskManager', () => {
 		roomTasksStore = mockRoomTasksStore
 		tasksStore = mockTasksStore
 		mockRoute = { query: {} }
+		mockRoomTasksStore.finishedRoomTasks = []
 		mockUserStore.currentUser = { nextcloudUserId: 'mom' }
 		mockUserStore.houseUsers = [{ nextcloudUserId: 'mom', displayName: 'Parent' }, { nextcloudUserId: 'teen', displayName: 'Teen' }]
 		jest.clearAllMocks()
@@ -286,12 +291,12 @@ describe('TaskManager', () => {
 	it('presets the status filter from ?status= and ignores unknown values (CS-PLAN-084 WP-C)', async () => {
 		mockRoute = { query: { status: 'overdue', scope: 'all' } }
 		const overdue = await mountView()
-		expect(overdue.vm.filterStatus).toBe('overdue')
-		expect(overdue.vm.filterScope).toBe('all')
+		expect(overdue.vm.filters.status).toBe('overdue')
+		expect(overdue.vm.filters.scope).toBe('all')
 
 		mockRoute = { query: { status: 'completed-everything' } }
 		const unknown = await mountView()
-		expect(unknown.vm.filterStatus).toBe('all')
+		expect(unknown.vm.filters.status).toBe('all')
 	})
 
 	it('pre-filters to private tasks when routed with ?visibility=private (CS-PLAN-041)', async () => {
@@ -307,7 +312,7 @@ describe('TaskManager', () => {
 
 		const wrapper = await mountView()
 
-		expect(wrapper.vm.filterVisibility).toBe('private')
+		expect(wrapper.vm.filters.visibility).toBe('private')
 		const shown = wrapper.findComponent({ name: 'TaskList' })
 		expect(shown.props('roomTasks').map(t => t.task.name)).toEqual(['Private chore'])
 	})
@@ -399,5 +404,104 @@ describe('TaskManager', () => {
 
 		expect(wrapper.vm.participation).toBeNull()
 		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(9, claim)
+	})
+
+	describe('paged list (CS-PLAN-084 WP-D)', () => {
+		const rows = (count) => Array.from({ length: count }, (_, index) => ({
+			id: index + 1,
+			taskId: 100 + index,
+			roomId: 12,
+			assignees: [],
+			isActive: true,
+			// Distinct due days keep the shared list order deterministic.
+			nextDue: new Date(Date.UTC(2030, 0, index + 1)).toISOString(),
+		}))
+		const shownIds = (wrapper) => wrapper.findComponent({ name: 'TaskList' }).props('roomTasks').map(item => item.roomTask.id)
+
+		it('shows 20 compact rows per page and mirrors the page in the query', async () => {
+			mockRoomTasksStore.roomTasks = rows(25)
+			const wrapper = mountView()
+			await flushPromises()
+
+			expect(shownIds(wrapper)).toEqual(Array.from({ length: 20 }, (_, index) => index + 1))
+			expect(wrapper.findComponent({ name: 'TaskList' }).props('compact')).toBe(true)
+			expect(wrapper.get('[data-testid="task-pager-status"]').text()).toBe('Page 1 of 2')
+			expect(wrapper.get('[data-testid="task-pager-previous"]').element.disabled).toBe(true)
+
+			await wrapper.get('[data-testid="task-pager-next"]').trigger('click')
+			expect(shownIds(wrapper)).toEqual([21, 22, 23, 24, 25])
+			expect(mockRouter.replace).toHaveBeenLastCalledWith({ query: { page: '2' } })
+			expect(wrapper.get('[data-testid="task-pager-next"]').element.disabled).toBe(true)
+		})
+
+		it('hides the pager when everything fits on one page', async () => {
+			mockRoomTasksStore.roomTasks = rows(20)
+			const wrapper = mountView()
+			await flushPromises()
+			expect(shownIds(wrapper)).toHaveLength(20)
+			expect(wrapper.find('[data-testid="task-pager"]').exists()).toBe(false)
+		})
+
+		it('opens the page from ?page= and clamps a page beyond the end', async () => {
+			mockRoomTasksStore.roomTasks = rows(25)
+			mockRoute = { query: { page: '2', scope: 'all' } }
+			const second = mountView()
+			await flushPromises()
+			expect(shownIds(second)).toEqual([21, 22, 23, 24, 25])
+
+			mockRoute = { query: { page: '9' } }
+			const beyond = mountView()
+			await flushPromises()
+			expect(beyond.get('[data-testid="task-pager-status"]').text()).toBe('Page 2 of 2')
+
+			mockRoute = { query: { page: 'abc' } }
+			const invalid = mountView()
+			await flushPromises()
+			expect(shownIds(invalid)[0]).toBe(1)
+		})
+
+		it('returns to page 1 and drops ?page= when a filter changes', async () => {
+			mockRoomTasksStore.roomTasks = rows(25)
+			mockRoute = { query: { page: '2', scope: 'all' } }
+			const wrapper = mountView()
+			await flushPromises()
+
+			await wrapper.get('[data-testid="tasks-filter-unassigned"]').trigger('click')
+			expect(shownIds(wrapper)[0]).toBe(1)
+			expect(mockRouter.replace).toHaveBeenLastCalledWith({ query: { scope: 'all' } })
+		})
+	})
+
+	describe('Completed filter (CS-PLAN-084 D-084-07)', () => {
+		it('keeps the default view on the active read and loads finished tasks only on demand', async () => {
+			mockRoomTasksStore.roomTasks = [{ id: 1, taskId: 101, roomId: 12, assignees: [], isActive: true }]
+			mockRoomTasksStore.finishedRoomTasks = [{ id: 7, taskId: 107, roomId: 12, assignees: [], isActive: false }]
+			const wrapper = mountView()
+			await flushPromises()
+			const shown = () => wrapper.findComponent({ name: 'TaskList' }).props('roomTasks').map(item => item.roomTask.id)
+
+			expect(mockRoomTasksStore.fetchInactiveHouseRoomTasks).not.toHaveBeenCalled()
+			expect(shown()).toEqual([1])
+
+			await wrapper.get('[data-testid="status-filter"]').setValue('completed')
+			await flushPromises()
+			expect(mockRoomTasksStore.fetchInactiveHouseRoomTasks).toHaveBeenCalledTimes(1)
+			expect(shown()).toEqual([7])
+
+			// Another filter change inside "Completed" reuses the loaded rows.
+			await wrapper.get('[data-testid="priority-filter"]').setValue('normal')
+			expect(mockRoomTasksStore.fetchInactiveHouseRoomTasks).toHaveBeenCalledTimes(1)
+		})
+
+		it('toasts with the API reference when the finished-task read fails', async () => {
+			mockRoomTasksStore.fetchInactiveHouseRoomTasks.mockRejectedValueOnce(Object.assign(new Error('down'), { status: 503 }))
+			const wrapper = mountView()
+			await flushPromises()
+
+			await wrapper.get('[data-testid="status-filter"]').setValue('completed')
+			await flushPromises()
+			expect(showError).toHaveBeenCalledWith('Could not load finished tasks (HTTP 503)')
+			expect(wrapper.findComponent({ name: 'TaskList' }).props('loading')).toBe(false)
+		})
 	})
 })

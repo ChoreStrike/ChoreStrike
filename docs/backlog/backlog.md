@@ -89,6 +89,8 @@ covers dashboard tile navigation and the plan's final review passes.
 Client-side pages of 20, compact rows, collapsible filter panel in an extracted
 `TaskFilterBar.vue` (executes CS-PLAN-080 RF-080-16), "Completed" filter
 loading finished tasks on demand ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-D).
+Implemented 2026-10-14 (round 7); stays open until the WP-G part 2 mobile set
+covers the paged list and filters and the plan's final review passes.
 
 ---
 

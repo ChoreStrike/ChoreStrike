@@ -47,6 +47,7 @@
 					:selected="isSelected(item.roomTask.id)"
 					:expanded="isExpanded(item.roomTask.id)"
 					:assignee-draft="assigneeDraft[item.roomTask.id] || []"
+					:compact="compact"
 					@complete="$emit('complete', $event)"
 					@edit="$emit('edit', $event)"
 					@delete="$emit('delete', $event)"
@@ -77,7 +78,7 @@ import { useChecklistStore } from '../../store/checklist.js'
 import { useUserStore } from '../../store/user.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { logger } from '../../utils/logger.js'
-import { isOverdue } from '../../utils/taskDisplay.js'
+import { compareTaskItems, isOverdue } from '../../utils/taskDisplay.js'
 
 /**
  * TaskList orchestrator (CS-PLAN-067 §3.4): sorting, the bulk-assign state
@@ -106,6 +107,11 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+		/** Dense rows for long lists (CS-PLAN-084 WP-D). */
+		compact: {
+			type: Boolean,
+			default: false,
+		},
 	},
 
 	emits: ['complete', 'edit', 'delete'],
@@ -120,14 +126,7 @@ export default {
 
 		const sortedTasks = computed(() => {
 			const tasks = props.roomTasks || []
-			return [...tasks].sort((a, b) => {
-				// Sort by due date
-				const dateA = new Date(a.roomTask.nextDue)
-				const dateB = new Date(b.roomTask.nextDue)
-				if (dateA.getTime() !== dateB.getTime()) return dateA.getTime() - dateB.getTime()
-				// Then by priority (high first)
-				return b.task.priority - a.task.priority
-			})
+			return [...tasks].sort(compareTaskItems)
 		})
 
 		const toggleExpand = async (item) => {

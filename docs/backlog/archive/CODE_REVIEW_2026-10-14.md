@@ -159,3 +159,37 @@ Jest 122 / 1760 (Dashboard spec rerun after the fix), `test:noise` clean; ESLint
 ## Outcome
 
 **PASS-WITH-FIXES (interim).** Two minor findings fixed in-round; RF-084-02 resolved; no open findings from this round.
+
+## Round 7
+
+# Code Review: CS-PLAN-084 Round 7 (WP-D Paged, Compact All-Tasks List) — Interim Standard B
+
+- **Review Date**: 2026-10-14
+- **Reviewer**: Claude Code
+- **Mode**: Standard B (interim; plan stays `active/`)
+- **Scope**: working tree at `e5761bd` (index empty): 20 modified tracked paths (unstaged diff SHA256 prefix `44c34281f7cbd353` at capture) plus 3 untracked files (`TaskFilterBar.vue` `c2abbe0d6833a9fa`, `TaskFilterBar.spec.js` `db9ac4f0067fc74d`, `RoomTaskListReadTest.php` `561533401a151713`) — TaskFilterBar extraction (RF-080-16), client paging with `?page=`, compact rows, on-demand finished-task read, `RoomTaskMapper` tombstone exclusion, Jest/PHPUnit/E2E tests, l10n, router contract, API note, plan/backlog tracking
+- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+
+## Findings
+
+| ID | Severity | Area | Issue | Status |
+|----|----------|------|-------|--------|
+| D7-01 | minor | `TaskListItem.vue` | Compact rows dropped the task description and the expanded details never show it, so descriptions became unreachable in the all-tasks list (children cannot open Edit) | fixed (compact rows show the description when expanded; Jest regression) |
+| D7-02 | minor | `family-core-ux.spec.ts` | The paging assertions hard-coded "of 2" pages and `total − 20` second-page rows, which only holds for ≤ 40 household tasks | fixed (page count and second-page rows derived from the total) |
+
+## Verified Non-Findings
+
+- The mapper change only narrows list reads (`deleted_at IS NULL`); every caller of `findByHouse/findByRoomId/findByScopeId` wants live rows; tombstones were already excluded from active reads through `is_active`. Named parameters only; no authorization change — the read service's visibility filter still applies to the `activeOnly=false` read.
+- The Completed read never replaces the active set, `houseLoaded`/stale metadata or the count projections; `reset()` clears it and invalidates its generation.
+- A page beyond the end renders the last page while the URL keeps the requested number until the next page/filter change — harmless, recorded as a nit without follow-up. A quick Completed → other → Completed toggle can clear the skeleton early while a second read is pending — display only, nit.
+- `router.replace` failures are logged (`logger.warn`), not swallowed; filter changes reset the page explicitly (no watcher race with the query presets read in `data()`).
+- `TaskFilterBar.vue` is 364 lines (~200 moved styles) against the ~300-line guidance — accepted, recorded in the plan evidence; `TaskManager.vue` shrank 831 → 693.
+- Dropping `opacity: 0.6` on completed rows also affects RoomDetail's just-completed one-time rows — intended (contrast), the check icon and background still mark them; axe passes on the Completed view.
+
+## Gates
+
+Jest 123 / 1777, `test:noise` clean; ESLint, Stylelint, `l10n:check-keys` (1288), `composer cs:check` (0/414), `docs:encoding`, `backlog:check`, `git diff --check` green; bundle rebuilt. PHPUnit (canonical NC35) unit 1385, integration 613; `RoomTaskListReadTest` negative control fails on the old mapper. Browser, no retries: chromium 47/47 and chromium-serial-db 17/17 before the fixes; after the fixes family-core-ux 13/13 and chromium (task-manager, core-functionality, room-detail, color-contrast light+dark) 26/26.
+
+## Outcome
+
+**PASS-WITH-FIXES (interim).** Two minor findings fixed in-round; RF-080-16 resolved in CS-PLAN-080; no open findings from this round.

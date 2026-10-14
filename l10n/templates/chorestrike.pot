@@ -710,6 +710,9 @@ msgstr ""
 msgid "Could not complete the task"
 msgstr ""
 
+msgid "Could not load finished tasks"
+msgstr ""
+
 msgid "Could not load members"
 msgstr ""
 
@@ -1203,6 +1206,12 @@ msgid "Fairness"
 msgstr ""
 
 msgid "Feedback effects"
+msgstr ""
+
+msgid "Filters"
+msgstr ""
+
+msgid "Filters ({count} active)"
 msgstr ""
 
 msgid "Finish"
@@ -2021,6 +2030,9 @@ msgstr ""
 msgid "Owners control the household catalog, and each person controls whether they see it — the two gates are independent. Child requests and owner approvals, and adult requests too, reserve the Coins first; delivery is confirmed separately afterwards. Hiding the catalog never touches existing requests, and spending Coins never removes earned rhythm titles or awards. Games only have their own scores."
 msgstr ""
 
+msgid "Page {page} of {pages}"
+msgstr ""
+
 msgid "Participants must be house members"
 msgstr ""
 
@@ -2757,6 +2769,9 @@ msgid "Task name is required"
 msgstr ""
 
 msgid "Task not found"
+msgstr ""
+
+msgid "Task pages"
 msgstr ""
 
 msgid "Task updated"

@@ -34,163 +34,13 @@
 				data-testid="member-names-error"
 				:message="t('chorestrike', 'Failed to load members')"
 				@retry="loadMembers" />
-			<div class="scope-filters" role="group" :aria-label="t('chorestrike', 'Task filter')">
-				<button type="button"
-					:aria-pressed="filterScope === 'mine'"
-					data-testid="tasks-filter-mine"
-					@click="setScope('mine')">
-					{{ t('chorestrike', 'My tasks') }}
-				</button>
-				<button type="button"
-					:aria-pressed="filterScope === 'unassigned'"
-					data-testid="tasks-filter-unassigned"
-					@click="setScope('unassigned')">
-					{{ t('chorestrike', 'Unassigned') }}
-				</button>
-				<button type="button"
-					:aria-pressed="filterScope === 'all'"
-					data-testid="tasks-filter-all"
-					@click="setScope('all')">
-					{{ t('chorestrike', 'Everyone') }}
-				</button>
-			</div>
-			<p v-if="filterScope === 'mine'" class="scope-hint">
-				{{ t('chorestrike', 'Your tasks and unassigned tasks') }}
-			</p>
-			<div class="filters-section">
-				<div class="filter-group">
-					<label for="task-person-filter">{{ t('chorestrike', 'Person') }}</label>
-					<select id="task-person-filter"
-						v-model="filterPerson"
-						:disabled="membersLoading || membersError"
-						class="filter-select"
-						data-testid="person-filter"
-						@change="filterScope = 'all'">
-						<option value="">
-							{{ t('chorestrike', 'Everyone') }}
-						</option>
-						<option v-for="member in userStore.houseUsers" :key="member.nextcloudUserId" :value="member.nextcloudUserId">
-							{{ member.displayName || member.nextcloudUserId }}
-						</option>
-					</select>
-				</div>
-				<div class="filter-group">
-					<label for="task-floor-filter">{{ t('chorestrike', 'Floor') }}</label>
-					<select id="task-floor-filter"
-						v-model="filterFloor"
-						class="filter-select"
-						data-testid="floor-filter"
-						@change="filterRoom = ''">
-						<option value="">
-							{{ t('chorestrike', 'All floors') }}
-						</option>
-						<option v-for="floor in roomsStore.floors" :key="floor.id" :value="String(floor.id)">
-							{{ floor.name }}
-						</option>
-					</select>
-				</div>
-				<div class="filter-group">
-					<label for="task-room-filter">{{ t('chorestrike', 'Room') }}</label>
-					<select id="task-room-filter"
-						v-model="filterRoom"
-						class="filter-select"
-						data-testid="room-filter">
-						<option value="">
-							{{ t('chorestrike', 'All rooms') }}
-						</option>
-						<option v-for="room in filterRooms" :key="room.id" :value="String(room.id)">
-							{{ room.name }}
-						</option>
-					</select>
-				</div>
-				<div class="filter-group">
-					<label>{{ t('chorestrike', 'Status') }}</label>
-					<select v-model="filterStatus" class="filter-select" data-testid="status-filter">
-						<option value="all">
-							{{ t('chorestrike', 'All Tasks') }}
-						</option>
-						<option value="active">
-							{{ t('chorestrike', 'Active') }}
-						</option>
-						<option value="overdue">
-							{{ t('chorestrike', 'Overdue') }}
-						</option>
-						<option value="due-today">
-							{{ t('chorestrike', 'Due Today') }}
-						</option>
-						<option value="completed">
-							{{ t('chorestrike', 'Completed') }}
-						</option>
-					</select>
-				</div>
-
-				<div class="filter-group">
-					<label>{{ t('chorestrike', 'Priority') }}</label>
-					<select v-model="filterPriority" class="filter-select" data-testid="priority-filter">
-						<option value="all">
-							{{ t('chorestrike', 'All Priorities') }}
-						</option>
-						<option value="urgent">
-							{{ t('chorestrike', 'High') }}
-						</option>
-						<option value="normal">
-							{{ t('chorestrike', 'Normal') }}
-						</option>
-						<option value="low">
-							{{ t('chorestrike', 'Low') }}
-						</option>
-					</select>
-				</div>
-
-				<div class="filter-group">
-					<label>{{ t('chorestrike', 'Difficulty') }}</label>
-					<select v-model="filterDifficulty" class="filter-select" data-testid="difficulty-filter">
-						<option value="all">
-							{{ t('chorestrike', 'All Difficulties') }}
-						</option>
-						<option value="1">
-							{{ t('chorestrike', 'Level 1 (Quick)') }}
-						</option>
-						<option value="2">
-							{{ t('chorestrike', 'Level 2 (Easy)') }}
-						</option>
-						<option value="3">
-							{{ t('chorestrike', 'Level 3 (Medium)') }}
-						</option>
-						<option value="4">
-							{{ t('chorestrike', 'Level 4 (Hard)') }}
-						</option>
-						<option value="5">
-							{{ t('chorestrike', 'Level 5 (Major)') }}
-						</option>
-					</select>
-				</div>
-
-				<div class="filter-group">
-					<label>{{ t('chorestrike', 'Visibility') }}</label>
-					<select v-model="filterVisibility" class="filter-select" data-testid="visibility-filter">
-						<option value="all">
-							{{ t('chorestrike', 'All') }}
-						</option>
-						<option value="private">
-							{{ t('chorestrike', 'Private') }}
-						</option>
-					</select>
-				</div>
-
-				<div class="filter-group search-group">
-					<label>{{ t('chorestrike', 'Search') }}</label>
-					<div class="search-input-wrapper">
-						<Icon name="Search" :size="16" class="search-icon" />
-						<input
-							v-model="searchQuery"
-							type="text"
-							class="search-input"
-							data-testid="search-input"
-							:placeholder="t('chorestrike', 'Search tasks...')">
-					</div>
-				</div>
-			</div>
+			<TaskFilterBar
+				:model-value="filters"
+				:members="userStore.houseUsers"
+				:members-disabled="membersLoading || membersError"
+				:floors="roomsStore.floors"
+				:rooms="roomsStore.rooms"
+				@update:model-value="setFilters" />
 
 			<div class="stats-bar">
 				<div class="stat" data-testid="total-tasks-stat">
@@ -211,13 +61,34 @@
 				</div>
 			</div>
 
+			<div ref="listTop" />
 			<TaskList
-				:room-tasks="filteredTasks"
-				:loading="loading"
+				:room-tasks="pagedTasks"
+				:loading="loading || finishedLoading"
 				:show-room="true"
+				:compact="true"
 				@complete="handleCompleteTask"
 				@edit="handleEditTask"
 				@delete="handleDeleteTask" />
+
+			<nav v-if="pageCount > 1"
+				class="task-pager"
+				data-testid="task-pager"
+				:aria-label="t('chorestrike', 'Task pages')">
+				<NcButton :disabled="currentPage <= 1"
+					data-testid="task-pager-previous"
+					@click="goToPage(currentPage - 1)">
+					{{ t('chorestrike', 'Previous') }}
+				</NcButton>
+				<span class="pager-status" data-testid="task-pager-status" aria-live="polite">
+					{{ t('chorestrike', 'Page {page} of {pages}', { page: currentPage, pages: pageCount }) }}
+				</span>
+				<NcButton :disabled="currentPage >= pageCount"
+					data-testid="task-pager-next"
+					@click="goToPage(currentPage + 1)">
+					{{ t('chorestrike', 'Next') }}
+				</NcButton>
+			</nav>
 		</template>
 
 		<Modal v-if="showAddTaskModal" :aria-label="t('chorestrike', 'New Task')" @close="showAddTaskModal = false">
@@ -258,29 +129,63 @@ import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useHouseStore } from '../store/house.js'
-import { dueClass, isOverdue } from '../utils/taskDisplay.js'
+import { compareTaskItems, dueClass, isOverdue } from '../utils/taskDisplay.js'
 import { logger } from '../utils/logger.js'
 import { showErrorWithReference } from '../utils/errorToast.js'
+import { NcButton } from '@nextcloud/vue'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
+import TaskFilterBar from '../components/Tasks/TaskFilterBar.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import { useUserStore } from '../store/user.js'
 import Modal from '../components/Common/Modal.vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 
 // Status filter values a `/tasks?status=` link may preset.
 const STATUS_PRESETS = ['active', 'overdue', 'due-today']
+// Client-side page size of the all-tasks list (CS-PLAN-084 D-084-02).
+const PAGE_SIZE = 20
+
+/**
+ * Initial filters from the router contract (`docs/concepts/ui-use-cases.md`):
+ * `?visibility=private` (CS-PLAN-041), `?scope=`, `?status=` (CS-PLAN-084
+ * WP-C); unknown values keep the defaults.
+ * @param {object} query Route query.
+ * @return {object} Filter values for TaskFilterBar.
+ */
+const filtersFromQuery = (query = {}) => {
+	const filters = { scope: 'mine', person: '', floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all', search: '' }
+	if (query.visibility === 'private') {
+		filters.visibility = 'private'
+		filters.scope = 'all'
+	}
+	if (['mine', 'unassigned', 'all'].includes(query.scope)) filters.scope = query.scope
+	if (STATUS_PRESETS.includes(query.status)) filters.status = query.status
+	return filters
+}
+
+/**
+ * Page number from `?page=` (1 when missing or invalid).
+ * @param {*} value Raw query value.
+ * @return {number}
+ */
+const pageFromQuery = (value) => {
+	const page = Number.parseInt(value, 10)
+	return Number.isInteger(page) && page > 0 ? page : 1
+}
 
 export default {
 	name: 'TaskManager',
 
 	components: {
 		Icon,
+		NcButton,
 		TaskList,
+		TaskFilterBar,
 		TaskEditForm,
 		Modal,
 		ConfirmDialog,
@@ -295,7 +200,8 @@ export default {
 		const userStore = useUserStore()
 		const houseStore = useHouseStore()
 		const route = useRoute()
-		return { roomTasksStore, roomsStore, tasksStore, userStore, houseStore, route, ...useHouseMemberNames(userStore) }
+		const router = useRouter()
+		return { roomTasksStore, roomsStore, tasksStore, userStore, houseStore, route, router, ...useHouseMemberNames(userStore) }
 	},
 
 	data() {
@@ -303,15 +209,10 @@ export default {
 			loading: false,
 			creating: false,
 			initError: false,
-			filterScope: 'mine',
-			filterPerson: '',
-			filterFloor: '',
-			filterRoom: '',
-			filterStatus: 'all',
-			filterPriority: 'all',
-			filterDifficulty: 'all',
-			filterVisibility: 'all',
-			searchQuery: '',
+			filters: filtersFromQuery(this.route?.query),
+			page: pageFromQuery(this.route?.query?.page),
+			// D-084-07: the on-demand finished-task read behind "Completed".
+			finishedLoading: false,
 			showAddTaskModal: false,
 			showEditTaskModal: false,
 			editingTask: null,
@@ -324,68 +225,68 @@ export default {
 	},
 
 	computed: {
-		filterRooms() {
-			return this.roomsStore.rooms.filter(room => !this.filterFloor || String(room.floorId) === this.filterFloor)
-		},
-
 		allTasks() {
-			return this.roomTasksStore.roomTasks.map(roomTask => ({
-				roomTask,
-				task: this.tasksStore.getTaskById(roomTask.taskId) || {
-					id: roomTask.taskId,
-					name: this.t('chorestrike', 'Unknown Task'),
-					description: '',
-					energyCost: 0,
-					estimatedMinutes: 0,
-					priority: 2,
-					frequencyType: 'weekly',
-					frequencyValue: 1,
-				},
-			}))
+			return this.roomTasksStore.roomTasks.map(roomTask => this.enrich(roomTask))
 		},
 
 		filteredTasks() {
-			const roomIds = new Set(this.filterRooms.map(room => room.id))
-			let tasks = this.allTasks.filter(({ roomTask }) => this.matchesScopeFilter(roomTask, roomIds))
+			const { status, priority, difficulty, visibility, search } = this.filters
+			const roomIds = new Set(this.roomsStore.rooms
+				.filter(room => !this.filters.floor || String(room.floorId) === this.filters.floor)
+				.map(room => room.id))
+			// D-084-07: "Completed" lists the finished rows read on demand.
+			let tasks = status === 'completed'
+				? this.roomTasksStore.finishedRoomTasks.map(roomTask => this.enrich(roomTask))
+				: this.allTasks
+			tasks = tasks.filter(({ roomTask }) => this.matchesScopeFilter(roomTask, roomIds))
 
-			// Status filter
-			if (this.filterStatus === 'active') {
+			if (status === 'active') {
 				tasks = tasks.filter(t => t.roomTask.isActive)
-			} else if (this.filterStatus === 'overdue') {
+			} else if (status === 'overdue') {
 				// Same missed-work rule as the row badge and claim button (D-084-08).
 				tasks = tasks.filter(t => isOverdue(t.roomTask))
-			} else if (this.filterStatus === 'due-today') {
+			} else if (status === 'due-today') {
 				// The row badge's house-local rule: due today or an open flex window (D-084-08).
 				tasks = tasks.filter(t => t.roomTask.nextDue && dueClass(t.roomTask, this.houseStore.timezone) === 'today')
-			} else if (this.filterStatus === 'completed') {
-				tasks = tasks.filter(t => !t.roomTask.isActive)
 			}
 
-			// Priority filter
-			if (this.filterPriority !== 'all') {
+			if (priority !== 'all') {
 				const priorityMap = { urgent: 3, normal: 2, low: 1 }
-				tasks = tasks.filter(t => t.task.priority === priorityMap[this.filterPriority])
+				tasks = tasks.filter(t => t.task.priority === priorityMap[priority])
 			}
 
-			// Difficulty filter
-			if (this.filterDifficulty !== 'all') {
-				tasks = tasks.filter(t => t.task.energyCost === parseInt(this.filterDifficulty, 10))
+			if (difficulty !== 'all') {
+				tasks = tasks.filter(t => t.task.energyCost === parseInt(difficulty, 10))
 			}
 
 			// Visibility filter (CS-PLAN-041): "private" scopes the list to the
 			// current user's private task definitions — the destination of the
 			// Dashboard QuickStats "My Private Tasks" chip.
-			if (this.filterVisibility === 'private') {
+			if (visibility === 'private') {
 				tasks = tasks.filter(t => t.task.visibilityType === 'private')
 			}
 
-			// Search filter
-			if (this.searchQuery.trim()) {
-				const query = this.searchQuery.toLowerCase()
+			if (search.trim()) {
+				const query = search.toLowerCase()
 				tasks = tasks.filter(t => t.task.name?.toLowerCase().includes(query))
 			}
 
-			return tasks
+			// Sorted here so each page holds the next rows of the visible order.
+			return [...tasks].sort(compareTaskItems)
+		},
+
+		pageCount() {
+			return Math.max(1, Math.ceil(this.filteredTasks.length / PAGE_SIZE))
+		},
+
+		// A page beyond the end (fewer rows after a refresh) shows the last page.
+		currentPage() {
+			return Math.min(this.page, this.pageCount)
+		},
+
+		pagedTasks() {
+			const start = (this.currentPage - 1) * PAGE_SIZE
+			return this.filteredTasks.slice(start, start + PAGE_SIZE)
 		},
 
 		totalTasks() {
@@ -405,42 +306,101 @@ export default {
 		},
 	},
 
+	watch: {
+		// Browser back/forward between pages keeps the view mounted.
+		'route.query.page'(value) {
+			this.page = pageFromQuery(value)
+		},
+	},
+
 	async mounted() {
-		// Deep-link scope: the Dashboard "My Private Tasks" chip routes here
-		// with ?visibility=private (CS-PLAN-041).
-		if (this.route?.query?.visibility === 'private') {
-			this.filterVisibility = 'private'
-			this.filterScope = 'all'
-		}
-		if (['mine', 'unassigned', 'all'].includes(this.route?.query?.scope)) {
-			this.filterScope = this.route.query.scope
-		}
-		// Dashboard overview tiles (CS-PLAN-084 WP-C): ?status= presets the
-		// status filter; unknown values keep the default.
-		if (STATUS_PRESETS.includes(this.route?.query?.status)) {
-			this.filterStatus = this.route.query.status
-		}
 		await this.initializeTasks()
 	},
 
 	methods: {
 		t,
 
-		setScope(scope) {
-			this.filterScope = scope
-			this.filterPerson = ''
+		/**
+		 * Enriched list row; a missing definition gets a neutral placeholder.
+		 * @param {object} roomTask Room task payload.
+		 * @return {{roomTask: object, task: object}}
+		 */
+		enrich(roomTask) {
+			return {
+				roomTask,
+				task: this.tasksStore.getTaskById(roomTask.taskId) || {
+					id: roomTask.taskId,
+					name: this.t('chorestrike', 'Unknown Task'),
+					description: '',
+					energyCost: 0,
+					estimatedMinutes: 0,
+					priority: 2,
+					frequencyType: 'weekly',
+					frequencyValue: 1,
+				},
+			}
+		},
+
+		/**
+		 * Apply new filter values: back to page 1, and selecting "Completed"
+		 * reads the finished tasks on demand (D-084-07).
+		 * @param {object} next Filter values from TaskFilterBar.
+		 */
+		setFilters(next) {
+			const enteringCompleted = next.status === 'completed' && this.filters.status !== 'completed'
+			this.filters = next
+			this.goToPage(1, false)
+			if (enteringCompleted) {
+				this.loadFinishedTasks()
+			}
+		},
+
+		async loadFinishedTasks() {
+			this.finishedLoading = true
+			try {
+				await this.roomTasksStore.fetchInactiveHouseRoomTasks()
+			} catch (error) {
+				showErrorWithReference(t('chorestrike', 'Could not load finished tasks'), error)
+				logger.error('Failed to load finished tasks', error, { view: 'TaskManager', action: 'loadFinishedTasks' })
+			} finally {
+				this.finishedLoading = false
+			}
+		},
+
+		/**
+		 * Show a page and mirror it in `?page=` (omitted for page 1).
+		 * @param {number} page Target page.
+		 * @param {boolean} scroll Whether to bring the list start into view.
+		 */
+		goToPage(page, scroll = true) {
+			this.page = page
+			const current = this.route?.query ?? {}
+			const query = { ...current }
+			if (page > 1) {
+				query.page = String(page)
+			} else {
+				delete query.page
+			}
+			if (query.page !== current.page) {
+				// The page is already shown; a failed URL mirror only loses the deep link.
+				this.router?.replace({ query }).catch(error => logger.warn('Could not mirror the task page in the URL', { view: 'TaskManager', action: 'goToPage', page, error: error?.message }))
+			}
+			if (scroll) {
+				this.$refs.listTop?.scrollIntoView?.({ block: 'start' })
+			}
 		},
 
 		matchesScopeFilter(roomTask, roomIds) {
+			const { scope, person, floor, room } = this.filters
 			const actorId = this.userStore.currentUser?.nextcloudUserId
 			const assignees = roomTask.assignees ?? []
 			// Unknown user (identity not resolved yet): show assigned rows
 			// rather than an empty list, mirroring TodayView.isMine.
-			if (this.filterScope === 'mine' && actorId && assignees.length > 0 && !assignees.includes(actorId)) return false
-			if (this.filterScope === 'unassigned' && assignees.length > 0) return false
-			if (this.filterPerson && !assignees.includes(this.filterPerson)) return false
-			if (this.filterFloor && !roomIds.has(roomTask.roomId)) return false
-			return !this.filterRoom || String(roomTask.roomId) === this.filterRoom
+			if (scope === 'mine' && actorId && assignees.length > 0 && !assignees.includes(actorId)) return false
+			if (scope === 'unassigned' && assignees.length > 0) return false
+			if (person && !assignees.includes(person)) return false
+			if (floor && !roomIds.has(roomTask.roomId)) return false
+			return !room || String(roomTask.roomId) === room
 		},
 
 		async initializeTasks() {
@@ -676,102 +636,6 @@ export default {
 	background: var(--color-primary-hover);
 }
 
-.filters-section {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 1rem;
-	margin-bottom: 1.5rem;
-	padding: 1rem;
-	background: var(--color-background-dark);
-	border-radius: 8px;
-}
-
-.scope-filters {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-	margin-block-end: 0.5rem;
-}
-
-.scope-filters button {
-	min-block-size: 44px;
-	padding: 0.5rem 1rem;
-	border: 1px solid var(--color-text-maxcontrast);
-	border-radius: 8px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
-	cursor: pointer;
-}
-
-.scope-filters button[aria-pressed='true'] {
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-	border-color: var(--color-primary-element);
-	font-weight: 700;
-}
-
-.scope-filters button:focus-visible,
-.filter-select:focus-visible {
-	outline: 2px solid var(--color-main-text);
-	outline-offset: 2px;
-}
-
-.scope-hint {
-	margin-block: 0 1rem;
-	color: var(--color-text-maxcontrast);
-}
-
-.filter-group {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-}
-
-.filter-group label {
-	font-size: 0.8rem;
-	color: var(--color-text-maxcontrast);
-	font-weight: 500;
-}
-
-.filter-select {
-	min-block-size: 44px;
-	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
-	font-size: 0.9rem;
-	min-width: 150px;
-}
-
-.search-group {
-	flex: 1;
-	min-width: 200px;
-}
-
-.search-input-wrapper {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	background: var(--color-main-background);
-}
-
-.search-icon {
-	color: var(--color-text-maxcontrast);
-}
-
-.search-input {
-	flex: 1;
-	border: none;
-	background: transparent;
-	color: var(--color-main-text);
-	font-size: 0.9rem;
-	outline: none;
-}
-
 .stats-bar {
 	display: flex;
 	gap: 2rem;
@@ -802,6 +666,18 @@ export default {
 	color: var(--color-success-text);
 }
 
+.task-pager {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	margin-block-start: 1rem;
+}
+
+.pager-status {
+	color: var(--color-main-text);
+}
+
 .stat-label {
 	font-size: 0.75rem;
 	color: var(--color-text-maxcontrast);
@@ -810,19 +686,6 @@ export default {
 }
 
 @media (max-width: 768px) {
-	.filters-section {
-		flex-direction: column;
-	}
-
-	.filter-group {
-		width: 100%;
-	}
-
-	.filter-select,
-	.search-input-wrapper {
-		width: 100%;
-	}
-
 	.stats-bar {
 		justify-content: space-around;
 		gap: 1rem;

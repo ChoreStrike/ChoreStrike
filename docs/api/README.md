@@ -572,7 +572,9 @@ broader mode):
   (server-side resolved, never a browser-supplied house ID) in ONE request.
   This is the batched read TaskManager and SchedulingView load instead of
   the former per-room request loop.
-- `activeOnly` (optional, default `true`): limit to active instances.
+- `activeOnly` (optional, default `true`): limit to active instances; `false`
+  adds finished/deactivated instances (the TaskManager *Completed* filter).
+  Deleted (tombstoned) room tasks are never listed (CS-PLAN-084 D-084-07).
 
 **`status` (CS-PLAN-084 D-084-08):** `overdue` only when the row's canonical
 occurrence is missed (`occurrence.classification = "late"`: its window ended in

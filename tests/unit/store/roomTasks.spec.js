@@ -867,6 +867,59 @@ describe('RoomTasks Store', () => {
 
 				expect(store.roomTasks).toHaveLength(1)
 			})
+
+			it('also removes a deleted finished task from the inactive read', async () => {
+				store.inactiveRoomTasks = [{ id: 3, isActive: false }, { id: 4, isActive: false }]
+				api.delete.mockResolvedValue(undefined)
+
+				await store.deleteRoomTask(3)
+
+				expect(store.finishedRoomTasks.map(row => row.id)).toEqual([4])
+			})
+		})
+
+		describe('fetchInactiveHouseRoomTasks (CS-PLAN-084 D-084-07)', () => {
+			it('reads with activeOnly=false and keeps only finished rows apart from the active set', async () => {
+				const active = [{ id: 1, isActive: true }]
+				store.roomTasks = active
+				api.get.mockResolvedValue([{ id: 1, isActive: true }, { id: 5, isActive: false }])
+
+				const result = await store.fetchInactiveHouseRoomTasks()
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks', { params: { activeOnly: false } })
+				expect(result).toEqual([{ id: 5, isActive: false }])
+				expect(store.roomTasks).toEqual(active)
+				expect(store.inactiveRoomTasks).toEqual([{ id: 5, isActive: false }])
+				expect(store.houseLoaded).toBe(false)
+			})
+
+			it('drops a superseded read and rethrows failures', async () => {
+				let releaseFirst
+				api.get.mockImplementationOnce(() => new Promise(resolve => { releaseFirst = resolve }))
+				api.get.mockResolvedValueOnce([{ id: 6, isActive: false }])
+				const first = store.fetchInactiveHouseRoomTasks()
+				await store.fetchInactiveHouseRoomTasks()
+				releaseFirst([{ id: 5, isActive: false }])
+				await first
+				expect(store.inactiveRoomTasks).toEqual([{ id: 6, isActive: false }])
+
+				api.get.mockRejectedValueOnce(new Error('down'))
+				await expect(store.fetchInactiveHouseRoomTasks()).rejects.toThrow('down')
+				expect(store.inactiveRoomTasks).toEqual([{ id: 6, isActive: false }])
+			})
+
+			it('lists rows finished since the read first, once, and clears on reset', () => {
+				store.roomTasks = [{ id: 1, isActive: true }, { id: 2, isActive: false, nextDue: 'new' }]
+				store.inactiveRoomTasks = [{ id: 2, isActive: false, nextDue: 'old' }, { id: 3, isActive: false }]
+
+				expect(store.finishedRoomTasks).toEqual([
+					{ id: 2, isActive: false, nextDue: 'new' },
+					{ id: 3, isActive: false },
+				])
+
+				store.reset()
+				expect(store.inactiveRoomTasks).toEqual([])
+			})
 		})
 
 		describe('clearError', () => {

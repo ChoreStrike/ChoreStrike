@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from '@jest/globals'
 import {
+	compareTaskItems,
 	isOverdue,
 	priorityClass,
 	priorityLabel,
@@ -167,6 +168,21 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 			expect(win.earliest).toBeNull()
 			expect(win.latest).toBeNull()
 			expect(win.ideal).toBe('2030-05-10T00:00:00Z')
+		})
+	})
+
+	describe('compareTaskItems (CS-PLAN-084 WP-D)', () => {
+		const row = (id, nextDue, priority = 2) => ({ roomTask: { id, nextDue }, task: { priority } })
+
+		it('orders by due date, then higher priority, with undated rows last', () => {
+			const rows = [
+				row(1, null),
+				row(2, '2030-05-11T00:00:00Z'),
+				row(3, '2030-05-10T00:00:00Z', 1),
+				row(4, '2030-05-10T00:00:00Z', 3),
+				row(5, undefined, 3),
+			]
+			expect([...rows].sort(compareTaskItems).map(item => item.roomTask.id)).toEqual([4, 3, 2, 5, 1])
 		})
 	})
 })

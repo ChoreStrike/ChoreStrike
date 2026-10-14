@@ -151,6 +151,14 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 		expect(wrapper.find('[data-testid="claim-overdue-button"]').exists()).toBe(true)
 	})
 
+	it('compact rows hide the description until the row is expanded (CS-PLAN-084 WP-D)', () => {
+		const item = { roomTask: roomTask(), task: task({ description: 'Wipe the shelves too' }) }
+		expect(mountItem({ item }).find('.task-description').exists()).toBe(true)
+		expect(mountItem({ item, compact: true }).find('.task-item.compact').exists()).toBe(true)
+		expect(mountItem({ item, compact: true }).find('.task-description').exists()).toBe(false)
+		expect(mountItem({ item, compact: true, expanded: true }).get('.task-description').text()).toBe('Wipe the shelves too')
+	})
+
 	it('renders the expanded details through TaskListDetails', () => {
 		const members = [{ nextcloudUserId: 'u1', displayName: 'Alice' }, { nextcloudUserId: 'u2', displayName: 'Bob' }]
 		useUserStore().houseUsers = members

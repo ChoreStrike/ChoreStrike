@@ -143,3 +143,18 @@ export const flexWindowKeys = (item) => {
 		latest: latest.toISOString(),
 	}
 }
+
+/**
+ * List order for enriched rows: earliest due date first (rows without a due
+ * date last), then higher priority first. Shared by TaskList and the paged
+ * TaskManager list so a page always holds the next rows of the visible order.
+ * @param {object} a Enriched row with roomTask and task.
+ * @param {object} b Enriched row with roomTask and task.
+ * @return {number}
+ */
+export const compareTaskItems = (a, b) => {
+	const dueA = a.roomTask.nextDue ? new Date(a.roomTask.nextDue).getTime() : Infinity
+	const dueB = b.roomTask.nextDue ? new Date(b.roomTask.nextDue).getTime() : Infinity
+	if (dueA !== dueB) return dueA < dueB ? -1 : 1
+	return (b.task.priority ?? 0) - (a.task.priority ?? 0)
+}

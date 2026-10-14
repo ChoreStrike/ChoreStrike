@@ -20,8 +20,9 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 				const url = new URL(request.url())
 				if (url.pathname.endsWith('/api/v1/room-tasks')) {
 					// Record the effective selector mode: house-wide (no roomId)
-					// vs. the per-room loop shape.
-					roomTaskRequests.push(url.searchParams.get('roomId') ?? 'house')
+					// vs. the per-room loop shape, plus the active-only flag
+					// (the finished-task read is on demand only, D-084-07).
+					roomTaskRequests.push(`${url.searchParams.get('roomId') ?? 'house'}:${url.searchParams.get('activeOnly')}`)
 				}
 			})
 
@@ -32,8 +33,8 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 			// Give late XHRs a beat to be recorded.
 			await page.waitForLoadState('networkidle')
 
-			// The frozen budget: ONE house-wide read, ZERO per-room reads.
-			expect(roomTaskRequests).toEqual(['house'])
+			// The frozen budget: ONE active-only house-wide read, ZERO per-room reads.
+			expect(roomTaskRequests).toEqual(['house:true'])
 		} finally {
 			await context.close()
 		}

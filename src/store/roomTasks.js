@@ -79,6 +79,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// invalidate it without an extra fetch.
 		houseLoaded: false,
 		houseStale: false,
+		// CS-PLAN-084 D-084-07: finished (inactive) room tasks, read on demand
+		// for the TaskManager "Completed" filter. Kept apart so the active
+		// instance set (`roomTasks`) is never replaced by the wider read.
+		inactiveRoomTasks: [],
+		inactiveRequestSeq: 0,
 		// Shared in-flight read counter backing `loading` (CS-PLAN-066
 		// §3.3): a finishing request may only clear the shared loading state
 		// when it is the LAST in-flight one.
@@ -101,6 +106,18 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 	getters: {
 		isCompleting: (state) => (roomTaskId) => state.completingIds[roomTaskId] === true,
+
+		/**
+		 * Finished room tasks: the on-demand inactive read plus rows of the
+		 * active set that became inactive since (newer local truth first).
+		 * @param {object} state Pinia state
+		 * @return {Array<object>}
+		 */
+		finishedRoomTasks: (state) => {
+			const seen = new Set()
+			return [...state.roomTasks.filter(roomTask => !roomTask.isActive), ...state.inactiveRoomTasks]
+				.filter(roomTask => !seen.has(roomTask.id) && seen.add(roomTask.id))
+		},
 
 		roomTasksByRoom: (state) => {
 			const tasksByRoom = {}
@@ -342,6 +359,29 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				throw error
 			} finally {
 				this._endRead()
+			}
+		},
+
+		/**
+		 * Read the house's finished room tasks (CS-PLAN-084 D-084-07): one
+		 * `activeOnly=false` house read whose inactive rows land in
+		 * `inactiveRoomTasks`; the active set stays untouched.
+		 * Generation-guarded so an older response never overwrites a newer one.
+		 * @return {Promise<Array>} The inactive viewer-visible room tasks.
+		 */
+		async fetchInactiveHouseRoomTasks() {
+			const seq = ++this.inactiveRequestSeq
+			try {
+				const data = await api.get('/api/v1/room-tasks', { params: { activeOnly: false } })
+				if (seq !== this.inactiveRequestSeq) {
+					logger.debug('Dropping superseded inactive house-task read', { store: 'roomTasks', action: 'fetchInactiveHouseRoomTasks' })
+					return this.inactiveRoomTasks
+				}
+				this.inactiveRoomTasks = data.filter(roomTask => !roomTask.isActive)
+				return this.inactiveRoomTasks
+			} catch (error) {
+				logger.error('Failed to fetch inactive house room tasks', error, { store: 'roomTasks', action: 'fetchInactiveHouseRoomTasks' })
+				throw error
 			}
 		},
 
@@ -877,6 +917,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				await api.delete(`/api/v1/room-tasks/${roomTaskId}`)
 
 				this.roomTasks = this.roomTasks.filter(rt => rt.id !== roomTaskId)
+				this.inactiveRoomTasks = this.inactiveRoomTasks.filter(rt => rt.id !== roomTaskId)
 				this.dailyTasks = this.dailyTasks.filter(item => item.roomTask?.id !== roomTaskId)
 				this.dueTodayTasks = this.dueTodayTasks.filter(item => item.roomTask?.id !== roomTaskId)
 				this.overdueTasks = this.overdueTasks.filter(item => item.roomTask?.id !== roomTaskId)
@@ -1187,6 +1228,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.overdueStale = false
 			this.houseLoaded = false
 			this.houseStale = false
+			this.inactiveRoomTasks = []
 			this.refreshFailed = false
 			this.countsRefreshing = false
 			this.pendingCommands = {}
@@ -1201,6 +1243,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.dueTodayRequestSeq++
 			this.overdueRequestSeq++
 			this.houseRequestSeq++
+			this.inactiveRequestSeq++
 		},
 	},
 })

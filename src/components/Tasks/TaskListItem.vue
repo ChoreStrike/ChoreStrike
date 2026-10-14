@@ -7,7 +7,7 @@
 	<div
 		class="task-item"
 		data-testid="task-item"
-		:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive }">
+		:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive, compact }">
 		<!-- Row selection exists only for the bulk-assign flow
 		     (CS-PLAN-042). Children have no available bulk action,
 		     so the non-actionable checkbox is hidden entirely
@@ -66,7 +66,7 @@
 					</span>
 				</div>
 
-				<p v-if="item.task.description" class="task-description">
+				<p v-if="item.task.description && (!compact || expanded)" class="task-description">
 					{{ item.task.description }}
 				</p>
 
@@ -203,6 +203,11 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+		/** Dense list row (CS-PLAN-084 WP-D): description only when expanded, tighter spacing. */
+		compact: {
+			type: Boolean,
+			default: false,
+		},
 	},
 
 	emits: ['complete', 'edit', 'delete', 'toggle-expand', 'toggle-select', 'claim', 'toggle-assignee'],
@@ -268,8 +273,15 @@ export default {
 }
 
 .task-item.completed {
-	opacity: 0.6;
 	background: var(--color-background-dark);
+}
+
+.task-item.compact {
+	padding: 0.5rem 0.75rem;
+}
+
+.task-item.compact .task-main {
+	gap: 0.75rem;
 }
 
 .task-select {
