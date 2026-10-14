@@ -756,7 +756,7 @@ export default {
 }
 
 .form-input:focus {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	outline: none;
 }
 
@@ -794,7 +794,7 @@ export default {
 }
 
 .radio-label:hover {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	background: var(--color-background-hover);
 }
 
@@ -875,26 +875,26 @@ export default {
 }
 
 .weekday-chip:hover {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 }
 
 .weekday-chip:focus-within {
-	outline: 2px solid var(--color-primary);
+	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
 }
 
 .weekday-chip input:checked + span {
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 	font-weight: 600;
 }
 
 .weekday-chip:has(input:checked) {
 	background: var(--color-primary-light);
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 }
 
 .field-error {
-	color: var(--color-error);
+	color: var(--color-error-text);
 	font-size: 0.85rem;
 	margin-top: 0.5rem;
 }
@@ -920,7 +920,7 @@ export default {
 	align-items: center;
 	gap: 0.4rem;
 	margin-top: 0.5rem;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 	font-size: 0.85rem;
 }
 

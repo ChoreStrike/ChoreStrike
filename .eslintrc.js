@@ -36,6 +36,8 @@ module.exports = {
 				'jsdoc/check-tag-names': 'off',
 				'jsdoc/multiline-blocks': 'off',
 				'n/no-unsupported-features/node-builtins': 'off',
+				// E2E specs are never published; devDependencies (e.g. axe) are their imports.
+				'n/no-unpublished-import': 'off',
 				'no-console': 'off',
 				'no-unused-vars': 'off',
 				'padded-blocks': 'off',

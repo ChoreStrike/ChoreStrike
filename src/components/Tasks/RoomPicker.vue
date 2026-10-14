@@ -202,7 +202,7 @@ export default {
 }
 
 .field-error {
-	color: var(--color-error);
+	color: var(--color-error-text);
 	font-size: 0.85rem;
 	margin: 0.4rem 0 0 0;
 }

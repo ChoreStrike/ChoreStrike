@@ -347,7 +347,7 @@ export default {
 }
 
 .share-total.invalid {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .dialog-actions {

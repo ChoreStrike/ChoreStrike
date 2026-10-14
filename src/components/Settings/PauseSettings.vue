@@ -334,7 +334,7 @@ export default {
 	padding: 0.4rem 0.6rem;
 	font-size: 0.85rem;
 	color: var(--color-main-text);
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 }
 
 .pause-empty {
@@ -376,11 +376,11 @@ export default {
 }
 
 .pause-state.acknowledged {
-	color: var(--color-success);
+	color: var(--color-success-text);
 }
 
 .pause-state.rejected {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .pause-reason,

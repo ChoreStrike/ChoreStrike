@@ -242,7 +242,7 @@ export default {
 
 .flex-days-badge {
 	background: var(--color-primary-light);
-	color: var(--color-primary);
+	color: var(--color-primary-element-light-text);
 	padding: 2px 6px;
 	border-radius: 10px;
 	font-size: 10px;
@@ -278,17 +278,17 @@ export default {
 }
 
 .timeline-point.earliest .point-marker {
-	border-color: #27ae60;
+	border-color: var(--color-element-success);
 }
 
 .timeline-point.ideal .point-marker {
 	background: var(--color-primary);
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	color: white;
 }
 
 .timeline-point.latest .point-marker {
-	border-color: var(--color-error, #e74c3c);
+	border-color: var(--color-element-error);
 }
 
 .timeline-point.active .point-marker {
@@ -304,8 +304,8 @@ export default {
 }
 
 .timeline-point.latest.overdue .point-marker {
-	background: var(--color-error, #e74c3c);
-	border-color: var(--color-error, #e74c3c);
+	background: var(--color-element-error);
+	border-color: var(--color-element-error);
 }
 
 .point-label {
@@ -348,17 +348,17 @@ export default {
 }
 
 .status-early {
-	color: var(--color-success, #27ae60);
+	color: var(--color-success-text);
 	background: var(--color-success-hover, #d5f4e6);
 }
 
 .status-optimal {
-	color: var(--color-primary);
+	color: var(--color-primary-element-light-text);
 	background: var(--color-primary-light);
 }
 
 .status-overdue {
-	color: var(--color-error, #e74c3c);
+	color: var(--color-error-text);
 	background: var(--color-error-hover, #fdedec);
 }
 

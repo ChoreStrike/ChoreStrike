@@ -299,7 +299,7 @@ export default {
 
 .refresh-button:hover:not(:disabled) {
   background: var(--color-background-hover);
-  border-color: var(--color-primary);
+  border-color: var(--color-primary-element);
 }
 
 .refresh-button:disabled {
@@ -318,7 +318,7 @@ export default {
   width: 32px;
   height: 32px;
   border: 3px solid var(--color-border);
-  border-top: 3px solid var(--color-primary);
+  border-top: 3px solid var(--color-primary-element);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -396,18 +396,18 @@ export default {
 }
 
 .floor-icon-shell.ground-floor {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(14, 165, 233, 0.26));
-  color: var(--color-primary-element);
+  background: var(--color-primary-element-light);
+  color: var(--color-primary-element-light-text);
 }
 
 .floor-icon-shell.first-floor {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(249, 115, 22, 0.24));
-  color: var(--cs-tier-gold, #d4a017);
+  background: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .floor-icon-shell.upper-floor {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(16, 185, 129, 0.24));
-  color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-success-text);
 }
 
 .floor-name {
@@ -433,28 +433,28 @@ export default {
 }
 
 .cleanliness-badge.excellent {
-  background: var(--color-success, #4CAF50);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-success);
+  color: var(--color-success-text);
 }
 
 .cleanliness-badge.good {
-  background: var(--color-primary, #2196F3);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-primary-element-light);
+  color: var(--color-primary-element-light-text);
 }
 
 .cleanliness-badge.fair {
-  background: var(--color-warning, #FF9800);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .cleanliness-badge.poor {
-  background: var(--color-warning, #FF5722);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .cleanliness-badge.terrible {
-  background: var(--color-error, #F44336);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-error);
+  color: var(--color-error-text);
 }
 
 .floor-section-actions {
@@ -483,7 +483,7 @@ export default {
 }
 
 .toggle-button {
-  color: var(--color-primary);
+  color: var(--color-primary-element);
 }
 
 .floor-content {

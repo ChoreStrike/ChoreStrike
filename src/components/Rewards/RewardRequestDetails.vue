@@ -529,7 +529,7 @@ export default {
 .uncertain-banner {
 	margin-bottom: 1rem;
 	padding: 1rem 1.25rem;
-	border: 1px solid var(--color-warning);
+	border: 1px solid var(--color-element-warning);
 	border-radius: 10px;
 }
 
@@ -589,7 +589,7 @@ export default {
 .conflict-note {
 	margin: 1rem 0 0 0;
 	padding: 0.5rem 0.75rem;
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 	font-size: 0.9rem;
 }
 
@@ -603,7 +603,7 @@ export default {
 .action-button {
 	min-height: 44px;
 	padding: 0.6rem 1.2rem;
-	border: 1px solid var(--color-primary);
+	border: 1px solid var(--color-primary-element);
 	border-radius: var(--cs-radius-sm, 6px);
 	background: var(--color-primary);
 	color: var(--color-primary-text);
@@ -613,8 +613,9 @@ export default {
 }
 
 .action-button.danger {
-	border-color: var(--color-error);
+	border-color: var(--color-element-error);
 	background: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .action-button:disabled {
@@ -700,7 +701,7 @@ export default {
 .attestation-checkbox {
 	width: 1.1rem;
 	height: 1.1rem;
-	accent-color: var(--color-primary);
+	accent-color: var(--color-primary-element);
 }
 
 .modal-actions {
@@ -740,10 +741,10 @@ export default {
 .danger-button {
 	min-height: 44px;
 	padding: 0.6rem 1.2rem;
-	border: none;
+	border: 1px solid var(--color-element-error);
 	border-radius: var(--cs-radius-sm, 6px);
 	background: var(--color-error);
-	color: #fff;
+	color: var(--color-error-text);
 	cursor: pointer;
 	font-size: 0.9rem;
 	font-weight: 600;

@@ -105,8 +105,8 @@ export default {
 }
 
 .household-goal-bar.achieved {
-  background: linear-gradient(135deg, rgba(0, 184, 148, 0.12), var(--color-main-background));
-  border-color: rgba(0, 184, 148, 0.45);
+  background: linear-gradient(135deg, var(--color-success), var(--color-main-background));
+  border-color: var(--color-border-success);
 }
 
 .goal-header {
@@ -187,14 +187,13 @@ export default {
 .goal-target-text {
   font-size: 0.8rem;
   color: var(--color-text-maxcontrast);
-  opacity: 0.85;
 }
 
 .goal-achievement-badge {
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--cs-celebrate-success);
-  background: rgba(0, 184, 148, 0.15);
+  color: var(--color-success-text);
+  background: var(--color-success);
   padding: 3px 10px;
   border-radius: 10px;
 }

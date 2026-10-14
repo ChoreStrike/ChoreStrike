@@ -78,7 +78,7 @@ export default {
 }
 
 .calendar-day-cell.is-today {
-	border-color: var(--color-primary, #0082c9);
+	border-color: var(--color-primary-element);
 }
 
 .calendar-day-cell.has-tasks {
@@ -93,6 +93,6 @@ export default {
 .day-count {
 	font-weight: 700;
 	font-size: 1.1em;
-	color: var(--color-primary, #0082c9);
+	color: var(--color-primary-element);
 }
 </style>

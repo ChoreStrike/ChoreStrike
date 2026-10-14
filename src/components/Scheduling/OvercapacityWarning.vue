@@ -86,7 +86,7 @@ export default {
 
 <style scoped>
 .overcapacity-warning {
-	border: 1px solid var(--color-warning, #f39c12);
+	border: 1px solid var(--color-element-warning);
 	background: var(--color-warning-hover, #fef9e7);
 	border-radius: 8px;
 	padding: 1rem 1.25rem;
@@ -98,7 +98,7 @@ export default {
 	gap: 0.5rem;
 	margin: 0 0 0.35rem 0;
 	font-size: 1rem;
-	color: var(--color-warning, #b26a00);
+	color: var(--color-warning-text);
 }
 
 .warning-icon {
@@ -128,7 +128,7 @@ export default {
 .energy-balance {
 	font-weight: 500;
 	font-size: 0.85rem;
-	color: var(--color-warning, #b26a00);
+	color: var(--color-warning-text);
 }
 
 .deferred-list {

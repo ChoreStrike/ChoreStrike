@@ -97,23 +97,23 @@ export default {
 }
 
 .assignee-chip:hover {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 }
 
 .assignee-chip:focus-within {
-	outline: 2px solid var(--color-primary);
+	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
 }
 
 .assignee-chip.selected {
 	background: var(--color-primary-light);
-	border-color: var(--color-primary);
-	color: var(--color-primary);
+	border-color: var(--color-primary-element);
+	color: var(--color-primary-element-light-text);
 	font-weight: 600;
 }
 
 .field-error {
-	color: var(--color-error);
+	color: var(--color-error-text);
 	font-size: 0.85rem;
 	margin: 0.5rem 0 0 0;
 }

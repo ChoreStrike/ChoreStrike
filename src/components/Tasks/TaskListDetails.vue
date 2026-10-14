@@ -534,7 +534,7 @@ export default {
 	margin: 0;
 	font-size: 0.85rem;
 	padding: 0.4rem 0.6rem;
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 	color: var(--color-main-text);
 }
 </style>

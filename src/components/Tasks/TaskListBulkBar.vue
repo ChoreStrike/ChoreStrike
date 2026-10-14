@@ -103,7 +103,7 @@ export default {
 	gap: 0.75rem;
 	padding: 0.6rem 0.9rem;
 	background: var(--color-primary-light);
-	border: 1px solid var(--color-primary);
+	border: 1px solid var(--color-primary-element);
 	border-radius: 8px;
 }
 

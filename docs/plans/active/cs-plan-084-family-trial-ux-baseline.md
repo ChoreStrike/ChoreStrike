@@ -431,6 +431,53 @@ the same round.
   release-task-lifecycle, task-completion(-full-flow), overdue-task-claiming —
   75/75. The AIO-row rerun follows with the WP-G part 2 full gate.
 
+### Round 3 — WP-B colors and contrast (2026-10-14)
+
+- **Root cause of the hard-to-read UI:** since Nextcloud 32 (identical on NC34
+  AIO and NC35) `--color-success|warning|error|info` are pale *tints*
+  (`#D8F3DA` light / `#11321A` dark); text uses `--color-<state>-text`,
+  borders/fills/icons `--color-element-<state>`. The app — qualified on NC31
+  until 2026-10-05 — painted 111 text/border/fill/badge declarations with the
+  tints (e.g. the room cleanliness value at 1.01:1, white badge text on pale
+  tints). `--color-primary` is theme-independent (2.4:1 as dark-theme text).
+  The `--cs-*` dark overrides keyed on `:root[data-theme-dark]`, which never
+  matches (Nextcloud sets `data-theme-*` on `<body>`), and the fallback followed
+  the OS even under an explicit light theme.
+- **Fix:** status text → `-text` (54), borders → `element-` (32), badges keep
+  the tint with `-text` text, fills/dots/markers → `element-`, danger buttons
+  soft-style (tint + `-text` + `element-` border; white on the dark-theme error
+  element is 3:1), accent text/borders `--color-primary` → `--color-primary-element`
+  (62); neon hex/rgba in QuickStats, RoomCard, FloorList, HouseHealthBar,
+  HouseholdGoalBar, AvailabilitySettings (original UX-017), FlexWindowDisplay and
+  TaskListItem replaced by the semantic pairs; `tokens.css` dark overrides on
+  `body[data-theme-dark|dark-highcontrast]` and `body[data-theme-default]` +
+  OS dark.
+- **Tests:** `tests/e2e/color-contrast.spec.ts` (axe 4.13.0 `color-contrast`,
+  WCAG AA, `#content` of My Day, Dashboard, Tasks, Room, Leaderboard, Insights,
+  Scheduling, Calendar, Settings in the light and dark Nextcloud themes;
+  waits for finite transitions). Baseline before the fix: light 3 and dark 4
+  violations (one dark finding was a mid-transition sample of the active
+  navigation entry — settled colors measured 6.7:1 via a temporary probe spec,
+  deleted). After the fix both themes 0. `theme-consistency.spec.js` gains static
+  guards (no tint as text/border/fill, no white on tints, no `--color-primary`
+  text/borders, body-keyed dark selectors); negative control against HEAD
+  finds 12/3 offenders in RoomDetail/TaskChecklist.
+- **Dependency:** `@axe-core/playwright` 4.13.0 (2026-08-11) devDependency,
+  exact pin; `package-lock.json` regenerated lock-only with the pinned
+  `node:20.19.0` builder (npm 10.8.2): only `@axe-core/playwright` +
+  `axe-core` 4.13.0 added. The local Node 24 tree received both pure-JS
+  packages via `npm pack` (integrity identical to the lock) because the host
+  npm 11 refused an unrelated pre-existing optional-peer conflict
+  (`@nextcloud/vue` ↔ pinned `@nextcloud/dialogs ~7.2.0`); peer validation was
+  not bypassed. ESLint `n/no-unpublished-import` is off for `tests/e2e` only.
+- **Docs:** design guideline "UI colors in the app" table (NC34+ pairs,
+  selectors, guards); focus-outline guidance → `--color-primary-element`.
+- **Gates:** Jest 119 / 1713; ESLint, Stylelint green; bundle rebuilt.
+  Browser focused runs: chromium + scheduling-owner 46/47, serial 45/46 — the
+  two failures were transport closures before assertions (TECH-TRANSPORT-001,
+  folded in; the scheduling run overlapped a reseeding pool) and both specs pass
+  isolated in their pools (11/11, 10/10). Color contrast 2/2 themes green.
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -515,3 +562,22 @@ the same round.
   invocation conflict, not a product defect; the two specs then passed isolated
   in their pool 9/9. Earlier round-2 gates (unit 1385, integration 610, browser
   75/75 with the official pool separation) stand.
+
+### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 3 WP-B, plan stays active)
+
+- **Scope:** WP-B round at `8cac20a`, index empty, 58 modified tracked paths
+  plus untracked `tests/e2e/color-contrast.spec.ts` (SHA256 prefix
+  `a8591095f98ed32d` at capture; the tracked-diff hash was not recorded).
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-3).
+- **Checked:** every `element-`/`primary-element` background carries no text or
+  the matching `*-text`; no rule paints text with its own background token
+  (scripted scan over all `src/**/*.{vue,css}` rules); no `--color-primary-element`
+  surface with white text; no logic, strings or API changes; ESLint override
+  scoped to `tests/e2e`; exact-pinned dev dependency, lock regenerated with the
+  pinned Node 20 builder.
+- **Fixed in-round (1):** B3-01 four tint chips/badges (MemberList role badge,
+  AssigneeChips selected, FlexWindowDisplay days badge + optimal status) paired
+  `--color-primary-light` with `--color-primary-element` text (≈4.7:1 in dark)
+  → Nextcloud's `--color-primary-element-light-text` pair (≈8:1).
+- **Gates after fix:** Stylelint green, CSS guard Jest 9/9, bundle rebuilt,
+  color-contrast light + dark 0 violations; round gates above stand.

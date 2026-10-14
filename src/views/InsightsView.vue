@@ -485,7 +485,7 @@ export default {
 }
 
 .correction-review {
-	border: 1px solid var(--color-warning);
+	border: 1px solid var(--color-element-warning);
 	margin: 0;
 	padding-inline-end: 3.5rem;
 }
@@ -536,7 +536,7 @@ export default {
 }
 
 .error-hint {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .error-hint button {

@@ -93,7 +93,7 @@ export default {
 }
 
 .confirm-icon {
-	color: var(--color-error);
+	color: var(--color-error-text);
 	margin-bottom: 0.5rem;
 }
 
@@ -128,8 +128,8 @@ export default {
 	min-height: 44px;
 	padding: 0.5rem 1rem;
 	background: var(--color-error);
-	color: #fff;
-	border: none;
+	color: var(--color-error-text);
+	border: 1px solid var(--color-element-error);
 	border-radius: 6px;
 	cursor: pointer;
 	font-size: 0.9rem;

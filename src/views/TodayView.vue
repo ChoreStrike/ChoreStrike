@@ -844,13 +844,13 @@ export default {
 	padding: 0.75rem 1rem;
 	margin-bottom: 1rem;
 	border: 1px solid var(--color-border);
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 	border-radius: 10px;
 	background: var(--color-background-dark);
 }
 
 .overload-icon {
-	color: var(--color-warning);
+	color: var(--color-warning-text);
 	margin-top: 0.15rem;
 }
 
@@ -868,7 +868,7 @@ export default {
 	gap: 0.75rem;
 	padding: 0.6rem 1rem;
 	margin-bottom: 1rem;
-	border: 1px solid var(--color-warning);
+	border: 1px solid var(--color-element-warning);
 	border-radius: 8px;
 	background: var(--color-background-dark);
 }
@@ -917,7 +917,7 @@ export default {
 
 .task-row.catchup {
 	border-color: var(--color-border);
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 }
 
 .task-row.completed {
@@ -956,7 +956,7 @@ export default {
 	justify-content: center;
 	width: 44px;
 	height: 44px;
-	color: var(--color-success);
+	color: var(--color-success-text);
 }
 
 .checklist-toggle {

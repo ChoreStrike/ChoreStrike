@@ -322,7 +322,7 @@ export default {
 .uncertain-banner {
 	margin-bottom: 1rem;
 	padding: 1rem 1.25rem;
-	border: 1px solid var(--color-warning);
+	border: 1px solid var(--color-element-warning);
 	border-radius: 10px;
 }
 
@@ -338,7 +338,7 @@ export default {
 .conflict-note {
 	margin: 0 0 1rem 0;
 	padding: 0.5rem 0.75rem;
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 	font-size: 0.9rem;
 }
 
@@ -394,7 +394,7 @@ export default {
 
 .filter-button.active {
 	background: var(--color-primary);
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	color: var(--color-primary-text);
 }
 
@@ -456,7 +456,7 @@ export default {
 
 .request-row:hover,
 .request-row:focus-visible {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 }
 
 .request-main {
@@ -494,7 +494,7 @@ export default {
 }
 
 .hold-chip {
-	border-color: var(--color-warning);
+	border-color: var(--color-element-warning);
 	color: var(--color-main-text);
 }
 

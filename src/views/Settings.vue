@@ -998,7 +998,7 @@ export default {
 }
 
 .setting-card.danger {
-	border: 1px solid var(--color-error);
+	border: 1px solid var(--color-element-error);
 }
 
 .form-group {
@@ -1031,7 +1031,7 @@ export default {
 	width: 1.1rem;
 	height: 1.1rem;
 	margin: 0.65rem 0;
-	accent-color: var(--color-primary);
+	accent-color: var(--color-primary-element);
 	cursor: pointer;
 }
 
@@ -1049,7 +1049,7 @@ export default {
 
 .text-input:focus {
 	outline: none;
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 }
 
 .save-button {
@@ -1069,7 +1069,8 @@ export default {
 
 .save-button.danger {
 	background: var(--color-error);
-	color: var(--color-primary-text);
+	color: var(--color-error-text);
+	border: 1px solid var(--color-element-error);
 }
 
 .house-pause-row {
@@ -1260,11 +1261,11 @@ export default {
 }
 
 .icon-button.danger:hover {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .danger-zone h2 {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .danger-item {
@@ -1277,7 +1278,7 @@ export default {
 .danger-info h3 {
 	margin: 0 0 0.25rem 0;
 	font-size: 1rem;
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .danger-info p {
@@ -1289,8 +1290,8 @@ export default {
 .danger-button {
 	padding: 0.75rem 1rem;
 	background: var(--color-error);
-	color: white;
-	border: none;
+	color: var(--color-error-text);
+	border: 1px solid var(--color-element-error);
 	border-radius: 6px;
 	cursor: pointer;
 	font-size: 0.9rem;
@@ -1321,7 +1322,7 @@ export default {
 }
 
 .warning-icon {
-	color: var(--color-error);
+	color: var(--color-error-text);
 	margin-bottom: 1rem;
 }
 

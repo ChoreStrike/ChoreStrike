@@ -355,7 +355,7 @@ watch(() => schedulingStore.memberAvailability, () => {
 
 .capacity-value {
 	font-weight: 600;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 }
 
 .day-warning {
@@ -364,7 +364,7 @@ watch(() => schedulingStore.memberAvailability, () => {
 	gap: 0.2rem;
 	font-size: 0.75rem;
 	font-weight: 600;
-	color: var(--color-error);
+	color: var(--color-error-text);
 	background: var(--color-error-hover, #fdedec);
 	border-radius: 8px;
 	padding: 0.1rem 0.4rem;

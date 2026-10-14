@@ -154,7 +154,7 @@ onMounted(async () => {
 }
 
 .game-card:hover {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -221,7 +221,7 @@ onMounted(async () => {
 .stat-value {
 	font-size: 1.1rem;
 	font-weight: bold;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 }
 
 .play-button {

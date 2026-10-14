@@ -136,7 +136,7 @@ export default {
 	height: 32px;
 	border-radius: 50%;
 	background: var(--color-success-hover, #d5f4e6);
-	color: var(--color-success, #27ae60);
+	color: var(--color-success-text);
 	flex-shrink: 0;
 }
 

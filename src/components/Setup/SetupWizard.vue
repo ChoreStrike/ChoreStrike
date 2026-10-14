@@ -844,7 +844,7 @@ export default {
 	justify-content: center;
 }
 
-.wizard-error { color: var(--color-error); margin: 0; }
+.wizard-error { color: var(--color-error-text); margin: 0; }
 
 .already-set-up {
 	display: flex;
@@ -903,7 +903,7 @@ export default {
 .invite-add {
 	background: transparent;
 	border: none;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 	cursor: pointer;
 	padding: 0.5rem 0;
 	align-self: flex-start;
@@ -916,7 +916,7 @@ export default {
 	font-size: 0.85rem;
 }
 
-.invite-status.joined { color: var(--color-success); }
+.invite-status.joined { color: var(--color-success-text); }
 
-.invite-status.failed { color: var(--color-error); }
+.invite-status.failed { color: var(--color-error-text); }
 </style>

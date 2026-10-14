@@ -261,7 +261,7 @@ export default {
 }
 
 .task-item.overdue {
-	border-color: var(--color-error, #e74c3c);
+	border-color: var(--color-element-error);
 	background: var(--color-error-hover, #fdf2f2);
 }
 
@@ -281,7 +281,7 @@ export default {
 	width: 16px;
 	height: 16px;
 	cursor: pointer;
-	accent-color: var(--color-primary);
+	accent-color: var(--color-primary-element);
 }
 
 .task-main {
@@ -356,17 +356,17 @@ export default {
 
 .priority-badge.low {
 	background: var(--color-success-hover, #d5f4e6);
-	color: var(--color-success, #27ae60);
+	color: var(--color-success-text);
 }
 
 .priority-badge.medium {
 	background: var(--color-warning-hover, #fef9e7);
-	color: var(--color-warning, #f39c12);
+	color: var(--color-warning-text);
 }
 
 .priority-badge.high {
 	background: var(--color-error-hover, #fdedec);
-	color: var(--color-error, #e74c3c);
+	color: var(--color-error-text);
 }
 
 .task-description {
@@ -392,15 +392,15 @@ export default {
 }
 
 .task-due.overdue {
-	color: var(--color-error, #e74c3c);
+	color: var(--color-error-text);
 }
 
 .task-due.today {
-	color: var(--color-warning, #f39c12);
+	color: var(--color-warning-text);
 }
 
 .task-due.completed {
-	color: var(--color-success, #27ae60);
+	color: var(--color-success-text);
 }
 
 .task-actions {
@@ -446,11 +446,11 @@ export default {
 }
 
 .visibility-icon.admin-only {
-	color: var(--cs-tier-gold, #f0a500);
+	color: var(--color-element-warning);
 }
 
 .teamwork-hint {
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 	font-weight: 500;
 }
 
@@ -462,9 +462,9 @@ export default {
 	height: 44px;
 	margin-top: 0.25rem;
 	border-radius: 50%;
-	border: 1px solid var(--color-primary);
+	border: 1px solid var(--color-primary-element);
 	background: transparent;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 	cursor: pointer;
 	transition: all 0.2s ease;
 }

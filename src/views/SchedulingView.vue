@@ -150,7 +150,7 @@ onMounted(async () => {
 .scheduling-error {
 	text-align: center;
 	padding: 3rem 1rem;
-	color: var(--color-error, #e9322d);
+	color: var(--color-error-text);
 	font-size: 1rem;
 }
 

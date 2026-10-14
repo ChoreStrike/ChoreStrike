@@ -238,8 +238,8 @@ export default {
 }
 
 .room-card.needs-cleaning {
-  border-color: #FF9800;
-  background: rgba(255, 152, 0, 0.05);
+  border-color: var(--color-element-warning);
+  background: var(--color-warning);
 }
 
 .room-card.compact {
@@ -272,30 +272,31 @@ export default {
   width: 2rem;
   height: 2rem;
   border-radius: 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-background-dark);
+  border: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
+/* Status tint + matching text color (NC34+ semantic pairs, UX-017). */
 .room-icon-shell.excellent {
-  color: #6bf2a4;
-  background: rgba(34, 197, 94, 0.14);
+  color: var(--color-success-text);
+  background: var(--color-success);
 }
 
 .room-icon-shell.good {
-  color: #7dd3fc;
-  background: rgba(56, 189, 248, 0.14);
+  color: var(--color-primary-element-light-text);
+  background: var(--color-primary-element-light);
 }
 
 .room-icon-shell.fair {
-  color: #fdba74;
-  background: rgba(249, 115, 22, 0.14);
+  color: var(--color-warning-text);
+  background: var(--color-warning);
 }
 
 .room-icon-shell.poor,
 .room-icon-shell.terrible {
-  color: #fca5a5;
-  background: rgba(239, 68, 68, 0.14);
+  color: var(--color-error-text);
+  background: var(--color-error);
 }
 
 .room-name {
@@ -321,28 +322,28 @@ export default {
 }
 
 .status-badge.excellent {
-  background: var(--color-success, #4CAF50);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-success);
+  color: var(--color-success-text);
 }
 
 .status-badge.good {
-  background: var(--color-primary, #2196F3);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-primary-element-light);
+  color: var(--color-primary-element-light-text);
 }
 
 .status-badge.fair {
-  background: var(--color-warning, #FF9800);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .status-badge.poor {
-  background: var(--color-warning, #FF5722);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .status-badge.terrible {
-  background: var(--color-error, #F44336);
-  color: var(--color-primary-text, #ffffff);
+  background: var(--color-error);
+  color: var(--color-error-text);
 }
 
 .room-actions {
@@ -387,23 +388,23 @@ export default {
 }
 
 .cleanliness-fill.excellent {
-  background: var(--color-success, #4CAF50);
+  background: var(--color-element-success);
 }
 
 .cleanliness-fill.good {
-  background: var(--color-primary, #2196F3);
+  background: var(--color-primary-element);
 }
 
 .cleanliness-fill.fair {
-  background: var(--color-warning, #FF9800);
+  background: var(--color-element-warning);
 }
 
 .cleanliness-fill.poor {
-  background: var(--color-warning, #FF5722);
+  background: var(--color-element-warning);
 }
 
 .cleanliness-fill.terrible {
-  background: var(--color-error, #F44336);
+  background: var(--color-element-error);
 }
 
 .task-summary {
@@ -422,12 +423,12 @@ export default {
 }
 
 .task-item.overdue {
-  color: var(--color-error, #F44336);
+  color: var(--color-error-text);
   font-weight: 500;
 }
 
 .task-item.due-today {
-  color: var(--color-warning, #FF9800);
+  color: var(--color-warning-text);
   font-weight: 500;
 }
 
@@ -471,7 +472,7 @@ export default {
 
 .quick-clean-button:hover:not(:disabled) {
   background: var(--color-primary);
-  border-color: var(--color-primary);
+  border-color: var(--color-primary-element);
   color: white;
 }
 

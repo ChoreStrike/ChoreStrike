@@ -226,11 +226,11 @@ export default {
 
 .badge { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 999px; }
 
-.badge.ok { background: var(--color-success); color: white; }
+.badge.ok { background: var(--color-success); color: var(--color-success-text); }
 
 .badge.off { background: var(--color-background-dark); }
 
-.adjust-toggle { background: transparent; border: none; color: var(--color-primary); cursor: pointer; font-size: 0.8rem; }
+.adjust-toggle { background: transparent; border: none; color: var(--color-primary-element); cursor: pointer; font-size: 0.8rem; }
 
 .adjust-form { flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.5rem; margin-top: 0.5rem; }
 

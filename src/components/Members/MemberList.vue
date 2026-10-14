@@ -368,17 +368,17 @@ export default {
 
 .role-badge.role-owner {
 	background: var(--color-warning-hover);
-	color: var(--color-warning);
+	color: var(--color-warning-text);
 }
 
 .role-badge.role-member {
 	background: var(--color-primary-light);
-	color: var(--color-primary);
+	color: var(--color-primary-element-light-text);
 }
 
 .role-badge.role-child {
 	background: var(--color-success-hover);
-	color: var(--color-success);
+	color: var(--color-success-text);
 }
 
 .self-hint {
@@ -422,7 +422,7 @@ export default {
 
 .icon-button.danger:hover:not(:disabled) {
 	background: var(--color-error-hover);
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .icon-button:disabled {

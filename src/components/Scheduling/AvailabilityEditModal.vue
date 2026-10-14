@@ -349,7 +349,7 @@ const applyTemplate = (templateType) => {
 }
 
 .toggle-label:focus-within {
-	outline: 2px solid var(--color-primary);
+	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
 }
 
@@ -462,7 +462,7 @@ const applyTemplate = (templateType) => {
 }
 
 .template-button:hover {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	background: var(--color-background-dark);
 }
 

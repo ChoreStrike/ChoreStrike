@@ -54,7 +54,7 @@ export default {
 }
 
 .lock-icon {
-	color: var(--color-warning);
+	color: var(--color-warning-text);
 	margin-bottom: 0.75rem;
 }
 

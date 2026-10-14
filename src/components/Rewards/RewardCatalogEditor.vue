@@ -463,7 +463,7 @@ export default {
 .gate-toggle {
 	width: 1.1rem;
 	height: 1.1rem;
-	accent-color: var(--color-primary);
+	accent-color: var(--color-primary-element);
 	cursor: pointer;
 }
 
@@ -489,20 +489,20 @@ export default {
 .saved-note {
 	margin: 0;
 	font-size: 0.85rem;
-	color: var(--color-success, #2e7d32);
+	color: var(--color-success-text);
 }
 
 .error-note {
 	margin: 0;
 	padding: 0.5rem 0.75rem;
-	border-inline-start: 3px solid var(--color-error);
+	border-inline-start: 3px solid var(--color-element-error);
 	font-size: 0.9rem;
 }
 
 .conflict-note {
 	margin: 0;
 	padding: 0.5rem 0.75rem;
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 	font-size: 0.9rem;
 }
 
@@ -602,8 +602,8 @@ export default {
 }
 
 .mini-button.danger:hover {
-	border-color: var(--color-error);
-	color: var(--color-error);
+	border-color: var(--color-element-error);
+	color: var(--color-error-text);
 }
 
 .load-more {

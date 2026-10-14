@@ -495,7 +495,7 @@ export default {
 
 .ratio-col {
 	font-weight: 600;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 	text-align: center;
 }
 

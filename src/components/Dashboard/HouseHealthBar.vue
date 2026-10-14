@@ -224,23 +224,20 @@ export default {
 }
 
 .status-text.excellent {
-  color: var(--cs-celebrate-success);
+  color: var(--color-success-text);
 }
 
 .status-text.good {
-  color: var(--cs-health-full);
+  color: var(--color-info-text);
 }
 
 .status-text.fair {
-  color: var(--cs-celebrate-gold);
+  color: var(--color-warning-text);
 }
 
-.status-text.poor {
-  color: var(--cs-celebrate-accent);
-}
-
+.status-text.poor,
 .status-text.terrible {
-  color: var(--cs-health-low);
+  color: var(--color-error-text);
 }
 
 .refresh-button {
@@ -260,7 +257,7 @@ export default {
 
 .refresh-button:hover:not(:disabled) {
   background: var(--color-background-hover);
-  border-color: var(--color-primary);
+  border-color: var(--color-primary-element);
 }
 
 .refresh-button:disabled {

@@ -356,12 +356,12 @@ export default {
 
 .progress-badge.complete {
 	background: var(--color-success);
-	color: white;
+	color: var(--color-success-text);
 }
 
 .progress-badge.half {
 	background: var(--color-warning);
-	color: white;
+	color: var(--color-warning-text);
 }
 
 .progress-bar-container {
@@ -380,11 +380,11 @@ export default {
 }
 
 .progress-bar.complete {
-	background: var(--color-success);
+	background: var(--color-element-success);
 }
 
 .progress-bar.half {
-	background: var(--color-warning);
+	background: var(--color-element-warning);
 }
 
 .checklist-items {
@@ -444,7 +444,7 @@ export default {
 
 .item-checkbox input:checked + .checkmark {
 	background: var(--color-primary);
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 }
 
 .item-checkbox input:checked + .checkmark::after {
@@ -510,11 +510,11 @@ export default {
 }
 
 .action-btn.edit:hover {
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 }
 
 .action-btn.delete:hover {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .action-btn.drag {
@@ -557,7 +557,7 @@ export default {
 }
 
 .form-input:focus {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	outline: none;
 }
 

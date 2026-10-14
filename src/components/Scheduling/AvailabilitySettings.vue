@@ -202,13 +202,13 @@ const closeEditModal = () => {
 }
 
 .day-item.available {
-	background: rgba(76, 175, 80, 0.1);
-	border-color: #4caf50;
+	background: var(--color-success);
+	border-color: var(--color-element-success);
 }
 
 .day-item.unavailable {
-	background: rgba(244, 67, 54, 0.1);
-	border-color: #f44336;
+	background: var(--color-error);
+	border-color: var(--color-element-error);
 }
 
 .day-name {

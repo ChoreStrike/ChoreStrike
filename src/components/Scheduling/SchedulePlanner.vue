@@ -593,7 +593,7 @@ const apply = async () => {
 }
 
 .task-select-label:focus-within {
-	outline: 2px solid var(--color-primary);
+	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
 }
 
@@ -657,7 +657,7 @@ const apply = async () => {
 	width: 40px;
 	height: 40px;
 	border: 3px solid var(--color-border);
-	border-top: 3px solid var(--color-primary);
+	border-top: 3px solid var(--color-primary-element);
 	border-radius: 50%;
 	animation: spin 1s linear infinite;
 	margin: 0 auto 1rem;
@@ -681,7 +681,7 @@ const apply = async () => {
 
 .status-banner.error {
 	background: var(--color-error-hover, #fde8e8);
-	color: var(--color-error, #e9322d);
+	color: var(--color-error-text);
 }
 
 .status-banner.success {
@@ -733,7 +733,7 @@ const apply = async () => {
 }
 
 .change-warnings {
-	color: var(--color-warning, #b45309);
+	color: var(--color-warning-text);
 	font-size: 0.85rem;
 }
 
@@ -789,7 +789,7 @@ const apply = async () => {
 }
 
 .capacity-table td.overloaded {
-	color: var(--color-error, #e9322d);
+	color: var(--color-error-text);
 	font-weight: 600;
 }
 
@@ -816,7 +816,7 @@ const apply = async () => {
 }
 
 .consent-label:focus-within {
-	outline: 2px solid var(--color-primary);
+	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
 }
 

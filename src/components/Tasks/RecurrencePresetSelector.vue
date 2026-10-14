@@ -119,12 +119,12 @@ export default {
 }
 
 .template-button:hover {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	background: var(--color-background-dark);
 }
 
 .template-button.active {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	background: var(--color-primary);
 	color: var(--color-primary-text);
 }

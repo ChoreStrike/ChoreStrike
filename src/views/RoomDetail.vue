@@ -659,7 +659,7 @@ export default {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	color: var(--color-primary);
+	color: var(--color-main-text);
 	text-decoration: none;
 	font-size: 0.9rem;
 	margin-bottom: 1rem;
@@ -707,8 +707,8 @@ h1 {
 }
 
 .icon-action-button.danger:hover {
-	border-color: var(--color-error);
-	color: var(--color-error);
+	border-color: var(--color-element-error);
+	color: var(--color-error-text);
 }
 
 .modal-content {
@@ -744,7 +744,7 @@ h1 {
 
 .text-input:focus {
 	outline: none;
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 }
 
 .modal-actions {
@@ -822,23 +822,23 @@ h1 {
 }
 
 .stat-value.excellent {
-	color: var(--color-success);
+	color: var(--color-success-text);
 }
 
 .stat-value.good {
-	color: var(--color-success);
+	color: var(--color-success-text);
 }
 
 .stat-value.fair {
-	color: var(--color-warning);
+	color: var(--color-warning-text);
 }
 
 .stat-value.poor {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .stat-value.warning {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .room-content {
@@ -895,7 +895,7 @@ h1 {
 }
 
 .stats-entry dd.warning {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .cleanliness-ring {
@@ -911,19 +911,19 @@ h1 {
 }
 
 .cleanliness-ring.excellent {
-	border-color: var(--color-success);
+	border-color: var(--color-element-success);
 }
 
 .cleanliness-ring.good {
-	border-color: var(--color-success);
+	border-color: var(--color-element-success);
 }
 
 .cleanliness-ring.fair {
-	border-color: var(--color-warning);
+	border-color: var(--color-element-warning);
 }
 
 .cleanliness-ring.poor {
-	border-color: var(--color-error);
+	border-color: var(--color-element-error);
 }
 
 .cleanliness-ring-value {

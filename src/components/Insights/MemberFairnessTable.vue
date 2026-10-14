@@ -167,7 +167,7 @@ export default {
 }
 
 .load-bar.over .load-fill {
-	background: var(--color-error);
+	background: var(--color-element-error);
 }
 
 .load-label {

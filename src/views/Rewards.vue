@@ -453,14 +453,14 @@ export default {
 .conflict-note {
 	margin: 0 0 1rem 0;
 	padding: 0.5rem 0.75rem;
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 	font-size: 0.9rem;
 }
 
 .error-note {
 	margin: 0 0 1rem 0;
 	padding: 0.5rem 0.75rem;
-	border-inline-start: 3px solid var(--color-error);
+	border-inline-start: 3px solid var(--color-element-error);
 	font-size: 0.9rem;
 }
 

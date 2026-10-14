@@ -242,7 +242,7 @@ export default {
 	height: 2.5rem;
 	border-radius: 0.9rem;
 	flex-shrink: 0;
-	border: 1px solid rgba(255, 255, 255, 0.08);
+	border: 1px solid var(--color-border);
 }
 
 .stat-card:hover {
@@ -257,29 +257,30 @@ export default {
   color: currentColor;
 }
 
+/* Status tint + matching text color in both themes (NC34+ pairs, UX-017). */
 .total-rooms-icon {
-	background: linear-gradient(135deg, rgba(99, 181, 255, 0.18), rgba(59, 130, 246, 0.28));
-	color: #7fd0ff;
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
 }
 
 .clean-rooms-icon {
-	background: linear-gradient(135deg, rgba(72, 224, 153, 0.18), rgba(16, 185, 129, 0.28));
-	color: #69f0bb;
+	background: var(--color-success);
+	color: var(--color-success-text);
 }
 
 .due-today-icon {
-	background: linear-gradient(135deg, rgba(255, 196, 87, 0.18), rgba(249, 115, 22, 0.26));
-	color: #ffc96c;
+	background: var(--color-warning);
+	color: var(--color-warning-text);
 }
 
 .urgent-icon {
-	background: linear-gradient(135deg, rgba(255, 120, 120, 0.18), rgba(239, 68, 68, 0.28));
-	color: #ff8b8b;
+	background: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .average-cleanliness-icon {
-	background: linear-gradient(135deg, rgba(96, 165, 250, 0.18), rgba(56, 189, 248, 0.26));
-	color: #93d9ff;
+	background: var(--color-info);
+	color: var(--color-info-text);
 }
 
 .stat-content {
@@ -324,13 +325,13 @@ export default {
 
 .action-button:hover:not(:disabled) {
   background: var(--color-background-hover);
-  border-color: var(--color-primary);
+  border-color: var(--color-primary-element);
 }
 
 .action-button.primary {
   background: var(--color-primary);
   color: var(--color-primary-text);
-  border-color: var(--color-primary);
+  border-color: var(--color-primary-element);
 }
 
 .action-button.primary:hover:not(:disabled) {
@@ -339,7 +340,8 @@ export default {
 }
 
 .refresh-action {
-	background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(14, 165, 233, 0.16));
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
 }
 
 .tasks-action {
@@ -354,7 +356,7 @@ export default {
 .filter-chip.active {
 	background: var(--color-primary);
 	color: var(--color-primary-text);
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 }
 
 .action-button .icon {

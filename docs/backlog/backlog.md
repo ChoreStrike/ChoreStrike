@@ -321,7 +321,7 @@ full gate remains failed; documentation and backend checks do not replace it.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B focused-run closures
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel
@@ -347,6 +347,13 @@ family-rhythm date-amendment and house-pause assertions. This is recurrence of
 the observed symptom, not new root-cause evidence. No backend source changed in
 that round. Raw reports stay local; RF-080-15 retains the required full-gate
 requalification blocker rather than treating these tests as passed or skipped.
+
+CS-PLAN-084 WP-B focused runs (2026-10-14, canonical NC35, CSS-only round)
+record one seed POST `fetch failed` / `SocketError: other side closed`
+(scheduling-apply-flow, scheduling-owner pool started concurrently with the
+chromium pool) and one authenticated GET `socket hang up`
+(insights-flow, serial pool alone) before assertions. Both specs pass isolated
+in their pools (11/11, 10/10). Recurrence evidence only; no cause established.
 
 **Deferral reason / scope:** attribution needs separate test-runtime/transport
 instrumentation and load comparison; it is not an outstanding bootstrap or

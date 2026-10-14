@@ -79,18 +79,18 @@ export default {
 }
 
 .stats-card.clean .stats-value {
-	color: var(--color-success);
+	color: var(--color-success-text);
 }
 
 .stats-card.dirty .stats-value {
-	color: var(--color-warning, #f39c12);
+	color: var(--color-warning-text);
 }
 
 .stats-card.warning .stats-value {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .stats-card.health .stats-value {
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 }
 </style>

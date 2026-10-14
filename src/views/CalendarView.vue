@@ -302,7 +302,7 @@ export default {
 }
 
 .calendar-error {
-	color: var(--color-error, #e9322d);
+	color: var(--color-error-text);
 }
 
 .day-detail {

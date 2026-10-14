@@ -94,7 +94,7 @@ export default {
 }
 
 .error-icon {
-	color: var(--color-error);
+	color: var(--color-error-text);
 	margin-bottom: 0.5rem;
 }
 

@@ -232,7 +232,7 @@ onMounted(async () => {
 .stat-value {
 	font-size: 1.25rem;
 	font-weight: bold;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 }
 
 .leaderboard-list {
@@ -252,7 +252,7 @@ onMounted(async () => {
 	width: 24px;
 	height: 24px;
 	border: 2px solid var(--color-background-darker);
-	border-top-color: var(--color-primary);
+	border-top-color: var(--color-primary-element);
 	border-radius: 50%;
 	animation: spin 1s linear infinite;
 	margin-bottom: 0.5rem;
@@ -288,7 +288,7 @@ onMounted(async () => {
 }
 
 .leaderboard-entry.current-user {
-	border: 2px solid var(--color-primary);
+	border: 2px solid var(--color-primary-element);
 }
 
 .rank {
@@ -320,7 +320,7 @@ onMounted(async () => {
 .score {
 	font-size: 1.25rem;
 	font-weight: bold;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 	padding: 0.25rem 0.75rem;
 	background: var(--color-main-background);
 	border-radius: 4px;

@@ -417,7 +417,7 @@ onUnmounted(() => {
 .best-value {
 	font-size: 1.5rem;
 	font-weight: bold;
-	color: var(--color-primary);
+	color: var(--color-primary-element);
 }
 
 .game-board {

@@ -786,11 +786,11 @@ export default {
 }
 
 .stat-number.warning {
-	color: var(--color-error);
+	color: var(--color-error-text);
 }
 
 .stat-number.success {
-	color: var(--color-success);
+	color: var(--color-success-text);
 }
 
 .stat-label {

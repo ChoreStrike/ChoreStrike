@@ -240,7 +240,7 @@ watch(() => schedulingStore.energyBudget, () => {
 }
 
 .template-button:hover {
-	border-color: var(--color-primary);
+	border-color: var(--color-primary-element);
 	background: var(--color-background-dark);
 }
 

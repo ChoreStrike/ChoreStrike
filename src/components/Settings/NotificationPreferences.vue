@@ -347,7 +347,7 @@ export default {
 .conflict-note {
 	margin: 0;
 	padding: 0.5rem 0.75rem;
-	border-inline-start: 3px solid var(--color-warning);
+	border-inline-start: 3px solid var(--color-element-warning);
 	color: var(--color-main-text);
 	font-size: 0.9rem;
 }
@@ -355,7 +355,7 @@ export default {
 .error-note {
 	margin: 0;
 	padding: 0.5rem 0.75rem;
-	border-inline-start: 3px solid var(--color-error);
+	border-inline-start: 3px solid var(--color-element-error);
 	color: var(--color-main-text);
 	font-size: 0.9rem;
 }

@@ -30,3 +30,34 @@ Jest 119 / 1709; PHPUnit unit 1385, integration 610 (skips forbidden); ESLint, `
 ## Outcome
 
 **PASS-WITH-FIXES (interim).** Two findings fixed in-round, one minor plan-owned finding routed to WP-C. Plan stays active.
+
+---
+
+## Round 3
+
+# Code Review: CS-PLAN-084 Round 3 (WP-B Colors and Contrast) — Interim Standard B
+
+- **Review Date**: 2026-10-14
+- **Reviewer**: Claude Code
+- **Mode**: Standard B (interim; plan stays `active/`)
+- **Scope**: working tree at `8cac20a` (index empty): NC32+ semantic color pairs across 40+ components, body-keyed dark tokens, axe color-contrast E2E spec, CSS guard tests, `@axe-core/playwright` devDependency, ESLint e2e override, design guideline, TECH-TRANSPORT-001 recurrence fold-in
+- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+
+## Findings
+
+| ID | Severity | Area | Issue | Status |
+|----|----------|------|-------|--------|
+| B3-01 | minor | MemberList, AssigneeChips, FlexWindowDisplay | `--color-primary-light` tint with `--color-primary-element` text (≈4.7:1 dark) instead of the light-text pair | fixed (`--color-primary-element-light-text`) |
+
+## Verified Non-Findings
+
+- Scripted scan: no CSS rule with text in its own background token family; no `--color-primary-element` surface with white text; all `--color-element-*` backgrounds are text-free bars/markers.
+- The mechanical sweep touched only `color`, `border*`, `outline*` and `accent-color` declarations; backgrounds were classified by hand (badge / fill / danger button).
+
+## Gates
+
+Jest 119 / 1713 (CSS guards 9/9); ESLint, Stylelint green; color-contrast spec 0 violations in light and dark over nine views; focused browser runs green except two recorded TECH-TRANSPORT-001 closures that pass isolated.
+
+## Outcome
+
+**PASS-WITH-FIXES (interim).** One minor finding fixed in-round; no open findings from this round.

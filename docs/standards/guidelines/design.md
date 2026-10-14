@@ -13,6 +13,26 @@ This theme combines the clean feel of a productivity app with the energy of a ga
   - *Usage:* Medals, rewards, shields, glowing windows.
 - **Background/Neutral:** Light cream or pure white for Light Mode; deep navy/dark gray for Dark Mode.
 
+### UI colors in the app (UX-017, CS-PLAN-084)
+
+The brand palette above is for branding assets and decorative accents. App UI
+colors come from the Nextcloud theme so light, dark and high-contrast themes
+work automatically (NC34/35 semantics, verified on both runtime rows):
+
+| Purpose | Use | Never |
+|---|---|---|
+| Status text (ok / due / overdue / info) | `--color-success-text`, `--color-warning-text`, `--color-error-text`, `--color-info-text` | `color: var(--color-success)` (a pale tint since NC32) |
+| Status badge / chip / soft danger button | background `--color-<state>` + text `--color-<state>-text` (+ border `--color-element-<state>`) | white text on `--color-<state>` |
+| Borders, progress fills, dots, status icons | `--color-element-<state>` | the pale `--color-<state>` tint |
+| Accent text, links, focus/selection borders | `--color-primary-element` | `--color-primary` (theme-independent, 2.4:1 in dark) |
+| Filled primary button | `--color-primary-element` + `--color-primary-element-text` | — |
+
+Dark overrides of the `--cs-*` tokens key on the Nextcloud theme attributes on
+`<body>` (`data-theme-dark`, or `data-theme-default` + OS dark), never on `:root`
+or the OS preference alone. `tests/unit/css/theme-consistency.spec.js` guards the
+rules statically; `tests/e2e/color-contrast.spec.ts` checks WCAG AA text contrast
+of every main view in the light and dark themes.
+
 ## 3. Typography & Styling
 - **Fonts:** Inherited globally from the Nextcloud system (usually system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto). We do **not** define our own custom fonts to ensure native integration and keep things simple.
 - **Shapes:** Slightly rounded corners (border-radius: 8px to 12px) for a friendly, "game-like" look.
@@ -98,7 +118,7 @@ FEAT-UX-030 and are enforced in review.
 ### Focus & motion
 
 - Interactive elements show a visible focus state (`:focus`/`:focus-within`
-  outline using `var(--color-primary)` or the browser default). Never remove
+  outline using `var(--color-primary-element)` or the browser default). Never remove
   outlines without replacing them.
 - Respect reduced motion: transitions/animations ride on the global
   `prefers-reduced-motion` handling of `src/styles/tokens.css`
