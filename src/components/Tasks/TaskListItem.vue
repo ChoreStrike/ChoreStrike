@@ -22,16 +22,13 @@
 		</div>
 		<div class="task-main">
 			<div class="task-status">
-				<button
+				<HoldButton
 					v-if="item.roomTask.isActive"
-					class="complete-button"
+					:label="t('chorestrike', 'Done')"
+					:busy="roomTasksStore.isCompleting(item.roomTask.id)"
 					data-testid="complete-task-button"
-					:aria-label="t('chorestrike', 'Done')"
 					:title="t('chorestrike', 'Mark as complete')"
-					@click="$emit('complete', item.roomTask.id)">
-					<Icon name="CheckCircle" :size="20" />
-					<span>{{ t('chorestrike', 'Done') }}</span>
-				</button>
+					@confirm="$emit('complete', item.roomTask.id)" />
 				<span v-else class="completed-check">
 					<Icon name="CheckCircle" :size="20" />
 				</span>
@@ -151,10 +148,12 @@
 import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
+import HoldButton from '../Common/HoldButton.vue'
 import FlexWindowDisplay from './FlexWindowDisplay.vue'
 import TaskListDetails from './TaskListDetails.vue'
 import { useUserStore } from '../../store/user.js'
 import { useHouseStore } from '../../store/house.js'
+import { useRoomTasksStore } from '../../store/roomTasks.js'
 import {
 	assignmentLabel,
 	isOverdue,
@@ -178,6 +177,7 @@ export default {
 
 	components: {
 		Icon,
+		HoldButton,
 		FlexWindowDisplay,
 		TaskListDetails,
 	},
@@ -210,6 +210,7 @@ export default {
 	setup(props) {
 		const userStore = useUserStore()
 		const houseStore = useHouseStore()
+		const roomTasksStore = useRoomTasksStore()
 
 		const assigneeCount = computed(() => (props.item.roomTask.assignees || []).length)
 
@@ -232,6 +233,7 @@ export default {
 			assignmentLabel,
 			userStore,
 			houseStore,
+			roomTasksStore,
 			assigneeCount,
 			canClaim,
 			flexWindow,
@@ -292,27 +294,6 @@ export default {
 
 .task-status {
 	flex-shrink: 0;
-}
-
-.complete-button {
-	min-inline-size: 44px;
-	min-block-size: 44px;
-	padding: 0.5rem;
-	gap: 0.35rem;
-	border-radius: 8px;
-	border: 2px solid var(--color-primary-element);
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-	cursor: pointer;
-	font-size: 14px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	transition: all 0.2s ease;
-}
-
-.complete-button:hover {
-	background: var(--color-primary-element-hover);
 }
 
 .completed-check {
@@ -428,7 +409,6 @@ export default {
 }
 
 .action-btn:focus-visible,
-.complete-button:focus-visible,
 .claim-button:focus-visible {
 	outline: 2px solid var(--color-main-text);
 	outline-offset: 2px;

@@ -9,6 +9,8 @@ import { setActivePinia, createPinia } from 'pinia'
 import TaskListItem from '../../../src/components/Tasks/TaskListItem.vue'
 import TaskListDetails from '../../../src/components/Tasks/TaskListDetails.vue'
 import { useUserStore } from '../../../src/store/user.js'
+import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+import { confirmHold } from '../helpers/hold.js'
 
 jest.mock('@nextcloud/dialogs', () => ({
 	showSuccess: jest.fn(),
@@ -88,20 +90,37 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 		const wrapper = mountItem({ item: { roomTask: roomTask({ assignees: ['u1', 'u2'] }), task: task() } }, 'member')
 		expect(wrapper.get('[data-testid="task-assignees"]').text()).toContain('Assigned to: Alice, Bob')
 		expect(wrapper.get('[data-testid="complete-task-button"]').text()).toContain('Done')
-		expect(wrapper.get('[data-testid="complete-task-button"]').attributes('aria-label')).toBe('Done')
+		// The visible label is the accessible name; no competing aria-label.
+		expect(wrapper.get('[data-testid="complete-task-button"]').attributes('aria-label')).toBeUndefined()
 		expect(mountItem().get('[data-testid="task-assignees"]').text()).toContain('Unassigned')
 	})
 
 	it('emits complete/edit/delete upward', async () => {
 		const wrapper = mountItem({}, 'owner')
 
-		await wrapper.find('[data-testid="complete-task-button"]').trigger('click')
+		await confirmHold(wrapper, '[data-testid="complete-task-button"]')
 		await wrapper.find('.action-btn').trigger('click')
 		await wrapper.find('.action-btn.delete').trigger('click')
 
 		expect(wrapper.emitted('complete')).toEqual([[42]])
 		expect(wrapper.emitted('edit')).toBeTruthy()
 		expect(wrapper.emitted('delete')).toEqual([[42]])
+	})
+
+	it('a plain click on Done does not complete (WP-E hold-to-confirm)', async () => {
+		const wrapper = mountItem({}, 'owner')
+
+		await wrapper.find('[data-testid="complete-task-button"]').trigger('click')
+
+		expect(wrapper.emitted('complete')).toBeUndefined()
+	})
+
+	it('disables Done while the shared store has its completion in flight', async () => {
+		const wrapper = mountItem({}, 'owner')
+		useRoomTasksStore().completingIds = { 42: true }
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.get('[data-testid="complete-task-button"]').attributes('disabled')).toBeDefined()
 	})
 
 	it('emits toggle-select and toggle-expand', async () => {

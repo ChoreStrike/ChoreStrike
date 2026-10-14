@@ -115,16 +115,14 @@
 							class="task-row catchup"
 							:class="{ completed: !item.roomTask.isActive }"
 							data-testid="today-task-item">
-							<button
+							<HoldButton
 								v-if="item.roomTask.isActive"
-								class="complete-button"
+								:label="t('chorestrike', 'Done')"
+								:icon-size="22"
+								:busy="roomTasksStore.isCompleting(item.roomTask.id)"
 								:data-testid="`today-complete-button-${item.roomTask.id}`"
-								:disabled="completingIds.has(item.roomTask.id)"
 								:title="t('chorestrike', 'Mark as done')"
-								@click="complete(item)">
-								<Icon name="CheckCircle" :size="22" />
-								<span>{{ t('chorestrike', 'Done') }}</span>
-							</button>
+								@confirm="complete(item)" />
 							<span v-else class="completed-check" :data-testid="`today-completed-check-${item.roomTask.id}`">
 								<Icon name="CheckCircle" :size="22" />
 							</span>
@@ -181,16 +179,14 @@
 							class="task-row"
 							:class="{ completed: !item.roomTask.isActive }"
 							data-testid="today-task-item">
-							<button
+							<HoldButton
 								v-if="item.roomTask.isActive"
-								class="complete-button"
+								:label="t('chorestrike', 'Done')"
+								:icon-size="22"
+								:busy="roomTasksStore.isCompleting(item.roomTask.id)"
 								:data-testid="`today-complete-button-${item.roomTask.id}`"
-								:disabled="completingIds.has(item.roomTask.id)"
 								:title="t('chorestrike', 'Mark as done')"
-								@click="complete(item)">
-								<Icon name="CheckCircle" :size="22" />
-								<span>{{ t('chorestrike', 'Done') }}</span>
-							</button>
+								@confirm="complete(item)" />
 							<span v-else class="completed-check" :data-testid="`today-completed-check-${item.roomTask.id}`">
 								<Icon name="CheckCircle" :size="22" />
 							</span>
@@ -295,6 +291,7 @@ import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import TaskChecklist from '../components/Tasks/TaskChecklist.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
+import HoldButton from '../components/Common/HoldButton.vue'
 import HelpEntry from '../components/Help/HelpEntry.vue'
 
 const APPOINTMENT_LIMIT = 5
@@ -307,6 +304,7 @@ export default {
 		ErrorState,
 		TaskChecklist,
 		ParticipationDialog,
+		HoldButton,
 		HelpEntry,
 	},
 
@@ -325,7 +323,6 @@ export default {
 			loading: false,
 			error: false,
 			filter: 'mine',
-			completingIds: new Set(),
 			expandedIds: [],
 			// WP3 §3.6: the multi-person completion dialog target
 			// (`{item}`) while open; solo work bypasses the dialog.
@@ -627,7 +624,6 @@ export default {
 		},
 
 		async performComplete(roomTaskId, options = {}) {
-			this.completingIds = new Set(this.completingIds).add(roomTaskId)
 			try {
 				// Participant-less completion omits the options entirely —
 				// the server credits the effective agreement.
@@ -649,10 +645,6 @@ export default {
 			} catch (error) {
 				showError(t('chorestrike', 'Could not complete the task'))
 				logger.error('Failed to complete task', error, { view: 'TodayView', action: 'complete', roomTaskId })
-			} finally {
-				const next = new Set(this.completingIds)
-				next.delete(roomTaskId)
-				this.completingIds = next
 			}
 		},
 
@@ -924,32 +916,6 @@ export default {
 	opacity: 0.6;
 }
 
-.complete-button {
-	display: flex;
-	align-items: center;
-	gap: 0.4rem;
-	min-width: 44px;
-	min-height: 44px;
-	padding: 0.5rem 0.9rem;
-	border: 2px solid var(--color-primary-element);
-	border-radius: 22px;
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-	cursor: pointer;
-	font-size: 1rem;
-	font-weight: 600;
-	transition: background-color 0.2s, color 0.2s;
-}
-
-.complete-button:hover:not(:disabled) {
-	background: var(--color-primary-element-hover);
-}
-
-.complete-button:disabled {
-	opacity: 0.5;
-	cursor: wait;
-}
-
 .completed-check {
 	display: flex;
 	align-items: center;
@@ -1057,7 +1023,6 @@ export default {
 
 .appointment-row:focus-visible,
 .filter-button:focus-visible,
-.complete-button:focus-visible,
 .checklist-toggle:focus-visible {
 	outline: 2px solid var(--color-main-text);
 	outline-offset: 2px;

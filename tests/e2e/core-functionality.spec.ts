@@ -3,6 +3,7 @@ import { userStatePath } from './fixtures/auth-contexts'
 import { expandAllFloors } from './fixtures/dashboard-floors'
 import type { Page } from '@playwright/test'
 
+import { holdToConfirm } from './fixtures/hold-to-confirm'
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. Read via an IN-PAGE fetch (the
  * restored session's request context has no CSRF token; the page's own
@@ -146,7 +147,7 @@ test.describe('Core App Functionality', () => {
 			const pathname = new URL(response.url()).pathname
 			return response.request().method() === 'POST' && pathname.endsWith('/complete')
 		})
-		await probeRow.locator('[data-testid="complete-task-button"]').click()
+		await holdToConfirm(probeRow.locator('[data-testid="complete-task-button"]'))
 		const receipt = await (await completeResponsePromise).json()
 		expect(receipt.success).toBe(true)
 		// A reward/state change confirms completion: the queued-undo

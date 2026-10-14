@@ -66,13 +66,16 @@
 			<span class="last-updated">
 				{{ t('chorestrike', 'Last cleaned: {time}', { time: lastCleanedText }) }}
 			</span>
-			<button
-				class="quick-clean-button"
-				:disabled="loading || room.cleanliness >= 90"
+			<HoldButton
+				variant="icon"
+				icon="Sparkles"
+				:icon-size="18"
+				:disabled="room.cleanliness >= 90"
+				:busy="loading"
+				:data-testid="`quick-clean-${room.id}`"
+				:aria-label="t('chorestrike', 'Quick clean (+10% cleanliness)')"
 				:title="t('chorestrike', 'Quick clean (+10% cleanliness)')"
-				@click.stop="quickClean">
-				<Icon name="Sparkles" class="icon" />
-			</button>
+				@confirm="quickClean" />
 		</div>
 	</div>
 </template>
@@ -87,12 +90,14 @@ import { useHouseStore } from '../../store/house.js'
 import { dueClass, isOverdue } from '../../utils/taskDisplay.js'
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
+import HoldButton from '../Common/HoldButton.vue'
 import { resolveRoomIcon } from '../../utils/roomIcons.js'
 
 export default {
 	name: 'RoomCard',
 	components: {
 		Icon,
+		HoldButton,
 	},
 
 	props: {
@@ -190,6 +195,7 @@ export default {
 		}
 
 		const quickClean = async () => {
+			if (loading.value) return
 			loading.value = true
 			try {
 				await roomsStore.updateRoomCleanliness(props.room.id, 10)
@@ -455,34 +461,6 @@ export default {
 
 .last-updated {
   font-style: italic;
-}
-
-.quick-clean-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-main-background);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.quick-clean-button:hover:not(:disabled) {
-  background: var(--color-primary);
-  border-color: var(--color-primary-element);
-  color: white;
-}
-
-.quick-clean-button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.quick-clean-button .icon {
-  font-size: 14px;
 }
 
 /* Responsive design */

@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import TaskList from '../../../src/components/Tasks/TaskList.vue'
 import { useUserStore } from '../../../src/store/user.js'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+import { confirmHold } from '../helpers/hold.js'
 
 // Mock Nextcloud l10n
 jest.mock('@nextcloud/l10n', () => ({
@@ -206,7 +207,7 @@ describe('TaskList', () => {
 				props: { loading: false, roomTasks: tasks },
 			})
 
-			expect(wrapper.find('.complete-button').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="complete-task-button"]').exists()).toBe(true)
 			expect(wrapper.find('.completed-check').exists()).toBe(false)
 		})
 
@@ -216,7 +217,7 @@ describe('TaskList', () => {
 				props: { loading: false, roomTasks: tasks },
 			})
 
-			expect(wrapper.find('.complete-button').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="complete-task-button"]').exists()).toBe(false)
 			expect(wrapper.find('.completed-check').exists()).toBe(true)
 			expect(wrapper.text()).toContain('Completed')
 		})
@@ -252,13 +253,13 @@ describe('TaskList', () => {
 	})
 
 	describe('user interactions', () => {
-		it('should emit complete event when complete button clicked', async () => {
+		it('should emit complete event when the complete hold is confirmed', async () => {
 			const tasks = [mockTask({ roomTask: { id: 42, isActive: true } })]
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: tasks },
 			})
 
-			await wrapper.find('.complete-button').trigger('click')
+			await confirmHold(wrapper, '[data-testid="complete-task-button"]')
 
 			expect(wrapper.emitted('complete')).toBeTruthy()
 			expect(wrapper.emitted('complete')[0]).toEqual([42])
@@ -308,8 +309,8 @@ describe('TaskList', () => {
 
 		it('falls back to the participation path when the claimer identity is unresolved', async () => {
 			const userStore = useUserStore()
+			// `userId` is derived from `currentUser` (null as well).
 			userStore.currentUser = null
-			userStore.userId = null
 			userStore.houseUsers = []
 			const tasks = [mockTask({
 				task: { visibilityType: 'public' },

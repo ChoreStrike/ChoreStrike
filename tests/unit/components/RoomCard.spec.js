@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import RoomCard from '../../../src/components/Dashboard/RoomCard.vue'
+import { confirmHold } from '../helpers/hold.js'
 
 const mockPush = jest.fn()
 
@@ -17,9 +18,10 @@ jest.mock('vue-router', () => ({
 }))
 
 // Mock stores
+const mockUpdateRoomCleanliness = jest.fn()
 jest.mock('../../../src/store/rooms.js', () => ({
 	useRoomsStore: jest.fn(() => ({
-		updateRoomCleanliness: jest.fn(),
+		updateRoomCleanliness: mockUpdateRoomCleanliness,
 	})),
 }))
 
@@ -43,6 +45,7 @@ describe('RoomCard', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		mockPush.mockClear()
+		mockUpdateRoomCleanliness.mockReset()
 		wrapper = mount(RoomCard, {
 			props: {
 				room: mockRoom,
@@ -126,16 +129,39 @@ describe('RoomCard', () => {
 	})
 
 	describe('Quick Clean', () => {
-		it('Renders quick clean button', () => {
-			const button = wrapper.find('.quick-clean-button')
+		it('Renders a labelled quick clean hold button', () => {
+			const button = wrapper.find('[data-testid="quick-clean-1"]')
 			expect(button.exists()).toBe(true)
+			expect(button.attributes('aria-label')).toBe('Quick clean (+10% cleanliness)')
+		})
+
+		it('Cleans only after the hold is confirmed, without opening the room', async () => {
+			await wrapper.find('[data-testid="quick-clean-1"]').trigger('click')
+			expect(mockUpdateRoomCleanliness).not.toHaveBeenCalled()
+			expect(mockPush).not.toHaveBeenCalled()
+
+			await confirmHold(wrapper, '[data-testid="quick-clean-1"]')
+			expect(mockUpdateRoomCleanliness).toHaveBeenCalledWith(1, 10)
+		})
+
+		it('Sends one quick clean while the first is in flight', async () => {
+			let resolve
+			mockUpdateRoomCleanliness.mockImplementation(() => new Promise(done => { resolve = done }))
+			const hold = wrapper.findComponent({ name: 'HoldButton' })
+			hold.vm.$emit('confirm')
+			hold.vm.$emit('confirm')
+			await wrapper.vm.$nextTick()
+
+			expect(mockUpdateRoomCleanliness).toHaveBeenCalledTimes(1)
+			expect(wrapper.find('[data-testid="quick-clean-1"]').attributes('disabled')).toBeDefined()
+			resolve()
 		})
 
 		it('Disables quick clean when room is already clean', async () => {
 			await wrapper.setProps({
 				room: { ...mockRoom, cleanliness: 95 },
 			})
-			const button = wrapper.find('.quick-clean-button')
+			const button = wrapper.find('[data-testid="quick-clean-1"]')
 			expect(button.attributes('disabled')).toBeDefined()
 		})
 	})

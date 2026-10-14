@@ -22,6 +22,7 @@ import { test, expect, PROFILE_USERS } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { formatCoinMinor } from '../../src/utils/minorUnits'
 
+import { holdToConfirm } from './fixtures/hold-to-confirm'
 test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })
 
@@ -49,7 +50,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			const row = page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })
 			const completion = page.waitForResponse(response => response.request().method() === 'POST'
 				&& /\/api\/v1\/room-tasks\/\d+\/complete$/.test(new URL(response.url()).pathname))
-			await row.getByRole('button', { name: 'Done', exact: true }).click()
+			await holdToConfirm(row.getByRole('button', { name: 'Done', exact: true }))
 			const receipt = await completion
 			expect(receipt.status()).toBe(200)
 			const priorMinor = (await receipt.json()).data.rewards.wallet.availableMinor
@@ -171,7 +172,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 				return response.request().method() === 'POST'
 					&& pathname === `/apps/chorestrike/api/v1/room-tasks/${trashRoomTask.id}/complete`
 			})
-			await page.getByTestId(`today-complete-button-${trashRoomTask.id}`).click()
+			await holdToConfirm(page.getByTestId(`today-complete-button-${trashRoomTask.id}`))
 			const completeResponse = await complete
 
 			// The committed write is a 2xx success and its response-owned

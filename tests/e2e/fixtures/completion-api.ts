@@ -12,7 +12,8 @@
  * (the same block the UI store consumes) and post it unchanged.
  */
 
-import type { Page, APIResponse } from '@playwright/test'
+import type { Page, APIResponse, Locator, Response } from '@playwright/test'
+import { holdToConfirm } from './hold-to-confirm'
 
 export interface OccurrenceReceipt {
 	occurrenceId: string
@@ -131,21 +132,35 @@ export async function completeAsSoleParticipantViaApi(page: Page, roomTaskId: nu
 }
 
 /**
- * Click a UI complete button and settle the WP3 §3.6 participation dialog
- * when the server proposal opens one (multi-person work, or an agreement
- * naming someone else). Resolves with the completion response.
+ * Hold a UI Done button until it confirms (CS-PLAN-084 WP-E) and settle
+ * the WP3 §3.6 participation dialog when the server proposal opens one
+ * (multi-person work, or an agreement naming someone else). Resolves with
+ * the completion response.
  */
-export async function completeWithOptionalDialog(page: Page, button: { click(): Promise<void> }): Promise<APIResponse> {
-	const responsePromise = page.waitForResponse((response) => {
-		const pathname = new URL(response.url()).pathname
-		return response.request().method() === 'POST' && pathname.endsWith('/complete')
+export async function completeWithOptionalDialog(page: Page, button: Locator): Promise<Response> {
+	// Registered before the hold, so an earlier completion still in flight
+	// can never be mistaken for this one; with a dialog, the request is only
+	// sent after its confirm.
+	const requestPromise = page.waitForRequest((request) => {
+		const pathname = new URL(request.url()).pathname
+		return request.method() === 'POST' && pathname.endsWith('/complete')
 	}, { timeout: 20000 })
-	await button.click()
+	await holdToConfirm(button)
+	// Whichever comes first: the direct completion request, or the dialog
+	// (it may open after an asynchronous identity/member read).
 	const dialog = page.getByTestId('participation-dialog')
-	if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
+	const first = await Promise.race([
+		requestPromise.then(() => 'request', () => 'request'),
+		dialog.waitFor({ state: 'visible', timeout: 20000 }).then(() => 'dialog', () => 'none'),
+	])
+	if (first === 'dialog') {
 		await page.getByTestId('participation-confirm').click()
 	}
-	return responsePromise
+	const response = await (await requestPromise).response()
+	if (!response) {
+		throw new Error('Completion request received no response')
+	}
+	return response
 }
 
 /**

@@ -23,6 +23,7 @@ import { expandAllFloors } from './fixtures/dashboard-floors'
 import { houseDateOffset } from './fixtures/house-clock.js'
 import type { Page } from '@playwright/test'
 
+import { holdToConfirm } from './fixtures/hold-to-confirm'
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. */
 async function kitchenRoom(page: Page): Promise<{ id: number; cleanliness: number }> {
@@ -92,7 +93,7 @@ test.describe('Task Completion Full Flow', () => {
 				const pathname = new URL(response.url()).pathname
 				return response.request().method() === 'POST' && pathname.endsWith('/complete')
 			})
-			await completeButton.click()
+			await holdToConfirm(completeButton)
 			const receipt = await (await completeResponsePromise).json()
 			expect(receipt.success).toBe(true)
 
@@ -159,7 +160,7 @@ test.describe('Task Completion Full Flow', () => {
 					const pathname = new URL(response.url()).pathname
 					return response.request().method() === 'POST' && pathname.endsWith('/complete')
 				})
-				await button.click()
+				await holdToConfirm(button)
 				const receipt = await (await completeResponsePromise).json()
 				expect(receipt.success).toBe(true)
 				receipts.push(receipt.data.rewards)
@@ -208,7 +209,7 @@ test.describe('Task Completion Full Flow', () => {
 				const pathname = new URL(response.url()).pathname
 				return response.request().method() === 'POST' && pathname.endsWith('/complete')
 			})
-			await completeButton.click()
+			await holdToConfirm(completeButton)
 			const receipt = await (await completeResponsePromise).json()
 			expect(receipt.success).toBe(true)
 
@@ -239,7 +240,7 @@ test.describe('Task Completion Full Flow', () => {
 				const pathname = new URL(response.url()).pathname
 				return response.request().method() === 'POST' && pathname.endsWith('/complete')
 			})
-			await taskItem.locator('[data-testid="complete-task-button"]').click()
+			await holdToConfirm(taskItem.locator('[data-testid="complete-task-button"]'))
 			const receipt = await (await completeResponsePromise).json()
 			expect(receipt.success).toBe(true)
 
@@ -298,7 +299,7 @@ test.describe('Task Completion Full Flow', () => {
 				const pathname = new URL(response.url()).pathname
 				return response.request().method() === 'POST' && pathname === `/apps/chorestrike/api/v1/room-tasks/${created.id}/complete`
 			})
-			await taskRow.locator('[data-testid="complete-task-button"]').click()
+			await holdToConfirm(taskRow.locator('[data-testid="complete-task-button"]'))
 			const completeBody = await (await completeResponsePromise).json()
 			expect(completeBody.success).toBe(true)
 

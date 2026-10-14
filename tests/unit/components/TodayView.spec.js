@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { reactive } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import TodayView from '@/views/TodayView.vue'
+import { confirmHold } from '../helpers/hold.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	// Interpolating mock so placeholder-driven copy (the progress line,
@@ -133,6 +134,8 @@ describe('TodayView', () => {
 			fetchDueTodayTasks: jest.fn().mockResolvedValue([]),
 			fetchRangeTasks: jest.fn().mockResolvedValue({ scheduled: [], completed: [] }),
 			refreshDerivedProjections: jest.fn().mockResolvedValue(true),
+			completingIds: {},
+			isCompleting: jest.fn(id => mockRoomTasksStore.completingIds[id] === true),
 			completeRoomTask: jest.fn().mockImplementation(async (roomTaskId) => {
 				// Mimic the store reconcile (D10): the owning slice is
 				// replaced with the response-owned room task.
@@ -224,7 +227,7 @@ describe('TodayView', () => {
 		const wrapper = await mountView()
 		expect(wrapper.find('[data-testid="today-error"]').exists()).toBe(false)
 		expect(wrapper.get('[data-testid="member-names-error"]').text()).toContain('Failed to load members')
-		await wrapper.get('[data-testid="today-complete-button-11"]').trigger('click')
+		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
 		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(11)
 		await wrapper.get('[data-testid="member-names-error"] button').trigger('click')
 		await flushAsync()
@@ -394,12 +397,24 @@ describe('TodayView', () => {
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()
 
-		await wrapper.find('[data-testid="today-complete-button-11"]').trigger('click')
+		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
 		await wrapper.vm.$nextTick()
 
 		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(11)
 		expect(wrapper.find('[data-testid="today-completed-check-11"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="today-complete-button-11"]').exists()).toBe(false)
+	})
+
+	it('marks the Done button busy while its completion is in flight (WP-E)', async () => {
+		const wrapper = await mountView()
+		const button = () => wrapper.get('[data-testid="today-complete-button-11"]')
+		expect(button().attributes('disabled')).toBeUndefined()
+
+		mockRoomTasksStore.completingIds = { 11: true }
+		await wrapper.vm.$nextTick()
+
+		expect(button().attributes('disabled')).toBeDefined()
+		expect(button().attributes('aria-busy')).toBe('true')
 	})
 
 	it('completing a recurring task removes it from the list once its next due moves away', async () => {
@@ -415,7 +430,7 @@ describe('TodayView', () => {
 		})
 		const wrapper = await mountView()
 
-		await wrapper.find('[data-testid="today-complete-button-11"]').trigger('click')
+		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
 		await wrapper.vm.$nextTick()
 
 		expect(wrapper.text()).not.toContain('Do the dishes')
@@ -425,7 +440,7 @@ describe('TodayView', () => {
 		const wrapper = await mountView()
 		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
 
-		await wrapper.find('[data-testid="today-complete-button-30"]').trigger('click')
+		await confirmHold(wrapper, '[data-testid="today-complete-button-30"]')
 		await flushAsync()
 
 		// Catch-up section emptied out…
@@ -485,7 +500,7 @@ describe('TodayView', () => {
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()
 
-		await wrapper.find('[data-testid="today-complete-button-11"]').trigger('click')
+		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
 		await wrapper.vm.$nextTick()
 
 		expect(showError).toHaveBeenCalled()

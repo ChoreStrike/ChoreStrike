@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13 (drafted 2026-10-13; implementation not started)
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), round 4 (WP-E) implemented 2026-10-14
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -233,7 +233,7 @@ documented router contract (`docs/concepts/ui-use-cases.md`).
 new:      src/components/Common/HoldButton.vue
 new:      src/components/Tasks/TaskFilterBar.vue
 new:      src/utils/haptics.js
-new:      tests/unit/components/HoldButton.spec.js (+ TaskFilterBar, haptics specs)
+new:      tests/unit/components/HoldButton.spec.js (+ TaskFilterBar, haptics specs), tests/unit/helpers/hold.js
 new:      tests/integration/Service/SuccessorOwnershipTest.php
 new:      tests/e2e/mobile-core.spec.ts, tests/e2e/fixtures/hold-to-confirm.ts
 modified: src/styles/tokens.css, src/styles/mobile.css
@@ -243,7 +243,8 @@ modified: src/components/Dashboard/{QuickStats,RoomCard,FloorList,HouseHealthBar
 modified: src/components/Tasks/{TaskList,TaskListItem}.vue
 modified: src/components/Settings/AvailabilitySettings.vue (UX-017)
 modified: src/composables/useCelebration.js, src/store/roomTasks.js
-modified: tests/e2e/{overdue-task-claiming,task-completion,task-completion-full-flow,today-view,…}.spec.ts
+modified: tests/e2e/{overdue-task-claiming,task-completion,task-completion-full-flow,today-view,…}.spec.ts,
+          tests/e2e/fixtures/completion-api.ts
 modified: playwright.config.ts, package.json (axe devDependency)
 modified: docker/test-runtime.json, docker compose/entrypoint for the AiO row
 modified: l10n/ (POT/EN/DE)
@@ -328,6 +329,10 @@ the same round.
   pause-suspended miss can count as overdue there while the rows say due. Align the
   stats with `statusFor` (one batched selection) in WP-C, which reworks the room and
   dashboard cards, with a regression.
+- [ ] **RF-084-03 minor (interim Standard B 2026-10-14, round 4, pre-existing):** a failed
+  RoomCard quick clean (`roomsStore.updateRoomCleanliness`) only logs; design.md §5
+  requires an error toast on every mutation failure path. Add the toast (with the
+  API code) through WP-F's error-toast helper, with a Jest regression.
 
 ## Boundaries
 
@@ -478,6 +483,59 @@ the same round.
   folded in; the scheduling run overlapped a reseeding pool) and both specs pass
   isolated in their pools (11/11, 10/10). Color contrast 2/2 themes green.
 
+### Round 4 — WP-E hold-to-confirm and in-flight guard (2026-10-14)
+
+- **HoldButton** (`src/components/Common/HoldButton.vue`): 600 ms pointer or
+  Enter/Space hold with a filling ring (`--hold-ms`), static pressed state under
+  `prefers-reduced-motion`; early release, leave, > 10 px move, `pointercancel`
+  (scroll) and blur abort without a request; a short tap or an untracked click
+  (assistive activation) shows the inline "Press and hold to confirm" hint
+  (`role="status"`, also the button's `aria-describedby`); auto-repeat ignored;
+  context menu suppressed; `data-hold-state` exposes idle/holding/confirmed.
+  A confirmed press stays confirmed while `busy` (disabling the focused button
+  blurs it) and settles after 1 s when a dialog swallowed the release.
+- **Used by** TodayView (both sections, row markup otherwise unchanged),
+  TaskListItem (TaskManager + RoomDetail) and RoomCard quick clean (now 44 px,
+  `aria-label`, no card navigation on press). Claim, Undo, dialog confirms and
+  destructive actions unchanged (D-084-05).
+- **Shared in-flight guard:** `roomTasks.completingIds` + `isCompleting(id)`;
+  `completeRoomTask` joins a concurrent call for the same room task instead of
+  sending a second request (TaskManager/RoomDetail had no guard); `reset()`
+  releases the marks and a stale settle never clears a newer request's mark.
+  Quick clean keeps its local single-flight guard.
+- **Defects found while testing (fixed in-round):** (1) disabling the focused
+  busy button blurred it and reset the state — RoomDetail daily tasks stayed
+  rendered, so the helper never saw `confirmed`; (2) a participation dialog
+  opening over the button fired `pointerleave` and ended the confirmed state
+  within a frame. Jest regressions for both.
+- **Tests:** `HoldButton.spec.js` (17), store join/failure/reset (3), TodayView
+  busy, TaskListItem plain click + busy, RoomCard hold/plain click/single
+  flight; view specs confirm through `tests/unit/helpers/hold.js`. E2E: shared
+  `tests/e2e/fixtures/hold-to-confirm.ts` (`holdToConfirm`, releases on
+  `data-hold-state`, repeats a press the component aborted — a late layout
+  shift under a stationary mouse — at most three times);
+  `completeWithOptionalDialog` and 13 completion clicks migrated without
+  weakening assertions; family-core-ux keyboard test holds Enter; the 390 px
+  touch test proves a short tap sends no request and shows the hint before the
+  held completion. Pre-existing Jest warning fixed (TaskList spec wrote the
+  read-only `userId` getter).
+- **Docs:** calm-core-ux "Completion needs a deliberate press", design guideline
+  feedback table (+ stale undo route corrected to `POST /completions/{id}/undo`),
+  testing guideline hold helpers, ui-use-cases completion/quick-clean/undo rows.
+  New string "Press and hold to confirm" (DE "Zum Bestätigen gedrückt halten").
+- **Gates (canonical NC35 stack):** Jest 120 / 1738; ESLint, Stylelint,
+  `l10n:check-keys` (1281), `backlog:check`, `docs:encoding`, `git diff --check`
+  green; bundle rebuilt. Browser on the final bundle, no retries:
+  chromium-serial-db (task-completion-full-flow, calm-core-ui, today-view,
+  core-household-journey, dashboard, family-core-ux, workflow-state-reconciliation,
+  family-rhythm) 47/47; chromium (core-functionality, task-completion,
+  dashboard-navigation, room-detail, task-manager, overdue-task-claiming,
+  color-contrast light+dark) 42/42 (both incl. 3 setup). Earlier attempts in this
+  round failed on defects (1)/(2) and once on a layout-shift abort, all fixed
+  above; one attempt also showed a `fetch failed` seed closure
+  (TECH-TRANSPORT-001). A browser proof of quick clean follows with WP-C's
+  dashboard rework; the mobile projects with WP-G part 2.
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -581,3 +639,22 @@ the same round.
   → Nextcloud's `--color-primary-element-light-text` pair (≈8:1).
 - **Gates after fix:** Stylelint green, CSS guard Jest 9/9, bundle rebuilt,
   color-contrast light + dark 0 violations; round gates above stand.
+
+### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 4 WP-E, plan stays active)
+
+- **Scope:** WP-E round at `c9740a7`, index empty, 28 modified tracked paths
+  (unstaged diff SHA256 prefix `48d3ea3d1aa4a3bf` at capture) plus 4 untracked
+  files (HoldButton, its spec, the Jest and E2E hold helpers).
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-4).
+- **Checked:** D-084-05 scope (Done + Quick clean only; claim, undo, dialog
+  confirms, destructive actions unchanged); no native activation bypass
+  (Enter/Space prevented, untracked click → hint); in-flight join keeps the
+  command-UUID idempotency; reset ownership; strings via `t()` with DE copy;
+  no logging/API/auth change; E2E migration keeps every assertion.
+- **Fixed in-round (2):** E4-01 hint clipped by the room card (now above the
+  button); E4-02 `completeWithOptionalDialog` dialog race and over-broad
+  response matcher (now the next `/complete` request registered before the hold).
+- **Routed (1):** RF-084-03 quick-clean failure without toast → §9, WP-F.
+- **Gates after fixes:** Jest 120 / 1738; lint/stylelint/l10n/backlog/docs
+  checks green; bundle rebuilt; browser serial 33/33 + 17/17, chromium 42/42,
+  no retries.

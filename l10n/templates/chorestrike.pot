@@ -2099,6 +2099,9 @@ msgstr ""
 msgid "Preparing preview…"
 msgstr ""
 
+msgid "Press and hold to confirm"
+msgstr ""
+
 msgid "Preview"
 msgstr ""
 

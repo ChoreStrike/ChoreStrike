@@ -207,7 +207,7 @@ read-only).
 | Add room (inline name input per floor row) | Settings structure section | `POST /rooms` | ✅ (CS-PLAN-042; icon defaults, the old FloorList icon-picker modal was removed with the duplicate surface) |
 | Rename room (header action) | RoomDetail | `PUT /rooms/{id}` | ✅ (CS-PLAN-042) |
 | Delete room (styled confirm) | RoomDetail header; Settings floor room list | `DELETE /rooms/{id}` | ✅ (CS-PLAN-042) |
-| Cleanliness change (+10 on task completion) | RoomCard | `PUT /rooms/{id}/cleanliness` | ✅ |
+| Cleanliness change (Quick clean +10) | RoomCard (600 ms hold, 44 px labelled control, CS-PLAN-084 WP-E) | `PUT /rooms/{id}/cleanliness` | ✅ |
 | "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ⛔ pruned (CS-PLAN-055 — route + dead `fetchRoomsNeedingCleaning` wrapper gone) |
 | Open room detail | RoomCard click → RoomDetail | `GET /room-tasks?roomId=` | ✅ |
 | Task stats card (total/active/overdue/due-today/completion) | RoomDetail stats card | `GET /room-tasks/room/{roomId}/stats` | ✅ (live since CS-PLAN-040; cross-house roomId → 404) |
@@ -252,7 +252,7 @@ points:** RoomDetail (slim modal), TaskManager, TaskList.
 | Edit assignees | RoomTaskEditModal, TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
 | Delete room task | RoomDetail, TaskManager | `DELETE /room-tasks/{id}` | ✅ |
 | Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate`/`uncomplete` followed by CS-PLAN-064) |
-| Undo a completion (snackbar) | global `UndoSnackbar` queued list (~5 s per entry, UX-015) | `POST /room-tasks/{id}/undo` — ONE inverse aggregate | ✅ exact server-side restore: recurrence, ledger, rewards/streak, cleanliness, checklist (CS-PLAN-064/ADR-011; the CS-PLAN-041 `uncomplete`+conditional-`reactivate` chain was pruned, D5) |
+| Undo a completion (snackbar) | global `UndoSnackbar` queued list (~5 s per entry, UX-015; single tap, never a hold) | `POST /completions/{id}/undo` — targeted correction of the exact completion (WP3; replaced the CS-PLAN-064 `POST /room-tasks/{id}/undo` aggregate) | ✅ exact server-side restore: recurrence, ledger, rewards/streak, cleanliness, checklist (CS-PLAN-064/ADR-011; the CS-PLAN-041 `uncomplete`+conditional-`reactivate` chain was pruned, D5) |
 
 ## UC-08 — Daily execution ("My Day")
 
@@ -269,7 +269,7 @@ usable; owners/members keep the Dashboard default).
 | Overdue section | TodayView | `GET /room-tasks/overdue` | ✅ |
 | Short household instructions per row | TodayView | definition `instructions` (falls back to `description`) | ✅ CS-PLAN-066 §3.5 (plain escaped text, never v-html) |
 | Optional expandable checklist in My Day | TodayView → `TaskChecklist` (execute-only: `can-edit=false`, frozen when completed) | `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}`, `POST /checklists/toggle/{rt}/{item}` | ✅ CS-PLAN-066 §3.5 (progress refreshes after the server-side occurrence reset on completion; checklist-less rows hide the toggle after the one-shot empty discovery — final-review a11y fix 2026-09-12) |
-| Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager | `POST /room-tasks/{id}/complete` | ✅ (CS-PLAN-065 D7 removed the dead per-completion energy-counter store write; CS-PLAN-066 reconciles every owning store before the events and re-syncs the titles store before the title-unlocked event fires once per response) |
+| Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager — Done is a 600 ms press-and-hold with a short-tap hint and one in-flight request per room task (CS-PLAN-084 WP-E) | `POST /room-tasks/{id}/complete` | ✅ (CS-PLAN-065 D7 removed the dead per-completion energy-counter store write; CS-PLAN-066 reconciles every owning store before the events and re-syncs the titles store before the title-unlocked event fires once per response) |
 | Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ CS-PLAN-066 (D2): the counters read dedicated endpoint-backed projections loaded on the cold Dashboard; a scoped room load or the child-limited daily list can never overwrite them; the coordinated derived refresh (D3) keeps them truthful after mutations |
 | Per-row assignee resolution | TodayView | daily AND overdue rows embed canonical `assignees` (D1) | ✅ CS-PLAN-066 (no per-row re-fetch remains) |
 | Partial derived-refresh failure | TodayView | read-only retry of the loaded projections | ✅ CS-PLAN-066 (D3): a committed action stays successful; stale slices offer a refresh-only retry |
@@ -443,7 +443,8 @@ store: [`architecture.md → useRewardsStore`](../engineering/architecture.md).
 - **Destructive actions:** styled confirm modals; typed confirmation only for
   house reset (UX-006).
 - **Touch targets ≥ 44 px** for complete/claim/primary actions; icon+text
-  labels (UX-007).
+  labels (UX-007). Done and Quick clean are press-and-hold (`HoldButton`,
+  CS-PLAN-084 D-084-05).
 - **Feedback:** success/error toasts for every mutation; celebration pipeline
   for gamified successes (`chorestrike:task-completed` event).
 - **Every user-visible string** via `t()`; `data-testid` on interactive
@@ -544,7 +545,7 @@ decisions update intent below, not the current implementation/route inventory.
 | Test-only lifecycle/leaderboard/config ×8 | `PUT /tasks/{id}/complete`, `PUT …/skip`, `PUT …/reschedule`, `GET /tasks/daily`, `POST /room-tasks/{id}/deactivate`, `GET /game/leaderboard`, `GET+PUT /reward-config` |
 
 > Kept deliberately (UC-07 undo re-scoped by CS-PLAN-064 to the ONE aggregate
-> `POST /room-tasks/{id}/undo`; the split uncomplete/reactivate pair was pruned), `GET+PUT /room-tasks/{id}/assignees` (production:
+> `POST /room-tasks/{id}/undo`, since WP3 the targeted `POST /completions/{id}/undo`; the split uncomplete/reactivate pair was pruned), `GET+PUT /room-tasks/{id}/assignees` (production:
 > TodayView per-row resolution + editor/bulk assignment), and the 3 test
 > harness routes below.
 >

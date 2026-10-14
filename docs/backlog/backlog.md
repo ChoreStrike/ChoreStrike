@@ -99,6 +99,8 @@ Done and Quick clean complete only after a 600 ms press-and-hold (pointer and
 keyboard) with a progress ring; early release sends nothing and shows a hold
 hint; Claim overdue keeps its existing confirmation dialog; every
 completion entry point is guarded against double submission ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-E).
+Implemented 2026-10-14 (round 4); stays open until the WP-G part 2 mobile
+projects run the hold paths and the plan's final review passes.
 
 ---
 

@@ -38,6 +38,7 @@ import {
 } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
+import { holdToConfirm } from './fixtures/hold-to-confirm'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const OCCURRENCE_KEY_RE = /^\d+:\d+$/
 
@@ -331,7 +332,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			await child.page.goto('/apps/chorestrike/#/today')
 			await expect(child.page.getByTestId(`today-complete-button-${roomTaskId}`)).toBeVisible()
 			const completed = child.page.waitForResponse(result => result.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
-			await child.page.getByTestId(`today-complete-button-${roomTaskId}`).click()
+			await holdToConfirm(child.page.getByTestId(`today-complete-button-${roomTaskId}`))
 			expect((await completed).status()).toBe(200)
 			await expect(child.page.getByTestId('participation-dialog')).toHaveCount(0)
 		} finally {

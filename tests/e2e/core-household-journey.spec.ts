@@ -33,6 +33,7 @@ import { journeyClock } from './fixtures/house-clock.js'
 import { addDaysToKey } from '../../src/utils/dateKeys.js'
 import type { Browser, Page } from '@playwright/test'
 
+import { holdToConfirm } from './fixtures/hold-to-confirm'
 const DAD_EMAIL = 'dad@chorestrike.test'
 const KID_EMAIL = 'kid@chorestrike.test'
 const HOUSE_NAME = 'Journey Home'
@@ -501,7 +502,7 @@ test.describe('Canonical household journey', () => {
 					return response.request().method() === 'POST'
 						&& pathname === `/apps/chorestrike/api/v1/room-tasks/${flexRoomTaskId}/complete`
 				})
-				await kidExecutor.page.getByTestId(`today-complete-button-${flexRoomTaskId}`).click()
+				await holdToConfirm(kidExecutor.page.getByTestId(`today-complete-button-${flexRoomTaskId}`))
 				const receipt = await (await completeResponsePromise).json()
 				expect(receipt.success).toBe(true)
 				const rewards = receipt.data.rewards

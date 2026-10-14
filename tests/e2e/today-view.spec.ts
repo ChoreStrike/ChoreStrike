@@ -17,6 +17,7 @@ import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeWithOptionalDialog } from './fixtures/completion-api'
 
+import { holdToConfirm } from './fixtures/hold-to-confirm'
 test.describe('Release: Today view', () => {
 	test.use({ databaseProfile: 'family' })
 
@@ -45,7 +46,7 @@ test.describe('Release: Today view', () => {
 			// Complete it and assert the row state change (not confetti):
 			// the dishes task is daily-recurring, so completion shifts its
 			// next due date out of today and the row leaves the list.
-			await page.getByTestId(`today-complete-button-${dishesRoomTask.id}`).click()
+			await holdToConfirm(page.getByTestId(`today-complete-button-${dishesRoomTask.id}`))
 			await expect(row).toHaveCount(0)
 			await expect(page.getByTestId(`today-complete-button-${dishesRoomTask.id}`)).toHaveCount(0)
 		} finally {
@@ -102,7 +103,7 @@ test.describe('Release: Today view', () => {
 			// Dishes is mom's own row (direct completion); counters belongs
 			// to teen — WP3 §3.6: the foreign-agreement proposal opens the
 			// participation dialog, confirming it posts the explicit split.
-			await page.getByTestId(`today-complete-button-${dishesId}`).click()
+			await holdToConfirm(page.getByTestId(`today-complete-button-${dishesId}`))
 			const countersResponse = await completeWithOptionalDialog(
 				page,
 				page.getByTestId(`today-complete-button-${countersId}`),

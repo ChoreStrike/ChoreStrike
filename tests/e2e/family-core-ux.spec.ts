@@ -21,6 +21,7 @@ import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { runOcc } from './fixtures/occ-runner'
 import { completeWithOptionalDialog } from './fixtures/completion-api'
+import { holdToConfirm } from './fixtures/hold-to-confirm'
 import type { Locator } from '@playwright/test'
 
 test.describe('Family core UX (CS-PLAN-066)', () => {
@@ -310,7 +311,8 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await tabTo(complete)
 			await expect(complete).toBeFocused()
 			const response = page.waitForResponse(result => result.request().method() === 'POST' && result.url().endsWith(`/${countersRoomTask.id}/complete`))
-			await page.keyboard.press('Enter')
+			// WP-E: a held Enter confirms (a single press only shows the hint).
+			await holdToConfirm(complete, 'keyboard')
 			expect((await response).ok()).toBe(true)
 			await expect(complete).toHaveCount(0)
 			await expect(page.getByTestId(`undo-snackbar-entry-${countersRoomTask.id}`)).toBeVisible()
@@ -344,16 +346,23 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			expect(box).not.toBeNull()
 			expect(box!.height).toBeGreaterThanOrEqual(44)
 
-			// WP3 §3.6: the foreign-agreement proposal opens the
-			// participation dialog — settle it (tap-friendly confirm).
+			// WP-E: a short tap sends nothing and explains the hold gesture.
+			const completeRequests: string[] = []
+			page.on('request', (request) => {
+				if (request.method() === 'POST' && request.url().endsWith('/complete')) completeRequests.push(request.url())
+			})
 			await page.getByTestId(`today-complete-button-${countersRoomTask.id}`).tap()
-			const dialog = page.getByTestId('participation-dialog')
-			if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
-				const confirmBox = await page.getByTestId('participation-confirm').boundingBox()
-				expect(confirmBox).not.toBeNull()
-				expect(confirmBox!.height).toBeGreaterThanOrEqual(44)
-				await page.getByTestId('participation-confirm').tap()
-			}
+			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}-hint`)).toHaveText('Press and hold to confirm')
+			expect(completeRequests).toEqual([])
+
+			// WP3 §3.6: the held Done opens the foreign-agreement participation
+			// dialog — settle it (tap-friendly confirm).
+			await holdToConfirm(page.getByTestId(`today-complete-button-${countersRoomTask.id}`))
+			await expect(page.getByTestId('participation-dialog')).toBeVisible()
+			const confirmBox = await page.getByTestId('participation-confirm').boundingBox()
+			expect(confirmBox).not.toBeNull()
+			expect(confirmBox!.height).toBeGreaterThanOrEqual(44)
+			await page.getByTestId('participation-confirm').tap()
 			await expect(page.getByTestId(`undo-snackbar-entry-${countersRoomTask.id}`)).toBeVisible()
 			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}`)).toHaveCount(0)
 		} finally {

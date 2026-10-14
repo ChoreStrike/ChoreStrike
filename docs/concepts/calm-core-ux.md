@@ -35,6 +35,25 @@ window. Completing the shown occurrence **covers the miss without
 relabeling it as on time** — the UI says so explicitly and never dresses
 a catch-up up as a success streak.
 
+## Completion needs a deliberate press (hold-to-confirm)
+
+- **Done** (My Day, task lists, room detail) and **Quick clean** confirm
+  only after a **600 ms press-and-hold** — pointer, finger or held
+  Enter/Space ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+  D-084-05). A ring fills while holding; `prefers-reduced-motion` shows a
+  static pressed state instead.
+- Releasing early, sliding off, scrolling or moving focus away sends
+  **nothing**. A short tap or a plain click shows an inline "Press and hold
+  to confirm" hint instead of failing silently; screen readers get the same
+  hint as the button description (VoiceOver/TalkBack: double-tap and hold).
+- **Claim overdue** keeps its explanatory confirmation dialog without a
+  hold; destructive actions keep `ConfirmDialog`; **Undo** stays a single
+  tap because it is the safety net; dialog confirm buttons stay
+  single-click.
+- One completion request per room task at a time: every completion
+  surface reads the shared in-flight state of the room-task store, and a
+  concurrent call joins the pending request instead of sending a second.
+
 ## Feedback effects are personal opt-ins (default off)
 
 - Sounds and celebration animations are **off by default** and controlled

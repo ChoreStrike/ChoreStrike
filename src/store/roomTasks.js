@@ -33,6 +33,10 @@ function generateCommandId() {
 	})
 }
 
+// Pending completion promises by room task id (WP-E): a promise is not
+// serializable store state, so only the id set lives in `completingIds`.
+const inFlightCompletions = new Map()
+
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
 		roomTasks: [],
@@ -89,9 +93,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// Attribution retries with an uncertain response must replay the
 		// original command and its exact payload, even after a completion GET.
 		pendingAttributions: {},
+		// CS-PLAN-084 WP-E: room tasks whose completion request is in flight.
+		// Every completion surface reads it (`isCompleting`) to block a
+		// second submit; a concurrent call joins the pending request.
+		completingIds: {},
 	}),
 
 	getters: {
+		isCompleting: (state) => (roomTaskId) => state.completingIds[roomTaskId] === true,
+
 		roomTasksByRoom: (state) => {
 			const tasksByRoom = {}
 			state.roomTasks.forEach(roomTask => {
@@ -432,7 +442,33 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 *   deviation from the effective agreement was reviewed.
 		 * @return {Promise<object>} The completion aggregate
 		 */
-		async completeRoomTask(roomTaskId, { participants, allocationReviewed } = {}) {
+		completeRoomTask(roomTaskId, options = {}) {
+			// WP-E in-flight guard: one request per room task at a time; a
+			// concurrent call (double tap, a second surface) joins it.
+			const pending = inFlightCompletions.get(roomTaskId)
+			if (pending) return pending
+			this.completingIds = { ...this.completingIds, [roomTaskId]: true }
+			const request = this._submitCompletion(roomTaskId, options).finally(() => {
+				// After a reset() this request no longer owns the marks (a newer
+				// completion of the same task may already be in flight).
+				if (inFlightCompletions.get(roomTaskId) !== request) return
+				inFlightCompletions.delete(roomTaskId)
+				const { [roomTaskId]: _done, ...rest } = this.completingIds
+				this.completingIds = rest
+			})
+			inFlightCompletions.set(roomTaskId, request)
+			return request
+		},
+
+		/**
+		 * The single completion request behind `completeRoomTask`.
+		 * @param {number} roomTaskId Room task identifier to complete.
+		 * @param {object} [options] Actual work split (see completeRoomTask).
+		 * @param {Array<{userId: string, sharePct: number}>} [options.participants] Explicit actual participants.
+		 * @param {boolean} [options.allocationReviewed] Reviewed deviation from the agreement.
+		 * @return {Promise<object>} The completion aggregate
+		 */
+		async _submitCompletion(roomTaskId, { participants, allocationReviewed } = {}) {
 			this._beginRead()
 			this.error = null
 
@@ -1155,6 +1191,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.countsRefreshing = false
 			this.pendingCommands = {}
 			this.pendingAttributions = {}
+			this.completingIds = {}
+			inFlightCompletions.clear()
 			this.roomRequestSeqs = {}
 			// Invalidate in-flight reads so a stale response cannot land
 			// after the reset (house/user change).

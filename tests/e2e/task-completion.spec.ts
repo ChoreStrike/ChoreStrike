@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 
+import { holdToConfirm } from './fixtures/hold-to-confirm'
 /**
  * E2E test: Task creation and completion flow
  * Critical flow: Create task → Assign to room → Complete task → Verify score
@@ -129,7 +130,7 @@ test.describe('Task Creation and Completion', () => {
 			return // Skip if no tasks to complete
 		}
 
-		await completeButton.click()
+		await holdToConfirm(completeButton)
 
 		// Completion is reflected by the row switching to the completed state
 		// (it stays rendered with a `completed` class + no complete button).
@@ -160,7 +161,7 @@ test.describe('Task Creation and Completion', () => {
 			return // Skip if no tasks to complete
 		}
 
-		await completeButton.click()
+		await holdToConfirm(completeButton)
 
 		// The undo snackbar appears within its window…
 		const snackbar = page.getByTestId('undo-snackbar')

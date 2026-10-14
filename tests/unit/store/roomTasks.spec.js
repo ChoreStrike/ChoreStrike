@@ -388,6 +388,63 @@ describe('RoomTasks Store', () => {
 				expect(result.roomTask.isActive).toBe(false)
 			})
 
+			it('joins a concurrent completion of the same room task instead of sending twice (CS-PLAN-084 WP-E)', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				let respond
+				api.post.mockImplementation(() => new Promise(resolve => { respond = resolve }))
+
+				const first = store.completeRoomTask(1)
+				const second = store.completeRoomTask(1)
+				expect(store.isCompleting(1)).toBe(true)
+				expect(store.isCompleting(2)).toBe(false)
+
+				await Promise.resolve()
+				respond({ roomTask: { id: 1, isActive: false } })
+				const [firstResult, secondResult] = await Promise.all([first, second])
+
+				expect(api.post).toHaveBeenCalledTimes(1)
+				expect(secondResult).toBe(firstResult)
+				expect(store.isCompleting(1)).toBe(false)
+			})
+
+			it('clears the in-flight mark after a failed completion so a retry can run', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				const rejected = new Error('conflict')
+				rejected.status = 409
+				api.post.mockRejectedValueOnce(rejected)
+
+				await expect(store.completeRoomTask(1)).rejects.toThrow('conflict')
+
+				expect(store.isCompleting(1)).toBe(false)
+				expect(store.completingIds).toEqual({})
+			})
+
+			it('reset() releases an in-flight completion so a new session can complete', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				let failStale
+				api.post.mockImplementationOnce(() => new Promise((resolve, reject) => { failStale = reject }))
+				const stale = store.completeRoomTask(1).catch(() => null)
+				expect(store.isCompleting(1)).toBe(true)
+
+				store.reset()
+				expect(store.isCompleting(1)).toBe(false)
+
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				let respond
+				api.post.mockImplementationOnce(() => new Promise(resolve => { respond = resolve }))
+				const fresh = store.completeRoomTask(1)
+				await Promise.resolve()
+				// The stale request settling must not clear the fresh one's mark.
+				failStale(new Error('aborted'))
+				await stale
+				expect(store.isCompleting(1)).toBe(true)
+
+				respond({ roomTask: { id: 1, isActive: false } })
+				await fresh
+				expect(api.post).toHaveBeenCalledTimes(2)
+				expect(store.isCompleting(1)).toBe(false)
+			})
+
 			it('sends the occurrence receipt with a fresh commandId (CS-PLAN-072 WP1)', async () => {
 				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture({ occurrenceId: '9:3', expectedVersion: 2, selectionToken: 'tok-abc' }) }]
 				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false } })
