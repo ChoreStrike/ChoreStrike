@@ -124,7 +124,7 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 
 	it('marks overdue rows and offers the claim button for eligible members', () => {
 		const overdueItem = {
-			roomTask: roomTask({ nextDue: '2000-01-01T00:00:00Z', assignees: ['someone-else'] }),
+			roomTask: roomTask({ nextDue: '2000-01-01T00:00:00Z', assignees: ['someone-else'], occurrence: { classification: 'late' } }),
 			task: task(),
 		}
 		const wrapper = mountItem({ item: overdueItem }, 'owner')

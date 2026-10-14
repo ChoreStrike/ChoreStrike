@@ -23,9 +23,10 @@ jest.mock('../../../src/store/rooms.js', () => ({
 	})),
 }))
 
+const mockRoomTasksByRoom = {}
 jest.mock('../../../src/store/roomTasks.js', () => ({
 	useRoomTasksStore: jest.fn(() => ({
-		roomTasksByRoom: {},
+		roomTasksByRoom: mockRoomTasksByRoom,
 	})),
 }))
 
@@ -110,10 +111,17 @@ describe('RoomCard', () => {
 			expect(taskItem.exists()).toBe(true)
 		})
 
-		it('Shows overdue indicator when tasks are overdue', async () => {
-			// Mock with overdue tasks would require more setup
-			const taskSummary = wrapper.find('.task-summary')
-			expect(taskSummary.exists()).toBe(true)
+		it('counts only missed work as overdue, never work due today (CS-PLAN-084 D-084-08)', () => {
+			const todayMidnightUtc = new Date()
+			todayMidnightUtc.setUTCHours(0, 0, 0, 0)
+			mockRoomTasksByRoom[2] = [
+				{ id: 1, isActive: true, nextDue: todayMidnightUtc.toISOString(), occurrence: { classification: 'agreed' } },
+				{ id: 2, isActive: true, nextDue: '2000-01-01T00:00:00Z', occurrence: { classification: 'late' } },
+			]
+			const card = mount(RoomCard, { props: { room: { ...mockRoom, id: 2 }, compact: false } })
+			expect(card.vm.overdueTasks).toBe(1)
+			expect(card.vm.dueTodayTasks).toBe(1)
+			delete mockRoomTasksByRoom[2]
 		})
 	})
 

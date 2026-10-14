@@ -223,13 +223,22 @@ describe('TaskList', () => {
 
 		it('should apply overdue class to overdue tasks', () => {
 			const yesterday = new Date(Date.now() - 86400000).toISOString()
-			const tasks = [mockTask({ roomTask: { nextDue: yesterday, isActive: true } })]
+			const tasks = [mockTask({ roomTask: { nextDue: yesterday, isActive: true, status: 'overdue' } })]
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: tasks },
 			})
 
 			expect(wrapper.find('.task-item').classes()).toContain('overdue')
 			expect(wrapper.find('.task-due').classes()).toContain('overdue')
+		})
+
+		it('does not mark work still due (open window) overdue from its past timestamp alone (D-084-08)', () => {
+			const yesterday = new Date(Date.now() - 86400000).toISOString()
+			const tasks = [mockTask({ roomTask: { nextDue: yesterday, isActive: true, occurrence: { classification: 'agreed' } } })]
+			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
+
+			expect(wrapper.find('.task-item').classes()).not.toContain('overdue')
+			expect(wrapper.find('[data-testid="claim-overdue-button"]').exists()).toBe(false)
 		})
 
 		it('should apply completed class to inactive tasks', () => {
@@ -261,7 +270,7 @@ describe('TaskList', () => {
 			userStore.houseUsers = []
 			const tasks = [mockTask({
 				task: { visibilityType: 'public' },
-				roomTask: { assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString() },
+				roomTask: { assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), occurrence: { classification: 'late' } },
 			})]
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: tasks },
@@ -283,7 +292,7 @@ describe('TaskList', () => {
 			userStore.houseUsers = [{ nextcloudUserId: 'dad', displayName: 'Dad' }]
 			const tasks = [mockTask({
 				task: { visibilityType: 'public' },
-				roomTask: { id: 77, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString() },
+				roomTask: { id: 77, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), occurrence: { classification: 'late' } },
 			})]
 			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
 
@@ -304,7 +313,7 @@ describe('TaskList', () => {
 			userStore.houseUsers = []
 			const tasks = [mockTask({
 				task: { visibilityType: 'public' },
-				roomTask: { id: 78, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString() },
+				roomTask: { id: 78, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), occurrence: { classification: 'late' } },
 			})]
 			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
 

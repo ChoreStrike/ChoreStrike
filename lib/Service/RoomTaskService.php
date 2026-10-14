@@ -589,7 +589,7 @@ class RoomTaskService {
 		$visibleTasks = $this->readService->visibleRoomTasks($allTasks, $viewer);
 		$tz = $this->readService->timeZoneForRoom($roomId);
 		$activeTasks = array_filter($visibleTasks, fn ($task) => $task->getIsActive());
-		$overdueTasks = array_filter($activeTasks, fn ($task) => $task->isOverdue());
+		$overdueTasks = array_filter($activeTasks, fn ($task) => $task->isOverdue($tz));
 		$dueTodayTasks = array_filter($activeTasks, fn ($task) => $task->isDueToday($tz));
 		$dueSoonTasks = array_filter($activeTasks, fn ($task) => $task->isDueWithinDays(3));
 

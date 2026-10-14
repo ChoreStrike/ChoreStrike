@@ -258,7 +258,7 @@ import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useHouseStore } from '../store/house.js'
-import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
+import { dueClass, isOverdue } from '../utils/taskDisplay.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
@@ -348,17 +348,11 @@ export default {
 			if (this.filterStatus === 'active') {
 				tasks = tasks.filter(t => t.roomTask.isActive)
 			} else if (this.filterStatus === 'overdue') {
-				tasks = tasks.filter(t => {
-					if (!t.roomTask.isActive || !t.roomTask.nextDue) return false
-					return new Date(t.roomTask.nextDue) < new Date()
-				})
+				// Same missed-work rule as the row badge and claim button (D-084-08).
+				tasks = tasks.filter(t => isOverdue(t.roomTask))
 			} else if (this.filterStatus === 'due-today') {
-				// House-local day bucketing (CS-PLAN-057).
-				const todayKey = todayKeyInZone(this.houseStore.timezone)
-				tasks = tasks.filter(t => {
-					if (!t.roomTask.isActive || !t.roomTask.nextDue) return false
-					return dateKeyInZone(t.roomTask.nextDue, this.houseStore.timezone) === todayKey
-				})
+				// The row badge's house-local rule: due today or an open flex window (D-084-08).
+				tasks = tasks.filter(t => t.roomTask.nextDue && dueClass(t.roomTask, this.houseStore.timezone) === 'today')
 			} else if (this.filterStatus === 'completed') {
 				tasks = tasks.filter(t => !t.roomTask.isActive)
 			}

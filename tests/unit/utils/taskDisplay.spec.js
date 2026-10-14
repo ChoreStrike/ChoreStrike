@@ -15,17 +15,26 @@ import {
 } from '../../../src/utils/taskDisplay.js'
 
 describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
-	describe('isOverdue', () => {
+	describe('isOverdue (CS-PLAN-084 D-084-08)', () => {
 		it('is false for inactive tasks regardless of the date', () => {
-			expect(isOverdue({ isActive: false, nextDue: '2000-01-01T00:00:00Z' })).toBe(false)
+			expect(isOverdue({ isActive: false, nextDue: '2000-01-01T00:00:00Z', occurrence: { classification: 'late' } })).toBe(false)
 		})
 
-		it('is true for an active task whose nextDue is in the past', () => {
-			expect(isOverdue({ isActive: true, nextDue: '2000-01-01T00:00:00Z' })).toBe(true)
+		it('follows the server occurrence classification: only a missed (late) occurrence is overdue', () => {
+			expect(isOverdue({ isActive: true, nextDue: '2000-01-01T00:00:00Z', occurrence: { classification: 'late' } })).toBe(true)
+			// A past planned day inside an open flex window is still due.
+			expect(isOverdue({ isActive: true, nextDue: '2000-01-01T00:00:00Z', occurrence: { classification: 'agreed' } })).toBe(false)
 		})
 
-		it('is false for an active task due in the future', () => {
-			expect(isOverdue({ isActive: true, nextDue: '2999-01-01T00:00:00Z' })).toBe(false)
+		it('never marks work due today overdue although its midnight instant has passed', () => {
+			const todayMidnightUtc = new Date()
+			todayMidnightUtc.setUTCHours(0, 0, 0, 0)
+			expect(isOverdue({ isActive: true, nextDue: todayMidnightUtc.toISOString(), occurrence: { classification: 'agreed' } })).toBe(false)
+		})
+
+		it('falls back to the server-computed status without an occurrence block', () => {
+			expect(isOverdue({ isActive: true, nextDue: '2000-01-01T00:00:00Z', status: 'overdue' })).toBe(true)
+			expect(isOverdue({ isActive: true, nextDue: '2000-01-01T00:00:00Z', status: 'due_today' })).toBe(false)
 		})
 	})
 
@@ -69,8 +78,16 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 			expect(dueClass({ isActive: false, nextDue: '2000-01-01T00:00:00Z' }, tz)).toBe('completed')
 		})
 
-		it('marks a past active due date overdue', () => {
-			expect(dueClass({ isActive: true, nextDue: '2000-01-01T00:00:00Z' }, tz)).toBe('overdue')
+		it('marks a missed occurrence overdue', () => {
+			expect(dueClass({ isActive: true, nextDue: '2000-01-01T00:00:00Z', occurrence: { classification: 'late' } }, tz)).toBe('overdue')
+		})
+
+		it('keeps a past planned day inside an open flex window due today, not overdue', () => {
+			expect(dueClass({ isActive: true, nextDue: '2000-01-01T00:00:00Z', occurrence: { classification: 'agreed' } }, tz)).toBe('today')
+		})
+
+		it('treats a missing due date as upcoming', () => {
+			expect(dueClass({ isActive: true, nextDue: null, status: 'upcoming' }, tz)).toBe('upcoming')
 		})
 
 		it('buckets the current house-local day as today', () => {
@@ -92,20 +109,31 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 	})
 
 	describe('dueText', () => {
+		const tz = 'UTC'
+		const dayStart = (offset) => {
+			const date = new Date()
+			date.setUTCHours(0, 0, 0, 0)
+			date.setUTCDate(date.getUTCDate() + offset)
+			return date.toISOString()
+		}
+
 		it('labels completed tasks', () => {
-			expect(dueText({ isActive: false, nextDue: '2000-01-01T00:00:00Z' })).toBe('Completed')
+			expect(dueText({ isActive: false, nextDue: '2000-01-01T00:00:00Z' }, tz)).toBe('Completed')
 		})
 
-		it('counts overdue days', () => {
-			// Slightly MORE than two days in the past → ceil(-2.0007) = -2.
-			const twoDaysAgo = new Date(Date.now() - 2 * 86400000 - 60000).toISOString()
-			expect(dueText({ isActive: true, nextDue: twoDaysAgo })).toBe('Overdue by 2 days')
+		it('counts overdue house-local days of a missed occurrence', () => {
+			expect(dueText({ isActive: true, nextDue: dayStart(-2), occurrence: { classification: 'late' } }, tz)).toBe('Overdue by 2 days')
 		})
 
-		it('labels today, tomorrow and the future', () => {
-			expect(dueText({ isActive: true, nextDue: new Date().toISOString() })).toBe('Due today')
-			expect(dueText({ isActive: true, nextDue: new Date(Date.now() + 86400000).toISOString() })).toBe('Due tomorrow')
-			expect(dueText({ isActive: true, nextDue: new Date(Date.now() + 5 * 86400000).toISOString() })).toBe('Due in 5 days')
+		it('labels today (also after its midnight instant), tomorrow and the future in house-local days', () => {
+			expect(dueText({ isActive: true, nextDue: dayStart(0), occurrence: { classification: 'agreed' } }, tz)).toBe('Due today')
+			expect(dueText({ isActive: true, nextDue: dayStart(1) }, tz)).toBe('Due tomorrow')
+			expect(dueText({ isActive: true, nextDue: dayStart(5) }, tz)).toBe('Due in 5 days')
+		})
+
+		it('keeps an open flex window due today and labels a missing due date', () => {
+			expect(dueText({ isActive: true, nextDue: dayStart(-1), occurrence: { classification: 'agreed' } }, tz)).toBe('Due today')
+			expect(dueText({ isActive: true, nextDue: null }, tz)).toBe('No due date')
 		})
 	})
 

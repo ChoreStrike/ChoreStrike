@@ -215,6 +215,7 @@ class RoomTaskController extends Controller {
 			$data = $roomTask->jsonSerialize($tz);
 			$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
 			$selection = $selections[$roomTask->getId()] ?? null;
+			$data['status'] = $this->roomTaskReadService->statusFor($roomTask, $tz, $selection['classification'] ?? null);
 			$data['occurrence'] = $selection !== null
 				? $this->roomTaskReadService->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;

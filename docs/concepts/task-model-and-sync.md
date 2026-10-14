@@ -74,6 +74,15 @@ leaves the list (one-time tasks keep their row with a completed state).
 Celebration feedback (confetti, sounds, toasts) fires globally via the
 `chorestrike:task-completed` event.
 
+**Overdue boundary (CS-PLAN-084 D-084-08):** work is overdue only after its
+occurrence window has ended in the house timezone — for a task without flex
+days, after its due day is over. Work due today is never overdue, never shows a
+claim button to others, and a sibling completing it the same day takes nothing
+over. A takeover is recorded only when a non-assignee who is not obligated by
+the occurrence's agreement completes a missed occurrence; an agreed handover
+(amendment or catch-up with participants) is never a takeover. Confirming the
+overdue-claim dialog completes the work with the claimer as sole participant.
+
 The child availability/daily-limit filter applies to the daily query, not to
 the whole overdue list or all completion paths. "My tasks" also includes
 unassigned, claimable work. It is therefore not yet a definition of a child's

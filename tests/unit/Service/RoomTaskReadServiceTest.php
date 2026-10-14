@@ -599,4 +599,27 @@ class RoomTaskReadServiceTest extends TestCase {
 
 		$this->assertNull($rows[0]['proposal']);
 	}
+
+	/**
+	 * CS-PLAN-084 D-084-08: the displayed status follows the occurrence
+	 * authority — a missed (`late`) occurrence is overdue, a past planned
+	 * day inside an open flex window stays due, and rows without a
+	 * selection keep the entity's house-local status.
+	 */
+	public function testStatusFor_FollowsOccurrenceClassification(): void {
+		$utc = new \DateTimeZone('UTC');
+		$roomTask = new RoomTask();
+		$roomTask->setIsActive(true);
+		$roomTask->setNextDue((new \DateTime('yesterday', $utc))->setTime(0, 0, 0));
+
+		$this->assertSame('overdue', $this->service->statusFor($roomTask, $utc, 'late'));
+		$this->assertSame('due_today', $this->service->statusFor($roomTask, $utc, 'agreed'), 'open flex window: still due');
+		$this->assertSame('overdue', $this->service->statusFor($roomTask, $utc, null), 'no selection: entity status');
+
+		$roomTask->setNextDue((new \DateTime('today', $utc))->setTime(0, 0, 0));
+		$this->assertSame('due_today', $this->service->statusFor($roomTask, $utc, 'agreed'));
+
+		$roomTask->setIsActive(false);
+		$this->assertSame('inactive', $this->service->statusFor($roomTask, $utc, 'late'));
+	}
 }

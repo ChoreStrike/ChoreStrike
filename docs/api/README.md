@@ -574,6 +574,14 @@ broader mode):
   the former per-room request loop.
 - `activeOnly` (optional, default `true`): limit to active instances.
 
+**`status` (CS-PLAN-084 D-084-08):** `overdue` only when the row's canonical
+occurrence is missed (`occurrence.classification = "late"`: its window ended in
+the house timezone). Work due today is `due_today` all day, and a past planned
+day whose flex window is still open stays `due_today`. Rows without an
+occurrence selection use the house-local day bucket (`RoomTask::getStatus`).
+The client's overdue badge, overdue filter and claim affordance follow the same
+classification.
+
 > **Authorization (CR-053-02):** house-scoped — a `roomId` from another
 > house is rejected with `404 RESOURCE_NOT_FOUND`, and the `scopeId`
 > branch silently filters cross-house entries (skip-on-missing).

@@ -287,7 +287,7 @@ Members. **Entry points:** TaskList expanded row; TodayView claim button.
 | Multi-assign via member chips (optimistic + rollback) | TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
 | Single assign / unassign actions | — | `POST /room-tasks/{id}/assign`, `POST …/unassign` | ⛔ pruned (CS-PLAN-055; `PUT /room-tasks/{id}/assignees` set-assignees remains the live single-edit path) |
 | Bulk assignment (selection bar → one call) | TaskList selection → member dropdown | `POST /room-tasks/bulk-assign` | ✅ (CS-PLAN-042, CR-SVC-61 closed; per-item isolation, partial-success toast) |
-| Claim overdue public task (dialog → complete) | TaskList → `OverdueClaimDialog` | `GET /room-tasks/overdue` + complete | ✅ (claim target ≤24 px, UX-007) |
+| Claim overdue public task (dialog → complete as sole participant) | TaskList → `OverdueClaimDialog` | `GET /room-tasks` occurrence `late` + complete with the reviewed claimer allocation | ✅ (claim target ≤24 px, UX-007; no second participation dialog and no claim for work due today, CS-PLAN-084) |
 | Dedicated claimable-tasks query | — | `GET /room-tasks/overdue-claims` | ⛔ pruned (CS-PLAN-055; UI uses `/overdue` + client filter) |
 
 ## UC-10 — Planning: availability, energy, task plans

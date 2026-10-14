@@ -94,7 +94,7 @@
 				</div>
 
 				<div class="task-due" :class="dueClass(item.roomTask, houseStore.timezone)">
-					{{ dueText(item.roomTask) }}
+					{{ dueText(item.roomTask, houseStore.timezone) }}
 				</div>
 
 				<!-- Flex Window Display -->

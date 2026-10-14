@@ -99,6 +99,69 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * RF-084-01 / D-084-08: work due TODAY is never overdue — a sibling who
+	 * does it the same day takes nothing over (no claim, no digest notice).
+	 */
+	public function testSameDayCompletionByAnotherChild_IsNoTakeover(): void {
+		$f = $this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00');
+
+		$this->completeOccurrenceWithParticipants($this->completionService, $f['houseId'], self::OTHER_KID, $f['roomTaskId'],
+			[['userId' => self::OTHER_KID, 'sharePct' => 100]]);
+
+		self::assertSame(0, (int)$this->roomTaskRow($f['roomTaskId'])['was_claimed'], 'same-day help is no takeover');
+		self::assertSame(0, $this->takeoverNoticeCount($f['houseId']), 'no "taken over" digest notice for the default assignee');
+	}
+
+	/**
+	 * An agreed handover of a MISSED occurrence fulfils the agreement: the
+	 * obligated completer takes nothing over even though the work is late.
+	 */
+	public function testAgreedHandoverOfMissedOccurrence_IsNoTakeover(): void {
+		$f = $this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00');
+		$this->handOver($f, self::OTHER_KID);
+
+		$this->completeOccurrence($this->completionService, $f['houseId'], self::OTHER_KID, $f['roomTaskId']);
+
+		self::assertSame(0, (int)$this->roomTaskRow($f['roomTaskId'])['was_claimed']);
+		self::assertSame(0, $this->takeoverNoticeCount($f['houseId']));
+	}
+
+	/**
+	 * The list status the TaskManager renders (controller serializer path:
+	 * batched selection + statusFor) follows the occurrence boundary.
+	 */
+	public function testListStatus_FollowsHouseLocalOccurrenceBoundary(): void {
+		$today = $this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00');
+		self::assertSame(['due_today', 'agreed'], $this->listStatus($today));
+
+		$missed = $this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00');
+		self::assertSame(['overdue', 'late'], $this->listStatus($missed));
+
+		$flex = $this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00', 2);
+		self::assertSame(['due_today', 'agreed'], $this->listStatus($flex), 'an open flex window is still due, not overdue');
+	}
+
+	/** @return array{0: string, 1: ?string} [status, classification] as the list endpoint serializes them */
+	private function listStatus(array $f): array {
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
+		$classification = $this->readService->occurrenceSelectionsForHouse($f['houseId'], [$roomTask])[$f['roomTaskId']]['classification'] ?? null;
+		$tz = $this->readService->timeZoneForHouse($f['houseId']);
+		return [$this->readService->statusFor($roomTask, $tz, $classification), $classification];
+	}
+
+	private function takeoverNoticeCount(int $houseId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*'))
+			->from('chorestrike_digest_changes')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('object_type', $qb->createNamedParameter('takeover')));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
+	}
+
+	/**
 	 * Adult owner (the acting parent) plus two children with bound wallets
 	 * and one daily interval task (energy 2, within a child's daily budget)
 	 * assigned to the first child from the given anchor. Children see only
@@ -106,7 +169,7 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	 *
 	 * @return array{houseId: int, roomTaskId: int}
 	 */
-	private function fixture(string $anchor): array {
+	private function fixture(string $anchor, int $flexDays = 0): array {
 		$houseId = $this->createHouse(self::OWNER, 'Successor House');
 		$this->addHouseMember($houseId, self::KID, 'Kid', 'child');
 		$this->addHouseMember($houseId, self::OTHER_KID, 'Other Kid', 'child');
@@ -118,7 +181,7 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'Dishes', '', 5, 2);
 		$qb = $this->db->getQueryBuilder();
-		foreach (['frequency_type' => 'daily', 'frequency_value' => 1, 'scheduling_mode' => 'dynamic', 'recurrence_mode' => 'recurring'] as $column => $value) {
+		foreach (['frequency_type' => 'daily', 'frequency_value' => 1, 'scheduling_mode' => 'dynamic', 'recurrence_mode' => 'recurring', 'flex_days' => $flexDays] as $column => $value) {
 			$qb->update('chorestrike_tasks')
 				->set($column, $qb->createNamedParameter($value))
 				->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)))
@@ -127,13 +190,17 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 		return ['houseId' => $houseId, 'roomTaskId' => $this->assignTaskToRoom($taskId, $roomId, self::KID, $anchor)];
 	}
 
-	/** One-occurrence handover through the public agreement command. */
+	/**
+	 * One-occurrence handover through the public agreement commands: an
+	 * open occurrence is amended; a missed (`late`) one is rescheduled as
+	 * catch-up work for today with the new participant.
+	 */
 	private function handOver(array $f, string $userId): void {
 		$occurrenceService = \OC::$server->get(OccurrenceService::class);
 		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
 		$selection = $occurrenceService->selectionFor($roomTask, new \DateTime(), $f['houseId']);
 		self::assertNotNull($selection);
-		\OC::$server->get(AgreementService::class)->amend($f['houseId'], self::OWNER, $f['roomTaskId'], [
+		$payload = [
 			'commandId' => sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
 			'occurrenceId' => $selection['occurrence']->toPublicKey(),
 			'expectedVersion' => $selection['occurrence']->getVersion(),
@@ -141,7 +208,13 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 				$selection['classification'], $f['houseId'], null, $selection['workAppointment']),
 			'consent' => true,
 			'participants' => [['userId' => $userId, 'role' => 'responsible', 'sharePct' => 100]],
-		]);
+		];
+		$agreements = \OC::$server->get(AgreementService::class);
+		if ($selection['classification'] === 'late') {
+			$agreements->catchUp($f['houseId'], self::OWNER, $f['roomTaskId'], $payload + ['workDate' => (new \DateTime())->format('Y-m-d')]);
+			return;
+		}
+		$agreements->amend($f['houseId'], self::OWNER, $f['roomTaskId'], $payload);
 	}
 
 	/** The single open (unfulfilled, uncovered) occurrence after the last completion. */

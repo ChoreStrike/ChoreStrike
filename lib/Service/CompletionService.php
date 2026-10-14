@@ -360,13 +360,14 @@ class CompletionService {
 		$rateMinor = EffortAllocationService::COIN_MINOR_PER_ENERGY;
 
 		// Overdue-takeover: only record a takeover when a NON-assignee
-		// picks up an overdue task (fresh locked entity). A completer the
-		// occurrence's concrete agreement obligates (an agreed handover)
-		// fulfils that agreement and takes nothing over (CS-PLAN-084 WP-G).
+		// completes a MISSED occurrence (`late`: its window ended in the
+		// house timezone — never work still due today, CS-PLAN-084 D-084-08).
+		// A completer the occurrence's concrete agreement obligates (an
+		// agreed handover) fulfils that agreement and takes nothing over.
 		$takeoverClaimed = false;
 		$originalMember = null;
 		$agreedForCompleter = in_array((int)$houseUser->getWalletId(), $this->obligatedWalletIds($occurrenceMembers), true);
-		if ($roomTask->isOverdue() && !$agreedForCompleter && !in_array($userId, $assigneeUserIds, true)) {
+		if ($classification === 'late' && !$agreedForCompleter && !in_array($userId, $assigneeUserIds, true)) {
 			$originalAssignee = $assigneeUserIds[0] ?? null;
 			if ($originalAssignee !== null && $originalAssignee !== '') {
 				$roomTask->markClaimed($originalAssignee, $userId);

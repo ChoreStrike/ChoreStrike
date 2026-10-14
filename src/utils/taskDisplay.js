@@ -28,13 +28,18 @@ export const assignmentLabel = (userIds = [], members = []) => {
 }
 
 /**
- * Whether the room task's occurrence is in the past (active tasks only).
- * @param {object} roomTask Room task payload with nextDue/isActive.
+ * Whether the room task's current work is missed (CS-PLAN-084 D-084-08):
+ * the server's occurrence classification is authoritative (`late` = the
+ * window ended in the house timezone); rows without an occurrence block
+ * fall back to the server-computed status. A task due today is never
+ * overdue before the house-local day is over.
+ * @param {object} roomTask Room task payload with isActive/occurrence/status.
  * @return {boolean}
  */
 export const isOverdue = (roomTask) => {
-	if (!roomTask.isActive) return false
-	return new Date(roomTask.nextDue) < new Date()
+	if (!roomTask?.isActive) return false
+	if (roomTask.occurrence) return roomTask.occurrence.classification === 'late'
+	return roomTask.status === 'overdue'
 }
 
 /**
@@ -71,6 +76,19 @@ export const frequencyLabel = (task) => {
 }
 
 /**
+ * Whole house-local days from today to the planned due day (negative = past).
+ * @param {object} roomTask Room task payload with nextDue.
+ * @param {string} timezone IANA timezone of the household.
+ * @return {?number} null without a due date
+ */
+const dueDayOffset = (roomTask, timezone) => {
+	const dueKey = dateKeyInZone(roomTask.nextDue, timezone)
+	if (dueKey === '') return null
+	const todayKey = todayKeyInZone(timezone)
+	return Math.round((Date.parse(`${dueKey}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86400000)
+}
+
+/**
  * Due-date badge class; "today" is bucketed in the house timezone
  * (CS-PLAN-057).
  * @param {object} roomTask Room task payload.
@@ -79,31 +97,28 @@ export const frequencyLabel = (task) => {
  */
 export const dueClass = (roomTask, timezone) => {
 	if (!roomTask.isActive) return 'completed'
-	// House-local day bucketing (CS-PLAN-057) takes precedence over the raw
-	// instant: a task due later TODAY is not overdue after its 00:00
-	// timestamp has passed — the same "Due today" semantics dueText uses
-	// (CS-PLAN-068 §3.4 date-boundary fix).
-	if (dateKeyInZone(roomTask.nextDue, timezone) === todayKeyInZone(timezone)) return 'today'
-	const due = new Date(roomTask.nextDue)
-	const now = new Date()
-	if (due < now) return 'overdue'
-	return 'upcoming'
+	if (isOverdue(roomTask)) return 'overdue'
+	// House-local day bucketing (CS-PLAN-057): today — or a past planned day
+	// whose flex window is still open — is due, not overdue.
+	const days = dueDayOffset(roomTask, timezone)
+	return days !== null && days <= 0 ? 'today' : 'upcoming'
 }
 
 /**
- * Localized due-date text ("Overdue by …", "Due today", …).
+ * Localized due-date text ("Overdue by …", "Due today", …) in house-local
+ * days (CS-PLAN-084 D-084-08).
  * @param {object} roomTask Room task payload.
+ * @param {string} timezone IANA timezone of the household.
  * @return {string}
  */
-export const dueText = (roomTask) => {
+export const dueText = (roomTask, timezone) => {
 	if (!roomTask.isActive) return t('chorestrike', 'Completed')
-	const due = new Date(roomTask.nextDue)
-	const now = new Date()
-	const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24))
-	if (diffDays < 0) return t('chorestrike', 'Overdue by {days} days', { days: Math.abs(diffDays) })
-	if (diffDays === 0) return t('chorestrike', 'Due today')
-	if (diffDays === 1) return t('chorestrike', 'Due tomorrow')
-	return t('chorestrike', 'Due in {days} days', { days: diffDays })
+	const days = dueDayOffset(roomTask, timezone)
+	if (days === null) return t('chorestrike', 'No due date')
+	if (isOverdue(roomTask)) return t('chorestrike', 'Overdue by {days} days', { days: Math.max(1, -days) })
+	if (days <= 0) return t('chorestrike', 'Due today')
+	if (days === 1) return t('chorestrike', 'Due tomorrow')
+	return t('chorestrike', 'Due in {days} days', { days })
 }
 
 /**

@@ -23,24 +23,20 @@ import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeAsSoleParticipantViaApi, postCompletionWithReceipt, placeholderReceipt } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
+import { houseDateOffset } from './fixtures/house-clock.js'
 
 test.describe('Overdue Task Claiming', () => {
 	test.use({ databaseProfile: 'family' })
 
-	const yesterday = (): string => {
-		const d = new Date()
-		d.setDate(d.getDate() - 1)
-		const y = d.getFullYear()
-		const m = String(d.getMonth() + 1).padStart(2, '0')
-		const day = String(d.getDate()).padStart(2, '0')
-		return `${y}-${m}-${day}`
-	}
+	// The family seed house runs in UTC (same clock as family-rhythm.spec).
+	const dayKey = (offsetDays: number): string => houseDateOffset(offsetDays, 'UTC')
+	const yesterday = (): string => dayKey(-1)
 
-	/** Create an overdue probe task through the atomic aggregate endpoint. */
+	/** Create a probe task (overdue by default) through the atomic aggregate endpoint. */
 	async function createOverdueProbe(
 		page: Page,
 		name: string,
-		options: { visibility?: string; assignees?: string[] } = {},
+		options: { visibility?: string; assignees?: string[]; nextDue?: string; expectedStatus?: string } = {},
 	): Promise<number> {
 		const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
 		expect(floorsResponse.status()).toBe(200)
@@ -53,7 +49,7 @@ test.describe('Overdue Task Claiming', () => {
 			data: {
 				roomId: kitchen.id,
 				assigneeUserIds: options.assignees ?? ['dad'],
-				nextDue: yesterday(),
+				nextDue: options.nextDue ?? yesterday(),
 				task: {
 					name,
 					energyCost: 1,
@@ -72,7 +68,8 @@ test.describe('Overdue Task Claiming', () => {
 		expect(listResponse.status()).toBe(200)
 		const probe = ((await listResponse.json()).data as Array<{ id: number; status: string }>)
 			.find((row) => row.id === roomTaskId)
-		expect(probe?.status, 'a past-due probe row must serialize as overdue').toBe('overdue')
+		expect(probe?.status, 'the probe row must serialize with its house-local status')
+			.toBe(options.expectedStatus ?? 'overdue')
 		return roomTaskId
 	}
 
@@ -96,6 +93,24 @@ test.describe('Overdue Task Claiming', () => {
 				.first()
 			await expect(overdueRow).toBeVisible({ timeout: 15000 })
 			await expect(overdueRow.getByTestId('claim-overdue-button')).toBeVisible()
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('work due today is never overdue: no claim button for others (D-084-08)', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const probeName = `Due Today ${Date.now()}`
+			await createOverdueProbe(page, probeName, { assignees: ['dad'], nextDue: dayKey(0), expectedStatus: 'due_today' })
+
+			await page.goto('/apps/chorestrike/#/tasks')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+			await page.getByTestId('tasks-filter-all').click()
+			const row = page.locator('[data-testid="task-item"]').filter({ hasText: probeName }).first()
+			await expect(row.getByTestId('task-assignees')).toContainText('Dad', { timeout: 15000 })
+			await expect(row).not.toHaveClass(/overdue/)
+			await expect(row.getByTestId('claim-overdue-button')).toHaveCount(0)
 		} finally {
 			await context.close()
 		}

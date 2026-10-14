@@ -84,7 +84,7 @@ import { useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useHouseStore } from '../../store/house.js'
-import { dateKeyInZone, todayKeyInZone } from '../../utils/dateKeys.js'
+import { dueClass, isOverdue } from '../../utils/taskDisplay.js'
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
 import { resolveRoomIcon } from '../../utils/roomIcons.js'
@@ -173,22 +173,15 @@ export default {
 			return roomTasks.filter(task => task.isActive).length
 		})
 
+		// The same missed-work / due rule as the task rows (CS-PLAN-084 D-084-08).
 		const overdueTasks = computed(() => {
 			const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
-			return roomTasks.filter(task =>
-				task.isActive && new Date(task.nextDue) < new Date(),
-			).length
+			return roomTasks.filter(isOverdue).length
 		})
 
 		const dueTodayTasks = computed(() => {
 			const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
-			// House-local day bucketing (CS-PLAN-057).
-			const todayKey = todayKeyInZone(houseStore.timezone)
-
-			return roomTasks.filter(task => {
-				if (!task.isActive || !task.nextDue) return false
-				return dateKeyInZone(task.nextDue, houseStore.timezone) === todayKey
-			}).length
+			return roomTasks.filter(task => task.nextDue && dueClass(task, houseStore.timezone) === 'today').length
 		})
 
 		// Methods

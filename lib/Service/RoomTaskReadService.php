@@ -289,6 +289,24 @@ class RoomTaskReadService {
 	}
 
 	/**
+	 * Display status under the occurrence authority (CS-PLAN-084 D-084-08):
+	 * a missed (`late`) occurrence is overdue; a past planned day whose
+	 * window is still open (flex days) is still due, never overdue.
+	 *
+	 * @param string|null $classification Canonical selection classification, null without a selection
+	 */
+	public function statusFor(RoomTask $roomTask, \DateTimeZone $tz, ?string $classification): string {
+		$status = $roomTask->getStatus($tz);
+		if ($status === 'inactive' || $classification === null) {
+			return $status;
+		}
+		if ($classification === 'late') {
+			return 'overdue';
+		}
+		return $status === 'overdue' ? 'due_today' : $status;
+	}
+
+	/**
 	 * The house pause-revision fingerprint (WP2 token input, one query).
 	 */
 	public function pauseFingerprintForHouse(int $houseId): string {
@@ -838,13 +856,14 @@ class RoomTaskReadService {
 		$houseId = $this->houseIdForRoom($room->getId());
 		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
 		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
+		$status = $this->statusFor($roomTask, $tz, $selection['classification'] ?? null);
 
 		return [
 			'roomTask' => $roomTask,
 			'task' => $task,
 			'room' => $room,
-			'status' => $roomTask->getStatus($tz),
-			'isOverdue' => $roomTask->isOverdue(),
+			'status' => $status,
+			'isOverdue' => $status === 'overdue',
 			'isDueToday' => $roomTask->isDueToday($tz),
 			'daysUntilDue' => $roomTask->getDaysUntilDue($tz),
 			'occurrence' => $selection !== null

@@ -178,6 +178,41 @@ class RoomTaskTest extends TestCase {
 	}
 
 	/**
+	 * CS-PLAN-084 D-084-08: `next_due` is the planned day's start instant in
+	 * the house zone; a task due today is due — never overdue — until the
+	 * house-local day is over, in zones east AND west of UTC.
+	 *
+	 * @dataProvider houseZones
+	 */
+	public function testIsOverdue_StartsOnlyAfterTheHouseLocalDueDay(string $zone): void {
+		$tz = new \DateTimeZone($zone);
+		$dayStart = static fn (string $relative): \DateTime => (new \DateTime($relative, $tz))->setTime(0, 0, 0)->setTimezone(new \DateTimeZone('UTC'));
+		$roomTask = new RoomTask();
+		$roomTask->setIsActive(true);
+
+		$roomTask->setNextDue($dayStart('today'));
+		self::assertFalse($roomTask->isOverdue($tz), 'due today after its midnight instant is not overdue');
+		self::assertSame('due_today', $roomTask->getStatus($tz));
+
+		$roomTask->setNextDue($dayStart('yesterday'));
+		self::assertTrue($roomTask->isOverdue($tz));
+		self::assertSame('overdue', $roomTask->getStatus($tz));
+
+		$roomTask->setIsActive(false);
+		self::assertFalse($roomTask->isOverdue($tz), 'inactive tasks are never overdue');
+	}
+
+	public static function houseZones(): array {
+		return [['UTC'], ['Europe/Berlin'], ['America/New_York'], ['Pacific/Auckland']];
+	}
+
+	public function testIsOverdue_WithoutDueDate_IsFalse(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setIsActive(true);
+		self::assertFalse($roomTask->isOverdue(new \DateTimeZone('UTC')));
+	}
+
+	/**
 	 * jsonSerialize must emit daysUntilDue => null when nextDue is null.
 	 */
 	public function testJsonSerializeEmitsNullDaysUntilDueWhenNextDueIsNull(): void {

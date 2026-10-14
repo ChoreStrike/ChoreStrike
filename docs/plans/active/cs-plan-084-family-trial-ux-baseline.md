@@ -307,7 +307,7 @@ the same round.
 
 ## 9. Review Findings (plan-owned)
 
-- [ ] **RF-084-01 major (interim Standard B 2026-10-13, pre-existing):** `RoomTask::isOverdue()`
+- [x] **RF-084-01 major (interim Standard B 2026-10-13, pre-existing; resolved round 2, 2026-10-14):** `RoomTask::isOverdue()`
   (`lib/Db/RoomTask.php:156`) and `taskDisplay.isOverdue` compare the timestamp `next_due`
   with now; projected `next_due` values are midnight (all 13 active canonical rows
   `00:00:00`), so a task due today is `overdue` from midnight: red status
@@ -315,7 +315,19 @@ the same round.
   recorded as a takeover with a digest change. Operator decision D-084-08: overdue
   starts only after the due day ends in the house time zone, uniformly for status,
   claim affordance and takeover recording; fix with unit/integration/E2E regressions
-  in the next round (WP-G scope).
+  in the next round (WP-G scope). **Resolution:** implemented through the existing
+  occurrence authority (a missed `late` occurrence = window ended in the house
+  timezone; identical to D-084-08 without flex days, and an open flex window stays
+  due) — `RoomTask::isOverdue($tz)` is day-based, `RoomTaskReadService::statusFor`
+  drives the list/detail `status`, takeover recording keys on the completed
+  occurrence's `late` classification, and the client `isOverdue`/`dueClass`/
+  `dueText`/overdue filter share one rule. Evidence: Implementation Evidence round 2.
+- [ ] **RF-084-02 minor (interim Standard B 2026-10-14):** `RoomTaskService::getRoomTaskStats`
+  (RoomDetail stats card) counts overdue/due-today with the entity's day rule, not the
+  occurrence authority, so a past planned day inside an open flex window or a
+  pause-suspended miss can count as overdue there while the rows say due. Align the
+  stats with `statusFor` (one batched selection) in WP-C, which reworks the room and
+  dashboard cards, with a regression.
 
 ## Boundaries
 
@@ -388,6 +400,37 @@ the same round.
   task-completion-full-flow, room-detail, family-core-ux 33/33, no retries.
   The full browser gate and the AIO-row browser gate follow in WP-G part 2.
 
+### Round 2 — RF-084-01 overdue boundary (2026-10-14)
+
+- **Backend:** `RoomTask::isOverdue(?tz)` = due day before today in the house
+  zone (was `next_due < now`, i.e. overdue from the due day's midnight);
+  `getStatus`, room stats and the task detail pass the house zone;
+  `RoomTaskReadService::statusFor()` makes the list (`RoomTaskController`
+  serializer) and detail `status` follow the occurrence classification (`late`
+  → `overdue`; open flex window → `due_today`); `CompletionService` records a
+  takeover only for a `late` occurrence completed by a non-assignee who is not
+  obligated by its agreement.
+- **Frontend:** one `isOverdue(roomTask)` (occurrence classification, status
+  fallback) drives the row badge, claim button and TaskManager overdue filter;
+  `dueClass`/`dueText` count house-local days (no more "Overdue by 0 days"
+  arithmetic on instants; "No due date" for missing dates).
+- **Tests:** RoomTaskTest (UTC, Berlin, New York, Auckland), RoomTaskReadServiceTest
+  `statusFor`; SuccessorOwnershipTest +3 (same-day sibling completion is no
+  takeover and queues no digest notice; agreed catch-up handover of a missed
+  occurrence is no takeover; list status today/missed/open flex window);
+  taskDisplay/TaskList/TaskListItem Jest regressions; E2E "work due today is never
+  overdue" plus house-clock-based probe dates (fixes the probes' local-midnight
+  edge).
+- **Docs:** API `GET /room-tasks` status semantics, task-model "Overdue
+  boundary", UI use case claim row.
+- **Gates (round 2, canonical NC35 stack):** Jest 119 / 1709; PHPUnit unit
+  1385, integration 610 (skips forbidden); ESLint, `composer cs:check` (0/413),
+  `l10n:check-keys`, docs encoding green. Browser (Chromium + serial-db, no
+  retries): today-view, time-travel-overdue, dashboard, dashboard-navigation,
+  task-manager, room-detail, calendar, family-core-ux, family-rhythm,
+  release-task-lifecycle, task-completion(-full-flow), overdue-task-claiming —
+  75/75. The AIO-row rerun follows with the WP-G part 2 full gate.
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -447,3 +490,28 @@ the same round.
   of round 1 above (backend on canonical and AIO rows, focused browser 42/42,
   lint/style/l10n/cs/docs/backlog/agents checks); full Jest rerun after the fix
   119 suites / 1704 tests.
+
+### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 2, plan stays active)
+
+- **Scope:** RF-084-01 round at `eb75142`, index empty, 20 modified tracked paths
+  (unstaged diff SHA256 prefix `8ec569f4ce9161b5` at capture), no untracked files.
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md).
+- **Checked:** status/claim/takeover follow one rule (occurrence `late`, house-zone
+  day bucket fallback); controller only delegates to `statusFor`; no new strings
+  (`No due date` reused); null due dates, inactive rows, voluntary/flex/missed
+  classifications covered; zones east and west of UTC tested.
+- **Fixed in-round (2):** Dashboard `RoomCard` still counted overdue by instant
+  (work due today counted as overdue) and the TaskManager "Due today" filter used
+  its own day rule (an open flex window was badged "today" but filtered out) — both
+  now use `isOverdue`/`dueClass` (RoomCard Jest regression replaces a placeholder).
+- **Routed (1):** RF-084-02 minor (room stats card day rule vs occurrence authority
+  for flex/paused rows) → §9, WP-C.
+- **Gates after fixes:** Jest 119 / 1709; ESLint on changed files; rebuilt bundle.
+  Browser rerun (dashboard, dashboard-navigation, task-manager, today-view,
+  time-travel-overdue, overdue-task-claiming, room-detail) first attempt 35 passed /
+  2 failed: running the parallel `chromium` and seeding `chromium-serial-db`
+  projects concurrently raced the family reseed (`House with id … does not exist`
+  in the seed endpoint, then a cascading missing private-filter fixture) — an
+  invocation conflict, not a product defect; the two specs then passed isolated
+  in their pool 9/9. Earlier round-2 gates (unit 1385, integration 610, browser
+  75/75 with the official pool separation) stand.

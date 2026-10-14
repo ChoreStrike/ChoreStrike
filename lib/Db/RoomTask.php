@@ -151,13 +151,16 @@ class RoomTask extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Check if task is overdue
+	 * Whether the due day has ended in the house timezone (CS-PLAN-084
+	 * D-084-08): `next_due` is the planned day's start instant, so a task
+	 * due today is due — never overdue — until the house-local day is over.
+	 *
+	 * @param \DateTimeZone|null $timeZone House timezone for the day bucket;
+	 *                                     null falls back to the server timezone.
 	 */
-	public function isOverdue(): bool {
-		if ($this->nextDue === null) {
-			return false;
-		}
-		return $this->nextDue < new \DateTime() && $this->isActive;
+	public function isOverdue(?\DateTimeZone $timeZone = null): bool {
+		$daysUntilDue = $this->getDaysUntilDue($timeZone);
+		return $daysUntilDue !== null && $daysUntilDue < 0 && $this->isActive;
 	}
 
 	/**
@@ -248,7 +251,7 @@ class RoomTask extends Entity implements JsonSerializable {
 			return 'inactive';
 		}
 
-		if ($this->isOverdue()) {
+		if ($this->isOverdue($timeZone)) {
 			return 'overdue';
 		}
 
