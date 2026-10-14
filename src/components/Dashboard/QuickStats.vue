@@ -6,8 +6,14 @@
 <template>
 	<div class="quick-stats" :class="{ compact }" data-testid="quick-stats">
 		<div class="stats-grid">
-			<!-- Total Rooms -->
-			<div class="stat-card total-rooms" data-testid="stat-card">
+			<!-- Every tile leads somewhere (CS-PLAN-084 WP-C): room tiles jump to
+			     the floor list on this page (buttons), task tiles open their
+			     filtered destination (links). -->
+			<button
+				type="button"
+				class="stat-card total-rooms"
+				data-testid="stat-card"
+				@click="showRooms">
 				<div class="stat-icon-shell total-rooms-icon">
 					<Icon name="Home" :size="24" class="stat-icon" />
 				</div>
@@ -19,10 +25,13 @@
 						{{ t('chorestrike', 'Total Rooms') }}
 					</div>
 				</div>
-			</div>
+			</button>
 
-			<!-- Clean Rooms -->
-			<div class="stat-card clean-rooms" data-testid="stat-card">
+			<button
+				type="button"
+				class="stat-card clean-rooms"
+				data-testid="stat-card"
+				@click="showRooms">
 				<div class="stat-icon-shell clean-rooms-icon">
 					<Icon name="Sparkles" :size="24" class="stat-icon" />
 				</div>
@@ -34,9 +43,8 @@
 						{{ t('chorestrike', 'Clean Rooms') }}
 					</div>
 				</div>
-			</div>
+			</button>
 
-			<!-- Tasks Due Today -->
 			<RouterLink :to="{ name: 'today' }" class="stat-card due-today" data-testid="stat-card">
 				<div class="stat-icon-shell due-today-icon">
 					<Icon name="Calendar" :size="24" class="stat-icon" />
@@ -51,9 +59,9 @@
 				</div>
 			</RouterLink>
 
-			<!-- Overdue Tasks -->
+			<!-- The counts are household-wide, so the list shows everyone. -->
 			<RouterLink v-if="overdueTasks > 0"
-				:to="{ name: 'today', query: { scope: 'all' } }"
+				:to="{ name: 'tasks', query: { status: 'overdue', scope: 'all' } }"
 				class="stat-card urgent"
 				data-testid="overdue-stat-card">
 				<div class="stat-icon-shell urgent-icon">
@@ -69,8 +77,11 @@
 				</div>
 			</RouterLink>
 
-			<!-- Average Cleanliness -->
-			<div class="stat-card average-cleanliness">
+			<button
+				type="button"
+				class="stat-card average-cleanliness"
+				data-testid="stat-average-cleanliness"
+				@click="showRooms">
 				<div class="stat-icon-shell average-cleanliness-icon">
 					<Icon name="BarChart3" :size="24" class="stat-icon" />
 				</div>
@@ -82,7 +93,7 @@
 						{{ t('chorestrike', 'Avg Cleanliness') }}
 					</div>
 				</div>
-			</div>
+			</button>
 		</div>
 
 		<!-- Action Buttons -->
@@ -144,7 +155,7 @@ export default {
 		},
 	},
 
-	emits: ['toggle-private-filter'],
+	emits: ['toggle-private-filter', 'show-rooms'],
 
 	setup(props, { emit }) {
 		const roomsStore = useRoomsStore()
@@ -169,6 +180,7 @@ export default {
 					roomsStore.fetchFloorsWithRooms(),
 					roomTasksStore.fetchDueTodayTasks(),
 					roomTasksStore.fetchOverdueTasks(),
+					roomTasksStore.fetchHouseRoomTasks(),
 				])
 			} catch (error) {
 				logger.error('Failed to refresh stats', error, { component: 'QuickStats', action: 'refreshStats' })
@@ -188,6 +200,11 @@ export default {
 			emit('toggle-private-filter', true)
 		}
 
+		/** Room tiles: the Dashboard reveals and focuses its floor list. */
+		const showRooms = () => {
+			emit('show-rooms')
+		}
+
 		return {
 			t,
 			totalRooms,
@@ -200,6 +217,7 @@ export default {
 			refreshStats,
 			viewAllTasks,
 			togglePrivateFilter,
+			showRooms,
 		}
 	},
 }
@@ -225,6 +243,8 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 44px;
+  margin: 0;
   padding: 12px;
   background: var(--color-background-dark);
   border-radius: 8px;
@@ -232,6 +252,14 @@ export default {
   transition: all 0.2s ease;
   text-decoration: none;
   color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.stat-card:focus-visible {
+  outline: 2px solid var(--color-main-text);
+  outline-offset: 2px;
 }
 
 .stat-icon-shell {

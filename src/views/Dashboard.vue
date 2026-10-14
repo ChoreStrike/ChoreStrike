@@ -57,8 +57,13 @@
 				<QuickStats
 					class="quick-stats-section"
 					data-testid="quick-stats"
-					@toggle-private-filter="handleTogglePrivateFilter" />
-				<FloorList class="floor-list-section" data-testid="floor-list" />
+					@toggle-private-filter="handleTogglePrivateFilter"
+					@show-rooms="showRooms" />
+				<FloorList
+					ref="floorList"
+					class="floor-list-section"
+					data-testid="floor-list"
+					tabindex="-1" />
 			</main>
 		</template>
 
@@ -156,13 +161,16 @@ export default {
 				this.gameStore.fetchGameState(),
 				this.roomTasksStore.fetchDueTodayTasks(),
 				this.roomTasksStore.fetchOverdueTasks(),
+				// CS-PLAN-084 WP-C: the room cards' task counts, in ONE
+				// house-wide read (request budget pinned in E2E).
+				this.roomTasksStore.fetchHouseRoomTasks(),
 			])
 
 			// Surface any non-fatal failures to the logger. The Dashboard
 			// renders whatever state the stores currently hold, so a single
 			// failed fetch doesn't break the others — but if everything
 			// failed there is nothing to render (ErrorState + retry).
-			const labels = ['fetchHouse', 'fetchFloorsWithRooms', 'fetchGameState', 'fetchDueTodayTasks', 'fetchOverdueTasks']
+			const labels = ['fetchHouse', 'fetchFloorsWithRooms', 'fetchGameState', 'fetchDueTodayTasks', 'fetchOverdueTasks', 'fetchHouseRoomTasks']
 			let failures = 0
 			results.forEach((result, index) => {
 				if (result.status === 'rejected') {
@@ -218,6 +226,16 @@ export default {
 		},
 		closeWizard() {
 			this.showWizard = false
+		},
+		/**
+		 * Room overview tiles (CS-PLAN-084 WP-C): expand every floor and move
+		 * focus to the floor list, which scrolls it into view in whichever
+		 * container scrolls (focus also tells keyboard users where they are).
+		 */
+		async showRooms() {
+			this.roomsStore.floors.forEach(floor => this.roomsStore.setFloorExpanded(floor.id))
+			await this.$nextTick()
+			this.$refs.floorList?.$el?.focus()
 		},
 		/**
 		 * "My Private Tasks" chip (CS-PLAN-041): the Dashboard renders no task

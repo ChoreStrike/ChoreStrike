@@ -581,6 +581,10 @@ class RoomTaskService {
 	 * counted deactivated/skipped tasks as completed. An empty room
 	 * returns 0 (not 100).
 	 *
+	 * Overdue/due-today counts follow the list rows (CS-PLAN-084 RF-084-02):
+	 * one batched occurrence selection and `statusFor`, so a past planned
+	 * day inside an open flex window counts as due, not overdue.
+	 *
 	 * @param int $roomId The room ID
 	 * @param HouseUser $viewer The acting user's house membership
 	 */
@@ -589,8 +593,9 @@ class RoomTaskService {
 		$visibleTasks = $this->readService->visibleRoomTasks($allTasks, $viewer);
 		$tz = $this->readService->timeZoneForRoom($roomId);
 		$activeTasks = array_filter($visibleTasks, fn ($task) => $task->getIsActive());
-		$overdueTasks = array_filter($activeTasks, fn ($task) => $task->isOverdue($tz));
-		$dueTodayTasks = array_filter($activeTasks, fn ($task) => $task->isDueToday($tz));
+		$statuses = $this->rowStatuses($roomId, array_values($activeTasks), $tz);
+		$overdueTasks = array_filter($statuses, static fn (string $status): bool => $status === 'overdue');
+		$dueTodayTasks = array_filter($statuses, static fn (string $status): bool => $status === 'due_today');
 		$dueSoonTasks = array_filter($activeTasks, fn ($task) => $task->isDueWithinDays(3));
 
 		$visibleIds = array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $visibleTasks);
@@ -606,6 +611,25 @@ class RoomTaskService {
 				? round(min($completedCount, count($visibleTasks)) / count($visibleTasks) * 100, 2)
 				: 0
 		];
+	}
+
+	/**
+	 * The list-row status of each active room task (RF-084-02).
+	 *
+	 * @param RoomTask[] $activeTasks
+	 * @return array<int, string> status by room-task id
+	 */
+	private function rowStatuses(int $roomId, array $activeTasks, \DateTimeZone $tz): array {
+		if ($activeTasks === []) {
+			return [];
+		}
+		$selections = $this->readService->occurrenceSelectionsForHouse($this->readService->houseIdForRoom($roomId), $activeTasks);
+		$statuses = [];
+		foreach ($activeTasks as $roomTask) {
+			$classification = $selections[$roomTask->getId()]['classification'] ?? null;
+			$statuses[$roomTask->getId()] = $this->readService->statusFor($roomTask, $tz, $classification);
+		}
+		return $statuses;
 	}
 
 	/**

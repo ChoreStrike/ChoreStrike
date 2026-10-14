@@ -872,6 +872,12 @@ cross-house `roomId` with `404 RESOURCE_NOT_FOUND`.
 > current tasks with at least one real completion row — deactivated/skipped
 > tasks do NOT count as completed; an empty room returns `0`.
 
+> **`overdueTasks` / `dueTodayTasks` semantics (CS-PLAN-084 RF-084-02):**
+> counted from the same `status` the `GET /room-tasks` rows carry (occurrence
+> classification: a missed occurrence is overdue; today's work and a past
+> planned day inside an open flex window are due today), so the card and the
+> rows never disagree.
+
 ### Checklists
 
 Checklist endpoints for tasks and room tasks. Business logic and

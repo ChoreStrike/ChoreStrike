@@ -29,6 +29,7 @@ jest.mock('vue-router', () => ({
 	useRouter: () => ({
 		push: mockRouterPush,
 	}),
+	RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
 }))
 
 // Mock stores module

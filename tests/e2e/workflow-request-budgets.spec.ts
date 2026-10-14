@@ -39,6 +39,32 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 		}
 	})
 
+	test('Dashboard loads the room-card task counts with ONE house-wide request (CS-PLAN-084 WP-C)', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const roomTaskRequests: string[] = []
+
+			page.on('request', (request) => {
+				const url = new URL(request.url())
+				if (url.pathname.endsWith('/api/v1/room-tasks')) {
+					roomTaskRequests.push(url.searchParams.get('roomId') ?? 'house')
+				}
+			})
+
+			await page.goto('/apps/chorestrike/#/dashboard')
+			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+			await expect(page.getByTestId('floor-list')).toBeVisible({ timeout: 15000 })
+			// Revealing every room renders all room cards: still no per-room read.
+			await page.getByRole('button', { name: /Total Rooms/ }).click()
+			await expect(page.locator('.room-card').first()).toBeVisible()
+			await page.waitForLoadState('networkidle')
+
+			expect(roomTaskRequests).toEqual(['house'])
+		} finally {
+			await context.close()
+		}
+	})
+
 	test('SchedulingView preloads its planning candidates with ONE house-wide request', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {

@@ -209,8 +209,9 @@ read-only).
 | Delete room (styled confirm) | RoomDetail header; Settings floor room list | `DELETE /rooms/{id}` | ✅ (CS-PLAN-042) |
 | Cleanliness change (Quick clean +10) | RoomCard (600 ms hold, 44 px labelled control, CS-PLAN-084 WP-E) | `PUT /rooms/{id}/cleanliness` | ✅ |
 | "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ⛔ pruned (CS-PLAN-055 — route + dead `fetchRoomsNeedingCleaning` wrapper gone) |
-| Open room detail | RoomCard click → RoomDetail | `GET /room-tasks?roomId=` | ✅ |
-| Task stats card (total/active/overdue/due-today/completion) | RoomDetail stats card | `GET /room-tasks/room/{roomId}/stats` | ✅ (live since CS-PLAN-040; cross-house roomId → 404) |
+| Open room detail | RoomCard: the room name is the card's one link, stretched over the card (click anywhere, Tab + Enter); Quick clean stays a separate control above it → RoomDetail | `GET /room-tasks?roomId=` | ✅ (keyboard access CS-PLAN-084 WP-C) |
+| Room-card task counts (active/overdue/due today) | RoomCard on the Dashboard | ONE house-wide `GET /room-tasks` on Dashboard load (request budget pinned in `workflow-request-budgets.spec.ts`) | ✅ (CS-PLAN-084 WP-C; before, the counts showed only rooms whose tasks another view had loaded) |
+| Task stats card (total/active/overdue/due-today/completion) | RoomDetail stats card | `GET /room-tasks/room/{roomId}/stats` | ✅ (live since CS-PLAN-040; cross-house roomId → 404; overdue/due-today follow the list-row `status` since CS-PLAN-084 RF-084-02) |
 
 ## UC-05 — Task definitions (catalog)
 
@@ -227,6 +228,17 @@ points:** TaskManager.
 | Browse by category / categories | — | `GET /tasks/category/{c}`, `GET /tasks/categories` | ⛔ pruned (CS-PLAN-055) |
 | Private (personal) task list | Dashboard chip → TaskManager visibility filter | `GET /tasks` + client-side `?visibility=private` scope | ✅ (CS-PLAN-041; `GET /tasks/my-private` was pruned in CS-PLAN-055 — the client-side filter is the only path) |
 | Task-level complete/skip/reschedule/daily | — | legacy `PUT /tasks/{id}/…`, `GET /tasks/daily` | ⛔ pruned (CS-PLAN-055; RoomTask equivalents are the live completion path; `PUT /tasks/{id}/uncomplete` stays as the undo primitive) |
+
+### `/tasks` query presets (router contract, CS-PLAN-084 WP-C)
+
+Links into the TaskManager may preset its filters once on entry; unknown
+values keep the defaults, and the filters stay freely changeable afterwards.
+
+| Query | Values | Effect |
+|---|---|---|
+| `scope` | `mine`, `unassigned`, `all` | scope buttons (My tasks / Unassigned / Everyone) |
+| `status` | `active`, `overdue`, `due-today` | status filter (same rules as the select: the occurrence-based overdue boundary, D-084-08) |
+| `visibility` | `private` | visibility filter on private tasks, scope `all` (CS-PLAN-041) |
 
 ## UC-06 — Task creation (materialize room tasks)
 
@@ -270,7 +282,7 @@ usable; owners/members keep the Dashboard default).
 | Short household instructions per row | TodayView | definition `instructions` (falls back to `description`) | ✅ CS-PLAN-066 §3.5 (plain escaped text, never v-html) |
 | Optional expandable checklist in My Day | TodayView → `TaskChecklist` (execute-only: `can-edit=false`, frozen when completed) | `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}`, `POST /checklists/toggle/{rt}/{item}` | ✅ CS-PLAN-066 §3.5 (progress refreshes after the server-side occurrence reset on completion; checklist-less rows hide the toggle after the one-shot empty discovery — final-review a11y fix 2026-09-12) |
 | Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager — Done is a 600 ms press-and-hold with a short-tap hint and one in-flight request per room task (CS-PLAN-084 WP-E) | `POST /room-tasks/{id}/complete` | ✅ (CS-PLAN-065 D7 removed the dead per-completion energy-counter store write; CS-PLAN-066 reconciles every owning store before the events and re-syncs the titles store before the title-unlocked event fires once per response) |
-| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ CS-PLAN-066 (D2): the counters read dedicated endpoint-backed projections loaded on the cold Dashboard; a scoped room load or the child-limited daily list can never overwrite them; the coordinated derived refresh (D3) keeps them truthful after mutations |
+| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ CS-PLAN-066 (D2): the counters read dedicated endpoint-backed projections loaded on the cold Dashboard; a scoped room load or the child-limited daily list can never overwrite them; the coordinated derived refresh (D3) keeps them truthful after mutations. CS-PLAN-084 WP-C: every tile acts — Due Today → My Day, Overdue → `/tasks?status=overdue&scope=all`, Total rooms / Clean rooms / Avg cleanliness expand every floor and focus the floor list (in-page buttons) |
 | Per-row assignee resolution | TodayView | daily AND overdue rows embed canonical `assignees` (D1) | ✅ CS-PLAN-066 (no per-row re-fetch remains) |
 | Partial derived-refresh failure | TodayView | read-only retry of the loaded projections | ✅ CS-PLAN-066 (D3): a committed action stays successful; stale slices offer a refresh-only retry |
 | Checklist toggle while completing | TaskList → `TaskChecklist` | `POST /checklists/toggle/{rt}/{item}`, `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}` | ✅ |

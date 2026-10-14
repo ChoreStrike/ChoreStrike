@@ -283,6 +283,17 @@ describe('TaskManager', () => {
 		mockUserStore.canManageTasks = true
 	})
 
+	it('presets the status filter from ?status= and ignores unknown values (CS-PLAN-084 WP-C)', async () => {
+		mockRoute = { query: { status: 'overdue', scope: 'all' } }
+		const overdue = await mountView()
+		expect(overdue.vm.filterStatus).toBe('overdue')
+		expect(overdue.vm.filterScope).toBe('all')
+
+		mockRoute = { query: { status: 'completed-everything' } }
+		const unknown = await mountView()
+		expect(unknown.vm.filterStatus).toBe('all')
+	})
+
 	it('pre-filters to private tasks when routed with ?visibility=private (CS-PLAN-041)', async () => {
 		mockRoute = { query: { visibility: 'private' } }
 		mockRoomTasksStore.roomTasks = [

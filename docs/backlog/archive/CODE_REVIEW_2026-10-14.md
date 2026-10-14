@@ -126,3 +126,36 @@ Jest 122 / 1756 (after the fix), `test:noise` clean; ESLint, Stylelint, `l10n:ch
 ## Outcome
 
 **PASS-WITH-FIXES (interim).** One minor finding fixed in-round; RF-084-03 resolved; no open findings from this round.
+
+## Round 6
+
+# Code Review: CS-PLAN-084 Round 6 (WP-C Clickable Dashboard + RF-084-02) — Interim Standard B
+
+- **Review Date**: 2026-10-14
+- **Reviewer**: Claude Code
+- **Mode**: Standard B (interim; plan stays `active/`)
+- **Scope**: working tree at `c41b103` (index empty): 19 modified tracked paths (unstaged diff SHA256 prefix `43f1383d57671c18` at capture), no untracked files — QuickStats tiles, stretched-link RoomCard, Dashboard house read and `showRooms`, TaskManager `?status=` preset, `RoomTaskService::getRoomTaskStats` (RF-084-02), Jest/E2E/PHPUnit tests, ui-use-cases router contract, API stats semantics, TECH-TRANSPORT-001 fold-in
+- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+
+## Findings
+
+| ID | Severity | Area | Issue | Status |
+|----|----------|------|-------|--------|
+| C6-01 | minor | `Dashboard.vue` | `showRooms()` was inserted between the "My Private Tasks" docblock and `handleTogglePrivateFilter`, so that docblock described the wrong method | fixed (method moved above the docblock) |
+| C6-11 | minor | `family-core-ux.spec.ts` | The overdue-list assertion compared the row count with a count sampled once (`toHaveCount(await …count())`) | fixed (`[data-testid="task-item"]:not(.overdue)` has count 0) |
+
+## Verified Non-Findings
+
+- `getRoomTaskStats` keeps the visibility filter before counting; the new path only reads (one batched selection, `statusFor`), no authorization or write change; `houseIdForRoom` adds two cheap lookups on a per-room stats read.
+- The stretched link nests no interactive control inside a link; Quick clean stays a sibling button above it (`z-index`); the card lost its `div @click` pseudo-button.
+- In-page room tiles are buttons instead of the plan's RouterLinks (recorded as an implementation decision in the plan): a hash route would need a global window-scrolling `scrollBehavior` that does not fit Nextcloud's inner scroll container.
+- `?status=` only accepts the three listed values; `completed` stays for WP-D's on-demand read.
+- The keyboard E2E focuses the room link programmatically and proves Enter activation; Tab reachability of row controls is covered by the existing family-core-ux traversal pattern.
+
+## Gates
+
+Jest 122 / 1760 (Dashboard spec rerun after the fix), `test:noise` clean; ESLint, Stylelint, `l10n:check-keys`, `composer cs:check` (0/413), `docs:encoding`, `backlog:check` green; bundle rebuilt. PHPUnit unit 1385, integration 611. Browser, no retries: chromium 40/40; chromium-serial-db 28/29 with one seed `fetch failed` before any assertion (TECH-TRANSPORT-001), room-management 10/10 isolated; family-core-ux 12/12 after the fix.
+
+## Outcome
+
+**PASS-WITH-FIXES (interim).** Two minor findings fixed in-round; RF-084-02 resolved; no open findings from this round.

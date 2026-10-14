@@ -35,22 +35,43 @@ test.describe('Dashboard', () => {
 	})
 
 	test('User can navigate to room detail from dashboard', async ({ page }) => {
-		// Find a room card in the floor list
+		// CS-PLAN-084 WP-C: the room tiles reveal every floor (they start
+		// collapsed, which used to leave this test without a room card).
+		await page.getByRole('button', { name: /Total Rooms/ }).click()
+		await expect(page.getByTestId('floor-list')).toBeFocused()
 		const roomCard = page.locator('.room-card').first()
+		await expect(roomCard).toBeVisible()
+		const roomName = (await roomCard.locator('.room-name').textContent())?.trim() ?? ''
+		expect(roomName).not.toBe('')
 
-		// If there are rooms, click on one
-		if (await roomCard.count() > 0) {
-			const roomName = await roomCard.locator('.room-name').textContent()
-			await roomCard.click()
+		// A click anywhere on the card follows its stretched room link.
+		await roomCard.click()
+		await expect(page.getByTestId('room-detail-view')).toBeVisible()
+		await expect(page.getByTestId('room-name')).toContainText(roomName)
+	})
 
-			// Verify navigation to room detail
-			await page.waitForLoadState('networkidle')
-			await expect(page.locator('[data-testid="room-detail-view"]')).toBeVisible()
+	test('Room cards open from the keyboard and the Due Today tile opens My Day (CS-PLAN-084 WP-C)', async ({ page }) => {
+		await page.getByRole('button', { name: /Clean Rooms/ }).click()
+		const roomLink = page.locator('[data-testid^="room-link-"]').first()
+		await expect(roomLink).toBeVisible()
+		const roomName = (await roomLink.textContent())?.trim() ?? ''
+		await roomLink.focus()
+		await page.keyboard.press('Enter')
+		await expect(page.getByTestId('room-detail-view')).toBeVisible()
+		await expect(page.getByTestId('room-name')).toContainText(roomName)
 
-			// Verify room name is displayed
-			const detailRoomName = page.locator('[data-testid="room-name"]')
-			await expect(detailRoomName).toContainText(roomName || '')
-		}
+		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.locator('.stat-card.due-today').click()
+		await expect(page.getByTestId('today-view')).toBeVisible()
+	})
+
+	test('The overdue tile target presets the household task list to overdue (CS-PLAN-084 WP-C)', async ({ page }) => {
+		// The tile only renders while overdue work exists; its exact link is
+		// pinned in Jest, this proves the router contract end to end.
+		await page.goto('/apps/chorestrike/#/tasks?status=overdue&scope=all')
+		await expect(page.getByTestId('task-manager-view')).toBeVisible()
+		await expect(page.getByTestId('status-filter')).toHaveValue('overdue')
+		await expect(page.getByTestId('tasks-filter-all')).toHaveAttribute('aria-pressed', 'true')
 	})
 
 	test('User can navigate to all main views from dashboard', async ({ page }) => {

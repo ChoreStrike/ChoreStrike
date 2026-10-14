@@ -17,6 +17,11 @@ jest.mock('vue-router', () => ({
 	useRouter: jest.fn(() => ({
 		push: mockPush,
 	})),
+	RouterLink: {
+		name: 'RouterLink',
+		props: ['to'],
+		template: '<a class="router-link-stub" :data-to="JSON.stringify(to)"><slot /></a>',
+	},
 }))
 
 // Mock stores
@@ -188,9 +193,13 @@ describe('RoomCard', () => {
 	})
 
 	describe('Navigation', () => {
-		it('Navigates to room detail on card click', async () => {
-			await wrapper.find('.room-card').trigger('click')
-			expect(mockPush).toHaveBeenCalledWith('/room/1')
+		it('Makes the room name the one real link of the card (CS-PLAN-084 WP-C)', () => {
+			const link = wrapper.get('[data-testid="room-link-1"]')
+			expect(link.element.tagName).toBe('A')
+			expect(JSON.parse(link.attributes('data-to'))).toEqual({ name: 'room', params: { id: 1 } })
+			expect(link.text()).toBe('Kitchen')
+			// The card itself is no pseudo-button: the stretched link handles clicks.
+			expect(wrapper.find('.room-card').attributes('role')).toBeUndefined()
 		})
 	})
 

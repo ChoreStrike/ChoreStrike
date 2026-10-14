@@ -7,8 +7,7 @@
 	<div
 		class="room-card"
 		:class="cardClasses"
-		:data-testid="`room-card-${room.name}`"
-		@click="handleCardClick">
+		:data-testid="`room-card-${room.name}`">
 		<!-- Room Header -->
 		<div class="room-header">
 			<div class="room-info">
@@ -16,8 +15,16 @@
 					<div class="room-icon-shell" :class="statusClass">
 						<Icon :name="roomIconName" :size="18" class="room-type-icon" />
 					</div>
+					<!-- Stretched link (CS-PLAN-084 WP-C): the name is the card's one
+					     real link; its ::after covers the card so a click anywhere
+					     opens the room, while Quick clean stays its own control. -->
 					<h4 class="room-name">
-						{{ room.name }}
+						<RouterLink
+							class="room-link"
+							:to="{ name: 'room', params: { id: room.id } }"
+							:data-testid="`room-link-${room.id}`">
+							{{ room.name }}
+						</RouterLink>
 					</h4>
 				</div>
 				<div class="room-status">
@@ -83,7 +90,7 @@
 <script>
 import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useHouseStore } from '../../store/house.js'
@@ -99,6 +106,7 @@ export default {
 	components: {
 		Icon,
 		HoldButton,
+		RouterLink,
 	},
 
 	props: {
@@ -113,7 +121,6 @@ export default {
 	},
 
 	setup(props) {
-		const router = useRouter()
 		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
 		const houseStore = useHouseStore()
@@ -191,10 +198,6 @@ export default {
 		})
 
 		// Methods
-		const handleCardClick = () => {
-			router.push(`/room/${props.room.id}`)
-		}
-
 		const quickClean = async () => {
 			if (loading.value) return
 			loading.value = true
@@ -220,7 +223,6 @@ export default {
 			activeTasks,
 			overdueTasks,
 			dueTodayTasks,
-			handleCardClick,
 			quickClean,
 		}
 	},
@@ -312,6 +314,32 @@ export default {
   font-weight: 600;
   margin: 0 0 4px 0;
   color: var(--color-main-text);
+}
+
+.room-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.room-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.room-link:focus-visible {
+  outline: none;
+}
+
+.room-link:focus-visible::after {
+  outline: 2px solid var(--color-main-text);
+  outline-offset: -2px;
+}
+
+/* Quick clean sits above the stretched link (HoldButton's root is positioned). */
+.room-footer .hold-button {
+  z-index: 1;
 }
 
 .room-status {

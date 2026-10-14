@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { reactive } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import Dashboard from '../../../src/views/Dashboard.vue'
+import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 
 // Mock vue-router
 const mockRouterPush = jest.fn()
@@ -30,6 +31,7 @@ const mockRoomsState = {
 	rooms: [{ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 80 }],
 	loading: false,
 	fetchFloorsWithRooms: jest.fn(),
+	setFloorExpanded: jest.fn(),
 }
 
 jest.mock('../../../src/store/rooms.js', () => ({
@@ -56,7 +58,7 @@ jest.mock('../../../src/components/Dashboard/HouseholdGoalBar.vue', () => ({
 
 jest.mock('../../../src/components/Dashboard/QuickStats.vue', () => ({
 	name: 'QuickStats',
-	emits: ['toggle-private-filter'],
+	emits: ['toggle-private-filter', 'show-rooms'],
 	template: '<div class="quick-stats">Quick Stats</div>',
 }))
 
@@ -308,5 +310,32 @@ describe('Dashboard.vue', () => {
 
 		expect(wrapper.find('[data-testid="dashboard-error"]').exists()).toBe(false)
 		expect(wrapper.find('.dashboard-header').exists()).toBe(true)
+	})
+
+	it('loads the task counts of the room cards with one house-wide read (CS-PLAN-084 WP-C)', async () => {
+		const roomTasksStore = useRoomTasksStore()
+		roomTasksStore.fetchHouseRoomTasks = jest.fn().mockResolvedValue([])
+
+		mount(Dashboard, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		expect(roomTasksStore.fetchHouseRoomTasks).toHaveBeenCalledTimes(1)
+		expect(roomTasksStore.fetchHouseRoomTasks).toHaveBeenCalledWith()
+	})
+
+	it('expands every floor and focuses the floor list when a room tile asks for the rooms', async () => {
+		mockRoomsState.floors = [{ id: 1, name: 'Ground Floor' }, { id: 2, name: 'First Floor' }]
+		mockRoomsState.setFloorExpanded.mockClear()
+		const wrapper = mount(Dashboard, { global: { plugins: [pinia] }, attachTo: document.body })
+		await flushPromises()
+
+		wrapper.findComponent({ name: 'QuickStats' }).vm.$emit('show-rooms')
+		await flushPromises()
+
+		expect(mockRoomsState.setFloorExpanded.mock.calls).toEqual([[1], [2]])
+		const floorList = wrapper.find('.floor-list')
+		expect(floorList.attributes('tabindex')).toBe('-1')
+		expect(document.activeElement).toBe(floorList.element)
+		wrapper.unmount()
 	})
 })

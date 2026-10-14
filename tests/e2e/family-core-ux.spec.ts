@@ -137,6 +137,51 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		}
 	})
 
+	test('owner desktop: overview tiles lead to their targets and Quick clean needs a hold (CS-PLAN-084 WP-C)', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const kidsBedroom = seededData.data.rooms!.find(room => room.name === 'Kids Bedroom')!
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await page.goto('/apps/chorestrike/#/dashboard')
+			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+
+			// Overdue tile → household task list filtered to overdue work.
+			await page.getByTestId('overdue-stat-card').click()
+			await expect(page.getByTestId('task-manager-view')).toBeVisible()
+			await expect(page.getByTestId('status-filter')).toHaveValue('overdue')
+			await expect(page.getByTestId('task-item').first()).toBeVisible()
+			await expect(page.locator('[data-testid="task-item"]:not(.overdue)')).toHaveCount(0)
+
+			// Average cleanliness tile → every floor expanded, list focused.
+			await page.goto('/apps/chorestrike/#/dashboard')
+			await page.getByTestId('stat-average-cleanliness').click()
+			await expect(page.getByTestId('floor-list')).toBeFocused()
+			const card = page.getByTestId('room-card-Kids Bedroom')
+			await expect(card.getByTestId('cleanliness-value')).toHaveText(`${kidsBedroom.cleanliness}%`)
+
+			// A short tap explains the hold and sends nothing; the hold cleans once.
+			const cleanRequests: string[] = []
+			page.on('request', (request) => {
+				if (request.method() === 'PUT' && request.url().endsWith(`/rooms/${kidsBedroom.id}/cleanliness`)) cleanRequests.push(request.url())
+			})
+			const quickClean = page.getByTestId(`quick-clean-${kidsBedroom.id}`)
+			const box = await quickClean.boundingBox()
+			expect(box!.height).toBeGreaterThanOrEqual(44)
+			await quickClean.click()
+			await expect(page.getByTestId(`quick-clean-${kidsBedroom.id}-hint`)).toHaveText('Press and hold to confirm')
+			expect(cleanRequests).toEqual([])
+			await expect(page.getByTestId('dashboard-view')).toBeVisible()
+
+			const cleaned = page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith(`/rooms/${kidsBedroom.id}/cleanliness`))
+			await holdToConfirm(quickClean)
+			expect((await cleaned).ok()).toBe(true)
+			await expect(card.getByTestId('cleanliness-value')).toHaveText(`${kidsBedroom.cleanliness + 10}%`)
+			expect(cleanRequests).toHaveLength(1)
+		} finally {
+			await context.close()
+		}
+	})
+
 	test('owner desktop: the real HTTP PUT /tasks/{id} edit roundtrip works with the production body shape (D6)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')

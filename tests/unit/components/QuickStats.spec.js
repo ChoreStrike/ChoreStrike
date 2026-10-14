@@ -12,7 +12,7 @@ jest.mock('vue-router', () => ({
 	RouterLink: {
 		name: 'RouterLink',
 		props: ['to'],
-		template: '<a class="router-link-stub" :data-to="(to && to.name) || to"><slot /></a>',
+		template: '<a class="router-link-stub" :data-to="(to && to.name) || to" :data-query="to && to.query ? JSON.stringify(to.query) : null"><slot /></a>',
 	},
 }))
 
@@ -158,11 +158,24 @@ describe('QuickStats', () => {
 			expect(card.attributes('data-to')).toBe('today')
 		})
 
-		it('links the Overdue card to the today view', () => {
+		it('links the Overdue card to the household task list filtered to overdue (CS-PLAN-084 WP-C)', () => {
 			const wrapper = createWrapper({}, { totalOverdueTasks: 2 })
 			const card = wrapper.find('.stat-card.urgent')
 			expect(card.exists()).toBe(true)
-			expect(card.attributes('data-to')).toBe('today')
+			expect(card.attributes('data-to')).toBe('tasks')
+			expect(JSON.parse(card.attributes('data-query'))).toEqual({ status: 'overdue', scope: 'all' })
+		})
+
+		it('makes every room tile a button that asks the Dashboard to show the rooms', async () => {
+			const wrapper = createWrapper()
+			const tiles = ['.stat-card.total-rooms', '.stat-card.clean-rooms', '.stat-card.average-cleanliness']
+			for (const selector of tiles) {
+				const tile = wrapper.find(selector)
+				expect(tile.element.tagName).toBe('BUTTON')
+				expect(tile.attributes('type')).toBe('button')
+				await tile.trigger('click')
+			}
+			expect(wrapper.emitted('show-rooms')).toHaveLength(3)
 		})
 	})
 

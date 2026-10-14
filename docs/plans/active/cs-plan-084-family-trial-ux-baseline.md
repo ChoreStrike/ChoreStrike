@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–5 committed (WP-E, WP-F)
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–6 committed (WP-E, WP-F, WP-C)
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -238,7 +238,10 @@ new:      tests/unit/components/HoldButton.spec.js (+ TaskFilterBar spec), tests
 new:      tests/integration/Service/SuccessorOwnershipTest.php
 new:      tests/e2e/mobile-core.spec.ts, tests/e2e/fixtures/hold-to-confirm.ts
 modified: src/styles/tokens.css, src/styles/mobile.css
-modified: src/router.js (only if query presets need route meta)
+modified: tests/e2e/{dashboard-navigation,workflow-request-budgets,family-core-ux}.spec.ts,
+          tests/unit/views/{Dashboard,TaskManager}.spec.js, tests/unit/components/{QuickStats,RoomCard,FloorList}.spec.js
+modified: lib/Service/RoomTaskService.php, tests/integration/Service/SuccessorOwnershipTest.php (RF-084-02),
+          docs/api/README.md
 modified: src/views/Dashboard.vue, TodayView.vue, TaskManager.vue, RoomDetail.vue
 modified: src/components/Dashboard/{QuickStats,RoomCard,FloorList,HouseHealthBar}.vue
 modified: src/components/Tasks/{TaskList,TaskListItem}.vue
@@ -325,12 +328,15 @@ the same round.
   drives the list/detail `status`, takeover recording keys on the completed
   occurrence's `late` classification, and the client `isOverdue`/`dueClass`/
   `dueText`/overdue filter share one rule. Evidence: Implementation Evidence round 2.
-- [ ] **RF-084-02 minor (interim Standard B 2026-10-14):** `RoomTaskService::getRoomTaskStats`
+- [x] **RF-084-02 minor (interim Standard B 2026-10-14; resolved round 6):** `RoomTaskService::getRoomTaskStats`
   (RoomDetail stats card) counts overdue/due-today with the entity's day rule, not the
   occurrence authority, so a past planned day inside an open flex window or a
   pause-suspended miss can count as overdue there while the rows say due. Align the
   stats with `statusFor` (one batched selection) in WP-C, which reworks the room and
-  dashboard cards, with a regression.
+  dashboard cards, with a regression. **Resolution:** the stats count the list-row
+  `status` (one `occurrenceSelectionsForHouse` + `statusFor` per active task);
+  integration regression `SuccessorOwnershipTest::testRoomStats_FollowTheListRowBoundary`
+  (today / missed / open flex window), negative control fails on the old code.
 - [x] **RF-084-03 minor (interim Standard B 2026-10-14, round 4, pre-existing; resolved round 5):** a failed
   RoomCard quick clean (`roomsStore.updateRoomCleanliness`) only logs; design.md §5
   requires an error toast on every mutation failure path. Add the toast (with the
@@ -580,6 +586,53 @@ the same round.
   seed-fixture target preflight failure before any assertion
   (TECH-TRANSPORT-001, folded in); calm-core-ui then 9/9 isolated.
 
+### Round 6 — WP-C clickable dashboard + RF-084-02 (2026-10-14)
+
+- **QuickStats:** every tile acts. Due Today → My Day (link); Overdue →
+  `/tasks?status=overdue&scope=all` (link; the counts are household-wide);
+  Total rooms / Clean rooms / Avg cleanliness → in-page **buttons** that emit
+  `show-rooms`. *Implementation decision:* the plan said "every tile is a
+  RouterLink"; a hash route (`#/dashboard#floor-list`) would need a global
+  router `scrollBehavior` that assumes window scrolling, while Nextcloud scrolls
+  an inner container — so in-page targets are buttons (semantically correct)
+  and the Dashboard expands every floor and focuses the floor list
+  (`tabindex="-1"`), which scrolls it in any container. Tiles ≥ 44 px with a
+  focus ring; the Refresh action also re-reads the house room tasks.
+- **RoomCard:** the room name is a `RouterLink` stretched over the card
+  (`::after`), so a click anywhere opens the room and keyboard users Tab to one
+  real link; Quick clean (HoldButton) sits above it (`z-index`); the card's
+  `div @click` + router push are gone (no nested interactive controls).
+- **Dashboard:** `fetchHouseRoomTasks()` joins the parallel initialization
+  (one house-wide `GET /room-tasks`), so room-card counts no longer depend on
+  another view having loaded the room.
+- **TaskManager:** `?status=` presets `active` / `overdue` / `due-today`;
+  unknown values keep the default; documented as the `/tasks` router contract
+  in `ui-use-cases.md` with `scope` and `visibility`.
+- **RF-084-02 (backend):** see §9 — stats count the list-row status.
+- **Tests:** Jest QuickStats (Overdue target + query, room tiles are buttons
+  emitting `show-rooms`), RoomCard (one real link, no pseudo-button), Dashboard
+  (one house read, expand + focus), TaskManager (`?status=` preset, unknown
+  ignored); FloorList/RoomCard router mocks gained `RouterLink` (no console
+  noise). E2E: request budget — Dashboard incl. revealed room cards issues ONE
+  house-wide room-task read; dashboard-navigation — the formerly vacuous
+  "navigate to room detail" test (floors collapsed → `if` skipped everything)
+  now reveals rooms via the tile and clicks the card, plus keyboard Enter on the
+  room link, Due Today → My Day and the `/tasks?status=overdue&scope=all`
+  contract; family-core-ux (seeded) — Overdue tile → overdue-only household
+  list, Avg cleanliness tile → focused floor list, Quick clean short tap = hint
+  and no PUT, hold = one PUT and Kids Bedroom 40% → 50%, 44 px target.
+  PHPUnit integration `testRoomStats_FollowTheListRowBoundary`.
+- **Gates:** Jest 122 / 1760, `test:noise` clean; ESLint, Stylelint,
+  `l10n:check-keys` (1283), `composer cs:check` (0/413), `docs:encoding` green;
+  bundle rebuilt. PHPUnit (canonical NC35): unit 1385, integration 611 (full
+  suites). Browser, no retries: chromium 40/40 (dashboard-navigation,
+  workflow-request-budgets, core-functionality, task-completion, room-detail,
+  task-manager, color-contrast light+dark, multi-user-interactions);
+  chromium-serial-db 28 passed / 1 failed — room-management hit a seed POST
+  `fetch failed` before any assertion (TECH-TRANSPORT-001, folded in), then
+  10/10 isolated (family-core-ux, dashboard, task-completion-full-flow,
+  core-household-journey in the 28).
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -718,3 +771,18 @@ the same round.
 - **Resolved:** RF-084-03 (Quick clean failure toast).
 - **Gates after fix:** Jest 122 / 1756; docs/diff checks green; browser results
   of the round stand (fix is comment/doc only).
+
+### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 6 WP-C, plan stays active)
+
+- **Scope:** WP-C + RF-084-02 round at `c41b103`, index empty, 19 modified
+  tracked paths (unstaged diff SHA256 prefix `43f1383d57671c18` at capture), no
+  untracked files. [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-6).
+- **Checked:** stats keep the visibility filter and only read; no nested
+  interactive controls in the room link; tile targets match the household-wide
+  counts; `?status=` whitelist; request budget pinned; the button-vs-link
+  deviation recorded with its reason.
+- **Fixed in-round (2):** C6-01 misplaced docblock in `Dashboard.vue`; C6-11
+  sampled-count assertion in family-core-ux replaced by "no non-overdue row".
+- **Resolved:** RF-084-02.
+- **Gates after fixes:** Dashboard Jest 17/17, bundle rebuilt, family-core-ux
+  12/12; round gates above stand.

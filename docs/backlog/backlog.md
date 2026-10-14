@@ -75,6 +75,8 @@ Every dashboard overview tile routes to its filtered destination; room cards
 become keyboard-operable links; quick-clean gets a 44 px labelled target; the
 Dashboard loads the room tasks its cards count through the existing single
 house-wide request ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-C).
+Implemented 2026-10-14 (round 6); stays open until the WP-G part 2 mobile set
+covers dashboard tile navigation and the plan's final review passes.
 
 ---
 
@@ -324,7 +326,7 @@ full gate remains failed; documentation and backend checks do not replace it.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F focused-run closures
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel
@@ -360,7 +362,9 @@ in their pools (11/11, 10/10). Recurrence evidence only; no cause established.
 WP-E/WP-F focused runs (2026-10-14, serial pool alone) add one seed `fetch
 failed` (calm-core-ui, round 4) and one seed-fixture target preflight failure
 (calm-core-ui free-day test, round 5), both before any assertion; calm-core-ui
-passes isolated (9/9).
+passes isolated (9/9). WP-C (round 6, serial pool alone) adds one seed POST
+`fetch failed` / `SocketError: other side closed` (room-management rename,
+before any assertion); room-management passes isolated (10/10).
 
 **Deferral reason / scope:** attribution needs separate test-runtime/transport
 instrumentation and load comparison; it is not an outstanding bootstrap or

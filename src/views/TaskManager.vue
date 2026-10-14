@@ -272,6 +272,9 @@ import Modal from '../components/Common/Modal.vue'
 import { useRoute } from 'vue-router'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 
+// Status filter values a `/tasks?status=` link may preset.
+const STATUS_PRESETS = ['active', 'overdue', 'due-today']
+
 export default {
 	name: 'TaskManager',
 
@@ -411,6 +414,11 @@ export default {
 		}
 		if (['mine', 'unassigned', 'all'].includes(this.route?.query?.scope)) {
 			this.filterScope = this.route.query.scope
+		}
+		// Dashboard overview tiles (CS-PLAN-084 WP-C): ?status= presets the
+		// status filter; unknown values keep the default.
+		if (STATUS_PRESETS.includes(this.route?.query?.status)) {
+			this.filterStatus = this.route.query.status
 		}
 		await this.initializeTasks()
 	},
