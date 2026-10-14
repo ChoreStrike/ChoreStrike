@@ -13,6 +13,7 @@ describe('useCelebration composable', () => {
 	let mockPlaySound
 	let mockSetSoundEnabled
 	let mockSetAnimationsEnabled
+	let mockPulseCompletion
 	let handlers
 
 	beforeEach(() => {
@@ -32,6 +33,7 @@ describe('useCelebration composable', () => {
 		mockPlaySound = jest.fn()
 		mockSetSoundEnabled = jest.fn()
 		mockSetAnimationsEnabled = jest.fn()
+		mockPulseCompletion = jest.fn(() => true)
 
 		jest.doMock('@nextcloud/event-bus', () => ({
 			subscribe: mockSubscribe,
@@ -45,6 +47,9 @@ describe('useCelebration composable', () => {
 		jest.doMock('@/utils/sound', () => ({
 			playSound: mockPlaySound,
 			setSoundEnabled: mockSetSoundEnabled,
+		}))
+		jest.doMock('@/utils/haptics', () => ({
+			pulseCompletion: mockPulseCompletion,
 		}))
 		jest.doMock('@/utils/logger', () => ({
 			logger: { info: jest.fn(), error: jest.fn() },
@@ -128,15 +133,39 @@ describe('useCelebration composable', () => {
 		expect(mockPlaySound).not.toHaveBeenCalledWith('combo')
 	})
 
-	it('plays the milestone profile on streak milestones', () => {
+	it('has no streak-milestone branch on completion (CS-PLAN-084 WP-F)', () => {
+		setPreferences({ sound: true, animation: true })
+		const { useCelebration } = require('@/composables/useCelebration')
+		useCelebration()
+
+		// Even a payload that carried a milestone-sized streak stays a plain
+		// completion: streak milestones were never implemented.
+		handlers['chorestrike:task-completed']({ currentStreak: 7 })
+
+		expect(mockFireMilestoneConfetti).not.toHaveBeenCalled()
+		expect(mockPlaySound).not.toHaveBeenCalledWith('milestone')
+		expect(mockPlaySound).toHaveBeenCalledWith('complete')
+	})
+
+	it('pulses haptics on every completion, independent of the effect opt-ins (D-084-03)', () => {
 		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()
 
-		handlers['chorestrike:task-completed']({ currentStreak: 7 })
+		handlers['chorestrike:task-completed']({ roomTaskId: 1 })
 
-		expect(mockFireMilestoneConfetti).toHaveBeenCalled()
-		expect(mockPlaySound).toHaveBeenCalledWith('milestone')
+		expect(mockPulseCompletion).toHaveBeenCalledTimes(1)
+	})
+
+	it('keeps haptics to completions (no pulse for medals or titles)', () => {
+		setPreferences({})
+		const { useCelebration } = require('@/composables/useCelebration')
+		useCelebration()
+
+		handlers['chorestrike:medal-awarded']({})
+		handlers['chorestrike:title-unlocked']({})
+
+		expect(mockPulseCompletion).not.toHaveBeenCalled()
 	})
 
 	it('fires milestone effects on medal awarded', () => {

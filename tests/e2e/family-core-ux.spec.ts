@@ -330,6 +330,15 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			hasTouch: true,
 		})
 		try {
+			// WP-F haptics: record vibration calls (headless browsers do not vibrate).
+			await page.addInitScript(() => {
+				const calls: unknown[] = []
+				Object.defineProperty(window, '__vibrations', { value: calls })
+				Object.defineProperty(navigator, 'vibrate', {
+					configurable: true,
+					value: (pattern: unknown) => { calls.push(pattern); return true },
+				})
+			})
 			// Direct hash navigation: the app navigation collapses behind the
 			// mobile header at this width (scheduling-apply-flow precedent).
 			await page.goto('/apps/chorestrike/#/today')
@@ -365,6 +374,8 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await page.getByTestId('participation-confirm').tap()
 			await expect(page.getByTestId(`undo-snackbar-entry-${countersRoomTask.id}`)).toBeVisible()
 			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}`)).toHaveCount(0)
+			// Always-on subtle feedback (D-084-03): one short pulse per completion, none for the short tap.
+			expect(await page.evaluate(() => (window as unknown as { __vibrations: unknown[] }).__vibrations.length)).toBe(1)
 		} finally {
 			await context.close()
 		}

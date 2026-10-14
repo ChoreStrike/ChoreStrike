@@ -400,6 +400,17 @@ describe('InsightsView.vue', () => {
 			expect(wrapper.find('[data-testid="correction-review"]').exists()).toBe(false)
 		})
 
+		it('appends the API code to a non-conflict undo failure toast (CS-PLAN-084 WP-F)', async () => {
+			mockActivityBackend()
+			api.post.mockRejectedValueOnce(Object.assign(new Error('denied'), { status: 403, code: 'FORBIDDEN' }))
+			const wrapper = await mountView()
+
+			await wrapper.find('[data-testid="activity-undo-1"]').trigger('click')
+			await flushPromises()
+
+			expect(showError).toHaveBeenCalledWith('Could not undo the completion (FORBIDDEN)')
+		})
+
 		it('refreshes history after targeted undo and resolves a stale version conflict without repeating the write', async () => {
 			mockActivityBackend()
 			api.post.mockResolvedValueOnce({ completionId: 1, undone: true })

@@ -2,6 +2,8 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import RoomCard from '../../../src/components/Dashboard/RoomCard.vue'
 import { confirmHold } from '../helpers/hold.js'
+import { showError } from '@nextcloud/dialogs'
+import { logger } from '../../../src/utils/logger.js'
 
 const mockPush = jest.fn()
 
@@ -46,6 +48,7 @@ describe('RoomCard', () => {
 		setActivePinia(createPinia())
 		mockPush.mockClear()
 		mockUpdateRoomCleanliness.mockReset()
+		showError.mockClear()
 		wrapper = mount(RoomCard, {
 			props: {
 				room: mockRoom,
@@ -142,6 +145,17 @@ describe('RoomCard', () => {
 
 			await confirmHold(wrapper, '[data-testid="quick-clean-1"]')
 			expect(mockUpdateRoomCleanliness).toHaveBeenCalledWith(1, 10)
+		})
+
+		it('Shows a failure toast with the API code when quick clean fails (RF-084-03)', async () => {
+			mockUpdateRoomCleanliness.mockRejectedValue(Object.assign(new Error('Forbidden'), { status: 403, code: 'FORBIDDEN' }))
+			const loggerError = jest.spyOn(logger, 'error').mockImplementation(() => {})
+
+			await confirmHold(wrapper, '[data-testid="quick-clean-1"]')
+
+			expect(showError).toHaveBeenCalledWith('Could not clean the room (FORBIDDEN)')
+			expect(wrapper.find('[data-testid="quick-clean-1"]').attributes('disabled')).toBeUndefined()
+			loggerError.mockRestore()
 		})
 
 		it('Sends one quick clean while the first is in flight', async () => {

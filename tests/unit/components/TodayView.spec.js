@@ -507,6 +507,16 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="today-complete-button-11"]').exists()).toBe(true)
 	})
 
+	it('appends the API code to the completion failure toast (CS-PLAN-084 WP-F)', async () => {
+		mockRoomTasksStore.completeRoomTask.mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409, code: 'CONFLICT' }))
+		const { showError } = jest.requireMock('@nextcloud/dialogs')
+		const wrapper = await mountView()
+
+		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
+
+		expect(showError).toHaveBeenCalledWith('Could not complete the task (CONFLICT)')
+	})
+
 	it('expands the execute-only checklist and toggles an item (CS-PLAN-066 §3.5)', async () => {
 		mockChecklistStore.items[1] = [{ id: 77, label: 'Rinse plates', sortOrder: 1 }]
 		mockChecklistStore.progress[11] = []

@@ -3,7 +3,9 @@ import { createPinia, setActivePinia } from 'pinia'
 import TaskManager from '@/views/TaskManager.vue'
 
 jest.mock('@nextcloud/l10n', () => ({
-	translate: jest.fn((app, text) => text),
+	translate: jest.fn((app, text, vars) => (vars
+		? text.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? String(vars[key]) : match))
+		: text)),
 }))
 
 jest.mock('@nextcloud/dialogs', () => ({
@@ -361,6 +363,18 @@ describe('TaskManager', () => {
 		await new Promise(resolve => setTimeout(resolve, 0))
 
 		expect(showError).toHaveBeenCalledWith('Could not complete the task')
+	})
+
+	it('appends the API code to the completion failure toast (CS-PLAN-084 WP-F)', async () => {
+		mockRoomTasksStore.completeRoomTask.mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409, code: 'CONFLICT' }))
+		mockRoomTasksStore.roomTasks = [{ id: 9, taskId: 101, isActive: true }]
+		mockTasksStore.getTaskById.mockReturnValue({ id: 101, name: 'Chore', visibilityType: 'public' })
+
+		const wrapper = await mountView()
+		wrapper.vm.handleCompleteTask(9)
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(showError).toHaveBeenCalledWith('Could not complete the task (CONFLICT)')
 	})
 
 	it('completes a confirmed claim with its reviewed allocation, never reopening the participation dialog', async () => {

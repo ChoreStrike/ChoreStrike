@@ -8,8 +8,7 @@ import { usePreferencesStore } from '../store/preferences.js'
 import { fireConfetti, fireMilestoneConfetti, setAnimationsEnabled } from '../utils/confetti.js'
 import { playSound, setSoundEnabled } from '../utils/sound.js'
 import { logger } from '../utils/logger.js'
-
-const STREAK_MILESTONES = [7, 30, 100]
+import { pulseCompletion } from '../utils/haptics.js'
 
 /**
  * Initialize celebration effects (C5g): subscribe to ChoreStrike event-bus
@@ -21,8 +20,9 @@ const STREAK_MILESTONES = [7, 30, 100]
  * floor inside the confetti module and always overrides an explicit
  * opt-in.
  *
- * The DEFAULT completion feedback is the accessible confirmation with
- * undo (UndoSnackbar) — no sound, no confetti, no modal; the quiet
+ * The DEFAULT completion feedback is always on and subtle: the accessible
+ * confirmation with undo and a check mark (UndoSnackbar) plus one short
+ * vibration where supported — no sound, no confetti, no modal; the quiet
  * textual award toasts (useToasts) stay in-app.
  *
  * Returns a cleanup function that unsubscribes all handlers.
@@ -47,17 +47,14 @@ export function useCelebration() {
 		handlers.push({ event, handler })
 	}
 
-	on('chorestrike:task-completed', (data) => {
+	on('chorestrike:task-completed', () => {
+		// Always-on subtle feedback (CS-PLAN-084 D-084-03): one short pulse
+		// where the browser supports vibration; the visible check mark lives
+		// in the UndoSnackbar. Confetti and sound stay behind the opt-ins.
+		pulseCompletion()
 		syncPreferenceGates()
 		fireConfetti()
-
-		const streak = data?.currentStreak
-		if (streak && STREAK_MILESTONES.includes(streak)) {
-			fireMilestoneConfetti()
-			playSound('milestone')
-		} else {
-			playSound('complete')
-		}
+		playSound('complete')
 	})
 
 	on('chorestrike:medal-awarded', () => {

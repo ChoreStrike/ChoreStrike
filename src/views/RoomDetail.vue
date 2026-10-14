@@ -228,6 +228,7 @@ import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
+import { showErrorWithReference } from '../utils/errorToast.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
@@ -488,7 +489,7 @@ export default {
 			} catch (error) {
 				// CS-PLAN-066 §3.5: mutation failures are visible toasts,
 				// not logger-only lines.
-				showError(t('chorestrike', 'Could not complete the task'))
+				showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)
 				logger.error('Failed to complete task', error, { view: 'RoomDetail', action: 'handleCompleteTask', roomTaskId })
 			}
 		},

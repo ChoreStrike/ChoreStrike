@@ -60,9 +60,23 @@ a catch-up up as a success streak.
   per person in the Settings (delivery preferences surface).
 - `prefers-reduced-motion` **always overrides** an explicit animation
   opt-in (hard floor inside the effect modules).
-- The **default completion feedback** is the accessible confirmation with
-  undo (UndoSnackbar); quiet textual award toasts stay in-app. There are
-  no modals, sounds, or confetti without the explicit opt-in.
+- The **default completion feedback** is always on and subtle
+  ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+  D-084-03): the hold ring, the accessible confirmation with undo
+  (UndoSnackbar) with a short check-mark pop (static under
+  `prefers-reduced-motion`), and one short vibration where the browser
+  supports it (Android; iOS Safari has no web vibration). Quiet textual award
+  toasts stay in-app. There are no modals, sounds, or confetti without the
+  explicit opt-in.
+- A completion never plays a streak "milestone": 7/30/100-day streak
+  milestones were never implemented (gamification concept, "Earlier Streak
+  Milestone Ideas"); rhythm recognition celebrates through medal, title and
+  weekly-goal events.
+- Failure toasts of the completion journey (complete, claim, undo, history
+  correction, My Day checklist, Quick clean) append a short reference — the
+  stable API `code`, else `HTTP <status>`, else `NETWORK` — e.g. "Could not
+  complete the task (CONFLICT)", so a reported failure can be matched to the
+  server log without exposing messages or stack data.
 - Celebration gating is event-driven: the effect modules' gates are
   re-synced from the preference store on every celebration event, so a
   mid-session preference change (or the late startup fetch) applies to

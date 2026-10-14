@@ -164,6 +164,27 @@ describe('UndoSnackbar (queued list, UX-015)', () => {
 		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)
 	})
 
+	it('appends the API code to the undo failure toast (CS-PLAN-084 WP-F)', async () => {
+		store.undoRoomTaskCompletion = jest.fn().mockRejectedValue(Object.assign(new Error('stale'), { status: 409, code: 'CONFLICT' }))
+		const wrapper = mountSnackbar()
+		await completeTask(wrapper, 9)
+
+		await wrapper.find(undoTestId(9)).trigger('click')
+		await flushMicrotasks()
+
+		expect(showError).toHaveBeenCalledWith('Could not undo the completion (CONFLICT)')
+	})
+
+	it('acknowledges every completion with a decorative check mark (D-084-03)', async () => {
+		const wrapper = mountSnackbar()
+		await completeTask(wrapper, 9)
+
+		const check = wrapper.find('[data-testid="undo-snackbar-check-9"]')
+		expect(check.exists()).toBe(true)
+		expect(check.attributes('aria-hidden')).toBe('true')
+		expect(wrapper.find('[data-testid="undo-snackbar-entry-9"]').text()).toContain('Task completed')
+	})
+
 	it('dismisses a single entry without side effects', async () => {
 		const wrapper = mountSnackbar()
 		await completeTask(wrapper, 11)

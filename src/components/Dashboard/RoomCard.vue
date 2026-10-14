@@ -89,6 +89,7 @@ import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useHouseStore } from '../../store/house.js'
 import { dueClass, isOverdue } from '../../utils/taskDisplay.js'
 import { logger } from '../../utils/logger.js'
+import { showErrorWithReference } from '../../utils/errorToast.js'
 import Icon from '../Common/Icon.vue'
 import HoldButton from '../Common/HoldButton.vue'
 import { resolveRoomIcon } from '../../utils/roomIcons.js'
@@ -200,6 +201,7 @@ export default {
 			try {
 				await roomsStore.updateRoomCleanliness(props.room.id, 10)
 			} catch (error) {
+				showErrorWithReference(t('chorestrike', 'Could not clean the room'), error)
 				logger.error('Failed to quick clean room', error, { component: 'RoomCard', action: 'quickClean', roomId: props.room.id })
 			} finally {
 				loading.value = false

@@ -284,6 +284,7 @@ import { useUserStore } from '../store/user.js'
 import { useGameStore } from '../store/game.js'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { logger } from '../utils/logger.js'
+import { showErrorWithReference } from '../utils/errorToast.js'
 import { assignmentLabel } from '../utils/taskDisplay.js'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
@@ -643,7 +644,7 @@ export default {
 					})
 				}
 			} catch (error) {
-				showError(t('chorestrike', 'Could not complete the task'))
+				showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)
 				logger.error('Failed to complete task', error, { view: 'TodayView', action: 'complete', roomTaskId })
 			}
 		},
@@ -729,7 +730,7 @@ export default {
 			try {
 				await this.checklistStore.toggleItem(roomTaskId, itemId)
 			} catch (error) {
-				showError(t('chorestrike', 'Could not update the checklist'))
+				showErrorWithReference(t('chorestrike', 'Could not update the checklist'), error)
 				logger.error('Failed to toggle checklist item', error, { view: 'TodayView', action: 'handleToggleChecklistItem', roomTaskId, itemId })
 			}
 		},

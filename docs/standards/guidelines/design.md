@@ -65,7 +65,7 @@ follows one of these three patterns. No native confirm(), no silent saves.
 | Situation | Pattern | Implementation |
 |---|---|---|
 | Destructive action (task/floor delete, member remove) | Styled confirmation dialog | shared src/components/Common/ConfirmDialog.vue (data-testid="confirm-dialog", danger styling, loading state) |
-| Async mutation (saves, renames, deletes) | Success/error toast | showSuccess/showError from @nextcloud/dialogs; error toasts on every failure path, never raw logger-only |
+| Async mutation (saves, renames, deletes) | Success/error toast | showSuccess/showError from @nextcloud/dialogs; error toasts on every failure path, never raw logger-only. New and changed failure toasts use `showErrorWithReference(t(…), error)` (src/utils/errorToast.js; the message is always `t()` output, never raw or server text), which appends the stable API code / HTTP status / `NETWORK` — required for the completion journey (CS-PLAN-084 WP-F) |
 | Completion of a task | Undo snackbar (~5 s) | global src/components/Common/UndoSnackbar.vue — *Undo* reverts the exact completion via `POST /completions/{id}/undo` (WP3 targeted correction), dismiss/timeout hides without effect; entries are queued so a second completion never destroys the first undo (UX-015) |
 | Frequent consequential tap (Done, Quick clean) | Press-and-hold (600 ms) | shared src/components/Common/HoldButton.vue (`@confirm`, `busy` for the in-flight state, `data-hold-state`, short-tap hint) — never for Undo, dialog confirms or destructive actions ([calm-core-ux](../../concepts/calm-core-ux.md#completion-needs-a-deliberate-press-hold-to-confirm)) |
 

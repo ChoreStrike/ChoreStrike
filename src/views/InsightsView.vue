@@ -145,6 +145,7 @@ import { useHouseStore } from '../store/house.js'
 import { useUserStore } from '../store/user.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { logger } from '../utils/logger.js'
+import { showErrorWithReference } from '../utils/errorToast.js'
 import Modal from '../components/Common/Modal.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import HouseStatsCards from '../components/Insights/HouseStatsCards.vue'
@@ -334,7 +335,7 @@ export default {
 					}
 				}
 			} catch (error) {
-				showError(t('chorestrike', 'Could not load the completion'))
+				showErrorWithReference(t('chorestrike', 'Could not load the completion'), error)
 				logger.error('Failed to load completion for correction', error, { view: 'InsightsView', action: 'startCorrection', completionId: item.id })
 			}
 		},
@@ -367,7 +368,7 @@ export default {
 				if (error?.status === 409) {
 					showError(t('chorestrike', 'The completion changed since it was displayed'))
 				} else {
-					showError(t('chorestrike', 'Could not save the correction'))
+					showErrorWithReference(t('chorestrike', 'Could not save the correction'), error)
 				}
 				logger.error('Failed to attribute completion', error, { view: 'InsightsView', action: 'confirmCorrection', completionId: session.item.id })
 				if (this.correction === session) {
@@ -400,7 +401,7 @@ export default {
 				const current = await this.roomTasksStore.fetchCompletion(session.item.id)
 				if (this.correction === session) session.current = current
 			} catch (error) {
-				showError(t('chorestrike', 'Could not load the completion'))
+				showErrorWithReference(t('chorestrike', 'Could not load the completion'), error)
 				logger.error('Failed to refresh completion for review', error, { view: 'InsightsView', action: 'reloadCurrentSplit', completionId: session.item.id })
 			} finally {
 				session.loadingCurrent = false
@@ -426,7 +427,7 @@ export default {
 				if (error?.status === 409) {
 					showError(t('chorestrike', 'The completion changed since it was displayed'))
 				} else {
-					showError(t('chorestrike', 'Could not undo the completion'))
+					showErrorWithReference(t('chorestrike', 'Could not undo the completion'), error)
 				}
 				logger.error('Failed to undo history completion', error, { view: 'InsightsView', action: 'undoCompletion', completionId: item.id })
 			} finally {

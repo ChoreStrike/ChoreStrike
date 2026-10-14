@@ -2,6 +2,8 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import RoomDetail from '../../../src/views/RoomDetail.vue'
+import { showError } from '@nextcloud/dialogs'
+import { logger } from '../../../src/utils/logger.js'
 
 // Mock vue-router
 jest.mock('vue-router', () => ({
@@ -281,6 +283,18 @@ describe('RoomDetail.vue', () => {
 		await wrapper.vm.handleCompleteTask(1, claim)
 		expect(wrapper.vm.participation).toBeNull()
 		expect(wrapper.vm.roomTasksStore.completeRoomTask).toHaveBeenCalledWith(1, claim)
+	})
+
+	it('appends the API code to the completion failure toast (CS-PLAN-084 WP-F)', async () => {
+		showError.mockClear()
+		const loggerError = jest.spyOn(logger, 'error').mockImplementation(() => {})
+		const wrapper = mount(RoomDetail, { props: { id: '1' }, global: { plugins: [pinia], stubs: { RouterLink: true } } })
+		await flushPromises()
+		wrapper.vm.roomTasksStore.completeRoomTask.mockRejectedValueOnce(Object.assign(new Error('Gone'), { status: 404, code: 'RESOURCE_NOT_FOUND' }))
+		await wrapper.vm.handleCompleteTask(1, { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true })
+
+		expect(showError).toHaveBeenCalledWith('Could not complete the task (RESOURCE_NOT_FOUND)')
+		loggerError.mockRestore()
 	})
 
 	it('parses room id from props correctly', () => {

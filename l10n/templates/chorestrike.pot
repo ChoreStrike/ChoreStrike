@@ -704,6 +704,9 @@ msgstr ""
 msgid "Correction requires the explicit notDelivered confirmation"
 msgstr ""
 
+msgid "Could not clean the room"
+msgstr ""
+
 msgid "Could not complete the task"
 msgstr ""
 
@@ -3798,6 +3801,9 @@ msgid "{from} → {to}"
 msgstr ""
 
 msgid "{hours} h ago"
+msgstr ""
+
+msgid "{message} ({reference})"
 msgstr ""
 
 msgid "{minutes} min ago"

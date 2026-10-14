@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), round 4 (WP-E) implemented 2026-10-14
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–5 committed (WP-E, WP-F)
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -232,8 +232,9 @@ documented router contract (`docs/concepts/ui-use-cases.md`).
 ```
 new:      src/components/Common/HoldButton.vue
 new:      src/components/Tasks/TaskFilterBar.vue
-new:      src/utils/haptics.js
-new:      tests/unit/components/HoldButton.spec.js (+ TaskFilterBar, haptics specs), tests/unit/helpers/hold.js
+new:      src/utils/haptics.js, src/utils/errorToast.js
+new:      tests/unit/components/HoldButton.spec.js (+ TaskFilterBar spec), tests/unit/utils/{haptics,errorToast}.spec.js,
+          tests/unit/helpers/hold.js
 new:      tests/integration/Service/SuccessorOwnershipTest.php
 new:      tests/e2e/mobile-core.spec.ts, tests/e2e/fixtures/hold-to-confirm.ts
 modified: src/styles/tokens.css, src/styles/mobile.css
@@ -242,7 +243,8 @@ modified: src/views/Dashboard.vue, TodayView.vue, TaskManager.vue, RoomDetail.vu
 modified: src/components/Dashboard/{QuickStats,RoomCard,FloorList,HouseHealthBar}.vue
 modified: src/components/Tasks/{TaskList,TaskListItem}.vue
 modified: src/components/Settings/AvailabilitySettings.vue (UX-017)
-modified: src/composables/useCelebration.js, src/store/roomTasks.js
+modified: src/composables/useCelebration.js, src/store/roomTasks.js,
+          src/components/Common/UndoSnackbar.vue, src/views/InsightsView.vue
 modified: tests/e2e/{overdue-task-claiming,task-completion,task-completion-full-flow,today-view,…}.spec.ts,
           tests/e2e/fixtures/completion-api.ts
 modified: playwright.config.ts, package.json (axe devDependency)
@@ -329,10 +331,12 @@ the same round.
   pause-suspended miss can count as overdue there while the rows say due. Align the
   stats with `statusFor` (one batched selection) in WP-C, which reworks the room and
   dashboard cards, with a regression.
-- [ ] **RF-084-03 minor (interim Standard B 2026-10-14, round 4, pre-existing):** a failed
+- [x] **RF-084-03 minor (interim Standard B 2026-10-14, round 4, pre-existing; resolved round 5):** a failed
   RoomCard quick clean (`roomsStore.updateRoomCleanliness`) only logs; design.md §5
   requires an error toast on every mutation failure path. Add the toast (with the
   API code) through WP-F's error-toast helper, with a Jest regression.
+  **Resolution:** "Could not clean the room (<code>)" via `showErrorWithReference`;
+  RoomCard Jest regression (toast text, button re-enabled).
 
 ## Boundaries
 
@@ -536,6 +540,46 @@ the same round.
   (TECH-TRANSPORT-001). A browser proof of quick clean follows with WP-C's
   dashboard rework; the mobile projects with WP-G part 2.
 
+### Round 5 — WP-F feedback and diagnosable errors (2026-10-14)
+
+- **Always-on subtle feedback (D-084-03):** `src/utils/haptics.js`
+  (`pulseCompletion`, one 20 ms pulse, feature-detected, never throws; no-op on
+  iOS Safari) fires from the `chorestrike:task-completed` handler independent of
+  the effect opt-ins; the UndoSnackbar entry carries a decorative check mark with
+  a 320 ms pop (`prefers-reduced-motion`: static). Confetti and sound stay opt-in.
+- **Dead streak branch removed:** `useCelebration` no longer reads
+  `currentStreak`; a completion plays the plain `complete` profile behind the
+  opt-ins; medal/title/weekly-goal milestone effects unchanged.
+- **Diagnosable failure toasts:** `src/utils/errorToast.js`
+  (`errorReference`: stable `[A-Z0-9_]` API code, else `HTTP <status>`, else
+  `NETWORK` for an ApiError without response; free text never echoed;
+  `showErrorWithReference` with the translated `{message} ({reference})`
+  pattern; `escape: false` only because the message is already escaped by the
+  caller's `t()` and `showError` decodes once — the message must never be raw
+  text). Used by completion
+  (TodayView, TaskManager, RoomDetail — the claim path included), the
+  UndoSnackbar undo, Insights correction/undo/load, the My Day checklist toggle
+  and the new Quick clean failure toast (RF-084-03, "Could not clean the room").
+  Other toasts migrate when touched (design.md §5).
+- **Tests:** haptics (4), errorToast (5), useCelebration (no milestone branch,
+  pulse on completions only), code-appending regressions in TodayView,
+  TaskManager, RoomDetail, UndoSnackbar (+ check mark), InsightsView, RoomCard;
+  TaskManager spec's l10n mock now substitutes placeholders. E2E: the 390 px
+  touch test records `navigator.vibrate` (exactly one pulse for the completion,
+  none for the short tap); today-view asserts the check mark.
+- **Docs:** calm-core-ux feedback section (always-on feedback, no streak
+  milestones, failure references), design guideline §5 toast convention.
+  New strings: `{message} ({reference})`, "Could not clean the room"
+  (DE "Der Raum konnte nicht geputzt werden").
+- **Gates:** Jest 122 / 1756, `test:noise` clean; ESLint, Stylelint,
+  `l10n:check-keys` (1283), `backlog:check`, `docs:encoding`, `git diff --check`
+  green; bundle rebuilt. Browser, no retries: chromium 42/42 (core-functionality,
+  task-completion, dashboard-navigation, room-detail, task-manager,
+  overdue-task-claiming, color-contrast light+dark, insights-flow);
+  chromium-serial-db 46 passed / 1 failed — the calm-core-ui free-day test hit a
+  seed-fixture target preflight failure before any assertion
+  (TECH-TRANSPORT-001, folded in); calm-core-ui then 9/9 isolated.
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -658,3 +702,19 @@ the same round.
 - **Gates after fixes:** Jest 120 / 1738; lint/stylelint/l10n/backlog/docs
   checks green; bundle rebuilt; browser serial 33/33 + 17/17, chromium 42/42,
   no retries.
+
+### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 5 WP-F, plan stays active)
+
+- **Scope:** WP-F round at `319022a`, index empty, 24 modified tracked paths
+  (unstaged diff SHA256 prefix `65bc77886396eb42` at capture) plus 4 untracked
+  files (errorToast, haptics and their specs).
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-5).
+- **Checked:** D-084-03 (confetti/sound still opt-in, haptics + check mark always
+  on, reduced motion static); reference never echoes free text; all call sites
+  pass `t()` output; no API/auth/logging change; removed streak branch was
+  unreachable.
+- **Fixed in-round (1):** E5-01 escaping rationale corrected — `showError`
+  decodes once, so the message must be `t()` output (comment, JSDoc, design.md).
+- **Resolved:** RF-084-03 (Quick clean failure toast).
+- **Gates after fix:** Jest 122 / 1756; docs/diff checks green; browser results
+  of the round stand (fix is comment/doc only).

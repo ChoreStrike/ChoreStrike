@@ -116,6 +116,8 @@ test.describe('Release: Today view', () => {
 			const secondEntry = page.getByTestId(`undo-snackbar-entry-${countersId}`)
 			await expect(firstEntry).toBeVisible()
 			await expect(secondEntry).toBeVisible()
+			// WP-F: every entry carries the always-on check-mark acknowledgement.
+			await expect(page.getByTestId(`undo-snackbar-check-${dishesId}`)).toBeVisible()
 
 			// Undo the FIRST entry: it disappears, the second stays
 			// undoable until after its own click. WP3 §3.4: the targeted

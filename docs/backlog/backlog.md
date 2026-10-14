@@ -113,6 +113,7 @@ Always-on subtle feedback (check-mark transition, haptics where supported) while
 confetti/sound stay opt-in; remove the dead streak-milestone branch; failure toasts append the
 API error `code` so production failures such as CS-PLAN-080 RF-080-14 become
 diagnosable ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-F).
+Implemented 2026-10-14 (round 5); stays open until the plan's final review.
 
 ---
 
@@ -323,7 +324,7 @@ full gate remains failed; documentation and backend checks do not replace it.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B focused-run closures
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F focused-run closures
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel
@@ -356,6 +357,10 @@ record one seed POST `fetch failed` / `SocketError: other side closed`
 chromium pool) and one authenticated GET `socket hang up`
 (insights-flow, serial pool alone) before assertions. Both specs pass isolated
 in their pools (11/11, 10/10). Recurrence evidence only; no cause established.
+WP-E/WP-F focused runs (2026-10-14, serial pool alone) add one seed `fetch
+failed` (calm-core-ui, round 4) and one seed-fixture target preflight failure
+(calm-core-ui free-day test, round 5), both before any assertion; calm-core-ui
+passes isolated (9/9).
 
 **Deferral reason / scope:** attribution needs separate test-runtime/transport
 instrumentation and load comparison; it is not an outstanding bootstrap or

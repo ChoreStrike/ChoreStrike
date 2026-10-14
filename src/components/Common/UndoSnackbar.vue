@@ -15,6 +15,12 @@
 			:data-testid="`undo-snackbar-entry-${entry.roomTaskId}`"
 			role="status"
 			aria-live="polite">
+			<Icon
+				name="CheckCircle"
+				:size="20"
+				class="snackbar-check"
+				aria-hidden="true"
+				:data-testid="`undo-snackbar-check-${entry.roomTaskId}`" />
 			<span class="snackbar-message">{{ t('chorestrike', 'Task completed') }}</span>
 			<button
 				class="snackbar-undo"
@@ -39,6 +45,8 @@ import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { showError } from '@nextcloud/dialogs'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { logger } from '../../utils/logger.js'
+import Icon from './Icon.vue'
+import { showErrorWithReference } from '../../utils/errorToast.js'
 
 const SNACKBAR_TIMEOUT_MS = 5000
 const MAX_QUEUE_ENTRIES = 3
@@ -63,6 +71,8 @@ let entryCounter = 0
  */
 export default {
 	name: 'UndoSnackbar',
+
+	components: { Icon },
 
 	data() {
 		return {
@@ -129,7 +139,7 @@ export default {
 			try {
 				await roomTasksStore.undoRoomTaskCompletion(entry.completionId, entry.expectedVersion)
 			} catch (error) {
-				showError(t('chorestrike', 'Could not undo the completion'))
+				showErrorWithReference(t('chorestrike', 'Could not undo the completion'), error)
 				logger.error('Failed to undo task completion', error, { component: 'UndoSnackbar', action: 'handleUndo', completionId: entry.completionId })
 			}
 		},
@@ -162,6 +172,25 @@ export default {
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 	min-width: 260px;
 	max-width: min(480px, calc(100vw - 2rem));
+}
+
+/* Always-on completion acknowledgement (CS-PLAN-084 D-084-03): a short
+ * check-mark pop; reduced motion keeps the static mark. */
+.snackbar-check {
+	flex-shrink: 0;
+	animation: snackbar-check-pop 320ms ease-out;
+}
+
+@keyframes snackbar-check-pop {
+	0% { transform: scale(0.4); opacity: 0; }
+	60% { transform: scale(1.15); opacity: 1; }
+	100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.snackbar-check {
+		animation: none;
+	}
 }
 
 .snackbar-message {

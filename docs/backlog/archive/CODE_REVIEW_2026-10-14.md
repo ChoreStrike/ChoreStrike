@@ -94,3 +94,35 @@ Jest 120 / 1738; ESLint, Stylelint, `l10n:check-keys` (1281), `backlog:check`, `
 ## Outcome
 
 **PASS-WITH-FIXES (interim).** Two minor findings fixed in-round; RF-084-03 routed to WP-F.
+
+## Round 5
+
+# Code Review: CS-PLAN-084 Round 5 (WP-F Feedback and Diagnosable Errors) — Interim Standard B
+
+- **Review Date**: 2026-10-14
+- **Reviewer**: Claude Code
+- **Mode**: Standard B (interim; plan stays `active/`)
+- **Scope**: working tree at `319022a` (index empty): 24 modified tracked paths (unstaged diff SHA256 prefix `65bc77886396eb42` at capture) plus untracked `src/utils/errorToast.js` (`14ad645ec6b08eb8`), `src/utils/haptics.js` (`fc045b449e9f4827`), `tests/unit/utils/errorToast.spec.js` (`9929ecd52e4aeb1a`), `tests/unit/utils/haptics.spec.js` (`72e3bae54a8920ef`) — haptics, snackbar check mark, dead streak branch removal, error-reference toasts, Quick clean failure toast, docs, l10n, TECH-TRANSPORT-001 fold-in
+- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+
+## Findings
+
+| ID | Severity | Area | Issue | Status |
+|----|----------|------|-------|--------|
+| E5-01 | minor | `errorToast.js` | The `escape: false` rationale claimed toasts render plain text; `@nextcloud/dialogs` 7.2.0 decodes its text once through `innerHTML` → `innerText`, so it expects escaped input. The code is correct (message escaped by the caller's `t()`, reference limited to `[A-Z0-9_ ]`), but the unstated contract invited a raw-text caller | fixed (comment + JSDoc + design.md row state "message is always `t()` output") |
+
+## Verified Non-Findings
+
+- Every `showErrorWithReference` call site passes `t()` output; `errorReference` never echoes free text (codes `^[A-Z][A-Z0-9_]{1,63}$`, integer status, `NETWORK`).
+- The Insights 409 branches keep their specific "changed since it was displayed" message without a reference; the condition is already explicit.
+- The haptic pulse rides the completion event only (no pulse for medals/titles, none for a short tap — E2E-recorded); `navigator.vibrate` absence/refusal/throw are no-ops.
+- The check mark is `aria-hidden`; the snackbar's live text stays "Task completed"; reduced motion disables the pop.
+- Removing the streak branch drops no reachable behavior: the completion event never carried `currentStreak`.
+
+## Gates
+
+Jest 122 / 1756 (after the fix), `test:noise` clean; ESLint, Stylelint, `l10n:check-keys` (1283), `backlog:check`, `docs:encoding`, `git diff --check` green. Browser (pre-fix bundle; the fix is comment/doc only), no retries: chromium 42/42; chromium-serial-db 46/47 with one seed-fixture preflight failure before any assertion (TECH-TRANSPORT-001, folded in), calm-core-ui 9/9 isolated.
+
+## Outcome
+
+**PASS-WITH-FIXES (interim).** One minor finding fixed in-round; RF-084-03 resolved; no open findings from this round.
