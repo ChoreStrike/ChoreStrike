@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
 
 # CS-PLAN-082 promotion (2026-10-06): defaults are pinned to the qualified
-# primary runtime from docker/test-runtime.json (NC 35.0.1 / PHP 8.4.25 /
+# primary runtime from docker/test-runtime.json (NC 35.0.1 / PHP 8.4.26 /
 # Composer 2.9.5 plus the notifications/viewer companions). Keep these in sync
 # with the inventory — tests/unit/scripts/testRuntime.spec.js asserts the
 # generated build arguments match these defaults exactly.
-ARG PHP_IMAGE=php:8.4.25-apache@sha256:bcdc7a2fe1003e50d80ef9c820f0ab00f9023c565c3a162e05d5825e20b04fc5
+ARG PHP_IMAGE=php:8.4.26-apache@sha256:901b0dbcd2419cc9cd307ea05e57403449ce722ccd5b32335da6e8d39f2b1ee0
 ARG COMPOSER_IMAGE=composer:2.9.5@sha256:698d3801b2a622ace460c4743c781282fcbcb733a4cbf8b31c44731e846585e8
 FROM ${COMPOSER_IMAGE} AS composer-tool
 FROM ${PHP_IMAGE}
@@ -20,7 +20,7 @@ ARG PCOV_VERSION=1.0.12
 ARG APCU_VERSION=5.1.28
 ARG PHPREDIS_VERSION=6.3.0
 # selectionHash(primary current selection) — see docker/test-runtime.json.
-ARG RUNTIME_INVENTORY_SHA256=4f98b19e9e42b9e0ca71420b432a7ce6304214a878a9e32218132ea18608df1b
+ARG RUNTIME_INVENTORY_SHA256=f18cab24ecd7e9ab6984dd9f150f3ca845688c11982cbf5c08bc75c861658cdc
 LABEL org.chorestrike.test-runtime.inventory=${RUNTIME_INVENTORY_SHA256}
 
 # Install system dependencies and PHP extensions

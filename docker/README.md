@@ -60,7 +60,7 @@ The `-v` flag removes the MariaDB volume for a clean slate on next start.
 
 ## Architecture
 
-- **Base image:** frozen runtime built from `docker/Dockerfile.test` — Nextcloud 35.0.1 / PHP 8.4.25, pinned by `docker/test-runtime.json` (CS-PLAN-082)
+- **Base image:** frozen runtime built from `docker/Dockerfile.test` — Nextcloud 35.0.1 / PHP 8.4.26, pinned by `docker/test-runtime.json` (CS-PLAN-082)
 - **Database:** PostgreSQL 18.6 (service `db`, internal network)
 - **App mount:** the repository root is bind-mounted at `/var/www/html/custom_apps/chorestrike`
 - **Entrypoint:** `docker/test-entrypoint.sh` handles DB wait → Nextcloud install → **alias-free app discovery** (complete `apps_paths` array, no `/apps/chorestrike` symlink) → app enable → user seeding (CS-PLAN-083 WP1)

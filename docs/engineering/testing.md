@@ -61,9 +61,10 @@ concurrent changes; the measured actions run in the UI.
 inventory. CS-PLAN-082 promoted the current-stable baseline on 2026-10-06: the
 canonical `docker/compose.test.yml` stack now provisions **Nextcloud 35.0.1
 (internal 35.0.1.1, source revision
-`3c012e618ab46ac73c61a96f5bb7168a693ca1fb`) / PHP 8.4.25 / PostgreSQL 18.6**
-(was: Nextcloud 31 / PHP 8.2 / MariaDB 10.6). `docker/Dockerfile.test` build
-defaults are pinned to the inventory (PHP image `php:8.4.25-apache` by digest,
+`3c012e618ab46ac73c61a96f5bb7168a693ca1fb`) / PHP 8.4.26 / PostgreSQL 18.6**
+(was: Nextcloud 31 / PHP 8.2 / MariaDB 10.6; PHP 8.4.25 → 8.4.26 with AIO
+v14.3.0, CS-PLAN-084 D-084-09). `docker/Dockerfile.test` build
+defaults are pinned to the inventory (PHP image `php:8.4.26-apache` by digest,
 Composer 2.9.5 by digest, pinned server/notifications/viewer git revisions), so
 a plain `docker compose -f docker/compose.test.yml up --build` always builds
 this pinned runtime. The old disposable NC31 canonical stack was retired on
@@ -473,12 +474,13 @@ The frozen rows retain two explicitly reviewed upstream limitations rather than
 silently changing upstream vendor trees. `verify-image` reports them as
 `upstreamLimitations`, never as clean dependency gates:
 
-- NC34.0.4 and its NC34.0.3 update source on PHP8.4.25 have exactly the
+- NC34.0.4 and its NC34.0.3 update source on PHP8.4.26 have exactly the
   `lcobucci/clock` 3.0.0 constraint `~8.1.0 || ~8.2.0` failing the core
-  **3rdparty** platform check; the core root check must pass. AIO v14.2.0 ships
-  NC34.0.4 with PHP8.4.25 itself. The operator approved retaining that authentic
-  combination on 2026-10-06 after finding no newer NC34 patch, without ignoring
-  platform requirements or patching dependencies.
+  **3rdparty** platform check; the core root check must pass. AIO v14.3.0 ships
+  NC34.0.4 with PHP8.4.26 itself (v14.2.0: PHP8.4.25). The operator approved
+  retaining that authentic combination on 2026-10-06 after finding no newer NC34
+  patch, without ignoring platform requirements or patching dependencies; the
+  PHP patch follows AIO (D-084-09, 2026-10-15).
 - The primary NC35 Notifications pin emits exactly one stale-root-lock warning
   for both current and previous patches. Its upstream revision had no fixed
   artifact at review; the operator approved keeping the original source/lock.

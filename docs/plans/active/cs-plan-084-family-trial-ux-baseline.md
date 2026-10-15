@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows)
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows); round 9 committed after interim Standard B `PASS` (D-084-09 AIO v14.3.0 / PHP 8.4.26 / Redis 8.10.2 promotion, both rows requalified)
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -259,7 +259,10 @@ modified: scripts/run-e2e-gate.js (phone projects, multi-project manifest row), 
           tests/e2e/fixtures/database-fixtures.ts (reset-owning phone projects),
           tests/unit/scripts/{browserGate,testTarget}.spec.js, .forgejo/workflows/release-gate.yml (webkit),
           tests/e2e/3-floor-house.spec.ts (scope-independent row lookup), tests/unit/scripts/databaseFixtures.spec.js
-modified: docker/test-runtime.json, docker compose/entrypoint for the AiO row
+modified: docker/test-runtime.json, docker compose/entrypoint for the AiO row, docker/Dockerfile.test,
+          docker/compose.test.yml, docker/README.md, README.md (round 9 runtime promotion),
+          tests/unit/scripts/{testRuntime,testRuntimeStage}.spec.js, docs/engineering/development.md,
+          docs/standards/ai/skills/docker-dev/SKILL.md
 modified: l10n/ (POT/EN/DE)
 modified: docs/standards/ai/rules/project-rules.md (+ npm run agents:sync output)
 modified: docs/engineering/testing.md, docs/engineering/deployment.md,
@@ -750,7 +753,39 @@ the same round.
   HEAD), inventory promotion `candidate → qualified`, the operator's real-device
   run. **New AIO drift (2026-10-15):** AIO v14.3.0 keeps NC 34.0.4 but ships PHP
   8.4.26 and Redis 8.10.2 (`test:runtime:check`: `aio-bundle`, `aio-php`,
-  `aio-redis`); the AIO row above qualified the 14.2.0 components.
+  `aio-redis`); the AIO row above qualified the 14.2.0 components — promoted
+  and requalified in round 9 (D-084-09).
+
+### Round 9 — D-084-09 AIO v14.3.0 runtime promotion (2026-10-15)
+
+- **Inventory:** `docker/test-runtime.json` PHP 8.4.25 → **8.4.26**
+  (`php:8.4.26-apache`, index `901b0dbc…`, amd64 `6114a2bd…`), Redis 8.10.1 →
+  **8.10.2** (`3811787…`, amd64 `2d3814be…`), AIO 14.2.0 → **14.3.0** (NC stays
+  34.0.4; APCu 5.1.28, phpredis 6.3.0, PostgreSQL 18.6 unchanged),
+  `verifiedAt` 2026-10-15, status stays `candidate`. PHP is one inventory field,
+  so both rows moved: `Dockerfile.test` defaults (image + inventory hash
+  `f18cab24…`), `compose.test.yml` runtime PHP, pinned Jest hashes (primary
+  `f18cab24…`, AIO `c82c8b9c…`), drift fixtures moved one patch ahead, current
+  runtime statements in README, docker README, development/deployment/testing
+  docs and the docker-dev skill. The reviewed `lcobucci/clock` limitation is the
+  same failure on PHP 8.4.26 (AIO ships that combination itself); historical
+  records keep 8.4.25. The package builder's PHP pin is a separate reproducible
+  build input and stays unchanged.
+- **Images:** `cs082-runtime-35.0.1-local` (`36c54c37…`) and
+  `cs082-runtime-34.0.4-local --runtime=aio` (`684b395d…`) rebuilt;
+  `verify-image` `frozen-image-identity-match` on both, AIO with exactly the
+  `lcobucci/clock … php-8.4.26` upstream limitation.
+- **Gates:** canonical stack recreated (`canonical-runtime-match`, PHP 8.4.26):
+  PHPUnit unit 1385, integration 613; full browser gate **`run-w3lY5x` PASSED**
+  (95 / 171 / 39 / 10 / 10, first attempt). AIO row `cs082-cs084n-aio`
+  (NC 34.0.4.1 / PHP 8.4.26 / PostgreSQL 18.6 / Redis 8.10.2 for sessions,
+  cache, locking; inventory `c82c8b9c…`): unit 1385, integration 613, full
+  browser gate **`run-3CDnAc` PASSED** (same counts). `test:runtime:check`
+  `current`, no drift. Jest 123 / 1780, ESLint, `test:noise` clean. The
+  superseded AIO stack `cs082-cs084m-aio` is stopped (owned, volumes kept).
+- **Still open in WP-G:** package build + smoke on both rows (clean committed
+  HEAD), inventory promotion `candidate → qualified`, the operator's
+  real-device run.
 
 ## Review Outcome
 
@@ -940,3 +975,17 @@ the same round.
 - **Decision recorded:** D-084-09 (AIO v14.3.0 requalification in this plan).
 - **Gates after fixes:** Jest 123 / 1780, lint, gate self-test, fixture Jest 9/9,
   phone handover 4/4; round gates above stand (both full browser gates passed).
+
+### Interim Standard B — 2026-10-15 — `PASS` (round 9 D-084-09 runtime promotion, plan stays active)
+
+- **Scope:** round 9 at `bad0baa`, index empty, 13 modified tracked paths
+  (unstaged diff SHA256 prefix `48a48523813a93f5` at capture), no untracked
+  files. [Record](../../backlog/archive/CODE_REVIEW_2026-10-15.md#round-9).
+- **Checked:** registry digests and selection hashes consistent across
+  inventory, `Dockerfile.test`, compose identity and Jest pins; both rows rebuilt
+  because PHP is one inventory field; the AIO upstream limitation unchanged in
+  kind; drift fixtures still exercise every label; historical records and the
+  separate package-builder pin intentionally untouched.
+- **Findings:** none.
+- **Gates:** round 9 gates above (both full browser gates and backend suites on
+  PHP 8.4.26, drift check `current`, Jest 123 / 1780).

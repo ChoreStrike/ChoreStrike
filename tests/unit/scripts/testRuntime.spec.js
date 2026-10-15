@@ -108,7 +108,7 @@ describe('frozen runtime inventory', () => {
 		expect(primary.nextcloud.version).toBe('35.0.1')
 		expect(aio.nextcloud.version).toBe('34.0.4')
 		expect(aio.previous.version).toBe('34.0.3')
-		expect(inventoryHash(aio)).toBe('c22ee1772b5223bb386441219642b0767fb57b3e61fb74d3f75ed0fe71fb9b06')
+		expect(inventoryHash(aio)).toBe('c82c8b9c1d5b68f97e17c4e2f1686ed6db99887cad487738cdcd6c62156aac2e')
 		expect(inventoryHash(primary)).not.toBe(inventoryHash(aio))
 		expect(value).toEqual(frozen)
 		expect(() => selectRuntime(value, 'unknown')).toThrow('runtime selector')
@@ -161,8 +161,8 @@ describe('pinned update-source (previous patch) selection', () => {
 		expect(previousAio.nextcloud.version).toBe('34.0.3')
 		expect(previousAio.notifications.ref).toBe('v34.0.3')
 		expect(previousAio.viewer).toEqual({ ref: 'v34.0.3', revision: '1556dd3a53cc280a28eb082d1cca15b6eb8f3c96' })
-		expect(selectionHash(currentPrimary)).toBe('4f98b19e9e42b9e0ca71420b432a7ce6304214a878a9e32218132ea18608df1b')
-		expect(selectionHash(currentAio)).toBe('c22ee1772b5223bb386441219642b0767fb57b3e61fb74d3f75ed0fe71fb9b06')
+		expect(selectionHash(currentPrimary)).toBe('f18cab24ecd7e9ab6984dd9f150f3ca845688c11982cbf5c08bc75c861658cdc')
+		expect(selectionHash(currentAio)).toBe('c82c8b9c1d5b68f97e17c4e2f1686ed6db99887cad487738cdcd6c62156aac2e')
 		expect(selectionHash(previousPrimary)).not.toBe(selectionHash(currentPrimary))
 		expect(selectionHash(previousAio)).not.toBe(selectionHash(currentAio))
 		expect(value).toEqual(frozen)
@@ -234,7 +234,7 @@ describe('read-only stable discovery', () => {
 	it('reports a different AIO bundle even when its Nextcloud version stays unchanged', async () => {
 		const io = officialFixtures()
 		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release(frozen.nextcloud.version))
-			: url.includes('/releases/') ? JSON.stringify(release('14.3.0')) : aioDockerfile(url))
+			: url.includes('/releases/') ? JSON.stringify(release('14.4.0')) : aioDockerfile(url))
 		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'update-needed', drift: ['aio-bundle'] })
 	})
 	it('reports matching AIO subcomponents read from the release tag of the AIO container sources', async () => {
@@ -248,8 +248,8 @@ describe('read-only stable discovery', () => {
 			`https://raw.githubusercontent.com/nextcloud/all-in-one/v${frozen.aio.version}/Containers/${name}/Dockerfile`))
 	})
 	it.each([
-		['php', '8.4.26', 'aio-php'], ['apcu', '5.1.29', 'aio-apcu'], ['phpredis', '6.3.1', 'aio-phpredis'],
-		['redis', '8.10.2', 'aio-redis'], ['postgres', '18.7', 'aio-postgres'],
+		['php', '8.4.27', 'aio-php'], ['apcu', '5.1.29', 'aio-apcu'], ['phpredis', '6.3.1', 'aio-phpredis'],
+		['redis', '8.10.3', 'aio-redis'], ['postgres', '18.7', 'aio-postgres'],
 	])('reports an AIO %s update as drift even when the bundled Nextcloud stays unchanged', async (component, version, label) => {
 		const io = officialFixtures()
 		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release(frozen.nextcloud.version))

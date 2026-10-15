@@ -34,3 +34,34 @@ Jest 123 / 1780 after the fixes, `test:noise` clean; ESLint, `l10n:check-keys` (
 ## Outcome
 
 **PASS-WITH-FIXES (interim).** Two minor findings fixed in-round; no open findings from this round. Open plan work: AIO v14.3.0 requalification, package build/smoke on both rows, inventory promotion, the operator's real-device run, final review.
+
+## Round 9
+
+# Code Review: CS-PLAN-084 Round 9 (D-084-09 AIO v14.3.0 Runtime Promotion) — Interim Standard B
+
+- **Review Date**: 2026-10-15
+- **Reviewer**: Claude Code
+- **Mode**: Standard B (interim; plan stays `active/`)
+- **Scope**: working tree at `bad0baa` (index empty): 13 modified tracked paths (unstaged diff SHA256 prefix `48a48523813a93f5` at capture), no untracked files — inventory PHP 8.4.26 / Redis 8.10.2 / AIO 14.3.0, `Dockerfile.test` defaults and inventory hash, canonical compose runtime identity, pinned Jest hashes and drift fixtures, current-runtime statements in README/docs/docker-dev skill, plan/tracking
+- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+
+## Findings
+
+None.
+
+## Verified Non-Findings
+
+- The new image references are the registry index and linux/amd64 digests reported by `docker buildx imagetools inspect` and match what `test:runtime:check` compares; `Dockerfile.test` defaults equal the generated primary build arguments (Jest R7 pin) and carry the new selection hash.
+- PHP is a single inventory field, so the primary NC35 row moved with the AIO row; both images were rebuilt and `verify-image` reports `frozen-image-identity-match`. The AIO `lcobucci/clock` limitation is the same reviewed failure, now on PHP 8.4.26, which AIO v14.3.0 ships itself — no new allowlist entry, no suppressed diagnostic.
+- Drift fixtures were moved one patch beyond the new inventory, so every drift label stays exercised; no assertion was weakened.
+- Historical records (install preparation, done plans, review archives) keep PHP 8.4.25 deliberately; only current-state statements changed.
+- The package builder (`docker/package-build.json`, `Dockerfile.package`) keeps its separate reproducible-build PHP pin; it is not a runtime row and no test couples it to the inventory.
+- The previous-patch images (`cs082-runtime-35.0.0-local`, `-34.0.3-local`) are only inputs of the P2 preservation proof, which this plan does not run; they are rebuilt with that proof.
+
+## Gates
+
+Both images rebuilt and verified. Canonical stack recreated (`canonical-runtime-match`, PHP 8.4.26): PHPUnit unit 1385, integration 613; full browser gate `run-w3lY5x` PASSED (95 / 171 / 39 / 10 / 10, first attempt). AIO row `cs082-cs084n-aio` (NC 34.0.4.1 / PHP 8.4.26 / PostgreSQL 18.6 / Redis 8.10.2): unit 1385, integration 613, full browser gate `run-3CDnAc` PASSED with the same counts. `test:runtime:check` `current`, no drift. Jest 123 / 1780, ESLint, `test:noise`, `docs:encoding`, `backlog:check`, `git diff --check` green.
+
+## Outcome
+
+**PASS (interim).** No findings. Next: package build + smoke on both rows, inventory promotion, the operator's real-device run, final review.

@@ -175,7 +175,8 @@ tests remain required: a working backup does not prove an update preserves facts
 **The future contract is approved; the exact adopted baseline is not yet recorded.**
 Disposable development installs remain fresh-install-only; the canonical test
 environment is the promoted current-stable qualified artifact (Nextcloud
-35.0.1 / PHP 8.4.25 / PostgreSQL 18.6; CS-PLAN-082 promotion 2026-10-06, frozen
+35.0.1 / PHP 8.4.26 / PostgreSQL 18.6; CS-PLAN-082 promotion 2026-10-06, PHP
+patch 8.4.26 with AIO v14.3.0 per CS-PLAN-084 D-084-09, frozen
 in `docker/test-runtime.json`) and stays disposable. After WP9's technical
 provider matrix and consecutive browser gates, the operator explicitly adopts
 one qualified baseline before first real retained data. Voluntary family-use
@@ -222,7 +223,7 @@ npm test
 ### Integration & E2E Tests (Docker)
 
 The compose defaults provision the pinned current-stable test runtime
-(Nextcloud 35.0.1 / PHP 8.4.25 / PostgreSQL 18.6, CS-PLAN-082); see
+(Nextcloud 35.0.1 / PHP 8.4.26 / PostgreSQL 18.6, CS-PLAN-082); see
 [testing.md](testing.md#runtime-baseline-cs-plan-082). The environment remains
 disposable (fresh installs only).
 
