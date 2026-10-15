@@ -118,9 +118,26 @@ function compareVersions(left, right) {
 }
 
 function stableRelease(value, name) {
-	requireValue(value?.draft === false && value?.prerelease === false
-		&& /^v\d+\.\d+\.\d+$/.test(value?.tag_name), `${name} stable release metadata`)
+	requireValue(isStableRelease(value), `${name} stable release metadata`)
 	return value.tag_name.slice(1)
+}
+
+function isStableRelease(value) {
+	return value?.draft === false && value?.prerelease === false && /^v\d+\.\d+\.\d+$/.test(value?.tag_name)
+}
+
+/**
+ * Highest stable `vX.Y.Z` release of a GitHub release list. `releases/latest`
+ * is the most recently published release, not the highest version: Nextcloud
+ * publishes backport patches after the newest branch (35.0.2, 34.0.5, then
+ * 33.0.10) and AIO also publishes `helm-chart-*` releases. Drafts,
+ * prereleases and other tags are skipped; no stable entry fails closed.
+ */
+function highestStableRelease(list, name) {
+	requireValue(Array.isArray(list), `${name} release list`)
+	const versions = list.filter(isStableRelease).map(item => stableRelease(item, name))
+	requireValue(versions.length > 0, `${name} stable release metadata`)
+	return versions.reduce((highest, version) => compareVersions(version, highest) > 0 ? version : highest)
 }
 
 function tagRevision(output, ref) {
@@ -231,8 +248,8 @@ function aioComponentDrift(inventory, components) {
 
 async function checkStable(inventory, io = { fetchMetadata, execute }) {
 	validateInventory(inventory)
-	const upstream = stableRelease(JSON.parse(await io.fetchMetadata('https://api.github.com/repos/nextcloud/server/releases/latest')), 'Nextcloud')
-	const aio = stableRelease(JSON.parse(await io.fetchMetadata('https://api.github.com/repos/nextcloud/all-in-one/releases/latest')), 'AIO')
+	const upstream = highestStableRelease(JSON.parse(await io.fetchMetadata('https://api.github.com/repos/nextcloud/server/releases?per_page=100')), 'Nextcloud')
+	const aio = highestStableRelease(JSON.parse(await io.fetchMetadata('https://api.github.com/repos/nextcloud/all-in-one/releases?per_page=100')), 'AIO')
 	const aioFile = await io.fetchMetadata(`https://raw.githubusercontent.com/nextcloud/all-in-one/v${aio}/Containers/nextcloud/Dockerfile`)
 	const aioNextcloud = aioFile.match(/^ENV NEXTCLOUD_VERSION=(\d+\.\d+\.\d+)\s*$/m)?.[1]
 	requireValue(VERSION.test(aioNextcloud), 'AIO bundled Nextcloud metadata')
@@ -480,7 +497,7 @@ async function main(args) {
 // The CLI entry point runs AFTER module.exports below: verify-canonical
 // lazily requires ./test-target, which requires this module back — invoking
 // main() before the exports are replaced would re-enter a circular require.
-module.exports = { validateInventory, validateRuntimeShape, readInventory, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, tagRevision, registryIdentity, aioComponents, aioComponentDrift, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS, CANONICAL_CONTAINER, CANONICAL_DB_CONTAINER }
+module.exports = { validateInventory, validateRuntimeShape, readInventory, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, highestStableRelease, tagRevision, registryIdentity, aioComponents, aioComponentDrift, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS, CANONICAL_CONTAINER, CANONICAL_DB_CONTAINER }
 
 if (require.main === module) main(process.argv.slice(2)).catch((error) => {
 	process.stderr.write(`Runtime check/execution failed: ${error?.message ?? 'unknown'}; inventory and environments were not updated.\n`)

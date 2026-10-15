@@ -1,11 +1,13 @@
 /** @jest-environment node */
 const fs = require('node:fs')
 const path = require('node:path')
-const { validateInventory, validateRuntimeShape, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, UPSTREAM_BUILD_CONDITIONS } = require('../../../scripts/test-runtime')
+const { validateInventory, validateRuntimeShape, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, highestStableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, UPSTREAM_BUILD_CONDITIONS } = require('../../../scripts/test-runtime')
 
 const frozen = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../docker/test-runtime.json'), 'utf8'))
 const copy = () => JSON.parse(JSON.stringify(frozen))
 const release = version => ({ tag_name: `v${version}`, draft: false, prerelease: false })
+// The release-list endpoints return arrays (highest stable version wins).
+const releases = (...versions) => JSON.stringify(versions.map(release))
 
 const STALE_LOCK_WARNING = 'Warning: The lock file is not up to date with the latest changes in composer.json. You may be getting outdated dependencies. It is recommended that you run `composer update` or `composer update <package name>`.'
 const LCOBUCCI_FAILURE = { name: 'php', version: '8.4.25', status: 'failed', failed_requirement: { source: 'lcobucci/clock', type: 'requires', target: 'php', constraint: '~8.1.0 || ~8.2.0' }, provider: null }
@@ -44,8 +46,8 @@ function aioDockerfile(url, inventory = frozen, overrides = {}) {
 function officialFixtures(inventory = frozen) {
 	return {
 		fetchMetadata: jest.fn(async url => {
-			if (url.includes('/server/releases/')) return JSON.stringify(release(inventory.nextcloud.version))
-			if (url.includes('/all-in-one/releases/')) return JSON.stringify(release(inventory.aio.version))
+			if (url.includes('/server/releases')) return releases(inventory.nextcloud.version)
+			if (url.includes('/all-in-one/releases')) return releases(inventory.aio.version)
 			return aioDockerfile(url, inventory)
 		}),
 		execute: jest.fn((command, args) => {
@@ -66,8 +68,9 @@ function officialFixtures(inventory = frozen) {
 }
 
 describe('frozen runtime inventory', () => {
-	it('validates the checked-in candidate without calling upstream services', () => {
+	it('validates the checked-in qualified inventory without calling upstream services', () => {
 		expect(validateInventory(frozen)).toBe(frozen)
+		expect(frozen.status).toBe('qualified')
 		expect(inventoryHash(frozen)).toMatch(/^[a-f0-9]{64}$/)
 	})
 	it.each([
@@ -108,7 +111,7 @@ describe('frozen runtime inventory', () => {
 		expect(primary.nextcloud.version).toBe('35.0.1')
 		expect(aio.nextcloud.version).toBe('34.0.4')
 		expect(aio.previous.version).toBe('34.0.3')
-		expect(inventoryHash(aio)).toBe('c82c8b9c1d5b68f97e17c4e2f1686ed6db99887cad487738cdcd6c62156aac2e')
+		expect(inventoryHash(aio)).toBe('84b3d7c2f9d1823c4bb900d313751c1a0af63894b99ace94d23cd280661ee5d2')
 		expect(inventoryHash(primary)).not.toBe(inventoryHash(aio))
 		expect(value).toEqual(frozen)
 		expect(() => selectRuntime(value, 'unknown')).toThrow('runtime selector')
@@ -141,6 +144,17 @@ describe('frozen runtime inventory', () => {
 	])('refuses prerelease or malformed stable metadata %j', value => {
 		expect(() => stableRelease(value, 'Nextcloud')).toThrow('stable release metadata')
 	})
+	// CS-PLAN-084: publish order is not version order (2026-10-15 published
+	// 35.0.2, 34.0.5, then 33.0.10; AIO also publishes helm-chart releases).
+	it('takes the highest stable release, not the most recently published one', () => {
+		const server = [release('33.0.10'), release('34.0.5'), release('35.0.2'), { ...release('35.0.3'), prerelease: true },
+			{ ...release('36.0.0'), draft: true }, { tag_name: 'v35.0.10rc1', draft: false, prerelease: false }]
+		expect(highestStableRelease(server, 'Nextcloud')).toBe('35.0.2')
+		expect(highestStableRelease([release('35.0.9'), release('35.0.10')], 'Nextcloud')).toBe('35.0.10')
+		expect(highestStableRelease([{ tag_name: 'helm-chart-14.4.0', draft: false, prerelease: false }, release('14.3.0')], 'AIO')).toBe('14.3.0')
+		expect(() => highestStableRelease([{ ...release('35.0.2'), prerelease: true }], 'Nextcloud')).toThrow('stable release metadata')
+		expect(() => highestStableRelease(release('35.0.2'), 'Nextcloud')).toThrow('release list')
+	})
 	it('requires the frozen architecture rather than taking the first registry row', () => {
 		const manifest = { digest: frozen.php.digest, manifests: [{ digest: frozen.php.platformDigest, platform: { os: 'linux', architecture: 'arm64' } }] }
 		expect(() => registryIdentity(manifest, frozen.platform)).toThrow('registry manifest/platform')
@@ -161,8 +175,8 @@ describe('pinned update-source (previous patch) selection', () => {
 		expect(previousAio.nextcloud.version).toBe('34.0.3')
 		expect(previousAio.notifications.ref).toBe('v34.0.3')
 		expect(previousAio.viewer).toEqual({ ref: 'v34.0.3', revision: '1556dd3a53cc280a28eb082d1cca15b6eb8f3c96' })
-		expect(selectionHash(currentPrimary)).toBe('f18cab24ecd7e9ab6984dd9f150f3ca845688c11982cbf5c08bc75c861658cdc')
-		expect(selectionHash(currentAio)).toBe('c82c8b9c1d5b68f97e17c4e2f1686ed6db99887cad487738cdcd6c62156aac2e')
+		expect(selectionHash(currentPrimary)).toBe('b5d9c0748bf16d773cfcef24f26729f2ef0106b2bd1ea1aec9f477b58fc764c6')
+		expect(selectionHash(currentAio)).toBe('84b3d7c2f9d1823c4bb900d313751c1a0af63894b99ace94d23cd280661ee5d2')
 		expect(selectionHash(previousPrimary)).not.toBe(selectionHash(currentPrimary))
 		expect(selectionHash(previousAio)).not.toBe(selectionHash(currentAio))
 		expect(value).toEqual(frozen)
@@ -220,21 +234,22 @@ describe('read-only stable discovery', () => {
 	})
 	it('reports matching artifacts without upgrading a candidate to qualified', async () => {
 		const io = officialFixtures()
-		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'current', qualification: 'candidate', drift: [] })
+		await expect(checkStable({ ...frozen, status: 'candidate' }, io)).resolves.toMatchObject({ status: 'current', qualification: 'candidate', drift: [] })
+		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'current', qualification: 'qualified', drift: [] })
 		expect(io.execute.mock.calls.every(([command, args]) => command === 'git' ? args[0] === 'ls-remote' : args.slice(0, 3).join(' ') === 'buildx imagetools inspect')).toBe(true)
 	})
 	it('reports newer upstream separately from the unchanged AIO bundle without rewriting the lock', async () => {
 		const value = copy()
 		const io = officialFixtures()
-		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release('35.0.2'))
-			: url.includes('/releases/') ? JSON.stringify(release(frozen.aio.version)) : aioDockerfile(url))
+		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases('35.0.2')
+			: url.includes('/releases') ? releases(frozen.aio.version) : aioDockerfile(url))
 		await expect(checkStable(value, io)).resolves.toMatchObject({ status: 'update-needed', upstream: '35.0.2', aioNextcloud: '34.0.4', drift: ['upstream-nextcloud'] })
 		expect(value).toEqual(frozen)
 	})
 	it('reports a different AIO bundle even when its Nextcloud version stays unchanged', async () => {
 		const io = officialFixtures()
-		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release(frozen.nextcloud.version))
-			: url.includes('/releases/') ? JSON.stringify(release('14.4.0')) : aioDockerfile(url))
+		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases(frozen.nextcloud.version)
+			: url.includes('/releases') ? releases('14.4.0') : aioDockerfile(url))
 		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'update-needed', drift: ['aio-bundle'] })
 	})
 	it('reports matching AIO subcomponents read from the release tag of the AIO container sources', async () => {
@@ -252,16 +267,16 @@ describe('read-only stable discovery', () => {
 		['redis', '8.10.3', 'aio-redis'], ['postgres', '18.7', 'aio-postgres'],
 	])('reports an AIO %s update as drift even when the bundled Nextcloud stays unchanged', async (component, version, label) => {
 		const io = officialFixtures()
-		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release(frozen.nextcloud.version))
-			: url.includes('/releases/') ? JSON.stringify(release(frozen.aio.version)) : aioDockerfile(url, frozen, { [component]: version }))
+		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases(frozen.nextcloud.version)
+			: url.includes('/releases') ? releases(frozen.aio.version) : aioDockerfile(url, frozen, { [component]: version }))
 		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'update-needed', drift: [label] })
 	})
 	it.each([
 		['nextcloud', 'pecl install APCu-'], ['redis', 'FROM redis:'], ['postgresql', 'FROM postgres:'],
 	])('fails closed when the AIO %s source no longer exposes a parsable version', async (container, marker) => {
 		const io = officialFixtures()
-		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases/') ? JSON.stringify(release(frozen.nextcloud.version))
-			: url.includes('/releases/') ? JSON.stringify(release(frozen.aio.version))
+		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases(frozen.nextcloud.version)
+			: url.includes('/releases') ? releases(frozen.aio.version)
 				: url.endsWith(`/Containers/${container}/Dockerfile`) ? aioDockerfile(url).replace(marker, '') : aioDockerfile(url))
 		await expect(checkStable(frozen, io)).rejects.toThrow(/AIO .* metadata/)
 	})
@@ -279,8 +294,8 @@ describe('read-only stable discovery', () => {
 		if (failure === 'release network failure') io.fetchMetadata.mockRejectedValue(new Error('unavailable'))
 		if (failure === 'registry failure') io.execute.mockImplementation(() => { throw new Error('registry unavailable') })
 		if (failure === 'malformed release') io.fetchMetadata.mockResolvedValue('{}')
-		if (failure === 'malformed AIO bundle') io.fetchMetadata.mockImplementation(async url => url.includes('/releases/') ? JSON.stringify(release('34.0.4')) : '')
-		if (failure === 'prerelease') io.fetchMetadata.mockResolvedValue(JSON.stringify({ ...release('35.0.2'), prerelease: true }))
+		if (failure === 'malformed AIO bundle') io.fetchMetadata.mockImplementation(async url => url.includes('/releases') ? releases('34.0.4') : '')
+		if (failure === 'prerelease') io.fetchMetadata.mockResolvedValue(JSON.stringify([{ ...release('35.0.2'), prerelease: true }]))
 		await expect(checkStable(frozen, io)).rejects.toThrow()
 	})
 })
@@ -344,7 +359,7 @@ describe('frozen candidate execution', () => {
 			return JSON.stringify(actual)
 		})
 		const probe = probeFixtures()
-		expect(verifyImage(selection, 'cs082-runtime-34.0.4-local', run, 'primary', probe)).toMatchObject({ status: 'frozen-image-identity-match', qualification: 'candidate', composer: frozen.composer.version,
+		expect(verifyImage(selection, 'cs082-runtime-34.0.4-local', run, 'primary', probe)).toMatchObject({ status: 'frozen-image-identity-match', qualification: 'qualified', composer: frozen.composer.version,
 			notificationsLockedPackages: 15, upstreamLimitations: [`${frozen.notifications.ref}-notifications-stale-root-lock`] })
 		expect(run.mock.calls.slice(1).every(([, args]) => args.includes('--rm') && args.includes('none'))).toBe(true)
 		expect(run.mock.calls.slice(1).every(([, args]) => args.includes(`sha256:${'1'.repeat(64)}`) && !args.includes('cs082-runtime-34.0.4-local'))).toBe(true)
@@ -511,7 +526,7 @@ describe('promoted canonical default stack (R7)', () => {
 
 	it('accepts the promoted canonical stack only after the read-only preflight', () => {
 		const { run, preflight } = canonicalFixtures()
-		expect(verifyCanonical(selection, run, preflight)).toMatchObject({ status: 'canonical-runtime-match', qualification: 'candidate',
+		expect(verifyCanonical(selection, run, preflight)).toMatchObject({ status: 'canonical-runtime-match', qualification: 'qualified',
 			provider: 'pgsql', configuredVersion: frozen.nextcloud.internalVersion })
 		expect(preflight).toHaveBeenCalledWith('http://localhost:8080', { NEXTCLOUD_URL: 'http://localhost:8080', NEXTCLOUD_CONTAINER: 'chorestrike-test' })
 		expect(preflight.mock.invocationCallOrder[0]).toBeLessThan(run.mock.invocationCallOrder[0])

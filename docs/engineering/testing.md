@@ -73,6 +73,14 @@ this pinned runtime. The old disposable NC31 canonical stack was retired on
 Promotion is a test-runtime default only — the canonical environment remains
 disposable (fresh installs only) and no retained-baseline adoption has occurred.
 
+The inventory `status` is `qualified` since 2026-10-15 (CS-PLAN-084 D-084-10):
+both rows passed backend, full browser and package gates under that exact
+inventory. The status is part of every selection hash (image labels,
+`Dockerfile.test` default, pinned Jest hashes, gate and package bindings), so
+it never changes on its own: a runtime update sets the new versions and the
+status together, rebuilds all four images and reruns the gates. Tooling only
+reports the status and never upgrades a `candidate`.
+
 ```powershell
 # Offline validation; ordinary unit tests use frozen official-response fixtures.
 npm run test:runtime:validate
@@ -443,10 +451,15 @@ The row tests the Apache-based app runtime, not AIO packaging or production.
 The project rule ([Runtime Currency](../standards/ai/rules/project-rules.md#runtime-currency-nextcloud-aio))
 requires the exact Nextcloud release of the operator's current AIO in every
 deployment gate. `test:runtime:check` therefore reads the official AIO
-container sources of the latest AIO release tag and reports drift separately
+container sources of the highest stable AIO release tag and reports drift separately
 for the bundled Nextcloud (`aio-bundle`) and each subcomponent the app runs
 against: PHP (`aio-php`), APCu (`aio-apcu`), phpredis (`aio-phpredis`), Redis
 (`aio-redis`) and PostgreSQL (`aio-postgres`). Unparsable sources fail closed.
+Upstream Nextcloud and AIO are both the highest stable `vX.Y.Z` entry of the
+release list, never GitHub's `releases/latest`: that is the most recently
+*published* release, and Nextcloud publishes backport patches after the newest
+branch (2026-10-15: 35.0.2, 34.0.5, then 33.0.10) while AIO also publishes
+`helm-chart-*` releases.
 
 The AIO row stage (`node scripts/test-runtime-stage.js up <project> pgsql
 cs082-runtime-<aio-version>-local <port> aio`) adds a pinned Redis companion

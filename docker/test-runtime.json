@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "candidate",
+  "status": "qualified",
   "verifiedAt": "2026-10-15",
   "platform": "linux/amd64",
   "nextcloud": {

@@ -92,11 +92,11 @@ describe('isolated frozen runtime staging', () => {
 })
 
 describe('installed runtime and provider identity', () => {
-	it.each(['mysql', 'pgsql', 'sqlite'])('proves a real %s installation without claiming qualification', provider => {
+	it.each(['mysql', 'pgsql', 'sqlite'])('proves a real %s installation and reports only the inventory qualification', provider => {
 		const options = settings(provider)
 		const fixture = installationFixture(options)
 		expect(verifyInstallation(inventory, options, fixture.run, fixture.preflight)).toMatchObject({
-			status: 'installed-runtime-provider-match', qualification: 'candidate', nextcloud: '35.0.1', provider: provider === 'sqlite' ? 'sqlite3' : provider,
+			status: 'installed-runtime-provider-match', qualification: inventory.status, nextcloud: '35.0.1', provider: provider === 'sqlite' ? 'sqlite3' : provider,
 		})
 		expect(fixture.preflight).toHaveBeenCalledWith(options.url, { NEXTCLOUD_URL: options.url, NEXTCLOUD_CONTAINER: options.container })
 		expect(fixture.run.mock.calls.every(([, args]) => ['inspect', 'image', 'exec'].includes(args[0]))).toBe(true)

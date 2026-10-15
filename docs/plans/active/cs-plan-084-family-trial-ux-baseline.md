@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows); round 9 committed after interim Standard B `PASS` (D-084-09 AIO v14.3.0 / PHP 8.4.26 / Redis 8.10.2 promotion, both rows requalified)
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows); round 9 committed after interim Standard B `PASS` (D-084-09 AIO v14.3.0 / PHP 8.4.26 / Redis 8.10.2 promotion, both rows requalified); round 10 committed after interim Standard B `PASS` (D-084-10 inventory `qualified`, release-discovery fix)
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -113,6 +113,11 @@ noted). Frontend-heavy; backend touches are limited to tests and the runtime row
   8.4.26, Redis 8.10.2) is promoted into the inventory and the AIO row is
   requalified (backend + full browser gate) inside this plan, before the
   hand-back to CS-PLAN-080.
+- **D-084-10 Inventory status (operator, 2026-10-15):** promote
+  `docker/test-runtime.json` to `qualified` now. Because the status is part of
+  every selection hash, all four images are rebuilt and both rows rerun backend,
+  full browser and package gates under the qualified hash (CS-PLAN-082 tied the
+  flip to a rebuild cycle; round 9 should have carried it).
 - **D-084-07 Completed filter:** kept; selecting it loads inactive (finished
   one-time or deactivated) tasks on demand with one additional house-wide read
   (`activeOnly=false`); the default view keeps the single active-only request.
@@ -262,6 +267,7 @@ modified: scripts/run-e2e-gate.js (phone projects, multi-project manifest row), 
 modified: docker/test-runtime.json, docker compose/entrypoint for the AiO row, docker/Dockerfile.test,
           docker/compose.test.yml, docker/README.md, README.md (round 9 runtime promotion),
           tests/unit/scripts/{testRuntime,testRuntimeStage}.spec.js, docs/engineering/development.md,
+          scripts/test-runtime.js (round 10: highest stable release discovery),
           docs/standards/ai/skills/docker-dev/SKILL.md
 modified: l10n/ (POT/EN/DE)
 modified: docs/standards/ai/rules/project-rules.md (+ npm run agents:sync output)
@@ -783,9 +789,46 @@ the same round.
   browser gate **`run-3CDnAc` PASSED** (same counts). `test:runtime:check`
   `current`, no drift. Jest 123 / 1780, ESLint, `test:noise` clean. The
   superseded AIO stack `cs082-cs084m-aio` is stopped (owned, volumes kept).
-- **Still open in WP-G:** package build + smoke on both rows (clean committed
-  HEAD), inventory promotion `candidate → qualified`, the operator's
+- **Package (after the round 9 commit):** `test:package:smoke` on clean HEAD
+  `0550316` → `package-qualified` (run `mv9kbmol`, archive SHA-256 prefix
+  `ff8b66baf11acd85`): rows `primary@35.0.1` and `aio@34.0.4` on PHP 8.4.26,
+  each cold first-bootstrap setup 1/1 and owner verify 6/6 (EN/DE, 390/1440 px),
+  owned smoke resources removed.
+- **Still open in WP-G:** inventory promotion `candidate → qualified` (the status
+  is part of every selection hash — see the decision below), the operator's
   real-device run.
+
+### Round 10 — D-084-10 inventory `qualified` + release discovery fix (2026-10-15)
+
+- **Inventory status** `candidate → qualified` (`docker/test-runtime.json`);
+  selection hashes primary `b5d9c074…`, AIO `84b3d7c2…` (previous patches
+  `0f294f46…` / `a1962e2f…`); `Dockerfile.test` default and Jest pins follow.
+  Tests that asserted `candidate` now assert the reported qualification; the
+  "never upgrades a candidate" proof runs on an explicit candidate copy.
+  `testing.md` records the status semantics (part of every hash, changes only
+  together with a rebuild cycle).
+- **All four images rebuilt** — `cs082-runtime-35.0.1-local` (`d6b50b1b…`),
+  `-35.0.0-local --patch=previous` (`608e6877…`), `-34.0.4-local --runtime=aio`
+  (`fecb12a5…`), `-34.0.3-local --runtime=aio --patch=previous` (`776b36fa…`):
+  `verify-image` `frozen-image-identity-match`, qualification `qualified`;
+  both AIO images carry exactly the reviewed `lcobucci/clock … php-8.4.26`
+  limitation.
+- **Gates under the qualified hashes:** canonical recreated
+  (`canonical-runtime-match`, `qualified`): unit 1385, integration 613, full
+  browser gate **`run-kHjKwd` PASSED** (95 / 171 / 39 / 10 / 10). AIO row
+  `cs082-cs084q-aio` (NC 34.0.4.1 / PHP 8.4.26 / Redis 8.10.2): unit 1385,
+  integration 613, full browser gate **`run-H3C9LH` PASSED** (same counts).
+  Jest 123 / 1781, ESLint, `test:noise`, docs/backlog checks green.
+- **Defect found and fixed (drift discovery):** `test:runtime:check` read
+  GitHub `releases/latest`, which is the most recently *published* release.
+  On 2026-10-15 Nextcloud published 35.0.2, 34.0.5 and then 33.0.10, so the
+  check reported upstream "33.0.10" (and AIO also publishes `helm-chart-*`
+  releases). Discovery now takes the highest stable `vX.Y.Z` of the release
+  list (`highestStableRelease`), fail-closed without a stable entry;
+  regression with today's order, helm-chart tags, `35.0.10 > 35.0.9`,
+  drafts/prereleases; negative control: 14 runtime tests fail on the old code.
+- **Real upstream drift:** Nextcloud **35.0.2** (2026-10-15) — the primary row
+  is 35.0.1; AIO v14.3.0 still ships 34.0.4, so the AIO row stays current.
 
 ## Review Outcome
 
@@ -989,3 +1032,15 @@ the same round.
 - **Findings:** none.
 - **Gates:** round 9 gates above (both full browser gates and backend suites on
   PHP 8.4.26, drift check `current`, Jest 123 / 1780).
+
+### Interim Standard B — 2026-10-15 — `PASS` (round 10 D-084-10, plan stays active)
+
+- **Scope:** round 10 at `0550316`, index empty, 9 modified tracked paths
+  (unstaged diff SHA256 prefix `78631c3aeac982d4` at capture), no untracked
+  files. [Record](../../backlog/archive/CODE_REVIEW_2026-10-15.md#round-10).
+- **Checked:** every hash consumer follows the qualified inventory (images,
+  `Dockerfile.test`, Jest pins, running stacks); discovery fails closed and
+  compares versions numerically; tooling never upgrades a candidate.
+- **Findings:** none open (the discovery defect was fixed in-round with a
+  regression and negative control).
+- **Gates:** round 10 gates above.

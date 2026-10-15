@@ -278,6 +278,11 @@ runtime inventory is still `candidate`. Make "latest upstream stable plus the
 exact Nextcloud version of the operator's AiO release" a project rule, add Redis
 cache/locking to the AiO row (the alias-free `custom_apps` path is already
 enforced since CS-PLAN-083), and promote the inventory ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-A).
+**Progress 2026-10-15:** rule, AIO component drift check and Redis AIO row delivered
+(round 1); AIO v14.3.0 (PHP 8.4.26, Redis 8.10.2) promoted (round 9); inventory
+`qualified` with all four images rebuilt and both rows regated (round 10); drift
+discovery now takes the highest stable release instead of `releases/latest`.
+Open: upstream NC 35.0.2 (released 2026-10-15).
 
 ---
 
