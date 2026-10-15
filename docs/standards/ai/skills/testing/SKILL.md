@@ -41,7 +41,7 @@ Naming: `MethodName_Scenario_ExpectedResult` (PHPUnit); `describe › it` (Jest)
 npm test                  # Jest (also: npm run test:noise for the zero-noise gate)
 npm run lint
 npx playwright test tests/e2e/<spec>.ts --project=<owning pool> --retries=0   # focused iteration
-npm run test:e2e:gate     # canonical browser gate (three Chromium pools) — the only release proof
+npm run test:e2e:gate     # canonical browser gate (three Chromium pools + two phone projects) — the only release proof
 ```
 
 E2E seeding uses the DB profiles `empty`, `emptyhouse`, `minimal`, `family` via the Playwright fixtures. Browser automation from the agent tool may support interactive checks; the checked-in suites remain the gate.

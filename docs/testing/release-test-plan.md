@@ -476,7 +476,7 @@ The following required browser scenarios supplement, never replace, section
 | Keyboard core | `family-core-ux.spec.ts`: `child: My Day hides manage controls and executes the checklist read-only (D4)` | Actual Tab traversal, Enter expansion/completion and Space checkbox execution, followed by the real completion receipt and undo confirmation; no programmatic focus shortcut. |
 | Reduced motion | `calm-core-ui.spec.ts`: `reduced motion overrides an explicit animation opt-in on a real completion` | Personal opt-in remains enabled. Canvas insertion observation verifies suppression, then the same completion after undo and a live OS-preference change supplies the positive animation control. |
 
-For WP9 acceptance, run the entire three-pool gate twice consecutively on the
+For WP9 acceptance, run the entire gate (all pools and phone projects) twice consecutively on the
 same runtime/build/fixture/discovery candidate. Focused spec passes diagnose
 repairs but cannot replace that pair. Keep raw reports/traces under ignored
 `build/e2e-gate/`; publish only sanitized run identities, counts and outcomes.
@@ -513,6 +513,30 @@ notifications no longer exist (ADR-016).
 | Phone landscape | Rotate to landscape | Layout adjusts without overflow | — |
 | Tablet | Open on a tablet-width viewport | Optimal, non-stretched layout | — |
 | Touch interactions | Tap, scroll, drag-to-reorder, open modals | Touch targets work; no missed taps or broken gestures | — |
+| Phone core set (emulated) | My Day hold + undo, claim confirm, handover, reassignment, paged list, dashboard tiles, Settings | Works on the Pixel 7 and iPhone 14 descriptors without horizontal overflow | **partial** `mobile-core` *(real fingers, screen readers and vibration: §14.1)* |
+
+### 14.1 Real-Device Checklist (CS-PLAN-084, operator)
+
+Emulation proves layout and the request flow, not a real finger, a real
+screen reader or the vibration motor. Before the family trial, the operator
+runs this list once on one **Android** phone (Chrome) and one **iPhone**
+(Safari), signed in as a **child** account and as an owner, in the light
+and the dark Nextcloud theme. Record device, OS/browser version, theme and
+the result per row in the release record (§18). It complements the gate and
+never replaces it.
+
+| # | Check | Expected |
+|---|---|---|
+| D1 | Child: My Day, short tap on *Done* | Hint "Press and hold to confirm"; nothing is completed |
+| D2 | Child: press and hold *Done* (~0.6 s) | Ring fills, task completes once, check mark in the undo bar; Android vibrates briefly (iPhone: no vibration — expected) |
+| D3 | Child: start a hold, then scroll | The hold cancels, nothing is completed, the page scrolls |
+| D4 | Child: *Undo* in the undo bar | The task is open again |
+| D5 | Owner: claim an overdue task of another person | One confirmation dialog, no second dialog; the task stays with its assignee afterwards |
+| D6 | Owner: hand one occurrence to the child; child completes it | The child sees it on My Day; next day it is back with the owner |
+| D7 | Owner: *All tasks* | 20 tasks per page, filters behind *Filters*, no sideways scrolling |
+| D8 | Owner: Dashboard tiles and a room card | Each tile opens its target; the room card opens the room; *Quick clean* needs a hold |
+| D9 | Light and dark Nextcloud theme | Text, badges and buttons readable in both themes (follows the Nextcloud theme, not only the phone setting) |
+| D10 | Screen reader (TalkBack / VoiceOver) on *Done* | Announced with its hold hint; double-tap-and-hold completes it |
 
 ---
 
@@ -726,7 +750,7 @@ human-use evidence, publication or retained-baseline adoption is implied.
 - [ ] 11 Scheduling
 - [ ] 12 Multi-user on one instance
 - [ ] 13 Notifications
-- [ ] 14 Mobile / responsive
+- [ ] 14 Mobile / responsive (incl. 14.1 real-device checklist: Android + iPhone, child, light + dark)
 - [ ] 15 Performance & stress feel
 - [ ] 16 Upgrade / migration smoke   (stable: required)
 - [ ] 17 Error handling & edge cases

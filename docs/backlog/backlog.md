@@ -291,6 +291,11 @@ reassignment; the claim confirm UI path is never exercised; there is no
 Playwright mobile project and takeover/undo never run at phone size. Add
 integration proofs, a claim-confirm E2E, mobile Chromium/WebKit projects with a
 core `@mobile` set, and an operator real-device checklist ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-G).
+**Progress 2026-10-14:** integration proofs and claim-confirm E2E delivered (round 1);
+`mobile-chromium`/`mobile-webkit` projects with the 7-scenario `mobile-core.spec.ts`
+run in the canonical gate; real-device checklist written
+([release-test-plan §14.1](../testing/release-test-plan.md#141-real-device-checklist-cs-plan-084-operator)).
+Open: the operator's recorded real-device run (Android + iPhone).
 
 ---
 

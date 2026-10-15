@@ -41,6 +41,13 @@ describe('destructive fixture ownership', () => {
 		await expect(manager.reset()).rejects.toThrow('Pool guard')
 		expect(fetch).not.toHaveBeenCalled()
 	})
+	// CS-PLAN-084 WP-G: the serial phone projects own the database while the gate runs them.
+	it.each(['mobile-chromium', 'mobile-webkit'])('allows the phone project %s to seed', async project => {
+		const fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { profile: 'family' } }) })
+		const { DatabaseManager } = loadFixtures(fetch)
+		await expect(new DatabaseManager('http://localhost:8080', project).seed('family')).resolves.toEqual({ profile: 'family' })
+		expect(fetch).toHaveBeenCalledTimes(1)
+	})
 	it('allows the serial owner and reports only sanitized errors', async () => {
 		const fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { profile: 'family' } }) })
 		const { DatabaseManager, test } = loadFixtures(fetch)

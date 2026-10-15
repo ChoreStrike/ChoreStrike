@@ -123,6 +123,15 @@ const SELF_AVAILABILITY_MEMBER_SPECS = [
 	/[/\\]self-availability-member\.spec\.ts$/,
 ]
 
+// CS-PLAN-084 WP-G: the curated `@mobile` core set runs on a phone-sized
+// Chromium (Android) and WebKit (iOS) device. It seeds the family profile
+// and mutates it like the serial pool, so each mobile project is serial
+// and owns the database while it runs; the gate runs them one after the
+// other, never next to another reset-owning pool.
+const MOBILE_CORE_SPECS = [
+	/[/\\]mobile-core\.spec\.ts$/,
+]
+
 export default defineConfig({
 	testDir: './tests/e2e',
 	outputDir: 'build/test-results/',
@@ -173,7 +182,7 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			dependencies: ['setup'],
-			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS],
+			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...MOBILE_CORE_SPECS],
 			use: {
 				...devices['Desktop Chrome'],
 				storageState: userStatePath('admin'),
@@ -184,7 +193,7 @@ export default defineConfig({
 		{
 			name: 'firefox',
 			dependencies: ['setup'],
-			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS],
+			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS, ...MOBILE_CORE_SPECS],
 			use: {
 				...devices['Desktop Firefox'],
 				storageState: userStatePath('admin'),
@@ -195,7 +204,7 @@ export default defineConfig({
 		{
 			name: 'webkit',
 			dependencies: ['setup'],
-			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS],
+			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS, ...MOBILE_CORE_SPECS],
 			use: {
 				...devices['Desktop Safari'],
 				storageState: userStatePath('admin'),
@@ -230,6 +239,36 @@ export default defineConfig({
 				storageState: userStatePath('dad'),
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
+			},
+		},
+		{
+			name: 'mobile-chromium',
+			dependencies: ['setup'],
+			testMatch: MOBILE_CORE_SPECS,
+			fullyParallel: false,
+			workers: 1,
+			use: {
+				...devices['Pixel 7'],
+				storageState: userStatePath('admin'),
+				actionTimeout: 15000,
+				navigationTimeout: 30000,
+			},
+		},
+		{
+			name: 'mobile-webkit',
+			dependencies: ['setup'],
+			testMatch: MOBILE_CORE_SPECS,
+			fullyParallel: false,
+			workers: 1,
+			use: {
+				...devices['iPhone 14'],
+				// The descriptor still sends an iOS 16 user agent, which current
+				// Nextcloud redirects to its "unsupported browser" page. Phones in
+				// use run current iOS: Safari 26 reports a frozen `iPhone OS 18_6`.
+				userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1',
+				storageState: userStatePath('admin'),
+				actionTimeout: 20000,
+				navigationTimeout: 45000,
 			},
 		},
 	],

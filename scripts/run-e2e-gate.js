@@ -4,13 +4,16 @@
  *
  * Canonical sequential browser gate (CS-PLAN-068 §3.1, decision D1).
  *
- * Runs the three Chromium pools SEQUENTIALLY against one disposable
- * database and enforces the required-scenario contract:
+ * Runs the three Chromium pools and the two phone projects (CS-PLAN-084
+ * WP-G) SEQUENTIALLY against one disposable database and enforces the
+ * required-scenario contract:
  *
  *   1. DISCOVERY — `playwright test --list` per project. Every required
- *      spec must be selected by exactly ONE project (a gap means a deleted
- *      or unselected required test; a duplicate means two pools would run
- *      the same reset-owning spec). Required scenario titles are pinned in
+ *      spec must be selected by exactly its manifest owner(s): ONE pool,
+ *      or the explicitly named device projects of the mobile core set (a
+ *      gap means a deleted or unselected required test; an extra owner
+ *      means two pools would run the same reset-owning spec). Required
+ *      scenario titles are pinned in
  *      the manifest below — the manifest never learns its requirements
  *      from the run it validates.
  *   2. EXECUTION — each project with `--workers=1 --retries=0
@@ -37,7 +40,8 @@ const { spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const GATE_PROJECTS = ['chromium', 'chromium-serial-db', 'chromium-scheduling-owner']
+const MOBILE_PROJECTS = ['mobile-chromium', 'mobile-webkit']
+const GATE_PROJECTS = ['chromium', 'chromium-serial-db', 'chromium-scheduling-owner', ...MOBILE_PROJECTS]
 const SETUP_PROJECT = 'setup'
 // Gitignored AND outside Playwright's `build/test-results/` output dir —
 // Playwright wipes its output dir at the start of every run, which would
@@ -47,7 +51,8 @@ const SCENARIO_FILE = path.join(__dirname, '../tests/e2e/required-scenarios.json
 
 /**
  * The required-file/scenario manifest (CS-PLAN-068 §3.1). `project` is the
- * ONLY pool that may own the file; `scenarios` are case-insensitive title
+ * ONLY pool that may own the file — or, for the mobile core set, the exact
+ * list of device projects that must each run it; `scenarios` are case-insensitive title
  * substrings that must both be discovered AND actually run; `minTests` is
  * the lower bound of tests the file must execute in the gate.
  */
@@ -121,6 +126,8 @@ const REQUIRED_SPECS = [
 	// WP3 cutover: teamwork-rewards (teamwork bonus) retired.
 	{ file: 'title-selection.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'workflow-request-budgets.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
+	// CS-PLAN-084 WP-G: the curated phone core set, run by BOTH device projects.
+	{ file: 'mobile-core.spec.ts', project: MOBILE_PROJECTS, scenarios: ['my day hold-complete and undo', 'claim confirm', 'handover', 'reassignment', 'paged task list', 'dashboard tiles', 'settings'], minTests: 7 },
 	// Auth setup runs once as the dependency of every browser project.
 	{ file: 'auth.setup.ts', project: SETUP_PROJECT, scenarios: [], minTests: 3 },
 ]
@@ -128,6 +135,24 @@ const REQUIRED_SPECS = [
 // ---------------------------------------------------------------------------
 // Pure checks (unit-tested by --self-test)
 // ---------------------------------------------------------------------------
+
+/** @param {{project: string|string[]}} required @return {string[]} its owning project(s) */
+function ownersOf(required) {
+	return [].concat(required.project)
+}
+
+/**
+ * The manifest rows one project run must satisfy, each narrowed to that
+ * project so a multi-project row is checked against this run alone.
+ * @param {string} project The project whose run is checked.
+ * @param {Array<{project: string|string[]}>} [manifest] The full manifest.
+ * @return {Array<object>} the narrowed manifest rows
+ */
+function manifestFor(project, manifest = REQUIRED_SPECS) {
+	return manifest
+		.filter(entry => ownersOf(entry).includes(project) || entry.project === SETUP_PROJECT)
+		.map(entry => ({ ...entry, project: ownersOf(entry).includes(project) ? project : entry.project }))
+}
 
 function collectSpecs(suites, out = [], parents = []) {
 	for (const suite of suites ?? []) {
@@ -172,25 +197,27 @@ function checkSelection(discovered, manifest = REQUIRED_SPECS, scenarios) {
 			violations.push(`selection gap: required spec '${required.file}' is selected by NO project (deleted or unselected required test)`)
 			continue
 		}
-		if (owners.size > 1) {
-			violations.push(`duplicate ownership: '${required.file}' is selected by [${[...owners].join(', ')}] — a spec must run in exactly one pool`)
+		const expected = ownersOf(required)
+		if (owners.size > expected.length) {
+			violations.push(`duplicate ownership: '${required.file}' is selected by [${[...owners].join(', ')}] — a spec must run in exactly its manifest pool(s) [${expected.join(', ')}]`)
 			continue
 		}
-		const owner = [...owners][0]
-		if (owner !== required.project) {
-			violations.push(`wrong pool: '${required.file}' is owned by '${owner}' but the manifest assigns '${required.project}'`)
+		const missing = expected.filter(project => !owners.has(project))
+		if (missing.length > 0) {
+			violations.push(`wrong pool: '${required.file}' is owned by [${[...owners].join(', ')}] but the manifest assigns [${expected.join(', ')}]`)
 			continue
 		}
-		const titles = discovered
-			.filter((entry) => path.basename(entry.file) === required.file)
-			.map((entry) => entry.title.toLowerCase())
+		const rows = discovered.filter((entry) => path.basename(entry.file) === required.file)
+		const titles = rows.map((entry) => entry.title.toLowerCase())
 		for (const scenario of required.scenarios) {
 			if (!titles.some((title) => title.includes(scenario))) {
 				violations.push(`missing required scenario in '${required.file}': no discovered test title matches '${scenario}'`)
 			}
 		}
-		if (titles.length < required.minTests) {
-			violations.push(`insufficient coverage: '${required.file}' discovers ${titles.length} tests but the manifest requires >= ${required.minTests}`)
+		// A multi-project spec lists each test once per owner; count tests, not rows.
+		const tests = new Set(rows.map((entry) => entry.identity ?? entry.title)).size
+		if (tests < required.minTests) {
+			violations.push(`insufficient coverage: '${required.file}' discovers ${tests} tests but the manifest requires >= ${required.minTests}`)
 		}
 		if (scenarios) {
 			const actual = [...new Set(discovered.filter(entry => path.basename(entry.file) === required.file)
@@ -379,6 +406,26 @@ function selfTest() {
 		checkSelection([good(journey.file, 'some unrelated title')], manifestOf(journey)),
 		'missing required scenario',
 	)
+	const mobile = REQUIRED_SPECS.find(entry => Array.isArray(entry.project))
+	const mobileRows = (projects) => projects.map(project => good(mobile.file, mobile.scenarios.join(' '), project))
+	expectViolation(
+		'a device project missing from a multi-project spec is rejected',
+		checkSelection(mobileRows([mobile.project[0]]), manifestOf(mobile)),
+		'wrong pool',
+	)
+	expectViolation(
+		'an extra pool on a multi-project spec is rejected',
+		checkSelection(mobileRows([...mobile.project, 'chromium']), manifestOf(mobile)),
+		'duplicate ownership',
+	)
+	const mobileOk = checkSelection(mobile.project.flatMap(project => mobile.scenarios
+		.map((scenario, index) => good(mobile.file, `${scenario} case ${index}`, project))), manifestOf(mobile))
+	if (mobileOk.length === 0) {
+		console.log('  ok    compliant multi-project discovery passes')
+	} else {
+		failures.push('compliant multi-project discovery')
+		console.log(`  FAIL  compliant multi-project discovery must pass:\n        ${mobileOk.join('\n        ')}`)
+	}
 	const selectionOk = checkSelection(
 		[good(journey.file, 'The canonical household journey walks every phase')],
 		manifestOf(journey),
@@ -435,7 +482,7 @@ function main() {
 	}
 	if (args.some(arg => arg !== '--write-manifest')) throw new Error('Unknown browser gate argument')
 
-	console.log('[gate] discovery: verifying required-spec selection across the three pools…')
+	console.log(`[gate] discovery: verifying required-spec selection across ${GATE_PROJECTS.length} projects…`)
 	const discovered = []
 	for (const project of [...GATE_PROJECTS, SETUP_PROJECT]) {
 		discovered.push(...discoverProject(project))
@@ -458,7 +505,7 @@ function main() {
 		}
 		return 1
 	}
-	console.log(`[gate] discovery ok: ${REQUIRED_SPECS.length} required specs owned by exactly one pool each.`)
+	console.log(`[gate] discovery ok: ${REQUIRED_SPECS.length} required specs owned by exactly their manifest pool(s).`)
 
 	const { configuredTarget, assertTestTarget } = require('./test-target')
 	const target = configuredTarget()
@@ -488,8 +535,7 @@ function main() {
 			exitCode = exitCode || 1
 			continue
 		}
-		const owned = REQUIRED_SPECS.filter(entry => entry.project === project || entry.project === SETUP_PROJECT)
-		const resultViolations = checkResults(report, owned, scenarios)
+		const resultViolations = checkResults(report, manifestFor(project), scenarios)
 		fs.writeFileSync(path.join(runDir, `summary-${project}.json`), JSON.stringify({
 			project,
 			processExit: result.status,
@@ -518,12 +564,12 @@ function main() {
 	if (exitCode !== 0) {
 		console.error('[gate] FAILED — see the violations above.')
 	} else {
-		console.log('[gate] PASSED — all three pools ran sequentially with zero skipped/failed/flaky required scenarios.')
+		console.log(`[gate] PASSED — all ${GATE_PROJECTS.length} projects ran sequentially with zero skipped/failed/flaky required scenarios.`)
 	}
 	return exitCode
 }
 
-module.exports = { collectSpecs, checkSelection, checkResults, runPlaywright, REQUIRED_SPECS, main }
+module.exports = { collectSpecs, checkSelection, checkResults, manifestFor, runPlaywright, REQUIRED_SPECS, GATE_PROJECTS, main }
 if (require.main === module) {
 	try { process.exitCode = main() } catch (error) {
 		console.error(`[gate] FAILED: ${error.message}`)

@@ -168,8 +168,10 @@ jobs:
   # ---------- E2E gate (canonical sequential runner, blocking) ----------
   # CS-PLAN-068 (D1): the browser gate is the canonical sequential runner
   # `npm run test:e2e:gate` — it verifies the required-spec manifest by
-  # discovery, then runs chromium, chromium-serial-db and
-  # chromium-scheduling-owner SEQUENTIALLY with workers=1, retries=0 and
+  # discovery, then runs chromium, chromium-serial-db,
+  # chromium-scheduling-owner and the CS-PLAN-084 phone projects
+  # mobile-chromium (Pixel 7) and mobile-webkit (iPhone 14) SEQUENTIALLY
+  # with workers=1, retries=0 and
   # forbid-only against one disposable database, and fails on any
   # skipped/failed/flaky required scenario. Folding the full browser
   # matrix (firefox/webkit) is a documented follow-up once the chromium
@@ -199,8 +201,8 @@ jobs:
       - name: Build application browser assets
         run: npm run build
 
-      - name: Install Playwright browser (chromium)
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers (chromium, webkit for mobile-webkit)
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Bring up Docker test env (NC 35.0.1 / PHP 8.4 / PostgreSQL 18.6 + app + family seed)
         run: |

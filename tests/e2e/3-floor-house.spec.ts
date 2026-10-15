@@ -174,6 +174,11 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		// The modal closes and the row renders with the assignee badge
 		// immediately — driven by the aggregate response, not a second PUT.
 		await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
+		// The list opens on "My tasks"; the chip may name another member
+		// (e.g. admin after the parallel pool joined), so show everyone and
+		// search for the row (20 per page) — client-side, no request.
+		await page.getByTestId('tasks-filter-all').click()
+		await page.getByTestId('search-input').fill('Atomic Journey Task')
 		const row = page.locator('[data-testid="task-item"]').filter({ hasText: 'Atomic Journey Task' }).first()
 		await expect(row).toBeVisible({ timeout: 15000 })
 		await expect(row.locator('.meta-item.assigned')).toBeVisible()

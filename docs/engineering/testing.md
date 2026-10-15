@@ -26,7 +26,7 @@ Preference/departure/erasure/schema extensions remain in their existing suites.
 task/organizational digest with replay suppression, quiet/missed-window
 suppression, and opted-in free/recognized-paused days with an eligible-delivery
 positive control in the same job pass. A passing subset is not the release gate; run
-`npm run test:e2e:gate` for all required scenarios in all three pools.
+`npm run test:e2e:gate` for all required scenarios in all gate projects.
 
 The [automated family evidence boundaries](../testing/release-test-plan.md#122-automated-family-evidence-boundaries)
 pin the neutral day, fixed/relative recurrence, same-browser login, real keyboard
@@ -790,16 +790,34 @@ The runner:
 
 1. **Discovery** — `playwright test --list --reporter=json` per project and
    validates the required-file/scenario manifest in the script: every
-   required spec must be selected by exactly ONE project (a deleted or
-   unselected required test is a selection gap; two pools owning one
-   spec is a duplicate-ownership error).
-2. **Execution** — the three Chromium pools run SEQUENTIALLY with
-   `--workers=1 --retries=0 --forbid-only` against one disposable database
-   (`family` seed): `chromium`, then `chromium-serial-db`, then
-   `chromium-scheduling-owner`.
+   required spec must be selected by exactly its manifest owner (a deleted
+   or unselected required test is a selection gap; two pools owning one
+   spec is a duplicate-ownership error). The only multi-owner row is the
+   phone core set, which both device projects must select.
+2. **Execution** — the three Chromium pools and the two phone projects run
+   SEQUENTIALLY with `--workers=1 --retries=0 --forbid-only` against one
+   disposable database (`family` seed): `chromium`, `chromium-serial-db`,
+   `chromium-scheduling-owner`, then `mobile-chromium` and `mobile-webkit`.
 3. **Result check** — zero skipped, failed, flaky or interrupted tests in
    any required spec; a missing test environment FAILS instead of skipping
    (no-op fixtures were removed by CS-PLAN-068 §3.2).
+
+**Phone core set (CS-PLAN-084 WP-G).** `mobile-core.spec.ts` runs in
+`mobile-chromium` (Pixel 7 descriptor) and `mobile-webkit` (iPhone 14
+descriptor with a current iOS user agent — the descriptor's iOS 16 agent is
+redirected to Nextcloud's unsupported-browser page). Each scenario seeds the
+family profile, signs people in on the project's device (viewport, touch,
+mobile user agent; `createUserContext` does not inherit the project device)
+and ends without horizontal overflow: My Day hold-complete and undo, claim
+confirm, one-occurrence handover with the child's completion and the default
+owner's successor, reassignment visibility, the paged task list with
+collapsed filters, dashboard tiles and room cards, and Settings through the
+phone navigation. Both projects reset the database, so run them one at a time
+(`--project=mobile-chromium`, then `--project=mobile-webkit`), never next to
+another reset-owning pool. Holds use the shared `holdToConfirm` helper (mouse
+events on a touch context yield the same pointer events as a held finger).
+Real-device behavior (vibration, VoiceOver/TalkBack, OS dark mode) stays the
+operator checklist in `release-test-plan.md`.
 
 The runner self-test (`node scripts/run-e2e-gate.js --self-test`) feeds
 synthetic discovery/report fixtures through the same checks (selection gap,
@@ -1867,8 +1885,9 @@ The biggest remaining gaps are no longer basic component or store tests. Those a
 ### 1. Pipeline and Coverage Ownership
 
 - The blocking release workflow builds app assets in the E2E job and runs
-  all three Chromium pools sequentially. Firefox/WebKit remain the
-  separately owned advisory matrix, not an exception to this gate.
+  all three Chromium pools and the two phone projects sequentially. Desktop
+  Firefox/WebKit remain the separately owned advisory matrix, not an
+  exception to this gate.
 - The old Snake/BoostShop/leaderboard and test-tooling deferrals are covered
   by the component/HTTP/runner suites above. Missing new required evidence
   is a plan blocker, never a reason to restore a fixture-dependent skip.
@@ -1907,6 +1926,6 @@ npm test
 docker compose -f docker/compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
 docker compose -f docker/compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
-# 3. Canonical browser gate (all three pools sequentially)
+# 3. Canonical browser gate (all pools and phone projects sequentially)
 npm run test:e2e:gate
 ```

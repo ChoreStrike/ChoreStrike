@@ -195,7 +195,8 @@ describe('coherent owned browser/CLI target', () => {
 				: { userStatePath: user => `build/.playwright-auth/target-fixture/${user}.json` },
 		})
 		const pools = exports.default.projects.filter(project => project.name !== 'setup')
-		expect(pools).toHaveLength(5)
+		// Five desktop pools plus the two CS-PLAN-084 phone projects.
+		expect(pools.map(pool => pool.name)).toEqual(['chromium', 'firefox', 'webkit', 'chromium-serial-db', 'chromium-scheduling-owner', 'mobile-chromium', 'mobile-webkit'])
 		for (const pool of pools) expect(pool.use.storageState).toBe(`build/.playwright-auth/target-fixture/${pool.name === 'chromium-scheduling-owner' ? 'dad' : 'admin'}.json`)
 	})
 })

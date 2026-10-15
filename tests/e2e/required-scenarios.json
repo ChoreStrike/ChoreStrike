@@ -32,7 +32,9 @@
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > member mobile: My Day completion and checklist execution work at the mobile viewport with 44px targets",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: cold Dashboard counters are correct without any room visit (D2)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: complete from My Day reconciles counters without reload and the queued undo restores them (D3/D10)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: overview tiles lead to their targets and Quick clean needs a hold (CS-PLAN-084 WP-C)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: the real HTTP PUT /tasks/{id} edit roundtrip works with the production body shape (D6)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner phone: the all-tasks list pages by 20 and \"Completed\" loads finished work on demand (CS-PLAN-084 WP-D)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > real Nextcloud DE and EN core rendering uses the shipped translations"
   ],
   "workflow-state-reconciliation.spec.ts": [
@@ -294,6 +296,8 @@
     "dashboard-navigation.spec.ts > Dashboard > Dashboard displays floor list",
     "dashboard-navigation.spec.ts > Dashboard > Dashboard displays house name and health bar",
     "dashboard-navigation.spec.ts > Dashboard > Dashboard displays quick stats section",
+    "dashboard-navigation.spec.ts > Dashboard > Room cards open from the keyboard and the Due Today tile opens My Day (CS-PLAN-084 WP-C)",
+    "dashboard-navigation.spec.ts > Dashboard > The overdue tile target presets the household task list to overdue (CS-PLAN-084 WP-C)",
     "dashboard-navigation.spec.ts > Dashboard > User can navigate to all main views from dashboard",
     "dashboard-navigation.spec.ts > Dashboard > User can navigate to room detail from dashboard"
   ],
@@ -322,9 +326,11 @@
   "overdue-task-claiming.spec.ts": [
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > claim button opens confirmation dialog naming the assignee",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > claiming overdue task via API records takeover",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > confirming a claim in the UI completes it once and the next occurrence returns to the assignee",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > non-assignee can complete overdue public task",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > overdue task assigned to another user shows claim button",
-    "overdue-task-claiming.spec.ts > Overdue Task Claiming > private overdue task cannot be claimed by non-assignee"
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > private overdue task cannot be claimed by non-assignee",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > work due today is never overdue: no claim button for others (D-084-08)"
   ],
   "private-tasks.spec.ts": [
     "private-tasks.spec.ts > Private Tasks > my-private filter shows only own private tasks",
@@ -379,8 +385,18 @@
     "title-selection.spec.ts > Role Title System (single series) > Title section renders without a change-title control (retired surface)"
   ],
   "workflow-request-budgets.spec.ts": [
+    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > Dashboard loads the room-card task counts with ONE house-wide request (CS-PLAN-084 WP-C)",
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > SchedulingView preloads its planning candidates with ONE house-wide request",
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > TaskManager initialization issues ONE house-wide room-task request"
+  ],
+  "mobile-core.spec.ts": [
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > My Day hold-complete and undo: a tap explains the hold, the hold completes once, undo restores",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > claim confirm: an owner takes over overdue work in one confirmation and the next occurrence stays with the assignee",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > dashboard tiles lead to their targets and a room card opens the room",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > handover: a child completes the handed-over occurrence and the successor returns to the default owner",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > paged task list: 20 rows per page with collapsed filters on the phone",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > reassignment: the former assignee loses the task and the new assignee sees it",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > settings stay reachable through the phone navigation for a child"
   ],
   "auth.setup.ts": [
     "auth.setup.ts > authenticate as admin",

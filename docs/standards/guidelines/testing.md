@@ -64,15 +64,17 @@ Established by CS-PLAN-034 — keep Jest output free of `[ChoreStrike] [error]` 
 - **Canonical browser gate (CS-PLAN-068 D1):** the release gate is
   `npm run test:e2e:gate` — never a raw multi-project `playwright test`
   invocation. The runner validates its required-file/scenario manifest by
-  discovery, runs the three Chromium pools sequentially with
+  discovery, runs the three Chromium pools and the two phone projects
+  (`mobile-chromium`, `mobile-webkit`) sequentially with
   `--workers=1 --retries=0 --forbid-only`, and fails on any
   skipped/failed/flaky required result. New required behavior gets a manifest
   row (file + owning pool + required scenario titles) in
   `scripts/run-e2e-gate.js`; deleting a covered spec or scenario fails
   discovery.
 - **Pool isolation is enforced at runtime (CS-PLAN-068 §3.2):** the
-  reset-owning pools are exactly `chromium-serial-db` and
-  `chromium-scheduling-owner` (they run sequentially behind the gate). The
+  reset-owning pools are exactly `chromium-serial-db`,
+  `chromium-scheduling-owner` and the phone projects `mobile-chromium` and
+  `mobile-webkit` (they run sequentially behind the gate). The
   `seededData` fixture throws a pool-guard violation anywhere else, and a
   missing test mode is a hard error — there are **no no-op fixtures and no
   runtime skips** for a broken environment. Failures fail; skips need an

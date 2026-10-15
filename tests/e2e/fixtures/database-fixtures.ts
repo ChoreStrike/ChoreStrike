@@ -178,8 +178,10 @@ const DEFAULT_PROFILE: DatabaseProfile = (process.env.TEST_DB_PROFILE as Databas
  * disposable database. A seed attempt from any other project (e.g. the
  * parallel `chromium` pool or an optional firefox/webkit matrix run) would
  * wipe data under live workers — it fails loudly instead of racing.
+ * The serial mobile projects (CS-PLAN-084 WP-G) own the database the same
+ * way while the gate runs them.
  */
-const RESET_OWNING_PROJECTS = new Set(['chromium-serial-db', 'chromium-scheduling-owner'])
+const RESET_OWNING_PROJECTS = new Set(['chromium-serial-db', 'chromium-scheduling-owner', 'mobile-chromium', 'mobile-webkit'])
 
 // Extended test with database fixtures
 export const test = baseTest.extend<DatabaseFixtures>({

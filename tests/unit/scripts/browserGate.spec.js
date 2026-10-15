@@ -3,7 +3,7 @@ const vm = require('node:vm')
 const path = require('node:path')
 const { EventEmitter } = require('node:events')
 const { spawnSync } = require('node:child_process')
-const { collectSpecs, checkSelection, checkResults, runPlaywright, REQUIRED_SPECS, main } = require('../../../scripts/run-e2e-gate.js')
+const { collectSpecs, checkSelection, checkResults, manifestFor, runPlaywright, REQUIRED_SPECS, GATE_PROJECTS, main } = require('../../../scripts/run-e2e-gate.js')
 const target = require('../../../scripts/test-target')
 const runtime = require('../../../scripts/test-runtime')
 
@@ -11,15 +11,17 @@ jest.mock('node:child_process', () => ({ spawnSync: jest.fn() }))
 // Pin the canonical journey (not a positional index): the manifest grows,
 // and REQUIRED_SPECS[0] must never silently change what this suite excludes.
 const required = REQUIRED_SPECS.find(row => row.file === 'core-household-journey.spec.ts')
+// One suite per owning project (the mobile core set has two).
 const reportFor = (entry = required) => ({
-	suites: [{
+	suites: [].concat(entry.project).map(project => ({
 		file: entry.file,
 		specs: Array.from({ length: entry.minTests }, (_, i) => ({
 			title: `${entry.scenarios.join(' ')} case ${i}`,
-			tests: [{ projectName: entry.project, status: 'expected', expectedStatus: 'passed', results: [{ status: 'passed', retry: 0 }] }],
+			tests: [{ projectName: project, status: 'expected', expectedStatus: 'passed', results: [{ status: 'passed', retry: 0 }] }],
 		})),
-	}],
+	})),
 })
+const inventoryOf = report => [...new Set(collectSpecs(report.suites).map(row => row.identity))].sort()
 
 afterEach(() => jest.restoreAllMocks())
 
@@ -95,6 +97,25 @@ describe('canonical browser evidence', () => {
 		expect(checkSelection(rows.map(row => ({ ...row, projectName: 'chromium' })), [entry], {})).not.toEqual([])
 		expect(checkResults({ suites: [] }, [entry])).not.toEqual([])
 	})
+	// CS-PLAN-084 WP-G: the phone core set runs in both device projects.
+	it('requires the mobile core set in exactly both device projects, checked per run', () => {
+		const mobile = REQUIRED_SPECS.find(row => row.file === 'mobile-core.spec.ts')
+		expect(mobile.project).toEqual(['mobile-chromium', 'mobile-webkit'])
+		expect(GATE_PROJECTS).toEqual(expect.arrayContaining(mobile.project))
+		const report = reportFor(mobile)
+		const rows = collectSpecs(report.suites)
+		const inventory = { [mobile.file]: inventoryOf(report) }
+		expect(checkSelection(rows, [mobile], inventory)).toEqual([])
+		expect(checkSelection(rows.filter(row => row.projectName === 'mobile-chromium'), [mobile], inventory)).not.toEqual([])
+		expect(checkSelection([...rows, { ...rows[0], projectName: 'chromium' }], [mobile], inventory)).not.toEqual([])
+
+		const narrowed = manifestFor('mobile-webkit', [mobile, REQUIRED_SPECS.find(row => row.project === 'setup'), required])
+		expect(narrowed.map(row => [row.file, row.project])).toEqual([[mobile.file, 'mobile-webkit'], ['auth.setup.ts', 'setup']])
+		const webkitOnly = { suites: report.suites.filter(suite => suite.specs[0].tests[0].projectName === 'mobile-webkit') }
+		expect(checkResults(webkitOnly, narrowed.slice(0, 1), inventory)).toEqual([])
+		expect(checkResults({ suites: [] }, narrowed.slice(0, 1))).not.toEqual([])
+	})
+
 	it('pins the real wizard inventory in canonical discovery order', () => {
 		const file = 'setup-wizard-journey.spec.ts'
 		const inventory = require('../../e2e/required-scenarios.json')[file]
@@ -115,7 +136,7 @@ describe('canonical browser evidence', () => {
 		jest.spyOn(runtime, 'selectRuntime').mockReturnValue({})
 		const verify = jest.spyOn(runtime, 'verifyCanonical').mockImplementation(() => {})
 		const reports = REQUIRED_SPECS.map(entry => reportFor(entry))
-		const inventory = Object.fromEntries(reports.map(report => [report.suites[0].file, collectSpecs(report.suites).map(row => row.identity).sort()]))
+		const inventory = Object.fromEntries(reports.map(report => [report.suites[0].file, inventoryOf(report)]))
 		// The gate logs its (expected) selection violations to the console;
 		// the assertion is the exit code, so the log noise is silenced —
 		// formatting dozens of buffered violation lines is not what this
@@ -127,7 +148,7 @@ describe('canonical browser evidence', () => {
 		jest.spyOn(fs, 'mkdtempSync').mockReturnValue('build/e2e-gate/review-fixture')
 		jest.spyOn(fs, 'readFileSync').mockImplementation(file => {
 			if (String(file).endsWith('required-scenarios.json')) return JSON.stringify(inventory)
-			const project = ['chromium', 'chromium-serial-db', 'chromium-scheduling-owner'].find(name => String(file).endsWith(`report-${name}.json`))
+			const project = GATE_PROJECTS.find(name => String(file).endsWith(`report-${name}.json`))
 			return JSON.stringify({
 				suites: reports.flatMap(report => report.suites).filter(suite => suite.file !== required.file
 				&& ['setup', project].includes(suite.specs[0].tests[0].projectName)),

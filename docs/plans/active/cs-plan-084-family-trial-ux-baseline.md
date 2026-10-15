@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D)
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows)
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -109,6 +109,10 @@ noted). Frontend-heavy; backend touches are limited to tests and the runtime row
   and hold-to-confirm instead.
 - **D-084-08 Overdue boundary (interim review 2026-10-13):** a task is overdue
   only after its due day has ended in the house time zone (RF-084-01).
+- **D-084-09 AIO drift (operator, 2026-10-15):** AIO v14.3.0 (NC 34.0.4, PHP
+  8.4.26, Redis 8.10.2) is promoted into the inventory and the AIO row is
+  requalified (backend + full browser gate) inside this plan, before the
+  hand-back to CS-PLAN-080.
 - **D-084-07 Completed filter:** kept; selecting it loads inactive (finished
   one-time or deactivated) tasks on demand with one additional house-wide read
   (`activeOnly=false`); the default view keeps the single active-only request.
@@ -251,12 +255,17 @@ modified: src/composables/useCelebration.js, src/store/roomTasks.js,
 modified: tests/e2e/{overdue-task-claiming,task-completion,task-completion-full-flow,today-view,…}.spec.ts,
           tests/e2e/fixtures/completion-api.ts
 modified: playwright.config.ts, package.json (axe devDependency)
+modified: scripts/run-e2e-gate.js (phone projects, multi-project manifest row), tests/e2e/required-scenarios.json,
+          tests/e2e/fixtures/database-fixtures.ts (reset-owning phone projects),
+          tests/unit/scripts/{browserGate,testTarget}.spec.js, .forgejo/workflows/release-gate.yml (webkit),
+          tests/e2e/3-floor-house.spec.ts (scope-independent row lookup), tests/unit/scripts/databaseFixtures.spec.js
 modified: docker/test-runtime.json, docker compose/entrypoint for the AiO row
 modified: l10n/ (POT/EN/DE)
 modified: docs/standards/ai/rules/project-rules.md (+ npm run agents:sync output)
 modified: docs/engineering/testing.md, docs/engineering/deployment.md,
           docs/concepts/calm-core-ux.md, docs/concepts/ui-use-cases.md,
-          docs/testing/release-test-plan.md
+          docs/testing/release-test-plan.md, docs/standards/guidelines/testing.md,
+          docs/standards/ai/skills/testing/SKILL.md
 ```
 
 Exact file names may shift during implementation; the manifest is updated in
@@ -300,7 +309,7 @@ the same round.
 - [ ] Done and Quick clean require a 600 ms hold (pointer and keyboard); early release sends no request and shows the hold hint; Claim keeps its dialog; no double submit
 - [ ] Subtle completion feedback always on (reduced-motion respected); haptics on supporting devices; dead streak-milestone branch removed; failure toasts show the API code
 - [ ] Successor ownership after takeover, handover and reassignment proven by integration tests and the mobile E2E set
-- [ ] Mobile Chromium + WebKit projects run the `@mobile` core set without skips
+- [x] Mobile Chromium + WebKit projects run the `@mobile` core set without skips
 - [ ] Operator real-device checklist recorded (Android + iPhone)
 - [ ] Build gate green (`npm test` + lint + backend tests on both rows)
 - [ ] Required tests ran without new or unapproved skips
@@ -691,6 +700,58 @@ the same round.
   private-tasks, color-contrast light+dark, room-detail, setup);
   chromium-serial-db 17/17 (family-core-ux incl. the new test, dashboard).
 
+### Round 8 — WP-G part 2: phone projects and full gate (2026-10-14/15)
+
+- **Phone projects:** `mobile-chromium` (Pixel 7) and `mobile-webkit` (iPhone 14)
+  in `playwright.config.ts`, serial, reset-owning (`database-fixtures.ts`), each
+  selecting only `tests/e2e/mobile-core.spec.ts`; every other project ignores it.
+  The iPhone descriptor's iOS 16 user agent is redirected by Nextcloud to
+  `/unsupported`; the project sends a current iOS agent (Safari 26, frozen
+  `iPhone OS 18_6`), documented in `testing.md`.
+- **`@mobile` core set** (7 scenarios, family seed, every person signed in on the
+  project's device, no horizontal overflow): My Day short tap = hint and no
+  request, hold completes once, undo restores (child); claim confirm in one
+  dialog with claim fields and the assignee kept; owner hands one occurrence to
+  the child, the child holds Done, the successor is due tomorrow with the
+  default owner and leaves the child's day; reassignment kid → teen through the
+  detail chips (former loses, new sees it on My Day); 20-row pages with the
+  filter panel collapsed, page 2, overdue filter; Overdue / Due today / Average
+  cleanliness tiles and a room card; Settings through the phone navigation.
+- **Gate runner:** a manifest row may name several device projects
+  (`project: [...]`, owners must match exactly; each run is checked against a
+  row narrowed to that project; tests counted once). `GATE_PROJECTS` runs the
+  phone projects after the three Chromium pools; self-test and Jest cover a
+  missing device project, an extra pool and per-run narrowing. CI installs
+  WebKit. `required-scenarios.json` regenerated: besides the phone set it gained
+  eight scenarios rounds 1–7 had added without updating the inventory (the full
+  gate would have failed on the mismatch); nothing removed.
+- **Defect in a test assumption (fixed):** `3-floor-house` "Atomic Journey"
+  picked the first assignee chip and looked for the row under the default *My
+  tasks* scope; once the parallel pool has made admin a member, the chip is
+  Admin and the row is filtered out. The test now switches to *Everyone* and
+  searches for the row (client-side, the request counts are unchanged).
+- **Docs:** `testing.md` (gate execution, phone core set), testing guideline
+  (pools incl. phone projects), testing skill, release-test-plan §14 row and
+  §14.1 operator real-device checklist D1–D10 (Android + iPhone, child, light
+  + dark, screen reader), record template; TECH-TEST-005 progress.
+- **Gates:** Jest 123 / 1778, `test:noise` clean; ESLint, `l10n:check-keys`
+  (1288), `backlog:check`, `docs:encoding`, `git diff --check`, gate self-test
+  green. Canonical NC35: PHPUnit unit 1385, integration 613 (skips forbidden);
+  full browser gate `run-fVpMiR` failed — serial-db 4 failures: the 3-floor
+  assumption above and three seed `fetch failed` closures before any assertion
+  (TECH-TRANSPORT-001), 4 dependent wizard skips; after the fix full gate
+  **`run-sA3H52` PASSED** (chromium 95, serial-db 171, scheduling-owner 39,
+  mobile-chromium 10, mobile-webkit 10 incl. setup; first attempt, no skips).
+  AIO row `cs082-cs084m-aio` (NC 34.0.4.1 / PHP 8.4.25 / PostgreSQL 18.6 /
+  Redis 8.10.1 for sessions, cache, locking; inventory `c22ee177…`): unit 1385,
+  integration 613, full browser gate **`run-FDzLEB` PASSED** with the same
+  counts.
+- **Open in WP-G:** package build + smoke on both rows (needs a clean committed
+  HEAD), inventory promotion `candidate → qualified`, the operator's real-device
+  run. **New AIO drift (2026-10-15):** AIO v14.3.0 keeps NC 34.0.4 but ships PHP
+  8.4.26 and Redis 8.10.2 (`test:runtime:check`: `aio-bundle`, `aio-php`,
+  `aio-redis`); the AIO row above qualified the 14.2.0 components.
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -862,3 +923,20 @@ the same round.
 - **Resolved:** RF-080-16 (CS-PLAN-080).
 - **Gates after fixes:** Jest 123 / 1777, lint, build; browser family-core-ux
   13/13, chromium 26/26; round gates above stand.
+
+### Interim Standard B — 2026-10-15 — `PASS-WITH-FIXES` (round 8 WP-G part 2, plan stays active)
+
+- **Scope:** round 8 at `d883bfa`, index empty, 15 modified tracked paths
+  (unstaged diff SHA256 prefix `c214b28e00bbda1d` at capture) plus untracked
+  `tests/e2e/mobile-core.spec.ts` (`9605af61e6ba1cfe`).
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-15.md).
+- **Checked:** multi-project manifest rows stay exact (missing device project or
+  extra pool rejected, per-run narrowing, tests counted once); phone projects
+  select only the phone set and run serially after the Chromium pools; inventory
+  only gained identities; the 3-floor fix keeps its request assertions; no
+  product code, API, auth, logging or string change.
+- **Fixed in-round (2):** R8-01 pool-guard Jest regression for both phone
+  projects; R8-02 handover-test comment overstated the UI evidence.
+- **Decision recorded:** D-084-09 (AIO v14.3.0 requalification in this plan).
+- **Gates after fixes:** Jest 123 / 1780, lint, gate self-test, fixture Jest 9/9,
+  phone handover 4/4; round gates above stand (both full browser gates passed).
