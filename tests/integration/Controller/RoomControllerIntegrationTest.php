@@ -257,7 +257,6 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 		return $this->instanceHouseId;
 	}
 
-
 	private function roomExists(int $roomId): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*', 'count'))

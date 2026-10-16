@@ -3,6 +3,7 @@
 /**
  * Mock for OCP\IAppConfig
  */
+
 namespace OCP;
 
 interface IAppConfig {

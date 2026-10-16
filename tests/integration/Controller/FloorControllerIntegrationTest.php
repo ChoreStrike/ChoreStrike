@@ -265,7 +265,6 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 		return $this->instanceHouseId;
 	}
 
-
 	private function floorExists(int $floorId): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*', 'count'))
