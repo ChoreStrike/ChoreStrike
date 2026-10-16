@@ -592,8 +592,10 @@ later external tester onboarding / public release, not a completed H7 claim.
 The operator supplied `chorestrike@gallero.de` on 2026-10-12 for public project
 contact. README and `docs/SECURITY.md` now document that mailbox; contributor
 and conduct guidance distinguish public issues from private reports. This
-ordinary-email route is independent of TECH-REPO-001 and does not require GPG,
-a separate `security@` alias or a GitHub-associated address. The operator
+ordinary-email route was independent of the repository migration (TECH-REPO-001,
+completed 2026-10-16) and does not require GPG, a separate `security@` alias or
+a GitHub-associated address. GitHub private vulnerability reporting is now
+offered alongside it as the preferred channel. The operator
 authorized a scoped local documentation commit on 2026-10-13, not a push,
 mailbox login, test email or account/profile change.
 
@@ -623,31 +625,6 @@ approved source publication; the mailbox must be monitored, not commit-only
 
 ---
 
-### [P3] TECH-REPO-001 — Codeberg-to-GitHub migration
-**Status**: In Progress (owned by CS-PLAN-085; history rewritten and pushed to `ChoreStrike/ChoreStrike` 2026-10-16, operator repository settings and Codeberg deletion open) · **Effort**: M · **Layer**: tooling+docs · **Journey stage**: repository hosting
-**Owning**: CS-PLAN-085 · **Depends on**: — · **Blocks**: — · **Folded-in**: contributor-identity consolidation and public-baseline polish (operator request 2026-10-16)
-**Source**: user request 2026-10-04; future contact setup related to BUG-SEC-001
-
-The move is approved and scoped by
-[CS-PLAN-085](../plans/active/cs-plan-085-github-migration-and-identity-rewrite.md):
-GitHub organization `ChoreStrike`, a single contributor identity across the
-rewritten history, and a presentable public baseline. It remains independent of
-CS-PLAN-081 and is not authorization to transfer anything beyond that plan's
-scope. The project mailbox stays documented under BUG-SEC-001; only its links
-are repointed.
-
-- [x] Decide the target repository/account and migration scope with the operator (D-085-01..08).
-- [x] Inventory Git history/tags, issues, release assets, remotes, documentation links and Forgejo CI/release workflows; scope GitHub equivalents and private credential handling before implementation (CS-PLAN-085 §1, Standard A 2026-10-16).
-- [x] Execute the plan: source scrub, history rewrite, verification, polish, CI port (2026-10-16; 565 commits on one identity, identical `HEAD` tree hash, orphan root retired, commit map committed).
-- [x] Push and verify the transferred scope and the canonical links/workflows (2026-10-16; `master` default, API confirms one identity across all 566 commits).
-- [x] Enable private vulnerability reporting (operator, 2026-10-16) — the channel SECURITY.md names as preferred is live.
-- [x] Retire the public Codeberg copy (operator, 2026-10-16): set to private (D-085-09), which removes the public trace of the retired identity.
-- [ ] Remaining operator repository settings: branch protection on `master`, description/topics/avatar, optional organization profile.
-- [ ] Delete the private Codeberg repository when the operator chooses (the 7-Zip archive is the fallback).
-- [ ] Coordinate the actual reporting mailbox with BUG-SEC-001 (unchanged by the migration).
-
----
-
 ### [P3] TECH-DOCS-006 — Make the backlog link gate clone-independent
 **Status**: Backlog · **Effort**: XS · **Layer**: tooling · **Journey stage**: quality gates
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -672,7 +649,7 @@ further findings, so it wants its own review round.
 
 ### [P3] TECH-DOCS-005 — README screenshots for the public landing page
 **Status**: Backlog · **Effort**: XS · **Layer**: docs · **Journey stage**: repository hosting
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: repository topics and avatar (CS-PLAN-085, 2026-10-16)
 **Source**: CS-PLAN-085 WP5-2 (droppable item, deferred 2026-10-16)
 
 The migrated README carries a badge row but no screenshots, so the GitHub
@@ -686,6 +663,7 @@ profile data only, never real household content — store them under
 
 - [ ] Capture the views from the canonical runtime and store them under `docs/screenshots/`.
 - [ ] Reference them from `README.md` and confirm they render on GitHub.
+- [ ] Set the repository topics in the About dialog (folded in from CS-PLAN-085, 2026-10-16: the description is set, topics are not; each topic must be committed with Enter to become a chip). A repository avatar stays deferred until a brand asset per `design.md` §4 exists.
 
 ---
 

@@ -1,6 +1,6 @@
 # CS-PLAN-085: GitHub Migration, Identity Rewrite and Public Baseline Polish
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-10-16). WP0-1 backup and WP0-2 organization/repository confirmed 2026-10-16 (§10); remaining prerequisite is WP0-4, a clean working tree. No ref change or rewrite performed yet.
+> **Status:** Done (final Standard B `PASS-WITH-FIXES` 2026-10-16; all acceptance criteria met, A-01..A-15 resolved)
 > **Effort:** M
 > **Priority:** P2
 > **Depends on:** operator 7-Zip backup (WP0-1), GitHub organization `ChoreStrike` (WP0-2), clean working tree (WP0-4)
@@ -558,45 +558,51 @@ deletion.
 
 ## 8. Acceptance Criteria
 
-- [ ] Operator 7-Zip backup confirmed and recorded in §10 before any ref change
+- [x] Operator 7-Zip backup confirmed and recorded in §10 before any ref change
       or rewrite step
-- [ ] GitHub organization `ChoreStrike` and empty public repository exist
-- [ ] `$BASE` recorded in WP1-1; the post-rewrite commit count equals `$BASE`
-- [ ] Every commit's author and committer is
+- [x] GitHub organization `ChoreStrike` and empty public repository exist
+- [x] `$BASE` recorded in WP1-1; the post-rewrite commit count equals `$BASE`
+- [x] Every commit's author and committer is
       `volker-ma <220411049+volker-ma@users.noreply.github.com>` (exactly one
-      identity across all refs)
-- [ ] Exactly one root commit remains; `refs/tags` is empty; zero merge commits
-- [ ] Original author and committer dates preserved (oldest still 2026-02-24)
-- [ ] Zero occurrences of the early personal contributor domain, the legacy
+      identity across all refs) — met for the rewrite. The two Dependabot
+      commits and GitHub's `noreply@github.com` merge committer arrived
+      afterwards through legitimate pull-request merges; no personal or forge
+      address exists anywhere (A-15 closed that gap and the guard now covers
+      commit metadata)
+- [x] Exactly one root commit remains; `refs/tags` is empty; zero merge commits
+      — met at the rewrite. The two merge commits now present come from the
+      two merged Dependabot pull requests, not from the migrated history
+- [x] Original author and committer dates preserved (oldest still 2026-02-24)
+- [x] Zero occurrences of the early personal contributor domain, the legacy
       username, the legacy noreply addresses and `codeberg.org/<user>/` URLs in
       any blob or commit message
-- [ ] `fix-email.bat` absent from every commit
-- [ ] No local `user.name`/`user.email` override remains in the repository
-- [ ] No legacy identity literal is present in any tracked file, including this
+- [x] `fix-email.bat` absent from every commit
+- [x] No local `user.name`/`user.email` override remains in the repository
+- [x] No legacy identity literal is present in any tracked file, including this
       plan, the guard spec and the review record (§2)
-- [ ] `tests/unit/repo-metadata.spec.js` guards the above, excludes its own
+- [x] `tests/unit/repo-metadata.spec.js` guards the above, excludes its own
       path, and is green
-- [ ] README, `appinfo/info.xml`, `package.json` and the docs point at the
+- [x] README, `appinfo/info.xml`, `package.json` and the docs point at the
       GitHub organization URLs
-- [ ] `.github/workflows/` replaces `.forgejo/` (archived, not deleted), with
+- [x] `.github/workflows/` replaces `.forgejo/` (archived, not deleted), with
       the trigger split documented in each workflow header
-- [ ] `docs/release/history-migration-2026-10-commit-map.tsv` committed; the 18
+- [x] `docs/release/history-migration-2026-10-commit-map.tsv` committed; the 18
       active evidence SHAs remapped; the map documented in testing/deployment
-- [ ] Pushed to GitHub with `master` as the default branch; remote attribution,
+- [x] Pushed to GitHub with `master` as the default branch; remote attribution,
       Actions run and community profile verified (WP7-3)
-- [ ] Codeberg repository deleted by the operator after that verification
-- [ ] ADR-018 recorded and linked; CHANGELOG, development.md and deployment.md
+- [x] Codeberg repository deleted by the operator after that verification
+- [x] ADR-018 recorded and linked; CHANGELOG, development.md and deployment.md
       updated
-- [ ] TECH-REPO-001 archived to `docs/backlog/archive/2026-10.md`
-- [ ] Build gate green (`npm test` + lint + backend tests in Docker)
-- [ ] Required tests ran without new or unapproved skips (browser gate
+- [x] TECH-REPO-001 archived to `docs/backlog/archive/2026-10.md`
+- [x] Build gate green (`npm test` + lint + backend tests in Docker)
+- [x] Required tests ran without new or unapproved skips (browser gate
       deliberately out of scope, recorded in §4)
-- [ ] All implementation decisions and review questions resolved and recorded
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
-- [ ] Owning backlog items updated or archived according to their actual completion state
-- [ ] Durable concepts/decisions integrated into the permanent docs
-- [ ] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
-- [ ] [`docs/backlog/ACTIVE_TASKS.md`](../../backlog/ACTIVE_TASKS.md) updated
+- [x] All implementation decisions and review questions resolved and recorded
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
+- [x] Owning backlog items updated or archived according to their actual completion state
+- [x] Durable concepts/decisions integrated into the permanent docs
+- [x] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
+- [x] [`docs/backlog/ACTIVE_TASKS.md`](../../backlog/ACTIVE_TASKS.md) updated
 
 ## 9. Review Findings (plan-owned)
 
@@ -756,8 +762,8 @@ Filled in during implementation; empty entries are open.
 | CI result | **green on `0a6b865`** (run 38942326566): both jobs — *Frontend (lint + test + build)* and *Composer validate + PHP CS* — succeeded with no failing step. The first two runs were red on two pre-existing defects (A-13, A-14); every remaining `checks.yml` step that had never executed in CI (build, stylelint, docs-encoding, adapter drift, offline runtime inventory) was then verified in a clean Linux clone before relying on it |
 | Community profile | README, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT and the PR template detected; the two issue templates are on the remote and work, but GitHub's `health_percentage` (87) counts only a legacy single-file `ISSUE_TEMPLATE.md`, so that field stays `null` — an API artifact, not a missing file |
 | Private vulnerability reporting | **Enabled by the operator 2026-10-16** — the channel `docs/SECURITY.md` names as preferred is live |
-| Codeberg repository | **Set to private by the operator 2026-10-16** (D-085-09); the public copy and the public trace of the retired identity are gone. Deletion deferred to the operator |
-| Operator repository settings | *(partly open — WP7-5: branch protection on `master`, description/topics/avatar, optional organization profile)* |
+| Codeberg repository | **Deleted by the operator 2026-10-16** after the GitHub copy was verified. The old URL returns HTTP 404; the 7-Zip archive is the only remaining copy of the pre-migration history and of the retired orphan root |
+| Operator repository settings | Private vulnerability reporting enabled; branch protection active on `master` (verified: a force-push was rejected with `Cannot force-push to this branch`, and enforcement was restored after the corrective push); repository and organization descriptions set. **Repository topics remain unset** — cosmetic, no acceptance criterion, folded into TECH-DOCS-005. An organization profile README was considered and deliberately dropped: with a single repository it only duplicates the repository README |
 | Dependabot pull requests | Both merged by the operator 2026-10-16 (#1 GitHub Actions v4 -> v7 across all five workflows, #2 `nextcloud/coding-standard` 1.5.0 with the four-line blank-line sweep that keeps `composer cs:check` green). CI green on the merged `master` |
 | Merge-commit identity incident | The web-UI merges stamped the operator's private address on both merge commits (A-15). Rewritten through a mailmap; 575 commits, both merges and every other SHA intact. Authors now 573 canonical + 2 Dependabot; committers 572 canonical + 3 `GitHub <noreply@github.com>` (GitHub's own address, not personal) |
 | Guard coverage | Extended to commit metadata, not just tracked file contents, and `checks.yml` now checks out with `fetch-depth: 0`. Verified to fail on the real bad state and pass after the rewrite. Jest 1796 |
@@ -770,6 +776,8 @@ Filled in during implementation; empty entries are open.
 | D-085-02 | **Maximum rewrite depth:** identity for all commits, plus username/URL removal from historical commit messages, plus `fix-email.bat` removal from all history. `Co-Authored-By: Claude` trailers stay | 2026-10-16 |
 | D-085-03 | **Delete the Codeberg repository** after a verified GitHub push; the 7-Zip backup is the fallback | 2026-10-16 |
 | D-085-09 | **Revised D-085-03:** the Codeberg repository is set to **private** for now and deleted later, which already removes the public copy and the public trace of the retired identity. Deletion stays operator-only and open | 2026-10-16 |
+| D-085-10 | **Delete the Codeberg repository after all** (superseding the deferral in D-085-09), once the GitHub copy was verified complete | 2026-10-16 |
+| D-085-11 | **No organization profile README**: with one repository it would duplicate the repository README and add a second file to keep in sync | 2026-10-16 |
 | D-085-04 | **Port the CI workflows**, with the heavy Docker/E2E matrices as `workflow_dispatch`; the local Docker gate stays binding | 2026-10-16 |
 | D-085-05 | The operator makes the full local repository backup with 7-Zip himself (WP0-1) | 2026-10-16 |
 | D-085-06 | **Delete the `v0.1.0` tag**; the disjoint 14-commit pre-rename orphan root it anchors drops out of the migration together with the second identity. The WP0-1 backup is its only archive | 2026-10-16 |
