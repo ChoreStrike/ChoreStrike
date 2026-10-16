@@ -131,8 +131,9 @@ The minigames are play-only: the boost shop, the boost purchase flow and the
 arcade coin earnings were retired with the WP3 economy cutover (no shared
 wallet with chores, no redemption surface). Score saves stay capped
 (`MinigameService::MAX_SCORE` and `DAILY_SCORE_SAVE_LIMIT` per member and
-house-local day) and leaderboards remain house-scoped. Playable 2048/Memory
-prototypes do not have supported score saves. See the Minigames section in
+house-local day) and leaderboards remain house-scoped. The 2048/Memory
+prototypes were retired in the same cutover; Snake is the only supported game.
+See the Minigames section in
 [`../api/README.md`](../api/README.md).
 
 The chore-ranking comparison between members is NOT the arcade leaderboard —

@@ -294,6 +294,46 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 
 ---
 
+### [P3] FEAT-ARCADE-001 — Multi-game arcade shell with per-game highscores
+**Status**: In Progress · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: optional arcade
+**Owning**: CS-PLAN-086 WP-A · **Depends on**: — · **Blocks**: FEAT-ARCADE-002, FEAT-ARCADE-003 · **Folded-in**: Snake defects S1–S7 (double key handling, page-wide key capture, loop runs while hidden, non-responsive board, unlabeled 400-cell DOM grid, unavoidable obstacle spawns, dead `lives` state)
+**Source**: operator request, 2026-10-16
+
+The arcade hard-wires one game: `MinigameService::VALID_GAMES = ['snake']`,
+`'snake'` defaults in every signature and a single-slot store. A shared
+`GameShell` + `useGameLoop`, a lazy game registry, per-game store slices, a
+generic `GameLeaderboard` and a server-side `ArcadeCatalog` with per-game score
+ceilings; Snake moves onto the shell ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-A).
+The scores-only contract (CS-PLAN-070 T10/D7d) stays unchanged.
+
+---
+
+### [P3] FEAT-ARCADE-002 — Chore-based unlock gate for arcade games
+**Status**: In Progress · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: optional arcade
+**Owning**: CS-PLAN-086 WP-B · **Depends on**: FEAT-ARCADE-001 · **Blocks**: — · **Folded-in**: —
+**Source**: operator request, 2026-10-16
+
+Games unlock permanently as milestones of a member's lifetime finished chores
+(thresholds 0/3/10/25/50), with no daily coupling. Derived read-only from valid
+selected work shares (ADR-014) — helpers count, an undone completion no longer
+counts, no persisted balances; the owner switch is a typed app-config flag, no
+schema change ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-B, D-086-01/02/06).
+
+---
+
+### [P3] FEAT-ARCADE-003 — Household-themed arcade games
+**Status**: In Progress · **Effort**: L · **Layer**: frontend · **Journey stage**: optional arcade
+**Owning**: CS-PLAN-086 WP-C to WP-F · **Depends on**: FEAT-ARCADE-001 · **Blocks**: — · **Folded-in**: —
+**Source**: operator request, 2026-10-16
+
+Four original games with cleaning utensils as items: Spot Sprint (tap stains),
+Sock Match (untimed memory), Tile Breaker (squeegee and soap bubble against
+grimy tiles) and Dust Runner (robot vacuum in room-shaped mazes). One lazy
+chunk and one work package per game, each releasable on its own; per-game
+highscores only ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-C to WP-F, D-086-03/05).
+
+---
+
 ## Infrastructure and Documentation
 
 > Backlog hygiene, lint/dependency, docs truth, and operational security.

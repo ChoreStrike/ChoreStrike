@@ -116,3 +116,93 @@ No deployment, adoption, tag or push.
 No finding affects the deployed behavior; both are routed to the backlog with
 the user's decision on timing. No code change, plan transition, push or
 deployment.
+
+---
+
+## Standard A (Plan) — CS-PLAN-086 Household arcade, chore unlocks and per-game highscores
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** `new/ → active/`
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Reviewed artifact | `docs/plans/new/cs-plan-086-household-arcade-and-chore-unlocks.md` (staged as added at review time) |
+| Drafting package | backlog FEAT-ARCADE-001, FEAT-ARCADE-002, FEAT-ARCADE-003 (staged) |
+| Content hash at capture | `fc713e50d0dba682b8c35855645f8a304a1d7035ca4a4a67890e48df97e42aa2` |
+| Branch | `feat/arcade-minigames` (created for this plan at the operator's suggestion) |
+| Base HEAD | `993e563186b77dceb57e9d543596e37925859cec` |
+| Staged diff fingerprint | `2e23009d7627b4b0e6ed8793c5849ba20aadcb89a0880934efde38b0f29a0764` |
+| Unstaged diff / untracked at capture | empty / none |
+| Concurrent change during the review | another session added a TECH-DOCS-005 entry to `docs/backlog/ACTIVE_TASKS.md` (2026-10-16 23:52); outside the reviewed scope, preserved unstaged and not part of this review's commit |
+| Owning backlog items | FEAT-ARCADE-001..003 (moved to `In Progress`, `Owning: CS-PLAN-086`) |
+
+### Findings (20 fixed, 1 routed)
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| A-01 | Major | §1/§5/WP-G | Claimed the arcade was undocumented; it is described in `gamification-and-rewards.md` §Arcade, `calm-core-ux.md` §Optional areas, `product-vision.md` and `docs/api/README.md` §Minigames. The manifest planned duplicate homes (`docs/concepts/arcade.md`, `docs/api/minigames.md`) | Fixed — existing sections are the integration targets |
+| A-02 | Major | §1/§2/§10 | Conflict with approved CS-PLAN-070 decisions not surfaced: D7d/RF-070-09 separate arcade and chore value, D11 limits the first slice to Snake | Fixed — D-086-01 (B) and D-086-05 (A) record a scoped amendment; ADR-019 planned |
+| A-03 | Major | Header/§6/§7 | No sequencing against the CS-PLAN-080 family evidence: a chore-coupled arcade in the trial build would confound the calm-core evidence | Fixed — D-086-07 (A): merge only after the 084 final review and the close of the 080 window |
+| A-04 | Major | §3.2/§3.3 | Daily opening and free-day rule had no concrete read owner ("identified in WP-B") and duplicated a day count | Fixed by removal — D-086-01 = B drops the daily coupling (the review had identified `DailyCapacityService::evaluateDays()` as the owner) |
+| A-05 | Medium | §3.3 | Optional `durationMs` plausibility is bypassed by simply omitting the field | Fixed — `durationMs` required (D-086-04) |
+| A-06 | Medium | §3.3 | A save-time daily check would reject games finished after midnight | Fixed by removal with D-086-01 = B; saves enforce the permanent unlock only |
+| A-07 | Medium | §4 | E2E seed "through the registry" would ship a test hook in the production bundle (browser gates run the built package) | Fixed — deterministic openings by game design; seeded RNG only as a Jest function parameter |
+| A-08 | Minor | §3.5 | Parity guard via an id list exported by a PHP test is cross-language coupling | Fixed — catalog-driven UI (server ∩ registry, mismatch logged) plus per-side pinned id lists |
+| A-09 | Minor | §3.1 | `useGameEffects` would copy `useCelebration`'s opt-in gate sync | Fixed — sync extracted and shared |
+| A-10 | Minor | §3.2/§3.4 | Requirement copy was count-dependent; the project has no `n()` usage and the l10n checker owns only two manual plural branches | Fixed — plural-free copy (thresholds ≥ 3), rule for any future branch recorded |
+| A-11 | Minor | §3.3/§5 | `lib/Service/Arcade/` sub-namespace contradicts the flat `lib/Service/` layout | Fixed — flat placement |
+| A-12 | Minor | §5 | `tests/unit/store/minigame.spec.js` listed as modified but does not exist; spec deletion instead of rename; archive month hard-coded | Fixed |
+| A-13 | Nit | §1 | Citation `ArcadeSection.vue:59-63` | Fixed — `60-63` |
+| A-14 | Nit | §1 | S2/S6 wording overstated (page-wide capture; "unavoidable") | Fixed — precise wording |
+| A-15 | Minor | §4/§8 | Missing criteria/tests: existing `snake` scores preserved, bundle budget, owner-switch E2E, `limit` regressions | Fixed |
+| A-16 | Minor (pre-existing) | `docs/api/README.md` §Minigames | Documented the retired Coin minting (`coinsEarned`), `boostsUsed`, `/minigames/coins`, `/minigames/boosts`, boost purchase and a 5000 cap; code has six score routes and `MAX_SCORE = 100000` | Fixed in this review — section rewritten to the shipped scores-only API, verified against `appinfo/routes.php`, `MinigameController`, `MinigameService`, `MinigameScoreMapper` |
+| A-17 | Minor (pre-existing) | `gamification-and-rewards.md:134-135` | "Playable 2048/Memory prototypes" — the prototypes were retired with the WP3 cutover | Fixed in this review |
+| A-18 | Nit | Header | Effort L understated the sum of its own WP estimates | Fixed — XL |
+| A-19 | Minor | §3.3 | Planned `arcade_gate_enabled` column as NOT NULL boolean, contradicting the nullable-boolean convention (`Version1000Date20260224000000.php:45-46`) | Fixed, then obsolete with A-20 |
+| A-20 | Major | §3.3/§4/§5 | The owner-switch migration would have been the first schema step on the protected production install; no harness proves an app-build upgrade on populated data (P1 = same-build recreate, P2 = Nextcloud patch upgrade), and the manifest pointed at a non-existent `tests/integration/Migration/` | Fixed — D-086-02 follow-up: typed `arcade_gate_enabled` flag in the `RewardConfigService` registry, no schema change |
+| RF-086-01 | Minor (pre-existing) | `MinigameController` reads | Client `limit` reaches `setMaxResults()` unclamped (whole board for large values, `LIMIT -n` for negative ones) | Routed — plan §9, resolved in WP-A |
+
+No security-sensitive finding: RF-086-01 is membership-gated and house-scoped
+and exposes no data beyond the member's own house board.
+
+### Key verification performed during the review
+
+- Backend contract: routes (`appinfo/routes.php:204-209`), score column and
+  `mgs_hgs` index, caps, house-row lock order, erasure deletion by raw UID.
+- Attribution: `WorkShareMapper::sumValidSelectedByWallet()` and
+  `findSelectedSharesBetweenByHouse()` filter `undone_at IS NULL` and the
+  selected allocation revision per wallet; `CompletedTaskMapper::countByUserOnDate()`
+  counts undone rows and only the actor; the regular completion path sets
+  `work_date` from the house-local day of completion
+  (`CompletionService.php:394-397`), while owner catch-up commands carry an
+  explicit `workDate` — irrelevant after D-086-01 removed the daily coupling.
+- `DailyCapacityService::evaluateDays()` exposes per-member planned and
+  completed energy, pause and availability (owner of the daily rule before
+  D-086-01 removed it).
+- `RewardConfigService` is the registry for scalar app config with no HTTP
+  writer; one house per instance (`HouseService::getOrCreateHouse()`);
+  `requireHouseOwner()` exists.
+- Preservation harness: `scripts/test-runtime-preservation.ps1` P1/P2/P3 cover
+  same-build persistence, Nextcloud patch upgrades and recovery, not app-build
+  upgrades; `deployment.md` requires real populated-baseline upgrades for new
+  schema steps.
+- All seven Snake defects confirmed in `SnakeGame.vue`.
+- `npm run backlog:check`, `npm run docs:encoding`, `git diff --check` and the
+  docs/scripts Jest suites — green after all fixes.
+
+### Gates not run, with reason
+
+PHPUnit, the Playwright browser gate and `npm run build` were not run: this
+round changed only Markdown planning, backlog, concept and API documents — no
+code, string catalogue or adapter source. The plan's §4 gate list binds at
+implementation time.
+
+### Decisions recorded
+
+D-086-01 progression-only unlocks (operator chose B against the recommended
+A), D-086-02 typed app-config owner flag (follow-up after A-20), D-086-03
+original names, D-086-04 ceilings plus required duration, D-086-05 all five
+games, D-086-06 finished-chore count 0/3/10/25/50, D-086-07 branch-only until
+the 084 final review and the 080 family evidence window — one batched round
+plus one follow-up, recorded in the plan's §10.

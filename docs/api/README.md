@@ -1009,55 +1009,44 @@ persist new awards. Idempotent: a repeat call awards nothing new.
 
 ### Minigames
 
-House-scoped minigame reads and writes are membership gated. The global,
-read-only boost-price catalog requires authentication but no membership
-and performs no house/member writes. Game ids are whitelisted
-(`snake`); scores must satisfy `0 <= score <= 5000` (server cap) and saves
-are rate-limited to **100 per member and house-local day**
-(`429 MINIGAME_RATE_LIMITED`). Reads mint nothing: an unknown game id on a
-read answers an empty board, only writes validate the catalog.
+Scores-only since the CS-PLAN-070 WP3 cutover ([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)):
+no minigame route mints, spends or reads Coins, wallet values or contribution.
+Every route is house-scoped and membership gated (`403 FORBIDDEN` for
+non-members). Game ids are whitelisted on writes (`snake`); reads do not
+validate the id, so an unknown id answers an empty board. Scores must satisfy
+`0 <= score <= 100000` (`MinigameService::MAX_SCORE`), and saves are
+rate-limited to **100 per member and house-local day**
+(`429 MINIGAME_RATE_LIMITED`). Ordered reads break score ties by ascending id.
 
 #### POST /minigames/{gameId}/scores
-Save a finished game. The awarded coins are server-computed
-(`floor(score / 10)`), never client-supplied.
+Save a finished game.
 
-**Request:** `{ "score": 250, "boostsUsed": ["slow_motion"] }`
+**Request:** `{ "score": 250 }`
 
 **Response `data`:**
 ```json
-{ "score": 250, "gameId": "snake", "boostsUsed": ["slow_motion"], "coinsEarned": 25 }
+{ "id": 42, "score": 250, "gameId": "snake", "createdAt": "2026-10-16T18:04:11+00:00" }
 ```
-
-#### GET /minigames/coins
-**Response `data`:** `{ "currentCoins": 125 }`
+Failure envelopes: `400 VALIDATION_ERROR` (score out of bounds or unknown
+game, zero writes), `429 MINIGAME_RATE_LIMITED`, `500 SAVE_SCORE_ERROR`.
 
 #### GET /minigames/{gameId}/leaderboard?limit=10
-House-wide best scores, ordered by score, enriched with `displayName`.
+House-wide best scores, ordered by score, each
+`{ id, userId, displayName, score, createdAt }`.
 
 #### GET /minigames/{gameId}/leaderboard/weekly?limit=10
-Same shape, restricted to the current house-local medal week.
+Same shape, restricted to the current house-local week (Monday 00:00 → now).
 
 #### GET /minigames/{gameId}/personal-best
-**Response `data`:** `{ "score": 300 }`
+**Response `data`:** `{ "id": 42, "score": 300, "createdAt": "…" }`, or `null`
+before the first save.
 
 #### GET /minigames/{gameId}/rank
-**Response `data`:** `{ "rank": 2, "gameId": "snake" }`
+**Response `data`:** `{ "rank": 2, "gameId": "snake" }` (`0` = no score yet).
 
 #### GET /minigames/{gameId}/recent?limit=5
 The requesting member's own scores, ordered by score (shipped behavior) —
-never other members' rows.
-
-#### GET /minigames/boosts
-Authenticated global boost price catalog (`{ "magnet": 30, … }`), also readable
-by a non-member; `MinigameControllerIntegrationTest` pins that no-write contract.
-The UI disables
-purchases without it — there is no client-side price fallback (UX-013).
-
-#### POST /minigames/boosts/{boostId}/purchase
-Debits the exact catalog price atomically.
-**Response `data`:** `{ "success": true, "boostId": "magnet", "cost": 30, "remainingCoins": 70 }`
-Failure envelopes: `400 PURCHASE_BOOST_ERROR` (unknown boost or
-insufficient coins, zero writes).
+never other members' rows; each `{ id, score, createdAt }`.
 
 ### Scheduling
 
