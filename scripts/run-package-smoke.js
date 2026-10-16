@@ -113,9 +113,24 @@ function verifyExtractedHashes(extractDir, files) {
 // Evidence freshness/identity
 // ---------------------------------------------------------------------------
 
+/**
+ * Tolerance for filesystem timestamp granularity.
+ *
+ * Linux stamps mtime from a coarse kernel clock that can lag the fine-grained
+ * `Date.now()` the caller samples, so a report written microseconds after
+ * `sinceMs` can carry an mtime marginally *before* it and look stale. That
+ * false rejection broke the first real CI run of this suite (CS-PLAN-085).
+ * The guard exists to reject a *previous* run's report — those are minutes
+ * old and land in a different run directory — so absorbing a couple of
+ * seconds of clock skew keeps the intent intact.
+ */
+const REPORT_MTIME_TOLERANCE_MS = 2000
+
 function assertReportFresh(reportFile, { project, action, cases }, sinceMs) {
 	if (!fs.existsSync(reportFile)) throw new Error(`Missing owner-smoke report: ${reportFile}`)
-	if (fs.statSync(reportFile).mtimeMs < sinceMs) throw new Error(`Stale owner-smoke report (predates this run): ${reportFile}`)
+	if (fs.statSync(reportFile).mtimeMs < sinceMs - REPORT_MTIME_TOLERANCE_MS) {
+		throw new Error(`Stale owner-smoke report (predates this run): ${reportFile}`)
+	}
 	const report = JSON.parse(fs.readFileSync(reportFile, 'utf8'))
 	if (report.project !== project || report.action !== action) throw new Error('Owner-smoke report belongs to a different run or action')
 	if (!Array.isArray(report.results) || report.results.length !== cases) {

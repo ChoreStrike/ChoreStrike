@@ -147,6 +147,28 @@ describe('run-package-smoke evidence freshness', () => {
 			fs.rmSync(dir, { recursive: true, force: true })
 		}
 	})
+
+	// Regression (CS-PLAN-085): Linux stamps mtime from a coarse kernel clock
+	// that can lag the caller's Date.now(), so a report written immediately
+	// after sinceMs was sampled could carry an earlier mtime and be rejected as
+	// stale. That broke the first real CI run. A report marginally older than
+	// sinceMs must pass; one older than the tolerance must still be rejected.
+	it('tolerates filesystem timestamp granularity but still rejects a previous run', () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-pkg-mtime-'))
+		try {
+			const report = path.join(dir, 'setup.json')
+			const identity = { project: 'cs082-pkg-demo', action: 'setup', cases: 1 }
+			fs.writeFileSync(report, JSON.stringify({ project: 'cs082-pkg-demo', action: 'setup', results: [{}] }))
+			const mtimeMs = fs.statSync(report).mtimeMs
+
+			// Sampled "just before" the write, as the orchestrator does.
+			expect(assertReportFresh(report, identity, mtimeMs + 500)).toBeTruthy()
+			// Clearly from an earlier run.
+			expect(() => assertReportFresh(report, identity, mtimeMs + 60000)).toThrow(/Stale/)
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true })
+		}
+	})
 })
 
 describe('run-package-smoke orchestration negatives', () => {

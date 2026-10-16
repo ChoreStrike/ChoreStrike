@@ -624,7 +624,7 @@ approved source publication; the mailbox must be monitored, not commit-only
 ---
 
 ### [P3] TECH-REPO-001 — Codeberg-to-GitHub migration
-**Status**: In Progress (approved 2026-10-16; owned by CS-PLAN-085, blocked on WP0 operator prerequisites) · **Effort**: M · **Layer**: tooling+docs · **Journey stage**: repository hosting
+**Status**: In Progress (owned by CS-PLAN-085; history rewritten and pushed to `ChoreStrike/ChoreStrike` 2026-10-16, operator repository settings and Codeberg deletion open) · **Effort**: M · **Layer**: tooling+docs · **Journey stage**: repository hosting
 **Owning**: CS-PLAN-085 · **Depends on**: — · **Blocks**: — · **Folded-in**: contributor-identity consolidation and public-baseline polish (operator request 2026-10-16)
 **Source**: user request 2026-10-04; future contact setup related to BUG-SEC-001
 
@@ -638,8 +638,11 @@ are repointed.
 
 - [x] Decide the target repository/account and migration scope with the operator (D-085-01..08).
 - [x] Inventory Git history/tags, issues, release assets, remotes, documentation links and Forgejo CI/release workflows; scope GitHub equivalents and private credential handling before implementation (CS-PLAN-085 §1, Standard A 2026-10-16).
-- [ ] Execute the plan: source scrub, history rewrite, verification, polish, CI port.
-- [ ] After the verified push, confirm the transferred scope and the canonical links/workflows; coordinate the actual reporting mailbox with BUG-SEC-001.
+- [x] Execute the plan: source scrub, history rewrite, verification, polish, CI port (2026-10-16; 565 commits on one identity, identical `HEAD` tree hash, orphan root retired, commit map committed).
+- [x] Push and verify the transferred scope and the canonical links/workflows (2026-10-16; `master` default, API confirms one identity across all 566 commits).
+- [ ] Operator repository settings: enable private vulnerability reporting (SECURITY.md already names it), branch protection on `master`, description/topics/avatar, optional organization profile.
+- [ ] Delete the Codeberg repository after the settings are in place (operator-only; the 7-Zip archive is the fallback).
+- [ ] Coordinate the actual reporting mailbox with BUG-SEC-001 (unchanged by the migration).
 
 ---
 

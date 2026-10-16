@@ -485,9 +485,25 @@ deletion.
    returns exactly the new address); the Actions run on the pushed tree is
    green; the community-profile checklist shows
    README/LICENSE/CONTRIBUTING/CODE_OF_CONDUCT/SECURITY/templates detected.
-4. Set the branch protection the operator wants (at minimum: no force-push to
-   `master` after this migration).
-5. **Only after that verification passes:** the operator deletes the Codeberg
+4. **[DONE 2026-10-16]** Steps 1-3 executed: remote added, `master` pushed
+   (no tags exist to push), default branch confirmed `master` with no `main`
+   created, and the API confirms a single identity across all 566 commits with
+   the original dates preserved. Evidence in §10.
+5. **Operator-owned repository settings** (none of these can be done from the
+   working tree):
+   - Enable **private vulnerability reporting** (*Settings → Code security*).
+     `docs/SECURITY.md` now names it as the preferred channel, so leaving it
+     off would advertise a route that does not work.
+   - Branch protection for `master`, at minimum no force-push, now that the
+     one intended rewrite is published.
+   - Repository description and topics (`nextcloud`, `nextcloud-app`, `vue`,
+     `php`, `household`, `gamification`), and the organization avatar from
+     `img/app.svg` per [`design.md`](../../standards/guidelines/design.md) §4.
+   - Optionally the organization profile README in a `ChoreStrike/.github`
+     repository.
+   - Decide what to do with the Dependabot pull requests the initial run
+     opens (the config is monthly and grouped from here on).
+6. **Only after the verification above:** the operator deletes the Codeberg
    repository. The 7-Zip backup remains the fallback; the deletion is
    irreversible and is the operator's action, not the agent's.
 
@@ -652,6 +668,22 @@ Implementation round (2026-10-16), found while executing WP3-WP6:
       references in `architecture.md` and `testing.md` (including one broken
       markdown link) and two now-false trigger statements were corrected in the
       same pass.
+- [x] **A-13** (Medium · WP7-3) The first real CI run went **red** on Jest,
+      while the same suite passes locally. Reproduced in a Linux container
+      (`node:20.19.0`, fresh `npm ci`): `runPackageSmoke.spec.js` fails with
+      *"Stale owner-smoke report (predates this run)"*. Root cause is
+      pre-existing and unrelated to the migration — Linux stamps mtime from a
+      coarse kernel clock that can lag the fine-grained `Date.now()` the
+      orchestrator samples, so a report written microseconds later carries an
+      mtime marginally *before* `sinceMs` and is rejected as stale. It had
+      never surfaced because local runs are Windows and the previous forge CI
+      never actually executed. → `assertReportFresh` now allows a 2-second
+      filesystem-granularity tolerance, which still rejects a previous run's
+      report (those are minutes old and land in a different run directory),
+      plus a regression test for both sides of the boundary. Ruled out first,
+      by experiment rather than assumption: the `--ci` flag, a missing
+      `js/` build (the workflow runs Jest before the build), UTC vs. local
+      timezone, tracked symlinks and case collisions.
 - [x] **A-12** (Low · WP3-3) WP3-3 asserted the repository would contain
       exactly one identity when the mailmap is generated. By then the plan's
       own commits already carried the target identity, so the assertion would
@@ -685,8 +717,11 @@ Filled in during implementation; empty entries are open.
 | Reachable-object audit (what a push transmits) | 14,957 objects: **0** hits for the retired username, forge addresses, forge URLs with a user path, the early contributor domain and the personal local part |
 | Post-rewrite gates | Jest 124 suites / **1791** tests; ESLint; backend unit **1385**, integration **613** on the canonical row; backlog, docs-encoding, l10n (1288) and agent-adapter checks green |
 | Local unreachable leftovers | 10 pre-rewrite objects (6 blobs + 4 trees) kept alive by a **Kilo agent worktree** whose stale index pins them (`ordinary-perfume`, detached, no original work — its index holds exactly those blobs). Never pushed; see §12 |
-| First GitHub push (commit, date) | *(pending — WP7)* |
-| Codeberg deletion confirmed by operator | *(pending — WP7-5, operator-only)* |
+| First GitHub push (commit, date) | **`14b01542df63261ddd60365590b7383b99ceda4e`, 2026-10-16** to `ChoreStrike/ChoreStrike`. Remote was verified empty beforehand (`git ls-remote` returned no refs), so no force was needed; `master...origin/master` is `0 0` |
+| Remote verification (WP7-3) | Default branch **`master`**, no `main` created, repository public. GitHub API over all 566 commits: author and committer email `220411049+volker-ma@users.noreply.github.com`, name `volker-ma`, linked login `volker-ma`, oldest author date 2026-02-24 — no other identity on the remote |
+| CI trigger | The push started the `checks` workflow (`event=push`); Dependabot's initial npm and composer runs started from `dependabot.yml` |
+| Codeberg deletion confirmed by operator | *(pending — WP7-6, operator-only)* |
+| Operator repository settings | *(pending — WP7-5: private vulnerability reporting, branch protection, description/topics/avatar, optional org profile)* |
 
 ## 11. Operator Decisions
 
