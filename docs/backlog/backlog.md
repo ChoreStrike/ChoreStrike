@@ -623,19 +623,23 @@ approved source publication; the mailbox must be monitored, not commit-only
 
 ---
 
-### [P3] TECH-REPO-001 — Evaluate Codeberg-to-GitHub migration
-**Status**: Backlog (candidate move, not yet approved) · **Effort**: M · **Layer**: tooling+docs · **Journey stage**: repository hosting
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+### [P3] TECH-REPO-001 — Codeberg-to-GitHub migration
+**Status**: In Progress (approved 2026-10-16; owned by CS-PLAN-085, blocked on WP0 operator prerequisites) · **Effort**: M · **Layer**: tooling+docs · **Journey stage**: repository hosting
+**Owning**: CS-PLAN-085 · **Depends on**: — · **Blocks**: — · **Folded-in**: contributor-identity consolidation and public-baseline polish (operator request 2026-10-16)
 **Source**: user request 2026-10-04; future contact setup related to BUG-SEC-001
 
-The possible Codeberg-to-GitHub move is a separate effort, not a CS-PLAN-081
-prerequisite or authorization to transfer anything. The project mailbox is
-now documented independently under BUG-SEC-001; it does not depend on a
-GitHub account selection or migration.
+The move is approved and scoped by
+[CS-PLAN-085](../plans/active/cs-plan-085-github-migration-and-identity-rewrite.md):
+GitHub organization `ChoreStrike`, a single contributor identity across the
+rewritten history, and a presentable public baseline. It remains independent of
+CS-PLAN-081 and is not authorization to transfer anything beyond that plan's
+scope. The project mailbox stays documented under BUG-SEC-001; only its links
+are repointed.
 
-- [ ] Decide the target repository/account and migration scope with the operator.
-- [ ] Inventory Git history/tags, issues, release assets, remotes, documentation links and Forgejo CI/release workflows; scope GitHub equivalents and private credential handling before implementation.
-- [ ] After explicit migration approval, verify the transferred scope and update canonical links/workflows; coordinate the actual reporting mailbox with BUG-SEC-001.
+- [x] Decide the target repository/account and migration scope with the operator (D-085-01..08).
+- [x] Inventory Git history/tags, issues, release assets, remotes, documentation links and Forgejo CI/release workflows; scope GitHub equivalents and private credential handling before implementation (CS-PLAN-085 §1, Standard A 2026-10-16).
+- [ ] Execute the plan: source scrub, history rewrite, verification, polish, CI port.
+- [ ] After the verified push, confirm the transferred scope and the canonical links/workflows; coordinate the actual reporting mailbox with BUG-SEC-001.
 
 ---
 
