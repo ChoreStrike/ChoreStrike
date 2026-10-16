@@ -44,7 +44,7 @@ The primary visual style for the project's branding (Logo, Repo Avatar) is **Mod
 
 ### Required Asset Sizes:
 - **App Logo (for SVG tracing):** 512x512px or 1024x1024px (1:1 Aspect Ratio) -> will be scaled down/vectorized to 64x64px later.
-- **Codeberg Repo Avatar:** 256x256px or 512x512px (1:1 Aspect Ratio).
+- **Repository / organization avatar (GitHub):** 256x256px or 512x512px (1:1 Aspect Ratio).
 - **README Header / Banner:** 1200x400px (3:1 Aspect Ratio).
 
 ### Primary Style: "Modern Isometric 3D" (Clean & Gamified)

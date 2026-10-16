@@ -148,6 +148,10 @@ passwords, tokens or real household data in messages or attachments.
 
 ChoreStrike is an open source project (MIT) and welcomes contributions —
 code, design, translations and ideas. See [CONTRIBUTING.md](docs/CONTRIBUTING.md).
+The repository lives at
+[github.com/ChoreStrike/ChoreStrike](https://github.com/ChoreStrike/ChoreStrike);
+non-sensitive bugs and feature requests belong in its
+[issue tracker](https://github.com/ChoreStrike/ChoreStrike/issues).
 
 ## Documentation
 

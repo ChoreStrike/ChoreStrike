@@ -759,7 +759,7 @@ reproduction recipe and full CI detail.
 
 ## Getting Help
 
-- Open an issue on the [Codeberg tracker](https://github.com/ChoreStrike/ChoreStrike/issues)
+- Open an issue on the [GitHub issue tracker](https://github.com/ChoreStrike/ChoreStrike/issues)
 - Check existing documentation
 - Ask in Nextcloud developer forums
 

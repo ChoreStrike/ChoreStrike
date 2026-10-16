@@ -8,15 +8,17 @@ fixes.
 
 ## Reporting a Vulnerability
 
-**Do not open a public issue for security vulnerabilities.** Use the private
-reporting channel below instead.
+**Do not open a public issue for security vulnerabilities.** Use one of the
+private reporting channels below instead.
 
-Please report privately to
-[chorestrike@gallero.de](mailto:chorestrike@gallero.de).
-
-Ordinary email is accepted, but is not end-to-end encrypted.
-If your report requires sharing highly sensitive information,
-contact us first without including those details.
+1. **GitHub private vulnerability reporting** (preferred): on the
+   [repository](https://github.com/ChoreStrike/ChoreStrike) open
+   *Security → Report a vulnerability*. The report stays private between you
+   and the maintainer, and keeps the discussion with the code.
+2. **Email:** [chorestrike@gallero.de](mailto:chorestrike@gallero.de).
+   Ordinary email is accepted, but is not end-to-end encrypted. If your report
+   requires sharing highly sensitive information, contact us first without
+   including those details.
 
 Please include:
 
