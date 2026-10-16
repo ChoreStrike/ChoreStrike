@@ -225,7 +225,6 @@ class MedalServiceTest extends TestCase {
 				\OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION
 			));
 
-
 		// CS-PLAN-052: the expected race-loser swallow must be observable —
 		// a warning with stable event + service context keys.
 		$this->appLogger->expects($this->once())
