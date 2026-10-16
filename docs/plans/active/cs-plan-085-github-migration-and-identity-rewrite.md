@@ -1,6 +1,6 @@
 # CS-PLAN-085: GitHub Migration, Identity Rewrite and Public Baseline Polish
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-10-16; implementation not started — blocked on WP0 operator prerequisites)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-10-16). WP0-1 backup and WP0-2 organization/repository confirmed 2026-10-16 (§10); remaining prerequisite is WP0-4, a clean working tree. No ref change or rewrite performed yet.
 > **Effort:** M
 > **Priority:** P2
 > **Depends on:** operator 7-Zip backup (WP0-1), GitHub organization `ChoreStrike` (WP0-2), clean working tree (WP0-4)
@@ -282,14 +282,19 @@ deletion.
 
 ### WP0 — Operator prerequisites (operator-owned, blocking)
 
-1. **7-Zip backup of the complete local repository, including `.git`**, made by
-   the operator. Nothing in WP1+ starts before the operator confirms it. Record
-   the archive file name, date and byte size in §10 so the fallback is
-   identifiable. This backup is the **only** rollback path for the history
-   rewrite, and the only remaining copy of the deleted orphan root.
-2. Create the GitHub organization `ChoreStrike` and inside it an **empty**
-   public repository `ChoreStrike` — no auto-generated README, LICENSE or
-   `.gitignore`, which would create a conflicting root commit.
+1. **[DONE 2026-10-16]** **7-Zip backup of the complete local repository,
+   including `.git`**, made by the operator. Nothing in WP1+ starts before the
+   operator confirms it. Record the archive file name, date and byte size in
+   §10 so the fallback is identifiable, and verify the archive really contains
+   `.git` — the project folder is Nextcloud-synced and the repository history
+   includes a `.git/` sync-exclusion change, so a working-tree-only archive
+   would be a silent loss of the rollback path. This backup is the **only**
+   rollback path for the history rewrite, and the only remaining copy of the
+   deleted orphan root.
+2. **[DONE 2026-10-16]** Create the GitHub organization `ChoreStrike` and
+   inside it an **empty** public repository `ChoreStrike` — no auto-generated
+   README, LICENSE or `.gitignore`, which would create a conflicting root
+   commit. WP7-1 re-checks emptiness before the first push.
 3. Confirm the organization's public contact and whether
    `chorestrike@gallero.de` stays the published address (BUG-SEC-001).
 4. **Clean working tree:** the CS-PLAN-084 round-11 bookkeeping edits in
@@ -618,7 +623,10 @@ Filled in during implementation; empty entries are open.
 
 | Item | Value |
 |---|---|
-| Operator 7-Zip backup (file, date, size) | *(pending — WP0-1)* |
+| Operator 7-Zip backup (file, date, size) | **Confirmed 2026-10-16** — `ChoreStrike 26-10-16.7z` in the operator's local archive folder, 6,972,369,946 bytes, written 2026-10-16 17:48 |
+| Backup contains `.git` (rollback path real) | **Verified 2026-10-16** — archive listing shows 4,845 entries under `ChoreStrike\.git\`, including `logs/refs/` and the remote refs. The backup is therefore a complete history archive, not a working-tree-only copy |
+| GitHub organization + empty repository (WP0-2) | **Confirmed by the operator 2026-10-16** |
+| Identity re-verification before any rewrite | **2026-10-16** — the early contributor domain token has 0 hits in the object database, the tracked tree, all commit messages and identities, git config at every scope, and untracked/ignored files including `private/` |
 | `$BASE` (`git rev-list master --count` at WP1-1) | *(pending; 560 at review time)* |
 | HEAD before rewrite | *(pending)* |
 | `git filter-repo --version` | *(pending)* |
