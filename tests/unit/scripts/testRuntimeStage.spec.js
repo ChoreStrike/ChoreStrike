@@ -53,7 +53,7 @@ describe('isolated frozen runtime staging', () => {
 		expect(value.environment.WP9_PGDATA).toBe('/var/lib/postgresql/18/docker')
 		expect(value.environment.WP9_PGSQL_VOLUME_TARGET).toBe('/var/lib/postgresql')
 		expect(JSON.parse(value.input).services['nextcloud-pgsql']).toMatchObject({
-			ports: ['127.0.0.1:8182:80'], environment: { TEST_RUNTIME_INTERNAL_VERSION: '35.0.1.1', TEST_RUNTIME_PHP_VERSION: '8.4.26' },
+			ports: ['127.0.0.1:8182:80'], environment: { TEST_RUNTIME_INTERNAL_VERSION: '35.0.2.2', TEST_RUNTIME_PHP_VERSION: '8.4.26' },
 		})
 		expect(composeArguments(value, ['up'])).toEqual(expect.arrayContaining(['cs082-unit-pgsql', 'docker/compose.test-matrix.yml', '-', 'pgsql']))
 	})
@@ -96,7 +96,7 @@ describe('installed runtime and provider identity', () => {
 		const options = settings(provider)
 		const fixture = installationFixture(options)
 		expect(verifyInstallation(inventory, options, fixture.run, fixture.preflight)).toMatchObject({
-			status: 'installed-runtime-provider-match', qualification: inventory.status, nextcloud: '35.0.1', provider: provider === 'sqlite' ? 'sqlite3' : provider,
+			status: 'installed-runtime-provider-match', qualification: inventory.status, nextcloud: '35.0.2', provider: provider === 'sqlite' ? 'sqlite3' : provider,
 		})
 		expect(fixture.preflight).toHaveBeenCalledWith(options.url, { NEXTCLOUD_URL: options.url, NEXTCLOUD_CONTAINER: options.container })
 		expect(fixture.run.mock.calls.every(([, args]) => ['inspect', 'image', 'exec'].includes(args[0]))).toBe(true)
@@ -225,7 +225,7 @@ describe('owned-volume preservation recreation', () => {
 	const sourceImageId = `sha256:${'4'.repeat(64)}`
 	const previous = selectRuntimeSource(readInventory(), 'primary', 'previous')
 
-	function preservationSettings(preservation = { mode: true, upgradeFrom: '35.0.0.10' }) {
+	function preservationSettings(preservation = { mode: true, upgradeFrom: '35.0.1.1' }) {
 		const options = stageSettings(inventory, 'cs082-unit-pgsql', 'pgsql', targetImageId, 8182, preservation)
 		options.sourceImageId = sourceImageId
 		return options
@@ -271,7 +271,7 @@ describe('owned-volume preservation recreation', () => {
 		expect(invoke.mock.calls.every(([, args]) => args.includes('--project-name') && args.includes('cs082-unit-pgsql'))).toBe(true)
 		const override = JSON.parse(options.input)
 		expect(override.services['nextcloud-pgsql'].environment).toMatchObject({
-			TEST_RUNTIME_PRESERVATION: 'true', TEST_RUNTIME_UPGRADE_FROM: '35.0.0.10', TEST_RUNTIME_INTERNAL_VERSION: '35.0.1.1',
+			TEST_RUNTIME_PRESERVATION: 'true', TEST_RUNTIME_UPGRADE_FROM: '35.0.1.1', TEST_RUNTIME_INTERNAL_VERSION: '35.0.2.2',
 		})
 	})
 	it('omits the update source for a same-build recreation', () => {
@@ -322,8 +322,8 @@ describe('owned-volume preservation recreation', () => {
 	it('verifies the previous-patch source selection with its own identity hash', () => {
 		const previous = selectRuntimeSource(readInventory(), 'primary', 'previous')
 		const previousSettings = stageSettings(previous, 'cs082-unit-pgsql', 'pgsql', sourceImageId, 8182)
-		expect(JSON.parse(previousSettings.input).services['nextcloud-pgsql'].environment.TEST_RUNTIME_INTERNAL_VERSION).toBe('35.0.0.10')
+		expect(JSON.parse(previousSettings.input).services['nextcloud-pgsql'].environment.TEST_RUNTIME_INTERNAL_VERSION).toBe('35.0.1.1')
 		expect(selectionHash(previous)).not.toBe(inventoryHash(inventory))
-		expect(previous.nextcloud.version).toBe('35.0.0')
+		expect(previous.nextcloud.version).toBe('35.0.1')
 	})
 })

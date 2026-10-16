@@ -282,7 +282,8 @@ enforced since CS-PLAN-083), and promote the inventory ([CS-PLAN-084](../plans/a
 (round 1); AIO v14.3.0 (PHP 8.4.26, Redis 8.10.2) promoted (round 9); inventory
 `qualified` with all four images rebuilt and both rows regated (round 10); drift
 discovery now takes the highest stable release instead of `releases/latest`.
-Open: upstream NC 35.0.2 (released 2026-10-15).
+NC 35.0.2 promoted on the primary row (round 11); drift check `current`.
+Open: final CS-PLAN-084 review.
 
 ---
 
@@ -338,7 +339,7 @@ full gate remains failed; documentation and backend checks do not replace it.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel
@@ -377,6 +378,26 @@ failed` (calm-core-ui, round 4) and one seed-fixture target preflight failure
 passes isolated (9/9). WP-C (round 6, serial pool alone) adds one seed POST
 `fetch failed` / `SocketError: other side closed` (room-management rename,
 before any assertion); room-management passes isolated (10/10).
+
+**Attribution evidence (CS-PLAN-084 rounds 8–11, 2026-10-14/15, full sequential
+gates):** `run-fVpMiR` 3, `run-02sTE9` 8 and `run-Tiu5Sv` 2 seed POST
+`fetch failed` closures (all `DatabaseManager.seed`, Node fetch from the
+fixture), against six complete gates on both rows with none. Correlated with
+the canonical container's Apache access log, the failed seed POSTs **never
+reached Apache** (every one of 328 logged seed POSTs in the window answered
+200; no restart, OOM, fatal or Apache error). The terminating layer is
+therefore before Apache — the client's pooled connection or the Docker Desktop
+loopback port proxy — not the app or Nextcloud. The two failing runs were the
+latest in a long local session; the same session also produced load-timing
+assertion failures (5 s expectations) that pass isolated. The next AIO-row gate
+`run-jbuGNm` (NC 34.0.4, other container and port) failed once with a
+Playwright `apiRequestContext` GET `socket hang up` — a different client — and
+that GET is likewise absent from its Apache access log. The shared layer of
+both rows and both clients is the Docker Desktop loopback port forwarding /
+host networking of the long-running session. After an operator-approved Docker
+Desktop restart (no other change) both full gates passed cleanly (`run-L6HInO`
+canonical, `run-Vq2pkA` AIO) — consistent with, not proof of, a degraded
+long-running port forwarder.
 
 **Deferral reason / scope:** attribution needs separate test-runtime/transport
 instrumentation and load comparison; it is not an outstanding bootstrap or

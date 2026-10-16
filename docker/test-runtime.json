@@ -4,33 +4,33 @@
   "verifiedAt": "2026-10-15",
   "platform": "linux/amd64",
   "nextcloud": {
+    "version": "35.0.2",
+    "internalVersion": "35.0.2.2",
+    "ref": "v35.0.2",
+    "revision": "ba900af933e61ffa005315b09d6454bfbbcbcc81"
+  },
+  "previous": {
     "version": "35.0.1",
     "internalVersion": "35.0.1.1",
     "ref": "v35.0.1",
     "revision": "3c012e618ab46ac73c61a96f5bb7168a693ca1fb"
   },
-  "previous": {
-    "version": "35.0.0",
-    "internalVersion": "35.0.0.10",
-    "ref": "v35.0.0",
-    "revision": "da02f41d1cc73607084cd675ee1d849fc8cd2de1"
-  },
   "notifications": {
-    "ref": "v35.0.1",
-    "revision": "0389f40a52d07663efa09de8750a2e26cb528144"
+    "ref": "v35.0.2",
+    "revision": "6490bd9c2d9f19e4f26f42eb8c50a745b6c01a24"
   },
   "viewer": {
-    "ref": "v35.0.1",
+    "ref": "v35.0.2",
     "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
   },
   "patches": {
     "previousNotifications": {
-      "ref": "v35.0.0",
-      "revision": "fe532372b98ed013321f95bc0095f19660191d09"
+      "ref": "v35.0.1",
+      "revision": "0389f40a52d07663efa09de8750a2e26cb528144"
     },
     "previousViewer": {
-      "ref": "v35.0.0",
-      "revision": "cd26e86ac4123b5fcb90e523d257992f25ddf587"
+      "ref": "v35.0.1",
+      "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
     }
   },
   "php": {

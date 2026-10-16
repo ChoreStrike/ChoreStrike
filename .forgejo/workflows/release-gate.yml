@@ -122,17 +122,17 @@ jobs:
       # the inventory supplies every build argument; promotion updates the
       # pinned image name below together with the inventory.
       - name: Build frozen runtime image
-        run: node scripts/test-runtime.js build cs082-runtime-35.0.1-local
+        run: node scripts/test-runtime.js build cs082-runtime-35.0.2-local
 
       - name: Verify frozen runtime image identity
-        run: node scripts/test-runtime.js verify-image cs082-runtime-35.0.1-local
+        run: node scripts/test-runtime.js verify-image cs082-runtime-35.0.2-local
 
       - name: Install composer dependencies (cached)
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
             -w /var/www/html/custom_apps/chorestrike \
-            cs082-runtime-35.0.1-local \
+            cs082-runtime-35.0.2-local \
             composer install --no-interaction --prefer-dist
 
       - name: Run PHPUnit unit (blocking)
@@ -141,7 +141,7 @@ jobs:
             -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
             -e NEXTCLOUD_TEST_ENV=true \
             -w /var/www/html/custom_apps/chorestrike \
-            cs082-runtime-35.0.1-local \
+            cs082-runtime-35.0.2-local \
             vendor/bin/phpunit --configuration phpunit.unit.xml
 
   # ---------- Backend integration tests (Docker) ----------
@@ -153,7 +153,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Bring up canonical test env (NC 35.0.1 / PHP 8.4 / PostgreSQL 18.6, frozen inventory build)
+      - name: Bring up canonical test env (NC 35.0.2 / PHP 8.4 / PostgreSQL 18.6, frozen inventory build)
         run: TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
 
       - name: Run PHPUnit integration (blocking)
@@ -204,7 +204,7 @@ jobs:
       - name: Install Playwright browsers (chromium, webkit for mobile-webkit)
         run: npx playwright install --with-deps chromium webkit
 
-      - name: Bring up Docker test env (NC 35.0.1 / PHP 8.4 / PostgreSQL 18.6 + app + family seed)
+      - name: Bring up Docker test env (NC 35.0.2 / PHP 8.4 / PostgreSQL 18.6 + app + family seed)
         run: |
           TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
           npm run test:runtime:canonical

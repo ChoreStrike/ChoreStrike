@@ -108,7 +108,7 @@ describe('frozen runtime inventory', () => {
 		const value = copy()
 		const primary = selectRuntime(value)
 		const aio = selectRuntime(value, 'aio')
-		expect(primary.nextcloud.version).toBe('35.0.1')
+		expect(primary.nextcloud.version).toBe('35.0.2')
 		expect(aio.nextcloud.version).toBe('34.0.4')
 		expect(aio.previous.version).toBe('34.0.3')
 		expect(inventoryHash(aio)).toBe('84b3d7c2f9d1823c4bb900d313751c1a0af63894b99ace94d23cd280661ee5d2')
@@ -118,9 +118,9 @@ describe('frozen runtime inventory', () => {
 		expect(() => selectRuntime(primary, 'aio')).toThrow('missing compatibility row')
 	})
 	it.each([
-		['forged previous notifications ref', value => { value.patches.previousNotifications.ref = 'v35.0.1' }],
+		['forged previous notifications ref', value => { value.patches.previousNotifications.ref = 'v35.0.2' }],
 		['forged previous notifications revision', value => { value.patches.previousNotifications.revision = 'HEAD' }],
-		['forged previous viewer pin', value => { value.patches.previousViewer.ref = 'v35.0.1' }],
+		['forged previous viewer pin', value => { value.patches.previousViewer.ref = 'v35.0.2' }],
 		['unknown patches key', value => { value.patches.future = {} }],
 		['missing previous viewer pin', value => { delete value.patches.previousViewer }],
 		['AIO previous notifications pin', value => { value.compatibility.aio.patches.previousNotifications.ref = 'v34.0.4' }],
@@ -168,14 +168,14 @@ describe('pinned update-source (previous patch) selection', () => {
 		const currentAio = selectRuntimeSource(value, 'aio', 'current')
 		const previousPrimary = selectRuntimeSource(value, 'primary', 'previous')
 		const previousAio = selectRuntimeSource(value, 'aio', 'previous')
-		expect(previousPrimary.nextcloud.version).toBe('35.0.0')
-		expect(previousPrimary.previous.version).toBe('35.0.0')
-		expect(previousPrimary.notifications).toEqual({ ref: 'v35.0.0', revision: 'fe532372b98ed013321f95bc0095f19660191d09' })
-		expect(previousPrimary.viewer).toEqual({ ref: 'v35.0.0', revision: 'cd26e86ac4123b5fcb90e523d257992f25ddf587' })
+		expect(previousPrimary.nextcloud.version).toBe('35.0.1')
+		expect(previousPrimary.previous.version).toBe('35.0.1')
+		expect(previousPrimary.notifications).toEqual({ ref: 'v35.0.1', revision: '0389f40a52d07663efa09de8750a2e26cb528144' })
+		expect(previousPrimary.viewer).toEqual({ ref: 'v35.0.1', revision: '3509a539e695f21fd872434cbd3ee84d4bc2b605' })
 		expect(previousAio.nextcloud.version).toBe('34.0.3')
 		expect(previousAio.notifications.ref).toBe('v34.0.3')
 		expect(previousAio.viewer).toEqual({ ref: 'v34.0.3', revision: '1556dd3a53cc280a28eb082d1cca15b6eb8f3c96' })
-		expect(selectionHash(currentPrimary)).toBe('b5d9c0748bf16d773cfcef24f26729f2ef0106b2bd1ea1aec9f477b58fc764c6')
+		expect(selectionHash(currentPrimary)).toBe('60d56d39c50749bb84afac0d5cf3813d62d31c1cf4a01adf26b6741ebc73a8de')
 		expect(selectionHash(currentAio)).toBe('84b3d7c2f9d1823c4bb900d313751c1a0af63894b99ace94d23cd280661ee5d2')
 		expect(selectionHash(previousPrimary)).not.toBe(selectionHash(currentPrimary))
 		expect(selectionHash(previousAio)).not.toBe(selectionHash(currentAio))
@@ -193,11 +193,11 @@ describe('pinned update-source (previous patch) selection', () => {
 	})
 	it('builds the pinned previous-patch source image with its own label hash', () => {
 		const previous = selectRuntimeSource(copy(), 'primary', 'previous')
-		const args = buildArguments(previous, 'cs082-runtime-35.0.0-local')
+		const args = buildArguments(previous, 'cs082-runtime-35.0.1-local')
 		expect(args).toEqual(expect.arrayContaining([
-			`NEXTCLOUD_REF=v35.0.0`, `NEXTCLOUD_REVISION=${frozen.previous.revision}`,
-			`NOTIFICATIONS_REF=v35.0.0`, `NOTIFICATIONS_REVISION=${previous.notifications.revision}`,
-			`VIEWER_REF=v35.0.0`, `VIEWER_REVISION=${previous.viewer.revision}`,
+			`NEXTCLOUD_REF=v35.0.1`, `NEXTCLOUD_REVISION=${frozen.previous.revision}`,
+			`NOTIFICATIONS_REF=v35.0.1`, `NOTIFICATIONS_REVISION=${previous.notifications.revision}`,
+			`VIEWER_REF=v35.0.1`, `VIEWER_REVISION=${previous.viewer.revision}`,
 		]))
 		expect(args.join(' ')).toContain(`RUNTIME_INVENTORY_SHA256=${selectionHash(previous)}`)
 		expect(args.join(' ')).not.toContain(frozen.nextcloud.revision)
@@ -215,14 +215,14 @@ describe('pinned update-source (previous patch) selection', () => {
 			if (args.at(-1).includes('notifications-ready')) return 'notifications-ready'
 			return JSON.stringify(actual)
 		})
-		expect(verifyImage(previous, 'cs082-runtime-35.0.0-local', run, 'primary', probeFixtures(), 'previous')).toMatchObject({
-			status: 'frozen-image-identity-match', nextcloud: '35.0.0',
+		expect(verifyImage(previous, 'cs082-runtime-35.0.1-local', run, 'primary', probeFixtures(), 'previous')).toMatchObject({
+			status: 'frozen-image-identity-match', nextcloud: '35.0.1',
 			upstreamLimitations: [`${previous.notifications.ref}-notifications-stale-root-lock`],
 		})
 		const mismatchedLabel = jest.fn((command, args) => args[0] === 'image'
 			? JSON.stringify([{ Id: `sha256:${'3'.repeat(64)}`, Os: 'linux', Architecture: 'amd64', Config: { Labels: { 'org.chorestrike.test-runtime.inventory': selectionHash(selectRuntime(copy())) } } }])
 			: run(command, args))
-		expect(() => verifyImage(previous, 'cs082-runtime-35.0.0-local', mismatchedLabel, 'primary', probeFixtures(), 'previous'))
+		expect(() => verifyImage(previous, 'cs082-runtime-35.0.1-local', mismatchedLabel, 'primary', probeFixtures(), 'previous'))
 			.toThrow('inventory/platform mismatch')
 	})
 })
@@ -241,9 +241,9 @@ describe('read-only stable discovery', () => {
 	it('reports newer upstream separately from the unchanged AIO bundle without rewriting the lock', async () => {
 		const value = copy()
 		const io = officialFixtures()
-		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases('35.0.2')
+		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases('35.0.3')
 			: url.includes('/releases') ? releases(frozen.aio.version) : aioDockerfile(url))
-		await expect(checkStable(value, io)).resolves.toMatchObject({ status: 'update-needed', upstream: '35.0.2', aioNextcloud: '34.0.4', drift: ['upstream-nextcloud'] })
+		await expect(checkStable(value, io)).resolves.toMatchObject({ status: 'update-needed', upstream: '35.0.3', aioNextcloud: '34.0.4', drift: ['upstream-nextcloud'] })
 		expect(value).toEqual(frozen)
 	})
 	it('reports a different AIO bundle even when its Nextcloud version stays unchanged', async () => {
@@ -461,6 +461,8 @@ describe('promoted canonical default stack (R7)', () => {
 		expect(compose).toContain('- TEST_DB_TYPE=pgsql')
 		expect(compose).toContain(`- TEST_RUNTIME_INTERNAL_VERSION=${frozen.nextcloud.internalVersion}`)
 		expect(compose).toContain(`- TEST_RUNTIME_PHP_VERSION=${frozen.php.version}`)
+		// Promotion upgrades the kept volumes; empty by default (entrypoint ignores it).
+		expect(compose).toContain('- TEST_RUNTIME_UPGRADE_FROM=${TEST_RUNTIME_UPGRADE_FROM:-}')
 		expect(compose).toContain('- DB_PORT=5432')
 	})
 
@@ -475,8 +477,8 @@ describe('promoted canonical default stack (R7)', () => {
 
 	it('propagates the frozen build into the CI gates that consume the inventory', () => {
 		const releaseGate = fs.readFileSync(path.join(root, '.forgejo/workflows/release-gate.yml'), 'utf8')
-		expect(releaseGate).toContain('node scripts/test-runtime.js build cs082-runtime-35.0.1-local')
-		expect(releaseGate).toContain('node scripts/test-runtime.js verify-image cs082-runtime-35.0.1-local')
+		expect(releaseGate).toContain('node scripts/test-runtime.js build cs082-runtime-35.0.2-local')
+		expect(releaseGate).toContain('node scripts/test-runtime.js verify-image cs082-runtime-35.0.2-local')
 		expect(releaseGate).toContain('docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900')
 		expect(releaseGate).toContain("php-version: '8.4'")
 		const test = fs.readFileSync(path.join(root, '.forgejo/workflows/test.yml'), 'utf8')

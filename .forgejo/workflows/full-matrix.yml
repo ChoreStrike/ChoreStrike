@@ -52,7 +52,7 @@ jobs:
       - name: Install Playwright browsers (chromium, firefox, webkit)
         run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Bring up Docker test env (NC 35.0.1 / PHP 8.4 / PostgreSQL 18.6 + app + family seed)
+      - name: Bring up Docker test env (NC 35.0.2 / PHP 8.4 / PostgreSQL 18.6 + app + family seed)
         run: |
           TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
           npm run test:runtime:canonical

@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows); round 9 committed after interim Standard B `PASS` (D-084-09 AIO v14.3.0 / PHP 8.4.26 / Redis 8.10.2 promotion, both rows requalified); round 10 committed after interim Standard B `PASS` (D-084-10 inventory `qualified`, release-discovery fix)
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows); round 9 committed after interim Standard B `PASS` (D-084-09 AIO v14.3.0 / PHP 8.4.26 / Redis 8.10.2 promotion, both rows requalified); round 10 committed after interim Standard B `PASS` (D-084-10 inventory `qualified`, release-discovery fix); round 11 committed after interim Standard B `PASS-WITH-FIXES` (D-084-11 NC 35.0.2, checklist duplicate fix)
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -118,6 +118,10 @@ noted). Frontend-heavy; backend touches are limited to tests and the runtime row
   every selection hash, all four images are rebuilt and both rows rerun backend,
   full browser and package gates under the qualified hash (CS-PLAN-082 tied the
   flip to a rebuild cycle; round 9 should have carried it).
+- **D-084-11 Upstream NC 35.0.2 (operator, 2026-10-15):** promote the primary
+  row to Nextcloud 35.0.2 now (previous patch 35.0.1), rebuild the primary
+  images and rerun the canonical gates and the package smoke; the AIO row
+  (still 34.0.4 in AIO v14.3.0) keeps its qualified hash.
 - **D-084-07 Completed filter:** kept; selecting it loads inactive (finished
   one-time or deactivated) tasks on demand with one additional house-wide read
   (`activeOnly=false`); the default view keeps the single active-only request.
@@ -268,6 +272,7 @@ modified: docker/test-runtime.json, docker compose/entrypoint for the AiO row, d
           docker/compose.test.yml, docker/README.md, README.md (round 9 runtime promotion),
           tests/unit/scripts/{testRuntime,testRuntimeStage}.spec.js, docs/engineering/development.md,
           scripts/test-runtime.js (round 10: highest stable release discovery),
+          .forgejo/workflows/full-matrix.yml, src/store/checklist.js + tests/unit/store/checklist.spec.js (round 11)
           docs/standards/ai/skills/docker-dev/SKILL.md
 modified: l10n/ (POT/EN/DE)
 modified: docs/standards/ai/rules/project-rules.md (+ npm run agents:sync output)
@@ -311,7 +316,7 @@ the same round.
 
 ## 8. Acceptance Criteria
 
-- [ ] Standards state the AiO-current rule; AiO row (exact AiO NC version, Redis, `custom_apps`) and current upstream row both pass backend + browser gates; inventory promoted
+- [x] Standards state the AiO-current rule; AiO row (exact AiO NC version, Redis, `custom_apps`) and current upstream row both pass backend + browser gates; inventory promoted
 - [ ] No color-contrast violations (axe) on My Day, Dashboard, Tasks, Room detail in light and dark Nextcloud themes; dark tokens follow the Nextcloud theme, not the OS
 - [ ] Every dashboard overview tile navigates to its filtered destination; room cards keyboard-operable; quick-clean ≥ 44 px with label
 - [x] All-tasks list paged (20), filters collapsible, "Completed" filter loads finished tasks on demand (default view stays one request)
@@ -830,6 +835,49 @@ the same round.
 - **Real upstream drift:** Nextcloud **35.0.2** (2026-10-15) — the primary row
   is 35.0.1; AIO v14.3.0 still ships 34.0.4, so the AIO row stays current.
 
+### Round 11 — D-084-11 Nextcloud 35.0.2 + checklist duplicate fix (2026-10-15/16)
+
+- **Package (round 10 HEAD):** `test:package:smoke` on `f254530` →
+  `package-qualified` (run `mv9sdj70`, archive prefix `85a3cf4d345c4072`),
+  `primary@35.0.1` and `aio@34.0.4`, setup 1/1 + verify 6/6 each.
+- **Primary row → NC 35.0.2:** inventory `nextcloud` 35.0.2 (internal
+  35.0.2.2, `ba900af9…`), notifications v35.0.2 (`6490bd9c…`), viewer v35.0.2
+  (`3509a539…`, unchanged revision); previous patch 35.0.1 with its pins;
+  status stays `qualified`. Hashes: primary `60d56d39…` / previous `4439a56c…`;
+  the AIO selections (`84b3d7c2…` / `a1962e2f…`) are unchanged, so the AIO
+  images and qualification stay bound. `Dockerfile.test` defaults, compose
+  identity, CI image names (`cs082-runtime-35.0.2-local`), Jest pins and
+  current-runtime docs follow. Images `cs082-runtime-35.0.2-local`
+  (`035da186…`) and `-35.0.1-local --patch=previous` (`61979707…`) verified;
+  the reviewed notifications stale-root-lock warning is the same on v35.0.2.
+  The canonical volumes were moved with the official populated upgrade path
+  (preservation mode, `35.0.1.1 → 35.0.2.2`, "Update successful", no reseed)
+  through a one-off scratch override — the canonical compose has no upgrade
+  variable — then recreated normally (`canonical-runtime-match`, 35.0.2.2).
+- **Defect found and fixed (checklist duplicates):** the gate rendered one
+  checklist item twice (`checklist-item-850`, strict-mode violation).
+  `checklistStore.addItem` appended the created item blindly; when the row
+  expansion's `fetchTaskItems` already delivered it first, it was listed twice.
+  `addItem` now replaces an item with the same id. Jest regression (concurrent
+  read lands first); negative control fails on the old store.
+- **Transport closures (TECH-TRANSPORT-001):** canonical `run-02sTE9` (8 seed
+  `fetch failed`, plus three timing/assertion failures — the checklist
+  duplicate above, a 5 s settings hydration wait and a today-view row state)
+  and `run-Tiu5Sv` (2 seed closures + an insights retry state that appeared
+  after its 5 s expectation), AIO `run-jbuGNm` (1 Playwright GET
+  `socket hang up`). None of the aborted requests reached Apache (access-log
+  correlation); no restart/OOM/fatal. With operator approval Docker Desktop was
+  restarted (labsynapse containers returned via `unless-stopped`; ChoreStrike
+  stacks restarted unchanged and re-verified). After the restart both gates
+  passed cleanly — consistent with a degraded long-running port forwarder;
+  recorded in TECH-TRANSPORT-001, not claimed as proven.
+- **Gates:** canonical NC 35.0.2: PHPUnit unit 1385, integration 613; full
+  browser gate **`run-L6HInO` PASSED** (95 / 171 / 39 / 10 / 10, first attempt).
+  AIO row (hash unchanged, new bundle): full browser gate **`run-Vq2pkA`
+  PASSED** (same counts). Jest 123 / 1782, ESLint, `test:noise`,
+  `l10n:check-keys` (1288) green; `test:runtime:check` **`current`**
+  (upstream 35.0.2, AIO 14.3.0 / NC 34.0.4, no drift).
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -1044,3 +1092,17 @@ the same round.
 - **Findings:** none open (the discovery defect was fixed in-round with a
   regression and negative control).
 - **Gates:** round 10 gates above.
+
+### Interim Standard B — 2026-10-16 — `PASS-WITH-FIXES` (round 11 D-084-11, plan stays active)
+
+- **Scope:** round 11 at `f254530`, index empty, 18 modified tracked paths
+  (unstaged diff SHA256 prefix `184ff33d30dbb752` at capture), no untracked
+  files. [Record](../../backlog/archive/CODE_REVIEW_2026-10-15.md#round-11).
+- **Checked:** AIO selections unchanged (images and qualification stay bound);
+  primary pins/hashes consistent across inventory, Dockerfile, compose, CI and
+  Jest; canonical volumes upgraded, not reset; `addItem` upsert with negative
+  control; transport evidence recorded without retries or weakened assertions.
+- **Fixed in-round (1):** R11-01 compose passes `TEST_RUNTIME_UPGRADE_FROM`
+  (empty default) and `testing.md` documents the promotion upgrade procedure.
+- **Gates after fix:** runtime suite 106/106, canonical recreated
+  (`canonical-runtime-match`); round 11 gates above stand.

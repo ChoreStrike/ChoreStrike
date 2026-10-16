@@ -116,6 +116,19 @@ describe('checklist store', () => {
 			expect(store.items[5]).toContainEqual(created)
 		})
 
+		it('addItem never duplicates an item a concurrent read already delivered', async () => {
+			const created = { id: 9, taskId: 5, label: 'Dust shelf', sortOrder: 0 }
+			api.post.mockImplementation(async () => {
+				// The expansion read lands first and already lists the new item.
+				store.items[5] = [{ id: 8, taskId: 5, label: 'Mop', sortOrder: 0 }, { ...created }]
+				return created
+			})
+
+			await store.addItem(5, { label: 'Dust shelf' })
+
+			expect(store.items[5].map(item => item.id)).toEqual([8, 9])
+		})
+
 		it('addItem rejects a blank label without calling the API', async () => {
 			await expect(store.addItem(5, { label: '   ' })).rejects.toThrow('Checklist item label is required')
 			expect(api.post).not.toHaveBeenCalled()

@@ -59,11 +59,11 @@ concurrent changes; the measured actions run in the UI.
 
 `docker/test-runtime.json` is the single machine-readable frozen runtime
 inventory. CS-PLAN-082 promoted the current-stable baseline on 2026-10-06: the
-canonical `docker/compose.test.yml` stack now provisions **Nextcloud 35.0.1
-(internal 35.0.1.1, source revision
-`3c012e618ab46ac73c61a96f5bb7168a693ca1fb`) / PHP 8.4.26 / PostgreSQL 18.6**
+canonical `docker/compose.test.yml` stack now provisions **Nextcloud 35.0.2
+(internal 35.0.2.2, source revision
+`ba900af933e61ffa005315b09d6454bfbbcbcc81`) / PHP 8.4.26 / PostgreSQL 18.6**
 (was: Nextcloud 31 / PHP 8.2 / MariaDB 10.6; PHP 8.4.25 → 8.4.26 with AIO
-v14.3.0, CS-PLAN-084 D-084-09). `docker/Dockerfile.test` build
+v14.3.0, CS-PLAN-084 D-084-09; NC 35.0.1 → 35.0.2, D-084-11). `docker/Dockerfile.test` build
 defaults are pinned to the inventory (PHP image `php:8.4.26-apache` by digest,
 Composer 2.9.5 by digest, pinned server/notifications/viewer git revisions), so
 a plain `docker compose -f docker/compose.test.yml up --build` always builds
@@ -288,6 +288,17 @@ reseed existing facts; the default ordinary test provisioning deliberately seeds
 the selected disposable profile. Keep preservation proofs separate from tests.
 Only an explicitly authorized disposable-environment reset may remove these volumes.
 
+After a primary Nextcloud patch promotion the kept volumes still hold the old
+installation, and an ordinary start aborts on the version mismatch by design.
+Move them with the official upgrade path instead of a reset, then recreate
+normally (example from CS-PLAN-084 D-084-11, 35.0.1 → 35.0.2):
+
+```bash
+TEST_DB_PROFILE=family TEST_RUNTIME_PRESERVATION=true TEST_RUNTIME_UPGRADE_FROM=35.0.1.1   docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
+TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --force-recreate --wait --wait-timeout 900
+npm run test:runtime:canonical
+```
+
 All three Forgejo browser workflows build application assets before provisioning.
 Their canonical startup awaits the app/seed readiness healthcheck and verifies
 the frozen runtime before mutation. The companion profile/browser matrix uses
@@ -406,16 +417,16 @@ exits 3, never green.
 ```powershell
 npm run test:runtime:validate
 npm run test:runtime:check
-node scripts/test-runtime.js build cs082-runtime-35.0.1-local
-node scripts/test-runtime.js verify-image cs082-runtime-35.0.1-local
+node scripts/test-runtime.js build cs082-runtime-35.0.2-local
+node scripts/test-runtime.js verify-image cs082-runtime-35.0.2-local
 
 # Use distinct fresh projects and unused loopback ports; start sequentially.
-node scripts/test-runtime-stage.js up cs082-example-pgsql pgsql cs082-runtime-35.0.1-local 8182
-node scripts/test-runtime-stage.js up cs082-example-mysql mysql cs082-runtime-35.0.1-local 8183
-node scripts/test-runtime-stage.js up cs082-example-sqlite sqlite cs082-runtime-35.0.1-local 8184
+node scripts/test-runtime-stage.js up cs082-example-pgsql pgsql cs082-runtime-35.0.2-local 8182
+node scripts/test-runtime-stage.js up cs082-example-mysql mysql cs082-runtime-35.0.2-local 8183
+node scripts/test-runtime-stage.js up cs082-example-sqlite sqlite cs082-runtime-35.0.2-local 8184
 
 # Read-only verification of the installed, enabled, seeded provider target.
-node scripts/test-runtime-stage.js verify cs082-example-pgsql pgsql cs082-runtime-35.0.1-local 8182
+node scripts/test-runtime-stage.js verify cs082-example-pgsql pgsql cs082-runtime-35.0.2-local 8182
 docker exec cs082-example-pgsql-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
 docker exec cs082-example-pgsql-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --order-by=default --do-not-cache-result
 ```
@@ -934,7 +945,7 @@ docker compose -f docker/compose.test.yml logs -f nextcloud-test
 
 The test environment includes:
 - **PostgreSQL 18.6** (`chorestrike-db`): Database with healthchecks
-- **Nextcloud Test** (`chorestrike-test`): Apache + PHP 8.4 with Nextcloud 35.0.1
+- **Nextcloud Test** (`chorestrike-test`): Apache + PHP 8.4 with Nextcloud 35.0.2
   (pinned runtime; see [Runtime baseline](#runtime-baseline-cs-plan-082))
 - **Auto-setup**: Nextcloud installs automatically, ChoreStrike app is linked and enabled
 

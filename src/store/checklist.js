@@ -111,7 +111,14 @@ export const useChecklistStore = defineStore('checklist', {
 				if (!this.items[taskId]) {
 					this.items[taskId] = []
 				}
-				this.items[taskId].push(data)
+				// A concurrent fetchTaskItems (row expansion) may already have
+				// delivered the new item; replace it instead of rendering it twice.
+				const existing = this.items[taskId].findIndex(item => item.id === data.id)
+				if (existing >= 0) {
+					this.items[taskId][existing] = data
+				} else {
+					this.items[taskId].push(data)
+				}
 				return data
 			} catch (error) {
 				this.error = error.message

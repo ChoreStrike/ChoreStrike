@@ -1,5 +1,5 @@
 # Canonical ChoreStrike test environment (CS-PLAN-082 promoted default):
-# Nextcloud 35.0.1 / PHP 8.4.26 on the frozen runtime image built from
+# Nextcloud 35.0.2 / PHP 8.4.26 on the frozen runtime image built from
 # docker/Dockerfile.test (defaults pinned to docker/test-runtime.json) with
 # PostgreSQL 18.6 as the reference provider. The fresh-build identity is
 # asserted by the entrypoint (TEST_RUNTIME_*) and scripts/test-runtime.js
@@ -60,9 +60,11 @@ services:
       - DB_PASS=nextcloud
       - DB_PORT=5432
       # Frozen runtime identity (docker/test-runtime.json, primary current).
-      - TEST_RUNTIME_INTERNAL_VERSION=35.0.1.1
+      - TEST_RUNTIME_INTERNAL_VERSION=35.0.2.2
       - TEST_RUNTIME_PHP_VERSION=8.4.26
       - TEST_RUNTIME_PRESERVATION=${TEST_RUNTIME_PRESERVATION:-false}
+      # Empty unless a runtime promotion upgrades the kept volumes (testing.md).
+      - TEST_RUNTIME_UPGRADE_FROM=${TEST_RUNTIME_UPGRADE_FROM:-}
       - TEST_HTTP_URL=http://localhost:8080
     networks:
       - chorestrike-test

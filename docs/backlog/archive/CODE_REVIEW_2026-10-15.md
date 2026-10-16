@@ -93,3 +93,35 @@ Four images `frozen-image-identity-match` (`qualified`). Canonical (`canonical-r
 ## Outcome
 
 **PASS (interim).** No open findings. Next: package smoke on the committed HEAD; operator decision on upstream NC 35.0.2; operator real-device run; final review.
+
+## Round 11
+
+# Code Review: CS-PLAN-084 Round 11 (D-084-11 Nextcloud 35.0.2 + Checklist Duplicate Fix) — Interim Standard B
+
+- **Review Date**: 2026-10-16
+- **Reviewer**: Claude Code
+- **Mode**: Standard B (interim; plan stays `active/`)
+- **Scope**: working tree at `f254530` (index empty): 18 modified tracked paths (unstaged diff SHA256 prefix `184ff33d30dbb752` at capture), no untracked files — primary row NC 35.0.2 (inventory, `Dockerfile.test`, compose identity, CI image names, Jest pins, current-runtime docs), `checklistStore.addItem` duplicate fix with regression, TECH-TRANSPORT-001 / TECH-RUNTIME-002 evidence, plan/tracking
+- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+
+## Findings
+
+| ID | Severity | Area | Issue | Status |
+|----|----------|------|-------|--------|
+| R11-01 | minor | `docker/compose.test.yml`, `testing.md` | A primary patch promotion leaves the kept canonical volumes on the old version (start aborts by design), but the canonical compose did not pass `TEST_RUNTIME_UPGRADE_FROM` and no procedure was documented — the round needed a scratch override for the official upgrade path | fixed (compose passes the variable, empty by default; documented two-step procedure; Jest pin; canonical recreated with the empty default) |
+
+## Verified Non-Findings
+
+- The AIO selections are byte-identical (`84b3d7c2…` / `a1962e2f…`), so its images, qualification and package row stay bound; only the primary current/previous images were rebuilt.
+- The notifications stale-root-lock warning on v35.0.2 equals the reviewed primary condition; no allowlist change.
+- The canonical volumes moved through the official populated upgrade (`35.0.1.1 → 35.0.2.2`), not a reset; existing-production rules are untouched (test environment only).
+- `addItem` now upserts by id; ordering of an existing entry is kept, the response replaces stale fields, and the regression's negative control fails on the old store. No other store path appends server rows without an id check (`toggleItem` already upserts).
+- Transport closures: the access-log correlation is recorded as attribution evidence in TECH-TRANSPORT-001; the Docker Desktop restart is recorded as consistent with, not proof of, the cause. No retry, header or assertion was changed.
+
+## Gates
+
+Images `cs082-runtime-35.0.2-local` and `-35.0.1-local --patch=previous` verified, AIO images re-verified unchanged. Canonical NC 35.0.2: unit 1385, integration 613; full browser gate `run-L6HInO` PASSED (95 / 171 / 39 / 10 / 10). AIO row: full browser gate `run-Vq2pkA` PASSED (same counts). Earlier failing runs `run-02sTE9`, `run-Tiu5Sv`, `run-jbuGNm` recorded, not relabelled. Jest 123 / 1782 after the fix, ESLint, `test:noise`, `l10n:check-keys`, docs/backlog checks green; `test:runtime:check` `current`. After R11-01: runtime suite 106/106, canonical recreated with the compose change (`canonical-runtime-match`, 35.0.2.2).
+
+## Outcome
+
+**PASS-WITH-FIXES (interim).** One minor finding fixed in-round. Next: package smoke on the committed HEAD, the operator's real-device run, final review.
