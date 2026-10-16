@@ -877,6 +877,16 @@ the same round.
   PASSED** (same counts). Jest 123 / 1782, ESLint, `test:noise`,
   `l10n:check-keys` (1288) green; `test:runtime:check` **`current`**
   (upstream 35.0.2, AIO 14.3.0 / NC 34.0.4, no drift).
+- **Package (round 11 HEAD):** `test:package:smoke` on `f90a270` →
+  `package-qualified` (run `mvah706l`, archive prefix `811715f0d8748be3`),
+  rows `primary@35.0.2` and `aio@34.0.4`, setup 1/1 + verify 6/6 each — the
+  current hand-over candidate for CS-PLAN-080.
+- **Cleanup (operator request, 2026-10-16):** the owned AIO stacks
+  `cs082-cs084m-aio`, `-cs084n-aio` and `-cs084q-aio` (3 containers, 3 volumes,
+  1 network each, label-verified) were removed; evidence stays in the gitignored
+  `build/` reports. The canonical stack keeps running.
+- **Still open:** the operator's real-device run (release-test-plan §14.1),
+  backlog closure and the final review.
 
 ## Review Outcome
 
