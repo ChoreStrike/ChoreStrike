@@ -1,14 +1,25 @@
+# NOTE (CS-PLAN-085 D-085-04): this workflow is MANUAL
+# (`workflow_dispatch`). Its Docker/browser jobs are far too slow and, because
+# of the intermittent transport closures tracked as TECH-TRANSPORT-001, too
+# flaky to gate every push. The cheap checks run automatically in `checks.yml`,
+# and the binding quality gate remains the LOCAL Docker run documented in
+# docs/engineering/testing.md. Run this from the Actions tab before a release.
+#
 # ChoreStrike E2E Full-Matrix Workflow (CS-PLAN-051 D4)
 #
-# Scheduled, NON-blocking companion to release-gate.yml's chromium-shaped E2E
-# gate: re-runs the whole Playwright browser matrix (chromium, firefox,
-# webkit + the chromium-serial-db / chromium-scheduling-owner projects) with
-# `--retries=0` so "full matrix green" stays a verifiable state between
-# manual runs. Failures here never block releases — they surface regressions
-# early (report artifact below).
+# NON-blocking companion to release-gate.yml's chromium-shaped E2E gate:
+# re-runs the whole Playwright browser matrix (chromium, firefox, webkit + the
+# chromium-serial-db / chromium-scheduling-owner projects) with `--retries=0`
+# so "full matrix green" stays a verifiable state. Failures here never block
+# releases — they surface regressions early (report artifact below).
+#
+# The weekly schedule it carried on the previous forge was dropped with the
+# GitHub migration (CS-PLAN-085 D-085-04): a two-hour browser matrix on a
+# timer earns nothing while the local gate is the binding one. Dispatch it
+# when the browser surface changed.
 #
 # The Docker bring-up + seed steps are copied verbatim from
-# `.forgejo/workflows/release-gate.yml` (e2e job). Extracting a shared
+# `.github/workflows/release-gate.yml` (e2e job). Extracting a shared
 # composite action is deferred until a third consumer exists.
 #
 # Runbook: docs/engineering/testing.md ("Full-matrix verification").
@@ -16,9 +27,6 @@
 name: e2e-full-matrix
 
 on:
-  schedule:
-    # Weekly, Mondays 04:00 UTC.
-    - cron: '0 4 * * 1'
   workflow_dispatch:
 
 env:

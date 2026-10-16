@@ -1,3 +1,10 @@
+# NOTE (CS-PLAN-085 D-085-04): this workflow is MANUAL
+# (`workflow_dispatch`). Its Docker/browser jobs are far too slow and, because
+# of the intermittent transport closures tracked as TECH-TRANSPORT-001, too
+# flaky to gate every push. The cheap checks run automatically in `checks.yml`,
+# and the binding quality gate remains the LOCAL Docker run documented in
+# docs/engineering/testing.md. Run this from the Actions tab before a release.
+#
 # ChoreStrike Release-Gate CI Workflow
 #
 # Authoritative quality gate. Runs on every push and pull_request.
@@ -23,10 +30,7 @@
 name: release-gate
 
 on:
-  push:
-    branches: [master, main, develop]
-  pull_request:
-    branches: [master, main, develop]
+  workflow_dispatch:
 
 env:
   NEXTCLOUD_TEST_ENV: "true"

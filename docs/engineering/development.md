@@ -724,9 +724,14 @@ and `AGENTS.md`; in short:
 
 ## CI/CD
 
-The authoritative CI workflow is `.forgejo/workflows/release-gate.yml`
-(Forgejo Actions / Codeberg CI, GHA-compatible). It is the single source of
-truth for the blocking quality gate and runs on every `push` and `pull_request`.
+The authoritative CI workflow is `.github/workflows/release-gate.yml` (GitHub
+Actions). It is the single source of truth for the blocking quality gate and is
+run **manually** from the Actions tab, because its PHPUnit and browser jobs
+need Docker and are subject to the transport flakiness tracked as
+TECH-TRANSPORT-001 (CS-PLAN-085 D-085-04). Every push and pull request runs the
+Docker-free subset in `.github/workflows/checks.yml`, and the binding gate
+before a release remains the local Docker run described in
+[`testing.md`](testing.md).
 
 ### Blocking gate commands
 

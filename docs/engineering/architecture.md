@@ -141,12 +141,17 @@ ChoreStrike/
 │   ├── adr/                    # Architecture decision records
 │   ├── backlog/                # Task tracking (ACTIVE_TASKS.md, backlog.md, archive/)
 │   └── plans/                  # Implementation plans (new/active/onhold/done)
-├── .github/                    # Issue & PR templates (Forgejo-compatible)
+├── .github/                    # GitHub templates and CI
 │   ├── ISSUE_TEMPLATE/
-│   └── pull_request_template.md
-├── .forgejo/                   # Codeberg/Forgejo CI
-│   ├── workflows/release-gate.yml   # Authoritative blocking gate
-│   └── workflows/test.yml
+│   ├── pull_request_template.md
+│   ├── CODEOWNERS
+│   ├── dependabot.yml
+│   └── workflows/
+│       ├── checks.yml               # Automatic push/PR gate (no Docker)
+│       ├── release-gate.yml         # Full blocking gate (manual dispatch)
+│       ├── test.yml                 # Profile/browser smoke (manual dispatch)
+│       ├── full-matrix.yml          # All browser projects (manual dispatch)
+│       └── runtime-check.yml        # Weekly runtime drift (scheduled)
 ├── private/                    # Local dev only (gitignored)
 ├── LICENSE
 ├── README.md

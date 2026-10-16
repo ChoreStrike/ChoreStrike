@@ -1,0 +1,98 @@
+# ChoreStrike fast checks — the automatic push/PR gate.
+#
+# Trigger split (CS-PLAN-085 D-085-04): only the cheap, deterministic jobs run
+# automatically. Everything that needs Docker — PHPUnit, the browser gate and
+# the profile/browser matrices — is manual (`workflow_dispatch`) in
+# `release-gate.yml`, `test.yml` and `full-matrix.yml`.
+#
+# Two reasons for that split:
+#   1. The binding quality gate stays the LOCAL Docker run documented in
+#      docs/engineering/testing.md. CI mirrors it; it does not replace it.
+#   2. The Dockerised browser suites still hit intermittent transport closures
+#      (backlog TECH-TRANSPORT-001). As an automatic push gate they would
+#      produce red runs that say nothing about the commit.
+#
+# This workflow is therefore the one whose badge belongs in README.md.
+
+name: checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  NEXTCLOUD_TEST_ENV: "true"
+
+jobs:
+  frontend:
+    name: Frontend (lint + test + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          test "$(node --version)" = "v20.19.0"
+          test "$(npm --version)" = "10.8.2"
+          npm ci --engine-strict --legacy-peer-deps=false
+
+      - name: ESLint (blocking)
+        run: npm run lint
+
+      - name: Jest (blocking)
+        run: npm test -- --ci
+
+      - name: Webpack build (blocking)
+        run: npm run build
+
+      - name: Stylelint (blocking, CS-026)
+        run: npm run stylelint
+
+      - name: Docs encoding gate (blocking, CS-PLAN-050)
+        run: npm run docs:encoding
+
+      - name: Localization, backlog and browser-runner contracts (blocking)
+        run: |
+          npm run l10n:check-keys
+          node scripts/run-e2e-gate.js --self-test
+          npm run backlog:check
+
+      - name: Agent adapter drift (blocking)
+        run: npm run agents:check
+
+      - name: Frozen runtime inventory, offline (blocking)
+        run: npm run test:runtime:validate
+
+  composer:
+    name: Composer validate + PHP CS
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # composer.json pins ~8.4.0 (CS-PLAN-082 promoted baseline).
+          php-version: '8.4'
+          tools: composer
+
+      - name: Validate composer.json (blocking)
+        run: composer validate --strict --no-check-publish
+
+      - name: Install dependencies (for php-cs-fixer)
+        run: composer install --no-interaction --prefer-dist
+
+      - name: PHP coding standard (blocking, CS-026)
+        run: composer cs:check

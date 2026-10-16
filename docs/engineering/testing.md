@@ -766,9 +766,10 @@ Raw artifacts/manifests remain private/gitignored. See the
 for exact assertions and actual sanitized evidence; the
 [deployment procedure](deployment.md#rollback) owns operator approval and scope.
 
-The authoritative CI workflow is `.forgejo/workflows/release-gate.yml`
-(GHA-compatible, runs on Forgejo Actions / Codeberg CI and GitHub Actions).
-It is the single source of truth for blocking gate commands.
+The authoritative CI workflow is `.github/workflows/release-gate.yml` (GitHub
+Actions, run manually from the Actions tab — CS-PLAN-085 D-085-04). It is the
+single source of truth for blocking gate commands; the Docker-free subset runs
+automatically on every push in `.github/workflows/checks.yml`.
 
 ### Blocking gate commands
 
@@ -1611,7 +1612,8 @@ The `family` profile creates a realistic family scenario:
 
 ### CI/CD Integration
 
-The Forgejo/Codeberg workflow runs tests with all profiles:
+The manually dispatched `.github/workflows/test.yml` runs tests with all
+profiles:
 
 ```yaml
 strategy:

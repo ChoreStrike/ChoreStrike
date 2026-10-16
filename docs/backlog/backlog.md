@@ -643,6 +643,25 @@ are repointed.
 
 ---
 
+### [P3] TECH-DOCS-005 — README screenshots for the public landing page
+**Status**: Backlog · **Effort**: XS · **Layer**: docs · **Journey stage**: repository hosting
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-085 WP5-2 (droppable item, deferred 2026-10-16)
+
+The migrated README carries a badge row but no screenshots, so the GitHub
+landing page shows no interface. CS-PLAN-085 explicitly allowed dropping this
+without blocking the migration.
+
+Capture 3-4 views (My Day, weekly planner preview, dashboard, reward catalog)
+from the canonical Docker runtime with the existing Playwright setup — seeded
+profile data only, never real household content — store them under
+`docs/screenshots/`, and reference them from `README.md`.
+
+- [ ] Capture the views from the canonical runtime and store them under `docs/screenshots/`.
+- [ ] Reference them from `README.md` and confirm they render on GitHub.
+
+---
+
 ## Release
 
 > Stage path: `v0.8.x` alpha → `v0.9.x` beta → `v1.0.0` stable (manual install).

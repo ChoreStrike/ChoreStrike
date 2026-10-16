@@ -1,17 +1,22 @@
-# ChoreStrike CI Workflow for Codeberg/Forgejo
+# NOTE (CS-PLAN-085 D-085-04): this workflow is MANUAL
+# (`workflow_dispatch`). Its Docker/browser jobs are far too slow and, because
+# of the intermittent transport closures tracked as TECH-TRANSPORT-001, too
+# flaky to gate every push. The cheap checks run automatically in `checks.yml`,
+# and the binding quality gate remains the LOCAL Docker run documented in
+# docs/engineering/testing.md. Run this from the Actions tab before a release.
+#
+# ChoreStrike profile/browser smoke workflow (GitHub Actions)
 # Runs tests with different database profiles and browsers
 #
-# CS-PLAN-015b (D-CI): fixed trigger branches (master), pinned Nextcloud image,
-# added app mount into the Nextcloud service, and included the
-# chromium-serial-db project in the E2E invocation.
+# CS-PLAN-015b (D-CI): pinned Nextcloud image, added the app mount into the
+# Nextcloud service, and included the chromium-serial-db project in the E2E
+# invocation. The branch triggers it carried were replaced by manual dispatch
+# with the GitHub migration (CS-PLAN-085 D-085-04).
 
 name: Test
 
 on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+  workflow_dispatch:
 
 jobs:
   # Backend PHP Unit Tests
@@ -126,7 +131,7 @@ jobs:
   # Docker Build Test
   docker:
     name: Docker Build
-    runs-on: docker
+    runs-on: ubuntu-latest
     needs: phpunit
     steps:
       - name: Checkout
@@ -143,7 +148,7 @@ jobs:
   # Summary job
   test-summary:
     name: Test Summary
-    runs-on: docker
+    runs-on: ubuntu-latest
     needs: [phpunit, e2e]
     if: always()
     steps:

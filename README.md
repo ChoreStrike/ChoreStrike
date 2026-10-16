@@ -2,7 +2,11 @@
 
 **Shared chores, fair plans, less reminding.**
 
+[![checks](https://github.com/ChoreStrike/ChoreStrike/actions/workflows/checks.yml/badge.svg)](https://github.com/ChoreStrike/ChoreStrike/actions/workflows/checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Nextcloud 34-35](https://img.shields.io/badge/Nextcloud-34%E2%80%9335-0082c9)](https://nextcloud.com)
+[![PHP 8.4](https://img.shields.io/badge/PHP-8.4-777bb4)](https://www.php.net)
+[![Status: pre-release](https://img.shields.io/badge/status-pre--release%200.1.x-orange)](#project-status)
 
 ChoreStrike is a gamified household task management app for Nextcloud.
 Families and flatmates organize their home in floors and rooms, plan fair

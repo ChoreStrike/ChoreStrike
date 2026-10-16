@@ -1,4 +1,10 @@
 # Read-only discovery, never qualification or deployment.
+#
+# NOTE (CS-PLAN-085 D-085-04): this is the one Docker-free scheduled workflow,
+# so it keeps running automatically (weekly) alongside `checks.yml`. Drift it
+# reports is promoted through a reviewed inventory update and requalification,
+# never by deploying to an unlisted runtime (project-rules.md, Runtime
+# Currency).
 name: runtime-check
 
 on:
