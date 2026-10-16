@@ -731,6 +731,8 @@ Filled in during implementation; empty entries are open.
 | First GitHub push (commit, date) | **`14b01542df63261ddd60365590b7383b99ceda4e`, 2026-10-16** to `ChoreStrike/ChoreStrike`. Remote was verified empty beforehand (`git ls-remote` returned no refs), so no force was needed; `master...origin/master` is `0 0` |
 | Remote verification (WP7-3) | Default branch **`master`**, no `main` created, repository public. GitHub API over all 566 commits: author and committer email `220411049+volker-ma@users.noreply.github.com`, name `volker-ma`, linked login `volker-ma`, oldest author date 2026-02-24 — no other identity on the remote |
 | CI trigger | The push started the `checks` workflow (`event=push`); Dependabot's initial npm and composer runs started from `dependabot.yml` |
+| CI result | **green on `0a6b865`** (run 38942326566): both jobs — *Frontend (lint + test + build)* and *Composer validate + PHP CS* — succeeded with no failing step. The first two runs were red on two pre-existing defects (A-13, A-14); every remaining `checks.yml` step that had never executed in CI (build, stylelint, docs-encoding, adapter drift, offline runtime inventory) was then verified in a clean Linux clone before relying on it |
+| Community profile | README, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT and the PR template detected; the two issue templates are on the remote and work, but GitHub's `health_percentage` (87) counts only a legacy single-file `ISSUE_TEMPLATE.md`, so that field stays `null` — an API artifact, not a missing file |
 | Codeberg deletion confirmed by operator | *(pending — WP7-6, operator-only)* |
 | Operator repository settings | *(pending — WP7-5: private vulnerability reporting, branch protection, description/topics/avatar, optional org profile)* |
 
