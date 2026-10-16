@@ -484,7 +484,7 @@ RF-080-05, comprehension/14-day evidence and baseline adoption remain open.
 
 ### Baseline Refresh (2026-10-05)
 
-- Runtime baseline: `bd7ba8c` (`fix(hardening): finalize CS-PLAN-081 readiness review`).
+- Runtime baseline: `a4060ad` (`fix(hardening): finalize CS-PLAN-081 readiness review`).
   The index is empty; the only pre-existing changes are the unrelated deletions
   of `docs/plans/{active,new,onhold}/.gitkeep`, preserved untouched.
 - Docker daemon is reachable (29.8.0). Canonical `chorestrike-test` and
@@ -629,7 +629,7 @@ final unit reports alongside as `*-unit.xml`. The unit mock's missing public
 run; it affects the unit bootstrap only, not the installed-DB integration tree.
 No previous failing attempt is erased by these later results.
 
-Candidate: `bd7ba8c` plus the retained WP9 working changes. Final tracked
+Candidate: `a4060ad` plus the retained WP9 working changes. Final tracked
 runtime/test diff fingerprint (`git diff --binary -- docker lib src tests
 scripts phpunit.integration.xml phpunit.unit.xml | git hash-object --stdin`):
 `80b12cb99505125d8f734ad656770fb132b111bd`. New-file Git blob identities:
@@ -708,7 +708,7 @@ vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --o
 Runtime: Nextcloud `31.0.14.1`, PHP `8.2.34`, MariaDB `10.6.25`, PostgreSQL
 `16.14`, SQLite `3.46.1`. All three installed containers use image
 `sha256:8798744d6e1acabb23372918b1781cb8118bab1ae20e67e9495e12f3de26f637`.
-Candidate: `bd7ba8c` plus the preserved/current working changes; tracked runtime
+Candidate: `a4060ad` plus the preserved/current working changes; tracked runtime
 and test diff fingerprint (same command as the preceding handoff):
 `9f817795d5e2c3cc3280db8dc17bcfaae403c5a0`. The previous four new-file blob
 identities are unchanged; the two new support-file identities are:
@@ -796,7 +796,7 @@ difference is explained by existing state-dependent user-list assertions in
 in `TestModeHttpTest` (1), not removed scenarios or skipped execution. The
 cleanup regression identities and assertions are unchanged between those runs.
 
-Candidate remains `bd7ba8c` plus all preserved/current working changes. Tracked
+Candidate remains `a4060ad` plus all preserved/current working changes. Tracked
 runtime/test diff fingerprint (the preceding handoff's command):
 `ac4c9d492b4f98a99f456f4e293b470e567a0df4`. The six previous new-file identities
 are unchanged; `Support/FixtureCleanupTest.php` adds blob
@@ -883,7 +883,7 @@ passed its pre-edit **602-test** integration baseline before browser work; the
 table above, not that baseline, verifies the changed backend. No integration
 suite overlaps browser mutations on the same database.
 
-Candidate: `bd7ba8c` plus preserved/current changes; tracked runtime/test diff
+Candidate: `a4060ad` plus preserved/current changes; tracked runtime/test diff
 fingerprint (same command as preceding rounds): initially
 `527836e0af6b103a61c2a4bc42e09d650abaed17`, then
 `8a8c55fc245d72d04319d667e19cb44617b9dd56` after the frontend-only RF-080-13
@@ -950,7 +950,7 @@ Static recheck found no remaining issue in those deltas. Complete affected
 specs then passed **34 scenarios plus 3 setup tests**, zero skips/failures.
 This was an implementation check, not a formal lifecycle review.
 
-Final candidate remains `bd7ba8c` plus preserved/current changes:
+Final candidate remains `a4060ad` plus preserved/current changes:
 
 - Tracked runtime/test diff fingerprint (same `git diff --binary -- docker lib
   src tests scripts phpunit.integration.xml phpunit.unit.xml | git hash-object
@@ -1017,7 +1017,7 @@ evidence. Unrelated pre-existing `.gitkeep` deletions were left untouched.
 
 - **Review:** Standard A, 2026-10-03 (main agent, no subagents; review record
   `docs/backlog/archive/CODE_REVIEW_2026-10-03.md`).
-- **Baseline:** `master` at `821195d853c43a2fc32e22b4bf9ea4f0fe2f0f7b`; index
+- **Baseline:** `master` at `c034e32ab08fbc67566410e50192f52cb64843df`; index
   empty at capture (staged-diff sha1
   `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391`); unstaged-diff sha1
   `fc62c603a31d55e4de8b006ff9c0a43012219852` covering the draft-support
@@ -1056,7 +1056,7 @@ evidence. Unrelated pre-existing `.gitkeep` deletions were left untouched.
 ### Interim Standard B — 2026-10-06 — `PASS-WITH-FIXES` (plan stays active)
 
 - **Scope:** the WP9 slice of the remaining uncommitted round at `master`
-  `5dd32a5` (dual attribution with CS-PLAN-082, operator-resolved): production
+  `6c85e55` (dual attribution with CS-PLAN-082, operator-resolved): production
   mappers/`RoomTaskReadService`/`TestDataService`, handover frontend
   (`TaskListDetails`/`TaskListItem`/`scheduling.js`/`TodayView`/`TaskManager`),
   the isolated matrix + entrypoint provisioning, portable race workers with
@@ -1084,7 +1084,7 @@ evidence. Unrelated pre-existing `.gitkeep` deletions were left untouched.
 ### Interim Full — 2026-10-12 — `PASS-WITH-FIXES` (plan stays active)
 
 - **Scope:** the uncommitted WP9 operator core-use feedback round at `master`
-  `8e484bb` — 29 modified paths plus the new `src/composables/useHouseMemberNames.js`
+  `4886e32` — 29 modified paths plus the new `src/composables/useHouseMemberNames.js`
   (filters, assignment names, action contrast, My Day room links, participation
   validation, e2e/gate hardening, l10n, plan/durable docs). Full tier: four
   parallel read-only reviewer tracks (correctness, architecture,

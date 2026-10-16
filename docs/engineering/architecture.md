@@ -1365,9 +1365,11 @@ inventory.
 
 ## Continuous Integration (Release Gate)
 
-The authoritative gate is `.forgejo/workflows/release-gate.yml`
-(GHA-compatible). It runs on `push` and `pull_request` and fails the
-run on any non-zero **blocking** command:
+The authoritative gate is `.github/workflows/release-gate.yml`. It is run
+**manually** from the Actions tab (CS-PLAN-085 D-085-04) and fails the run on
+any non-zero **blocking** command below. The Docker-free subset runs
+automatically on every push in `.github/workflows/checks.yml`, and the binding
+gate before a release is the local Docker run:
 
 - `npm run lint` (ESLint)
 - `npm test` (Jest)

@@ -30,7 +30,7 @@ Runtime discovery and verification entry points:
 ```bash
 # Offline inventory validation
 npm run test:runtime:validate
-# Weekly stable-drift check (exit 2 = update needed); wired in .forgejo/workflows/runtime-check.yml
+# Weekly stable-drift check (exit 2 = update needed); wired in .github/workflows/runtime-check.yml
 npm run test:runtime:check
 # Asserts the running canonical chorestrike-test/chorestrike-db stack matches the frozen inventory
 npm run test:runtime:canonical
@@ -64,6 +64,13 @@ npm run test:runtime:canonical
    git clone https://github.com/ChoreStrike/ChoreStrike.git
    cd ChoreStrike
    ```
+
+   Do **not** set a repository-local `user.name`/`user.email`. Commits use your
+   global git identity; a local override is how the history acquired a second
+   contributor identity before the 2026-10-16 migration
+   ([ADR-018](../adr/ADR-018-repository-hosting-and-contributor-identity.md)).
+   `tests/unit/repo-metadata.spec.js` additionally fails the build if a tracked
+   file reintroduces the retired identity or a non-canonical repository URL.
 
 2. **Install PHP dependencies**
    ```bash

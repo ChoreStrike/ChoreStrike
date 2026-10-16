@@ -16,6 +16,13 @@ tree becomes the baseline for operator server testing.
 
 ### Measured starting state (2026-10-16, HEAD `f90a270`)
 
+> Every commit hash in this section, in §9 and in the review record is a
+> **pre-rewrite** hash, kept as the factual record of what was measured. They
+> no longer resolve in this repository; map them through
+> `docs/release/history-migration-2026-10-commit-map.tsv` (D-085-07). Hashes
+> used as qualification evidence in `ACTIVE_TASKS.md` and the other active
+> plans were remapped to their post-rewrite values in WP8-6.
+
 | Fact | Value |
 |---|---|
 | `origin` | the Codeberg repository of the legacy account |
@@ -617,6 +624,40 @@ Standard A, 2026-10-16. All eight were fixed in-round in this plan document.
       longer written in tracked files; the guard assembles patterns from
       fragments; the plain value stays in `/private/`.
 
+Implementation round (2026-10-16), found while executing WP3-WP6:
+
+- [x] **A-09** (High · WP3-4) The rewrite specified only `--replace-message`,
+      which rewrites commit and tag messages but **not blob contents**.
+      Rehearsal 1 came back with 265 object-database hits for the retired
+      username, because every pre-scrub version of `appinfo/info.xml` and the
+      docs still carried the old URLs. The acceptance criterion covers blobs,
+      so `--replace-text` with the same rule file was added. → Rehearsal 2:
+      0 hits, count and tree hash unchanged.
+- [x] **A-10** (High · WP3-4) The URL rules only covered the `/ChoreStrike`
+      repository name. A ChoreWars-era README badge pointed at
+      `<forge>/<user>/ChoreWars`, so the bare-username rule rewrote only the
+      user segment and produced a half-migrated
+      `<forge>/volker-ma/ChoreWars` — the new name on the old forge. Fixed by
+      enumerating **all** forge URL shapes from the object database (six
+      distinct strings, no third-party URLs among them) and adding explicit
+      rules for the prototype repository and the bare profile URL before the
+      username rule. → Rehearsal 3: 0 URL hits.
+- [x] **A-11** (Medium · WP6-5) Moving the workflows broke
+      `tests/unit/scripts/runtimeWorkflows.spec.js` and
+      `tests/unit/scripts/testRuntime.spec.js`, which read the workflow files
+      by path; 10 tests failed. The WP6 gate run had been a subset (docs and
+      guard only) instead of the full list the step requires. Paths updated to
+      `.github/workflows/`; both suites pass unchanged otherwise, which also
+      confirms the ports preserved the asserted job behavior. Live `.forgejo`
+      references in `architecture.md` and `testing.md` (including one broken
+      markdown link) and two now-false trigger statements were corrected in the
+      same pass.
+- [x] **A-12** (Low · WP3-3) WP3-3 asserted the repository would contain
+      exactly one identity when the mailmap is generated. By then the plan's
+      own commits already carried the target identity, so the assertion would
+      have aborted. Adapted to "exactly one **non-target** identity", which is
+      the invariant that actually matters.
+
 ## 10. Execution Record
 
 Filled in during implementation; empty entries are open.
@@ -627,17 +668,25 @@ Filled in during implementation; empty entries are open.
 | Backup contains `.git` (rollback path real) | **Verified 2026-10-16** — archive listing shows 4,845 entries under `ChoreStrike\.git\`, including `logs/refs/` and the remote refs. The backup is therefore a complete history archive, not a working-tree-only copy |
 | GitHub organization + empty repository (WP0-2) | **Confirmed by the operator 2026-10-16** |
 | Identity re-verification before any rewrite | **2026-10-16** — the early contributor domain token has 0 hits in the object database, the tracked tree, all commit messages and identities, git config at every scope, and untracked/ignored files including `private/` |
-| `$BASE` (`git rev-list master --count` at WP1-1) | *(pending; 560 at review time)* |
-| HEAD before rewrite | *(pending)* |
-| `git filter-repo --version` | *(pending)* |
-| Commit count after rewrite | *(pending, expect `$BASE`)* |
-| Roots after rewrite | *(pending, expect 1)* |
-| Tag `v0.1.0` deleted | *(pending — WP3-2)* |
-| Stash entries dropped | *(pending, expect 2)* |
-| `commit-map` rows preserved | *(pending — WP3-6)* |
-| Verification evidence block output | *(pending — WP4-1)* |
-| First GitHub push (commit, date) | *(pending)* |
-| Codeberg deletion confirmed by operator | *(pending)* |
+| `$BASE` (`git rev-list master --count` at WP1-1) | **565** (560 pre-plan + 5 plan commits) |
+| HEAD before rewrite | `dd0ce565b0ab0d659c80c56ce0efa2f35bcdf508` (pre-rewrite hash) |
+| HEAD **tree** before rewrite | `d48c7a12cdfb67a2bd09e26ea77769f238485837` |
+| `git filter-repo --version` | 2.47.0 (`a40bce548d2c`), installed per-user via pip |
+| Commit count after rewrite | **565** — unchanged, no commit pruned |
+| Roots after rewrite | **1** (`c5ce883`) |
+| Merge commits after rewrite | **0** |
+| Identities after rewrite | **1**, author and committer: `volker-ma <220411049+volker-ma@users.noreply.github.com>` |
+| HEAD **tree** after rewrite | `d48c7a12cdfb67a2bd09e26ea77769f238485837` — **identical**, so no file content changed |
+| Oldest author date after rewrite | 2026-02-24 — dates preserved |
+| Tag `v0.1.0` deleted | **yes** (was `949bd9c`, commit `d1ef785`, off-branch) |
+| Stash entries dropped | **2** (incl. one from an earlier `filter-branch`) |
+| `commit-map` rows preserved | **565**, 0 dropped → `docs/release/history-migration-2026-10-commit-map.tsv` |
+| Evidence SHAs remapped (WP8-6) | **32** across `ACTIVE_TASKS.md` and the active plans 070/080/084 |
+| Reachable-object audit (what a push transmits) | 14,957 objects: **0** hits for the retired username, forge addresses, forge URLs with a user path, the early contributor domain and the personal local part |
+| Post-rewrite gates | Jest 124 suites / **1791** tests; ESLint; backend unit **1385**, integration **613** on the canonical row; backlog, docs-encoding, l10n (1288) and agent-adapter checks green |
+| Local unreachable leftovers | 10 pre-rewrite objects (6 blobs + 4 trees) kept alive by a **Kilo agent worktree** whose stale index pins them (`ordinary-perfume`, detached, no original work — its index holds exactly those blobs). Never pushed; see §12 |
+| First GitHub push (commit, date) | *(pending — WP7)* |
+| Codeberg deletion confirmed by operator | *(pending — WP7-5, operator-only)* |
 
 ## 11. Operator Decisions
 
@@ -680,3 +729,24 @@ Filled in during implementation; empty entries are open.
   The plan's own §4 gates bind at implementation time.
 - **Transition:** `new/ → active/`; TECH-REPO-001 marked `In Progress` and
   assigned to this plan; `ACTIVE_TASKS.md` updated.
+
+### Open environmental item: the Kilo agent worktree
+
+`git worktree list` shows a second, pooled Kilo Code worktree
+(`…/kilo/worktree-pool/chorestrike-…/ordinary-perfume`, detached). Its index
+was written before the migration and still references the **pre-rewrite**
+blobs of the six files WP2 scrubbed, which is the only reason 10 unreachable
+pre-rewrite objects survive `git gc` locally. Established by inspection:
+
+- its working tree matches its index exactly (no uncommitted original work),
+  and those six index blob hashes are precisely six of the ten leftovers;
+- `git fsck` reports **0** unreachable objects, i.e. the worktree is the root;
+- the leftovers are unreachable from any ref, so `git push` never transmits
+  them, and the GitHub copy is built only from the 14,957 verified-clean
+  reachable objects.
+
+This plan deliberately does **not** touch it: it belongs to another tool's
+managed pool and its metadata names an owning process. Once no Kilo session is
+attached, `git -C <worktree> reset --hard HEAD` (or letting Kilo recycle the
+worktree) followed by `git gc --prune=now` in this repository removes the last
+10 objects. Purely local hygiene — it does not gate WP7.

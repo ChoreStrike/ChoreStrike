@@ -75,6 +75,7 @@ Example: `ADR-001-use-vue3-for-frontend.md`
 15. [ADR-015: Consent-Filtered Household Ranking](ADR-015-ranking-consent-and-privacy.md) - **Accepted** (2026-09-27; opt-in per membership, next-Monday activation generations, exact-rational on-time ratios over public agreed occurrences, server-side filter)
 16. [ADR-016: Opt-in Daily Digest as the Only Notification Path](ADR-016-opt-in-digest-notifications.md) - **Accepted** (2026-09-29; one `digest` subject, slot-identity daily budget, at-most-once claim, quiet hours gate only, self-only versioned preferences, supersedes the per-event bell model)
 17. [ADR-017: Family Reward Catalog and Requested Redemption (C4)](ADR-017-family-catalog-and-redemption.md) - **Accepted** (2026-10-01; owner-gated catalog with frozen terms, reserve/approve/settle/refund lifecycle with exactly-once money effects, wallet-id identity provenance, derived orthogonal funding hold)
+18. [ADR-018: Repository Hosting and Contributor Identity](ADR-018-repository-hosting-and-contributor-identity.md) - **Accepted** (2026-10-16; GitHub organization `ChoreStrike` on `master`, one identity across the rewritten history from the global git config, no identity literals in tracked files, provenance wording allowed, retired orphan root, pre-migration SHAs resolved through a tracked commit map, Docker-free CI automatic and heavy gates manual)
 
 ---
 

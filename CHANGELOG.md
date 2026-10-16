@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Repository Migration (2026-10-16)
+
+- Moved the project to the GitHub organization
+  [ChoreStrike/ChoreStrike](https://github.com/ChoreStrike/ChoreStrike) from
+  the previous Codeberg host, and consolidated the whole history onto one
+  contributor identity. Original author and committer dates are preserved and
+  the working tree is unchanged (identical `HEAD` tree object).
+- **Every commit hash changed.** Earlier qualification evidence names
+  pre-migration commits; resolve those through
+  [`docs/release/history-migration-2026-10-commit-map.tsv`](docs/release/history-migration-2026-10-commit-map.tsv).
+- The `v0.1.0` tag was deleted. It pointed outside the main line, at a disjoint
+  pre-rename (`ChoreWars`) prototype root that is not an ancestor of any
+  released code. No tags currently exist.
+- CI moved to GitHub Actions: Docker-free checks run on every push, the full
+  gate and the browser matrices are manual, and the weekly runtime-drift check
+  stays scheduled. The binding quality gate remains the local Docker run.
+- Security reports can now use GitHub private vulnerability reporting next to
+  the documented mailbox.
+- Decision record: [ADR-018](docs/adr/ADR-018-repository-hosting-and-contributor-identity.md).
+
 ### Current Pre-Release Summary (2026-10-07)
 
 - Delivered family-rhythm WP0-WP8: occurrence-based planning, agreements and

@@ -2,6 +2,15 @@
 
 This guide explains how to set up a Docker-based test environment for ChoreStrike that includes all Nextcloud dependencies required for PHPUnit tests.
 
+> **Evidence hashes from before 2026-10-16:** the GitHub migration rewrote the
+> history, so every commit hash changed
+> ([ADR-018](../adr/ADR-018-repository-hosting-and-contributor-identity.md)).
+> Run labels, archive prefixes and test counts are unaffected, but a commit SHA
+> quoted as qualification evidence in an older plan, review record or backlog
+> archive must be resolved through
+> [`history-migration-2026-10-commit-map.tsv`](../release/history-migration-2026-10-commit-map.tsv)
+> before it can be checked out or compared.
+
 ## Prerequisites
 
 ### Preferences and Digest Evidence (WP5)
@@ -92,7 +101,7 @@ npm run test:runtime:check
 npm run test:runtime:canonical
 ```
 
-The `runtime-check` Forgejo workflow (`.forgejo/workflows/runtime-check.yml`)
+The `runtime-check` Forgejo workflow (`.github/workflows/runtime-check.yml`)
 runs weekly and via manual dispatch for pre-release checks. It uses the same
 inventory/checker and fails visibly on drift or unavailable/malformed metadata.
 Discovery compares official server and AIO release metadata separately,
@@ -810,7 +819,7 @@ automatically on every push in `.github/workflows/checks.yml`.
 
 ### E2E in CI (blocking, CS-PLAN-020)
 
-E2E is a **blocking job** in `.forgejo/workflows/release-gate.yml`. Since
+E2E is a **blocking job** in `.github/workflows/release-gate.yml`. Since
 CS-PLAN-068 it runs the canonical sequential runner `npm run test:e2e:gate`
 (scripts/run-e2e-gate.js) instead of a raw `playwright test` invocation.
 The runner:
@@ -850,7 +859,7 @@ The runner self-test (`node scripts/run-e2e-gate.js --self-test`) feeds
 synthetic discovery/report fixtures through the same checks (selection gap,
 duplicate ownership, synthetic skip/flaky/failure) without launching a
 browser. The full browser matrix (firefox/webkit) stays in
-`.forgejo/workflows/test.yml` and is a documented follow-up once the
+`.github/workflows/test.yml` and is a documented follow-up once the
 chromium gate proves stable in CI. The authorisation-denial wire contract
 (plain HTTP 403, not a 200 OCS envelope) is verified by the E2E specs
 `admin-only-tasks.spec.ts` and `overdue-task-claiming.spec.ts`.
@@ -1064,16 +1073,17 @@ npx playwright test tests/e2e/ --project=chromium --headed
 ### Full-Matrix Verification (CS-PLAN-051, BUG-E2E-004)
 
 The blocking release gate stays chromium-shaped (`chromium` +
-`chromium-serial-db`, see `.forgejo/workflows/release-gate.yml`). The full
+`chromium-serial-db`, see `.github/workflows/release-gate.yml`). The full
 browser matrix is verified two ways:
 
 1. **Manually (acceptance):** bring up the Docker env, reseed the family
    profile, then run `npx playwright test --retries=0 --reporter=line` with
    `TEST_DB_PROFILE=family` and `NEXTCLOUD_TEST_MODE=true`. Acceptance = two
    **consecutive** green runs. A full matrix run takes ~10–13 min locally.
-2. **Scheduled CI (non-blocking):**
-   [`.forgejo/workflows/full-matrix.yml`](../../.forgejo/workflows/full-matrix.yml)
-   runs the whole matrix weekly (Mondays 04:00 UTC) and on `workflow_dispatch`
+2. **Manual CI (non-blocking):**
+   [`.github/workflows/full-matrix.yml`](../../.github/workflows/full-matrix.yml)
+   runs the whole matrix on `workflow_dispatch` (the weekly schedule it carried
+   on the previous forge was dropped with the GitHub migration, D-085-04)
    with `--retries=0`, uploads the Playwright report as an artifact, and never
    blocks a release. Treat red scheduled runs as flake leads, not gate
    failures: reproduce the failing spec standalone (3× `--retries=0` in the
@@ -1424,7 +1434,7 @@ vendor/bin/phpunit
 
 The Docker test environment is also used in CI/CD pipelines. See the
 **Continuous Integration** section above for the authoritative
-`.forgejo/workflows/release-gate.yml` workflow and blocking gate commands.
+`.github/workflows/release-gate.yml` workflow and blocking gate commands.
 
 ## Security Regression Test Pack (Recommended)
 

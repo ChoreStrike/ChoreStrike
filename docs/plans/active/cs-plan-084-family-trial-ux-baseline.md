@@ -795,7 +795,7 @@ the same round.
   `current`, no drift. Jest 123 / 1780, ESLint, `test:noise` clean. The
   superseded AIO stack `cs082-cs084m-aio` is stopped (owned, volumes kept).
 - **Package (after the round 9 commit):** `test:package:smoke` on clean HEAD
-  `0550316` → `package-qualified` (run `mv9kbmol`, archive SHA-256 prefix
+  `b0542c8` → `package-qualified` (run `mv9kbmol`, archive SHA-256 prefix
   `ff8b66baf11acd85`): rows `primary@35.0.1` and `aio@34.0.4` on PHP 8.4.26,
   each cold first-bootstrap setup 1/1 and owner verify 6/6 (EN/DE, 390/1440 px),
   owned smoke resources removed.
@@ -837,7 +837,7 @@ the same round.
 
 ### Round 11 — D-084-11 Nextcloud 35.0.2 + checklist duplicate fix (2026-10-15/16)
 
-- **Package (round 10 HEAD):** `test:package:smoke` on `f254530` →
+- **Package (round 10 HEAD):** `test:package:smoke` on `b7eb07f` →
   `package-qualified` (run `mv9sdj70`, archive prefix `85a3cf4d345c4072`),
   `primary@35.0.1` and `aio@34.0.4`, setup 1/1 + verify 6/6 each.
 - **Primary row → NC 35.0.2:** inventory `nextcloud` 35.0.2 (internal
@@ -877,7 +877,7 @@ the same round.
   PASSED** (same counts). Jest 123 / 1782, ESLint, `test:noise`,
   `l10n:check-keys` (1288) green; `test:runtime:check` **`current`**
   (upstream 35.0.2, AIO 14.3.0 / NC 34.0.4, no drift).
-- **Package (round 11 HEAD):** `test:package:smoke` on `f90a270` →
+- **Package (round 11 HEAD):** `test:package:smoke` on `c5b890f` →
   `package-qualified` (run `mvah706l`, archive prefix `811715f0d8748be3`),
   rows `primary@35.0.2` and `aio@34.0.4`, setup 1/1 + verify 6/6 each — the
   current hand-over candidate for CS-PLAN-080.
@@ -894,7 +894,7 @@ the same round.
 
 - **Scope:** this plan file plus its drafting package (backlog items
   TECH-RUNTIME-002, UX-017, FEAT-UX-033..036, TECH-TEST-005; `ACTIVE_TASKS.md`,
-  plans README, CS-PLAN-080 RF-080-16 sequencing note). Base `master`/`ee73299`,
+  plans README, CS-PLAN-080 RF-080-16 sequencing note). Base `master`/`1951927`,
   index empty apart from the intent-to-add plan path; captured plan SHA256
   prefix `d785318fa06ae765`, unstaged diff SHA256 prefix `e91f6de5c32a6253`.
   [Record](../../backlog/archive/CODE_REVIEW_2026-10-13.md).
@@ -927,7 +927,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-13 — `PASS-WITH-FIXES` (plan stays active)
 
-- **Scope:** round 1 (WP-A + WP-G part 1) working tree at `305b62a`, index empty,
+- **Scope:** round 1 (WP-A + WP-G part 1) working tree at `2dece85`, index empty,
   26 modified tracked paths (unstaged diff SHA256 prefix `8ed59da905f118b7` at
   capture) plus untracked `tests/integration/Service/SuccessorOwnershipTest.php`
   (`084c7e10d4d4a7c5`). [Record](../../backlog/archive/CODE_REVIEW_2026-10-13.md).
@@ -950,7 +950,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 2, plan stays active)
 
-- **Scope:** RF-084-01 round at `eb75142`, index empty, 20 modified tracked paths
+- **Scope:** RF-084-01 round at `7b4b2eb`, index empty, 20 modified tracked paths
   (unstaged diff SHA256 prefix `8ec569f4ce9161b5` at capture), no untracked files.
   [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md).
 - **Checked:** status/claim/takeover follow one rule (occurrence `late`, house-zone
@@ -975,7 +975,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 3 WP-B, plan stays active)
 
-- **Scope:** WP-B round at `8cac20a`, index empty, 58 modified tracked paths
+- **Scope:** WP-B round at `173cf3a`, index empty, 58 modified tracked paths
   plus untracked `tests/e2e/color-contrast.spec.ts` (SHA256 prefix
   `a8591095f98ed32d` at capture; the tracked-diff hash was not recorded).
   [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-3).
@@ -994,7 +994,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 4 WP-E, plan stays active)
 
-- **Scope:** WP-E round at `c9740a7`, index empty, 28 modified tracked paths
+- **Scope:** WP-E round at `2702a93`, index empty, 28 modified tracked paths
   (unstaged diff SHA256 prefix `48d3ea3d1aa4a3bf` at capture) plus 4 untracked
   files (HoldButton, its spec, the Jest and E2E hold helpers).
   [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-4).
@@ -1013,7 +1013,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 5 WP-F, plan stays active)
 
-- **Scope:** WP-F round at `319022a`, index empty, 24 modified tracked paths
+- **Scope:** WP-F round at `3461295`, index empty, 24 modified tracked paths
   (unstaged diff SHA256 prefix `65bc77886396eb42` at capture) plus 4 untracked
   files (errorToast, haptics and their specs).
   [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-5).
@@ -1029,7 +1029,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 6 WP-C, plan stays active)
 
-- **Scope:** WP-C + RF-084-02 round at `c41b103`, index empty, 19 modified
+- **Scope:** WP-C + RF-084-02 round at `3610b9f`, index empty, 19 modified
   tracked paths (unstaged diff SHA256 prefix `43f1383d57671c18` at capture), no
   untracked files. [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-6).
 - **Checked:** stats keep the visibility filter and only read; no nested
@@ -1044,7 +1044,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-14 — `PASS-WITH-FIXES` (round 7 WP-D, plan stays active)
 
-- **Scope:** WP-D round at `e5761bd`, index empty, 20 modified tracked paths
+- **Scope:** WP-D round at `43f719f`, index empty, 20 modified tracked paths
   (unstaged diff SHA256 prefix `44c34281f7cbd353` at capture) plus 3 untracked
   files (TaskFilterBar, its spec, RoomTaskListReadTest).
   [Record](../../backlog/archive/CODE_REVIEW_2026-10-14.md#round-7).
@@ -1062,7 +1062,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-15 — `PASS-WITH-FIXES` (round 8 WP-G part 2, plan stays active)
 
-- **Scope:** round 8 at `d883bfa`, index empty, 15 modified tracked paths
+- **Scope:** round 8 at `8aa3240`, index empty, 15 modified tracked paths
   (unstaged diff SHA256 prefix `c214b28e00bbda1d` at capture) plus untracked
   `tests/e2e/mobile-core.spec.ts` (`9605af61e6ba1cfe`).
   [Record](../../backlog/archive/CODE_REVIEW_2026-10-15.md).
@@ -1079,7 +1079,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-15 — `PASS` (round 9 D-084-09 runtime promotion, plan stays active)
 
-- **Scope:** round 9 at `bad0baa`, index empty, 13 modified tracked paths
+- **Scope:** round 9 at `2563236`, index empty, 13 modified tracked paths
   (unstaged diff SHA256 prefix `48a48523813a93f5` at capture), no untracked
   files. [Record](../../backlog/archive/CODE_REVIEW_2026-10-15.md#round-9).
 - **Checked:** registry digests and selection hashes consistent across
@@ -1093,7 +1093,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-15 — `PASS` (round 10 D-084-10, plan stays active)
 
-- **Scope:** round 10 at `0550316`, index empty, 9 modified tracked paths
+- **Scope:** round 10 at `b0542c8`, index empty, 9 modified tracked paths
   (unstaged diff SHA256 prefix `78631c3aeac982d4` at capture), no untracked
   files. [Record](../../backlog/archive/CODE_REVIEW_2026-10-15.md#round-10).
 - **Checked:** every hash consumer follows the qualified inventory (images,
@@ -1105,7 +1105,7 @@ the same round.
 
 ### Interim Standard B — 2026-10-16 — `PASS-WITH-FIXES` (round 11 D-084-11, plan stays active)
 
-- **Scope:** round 11 at `f254530`, index empty, 18 modified tracked paths
+- **Scope:** round 11 at `b7eb07f`, index empty, 18 modified tracked paths
   (unstaged diff SHA256 prefix `184ff33d30dbb752` at capture), no untracked
   files. [Record](../../backlog/archive/CODE_REVIEW_2026-10-15.md#round-11).
 - **Checked:** AIO selections unchanged (images and qualification stay bound);

@@ -309,7 +309,7 @@ describe('frozen candidate execution', () => {
 		expect(composer.require.php).toBe('~8.4.0')
 	})
 	it('wires weekly and manual pre-release checks to the same read-only checker', () => {
-		const workflow = fs.readFileSync(path.resolve(__dirname, '../../../.forgejo/workflows/runtime-check.yml'), 'utf8')
+		const workflow = fs.readFileSync(path.resolve(__dirname, '../../../.github/workflows/runtime-check.yml'), 'utf8')
 		expect(workflow).toContain("cron: '0 8 * * 1'")
 		expect(workflow).toContain('workflow_dispatch:')
 		expect(workflow).toContain('run: npm run test:runtime:validate')
@@ -476,16 +476,16 @@ describe('promoted canonical default stack (R7)', () => {
 	})
 
 	it('propagates the frozen build into the CI gates that consume the inventory', () => {
-		const releaseGate = fs.readFileSync(path.join(root, '.forgejo/workflows/release-gate.yml'), 'utf8')
+		const releaseGate = fs.readFileSync(path.join(root, '.github/workflows/release-gate.yml'), 'utf8')
 		expect(releaseGate).toContain('node scripts/test-runtime.js build cs082-runtime-35.0.2-local')
 		expect(releaseGate).toContain('node scripts/test-runtime.js verify-image cs082-runtime-35.0.2-local')
 		expect(releaseGate).toContain('docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900')
 		expect(releaseGate).toContain("php-version: '8.4'")
-		const test = fs.readFileSync(path.join(root, '.forgejo/workflows/test.yml'), 'utf8')
+		const test = fs.readFileSync(path.join(root, '.github/workflows/test.yml'), 'utf8')
 		expect(test).toContain("php: ['8.4']")
 		expect(test).toContain('docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900')
 		expect(test).toContain('npm run test:runtime:canonical')
-		const fullMatrix = fs.readFileSync(path.join(root, '.forgejo/workflows/full-matrix.yml'), 'utf8')
+		const fullMatrix = fs.readFileSync(path.join(root, '.github/workflows/full-matrix.yml'), 'utf8')
 		expect(fullMatrix).toContain('docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900')
 	})
 

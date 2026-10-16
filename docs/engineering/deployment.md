@@ -10,6 +10,16 @@
 > retained-baseline adoption. Do not run test compose stacks, seeds or resets
 > against a real household instance.
 
+> **Commit identity across the 2026-10-16 repository migration:** the GitHub
+> migration rewrote the history, so every commit hash changed
+> ([ADR-018](../adr/ADR-018-repository-hosting-and-contributor-identity.md)).
+> Qualification evidence recorded before that date names commits that no longer
+> exist. Resolve such a hash through
+> [`history-migration-2026-10-commit-map.tsv`](../release/history-migration-2026-10-commit-map.tsv)
+> (old → new) before treating it as a deployment candidate, and record the
+> post-migration hash in the handoff. A pre-migration hash is never a valid
+> installed-identity match.
+
 ## Prerequisites
 
 - Nextcloud 34–35

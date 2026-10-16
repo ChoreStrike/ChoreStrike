@@ -5,11 +5,11 @@
 > **Priority:** P1
 > **Depends on:** None remaining — Q-070-01/02 resolved 2026-09-18 and Standard A passed 2026-09-18 (see Review Outcome)
 > **Related backlog items:** CONCEPT-001; existing follow-up owners CR-053-11, CR-SVC-63, CR-SVC-64, FEAT-UX-018, FEAT-UX-019, FEAT-UX-023, FEAT-UX-024, FEAT-UX-025, FEAT-UX-026
-> **Review baseline:** `master` at `1946166618d591eba54bd42d1d338030389e994e`, 2026-09-16
+> **Review baseline:** `master` at `d5c6fb9636b0dbfe30033cf8006c1538c94aa2e7`, 2026-09-16
 > **Technical inventory:** Same runtime revision rechecked 2026-09-18; pre-existing documentation changes preserved
 > **Delivered children:** WP0-WP8. Latest: [CS-PLAN-079](../done/cs-plan-079-wp8-reward-ui-and-onboarding.md), final Standard B `PASS-WITH-FIXES` 2026-10-02: the reward UI and onboarding slice (two independent catalog gates with fail-closed browsing, persistent own/owner request surfaces with all C4 attestation forms, exact `parseCoinMinor` prices, uncertain-command same-key replay, 409 conflict-safe drafts, shared-device reset and essential help; T11 `family-rewards.spec.ts` 9 scenarios; FEAT-UX-026 closed). WP7 [CS-PLAN-078](../done/cs-plan-078-wp7-catalog-and-request-backend.md) delivered 2026-10-01 (ADR-017). WP5 [CS-PLAN-076](../done/cs-plan-076-wp5-preferences-and-digest-delivery.md) delivered 2026-09-30 (ADR-016). Parent remains active for WP9 and family evidence.
 > **Current child:** [WP9 / CS-PLAN-080](../active/cs-plan-080-wp9-cross-db-and-family-evidence.md), activated 2026-10-03 (Standard A `PASS`); technical gates passed 2026-10-05. The full isolated MariaDB/PostgreSQL/SQLite matrix runs without skips (603 integration and 1334 unit tests per provider). Automated T12 gaps are closed; final unchanged-candidate browser gates `run-7H4sub` and `run-VTfa1r` both pass all three pools (288 executions each, zero skips/failures/flakes). Separately authorized voluntary family evidence and final review remain open. No parent whole-item closure or family trial is claimed.
-> **Preparatory sequence (2026-10-05):** [CS-PLAN-081](../done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) is delivered (final Full `PASS-WITH-FIXES`, H6-05 evidence-bound disposition accepted; H7/H-T11 user-rescoped, not passed): independent hardening, bounded CONCEPT-001 reset-copy clarification and RELEASE-002 retained-data/recovery preparation. WP9 continues from its refreshed `bd7ba8c` runtime baseline/coverage mapping; no new WP, parent closure, productive deployment or baseline adoption implied.
+> **Preparatory sequence (2026-10-05):** [CS-PLAN-081](../done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) is delivered (final Full `PASS-WITH-FIXES`, H6-05 evidence-bound disposition accepted; H7/H-T11 user-rescoped, not passed): independent hardening, bounded CONCEPT-001 reset-copy clarification and RELEASE-002 retained-data/recovery preparation. WP9 continues from its refreshed `a4060ad` runtime baseline/coverage mapping; no new WP, parent closure, productive deployment or baseline adoption implied.
 
 ## 1. Problem Summary
 
@@ -1310,7 +1310,7 @@ completion is implied. The original review record remains a historical snapshot.
 
 - **Scope:** this plan file (1243 lines pre-review, untracked), SHA256
   `A84AC15790AA034E9099D124C38DDE1F15272FD6BAED349ADE640A41FC12D2B8`;
-  base `master` @ `1946166618d591eba54bd42d1d338030389e994e`; empty index;
+  base `master` @ `d5c6fb9636b0dbfe30033cf8006c1538c94aa2e7`; empty index;
   unstaged-diff fingerprint of the 20 unrelated/plan-owned dirty files
   `352486442C8A4B3151DF85EF97D74A0BEB8214D4F18A400265527384FACB01CA`
   (preserved; the three `.gitkeep` deletions stay excluded per section 5).

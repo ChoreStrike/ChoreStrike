@@ -5,7 +5,7 @@ const yaml = require('js-yaml')
 const { main } = require('../../../scripts/run-tests')
 const SummaryReporter = require('../../../scripts/playwright-summary-reporter')
 const root = path.resolve(__dirname, '../../..')
-const workflow = name => yaml.load(fs.readFileSync(path.join(root, `.forgejo/workflows/${name}.yml`), 'utf8'))
+const workflow = name => yaml.load(fs.readFileSync(path.join(root, `.github/workflows/${name}.yml`), 'utf8'))
 
 afterEach(() => jest.restoreAllMocks())
 
