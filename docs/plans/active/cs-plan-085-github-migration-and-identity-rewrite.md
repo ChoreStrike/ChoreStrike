@@ -491,9 +491,10 @@ deletion.
    the original dates preserved. Evidence in §10.
 5. **Operator-owned repository settings** (none of these can be done from the
    working tree):
-   - Enable **private vulnerability reporting** (*Settings → Code security*).
-     `docs/SECURITY.md` now names it as the preferred channel, so leaving it
-     off would advertise a route that does not work.
+   - **[DONE 2026-10-16]** Enable **private vulnerability reporting**
+     (*Settings → Code security*). `docs/SECURITY.md` names it as the
+     preferred channel, so leaving it off would have advertised a route that
+     does not work.
    - Branch protection for `master`, at minimum no force-push, now that the
      one intended rewrite is published.
    - Repository description and topics (`nextcloud`, `nextcloud-app`, `vue`,
@@ -503,9 +504,11 @@ deletion.
      repository.
    - Decide what to do with the Dependabot pull requests the initial run
      opens (the config is monthly and grouped from here on).
-6. **Only after the verification above:** the operator deletes the Codeberg
-   repository. The 7-Zip backup remains the fallback; the deletion is
-   irreversible and is the operator's action, not the agent's.
+6. **Codeberg retirement.** The operator set the repository to **private** on
+   2026-10-16 (D-085-09), which already removes the public copy and the public
+   trace of the retired identity; outright deletion is deferred to the
+   operator. The 7-Zip backup remains the fallback, and deletion stays an
+   operator action, not the agent's.
 
 ### WP8 — Durable knowledge integration and backlog closure
 
@@ -727,14 +730,17 @@ Filled in during implementation; empty entries are open.
 | Evidence SHAs remapped (WP8-6) | **32** across `ACTIVE_TASKS.md` and the active plans 070/080/084 |
 | Reachable-object audit (what a push transmits) | 14,957 objects: **0** hits for the retired username, forge addresses, forge URLs with a user path, the early contributor domain and the personal local part |
 | Post-rewrite gates | Jest 124 suites / **1791** tests; ESLint; backend unit **1385**, integration **613** on the canonical row; backlog, docs-encoding, l10n (1288) and agent-adapter checks green |
-| Local unreachable leftovers | 10 pre-rewrite objects (6 blobs + 4 trees) kept alive by a **Kilo agent worktree** whose stale index pins them (`ordinary-perfume`, detached, no original work — its index holds exactly those blobs). Never pushed; see §12 |
+| Local unreachable leftovers | **Resolved 2026-10-16.** Kilo recycled its pooled worktree (`ordinary-perfume` → `treasure-rook`, clean at the current HEAD), which removed the stale index that had rooted the 10 pre-rewrite objects — `git fsck` then reported them unreachable where it had reported 0 before. After `git gc --prune=now` the object database holds exactly the 15,027 reachable objects (0 loose, 0 unreachable) |
+| Final full-database audit | **15,027 objects, nothing excluded: 0** hits for the retired username, any address at the old forge domain, any forge URL with a user path, the early contributor domain and the personal local part. The earlier reachable-only qualification no longer applies |
 | First GitHub push (commit, date) | **`14b01542df63261ddd60365590b7383b99ceda4e`, 2026-10-16** to `ChoreStrike/ChoreStrike`. Remote was verified empty beforehand (`git ls-remote` returned no refs), so no force was needed; `master...origin/master` is `0 0` |
 | Remote verification (WP7-3) | Default branch **`master`**, no `main` created, repository public. GitHub API over all 566 commits: author and committer email `220411049+volker-ma@users.noreply.github.com`, name `volker-ma`, linked login `volker-ma`, oldest author date 2026-02-24 — no other identity on the remote |
 | CI trigger | The push started the `checks` workflow (`event=push`); Dependabot's initial npm and composer runs started from `dependabot.yml` |
 | CI result | **green on `0a6b865`** (run 38942326566): both jobs — *Frontend (lint + test + build)* and *Composer validate + PHP CS* — succeeded with no failing step. The first two runs were red on two pre-existing defects (A-13, A-14); every remaining `checks.yml` step that had never executed in CI (build, stylelint, docs-encoding, adapter drift, offline runtime inventory) was then verified in a clean Linux clone before relying on it |
 | Community profile | README, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT and the PR template detected; the two issue templates are on the remote and work, but GitHub's `health_percentage` (87) counts only a legacy single-file `ISSUE_TEMPLATE.md`, so that field stays `null` — an API artifact, not a missing file |
-| Codeberg deletion confirmed by operator | *(pending — WP7-6, operator-only)* |
-| Operator repository settings | *(pending — WP7-5: private vulnerability reporting, branch protection, description/topics/avatar, optional org profile)* |
+| Private vulnerability reporting | **Enabled by the operator 2026-10-16** — the channel `docs/SECURITY.md` names as preferred is live |
+| Codeberg repository | **Set to private by the operator 2026-10-16** (D-085-09); the public copy and the public trace of the retired identity are gone. Deletion deferred to the operator |
+| Operator repository settings | *(partly open — WP7-5: branch protection on `master`, description/topics/avatar, optional organization profile)* |
+| Dependabot pull requests | 2 open (#1 GitHub Actions group, #2 `nextcloud/coding-standard`); operator's call, not merged here |
 
 ## 11. Operator Decisions
 
@@ -743,6 +749,7 @@ Filled in during implementation; empty entries are open.
 | D-085-01 | Host on the GitHub **organization** `ChoreStrike`, not the personal account — project identity separate from the private account, contributors and teams possible without a later repository transfer | 2026-10-16 |
 | D-085-02 | **Maximum rewrite depth:** identity for all commits, plus username/URL removal from historical commit messages, plus `fix-email.bat` removal from all history. `Co-Authored-By: Claude` trailers stay | 2026-10-16 |
 | D-085-03 | **Delete the Codeberg repository** after a verified GitHub push; the 7-Zip backup is the fallback | 2026-10-16 |
+| D-085-09 | **Revised D-085-03:** the Codeberg repository is set to **private** for now and deleted later, which already removes the public copy and the public trace of the retired identity. Deletion stays operator-only and open | 2026-10-16 |
 | D-085-04 | **Port the CI workflows**, with the heavy Docker/E2E matrices as `workflow_dispatch`; the local Docker gate stays binding | 2026-10-16 |
 | D-085-05 | The operator makes the full local repository backup with 7-Zip himself (WP0-1) | 2026-10-16 |
 | D-085-06 | **Delete the `v0.1.0` tag**; the disjoint 14-commit pre-rename orphan root it anchors drops out of the migration together with the second identity. The WP0-1 backup is its only archive | 2026-10-16 |
@@ -778,7 +785,20 @@ Filled in during implementation; empty entries are open.
 - **Transition:** `new/ → active/`; TECH-REPO-001 marked `In Progress` and
   assigned to this plan; `ACTIVE_TASKS.md` updated.
 
-### Open environmental item: the Kilo agent worktree
+### Resolved environmental item: the Kilo agent worktree
+
+**Closed 2026-10-16.** Kilo recycled the pooled worktree on its own: the stale
+`ordinary-perfume` is gone and `treasure-rook` sits clean at the current
+post-rewrite HEAD, so Kilo picked up the rewritten history without
+intervention. With the stale index gone, `git fsck` reported the 10 objects as
+unreachable (it had reported 0 while the worktree rooted them) and
+`git gc --prune=now` removed them. The repository now contains exactly its
+15,027 reachable objects, and the identity audit covers the whole database
+rather than only the reachable set.
+
+The analysis below is kept as the record of why the objects persisted.
+
+### Original finding: the Kilo agent worktree
 
 `git worktree list` shows a second, pooled Kilo Code worktree
 (`…/kilo/worktree-pool/chorestrike-…/ordinary-perfume`, detached). Its index

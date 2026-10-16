@@ -640,8 +640,10 @@ are repointed.
 - [x] Inventory Git history/tags, issues, release assets, remotes, documentation links and Forgejo CI/release workflows; scope GitHub equivalents and private credential handling before implementation (CS-PLAN-085 §1, Standard A 2026-10-16).
 - [x] Execute the plan: source scrub, history rewrite, verification, polish, CI port (2026-10-16; 565 commits on one identity, identical `HEAD` tree hash, orphan root retired, commit map committed).
 - [x] Push and verify the transferred scope and the canonical links/workflows (2026-10-16; `master` default, API confirms one identity across all 566 commits).
-- [ ] Operator repository settings: enable private vulnerability reporting (SECURITY.md already names it), branch protection on `master`, description/topics/avatar, optional organization profile.
-- [ ] Delete the Codeberg repository after the settings are in place (operator-only; the 7-Zip archive is the fallback).
+- [x] Enable private vulnerability reporting (operator, 2026-10-16) — the channel SECURITY.md names as preferred is live.
+- [x] Retire the public Codeberg copy (operator, 2026-10-16): set to private (D-085-09), which removes the public trace of the retired identity.
+- [ ] Remaining operator repository settings: branch protection on `master`, description/topics/avatar, optional organization profile.
+- [ ] Delete the private Codeberg repository when the operator chooses (the 7-Zip archive is the fallback).
 - [ ] Coordinate the actual reporting mailbox with BUG-SEC-001 (unchanged by the migration).
 
 ---
