@@ -684,6 +684,17 @@ Implementation round (2026-10-16), found while executing WP3-WP6:
       by experiment rather than assumption: the `--ci` flag, a missing
       `js/` build (the workflow runs Jest before the build), UTC vs. local
       timezone, tracked symlinks and case collisions.
+- [x] **A-14** (Medium · WP7-3) With Jest fixed, the CI run went red again on
+      the l10n/backlog/browser-contract step. Reproduced in a clean Linux
+      clone: `check-backlog.js` reports `docs/backlog/README.md:21` linking to
+      the repo-root `archive/`, which is **gitignored by design** and therefore
+      never exists in a clone — the prose on that very line says so. Also
+      pre-existing and migration-independent; it passed locally only because a
+      developer machine happens to have that directory. → The link became
+      inline code (the reference is kept, the unresolvable link removed), and
+      the underlying issue that the gate resolves links against the working
+      tree instead of the tracked file set is routed to **TECH-DOCS-006**
+      rather than weakening the gate here.
 - [x] **A-12** (Low · WP3-3) WP3-3 asserted the repository would contain
       exactly one identity when the mailmap is generated. By then the plan's
       own commits already carried the target identity, so the assertion would

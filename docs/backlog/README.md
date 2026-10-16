@@ -18,10 +18,11 @@ backlog/
     └── CODE_REVIEW_YYYY-MM-DD.md   ← review records (kept verbatim)
 ```
 
-> **Distinction from the repo-root [`../../archive/`](../../archive/):** that
-> top-level `archive/` is gitignored local reference for dead code/sensitive
-> material. `docs/backlog/archive/` is **tracked in Git** so the completion
-> history is publicly visible.
+> **Distinction from the repo-root `archive/`:** that top-level `archive/` is
+> gitignored local reference for dead code/sensitive material — deliberately
+> not linked here, because it never exists in a clone.
+> `docs/backlog/archive/` is **tracked in Git** so the completion history is
+> publicly visible.
 
 ## What goes where
 

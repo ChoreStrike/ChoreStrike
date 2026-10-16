@@ -646,6 +646,28 @@ are repointed.
 
 ---
 
+### [P3] TECH-DOCS-006 — Make the backlog link gate clone-independent
+**Status**: Backlog · **Effort**: XS · **Layer**: tooling · **Journey stage**: quality gates
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-085 WP7 (first real CI run, 2026-10-16)
+
+`scripts/check-backlog.js` resolves relative markdown links against the
+**filesystem**, so its verdict depends on untracked local state. A link to the
+gitignored repo-root `archive/` passed on a developer machine that happens to
+have that directory and failed only in CI's fresh checkout — which is exactly
+how it reached the first GitHub Actions run (the link itself is fixed; the
+local-state dependency is not).
+
+Resolving targets against the tracked file set (`git ls-files`, treating a
+directory as resolved when a tracked file carries that prefix) would make the
+gate deterministic and catch this class before a push. Expect it to surface
+further findings, so it wants its own review round.
+
+- [ ] Resolve link targets against the tracked file set instead of the working tree.
+- [ ] Fix whatever the stricter check surfaces, or route it explicitly.
+
+---
+
 ### [P3] TECH-DOCS-005 — README screenshots for the public landing page
 **Status**: Backlog · **Effort**: XS · **Layer**: docs · **Journey stage**: repository hosting
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
