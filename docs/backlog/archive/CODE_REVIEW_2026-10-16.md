@@ -70,3 +70,71 @@ D-085-06 (delete the `v0.1.0` tag and let the orphan root drop out),
 D-085-07 (preserve the `commit-map` as a tracked artifact and remap the 18
 active evidence SHAs), D-085-08 (keep `master` as the default branch) — one
 batched operator question round, recorded in the plan's §11.
+
+---
+
+## Standard B (Code, final-review attempt) — CS-PLAN-085
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none — the plan stays in `active/`
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/active/cs-plan-085-github-migration-and-identity-rewrite.md` (explicit path) |
+| Reviewed range | `3b3acfb..b5dcf2a` — the whole CS-PLAN-085 implementation, plus the plan's file manifest and acceptance criteria |
+| Branch | `master`, clean working tree at capture |
+| Scope drift during review | The operator merged both Dependabot PRs mid-review, moving HEAD from `2f903ee` to `16b8622`. Expected and user-initiated, so the scope was extended to the merged state rather than treated as blocking drift |
+
+### Finding A-15 (High) — private address published by the web merges
+
+Merging the two Dependabot pull requests through the GitHub web UI stamped the
+**account's primary email** on both merge commits, so the operator's private
+address authored two published commits — the one address this plan exists to
+keep out of the repository.
+
+- **Scope:** metadata only. The object-database scan found the address twice,
+  **both in commit objects and zero in blobs**; the retired username stayed at
+  zero, so the original rewrite held.
+- **Why CI stayed green:** the guard scanned tracked **file contents** only, and
+  an identity in commit metadata is never part of any blob. The check could not
+  have caught it.
+- **Fix, three parts:** the operator enabled *Keep my email addresses private*
+  (independently, before this review reported it) so web merges use the noreply
+  address; the two commits were rewritten through a `filter-repo` mailmap,
+  leaving 576 commits, both merges and every other SHA intact; and the guard was
+  extended to commit metadata, with `checks.yml` checking out at
+  `fetch-depth: 0`.
+- **Proof the guard works:** it was run against the real bad state first and
+  failed, naming both commits; it passes after the rewrite. A separate assertion
+  now fails on a shallow clone, because a green run over one commit would
+  otherwise be indistinguishable from a green run over all of them.
+- **Ruleset behaved correctly:** the first force-push attempt was rejected with
+  `Cannot force-push to this branch`; the operator disabled enforcement for the
+  corrective push and re-enabled it.
+
+### Verified
+
+- **Published history (GitHub API, all 576 commits):** exactly three addresses —
+  the operator's GitHub noreply, Dependabot's, and GitHub's own `noreply@github.com`
+  committer. Names: `volker-ma` and `dependabot[bot]`. No private or forge address.
+- **Local object database:** 15,064 objects, 0 hits for the private domain, the
+  retired username and the private local part.
+- **History shape:** 576 commits, 1 root, 2 merge commits (from the two PR merges;
+  the "zero merges" figure in §10 describes the rewrite outcome, not a standing rule).
+- **File manifest:** every planned artifact present — guard spec, ADR-018, commit
+  map, five workflows, CODEOWNERS, dependabot.yml, review record; `.forgejo/`
+  removed and archived with 5 files.
+- **Plan findings:** A-01..A-15 all resolved, none deferred or rescoped.
+- **Gates:** Jest 124 suites / 1797 tests; backlog, docs-encoding, l10n and adapter
+  checks green; CI green on the corrected tip for both jobs.
+
+### Why the plan stays active
+
+Acceptance criteria that are not met, both operator-owned and deliberately deferred:
+
+- repository description, topics and avatar are not set;
+- the Codeberg repository is private, not deleted (D-085-09 revised D-085-03).
+
+A passing review does not move a plan whose acceptance criteria are open. The
+implementation work itself is complete and verified.

@@ -125,6 +125,13 @@ describe('repository identity and metadata', () => {
 		expect(files.length).toBeGreaterThan(100)
 	})
 
+	// Fail loudly on a shallow clone instead of silently checking only the tip:
+	// a green run on one commit would look identical to a green run on all of
+	// them, so `fetch-depth: 0` in checks.yml would be able to regress unnoticed.
+	it('sees the full history, not a shallow clone', () => {
+		expect(commitIdentities().length).toBeGreaterThan(100)
+	})
+
 	it.each(FORBIDDEN)('no tracked file contains the $label', ({ pattern }) => {
 		const hits = []
 		for (const relPath of files) {
