@@ -73,6 +73,26 @@ const FORBIDDEN = [
 ]
 
 /**
+ * List every commit identity in the history as "author|committer" lines.
+ *
+ * Needs the full history: `actions/checkout` clones shallow by default, so
+ * `checks.yml` sets `fetch-depth: 0` for this guard to see more than the tip.
+ * A shallow clone silently narrows the check rather than failing, which is why
+ * the workflow and this comment pin the requirement.
+ *
+ * @return {string[]} one "Name <email>|Name <email>" line per commit
+ */
+function commitIdentities() {
+	return execFileSync('git', ['log', '--format=%an <%ae>|%cn <%ce>'], {
+		cwd: ROOT,
+		maxBuffer: 64 * 1024 * 1024,
+	})
+		.toString('utf8')
+		.split('\n')
+		.filter(Boolean)
+}
+
+/**
  * List the repository's tracked files.
  *
  * @return {string[]} repo-relative paths
@@ -124,5 +144,16 @@ describe('repository identity and metadata', () => {
 	it.each(MUST_REFERENCE_CANONICAL)('%s names the canonical repository', (relPath) => {
 		expect(files).toContain(relPath)
 		expect(readText(relPath)).toContain(CANONICAL_URL)
+	})
+
+	// Commit metadata, not just file contents (CS-PLAN-085 A-15). Merging a pull
+	// request in the GitHub web UI stamps the account's *primary* email on the
+	// merge commit, which put the operator's private address into two published
+	// commits right after the migration. The file-content scan above cannot see
+	// that, because an identity in commit metadata is never part of any blob.
+	it.each(FORBIDDEN)('no commit author or committer carries the $label', ({ pattern }) => {
+		const hits = commitIdentities().filter((line) => pattern.test(line))
+
+		expect(hits).toEqual([])
 	})
 })

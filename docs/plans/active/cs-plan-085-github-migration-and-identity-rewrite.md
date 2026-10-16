@@ -698,6 +698,24 @@ Implementation round (2026-10-16), found while executing WP3-WP6:
       the underlying issue that the gate resolves links against the working
       tree instead of the tracked file set is routed to **TECH-DOCS-006**
       rather than weakening the gate here.
+- [x] **A-15** (High · final review) The two Dependabot pull requests were
+      merged through the GitHub web UI, which stamps the **account's primary
+      email** on the merge commit. Both merge commits were therefore authored
+      by `volker-ma <the operator's private address>` — the exact address this
+      plan exists to keep out of the repository, now published. Scope was
+      limited to commit metadata: the object-database scan found the address
+      twice, **both in commit objects, zero in blobs**, and the retired
+      username stayed at zero.
+      → Three-part fix: (1) the operator enables *Keep my email addresses
+      private* so web merges use the noreply address; (2) the two commits were
+      rewritten through a `filter-repo` mailmap, leaving 575 commits, both
+      merges and all other SHAs intact; (3) the guard was extended to commit
+      metadata, because it previously scanned tracked **file contents** only
+      and an identity in commit metadata is never part of any blob — which is
+      precisely why CI stayed green through the mistake. `checks.yml` now
+      checks out with `fetch-depth: 0`, since the default shallow clone would
+      narrow that check to the tip. The extended guard was confirmed to fail on
+      the real bad state before the rewrite and to pass after it.
 - [x] **A-12** (Low · WP3-3) WP3-3 asserted the repository would contain
       exactly one identity when the mailmap is generated. By then the plan's
       own commits already carried the target identity, so the assertion would
@@ -740,7 +758,9 @@ Filled in during implementation; empty entries are open.
 | Private vulnerability reporting | **Enabled by the operator 2026-10-16** — the channel `docs/SECURITY.md` names as preferred is live |
 | Codeberg repository | **Set to private by the operator 2026-10-16** (D-085-09); the public copy and the public trace of the retired identity are gone. Deletion deferred to the operator |
 | Operator repository settings | *(partly open — WP7-5: branch protection on `master`, description/topics/avatar, optional organization profile)* |
-| Dependabot pull requests | 2 open (#1 GitHub Actions group, #2 `nextcloud/coding-standard`); operator's call, not merged here |
+| Dependabot pull requests | Both merged by the operator 2026-10-16 (#1 GitHub Actions v4 -> v7 across all five workflows, #2 `nextcloud/coding-standard` 1.5.0 with the four-line blank-line sweep that keeps `composer cs:check` green). CI green on the merged `master` |
+| Merge-commit identity incident | The web-UI merges stamped the operator's private address on both merge commits (A-15). Rewritten through a mailmap; 575 commits, both merges and every other SHA intact. Authors now 573 canonical + 2 Dependabot; committers 572 canonical + 3 `GitHub <noreply@github.com>` (GitHub's own address, not personal) |
+| Guard coverage | Extended to commit metadata, not just tracked file contents, and `checks.yml` now checks out with `fetch-depth: 0`. Verified to fail on the real bad state and pass after the rewrite. Jest 1796 |
 
 ## 11. Operator Decisions
 
