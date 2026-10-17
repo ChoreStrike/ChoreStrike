@@ -418,10 +418,11 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   completed adoption record (installed version, ordered applied migrations with
   file hashes, runtime identity; private details in `private/`). No deployment,
   adoption, tag or push was performed by the agent.
-- **Candidate:** app version `0.8.0-alpha.1`, commit `bce10bb` on branch
-  `chore/pre-deployment-0.8.0-alpha.1`, package-qualified by run `mvc1imwv`
-  (archive SHA-256 prefix `17f989568da9e0ba`, NC 35.0.2 + AIO NC 34.0.4); gates
-  and the final review are recorded
+- **Candidate:** app version `0.8.0-alpha.1`, `master` commit `0d27d38`,
+  package-qualified by run `mvcfy3ro` (archive SHA-256 prefix
+  `6128bf600f2cfc47`, NC 35.0.2 + AIO NC 34.0.4); it supersedes `bce10bb` /
+  `mvc1imwv` after the TECH-DOCS-005 UI fix. Gates, requalification and the final
+  review are recorded
   in [CS-PLAN-084 round 12](../done/cs-plan-084-family-trial-ux-baseline.md#round-12--pre-deployment-candidate-080-alpha1-2026-10-17).
   Export to the private exchange is a separate, operator-requested step.
   No schema or migration change since the qualified CS-PLAN-083/084 chain.

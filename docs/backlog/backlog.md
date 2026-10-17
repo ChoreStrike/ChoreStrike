@@ -131,6 +131,23 @@ regression net.
 
 ---
 
+### [P3] CR-PWA-01 — PWA manifest hardcodes the `/apps/chorestrike/` path
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: phone access
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: requalification of `master` for `0.8.0-alpha.1` (2026-10-17; access-log review)
+
+`img/manifest.webmanifest` (linked by `PageController` through `imagePath`)
+names `/apps/chorestrike/img/app.svg` as its icon and `/apps/chorestrike/` as
+`start_url` and `scope`. The test runtimes and the AIO install the app under
+`custom_apps`, so every page load requests the icon from a path that answers
+404 (82 times in one full browser gate), and a home-screen shortcut gets no
+icon. Already present in the qualified `0.1.1`/`0.8.0-alpha.1` builds; it
+does not affect the app's function. Serve the manifest with paths from
+`IURLGenerator` (icon via `imagePath`, start URL via `linkToRoute`), or make
+them relative to the manifest, with a test against a `custom_apps` install.
+
+---
+
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
@@ -376,6 +393,19 @@ host networking of the long-running session. After an operator-approved Docker
 Desktop restart (no other change) both full gates passed cleanly (`run-L6HInO`
 canonical, `run-Vq2pkA` AIO) — consistent with, not proof of, a degraded
 long-running port forwarder.
+
+**Recurrence (2026-10-17, requalification of `master` `0d27d38`, staged rows):**
+earlier full gates in the same Docker Desktop session passed on both rows
+(`run-nKi6vJ`, `run-p5CXyQ`, `run-6jDStt`). Later in that session the
+primary row failed twice: `run-BQqw1G` on one `DatabaseManager.seed` POST
+`fetch failed` absent from Apache's access log (23 logged seed POSTs in the
+window, all 200), and `run-8f3fhe` on one more such closure plus three views
+that stayed empty past their 5 s expectations and one dark-theme contrast
+sample, each in a minute where Apache logged 13–33 requests instead of the
+usual 400–1300; no restart, OOM or fatal. After an operator-approved Docker
+Desktop restart the fresh row passed first time (`run-I3xSLN`). Same signature
+as above — the stall sits before Apache and grows with session age; still not
+proof of the terminating layer.
 
 **Deferral reason / scope:** attribution needs separate test-runtime/transport
 instrumentation and load comparison; it is not an outstanding bootstrap or

@@ -959,7 +959,35 @@ the same round.
   rows `primary@35.0.2` and `aio@34.0.4`, cold first-bootstrap setup 1/1 and
   owner verify 6/6 each, owned teardown — **the deployment candidate** handed
   back to CS-PLAN-080. The commit carries the GitHub noreply identity for author
-  and committer (`repo-metadata.spec.js` 14/14).
+  and committer (`repo-metadata.spec.js` 14/14). *Superseded as the deployment
+  candidate by `0d27d38` (next bullet).*
+- **Requalification of `master` `0d27d38` (2026-10-17):** after the
+  fast-forward, `master` gained the TECH-DOCS-005 README/brand commit `b52e374`
+  and the UI fix `1ee898d` (house-health bar layers, registered icons, the
+  `--cs-view-inline-start` inset that clears Nextcloud's navigation toggle in all
+  13 views, `layout-clearance.spec.ts`), then `277be87` (BUG-SEC-001 docs),
+  `f00f38c` + `2a4bd10` (layout-clearance pinned in the gate manifest and the
+  scenario inventory — the inventory step was missing in `f00f38c` and stopped
+  the first gate attempt in discovery on both rows before any test ran) and the
+  branch guard `0d27d38`. No `lib/`, `appinfo/` or migration change since
+  `bce10bb`. Gates: Jest 127 suites / 1836 tests; backend unit 1385 /
+  integration 613 on fresh primary and AIO rows (`cs082-pd17b-*`, on `f00f38c`,
+  backend byte-identical to `0d27d38`); AIO row full browser gate
+  **`run-6jDStt` PASSED** (98 / 171 / 39 / 10 / 10 — chromium +3 for
+  layout-clearance). Primary row: `run-BQqw1G` FAILED on one fixture seed POST
+  `fetch failed` that never reached Apache (all other executions passed);
+  `run-8f3fhe` FAILED in a degraded session (one more such seed closure, three
+  views that stayed empty past their 5 s expectations and one contrast sample,
+  all in minutes where Apache saw 13–33 instead of 400–1300 requests; 14
+  dependent serial skips); both retained under TECH-TRANSPORT-001, none
+  relabelled. After an operator-approved Docker Desktop restart, on a fresh row
+  `cs082-pd17c-pgsql`: full browser gate **`run-I3xSLN` PASSED** (98 / 171 / 39 /
+  10 / 10, first attempt). **Package:** `test:package:smoke` on clean HEAD
+  `0d27d38` → `package-qualified` (run `mvcfy3ro`, archive SHA-256 prefix
+  `6128bf600f2cfc47`, 525 files, `<version>0.8.0-alpha.1</version>`, newest
+  migration still `Version1033Date20260918000000`, no `.githooks` in the
+  archive), rows `primary@35.0.2` and `aio@34.0.4`, setup 1/1 and verify 6/6
+  each — **the deployment candidate**.
 
 ## Review Outcome
 
