@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed after 0.8.0-alpha.1
+
+- **No log warning on every notification poll:** ChoreStrike rejects other
+  apps' notifications with Nextcloud's `UnknownNotificationException` instead
+  of a plain `InvalidArgumentException`, which Nextcloud logs as deprecated on
+  every poll (and as an error from Nextcloud 39). Reported by the first
+  production deployment.
+
 ### App Version 0.8.0-alpha.1 — Family-Trial Candidate (2026-10-17)
 
 First version of the `v0.8` alpha stage

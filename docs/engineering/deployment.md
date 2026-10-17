@@ -477,7 +477,7 @@ from the eventual release gate.
 - [x] User management works (invite, remove)
 - [x] Nextcloud cron runs regularly (normally every five minutes); timeline and optional digest processing are operational, not dependent on page visits
 - [ ] Test mode remains disabled; no test accounts, seeds or fixture resets were introduced
-- [x] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — one recurring level-2 deprecation warning from `ChoreStrikeNotifier::prepare()` on every notification poll, no functional impact (follow-up fix)
+- [x] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — one recurring level-2 deprecation warning from `ChoreStrikeNotifier::prepare()` on every notification poll, no functional impact (fixed for the next candidate)
 
 ### Performance
 

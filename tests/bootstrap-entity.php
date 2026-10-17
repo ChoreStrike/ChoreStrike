@@ -45,6 +45,7 @@ require_once __DIR__ . '/__mocks__/OCP/L10N/IFactory.php';
 require_once __DIR__ . '/__mocks__/OCP/Notification/IManager.php';
 require_once __DIR__ . '/__mocks__/OCP/Notification/INotification.php';
 require_once __DIR__ . '/__mocks__/OCP/Notification/INotifier.php';
+require_once __DIR__ . '/__mocks__/OCP/Notification/UnknownNotificationException.php';
 require_once __DIR__ . '/__mocks__/OCP/Notification/IAction.php';
 require_once __DIR__ . '/__mocks__/OCP/BackgroundJob/TimedJob.php';
 require_once __DIR__ . '/__mocks__/Psr/Log/LoggerInterface.php';

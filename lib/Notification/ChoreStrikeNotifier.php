@@ -13,6 +13,7 @@ use OCP\IURLGenerator;
 use OCP\L10N\IFactory;
 use OCP\Notification\INotification;
 use OCP\Notification\INotifier;
+use OCP\Notification\UnknownNotificationException;
 
 /**
  * Prepares ChoreStrike notifications for display in the Nextcloud bell and
@@ -59,16 +60,21 @@ class ChoreStrikeNotifier implements INotifier {
 	 * set the app icon. The digest carries only counts in its parameters —
 	 * nothing here resolves back into user-controlled content.
 	 *
+	 * Nextcloud offers every notification to every notifier, so other apps'
+	 * notifications arrive here on each poll. A plain \InvalidArgumentException
+	 * is deprecated for "not mine" since Nextcloud 30 (logged as a warning,
+	 * as an error from Nextcloud 39).
+	 *
 	 * @param INotification $notification Notification to prepare
 	 * @param string $languageCode Language code for the recipient's locale
-	 * @throws \InvalidArgumentException When the notification is not for this app or has an unknown subject
+	 * @throws UnknownNotificationException When the notification is not for this app or has an unknown subject
 	 */
 	public function prepare(INotification $notification, string $languageCode): INotification {
 		if ($notification->getApp() !== NotificationService::APP_ID) {
-			throw new \InvalidArgumentException('Notification not for ChoreStrike');
+			throw new UnknownNotificationException('Notification not for ChoreStrike');
 		}
 		if ($notification->getSubject() !== NotificationService::SUBJECT_DIGEST) {
-			throw new \InvalidArgumentException('Unknown ChoreStrike notification subject');
+			throw new UnknownNotificationException('Unknown ChoreStrike notification subject');
 		}
 
 		$l = $this->l10nFactory->get(NotificationService::APP_ID, $languageCode);

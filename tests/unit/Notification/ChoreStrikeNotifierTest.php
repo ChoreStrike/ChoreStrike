@@ -10,6 +10,7 @@ use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\L10N\IFactory;
 use OCP\Notification\INotification;
+use OCP\Notification\UnknownNotificationException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -78,8 +79,17 @@ class ChoreStrikeNotifierTest extends TestCase {
 		$this->assertSame('ChoreStrike', $this->notifier->getName());
 	}
 
-	public function testPrepare_OtherApp_Throws(): void {
-		$this->expectException(\InvalidArgumentException::class);
+	/**
+	 * Prepare_OtherApp_ThrowsUnknownNotification
+	 *
+	 * Nextcloud offers every notification to every notifier; "not mine" must
+	 * be the dedicated UnknownNotificationException — a plain
+	 * \InvalidArgumentException is deprecated since Nextcloud 30 and logged
+	 * on every notification poll (production report 2026-10-17).
+	 */
+	public function testPrepare_OtherApp_ThrowsUnknownNotification(): void {
+		$this->expectException(UnknownNotificationException::class);
+		$this->expectExceptionMessage('Notification not for ChoreStrike');
 		$notification = $this->buildNotification('other_app', 'digest');
 
 		$this->notifier->prepare($notification, 'en');
@@ -157,7 +167,7 @@ class ChoreStrikeNotifierTest extends TestCase {
 			try {
 				$this->notifier->prepare($notification, 'en');
 				$this->fail("the retired subject {$subject} must be rejected");
-			} catch (\InvalidArgumentException $e) {
+			} catch (UnknownNotificationException $e) {
 				$this->assertSame('Unknown ChoreStrike notification subject', $e->getMessage());
 			}
 		}

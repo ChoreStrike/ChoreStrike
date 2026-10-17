@@ -423,7 +423,8 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   server log errors; one recurring deprecation warning from
   `ChoreStrikeNotifier::prepare()` (`\InvalidArgumentException` instead of
   `UnknownNotificationException`, logged as an error from Nextcloud 39) — no
-  functional impact, fixed on a follow-up branch.
+  functional impact, fixed for the next candidate (CHANGELOG *Fixed after
+  0.8.0-alpha.1*).
 - **Deployment guide:** `occ upgrade` also applies pending App Store updates of
   every enabled app — a pre-deployment check and the maintenance-mode behaviour
   are now documented ([deployment.md](../../engineering/deployment.md#3-run-migrations)).
