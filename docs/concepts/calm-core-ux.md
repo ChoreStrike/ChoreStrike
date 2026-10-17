@@ -96,6 +96,13 @@ by quiet times.
   `catalogVisible` preferences hide the surface and its navigation entry
   **immediately**; a direct link shows a neutral placeholder, never an
   auto-opt-in.
+- Arcade games unlock as permanent milestones of finished chores
+  ([ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md)).
+  A locked card shows one neutral progress line — no countdown,
+  notification or daily pull — and keeps its leaderboard readable. Owners
+  can switch the unlock gate off (`PUT /house/arcade-gate`, default on),
+  which opens every game for everyone; the personal `arcadeVisible`
+  preference stays independent.
 - The reward catalog has a second, independent gate: the owner-controlled
   household flag (default off, `PUT /house/catalog`). Browsing renders
   only while BOTH gates are open (fail-closed while a preference read is

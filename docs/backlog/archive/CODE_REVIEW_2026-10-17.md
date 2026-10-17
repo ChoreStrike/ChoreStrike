@@ -218,7 +218,7 @@ plus one follow-up, recorded in the plan's §10.
 | Item | Value |
 |---|---|
 | Owning plan | `docs/plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md` (WP-A) |
-| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned) @ `315f40872d95590044cb075c39cc8a0ceec81a6b` |
+| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned) @ `315f40872d95590044cb075c39cc8a0ceec81a6b` (rebased onto `master` `8747f4d` on 2026-10-17: `d9eb433`, the WP-A commit `ebc3c30`; again onto `37bcd5c`: `cdf1fc7`, `ce81102`) |
 | Index at capture | 4 paths staged by the implementation (`git rm` of `ArcadeSection.vue`, `SnakeGame.vue`, `SnakeLeaderboard.vue`; `git mv` of `SnakeLeaderboard.spec.js` → `GameLeaderboard.spec.js`) |
 | Scope fingerprint at capture | `6c1c35294aad8100b665b5b207763693835a42746867321167404dc4b5b48767` (SHA-256 over staged binary diff `1d27cc43…0616`, unstaged binary diff `8f5a80c1…fcd7c` and the sorted untracked paths with content hashes `41240979…fc0d`); 29 modified tracked paths, 28 untracked paths |
 | Reviewed | `lib/` (ArcadeCatalog, ImplausibleScoreException, MinigameService, MinigameController), `src/` (Minigames shell/registry/games/snake, composables, store, effect gates, sound, ArcadeView), all touched PHPUnit/Jest/Playwright tests, l10n, durable docs, plan, backlog and ACTIVE_TASKS |
@@ -257,3 +257,52 @@ D-086-08 (operator, 2026-10-17): the kept canonical volumes had the app installe
 ### Outcome
 
 `PASS-WITH-FIXES` (interim). R086A-01..04 were fixed and the gates rerun. Nothing was routed to the plan's §9; RF-086-01 was resolved by WP-A. TECH-TEST-006 is out of scope and in `backlog.md`. The plan stays `active/` for WP-B..WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.
+
+---
+
+## Standard B (interim) — CS-PLAN-086 WP-B chore unlock gate and owner switch
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none (interim; plan stays `active/`)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md` (WP-B) |
+| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned) @ `ce8110212b5d251854589fc0f882f24dcf0d9f23` (rebased onto `master` `37bcd5c` before the round) |
+| Index at capture | empty |
+| Scope fingerprint at capture | `629aa263b59b420ffc548a1bf89741267958f46d56d8903e74c921c75511a864` (SHA-256 over the staged binary diff `e3b0c442…b855` (empty), the unstaged binary diff `fd8bc2ce…936e` and the sorted untracked paths with content hashes `db944208…3712`); 44 modified tracked paths, 10 untracked paths |
+| Reviewed | `lib/` (WorkShareMapper count, ArcadeCatalog thresholds, ArcadeAccessService, GameLockedException, MinigameService, MinigameController, HouseController, RewardConfigService, TestDataService), `appinfo/routes.php`, `src/` (minigame and house stores, ArcadeCatalog, ArcadeGateSetting, Settings), every touched PHPUnit/Jest/Playwright test and the gate manifest, l10n, ADR-019, API/concept/architecture docs, plan, backlog and ACTIVE_TASKS |
+
+### Findings
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| R086B-01 | minor | `RewardCatalogEditor.vue` | The catalog gate's error note followed the shared `houseStore.error`, so a failed arcade-gate save (new in WP-B) — and, before, a failed name, timezone or ranking save — showed "The catalog setting could not be saved" on the same Settings page | Fixed by user decision — the note follows the gate's own save (`gateFailed`); regression in `RewardCatalogEditor.spec.js`, the negative control fails with the old condition |
+| R086B-02 | nit | docs | The plan still named `getCatalog(houseId, HouseUser)`/`assertUnlocked(houseId, …)` signatures, the API section of `PUT /house/arcade-gate` omitted its `500`, and the browser proof of a full unlock had no owning WP | Fixed — plan WP-B note (membership-only signatures, `ArcadeUnlockTest` as the full-unlock proof), WP-D line (browser unlock with Sock Match's threshold 3), API `500 HOUSE_UPDATE_ERROR` |
+
+### Verified non-findings
+
+- Authorization: both new routes are `@NoAdminRequired` with the AppFramework CSRF check (a token-less E2E call got 412); the catalog requires membership; the gate writer checks the owner in the controller before the payload and again in `ArcadeAccessService::setGateEnabled()`; the lock is enforced server-side inside the score transaction after the house lock and the membership check, from the stored membership's wallet — no client-supplied identity.
+- Count semantics: `COUNT(DISTINCT ws.completion_id)` with the selected-revision join and `undone_at IS NULL` mirrors `sumValidSelectedByWallet()`; `uniq_wshare_key` makes the `DISTINCT` defensive only; `idx_wshare_wallet` carries the filter (the ADR-019 cost claim holds). Proven on PostgreSQL by `WorkShareCountTest` (helper counted, undone and revised-away excluded) and `ArcadeUnlockTest` (unlock at ten, re-lock after an undo, board still readable).
+- No schema change, no stored arcade state, no Coin/wallet/contribution/medal/ranking read or write beyond the wallet id as attribution key; `RewardConfigService::updateConfig()` can write the new key but has no HTTP caller.
+- The house payload change is additive (`arcadeGateEnabled` appended after the entity fields, unit-pinned) and present on every response the store replaces its house with; `GET /house/stats` keeps its nested entity payload, which the client never stores as the house.
+- The parallel-pool specs that open the gate write the household flag; the canonical gate runs the pools sequentially and every reseed restores the default, so no required scenario depends on the order. Ad-hoc concurrent runs were already unsupported because of the serial pool's reseeds.
+- A failed catalog refresh keeps the previous, server-derived catalog with a neutral retry note; the retry reloads catalog and scores together.
+- Bundle: `game-snake` unchanged at 1610 bytes gzip; the arcade chunk carries the shell, no game logic.
+
+### Decisions recorded
+
+R086B-01 (operator, 2026-10-17): fix the pre-existing shared-error coupling in `RewardCatalogEditor` now (recommended) instead of routing it to the backlog.
+
+### Gates (after all fixes)
+
+- Jest 137 suites / 1931 tests through the zero-noise gate (`npm run test:noise`).
+- PHPUnit on a freshly provisioned canonical stack (NC 35.0.2, PHP 8.4.26, PostgreSQL 18.6): unit 1451, integration 622, skips forbidden; `composer cs:check` (0 of 423 files). The review fixes touched no PHP.
+- `npm run lint`, `npm run stylelint`, `npm run l10n:check-keys` (1311 keys), `npm run backlog:check`, `npm run docs:encoding`, `npm run agents:check`, `git diff --check`, `npm run build`.
+- Browser on the canonical stack (recreated with the `family` profile after the backend run): `arcade-games.spec.ts` 4/4 and `family-rewards.spec.ts` 9/9 (serial pool), `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (chromium), auth setup 3/3; the scenario manifest was regenerated with `--write-manifest`.
+- Not run, with reason: the full browser gate, the AIO row, the MySQL/SQLite matrix and the phone projects — scheduled for WP-C (touch E2E) and WP-G (full gate on both rows, provider matrix).
+
+### Outcome
+
+`PASS-WITH-FIXES` (interim). R086B-01 and R086B-02 were fixed and the affected gates rerun. Nothing was routed to the plan's §9 or the backlog. The plan stays `active/` for WP-C..WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.

@@ -9,13 +9,16 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
+use OCA\ChoreStrike\Controller\HouseController;
 use OCA\ChoreStrike\Controller\MinigameController;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Service\ArcadeCatalog;
 use OCA\ChoreStrike\Service\MinigameService;
+use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\IAppConfig;
 
 /**
  * Real-DB controller coverage for the registered scores-only minigame
@@ -28,10 +31,27 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * browser suites (snake-game.spec.ts) per the WireStatusAuthDenialTest
  * evidence-layer convention; here the real service/DB stack is exercised
  * through the DI container.
+ *
+ * CS-PLAN-086 WP-B: the score contract runs with the owner gate OFF (the
+ * test members finished no chores); the gate tests switch it on
+ * explicitly. tearDown restores the default either way.
  */
 class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	/** A one-minute round: Snake accepts up to 1900 points (D-086-04). */
 	private const ROUND_MS = 60000;
+
+	protected function setUp(): void {
+		parent::setUp();
+		$this->appConfig()->setValueString('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED, '0');
+	}
+
+	private function appConfig(): IAppConfig {
+		return \OC::$server->get(IAppConfig::class);
+	}
+
+	private function gateOn(): void {
+		$this->appConfig()->deleteKey('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED);
+	}
 
 	/** @dataProvider membershipRoutes */
 	public function testRegisteredRoute_NonMember_DeniesWithoutWrites(string $method, array $arguments): void {
@@ -110,6 +130,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 				->executeStatement();
 			$this->instanceMembershipIds = [];
 		}
+		$this->gateOn();
 		parent::tearDown();
 	}
 
@@ -139,7 +160,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		];
 	}
 
-	private function addInstanceMembership(int $houseId, string $userId, string $displayName): int {
+	private function addInstanceMembership(int $houseId, string $userId, string $displayName, string $role = 'member'): int {
 		$existing = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
 			->findByHouseAndUser($houseId, $userId);
 		if ($existing !== null) {
@@ -151,7 +172,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 				'house_id' => $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT),
 				'nextcloud_user_id' => $qb->createNamedParameter($userId),
 				'display_name' => $qb->createNamedParameter($displayName),
-				'role' => $qb->createNamedParameter('member'),
+				'role' => $qb->createNamedParameter($role),
 				'contribution_minor' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
 				'current_streak' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
 				'longest_streak' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
@@ -162,6 +183,86 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		$id = (int)$this->db->lastInsertId('chorestrike_house_users');
 		$this->instanceMembershipIds[] = $id;
 		return $id;
+	}
+
+	/**
+	 * Catalog_MemberSeesLockStates_NonMemberDenied (CS-PLAN-086 §3.2)
+	 */
+	public function testCatalog_MemberSeesLockStates_NonMemberDenied(): void {
+		$this->houseWithMembers();
+		$this->gateOn();
+
+		$response = $this->controller('mg_parent')->catalog();
+
+		self::assertSame(200, $response->getStatus());
+		$catalog = $response->getData()['data'];
+		self::assertTrue($catalog['gateEnabled']);
+		self::assertSame(0, $catalog['finishedChores'], 'the test member finished no chore');
+		self::assertSame(
+			[['gameId' => 'snake', 'threshold' => 10, 'unlocked' => false]],
+			$catalog['games']
+		);
+
+		$denied = $this->controller('mg_outsider')->catalog();
+		self::assertSame(403, $denied->getStatus());
+		self::assertSame('FORBIDDEN', $denied->getData()['error']['code']);
+	}
+
+	/**
+	 * SaveScore_LockedGame_Get403MinigameLocked_BoardStaysReadable
+	 */
+	public function testSaveScore_LockedGame_Get403MinigameLocked_BoardStaysReadable(): void {
+		['houseId' => $houseId] = $this->houseWithMembers();
+		$this->controller('mg_teener')->saveScore('snake', 80, self::ROUND_MS);
+		$this->gateOn();
+
+		$locked = $this->controller('mg_parent')->saveScore('snake', 100, self::ROUND_MS);
+
+		self::assertSame(403, $locked->getStatus());
+		self::assertSame('MINIGAME_LOCKED', $locked->getData()['error']['code']);
+		self::assertSame(1, $this->scoreRowCount($houseId), 'a locked game takes no score');
+		$board = $this->controller('mg_parent')->leaderboard('snake');
+		self::assertSame(200, $board->getStatus());
+		$ownRows = array_values(array_filter(
+			$board->getData()['data'],
+			static fn (array $row): bool => in_array($row['userId'], ['mg_parent', 'mg_teener'], true)
+		));
+		self::assertSame([['mg_teener', 80]], array_map(static fn (array $row): array => [$row['userId'], $row['score']], $ownRows), 'the locked game keeps its readable board');
+	}
+
+	/**
+	 * ArcadeGate_OwnerSwitchPersistsAndOpensEveryGame_MemberDenied
+	 * (D-086-02): the owner-only writer stores the flag in app config, the
+	 * house payload reflects it, and every member can play every game.
+	 */
+	public function testArcadeGate_OwnerSwitchPersistsAndOpensEveryGame_MemberDenied(): void {
+		['houseId' => $houseId] = $this->houseWithMembers();
+		$this->addInstanceMembership($houseId, 'mg_owner', 'Arcade Owner', 'owner');
+		$this->gateOn();
+
+		$denied = $this->gateWriter('mg_teener', false);
+		self::assertSame(403, $denied->getStatus());
+		self::assertSame('1', $this->appConfig()->getValueString('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED, '1'));
+
+		$invalid = $this->gateWriter('mg_owner', 'off');
+		self::assertSame(400, $invalid->getStatus());
+		self::assertSame('VALIDATION_ERROR', $invalid->getData()['error']['code']);
+
+		$opened = $this->gateWriter('mg_owner', false);
+		self::assertSame(200, $opened->getStatus());
+		self::assertFalse($opened->getData()['data']['arcadeGateEnabled']);
+		self::assertSame('0', $this->appConfig()->getValueString('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED, '1'));
+
+		$games = $this->controller('mg_teener')->catalog()->getData()['data']['games'];
+		self::assertSame([true], array_column($games, 'unlocked'));
+		self::assertSame(200, $this->controller('mg_teener')->saveScore('snake', 100, self::ROUND_MS)->getStatus());
+	}
+
+	private function gateWriter(string $userId, mixed $value): \OCP\AppFramework\Http\JSONResponse {
+		$this->actingAs($userId);
+		$controller = \OC::$server->get(HouseController::class);
+		$this->injectRequestParams($controller, ['arcadeGateEnabled' => $value]);
+		return $controller->updateArcadeGate();
 	}
 
 	/**

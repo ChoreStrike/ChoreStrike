@@ -17,8 +17,8 @@ use PHPUnit\Framework\TestCase;
  * recognition is valid-history rhythm. CS-PLAN-070 WP4: the weekly-goal
  * target (fixed 80%) and the per-tier title thresholds (fixed 3/6/12)
  * are fixed policy — no override keys exist. This suite pins the
- * REMAINING registry (energyMaxPerTask, titlesEnabled) and the absence
- * of the retired override surfaces.
+ * REMAINING registry (energyMaxPerTask, titlesEnabled, the CS-PLAN-086
+ * arcadeGateEnabled) and the absence of the retired override surfaces.
  */
 class RewardConfigServiceTest extends TestCase {
 	private RewardConfigService $service;
@@ -56,6 +56,26 @@ class RewardConfigServiceTest extends TestCase {
 		$this->service->setTitlesEnabled(false);
 	}
 
+	/** CS-PLAN-086 D-086-02: the arcade unlock gate is on by default. */
+	public function testGetArcadeGateEnabled_ReturnsDefaultTrue(): void {
+		$this->config->method('getValueString')->willReturnCallback(static fn ($app, $key, $default) => $default);
+		$this->assertTrue($this->service->getArcadeGateEnabled());
+	}
+
+	public function testGetArcadeGateEnabled_StoredOff_ReturnsFalse(): void {
+		$this->config->method('getValueString')
+			->with('chorestrike', 'arcade_gate_enabled', '1')
+			->willReturn('0');
+		$this->assertFalse($this->service->getArcadeGateEnabled());
+	}
+
+	public function testSetArcadeGateEnabled_StoresValue(): void {
+		$this->config->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'arcade_gate_enabled', '0');
+		$this->service->setArcadeGateEnabled(false);
+	}
+
 	/** WP4: the weekly-goal target override is retired with its key. */
 	public function testWeeklyGoalTargetPercent_OverrideIsRetired(): void {
 		$reflection = new \ReflectionClass(RewardConfigService::class);
@@ -73,7 +93,7 @@ class RewardConfigServiceTest extends TestCase {
 
 		// WP3/WP4: multiplier/freeze/combo/teamwork/goal/threshold fields
 		// are retired — the config surface carries exactly the retained keys.
-		$this->assertSame(['energyMaxPerTask', 'titlesEnabled'], array_keys($config));
+		$this->assertSame(['energyMaxPerTask', 'titlesEnabled', 'arcadeGateEnabled'], array_keys($config));
 	}
 
 	public function testUpdateConfig_IgnoresRetiredFields(): void {

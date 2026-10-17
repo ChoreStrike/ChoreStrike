@@ -6,17 +6,18 @@
 <template>
 	<div class="arcade-catalog" data-testid="arcade-catalog">
 		<p v-if="loadFailed" class="arcade-catalog-note" data-testid="arcade-catalog-error">
-			{{ t('chorestrike', 'Scores could not be loaded.') }}
+			{{ store.catalog ? t('chorestrike', 'Scores could not be loaded.') : t('chorestrike', 'The games could not be loaded.') }}
 			<button type="button" class="arcade-catalog-link" @click="loadStats">
 				{{ t('chorestrike', 'Try again') }}
 			</button>
 		</p>
 
 		<ul class="arcade-catalog-grid">
-			<li v-for="game in GAMES"
+			<li v-for="{ game, access } in cards"
 				:key="game.id"
 				class="arcade-card"
-				:data-testid="`arcade-card-${game.id}`">
+				:data-testid="`arcade-card-${game.id}`"
+				:data-unlocked="String(access.unlocked)">
 				<div class="arcade-card-icon" aria-hidden="true">
 					{{ game.icon }}
 				</div>
@@ -39,9 +40,17 @@
 							<dd>#{{ store.slice(game.id).userRank || '-' }}</dd>
 						</div>
 					</dl>
+					<!-- Neutral progress, no countdown or nagging (§3.2):
+					     thresholds are 0 or >= 3, so one plural-free text. -->
+					<p v-if="!access.unlocked"
+						class="arcade-card-progress"
+						:data-testid="`arcade-progress-${game.id}`">
+						{{ t('chorestrike', 'Unlocks at {threshold} finished chores · {remaining} to go', { threshold: access.threshold, remaining: remainingChores(access) }) }}
+					</p>
 				</div>
 				<div class="arcade-card-actions">
-					<button type="button"
+					<button v-if="access.unlocked"
+						type="button"
 						class="arcade-card-button primary"
 						:data-testid="`arcade-play-${game.id}`"
 						@click="activeGameId = game.id">
@@ -76,25 +85,59 @@ import { useMinigameStore } from '../../store/minigame.js'
 import Modal from '../Common/Modal.vue'
 import GameShell from './GameShell.vue'
 import GameLeaderboard from './GameLeaderboard.vue'
-import { GAMES, GAME_IDS, findGame } from './gameRegistry.js'
+import { logger } from '../../utils/logger.js'
+import { GAME_IDS, findGame } from './gameRegistry.js'
 
 /**
  * The arcade's game catalog (CS-PLAN-086 §3.4; replaces the single Snake
- * card of `Dashboard/ArcadeSection.vue`). One card per registered game with
- * its own best and rank; a game opens in the shared Modal and loads its
- * code only then. Scores-only — never a Coin surface (T10/D7d).
+ * card of `Dashboard/ArcadeSection.vue`). The server catalog decides which
+ * games exist and whether each is unlocked; the client registry supplies
+ * names, icons and the lazy game code. One card per game with its own best
+ * and rank; a locked card shows neutral progress and keeps its leaderboard
+ * readable; a game opens in the shared Modal and loads its code only then.
+ * Scores-only — never a Coin surface (T10/D7d).
  */
 const store = useMinigameStore()
 const activeGameId = ref(null)
 const leaderboardGameId = ref(null)
-// Only the stats load drives the note — a failed save inside a game is
-// reported by the game itself.
+// Only the load drives the note — a failed save inside a game is reported
+// by the game itself.
 const loadFailed = ref(false)
 const activeGameName = computed(() => findGame(activeGameId.value)?.name() ?? '')
+// Server games the registry knows; a mismatch is logged, never shown.
+const cards = computed(() => (store.catalog?.games ?? [])
+	.map((access) => ({ game: findGame(access.gameId), access }))
+	.filter(({ game }) => game !== null))
+
+/**
+ * @param {{threshold: number}} access The game's catalog entry
+ * @return {number} Finished chores still missing for the unlock
+ */
+function remainingChores(access) {
+	return Math.max(0, access.threshold - (store.catalog?.finishedChores ?? 0))
+}
+
+/**
+ * Log games only one side knows (deployment skew, §3.5).
+ *
+ * @param {object} catalog The loaded server catalog
+ */
+function logRegistryMismatch(catalog) {
+	const serverIds = catalog.games.map(({ gameId }) => gameId)
+	for (const gameId of serverIds.filter((id) => !GAME_IDS.includes(id))) {
+		logger.warn('Arcade game missing from the client registry', { component: 'ArcadeCatalog', gameId })
+	}
+	for (const gameId of GAME_IDS.filter((id) => !serverIds.includes(id))) {
+		logger.warn('Arcade game missing from the server catalog', { component: 'ArcadeCatalog', gameId })
+	}
+}
 
 async function loadStats() {
-	await store.initialize(GAME_IDS)
+	await store.initialize()
 	loadFailed.value = store.error !== null
+	if (store.catalog) {
+		logRegistryMismatch(store.catalog)
+	}
 }
 
 onMounted(loadStats)
@@ -163,6 +206,12 @@ onMounted(loadStats)
 	font-size: 1.1rem;
 	font-weight: bold;
 	color: var(--color-main-text);
+}
+
+.arcade-card-progress {
+	margin: 1rem 0 0;
+	font-size: 0.9rem;
+	color: var(--color-text-maxcontrast);
 }
 
 .arcade-card-actions {

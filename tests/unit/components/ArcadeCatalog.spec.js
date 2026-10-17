@@ -18,10 +18,31 @@ jest.mock('@/utils/logger', () => ({
 }))
 
 const { api } = require('@/services/api.js')
+const { logger } = require('@/utils/logger')
+
+/** Server catalog with every registered game unlocked. */
+const openCatalog = () => ({
+	gateEnabled: true,
+	finishedChores: 12,
+	games: GAMES.map((game) => ({ gameId: game.id, threshold: 10, unlocked: true })),
+})
 
 /**
- * CS-PLAN-086 §3.4: one card per registered game with its own best and
- * rank; a game opens in the shared Modal; the catalog loads no game code.
+ * Answer the catalog and the per-game stats.
+ *
+ * @param {object} catalog The server catalog to serve
+ */
+const serve = (catalog) => {
+	api.get.mockImplementation(async (url) => {
+		if (url === '/api/v1/minigames/catalog') return catalog
+		return url.endsWith('/rank') ? { rank: 3 } : { score: 420 }
+	})
+}
+
+/**
+ * CS-PLAN-086 §3.4: one card per server game the registry knows, with its
+ * own best and rank and its lock state; a game opens in the shared Modal;
+ * the catalog loads no game code.
  */
 describe('ArcadeCatalog', () => {
 	let wrapper
@@ -44,7 +65,7 @@ describe('ArcadeCatalog', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		jest.clearAllMocks()
-		api.get.mockImplementation(async (url) => (url.endsWith('/rank') ? { rank: 3 } : { score: 420 }))
+		serve(openCatalog())
 	})
 
 	afterEach(() => {
@@ -90,16 +111,74 @@ describe('ArcadeCatalog', () => {
 	})
 
 	it('shows a neutral retry note when the scores cannot be loaded', async () => {
-		api.get.mockRejectedValue(new Error('offline'))
+		api.get.mockImplementation(async (url) => {
+			if (url === '/api/v1/minigames/catalog') return openCatalog()
+			throw new Error('offline')
+		})
 		await mountCatalog()
 
 		expect(wrapper.get('[data-testid="arcade-catalog-error"]').text()).toContain('Scores could not be loaded.')
 		expect(wrapper.get('[data-testid="arcade-best-snake"]').text()).toBe('0')
 
-		api.get.mockResolvedValue({ score: 5 })
+		serve(openCatalog())
 		await wrapper.get('[data-testid="arcade-catalog-error"] button').trigger('click')
 		await flushPromises()
 		expect(wrapper.find('[data-testid="arcade-catalog-error"]').exists()).toBe(false)
+	})
+
+	it('shows no card and a retry note when the games cannot be loaded', async () => {
+		api.get.mockRejectedValue(new Error('offline'))
+		await mountCatalog()
+
+		expect(wrapper.get('[data-testid="arcade-catalog-error"]').text()).toContain('The games could not be loaded.')
+		expect(wrapper.find('[data-testid="arcade-card-snake"]').exists()).toBe(false)
+
+		serve(openCatalog())
+		await wrapper.get('[data-testid="arcade-catalog-error"] button').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="arcade-card-snake"]').exists()).toBe(true)
+	})
+
+	describe('unlock gate (CS-PLAN-086 §3.2)', () => {
+		it('a locked card shows neutral progress and keeps only its leaderboard', async () => {
+			serve({ gateEnabled: true, finishedChores: 7, games: [{ gameId: 'snake', threshold: 10, unlocked: false }] })
+			await mountCatalog()
+
+			const card = wrapper.get('[data-testid="arcade-card-snake"]')
+			expect(card.attributes('data-unlocked')).toBe('false')
+			expect(wrapper.get('[data-testid="arcade-progress-snake"]').text()).toBe('Unlocks at 10 finished chores · 3 to go')
+			expect(wrapper.find('[data-testid="arcade-play-snake"]').exists()).toBe(false)
+
+			await wrapper.get('[data-testid="arcade-leaderboard-snake"]').trigger('click')
+			expect(wrapper.get('[data-testid="board-stub"]').attributes('data-game-id')).toBe('snake')
+		})
+
+		it('an unlocked card shows no progress and can be played', async () => {
+			serve({ gateEnabled: true, finishedChores: 10, games: [{ gameId: 'snake', threshold: 10, unlocked: true }] })
+			await mountCatalog()
+
+			expect(wrapper.get('[data-testid="arcade-card-snake"]').attributes('data-unlocked')).toBe('true')
+			expect(wrapper.find('[data-testid="arcade-progress-snake"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="arcade-play-snake"]').exists()).toBe(true)
+		})
+
+		it('with the owner gate off every game is playable without progress text', async () => {
+			serve({ gateEnabled: false, finishedChores: 0, games: [{ gameId: 'snake', threshold: 10, unlocked: true }] })
+			await mountCatalog()
+
+			expect(wrapper.find('[data-testid="arcade-play-snake"]').exists()).toBe(true)
+			expect(wrapper.text()).not.toContain('Unlocks at')
+		})
+
+		it('renders only games both sides know and logs the mismatch', async () => {
+			serve({ gateEnabled: true, finishedChores: 0, games: [{ gameId: 'pinball', threshold: 0, unlocked: true }] })
+			await mountCatalog()
+
+			expect(wrapper.find('[data-testid="arcade-card-pinball"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="arcade-card-snake"]').exists()).toBe(false)
+			expect(logger.warn).toHaveBeenCalledWith('Arcade game missing from the client registry', { component: 'ArcadeCatalog', gameId: 'pinball' })
+			expect(logger.warn).toHaveBeenCalledWith('Arcade game missing from the server catalog', { component: 'ArcadeCatalog', gameId: 'snake' })
+		})
 	})
 
 	it('keeps the load note off when a later save inside a game fails', async () => {

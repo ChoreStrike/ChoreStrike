@@ -291,17 +291,45 @@ class RouteMatrixTest extends TestCase {
 	 * trio (GET/POST /rewards, PUT /rewards/{id}) and the reward-request
 	 * lifecycle octet (GET/POST /reward-requests, GET
 	 * /reward-requests/{id}, POST /reward-requests/{id}/approve|reject|
-	 * cancel|fulfill|correct) → 94.
+	 * cancel|fulfill|correct) → 94. CS-PLAN-086 WP-B added the arcade
+	 * catalog read (GET /minigames/catalog) and the owner-only arcade
+	 * gate writer (PUT /house/arcade-gate) → 96.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			94,
+			96,
 			$this->routes['routes'],
-			'Route count drifted from the pin (94 after CS-PLAN-070 WP7) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (96 after CS-PLAN-086 WP-B) — add only with a consumer, then update deliberately'
 		);
+	}
+
+	/**
+	 * CS-PLAN-086 WP-B: the arcade catalog is a literal segment no
+	 * `{gameId}` route can swallow (in either registration order), and the
+	 * owner gate is the only arcade writer besides the score save.
+	 */
+	public function testArcadeCatalogAndGateRoutes(): void {
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+		$this->assertContains('GET /api/v1/minigames/catalog', $declared);
+		$this->assertContains('PUT /api/v1/house/arcade-gate', $declared);
+
+		foreach ($this->routes['routes'] as $route) {
+			if ($route['verb'] !== 'GET' || !str_contains($route['url'], '{gameId}')) {
+				continue;
+			}
+			$pattern = '#^' . str_replace('{gameId}', '[a-z0-9-]+', $route['url']) . '$#';
+			$this->assertDoesNotMatchRegularExpression($pattern, '/api/v1/minigames/catalog', $route['name'] . ' must not read the catalog as a game id');
+		}
+
+		$arcadeWriters = array_values(array_filter($declared, static fn (string $route): bool
+			=> !str_starts_with($route, 'GET ') && (str_contains($route, '/minigames') || str_contains($route, 'arcade'))));
+		$this->assertSame(['PUT /api/v1/house/arcade-gate', 'POST /api/v1/minigames/{gameId}/scores'], $arcadeWriters);
 	}
 
 	/**

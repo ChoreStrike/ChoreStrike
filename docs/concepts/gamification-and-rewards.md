@@ -133,9 +133,21 @@ wallet with chores, no redemption surface). Score saves stay capped: per-game
 ceilings and a play-time plausibility rule in `ArcadeCatalog` (CS-PLAN-086)
 plus `DAILY_SCORE_SAVE_LIMIT` per member and house-local day; leaderboards
 remain house-scoped and per game. The 2048/Memory
-prototypes were retired in the same cutover; Snake is the only supported game.
+prototypes were retired in the same cutover; CS-PLAN-086 grows the arcade
+into a household-themed game collection, starting with Crumb Snake (the
+`snake` id) on a shared game shell.
 See the Minigames section in
 [`../api/README.md`](../api/README.md).
+
+Games unlock as **permanent milestones of finished chores**
+([ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md),
+amending D7d): a member's count is the number of valid completions in whose
+selected allocation revision they hold a share, so helpers count and undone
+or revised-away work does not. The lock state is derived on every read and
+never stored; an undo can re-lock a game. There is no daily coupling, and
+the arcade still never mints, spends or shows Coins, wallet values,
+contribution or ranking. Owners can switch the gate off for the household
+(`arcade_gate_enabled`), which opens every game for everyone.
 
 The chore-ranking comparison between members is NOT the arcade leaderboard —
 it is the consent-filtered weekly ranking described above

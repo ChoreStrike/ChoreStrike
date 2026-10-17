@@ -20,9 +20,19 @@ jest.mock('@/utils/logger', () => ({
 
 const { api } = require('@/services/api.js')
 
+const CATALOG = {
+	gateEnabled: true,
+	finishedChores: 4,
+	games: [
+		{ gameId: 'snake', threshold: 0, unlocked: true },
+		{ gameId: 'tiles', threshold: 25, unlocked: false },
+	],
+}
+
 /** Answer reads per game id so cross-game leaks are visible. */
 const answerReads = () => {
 	api.get.mockImplementation(async (url) => {
+		if (url === '/api/v1/minigames/catalog') return CATALOG
 		const gameId = url.split('/')[4]
 		const base = gameId === 'snake' ? 100 : 7
 		if (url.endsWith('/personal-best')) return { score: base }
@@ -43,7 +53,7 @@ describe('minigame store (CS-PLAN-086 per-game slices)', () => {
 	})
 
 	it('keeps every game in its own slice', async () => {
-		await store.initialize(['snake', 'tiles'])
+		await store.initialize()
 
 		expect(store.slice('snake').personalBest).toEqual({ score: 100 })
 		expect(store.slice('tiles').personalBest).toEqual({ score: 7 })
@@ -53,17 +63,64 @@ describe('minigame store (CS-PLAN-086 per-game slices)', () => {
 	})
 
 	it('a save in one game never changes another game', async () => {
-		await store.initialize(['snake'])
+		await store.initialize()
 		const snakeBefore = JSON.stringify(store.slice('snake'))
+		const readsBefore = api.get.mock.calls.length
 		api.post.mockResolvedValue({ id: 9, score: 42, gameId: 'tiles' })
 
 		await store.saveScore('tiles', 42, 30000)
 
 		expect(api.post).toHaveBeenCalledWith('/api/v1/minigames/tiles/scores', { score: 42, durationMs: 30000 })
 		expect(JSON.stringify(store.slice('snake'))).toBe(snakeBefore)
-		for (const [url] of api.get.mock.calls.slice(2)) {
+		for (const [url] of api.get.mock.calls.slice(readsBefore)) {
 			expect(url).toContain('/minigames/tiles/')
 		}
+	})
+
+	describe('catalog (CS-PLAN-086 §3.2)', () => {
+		it('loads the catalog before the stats of every listed game', async () => {
+			await store.initialize()
+
+			expect(api.get.mock.calls[0][0]).toBe('/api/v1/minigames/catalog')
+			expect(store.catalog).toEqual(CATALOG)
+			const statReads = api.get.mock.calls.slice(1).map(([url]) => url).sort()
+			expect(statReads).toEqual([
+				'/api/v1/minigames/snake/personal-best',
+				'/api/v1/minigames/snake/rank',
+				'/api/v1/minigames/tiles/personal-best',
+				'/api/v1/minigames/tiles/rank',
+			])
+		})
+
+		it('soft-fails the catalog: the error is recorded and no stats are read', async () => {
+			api.get.mockRejectedValueOnce(new Error('offline'))
+
+			await store.initialize()
+
+			expect(store.catalog).toBeNull()
+			expect(store.error).toBe('offline')
+			expect(api.get).toHaveBeenCalledTimes(1)
+			expect(store.loading).toBe(false)
+		})
+
+		it('a locked rejection refreshes the catalog so the card locks again', async () => {
+			store.catalog = { ...CATALOG, games: [{ gameId: 'snake', threshold: 10, unlocked: true }] }
+			api.post.mockRejectedValue(Object.assign(new Error('This game is still locked.'), { status: 403, code: 'MINIGAME_LOCKED' }))
+
+			const result = await store.finishGame('snake', 90, 12000)
+
+			expect(result).toEqual({ saved: false, saveFailed: true, newBest: false })
+			expect(api.get).toHaveBeenCalledWith('/api/v1/minigames/catalog')
+			expect(store.catalog).toEqual(CATALOG)
+		})
+
+		it('other save failures leave the catalog alone', async () => {
+			api.post.mockRejectedValue(Object.assign(new Error('Too many'), { status: 429, code: 'MINIGAME_RATE_LIMITED' }))
+
+			await store.saveScore('snake', 90, 12000)
+
+			expect(api.get).not.toHaveBeenCalled()
+		})
 	})
 
 	it('answers an empty, read-only slice for a game without data', () => {
@@ -131,11 +188,12 @@ describe('minigame store (CS-PLAN-086 per-game slices)', () => {
 		})
 	})
 
-	it('reset drops every game slice', async () => {
-		await store.initialize(['snake'])
+	it('reset drops every game slice and the catalog', async () => {
+		await store.initialize()
 		store.error = 'x'
 		store.reset()
 		expect(store.byGame).toEqual({})
+		expect(store.catalog).toBeNull()
 		expect(store.error).toBeNull()
 		expect(store.loading).toBe(false)
 	})

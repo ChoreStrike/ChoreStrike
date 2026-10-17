@@ -15,6 +15,9 @@ return [
         // reward-catalog gate writer (narrow refinement of the shared
         // house settings; PUT /house stays unversioned).
         ['name' => 'house#updateCatalog', 'url' => '/api/v1/house/catalog', 'verb' => 'PUT'],
+        // CS-PLAN-086 (D-086-02): the owner-only arcade unlock gate — the
+        // only HTTP writer of the `arcade_gate_enabled` app-config flag.
+        ['name' => 'house#updateArcadeGate', 'url' => '/api/v1/house/arcade-gate', 'verb' => 'PUT'],
 
         // Floor API
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],
@@ -201,6 +204,9 @@ return [
         ['name' => 'test#reset', 'url' => '/api/v1/test/reset', 'verb' => 'POST'],
 
         // Minigame API
+        // CS-PLAN-086: the literal `catalog` segment cannot collide with
+        // the two-segment `{gameId}/…` routes below (RouteMatrixTest).
+        ['name' => 'minigame#catalog', 'url' => '/api/v1/minigames/catalog', 'verb' => 'GET'],
         ['name' => 'minigame#leaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
         ['name' => 'minigame#weeklyLeaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard/weekly', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
         ['name' => 'minigame#saveScore', 'url' => '/api/v1/minigames/{gameId}/scores', 'verb' => 'POST', 'requirements' => ['gameId' => '[a-z0-9-]+']],

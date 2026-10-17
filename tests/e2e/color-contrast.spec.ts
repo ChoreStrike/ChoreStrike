@@ -14,6 +14,7 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { setArcadeGate } from './fixtures/arcade-gate'
 import type { Page } from '@playwright/test'
 
 const USER = 'friend'
@@ -84,7 +85,9 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 					await expect(page.getByTestId(view.ready)).toBeVisible({ timeout: 20000 })
 					await collect(view.name)
 				}
-				// CS-PLAN-086: the arcade catalog and an open game on its start overlay.
+				// CS-PLAN-086: the arcade catalog and an open game on its start overlay
+				// (the owner gate opens the game for the seeded member).
+				await setArcadeGate(browser, false)
 				await page.goto('/apps/chorestrike/#/arcade')
 				await expect(page.getByTestId('arcade-card-snake')).toBeVisible({ timeout: 20000 })
 				await collect('Arcade')

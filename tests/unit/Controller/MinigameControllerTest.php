@@ -11,10 +11,14 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\MinigameController;
 use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\MinigameScore;
+use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\GameLockedException;
 use OCA\ChoreStrike\Exception\ImplausibleScoreException;
 use OCA\ChoreStrike\Exception\RateLimitException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\ArcadeAccessService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MinigameService;
@@ -32,6 +36,7 @@ class MinigameControllerTest extends TestCase {
 	private MinigameService $minigameService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private ArcadeAccessService $arcadeAccess;
 	private IRequest $request;
 
 	protected function setUp(): void {
@@ -41,6 +46,7 @@ class MinigameControllerTest extends TestCase {
 		$this->minigameService = $this->createMock(MinigameService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		$this->arcadeAccess = $this->createMock(ArcadeAccessService::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -50,6 +56,7 @@ class MinigameControllerTest extends TestCase {
 			$this->houseService,
 			$this->minigameService,
 			$this->authService,
+			$this->arcadeAccess,
 			$l10n,
 			$this->createMock(AppLogger::class)
 		);
@@ -218,6 +225,68 @@ class MinigameControllerTest extends TestCase {
 		$this->assertSame(400, $response->getStatus());
 		$this->assertSame('MINIGAME_IMPLAUSIBLE_SCORE', $response->getData()['error']['code']);
 		$this->assertSame('This score is not possible in the time played.', $response->getData()['error']['message']);
+	}
+
+	/**
+	 * SaveScore_LockedGame_Returns403WithOwnCode (CS-PLAN-086 §3.2): a
+	 * crafted save for a locked game is a 403 MINIGAME_LOCKED with the
+	 * curated message — not the generic FORBIDDEN envelope.
+	 */
+	public function testSaveScore_LockedGame_Returns403WithOwnCode(): void {
+		$this->stubMemberHouse();
+		$this->minigameService->method('saveScore')
+			->willThrowException(new GameLockedException('This game is still locked.'));
+
+		$response = $this->controller->saveScore('snake', 120, 30000);
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('MINIGAME_LOCKED', $response->getData()['error']['code']);
+		$this->assertSame('This game is still locked.', $response->getData()['error']['message']);
+	}
+
+	/**
+	 * Catalog_ReturnsTheMembersCatalog: the payload of the access service
+	 * for the caller's own membership, unchanged.
+	 */
+	public function testCatalog_ReturnsTheMembersCatalog(): void {
+		$this->stubMemberHouse();
+		$member = new HouseUser();
+		$member->setId(4);
+		$this->authService->expects($this->once())->method('assertHouseMember')->with(1)->willReturn($member);
+		$catalog = [
+			'gateEnabled' => true,
+			'finishedChores' => 7,
+			'games' => [['gameId' => 'snake', 'threshold' => 10, 'unlocked' => false]],
+		];
+		$this->arcadeAccess->expects($this->once())->method('getCatalog')->with($member)->willReturn($catalog);
+
+		$response = $this->controller->catalog();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(['success' => true, 'data' => $catalog], $response->getData());
+	}
+
+	public function testCatalog_NonMember_Returns403WithoutRead(): void {
+		$this->stubMemberHouse();
+		$this->authService->method('assertHouseMember')
+			->willThrowException(new ForbiddenException('Not a member of this house'));
+		$this->arcadeAccess->expects($this->never())->method('getCatalog');
+
+		$response = $this->controller->catalog();
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	public function testCatalog_UnexpectedFailure_Returns500WithOwnCode(): void {
+		$this->stubMemberHouse();
+		$this->arcadeAccess->method('getCatalog')->willThrowException(new \RuntimeException('database gone'));
+
+		$response = $this->controller->catalog();
+
+		$this->assertSame(500, $response->getStatus());
+		$this->assertSame('MINIGAME_CATALOG_ERROR', $response->getData()['error']['code']);
+		$this->assertStringNotContainsString('database gone', $response->getData()['error']['message']);
 	}
 
 	/**

@@ -103,6 +103,26 @@ describe('RewardCatalogEditor.vue', () => {
 		expect(mockHouseState.updateCatalogEnabled).toHaveBeenCalledWith(true)
 	})
 
+	// CS-PLAN-086 R086B-01: the house store's error is shared by every house
+	// save on the Settings page; only the gate's own failure shows its note.
+	it('shows the gate error only for a failed gate save, not for another house error', async () => {
+		// Another house save on the page failed before the editor rendered.
+		mockHouseState.error = 'Owner role required'
+		const wrapper = mountEditor()
+		await flushPromises()
+		expect(wrapper.find('[data-testid="catalog-gate-error"]').exists()).toBe(false)
+
+		mockHouseState.updateCatalogEnabled.mockRejectedValueOnce(new Error('Conflict'))
+		await wrapper.find('[data-testid="catalog-gate-toggle"]').setValue(true)
+		await wrapper.find('[data-testid="catalog-gate-save"]').trigger('click')
+		await flushPromises()
+		expect(wrapper.get('[data-testid="catalog-gate-error"]').attributes('role')).toBe('alert')
+
+		await wrapper.find('[data-testid="catalog-gate-save"]').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="catalog-gate-error"]').exists()).toBe(false)
+	})
+
 	it('parses exact decimal prices (whole and two digits) into integer minor units', async () => {
 		const wrapper = mountEditor()
 		await flushPromises()

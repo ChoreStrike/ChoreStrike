@@ -1,6 +1,6 @@
 # CS-PLAN-086: Household Arcade — Game Catalog, Chore Unlocks and Per-Game Highscores
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); next: WP-B
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); next: WP-C
 > **Effort:** XL (seven work packages; no schema change)
 > **Priority:** P3 (optional add-on, never on the core critical path)
 > **Depends on:** work proceeds on branch `feat/arcade-minigames`; merge to
@@ -322,6 +322,8 @@ playable and legible with all effects off.
 new:      lib/Service/ArcadeCatalog.php
 new:      lib/Exception/ImplausibleScoreException.php               (WP-A: 400 MINIGAME_IMPLAUSIBLE_SCORE)
 new:      lib/Service/ArcadeAccessService.php
+new:      lib/Exception/GameLockedException.php                     (WP-B: 403 MINIGAME_LOCKED)
+modified: lib/Service/TestDataService.php                     (WP-B: test reset restores the gate default)
 modified: lib/Db/WorkShareMapper.php                          (countValidSelectedByWallet)
 modified: lib/Service/MinigameService.php
 modified: lib/Service/RewardConfigService.php                 (arcade_gate_enabled key)
@@ -336,12 +338,15 @@ new:      src/components/Minigames/GameShell.vue
 new:      src/components/Minigames/{GameShellOverlay,GameShellDpad}.vue   (WP-A: split from the shell)
 new:      src/components/Minigames/{board,gameInput}.js         (WP-A: board fit/palette, key/swipe mapping)
 new:      src/components/Minigames/ArcadeCatalog.vue
+new:      src/components/Minigames/ArcadeGateSetting.vue      (WP-B: the owner switch)
 new:      src/components/Minigames/GameLeaderboard.vue
 new:      src/components/Minigames/gameRegistry.js
 new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js)
 modified: src/store/minigame.js
+modified: src/store/house.js                                  (WP-B: arcadeGateEnabled getter + writer)
 modified: src/views/ArcadeView.vue
 modified: src/views/Settings.vue
+modified: src/components/Rewards/RewardCatalogEditor.vue, tests/unit/components/RewardCatalogEditor.spec.js   (WP-B review: R086B-01)
 modified: src/utils/sound.js                                  (pop/swish profiles)
 modified: src/styles/tokens.css                               (WP-A: comment only)
 modified: l10n/*
@@ -349,7 +354,9 @@ archived: archive/YYYY-MM/arcade-snake-v1/{SnakeGame.vue,SnakeLeaderboard.vue,Ar
 new:      tests/unit/composables/{useGameLoop,useGameEffects}.spec.js
 new:      tests/unit/minigames/*.spec.js
 new:      tests/unit/helpers/animationFrames.js               (WP-A: manual rAF driver, seeded RNG)
-new:      tests/unit/components/{GameShell,ArcadeCatalog}.spec.js
+new:      tests/unit/components/{GameShell,ArcadeCatalog,ArcadeGateSetting}.spec.js
+modified: tests/unit/store/house.spec.js, tests/unit/views/Settings.spec.js   (WP-B)
+modified: tests/unit/Service/TestDataServiceTest.php          (WP-B)
 renamed:  tests/unit/components/SnakeLeaderboard.spec.js → GameLeaderboard.spec.js
 new:      tests/unit/store/minigame.spec.js
 modified: tests/unit/views/ArcadeView.spec.js
@@ -359,9 +366,12 @@ new:      tests/unit/Service/{ArcadeCatalogTest,ArcadeAccessServiceTest}.php
 modified: tests/unit/Service/{MinigameServiceTest,RewardConfigServiceTest}.php
 modified: tests/unit/Controller/{MinigameControllerTest,HouseControllerTest}.php
 modified: tests/unit/RouteMatrixTest.php
-modified: tests/integration/Controller/{MinigameControllerIntegrationTest,HouseControllerIntegrationTest}.php
+modified: tests/integration/Controller/{MinigameControllerIntegrationTest,HouseControllerIntegrationTest,HouseTimezoneApiTest}.php
 new:      tests/integration/Db/WorkShareCountTest.php
+new:      tests/integration/Service/ArcadeUnlockTest.php         (WP-B: unlock after real completions, re-lock after an undo)
 new:      tests/e2e/arcade-games.spec.ts
+new:      tests/e2e/fixtures/arcade-gate.ts                    (WP-B: owner switch for specs that play a game)
+modified: playwright.config.ts, scripts/run-e2e-gate.js       (WP-B: serial-pool owner of arcade-games.spec.ts)
 modified: tests/e2e/snake-game.spec.ts
 modified: tests/e2e/color-contrast.spec.ts                    (WP-A: arcade view + open game)
 modified: tests/e2e/required-scenarios.json
@@ -402,9 +412,43 @@ Each WP is one reviewable round with an interim Standard B on
    query, `ArcadeAccessService`, catalog endpoint, `assertUnlocked` on save,
    lock states and progress in the catalog, owner toggle as a typed
    app-config flag, ADR-019.
+   *Implemented 2026-10-17.* Implementation choices within the plan:
+   the catalog payload is `{gateEnabled, finishedChores, games: [{gameId,
+   threshold, unlocked}]}` (the count is per member, not per game); the
+   house payload carries the flag as `arcadeGateEnabled` (the registry
+   `apiField`) on every response the client stores as its house (`GET`/`PUT
+   /house`, `PUT /house/catalog`, `PUT /house/arcade-gate`, `POST
+   /house/reset`), because the store replaces its house object with each of
+   them; the writer takes `{arcadeGateEnabled: bool}`, checks the owner in
+   the controller (before the payload) and in the service, and writes an
+   `arcade.gate.updated` audit line; `getCatalog(HouseUser)` and
+   `assertUnlocked(HouseUser, gameId)` take the membership only (it carries
+   the house id); `assertUnlocked` runs inside the score transaction after
+   the house lock and the membership check; a `HouseUser` without a wallet
+   counts zero. Client: the catalog renders server games the
+   registry knows and logs a mismatch either way; a locked card has no Play
+   button, one neutral progress line and a readable leaderboard; a failed
+   catalog read shows "The games could not be loaded." with a retry; the
+   "catalog refresh after a save" (§4) refreshes on a `MINIGAME_LOCKED`
+   rejection, since a successful save never changes a lock; the owner switch
+   is `ArcadeGateSetting.vue` in an owner-only Arcade section after Rewards.
+   Tests: the test-mode reset restores the gate default, so every reseeded
+   spec starts locked; the parallel-pool specs that play a game
+   (`snake-game.spec.ts`, `color-contrast.spec.ts`) first open the gate as the
+   owner `mom` through the real endpoint; `arcade-games.spec.ts` owns the
+   lock scenarios in the serial pool and proves that a real completion counts
+   toward the unlock (the full browser unlock follows with Sock Match's
+   threshold of 3 in WP-D; ten seeded completions are not reliably available
+   in E2E, the full unlock and re-lock are proven in `ArcadeUnlockTest`); the
+   gate toggle's "real HTTP" proof is that browser spec, the DI-level proof is
+   in `MinigameControllerIntegrationTest`. Until Spot Sprint (threshold 0)
+   arrives with WP-C, a member with fewer than ten finished chores sees only
+   a locked Crumb Snake — consistent with D-086-06 and acceptable on the
+   branch.
 3. **WP-C — Spot Sprint** (FEAT-ARCADE-003). Proves the DOM path and the tap
    input mode on phones.
-4. **WP-D — Sock Match** (FEAT-ARCADE-003). Untimed accessible entry game.
+4. **WP-D — Sock Match** (FEAT-ARCADE-003). Untimed accessible entry game,
+   plus the browser proof that finished chores unlock a game (threshold 3).
 5. **WP-E — Tile Breaker** (FEAT-ARCADE-003). Canvas physics and power-ups.
 6. **WP-F — Dust Runner** (FEAT-ARCADE-003). Room-shaped mazes and chaser
    behavior.
@@ -567,7 +611,9 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 
 - **Scope:** the uncommitted WP-A package on `feat/arcade-minigames` @
   `315f408` (fingerprint at capture `6c1c3529…8767`: 4 staged deletions or
-  renames, 29 modified and 28 untracked paths).
+  renames, 29 modified and 28 untracked paths). Rebased onto `master`
+  `8747f4d` on 2026-10-17: `315f408` → `d9eb433`, the WP-A commit → `ebc3c30`;
+  rebased again onto `master` `37bcd5c` the same day: `cdf1fc7` and `ce81102`.
   [Record](../../backlog/archive/CODE_REVIEW_2026-10-17.md).
 - **Fixed (4):**
   - R086A-01: the board dialog moved out of the shell's `role="application"` region.
@@ -587,3 +633,26 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - lint, stylelint, `cs:check`, l10n (1303 keys), backlog, encoding and build checks.
   - Browser: `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (light and dark, including the arcade view and an open game) at 0 violations.
   - Not run: the full gate, the AIO row and the phone projects, which are scheduled for WP-C and WP-G.
+
+### Standard B (interim, WP-B) — 2026-10-17 — `PASS-WITH-FIXES` (stays `active/`)
+
+- **Scope:** the uncommitted WP-B package on `feat/arcade-minigames` @
+  `ce81102` (rebased onto `master` `37bcd5c`; fingerprint at capture
+  `629aa263…a864`: empty index, 44 modified and 10 untracked paths).
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-17.md).
+- **Fixed (2):**
+  - R086B-01: the reward catalog's gate error note followed the shared house-store error, so a failed arcade-gate save showed a false catalog error; it now follows the gate's own save (regression with negative control).
+  - R086B-02: stale signatures and the missing full-unlock owner in the plan, the missing `500` of `PUT /house/arcade-gate` in the API docs.
+- **Verified:**
+  - Both routes `@NoAdminRequired` with CSRF; the owner check runs in the controller and the service.
+  - The lock is enforced server-side under the house lock from the stored membership.
+  - The count mirrors `sumValidSelectedByWallet()` and is indexed.
+  - No stored arcade state, no Coin/wallet/ranking coupling.
+  - The house payload change is additive.
+- **Decisions:** R086B-01 fixed now (operator, recommended option).
+- **Gates:**
+  - Jest 137/1931, noise-free.
+  - PHPUnit unit 1451 and integration 622 on a freshly provisioned stack; `cs:check`.
+  - lint, stylelint, l10n (1311 keys), backlog, encoding, agents and build checks.
+  - Browser: `arcade-games.spec.ts` 4/4, `family-rewards.spec.ts` 9/9, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2.
+  - Not run: the full gate, the AIO row, the provider matrix and the phone projects (WP-C, WP-G).

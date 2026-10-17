@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\GameLockedException;
 use OCA\ChoreStrike\Exception\ImplausibleScoreException;
 use OCA\ChoreStrike\Exception\RateLimitException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\ArcadeAccessService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MinigameService;
@@ -26,7 +29,9 @@ use OCP\IRequest;
  *
  * Every route names its game explicitly; an unknown id is a 400 on reads
  * and writes (CS-PLAN-086). Read `limit` parameters are clamped to
- * 1..MAX_READ_LIMIT at this boundary (RF-086-01).
+ * 1..MAX_READ_LIMIT at this boundary (RF-086-01). The catalog route gives
+ * the member's lock state per game; a save for a locked game is a 403
+ * MINIGAME_LOCKED.
  */
 class MinigameController extends Controller {
 	use ControllerLoggingTrait;
@@ -41,12 +46,24 @@ class MinigameController extends Controller {
 		private HouseService $houseService,
 		private MinigameService $minigameService,
 		private AuthorizationService $authService,
+		private ArcadeAccessService $arcadeAccess,
 		IL10N $l,
 		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->l = $l;
 		$this->initializeControllerLogger($appLogger);
+	}
+
+	/**
+	 * The member's arcade catalog: every game with its unlock threshold and
+	 * lock state, plus the gate flag and the member's finished chores.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function catalog(): JSONResponse {
+		return $this->memberRead('catalog', 'MINIGAME_CATALOG_ERROR', fn (int $houseId, HouseUser $member): array
+			=> $this->arcadeAccess->getCatalog($member));
 	}
 
 	/**
@@ -83,7 +100,7 @@ class MinigameController extends Controller {
 	 */
 	public function saveScore(string $gameId, int $score = 0, ?int $durationMs = null): JSONResponse {
 		try {
-			$houseId = $this->memberHouseId();
+			[$houseId] = $this->memberContext();
 			if ($durationMs === null) {
 				throw new \InvalidArgumentException($this->l->t('Play time is required'));
 			}
@@ -99,6 +116,12 @@ class MinigameController extends Controller {
 					'createdAt' => $savedScore->getCreatedAt()?->format('c'),
 				]
 			]);
+		} catch (GameLockedException $e) {
+			// CS-PLAN-086 §3.2: curated, translated message.
+			return new JSONResponse([
+				'success' => false,
+				'error' => ['code' => 'MINIGAME_LOCKED', 'message' => $e->getMessage()],
+			], 403);
 		} catch (ImplausibleScoreException $e) {
 			// D-086-04: curated, translated message.
 			return ControllerErrorFormatter::validation(
@@ -180,25 +203,26 @@ class MinigameController extends Controller {
 	/**
 	 * Resolve the instance house and require membership (read-only gate).
 	 *
+	 * @return array{int, HouseUser} The house id and the caller's membership
 	 * @throws ForbiddenException
 	 */
-	private function memberHouseId(): int {
-		$house = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId());
-		$this->authService->assertHouseMember($house->getId());
-		return $house->getId();
+	private function memberContext(): array {
+		$houseId = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId())->getId();
+		return [$houseId, $this->authService->assertHouseMember($houseId)];
 	}
 
 	/**
-	 * Shared envelope of the score reads: membership first (403), then an
+	 * Shared envelope of the arcade reads: membership first (403), then an
 	 * unknown game (400), otherwise a logged 500 with the route's code.
 	 *
-	 * @param callable(int): mixed $read Receives the member's house id
+	 * @param callable(int, HouseUser): mixed $read Receives the member's house id and membership
 	 */
 	private function memberRead(string $action, string $errorCode, callable $read): JSONResponse {
 		try {
+			[$houseId, $member] = $this->memberContext();
 			return new JSONResponse([
 				'success' => true,
-				'data' => $read($this->memberHouseId()),
+				'data' => $read($houseId, $member),
 			]);
 		} catch (\InvalidArgumentException $e) {
 			// Thrown by the service for an unknown game only (curated text).

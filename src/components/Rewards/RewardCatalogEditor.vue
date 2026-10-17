@@ -37,7 +37,10 @@
 				role="status">
 				{{ t('chorestrike', 'The catalog setting was saved.') }}
 			</p>
-			<p v-else-if="houseStore.error"
+			<!-- Only this gate's own save drives the note: the house store's
+			     shared error also reports name, timezone, ranking and arcade
+			     saves on the same Settings page (CS-PLAN-086 R086B-01). -->
+			<p v-else-if="gateFailed"
 				class="error-note"
 				data-testid="catalog-gate-error"
 				role="alert">
@@ -253,6 +256,7 @@ export default {
 		return {
 			gateDraft: false,
 			gateSaved: false,
+			gateFailed: false,
 			createDraft: { title: '', description: '', price: '' },
 			editDraft: { title: '', description: '', price: '' },
 			editingItem: null,
@@ -298,11 +302,13 @@ export default {
 		formatCoinMinor,
 
 		async saveGate() {
+			this.gateFailed = false
 			try {
 				await this.houseStore.updateCatalogEnabled(this.gateDraft)
 				this.gateSaved = true
 				setTimeout(() => { this.gateSaved = false }, 4000)
 			} catch (error) {
+				this.gateFailed = true
 				logger.error('Failed to save the catalog gate', error, { component: 'RewardCatalogEditor', action: 'saveGate' })
 			}
 		},

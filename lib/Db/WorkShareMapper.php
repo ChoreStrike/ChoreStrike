@@ -180,6 +180,42 @@ class WorkShareMapper extends QBMapper {
 	}
 
 	/**
+	 * Lifetime count of finished chores per wallet (CS-PLAN-086 §3.2): the
+	 * distinct VALID completions in whose SELECTED allocation revision the
+	 * wallet holds a share — the attribution of
+	 * {@see sumValidSelectedByWallet()}, so helpers count and an undone
+	 * completion does not.
+	 *
+	 * @param int[] $walletIds
+	 * @return array<int, int> walletId => finished chores (wallets without any are omitted)
+	 */
+	public function countValidSelectedByWallet(array $walletIds): array {
+		$walletIds = array_values(array_unique(array_filter(array_map('intval', $walletIds))));
+		if ($walletIds === []) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ws.wallet_id')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ws.completion_id)'), 'finished')
+			->from($this->getTableName(), 'ws')
+			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
+			->where($qb->expr()->in('ws.wallet_id', $qb->createNamedParameter($walletIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
+			->andWhere($qb->expr()->isNull('ct.undone_at'))
+			->groupBy('ws.wallet_id');
+
+		$result = $qb->executeQuery();
+		$counts = [];
+		while ($row = $result->fetch()) {
+			$counts[(int)$row['wallet_id']] = (int)$row['finished'];
+		}
+		$result->closeCursor();
+
+		return $counts;
+	}
+
+	/**
 	 * Erasure sweep (WP3 §3.6): detach the erased subject's wallet from
 	 * their share rows — the non-identifying shared work facts stay.
 	 */

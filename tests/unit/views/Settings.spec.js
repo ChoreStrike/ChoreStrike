@@ -166,6 +166,12 @@ jest.mock('../../../src/components/Rewards/RewardCatalogEditor.vue', () => ({
 	template: '<div data-testid="catalog-editor-stub" />',
 }))
 
+// CS-PLAN-086: the owner arcade gate has its own spec (ArcadeGateSetting.spec.js).
+jest.mock('../../../src/components/Minigames/ArcadeGateSetting.vue', () => ({
+	name: 'ArcadeGateSetting',
+	template: '<div data-testid="arcade-gate-stub" />',
+}))
+
 describe('Settings.vue', () => {
 	let pinia
 
@@ -622,6 +628,8 @@ describe('Settings.vue', () => {
 		expect(wrapper.find('[data-testid="members-section"]').exists()).toBe(false)
 		// CS-PLAN-070 WP8: the owner catalog administration is owner-only.
 		expect(wrapper.find('[data-testid="catalog-section"]').exists()).toBe(false)
+		// CS-PLAN-086: so is the arcade unlock gate.
+		expect(wrapper.find('[data-testid="arcade-gate-section"]').exists()).toBe(false)
 		// The personal title section stays visible for members.
 		expect(wrapper.text()).toContain('Your Title')
 	})
@@ -640,6 +648,9 @@ describe('Settings.vue', () => {
 		// CS-PLAN-070 WP8: owner catalog administration hosts the editor.
 		expect(wrapper.find('[data-testid="catalog-section"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="catalog-editor-stub"]').exists()).toBe(true)
+		// CS-PLAN-086 D-086-02: the arcade gate sits next to the catalog gate.
+		expect(wrapper.find('[data-testid="arcade-gate-section"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="arcade-gate-stub"]').exists()).toBe(true)
 	})
 
 	it('offers up/down reorder buttons per floor as owner', async () => {

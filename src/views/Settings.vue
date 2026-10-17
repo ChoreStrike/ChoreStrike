@@ -256,6 +256,15 @@
 				</div>
 			</section>
 
+			<!-- Arcade unlock gate (CS-PLAN-086 D-086-02, owner only), next
+			     to the reward catalog gate. -->
+			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="arcade-gate-section">
+				<h2>{{ t('chorestrike', 'Arcade') }}</h2>
+				<div class="setting-card">
+					<ArcadeGateSetting />
+				</div>
+			</section>
+
 			<!-- House Members (owner only) -->
 			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="members-section">
 				<h2>{{ t('chorestrike', 'Members') }}</h2>
@@ -523,6 +532,7 @@ import TitleBadge from '../components/Profile/TitleBadge.vue'
 import NotificationPreferences from '../components/Settings/NotificationPreferences.vue'
 import PauseSettings from '../components/Settings/PauseSettings.vue'
 import RewardCatalogEditor from '../components/Rewards/RewardCatalogEditor.vue'
+import ArcadeGateSetting from '../components/Minigames/ArcadeGateSetting.vue'
 
 export default {
 	name: 'Settings',
@@ -538,6 +548,7 @@ export default {
 		NotificationPreferences,
 		PauseSettings,
 		RewardCatalogEditor,
+		ArcadeGateSetting,
 	},
 
 	setup() {

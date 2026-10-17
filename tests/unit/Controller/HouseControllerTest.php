@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\ArcadeAccessService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -33,6 +34,7 @@ class HouseControllerTest extends TestCase {
 	private $houseService;
 	private $authService;
 	private $activityService;
+	private $arcadeAccess;
 	private $request;
 
 	protected function setUp(): void {
@@ -42,6 +44,7 @@ class HouseControllerTest extends TestCase {
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 		$this->activityService = $this->createMock(ActivityService::class);
+		$this->arcadeAccess = $this->createMock(ArcadeAccessService::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -53,7 +56,8 @@ class HouseControllerTest extends TestCase {
 			$this->activityService,
 			$l10n,
 			$this->createMock(AppLogger::class),
-			new CalendarService()
+			new CalendarService(),
+			$this->arcadeAccess
 		);
 	}
 
@@ -341,6 +345,93 @@ class HouseControllerTest extends TestCase {
 
 		$this->assertEquals(409, $response->getStatus());
 		$this->assertEquals('CONFLICT', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * Get_CarriesTheArcadeGate (CS-PLAN-086 D-086-02): the flag lives in
+	 * app config, yet every house payload the client stores carries it.
+	 */
+	public function testGet_CarriesTheArcadeGate(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->arcadeAccess->method('isGateEnabled')->willReturn(false);
+
+		$data = $this->controller->get()->getData()['data'];
+
+		$this->assertFalse($data['arcadeGateEnabled']);
+		$this->assertSame(array_keys($house->jsonSerialize()), array_slice(array_keys($data), 0, -1), 'the entity fields stay unchanged');
+	}
+
+	/**
+	 * UpdateArcadeGate_RequiresABoolean: no write for a non-boolean value.
+	 *
+	 * @dataProvider nonBooleanGateValues
+	 */
+	public function testUpdateArcadeGate_RequiresABoolean(array $params): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->arcadeAccess->expects($this->never())->method('setGateEnabled');
+
+		$this->setParams($params);
+		$response = $this->controller->updateArcadeGate();
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+		$this->assertSame('arcadeGateEnabled must be a boolean', $response->getData()['error']['message']);
+	}
+
+	public static function nonBooleanGateValues(): array {
+		return [
+			'missing' => [[]],
+			'integer' => [['arcadeGateEnabled' => 0]],
+			'string' => [['arcadeGateEnabled' => 'false']],
+			'null' => [['arcadeGateEnabled' => null]],
+		];
+	}
+
+	/**
+	 * UpdateArcadeGate_NonOwner_Returns403BeforeValidation: the owner
+	 * check runs first, so a member learns nothing about the payload rules.
+	 */
+	public function testUpdateArcadeGate_NonOwner_Returns403BeforeValidation(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('requireHouseOwner')
+			->willThrowException(new ForbiddenException('Owner role required'));
+		$this->arcadeAccess->expects($this->never())->method('setGateEnabled');
+
+		$this->setParams(['arcadeGateEnabled' => 'not-a-boolean']);
+		$response = $this->controller->updateArcadeGate();
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * UpdateArcadeGate_DelegatesAndReturnsTheHousePayload
+	 */
+	public function testUpdateArcadeGate_DelegatesAndReturnsTheHousePayload(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setName('Home');
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->arcadeAccess->expects($this->once())->method('setGateEnabled')->with(1, false);
+		$this->arcadeAccess->method('isGateEnabled')->willReturn(false);
+
+		$this->setParams(['arcadeGateEnabled' => false]);
+		$response = $this->controller->updateArcadeGate();
+
+		$this->assertSame(200, $response->getStatus());
+		$data = $response->getData()['data'];
+		$this->assertSame('Home', $data['name']);
+		$this->assertFalse($data['arcadeGateEnabled']);
 	}
 
 	/**

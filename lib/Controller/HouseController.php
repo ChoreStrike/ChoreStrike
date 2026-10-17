@@ -8,11 +8,13 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\ArcadeAccessService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Controller;
@@ -31,6 +33,7 @@ class HouseController extends Controller {
 	private ActivityService $activityService;
 	private IL10N $l;
 	private \OCA\ChoreStrike\Service\CalendarService $calendarService;
+	private ArcadeAccessService $arcadeAccess;
 
 	public function __construct(
 		IRequest $request,
@@ -40,6 +43,7 @@ class HouseController extends Controller {
 		IL10N $l,
 		AppLogger $appLogger,
 		\OCA\ChoreStrike\Service\CalendarService $calendarService,
+		ArcadeAccessService $arcadeAccess,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->houseService = $houseService;
@@ -47,7 +51,19 @@ class HouseController extends Controller {
 		$this->activityService = $activityService;
 		$this->l = $l;
 		$this->calendarService = $calendarService;
+		$this->arcadeAccess = $arcadeAccess;
 		$this->initializeControllerLogger($appLogger);
+	}
+
+	/**
+	 * The house payload of every response the client stores as its house:
+	 * the entity plus the household's arcade gate flag (CS-PLAN-086
+	 * D-086-02), which lives in app config rather than on the house row.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function housePayload(House $house): array {
+		return $house->jsonSerialize() + ['arcadeGateEnabled' => $this->arcadeAccess->isGateEnabled()];
 	}
 
 	/**
@@ -66,7 +82,7 @@ class HouseController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $house->jsonSerialize()
+				'data' => $this->housePayload($house)
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -131,7 +147,7 @@ class HouseController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $updatedHouse->jsonSerialize()
+				'data' => $this->housePayload($updatedHouse)
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -191,7 +207,7 @@ class HouseController extends Controller {
 			$updatedHouse = $this->houseService->getOrCreateHouse($instanceId);
 			return new JSONResponse([
 				'success' => true,
-				'data' => $updatedHouse->jsonSerialize(),
+				'data' => $this->housePayload($updatedHouse),
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -199,6 +215,48 @@ class HouseController extends Controller {
 			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('updateCatalog', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'HOUSE_UPDATE_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Owner-only arcade unlock gate (CS-PLAN-086 D-086-02): the only HTTP
+	 * writer of the `arcade_gate_enabled` flag. Idempotent by value, last
+	 * write wins; switched off, every game is open for every member.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function updateArcadeGate(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->assertHouseMember($house->getId());
+			$this->authService->requireHouseOwner($house->getId());
+
+			$enabled = $this->request->getParam('arcadeGateEnabled');
+			if (!is_bool($enabled)) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('arcadeGateEnabled must be a boolean')],
+				], 400);
+			}
+
+			$this->arcadeAccess->setGateEnabled($house->getId(), $enabled);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $this->housePayload($house),
+			]);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('updateArcadeGate', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -375,7 +433,7 @@ class HouseController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $updatedHouse->jsonSerialize(),
+				'data' => $this->housePayload($updatedHouse),
 				'message' => $this->l->t('House has been reset to initial state')
 			]);
 		} catch (ForbiddenException $e) {

@@ -1319,6 +1319,9 @@ msgstr ""
 msgid "Game started"
 msgstr ""
 
+msgid "Games open one by one as members finish chores. Switch this off to open every game for everyone."
+msgstr ""
+
 msgid "Garden & Balcony"
 msgstr ""
 
@@ -2870,6 +2873,12 @@ msgstr ""
 msgid "The arcade is opt-in and stays outside the daily surfaces. Hiding it removes its navigation entry immediately."
 msgstr ""
 
+msgid "The arcade setting could not be saved. Please try again."
+msgstr ""
+
+msgid "The arcade setting was saved."
+msgstr ""
+
 msgid "The assigned people change."
 msgstr ""
 
@@ -2922,6 +2931,9 @@ msgid "The due day moves."
 msgstr ""
 
 msgid "The game could not be loaded."
+msgstr ""
+
+msgid "The games could not be loaded."
 msgstr ""
 
 msgid "The house is already set up. Use the per-room template picker instead."
@@ -3137,6 +3149,9 @@ msgstr ""
 msgid "This Week's Medals"
 msgstr ""
 
+msgid "This game is still locked."
+msgstr ""
+
 msgid "This house has already been set up."
 msgstr ""
 
@@ -3329,7 +3344,13 @@ msgstr ""
 msgid "Unknown update field: %1$s"
 msgstr ""
 
+msgid "Unlock games with finished chores"
+msgstr ""
+
 msgid "Unlocked titles: {titles}"
+msgstr ""
+
+msgid "Unlocks at {threshold} finished chores · {remaining} to go"
 msgstr ""
 
 msgid "Until (inclusive)"
@@ -3603,6 +3624,9 @@ msgid "already scheduled as proposed"
 msgstr ""
 
 msgid "another member"
+msgstr ""
+
+msgid "arcadeGateEnabled must be a boolean"
 msgstr ""
 
 msgid "archived must be a boolean"

@@ -81,6 +81,14 @@ export const useHouseStore = defineStore('house', {
 		 * @return {boolean} Whether the household catalog is enabled
 		 */
 		catalogEnabled: (state) => state.house?.catalogEnabled === true,
+		/**
+		 * The owner-only arcade unlock gate (CS-PLAN-086 D-086-02) — on
+		 * (its server default) until the loaded house says otherwise.
+		 *
+		 * @param {object} state Pinia state
+		 * @return {boolean} Whether games unlock through finished chores
+		 */
+		arcadeGateEnabled: (state) => state.house?.arcadeGateEnabled !== false,
 	},
 
 	actions: {
@@ -226,6 +234,33 @@ export const useHouseStore = defineStore('house', {
 						// note either way.
 					})
 				}
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Switch the owner-only arcade unlock gate (CS-PLAN-086 D-086-02)
+		 * through `PUT /house/arcade-gate`. Idempotent by value; the
+		 * refreshed house payload lands like every accepted house mutation.
+		 * @param {boolean} enabled New gate flag.
+		 * @return {Promise<object>} The refreshed house payload.
+		 */
+		async updateArcadeGateEnabled(enabled) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const data = await api.put('/api/v1/house/arcade-gate', { arcadeGateEnabled: enabled === true })
+				// Accepted mutation invalidates pre-mutation house reads
+				// (CS-PLAN-066 §3.3) — the authoritative response lands.
+				this.houseRequestSeq++
+				this.house = data
+				return data
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to switch the arcade gate', error, { store: 'house', action: 'updateArcadeGateEnabled' })
 				throw error
 			} finally {
 				this.loading = false

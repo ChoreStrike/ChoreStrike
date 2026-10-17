@@ -113,6 +113,16 @@ describe('House Store', () => {
 			store.house = { id: 1 }
 			expect(store.catalogEnabled).toBe(false)
 		})
+
+		// CS-PLAN-086 D-086-02: the arcade gate mirrors its server default
+		// (on) until the loaded house says otherwise.
+		it('arcadeGateEnabled defaults to true and mirrors the loaded house flag', () => {
+			expect(store.arcadeGateEnabled).toBe(true)
+			store.house = { id: 1, arcadeGateEnabled: false }
+			expect(store.arcadeGateEnabled).toBe(false)
+			store.house = { id: 1, arcadeGateEnabled: true }
+			expect(store.arcadeGateEnabled).toBe(true)
+		})
 	})
 
 	describe('Actions', () => {
@@ -315,6 +325,31 @@ describe('House Store', () => {
 				expect(api.get).toHaveBeenCalledWith('/api/v1/house')
 				expect(store.house.stateVersion).toBe(9)
 				expect(store.house.catalogEnabled).toBe(true)
+			})
+		})
+
+		describe('updateArcadeGateEnabled', () => {
+			it('sends the boolean flag and stores the refreshed house', async () => {
+				store.house = { id: 1, name: 'Test House', arcadeGateEnabled: true }
+				const updated = { id: 1, name: 'Test House', arcadeGateEnabled: false }
+				api.put.mockResolvedValue(updated)
+
+				await expect(store.updateArcadeGateEnabled(false)).resolves.toEqual(updated)
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/house/arcade-gate', { arcadeGateEnabled: false })
+				expect(store.house).toEqual(updated)
+				expect(store.arcadeGateEnabled).toBe(false)
+				expect(store.loading).toBe(false)
+			})
+
+			it('stores the error and rethrows on failure', async () => {
+				store.house = { id: 1, arcadeGateEnabled: true }
+				api.put.mockRejectedValue(new Error('Owner role required'))
+
+				await expect(store.updateArcadeGateEnabled(false)).rejects.toThrow('Owner role required')
+				expect(store.error).toBe('Owner role required')
+				expect(store.arcadeGateEnabled).toBe(true)
+				expect(store.loading).toBe(false)
 			})
 		})
 

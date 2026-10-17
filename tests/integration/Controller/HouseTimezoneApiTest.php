@@ -95,6 +95,7 @@ class HouseTimezoneApiTest extends IntegrationTestCase {
 			$l10n,
 			\OC::$server->get(AppLogger::class),
 			new CalendarService(),
+			\OC::$server->get(\OCA\ChoreStrike\Service\ArcadeAccessService::class),
 		);
 	}
 

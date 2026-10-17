@@ -15,8 +15,10 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
+use OCA\ChoreStrike\Exception\GameLockedException;
 use OCA\ChoreStrike\Exception\ImplausibleScoreException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\ArcadeAccessService;
 use OCA\ChoreStrike\Service\ArcadeCatalog;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\MinigameService;
@@ -41,6 +43,7 @@ class MinigameServiceTest extends TestCase {
 	private IDBConnection $db;
 	private AppLogger $appLogger;
 	private HouseMapper $houseMapper;
+	private ArcadeAccessService $arcadeAccess;
 	private bool $memberPresent;
 	/** @var callable(): void */
 	private $onLock;
@@ -52,6 +55,8 @@ class MinigameServiceTest extends TestCase {
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
+		// CS-PLAN-086 §3.2: unlocked unless a test says otherwise.
+		$this->arcadeAccess = $this->createMock(ArcadeAccessService::class);
 		$this->memberPresent = true;
 		$this->onLock = static function (): void {
 		};
@@ -76,7 +81,7 @@ class MinigameServiceTest extends TestCase {
 		// D7: below the per-user daily cap by default.
 		$this->scoreMapper->method('countByUserSince')->willReturn(0);
 
-		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, new \OCA\ChoreStrike\Db\TransactionExecutor($this->db), $l10n, $this->appLogger, $this->houseMapper, new CalendarService());
+		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, new \OCA\ChoreStrike\Db\TransactionExecutor($this->db), $l10n, $this->appLogger, $this->houseMapper, new CalendarService(), $this->arcadeAccess);
 	}
 
 	private static function snakeMaxScore(): int {
@@ -138,6 +143,33 @@ class MinigameServiceTest extends TestCase {
 		$this->db->expects($this->never())->method('commit');
 
 		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+		$this->service->saveScore(1, 'user1', 'snake', 150, self::ROUND_MS);
+	}
+
+	/**
+	 * SaveScore_LockedGame_DeniedUnderTheHouseLockWithoutInsert
+	 * (CS-PLAN-086 §3.2): the unlock check runs inside the transaction,
+	 * after the house lock and the membership check, and a locked game
+	 * rolls back without a rollback-error log.
+	 */
+	public function testSaveScore_LockedGame_DeniedUnderTheHouseLockWithoutInsert(): void {
+		$locked = false;
+		$this->onLock = function () use (&$locked): void {
+			$locked = true;
+		};
+		$this->arcadeAccess->expects($this->once())
+			->method('assertUnlocked')
+			->with($this->isInstanceOf(HouseUser::class), 'snake')
+			->willReturnCallback(function () use (&$locked): void {
+				$this->assertTrue($locked, 'the unlock check runs under the house lock');
+				throw new GameLockedException('This game is still locked.');
+			});
+		$this->scoreMapper->expects($this->never())->method('insert');
+		$this->appLogger->expects($this->never())->method('logException');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		$this->expectException(GameLockedException::class);
 		$this->service->saveScore(1, 'user1', 'snake', 150, self::ROUND_MS);
 	}
 
@@ -298,7 +330,7 @@ class MinigameServiceTest extends TestCase {
 		$this->scoreMapper->expects($this->never())->method('insert');
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, new \OCA\ChoreStrike\Db\TransactionExecutor($this->db), $l10n, $this->appLogger, $this->houseMapper, new CalendarService());
+		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, new \OCA\ChoreStrike\Db\TransactionExecutor($this->db), $l10n, $this->appLogger, $this->houseMapper, new CalendarService(), $this->arcadeAccess);
 
 		$this->db->expects($this->never())->method('beginTransaction');
 

@@ -215,6 +215,12 @@
   "ranking-consent.spec.ts": [
     "ranking-consent.spec.ts > Ranking Consent Lifecycle (WP4) > owner enables ranking; member joins pending and withdraws"
   ],
+  "arcade-games.spec.ts": [
+    "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a crafted score for a locked game is refused",
+    "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a finished chore counts toward the unlock",
+    "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a locked game shows neutral progress and keeps its leaderboard readable",
+    "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > the owner switch opens every game and members cannot use it"
+  ],
   "calm-core-ui.spec.ts": [
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > My Day stays Coin-free while the wallet stays in the secondary overview",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > a free day stays neutral without catch-up, extra offers or invented success",

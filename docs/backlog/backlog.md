@@ -307,9 +307,9 @@ ceilings; Snake moves onto the shell ([CS-PLAN-086](../plans/active/cs-plan-086-
 The scores-only contract (CS-PLAN-070 T10/D7d) stays unchanged.
 **Progress:** WP-A delivered 2026-10-17 (interim Standard B `PASS-WITH-FIXES`):
 shell, registry, per-game slices, `GameLeaderboard`, server catalog with the
-required `durationMs` plausibility and Crumb Snake with S1–S7 fixed. Open
-until the plan's final review: phone touch E2E (WP-C), the catalog endpoint
-(WP-B) and the full browser gate on both rows (WP-G).
+required `durationMs` plausibility and Crumb Snake with S1–S7 fixed. The
+catalog endpoint followed with WP-B (2026-10-17). Open until the plan's final
+review: phone touch E2E (WP-C) and the full browser gate on both rows (WP-G).
 
 ---
 
@@ -323,6 +323,15 @@ Games unlock permanently as milestones of a member's lifetime finished chores
 selected work shares (ADR-014) — helpers count, an undone completion no longer
 counts, no persisted balances; the owner switch is a typed app-config flag, no
 schema change ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-B, D-086-01/02/06).
+**Progress:** WP-B delivered 2026-10-17 on `feat/arcade-minigames` after
+interim Standard B `PASS-WITH-FIXES`:
+`WorkShareMapper::countValidSelectedByWallet`, the derived
+`ArcadeAccessService`, `GET /minigames/catalog`, `403 MINIGAME_LOCKED` on
+saves, the owner-only `PUT /house/arcade-gate` over the
+`arcade_gate_enabled` registry flag, lock states and progress in the catalog,
+the Settings switch and [ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md).
+Open until the plan's final review: the browser proof of a full unlock with
+Sock Match (WP-D) and the full browser gate (WP-G).
 
 ---
 

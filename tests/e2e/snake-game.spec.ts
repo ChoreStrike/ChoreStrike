@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
+import { setArcadeGate } from './fixtures/arcade-gate'
 
 /**
  * E2E test: Crumb Snake on the arcade game shell
@@ -15,6 +16,10 @@ import type { Locator, Page } from '@playwright/test'
  * the shell element only (no window listener), the shell exposes its phase
  * as `data-phase`, and the deterministic opening (first crumb four cells
  * ahead of the hose) scores without input or randomness — no test hook.
+ *
+ * CS-PLAN-086 WP-B: the seeded admin member has not finished the ten chores
+ * that unlock Crumb Snake, so the spec opens the arcade gate as the owner
+ * first (idempotent across workers; the lock itself is arcade-games.spec.ts).
  */
 
 /** Open Crumb Snake from its catalog card and wait for the start overlay. */
@@ -41,6 +46,10 @@ async function playUntilOver(page: Page): Promise<Locator> {
 }
 
 test.describe('Snake Arcade Game', () => {
+	test.beforeAll(async ({ browser }) => {
+		await setArcadeGate(browser, false)
+	})
+
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/apps/chorestrike/#/arcade')
 		await expect(page.getByTestId('arcade-surface')).toBeVisible({ timeout: 30000 })

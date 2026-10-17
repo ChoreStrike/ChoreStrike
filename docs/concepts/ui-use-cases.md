@@ -361,9 +361,11 @@ or chore value (T10/D7d). **Personas:** all (child-relevant).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Play a game (keyboard, swipe, on-screen pad; pause on hide) and save the score with its play time | `ArcadeCatalog` → `GameShell` | `POST /minigames/{g}/scores` (`score`, `durationMs`) | ✅ Crumb Snake (CS-PLAN-086 WP-A) |
+| See which games are open and the neutral progress toward the next one | `ArcadeCatalog` card | `GET /minigames/catalog` | ✅ (CS-PLAN-086 WP-B, ADR-019) |
+| Play a game (keyboard, swipe, on-screen pad; pause on hide) and save the score with its play time | `ArcadeCatalog` → `GameShell` | `POST /minigames/{g}/scores` (`score`, `durationMs`; `403 MINIGAME_LOCKED` while locked) | ✅ Crumb Snake (CS-PLAN-086 WP-A) |
 | Personal best / rank per game | `ArcadeCatalog` card, `GameLeaderboard` | `GET /minigames/{g}/personal-best`, `/rank` | ✅ |
 | All-time + weekly board and own recent rounds per game | `GameLeaderboard` | `GET /minigames/{g}/leaderboard(/weekly)`, `/recent` | ✅ |
+| Switch the chore unlocks off for the household (owner) | Settings → Arcade (`ArcadeGateSetting`) | `PUT /house/arcade-gate` | ✅ (CS-PLAN-086 WP-B) |
 | Memory / 2048 prototypes, boost shop | — | — | ⛔ retired with the WP3 cutover |
 
 ## UC-13 — Members, roles & household changes

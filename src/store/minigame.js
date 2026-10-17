@@ -29,11 +29,15 @@ const EMPTY_SLICE = Object.freeze(emptySlice())
  *
  * CS-PLAN-086: per-game slices (`byGame[gameId]`); every action names its
  * game explicitly. The live round itself (score, pause, game over) belongs
- * to GameShell; the store records the result through `finishGame`.
+ * to GameShell; the store records the result through `finishGame`. The
+ * `catalog` slice is the server's view of the member's arcade
+ * (`{gateEnabled, finishedChores, games: [{gameId, threshold, unlocked}]}`),
+ * null until it loads.
  */
 export const useMinigameStore = defineStore('minigame', {
 	state: () => ({
 		byGame: {},
+		catalog: null,
 		loading: false,
 		error: null,
 	}),
@@ -104,8 +108,23 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		/**
+		 * Load the member's catalog: game ids, unlock thresholds and lock
+		 * states (CS-PLAN-086 §3.2). Soft-fails like the score reads.
+		 */
+		async fetchCatalog() {
+			try {
+				this.catalog = await api.get('/api/v1/minigames/catalog')
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to fetch the arcade catalog', error, { store: 'minigame', action: 'fetchCatalog' })
+			}
+		},
+
+		/**
 		 * Save a finished round (scores only — never wallet/contribution) and
-		 * refresh that game's personal best, rank and board.
+		 * refresh that game's personal best, rank and board. A locked
+		 * rejection (the game re-locked after an undo while it was open)
+		 * refreshes the catalog, so the card shows the lock again.
 		 *
 		 * @param {string} gameId Game identifier
 		 * @param {number} score Final score
@@ -124,6 +143,9 @@ export const useMinigameStore = defineStore('minigame', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to save score', error, { store: 'minigame', action: 'saveScore', gameId })
+				if (error?.code === 'MINIGAME_LOCKED') {
+					await this.fetchCatalog()
+				}
 				return null
 			}
 		},
@@ -146,17 +168,18 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		/**
-		 * Load what the catalog cards show: personal best and rank per game.
+		 * Load what the catalog cards show: the catalog first, then personal
+		 * best and rank of every game it lists.
 		 *
 		 * CS-PLAN-066 §3.4: the aggregate owns `loading` behind a
 		 * try/finally; child fetches soft-fail into `error`.
-		 * @param {string[]} gameIds Game identifiers
 		 */
-		async initialize(gameIds) {
+		async initialize() {
 			this.loading = true
 			this.error = null
 			try {
-				await Promise.all(gameIds.flatMap((gameId) => [
+				await this.fetchCatalog()
+				await Promise.all((this.catalog?.games ?? []).flatMap(({ gameId }) => [
 					this.fetchPersonalBest(gameId),
 					this.fetchUserRank(gameId),
 				]))
@@ -171,6 +194,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		reset() {
 			this.byGame = {}
+			this.catalog = null
 			this.loading = false
 			this.error = null
 		},

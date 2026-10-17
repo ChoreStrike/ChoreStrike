@@ -42,6 +42,7 @@ class TestDataServiceTest extends TestCase {
 	private RoomTaskMapper&MockObject $roomTaskMapper;
 	private TaskAssigneeMapper&MockObject $taskAssigneeMapper;
 	private \OCA\ChoreStrike\Db\WalletMapper&MockObject $walletMapper;
+	private \OCP\IAppConfig&MockObject $appConfig;
 	private TestDataService $service;
 
 	protected function setUp(): void {
@@ -71,6 +72,7 @@ class TestDataServiceTest extends TestCase {
 
 		// Default config mock returns test instance id
 		$this->config->method('getSystemValue')->willReturn('test-instance');
+		$this->appConfig = $this->createMock(\OCP\IAppConfig::class);
 
 		$this->service = new TestDataService(
 			$this->db,
@@ -91,6 +93,7 @@ class TestDataServiceTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class),
+			$this->appConfig,
 		);
 	}
 
@@ -433,6 +436,22 @@ class TestDataServiceTest extends TestCase {
 		$this->assertNotContains('chorestrike_task_participants', $deletedTables);
 		$this->assertNotContains('chorestrike_task_claims', $deletedTables);
 		$this->assertNotContains('chorestrike_claims', $deletedTables);
+	}
+
+	/**
+	 * ResetRestoresTheArcadeGateDefault (CS-PLAN-086 D-086-02): a spec that
+	 * switched the gate off never leaks the open arcade into the next one.
+	 */
+	public function testReset_RestoresTheArcadeGateDefault(): void {
+		$qb = $this->createMock(\OCP\DB\QueryBuilder\IQueryBuilder::class);
+		$qb->method('delete')->willReturnSelf();
+		$this->db->method('getQueryBuilder')->willReturn($qb);
+
+		$this->appConfig->expects($this->once())
+			->method('deleteKey')
+			->with('chorestrike', 'arcade_gate_enabled');
+
+		$this->service->reset();
 	}
 
 	/**

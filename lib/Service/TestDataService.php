@@ -27,6 +27,7 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
 use OCA\ChoreStrike\Db\WorkShare;
 use OCA\ChoreStrike\Db\WorkShareMapper;
+use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IDBConnection;
 
@@ -132,6 +133,7 @@ class TestDataService {
 	private OccurrenceMapper $occurrenceMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private WorkShareMapper $workShareMapper;
+	private IAppConfig $appConfig;
 
 	// CR-SVC-40 / CS-PLAN-060 WP1, decision D6 documented exemption: this
 	// service is NON-PRODUCTION test tooling (every entry point is guarded by
@@ -156,6 +158,7 @@ class TestDataService {
 		OccurrenceMapper $occurrenceMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		WorkShareMapper $workShareMapper,
+		IAppConfig $appConfig,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -173,6 +176,7 @@ class TestDataService {
 		$this->occurrenceMapper = $occurrenceMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->workShareMapper = $workShareMapper;
+		$this->appConfig = $appConfig;
 	}
 
 	/**
@@ -210,10 +214,13 @@ class TestDataService {
 	}
 
 	/**
-	 * Reset all tables (truncate, preserve schema)
+	 * Reset all tables (truncate, preserve schema) and the household app
+	 * config a test may switch (CS-PLAN-086: the arcade gate returns to its
+	 * default, so a spec that opened every game never leaks into the next).
 	 */
 	public function reset(): void {
 		$this->assertTestMode();
+		$this->appConfig->deleteKey('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED);
 
 		foreach (self::RESET_TABLES as $table) {
 			$qb = $this->db->getQueryBuilder();

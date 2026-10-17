@@ -19,7 +19,8 @@ use OCP\IAppConfig;
  * valid-history rhythm. CS-PLAN-070 WP4 cutover: the weekly-goal target
  * (fixed 80%) and the per-tier title thresholds (fixed 3/6/12) are fixed
  * policy too — no owner override exists for the first-slice rewards.
- * What remains: task-energy validation and the title system flag.
+ * What remains: task-energy validation, the title system flag and the
+ * arcade unlock gate (CS-PLAN-086 D-086-02).
  */
 class RewardConfigService {
 	private const APP_NAME = 'chorestrike';
@@ -27,6 +28,7 @@ class RewardConfigService {
 	// Config keys with defaults
 	public const KEY_ENERGY_MAX_PER_TASK = 'energy_max_per_task';
 	public const KEY_TITLES_ENABLED = 'titles_enabled';
+	public const KEY_ARCADE_GATE_ENABLED = 'arcade_gate_enabled';
 
 	/**
 	 * Single source of truth for every scalar config key (CR-SVC-16):
@@ -39,6 +41,7 @@ class RewardConfigService {
 	private const REGISTRY = [
 		self::KEY_ENERGY_MAX_PER_TASK => ['type' => 'int', 'default' => '9', 'min' => 0, 'max' => null, 'apiField' => 'energyMaxPerTask'],
 		self::KEY_TITLES_ENABLED => ['type' => 'bool', 'default' => '1', 'min' => null, 'max' => null, 'apiField' => 'titlesEnabled'],
+		self::KEY_ARCADE_GATE_ENABLED => ['type' => 'bool', 'default' => '1', 'min' => null, 'max' => null, 'apiField' => 'arcadeGateEnabled'],
 	];
 
 	private IAppConfig $config;
@@ -141,6 +144,15 @@ class RewardConfigService {
 	}
 
 	/**
+	 * Whether arcade games unlock through finished chores (CS-PLAN-086
+	 * D-086-02). Default true; an owner switches it off house-wide — there
+	 * is one house per instance, so an app-config flag needs no schema.
+	 */
+	public function getArcadeGateEnabled(): bool {
+		return $this->readSpec(self::KEY_ARCADE_GATE_ENABLED) === true;
+	}
+
+	/**
 	 * Set max energy per task (clamped to >= 0, CR-SVC-19).
 	 */
 	public function setEnergyMaxPerTask(int $max): void {
@@ -152,6 +164,14 @@ class RewardConfigService {
 	 */
 	public function setTitlesEnabled(bool $enabled): void {
 		$this->writeSpec(self::KEY_TITLES_ENABLED, $enabled);
+	}
+
+	/**
+	 * Set the arcade unlock gate. The only caller is the owner-checked
+	 * {@see ArcadeAccessService::setGateEnabled()}.
+	 */
+	public function setArcadeGateEnabled(bool $enabled): void {
+		$this->writeSpec(self::KEY_ARCADE_GATE_ENABLED, $enabled);
 	}
 
 	/**

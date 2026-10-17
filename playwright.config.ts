@@ -98,6 +98,9 @@ const SEED_DEPENDENT_SPECS = [
 	// task for funding and walks the request lifecycle — a parallel reseed
 	// mid-lifecycle would strand the flag and request state, serial only.
 	/[/\\]family-reward-api\.spec\.ts$/,
+	// CS-PLAN-086: the arcade unlock spec reseeds the family profile and
+	// flips the household-wide arcade gate — serial pool only.
+	/[/\\]arcade-games\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

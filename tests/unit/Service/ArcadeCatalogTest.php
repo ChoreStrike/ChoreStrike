@@ -25,8 +25,12 @@ class ArcadeCatalogTest extends TestCase {
 	public function testEveryGame_HasCompletePositiveRules(): void {
 		foreach (ArcadeCatalog::ids() as $gameId) {
 			$rules = ArcadeCatalog::rules($gameId);
-			$this->assertSame(['maxScore', 'maxDurationMs', 'pointsPerSecond', 'burstPoints'], array_keys($rules), $gameId);
+			$this->assertSame(['maxScore', 'maxDurationMs', 'pointsPerSecond', 'burstPoints', 'unlockThreshold'], array_keys($rules), $gameId);
 			foreach ($rules as $key => $value) {
+				if ($key === 'unlockThreshold') {
+					$this->assertGreaterThanOrEqual(0, $value, "$gameId.$key");
+					continue;
+				}
 				$this->assertGreaterThan(0, $value, "$gameId.$key");
 			}
 			// The ceiling must be reachable within the longest round, or the
@@ -35,6 +39,20 @@ class ArcadeCatalogTest extends TestCase {
 				ArcadeCatalog::isPlausible($gameId, $rules['maxScore'], $rules['maxDurationMs']),
 				"$gameId: maxScore unreachable within maxDurationMs"
 			);
+		}
+	}
+
+	/**
+	 * UnlockThresholds_PinD08606: finished chores per game (spots 0,
+	 * socks 3, snake 10, tiles 25, dust 50 as the games arrive). Every
+	 * threshold above 0 is at least 3, so the progress copy needs no
+	 * count-dependent plural (CS-PLAN-086 §3.2).
+	 */
+	public function testUnlockThresholds_PinD08606(): void {
+		$thresholds = array_map(static fn (array $rules): int => $rules['unlockThreshold'], ArcadeCatalog::GAMES);
+		$this->assertSame(['snake' => 10], $thresholds);
+		foreach ($thresholds as $gameId => $threshold) {
+			$this->assertTrue($threshold === 0 || $threshold >= 3, $gameId);
 		}
 	}
 

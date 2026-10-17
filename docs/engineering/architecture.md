@@ -70,7 +70,9 @@ ChoreStrike/
 │   │                           #   on modern Nextcloud, CS-PLAN-023)
 │   ├── Service/                # Business logic (House, Floor, Room, RoomTask,
 │   │                           #   Task, GameLogic, Scheduling,
-│   │                           #   Minigame, RewardConfig, Template,
+│   │                           #   Minigame, ArcadeCatalog, ArcadeAccess
+│   │                           #   (derived chore unlocks, ADR-019),
+│   │                           #   RewardConfig, Template,
 │   │                           #   TestData, Authorization, AppLogger, Title,
 │   │                           #   Notification, StreakAtRisk, StreakFreeze,
 │   │                           #   StreakRestock, TaskDueReminder). The daily
@@ -91,8 +93,9 @@ ChoreStrike/
 │   │   │                       #   TaskEditForm, AssigneeChips, TaskChecklist, RoomPicker,
 │   │   │                       #   TaskTemplatePicker, FlexWindowDisplay, OverdueClaimDialog
 │   │   ├── Minigames/          # ArcadeCatalog, GameShell (+Overlay, Dpad), GameLeaderboard,
-│   │   │                       #   gameRegistry, games/<id>/ (pure logic + renderer, one
-│   │   │                       #   lazy chunk per game; CS-PLAN-086)
+│   │   │                       #   ArcadeGateSetting (owner switch), gameRegistry,
+│   │   │                       #   games/<id>/ (pure logic + renderer, one lazy chunk per
+│   │   │                       #   game; CS-PLAN-086)
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Profile/            # TitleBadge (single retained series; the
 │   │   │                       #   TitlePicker retired with CS-PLAN-070 WP4)
@@ -1240,6 +1243,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Controller/RoomTaskController.php` | 939 | Room-task route surface (selector modes, lifecycle, stats, range, WP1 occurrence/receipt seam); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
 | `Controller/SchedulingController.php` | 466 | Scheduling route surface (preferences, preview, apply incl. the WP2 consent attestation); thin methods | accepted (endpoint breadth, no logic depth) |
 | `Controller/UserController.php` | 428 | Member/profile route surface; thin methods (persistence delegated to HouseService, RF-058-04) | accepted (endpoint breadth) |
+| `Controller/HouseController.php` | 411 | House route surface (read, settings, the catalog and arcade gates, stats, activity, health, reset); every stored house payload adds the app-config arcade flag; thin methods | accepted (endpoint breadth) |
 | `Controller/RoomController.php` | 338 | Room route surface incl. the WP3 journal/manual-delta/reset seam; thin methods | accepted (endpoint breadth) |
 | `Controller/ChecklistController.php` | 307 | Checklist route surface incl. the WP1 occurrence-identity progress/toggle endpoints; thin methods | accepted (endpoint breadth) |
 | `Service/SchedulePlanService.php` | 1234 | WP6 preview/apply aggregate: fingerprint revalidation, capacity check, lock order, member-day writes (WP1: capacity from the occurrence authority; WP2: exact-share joint placement, replacement-first capacity, consent attestation, injected-clock seam) | **named** (CS-PLAN-067 §3.5: cohesive fingerprint/capacity aggregate; budgets only, no optimizer rewrite) |

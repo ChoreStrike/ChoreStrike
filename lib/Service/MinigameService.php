@@ -26,7 +26,9 @@ use OCP\IL10N;
  *
  * CS-PLAN-086: game ids, score ceilings and the duration plausibility rules
  * live in {@see ArcadeCatalog}; every read and write names its game
- * explicitly and an unknown id is rejected.
+ * explicitly and an unknown id is rejected. A save also requires the game
+ * to be unlocked ({@see ArcadeAccessService}); reads stay open, so a
+ * locked game's leaderboard remains readable.
  */
 class MinigameService {
 	/**
@@ -43,6 +45,7 @@ class MinigameService {
 	private AppLogger $appLogger;
 	private \OCA\ChoreStrike\Db\HouseMapper $houseMapper;
 	private CalendarService $calendarService;
+	private ArcadeAccessService $arcadeAccess;
 
 	public function __construct(
 		MinigameScoreMapper $scoreMapper,
@@ -52,6 +55,7 @@ class MinigameService {
 		AppLogger $appLogger,
 		\OCA\ChoreStrike\Db\HouseMapper $houseMapper,
 		CalendarService $calendarService,
+		ArcadeAccessService $arcadeAccess,
 	) {
 		$this->scoreMapper = $scoreMapper;
 		$this->houseUserMapper = $houseUserMapper;
@@ -60,6 +64,7 @@ class MinigameService {
 		$this->appLogger = $appLogger;
 		$this->houseMapper = $houseMapper;
 		$this->calendarService = $calendarService;
+		$this->arcadeAccess = $arcadeAccess;
 	}
 
 	/**
@@ -74,6 +79,7 @@ class MinigameService {
 	 * @return MinigameScore The persisted score entity
 	 * @throws \InvalidArgumentException for an unknown game, a score outside the game's bounds (CR-SVC-05) or a duration outside the game's bounds
 	 * @throws ImplausibleScoreException when the score is not reachable in the reported play time (D-086-04)
+	 * @throws \OCA\ChoreStrike\Exception\GameLockedException when the member has not unlocked the game (CS-PLAN-086 §3.2)
 	 * @throws \OCA\ChoreStrike\Exception\RateLimitException when the per-user daily save cap is reached (D7)
 	 */
 	public function saveScore(int $houseId, string $userId, string $gameId, int $score, int $durationMs): MinigameScore {
@@ -103,9 +109,13 @@ class MinigameService {
 				// mutations. The score entity is created per attempt so a
 				// transient-lock retry inserts a clean row.
 				$this->houseMapper->findForUpdate($houseId);
-				if ($this->houseUserMapper->findByHouseAndUser($houseId, $userId) === null) {
+				$member = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
+				if ($member === null) {
 					throw new ForbiddenException($this->l10n->t('Not a member of this house'));
 				}
+				// Under the house lock a concurrent completion or undo is
+				// either fully counted or not at all (CS-PLAN-086 §3.2).
+				$this->arcadeAccess->assertUnlocked($member, $gameId);
 
 				$scoreEntity = new MinigameScore();
 				$scoreEntity->setHouseId($houseId);

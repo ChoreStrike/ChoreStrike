@@ -20,6 +20,9 @@ namespace OCA\ChoreStrike\Service;
  * - `pointsPerSecond` + `burstPoints`: a score must not exceed
  *   `burstPoints + pointsPerSecond * durationMs / 1000`; the burst covers a
  *   lucky streak early in a short round.
+ * - `unlockThreshold`: lifetime finished chores a member needs before the
+ *   game opens while the owner gate is on (D-086-06; 0 = always open).
+ *   The count is derived from valid history ({@see ArcadeAccessService}).
  *
  * The client registry (`src/components/Minigames/gameRegistry.js`) pins the
  * same id list; adding a game updates both sides (ArcadeCatalogTest and the
@@ -27,7 +30,7 @@ namespace OCA\ChoreStrike\Service;
  */
 final class ArcadeCatalog {
 	/**
-	 * @var array<string, array{maxScore: int, maxDurationMs: int, pointsPerSecond: int, burstPoints: int}>
+	 * @var array<string, array{maxScore: int, maxDurationMs: int, pointsPerSecond: int, burstPoints: int, unlockThreshold: int}>
 	 */
 	public const GAMES = [
 		// Crumb Snake: 10 per crumb, 30 per golden crumb, a 20x20 board and
@@ -38,6 +41,7 @@ final class ArcadeCatalog {
 			'maxDurationMs' => 3600000,
 			'pointsPerSecond' => 30,
 			'burstPoints' => 100,
+			'unlockThreshold' => 10,
 		],
 	];
 
@@ -53,7 +57,7 @@ final class ArcadeCatalog {
 	}
 
 	/**
-	 * @return array{maxScore: int, maxDurationMs: int, pointsPerSecond: int, burstPoints: int}
+	 * @return array{maxScore: int, maxDurationMs: int, pointsPerSecond: int, burstPoints: int, unlockThreshold: int}
 	 * @throws \OutOfBoundsException for an unknown id (callers check has() first)
 	 */
 	public static function rules(string $gameId): array {

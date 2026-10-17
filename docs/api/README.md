@@ -99,6 +99,11 @@ Get current user's house information.
 (streaks, freezes, due-today, medal weeks, duplicate guard). Captured from
 the creator's Nextcloud timezone at house creation; `UTC` fallback.
 
+Every house payload (`GET`/`PUT /house`, `PUT /house/catalog`,
+`PUT /house/arcade-gate`, `POST /house/reset`) also carries
+`arcadeGateEnabled` — the household arcade unlock gate, stored in app config
+rather than on the house row (CS-PLAN-086, see `PUT /house/arcade-gate`).
+
 #### PUT /house
 Update house name and (owner only) timezone and ranking flag.
 
@@ -144,6 +149,17 @@ Owner-only reward-catalog gate (CS-PLAN-070 WP7,
 where `expectedVersion` is the house `stateVersion`. Default off. Response:
 the refreshed house payload. See [rewards.md](rewards.md) for the full
 reward surface contract.
+
+#### PUT /house/arcade-gate
+Owner-only arcade unlock gate (CS-PLAN-086 D-086-02,
+[ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md)):
+`{ "arcadeGateEnabled": bool }`. On (default), arcade games unlock through
+finished chores; off, every game is open for every member. Idempotent by
+value, last write wins; the only HTTP writer of the `arcade_gate_enabled`
+app-config flag. Response: the house payload with the new
+`arcadeGateEnabled`. Failure envelopes: `403 FORBIDDEN` for non-owners
+(checked before the payload), `400 VALIDATION_ERROR` for a non-boolean value,
+`500 HOUSE_UPDATE_ERROR`.
 
 #### GET /house/stats
 House overview statistics for the Insights view (CS-PLAN-040).
@@ -1019,6 +1035,30 @@ parameters are clamped to `1..50`. Saves are rate-limited to **100 per member
 and house-local day** (`429 MINIGAME_RATE_LIMITED`). Ordered reads break score
 ties by ascending id.
 
+Games unlock as permanent milestones of finished chores
+([ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md)): a
+member's count is the number of valid completions in whose selected
+allocation revision they hold a share (helpers count; undone and revised-away
+work does not). The state is derived on every read, so an undo can re-lock a
+game. Saves for a locked game are refused; every read stays open, so a locked
+game's leaderboard remains readable.
+
+#### GET /minigames/catalog
+The requesting member's arcade: every game in catalog order with its unlock
+threshold and lock state.
+
+**Response `data`:**
+```json
+{
+  "gateEnabled": true,
+  "finishedChores": 7,
+  "games": [{ "gameId": "snake", "threshold": 10, "unlocked": false }]
+}
+```
+`gateEnabled` is the owner switch (`PUT /house/arcade-gate`); while it is
+off, every game is `unlocked`. Failure envelopes: `403 FORBIDDEN`,
+`500 MINIGAME_CATALOG_ERROR`.
+
 #### POST /minigames/{gameId}/scores
 Save a finished game.
 
@@ -1037,7 +1077,8 @@ reachable in that time: `score <= burstPoints + pointsPerSecond * durationMs / 1
 Failure envelopes, all with zero writes: `400 VALIDATION_ERROR` (unknown game,
 missing `durationMs`, score or duration out of bounds),
 `400 MINIGAME_IMPLAUSIBLE_SCORE` (score not reachable in the reported time),
-`429 MINIGAME_RATE_LIMITED`, `500 SAVE_SCORE_ERROR`.
+`403 MINIGAME_LOCKED` (the member has not unlocked the game; checked under the
+house lock), `429 MINIGAME_RATE_LIMITED`, `500 SAVE_SCORE_ERROR`.
 
 #### GET /minigames/{gameId}/leaderboard?limit=10
 House-wide best scores, ordered by score, each
