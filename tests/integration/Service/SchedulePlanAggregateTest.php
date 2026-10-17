@@ -597,7 +597,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 	 */
 	public static function timezoneTransitions(): array {
 		return [
-			// Original defect: east of UTC (late UTC day â†’ Berlin is tomorrow).
+			// Original defect: east of UTC (late UTC day → Berlin is tomorrow).
 			'UTC to Europe/Berlin' => ['Europe/Berlin'],
 			// Opposite direction: west of UTC (house-local today falls behind).
 			'UTC to America/Los_Angeles' => ['America/Los_Angeles'],

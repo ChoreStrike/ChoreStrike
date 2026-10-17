@@ -4,7 +4,7 @@
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `eb75142` (index empty): day-based `RoomTask::isOverdue($tz)`, `RoomTaskReadService::statusFor` (list/detail status), takeover recording keyed on the `late` classification, shared client `isOverdue`/`dueClass`/`dueText` and TaskManager overdue filter, tests and docs
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Captured Fingerprint
 
@@ -41,7 +41,7 @@ Jest 119 / 1709; PHPUnit unit 1385, integration 610 (skips forbidden); ESLint, `
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `8cac20a` (index empty): NC32+ semantic color pairs across 40+ components, body-keyed dark tokens, axe color-contrast E2E spec, CSS guard tests, `@axe-core/playwright` devDependency, ESLint e2e override, design guideline, TECH-TRANSPORT-001 recurrence fold-in
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 
@@ -70,7 +70,7 @@ Jest 119 / 1713 (CSS guards 9/9); ESLint, Stylelint green; color-contrast spec 0
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `c9740a7` (index empty): 28 modified tracked paths (unstaged diff SHA256 prefix `48d3ea3d1aa4a3bf` at capture) plus untracked `src/components/Common/HoldButton.vue` (`dc7bc62ffeaecb0a`), `tests/e2e/fixtures/hold-to-confirm.ts` (`d7e634df6e1691ea`), `tests/unit/components/HoldButton.spec.js` (`304e2d2b400b95ff`), `tests/unit/helpers/hold.js` (`74dc8137bdcbe22e`) — HoldButton, shared completion in-flight guard, Done/Quick clean migration, E2E hold helper and spec migration, docs, l10n
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 
@@ -103,7 +103,7 @@ Jest 120 / 1738; ESLint, Stylelint, `l10n:check-keys` (1281), `backlog:check`, `
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `319022a` (index empty): 24 modified tracked paths (unstaged diff SHA256 prefix `65bc77886396eb42` at capture) plus untracked `src/utils/errorToast.js` (`14ad645ec6b08eb8`), `src/utils/haptics.js` (`fc045b449e9f4827`), `tests/unit/utils/errorToast.spec.js` (`9929ecd52e4aeb1a`), `tests/unit/utils/haptics.spec.js` (`72e3bae54a8920ef`) — haptics, snackbar check mark, dead streak branch removal, error-reference toasts, Quick clean failure toast, docs, l10n, TECH-TRANSPORT-001 fold-in
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 
@@ -135,7 +135,7 @@ Jest 122 / 1756 (after the fix), `test:noise` clean; ESLint, Stylelint, `l10n:ch
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `c41b103` (index empty): 19 modified tracked paths (unstaged diff SHA256 prefix `43f1383d57671c18` at capture), no untracked files — QuickStats tiles, stretched-link RoomCard, Dashboard house read and `showRooms`, TaskManager `?status=` preset, `RoomTaskService::getRoomTaskStats` (RF-084-02), Jest/E2E/PHPUnit tests, ui-use-cases router contract, API stats semantics, TECH-TRANSPORT-001 fold-in
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 
@@ -168,7 +168,7 @@ Jest 122 / 1760 (Dashboard spec rerun after the fix), `test:noise` clean; ESLint
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `e5761bd` (index empty): 20 modified tracked paths (unstaged diff SHA256 prefix `44c34281f7cbd353` at capture) plus 3 untracked files (`TaskFilterBar.vue` `c2abbe0d6833a9fa`, `TaskFilterBar.spec.js` `db9ac4f0067fc74d`, `RoomTaskListReadTest.php` `561533401a151713`) — TaskFilterBar extraction (RF-080-16), client paging with `?page=`, compact rows, on-demand finished-task read, `RoomTaskMapper` tombstone exclusion, Jest/PHPUnit/E2E tests, l10n, router contract, API note, plan/backlog tracking
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 

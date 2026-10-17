@@ -164,6 +164,21 @@ describe('HoldButton (CS-PLAN-084 WP-E)', () => {
 		expect(busy.emitted('confirm')).toBeUndefined()
 	})
 
+	// Regression (CS-PLAN-084 final review): a button disabled or made busy
+	// during a hold (cleanliness reached its cap, or the same task completing
+	// from another surface) receives no release event; its timer must not
+	// confirm.
+	it.each(['disabled', 'busy'])('stops a running hold without confirming when it becomes %s', async (prop) => {
+		const wrapper = mountButton()
+		await control(wrapper).trigger('pointerdown', { button: 0 })
+		jest.advanceTimersByTime(HOLD_MS / 2)
+		await wrapper.setProps({ [prop]: true })
+		expect(control(wrapper).attributes('data-hold-state')).toBe('idle')
+
+		jest.advanceTimersByTime(HOLD_MS)
+		expect(wrapper.emitted('confirm')).toBeUndefined()
+	})
+
 	it('returns to idle when the confirmed action stops being in flight', async () => {
 		const wrapper = mountButton()
 		await control(wrapper).trigger('pointerdown', { button: 0 })

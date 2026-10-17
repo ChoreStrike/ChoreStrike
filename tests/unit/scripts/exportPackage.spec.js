@@ -5,6 +5,7 @@ const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 const { main } = require('../../../scripts/export-package.js')
 const { qualificationSummary } = require('../../../scripts/run-package-smoke.js')
+const { OWNER_SMOKE_CASES } = require('../../../scripts/package-target.js')
 
 const sha256 = data => crypto.createHash('sha256').update(data).digest('hex')
 const script = path.resolve(__dirname, '../../../scripts/export-package.js')
@@ -52,7 +53,7 @@ function makeQualification() {
 			extractedDriftCheck: 'post-run-rehash-ok',
 			teardown: 'owned-down-volumes',
 			setup: { project: `private-fixture-${row}`, action: 'setup', results: [{ normalOwnerBootstrap: true }] },
-			verify: { project: `private-fixture-${row}`, action: 'verify', results: Array.from({ length: 6 }, () => ({ width: 390 })) },
+			verify: { project: `private-fixture-${row}`, action: 'verify', results: Array.from({ length: OWNER_SMOKE_CASES.verify }, () => ({ width: 390 })) },
 		})),
 	}
 }

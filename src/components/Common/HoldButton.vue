@@ -134,13 +134,16 @@ export default {
 	},
 
 	watch: {
-		// A disabled button receives no release event: return to idle once
-		// the confirmed action is no longer in flight (or re-enabled).
+		// A disabled button receives no release event: a running hold stops
+		// when the button becomes disabled or busy, and the button returns to
+		// idle once the confirmed action is no longer in flight (or re-enabled).
 		busy(value) {
-			if (!value) this.phase = 'idle'
+			if (value) this.abort()
+			else this.phase = 'idle'
 		},
 		disabled(value) {
-			if (!value) this.phase = 'idle'
+			if (value) this.abort()
+			else this.phase = 'idle'
 		},
 	},
 
@@ -157,6 +160,11 @@ export default {
 			this.staticFill = prefersReducedMotion()
 			this.phase = 'holding'
 			this.holdTimer = setTimeout(() => {
+				// Never confirm a button that became disabled or busy mid-hold.
+				if (this.disabled || this.busy) {
+					this.phase = 'idle'
+					return
+				}
 				this.phase = 'confirmed'
 				this.$emit('confirm')
 				clearTimeout(this.settleTimer)

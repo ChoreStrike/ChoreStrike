@@ -229,6 +229,7 @@ import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import { showErrorWithReference } from '../utils/errorToast.js'
+import { isOverdue } from '../utils/taskDisplay.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
@@ -344,10 +345,8 @@ export default {
 		},
 
 		overdueCount() {
-			return this.tasks.filter(item => {
-				if (!item.roomTask.isActive || !item.roomTask.nextDue) return false
-				return new Date(item.roomTask.nextDue) < new Date()
-			}).length
+			// The shared D-084-08 boundary, identical to the rows below.
+			return this.tasks.filter(item => isOverdue(item.roomTask)).length
 		},
 
 		editingTaskDefinition() {

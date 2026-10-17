@@ -669,6 +669,7 @@
         "Organizing": "Organisieren",
         "Other": "Sonstiges",
         "Overdue": "Überfällig",
+        "Overdue by 1 day": "Überfällig seit 1 Tag",
         "Overdue by {days} days": "Überfällig seit {days} Tagen",
         "Overloaded days ahead": "Überlastete Tage bevorstehen",
         "Override date must be a valid Y-m-d date": "Anpassungsdatum muss ein gültiges Y-m-d Datum sein",

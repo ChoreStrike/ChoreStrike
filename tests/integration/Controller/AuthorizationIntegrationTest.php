@@ -14,8 +14,8 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * Authorization integration tests exercising real DB via OC::$server.
  *
  * Verifies the post-CS-PLAN-002 security contract:
- * - Cross-house access (IDOR) â†’ 404 RESOURCE_NOT_FOUND (prevents enumeration)
- * - Forbidden actions â†’ 403 FORBIDDEN
+ * - Cross-house access (IDOR) → 404 RESOURCE_NOT_FOUND (prevents enumeration)
+ * - Forbidden actions → 403 FORBIDDEN
  * - Owner-only endpoints reject member/child roles
  *
  * @see docs/plans/active/cs-plan-004-build-gate-and-docker-test-infra.md Phase 3

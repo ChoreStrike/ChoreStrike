@@ -24,10 +24,13 @@
  *      machine-checkable.
  *   5. Tracked links resolve: every relative Markdown link in
  *      docs/backlog/*.md (top level) and all docs/plans markdown files
- *      points to an existing file (resolved relative to the containing
- *      file, must stay inside the repo root). External URLs and pure
- *      `#anchor` fragments are not validated; anchor suffixes on file
- *      links are ignored (ratified scope, CS-PLAN-059 D4).
+ *      points to an existing file or directory that git can see — tracked,
+ *      or untracked but not ignored — with exact case (resolved relative to
+ *      the containing file, must stay inside the repo root; TECH-DOCS-006).
+ *      A gitignored local directory such as the repo-root `archive/` never
+ *      satisfies a link. External URLs and pure `#anchor` fragments are not
+ *      validated; anchor suffixes on file links are ignored (ratified scope,
+ *      CS-PLAN-059 D4).
  *
  * Usage:
  *   node scripts/check-backlog.js              # scan git-tracked files
@@ -39,7 +42,7 @@
 const { execFileSync } = require('child_process')
 const { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } = require('fs')
 const { tmpdir } = require('os')
-const { dirname, join, resolve, sep } = require('path')
+const { dirname, join, relative, resolve, sep } = require('path')
 
 const SCRIPT_NAME = 'check-backlog'
 const BACKLOG_PATH = 'docs/backlog/backlog.md'
@@ -358,14 +361,38 @@ function collectPlanIds(relPaths) {
 }
 
 /**
+ * Index repo-relative file paths and all of their ancestor directories.
+ *
+ * Link targets resolve against this index as well as the working tree
+ * (TECH-DOCS-006): a link into a gitignored local directory passed on a
+ * developer machine and failed only in CI's fresh checkout, and the
+ * case-insensitive Windows filesystem hides case mismatches.
+ *
+ * @param {string[]} relPaths Repo-relative file paths (forward slashes).
+ * @returns {{files: Set<string>, dirs: Set<string>}}
+ */
+function buildPathIndex(relPaths) {
+	const files = new Set(relPaths)
+	const dirs = new Set([''])
+	for (const file of relPaths) {
+		const parts = file.split('/')
+		for (let i = 1; i < parts.length; i++) {
+			dirs.add(parts.slice(0, i).join('/'))
+		}
+	}
+	return { files, dirs }
+}
+
+/**
  * Check relative Markdown links (check 5) of one file.
  *
  * @param {string} relPath Repo-relative file path (forward slashes).
  * @param {string} text Raw file content.
  * @param {string} rootDir Absolute repo root.
+ * @param {{files: Set<string>, dirs: Set<string>}} pathIndex Paths git can see (see buildPathIndex).
  * @returns {string[]} Findings as `line: message`.
  */
-function scanLinks(relPath, text, rootDir) {
+function scanLinks(relPath, text, rootDir, pathIndex) {
 	const findings = []
 	const lines = text.split(/\r?\n/)
 	const baseDir = resolve(rootDir, dirname(relPath))
@@ -386,8 +413,9 @@ function scanLinks(relPath, text, rootDir) {
 				findings.push(`${i + 1}: link target "${target}" escapes the repository root`)
 				continue
 			}
-			if (!existsSync(resolved)) {
-				findings.push(`${i + 1}: broken link target "${target}" (resolved: ${resolved})`)
+			const repoPath = relative(rootDir, resolved).split(sep).join('/')
+			if (!existsSync(resolved) || !(pathIndex.files.has(repoPath) || pathIndex.dirs.has(repoPath))) {
+				findings.push(`${i + 1}: broken link target "${target}" (no tracked or addable file/directory with this exact case: ${repoPath})`)
 			}
 		}
 	}
@@ -397,12 +425,31 @@ function scanLinks(relPath, text, rootDir) {
 /**
  * List all git-tracked files under the given pathspecs.
  *
+ * Runs at the repository root, so pathspecs and results are root-relative
+ * whatever the process working directory is.
+ *
  * @param {string[]} pathspecs Git pathspecs.
+ * @param {string} repoRoot Absolute repo root.
  * @returns {string[]}
  */
-function listTrackedFiles(pathspecs) {
-	const output = execFileSync('git', ['ls-files', '--', ...pathspecs], { encoding: 'utf8' })
-	return output.split(/\r?\n/).filter((line) => line.length > 0)
+function listTrackedFiles(pathspecs, repoRoot) {
+	const output = execFileSync('git', ['ls-files', '-z', '--', ...pathspecs], { encoding: 'utf8', cwd: repoRoot })
+	return output.split('\0').filter((line) => line.length > 0)
+}
+
+/**
+ * List every path git can see: tracked plus untracked-but-not-ignored. New
+ * files ship in the same commit as the links that name them (like a fresh
+ * monthly archive), so requiring `git add` first would fail ordinary edits;
+ * ignored local state never counts. NUL-separated output avoids
+ * core.quotePath quoting of non-ASCII names.
+ *
+ * @param {string} repoRoot Absolute repo root.
+ * @returns {string[]}
+ */
+function listVisibleFiles(repoRoot) {
+	const output = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { encoding: 'utf8', cwd: repoRoot })
+	return output.split('\0').filter((line) => line.length > 0)
 }
 
 /**
@@ -446,13 +493,16 @@ function selfTest() {
 			'**Source**: Fixture review (2026-09-02)',
 		].join('\n')
 		const cleanBacklog = ['# Backlog', '', cleanEntry, '', cleanEntry2, '', cleanEntry3, '', cleanEntry4, ''].join('\n')
+		// Resolves CR-T-02's Folded-in reference, so a link case's only
+		// possible finding is the link itself.
+		const cleanArchive = ['# Archive', '', '- **CR-T-99** (2026-08) — folded completion record.', ''].join('\n')
 
 		cases.push({
 			name: 'clean fixture is accepted',
 			expectFindings: false,
 			backlog: cleanBacklog,
-			archive: ['# Archive', '', '- **CR-T-99** (2026-08) — folded completion record.', ''].join('\n'),
-			files: { 'docs/backlog/README.md': '[backlog](backlog.md)\n', 'docs/plans/active/cs-plan-058-x.md': '# plan\n' },
+			archive: cleanArchive,
+			files: { 'docs/backlog/README.md': '[backlog](backlog.md) · [plans](../plans/active/)\n', 'docs/plans/active/cs-plan-058-x.md': '# plan\n' },
 		})
 
 		cases.push({
@@ -497,8 +547,25 @@ function selfTest() {
 			name: 'broken relative link is rejected',
 			expectFindings: true,
 			backlog: cleanBacklog,
-			archive: '# Archive\n',
+			archive: cleanArchive,
 			files: { 'docs/backlog/README.md': '[ghost](../plans/done/cs-plan-000-ghost.md)\n' },
+		})
+
+		cases.push({
+			name: 'link into an ignored local directory is rejected',
+			expectFindings: true,
+			backlog: cleanBacklog,
+			archive: cleanArchive,
+			files: { 'docs/backlog/README.md': '[old](../../archive/2026-10/notes.md)\n' },
+			localOnly: { 'archive/2026-10/notes.md': '# local only\n' },
+		})
+
+		cases.push({
+			name: 'case-mismatched link is rejected',
+			expectFindings: true,
+			backlog: cleanBacklog,
+			archive: cleanArchive,
+			files: { 'docs/plans/active/cs-plan-058-x.md': '# plan\n', 'docs/backlog/README.md': '[plan](../plans/active/CS-PLAN-058-x.md)\n' },
 		})
 
 		cases.push({
@@ -520,6 +587,13 @@ function selfTest() {
 				writeFileSync(abs, text, 'utf8')
 				fileEntries.push({ relPath, text })
 			}
+			// Present on disk but invisible to git (gitignored local state).
+			for (const [relPath, text] of Object.entries(testCase.localOnly ?? {})) {
+				const abs = join(rootDir, relPath.replace(/\//g, sep))
+				mkdirSync(dirname(abs), { recursive: true })
+				writeFileSync(abs, text, 'utf8')
+			}
+			const pathIndex = buildPathIndex(fileEntries.map((fileEntry) => fileEntry.relPath))
 
 			const openIds = collectOpenIds(testCase.backlog)
 			const archiveIds = collectArchiveIds(new Map([['archive.md', testCase.archive]]))
@@ -528,7 +602,7 @@ function selfTest() {
 			const findings = scanBacklog(testCase.backlog, { openIds, archiveIds, planIds })
 			for (const fileEntry of fileEntries) {
 				if (fileEntry.relPath === backlogPathRel || fileEntry.relPath.startsWith('docs/plans/') || /^docs\/backlog\/[^/]+\.md$/.test(fileEntry.relPath)) {
-					for (const finding of scanLinks(fileEntry.relPath, fileEntry.text, rootDir)) {
+					for (const finding of scanLinks(fileEntry.relPath, fileEntry.text, rootDir, pathIndex)) {
 						findings.push(`${fileEntry.relPath}:${finding}`)
 					}
 				}
@@ -560,8 +634,8 @@ function main() {
 	const repoRoot = resolve(execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim())
 
 	const backlogRel = 'docs/backlog/backlog.md'
-	const backlogFiles = listTrackedFiles(['docs/backlog'])
-	const planFiles = listTrackedFiles(['docs/plans'])
+	const backlogFiles = listTrackedFiles(['docs/backlog'], repoRoot)
+	const planFiles = listTrackedFiles(['docs/plans'], repoRoot)
 
 	let backlogText
 	try {
@@ -575,7 +649,7 @@ function main() {
 	const archiveContents = new Map()
 	const archiveDirAbs = join(repoRoot, ARCHIVE_DIR)
 	if (existsSync(archiveDirAbs)) {
-		for (const file of listTrackedFiles([ARCHIVE_DIR])) {
+		for (const file of listTrackedFiles([ARCHIVE_DIR], repoRoot)) {
 			try {
 				archiveContents.set(file, readFileSync(join(repoRoot, file), 'utf8'))
 			} catch (error) {
@@ -607,6 +681,7 @@ function main() {
 
 	const linkScopeRe = [/^docs\/backlog\/[^/]+\.md$/, /^docs\/plans\//]
 	const scopedFiles = [...backlogFiles, ...planFiles].filter((file) => linkScopeRe.some((re) => re.test(file)))
+	const pathIndex = buildPathIndex(listVisibleFiles(repoRoot))
 	for (const file of scopedFiles) {
 		let text
 		try {
@@ -614,7 +689,7 @@ function main() {
 		} catch (error) {
 			continue
 		}
-		for (const finding of scanLinks(file, text, repoRoot)) {
+		for (const finding of scanLinks(file, text, repoRoot, pathIndex)) {
 			findings.push(`${file}:${finding}`)
 		}
 	}

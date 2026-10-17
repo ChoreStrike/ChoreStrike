@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### App Version 0.8.0-alpha.1 — Family-Trial Candidate (2026-10-17)
+
+First version of the `v0.8` alpha stage
+([release strategy](docs/release/release-strategy.md)); the app metadata moves
+from `0.1.1` to `0.8.0-alpha.1` so a deployed update is detected and phones
+load the new scripts. No schema or migration change. The `v0.8.0-alpha.1` tag
+follows only after the completed manual alpha record.
+
+- **Completion needs a deliberate press:** *Done* and *Quick clean* complete
+  after a 600 ms press-and-hold (pointer, touch or held Enter/Space) with a
+  filling ring; a short tap shows a hint and sends nothing. Every completion
+  entry point is guarded against double submission. *Claim overdue* keeps its
+  confirmation dialog, *Undo* stays one tap.
+- **Calmer feedback, diagnosable failures:** a check mark and, on Android, a
+  short vibration confirm every completion (confetti and sound stay opt-in;
+  reduced motion respected). Failure toasts name the API error code, e.g.
+  "Could not complete the task (CONFLICT)".
+- **Readable in both themes:** colors follow the Nextcloud light/dark theme
+  (not only the device setting); badges and status text meet WCAG AA contrast.
+- **Fewer clicks:** every dashboard tile opens its filtered destination, room
+  cards are keyboard-operable links, and *All tasks* shows pages of 20 compact
+  rows with filters behind a *Filters* toggle; *Completed* loads finished
+  tasks on demand.
+- **Fixed:** a task is overdue only after its due day has ended in the house
+  time zone (no red status, claim button or takeover record from midnight);
+  an agreed handover is no longer recorded as an overdue takeover; claiming an
+  overdue task completes without a second dialog; deleted tasks no longer
+  appear in room task lists or inflate room statistics; a checklist item could
+  be listed twice after adding it.
+- **Qualification:** gates run on the latest upstream Nextcloud (35.0.2) and on
+  the exact Nextcloud of the operator's AIO release (34.0.4, with Redis for
+  sessions, cache and locking like AIO), including phone-sized Chromium and
+  WebKit browser projects.
+
 ### Repository Migration (2026-10-16)
 
 - Moved the project to the GitHub organization
@@ -45,8 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Earlier Unreleased Development Notes
 
 The notes below preserve intermediate development history; mechanics and paths
-may have been superseded by the current summary. The installed app version
-remains `0.1.1`; older headings are not a claim of current stable-release status.
+may have been superseded by the current summary. The app version was `0.1.1`
+until `0.8.0-alpha.1` (2026-10-17); older headings are not a claim of current
+stable-release status.
 
 ### Added
 - **Role Title System** (CS-PLAN-006): server-authoritative progression overlay on top of the existing gamification stats. Three title packs × three tiers (9 titles), each themed around a different progression signal — Home Helpers (`contributionScore`), Team Energy (`longestStreak`), Cozy Home (`coins`). New `lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php`; `selected_title_pack` + `unlocked_titles` columns on `chorestrike_house_users` (`Version1025`, with a `postSchemaChange` backfill so existing users aren't re-celebrated on deploy); configurable thresholds via `RewardConfigService` (`titles_enabled` flag + 9 `title_threshold_*` keys); `TitleBadge`/`TitlePicker` Vue components on Settings + Leaderboard; title-unlock celebration + Nextcloud notification; `GET /users/{id}/titles` + `PUT /users/{id}/titles/select` API. Closes `ROLE-TITLE-SYSTEM-001` / `GAMIFICATION-CONCEPTS-001`.

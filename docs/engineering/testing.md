@@ -1361,7 +1361,7 @@ Integration (real Nextcloud + DB, `phpunit.integration.xml`):
   removal cascade plus the WP3 §3.6 regression: departure preserves the
   wallet, and a later owner attribution reverses the departed wallet exactly.
 - Browser layer: `insights-flow.spec.ts` *"owner corrects a recorded work
-  split from the activity history (WP3 Â§3.6)"* — the feed correction action,
+  split from the activity history (WP3 §3.6)"* — the feed correction action,
   the reused participation form pre-fill, the receipt-protected PUT and the
   versioned read model (pinned in `tests/e2e/required-scenarios.json`).
 

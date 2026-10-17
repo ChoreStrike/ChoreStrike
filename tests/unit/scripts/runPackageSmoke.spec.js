@@ -3,11 +3,11 @@ const os = require('node:os')
 const path = require('node:path')
 const zlib = require('node:zlib')
 const {
-	validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh,
+	validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh, REPORT_MTIME_TOLERANCE_MS,
 	composeArguments, assertFreshProject, inspectOwnedResources, runQualification,
 } = require('../../../scripts/run-package-smoke')
 const { buildTar, sha256Hex } = require('../../../scripts/build-package')
-const { validatePackageStatus, assertPackageCoherence } = require('../../../scripts/package-target')
+const { OWNER_SMOKE_CASES, OWNER_SMOKE_LANGUAGES, OWNER_SMOKE_WIDTHS, validatePackageStatus, assertPackageCoherence } = require('../../../scripts/package-target')
 
 const imageId = 'sha256:' + 'a'.repeat(64)
 
@@ -132,42 +132,69 @@ describe('package HTTP/OCC comparator', () => {
 	})
 })
 
+// Deterministic logical clock (TECH-TEST-004): reports get explicit mtimes from
+// this clock and the orchestrator samples `now()` from it, so no assertion
+// depends on real filesystem timestamps or wall-clock timing.
+const LOGICAL_EPOCH_MS = 1700000000000
+let logicalNowMs = LOGICAL_EPOCH_MS
+
+function stampReport(file, mtimeMs = logicalNowMs) {
+	fs.utimesSync(file, mtimeMs / 1000, mtimeMs / 1000)
+}
+
 describe('run-package-smoke evidence freshness', () => {
-	it('binds reports to the run, action and case count', () => {
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-pkg-report-'))
-		try {
-			const report = path.join(dir, 'setup.json')
-			fs.writeFileSync(report, JSON.stringify({ project: 'cs082-pkg-demo', action: 'setup', results: [{}] }))
-			expect(assertReportFresh(report, { project: 'cs082-pkg-demo', action: 'setup', cases: 1 }, Date.now() - 1000)).toBeTruthy()
-			expect(() => assertReportFresh(report, { project: 'cs082-pkg-demo', action: 'setup', cases: 1 }, Date.now() + 60000)).toThrow(/Stale/)
-			expect(() => assertReportFresh(report, { project: 'cs082-pkg-other', action: 'setup', cases: 1 }, Date.now() - 1000)).toThrow(/different run/)
-			expect(() => assertReportFresh(report, { project: 'cs082-pkg-demo', action: 'verify', cases: 6 }, Date.now() - 1000)).toThrow(/different run|exactly/)
-			expect(() => assertReportFresh(path.join(dir, 'none.json'), { project: 'cs082-pkg-demo', action: 'setup', cases: 1 }, 0)).toThrow(/Missing/)
-		} finally {
-			fs.rmSync(dir, { recursive: true, force: true })
-		}
+	const identity = { project: 'cs082-pkg-demo', action: 'setup', cases: 1 }
+	let dir
+	let report
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-pkg-report-'))
+		report = path.join(dir, 'setup.json')
+		fs.writeFileSync(report, JSON.stringify({ project: 'cs082-pkg-demo', action: 'setup', results: [{}] }))
+		stampReport(report, LOGICAL_EPOCH_MS)
 	})
 
-	// Regression (CS-PLAN-085): Linux stamps mtime from a coarse kernel clock
-	// that can lag the caller's Date.now(), so a report written immediately
-	// after sinceMs was sampled could carry an earlier mtime and be rejected as
-	// stale. That broke the first real CI run. A report marginally older than
-	// sinceMs must pass; one older than the tolerance must still be rejected.
-	it('tolerates filesystem timestamp granularity but still rejects a previous run', () => {
-		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-pkg-mtime-'))
-		try {
-			const report = path.join(dir, 'setup.json')
-			const identity = { project: 'cs082-pkg-demo', action: 'setup', cases: 1 }
-			fs.writeFileSync(report, JSON.stringify({ project: 'cs082-pkg-demo', action: 'setup', results: [{}] }))
-			const mtimeMs = fs.statSync(report).mtimeMs
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true })
+	})
 
-			// Sampled "just before" the write, as the orchestrator does.
-			expect(assertReportFresh(report, identity, mtimeMs + 500)).toBeTruthy()
-			// Clearly from an earlier run.
-			expect(() => assertReportFresh(report, identity, mtimeMs + 60000)).toThrow(/Stale/)
-		} finally {
-			fs.rmSync(dir, { recursive: true, force: true })
-		}
+	it('binds reports to the run, action and case count', () => {
+		expect(assertReportFresh(report, identity, LOGICAL_EPOCH_MS)).toBeTruthy()
+		expect(() => assertReportFresh(report, { ...identity, project: 'cs082-pkg-other' }, LOGICAL_EPOCH_MS)).toThrow(/different run/)
+		expect(() => assertReportFresh(report, { project: 'cs082-pkg-demo', action: 'verify', cases: 6 }, LOGICAL_EPOCH_MS)).toThrow(/different run/)
+		expect(() => assertReportFresh(report, { ...identity, cases: 6 }, LOGICAL_EPOCH_MS)).toThrow(/exactly 6/)
+		expect(() => assertReportFresh(path.join(dir, 'none.json'), identity, 0)).toThrow(/Missing/)
+	})
+
+	// A report written after the run started (newer), in the same instant
+	// (equal) or marginally before it within the filesystem-granularity
+	// tolerance (CS-PLAN-085: Linux mtime can lag Date.now()) is fresh.
+	it.each([
+		['newer', 1000],
+		['equal', 0],
+		['older within the tolerance', -REPORT_MTIME_TOLERANCE_MS],
+	])('accepts a %s report', (label, offsetMs) => {
+		expect(assertReportFresh(report, identity, LOGICAL_EPOCH_MS - offsetMs)).toBeTruthy()
+	})
+
+	it('rejects a report older than the tolerance (a previous run)', () => {
+		expect(() => assertReportFresh(report, identity, LOGICAL_EPOCH_MS + REPORT_MTIME_TOLERANCE_MS + 1)).toThrow(/Stale/)
+		expect(() => assertReportFresh(report, identity, LOGICAL_EPOCH_MS + 60000)).toThrow(/Stale/)
+	})
+})
+
+describe('owner-smoke case matrix (TECH-PKG-001)', () => {
+	it('derives the verify count from the language × width matrix', () => {
+		expect(OWNER_SMOKE_LANGUAGES).toEqual(['de-DE', 'de', 'en'])
+		expect(OWNER_SMOKE_WIDTHS).toEqual([390, 1440])
+		expect(OWNER_SMOKE_CASES).toEqual({ setup: 1, verify: 6 })
+	})
+
+	it('is consumed by the smoke and both validators instead of literal counts', () => {
+		const read = file => fs.readFileSync(path.join(__dirname, '../../..', file), 'utf8')
+		expect(read('tests/package/owner-smoke.cjs')).toMatch(/for \(const language of OWNER_SMOKE_LANGUAGES\) for \(const width of OWNER_SMOKE_WIDTHS\)/)
+		expect(read('scripts/run-package-smoke.js')).toMatch(/cases: OWNER_SMOKE_CASES\.verify/)
+		expect(read('scripts/export-package.js')).toMatch(/OWNER_SMOKE_CASES\[action\]/)
 	})
 })
 
@@ -209,7 +236,10 @@ describe('run-package-smoke orchestration negatives', () => {
 			fs.mkdirSync(path.dirname(file), { recursive: true })
 			fs.writeFileSync(file, content)
 		},
-		now: () => Date.now(),
+		now: () => {
+			logicalNowMs += 1000
+			return logicalNowMs
+		},
 		buildPackageFn: ({ outDir }) => {
 			fs.mkdirSync(outDir, { recursive: true })
 			fs.writeFileSync(path.join(outDir, 'chorestrike.tar.gz'), archive)
@@ -221,9 +251,14 @@ describe('run-package-smoke orchestration negatives', () => {
 		},
 		ownerSmoke: (targetFile, extractDir, reportFile, action) => {
 			const parsed = JSON.parse(fs.readFileSync(targetFile, 'utf8'))
-			fs.writeFileSync(reportFile, JSON.stringify({ project: parsed.project, action, results: Array.from({ length: action === 'setup' ? 1 : 6 }) }))
+			fs.writeFileSync(reportFile, JSON.stringify({ project: parsed.project, action, results: Array.from({ length: OWNER_SMOKE_CASES[action] }) }))
+			stampReport(reportFile)
 		},
 		...overrides,
+	})
+
+	beforeEach(() => {
+		logicalNowMs = LOGICAL_EPOCH_MS
 	})
 
 	const orchestrate = overrides => {
@@ -248,7 +283,7 @@ describe('run-package-smoke orchestration negatives', () => {
 			expect(record.rows.map(row => row.row)).toEqual(['primary', 'aio'])
 			for (const row of record.rows) {
 				expect(row.setup).toBeTruthy()
-				expect(row.verify.results).toHaveLength(6)
+				expect(row.verify.results).toHaveLength(OWNER_SMOKE_CASES.verify)
 				expect(row.imageId).toBe(imageId)
 			}
 			const written = JSON.parse(fs.readFileSync(path.join(outDir, 'qualification.json'), 'utf8'))
@@ -319,6 +354,16 @@ describe('run-package-smoke orchestration negatives', () => {
 		expect(message).toMatch(/Missing|report/)
 	})
 
+	it('fails on a report that predates the run beyond the tolerance', () => {
+		const message = orchestrate({
+			ownerSmoke: (targetFile, extractDir, reportFile, action) => {
+				baseIo({}, extractDir).ownerSmoke(targetFile, extractDir, reportFile, action)
+				stampReport(reportFile, logicalNowMs - REPORT_MTIME_TOLERANCE_MS - 1)
+			},
+		})
+		expect(message).toMatch(/Stale owner-smoke report \(predates this run\)/)
+	})
+
 	it('fails on post-run extraction drift', () => {
 		const message = orchestrate({
 			ownerSmoke: (targetFile, extractDir, reportFile, action) => {
@@ -326,7 +371,7 @@ describe('run-package-smoke orchestration negatives', () => {
 				baseIo({}, extractDir).ownerSmoke(targetFile, extractDir, reportFile, action)
 			},
 		})
-		expect(message).toMatch(/drift/)
+		expect(message).toMatch(/Extracted archive drifted from the package manifest: app\.js/)
 	})
 
 	it('scopes all cleanup arguments to the owned project', () => {

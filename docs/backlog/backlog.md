@@ -51,73 +51,65 @@ the changes array by roomTaskId once before the loops.
 
 ---
 
-### [P1] UX-017 — Theme-correct colors and contrast across core views
-**Status**: In Progress · **Effort**: M · **Layer**: frontend · **Journey stage**: theming
-**Owning**: CS-PLAN-084 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: operator first-use feedback "UI components hard to recognize" (2026-10-13)
-**Source**: CS-PLAN-044 known remaining, logged by Standard-B review (2026-08-23); scope extended by the 2026-10-13 UX inventory
+### [P3] CR-084-01 — Calendar marks a past planned day with an open flex window overdue
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: calendar
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
 
-Originally: `AvailabilitySettings.vue` day-item borders hardcode `#4caf50`/`#f44336`.
-Extended: dark-mode overrides in `src/styles/tokens.css` never match Nextcloud's
-body theme attributes and the fallback follows the OS theme; pale neon
-foregrounds in QuickStats/RoomCard are illegible in the light theme;
-white-on-warning badges and warning/success text fail contrast. Replace with
-theme-aware semantic tokens and add automated light/dark contrast checks
-([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-B).
-
----
-
-### [P2] FEAT-UX-033 — Clickable dashboard overview
-**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: navigation
-**Owning**: CS-PLAN-084 WP-C · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: operator first-use feedback, 2026-10-13
-
-Every dashboard overview tile routes to its filtered destination; room cards
-become keyboard-operable links; quick-clean gets a 44 px labelled target; the
-Dashboard loads the room tasks its cards count through the existing single
-house-wide request ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-C).
-Implemented 2026-10-14 (round 6); stays open until the WP-G part 2 mobile set
-covers dashboard tile navigation and the plan's final review passes.
+`CalendarView.isOverdue` (`src/views/CalendarView.vue`) compares each day
+entry's planned date key with today. A projected entry whose planned day has
+passed but whose flex window is still open is therefore red in the calendar,
+while the task lists, filters, badges, claim button and server status treat it
+as due (D-084-08). The shared `taskDisplay.isOverdue` cannot be applied as is:
+the calendar lists several days per room task, so the rule must be evaluated
+per day entry (planned day plus the occurrence's flex-window end in the house
+time zone), with a regression for the open-window case.
 
 ---
 
-### [P2] FEAT-UX-034 — Paged, compact all-tasks list
-**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: task management
-**Owning**: CS-PLAN-084 WP-D · **Depends on**: — · **Blocks**: — · **Folded-in**: "Completed" status filter always empty (only active tasks are fetched)
-**Source**: operator first-use feedback, 2026-10-13
+### [P3] CR-084-02 — A joined in-flight completion drops the second call's allocation
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
 
-`TaskManager.vue` renders one unpaged list under seven always-open selects.
-Client-side pages of 20, compact rows, collapsible filter panel in an extracted
-`TaskFilterBar.vue` (executes CS-PLAN-080 RF-080-16), "Completed" filter
-loading finished tasks on demand ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-D).
-Implemented 2026-10-14 (round 7); stays open until the WP-G part 2 mobile set
-covers the paged list and filters and the plan's final review passes.
-
----
-
-### [P1] FEAT-UX-035 — Hold-to-confirm for task completion
-**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
-**Owning**: CS-PLAN-084 WP-E · **Depends on**: — · **Blocks**: — · **Folded-in**: TaskManager Done button lacks an in-flight guard (double submit)
-**Source**: operator request, 2026-10-13
-
-Done and Quick clean complete only after a 600 ms press-and-hold (pointer and
-keyboard) with a progress ring; early release sends nothing and shows a hold
-hint; Claim overdue keeps its existing confirmation dialog; every
-completion entry point is guarded against double submission ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-E).
-Implemented 2026-10-14 (round 4); stays open until the WP-G part 2 mobile
-projects run the hold paths and the plan's final review passes.
+`roomTasksStore.completeRoomTask` returns the pending promise when the same
+room task is already completing and ignores the second call's options. If a
+plain completion is in flight and a participation-dialog submission
+(`participants`, `allocationReviewed`) joins it, the reviewed split is silently
+dropped and the caller reports success. The hold guard makes this rare. Reject
+a join whose options differ materially (or keep the dialog open), and pin
+identical-payload joining with a test.
 
 ---
 
-### [P2] FEAT-UX-036 — Subtle completion feedback and diagnosable failure toasts
-**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
-**Owning**: CS-PLAN-084 WP-F · **Depends on**: FEAT-UX-035 · **Blocks**: — · **Folded-in**: dead streak-milestone celebration branch (`currentStreak` absent from the completion event; milestones never implemented)
-**Source**: operator request, 2026-10-13
+### [P3] CR-084-03 — Single-row room-task payloads use the entity overdue rule
+**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: task status
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
 
-Always-on subtle feedback (check-mark transition, haptics where supported) while
-confetti/sound stay opt-in; remove the dead streak-milestone branch; failure toasts append the
-API error `code` so production failures such as CS-PLAN-080 RF-080-14 become
-diagnosable ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-F).
-Implemented 2026-10-14 (round 5); stays open until the plan's final review.
+The house list, room detail rows and room statistics derive `status` from the
+occurrence classification (`RoomTaskReadService::statusFor`), but create,
+update and show serialize `RoomTask::getStatus($tz)`, a house-local day-bucket
+rule. Inside an open flex window after the planned day, the entity says
+`overdue` while the list says `due_today`; the client falls back to `status`
+for a row without an `occurrence` block, so such a row can turn red until the
+next list read. Make `statusFor` the single source for every payload that
+carries `status` (or document the entity rule as the occurrence-free
+fallback), with integration coverage.
+
+---
+
+### [P4] CR-084-04 — Split the HoldButton hold state machine from its view
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
+
+`src/components/Common/HoldButton.vue` (CS-PLAN-084 WP-E) is above 400 lines,
+over the ~300-line guidance: roughly 150 lines of scoped ring/hint styles and
+the press/hold/settle timer logic. Extract the timers into a `useHoldPress`
+composable (or the styles into a shared sheet) without changing behavior; the
+existing HoldButton spec and the browser `holdToConfirm` paths are the
+regression net.
 
 ---
 
@@ -268,72 +260,22 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 > Backlog hygiene, lint/dependency, docs truth, and operational security.
 > Independently schedulable unless a gate depends on it (CS-PLAN-058 §2.2).
 
-### [P1] TECH-RUNTIME-002 — AiO-current test rule and AiO-near runtime row
-**Status**: In Progress · **Effort**: M · **Layer**: tooling · **Journey stage**: test-gate fidelity
-**Owning**: CS-PLAN-084 WP-A · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
-**Source**: operator request after the first AiO installation, 2026-10-13
-
-The current-stable policy lives only in CS-PLAN-082's decision record and the
-runtime inventory is still `candidate`. Make "latest upstream stable plus the
-exact Nextcloud version of the operator's AiO release" a project rule, add Redis
-cache/locking to the AiO row (the alias-free `custom_apps` path is already
-enforced since CS-PLAN-083), and promote the inventory ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-A).
-**Progress 2026-10-15:** rule, AIO component drift check and Redis AIO row delivered
-(round 1); AIO v14.3.0 (PHP 8.4.26, Redis 8.10.2) promoted (round 9); inventory
-`qualified` with all four images rebuilt and both rows regated (round 10); drift
-discovery now takes the highest stable release instead of `releases/latest`.
-NC 35.0.2 promoted on the primary row (round 11); drift check `current`.
-Open: final CS-PLAN-084 review.
-
----
-
 ### [P1] TECH-TEST-005 — Successor ownership and mobile lifecycle coverage
-**Status**: In Progress · **Effort**: M · **Layer**: tests · **Journey stage**: completion / handover
-**Owning**: CS-PLAN-084 WP-G · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (automated scope delivered by CS-PLAN-084; operator real-device run open) · **Effort**: M · **Layer**: tests · **Journey stage**: completion / handover
+**Owning**: CS-PLAN-080 (real-device run; user-rescoped from CS-PLAN-084 WP-G on 2026-10-17) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: lifecycle test inventory, 2026-10-13
 
-No test asserts who owns the successor occurrence after takeover, handover or
-reassignment; the claim confirm UI path is never exercised; there is no
-Playwright mobile project and takeover/undo never run at phone size. Add
-integration proofs, a claim-confirm E2E, mobile Chromium/WebKit projects with a
-core `@mobile` set, and an operator real-device checklist ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md) WP-G).
-**Progress 2026-10-14:** integration proofs and claim-confirm E2E delivered (round 1);
-`mobile-chromium`/`mobile-webkit` projects with the 7-scenario `mobile-core.spec.ts`
-run in the canonical gate; real-device checklist written
-([release-test-plan §14.1](../testing/release-test-plan.md#141-real-device-checklist-cs-plan-084-operator)).
-Open: the operator's recorded real-device run (Android + iPhone).
-
----
-
-### [P2] TECH-TEST-004 - Make package-smoke fixture report times deterministic
-**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-gate reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: project-contact documentation validation, 2026-10-12 (Node 20.19.0 / npm 10.8.2; package-smoke source and tests unchanged)
-
-The full Jest gate passed 1664 tests but failed
-`runPackageSmoke.spec.js` / `fails on post-run extraction drift`: expected
-`/drift/`, received `Stale owner-smoke report (predates this run)`.
-The fixture writes a synthetic verification report using real filesystem
-timestamps, while orchestration samples `Date.now()` and checks report
-freshness before extraction hashes. The report compared older than the run
-start, so the intended drift assertion was never reached. Windows clock /
-filesystem timing is a plausible mechanism, not a measured root cause.
-Recurrence check 2026-10-12 (WP9 interim review): two complete Jest runs
-(1665 and 1671 tests) passed without reproducing the failure — consistent
-with an intermittent timing mechanism; the item stays open for the
-deterministic-clock fix.
-A further complete run for the documentation commit passed all 1671 tests
-on 2026-10-13 without package-smoke source/test changes. This does not resolve
-the fixture defect or replace the original failure evidence.
-
-**Deferral reason / scope:** this is outside contact-documentation work and
-distinct from TECH-PKG-001's case-count consolidation. No package validator,
-test assertion, timestamp tolerance or retry policy was changed. The failed
-full gate remains failed; documentation and backend checks do not replace it.
-
-- [ ] Give the orchestration fixture a deterministic logical clock and explicit report mtimes, preserving production freshness enforcement.
-- [ ] Cover older/equal/newer report timestamps and retain the extraction-drift assertion without sleeps, retries or alternate-error matching.
-- [ ] Run the focused package-smoke suite and the complete Jest gate with supported tooling; retain the original failure as historical evidence.
+Delivered by [CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md)
+WP-G: successor-ownership integration proofs after takeover, one-occurrence
+handover and reassignment, the claim-confirm E2E, and the `mobile-chromium` /
+`mobile-webkit` projects with the seven-scenario `mobile-core.spec.ts` in every
+full browser gate. **Open:** the operator's recorded real-device run (Android +
+iPhone, child and owner, light and dark) against the deployed instance before
+the family trial starts
+([release-test-plan §14.1](../testing/release-test-plan.md#141-real-device-checklist-cs-plan-084-operator)),
+owned by [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md).
+Emulation proves layout and request flow, not a real finger, screen reader or
+vibration motor.
 
 ---
 
@@ -408,45 +350,6 @@ introduced, and raw traces/headers remain private.
 - [ ] Correlate sanitized client, server and Docker lifecycle evidence to identify the terminating layer.
 - [ ] Compare isolated and parallel runtime execution without changing required assertions or mutation retry semantics.
 - [ ] Fix a reproducible cause and add a targeted regression; otherwise record the bounded attribution result and remaining uncertainty.
-
-### [P4] TECH-DOCS-004 — Docs encoding gate misses Latin-1/C1 mojibake
-**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: docs truth
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: AI standards consolidation, 2026-10-13
-
-`npm run docs:encoding` only flags the two cp1252 lead signatures (UTF-8
-`E2 80`/`E2 82` read as cp1252). A UTF-8 arrow (`E2 86 92`) misread as
-Latin-1 — lead `U+00E2` followed by the C1 controls `U+0086 U+0092` — passed
-the gate in the tracked gamification skill (fixed by hand in the same change).
-A C1 code point (`U+0080`–`U+009F`) after a Latin-1 lead (`U+00C2`, `U+00C3`,
-`U+00E2`) is a deterministic corruption signature that legitimate
-English/German docs never contain.
-
-**Deferral reason / scope:** the observed instance is fixed; extending the
-signature set needs a self-test fixture and a whole-tree rescan, which belong
-in a focused tooling change.
-
-- [ ] Add a C1-after-lead signature to `scripts/check-docs-encoding.js` with a self-test fixture and confirm the tree stays green.
-
----
-
-### [P4] TECH-PKG-001 — Single source for owner-smoke case-count expectations
-**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: release qualification
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of private exchange handoff tooling, 2026-10-11
-
-The package owner-smoke case counts (setup = 1, verify = 6) are hardcoded
-independently in `scripts/export-package.js` and
-`scripts/run-package-smoke.js`, while the authoritative derivation is the
-3-languages × 2-widths matrix in `tests/package/owner-smoke.cjs`. A matrix
-change currently needs three synchronized edits before the export and smoke
-validators agree with the produced evidence.
-
-**Deferral reason / scope:** all three validators currently agree and are
-regression-covered; consolidating them is a cross-file gate-contract refactor
-that should not ride on an unrelated review round.
-
-- [ ] Define the expected case counts once (shared constant or derivation from the language/width matrix) and consume them in both validators.
 
 ---
 
@@ -625,28 +528,6 @@ approved source publication; the mailbox must be monitored, not commit-only
 
 ---
 
-### [P3] TECH-DOCS-006 — Make the backlog link gate clone-independent
-**Status**: Backlog · **Effort**: XS · **Layer**: tooling · **Journey stage**: quality gates
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-085 WP7 (first real CI run, 2026-10-16)
-
-`scripts/check-backlog.js` resolves relative markdown links against the
-**filesystem**, so its verdict depends on untracked local state. A link to the
-gitignored repo-root `archive/` passed on a developer machine that happens to
-have that directory and failed only in CI's fresh checkout — which is exactly
-how it reached the first GitHub Actions run (the link itself is fixed; the
-local-state dependency is not).
-
-Resolving targets against the tracked file set (`git ls-files`, treating a
-directory as resolved when a tracked file carries that prefix) would make the
-gate deterministic and catch this class before a push. Expect it to surface
-further findings, so it wants its own review round.
-
-- [ ] Resolve link targets against the tracked file set instead of the working tree.
-- [ ] Fix whatever the stricter check surfaces, or route it explicitly.
-
----
-
 ### [P3] TECH-DOCS-005 — README screenshots for the public landing page
 **Status**: Backlog · **Effort**: XS · **Layer**: docs · **Journey stage**: repository hosting
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: repository topics and avatar (CS-PLAN-085, 2026-10-16)
@@ -737,6 +618,15 @@ CS-PLAN-080's technical matrix/browser gates before real retained data; human
 evidence then remains with CS-PLAN-080/CONCEPT-001. No premature
 productive-use declaration or circular prerequisite on a completed human trial
 is introduced.
+
+**Deployment candidate `0.8.0-alpha.1` (2026-10-17):** qualified by
+[CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md) round 12
+(both runtime rows, MariaDB/SQLite provider suites; the package smoke runs on
+the committed candidate and is recorded in the plan). Operator decision: this deployment is also the first
+retained-baseline adoption, recorded in
+[CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#pre-deployment-candidate-080-alpha1-2026-10-17).
+Still open here: the deployment itself (current backup, operator confirmation of
+the recovery procedure), the adoption record and field use.
 
 ---
 

@@ -14,7 +14,7 @@
 | Base HEAD | `f90a270c3e77da00ac19d468ddad6409edd7c99b` |
 | Index at capture | empty (staged diff = empty-tree hash) |
 | Unstaged diff fingerprint | `af6d3ddf12041e7d7fefc69c6a66dfca239672d099fa60f93f4dd3d4ae29a201` |
-| Preserved unrelated changes | CS-PLAN-084 round-11 edits in `docs/backlog/ACTIVE_TASKS.md` and `docs/plans/active/cs-plan-084-family-trial-ux-baseline.md` — untouched by this review |
+| Preserved unrelated changes | CS-PLAN-084 round-11 edits in `docs/backlog/ACTIVE_TASKS.md` and `docs/plans/done/cs-plan-084-family-trial-ux-baseline.md` — untouched by this review |
 | Owning backlog item | TECH-REPO-001 (moved to `In Progress`, `Owning: CS-PLAN-085`) |
 
 ### Findings (8, all fixed in-round)

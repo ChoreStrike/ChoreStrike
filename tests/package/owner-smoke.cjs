@@ -5,7 +5,7 @@ const assert = require('node:assert/strict')
 const { execFileSync } = require('node:child_process')
 const { createHash } = require('node:crypto')
 const { chromium, expect } = require('@playwright/test')
-const { validatePackageTarget, assertPackageCoherence } = require('../../scripts/package-target')
+const { OWNER_SMOKE_LANGUAGES, OWNER_SMOKE_WIDTHS, validatePackageTarget, assertPackageCoherence } = require('../../scripts/package-target')
 
 const [targetFile, packageDirectory, reportFile, action] = process.argv.slice(2)
 assert(['setup', 'verify'].includes(action), 'Explicit setup or verify action required')
@@ -209,7 +209,7 @@ async function main() {
 		if (action === 'setup') results.push(await setup(browser))
 		else {
 			expect(counts()).toEqual([1, 1, 1, 1])
-			for (const language of ['de-DE', 'de', 'en']) for (const width of [390, 1440]) results.push(await verify(browser, language, width))
+			for (const language of OWNER_SMOKE_LANGUAGES) for (const width of OWNER_SMOKE_WIDTHS) results.push(await verify(browser, language, width))
 			expect(counts()).toEqual([1, 1, 1, 1])
 		}
 		fs.writeFileSync(reportFile, JSON.stringify({ project: target.project, action, browser: browser.version(), results }, null, 2), { flag: 'wx' })

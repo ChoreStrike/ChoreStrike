@@ -17,13 +17,13 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
- * WP5 exit gate (CS-PLAN-064 Â§4): a full completion â†’ undo roundtrip must
+ * WP5 exit gate (CS-PLAN-064 §4): a full completion → undo roundtrip must
  * restore EXACT persisted domain state across every persisted row the
  * completion touches ” room_tasks, rooms, house_users and chk_progress ”
  * for the recurrence permutations (once / recurring-dynamic / recurring-
  * static / recurring-flex), an overdue-takeover completion (claim fields),
- * and the D11 duplicate-guard roundtrip (complete â†’ undo â†’ same-day
- * re-complete â†’ undo leaves two ledger rows, none revertible, final state
+ * and the D11 duplicate-guard roundtrip (complete → undo → same-day
+ * re-complete → undo leaves two ledger rows, none revertible, final state
  * equal to the initial snapshot).
  *
  * The reward-side equality additionally proves the title LIFO interplay:
@@ -223,7 +223,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	/**
 	 * CompleteUndoRecompleteUndoRoundtrip_TwoLedgerRows_OneRevertibleAtATime
 	 *
-	 * The real-DB D11 proof (Â§4): undo â†’ same-day re-complete is legal (the
+	 * The real-DB D11 proof (§4): undo → same-day re-complete is legal (the
 	 * duplicate guard filters undone rows), producing a second ledger row
 	 * while exactly one row stays revertible at any time; the final undo
 	 * restores the initial snapshot exactly.

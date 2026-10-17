@@ -297,11 +297,11 @@ isolated disposable SQLite environment.
 | `TaskService::updateTask` | none | house → task definition |
 | `StreakFreezeService` / `StreakRestockService` jobs | none (auto-commit updates) | house → house_user (converted; retired in WP4) |
 | `TestDataService::reset` + seeds | test-mode only | test-mode only; includes `commands`/`wallets`/`wallet_entries`; seeds create wallets |
-| `RewardService::createItem` / `updateItem` / `setCatalogEnabled` (WP7) | none | house â owner membership (`findForUpdate` guard) â item/house writes |
-| `RewardRequestService::create/approve/reject/cancel/fulfill/correct` (WP7) | none | house â actor membership â wallet (locked before the request row) â request/event rows â digest rows |
-| `RewardRequestService::handleRequesterRoleChangedUnderLock` (WP7 hook) | called inside `HouseService::updateUserRole` (house â house_user) | house â house_user â request/event rows |
-| `RewardRequestService::handleMembershipRemovedUnderLock` (WP7 hook) | called inside `HouseService::removeHouseMember` (house) | house â wallet (release) â request/event rows |
-| `AccountErasureService` reward purge (WP7) | house (existing erasure aggregate) | house â wallet (release) â request/event/item deletes + digest-row deletes |
+| `RewardService::createItem` / `updateItem` / `setCatalogEnabled` (WP7) | none | house → owner membership (`findForUpdate` guard) → item/house writes |
+| `RewardRequestService::create/approve/reject/cancel/fulfill/correct` (WP7) | none | house → actor membership → wallet (locked before the request row) → request/event rows → digest rows |
+| `RewardRequestService::handleRequesterRoleChangedUnderLock` (WP7 hook) | called inside `HouseService::updateUserRole` (house → house_user) | house → house_user → request/event rows |
+| `RewardRequestService::handleMembershipRemovedUnderLock` (WP7 hook) | called inside `HouseService::removeHouseMember` (house) | house → wallet (release) → request/event rows |
+| `AccountErasureService` reward purge (WP7) | house (existing erasure aggregate) | house → wallet (release) → request/event/item deletes + digest-row deletes |
 | `TriggerJobs` paths | delegate to the services above | inherit |
 | `GameLogicService` / `MedalService` / `TitleService` / `CompletionEffectService` | inside the completion transaction | inherit (house-first via `CompletionService`) |
 

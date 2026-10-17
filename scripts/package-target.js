@@ -4,6 +4,14 @@
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
+// Owner-smoke case matrix (TECH-PKG-001): the single source for the smoke
+// itself (tests/package/owner-smoke.cjs) and both evidence validators
+// (run-package-smoke.js, export-package.js). One cold setup case; verify runs
+// every language at every width.
+const OWNER_SMOKE_LANGUAGES = Object.freeze(['de-DE', 'de', 'en'])
+const OWNER_SMOKE_WIDTHS = Object.freeze([390, 1440])
+const OWNER_SMOKE_CASES = Object.freeze({ setup: 1, verify: OWNER_SMOKE_LANGUAGES.length * OWNER_SMOKE_WIDTHS.length })
+
 function validatePackageTarget(container, target, extractDir) {
 	const labels = container?.Config?.Labels ?? {}
 	if (labels['org.chorestrike.package-smoke'] !== 'true') throw new Error('Package target is missing the package-smoke label')
@@ -48,4 +56,4 @@ function assertPackageCoherence(target, internalVersion, invoke = (command, args
 	validatePackageStatus(cli, http, internalVersion)
 }
 
-module.exports = { validatePackageTarget, validatePackageStatus, assertPackageCoherence }
+module.exports = { OWNER_SMOKE_LANGUAGES, OWNER_SMOKE_WIDTHS, OWNER_SMOKE_CASES, validatePackageTarget, validatePackageStatus, assertPackageCoherence }

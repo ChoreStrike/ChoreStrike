@@ -39,7 +39,7 @@ a catch-up up as a success streak.
 
 - **Done** (My Day, task lists, room detail) and **Quick clean** confirm
   only after a **600 ms press-and-hold** — pointer, finger or held
-  Enter/Space ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+  Enter/Space ([CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md)
   D-084-05). A ring fills while holding; `prefers-reduced-motion` shows a
   static pressed state instead.
 - Releasing early, sliding off, scrolling or moving focus away sends
@@ -61,7 +61,7 @@ a catch-up up as a success streak.
 - `prefers-reduced-motion` **always overrides** an explicit animation
   opt-in (hard floor inside the effect modules).
 - The **default completion feedback** is always on and subtle
-  ([CS-PLAN-084](../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+  ([CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md)
   D-084-03): the hold ring, the accessible confirmation with undo
   (UndoSnackbar) with a short check-mark pop (static under
   `prefers-reduced-motion`), and one short vibration where the browser

@@ -375,7 +375,8 @@ notes in each phase mark the corrections). What the app can do **today**
 **Status**: In Progress (partially delivered)
 **Timeline**: Week 29-32
 
-> **Correction (2026-09):** the app version is `0.1.1` — the historical
+> **Correction (2026-09):** the app version was `0.1.1` (`0.8.0-alpha.1`
+> since 2026-10-17, see the [changelog](../../CHANGELOG.md)) — the historical
 > "v1.0.0 release candidate" claim in the old README was wrong and has been
 > removed (CS-PLAN-068 D6). Phase 8's *targets* below remain the roadmap;
 > they are not current capability.

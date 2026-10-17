@@ -21,7 +21,8 @@
  *   - mojibake signatures: UTF-8 three-byte punctuation (E2 80/E2 82 …)
  *     misread as cp1252 yields U+00E2 followed by U+20AC/U+201A …, UTF-8
  *     two-byte umlauts (C3 xx) misread as cp1252 yields U+00C3 followed by
- *     a Latin-1 character.
+ *     a Latin-1 character, and UTF-8 misread as Latin-1 leaves a C1 control
+ *     (U+0080–U+009F) after a U+00C2/U+00C3/U+00E2 lead (TECH-DOCS-004).
  *
  * Known residual (accepted, CS-PLAN-052 D4): a TAB or LF byte that *ate a
  * word-initial letter* is indistinguishable from legitimate code
@@ -56,6 +57,18 @@ const SIGNATURES = [
 	{ name: 'cp1252 mojibake lead \\u00E2\\u20AC (E2 80 xx read as cp1252)', regex: /\u00E2\u20AC/ },
 	{ name: 'cp1252 mojibake lead \\u00E2\\u201A (E2 82 xx read as cp1252)', regex: /\u00E2\u201A/ },
 	{ name: 'cp1252 mojibake umlaut class \\u00C3 + Latin-1 (C3 xx read as cp1252)', regex: /\u00C3[\u0080-\u00BF]/ },
+	// TECH-DOCS-004: the two leads above miss the other continuation bytes.
+	// A continuation byte 80-9F becomes the cp1252 character mapped to it
+	// (arrow E2 86 92 -> U+00E2 U+2020 U+2019, U+00D6 C3 96 -> U+00C3 U+2013), or a
+	// C1 control when read as Latin-1 (E2 86 92 -> U+00E2 U+0086 U+0092); a
+	// section sign C2 A7 becomes U+00C2 U+00A7. Legitimate English/German text
+	// never puts these characters directly after the lead.
+	{ name: 'cp1252 mojibake lead \\u00C2/\\u00C3/\\u00E2 + cp1252 80-9F character (UTF-8 read as cp1252)', regex: /[\u00C2\u00C3\u00E2][\u20AC\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039\u0152\u017D\u2018\u2019\u201C\u201D\u2022\u2013\u2014\u02DC\u2122\u0161\u203A\u0153\u017E\u0178]/ },
+	{ name: 'Latin-1 mojibake lead \\u00C2/\\u00C3/\\u00E2 + C1 control (UTF-8 read as Latin-1)', regex: /[\u00C2\u00C3\u00E2][\u0080-\u009F]/ },
+	{ name: 'mojibake \\u00C2 + Latin-1 symbol (C2 A0-BF read as cp1252/Latin-1)', regex: /\u00C2[\u00A0-\u00BF]/ },
+	// Four-byte emoji (F0 9F xx xx -> U+00F0 U+0178 ...) and an embedded BOM
+	// (EF BB BF -> U+00EF U+00BB U+00BF) read as cp1252/Latin-1.
+	{ name: 'mojibake emoji lead \\u00F0\\u0178 or BOM \\u00EF\\u00BB\\u00BF (read as cp1252/Latin-1)', regex: /\u00F0[\u0178\u009F]|\u00EF\u00BB\u00BF/ },
 ]
 
 /**
@@ -243,6 +256,27 @@ function selfTest() {
 		const mojibakeText = 'text ' + String.fromCharCode(0xE2, 0x20AC, 0x201D) + ' more\n'
 		writeFileSync(mojibake, Buffer.from(mojibakeText, 'utf8'))
 
+		const latin1Mojibake = join(dir, 'planted-latin1-c1.md')
+		// Planted arrow mojibake: UTF-8 E2 86 92 read as Latin-1 (chars U+00E2
+		// U+0086 U+0092, the TECH-DOCS-004 instance). Built from char codes.
+		writeFileSync(latin1Mojibake, Buffer.from('a ' + String.fromCharCode(0xE2, 0x86, 0x92) + ' b\n', 'utf8'))
+
+		const cp1252Arrow = join(dir, 'planted-cp1252-arrow.md')
+		// The same arrow read as cp1252: U+00E2 U+2020 U+2019.
+		writeFileSync(cp1252Arrow, Buffer.from('a ' + String.fromCharCode(0xE2, 0x2020, 0x2019) + ' b\n', 'utf8'))
+
+		const emojiMojibake = join(dir, 'planted-emoji.md')
+		// Emoji F0 9F 98 80 read as cp1252: U+00F0 U+0178 U+02DC U+20AC.
+		writeFileSync(emojiMojibake, Buffer.from('hi ' + String.fromCharCode(0xF0, 0x178, 0x2DC, 0x20AC) + '\n', 'utf8'))
+
+		const sectionSign = join(dir, 'planted-section-sign.md')
+		// Section sign C2 A7 read as cp1252/Latin-1: U+00C2 U+00A7.
+		writeFileSync(sectionSign, Buffer.from('see ' + String.fromCharCode(0xC2, 0xA7) + '4\n', 'utf8'))
+
+		const cleanLatin1Lead = join(dir, 'clean-latin1-lead.md')
+		// Legitimate lead characters followed by ordinary letters stay green.
+		writeFileSync(cleanLatin1Lead, Buffer.from('château crème Ânes\n', 'utf8'))
+
 		const invalid = join(dir, 'planted-invalid.md')
 		// Valid ASCII prefix + a stray 0xE2 continuation-less lead byte.
 		writeFileSync(invalid, Buffer.concat([Buffer.from('ok ', 'utf8'), Buffer.from([0xE2])]))
@@ -271,7 +305,12 @@ function selfTest() {
 			{ path: cleanEmoji, expectFindings: false },
 			{ path: cleanQuestion, expectFindings: false },
 			{ path: cleanTabsCrlf, expectFindings: false },
+			{ path: cleanLatin1Lead, expectFindings: false },
 			{ path: mojibake, expectFindings: true },
+			{ path: latin1Mojibake, expectFindings: true },
+			{ path: cp1252Arrow, expectFindings: true },
+			{ path: sectionSign, expectFindings: true },
+			{ path: emojiMojibake, expectFindings: true },
 			{ path: invalid, expectFindings: true },
 			{ path: controlBytes, expectFindings: true },
 			{ path: loneCr, expectFindings: true },

@@ -2009,6 +2009,9 @@ msgstr ""
 msgid "Overdue"
 msgstr ""
 
+msgid "Overdue by 1 day"
+msgstr ""
+
 msgid "Overdue by {days} days"
 msgstr ""
 

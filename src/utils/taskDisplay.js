@@ -115,7 +115,12 @@ export const dueText = (roomTask, timezone) => {
 	if (!roomTask.isActive) return t('chorestrike', 'Completed')
 	const days = dueDayOffset(roomTask, timezone)
 	if (days === null) return t('chorestrike', 'No due date')
-	if (isOverdue(roomTask)) return t('chorestrike', 'Overdue by {days} days', { days: Math.max(1, -days) })
+	if (isOverdue(roomTask)) {
+		const overdueDays = Math.max(1, -days)
+		return overdueDays === 1
+			? t('chorestrike', 'Overdue by 1 day')
+			: t('chorestrike', 'Overdue by {days} days', { days: overdueDays })
+	}
 	if (days <= 0) return t('chorestrike', 'Due today')
 	if (days === 1) return t('chorestrike', 'Due tomorrow')
 	return t('chorestrike', 'Due in {days} days', { days })

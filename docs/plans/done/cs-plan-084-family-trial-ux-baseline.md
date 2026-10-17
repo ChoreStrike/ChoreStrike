@@ -1,6 +1,6 @@
 # CS-PLAN-084: Family-Trial UX Baseline (AiO-Current Runtime, Usability, Mobile)
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows); round 9 committed after interim Standard B `PASS` (D-084-09 AIO v14.3.0 / PHP 8.4.26 / Redis 8.10.2 promotion, both rows requalified); round 10 committed after interim Standard B `PASS` (D-084-10 inventory `qualified`, release-discovery fix); round 11 committed after interim Standard B `PASS-WITH-FIXES` (D-084-11 NC 35.0.2, checklist duplicate fix)
+> **Status:** Done — final Full review `PASS-WITH-FIXES` 2026-10-17 (round 12: deployment candidate `0.8.0-alpha.1`, both rows and the provider matrix requalified; the operator's real-device run user-rescoped to CS-PLAN-080, four minor review findings user-rescoped to `backlog.md` CR-084-01..04). History: Standard A `PASS-WITH-FIXES` 2026-10-13; rounds 1–3 committed (WP-A, WP-G part 1, RF-084-01, WP-B), rounds 4–7 committed (WP-E, WP-F, WP-C, WP-D); round 8 committed after interim Standard B `PASS-WITH-FIXES` (WP-G part 2: phone projects, full gate on both rows); round 9 committed after interim Standard B `PASS` (D-084-09 AIO v14.3.0 / PHP 8.4.26 / Redis 8.10.2 promotion, both rows requalified); round 10 committed after interim Standard B `PASS` (D-084-10 inventory `qualified`, release-discovery fix); round 11 committed after interim Standard B `PASS-WITH-FIXES` (D-084-11 NC 35.0.2, checklist duplicate fix)
 > **Effort:** L (seven bounded work packages, no schema change)
 > **Priority:** P1
 > **Depends on:** none (runs before CS-PLAN-080 human evidence collection)
@@ -317,22 +317,22 @@ the same round.
 ## 8. Acceptance Criteria
 
 - [x] Standards state the AiO-current rule; AiO row (exact AiO NC version, Redis, `custom_apps`) and current upstream row both pass backend + browser gates; inventory promoted
-- [ ] No color-contrast violations (axe) on My Day, Dashboard, Tasks, Room detail in light and dark Nextcloud themes; dark tokens follow the Nextcloud theme, not the OS
-- [ ] Every dashboard overview tile navigates to its filtered destination; room cards keyboard-operable; quick-clean ≥ 44 px with label
+- [x] No color-contrast violations (axe) on My Day, Dashboard, Tasks, Room detail in light and dark Nextcloud themes; dark tokens follow the Nextcloud theme, not the OS (round 3: 0 violations in light + dark across 9 views; `color-contrast.spec.ts` in every full gate since)
+- [x] Every dashboard overview tile navigates to its filtered destination; room cards keyboard-operable; quick-clean ≥ 44 px with label (round 6; phone coverage in `mobile-core.spec.ts`, round 8)
 - [x] All-tasks list paged (20), filters collapsible, "Completed" filter loads finished tasks on demand (default view stays one request)
-- [ ] Done and Quick clean require a 600 ms hold (pointer and keyboard); early release sends no request and shows the hold hint; Claim keeps its dialog; no double submit
-- [ ] Subtle completion feedback always on (reduced-motion respected); haptics on supporting devices; dead streak-milestone branch removed; failure toasts show the API code
-- [ ] Successor ownership after takeover, handover and reassignment proven by integration tests and the mobile E2E set
+- [x] Done and Quick clean require a 600 ms hold (pointer and keyboard); early release sends no request and shows the hold hint; Claim keeps its dialog; no double submit (round 4; phone holds in round 8)
+- [x] Subtle completion feedback always on (reduced-motion respected); haptics on supporting devices; dead streak-milestone branch removed; failure toasts show the API code (round 5)
+- [x] Successor ownership after takeover, handover and reassignment proven by integration tests and the mobile E2E set (`SuccessorOwnershipTest`, round 1; `mobile-core.spec.ts`, round 8)
 - [x] Mobile Chromium + WebKit projects run the `@mobile` core set without skips
-- [ ] Operator real-device checklist recorded (Android + iPhone)
-- [ ] Build gate green (`npm test` + lint + backend tests on both rows)
-- [ ] Required tests ran without new or unapproved skips
-- [ ] All implementation decisions and review questions resolved and recorded
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
-- [ ] Owning backlog items updated or archived according to their actual completion state; RF-080-16 resolution recorded in CS-PLAN-080
-- [ ] Durable concepts/decisions integrated (`calm-core-ux.md`, `ui-use-cases.md`, `testing.md`, `deployment.md`, project rules)
-- [ ] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] ~~Operator real-device checklist recorded (Android + iPhone)~~ — **user-rescoped 2026-10-17** to [CS-PLAN-080](../active/cs-plan-080-wp9-cross-db-and-family-evidence.md): it needs the deployed instance and runs at the start of the family trial; TECH-TEST-005 keeps that remainder (checklist written: release-test-plan §14.1)
+- [x] Build gate green (`npm test` + lint + backend tests on both rows) (round 12)
+- [x] Required tests ran without new or unapproved skips (round 12: `--fail-on-skipped` backend suites, gate runner fails on any skip)
+- [x] All implementation decisions and review questions resolved and recorded (D-084-01..11, round-12 operator decisions)
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md` (RF-084-01..06 resolved; RF-084-07 rescoped to CR-084-01..04)
+- [x] Owning backlog items updated or archived according to their actual completion state; RF-080-16 resolution recorded in CS-PLAN-080 (UX-017, FEAT-UX-033..036, TECH-RUNTIME-002 archived; TECH-TEST-005 stays open for the real-device run)
+- [x] Durable concepts/decisions integrated (`calm-core-ux.md`, `ui-use-cases.md`, `testing.md`, `deployment.md`, project rules) — verified 2026-10-17: hold-to-confirm, feedback and error-code toasts in `calm-core-ux.md`; `/tasks` presets, paging and tile targets in `ui-use-cases.md`; the overdue boundary in `task-model-and-sync.md` and `docs/api/README.md`; phone projects and the AIO row in `testing.md`; Runtime Currency in `deployment.md` and project rules; the contrast check in `design.md`
+- [x] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES` (final Full `PASS-WITH-FIXES` 2026-10-17)
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated
 
 ## 9. Review Findings (plan-owned)
 
@@ -366,6 +366,31 @@ the same round.
   API code) through WP-F's error-toast helper, with a Jest regression.
   **Resolution:** "Could not clean the room (<code>)" via `showErrorWithReference`;
   RoomCard Jest regression (toast text, button re-enabled).
+- [x] **RF-084-04 major (final Full review 2026-10-17, architecture track; resolved round 12):**
+  the RoomDetail header's *Overdue* count (`src/views/RoomDetail.vue` `overdueCount`)
+  still compared `nextDue` with now, so a task due today counted — and turned the
+  stat red — from midnight while the same page's rows, RoomCard and the room stats
+  said due (the D-084-08 defect in one remaining view). **Resolution:** the count
+  uses the shared `taskDisplay.isOverdue`; Jest regression (due / late / status
+  fallback / inactive rows → 1), negative control returns 3 on the old code.
+- [x] **RF-084-05 minor (final Full review, correctness track; resolved round 12):** a
+  `HoldButton` that became disabled or busy mid-hold (Quick clean reaching its cap,
+  the same task completing from another surface) receives no release event and its
+  timer still emitted `confirm`. **Resolution:** the disabled/busy watchers abort a
+  running hold and the timer re-checks both before confirming; Jest regression for
+  both props, negative control fails on the old component.
+- [x] **RF-084-06 minor (final Full review, performance/quality track; resolved round 12):**
+  the at-least-one-day clamp made "Overdue by 1 days" reachable. **Resolution:** a
+  singular key "Overdue by 1 day" (DE "Überfällig seit 1 Tag"), following the
+  project's manual singular-branch idiom (the frontend key extractor has no `n()`);
+  l10n artifacts regenerated (1289 keys); Jest regression including the clamped
+  same-day case.
+- [x] **RF-084-07 minor ×4 (final Full review; user-rescoped to `backlog.md` 2026-10-17):**
+  not safely fixable in the pre-deployment round and none blocks the family trial —
+  the calendar's per-day overdue rule ignores an open flex window (CR-084-01); a
+  joined in-flight completion drops the second call's allocation (CR-084-02);
+  single-row payloads serialize the entity status instead of the occurrence status
+  (CR-084-03); `HoldButton.vue` exceeds the file-size guidance (CR-084-04).
 
 ## Boundaries
 
@@ -888,6 +913,49 @@ the same round.
 - **Still open:** the operator's real-device run (release-test-plan §14.1),
   backlog closure and the final review.
 
+### Round 12 — pre-deployment candidate 0.8.0-alpha.1 (2026-10-17)
+
+- **Operator decisions (2026-10-17):** app version `0.8.0-alpha.1` (first `v0.8`
+  alpha-stage version; Nextcloud only detects an update and phones only load the
+  new scripts after a version change, and Nextcloud refuses later downgrades); a
+  final Full review; this candidate's full gate counts as CS-PLAN-080 RF-080-15's
+  full-gate requalification; this deployment is the first retained-baseline
+  adoption (recorded in CS-PLAN-080); the real-device checklist moves to
+  CS-PLAN-080; the four minor review findings go to `backlog.md`; a second
+  docs-only commit records the package evidence. The round ran on branch
+  `chore/pre-deployment-0.8.0-alpha.1` in a separate worktree from `master`
+  `993e563`, leaving the `feat/arcade-minigames` checkout untouched.
+- **Release metadata:** `appinfo/info.xml`, `package.json`/lock, README status,
+  `docker/README.md` and the roadmap note move to `0.8.0-alpha.1` (valid per the
+  Nextcloud app-info `semver` schema); CHANGELOG section "App Version
+  0.8.0-alpha.1 — Family-Trial Candidate". No schema or migration change.
+- **Gate tooling (backlog, archived):** TECH-TEST-004 deterministic package-smoke
+  clock; TECH-DOCS-006 backlog links resolved against the paths git can see, now
+  also from subdirectories; TECH-DOCS-004 Latin-1/C1, cp1252, `§`, emoji and BOM
+  mojibake signatures — the rescan repaired 49 real corruptions in nine files;
+  TECH-PKG-001 one owner-smoke case matrix in `scripts/package-target.js`.
+- **Final-review fixes:** RF-084-04..06 (§9) plus the tooling nits; RF-084-07
+  rescoped to CR-084-01..04.
+- **Gates (worktree, after all fixes):** Jest 124 suites / 1807 tests; ESLint,
+  Stylelint, `test:noise`, `l10n:check-keys` (1289), `docs:encoding` (993),
+  `backlog:check` + self-test, `agents:check`, e2e-gate and package-smoke
+  self-tests, `composer cs:check` (0/414), production build;
+  `test:runtime:check` `current` (upstream 35.0.2, AIO 14.3.0 / NC 34.0.4),
+  inventory `qualified`, both images `frozen-image-identity-match`. Staged rows
+  from the worktree (fresh owned projects, family seed, AJAX cron off):
+  primary `cs082-pd17-pgsql` (NC 35.0.2.2 / PHP 8.4.26 / PostgreSQL 18.6, APCu) —
+  PHPUnit unit 1385, integration 613 (`--fail-on-skipped`), full browser gate
+  **`run-nKi6vJ` PASSED** (95 / 171 / 39 / 10 / 10, first attempt); AIO row
+  `cs082-pd17-aio` (NC 34.0.4.1 / PHP 8.4.26 / PostgreSQL 18.6 / Redis 8.10.2 for
+  sessions, cache, locking) — unit 1385, integration 613, full browser gate
+  **`run-p5CXyQ` PASSED** (same counts); provider suites on NC 35.0.2 —
+  `cs082-pd17-mysql` (MariaDB 11.8.6) and `cs082-pd17-sqlite` (SQLite 3.46.1):
+  unit 1385, integration 613 each, `--fail-on-skipped`, so all three supported
+  providers pass the candidate. No TECH-TRANSPORT-001 closure occurred in this
+  round.
+- **Package:** the package smoke runs on the committed candidate (clean HEAD)
+  and is recorded in the follow-up evidence commit.
+
 ## Review Outcome
 
 ### Standard A — 2026-10-13 — `PASS-WITH-FIXES` (`new/ → active/`)
@@ -1116,3 +1184,17 @@ the same round.
   (empty default) and `testing.md` documents the promotion upgrade procedure.
 - **Gates after fix:** runtime suite 106/106, canonical recreated
   (`canonical-runtime-match`); round 11 gates above stand.
+
+### Full (final) — 2026-10-17 — `PASS-WITH-FIXES` (`active/ → done/`)
+
+- **Scope:** the whole implementation `2dece85..c5b890f` plus the uncommitted
+  round 12 (26 paths at capture, unstaged fingerprint `07901f63…`), four parallel
+  read-only tracks. [Record](../../backlog/archive/CODE_REVIEW_2026-10-17.md).
+- **Fixed in-round:** RF-084-04 (major, RoomDetail overdue count), RF-084-05
+  (hold confirmed on a disabled/busy button), RF-084-06 ("1 days"), and three
+  tooling/doc nits; each with a regression and, for the code fixes, a negative
+  control.
+- **Rescoped (user):** CR-084-01..04 to `backlog.md`; the real-device run to
+  CS-PLAN-080. Seven further nits accepted without change (record).
+- **Security:** no findings.
+- **Gates after fixes:** round 12 above.

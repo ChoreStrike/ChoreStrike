@@ -669,6 +669,7 @@
         "Organizing": "Organizing",
         "Other": "Other",
         "Overdue": "Overdue",
+        "Overdue by 1 day": "Overdue by 1 day",
         "Overdue by {days} days": "Overdue by {days} days",
         "Overloaded days ahead": "Overloaded days ahead",
         "Override date must be a valid Y-m-d date": "Override date must be a valid Y-m-d date",

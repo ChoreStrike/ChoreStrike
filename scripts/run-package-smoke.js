@@ -44,7 +44,7 @@ const os = require('node:os')
 const path = require('node:path')
 const zlib = require('node:zlib')
 const { readGitState, readTar, buildTar, sha256Hex, buildPackage, assertSafeArchiveName } = require('./build-package')
-const { validatePackageTarget, assertPackageCoherence } = require('./package-target')
+const { OWNER_SMOKE_CASES, validatePackageTarget, assertPackageCoherence } = require('./package-target')
 const { readInventory, selectRuntime, selectionHash, verifyImage, execute, probe } = require('./test-runtime')
 
 const ROOT = path.resolve(__dirname, '..')
@@ -244,12 +244,12 @@ function runRow({ row, inventory, state, built, extractDir, runDir, project, io 
 		const setupReport = path.join(runDir, `setup-${row}.json`)
 		const setupStart = io.now()
 		io.ownerSmoke(targetFile, settings.extractDir, setupReport, 'setup')
-		evidence.setup = assertReportFresh(setupReport, { project, action: 'setup', cases: 1 }, setupStart)
+		evidence.setup = assertReportFresh(setupReport, { project, action: 'setup', cases: OWNER_SMOKE_CASES.setup }, setupStart)
 
 		const verifyReport = path.join(runDir, `owners-${row}.json`)
 		const verifyStart = io.now()
 		io.ownerSmoke(targetFile, settings.extractDir, verifyReport, 'verify')
-		evidence.verify = assertReportFresh(verifyReport, { project, action: 'verify', cases: 6 }, verifyStart)
+		evidence.verify = assertReportFresh(verifyReport, { project, action: 'verify', cases: OWNER_SMOKE_CASES.verify }, verifyStart)
 
 		verifyExtractedHashes(settings.extractDir, built.manifests.files)
 		evidence.extractedDriftCheck = 'post-run-rehash-ok'
@@ -486,7 +486,7 @@ function main() {
 	return 0
 }
 
-module.exports = { validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh, composeArguments, assertFreshProject, inspectOwnedResources, runQualification, qualificationSummary }
+module.exports = { validatePackageTarget, extractArchive, verifyExtractedHashes, assertReportFresh, REPORT_MTIME_TOLERANCE_MS, composeArguments, assertFreshProject, inspectOwnedResources, runQualification, qualificationSummary }
 
 if (require.main === module) {
 	try {

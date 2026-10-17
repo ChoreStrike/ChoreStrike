@@ -23,10 +23,13 @@ jest.mock('../../../src/store/rooms.js', () => ({
 	}),
 }))
 
+const mockDefaultRoomTasks = [{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() }]
+let mockRoomTasks = mockDefaultRoomTasks
+
 jest.mock('../../../src/store/roomTasks.js', () => ({
 	useRoomTasksStore: () => ({
-		roomTasks: [{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() }],
-		roomTasksByRoom: { 1: [{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() }] },
+		roomTasks: mockRoomTasks,
+		roomTasksByRoom: { 1: mockRoomTasks },
 		fetchRoomTasks: jest.fn(),
 		fetchRoomTaskStats: jest.fn().mockResolvedValue({
 			totalTasks: 5,
@@ -120,6 +123,26 @@ describe('RoomDetail.vue', () => {
 	beforeEach(() => {
 		pinia = createPinia()
 		setActivePinia(pinia)
+		mockRoomTasks = mockDefaultRoomTasks
+	})
+
+	// Regression (CS-PLAN-084 final review): the header's Overdue count used
+	// the raw `nextDue < now` instant, so a task due today counted as overdue
+	// from midnight while its row and the room stats said due (D-084-08).
+	it('counts only missed occurrences as overdue in the header, never work due today', () => {
+		const startOfToday = new Date()
+		startOfToday.setHours(0, 0, 0, 0)
+		const pastInstant = startOfToday.toISOString()
+		mockRoomTasks = [
+			{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: pastInstant, occurrence: { classification: 'due' } },
+			{ id: 2, roomId: 1, taskId: 10, isActive: true, nextDue: pastInstant, occurrence: { classification: 'late' } },
+			{ id: 3, roomId: 1, taskId: 10, isActive: true, nextDue: pastInstant, status: 'due_today' },
+			{ id: 4, roomId: 1, taskId: 10, isActive: false, nextDue: pastInstant, occurrence: { classification: 'late' } },
+		]
+		const wrapper = mount(RoomDetail, { props: { id: '1' }, global: { plugins: [pinia], stubs: { RouterLink: true } } })
+
+		expect(wrapper.get('[data-testid="overdue-stat"] .stat-value').text()).toBe('1')
+		expect(wrapper.get('[data-testid="overdue-stat"] .stat-value').classes()).toContain('warning')
 	})
 
 	it('renders room detail component', () => {

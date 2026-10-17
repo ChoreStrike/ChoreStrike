@@ -577,7 +577,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 	 */
 	public function testReconciliationBudget_ConvergesOverPasses(): void {
 		// Static daily rule anchored 400 days ago: creation materializes the
-		// full anchorâ†’horizon range (8-day creation horizon semantics kept
+		// full anchor→horizon range (8-day creation horizon semantics kept
 		// simple here by the fixture's 7-day window), so simulate a dead
 		// cron by keeping only the creation week's rows and freezing the
 		// frontier there — exactly the state a stopped job leaves behind.
@@ -781,7 +781,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		}
 
 		// The same move succeeds once the child carries fewer open
-		// occurrences on that day (A2's pending fulfilled â†’ open load 1).
+		// occurrences on that day (A2's pending fulfilled → open load 1).
 		$openA2 = array_values(array_filter(
 			$this->occurrenceMapper->findByRoomTask($a2),
 			static fn (Occurrence $o): bool => $o->getCompletionId() === null && $o->getCoveredByCompletionId() === null
@@ -1109,12 +1109,12 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		$occurrenceId = $this->occurrenceRowIdByKey($f['roomTaskId'], $receipt['occurrenceId']);
 		$agreementsAfterFirst = count($this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]));
 
-		// Identical repeat â†’ replay of the ORIGINAL identity, no second effect.
+		// Identical repeat → replay of the ORIGINAL identity, no second effect.
 		$replay = $this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $payload);
 		self::assertSame($first, $replay, 'the replay returns the original result refs');
 		self::assertCount($agreementsAfterFirst, $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $occurrenceId]));
 
-		// Same UUID, changed semantic input â†’ conflict, no writes.
+		// Same UUID, changed semantic input → conflict, no writes.
 		try {
 			$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], array_merge($payload, [
 				'date' => (new \DateTime('+2 days'))->format('Y-m-d'),
@@ -1124,7 +1124,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 			self::assertStringContainsString('different', $e->getMessage());
 		}
 
-		// Same UUID under a DIFFERENT action â†’ conflict (the action
+		// Same UUID under a DIFFERENT action → conflict (the action
 		// identity is part of the receipt hash).
 		$catchUpPayload = $this->amendPayload($receipt, ['workDate' => $tomorrowKey]);
 		$catchUpPayload['commandId'] = $commandId;
@@ -1231,7 +1231,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $pending->getSuspensionState(), 'the acknowledged pause suspended the pending row');
 		$suspendedVersion = $pending->getVersion();
 
-		// Simulate the virtualâ†’materialized drift: the row carries the
+		// Simulate the virtual→materialized drift: the row carries the
 		// materialization default while the projection still derives
 		// suspended from the recognized pause.
 		$qb = $this->db->getQueryBuilder();
@@ -1258,7 +1258,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 
 		// The restart succeeds through the derived state and persists it.
 		// The agreed restart day lies AFTER the pause range — future
-		// reactivation must fit capacity (plan Â§3.4), and the owner is
+		// reactivation must fit capacity (plan §3.4), and the owner is
 		// paused through +4 days.
 		$refs = $this->agreementService()->restart($f['houseId'], $f['owner'], $f['roomTaskId'], [
 			'commandId' => self::uuid(),
@@ -1314,7 +1314,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 			self::assertStringContainsString('energy budget', $e->getMessage());
 		}
 
-		// A fitting helper share (50% of 2 = 100 minor â‰¤ 100 budget) installs.
+		// A fitting helper share (50% of 2 = 100 minor ≤ 100 budget) installs.
 		$receipt2 = $this->agreementReceipt($f['houseId'], $f['roomTaskId']);
 		$this->agreementService()->amend($f['houseId'], $f['owner'], $f['roomTaskId'], $this->amendPayload($receipt2, [
 			'participants' => [

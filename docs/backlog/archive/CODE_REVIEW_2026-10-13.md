@@ -3,7 +3,7 @@
 - **Review Date**: 2026-10-13
 - **Reviewer**: Claude Code
 - **Mode**: Standard A (plan review, no subagents)
-- **Scope**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md) and its drafting package (backlog TECH-RUNTIME-002, UX-017 scope extension, FEAT-UX-033..036, TECH-TEST-005; `ACTIVE_TASKS.md`; plans README; CS-PLAN-080 RF-080-16 sequencing note)
+- **Scope**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md) and its drafting package (backlog TECH-RUNTIME-002, UX-017 scope extension, FEAT-UX-033..036, TECH-TEST-005; `ACTIVE_TASKS.md`; plans README; CS-PLAN-080 RF-080-16 sequencing note)
 - **Owning plan**: CS-PLAN-084 (`new/ → active/`)
 - **Base Commit**: `ee73299` (branch `master`, index empty apart from the intent-to-add plan path)
 
@@ -66,7 +66,7 @@ migration, retained-baseline adoption or production access.
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `305b62a` (index empty): AIO-current runtime rule and AIO component drift check, Redis AIO row (Dockerfile/entrypoint/inventory/stage runner + tests), successor-ownership integration tests, agreed-handover takeover fix (`CompletionService`), claim confirm without second dialog (TaskList/TaskManager/RoomDetail), deterministic `HouseUserMapper` map order, docs/rules/skills
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Captured Fingerprint
 

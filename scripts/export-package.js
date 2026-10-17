@@ -10,6 +10,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { isDeepStrictEqual } = require('node:util')
 const { sha256Hex } = require('./build-package')
+const { OWNER_SMOKE_CASES } = require('./package-target')
 
 const ROOT = path.resolve(__dirname, '..')
 const ARCHIVE = 'chorestrike.tar.gz'
@@ -77,7 +78,8 @@ function validateQualification(record, manifest) {
 		requireCondition(row.candidate === manifest.candidate.commit && !row.failure
 			&& row.extractedDriftCheck === 'post-run-rehash-ok' && row.teardown === 'owned-down-volumes'
 			&& typeof row.project === 'string' && /^\d+\.\d+\.\d+$/.test(row.nextcloud), 'Incomplete or mismatched runtime qualification.')
-		for (const [action, count, report] of [['setup', 1, row.setup], ['verify', 6, row.verify]]) {
+		for (const [action, report] of [['setup', row.setup], ['verify', row.verify]]) {
+			const count = OWNER_SMOKE_CASES[action]
 			// Genuine owner-smoke reports carry no `passed` field; these clauses
 			// only trip on hand-edited records with an explicit failure flag.
 			requireCondition(report?.action === action && report.project === row.project && report.passed !== false

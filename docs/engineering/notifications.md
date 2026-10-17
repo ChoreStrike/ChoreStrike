@@ -70,7 +70,7 @@ existing source transaction (the house lock is already held):
 - `PauseService` — acknowledge/reject/shorten/retrospective
   recognition/household pause; personal pauses notify the subject,
   household pauses every member.
-- `RewardRequestService` (WP7, CS-PLAN-078 Â§3.5) — reward-request
+- `RewardRequestService` (WP7, CS-PLAN-078 §3.5) — reward-request
   effects (`reward_request`): new child requests reach the opted-in
   owners, owner decisions reach the requester, requester cancellations
   reach the owners, role rebases reach the owners. Recipients are the

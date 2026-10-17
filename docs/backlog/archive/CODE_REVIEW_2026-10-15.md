@@ -4,7 +4,7 @@
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `d883bfa` (index empty): 15 modified tracked paths (unstaged diff SHA256 prefix `c214b28e00bbda1d` at capture) plus untracked `tests/e2e/mobile-core.spec.ts` (`9605af61e6ba1cfe`) — `mobile-chromium`/`mobile-webkit` Playwright projects, the 7-scenario phone core set, multi-project gate manifest rows, reset-owning phone projects, regenerated scenario inventory, `3-floor-house` test-assumption fix, CI WebKit install, testing docs, operator real-device checklist, plan/backlog tracking
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 
@@ -43,7 +43,7 @@ Jest 123 / 1780 after the fixes, `test:noise` clean; ESLint, `l10n:check-keys` (
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `bad0baa` (index empty): 13 modified tracked paths (unstaged diff SHA256 prefix `48a48523813a93f5` at capture), no untracked files — inventory PHP 8.4.26 / Redis 8.10.2 / AIO 14.3.0, `Dockerfile.test` defaults and inventory hash, canonical compose runtime identity, pinned Jest hashes and drift fixtures, current-runtime statements in README/docs/docker-dev skill, plan/tracking
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 
@@ -74,7 +74,7 @@ Both images rebuilt and verified. Canonical stack recreated (`canonical-runtime-
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `0550316` (index empty): 9 modified tracked paths (unstaged diff SHA256 prefix `78631c3aeac982d4` at capture), no untracked files — inventory status `qualified`, `Dockerfile.test` hash default, Jest hash/qualification pins, `highestStableRelease` drift discovery with regression, testing.md status semantics and discovery note, TECH-RUNTIME-002 progress, plan/tracking
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 
@@ -102,7 +102,7 @@ Four images `frozen-image-identity-match` (`qualified`). Canonical (`canonical-r
 - **Reviewer**: Claude Code
 - **Mode**: Standard B (interim; plan stays `active/`)
 - **Scope**: working tree at `f254530` (index empty): 18 modified tracked paths (unstaged diff SHA256 prefix `184ff33d30dbb752` at capture), no untracked files — primary row NC 35.0.2 (inventory, `Dockerfile.test`, compose identity, CI image names, Jest pins, current-runtime docs), `checklistStore.addItem` duplicate fix with regression, TECH-TRANSPORT-001 / TECH-RUNTIME-002 evidence, plan/tracking
-- **Owning plan**: [CS-PLAN-084](../../plans/active/cs-plan-084-family-trial-ux-baseline.md)
+- **Owning plan**: [CS-PLAN-084](../../plans/done/cs-plan-084-family-trial-ux-baseline.md)
 
 ## Findings
 

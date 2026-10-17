@@ -921,12 +921,12 @@ WP0 freezes the structural substrate every later family-rhythm package builds
 on; the domain behavior stays dormant until its owning package lands.
 
 - **Single house-first lock order** (full contract + audited writer inventory:
-  [development.md](development.md) "Locking and transactions"): `house â†’
-  room tasks â† task definitions â rooms â active membership rows â wallets â
-  occurrence/completion rows â request/preference/digest rows`. Every writer
+  [development.md](development.md) "Locking and transactions"): `house →
+  room tasks → task definitions → rooms → active membership rows → wallets →
+  occurrence/completion rows → request/preference/digest rows`. Every writer
   follows the order or a subsequence. This **supersedes** the former
-  two-family split (setup `house â room_task â â¦` vs the ADR-011/012
-  completion-only entry order `room_task â room â house_user`) â the ADRs
+  two-family split (setup `house → room_task → …` vs the ADR-011/012
+  completion-only entry order `room_task → room → house_user`) — the ADRs
   carry supersession notes and keep their historical context. WP7 places the
   reward-item/request/event rows in the final child-row group: no writer
   locks a reward row before its house, and lifecycle commands read the

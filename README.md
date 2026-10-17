@@ -128,7 +128,7 @@ instance. Installation and retained-baseline adoption are separate decisions.
 ChoreStrike is a privately maintained, non-commercial open source project,
 not a hosted service.
 
-**v0.1.1 — early pre-release.** The core household workflow (setup wizard,
+**v0.8.0-alpha.1 — alpha pre-release.** The core household workflow (setup wizard,
 invitations, tasks, scheduling, My Day, completion/undo, gamification,
 insights and optional rewards) is implemented. Cross-database verification and
 repeated browser gates have passed; voluntary family comprehension, 14-day

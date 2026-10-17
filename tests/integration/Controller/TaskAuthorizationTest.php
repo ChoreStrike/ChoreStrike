@@ -11,14 +11,14 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
 /**
- * Task Authorization Integration Tests (CS-PLAN-061 Â§4, step 1).
+ * Task Authorization Integration Tests (CS-PLAN-061 §4, step 1).
  *
  * Exercises the REAL controllers end-to-end against the shared instance
  * house (the resolution path production uses). Covers:
  * - cross-house isolation: foreign ids are 404s on read and write, never
  *   leaks or 500s
- * - the 403/404 standard: foreign/nonexistent ids â†’ 404 anti-enumeration,
- *   role denials â†’ 403 (decision D3, D5)
+ * - the 403/404 standard: foreign/nonexistent ids → 404 anti-enumeration,
+ *   role denials → 403 (decision D3, D5)
  * - actor matrix: owner/member complete; children execute (complete,
  *   reactivate) but cannot manage (delete, assign)
  * - invite-only membership: a non-member gets 403 on every house read

@@ -126,6 +126,13 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 			expect(dueText({ isActive: true, nextDue: dayStart(-2), occurrence: { classification: 'late' } }, tz)).toBe('Overdue by 2 days')
 		})
 
+		// Regression (CS-PLAN-084 final review): the clamp to at least one day
+		// made "Overdue by 1 days" reachable; a single day uses the singular key.
+		it('uses the singular for one overdue day, including the clamped same-day case', () => {
+			expect(dueText({ isActive: true, nextDue: dayStart(-1), occurrence: { classification: 'late' } }, tz)).toBe('Overdue by 1 day')
+			expect(dueText({ isActive: true, nextDue: dayStart(0), occurrence: { classification: 'late' } }, tz)).toBe('Overdue by 1 day')
+		})
+
 		it('labels today (also after its midnight instant), tomorrow and the future in house-local days', () => {
 			expect(dueText({ isActive: true, nextDue: dayStart(0), occurrence: { classification: 'agreed' } }, tz)).toBe('Due today')
 			expect(dueText({ isActive: true, nextDue: dayStart(1) }, tz)).toBe('Due tomorrow')
