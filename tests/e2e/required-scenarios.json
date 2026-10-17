@@ -309,6 +309,11 @@
     "fast-core-tests.spec.ts > Fast Core Tests > Settings page loads",
     "fast-core-tests.spec.ts > Fast Core Tests > Task Manager basic functionality"
   ],
+  "layout-clearance.spec.ts": [
+    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the house-health bar shows its fill, icon and a gap before the percentage",
+    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the navigation toggle covers no view heading (desktop)",
+    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the navigation toggle covers no view heading (phone)"
+  ],
   "leaderboard.spec.ts": [
     "leaderboard.spec.ts > Leaderboard and Gamification (consent-filtered) > Disabled ranking shows the opt-in/closed state (default seed)",
     "leaderboard.spec.ts > Leaderboard and Gamification (consent-filtered) > No freeze indicators or contribution score column remain",
