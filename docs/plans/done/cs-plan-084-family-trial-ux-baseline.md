@@ -953,8 +953,13 @@ the same round.
   unit 1385, integration 613 each, `--fail-on-skipped`, so all three supported
   providers pass the candidate. No TECH-TRANSPORT-001 closure occurred in this
   round.
-- **Package:** the package smoke runs on the committed candidate (clean HEAD)
-  and is recorded in the follow-up evidence commit.
+- **Package (round 12 commit):** `test:package:smoke` on clean HEAD `bce10bb`
+  → `package-qualified` (run `mvc1imwv`, archive SHA-256 prefix
+  `17f989568da9e0ba`, 525 files, packaged `<version>0.8.0-alpha.1</version>`),
+  rows `primary@35.0.2` and `aio@34.0.4`, cold first-bootstrap setup 1/1 and
+  owner verify 6/6 each, owned teardown — **the deployment candidate** handed
+  back to CS-PLAN-080. The commit carries the GitHub noreply identity for author
+  and committer (`repo-metadata.spec.js` 14/14).
 
 ## Review Outcome
 
