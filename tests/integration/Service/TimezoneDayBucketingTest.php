@@ -183,7 +183,9 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 	/**
 	 * The minigame weekly leaderboard window follows the house week (D3:
 	 * correct Monday semantics — a score from before the house-local
-	 * Monday midnight is excluded, one inside the week is included).
+	 * Monday midnight is excluded, one inside the week is included). The
+	 * fresh house isolates the rows; the game id must be a catalog game
+	 * since reads reject unknown ids (CS-PLAN-086).
 	 */
 	public function testWeeklyLeaderboard_FollowsHouseWeek(): void {
 		$house = $this->createHouseIn('tzlb_owner', 'Europe/Berlin');
@@ -197,13 +199,13 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 			$score = new MinigameScore();
 			$score->setHouseId($house->getId());
 			$score->setUserId('tzlb_player-' . $key);
-			$score->setGameId('snake-tz-pin');
+			$score->setGameId('snake');
 			$score->setScore(100);
 			$score->setCreatedAt($createdAt);
 			$this->createdScoreIds[] = $this->minigameScoreMapper->insert($score)->getId();
 		}
 
-		$leaderboard = $this->minigameService->getWeeklyLeaderboard($house->getId(), 'snake-tz-pin', 10);
+		$leaderboard = $this->minigameService->getWeeklyLeaderboard($house->getId(), 'snake', 10);
 		$userIds = array_map(static fn (array $entry) => $entry['userId'], $leaderboard);
 
 		self::assertContains('tzlb_player-in-week', $userIds, 'A score inside the house week must be listed');

@@ -45,8 +45,8 @@ jest.mock('@/store/user.js', () => ({
 	}),
 }))
 
-jest.mock('@/components/Dashboard/ArcadeSection.vue', () => ({
-	name: 'ArcadeSection',
+jest.mock('@/components/Minigames/ArcadeCatalog.vue', () => ({
+	name: 'ArcadeCatalog',
 	template: '<div data-testid="arcade-surface-stub" />',
 }))
 

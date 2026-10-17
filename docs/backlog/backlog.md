@@ -305,6 +305,11 @@ The arcade hard-wires one game: `MinigameService::VALID_GAMES = ['snake']`,
 generic `GameLeaderboard` and a server-side `ArcadeCatalog` with per-game score
 ceilings; Snake moves onto the shell ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-A).
 The scores-only contract (CS-PLAN-070 T10/D7d) stays unchanged.
+**Progress:** WP-A delivered 2026-10-17 (interim Standard B `PASS-WITH-FIXES`):
+shell, registry, per-game slices, `GameLeaderboard`, server catalog with the
+required `durationMs` plausibility and Crumb Snake with S1–S7 fixed. Open
+until the plan's final review: phone touch E2E (WP-C), the catalog endpoint
+(WP-B) and the full browser gate on both rows (WP-G).
 
 ---
 
@@ -619,6 +624,25 @@ identifiers and SHA-256 from the
 [adoption record](../engineering/deployment.md#adoption-record-2026-10-17) —
 hashes the Git blob content (so CRLF checkouts do not differ) and is extended
 with each later deployment. New migration files stay allowed.
+
+---
+
+### [P3] TECH-TEST-006 — Canonical test stack has no path for an app-only version upgrade
+**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-086 WP-A implementation (2026-10-17)
+
+After the `0.8.0-alpha.1` version bump, every start of the canonical stack on
+kept volumes (app installed as `0.1.1`) aborted in `docker/test-entrypoint.sh`:
+Nextcloud reports "require upgrade", the ordinary path never runs
+`occ upgrade`, and the preservation path only accepts a Nextcloud runtime
+update (`TEST_RUNTIME_UPGRADE_FROM` must differ from the frozen target), so the
+readiness probe fails after 60 tries. Worked around on 2026-10-17 with an
+operator-authorized `down -v` of the disposable canonical volumes. Every
+future app version bump repeats it. Decide the contract: either ordinary
+(seeded) provisioning runs `occ upgrade` when only apps need it, or the
+entrypoint fails fast with an explicit message and `testing.md` documents the
+reset/upgrade step next to the Nextcloud patch-promotion recipe.
 
 ---
 

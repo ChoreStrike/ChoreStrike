@@ -145,7 +145,7 @@ without a dedicated endpoint call.
 | 09 | Assignment & teamwork | TaskList, TodayView |
 | 10 | Planning: availability, energy, task plans | SchedulingView |
 | 11 | Progress & gamification | Dashboard, Leaderboard, Settings |
-| 12 | Minigames & boosts | ArcadeSection (Dashboard) |
+| 12 | Minigames | ArcadeCatalog (optional Arcade view) |
 | 13 | Members, roles & household changes | Settings → MemberList |
 | 14 | Notifications & reminders | (passive — no surface yet) |
 | 15 | Calendar overview & planning horizon | CalendarView |
@@ -342,7 +342,7 @@ preview/apply). **Entry points:** SchedulingView.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Coin balance | ArcadeSection | `GET /minigames/coins` | ✅ |
+| Coin balance | — | `GET /minigames/coins` | ⛔ retired with the WP3 no-Coin arcade cutover (T10/D7d) |
 | Game/global state (streaks, goal) | Dashboard | `GET /game/state` | ✅ |
 | Weekly ranking (opt-in, consent-filtered) | Leaderboard | `GET /ranking` + `POST /ranking/(consent\|withdraw)`; the unconditional `GET /users` ranking (`getLeaderboard`) and the pruned test-only `GET /game/leaderboard` are gone (CS-PLAN-070 WP4) | ✅ |
 | Ranking flag (owner) | Settings → House | `PUT /house` (`rankingEnabled`, default off) | ✅ |
@@ -353,19 +353,18 @@ preview/apply). **Entry points:** SchedulingView.
 | Weekly goal progress | HouseholdGoalBar | `GET /game/state` (`weeklyGoal` + personal `myWeeklyGoal`) | ✅ |
 | Reward rules configuration (coin/combo values) | — | `GET+PUT /reward-config` | ⛔ HTTP surface pruned (CS-PLAN-055); the WP4 retirement removed the weekly-goal/threshold override keys — only `energyMaxPerTask` and `titlesEnabled` remain |
 
-## UC-12 — Minigames & boosts
+## UC-12 — Minigames
 
-**Goal:** spend coins, play, compete. **Personas:** all (child-relevant).
-**Entry points:** ArcadeSection on Dashboard.
+**Goal:** play short household-themed games for fun; scores only, never Coins
+or chore value (T10/D7d). **Personas:** all (child-relevant).
+**Entry points:** the optional Arcade view (hidden with `arcadeVisible` off).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Play Snake and save score | `SnakeGame` | `POST /minigames/snake/scores` | Supported |
-| Play Memory / 2048 prototypes | `MemoryGame`, `Game2048` | shared score-save call uses unsupported game IDs | Playable prototypes; no supported score/reward persistence |
-| Personal best / rank / recent scores | ArcadeSection, `SnakeLeaderboard` | `GET /minigames/{g}/personal-best`, `/rank`, `/recent` | ✅ |
-| All-time + weekly game leaderboard | SnakeLeaderboard | `GET /minigames/{g}/leaderboard(/weekly)` | ✅ |
-| Buy boost (coins) | `BoostShop` | `POST /minigames/boosts/{id}/purchase` | ✅ |
-| Authoritative boost catalog (price/effect) | `BoostShop` / minigame store | `GET /minigames/boosts` | ✅ prices live server-side only (`BOOST_COSTS` deleted, UX-013) |
+| Play a game (keyboard, swipe, on-screen pad; pause on hide) and save the score with its play time | `ArcadeCatalog` → `GameShell` | `POST /minigames/{g}/scores` (`score`, `durationMs`) | ✅ Crumb Snake (CS-PLAN-086 WP-A) |
+| Personal best / rank per game | `ArcadeCatalog` card, `GameLeaderboard` | `GET /minigames/{g}/personal-best`, `/rank` | ✅ |
+| All-time + weekly board and own recent rounds per game | `GameLeaderboard` | `GET /minigames/{g}/leaderboard(/weekly)`, `/recent` | ✅ |
+| Memory / 2048 prototypes, boost shop | — | — | ⛔ retired with the WP3 cutover |
 
 ## UC-13 — Members, roles & household changes
 

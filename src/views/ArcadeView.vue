@@ -15,7 +15,7 @@
 					{{ t('chorestrike', 'Scores-only family fun — outside the daily routine.') }}
 				</p>
 			</header>
-			<ArcadeSection data-testid="arcade-surface" />
+			<ArcadeCatalog data-testid="arcade-surface" />
 		</template>
 		<div v-else class="arcade-hidden" data-testid="arcade-hidden">
 			<p>{{ t('chorestrike', 'The arcade is hidden. You can turn it on again in the Settings.') }}</p>
@@ -25,7 +25,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import ArcadeSection from '../components/Dashboard/ArcadeSection.vue'
+import ArcadeCatalog from '../components/Minigames/ArcadeCatalog.vue'
 import { usePreferencesStore } from '../store/preferences.js'
 
 /**
@@ -38,7 +38,7 @@ export default {
 	name: 'ArcadeView',
 
 	components: {
-		ArcadeSection,
+		ArcadeCatalog,
 	},
 
 	setup() {

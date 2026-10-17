@@ -18,21 +18,15 @@
 | `@nextcloud/*` (l10n, dialogs, event-bus, router, vue, axios, auth, initial-state) | AGPL-3.0 (Nextcloud) | `src/**` — Nextcloud host integration. |
 | `@playwright/test` (^1.58.2) | Apache-2.0 | `tests/e2e/**` — E2E test runner. |
 
-## Vendored game implementations (Phase 5)
+## Game implementations
 
-The two new minigames introduced in Phase 5 — `Game2048.vue` and
-`MemoryGame.vue` — are **clean-room re-implementations** of the
-public game designs. **No third-party code is vendored**; only the
-public game-design conventions (4×4 sliding/merging tiles; 16-card
-concentration) are reproduced. The implementations are licensed
-under the ChoreStrike MIT licence and live at:
-
-- `src/components/Minigames/Game2048.vue`
-- `src/components/Minigames/MemoryGame.vue`
-
-Both reuse the existing `useMinigameStore` (generic over `game_id`)
-for scores, coins and leaderboards, so the Coins economy stays
-shared with the previously-shipped Snake game.
+No third-party game code is vendored. The arcade games are original
+implementations under the ChoreStrike MIT licence in
+`src/components/Minigames/games/<id>/`, with original names and household
+artwork (CS-PLAN-086 D-086-03); Crumb Snake reproduces only the public
+snake-game convention (a growing line that collects items). The former
+`Game2048.vue` and `MemoryGame.vue` clean-room prototypes were retired with
+the CS-PLAN-070 WP3 no-Coin arcade cutover.
 
 ## Sound assets
 

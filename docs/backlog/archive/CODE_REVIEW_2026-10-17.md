@@ -206,3 +206,54 @@ original names, D-086-04 ceilings plus required duration, D-086-05 all five
 games, D-086-06 finished-chore count 0/3/10/25/50, D-086-07 branch-only until
 the 084 final review and the 080 family evidence window — one batched round
 plus one follow-up, recorded in the plan's §10.
+
+---
+
+## Standard B (interim) — CS-PLAN-086 WP-A arcade shell, registry, per-game store and Crumb Snake
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none (interim; plan stays `active/`)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md` (WP-A) |
+| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned) @ `315f40872d95590044cb075c39cc8a0ceec81a6b` |
+| Index at capture | 4 paths staged by the implementation (`git rm` of `ArcadeSection.vue`, `SnakeGame.vue`, `SnakeLeaderboard.vue`; `git mv` of `SnakeLeaderboard.spec.js` → `GameLeaderboard.spec.js`) |
+| Scope fingerprint at capture | `6c1c35294aad8100b665b5b207763693835a42746867321167404dc4b5b48767` (SHA-256 over staged binary diff `1d27cc43…0616`, unstaged binary diff `8f5a80c1…fcd7c` and the sorted untracked paths with content hashes `41240979…fc0d`); 29 modified tracked paths, 28 untracked paths |
+| Reviewed | `lib/` (ArcadeCatalog, ImplausibleScoreException, MinigameService, MinigameController), `src/` (Minigames shell/registry/games/snake, composables, store, effect gates, sound, ArcadeView), all touched PHPUnit/Jest/Playwright tests, l10n, durable docs, plan, backlog and ACTIVE_TASKS |
+
+### Findings
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| R086A-01 | minor | `GameShell.vue` | `GameLeaderboard` rendered inside the `role="application"` region: screen readers in application mode could not browse the board dialog | Fixed — rendered next to the region; regression in `GameShell.spec.js` (`closest('[role="application"]')` is null) |
+| R086A-02 | minor | `ArcadeCatalog.vue` | The "Scores could not be loaded." note followed any minigame store error, so a failed save inside a game (e.g. 429) showed a false load failure on the catalog | Fixed — the note follows the stats load only (`loadFailed`); regression in `ArcadeCatalog.spec.js`, negative control fails with the old condition |
+| R086A-03 | nit | `GameShell.vue` `draw()` | One render-input object allocated per frame, against the plan's "no per-frame allocations in hot paths" | Fixed — one view object rebuilt on layout |
+| R086A-04 | nit | `tests/unit/helpers/` | Helper file named `animationFrames.js` also holds the seeded RNG | Fixed — renamed `gameTestHelpers.js` |
+
+### Verified non-findings
+
+- `memberRead()` maps `\InvalidArgumentException` to a verbatim 400: no read dependency (`HouseService::getOrCreateHouse`/`getInstanceId`, `AuthorizationService::assertHouseMember`, `CalendarService::getTimeZone`/`weekStart`, the score mapper, the display-name enrichment) throws it — only the service's curated "Unknown game"; same pattern as the pre-existing `saveScore` catch.
+- Membership is checked before any input detail (missing `durationMs` from a non-member is a 403, unit-pinned); the house-row lock order and the daily cap are unchanged; validation runs before the cap query and the transaction.
+- Plausibility arithmetic: `30 * 3 600 000` fits `int`; the catalog test pins that every ceiling is reachable within its longest round.
+- Scores-only: no Coin, wallet, contribution, medal or ranking read/write added; catalog spec and E2E assert no Coin/boost surface.
+- Lazy loading: the production `game-snake` chunk is 1.6 KB gzip (budget 40 KB); the arcade chunk contains no Snake logic (`cleared`/`roundRect` only in the game chunk).
+- Implementation-time defects already fixed before the review: `TimezoneDayBucketingTest` used a non-catalog game id (reads now reject unknown ids → catalog id `snake`, fresh house isolates rows); the store briefly built API paths dynamically, which the static `apiContract.spec.js` guard cannot verify → literal paths restored.
+
+### Decisions recorded
+
+D-086-08 (operator, 2026-10-17): the kept canonical volumes had the app installed as `0.1.1` and the test entrypoint aborted on "require upgrade" after the `0.8.0-alpha.1` bump; the operator chose the recommended `down -v` of this checkout's disposable canonical stack. The missing app-upgrade path is routed out of scope as TECH-TEST-006 (`backlog.md`). Recorded in the plan's §10.
+
+### Gates (after all fixes)
+
+- Jest 136 suites / 1908 tests through the zero-noise gate (`npm run test:noise`).
+- PHPUnit on the fresh canonical stack (NC 35.0.2, PHP 8.4.26, PostgreSQL 18.6): unit 1421, integration 614, skips forbidden. The review fixes touched no PHP.
+- `npm run lint`, `npm run stylelint`, `composer cs:check` (0 of 417 files), `npm run l10n:check-keys` (1303 keys), `npm run backlog:check`, `npm run docs:encoding`, `git diff --check`.
+- `npm run build`: `game-snake` chunk 1609 bytes gzip.
+- Browser on the canonical stack (`test:runtime:canonical` verified after a restart from this checkout): `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2, with the arcade view and an open game in light and dark at 0 violations; auth setup 3/3.
+- Not run, with reason: the full browser gate, the AIO row and the phone projects. WP-A changes no mobile-core scenario; the plan schedules the touch E2E with the first DOM game (WP-C) and the full gate on both rows for WP-G.
+
+### Outcome
+
+`PASS-WITH-FIXES` (interim). R086A-01..04 were fixed and the gates rerun. Nothing was routed to the plan's §9; RF-086-01 was resolved by WP-A. TECH-TEST-006 is out of scope and in `backlog.md`. The plan stays `active/` for WP-B..WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.

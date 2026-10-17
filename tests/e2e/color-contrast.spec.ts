@@ -63,10 +63,7 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 					{ name: 'Settings', path: '#/settings', ready: 'settings-view' },
 				]
 				const violations: string[] = []
-				for (const view of views) {
-					await page.goto(`/apps/chorestrike/${view.path}`)
-					await expect(page.locator('body')).toHaveAttribute(`data-theme-${theme}`, '')
-					await expect(page.getByTestId(view.ready)).toBeVisible({ timeout: 20000 })
+				const collect = async (name: string): Promise<void> => {
 					await page.waitForLoadState('networkidle')
 					// Measure the settled UI: CSS transitions (e.g. the active navigation
 					// background) would otherwise be sampled at an intermediate color.
@@ -77,10 +74,23 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 					const result = await new AxeBuilder({ page }).include('#content').withRules(['color-contrast']).analyze()
 					for (const violation of result.violations) {
 						for (const node of violation.nodes) {
-							violations.push(`${view.name}: ${node.target.join(' ')} — ${node.failureSummary?.split('\n').slice(-1)[0]?.trim()}`)
+							violations.push(`${name}: ${node.target.join(' ')} — ${node.failureSummary?.split('\n').slice(-1)[0]?.trim()}`)
 						}
 					}
 				}
+				for (const view of views) {
+					await page.goto(`/apps/chorestrike/${view.path}`)
+					await expect(page.locator('body')).toHaveAttribute(`data-theme-${theme}`, '')
+					await expect(page.getByTestId(view.ready)).toBeVisible({ timeout: 20000 })
+					await collect(view.name)
+				}
+				// CS-PLAN-086: the arcade catalog and an open game on its start overlay.
+				await page.goto('/apps/chorestrike/#/arcade')
+				await expect(page.getByTestId('arcade-card-snake')).toBeVisible({ timeout: 20000 })
+				await collect('Arcade')
+				await page.getByTestId('arcade-play-snake').click()
+				await expect(page.getByTestId('game-shell')).toHaveAttribute('data-phase', 'ready', { timeout: 15000 })
+				await collect('Arcade game')
 				expect(violations, violations.join('\n')).toEqual([])
 			} finally {
 				await useTheme(page, 'default').catch(() => {})

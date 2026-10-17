@@ -8,141 +8,113 @@ import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 /**
+ * Score state of one game. Every game owns its own slice (CS-PLAN-086), so a
+ * save in one game never changes another game's boards or personal best.
+ *
+ * @return {object} Empty slice
+ */
+const emptySlice = () => ({
+	leaderboard: [],
+	weeklyLeaderboard: [],
+	personalBest: null,
+	userRank: 0,
+	recentScores: [],
+})
+
+const EMPTY_SLICE = Object.freeze(emptySlice())
+
+/**
  * Arcade store (CS-PLAN-070 WP3, T10/D7d no-Coin cutover): scores are
- * family fun only. The Coin minting, boost shop/catalog and Coin balance
- * reads are retired — nothing here touches the family wallet or
- * contribution; refreshes refetch game state instead.
+ * family fun only. Nothing here touches the family wallet or contribution.
+ *
+ * CS-PLAN-086: per-game slices (`byGame[gameId]`); every action names its
+ * game explicitly. The live round itself (score, pause, game over) belongs
+ * to GameShell; the store records the result through `finishGame`.
  */
 export const useMinigameStore = defineStore('minigame', {
 	state: () => ({
-		// Current game state
-		currentGame: null,
-		score: 0,
-		isPlaying: false,
-		isPaused: false,
-		gameOver: false,
-
-		// Leaderboard
-		leaderboard: [],
-		weeklyLeaderboard: [],
-		personalBest: null,
-		userRank: 0,
-		recentScores: [],
-
-		// UI state
+		byGame: {},
 		loading: false,
 		error: null,
-		showLeaderboard: false,
 	}),
 
 	getters: {
 		/**
-		 * Check if current score is a new personal best
+		 * Read-only slice of a game (an empty one before the first fetch).
 		 * @param {object} state Pinia store state
+		 * @return {function(string): object}
 		 */
-		isNewPersonalBest: (state) => {
-			if (!state.personalBest) return state.score > 0
-			return state.score > state.personalBest.score
-		},
+		slice: (state) => (gameId) => state.byGame[gameId] ?? EMPTY_SLICE,
 	},
 
 	actions: {
 		/**
-		 * Fetch leaderboard for a game
+		 * @param {string} gameId Game identifier
+		 * @return {object} The writable slice of the game
+		 */
+		ensureSlice(gameId) {
+			if (!this.byGame[gameId]) {
+				this.byGame[gameId] = emptySlice()
+			}
+			return this.byGame[gameId]
+		},
+
+		/**
+		 * Soft-failing child read: stores the result in the game's slice, or
+		 * records the error and keeps the previous value (CS-PLAN-066 §3.4:
+		 * child fetches never touch the aggregate `loading` flag).
 		 *
-		 * CS-PLAN-066 §3.4: child fetches own their slice states and never
-		 * touch the AGGREGATE `loading` flag — a parallel child fetch
-		 * settling early must not clear the initialization owner's loading
-		 * state.
-		 * @param {string} gameId Game identifier (e.g. 'snake')
-		 * @param {number} limit Maximum number of entries to return
+		 * @param {string} gameId Game identifier
+		 * @param {string} field Slice field to fill
+		 * @param {function(): Promise<*>} request The API read
+		 * @param {function(*): *} [pick] Maps the response data to the field value
 		 */
-		async fetchLeaderboard(gameId = 'snake', limit = 10) {
-			this.error = null
-
+		async readInto(gameId, field, request, pick = (data) => data) {
 			try {
-				const data = await api.get(`/api/v1/minigames/${gameId}/leaderboard`, {
-					params: { limit },
-				})
-				this.leaderboard = data
+				this.ensureSlice(gameId)[field] = pick(await request())
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to fetch leaderboard', error, { store: 'minigame', action: 'fetchLeaderboard' })
+				logger.error('Failed to fetch minigame data', error, { store: 'minigame', action: field, gameId })
 			}
 		},
 
-		/**
-		 * Fetch weekly leaderboard
-		 * @param {string} gameId Game identifier (e.g. 'snake')
-		 * @param {number} limit Maximum number of entries to return
-		 */
-		async fetchWeeklyLeaderboard(gameId = 'snake', limit = 10) {
-			try {
-				const data = await api.get(`/api/v1/minigames/${gameId}/leaderboard/weekly`, {
-					params: { limit },
-				})
-				this.weeklyLeaderboard = data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch weekly leaderboard', error, { store: 'minigame', action: 'fetchWeeklyLeaderboard' })
-			}
+		fetchLeaderboard(gameId, limit = 10) {
+			return this.readInto(gameId, 'leaderboard',
+				() => api.get(`/api/v1/minigames/${gameId}/leaderboard`, { params: { limit } }))
+		},
+
+		fetchWeeklyLeaderboard(gameId, limit = 10) {
+			return this.readInto(gameId, 'weeklyLeaderboard',
+				() => api.get(`/api/v1/minigames/${gameId}/leaderboard/weekly`, { params: { limit } }))
+		},
+
+		fetchPersonalBest(gameId) {
+			return this.readInto(gameId, 'personalBest',
+				() => api.get(`/api/v1/minigames/${gameId}/personal-best`))
+		},
+
+		fetchUserRank(gameId) {
+			return this.readInto(gameId, 'userRank',
+				() => api.get(`/api/v1/minigames/${gameId}/rank`), (data) => data.rank)
+		},
+
+		fetchRecentScores(gameId, limit = 5) {
+			return this.readInto(gameId, 'recentScores',
+				() => api.get(`/api/v1/minigames/${gameId}/recent`, { params: { limit } }))
 		},
 
 		/**
-		 * Fetch personal best score
-		 * @param {string} gameId Game identifier (e.g. 'snake')
+		 * Save a finished round (scores only — never wallet/contribution) and
+		 * refresh that game's personal best, rank and board.
+		 *
+		 * @param {string} gameId Game identifier
+		 * @param {number} score Final score
+		 * @param {number} durationMs Active play time (required, D-086-04)
+		 * @return {Promise<object|null>} Saved score, or null when the save failed
 		 */
-		async fetchPersonalBest(gameId = 'snake') {
+		async saveScore(gameId, score, durationMs) {
 			try {
-				const data = await api.get(`/api/v1/minigames/${gameId}/personal-best`)
-				this.personalBest = data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch personal best', error, { store: 'minigame', action: 'fetchPersonalBest' })
-			}
-		},
-
-		/**
-		 * Fetch user rank
-		 * @param {string} gameId Game identifier (e.g. 'snake')
-		 */
-		async fetchUserRank(gameId = 'snake') {
-			try {
-				const data = await api.get(`/api/v1/minigames/${gameId}/rank`)
-				this.userRank = data.rank
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch user rank', error, { store: 'minigame', action: 'fetchUserRank' })
-			}
-		},
-
-		/**
-		 * Fetch recent scores
-		 * @param {string} gameId Game identifier (e.g. 'snake')
-		 * @param {number} limit Maximum number of entries to return
-		 */
-		async fetchRecentScores(gameId = 'snake', limit = 5) {
-			try {
-				const data = await api.get(`/api/v1/minigames/${gameId}/recent`, {
-					params: { limit },
-				})
-				this.recentScores = data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch recent scores', error, { store: 'minigame', action: 'fetchRecentScores' })
-			}
-		},
-
-		/**
-		 * Save game score (scores only — never wallet/contribution)
-		 * @param {string} gameId Game identifier (e.g. 'snake')
-		 */
-		async saveScore(gameId = 'snake') {
-			try {
-				const data = await api.post(`/api/v1/minigames/${gameId}/scores`, {
-					score: this.score,
-				})
-
+				const data = await api.post(`/api/v1/minigames/${gameId}/scores`, { score, durationMs })
 				await Promise.all([
 					this.fetchPersonalBest(gameId),
 					this.fetchUserRank(gameId),
@@ -151,118 +123,56 @@ export const useMinigameStore = defineStore('minigame', {
 				return data
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to save score', error, { store: 'minigame', action: 'saveScore' })
+				logger.error('Failed to save score', error, { store: 'minigame', action: 'saveScore', gameId })
+				return null
 			}
-
-			return null
 		},
 
 		/**
-		 * Start a new game
-		 * @param {string} gameId Game identifier (e.g. 'snake')
+		 * Record a finished round. A zero score is not saved.
+		 *
+		 * @param {string} gameId Game identifier
+		 * @param {number} score Final score
+		 * @param {number} durationMs Active play time
+		 * @return {Promise<{saved: boolean, saveFailed: boolean, newBest: boolean}>}
 		 */
-		startGame(gameId = 'snake') {
-			this.currentGame = gameId
-			this.score = 0
-			this.isPlaying = true
-			this.isPaused = false
-			this.gameOver = false
-		},
-
-		/**
-		 * Pause the current game
-		 */
-		pauseGame() {
-			this.isPaused = true
-		},
-
-		/**
-		 * Resume the current game
-		 */
-		resumeGame() {
-			this.isPaused = false
-		},
-
-		/**
-		 * End the current game
-		 */
-		async endGame() {
-			this.isPlaying = false
-			this.gameOver = true
-			let saveResult = null
-
-			// Save score to backend
-			if (this.score > 0) {
-				saveResult = await this.saveScore(this.currentGame)
+		async finishGame(gameId, score, durationMs) {
+			if (score <= 0) {
+				return { saved: false, saveFailed: false, newBest: false }
 			}
-
-			return saveResult
+			const previousBest = this.slice(gameId).personalBest?.score ?? 0
+			const saved = (await this.saveScore(gameId, score, durationMs)) !== null
+			return { saved, saveFailed: !saved, newBest: saved && score > previousBest }
 		},
 
 		/**
-		 * Update score
-		 * @param {number} points Points to add to the current score
-		 */
-		updateScore(points) {
-			this.score += points
-		},
-
-		/**
-		 * Initialize minigame data
+		 * Load what the catalog cards show: personal best and rank per game.
 		 *
 		 * CS-PLAN-066 §3.4: the aggregate owns `loading` behind a
-		 * try/finally, so a rejected child fetch can never leave the store
-		 * stuck in a loading state, and the failure is propagated
-		 * recoverably to the caller for its error/retry UI. Child fetches
-		 * keep their own soft-fail behavior (partial data beats a blank
-		 * arcade).
-		 * @param {string} gameId Game identifier (e.g. 'snake')
-		 * @throws {Error} When a child fetch fails (recoverable — retry by
-		 *   calling initialize again).
+		 * try/finally; child fetches soft-fail into `error`.
+		 * @param {string[]} gameIds Game identifiers
 		 */
-		async initialize(gameId = 'snake') {
+		async initialize(gameIds) {
 			this.loading = true
 			this.error = null
-
 			try {
-				await Promise.all([
-					this.fetchLeaderboard(gameId),
+				await Promise.all(gameIds.flatMap((gameId) => [
 					this.fetchPersonalBest(gameId),
 					this.fetchUserRank(gameId),
-				])
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to initialize minigame data', error, { store: 'minigame', action: 'initialize', gameId })
-				throw error
+				]))
 			} finally {
 				this.loading = false
 			}
 		},
 
-		/**
-		 * Clear error state
-		 */
 		clearError() {
 			this.error = null
 		},
 
-		/**
-		 * Reset store state
-		 */
 		reset() {
-			this.currentGame = null
-			this.score = 0
-			this.isPlaying = false
-			this.isPaused = false
-			this.gameOver = false
-			this.leaderboard = []
-			this.weeklyLeaderboard = []
-			this.personalBest = null
-			this.userRank = 0
-			this.recentScores = []
+			this.byGame = {}
 			this.loading = false
 			this.error = null
-			this.showLeaderboard = false
 		},
 	},
 })

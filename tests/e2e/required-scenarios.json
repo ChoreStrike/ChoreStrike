@@ -357,7 +357,9 @@
   ],
   "snake-game.spec.ts": [
     "snake-game.spec.ts > Snake Arcade Game > Arcade surface is reachable and stays scores-only",
+    "snake-game.spec.ts > Snake Arcade Game > Finished round is saved to this game's leaderboard",
     "snake-game.spec.ts > Snake Arcade Game > Game over screen shows the score (no coin outputs)",
+    "snake-game.spec.ts > Snake Arcade Game > Keys outside the game are never captured",
     "snake-game.spec.ts > Snake Arcade Game > Leaderboard can be opened from arcade section",
     "snake-game.spec.ts > Snake Arcade Game > Leaderboard tabs switch between all-time and weekly",
     "snake-game.spec.ts > Snake Arcade Game > Mobile controls are visible on touch devices",

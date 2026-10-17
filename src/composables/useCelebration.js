@@ -5,8 +5,9 @@
 
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { usePreferencesStore } from '../store/preferences.js'
-import { fireConfetti, fireMilestoneConfetti, setAnimationsEnabled } from '../utils/confetti.js'
-import { playSound, setSoundEnabled } from '../utils/sound.js'
+import { fireConfetti, fireMilestoneConfetti } from '../utils/confetti.js'
+import { playSound } from '../utils/sound.js'
+import { syncEffectGates } from '../utils/effectGates.js'
 import { logger } from '../utils/logger.js'
 import { pulseCompletion } from '../utils/haptics.js'
 
@@ -34,12 +35,10 @@ export function useCelebration() {
 	const handlers = []
 
 	/**
-	 * Re-read the personal opt-ins before every effect so the gating
-	 * never depends on initialization order.
+	 * Re-read the personal opt-ins before every effect (shared helper).
 	 */
 	function syncPreferenceGates() {
-		setSoundEnabled(preferences.soundEnabled === true)
-		setAnimationsEnabled(preferences.animationEnabled === true)
+		syncEffectGates(preferences)
 	}
 
 	function on(event, handler) {

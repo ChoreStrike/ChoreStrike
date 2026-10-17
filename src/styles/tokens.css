@@ -63,8 +63,8 @@
 	--cs-medal-platinum: #74B9FF;
 
 	/* === Surface helpers ==============================================
-	 * Card / chip / shadow tokens used by ArcadeSection, the new
-	 * Minigames and the goal/reward surfaces. Inherit from Nextcloud
+	 * Card / chip / shadow tokens used by the arcade, the Minigames
+	 * and the goal/reward surfaces. Inherit from Nextcloud
 	 * where possible so dark mode "just works".
 	 */
 	--cs-radius-sm: 6px;

@@ -1,6 +1,6 @@
 # CS-PLAN-086: Household Arcade — Game Catalog, Chore Unlocks and Per-Game Highscores
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, RF-086-01 routed to WP-A, D-086-01..07 resolved); implementation not started
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); next: WP-B
 > **Effort:** XL (seven work packages; no schema change)
 > **Priority:** P3 (optional add-on, never on the core critical path)
 > **Depends on:** work proceeds on branch `feat/arcade-minigames`; merge to
@@ -320,6 +320,7 @@ playable and legible with all effects off.
 
 ```
 new:      lib/Service/ArcadeCatalog.php
+new:      lib/Exception/ImplausibleScoreException.php               (WP-A: 400 MINIGAME_IMPLAUSIBLE_SCORE)
 new:      lib/Service/ArcadeAccessService.php
 modified: lib/Db/WorkShareMapper.php                          (countValidSelectedByWallet)
 modified: lib/Service/MinigameService.php
@@ -329,25 +330,31 @@ modified: lib/Controller/HouseController.php
 modified: appinfo/routes.php
 new:      src/composables/useGameLoop.js
 new:      src/composables/useGameEffects.js
+new:      src/utils/effectGates.js                            (WP-A: the extracted gate sync)
 modified: src/composables/useCelebration.js                   (extracted gate sync)
 new:      src/components/Minigames/GameShell.vue
+new:      src/components/Minigames/{GameShellOverlay,GameShellDpad}.vue   (WP-A: split from the shell)
+new:      src/components/Minigames/{board,gameInput}.js         (WP-A: board fit/palette, key/swipe mapping)
 new:      src/components/Minigames/ArcadeCatalog.vue
 new:      src/components/Minigames/GameLeaderboard.vue
 new:      src/components/Minigames/gameRegistry.js
-new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…
+new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js)
 modified: src/store/minigame.js
 modified: src/views/ArcadeView.vue
 modified: src/views/Settings.vue
 modified: src/utils/sound.js                                  (pop/swish profiles)
+modified: src/styles/tokens.css                               (WP-A: comment only)
 modified: l10n/*
 archived: archive/YYYY-MM/arcade-snake-v1/{SnakeGame.vue,SnakeLeaderboard.vue,ArcadeSection.vue}   (month of removal)
 new:      tests/unit/composables/{useGameLoop,useGameEffects}.spec.js
 new:      tests/unit/minigames/*.spec.js
+new:      tests/unit/helpers/animationFrames.js               (WP-A: manual rAF driver, seeded RNG)
 new:      tests/unit/components/{GameShell,ArcadeCatalog}.spec.js
 renamed:  tests/unit/components/SnakeLeaderboard.spec.js → GameLeaderboard.spec.js
 new:      tests/unit/store/minigame.spec.js
-modified: tests/unit/composables/useCelebration.spec.js
 modified: tests/unit/views/ArcadeView.spec.js
+modified: tests/unit/composables/useStoreReset.spec.js         (WP-A: per-game slices)
+modified: tests/unit/services/coreWorkflowLocalization.spec.js (WP-A: ArcadeCatalog path)
 new:      tests/unit/Service/{ArcadeCatalogTest,ArcadeAccessServiceTest}.php
 modified: tests/unit/Service/{MinigameServiceTest,RewardConfigServiceTest}.php
 modified: tests/unit/Controller/{MinigameControllerTest,HouseControllerTest}.php
@@ -356,12 +363,14 @@ modified: tests/integration/Controller/{MinigameControllerIntegrationTest,HouseC
 new:      tests/integration/Db/WorkShareCountTest.php
 new:      tests/e2e/arcade-games.spec.ts
 modified: tests/e2e/snake-game.spec.ts
+modified: tests/e2e/color-contrast.spec.ts                    (WP-A: arcade view + open game)
 modified: tests/e2e/required-scenarios.json
 new:      docs/adr/ADR-019-arcade-unlocks-from-completion-history.md
 modified: docs/adr/README.md
 modified: docs/concepts/gamification-and-rewards.md           (§Arcade, D7 bullets)
 modified: docs/concepts/calm-core-ux.md                       (§Optional areas: owner switch)
 modified: docs/api/README.md                                  (§Minigames: catalog, durationMs, codes)
+modified: docs/engineering/architecture.md, docs/concepts/ui-use-cases.md, docs/THIRD_PARTY.md   (WP-A: component map, UC-12, game implementations)
 ```
 
 ## 6. Implementation Order
@@ -377,6 +386,18 @@ Each WP is one reviewable round with an interim Standard B on
    ids, per-game ceilings and the required `durationMs` plausibility (catalog
    still `snake` only); `limit` clamping (RF-086-01). Old components archived.
    Users see the same arcade minus the defects.
+   *Implemented 2026-10-17.* Implementation choices within the plan:
+   `ArcadeCatalog.vue` renders the client registry until WP-B adds the
+   catalog endpoint; the extracted gate sync is `src/utils/effectGates.js`
+   (useCelebration and useGameEffects both call it); the pickup vibration
+   rides on the motion opt-in (`animationEnabled`), sound on `soundEnabled`;
+   the D-pad shows on touch and narrow screens; keyboard focus moves to the
+   overlay's main action on pause/game over. Crumb Snake: 10 points per crumb,
+   30 per golden crumb (15 %), 150 → 60 ms per move, one new piece of
+   furniture per 50 points (max. 10, never within two cells or four cells
+   ahead of the nozzle); server rules `maxScore` 20000, `maxDurationMs` one
+   hour, 30 points per second + 100 burst (tuned in WP-G). Read limits clamp
+   to 1..50; unknown ids are 400 on reads.
 2. **WP-B — Unlock gate and owner switch** (FEAT-ARCADE-002). Lifetime count
    query, `ArcadeAccessService`, catalog endpoint, `assertUnlocked` on save,
    lock states and progress in the catalog, owner toggle as a typed
@@ -454,12 +475,13 @@ Findings **within this plan's scope** from implementation rounds or reviews
 rescoping to `backlog.md` needs explicit user approval. Out-of-scope findings
 go directly to `backlog.md` (or fold into an existing item) instead.
 
-- [ ] **RF-086-01 minor (pre-existing)** · `lib/Controller/MinigameController.php`
+- [x] **RF-086-01 minor (pre-existing)** · `lib/Controller/MinigameController.php`
       `leaderboard`/`weeklyLeaderboard`/`recentScores` → `MinigameScoreMapper`
       `setMaxResults($limit)` · the client `limit` reaches the query unclamped:
       large values return the whole house board, negative values reach the
-      database as `LIMIT -n` · open → WP-A clamps at the controller boundary
-      with unit regressions (Standard A 2026-10-17).
+      database as `LIMIT -n` · resolved in WP-A: clamped to 1..50 at the
+      controller boundary (`MinigameControllerTest::testReads_ClampLimit`,
+      integration check with `-3` and `100000`).
 
 ## 10. Decisions (resolved 2026-10-17, Standard A)
 
@@ -489,6 +511,15 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - **D-086-07 — Integration: A.** Work on `feat/arcade-minigames`, rebased
   after every CS-PLAN-084 round; merge to `master` and deploy only after the
   084 final review and the close of the CS-PLAN-080 family evidence window.
+  The 084 final review is done (`bce10bb`); the branch was rebased onto
+  `master` `0d27d38` on 2026-10-17 and the worktree pinned to it.
+- **D-086-08 — Canonical test volumes reset** (operator, 2026-10-17, WP-A).
+  The kept canonical volumes had the app installed as `0.1.1`; after the
+  `0.8.0-alpha.1` bump the test entrypoint aborted on "require upgrade". The
+  operator chose the recommended `down -v` of this checkout's disposable
+  canonical stack over a one-off `occ upgrade` container or an isolated
+  project; the missing app-upgrade path is routed out of scope as
+  TECH-TEST-006.
 
 ## Review Outcome
 
@@ -531,3 +562,28 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   follow-up on D-086-02 after A-20.
 - **Gates:** backlog check, docs encoding, `git diff --check`, docs/scripts
   Jest suites green; no runtime code changed.
+
+### Standard B (interim, WP-A) — 2026-10-17 — `PASS-WITH-FIXES` (stays `active/`)
+
+- **Scope:** the uncommitted WP-A package on `feat/arcade-minigames` @
+  `315f408` (fingerprint at capture `6c1c3529…8767`: 4 staged deletions or
+  renames, 29 modified and 28 untracked paths).
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-17.md).
+- **Fixed (4):**
+  - R086A-01: the board dialog moved out of the shell's `role="application"` region.
+  - R086A-02: the catalog's load note follows only the stats load, so a failed save no longer shows as a load failure.
+  - R086A-03: no per-frame allocation in `draw()`.
+  - R086A-04: the test helper is renamed.
+  - Each has a regression test where testable; the R086A-02 negative control fails with the old condition.
+- **Verified:**
+  - The read envelope's `\InvalidArgumentException` mapping has no other thrower in the read path.
+  - Membership is checked before input validation.
+  - The game chunk stays lazy (1609 bytes gzip).
+  - There is no Coin, wallet or ranking surface.
+- **Decisions:** D-086-08 (canonical volumes reset; TECH-TEST-006 routed).
+- **Gates:**
+  - Jest 136/1908, noise-free.
+  - PHPUnit unit 1421 and integration 614 on the fresh canonical stack.
+  - lint, stylelint, `cs:check`, l10n (1303 keys), backlog, encoding and build checks.
+  - Browser: `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (light and dark, including the arcade view and an open game) at 0 violations.
+  - Not run: the full gate, the AIO row and the phone projects, which are scheduled for WP-C and WP-G.

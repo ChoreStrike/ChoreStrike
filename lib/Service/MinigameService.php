@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\ImplausibleScoreException;
 use OCP\IL10N;
 
 /**
@@ -22,24 +23,12 @@ use OCP\IL10N;
  * fun only — they never write wallet entries, contribution or any reward.
  * The former Coin minting (floor(score/10)), boost purchase/catalog and
  * Coin-balance reads are retired with their routes and client consumers.
+ *
+ * CS-PLAN-086: game ids, score ceilings and the duration plausibility rules
+ * live in {@see ArcadeCatalog}; every read and write names its game
+ * explicitly and an unknown id is rejected.
  */
 class MinigameService {
-	/**
-	 * Sane per-game score ceiling (CR-SVC-05).
-	 *
-	 * Client scores are untrusted: the ceiling is generous for any
-	 * realistic game (a snake high score is in the low thousands) while
-	 * blocking INT_MAX farming and negative values.
-	 */
-	public const MAX_SCORE = 100000;
-
-	/**
-	 * Whitelist of game ids the API accepts (CS-PLAN-061 §3.7, decision D7):
-	 * an unknown gameId is a 400. Keep in sync with the frontend game
-	 * catalog (currently only snake).
-	 */
-	public const VALID_GAMES = ['snake'];
-
 	/**
 	 * Per-user daily saveScore cap (CS-PLAN-061 §3.7, decision D7): at most
 	 * this many score submissions per house-local day; further submissions
@@ -79,24 +68,16 @@ class MinigameService {
 	 *
 	 * @param int $houseId The house ID
 	 * @param string $userId The Nextcloud user ID
-	 * @param string $gameId The game ID (e.g., 'snake')
+	 * @param string $gameId A game id of the {@see ArcadeCatalog}
 	 * @param int $score The achieved score
+	 * @param int $durationMs Active play time of the round in milliseconds
 	 * @return MinigameScore The persisted score entity
-	 * @throws \InvalidArgumentException if the score is out of bounds (CR-SVC-05) or the gameId is unknown (D7)
+	 * @throws \InvalidArgumentException for an unknown game, a score outside the game's bounds (CR-SVC-05) or a duration outside the game's bounds
+	 * @throws ImplausibleScoreException when the score is not reachable in the reported play time (D-086-04)
 	 * @throws \OCA\ChoreStrike\Exception\RateLimitException when the per-user daily save cap is reached (D7)
 	 */
-	public function saveScore(int $houseId, string $userId, string $gameId, int $score): MinigameScore {
-		// CR-SVC-05: bound the client-supplied score before any insert.
-		if ($score < 0 || $score > self::MAX_SCORE) {
-			throw new \InvalidArgumentException(
-				$this->l10n->t('Score must be between 0 and %1$d', [self::MAX_SCORE])
-			);
-		}
-
-		// D7: unknown gameIds are rejected outright.
-		if (!in_array($gameId, self::VALID_GAMES, true)) {
-			throw new \InvalidArgumentException($this->l10n->t('Unknown game'));
-		}
+	public function saveScore(int $houseId, string $userId, string $gameId, int $score, int $durationMs): MinigameScore {
+		$this->assertValidSubmission($houseId, $userId, $gameId, $score, $durationMs);
 
 		// D7: per-user daily save cap. The window is the house-local calendar
 		// day (CS-PLAN-057 convention), resolved before the write transaction.
@@ -149,14 +130,62 @@ class MinigameService {
 	}
 
 	/**
+	 * Reject a submission before any persistence: unknown game, score
+	 * outside the game's ceiling (CR-SVC-05), duration outside the game's
+	 * bounds, or a score not reachable in that duration (D-086-04).
+	 *
+	 * @throws \InvalidArgumentException
+	 * @throws ImplausibleScoreException
+	 */
+	private function assertValidSubmission(int $houseId, string $userId, string $gameId, int $score, int $durationMs): void {
+		$this->assertKnownGame($gameId);
+		$rules = ArcadeCatalog::rules($gameId);
+		if ($score < 0 || $score > $rules['maxScore']) {
+			throw new \InvalidArgumentException(
+				$this->l10n->t('Score must be between 0 and %1$d', [$rules['maxScore']])
+			);
+		}
+		if ($durationMs < 1 || $durationMs > $rules['maxDurationMs']) {
+			throw new \InvalidArgumentException(
+				$this->l10n->t('Play time must be between 1 and %1$d milliseconds', [$rules['maxDurationMs']])
+			);
+		}
+		if (!ArcadeCatalog::isPlausible($gameId, $score, $durationMs)) {
+			$this->appLogger->warning('Minigame score save rejected: implausible score', [
+				'event' => 'minigame_implausible_score',
+				'service' => 'MinigameService',
+				'houseId' => $houseId,
+				'userId' => $userId,
+				'gameId' => $gameId,
+				'score' => $score,
+				'durationMs' => $durationMs,
+			]);
+			throw new ImplausibleScoreException(
+				$this->l10n->t('This score is not possible in the time played.')
+			);
+		}
+	}
+
+	/**
+	 * @throws \InvalidArgumentException for a game id the catalog does not know
+	 */
+	private function assertKnownGame(string $gameId): void {
+		if (!ArcadeCatalog::has($gameId)) {
+			throw new \InvalidArgumentException($this->l10n->t('Unknown game'));
+		}
+	}
+
+	/**
 	 * Get leaderboard for a house and game
 	 *
 	 * @param int $houseId The house ID
 	 * @param string $gameId The game ID
 	 * @param int $limit Maximum number of entries
 	 * @return array Array of scores with user display names
+	 * @throws \InvalidArgumentException for an unknown game
 	 */
 	public function getLeaderboard(int $houseId, string $gameId, int $limit = 10): array {
+		$this->assertKnownGame($gameId);
 		$scores = $this->scoreMapper->getLeaderboard($houseId, $gameId, $limit);
 		return $this->enrichScoresWithDisplayNames($houseId, $scores);
 	}
@@ -171,8 +200,10 @@ class MinigameService {
 	 * @param string $gameId The game ID
 	 * @param int $limit Maximum number of entries
 	 * @return array Array of scores with user display names
+	 * @throws \InvalidArgumentException for an unknown game
 	 */
 	public function getWeeklyLeaderboard(int $houseId, string $gameId, int $limit = 10): array {
+		$this->assertKnownGame($gameId);
 		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
 		$weekStart = $this->calendarService->weekStart(new \DateTime(), $tz);
 		$scores = $this->scoreMapper->getLeaderboardForPeriod($houseId, $gameId, $weekStart, $limit);
@@ -217,8 +248,10 @@ class MinigameService {
 	 * @param string $userId The Nextcloud user ID
 	 * @param string $gameId The game ID
 	 * @return array|null Personal best data or null if no scores exist
+	 * @throws \InvalidArgumentException for an unknown game
 	 */
 	public function getPersonalBest(int $houseId, string $userId, string $gameId): ?array {
+		$this->assertKnownGame($gameId);
 		$score = $this->scoreMapper->getPersonalBest($houseId, $userId, $gameId);
 
 		if ($score === null) {
@@ -239,8 +272,10 @@ class MinigameService {
 	 * @param string $userId The Nextcloud user ID
 	 * @param string $gameId The game ID
 	 * @return int The user's rank (1-based) or 0 if not ranked
+	 * @throws \InvalidArgumentException for an unknown game
 	 */
 	public function getUserRank(int $houseId, string $userId, string $gameId): int {
+		$this->assertKnownGame($gameId);
 		return $this->scoreMapper->getUserRank($houseId, $userId, $gameId);
 	}
 
@@ -252,8 +287,10 @@ class MinigameService {
 	 * @param string $gameId The game ID
 	 * @param int $limit Maximum number of scores
 	 * @return array Array of recent scores
+	 * @throws \InvalidArgumentException for an unknown game
 	 */
 	public function getRecentScores(int $houseId, string $userId, string $gameId, int $limit = 5): array {
+		$this->assertKnownGame($gameId);
 		$scores = $this->scoreMapper->findByUserAndGame($houseId, $userId, $gameId, $limit);
 
 		return array_map(fn ($score) => [

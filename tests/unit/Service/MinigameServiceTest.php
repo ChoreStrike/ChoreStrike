@@ -15,7 +15,9 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
+use OCA\ChoreStrike\Exception\ImplausibleScoreException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\ArcadeCatalog;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCP\IDBConnection;
@@ -28,6 +30,11 @@ use PHPUnit\Framework\TestCase;
  * purchase/coin-mint surface is gone.
  */
 class MinigameServiceTest extends TestCase {
+	/** A one-minute round: Snake accepts up to 100 + 30 * 60 = 1900 points. */
+	private const ROUND_MS = 60000;
+	/** The longest accepted Snake round. */
+	private const LONG_ROUND_MS = 3600000;
+
 	private MinigameService $service;
 	private MinigameScoreMapper $scoreMapper;
 	private HouseUserMapper $houseUserMapper;
@@ -72,6 +79,10 @@ class MinigameServiceTest extends TestCase {
 		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, new \OCA\ChoreStrike\Db\TransactionExecutor($this->db), $l10n, $this->appLogger, $this->houseMapper, new CalendarService());
 	}
 
+	private static function snakeMaxScore(): int {
+		return ArcadeCatalog::GAMES['snake']['maxScore'];
+	}
+
 	private function makeScore(int $score): MinigameScore {
 		$scoreEntity = new MinigameScore();
 		$scoreEntity->setId(1);
@@ -90,7 +101,7 @@ class MinigameServiceTest extends TestCase {
 		$this->db->expects($this->once())->method('beginTransaction');
 		$this->db->expects($this->once())->method('commit');
 
-		$result = $this->service->saveScore(1, 'user1', 'snake', 150);
+		$result = $this->service->saveScore(1, 'user1', 'snake', 150, self::ROUND_MS);
 
 		$this->assertEquals(150, $result->getScore());
 		$this->assertEquals('snake', $result->getGameId());
@@ -108,7 +119,7 @@ class MinigameServiceTest extends TestCase {
 		$this->houseUserMapper->expects($this->never())->method('findForUpdate');
 		$this->houseUserMapper->expects($this->never())->method('update');
 
-		$this->service->saveScore(1, 'user1', 'snake', 120);
+		$this->service->saveScore(1, 'user1', 'snake', 120, self::ROUND_MS);
 	}
 
 	/**
@@ -127,7 +138,7 @@ class MinigameServiceTest extends TestCase {
 		$this->db->expects($this->never())->method('commit');
 
 		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
-		$this->service->saveScore(1, 'user1', 'snake', 150);
+		$this->service->saveScore(1, 'user1', 'snake', 150, self::ROUND_MS);
 	}
 
 	/**
@@ -143,7 +154,7 @@ class MinigameServiceTest extends TestCase {
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Score must be between 0 and %1$d');
 
-		$this->service->saveScore(1, 'user1', 'snake', -50);
+		$this->service->saveScore(1, 'user1', 'snake', -50, self::ROUND_MS);
 	}
 
 	/**
@@ -158,20 +169,21 @@ class MinigameServiceTest extends TestCase {
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Score must be between 0 and %1$d');
 
-		$this->service->saveScore(1, 'user1', 'snake', MinigameService::MAX_SCORE + 1);
+		$this->service->saveScore(1, 'user1', 'snake', self::snakeMaxScore() + 1, self::LONG_ROUND_MS);
 	}
 
 	/**
 	 * SaveScore_AtMaxScore_Accepted
 	 *
-	 * CR-SVC-05: the cap is inclusive — exactly MAX_SCORE is a valid score.
+	 * CR-SVC-05: the per-game cap is inclusive — exactly the ceiling is a
+	 * valid score (CS-PLAN-086: the ceiling comes from ArcadeCatalog).
 	 */
 	public function testSaveScore_AtMaxScore_Accepted(): void {
-		$this->scoreMapper->expects($this->once())->method('insert')->willReturn($this->makeScore(MinigameService::MAX_SCORE));
+		$this->scoreMapper->expects($this->once())->method('insert')->willReturn($this->makeScore(self::snakeMaxScore()));
 
-		$result = $this->service->saveScore(1, 'user1', 'snake', MinigameService::MAX_SCORE);
+		$result = $this->service->saveScore(1, 'user1', 'snake', self::snakeMaxScore(), self::LONG_ROUND_MS);
 
-		$this->assertSame(MinigameService::MAX_SCORE, $result->getScore());
+		$this->assertSame(self::snakeMaxScore(), $result->getScore());
 	}
 
 	/**
@@ -184,7 +196,94 @@ class MinigameServiceTest extends TestCase {
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown game');
 
-		$this->service->saveScore(1, 'user1', '2048', 100);
+		$this->service->saveScore(1, 'user1', '2048', 100, self::ROUND_MS);
+	}
+
+	/**
+	 * SaveScore_DurationOutOfBounds_RejectedBeforeInsert (D-086-04)
+	 *
+	 * @dataProvider outOfBoundsDurations
+	 */
+	public function testSaveScore_DurationOutOfBounds_RejectedBeforeInsert(int $durationMs): void {
+		$this->scoreMapper->expects($this->never())->method('insert');
+		$this->db->expects($this->never())->method('beginTransaction');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Play time must be between 1 and %1$d milliseconds');
+
+		$this->service->saveScore(1, 'user1', 'snake', 0, $durationMs);
+	}
+
+	public static function outOfBoundsDurations(): array {
+		return [
+			'zero' => [0],
+			'negative' => [-1000],
+			'above the game maximum' => [ArcadeCatalog::GAMES['snake']['maxDurationMs'] + 1],
+		];
+	}
+
+	/**
+	 * SaveScore_ImplausibleScore_RejectedAndLogged (D-086-04)
+	 *
+	 * One point above `burstPoints + pointsPerSecond * seconds` is rejected
+	 * before any persistence, with a warning for the WP-G rate tuning.
+	 */
+	public function testSaveScore_ImplausibleScore_RejectedAndLogged(): void {
+		$this->scoreMapper->expects($this->never())->method('insert');
+		$this->scoreMapper->expects($this->never())->method('countByUserSince');
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->appLogger->expects($this->once())
+			->method('warning')
+			->with(
+				'Minigame score save rejected: implausible score',
+				$this->callback(static fn (array $context): bool => $context['event'] === 'minigame_implausible_score'
+					&& $context['gameId'] === 'snake'
+					&& $context['score'] === 1901
+					&& $context['durationMs'] === self::ROUND_MS)
+			);
+
+		$this->expectException(ImplausibleScoreException::class);
+		$this->expectExceptionMessage('This score is not possible in the time played.');
+
+		$this->service->saveScore(1, 'user1', 'snake', 1901, self::ROUND_MS);
+	}
+
+	/**
+	 * SaveScore_ScoreAtPlausibilityLimit_Accepted (D-086-04)
+	 */
+	public function testSaveScore_ScoreAtPlausibilityLimit_Accepted(): void {
+		$this->scoreMapper->expects($this->once())->method('insert')->willReturn($this->makeScore(1900));
+
+		$result = $this->service->saveScore(1, 'user1', 'snake', 1900, self::ROUND_MS);
+
+		$this->assertSame(1900, $result->getScore());
+	}
+
+	/**
+	 * Reads_UnknownGame_RejectedWithoutQuery (CS-PLAN-086: no empty board
+	 * for an unknown id)
+	 *
+	 * @dataProvider unknownGameReads
+	 */
+	public function testReads_UnknownGame_RejectedWithoutQuery(string $method, array $arguments): void {
+		foreach (['getLeaderboard', 'getLeaderboardForPeriod', 'getPersonalBest', 'getUserRank', 'findByUserAndGame'] as $query) {
+			$this->scoreMapper->expects($this->never())->method($query);
+		}
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Unknown game');
+
+		$this->service->$method(...$arguments);
+	}
+
+	public static function unknownGameReads(): array {
+		return [
+			'leaderboard' => ['getLeaderboard', [1, 'pacman', 10]],
+			'weekly leaderboard' => ['getWeeklyLeaderboard', [1, 'pacman', 10]],
+			'personal best' => ['getPersonalBest', [1, 'user1', 'pacman']],
+			'rank' => ['getUserRank', [1, 'user1', 'pacman']],
+			'recent scores' => ['getRecentScores', [1, 'user1', 'pacman', 5]],
+		];
 	}
 
 	/**
@@ -217,7 +316,7 @@ class MinigameServiceTest extends TestCase {
 
 		$this->expectException(\OCA\ChoreStrike\Exception\RateLimitException::class);
 
-		$this->service->saveScore(1, 'user1', 'snake', 100);
+		$this->service->saveScore(1, 'user1', 'snake', 100, self::ROUND_MS);
 	}
 
 	/**
@@ -249,7 +348,7 @@ class MinigameServiceTest extends TestCase {
 		$this->expectException(\RuntimeException::class);
 		$this->expectExceptionMessage('db down');
 
-		$this->service->saveScore(1, 'user1', 'snake', 120);
+		$this->service->saveScore(1, 'user1', 'snake', 120, self::ROUND_MS);
 	}
 
 	public function testGetLeaderboardReturnsScoresWithDisplayNames(): void {

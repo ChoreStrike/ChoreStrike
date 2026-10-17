@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Controller;
 use OCA\ChoreStrike\Controller\MinigameController;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
+use OCA\ChoreStrike\Service\ArcadeCatalog;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -29,6 +30,9 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * through the DI container.
  */
 class MinigameControllerIntegrationTest extends IntegrationTestCase {
+	/** A one-minute round: Snake accepts up to 1900 points (D-086-04). */
+	private const ROUND_MS = 60000;
+
 	/** @dataProvider membershipRoutes */
 	public function testRegisteredRoute_NonMember_DeniesWithoutWrites(string $method, array $arguments): void {
 		['houseId' => $houseId] = $this->houseWithMembers();
@@ -40,15 +44,20 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	}
 
 	public static function membershipRoutes(): array {
-		return array_map(static fn (string $method): array => [$method, []], [
-			'leaderboard', 'weeklyLeaderboard', 'saveScore', 'personalBest', 'userRank', 'recentScores',
-		]);
+		return [
+			'leaderboard' => ['leaderboard', ['snake']],
+			'weekly leaderboard' => ['weeklyLeaderboard', ['snake']],
+			'save score' => ['saveScore', ['snake', 100, self::ROUND_MS]],
+			'personal best' => ['personalBest', ['snake']],
+			'rank' => ['userRank', ['snake']],
+			'recent scores' => ['recentScores', ['snake']],
+		];
 	}
 
 	/** @dataProvider scoreGames */
 	public function testUnregisteredGame_DoesNotExpandWhitelist(string $gameId): void {
 		['houseId' => $houseId] = $this->houseWithMembers();
-		$response = $this->controller('mg_parent')->saveScore($gameId, 100);
+		$response = $this->controller('mg_parent')->saveScore($gameId, 100, self::ROUND_MS);
 		self::assertSame(400, $response->getStatus());
 		self::assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
 		self::assertSame(0, $this->scoreRowCount($houseId));
@@ -161,7 +170,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	public function testSaveScore_PersistsScoreWithoutAnyEconomySideEffect(): void {
 		['houseId' => $houseId] = $this->houseWithMembers();
 
-		$response = $this->controller('mg_parent')->saveScore('snake', 250);
+		$response = $this->controller('mg_parent')->saveScore('snake', 250, self::ROUND_MS);
 
 		self::assertSame(200, $response->getStatus());
 		$data = $response->getData();
@@ -183,12 +192,12 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	public function testSaveScore_OutOfBoundsScores_Get400ValidationEnvelope(): void {
 		$this->houseWithMembers();
 
-		$negative = $this->controller('mg_parent')->saveScore('snake', -1);
+		$negative = $this->controller('mg_parent')->saveScore('snake', -1, self::ROUND_MS);
 		self::assertSame(400, $negative->getStatus());
 		self::assertFalse($negative->getData()['success']);
 		self::assertSame('VALIDATION_ERROR', $negative->getData()['error']['code']);
 
-		$overCap = $this->controller('mg_parent')->saveScore('snake', MinigameService::MAX_SCORE + 1);
+		$overCap = $this->controller('mg_parent')->saveScore('snake', ArcadeCatalog::GAMES['snake']['maxScore'] + 1, ArcadeCatalog::GAMES['snake']['maxDurationMs']);
 		self::assertSame(400, $overCap->getStatus());
 		self::assertSame('VALIDATION_ERROR', $overCap->getData()['error']['code']);
 	}
@@ -199,10 +208,28 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	public function testSaveScore_UnknownGameId_Get400ValidationEnvelope(): void {
 		$this->houseWithMembers();
 
-		$response = $this->controller('mg_parent')->saveScore('tetris', 100);
+		$response = $this->controller('mg_parent')->saveScore('tetris', 100, self::ROUND_MS);
 
 		self::assertSame(400, $response->getStatus());
 		self::assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * SaveScore_MissingOrImplausibleDuration_Get400_AndZeroWrites (D-086-04)
+	 */
+	public function testSaveScore_MissingOrImplausibleDuration_Get400_AndZeroWrites(): void {
+		['houseId' => $houseId] = $this->houseWithMembers();
+
+		$missing = $this->controller('mg_parent')->saveScore('snake', 100);
+		self::assertSame(400, $missing->getStatus());
+		self::assertSame('VALIDATION_ERROR', $missing->getData()['error']['code']);
+
+		// 5000 points in one second: far beyond 100 burst + 30 per second.
+		$implausible = $this->controller('mg_parent')->saveScore('snake', 5000, 1000);
+		self::assertSame(400, $implausible->getStatus());
+		self::assertSame('MINIGAME_IMPLAUSIBLE_SCORE', $implausible->getData()['error']['code']);
+
+		self::assertSame(0, $this->scoreRowCount($houseId), 'rejected submissions must not write');
 	}
 
 	/**
@@ -212,7 +239,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		['houseId' => $houseId] = $this->houseWithMembers();
 
 		// An authenticated Nextcloud account WITHOUT a house membership.
-		$response = $this->controller('mg_outsider')->saveScore('snake', 100);
+		$response = $this->controller('mg_outsider')->saveScore('snake', 100, self::ROUND_MS);
 
 		self::assertSame(403, $response->getStatus());
 		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
@@ -229,13 +256,13 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		// final submission via the controller crosses DAILY_SCORE_SAVE_LIMIT.
 		$service = \OC::$server->get(\OCA\ChoreStrike\Service\MinigameService::class);
 		for ($i = 0; $i < MinigameService::DAILY_SCORE_SAVE_LIMIT - 1; $i++) {
-			$service->saveScore($houseId, 'mg_parent', 'snake', 10);
+			$service->saveScore($houseId, 'mg_parent', 'snake', 10, self::ROUND_MS);
 		}
 
-		$response = $this->controller('mg_parent')->saveScore('snake', 10);
+		$response = $this->controller('mg_parent')->saveScore('snake', 10, self::ROUND_MS);
 		self::assertSame(200, $response->getStatus());
 
-		$limited = $this->controller('mg_parent')->saveScore('snake', 10);
+		$limited = $this->controller('mg_parent')->saveScore('snake', 10, self::ROUND_MS);
 		self::assertSame(429, $limited->getStatus());
 		self::assertSame('MINIGAME_RATE_LIMITED', $limited->getData()['error']['code']);
 		self::assertSame(100, $this->scoreRowCount($houseId), 'the limited submission must not persist');
@@ -247,10 +274,10 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	public function testLeaderboard_WeeklyLeaderboard_Rank_PersonalBest_Recent_ReadRealRows(): void {
 		$this->houseWithMembers();
 
-		$this->controller('mg_parent')->saveScore('snake', 300);
-		$this->controller('mg_parent')->saveScore('snake', 120);
-		$this->controller('mg_teener')->saveScore('snake', 450);
-		$this->controller('mg_teener')->saveScore('snake', 60);
+		$this->controller('mg_parent')->saveScore('snake', 300, self::ROUND_MS);
+		$this->controller('mg_parent')->saveScore('snake', 120, self::ROUND_MS);
+		$this->controller('mg_teener')->saveScore('snake', 450, self::ROUND_MS);
+		$this->controller('mg_teener')->saveScore('snake', 60, self::ROUND_MS);
 
 		$board = $this->controller('mg_parent')->leaderboard('snake', 10);
 		self::assertSame(200, $board->getStatus());
@@ -282,11 +309,16 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		self::assertSame(300, $recentRows[0]['score'], 'the personal-history read orders by score (shipped behavior)');
 		self::assertSame(120, $recentRows[1]['score']);
 
-		// Unknown game READ: reads mint nothing, so the catalog whitelist
-		// (D7) applies to writes only — the read answers an empty board.
+		// Unknown game READ (CS-PLAN-086): a 400 like the write, never a
+		// silent empty board.
 		$unknown = $this->controller('mg_parent')->leaderboard('pacman');
-		self::assertSame(200, $unknown->getStatus());
-		self::assertSame([], $unknown->getData()['data']);
+		self::assertSame(400, $unknown->getStatus());
+		self::assertSame('VALIDATION_ERROR', $unknown->getData()['error']['code']);
+
+		// RF-086-01: a negative or huge limit is clamped, never LIMIT -n or
+		// the whole board.
+		self::assertCount(1, $this->controller('mg_parent')->leaderboard('snake', -3)->getData()['data']);
+		self::assertCount(4, $this->controller('mg_parent')->leaderboard('snake', 100000)->getData()['data']);
 	}
 
 	// -----------------------------------------------------------------

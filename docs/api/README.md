@@ -1012,23 +1012,32 @@ persist new awards. Idempotent: a repeat call awards nothing new.
 Scores-only since the CS-PLAN-070 WP3 cutover ([ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)):
 no minigame route mints, spends or reads Coins, wallet values or contribution.
 Every route is house-scoped and membership gated (`403 FORBIDDEN` for
-non-members). Game ids are whitelisted on writes (`snake`); reads do not
-validate the id, so an unknown id answers an empty board. Scores must satisfy
-`0 <= score <= 100000` (`MinigameService::MAX_SCORE`), and saves are
-rate-limited to **100 per member and house-local day**
-(`429 MINIGAME_RATE_LIMITED`). Ordered reads break score ties by ascending id.
+non-members, checked first). Game ids come from the server catalog
+(`ArcadeCatalog`, currently `snake`); an unknown id is a
+`400 VALIDATION_ERROR` on reads and writes (CS-PLAN-086). Read `limit`
+parameters are clamped to `1..50`. Saves are rate-limited to **100 per member
+and house-local day** (`429 MINIGAME_RATE_LIMITED`). Ordered reads break score
+ties by ascending id.
 
 #### POST /minigames/{gameId}/scores
 Save a finished game.
 
-**Request:** `{ "score": 250 }`
+**Request:** `{ "score": 250, "durationMs": 48000 }` — `durationMs` is the
+round's active play time (pauses excluded) and is required.
+
+Per-game rules (`ArcadeCatalog`): `0 <= score <= maxScore` (Snake: 20000),
+`1 <= durationMs <= maxDurationMs` (Snake: one hour), and the score must be
+reachable in that time: `score <= burstPoints + pointsPerSecond * durationMs / 1000`
+(Snake: 100 + 30 per second).
 
 **Response `data`:**
 ```json
 { "id": 42, "score": 250, "gameId": "snake", "createdAt": "2026-10-16T18:04:11+00:00" }
 ```
-Failure envelopes: `400 VALIDATION_ERROR` (score out of bounds or unknown
-game, zero writes), `429 MINIGAME_RATE_LIMITED`, `500 SAVE_SCORE_ERROR`.
+Failure envelopes, all with zero writes: `400 VALIDATION_ERROR` (unknown game,
+missing `durationMs`, score or duration out of bounds),
+`400 MINIGAME_IMPLAUSIBLE_SCORE` (score not reachable in the reported time),
+`429 MINIGAME_RATE_LIMITED`, `500 SAVE_SCORE_ERROR`.
 
 #### GET /minigames/{gameId}/leaderboard?limit=10
 House-wide best scores, ordered by score, each

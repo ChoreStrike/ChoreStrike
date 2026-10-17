@@ -1,0 +1,59 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+import { describe, it, expect } from '@jest/globals'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+import { GAMES, GAME_IDS, findGame } from '@/components/Minigames/gameRegistry.js'
+
+const MINIGAMES = resolve(__dirname, '../../../src/components/Minigames')
+const read = (path) => readFileSync(resolve(MINIGAMES, path), 'utf8')
+
+/**
+ * CS-PLAN-086 §3.5: the server ArcadeCatalog (ArcadeCatalogTest) and this
+ * spec each pin the expected game ids — a new game fails both until both
+ * sides know it. Every game is its own lazy chunk.
+ */
+describe('game registry', () => {
+	it('pins the game ids', () => {
+		expect(GAME_IDS).toEqual(['snake'])
+	})
+
+	it('describes every game with translated copy, an icon and an input mode', () => {
+		for (const game of GAMES) {
+			for (const field of ['name', 'description', 'controls']) {
+				expect(typeof game[field]()).toBe('string')
+				expect(game[field]().length).toBeGreaterThan(0)
+			}
+			expect(game.icon).toBeTruthy()
+			expect(['dpad']).toContain(game.input)
+		}
+	})
+
+	it('finds entries by id and answers null for unknown ids', () => {
+		expect(findGame('snake').id).toBe('snake')
+		expect(findGame('pacman')).toBeNull()
+	})
+
+	it('imports each game lazily as its own named chunk', () => {
+		expect(read('gameRegistry.js')).not.toMatch(/from '\.\/games\/[^']+\/(game|logic|render)\.js'/)
+		for (const id of GAME_IDS) {
+			const entry = read(`games/${id}/index.js`)
+			expect(entry).toContain(`import(/* webpackChunkName: "game-${id}" */ './game.js')`)
+			expect(entry).not.toMatch(/^import .* from '\.\/(game|logic|render)\.js'/m)
+		}
+	})
+
+	it('loads a module the shell can drive', async () => {
+		for (const game of GAMES) {
+			const module = await game.load()
+			expect(module.cols).toBeGreaterThan(0)
+			expect(module.rows).toBeGreaterThan(0)
+			for (const fn of ['createState', 'step', 'render']) {
+				expect(typeof module[fn]).toBe('function')
+			}
+		}
+	})
+})

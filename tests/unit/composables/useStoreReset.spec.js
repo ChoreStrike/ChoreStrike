@@ -69,7 +69,7 @@ describe('useStoreReset composable', () => {
 		usePreferencesStore().taskDigestEnabled = true
 		useRankingStore().entries = [{ houseUserId: 1 }]
 		useGameStore().gameState = { wallet: {} }
-		useMinigameStore().personalBest = { score: 42 }
+		useMinigameStore().ensureSlice('snake').personalBest = { score: 42 }
 		useHouseStore().house = { id: 1, name: 'Old House' }
 		useRoomsStore().floors = [{ id: 1 }]
 		useRoomTasksStore().roomTasks = [{ id: 1 }]
@@ -94,7 +94,7 @@ describe('useStoreReset composable', () => {
 		expect(usePreferencesStore().taskDigestEnabled).toBe(false)
 		expect(useRankingStore().entries).toEqual([])
 		expect(useGameStore().gameState).toBeNull()
-		expect(useMinigameStore().personalBest).toBeNull()
+		expect(useMinigameStore().byGame).toEqual({})
 		expect(useHouseStore().house).toBeNull()
 		expect(useRoomsStore().floors).toEqual([])
 		expect(useRoomTasksStore().roomTasks).toEqual([])

@@ -16,6 +16,10 @@ const SOUND_PROFILES = {
 	complete: { frequency: 523.25, duration: 0.15, type: 'sine', ramp: 784 },
 	medal: { frequency: 440, duration: 0.3, type: 'sine', ramp: 880 },
 	milestone: { frequency: 392, duration: 0.4, type: 'sine', ramp: 784 },
+	// Arcade pickups (CS-PLAN-086): a short pop and a brighter swish for
+	// bonus items.
+	pop: { frequency: 660, duration: 0.06, type: 'triangle', ramp: 990 },
+	swish: { frequency: 880, duration: 0.18, type: 'sine', ramp: 1760 },
 }
 
 function getContext() {
@@ -34,7 +38,7 @@ function getContext() {
  * Play a synthesised sound effect. No-op unless the personal opt-in is
  * set (`setSoundEnabled`) and the module is not muted.
  *
- * @param {string} name Sound name (complete, medal, milestone)
+ * @param {string} name Sound name (complete, medal, milestone, pop, swish)
  */
 export function playSound(name) {
 	if (!soundEnabled || muted) {

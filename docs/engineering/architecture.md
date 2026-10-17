@@ -86,11 +86,13 @@ ChoreStrike/
 │   ├── router.js               # Route definitions (lazy-loaded)
 │   ├── components/
 │   │   ├── Dashboard/          # HouseHealthBar, HouseholdGoalBar, FloorList, RoomCard,
-│   │   │                       #   QuickStats, ArcadeSection
+│   │   │                       #   QuickStats
 │   │   ├── Tasks/              # TaskList, TaskListItem, TaskListDetails, TaskListBulkBar,
 │   │   │                       #   TaskEditForm, AssigneeChips, TaskChecklist, RoomPicker,
 │   │   │                       #   TaskTemplatePicker, FlexWindowDisplay, OverdueClaimDialog
-│   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
+│   │   ├── Minigames/          # ArcadeCatalog, GameShell (+Overlay, Dpad), GameLeaderboard,
+│   │   │                       #   gameRegistry, games/<id>/ (pure logic + renderer, one
+│   │   │                       #   lazy chunk per game; CS-PLAN-086)
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Profile/            # TitleBadge (single retained series; the
 │   │   │                       #   TitlePicker retired with CS-PLAN-070 WP4)
@@ -1295,8 +1297,8 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Dashboard/FloorList.vue` | 462 | Floor/room dashboard list | accepted (presentational) |
 | `components/Dashboard/RoomCard.vue` | 445 | Room status card | accepted (presentational) |
 | `components/Dashboard/QuickStats.vue` | 372 | Stat cards | accepted (presentational) |
-| `components/Minigames/SnakeGame.vue` | 505 | Complete Snake game (loop, rendering, scoring; boost surfaces retired with the legacy economy) | accepted (self-contained game domain) |
-| `components/Minigames/SnakeLeaderboard.vue` | 344 | Snake leaderboard | accepted (presentational) |
+| `components/Minigames/SnakeGame.vue`, `SnakeLeaderboard.vue` | — | Single-game Snake and its board — replaced by the shared game shell (CS-PLAN-086 WP-A) | removed from the inventory (2026-10-17; archived under the gitignored `archive/`) |
+| `components/Minigames/GameShell.vue` | 384 | Shared frame of every arcade game: loop, shell-bound input, responsive canvas, overlays, live region, result save | accepted (one frame for all games; ~150 lines scoped CSS) |
 | `views/Leaderboard.vue` | 496 | Consent-filtered ranking surface (opt-in/closed state, entries/pending, provisional week) with the weekly-medal display — no unconditional member ranking, contribution column or freeze indicator (CS-PLAN-070 WP4) | accepted (presentational) |
 | `views/TaskManager.vue` | 614 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
 | `views/Dashboard.vue` | 351 | Dashboard composition | accepted (composition root) |

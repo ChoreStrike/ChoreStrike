@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\MinigameController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\MinigameScore;
+use OCA\ChoreStrike\Exception\ImplausibleScoreException;
 use OCA\ChoreStrike\Exception\RateLimitException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
@@ -99,10 +100,10 @@ class MinigameControllerTest extends TestCase {
 			->willReturn('user1');
 		$this->minigameService->expects($this->once())
 			->method('saveScore')
-			->with(1, 'user1', 'snake', 120)
+			->with(1, 'user1', 'snake', 120, 30000)
 			->willReturn($savedScore);
 
-		$response = $this->controller->saveScore('snake', 120);
+		$response = $this->controller->saveScore('snake', 120, 30000);
 
 		$this->assertInstanceOf(JSONResponse::class, $response);
 		$this->assertEquals(200, $response->getStatus());
@@ -132,7 +133,7 @@ class MinigameControllerTest extends TestCase {
 		$this->minigameService->method('saveScore')
 			->willThrowException(new RateLimitException('Daily score limit reached'));
 
-		$response = $this->controller->saveScore('snake', 120);
+		$response = $this->controller->saveScore('snake', 120, 30000);
 
 		$this->assertEquals(429, $response->getStatus());
 		$data = $response->getData();
@@ -156,12 +157,140 @@ class MinigameControllerTest extends TestCase {
 		$this->minigameService->method('saveScore')
 			->willThrowException(new \InvalidArgumentException('Unknown game: tetris'));
 
-		$response = $this->controller->saveScore('tetris', 10);
+		$response = $this->controller->saveScore('tetris', 10, 30000);
 
 		$this->assertEquals(400, $response->getStatus());
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
 		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
 		$this->assertEquals('Unknown game: tetris', $data['error']['message']);
+	}
+
+	private function stubMemberHouse(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+	}
+
+	/**
+	 * SaveScore_MissingDuration_Returns400WithoutSave (D-086-04: the play
+	 * time is required — an optional field would be bypassed by omission)
+	 */
+	public function testSaveScore_MissingDuration_Returns400WithoutSave(): void {
+		$this->stubMemberHouse();
+		$this->minigameService->expects($this->never())->method('saveScore');
+
+		$response = $this->controller->saveScore('snake', 120);
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+		$this->assertSame('Play time is required', $response->getData()['error']['message']);
+	}
+
+	/**
+	 * SaveScore_NonMemberWithoutDuration_Returns403 — membership is checked
+	 * before any input detail is evaluated.
+	 */
+	public function testSaveScore_NonMemberWithoutDuration_Returns403(): void {
+		$this->stubMemberHouse();
+		$this->authService->method('assertHouseMember')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member of this house'));
+		$this->minigameService->expects($this->never())->method('saveScore');
+
+		$response = $this->controller->saveScore('snake', 120);
+
+		$this->assertSame(403, $response->getStatus());
+		$this->assertSame('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * SaveScore_ImplausibleScore_Returns400WithOwnCode (D-086-04)
+	 */
+	public function testSaveScore_ImplausibleScore_Returns400WithOwnCode(): void {
+		$this->stubMemberHouse();
+		$this->minigameService->method('saveScore')
+			->willThrowException(new ImplausibleScoreException('This score is not possible in the time played.'));
+
+		$response = $this->controller->saveScore('snake', 5000, 1000);
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('MINIGAME_IMPLAUSIBLE_SCORE', $response->getData()['error']['code']);
+		$this->assertSame('This score is not possible in the time played.', $response->getData()['error']['message']);
+	}
+
+	/**
+	 * Reads_ClampLimit (RF-086-01): large values never return the whole
+	 * board, non-positive values never reach the query as LIMIT -n.
+	 *
+	 * @dataProvider limitCases
+	 */
+	public function testReads_ClampLimit(string $route, string $serviceMethod, int $requested, int $expected): void {
+		$this->stubMemberHouse();
+		$expectedArgs = $serviceMethod === 'getRecentScores'
+			? [1, 'user1', 'snake', $expected]
+			: [1, 'snake', $expected];
+		$this->minigameService->expects($this->once())
+			->method($serviceMethod)
+			->with(...$expectedArgs)
+			->willReturn([]);
+
+		$response = $this->controller->$route('snake', $requested);
+
+		$this->assertSame(200, $response->getStatus());
+	}
+
+	public static function limitCases(): array {
+		$cases = [];
+		foreach ([
+			'leaderboard' => 'getLeaderboard',
+			'weeklyLeaderboard' => 'getWeeklyLeaderboard',
+			'recentScores' => 'getRecentScores',
+		] as $route => $serviceMethod) {
+			$cases["$route huge"] = [$route, $serviceMethod, 100000, MinigameController::MAX_READ_LIMIT];
+			$cases["$route negative"] = [$route, $serviceMethod, -5, 1];
+			$cases["$route zero"] = [$route, $serviceMethod, 0, 1];
+			$cases["$route in range"] = [$route, $serviceMethod, 20, 20];
+		}
+		return $cases;
+	}
+
+	/**
+	 * Reads_UnknownGame_Return400 (CS-PLAN-086: no silent empty board)
+	 *
+	 * @dataProvider readRoutes
+	 */
+	public function testReads_UnknownGame_Return400(string $route, string $serviceMethod): void {
+		$this->stubMemberHouse();
+		$this->minigameService->method($serviceMethod)
+			->willThrowException(new \InvalidArgumentException('Unknown game'));
+
+		$response = $this->controller->$route('pacman');
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+		$this->assertSame('Unknown game', $response->getData()['error']['message']);
+	}
+
+	public static function readRoutes(): array {
+		return [
+			'leaderboard' => ['leaderboard', 'getLeaderboard'],
+			'weekly leaderboard' => ['weeklyLeaderboard', 'getWeeklyLeaderboard'],
+			'personal best' => ['personalBest', 'getPersonalBest'],
+			'rank' => ['userRank', 'getUserRank'],
+			'recent scores' => ['recentScores', 'getRecentScores'],
+		];
+	}
+
+	/**
+	 * Reads_RequireAnExplicitGameId — the silent 'snake' defaults are gone.
+	 */
+	public function testReads_RequireAnExplicitGameId(): void {
+		foreach (['leaderboard', 'weeklyLeaderboard', 'saveScore', 'personalBest', 'userRank', 'recentScores'] as $route) {
+			$parameter = (new \ReflectionMethod(MinigameController::class, $route))->getParameters()[0];
+			$this->assertSame('gameId', $parameter->getName(), $route);
+			$this->assertFalse($parameter->isDefaultValueAvailable(), "$route must not default the game");
+		}
 	}
 }

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\ImplausibleScoreException;
 use OCA\ChoreStrike\Exception\RateLimitException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
@@ -21,10 +22,17 @@ use OCP\IL10N;
 use OCP\IRequest;
 
 /**
- * API controller for minigame scores and leaderboards
+ * API controller for minigame scores and leaderboards.
+ *
+ * Every route names its game explicitly; an unknown id is a 400 on reads
+ * and writes (CS-PLAN-086). Read `limit` parameters are clamped to
+ * 1..MAX_READ_LIMIT at this boundary (RF-086-01).
  */
 class MinigameController extends Controller {
 	use ControllerLoggingTrait;
+
+	/** Largest page any score read returns (RF-086-01). */
+	public const MAX_READ_LIMIT = 50;
 
 	private IL10N $l;
 
@@ -42,69 +50,27 @@ class MinigameController extends Controller {
 	}
 
 	/**
-	 * Get leaderboard for a specific game
-	 *
-	 * @NoAdminRequired
-	 * @param string $gameId The game ID (e.g., 'snake')
-	 * @param int $limit Maximum number of entries
-	 */
-	public function leaderboard(string $gameId = 'snake', int $limit = 10): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
-
-			$leaderboard = $this->minigameService->getLeaderboard($house->getId(), $gameId, $limit);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $leaderboard
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('leaderboard', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'LEADERBOARD_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Get weekly leaderboard for a specific game
+	 * Get the all-time leaderboard of a game
 	 *
 	 * @NoAdminRequired
 	 * @param string $gameId The game ID
-	 * @param int $limit Maximum number of entries
+	 * @param int $limit Maximum number of entries (clamped)
 	 */
-	public function weeklyLeaderboard(string $gameId = 'snake', int $limit = 10): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
+	public function leaderboard(string $gameId, int $limit = 10): JSONResponse {
+		return $this->memberRead('leaderboard', 'LEADERBOARD_ERROR', fn (int $houseId): array
+			=> $this->minigameService->getLeaderboard($houseId, $gameId, self::clampLimit($limit)));
+	}
 
-			$leaderboard = $this->minigameService->getWeeklyLeaderboard($house->getId(), $gameId, $limit);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $leaderboard
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('leaderboard', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'LEADERBOARD_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
+	/**
+	 * Get the weekly leaderboard of a game
+	 *
+	 * @NoAdminRequired
+	 * @param string $gameId The game ID
+	 * @param int $limit Maximum number of entries (clamped)
+	 */
+	public function weeklyLeaderboard(string $gameId, int $limit = 10): JSONResponse {
+		return $this->memberRead('weeklyLeaderboard', 'LEADERBOARD_ERROR', fn (int $houseId): array
+			=> $this->minigameService->getWeeklyLeaderboard($houseId, $gameId, self::clampLimit($limit)));
 	}
 
 	/**
@@ -113,20 +79,16 @@ class MinigameController extends Controller {
 	 * @NoAdminRequired
 	 * @param string $gameId The game ID
 	 * @param int $score The achieved score
+	 * @param int|null $durationMs Active play time in milliseconds (required, D-086-04)
 	 */
-	public function saveScore(string $gameId = 'snake', int $score = 0): JSONResponse {
+	public function saveScore(string $gameId, int $score = 0, ?int $durationMs = null): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
-
+			$houseId = $this->memberHouseId();
+			if ($durationMs === null) {
+				throw new \InvalidArgumentException($this->l->t('Play time is required'));
+			}
 			$userId = $this->authService->getCurrentUserId();
-			$savedScore = $this->minigameService->saveScore(
-				$house->getId(),
-				$userId,
-				$gameId,
-				$score
-			);
+			$savedScore = $this->minigameService->saveScore($houseId, $userId, $gameId, $score, $durationMs);
 
 			return new JSONResponse([
 				'success' => true,
@@ -137,10 +99,16 @@ class MinigameController extends Controller {
 					'createdAt' => $savedScore->getCreatedAt()?->format('c'),
 				]
 			]);
+		} catch (ImplausibleScoreException $e) {
+			// D-086-04: curated, translated message.
+			return ControllerErrorFormatter::validation(
+				new \InvalidArgumentException($e->getMessage()),
+				'MINIGAME_IMPLAUSIBLE_SCORE'
+			);
 		} catch (\InvalidArgumentException $e) {
-			// Service-curated messages (score bounds, unknown game) — safe to
-			// surface verbatim; safeMessage() would replace them with the
-			// generic fallback.
+			// Service-curated messages (unknown game, score and duration
+			// bounds) — safe to surface verbatim; safeMessage() would replace
+			// them with the generic fallback.
 			return ControllerErrorFormatter::validation($e);
 		} catch (RateLimitException) {
 			// D7: per-user daily save cap → 429 MINIGAME_RATE_LIMITED.
@@ -155,13 +123,7 @@ class MinigameController extends Controller {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('saveScore', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'SAVE_SCORE_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'SAVE_SCORE_ERROR');
 		}
 	}
 
@@ -171,31 +133,9 @@ class MinigameController extends Controller {
 	 * @NoAdminRequired
 	 * @param string $gameId The game ID
 	 */
-	public function personalBest(string $gameId = 'snake'): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
-
-			$userId = $this->authService->getCurrentUserId();
-			$personalBest = $this->minigameService->getPersonalBest($house->getId(), $userId, $gameId);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $personalBest
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('personalBest', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'PERSONAL_BEST_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
+	public function personalBest(string $gameId): JSONResponse {
+		return $this->memberRead('personalBest', 'PERSONAL_BEST_ERROR', fn (int $houseId): ?array
+			=> $this->minigameService->getPersonalBest($houseId, $this->authService->getCurrentUserId(), $gameId));
 	}
 
 	/**
@@ -204,34 +144,11 @@ class MinigameController extends Controller {
 	 * @NoAdminRequired
 	 * @param string $gameId The game ID
 	 */
-	public function userRank(string $gameId = 'snake'): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
-
-			$userId = $this->authService->getCurrentUserId();
-			$rank = $this->minigameService->getUserRank($house->getId(), $userId, $gameId);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => [
-					'rank' => $rank,
-					'gameId' => $gameId
-				]
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('userRank', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'USER_RANK_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
+	public function userRank(string $gameId): JSONResponse {
+		return $this->memberRead('userRank', 'USER_RANK_ERROR', fn (int $houseId): array => [
+			'rank' => $this->minigameService->getUserRank($houseId, $this->authService->getCurrentUserId(), $gameId),
+			'gameId' => $gameId,
+		]);
 	}
 
 	/**
@@ -239,32 +156,58 @@ class MinigameController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 * @param string $gameId The game ID
-	 * @param int $limit Maximum number of scores
+	 * @param int $limit Maximum number of scores (clamped)
 	 */
-	public function recentScores(string $gameId = 'snake', int $limit = 5): JSONResponse {
+	public function recentScores(string $gameId, int $limit = 5): JSONResponse {
+		return $this->memberRead('recentScores', 'RECENT_SCORES_ERROR', fn (int $houseId): array
+			=> $this->minigameService->getRecentScores(
+				$houseId,
+				$this->authService->getCurrentUserId(),
+				$gameId,
+				self::clampLimit($limit)
+			));
+	}
+
+	/**
+	 * Clamp a client page size to 1..MAX_READ_LIMIT (RF-086-01): a large
+	 * value never returns the whole house board, a non-positive one never
+	 * reaches the database as `LIMIT -n`.
+	 */
+	private static function clampLimit(int $limit): int {
+		return max(1, min(self::MAX_READ_LIMIT, $limit));
+	}
+
+	/**
+	 * Resolve the instance house and require membership (read-only gate).
+	 *
+	 * @throws ForbiddenException
+	 */
+	private function memberHouseId(): int {
+		$house = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId());
+		$this->authService->assertHouseMember($house->getId());
+		return $house->getId();
+	}
+
+	/**
+	 * Shared envelope of the score reads: membership first (403), then an
+	 * unknown game (400), otherwise a logged 500 with the route's code.
+	 *
+	 * @param callable(int): mixed $read Receives the member's house id
+	 */
+	private function memberRead(string $action, string $errorCode, callable $read): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
-
-			$userId = $this->authService->getCurrentUserId();
-			$scores = $this->minigameService->getRecentScores($house->getId(), $userId, $gameId, $limit);
-
 			return new JSONResponse([
 				'success' => true,
-				'data' => $scores
+				'data' => $read($this->memberHouseId()),
 			]);
+		} catch (\InvalidArgumentException $e) {
+			// Thrown by the service for an unknown game only (curated text).
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			$this->logControllerException('recentScores', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RECENT_SCORES_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			$this->logControllerException($action, $e);
+			return ControllerErrorFormatter::serverErrorResponse($e, $errorCode);
 		}
 	}
 }
