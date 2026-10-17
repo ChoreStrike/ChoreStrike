@@ -170,8 +170,8 @@ to the navigation toggle; decide whether the heading row alone should clear it.
 ---
 
 ### [P3] CR-NAV-01 — Five navigation entries show no icon on Nextcloud 34/35
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: navigation
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: navigation
+**Owning**: [CS-PLAN-087](../plans/active/cs-plan-087-public-presentation-and-brand.md) WP-A (active since 2026-10-17) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of TECH-DOCS-005 screenshots (Standard B, 2026-10-17; pre-existing)
 
 `src/App.vue` passes legacy core icon classes to `NcAppNavigationItem`:
@@ -327,21 +327,27 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 
 ---
 
-### [P4] FEAT-UX-037 — Derive the Nextcloud app icon from the brand mark
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: branding
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+### [P3] FEAT-UX-037 — Derive the Nextcloud app icon from the brand mark
+**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: branding
+**Owning**: [CS-PLAN-087](../plans/active/cs-plan-087-public-presentation-and-brand.md) WP-A (active since 2026-10-17) · **Depends on**: — · **Blocks**: — · **Folded-in**: hard-coded `/apps/chorestrike/img/…` notifier and PWA-manifest icon URLs (2026-10-17)
 **Source**: TECH-DOCS-005 brand mark (2026-10-17)
 
 `img/app.svg` still shows the pre-brand green house, broom and shield, so the
 app navigation and the repository avatar no longer match. The full mark is too
-detailed for 64 px: derive a simplified symbol (broom mascot or monogram)
-per [`design.md`](../standards/guidelines/design.md#4-brand-assets) §4 and check
-it against the Nextcloud icon conventions for the header and app settings on
-both runtime rows (monochrome `app.svg`, optional `app-dark.svg`).
+detailed for 64 px: the operator chose (2026-10-17) a **mascot symbol** — the
+broom head with face and headband, the handle cut by the frame edge — per
+[`design.md`](../standards/guidelines/design.md#4-brand-assets) §4. Nextcloud
+renders the header icon at 20 px through an invert filter (white monochrome
+`app.svg`) and the notifications popover expects a dark glyph (`app-dark.svg`);
+the color mascot goes to the PWA manifest. The notifier and the manifest
+currently hard-code `/apps/chorestrike/img/app.svg`, although static assets
+live under `/custom_apps` in the AIO and canonical installs.
 `img/` ships in the app package, so this changes the package file set.
 
-- [ ] Derive the 64 px symbol and update `img/app.svg` (plus `app-dark.svg` if the conventions require it).
-- [ ] Verify it in the header, app settings and PWA manifest in light and dark themes on NC34 and NC35.
+- [ ] Derive the mascot symbol (color source under `docs/brand/`, operator approval of a preview sheet).
+- [ ] Update `img/app.svg` and add `img/app-dark.svg` (monochrome glyphs) plus the PWA mascot icons.
+- [ ] Resolve the notifier and manifest icon URLs through `imagePath()` / manifest-relative paths.
+- [ ] Verify it in the header, app settings, notification popover and PWA install in light and dark themes on NC34 and NC35.
 
 ---
 
@@ -668,7 +674,7 @@ commit-only `noreply`. No public security issues or sensitive real-user payloads
 
 ### [P3] TECH-DOCS-005 — README screenshots for the public landing page
 **Status**: In Progress · **Effort**: XS · **Layer**: docs · **Journey stage**: repository hosting
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: repository topics and avatar (CS-PLAN-085, 2026-10-16)
+**Owning**: [CS-PLAN-087](../plans/active/cs-plan-087-public-presentation-and-brand.md) WP-C (active since 2026-10-17) · **Depends on**: — · **Blocks**: — · **Folded-in**: repository topics and avatar (CS-PLAN-085, 2026-10-16)
 **Source**: CS-PLAN-085 WP5-2 (droppable item, deferred 2026-10-16)
 
 The migrated README carries a badge row but no screenshots, so the GitHub
@@ -686,7 +692,50 @@ profile data only, never real household content — store them under
 - [ ] Confirm they render on GitHub after the next push.
 - [x] Set the repository topics in the About dialog (folded in from CS-PLAN-085; set by the operator and verified with `gh repo view`, 2026-10-16).
 - [x] Create the repository avatar as the brand mark per [`design.md`](../standards/guidelines/design.md#4-brand-assets) §4 (operator chose the "Night Ops" CS monogram with a broom mascot; source and 512 px export under [`docs/brand/`](../brand/chorestrike-avatar.svg), 2026-10-17).
-- [ ] Upload the avatar in the GitHub organization settings (operator; web UI only).
+- [x] Upload the avatar in the GitHub organization settings (operator, 2026-10-17).
+- [ ] Recapture the views with the new icons through the reproducible capture (CS-PLAN-087 WP-B/WP-C) and fix the README's outdated one-tap completion wording.
+
+---
+
+### [P3] TECH-DOCS-007 — Reproducible documentation screenshots
+**Status**: In Progress · **Effort**: S · **Layer**: tooling · **Journey stage**: repository hosting
+**Owning**: [CS-PLAN-087](../plans/active/cs-plan-087-public-presentation-and-brand.md) WP-B (active since 2026-10-17) · **Depends on**: — · **Blocks**: TECH-DOCS-008 · **Folded-in**: —
+**Source**: operator request 2026-10-17 (visible documentation lags behind the app)
+
+The README screenshots were captured by hand and no tooling is checked in, so
+every UI change silently outdates them. Add `npm run docs:screenshots`: an
+isolated staged row with the `family` seed, a declared scene list at fixed
+viewport, locale and theme, outputs under `docs/screenshots/`, teardown of
+owned resources only. Add drift guards: README badge/caption version equals
+`appinfo/info.xml`, every referenced image exists, and a release checklist step
+to recapture and review the visible docs.
+
+---
+
+### [P3] TECH-DOCS-008 — End-user guide
+**Status**: In Progress · **Effort**: S · **Layer**: docs · **Journey stage**: onboarding
+**Owning**: [CS-PLAN-087](../plans/active/cs-plan-087-public-presentation-and-brand.md) WP-C (active since 2026-10-17) · **Depends on**: TECH-DOCS-007 · **Blocks**: — · **Folded-in**: —
+**Source**: operator request 2026-10-17
+
+The README's five *Getting Started* steps are the only end-user text; the
+documentation index lists developer documents only. Write a short English
+`docs/user-guide.md` (roles, first start, daily use with hold-to-complete,
+weekly planning, optional rewards/arcade/ranking/digest, privacy,
+troubleshooting) with screenshots from the reproducible capture, linked from
+the README and `docs/README.md`.
+
+---
+
+### [P3] TECH-DOCS-009 — GitHub organization profile
+**Status**: In Progress · **Effort**: XS · **Layer**: docs · **Journey stage**: repository hosting
+**Owning**: [CS-PLAN-087](../plans/active/cs-plan-087-public-presentation-and-brand.md) WP-D (active since 2026-10-17) · **Depends on**: TECH-DOCS-007 · **Blocks**: — · **Folded-in**: —
+**Source**: operator request 2026-10-17
+
+The organization has no `ChoreStrike/.github` repository, so GitHub shows its
+default overview. After an explicit operator go (outward-facing), create it
+with `profile/README.md` (pitch, one screenshot, status, links to repository,
+user guide, security policy and contact), pin the ChoreStrike repository and
+verify the page logged out.
 
 ---
 
