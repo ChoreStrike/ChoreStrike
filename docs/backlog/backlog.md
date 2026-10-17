@@ -518,7 +518,7 @@ SELECT of ids followed by UPDATE ... WHERE id IN (...). Not a WP7 regression
 ---
 
 ### [P3] BUG-SEC-001 — Security reporting contact for later external use
-**Status**: In Progress (contact documented; operator delivery test, authority feedback and remote publication pending) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
+**Status**: In Progress (contact documented, delivery verified and published; authority feedback on the deferred legal/privacy notice pending) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
 **Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 (external-use stage only) · **Folded-in**: H7/H-T11 user rescoping (2026-10-04); operator-approved project mailbox and public-contact guidance (2026-10-12); reporting-policy refinements and legal-notice deferral (2026-10-13)
 **Source**: CS-001 security review; CS-PLAN-081 H7 Post-Review Scope Decision; user-provided project address 2026-10-12; explicit policy and scoped-commit request 2026-10-13
 
@@ -550,17 +550,20 @@ exemption. Incoming report emails and sender data are distinct from household
 data processed in other operators' Nextcloud installations; `docs/SECURITY.md`
 is an operational reporting policy, not complete data-protection information.
 
-Mailbox creation is operator-confirmed, but receipt and reply delivery have
-not been verified. The item remains open until that check and an explicitly
-approved source publication; the mailbox must be monitored, not commit-only
-`noreply`. No public security issues or sensitive real-user payloads.
+Mailbox creation, the receipt of a test email and replying from the project
+address are operator-confirmed (2026-10-17). The contact is public in README and
+`docs/SECURITY.md` on GitHub since the approved CS-PLAN-085 push (2026-10-16).
+The item remains open only for the authority's feedback on the deferred legal
+notice and privacy information; the mailbox must stay monitored, not
+commit-only `noreply`. No public security issues or sensitive real-user payloads.
 
 - [x] Record the operator-approved reporting mailbox (2026-10-12).
 - [x] Add the contact to local README/security guidance and replace the deferred-contact note; GPG remains optional.
 - [x] Refine public-credit consent, email limitations, affected-dependency reporting and release/backport wording (2026-10-13).
-- [ ] Confirm receipt of a test email and a reply sent from the project address without exposing a private sender address.
+- [x] Confirm receipt of a test email (operator, 2026-10-17).
+- [x] Confirm a reply sent from the project address without exposing a private sender address (operator, 2026-10-17).
 - [ ] Reassess the deferred legal notice and privacy information after the authority's response, including the handling of incoming report emails.
-- [ ] Publish the verified contact with an explicitly approved source update before external-user onboarding; retain correct links for the selected hosting platform.
+- [x] Publish the verified contact with an explicitly approved source update before external-user onboarding; retain correct links for the selected hosting platform (public on GitHub since the CS-PLAN-085 push, 2026-10-16; delivery verified 2026-10-17).
 
 ---
 
