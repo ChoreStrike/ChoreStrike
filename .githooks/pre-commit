@@ -1,6 +1,6 @@
 #!/bin/sh
 # Branch guard (activated by `npm ci` / `npm install` through
-# scripts/install-git-hooks.js; see docs/standards/ai/skills/git-workflow).
+# `scripts/git-guard.js install`; see docs/standards/ai/skills/git-workflow).
 #
 # 1. No direct commit on master/main. Work lands there by fast-forward or
 #    merge from a reviewed branch (neither runs this hook). A commit the user
@@ -9,6 +9,8 @@
 # 2. A worktree pinned with `npm run branch:pin` only accepts commits on its
 #    pinned branch, so a session cannot commit into a checkout that was
 #    switched under it.
+# 3. A branch behind master gets a non-blocking note, so parallel branches
+#    integrate master before they drift apart (`npm run branch:status`).
 # Detached HEAD (rebase, bisect, agent pools) is left alone.
 
 branch=$(git symbolic-ref --short -q HEAD) || exit 0
@@ -31,6 +33,12 @@ if [ -f "$pin" ]; then
 		echo "[branch-guard] Switch back, or re-pin deliberately with 'npm run branch:pin'." >&2
 		exit 1
 	fi
+fi
+
+behind=$(git rev-list --count HEAD..master 2>/dev/null) || behind=0
+# Concluding a merge is the integration itself; HEAD still predates it.
+if [ "$behind" -gt 0 ] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+	echo "[branch-guard] Note: '$branch' is $behind commit(s) behind master; integrate master (rebase or merge) before the next review." >&2
 fi
 
 exit 0

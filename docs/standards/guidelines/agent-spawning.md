@@ -71,7 +71,9 @@ Every worktree belongs to exactly one session and one branch: pin it with
 `npm run branch:pin` right after creating it and record branch and worktree in
 `ACTIVE_TASKS.md`. Never commit in another session's worktree; the branch guard
 ([`git-workflow`](../ai/skills/git-workflow/SKILL.md#branch-guard-githookspre-commit))
-refuses commits off the pin and direct commits on `master`.
+refuses commits off the pin and direct commits on `master`. Create it outside
+the repository and any sync folder and keep it integrated with `master`
+([location and staying in sync](../ai/skills/git-workflow/SKILL.md#staying-in-sync)).
 
 ## 7. Anti-patterns
 

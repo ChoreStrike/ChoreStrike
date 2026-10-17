@@ -33,6 +33,21 @@ ordinary disposable test provisioning deliberately seeds its selected profile.
 `node scripts/run-tests.js` provisions, verifies and runs both complete backend
 suites; it leaves the canonical stack running and never deletes volumes.
 
+## Worktrees
+
+All worktrees share **one** canonical stack: the compose project is `docker`
+(the compose file's directory) and the container names are fixed, so the stack
+bind-mounts whichever checkout last ran `up`. Only one worktree uses it at a
+time — coordinate via `npm run branch:status` / `ACTIVE_TASKS.md`.
+
+- `node scripts/run-tests.js` recreates the stack from the current checkout.
+- `verify-canonical` (run by `run-tests.js`, the browser gate and
+  `npm run test:runtime:canonical`) refuses a stack created from another
+  checkout. Direct `docker exec` / `compose exec` commands do not check this:
+  run `npm run test:runtime:canonical` first, or they test the other branch.
+- Recreating the stack for another worktree reseeds the shared volumes; never do
+  it while another session's gates run.
+
 ## Availability
 
 Docker Desktop **is installed** on the development machine and the daemon is expected to be running. If a `docker` command fails:

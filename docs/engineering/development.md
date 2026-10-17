@@ -90,8 +90,10 @@ npm run test:runtime:canonical
 
    `npm ci` also activates the tracked branch guard (`core.hooksPath=.githooks`,
    via `prepare`): no direct commits on `master`, and a worktree pinned with
-   `npm run branch:pin` only accepts commits on its branch. Rules and the
-   explicit `CS_ALLOW_MASTER=1` override: the
+   `npm run branch:pin` only accepts commits on its branch.
+   `npm run branch:status` lists every worktree with its drift against
+   `master`. Rules, worktree location and the explicit `CS_ALLOW_MASTER=1`
+   override: the
    [`git-workflow` skill](../standards/ai/skills/git-workflow/SKILL.md#branch-guard-githookspre-commit).
 
 4. **Build frontend**

@@ -19,10 +19,20 @@ description: Branching, conventional commits, and clean history for the single C
 
 ## Branching
 
-- **`master` is always releasable.** Work happens on a short-lived branch per plan or topic — `feat/...`, `fix/...`, `docs/...`, `refactor/...` or `chore/...`, one logical change each — and reaches `master` by fast-forward or merge after its review. Long-running feature branches (e.g. a P3 add-on) develop independently and rebase onto `master` deliberately.
-- Stay on the branch the task was given. Do not create, switch or merge branches unless the user explicitly requests it or the task names the branch.
+- **`master` is always releasable.** Work happens on a short-lived branch per plan or topic — `feat/...`, `fix/...`, `docs/...`, `refactor/...` or `chore/...`, one logical change each — and reaches `master` by fast-forward or merge after its review. Long-running feature branches (e.g. a P3 add-on) stay integrated with `master` ([Staying in sync](#staying-in-sync)).
+- Stay on the branch the task was given. Do not create, switch or merge branches unless the user explicitly requests it or the task names the branch. Integrating `master` into your own task branch ([Staying in sync](#staying-in-sync)) is part of every task.
 - **One session, one worktree, one branch.** A parallel session gets its own worktree (`git worktree add <path> -b <branch> master`); never commit in a checkout another session works in. Record branch and worktree in the task's `ACTIVE_TASKS.md` entry.
-- **Pin the worktree** at task start with `npm run branch:pin` (status: `npm run branch:status`). The guard then refuses commits on any other branch in that worktree.
+- **Worktree location:** outside the repository and outside any sync-client folder (Nextcloud, OneDrive, …), e.g. `~/worktrees/chorestrike-<topic>` — a synced copy uploads source, `build/` and `private/` again and conflicts under parallel writes. Run `npm ci` and `composer install` in it. All worktrees share one canonical Docker stack ([`docker-dev`](../docker-dev/SKILL.md#worktrees)).
+- **Pin the worktree** at task start with `npm run branch:pin`. The guard then refuses commits on any other branch in that worktree.
+
+### Staying in sync
+
+Every branch carries its own copy of code, plans and the coordination files (`ACTIVE_TASKS.md`, `backlog.md`); a branch only knows what it has integrated.
+
+- **Session start:** `npm run branch:status` lists every worktree with branch, pin, commits ahead/behind `master` and uncommitted changes — the cross-branch view no single `ACTIVE_TASKS.md` copy gives.
+- **Integrate `master` whenever it moves**, at the latest before each review commit and before merging back: rebase commits that were never pushed, otherwise merge `master`. The pre-commit hook prints a non-blocking note while the branch is behind. In coordination files keep both sides' entries and take `master`'s state for items another branch closed.
+- **Commit at milestones.** A large uncommitted state cannot integrate `master`; bring each work package to its review commit instead of carrying it uncommitted.
+- **Merge back promptly** after the passing review (on the user's request), then `git worktree remove` the worktree and delete the merged branch. A worktree whose branch has nothing beyond `master` stays only while it holds needed local artifacts (e.g. a qualified package run), recorded in `ACTIVE_TASKS.md`.
 - **Release freeze:** between a candidate's qualification and its deployment, nothing lands on `master`; a later fix goes to a branch and needs its own requalification.
 
 ### Branch guard (`.githooks/pre-commit`)
@@ -31,6 +41,7 @@ Tool-agnostic — it applies to Claude Code, Kilo and humans alike. `npm ci` / `
 
 - Refuses direct commits on `master`/`main`. Fast-forwards and merges are not affected. For a commit the user explicitly asked to make on `master`, run that one command with `CS_ALLOW_MASTER=1` (PowerShell: `$env:CS_ALLOW_MASTER='1'; git commit ...; Remove-Item Env:CS_ALLOW_MASTER`). Agents never set it on their own initiative.
 - Refuses commits on a branch other than the worktree's pin; detached HEAD (rebase, bisect, agent pools) is left alone.
+- Notes (without blocking) when the branch is behind `master`.
 - Never bypass it (`--no-verify`, changing `core.hooksPath`); a refusal means: stop, check `npm run branch:status`, and ask.
 
 ## Commits

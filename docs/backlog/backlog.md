@@ -567,6 +567,22 @@ not close parent findings or replace WP9 evidence.
 
 ---
 
+### [P3] TECH-DEV-001 — Local Node 24 runs outside the supported `^20.19.0` engine range
+**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: worktree hygiene task, 2026-10-17
+
+The development machine has only Node 24.13 / npm 11.8 and no version manager,
+so the documented `npm ci --engine-strict` ([development.md](../engineering/development.md))
+fails with `EBADENGINE`; local checkouts install without engine validation and
+run Jest/ESLint/webpack on an unsupported engine (ESLint already prints Node
+`DEP0180` deprecation warnings), while CI validates the minimum. Either
+provide Node 20.19 locally (version manager or pinned install) or deliberately
+widen the supported range after qualifying the toolchain (dialogs `~7.2.0`
+constraint) — not both silently.
+
+---
+
 ### [P4] TECH-DIGEST-001 — `DigestChangeMapper::expireQueuedBefore` uses `setMaxResults()` on an UPDATE
 **Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —

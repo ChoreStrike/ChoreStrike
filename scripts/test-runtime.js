@@ -418,6 +418,13 @@ function verifyCanonical(selection, run = execute, preflight) {
 		|| container?.State?.Running !== true) {
 		throw new Error('Canonical container frozen-runtime mismatch')
 	}
+	// Every worktree shares the compose project and container names; a stack
+	// created from another checkout would bind-mount and test that code instead.
+	// path.relative compares case-insensitively on Windows.
+	const composeFile = container.Config.Labels['com.docker.compose.project.config_files']
+	if (!composeFile || path.relative(composeFile, path.join(ROOT, 'docker', 'compose.test.yml'))) {
+		throw new Error('Canonical container was created from another checkout; recreate it from this worktree')
+	}
 	if (!['config', 'data'].every(directory => container.Mounts?.some(mount => mount.Type === 'volume'
 		&& mount.Destination === `/var/www/html/${directory}`))) {
 		throw new Error('Canonical config/data persistence mismatch')

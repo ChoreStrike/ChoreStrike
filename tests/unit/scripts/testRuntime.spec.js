@@ -502,7 +502,10 @@ describe('promoted canonical default stack (R7)', () => {
 		const containers = {
 			'chorestrike-test': {
 				Config: {
-					Labels: { 'org.chorestrike.test-runtime.inventory': selectionHash(selection) },
+					Labels: {
+						'org.chorestrike.test-runtime.inventory': selectionHash(selection),
+						'com.docker.compose.project.config_files': path.resolve(__dirname, '../../../docker/compose.test.yml'),
+					},
 					Env: [`TEST_RUNTIME_INTERNAL_VERSION=${frozen.nextcloud.internalVersion}`, `TEST_RUNTIME_PHP_VERSION=${frozen.php.version}`],
 				},
 				State: { Running: true },
@@ -536,6 +539,8 @@ describe('promoted canonical default stack (R7)', () => {
 
 	it.each([
 		['stale image label', { containers: { 'chorestrike-test': c => { c.Config.Labels['org.chorestrike.test-runtime.inventory'] = `sha256:${'9'.repeat(64)}` } } }, 'Canonical container frozen-runtime mismatch'],
+		['a stack created from another worktree', { containers: { 'chorestrike-test': c => { c.Config.Labels['com.docker.compose.project.config_files'] = path.resolve(__dirname, '../../../../other-worktree/docker/compose.test.yml') } } }, 'Canonical container was created from another checkout'],
+		['a stack not created by compose', { containers: { 'chorestrike-test': c => { delete c.Config.Labels['com.docker.compose.project.config_files'] } } }, 'Canonical container was created from another checkout'],
 		['missing config/data persistence', { containers: { 'chorestrike-test': c => { c.Mounts = [] } } }, 'Canonical config/data persistence mismatch'],
 		['missing frozen runtime env', { containers: { 'chorestrike-test': c => { c.Config.Env = [] } } }, 'Canonical container frozen-runtime mismatch'],
 		['stopped canonical container', { containers: { 'chorestrike-test': c => { c.State.Running = false } } }, 'Canonical container frozen-runtime mismatch'],
