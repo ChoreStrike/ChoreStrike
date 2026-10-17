@@ -583,6 +583,22 @@ constraint) — not both silently.
 
 ---
 
+### [P2] TECH-TEST-007 — No guard keeps applied migration files immutable
+**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: deployment record import, 2026-10-17
+
+Since the first retained baseline (`0.8.0-alpha.1`, 2026-10-17) the 26 applied
+migration files are immutable ([project rules §1](../standards/ai/rules/project-rules.md#data-retention-boundary)),
+but only review enforces it: nothing fails when a commit edits, renames or
+removes one. Add a fast, Docker-free check that pins the adopted inventory —
+identifiers and SHA-256 from the
+[adoption record](../engineering/deployment.md#adoption-record-2026-10-17) —
+hashes the Git blob content (so CRLF checkouts do not differ) and is extended
+with each later deployment. New migration files stay allowed.
+
+---
+
 ### [P4] TECH-DIGEST-001 — `DigestChangeMapper::expireQueuedBefore` uses `setMaxResults()` on an UPDATE
 **Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -680,8 +696,8 @@ profile data only, never real household content — store them under
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: Backlog (qualification slice delivered; deployment/field use remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: unassigned (CS-PLAN-083 WP1-WP3 delivered; remaining deployment/adoption is operator-owned) · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Status**: Backlog (qualification and first deployment/adoption delivered; field use remains open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: unassigned (CS-PLAN-083 WP1-WP3 delivered; deployment and baseline adoption done by the operator 2026-10-17) · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
@@ -699,11 +715,10 @@ by the review-hardened candidate. This contribution does not close RELEASE-002,
 perform deployment/adoption or replace CS-PLAN-080's independent human evidence.
 See the [completion/review record](archive/CODE_REVIEW_2026-10-10.md).
 
-The generic deployment guide still needs a verified production package manifest,
-target-specific AIO commands and a concrete adoption record before independent
-execution. Resolve these in the deployment work, not by guessing container paths
-or treating the disposable test stack as a family installation. The 2026-10-07
-entry-document refresh adds safety boundaries, not a completed AIO runbook.
+The verified production package identity and the concrete adoption record are
+in the deployment guide since 2026-10-17. It remains a generic guide, not an AIO
+runbook: target-specific AIO commands stay in the server's operations project,
+never guessed from container paths or the disposable test stack.
 
 The [2026-10-08 app qualification](../testing/install-preparation-2026-10-08.md)
 owns the corrected asset contract, exact candidate artifact and renewed runtime
@@ -745,14 +760,17 @@ evidence then remains with CS-PLAN-080/CONCEPT-001. No premature
 productive-use declaration or circular prerequisite on a completed human trial
 is introduced.
 
-**Deployment candidate `0.8.0-alpha.1` (2026-10-17):** qualified by
+**Deployment `0.8.0-alpha.1` (2026-10-17):** qualified by
 [CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md) round 12
 (both runtime rows, MariaDB/SQLite provider suites; the package smoke runs on
-the committed candidate and is recorded in the plan). Operator decision: this deployment is also the first
-retained-baseline adoption, recorded in
-[CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#pre-deployment-candidate-080-alpha1-2026-10-17).
-Still open here: the deployment itself (current backup, operator confirmation of
-the recovery procedure), the adoption record and field use.
+the committed candidate and is recorded in the plan). Deployed by the operator
+to the production AIO on 2026-10-17 and adopted as the first retained baseline
+([adoption record](../engineering/deployment.md#adoption-record-2026-10-17)):
+verified package identity, unchanged 26-migration inventory, all app tables
+preserved, other apps unaffected, production smoke passed
+([CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#deployment-and-retained-baseline-adoption-080-alpha1-2026-10-17)).
+Still open here: real-world `v0.8.x` field use (the family trial in CS-PLAN-080)
+and the optional `v0.9.x` tester onboarding.
 
 ---
 

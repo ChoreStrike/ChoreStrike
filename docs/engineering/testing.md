@@ -80,7 +80,8 @@ this pinned runtime. The old disposable NC31 canonical stack was retired on
 2026-10-06 after recording evidence; the names
 `chorestrike-test`/`chorestrike-db` and port 8080 are reused by the new stack.
 Promotion is a test-runtime default only — the canonical environment remains
-disposable (fresh installs only) and no retained-baseline adoption has occurred.
+disposable (fresh installs only); it is not the retained baseline adopted in
+production on 2026-10-17 ([record](deployment.md#first-retained-baseline)).
 
 The inventory `status` is `qualified` since 2026-10-15 (CS-PLAN-084 D-084-10):
 both rows passed backend, full browser and package gates under that exact
@@ -755,10 +756,11 @@ they always differ by only one or two hours is invalid.
 
 ### Retained-Baseline and Recovery Evidence
 
-The [canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary-approved-not-yet-adopted)
-is approved for future explicit adoption, not active for disposable dev installs.
-After adoption, exercise every new migration against a populated copy of that
-recorded baseline on all supported providers; assert preserved identifiers,
+The [canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary)
+is active since the first retained baseline (`0.8.0-alpha.1`, adopted
+2026-10-17, [record](deployment.md#adoption-record-2026-10-17)); disposable dev
+installs stay fresh-install-only. Exercise every new migration against a
+populated copy of that recorded baseline on all supported providers; assert preserved identifiers,
 relations, planning/history and financial facts and fresh/upgrade schema parity.
 An unchanged-app reinstall, edited already-applied step, or restore of the same
 build does not prove an upgrade.

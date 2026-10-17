@@ -96,12 +96,12 @@ Before App Store submission, ChoreStrike should have:
 
 ### Retained Trial Data
 
-Retention starts at one **explicitly adopted post-WP9 technical baseline**, not
-automatically at alpha/beta, a tag, or plan approval. The future policy is approved
-but not yet adopted. Before first real data, follow the
-[baseline identity/adoption checklist](../engineering/deployment.md#first-retained-baseline)
-and [whole-instance recovery procedure](../engineering/deployment.md#rollback).
-Preserve persisted facts by default from adoption; applied migrations freeze and
+Retention started at one **explicitly adopted post-WP9 technical baseline**, not
+automatically at alpha/beta, a tag, or plan approval: `0.8.0-alpha.1`, adopted
+by the operator with its deployment on 2026-10-17
+([adoption record](../engineering/deployment.md#first-retained-baseline),
+[whole-instance recovery procedure](../engineering/deployment.md#rollback)).
+Persisted facts are preserved by default; applied migrations are frozen and
 future changes require populated-baseline upgrade/provider parity evidence.
 Earlier disposable installations are not supported upgrade sources.
 

@@ -180,43 +180,92 @@ backup is still required. An actual restore needs separate approval for its targ
 recovery point, downtime and other-app impact. App migration/data-preservation
 tests remain required: a working backup does not prove an update preserves facts.
 
+### Upgrade Scope
+
+- [ ] No enabled app has a pending App Store update (`occ app:update --showonly`; ignore the disabled apps it also lists) — `occ upgrade` would apply them together with ChoreStrike ([step 3](#3-run-migrations))
+
 ## First Retained Baseline
 
-**The future contract is approved; the exact adopted baseline is not yet recorded.**
-Disposable development installs remain fresh-install-only; the canonical test
-environment is the promoted current-stable qualified artifact (Nextcloud
-35.0.2 / PHP 8.4.26 / PostgreSQL 18.6; CS-PLAN-082 promotion 2026-10-06, PHP
-patch 8.4.26 with AIO v14.3.0 and NC 35.0.2 per CS-PLAN-084 D-084-09/11, frozen
-in `docker/test-runtime.json`) and stays disposable. After WP9's technical
-provider matrix and consecutive browser gates, the operator explicitly adopts
-one qualified baseline before first real retained data. Voluntary family-use
-evidence can follow; it is not a circular prerequisite to adopting the
-technical baseline. AIO packaging/deployment and retained-baseline adoption
-remain separate, explicitly approved steps — the test-runtime promotion is not
-a deployment completion.
+**Adopted 2026-10-17: ChoreStrike `0.8.0-alpha.1` is the first retained
+baseline.** From it, persisted facts are preserved by default and applied
+migrations are immutable under the
+[canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary).
+Disposable development installs and the canonical test environment (Nextcloud
+35.0.2 / PHP 8.4.26 / PostgreSQL 18.6, frozen in `docker/test-runtime.json`)
+stay disposable; they are neither retained data nor supported upgrade sources.
 
-The operator requested on 2026-10-11 that the existing production household be
-kept across updates. Treat those facts as non-disposable now: no reset, reseed,
-destructive reinstall or edits to its applied migrations to resolve a mismatch.
-An incomplete adoption inventory is a documentation/qualification gap, never
-permission to erase data. Record the actual installed baseline before an update;
-do not invent its identity or label an untested upgrade as supported. This does
-not convert the separately owned local Docker fixtures into production data.
+The production household has been non-disposable since the operator request of
+2026-10-11: no reset, reseed, destructive reinstall or edits to its applied
+migrations to resolve a mismatch. An incomplete inventory is a documentation
+gap, never permission to erase data. Record the actual installed identity before
+every update; do not invent it or label an untested upgrade as supported.
 
-The adoption record must include:
+### Adoption Record (2026-10-17)
+
+Imported from the operator's sanitized deployment report; the package identity
+and migration hashes were verified against the local qualification run and Git.
+Instance details, table prefix and backup scope are recorded privately.
+
+| Item | Record |
+|------|--------|
+| Decision | Operator decision 2026-10-17 ([CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#pre-deployment-candidate-080-alpha1-2026-10-17)), effective with the deployment the same day |
+| Source | `master` `0d27d38e2164ca4c86a7f07ca487fa9581d3d5da` |
+| Artifact | `chorestrike.tar.gz`, 1669791 bytes, SHA-256 `6128bf600f2cfc47a0e4bccd8fe8b37f904e3f13e95e5737b419af7365c16c05`; `package-manifest.json` `8c34e121705ef2ad49f024a3d1763de0e13e3c185b5905b530e0801899a816d9`; `identity.json` `e858c84a3e2d3ff4bd4ed0e9b014b14d0b139793de6a0402f0746f95081bdbd8`; package smoke `mvcfy3ro` (`package-qualified`, NC 35.0.2 and AIO NC 34.0.4) |
+| Receiver checks | Operator-reported: all sizes and hashes matched; full in-memory archive validation before extraction (no links, traversal or duplicates; 525 file hashes and 1006 source blob comparisons) |
+| Installed version | `0.1.1` → `0.8.0-alpha.1` as reported by Nextcloud; app enabled, no pending database upgrade |
+| Runtime | Nextcloud 34.0.4 (AIO 14.3.0), PHP 8.4.26, PostgreSQL 18.6, Redis 8.10.2 — the inventory's AIO row |
+| Upgrade | Files replaced under maintenance mode with writers paused, then `occ upgrade`: only ChoreStrike updated, no repair warnings; enabled/disabled app list otherwise unchanged |
+| Migrations | 26 applied, none executed by the upgrade; each matches a byte-identical package file, no extra files (list below, reconciled with Git and the package manifest) |
+| Data preservation | All 30 app tables (row counts and content digests) and the app config except `installed_version` identical before and after |
+| Technical evidence | CS-PLAN-084 round 12: full gate on both runtime rows plus the MariaDB/SQLite provider suites |
+| First-deployment smoke | Operator production browser smoke passed 2026-10-17 ([post-deployment verification](#post-deployment-verification)) |
+| Recovery | Existing, repeatedly tested whole-instance recovery procedure confirmed, no new restore test. Recovery from here is a whole-instance restore, never an app downgrade |
+
+Applied migrations in order, with the SHA-256 of `lib/Migration/Version<id>.php`:
+
+| # | Migration | SHA-256 |
+|---|-----------|---------|
+| 1 | `1000Date20260224000000` | `8b61b5075c74bc17c52d423a06bbd9a6a033ad8dbb297dd633edb170b428c032` |
+| 2 | `1001Date20260224170000` | `c21652fddaafa76e13d690f2b814b619c5f644a6255d5396d865c9a3f821061c` |
+| 3 | `1004Date20260228131728` | `deaf0ecae7a00bfb889767d85dbb2bee2dd7485ce84fae98368ce15c980ea2ea` |
+| 4 | `1004Date20260228150000` | `33e9a986e32084a85923e5d63cfbb8aa988650995b2b155cb11c818352f6df5c` |
+| 5 | `1005Date20260228160000` | `0563d0cc97ce4f8eff0b0ba04764477fae84ef95f555d23ff4e106a0ce43960d` |
+| 6 | `1006Date20260228170000` | `3cfd884b382af68b2afbdeb9d484f58012130c6b78891022bf40bb0ca97150a3` |
+| 7 | `1007Date20260228180000` | `31e2a7c3d25d6bc4ca2a86479a6548949883fd144b3cfd2d98a46e407e78f900` |
+| 8 | `1008Date20260228190000` | `eef631947cedd32ff319d45d2243b5cdec63603c5e3d51ba5e4c6856a804d004` |
+| 9 | `1009Date20260228200000` | `5c977b87c459953b5f81140d2181d3dae7ebc195385a03e376832ae12f802533` |
+| 10 | `1011Date20260301220000` | `de0c7de56b51bb9dd7cb59398ac205aedad712442dbbd591671ea10685344254` |
+| 11 | `1012Date20260301230000` | `1b4f9fb13af0bbe4cf4d9080cc8cdacf460bec2330673101a837c34ace1962c6` |
+| 12 | `1015Date20260304000000` | `a7aca37fde463ed851cc9f19f3537f9b467d6b199cafe8099d0014c6db77db4f` |
+| 13 | `1016Date20260314000000` | `88832934244f25d8e1838c70cc5ad00d6a7cb33c1efd8c3e20b314f255a4e8e6` |
+| 14 | `1021Date20260712000000` | `0a3e4d5072b9b0ab636d98c75959dd166697dc075389a653bcc90dd6cc29ae46` |
+| 15 | `1022Date20260717000000` | `2189061ba93235e434698a7b7d11fa2da42e5d8bdeee3ab20fc5265dba36b6f9` |
+| 16 | `1023Date20260718000000` | `cb26da0f51db3e2fc68a77a24bd33656e5dd3876791f07d5f65069955ceee3dd` |
+| 17 | `1024Date20260719000000` | `93e3c7d0172bdb54d7e9d7ebddf80fae141a48d51d3de4d07883f41cf8af8d43` |
+| 18 | `1025Date20260719000000` | `eab8491b598c1b7dd3c61b1b47e2b7ef503dfea1deae4e1911a24784bacd32c8` |
+| 19 | `1026Date20260724000000` | `8ef628d2e838ea25778f5156c3f756ac19825676c21ac71a887a4509ef2315f4` |
+| 20 | `1027Date20260725000000` | `838131a2e30762a1991130f7600e51cb8e9f1b8da621423693a4e1c28782bca8` |
+| 21 | `1028Date20260830000000` | `d99848bb05654b7500dbdcbe6ba42bf7144239dcd53ded06fe60620b5e9ff825` |
+| 22 | `1029Date20260906000000` | `12526eafa6b1a671f06656e624b860b13606d3ad3234207d60d54cc1d0e400ff` |
+| 23 | `1030Date20260918000000` | `9f8767311debf836480c9515d3360a3459f3037004ea913b23328c6e2fc2575d` |
+| 24 | `1031Date20260918000000` | `6bb4dcd2ecd674357722f3989540c8dfce744bc1c37466e1cc411c3551233abf` |
+| 25 | `1032Date20260918000000` | `bc78127f956636a63a67406b6b563df20f2cbbc32a9d44e92931365ab315cdd5` |
+| 26 | `1033Date20260918000000` | `7d04a97b5dafd5f67b5a975350c4b69475a481221607ac1364581ac495dc47b4` |
+
+### Schema Changes After Adoption
+
+Subsequent schema changes use new ordered steps and require real populated-
+baseline upgrades plus fresh/upgrade parity on all supported providers. An
+unchanged-app reinstall or backup restore is not an upgrade test. No support
+for disposable development states older than the baseline is implied.
+
+A record for any later adopted baseline needs the same content:
 
 - Explicit operator decision/date and target authorization (private instance details stay in `private/`).
 - Exact Git revision, build/artifact identity and actual installed app version from `appinfo/info.xml`/Nextcloud, not an assumed release label.
 - Nextcloud, PHP and DB provider/version; configured table prefix and backup scope recorded privately.
 - Ordered applied ChoreStrike migration identifiers from the installed DB and SHA-256 hashes of the matching migration files; reconcile the two inventories before approval.
-- Passing WP9 technical evidence, first-deployment smoke and confirmation of the existing tested Nextcloud recovery procedure; reuse prior recovery evidence rather than requiring another operator restore test. No untested upgrade claim or automatic tag/deployment.
-
-From that decision, preserve persisted facts by default and keep applied
-migrations immutable under the [canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary-approved-not-yet-adopted).
-Subsequent schema changes use new ordered steps and require real populated-
-baseline upgrades plus fresh/upgrade parity on all supported providers. An
-unchanged-app reinstall or backup restore is not an upgrade test. No support
-for earlier disposable development states is implied.
+- Passing technical evidence, first-deployment smoke and confirmation of the existing tested Nextcloud recovery procedure; reuse prior recovery evidence rather than requiring another operator restore test. No untested upgrade claim or automatic tag/deployment.
 
 ## Testing
 
@@ -379,6 +428,15 @@ Use the supported Nextcloud upgrade flow, with the matching app build and
 reviewed migration inventory. Never manually replay already-applied steps to
 repair a retained installation; stop and diagnose a mismatch instead.
 
+`occ upgrade` also updates **every enabled app** with a pending App Store update
+(`Updater::upgradeAppStoreApps(getEnabledApps())`, server `stable34`), so a
+ChoreStrike version change silently carries unrelated app updates unless none
+are pending. Check `occ app:update --showonly` first — it also lists disabled
+apps, which `occ upgrade` leaves alone — and apply pending updates of enabled
+apps as a separate, verified step. When maintenance mode was already on,
+`occ upgrade` keeps it on (`Maintenance mode is kept active`): replace the files
+and upgrade under maintenance with writers paused, verify, then reopen.
+
 #### 4. Enable the app
 
 ```bash
@@ -399,10 +457,14 @@ sign-off record. **A release tag requires a completed record.**
 
 ## Post-Deployment Verification
 
-Operator-reported initial smoke (2026-10-11): the checks below are manual reports,
-not independent server verification. Core task workflows take priority. Member
-completion remains blocked by a generic failure toast; optional Coins/reward
-checks are deferred, not passed or removed from the eventual release gate.
+Operator-reported smoke of the deployed `0.8.0-alpha.1` (2026-10-17), building
+on the initial smoke of 2026-10-11: the checks below are manual reports, not
+independent server verification, reported as a whole rather than itemized; the
+console/CSP checks and 403 probes of earlier smokes were not recorded separately.
+Fresh private browser window on phone and desktop: cold login, My Day, dashboard,
+settings and the remaining views. The member-completion failure of 2026-10-11 did
+not reproduce. Optional Coins/reward checks are deferred, not passed or removed
+from the eventual release gate.
 
 - [x] App appears in Nextcloud app list
 - [x] App icon visible in the app launcher
@@ -410,12 +472,12 @@ checks are deferred, not passed or removed from the eventual release gate.
 - [x] Can create/view floors
 - [x] Can create/view rooms
 - [x] Can create/view tasks
-- [ ] Task completion works
+- [x] Task completion works, including completion by a regular member; no failure toast
 - [na] Effort-based Coins, rhythm progress and optional rewards behave as expected
 - [x] User management works (invite, remove)
-- [ ] Nextcloud cron runs regularly (normally every five minutes); timeline and optional digest processing are operational, not dependent on page visits
+- [x] Nextcloud cron runs regularly (normally every five minutes); timeline and optional digest processing are operational, not dependent on page visits
 - [ ] Test mode remains disabled; no test accounts, seeds or fixture resets were introduced
-- [ ] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`)
+- [x] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — one recurring level-2 deprecation warning from `ChoreStrikeNotifier::prepare()` on every notification poll, no functional impact (follow-up fix)
 
 ### Performance
 

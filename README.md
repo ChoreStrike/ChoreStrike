@@ -91,10 +91,11 @@ a Nextcloud instance may still have hosting costs.
 - PHP 8.4.x
 - MySQL/MariaDB, PostgreSQL or SQLite (via Nextcloud's database layer)
 
-ChoreStrike is a **pre-release app (0.1.x)**. Disposable development installs
-are fresh-install-only. Before keeping real household data, explicitly adopt
-a verified [retained baseline](docs/engineering/deployment.md#first-retained-baseline);
-there is no upgrade promise for earlier disposable installations.
+ChoreStrike is a **pre-release app (`0.8.0-alpha.1`, internal alpha)**. Its
+first [retained baseline](docs/engineering/deployment.md#first-retained-baseline)
+was adopted on 2026-10-17: from it, updates preserve household data. Disposable
+development installs remain fresh-install-only; there is no upgrade promise for
+them.
 
 These bounds are the promoted current-stable baseline (CS-PLAN-082,
 2026-10-06), not a pending qualification candidate: fresh NC35 installations

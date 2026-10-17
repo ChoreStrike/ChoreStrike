@@ -16,7 +16,7 @@
 5. **Authorization:** `@NoAdminRequired` only (never `@PublicPage`); validate house membership/ownership on every mutation; never trust client input.
 6. **i18n:** every user-visible string via `t()`, `l10n/` updated in the same change.
 7. **Logging:** `AppLogger` / `src/utils/logger.js`; no raw `console.*`.
-8. **Data retention:** fresh-install-only until explicit baseline adoption; existing production facts are already protected (§1).
+8. **Data retention:** retained baseline `0.8.0-alpha.1` adopted 2026-10-17 — preserve persisted facts, never edit applied migrations, schema changes only as new ordered steps with populated-upgrade tests (§1).
 9. **KISS & DRY:** minimal diffs, ~30 lines/method, ~300 lines/file, rule of three.
 10. **No completion without tests** — never done while required tests are missing, unapproved-skipped, or red.
 11. **Backlog discipline:** route findings scope-first (fix → owning plan → fold-in → `backlog.md`); done items to `docs/backlog/archive/YYYY-MM.md` immediately.
@@ -59,4 +59,4 @@ Canonical sources live only in `docs/standards/ai/` (`rules/`, `skills/`, `comma
 
 ---
 
-**Last Updated:** 2026-10-17 · **Version:** 7.2
+**Last Updated:** 2026-10-17 · **Version:** 7.3

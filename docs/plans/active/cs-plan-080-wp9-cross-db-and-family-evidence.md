@@ -1,6 +1,6 @@
 # CS-PLAN-080: WP9 Cross-Database Verification and Family Evidence
 
-> **Status:** Active (technical gates passed; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
+> **Status:** Active (technical gates passed; `0.8.0-alpha.1` deployed and adopted as the first retained baseline 2026-10-17; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
 > **Effort:** M, 4-6 engineering days plus 14 calendar days of voluntary everyday use; revise after the portability inventory if repairs exceed this allowance
 > **Priority:** P1
 > **Depends on:** WP0-WP8 delivered; Standard A before implementation; separately authorized, available consenting family testers before human evidence
@@ -376,8 +376,8 @@ explicit estimate/scope decision, not a weaker test gate or fictional deadline.
 
 ## 9. Review Findings (Plan-Owned)
 
-- [ ] **RF-080-14 major (operator feedback, 2026-10-11):** member completion shows the generic failure toast; actual failed request status/code and installed candidate remain unconfirmed. Local investigation passed 35 focused backend cases without reproducing a role-only failure. Fixed a demonstrated dialog validation gap: missing actor identity or excluding the actor from a 100% split now blocks submission with an explanation, preserving correction-mode exemption and backend authorization. This is not proof of the reported incident's root cause. Further completion-path inspection flagged claim confirmation opening the participation dialog and occurrence replacement retaining the prior proposal; validate/fix those paths with dedicated regressions rather than infer incident causality. Obtain sanitized failed POST status/error code (or local STALE_TARGET/no POST) before declaring the production fault fixed. Update 2026-10-13 ([CS-PLAN-084](../done/cs-plan-084-family-trial-ux-baseline.md) round 1): the claim-confirmation path now completes directly with the reviewed sole-participant allocation (Jest + UI E2E regressions), and an agreed handover is no longer recorded as an overdue takeover; failure toasts with the API error code follow in CS-PLAN-084 WP-F. The production incident's cause remains unconfirmed.
-- [ ] **RF-080-15 major (operator feedback, 2026-10-11):** task management default/filters, assignment names, action clarity and My Day room links implemented with unit regressions and a desktop/mobile keyboard browser scenario. Optional member-name loading now has a non-blocking error/retry, and visible/accessibility completion labels agree. Focused family browser rerun passed all 11 executions including setup. Full gate `run-t4pJYd` exposed two old takeover tests assuming everyone-by-default (updated to click Everyone and expect the loaded display name), plus two fixture-seed connection closures before family-rhythm assertions. Full-gate requalification and production core-use retest remain open. Optional reward testing stays deferred, not passed. **Update 2026-10-17 (operator decision):** the full gate of the CS-PLAN-084 deployment candidate `0.8.0-alpha.1` counts as this item's full-gate requalification — see [Pre-Deployment Candidate](#pre-deployment-candidate-080-alpha1-2026-10-17); the production core-use retest (together with the real-device checklist) remains open until it runs on the deployed candidate.
+- [x] **RF-080-14 major (operator feedback, 2026-10-11; closed 2026-10-17 by user decision):** member completion shows the generic failure toast; actual failed request status/code and installed candidate remain unconfirmed. Local investigation passed 35 focused backend cases without reproducing a role-only failure. Fixed a demonstrated dialog validation gap: missing actor identity or excluding the actor from a 100% split now blocks submission with an explanation, preserving correction-mode exemption and backend authorization. This is not proof of the reported incident's root cause. Further completion-path inspection flagged claim confirmation opening the participation dialog and occurrence replacement retaining the prior proposal; validate/fix those paths with dedicated regressions rather than infer incident causality. Obtain sanitized failed POST status/error code (or local STALE_TARGET/no POST) before declaring the production fault fixed. Update 2026-10-13 ([CS-PLAN-084](../done/cs-plan-084-family-trial-ux-baseline.md) round 1): the claim-confirmation path now completes directly with the reviewed sole-participant allocation (Jest + UI E2E regressions), and an agreed handover is no longer recorded as an overdue takeover; failure toasts with the API error code follow in CS-PLAN-084 WP-F. The production incident's cause remains unconfirmed. **Closure 2026-10-17:** not reproduced on the deployed `0.8.0-alpha.1` — the operator's production smoke completed tasks as a regular member on phone and desktop without a failure toast ([Deployment](#deployment-and-retained-baseline-adoption-080-alpha1-2026-10-17)). The root cause stays unconfirmed; the claim-confirmation repair is the closest demonstrated defect. Closed as not reproduced by user decision; a recurrence now names its API error code in the toast and is a new finding.
+- [ ] **RF-080-15 major (operator feedback, 2026-10-11):** task management default/filters, assignment names, action clarity and My Day room links implemented with unit regressions and a desktop/mobile keyboard browser scenario. Optional member-name loading now has a non-blocking error/retry, and visible/accessibility completion labels agree. Focused family browser rerun passed all 11 executions including setup. Full gate `run-t4pJYd` exposed two old takeover tests assuming everyone-by-default (updated to click Everyone and expect the loaded display name), plus two fixture-seed connection closures before family-rhythm assertions. Full-gate requalification and production core-use retest remain open. Optional reward testing stays deferred, not passed. **Update 2026-10-17 (operator decision):** the full gate of the CS-PLAN-084 deployment candidate `0.8.0-alpha.1` counts as this item's full-gate requalification — see [Pre-Deployment Candidate](#pre-deployment-candidate-080-alpha1-2026-10-17); the production core-use retest (together with the real-device checklist) remains open until it runs on the deployed candidate. **Update 2026-10-17 (deployment):** the operator's production smoke on the deployed candidate covered core use on phone and desktop — cold login, My Day, dashboard, settings, the remaining views and member completion — reported as a whole, not itemized ([Deployment](#deployment-and-retained-baseline-adoption-080-alpha1-2026-10-17)). The formal real-device checklist (release-test-plan §14.1) remains open and closes this item.
 - [x] **RF-080-16 minor (architecture, interim review 2026-10-12; resolved 2026-10-14 by CS-PLAN-084 WP-D round 7):** `TaskManager.vue` grew to ~818 lines with the WP9 scope/person/floor/room filter surface (guidance ~300 lines/file). The review round extracted `matchesScopeFilter` and the duplicated TodayView assignee-label expressions, but the self-contained presentational filter bar (scope buttons, person/floor/room selects and their styles) remains inline. Extract it (e.g. `components/Tasks/TaskFilterBar.vue`) in the next WP9 UI round together with renewed focused browser evidence. Deferred to keep the review round's diff minimal; no behavior defect — `TodayView.vue`/`RoomDetail.vue` already exceed the guidance, so this is debt reduction, not a shipping blocker. Execution scheduled in [CS-PLAN-084](../done/cs-plan-084-family-trial-ux-baseline.md) WP-D (activated 2026-10-13); close here when delivered. Sequencing: family evidence collection follows CS-PLAN-084. **Resolution:** `components/Tasks/TaskFilterBar.vue` owns the scope buttons, the collapsible person/floor/room/status/priority/difficulty/visibility/search panel and their styles as a stateless v-model; `TaskManager.vue` 831 → 693 lines. Focused browser evidence: chromium 47/47 and serial 17/17 (CS-PLAN-084 Implementation Evidence round 7).
 
 Standard A passed on 2026-10-03. Cross-DB provisioning and human evidence
@@ -404,6 +404,32 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 
 ## Implementation Evidence
 
+### Deployment and Retained-Baseline Adoption 0.8.0-alpha.1 (2026-10-17)
+
+- **Deployed and adopted:** the operator deployed the candidate below to the
+  production AIO (Nextcloud 34.0.4 / PHP 8.4.26 / PostgreSQL 18.6 / Redis
+  8.10.2, the inventory's AIO row) and adopted it as the first retained
+  baseline. Installed version `0.1.1` → `0.8.0-alpha.1`; 26 applied migrations,
+  none executed by the upgrade; all 30 app tables and the app config (except
+  `installed_version`) identical before and after; other apps unchanged. The
+  full record is in [deployment.md](../../engineering/deployment.md#adoption-record-2026-10-17).
+- **Verification:** the sanitized operator report was read in full and its
+  identity claims checked independently — commit, archive size/SHA-256 and both
+  manifest hashes match run `mvcfy3ro`; all 26 reported migration hashes match
+  Git `0d27d38` and the package manifest, with no further migration file. The
+  upstream behaviour cited for the deployment guide matches Nextcloud `stable34`.
+- **Production smoke (operator-reported):** passed on phone and desktop
+  (RF-080-14 closed as not reproduced, RF-080-15 updated). Cron on schedule, no
+  server log errors; one recurring deprecation warning from
+  `ChoreStrikeNotifier::prepare()` (`\InvalidArgumentException` instead of
+  `UnknownNotificationException`, logged as an error from Nextcloud 39) — no
+  functional impact, fixed on a follow-up branch.
+- **Deployment guide:** `occ upgrade` also applies pending App Store updates of
+  every enabled app — a pre-deployment check and the maintenance-mode behaviour
+  are now documented ([deployment.md](../../engineering/deployment.md#3-run-migrations)).
+- **Still open here:** the formal real-device checklist (release-test-plan
+  §14.1), RF-080-05 comprehension and the voluntary 14-day trial, final review.
+
 ### Pre-Deployment Candidate 0.8.0-alpha.1 (2026-10-17)
 
 - **Operator decisions (2026-10-17):** (1) the CS-PLAN-084 deployment
@@ -411,7 +437,7 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   suites — counts as RF-080-15's full-gate requalification; (2) this deployment
   is also the **first retained-baseline adoption**: from the deployed candidate
   on, applied migrations are immutable and persisted facts are preserved
-  ([project rules §1](../../standards/ai/rules/project-rules.md#data-retention-boundary-approved-not-yet-adopted),
+  ([project rules §1](../../standards/ai/rules/project-rules.md#data-retention-boundary),
   [deployment.md](../../engineering/deployment.md#first-retained-baseline)); (3)
   the operator's real-device checklist moves here from CS-PLAN-084. The decision
   is not the adoption itself: adoption takes effect with the deployment and its
