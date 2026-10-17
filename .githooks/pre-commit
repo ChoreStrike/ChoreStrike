@@ -1,0 +1,36 @@
+#!/bin/sh
+# Branch guard (activated by `npm ci` / `npm install` through
+# scripts/install-git-hooks.js; see docs/standards/ai/skills/git-workflow).
+#
+# 1. No direct commit on master/main. Work lands there by fast-forward or
+#    merge from a reviewed branch (neither runs this hook). A commit the user
+#    explicitly requested on master runs with CS_ALLOW_MASTER=1 for that one
+#    command.
+# 2. A worktree pinned with `npm run branch:pin` only accepts commits on its
+#    pinned branch, so a session cannot commit into a checkout that was
+#    switched under it.
+# Detached HEAD (rebase, bisect, agent pools) is left alone.
+
+branch=$(git symbolic-ref --short -q HEAD) || exit 0
+
+case "$branch" in
+	master|main)
+		if [ "${CS_ALLOW_MASTER:-}" != "1" ]; then
+			echo "[branch-guard] Refusing a direct commit on '$branch'." >&2
+			echo "[branch-guard] Commit on a feature branch and fast-forward or merge it; for a commit the user explicitly requested on '$branch', run it with CS_ALLOW_MASTER=1." >&2
+			exit 1
+		fi
+		;;
+esac
+
+pin=$(git rev-parse --git-path chorestrike-branch)
+if [ -f "$pin" ]; then
+	expected=$(head -n 1 "$pin" | tr -d '\r\n')
+	if [ -n "$expected" ] && [ "$expected" != "$branch" ]; then
+		echo "[branch-guard] This worktree is pinned to '$expected', but HEAD is on '$branch'." >&2
+		echo "[branch-guard] Switch back, or re-pin deliberately with 'npm run branch:pin'." >&2
+		exit 1
+	fi
+fi
+
+exit 0

@@ -88,6 +88,12 @@ npm run test:runtime:canonical
    `~7.2.0`: its files 3 dependency supports Node 20, while dialogs 7.3 introduces
    Node-24-only files 4. Do not bypass peer or engine validation to upgrade it.
 
+   `npm ci` also activates the tracked branch guard (`core.hooksPath=.githooks`,
+   via `prepare`): no direct commits on `master`, and a worktree pinned with
+   `npm run branch:pin` only accepts commits on its branch. Rules and the
+   explicit `CS_ALLOW_MASTER=1` override: the
+   [`git-workflow` skill](../standards/ai/skills/git-workflow/SKILL.md#branch-guard-githookspre-commit).
+
 4. **Build frontend**
    ```bash
    npm run dev

@@ -35,7 +35,11 @@
     "docs:encoding": "node scripts/check-docs-encoding.js",
     "backlog:check": "node scripts/check-backlog.js",
     "agents:sync": "node scripts/sync-agent-adapters.js",
-    "agents:check": "node scripts/sync-agent-adapters.js --check"
+    "agents:check": "node scripts/sync-agent-adapters.js --check",
+    "prepare": "node scripts/git-guard.js install",
+    "branch:pin": "node scripts/git-guard.js pin",
+    "branch:unpin": "node scripts/git-guard.js unpin",
+    "branch:status": "node scripts/git-guard.js status"
   },
   "dependencies": {
     "@fluentui/svg-icons": "^1.1.320",

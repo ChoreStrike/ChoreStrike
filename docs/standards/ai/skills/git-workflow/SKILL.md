@@ -19,8 +19,19 @@ description: Branching, conventional commits, and clean history for the single C
 
 ## Branching
 
-- Stay on the currently checked-out branch (normally `master`). Do not create or switch branches unless the user explicitly requests it.
-- When a branch is requested, use `feat/...`, `fix/...`, `docs/...`, `refactor/...`, or `chore/...` and keep one logical change per branch/PR.
+- **`master` is always releasable.** Work happens on a short-lived branch per plan or topic — `feat/...`, `fix/...`, `docs/...`, `refactor/...` or `chore/...`, one logical change each — and reaches `master` by fast-forward or merge after its review. Long-running feature branches (e.g. a P3 add-on) develop independently and rebase onto `master` deliberately.
+- Stay on the branch the task was given. Do not create, switch or merge branches unless the user explicitly requests it or the task names the branch.
+- **One session, one worktree, one branch.** A parallel session gets its own worktree (`git worktree add <path> -b <branch> master`); never commit in a checkout another session works in. Record branch and worktree in the task's `ACTIVE_TASKS.md` entry.
+- **Pin the worktree** at task start with `npm run branch:pin` (status: `npm run branch:status`). The guard then refuses commits on any other branch in that worktree.
+- **Release freeze:** between a candidate's qualification and its deployment, nothing lands on `master`; a later fix goes to a branch and needs its own requalification.
+
+### Branch guard (`.githooks/pre-commit`)
+
+Tool-agnostic — it applies to Claude Code, Kilo and humans alike. `npm ci` / `npm install` activate it (`prepare` → `scripts/git-guard.js install` sets `core.hooksPath=.githooks`; it never replaces a different configured hooks path).
+
+- Refuses direct commits on `master`/`main`. Fast-forwards and merges are not affected. For a commit the user explicitly asked to make on `master`, run that one command with `CS_ALLOW_MASTER=1` (PowerShell: `$env:CS_ALLOW_MASTER='1'; git commit ...; Remove-Item Env:CS_ALLOW_MASTER`). Agents never set it on their own initiative.
+- Refuses commits on a branch other than the worktree's pin; detached HEAD (rebase, bisect, agent pools) is left alone.
+- Never bypass it (`--no-verify`, changing `core.hooksPath`); a refusal means: stop, check `npm run branch:status`, and ask.
 
 ## Commits
 
