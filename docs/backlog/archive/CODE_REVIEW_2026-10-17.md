@@ -82,3 +82,37 @@ plan's acceptance criteria, required tests and durable-doc integration are
 complete. Plan moved to `done/`; UX-017, FEAT-UX-033..036 and TECH-RUNTIME-002
 archived; TECH-TEST-005 stays open for the real-device run under CS-PLAN-080.
 No deployment, adoption, tag or push.
+
+---
+
+## Standard B (Code) — TECH-DOCS-005 commits `b52e374` + `1ee898d`
+
+**Outcome:** `NEEDS-FOLLOW-UP` (non-blocking) · **Plan:** N/A (backlog TECH-DOCS-005) · **Transition:** none
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Reviewed commits | `b52e374` (README brand avatar, screenshots, status badge, `design.md` §4) and `1ee898d` (house-health bar, icon registration, `--cs-view-inline-start` inset in all 13 routed views, three guards, `layout-clearance.spec.ts`) — committed by a parallel session on `master` |
+| Base | `master` `f7aff5d`, clean worktree; review record and backlog routing on branch `docs/review-tech-docs-005` |
+| Gate evidence | already part of the `0d27d38` requalification: Jest 127/1836, backend 1385/613 on both rows, browser gates `run-I3xSLN` (primary) and `run-6jDStt` (AIO) incl. `layout-clearance` pinned in the manifest, package run `mvcfy3ro` |
+
+### Findings
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| CR-LAYOUT-01 | minor | `src/styles/tokens.css` | `--cs-view-inline-start` is declared on `:root`, where Nextcloud defines neither `--default-clickable-area` (`[data-theme-*]` on body) nor `--app-navigation-padding` (`.app-content`), so it is always the 50 px fallback; correct on NC 34/35, not derived as claimed. Folded in: the whole-view inset narrows phone content (16 → 50 px) where only the heading row needs clearance | Backlog — user-deferred until after the deployment (frozen candidate, no behavior difference on the target runtimes) |
+| CR-NAV-01 | minor | `src/App.vue` (pre-existing) | Five navigation entries use legacy core icon classes that no longer exist and render without an icon, visible in the new README screenshots | Backlog |
+
+### Verified non-findings
+
+- **Correctness:** DOM order now paints the fill over its track; `Icon` imported from `Common/index.js` and registered; header gap and `min-width: 0` stop the name touching the percentage; every routed view and both reward sub-views take `padding-inline-start` from the token, including their media-query shorthands (static guard); logical `inline-start` keeps RTL correct.
+- **Tests:** the HouseHealthBar paint-order and registration regressions and the repository-wide `Icon`/`Emoji` registration guard target the real stub-masking cause; `layout-clearance.spec.ts` measures 1280 and 390 px geometry and is now a required gate spec with a pinned inventory.
+- **Security/privacy:** the brand SVG has no script, event handler or external reference (one internal gradient); the four public screenshots show only the seeded demo household and demo accounts; no `v-html`, no authorization or data-flow change.
+- **i18n/logging:** no new user-visible string or log call.
+
+### Outcome
+
+No finding affects the deployed behavior; both are routed to the backlog with
+the user's decision on timing. No code change, plan transition, push or
+deployment.

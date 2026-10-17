@@ -148,6 +148,43 @@ them relative to the manifest, with a test against a `custom_apps` install.
 
 ---
 
+### [P3] CR-LAYOUT-01 — View inset token resolves at `:root`, where Nextcloud defines neither metric
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: theming
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: whole-view inset on phones (same review)
+**Source**: Review of TECH-DOCS-005 UI fix `1ee898d` (Standard B, 2026-10-17; user-deferred until after the `0.8.0-alpha.1` deployment)
+
+`--cs-view-inline-start` (`src/styles/tokens.css`) is declared on `:root` as
+`calc(var(--default-clickable-area, 34px) + 2 * var(--app-navigation-padding, 8px))`.
+Nextcloud defines `--default-clickable-area` on the `[data-theme-*]` body
+selectors and `--app-navigation-padding` on `.app-navigation, .app-content`
+(verified on NC 35.0.2), so at `:root` both fall back and the token is a fixed
+50 px. That equals the real NC 34/35 values — both browser gates and
+`layout-clearance.spec.ts` pass — but it would not follow a changed metric, and
+the token comment and `view-inline-start.spec.js` claim a derivation the
+cascade does not perform. Declare the token where both variables resolve
+(`.app-content`, the `NcAppContent` root) and assert the computed value in the
+browser. Same round: the inset applies to the whole view, which narrows phone
+content from 16 to 50 px inline-start although only the heading row sits next
+to the navigation toggle; decide whether the heading row alone should clear it.
+
+---
+
+### [P3] CR-NAV-01 — Five navigation entries show no icon on Nextcloud 34/35
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: navigation
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of TECH-DOCS-005 screenshots (Standard B, 2026-10-17; pre-existing)
+
+`src/App.vue` passes legacy core icon classes to `NcAppNavigationItem`:
+*My Day* (`icon-clock`), *Scheduling* (`icon-calendar`), *Arcade*
+(`icon-game`), *Rewards* (`icon-gift`) and *My Requests* (`icon-reward`) render
+an empty icon slot, while the other entries show theirs — visible in every
+README screenshot (the other six entries use core classes that still exist).
+Render the app's own `Icon` component through the item's `#icon` slot for all
+entries, keep the label/ARIA behavior, and add a guard that every navigation
+entry has a resolvable icon.
+
+---
+
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
