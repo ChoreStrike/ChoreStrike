@@ -16,13 +16,14 @@
 		</div>
 
 		<div class="health-bar-container">
+			<!-- The track comes first: both layers are absolutely positioned, so DOM order sets the paint order. -->
+			<div class="health-bar-background" />
 			<div
 				class="health-bar-fill"
 				:class="healthClass"
 				:style="{ width: `${houseHealth}%` }">
 				<div class="health-bar-glow" />
 			</div>
-			<div class="health-bar-background" />
 		</div>
 
 		<div class="health-status">
@@ -48,9 +49,14 @@ import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../../store/house.js'
 import { logger } from '../../utils/logger.js'
+import { Icon } from '../Common/index.js'
 
 export default {
 	name: 'HouseHealthBar',
+
+	components: {
+		Icon,
+	},
 
 	props: {
 		showRefreshButton: {
@@ -125,6 +131,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
@@ -132,6 +139,8 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 18px;
   font-weight: 600;
   margin: 0;

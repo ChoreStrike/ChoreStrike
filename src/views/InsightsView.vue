@@ -452,6 +452,7 @@ export default {
 <style scoped>
 .insights-view {
 	padding: 1rem 2rem 2rem;
+	padding-inline-start: var(--cs-view-inline-start);
 	max-width: 1000px;
 	margin: 0 auto;
 }
@@ -578,6 +579,7 @@ export default {
 @media (max-width: 768px) {
 	.insights-view {
 		padding: 1rem;
+		padding-inline-start: var(--cs-view-inline-start);
 	}
 
 	.insights-section {

@@ -36,6 +36,7 @@ of every main view in the light and dark themes.
 ## 3. Typography & Styling
 - **Fonts:** Inherited globally from the Nextcloud system (usually system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto). We do **not** define our own custom fonts to ensure native integration and keep things simple.
 - **Shapes:** Slightly rounded corners (border-radius: 8px to 12px) for a friendly, "game-like" look.
+- **View inset:** Nextcloud's navigation toggle sits in the top-left corner of the app content. Every routed view takes its inline-start padding from `--cs-view-inline-start` (`src/styles/tokens.css`, derived from the Nextcloud navigation metrics), including media-query overrides, so the toggle never covers a heading. Guarded by `tests/unit/css/view-inline-start.spec.js` and measured by `tests/e2e/layout-clearance.spec.ts`.
 
 ## 4. Brand Assets
 

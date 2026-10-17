@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { ref } from 'vue'
 import HouseHealthBar from '../../../src/components/Dashboard/HouseHealthBar.vue'
+import Icon from '../../../src/components/Common/Icon.vue'
 import { useHouseStore } from '../../../src/store/house.js'
 
 describe('HouseHealthBar', () => {
@@ -126,6 +127,25 @@ describe('HouseHealthBar', () => {
 		it('has glow animation effect', () => {
 			const wrapper = createWrapper()
 			expect(wrapper.find('.health-bar-glow').exists()).toBe(true)
+		})
+
+		// Regression: both layers are absolutely positioned, so a track rendered
+		// after the fill painted over it and the bar always looked empty.
+		it('renders the track before the fill so the fill paints on top', () => {
+			const wrapper = createWrapper({}, 100)
+			const layers = wrapper.find('.health-bar-container').element.children
+			expect(Array.from(layers).map(layer => layer.className.split(' ')[0]))
+				.toEqual(['health-bar-background', 'health-bar-fill'])
+		})
+	})
+
+	describe('icons', () => {
+		// Regression: Icon was used without being registered, so production
+		// rendered an empty unknown element instead of the house and reload
+		// icons. The global Jest stub resolves unregistered usages, so the
+		// registration itself is asserted (see also iconRegistration.spec.js).
+		it('registers the Icon component it renders', () => {
+			expect(HouseHealthBar.components).toEqual(expect.objectContaining({ Icon }))
 		})
 	})
 })

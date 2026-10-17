@@ -598,6 +598,7 @@ export default {
 <style scoped>
 .task-manager {
 	padding: 1rem 2rem 2rem;
+	padding-inline-start: var(--cs-view-inline-start);
 	max-width: 1400px;
 	margin: 0 auto;
 }

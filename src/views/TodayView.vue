@@ -760,6 +760,7 @@ export default {
 <style scoped>
 .today-view {
 	padding: 1rem 2rem 2rem;
+	padding-inline-start: var(--cs-view-inline-start);
 	max-width: 900px;
 	margin: 0 auto;
 }
@@ -1070,6 +1071,7 @@ export default {
 @media (max-width: 600px) {
 	.today-view {
 		padding: 1rem;
+		padding-inline-start: var(--cs-view-inline-start);
 	}
 
 	.task-row {

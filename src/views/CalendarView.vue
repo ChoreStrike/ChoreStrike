@@ -235,6 +235,7 @@ export default {
 <style scoped>
 .calendar-view {
 	padding: 20px;
+	padding-inline-start: var(--cs-view-inline-start);
 	max-width: 1200px;
 	margin: 0 auto;
 }

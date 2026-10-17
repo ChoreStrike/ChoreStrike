@@ -30,12 +30,15 @@ follows only after the completed manual alpha record.
   cards are keyboard-operable links, and *All tasks* shows pages of 20 compact
   rows with filters behind a *Filters* toggle; *Completed* loads finished
   tasks on demand.
-- **Fixed:** a task is overdue only after its due day has ended in the house
-  time zone (no red status, claim button or takeover record from midnight);
-  an agreed handover is no longer recorded as an overdue takeover; claiming an
-  overdue task completes without a second dialog; deleted tasks no longer
-  appear in room task lists or inflate room statistics; a checklist item could
-  be listed twice after adding it.
+- **Fixed:** the dashboard's house-health bar shows its fill and icons again,
+  with room between the house name and the percentage; Nextcloud's navigation
+  toggle no longer covers the start of view headings; a task is overdue only
+  after its due day has ended in the house time zone (no red status, claim
+  button or takeover record from midnight); an agreed handover is no longer
+  recorded as an overdue takeover; claiming an overdue task completes without
+  a second dialog; deleted tasks no longer appear in room task lists or
+  inflate room statistics; a checklist item could be listed twice after
+  adding it.
 - **Qualification:** gates run on the latest upstream Nextcloud (35.0.2) and on
   the exact Nextcloud of the operator's AIO release (34.0.4, with Redis for
   sessions, cache and locking like AIO), including phone-sized Chromium and

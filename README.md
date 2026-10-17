@@ -17,17 +17,19 @@ first; using the reward catalog and games is optional.
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/my-day.png" alt="My Day: a teenager's agreed tasks for today, each with a Done button and an optional checklist"></td>
-    <td width="50%"><img src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
+    <td width="50%"><img src="docs/screenshots/dashboard.png" alt="Dashboard: house health, Coins, the weekly household goal and room statistics"></td>
   </tr>
   <tr>
     <td align="center"><b>My Day</b>: today's agreed tasks</td>
+    <td align="center"><b>Dashboard</b>: the household at a glance</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks and each member's remaining daily capacity"></td>
+    <td width="50%"><img src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Weekly planner</b>: a preview, applied only once agreed</td>
     <td align="center"><b>Rewards</b>: an optional family catalog</td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks and each member's remaining daily capacity"></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><b>Weekly planner</b>: a preview that changes nothing until everyone has agreed and the plan is applied</td>
   </tr>
 </table>
 

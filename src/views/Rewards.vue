@@ -390,6 +390,7 @@ export default {
 <style scoped>
 .rewards-view {
 	padding: 1rem 2rem 2rem;
+	padding-inline-start: var(--cs-view-inline-start);
 	max-width: 900px;
 	margin: 0 auto;
 }

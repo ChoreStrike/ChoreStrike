@@ -510,6 +510,7 @@ export default {
 <style scoped>
 .request-detail-view {
 	padding: 1rem 2rem 2rem;
+	padding-inline-start: var(--cs-view-inline-start);
 	max-width: 760px;
 	margin: 0 auto;
 }

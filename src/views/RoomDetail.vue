@@ -638,6 +638,7 @@ export default {
 <style scoped>
 .room-detail {
 	padding: 1rem 2rem 2rem;
+	padding-inline-start: var(--cs-view-inline-start);
 	max-width: 1200px;
 	margin: 0 auto;
 }

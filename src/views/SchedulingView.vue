@@ -109,6 +109,7 @@ onMounted(async () => {
 	max-width: 1200px;
 	margin: 0 auto;
 	padding: 2rem;
+	padding-inline-start: var(--cs-view-inline-start);
 }
 
 .scheduling-header {
@@ -181,6 +182,7 @@ onMounted(async () => {
 @media (max-width: 768px) {
 	.scheduling-view {
 		padding: 1rem;
+		padding-inline-start: var(--cs-view-inline-start);
 	}
 
 	.scheduling-header h1 {

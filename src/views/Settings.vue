@@ -944,6 +944,7 @@ export default {
 <style scoped>
 .settings {
 	padding: 1rem 2rem 2rem;
+	padding-inline-start: var(--cs-view-inline-start);
 	max-width: 1000px;
 	margin: 0 auto;
 }

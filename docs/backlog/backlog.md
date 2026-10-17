@@ -51,6 +51,24 @@ the changes array by roomTaskId once before the loops.
 
 ---
 
+### [P3] UX-018 — Insights fairness table scrolls the whole view sideways on phones
+**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: insights
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: TECH-DOCS-005 screenshot capture (2026-10-17)
+
+At 390 px the `member-fairness` table (`MemberFairnessTable.vue`, the table is
+the component root) is about 430 px wide, so the whole Insights content scrolls
+horizontally; measured on NC 35.0.2. It already overflowed with the old 1rem
+phone padding; the `--cs-view-inline-start` view inset (2026-10-17) adds 34 px.
+Give the table its own horizontal scroll container (or a stacked phone layout)
+so only the table scrolls, and extend `tests/e2e/layout-clearance.spec.ts` with
+a no-horizontal-overflow check per view at phone width.
+
+- [ ] Contain the table's overflow at phone width.
+- [ ] Add the phone-width overflow check for every routed view.
+
+---
+
 ### [P3] CR-084-01 — Calendar marks a past planned day with an open flex window overdue
 **Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: calendar
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -561,7 +579,7 @@ profile data only, never real household content — store them under
 `docs/screenshots/`, and reference them from `README.md`.
 
 - [x] Capture the views and store them under `docs/screenshots/` (My Day, weekly planner preview and reward catalog from an isolated staged NC 35.0.2 row with the `family` seed, 2026-10-17; the canonical stack was busy with another branch).
-- [ ] Add the dashboard view once its house-health bar renders again (the fill was hidden behind the bar background; fix in progress 2026-10-17).
+- [x] Add the dashboard view once its house-health bar renders again (fill, icons, header gap and the view inset fixed before the `0.8.0-alpha.1` deployment at the operator's request; all four views recaptured on the fixed build, 2026-10-17).
 - [x] Reference them from `README.md` (2026-10-17).
 - [ ] Confirm they render on GitHub after the next push.
 - [x] Set the repository topics in the About dialog (folded in from CS-PLAN-085; set by the operator and verified with `gh repo view`, 2026-10-16).
