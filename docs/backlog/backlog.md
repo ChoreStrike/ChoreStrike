@@ -255,6 +255,24 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 
 ---
 
+### [P4] FEAT-UX-037 — Derive the Nextcloud app icon from the brand mark
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: branding
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: TECH-DOCS-005 brand mark (2026-10-17)
+
+`img/app.svg` still shows the pre-brand green house, broom and shield, so the
+app navigation and the repository avatar no longer match. The full mark is too
+detailed for 64 px: derive a simplified symbol (broom mascot or monogram)
+per [`design.md`](../standards/guidelines/design.md#4-brand-assets) §4 and check
+it against the Nextcloud icon conventions for the header and app settings on
+both runtime rows (monochrome `app.svg`, optional `app-dark.svg`).
+`img/` ships in the app package, so this changes the package file set.
+
+- [ ] Derive the 64 px symbol and update `img/app.svg` (plus `app-dark.svg` if the conventions require it).
+- [ ] Verify it in the header, app settings and PWA manifest in light and dark themes on NC34 and NC35.
+
+---
+
 ## Infrastructure and Documentation
 
 > Backlog hygiene, lint/dependency, docs truth, and operational security.
@@ -529,7 +547,7 @@ approved source publication; the mailbox must be monitored, not commit-only
 ---
 
 ### [P3] TECH-DOCS-005 — README screenshots for the public landing page
-**Status**: Backlog · **Effort**: XS · **Layer**: docs · **Journey stage**: repository hosting
+**Status**: In Progress · **Effort**: XS · **Layer**: docs · **Journey stage**: repository hosting
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: repository topics and avatar (CS-PLAN-085, 2026-10-16)
 **Source**: CS-PLAN-085 WP5-2 (droppable item, deferred 2026-10-16)
 
@@ -542,9 +560,13 @@ from the canonical Docker runtime with the existing Playwright setup — seeded
 profile data only, never real household content — store them under
 `docs/screenshots/`, and reference them from `README.md`.
 
-- [ ] Capture the views from the canonical runtime and store them under `docs/screenshots/`.
-- [ ] Reference them from `README.md` and confirm they render on GitHub.
-- [ ] Set the repository topics in the About dialog (folded in from CS-PLAN-085, 2026-10-16: the description is set, topics are not; each topic must be committed with Enter to become a chip). A repository avatar stays deferred until a brand asset per `design.md` §4 exists.
+- [x] Capture the views and store them under `docs/screenshots/` (My Day, weekly planner preview and reward catalog from an isolated staged NC 35.0.2 row with the `family` seed, 2026-10-17; the canonical stack was busy with another branch).
+- [ ] Add the dashboard view once its house-health bar renders again (the fill was hidden behind the bar background; fix in progress 2026-10-17).
+- [x] Reference them from `README.md` (2026-10-17).
+- [ ] Confirm they render on GitHub after the next push.
+- [x] Set the repository topics in the About dialog (folded in from CS-PLAN-085; set by the operator and verified with `gh repo view`, 2026-10-16).
+- [x] Create the repository avatar as the brand mark per [`design.md`](../standards/guidelines/design.md#4-brand-assets) §4 (operator chose the "Night Ops" CS monogram with a broom mascot; source and 512 px export under [`docs/brand/`](../brand/chorestrike-avatar.svg), 2026-10-17).
+- [ ] Upload the avatar in the GitHub organization settings (operator; web UI only).
 
 ---
 

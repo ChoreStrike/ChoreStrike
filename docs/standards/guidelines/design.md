@@ -37,25 +37,35 @@ of every main view in the light and dark themes.
 - **Fonts:** Inherited globally from the Nextcloud system (usually system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto). We do **not** define our own custom fonts to ensure native integration and keep things simple.
 - **Shapes:** Slightly rounded corners (border-radius: 8px to 12px) for a friendly, "game-like" look.
 
-## 4. Brand Assets & AI Generation
-The primary visual style for the project's branding (Logo, Repo Avatar) is **Modern Isometric 3D**. 
+## 4. Brand Assets
 
-*(Note: If a reference image is provided, it serves as the base structure for these prompts via Image-to-Image generation).*
+The brand mark (adopted 2026-10-17, TECH-DOCS-005) is the **"Night Ops" CS
+monogram**: a slanted geometric "CS" in cream with an ocean-blue extrusion on a
+deep-navy gradient, and between the letters a cheerful broom mascot (smiling face
+on coral bristles, yellow headband with fluttering tails, sparkles). It nods to
+the tactical-game sound of the name while staying playful: the "strike" is a
+sweep, never an attack. It supersedes the earlier isometric-3D prompt set.
 
-### Required Asset Sizes:
-- **App Logo (for SVG tracing):** 512x512px or 1024x1024px (1:1 Aspect Ratio) -> will be scaled down/vectorized to 64x64px later.
-- **Repository / organization avatar (GitHub):** 256x256px or 512x512px (1:1 Aspect Ratio).
-- **README Header / Banner:** 1200x400px (3:1 Aspect Ratio).
+| Asset | File | Notes |
+|---|---|---|
+| Source | [`docs/brand/chorestrike-avatar.svg`](../../brand/chorestrike-avatar.svg) | Hand-built vector, no fonts or external references; edit here, then re-export |
+| Repository / organization avatar (GitHub) | [`docs/brand/chorestrike-avatar-512.png`](../../brand/chorestrike-avatar-512.png) | 512×512, full-bleed square (GitHub rounds the corners); uploaded by the operator |
+| App icon (`img/app.svg`) | — | 64×64 vector; a simplified symbol is still to be derived ([backlog](../../backlog/backlog.md) FEAT-UX-037) |
+| README banner (optional) | — | 1200×400 (3:1), reusing the mark and mascot |
 
-### Primary Style: "Modern Isometric 3D" (Clean & Gamified)
-> **Prompt:** A stylized, modern isometric 3D app icon of a cozy house that acts as a cute defense base. The house has clean ocean blue walls, a vibrant coral-orange roof, and glowing sunny yellow windows. A futuristic, slightly magical broom stands next to the door like a guard. Clean solid background, UI design, dribbble style, soft studio lighting, high resolution, vibrant colors.
+**Rules**
 
-### Alternative / Iterative Prompts:
-**Flat Vector Minimalist (App-Focused)**
-> **Prompt:** Minimalist flat vector app icon of a house combined with a shield shape. The house is bright ocean blue with a warm coral-pink roof and a bright yellow star emblem on the front. Two crossed brooms behind the house like swords. Clean bold lines, solid colors, modern SaaS logo design, white background, no gradients, highly readable at small sizes.
-
-**16-Bit Pixel Art (Retro Tower Defense)**
-> **Prompt:** 16-bit pixel art of a cute fortress house in ocean blue and coral orange, defending against tiny, cute dust monsters. Bright sunny yellow highlights from the windows. The house has a broom mounted on the roof like a playful defense turret. Cozy retro gaming aesthetic, vibrant colors, clear silhouette, isometric perspective, clean pixel perfect lines.
+- **Location:** brand assets live under `docs/brand/`, never `img/`, because
+  `img/` ships in the app package (`docker/package-build.json` runtime allowlist).
+- **Palette:** the §2 brand colors plus deep navy (`#10233D`, gradient
+  `#18365C` → `#0C1B30`), cream `#FFF8EC` and wood tones `#D9965B`/`#EDB97F`
+  for the broom handle.
+- **Originality:** original artwork only; no third-party game logos, typefaces,
+  silhouettes or color schemes. No weapons, crosshairs or violent imagery.
+- **Legibility:** the letters carry recognition and must stay readable at
+  20 px on light and dark backgrounds; the face is a bonus at larger sizes.
+- **Export:** render the SVG at its native 512×512 in a headless browser and
+  check the PNG at 512, 96, 40 and 20 px before replacing the avatar.
 
 ## 5. Feedback Patterns (CS-PLAN-041)
 

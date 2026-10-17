@@ -6,13 +6,32 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Nextcloud 34-35](https://img.shields.io/badge/Nextcloud-34%E2%80%9335-0082c9)](https://nextcloud.com)
 [![PHP 8.4](https://img.shields.io/badge/PHP-8.4-777bb4)](https://www.php.net)
-[![Status: pre-release](https://img.shields.io/badge/status-pre--release%200.1.x-orange)](#project-status)
+[![Status: alpha 0.8.0-alpha.1](https://img.shields.io/badge/status-alpha%200.8.0--alpha.1-orange)](#project-status)
 
 ChoreStrike is a gamified household task management app for Nextcloud.
 Families and flatmates organize their home in floors and rooms, plan fair
 weekly schedules, and recognize agreed work with effort-based Coins, rhythm
 medals and an opt-in ranking, all inside their own Nextcloud. Planning comes
 first; using the reward catalog and games is optional.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/my-day.png" alt="My Day: a teenager's agreed tasks for today, each with a Done button and an optional checklist"></td>
+    <td width="50%"><img src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>My Day</b>: today's agreed tasks</td>
+    <td align="center"><b>Rewards</b>: an optional family catalog</td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks and each member's remaining daily capacity"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><b>Weekly planner</b>: a preview that changes nothing until everyone has agreed and the plan is applied</td>
+  </tr>
+</table>
+
+<sub>Screenshots: seeded demo household on Nextcloud 35, version 0.8.0-alpha.1.</sub>
 
 ## Concept
 
