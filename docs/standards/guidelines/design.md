@@ -62,6 +62,7 @@ broom at 20 px. The operator approved it on 2026-10-17 (D-087-02).
 | Maskable mascot source | [`docs/brand/chorestrike-mascot-maskable.svg`](../../brand/chorestrike-mascot-maskable.svg) | Mascot on the brand navy; the head inside the 80 % safe zone (radius 205 px), the handle bleeding out of the top |
 | Nextcloud app icon | `img/app.svg`, `img/app-dark.svg` | Monochrome mascot glyph, 64×64: white (`#fff`) and its dark twin with the same geometry |
 | PWA icons | `img/mascot-192.png`, `img/mascot-512.png`, `img/mascot-maskable-512.png` | Exports of the two mascot sources, listed in `img/manifest.json` |
+| GitHub social preview | [`docs/brand/chorestrike-social-preview.svg`](../../brand/chorestrike-social-preview.svg) → [`chorestrike-social-preview-1280x640.png`](../../brand/chorestrike-social-preview-1280x640.png) | 1280×640: the mark plus name and tagline. The text uses the system sans-serif at export (no embedded font), so the PNG is the artifact; the operator uploads it in the repository settings |
 | README banner (optional) | — | 1200×400 (3:1), reusing the mark and mascot |
 
 **Rules**
@@ -98,6 +99,10 @@ broom at 20 px. The operator approved it on 2026-10-17 (D-087-02).
   maskable source at 512, the mark at 512. Check every export at 512, 192, 64
   and 20 px on light and dark backgrounds; a changed glyph or mascot needs the
   operator's approval of such a preview sheet before it enters `img/`.
+- **One broom, five copies:** SVG offers no include without the external
+  references these sources forbid, so the broom geometry is repeated in the
+  mark, mascot, maskable and social-preview sources and, simplified, in the two
+  glyphs. Change them together and re-export every derived file.
 
 ## 5. Feedback Patterns (CS-PLAN-041)
 

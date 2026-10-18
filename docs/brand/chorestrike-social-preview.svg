@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <!-- ChoreStrike social preview (GitHub repository settings), 1280×640: the
+       mark of chorestrike-avatar.svg on the brand navy plus name and tagline.
+       The text uses the system sans-serif at export time; the PNG export is
+       the uploaded artifact. Brand rules: docs/standards/guidelines/design.md section 4. -->
+  <title>ChoreStrike</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#18365C"/>
+      <stop offset="1" stop-color="#0C1B30"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <!-- The mark (geometry of chorestrike-avatar.svg without its background) -->
+  <g transform="translate(56 64)">
+    <circle cx="256" cy="275" r="175" fill="#0984E3" opacity="0.16"/>
+    <g transform="translate(0 268) skewX(-8) translate(0 -268)" fill="none" stroke-width="56">
+      <g stroke="#0984E3" transform="translate(9 11)">
+        <path d="M 200.8 198.6 A 82 108 0 1 0 200.8 337.4"/>
+        <path d="M 436 191.2 A 64 54 0 1 0 378 268 A 64 54 0 1 1 320 344.8"/>
+      </g>
+      <g stroke="#FFF8EC">
+        <path d="M 200.8 198.6 A 82 108 0 1 0 200.8 337.4"/>
+        <path d="M 436 191.2 A 64 54 0 1 0 378 268 A 64 54 0 1 1 320 344.8"/>
+      </g>
+    </g>
+    <g transform="translate(254 300) rotate(6)">
+      <g fill="#11253F" stroke="#11253F" stroke-width="18" stroke-linejoin="round">
+        <rect x="-11" y="-214" width="22" height="244" rx="11"/>
+        <rect x="-38" y="18" width="76" height="30" rx="9"/>
+        <path d="M -34 46 L 34 46 C 46 80 58 110 64 138 Q 53 147 42 139 Q 32 149 21 140 Q 11 149 0 140 Q -11 149 -21 140 Q -32 149 -42 139 Q -53 147 -64 138 C -58 110 -46 80 -34 46 Z"/>
+        <path d="M 34 26 C 54 14 70 24 90 10 L 96 24 C 76 40 58 34 36 38 Z"/>
+        <path d="M 34 34 C 54 38 66 52 84 56 L 78 69 C 60 62 50 50 34 44 Z"/>
+      </g>
+      <g fill="#FDCB6E">
+        <path d="M 34 26 C 54 14 70 24 90 10 L 96 24 C 76 40 58 34 36 38 Z"/>
+        <path d="M 34 34 C 54 38 66 52 84 56 L 78 69 C 60 62 50 50 34 44 Z"/>
+      </g>
+      <rect x="-11" y="-214" width="22" height="244" rx="11" fill="#D9965B"/>
+      <rect x="-4.5" y="-204" width="5" height="222" rx="2.5" fill="#EDB97F"/>
+      <path d="M -34 46 L 34 46 C 46 80 58 110 64 138 Q 53 147 42 139 Q 32 149 21 140 Q 11 149 0 140 Q -11 149 -21 140 Q -32 149 -42 139 Q -53 147 -64 138 C -58 110 -46 80 -34 46 Z" fill="#FF7675"/>
+      <g stroke="#E0605E" stroke-width="4" stroke-linecap="round" fill="none">
+        <path d="M -45 112 L -51 131"/>
+        <path d="M -23 117 L -26 134"/>
+        <path d="M 0 119 L 0 136"/>
+        <path d="M 23 117 L 26 134"/>
+        <path d="M 45 112 L 51 131"/>
+      </g>
+      <rect x="-38" y="18" width="76" height="30" rx="9" fill="#0984E3"/>
+      <rect x="-38" y="29" width="76" height="7" fill="#FDCB6E"/>
+      <ellipse cx="-31" cy="90" rx="8" ry="5" fill="#FFB3AB"/>
+      <ellipse cx="31" cy="90" rx="8" ry="5" fill="#FFB3AB"/>
+      <ellipse cx="-15" cy="70" rx="6.5" ry="8.5" fill="#10233D"/>
+      <ellipse cx="15" cy="70" rx="6.5" ry="8.5" fill="#10233D"/>
+      <circle cx="-13" cy="66.5" r="2.4" fill="#FFFFFF"/>
+      <circle cx="17" cy="66.5" r="2.4" fill="#FFFFFF"/>
+      <path d="M -17 84 Q 0 108 17 84 Z" fill="#10233D" stroke="#10233D" stroke-width="3" stroke-linejoin="round"/>
+      <ellipse cx="0" cy="92" rx="6.5" ry="3.2" fill="#FFB3AB"/>
+    </g>
+    <g fill="#FDCB6E">
+      <path d="M 322 66 Q 326.68 87.32 348 92 Q 326.68 96.68 322 118 Q 317.32 96.68 296 92 Q 317.32 87.32 322 66 Z"/>
+      <path d="M 196 98 Q 198.52 109.48 210 112 Q 198.52 114.52 196 126 Q 193.48 114.52 182 112 Q 193.48 109.48 196 98 Z"/>
+      <path d="M 360 437 Q 362.7 449.3 375 452 Q 362.7 454.7 360 467 Q 357.3 454.7 345 452 Q 357.3 449.3 360 437 Z"/>
+      <path d="M 150 436 Q 151.8 444.2 160 446 Q 151.8 447.8 150 456 Q 148.2 447.8 140 446 Q 148.2 444.2 150 436 Z"/>
+    </g>
+  </g>
+
+  <!-- Name and tagline -->
+  <g font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <text x="620" y="262" fill="#FFF8EC" font-size="92" font-weight="700">ChoreStrike</text>
+    <rect x="624" y="290" width="128" height="8" rx="4" fill="#FDCB6E"/>
+    <text x="624" y="368" fill="#FFF8EC" font-size="40" font-weight="600">Shared chores, fair plans,</text>
+    <text x="624" y="420" fill="#FFF8EC" font-size="40" font-weight="600">less reminding.</text>
+    <text x="624" y="488" fill="#9CC3EE" font-size="28">Household tasks for Nextcloud · open source</text>
+  </g>
+</svg>

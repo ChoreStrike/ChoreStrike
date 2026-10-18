@@ -1,6 +1,6 @@
 # CS-PLAN-087: Public Presentation — Brand Icons, Reproducible Screenshots and User Guide
 
-> **Status:** Active — WP-A..C implemented, interim Standard B `PASS-WITH-FIXES` 2026-10-18 (full browser gate green on both rows); WP-D waits for the D-087-05 go; drafted 2026-10-17; Standard A `PASS-WITH-FIXES` 2026-10-17
+> **Status:** Done — delivered 2026-10-18; final Standard B `PASS-WITH-FIXES` 2026-10-18 (interim Standard B `PASS-WITH-FIXES`, Standard A `PASS-WITH-FIXES` 2026-10-17); drafted 2026-10-17
 > **Effort:** M
 > **Priority:** P3
 > **Depends on:** none (`master` `37bcd5c`). WP-A changes the app package, so the next deployment candidate needs its own requalification. The operator's external repository-review notes are still to be supplied; they are triaged on arrival (D-087-06). WP-C's arcade text is feature-level only so it does not depend on CS-PLAN-086 (D-087-07).
@@ -85,6 +85,10 @@ material current afterwards.
 - **D-087-08 — My Day phone layout (operator, 2026-10-18):** the defect the
   capture surfaced (RF-087-08) is fixed in this plan, not routed to the
   backlog, so the guide's phone screenshots show the real layout.
+- **D-087-05 go and integration (operator, 2026-10-18):** `master`
+  fast-forwarded to the interim review commit `ca7f98e` and pushed (it also
+  carried the unpushed `c888992`, `8747f4d` and `37bcd5c`); then the public
+  `ChoreStrike/.github` repository was created.
 - **D-087-09 — dialog stacking (operator, 2026-10-18):** the navigation toggle
   drawn over the setup wizard (RF-087-09) is fixed in this plan for the wizard
   and the shared `Modal.vue`.
@@ -277,24 +281,24 @@ unchanged.
 ## 8. Acceptance Criteria
 
 - [x] D-087-01..07 confirmed (Standard A, 2026-10-17)
-- [ ] The operator's external review notes triaged on arrival (D-087-06): scope findings in §9, the rest in `backlog.md`
+- [x] The operator's external review notes triaged on arrival (D-087-06): scope findings in §9, the rest in `backlog.md` (2026-10-18: no new finding, see §9)
 - [x] Mascot approved by the operator; source and exports under `docs/brand/`
-- [ ] `img/app.svg` and `img/app-dark.svg` monochrome mascot glyphs; legible at 20 px in the header on NC 34 AIO and NC 35, light and dark
-- [ ] Notifier and manifest icons resolve with HTTP 200 under `/custom_apps`; PWA install shows the color mascot
+- [x] `img/app.svg` and `img/app-dark.svg` monochrome mascot glyphs; legible at 20 px in the header on NC 34 AIO and NC 35, light and dark (operator check, 2026-10-18)
+- [x] Notifier and manifest icons resolve with HTTP 200 under `/custom_apps`; PWA install shows the color mascot (HTTP: smoke on both rows; install: operator check, 2026-10-18)
 - [x] Every navigation entry shows an icon
 - [x] `npm run docs:screenshots` reproduces all README and user-guide images from a staged row; documented in `development.md`
 - [x] README current (hold-to-confirm, documentation split) with recaptured screenshots
 - [x] `docs/user-guide.md` published and linked from README and `docs/README.md`
-- [ ] Organization profile live and checked logged out (after the D-087-05 go)
+- [x] Organization profile live and checked logged out (after the D-087-05 go)
 - [x] Drift guards and the release checklist item in place
-- [ ] Build gate green (`npm test` + lint + backend tests)
-- [ ] Required tests ran without new or unapproved skips
-- [ ] All implementation decisions and review questions resolved and recorded
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
-- [ ] Owning backlog items updated or archived according to their actual completion state
-- [ ] Durable concepts/decisions integrated into the permanent docs (`docs/standards/guidelines/design.md`, `docs/engineering/`) — plans are temporary
-- [ ] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] Build gate green (`npm test` + lint + backend tests)
+- [x] Required tests ran without new or unapproved skips
+- [x] All implementation decisions and review questions resolved and recorded
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
+- [x] Owning backlog items updated or archived according to their actual completion state
+- [x] Durable concepts/decisions integrated into the permanent docs (`docs/standards/guidelines/design.md`, `docs/engineering/`) — plans are temporary
+- [x] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated
 
 ## 9. Review Findings (plan-owned)
 
@@ -312,7 +316,15 @@ Standard A, 2026-10-17 (all fixed in the plan text in the same round):
 - [x] **RF-087-05 medium — overlap:** `src/App.vue` (arcade entry) and the user guide's arcade text overlap CS-PLAN-086. Fixed: integration step and risk row; guide stays feature-level (D-087-07).
 - [x] **RF-087-06 minor — WP-A/WP-B/WP-D details:** stale `js/` build would be photographed (wrapper refuses it); PNG export procedure unspecified (design.md §4 procedure plus a PNG-size guard); pinning and social preview are web-UI-only (operator steps).
 
-Open item: the operator's external review notes (D-087-06) are triaged on arrival.
+D-087-06 triage, 2026-10-18: the operator named the sanitized deployment
+result for `0d27d38` (private exchange) as the only relevant external input.
+It holds no finding in this plan's scope, and every point is already covered:
+the three deployment-guide notes are in `deployment.md` (pending App Store
+updates, `--showonly` listing disabled apps, maintenance mode kept), the
+notifier deprecation is fixed (`37bcd5c`), its additional hint to check
+`dismissNotification()`/`INotifyHandler::notify()` does not apply (ChoreStrike
+implements neither), and the real-device checklist and 14-day trial stay with
+CS-PLAN-080 (RF-080-15, RF-080-05). Nothing new routed.
 
 Implementation, 2026-10-17/18:
 
@@ -371,6 +383,13 @@ Interim Standard B, 2026-10-18:
   opens on the Dashboard), of "overdue" (the UI says catch-up) and of
   owner-only task creation (adult members create tasks too); the capture
   wrapper ignored a failed teardown (now names the manual cleanup, tested).
+
+Final Standard B, 2026-10-18:
+
+- [x] **RF-087-13 minor — undocumented brand duplication:** the broom geometry
+  lives in four hand-built sources and, simplified, in the two glyphs (SVG has
+  no include without external references); `design.md` §4 now says to change
+  them together and re-export.
 
 ## Review Outcome
 
@@ -447,3 +466,52 @@ Interim Standard B, 2026-10-18:
   go; needs this branch on `master` and pushed), the external review notes
   (D-087-06), the manual checks, package evidence, the final Standard B.
   The plan carries the evidence, as at Standard A.
+
+### WP-D evidence — 2026-10-18
+
+- Push: `origin/master` `06caf9e..ca7f98e`, all commits with the GitHub noreply
+  identity; CI `checks` green on `ca7f98e`; the four README screenshots render
+  on the repository page (1280×800 each, logged out).
+- `ChoreStrike/.github` (public) created with `profile/README.md` (commit
+  `707b1a8`, noreply identity): logo, pitch, the recaptured My Day screenshot,
+  status, links to repository, user guide, security policy and contact.
+  Checked in a fresh browser without a GitHub session: profile rendered, both
+  images loaded (512×512, 1280×800), every link answers 200.
+- Operator web-UI steps: `ChoreStrike/ChoreStrike` pinned on the organization
+  page (2026-10-18); social-preview image (1280×640) from the mark, prepared
+  as `docs/brand/chorestrike-social-preview.svg` and its PNG export for the
+  operator's upload (repository *Settings → Social preview*).
+- Manual check (§4) done by the operator on 2026-10-18: header, app settings,
+  notification popover and PWA install icon in light and dark on the NC 34 AIO
+  and NC 35 — "passt".
+
+### Standard B (final) — 2026-10-18 — `PASS-WITH-FIXES`
+
+- **Scope:** the whole plan — implementation `30bf1f2..ca7f98e` (interim
+  review commit, fast-forwarded into `master` and pushed) plus the closing
+  changes on `feat/public-presentation`: WP-D evidence, the operator's manual
+  check and pin, the D-087-06 triage, the social preview
+  (`docs/brand/chorestrike-social-preview.svg` and its PNG), the `design.md`
+  rows, the backlog archive and this transition. Captured before the review:
+  unstaged diff `2e9ce4f7…`, untracked content `ccb921c1…`, `master` =
+  `origin/master` = `ca7f98e`.
+- **Plan check:** every §5 entry exists and changed (twelve screenshots, eight
+  of them in the README/guide set of four plus the four guide scenes); all §8
+  criteria met; RF-087-01..13 resolved; decisions D-087-01..09 recorded.
+  Durable outcomes live in `design.md` §4 (two tiers, Nextcloud icon and
+  manifest conventions, export and approval rule, the duplication note),
+  `development.md` (screenshot capture), `deployment.md` (release checklist),
+  `architecture.md` (`img/`, `tests/docs-screenshots/`), the README and
+  `docs/user-guide.md`.
+- **Findings:** RF-087-13 (minor, docs), fixed.
+- **Gates:** no code changed since `ca7f98e`, so its evidence stands: full
+  browser gate on NC 35 (`run-7Ohp1w`) and the NC 34 AIO row (`run-DU01qw`),
+  PHPUnit 1386/613 and `cs:check` on both rows, package build 529 files with
+  all new `img/` files, CI green after the push. Rerun for the closing docs
+  change: Jest, lint, `docs:encoding`, `backlog:check`, `agents:check` green.
+- **Transition:** `active/ → done/`; FEAT-UX-037, CR-NAV-01, TECH-DOCS-005,
+  TECH-DOCS-007, TECH-DOCS-008 and TECH-DOCS-009 archived
+  ([record](../../backlog/archive/2026-10.md#delivered-public-presentation-cs-plan-087-10-18)).
+  Remaining operator step outside the plan's criteria: upload the social
+  preview in the repository settings. The plan carries the evidence, as at
+  Standard A and the interim review.
