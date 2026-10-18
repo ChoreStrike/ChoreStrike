@@ -48,8 +48,23 @@ describe('Sock Match logic', () => {
 
 			expect(state.score).toBe(PAIR_POINTS)
 			expect(faces(state).slice(0, 2)).toEqual(['matched', 'matched'])
-			expect(state.events).toEqual([{ type: 'pickup', kind: 'normal', x: 1, y: 0 }])
+			expect(state.events).toEqual([{ type: 'flip' }, { type: 'flip' }, { type: 'pickup', kind: 'normal', x: 1, y: 0 }])
 		}
+	})
+
+	it('reports every turn as a flip and a wrong pair as wrong, for the sounds of the shell', () => {
+		const state = createState(seededRandom(1))
+		const other = state.cards.findIndex((card, index) => index > 1 && card.pattern !== state.cards[0].pattern)
+
+		step(state, 'act', STEP)
+		step(state, { cell: other }, STEP)
+		expect(state.events).toEqual([{ type: 'flip' }, { type: 'flip' }, { type: 'wrong' }])
+
+		// The next turn turns the wrong pair back first; a sock that is up turns no more.
+		state.events.length = 0
+		step(state, { cell: other }, STEP)
+		step(state, { cell: other }, STEP)
+		expect(state.events).toEqual([{ type: 'flip' }])
 	})
 
 	it('shuffles the rest of the deck', () => {

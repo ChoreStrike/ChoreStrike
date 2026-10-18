@@ -57,7 +57,9 @@ a catch-up up as a success streak.
 ## Feedback effects are personal opt-ins (default off)
 
 - Sounds and celebration animations are **off by default** and controlled
-  per person in the Settings (delivery preferences surface).
+  per person in the Settings (delivery preferences surface). The Sound and
+  Effects switches on an arcade game's start, pause and game-over screen
+  write the same preference (CS-PLAN-086 WP-G); they change no default.
 - `prefers-reduced-motion` **always overrides** an explicit animation
   opt-in (hard floor inside the effect modules).
 - The **default completion feedback** is always on and subtle

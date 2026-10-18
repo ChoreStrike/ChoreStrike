@@ -89,11 +89,20 @@ test.describe('Arcade touch controls (CS-PLAN-086)', () => {
 		const lives = page.getByTestId('game-lives')
 		await expect(lives).toHaveText('3')
 		// The bubble cleans its first tile by itself; a tap at the board's left
-		// edge pulls the squeegee under its way back down.
-		await expect(score).toHaveText('10', { timeout: 10000 })
+		// edge pulls the squeegee under its way back down. It is back at the
+		// squeegee about 1.25 s after the hit, so the hit is watched per frame
+		// and the tap goes straight to the touchscreen: the expect polling (up
+		// to 1 s) plus the locator tap's actionability round-trips (0.7 s on
+		// the WebKit emulation) missed that window (R086G-02).
 		const canvas = page.getByTestId('game-shell').locator('canvas')
 		const box = await canvas.boundingBox()
-		await canvas.tap({ position: { x: 4, y: (box?.height ?? 200) / 2 } })
+		if (!box) throw new Error('the Tile Breaker canvas has no bounding box')
+		await page.waitForFunction(
+			() => document.querySelector('[data-testid="game-score"]')?.textContent?.trim() === '10',
+			null,
+			{ polling: 'raf', timeout: 10000 },
+		)
+		await page.touchscreen.tap(box.x + 4, box.y + box.height / 2)
 
 		await expect(score).toHaveText(/^[2-9]0$/, { timeout: 10000 })
 		await expect(lives).toHaveText('3')

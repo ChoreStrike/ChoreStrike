@@ -257,6 +257,15 @@ describe('Tile Breaker logic', () => {
 		expect(state.wall).toBe(1)
 	})
 
+	it('reports a bounce off the squeegee, for the sounds of the shell', () => {
+		const state = createState(NO_DROPS)
+		launched(state, { x: state.squeegee.x, y: 17.5, dx: 0, dy: 1 })
+
+		const events = runUntil(state, () => state.bubbles[0].dy < 0)
+
+		expect(events).toEqual([{ type: 'bounce' }])
+	})
+
 	it('a clean wall brings the next, faster one with a waiting bubble; the last layout repeats', () => {
 		const state = createState(NO_DROPS)
 		lastTile(state)

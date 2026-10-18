@@ -19,8 +19,14 @@
 				class="spots-item"
 				viewBox="0 0 48 48"
 				focusable="false">
-				<path :d="SHAPES[kind]" />
+				<path class="spots-body" :d="SHAPES[kind].body" />
+				<path v-if="SHAPES[kind].detail" class="spots-detail" :d="SHAPES[kind].detail" />
 			</svg>
+			<template v-if="kind === 'wiped'">
+				<span class="spots-bubble" />
+				<span class="spots-bubble" />
+				<span class="spots-bubble" />
+			</template>
 		</div>
 	</div>
 </template>
@@ -32,7 +38,10 @@
  * keyboard stays with the game shell (arrows move the cursor, Enter
  * wipes). Decorative for assistive technology — the shell's live region
  * carries score and state. Items are drawn shapes, so they keep their form
- * without color: a round stain, a drying ring, a rectangular sponge, a sock.
+ * without color: a round stain with a sheen, a drying stain with a crack
+ * and a dashed edge, a rectangular sponge, a striped sock. With the motion
+ * opt-in new items pop in, the sponge glows, the sock swings and a wiped
+ * tile sends up soap bubbles.
  */
 defineProps({
 	view: {
@@ -53,11 +62,11 @@ const emit = defineEmits(['tap'])
 
 const STAIN = 'M24 7c7 0 9 6 14 8s5 9 1 13 1 10-6 12-9-1-14 1-11-3-12-9 3-9 1-14 9-11 16-11z'
 const SHAPES = Object.freeze({
-	stain: STAIN,
-	drying: STAIN,
-	golden: 'M9 12h30a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4zm6 7a3 3 0 1 0 0 .1zm12 2a2 2 0 1 0 0 .1zm-7 8a2.5 2.5 0 1 0 0 .1zm13 1a3 3 0 1 0 0 .1z',
-	sock: 'M17 5h14v20l9 9a6 6 0 0 1-8 9l-13-11a7 7 0 0 1-2-5z',
-	wiped: 'M24 8l3 10 10 3-10 3-3 10-3-10-10-3 10-3zM37 32l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z',
+	stain: { body: STAIN, detail: 'M19 16c3-3 7-3 10-1' },
+	drying: { body: STAIN, detail: 'M17 25l6-4 4 6 6-3' },
+	golden: { body: 'M9 12h30a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4zm6 7a3 3 0 1 0 0 .1zm12 2a2 2 0 1 0 0 .1zm-7 8a2.5 2.5 0 1 0 0 .1zm13 1a3 3 0 1 0 0 .1z', detail: null },
+	sock: { body: 'M17 5h14v20l9 9a6 6 0 0 1-8 9l-13-11a7 7 0 0 1-2-5z', detail: 'M17 11h14v3H17zM17 17h14v3H17z' },
+	wiped: { body: 'M24 8l3 10 10 3-10 3-3 10-3-10-10-3 10-3zM37 32l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z', detail: null },
 })
 
 function onPointerDown(event) {
@@ -74,20 +83,23 @@ function onPointerDown(event) {
 	height: 100%;
 	padding: 4px;
 	box-sizing: border-box;
-	background: var(--color-border);
+	background: var(--cs-arcade-grout, var(--color-border));
 	user-select: none;
 	-webkit-user-select: none;
 }
 
 .spots-board.is-double {
-	background: var(--cs-celebrate-gold, #FDCB6E);
+	background: var(--cs-arcade-yellow, #FDCB6E);
 }
 
 .spots-tile {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-background-dark);
+	overflow: hidden;
+	background: var(--cs-arcade-floor-alt, var(--color-background-dark));
+	box-shadow: inset 0 0 0 2px var(--cs-arcade-floor, var(--color-main-background));
 	border-radius: 6px;
 	cursor: pointer;
 }
@@ -103,38 +115,132 @@ function onPointerDown(event) {
 	pointer-events: none;
 }
 
-.is-stain .spots-item path {
-	fill: var(--cs-celebrate-bronze, #CD7F32);
+.is-stain .spots-body {
+	fill: var(--cs-arcade-cocoa, #6D4C3D);
 }
 
-.is-drying .spots-item path {
+.is-stain .spots-detail {
 	fill: none;
-	stroke: var(--cs-celebrate-bronze, #CD7F32);
-	stroke-width: 3;
+	stroke: var(--cs-arcade-tan, #B08968);
+	stroke-width: 2.5;
+	stroke-linecap: round;
+}
+
+.is-drying .spots-body {
+	fill: var(--cs-arcade-tan, #B08968);
+	fill-opacity: 0.45;
+	stroke: var(--cs-arcade-cocoa, #6D4C3D);
+	stroke-width: 2;
 	stroke-dasharray: 4 3;
 }
 
-.is-golden .spots-item path {
-	fill: var(--cs-celebrate-gold, #FDCB6E);
+.is-drying .spots-detail {
+	fill: none;
+	stroke: var(--cs-arcade-cocoa, #6D4C3D);
+	stroke-width: 2;
+	stroke-linecap: round;
+}
+
+.is-golden .spots-body {
+	fill: var(--cs-arcade-yellow, #FDCB6E);
 	fill-rule: evenodd;
-	stroke: var(--color-main-text);
+	stroke: var(--cs-arcade-ink, #10233D);
 	stroke-width: 1.5;
 }
 
-.is-sock .spots-item path {
-	fill: var(--color-primary-element);
+.is-sock .spots-body {
+	fill: var(--cs-arcade-coral, #FF7675);
 }
 
-.is-wiped .spots-item path {
-	fill: var(--cs-celebrate-gold, #FDCB6E);
+.is-sock .spots-detail {
+	fill: var(--cs-arcade-paper, #FFFFFF);
+}
+
+.is-wiped .spots-body {
+	fill: var(--cs-arcade-yellow, #FDCB6E);
+}
+
+.spots-bubble {
+	position: absolute;
+	bottom: 30%;
+	inset-inline-start: 50%;
+	width: 18%;
+	height: 18%;
+	box-sizing: border-box;
+	border: 2px solid var(--cs-arcade-teal, #00CEC9);
+	border-radius: 50%;
+	opacity: 0;
+}
+
+.spots-bubble:nth-of-type(1) {
+	margin-inline-start: -35%;
+}
+
+.spots-bubble:nth-of-type(2) {
+	width: 24%;
+	height: 24%;
+	margin-inline-start: -10%;
+	animation-delay: 60ms;
+}
+
+.spots-bubble:nth-of-type(3) {
+	margin-inline-start: 15%;
+	animation-delay: 120ms;
+}
+
+.spots-board:not(.is-calm) .is-stain .spots-item {
+	animation: spots-pop 180ms ease-out;
+}
+
+.spots-board:not(.is-calm) .is-golden .spots-item {
+	animation: spots-pop 180ms ease-out, spots-glow 900ms ease-in-out 180ms infinite alternate;
+}
+
+.spots-board:not(.is-calm) .is-sock .spots-item {
+	animation: spots-pop 180ms ease-out, spots-swing 1.2s ease-in-out 180ms infinite alternate;
 }
 
 .spots-board:not(.is-calm) .is-wiped .spots-item {
 	animation: spots-sparkle 250ms ease-out;
 }
 
-.spots-board.is-calm .is-wiped .spots-item {
+.spots-board:not(.is-calm) .spots-bubble {
+	animation: spots-bubble 420ms ease-out forwards;
+}
+
+.spots-board.is-calm .is-wiped .spots-item,
+.spots-board.is-calm .spots-bubble {
 	visibility: hidden;
+}
+
+@keyframes spots-pop {
+	from {
+		transform: scale(0.3);
+	}
+
+	to {
+		transform: scale(1);
+	}
+}
+
+@keyframes spots-glow {
+	from {
+		transform: scale(1);
+	}
+
+	to {
+		transform: scale(1.12);
+	}
+}
+
+@keyframes spots-swing {
+	from {
+		transform: rotate(-8deg);
+	}
+
+	to {
+		transform: rotate(8deg);
+	}
 }
 
 @keyframes spots-sparkle {
@@ -146,6 +252,18 @@ function onPointerDown(event) {
 	to {
 		opacity: 0;
 		transform: scale(1.2);
+	}
+}
+
+@keyframes spots-bubble {
+	from {
+		opacity: 1;
+		transform: translateY(0) scale(0.6);
+	}
+
+	to {
+		opacity: 0;
+		transform: translateY(-140%) scale(1.1);
 	}
 }
 </style>

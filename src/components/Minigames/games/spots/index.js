@@ -14,6 +14,7 @@ export default {
 	id: 'spots',
 	icon: '🧽',
 	input: 'tap',
+	accent: 'var(--cs-arcade-yellow)',
 	renderer: 'dom',
 	name: () => t('chorestrike', 'Spot Sprint'),
 	description: () => t('chorestrike', 'Wipe the stains before they dry. A golden sponge doubles your points — leave the socks alone.'),

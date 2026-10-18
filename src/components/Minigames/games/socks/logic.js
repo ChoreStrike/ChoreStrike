@@ -61,7 +61,7 @@ export function createState(rng) {
 		over: false,
 		// Bumped on every visible change; the shell re-reads the view then.
 		revision: 0,
-		// Drained by the shell after every step: pickup.
+		// Drained by the shell after every step: flip | wrong | pickup.
 		events: [],
 	}
 }
@@ -130,6 +130,7 @@ function turn(state, index) {
 	if (card.face !== 'down') return
 	card.face = 'up'
 	state.revision++
+	state.events.push({ type: 'flip' })
 	if (state.first === null) {
 		state.first = index
 		return
@@ -145,6 +146,7 @@ function turn(state, index) {
 	} else {
 		state.misses++
 		state.shown = [state.first, index]
+		state.events.push({ type: 'wrong' })
 	}
 	state.first = null
 }

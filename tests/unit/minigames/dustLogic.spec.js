@@ -6,10 +6,10 @@
 import { describe, it, expect, jest } from '@jest/globals'
 import { COLS, DIRECTIONS, DIRECTION_ORDER, cellIndex, isFloor } from '@/components/Minigames/games/dust/rooms.js'
 import {
-	BUNNY_MIN_MS, BUNNY_START_MS, CHASE_MAX, RELEASE_GAP_MS, RELEASE_MS, RESPAWN_MS, bunnyInterval, chaseChance,
+	BUNNY_MIN_MS, BUNNY_START_MS, CHASE_MAX, RELEASE_GAP_MS, RELEASE_MS, RESPAWN_MS, bunnyInterval, chaseChance, sendHome,
 } from '@/components/Minigames/games/dust/bunnies.js'
 import {
-	BUNNY_POINTS, CHARGE_MS, DOCK_RECHARGE_MS, ROBOT_MS, START_LIVES, createState, step,
+	BUNNY_POINTS, CHARGE_MS, DOCK_RECHARGE_MS, ROBOT_MS, START_LIVES, createState, nextMove, step,
 } from '@/components/Minigames/games/dust/logic.js'
 import { seededRandom } from '../helpers/gameTestHelpers.js'
 
@@ -115,7 +115,39 @@ describe('Dust Runner logic', () => {
 		run(state, 3 * ROBOT_MS + 200)
 		expect(state.score).toBe(12)
 		expect(at(state.robot)).toEqual({ x: 13, y: 1 })
-		expect(state.events).toEqual([])
+		// Collected dust is a visual event only (WP-G): no pickup, miss or crash.
+		expect(state.events.map((event) => event.type)).toEqual(new Array(12).fill('clean'))
+		expect(state.events[0]).toEqual({ type: 'clean', x: 2, y: 1 })
+	})
+
+	it('names the next move for the renderer: a waiting direction once open, the current way while open, nothing at furniture', () => {
+		const state = createState(seededRandom(1))
+		expect(nextMove(state)).toBe('right')
+
+		// Up is the wall: the direction waits and the robot keeps right.
+		step(state, 'up', STEP)
+		expect(state.robot.wanted).toBe('up')
+		expect(nextMove(state)).toBe('right')
+		step(state, 'down', STEP)
+		expect(nextMove(state)).toBe('down')
+
+		placeRobot(state, 13, 1, 'right')
+		expect(nextMove(state)).toBeNull()
+	})
+
+	it('remembers the cell a bunny comes from, so the renderer can draw its hop', () => {
+		const state = parked(ALWAYS_DRIFT)
+		const [bunny] = state.bunnies
+		expect([bunny.fromX, bunny.fromY]).toEqual([bunny.nest.x, bunny.nest.y])
+
+		runUntil(state, () => bunny.waitMs === 0 && bunny.direction !== null)
+		expect([bunny.fromX, bunny.fromY]).toEqual([bunny.nest.x, bunny.nest.y])
+		const before = at(bunny)
+		runUntil(state, () => bunny.x !== before.x || bunny.y !== before.y)
+		expect([bunny.fromX, bunny.fromY]).toEqual([before.x, before.y])
+
+		sendHome(bunny, RESPAWN_MS)
+		expect([bunny.fromX, bunny.fromY]).toEqual([bunny.nest.x, bunny.nest.y])
 	})
 
 	it('turns as soon as a waiting direction opens and keeps going until furniture stops it', () => {
@@ -203,7 +235,7 @@ describe('Dust Runner logic', () => {
 		}
 
 		expect(distance).toBe(1)
-		expect(events).toEqual([{ type: 'miss' }])
+		expect(events.filter((event) => event.type !== 'clean')).toEqual([{ type: 'miss' }])
 		expect(at(state.robot)).toEqual({ x: 1, y: 1 })
 		expect(state.robot.direction).toBe('right')
 		expect(state.bunnies.map((bunny) => bunny.waitMs)).toEqual([RELEASE_MS, RELEASE_MS + RELEASE_GAP_MS])
@@ -313,7 +345,7 @@ describe('Dust Runner logic', () => {
 
 		const events = runUntil(state, () => state.roomIndex === 1, 1000)
 
-		expect(events).toEqual([{ type: 'cleared' }])
+		expect(events).toEqual([{ type: 'clean', x: 2, y: 1 }, { type: 'cleared' }])
 		expect(state.score).toBe(1)
 		expect(state.dustLeft).toBe(120)
 		expect(state.dockMs).toBe(0)

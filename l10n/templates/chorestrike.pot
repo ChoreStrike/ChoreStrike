@@ -1010,6 +1010,9 @@ msgstr ""
 msgid "Edit task"
 msgstr ""
 
+msgid "Effects"
+msgstr ""
+
 msgid "Email address"
 msgstr ""
 
@@ -2699,6 +2702,9 @@ msgstr ""
 msgid "Sort toys into their boxes, put away games and books, and clear the floor so you can vacuum."
 msgstr ""
 
+msgid "Sound"
+msgstr ""
+
 msgid "Sounds on completions and awards"
 msgstr ""
 
@@ -3144,6 +3150,9 @@ msgid "The schedule preview is no longer current. Generate a new preview."
 msgstr ""
 
 msgid "The selected occurrence is no longer valid"
+msgstr ""
+
+msgid "The setting could not be saved."
 msgstr ""
 
 msgid "The settings could not be saved. Please try again."

@@ -146,6 +146,8 @@ describe('ArcadeCatalog', () => {
 
 			const card = wrapper.get('[data-testid="arcade-card-snake"]')
 			expect(card.attributes('data-unlocked')).toBe('false')
+			expect(card.classes()).toContain('is-locked')
+			expect(card.find('[data-testid="arcade-lock"]').exists()).toBe(true)
 			expect(wrapper.get('[data-testid="arcade-progress-snake"]').text()).toBe('Unlocks at 10 finished chores · 3 to go')
 			expect(wrapper.find('[data-testid="arcade-play-snake"]').exists()).toBe(false)
 
@@ -157,7 +159,12 @@ describe('ArcadeCatalog', () => {
 			serve({ gateEnabled: true, finishedChores: 10, games: [{ gameId: 'snake', threshold: 10, unlocked: true }] })
 			await mountCatalog()
 
-			expect(wrapper.get('[data-testid="arcade-card-snake"]').attributes('data-unlocked')).toBe('true')
+			const card = wrapper.get('[data-testid="arcade-card-snake"]')
+			expect(card.attributes('data-unlocked')).toBe('true')
+			expect(card.classes()).not.toContain('is-locked')
+			expect(card.find('[data-testid="arcade-lock"]').exists()).toBe(false)
+			// The card wears its game's accent (WP-G).
+			expect(card.element.style.getPropertyValue('--game-accent')).toBe('var(--cs-arcade-teal)')
 			expect(wrapper.find('[data-testid="arcade-progress-snake"]').exists()).toBe(false)
 			expect(wrapper.find('[data-testid="arcade-play-snake"]').exists()).toBe(true)
 		})

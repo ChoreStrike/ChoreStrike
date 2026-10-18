@@ -104,4 +104,68 @@ describe('sound utility', () => {
 		soundModule = require('@/utils/sound')
 		expect(() => soundModule.preloadSounds()).not.toThrow()
 	})
+
+	describe('arcade profiles (CS-PLAN-086 WP-G)', () => {
+		/** A context that also offers buffers and filters for noise bursts. */
+		const withNoise = () => {
+			const source = { buffer: null, connect: jest.fn(), start: jest.fn(), stop: jest.fn() }
+			const filter = { type: '', frequency: { value: 0 }, Q: { value: 0 }, connect: jest.fn() }
+			Object.assign(mockContext, {
+				sampleRate: 48000,
+				createBuffer: jest.fn(() => ({ getChannelData: () => new Float32Array(12000) })),
+				createBufferSource: jest.fn(() => source),
+				createBiquadFilter: jest.fn(() => filter),
+			})
+			return { source, filter }
+		}
+
+		it('names every profile the arcade plays', () => {
+			soundModule = require('@/utils/sound')
+			expect(soundModule.SOUND_NAMES).toEqual(expect.arrayContaining([
+				'pop', 'swish', 'start', 'bounce', 'miss', 'crash', 'cleared', 'penalty', 'flip', 'wrong',
+			]))
+		})
+
+		it('plays every note of a multi-note profile at its offset with its own gain', () => {
+			soundModule = require('@/utils/sound')
+			soundModule.setSoundEnabled(true)
+
+			soundModule.playSound('cleared')
+			expect(mockContext.createOscillator).toHaveBeenCalledTimes(4)
+			expect(mockOscillator.start.mock.calls.map(([at]) => at)).toEqual([0, 0.09, 0.18, 0.27])
+			expect(mockOscillator.stop.mock.calls.at(-1)[0]).toBeCloseTo(0.47)
+
+			soundModule.playSound('crash')
+			expect(mockOscillator.type).toBe('sawtooth')
+			expect(mockGain.gain.setValueAtTime).toHaveBeenLastCalledWith(0.16, 0)
+		})
+
+		it('skips the noise burst on a context without buffers and still plays the tone', () => {
+			soundModule = require('@/utils/sound')
+			soundModule.setSoundEnabled(true)
+
+			soundModule.playSound('bounce')
+
+			expect(mockContext.createOscillator).toHaveBeenCalledTimes(1)
+			expect(mockContext.createGain).toHaveBeenCalledTimes(1)
+		})
+
+		it('band-passes a burst of noise through a filter where the context supports it', () => {
+			const { source, filter } = withNoise()
+			soundModule = require('@/utils/sound')
+			soundModule.setSoundEnabled(true)
+
+			soundModule.playSound('bounce')
+			soundModule.playSound('flip')
+
+			expect(mockContext.createBuffer).toHaveBeenCalledTimes(1)
+			expect(mockContext.createBufferSource).toHaveBeenCalledTimes(2)
+			expect(filter.type).toBe('bandpass')
+			expect(filter.frequency.value).toBe(2500)
+			expect(source.connect).toHaveBeenCalledWith(filter)
+			expect(filter.connect).toHaveBeenCalledWith(mockGain)
+			expect(source.start).toHaveBeenCalledWith(0)
+			expect(source.stop).toHaveBeenLastCalledWith(0.05)
+		})
+	})
 })

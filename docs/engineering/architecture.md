@@ -94,8 +94,11 @@ ChoreStrike/
 │   │   │                       #   TaskTemplatePicker, FlexWindowDisplay, OverdueClaimDialog
 │   │   ├── Minigames/          # ArcadeCatalog, GameShell (+Header, Overlay, Dpad), GameLeaderboard,
 │   │   │                       #   ArcadeGateSetting (owner switch), gameRegistry,
-│   │   │                       #   games/<id>/ (pure logic + a canvas render.js or a DOM
-│   │   │                       #   Board.vue, one lazy chunk per game; CS-PLAN-086)
+│   │   │                       #   board.js (arcade palette + sizing), draw.js (canvas
+│   │   │                       #   primitives), effectsLayer.js (pooled particles, popups,
+│   │   │                       #   shake, flash), games/<id>/ (pure logic + a canvas
+│   │   │                       #   render.js or a DOM Board.vue, one lazy chunk per game;
+│   │   │                       #   CS-PLAN-086)
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Profile/            # TitleBadge (single retained series; the
 │   │   │                       #   TitlePicker retired with CS-PLAN-070 WP4)
@@ -1302,7 +1305,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Dashboard/RoomCard.vue` | 445 | Room status card | accepted (presentational) |
 | `components/Dashboard/QuickStats.vue` | 372 | Stat cards | accepted (presentational) |
 | `components/Minigames/SnakeGame.vue`, `SnakeLeaderboard.vue` | — | Single-game Snake and its board — replaced by the shared game shell (CS-PLAN-086 WP-A) | removed from the inventory (2026-10-17; archived under the gitignored `archive/`) |
-| `components/Minigames/GameShell.vue` | 458 | Shared frame of every arcade game: loop, shell-bound input (directions, taps, a paddle's held keys and pointer), responsive canvas or a game's DOM board, overlays, live region with a game's own end copy, result save; the score header lives in `GameShellHeader.vue` | accepted (one frame for all games; ~40 lines scoped CSS) |
+| `components/Minigames/GameShell.vue` | 540 | Shared frame of every arcade game: loop, shell-bound input (directions, taps, a paddle's held keys and pointer), responsive canvas or a game's DOM board, overlays, live region with a game's own end copy, result save, the event effects (sounds through `useGameEffects`, the board's `effectsLayer`, the overlay's Sound/Effects switches; WP-G); the score header lives in `GameShellHeader.vue` | accepted (one frame for all games; ~45 lines scoped CSS) |
 | `views/Leaderboard.vue` | 496 | Consent-filtered ranking surface (opt-in/closed state, entries/pending, provisional week) with the weekly-medal display — no unconditional member ranking, contribution column or freeze indicator (CS-PLAN-070 WP4) | accepted (presentational) |
 | `views/TaskManager.vue` | 614 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
 | `views/Dashboard.vue` | 351 | Dashboard composition | accepted (composition root) |

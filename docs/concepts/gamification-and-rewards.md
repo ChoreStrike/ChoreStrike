@@ -141,7 +141,11 @@ Crumb Snake (the `snake` id), Tile Breaker (`tiles`, a squeegee bounces a
 soap bubble against walls of grimy tiles, open from 25 finished chores) and
 Dust Runner (`dust`, a robot vacuum clears the hallway, the kitchen and the
 living room while dust bunnies roam; a stop at the charging dock makes them
-catchable; open from 50 finished chores).
+catchable; open from 50 finished chores). Every game draws from the arcade
+palette with figures that glide and look around; event sounds, board effects
+and animations stay behind the personal opt-ins, which each game's start,
+pause and game-over screen also offers as Sound and Effects switches
+(CS-PLAN-086 WP-G).
 See the Minigames section in
 [`../api/README.md`](../api/README.md).
 

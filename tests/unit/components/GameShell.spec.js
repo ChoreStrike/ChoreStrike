@@ -54,10 +54,11 @@ const mockUntimedGame = {
 jest.mock('@/components/Minigames/games/socks/game.js', () => mockUntimedGame)
 
 // A scripted paddle game (Tile Breaker's interface): a canvas game whose
-// state carries lives.
+// state carries lives and whose events name points, not cells.
 const mockPaddleGame = {
 	cols: 16,
 	rows: 20,
+	eventUnit: 'point',
 	createState: jest.fn(() => ({ score: 0, over: false, events: [], inputs: [], lives: 3 })),
 	step: jest.fn((state, input) => {
 		if (input) state.inputs.push(input)
@@ -67,19 +68,53 @@ const mockPaddleGame = {
 }
 jest.mock('@/components/Minigames/games/tiles/game.js', () => mockPaddleGame)
 
-const mockEffects = { pickup: jest.fn(), newPersonalBest: jest.fn(), motionAllowed: jest.fn(() => false) }
+const mockEffects = { pickup: jest.fn(), event: jest.fn(), newPersonalBest: jest.fn(), motionAllowed: jest.fn(() => false) }
 jest.mock('@/composables/useGameEffects.js', () => ({ useGameEffects: () => mockEffects }))
+
+// The board effects layer (WP-G): the shell's calls are the subject here.
+const mockFx = {
+	react: jest.fn(),
+	score: jest.fn(),
+	update: jest.fn(),
+	draw: jest.fn(),
+	offset: jest.fn(() => ({ x: 0, y: 0 })),
+	clear: jest.fn(),
+}
+jest.mock('@/components/Minigames/effectsLayer.js', () => ({ createEffectsLayer: () => mockFx }))
+
+jest.mock('@/utils/sound.js', () => ({ unlockAudio: jest.fn(), playSound: jest.fn(), setSoundEnabled: jest.fn() }))
+jest.mock('@/utils/errorToast.js', () => ({ showErrorWithReference: jest.fn() }))
 
 jest.mock('@/services/api.js', () => ({
 	api: { get: jest.fn(), post: jest.fn() },
+	fetchMyPreferences: jest.fn(),
+	updateMyPreferences: jest.fn(),
 }))
 
 jest.mock('@/utils/logger', () => ({
 	logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
 }))
 
-const { api } = require('@/services/api.js')
+const { api, updateMyPreferences } = require('@/services/api.js')
 const { logger } = require('@/utils/logger')
+const { unlockAudio } = require('@/utils/sound.js')
+const { showErrorWithReference } = require('@/utils/errorToast.js')
+
+/** A server preferences payload (the store replaces its state with it). */
+const serverPreferences = (overrides = {}) => ({
+	version: 1,
+	taskDigestEnabled: false,
+	orgDigestEnabled: false,
+	digestTime: '18:00',
+	quietStart: null,
+	quietEnd: null,
+	soundEnabled: false,
+	animationEnabled: false,
+	arcadeVisible: true,
+	catalogVisible: true,
+	ranking: { state: 'none', generation: null, effectiveMonday: null },
+	...overrides,
+})
 
 /**
  * CS-PLAN-086 §3.4 GameShell: input on the shell element only (Snake
@@ -137,6 +172,8 @@ describe('GameShell', () => {
 		HTMLCanvasElement.prototype.getContext = jest.fn(() => ({ setTransform: jest.fn() }))
 		api.get.mockResolvedValue(null)
 		api.post.mockResolvedValue({ id: 1 })
+		mockEffects.motionAllowed.mockReturnValue(false)
+		updateMyPreferences.mockResolvedValue(serverPreferences())
 	})
 
 	afterEach(() => {
@@ -520,6 +557,147 @@ describe('GameShell', () => {
 			// The stub shadows Element.prototype.clientWidth; drop it again.
 			delete HTMLElement.prototype.clientWidth
 		}
+	})
+
+	describe('effects and switches (WP-G)', () => {
+		it('plays the start sound, tells the effects about every event and keeps the board still without the motion opt-in', async () => {
+			const wrapper = await mountShell()
+			await start(wrapper)
+			expect(mockEffects.event).toHaveBeenCalledWith('start')
+			expect(mockFx.clear).toHaveBeenCalledTimes(1)
+
+			currentState().events.push({ type: 'miss' }, { type: 'pickup', kind: 'normal', x: 1, y: 2 })
+			currentState().score = 10
+			advance()
+
+			expect(mockEffects.event).toHaveBeenCalledWith('miss')
+			expect(mockEffects.pickup).toHaveBeenCalledWith('normal')
+			expect(mockFx.react).not.toHaveBeenCalled()
+			expect(mockFx.score).not.toHaveBeenCalled()
+			const view = mockGame.render.mock.calls.at(-1)[2]
+			expect(view.motion).toBe(false)
+			expect(typeof view.time).toBe('number')
+			expect(view.cell).toBe(view.width / 20)
+			expect(mockFx.draw).toHaveBeenCalled()
+		})
+
+		it('bursts, shakes and floats the score on the board while motion is allowed, at cell centers', async () => {
+			mockEffects.motionAllowed.mockReturnValue(true)
+			const wrapper = await mountShell()
+			await start(wrapper)
+			currentState().events.push({ type: 'pickup', kind: 'bonus', x: 1, y: 2 }, { type: 'miss' })
+			mockGame.step.mockImplementationOnce((state) => {
+				state.score = 30
+				return state
+			})
+			advance()
+
+			expect(mockFx.react).toHaveBeenCalledTimes(2)
+			expect(mockFx.react.mock.calls[0]).toEqual([{ type: 'pickup', kind: 'bonus', x: 1, y: 2 }, 1.5, 2.5, expect.any(Object), { x: 10, y: 10 }])
+			expect(mockFx.react.mock.calls[1][0]).toEqual({ type: 'miss' })
+			expect(mockFx.score).toHaveBeenCalledWith(1.5, 2.5, 30, expect.any(Object))
+			expect(mockGame.render.mock.calls.at(-1)[2].motion).toBe(true)
+		})
+
+		it('takes the event points of a paddle game as they are', async () => {
+			mockEffects.motionAllowed.mockReturnValue(true)
+			const wrapper = await mountShell('tiles')
+			await start(wrapper)
+			const state = mockPaddleGame.createState.mock.results.at(-1).value
+			state.events.push({ type: 'pickup', kind: 'normal', x: 3, y: 4.4 })
+			advance()
+
+			expect(mockFx.react.mock.calls[0].slice(1, 3)).toEqual([3, 4.4])
+		})
+
+		it('shows both opt-ins off by default and writes the personal preference when switched', async () => {
+			updateMyPreferences.mockResolvedValue(serverPreferences({ soundEnabled: true }))
+			const wrapper = await mountShell()
+			const sound = wrapper.get('[data-testid="game-sound-toggle"]')
+			expect(sound.attributes('aria-pressed')).toBe('false')
+			expect(wrapper.get('[data-testid="game-effects-toggle"]').attributes('aria-pressed')).toBe('false')
+
+			await sound.trigger('click')
+			await flushPromises()
+
+			expect(unlockAudio).toHaveBeenCalledTimes(1)
+			expect(updateMyPreferences).toHaveBeenCalledWith(expect.objectContaining({ soundEnabled: true, expectedVersion: 0 }))
+			expect(wrapper.get('[data-testid="game-sound-toggle"]').attributes('aria-pressed')).toBe('true')
+		})
+
+		it('keeps the switches focusable during a save and ignores a second click meanwhile (R086G-01)', async () => {
+			let finish
+			updateMyPreferences.mockReturnValue(new Promise((resolve) => { finish = resolve }))
+			const wrapper = await mountShell()
+			const sound = wrapper.get('[data-testid="game-sound-toggle"]')
+			sound.element.focus()
+
+			await sound.trigger('click')
+			await sound.trigger('click')
+			await flushPromises()
+
+			expect(updateMyPreferences).toHaveBeenCalledTimes(1)
+			expect(sound.attributes('disabled')).toBeUndefined()
+			expect(sound.classes()).toContain('is-saving')
+			expect(document.activeElement).toBe(sound.element)
+
+			finish(serverPreferences({ soundEnabled: true }))
+			await flushPromises()
+			expect(wrapper.get('[data-testid="game-sound-toggle"]').classes()).not.toContain('is-saving')
+			expect(wrapper.get('[data-testid="game-sound-toggle"]').attributes('aria-pressed')).toBe('true')
+		})
+
+		it('switching effects on re-reads the motion gate for the board', async () => {
+			updateMyPreferences.mockResolvedValue(serverPreferences({ animationEnabled: true }))
+			const wrapper = await mountShell()
+			mockEffects.motionAllowed.mockClear()
+
+			await wrapper.get('[data-testid="game-effects-toggle"]').trigger('click')
+			await flushPromises()
+
+			expect(updateMyPreferences).toHaveBeenCalledWith(expect.objectContaining({ animationEnabled: true }))
+			expect(unlockAudio).not.toHaveBeenCalled()
+			expect(mockEffects.motionAllowed).toHaveBeenCalled()
+			expect(wrapper.get('[data-testid="game-effects-toggle"]').attributes('aria-pressed')).toBe('true')
+		})
+
+		it('keeps the server state and shows a toast when the switch cannot be saved', async () => {
+			updateMyPreferences.mockRejectedValue(new Error('offline'))
+			const wrapper = await mountShell()
+
+			await wrapper.get('[data-testid="game-sound-toggle"]').trigger('click')
+			await flushPromises()
+
+			expect(showErrorWithReference).toHaveBeenCalledWith('The setting could not be saved.', expect.any(Error))
+			expect(wrapper.get('[data-testid="game-sound-toggle"]').attributes('aria-pressed')).toBe('false')
+		})
+
+		it('offers the switches on the start, pause and game-over overlays, never during play', async () => {
+			const wrapper = await mountShell()
+			expect(wrapper.find('[data-testid="game-effect-toggles"]').exists()).toBe(true)
+
+			await start(wrapper)
+			expect(wrapper.find('[data-testid="game-effect-toggles"]').exists()).toBe(false)
+
+			await wrapper.get('[data-testid="game-pause"]').trigger('click')
+			expect(wrapper.find('[data-testid="game-effect-toggles"]').exists()).toBe(true)
+		})
+
+		it('shows lives as hearts, keeps the number for assistive technology and colors the last seconds', async () => {
+			const wrapper = await mountShell('tiles')
+			expect(wrapper.get('[data-testid="game-lives"]').text()).toBe('3')
+			expect(wrapper.get('[data-testid="game-lives"]').classes()).toContain('cs-visually-hidden')
+			expect(wrapper.get('.game-shell-hearts').text()).toBe('♥♥♥')
+
+			const spots = await mountShell('spots')
+			await start(spots)
+			expect(spots.find('.is-urgent').exists()).toBe(false)
+			mockDomGame.createState.mock.results.at(-1).value.timeLeftMs = 4200
+			advance()
+			await flushPromises()
+			expect(spots.get('[data-testid="game-time"]').text()).toBe('5')
+			expect(spots.find('.is-urgent').exists()).toBe(true)
+		})
 	})
 
 	it('stops the loop when it unmounts', async () => {

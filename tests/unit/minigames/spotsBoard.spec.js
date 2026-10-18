@@ -55,6 +55,18 @@ describe('Spot Sprint board', () => {
 		expect(wrapper.emitted('tap')).toEqual([[3], [5]])
 	})
 
+	it('draws each item from a body shape with its own detail, and sends up bubbles from a wiped tile', () => {
+		const doubled = { ...boardView(), tiles: ['wiped', ...boardView().tiles.slice(1)] }
+		const tiles = mountBoard({ view: doubled }).findAll('[data-cell]')
+
+		// Bubbles from the wiped tile; the sponge alone, the stain's sheen, the drying stain's crack.
+		expect(tiles[0].findAll('.spots-bubble')).toHaveLength(3)
+		expect(tiles[3].findAll('path')).toHaveLength(1)
+		expect(tiles[5].findAll('path')).toHaveLength(2)
+		expect(tiles[10].findAll('path')).toHaveLength(2)
+		expect(tiles[5].find('.spots-detail').attributes('d')).not.toBe(tiles[10].find('.spots-detail').attributes('d'))
+	})
+
 	it('shows the golden frame while the points are doubled and drops the sparkle without motion', () => {
 		const doubled = { ...boardView(), double: true, tiles: ['wiped', ...boardView().tiles.slice(1)] }
 		const wrapper = mountBoard({ view: doubled, motion: false })

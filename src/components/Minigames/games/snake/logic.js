@@ -30,7 +30,7 @@ const SAFE_AHEAD = 4
 const SAFE_RADIUS = 2
 const MAX_QUEUED_TURNS = 2
 
-const DIRECTIONS = {
+export const DIRECTIONS = {
 	up: { x: 0, y: -1 },
 	down: { x: 0, y: 1 },
 	left: { x: -1, y: 0 },
@@ -96,6 +96,17 @@ function queueTurn(state, direction) {
 	const last = state.turns.length > 0 ? state.turns[state.turns.length - 1] : state.direction
 	if (direction === last || direction === OPPOSITE[last]) return
 	state.turns.push(direction)
+}
+
+/**
+ * The direction of the next move: the first queued turn, else the current
+ * way. The renderer draws the nozzle on its way there.
+ *
+ * @param {object} state Game state
+ * @return {string} Direction
+ */
+export function nextDirection(state) {
+	return state.turns.length > 0 ? state.turns[0] : state.direction
 }
 
 function advance(state) {

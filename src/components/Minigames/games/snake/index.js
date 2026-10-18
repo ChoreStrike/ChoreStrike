@@ -14,6 +14,7 @@ export default {
 	id: 'snake',
 	icon: '🧹',
 	input: 'dpad',
+	accent: 'var(--cs-arcade-teal)',
 	name: () => t('chorestrike', 'Crumb Snake'),
 	description: () => t('chorestrike', 'Steer the vacuum hose, collect crumbs and keep clear of the furniture.'),
 	controls: () => t('chorestrike', 'Steer with the arrow keys, WASD, a swipe or the buttons. Space pauses.'),

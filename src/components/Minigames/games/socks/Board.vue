@@ -12,7 +12,7 @@
 		<div v-for="(card, index) in view.cards"
 			:key="index"
 			class="socks-card"
-			:class="[`is-${card.face}`, { 'is-cursor': index === view.cursor }]"
+			:class="[`is-${card.face}`, card.pattern ? `is-${card.pattern}` : null, { 'is-cursor': index === view.cursor }]"
 			:data-cell="index"
 			:data-face="card.face"
 			:data-pattern="card.pattern">
@@ -37,7 +37,10 @@
  * tapped card; the keyboard stays with the game shell (arrows move the
  * cursor, Enter turns). Decorative for assistive technology — the shell's
  * live region carries score and state. Patterns differ by shape, never by
- * color alone: stripes, dots, star, heart, diamond, triangle, checks, plus.
+ * color alone: stripes, dots, star, heart, diamond, triangle, checks, plus
+ * — each on a sock of its own color. With the motion opt-in a sock turns
+ * with a flip, a wrong pair shakes and a found pair bounces; face-down
+ * socks lie on wicker.
  */
 defineProps({
 	view: {
@@ -84,7 +87,7 @@ function onPointerDown(event) {
 	height: 100%;
 	padding: 4px;
 	box-sizing: border-box;
-	background: var(--color-border);
+	background: var(--cs-arcade-grout, var(--color-border));
 	user-select: none;
 	-webkit-user-select: none;
 }
@@ -96,12 +99,17 @@ function onPointerDown(event) {
 	box-sizing: border-box;
 	border: 2px solid transparent;
 	border-radius: 6px;
-	background: var(--color-main-background);
+	background: var(--cs-arcade-paper, var(--color-main-background));
+	perspective: 240px;
 	cursor: pointer;
 }
 
 .socks-card.is-down {
-	background: var(--color-background-dark);
+	background: repeating-linear-gradient(
+		45deg,
+		var(--cs-arcade-wood-light, #EDB97F) 0 5px,
+		var(--cs-arcade-wood, #D9965B) 5px 10px
+	);
 }
 
 .socks-card.is-miss {
@@ -109,7 +117,7 @@ function onPointerDown(event) {
 }
 
 .socks-card.is-matched {
-	background: var(--color-primary-element-light, var(--color-background-dark));
+	background: color-mix(in srgb, var(--cs-arcade-green, #00B894) 22%, var(--cs-arcade-paper, var(--color-main-background)));
 	cursor: default;
 }
 
@@ -124,49 +132,97 @@ function onPointerDown(event) {
 	pointer-events: none;
 }
 
+/* One color per pattern on top of its shape (never color alone). */
 .socks-sock {
-	fill: var(--color-primary-element);
+	fill: var(--cs-arcade-blue, #0984E3);
+}
+
+.is-stripes .socks-sock {
+	fill: var(--cs-arcade-coral, #FF7675);
+}
+
+.is-star .socks-sock {
+	fill: var(--cs-arcade-bronze, #CD7F32);
+}
+
+.is-heart .socks-sock {
+	fill: var(--cs-arcade-green, #00B894);
+}
+
+.is-diamond .socks-sock {
+	fill: var(--cs-arcade-teal, #00CEC9);
+}
+
+.is-triangle .socks-sock {
+	fill: var(--cs-arcade-cocoa, #6D4C3D);
+}
+
+.is-checks .socks-sock {
+	fill: var(--cs-arcade-wood-dark, #A8673A);
+}
+
+.is-plus .socks-sock {
+	fill: var(--cs-arcade-dust, #8E9AAF);
 }
 
 .socks-emblem {
-	fill: var(--color-primary-element-text);
+	fill: var(--cs-arcade-paper, #FFFFFF);
 }
 
 .socks-check {
 	fill: none;
-	stroke: var(--color-primary-element);
+	stroke: var(--color-element-success, var(--cs-arcade-green));
 	stroke-width: 3;
 	stroke-linecap: round;
 	stroke-linejoin: round;
 }
 
 .socks-basket {
-	fill: var(--color-text-maxcontrast);
+	fill: var(--cs-arcade-wood-dark, #A8673A);
 	fill-rule: evenodd;
 }
 
 .socks-board:not(.is-calm) .is-up .socks-item,
 .socks-board:not(.is-calm) .is-miss .socks-item {
-	animation: socks-turn 180ms ease-out;
+	animation: socks-turn 220ms ease-out;
+}
+
+.socks-board:not(.is-calm) .is-miss {
+	animation: socks-shake 300ms ease-in-out;
 }
 
 .socks-board:not(.is-calm) .is-matched .socks-item {
-	animation: socks-pair 250ms ease-out;
+	animation: socks-pair 300ms ease-out;
 }
 
 @keyframes socks-turn {
 	from {
-		transform: scaleX(0.1);
+		transform: rotateY(90deg);
 	}
 
 	to {
-		transform: scaleX(1);
+		transform: rotateY(0);
+	}
+}
+
+@keyframes socks-shake {
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+
+	25% {
+		transform: translateX(-4px);
+	}
+
+	75% {
+		transform: translateX(4px);
 	}
 }
 
 @keyframes socks-pair {
 	from {
-		transform: scale(1.15);
+		transform: scale(1.2);
 	}
 
 	to {

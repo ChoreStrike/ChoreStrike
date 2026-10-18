@@ -28,6 +28,7 @@ describe('game registry', () => {
 				expect(game[field]().length).toBeGreaterThan(0)
 			}
 			expect(game.icon).toBeTruthy()
+			expect(game.accent).toMatch(/^var\(--cs-arcade-[a-z-]+\)$/)
 			expect(['dpad', 'tap', 'paddle']).toContain(game.input)
 			expect([undefined, 'dom']).toContain(game.renderer)
 		}

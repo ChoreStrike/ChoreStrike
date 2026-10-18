@@ -7,3 +7,6 @@
 export { COLS as cols, ROWS as rows } from './constants.js'
 export { createState, step } from './logic.js'
 export { render } from './render.js'
+
+/** Event coordinates are points on the board (tile centers), not cells. */
+export const eventUnit = 'point'

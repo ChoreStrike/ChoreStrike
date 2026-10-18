@@ -53,7 +53,7 @@ export function createState(rng) {
 		lives: START_LIVES,
 		score: 0,
 		over: false,
-		// Drained by the shell after every step: pickup | miss | cleared | crash.
+		// Drained by the shell after every step: clean | pickup | miss | cleared | crash.
 		events: [],
 	}
 	enterRoom(state, 0)
@@ -96,25 +96,40 @@ function tickTimers(state, dt) {
 }
 
 /**
+ * The direction of the next move: a waiting direction as soon as that way
+ * is open, else the current way while it is open. The renderer draws the
+ * robot on its way there.
+ *
+ * @param {object} state Game state
+ * @return {string|null} Direction, or null while furniture blocks the robot
+ */
+export function nextMove(state) {
+	const robot = state.robot
+	if (robot.wanted && opens(state, robot.wanted)) return robot.wanted
+	return opens(state, robot.direction) ? robot.direction : null
+}
+
+/**
  * A waiting direction turns the robot as soon as that way is open; the
- * robot then keeps going until furniture stops it.
+ * robot then keeps going until furniture stops it. Collected dust is a
+ * `clean` event (a visual puff, never a sound).
  *
  * @param {object} state Game state
  */
 function moveRobot(state) {
 	const robot = state.robot
-	if (robot.wanted && opens(state, robot.wanted)) {
-		robot.direction = robot.wanted
-		robot.wanted = null
-	}
-	if (!opens(state, robot.direction)) return
-	robot.x += DIRECTIONS[robot.direction].x
-	robot.y += DIRECTIONS[robot.direction].y
+	const direction = nextMove(state)
+	if (direction === null) return
+	if (direction === robot.wanted) robot.wanted = null
+	robot.direction = direction
+	robot.x += DIRECTIONS[direction].x
+	robot.y += DIRECTIONS[direction].y
 	const index = cellIndex(robot.x, robot.y)
 	if (state.dust[index] === 1) {
 		state.dust[index] = 0
 		state.dustLeft--
 		state.score += DUST_POINTS
+		state.events.push({ type: 'clean', x: robot.x, y: robot.y })
 	}
 	const dock = state.room.dock
 	if (robot.x === dock.x && robot.y === dock.y && state.dockMs === 0) charge(state)

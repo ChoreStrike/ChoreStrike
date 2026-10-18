@@ -24,13 +24,14 @@ describe('useGameEffects', () => {
 		jest.resetModules()
 		mocks = {
 			playSound: jest.fn(),
+			unlockAudio: jest.fn(),
 			setSoundEnabled: jest.fn(),
 			fireConfetti: jest.fn(),
 			setAnimationsEnabled: jest.fn(),
 			areCelebrationsEnabled: jest.fn(() => false),
 			pulseCompletion: jest.fn(),
 		}
-		jest.doMock('@/utils/sound', () => ({ playSound: mocks.playSound, setSoundEnabled: mocks.setSoundEnabled }))
+		jest.doMock('@/utils/sound', () => ({ playSound: mocks.playSound, unlockAudio: mocks.unlockAudio, setSoundEnabled: mocks.setSoundEnabled }))
 		jest.doMock('@/utils/confetti', () => ({
 			fireConfetti: mocks.fireConfetti,
 			fireMilestoneConfetti: jest.fn(),
@@ -63,6 +64,47 @@ describe('useGameEffects', () => {
 		expect(mocks.setAnimationsEnabled).toHaveBeenLastCalledWith(true)
 		expect(mocks.playSound).toHaveBeenCalledWith('swish')
 		expect(mocks.pulseCompletion).toHaveBeenCalledTimes(1)
+	})
+
+	it('plays the sound of a game event and pulses only for a lost life or a penalty with the motion opt-in', () => {
+		const effects = load()
+
+		effects.event('bounce')
+		expect(mocks.playSound).toHaveBeenLastCalledWith('bounce')
+		effects.event('timeup')
+		expect(mocks.playSound).toHaveBeenLastCalledWith('cleared')
+		effects.event('miss')
+		expect(mocks.playSound).toHaveBeenLastCalledWith('miss')
+		expect(mocks.pulseCompletion).not.toHaveBeenCalled()
+
+		preferences.animationEnabled = true
+		effects.event('crash')
+		effects.event('penalty')
+		effects.event('flip')
+		expect(mocks.pulseCompletion).toHaveBeenCalledTimes(2)
+		expect(mocks.setSoundEnabled).toHaveBeenCalledTimes(6)
+	})
+
+	it('stays silent for events without a sound', () => {
+		const effects = load()
+
+		effects.event('clean')
+		effects.event('unknown')
+
+		expect(mocks.playSound).not.toHaveBeenCalled()
+		expect(mocks.setSoundEnabled).not.toHaveBeenCalled()
+	})
+
+	it('unlocks audio at the round start only with the sound opt-in', () => {
+		const effects = load()
+
+		effects.event('start')
+		expect(mocks.unlockAudio).not.toHaveBeenCalled()
+		expect(mocks.playSound).toHaveBeenCalledWith('start')
+
+		preferences.soundEnabled = true
+		effects.event('start')
+		expect(mocks.unlockAudio).toHaveBeenCalledTimes(1)
 	})
 
 	it('celebrates a new personal best through the gated confetti and sound modules', () => {

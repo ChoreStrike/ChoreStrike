@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, afterEach } from '@jest/globals'
-import { MAX_BOARD_PX, canvasPixelRatio, fitBoard, readBoardPalette } from '@/components/Minigames/board.js'
+import { MAX_BOARD_PX, PALETTE_KEYS, canvasPixelRatio, fitBoard, readBoardPalette } from '@/components/Minigames/board.js'
 import { SWIPE_MIN_PX, keyAction, swipeDirection } from '@/components/Minigames/gameInput.js'
 
 describe('board sizing (Snake defect S4)', () => {
@@ -38,16 +38,20 @@ describe('board sizing (Snake defect S4)', () => {
 
 describe('board palette', () => {
 	afterEach(() => {
-		document.documentElement.style.removeProperty('--color-main-background')
+		document.documentElement.style.removeProperty('--cs-arcade-floor')
 	})
 
-	it('reads the theme variables with fallbacks', () => {
-		document.documentElement.style.setProperty('--color-main-background', '#101010')
+	it('reads the arcade tokens with light-theme fallbacks', () => {
+		document.documentElement.style.setProperty('--cs-arcade-floor', '#101010')
 		const palette = readBoardPalette(document.documentElement)
 
 		expect(palette.floor).toBe('#101010')
-		expect(palette.hose).toBe('#00679e')
-		expect(Object.keys(palette).sort()).toEqual(['crumb', 'floor', 'furniture', 'golden', 'hose', 'nozzle', 'outline', 'sparkle', 'tile'])
+		expect(palette.blue).toBe('#0984E3')
+		expect(Object.keys(palette)).toEqual(PALETTE_KEYS)
+		expect(PALETTE_KEYS).toEqual(expect.arrayContaining([
+			'floor', 'floorAlt', 'grout', 'ink', 'paper', 'wood', 'woodLight', 'woodDark', 'blue', 'blueLight',
+			'teal', 'tealLight', 'coral', 'coralLight', 'yellow', 'green', 'bronze', 'cocoa', 'tan', 'dust', 'dustLight',
+		]))
 	})
 })
 

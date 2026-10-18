@@ -16,10 +16,13 @@
 			<li v-for="{ game, access } in cards"
 				:key="game.id"
 				class="arcade-card"
+				:class="{ 'is-locked': !access.unlocked }"
+				:style="{ '--game-accent': game.accent }"
 				:data-testid="`arcade-card-${game.id}`"
 				:data-unlocked="String(access.unlocked)">
 				<div class="arcade-card-icon" aria-hidden="true">
 					{{ game.icon }}
+					<span v-if="!access.unlocked" class="arcade-card-lock" data-testid="arcade-lock">🔒</span>
 				</div>
 				<div class="arcade-card-body">
 					<h2 class="arcade-card-title">
@@ -93,8 +96,9 @@ import { GAME_IDS, findGame } from './gameRegistry.js'
  * card of `Dashboard/ArcadeSection.vue`). The server catalog decides which
  * games exist and whether each is unlocked; the client registry supplies
  * names, icons and the lazy game code. One card per game with its own best
- * and rank; a locked card shows neutral progress and keeps its leaderboard
- * readable; a game opens in the shared Modal and loads its code only then.
+ * and rank; a locked card shows neutral progress, a lock badge and keeps
+ * its leaderboard readable; a game opens in the shared Modal and loads its
+ * code only then. Each card wears its game's accent color (WP-G).
  * Scores-only — never a Coin surface (T10/D7d).
  */
 const store = useMinigameStore()
@@ -163,12 +167,28 @@ onMounted(loadStats)
 }
 
 .arcade-card-icon {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	height: 96px;
 	font-size: 3rem;
-	background: var(--color-background-dark);
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--game-accent, var(--color-background-dark)) 45%, var(--color-background-dark)),
+		color-mix(in srgb, var(--game-accent, var(--color-background-dark)) 15%, var(--color-main-background))
+	);
+}
+
+.arcade-card.is-locked .arcade-card-icon {
+	filter: grayscale(0.7);
+}
+
+.arcade-card-lock {
+	position: absolute;
+	inset-inline-end: 0.5rem;
+	bottom: 0.5rem;
+	font-size: 1.25rem;
 }
 
 .arcade-card-body {

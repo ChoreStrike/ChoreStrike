@@ -339,7 +339,7 @@ review: the full browser gate (WP-G).
 
 ### [P3] FEAT-ARCADE-003 — Household-themed arcade games
 **Status**: In Progress · **Effort**: L · **Layer**: frontend · **Journey stage**: optional arcade
-**Owning**: CS-PLAN-086 WP-C to WP-F · **Depends on**: FEAT-ARCADE-001 · **Blocks**: — · **Folded-in**: —
+**Owning**: CS-PLAN-086 WP-C to WP-G · **Depends on**: FEAT-ARCADE-001 · **Blocks**: — · **Folded-in**: —
 **Source**: operator request, 2026-10-16
 
 Four original games with cleaning utensils as items: Spot Sprint (tap stains),
@@ -362,8 +362,11 @@ threshold 25, its own lazy chunk (2.6 KB gzip). Dust Runner delivered
 room-shaped floor plans (hallway, kitchen, living room, then repeating with
 faster bunnies), dust bunnies that leave their nests one after another and
 drift toward the robot, a charging dock that makes them catchable, three
-lives, unlock threshold 50, its own lazy chunk (2.9 KB gzip). All five games
-are delivered; open until the plan's final review: WP-G.
+lives, unlock threshold 50, its own lazy chunk (2.9 KB gzip). Pep polish
+delivered 2026-10-18 (WP-G, interim Standard B `PASS-WITH-FIXES`): the arcade
+palette, gliding figures with faces, event sounds, the shell's pooled board
+effects and in-game Sound and Effects switches on the same personal opt-ins.
+All five games are delivered; open until the plan's final review: WP-H.
 
 ---
 

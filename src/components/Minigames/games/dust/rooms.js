@@ -96,6 +96,17 @@ const LIVING_ROOM = [
 /** Hallway, kitchen, living room; after the last room it repeats. */
 export const LAYOUTS = Object.freeze([HALLWAY, KITCHEN, LIVING_ROOM].map((rows) => Object.freeze(rows)))
 
+/** The floor of each room, drawn by the renderer: planks, tiles, a carpet. */
+export const THEMES = Object.freeze(['wood', 'tiles', 'carpet'])
+
+/**
+ * @param {number} index Rooms cleared so far
+ * @return {string} The floor theme of that round (the last one repeats)
+ */
+export function themeAt(index) {
+	return THEMES[Math.min(index, THEMES.length - 1)]
+}
+
 /**
  * @param {number} x Column
  * @param {number} y Row

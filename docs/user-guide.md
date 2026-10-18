@@ -162,6 +162,11 @@ Spot Sprint is always open; the other games open once you have finished 3,
 game for everyone by switching off **Unlock games with finished chores**
 under **Settings → Arcade**.
 
+Every game's start screen has **Sound** and **Effects** switches. They are
+the same personal settings as under *Notifications, sounds and celebrations*
+(both off by default), so sounds, sparkles and the floating score stay a
+choice; your device's reduced-motion setting always wins.
+
 ## Privacy
 
 - Everything stays in your own Nextcloud; ChoreStrike uses no external

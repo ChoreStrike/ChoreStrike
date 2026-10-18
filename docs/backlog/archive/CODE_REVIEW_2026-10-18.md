@@ -268,3 +268,54 @@ None needed.
 ### Outcome
 
 `PASS-WITH-FIXES` (interim). R086F-01 and R086F-02 were fixed and the gates above ran on the final code. Nothing was routed to the plan's §9; the unattributed flake went to TECH-TRANSPORT-001. The plan stays `active/` for WP-G.
+
+## Standard B (interim) — CS-PLAN-086 WP-G Pep: color, motion and sound
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none (interim; plan stays `active/`)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md` (WP-G) |
+| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned, never pushed) @ `da96e24d3ebd30fd2f7bc7415574b614573f3237` at capture; integrated onto `master` `97143ce` during the review: `b3f3613`..`7bb1aa2` (was `d6d49d2`..`da96e24`), the WP-G package reapplied on `7bb1aa2` |
+| Index at capture | empty |
+| Scope fingerprint at capture | unstaged binary diff `56ac134390a12334…`, staged diff empty (`e3b0c442…`), 50 modified tracked paths, 6 untracked paths with content hashes (`8bcc46a7…` `draw.js`, `48255a09…` `effectsLayer.js`, `e695d83c…` `dust/actors.js`, `a0de4948…` `canvasTestHelpers.js`, `ce94adab…` `draw.spec.js`, `7058ed6d…` `effectsLayer.spec.js`). After R086G-01 the package was carried through the integration by stash and reapply: the patch outside `ACTIVE_TASKS.md`/`backlog.md` is byte-identical except one hunk line number in `architecture.md` (master edited above the hunk), the untracked files identical, the coordination files merged without conflict |
+| Reviewed | `src/components/Minigames/` (GameShell, overlay, header, `board.js`, `draw.js`, `effectsLayer.js`, catalog, registry, every game's logic/render/board), `src/composables/useGameEffects.js`, `src/utils/sound.js`, `src/styles/tokens.css`; every touched Jest spec and the new test helpers; l10n; plan, concept, calm-core, architecture and user-guide docs; backlog and ACTIVE_TASKS |
+| Test target | the isolated staged row `cs082-arcade-wpc` (NC 35.0.2, PostgreSQL, port 8186), not the shared canonical stack (TECH-TEST-008) |
+
+### Findings
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| R086G-01 | minor | `src/components/Minigames/GameShellOverlay.vue`, `GameShell.vue` | The new Sound and Effects switches lost keyboard focus: the board's click handler moved focus to the shell on every click, also from a switch, and the switches were disabled while a save ran, which drops focus too | Fixed — the board click leaves overlay buttons their focus (Start and Resume hand it on themselves), the switches stay enabled and show a busy state while the shell ignores a second click; regression in `GameShell.spec.js` (R086G-01) |
+| R086G-02 | minor | `tests/e2e/arcade-mobile.spec.ts` "Tile Breaker steers by tapping the board" (pre-existing, WP-E) | The test has 1.25 s of game time between the first tile hit and the bubble's return to the squeegee (unchanged physics, measured with the pure rules in Jest), but observed the hit through `expect.toHaveText` polling (intervals up to 1 s) and tapped through the locator's actionability checks (0.73 s on the WebKit emulation in the failing trace): on a loaded machine the squeegee reached the wall after the bubble had passed (lives 1 instead of 3), twice on mobile-webkit in this round, never on mobile-chromium | Fixed — the test watches the score per animation frame (`waitForFunction`, `polling: 'raf'`) and taps through `page.touchscreen` at the same board point, keeping the real touch input; both phone projects green one per invocation |
+
+### Verified non-findings
+
+- Opt-in boundary (plan §2.5, calm-core C5g): particles, popups, shake, flash, pulses, glows and the DOM boards' CSS animations run only while `useGameEffects().motionAllowed()` holds (opt-in and no `prefers-reduced-motion`), sounds only behind the sound opt-in through the shared gate sync; colors, shapes, glides and the switches are always on; both defaults stay off (D-086-09). The switches write `soundEnabled`/`animationEnabled` through the versioned preferences store, keep the server state on a failed save and show the documented error toast; switching sound on and every round start unlock audio for the mobile autoplay policy.
+- Determinism: every renderer stays a pure function of state and view — the frame time and the opt-in are view inputs, glides derive from `elapsed / tickMs`, Crumb Snake looks ahead along `nextDirection()`, Dust Runner's robot along `nextMove()` (the same decision `moveRobot()` takes, pinned), bunnies hop from `fromX`/`fromY`; the effects layer takes an injected clock and random source and is pooled (96 particles, 6 popups, no per-frame allocation). No game rule changed: the rule specs and the server plausibility autopilots are unchanged and green.
+- Events: `bounce` (Tile Breaker), `clean` (Dust Runner; a puff, never a sound, filtered in the pinned event lists), `flip`/`wrong` (Sock Match) and `timeup` reach `useGameEffects().event()`, which stays silent for unknown types; pickups keep the pop/swish path.
+- Accessibility: hearts are decorative while the number stays visually hidden for assistive technology; the switches are `aria-pressed` buttons with visible text; the reduced-motion hint names the floor; the urgent seconds and hearts use the Nextcloud error text color; axe 0 violations on the open game with the switches in light and dark (`color-contrast.spec.ts`); the theme guard (`theme-consistency.spec.js`) stays green with the dark overrides keyed on the theme attributes.
+- Size and structure: the shared `draw.js` replaces three copies of `roundedRect` and the sparkle drawers; `dust/render.js` split into `render.js` and `actors.js`; `createEffectsLayer` is a factory of short closures like `useGameLoop` and `drawDrop` keeps one branch per drop shape — accepted, no new abstraction. `GameShell.vue` grew to 540 lines (the accepted exception in the architecture inventory is updated).
+- No authorization, persistence or schema change; no Coin, wallet or ranking surface; chunks spots 5.2, socks 4.9, snake 1.9, tiles 2.8, dust 3.6 KB gzip, no game code in the arcade chunk.
+- Integration: master's four commits (CS-PLAN-070 closure, retired plans, discussion form, release-test record) kept; the plans README, the day's review record and the monthly archive merged by hand with both sides; `ACTIVE_TASKS.md` takes master's closures and keeps the branch's entry.
+- Runner, not product: my first phone runs executed both phone projects in one Playwright invocation, i.e. in parallel workers against the one staged database (the gate runs each project alone with `--workers=1`). The reseeds collided — one failure before the integration (a catalog read answering "The games could not be loaded." right after a reseed) and five in the first final run (a seed `HTTP 500`, a locked Sock Match after a concurrent reseed restored the gate default, a blank page, a late tap). Rerun the gate's way, one project at a time, every phone test passes; nothing was routed to TECH-TRANSPORT-001.
+
+### Decisions recorded
+
+- D-086-09 (operator, 2026-10-18): effects stay personal opt-ins with their defaults off; the overlay switches only make them discoverable. An arcade-only default-on preference (new backend field) and a global default-on (calm-core amendment) were offered and declined.
+
+### Gates (after all fixes)
+
+- Jest 153 suites / 2115 tests through the zero-noise gate (`npm run test:noise`), after the integration and R086G-01 (R086G-02 touches only a Playwright spec).
+- PHPUnit on the staged row: unit 1457 before the integration; no PHP in the package or in master's four commits, the integration suite was not rerun.
+- `npm run lint`, `npm run stylelint`, `npm run l10n:check-keys` (1330 keys), `npm run backlog:check`, `npm run docs:encoding`, `npm run agents:check`, `git diff --check`, `npm run build`.
+- Browser on the staged row (`NEXTCLOUD_URL=http://127.0.0.1:8186`, `NEXTCLOUD_CONTAINER=cs082-arcade-wpc-nextcloud-pgsql-1`), on the final code: `arcade-games.spec.ts` 8/8 (serial pool `chromium-serial-db`), `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (`chromium`) on the final product code, `arcade-mobile.spec.ts` 5/5 in `mobile-webkit` and 5/5 in `mobile-chromium` with the R086G-02 spec, one project per invocation with `--workers=1` as the gate runs them; auth setup 3/3 per run.
+- The phone rows above are the one-project-per-invocation reruns; the first final invocation ran both phone projects in parallel against the one database and is void (see the verified non-findings).
+- Visual check (not a gate): Playwright screenshots of the catalog and every game on its start overlay and mid-round, light and dark, at 1200 px.
+- Not run, with reason: the full browser gate and the AIO row (WP-H); the MySQL/SQLite provider matrix (WP-H).
+
+### Outcome
+
+`PASS-WITH-FIXES` (interim). R086G-01 and R086G-02 were fixed and the gates above ran on the final code. Nothing was routed to the plan's §9 or to the backlog. The plan stays `active/` for WP-H.

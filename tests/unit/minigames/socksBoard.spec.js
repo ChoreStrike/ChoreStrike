@@ -49,6 +49,14 @@ describe('Sock Match board', () => {
 		expect(cards[2].find('.socks-check').exists()).toBe(false)
 	})
 
+	it('colors every turned sock through its pattern class and leaves face-down socks plain', () => {
+		const cards = mountBoard().findAll('[data-cell]')
+
+		expect(cards[0].classes()).toContain('is-star')
+		expect(cards[2].classes()).toContain('is-heart')
+		expect(cards[5].classes().filter((name) => name.startsWith('is-'))).toEqual(['is-down'])
+	})
+
 	it('tells every pattern apart by its shape, not by color', () => {
 		const view = { cards: PATTERNS.map((pattern) => ({ face: 'up', pattern })), cursor: 0 }
 		const emblems = mountBoard({ view }).findAll('.socks-emblem').map((path) => path.attributes('d'))

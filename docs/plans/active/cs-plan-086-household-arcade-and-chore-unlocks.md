@@ -1,7 +1,7 @@
 # CS-PLAN-086: Household Arcade — Game Catalog, Chore Unlocks and Per-Game Highscores
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); WP-E delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086E-01..03 fixed); WP-F delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086F-01/02 fixed); next: WP-G
-> **Effort:** XL (seven work packages; no schema change)
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); WP-E delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086E-01..03 fixed); WP-F delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086F-01/02 fixed); WP-G delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086G-01/02 fixed, D-086-09 resolved); next: WP-H
+> **Effort:** XL (eight work packages; no schema change)
 > **Priority:** P3 (optional add-on, never on the core critical path)
 > **Depends on:** work proceeds on branch `feat/arcade-minigames`; merge to
 > `master` and any deployment only after the CS-PLAN-084 final review **and**
@@ -157,8 +157,16 @@ Effects go through one small `useGameEffects` composable that reuses the
 opt-in gate sync **extracted** from `useCelebration` (one shared helper, no
 copy) before calling the existing modules: sparkle burst on a cleaned tile or
 stain, new synthesized `pop` and `swish` profiles in `sound.js`, a short haptic
-pulse on pickups, confetti only on a new personal best. Every game stays fully
-playable and legible with all effects off.
+pulse on pickups, confetti only on a new personal best. WP-G widens this to
+every game event (a start chime, bounces, a lost life, a crash, a cleared
+wall or room, penalties, card flips and wrong pairs — synthesized notes and
+filtered noise bursts, still no assets), a pooled effects layer of the shell
+for canvas boards (particle bursts, floating score popups, a shake and a
+flash on a lost life), CSS animations on the DOM boards and glides between
+cells drawn from the pure state. Sound and Effects switches on every game's
+start, pause and game-over overlay write the same personal preferences as the
+Settings, so the opt-ins stay discoverable without changing their defaults.
+Every game stays fully playable and legible with all effects off.
 
 ### 3.2 Unlock gate (milestones, D-086-01 = B)
 
@@ -229,6 +237,11 @@ playable and legible with all effects off.
   at 2 (fixes S4), `role="application"` with a label, a polite live region for
   score and state, decorative layers `aria-hidden` (fixes S5). Sends
   `durationMs` with every save.
+- **`src/components/Minigames/effectsLayer.js`** and **`draw.js`** (new,
+  WP-G): the shell's pooled particles, score popups, shake and flash, and the
+  canvas primitives (rounded rectangles, discs, stars, eyes) every renderer
+  shares; the arcade palette (`--cs-arcade-*` tokens of `tokens.css`, light
+  and dark) is read once per layout by `board.js`.
 - **`src/components/Minigames/games/<gameId>/`** (new per game): `logic.js`
   (pure; the RNG is a function parameter, seeded only in Jest), `render.js`
   (canvas) or a small DOM component, `index.js` (registry entry: id, names,
@@ -337,7 +350,9 @@ modified: src/composables/useCelebration.js                   (extracted gate sy
 new:      src/components/Minigames/GameShell.vue
 new:      src/components/Minigames/{GameShellOverlay,GameShellDpad}.vue   (WP-A: split from the shell; WP-D: a game's own end title)
 new:      src/components/Minigames/GameShellHeader.vue          (WP-E: the score header, split from the shell, with lives)
-new:      src/components/Minigames/{board,gameInput}.js         (WP-A: board fit/palette, key/swipe mapping; WP-E: held steer keys, paddle controls)
+new:      src/components/Minigames/{board,gameInput}.js         (WP-A: board fit/palette, key/swipe mapping; WP-E: held steer keys, paddle controls; WP-G: the arcade palette)
+new:      src/components/Minigames/{draw,effectsLayer}.js         (WP-G: shared canvas primitives; the shell's pooled particles, popups, shake and flash)
+new:      src/components/Minigames/games/dust/actors.js           (WP-G: the bunny and robot sprites)
 new:      src/components/Minigames/ArcadeCatalog.vue          (WP-E review: R086E-02 resets Nextcloud's global dt/dd styles)
 new:      src/components/Minigames/ArcadeGateSetting.vue      (WP-B: the owner switch)
 new:      src/components/Minigames/GameLeaderboard.vue
@@ -348,13 +363,15 @@ modified: src/store/house.js                                  (WP-B: arcadeGateE
 modified: src/views/ArcadeView.vue
 modified: src/views/Settings.vue
 modified: src/components/Rewards/RewardCatalogEditor.vue, tests/unit/components/RewardCatalogEditor.spec.js   (WP-B review: R086B-01)
-modified: src/utils/sound.js                                  (pop/swish profiles)
-modified: src/styles/tokens.css                               (WP-A: comment only)
+modified: src/utils/sound.js                                  (pop/swish profiles; WP-G: note lists, noise bursts, the event sounds)
+modified: src/styles/tokens.css                               (WP-A: comment only; WP-G: the --cs-arcade-* palette, light and dark)
 modified: l10n/*
 archived: archive/YYYY-MM/arcade-snake-v1/{SnakeGame.vue,SnakeLeaderboard.vue,ArcadeSection.vue}   (month of removal)
 new:      tests/unit/composables/{useGameLoop,useGameEffects}.spec.js
 new:      tests/unit/minigames/*.spec.js
 new:      tests/unit/helpers/animationFrames.js               (WP-A: manual rAF driver, seeded RNG)
+new:      tests/unit/helpers/canvasTestHelpers.js             (WP-G: recording 2D context, named palette)
+new:      tests/unit/minigames/{draw,effectsLayer}.spec.js    (WP-G)
 new:      tests/unit/components/{GameShell,ArcadeCatalog,ArcadeGateSetting}.spec.js
 modified: tests/unit/store/house.spec.js, tests/unit/views/Settings.spec.js   (WP-B)
 modified: tests/unit/Service/TestDataServiceTest.php          (WP-B)
@@ -411,7 +428,7 @@ Each WP is one reviewable round with an interim Standard B on
    30 per golden crumb (15 %), 150 → 60 ms per move, one new piece of
    furniture per 50 points (max. 10, never within two cells or four cells
    ahead of the nozzle); server rules `maxScore` 20000, `maxDurationMs` one
-   hour, 30 points per second + 100 burst (tuned in WP-G). Read limits clamp
+   hour, 30 points per second + 100 burst (tuned in WP-H). Read limits clamp
    to 1..50; unknown ids are 400 on reads.
 2. **WP-B — Unlock gate and owner switch** (FEAT-ARCADE-002). Lifetime count
    query, `ArcadeAccessService`, catalog endpoint, `assertUnlocked` on save,
@@ -577,7 +594,54 @@ Each WP is one reviewable round with an interim Standard B on
    Tests: `arcade-games.spec.ts` saves a hands-off round (12) to the dust
    board and turns the robot with Down in a second round;
    `arcade-mobile.spec.ts` turns it with the on-screen pad on both phones.
-7. **WP-G — Knowledge integration and final gate.** Concept, calm-core and API
+7. **WP-G — Pep: color, motion and sound** (operator request 2026-10-18:
+   the games worked but lacked color, moving figures, effects and audible
+   feedback; the sounds existed but only behind the personal opt-in, which
+   the operator had not switched on).
+   *Implemented 2026-10-18.* Implementation choices within the plan: an
+   arcade palette of 21 `--cs-arcade-*` tokens (brand hues on a cream floor;
+   dark overrides keyed on the Nextcloud theme attributes) replaces the grey
+   theme reads, read once per layout by `board.js`. Shared `draw.js`
+   primitives: rounded rectangles, discs, four-pointed stars, eyes that
+   follow a gaze. Figures glide: every renderer draws its actors on their
+   way to the next cell from the pure state (`elapsed / tickMs`; Crumb Snake
+   looks ahead along the exported `nextDirection()`, Dust Runner's robot
+   along the exported `nextMove()`, its bunnies hop from the recorded
+   `fromX`/`fromY`), so no timer and no render state was added. Crumb Snake:
+   one smooth striped hose with a nozzle head whose eyes look ahead (closed
+   and bumped into the obstacle after a crash), cookie crumbs with chocolate
+   chips, a starred golden coin, chairs, plants and crates chosen by cell.
+   Tile Breaker: clean tiles shine, one layer of grime streaks, two layers
+   speckle; a wooden squeegee that glows (sponge) or is coated (mud);
+   iridescent bubbles, blue-ringed under wax; colored drops; a `bounce`
+   event. Dust Runner: planks, kitchen tiles and a dotted carpet per room
+   (`themeAt()`), furniture with lit edges, bunnies with pink ears whose eyes
+   follow the robot (peeking out of their nests while they wait, pale and
+   sleepy while catchable), a robot with a lit bumper, sensor eyes and a
+   spinning side brush, a green dock that glows while ready; collected dust
+   is a `clean` event (a puff, never a sound). Spot Sprint: stains with a
+   sheen pop in, drying stains crack, the sponge glows, the sock swings, a
+   wiped tile sends up soap bubbles. Sock Match: wicker under face-down
+   socks, one color per pattern on top of its shape, a flip, a shake on a
+   wrong pair (`flip`/`wrong` events), a green tint for found pairs. Shell:
+   a pooled effects layer (96 particles, 6 popups, no per-frame allocation)
+   bursts at pickups, floats the score change, shakes and flashes the board
+   on a lost life; the header shows lives as hearts (the number stays for
+   assistive technology), bumps a changed score and colors the last five
+   seconds; the overlay wears the game's accent and carries Sound and
+   Effects switches that write `soundEnabled`/`animationEnabled` through the
+   preferences store (a failed save keeps the server state and shows a
+   toast); switching sound on and every round start unlock audio for the
+   mobile autoplay policy. `sound.js` profiles are note lists (offsets,
+   per-note gain) plus band-passed noise bursts where the context offers
+   buffers: start, bounce, miss, crash, cleared (also Spot Sprint's time
+   up), penalty, flip, wrong. Everything that moves independently of the
+   state — particles, popups, shake, pulses, glows, the CSS animations —
+   stays behind the motion opt-in with `prefers-reduced-motion` as the
+   floor; colors, shapes, glides and the switches are always on. The catalog
+   cards wear the accent and a lock badge. Both opt-ins stay off by default.
+   Chunks: spots 5.2, socks 4.9, snake 1.9, tiles 2.8, dust 3.6 KB gzip.
+8. **WP-H — Knowledge integration and final gate.** Concept, calm-core and API
    sections updated, ADR-019 final, plausibility rates tuned from real play,
    full browser gate on both runtime rows, final review. Merge to `master`
    only under D-086-07.
@@ -619,6 +683,10 @@ Each WP is one reviewable round with an interim Standard B on
 - [ ] Effects only through the existing opt-in modules (gate sync shared with
       `useCelebration`); with every opt-in off and with
       `prefers-reduced-motion`, every game stays playable and legible.
+- [ ] WP-G: every actor glides from the pure state; event sounds, board
+      effects and the DOM animations run only behind the opt-ins; the
+      overlay's Sound and Effects switches write the same preferences as the
+      Settings and leave both defaults off.
 - [ ] No Coin, wallet, contribution, medal or ranking read or write added
       (code search plus E2E assertion).
 - [ ] axe: 0 violations on the arcade view and an open game in light and dark.
@@ -683,8 +751,16 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   The 084 final review is done (`bce10bb`); the branch was rebased onto
   `master` `0d27d38` on 2026-10-17 and the worktree pinned to it, and onto
   `master` `ca7f98e` (CS-PLAN-087) on 2026-10-18 before the WP-E review
-  commit, and onto `master` `55532c7` the same day before the WP-F review
-  commit (`d7ee5b0` → `6cf1832`).
+  commit, onto `master` `55532c7` the same day before the WP-F review
+  commit (`d7ee5b0` → `6cf1832`), and onto `master` `97143ce` the same day
+  before the WP-G review commit (`d6d49d2`..`da96e24` → `b3f3613`..`7bb1aa2`;
+  the plans README, the review record and the monthly archive merged by hand,
+  both sides kept).
+- **D-086-09 — Arcade effects stay personal opt-ins** (operator, 2026-10-18,
+  WP-G review). Sound and motion keep their default off (calm-core C5g); the
+  overlay's Sound and Effects switches only make the existing preferences
+  discoverable. An arcade-only default-on preference and a global default-on
+  were offered and declined.
 - **D-086-08 — Canonical test volumes reset** (operator, 2026-10-17, WP-A).
   The kept canonical volumes had the app installed as `0.1.1`; after the
   `0.8.0-alpha.1` bump the test entrypoint aborted on "require upgrade". The
@@ -760,7 +836,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1421 and integration 614 on the fresh canonical stack.
   - lint, stylelint, `cs:check`, l10n (1303 keys), backlog, encoding and build checks.
   - Browser: `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (light and dark, including the arcade view and an open game) at 0 violations.
-  - Not run: the full gate, the AIO row and the phone projects, which are scheduled for WP-C and WP-G.
+  - Not run: the full gate, the AIO row and the phone projects, which are scheduled for WP-C and WP-H.
 
 ### Standard B (interim, WP-B) — 2026-10-17 — `PASS-WITH-FIXES` (stays `active/`)
 
@@ -783,7 +859,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1451 and integration 622 on a freshly provisioned stack; `cs:check`.
   - lint, stylelint, l10n (1311 keys), backlog, encoding, agents and build checks.
   - Browser: `arcade-games.spec.ts` 4/4, `family-rewards.spec.ts` 9/9, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2.
-  - Not run: the full gate, the AIO row, the provider matrix and the phone projects (WP-C, WP-G).
+  - Not run: the full gate, the AIO row, the provider matrix and the phone projects (WP-C, WP-H).
 
 ### Standard B (interim, WP-C) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
 
@@ -804,7 +880,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1453 and integration 622 on the staged row; `cs:check`.
   - lint, stylelint, l10n (1315 keys), backlog, encoding, build and gate self-test.
   - Browser: `arcade-games.spec.ts` 5/5, `arcade-mobile.spec.ts` 2/2 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2.
-  - Not run: the full gate, the AIO row and the provider matrix (WP-G).
+  - Not run: the full gate, the AIO row and the provider matrix (WP-H).
 
 ### Standard B (interim, WP-D) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
 
@@ -826,7 +902,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1454 and integration 623 on the staged row; `cs:check`.
   - lint, stylelint, l10n (1320 keys), backlog, encoding, agents and build checks; gate self-test and scenario manifest.
   - Browser: `arcade-games.spec.ts` 6/6, `arcade-mobile.spec.ts` 3/3 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2; both Sock Match tests rerun after R086D-02.
-  - Not run: the full gate, the AIO row and the provider matrix (WP-G).
+  - Not run: the full gate, the AIO row and the provider matrix (WP-H).
 
 ### Standard B (interim, WP-E) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
 
@@ -849,7 +925,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1456 and integration 623 on the staged row; `cs:check`.
   - lint, stylelint, l10n (1324 keys), backlog, encoding, agents and build checks; gate self-test and scenario manifest.
   - Browser: `arcade-games.spec.ts` 7/7, `arcade-mobile.spec.ts` 4/4 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2, all on the final code.
-  - Not run: the full gate, the AIO row and the provider matrix (WP-G).
+  - Not run: the full gate, the AIO row and the provider matrix (WP-H).
 
 ### Standard B (interim, WP-F) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
 
@@ -873,4 +949,28 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1457 and integration 623 on the staged row; `cs:check`.
   - lint, stylelint, l10n (1327 keys), backlog, encoding, agents and build checks; gate self-test and scenario manifest.
   - Browser on the final code: `arcade-games.spec.ts` 8/8, `arcade-mobile.spec.ts` 5/5 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2.
-  - Not run: the full gate, the AIO row and the provider matrix (WP-G).
+  - Not run: the full gate, the AIO row and the provider matrix (WP-H).
+
+### Standard B (interim, WP-G) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
+
+- **Scope:** the uncommitted WP-G package, captured on `feat/arcade-minigames`
+  @ `da96e24` (empty index, unstaged diff `56ac1343…`, 50 modified and
+  6 untracked paths with content hashes), then integrated onto `master`
+  `97143ce` (base `7bb1aa2`; the reapplied patch is byte-identical outside one
+  hunk line number in `architecture.md`, the coordination files merged
+  without conflict), tested on the isolated staged row `cs082-arcade-wpc`.
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-18.md).
+- **Fixed (2):**
+  - R086G-01 (minor): the new Sound and Effects switches lost keyboard focus — the board's click handler moved focus to the shell on every click, and a disabled switch during a save dropped it too; the board click now leaves overlay buttons their focus and the switches stay enabled with a busy state while the shell ignores a second click (regression in `GameShell.spec.js`).
+  - R086G-02 (minor, pre-existing test fragility): the Tile Breaker touch test had 1.25 s of game time to pull the squeegee under the returning bubble (unchanged physics, measured in Jest), but observed the first hit through expect polling of up to 1 s and tapped through the locator's actionability round-trips (0.7 s on the WebKit emulation; trace timings); it now watches the score per frame and taps the touchscreen directly (`arcade-mobile.spec.ts`).
+- **Verified:**
+  - Every effect that moves independently of the state (particles, popups, shake, flash, pulses, glows, the CSS animations) runs only behind the motion opt-in with reduced motion as the floor; sounds only behind the sound opt-in; the switches write the preferences through the versioned store and keep the server state on a failed save.
+  - The renderers stay pure functions of state and view (frame time and the opt-in are inputs); no logic rule changed — Crumb Snake exports only, Tile Breaker a `bounce` event, Dust Runner a `clean` event and the equivalent `nextMove()`, Sock Match `flip`/`wrong` events — the unchanged rule specs and the server plausibility specs stay green.
+  - Visual check in light and dark on desktop; axe 0 violations on the open game with the switches; no authorization, persistence or schema change; chunks spots 5.2, socks 4.9, snake 1.9, tiles 2.8, dust 3.6 KB gzip, no game code in the arcade chunk.
+- **Decisions:** D-086-09 (effects stay opt-in; recommended option).
+- **Gates:**
+  - Jest 153/2115, noise-free, after the integration and the fix.
+  - PHPUnit unit 1457 on the staged row (no PHP in the package or in master's four commits); the integration suite was not rerun.
+  - lint, stylelint, l10n (1330 keys), backlog, encoding, agents and build checks, `git diff --check`.
+  - Browser on the final code: `arcade-games.spec.ts` 8/8 (serial pool `chromium-serial-db`), `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (`chromium`) on the final product code, `arcade-mobile.spec.ts` 5/5 in `mobile-webkit` and 5/5 in `mobile-chromium` with the R086G-02 spec, one project per invocation with `--workers=1` as the gate runs them; auth setup 3/3 per run.
+  - Not run: the full gate, the AIO row and the provider matrix (WP-H).

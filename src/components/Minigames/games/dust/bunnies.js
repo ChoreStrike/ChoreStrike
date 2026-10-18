@@ -38,7 +38,7 @@ export const CHASE_MAX = 0.8
  * @return {object} Bunny
  */
 export function nestedBunny(nest, waitMs) {
-	return { nest, x: nest.x, y: nest.y, direction: null, waitMs, elapsed: 0, catchable: false }
+	return { nest, x: nest.x, y: nest.y, fromX: nest.x, fromY: nest.y, direction: null, waitMs, elapsed: 0, catchable: false }
 }
 
 /**
@@ -50,6 +50,8 @@ export function nestedBunny(nest, waitMs) {
 export function sendHome(bunny, waitMs) {
 	bunny.x = bunny.nest.x
 	bunny.y = bunny.nest.y
+	bunny.fromX = bunny.x
+	bunny.fromY = bunny.y
 	bunny.direction = null
 	bunny.waitMs = waitMs
 	bunny.elapsed = 0
@@ -74,11 +76,15 @@ export function chaseChance(roomIndex) {
 
 /**
  * Move a released bunny by one cell (out of its nest, or along the floor).
+ * The cell it comes from stays in `fromX`/`fromY`, so the renderer can
+ * draw the hop.
  *
  * @param {object} state Game state (room, distances from the robot, rng)
  * @param {object} bunny Bunny with waitMs 0
  */
 export function moveBunny(state, bunny) {
+	bunny.fromX = bunny.x
+	bunny.fromY = bunny.y
 	const direction = chooseDirection(state, bunny)
 	if (!direction) return
 	bunny.direction = direction

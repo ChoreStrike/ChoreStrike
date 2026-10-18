@@ -11,7 +11,8 @@ import dust from './games/dust/index.js'
 
 /**
  * Client game registry (CS-PLAN-086 §3.4). Each entry carries its id, names,
- * icon, input mode (`dpad`, `tap` or `paddle`), renderer (`canvas`, the
+ * icon, accent color (a CSS value that tints its catalog card and start
+ * overlay), input mode (`dpad`, `tap` or `paddle`), renderer (`canvas`, the
  * default, or `dom`), optional end copy (`overTitle`, `overAnnouncement`)
  * and a `load()` that imports the game as its own lazy chunk (`game-<id>`),
  * so the catalog view loads no game code. The server `ArcadeCatalog` pins

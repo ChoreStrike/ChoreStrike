@@ -15,6 +15,7 @@ export default {
 	id: 'tiles',
 	icon: '🧼',
 	input: 'paddle',
+	accent: 'var(--cs-arcade-blue)',
 	name: () => t('chorestrike', 'Tile Breaker'),
 	description: () => t('chorestrike', 'Bounce the soap bubble off the squeegee and scrub every grimy tile. Catch the helpers that fall — but dodge the mud.'),
 	controls: () => t('chorestrike', 'Move the squeegee with the arrow keys, the mouse or your finger on the board. Enter launches the bubble, Space pauses.'),

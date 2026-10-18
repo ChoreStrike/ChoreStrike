@@ -145,6 +145,7 @@ function bounce(state, bubble) {
 	bubble.dy = -Math.cos(angle)
 	bubble.y = SQUEEGEE_Y - BUBBLE_R
 	state.speed = Math.min(MAX_SPEED, state.speed + BOUNCE_SPEEDUP)
+	state.events.push({ type: 'bounce' })
 }
 
 /**

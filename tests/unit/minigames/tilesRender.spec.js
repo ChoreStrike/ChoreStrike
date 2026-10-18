@@ -3,97 +3,88 @@
  * @license MIT
  */
 
-import { describe, it, expect, jest } from '@jest/globals'
+import { describe, it, expect } from '@jest/globals'
 import { createState } from '@/components/Minigames/games/tiles/logic.js'
 import { render } from '@/components/Minigames/games/tiles/render.js'
+import { count, fakeContext, namedPalette } from '../helpers/canvasTestHelpers.js'
 
-const PALETTE = {
-	floor: 'floor',
-	tile: 'tile',
-	furniture: 'furniture',
-	hose: 'hose',
-	nozzle: 'nozzle',
-	outline: 'outline',
-	crumb: 'crumb',
-	golden: 'golden',
-	sparkle: 'sparkle',
-}
+const VIEW = { width: 320, height: 400, palette: namedPalette(), time: 0, motion: false }
 
-const fakeContext = ({ roundRect = true } = {}) => {
-	const fills = []
-	const ctx = {
-		fillStyle: '',
-		strokeStyle: '',
-		lineWidth: 1,
-		globalAlpha: 1,
-		fillRect: jest.fn(() => fills.push(ctx.fillStyle)),
-		beginPath: jest.fn(),
-		closePath: jest.fn(),
-		rect: jest.fn(),
-		arc: jest.fn(),
-		fill: jest.fn(() => fills.push(ctx.fillStyle)),
-		stroke: jest.fn(),
-		moveTo: jest.fn(),
-		lineTo: jest.fn(),
-	}
-	if (roundRect) ctx.roundRect = jest.fn()
-	return { ctx, fills }
-}
-
-const VIEW = { width: 320, height: 400, palette: PALETTE, sparkles: [] }
-
+/**
+ * Tile Breaker on the arcade palette (CS-PLAN-086 WP-G): tiles marked by
+ * grime, a wooden squeegee that shows its power-up, iridescent bubbles and
+ * colored drops.
+ */
 describe('Tile Breaker renderer', () => {
-	it('draws the floor, the tiles by grime, the squeegee and the bubble from the theme palette', () => {
-		const { ctx, fills } = fakeContext()
+	it('draws the tiles by grime with a shine, streaks or speckles, then the squeegee and the bubble', () => {
+		const { ctx, fills, strokes } = fakeContext()
 		const state = createState(() => 0.99)
 		state.tiles[0] = 0
 		state.tiles[1] = 2
 
 		render(ctx, state, VIEW)
 
-		expect(fills[0]).toBe('floor')
-		// Clean (tile), two layers (nozzle) with three speckles, one layer (furniture).
-		expect(fills.slice(1, 7)).toEqual(['tile', 'nozzle', 'furniture', 'furniture', 'furniture', 'furniture'])
-		expect(fills).toEqual(expect.arrayContaining(['hose']))
-		// The speckles mark the double grime (never color alone); then the bubble's ring and highlight.
-		expect(ctx.arc).toHaveBeenCalledTimes(3 + 2)
-		const [cx, cy] = ctx.arc.mock.calls.at(-2)
-		expect(cx).toBeCloseTo(160)
-		expect(cy).toBeCloseTo(363)
+		// A clean tile with its shine, two layers with three speckles, one layer with streaks.
+		expect(fills.slice(0, 7)).toEqual(['floor', 'tealLight', 'cocoa', 'tan', 'tan', 'tan', 'tan'])
+		expect(strokes.slice(0, 2)).toEqual(['paper', 'cocoa'])
+		expect(count(strokes, 'cocoa')).toBe(38)
+		// The blade, the wooden bar with its highlight, the bubble with its sheen.
+		expect(fills.slice(-4)).toEqual(['ink', 'wood', 'woodLight', 'paper'])
+		expect(strokes.slice(-3)).toEqual(['teal', 'coralLight', 'yellow'])
+		const bubble = ctx.arc.mock.calls.find(([, , radius]) => radius === 7)
+		expect(bubble[0]).toBeCloseTo(160)
+		expect(bubble[1]).toBeCloseTo(363)
 	})
 
-	it('gives every drop its own shape', () => {
+	it('rings the bubbles blue while floor wax slows them', () => {
+		const { ctx, strokes } = fakeContext()
+		const state = createState(() => 0.99)
+		state.waxMs = 1000
+
+		render(ctx, state, VIEW)
+
+		expect(strokes.slice(-3)).toEqual(['blue', 'coralLight', 'yellow'])
+	})
+
+	it('shows a widened squeegee glowing and a narrowed one coated', () => {
+		const wide = fakeContext()
+		const state = createState(() => 0.99)
+		state.widthMs = 1000
+		state.squeegee.width = 4.5
+		render(wide.ctx, state, VIEW)
+		expect(wide.fills.slice(-5)).toEqual(['yellow', 'ink', 'wood', 'woodLight', 'paper'])
+
+		const narrow = fakeContext()
+		state.squeegee.width = 2
+		render(narrow.ctx, state, VIEW)
+		expect(narrow.fills.slice(-5)).toEqual(['cocoa', 'ink', 'wood', 'woodLight', 'paper'])
+	})
+
+	it('gives every drop its own shape and color', () => {
 		const shapes = (kind) => {
-			const { ctx, fills } = fakeContext()
+			const recording = fakeContext()
 			const state = createState(() => 0.99)
 			state.drops.push({ x: 4, y: 12, kind })
-			render(ctx, state, VIEW)
-			return { ctx, fills }
+			render(recording.ctx, state, VIEW)
+			return recording
 		}
 
 		const sponge = shapes('sponge')
-		expect(sponge.fills).toContain('golden')
-		expect(sponge.ctx.arc).toHaveBeenCalledTimes(3 + 2)
+		expect(sponge.fills).toContain('yellow')
+		expect(sponge.ctx.arc).toHaveBeenCalledTimes(3 + 3)
 
 		const spray = shapes('spray')
-		expect(spray.ctx.fillRect).toHaveBeenCalledTimes(1 + 2)
+		expect(spray.fills).toContain('blue')
+		expect(spray.fills).toContain('teal')
+		expect(spray.ctx.fillRect).toHaveBeenCalledTimes(1 + 1 + 2)
 
 		const wax = shapes('wax')
-		expect(wax.fills).toContain('crumb')
+		expect(wax.fills).toContain('coral')
 		expect(wax.ctx.closePath).toHaveBeenCalledTimes(1)
 
 		const mud = shapes('mud')
-		expect(mud.ctx.arc).toHaveBeenCalledTimes(5 + 2)
-		expect(mud.ctx.closePath).not.toHaveBeenCalled()
-	})
-
-	it('draws rising rings only for given sparkles and restores the alpha', () => {
-		const { ctx } = fakeContext()
-
-		render(ctx, createState(() => 0.99), { ...VIEW, sparkles: [{ x: 5, y: 6.6, progress: 0.5 }] })
-
-		expect(ctx.arc).toHaveBeenCalledTimes(2 + 3)
-		expect(ctx.globalAlpha).toBe(1)
+		expect(count(mud.fills, 'cocoa')).toBe(5)
+		expect(mud.ctx.arc).toHaveBeenCalledTimes(5 + 3)
 	})
 
 	it('falls back to plain rectangle paths without roundRect support, so outlines stay on their shape', () => {

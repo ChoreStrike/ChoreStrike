@@ -4,7 +4,10 @@
 -->
 
 <template>
-	<div class="game-overlay" data-testid="game-overlay" :data-phase="phase">
+	<div class="game-overlay"
+		data-testid="game-overlay"
+		:data-phase="phase"
+		:style="entry && entry.accent ? { '--game-accent': entry.accent } : null">
 		<p v-if="phase === 'loading'" class="game-overlay-text">
 			{{ t('chorestrike', 'Loading game …') }}
 		</p>
@@ -21,8 +24,8 @@
 			</button>
 		</template>
 		<template v-else-if="phase === 'ready'">
+			<span class="game-overlay-icon" aria-hidden="true">{{ entry.icon }}</span>
 			<h2 class="game-overlay-title">
-				<span aria-hidden="true">{{ entry.icon }}</span>
 				{{ entry.name() }}
 			</h2>
 			<p class="game-overlay-text">
@@ -55,8 +58,8 @@
 			<p class="game-overlay-score" data-testid="game-final-score">
 				{{ t('chorestrike', 'Score: {score}', { score }) }}
 			</p>
-			<p v-if="result && result.newBest" class="game-overlay-text" data-testid="game-new-best">
-				{{ t('chorestrike', 'New Personal Best!') }}
+			<p v-if="result && result.newBest" class="game-overlay-text game-overlay-best" data-testid="game-new-best">
+				<span aria-hidden="true">🏆</span> {{ t('chorestrike', 'New Personal Best!') }}
 			</p>
 			<p v-if="result && result.saveFailed" class="game-overlay-text" data-testid="game-save-failed">
 				{{ t('chorestrike', 'Your score could not be saved.') }}
@@ -77,6 +80,31 @@
 				</button>
 			</div>
 		</template>
+		<template v-if="phase === 'ready' || phase === 'paused' || phase === 'over'">
+			<div class="game-overlay-effects" data-testid="game-effect-toggles">
+				<button type="button"
+					class="game-overlay-toggle"
+					:class="{ 'is-saving': saving }"
+					:aria-pressed="sound ? 'true' : 'false'"
+					data-testid="game-sound-toggle"
+					@click="$emit('toggle', 'sound')">
+					<span aria-hidden="true">{{ sound ? '🔊' : '🔇' }}</span>
+					{{ t('chorestrike', 'Sound') }}
+				</button>
+				<button type="button"
+					class="game-overlay-toggle"
+					:class="{ 'is-saving': saving }"
+					:aria-pressed="effects ? 'true' : 'false'"
+					data-testid="game-effects-toggle"
+					@click="$emit('toggle', 'effects')">
+					<span aria-hidden="true">✨</span>
+					{{ t('chorestrike', 'Effects') }}
+				</button>
+			</div>
+			<p v-if="effects && reducedMotion" class="game-overlay-hint">
+				{{ t('chorestrike', 'Your system reduced-motion setting always wins over this switch.') }}
+			</p>
+		</template>
 	</div>
 </template>
 
@@ -88,7 +116,11 @@ import { translate as t } from '@nextcloud/l10n'
  * Start, pause, game-over and load-state overlays of GameShell
  * (CS-PLAN-086 §3.4). Scores-only: the game-over view never shows Coins.
  * A game without a fail state names its end through the registry entry's
- * optional `overTitle()`.
+ * optional `overTitle()`; an entry's `accent` tints the overlay. The Sound
+ * and Effects switches (WP-G) show the personal opt-ins and ask the shell
+ * to flip them (the shell ignores a click while a save runs; the buttons
+ * stay enabled so keyboard focus never drops); a system reduced-motion
+ * preference is named as the floor.
  */
 defineProps({
 	phase: {
@@ -107,11 +139,25 @@ defineProps({
 		type: Object,
 		default: null,
 	},
+	sound: {
+		type: Boolean,
+		default: false,
+	},
+	effects: {
+		type: Boolean,
+		default: false,
+	},
+	saving: {
+		type: Boolean,
+		default: false,
+	},
 })
 
-defineEmits(['start', 'resume', 'retry', 'leaderboard'])
+defineEmits(['start', 'resume', 'retry', 'leaderboard', 'toggle'])
 
 const primaryRef = ref(null)
+const reducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+	&& window.matchMedia('(prefers-reduced-motion: reduce)').matches === true
 
 /** Move focus to the overlay's main action (Start, Resume, Play again). */
 function focusPrimary() {
@@ -131,9 +177,19 @@ defineExpose({ focusPrimary })
 	justify-content: center;
 	gap: 0.75rem;
 	padding: 1rem;
+	overflow-y: auto;
 	text-align: center;
-	background: var(--color-main-background);
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--game-accent, var(--color-main-background)) 24%, var(--color-main-background)) 0%,
+		var(--color-main-background) 100%
+	);
 	color: var(--color-main-text);
+}
+
+.game-overlay-icon {
+	font-size: 3rem;
+	line-height: 1;
 }
 
 .game-overlay-title {
@@ -146,9 +202,13 @@ defineExpose({ focusPrimary })
 	color: var(--color-main-text);
 }
 
+.game-overlay-best {
+	font-weight: bold;
+}
+
 .game-overlay-score {
 	margin: 0;
-	font-size: 1.25rem;
+	font-size: 1.5rem;
 	font-weight: bold;
 }
 
@@ -174,5 +234,38 @@ defineExpose({ focusPrimary })
 	border-color: var(--color-primary-element);
 	background: var(--color-primary-element);
 	color: var(--color-primary-element-text);
+}
+
+.game-overlay-effects {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 0.25rem;
+}
+
+.game-overlay-toggle {
+	min-height: 44px;
+	padding: 0 0.75rem;
+	border: 1px solid var(--color-border-maxcontrast, var(--color-border));
+	border-radius: var(--border-radius-pill, 999px);
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.game-overlay-toggle[aria-pressed="true"] {
+	border-color: var(--color-primary-element);
+	box-shadow: inset 0 0 0 1px var(--color-primary-element);
+}
+
+.game-overlay-toggle.is-saving {
+	cursor: progress;
+	opacity: 0.6;
+}
+
+.game-overlay-hint {
+	margin: 0;
+	font-size: 0.8rem;
+	color: var(--color-text-maxcontrast);
 }
 </style>

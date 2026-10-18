@@ -16,6 +16,7 @@ export default {
 	id: 'socks',
 	icon: '🧦',
 	input: 'tap',
+	accent: 'var(--cs-arcade-coral)',
 	renderer: 'dom',
 	name: () => t('chorestrike', 'Sock Match'),
 	description: () => t('chorestrike', 'Find the matching socks in the laundry basket. No clock — the fewer wrong guesses, the more points.'),
