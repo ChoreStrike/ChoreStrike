@@ -521,9 +521,9 @@ Emulation proves layout and the request flow, not a real finger, a real
 screen reader or the vibration motor. Before the family trial, the operator
 runs this list once on one **Android** phone (Chrome) and one **iPhone**
 (Safari), signed in as a **child** account and as an owner, in the light
-and the dark Nextcloud theme. Record device, OS/browser version, theme and
-the result per row in the release record (§18). It complements the gate and
-never replaces it.
+and the dark Nextcloud theme. Record each run in the
+[real-device record](#real-device-record-template) below and attach it to the
+release record (§18). It complements the gate and never replaces it.
 
 | # | Check | Expected |
 |---|---|---|
@@ -537,6 +537,44 @@ never replaces it.
 | D8 | Owner: Dashboard tiles and a room card | Each tile opens its target; the room card opens the room; *Quick clean* needs a hold |
 | D9 | Light and dark Nextcloud theme | Text, badges and buttons readable in both themes (follows the Nextcloud theme, not only the phone setting) |
 | D10 | Screen reader (TalkBack / VoiceOver) on *Done* | Announced with its hold hint; double-tap-and-hold completes it |
+
+#### Real-Device Record (template)
+
+Copy this block once per run and fill every cell. Each result cell is `pass`,
+`deviation`, `skipped` or `open`; D9 has one row per theme. Explain every
+`deviation` and `skipped` cell in its note. A deviation becomes a finding in the
+plan that owns the run (currently CS-PLAN-080). Record roles and devices only,
+never names, account IDs or household details.
+
+```markdown
+### Real-device checklist (release-test-plan §14.1)
+
+- **Date:** YYYY-MM-DD
+- **Candidate:** ChoreStrike <version> on <environment> (Nextcloud <version>)
+- **Accounts:** one child and one owner account; no names or account IDs recorded
+
+| Device | Model | OS | Browser |
+|---|---|---|---|
+| Android | | | Chrome <version> |
+| iPhone | | | Safari <version> |
+
+| # | Check | Android | iPhone | Note |
+|---|---|---|---|---|
+| D1 | Child: My Day, short tap on Done | | | |
+| D2 | Child: press and hold Done (~0.6 s) | | | |
+| D3 | Child: start a hold, then scroll | | | |
+| D4 | Child: Undo in the undo bar | | | |
+| D5 | Owner: claim an overdue task of another person | | | |
+| D6 | Owner: hand one occurrence to the child; child completes it | | | |
+| D7 | Owner: All tasks | | | |
+| D8 | Owner: Dashboard tiles and a room card | | | |
+| D9 | Light Nextcloud theme: text, badges and buttons readable | | | |
+| D9 | Dark Nextcloud theme: text, badges and buttons readable | | | |
+| D10 | Screen reader (TalkBack / VoiceOver) on Done | | | |
+
+**Summary:** Android <n>/11 assessed, <n> deviations · iPhone <n>/11 assessed, <n> deviations.
+**Findings:** <none, or one line per finding>
+```
 
 ---
 
@@ -750,7 +788,7 @@ human-use evidence, publication or retained-baseline adoption is implied.
 - [ ] 11 Scheduling
 - [ ] 12 Multi-user on one instance
 - [ ] 13 Notifications
-- [ ] 14 Mobile / responsive (incl. 14.1 real-device checklist: Android + iPhone, child, light + dark)
+- [ ] 14 Mobile / responsive (incl. the 14.1 real-device record: Android + iPhone, child and owner, light + dark)
 - [ ] 15 Performance & stress feel
 - [ ] 16 Upgrade / migration smoke   (stable: required)
 - [ ] 17 Error handling & edge cases

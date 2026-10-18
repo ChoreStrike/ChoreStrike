@@ -408,6 +408,14 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 
 ## Implementation Evidence
 
+### Real-Device Record Template (2026-10-18)
+
+- [Release test plan §14.1](../../testing/release-test-plan.md#real-device-record-template)
+  now carries a copyable record for the operator's run. It holds the date,
+  candidate and devices, one result per device for D1-D10 (D9 split by theme),
+  a note per row and a summary. §18 points to it. The run itself is still open
+  (RF-080-15, TECH-TEST-005).
+
 ### Consolidation of CS-PLAN-070 (2026-10-18)
 
 - **User decision (2026-10-18):** neither plan could close — both waited on the
