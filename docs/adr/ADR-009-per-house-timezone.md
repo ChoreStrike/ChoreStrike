@@ -128,6 +128,6 @@ in the calendar vs browser-local keys in scheduling views).
   and survives multi-house.
 
 ## References
-- Plan: `docs/plans/done/cs-plan-057-per-house-timezone.md`
+- Plan: [CS-PLAN-057](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-057-per-house-timezone.md) (retired 2026-10-18; permalink)
 - Review findings: CR-053-12, CR-053-11(a) (CR-P2-11), CR-053-20 (CR-P4-06/07)
 - `docs/engineering/architecture.md` — day-boundary conventions

@@ -153,7 +153,7 @@ renders an app-wide `NotAuthorizedState`, and the frontend logger redacts
 
 ## References
 
-- Plan: [`docs/plans/done/cs-plan-061-wp2-membership-visibility-privacy.md`](../plans/done/cs-plan-061-wp2-membership-visibility-privacy.md) (§3.1–§3.9)
+- Plan: [CS-PLAN-061](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-061-wp2-membership-visibility-privacy.md) (§3.1–§3.9)
 - Supersedes parts of: [ADR-006](ADR-006-service-layer-authorization.md) (bootstrap preamble semantics)
 - Implementation: `lib/Service/AuthorizationService.php`, `lib/Service/TaskAccessPolicy.php`
 - Tests: `tests/integration/Controller/InviteOnlyMembershipTest.php`,

@@ -3,7 +3,7 @@
 **Date:** 2026-09-16
 **Reviewer:** Kilo, main-agent Standard B (no subagents)
 **Outcome:** PASS-WITH-FIXES
-**Owning plan:** [CS-PLAN-069](../../plans/done/cs-plan-069-repo-root-slimming-and-orphan-cleanup.md)
+**Owning plan:** [CS-PLAN-069](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-069-repo-root-slimming-and-orphan-cleanup.md)
 **Base:** `master` at `d76595636163dd8cd615287f991f4eba549f5695`
 **Authorization:** explicit Standard B request (user accepted the review
 suggestion after implementation); no `--no-commit` flag.

@@ -1,7 +1,7 @@
 # Code Review 2026-09-09 — CS-PLAN-064 WP5 Backend Slice (Interim Standard B)
 
 > **Tier:** Standard B (code), interim · **Outcome:** `PASS-WITH-FIXES`
-> **Owning plan:** [`docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md`](../../plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) (interim — stayed `active/` at review time; completed later on 2026-09-09, link repaired)
+> **Owning plan:** [`docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md`](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) (interim — stayed `active/` at review time; completed later on 2026-09-09, link repaired)
 > **Reviewer:** Kilo (review skill, no subagents)
 
 ## Scope & Base
@@ -103,7 +103,7 @@ Excluded: the unrelated `cs-plan-063` mojibake repair (left dirty).
 # Code Review 2026-09-09 (2nd) — CS-PLAN-064 WP5 Step-6 Round (Interim Standard B)
 
 > **Tier:** Standard B (code), interim · **Outcome:** `PASS`
-> **Owning plan:** [`docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md`](../../plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) (interim — stayed `active/` at review time; completed later on 2026-09-09, link repaired)
+> **Owning plan:** [`docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md`](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) (interim — stayed `active/` at review time; completed later on 2026-09-09, link repaired)
 > **Reviewer:** Kilo (review skill, no subagents)
 
 ## Scope & Base
@@ -173,7 +173,7 @@ repair as its own docs commit.
 # Code Review 2026-09-09 (3rd) — CS-PLAN-064 WP5 Steps 7–10 Round (Final Standard B)
 
 > **Tier:** Standard B (code), final · **Outcome:** `PASS-WITH-FIXES`
-> **Owning plan:** [`docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md`](../../plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) (moved `active/ → done/` by this review)
+> **Owning plan:** [`docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md`](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) (moved `active/ → done/` by this review)
 > **Reviewer:** Kilo (review skill, no subagents)
 
 ## Scope & Base

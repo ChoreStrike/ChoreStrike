@@ -3,7 +3,7 @@
 **Date:** 2026-09-14
 **Reviewer:** Kilo, main-agent Standard B (no subagents)
 **Outcome:** PASS-WITH-FIXES
-**Owning plan:** [CS-PLAN-068](../../plans/done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
+**Owning plan:** [CS-PLAN-068](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
 **Base:** `master` at `4d73c8827a457ef5c10a5e0c1769e0f37cb4f13e`
 **Authorization:** explicit Standard B request; no `--no-commit` flag.
 

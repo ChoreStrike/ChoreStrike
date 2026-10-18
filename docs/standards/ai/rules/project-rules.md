@@ -124,7 +124,7 @@ Folders: `new/` (drafted) → `active/` (implementing) → `done/` (completed re
 | `new/ → active/` | Standard A plan review `PASS` / `PASS-WITH-FIXES`; the agent updates status/tracking, moves, and commits the review package |
 | `active/ → done/` | Final Standard B or Full review passes **and** the whole plan, required tests, acceptance criteria, `## Review Findings`, and durable-doc integration are complete |
 | `active/ → onhold/` | User explicitly pauses blocked work |
-| `done/ → archive/YYYY-MM/` (untracked) | User explicitly retires a historical plan; repair tracked links first |
+| `done/ → archive/YYYY-MM/` (untracked) | User confirms a retirement batch, proposed at each minor release for `done/` plans older than ~3 months whose program is closed; tracked links become GitHub permalinks first ([procedure](../skills/plan-management/SKILL.md#retiring-done-plans)) |
 
 - Interim passing reviews commit their package but leave the plan in `active/`; reviews with open findings never move a plan. Outcomes (`PASS`, `PASS-WITH-FIXES`, `NEEDS-FOLLOW-UP`, `BLOCKED`) and finalization: [`review`](../skills/review/SKILL.md) skill.
 - **Commit authorization:** requesting a plan/code review authorizes exactly one scoped conventional commit on the current branch ([`git-workflow`](../skills/git-workflow/SKILL.md#automatic-review-commit)). An explicit read-only/no-commit instruction disables edits, moves, and commits. All other commits, branches, amends, pushes, and PRs need an explicit user request.

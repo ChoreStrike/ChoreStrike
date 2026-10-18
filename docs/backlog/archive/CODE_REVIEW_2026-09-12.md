@@ -5,7 +5,7 @@
 **Mode**: Standard Batch Review (final Standard B over the whole owning plan)  
 **Scope**: Complete WP7 implementation package — 59 modified + 4 new files, captured as the uncommitted working tree on `master`; final-manifest, acceptance-criteria, test-evidence, durable-doc and implementation-history depth per the review skill §3  
 **Base Commit**: `bd085bcdfcaed3efae1a40ccc6f92c09e9c34405` (Standard A activation)  
-**Owning Plan**: [`docs/plans/done/cs-plan-066-wp7-canonical-client-state-family-ux.md`](../../plans/done/cs-plan-066-wp7-canonical-client-state-family-ux.md) (moved `active/ → done/` by this review)
+**Owning Plan**: [`docs/plans/done/cs-plan-066-wp7-canonical-client-state-family-ux.md`](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-066-wp7-canonical-client-state-family-ux.md) (moved `active/ → done/` by this review)
 
 ---
 

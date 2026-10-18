@@ -5,7 +5,7 @@
 **Mode**: Standard B (final code review over the whole owning plan)
 **Scope**: Complete WP8 implementation package — 44 modified tracked + 19 new files, captured as the uncommitted working tree on `master`; final-manifest, acceptance-criteria, test-evidence, durable-doc and implementation-history depth per the review skill §3
 **Base Commit**: `0cc51dae46e23e1c6050b18ce70d107dbeb58ac6` (Standard A activation)
-**Owning Plan**: [`docs/plans/done/cs-plan-067-wp8-batching-decomposition-performance.md`](../../plans/done/cs-plan-067-wp8-batching-decomposition-performance.md) (moved `active/ → done/` by this review)
+**Owning Plan**: [`docs/plans/done/cs-plan-067-wp8-batching-decomposition-performance.md`](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-067-wp8-batching-decomposition-performance.md) (moved `active/ → done/` by this review)
 
 ---
 

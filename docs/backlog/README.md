@@ -74,7 +74,7 @@ the review record → `archive/`.
 
 Since CS-PLAN-059 WP0 (2026-09-02), `backlog.md` is organized into the five
 dependency-oriented sections fixed by
-[`CS-PLAN-058 §2.2`](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md):
+[`CS-PLAN-058 §2.2`](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md#22-backlog-as-the-execution-source-of-truth):
 
 | Section | Contents |
 |---|---|

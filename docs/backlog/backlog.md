@@ -2,7 +2,7 @@
 
 > **Single source of truth for everything not yet done.** Entries are organized
 > into the five dependency-oriented sections fixed by
-> [CS-PLAN-058 §2.2](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md):
+> [CS-PLAN-058 §2.2](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md#22-backlog-as-the-execution-source-of-truth):
 > **Core Workflow Program**, **Core Hardening**, **Deferred Add-ons**,
 > **Infrastructure and Documentation**, and **Release**. Every open entry carries
 > the standardized metadata block (see [`README.md`](README.md) for the format).
@@ -18,7 +18,7 @@
 ## Core Workflow Program
 
 > The CR-WF umbrellas owned the core-journey acceptance criteria
-> ([CS-PLAN-058](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md);
+> ([CS-PLAN-058](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md);
 > review record: [`archive/CODE_REVIEW_2026-09-02.md`](archive/CODE_REVIEW_2026-09-02.md)).
 > **Program closure 2026-09-14:** CR-WF-01..08 and every plan-owned item are
 > archived; the final Full review (`PASS-WITH-FIXES`, D-FR-03 disposition)
@@ -639,7 +639,7 @@ payloads.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
 **Status**: Backlog (qualification and first deployment/adoption delivered; field use remains open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: unassigned (CS-PLAN-083 WP1-WP3 delivered; deployment and baseline adoption done by the operator 2026-10-17) · **Depends on**: CS-PLAN-058 WP1..WP9 exit gates + final Full review PASS · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Owning**: unassigned (CS-PLAN-083 WP1-WP3 delivered; deployment and baseline adoption done by the operator 2026-10-17) · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;

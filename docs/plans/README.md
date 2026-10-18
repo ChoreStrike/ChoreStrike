@@ -9,7 +9,7 @@ docs/plans/
 ├── new/       # Drafted, not yet started
 ├── active/    # Currently being implemented
 ├── onhold/    # Paused (blocked by a missing dependency)
-└── done/      # Completed, kept for reference
+└── done/      # Completed; retired in batches to the local archive/ (see below)
 ```
 
 ## Lifecycle
@@ -163,12 +163,12 @@ Review record: [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-2
 (final Standard B `PASS-WITH-FIXES` 2026-09-23),
 [CS-PLAN-071 — WP0: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-19) and
-[CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](done/cs-plan-058-core-workflow-bottom-up-masterplan.md)
+[CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md)
 (WP0–WP9 delivered; program final Full review `PASS-WITH-FIXES` 2026-09-14
 with the D-FR-04 delegated browser-gate pair completed the same night — two
 consecutive retry-free passes; the plan moved to `done/` 2026-09-16)
 and its child [CS-PLAN-068 — WP9: Deterministic Coverage and Release-Quality
-Closure](done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
+Closure](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-14; clean-install gate and two
 retry-free browser passes verified). RELEASE-002's program prerequisite is
 met; its independent security obligations remain.
@@ -181,6 +181,12 @@ Successful lifecycle reviews perform the normal forward transitions automaticall
 - Only `PASS` and `PASS-WITH-FIXES` are transition-eligible. `NEEDS-FOLLOW-UP` and `BLOCKED` leave the plan in place; the review batches questions with options and a recommendation before it finalizes.
 
 Moves to `onhold/` or the later local `archive/` remain explicit user decisions.
+Retirement from `done/` runs in batches, normally at each minor release for plans
+older than about three months whose program is closed. Links to a retired plan
+become GitHub permalinks; see
+[Retiring Done Plans](../standards/ai/skills/plan-management/SKILL.md#retiring-done-plans).
+Retired so far: CS-PLAN-001..055 (2026-08) and CS-PLAN-056..069
+([2026-10-18](../backlog/archive/2026-10.md#retired-plans-cs-plan-056069-10-18)).
 
 ➡️ See [`project-rules.md`](../standards/ai/rules/project-rules.md) §7 for the full lifecycle/move table and the archive policy.
 

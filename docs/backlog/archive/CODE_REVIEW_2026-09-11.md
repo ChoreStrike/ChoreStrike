@@ -5,7 +5,7 @@
 **Mode**: Standard Batch Review (final Standard B over the whole owning plan)  
 **Scope**: Complete WP6 implementation package — 45 modified + 6 new files matching the plan's §5 manifest boundary, captured as the uncommitted working tree on `master`  
 **Base Commit**: `768a75758fcbb9310b331e2fdda8074cd6a27434` (Standard A activation)  
-**Owning plan**: `docs/plans/active/cs-plan-065-wp6-actionable-scheduling.md` (at review time; now in [`done/`](../../plans/done/cs-plan-065-wp6-actionable-scheduling.md))
+**Owning plan**: `docs/plans/active/cs-plan-065-wp6-actionable-scheduling.md` (at review time; now in [`done/`](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-065-wp6-actionable-scheduling.md))
 
 ---
 
@@ -75,7 +75,7 @@
 **Scope**: Round-2 package — 11 modified files (uncommitted working tree): `SchedulingController.php` (RF-065-05), `scheduling-apply-flow.spec.ts` + `auth-contexts.ts` (RF-065-01), 4 component specs (RF-065-02), controller unit tests, backlog/plan docs — plus §5 manifest, §8 acceptance criteria, §4.1 test matrix, durable docs, implementation history
 **Base Commit**: `9cf3875dacf7cc781d73e7c9e51acea311dbf4ad` (round-1 NEEDS-FOLLOW-UP commit)
 **Base fingerprint**: staged empty; unstaged diff `7b4642c286e4c8f5bc73d6df32836f4cd2a92f27`; no untracked files
-**Owning plan**: [`docs/plans/done/cs-plan-065-wp6-actionable-scheduling.md`](../../plans/done/cs-plan-065-wp6-actionable-scheduling.md)
+**Owning plan**: [`docs/plans/done/cs-plan-065-wp6-actionable-scheduling.md`](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-065-wp6-actionable-scheduling.md)
 
 ## Outcome
 
