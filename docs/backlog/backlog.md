@@ -566,6 +566,40 @@ hold the patched versions; drop them once the migrated stack resolves them.
 
 ---
 
+### [P2] TECH-TEST-008 — One reusable Docker test stack per worktree
+**Status**: Backlog · **Effort**: M · **Layer**: tests+tooling · **Journey stage**: —
+**Owning**: unassigned (branch `chore/per-worktree-test-stacks`, worktree `~/worktrees/chorestrike-test-stacks`) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: operator request during CS-PLAN-086 WP-B, 2026-10-17
+
+All worktrees share the canonical stack of `docker/compose.test.yml` (fixed
+container names `chorestrike-test`/`chorestrike-db`, port 8080, compose
+project `docker`). `verify-canonical` only refuses a stack started from
+another checkout; it does not separate them. On 2026-10-17 a session
+recreated and reseeded the canonical stack for its own browser runs while a
+second worktree (`feat/public-presentation`) existed — the next stack user
+must recreate it from its own checkout and loses the other's state.
+
+Isolated targets already exist as qualification tooling: the staged rows of
+`scripts/test-runtime-stage.js` (own `cs082-*` project, own loopback port and
+volumes, bind mount of the calling worktree; PHPUnit via `docker exec`,
+Playwright and the browser gate via `NEXTCLOUD_URL` + `NEXTCLOUD_CONTAINER`
+with per-target auth state). They are not a per-worktree workflow: every `up`
+needs a fresh project name (no reuse, no cleanup), `scripts/run-tests.js`
+only knows the canonical stack, and the `docker-dev` skill documents the
+shared stack as the rule.
+
+Target: every worktree gets its own reusable stack whose project name and
+loopback port derive deterministically from the worktree pin, so parallel
+sessions never touch each other's database.
+
+- [ ] Derive project name and port from the pinned worktree; refuse collisions with another worktree's stack.
+- [ ] `run-tests.js`, `test:runtime:canonical` and the browser gate resolve that target by default (`NEXTCLOUD_URL`/`NEXTCLOUD_CONTAINER` stay explicit overrides); recreating a stack reseeds only its own volumes.
+- [ ] A cleanup command removes a worktree's stack with the worktree and lists stale `cs082-*` leftovers without deleting other owners' resources.
+- [ ] Update the `docker-dev` and `git-workflow` skills, `development.md` and `testing.md` (canonical source, then `npm run agents:sync`).
+- [ ] Tests for the derivation, collision refusal and target resolution (Jest, Docker-free), plus one real two-worktree run.
+
+---
+
 ### [P2] TECH-TEST-007 — No guard keeps applied migration files immutable
 **Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: —
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
