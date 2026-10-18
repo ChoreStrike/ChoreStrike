@@ -111,9 +111,8 @@ RELEASE-002 or authorize production deployment. The explicit 2026-10-04 H7/H-T11
 rescoping exempts operator-only self-testing and CS-PLAN-081 completion from the
 reporting-contact gate, not from technical readiness or adoption safeguards.
 Since 2026-10-18 security reports use GitHub private vulnerability reporting
-only and no mailbox is published. BUG-SEC-001 remains open for the
-reported-content setting and the deferred legal/privacy notices before later
-external onboarding/public release. GPG is optional; no mandatory key or
+only and no mailbox is published. BUG-SEC-001 remains open for the deferred
+legal/privacy notices before later external onboarding/public release. GPG is optional; no mandatory key or
 decryption evidence is implied.
 
 ### Issue Types

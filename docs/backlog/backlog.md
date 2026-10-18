@@ -566,7 +566,7 @@ SELECT of ids followed by UPDATE ... WHERE id IN (...). Not a WP7 regression
 ---
 
 ### [P3] BUG-SEC-001 — Security reporting contact for later external use
-**Status**: In Progress (GitHub-only reporting channels published 2026-10-18; reported-content setting and authority feedback on the deferred legal/privacy notice pending) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
+**Status**: In Progress (GitHub-only reporting channels published 2026-10-18; authority feedback on the deferred legal/privacy notice pending) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
 **Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 (external-use stage only) · **Folded-in**: H7/H-T11 user rescoping (2026-10-04); operator-approved project mailbox and public-contact guidance (2026-10-12); reporting-policy refinements and legal-notice deferral (2026-10-13); GitHub-only contact channels (2026-10-18)
 **Source**: CS-001 security review; CS-PLAN-081 H7 Post-Review Scope Decision; user-provided project address 2026-10-12; explicit policy and scoped-commit request 2026-10-13; operator decision 2026-10-18
 
@@ -610,9 +610,10 @@ GitHub's *Report content → Report to repository admins*. README, user guide,
 chooser and the organization profile follow this. The address remains in Git
 history and closed plans.
 
-The item remains open for the reported-content setting and the authority's
-feedback on the deferred legal notice and privacy information. No public
-security issues or sensitive real-user payloads.
+The operator enabled reported content for all users (2026-10-18). The item
+remains open only for the authority's feedback on the deferred legal notice
+and privacy information. No public security issues or sensitive real-user
+payloads.
 
 - [x] Record the operator-approved reporting mailbox (2026-10-12).
 - [x] Add the contact to local README/security guidance and replace the deferred-contact note; GPG remains optional.
@@ -620,7 +621,7 @@ security issues or sensitive real-user payloads.
 - [x] Confirm receipt of a test email (operator, 2026-10-17).
 - [x] Confirm a reply sent from the project address without exposing a private sender address (operator, 2026-10-17).
 - [x] Withdraw the mailbox from public docs; route questions to GitHub Discussions and security/conduct reports to GitHub's private reporting (operator decision, 2026-10-18).
-- [ ] Enable *Settings → Moderation options → Reported content* so conduct reports reach the maintainer (operator, web interface only).
+- [x] Enable *Settings → Moderation options → Reported content* so conduct reports reach the maintainer (operator: all users, 2026-10-18).
 - [ ] Reassess the deferred legal notice and privacy information after the authority's response, including the handling of incoming reports.
 - [x] Publish the verified contact with an explicitly approved source update before external-user onboarding; retain correct links for the selected hosting platform (public on GitHub since the CS-PLAN-085 push, 2026-10-16; delivery verified 2026-10-17).
 

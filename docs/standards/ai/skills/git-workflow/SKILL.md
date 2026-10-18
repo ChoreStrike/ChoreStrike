@@ -33,6 +33,7 @@ Every branch carries its own copy of code, plans and the coordination files (`AC
 - **Integrate `master` whenever it moves**, at the latest before each review commit and before merging back: rebase commits that were never pushed, otherwise merge `master`. The pre-commit hook prints a non-blocking note while the branch is behind. In coordination files keep both sides' entries and take `master`'s state for items another branch closed.
 - **Commit at milestones.** A large uncommitted state cannot integrate `master`; bring each work package to its review commit instead of carrying it uncommitted.
 - **Merge back promptly** after the passing review (on the user's request), then `git worktree remove` the worktree and delete the merged branch. A worktree whose branch has nothing beyond `master` stays only while it holds needed local artifacts (e.g. a qualified package run), recorded in `ACTIVE_TASKS.md`.
+- **Merge locally, publish in batches.** A merge-back updates only the local `master`; never offer or bundle a push with it. The repository is public — any push, a feature branch included, publishes — so push only on an explicit request to publish, and report instead how far `master` is ahead (`git rev-list --count origin/master..master`). GitHub CI runs only on push; the local build gate stays binding.
 - **Release freeze:** between a candidate's qualification and its deployment, nothing lands on `master`; a later fix goes to a branch and needs its own requalification.
 
 ### Branch guard (`.githooks/pre-commit`)
