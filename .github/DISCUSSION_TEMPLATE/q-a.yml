@@ -1,0 +1,39 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking! This discussion is **public** and stays searchable.
+
+        - **No personal data:** remove or replace real names, email addresses,
+          household details, passwords, tokens and server addresses, including
+          those in logs and screenshots.
+        - **Security vulnerabilities do not belong here.** Report them privately
+          as described in the [security policy](https://github.com/ChoreStrike/ChoreStrike/blob/master/docs/SECURITY.md).
+        - **Reproducible bugs** go to a [bug report](https://github.com/ChoreStrike/ChoreStrike/issues/new?template=bug_report.md).
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What do you want to achieve, and what have you tried so far?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Only if relevant. Leave out server addresses and user names.
+      placeholder: |
+        ChoreStrike version:
+        Nextcloud version:
+        Database (SQLite, MySQL/MariaDB, PostgreSQL):
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before posting
+      options:
+        - label: I removed personal data, passwords, tokens and secrets from this post, including logs and screenshots.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

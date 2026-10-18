@@ -144,6 +144,7 @@ ChoreStrike/
 │   ├── backlog/                # Task tracking (ACTIVE_TASKS.md, backlog.md, archive/)
 │   └── plans/                  # Implementation plans (new/active/onhold/done)
 ├── .github/                    # GitHub templates and CI
+│   ├── DISCUSSION_TEMPLATE/    # q-a.yml: form for the Q&A category
 │   ├── ISSUE_TEMPLATE/
 │   ├── pull_request_template.md
 │   ├── CODEOWNERS
