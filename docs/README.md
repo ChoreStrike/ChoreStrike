@@ -2,6 +2,12 @@
 
 Use this document to find the right ChoreStrike documentation quickly.
 
+## Using ChoreStrike
+
+- [`user-guide.md`](user-guide.md) — for households: roles, first start, My Day, planning the week, optional features, privacy and troubleshooting
+- [`screenshots/`](screenshots/) — README and user-guide images, reproduced by `npm run docs:screenshots` ([how](engineering/development.md#recapturing-the-documentation-screenshots))
+- [`brand/`](brand/) — brand mark and mascot sources ([rules](standards/guidelines/design.md#4-brand-assets))
+
 ## Start Here
 
 - [`../AGENTS.md`](../AGENTS.md) — required bootstrap for AI agents and coding assistants

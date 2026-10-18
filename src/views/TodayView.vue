@@ -1078,6 +1078,18 @@ export default {
 		flex-wrap: wrap;
 	}
 
+	/* The task text takes its own full-width line above the actions; with
+	   its zero flex basis it shrank to a sliver instead of wrapping
+	   (CS-PLAN-087 RF-087-08). */
+	.task-info {
+		flex-basis: 100%;
+		order: -1;
+	}
+
+	.checklist-toggle {
+		margin-inline-start: auto;
+	}
+
 	.appointment-row {
 		flex-wrap: wrap;
 		gap: 0.25rem 1rem;

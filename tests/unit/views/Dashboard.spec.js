@@ -223,6 +223,19 @@ describe('Dashboard.vue', () => {
 		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(true)
 	})
 
+	it('opens the wizard at <body>, above Nextcloud\'s chrome (CS-PLAN-087 RF-087-09)', async () => {
+		mockRoomsState.floors = []
+		const { useUserStore } = require('../../../src/store/user.js')
+		useUserStore().currentUser = { id: 1, role: 'owner' }
+
+		const wrapper = mount(Dashboard, { global: { plugins: [pinia] } })
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		const teleport = wrapper.find('teleport-stub')
+		expect(teleport.attributes('to')).toBe('body')
+		expect(teleport.find('.setup-wizard-stub').exists()).toBe(true)
+	})
+
 	it('hides the manual setup entry point for non-owners of an empty house (CS-PLAN-061 §3.9)', async () => {
 		mockRoomsState.floors = []
 

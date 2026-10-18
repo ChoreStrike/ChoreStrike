@@ -4,27 +4,35 @@
 -->
 
 <template>
-	<div v-if="show" class="modal-overlay" @click.self="$emit('close')">
-		<div
-			ref="container"
-			class="modal-container"
-			data-testid="modal"
-			role="dialog"
-			aria-modal="true"
-			:aria-label="ariaLabel"
-			tabindex="-1"
-			@click.stop>
-			<button class="close-button"
-				data-testid="modal-close"
-				:aria-label="t('chorestrike', 'Close')"
-				@click="$emit('close')">
-				×
-			</button>
-			<slot name="header" />
-			<slot />
-			<slot name="footer" />
+	<!-- Rendered at <body>: inside the app content's stacking context
+	     Nextcloud's navigation toggle stayed above the overlay (CS-PLAN-087
+	     RF-087-09). -->
+	<Teleport to="body">
+		<div v-if="show"
+			class="modal-overlay"
+			v-bind="$attrs"
+			@click.self="$emit('close')">
+			<div
+				ref="container"
+				class="modal-container"
+				data-testid="modal"
+				role="dialog"
+				aria-modal="true"
+				:aria-label="ariaLabel"
+				tabindex="-1"
+				@click.stop>
+				<button class="close-button"
+					data-testid="modal-close"
+					:aria-label="t('chorestrike', 'Close')"
+					@click="$emit('close')">
+					×
+				</button>
+				<slot name="header" />
+				<slot />
+				<slot name="footer" />
+			</div>
 		</div>
-	</div>
+	</Teleport>
 </template>
 
 <script>
@@ -49,6 +57,9 @@ const FOCUSABLE_SELECTOR = [
 
 export default {
 	name: 'Modal',
+	// A teleport root cannot inherit attributes: callers' test ids and
+	// classes stay on the overlay, as before the teleport.
+	inheritAttrs: false,
 	props: {
 		show: {
 			type: Boolean,

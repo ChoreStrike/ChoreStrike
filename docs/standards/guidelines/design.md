@@ -47,26 +47,57 @@ on coral bristles, yellow headband with fluttering tails, sparkles). It nods to
 the tactical-game sound of the name while staying playful: the "strike" is a
 sweep, never an attack. It supersedes the earlier isometric-3D prompt set.
 
+ChoreStrike uses **two tiers** (CS-PLAN-087, D-087-01): the full mark on large
+surfaces (96 px and up: avatar, README, social preview) and the **mascot
+symbol** on small ones (app icon, notifications, PWA). The mascot is the
+broom head with face, headband and fluttering tails; the handle leaves through
+the top edge of the frame at the mark's 6° tilt, so the shape still reads as a
+broom at 20 px. The operator approved it on 2026-10-17 (D-087-02).
+
 | Asset | File | Notes |
 |---|---|---|
-| Source | [`docs/brand/chorestrike-avatar.svg`](../../brand/chorestrike-avatar.svg) | Hand-built vector, no fonts or external references; edit here, then re-export |
+| Mark source | [`docs/brand/chorestrike-avatar.svg`](../../brand/chorestrike-avatar.svg) | Hand-built vector, no fonts or external references; edit here, then re-export |
 | Repository / organization avatar (GitHub) | [`docs/brand/chorestrike-avatar-512.png`](../../brand/chorestrike-avatar-512.png) | 512×512, full-bleed square (GitHub rounds the corners); uploaded by the operator |
-| App icon (`img/app.svg`) | — | 64×64 vector; a simplified symbol is still to be derived ([backlog](../../backlog/backlog.md) FEAT-UX-037) |
+| Mascot source | [`docs/brand/chorestrike-mascot.svg`](../../brand/chorestrike-mascot.svg) | Color mascot on a transparent 512×512 frame; export [`chorestrike-mascot-512.png`](../../brand/chorestrike-mascot-512.png) |
+| Maskable mascot source | [`docs/brand/chorestrike-mascot-maskable.svg`](../../brand/chorestrike-mascot-maskable.svg) | Mascot on the brand navy; the head inside the 80 % safe zone (radius 205 px), the handle bleeding out of the top |
+| Nextcloud app icon | `img/app.svg`, `img/app-dark.svg` | Monochrome mascot glyph, 64×64: white (`#fff`) and its dark twin with the same geometry |
+| PWA icons | `img/mascot-192.png`, `img/mascot-512.png`, `img/mascot-maskable-512.png` | Exports of the two mascot sources, listed in `img/manifest.json` |
 | README banner (optional) | — | 1200×400 (3:1), reusing the mark and mascot |
 
 **Rules**
 
-- **Location:** brand assets live under `docs/brand/`, never `img/`, because
-  `img/` ships in the app package (`docker/package-build.json` runtime allowlist).
+- **Location:** sources and brand-only exports live under `docs/brand/`.
+  `img/` ships in the app package (`docker/package-build.json` runtime
+  allowlist), so it holds only the derived files the app uses: the two glyphs,
+  the PWA icons and the manifest.
 - **Palette:** the §2 brand colors plus deep navy (`#10233D`, gradient
   `#18365C` → `#0C1B30`), cream `#FFF8EC` and wood tones `#D9965B`/`#EDB97F`
   for the broom handle.
 - **Originality:** original artwork only; no third-party game logos, typefaces,
   silhouettes or color schemes. No weapons, crosshairs or violent imagery.
-- **Legibility:** the letters carry recognition and must stay readable at
-  20 px on light and dark backgrounds; the face is a bonus at larger sizes.
-- **Export:** render the SVG at its native 512×512 in a headless browser and
-  check the PNG at 512, 96, 40 and 20 px before replacing the avatar.
+- **Legibility:** the mark's letters must stay readable at 96 px; below that the
+  mascot takes over. The glyph keeps eyes and smile as negative space and drops
+  cheeks, bristle strokes and sparkles; it must read as a broom at 20 px on
+  bright and dark headers.
+- **Nextcloud icons:** Nextcloud 34/35 draw `app.svg` in the header as a CSS
+  mask (only its alpha counts) and invert it on bright surfaces elsewhere; the
+  notifications popover shows `app-dark.svg` and inverts it in the dark theme
+  (the notifier links it through `IURLGenerator::imagePath()`, never a fixed
+  `apps/` path, because apps live under `custom_apps`). Both glyphs are flat:
+  one fill, no gradient, stroke, opacity, raster image or external reference —
+  pinned by `tests/unit/pwa-bootstrap.spec.js`.
+- **Manifest:** Nextcloud's page layout links the app's own `img/manifest.json`
+  (`image_path(app, 'manifest.json')`); without that file it falls back to the
+  theming manifest. Its icon, `start_url` and `scope` paths are relative to the
+  manifest, so they work under `apps` or `custom_apps`, in a subdirectory and
+  without pretty URLs.
+- **Export:** render each SVG at its native size in headless Chromium through
+  an `<img>` element with a transparent page background (Playwright's
+  `omitBackground`), never by scaling a larger PNG: the mascot at 512
+  (`docs/brand/chorestrike-mascot-512.png` and its `img/` copy) and 192, the
+  maskable source at 512, the mark at 512. Check every export at 512, 192, 64
+  and 20 px on light and dark backgrounds; a changed glyph or mascot needs the
+  operator's approval of such a preview sheet before it enters `img/`.
 
 ## 5. Feedback Patterns (CS-PLAN-041)
 

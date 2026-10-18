@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- ChoreStrike maskable PWA icon: the mascot of chorestrike-mascot.svg on the
+       brand navy, broom head inside the 80 % safe zone (radius 205 px), handle
+       bleeding out of the top edge. Brand rules: docs/standards/guidelines/design.md section 4. -->
+  <title>ChoreStrike</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#18365C"/>
+      <stop offset="1" stop-color="#0C1B30"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="180" fill="#0984E3" opacity="0.16"/>
+
+  <!-- Broom (origin = top of the ferrule); the head's center (7, 80) sits on the canvas center -->
+  <g transform="translate(256 256) scale(1.79) translate(-7 -80) rotate(6)">
+    <g fill="#11253F" stroke="#11253F" stroke-width="16" stroke-linejoin="round">
+      <rect x="-11" y="-200" width="22" height="230"/>
+      <rect x="-38" y="18" width="76" height="30" rx="9"/>
+      <path d="M -34 46 L 34 46 C 46 80 58 110 64 138 Q 53 147 42 139 Q 32 149 21 140 Q 11 149 0 140 Q -11 149 -21 140 Q -32 149 -42 139 Q -53 147 -64 138 C -58 110 -46 80 -34 46 Z"/>
+      <path d="M 34 26 C 54 14 70 24 90 10 L 96 24 C 76 40 58 34 36 38 Z"/>
+      <path d="M 34 34 C 54 38 66 52 84 56 L 78 69 C 60 62 50 50 34 44 Z"/>
+    </g>
+    <g fill="#FDCB6E">
+      <path d="M 34 26 C 54 14 70 24 90 10 L 96 24 C 76 40 58 34 36 38 Z"/>
+      <path d="M 34 34 C 54 38 66 52 84 56 L 78 69 C 60 62 50 50 34 44 Z"/>
+    </g>
+    <rect x="-11" y="-200" width="22" height="230" fill="#D9965B"/>
+    <rect x="-4.5" y="-200" width="5" height="218" fill="#EDB97F"/>
+    <path d="M -34 46 L 34 46 C 46 80 58 110 64 138 Q 53 147 42 139 Q 32 149 21 140 Q 11 149 0 140 Q -11 149 -21 140 Q -32 149 -42 139 Q -53 147 -64 138 C -58 110 -46 80 -34 46 Z" fill="#FF7675"/>
+    <g stroke="#E0605E" stroke-width="4" stroke-linecap="round" fill="none">
+      <path d="M -45 112 L -51 131"/>
+      <path d="M -23 117 L -26 134"/>
+      <path d="M 0 119 L 0 136"/>
+      <path d="M 23 117 L 26 134"/>
+      <path d="M 45 112 L 51 131"/>
+    </g>
+    <rect x="-38" y="18" width="76" height="30" rx="9" fill="#0984E3"/>
+    <rect x="-38" y="29" width="76" height="7" fill="#FDCB6E"/>
+    <!-- Face -->
+    <ellipse cx="-31" cy="90" rx="8" ry="5" fill="#FFB3AB"/>
+    <ellipse cx="31" cy="90" rx="8" ry="5" fill="#FFB3AB"/>
+    <ellipse cx="-15" cy="70" rx="6.5" ry="8.5" fill="#10233D"/>
+    <ellipse cx="15" cy="70" rx="6.5" ry="8.5" fill="#10233D"/>
+    <circle cx="-13" cy="66.5" r="2.4" fill="#FFFFFF"/>
+    <circle cx="17" cy="66.5" r="2.4" fill="#FFFFFF"/>
+    <path d="M -17 84 Q 0 108 17 84 Z" fill="#10233D" stroke="#10233D" stroke-width="3" stroke-linejoin="round"/>
+    <ellipse cx="0" cy="92" rx="6.5" ry="3.2" fill="#FFB3AB"/>
+  </g>
+
+  <!-- Sparkles (inside the safe zone) -->
+  <g fill="#FDCB6E">
+    <path d="M 358 104 Q 362 122 380 126 Q 362 130 358 148 Q 354 130 336 126 Q 354 122 358 104 Z"/>
+    <path d="M 164 140 Q 166 150 176 152 Q 166 154 164 164 Q 162 154 152 152 Q 162 150 164 140 Z"/>
+  </g>
+</svg>

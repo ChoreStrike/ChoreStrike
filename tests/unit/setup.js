@@ -49,6 +49,9 @@ const { config } = require('@vue/test-utils')
 config.global.stubs = {
 	'transition': false,
 	'transition-group': false,
+	// Dialogs teleport to <body> (CS-PLAN-087 RF-087-09); component specs
+	// keep their content inside the wrapper.
+	'teleport': true,
 	'Icon': {
 		name: 'Icon',
 		props: ['name', 'size'],

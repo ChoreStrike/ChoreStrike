@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of a plain `InvalidArgumentException`, which Nextcloud logs as deprecated on
   every poll (and as an error from Nextcloud 39). Reported by the first
   production deployment.
+- **New app icon:** the broom mascot of the brand mark replaces the old house
+  icon — a white glyph in the Nextcloud header, a dark one in notifications,
+  and the color mascot when ChoreStrike is installed as a web app (CS-PLAN-087).
+- **Icons load from the real app folder:** the notification icon and the web-app
+  manifest no longer point to `/apps/chorestrike/`, which answers 404 where
+  apps live under `custom_apps` (AIO). The app's own manifest is now actually
+  used — it was never linked before, so a home-screen install got Nextcloud's
+  generic manifest.
+- **Every navigation entry has an icon** (five had none on Nextcloud 34/35).
+- **My Day on phones:** a task's name and details keep the full card width
+  above the *Done* and *Checklist* buttons instead of shrinking to a few
+  characters per line.
+- **Dialogs cover the whole page:** the setup wizard and the app's dialogs
+  now lie above Nextcloud's navigation toggle, which used to draw over them.
 
 ### App Version 0.8.0-alpha.1 — Family-Trial Candidate (2026-10-17)
 

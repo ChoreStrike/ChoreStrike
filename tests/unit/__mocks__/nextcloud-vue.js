@@ -4,7 +4,7 @@ export const NcIcon = { name: 'NcIcon', template: '<span><slot /></span>' }
 export const NcLoadingIcon = { name: 'NcLoadingIcon', template: '<div class="loading"></div>' }
 export const NcAvatar = { name: 'NcAvatar', template: '<div class="avatar"></div>' }
 export const NcAppNavigation = { name: 'NcAppNavigation', template: '<nav><slot /></nav>' }
-export const NcAppNavigationItem = { name: 'NcAppNavigationItem', template: '<div><slot /></div>' }
+export const NcAppNavigationItem = { name: 'NcAppNavigationItem', template: '<div><slot name="icon" /><slot /></div>' }
 export const NcAppContent = { name: 'NcAppContent', template: '<div id="app-content"><slot /></div>' }
 export const NcContent = { name: 'NcContent', template: '<main><slot /></main>' }
 export const NcEmptyContent = { name: 'NcEmptyContent', template: '<div class="empty"><slot /></div>' }

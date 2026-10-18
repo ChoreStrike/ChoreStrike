@@ -67,11 +67,16 @@
 			</main>
 		</template>
 
-		<SetupWizard
-			v-if="showWizard"
-			@applied="handleWizardApplied"
-			@skipped="handleWizardSkipped"
-			@close="closeWizard" />
+		<!-- Rendered at <body>: inside the app content's stacking context
+		     Nextcloud's navigation toggle stayed above the wizard overlay
+		     (CS-PLAN-087 RF-087-09). -->
+		<Teleport to="body">
+			<SetupWizard
+				v-if="showWizard"
+				@applied="handleWizardApplied"
+				@skipped="handleWizardSkipped"
+				@close="closeWizard" />
+		</Teleport>
 	</div>
 </template>
 

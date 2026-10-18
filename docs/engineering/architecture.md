@@ -119,13 +119,15 @@ ChoreStrike/
 │   │   └── chorestrike.pot     # Translation template
 │   ├── de.json                 # German
 │   └── en.json                 # English
-├── img/                        # App icons & PWA bootstrap
-│   ├── app.svg
-│   └── manifest.webmanifest    # PWA manifest (CS-PLAN-002 Phase 5)
+├── img/                        # App icons & PWA bootstrap (design.md §4)
+│   ├── app.svg, app-dark.svg   # Monochrome mascot glyph: header / light surfaces
+│   ├── mascot-*.png            # PWA icons (192, 512, maskable 512)
+│   └── manifest.json           # PWA manifest, linked by Nextcloud's page layout
 ├── tests/                      # Test suites
 │   ├── unit/                   # PHPUnit (PHP) + Jest (JS/Vue)
 │   ├── integration/            # PHPUnit integration tests
-│   └── e2e/                    # Playwright end-to-end tests
+│   ├── e2e/                    # Playwright end-to-end tests
+│   └── docs-screenshots/       # Documentation capture (npm run docs:screenshots), no gate
 ├── docs/                       # Documentation
 │   ├── README.md               # Documentation map
 │   ├── CONTRIBUTING.md         # Community docs (with CODE_OF_CONDUCT.md,

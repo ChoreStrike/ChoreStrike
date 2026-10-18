@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page, type Response } from '@playwright/test'
 
 /**
  * Minimal Smoke Tests
@@ -41,11 +41,22 @@ test.describe('Minimal Smoke Tests', () => {
 	})
 
 	test('App loads with title and visible shell', async ({ page }) => {
+		// CS-PLAN-087 WP-A: the header requests the app glyph — an <img> on
+		// NC34, a CSS mask (--app-icon-url) on NC35.
+		const headerIcon = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/chorestrike/img/app.svg'))
 		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 
 		const title = await page.title()
 		expect(title.length).toBeGreaterThan(0)
+
+		// CS-PLAN-087 WP-A (CR-NAV-01): every navigation entry shows a glyph.
+		const entries = page.locator('[data-testid^="nav-"]:not([data-testid="nav-help"])')
+		await expect.poll(() => entries.count()).toBeGreaterThanOrEqual(10)
+		for (const entry of await entries.all()) {
+			await expect(entry.locator('.app-navigation-entry-icon svg')).toBeVisible()
+		}
+		await expectBrandAssets(page, await headerIcon)
 	})
 
 	test('No critical console errors on load', async ({ page }) => {
@@ -159,3 +170,31 @@ test.describe('Minimal Smoke Tests', () => {
 		})
 	}
 })
+
+/**
+ * CS-PLAN-087 WP-A: the header icon, the notifier's dark icon, the PWA
+ * manifest and its icons resolve under the physical app root (/custom_apps
+ * in AIO and canonical installs), where the former hard-coded
+ * /apps/chorestrike/img/ URLs 404, and the manifest's start URL opens the app.
+ */
+async function expectBrandAssets(page: Page, headerIcon: Response): Promise<void> {
+	// Core links the app's own img/manifest.json, not the theming fallback.
+	const manifestLink = page.locator('link[rel="manifest"]')
+	await expect(manifestLink).toHaveCount(1)
+	const manifestUrl = new URL((await manifestLink.getAttribute('href'))!, page.url())
+	const manifest = await (await page.request.get(manifestUrl.href)).json()
+	expect((await page.request.get(new URL(manifest.start_url, manifestUrl).href)).status()).toBe(200)
+	const assets: Array<[URL, RegExp]> = [
+		[new URL(headerIcon.url()), /^image\/svg\+xml/],
+		[new URL('app-dark.svg', manifestUrl), /^image\/svg\+xml/],
+		[manifestUrl, /^application\/(?:manifest\+)?json/],
+		...manifest.icons.map((icon: { src: string }): [URL, RegExp] => [new URL(icon.src, manifestUrl), /^image\/png/]),
+	]
+	expect(assets).toHaveLength(6)
+	for (const [url, mime] of assets) {
+		expect(url.pathname).toMatch(/^\/custom_apps\/chorestrike\/img\//)
+		const response = await page.request.get(url.href)
+		expect(response.status()).toBe(200)
+		expect(response.headers()['content-type']).toMatch(mime)
+	}
+}

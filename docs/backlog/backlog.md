@@ -131,23 +131,6 @@ regression net.
 
 ---
 
-### [P3] CR-PWA-01 — PWA manifest hardcodes the `/apps/chorestrike/` path
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: phone access
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: requalification of `master` for `0.8.0-alpha.1` (2026-10-17; access-log review)
-
-`img/manifest.webmanifest` (linked by `PageController` through `imagePath`)
-names `/apps/chorestrike/img/app.svg` as its icon and `/apps/chorestrike/` as
-`start_url` and `scope`. The test runtimes and the AIO install the app under
-`custom_apps`, so every page load requests the icon from a path that answers
-404 (82 times in one full browser gate), and a home-screen shortcut gets no
-icon. Already present in the qualified `0.1.1`/`0.8.0-alpha.1` builds; it
-does not affect the app's function. Serve the manifest with paths from
-`IURLGenerator` (icon via `imagePath`, start URL via `linkToRoute`), or make
-them relative to the manifest, with a test against a `custom_apps` install.
-
----
-
 ### [P3] CR-LAYOUT-01 — View inset token resolves at `:root`, where Nextcloud defines neither metric
 **Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: theming
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: whole-view inset on phones (same review)
@@ -182,6 +165,10 @@ README screenshot (the other six entries use core classes that still exist).
 Render the app's own `Icon` component through the item's `#icon` slot for all
 entries, keep the label/ARIA behavior, and add a guard that every navigation
 entry has a resolvable icon.
+
+- [x] All eleven entries render a distinct Fluent glyph through `#icon`;
+  `navigationIcons.spec.js` and the smoke assertion pin it (2026-10-18; closes
+  with CS-PLAN-087's final review).
 
 ---
 
@@ -329,7 +316,7 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 
 ### [P3] FEAT-UX-037 — Derive the Nextcloud app icon from the brand mark
 **Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: branding
-**Owning**: [CS-PLAN-087](../plans/active/cs-plan-087-public-presentation-and-brand.md) WP-A (active since 2026-10-17) · **Depends on**: — · **Blocks**: — · **Folded-in**: hard-coded `/apps/chorestrike/img/…` notifier and PWA-manifest icon URLs (2026-10-17)
+**Owning**: [CS-PLAN-087](../plans/active/cs-plan-087-public-presentation-and-brand.md) WP-A (active since 2026-10-17) · **Depends on**: — · **Blocks**: — · **Folded-in**: hard-coded `/apps/chorestrike/img/…` notifier and PWA-manifest icon URLs (2026-10-17); CR-PWA-01 ([archive](archive/2026-10.md#cr-pwa-01-folded-into-feat-ux-037-10-18), 2026-10-18; the app manifest was never linked)
 **Source**: TECH-DOCS-005 brand mark (2026-10-17)
 
 `img/app.svg` still shows the pre-brand green house, broom and shield, so the
@@ -344,9 +331,9 @@ currently hard-code `/apps/chorestrike/img/app.svg`, although static assets
 live under `/custom_apps` in the AIO and canonical installs.
 `img/` ships in the app package, so this changes the package file set.
 
-- [ ] Derive the mascot symbol (color source under `docs/brand/`, operator approval of a preview sheet).
-- [ ] Update `img/app.svg` and add `img/app-dark.svg` (monochrome glyphs) plus the PWA mascot icons.
-- [ ] Resolve the notifier and manifest icon URLs through `imagePath()` / manifest-relative paths.
+- [x] Derive the mascot symbol (color source under `docs/brand/`, operator approval of a preview sheet; approved 2026-10-17).
+- [x] Update `img/app.svg` and add `img/app-dark.svg` (monochrome glyphs) plus the PWA mascot icons (2026-10-18).
+- [x] Resolve the notifier and manifest icon URLs through `imagePath()` / manifest-relative paths; the manifest is `img/manifest.json`, which Nextcloud's layout links (2026-10-18; HTTP 200 under `/custom_apps` on NC 35 and the NC 34 AIO row).
 - [ ] Verify it in the header, app settings, notification popover and PWA install in light and dark themes on NC34 and NC35.
 
 ---
@@ -377,7 +364,7 @@ vibration motor.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation)
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel
@@ -693,7 +680,7 @@ profile data only, never real household content — store them under
 - [x] Set the repository topics in the About dialog (folded in from CS-PLAN-085; set by the operator and verified with `gh repo view`, 2026-10-16).
 - [x] Create the repository avatar as the brand mark per [`design.md`](../standards/guidelines/design.md#4-brand-assets) §4 (operator chose the "Night Ops" CS monogram with a broom mascot; source and 512 px export under [`docs/brand/`](../brand/chorestrike-avatar.svg), 2026-10-17).
 - [x] Upload the avatar in the GitHub organization settings (operator, 2026-10-17).
-- [ ] Recapture the views with the new icons through the reproducible capture (CS-PLAN-087 WP-B/WP-C) and fix the README's outdated one-tap completion wording.
+- [x] Recapture the views with the new icons through the reproducible capture (CS-PLAN-087 WP-B/WP-C) and fix the README's outdated one-tap completion wording (2026-10-18).
 
 ---
 
@@ -709,6 +696,10 @@ viewport, locale and theme, outputs under `docs/screenshots/`, teardown of
 owned resources only. Add drift guards: README badge/caption version equals
 `appinfo/info.xml`, every referenced image exists, and a release checklist step
 to recapture and review the visible docs.
+
+- [x] `npm run docs:screenshots` with scene list, loopback and seeded-household
+  guards, owned teardown and drift guards; release checklist step and
+  `development.md` section (2026-10-18; closes with CS-PLAN-087's final review).
 
 ---
 

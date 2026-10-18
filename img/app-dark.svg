@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- ChoreStrike app icon, dark twin of img/app.svg (same geometry, default
+       fill) for light surfaces such as the notifications popover, which
+       inverts it in the dark theme.
+       Brand rules: docs/standards/guidelines/design.md section 4. -->
+  <g transform="translate(32 32) scale(0.2909) translate(-7 -55) rotate(6)">
+    <rect x="-11" y="-120" width="22" height="140"/>
+    <rect x="-40" y="8" width="80" height="28" rx="9"/>
+    <path d="M 36 11 C 56 -1 70 9 90 -6 L 99 13 C 78 31 58 27 38 30 Z"/>
+    <path d="M 36 24 C 56 28 68 37 88 39 L 82 59 C 62 53 52 42 36 36 Z"/>
+    <path fill-rule="evenodd" d="M -34 46 L 34 46 C 46 80 58 110 64 138 Q 53 147 42 139 Q 32 149 21 140 Q 11 149 0 140 Q -11 149 -21 140 Q -32 149 -42 139 Q -53 147 -64 138 C -58 110 -46 80 -34 46 Z M -23 70 A 8 10 0 1 0 -7 70 A 8 10 0 1 0 -23 70 Z M 7 70 A 8 10 0 1 0 23 70 A 8 10 0 1 0 7 70 Z M -20 86 Q 0 114 20 86 Z"/>
+  </g>
+</svg>

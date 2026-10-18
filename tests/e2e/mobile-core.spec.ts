@@ -98,6 +98,11 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			const done = page.getByTestId(`today-complete-button-${roomTaskId}`)
 			const box = await done.boundingBox()
 			expect(box!.height).toBeGreaterThanOrEqual(44)
+			// CS-PLAN-087 RF-087-08: the task text keeps a full-width line on the
+			// phone instead of shrinking beside the Done and Checklist buttons.
+			const row = page.getByTestId('today-task-item').filter({ has: done })
+			const rowBox = await row.boundingBox()
+			expect((await row.locator('.task-info').boundingBox())!.width).toBeGreaterThan(rowBox!.width * 0.7)
 			const completions: string[] = []
 			page.on('request', request => {
 				if (request.method() === 'POST' && request.url().endsWith('/complete')) completions.push(request.url())

@@ -665,6 +665,45 @@ tail -f /path/to/nextcloud/data/nextcloud.log
    npm run l10n:check-keys
    ```
 
+### Recapturing the documentation screenshots
+
+The README and the [user guide](../user-guide.md) show only images that
+`npm run docs:screenshots` reproduces (CS-PLAN-087 WP-B). Recapture them when a
+pictured view changes and before every release
+([checklist](deployment.md#pre-deployment-checklist)).
+
+```bash
+npm run build                    # the staged row serves this checkout's js/
+composer install                 # and its vendor/
+node scripts/test-runtime.js build cs082-runtime-<primary version>-local   # once per inventory change
+npm run docs:screenshots         # --keep retains the staged row for inspection
+```
+
+The wrapper (`scripts/capture-screenshots.js`) refuses a missing or stale build
+(`js/` older than `src/`), stages a fresh owned SQLite row of the primary runtime
+on a free loopback port (`scripts/test-runtime-stage.js`, `family` seed), runs
+the capture and removes only that project again, also after a failure. It never
+touches the canonical stack or another session's row.
+
+- **Scenes** live in `tests/docs-screenshots/scenes.js` (output, seeded role,
+  route, ready test id, viewport, optional step); outputs go to
+  `docs/screenshots/`. Desktop scenes are 1280×800, phone scenes 390×844 at
+  device scale 2, all in English, light theme and reduced motion.
+- **Separate Playwright project:** `playwright.docs.config.ts` with
+  `tests/docs-screenshots/` reuses the E2E `setup` project and auth contexts but
+  stays outside `tests/e2e/`, so the browser gate never discovers it.
+- **Privacy:** the config refuses any non-loopback `NEXTCLOUD_URL` before
+  `setup` runs, and the capture first proves the target is the seeded demo
+  household (test mode, seed house name, exact seeded member set). It then
+  presents it on the staged row only: the house is renamed, the seed's
+  test-only admin member removed and a demo reward catalog created.
+- **Guards:** `tests/unit/scripts/captureScreenshots.spec.js` (scenes, owned
+  teardown, loopback negative controls) and `tests/unit/docsDrift.spec.js`
+  (README badge and caption name the `info.xml` version; the README and the
+  user guide show only captured images, and every capture is shown).
+- Review the image diff before committing: dates and counts in the seeded
+  household follow the capture day.
+
 ## Performance Tips
 
 ### Frontend
@@ -766,7 +805,7 @@ Stylelint (`npm run stylelint`) and the PHP coding standard
 `@nextcloud/stylelint-config` ↔ `stylelint` version mismatch and the missing
 `.php-cs-fixer.dist.php` were both resolved 2026-08-12). Stylelint still emits
 ~26 `use-logical` *warnings* (deferred RTL sweep →
-[`backlog.md`](../backlog.md) TECH-LINT-004); warnings do not fail the gate
+[`backlog.md`](../backlog/backlog.md) TECH-LINT-004); warnings do not fail the gate
 (absent `--max-warnings`). See [`testing.md`](testing.md) for the local
 reproduction recipe and full CI detail.
 

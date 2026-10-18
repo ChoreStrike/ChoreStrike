@@ -65,6 +65,15 @@ describe('App', () => {
 			expect(wrapper.find('[data-testid="nav-rewards"]').exists()).toBe(false)
 			expect(wrapper.find('[data-testid="nav-reward-requests"]').exists()).toBe(true)
 		})
+
+		it('renders a distinct icon in every navigation entry (CR-NAV-01)', () => {
+			const navItems = mountApp().findAllComponents({ name: 'NcAppNavigationItem' })
+			const icons = navItems.map((item) => item.find('.icon').text())
+
+			expect(icons).toHaveLength(10)
+			icons.forEach((name) => expect(name).not.toBe(''))
+			expect(new Set(icons).size).toBe(icons.length)
+		})
 	})
 
 	describe('Membership denied gate (CS-PLAN-061 §3.9)', () => {

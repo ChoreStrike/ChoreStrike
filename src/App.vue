@@ -17,48 +17,72 @@
 			<NcAppNavigation>
 				<NcAppNavigationItem
 					:to="{ name: 'today' }"
-					icon="icon-clock"
 					data-testid="nav-today"
-					:name="t('chorestrike', 'My Day')" />
+					:name="t('chorestrike', 'My Day')">
+					<template #icon>
+						<Icon name="Clock" />
+					</template>
+				</NcAppNavigationItem>
 				<NcAppNavigationItem
 					:to="{ name: 'dashboard' }"
-					icon="icon-home"
 					data-testid="nav-dashboard"
-					:name="t('chorestrike', 'Dashboard')" />
+					:name="t('chorestrike', 'Dashboard')">
+					<template #icon>
+						<Icon name="Home" />
+					</template>
+				</NcAppNavigationItem>
 				<NcAppNavigationItem
 					:to="{ name: 'tasks' }"
-					icon="icon-checkmark"
 					data-testid="nav-tasks"
-					:name="t('chorestrike', 'Tasks')" />
+					:name="t('chorestrike', 'Tasks')">
+					<template #icon>
+						<Icon name="CheckCircle" />
+					</template>
+				</NcAppNavigationItem>
 				<NcAppNavigationItem
 					:to="{ name: 'leaderboard' }"
-					icon="icon-star"
 					data-testid="nav-leaderboard"
-					:name="t('chorestrike', 'Leaderboard')" />
+					:name="t('chorestrike', 'Leaderboard')">
+					<template #icon>
+						<Icon name="Trophy" />
+					</template>
+				</NcAppNavigationItem>
 				<NcAppNavigationItem
 					:to="{ name: 'insights' }"
-					icon="icon-category-monitoring"
 					data-testid="nav-insights"
-					:name="t('chorestrike', 'Insights')" />
+					:name="t('chorestrike', 'Insights')">
+					<template #icon>
+						<Icon name="DataBarVertical" />
+					</template>
+				</NcAppNavigationItem>
 				<NcAppNavigationItem
 					:to="{ name: 'scheduling' }"
-					icon="icon-calendar"
 					data-testid="nav-scheduling"
-					:name="t('chorestrike', 'Scheduling')" />
+					:name="t('chorestrike', 'Scheduling')">
+					<template #icon>
+						<Icon name="CalendarWorkWeek" />
+					</template>
+				</NcAppNavigationItem>
 				<NcAppNavigationItem
 					:to="{ name: 'calendar' }"
-					icon="icon-calendar-dark"
 					data-testid="nav-calendar"
-					:name="t('chorestrike', 'Calendar')" />
+					:name="t('chorestrike', 'Calendar')">
+					<template #icon>
+						<Icon name="Calendar" />
+					</template>
+				</NcAppNavigationItem>
 				<!-- Optional-area gating (C5h, Q-077-05): the opt-in arcade
 				     surface disappears from the navigation entirely while the
 				     personal arcadeVisible preference is off. -->
 				<NcAppNavigationItem
 					v-if="arcadeVisible"
 					:to="{ name: 'arcade' }"
-					icon="icon-game"
 					data-testid="nav-arcade"
-					:name="t('chorestrike', 'Arcade')" />
+					:name="t('chorestrike', 'Arcade')">
+					<template #icon>
+						<Icon name="Gamepad2" />
+					</template>
+				</NcAppNavigationItem>
 				<!-- Reward catalog (WP8 §3.1): optional browsing behind BOTH
 			     independent gates — the household gate (owner-controlled,
 			     loaded through the guarded house read after membership
@@ -68,22 +92,31 @@
 				<NcAppNavigationItem
 					v-if="catalogBrowsable"
 					:to="{ name: 'rewards' }"
-					icon="icon-gift"
 					data-testid="nav-rewards"
-					:name="t('chorestrike', 'Rewards')" />
+					:name="t('chorestrike', 'Rewards')">
+					<template #icon>
+						<Icon name="Gift" />
+					</template>
+				</NcAppNavigationItem>
 				<!-- Own reward requests: ONE persistent entry, independent of
 			     BOTH catalog gates and the request count — hiding or
 			     disabling browsing never strands existing promises. -->
 				<NcAppNavigationItem
 					:to="{ name: 'reward-requests' }"
-					icon="icon-reward"
 					data-testid="nav-reward-requests"
-					:name="t('chorestrike', 'My Requests')" />
+					:name="t('chorestrike', 'My Requests')">
+					<template #icon>
+						<Icon name="TicketDiagonal" />
+					</template>
+				</NcAppNavigationItem>
 				<NcAppNavigationItem
 					:to="{ name: 'settings' }"
-					icon="icon-settings"
 					data-testid="nav-settings"
-					:name="t('chorestrike', 'Settings')" />
+					:name="t('chorestrike', 'Settings')">
+					<template #icon>
+						<Icon name="Settings" />
+					</template>
+				</NcAppNavigationItem>
 				<!-- Essential help slice (FEAT-UX-023, WP6 §3.7): the plain
 				     glossary, always reachable from the navigation. -->
 				<HelpEntry />
@@ -113,6 +146,7 @@ import UndoSnackbar from './components/Common/UndoSnackbar.vue'
 import NotAuthorizedState from './components/Common/NotAuthorizedState.vue'
 import ErrorState from './components/Common/ErrorState.vue'
 import HelpEntry from './components/Help/HelpEntry.vue'
+import Icon from './components/Common/Icon.vue'
 import { useUserStore } from './store/user.js'
 import { usePreferencesStore } from './store/preferences.js'
 import { useHouseStore } from './store/house.js'
@@ -131,6 +165,7 @@ export default {
 		NotAuthorizedState,
 		ErrorState,
 		HelpEntry,
+		Icon,
 	},
 
 	computed: {

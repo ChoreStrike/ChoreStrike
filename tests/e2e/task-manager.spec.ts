@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer'
 
 /**
  * E2E test: Task Manager filters and display
@@ -66,5 +67,6 @@ test.describe('Task Manager', () => {
 		// Modal surface + task-name input appear (auto-waited).
 		await expect(page.getByTestId('modal')).toBeVisible({ timeout: 15000 })
 		await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
+		await expectDialogAboveNavigationToggle(page, page.getByTestId('modal'))
 	})
 })

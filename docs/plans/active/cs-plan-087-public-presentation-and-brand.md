@@ -1,10 +1,10 @@
 # CS-PLAN-087: Public Presentation — Brand Icons, Reproducible Screenshots and User Guide
 
-> **Status:** Active (WP-A not started); drafted 2026-10-17; Standard A `PASS-WITH-FIXES` 2026-10-17
+> **Status:** Active — WP-A..C implemented, interim Standard B `PASS-WITH-FIXES` 2026-10-18 (full browser gate green on both rows); WP-D waits for the D-087-05 go; drafted 2026-10-17; Standard A `PASS-WITH-FIXES` 2026-10-17
 > **Effort:** M
 > **Priority:** P3
 > **Depends on:** none (`master` `37bcd5c`). WP-A changes the app package, so the next deployment candidate needs its own requalification. The operator's external repository-review notes are still to be supplied; they are triaged on arrival (D-087-06). WP-C's arcade text is feature-level only so it does not depend on CS-PLAN-086 (D-087-07).
-> **Related backlog items:** FEAT-UX-037, CR-NAV-01, TECH-DOCS-005, TECH-DOCS-007, TECH-DOCS-008, TECH-DOCS-009
+> **Related backlog items:** FEAT-UX-037, CR-NAV-01, CR-PWA-01 (folded in 2026-10-18, RF-087-07), TECH-DOCS-005, TECH-DOCS-007, TECH-DOCS-008, TECH-DOCS-009
 > **Branch:** `feat/public-presentation` (pinned worktree `~/worktrees/chorestrike-public-presentation`)
 
 ## 1. Problem Summary
@@ -78,6 +78,16 @@ material current afterwards.
   describes the arcade at feature level only (optional, opt-in, scores only, no
   effect on planning): no game list, unlock rules or arcade screenshot, so
   CS-PLAN-086 cannot outdate it.
+- **D-087-02 approved (operator, 2026-10-17):** the mascot preview sheet
+  (color mascot 512/192/64/20 px, maskable variant, white glyph on bright and
+  dark headers, dark glyph on light and dark popovers) approved as shown, PWA
+  `any` icons with a transparent background.
+- **D-087-08 — My Day phone layout (operator, 2026-10-18):** the defect the
+  capture surfaced (RF-087-08) is fixed in this plan, not routed to the
+  backlog, so the guide's phone screenshots show the real layout.
+- **D-087-09 — dialog stacking (operator, 2026-10-18):** the navigation toggle
+  drawn over the setup wizard (RF-087-09) is fixed in this plan for the wizard
+  and the shared `Modal.vue`.
 
 ## 3. Backend / Frontend Changes
 
@@ -213,6 +223,26 @@ modified: docs/backlog/backlog.md, docs/backlog/ACTIVE_TASKS.md
 external: ChoreStrike/.github — profile/README.md (WP-D, separate public repository)
 ```
 
+As implemented (2026-10-18), beyond the list above: `img/manifest.webmanifest`
+became `img/manifest.json` and `lib/Controller/PageController.php` lost its dead
+manifest injection (RF-087-07); `docs/brand/chorestrike-mascot-maskable.svg`
+is the maskable source (the framed mascot cannot keep the head inside the safe
+zone and the handle bleeding at the same time); `src/views/TodayView.vue` and
+`tests/e2e/mobile-core.spec.ts` carry the phone fix (RF-087-08, D-087-08); the
+icon guard lives in `tests/unit/pwa-bootstrap.spec.js`; the `NcAppNavigationItem`
+Jest mock renders the `icon` slot (`tests/unit/__mocks__/nextcloud-vue.js`,
+asserted in `tests/unit/components/App.spec.js`); the reset-owning project list
+in `tests/e2e/fixtures/database-fixtures.ts` names the serial `docs` project;
+`.eslintrc.js` and the `lint` script cover `tests/docs-screenshots/`;
+`docs/engineering/architecture.md` lists the new `img/` and test files.
+RF-087-09 (D-087-09) adds `src/components/Common/Modal.vue`,
+`src/views/Dashboard.vue`, `tests/unit/setup.js` (global `teleport` stub),
+`tests/unit/components/Modal.spec.js`, `tests/unit/views/Dashboard.spec.js`,
+`tests/e2e/fixtures/dialog-layer.ts`, `tests/e2e/task-manager.spec.ts` and
+`tests/e2e/setup-wizard-journey.spec.ts`. No `test()` was added to a gate
+spec, so `scripts/run-e2e-gate.js` and the `testing.md` inventory are
+unchanged.
+
 ## 6. Implementation Order
 
 1. WP-A1: mascot source and preview sheet → operator approval (D-087-02).
@@ -248,15 +278,15 @@ external: ChoreStrike/.github — profile/README.md (WP-D, separate public repos
 
 - [x] D-087-01..07 confirmed (Standard A, 2026-10-17)
 - [ ] The operator's external review notes triaged on arrival (D-087-06): scope findings in §9, the rest in `backlog.md`
-- [ ] Mascot approved by the operator; source and exports under `docs/brand/`
+- [x] Mascot approved by the operator; source and exports under `docs/brand/`
 - [ ] `img/app.svg` and `img/app-dark.svg` monochrome mascot glyphs; legible at 20 px in the header on NC 34 AIO and NC 35, light and dark
 - [ ] Notifier and manifest icons resolve with HTTP 200 under `/custom_apps`; PWA install shows the color mascot
-- [ ] Every navigation entry shows an icon
-- [ ] `npm run docs:screenshots` reproduces all README and user-guide images from a staged row; documented in `development.md`
-- [ ] README current (hold-to-confirm, documentation split) with recaptured screenshots
-- [ ] `docs/user-guide.md` published and linked from README and `docs/README.md`
+- [x] Every navigation entry shows an icon
+- [x] `npm run docs:screenshots` reproduces all README and user-guide images from a staged row; documented in `development.md`
+- [x] README current (hold-to-confirm, documentation split) with recaptured screenshots
+- [x] `docs/user-guide.md` published and linked from README and `docs/README.md`
 - [ ] Organization profile live and checked logged out (after the D-087-05 go)
-- [ ] Drift guards and the release checklist item in place
+- [x] Drift guards and the release checklist item in place
 - [ ] Build gate green (`npm test` + lint + backend tests)
 - [ ] Required tests ran without new or unapproved skips
 - [ ] All implementation decisions and review questions resolved and recorded
@@ -283,6 +313,64 @@ Standard A, 2026-10-17 (all fixed in the plan text in the same round):
 - [x] **RF-087-06 minor — WP-A/WP-B/WP-D details:** stale `js/` build would be photographed (wrapper refuses it); PNG export procedure unspecified (design.md §4 procedure plus a PNG-size guard); pinning and social preview are web-UI-only (operator steps).
 
 Open item: the operator's external review notes (D-087-06) are triaged on arrival.
+
+Implementation, 2026-10-17/18:
+
+- [x] **RF-087-07 major — WP-A PWA manifest never linked:** `PageController`
+  called `OCP\Util::addLink()`, which exists neither in NC 34 nor 35; the
+  best-effort catch swallowed the error, so pages only carried Nextcloud's
+  theming manifest (`/apps/theming/manifest/chorestrike`, icons generated from
+  `app.svg`, the Nextcloud logo where Imagick is missing). Core's page layout
+  links `image_path(app, 'manifest.json')` and prefers the app's own file.
+  Fixed: `img/manifest.webmanifest` → `img/manifest.json` with manifest-relative
+  icon, `start_url` and `scope` (`../../../index.php/apps/chorestrike/`, works
+  without pretty URLs and in a subdirectory), the dead injection removed. The
+  404s that CR-PWA-01 reported came from the notifier's hard-coded icon; that
+  item is folded in. `imagePath()` results sit in the distributed cache under a
+  prefix that includes the installed app versions, so the switch takes effect
+  with the version bump of the next deployment (a same-version dev row needs a
+  cache flush). Pinned by `pwa-bootstrap.spec.js` and the smoke assertion that
+  the page carries exactly one manifest link, under `/custom_apps`.
+- [x] **RF-087-08 medium — My Day task cards collapse on phones:** at ≤ 600 px
+  `.task-info` (flex basis 0) shrank to 13 px (iPhone 14) instead of wrapping,
+  breaking "Assigned to: Teen" into single letters. Fixed per D-087-08: the
+  info takes its own full-width line above *Done* and *Checklist*. Regression:
+  width assertion in `mobile-core.spec.ts` (red on the old build, green on both
+  phone projects).
+- [x] **RF-087-09 medium — app dialogs below Nextcloud's navigation toggle:**
+  the setup wizard and every `Modal.vue` dialog rendered their fixed overlay
+  inside the app content's stacking context, so the navigation toggle stayed
+  on top (it covered the wizard title in the capture). Fixed per D-087-09:
+  `Modal.vue` teleports its overlay to `<body>`, and `Dashboard.vue` (the
+  wizard's only consumer) renders `SetupWizard` inside a `<Teleport>` — the
+  interim review moved that out of the component to avoid re-indenting its
+  320-line template. Jest stubs `teleport` globally and pins the target in
+  `Modal.spec.js` and `Dashboard.spec.js`. Regression:
+  `fixtures/dialog-layer.ts` asserts the dialog is the topmost element under
+  the toggle in `task-manager.spec.ts` (add-task modal) and
+  `setup-wizard-journey.spec.ts` (red on the old build, green after). The
+  pre-086 `SnakeLeaderboard.vue` overlay has the same pattern but is deleted by
+  CS-PLAN-086, whose replacements use no fixed overlay; it stays untouched here.
+
+Interim Standard B, 2026-10-18:
+
+- [x] **RF-087-10 major — the teleport dropped the dialogs' caller attributes:**
+  with `<Teleport>` as its root, `Modal.vue` could no longer inherit the
+  `data-testid`/class its callers set, so 13 required scenarios
+  (`family-rewards`, `core-household-journey`, `availability-settings-flow`,
+  `scheduling-apply-flow`) failed identically on both gate rows; the Jest
+  teleport stub, a real element, had masked it. Fixed: `inheritAttrs: false`
+  and `v-bind="$attrs"` on the overlay restore the previous placement; a
+  `Modal.spec.js` case pins it (red without the binding).
+- [x] **RF-087-11 minor — KISS:** teleporting inside `SetupWizard.vue`
+  re-indented its 320-line template; the `<Teleport>` moved to its only
+  consumer, `Dashboard.vue`.
+- [x] **RF-087-12 minor — stale README and wrapper detail:** the README spoke
+  of "email invitations" (ChoreStrike sends none; an invitation needs the
+  email of an existing Nextcloud account), of the wizard on first open (it
+  opens on the Dashboard), of "overdue" (the UI says catch-up) and of
+  owner-only task creation (adult members create tasks too); the capture
+  wrapper ignored a failed teardown (now names the manual cleanup, tested).
 
 ## Review Outcome
 
@@ -320,3 +408,42 @@ Open item: the operator's external review notes (D-087-06) are triaged on arriva
   No separate `CODE_REVIEW_*.md` record: the plan carries the evidence (a
   second Standard A section at the end of the shared 2026-10-17 record would
   only collide with the arcade branch's).
+
+### Standard B (interim, WP-A..C) — 2026-10-18 — `PASS-WITH-FIXES`
+
+- **Scope:** the WP-A..C implementation on `feat/public-presentation`, base
+  `30bf1f2` (`master` `37bcd5c`, unchanged): 39 tracked and 20 new paths, listed
+  in §5 and its *As implemented* note. Captured before review: unstaged diff
+  `a607bf40…`, untracked content `fe694378…`; reviewed state including the
+  review fixes `2a29a443…` (`git diff HEAD --binary` with intent-to-add, 59
+  paths).
+- **Checklist:** no business logic or endpoint changed (`PageController` lost
+  dead code, the notifier resolves through `IURLGenerator`); no authorization
+  change — the capture's member removal and catalog writes run only on its own
+  staged row through the ordinary owner API; privacy: loopback-only capture
+  target, seeded-household proof, seed data only; no new user-visible string
+  (icons are decorative), no `console.*`; every fix has a regression test with
+  a negative control; docs updated.
+- **Findings:** RF-087-10 (major), RF-087-11 and RF-087-12 (minor), all fixed
+  in this round; RF-087-07..09 fixed earlier in it with the operator decisions
+  D-087-08/09 (§2).
+- **Gates:** Jest 130/1885, lint (now including `tests/docs-screenshots/`),
+  stylelint, `test:noise`, `agents:check`, `docs:encoding`, `backlog:check`
+  green; PHPUnit unit 1386 and integration 613 with `--fail-on-skipped` on the
+  NC 35/PostgreSQL 18 row and the NC 34 AIO row (Redis), `cs:check` 0/415; full
+  browser gate **PASSED** on NC 35 (`run-7Ohp1w`) and the NC 34 AIO row
+  (`run-DU01qw`): 51 required specs, zero skipped/failed/flaky.
+  `npm run docs:screenshots` ran end to end (12 scenes, own row removed).
+  Earlier attempts are not counted as passes: the first pair found RF-087-10
+  (13 identical failures on both rows); the second had only load and transport
+  failures while foreign containers held the host at 5 × 120 % CPU (`fetch
+  failed` while seeding, a late dialog, `socket hang up` on a plain API read),
+  green in isolation and folded into TECH-TRANSPORT-001.
+- **Not yet run:** `test:package:build` refuses a dirty tree, so it runs on
+  this review commit (`img/` is allowlisted wholesale). The manual checks of §4
+  (header, app settings, notification popover and PWA install in light and
+  dark on both rows) remain operator steps.
+- **Transition:** interim — the plan stays in `active/`. Open: WP-D (D-087-05
+  go; needs this branch on `master` and pushed), the external review notes
+  (D-087-06), the manual checks, package evidence, the final Standard B.
+  The plan carries the evidence, as at Standard A.

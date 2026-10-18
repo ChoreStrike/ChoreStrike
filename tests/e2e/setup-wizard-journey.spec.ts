@@ -30,6 +30,7 @@
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { runOcc } from './fixtures/occ-runner'
+import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer'
 
 const DAD_EMAIL = 'dad@chorestrike.test'
 
@@ -57,6 +58,7 @@ test.describe('Setup wizard journey (empty house)', () => {
 			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 			const wizard = page.getByTestId('setup-wizard')
 			await expect(wizard).toBeVisible()
+			await expectDialogAboveNavigationToggle(page, wizard)
 
 			// Step 1: quick start.
 			await page.getByTestId('wizard-house-name').fill('Journey Home')

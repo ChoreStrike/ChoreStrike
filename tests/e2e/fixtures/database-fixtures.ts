@@ -181,7 +181,9 @@ const DEFAULT_PROFILE: DatabaseProfile = (process.env.TEST_DB_PROFILE as Databas
  * The serial mobile projects (CS-PLAN-084 WP-G) own the database the same
  * way while the gate runs them.
  */
-const RESET_OWNING_PROJECTS = new Set(['chromium-serial-db', 'chromium-scheduling-owner', 'mobile-chromium', 'mobile-webkit'])
+// `docs` is the documentation capture (playwright.docs.config.ts): one worker
+// on its own staged row, outside the gate (CS-PLAN-087 WP-B).
+const RESET_OWNING_PROJECTS = new Set(['chromium-serial-db', 'chromium-scheduling-owner', 'mobile-chromium', 'mobile-webkit', 'docs'])
 
 // Extended test with database fixtures
 export const test = baseTest.extend<DatabaseFixtures>({

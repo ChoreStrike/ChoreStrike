@@ -79,7 +79,11 @@ class ChoreStrikeNotifier implements INotifier {
 
 		$l = $this->l10nFactory->get(NotificationService::APP_ID, $languageCode);
 
-		$notification->setIcon($this->url->getAbsoluteURL('apps/chorestrike/img/app.svg'));
+		// Dark glyph: the popover inverts it in the dark theme. imagePath()
+		// resolves the real app root (/custom_apps in AIO installs).
+		$notification->setIcon($this->url->getAbsoluteURL(
+			$this->url->imagePath(NotificationService::APP_ID, 'app-dark.svg')
+		));
 
 		$params = $notification->getSubjectParameters();
 		$params = is_array($params) ? $params : [];

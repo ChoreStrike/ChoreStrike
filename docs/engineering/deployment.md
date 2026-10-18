@@ -166,6 +166,7 @@ both defaults — individual users can switch to any available language.
 - [ ] `package.json` version updated
 - [ ] `composer.json` version updated
 - [ ] `CHANGELOG.md` updated with release notes
+- [ ] Documentation screenshots recaptured (`npm run docs:screenshots`, see [development.md](development.md#recapturing-the-documentation-screenshots)); README and [user guide](../user-guide.md) reviewed for changed behavior
 
 ### Database
 

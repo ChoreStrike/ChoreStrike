@@ -66,7 +66,14 @@ class ChoreStrikeNotifierTest extends TestCase {
 		});
 
 		$this->l10nFactory->method('get')->willReturn($this->l10n);
-		$this->url->method('getAbsoluteURL')->willReturn('https://example/apps/chorestrike/img/app.svg');
+		// Apps live under /custom_apps in AIO and canonical installs; only
+		// imagePath() knows the real location.
+		$this->url->method('imagePath')->willReturnCallback(
+			fn (string $app, string $image): string => "/custom_apps/{$app}/img/{$image}"
+		);
+		$this->url->method('getAbsoluteURL')->willReturnCallback(
+			fn (string $url): string => 'https://cloud.example' . $url
+		);
 
 		$this->notifier = new ChoreStrikeNotifier($this->l10nFactory, $this->url);
 	}
@@ -114,6 +121,24 @@ class ChoreStrikeNotifierTest extends TestCase {
 		$result = $this->notifier->prepare($notification, 'en');
 
 		$this->assertSame($notification, $result);
+	}
+
+	/**
+	 * Prepare_Digest_IconResolvesThroughImagePath (CS-PLAN-087 WP-A)
+	 *
+	 * The popover inverts the icon in the dark theme, so it is the dark
+	 * glyph; a hard-coded apps/chorestrike/img/ URL 404s under /custom_apps.
+	 */
+	public function testPrepare_Digest_IconResolvesThroughImagePath(): void {
+		$notification = $this->buildNotification(
+			'chorestrike',
+			NotificationService::SUBJECT_DIGEST,
+			['taskCount' => 1, 'orgCount' => 0]
+		);
+		$notification->expects($this->once())->method('setIcon')
+			->with('https://cloud.example/custom_apps/chorestrike/img/app-dark.svg');
+
+		$this->notifier->prepare($notification, 'en');
 	}
 
 	/**

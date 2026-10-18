@@ -47,6 +47,25 @@ describe('Modal', () => {
 			const wrapper = createWrapper({ show: false })
 			expect(wrapper.find('.modal-overlay').exists()).toBe(false)
 		})
+
+		it('renders the overlay at <body>, above Nextcloud\'s chrome (CS-PLAN-087 RF-087-09)', () => {
+			const teleport = createWrapper().find('teleport-stub')
+			expect(teleport.attributes('to')).toBe('body')
+			expect(teleport.find('.modal-overlay').exists()).toBe(true)
+		})
+
+		it('keeps the caller\'s attributes on the overlay despite the teleport root', () => {
+			const wrapper = mount(Modal, {
+				props: { show: true },
+				attrs: { 'data-testid': 'request-confirm', class: 'caller-class' },
+				global: { plugins: [createPinia()] },
+			})
+			mountedWrappers.push(wrapper)
+			const overlay = wrapper.find('.modal-overlay')
+			expect(overlay.attributes('data-testid')).toBe('request-confirm')
+			expect(overlay.classes()).toContain('caller-class')
+			expect(wrapper.find('teleport-stub').attributes('data-testid')).toBeUndefined()
+		})
 	})
 
 	describe('Slots', () => {

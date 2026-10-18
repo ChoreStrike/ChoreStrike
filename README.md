@@ -24,7 +24,7 @@ first; using the reward catalog and games is optional.
     <td align="center"><b>Dashboard</b>: the household at a glance</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks and each member's remaining daily capacity"></td>
+    <td width="50%"><img src="docs/screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks, each adjustable by person and day, and the tasks that stay as planned"></td>
     <td width="50%"><img src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
   </tr>
   <tr>
@@ -35,11 +35,15 @@ first; using the reward catalog and games is optional.
 
 <sub>Screenshots: seeded demo household on Nextcloud 35, version 0.8.0-alpha.1.</sub>
 
+New here? The [user guide](docs/user-guide.md) walks a household through
+setup, everyday use and planning.
+
 ## Concept
 
 - **One shared household**: The first person who opens the app becomes the
   owner and sets up floors and rooms with a guided wizard. Everyone else
-  joins through **email invitations** — invite-only, no self-enrollment.
+  joins by **invitation** to the email address of their Nextcloud account —
+  invite-only, no self-enrollment.
 - **Fair planning**: The owner previews a weekly plan
   (who does what on which day) against each member's availability and daily
   energy budget, adjusts it, and applies it once — nothing changes until
@@ -120,20 +124,22 @@ instance. Installation and retained-baseline adoption are separate decisions.
 
 ## Getting Started
 
-1. **Open ChoreStrike** — the first visitor bootstraps the household and is
-   guided through the setup wizard (house name, floors and rooms, optional
-   task templates from the quick-start catalog, and invitations).
-2. **Invite your household** — owners invite members by email address and
-   assign the role (owner, member or child). Invited people see the shared
-   household the next time they open the app.
-3. **Create tasks** — owners add tasks per room (or from the template
-   catalog), set recurrence and flexibility, write short instructions and
-   checklists, and assign them to members.
+1. **Open ChoreStrike** — the first visitor becomes the owner; on the
+   *Dashboard* the setup wizard guides through house name, floors and rooms,
+   optional task templates from the quick-start catalog, and invitations.
+2. **Invite your household** — owners invite people by the email address of
+   their existing Nextcloud account and assign the role (owner, member or
+   child). ChoreStrike sends no email; invited people see the shared household
+   the next time they open the app.
+3. **Create tasks** — owners and adult members add tasks per room (or from the
+   template catalog), set recurrence and flexibility, write short
+   instructions, and assign them; owners also maintain checklists.
 4. **Plan the week** — in *Scheduling*, select tasks, preview a fair
    distribution across the week, adjust person/day per task, and apply.
-5. **Work through My Day** — every member sees today's and overdue tasks,
-   ticks off checklist steps, and completes with one tap (undo is available
-   right on the confirmation).
+5. **Work through My Day** — every member sees today's tasks and catch-ups,
+   ticks off checklist steps, and completes a task by pressing and holding
+   *Done* for 0.6 seconds (a short tap only explains the hold); undo is
+   available right on the confirmation.
 
 ## Technical Stack
 
@@ -181,9 +187,15 @@ non-sensitive bugs and feature requests belong in its
 
 ## Documentation
 
+### Using ChoreStrike
+
+- [User guide](docs/user-guide.md) - Setup, everyday use, planning and optional features
+- [Security](docs/SECURITY.md) - Vulnerability reporting policy
+
+### Developing ChoreStrike
+
 - [Architecture](docs/engineering/architecture.md) - System design overview
 - [API Documentation](docs/api/README.md) - REST API endpoints
-- [Security](docs/SECURITY.md) - Vulnerability reporting policy
 - [App security architecture](docs/standards/guidelines/security.md) - Authorization and validation rules
 - [Deployment](docs/engineering/deployment.md) - Installation and deployment guide
 - [Testing](docs/engineering/testing.md) - Testing strategies

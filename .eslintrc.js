@@ -20,7 +20,7 @@ module.exports = {
 			// Node's experimental `localStorage`, so the browser global needs
 			// no ignore; Node's `crypto` builtin is supported on all targeted
 			// versions, so Web Crypto usage needs none either.
-			files: ['tests/e2e/**/*.ts'],
+			files: ['tests/e2e/**/*.ts', 'tests/docs-screenshots/**/*.ts'],
 			parser: '@typescript-eslint/parser',
 			parserOptions: {
 				ecmaVersion: 2022,
