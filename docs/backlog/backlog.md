@@ -69,25 +69,6 @@ a no-horizontal-overflow check per view at phone width.
 
 ---
 
-### [P3] UX-019 — Nextcloud's navigation toggle stays above open dialogs on phones
-**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: dialogs
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-086 WP-C phone E2E screenshot (iPhone 14 project, NC 35.0.2, 2026-10-18)
-
-With an app `Modal` open (`src/components/Common/Modal.vue`, overlay
-`z-index: 1000`), Nextcloud's app-navigation toggle (the hamburger at the top
-left) is still drawn above the dark overlay and over the dialog's top-left
-corner, so it stays tappable behind an open dialog. Seen on the arcade game
-dialog; it applies to every dialog using the shared `Modal`. Decide whether the
-overlay should cover the toggle (stacking order against Nextcloud's own
-layers) or the dialog should keep clear of it, and pin the result in
-`tests/e2e/layout-clearance.spec.ts` at phone width.
-
-- [ ] Keep the navigation toggle out of open dialogs at phone width.
-- [ ] Browser check for an open dialog at 390 px.
-
----
-
 ### [P3] CR-084-01 — Calendar marks a past planned day with an open flex window overdue
 **Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: calendar
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -376,7 +357,13 @@ guesses, unlock threshold 3, its own lazy chunk (4.2 KB gzip). Tile Breaker
 delivered 2026-10-18 (WP-E, interim Standard B `PASS-WITH-FIXES`): endless walls of grimy
 tiles, sponge, spray, wax and mud drops, three lives, held arrow keys or
 mouse and finger on the board (the shell's `paddle` input mode), unlock
-threshold 25, its own lazy chunk (2.6 KB gzip). Open: Dust Runner (WP-F).
+threshold 25, its own lazy chunk (2.6 KB gzip). Dust Runner delivered
+2026-10-18 (WP-F, interim Standard B `PASS-WITH-FIXES`): a robot vacuum clears three
+room-shaped floor plans (hallway, kitchen, living room, then repeating with
+faster bunnies), dust bunnies that leave their nests one after another and
+drift toward the robot, a charging dock that makes them catchable, three
+lives, unlock threshold 50, its own lazy chunk (2.9 KB gzip). All five games
+are delivered; open until the plan's final review: WP-G.
 
 ---
 
@@ -406,7 +393,7 @@ vibration motor.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation)
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel

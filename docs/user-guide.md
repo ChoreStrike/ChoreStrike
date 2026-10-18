@@ -152,9 +152,15 @@ against anyone.
 
 ### Arcade
 
-A small arcade for a break. It is optional — **Show the arcade** in your
-settings hides it — and keeps scores only: no Coins, no boosts and no
-advantage in planning.
+A small arcade for a break with five household games: Spot Sprint, Sock
+Match, Crumb Snake, Tile Breaker and Dust Runner. It is optional — **Show the
+arcade** in your settings hides it — and keeps scores only: no Coins, no
+boosts and no advantage in planning. Every game has its own highscores.
+
+Spot Sprint is always open; the other games open once you have finished 3,
+10, 25 or 50 chores (helping on a chore counts too). Owners can open every
+game for everyone by switching off **Unlock games with finished chores**
+under **Settings → Arcade**.
 
 ## Privacy
 

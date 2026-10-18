@@ -362,7 +362,7 @@ or chore value (T10/D7d). **Personas:** all (child-relevant).
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | See which games are open and the neutral progress toward the next one | `ArcadeCatalog` card | `GET /minigames/catalog` | ✅ (CS-PLAN-086 WP-B, ADR-019) |
-| Play a game (keyboard, swipe, on-screen pad; pause on hide) and save the score with its play time | `ArcadeCatalog` → `GameShell` | `POST /minigames/{g}/scores` (`score`, `durationMs`; `403 MINIGAME_LOCKED` while locked) | ✅ Crumb Snake (CS-PLAN-086 WP-A), Spot Sprint with tap input on phones (WP-C), Sock Match, untimed, keyboard and tap (WP-D), Tile Breaker with held arrow keys, mouse or finger (WP-E) |
+| Play a game (keyboard, swipe, on-screen pad; pause on hide) and save the score with its play time | `ArcadeCatalog` → `GameShell` | `POST /minigames/{g}/scores` (`score`, `durationMs`; `403 MINIGAME_LOCKED` while locked) | ✅ Crumb Snake (CS-PLAN-086 WP-A), Spot Sprint with tap input on phones (WP-C), Sock Match, untimed, keyboard and tap (WP-D), Tile Breaker with held arrow keys, mouse or finger (WP-E), Dust Runner with the arrow keys, swipes or the on-screen pad (WP-F) |
 | Personal best / rank per game | `ArcadeCatalog` card, `GameLeaderboard` | `GET /minigames/{g}/personal-best`, `/rank` | ✅ |
 | All-time + weekly board and own recent rounds per game | `GameLeaderboard` | `GET /minigames/{g}/leaderboard(/weekly)`, `/recent` | ✅ |
 | Switch the chore unlocks off for the household (owner) | Settings → Arcade (`ArcadeGateSetting`) | `PUT /house/arcade-gate` | ✅ (CS-PLAN-086 WP-B) |

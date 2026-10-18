@@ -8,7 +8,9 @@
  * Match, and the owner switch opens every game. Each game plays a round
  * through its deterministic opening; its score lands only on its own board
  * (Crumb Snake's rounds live in snake-game.spec.ts). Tile Breaker's squeegee
- * follows the pointer, so its test keeps the mouse off the board.
+ * follows the pointer, so its test keeps the mouse off the board. Dust
+ * Runner's robot stops at a wall without input, so its hands-off round
+ * always scores the 12 dust patches of its start row.
  *
  * Serial pool: the owner switch is household-wide app config; every test
  * reseeds the family profile, which restores the default (gate on). The
@@ -289,6 +291,48 @@ test.describe('Household arcade (CS-PLAN-086)', () => {
 			await expect(score).toHaveText(/^[2-9]0$/, { timeout: 10000 })
 			await expect(lives).toHaveText('3')
 			await page.keyboard.up('ArrowLeft')
+		})
+	})
+
+	test('Dust Runner saves a hands-off round to its own board and turns with the arrow keys', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		// Without input the dust bunnies need up to about a minute for three lives.
+		test.setTimeout(240000)
+		// The round is the subject here; the unlock works like Sock Match's.
+		await setArcadeGate(browser, false)
+		await asAdmin(browser, async (page) => {
+			await openArcade(page)
+			await startGame(page, 'dust')
+			const shell = page.getByTestId('game-shell')
+			const score = page.getByTestId('game-score')
+			const lives = page.getByTestId('game-lives')
+			const saved = page.waitForResponse((response) => response.url().includes('/api/v1/minigames/dust/scores')
+				&& response.request().method() === 'POST', { timeout: 150000 })
+
+			// The robot clears its start row by itself and stops at the wall;
+			// without input the dust bunnies reach it three times.
+			await expect(lives).toHaveText('3')
+			await expect(score).toHaveText('12', { timeout: 10000 })
+			await expect(shell).toHaveAttribute('data-phase', 'over', { timeout: 150000 })
+			const response = await saved
+			expect(response.status()).toBe(200)
+			const body = response.request().postDataJSON() as { score: number, durationMs: number }
+			expect(body.score).toBe(12)
+			expect(body.durationMs).toBeGreaterThan(0)
+			await expect(page.getByTestId('game-final-score')).toHaveText('Score: 12')
+			const board = await (await page.request.get('/apps/chorestrike/api/v1/minigames/dust/leaderboard')).json()
+			expect(board.data.map((entry: { score: number }) => entry.score)).toContain(12)
+			const tilesBest = await page.request.get('/apps/chorestrike/api/v1/minigames/tiles/personal-best')
+			expect((await tilesBest.json()).data, 'the round never reaches another game').toBeNull()
+
+			// Play again (Enter on the focused button): at the wall, Down turns
+			// the robot along the next row of dust.
+			await page.keyboard.press('Enter')
+			await expect(shell).toHaveAttribute('data-phase', 'playing')
+			await expect(score).toHaveText('12', { timeout: 10000 })
+			await page.keyboard.press('ArrowDown')
+			await expect(score).toHaveText(/^(1[3-9]|2\d)$/, { timeout: 5000 })
+			await expect(lives).toHaveText('3')
 		})
 	})
 

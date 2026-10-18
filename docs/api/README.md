@@ -1029,7 +1029,7 @@ Scores-only since the CS-PLAN-070 WP3 cutover ([ADR-014](../adr/ADR-014-work-acc
 no minigame route mints, spends or reads Coins, wallet values or contribution.
 Every route is house-scoped and membership gated (`403 FORBIDDEN` for
 non-members, checked first). Game ids come from the server catalog
-(`ArcadeCatalog`, currently `spots`, `socks`, `snake` and `tiles`); an unknown id is a
+(`ArcadeCatalog`: `spots`, `socks`, `snake`, `tiles` and `dust`); an unknown id is a
 `400 VALIDATION_ERROR` on reads and writes (CS-PLAN-086). Read `limit`
 parameters are clamped to `1..50`. Saves are rate-limited to **100 per member
 and house-local day** (`429 MINIGAME_RATE_LIMITED`). Ordered reads break score
@@ -1066,13 +1066,14 @@ Save a finished game.
 round's active play time (pauses excluded) and is required.
 
 Per-game rules (`ArcadeCatalog`): `0 <= score <= maxScore` (Spot Sprint:
-3000, Sock Match: 800, Snake: 20000, Tile Breaker: 50000),
-`1 <= durationMs <= maxDurationMs` (Spot Sprint: 65 seconds for its 60-second
-round, Sock Match: 24 hours for its untimed round, Snake and Tile Breaker:
-one hour), and the score must be reachable in that time:
-`score <= burstPoints + pointsPerSecond * durationMs / 1000` (Spot Sprint:
-100 + 50 per second, Sock Match: 800 + 1 per second, Snake: 100 + 30 per
-second, Tile Breaker: 300 + 20 per second). Sock Match is untimed and never
+3000, Sock Match: 800, Snake: 20000, Tile Breaker: 50000, Dust Runner:
+36000), `1 <= durationMs <= maxDurationMs` (Spot Sprint: 65 seconds for its
+60-second round, Sock Match: 24 hours for its untimed round, Snake, Tile
+Breaker and Dust Runner: one hour), and the score must be reachable in that
+time: `score <= burstPoints + pointsPerSecond * durationMs / 1000` (Spot
+Sprint: 100 + 50 per second, Sock Match: 800 + 1 per second, Snake: 100 + 30
+per second, Tile Breaker: 300 + 20 per second, Dust Runner: 100 + 10 per
+second). Sock Match is untimed and never
 rewards speed; a lucky perfect round lasts only seconds, so its burst covers
 the whole maximum and the ceiling is the binding rule.
 

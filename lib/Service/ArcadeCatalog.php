@@ -80,6 +80,21 @@ final class ArcadeCatalog {
 			'burstPoints' => 300,
 			'unlockThreshold' => 25,
 		],
+		// Dust Runner: 1 point per dust patch, at most one per robot move
+		// (150 ms), and 10 per caught dust bunny, at most three per charge;
+		// a charge needs the dock, which recharges for 20 seconds and is
+		// ready again in each new room (at least 119 dust patches, so at
+		// least about 18 seconds per room). That bounds a round at about
+		// 30 + 9.9 points per second (about 35500 in an hour); an autopilot
+		// that docks and catches at every chance (client logic spec) scores
+		// about 19000 in an hour.
+		'dust' => [
+			'maxScore' => 36000,
+			'maxDurationMs' => 3600000,
+			'pointsPerSecond' => 10,
+			'burstPoints' => 100,
+			'unlockThreshold' => 50,
+		],
 	];
 
 	/**

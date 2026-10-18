@@ -137,8 +137,11 @@ prototypes were retired in the same cutover; CS-PLAN-086 grows the arcade
 into a household-themed game collection on a shared game shell: Spot Sprint
 (`spots`, wipe stains in 60-second rounds, always open), Sock Match (`socks`,
 untimed memory pairs without a fail state, open from three finished chores),
-Crumb Snake (the `snake` id) and Tile Breaker (`tiles`, a squeegee bounces a
-soap bubble against walls of grimy tiles, open from 25 finished chores).
+Crumb Snake (the `snake` id), Tile Breaker (`tiles`, a squeegee bounces a
+soap bubble against walls of grimy tiles, open from 25 finished chores) and
+Dust Runner (`dust`, a robot vacuum clears the hallway, the kitchen and the
+living room while dust bunnies roam; a stop at the charging dock makes them
+catchable; open from 50 finished chores).
 See the Minigames section in
 [`../api/README.md`](../api/README.md).
 

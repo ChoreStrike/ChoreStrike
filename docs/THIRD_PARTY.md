@@ -29,7 +29,9 @@ the generic tap-the-target convention (items appear on a grid and are tapped
 before they vanish), Sock Match only the generic memory-pairs convention
 (face-down cards turned two at a time), Tile Breaker only the generic
 paddle-and-wall convention (a paddle bounces a ball against a wall of
-blocks), each drawn with its own inline shapes. The former `Game2048.vue` and `MemoryGame.vue` clean-room prototypes
+blocks), Dust Runner only the generic grid-chase convention (an avatar clears
+a floor while roaming chasers end a life on contact; its floors are original
+plans of household rooms, not mazes), each drawn with its own inline shapes. The former `Game2048.vue` and `MemoryGame.vue` clean-room prototypes
 were retired with the CS-PLAN-070 WP3 no-Coin arcade cutover.
 
 ## Sound assets

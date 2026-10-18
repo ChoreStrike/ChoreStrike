@@ -3,9 +3,9 @@
  * @license MIT
  *
  * E2E: arcade touch controls on the phone projects (CS-PLAN-086 §4): the DOM
- * games played by tapping (Spot Sprint, Sock Match), a canvas game steered
- * with the on-screen pad (Crumb Snake) and one whose squeegee follows a
- * finger on the board (Tile Breaker). Runs in `mobile-chromium`
+ * games played by tapping (Spot Sprint, Sock Match), the canvas games steered
+ * with the on-screen pad (Crumb Snake, Dust Runner) and one whose squeegee
+ * follows a finger on the board (Tile Breaker). Runs in `mobile-chromium`
  * (Pixel 7) and `mobile-webkit` (iPhone 14), which own the database
  * serially.
  *
@@ -16,6 +16,7 @@ import { test, expect } from './fixtures/database-fixtures'
 import type { DatabaseProfile } from './fixtures/database-fixtures'
 import type { Page } from '@playwright/test'
 import { setArcadeGate } from './fixtures/arcade-gate'
+import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer'
 
 /** Let real game time pass: the round runs on animation frames. */
 async function playFor(page: Page, ms: number): Promise<void> {
@@ -114,6 +115,27 @@ test.describe('Arcade touch controls (CS-PLAN-086)', () => {
 			await playFor(page, 700)
 		}
 
+		await expect(page.getByTestId('game-shell')).toHaveAttribute('data-phase', 'playing')
+	})
+
+	test('Dust Runner turns with the on-screen pad', async ({ page, browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		// The seeded member has not unlocked Dust Runner; the owner opens it.
+		await setArcadeGate(browser, false)
+		await openGame(page, 'dust')
+		// UX-019: at phone width the open game dialog covers Nextcloud's navigation toggle.
+		await expectDialogAboveNavigationToggle(page, page.getByTestId('modal'))
+
+		const pad = page.getByTestId('game-dpad')
+		await expect(pad).toBeVisible()
+		const score = page.getByTestId('game-score')
+		// The robot clears its start row by itself and stops at the wall; the
+		// pad turns it down along the next row of dust.
+		await expect(score).toHaveText('12', { timeout: 10000 })
+		await pad.getByRole('button', { name: 'Down' }).tap()
+
+		await expect(score).toHaveText(/^(1[3-9]|2\d)$/, { timeout: 5000 })
+		await expect(page.getByTestId('game-lives')).toHaveText('3')
 		await expect(page.getByTestId('game-shell')).toHaveAttribute('data-phase', 'playing')
 	})
 })

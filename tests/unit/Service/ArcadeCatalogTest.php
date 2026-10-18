@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ArcadeCatalogTest extends TestCase {
 	public function testIds_PinTheCatalog(): void {
-		$this->assertSame(['spots', 'socks', 'snake', 'tiles'], ArcadeCatalog::ids());
+		$this->assertSame(['spots', 'socks', 'snake', 'tiles', 'dust'], ArcadeCatalog::ids());
 	}
 
 	public function testEveryGame_HasCompletePositiveRules(): void {
@@ -44,13 +44,13 @@ class ArcadeCatalogTest extends TestCase {
 
 	/**
 	 * UnlockThresholds_PinD08606: finished chores per game (spots 0,
-	 * socks 3, snake 10, tiles 25, dust 50 as the games arrive). Every
-	 * threshold above 0 is at least 3, so the progress copy needs no
-	 * count-dependent plural (CS-PLAN-086 §3.2).
+	 * socks 3, snake 10, tiles 25, dust 50). Every threshold above 0 is at
+	 * least 3, so the progress copy needs no count-dependent plural
+	 * (CS-PLAN-086 §3.2).
 	 */
 	public function testUnlockThresholds_PinD08606(): void {
 		$thresholds = array_map(static fn (array $rules): int => $rules['unlockThreshold'], ArcadeCatalog::GAMES);
-		$this->assertSame(['spots' => 0, 'socks' => 3, 'snake' => 10, 'tiles' => 25], $thresholds);
+		$this->assertSame(['spots' => 0, 'socks' => 3, 'snake' => 10, 'tiles' => 25, 'dust' => 50], $thresholds);
 		foreach ($thresholds as $gameId => $threshold) {
 			$this->assertTrue($threshold === 0 || $threshold >= 3, $gameId);
 		}
@@ -61,6 +61,7 @@ class ArcadeCatalogTest extends TestCase {
 		$this->assertTrue(ArcadeCatalog::has('socks'));
 		$this->assertTrue(ArcadeCatalog::has('snake'));
 		$this->assertTrue(ArcadeCatalog::has('tiles'));
+		$this->assertTrue(ArcadeCatalog::has('dust'));
 		$this->assertFalse(ArcadeCatalog::has('2048'));
 		$this->assertFalse(ArcadeCatalog::has(''));
 	}
@@ -102,5 +103,13 @@ class ArcadeCatalogTest extends TestCase {
 		$this->assertTrue(ArcadeCatalog::isPlausible('tiles', 1500, 60000));
 		$this->assertFalse(ArcadeCatalog::isPlausible('tiles', 1501, 60000));
 		$this->assertTrue(ArcadeCatalog::isPlausible('tiles', 50000, 3600000));
+		// Dust Runner: 100 burst points + 10 per second, above the bound of
+		// about 30 + 9.9 per second that the dock and the robot's pace set;
+		// an hour reaches the 36000 ceiling.
+		$this->assertTrue(ArcadeCatalog::isPlausible('dust', 100, 1));
+		$this->assertFalse(ArcadeCatalog::isPlausible('dust', 101, 1));
+		$this->assertTrue(ArcadeCatalog::isPlausible('dust', 700, 60000));
+		$this->assertFalse(ArcadeCatalog::isPlausible('dust', 701, 60000));
+		$this->assertTrue(ArcadeCatalog::isPlausible('dust', 36000, 3600000));
 	}
 }

@@ -216,6 +216,7 @@
     "ranking-consent.spec.ts > Ranking Consent Lifecycle (WP4) > owner enables ranking; member joins pending and withdraws"
   ],
   "arcade-games.spec.ts": [
+    "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > Dust Runner saves a hands-off round to its own board and turns with the arrow keys",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > Sock Match saves a round of found pairs to its own board",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > Spot Sprint is open without chores and saves its round to its own board",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > Tile Breaker saves a hands-off round to its own board and steers with held keys",
@@ -407,6 +408,7 @@
   ],
   "arcade-mobile.spec.ts": [
     "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Crumb Snake steers with the on-screen pad",
+    "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Dust Runner turns with the on-screen pad",
     "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Sock Match plays by tapping a pair",
     "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Spot Sprint plays by tapping a stain",
     "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Tile Breaker steers by tapping the board"

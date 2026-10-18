@@ -220,3 +220,51 @@ None needed.
 ### Outcome
 
 `PASS-WITH-FIXES` (interim). R086E-01..03 were fixed and the gates above ran on the final code. Nothing was routed to the plan's §9 or the backlog. The plan stays `active/` for WP-F and WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.
+
+## Standard B (interim) — CS-PLAN-086 WP-F Dust Runner
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none (interim; plan stays `active/`)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md` (WP-F) |
+| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned, never pushed) @ `d7ee5b09cdf126a74e3deaea5c297f0887c7c393` at capture; integrated onto `master` `55532c7` during the review: `d6d49d2`..`6cf1832` (was `f2a2978`..`d7ee5b0`), the WP-F package reapplied on `6cf1832` |
+| Index at capture | empty |
+| Scope fingerprint at capture | `fd58666188ecb0dc232eeb91a465688c1c643116d34af84a38f4ce841fe54b94` (SHA-256 over the staged binary diff `e3b0c442…b855` (empty), the unstaged binary diff `28e46938…ff4e` and the sorted untracked paths with content hashes `b3e3c79c…d991`); 21 modified tracked paths, 9 untracked paths. After the integration the reapplied diff is byte-identical outside `ACTIVE_TASKS.md` and `backlog.md` (patch hash `6eddfcd2…` before and after), the untracked files identical |
+| Reviewed | `lib/Service/ArcadeCatalog.php`; `src/` (Dust Runner `rooms.js`, `logic.js`, `bunnies.js`, `render.js`, `game.js`, `index.js`; `gameRegistry.js`); every touched PHPUnit/Jest/Playwright test, the gate script and manifest; l10n; API, concept, use-case, third-party and testing docs; the public README, user guide and product vision after the integration; plan, backlog and ACTIVE_TASKS |
+| Test target | the isolated staged row `cs082-arcade-wpc` (NC 35.0.2, PHP 8.4.26, PostgreSQL 18.6, port 8186), not the shared canonical stack (TECH-TEST-008) |
+
+### Findings
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| R086F-01 | nit | `README.md`, `docs/user-guide.md`, `docs/concepts/product-vision.md` | After integrating `master` (CS-PLAN-087's public docs), the README said "Snake scores only" and listed "additional arcade games" as not implemented, the product vision said Snake, and the user guide named neither the games nor the chore unlocks or the owner switch | Fixed — the three pages name the five games, the unlocks by finished chores and the owner switch (`docsDrift.spec.js` green) |
+| R086F-02 | nit | `docs/backlog/backlog.md` UX-019 (out of scope, found by the integration) | UX-019 (Nextcloud's navigation toggle above open dialogs on phones) has the root cause CS-PLAN-087 RF-087-09 fixed by teleporting `Modal.vue`'s overlay to `<body>` | Fixed — verified at 390 px (the topmost element under the toggle is the game dialog's overlay), pinned with the RF-087-09 `dialog-layer` check in the Dust Runner test of `arcade-mobile.spec.ts` on both phones, item archived (`archive/2026-10.md`) |
+
+### Verified non-findings
+
+- Game rules: three 15 × 15 floor plans, walled, every floor cell reachable, no dead ends, nests with an exit (`dustRooms.spec.js`); the opening clears the start row and stops at the wall before any random call; a waiting direction applies when its way opens, a newer one replaces it, a reverse applies at once; bunnies leave their nests one by one, roam the floor only and never turn back; a chasing bunny comes one cell closer per move and costs a life; a charge makes roaming bunnies catchable at half speed and drifting away, a caught bunny waits in its nest until the charge ends; the dock recharges; a clean floor leads into the next room and the living room repeats with capped speed — each pinned in `dustLogic.spec.js`. Six rule mutations each turn the spec red (negative controls).
+- Without input a round ends at exactly 12 points for every random source tried (Jest; 2000 simulated rounds: median 23 s, at most about a minute), which `arcade-games.spec.ts` relies on.
+- Score integrity: at most one dust point per robot move (150 ms) and ten points per bunny, at most three per charge, a charge needing the dock (20 s recharge, ready again per room of at least 119 dust patches) — a bound of about 30 + 9.9 points per second; the server allows 100 + 10 per second and a 36000 ceiling that one hour reaches (`ArcadeCatalogTest`); an autopilot that docks and catches at every chance stays inside at every step for three seeds (about 19000 in an hour by simulation).
+- Rendering: dust as scattered specks in one path per patch, solid furniture, bunny ears upright or drooping, the dock bolt filled or outlined, the charge ring — nothing by color alone; no per-frame allocation. Visual check in light and dark at desktop and 390 px (board 319 px with the on-screen pad, no horizontal overflow); the first draft's bronze three-blob dust read as collectibles and was replaced before the review.
+- No authorization, persistence or schema change; no Coin, wallet or ranking surface; `game-dust` is 2973 bytes gzip and the room data appears only in that chunk; the shell needed no change.
+- Integration: master's `ACTIVE_TASKS.md` and `backlog.md` changes (CS-PLAN-087 closure, BUG-SEC-001 update, archived items) kept, the branch's own entries on top; no master content lost (diff against `master` adds only).
+- One run of the unchanged "a crafted score for a locked game is refused" test failed in the first serial run; the truncated console output kept no error text, and it passed in three later runs (two complete spec runs, one focused). Folded into TECH-TRANSPORT-001 as unattributed evidence.
+
+### Decisions recorded
+
+- None needed: the rules and numbers are implementation choices within the plan; WP-G tunes the rates from real play.
+
+### Gates (after all fixes)
+
+- Jest 150 suites / 2070 tests through the zero-noise gate (`npm run test:noise`), and again after the documentation fixes.
+- PHPUnit on the staged row: unit 1457, integration 623 (`--fail-on-skipped`, after a `minimal` reseed of the row), `composer cs:check` (0 of 423 files); no PHP changed afterwards.
+- `npm run lint`, `npm run stylelint`, `npm run l10n:check-keys` (1327 keys), `npm run backlog:check`, `npm run docs:encoding`, `npm run agents:check`, `git diff --check`, `npm run build`, `node scripts/run-e2e-gate.js --self-test`; scenario manifest regenerated with `--write-manifest`.
+- Browser on the staged row (`NEXTCLOUD_URL=http://127.0.0.1:8186`, `NEXTCLOUD_CONTAINER=cs082-arcade-wpc-nextcloud-pgsql-1`), on the final code: `arcade-games.spec.ts` 8/8 (serial pool), `arcade-mobile.spec.ts` 5/5 in `mobile-chromium` and in `mobile-webkit`, `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (chromium), auth setup 3/3 per run.
+- Not run, with reason: the full browser gate and the AIO row (WP-G); the MySQL/SQLite provider matrix (WP-G).
+
+### Outcome
+
+`PASS-WITH-FIXES` (interim). R086F-01 and R086F-02 were fixed and the gates above ran on the final code. Nothing was routed to the plan's §9; the unattributed flake went to TECH-TRANSPORT-001. The plan stays `active/` for WP-G.

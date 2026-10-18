@@ -73,7 +73,9 @@ setup, everyday use and planning.
 - **Family rewards** - an optional owner-managed catalog, child requests with
   approval, adult requests, reserved balances, fulfillment and cancellation.
   Existing requests remain accessible when catalog browsing is hidden.
-- **Optional arcade** - Snake scores only, with no Coins, boosts or planning advantage.
+- **Optional arcade** - five household games with per-game highscores that
+  finished chores open one by one (owners can open all); scores only, with no
+  Coins, boosts or planning advantage.
 - **Insights** — activity feed, member fairness table, and overcapacity
   warnings before a plan is applied.
 - **Quiet defaults** - reminders, sound and celebrations are off by default.
@@ -81,8 +83,8 @@ setup, everyday use and planning.
   reduced-motion settings override animations.
 - **Two languages** — English and German, fully translated.
 
-Not implemented: general chore-approval workflows, external-task/CalDAV sync,
-standalone mobile apps or additional arcade games. The
+Not implemented: general chore-approval workflows, external-task/CalDAV sync
+or standalone mobile apps. The
 [product vision](docs/concepts/product-vision.md) distinguishes the family-first
 target from today's implementation. The app is free and MIT-licensed; running
 a Nextcloud instance may still have hosting costs.

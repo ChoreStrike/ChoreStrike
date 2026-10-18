@@ -135,6 +135,16 @@ class ArcadeAccessServiceTest extends TestCase {
 	}
 
 	/**
+	 * GetCatalog_DustRunner_OpensWithTheFiftiethFinishedChore (D-086-06)
+	 */
+	public function testGetCatalog_DustRunner_OpensWithTheFiftiethFinishedChore(): void {
+		$this->finishedChores(49, 50);
+
+		$this->assertSame(['gameId' => 'dust', 'threshold' => 50, 'unlocked' => false], self::gamesById($this->service->getCatalog($this->member()))['dust']);
+		$this->assertTrue(self::gamesById($this->service->getCatalog($this->member()))['dust']['unlocked']);
+	}
+
+	/**
 	 * GetCatalog_ThresholdZero_OpenWithoutChores: Spot Sprint is the
 	 * always-open entry game, so a new member can play right away.
 	 */

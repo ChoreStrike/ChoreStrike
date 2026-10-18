@@ -1,6 +1,6 @@
 # CS-PLAN-086: Household Arcade — Game Catalog, Chore Unlocks and Per-Game Highscores
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); WP-E delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086E-01..03 fixed); next: WP-F
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); WP-E delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086E-01..03 fixed); WP-F delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086F-01/02 fixed); next: WP-G
 > **Effort:** XL (seven work packages; no schema change)
 > **Priority:** P3 (optional add-on, never on the core critical path)
 > **Depends on:** work proceeds on branch `feat/arcade-minigames`; merge to
@@ -342,7 +342,7 @@ new:      src/components/Minigames/ArcadeCatalog.vue          (WP-E review: R086
 new:      src/components/Minigames/ArcadeGateSetting.vue      (WP-B: the owner switch)
 new:      src/components/Minigames/GameLeaderboard.vue
 new:      src/components/Minigames/gameRegistry.js
-new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js or a DOM Board.vue; Tile Breaker splits its rules into constants.js, logic.js and physics.js, R086E-03)
+new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js or a DOM Board.vue; Tile Breaker splits its rules into constants.js, logic.js and physics.js, R086E-03; Dust Runner into rooms.js, logic.js and bunnies.js)
 modified: src/store/minigame.js
 modified: src/store/house.js                                  (WP-B: arcadeGateEnabled getter + writer)
 modified: src/views/ArcadeView.vue
@@ -384,6 +384,8 @@ modified: docs/concepts/calm-core-ux.md                       (§Optional areas:
 modified: docs/api/README.md                                  (§Minigames: catalog, durationMs, codes)
 modified: docs/engineering/architecture.md, docs/concepts/ui-use-cases.md, docs/THIRD_PARTY.md   (WP-A: component map, UC-12, game implementations)
 modified: docs/engineering/testing.md                         (WP-C/WP-D: phone core set with arcade-mobile.spec.ts)
+modified: README.md, docs/user-guide.md, docs/concepts/product-vision.md   (WP-F review: R086F-01, the arcade beyond Snake)
+modified: docs/backlog/archive/2026-10.md                     (WP-F review: R086F-02, UX-019 archived)
 ```
 
 ## 6. Implementation Order
@@ -538,6 +540,43 @@ Each WP is one reviewable round with an interim Standard B on
    real completions.
 6. **WP-F — Dust Runner** (FEAT-ARCADE-003). Room-shaped mazes and chaser
    behavior.
+   *Implemented 2026-10-18.* Implementation choices within the plan: three
+   15 × 15 floor plans of household rooms instead of corridor mazes —
+   hallway (staircase, wardrobe, bench, shoe rack), kitchen (counters,
+   island, table and chairs, stove) and living room (sofa, coffee table,
+   shelves, TV corner) — with every floor cell reachable and no dead end
+   (pinned in Jest); after the living room it repeats. The robot moves one
+   cell per 150 ms in every room and keeps its way until furniture stops it;
+   a direction waits until that way is open (a reverse applies at once);
+   1 point per dust patch. Two dust bunnies in the hallway, three in the
+   other rooms, nest under furniture that only they can enter and leave one
+   after another (after 1.5 s, then every 2.5 s, again after a lost life);
+   they move one cell per 300 ms, 20 ms faster per room down to 180 ms,
+   never turn back unless boxed in, and drift toward the robot along the
+   floor distance with a chance of 0.5 (+0.1 per room, at most 0.8),
+   otherwise they take a random open way. A stop at the ready charging dock
+   makes every bunny out of its nest catchable for six seconds (drooping
+   ears, half speed, drifting away; 10 points each; a caught bunny waits in
+   its nest until the charge has run out); the dock recharges for 20 s and
+   is ready again in each new room. Three lives in the shell header; a lost
+   life puts the robot on its start and every bunny into its nest, collected
+   dust stays clean. Without input the robot clears its start row and stops
+   at the wall, so a round scores exactly 12 whatever the bunnies do (median
+   23 s, at most about a minute over 2000 simulated rounds). Dust is silent:
+   only a charge and a catch are pickups, so sound and vibration stay rare.
+   Dust is drawn as scattered grey specks on the tiled floor, so a cleaned
+   path shows bare tiles and nothing reads as a collectible; furniture is
+   solid, a bunny has ears (drooping while catchable), the dock's bolt is
+   filled only while ready and a charged robot wears a ring.
+   The rules are split into `rooms.js` (floor plans, distances), `logic.js`
+   (the round) and `bunnies.js` (bunny movement). Server rules: `maxScore`
+   36000, `maxDurationMs` one hour, 10 points per second + 100 burst — the
+   robot's pace and the dock bound a round at about 30 + 9.9 points per
+   second, and a Jest autopilot that docks and catches at every chance stays
+   inside at every step (about 19000 in an hour); unlock threshold 50.
+   Tests: `arcade-games.spec.ts` saves a hands-off round (12) to the dust
+   board and turns the robot with Down in a second round;
+   `arcade-mobile.spec.ts` turns it with the on-screen pad on both phones.
 7. **WP-G — Knowledge integration and final gate.** Concept, calm-core and API
    sections updated, ADR-019 final, plausibility rates tuned from real play,
    full browser gate on both runtime rows, final review. Merge to `master`
@@ -644,7 +683,8 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   The 084 final review is done (`bce10bb`); the branch was rebased onto
   `master` `0d27d38` on 2026-10-17 and the worktree pinned to it, and onto
   `master` `ca7f98e` (CS-PLAN-087) on 2026-10-18 before the WP-E review
-  commit.
+  commit, and onto `master` `55532c7` the same day before the WP-F review
+  commit (`d7ee5b0` → `6cf1832`).
 - **D-086-08 — Canonical test volumes reset** (operator, 2026-10-17, WP-A).
   The kept canonical volumes had the app installed as `0.1.1`; after the
   `0.8.0-alpha.1` bump the test entrypoint aborted on "require upgrade". The
@@ -809,4 +849,28 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1456 and integration 623 on the staged row; `cs:check`.
   - lint, stylelint, l10n (1324 keys), backlog, encoding, agents and build checks; gate self-test and scenario manifest.
   - Browser: `arcade-games.spec.ts` 7/7, `arcade-mobile.spec.ts` 4/4 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2, all on the final code.
+  - Not run: the full gate, the AIO row and the provider matrix (WP-G).
+
+### Standard B (interim, WP-F) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
+
+- **Scope:** the uncommitted WP-F package, captured on `feat/arcade-minigames`
+  @ `d7ee5b0` (fingerprint `fd586661…4b94`: empty index, 21 modified and
+  9 untracked paths), then integrated onto `master` `55532c7` (base
+  `6cf1832`; the reapplied diff is byte-identical outside `ACTIVE_TASKS.md`
+  and `backlog.md`), tested on the isolated staged row `cs082-arcade-wpc`.
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-18.md).
+- **Fixed (2):**
+  - R086F-01 (nit): after integrating `master`'s public docs, the README ("Snake scores only", "additional arcade games" not implemented), the product vision and the user guide still described a Snake-only arcade; they now name the five games, the chore unlocks and the owner switch.
+  - R086F-02 (nit): UX-019 (navigation toggle above open dialogs on phones) had the root cause that CS-PLAN-087 RF-087-09 fixed; verified at 390 px, pinned with the RF-087-09 dialog-layer check in `arcade-mobile.spec.ts` on both phones and archived.
+- **Routed:** one unattributed failure of the unchanged "a crafted score for a locked game is refused" test in the first serial run (error text not captured, green in three later runs) — evidence folded into TECH-TRANSPORT-001.
+- **Verified:**
+  - Every Dust Runner rule is pinned in Jest; six rule mutations (bunnies turning back, waiting during a charge, full-speed catchable bunnies, dock recharge, double dust, fleeing) each turn the spec red.
+  - Without input a round scores exactly 12 for every random source; the opening uses no randomness; rooms are connected without dead ends.
+  - Score integrity: the robot's pace and the dock bound a round at about 30 + 9.9 points per second; an autopilot stays inside 100 + 10 per second at every step.
+  - Visual check in light and dark at desktop and phone width (dust as specks, drooping ears, the dock bolt, the charge ring); no per-frame allocation in `render.js`; no authorization or schema change; `game-dust` is 2.9 KB gzip and the room data stays in its chunk.
+- **Gates:**
+  - Jest 150/2070, noise-free.
+  - PHPUnit unit 1457 and integration 623 on the staged row; `cs:check`.
+  - lint, stylelint, l10n (1327 keys), backlog, encoding, agents and build checks; gate self-test and scenario manifest.
+  - Browser on the final code: `arcade-games.spec.ts` 8/8, `arcade-mobile.spec.ts` 5/5 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2.
   - Not run: the full gate, the AIO row and the provider matrix (WP-G).
