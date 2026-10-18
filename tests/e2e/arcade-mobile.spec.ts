@@ -2,10 +2,11 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  *
- * E2E: arcade touch controls on the phone projects (CS-PLAN-086 §4): one DOM
- * game played by tapping (Spot Sprint) and one canvas game steered with the
- * on-screen pad (Crumb Snake). Runs in `mobile-chromium` (Pixel 7) and
- * `mobile-webkit` (iPhone 14), which own the database serially.
+ * E2E: arcade touch controls on the phone projects (CS-PLAN-086 §4): the DOM
+ * games played by tapping (Spot Sprint, Sock Match) and one canvas game
+ * steered with the on-screen pad (Crumb Snake). Runs in `mobile-chromium`
+ * (Pixel 7) and `mobile-webkit` (iPhone 14), which own the database
+ * serially.
  *
  * Requires: Docker test environment with the `family` database profile.
  */
@@ -46,6 +47,26 @@ test.describe('Arcade touch controls (CS-PLAN-086)', () => {
 		await stain.tap()
 
 		await expect(page.getByTestId('game-score')).toHaveText('10')
+		await expect(page.getByTestId('game-shell')).toHaveAttribute('data-phase', 'playing')
+	})
+
+	test('Sock Match plays by tapping a pair', async ({ page, browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		// The seeded member has not unlocked Sock Match; the owner opens it.
+		await setArcadeGate(browser, false)
+		await openGame(page, 'socks')
+
+		await expect(page.getByTestId('game-dpad')).toHaveCount(0)
+		// The opening pair: the first sock and its right neighbour.
+		const first = page.locator('[data-cell="0"]')
+		const box = await first.boundingBox()
+		expect(box?.width ?? 0, 'socks are comfortable touch targets').toBeGreaterThanOrEqual(44)
+		await first.tap()
+		await expect(first).toHaveAttribute('data-face', 'up')
+		await page.locator('[data-cell="1"]').tap()
+
+		await expect(first).toHaveAttribute('data-face', 'matched')
+		await expect(page.getByTestId('game-score')).toHaveText('100')
 		await expect(page.getByTestId('game-shell')).toHaveAttribute('data-phase', 'playing')
 	})
 

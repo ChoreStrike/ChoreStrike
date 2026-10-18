@@ -16,7 +16,7 @@ const DIRECTION_KEYS = Object.freeze({
 
 const TOGGLE_KEYS = new Set(['Space', 'KeyP'])
 
-/** Keys that act on the current target (Spot Sprint: wipe the cursor tile). */
+/** Keys that act on the current target (Spot Sprint wipes the cursor tile, Sock Match turns its sock). */
 const ACT_KEYS = new Set(['Enter', 'NumpadEnter'])
 
 /** Shortest finger travel in CSS pixels that counts as a swipe. */

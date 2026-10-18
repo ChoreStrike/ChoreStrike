@@ -133,7 +133,7 @@ const SELF_AVAILABILITY_MEMBER_SPECS = [
 // other, never next to another reset-owning pool.
 const MOBILE_CORE_SPECS = [
 	/[/\\]mobile-core\.spec\.ts$/,
-	// CS-PLAN-086: arcade touch controls (one DOM and one canvas game).
+	// CS-PLAN-086: arcade touch controls (the DOM games and one canvas game).
 	/[/\\]arcade-mobile\.spec\.ts$/,
 ]
 

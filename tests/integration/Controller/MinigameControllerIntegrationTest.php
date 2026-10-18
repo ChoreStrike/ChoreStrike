@@ -201,6 +201,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		self::assertSame(
 			[
 				['gameId' => 'spots', 'threshold' => 0, 'unlocked' => true],
+				['gameId' => 'socks', 'threshold' => 3, 'unlocked' => false],
 				['gameId' => 'snake', 'threshold' => 10, 'unlocked' => false],
 			],
 			$catalog['games']
@@ -259,7 +260,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		self::assertSame('0', $this->appConfig()->getValueString('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED, '1'));
 
 		$games = $this->controller('mg_teener')->catalog()->getData()['data']['games'];
-		self::assertSame([true, true], array_column($games, 'unlocked'));
+		self::assertSame(array_fill_keys(ArcadeCatalog::ids(), true), array_column($games, 'unlocked', 'gameId'));
 		self::assertSame(200, $this->controller('mg_teener')->saveScore('snake', 100, self::ROUND_MS)->getStatus());
 	}
 

@@ -4,8 +4,8 @@
  *
  * E2E: the household arcade catalog and its chore unlocks (CS-PLAN-086).
  * A locked game shows neutral progress and keeps its leaderboard, a
- * crafted score for it is refused, a real completion counts toward the
- * unlock, and the owner switch opens every game. Each game plays a round
+ * crafted score for it is refused, three real completions unlock Sock
+ * Match, and the owner switch opens every game. Each game plays a round
  * through its deterministic opening; its score lands only on its own board
  * (Crumb Snake's rounds live in snake-game.spec.ts).
  *
@@ -21,6 +21,7 @@ import type { DatabaseProfile, SeededData } from './fixtures/database-fixtures'
 import type { Browser, Page } from '@playwright/test'
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeAsSoleParticipantViaApi } from './fixtures/completion-api'
+import { setArcadeGate } from './fixtures/arcade-gate'
 
 /**
  * Run a step as the admin member in its own context (primed CSRF token
@@ -41,19 +42,86 @@ async function openArcade(page: Page): Promise<void> {
 }
 
 /**
- * Finish one seeded chore as the admin member. Not every seeded task has a
- * completable occurrence at every wall-clock moment, so walk the active
- * ones with an explicit solo split (the completer takes part, Q-074-02).
+ * Finish `count` seeded chores as the admin member. Not every seeded task
+ * has a completable occurrence at every wall-clock moment, so walk the
+ * active ones with an explicit solo split (the completer takes part,
+ * Q-074-02), each room task at most once.
  */
-async function finishOneChore(page: Page, seeded: SeededData | null): Promise<void> {
+async function finishChores(page: Page, seeded: SeededData | null, count: number): Promise<void> {
 	const roomTasks = (seeded?.data.roomTasks ?? []) as Array<{ id: number; isActive?: boolean }>
+	let finished = 0
 	for (const roomTask of roomTasks.filter((row) => row.isActive !== false)) {
 		const response = await completeAsSoleParticipantViaApi(page, roomTask.id, 'admin').catch(() => null)
-		if (response?.ok()) {
+		if (response?.ok() && ++finished === count) {
 			return
 		}
 	}
-	throw new Error('no seeded room task could be finished by admin')
+	throw new Error(`only ${finished} of ${count} seeded room tasks could be finished by admin`)
+}
+
+async function startGame(page: Page, gameId: string): Promise<void> {
+	await page.getByTestId(`arcade-play-${gameId}`).click()
+	const shell = page.getByTestId('game-shell')
+	await expect(shell).toHaveAttribute('data-phase', 'ready', { timeout: 15000 })
+	await page.getByTestId('game-start').click()
+	await expect(shell).toBeFocused()
+}
+
+/**
+ * Play a whole Sock Match round by tapping, like a player with a perfect
+ * memory: the board shows a pattern only on a turned sock, so the spec
+ * remembers what it saw and turns a pair as soon as it knows one. Every
+ * tapped sock is down at that moment, so its new face proves the turn.
+ */
+async function playSockMatch(page: Page): Promise<void> {
+	const sock = (cell: number) => page.locator(`[data-cell="${cell}"]`)
+	const turn = async (cell: number): Promise<string> => {
+		await sock(cell).click()
+		await expect(sock(cell)).toHaveAttribute('data-face', /^(up|miss|matched)$/)
+		return (await sock(cell).getAttribute('data-pattern')) ?? ''
+	}
+	const seen = new Map<number, string>()
+	const found = new Set<number>()
+	const take = (...cells: number[]): void => {
+		for (const cell of cells) {
+			seen.delete(cell)
+			found.add(cell)
+		}
+	}
+	const unknown = (): number => {
+		const cell = [...Array(16).keys()].find((index) => !found.has(index) && !seen.has(index))
+		if (cell === undefined) throw new Error('no unknown sock left')
+		return cell
+	}
+	const partnerOf = (cell: number, pattern: string): number | undefined => [...seen]
+		.find(([other, seenPattern]) => other !== cell && seenPattern === pattern)?.[0]
+
+	while (found.size < 16) {
+		const known = [...seen].find(([cell, pattern]) => partnerOf(cell, pattern) !== undefined)
+		if (known) {
+			const partner = partnerOf(known[0], known[1]) as number
+			await turn(known[0])
+			await turn(partner)
+			take(known[0], partner)
+			continue
+		}
+		const first = unknown()
+		const pattern = await turn(first)
+		const partner = partnerOf(first, pattern)
+		if (partner !== undefined) {
+			await turn(partner)
+			take(first, partner)
+			continue
+		}
+		seen.set(first, pattern)
+		const second = unknown()
+		const secondPattern = await turn(second)
+		if (secondPattern === pattern) {
+			take(first, second)
+		} else {
+			seen.set(second, secondPattern)
+		}
+	}
 }
 
 test.describe('Household arcade (CS-PLAN-086)', () => {
@@ -88,13 +156,61 @@ test.describe('Household arcade (CS-PLAN-086)', () => {
 		})
 	})
 
-	test('a finished chore counts toward the unlock', async ({ browser, seededData }) => {
+	test('three finished chores unlock Sock Match, which opens with a known pair', async ({ browser, seededData }) => {
 		await asAdmin(browser, async (page) => {
-			await finishOneChore(page, seededData)
-
 			await openArcade(page)
+			await expect(page.getByTestId('arcade-card-socks')).toHaveAttribute('data-unlocked', 'false')
+			await expect(page.getByTestId('arcade-progress-socks')).toHaveText('Unlocks at 3 finished chores · 3 to go')
 
-			await expect(page.getByTestId('arcade-progress-snake')).toHaveText('Unlocks at 10 finished chores · 9 to go')
+			await finishChores(page, seededData, 3)
+			// Same URL: only a reload reads the catalog again.
+			await page.reload()
+			await expect(page.getByTestId('arcade-surface')).toBeVisible({ timeout: 30000 })
+
+			await expect(page.getByTestId('arcade-card-socks')).toHaveAttribute('data-unlocked', 'true')
+			await expect(page.getByTestId('arcade-progress-socks')).toHaveCount(0)
+			await expect(page.getByTestId('arcade-progress-snake')).toHaveText('Unlocks at 10 finished chores · 7 to go')
+
+			await startGame(page, 'socks')
+			// The cursor's sock and its right neighbour are a pair.
+			await page.keyboard.press('Enter')
+			await page.keyboard.press('ArrowRight')
+			await page.keyboard.press('Enter')
+			await expect(page.getByTestId('game-score')).toHaveText('100')
+			await expect(page.getByTestId('game-time')).toHaveCount(0)
+		})
+	})
+
+	test('Sock Match saves a round of found pairs to its own board', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		// The full round is the subject here; the unlock is proven above.
+		await setArcadeGate(browser, false)
+		await asAdmin(browser, async (page) => {
+			await openArcade(page)
+			await startGame(page, 'socks')
+			const saved = page.waitForResponse((response) => response.url().includes('/api/v1/minigames/socks/scores')
+				&& response.request().method() === 'POST', { timeout: 60000 })
+
+			await playSockMatch(page)
+
+			await expect(page.getByTestId('game-shell')).toHaveAttribute('data-phase', 'over')
+			await expect(page.getByTestId('game-over-title')).toHaveText('All pairs found!')
+			const response = await saved
+			expect(response.status()).toBe(200)
+			const body = response.request().postDataJSON() as { score: number, durationMs: number }
+			// Every pair scores at least 20; with perfect memory the round
+			// stays well above that floor and never exceeds the ceiling.
+			expect(body.score).toBeGreaterThanOrEqual(160)
+			expect(body.score).toBeLessThanOrEqual(800)
+			expect(body.durationMs).toBeGreaterThan(0)
+			await expect(page.getByTestId('game-final-score')).toHaveText(`Score: ${body.score}`)
+
+			await page.getByTestId('game-open-leaderboard').click()
+			const board = page.getByTestId('game-leaderboard')
+			await expect(board).toHaveAttribute('data-game-id', 'socks')
+			await expect(board.getByTestId('game-leaderboard-entry').first()).toBeVisible({ timeout: 10000 })
+			const spotsBest = await page.request.get('/apps/chorestrike/api/v1/minigames/spots/personal-best')
+			expect((await spotsBest.json()).data, 'the round never reaches another game').toBeNull()
 		})
 	})
 
@@ -106,12 +222,9 @@ test.describe('Household arcade (CS-PLAN-086)', () => {
 			await expect(page.getByTestId('arcade-card-spots')).toHaveAttribute('data-unlocked', 'true')
 			await expect(page.getByTestId('arcade-progress-spots')).toHaveCount(0)
 
-			await page.getByTestId('arcade-play-spots').click()
+			await startGame(page, 'spots')
 			const shell = page.getByTestId('game-shell')
-			await expect(shell).toHaveAttribute('data-phase', 'ready', { timeout: 15000 })
-			await page.getByTestId('game-start').click()
 			// The opening stain lies under the cursor: Enter wipes it.
-			await expect(shell).toBeFocused()
 			await page.keyboard.press('Enter')
 			await expect(page.getByTestId('game-score')).toHaveText('10')
 

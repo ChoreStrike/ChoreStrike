@@ -18,7 +18,7 @@ const read = (path) => readFileSync(resolve(MINIGAMES, path), 'utf8')
  */
 describe('game registry', () => {
 	it('pins the game ids', () => {
-		expect(GAME_IDS).toEqual(['spots', 'snake'])
+		expect(GAME_IDS).toEqual(['spots', 'socks', 'snake'])
 	})
 
 	it('describes every game with translated copy, an icon and an input mode', () => {
@@ -30,6 +30,16 @@ describe('game registry', () => {
 			expect(game.icon).toBeTruthy()
 			expect(['dpad', 'tap']).toContain(game.input)
 			expect([undefined, 'dom']).toContain(game.renderer)
+		}
+	})
+
+	it('lets a game name its end with an optional title and announcement', () => {
+		const socks = findGame('socks')
+		expect(socks.overTitle()).toBe('All pairs found!')
+		expect(socks.overAnnouncement(640)).toBe('All pairs found. Score: 640')
+		// Both or neither, so the overlay and the live region never disagree.
+		for (const game of GAMES) {
+			expect(typeof game.overTitle === 'function').toBe(typeof game.overAnnouncement === 'function')
 		}
 	})
 

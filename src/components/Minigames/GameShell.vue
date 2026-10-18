@@ -101,7 +101,8 @@ import GameLeaderboard from './GameLeaderboard.vue'
  * The game itself is a lazy module: `{cols, rows, createState, step}` plus
  * `render` for a canvas game, or `view` and a `Board` component for a DOM
  * game (registry `renderer: 'dom'`, tap input; the board re-renders only
- * when `state.revision` changes). A game with `roundMs` shows its time left.
+ * when `state.revision` changes). A game with `roundMs` shows its time left;
+ * an entry may name its end (`overTitle`, `overAnnouncement`).
  */
 const props = defineProps({
 	gameId: {
@@ -281,7 +282,9 @@ async function finishRound() {
 	const finished = round
 	const finalScore = state.score
 	phase.value = 'over'
-	announce(t('chorestrike', 'Game over. Score: {score}', { score: finalScore }))
+	announce(entry.overAnnouncement
+		? entry.overAnnouncement(finalScore)
+		: t('chorestrike', 'Game over. Score: {score}', { score: finalScore }))
 	draw()
 	focusOverlay()
 	const roundResult = await store.finishGame(props.gameId, finalScore, loop.elapsedMs())

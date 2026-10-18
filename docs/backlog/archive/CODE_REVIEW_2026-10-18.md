@@ -120,3 +120,54 @@ None needed.
 ### Outcome
 
 `PASS-WITH-FIXES` (interim). R086C-01 was fixed; the gates above ran on the final code. Nothing was routed to the plan's §9; UX-019 is out of scope and in `backlog.md`. The plan stays `active/` for WP-D..WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.
+
+## Standard B (interim) — CS-PLAN-086 WP-D Sock Match and the browser unlock proof
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none (interim; plan stays `active/`)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md` (WP-D) |
+| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned, 0 behind `master`) @ `e5a584af6f8fd77ab04aced909612eb087dc7641` |
+| Index at capture | empty |
+| Scope fingerprint at capture | `e5d67a7569706828342b753a6079ccd3aea164913c69d0d30a30bd3a2218a714` (SHA-256 over the staged binary diff `e3b0c442…b855` (empty), the unstaged binary diff `2b5366ac…f416` and the sorted untracked paths with content hashes `eb1e2e61…72f9`); 28 modified tracked paths, 6 untracked paths |
+| Reviewed | `lib/Service/ArcadeCatalog.php`; `src/` (Sock Match `logic.js`, `Board.vue`, `game.js`, `index.js`; `GameShell.vue`, `GameShellOverlay.vue`, `gameInput.js`, `gameRegistry.js`); every touched PHPUnit/Jest/Playwright test, the gate script, manifest and Playwright config; l10n; API, concept, use-case, architecture, testing and third-party docs; plan, backlog and ACTIVE_TASKS |
+| Test target | the isolated staged row `cs082-arcade-wpc` (NC 35.0.2, PHP 8.4.26, PostgreSQL 18.6, port 8186), not the shared canonical stack (TECH-TEST-008) |
+
+### Findings
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| R086D-01 | nit | `docs/api/README.md`, `docs/THIRD_PARTY.md`, `scripts/run-e2e-gate.js`, plan §5 | The per-game rule sentence nested its Sock Match rationale inside the list; the phone-gate comment still said "a DOM and a canvas game"; a broken line wrap; `docs/engineering/testing.md` (changed since WP-C) was missing from the file manifest | Fixed |
+| R086D-02 | minor | `lib/Service/ArcadeCatalog.php` (`socks.maxDurationMs`) | An untimed round left running past one hour of unpaused play (a focused but idle window) was rejected with `400` and the player saw "Your score could not be saved." in a game without a fail state; the bound protects nothing because the ceiling binds | Fixed — 24 hours (operator, recommended option); `ArcadeCatalogTest` pins the bound, `ArcadeUnlockTest` saves a two-hour round; the negative control fails with the old bound ("Play time must be between 1 and 3600000 milliseconds") |
+| R086D-03 | note | Sock Match board | Like Spot Sprint's board it is decorative for assistive technology (the live region carries score and state), so screen-reader users cannot play it; the plan's accessibility bar is no timer, no fail state and keyboard play | Accepted (operator, recommended option); recorded in the plan's WP-D note |
+
+### Verified non-findings
+
+- Game rules: every pattern twice; the opening pair at cells 0/1 for every seed; a wrong guess stays visible until the next turn, which turns it back first, and cursor moves never hide it; turning an up or matched sock and out-of-range taps change nothing; a pair scores 100 − 5 per wrong guess so far, at least 20; game time without input changes nothing; the round ends when every pair is found and ignores later input — each pinned in `socksLogic.spec.js`. A turned-down sock carries no pattern in the view or the DOM (`socksBoard.spec.js`).
+- Score integrity: a perfect player scores exactly the 800 ceiling over five seeds, a careless one keeps at least 160; with the burst equal to the ceiling the rate never binds, by design for a game that never rewards speed (catalog comment, API docs, plan). A crafted score cannot exceed what a perfect round earns.
+- Unlock: threshold 3 holds server-side in `assertUnlocked` under the house lock (`ArcadeUnlockTest`: locked after two real completions, open after the third, Crumb Snake still locked); the browser test unlocks it with three real completions and the progress line counts from "3 to go" to the open card while Crumb Snake shows "7 to go". The removed one-completion test is covered by these steps.
+- Shell: `overTitle`/`overAnnouncement` are optional and paired (registry spec); the overlay falls back to "Game Over!" (asserted in the save-failure test) and composes no translated fragments; an untimed DOM game shows no clock; the canvas and timed DOM paths are unchanged (`snake-game.spec.ts` 12/12, Spot Sprint tests).
+- Browser strategy: the perfect-memory round only taps socks that are down at that moment (a shown wrong guess can only pair with an older seen sock, which is turned first and hides it), so every wait proves a processed turn.
+- Accessibility: eight distinct emblem shapes (pinned), the cursor outline, a dashed border for a wrong guess and a check mark for a found pair carry meaning without color; cards are at least 44 px on both phone projects; turn and pair animations follow the motion opt-in and reduced motion.
+- No authorization, persistence or schema change; `game-socks` is 4251 bytes gzip (budget 40 KB), its logic only in that chunk (the `main` bundle carries only the l10n catalog entry, as for Spot Sprint).
+- The cursor movement repeats Spot Sprint's eight lines: the second use, below the rule of three. `scripts/run-e2e-gate.js` sits outside the ESLint gate (CLI output by design); its results are identical on HEAD.
+
+### Decisions recorded
+
+- R086D-02: Sock Match's `maxDurationMs` raised from one hour to 24 hours (operator, recommended option over keeping one hour or an idle auto-pause backlog item).
+- R086D-03: the decorative board is accepted for this plan (operator, recommended option over a backlog follow-up or announcements in WP-D).
+
+### Gates (after all fixes)
+
+- Jest 141 suites / 1972 tests through the zero-noise gate (`npm run test:noise`).
+- PHPUnit on the staged row: unit 1454, integration 623 (`--fail-on-skipped`, default order, after a `minimal` reseed of the row), `composer cs:check` (0 of 423 files).
+- `npm run lint`, `npm run stylelint`, `npm run l10n:check-keys` (1320 keys), `npm run backlog:check`, `npm run docs:encoding`, `npm run agents:check`, `git diff --check`, `npm run build`, `node scripts/run-e2e-gate.js --self-test`; scenario manifest regenerated with `--write-manifest`.
+- Browser on the staged row (`NEXTCLOUD_URL=http://127.0.0.1:8186`, `NEXTCLOUD_CONTAINER=cs082-arcade-wpc-nextcloud-pgsql-1`): `arcade-games.spec.ts` 6/6 (serial pool), `arcade-mobile.spec.ts` 3/3 in `mobile-chromium` and in `mobile-webkit`, `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (chromium), auth setup 3/3 per run; both Sock Match tests rerun after R086D-02.
+- Not run, with reason: the full browser gate and the AIO row (WP-G); the MySQL/SQLite provider matrix (WP-G).
+
+### Outcome
+
+`PASS-WITH-FIXES` (interim). R086D-01 and R086D-02 were fixed and R086D-03 accepted by the operator; the gates above ran on the final code. Nothing was routed to the plan's §9 or the backlog. The plan stays `active/` for WP-E..WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.

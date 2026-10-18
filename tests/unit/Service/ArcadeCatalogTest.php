@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ArcadeCatalogTest extends TestCase {
 	public function testIds_PinTheCatalog(): void {
-		$this->assertSame(['spots', 'snake'], ArcadeCatalog::ids());
+		$this->assertSame(['spots', 'socks', 'snake'], ArcadeCatalog::ids());
 	}
 
 	public function testEveryGame_HasCompletePositiveRules(): void {
@@ -50,7 +50,7 @@ class ArcadeCatalogTest extends TestCase {
 	 */
 	public function testUnlockThresholds_PinD08606(): void {
 		$thresholds = array_map(static fn (array $rules): int => $rules['unlockThreshold'], ArcadeCatalog::GAMES);
-		$this->assertSame(['spots' => 0, 'snake' => 10], $thresholds);
+		$this->assertSame(['spots' => 0, 'socks' => 3, 'snake' => 10], $thresholds);
 		foreach ($thresholds as $gameId => $threshold) {
 			$this->assertTrue($threshold === 0 || $threshold >= 3, $gameId);
 		}
@@ -58,6 +58,7 @@ class ArcadeCatalogTest extends TestCase {
 
 	public function testHas_KnownAndUnknownIds(): void {
 		$this->assertTrue(ArcadeCatalog::has('spots'));
+		$this->assertTrue(ArcadeCatalog::has('socks'));
 		$this->assertTrue(ArcadeCatalog::has('snake'));
 		$this->assertFalse(ArcadeCatalog::has('2048'));
 		$this->assertFalse(ArcadeCatalog::has(''));
@@ -85,5 +86,12 @@ class ArcadeCatalogTest extends TestCase {
 		// perfect player stays below the rate at every step).
 		$this->assertTrue(ArcadeCatalog::isPlausible('spots', 3000, 60000));
 		$this->assertFalse(ArcadeCatalog::isPlausible('spots', 601, 10000));
+		// Sock Match never rewards speed: a lucky perfect round (800, the
+		// exact maximum) is plausible however short; the ceiling binds.
+		$this->assertTrue(ArcadeCatalog::isPlausible('socks', 800, 1));
+		$this->assertFalse(ArcadeCatalog::isPlausible('socks', 801, 1));
+		$this->assertSame(800, ArcadeCatalog::rules('socks')['maxScore']);
+		// Untimed: a round left running for hours still saves (R086D-02).
+		$this->assertSame(86400000, ArcadeCatalog::rules('socks')['maxDurationMs']);
 	}
 }

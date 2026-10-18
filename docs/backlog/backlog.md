@@ -350,8 +350,9 @@ interim Standard B `PASS-WITH-FIXES`:
 saves, the owner-only `PUT /house/arcade-gate` over the
 `arcade_gate_enabled` registry flag, lock states and progress in the catalog,
 the Settings switch and [ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md).
-Open until the plan's final review: the browser proof of a full unlock with
-Sock Match (WP-D) and the full browser gate (WP-G).
+The browser proof of a full unlock followed with Sock Match (WP-D,
+2026-10-18: three real completions open it). Open until the plan's final
+review: the full browser gate (WP-G).
 
 ---
 
@@ -368,8 +369,11 @@ highscores only ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-
 **Progress:** Spot Sprint delivered 2026-10-18 (WP-C, interim Standard B
 `PASS-WITH-FIXES`): the always-open DOM
 entry game with tap input, keyboard cursor, golden sponge and sock penalty,
-its own lazy chunk (4.0 KB gzip) and server rules. Open: Sock Match, Tile
-Breaker and Dust Runner (WP-D to WP-F).
+its own lazy chunk (4.0 KB gzip) and server rules. Sock Match delivered
+2026-10-18 (WP-D, interim Standard B `PASS-WITH-FIXES`): untimed memory pairs without
+a fail state, shape-distinct patterns, score 160 to 800 rewarding few wrong
+guesses, unlock threshold 3, its own lazy chunk (4.2 KB gzip). Open: Tile
+Breaker and Dust Runner (WP-E, WP-F).
 
 ---
 

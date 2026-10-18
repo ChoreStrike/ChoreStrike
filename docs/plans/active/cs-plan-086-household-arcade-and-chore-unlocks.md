@@ -1,6 +1,6 @@
 # CS-PLAN-086: Household Arcade — Game Catalog, Chore Unlocks and Per-Game Highscores
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); next: WP-D
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); next: WP-E
 > **Effort:** XL (seven work packages; no schema change)
 > **Priority:** P3 (optional add-on, never on the core critical path)
 > **Depends on:** work proceeds on branch `feat/arcade-minigames`; merge to
@@ -335,7 +335,7 @@ new:      src/composables/useGameEffects.js
 new:      src/utils/effectGates.js                            (WP-A: the extracted gate sync)
 modified: src/composables/useCelebration.js                   (extracted gate sync)
 new:      src/components/Minigames/GameShell.vue
-new:      src/components/Minigames/{GameShellOverlay,GameShellDpad}.vue   (WP-A: split from the shell)
+new:      src/components/Minigames/{GameShellOverlay,GameShellDpad}.vue   (WP-A: split from the shell; WP-D: a game's own end title)
 new:      src/components/Minigames/{board,gameInput}.js         (WP-A: board fit/palette, key/swipe mapping)
 new:      src/components/Minigames/ArcadeCatalog.vue
 new:      src/components/Minigames/ArcadeGateSetting.vue      (WP-B: the owner switch)
@@ -382,6 +382,7 @@ modified: docs/concepts/gamification-and-rewards.md           (§Arcade, D7 bull
 modified: docs/concepts/calm-core-ux.md                       (§Optional areas: owner switch)
 modified: docs/api/README.md                                  (§Minigames: catalog, durationMs, codes)
 modified: docs/engineering/architecture.md, docs/concepts/ui-use-cases.md, docs/THIRD_PARTY.md   (WP-A: component map, UC-12, game implementations)
+modified: docs/engineering/testing.md                         (WP-C/WP-D: phone core set with arcade-mobile.spec.ts)
 ```
 
 ## 6. Implementation Order
@@ -472,6 +473,33 @@ Each WP is one reviewable round with an interim Standard B on
    port 8186) instead of the shared canonical stack (TECH-TEST-008).
 4. **WP-D — Sock Match** (FEAT-ARCADE-003). Untimed accessible entry game,
    plus the browser proof that finished chores unlock a game (threshold 3).
+   *Implemented 2026-10-18.* Implementation choices within the plan: a 4×4
+   basket with eight pairs whose patterns differ by shape on one sock
+   silhouette in the theme's primary colors (stripes, dots, star, heart,
+   diamond, triangle, checks, plus — never color alone); the opening pair is
+   the cursor's sock and its right neighbour (Enter, Right, Enter), the rest
+   is shuffled. A pair scores 100 minus 5 per wrong guess so far, at least
+   20, so a round scores 160 to 800 and the score only grows; speed never
+   counts. A wrong guess stays visible until the next turn, which turns it
+   back first (no automatic flip-back, no time pressure; cursor moves leave
+   it visible). No round timer: the logic ignores elapsed time and the round
+   ends when every pair is found. A registry entry may name that end
+   (`overTitle`, `overAnnouncement`; both or neither), so the overlay and the
+   live region say "All pairs found!" instead of "Game Over!". Keyboard:
+   arrows move the cursor, Enter turns, Space pauses. Server rules:
+   `maxScore` 800 (the exact maximum), `maxDurationMs` 24 hours (R086D-02:
+   an untimed round left running keeps its score), 800 burst +
+   a nominal 1 point per second — a lucky perfect round lasts seconds, so the
+   ceiling binds (a Jest spec proves perfect play scores exactly 800);
+   unlock threshold 3. Tests: `ArcadeUnlockTest` opens Sock Match with the
+   third real completion; `arcade-games.spec.ts` unlocks it in the browser
+   with three real completions (Crumb Snake then shows "7 to go") and scores
+   the opening pair with the keyboard, replacing the one-completion progress
+   test; a second test plays a whole round by taps with a perfect-memory
+   strategy that reads only turned socks and saves it to the socks board;
+   `arcade-mobile.spec.ts` taps the opening pair on both phones. Like Spot
+   Sprint, the board is decorative for assistive technology; the live region
+   carries score and state.
 5. **WP-E — Tile Breaker** (FEAT-ARCADE-003). Canvas physics and power-ups.
 6. **WP-F — Dust Runner** (FEAT-ARCADE-003). Room-shaped mazes and chaser
    behavior.
@@ -699,4 +727,26 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1453 and integration 622 on the staged row; `cs:check`.
   - lint, stylelint, l10n (1315 keys), backlog, encoding, build and gate self-test.
   - Browser: `arcade-games.spec.ts` 5/5, `arcade-mobile.spec.ts` 2/2 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2.
+  - Not run: the full gate, the AIO row and the provider matrix (WP-G).
+
+### Standard B (interim, WP-D) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
+
+- **Scope:** the uncommitted WP-D package on `feat/arcade-minigames` @
+  `e5a584a` (fingerprint at capture `e5d67a75…a714`: empty index, 28 modified
+  and 6 untracked paths), tested on the isolated staged row
+  `cs082-arcade-wpc`. [Record](../../backlog/archive/CODE_REVIEW_2026-10-18.md).
+- **Fixed (2):**
+  - R086D-01 (nit): the API rule sentence, a stale phone-gate comment, a line wrap in `THIRD_PARTY.md` and the missing `testing.md` manifest entry.
+  - R086D-02 (minor): an untimed Sock Match round left running past one hour lost its score (400); `maxDurationMs` is now 24 hours, with a two-hour save in `ArcadeUnlockTest` (negative control fails with the old bound).
+- **Accepted (1):** R086D-03: the board is decorative for assistive technology like Spot Sprint's; screen-reader play is outside the plan's accessibility bar (no timer, no fail state, keyboard play).
+- **Verified:**
+  - Every Sock Match rule is pinned in Jest; a turned-down sock never shows its pattern; perfect play scores exactly the 800 ceiling.
+  - The unlock at three finished chores holds server-side under the house lock and in the browser with real completions.
+  - The shell's optional end copy falls back to "Game Over!"; no authorization or schema change; `game-socks` is 4.2 KB gzip.
+- **Decisions:** R086D-02 raised to 24 hours and R086D-03 accepted (operator, recommended options).
+- **Gates:**
+  - Jest 141/1972, noise-free.
+  - PHPUnit unit 1454 and integration 623 on the staged row; `cs:check`.
+  - lint, stylelint, l10n (1320 keys), backlog, encoding, agents and build checks; gate self-test and scenario manifest.
+  - Browser: `arcade-games.spec.ts` 6/6, `arcade-mobile.spec.ts` 3/3 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2; both Sock Match tests rerun after R086D-02.
   - Not run: the full gate, the AIO row and the provider matrix (WP-G).

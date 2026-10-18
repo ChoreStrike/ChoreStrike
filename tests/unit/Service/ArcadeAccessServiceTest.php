@@ -115,6 +115,16 @@ class ArcadeAccessServiceTest extends TestCase {
 	}
 
 	/**
+	 * GetCatalog_SockMatch_OpensWithTheThirdFinishedChore (D-086-06)
+	 */
+	public function testGetCatalog_SockMatch_OpensWithTheThirdFinishedChore(): void {
+		$this->finishedChores(2, 3);
+
+		$this->assertSame(['gameId' => 'socks', 'threshold' => 3, 'unlocked' => false], self::gamesById($this->service->getCatalog($this->member()))['socks']);
+		$this->assertTrue(self::gamesById($this->service->getCatalog($this->member()))['socks']['unlocked']);
+	}
+
+	/**
 	 * GetCatalog_ThresholdZero_OpenWithoutChores: Spot Sprint is the
 	 * always-open entry game, so a new member can play right away.
 	 */

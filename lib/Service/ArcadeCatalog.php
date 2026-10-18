@@ -44,6 +44,19 @@ final class ArcadeCatalog {
 			'burstPoints' => 100,
 			'unlockThreshold' => 0,
 		],
+		// Sock Match: eight pairs on a 4x4 board, untimed and without a
+		// fail state; a pair scores 100 minus 5 per wrong guess so far (at
+		// least 20), so 800 is the exact maximum. The game never rewards
+		// speed and a lucky perfect round lasts only seconds, so the burst
+		// covers the whole maximum: the ceiling binds, the rate is nominal.
+		// A round left running stays saveable for a day (R086D-02).
+		'socks' => [
+			'maxScore' => 800,
+			'maxDurationMs' => 86400000,
+			'pointsPerSecond' => 1,
+			'burstPoints' => 800,
+			'unlockThreshold' => 3,
+		],
 		// Crumb Snake: 10 per crumb, 30 per golden crumb, a 20x20 board and
 		// at least 60 ms per move. The `snake` id predates the re-theme and
 		// stays, so existing scores remain valid.

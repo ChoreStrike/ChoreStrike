@@ -49,8 +49,8 @@
 			</button>
 		</template>
 		<template v-else-if="phase === 'over'">
-			<h2 class="game-overlay-title">
-				{{ t('chorestrike', 'Game Over!') }}
+			<h2 class="game-overlay-title" data-testid="game-over-title">
+				{{ entry && entry.overTitle ? entry.overTitle() : t('chorestrike', 'Game Over!') }}
 			</h2>
 			<p class="game-overlay-score" data-testid="game-final-score">
 				{{ t('chorestrike', 'Score: {score}', { score }) }}
@@ -87,6 +87,8 @@ import { translate as t } from '@nextcloud/l10n'
 /**
  * Start, pause, game-over and load-state overlays of GameShell
  * (CS-PLAN-086 §3.4). Scores-only: the game-over view never shows Coins.
+ * A game without a fail state names its end through the registry entry's
+ * optional `overTitle()`.
  */
 defineProps({
 	phase: {

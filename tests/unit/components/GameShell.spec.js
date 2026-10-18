@@ -44,6 +44,15 @@ const mockDomGame = {
 }
 jest.mock('@/components/Minigames/games/spots/game.js', () => mockDomGame)
 
+// An untimed DOM game (Sock Match's interface): no `roundMs`, and its
+// registry entry names the end of a round.
+const mockUntimedGame = {
+	...mockDomGame,
+	roundMs: undefined,
+	createState: jest.fn(() => ({ score: 0, over: false, events: [], inputs: [], revision: 0 })),
+}
+jest.mock('@/components/Minigames/games/socks/game.js', () => mockUntimedGame)
+
 const mockEffects = { pickup: jest.fn(), newPersonalBest: jest.fn(), motionAllowed: jest.fn(() => false) }
 jest.mock('@/composables/useGameEffects.js', () => ({ useGameEffects: () => mockEffects }))
 
@@ -249,6 +258,7 @@ describe('GameShell', () => {
 
 		expect(wrapper.find('[data-testid="game-save-failed"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="game-new-best"]').exists()).toBe(false)
+		expect(wrapper.get('[data-testid="game-over-title"]').text()).toBe('Game Over!')
 		expect(announcement(wrapper)).toBe('Game over. Score: 10')
 	})
 
@@ -292,7 +302,7 @@ describe('GameShell', () => {
 		expect(phase(wrapper)).toBe('failed')
 	})
 
-	describe('DOM games (tap input, timed rounds)', () => {
+	describe('DOM games (tap input, timed and untimed rounds)', () => {
 		const domState = () => mockDomGame.createState.mock.results.at(-1).value
 
 		it('renders the game board instead of a canvas and shows the time left', async () => {
@@ -340,6 +350,25 @@ describe('GameShell', () => {
 
 			expect(enter.defaultPrevented).toBe(true)
 			expect(domState().inputs).toEqual([{ cell: 6 }, 'act'])
+		})
+
+		it('shows no clock for an untimed game and names the end its entry gives', async () => {
+			api.post.mockRejectedValue(new Error('offline'))
+			const wrapper = await mountShell('socks')
+			expect(wrapper.find('[data-testid="dom-board"]').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="game-time"]').exists()).toBe(false)
+
+			await start(wrapper)
+			const state = mockUntimedGame.createState.mock.results.at(-1).value
+			state.score = 640
+			state.over = true
+			advance()
+			await flushPromises()
+
+			expect(wrapper.find('[data-testid="game-time"]').exists()).toBe(false)
+			expect(wrapper.get('[data-testid="game-over-title"]').text()).toBe('All pairs found!')
+			expect(wrapper.get('[data-testid="game-final-score"]').text()).toBe('Score: 640')
+			expect(announcement(wrapper)).toBe('All pairs found. Score: 640')
 		})
 
 		it('leaves Enter to a focused button', async () => {

@@ -221,6 +221,12 @@ msgstr ""
 msgid "All house members can see and complete this task"
 msgstr ""
 
+msgid "All pairs found!"
+msgstr ""
+
+msgid "All pairs found. Score: {score}"
+msgstr ""
+
 msgid "All rooms"
 msgstr ""
 
@@ -1215,6 +1221,9 @@ msgid "Filters"
 msgstr ""
 
 msgid "Filters ({count} active)"
+msgstr ""
+
+msgid "Find the matching socks in the laundry basket. No clock — the fewer wrong guesses, the more points."
 msgstr ""
 
 msgid "Finish"
@@ -2639,6 +2648,9 @@ msgstr ""
 msgid "Smooth the fitted sheet, tuck in the flat sheet, fluff the pillows, and straighten the blanket."
 msgstr ""
 
+msgid "Sock Match"
+msgstr ""
+
 msgid "Some balances are currently being clarified. Delivery and new requests wait until that is resolved — approval, rejection and cancellation stay possible."
 msgstr ""
 
@@ -2775,6 +2787,9 @@ msgid "Take out all trash"
 msgstr ""
 
 msgid "Tap a stain, or move with the arrow keys and wipe with Enter. Space pauses."
+msgstr ""
+
+msgid "Tap two socks to turn them, or move with the arrow keys and turn with Enter. Space pauses."
 msgstr ""
 
 msgid "Target: {target}%"
