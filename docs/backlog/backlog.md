@@ -523,7 +523,7 @@ not close parent findings or replace WP9 evidence.
 
 ### [P3] TECH-DEV-001 — Local Node 24 runs outside the supported `^20.19.0` engine range
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: —
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PR #3 (2026-10-18)
 **Source**: worktree hygiene task, 2026-10-17
 
 The development machine has only Node 24.13 / npm 11.8 and no version manager,
@@ -534,6 +534,35 @@ run Jest/ESLint/webpack on an unsupported engine (ESLint already prints Node
 provide Node 20.19 locally (version manager or pinned install) or deliberately
 widen the supported range after qualifying the toolchain (dialogs `~7.2.0`
 constraint) — not both silently.
+
+Folded in 2026-10-18: Node 20 reached end of life on 2026-04-30, and
+`@nextcloud/webpack-vue-config` 7.1 (Dependabot PR #3) needs `sass-loader` ^17,
+which requires Node ≥ 22.11 — the PR fails `npm ci` with `ERESOLVE` against the
+current range. Moving the supported range to Node 22/24 unblocks that bundler
+major; adopt it together with `sass-loader` 17 (modern Sass API only) and a
+byte-level comparison of the built `js/`, then drop the `sockjs` → `uuid`
+override in `package.json`.
+
+---
+
+### [P3] TECH-LINT-008 — Migrate linting to ESLint 10 flat config
+**Status**: Backlog · **Effort**: M · **Layer**: tooling · **Journey stage**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Dependabot PR #4, 2026-10-18
+
+`@nextcloud/eslint-config` 9 (with `@vue/eslint-config-typescript` 14 and
+`eslint-plugin-vue` 10) requires ESLint ≥ 10 and a flat `eslint.config.js`;
+the project still runs ESLint 8 with `.eslintrc.js`, so the grouped Dependabot
+bump fails `npm ci` with `ERESOLVE`. The new config also adds rules (camelCase
+events and slot names, consistent type imports, top-level functions, …) whose
+fallout across `src/`, `tests/e2e` and `tests/docs-screenshots` needs its own
+pass. Until then the `eslint-plugin-vue` → `postcss-selector-parser` and
+`@nextcloud/eslint-plugin` → `fast-xml-parser` overrides in `package.json`
+hold the patched versions; drop them once the migrated stack resolves them.
+
+- [ ] A flat `eslint.config.js` on ESLint 10 replaces `.eslintrc.js`; `npm run lint` covers the same file sets.
+- [ ] New-rule findings fixed, or each rule deliberately disabled with a stated reason.
+- [ ] The two lint-stack overrides are removed.
 
 ---
 

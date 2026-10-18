@@ -18,6 +18,8 @@
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
 
+- **Dependabot security PRs #3/#4** (2026-10-18, branch `chore/dependabot-security-updates`, merged into the local `master`, not pushed): both grouped PRs fail `npm ci` (`sass-loader` 17 needs Node ≥ 22.11; `@nextcloud/eslint-config` 9 needs ESLint 10). Consumer-scoped overrides lift `uuid`, `postcss-selector-parser` and `fast-xml-parser` to patched versions instead; built `js/` identical to `master` apart from the per-build `?v=` timestamp. Jest 131/1889, lint, stylelint green. Bundler major folded into TECH-DEV-001, lint major routed to TECH-LINT-008.
+
 - **Q&A discussion form** (2026-10-18, branch `docs/discussion-template`, merged into the local `master`, not pushed): `.github/DISCUSSION_TEMPLATE/q-a.yml` asks posters to strip personal data and secrets and to report vulnerabilities privately; a Jest spec pins it to the `q-a` slug the issue chooser links to. Takes effect on GitHub with the next push.
 
 - **Plan retirement rule and first batch** (2026-10-18, branch `docs/plan-retirement`, worktree `~/worktrees/chorestrike-plan-retirement`): `done/` plans now retire in user-confirmed batches, proposed at each minor release for plans older than ~3 months whose program is closed, with tracked links turned into GitHub permalinks (project rules §7, `plan-management` skill). First batch by user decision: CS-PLAN-056..069 (14 plans, 40 links to permalinks at `c03e940`, verified copies in the local `archive/2026-10/`). Documentation only. [Archive](archive/2026-10.md#retired-plans-cs-plan-056069-10-18).
@@ -35,8 +37,6 @@
 - **Worktree hygiene / branch drift** (2026-10-17, `c888992`, fast-forwarded into `master` after the deployment): `npm run branch:status` across all worktrees, non-blocking behind-`master` note in the pre-commit hook, `verify-canonical` refuses a stack from another checkout, *Staying in sync* rules; worktree and branch removed. [Archive](archive/2026-10.md#worktree-hygiene-and-branch-drift-10-17).
 
 - **Pre-deployment round `0.8.0-alpha.1` delivered** (2026-10-17): version bump + CHANGELOG, TECH-TEST-004 / TECH-DOCS-004/006 / TECH-PKG-001, CS-PLAN-084 final Full review and closure, BUG-SEC-001 delivery verified; after the TECH-DOCS-005 UI fix `master` `0d27d38` requalified (both rows, MariaDB/SQLite, browser gates `run-6jDStt` + `run-I3xSLN`) and package run `mvcfy3ro` exported to the private exchange; `master` pushed (`db3e7b3`), owned stacks and helper branches removed. Next, operator-owned: deployment with a current backup, adoption record and real-device run (CS-PLAN-080, RELEASE-002). [Plan](../plans/done/cs-plan-084-family-trial-ux-baseline.md) · [Review](archive/CODE_REVIEW_2026-10-17.md).
-
-- **Branch guard for agent sessions** (2026-10-17, branch `chore/branch-guard`, own worktree): tracked `.githooks/pre-commit` activated by `npm ci` (`prepare`) refuses direct commits on `master` (explicit `CS_ALLOW_MASTER=1` per user-requested commit) and commits off a worktree's `npm run branch:pin`; one-session-one-worktree-one-branch and release-freeze rules in the `git-workflow` skill, AGENTS.md, `development.md` and `agent-spawning.md`. Applies to Claude Code, Kilo and humans. [Archive](archive/2026-10.md#branch-guard-for-agent-sessions-10-17).
 
 > One-line entries only. Older and interim history lives in the tracked
 > [`archive/`](archive/).
