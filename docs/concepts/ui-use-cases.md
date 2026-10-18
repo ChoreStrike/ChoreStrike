@@ -28,10 +28,10 @@ Contracts: [API](../api/README.md), [task/undo model](task-model-and-sync.md),
 
 ## Approved Calm UX and Evidence C5 (2026-09-17)
 
-Target behavior, not the shipped inventory above or the historical audit below.
-The [clarification plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md)
-records thirteen explicit C5 answers; exact files/APIs/l10n and evidence execution
-remain implementation work.
+Implemented by WP4-WP8 (ADR-015/016, [calm core UX](calm-core-ux.md)). The
+[clarification plan](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md)
+records the thirteen explicit C5 answers. The family evidence (C5j) remains open in
+[CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md).
 
 | Surface | Approved target |
 |---|---|
@@ -531,7 +531,7 @@ decisions update intent below, not the current implementation/route inventory.
 | Print view (weekly plan / calendar) | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-027 |
 | Global search across tasks | `expose` (`GET /tasks/search`, dead wrapper) | Endpoint audit 2026-08-21 | FEAT-UX-028 |
 | Bulk maintenance ops (reschedule overdue, seasonal deactivate) | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-029 |
-| A11y & child My Day baseline implemented; planning-first quiet defaults and opt-in ranking selected | Baseline delivered in CS-PLAN-066; new target in CS-PLAN-070 D10, not implemented | [Product vision](product-vision.md) | FEAT-UX-030 (historical); new scope owned by CONCEPT-001 |
+| A11y & child My Day baseline implemented; planning-first quiet defaults and opt-in ranking selected | Baseline delivered in CS-PLAN-066; CS-PLAN-070 D10 delivered by WP4/WP6 | [Product vision](product-vision.md) | FEAT-UX-030 (historical); family evidence owned by CONCEPT-001 |
 | Error/empty/offline-state conventions | `build-new` | Review whitespace 2026-08-21 | FEAT-UX-031 |
 
 ---

@@ -406,11 +406,11 @@ introduced, and raw traces/headers remain private.
 ---
 
 ### [P1] CONCEPT-001 — Family-first rhythm and reward contracts
-**Status**: In Progress — CS-PLAN-070 activated via Standard A `PASS-WITH-FIXES` (2026-09-18) · **Effort**: XL implementation (clarification was M) · **Layer**: docs+backend+frontend · **Journey stage**: product definition
-**Owning**: CS-PLAN-070 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress — only the family evidence remains, in CS-PLAN-080 (parent CS-PLAN-070 in `done/` since its final Standard B `PASS-WITH-FIXES` 2026-10-18) · **Effort**: XL implementation (clarification was M) · **Layer**: docs+backend+frontend · **Journey stage**: product definition
+**Owning**: CS-PLAN-080 (since 2026-10-18; before that CS-PLAN-070) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: User-requested family-first concept review (2026-09-16)
 
-[CS-PLAN-070](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+[CS-PLAN-070](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md)
 is the decision register and owning review-finding record. The user approved
 24 core choices across D1-D11 and 47 C1-C5 answers (6/11/9/8/13) on 2026-09-17;
 the technical draft added on 2026-09-18 maps schema/APIs, transactions/races,
@@ -494,6 +494,11 @@ plus 14-day everyday-use evidence. Its NC31 technical matrix and consecutive
 browser pair passed on 2026-10-05; human coordination, guardian consent and
 minimum voluntary participation were confirmed on 2026-10-07, but comprehension
 and 14-day evidence remain uncollected.
+**Consolidation (2026-10-18, user decision):** CS-PLAN-070 closed with a final
+Standard B `PASS-WITH-FIXES` (RF-070-01..17 verdicts, durable docs reconciled);
+its G3 family evidence and this item's closure moved unchanged to CS-PLAN-080,
+now the single owner. Close this item only after the real-device run, HUMAN-01/02
+and CS-PLAN-080's final review pass.
 The separate TECH-RUNTIME-001 qualification is delivered by CS-PLAN-082
 (final Full `PASS-WITH-FIXES` 2026-10-06, archived); the old-runtime passes remain
 historical and do not replace its NC35/NC34 evidence or authorize retained use.

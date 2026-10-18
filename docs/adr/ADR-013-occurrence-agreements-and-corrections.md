@@ -291,7 +291,7 @@ effect-record restore no longer touches `next_due`, `ideal_due_date`,
 
 ## References
 
-- Parent contract: `docs/plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md` (sections 3.2/3.3, T1)
+- Parent contract: `docs/plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md` (sections 3.2/3.3, T1)
 - Plan: `docs/plans/active/cs-plan-072-wp1-occurrence-timeline.md`
 - ADR-007 (concurrency-safe completion), ADR-009 (per-house timezone),
   ADR-011 (transactional completion and undo), ADR-012 (scheduling preview/apply)

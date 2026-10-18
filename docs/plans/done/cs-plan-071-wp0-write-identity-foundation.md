@@ -3,7 +3,7 @@
 > **Status:** Done — child of CS-PLAN-070, delivered its work package WP0; Standard A `PASS-WITH-FIXES` (2026-09-18); final Standard B `PASS-WITH-FIXES` (2026-09-19)
 > **Effort:** M (3-5 engineering days, bounded by CS-PLAN-070 §6 WP0)
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md) (active; G0 satisfied 2026-09-18 — Q-070-01/02 resolved, Standard A `PASS-WITH-FIXES`)
+> **Depends on:** [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md) (active; G0 satisfied 2026-09-18 — Q-070-01/02 resolved, Standard A `PASS-WITH-FIXES`)
 > **Related backlog items:** CONCEPT-001 (owning item via CS-PLAN-070 WP0); contributes to CS-PLAN-070 plan-owned findings RF-070-16/RF-070-17 (they stay open in the parent §9 until the WP3/WP7 portions land); CR-SVC-63 stays open (this plan adds lock-order compliance only, not replay history)
 
 ## 1. Problem Summary
@@ -392,7 +392,7 @@ modified: docs/adr/ADR-012-actionable-household-scheduling.md (same)
 modified: docs/concepts/task-model-and-sync.md (implemented tombstone-deletion and erasure behavior)
 modified: l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot (only if the anonymized-actor placeholder lands)
 modified: docs/backlog/ACTIVE_TASKS.md, docs/backlog/backlog.md (CONCEPT-001 WP0-slice annotation; CR-SVC-63 stays open)
-modified: docs/plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md (WP0 progress note + RF-070-16/17 WP0-portion status, at implementation time)
+modified: docs/plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md (WP0 progress note + RF-070-16/17 WP0-portion status, at implementation time)
 ```
 
 No files are retired/archived in WP0 (freeze/restock/boost retirement is
@@ -686,7 +686,7 @@ for product behavior.
 - **Gates:** `npm run backlog:check`, `npm run docs:encoding`,
   `git diff --check` green (documentation-only round; runtime suites
   unchanged and not required). Review record:
-  [CODE_REVIEW_2026-09-18.md](../../backlog/archive/CODE_REVIEW_2026-09-18.md#cs-plan-071-standard-a-plan-activation).
+  [CODE_REVIEW_2026-09-18.md](../../backlog/archive/CODE_REVIEW_2026-09-18.md#code-review-cs-plan-071-standard-a-plan-activation).
 - **Transition:** `new/ → active/` with this review's scoped commit;
   CONCEPT-001 stays `In Progress` (WP0 sub-plan annotation added).
 

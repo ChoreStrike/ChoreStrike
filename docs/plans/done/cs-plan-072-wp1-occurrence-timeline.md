@@ -6,7 +6,7 @@ resolving round + RF-18 behavior-neutral collaborator split 2026-09-22; final St
 > **Effort:** L — 7-10 engineering days (revised 2026-09-20 from the parent's 5-8 allowance by Q-072-01 Option A; WP2 reduced to 5-7 accordingly)
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-071 / WP0](../done/cs-plan-071-wp0-write-identity-foundation.md), delivered with final Standard B `PASS-WITH-FIXES` on 2026-09-19
-> **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md); implements RF-070-02 and the timeline portion of RF-070-04; extends RF-070-16/17 retention coverage without closing their later-package portions
+> **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md); implements RF-070-02 and the timeline portion of RF-070-04; extends RF-070-16/17 retention coverage without closing their later-package portions
 > **Runtime baseline:** `master` at `9239d68`, inspected 2026-09-20
 
 ## 1. Problem Summary
@@ -267,7 +267,7 @@ modified: docs/api/README.md
 modified: docs/concepts/task-model-and-sync.md
 modified: docs/testing/release-test-plan.md
 modified: docs/{README,plans/README,backlog/ACTIVE_TASKS,backlog/backlog}.md
-modified: docs/plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md
+modified: docs/plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md
 ```
 
 No new route path is required for the base WP1 scope. If the approved writer

@@ -98,7 +98,7 @@ activation review of the newly created plan.
 **Outcome:** `BLOCKED` for concept approval/implementation readiness. The requested
 analysis and draft are delivered, but product decisions and runtime findings are
 open. No automatic commit or lifecycle move.
-**Owning draft:** [CS-PLAN-070](../../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md)
+**Owning draft:** [CS-PLAN-070](../../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md)
 (`CONCEPT-001`); no matching active plan existed at capture.
 
 ### Source Capture
@@ -168,7 +168,7 @@ every missing optional feature is a release-blocking code defect.
   Both unchanged JavaScript gates were also run with their Git inventory
   supplemented in memory by the untracked draft path: 23 link-scoped files and
   720 encoding-scoped paths, passed. No scanner rules were bypassed or changed.
-  `git diff --no-index --check -- NUL docs/plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md`
+  `git diff --no-index --check -- NUL docs/plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md`
   passed for the untracked plan without staging it.
 - No runtime files changed. No new behavior-regression suites, browser pass or
   family usability trial was executed; these remain requirements of the approved

@@ -26,8 +26,10 @@ not a feature-parity commitment.
 
 The agreed planning, rhythm, reminder and reward contracts are implemented
 through WP0-WP8. WP9 technical gates have passed; family comprehension and
-everyday-use evidence remain open. See the current-state distinction below and
-the [program plan](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md).
+everyday-use evidence remain open in
+[CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md).
+See the current-state distinction below and the
+[program plan](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ## Design Principles
 

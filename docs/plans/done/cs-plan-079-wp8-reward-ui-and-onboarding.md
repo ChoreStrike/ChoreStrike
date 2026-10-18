@@ -4,7 +4,7 @@
 > **Effort:** L; 5-8 engineering days, including T11, documentation and one correction pass
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-078 / WP7](../done/cs-plan-078-wp7-catalog-and-request-backend.md), delivered 2026-10-01; WP0-WP6 and parent G1 delivered
-> **Related backlog items:** FEAT-UX-026 (frontend remainder), FEAT-UX-023 (essential onboarding/help slice), CONCEPT-001 via [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+> **Related backlog items:** FEAT-UX-026 (frontend remainder), FEAT-UX-023 (essential onboarding/help slice), CONCEPT-001 via [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md)
 > **Planning baseline:** `master` at `f7ddcbb1860b9c1b4d2021bfd10960e535081247`, 2026-10-02
 
 This child details parent WP8: D7/D8/D10/D11, C3a-d/h, all C4 UI states,

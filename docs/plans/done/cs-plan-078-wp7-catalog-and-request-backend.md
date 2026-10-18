@@ -4,7 +4,7 @@
 > **Effort:** L; 6-9 engineering days, including tests, documentation and one correction pass
 > **Priority:** P1
 > **Depends on:** Parent G1 / WP0-WP6, all delivered via CS-PLAN-071 through CS-PLAN-077; confirm the recorded core-gate evidence before implementation
-> **Related backlog items:** FEAT-UX-026 (backend slice), CONCEPT-001 via [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+> **Related backlog items:** FEAT-UX-026 (backend slice), CONCEPT-001 via [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md)
 > **Planning baseline:** `4b5b089ea180ab6514eb94725eff78032f172138`, 2026-10-01
 
 This child implements parent WP7, D2/D7/D8/D11, C3h and C4a-h, with C5e/h/m
@@ -490,7 +490,7 @@ gate is Standard A; this draft remains in `new/` and is not activated or committ
 
 - **Scope:** this plan file only (documentation round; no runtime change). Owning
   plan: this child under parent
-  [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md) WP7.
+  [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md) WP7.
 - **Baseline:** `master` at `4b5b089ea180ab6514eb94725eff78032f172138` (equals the
   planning baseline); index empty; unstaged diff sha1
   `2e01799d35b56001812661085a6cbf756ab66d34` (drafting metadata package + unrelated

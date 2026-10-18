@@ -20,7 +20,7 @@
 > **Target clarification (2026-09-17):** this accepted ADR records the current
 > implementation and its original scope, not the newly approved family-rhythm
 > target. Snapshot restore does not preserve independent interleaved changes.
-> [CS-PLAN-070 C3](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md#c3-accounting-decision-log-2026-09-17)
+> [CS-PLAN-070 C3](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md#c3-accounting-decision-log-2026-09-17)
 > selects targeted undo, separate attribution correction and room-event replay;
 > the [durable correction contract](../concepts/task-model-and-sync.md#approved-correction-contract-c3-2026-09-17)
 > distinguishes the target from this history. Its exact schema/lock/API design

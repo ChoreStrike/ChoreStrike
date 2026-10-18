@@ -10,7 +10,7 @@
 > [WP4 / CS-PLAN-075](../done/cs-plan-075-wp4-rhythm-goals-and-ranking.md), delivered.
 > Q-075-01 Option A created `member_prefs` early; WP5 amends it in place.
 > **Related backlog items:** CONCEPT-001 via
-> [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md);
+> [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md);
 > FEAT-UX-024 (notification settings); FEAT-UX-025 (quiet-digest portion)
 > **Planning baseline:** `b5cc55f` (WP4 final review commit), 2026-09-29
 

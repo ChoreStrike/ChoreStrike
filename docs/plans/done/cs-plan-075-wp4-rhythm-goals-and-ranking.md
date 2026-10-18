@@ -11,7 +11,7 @@
 > [WP3 / CS-PLAN-074](../done/cs-plan-074-wp3-work-accounting-and-replay.md), delivered.
 > The parent's WP5-first sequencing is superseded by Q-075-01 Option A.
 > **Related backlog items:** CONCEPT-001 via
-> [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md);
+> [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md);
 > CR-053-11 (freeze-removal and leaderboard-tiebreaker remainders)
 > **Planning baseline:** `b3ff6da` (WP3 final review commit), 2026-09-27
 

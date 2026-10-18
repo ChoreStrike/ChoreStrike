@@ -5,7 +5,7 @@
 > **Priority:** P1 for the retained-data trial prerequisite, not a blanket reprioritization of every included backlog item
 > **Depends on:** WP0-WP8 delivered; Standard A before implementation
 > **Related backlog items:** TECH-JEST-001, TECH-LINT-006, TECH-TEST-003, CR-SEC-05, SEC-AUDIT-001, FEAT-UX-032, CR-053-11; bounded contributions to RELEASE-002 and CONCEPT-001; BUG-SEC-001 deferred outside this plan
-> **Sequence:** This independent preparation slice is delivered before technical execution of [CS-PLAN-080](../active/cs-plan-080-wp9-cross-db-and-family-evidence.md); it is not another WP of [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+> **Sequence:** This independent preparation slice is delivered before technical execution of [CS-PLAN-080](../active/cs-plan-080-wp9-cross-db-and-family-evidence.md); it is not another WP of [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md)
 > **Drafting baseline:** `master` at `76e282e`, 2026-10-03; runtime evidence inspected, no new runtime gate executed
 
 ## 1. Problem Summary

@@ -75,7 +75,7 @@ explicit, per-person consent.
 
 ## References
 
-- Plan: `docs/plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md` (WP4)
+- Plan: `docs/plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md` (WP4)
 - API contract: [docs/api/README.md](../api/README.md) — "Ranking" section
 - Supersession chain: [ADR-011](ADR-011-transactional-completion-and-undo.md),
   [ADR-014](ADR-014-work-accounting-ledger-and-replay.md) (completion/ledger facts the ranking reads)

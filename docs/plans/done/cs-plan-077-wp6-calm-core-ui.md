@@ -14,7 +14,7 @@
 > [WP4 / CS-PLAN-075](../done/cs-plan-075-wp4-rhythm-goals-and-ranking.md) and
 > [WP5 / CS-PLAN-076](../done/cs-plan-076-wp5-preferences-and-digest-delivery.md), all delivered.
 > **Related backlog items:** CONCEPT-001 via
-> [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md);
+> [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md);
 > FEAT-UX-023 (essential help slice); FEAT-UX-024 (presentation remainder);
 > FEAT-UX-025 (pause UI remainder)
 > **Planning baseline:** `fd70cd7` (WP5 final review commit), 2026-09-30

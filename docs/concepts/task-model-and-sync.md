@@ -101,18 +101,18 @@ agreed obligations or a guaranteed maximum catch-up workload.
   when its single occurrence is fulfilled. This is not an open scheduler-job
   decision.
 - The owner planner previews and applies a seven-day proposal over existing
-  tasks with availability, energy and child-limit checks; the override/shared-task
-  limitations are documented in [balancing](energy-and-balancing.md). It does not
-  provide a complete dated vacation/illness or recurring-exception workflow.
-- Due dates, flex-window recommendations, and the deadline used to judge
-  "on time" need an explicit shared contract before introducing rhythm streaks.
-  The current streak calculation does not consult those task obligations.
+  tasks with availability, energy and child-limit checks for every participant
+  ([balancing](energy-and-balancing.md)). Dated member/house pauses are delivered
+  by WP2 (*Delivered agreement & pause surface* below).
+- Due dates, windows and the deadline used to judge "on time" share one
+  occurrence contract (WP1, ADR-013); the personal rhythm streak evaluates
+  exactly those agreed occurrences (WP4, ADR-015).
 
-The family-rhythm [clarification plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md)
+The family-rhythm [clarification plan](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md)
 covers strict weekdays, rescheduling, missed occurrences, shared assignments,
-and non-punitive recovery. Approved target rules below do not change the current API.
+and non-punitive recovery. WP1-WP4 implement the approved rules below.
 
-### Approved Target Rules (2026-09-17; Not Yet Implemented)
+### Approved Target Rules (2026-09-17; implemented by WP1-WP4)
 
 - Each task supports an explicit choice between fixed calendar cadence and an
   interval after actual completion. Early completion does not move a fixed
@@ -132,9 +132,8 @@ and non-punitive recovery. Approved target rules below do not change the current
 - Adults manage their own dated pauses; children request pauses for owner
   confirmation. Owners manage house-wide pauses and may explicitly recognize
   retrospective illness. This exception must be traceable, not hidden repair.
-- Timeline attribution, calendar boundaries and selected agreement/pause rules
-  are specified below. Remaining lifecycle and cross-contract details are not
-  implied. Approval does not make the current implementation compliant.
+- Timeline attribution, calendar boundaries and the agreement/pause rules are
+  specified below and implemented by WP1-WP2 (ADR-013).
 
 ### Approved Timeline Contract C1 (2026-09-17)
 
@@ -424,7 +423,8 @@ Domain behavior of the WP0 substrate (mechanism detail in
 
 ### Approved Correction Contract C3 (2026-09-17)
 
-Target behavior, not the shipped ADR-011 restore implementation described above.
+Implemented by WP3 (CS-PLAN-074, ADR-014); it supersedes the ADR-011 snapshot
+restore — see *Completion and undo model* above.
 
 - Target a specific completion by stable identity, including older completions of
   the same task. Its completer or an authorized owner may correct it under existing

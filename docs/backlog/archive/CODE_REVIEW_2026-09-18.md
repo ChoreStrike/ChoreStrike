@@ -3,7 +3,7 @@
 **Review Date**: 2026-09-18
 **Reviewer**: Main implementation agent (Kilo, skills: review / plan-management / git-workflow)
 **Tier**: Standard A — plan review before `new/ → active/`
-**Scope**: `docs/plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md` (1243 lines, untracked)
+**Scope**: `docs/plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md` (1243 lines, untracked)
 **Base Commit**: `master` @ `1946166618d591eba54bd42d1d338030389e994e`
 
 ---

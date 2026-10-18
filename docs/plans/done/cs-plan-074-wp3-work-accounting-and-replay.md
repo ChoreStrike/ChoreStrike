@@ -4,7 +4,7 @@
 > **Effort:** L/XL; 10-16 engineering days (parent WP3 allowance 7-11 plus the selected Q-074-01 Option A correction-closure slice 3-5)
 > **Priority:** P1
 > **Depends on:** [WP0 / CS-PLAN-071](../done/cs-plan-071-wp0-write-identity-foundation.md), [WP1 / CS-PLAN-072](../done/cs-plan-072-wp1-occurrence-timeline.md) and [WP2 / CS-PLAN-073](../done/cs-plan-073-wp2-agreements-capacity-pauses.md), delivered; activation decisions resolved 2026-09-25
-> **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md); CR-SVC-63 journal/replay remainder (closed with this plan's final review)
+> **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md); CR-SVC-63 journal/replay remainder (closed with this plan's final review)
 > **Planning baseline:** `f365369f51e4e447cdadb34425306ad3982036e5`, 2026-09-25, after the WP2 final review
 
 This is the implementation sub-plan for parent WP3. The parent C3 rules remain
@@ -477,7 +477,7 @@ resolved activation decisions, not findings.
 Resolved through the Standard A question batch on 2026-09-25; both decisions
 selected the recommended Option A. The original alternatives and review
 evidence remain in the
-[activation record](../../backlog/archive/CODE_REVIEW_2026-09-25.md#cs-plan-074-standard-a-plan-activation).
+[activation record](../../backlog/archive/CODE_REVIEW_2026-09-25.md#code-review-cs-plan-074-standard-a-plan-activation).
 
 | ID | Decision and options | State |
 |---|---|---|
@@ -530,7 +530,7 @@ later the same day; this file moved to `active/` with its scoped review commit.
 
 **Standard A plan review ” PASS** (2026-09-25, main agent; skills: review,
 plan-management, git-workflow). Activation record:
-[CODE_REVIEW_2026-09-25.md](../../backlog/archive/CODE_REVIEW_2026-09-25.md#cs-plan-074-standard-a-plan-activation).
+[CODE_REVIEW_2026-09-25.md](../../backlog/archive/CODE_REVIEW_2026-09-25.md#code-review-cs-plan-074-standard-a-plan-activation).
 
 - **Scope/base:** this plan (489 lines at capture, untracked) plus its
   documentation-round package (6 dirty tracked doc files: parent plan,

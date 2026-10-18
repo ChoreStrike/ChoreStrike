@@ -1,11 +1,11 @@
 # CS-PLAN-080: WP9 Cross-Database Verification and Family Evidence
 
-> **Status:** Active (technical gates passed; `0.8.0-alpha.1` deployed and adopted as the first retained baseline 2026-10-17; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
+> **Status:** Active — since 2026-10-18 the single open plan of the CS-PLAN-070 program: the parent closed with a final Standard B `PASS-WITH-FIXES` and its remaining G3 family evidence, the final CONCEPT-001 closure and RF-080-17 are consolidated here (user decision; see [Consolidation](#consolidation-of-cs-plan-070-2026-10-18)). Earlier: (technical gates passed; `0.8.0-alpha.1` deployed and adopted as the first retained baseline 2026-10-17; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
 > **Effort:** M, 4-6 engineering days plus 14 calendar days of voluntary everyday use; revise after the portability inventory if repairs exceed this allowance
 > **Priority:** P1
 > **Depends on:** WP0-WP8 delivered; Standard A before implementation; separately authorized, available consenting family testers before human evidence
-> **Related backlog items:** CONCEPT-001 (existing parent owner, remains In Progress)
-> **Parent:** [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md), WP9 / T12 / G3
+> **Related backlog items:** CONCEPT-001 (owned here since 2026-10-18, remains In Progress); TECH-TEST-005 (real-device run)
+> **Parent:** [CS-PLAN-070](../done/cs-plan-070-family-rhythm-and-reward-clarification.md) (closed 2026-10-18), WP9 / T12 / G3 — G3 is owned here since the parent's closure
 > **Delivered prerequisites:** [WP0](../done/cs-plan-071-wp0-write-identity-foundation.md), [WP1](../done/cs-plan-072-wp1-occurrence-timeline.md), [WP2](../done/cs-plan-073-wp2-agreements-capacity-pauses.md), [WP3](../done/cs-plan-074-wp3-work-accounting-and-replay.md), [WP4](../done/cs-plan-075-wp4-rhythm-goals-and-ranking.md), [WP5](../done/cs-plan-076-wp5-preferences-and-digest-delivery.md), [WP6](../done/cs-plan-077-wp6-calm-core-ui.md), [WP7](../done/cs-plan-078-wp7-catalog-and-request-backend.md), [WP8](../done/cs-plan-079-wp8-reward-ui-and-onboarding.md)
 > **Execution sequencing update (2026-10-05):** user-requested [CS-PLAN-081](../done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md) is delivered (final Full `PASS-WITH-FIXES`, accepted H6-05 evidence-bound disposition; H7/H-T11 user-rescoped, not passed). Refresh this plan's runtime baseline/coverage mapping before technical execution. WP9 remains active and retains the DB matrix, consecutive browser pair and human evidence; no WP9 lifecycle move, implementation or adoption is claimed by preparation completion.
 
@@ -324,9 +324,10 @@ an evidenced defect requires correcting the existing fresh-install chain.
    retain an explicit human-evidence blocker; do not silently pause/move/complete.
 6. Resolve findings, evaluate family results and final-build representativeness,
    reconcile remaining parent RF-070 items and durable docs (1-1.5 days).
-7. Request final Standard B or Full review for child and parent closure evidence.
-   Only a passing review with all gates complete may move completed plans to
-   `done/` and archive CONCEPT-001; broader backlog remainders stay open.
+   The parent RF-070 verdicts were recorded at its closure (2026-10-18).
+7. Request final Standard B or Full review for this plan, which carries the
+   consolidated parent G3. Only a passing review with all gates complete may move
+   it to `done/` and archive CONCEPT-001; broader backlog remainders stay open.
 
 The estimate excludes a major cross-DB redesign. Discovery of one requires an
 explicit estimate/scope decision, not a weaker test gate or fictional deadline.
@@ -367,12 +368,13 @@ explicit estimate/scope decision, not a weaker test gate or fictional deadline.
   feedback are recorded; comprehension/pressure findings are resolved, not assumed away.
 - [x] Public evidence contains no identifying/sensitive human data or raw traces;
   artifact locations and final-build applicability are recorded honestly.
-- [ ] All plan-owned findings and parent whole-item blockers are resolved or
-  explicitly user-rescoped; required deferred evidence still blocks completion.
+- [ ] All plan-owned findings (including RF-080-17) are resolved or explicitly
+  user-rescoped; required deferred evidence still blocks completion. The parent's
+  whole-item verdicts were recorded at its closure (2026-10-18).
 - [x] Durable matrix/protocol/contract outcomes are integrated into permanent docs.
-- [ ] Final Standard B or Full review passes for complete WP9 and parent G3;
-  plans/tracking and CONCEPT-001 archive reflect actual completion. Technical
-  green alone does not authorize closure.
+- [ ] Final Standard B or Full review passes for complete WP9 and the consolidated
+  parent G3; plans/tracking and CONCEPT-001 archive reflect actual completion.
+  Technical green alone does not authorize closure.
 
 ## 9. Review Findings (Plan-Owned)
 
@@ -384,6 +386,8 @@ Standard A passed on 2026-10-03. Cross-DB provisioning and human evidence
 remain required deliverables, not already resolved findings. Record new in-scope
 findings here with severity, exact file/area, evidence and resolution; reconcile
 parent RF-070 entries in the parent without creating duplicate backlog owners.
+
+- [ ] **RF-080-17 minor (parent final review 2026-10-18; user-rescoped from CS-PLAN-070 RF-070-09):** `lib/Db/CompletedTaskMapper.php` `findRecentByUserId` — the former combo-window read — has no production caller since the WP3 combo retirement; only its unit pin in `tests/unit/Db/Mapper/CompletedTaskMapperTest.php` calls it. Remove the method and that test case, and mark the matching bullet in `docs/adr/ADR-011-transactional-completion-and-undo.md` as retired. No behavior effect. Fix in the next code round with the Docker PHPUnit unit gate; it is not part of the human evidence.
 
 - [x] **RF-080-01 major:** DB-selectable, isolated provisioning and fail-closed readiness implemented. Owned empty-volume MariaDB/PostgreSQL/SQLite installs in `cs-wp9-20261005b` reached healthy after required family seeds. `TestEnvironmentProvisioningTest` passes 18 cases (245 assertions), including selector/profile refusal and install/provider/app/HTTP/seed failure refusal; this is provisioning evidence, not DB-02..05 acceptance.
 - [x] **RF-080-02 major:** all remaining 19 guards / 21 skipped cases in the seven worker files are ported. The original scenarios execute through independent installed Nextcloud connections, production mapper locks (SQLite first-write serialization), typed timestamps/Booleans and bounded query-attempt barriers with normal worker-exit checks. Two real-service pairs additionally hold before their actual outer commit to prevent sequential false positives; the focused independent recheck found no remaining issue in that delta. Final full integration: 593 tests on each provider, zero skips/errors/failures. This closes race portability, not RF-080-10 fixture isolation or whole WP9 acceptance.
@@ -403,6 +407,23 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 - [x] **RF-080-13 major:** full interim browser gate `run-KYwj6N` exposed premature task creation and six owner-scheduling readiness failures. The bounded `TaskManager.vue` initialization guard and loaded-content scheduling assertions retain their regression tests and unchanged timeouts; the discarded store-wide journal remains absent. Complete rerun `run-L6t9N6` passes all three pools with zero skips/failures/flakes, closing the previously incomplete `run-bCrhwS` handoff. The later full `run-7H4sub` also passes with the expanded T12 inventory. Earlier failed/incomplete attempts remain historical evidence, not qualifying passes.
 
 ## Implementation Evidence
+
+### Consolidation of CS-PLAN-070 (2026-10-18)
+
+- **User decision (2026-10-18):** neither plan could close — both waited on the
+  same human gates (real-device run, HUMAN-01 comprehension, HUMAN-02 14-day
+  use, final review). The parent CS-PLAN-070 therefore closed with a final
+  Standard B `PASS-WITH-FIXES`, and its open remainder moved here unchanged.
+  This plan is the program's single open plan.
+- **Taken over from the parent:** G3 (family evidence) and the final CONCEPT-001
+  closure, plus RF-080-17 from the parent's final review. The parent's RF-070
+  verdicts are recorded there; none of them moves here as an open item.
+- **Unchanged here:** RF-080-05 (HUMAN-01/02), RF-080-15 and TECH-TEST-005 (the
+  real-device checklist), the final review and the merge condition of CS-PLAN-086
+  on branch `feat/arcade-minigames` (the close of this plan's family evidence
+  window). The gate itself is neither weakened nor removed.
+- **Evidence status:** no real-device, comprehension or observation results exist
+  yet (user-confirmed 2026-10-18; [release test plan §12.1](../../testing/release-test-plan.md#121-family-acceptance-evidence-c5j--wp9)).
 
 ### Deployment and Retained-Baseline Adoption 0.8.0-alpha.1 (2026-10-17)
 

@@ -9,7 +9,7 @@
 
 > **Target clarification (2026-09-17):** this ADR describes the implemented
 > per-house timezone baseline, including its accepted mid-period change limitation.
-> [CS-PLAN-070 C5](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md#c5-delivery-and-ux-decision-log-2026-09-17)
+> [CS-PLAN-070 C5](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md#c5-delivery-and-ux-decision-log-2026-09-17)
 > now requires preserved historical/agreed time bases, explicit amendment of
 > existing commitments and bounded digest delivery across timezone changes.
 > The [delivery concept](../concepts/task-model-and-sync.md#approved-delivery-contract-c5-2026-09-17)

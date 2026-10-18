@@ -26,7 +26,8 @@ row, all-provider backend and preservation/recovery proofs, canonical/CI promoti
 post-repair browser pair and durable guidance complete; TECH-RUNTIME-001 archived).
 [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
 has passed its NC31 technical gates and receives the qualified target-runtime
-evidence; authorized human evidence and its final review remain open.
+evidence; authorized human evidence and its final review remain open. Since
+2026-10-18 it is the single open plan of the CS-PLAN-070 program.
 [CS-PLAN-081: Pre-WP9 Hardening and Retained-Data Readiness](done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
 is delivered (final Full `PASS-WITH-FIXES` 2026-10-05): H1-H6 complete, H6-05
 explicit evidence-bound disposition accepted; H7/H-T11 user-rescoped for
@@ -41,13 +42,15 @@ is delivered (final Full `PASS-WITH-FIXES` 2026-10-17, deployment candidate
 `0.8.0-alpha.1`); the operator's real-device run moved to CS-PLAN-080 with the
 family evidence it precedes.
 
-Current active plans: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-(parent), its WP9 child [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
-(activated 2026-10-03, Standard A `PASS`). Independent
+Current active plan of the family-rhythm program: [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
+(activated 2026-10-03, Standard A `PASS`). Its parent
+[CS-PLAN-070: Family Rhythm and Reward Clarification](done/cs-plan-070-family-rhythm-and-reward-clarification.md)
+closed on 2026-10-18 (final Standard B `PASS-WITH-FIXES`) and consolidated its G3
+family evidence and the CONCEPT-001 closure into CS-PLAN-080. Independent
 [CS-PLAN-083 release qualification gates](done/cs-plan-083-release-qualification-gates.md) are complete.
 Independent runtime qualification
 [CS-PLAN-082](done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)
-and CS-PLAN-081 preparation are complete in `done/`; neither closes those parent/child plans.
+and CS-PLAN-081 preparation are complete in `done/`; neither closes CS-PLAN-080.
 Core product direction was approved through 24 explicit answers on 2026-09-17.
 The same day, 47 additional C1-C5 answers (6/11/9/8/13) resolved the presented
 product questions. The technical draft added on 2026-09-18 specifies persistence,
@@ -93,8 +96,9 @@ blocked first final-review attempt and the original manifest are recorded in the
 [review record](../backlog/archive/CODE_REVIEW_2026-09-25.md); the WP3 records
 live in [CODE_REVIEW_2026-09-27](../backlog/archive/CODE_REVIEW_2026-09-27.md).
 
-Active: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-(parent plan; WP0-WP8 delivered). Its WP9 child,
+Delivered: [CS-PLAN-070: Family Rhythm and Reward Clarification](done/cs-plan-070-family-rhythm-and-reward-clarification.md)
+(parent plan; WP0-WP8 delivered; closed 2026-10-18 by final Standard B
+`PASS-WITH-FIXES`, its remaining G3 consolidated into CS-PLAN-080). Its WP9 child,
 [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md),
 is **active** (drafted 2026-10-02, activated 2026-10-03 via Standard A `PASS`,
 zero findings): isolated MariaDB/PostgreSQL/SQLite verification and two
@@ -108,7 +112,7 @@ catalog gates, persistent own/owner request surfaces with all C4
 attestation forms, exact `parseCoinMinor` prices, uncertain-command
 same-key replay, 409 conflict-safe drafts, shared-device reset, essential
 onboarding/help; RF-079-01..04 resolved in-round; FEAT-UX-026 closed).
-The parent remains open for the WP9 final evidence gates (family/DB-matrix), now owned by the active CS-PLAN-080.
+The parent's remaining WP9 family evidence gate is owned by the active CS-PLAN-080.
 
 Latest completed: [CS-PLAN-079: WP8 - Reward UI and Onboarding](done/cs-plan-079-wp8-reward-ui-and-onboarding.md)
 (final Standard B `PASS-WITH-FIXES` 2026-10-02): the reward Pinia client

@@ -100,9 +100,9 @@ authoritative server-side sources — never from client-side counters:
    available).
 2. **Planned occurrences** — projected occurrences of every active house
    task inside the seven-day planning window, including tasks outside the
-   selection. Full task effort is counted **per assignee**, not an invented
-   teamwork split; a selected row's current in-window occurrence is
-   replaced, not added again.
+   selection. Since WP2 each participant's agreed share counts, not the
+   full task effort per assignee (see *Delivered planning capacity* below);
+   a selected row's current in-window occurrence is replaced, not added again.
 3. **Completion effort** — the Σ `energyCost` of non-undone completions on
    that day. `undone_at` rows are excluded (decision D11): an undone
    completion is no longer planned work.
@@ -112,24 +112,24 @@ Availability, energy capacity and the owner-set child daily-task limit
 constraints**. Existing unavoidable overload is reported
 (`EXISTING_OVERLOAD` on unchanged/unplaced rows), never silently fixed.
 
-**Review limitations (2026-09-16):** current placement can accept an override
-outside `legalDates`, and preserved/shared assignee sets can pass after checking
-only one member. Therefore the implementation does not yet uphold these
-constraints for every override and participant. The
-[family-rhythm plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md)
-tracks both correctness gaps separately from the product decisions.
+**Review limitations (2026-09-16), resolved by WP1-WP2:** an override outside
+`legalDates` now lands unplaced, and every affected participant — concretely
+agreed helpers included — is checked against their own share (see *Delivered
+planning capacity* below). The
+[family-rhythm plan](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md)
+records the closure (RF-070-03).
 
 The former `todayConsumedEnergy` client counter (incremented per completion,
 read by nobody) was removed with CS-PLAN-065 (decision D7, closes
 CR-055-01); the E2E daily/range projections in this document remain the
 canonical display sources.
 
-## Approved Target (2026-09-17; Not Yet Implemented)
+## Approved Target (2026-09-17; implemented by WP1-WP3)
 
 - Task energy represents the **total** effort, split visibly between participants
   in both planning and contribution/coin credit. More names do not multiply the
-  budget or produce a second full reward. This deliberately replaces the current
-  full-effort-per-assignee model described above.
+  budget or produce a second full reward. This deliberately replaced the earlier
+  full-effort-per-assignee model.
 - Normal chores have one responsible member with optional helpers. Explicit joint
   chores require each participant's availability and their agreed share of capacity;
   an available adult cannot make an unavailable child's assignment valid.
@@ -142,9 +142,10 @@ canonical display sources.
 
 ### Approved Whole-Day Capacity C2 (2026-09-17)
 
-Target behavior only; these rules are not enforced by the current daily filter
-or all existing completion paths. (Planning/amendment capacity IS enforced
-since CS-PLAN-073 WP2 — see *Delivered planning capacity* below.)
+Planning and amendment capacity is enforced since CS-PLAN-073 WP2 (see
+*Delivered planning capacity* below), and My Day shows the neutral overload
+clarification since WP6. Completion deliberately never consults the evaluator,
+so real work stays recordable.
 
 - New planning, takeovers and offered optional work must account jointly for work
   already completed and outstanding daily commitments: regular, catch-up, early
@@ -165,7 +166,8 @@ since CS-PLAN-073 WP2 — see *Delivered planning capacity* below.)
 
 ### Approved Effort Allocation C3 (2026-09-17)
 
-Target rules only; current per-assignee accounting is not changed by this document.
+Implemented by WP3 (CS-PLAN-074,
+[ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)).
 
 - Propose equal shares among planned participants unless otherwise agreed; a solo
   responsible person starts at 100%. The authorized completer confirms/corrects

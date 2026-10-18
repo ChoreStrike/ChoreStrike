@@ -74,7 +74,7 @@ daily-count weekly-goal mismatches listed before 2026-09-27 are closed by the
 ADR-014 model (frozen rates/facts, valid-history re-derivation, due∪completed
 evaluation). Corrections, authority and audit are specified in
 [task-model-and-sync.md](task-model-and-sync.md) and the
-[clarification plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md).
+[clarification plan](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md).
 
 ### Weekly Medals
 
@@ -184,7 +184,7 @@ Gamification should stay intentionally open for future ideas.
 
 ## Reward Options for a Family-First App
 
-**Decision (2026-09-17; target, not implemented):** the user selected recognition
+**Decision (2026-09-17; implemented by WP3-WP8):** the user selected recognition
 and shared milestones by default, plus an optional family reward catalog. The
 comparison below retains the alternatives; cosmetics were not selected. Keep the
 loop small rather than adding currencies, multiplier tiers or protection tokens.
@@ -195,7 +195,7 @@ loop small rather than adding currencies, multiplier tiers or protection tokens.
 | B. Optional family reward catalog | Save chore-earned Coins to choose the next movie, a shared baking activity or an agreed small privilege. | Gives individual agency and a clear reason to save. | Needs an affordable family-agreed catalog, request/approval/cancellation rules and reliable accounting. |
 | C. Optional cosmetic collection | Unlock avatar accessories or decorate a shared virtual home. | No parent has to deliver a real-world promise. | New artwork/UI and collection rules; can distract from planning. Not implemented. |
 
-### Approved Reward Direction (2026-09-17; Not Yet Implemented)
+### Approved Reward Direction (2026-09-17; implemented by WP3-WP8)
 
 - A is the default; B is a household opt-in after the accounting and rhythm
   contracts are safe. Planning works without a reward catalog.
@@ -204,23 +204,24 @@ loop small rather than adding currencies, multiplier tiers or protection tokens.
   and recognition acknowledge punctuality separately; duplicate booking earns
   nothing. C3 below specifies a fixed rate of 10 and whole-percent effort shares.
 - Optional minigames use their own highscores, never earning or spending family
-  Coins. The first slice supports Snake only. The existing coin boost shop is not
-  part of the target household economy; its UI/game disposition must be scoped
-  before implementation. Other game prototypes are not a promise of support.
+  Coins. The first slice supports Snake only. The former coin boost shop is not
+  part of the household economy and was retired with the WP3 economy cutover.
+  Other game prototypes are not a promise of support.
 - Task energy is a total effort budget, split visibly between actual participants
   rather than credited in full to each name. The old assignment-count teamwork
   bonus is not part of this earning model; C3 specifies conserved exact allocations.
 - Earned titles/awards remain after ordinary spending or a later streak break.
   A genuine incorrect completion may still be corrected by undo, under the
   separately defined reversal rules. A wallet balance is not an earned title.
-- The approved redemption lifecycle and role boundaries are described below;
-  implementation details and acceptance tests remain open. Do not sell streak
-  repairs or task exemptions.
+- The approved redemption lifecycle and role boundaries are described below and
+  implemented by WP7-WP8 ([ADR-017](../adr/ADR-017-family-catalog-and-redemption.md)).
+  Do not sell streak repairs or task exemptions.
 
 ### Approved Accounting Contract C3 (2026-09-17)
 
-Target behavior only; the current formulas, integer wallets, catalogs and snapshot
-undo remain unchanged until implementation.
+Implemented by WP3 (CS-PLAN-074,
+[ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)); reservations and
+the funding hold by WP7 ([ADR-017](../adr/ADR-017-family-catalog-and-redemption.md)).
 
 - Fixed rate: 10 Coins per energy unit, hence 10-50 total Coins for energy 1-5.
   No personal/household earning multiplier. Families configure catalog prices,
@@ -247,11 +248,11 @@ undo remain unchanged until implementation.
   Authorized cancellation may also restore coverage. Do not automatically cancel
   requests or reclaim delivered rewards. Fulfillment/cancellation actors remain C4.
 - [Targeted undo and attribution correction](task-model-and-sync.md#approved-correction-contract-c3-2026-09-17)
-  preserve independent later spending and earnings, unlike the current snapshot
-  implementation. Store/calculations must use exact units, not floating-point
-  wallet arithmetic; schema/transactions and concrete tests remain to be specified.
+  preserve independent later spending and earnings; the former snapshot restore is
+  retired. Storage and calculations use exact minor units, never floating-point
+  wallet arithmetic (ADR-014).
 
-### Approved Rhythm Core (2026-09-17; Not Yet Implemented)
+### Approved Rhythm Core (2026-09-17; implemented by WP1-WP4)
 
 - The user chose one personal streak of planned task days. A day earns one step
   only when all agreed tasks for that day are completed within their respective
@@ -265,7 +266,7 @@ undo remain unchanged until implementation.
 - Recognized dated illness/absence pauses are neutral, with no fake completion.
   Adults manage their own pauses; children request owner approval. Owners manage
   household pauses and may explicitly recognize retrospective illness with a
-  traceable decision. The target removes freezes/jokers; existing code is unchanged.
+  traceable decision. Freezes/jokers are removed (WP4, ADR-015).
 - Personal credit requires actual participation. A pre-deadline agreed handover
   releases the previous responsible person neutrally; another person's unplanned
   completion alone does not automatically fulfill that person's streak obligation.
@@ -325,16 +326,15 @@ and retain C1 chronological evaluation.
 
 ### Remaining Rhythm Details
 
-- C2 amendments/pause rules and C3 correction policy must be integrated with C1
-  chronological evaluation in the exact technical contract; late replanning
-  cannot erase a miss.
+- C2 amendments/pause rules and C3 correction policy are integrated with C1
+  chronological evaluation (WP1-WP4, ADR-013/ADR-015); late replanning cannot
+  erase a miss.
 - C3 selects 3/6/12 planned-day rhythm thresholds, not 7/30/365 calendar days.
-  C5 fixes the quiet presentation policy; final friendly localized strings belong
-  to the implementation manifest, not another earning formula.
+  C5 fixes the quiet presentation policy; the localized title strings are
+  implemented, not another earning formula.
 - Prefer shared progress relative to agreed work over raw child/adult rankings.
-  Occurrence counting, the 80% target, C1 cross-week attribution and C2 denominator
-  amendments are approved; C3 correction policy still needs exact persistence and
-  concurrency mapping alongside the approved C5 UI contract.
+  Occurrence counting, the 80% target, C1 cross-week attribution, C2 denominator
+  amendments and the C3 correction re-derivation are implemented (WP3-WP4).
 
 ### Approved Family Catalog Rules (2026-09-17; backend implemented since WP7)
 
@@ -349,20 +349,20 @@ and retain C1 chronological evaluation.
   guardian-consent model.
 - Reserve Coins at request, settle once on confirmed fulfillment, and release
   on rejection/cancellation. Catalog price changes do not reprice an existing
-  request. C4 below specifies actors/states; map duplicate/retry behavior to the
-  exact technical contract before implementing the API.
+  request. C4 below specifies actors/states; duplicate/retry behavior follows the
+  shared receipt/version contract (ADR-017).
 - Undo corrects only the mistaken credit, preserving independent later events.
   If rewards were already spent, the balance may become negative and later work
   repays it; block further redemptions until covered. Delivered rewards are not
   reclaimed. Missing a chore does not trigger this correction mechanism.
 - C3 specifies the funding hold after correction; C4 specifies the catalog lifecycle
-  below. C5 specifies quiet UI/delivery. Concrete onboarding/pricing guidance,
-  localized copy, persistence and race handling remain part of the technical manifest.
+  below. C5 specifies quiet UI/delivery. Onboarding/pricing help, localized copy,
+  persistence and race handling shipped with WP7-WP8.
 
 ### Approved Catalog Lifecycle C4 (2026-09-17)
 
-Target behavior only; no family catalog or redemption API is implemented yet.
-The states below are domain descriptions, not finalized schema/API identifiers.
+Implemented by WP7 (backend, ADR-017) and WP8 (UI). The states below are domain
+descriptions; the API identifiers live in the [rewards API](../api/rewards.md).
 An underfunding hold is a separate condition, not a replacement for approval state.
 Here, an open/unfulfilled request means pending approval or approved, not already
 rejected, cancelled or corrected. Those terminal records cannot be reopened or
@@ -456,9 +456,10 @@ require review; no new external identity service is implied.
 
 ## Open Decisions
 
-The [clarification plan](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md)
-records the approved core/C1-C5 product choices; exact technical mapping and
-cross-contract integration remain open, not implicitly approved implementation.
+The [clarification plan](../plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md)
+records the approved core/C1-C5 product choices; WP0-WP8 implement them
+(ADR-013..017). The family trial evidence remains open in
+[CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md).
 The [C5 UI contract](ui-use-cases.md#approved-calm-ux-and-evidence-c5-2026-09-17)
 specifies quiet feedback, prospective consent-based weekly plan-fulfillment
 rankings and the future family trial. The selected order is reliable core first, then the
