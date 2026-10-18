@@ -27,8 +27,9 @@ artwork (CS-PLAN-086 D-086-03); Crumb Snake reproduces only the public
 snake-game convention (a growing line that collects items), Spot Sprint only
 the generic tap-the-target convention (items appear on a grid and are tapped
 before they vanish), Sock Match only the generic memory-pairs convention
-(face-down cards turned two at a time), each drawn with its own inline
-shapes. The former `Game2048.vue` and `MemoryGame.vue` clean-room prototypes
+(face-down cards turned two at a time), Tile Breaker only the generic
+paddle-and-wall convention (a paddle bounces a ball against a wall of
+blocks), each drawn with its own inline shapes. The former `Game2048.vue` and `MemoryGame.vue` clean-room prototypes
 were retired with the CS-PLAN-070 WP3 no-Coin arcade cutover.
 
 ## Sound assets

@@ -203,6 +203,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 				['gameId' => 'spots', 'threshold' => 0, 'unlocked' => true],
 				['gameId' => 'socks', 'threshold' => 3, 'unlocked' => false],
 				['gameId' => 'snake', 'threshold' => 10, 'unlocked' => false],
+				['gameId' => 'tiles', 'threshold' => 25, 'unlocked' => false],
 			],
 			$catalog['games']
 		);

@@ -13,34 +13,22 @@
 			data-testid="game-shell"
 			:data-game-id="gameId"
 			:data-phase="phase"
-			@keydown="onKeyDown">
-			<header class="game-shell-header">
-				<div class="game-shell-stat">
-					<span class="game-shell-stat-label">{{ t('chorestrike', 'Score') }}</span>
-					<span class="game-shell-stat-value" data-testid="game-score">{{ score }}</span>
-				</div>
-				<div v-if="timeLeft !== null" class="game-shell-stat">
-					<span class="game-shell-stat-label">{{ t('chorestrike', 'Time') }}</span>
-					<span class="game-shell-stat-value" data-testid="game-time">{{ timeLeft }}</span>
-				</div>
-				<button v-if="phase === 'playing'"
-					type="button"
-					class="game-shell-button"
-					data-testid="game-pause"
-					@click="pauseGame">
-					{{ t('chorestrike', 'Pause') }}
-				</button>
-				<div class="game-shell-stat">
-					<span class="game-shell-stat-label">{{ t('chorestrike', 'Best') }}</span>
-					<span class="game-shell-stat-value" data-testid="game-best">{{ bestScore }}</span>
-				</div>
-			</header>
+			@keydown="onKeyDown"
+			@keyup="onKeyUp">
+			<GameShellHeader :score="score"
+				:time-left="timeLeft"
+				:lives="lives"
+				:best="bestScore"
+				:playing="phase === 'playing'"
+				@pause="pauseGame" />
 
 			<div ref="stageRef" class="game-shell-stage">
 				<div class="game-shell-board"
 					:class="{ 'is-playing': phase === 'playing', 'is-unsized': board.width === 0 }"
 					:style="board.width ? { width: `${board.width}px`, height: `${board.height}px` } : null"
 					@click="focusShell"
+					@pointerdown="onPointerAim"
+					@pointermove="onPointerAim"
 					@touchstart.passive="onTouchStart"
 					@touchend="onTouchEnd">
 					<canvas v-if="!isDom"
@@ -87,7 +75,8 @@ import { useGameEffects } from '../../composables/useGameEffects.js'
 import { logger } from '../../utils/logger.js'
 import { findGame } from './gameRegistry.js'
 import { canvasPixelRatio, fitBoard, readBoardPalette } from './board.js'
-import { keyAction, swipeDirection } from './gameInput.js'
+import { createSteerKeys, isPaddleControl, keyAction, swipeDirection } from './gameInput.js'
+import GameShellHeader from './GameShellHeader.vue'
 import GameShellOverlay from './GameShellOverlay.vue'
 import GameShellDpad from './GameShellDpad.vue'
 import GameLeaderboard from './GameLeaderboard.vue'
@@ -101,8 +90,11 @@ import GameLeaderboard from './GameLeaderboard.vue'
  * The game itself is a lazy module: `{cols, rows, createState, step}` plus
  * `render` for a canvas game, or `view` and a `Board` component for a DOM
  * game (registry `renderer: 'dom'`, tap input; the board re-renders only
- * when `state.revision` changes). A game with `roundMs` shows its time left;
- * an entry may name its end (`overTitle`, `overAnnouncement`).
+ * when `state.revision` changes). A game with `roundMs` shows its time left,
+ * a state with `lives` its lives; an entry may name its end (`overTitle`,
+ * `overAnnouncement`). Input modes: `dpad` (directions, swipes, on-screen
+ * pad), `tap` (tapped tiles) and `paddle` (held arrow keys and the pointer
+ * position as controls, of which only the latest is queued).
  */
 const props = defineProps({
 	gameId: {
@@ -134,6 +126,7 @@ const board = ref({ width: 0, height: 0 })
 const game = shallowRef(null)
 const boardView = shallowRef(null)
 const timeLeft = ref(null)
+const lives = ref(null)
 const motion = ref(false)
 
 let state = null
@@ -146,6 +139,7 @@ let round = 0
 let resizeObserver = null
 const inputs = []
 const sparkles = []
+const steerKeys = createSteerKeys()
 // Render inputs, rebuilt on layout only (no per-frame allocation).
 const view = { width: 0, height: 0, palette: null, sparkles }
 
@@ -170,6 +164,7 @@ function draw() {
 		const seconds = Math.ceil(state.timeLeftMs / 1000)
 		if (seconds !== timeLeft.value) timeLeft.value = seconds
 	}
+	if (state.lives !== undefined && state.lives !== lives.value) lives.value = state.lives
 	if (isDom) {
 		if (state.revision !== drawnRevision) {
 			drawnRevision = state.revision
@@ -249,6 +244,7 @@ function startGame() {
 	newState()
 	motion.value = effects.motionAllowed()
 	inputs.length = 0
+	steerKeys.clear()
 	sparkles.length = 0
 	score.value = 0
 	result.value = null
@@ -273,6 +269,9 @@ function enterPause() {
 function resumeGame() {
 	if (!loop.resume()) return
 	phase.value = 'playing'
+	// Keys released during the pause sent no release: a paddle starts still.
+	steerKeys.clear()
+	if (entry.input === 'paddle') queueInput({ steer: 0 })
 	announce(t('chorestrike', 'Resumed'))
 	focusShell()
 }
@@ -297,10 +296,17 @@ async function finishRound() {
 }
 
 /**
- * @param {string|{cell: number}} input A direction, 'act' or a tapped tile
+ * @param {string|{cell: number}|{steer: number}|{aim: number}} input A direction, 'act', a tapped tile or a paddle control
  */
 function queueInput(input) {
-	if (phase.value === 'playing' && inputs.length < MAX_QUEUED_INPUTS) inputs.push(input)
+	if (phase.value !== 'playing') return
+	if (isPaddleControl(input)) {
+		const queued = inputs.findIndex(isPaddleControl)
+		if (queued >= 0) inputs.splice(queued, 1)
+		inputs.push(input)
+	} else if (inputs.length < MAX_QUEUED_INPUTS) {
+		inputs.push(input)
+	}
 }
 
 function onTileTap(cell) {
@@ -313,7 +319,11 @@ function onKeyDown(event) {
 	if (action.type === 'direction') {
 		if (phase.value !== 'playing') return
 		event.preventDefault()
-		queueInput(action.direction)
+		if (entry.input === 'paddle') {
+			steer(steerKeys.press(event.code, action.direction))
+		} else {
+			queueInput(action.direction)
+		}
 		return
 	}
 	// A focused button keeps its own Enter/Space activation (no double handling).
@@ -331,6 +341,29 @@ function onKeyDown(event) {
 		event.preventDefault()
 		resumeGame()
 	}
+}
+
+function onKeyUp(event) {
+	if (entry?.input === 'paddle') steer(steerKeys.release(event.code))
+}
+
+/**
+ * @param {number|null} value New steer value of the held keys, null when unchanged
+ */
+function steer(value) {
+	if (value !== null) queueInput({ steer: value })
+}
+
+/**
+ * A paddle follows the pointer: a moving mouse, or a finger dragging or
+ * tapping on the board (whose `touch-action: none` keeps the page still).
+ *
+ * @param {PointerEvent} event Pointer event on the board
+ */
+function onPointerAim(event) {
+	if (phase.value !== 'playing' || entry.input !== 'paddle') return
+	const rect = event.currentTarget.getBoundingClientRect()
+	if (rect.width > 0) queueInput({ aim: (event.clientX - rect.left) / rect.width })
 }
 
 function onTouchStart(event) {
@@ -396,35 +429,6 @@ onBeforeUnmount(() => {
 	border-radius: var(--border-radius-large, 10px);
 }
 
-.game-shell-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	gap: 1rem;
-	width: 100%;
-	max-width: 480px;
-	padding: 0.5rem 1rem;
-	background: var(--color-background-dark);
-	border-radius: var(--border-radius-large, 10px);
-}
-
-.game-shell-stat {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-}
-
-.game-shell-stat-label {
-	font-size: 0.75rem;
-	color: var(--color-text-maxcontrast);
-}
-
-.game-shell-stat-value {
-	font-size: 1.5rem;
-	font-weight: bold;
-	color: var(--color-main-text);
-}
-
 .game-shell-stage {
 	display: flex;
 	justify-content: center;
@@ -450,15 +454,5 @@ onBeforeUnmount(() => {
 
 .game-shell-canvas {
 	display: block;
-}
-
-.game-shell-button {
-	min-height: 44px;
-	padding: 0 1rem;
-	border: 1px solid var(--color-border-maxcontrast, var(--color-border));
-	border-radius: var(--border-radius-element, 8px);
-	background: var(--color-main-background);
-	color: var(--color-main-text);
-	cursor: pointer;
 }
 </style>

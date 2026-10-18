@@ -67,6 +67,19 @@ final class ArcadeCatalog {
 			'burstPoints' => 100,
 			'unlockThreshold' => 10,
 		],
+		// Tile Breaker: 10 points per tile hit, endless walls of 8x5 tiles,
+		// bubbles at most 15 cells per second and at most three in play. An
+		// autopilot that never misses (client logic spec) scores about 7
+		// points per second over an hour and at most about 15 per second
+		// over any minute; rate and burst stay well above it, the ceiling is
+		// about twice its hour.
+		'tiles' => [
+			'maxScore' => 50000,
+			'maxDurationMs' => 3600000,
+			'pointsPerSecond' => 20,
+			'burstPoints' => 300,
+			'unlockThreshold' => 25,
+		],
 	];
 
 	/**

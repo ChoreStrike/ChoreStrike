@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ArcadeCatalogTest extends TestCase {
 	public function testIds_PinTheCatalog(): void {
-		$this->assertSame(['spots', 'socks', 'snake'], ArcadeCatalog::ids());
+		$this->assertSame(['spots', 'socks', 'snake', 'tiles'], ArcadeCatalog::ids());
 	}
 
 	public function testEveryGame_HasCompletePositiveRules(): void {
@@ -50,7 +50,7 @@ class ArcadeCatalogTest extends TestCase {
 	 */
 	public function testUnlockThresholds_PinD08606(): void {
 		$thresholds = array_map(static fn (array $rules): int => $rules['unlockThreshold'], ArcadeCatalog::GAMES);
-		$this->assertSame(['spots' => 0, 'socks' => 3, 'snake' => 10], $thresholds);
+		$this->assertSame(['spots' => 0, 'socks' => 3, 'snake' => 10, 'tiles' => 25], $thresholds);
 		foreach ($thresholds as $gameId => $threshold) {
 			$this->assertTrue($threshold === 0 || $threshold >= 3, $gameId);
 		}
@@ -60,6 +60,7 @@ class ArcadeCatalogTest extends TestCase {
 		$this->assertTrue(ArcadeCatalog::has('spots'));
 		$this->assertTrue(ArcadeCatalog::has('socks'));
 		$this->assertTrue(ArcadeCatalog::has('snake'));
+		$this->assertTrue(ArcadeCatalog::has('tiles'));
 		$this->assertFalse(ArcadeCatalog::has('2048'));
 		$this->assertFalse(ArcadeCatalog::has(''));
 	}
@@ -93,5 +94,13 @@ class ArcadeCatalogTest extends TestCase {
 		$this->assertSame(800, ArcadeCatalog::rules('socks')['maxScore']);
 		// Untimed: a round left running for hours still saves (R086D-02).
 		$this->assertSame(86400000, ArcadeCatalog::rules('socks')['maxDurationMs']);
+		// Tile Breaker: 300 burst points + 20 per second (the client logic
+		// spec proves an autopilot that never misses stays inside); an hour
+		// reaches the 50000 ceiling.
+		$this->assertTrue(ArcadeCatalog::isPlausible('tiles', 300, 1));
+		$this->assertFalse(ArcadeCatalog::isPlausible('tiles', 301, 1));
+		$this->assertTrue(ArcadeCatalog::isPlausible('tiles', 1500, 60000));
+		$this->assertFalse(ArcadeCatalog::isPlausible('tiles', 1501, 60000));
+		$this->assertTrue(ArcadeCatalog::isPlausible('tiles', 50000, 3600000));
 	}
 }

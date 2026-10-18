@@ -1,6 +1,6 @@
 # CS-PLAN-086: Household Arcade — Game Catalog, Chore Unlocks and Per-Game Highscores
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); next: WP-E
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); WP-E delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086E-01..03 fixed); next: WP-F
 > **Effort:** XL (seven work packages; no schema change)
 > **Priority:** P3 (optional add-on, never on the core critical path)
 > **Depends on:** work proceeds on branch `feat/arcade-minigames`; merge to
@@ -336,12 +336,13 @@ new:      src/utils/effectGates.js                            (WP-A: the extract
 modified: src/composables/useCelebration.js                   (extracted gate sync)
 new:      src/components/Minigames/GameShell.vue
 new:      src/components/Minigames/{GameShellOverlay,GameShellDpad}.vue   (WP-A: split from the shell; WP-D: a game's own end title)
-new:      src/components/Minigames/{board,gameInput}.js         (WP-A: board fit/palette, key/swipe mapping)
-new:      src/components/Minigames/ArcadeCatalog.vue
+new:      src/components/Minigames/GameShellHeader.vue          (WP-E: the score header, split from the shell, with lives)
+new:      src/components/Minigames/{board,gameInput}.js         (WP-A: board fit/palette, key/swipe mapping; WP-E: held steer keys, paddle controls)
+new:      src/components/Minigames/ArcadeCatalog.vue          (WP-E review: R086E-02 resets Nextcloud's global dt/dd styles)
 new:      src/components/Minigames/ArcadeGateSetting.vue      (WP-B: the owner switch)
 new:      src/components/Minigames/GameLeaderboard.vue
 new:      src/components/Minigames/gameRegistry.js
-new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js or a DOM Board.vue)
+new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js or a DOM Board.vue; Tile Breaker splits its rules into constants.js, logic.js and physics.js, R086E-03)
 modified: src/store/minigame.js
 modified: src/store/house.js                                  (WP-B: arcadeGateEnabled getter + writer)
 modified: src/views/ArcadeView.vue
@@ -357,7 +358,7 @@ new:      tests/unit/helpers/animationFrames.js               (WP-A: manual rAF 
 new:      tests/unit/components/{GameShell,ArcadeCatalog,ArcadeGateSetting}.spec.js
 modified: tests/unit/store/house.spec.js, tests/unit/views/Settings.spec.js   (WP-B)
 modified: tests/unit/Service/TestDataServiceTest.php          (WP-B)
-renamed:  tests/unit/components/SnakeLeaderboard.spec.js → GameLeaderboard.spec.js
+renamed:  tests/unit/components/SnakeLeaderboard.spec.js → GameLeaderboard.spec.js   (WP-E: re-queries after master's teleported Modal re-renders)
 new:      tests/unit/store/minigame.spec.js
 modified: tests/unit/views/ArcadeView.spec.js
 modified: tests/unit/composables/useStoreReset.spec.js         (WP-A: per-game slices)
@@ -501,6 +502,40 @@ Each WP is one reviewable round with an interim Standard B on
    Sprint, the board is decorative for assistive technology; the live region
    carries score and state.
 5. **WP-E — Tile Breaker** (FEAT-ARCADE-003). Canvas physics and power-ups.
+   *Implemented 2026-10-18.* Implementation choices within the plan: a
+   16×20-cell board with a wall of 8×5 tiles; 10 points per hit; three wall
+   layouts (plain, two grimy rows, a grimy frame — two-layer tiles carry
+   speckles, never color alone), the last one repeating, so walls are
+   endless; each new wall is one cell per second faster (9 → 15 cells per
+   second, plus 0.08 per bounce). Three lives, shown in the shell header
+   ("Lives" for every game state that has them). The bubble waits one second
+   on the squeegee and launches by itself up and slightly left (Enter
+   launches at once), so the first tile is cleaned without input; the bounce
+   angle follows the landing point (about 10° to 60° from vertical, never
+   straight up). Drops (12 % of cleaned tiles, each its own shape): sponge
+   (wider squeegee, 10 s), spray bottle (two more bubbles, at most three in
+   play), floor wax (bubbles at 70 % speed, 8 s), mud (narrower squeegee,
+   8 s; the later width drop replaces the other); losing the last bubble
+   ends effects and falling drops. Input: a new `paddle` mode in the shell —
+   held left/right keys become steer changes (never key repeats; a resume
+   starts still), the pointer on the board (mouse move, finger drag or tap)
+   pulls the squeegee, and only the latest control waits in the input
+   queue. The board itself is the touch control (tap where the squeegee
+   should go), so there is no on-screen pad. The score header moved into
+   `GameShellHeader.vue`. Without input a round is fully deterministic
+   (60 points, three lost bubbles, about 15 seconds, whatever drops fall);
+   after the first tile, the squeegee at the left wall catches the returning
+   bubble. The rules are split into `constants.js` (geometry), `logic.js`
+   (the round) and `physics.js` (movement, collisions, drops) to stay within
+   the file-size rule (R086E-03). Server rules: `maxScore` 50000, `maxDurationMs` one hour, 20 points
+   per second + 300 burst (a Jest autopilot that never misses stays inside at
+   every step; over an hour it scores about 24000, at most about 15 per second
+   over any minute), unlock threshold 25. Tests: `arcade-games.spec.ts` saves
+   a hands-off round to the tiles board and catches the bubble with held
+   Left in a second round (the mouse stays off the board, whose pointer
+   would steer); `arcade-mobile.spec.ts` catches it with a tap at the board's
+   left edge on both phones; the unlock progress shows "22 to go" after three
+   real completions.
 6. **WP-F — Dust Runner** (FEAT-ARCADE-003). Room-shaped mazes and chaser
    behavior.
 7. **WP-G — Knowledge integration and final gate.** Concept, calm-core and API
@@ -607,7 +642,9 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   after every CS-PLAN-084 round; merge to `master` and deploy only after the
   084 final review and the close of the CS-PLAN-080 family evidence window.
   The 084 final review is done (`bce10bb`); the branch was rebased onto
-  `master` `0d27d38` on 2026-10-17 and the worktree pinned to it.
+  `master` `0d27d38` on 2026-10-17 and the worktree pinned to it, and onto
+  `master` `ca7f98e` (CS-PLAN-087) on 2026-10-18 before the WP-E review
+  commit.
 - **D-086-08 — Canonical test volumes reset** (operator, 2026-10-17, WP-A).
   The kept canonical volumes had the app installed as `0.1.1`; after the
   `0.8.0-alpha.1` bump the test entrypoint aborted on "require upgrade". The
@@ -749,4 +786,27 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - PHPUnit unit 1454 and integration 623 on the staged row; `cs:check`.
   - lint, stylelint, l10n (1320 keys), backlog, encoding, agents and build checks; gate self-test and scenario manifest.
   - Browser: `arcade-games.spec.ts` 6/6, `arcade-mobile.spec.ts` 3/3 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2; both Sock Match tests rerun after R086D-02.
+  - Not run: the full gate, the AIO row and the provider matrix (WP-G).
+
+### Standard B (interim, WP-E) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
+
+- **Scope:** the uncommitted WP-E package on `feat/arcade-minigames` @
+  `150fda0` (rebased onto `master` `ca7f98e` first: `cdf1fc7`..`28dfae5` →
+  `f2a2978`..`150fda0`; fingerprint at capture `4957221f…d2a7`: empty index,
+  27 modified and 8 untracked paths), tested on the isolated staged row
+  `cs082-arcade-wpc`. [Record](../../backlog/archive/CODE_REVIEW_2026-10-18.md).
+- **Fixed (3):**
+  - R086E-01 (minor): releasing one of two held keys for the same side (ArrowLeft and KeyA) stopped the squeegee; keys are now held by code (regression in `gameInput.spec.js`).
+  - R086E-02 (minor, pre-existing since WP-A): Nextcloud's global `dt`/`dd` styles pushed the rank out of every catalog card at phone width; a scoped reset fixes it (phone regression, negative control fails with four overflowing cards).
+  - R086E-03 (nit): `tiles/logic.js` had 405 lines; split into `constants.js`, `logic.js` and `physics.js` without an import cycle.
+- **Integration:** master's teleported `Modal` re-renders its stubbed content in Jest, so `GameLeaderboard.spec.js` re-queries the tab after a click (the component was correct).
+- **Verified:**
+  - Every Tile Breaker rule is pinned in Jest; a round without input is deterministic for any drops; an autopilot that never misses stays inside the server rule at every step.
+  - The paddle controls coalesce without loss (the latest control alone sets the state); a resume starts still (negative control); the pointer is ignored in other games.
+  - Visual check in light and dark on desktop and phone width; no authorization or schema change; `game-tiles` is 2.6 KB gzip.
+- **Gates:**
+  - Jest 147/2046, noise-free.
+  - PHPUnit unit 1456 and integration 623 on the staged row; `cs:check`.
+  - lint, stylelint, l10n (1324 keys), backlog, encoding, agents and build checks; gate self-test and scenario manifest.
+  - Browser: `arcade-games.spec.ts` 7/7, `arcade-mobile.spec.ts` 4/4 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2, all on the final code.
   - Not run: the full gate, the AIO row and the provider matrix (WP-G).

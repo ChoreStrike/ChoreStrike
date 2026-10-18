@@ -18,7 +18,7 @@ const read = (path) => readFileSync(resolve(MINIGAMES, path), 'utf8')
  */
 describe('game registry', () => {
 	it('pins the game ids', () => {
-		expect(GAME_IDS).toEqual(['spots', 'socks', 'snake'])
+		expect(GAME_IDS).toEqual(['spots', 'socks', 'snake', 'tiles'])
 	})
 
 	it('describes every game with translated copy, an icon and an input mode', () => {
@@ -28,7 +28,7 @@ describe('game registry', () => {
 				expect(game[field]().length).toBeGreaterThan(0)
 			}
 			expect(game.icon).toBeTruthy()
-			expect(['dpad', 'tap']).toContain(game.input)
+			expect(['dpad', 'tap', 'paddle']).toContain(game.input)
 			expect([undefined, 'dom']).toContain(game.renderer)
 		}
 	})

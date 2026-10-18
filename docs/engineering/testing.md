@@ -852,9 +852,9 @@ owner's successor, reassignment visibility, the paged task list with
 collapsed filters, dashboard tiles and room cards, and Settings through the
 phone navigation. `arcade-mobile.spec.ts` (CS-PLAN-086 WP-C) joins the set
 in both projects: the DOM games played by tapping (Spot Sprint and Sock
-Match, tiles at least 44 px) and one canvas game steered with the on-screen
-pad (Crumb Snake); Sock Match and Crumb Snake run after the owner opens the
-arcade gate. Both projects reset the database, so run them one at a time
+Match, tiles at least 44 px), one canvas game steered with the on-screen pad
+(Crumb Snake) and one whose squeegee follows a finger on the board (Tile
+Breaker); the locked games run after the owner opens the arcade gate. Both projects reset the database, so run them one at a time
 (`--project=mobile-chromium`, then `--project=mobile-webkit`), never next to
 another reset-owning pool. Holds use the shared `holdToConfirm` helper (mouse
 events on a touch context yield the same pointer events as a held finger).

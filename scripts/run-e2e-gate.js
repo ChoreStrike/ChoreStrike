@@ -103,7 +103,7 @@ const REQUIRED_SPECS = [
 	// preference and walks the pause lifecycle through the real API — a
 	// parallel reseed would corrupt the preference/pause state, serial only.
 	// CS-PLAN-086: chore unlocks and the owner arcade gate (reseeds, flips the household flag).
-	{ file: 'arcade-games.spec.ts', project: 'chromium-serial-db', scenarios: ['a locked game shows neutral progress', 'a crafted score for a locked game is refused', 'three finished chores unlock sock match', 'sock match saves a round', 'the owner switch opens every game', 'spot sprint is open without chores'], minTests: 6 },
+	{ file: 'arcade-games.spec.ts', project: 'chromium-serial-db', scenarios: ['a locked game shows neutral progress', 'a crafted score for a locked game is refused', 'three finished chores unlock sock match', 'sock match saves a round', 'tile breaker saves a hands-off round', 'the owner switch opens every game', 'spot sprint is open without chores'], minTests: 7 },
 	{ file: 'calm-core-ui.spec.ts', project: 'chromium-serial-db', scenarios: ['every role lands on my day', 'optional arcade hides', 'pause lifecycle stays neutral', 'a free day stays neutral', 'reduced motion overrides an explicit animation opt-in'], minTests: 6 },
 	// Owner-scoped scheduling pool.
 	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
@@ -131,8 +131,8 @@ const REQUIRED_SPECS = [
 	{ file: 'title-selection.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'workflow-request-budgets.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	// CS-PLAN-084 WP-G: the curated phone core set, run by BOTH device projects.
-	// CS-PLAN-086 WP-C/WP-D: arcade touch controls, the DOM games and a canvas game, on both phones.
-	{ file: 'arcade-mobile.spec.ts', project: MOBILE_PROJECTS, scenarios: ['spot sprint plays by tapping', 'sock match plays by tapping', 'crumb snake steers with the on-screen pad'], minTests: 3 },
+	// CS-PLAN-086 WP-C..WP-E: arcade touch controls, the DOM games and both canvas input modes, on both phones.
+	{ file: 'arcade-mobile.spec.ts', project: MOBILE_PROJECTS, scenarios: ['spot sprint plays by tapping', 'sock match plays by tapping', 'tile breaker steers by tapping the board', 'crumb snake steers with the on-screen pad'], minTests: 4 },
 	{ file: 'mobile-core.spec.ts', project: MOBILE_PROJECTS, scenarios: ['my day hold-complete and undo', 'claim confirm', 'handover', 'reassignment', 'paged task list', 'dashboard tiles', 'settings'], minTests: 7 },
 	// Auth setup runs once as the dependency of every browser project.
 	{ file: 'auth.setup.ts', project: SETUP_PROJECT, scenarios: [], minTests: 3 },

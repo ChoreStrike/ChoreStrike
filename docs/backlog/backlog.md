@@ -372,8 +372,11 @@ entry game with tap input, keyboard cursor, golden sponge and sock penalty,
 its own lazy chunk (4.0 KB gzip) and server rules. Sock Match delivered
 2026-10-18 (WP-D, interim Standard B `PASS-WITH-FIXES`): untimed memory pairs without
 a fail state, shape-distinct patterns, score 160 to 800 rewarding few wrong
-guesses, unlock threshold 3, its own lazy chunk (4.2 KB gzip). Open: Tile
-Breaker and Dust Runner (WP-E, WP-F).
+guesses, unlock threshold 3, its own lazy chunk (4.2 KB gzip). Tile Breaker
+delivered 2026-10-18 (WP-E, interim Standard B `PASS-WITH-FIXES`): endless walls of grimy
+tiles, sponge, spray, wax and mud drops, three lives, held arrow keys or
+mouse and finger on the board (the shell's `paddle` input mode), unlock
+threshold 25, its own lazy chunk (2.6 KB gzip). Open: Dust Runner (WP-F).
 
 ---
 

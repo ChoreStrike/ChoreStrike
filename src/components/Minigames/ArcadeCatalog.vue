@@ -196,13 +196,23 @@ onMounted(loadStats)
 	margin: 0;
 }
 
+/* Nextcloud's global list styles give dt/dd a fixed width, padding and end
+   alignment, which pushed the second stat out of a phone-width card. */
+.arcade-card-stat dt,
+.arcade-card-stat dd {
+	display: block;
+	width: auto;
+	margin: 0;
+	padding: 0;
+	text-align: start;
+}
+
 .arcade-card-stat dt {
 	font-size: 0.75rem;
 	color: var(--color-text-maxcontrast);
 }
 
 .arcade-card-stat dd {
-	margin: 0;
 	font-size: 1.1rem;
 	font-weight: bold;
 	color: var(--color-main-text);

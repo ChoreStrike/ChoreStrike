@@ -92,7 +92,7 @@ ChoreStrike/
 │   │   ├── Tasks/              # TaskList, TaskListItem, TaskListDetails, TaskListBulkBar,
 │   │   │                       #   TaskEditForm, AssigneeChips, TaskChecklist, RoomPicker,
 │   │   │                       #   TaskTemplatePicker, FlexWindowDisplay, OverdueClaimDialog
-│   │   ├── Minigames/          # ArcadeCatalog, GameShell (+Overlay, Dpad), GameLeaderboard,
+│   │   ├── Minigames/          # ArcadeCatalog, GameShell (+Header, Overlay, Dpad), GameLeaderboard,
 │   │   │                       #   ArcadeGateSetting (owner switch), gameRegistry,
 │   │   │                       #   games/<id>/ (pure logic + a canvas render.js or a DOM
 │   │   │                       #   Board.vue, one lazy chunk per game; CS-PLAN-086)
@@ -1302,7 +1302,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Dashboard/RoomCard.vue` | 445 | Room status card | accepted (presentational) |
 | `components/Dashboard/QuickStats.vue` | 372 | Stat cards | accepted (presentational) |
 | `components/Minigames/SnakeGame.vue`, `SnakeLeaderboard.vue` | — | Single-game Snake and its board — replaced by the shared game shell (CS-PLAN-086 WP-A) | removed from the inventory (2026-10-17; archived under the gitignored `archive/`) |
-| `components/Minigames/GameShell.vue` | 420 | Shared frame of every arcade game: loop, shell-bound input, responsive canvas or a game's DOM board (tap input, round timer), overlays, live region with a game's own end copy, result save | accepted (one frame for all games; ~150 lines scoped CSS) |
+| `components/Minigames/GameShell.vue` | 458 | Shared frame of every arcade game: loop, shell-bound input (directions, taps, a paddle's held keys and pointer), responsive canvas or a game's DOM board, overlays, live region with a game's own end copy, result save; the score header lives in `GameShellHeader.vue` | accepted (one frame for all games; ~40 lines scoped CSS) |
 | `views/Leaderboard.vue` | 496 | Consent-filtered ranking surface (opt-in/closed state, entries/pending, provisional week) with the weekly-medal display — no unconditional member ranking, contribution column or freeze indicator (CS-PLAN-070 WP4) | accepted (presentational) |
 | `views/TaskManager.vue` | 614 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
 | `views/Dashboard.vue` | 351 | Dashboard composition | accepted (composition root) |

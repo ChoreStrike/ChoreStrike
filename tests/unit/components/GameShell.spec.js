@@ -53,6 +53,20 @@ const mockUntimedGame = {
 }
 jest.mock('@/components/Minigames/games/socks/game.js', () => mockUntimedGame)
 
+// A scripted paddle game (Tile Breaker's interface): a canvas game whose
+// state carries lives.
+const mockPaddleGame = {
+	cols: 16,
+	rows: 20,
+	createState: jest.fn(() => ({ score: 0, over: false, events: [], inputs: [], lives: 3 })),
+	step: jest.fn((state, input) => {
+		if (input) state.inputs.push(input)
+		return state
+	}),
+	render: jest.fn(),
+}
+jest.mock('@/components/Minigames/games/tiles/game.js', () => mockPaddleGame)
+
 const mockEffects = { pickup: jest.fn(), newPersonalBest: jest.fn(), motionAllowed: jest.fn(() => false) }
 jest.mock('@/composables/useGameEffects.js', () => ({ useGameEffects: () => mockEffects }))
 
@@ -382,6 +396,94 @@ describe('GameShell', () => {
 
 			expect(enter.defaultPrevented).toBe(false)
 			expect(domState().inputs).toEqual([])
+		})
+	})
+
+	describe('paddle games (held keys, pointer, lives)', () => {
+		const paddleState = () => mockPaddleGame.createState.mock.results.at(-1).value
+		const key = async (wrapper, type, code) => {
+			const event = new KeyboardEvent(type, { code, bubbles: true, cancelable: true })
+			wrapper.get('[data-testid="game-shell"]').element.dispatchEvent(event)
+			advance()
+			await flushPromises()
+			return event
+		}
+		const pointAt = (wrapper, clientX) => {
+			const board = wrapper.get('.game-shell-board').element
+			board.getBoundingClientRect = () => ({ left: 100, width: 200, top: 0, height: 250 })
+			board.dispatchEvent(new MouseEvent('pointermove', { clientX, bubbles: true }))
+		}
+
+		it('shows the lives of the state and keeps them current; a game without lives shows none', async () => {
+			const wrapper = await mountShell('tiles')
+			expect(wrapper.get('[data-testid="game-lives"]').text()).toBe('3')
+
+			await start(wrapper)
+			paddleState().lives = 2
+			advance()
+			await flushPromises()
+			expect(wrapper.get('[data-testid="game-lives"]').text()).toBe('2')
+
+			const snake = await mountShell('snake')
+			expect(snake.find('[data-testid="game-lives"]').exists()).toBe(false)
+		})
+
+		it('turns held arrow keys into steer changes, never key repeats', async () => {
+			const wrapper = await mountShell('tiles')
+			await start(wrapper)
+
+			const left = await key(wrapper, 'keydown', 'ArrowLeft')
+			await key(wrapper, 'keydown', 'ArrowLeft')
+			await key(wrapper, 'keydown', 'ArrowRight')
+			await key(wrapper, 'keyup', 'ArrowLeft')
+			await key(wrapper, 'keyup', 'ArrowRight')
+			const up = await key(wrapper, 'keydown', 'ArrowUp')
+
+			expect(left.defaultPrevented).toBe(true)
+			expect(up.defaultPrevented).toBe(true)
+			expect(paddleState().inputs).toEqual([{ steer: -1 }, { steer: 0 }, { steer: 1 }, { steer: 0 }])
+			expect(wrapper.find('[data-testid="game-dpad"]').exists()).toBe(false)
+		})
+
+		it('follows the pointer as a share of the board width; only the latest control waits', async () => {
+			const wrapper = await mountShell('tiles')
+			await start(wrapper)
+
+			pointAt(wrapper, 150)
+			advance()
+			pointAt(wrapper, 250)
+			wrapper.get('[data-testid="game-shell"]').element.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', bubbles: true, cancelable: true }))
+			pointAt(wrapper, 200)
+			advance(3)
+
+			expect(paddleState().inputs).toEqual([{ aim: 0.25 }, 'act', { aim: 0.5 }])
+		})
+
+		it('starts still after a pause, whatever keys were released meanwhile', async () => {
+			const wrapper = await mountShell('tiles')
+			await start(wrapper)
+			await key(wrapper, 'keydown', 'ArrowRight')
+
+			await key(wrapper, 'keydown', 'Space')
+			expect(phase(wrapper)).toBe('paused')
+			await key(wrapper, 'keyup', 'ArrowRight')
+			await key(wrapper, 'keydown', 'KeyP')
+			advance()
+
+			expect(phase(wrapper)).toBe('playing')
+			expect(paddleState().inputs).toEqual([{ steer: 1 }, { steer: 0 }])
+		})
+
+		it('ignores the pointer in other games, where arrow keys stay single moves', async () => {
+			const wrapper = await mountShell('snake')
+			await start(wrapper)
+
+			pointAt(wrapper, 150)
+			await key(wrapper, 'keydown', 'ArrowLeft')
+			await key(wrapper, 'keyup', 'ArrowLeft')
+			advance(2)
+
+			expect(currentState().inputs).toEqual(['left'])
 		})
 	})
 

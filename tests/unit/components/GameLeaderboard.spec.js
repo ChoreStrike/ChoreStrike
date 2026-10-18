@@ -92,8 +92,10 @@ describe('GameLeaderboard', () => {
 
 		await tabs[1].trigger('click')
 
-		expect(tabs[1].attributes('aria-pressed')).toBe('true')
-		expect(tabs[1].classes()).toContain('active')
+		// Query again: the stubbed teleport of Modal re-renders its content.
+		const weekly = wrapper.findAll('.tab-btn')[1]
+		expect(weekly.attributes('aria-pressed')).toBe('true')
+		expect(weekly.classes()).toContain('active')
 		const entries = wrapper.findAll('[data-testid="game-leaderboard-entry"]')
 		expect(entries).toHaveLength(1)
 		expect(entries[0].text()).toContain('Kid')

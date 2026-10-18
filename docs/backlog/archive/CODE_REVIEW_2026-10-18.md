@@ -171,3 +171,52 @@ None needed.
 ### Outcome
 
 `PASS-WITH-FIXES` (interim). R086D-01 and R086D-02 were fixed and R086D-03 accepted by the operator; the gates above ran on the final code. Nothing was routed to the plan's §9 or the backlog. The plan stays `active/` for WP-E..WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.
+
+## Standard B (interim) — CS-PLAN-086 WP-E Tile Breaker and the paddle input mode
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none (interim; plan stays `active/`)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md` (WP-E) |
+| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned, rebased onto `master` `ca7f98e` before the review, 0 behind) @ `150fda0e7c9602969d8b79c484b5bfa18173694d` |
+| Index at capture | empty |
+| Scope fingerprint at capture | `4957221ff463bdd46d82210cf22af232e89a0e8d4e20daf4d42b8573d9d5d2a7` (SHA-256 over the staged binary diff `e3b0c442…b855` (empty), the unstaged binary diff `7e5889c3…b0e6` and the sorted untracked paths with content hashes `ea48eb57…4321`); 27 modified tracked paths, 8 untracked paths |
+| Reviewed | `lib/Service/ArcadeCatalog.php`; `src/` (Tile Breaker `logic.js`, `render.js`, `game.js`, `index.js`; `GameShell.vue`, the new `GameShellHeader.vue`, `gameInput.js`, `gameRegistry.js`; `ArcadeCatalog.vue` through the visual check); every touched PHPUnit/Jest/Playwright test, the gate script, manifest and Playwright config; l10n; API, concept, use-case, architecture, testing and third-party docs; plan, backlog and ACTIVE_TASKS |
+| Test target | the isolated staged row `cs082-arcade-wpc` (NC 35.0.2, PHP 8.4.26, PostgreSQL 18.6, port 8186), not the shared canonical stack (TECH-TEST-008) |
+
+### Findings
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| R086E-01 | minor | `src/components/Minigames/gameInput.js` (`createSteerKeys`) | Held keys were counted per side, so releasing one of two keys for the same side (ArrowLeft and KeyA) stopped the squeegee while the other key was still down | Fixed — keys are held by `KeyboardEvent.code` and a value is reported only when it changes; `gameInput.spec.js` pins the two-key case |
+| R086E-02 | minor | `src/components/Minigames/ArcadeCatalog.vue` (pre-existing since WP-A) | Nextcloud's global list styles give `dt`/`dd` `inline-block`, a 130 px `dt`, 12 px padding and end alignment; the best/rank row needed 283 px in a 249 px phone card, so "Rank" was cut off on every card (found in the visual check) | Fixed — scoped reset of the card's `dt`/`dd`; `arcade-mobile.spec.ts` asserts no card's stat list overflows on both phones; the negative control fails with four overflowing cards |
+| R086E-03 | nit | `src/components/Minigames/games/tiles/logic.js` | 405 lines, above the ~300-line file rule | Fixed — split into `constants.js` (49, geometry), `logic.js` (193, the round) and `physics.js` (216, movement, collisions, drops) without an import cycle; every rule spec and browser test reran on the split code |
+
+### Verified non-findings
+
+- Game rules: the opening bubble launches by itself after one second (Enter at once) and cleans the first tile without randomness; without input it misses three times and the round ends at 60 points for every drop source tried (never, every kind, seeded); after the first tile, held Left or the pointer at the left wall catches the returning bubble; steer and aim move the squeegee and the latest control wins; unknown inputs change nothing; bounces never go straight up and reach 60 degrees at the edges; two-layer tiles need two hits; a clean wall brings the next, faster one and the last layout repeats; drops fall straight and vanish when missed; sponge, mud, wax and spray work as specified; a lost last bubble ends effects and drops — each pinned in `tilesLogic.spec.js`.
+- Score integrity: an autopilot that never misses stays inside 300 + 20 per second at every step over five minutes for three seeds; over an hour it scores about 24000 and at most about 15 per second over any minute (simulation), below the 50000 ceiling, which the one-hour bound reaches (`ArcadeCatalogTest`). Unlock threshold 25 is pinned server-side (`ArcadeAccessServiceTest`, the integration catalog list) and shown as "22 to go" after three real completions in the browser.
+- Shell: a paddle control replaces a queued one without loss, because the latest control alone sets the control state; the negative controls for coalescing and for the still start after a resume fail without the code; the pointer is ignored outside paddle games and Up/Down are swallowed only while a paddle game plays; the D-pad, taps and swipes of the other games are unchanged (`snake-game.spec.ts` 12/12, the Spot Sprint and Sock Match tests).
+- The browser tests keep the mouse off the board (the squeegee follows the pointer) and restart with Enter; the catch after the first tile has about 0.9 s of game-time margin for the keyboard and more for a tap (simulation).
+- Accessibility: keyboard play (held arrows, Enter, Space), lives in the DOM header, drop kinds and double grime by shape, the board decorative for assistive technology like the other games (R086D-03); visual check in light and dark on desktop and phone width; contrast 0 violations on the arcade view and an open game.
+- `GameShellHeader.vue` is a behavior-neutral split (same test ids; the shell spec passes unchanged). No authorization, persistence or schema change; no Coin, wallet or ranking surface; `game-tiles` is 2649 bytes gzip with its logic only in that chunk.
+- Integration: after the rebase onto `master` `ca7f98e`, master's teleported `Modal` (CS-PLAN-087 RF-087-09) and its global Jest teleport stub replace the dialog's content elements on re-render, so `GameLeaderboard.spec.js` read a detached tab; it re-queries now (a probe confirmed the component renders the pressed state). The `ACTIVE_TASKS.md` rebase conflict kept both entries and master's TECH-DOCS-005 state.
+
+### Decisions recorded
+
+- None needed: the rule numbers are implementation choices within the plan; WP-G tunes the rates from real play.
+
+### Gates (after all fixes)
+
+- Jest 147 suites / 2046 tests through the zero-noise gate (`npm run test:noise`).
+- PHPUnit on the staged row: unit 1456, integration 623 (`--fail-on-skipped`, default order, after a `minimal` reseed of the row), `composer cs:check` (0 of 423 files); no PHP changed after this run.
+- `npm run lint`, `npm run stylelint`, `npm run l10n:check-keys` (1324 keys), `npm run backlog:check`, `npm run docs:encoding`, `npm run agents:check`, `git diff --check`, `npm run build`, `node scripts/run-e2e-gate.js --self-test`; scenario manifest regenerated with `--write-manifest`.
+- Browser on the staged row (`NEXTCLOUD_URL=http://127.0.0.1:8186`, `NEXTCLOUD_CONTAINER=cs082-arcade-wpc-nextcloud-pgsql-1`), on the final code: `arcade-games.spec.ts` 7/7 (serial pool), `arcade-mobile.spec.ts` 4/4 in `mobile-chromium` and in `mobile-webkit`, `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (chromium), auth setup 3/3 per run.
+- Not run, with reason: the full browser gate and the AIO row (WP-G); the MySQL/SQLite provider matrix (WP-G).
+
+### Outcome
+
+`PASS-WITH-FIXES` (interim). R086E-01..03 were fixed and the gates above ran on the final code. Nothing was routed to the plan's §9 or the backlog. The plan stays `active/` for WP-F and WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.

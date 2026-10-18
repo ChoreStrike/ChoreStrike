@@ -7,7 +7,8 @@
  * crafted score for it is refused, three real completions unlock Sock
  * Match, and the owner switch opens every game. Each game plays a round
  * through its deterministic opening; its score lands only on its own board
- * (Crumb Snake's rounds live in snake-game.spec.ts).
+ * (Crumb Snake's rounds live in snake-game.spec.ts). Tile Breaker's squeegee
+ * follows the pointer, so its test keeps the mouse off the board.
  *
  * Serial pool: the owner switch is household-wide app config; every test
  * reseeds the family profile, which restores the default (gate on). The
@@ -170,6 +171,7 @@ test.describe('Household arcade (CS-PLAN-086)', () => {
 			await expect(page.getByTestId('arcade-card-socks')).toHaveAttribute('data-unlocked', 'true')
 			await expect(page.getByTestId('arcade-progress-socks')).toHaveCount(0)
 			await expect(page.getByTestId('arcade-progress-snake')).toHaveText('Unlocks at 10 finished chores · 7 to go')
+			await expect(page.getByTestId('arcade-progress-tiles')).toHaveText('Unlocks at 25 finished chores · 22 to go')
 
 			await startGame(page, 'socks')
 			// The cursor's sock and its right neighbour are a pair.
@@ -243,6 +245,50 @@ test.describe('Household arcade (CS-PLAN-086)', () => {
 			await expect(board.getByTestId('game-leaderboard-entry').first()).toBeVisible({ timeout: 10000 })
 			const snakeBest = await page.request.get('/apps/chorestrike/api/v1/minigames/snake/personal-best')
 			expect((await snakeBest.json()).data, 'the round never reaches another game').toBeNull()
+		})
+	})
+
+	test('Tile Breaker saves a hands-off round to its own board and steers with held keys', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		// The round is the subject here; the unlock works like Sock Match's.
+		await setArcadeGate(browser, false)
+		await asAdmin(browser, async (page) => {
+			await openArcade(page)
+			await startGame(page, 'tiles')
+			await page.mouse.move(0, 0)
+			const shell = page.getByTestId('game-shell')
+			const score = page.getByTestId('game-score')
+			const lives = page.getByTestId('game-lives')
+			const saved = page.waitForResponse((response) => response.url().includes('/api/v1/minigames/tiles/scores')
+				&& response.request().method() === 'POST', { timeout: 60000 })
+
+			// The bubble launches by itself and cleans its first tile; without
+			// input the squeegee misses it on the way back, three times.
+			await expect(lives).toHaveText('3')
+			await expect(score).toHaveText('10', { timeout: 10000 })
+			await expect(lives).toHaveText('2', { timeout: 10000 })
+			await expect(shell).toHaveAttribute('data-phase', 'over', { timeout: 30000 })
+			const response = await saved
+			expect(response.status()).toBe(200)
+			const body = response.request().postDataJSON() as { score: number, durationMs: number }
+			expect(body.score).toBeGreaterThanOrEqual(10)
+			expect(body.durationMs).toBeGreaterThan(0)
+			await expect(page.getByTestId('game-final-score')).toHaveText(`Score: ${body.score}`)
+			const board = await (await page.request.get('/apps/chorestrike/api/v1/minigames/tiles/leaderboard')).json()
+			expect(board.data.map((entry: { score: number }) => entry.score)).toContain(body.score)
+			const snakeBest = await page.request.get('/apps/chorestrike/api/v1/minigames/snake/personal-best')
+			expect((await snakeBest.json()).data, 'the round never reaches another game').toBeNull()
+
+			// Play again (Enter on the focused button, the mouse stays away):
+			// after the first tile, held Left takes the squeegee to the left
+			// wall, where the bubble comes back down.
+			await page.keyboard.press('Enter')
+			await expect(shell).toHaveAttribute('data-phase', 'playing')
+			await expect(score).toHaveText('10', { timeout: 10000 })
+			await page.keyboard.down('ArrowLeft')
+			await expect(score).toHaveText(/^[2-9]0$/, { timeout: 10000 })
+			await expect(lives).toHaveText('3')
+			await page.keyboard.up('ArrowLeft')
 		})
 	})
 

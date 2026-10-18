@@ -425,6 +425,9 @@ msgstr ""
 msgid "Both are off by default. Celebrations are never a requirement for the household routine."
 msgstr ""
 
+msgid "Bounce the soap bubble off the squeegee and scrub every grimy tile. Catch the helpers that fall — but dodge the mud."
+msgstr ""
+
 msgid "Budget Analysis"
 msgstr ""
 
@@ -1616,6 +1619,9 @@ msgstr ""
 msgid "Line up shoes, hang up coats, and clear the mail and clutter by the door."
 msgstr ""
 
+msgid "Lives"
+msgstr ""
+
 msgid "Living Room"
 msgstr ""
 
@@ -1749,6 +1755,9 @@ msgid "Move floor up"
 msgstr ""
 
 msgid "Move small items aside, spray the counters, and wipe them down. Pay attention to corners and the area behind the sink."
+msgstr ""
+
+msgid "Move the squeegee with the arrow keys, the mouse or your finger on the board. Enter launches the bubble, Space pauses."
 msgstr ""
 
 msgid "Move this occurrence to"
@@ -3243,6 +3252,9 @@ msgid "Tidy toys and games"
 msgstr ""
 
 msgid "Tie up the bag, take it out, and put in a new liner."
+msgstr ""
+
+msgid "Tile Breaker"
 msgstr ""
 
 msgid "Time"
