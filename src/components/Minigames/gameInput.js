@@ -16,6 +16,9 @@ const DIRECTION_KEYS = Object.freeze({
 
 const TOGGLE_KEYS = new Set(['Space', 'KeyP'])
 
+/** Keys that act on the current target (Spot Sprint: wipe the cursor tile). */
+const ACT_KEYS = new Set(['Enter', 'NumpadEnter'])
+
 /** Shortest finger travel in CSS pixels that counts as a swipe. */
 export const SWIPE_MIN_PX = 24
 
@@ -24,11 +27,12 @@ export const SWIPE_MIN_PX = 24
  * element only (fixes Snake defects S1/S2): nothing is captured page-wide.
  *
  * @param {string} code KeyboardEvent.code
- * @return {{type: 'direction', direction: string}|{type: 'toggle'}|null}
+ * @return {{type: 'direction', direction: string}|{type: 'toggle'}|{type: 'act'}|null}
  */
 export function keyAction(code) {
 	if (DIRECTION_KEYS[code]) return { type: 'direction', direction: DIRECTION_KEYS[code] }
 	if (TOGGLE_KEYS.has(code)) return { type: 'toggle' }
+	if (ACT_KEYS.has(code)) return { type: 'act' }
 	return null
 }
 

@@ -5,8 +5,9 @@
  * E2E: the household arcade catalog and its chore unlocks (CS-PLAN-086).
  * A locked game shows neutral progress and keeps its leaderboard, a
  * crafted score for it is refused, a real completion counts toward the
- * unlock, and the owner switch opens every game. The rounds of the
- * individual games join this spec as the games arrive.
+ * unlock, and the owner switch opens every game. Each game plays a round
+ * through its deterministic opening; its score lands only on its own board
+ * (Crumb Snake's rounds live in snake-game.spec.ts).
  *
  * Serial pool: the owner switch is household-wide app config; every test
  * reseeds the family profile, which restores the default (gate on). The
@@ -94,6 +95,41 @@ test.describe('Household arcade (CS-PLAN-086)', () => {
 			await openArcade(page)
 
 			await expect(page.getByTestId('arcade-progress-snake')).toHaveText('Unlocks at 10 finished chores · 9 to go')
+		})
+	})
+
+	test('Spot Sprint is open without chores and saves its round to its own board', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		test.setTimeout(150000)
+		await asAdmin(browser, async (page) => {
+			await openArcade(page)
+			await expect(page.getByTestId('arcade-card-spots')).toHaveAttribute('data-unlocked', 'true')
+			await expect(page.getByTestId('arcade-progress-spots')).toHaveCount(0)
+
+			await page.getByTestId('arcade-play-spots').click()
+			const shell = page.getByTestId('game-shell')
+			await expect(shell).toHaveAttribute('data-phase', 'ready', { timeout: 15000 })
+			await page.getByTestId('game-start').click()
+			// The opening stain lies under the cursor: Enter wipes it.
+			await expect(shell).toBeFocused()
+			await page.keyboard.press('Enter')
+			await expect(page.getByTestId('game-score')).toHaveText('10')
+
+			const saved = page.waitForResponse((response) => response.url().includes('/api/v1/minigames/spots/scores')
+				&& response.request().method() === 'POST', { timeout: 90000 })
+			await expect(shell).toHaveAttribute('data-phase', 'over', { timeout: 90000 })
+			const response = await saved
+			expect(response.status()).toBe(200)
+			const body = response.request().postDataJSON() as { score: number, durationMs: number }
+			expect(body.score).toBeGreaterThanOrEqual(10)
+			expect(body.durationMs).toBeGreaterThanOrEqual(60000)
+
+			await page.getByTestId('game-open-leaderboard').click()
+			const board = page.getByTestId('game-leaderboard')
+			await expect(board).toHaveAttribute('data-game-id', 'spots')
+			await expect(board.getByTestId('game-leaderboard-entry').first()).toBeVisible({ timeout: 10000 })
+			const snakeBest = await page.request.get('/apps/chorestrike/api/v1/minigames/snake/personal-best')
+			expect((await snakeBest.json()).data, 'the round never reaches another game').toBeNull()
 		})
 	})
 

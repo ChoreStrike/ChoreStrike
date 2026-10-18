@@ -52,12 +52,13 @@ describe('board palette', () => {
 })
 
 describe('game input mapping', () => {
-	it('maps arrows and WASD to directions and Space/P to the pause toggle', () => {
+	it('maps arrows and WASD to directions, Space/P to the pause toggle and Enter to the action', () => {
 		expect(keyAction('ArrowUp')).toEqual({ type: 'direction', direction: 'up' })
 		expect(keyAction('KeyA')).toEqual({ type: 'direction', direction: 'left' })
 		expect(keyAction('Space')).toEqual({ type: 'toggle' })
 		expect(keyAction('KeyP')).toEqual({ type: 'toggle' })
-		expect(keyAction('Enter')).toBeNull()
+		expect(keyAction('Enter')).toEqual({ type: 'act' })
+		expect(keyAction('NumpadEnter')).toEqual({ type: 'act' })
 		expect(keyAction('Tab')).toBeNull()
 	})
 

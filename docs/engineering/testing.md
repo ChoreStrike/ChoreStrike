@@ -850,7 +850,10 @@ and ends without horizontal overflow: My Day hold-complete and undo, claim
 confirm, one-occurrence handover with the child's completion and the default
 owner's successor, reassignment visibility, the paged task list with
 collapsed filters, dashboard tiles and room cards, and Settings through the
-phone navigation. Both projects reset the database, so run them one at a time
+phone navigation. `arcade-mobile.spec.ts` (CS-PLAN-086 WP-C) joins the set
+in both projects: one DOM game played by tapping (Spot Sprint, tiles at least
+44 px) and one canvas game steered with the on-screen pad (Crumb Snake, after
+the owner opens the arcade gate). Both projects reset the database, so run them one at a time
 (`--project=mobile-chromium`, then `--project=mobile-webkit`), never next to
 another reset-owning pool. Holds use the shared `holdToConfirm` helper (mouse
 events on a touch context yield the same pointer events as a held finger).

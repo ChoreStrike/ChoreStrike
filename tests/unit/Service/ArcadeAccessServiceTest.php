@@ -114,6 +114,26 @@ class ArcadeAccessServiceTest extends TestCase {
 		$this->assertFalse(self::gamesById($this->service->getCatalog($this->member()))['snake']['unlocked']);
 	}
 
+	/**
+	 * GetCatalog_ThresholdZero_OpenWithoutChores: Spot Sprint is the
+	 * always-open entry game, so a new member can play right away.
+	 */
+	public function testGetCatalog_ThresholdZero_OpenWithoutChores(): void {
+		$this->finishedChores(0);
+
+		$spots = self::gamesById($this->service->getCatalog($this->member()))['spots'];
+
+		$this->assertSame(['gameId' => 'spots', 'threshold' => 0, 'unlocked' => true], $spots);
+	}
+
+	public function testAssertUnlocked_ThresholdZero_SkipsTheCount(): void {
+		$this->workShares->expects($this->never())->method('countValidSelectedByWallet');
+		$this->appLogger->expects($this->never())->method('warning');
+
+		$this->service->assertUnlocked($this->member(), 'spots');
+		$this->addToAssertionCount(1);
+	}
+
 	public function testGetCatalog_GateOff_OpensEveryGame(): void {
 		$this->gateEnabled = false;
 		$this->finishedChores(0);

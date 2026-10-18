@@ -1029,7 +1029,7 @@ Scores-only since the CS-PLAN-070 WP3 cutover ([ADR-014](../adr/ADR-014-work-acc
 no minigame route mints, spends or reads Coins, wallet values or contribution.
 Every route is house-scoped and membership gated (`403 FORBIDDEN` for
 non-members, checked first). Game ids come from the server catalog
-(`ArcadeCatalog`, currently `snake`); an unknown id is a
+(`ArcadeCatalog`, currently `spots` and `snake`); an unknown id is a
 `400 VALIDATION_ERROR` on reads and writes (CS-PLAN-086). Read `limit`
 parameters are clamped to `1..50`. Saves are rate-limited to **100 per member
 and house-local day** (`429 MINIGAME_RATE_LIMITED`). Ordered reads break score
@@ -1065,10 +1065,11 @@ Save a finished game.
 **Request:** `{ "score": 250, "durationMs": 48000 }` — `durationMs` is the
 round's active play time (pauses excluded) and is required.
 
-Per-game rules (`ArcadeCatalog`): `0 <= score <= maxScore` (Snake: 20000),
-`1 <= durationMs <= maxDurationMs` (Snake: one hour), and the score must be
+Per-game rules (`ArcadeCatalog`): `0 <= score <= maxScore` (Spot Sprint:
+3000, Snake: 20000), `1 <= durationMs <= maxDurationMs` (Spot Sprint: 65
+seconds for its 60-second round, Snake: one hour), and the score must be
 reachable in that time: `score <= burstPoints + pointsPerSecond * durationMs / 1000`
-(Snake: 100 + 30 per second).
+(Spot Sprint: 100 + 50 per second, Snake: 100 + 30 per second).
 
 **Response `data`:**
 ```json

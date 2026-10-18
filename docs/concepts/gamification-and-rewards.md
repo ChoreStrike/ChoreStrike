@@ -134,8 +134,9 @@ ceilings and a play-time plausibility rule in `ArcadeCatalog` (CS-PLAN-086)
 plus `DAILY_SCORE_SAVE_LIMIT` per member and house-local day; leaderboards
 remain house-scoped and per game. The 2048/Memory
 prototypes were retired in the same cutover; CS-PLAN-086 grows the arcade
-into a household-themed game collection, starting with Crumb Snake (the
-`snake` id) on a shared game shell.
+into a household-themed game collection on a shared game shell: Spot Sprint
+(`spots`, wipe stains in 60-second rounds, always open) and Crumb Snake (the
+`snake` id).
 See the Minigames section in
 [`../api/README.md`](../api/README.md).
 

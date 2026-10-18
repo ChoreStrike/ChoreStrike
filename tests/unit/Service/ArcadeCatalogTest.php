@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ArcadeCatalogTest extends TestCase {
 	public function testIds_PinTheCatalog(): void {
-		$this->assertSame(['snake'], ArcadeCatalog::ids());
+		$this->assertSame(['spots', 'snake'], ArcadeCatalog::ids());
 	}
 
 	public function testEveryGame_HasCompletePositiveRules(): void {
@@ -50,13 +50,14 @@ class ArcadeCatalogTest extends TestCase {
 	 */
 	public function testUnlockThresholds_PinD08606(): void {
 		$thresholds = array_map(static fn (array $rules): int => $rules['unlockThreshold'], ArcadeCatalog::GAMES);
-		$this->assertSame(['snake' => 10], $thresholds);
+		$this->assertSame(['spots' => 0, 'snake' => 10], $thresholds);
 		foreach ($thresholds as $gameId => $threshold) {
 			$this->assertTrue($threshold === 0 || $threshold >= 3, $gameId);
 		}
 	}
 
 	public function testHas_KnownAndUnknownIds(): void {
+		$this->assertTrue(ArcadeCatalog::has('spots'));
 		$this->assertTrue(ArcadeCatalog::has('snake'));
 		$this->assertFalse(ArcadeCatalog::has('2048'));
 		$this->assertFalse(ArcadeCatalog::has(''));
@@ -79,5 +80,10 @@ class ArcadeCatalogTest extends TestCase {
 		// Partial seconds count proportionally (floor of the reachable points).
 		$this->assertTrue(ArcadeCatalog::isPlausible('snake', 115, 500));
 		$this->assertFalse(ArcadeCatalog::isPlausible('snake', 116, 500));
+		// Spot Sprint: 100 burst points + 50 per second; a full 60-second
+		// round reaches its ceiling of 3000 (the client logic spec proves a
+		// perfect player stays below the rate at every step).
+		$this->assertTrue(ArcadeCatalog::isPlausible('spots', 3000, 60000));
+		$this->assertFalse(ArcadeCatalog::isPlausible('spots', 601, 10000));
 	}
 }

@@ -24,6 +24,26 @@ const mockGame = {
 }
 jest.mock('@/components/Minigames/games/snake/game.js', () => mockGame)
 
+// A scripted DOM game (Spot Sprint's interface): a view snapshot per
+// revision, a board component that reports taps, and a timed round.
+const mockDomGame = {
+	cols: 4,
+	rows: 4,
+	roundMs: 60000,
+	createState: jest.fn(() => ({ score: 0, over: false, events: [], inputs: [], revision: 0, timeLeftMs: 60000 })),
+	step: jest.fn((state, input) => {
+		if (input) state.inputs.push(input)
+		return state
+	}),
+	view: jest.fn((state) => ({ revision: state.revision })),
+	Board: {
+		props: ['view', 'cols', 'motion'],
+		emits: ['tap'],
+		template: `<div data-testid="dom-board" :data-revision="view.revision" @click="$emit('tap', 6)" />`,
+	},
+}
+jest.mock('@/components/Minigames/games/spots/game.js', () => mockDomGame)
+
 const mockEffects = { pickup: jest.fn(), newPersonalBest: jest.fn(), motionAllowed: jest.fn(() => false) }
 jest.mock('@/composables/useGameEffects.js', () => ({ useGameEffects: () => mockEffects }))
 
@@ -270,6 +290,105 @@ describe('GameShell', () => {
 		expect(logger.warn).toHaveBeenCalledWith('Unknown arcade game', { gameId: 'pacman' })
 		await wrapper.get('[data-testid="game-retry"]').trigger('click')
 		expect(phase(wrapper)).toBe('failed')
+	})
+
+	describe('DOM games (tap input, timed rounds)', () => {
+		const domState = () => mockDomGame.createState.mock.results.at(-1).value
+
+		it('renders the game board instead of a canvas and shows the time left', async () => {
+			const wrapper = await mountShell('spots')
+
+			expect(wrapper.find('canvas').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="dom-board"]').exists()).toBe(true)
+			expect(wrapper.get('[data-testid="game-time"]').text()).toBe('60')
+			expect(wrapper.find('[data-testid="game-dpad"]').exists()).toBe(false)
+
+			await start(wrapper)
+			domState().timeLeftMs = 41200
+			advance()
+			await flushPromises()
+			expect(wrapper.get('[data-testid="game-time"]').text()).toBe('42')
+		})
+
+		it('re-reads the view only when the revision changes', async () => {
+			const wrapper = await mountShell('spots')
+			await start(wrapper)
+			const reads = mockDomGame.view.mock.calls.length
+
+			advance(3)
+			expect(mockDomGame.view.mock.calls.length).toBe(reads)
+
+			domState().revision = 4
+			advance()
+			await flushPromises()
+			expect(mockDomGame.view.mock.calls.length).toBe(reads + 1)
+			expect(wrapper.get('[data-testid="dom-board"]').attributes('data-revision')).toBe('4')
+		})
+
+		it('turns taps into tile inputs and Enter into an action, and ignores swipes', async () => {
+			const wrapper = await mountShell('spots')
+			await start(wrapper)
+			const shell = wrapper.get('[data-testid="game-shell"]')
+
+			await wrapper.get('[data-testid="dom-board"]').trigger('click')
+			const enter = new KeyboardEvent('keydown', { code: 'Enter', bubbles: true, cancelable: true })
+			shell.element.dispatchEvent(enter)
+			const board = wrapper.get('.game-shell-board').element
+			touch(board, 'touchstart', 100, 100)
+			touch(board, 'touchend', 180, 100)
+			advance(4)
+
+			expect(enter.defaultPrevented).toBe(true)
+			expect(domState().inputs).toEqual([{ cell: 6 }, 'act'])
+		})
+
+		it('leaves Enter to a focused button', async () => {
+			const wrapper = await mountShell('spots')
+			await start(wrapper)
+			const pause = wrapper.get('[data-testid="game-pause"]')
+			const enter = new KeyboardEvent('keydown', { code: 'Enter', bubbles: true, cancelable: true })
+
+			pause.element.dispatchEvent(enter)
+			advance()
+
+			expect(enter.defaultPrevented).toBe(false)
+			expect(domState().inputs).toEqual([])
+		})
+	})
+
+	it('never grows the board back for a width its own scrollbar took (no resize loop)', async () => {
+		const viewportWidth = window.innerWidth
+		let stageWidth = 400
+		Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => stageWidth })
+		try {
+			const wrapper = await mountShell()
+			const boardWidth = () => wrapper.get('.game-shell-board').element.style.width
+			window.dispatchEvent(new Event('resize'))
+			await flushPromises()
+			expect(boardWidth()).toBe('400px')
+
+			// The modal's scrollbar appears: the board shrinks one cell.
+			stageWidth = 385
+			window.dispatchEvent(new Event('resize'))
+			await flushPromises()
+			expect(boardWidth()).toBe('380px')
+
+			// The scrollbar disappears again: no growth for the same viewport.
+			stageWidth = 400
+			window.dispatchEvent(new Event('resize'))
+			await flushPromises()
+			expect(boardWidth()).toBe('380px')
+
+			// A real viewport change sizes the board afresh.
+			window.innerWidth = viewportWidth + 100
+			window.dispatchEvent(new Event('resize'))
+			await flushPromises()
+			expect(boardWidth()).toBe('400px')
+		} finally {
+			window.innerWidth = viewportWidth
+			// The stub shadows Element.prototype.clientWidth; drop it again.
+			delete HTMLElement.prototype.clientWidth
+		}
 	})
 
 	it('stops the loop when it unmounts', async () => {

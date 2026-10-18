@@ -216,6 +216,7 @@
     "ranking-consent.spec.ts > Ranking Consent Lifecycle (WP4) > owner enables ranking; member joins pending and withdraws"
   ],
   "arcade-games.spec.ts": [
+    "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > Spot Sprint is open without chores and saves its round to its own board",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a crafted score for a locked game is refused",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a finished chore counts toward the unlock",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a locked game shows neutral progress and keeps its leaderboard readable",
@@ -401,6 +402,10 @@
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > Dashboard loads the room-card task counts with ONE house-wide request (CS-PLAN-084 WP-C)",
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > SchedulingView preloads its planning candidates with ONE house-wide request",
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > TaskManager initialization issues ONE house-wide room-task request"
+  ],
+  "arcade-mobile.spec.ts": [
+    "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Crumb Snake steers with the on-screen pad",
+    "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Spot Sprint plays by tapping a stain"
   ],
   "mobile-core.spec.ts": [
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > My Day hold-complete and undo: a tap explains the hold, the hold completes once, undo restores",

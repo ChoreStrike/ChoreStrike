@@ -2675,6 +2675,9 @@ msgstr ""
 msgid "Sounds on completions and awards"
 msgstr ""
 
+msgid "Spot Sprint"
+msgstr ""
+
 msgid "Spray glass cleaner and wipe the mirror with a lint-free cloth."
 msgstr ""
 
@@ -2769,6 +2772,9 @@ msgid "Take off the grates, wipe the surface with degreaser, clean the burner ca
 msgstr ""
 
 msgid "Take out all trash"
+msgstr ""
+
+msgid "Tap a stain, or move with the arrow keys and wipe with Enter. Space pauses."
 msgstr ""
 
 msgid "Target: {target}%"
@@ -3224,6 +3230,9 @@ msgstr ""
 msgid "Tie up the bag, take it out, and put in a new liner."
 msgstr ""
 
+msgid "Time"
+msgstr ""
+
 msgid "Time of Day"
 msgstr ""
 
@@ -3519,6 +3528,9 @@ msgid "Wipe the fridge, dishwasher, and washing machine fronts, and clean the ha
 msgstr ""
 
 msgid "Wipe the microwave inside and out."
+msgstr ""
+
+msgid "Wipe the stains before they dry. A golden sponge doubles your points — leave the socks alone."
 msgstr ""
 
 msgid "With a basement, the above-ground floors are limited to five. The basement counts toward the six-floor total."

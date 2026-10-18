@@ -33,6 +33,17 @@ final class ArcadeCatalog {
 	 * @var array<string, array{maxScore: int, maxDurationMs: int, pointsPerSecond: int, burstPoints: int, unlockThreshold: int}>
 	 */
 	public const GAMES = [
+		// Spot Sprint: 60-second rounds on a 4x4 floor, 10 per stain (20
+		// while the golden sponge works), at most one item per 450 ms after
+		// the opening stain — at most 20 + 44 points per second. The
+		// always-open entry game.
+		'spots' => [
+			'maxScore' => 3000,
+			'maxDurationMs' => 65000,
+			'pointsPerSecond' => 50,
+			'burstPoints' => 100,
+			'unlockThreshold' => 0,
+		],
 		// Crumb Snake: 10 per crumb, 30 per golden crumb, a 20x20 board and
 		// at least 60 ms per move. The `snake` id predates the re-theme and
 		// stays, so existing scores remain valid.

@@ -69,6 +69,25 @@ a no-horizontal-overflow check per view at phone width.
 
 ---
 
+### [P3] UX-019 — Nextcloud's navigation toggle stays above open dialogs on phones
+**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: dialogs
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-086 WP-C phone E2E screenshot (iPhone 14 project, NC 35.0.2, 2026-10-18)
+
+With an app `Modal` open (`src/components/Common/Modal.vue`, overlay
+`z-index: 1000`), Nextcloud's app-navigation toggle (the hamburger at the top
+left) is still drawn above the dark overlay and over the dialog's top-left
+corner, so it stays tappable behind an open dialog. Seen on the arcade game
+dialog; it applies to every dialog using the shared `Modal`. Decide whether the
+overlay should cover the toggle (stacking order against Nextcloud's own
+layers) or the dialog should keep clear of it, and pin the result in
+`tests/e2e/layout-clearance.spec.ts` at phone width.
+
+- [ ] Keep the navigation toggle out of open dialogs at phone width.
+- [ ] Browser check for an open dialog at 390 px.
+
+---
+
 ### [P3] CR-084-01 — Calendar marks a past planned day with an open flex window overdue
 **Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: calendar
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -308,8 +327,9 @@ The scores-only contract (CS-PLAN-070 T10/D7d) stays unchanged.
 **Progress:** WP-A delivered 2026-10-17 (interim Standard B `PASS-WITH-FIXES`):
 shell, registry, per-game slices, `GameLeaderboard`, server catalog with the
 required `durationMs` plausibility and Crumb Snake with S1–S7 fixed. The
-catalog endpoint followed with WP-B (2026-10-17). Open until the plan's final
-review: phone touch E2E (WP-C) and the full browser gate on both rows (WP-G).
+catalog endpoint followed with WP-B (2026-10-17), the phone touch E2E with
+WP-C (2026-10-18). Open until the plan's final review: the full browser gate on
+both rows (WP-G).
 
 ---
 
@@ -345,6 +365,11 @@ Sock Match (untimed memory), Tile Breaker (squeegee and soap bubble against
 grimy tiles) and Dust Runner (robot vacuum in room-shaped mazes). One lazy
 chunk and one work package per game, each releasable on its own; per-game
 highscores only ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-C to WP-F, D-086-03/05).
+**Progress:** Spot Sprint delivered 2026-10-18 (WP-C, interim Standard B
+`PASS-WITH-FIXES`): the always-open DOM
+entry game with tap input, keyboard cursor, golden sponge and sock penalty,
+its own lazy chunk (4.0 KB gzip) and server rules. Open: Sock Match, Tile
+Breaker and Dust Runner (WP-D to WP-F).
 
 ---
 

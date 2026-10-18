@@ -199,9 +199,14 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		self::assertTrue($catalog['gateEnabled']);
 		self::assertSame(0, $catalog['finishedChores'], 'the test member finished no chore');
 		self::assertSame(
-			[['gameId' => 'snake', 'threshold' => 10, 'unlocked' => false]],
+			[
+				['gameId' => 'spots', 'threshold' => 0, 'unlocked' => true],
+				['gameId' => 'snake', 'threshold' => 10, 'unlocked' => false],
+			],
 			$catalog['games']
 		);
+		// The always-open entry game takes scores without any chore.
+		self::assertSame(200, $this->controller('mg_parent')->saveScore('spots', 40, self::ROUND_MS)->getStatus());
 
 		$denied = $this->controller('mg_outsider')->catalog();
 		self::assertSame(403, $denied->getStatus());
@@ -254,7 +259,7 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 		self::assertSame('0', $this->appConfig()->getValueString('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED, '1'));
 
 		$games = $this->controller('mg_teener')->catalog()->getData()['data']['games'];
-		self::assertSame([true], array_column($games, 'unlocked'));
+		self::assertSame([true, true], array_column($games, 'unlocked'));
 		self::assertSame(200, $this->controller('mg_teener')->saveScore('snake', 100, self::ROUND_MS)->getStatus());
 	}
 

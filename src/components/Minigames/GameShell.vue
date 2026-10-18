@@ -19,6 +19,10 @@
 					<span class="game-shell-stat-label">{{ t('chorestrike', 'Score') }}</span>
 					<span class="game-shell-stat-value" data-testid="game-score">{{ score }}</span>
 				</div>
+				<div v-if="timeLeft !== null" class="game-shell-stat">
+					<span class="game-shell-stat-label">{{ t('chorestrike', 'Time') }}</span>
+					<span class="game-shell-stat-value" data-testid="game-time">{{ timeLeft }}</span>
+				</div>
 				<button v-if="phase === 'playing'"
 					type="button"
 					class="game-shell-button"
@@ -39,7 +43,16 @@
 					@click="focusShell"
 					@touchstart.passive="onTouchStart"
 					@touchend="onTouchEnd">
-					<canvas ref="canvasRef" class="game-shell-canvas" aria-hidden="true" />
+					<canvas v-if="!isDom"
+						ref="canvasRef"
+						class="game-shell-canvas"
+						aria-hidden="true" />
+					<component :is="game.Board"
+						v-else-if="game && boardView"
+						:view="boardView"
+						:cols="game.cols"
+						:motion="motion"
+						@tap="onTileTap" />
 					<GameShellOverlay v-if="phase !== 'playing'"
 						ref="overlayRef"
 						:phase="phase"
@@ -85,7 +98,10 @@ import GameLeaderboard from './GameLeaderboard.vue'
  * controls, a responsive canvas with the pixel ratio capped at 2 (S4), a
  * labelled application region with a polite live region (S5), pause on
  * hide (S3) and the result save with the active play time (D-086-04).
- * The game itself is a lazy module: `{cols, rows, createState, step, render}`.
+ * The game itself is a lazy module: `{cols, rows, createState, step}` plus
+ * `render` for a canvas game, or `view` and a `Board` component for a DOM
+ * game (registry `renderer: 'dom'`, tap input; the board re-renders only
+ * when `state.revision` changes). A game with `roundMs` shows its time left.
  */
 const props = defineProps({
 	gameId: {
@@ -100,6 +116,7 @@ const BOARD_HEIGHT_SHARE = 0.6
 const store = useMinigameStore()
 const effects = useGameEffects()
 const entry = findGame(props.gameId)
+const isDom = entry?.renderer === 'dom'
 const title = computed(() => (entry ? entry.name() : ''))
 const bestScore = computed(() => store.slice(props.gameId).personalBest?.score ?? 0)
 
@@ -114,8 +131,14 @@ const announcement = ref('')
 const showLeaderboard = ref(false)
 const board = ref({ width: 0, height: 0 })
 const game = shallowRef(null)
+const boardView = shallowRef(null)
+const timeLeft = ref(null)
+const motion = ref(false)
 
 let state = null
+let drawnRevision = -1
+// The viewport the board was last sized for (see resize()).
+let sizedViewport = ''
 let context = null
 let touchStart = null
 let round = 0
@@ -133,14 +156,27 @@ function onStep(dt) {
 	for (const event of state.events) {
 		if (event.type !== 'pickup') continue
 		effects.pickup(event.kind)
-		if (effects.motionAllowed()) sparkles.push({ x: event.x, y: event.y, born: performance.now(), progress: 0 })
+		// Canvas sparkles only; a DOM board shows its own wiped state.
+		if (!isDom && effects.motionAllowed()) sparkles.push({ x: event.x, y: event.y, born: performance.now(), progress: 0 })
 	}
 	state.events.length = 0
 	if (state.over) finishRound()
 }
 
 function draw() {
-	if (!context || !state) return
+	if (!state) return
+	if (game.value.roundMs) {
+		const seconds = Math.ceil(state.timeLeftMs / 1000)
+		if (seconds !== timeLeft.value) timeLeft.value = seconds
+	}
+	if (isDom) {
+		if (state.revision !== drawnRevision) {
+			drawnRevision = state.revision
+			boardView.value = game.value.view(state)
+		}
+		return
+	}
+	if (!context) return
 	const now = performance.now()
 	for (let i = sparkles.length - 1; i >= 0; i--) {
 		sparkles[i].progress = (now - sparkles[i].born) / SPARKLE_MS
@@ -152,9 +188,22 @@ function draw() {
 }
 
 function resize() {
+	if (!stageRef.value || !game.value) return
+	const next = fitBoard(stageRef.value.clientWidth, window.innerHeight * BOARD_HEIGHT_SHARE, game.value.cols, game.value.rows)
+	// A scrolling container's scrollbar that the board itself brings and
+	// removes narrows the stage without a viewport change; growing back then
+	// would loop (bigger board, scrollbar, smaller board, no scrollbar ...).
+	// Shrinking always applies; growing only for a new viewport.
+	const viewport = `${window.innerWidth}x${window.innerHeight}`
+	if (viewport === sizedViewport && next.width > board.value.width) return
+	sizedViewport = viewport
+	board.value = next
 	const canvas = canvasRef.value
-	if (!canvas || !stageRef.value || !game.value) return
-	board.value = fitBoard(stageRef.value.clientWidth, window.innerHeight * BOARD_HEIGHT_SHARE, game.value.cols, game.value.rows)
+	if (canvas) sizeCanvas(canvas)
+	draw()
+}
+
+function sizeCanvas(canvas) {
 	const ratio = canvasPixelRatio(window.devicePixelRatio)
 	canvas.width = board.value.width * ratio
 	canvas.height = board.value.height * ratio
@@ -164,7 +213,14 @@ function resize() {
 	view.width = board.value.width
 	view.height = board.value.height
 	view.palette = readBoardPalette(shellRef.value)
-	draw()
+}
+
+/**
+ * A fresh round state; the board re-reads its view on the next draw.
+ */
+function newState() {
+	state = game.value.createState(Math.random)
+	drawnRevision = -1
 }
 
 async function loadGame() {
@@ -176,7 +232,7 @@ async function loadGame() {
 	phase.value = 'loading'
 	try {
 		game.value = await entry.load()
-		state = game.value.createState(Math.random)
+		newState()
 		phase.value = 'ready'
 		await nextTick()
 		resize()
@@ -189,7 +245,8 @@ async function loadGame() {
 
 function startGame() {
 	if (!game.value || phase.value === 'playing') return
-	state = game.value.createState(Math.random)
+	newState()
+	motion.value = effects.motionAllowed()
 	inputs.length = 0
 	sparkles.length = 0
 	score.value = 0
@@ -236,8 +293,15 @@ async function finishRound() {
 	}
 }
 
-function queueInput(direction) {
-	if (phase.value === 'playing' && inputs.length < MAX_QUEUED_INPUTS) inputs.push(direction)
+/**
+ * @param {string|{cell: number}} input A direction, 'act' or a tapped tile
+ */
+function queueInput(input) {
+	if (phase.value === 'playing' && inputs.length < MAX_QUEUED_INPUTS) inputs.push(input)
+}
+
+function onTileTap(cell) {
+	queueInput({ cell })
 }
 
 function onKeyDown(event) {
@@ -249,7 +313,13 @@ function onKeyDown(event) {
 		queueInput(action.direction)
 		return
 	}
-	// A focused button keeps its own Space activation (no double handling).
+	// A focused button keeps its own Enter/Space activation (no double handling).
+	if (action.type === 'act') {
+		if (phase.value !== 'playing' || event.target !== shellRef.value) return
+		event.preventDefault()
+		queueInput('act')
+		return
+	}
 	if (event.code === 'Space' && event.target !== shellRef.value) return
 	if (phase.value === 'playing') {
 		event.preventDefault()
@@ -268,7 +338,8 @@ function onTouchStart(event) {
 function onTouchEnd(event) {
 	const start = touchStart
 	touchStart = null
-	if (!start || phase.value !== 'playing') return
+	// Swipes steer D-pad games; a tap game reads its taps from the board.
+	if (!start || phase.value !== 'playing' || entry.input !== 'dpad') return
 	const touch = event.changedTouches[0]
 	const direction = swipeDirection(touch.clientX - start.x, touch.clientY - start.y)
 	if (!direction) return

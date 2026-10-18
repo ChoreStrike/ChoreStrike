@@ -18,7 +18,7 @@ const read = (path) => readFileSync(resolve(MINIGAMES, path), 'utf8')
  */
 describe('game registry', () => {
 	it('pins the game ids', () => {
-		expect(GAME_IDS).toEqual(['snake'])
+		expect(GAME_IDS).toEqual(['spots', 'snake'])
 	})
 
 	it('describes every game with translated copy, an icon and an input mode', () => {
@@ -28,7 +28,8 @@ describe('game registry', () => {
 				expect(game[field]().length).toBeGreaterThan(0)
 			}
 			expect(game.icon).toBeTruthy()
-			expect(['dpad']).toContain(game.input)
+			expect(['dpad', 'tap']).toContain(game.input)
+			expect([undefined, 'dom']).toContain(game.renderer)
 		}
 	})
 
@@ -46,13 +47,17 @@ describe('game registry', () => {
 		}
 	})
 
-	it('loads a module the shell can drive', async () => {
+	it('loads a module the shell can drive: a canvas renderer or a DOM view and board', async () => {
 		for (const game of GAMES) {
 			const module = await game.load()
 			expect(module.cols).toBeGreaterThan(0)
 			expect(module.rows).toBeGreaterThan(0)
-			for (const fn of ['createState', 'step', 'render']) {
+			const renderers = game.renderer === 'dom' ? ['view'] : ['render']
+			for (const fn of ['createState', 'step', ...renderers]) {
 				expect(typeof module[fn]).toBe('function')
+			}
+			if (game.renderer === 'dom') {
+				expect(module.Board).toBeTruthy()
 			}
 		}
 	})

@@ -1,6 +1,6 @@
 # CS-PLAN-086: Household Arcade — Game Catalog, Chore Unlocks and Per-Game Highscores
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); next: WP-C
+> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); next: WP-D
 > **Effort:** XL (seven work packages; no schema change)
 > **Priority:** P3 (optional add-on, never on the core critical path)
 > **Depends on:** work proceeds on branch `feat/arcade-minigames`; merge to
@@ -341,7 +341,7 @@ new:      src/components/Minigames/ArcadeCatalog.vue
 new:      src/components/Minigames/ArcadeGateSetting.vue      (WP-B: the owner switch)
 new:      src/components/Minigames/GameLeaderboard.vue
 new:      src/components/Minigames/gameRegistry.js
-new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js)
+new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js or a DOM Board.vue)
 modified: src/store/minigame.js
 modified: src/store/house.js                                  (WP-B: arcadeGateEnabled getter + writer)
 modified: src/views/ArcadeView.vue
@@ -370,6 +370,7 @@ modified: tests/integration/Controller/{MinigameControllerIntegrationTest,HouseC
 new:      tests/integration/Db/WorkShareCountTest.php
 new:      tests/integration/Service/ArcadeUnlockTest.php         (WP-B: unlock after real completions, re-lock after an undo)
 new:      tests/e2e/arcade-games.spec.ts
+new:      tests/e2e/arcade-mobile.spec.ts                       (WP-C: tap and D-pad on both phone projects)
 new:      tests/e2e/fixtures/arcade-gate.ts                    (WP-B: owner switch for specs that play a game)
 modified: playwright.config.ts, scripts/run-e2e-gate.js       (WP-B: serial-pool owner of arcade-games.spec.ts)
 modified: tests/e2e/snake-game.spec.ts
@@ -447,6 +448,28 @@ Each WP is one reviewable round with an interim Standard B on
    branch.
 3. **WP-C — Spot Sprint** (FEAT-ARCADE-003). Proves the DOM path and the tap
    input mode on phones.
+   *Implemented 2026-10-18.* Implementation choices within the plan: a 4×4
+   floor and 60-second rounds; 10 points per stain, doubled for five seconds
+   after a golden sponge (8 % of spawns); a sock (12 % of spawns after the
+   first ten seconds, never earlier) costs 20 points, never below zero;
+   stains dry after 2.6 → 1.4 s and spawn every 900 → 450 ms; the opening
+   stain lies under the cursor (tap it or press Enter). Keyboard: arrows move
+   the cursor, Enter wipes, Space pauses. Server rules: `maxScore` 3000,
+   `maxDurationMs` 65 s, 50 points per second + 100 burst (a Jest spec proves
+   a perfect player stays inside the rate at every step), unlock threshold 0.
+   Shell: a DOM game declares `renderer: 'dom'` in its registry entry and its
+   chunk exports `view` and a `Board` component; the board re-renders only
+   when `state.revision` changes; a game with `roundMs` shows the time left;
+   swipes steer only D-pad games; Enter acts only while the shell itself has
+   focus. Phones: `arcade-mobile.spec.ts` runs in both phone projects (tap for
+   Spot Sprint, the on-screen pad for Crumb Snake — the steered loop outlives
+   the no-input crash). It found a pre-existing WP-A defect, fixed here with a
+   regression and negative control: with classic scrollbars the board and the
+   dialog's scrollbar fed back into each other (the Start button never settled
+   on the iPhone project); the board now grows only for a new viewport. Routed
+   out of scope: UX-019 (Nextcloud's navigation toggle stays above open
+   dialogs). The round's tests ran on an isolated staged row (`cs082-arcade-wpc`,
+   port 8186) instead of the shared canonical stack (TECH-TEST-008).
 4. **WP-D — Sock Match** (FEAT-ARCADE-003). Untimed accessible entry game,
    plus the browser proof that finished chores unlock a game (threshold 3).
 5. **WP-E — Tile Breaker** (FEAT-ARCADE-003). Canvas physics and power-ups.
@@ -656,3 +679,24 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - lint, stylelint, l10n (1311 keys), backlog, encoding, agents and build checks.
   - Browser: `arcade-games.spec.ts` 4/4, `family-rewards.spec.ts` 9/9, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2.
   - Not run: the full gate, the AIO row, the provider matrix and the phone projects (WP-C, WP-G).
+
+### Standard B (interim, WP-C) — 2026-10-18 — `PASS-WITH-FIXES` (stays `active/`)
+
+- **Scope:** the uncommitted WP-C package on `feat/arcade-minigames` @
+  `39d0f19` (fingerprint at capture `52b2904a…88d9`: empty index, 25 modified
+  and 7 untracked paths), tested on the isolated staged row
+  `cs082-arcade-wpc`. [Record](../../backlog/archive/CODE_REVIEW_2026-10-18.md).
+- **Fixed (1):** R086C-01: the phone core set section of `testing.md` now names `arcade-mobile.spec.ts`.
+- **Verified:**
+  - Every Spot Sprint rule is pinned in Jest, and a perfect player stays inside the server rate at every step.
+  - The canvas path is unchanged for Crumb Snake; Enter and swipes only act where they belong.
+  - The resize-loop guard has a negative control.
+  - Shape-distinct items, 44 px tiles, and the sparkle follows the motion opt-in.
+  - No authorization or schema change; `game-spots` is 4.0 KB gzip.
+- **Routed:** UX-019 (out of scope, backlog).
+- **Gates:**
+  - Jest 139/1952, noise-free.
+  - PHPUnit unit 1453 and integration 622 on the staged row; `cs:check`.
+  - lint, stylelint, l10n (1315 keys), backlog, encoding, build and gate self-test.
+  - Browser: `arcade-games.spec.ts` 5/5, `arcade-mobile.spec.ts` 2/2 on both phones, `snake-game.spec.ts` 12/12, `color-contrast.spec.ts` 2/2.
+  - Not run: the full gate, the AIO row and the provider matrix (WP-G).

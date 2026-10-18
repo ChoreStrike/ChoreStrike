@@ -73,3 +73,50 @@ from the pending whole-item verdicts.
   acceptance criteria and implementation order wording.
 - CONCEPT-001 stays In Progress, now owned by CS-PLAN-080. `ACTIVE_TASKS.md`,
   `archive/2026-10.md`, `docs/plans/README.md` and `docs/README.md` updated.
+
+## Standard B (interim) — CS-PLAN-086 WP-C Spot Sprint, DOM game path and phone touch controls
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none (interim; plan stays `active/`)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md` (WP-C) |
+| Branch / base HEAD | `feat/arcade-minigames` (worktree pinned) @ `39d0f19e89cabdf3726967b502a69f5b48f36998` |
+| Index at capture | empty |
+| Scope fingerprint at capture | `52b2904ae58c89062899f0eb42168369ca2357ca8df1ed83bf7595cdac6988d9` (SHA-256 over the staged binary diff `e3b0c442…b855` (empty), the unstaged binary diff `899e229e…c4b8` and the sorted untracked paths with content hashes `1369b701…8c43`); 25 modified tracked paths, 7 untracked paths |
+| Reviewed | `lib/Service/ArcadeCatalog.php`; `src/` (Spot Sprint `logic.js`, `Board.vue`, `game.js`, `index.js`; `GameShell.vue`, `gameInput.js`, `gameRegistry.js`); every touched PHPUnit/Jest/Playwright test, the gate manifest and Playwright config; l10n; API, concept, use-case, architecture and third-party docs; plan, backlog (UX-019) and ACTIVE_TASKS |
+| Test target | the isolated staged row `cs082-arcade-wpc` (NC 35.0.2, PHP 8.4.26, PostgreSQL 18.6, port 8186), not the shared canonical stack (TECH-TEST-008) |
+
+### Findings
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| R086C-01 | nit | `docs/engineering/testing.md` | The phone core set section named only `mobile-core.spec.ts`, although both phone projects now also run `arcade-mobile.spec.ts` | Fixed — the section names the arcade touch spec and what it proves |
+
+### Verified non-findings
+
+- Game rules: deterministic opening (stain under the cursor at tile 5), cursor moves clamp at the walls, taps on empty or out-of-range tiles change nothing, drying stains vanish without penalty, the golden sponge doubles for five seconds and never spawns while active, socks never spawn in the first ten seconds and never push the score below zero, no spawn on a tile that still shows its wipe, the round ends at 60 s with a `timeup` event and ignores later input — each pinned in `spotsLogic.spec.js`.
+- Score integrity: a seeded perfect player stays within `100 + 50 per second` at every step and below 3000 over five seeds; the stepped play time of a full round (≈ 60 017 ms) is inside the 65 s bound; the browser round saved with `durationMs ≥ 60000` and HTTP 200.
+- Shell: the canvas path is unchanged for Crumb Snake (`snake-game.spec.ts` 12/12); a DOM game re-reads its view only on a revision change; canvas sparkles are no longer collected for DOM games; Enter acts only while the shell itself has focus, so a focused button keeps its own activation; swipes steer only D-pad games.
+- The board/scrollbar resize loop was found by the new phone spec during implementation, not by this review: the board grows only for a new viewport; the regression test fails without the guard (negative control). Its width-only comparison is sufficient because `fitBoard` scales both edges by one cell size.
+- Accessibility: the board is decorative (`aria-hidden`, no text), items differ by shape (blob, dashed drying ring, rectangular sponge, sock), the cursor has a visible outline, tiles are at least 44 px on the phone projects, and the wipe sparkle is suppressed without the motion opt-in or under reduced motion. The golden frame during double points is a supplementary cue; the effect itself shows in the score.
+- No authorization, persistence or schema change; the arcade chunk carries no game logic; `game-spots` is 4051 bytes gzip (budget 40 KB), `game-snake` unchanged at 1610.
+- Out of scope, routed: UX-019 (Nextcloud's navigation toggle stays above open dialogs on phones, every `Modal`).
+
+### Decisions recorded
+
+None needed.
+
+### Gates (after all fixes)
+
+- Jest 139 suites / 1952 tests through the zero-noise gate (`npm run test:noise`).
+- PHPUnit on the staged row: unit 1453, integration 622 (`--fail-on-skipped`, default order, after a `minimal` reseed of the row), `composer cs:check` (0 of 423 files).
+- `npm run lint`, `npm run stylelint`, `npm run l10n:check-keys` (1315 keys), `npm run backlog:check`, `npm run docs:encoding`, `git diff --check`, `npm run build`, `node scripts/run-e2e-gate.js --self-test`; scenario manifest regenerated with `--write-manifest`.
+- Browser on the staged row (`NEXTCLOUD_URL=http://127.0.0.1:8186`, `NEXTCLOUD_CONTAINER=cs082-arcade-wpc-nextcloud-pgsql-1`): `arcade-games.spec.ts` 5/5 (serial pool), `arcade-mobile.spec.ts` 2/2 in `mobile-chromium` and in `mobile-webkit`, `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (chromium), auth setup 3/3 per run.
+- Not run, with reason: the full browser gate and the AIO row (WP-G); the MySQL/SQLite provider matrix (WP-G).
+
+### Outcome
+
+`PASS-WITH-FIXES` (interim). R086C-01 was fixed; the gates above ran on the final code. Nothing was routed to the plan's §9; UX-019 is out of scope and in `backlog.md`. The plan stays `active/` for WP-D..WP-G. This review authorizes one scoped commit on `feat/arcade-minigames`.
