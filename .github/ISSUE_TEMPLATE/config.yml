@@ -1,0 +1,4 @@
+contact_links:
+  - name: Question
+    url: https://github.com/ChoreStrike/ChoreStrike/discussions/categories/q-a
+    about: Ask questions about using or contributing to ChoreStrike in GitHub Discussions.

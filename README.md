@@ -167,14 +167,14 @@ described in [roadmap.md](docs/release/roadmap.md).
 
 ## Contact
 
-For general project questions, email
-[chorestrike@gallero.de](mailto:chorestrike@gallero.de).
+Ask questions in
+[GitHub Discussions](https://github.com/ChoreStrike/ChoreStrike/discussions/categories/q-a).
 For non-sensitive bug reports and feature requests, see
 [Contributing](docs/CONTRIBUTING.md).
 
-Report security vulnerabilities privately using the
-[security policy](docs/SECURITY.md), not a public issue. Do not include
-passwords, tokens or real household data in messages or attachments.
+Report security vulnerabilities privately through GitHub as described in the
+[security policy](docs/SECURITY.md), not in a public issue or discussion. Do
+not include passwords, tokens or real household data in posts or attachments.
 
 ## Contributing
 

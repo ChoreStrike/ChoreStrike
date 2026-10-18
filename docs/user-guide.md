@@ -179,5 +179,5 @@ advantage in planning.
 Report bugs and ideas in the
 [issue tracker](https://github.com/ChoreStrike/ChoreStrike/issues) — never
 include passwords or real household data. Report security problems privately
-as described in the [security policy](SECURITY.md). Questions:
-[chorestrike@gallero.de](mailto:chorestrike@gallero.de).
+as described in the [security policy](SECURITY.md). Ask questions in
+[GitHub Discussions](https://github.com/ChoreStrike/ChoreStrike/discussions/categories/q-a).

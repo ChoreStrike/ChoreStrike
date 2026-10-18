@@ -87,8 +87,9 @@ See [standards/guidelines/i18n.md](standards/guidelines/i18n.md) for the full lo
 
 ## 🤔 Questions?
 
-For non-sensitive questions, use the repository issue tracker. You can also
-reach the maintainer through the [project contact](../README.md#contact).
+Ask non-sensitive questions in
+[GitHub Discussions](https://github.com/ChoreStrike/ChoreStrike/discussions/categories/q-a);
+the issue tracker is for bugs and feature requests.
 Follow [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
 ## 📜 Code of Conduct

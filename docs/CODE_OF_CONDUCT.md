@@ -44,9 +44,10 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported privately to the maintainer through the
-[project contact](../README.md#contact). Do not post personal details in public
-issues. Complaints will be reviewed and investigated fairly.
+reported privately to the maintainer with GitHub's *Report content → Report
+to repository admins* on the issue, pull request or discussion concerned. Do
+not post personal details in public issues or discussions. Complaints will be
+reviewed and investigated fairly.
 
 ## Attribution
 

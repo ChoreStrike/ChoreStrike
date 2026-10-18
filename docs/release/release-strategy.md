@@ -110,10 +110,11 @@ family evidence are separate decisions. Synthetic recovery does not close
 RELEASE-002 or authorize production deployment. The explicit 2026-10-04 H7/H-T11
 rescoping exempts operator-only self-testing and CS-PLAN-081 completion from the
 reporting-contact gate, not from technical readiness or adoption safeguards.
-BUG-SEC-001 remains open for an operator-approved, monitored reporting mailbox,
-demonstrated receipt of a test email and approved contact publication before
-later external onboarding/public release. GPG is optional; no mandatory key or
-decryption evidence, new address or completed forge migration is implied.
+Since 2026-10-18 security reports use GitHub private vulnerability reporting
+only and no mailbox is published. BUG-SEC-001 remains open for the
+reported-content setting and the deferred legal/privacy notices before later
+external onboarding/public release. GPG is optional; no mandatory key or
+decryption evidence is implied.
 
 ### Issue Types
 

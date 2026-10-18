@@ -98,7 +98,9 @@ Three further facts shaped the decision:
   transmits reachable objects only — and disappear on the next fresh clone.
 - Private vulnerability reporting is now offered next to the documented
   mailbox; enabling it is a repository setting, and the mailbox verification
-  tracked in BUG-SEC-001 stays open.
+  tracked in BUG-SEC-001 stays open. *Update 2026-10-18:* the mailbox is no
+  longer published; private vulnerability reporting is the only security
+  channel, and questions go to GitHub Discussions (BUG-SEC-001).
 
 ## Alternatives Considered
 

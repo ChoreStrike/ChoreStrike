@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   characters per line.
 - **Dialogs cover the whole page:** the setup wizard and the app's dialogs
   now lie above Nextcloud's navigation toggle, which used to draw over them.
+- **Contact through GitHub only:** questions go to GitHub Discussions,
+  security reports to GitHub private vulnerability reporting and conduct
+  reports to *Report content*; the project mailbox is no longer published.
 
 ### App Version 0.8.0-alpha.1 — Family-Trial Candidate (2026-10-17)
 

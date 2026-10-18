@@ -566,9 +566,9 @@ SELECT of ids followed by UPDATE ... WHERE id IN (...). Not a WP7 regression
 ---
 
 ### [P3] BUG-SEC-001 — Security reporting contact for later external use
-**Status**: In Progress (contact documented, delivery verified and published; authority feedback on the deferred legal/privacy notice pending) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
-**Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 (external-use stage only) · **Folded-in**: H7/H-T11 user rescoping (2026-10-04); operator-approved project mailbox and public-contact guidance (2026-10-12); reporting-policy refinements and legal-notice deferral (2026-10-13)
-**Source**: CS-001 security review; CS-PLAN-081 H7 Post-Review Scope Decision; user-provided project address 2026-10-12; explicit policy and scoped-commit request 2026-10-13
+**Status**: In Progress (GitHub-only reporting channels published 2026-10-18; reported-content setting and authority feedback on the deferred legal/privacy notice pending) · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
+**Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 (external-use stage only) · **Folded-in**: H7/H-T11 user rescoping (2026-10-04); operator-approved project mailbox and public-contact guidance (2026-10-12); reporting-policy refinements and legal-notice deferral (2026-10-13); GitHub-only contact channels (2026-10-18)
+**Source**: CS-001 security review; CS-PLAN-081 H7 Post-Review Scope Decision; user-provided project address 2026-10-12; explicit policy and scoped-commit request 2026-10-13; operator decision 2026-10-18
 
 The operator initially tests alone and explicitly removed H7/H-T11 from
 [CS-PLAN-081](../plans/done/cs-plan-081-pre-wp9-hardening-and-retained-data-readiness.md)
@@ -576,8 +576,8 @@ on 2026-10-04. No new reporting address or channel test is required for that
 self-test stage or preparation-plan completion. This item remains open for
 later external tester onboarding / public release, not a completed H7 claim.
 
-The operator supplied `chorestrike@gallero.de` on 2026-10-12 for public project
-contact. README and `docs/SECURITY.md` now document that mailbox; contributor
+The operator supplied a project mailbox on 2026-10-12 for public project
+contact. README and `docs/SECURITY.md` documented that mailbox; contributor
 and conduct guidance distinguish public issues from private reports. This
 ordinary-email route was independent of the repository migration (TECH-REPO-001,
 completed 2026-10-16) and does not require GPG, a separate `security@` alias or
@@ -599,18 +599,29 @@ data processed in other operators' Nextcloud installations; `docs/SECURITY.md`
 is an operational reporting policy, not complete data-protection information.
 
 Mailbox creation, the receipt of a test email and replying from the project
-address are operator-confirmed (2026-10-17). The contact is public in README and
-`docs/SECURITY.md` on GitHub since the approved CS-PLAN-085 push (2026-10-16).
-The item remains open only for the authority's feedback on the deferred legal
-notice and privacy information; the mailbox must stay monitored, not
-commit-only `noreply`. No public security issues or sensitive real-user payloads.
+address are operator-confirmed (2026-10-17). The contact was public in README and
+`docs/SECURITY.md` on GitHub from the approved CS-PLAN-085 push (2026-10-16).
+
+**Operator decision (2026-10-18):** the mailbox is no longer published.
+Questions go to GitHub Discussions (Q&A, enabled 2026-10-18); security reports
+use GitHub private vulnerability reporting only; Code of Conduct reports use
+GitHub's *Report content → Report to repository admins*. README, user guide,
+`docs/SECURITY.md`, contributing and conduct guidance, the issue-template
+chooser and the organization profile follow this. The address remains in Git
+history and closed plans.
+
+The item remains open for the reported-content setting and the authority's
+feedback on the deferred legal notice and privacy information. No public
+security issues or sensitive real-user payloads.
 
 - [x] Record the operator-approved reporting mailbox (2026-10-12).
 - [x] Add the contact to local README/security guidance and replace the deferred-contact note; GPG remains optional.
 - [x] Refine public-credit consent, email limitations, affected-dependency reporting and release/backport wording (2026-10-13).
 - [x] Confirm receipt of a test email (operator, 2026-10-17).
 - [x] Confirm a reply sent from the project address without exposing a private sender address (operator, 2026-10-17).
-- [ ] Reassess the deferred legal notice and privacy information after the authority's response, including the handling of incoming report emails.
+- [x] Withdraw the mailbox from public docs; route questions to GitHub Discussions and security/conduct reports to GitHub's private reporting (operator decision, 2026-10-18).
+- [ ] Enable *Settings → Moderation options → Reported content* so conduct reports reach the maintainer (operator, web interface only).
+- [ ] Reassess the deferred legal notice and privacy information after the authority's response, including the handling of incoming reports.
 - [x] Publish the verified contact with an explicitly approved source update before external-user onboarding; retain correct links for the selected hosting platform (public on GitHub since the CS-PLAN-085 push, 2026-10-16; delivery verified 2026-10-17).
 
 ---
