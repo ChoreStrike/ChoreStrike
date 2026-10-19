@@ -568,7 +568,7 @@ hold the patched versions; drop them once the migrated stack resolves them.
 
 ### [P2] TECH-TEST-008 — One reusable Docker test stack per worktree
 **Status**: Backlog · **Effort**: M · **Layer**: tests+tooling · **Journey stage**: —
-**Owning**: unassigned (branch `chore/per-worktree-test-stacks`, worktree `~/worktrees/chorestrike-test-stacks`) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: operator request during CS-PLAN-086 WP-B, 2026-10-17
 
 All worktrees share the canonical stack of `docker/compose.test.yml` (fixed
