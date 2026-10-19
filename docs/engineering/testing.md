@@ -763,7 +763,9 @@ installs stay fresh-install-only. Exercise every new migration against a
 populated copy of that recorded baseline on all supported providers; assert preserved identifiers,
 relations, planning/history and financial facts and fresh/upgrade schema parity.
 An unchanged-app reinstall, edited already-applied step, or restore of the same
-build does not prove an upgrade.
+build does not prove an upgrade. `npm test` rejects an edited, renamed or removed
+applied step against the pinned inventory `tests/migrations/applied-migrations.json`
+(`tests/unit/scripts/appliedMigrations.spec.js`).
 
 Recovery runs need exclusive ownership, with no integration/browser/cron mutation
 jobs overlapping the backup point or assertions. Use separately named disposable

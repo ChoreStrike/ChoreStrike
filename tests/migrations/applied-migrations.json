@@ -1,0 +1,38 @@
+{
+  "rule": "Applied migrations are immutable (docs/standards/ai/rules/project-rules.md section 1, Data-Retention Boundary). Each later adoption appends its newly applied steps; never edit or remove an entry.",
+  "adoptions": [
+    {
+      "version": "0.8.0-alpha.1",
+      "adopted": "2026-10-17",
+      "record": "docs/engineering/deployment.md#adoption-record-2026-10-17",
+      "migrations": [
+        { "id": "1000Date20260224000000", "sha256": "8b61b5075c74bc17c52d423a06bbd9a6a033ad8dbb297dd633edb170b428c032" },
+        { "id": "1001Date20260224170000", "sha256": "c21652fddaafa76e13d690f2b814b619c5f644a6255d5396d865c9a3f821061c" },
+        { "id": "1004Date20260228131728", "sha256": "deaf0ecae7a00bfb889767d85dbb2bee2dd7485ce84fae98368ce15c980ea2ea" },
+        { "id": "1004Date20260228150000", "sha256": "33e9a986e32084a85923e5d63cfbb8aa988650995b2b155cb11c818352f6df5c" },
+        { "id": "1005Date20260228160000", "sha256": "0563d0cc97ce4f8eff0b0ba04764477fae84ef95f555d23ff4e106a0ce43960d" },
+        { "id": "1006Date20260228170000", "sha256": "3cfd884b382af68b2afbdeb9d484f58012130c6b78891022bf40bb0ca97150a3" },
+        { "id": "1007Date20260228180000", "sha256": "31e2a7c3d25d6bc4ca2a86479a6548949883fd144b3cfd2d98a46e407e78f900" },
+        { "id": "1008Date20260228190000", "sha256": "eef631947cedd32ff319d45d2243b5cdec63603c5e3d51ba5e4c6856a804d004" },
+        { "id": "1009Date20260228200000", "sha256": "5c977b87c459953b5f81140d2181d3dae7ebc195385a03e376832ae12f802533" },
+        { "id": "1011Date20260301220000", "sha256": "de0c7de56b51bb9dd7cb59398ac205aedad712442dbbd591671ea10685344254" },
+        { "id": "1012Date20260301230000", "sha256": "1b4f9fb13af0bbe4cf4d9080cc8cdacf460bec2330673101a837c34ace1962c6" },
+        { "id": "1015Date20260304000000", "sha256": "a7aca37fde463ed851cc9f19f3537f9b467d6b199cafe8099d0014c6db77db4f" },
+        { "id": "1016Date20260314000000", "sha256": "88832934244f25d8e1838c70cc5ad00d6a7cb33c1efd8c3e20b314f255a4e8e6" },
+        { "id": "1021Date20260712000000", "sha256": "0a3e4d5072b9b0ab636d98c75959dd166697dc075389a653bcc90dd6cc29ae46" },
+        { "id": "1022Date20260717000000", "sha256": "2189061ba93235e434698a7b7d11fa2da42e5d8bdeee3ab20fc5265dba36b6f9" },
+        { "id": "1023Date20260718000000", "sha256": "cb26da0f51db3e2fc68a77a24bd33656e5dd3876791f07d5f65069955ceee3dd" },
+        { "id": "1024Date20260719000000", "sha256": "93e3c7d0172bdb54d7e9d7ebddf80fae141a48d51d3de4d07883f41cf8af8d43" },
+        { "id": "1025Date20260719000000", "sha256": "eab8491b598c1b7dd3c61b1b47e2b7ef503dfea1deae4e1911a24784bacd32c8" },
+        { "id": "1026Date20260724000000", "sha256": "8ef628d2e838ea25778f5156c3f756ac19825676c21ac71a887a4509ef2315f4" },
+        { "id": "1027Date20260725000000", "sha256": "838131a2e30762a1991130f7600e51cb8e9f1b8da621423693a4e1c28782bca8" },
+        { "id": "1028Date20260830000000", "sha256": "d99848bb05654b7500dbdcbe6ba42bf7144239dcd53ded06fe60620b5e9ff825" },
+        { "id": "1029Date20260906000000", "sha256": "12526eafa6b1a671f06656e624b860b13606d3ad3234207d60d54cc1d0e400ff" },
+        { "id": "1030Date20260918000000", "sha256": "9f8767311debf836480c9515d3360a3459f3037004ea913b23328c6e2fc2575d" },
+        { "id": "1031Date20260918000000", "sha256": "6bb4dcd2ecd674357722f3989540c8dfce744bc1c37466e1cc411c3551233abf" },
+        { "id": "1032Date20260918000000", "sha256": "bc78127f956636a63a67406b6b563df20f2cbbc32a9d44e92931365ab315cdd5" },
+        { "id": "1033Date20260918000000", "sha256": "7d04a97b5dafd5f67b5a975350c4b69475a481221607ac1364581ac495dc47b4" }
+      ]
+    }
+  ]
+}

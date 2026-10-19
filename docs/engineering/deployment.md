@@ -260,6 +260,13 @@ baseline upgrades plus fresh/upgrade parity on all supported providers. An
 unchanged-app reinstall or backup restore is not an upgrade test. No support
 for disposable development states older than the baseline is implied.
 
+Applied migration files are pinned: the Docker-free
+`tests/unit/scripts/appliedMigrations.spec.js` (part of `npm test`) fails when a
+migration listed in `tests/migrations/applied-migrations.json` is edited,
+renamed or removed, while new steps stay allowed. Each later adoption appends
+its newly applied migrations with their SHA-256 (of the LF content Git stores)
+to that inventory.
+
 A record for any later adopted baseline needs the same content:
 
 - Explicit operator decision/date and target authorization (private instance details stay in `private/`).

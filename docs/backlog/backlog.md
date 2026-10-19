@@ -600,22 +600,6 @@ sessions never touch each other's database.
 
 ---
 
-### [P2] TECH-TEST-007 — No guard keeps applied migration files immutable
-**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: —
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: deployment record import, 2026-10-17
-
-Since the first retained baseline (`0.8.0-alpha.1`, 2026-10-17) the 26 applied
-migration files are immutable ([project rules §1](../standards/ai/rules/project-rules.md#data-retention-boundary)),
-but only review enforces it: nothing fails when a commit edits, renames or
-removes one. Add a fast, Docker-free check that pins the adopted inventory —
-identifiers and SHA-256 from the
-[adoption record](../engineering/deployment.md#adoption-record-2026-10-17) —
-hashes the Git blob content (so CRLF checkouts do not differ) and is extended
-with each later deployment. New migration files stay allowed.
-
----
-
 ### [P3] TECH-TEST-009 — Unattributed SQLite integration failures under four parallel provider suites
 **Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: test-runtime reliability
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
