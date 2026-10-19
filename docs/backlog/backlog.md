@@ -69,22 +69,6 @@ a no-horizontal-overflow check per view at phone width.
 
 ---
 
-### [P3] CR-084-01 — Calendar marks a past planned day with an open flex window overdue
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: calendar
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
-
-`CalendarView.isOverdue` (`src/views/CalendarView.vue`) compares each day
-entry's planned date key with today. A projected entry whose planned day has
-passed but whose flex window is still open is therefore red in the calendar,
-while the task lists, filters, badges, claim button and server status treat it
-as due (D-084-08). The shared `taskDisplay.isOverdue` cannot be applied as is:
-the calendar lists several days per room task, so the rule must be evaluated
-per day entry (planned day plus the occurrence's flex-window end in the house
-time zone), with a regression for the open-window case.
-
----
-
 ### [P3] CR-084-02 — A joined in-flight completion drops the second call's allocation
 **Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -97,23 +81,6 @@ plain completion is in flight and a participation-dialog submission
 dropped and the caller reports success. The hold guard makes this rare. Reject
 a join whose options differ materially (or keep the dialog open), and pin
 identical-payload joining with a test.
-
----
-
-### [P3] CR-084-03 — Single-row room-task payloads use the entity overdue rule
-**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: task status
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
-
-The house list, room detail rows and room statistics derive `status` from the
-occurrence classification (`RoomTaskReadService::statusFor`), but create,
-update and show serialize `RoomTask::getStatus($tz)`, a house-local day-bucket
-rule. Inside an open flex window after the planned day, the entity says
-`overdue` while the list says `due_today`; the client falls back to `status`
-for a row without an `occurrence` block, so such a row can turn red until the
-next list read. Make `statusFor` the single source for every payload that
-carries `status` (or document the entity rule as the occurrence-free
-fallback), with integration coverage.
 
 ---
 

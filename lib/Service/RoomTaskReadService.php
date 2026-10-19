@@ -307,6 +307,33 @@ class RoomTaskReadService {
 	}
 
 	/**
+	 * The serialized room task whose `status` follows {@see statusFor}
+	 * (CR-084-03): every payload that carries a room task — list, execution,
+	 * calendar, create, due-date and completion responses — reports the
+	 * same status for the same occurrence. Without a selection the entity's
+	 * house-local day rule remains the fallback.
+	 *
+	 * @param string|null $classification Canonical selection classification, null without a selection
+	 * @return array<string, mixed>
+	 */
+	public function roomTaskPayload(RoomTask $roomTask, \DateTimeZone $tz, ?string $classification): array {
+		$data = $roomTask->jsonSerialize($tz);
+		$data['status'] = $this->statusFor($roomTask, $tz, $classification);
+		return $data;
+	}
+
+	/**
+	 * {@see roomTaskPayload} for a single row whose selection is not loaded
+	 * yet (create and due-date responses).
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function selectedRoomTaskPayload(int $houseId, RoomTask $roomTask, \DateTimeZone $tz): array {
+		$selection = $this->occurrenceSelectionsForHouse($houseId, [$roomTask])[$roomTask->getId()] ?? null;
+		return $this->roomTaskPayload($roomTask, $tz, $selection['classification'] ?? null);
+	}
+
+	/**
 	 * The house pause-revision fingerprint (WP2 token input, one query).
 	 */
 	public function pauseFingerprintForHouse(int $houseId): string {

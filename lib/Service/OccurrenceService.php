@@ -287,6 +287,13 @@ class OccurrenceService {
 	}
 
 	/**
+	 * Whether an agreed occurrence is missed (`late`) work at `$now`.
+	 */
+	public function isMissed(Occurrence $occurrence, \DateTime $now): bool {
+		return $this->selection->isMissed($occurrence, $now);
+	}
+
+	/**
 	 * The occurrence DTO block of one entry (shared by every read path);
 	 * carries the WP2 neutral-suspension facts and the agreed work
 	 * appointment.

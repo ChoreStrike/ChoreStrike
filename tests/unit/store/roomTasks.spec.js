@@ -1163,6 +1163,36 @@ describe('RoomTasks Store', () => {
 			// Each bucketed item carries the occurrence date for overdue calc.
 			expect(byDay['2026-07-30'].scheduled[0].dueDate).toBe('2026-07-30')
 			expect(byDay['2026-07-30'].scheduled[0].task.name).toBe('Dishes')
+			expect(byDay['2026-07-30'].scheduled[0].late).toBeNull()
+		})
+
+		// CR-084-01: the overdue mark is per day entry, straight from the
+		// server's occurrence details — not "planned day < today".
+		it('carries the per-day late mark of the occurrence details', () => {
+			store.rangeTasks = {
+				scheduled: [
+					{
+						roomTask: { id: 1, nextDue: '2026-07-29T00:00:00' },
+						task: { name: 'Dishes' },
+						room: { name: 'Kitchen' },
+						flexWindow: {},
+						occurrences: ['2026-07-28', '2026-07-29', '2026-07-30'],
+						occurrenceDetails: [
+							{ date: '2026-07-28', classification: 'agreed', late: true },
+							{ date: '2026-07-29', classification: 'agreed', late: false },
+							{ date: '2026-07-30', classification: 'projection', late: false },
+						],
+					},
+				],
+				completed: [],
+				from: '2026-07-27',
+				to: '2026-08-02',
+			}
+
+			const byDay = store.rangeTasksByDay
+			expect(byDay['2026-07-28'].scheduled[0]).toMatchObject({ dueDate: '2026-07-28', late: true })
+			expect(byDay['2026-07-29'].scheduled[0]).toMatchObject({ dueDate: '2026-07-29', late: false })
+			expect(byDay['2026-07-30'].scheduled[0]).toMatchObject({ dueDate: '2026-07-30', late: false })
 		})
 
 		it('falls back to nextDue when occurrences are absent', () => {

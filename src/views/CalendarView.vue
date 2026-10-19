@@ -94,8 +94,9 @@ import { translate as t } from '@nextcloud/l10n'
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useHouseStore } from '../store/house.js'
-import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
+import { addDaysToKey, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
+import { isOverdue as isRowOverdue } from '../utils/taskDisplay.js'
 import TaskCalendar from '../components/Tasks/TaskCalendar.vue'
 
 export default {
@@ -124,10 +125,6 @@ export default {
 	},
 
 	computed: {
-		todayYmd() {
-			return todayKeyInZone(this.houseStore.timezone)
-		},
-
 		rangeStart() {
 			return this.anchorDate
 		},
@@ -218,11 +215,12 @@ export default {
 		},
 
 		isOverdue(item) {
-			// `dueDate` (occurrence key) is already house-local; a bare
-			// nextDue instant is bucketed in the house TZ.
-			const due = item.dueDate || dateKeyInZone(item.roomTask?.nextDue, this.houseStore.timezone)
-			if (!due) return false
-			return due < this.todayYmd
+			// CR-084-01: a day entry is overdue when its occurrence's saved
+			// window has ended without the work (server `late` mark) — a past
+			// planned day inside an open flex window is still due. Entries
+			// without a mark follow the row rule of the task lists.
+			if (typeof item.late === 'boolean') return item.late
+			return isRowOverdue(item.roomTask)
 		},
 
 		isRecurring(item) {

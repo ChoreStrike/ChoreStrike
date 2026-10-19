@@ -100,6 +100,49 @@ describe('CalendarView', () => {
 		expect(wrapper.find('.task-repeat').exists()).toBe(true)
 	})
 
+	// CR-084-01: a past planned day whose flex window is still open is due,
+	// not overdue — the day entry follows the server's per-day late mark.
+	it('marks only day entries whose window has ended as overdue', async () => {
+		const store = useRoomTasksStore()
+		const wrapper = mount(CalendarView, {
+			global: { stubs: { TaskCalendar: true } },
+		})
+		await wrapper.vm.$nextTick()
+
+		const [missedDay, openDay] = wrapper.vm.visibleDays
+		store.rangeTasks = {
+			scheduled: [{
+				roomTask: { id: 1, isActive: true, nextDue: missedDay + 'T00:00:00', status: 'overdue' },
+				task: { name: 'Dishes', recurrenceMode: 'recurring' },
+				room: { name: 'Kitchen' },
+				flexWindow: {},
+				occurrences: [missedDay, openDay],
+				occurrenceDetails: [
+					{ date: missedDay, classification: 'agreed', late: true },
+					{ date: openDay, classification: 'agreed', late: false },
+				],
+			}],
+			completed: [],
+			from: missedDay,
+			to: openDay,
+		}
+
+		await wrapper.setData({ selectedDay: missedDay })
+		expect(wrapper.find('[data-testid="calendar-day-list"] .task-item').classes()).toContain('overdue')
+
+		await wrapper.setData({ selectedDay: openDay })
+		expect(wrapper.find('[data-testid="calendar-day-list"] .task-item').classes()).not.toContain('overdue')
+	})
+
+	it('falls back to the row rule for a day entry without a late mark', () => {
+		const wrapper = mount(CalendarView, {
+			global: { stubs: { TaskCalendar: true } },
+		})
+		const roomTask = { isActive: true, nextDue: '2000-01-01T00:00:00', status: 'due_today' }
+		expect(wrapper.vm.isOverdue({ roomTask, dueDate: '2000-01-01', late: null })).toBe(false)
+		expect(wrapper.vm.isOverdue({ roomTask: { ...roomTask, status: 'overdue' }, dueDate: '2000-01-01', late: null })).toBe(true)
+	})
+
 	// CS-PLAN-065 §3.4 (RF-065-02): a committed owner plan may have moved
 	// occurrences inside the visible window — the mounted calendar must
 	// refetch exactly that window on the `schedule-applied` event.

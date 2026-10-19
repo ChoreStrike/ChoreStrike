@@ -622,4 +622,37 @@ class RoomTaskReadServiceTest extends TestCase {
 		$roomTask->setIsActive(false);
 		$this->assertSame('inactive', $this->service->statusFor($roomTask, $utc, 'late'));
 	}
+
+	/**
+	 * CR-084-03: the serialized room task carries the {@see statusFor}
+	 * status, so single-row responses agree with the list rows.
+	 */
+	public function testRoomTaskPayload_CarriesTheOccurrenceStatus(): void {
+		$utc = new \DateTimeZone('UTC');
+		$roomTask = new RoomTask();
+		$roomTask->setId(7);
+		$roomTask->setIsActive(true);
+		$roomTask->setNextDue((new \DateTime('yesterday', $utc))->setTime(0, 0, 0));
+
+		$this->assertSame('overdue', $roomTask->jsonSerialize($utc)['status'], 'precondition: the entity day rule');
+		$payload = $this->service->roomTaskPayload($roomTask, $utc, 'agreed');
+		$this->assertSame('due_today', $payload['status'], 'open flex window: still due');
+		$this->assertSame(7, $payload['id']);
+		$this->assertSame('overdue', $this->service->roomTaskPayload($roomTask, $utc, 'late')['status']);
+		$this->assertSame('overdue', $this->service->roomTaskPayload($roomTask, $utc, null)['status'], 'no selection: entity fallback');
+	}
+
+	public function testSelectedRoomTaskPayload_ResolvesTheSelectionOfTheRow(): void {
+		$utc = new \DateTimeZone('UTC');
+		$roomTask = new RoomTask();
+		$roomTask->setId(7);
+		$roomTask->setIsActive(true);
+		$roomTask->setNextDue((new \DateTime('yesterday', $utc))->setTime(0, 0, 0));
+
+		$this->occurrenceService->expects($this->once())->method('selectionsForHouseTasks')
+			->with(3, [$roomTask], $this->isInstanceOf(\DateTime::class))
+			->willReturn([7 => ['occurrence' => null, 'revision' => null, 'classification' => 'agreed']]);
+
+		$this->assertSame('due_today', $this->service->selectedRoomTaskPayload(3, $roomTask, $utc)['status']);
+	}
 }

@@ -145,19 +145,9 @@ class OccurrenceSelectionService {
 		$latestMiss = null;
 		foreach ($agreed as $entry) {
 			$occ = $entry['occurrence'];
-			if ($occ->getCompletionId() !== null || $occ->getCoveredByCompletionId() !== null) {
-				continue;
-			}
-			if ($occ->getKind() === Occurrence::KIND_VOLUNTARY) {
-				continue;
-			}
-			if ($occ->getSuspensionState() === Occurrence::SUSPENSION_SUSPENDED) {
-				continue;
-			}
-			if ($occ->getWindowEnd() <= $now) {
-				if ($latestMiss === null || $this->occurrenceSortKey($occ) > $this->occurrenceSortKey($latestMiss['occurrence'])) {
-					$latestMiss = $entry;
-				}
+			if ($this->isMissed($occ, $now)
+				&& ($latestMiss === null || $this->occurrenceSortKey($occ) > $this->occurrenceSortKey($latestMiss['occurrence']))) {
+				$latestMiss = $entry;
 			}
 		}
 		if ($latestMiss !== null) {
@@ -176,6 +166,20 @@ class OccurrenceSelectionService {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Whether an agreed occurrence is missed work (`late`): a scheduled,
+	 * unsuspended obligation that is neither fulfilled nor covered and whose
+	 * saved window has ended. The catch-up selection picks the latest such
+	 * occurrence; the calendar marks each one (CR-084-01).
+	 */
+	public function isMissed(Occurrence $occurrence, \DateTime $now): bool {
+		return $occurrence->getCompletionId() === null
+			&& $occurrence->getCoveredByCompletionId() === null
+			&& $occurrence->getKind() !== Occurrence::KIND_VOLUNTARY
+			&& $occurrence->getSuspensionState() !== Occurrence::SUSPENSION_SUSPENDED
+			&& $occurrence->getWindowEnd() <= $now;
 	}
 
 	/**

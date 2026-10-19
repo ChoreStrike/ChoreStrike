@@ -819,6 +819,14 @@ Get scheduled and completed tasks within a date range (calendar view). Max span:
 Recurring tasks are **projected** across the window: each scheduled item carries an
 `occurrences` array of `Y-m-d` dates (one per future occurrence in `[from, to]`), so a
 daily task appears on every day it recurs. One-time tasks emit a single occurrence.
+`occurrenceDetails` carries the same days with their identity (`occurrenceId`,
+`classification` `agreed`/`projection`, `version`, `fulfilled`) and `late`: the
+occurrence's saved window has ended without the work being fulfilled, covered or
+neutrally suspended. The calendar marks exactly those days overdue — a past planned
+day inside an open flex window is still due (CR-084-01). Like every endpoint that
+serializes a room task, `roomTask.status` follows the occurrence selection
+(`overdue` only for missed work); the entity's house-local day rule is the fallback
+for a row without a selection (CR-084-03).
 
 **Parameters:**
 - `from` (required): Start date, `Y-m-d` format.
@@ -835,7 +843,11 @@ daily task appears on every day it recurs. One-time tasks emit a single occurren
         "task": { "id": 5, "name": "Vacuum", "energyCost": 3 },
         "room": { "id": 2, "name": "Living Room" },
         "flexWindow": { "earliest": "2026-07-26", "ideal": "2026-07-28", "latest": "2026-07-30" },
-        "occurrences": ["2026-07-28", "2026-08-04", "2026-08-11"]
+        "occurrences": ["2026-07-28", "2026-08-04", "2026-08-11"],
+        "occurrenceDetails": [
+          { "date": "2026-07-28", "occurrenceId": "41:4", "classification": "agreed", "version": 0, "fulfilled": false, "late": false },
+          { "date": "2026-08-04", "occurrenceId": null, "classification": "projection", "version": null, "fulfilled": null, "late": false }
+        ]
       }
     ],
     "completed": [

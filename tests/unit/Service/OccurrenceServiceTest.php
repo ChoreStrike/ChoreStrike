@@ -187,4 +187,28 @@ class OccurrenceServiceTest extends TestCase {
 			'a future projection is never silently chosen instead of the shown target'
 		);
 	}
+
+	/**
+	 * CR-084-01: the per-occurrence miss rule the calendar marks — the saved
+	 * window has ended without fulfilment, cover or neutral suspension; a
+	 * past planned day inside an open window is not missed.
+	 */
+	public function testIsMissed_OnlyAnEndedUnfulfilledScheduledWindow(): void {
+		$miss = $this->entry(4, 1, '2026-09-20', '2026-09-20 00:00:00', '2026-09-21 00:00:00')['occurrence'];
+		$openFlexWindow = $this->entry(4, 2, '2026-09-21', '2026-09-19 00:00:00', '2026-09-24 00:00:00')['occurrence'];
+		$fulfilled = $this->entry(4, 3, '2026-09-20', '2026-09-20 00:00:00', '2026-09-21 00:00:00', Occurrence::KIND_SCHEDULED, 11)['occurrence'];
+		$covered = $this->entry(4, 4, '2026-09-20', '2026-09-20 00:00:00', '2026-09-21 00:00:00', Occurrence::KIND_SCHEDULED, null, 12)['occurrence'];
+		$voluntary = $this->entry(4, 5, '2026-09-20', '2026-09-20 00:00:00', '2026-09-21 00:00:00', Occurrence::KIND_VOLUNTARY)['occurrence'];
+		$suspended = $this->entry(4, 6, '2026-09-20', '2026-09-20 00:00:00', '2026-09-21 00:00:00')['occurrence'];
+		$suspended->setSuspensionState(Occurrence::SUSPENSION_SUSPENDED);
+		$endsNow = $this->entry(4, 7, '2026-09-21', '2026-09-21 00:00:00', '2026-09-22 12:00:00')['occurrence'];
+
+		self::assertTrue($this->service->isMissed($miss, $this->now));
+		self::assertFalse($this->service->isMissed($openFlexWindow, $this->now), 'a past planned day inside an open window is still due');
+		self::assertFalse($this->service->isMissed($fulfilled, $this->now));
+		self::assertFalse($this->service->isMissed($covered, $this->now));
+		self::assertFalse($this->service->isMissed($voluntary, $this->now));
+		self::assertFalse($this->service->isMissed($suspended, $this->now));
+		self::assertTrue($this->service->isMissed($endsNow, $this->now), 'the window end is exclusive, like the selection');
+	}
 }

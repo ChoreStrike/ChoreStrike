@@ -767,7 +767,7 @@ class RoomTaskService {
 	 * @param \DateTime $from Inclusive range start
 	 * @param \DateTime $to Inclusive range end
 	 * @param HouseUser $viewer The acting user's house membership
-	 * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array, occurrences: array<int, string>, occurrenceDetails: array<int, array{date: string, occurrenceId: ?string, classification: string, version: ?int, fulfilled: ?bool}>}>, completed: array<int, array>}
+	 * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array, occurrences: array<int, string>, occurrenceDetails: array<int, array{date: string, occurrenceId: ?string, classification: string, version: ?int, fulfilled: ?bool, late: bool}>}>, completed: array<int, array>}
 	 */
 	public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to, HouseUser $viewer): array {
 		// CS-PLAN-057: reinterpret the controller's Y-m-d keys as house-local
@@ -806,8 +806,11 @@ class RoomTaskService {
 		// serialized into the response.
 		$roomTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
 
-		// One batched agreed derivation for the whole window.
+		// One batched agreed derivation for the whole window, plus the
+		// canonical selections for the row status (CR-084-03).
 		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $roomTasks, $fromKey, $toKey);
+		$selections = $this->readService->occurrenceSelectionsForHouse($houseId, $roomTasks);
+		$now = new \DateTime();
 
 		$scheduled = [];
 		foreach ($roomTasks as $rt) {
@@ -827,6 +830,9 @@ class RoomTaskService {
 					'classification' => 'agreed',
 					'version' => $occurrence->getVersion(),
 					'fulfilled' => $occurrence->getCompletionId() !== null,
+					// Per-day overdue mark (CR-084-01): the saved window has
+					// ended without the work, not merely the planned day.
+					'late' => $this->occurrenceService->isMissed($occurrence, $now),
 				];
 			}
 
@@ -838,6 +844,7 @@ class RoomTaskService {
 					'classification' => 'projection',
 					'version' => null,
 					'fulfilled' => null,
+					'late' => false,
 				];
 			}
 
@@ -851,7 +858,7 @@ class RoomTaskService {
 			$flexWindow = $rt->getFlexWindowBounds($task->getFlexDays());
 
 			$scheduled[] = [
-				'roomTask' => $rt->jsonSerialize($tz),
+				'roomTask' => $this->readService->roomTaskPayload($rt, $tz, $selections[$rt->getId()]['classification'] ?? null),
 				'task' => $task->jsonSerialize(),
 				'room' => $room->jsonSerialize(),
 				'flexWindow' => [

@@ -33,6 +33,24 @@ function generateCommandId() {
 	})
 }
 
+/**
+ * The calendar days of one range row with the server's per-day `late` mark
+ * (CR-084-01): the occurrence details when present, else the bare
+ * `occurrences` keys or the nextDue instant without a mark (`late: null`).
+ * @param {object} item Range row from GET /room-tasks/range.
+ * @param {string} timezone IANA timezone of the household.
+ * @return {Array<{date: string, late: ?boolean}>}
+ */
+function rangeDays(item, timezone) {
+	if (Array.isArray(item.occurrenceDetails) && item.occurrenceDetails.length) {
+		return item.occurrenceDetails.map(detail => ({ date: detail.date, late: detail.late === true }))
+	}
+	const dates = Array.isArray(item.occurrences) && item.occurrences.length
+		? item.occurrences
+		: [dateKeyInZone(item.roomTask?.nextDue, timezone)]
+	return dates.map(date => ({ date, late: null }))
+}
+
 // Pending completion promises by room task id (WP-E): a promise is not
 // serializable store state, so only the id set lives in `completingIds`.
 const inFlightCompletions = new Map()
@@ -158,11 +176,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				// `occurrences` list, the task appears on each of those days
 				// (house-local keys straight from the backend). Fall back to
 				// the single nextDue instant, bucketed in the house TZ.
-				const dates = Array.isArray(item.occurrences) && item.occurrences.length
-					? item.occurrences
-					: [dateKeyInZone(item.roomTask?.nextDue, houseStore.timezone)]
+				const days = rangeDays(item, houseStore.timezone)
 
-				for (const date of dates) {
+				for (const { date, late } of days) {
 					if (!date) continue
 					if (!byDay[date]) byDay[date] = { scheduled: [], completed: [] }
 					byDay[date].scheduled.push({
@@ -171,6 +187,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						room: item.room,
 						flexWindow: item.flexWindow,
 						dueDate: date,
+						late,
 					})
 				}
 			}

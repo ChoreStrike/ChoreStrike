@@ -212,10 +212,9 @@ class RoomTaskController extends Controller {
 		$proposals = $this->roomTaskReadService->proposalBlocksFor($houseId, $selections);
 
 		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $selections, $houseId, $pauseFingerprint, $proposals) {
-			$data = $roomTask->jsonSerialize($tz);
-			$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
 			$selection = $selections[$roomTask->getId()] ?? null;
-			$data['status'] = $this->roomTaskReadService->statusFor($roomTask, $tz, $selection['classification'] ?? null);
+			$data = $this->roomTaskReadService->roomTaskPayload($roomTask, $tz, $selection['classification'] ?? null);
+			$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
 			$data['occurrence'] = $selection !== null
 				? $this->roomTaskReadService->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
@@ -352,7 +351,7 @@ class RoomTaskController extends Controller {
 		$tz = $this->timeZoneOf($house);
 		return [
 			'task' => $aggregate['task']->jsonSerialize(),
-			'roomTask' => $aggregate['roomTask']->jsonSerialize($tz),
+			'roomTask' => $this->roomTaskReadService->selectedRoomTaskPayload((int)$house->getId(), $aggregate['roomTask'], $tz),
 			'assignees' => array_map(
 				static fn ($assignee) => $assignee->getUserId(),
 				$aggregate['assignees']
@@ -449,7 +448,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house))
+				'data' => $this->roomTaskReadService->selectedRoomTaskPayload((int)$house->getId(), $roomTask, $this->timeZoneOf($house))
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -516,7 +515,7 @@ class RoomTaskController extends Controller {
 			);
 
 			$data = [
-				'roomTask' => $result['roomTask']->jsonSerialize($this->timeZoneOf($house)),
+				'roomTask' => $this->roomTaskReadService->roomTaskPayload($result['roomTask'], $this->timeZoneOf($house), $result['occurrence']['classification'] ?? null),
 				'room' => $result['room']?->jsonSerialize(),
 				'task' => $result['task']->jsonSerialize(),
 				'rewards' => $result['rewards'],
@@ -823,9 +822,9 @@ class RoomTaskController extends Controller {
 		$roomTasks = array_map(static fn (array $row) => $row['roomTask'], $rows);
 		$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
 
-		return array_map(static function (array $row) use ($tz, $assigneesByTask) {
+		return array_map(function (array $row) use ($tz, $assigneesByTask) {
 			return [
-				'roomTask' => $row['roomTask']->jsonSerialize($tz),
+				'roomTask' => $this->roomTaskReadService->roomTaskPayload($row['roomTask'], $tz, $row['occurrence']['classification'] ?? null),
 				'task' => $row['task']->jsonSerialize(),
 				'room' => $row['room']->jsonSerialize(),
 				'assignees' => $assigneesByTask[$row['roomTask']->getId()] ?? [],
@@ -990,8 +989,8 @@ class RoomTaskController extends Controller {
 			// child limit truncated the list.
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(static fn (array $item): array => [
-					'roomTask' => $item['roomTask']->jsonSerialize($tz),
+				'data' => array_map(fn (array $item): array => [
+					'roomTask' => $this->roomTaskReadService->roomTaskPayload($item['roomTask'], $tz, $item['occurrence']['classification'] ?? null),
 					'task' => $item['task']->jsonSerialize(),
 					'room' => $item['room']->jsonSerialize(),
 					'assignees' => $item['assignees'],

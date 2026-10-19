@@ -159,6 +159,49 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 		}
 	}
 
+	/**
+	 * CR-084-03: single-row payloads (create, due-date, completion, execution
+	 * rows) report the list status — an open flex window after the planned
+	 * day is due although the entity's day rule says overdue.
+	 */
+	public function testRoomTaskPayload_ReportsTheListStatus(): void {
+		$cases = [
+			'missed' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00'), 'overdue'],
+			'open flex window' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00', 2), 'due_today'],
+		];
+		foreach ($cases as $label => [$f, $expected]) {
+			$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
+			$tz = $this->readService->timeZoneForHouse($f['houseId']);
+			self::assertSame('overdue', $roomTask->jsonSerialize($tz)['status'], $label . ': precondition, entity day rule');
+			self::assertSame($expected, $this->readService->selectedRoomTaskPayload($f['houseId'], $roomTask, $tz)['status'], $label);
+			self::assertSame($this->listStatus($f)[0], $this->readService->selectedRoomTaskPayload($f['houseId'], $roomTask, $tz)['status'], $label . ': equals the list row');
+		}
+	}
+
+	/**
+	 * CR-084-01: the calendar marks a day entry overdue only when its
+	 * occurrence's window has ended — a past planned day inside an open flex
+	 * window is not late, and the range row reports the list status.
+	 */
+	public function testRangeRead_MarksOnlyEndedWindowsLate(): void {
+		$cases = [
+			'missed' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00'), true, 'overdue'],
+			'open flex window' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00', 2), false, 'due_today'],
+		];
+		$yesterday = (new \DateTime('-1 day'))->format('Y-m-d');
+		foreach ($cases as $label => [$f, $late, $status]) {
+			$owner = $this->houseUserMapper->findByNextcloudUserId($f['houseId'], self::OWNER);
+			$range = \OC::$server->get(RoomTaskService::class)->getRangeTasks(
+				$f['houseId'], new \DateTime('-3 days'), new \DateTime('+1 day'), $owner);
+			$rows = array_values(array_filter($range['scheduled'], static fn (array $row): bool => $row['roomTask']['id'] === $f['roomTaskId']));
+			self::assertCount(1, $rows, $label);
+			$days = array_values(array_filter($rows[0]['occurrenceDetails'], static fn (array $detail): bool => $detail['date'] === $yesterday));
+			self::assertCount(1, $days, $label . ': the planned day is in the range');
+			self::assertSame($late, $days[0]['late'], $label);
+			self::assertSame($status, $rows[0]['roomTask']['status'], $label . ': range row status');
+		}
+	}
+
 	/** @return array{0: string, 1: ?string} [status, classification] as the list endpoint serializes them */
 	private function listStatus(array $f): array {
 		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
