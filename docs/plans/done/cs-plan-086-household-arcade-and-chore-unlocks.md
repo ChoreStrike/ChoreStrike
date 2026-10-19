@@ -1,11 +1,12 @@
 # CS-PLAN-086: Household Arcade — Game Catalog, Chore Unlocks and Per-Game Highscores
 
-> **Status:** Active — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); WP-E delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086E-01..03 fixed); WP-F delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086F-01/02 fixed); WP-G delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086G-01/02 fixed, D-086-09 resolved); next: WP-H
+> **Status:** Done — Standard A `PASS-WITH-FIXES` 2026-10-17 (20 findings fixed, D-086-01..08 resolved); WP-A delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (RF-086-01 resolved); WP-B delivered 2026-10-17 after interim Standard B `PASS-WITH-FIXES` (R086B-01/02 fixed); WP-C delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086C-01 fixed); WP-D delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086D-01/02 fixed, R086D-03 accepted); WP-E delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086E-01..03 fixed); WP-F delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086F-01/02 fixed); WP-G delivered 2026-10-18 after interim Standard B `PASS-WITH-FIXES` (R086G-01/02 fixed, D-086-09 resolved); WP-H delivered 2026-10-19 with the final Full review `PASS-WITH-FIXES` (R086H-01..13 fixed, D-086-10..12 resolved); merged to `master` by fast-forward (D-086-10)
 > **Effort:** XL (eight work packages; no schema change)
 > **Priority:** P3 (optional add-on, never on the core critical path)
 > **Depends on:** work proceeds on branch `feat/arcade-minigames`; merge to
-> `master` and any deployment only after the CS-PLAN-084 final review **and**
-> the close of the CS-PLAN-080 family evidence window (D-086-07). Amends
+> `master` only after the CS-PLAN-084 final review (D-086-07) and this plan's
+> final review; the wait for the close of the CS-PLAN-080 family evidence
+> window was lifted by the operator on 2026-10-19 (D-086-10). Amends
 > CS-PLAN-070 D7d and extends its D11 slice (D-086-01, D-086-05; ADR-019).
 > **Related backlog items:** FEAT-ARCADE-001, FEAT-ARCADE-002, FEAT-ARCADE-003
 
@@ -336,10 +337,10 @@ new:      lib/Service/ArcadeCatalog.php
 new:      lib/Exception/ImplausibleScoreException.php               (WP-A: 400 MINIGAME_IMPLAUSIBLE_SCORE)
 new:      lib/Service/ArcadeAccessService.php
 new:      lib/Exception/GameLockedException.php                     (WP-B: 403 MINIGAME_LOCKED)
-modified: lib/Service/TestDataService.php                     (WP-B: test reset restores the gate default)
+modified: lib/Service/TestDataService.php                     (WP-B: test reset restores the gate default; WP-H review: through the registry)
 modified: lib/Db/WorkShareMapper.php                          (countValidSelectedByWallet)
 modified: lib/Service/MinigameService.php
-modified: lib/Service/RewardConfigService.php                 (arcade_gate_enabled key)
+modified: lib/Service/RewardConfigService.php                 (arcade_gate_enabled key; WP-H review: its test-mode reset)
 modified: lib/Controller/MinigameController.php
 modified: lib/Controller/HouseController.php
 modified: appinfo/routes.php
@@ -357,6 +358,7 @@ new:      src/components/Minigames/ArcadeCatalog.vue          (WP-E review: R086
 new:      src/components/Minigames/ArcadeGateSetting.vue      (WP-B: the owner switch)
 new:      src/components/Minigames/GameLeaderboard.vue
 new:      src/components/Minigames/gameRegistry.js
+new:      src/components/Minigames/games/grid.js              (WP-H review: R086H-04 shared directions, tapped cell, cursor move)
 new:      src/components/Minigames/games/{spots,socks,snake,tiles,dust}/…   (index.js entry, game.js chunk, logic.js, render.js or a DOM Board.vue; Tile Breaker splits its rules into constants.js, logic.js and physics.js, R086E-03; Dust Runner into rooms.js, logic.js and bunnies.js)
 modified: src/store/minigame.js
 modified: src/store/house.js                                  (WP-B: arcadeGateEnabled getter + writer)
@@ -364,6 +366,7 @@ modified: src/views/ArcadeView.vue
 modified: src/views/Settings.vue
 modified: src/components/Rewards/RewardCatalogEditor.vue, tests/unit/components/RewardCatalogEditor.spec.js   (WP-B review: R086B-01)
 modified: src/utils/sound.js                                  (pop/swish profiles; WP-G: note lists, noise bursts, the event sounds)
+modified: src/utils/confetti.js                               (WP-H review: the shared reduced-motion check, R086H-06)
 modified: src/styles/tokens.css                               (WP-A: comment only; WP-G: the --cs-arcade-* palette, light and dark)
 modified: l10n/*
 archived: archive/YYYY-MM/arcade-snake-v1/{SnakeGame.vue,SnakeLeaderboard.vue,ArcadeSection.vue}   (month of removal)
@@ -403,6 +406,7 @@ modified: docs/engineering/architecture.md, docs/concepts/ui-use-cases.md, docs/
 modified: docs/engineering/testing.md                         (WP-C/WP-D: phone core set with arcade-mobile.spec.ts)
 modified: README.md, docs/user-guide.md, docs/concepts/product-vision.md   (WP-F review: R086F-01, the arcade beyond Snake)
 modified: docs/backlog/archive/2026-10.md                     (WP-F review: R086F-02, UX-019 archived)
+modified: docs/plans/README.md, docs/plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md   (WP-H: D-086-10 lifts the merge wait)
 ```
 
 ## 6. Implementation Order
@@ -645,12 +649,25 @@ Each WP is one reviewable round with an interim Standard B on
    sections updated, ADR-019 final, plausibility rates tuned from real play,
    full browser gate on both runtime rows, final review. Merge to `master`
    only under D-086-07.
+   *Implemented 2026-10-19.* Implementation choices within the plan: no real
+   play data exists before deployment, so the rates are bounded by perfect
+   play (D-086-11): Crumb Snake, the one rule without such a proof, gets a
+   shortest-path autopilot in Jest and moves from 100 + 30 to 100 + 20
+   points per second; the other four games keep their autopilot- or
+   perfect-player-proven rules. Knowledge integration: the stale "Snake
+   only" lines in the gamification concept and in `ui-use-cases.md` (the
+   Arcade row and the UC-12 gap), ADR-019's "once Spot Sprint ships", the
+   API rule list, the merge condition in CS-PLAN-080 and the plans README
+   (D-086-10). The final Full review's fixes added `games/grid.js` (shared
+   directions, tapped cell and cursor move for four games), a required
+   `score` on saves, and the reason on the game-over overlay when a save is
+   refused for a game locked again or for the daily cap (R086H-01..13).
 
 ## 7. Risks & Mitigations
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| The arcade changes family behavior during the CS-PLAN-080 trial and confounds its calm-core evidence | High if merged early | Branch-only until the 084 final review and the close of the 080 family evidence window (D-086-07). |
+| The arcade changes family behavior during the CS-PLAN-080 trial and confounds its calm-core evidence | High if deployed during the trial | Branch-only until the 084 final review (D-086-07) and this plan's final review; the operator lifted the wait for the 080 evidence window (D-086-10). Merging deploys nothing: whether a deployment during the window includes the arcade stays the operator's decision, and the arcade stays optional per member, behind the owner gate and without daily coupling. |
 | Trademark or trade-dress conflict (well-known arcade titles, maze layouts, characters) in a public MIT repository | Medium | Original names and art, room-shaped mazes, no pellet or ghost look, no falling-block game (D-086-03). |
 | Bundle growth slows the app for everyone | Medium | One lazy chunk per game; the catalog loads no game code; 40 KB gzip budget per game measured each round. |
 | Canvas performance on low-end phones | Medium | Fixed timestep, pixel ratio capped at 2, no per-frame allocations in hot paths, measured in the mobile projects. |
@@ -664,46 +681,48 @@ Each WP is one reviewable round with an interim Standard B on
 
 ## 8. Acceptance Criteria
 
-- [ ] The catalog lists `spots`, `socks`, `snake`, `tiles` and `dust` with
+- [x] The catalog lists `spots`, `socks`, `snake`, `tiles` and `dust` with
       original names, icons and German translations (D-086-03/05).
-- [ ] Every game is playable with keyboard, touch and on-screen controls on
+- [x] Every game is playable with keyboard, touch and on-screen controls on
       desktop and on the phone projects; pause works, and hiding the app pauses
       the game.
-- [ ] Highscores exist per game only (all-time, weekly, own rank); no
+- [x] Highscores exist per game only (all-time, weekly, own rank); no
       aggregate arcade ranking; nothing appears in the household ranking.
-- [ ] Existing `snake` scores stay listed and keep their personal bests.
-- [ ] Unlock gate: progression derives from valid selected work shares;
+- [x] Existing `snake` scores stay listed and keep their personal bests.
+- [x] Unlock gate: progression derives from valid selected work shares;
       helpers count; an undone completion no longer counts; no daily coupling;
       leaderboards of locked games stay readable; the owner switch opens every
       game.
-- [ ] A score POST for a locked or unknown game, without `durationMs` or with
+- [x] A score POST for a locked or unknown game, without `durationMs` or with
       an implausible score is rejected with the documented code; the daily cap
       is unchanged; read `limit` values are clamped.
-- [ ] Snake defects S1–S7 fixed, each with a regression test.
-- [ ] Effects only through the existing opt-in modules (gate sync shared with
+- [x] Snake defects S1–S7 fixed, each with a regression test.
+- [x] Effects only through the existing opt-in modules (gate sync shared with
       `useCelebration`); with every opt-in off and with
       `prefers-reduced-motion`, every game stays playable and legible.
-- [ ] WP-G: every actor glides from the pure state; event sounds, board
+- [x] WP-G: every actor glides from the pure state; event sounds, board
       effects and the DOM animations run only behind the opt-ins; the
       overlay's Sound and Effects switches write the same preferences as the
       Settings and leave both defaults off.
-- [ ] No Coin, wallet, contribution, medal or ranking read or write added
+- [x] No Coin, wallet, contribution, medal or ranking read or write added
       (code search plus E2E assertion).
-- [ ] axe: 0 violations on the arcade view and an open game in light and dark.
-- [ ] Every game chunk ≤ 40 KB gzip on the production build; no test-only hook
+- [x] axe: 0 violations on the arcade view and an open game in light and dark.
+- [x] Every game chunk ≤ 40 KB gzip on the production build; no test-only hook
       in the bundle.
-- [ ] No schema change; the owner switch is the `arcade_gate_enabled` registry
+- [x] No schema change; the owner switch is the `arcade_gate_enabled` registry
       flag with the owner-only endpoint as its only HTTP writer.
-- [ ] Merged to `master` only after the CS-PLAN-084 final review and the close
-      of the CS-PLAN-080 family evidence window (D-086-07).
-- [ ] Build gate green (`npm test` + lint + backend tests)
-- [ ] Required tests ran without new or unapproved skips
-- [ ] All implementation decisions and review questions resolved and recorded
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
-- [ ] Owning backlog items updated or archived according to their actual completion state
-- [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
-- [ ] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] Merged to `master` only after the CS-PLAN-084 final review (D-086-07)
+      and this plan's final review (D-086-10: no wait for the CS-PLAN-080
+      family evidence window) — fast-forwarded right after the final review
+      commit; nothing pushed or deployed.
+- [x] Build gate green (`npm test` + lint + backend tests)
+- [x] Required tests ran without new or unapproved skips
+- [x] All implementation decisions and review questions resolved and recorded
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
+- [x] Owning backlog items updated or archived according to their actual completion state
+- [x] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
+- [x] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated
 
 ## 9. Review Findings (plan-owned)
 
@@ -761,6 +780,27 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   overlay's Sound and Effects switches only make the existing preferences
   discoverable. An arcade-only default-on preference and a global default-on
   were offered and declined.
+- **D-086-10 — Merge without waiting for the CS-PLAN-080 evidence window**
+  (operator, 2026-10-19, WP-H; amends D-086-07). Offered: keep the plan in
+  `active/` until the window closes (recommended) or close it on the branch;
+  the operator chose to merge right after the final review. The CS-PLAN-084
+  condition stays met; merging deploys nothing, so a deployment during the
+  window remains a separate operator decision.
+- **D-086-11 — Crumb Snake plausibility from a perfect-play autopilot**
+  (operator, 2026-10-19, WP-H; recommended option). No real play data exists
+  before deployment, so WP-H bounds real play from above with a
+  shortest-path autopilot: over seeds 1–1000 it averages at most about
+  17 points per second over a round of ten seconds or more and breaks the
+  100-point burst plus 12 per second in its luckiest rounds. Snake moves from
+  100 + 30 to 100 + 20 per second; the other four games keep their rules,
+  each already proven by its autopilot or perfect player. Declined: keeping
+  30 per second, and leaving the tuning open until real play.
+- **D-086-12 — The arcade vibration follows the Effects opt-in alone**
+  (operator, 2026-10-19, final review R086H-08; recommended option).
+  `prefers-reduced-motion` governs what moves on screen; the short
+  vibration on pickups and lost lives follows `animationEnabled` like the
+  app's completion vibration, and the composable's comment now says so.
+  Declined: silencing the vibration under reduced motion in the arcade only.
 - **D-086-08 — Canonical test volumes reset** (operator, 2026-10-17, WP-A).
   The kept canonical volumes had the app installed as `0.1.1`; after the
   `0.8.0-alpha.1` bump the test entrypoint aborted on "require upgrade". The
@@ -974,3 +1014,35 @@ go directly to `backlog.md` (or fold into an existing item) instead.
   - lint, stylelint, l10n (1330 keys), backlog, encoding, agents and build checks, `git diff --check`.
   - Browser on the final code: `arcade-games.spec.ts` 8/8 (serial pool `chromium-serial-db`), `snake-game.spec.ts` 12/12 and `color-contrast.spec.ts` 2/2 (`chromium`) on the final product code, `arcade-mobile.spec.ts` 5/5 in `mobile-webkit` and 5/5 in `mobile-chromium` with the R086G-02 spec, one project per invocation with `--workers=1` as the gate runs them; auth setup 3/3 per run.
   - Not run: the full gate, the AIO row and the provider matrix (WP-H).
+
+### Full (final, WP-H) — 2026-10-19 — `PASS-WITH-FIXES` (`active/ → done/`)
+
+- **Scope:** the whole plan — `master...519aa28` (all eight CS-PLAN-086
+  commits, 139 files, rebased onto `master` `b13ecc9` at the start) plus the
+  uncommitted WP-H package (fingerprint at capture `b4cc9ea5…93bf`: empty
+  index, unstaged diff only), the file manifest, acceptance criteria,
+  decisions, durable docs and evidence history. Four read-only reviewers in
+  parallel (correctness, architecture, security, performance/quality).
+  [Record](../../backlog/archive/CODE_REVIEW_2026-10-19.md).
+- **Fixed (13):**
+  - R086H-01: closing a game during its save no longer celebrates afterwards.
+  - R086H-02: a save without `score` is a `400 VALIDATION_ERROR` instead of a zero row (pre-existing default).
+  - R086H-03: the game-over overlay names a game locked again and the daily cap.
+  - R086H-04: `games/grid.js` replaces four direction tables, two `OPPOSITE` maps and two cursor moves.
+  - R086H-05: the daily cap leaves `MinigameService::saveScore` (56 lines).
+  - R086H-06: the overlay reads the shared reduced-motion check live.
+  - R086H-07: no popup font string per frame.
+  - R086H-08: the vibration comment matches D-086-12.
+  - R086H-09: a held P key toggles once.
+  - R086H-10: the test reset goes through `RewardConfigService`.
+  - R086H-11..13: stale JSDoc, the snake replay assertion and seed note, the architecture inventory.
+  - Each behavior fix has a regression test; R086H-01, -06 and -09 have negative controls that fail without the fix.
+- **Accepted (3 nits):** one extra canvas reallocation per layout change; renderers derive the cell from `COLS` (equal to `view.cell` by construction); the gate setting's "saved" timer follows the reward editor's pattern.
+- **Routed:** TECH-TEST-009 (two unattributed SQLite integration failures in the first four-way parallel provider run; green alone and in two further parallel runs).
+- **Decisions:** D-086-10 (merge without waiting for the CS-PLAN-080 window), D-086-11 (Snake 100 + 20 per second from the autopilot), D-086-12 (vibration follows the Effects opt-in); all four offered fix groups chosen; Docker Desktop restart and removal of the owned rows approved.
+- **Gates (final code):**
+  - Jest 154/2124, noise-free; ESLint, Stylelint, l10n (1333 keys), backlog, encoding, agents, `git diff --check`, production build (spots 5.2, socks 4.9, snake 2.1, tiles 2.7, dust 3.7 KB gzip; no game code in the arcade chunk).
+  - PHPUnit unit 1459 and integration 623 with `--fail-on-skipped` on four fresh owned rows: primary NC 35.0.2 / PHP 8.4.26 / PostgreSQL 18.6 (APCu), AIO NC 34.0.4 / PostgreSQL 18.6 / Redis 8.10.2, MariaDB 11.8.6 and SQLite 3.46.1; `cs:check` clean.
+  - Full browser gate on the primary row `run-HyYmnO` **PASSED** first attempt (chromium 100, serial-db 179, scheduling-owner 39, mobile-chromium 15, mobile-webkit 15; zero skipped, failed or flaky).
+  - Full browser gate on the AIO row `run-4zMed1` **PASSED** first attempt (same counts: 100 / 179 / 39 / 15 / 15).
+  - `test:runtime:check` `current` (upstream 35.0.2, AIO 14.3.0 / NC 34.0.4), both images `frozen-image-identity-match`.

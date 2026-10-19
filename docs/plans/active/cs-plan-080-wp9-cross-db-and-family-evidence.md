@@ -427,9 +427,12 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   closure, plus RF-080-17 from the parent's final review. The parent's RF-070
   verdicts are recorded there; none of them moves here as an open item.
 - **Unchanged here:** RF-080-05 (HUMAN-01/02), RF-080-15 and TECH-TEST-005 (the
-  real-device checklist), the final review and the merge condition of CS-PLAN-086
-  on branch `feat/arcade-minigames` (the close of this plan's family evidence
-  window). The gate itself is neither weakened nor removed.
+  real-device checklist) and the final review. The gate itself is neither
+  weakened nor removed. The merge condition CS-PLAN-086 had tied to the close
+  of this plan's family evidence window was lifted by the operator on
+  2026-10-19 (CS-PLAN-086 D-086-10): the arcade merges after its own final
+  review, and whether a deployment during the window includes it stays the
+  operator's deployment decision.
 - **Evidence status:** no real-device, comprehension or observation results exist
   yet (user-confirmed 2026-10-18; [release test plan §12.1](../../testing/release-test-plan.md#121-family-acceptance-evidence-c5j--wp9)).
 

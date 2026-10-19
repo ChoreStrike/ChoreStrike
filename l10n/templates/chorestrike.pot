@@ -2567,6 +2567,9 @@ msgstr ""
 msgid "Score"
 msgstr ""
 
+msgid "Score is required"
+msgstr ""
+
 msgid "Score must be between 0 and %1$d"
 msgstr ""
 
@@ -3197,6 +3200,9 @@ msgstr ""
 msgid "This Week's Medals"
 msgstr ""
 
+msgid "This game is locked again, so your score was not saved."
+msgstr ""
+
 msgid "This game is still locked."
 msgstr ""
 
@@ -3303,6 +3309,9 @@ msgid "To complete a task, include yourself in the work split. If your account i
 msgstr ""
 
 msgid "Today"
+msgstr ""
+
+msgid "Today's score limit is reached, so your score was not saved."
 msgstr ""
 
 msgid "Toggles must be true or false"

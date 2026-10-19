@@ -3,6 +3,8 @@
  * @license MIT
  */
 
+import { DIRECTIONS, OPPOSITE } from '../grid.js'
+
 /**
  * Crumb Snake rules (CS-PLAN-086 §3.1): a vacuum hose collects crumbs on a
  * tiled floor while furniture blocks the way. Pure and deterministic — no
@@ -30,14 +32,7 @@ const SAFE_AHEAD = 4
 const SAFE_RADIUS = 2
 const MAX_QUEUED_TURNS = 2
 
-export const DIRECTIONS = {
-	up: { x: 0, y: -1 },
-	down: { x: 0, y: 1 },
-	left: { x: -1, y: 0 },
-	right: { x: 1, y: 0 },
-}
-
-const OPPOSITE = { up: 'down', down: 'up', left: 'right', right: 'left' }
+export { DIRECTIONS }
 
 /**
  * New round with a deterministic opening: the hose starts on the left

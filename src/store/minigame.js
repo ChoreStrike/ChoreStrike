@@ -23,6 +23,12 @@ const emptySlice = () => ({
 
 const EMPTY_SLICE = Object.freeze(emptySlice())
 
+/** Save rejections the overlay names (R086H-03); any other failure is 'error'. */
+const SAVE_FAILURES = Object.freeze({
+	MINIGAME_LOCKED: 'locked',
+	MINIGAME_RATE_LIMITED: 'limit',
+})
+
 /**
  * Arcade store (CS-PLAN-070 WP3, T10/D7d no-Coin cutover): scores are
  * family fun only. Nothing here touches the family wallet or contribution.
@@ -129,7 +135,9 @@ export const useMinigameStore = defineStore('minigame', {
 		 * @param {string} gameId Game identifier
 		 * @param {number} score Final score
 		 * @param {number} durationMs Active play time (required, D-086-04)
-		 * @return {Promise<object|null>} Saved score, or null when the save failed
+		 * @return {Promise<{data: object|null, failure: string|null}>} The saved
+		 *   score, or null with the reason: 'locked', 'limit' (the daily save
+		 *   cap) or 'error'
 		 */
 		async saveScore(gameId, score, durationMs) {
 			try {
@@ -139,14 +147,14 @@ export const useMinigameStore = defineStore('minigame', {
 					this.fetchUserRank(gameId),
 					this.fetchLeaderboard(gameId),
 				])
-				return data
+				return { data, failure: null }
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to save score', error, { store: 'minigame', action: 'saveScore', gameId })
 				if (error?.code === 'MINIGAME_LOCKED') {
 					await this.fetchCatalog()
 				}
-				return null
+				return { data: null, failure: SAVE_FAILURES[error?.code] ?? 'error' }
 			}
 		},
 
@@ -156,15 +164,16 @@ export const useMinigameStore = defineStore('minigame', {
 		 * @param {string} gameId Game identifier
 		 * @param {number} score Final score
 		 * @param {number} durationMs Active play time
-		 * @return {Promise<{saved: boolean, saveFailed: boolean, newBest: boolean}>}
+		 * @return {Promise<{saved: boolean, saveFailed: boolean, failure: string|null, newBest: boolean}>}
 		 */
 		async finishGame(gameId, score, durationMs) {
 			if (score <= 0) {
-				return { saved: false, saveFailed: false, newBest: false }
+				return { saved: false, saveFailed: false, failure: null, newBest: false }
 			}
 			const previousBest = this.slice(gameId).personalBest?.score ?? 0
-			const saved = (await this.saveScore(gameId, score, durationMs)) !== null
-			return { saved, saveFailed: !saved, newBest: saved && score > previousBest }
+			const { data, failure } = await this.saveScore(gameId, score, durationMs)
+			const saved = data !== null
+			return { saved, saveFailed: !saved, failure, newBest: saved && score > previousBest }
 		},
 
 		/**

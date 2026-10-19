@@ -76,6 +76,14 @@ class RewardConfigServiceTest extends TestCase {
 		$this->service->setArcadeGateEnabled(false);
 	}
 
+	/** R086H-10: the test-mode reset drops the stored gate through the registry. */
+	public function testResetArcadeGateEnabled_DeletesTheStoredKey(): void {
+		$this->config->expects($this->once())
+			->method('deleteKey')
+			->with('chorestrike', 'arcade_gate_enabled');
+		$this->service->resetArcadeGateEnabled();
+	}
+
 	/** WP4: the weekly-goal target override is retired with its key. */
 	public function testWeeklyGoalTargetPercent_OverrideIsRetired(): void {
 		$reflection = new \ReflectionClass(RewardConfigService::class);

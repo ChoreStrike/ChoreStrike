@@ -228,9 +228,11 @@ loop small rather than adding currencies, multiplier tiers or protection tokens.
   and recognition acknowledge punctuality separately; duplicate booking earns
   nothing. C3 below specifies a fixed rate of 10 and whole-percent effort shares.
 - Optional minigames use their own highscores, never earning or spending family
-  Coins. The first slice supports Snake only. The former coin boost shop is not
-  part of the household economy and was retired with the WP3 economy cutover.
-  Other game prototypes are not a promise of support.
+  Coins. The first slice supported Snake only; CS-PLAN-086 extended it to five
+  household games whose access unlocks from finished chores (ADR-019, see
+  "Arcade" above). The former coin boost shop is not part of the household
+  economy and was retired with the WP3 economy cutover. Other game prototypes
+  are not a promise of support.
 - Task energy is a total effort budget, split visibly between actual participants
   rather than credited in full to each name. The old assignment-count teamwork
   bonus is not part of this earning model; C3 specifies conserved exact allocations.

@@ -133,6 +133,16 @@ describe('effects layer', () => {
 		expect(penalty.ctx.fillStyle).toBe('coral')
 	})
 
+	it('R086H-07: keeps the popup font per cell size and follows a resized board', () => {
+		layer.score(1, 1, 10, palette)
+		expect(frame(1000).ctx.font).toBe('bold 17px system-ui, sans-serif')
+		expect(frame(1010).ctx.font).toBe('bold 17px system-ui, sans-serif')
+
+		const resized = fakeContext()
+		layer.draw(resized.ctx, { width: 800, height: 800, cell: 40 }, 1020)
+		expect(resized.ctx.font).toBe('bold 34px system-ui, sans-serif')
+	})
+
 	it('pools its particles: a burst beyond the pool reuses the oldest ones', () => {
 		layer.burst(1, 1, { count: 500, speed: 1, shape: 'dot', size: 0.1 }, 'dust')
 		expect(frame(1000).fills).toHaveLength(96)

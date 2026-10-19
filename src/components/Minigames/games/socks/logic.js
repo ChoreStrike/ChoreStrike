@@ -3,6 +3,8 @@
  * @license MIT
  */
 
+import { DIRECTIONS, moveCursor, tappedCell } from '../grid.js'
+
 /**
  * Sock Match rules (CS-PLAN-086 §3.1): memory pairs with patterned socks
  * from a laundry basket. Untimed and without a fail state — the round ends
@@ -27,13 +29,6 @@ export const OPENING_CELLS = Object.freeze([0, 1])
 export const PAIR_POINTS = 100
 export const MISS_COST = 5
 export const MIN_PAIR_POINTS = 20
-
-const MOVES = {
-	up: { x: 0, y: -1 },
-	down: { x: 0, y: 1 },
-	left: { x: -1, y: 0 },
-	right: { x: 1, y: 0 },
-}
 
 /**
  * New round: every pattern twice, shuffled, then the opening pair placed
@@ -88,28 +83,19 @@ function swap(items, a, b) {
  */
 export function step(state, input) {
 	if (state.over || !input) return state
-	if (typeof input === 'object' && Number.isInteger(input.cell) && input.cell >= 0 && input.cell < state.cards.length) {
-		if (state.cursor !== input.cell) {
-			state.cursor = input.cell
+	const tapped = tappedCell(input, state.cards.length)
+	if (tapped >= 0) {
+		if (state.cursor !== tapped) {
+			state.cursor = tapped
 			state.revision++
 		}
-		turn(state, input.cell)
+		turn(state, tapped)
 	} else if (input === 'act') {
 		turn(state, state.cursor)
-	} else if (MOVES[input]) {
-		moveCursor(state, MOVES[input])
+	} else if (DIRECTIONS[input]) {
+		moveCursor(state, COLS, ROWS, input)
 	}
 	return state
-}
-
-function moveCursor(state, move) {
-	const x = Math.min(COLS - 1, Math.max(0, (state.cursor % COLS) + move.x))
-	const y = Math.min(ROWS - 1, Math.max(0, Math.floor(state.cursor / COLS) + move.y))
-	const cursor = y * COLS + x
-	if (cursor !== state.cursor) {
-		state.cursor = cursor
-		state.revision++
-	}
 }
 
 /**

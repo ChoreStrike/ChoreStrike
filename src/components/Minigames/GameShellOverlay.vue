@@ -62,7 +62,7 @@
 				<span aria-hidden="true">🏆</span> {{ t('chorestrike', 'New Personal Best!') }}
 			</p>
 			<p v-if="result && result.saveFailed" class="game-overlay-text" data-testid="game-save-failed">
-				{{ t('chorestrike', 'Your score could not be saved.') }}
+				{{ saveFailedText(result.failure) }}
 			</p>
 			<div class="game-overlay-actions">
 				<button ref="primaryRef"
@@ -101,7 +101,7 @@
 					{{ t('chorestrike', 'Effects') }}
 				</button>
 			</div>
-			<p v-if="effects && reducedMotion" class="game-overlay-hint">
+			<p v-if="effects && prefersReducedMotion()" class="game-overlay-hint">
 				{{ t('chorestrike', 'Your system reduced-motion setting always wins over this switch.') }}
 			</p>
 		</template>
@@ -111,6 +111,7 @@
 <script setup>
 import { ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { prefersReducedMotion } from '../../utils/confetti.js'
 
 /**
  * Start, pause, game-over and load-state overlays of GameShell
@@ -156,8 +157,19 @@ defineProps({
 defineEmits(['start', 'resume', 'retry', 'leaderboard', 'toggle'])
 
 const primaryRef = ref(null)
-const reducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-	&& window.matchMedia('(prefers-reduced-motion: reduce)').matches === true
+
+/**
+ * Why a score was not saved (R086H-03): a game locked again after an undo
+ * and the daily save cap get their own neutral line.
+ *
+ * @param {string|null} failure 'locked', 'limit' or 'error'
+ * @return {string}
+ */
+function saveFailedText(failure) {
+	if (failure === 'locked') return t('chorestrike', 'This game is locked again, so your score was not saved.')
+	if (failure === 'limit') return t('chorestrike', "Today's score limit is reached, so your score was not saved.")
+	return t('chorestrike', 'Your score could not be saved.')
+}
 
 /** Move focus to the overlay's main action (Start, Resume, Play again). */
 function focusPrimary() {

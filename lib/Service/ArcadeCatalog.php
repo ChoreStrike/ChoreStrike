@@ -58,12 +58,17 @@ final class ArcadeCatalog {
 			'unlockThreshold' => 3,
 		],
 		// Crumb Snake: 10 per crumb, 30 per golden crumb, a 20x20 board and
-		// at least 60 ms per move. The `snake` id predates the re-theme and
-		// stays, so existing scores remain valid.
+		// at least 60 ms per move, so at most 387 crumbs (11610 points). A
+		// shortest-path autopilot (client logic spec, seeds 1-1000) averages
+		// at most about 17 points per second over a round of ten seconds or
+		// more and breaks the burst plus 12 per second only in its luckiest
+		// rounds; 20 per second keeps real play clear of the rule (WP-H).
+		// The `snake` id predates the re-theme and stays, so existing
+		// scores remain valid.
 		'snake' => [
 			'maxScore' => 20000,
 			'maxDurationMs' => 3600000,
-			'pointsPerSecond' => 30,
+			'pointsPerSecond' => 20,
 			'burstPoints' => 100,
 			'unlockThreshold' => 10,
 		],

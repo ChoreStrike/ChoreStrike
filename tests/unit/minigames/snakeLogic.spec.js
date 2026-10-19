@@ -4,10 +4,53 @@
  */
 
 import { describe, it, expect } from '@jest/globals'
-import { COLS, ROWS, createState, isSafeFromHead, step } from '@/components/Minigames/games/snake/logic.js'
+import { COLS, DIRECTIONS, ROWS, createState, isSafeFromHead, step } from '@/components/Minigames/games/snake/logic.js'
 import { seededRandom } from '../helpers/gameTestHelpers.js'
 
 const TICK = 150
+
+/** The server's Crumb Snake rules (lib/Service/ArcadeCatalog.php). */
+const SERVER = { maxScore: 20000, pointsPerSecond: 20, burstPoints: 100 }
+
+/** The cells the next move cannot enter: furniture and the hose except its leaving tail. */
+const blockedCells = (state) => {
+	const cells = new Set(state.furniture.map((piece) => piece.y * COLS + piece.x))
+	state.snake.slice(0, -1).forEach((part) => cells.add(part.y * COLS + part.x))
+	return cells
+}
+
+/** Breadth-first flood from the nozzle; each reached cell keeps its first move. */
+const flood = (state, blocked) => {
+	const firstMove = new Map()
+	const queue = []
+	const visit = (x, y, move) => {
+		const cell = y * COLS + x
+		if (x < 0 || x >= COLS || y < 0 || y >= ROWS || blocked.has(cell) || firstMove.has(cell)) return
+		firstMove.set(cell, move)
+		queue.push({ x, y })
+	}
+	Object.entries(DIRECTIONS).forEach(([move, delta]) => visit(state.snake[0].x + delta.x, state.snake[0].y + delta.y, move))
+	for (let i = 0; i < queue.length; i++) {
+		const move = firstMove.get(queue[i].y * COLS + queue[i].x)
+		Object.values(DIRECTIONS).forEach((delta) => visit(queue[i].x + delta.x, queue[i].y + delta.y, move))
+	}
+	return firstMove
+}
+
+/**
+ * A greedy player that is never slow: every move follows a shortest path to
+ * the crumb, else heads into the largest open area. It upper-bounds the
+ * points per second of real play (one move per tick, no detours).
+ */
+const autopilot = (state) => {
+	const blocked = blockedCells(state)
+	const reach = flood(state, blocked)
+	const toCrumb = reach.get(state.crumb.y * COLS + state.crumb.x)
+	if (toCrumb) return toCrumb
+	const area = {}
+	reach.forEach((move) => { area[move] = (area[move] ?? 0) + 1 })
+	return Object.keys(area).sort((a, b) => area[b] - area[a])[0] ?? null
+}
 
 /** Advance exactly `count` moves at the current speed. */
 const moves = (state, count, input = null) => {
@@ -165,6 +208,30 @@ describe('Crumb Snake logic', () => {
 	it('replays identically from the same seed', () => {
 		const crumbAfterOpening = (seed) => moves(createState(seededRandom(seed)), 4).crumb
 		expect(crumbAfterOpening(42)).toEqual(crumbAfterOpening(42))
-		expect(crumbAfterOpening(42)).not.toEqual({ x: 9, y: 10, golden: false })
+		// The random source places the next crumb: another seed, another cell.
+		expect(crumbAfterOpening(42)).not.toEqual(crumbAfterOpening(7))
+	})
+
+	it('a shortest-path autopilot stays inside the server plausibility rules', () => {
+		// The seeds that came closest to the rule in a sweep over seeds 1-1000
+		// with this autopilot; 433 already breaks the burst plus 12 points per
+		// second. Re-derive them after a rule or random-draw change (WP-H).
+		for (const seed of [6, 77, 367, 433, 555, 793]) {
+			const state = createState(seededRandom(seed))
+			let elapsed = 0
+			let worst = Number.NEGATIVE_INFINITY
+			while (!state.over && elapsed < 300000) {
+				// One decision per move, taken exactly when the move is due.
+				const dt = state.tickMs - state.elapsed
+				step(state, autopilot(state), dt)
+				elapsed += dt
+				state.events.length = 0
+				worst = Math.max(worst, state.score - (SERVER.burstPoints + Math.floor(SERVER.pointsPerSecond * elapsed / 1000)))
+			}
+
+			expect(state.score).toBeGreaterThanOrEqual(300)
+			expect(worst).toBeLessThanOrEqual(0)
+			expect(state.score).toBeLessThan(SERVER.maxScore)
+		}
 	})
 })

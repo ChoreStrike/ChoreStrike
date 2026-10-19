@@ -75,14 +75,15 @@ class ArcadeCatalogTest extends TestCase {
 	 * IsPlausible_BurstPlusRate_InclusiveLimit (D-086-04)
 	 */
 	public function testIsPlausible_BurstPlusRate_InclusiveLimit(): void {
-		// Snake: 100 burst points + 30 points per second.
+		// Snake: 100 burst points + 20 points per second (the client logic
+		// spec proves a shortest-path autopilot stays inside, WP-H).
 		$this->assertTrue(ArcadeCatalog::isPlausible('snake', 100, 1));
 		$this->assertFalse(ArcadeCatalog::isPlausible('snake', 101, 1));
-		$this->assertTrue(ArcadeCatalog::isPlausible('snake', 400, 10000));
-		$this->assertFalse(ArcadeCatalog::isPlausible('snake', 401, 10000));
+		$this->assertTrue(ArcadeCatalog::isPlausible('snake', 300, 10000));
+		$this->assertFalse(ArcadeCatalog::isPlausible('snake', 301, 10000));
 		// Partial seconds count proportionally (floor of the reachable points).
-		$this->assertTrue(ArcadeCatalog::isPlausible('snake', 115, 500));
-		$this->assertFalse(ArcadeCatalog::isPlausible('snake', 116, 500));
+		$this->assertTrue(ArcadeCatalog::isPlausible('snake', 110, 500));
+		$this->assertFalse(ArcadeCatalog::isPlausible('snake', 111, 500));
 		// Spot Sprint: 100 burst points + 50 per second; a full 60-second
 		// round reaches its ceiling of 3000 (the client logic spec proves a
 		// perfect player stays below the rate at every step).

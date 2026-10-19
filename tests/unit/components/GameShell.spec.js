@@ -250,6 +250,64 @@ describe('GameShell', () => {
 		expect(announcement(wrapper)).toBe('Resumed')
 	})
 
+	it('R086H-09: a held pause key toggles once instead of flipping with its repeats', async () => {
+		const wrapper = await mountShell()
+		await start(wrapper)
+		await wrapper.get('[data-testid="game-shell"]').trigger('keydown', { code: 'KeyP' })
+		await flushPromises()
+		expect(phase(wrapper)).toBe('paused')
+		expect(document.activeElement).toBe(wrapper.get('[data-testid="game-resume"]').element)
+
+		await wrapper.get('[data-testid="game-resume"]').trigger('keydown', { code: 'KeyP', repeat: true })
+		expect(phase(wrapper)).toBe('paused')
+	})
+
+	it('R086H-03: names a game locked again and the daily cap when a score is not saved', async () => {
+		const endRound = async (wrapper) => {
+			currentState().score = 40
+			currentState().over = true
+			advance()
+			await flushPromises()
+		}
+		api.post.mockRejectedValueOnce(Object.assign(new Error('locked'), { status: 403, code: 'MINIGAME_LOCKED' }))
+		const wrapper = await mountShell()
+		await start(wrapper)
+		await endRound(wrapper)
+		expect(wrapper.get('[data-testid="game-save-failed"]').text()).toBe('This game is locked again, so your score was not saved.')
+
+		api.post.mockRejectedValueOnce(Object.assign(new Error('Too many'), { status: 429, code: 'MINIGAME_RATE_LIMITED' }))
+		await wrapper.get('[data-testid="game-restart"]').trigger('click')
+		frames.frame(clock)
+		await endRound(wrapper)
+		expect(wrapper.get('[data-testid="game-save-failed"]').text()).toBe("Today's score limit is reached, so your score was not saved.")
+
+		api.post.mockRejectedValueOnce(new Error('offline'))
+		await wrapper.get('[data-testid="game-restart"]').trigger('click')
+		frames.frame(clock)
+		await endRound(wrapper)
+		expect(wrapper.get('[data-testid="game-save-failed"]').text()).toBe('Your score could not be saved.')
+	})
+
+	it('R086H-01: a save still running when the game closes never celebrates afterwards', async () => {
+		let finishSave
+		api.post.mockReturnValue(new Promise((resolve) => { finishSave = resolve }))
+		const wrapper = await mountShell()
+		await start(wrapper)
+		currentState().score = 120
+		currentState().over = true
+		advance()
+		await flushPromises()
+		expect(phase(wrapper)).toBe('over')
+
+		wrapper.unmount()
+		wrappers = []
+		finishSave({ id: 7 })
+		await flushPromises()
+
+		expect(api.post).toHaveBeenCalledTimes(1)
+		expect(mockEffects.newPersonalBest).not.toHaveBeenCalled()
+	})
+
 	it('maps swipes and on-screen buttons to inputs and ignores taps', async () => {
 		const wrapper = await mountShell()
 		await start(wrapper)
@@ -670,6 +728,28 @@ describe('GameShell', () => {
 
 			expect(showErrorWithReference).toHaveBeenCalledWith('The setting could not be saved.', expect.any(Error))
 			expect(wrapper.get('[data-testid="game-sound-toggle"]').attributes('aria-pressed')).toBe('false')
+		})
+
+		it('R086H-06: names the reduced-motion floor from the live system setting', async () => {
+			let reduce = false
+			const originalMatchMedia = window.matchMedia
+			window.matchMedia = jest.fn((query) => ({ matches: reduce && query.includes('reduced-motion'), addEventListener: jest.fn(), removeEventListener: jest.fn() }))
+			try {
+				updateMyPreferences.mockResolvedValueOnce(serverPreferences({ animationEnabled: true }))
+				const wrapper = await mountShell()
+				await wrapper.get('[data-testid="game-effects-toggle"]').trigger('click')
+				await flushPromises()
+				expect(wrapper.find('.game-overlay-hint').exists()).toBe(false)
+
+				// The same overlay re-renders after the system setting changed.
+				reduce = true
+				updateMyPreferences.mockResolvedValueOnce(serverPreferences({ animationEnabled: true, soundEnabled: true }))
+				await wrapper.get('[data-testid="game-sound-toggle"]').trigger('click')
+				await flushPromises()
+				expect(wrapper.find('.game-overlay-hint').exists()).toBe(true)
+			} finally {
+				window.matchMedia = originalMatchMedia
+			}
 		})
 
 		it('offers the switches on the start, pause and game-over overlays, never during play', async () => {

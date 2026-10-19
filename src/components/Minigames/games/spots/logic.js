@@ -3,6 +3,8 @@
  * @license MIT
  */
 
+import { DIRECTIONS, moveCursor, tappedCell } from '../grid.js'
+
 /**
  * Spot Sprint rules (CS-PLAN-086 §3.1): stains pop up on a tiled floor and
  * have to be wiped before they dry. A golden sponge doubles the points for
@@ -39,13 +41,6 @@ const GOLDEN_CHANCE = 0.08
 const DOUBLE_MS = 5000
 /** A wiped tile stays clean (and sparkles) briefly before a new spawn. */
 const WIPE_FLASH_MS = 250
-
-const MOVES = {
-	up: { x: 0, y: -1 },
-	down: { x: 0, y: 1 },
-	left: { x: -1, y: 0 },
-	right: { x: 1, y: 0 },
-}
 
 /**
  * New round: the first stain lies under the cursor, so a tap on it or one
@@ -108,24 +103,15 @@ export function step(state, input, dt) {
 }
 
 function applyInput(state, input) {
-	if (typeof input === 'object' && Number.isInteger(input.cell) && input.cell >= 0 && input.cell < state.tiles.length) {
-		state.cursor = input.cell
+	const tapped = tappedCell(input, state.tiles.length)
+	if (tapped >= 0) {
+		state.cursor = tapped
 		state.revision++
-		wipe(state, input.cell)
+		wipe(state, tapped)
 	} else if (input === 'act') {
 		wipe(state, state.cursor)
-	} else if (MOVES[input]) {
-		moveCursor(state, MOVES[input])
-	}
-}
-
-function moveCursor(state, move) {
-	const x = Math.min(COLS - 1, Math.max(0, (state.cursor % COLS) + move.x))
-	const y = Math.min(ROWS - 1, Math.max(0, Math.floor(state.cursor / COLS) + move.y))
-	const cursor = y * COLS + x
-	if (cursor !== state.cursor) {
-		state.cursor = cursor
-		state.revision++
+	} else if (DIRECTIONS[input]) {
+		moveCursor(state, COLS, ROWS, input)
 	}
 }
 

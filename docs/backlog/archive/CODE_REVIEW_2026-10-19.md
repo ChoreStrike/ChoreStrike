@@ -1,0 +1,91 @@
+# Code Review Record — 2026-10-19
+
+## Full Review (final) — CS-PLAN-086 household arcade, chore unlocks and per-game highscores
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** `active/ → done/`, then fast-forward of `master` (D-086-10)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | `docs/plans/done/cs-plan-086-household-arcade-and-chore-unlocks.md` (was `active/`) |
+| Request | User, 2026-10-19: take on the plan's next items (WP-H: knowledge integration, plausibility tuning, full gate on both runtime rows, final review) |
+| Branch / base HEAD | `feat/arcade-minigames` (main checkout, pinned, never pushed), rebased onto `master` `b13ecc9` at the start (`7225c08`..`880636c` → `f5cad76`..`519aa28`, no conflict); capture HEAD `519aa28e3af6cb573534c2deb5d87c084c7ece84` |
+| Reviewed implementation | `master...519aa28`: all eight CS-PLAN-086 commits (139 files: `lib/`, `appinfo/routes.php`, `src/components/Minigames/`, store, composables, utils, styles, PHPUnit/Jest/Playwright specs, gate manifest, l10n, docs), plus the uncommitted WP-H package, the plan's manifest, acceptance criteria, decisions, durable-doc integration and evidence history |
+| Index at capture | empty |
+| Scope fingerprint at capture | unstaged binary diff `b4cc9ea5df4f9b16f13537d372e0c51e1f817cfd13118e73dadec25cf51b93bf` (WP-H package: Snake rule, autopilot spec, concept/ADR/API/plan edits), no untracked files |
+| Tracks | four read-only reviewers in parallel: correctness, architecture, security/auth/data flow, performance/quality; every finding re-verified against the code before routing |
+| Test targets | four fresh owned staged rows (`cs082-arc086h-*`) instead of the shared canonical stack, after an operator-approved Docker Desktop restart (TECH-TRANSPORT-001 grows with session age) |
+
+### WP-H implementation in scope
+
+- Crumb Snake plausibility (D-086-11): a shortest-path autopilot in `snakeLogic.spec.js` bounds real play from above; over seeds 1–1000 it averages at most about 17 points per second over a round of ten seconds or more and breaks the 100-point burst plus 12 per second in its luckiest rounds. The rule moves from 100 + 30 to 100 + 20 per second (`ArcadeCatalog`, `ArcadeCatalogTest`, `MinigameServiceTest`, API docs); the spec runs the six seeds closest to the rule, and a negative control at 12 per second turns it red.
+- Knowledge integration: the gamification concept's "first slice supports Snake only", `ui-use-cases.md`'s Arcade row and UC-12 gap (2048/Memory prototypes that no longer exist), ADR-019's "once Spot Sprint ships", and the merge condition in CS-PLAN-080 and the plans README (D-086-10).
+
+### Findings
+
+| ID | Sev | Track | Area | Issue | Status |
+|----|-----|-------|------|-------|--------|
+| R086H-01 | minor | performance | `GameShell.vue` `finishRound` / unmount | Closing the game while its save was still running let the `round` guard pass: confetti and the milestone sound fired over the page and the live region was written after unmount | Fixed — unmount bumps `round`; regression with a pending save; negative control fails |
+| R086H-02 | minor | security | `MinigameController::saveScore` | `int $score = 0` (already on `master`): a POST without `score` stored a zero row in the member's own list and daily cap; the play time was required, the score not | Fixed — `400 VALIDATION_ERROR` "Score is required" before the service; unit and integration tests; API docs; l10n |
+| R086H-03 | minor | correctness | `store/minigame.js` `finishGame`, `GameShellOverlay.vue` | A save refused for a game locked again after an undo or for the daily cap showed the same "could not be saved" as a network error | Fixed — the store returns `failure` (`locked`, `limit`, `error`), the overlay names the first two in one neutral line each; store and shell tests; l10n |
+| R086H-04 | minor | architecture | `games/{spots,socks,snake}/logic.js`, `games/dust/rooms.js` | Rule of three met: four direction tables, two `OPPOSITE` maps, two identical `moveCursor` and two tap checks | Fixed — `games/grid.js` (`DIRECTIONS`, `OPPOSITE`, `tappedCell`, `moveCursor`), `grid.spec.js`; snake and dust re-export the table; Dust Runner keeps its own `DIRECTION_ORDER`; all rule specs unchanged and green |
+| R086H-05 | minor | architecture | `MinigameService::saveScore` | 56 lines | Fixed — the daily cap moves to `assertUnderDailyCap()`, behavior-neutral (the service tests pin it) |
+| R086H-06 | minor | architecture | `GameShellOverlay.vue` | A third copy of the reduced-motion query, read once at setup, so the hint missed a live system change | Fixed — `confetti.js` exports `prefersReducedMotion()`, the overlay reads it per render; regression; negative control fails |
+| R086H-07 | minor | performance | `effectsLayer.js` `drawPopups` | The popup font string was rebuilt on every frame while a popup lived ("no per-frame allocation") | Fixed — cached per cell size; spec covers a resized board |
+| R086H-08 | minor | performance, correctness | `useGameEffects.js` | The header said reduced motion always wins over the motion opt-in, while the vibration followed the opt-in alone | Fixed (comment) — D-086-12: the vibration follows the Effects opt-in like the app's completion vibration; reduced motion governs visual motion |
+| R086H-09 | nit | correctness | `GameShell.vue` `onKeyDown` | A held P key flipped pause and resume at key-repeat rate once focus moved to Resume | Fixed — repeats never toggle; regression; negative control fails |
+| R086H-10 | nit | architecture | `TestDataService::reset` | Deleted the flag through its own `IAppConfig` with a hard-coded app name, beside the registry that owns the key | Fixed — `RewardConfigService::resetArcadeGateEnabled()`; both unit tests updated |
+| R086H-11 | nit | quality | `sound.js`, `confetti.js`, `tiles/logic.js` | JSDoc named the celebration composable as the only gate caller and app start as the only audio unlock; Tile Breaker's event list missed `bounce` | Fixed |
+| R086H-12 | nit | correctness | `snakeLogic.spec.js` | The replay test's second assertion was always true (the opening crumb cell is hose after the pickup); the autopilot seeds needed a re-derivation note | Fixed — compares two seeds; note added |
+| R086H-13 | nit | architecture | `docs/engineering/architecture.md` | `GameShell.vue` recorded at 540 non-blank lines (506 at review, 510 after the fixes) | Fixed — row and component map (`games/grid.js`) updated |
+
+Accepted without change (nits, recorded): `GameShell.resize()` reallocates
+the canvas once more when a layout change keeps the board size — once per
+layout change, not per frame, and the pinned resize-loop guard stays
+untouched; the three canvas renderers compute the cell from their own `COLS`
+instead of `view.cell` — equal by construction, since the registry's
+`cols` are the logic's `COLS`; `ArcadeGateSetting`'s untracked 4-second
+"saved" timer follows the `RewardCatalogEditor` pattern and only shortens the
+note after a second save.
+
+### Verified non-findings
+
+- Authorization: both new routes `@NoAdminRequired` with CSRF unchanged; the gate writer checks membership and ownership in the controller and `requireHouseOwner()` again in the service; `setArcadeGateEnabled()` has no other caller and the registry has no other HTTP writer.
+- The unlock cannot be bypassed: `assertUnlocked` runs inside the score transaction after the house-row lock, which completions and undos also take first; a member without a wallet counts zero; the flag is read server-side on every save.
+- Input: the flag must be a real boolean, `gameId` is pattern- and catalog-checked, `score` and `durationMs` are required and bounded, read limits clamp to 1..50; `countValidSelectedByWallet` binds an int array parameter, no SQL concatenation.
+- Economy separation: the wallet id is only the share attribution key; no Coin, balance, contribution, medal or ranking read or write; no cross-game score.
+- Logging and errors: `AppLogger` contexts carry ids, game, score and duration only; `GameLockedException` extends `ForbiddenException` and is never logged as a rollback; 500s go through `safeMessage`; no raw `console.*`; no `v-html`.
+- No test-only hook in `src/` (no seed, cheat, autoplay or `window.__` entry); `TestDataService::reset` acts only after `assertTestMode()`.
+- Server and client rules agree for all five games: `durationMs` is stepped game time (never above wall time, pauses excluded); Spot Sprint's 60-second round reports about 60.0 s against 65 s; Sock Match's exact 800 is inside the burst and its untimed round inside 24 h; Tile Breaker and Dust Runner autopilots stay inside at every step; Crumb Snake as above.
+- Frame loop, listeners, ResizeObserver and the window-resize fallback are released on unmount; one shared `AudioContext` and noise buffer, self-stopping nodes; logic and render steps allocate nothing per frame; the catalog is one grouped count query.
+- i18n: every user-visible string in scope goes through `t()` with EN/DE entries (1333 keys).
+- File sizes: only `GameShell.vue` exceeds ~300 lines, with its accepted row; `HouseController` matches its row; no leftover reference to the archived Snake components.
+
+### Decisions recorded
+
+- D-086-10 (operator, 2026-10-19): merge right after the final review, without waiting for the CS-PLAN-080 family evidence window (offered: keep `active/` until the window closes, recommended; close on the branch). Merging deploys nothing.
+- D-086-11 (operator, 2026-10-19): Crumb Snake 100 + 20 per second, bounded by the perfect-play autopilot instead of real play (declined: keep 30 per second; leave the tuning open).
+- D-086-12 (operator, 2026-10-19): the arcade vibration follows the Effects opt-in alone; only the comment changes (declined: silence it under reduced motion).
+- Review fixes (operator, 2026-10-19): all four offered groups fixed now — the bug fixes, the required score, the save reasons and the refactors.
+- Operations (operator, 2026-10-19): Docker Desktop restarted before the gates (done after a foreign Testcontainers run had finished; the restart-policy containers of another project came back); owned test rows removed after the evidence is recorded.
+
+### Gates (after all fixes)
+
+- Jest 154 suites / 2124 tests through the zero-noise gate (`npm run test:noise`); before the fixes 153 / 2116.
+- `npm run lint`, `npm run stylelint`, `npm run l10n:check-keys` (1333 keys), `npm run backlog:check`, `npm run docs:encoding`, `npm run agents:check`, `git diff --check`, `composer cs:check` (0 of 423 files).
+- Production build: spots 5.2, socks 4.9, snake 2.1, tiles 2.7, dust 3.7 KB gzip (budget 40 KB); no new shared chunk; no game code in the arcade chunk.
+- `test:runtime:check` `current` (upstream 35.0.2, AIO 14.3.0 / NC 34.0.4, no drift), inventory `qualified`, both images `frozen-image-identity-match`.
+- Four fresh owned rows from this checkout (`cs082-arc086h-pgsql` 8187, `-aio` 8188, `-mysql` 8189, `-sqlite` 8190; family seed, cron mode): PHPUnit unit 1459 and integration 623 with `--fail-on-skipped` on each — primary NC 35.0.2.2 / PHP 8.4.26 / PostgreSQL 18.6 (APCu), AIO NC 34.0.4.1 / PostgreSQL 18.6 / Redis (sessions, cache, locking), MariaDB 11.8.6, SQLite 3.46.1.
+- The first four-way parallel run (before the fixes) had two unattributed SQLite integration failures (summary only); SQLite alone and two further four-way parallel runs on the final code passed — TECH-TEST-009.
+- Full browser gate, primary row: `run-HyYmnO` **PASSED** first attempt — chromium 100, chromium-serial-db 179, chromium-scheduling-owner 39, mobile-chromium 15, mobile-webkit 15; zero skipped, failed or flaky.
+- Full browser gate, AIO row: `run-4zMed1` **PASSED** first attempt — the same 100 / 179 / 39 / 15 / 15.
+- Not run, with reason: the package smoke (`test:package:smoke`) — no deployment candidate is cut here; a release round qualifies the package.
+
+### Outcome
+
+`PASS-WITH-FIXES` (final). R086H-01..13 fixed with the gates above on the final
+code, three nits accepted with reasons. One unattributed occurrence routed:
+TECH-TEST-009. The plan moves `active/ → done/`; FEAT-ARCADE-001..003 are
+archived; `master` is fast-forwarded to the review commit (D-086-10), nothing
+is pushed or deployed.

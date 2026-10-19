@@ -77,15 +77,15 @@ chore history, which D7d did not allow. Three properties had to hold:
   The count has no time bound and grows with the history; the existing
   share/completion indexes carry it today, and a cache would be a later,
   measured optimisation.
-- A newly invited member starts with the threshold-0 game only (once Spot
-  Sprint ships; until then Snake needs ten chores). Owners who do not want the
-  coupling switch the gate off; members who do not want the arcade hide it.
+- A newly invited member starts with the threshold-0 game, Spot Sprint, only.
+  Owners who do not want the coupling switch the gate off; members who do not
+  want the arcade hide it.
 - Adding a game updates the catalog in both places (server `ArcadeCatalog`,
   client registry); both test suites pin the id list.
 
 ## Related
 
-- Plan: [CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md)
+- Plan: [CS-PLAN-086](../plans/done/cs-plan-086-household-arcade-and-chore-unlocks.md)
 - Ledger attribution: [ADR-014](ADR-014-work-accounting-ledger-and-replay.md)
 - Concept: [`gamification-and-rewards.md`](../concepts/gamification-and-rewards.md),
   [`calm-core-ux.md`](../concepts/calm-core-ux.md)

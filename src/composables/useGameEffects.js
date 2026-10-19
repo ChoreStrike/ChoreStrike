@@ -22,15 +22,18 @@ const EVENT_SOUNDS = Object.freeze({
 	wrong: 'wrong',
 })
 
-/** Events that also pulse the vibration (with the motion opt-in). */
+/** Events that also pulse the vibration (with the Effects opt-in). */
 const PULSED = new Set(['miss', 'crash', 'penalty'])
 
 /**
  * Arcade effects (CS-PLAN-086 §3.1) through the existing effect modules and
  * behind the same personal opt-ins as the celebration effects: sound
- * (`soundEnabled`) and motion (`animationEnabled`, which also covers the
- * vibration). `prefers-reduced-motion` always wins over the motion opt-in.
- * Every game stays fully playable and legible with all effects off.
+ * (`soundEnabled`) and motion (`animationEnabled`). `prefers-reduced-motion`
+ * always wins over the motion opt-in for everything that moves on screen
+ * (`motionAllowed()`). The short vibration follows the motion opt-in alone,
+ * like the app's completion vibration: reduced motion governs visual motion
+ * (D-086-12). Every game stays fully playable and legible with all effects
+ * off.
  *
  * @return {{pickup: function(string=): void, event: function(string): void, newPersonalBest: function(): void, motionAllowed: function(): boolean}}
  */

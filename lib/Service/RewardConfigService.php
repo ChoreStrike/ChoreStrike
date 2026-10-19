@@ -175,6 +175,14 @@ class RewardConfigService {
 	}
 
 	/**
+	 * Drop the stored arcade gate, so it reads its default again. The only
+	 * caller is the test-mode reset ({@see TestDataService::reset()}).
+	 */
+	public function resetArcadeGateEnabled(): void {
+		$this->config->deleteKey(self::APP_NAME, self::KEY_ARCADE_GATE_ENABLED);
+	}
+
+	/**
 	 * Get all config values as array (registry order).
 	 */
 	public function getAllConfig(): array {

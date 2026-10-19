@@ -57,7 +57,7 @@ export function createState(rng) {
 		lives: START_LIVES,
 		score: 0,
 		over: false,
-		// Drained by the shell after every step: pickup | penalty | miss | cleared | crash.
+		// Drained by the shell after every step: pickup | penalty | bounce | miss | cleared | crash.
 		events: [],
 	}
 	buildWall(state)

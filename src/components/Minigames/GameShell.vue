@@ -416,6 +416,8 @@ function onKeyDown(event) {
 		return
 	}
 	if (event.code === 'Space' && event.target !== shellRef.value) return
+	// A held key toggles once: its repeats would flip pause and resume.
+	if (event.repeat) return
 	if (phase.value === 'playing') {
 		event.preventDefault()
 		pauseGame()
@@ -505,6 +507,8 @@ onBeforeUnmount(() => {
 	resizeObserver?.disconnect()
 	window.removeEventListener('resize', resize)
 	loop.dispose()
+	// A save still running for a closed game must not celebrate afterwards.
+	round++
 })
 </script>
 

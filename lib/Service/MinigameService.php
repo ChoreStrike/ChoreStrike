@@ -84,23 +84,7 @@ class MinigameService {
 	 */
 	public function saveScore(int $houseId, string $userId, string $gameId, int $score, int $durationMs): MinigameScore {
 		$this->assertValidSubmission($houseId, $userId, $gameId, $score, $durationMs);
-
-		// D7: per-user daily save cap. The window is the house-local calendar
-		// day (CS-PLAN-057 convention), resolved before the write transaction.
-		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
-		[$dayStart, ] = $this->calendarService->dayBounds(new \DateTime(), $tz);
-		if ($this->scoreMapper->countByUserSince($houseId, $userId, $dayStart) >= self::DAILY_SCORE_SAVE_LIMIT) {
-			$this->appLogger->warning('Minigame score save rejected: daily cap reached', [
-				'event' => 'minigame_rate_limited',
-				'service' => 'MinigameService',
-				'houseId' => $houseId,
-				'userId' => $userId,
-				'gameId' => $gameId,
-			]);
-			throw new \OCA\ChoreStrike\Exception\RateLimitException(
-				$this->l10n->t('Too many score submissions today. Try again tomorrow.')
-			);
-		}
+		$this->assertUnderDailyCap($houseId, $userId, $gameId);
 
 		try {
 			return $this->transactions->run(function () use ($houseId, $userId, $gameId, $score): MinigameScore {
@@ -137,6 +121,30 @@ class MinigameService {
 			]);
 			throw $e;
 		}
+	}
+
+	/**
+	 * D7: per-user daily save cap. The window is the house-local calendar
+	 * day (CS-PLAN-057 convention), resolved before the write transaction.
+	 *
+	 * @throws \OCA\ChoreStrike\Exception\RateLimitException when the cap is reached
+	 */
+	private function assertUnderDailyCap(int $houseId, string $userId, string $gameId): void {
+		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
+		[$dayStart, ] = $this->calendarService->dayBounds(new \DateTime(), $tz);
+		if ($this->scoreMapper->countByUserSince($houseId, $userId, $dayStart) < self::DAILY_SCORE_SAVE_LIMIT) {
+			return;
+		}
+		$this->appLogger->warning('Minigame score save rejected: daily cap reached', [
+			'event' => 'minigame_rate_limited',
+			'service' => 'MinigameService',
+			'houseId' => $houseId,
+			'userId' => $userId,
+			'gameId' => $gameId,
+		]);
+		throw new \OCA\ChoreStrike\Exception\RateLimitException(
+			$this->l10n->t('Too many score submissions today. Try again tomorrow.')
+		);
 	}
 
 	/**

@@ -42,7 +42,7 @@ class TestDataServiceTest extends TestCase {
 	private RoomTaskMapper&MockObject $roomTaskMapper;
 	private TaskAssigneeMapper&MockObject $taskAssigneeMapper;
 	private \OCA\ChoreStrike\Db\WalletMapper&MockObject $walletMapper;
-	private \OCP\IAppConfig&MockObject $appConfig;
+	private \OCA\ChoreStrike\Service\RewardConfigService&MockObject $rewardConfig;
 	private TestDataService $service;
 
 	protected function setUp(): void {
@@ -72,7 +72,7 @@ class TestDataServiceTest extends TestCase {
 
 		// Default config mock returns test instance id
 		$this->config->method('getSystemValue')->willReturn('test-instance');
-		$this->appConfig = $this->createMock(\OCP\IAppConfig::class);
+		$this->rewardConfig = $this->createMock(\OCA\ChoreStrike\Service\RewardConfigService::class);
 
 		$this->service = new TestDataService(
 			$this->db,
@@ -93,7 +93,7 @@ class TestDataServiceTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class),
-			$this->appConfig,
+			$this->rewardConfig,
 		);
 	}
 
@@ -447,9 +447,7 @@ class TestDataServiceTest extends TestCase {
 		$qb->method('delete')->willReturnSelf();
 		$this->db->method('getQueryBuilder')->willReturn($qb);
 
-		$this->appConfig->expects($this->once())
-			->method('deleteKey')
-			->with('chorestrike', 'arcade_gate_enabled');
+		$this->rewardConfig->expects($this->once())->method('resetArcadeGateEnabled');
 
 		$this->service->reset();
 	}

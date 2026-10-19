@@ -21,7 +21,7 @@ its pruned routes or superseded write bodies are available.
 | Completion and undo | One complete receipt freezes the work evidence and updates wallet/contribution/streak/room/checklist projections before events (WP3 minor units, ADR-014). The queued targeted undo reverses the latest selected allocation from the valid history, including after reload; medals and sent notifications are not revoked. The Insights history exposes the authorized correction (completer/owner `canCorrect`) reusing the participation form; a 409 keeps the draft. |
 | Child/mobile | Bare-root child entry lands on My Day. Focused member/child mobile tests retain 44px controls, role gating and checklist execution. |
 | Localization | Real Nextcloud DE and EN rendering is tested in `family-core-ux.spec.ts`; source/catalog ownership and artifacts are enforced globally. |
-| Arcade | Snake is the accepted score/reward game. The retained 2048/Memory component prototypes do not expand the backend game whitelist. |
+| Arcade | Five household games on one shell (Spot Sprint, Sock Match, Crumb Snake, Tile Breaker, Dust Runner), scores only and per game; access unlocks from finished chores unless an owner switches the gate off (CS-PLAN-086, ADR-019). The server `ArcadeCatalog` is the only game list. |
 
 Contracts: [API](../api/README.md), [task/undo model](task-model-and-sync.md),
 [testing and deterministic gate](../engineering/testing.md).
@@ -484,7 +484,7 @@ store: [`architecture.md → useRewardsStore`](../engineering/architecture.md).
 | 09 | claim target size (UX-007); bulk assign + create-form chips ✅ since CS-PLAN-042 / CS-PLAN-038 |
 | 10 | — (suggestion Apply + merged planner surface + owner member-edit ✅ since CS-PLAN-043; overcapacity warning ✅ since CS-PLAN-040 (UC-16)) |
 | 11 | reward-config UI (HTTP surface pruned CS-PLAN-055 — a future config UI needs a re-expose decision) |
-| 12 | Unsupported Memory/2048 score-save integration; reward/arcade disposition in CS-PLAN-070 |
+| 12 | — (five games, chore unlocks and the owner gate ✅ since CS-PLAN-086; the 2048/Memory prototypes were retired with the WP3 cutover) |
 | 13 | profile edit route pruned (CS-PLAN-055; re-needs expose), leave house (FEAT-UX-015); role guards backend-side ✅ since CS-PLAN-045; per-member history ✅ since CS-PLAN-040 (UC-16) |
 | 14 | reminder-settings concept → FEAT-UX-024; task-sync surface → ⛔ pruned (CS-PLAN-055, FEAT-UX-021 closed) |
 | 15 | complete/assign from a calendar day (W6) |

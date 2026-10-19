@@ -3,6 +3,8 @@
  * @license MIT
  */
 
+import { DIRECTIONS, OPPOSITE } from '../grid.js'
+
 /**
  * Dust Runner's floor plans and grid helpers (CS-PLAN-086 §3.1). Each room
  * is a 15 × 15 floor plan of a household room, not a maze: walls around,
@@ -21,17 +23,10 @@ export const FLOOR = 0
 export const BLOCKED = 1
 export const NEST = 2
 
-export const DIRECTIONS = Object.freeze({
-	up: Object.freeze({ x: 0, y: -1 }),
-	left: Object.freeze({ x: -1, y: 0 }),
-	down: Object.freeze({ x: 0, y: 1 }),
-	right: Object.freeze({ x: 1, y: 0 }),
-})
+export { DIRECTIONS, OPPOSITE }
 
 /** Fixed order of every direction scan, so ties break the same way each time. */
 export const DIRECTION_ORDER = Object.freeze(['up', 'left', 'down', 'right'])
-
-export const OPPOSITE = Object.freeze({ up: 'down', down: 'up', left: 'right', right: 'left' })
 
 // Staircase, console table, wardrobe, the bench (two nests), a plant, the
 // shoe rack and a cabinet next to the dock.

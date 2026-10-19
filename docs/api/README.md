@@ -1062,8 +1062,8 @@ off, every game is `unlocked`. Failure envelopes: `403 FORBIDDEN`,
 #### POST /minigames/{gameId}/scores
 Save a finished game.
 
-**Request:** `{ "score": 250, "durationMs": 48000 }` — `durationMs` is the
-round's active play time (pauses excluded) and is required.
+**Request:** `{ "score": 250, "durationMs": 48000 }` — both are required;
+`durationMs` is the round's active play time (pauses excluded).
 
 Per-game rules (`ArcadeCatalog`): `0 <= score <= maxScore` (Spot Sprint:
 3000, Sock Match: 800, Snake: 20000, Tile Breaker: 50000, Dust Runner:
@@ -1071,7 +1071,7 @@ Per-game rules (`ArcadeCatalog`): `0 <= score <= maxScore` (Spot Sprint:
 60-second round, Sock Match: 24 hours for its untimed round, Snake, Tile
 Breaker and Dust Runner: one hour), and the score must be reachable in that
 time: `score <= burstPoints + pointsPerSecond * durationMs / 1000` (Spot
-Sprint: 100 + 50 per second, Sock Match: 800 + 1 per second, Snake: 100 + 30
+Sprint: 100 + 50 per second, Sock Match: 800 + 1 per second, Snake: 100 + 20
 per second, Tile Breaker: 300 + 20 per second, Dust Runner: 100 + 10 per
 second). Sock Match is untimed and never
 rewards speed; a lucky perfect round lasts only seconds, so its burst covers
@@ -1082,7 +1082,7 @@ the whole maximum and the ceiling is the binding rule.
 { "id": 42, "score": 250, "gameId": "snake", "createdAt": "2026-10-16T18:04:11+00:00" }
 ```
 Failure envelopes, all with zero writes: `400 VALIDATION_ERROR` (unknown game,
-missing `durationMs`, score or duration out of bounds),
+missing `score` or `durationMs`, score or duration out of bounds),
 `400 MINIGAME_IMPLAUSIBLE_SCORE` (score not reachable in the reported time),
 `403 MINIGAME_LOCKED` (the member has not unlocked the game; checked under the
 house lock), `429 MINIGAME_RATE_LIMITED`, `500 SAVE_SCORE_ERROR`.

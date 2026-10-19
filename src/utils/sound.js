@@ -172,8 +172,9 @@ function noiseBuffer(ctx) {
 }
 
 /**
- * Unlock audio on the first user gesture (required by mobile autoplay policy).
- * Call this from a click/touch handler during app initialization.
+ * Unlock audio on a user gesture (required by mobile autoplay policy).
+ * Call it from a click/touch handler: the app does on its first gesture,
+ * the arcade on every round start and when its Sound switch turns on.
  */
 export function unlockAudio() {
 	const ctx = getContext()
@@ -201,9 +202,9 @@ export function isMuted() {
 }
 
 /**
- * Sync the personal sound opt-in (C5g, default off). Called from the
- * celebration composable on every event so a mid-session preference
- * change applies to the next effect.
+ * Sync the personal sound opt-in (C5g, default off). Called through
+ * `syncEffectGates()` on every celebration and arcade effect, so a
+ * mid-session preference change applies to the next effect.
  *
  * @param {boolean} value True when the user opted into sounds
  */

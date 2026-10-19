@@ -42,10 +42,10 @@ is delivered (final Full `PASS-WITH-FIXES` 2026-10-17, deployment candidate
 `0.8.0-alpha.1`); the operator's real-device run moved to CS-PLAN-080 with the
 family evidence it precedes.
 
-Active: [CS-PLAN-086: Household Arcade](active/cs-plan-086-household-arcade-and-chore-unlocks.md)
-(activated 2026-10-17, Standard A `PASS-WITH-FIXES`) is an optional add-on developed on branch
-`feat/arcade-minigames`; it merges only after the CS-PLAN-084 final review and the close of
-the CS-PLAN-080 family evidence window.
+Delivered: [CS-PLAN-086: Household Arcade](done/cs-plan-086-household-arcade-and-chore-unlocks.md)
+(final Full `PASS-WITH-FIXES` 2026-10-19): five household games on one shell with per-game
+highscores, permanent chore-milestone unlocks and the owner switch; merged into the local
+`master` without waiting for the CS-PLAN-080 family evidence window (D-086-10), not deployed.
 
 Current active plan of the family-rhythm program: [CS-PLAN-080: WP9 - Cross-Database Verification and Family Evidence](active/cs-plan-080-wp9-cross-db-and-family-evidence.md)
 (activated 2026-10-03, Standard A `PASS`). Its parent

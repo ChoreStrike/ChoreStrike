@@ -197,6 +197,21 @@ class MinigameControllerTest extends TestCase {
 	}
 
 	/**
+	 * SaveScore_MissingScore_Returns400WithoutSave (R086H-02: a save without
+	 * a score must not store a zero row)
+	 */
+	public function testSaveScore_MissingScore_Returns400WithoutSave(): void {
+		$this->stubMemberHouse();
+		$this->minigameService->expects($this->never())->method('saveScore');
+
+		$response = $this->controller->saveScore('snake', null, 30000);
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+		$this->assertSame('Score is required', $response->getData()['error']['message']);
+	}
+
+	/**
 	 * SaveScore_NonMemberWithoutDuration_Returns403 — membership is checked
 	 * before any input detail is evaluated.
 	 */

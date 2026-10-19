@@ -109,15 +109,15 @@ describe('minigame store (CS-PLAN-086 per-game slices)', () => {
 
 			const result = await store.finishGame('snake', 90, 12000)
 
-			expect(result).toEqual({ saved: false, saveFailed: true, newBest: false })
+			expect(result).toEqual({ saved: false, saveFailed: true, failure: 'locked', newBest: false })
 			expect(api.get).toHaveBeenCalledWith('/api/v1/minigames/catalog')
 			expect(store.catalog).toEqual(CATALOG)
 		})
 
-		it('other save failures leave the catalog alone', async () => {
+		it('other save failures leave the catalog alone; the daily cap is named', async () => {
 			api.post.mockRejectedValue(Object.assign(new Error('Too many'), { status: 429, code: 'MINIGAME_RATE_LIMITED' }))
 
-			await store.saveScore('snake', 90, 12000)
+			expect(await store.saveScore('snake', 90, 12000)).toEqual({ data: null, failure: 'limit' })
 
 			expect(api.get).not.toHaveBeenCalled()
 		})
@@ -158,7 +158,7 @@ describe('minigame store (CS-PLAN-086 per-game slices)', () => {
 	describe('finishGame', () => {
 		it('does not save a zero score', async () => {
 			const result = await store.finishGame('snake', 0, 5000)
-			expect(result).toEqual({ saved: false, saveFailed: false, newBest: false })
+			expect(result).toEqual({ saved: false, saveFailed: false, failure: null, newBest: false })
 			expect(api.post).not.toHaveBeenCalled()
 		})
 
@@ -169,7 +169,7 @@ describe('minigame store (CS-PLAN-086 per-game slices)', () => {
 			const result = await store.finishGame('snake', 90, 12000)
 
 			expect(api.post).toHaveBeenCalledWith('/api/v1/minigames/snake/scores', { score: 90, durationMs: 12000 })
-			expect(result).toEqual({ saved: true, saveFailed: false, newBest: true })
+			expect(result).toEqual({ saved: true, saveFailed: false, failure: null, newBest: true })
 		})
 
 		it('reports no new best below the previous one', async () => {
@@ -179,12 +179,12 @@ describe('minigame store (CS-PLAN-086 per-game slices)', () => {
 		})
 
 		it('reports a failed save without claiming a new best', async () => {
-			api.post.mockRejectedValue(new Error('Too many score submissions today. Try again tomorrow.'))
+			api.post.mockRejectedValue(new Error('Network down'))
 
 			const result = await store.finishGame('snake', 90, 12000)
 
-			expect(result).toEqual({ saved: false, saveFailed: true, newBest: false })
-			expect(store.error).toContain('Too many')
+			expect(result).toEqual({ saved: false, saveFailed: true, failure: 'error', newBest: false })
+			expect(store.error).toBe('Network down')
 		})
 	})
 

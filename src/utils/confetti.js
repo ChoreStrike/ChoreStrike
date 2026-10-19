@@ -8,10 +8,11 @@ import { logger } from './logger.js'
 
 /**
  * Re-read the reduced-motion preference on EVERY call, so a live OS-level
- * change applies to the next effect without a reload.
+ * change applies to the next effect without a reload. Also names the floor
+ * on the arcade overlay (CS-PLAN-086 R086H-06).
  * @return {boolean}
  */
-function prefersReducedMotion() {
+export function prefersReducedMotion() {
 	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
 		return false
 	}
@@ -105,9 +106,9 @@ export function fireMilestoneConfetti(options = {}) {
 }
 
 /**
- * Sync the personal animation opt-in (C5g, default off). Called from the
- * celebration composable on every event; the reduced-motion check stays
- * the hard floor regardless of this flag.
+ * Sync the personal animation opt-in (C5g, default off). Called through
+ * `syncEffectGates()` on every celebration and arcade effect; the
+ * reduced-motion check stays the hard floor regardless of this flag.
  *
  * @param {boolean} value True when the user opted into animations
  */

@@ -56,6 +56,9 @@ export function createEffectsLayer({ random = Math.random, clock = () => perform
 	let flashUntil = 0
 	let flashColor = ''
 	let last = null
+	// The popup font, rebuilt only when the cell size changes.
+	let popupFont = ''
+	let popupFontCell = 0
 
 	/**
 	 * @param {number} x Origin column (cell units)
@@ -222,7 +225,11 @@ export function createEffectsLayer({ random = Math.random, clock = () => perform
 		for (const item of popups) {
 			if (!item.live) continue
 			if (!styled) {
-				ctx.font = `bold ${Math.round(cell * 0.85)}px system-ui, sans-serif`
+				if (cell !== popupFontCell) {
+					popupFont = `bold ${Math.round(cell * 0.85)}px system-ui, sans-serif`
+					popupFontCell = cell
+				}
+				ctx.font = popupFont
 				ctx.textAlign = 'center'
 				ctx.textBaseline = 'middle'
 				ctx.lineWidth = Math.max(2, cell * 0.12)

@@ -324,16 +324,21 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * SaveScore_MissingOrImplausibleDuration_Get400_AndZeroWrites (D-086-04)
+	 * SaveScore_MissingFieldOrImplausibleScore_Get400_AndZeroWrites
+	 * (D-086-04; R086H-02: the score is required like the play time)
 	 */
-	public function testSaveScore_MissingOrImplausibleDuration_Get400_AndZeroWrites(): void {
+	public function testSaveScore_MissingFieldOrImplausibleScore_Get400_AndZeroWrites(): void {
 		['houseId' => $houseId] = $this->houseWithMembers();
 
 		$missing = $this->controller('mg_parent')->saveScore('snake', 100);
 		self::assertSame(400, $missing->getStatus());
 		self::assertSame('VALIDATION_ERROR', $missing->getData()['error']['code']);
 
-		// 5000 points in one second: far beyond 100 burst + 30 per second.
+		$noScore = $this->controller('mg_parent')->saveScore('snake', null, self::ROUND_MS);
+		self::assertSame(400, $noScore->getStatus());
+		self::assertSame('VALIDATION_ERROR', $noScore->getData()['error']['code']);
+
+		// 5000 points in one second: far beyond 100 burst + 20 per second.
 		$implausible = $this->controller('mg_parent')->saveScore('snake', 5000, 1000);
 		self::assertSame(400, $implausible->getStatus());
 		self::assertSame('MINIGAME_IMPLAUSIBLE_SCORE', $implausible->getData()['error']['code']);

@@ -32,7 +32,7 @@ use PHPUnit\Framework\TestCase;
  * purchase/coin-mint surface is gone.
  */
 class MinigameServiceTest extends TestCase {
-	/** A one-minute round: Snake accepts up to 100 + 30 * 60 = 1900 points. */
+	/** A one-minute round: Snake accepts up to 100 + 20 * 60 = 1300 points. */
 	private const ROUND_MS = 60000;
 	/** The longest accepted Snake round. */
 	private const LONG_ROUND_MS = 3600000;
@@ -270,25 +270,25 @@ class MinigameServiceTest extends TestCase {
 				'Minigame score save rejected: implausible score',
 				$this->callback(static fn (array $context): bool => $context['event'] === 'minigame_implausible_score'
 					&& $context['gameId'] === 'snake'
-					&& $context['score'] === 1901
+					&& $context['score'] === 1301
 					&& $context['durationMs'] === self::ROUND_MS)
 			);
 
 		$this->expectException(ImplausibleScoreException::class);
 		$this->expectExceptionMessage('This score is not possible in the time played.');
 
-		$this->service->saveScore(1, 'user1', 'snake', 1901, self::ROUND_MS);
+		$this->service->saveScore(1, 'user1', 'snake', 1301, self::ROUND_MS);
 	}
 
 	/**
 	 * SaveScore_ScoreAtPlausibilityLimit_Accepted (D-086-04)
 	 */
 	public function testSaveScore_ScoreAtPlausibilityLimit_Accepted(): void {
-		$this->scoreMapper->expects($this->once())->method('insert')->willReturn($this->makeScore(1900));
+		$this->scoreMapper->expects($this->once())->method('insert')->willReturn($this->makeScore(1300));
 
-		$result = $this->service->saveScore(1, 'user1', 'snake', 1900, self::ROUND_MS);
+		$result = $this->service->saveScore(1, 'user1', 'snake', 1300, self::ROUND_MS);
 
-		$this->assertSame(1900, $result->getScore());
+		$this->assertSame(1300, $result->getScore());
 	}
 
 	/**

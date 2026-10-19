@@ -294,82 +294,6 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 
 ---
 
-### [P3] FEAT-ARCADE-001 — Multi-game arcade shell with per-game highscores
-**Status**: In Progress · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: optional arcade
-**Owning**: CS-PLAN-086 WP-A · **Depends on**: — · **Blocks**: FEAT-ARCADE-002, FEAT-ARCADE-003 · **Folded-in**: Snake defects S1–S7 (double key handling, page-wide key capture, loop runs while hidden, non-responsive board, unlabeled 400-cell DOM grid, unavoidable obstacle spawns, dead `lives` state)
-**Source**: operator request, 2026-10-16
-
-The arcade hard-wires one game: `MinigameService::VALID_GAMES = ['snake']`,
-`'snake'` defaults in every signature and a single-slot store. A shared
-`GameShell` + `useGameLoop`, a lazy game registry, per-game store slices, a
-generic `GameLeaderboard` and a server-side `ArcadeCatalog` with per-game score
-ceilings; Snake moves onto the shell ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-A).
-The scores-only contract (CS-PLAN-070 T10/D7d) stays unchanged.
-**Progress:** WP-A delivered 2026-10-17 (interim Standard B `PASS-WITH-FIXES`):
-shell, registry, per-game slices, `GameLeaderboard`, server catalog with the
-required `durationMs` plausibility and Crumb Snake with S1–S7 fixed. The
-catalog endpoint followed with WP-B (2026-10-17), the phone touch E2E with
-WP-C (2026-10-18). Open until the plan's final review: the full browser gate on
-both rows (WP-G).
-
----
-
-### [P3] FEAT-ARCADE-002 — Chore-based unlock gate for arcade games
-**Status**: In Progress · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: optional arcade
-**Owning**: CS-PLAN-086 WP-B · **Depends on**: FEAT-ARCADE-001 · **Blocks**: — · **Folded-in**: —
-**Source**: operator request, 2026-10-16
-
-Games unlock permanently as milestones of a member's lifetime finished chores
-(thresholds 0/3/10/25/50), with no daily coupling. Derived read-only from valid
-selected work shares (ADR-014) — helpers count, an undone completion no longer
-counts, no persisted balances; the owner switch is a typed app-config flag, no
-schema change ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-B, D-086-01/02/06).
-**Progress:** WP-B delivered 2026-10-17 on `feat/arcade-minigames` after
-interim Standard B `PASS-WITH-FIXES`:
-`WorkShareMapper::countValidSelectedByWallet`, the derived
-`ArcadeAccessService`, `GET /minigames/catalog`, `403 MINIGAME_LOCKED` on
-saves, the owner-only `PUT /house/arcade-gate` over the
-`arcade_gate_enabled` registry flag, lock states and progress in the catalog,
-the Settings switch and [ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md).
-The browser proof of a full unlock followed with Sock Match (WP-D,
-2026-10-18: three real completions open it). Open until the plan's final
-review: the full browser gate (WP-G).
-
----
-
-### [P3] FEAT-ARCADE-003 — Household-themed arcade games
-**Status**: In Progress · **Effort**: L · **Layer**: frontend · **Journey stage**: optional arcade
-**Owning**: CS-PLAN-086 WP-C to WP-G · **Depends on**: FEAT-ARCADE-001 · **Blocks**: — · **Folded-in**: —
-**Source**: operator request, 2026-10-16
-
-Four original games with cleaning utensils as items: Spot Sprint (tap stains),
-Sock Match (untimed memory), Tile Breaker (squeegee and soap bubble against
-grimy tiles) and Dust Runner (robot vacuum in room-shaped mazes). One lazy
-chunk and one work package per game, each releasable on its own; per-game
-highscores only ([CS-PLAN-086](../plans/active/cs-plan-086-household-arcade-and-chore-unlocks.md) WP-C to WP-F, D-086-03/05).
-**Progress:** Spot Sprint delivered 2026-10-18 (WP-C, interim Standard B
-`PASS-WITH-FIXES`): the always-open DOM
-entry game with tap input, keyboard cursor, golden sponge and sock penalty,
-its own lazy chunk (4.0 KB gzip) and server rules. Sock Match delivered
-2026-10-18 (WP-D, interim Standard B `PASS-WITH-FIXES`): untimed memory pairs without
-a fail state, shape-distinct patterns, score 160 to 800 rewarding few wrong
-guesses, unlock threshold 3, its own lazy chunk (4.2 KB gzip). Tile Breaker
-delivered 2026-10-18 (WP-E, interim Standard B `PASS-WITH-FIXES`): endless walls of grimy
-tiles, sponge, spray, wax and mud drops, three lives, held arrow keys or
-mouse and finger on the board (the shell's `paddle` input mode), unlock
-threshold 25, its own lazy chunk (2.6 KB gzip). Dust Runner delivered
-2026-10-18 (WP-F, interim Standard B `PASS-WITH-FIXES`): a robot vacuum clears three
-room-shaped floor plans (hallway, kitchen, living room, then repeating with
-faster bunnies), dust bunnies that leave their nests one after another and
-drift toward the robot, a charging dock that makes them catchable, three
-lives, unlock threshold 50, its own lazy chunk (2.9 KB gzip). Pep polish
-delivered 2026-10-18 (WP-G, interim Standard B `PASS-WITH-FIXES`): the arcade
-palette, gliding figures with faces, event sounds, the shell's pooled board
-effects and in-game Sound and Effects switches on the same personal opt-ins.
-All five games are delivered; open until the plan's final review: WP-H.
-
----
-
 ## Infrastructure and Documentation
 
 > Backlog hygiene, lint/dependency, docs truth, and operational security.
@@ -655,6 +579,25 @@ identifiers and SHA-256 from the
 [adoption record](../engineering/deployment.md#adoption-record-2026-10-17) —
 hashes the Git blob content (so CRLF checkouts do not differ) and is extended
 with each later deployment. New migration files stay allowed.
+
+---
+
+### [P3] TECH-TEST-009 — Unattributed SQLite integration failures under four parallel provider suites
+**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: test-runtime reliability
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-086 WP-H final gate (2026-10-19)
+
+The provider matrix may run its independent databases in parallel
+([testing.md](../engineering/testing.md#isolated-supported-database-matrix)).
+In the first such run of the WP-H gate (four fresh staged rows, unit and
+integration suites at once, shortly after a Docker Desktop restart) the SQLite
+integration suite reported `Tests: 623, Failures: 2`; the runner kept only the
+summary, so the failing tests are unknown. The same suite passed alone and in
+two further four-way parallel runs on the final code. Next time capture the
+names (`--log-junit` per provider), then attribute: a load-sensitive SQLite
+locking or barrier test, or a product race.
+
+- [ ] Failing test names captured from a parallel matrix run, or the item closed after a documented series of clean parallel runs.
 
 ---
 

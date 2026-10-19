@@ -95,12 +95,15 @@ class MinigameController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 * @param string $gameId The game ID
-	 * @param int $score The achieved score
+	 * @param int|null $score The achieved score (required, R086H-02)
 	 * @param int|null $durationMs Active play time in milliseconds (required, D-086-04)
 	 */
-	public function saveScore(string $gameId, int $score = 0, ?int $durationMs = null): JSONResponse {
+	public function saveScore(string $gameId, ?int $score = null, ?int $durationMs = null): JSONResponse {
 		try {
 			[$houseId] = $this->memberContext();
+			if ($score === null) {
+				throw new \InvalidArgumentException($this->l->t('Score is required'));
+			}
 			if ($durationMs === null) {
 				throw new \InvalidArgumentException($this->l->t('Play time is required'));
 			}

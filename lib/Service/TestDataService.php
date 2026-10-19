@@ -27,7 +27,6 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\WalletMapper;
 use OCA\ChoreStrike\Db\WorkShare;
 use OCA\ChoreStrike\Db\WorkShareMapper;
-use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IDBConnection;
 
@@ -133,7 +132,7 @@ class TestDataService {
 	private OccurrenceMapper $occurrenceMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private WorkShareMapper $workShareMapper;
-	private IAppConfig $appConfig;
+	private RewardConfigService $rewardConfig;
 
 	// CR-SVC-40 / CS-PLAN-060 WP1, decision D6 documented exemption: this
 	// service is NON-PRODUCTION test tooling (every entry point is guarded by
@@ -158,7 +157,7 @@ class TestDataService {
 		OccurrenceMapper $occurrenceMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		WorkShareMapper $workShareMapper,
-		IAppConfig $appConfig,
+		RewardConfigService $rewardConfig,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -176,7 +175,7 @@ class TestDataService {
 		$this->occurrenceMapper = $occurrenceMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->workShareMapper = $workShareMapper;
-		$this->appConfig = $appConfig;
+		$this->rewardConfig = $rewardConfig;
 	}
 
 	/**
@@ -220,7 +219,7 @@ class TestDataService {
 	 */
 	public function reset(): void {
 		$this->assertTestMode();
-		$this->appConfig->deleteKey('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED);
+		$this->rewardConfig->resetArcadeGateEnabled();
 
 		foreach (self::RESET_TABLES as $table) {
 			$qb = $this->db->getQueryBuilder();
