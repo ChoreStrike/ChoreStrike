@@ -14,6 +14,12 @@ docs/plans/
 
 ## Lifecycle
 
+Drafted: [CS-PLAN-088: 0.8.0-alpha.3 — Trial Feedback and Backlog Round](new/cs-plan-088-alpha3-feedback-round.md)
+(2026-10-19, `new/`, Standard A pending): collects the family-trial feedback of
+`0.8.0-alpha.2` and the unowned small backlog items (hardening, toolchain
+majors) into one alpha update in two to three weeks, with a hotfix rule for
+anything urgent and a sanitized feedback register; Q-088-01..05 open.
+
 Delivered: [CS-PLAN-083: Release Qualification Gates](done/cs-plan-083-release-qualification-gates.md)
 (final Full `PASS-WITH-FIXES`, 2026-10-10). RELEASE-002's bounded WP1-WP3 slice
 owns alias-free canonical provisioning, reproducible clean-candidate packaging
