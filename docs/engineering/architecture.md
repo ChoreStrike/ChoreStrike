@@ -140,7 +140,7 @@ ChoreStrike/
 │   ├── README.md               # Documentation map
 │   ├── CONTRIBUTING.md         # Community docs (with CODE_OF_CONDUCT.md,
 │   │                           #   SECURITY.md, THIRD_PARTY.md — auto-detected
-│   │                           #   here by GitHub/Forgejo, CS-PLAN-069)
+│   │                           #   here by GitHub, CS-PLAN-069)
 │   ├── engineering/            # architecture, development, testing, deployment, review-playbook
 │   ├── api/                    # REST API reference + feature-specific notes
 │   ├── release/                # roadmap, release-strategy

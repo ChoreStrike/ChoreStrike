@@ -99,9 +99,10 @@ a Nextcloud instance may still have hosting costs.
 
 ChoreStrike is a **pre-release app (`0.8.0-alpha.2`, internal alpha)**. Its
 first [retained baseline](docs/engineering/deployment.md#first-retained-baseline)
-was adopted on 2026-10-17: from it, updates preserve household data. Disposable
-development installs remain fresh-install-only; there is no upgrade promise for
-them.
+was adopted on 2026-10-17: from it, updates preserve household data — the
+update to `0.8.0-alpha.2` on 2026-10-19 ran without a migration and kept every
+table. Disposable development installs remain fresh-install-only; there is no
+upgrade promise for them.
 
 These bounds are the promoted current-stable baseline (CS-PLAN-082,
 2026-10-06), not a pending qualification candidate: fresh NC35 installations
@@ -160,12 +161,14 @@ not a hosted service.
 
 **v0.8.0-alpha.2 — alpha pre-release.** The core household workflow (setup wizard,
 invitations, tasks, scheduling, My Day, completion/undo, gamification,
-insights and optional rewards) is implemented. Cross-database verification and
-repeated browser gates have passed; voluntary family comprehension, 14-day
-everyday-use evidence and the final WP9 review remain open. Automated passes
-are not a production-deployment or family-acceptance sign-off. The app is not
-yet published in the Nextcloud App Store; roadmap targets are
-described in [roadmap.md](docs/release/roadmap.md).
+insights, optional rewards and the arcade) is implemented. Cross-database
+verification and repeated browser gates have passed, and this version has run
+on the maintainer's family instance since 2026-10-19, where the 14-day family
+trial takes place. The real-device checklist, voluntary family comprehension,
+the 14-day everyday-use evidence and the final WP9 review remain open.
+Automated passes are not a family-acceptance sign-off. The app is not yet
+published in the Nextcloud App Store; roadmap targets are described in
+[roadmap.md](docs/release/roadmap.md).
 
 ## Contact
 

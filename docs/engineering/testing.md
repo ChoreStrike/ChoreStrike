@@ -102,7 +102,7 @@ npm run test:runtime:check
 npm run test:runtime:canonical
 ```
 
-The `runtime-check` Forgejo workflow (`.github/workflows/runtime-check.yml`)
+The `runtime-check` GitHub Actions workflow (`.github/workflows/runtime-check.yml`)
 runs weekly and via manual dispatch for pre-release checks. It uses the same
 inventory/checker and fails visibly on drift or unavailable/malformed metadata.
 Discovery compares official server and AIO release metadata separately,
@@ -315,7 +315,7 @@ upgrade, runs `occ upgrade` before configuration and seed, and then reseeds as
 usual. The core version check above still applies first, so this never updates
 Nextcloud itself. Preservation mode never upgrades implicitly.
 
-All three Forgejo browser workflows build application assets before provisioning.
+All three GitHub Actions browser workflows build application assets before provisioning.
 Their canonical startup awaits the app/seed readiness healthcheck and verifies
 the frozen runtime before mutation. The companion profile/browser matrix uses
 that same runtime: the mutable `nextcloud:35-apache` distribution image was

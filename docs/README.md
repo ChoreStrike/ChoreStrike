@@ -19,7 +19,7 @@ Use this document to find the right ChoreStrike documentation quickly.
 
 ## Community & Meta
 
-Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the root `README.md`:
+Hosted here (this directory) so GitHub auto-detects them; linked from the root `README.md`:
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution guide
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — contributor covenant
@@ -53,7 +53,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 
 ## Product and Concept Context
 
-- [WP9 cross-database verification and family evidence](plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md) - active, the single open plan of the CS-PLAN-070 program since 2026-10-18: NC31 isolated provider matrix and consecutive browser gates passed 2026-10-05; CS-PLAN-082 NC35 primary backend/browser qualification is complete and the canonical test baseline was promoted 2026-10-06; `0.8.0-alpha.1` was deployed and adopted as the first retained baseline 2026-10-17. The real-device run, voluntary comprehension/14-day evidence and final review remain open; no family trial claimed.
+- [WP9 cross-database verification and family evidence](plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md) - active, the single open plan of the CS-PLAN-070 program since 2026-10-18: NC31 isolated provider matrix and consecutive browser gates passed 2026-10-05; CS-PLAN-082 NC35 primary backend/browser qualification is complete and the canonical test baseline was promoted 2026-10-06; `0.8.0-alpha.1` was deployed and adopted as the first retained baseline 2026-10-17; `0.8.0-alpha.2` followed on 2026-10-19 as an app update without a migration and the 14-day family trial runs on it. The real-device run, voluntary comprehension/14-day evidence and final review remain open.
 
 - [`concepts/product-vision.md`](concepts/product-vision.md) — product intent and positioning
 - [Family rhythm and reward clarification](plans/done/cs-plan-070-family-rhythm-and-reward-clarification.md) - closed 2026-10-18 (final Standard B `PASS-WITH-FIXES`); WP0-WP8 delivered, the remaining family evidence is consolidated into CS-PLAN-080. [WP1 occurrence timeline](plans/done/cs-plan-072-wp1-occurrence-timeline.md) and [WP2 agreements/capacity/pauses](plans/done/cs-plan-073-wp2-agreements-capacity-pauses.md) supply the foundation; later packages are listed below.

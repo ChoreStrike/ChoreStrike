@@ -1,11 +1,12 @@
 # ChoreStrike Development Roadmap
 
-## Current Capability Snapshot (2026-10-07, WP0-WP8 Delivered)
+## Current Capability Snapshot (2026-10-19, WP0-WP8 Delivered)
 
 The phases below are **historical delivery records** — several early phase
 descriptions contain ambitions that were later removed or never shipped (the
 notes in each phase mark the corrections). What the app can do **today**
-(shipped `0.1.1` pre-release, verified by the automated release gate):
+(`0.8.0-alpha.2`, verified by the automated release gate and running on the
+maintainer's family instance since 2026-10-19):
 
 - **Shipped**: first-owner bootstrap with a guided setup wizard; invite-only
   membership by email with owner/member/child roles; floors/rooms structure;
@@ -16,20 +17,23 @@ notes in each phase mark the corrections). What the app can do **today**
   protection; exact shared-effort Coins, planned-day rhythm, neutral dated
   pauses, rhythm medals/titles and a household weekly goal; optional family
   reward catalog with requests, approval and fulfillment; opt-in ranking;
-  Snake scores without Coins or boosts; insights (activity feed, member
-  fairness, overcapacity warnings); quiet defaults and one opt-in daily
-  Nextcloud digest; EN+DE.
+  an optional household arcade (five games opened by finished chores, scores
+  only — no Coins or boosts); insights (activity feed, member fairness,
+  overcapacity warnings); quiet defaults and one opt-in daily Nextcloud
+  digest; EN+DE.
 - **Verification**: WP9 cross-provider and consecutive browser gates passed;
   CS-PLAN-082 qualified the NC35/PHP8.4 baseline and named NC34 AIO row.
-  Family comprehension/14-day evidence and final WP9 review remain open.
-  Deployment and retained-baseline adoption are separate operator decisions.
+  `0.8.0-alpha.1` was deployed and adopted as the first retained baseline on
+  2026-10-17; `0.8.0-alpha.2` followed on 2026-10-19 as an app update without
+  a migration, and the 14-day family trial runs on it. The real-device
+  checklist, family comprehension/14-day evidence and the final WP9 review
+  remain open.
 - **Not implemented** (do not assume otherwise): task approval workflows,
   external-calendar sync, Home-Assistant/webhook integrations, mobile apps,
   AI task suggestions, App Store publication.
 - **Release posture**: `v0.8.x` internal alpha → `v0.9.x` private beta →
   `v1.0.0` stable manual-install release. Program/plan completion is NOT a
-  deployment approval: rollout is an explicit user decision after the
-  remaining Phase-8 work below.
+  deployment approval: every rollout is an explicit operator decision.
 
 ---
 
@@ -376,7 +380,8 @@ notes in each phase mark the corrections). What the app can do **today**
 **Timeline**: Week 29-32
 
 > **Correction (2026-09):** the app version was `0.1.1` (`0.8.0-alpha.1`
-> since 2026-10-17, see the [changelog](../../CHANGELOG.md)) — the historical
+> since 2026-10-17, `0.8.0-alpha.2` since 2026-10-19, see the
+> [changelog](../../CHANGELOG.md)) — the historical
 > "v1.0.0 release candidate" claim in the old README was wrong and has been
 > removed (CS-PLAN-068 D6). Phase 8's *targets* below remain the roadmap;
 > they are not current capability.
@@ -390,8 +395,8 @@ notes in each phase mark the corrections). What the app can do **today**
 #### Tasks
 - [ ] Code Review (Day 1)
   - [ ] P6 & P7 code review
-  - [ ] PHP coding-standard check (`composer cs:check` — Nextcloud coding standard)
-  - [ ] ESLint compliance check
+  - [x] PHP coding-standard check (`composer cs:check` — Nextcloud coding standard; part of every release gate)
+  - [x] ESLint compliance check (part of every release gate)
   - [ ] Dead code removal
 - [ ] Security audit
   - [ ] Input validation review
@@ -401,17 +406,17 @@ notes in each phase mark the corrections). What the app can do **today**
   - [ ] **Nextcloud isolation verification** (app cannot crash server)
 - [ ] Internal Testing Phase
   - [ ] Test DB exploration (manual testing)
-  - [ ] Beta deployment on personal Nextcloud server
-  - [ ] Backup strategy verification
-  - [ ] Friends/family beta testers (optional)
+  - [x] Alpha deployment on the personal Nextcloud server (`0.8.0-alpha.1` 2026-10-17, `0.8.0-alpha.2` 2026-10-19; [deployment guide](../engineering/deployment.md#first-retained-baseline))
+  - [x] Backup strategy verification (operator-confirmed whole-instance recovery procedure, 2026-10-11)
+  - [ ] Family trial (14-day everyday use on `0.8.0-alpha.2`, running since 2026-10-19; CS-PLAN-080)
 - [ ] Final testing
-  - [ ] Integration tests with Docker
-  - [ ] E2E test stabilization
-  - [ ] Manual test checklist
+  - [x] Integration tests with Docker (canonical stack, every release gate)
+  - [x] E2E test stabilization (Playwright gate passes on both runtime rows without retries)
+  - [x] Manual test checklist ([release test plan](../testing/release-test-plan.md); the alpha execution record is still open)
 - [ ] Documentation
-  - [ ] User guide (README.md enhancement)
+  - [x] User guide ([`docs/user-guide.md`](../user-guide.md) and README, 2026-10-18)
   - [ ] API documentation completion
-  - [ ] Update screenshots
+  - [x] Update screenshots (reproducible `npm run docs:screenshots`, 2026-10-18)
   - [ ] Create CHANGELOG.md for v1.0.0
 - [ ] Release preparation
   - [ ] Create release notes
@@ -477,7 +482,7 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ---
 
-**Last Updated**: 2026-10-07
-**Current Phase**: Phase 8 (Release Preparation) — In Progress on `v0.1.x`
-pre-release; see the Current Capability Snapshot at the top for what is
-shipped versus still open.
+**Last Updated**: 2026-10-19
+**Current Phase**: Phase 8 (Release Preparation) — `v0.8` internal alpha,
+`0.8.0-alpha.2` deployed on the maintainer's family instance; see the Current
+Capability Snapshot at the top for what is shipped versus still open.

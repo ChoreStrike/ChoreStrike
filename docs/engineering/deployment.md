@@ -194,6 +194,8 @@ migrations are immutable under the
 Disposable development installs and the canonical test environment (Nextcloud
 35.0.2 / PHP 8.4.26 / PostgreSQL 18.6, frozen in `docker/test-runtime.json`)
 stay disposable; they are neither retained data nor supported upgrade sources.
+The installed build on that baseline is `0.8.0-alpha.2` since 2026-10-19
+([updates](#updates-on-the-retained-baseline)).
 
 The production household has been non-disposable since the operator request of
 2026-10-11: no reset, reseed, destructive reinstall or edits to its applied
@@ -252,6 +254,30 @@ Applied migrations in order, with the SHA-256 of `lib/Migration/Version<id>.php`
 | 24 | `1031Date20260918000000` | `6bb4dcd2ecd674357722f3989540c8dfce744bc1c37466e1cc411c3551233abf` |
 | 25 | `1032Date20260918000000` | `bc78127f956636a63a67406b6b563df20f2cbbc32a9d44e92931365ab315cdd5` |
 | 26 | `1033Date20260918000000` | `7d04a97b5dafd5f67b5a975350c4b69475a481221607ac1364581ac495dc47b4` |
+
+### Updates on the Retained Baseline
+
+An app update whose package carries the same applied migration files adopts no
+new baseline; it only changes the installed build identity of the baseline.
+Each update is recorded here once the operator's sanitized report has been
+verified against the local qualification run, Git and the pinned inventory.
+
+#### Update to 0.8.0-alpha.2 (2026-10-19)
+
+| Item | Record |
+|------|--------|
+| Decision | Operator decision 2026-10-19 ([CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#deployment-080-alpha2-2026-10-19)): the family trial starts on this version |
+| Source | `master` `fcb65cfb8414cb5955d7082e8810e88282fc4b71` |
+| Artifact | `chorestrike.tar.gz`, 1796118 bytes, SHA-256 `a7af6fc8ee2055f2634b0dd1a63d388a1a7352aac4b327426860a69e65f6a9ac`; `package-manifest.json` `b3f1ebc6de1799d89126e23253cd54c69357d349378110e4d0ba702d4a848be9`; `identity.json` `67dc5c3ebf810a8f02d8268846705d57fbfd5d5cc1565722d38f9f11d978ccd8`; package smoke `mvfk6u1m` (`package-qualified`, NC 35.0.2 and AIO NC 34.0.4) |
+| Receiver checks | Operator-reported: all sizes and hashes matched; full in-memory archive validation before extraction (no links, traversal or duplicates; 545 file hashes and 1100 source blob comparisons); all 545 files re-verified at the install location after the upgrade |
+| Installed version | `0.8.0-alpha.1` → `0.8.0-alpha.2` as reported by Nextcloud; app enabled, no pending database upgrade |
+| Runtime | Unchanged: Nextcloud 34.0.4 (AIO 14.3.0), PHP 8.4.26, PostgreSQL 18.6, Redis 8.10.2 — the inventory's AIO row |
+| Upgrade | No enabled app had a pending App Store update; files replaced under maintenance mode (about 35 seconds) with writers paused, then `occ upgrade`: only ChoreStrike updated, no repair warnings; enabled/disabled app list otherwise unchanged |
+| Migrations | The 26 applied migrations above, unchanged and none executed; the package carries the same 26 files byte-identically (reconciled with Git, the package manifest and the pinned inventory) |
+| Data preservation | All 30 app tables (row counts and content digests) and the app config except `installed_version` identical before and after |
+| Technical evidence | Candidate gates in [CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#pre-deployment-candidate-080-alpha2-2026-10-19): full gate on both runtime rows plus the MariaDB/SQLite provider suites, final Full review `PASS-WITH-FIXES` |
+| Smoke | Operator production browser smoke passed 2026-10-19 ([post-deployment verification](#post-deployment-verification)); the notifier deprecation warning of the first deployment is gone |
+| Recovery | Current whole-instance backup taken before the update; existing recovery procedure confirmed, no new restore test. Recovery from here is a whole-instance restore, never an app downgrade |
 
 ### Schema Changes After Adoption
 
@@ -465,14 +491,17 @@ sign-off record. **A release tag requires a completed record.**
 
 ## Post-Deployment Verification
 
-Operator-reported smoke of the deployed `0.8.0-alpha.1` (2026-10-17), building
-on the initial smoke of 2026-10-11: the checks below are manual reports, not
-independent server verification, reported as a whole rather than itemized; the
-console/CSP checks and 403 probes of earlier smokes were not recorded separately.
-Fresh private browser window on phone and desktop: cold login, My Day, dashboard,
-settings and the remaining views. The member-completion failure of 2026-10-11 did
-not reproduce. Optional Coins/reward checks are deferred, not passed or removed
-from the eventual release gate.
+Operator-reported smoke of the deployed `0.8.0-alpha.2` (2026-10-19), after the
+`0.8.0-alpha.1` smoke of 2026-10-17 and the initial smoke of 2026-10-11: the
+checks below are manual reports, not independent server verification, reported
+as a whole rather than itemized; console/CSP checks and 403 probes were not
+recorded separately. 2026-10-19, phone and desktop: My Day, task completion with
+the hold button, the calendar, Insights on a phone and the arcade — no failure
+toast, so no API error code. Ticks the 2026-10-19 smoke did not re-check carry
+the 2026-10-17 result on the same instance (fresh private browser window, cold
+login, dashboard, settings and the remaining views; the member-completion
+failure of 2026-10-11 did not reproduce). Optional Coins/reward checks are
+deferred, not passed or removed from the eventual release gate.
 
 - [x] App appears in Nextcloud app list
 - [x] App icon visible in the app launcher
@@ -485,7 +514,7 @@ from the eventual release gate.
 - [x] User management works (invite, remove)
 - [x] Nextcloud cron runs regularly (normally every five minutes); timeline and optional digest processing are operational, not dependent on page visits
 - [ ] Test mode remains disabled; no test accounts, seeds or fixture resets were introduced
-- [x] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — one recurring level-2 deprecation warning from `ChoreStrikeNotifier::prepare()` on every notification poll, no functional impact (fixed for the next candidate)
+- [x] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — the recurring `ChoreStrikeNotifier::prepare()` deprecation warning of `0.8.0-alpha.1` no longer appears since `0.8.0-alpha.2`. Known and harmless: one level-2 `cron.php` entry a few minutes after any `occ upgrade` on AIO, `Skipping updater backup clean-up - could not find updater backup folder …` — the core repair step `AddCleanupUpdaterBackupsJob` queues `BackgroundCleanupUpdaterBackupsJob` on every upgrade and AIO has no web-updater backup folder (Nextcloud `stable34`); it also shows that background jobs ran after the maintenance window
 
 ### Performance
 

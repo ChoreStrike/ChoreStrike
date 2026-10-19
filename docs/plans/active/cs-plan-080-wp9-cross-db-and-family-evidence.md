@@ -1,6 +1,6 @@
 # CS-PLAN-080: WP9 Cross-Database Verification and Family Evidence
 
-> **Status:** Active — since 2026-10-18 the single open plan of the CS-PLAN-070 program: the parent closed with a final Standard B `PASS-WITH-FIXES` and its remaining G3 family evidence, the final CONCEPT-001 closure and RF-080-17 are consolidated here (user decision; see [Consolidation](#consolidation-of-cs-plan-070-2026-10-18); RF-080-17 resolved 2026-10-19 in the `0.8.0-alpha.2` candidate). Earlier: (technical gates passed; `0.8.0-alpha.1` deployed and adopted as the first retained baseline 2026-10-17; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
+> **Status:** Active — since 2026-10-18 the single open plan of the CS-PLAN-070 program: the parent closed with a final Standard B `PASS-WITH-FIXES` and its remaining G3 family evidence, the final CONCEPT-001 closure and RF-080-17 are consolidated here (user decision; see [Consolidation](#consolidation-of-cs-plan-070-2026-10-18); RF-080-17 resolved 2026-10-19 in the `0.8.0-alpha.2` candidate; `0.8.0-alpha.2` deployed to the family instance 2026-10-19 and the trial starts on it — [record](#deployment-080-alpha2-2026-10-19)). Earlier: (technical gates passed; `0.8.0-alpha.1` deployed and adopted as the first retained baseline 2026-10-17; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
 > **Effort:** M, 4-6 engineering days plus 14 calendar days of voluntary everyday use; revise after the portability inventory if repairs exceed this allowance
 > **Priority:** P1
 > **Depends on:** WP0-WP8 delivered; Standard A before implementation; separately authorized, available consenting family testers before human evidence
@@ -408,6 +408,39 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 
 ## Implementation Evidence
 
+### Deployment 0.8.0-alpha.2 (2026-10-19)
+
+- **Deployed (operator, 2026-10-19):** the candidate below went to the
+  production AIO (Nextcloud 34.0.4 / PHP 8.4.26 / PostgreSQL 18.6 / Redis
+  8.10.2, the inventory's AIO row) as an app update on the retained baseline.
+  Installed version `0.8.0-alpha.1` → `0.8.0-alpha.2`; `occ upgrade` updated
+  ChoreStrike only, executed no migration and raised no repair warning; the 26
+  applied migrations, all 30 app tables and the app config (except
+  `installed_version`) identical before and after; other apps unchanged. No new
+  baseline adoption: the installed build identity of the 2026-10-17 baseline is
+  now `fcb65cf`. Full record in
+  [deployment.md](../../engineering/deployment.md#update-to-080-alpha2-2026-10-19).
+- **Verification before import:** the sanitized operator report was read in
+  full and its claims checked independently — source commit = `master`
+  `fcb65cf`; archive size and SHA-256, manifest and identity hashes identical
+  in the report, the exchange copy and the local qualification run `mvfk6u1m`
+  (`package-qualified`, record hash as handed off); the 26 reported migration
+  hashes match the adoption record, the pinned inventory and a fresh hash of
+  the files at `fcb65cf`, with no further migration file; the runtime row
+  matches `docker/test-runtime.json`. The cited one-time core warning after
+  `occ upgrade` (`AddCleanupUpdaterBackupsJob` queues
+  `BackgroundCleanupUpdaterBackupsJob`, which warns when the web-updater backup
+  folder is missing, as on AIO) matches Nextcloud `stable34`.
+- **Production smoke (operator-reported, 2026-10-19):** passed on phone and
+  desktop — My Day, task completion with the hold button, the calendar,
+  Insights on a phone and the arcade; no failure toast. Cron ran after the
+  maintenance window; the notifier deprecation warning of `0.8.0-alpha.1` is
+  gone; no ChoreStrike log entry.
+- **Family trial:** starts on this version. Still open and owned by the
+  operator: the real-device checklist (RF-080-15, TECH-TEST-005, §14.1
+  template), HUMAN-01 comprehension and the 14-day HUMAN-02 period
+  (RF-080-05), then the final review.
+
 ### Pre-Deployment Candidate 0.8.0-alpha.2 (2026-10-19)
 
 - **Operator decisions (2026-10-19):** deploy the next candidate to the family
@@ -446,9 +479,10 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   1467, integration 625 each. No TECH-TRANSPORT-001 closure occurred. All four
   rows were removed after their runs.
 - **Package:** built and smoked from the `master` commit that carries this
-  record, after the fast-forward; its run, archive hash and the deployment
-  outcome go into the deployment guide's adoption record with the operator's
-  report.
+  record (`fcb65cf`), after the fast-forward: run `mvfk6u1m`
+  (`package-qualified` on both rows), archive SHA-256 `a7af6fc8…`, exported to
+  the private exchange the same day. Deployment outcome:
+  [above](#deployment-080-alpha2-2026-10-19).
 
 ### Real-Device Record Template (2026-10-18)
 
