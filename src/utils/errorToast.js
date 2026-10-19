@@ -42,3 +42,17 @@ export function showErrorWithReference(message, error) {
 		? t('chorestrike', '{message} ({reference})', { message, reference }, undefined, { escape: false })
 		: message)
 }
+
+/**
+ * The failure toast of a completion attempt. A refused join behind an
+ * in-flight completion with another work split (CR-084-02) gets its own
+ * hint: the first completion usually succeeds, only the split is not used.
+ * @param {*} error The caught error.
+ */
+export function showCompletionError(error) {
+	if (error?.code === 'COMPLETION_IN_FLIGHT') {
+		showError(t('chorestrike', 'This task is already being completed with another work split. Check the split once it is done.'))
+		return
+	}
+	showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)
+}

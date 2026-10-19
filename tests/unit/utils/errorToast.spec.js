@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from '@jest/globals'
 import { showError } from '@nextcloud/dialogs'
-import { errorReference, showErrorWithReference } from '@/utils/errorToast.js'
+import { errorReference, showCompletionError, showErrorWithReference } from '@/utils/errorToast.js'
 import { ApiError } from '@/services/api.js'
 
 describe('errorToast (CS-PLAN-084 WP-F)', () => {
@@ -42,5 +42,18 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		showErrorWithReference('Could not complete the task', new Error('boom'))
 
 		expect(showError).toHaveBeenCalledWith('Could not complete the task')
+	})
+
+	// CR-084-02: a refused join names the split instead of a bare failure.
+	it('explains a completion refused behind another in-flight split', () => {
+		showCompletionError(Object.assign(new Error('in flight'), { code: 'COMPLETION_IN_FLIGHT' }))
+
+		expect(showError).toHaveBeenCalledWith('This task is already being completed with another work split. Check the split once it is done.')
+	})
+
+	it('shows the referenced failure for any other completion error', () => {
+		showCompletionError(new ApiError('Conflict', 409, {}, 'CONFLICT'))
+
+		expect(showError).toHaveBeenCalledWith('Could not complete the task (CONFLICT)')
 	})
 })

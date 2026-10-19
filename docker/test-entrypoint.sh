@@ -246,11 +246,13 @@ elif [ -n "${TEST_RUNTIME_INTERNAL_VERSION:-}" ] \
 fi
 
 # TECH-TEST-006: an app version bump on kept disposable volumes leaves
-# Nextcloud waiting for an upgrade of the app alone (the frozen core version
-# was verified above). Ordinary, seeded provisioning applies it through the
-# official upgrade path; preservation mode keeps its pinned
+# Nextcloud waiting for an upgrade of the app alone. Ordinary, seeded
+# provisioning applies it through the official upgrade path — only with a
+# frozen core version, which was verified above, so this never updates
+# Nextcloud itself; preservation mode keeps its pinned
 # TEST_RUNTIME_UPGRADE_FROM contract and never upgrades implicitly.
-if [ "$TEST_RUNTIME_PRESERVATION" != true ] && occ status --output=json | php -r '
+if [ "$TEST_RUNTIME_PRESERVATION" != true ] && [ -n "${TEST_RUNTIME_INTERNAL_VERSION:-}" ] \
+    && occ status --output=json | php -r '
     $status = json_decode(file_get_contents("php://stdin"), true);
     exit(empty($status["needsDbUpgrade"]) ? 1 : 0);'; then
     echo "App-only upgrade pending on the kept disposable volumes; running occ upgrade..."

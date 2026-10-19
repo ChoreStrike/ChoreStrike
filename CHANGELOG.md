@@ -21,12 +21,13 @@ now pinned by a test.
   optional per member; color, motion and sound follow the personal opt-ins
   (CS-PLAN-086).
 - **Overdue means missed:** the calendar marks a day red only when that
-  occurrence's window has ended, and a task created, rescheduled or completed
-  inside its open flex window no longer turns red until the next list refresh
-  (CR-084-01/03).
+  occurrence's window has ended, and a task created, rescheduled, completed,
+  undone or re-split inside its open flex window no longer turns red until the
+  next list refresh (CR-084-01/03).
 - **A reviewed work split is never dropped:** completing a task again while its
-  first completion is still being saved is refused with an error when the work
-  split differs, instead of silently reporting the first completion (CR-084-02).
+  first completion is still being saved is refused with a hint to check the
+  work split when the split differs, instead of silently reporting the first
+  completion (CR-084-02).
 - **Phones:** the Insights fairness table scrolls inside its own box and the
   room page fits the screen; no view scrolls sideways any more (UX-018).
 

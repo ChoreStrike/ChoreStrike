@@ -89,3 +89,52 @@ code, three nits accepted with reasons. One unattributed occurrence routed:
 TECH-TEST-009. The plan moves `active/ → done/`; FEAT-ARCADE-001..003 are
 archived; `master` is fast-forwarded to the review commit (D-086-10), nothing
 is pushed or deployed.
+
+## Full Review — `0.8.0-alpha.2` family-trial candidate
+
+**Outcome:** `PASS-WITH-FIXES` · **Transition:** none (backlog items without an owning plan; CS-PLAN-080 stays `active/`, its RF-080-17 resolved)
+
+### Scope
+
+| Item | Value |
+|---|---|
+| Owning plan | N/A for TECH-TEST-006/007, CR-084-01/02/03 and UX-018 (backlog items); CS-PLAN-080 for RF-080-17 |
+| Request | User, 2026-10-19: prepare the next deployment from the backlog — the candidate the family trial starts on; commits per item, local merge, package export (no push) |
+| Branch / base HEAD | `fix/alpha2-trial-candidate` (worktree `~/worktrees/chorestrike-alpha2`, pinned, from `master` `af81772`); capture HEAD `a0e186ef480dca8a48853e477e579f601c1402a1` |
+| Reviewed implementation | `master..a0e186e`: seven commits (41 files: `lib/` room-task read/controller/occurrence selection, `src/` store/calendar/room detail/fairness table, test entrypoint and doubles, migration guard, PHPUnit/Jest/Playwright specs, API/engineering docs, release metadata, screenshots) |
+| Index / scope at capture | clean working tree, empty index |
+| Tracks | four read-only reviewers in parallel: correctness, architecture, security/auth/data flow, performance/quality; every finding re-verified before routing |
+
+### Findings
+
+| ID | Sev | Track | Area | Issue | Status |
+|----|-----|-------|------|-------|--------|
+| RA2-01 | minor | correctness, architecture | `CompletionController` undo/attribute, completion replay, `SchedulePlanService::authoritativeRoomTasks` | CR-084-03 was incomplete: these responses still serialized the entity day rule (undo/attribution even in the server time zone through the raw entity) | Fixed — undo uses its fresh selection block, attribution and replay resolve the selection, schedule apply uses the batched selections; controller wiring tests and a schedule-apply integration assertion |
+| RA2-02 | minor | security, performance | `RoomTaskController` create/due date | The new status read ran after the commit; a failure answered 500 for persisted work a client might repeat | Fixed — `RoomTaskReadService::committedRoomTaskPayload` degrades to the entity rule with a logged warning (create, due date, replay, attribution); unit test |
+| RA2-03 | minor | performance | `RoomTaskService::getRangeTasks` | A second selection derivation (about six extra reads on every calendar, My Day side-panel and scheduling range read) only for `roomTask.status`, which no client reads | Fixed — the range row keeps the entity rule, documented in the API, docblock and archive; the per-day `late` mark stays the calendar's authority |
+| RA2-04 | minor | correctness, performance | `roomTasks.js` `COMPLETION_IN_FLIGHT`, three completing views | The refusal showed "Could not complete the task" although the first completion succeeds; its English guidance was dead text and the refusal was logged twice | Fixed — `showCompletionError` shows a translated hint to check the split (POT/EN/DE), the store logs at debug; Jest |
+| RA2-05 | minor | performance | controller specs | Nothing pinned which classification each payload receives | Fixed — complete, replay, due-today rows, due date (`RoomTaskControllerTest`), undo and attribution (`CompletionControllerTest`) |
+| RA2-06 | minor | gate | `RoomTaskController::complete` | A replay response has no `occurrence` key; `$result['occurrence']` raised an undefined-key warning on every replayed completion (pre-existing, surfaced by the new replay test) | Fixed — `?? null` |
+| RA2-07 | nit | security | `docker/test-entrypoint.sh` | The app-only `occ upgrade` relied on a core-version check that only runs with `TEST_RUNTIME_INTERNAL_VERSION` | Fixed — gated on it; provisioning case without frozen versions; the `curl` double defaults the variable |
+| RA2-08 | nit | performance | `MemberFairnessTable.vue` | The new scroll box could not be scrolled by keyboard | Fixed — `role="region"`, `tabindex="0"`, accessible name from the existing "Fairness" string |
+| RA2-09 | nit | correctness | `layout-clearance.spec.ts` | The phone check passed vacuously if the overflowing content never rendered | Fixed — Insights table and room task list must be visible before measuring |
+| RA2-10 | nit | architecture | CS-PLAN-080 header, `design.md` | Header still listed RF-080-17 as open; the no-sideways-scroll rule lived only in the CHANGELOG and a test | Fixed |
+| RA2-11 | nit | performance | `SuccessorOwnershipTest` | Two identical selection derivations per case | Fixed |
+| RA2-12 | nit | architecture | `RoomTaskController` | The `occurrence.classification ?? null` lookup repeats at four call sites | Accepted — each site pairs the payload with its own block; a helper would hide which block applies |
+| RA2-13 | nit | correctness | `SuccessorOwnershipTest` range case | Interval fixture only; no fixed-cadence range case with several past days | Accepted — `isMissed` is unit-tested for every predicate and applied identically to virtual and materialized entries; the integration case covers the open-window vs. missed boundary |
+| RA2-14 | nit | performance | create/due-date responses | No query-count pin for the added single-row selection read | Accepted — one batched selection like the list rows, after the commit and best-effort; `WorkflowQueryBudgetTest` keeps pinning the writes |
+| RA2-15 | gate | — | `RoomTaskControllerIntegrationTest` | The mocked read service returned `[]` for the new payload method (integration 624/625) | Fixed — the double delegates to `jsonSerialize` |
+
+### Verified non-findings
+
+- No cross-house or invisible-task exposure: the range read filters visibility before any selection or `late` computation; single-row paths re-serialize rows already authorized in the caller's house; the split comparison is a client UX guard, the server keeps validating participants.
+- `isMissed` is behavior-identical to the former inline catch-up predicate; the window end stays exclusive.
+- The migration guard matches all 26 pinned files on this CRLF checkout and is import-safe.
+
+### Gates (after all fixes)
+
+Jest 155 suites / 2137 tests, ESLint, Stylelint, production build, `test:noise`, `l10n:check-keys` (1334), `docs:encoding` (1100), `backlog:check`, `agents:check`, `composer cs:check` (0/423); Docker canonical stack (NC 35.0.2, family seed): PHPUnit unit 1467, integration 625 `--fail-on-skipped`; focused browser `layout-clearance` 3/3 plus setup. The qualification on both runtime rows, the provider suites and the package smoke follow on the reviewed candidate.
+
+### Outcome
+
+`PASS-WITH-FIXES`: all minor findings fixed, three nits accepted with reasons, no open question. Backlog items TECH-TEST-006/007, CR-084-01/02/03 and UX-018 were archived with their commits; RF-080-17 is resolved in CS-PLAN-080.

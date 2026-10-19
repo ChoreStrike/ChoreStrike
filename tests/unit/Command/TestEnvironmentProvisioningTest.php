@@ -117,8 +117,10 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			[$exit, $output] = $this->runEntrypoint([
 				'PATH' => $directory . ':' . getenv('PATH'),
 				'PROVISION_SCENARIO' => $scenario,
-				'TEST_RUNTIME_INTERNAL_VERSION' => '35.0.1.1',
-				'TEST_RUNTIME_PHP_VERSION' => '8.4.25',
+				// Without frozen versions the app-only upgrade never runs: it
+				// could otherwise update the Nextcloud core (TECH-TEST-006).
+				'TEST_RUNTIME_INTERNAL_VERSION' => $scenario === 'app-upgrade-unfrozen' ? '' : '35.0.1.1',
+				'TEST_RUNTIME_PHP_VERSION' => $scenario === 'app-upgrade-unfrozen' ? '' : '8.4.25',
 				'TEST_SEED_SCRIPT' => $scenario === 'missing-seed' ? $directory . '/missing-seed.sh' : __DIR__ . '/../../fixtures/provision-command.sh',
 			], []);
 			self::assertSame($expectedExit, $exit, $output);
@@ -177,6 +179,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			['apps-paths-read-failure', 1, 'apps_paths configuration probe failed'],
 			['app-upgrade', 0, 'App-only upgrade pending on the kept disposable volumes'],
 			['app-upgrade-failure', 1, 'UPGRADE_FAILED'],
+			['app-upgrade-unfrozen', 0, 'Setup Complete'],
 		];
 	}
 

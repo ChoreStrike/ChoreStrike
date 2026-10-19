@@ -823,10 +823,12 @@ daily task appears on every day it recurs. One-time tasks emit a single occurren
 `classification` `agreed`/`projection`, `version`, `fulfilled`) and `late`: the
 occurrence's saved window has ended without the work being fulfilled, covered or
 neutrally suspended. The calendar marks exactly those days overdue — a past planned
-day inside an open flex window is still due (CR-084-01). Like every endpoint that
-serializes a room task, `roomTask.status` follows the occurrence selection
-(`overdue` only for missed work); the entity's house-local day rule is the fallback
-for a row without a selection (CR-084-03).
+day inside an open flex window is still due (CR-084-01). The range row's
+`roomTask.status` keeps the entity's house-local day rule; every other response that
+serializes a room task — list, execution, filtered-daily, create, due-date,
+completion (replays included), undo, attribution and schedule apply — reports
+`status` from the occurrence selection (`overdue` only for missed work), with the day
+rule as the fallback for a row without a selection (CR-084-03).
 
 **Parameters:**
 - `from` (required): Start date, `Y-m-d` format.

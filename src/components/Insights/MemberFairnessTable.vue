@@ -4,8 +4,14 @@
 -->
 
 <template>
-	<div class="member-fairness-scroll" data-testid="member-fairness-scroll">
-		<!-- UX-018: the table scrolls inside its own box, never the whole view -->
+	<div
+		class="member-fairness-scroll"
+		data-testid="member-fairness-scroll"
+		role="region"
+		tabindex="0"
+		:aria-label="t('chorestrike', 'Fairness')">
+		<!-- UX-018: the table scrolls inside its own box, never the whole
+		     view; the box is focusable so a keyboard can scroll it too -->
 		<table class="member-fairness" data-testid="member-fairness-table">
 			<thead>
 				<tr class="fairness-header">

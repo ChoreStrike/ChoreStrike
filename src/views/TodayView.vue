@@ -284,7 +284,7 @@ import { useUserStore } from '../store/user.js'
 import { useGameStore } from '../store/game.js'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { logger } from '../utils/logger.js'
-import { showErrorWithReference } from '../utils/errorToast.js'
+import { showCompletionError, showErrorWithReference } from '../utils/errorToast.js'
 import { assignmentLabel } from '../utils/taskDisplay.js'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
@@ -644,7 +644,7 @@ export default {
 					})
 				}
 			} catch (error) {
-				showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)
+				showCompletionError(error)
 				logger.error('Failed to complete task', error, { view: 'TodayView', action: 'complete', roomTaskId })
 			}
 		},

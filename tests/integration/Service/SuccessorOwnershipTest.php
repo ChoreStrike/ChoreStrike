@@ -173,23 +173,24 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 			$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
 			$tz = $this->readService->timeZoneForHouse($f['houseId']);
 			self::assertSame('overdue', $roomTask->jsonSerialize($tz)['status'], $label . ': precondition, entity day rule');
-			self::assertSame($expected, $this->readService->selectedRoomTaskPayload($f['houseId'], $roomTask, $tz)['status'], $label);
-			self::assertSame($this->listStatus($f)[0], $this->readService->selectedRoomTaskPayload($f['houseId'], $roomTask, $tz)['status'], $label . ': equals the list row');
+			$status = $this->readService->selectedRoomTaskPayload($f['houseId'], $roomTask, $tz)['status'];
+			self::assertSame($expected, $status, $label);
+			self::assertSame($this->listStatus($f)[0], $status, $label . ': equals the list row');
 		}
 	}
 
 	/**
 	 * CR-084-01: the calendar marks a day entry overdue only when its
 	 * occurrence's window has ended — a past planned day inside an open flex
-	 * window is not late, and the range row reports the list status.
+	 * window is not late.
 	 */
 	public function testRangeRead_MarksOnlyEndedWindowsLate(): void {
 		$cases = [
-			'missed' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00'), true, 'overdue'],
-			'open flex window' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00', 2), false, 'due_today'],
+			'missed' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00'), true],
+			'open flex window' => [$this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00', 2), false],
 		];
 		$yesterday = (new \DateTime('-1 day'))->format('Y-m-d');
-		foreach ($cases as $label => [$f, $late, $status]) {
+		foreach ($cases as $label => [$f, $late]) {
 			$owner = $this->houseUserMapper->findByNextcloudUserId($f['houseId'], self::OWNER);
 			$range = \OC::$server->get(RoomTaskService::class)->getRangeTasks(
 				$f['houseId'], new \DateTime('-3 days'), new \DateTime('+1 day'), $owner);
@@ -198,7 +199,6 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 			$days = array_values(array_filter($rows[0]['occurrenceDetails'], static fn (array $detail): bool => $detail['date'] === $yesterday));
 			self::assertCount(1, $days, $label . ': the planned day is in the range');
 			self::assertSame($late, $days[0]['late'], $label);
-			self::assertSame($status, $rows[0]['roomTask']['status'], $label . ': range row status');
 		}
 	}
 

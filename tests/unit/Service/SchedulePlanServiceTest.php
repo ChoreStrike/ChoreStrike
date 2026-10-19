@@ -120,6 +120,7 @@ class SchedulePlanServiceTest extends TestCase {
 			new TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			new CalendarService(),
 			$this->taskAccessPolicy,
+			$this->readServiceKeepingEntityStatus(),
 			$l10n,
 		);
 
@@ -167,6 +168,14 @@ class SchedulePlanServiceTest extends TestCase {
 	// -----------------------------------------------------------------
 	// Fixture helpers
 	// -----------------------------------------------------------------
+
+	/** Read-service double for the apply response: no selection, entity status. */
+	private function readServiceKeepingEntityStatus(): \OCA\ChoreStrike\Service\RoomTaskReadService {
+		$readService = $this->createMock(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		$readService->method('roomTaskPayload')
+			->willReturnCallback(static fn (RoomTask $roomTask, \DateTimeZone $tz) => $roomTask->jsonSerialize($tz));
+		return $readService;
+	}
 
 	private function member(string $userId, int $rowId, string $role = 'member', array $budget = [], array $extraPreferences = []): HouseUser {
 		$member = new HouseUser();

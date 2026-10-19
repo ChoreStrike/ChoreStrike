@@ -1,6 +1,6 @@
 # CS-PLAN-080: WP9 Cross-Database Verification and Family Evidence
 
-> **Status:** Active — since 2026-10-18 the single open plan of the CS-PLAN-070 program: the parent closed with a final Standard B `PASS-WITH-FIXES` and its remaining G3 family evidence, the final CONCEPT-001 closure and RF-080-17 are consolidated here (user decision; see [Consolidation](#consolidation-of-cs-plan-070-2026-10-18)). Earlier: (technical gates passed; `0.8.0-alpha.1` deployed and adopted as the first retained baseline 2026-10-17; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
+> **Status:** Active — since 2026-10-18 the single open plan of the CS-PLAN-070 program: the parent closed with a final Standard B `PASS-WITH-FIXES` and its remaining G3 family evidence, the final CONCEPT-001 closure and RF-080-17 are consolidated here (user decision; see [Consolidation](#consolidation-of-cs-plan-070-2026-10-18); RF-080-17 resolved 2026-10-19 in the `0.8.0-alpha.2` candidate). Earlier: (technical gates passed; `0.8.0-alpha.1` deployed and adopted as the first retained baseline 2026-10-17; human coordination, guardian consent and voluntary participation confirmed 2026-10-07, execution/results pending; final review pending); drafted 2026-10-02; Standard A `PASS` 2026-10-03
 > **Effort:** M, 4-6 engineering days plus 14 calendar days of voluntary everyday use; revise after the portability inventory if repairs exceed this allowance
 > **Priority:** P1
 > **Depends on:** WP0-WP8 delivered; Standard A before implementation; separately authorized, available consenting family testers before human evidence
@@ -424,7 +424,7 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   Standard B `PASS-WITH-FIXES`, and its open remainder moved here unchanged.
   This plan is the program's single open plan.
 - **Taken over from the parent:** G3 (family evidence) and the final CONCEPT-001
-  closure, plus RF-080-17 from the parent's final review. The parent's RF-070
+  closure, plus RF-080-17 from the parent's final review (resolved 2026-10-19). The parent's RF-070
   verdicts are recorded there; none of them moves here as an open item.
 - **Unchanged here:** RF-080-05 (HUMAN-01/02), RF-080-15 and TECH-TEST-005 (the
   real-device checklist) and the final review. The gate itself is neither

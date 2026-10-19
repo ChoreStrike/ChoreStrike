@@ -526,9 +526,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			const pending = inFlightCompletions.get(roomTaskId)
 			if (pending) {
 				if (pending.splitKey === splitKey) return pending.request
-				const error = new Error('This task is already being completed. Wait a moment, then check its work split.')
+				// The calling view logs and shows the failure (showCompletionError).
+				const error = new Error('Completion with a different split already in flight')
 				error.code = 'COMPLETION_IN_FLIGHT'
-				logger.warn('Refused a completion with a different split while one is in flight', { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
+				logger.debug('Refused a completion with a different split while one is in flight', { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
 				return Promise.reject(error)
 			}
 			this.completingIds = { ...this.completingIds, [roomTaskId]: true }

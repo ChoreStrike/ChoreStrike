@@ -806,10 +806,11 @@ class RoomTaskService {
 		// serialized into the response.
 		$roomTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
 
-		// One batched agreed derivation for the whole window, plus the
-		// canonical selections for the row status (CR-084-03).
+		// One batched agreed derivation for the whole window. The calendar's
+		// overdue authority is the per-day `late` mark below (CR-084-01);
+		// the row's `roomTask.status` keeps the entity day rule — no client
+		// reads it, and a second selection derivation would only add reads.
 		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $roomTasks, $fromKey, $toKey);
-		$selections = $this->readService->occurrenceSelectionsForHouse($houseId, $roomTasks);
 		$now = new \DateTime();
 
 		$scheduled = [];
@@ -858,7 +859,7 @@ class RoomTaskService {
 			$flexWindow = $rt->getFlexWindowBounds($task->getFlexDays());
 
 			$scheduled[] = [
-				'roomTask' => $this->readService->roomTaskPayload($rt, $tz, $selections[$rt->getId()]['classification'] ?? null),
+				'roomTask' => $rt->jsonSerialize($tz),
 				'task' => $task->jsonSerialize(),
 				'room' => $room->jsonSerialize(),
 				'flexWindow' => [

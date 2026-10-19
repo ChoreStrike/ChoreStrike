@@ -131,7 +131,7 @@ import { useTasksStore } from '../store/tasks.js'
 import { useHouseStore } from '../store/house.js'
 import { compareTaskItems, dueClass, isOverdue } from '../utils/taskDisplay.js'
 import { logger } from '../utils/logger.js'
-import { showErrorWithReference } from '../utils/errorToast.js'
+import { showCompletionError, showErrorWithReference } from '../utils/errorToast.js'
 import { NcButton } from '@nextcloud/vue'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
@@ -518,7 +518,7 @@ export default {
 			} catch (error) {
 				// CS-PLAN-066 §3.5: mutation failures are visible toasts,
 				// not logger-only lines.
-				showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)
+				showCompletionError(error)
 				logger.error('Failed to complete task', error, { view: 'TaskManager', action: 'handleCompleteTask', roomTaskId })
 			}
 		},

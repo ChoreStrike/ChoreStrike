@@ -172,7 +172,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class),
 			\OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
 			new \OCA\ChoreStrike\Service\EffortAllocationService(),
-			$l10n
+			$l10n,
+			\OC::$server->get(\OCA\ChoreStrike\Service\AppLogger::class)
 		);
 
 		$this->service = new RoomTaskService(
@@ -338,7 +339,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			\OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class),
 			\OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
 			new \OCA\ChoreStrike\Service\EffortAllocationService(),
-			$this->identityL10n()
+			$this->identityL10n(),
+			\OC::$server->get(\OCA\ChoreStrike\Service\AppLogger::class)
 		);
 
 		$result = $this->readService->getClaimableOverdueTasks($houseId, $this->ownerViewer());

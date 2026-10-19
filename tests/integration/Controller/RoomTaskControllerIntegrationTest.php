@@ -36,6 +36,10 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
 		$this->roomTaskReadService = $this->createMock(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		// CR-084-03: the controller serializes room tasks through the read
+		// service; the double keeps the entity serialization.
+		$this->roomTaskReadService->method('roomTaskPayload')
+			->willReturnCallback(static fn ($roomTask, \DateTimeZone $tz) => $roomTask->jsonSerialize($tz));
 		$this->completionService = $this->createMock(CompletionService::class);
 		$this->taskCreationService = $this->createMock(\OCA\ChoreStrike\Service\TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);

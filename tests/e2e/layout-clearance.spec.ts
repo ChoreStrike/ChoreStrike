@@ -80,13 +80,13 @@ test.describe('Layout clearance and dashboard health bar', () => {
 			test.setTimeout(180000)
 			const { context, page } = await createUserContext(browser, USER, { viewport })
 			try {
-				const views = [
+				const views: Array<{ path: string, ready: string, content?: string }> = [
 					{ path: '#/today', ready: 'today-view' },
 					{ path: '#/dashboard', ready: 'dashboard-view' },
 					{ path: '#/tasks', ready: 'task-manager-view' },
-					{ path: `#/room/${await firstRoomId(page)}`, ready: 'room-detail-view' },
+					{ path: `#/room/${await firstRoomId(page)}`, ready: 'room-detail-view', content: 'room-task-list' },
 					{ path: '#/leaderboard', ready: 'leaderboard-view' },
-					{ path: '#/insights', ready: 'insights-view' },
+					{ path: '#/insights', ready: 'insights-view', content: 'member-fairness-table' },
 					{ path: '#/arcade', ready: 'arcade-view' },
 					{ path: '#/scheduling', ready: 'scheduling-view' },
 					{ path: '#/calendar', ready: 'calendar-view' },
@@ -109,6 +109,9 @@ test.describe('Layout clearance and dashboard health bar', () => {
 						covered.push(`${view.ready}: toggle ${JSON.stringify(toggleBox)} covers heading text ${JSON.stringify(headingBox)}`)
 					}
 					if (viewport.name === 'phone') {
+						// The content that once overflowed must be rendered, or the
+						// check would pass on an empty view.
+						if (view.content) await expect(root.getByTestId(view.content)).toBeVisible()
 						scrolled.push(...(await sidewaysScrollers(root)).map(scroller => `${view.ready}: ${scroller}`))
 					}
 				}

@@ -348,15 +348,25 @@ class RoomTaskController extends Controller {
 	 * the assigned_at row order of the fresh assignee set.
 	 */
 	private function serializeAggregate(array $aggregate, \OCA\ChoreStrike\Db\House $house): array {
-		$tz = $this->timeZoneOf($house);
 		return [
 			'task' => $aggregate['task']->jsonSerialize(),
-			'roomTask' => $this->roomTaskReadService->selectedRoomTaskPayload((int)$house->getId(), $aggregate['roomTask'], $tz),
+			'roomTask' => $this->writtenRoomTaskPayload($house, $aggregate['roomTask'], 'create'),
 			'assignees' => array_map(
 				static fn ($assignee) => $assignee->getUserId(),
 				$aggregate['assignees']
 			),
 		];
+	}
+
+	/**
+	 * The payload of a room task this request just wrote (create, due date,
+	 * completion replay) with the selection status (CR-084-03), best-effort
+	 * after the commit.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function writtenRoomTaskPayload(\OCA\ChoreStrike\Db\House $house, \OCA\ChoreStrike\Db\RoomTask $roomTask, string $action): array {
+		return $this->roomTaskReadService->committedRoomTaskPayload((int)$house->getId(), $roomTask, $this->timeZoneOf($house), $action);
 	}
 
 	/**
@@ -448,7 +458,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $this->roomTaskReadService->selectedRoomTaskPayload((int)$house->getId(), $roomTask, $this->timeZoneOf($house))
+				'data' => $this->writtenRoomTaskPayload($house, $roomTask, 'updateDueDate')
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -515,12 +525,15 @@ class RoomTaskController extends Controller {
 			);
 
 			$data = [
-				'roomTask' => $this->roomTaskReadService->roomTaskPayload($result['roomTask'], $this->timeZoneOf($house), $result['occurrence']['classification'] ?? null),
+				// A replay carries no fresh selection block; resolve it.
+				'roomTask' => array_key_exists('occurrence', $result)
+					? $this->roomTaskReadService->roomTaskPayload($result['roomTask'], $this->timeZoneOf($house), $result['occurrence']['classification'] ?? null)
+					: $this->writtenRoomTaskPayload($house, $result['roomTask'], 'complete'),
 				'room' => $result['room']?->jsonSerialize(),
 				'task' => $result['task']->jsonSerialize(),
 				'rewards' => $result['rewards'],
 				'completionId' => $result['completionId'],
-				'occurrence' => $result['occurrence'],
+				'occurrence' => $result['occurrence'] ?? null,
 				'replay' => $result['replay'],
 			];
 			return new JSONResponse(['success' => true, 'data' => $data]);

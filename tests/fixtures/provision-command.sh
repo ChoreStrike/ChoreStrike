@@ -54,7 +54,7 @@ case "${0##*/}" in
         esac ;;
     curl)
         if [ "$PROVISION_SCENARIO" = http-failure ]; then exit 1; fi
-        echo "{\"installed\":true,\"maintenance\":false,\"needsDbUpgrade\":false,\"version\":\"$TEST_RUNTIME_INTERNAL_VERSION\"}" ;;
+        echo "{\"installed\":true,\"maintenance\":false,\"needsDbUpgrade\":false,\"version\":\"${TEST_RUNTIME_INTERNAL_VERSION:-}\"}" ;;
     bash)
         if [ "$PROVISION_SCENARIO" = seed-failure ]; then echo SEED_FAILED; exit 1; fi
         echo SEED_SUCCEEDED ;;

@@ -103,7 +103,8 @@ class RoomTaskServiceTest extends TestCase {
 				$this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class),
 				$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
 				new \OCA\ChoreStrike\Service\EffortAllocationService(),
-				$this->createIdentityL10n()
+				$this->createIdentityL10n(),
+				$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class)
 			),
 			$this->roomService,
 			$this->taskAssigneeMapper,

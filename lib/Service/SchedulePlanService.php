@@ -97,6 +97,7 @@ class SchedulePlanService {
 	private TransactionExecutor $transactions;
 	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
+	private RoomTaskReadService $readService;
 	private IL10N $l10n;
 
 	public function __construct(
@@ -114,6 +115,7 @@ class SchedulePlanService {
 		TransactionExecutor $transactions,
 		CalendarService $calendarService,
 		TaskAccessPolicy $taskAccessPolicy,
+		RoomTaskReadService $readService,
 		IL10N $l10n,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -130,6 +132,7 @@ class SchedulePlanService {
 		$this->transactions = $transactions;
 		$this->calendarService = $calendarService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
+		$this->readService = $readService;
 		$this->l10n = $l10n;
 	}
 
@@ -439,7 +442,9 @@ class SchedulePlanService {
 
 	/**
 	 * Freshly read, authorized room-task rows for the response (or replay
-	 * state). Empty selection/replay of a no-change plan yields [].
+	 * state). Empty selection/replay of a no-change plan yields []. The
+	 * `status` follows the occurrence selection like every list row
+	 * (CR-084-03).
 	 *
 	 * @param int[] $roomTaskIds
 	 * @return list<array<string, mixed>>
@@ -451,8 +456,10 @@ class SchedulePlanService {
 		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
 		$roomTasks = [];
 		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
-		foreach ($this->roomTaskMapper->findByIdsScopedToHouse($roomTaskIds, $houseId) as $row) {
-			$data = $row->jsonSerialize($tz);
+		$rows = $this->roomTaskMapper->findByIdsScopedToHouse($roomTaskIds, $houseId);
+		$selections = $this->readService->occurrenceSelectionsForHouse($houseId, $rows);
+		foreach ($rows as $row) {
+			$data = $this->readService->roomTaskPayload($row, $tz, $selections[$row->getId()]['classification'] ?? null);
 			$data['assignees'] = $assigneesByRoomTask[$row->getId()] ?? [];
 			$roomTasks[] = $data;
 		}

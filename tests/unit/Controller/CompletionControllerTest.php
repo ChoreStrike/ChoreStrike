@@ -19,6 +19,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -32,6 +33,7 @@ use PHPUnit\Framework\TestCase;
 class CompletionControllerTest extends TestCase {
 	private CompletionController $controller;
 	private CompletionService $completionService;
+	private RoomTaskReadService $roomTaskReadService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IRequest $request;
@@ -41,6 +43,8 @@ class CompletionControllerTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->completionService = $this->createMock(CompletionService::class);
+		$this->roomTaskReadService = $this->createMock(RoomTaskReadService::class);
+		$this->roomTaskReadService->method('timeZoneForHouse')->willReturn(new \DateTimeZone('UTC'));
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 
@@ -58,6 +62,7 @@ class CompletionControllerTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$this->completionService,
+			$this->roomTaskReadService,
 			$l10n,
 			$this->createMock(AppLogger::class)
 		);
@@ -125,18 +130,24 @@ class CompletionControllerTest extends TestCase {
 			'reasonCode' => 'wrong_person',
 		]);
 
-		$result = ['completionId' => 9, 'completionVersion' => 1, 'undone' => true];
+		$roomTask = new \OCA\ChoreStrike\Db\RoomTask();
+		$result = ['completionId' => 9, 'completionVersion' => 1, 'undone' => true,
+			'roomTask' => $roomTask, 'occurrence' => ['classification' => 'late']];
 		$this->completionService->expects($this->once())
 			->method('undo')
 			->with(1, $this->isInstanceOf(HouseUser::class), 9, self::UUID, 0, 'wrong_person')
 			->willReturn($result);
+		// CR-084-03: the row status follows the fresh selection block.
+		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
+			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), 'late')
+			->willReturn(['id' => 4, 'status' => 'overdue']);
 
 		$response = $this->controller->undo(9);
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
-		$this->assertSame($result, $data['data']);
+		$this->assertSame(array_replace($result, ['roomTask' => ['id' => 4, 'status' => 'overdue']]), $data['data']);
 	}
 
 	/**
@@ -232,18 +243,24 @@ class CompletionControllerTest extends TestCase {
 			'reasonCode' => 'wrong_split',
 		]);
 
-		$result = ['completionId' => 9, 'completionVersion' => 2, 'allocationRevision' => 2];
+		$roomTask = new \OCA\ChoreStrike\Db\RoomTask();
+		$result = ['completionId' => 9, 'completionVersion' => 2, 'allocationRevision' => 2,
+			'roomTask' => $roomTask, 'occurrence' => null];
 		$this->completionService->expects($this->once())
 			->method('attribute')
 			->with(1, $this->isInstanceOf(HouseUser::class), 9, self::UUID, 1, $participants, true, 'wrong_split')
 			->willReturn($result);
+		// CR-084-03: no selection block rides along — resolve it best-effort.
+		$this->roomTaskReadService->expects($this->once())->method('committedRoomTaskPayload')
+			->with(1, $roomTask, $this->isInstanceOf(\DateTimeZone::class), 'attribute')
+			->willReturn(['id' => 4, 'status' => 'due_today']);
 
 		$response = $this->controller->attribute(9);
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
-		$this->assertSame($result, $data['data']);
+		$this->assertSame(array_replace($result, ['roomTask' => ['id' => 4, 'status' => 'due_today']]), $data['data']);
 	}
 
 	/**

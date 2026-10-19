@@ -45,6 +45,7 @@ class RoomTaskReadServiceTest extends TestCase {
 	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
 	private HouseUserMapper|MockObject $houseUserMapper;
 	private OccurrenceMemberMapper|MockObject $occMemberMapper;
+	private \OCA\ChoreStrike\Service\AppLogger|MockObject $logger;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -57,6 +58,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->occMemberMapper = $this->createMock(OccurrenceMemberMapper::class);
+		$this->logger = $this->createMock(\OCA\ChoreStrike\Service\AppLogger::class);
 
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
@@ -76,7 +78,8 @@ class RoomTaskReadServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->occMemberMapper,
 			new \OCA\ChoreStrike\Service\EffortAllocationService(),
-			$this->createIdentityL10n()
+			$this->createIdentityL10n(),
+			$this->logger
 		);
 	}
 
@@ -654,5 +657,29 @@ class RoomTaskReadServiceTest extends TestCase {
 			->willReturn([7 => ['occurrence' => null, 'revision' => null, 'classification' => 'agreed']]);
 
 		$this->assertSame('due_today', $this->service->selectedRoomTaskPayload(3, $roomTask, $utc)['status']);
+	}
+
+	/**
+	 * CR-084-03 review fix: after a committed write a failing status read
+	 * degrades to the entity rule (logged) instead of an error that would
+	 * invite the client to repeat persisted work.
+	 */
+	public function testCommittedRoomTaskPayload_DegradesToTheEntityStatusOnFailure(): void {
+		$utc = new \DateTimeZone('UTC');
+		$roomTask = new RoomTask();
+		$roomTask->setId(7);
+		$roomTask->setIsActive(true);
+		$roomTask->setNextDue((new \DateTime('yesterday', $utc))->setTime(0, 0, 0));
+		$this->occurrenceService->method('selectionsForHouseTasks')
+			->willThrowException(new \RuntimeException('selection failed'));
+		$this->logger->expects($this->once())->method('warning')
+			->with('Room task status read failed after a committed write', [
+				'action' => 'updateDueDate', 'roomTaskId' => 7, 'exception' => \RuntimeException::class,
+			]);
+
+		$payload = $this->service->committedRoomTaskPayload(3, $roomTask, $utc, 'updateDueDate');
+
+		$this->assertSame('overdue', $payload['status'], 'entity day rule fallback');
+		$this->assertSame(7, $payload['id']);
 	}
 }

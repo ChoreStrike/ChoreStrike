@@ -238,9 +238,13 @@ class RoomTaskControllerTest extends TestCase {
 				'task' => $task,
 				'rewards' => [],
 				'completionId' => 5,
-				'occurrence' => null,
+				'occurrence' => ['classification' => 'agreed'],
 				'replay' => false,
 			]);
+		// CR-084-03: the row status follows the fresh occurrence block.
+		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
+			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), 'agreed')
+			->willReturn(['id' => 1, 'status' => 'due_today']);
 
 		$response = $this->controller->complete(1);
 
@@ -249,6 +253,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
+		$this->assertSame(['id' => 1, 'status' => 'due_today'], $data['data']['roomTask']);
 	}
 
 	/**
@@ -661,9 +666,13 @@ class RoomTaskControllerTest extends TestCase {
 		$this->roomTaskReadService->expects($this->once())
 			->method('getDueTodayTaskRows')
 			->with(1, $this->identicalTo($houseUser), 3)
-			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room]]);
+			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room, 'occurrence' => ['classification' => 'late']]]);
 		$this->roomTaskReadService->method('assigneesByRoomTasks')
 			->willReturn([12 => []]);
+		// CR-084-03: an execution row's status follows its own occurrence block.
+		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
+			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), 'late')
+			->willReturn(['id' => 12, 'status' => 'overdue']);
 
 		$response = $this->controller->dueToday(3);
 
@@ -775,5 +784,62 @@ class RoomTaskControllerTest extends TestCase {
 		$data = $response->getData()['data'];
 		$this->assertCount(1, $data);
 		$this->assertSame(['mom'], $data[0]['assignees']);
+	}
+
+	/**
+	 * CR-084-03: the due date is saved before the status read, so the
+	 * response resolves the selection best-effort for the committed row.
+	 */
+	public function testUpdateDueDate_ReportsTheCommittedSelectionStatus(): void {
+		$house = new House();
+		$house->setId(1);
+		$roomTask = new RoomTask();
+		$roomTask->setId(5);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
+		$this->roomTaskService->method('updateDueDate')->willReturn($roomTask);
+		$this->roomTaskReadService->expects($this->once())->method('committedRoomTaskPayload')
+			->with(1, $roomTask, $this->isInstanceOf(\DateTimeZone::class), 'updateDueDate')
+			->willReturn(['id' => 5, 'status' => 'due_today']);
+
+		$response = $this->controller->updateDueDate(5, '2026-10-20');
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(['id' => 5, 'status' => 'due_today'], $response->getData()['data']);
+	}
+
+	/**
+	 * CR-084-03: a replayed completion carries no fresh selection block, so
+	 * its row resolves the selection instead of the entity day rule.
+	 */
+	public function testComplete_ReplayResolvesTheSelectionStatus(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setTimezone('UTC');
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+		$this->request->method('getParams')->willReturn([
+			'commandId' => '11111111-2222-4333-8444-555555555555',
+			'occurrenceId' => '1:1',
+			'expectedVersion' => 0,
+			'selectionToken' => 'token',
+		]);
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$this->completionService->method('complete')->willReturn([
+			'roomTask' => $roomTask, 'room' => new Room(), 'task' => new Task(),
+			'rewards' => [], 'completionId' => 5, 'replay' => true,
+		]);
+		$this->roomTaskReadService->expects($this->never())->method('roomTaskPayload');
+		$this->roomTaskReadService->expects($this->once())->method('committedRoomTaskPayload')
+			->with(1, $roomTask, $this->isInstanceOf(\DateTimeZone::class), 'complete')
+			->willReturn(['id' => 1, 'status' => 'due_today']);
+
+		$response = $this->controller->complete(1);
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(['id' => 1, 'status' => 'due_today'], $response->getData()['data']['roomTask']);
 	}
 }

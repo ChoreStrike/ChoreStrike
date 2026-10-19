@@ -354,6 +354,13 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		sort($assignees);
 		self::assertSame($preview['changes'][0]['proposed']['assignees'], $assignees);
 		self::assertSame($assignees, $result['roomTasks'][0]['assignees']);
+		// CR-084-03: the response row reports the same status as the list.
+		$readService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		$fresh = \OC::$server->get(RoomTaskMapper::class)->find($roomTaskId);
+		self::assertSame(
+			$readService->selectedRoomTaskPayload($houseId, $fresh, $readService->timeZoneForHouse($houseId))['status'],
+			$result['roomTasks'][0]['status']
+		);
 	}
 
 	public function testApply_ConsumedPreview_RetryConflictsWithoutWrites(): void {
@@ -454,6 +461,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 			$s->get(TransactionExecutor::class),
 			$s->get(CalendarService::class),
 			$s->get(TaskAccessPolicy::class),
+			$s->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class),
 			$s->get(IFactory::class)->get('chorestrike'),
 		);
 

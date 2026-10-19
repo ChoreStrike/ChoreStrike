@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
@@ -39,6 +40,7 @@ class CompletionController extends Controller {
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private CompletionService $completionService;
+	private RoomTaskReadService $roomTaskReadService;
 	private IL10N $l;
 
 	public function __construct(
@@ -46,6 +48,7 @@ class CompletionController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		CompletionService $completionService,
+		RoomTaskReadService $roomTaskReadService,
 		IL10N $l,
 		AppLogger $appLogger,
 	) {
@@ -53,6 +56,7 @@ class CompletionController extends Controller {
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->completionService = $completionService;
+		$this->roomTaskReadService = $roomTaskReadService;
 		$this->l = $l;
 		$this->initializeControllerLogger($appLogger);
 	}
@@ -108,6 +112,12 @@ class CompletionController extends Controller {
 				$payload['expectedVersion'],
 				$payload['reasonCode'],
 			);
+			// CR-084-03: the row status follows the fresh selection block.
+			$result['roomTask'] = $this->roomTaskReadService->roomTaskPayload(
+				$result['roomTask'],
+				$this->roomTaskReadService->timeZoneForHouse((int)$house->getId()),
+				$result['occurrence']['classification'] ?? null
+			);
 
 			return new JSONResponse(['success' => true, 'data' => $result]);
 		} catch (NotFoundException $e) {
@@ -160,6 +170,15 @@ class CompletionController extends Controller {
 				$payload['participants'],
 				$payload['allocationReviewed'],
 				$payload['reasonCode'],
+			);
+			// CR-084-03: an attribution carries no selection block; the
+			// committed correction resolves the row status best-effort.
+			$houseId = (int)$house->getId();
+			$result['roomTask'] = $this->roomTaskReadService->committedRoomTaskPayload(
+				$houseId,
+				$result['roomTask'],
+				$this->roomTaskReadService->timeZoneForHouse($houseId),
+				'attribute'
 			);
 
 			return new JSONResponse(['success' => true, 'data' => $result]);

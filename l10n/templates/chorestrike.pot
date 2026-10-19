@@ -3248,6 +3248,9 @@ msgstr ""
 msgid "This score is not possible in the time played."
 msgstr ""
 
+msgid "This task is already being completed with another work split. Check the split once it is done."
+msgstr ""
+
 msgid "This will be recorded as taken over from {assignee}."
 msgstr ""
 
