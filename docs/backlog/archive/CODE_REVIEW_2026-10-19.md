@@ -1,5 +1,85 @@
 # Code Review Record — 2026-10-19
 
+## Standard A - CS-PLAN-088 alpha3 feedback round
+
+**Outcome:** `PASS-WITH-FIXES`. Documentation-only plan review; no implementation.
+
+### Scope and capture
+
+- Requested tier: Standard A, no subagents. Sole regular non-symlink candidate:
+  `docs/plans/new/cs-plan-088-alpha3-feedback-round.md`; destination absent.
+- Base HEAD `55275172ab83c38ef7ce742b9afe0a3322003f19`, initial plan blob
+  `3c151ca84e8a7a18f7152021fd0c93dbab856145`, mode `100644`.
+- Initial index and worktree clean, sorted untracked path set empty. Staged and
+  unstaged binary diff SHA-256 each
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+- User chose the existing pinned `docs/alpha3-feedback-plan` worktree rather
+  than a read-only review on `master`. Branch was zero ahead/behind `master`.
+- Context inspected: owning backlog entries; active CS-PLAN-080; schedule/digest
+  services and mapper; HoldButton tests; all token consumers; runtime-stage and
+  test-runner boundaries; package builder inventory; release/retention rules;
+  package engines/peers queried with `npm view`. No production or private exchange access.
+
+### Findings
+
+| ID | Severity | Original plan lines | Issue | Resolution |
+|---|---|---|---|---|
+| RF-088-01 | major | 44-46, 68-74, 248-253, 270 | Automatic date-driven deferral and pre-evidence final review could close required scope/tests; stretch was not contract-ready | Q-088-01 selects Must + Should, excludes stretch, requires user rescoping and post-evidence Full completion review |
+| RF-088-02 | major | 95-99, 139-146 | Node ^22.11 is below ESLint 10 and Nextcloud config 9 engine minima; npm unspecified | Q-088-05 chooses Node ^24/npm ^11.8.2, strict minimum/current tests and compatible peer versions |
+| RF-088-03 | major | 131-135, 194-195, 224 | Provisioning script has no PHPUnit execution; report ownership and clean-run closure undefined | Q-088-07 targets run-tests.js, unique reports, explicit verified targets, failure propagation and three-run bounded non-reproduction |
+| RF-088-04 | major | 126-130, 191-193 | Chunked SELECT/UPDATE lacked stale-row predicates, progress contract and edge/interleaving tests | Q-088-06 approves conditional bounded updates, finite cursor/watermark progress and all-provider tests |
+| RF-088-05 | major | 59-67, 85-90, 250-253 | Operation authorization and complete manual tag sign-off were not explicit; family-evidence ownership must remain independent | Q-088-03 records policy only; full sign-off and later explicit operation approvals required; no CS-PLAN-080 closure |
+| RF-088-06 | minor | 122-125, 187-190, 209-232 | Manifest omitted layout consumers and precise tests | Exact 13 consumers and PHP/runner test paths; dynamic metrics/RTL/browser proof; separate review before any stretch admission |
+| RF-088-07 | minor | 20, 55, 149, 262 | Seven items called eight; toolchain order inconsistent; lint-disable wording permitted suppression | Count/order corrected; rule-policy changes require approval; actual completion month owns archive entries |
+| RF-088-08 | major | 139-144, 225 | Isolated package builder remains pinned to Node 20.19 despite proposed host/CI upgrade | Add docker/package-build.json, Dockerfile.package, builder npm/strict checks, regression tests and README requirements to WP-C |
+
+All findings resolved at plan level, not claims of implemented fixes. Existing
+architecture and security rules remain binding; no new endpoint, migration or
+runtime service is introduced by this review. Feedback privacy and i18n/test
+requirements are retained. No out-of-scope issue or new backlog item created.
+
+### Questions and decisions
+
+D-088-00: reuse existing pinned worktree. Q-088-01..07: all recommended options
+selected through the structured tool: Must + Should, heading-only inset,
+alpha.2/alpha.3 tag policy with separate authorization, deployment-dated
+changelog, Node 24/npm 11, guarded digest batches, existing test-runner extension.
+Alternatives and exact answers are recorded in the
+[plan decision register](../../plans/active/cs-plan-088-alpha3-feedback-round.md#decisions-recorded-standard-a-operator-2026-10-19).
+The initial layout question said 14 consumers; the verified manifest has 13
+files (16 matches), corrected without changing the chosen behavior.
+
+### Tests and validation
+
+- `npm test -- --runInBand`: 155 suites / 2137 tests pass, no skipped tests.
+  The intermediate unstaged lifecycle move produced four metadata-test ENOENT
+  failures because `git ls-files` still named the deleted `new/` path; staging
+  the reviewed move aligns the index before the final full rerun. No test is
+  changed or skipped to accommodate the move.
+- `npm run lint`: passes; the pre-existing Node 24 DEP0180 dependency warning
+  is already owned by TECH-DEV-001, now selected for WP-C. No warning hidden.
+- `npm run backlog:check`, `npm run docs:encoding`, `npm run agents:check`,
+  `git diff --check`: pass.
+- Jest's stale-Composer-lock and builder pull-retry messages are intentional
+  negative-path fixture output (`testRuntime.spec.js`, `buildPackage.spec.js`),
+  not a failed live package build or changed Composer lock.
+- PHP/backend Docker, browser, production build and package qualification not
+  run: no implementation/configuration changed in this docs-only Standard A.
+  Those tests remain explicit requirements of the implementation/release plan.
+
+### Documentation, backlog and finalization
+
+Review package allowlist: old/new CS-PLAN-088 paths, `docs/plans/README.md`,
+`docs/backlog/ACTIVE_TASKS.md`, `docs/backlog/backlog.md` and this record.
+Selected seven items move to In Progress; RELEASE-002 assigns only WP-A/WP-D,
+leaving CS-PLAN-080 family evidence and later beta onboarding independent.
+FEAT-UX-015 and TECH-TEST-008 stay unassigned. No implementation item is closed.
+
+Plan transition: `new/` to `active/`. One scoped conventional review commit on
+the existing task branch; no master override, merge, push, tag, deployment or
+feedback import. Implementation starts with TECH-DEV-001 under the plan's
+qualification contract; this review does not execute that work.
+
 ## Full Review (final) — CS-PLAN-086 household arcade, chore unlocks and per-game highscores
 
 **Outcome:** `PASS-WITH-FIXES` · **Transition:** `active/ → done/`, then fast-forward of `master` (D-086-10)

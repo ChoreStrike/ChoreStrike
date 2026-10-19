@@ -39,8 +39,8 @@ below.)*
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
 ### [P4] CR-PERF-01 — SchedulePlanService apply O(n²) row scans
-**Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (plan activated; implementation not started) · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
+**Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-14)
 
 `SchedulePlanService::apply` calls `findRowById` (linear scan of
@@ -52,8 +52,8 @@ the changes array by roomTaskId once before the loops.
 ---
 
 ### [P4] CR-084-04 — Split the HoldButton hold state machine from its view
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (plan activated; implementation not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
+**Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
 
 `src/components/Common/HoldButton.vue` (CS-PLAN-084 WP-E) is above 400 lines,
@@ -66,8 +66,8 @@ regression net.
 ---
 
 ### [P3] CR-LAYOUT-01 — View inset token resolves at `:root`, where Nextcloud defines neither metric
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: theming
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: whole-view inset on phones (same review)
+**Status**: In Progress (Q-088-02: heading-only inset; implementation not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: theming
+**Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: whole-view inset on phones (same review)
 **Source**: Review of TECH-DOCS-005 UI fix `1ee898d` (Standard B, 2026-10-17; user-deferred until after the `0.8.0-alpha.1` deployment)
 
 `--cs-view-inline-start` (`src/styles/tokens.css`) is declared on `:root` as
@@ -456,8 +456,8 @@ not close parent findings or replace WP9 evidence.
 ---
 
 ### [P3] TECH-DEV-001 — Local Node 24 runs outside the supported `^20.19.0` engine range
-**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: —
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PR #3 (2026-10-18)
+**Status**: In Progress (Q-088-05: Node ^24/npm ^11.8.2 qualification selected; implementation not started) · **Effort**: S · **Layer**: tooling · **Journey stage**: —
+**Owning**: CS-PLAN-088 WP-C · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PR #3 (2026-10-18)
 **Source**: worktree hygiene task, 2026-10-17
 
 The development machine has only Node 24.13 / npm 11.8 and no version manager,
@@ -480,8 +480,8 @@ override in `package.json`.
 ---
 
 ### [P3] TECH-LINT-008 — Migrate linting to ESLint 10 flat config
-**Status**: Backlog · **Effort**: M · **Layer**: tooling · **Journey stage**: —
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (selected Should scope; implementation not started) · **Effort**: M · **Layer**: tooling · **Journey stage**: —
+**Owning**: CS-PLAN-088 WP-C · **Depends on**: TECH-DEV-001 · **Blocks**: — · **Folded-in**: —
 **Source**: Dependabot PR #4, 2026-10-18
 
 `@nextcloud/eslint-config` 9 (with `@vue/eslint-config-typescript` 14 and
@@ -495,7 +495,7 @@ pass. Until then the `eslint-plugin-vue` → `postcss-selector-parser` and
 hold the patched versions; drop them once the migrated stack resolves them.
 
 - [ ] A flat `eslint.config.js` on ESLint 10 replaces `.eslintrc.js`; `npm run lint` covers the same file sets.
-- [ ] New-rule findings fixed, or each rule deliberately disabled with a stated reason.
+- [ ] New-rule findings fixed; any deliberate rule-policy change explicitly reviewed and approved with a stated reason, never warning suppression to pass.
 - [ ] The two lint-stack overrides are removed.
 
 ---
@@ -535,8 +535,8 @@ sessions never touch each other's database.
 ---
 
 ### [P3] TECH-TEST-009 — Unattributed SQLite integration failures under four parallel provider suites
-**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (Q-088-07: explicit matrix reporting; implementation not started) · **Effort**: S · **Layer**: tests · **Journey stage**: test-runtime reliability
+**Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-086 WP-H final gate (2026-10-19)
 
 The provider matrix may run its independent databases in parallel
@@ -549,13 +549,14 @@ two further four-way parallel runs on the final code. Next time capture the
 names (`--log-junit` per provider), then attribute: a load-sensitive SQLite
 locking or barrier test, or a product race.
 
-- [ ] Failing test names captured from a parallel matrix run, or the item closed after a documented series of clean parallel runs.
+- [ ] Per-run/runtime/provider/suite JUnit and complete output retained by explicit verified matrix targets in `scripts/run-tests.js`; missing reports and suite failures propagate.
+- [ ] Failures attributed with a regression, or three complete clean parallel rounds on an unchanged source/runtime set document bounded non-reproduction, not a root-cause fix (Q-088-07).
 
 ---
 
 ### [P4] TECH-DIGEST-001 — `DigestChangeMapper::expireQueuedBefore` uses `setMaxResults()` on an UPDATE
-**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (Q-088-06: bounded conditional batches; implementation not started) · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
+**Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-078 WP7 final Standard B (2026-10-01)
 
 Doctrine DBAL's `getSQLForUpdate()` never emits LIMIT (verified on the NC31
@@ -638,8 +639,8 @@ payloads.
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: Backlog (qualification and first deployment/adoption delivered; field use remains open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: unassigned (CS-PLAN-083 WP1-WP3 delivered; deployment and baseline adoption done by the operator 2026-10-17) · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Status**: In Progress (CS-PLAN-088 alpha.3 round activated; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: CS-PLAN-088 WP-A/WP-D (alpha.3 feedback/release slice only); CS-PLAN-080 (family evidence); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
@@ -713,6 +714,13 @@ preserved, other apps unaffected, production smoke passed
 ([CS-PLAN-080](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#deployment-and-retained-baseline-adoption-080-alpha1-2026-10-17)).
 Still open here: real-world `v0.8.x` field use (the family trial in CS-PLAN-080)
 and the optional `v0.9.x` tester onboarding.
+
+**Alpha.3 round (2026-10-19):** [CS-PLAN-088](../plans/active/cs-plan-088-alpha3-feedback-round.md)
+passed Standard A with fixes and owns only the next feedback/release bundle.
+Q-088-03/04 select full-sign-off-gated alpha.2/alpha.3 tags and deployment-dated
+changelog sections as policy, not permission to publish or deploy. The operator
+retains those task-specific approvals; completing the bundle does not close
+this whole item or CS-PLAN-080's family evidence.
 
 ---
 
