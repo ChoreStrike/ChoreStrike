@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Nextcloud 34-35](https://img.shields.io/badge/Nextcloud-34%E2%80%9335-0082c9)](https://nextcloud.com)
 [![PHP 8.4](https://img.shields.io/badge/PHP-8.4-777bb4)](https://www.php.net)
-[![Status: alpha 0.8.0-alpha.1](https://img.shields.io/badge/status-alpha%200.8.0--alpha.1-orange)](#project-status)
+[![Status: alpha 0.8.0-alpha.2](https://img.shields.io/badge/status-alpha%200.8.0--alpha.2-orange)](#project-status)
 
 ChoreStrike is a gamified household task management app for Nextcloud.
 Families and flatmates organize their home in floors and rooms, plan fair
@@ -33,7 +33,7 @@ first; using the reward catalog and games is optional.
   </tr>
 </table>
 
-<sub>Screenshots: seeded demo household on Nextcloud 35, version 0.8.0-alpha.1.</sub>
+<sub>Screenshots: seeded demo household on Nextcloud 35, version 0.8.0-alpha.2.</sub>
 
 New here? The [user guide](docs/user-guide.md) walks a household through
 setup, everyday use and planning.
@@ -97,7 +97,7 @@ a Nextcloud instance may still have hosting costs.
 - PHP 8.4.x
 - MySQL/MariaDB, PostgreSQL or SQLite (via Nextcloud's database layer)
 
-ChoreStrike is a **pre-release app (`0.8.0-alpha.1`, internal alpha)**. Its
+ChoreStrike is a **pre-release app (`0.8.0-alpha.2`, internal alpha)**. Its
 first [retained baseline](docs/engineering/deployment.md#first-retained-baseline)
 was adopted on 2026-10-17: from it, updates preserve household data. Disposable
 development installs remain fresh-install-only; there is no upgrade promise for
@@ -158,7 +158,7 @@ instance. Installation and retained-baseline adoption are separate decisions.
 ChoreStrike is a privately maintained, non-commercial open source project,
 not a hosted service.
 
-**v0.8.0-alpha.1 — alpha pre-release.** The core household workflow (setup wizard,
+**v0.8.0-alpha.2 — alpha pre-release.** The core household workflow (setup wizard,
 invitations, tasks, scheduling, My Day, completion/undo, gamification,
 insights and optional rewards) is implemented. Cross-database verification and
 repeated browser gates have passed; voluntary family comprehension, 14-day

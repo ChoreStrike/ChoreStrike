@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### App Version 0.8.0-alpha.2 — Family-Trial Start (2026-10-19)
+
+The candidate the family trial starts on; the app metadata moves from
+`0.8.0-alpha.1` to `0.8.0-alpha.2` so the update is detected. No schema or
+migration change: the 26 migrations of the retained baseline are unchanged and
+now pinned by a test.
+
+- **Household arcade:** five short games — Spot Sprint, Sock Match, Crumb Snake,
+  Tile Breaker and Dust Runner — with a highscore list each. They unlock through
+  finished chores (0, 3, 10, 25 and 50; helping counts, undone work does not),
+  and the house owner can switch that gate off in the settings. The arcade stays
+  optional per member; color, motion and sound follow the personal opt-ins
+  (CS-PLAN-086).
+- **Overdue means missed:** the calendar marks a day red only when that
+  occurrence's window has ended, and a task created, rescheduled or completed
+  inside its open flex window no longer turns red until the next list refresh
+  (CR-084-01/03).
+- **A reviewed work split is never dropped:** completing a task again while its
+  first completion is still being saved is refused with an error when the work
+  split differs, instead of silently reporting the first completion (CR-084-02).
+- **Phones:** the Insights fairness table scrolls inside its own box and the
+  room page fits the screen; no view scrolls sideways any more (UX-018).
+
+The fixes collected after `0.8.0-alpha.1` below are part of this version.
+
 ### Fixed after 0.8.0-alpha.1
 
 - **No log warning on every notification poll:** ChoreStrike rejects other
