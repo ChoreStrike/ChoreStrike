@@ -553,25 +553,6 @@ locking or barrier test, or a product race.
 
 ---
 
-### [P3] TECH-TEST-006 — Canonical test stack has no path for an app-only version upgrade
-**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-086 WP-A implementation (2026-10-17)
-
-After the `0.8.0-alpha.1` version bump, every start of the canonical stack on
-kept volumes (app installed as `0.1.1`) aborted in `docker/test-entrypoint.sh`:
-Nextcloud reports "require upgrade", the ordinary path never runs
-`occ upgrade`, and the preservation path only accepts a Nextcloud runtime
-update (`TEST_RUNTIME_UPGRADE_FROM` must differ from the frozen target), so the
-readiness probe fails after 60 tries. Worked around on 2026-10-17 with an
-operator-authorized `down -v` of the disposable canonical volumes. Every
-future app version bump repeats it. Decide the contract: either ordinary
-(seeded) provisioning runs `occ upgrade` when only apps need it, or the
-entrypoint fails fast with an explicit message and `testing.md` documents the
-reset/upgrade step next to the Nextcloud patch-promotion recipe.
-
----
-
 ### [P4] TECH-DIGEST-001 — `DigestChangeMapper::expireQueuedBefore` uses `setMaxResults()` on an UPDATE
 **Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —

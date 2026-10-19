@@ -123,6 +123,14 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			], []);
 			self::assertSame($expectedExit, $exit, $output);
 			self::assertStringContainsString($message, $output);
+			if ($scenario === 'app-upgrade') {
+				// TECH-TEST-006: the pending app upgrade runs after app
+				// discovery and before any configuration or seed.
+				self::assertLessThan(strpos($output, 'UPGRADE_RAN'), strpos($output, 'App discovery:'));
+				self::assertLessThan(strpos($output, 'CONFIG_MUTATION'), strpos($output, 'UPGRADE_RAN'));
+			} elseif ($scenario !== 'app-upgrade-failure') {
+				self::assertStringNotContainsString('UPGRADE_RAN', $output, 'no upgrade without a pending one');
+			}
 			if ($expectedExit === 0) {
 				self::assertStringContainsString('READY_MARKER', $output);
 				self::assertStringContainsString('App discovery: /apps (read-only) + /custom_apps (writable), no alias.', $output);
@@ -167,6 +175,8 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			['unexpected-apps-paths', 1, 'unexpected existing apps_paths configuration'],
 			['apps-paths-import-failure', 1, 'APPS_PATHS_IMPORT_FAILED'],
 			['apps-paths-read-failure', 1, 'apps_paths configuration probe failed'],
+			['app-upgrade', 0, 'App-only upgrade pending on the kept disposable volumes'],
+			['app-upgrade-failure', 1, 'UPGRADE_FAILED'],
 		];
 	}
 

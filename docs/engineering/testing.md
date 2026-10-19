@@ -309,6 +309,12 @@ TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --force-r
 npm run test:runtime:canonical
 ```
 
+An app version bump (`appinfo/info.xml`) on kept volumes needs no such step
+(TECH-TEST-006): ordinary provisioning sees Nextcloud waiting for the app's
+upgrade, runs `occ upgrade` before configuration and seed, and then reseeds as
+usual. The core version check above still applies first, so this never updates
+Nextcloud itself. Preservation mode never upgrades implicitly.
+
 All three Forgejo browser workflows build application assets before provisioning.
 Their canonical startup awaits the app/seed readiness healthcheck and verifies
 the frozen runtime before mutation. The companion profile/browser matrix uses

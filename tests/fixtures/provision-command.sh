@@ -3,9 +3,14 @@
 set -eu
 case "${0##*/}" in
     php)
+        # Drain piped input like the real interpreter: an early exit would
+        # break the writer under pipefail and flip the probe at random.
+        if [[ "$*" == *'php://stdin'* ]]; then cat > /dev/null; fi
         if [ "$PROVISION_SCENARIO" = wrong-code-runtime ]; then echo RUNTIME_FAILED; exit 1; fi
         if [[ "$*" == *'php://stdin'* ]] && [ "$PROVISION_SCENARIO" = http-runtime-mismatch ]; then exit 1; fi
-        if [[ "$*" == *'new Redis()'* ]] && [ "$PROVISION_SCENARIO" = redis-unreachable ]; then exit 1; fi ;;
+        if [[ "$*" == *'new Redis()'* ]] && [ "$PROVISION_SCENARIO" = redis-unreachable ]; then exit 1; fi
+        # TECH-TEST-006 app-only upgrade probe: pending only in the app-upgrade scenarios.
+        if [[ "$*" == *'empty($status["needsDbUpgrade"])'* ]]; then [[ "$PROVISION_SCENARIO" == app-upgrade* ]]; exit $?; fi ;;
     su)
         case "$*" in
             *maintenance:install*) echo INSTALL_FAILED; exit 1 ;;
@@ -37,8 +42,9 @@ case "${0##*/}" in
                 elif [[ "$PROVISION_SCENARIO" == preserve-upgrade* ]] && [ ! -f "${PROVISION_STATE:-/nonexistent}/upgraded" ]; then echo "$TEST_RUNTIME_UPGRADE_FROM";
                 else echo "$TEST_RUNTIME_INTERNAL_VERSION"; fi ;;
             *'occ upgrade'*)
-                if [ "$PROVISION_SCENARIO" = preserve-upgrade-failure ]; then echo UPGRADE_FAILED; exit 1; fi
-                : > "${PROVISION_STATE:?}/upgraded"; echo UPGRADE_RAN ;;
+                if [[ "$PROVISION_SCENARIO" == *upgrade-failure ]]; then echo UPGRADE_FAILED; exit 1; fi
+                if [ -n "${PROVISION_STATE:-}" ]; then : > "$PROVISION_STATE/upgraded"; fi
+                echo UPGRADE_RAN ;;
             *'config:system:set'*) echo CONFIG_MUTATION ;;
             *'app:enable chorestrike'*)
                 if [ "$PROVISION_SCENARIO" = enable-failure ]; then echo ENABLE_FAILED; exit 1; fi ;;
