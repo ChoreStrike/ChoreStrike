@@ -407,6 +407,44 @@ describe('RoomTasks Store', () => {
 				expect(store.isCompleting(1)).toBe(false)
 			})
 
+			// CR-084-02: joining is only safe for the same split — a reviewed
+			// split must never vanish behind the plain completion's success.
+			it('refuses to join an in-flight completion with a different work split', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				let respond
+				api.post.mockImplementation(() => new Promise(resolve => { respond = resolve }))
+
+				const plain = store.completeRoomTask(1)
+				const reviewed = store.completeRoomTask(1, {
+					participants: [{ userId: 'mom', sharePct: 50 }, { userId: 'kid', sharePct: 50 }],
+					allocationReviewed: true,
+				})
+
+				await expect(reviewed).rejects.toMatchObject({ code: 'COMPLETION_IN_FLIGHT' })
+				await Promise.resolve()
+				respond({ roomTask: { id: 1, isActive: false } })
+				await plain
+				expect(api.post).toHaveBeenCalledTimes(1)
+				expect(api.post.mock.calls[0][1].participants).toBeUndefined()
+				expect(store.isCompleting(1)).toBe(false)
+			})
+
+			it('joins an in-flight completion with the same split in another order', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				let respond
+				api.post.mockImplementation(() => new Promise(resolve => { respond = resolve }))
+				const split = [{ userId: 'mom', sharePct: 60 }, { userId: 'kid', sharePct: 40 }]
+
+				const first = store.completeRoomTask(1, { participants: split, allocationReviewed: true })
+				const second = store.completeRoomTask(1, { participants: [...split].reverse(), allocationReviewed: true })
+
+				await Promise.resolve()
+				respond({ roomTask: { id: 1, isActive: false } })
+				const [firstResult, secondResult] = await Promise.all([first, second])
+				expect(api.post).toHaveBeenCalledTimes(1)
+				expect(secondResult).toBe(firstResult)
+			})
+
 			it('clears the in-flight mark after a failed completion so a retry can run', async () => {
 				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 				const rejected = new Error('conflict')

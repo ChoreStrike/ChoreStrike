@@ -51,8 +51,26 @@ function rangeDays(item, timezone) {
 	return dates.map(date => ({ date, late: null }))
 }
 
-// Pending completion promises by room task id (WP-E): a promise is not
-// serializable store state, so only the id set lives in `completingIds`.
+/**
+ * The work split a completion submits, normalized for comparison
+ * (CR-084-02): participants sorted by user, `allocationReviewed` only where
+ * the payload carries it (with participants). '' = the default split.
+ * @param {object} [options] Completion options (see completeRoomTask).
+ * @param {Array<{userId: string, sharePct: number}>} [options.participants] Explicit actual participants.
+ * @param {boolean} [options.allocationReviewed] Reviewed deviation from the agreement.
+ * @return {string}
+ */
+function completionSplitKey({ participants, allocationReviewed } = {}) {
+	if (!participants || participants.length === 0) return ''
+	const sorted = [...participants]
+		.map(({ userId, sharePct }) => [userId, sharePct])
+		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+	return JSON.stringify([sorted, Boolean(allocationReviewed)])
+}
+
+// Pending completions by room task id (WP-E): `{ request, splitKey }`. A
+// promise is not serializable store state, so only the id set lives in
+// `completingIds`.
 const inFlightCompletions = new Map()
 
 export const useRoomTasksStore = defineStore('roomTasks', {
@@ -501,19 +519,28 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 */
 		completeRoomTask(roomTaskId, options = {}) {
 			// WP-E in-flight guard: one request per room task at a time; a
-			// concurrent call (double tap, a second surface) joins it.
+			// concurrent call with the same split (double tap, a second
+			// surface) joins it. A different split is refused instead of
+			// being dropped silently behind a success (CR-084-02).
+			const splitKey = completionSplitKey(options)
 			const pending = inFlightCompletions.get(roomTaskId)
-			if (pending) return pending
+			if (pending) {
+				if (pending.splitKey === splitKey) return pending.request
+				const error = new Error('This task is already being completed. Wait a moment, then check its work split.')
+				error.code = 'COMPLETION_IN_FLIGHT'
+				logger.warn('Refused a completion with a different split while one is in flight', { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
+				return Promise.reject(error)
+			}
 			this.completingIds = { ...this.completingIds, [roomTaskId]: true }
 			const request = this._submitCompletion(roomTaskId, options).finally(() => {
 				// After a reset() this request no longer owns the marks (a newer
 				// completion of the same task may already be in flight).
-				if (inFlightCompletions.get(roomTaskId) !== request) return
+				if (inFlightCompletions.get(roomTaskId)?.request !== request) return
 				inFlightCompletions.delete(roomTaskId)
 				const { [roomTaskId]: _done, ...rest } = this.completingIds
 				this.completingIds = rest
 			})
-			inFlightCompletions.set(roomTaskId, request)
+			inFlightCompletions.set(roomTaskId, { request, splitKey })
 			return request
 		},
 

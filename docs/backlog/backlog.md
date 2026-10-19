@@ -69,21 +69,6 @@ a no-horizontal-overflow check per view at phone width.
 
 ---
 
-### [P3] CR-084-02 — A joined in-flight completion drops the second call's allocation
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
-
-`roomTasksStore.completeRoomTask` returns the pending promise when the same
-room task is already completing and ignores the second call's options. If a
-plain completion is in flight and a participation-dialog submission
-(`participants`, `allocationReviewed`) joins it, the reviewed split is silently
-dropped and the caller reports success. The hold guard makes this rare. Reject
-a join whose options differ materially (or keep the dialog open), and pin
-identical-payload joining with a test.
-
----
-
 ### [P4] CR-084-04 — Split the HoldButton hold state machine from its view
 **Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
