@@ -51,24 +51,6 @@ the changes array by roomTaskId once before the loops.
 
 ---
 
-### [P3] UX-018 — Insights fairness table scrolls the whole view sideways on phones
-**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: insights
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: TECH-DOCS-005 screenshot capture (2026-10-17)
-
-At 390 px the `member-fairness` table (`MemberFairnessTable.vue`, the table is
-the component root) is about 430 px wide, so the whole Insights content scrolls
-horizontally; measured on NC 35.0.2. It already overflowed with the old 1rem
-phone padding; the `--cs-view-inline-start` view inset (2026-10-17) adds 34 px.
-Give the table its own horizontal scroll container (or a stacked phone layout)
-so only the table scrolls, and extend `tests/e2e/layout-clearance.spec.ts` with
-a no-horizontal-overflow check per view at phone width.
-
-- [ ] Contain the table's overflow at phone width.
-- [ ] Add the phone-width overflow check for every routed view.
-
----
-
 ### [P4] CR-084-04 — Split the HoldButton hold state machine from its view
 **Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —

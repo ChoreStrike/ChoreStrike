@@ -4,43 +4,46 @@
 -->
 
 <template>
-	<table class="member-fairness" data-testid="member-fairness-table">
-		<thead>
-			<tr class="fairness-header">
-				<th>{{ t('chorestrike', 'Member') }}</th>
-				<th data-testid="header-contribution">
-					{{ t('chorestrike', 'Contribution') }}
-				</th>
-				<th>{{ t('chorestrike', 'Streak') }}</th>
-				<th data-testid="header-load">
-					{{ t('chorestrike', 'Load') }}
-				</th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr
-				v-for="row in rows"
-				:key="row.id"
-				class="fairness-row"
-				data-testid="fairness-row">
-				<td class="member-cell">
-					<span class="member-name">{{ row.displayName }}</span>
-				</td>
-				<td class="numeric" :data-testid="`contribution-${row.id}`">
-					{{ formatMinor(row.contributionMinor) }}
-				</td>
-				<td class="numeric">
-					{{ row.currentStreak }}
-				</td>
-				<td class="load-cell" :data-testid="`load-${row.id}`">
-					<div class="load-bar" :class="{ over: row.loadRatio > 1 }">
-						<div class="load-fill" :style="{ width: loadPercent(row) }" />
-					</div>
-					<span class="load-label">{{ row.completedEnergy }} / {{ row.weeklyCapacity }} {{ t('chorestrike', 'energy') }}</span>
-				</td>
-			</tr>
-		</tbody>
-	</table>
+	<div class="member-fairness-scroll" data-testid="member-fairness-scroll">
+		<!-- UX-018: the table scrolls inside its own box, never the whole view -->
+		<table class="member-fairness" data-testid="member-fairness-table">
+			<thead>
+				<tr class="fairness-header">
+					<th>{{ t('chorestrike', 'Member') }}</th>
+					<th data-testid="header-contribution">
+						{{ t('chorestrike', 'Contribution') }}
+					</th>
+					<th>{{ t('chorestrike', 'Streak') }}</th>
+					<th data-testid="header-load">
+						{{ t('chorestrike', 'Load') }}
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr
+					v-for="row in rows"
+					:key="row.id"
+					class="fairness-row"
+					data-testid="fairness-row">
+					<td class="member-cell">
+						<span class="member-name">{{ row.displayName }}</span>
+					</td>
+					<td class="numeric" :data-testid="`contribution-${row.id}`">
+						{{ formatMinor(row.contributionMinor) }}
+					</td>
+					<td class="numeric">
+						{{ row.currentStreak }}
+					</td>
+					<td class="load-cell" :data-testid="`load-${row.id}`">
+						<div class="load-bar" :class="{ over: row.loadRatio > 1 }">
+							<div class="load-fill" :style="{ width: loadPercent(row) }" />
+						</div>
+						<span class="load-label">{{ row.completedEnergy }} / {{ row.weeklyCapacity }} {{ t('chorestrike', 'energy') }}</span>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 </template>
 
 <script>
@@ -112,6 +115,11 @@ export default {
 </script>
 
 <style scoped>
+.member-fairness-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
 .member-fairness {
 	width: 100%;
 	border-collapse: collapse;

@@ -978,8 +978,23 @@ h1 {
 }
 
 @media (max-width: 768px) {
+	/* UX-018: a plain 1fr track grows to its widest content and pushed the
+	   view past a phone screen; minmax(0, 1fr) keeps it inside. */
+	.room-detail {
+		padding-inline-end: 1rem;
+	}
+
 	.room-content {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.room-overview {
+		padding: 1rem;
+	}
+
+	.section-header {
+		flex-wrap: wrap;
+		gap: 0.5rem;
 	}
 
 	.room-header {

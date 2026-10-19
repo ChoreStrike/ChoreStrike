@@ -8,7 +8,9 @@
  * view headings; the dashboard's house-health fill was painted under its own
  * track, the house name touched the percentage and the title icon was never
  * registered. Measured in a real browser at a docked-navigation desktop width
- * and a phone width; read-only on the `family` seed.
+ * and a phone width; read-only on the `family` seed. At phone width no routed
+ * view may scroll sideways (UX-018: the Insights fairness table and the room
+ * detail grid did).
  *
  * Requires: Docker test environment with the `family` database profile.
  */
@@ -44,6 +46,24 @@ async function boxOf(locator: Locator): Promise<Box> {
 	return { left: box!.x, right: box!.x + box!.width, top: box!.y, bottom: box!.y + box!.height }
 }
 
+/**
+ * Scroll containers from the view root up to the document that scroll
+ * sideways (UX-018). A deliberately scrolling box inside the view, such as
+ * the Insights fairness table, is not an ancestor and stays allowed.
+ */
+async function sidewaysScrollers(root: Locator): Promise<string[]> {
+	return await root.evaluate((element) => {
+		const found: string[] = []
+		for (let node: Element | null = element; node; node = node.parentElement) {
+			const scrolls = node === document.scrollingElement || ['auto', 'scroll'].includes(getComputedStyle(node).overflowX)
+			if (scrolls && node.scrollWidth > node.clientWidth + 1) {
+				found.push(`${node.tagName.toLowerCase()}${node.id ? '#' + node.id : ''} ${node.scrollWidth} > ${node.clientWidth}`)
+			}
+		}
+		return found
+	})
+}
+
 async function firstRoomId(page: Page): Promise<number> {
 	const response = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
 	expect(response.status()).toBe(200)
@@ -73,6 +93,7 @@ test.describe('Layout clearance and dashboard health bar', () => {
 					{ path: '#/settings', ready: 'settings-view' },
 				]
 				const covered: string[] = []
+				const scrolled: string[] = []
 				for (const view of views) {
 					await page.goto(`/apps/chorestrike/${view.path}`)
 					const root = page.getByTestId(view.ready)
@@ -87,8 +108,12 @@ test.describe('Layout clearance and dashboard health bar', () => {
 					if (overlaps(toggleBox, headingBox)) {
 						covered.push(`${view.ready}: toggle ${JSON.stringify(toggleBox)} covers heading text ${JSON.stringify(headingBox)}`)
 					}
+					if (viewport.name === 'phone') {
+						scrolled.push(...(await sidewaysScrollers(root)).map(scroller => `${view.ready}: ${scroller}`))
+					}
 				}
 				expect(covered, covered.join('\n')).toEqual([])
+				expect(scrolled, `no view scrolls sideways at phone width (UX-018)\n${scrolled.join('\n')}`).toEqual([])
 			} finally {
 				await context.close()
 			}
