@@ -368,7 +368,7 @@ explicit estimate/scope decision, not a weaker test gate or fictional deadline.
   feedback are recorded; comprehension/pressure findings are resolved, not assumed away.
 - [x] Public evidence contains no identifying/sensitive human data or raw traces;
   artifact locations and final-build applicability are recorded honestly.
-- [ ] All plan-owned findings (including RF-080-17) are resolved or explicitly
+- [ ] All plan-owned findings (RF-080-17 resolved 2026-10-19) are resolved or explicitly
   user-rescoped; required deferred evidence still blocks completion. The parent's
   whole-item verdicts were recorded at its closure (2026-10-18).
 - [x] Durable matrix/protocol/contract outcomes are integrated into permanent docs.
@@ -387,7 +387,7 @@ remain required deliverables, not already resolved findings. Record new in-scope
 findings here with severity, exact file/area, evidence and resolution; reconcile
 parent RF-070 entries in the parent without creating duplicate backlog owners.
 
-- [ ] **RF-080-17 minor (parent final review 2026-10-18; user-rescoped from CS-PLAN-070 RF-070-09):** `lib/Db/CompletedTaskMapper.php` `findRecentByUserId` — the former combo-window read — has no production caller since the WP3 combo retirement; only its unit pin in `tests/unit/Db/Mapper/CompletedTaskMapperTest.php` calls it. Remove the method and that test case, and mark the matching bullet in `docs/adr/ADR-011-transactional-completion-and-undo.md` as retired. No behavior effect. Fix in the next code round with the Docker PHPUnit unit gate; it is not part of the human evidence.
+- [x] **RF-080-17 minor (parent final review 2026-10-18; user-rescoped from CS-PLAN-070 RF-070-09; resolved 2026-10-19 in the `0.8.0-alpha.2` candidate):** `lib/Db/CompletedTaskMapper.php` `findRecentByUserId` — the former combo-window read — has no production caller since the WP3 combo retirement; only its unit pin in `tests/unit/Db/Mapper/CompletedTaskMapperTest.php` calls it. Remove the method and that test case, and mark the matching bullet in `docs/adr/ADR-011-transactional-completion-and-undo.md` as retired. No behavior effect. Fix in the next code round with the Docker PHPUnit unit gate; it is not part of the human evidence. **Resolution:** method, unit pin and ADR-011 bullet (marked retired) removed on branch `fix/alpha2-trial-candidate`; Docker PHPUnit unit suite green (1461).
 
 - [x] **RF-080-01 major:** DB-selectable, isolated provisioning and fail-closed readiness implemented. Owned empty-volume MariaDB/PostgreSQL/SQLite installs in `cs-wp9-20261005b` reached healthy after required family seeds. `TestEnvironmentProvisioningTest` passes 18 cases (245 assertions), including selector/profile refusal and install/provider/app/HTTP/seed failure refusal; this is provisioning evidence, not DB-02..05 acceptance.
 - [x] **RF-080-02 major:** all remaining 19 guards / 21 skipped cases in the seven worker files are ported. The original scenarios execute through independent installed Nextcloud connections, production mapper locks (SQLite first-write serialization), typed timestamps/Booleans and bounded query-attempt barriers with normal worker-exit checks. Two real-service pairs additionally hold before their actual outer commit to prevent sequential false positives; the focused independent recheck found no remaining issue in that delta. Final full integration: 593 tests on each provider, zero skips/errors/failures. This closes race portability, not RF-080-10 fixture isolation or whole WP9 acceptance.

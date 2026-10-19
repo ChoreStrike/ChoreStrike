@@ -194,7 +194,8 @@ The three ledger reads gained the same `undone_at IS NULL` predicate:
   re-completion is a legal, non-duplicate occurrence (the core misclick-recovery
   flow);
 - `findRecentByUserId` — combo window: an undone completion neither keeps nor
-  starts a combo;
+  starts a combo (*retired:* the read lost its last caller with the WP3 combo
+  retirement and was removed in `0.8.0-alpha.2`, RF-080-17);
 - `findCompletedRoomTaskIdsBetweenByHouse` — weekly-goal count: undo deflates
   the weekly goal.
 

@@ -38,30 +38,6 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Find recent completions (within last N minutes)
-	 *
-	 * Combo-window read (decision D11): undone rows are excluded — an
-	 * undone completion neither keeps nor starts a combo.
-	 *
-	 * @param int $userId The house user ID
-	 * @param int $minutes Number of minutes to look back
-	 * @return CompletedTask[]
-	 */
-	public function findRecentByUserId(int $userId, int $minutes = 5): array {
-		$qb = $this->db->getQueryBuilder();
-		$cutoffDate = new \DateTime("-{$minutes} minutes");
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($cutoffDate, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->isNull('undone_at'))
-			->orderBy('completed_at', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Get weekly valid-work statistics for ALL users of a house in one
 	 * grouped query (CS-PLAN-036; WP3 reshape: no Coin/combo aggregates —
 	 * money is wallet authority and combos are retired; medals evaluate

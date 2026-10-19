@@ -220,43 +220,6 @@ class CompletedTaskMapperTest extends TestCase {
 	}
 
 	/**
-	 * D11 query pin (CS-PLAN-064): the combo window excludes undone rows —
-	 * an undone completion neither keeps nor starts a combo.
-	 */
-	public function testFindRecentByUserId_ExcludesUndoneRows(): void {
-		$isNullColumns = [];
-		$this->expr->method('isNull')->willReturnCallback(
-			function (string $column) use (&$isNullColumns) {
-				$isNullColumns[] = $column;
-				return 'UNDONE_NULL_PREDICATE';
-			}
-		);
-		$this->expr->method('eq')->willReturn('EQ');
-		$this->expr->method('gte')->willReturn('GTE');
-		$this->qb->method('select')->willReturn($this->qb);
-		$this->qb->method('from')->willReturn($this->qb);
-		$this->qb->method('where')->willReturn($this->qb);
-		$this->qb->method('andWhere')->willReturn($this->qb);
-		$this->qb->method('orderBy')->willReturn($this->qb);
-
-		$predicates = [];
-		$this->qb->method('andWhere')->willReturnCallback(
-			function ($predicate) use (&$predicates) {
-				$predicates[] = $predicate;
-				return $this->qb;
-			}
-		);
-
-		$mockResult = $this->createMock(IResult::class);
-		$mockResult->method('fetch')->willReturn(false);
-		$this->qb->method('executeQuery')->willReturn($mockResult);
-
-		$this->assertSame([], $this->mapper->findRecentByUserId(2, 5));
-
-		$this->assertContains('undone_at', $isNullColumns, 'combo window must filter undone rows');
-	}
-
-	/**
 	 * D11 query pin (CS-PLAN-064): the weekly-goal count excludes undone
 	 * rows — undo deflates the weekly goal.
 	 */
