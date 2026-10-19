@@ -408,6 +408,48 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 
 ## Implementation Evidence
 
+### Pre-Deployment Candidate 0.8.0-alpha.2 (2026-10-19)
+
+- **Operator decisions (2026-10-19):** deploy the next candidate to the family
+  server as soon as possible; the family trial — the real-device checklist
+  (RF-080-15, TECH-TEST-005), HUMAN-01 comprehension and the 14-day HUMAN-02
+  period — starts on this candidate one or two days later, with everything on
+  `master`, the household arcade included (CS-PLAN-086 D-086-10 left that to
+  the operator). One commit per item, local merge into `master`, no push;
+  package build, smoke and export to the private exchange. The agent performs no
+  deployment, adoption, tag or push.
+- **Content since `0.8.0-alpha.1`:** the household arcade (CS-PLAN-086), the
+  notifier deprecation fix, CS-PLAN-087 (brand, icons, phone/dialog fixes), the
+  dev-tool dependency overrides, and this round's TECH-TEST-007 (applied
+  migrations pinned), RF-080-17 (resolved, §9), CR-084-01/02/03 (overdue only
+  when the window has ended; no dropped work split), UX-018 (no sideways scroll
+  on phones) and TECH-TEST-006 (app version bumps on kept test volumes) —
+  [archive](../../backlog/archive/2026-10.md#080-alpha2-family-trial-candidate-10-19).
+  App metadata `0.8.0-alpha.2`. No schema or migration change: the deployment is
+  an app update on the retained baseline, and the installed inventory must still
+  match the 26 pinned steps.
+- **Review:** Full review `PASS-WITH-FIXES` (RA2-01..15, three nits accepted)
+  — [record](../../backlog/archive/CODE_REVIEW_2026-10-19.md#full-review--080-alpha2-family-trial-candidate).
+- **Gates (worktree `~/worktrees/chorestrike-alpha2`, review commit `21a8cdf`
+  plus this record):** Jest 155 suites / 2137 tests, ESLint, Stylelint,
+  production build, `test:noise`, `l10n:check-keys` (1334), `docs:encoding`,
+  `backlog:check`, `agents:check`, `composer cs:check` (0/423);
+  `test:runtime:check` `current` (upstream 35.0.2, AIO 14.3.0 / NC 34.0.4).
+  Fresh owned staged rows, family seed: primary `cs082-a2-primary`
+  (NC 35.0.2 / PHP 8.4.26 / PostgreSQL 18.6, APCu) — PHPUnit unit 1467,
+  integration 625 (`--fail-on-skipped`), full browser gate **`run-JXYqXF`
+  PASSED** (100 / 179 / 39 / 15 / 15, first attempt); AIO row `cs082-a2-aio`
+  (NC 34.0.4 / PostgreSQL 18.6 / Redis 8.10.2 for sessions, cache and
+  locking) — unit 1467, integration 625, full browser gate **`run-E8TIoA`
+  PASSED** (same counts, first attempt); provider suites on NC 35.0.2 —
+  `cs082-a2-mysql` (MariaDB 11.8.6) and `cs082-a2-sqlite` (SQLite 3.46.1): unit
+  1467, integration 625 each. No TECH-TRANSPORT-001 closure occurred. All four
+  rows were removed after their runs.
+- **Package:** built and smoked from the `master` commit that carries this
+  record, after the fast-forward; its run, archive hash and the deployment
+  outcome go into the deployment guide's adoption record with the operator's
+  report.
+
 ### Real-Device Record Template (2026-10-18)
 
 - [Release test plan §14.1](../../testing/release-test-plan.md#real-device-record-template)
