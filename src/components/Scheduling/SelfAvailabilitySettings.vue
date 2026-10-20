@@ -82,11 +82,11 @@ function defaultAvailability() {
 }
 
 const availableDaysCount = computed(() => {
-	return weekDays.filter(day => !!localAvailability.value[day.key]).length
+	return weekDays.filter((day) => !!localAvailability.value[day.key]).length
 })
 
 const hasChanges = computed(() => {
-	return weekDays.some(day => !!localAvailability.value[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
+	return weekDays.some((day) => !!localAvailability.value[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
 })
 
 const syncFromStore = () => {
@@ -99,7 +99,7 @@ const resetFromStore = () => {
 
 const saveAvailability = async () => {
 	const changedDays = weekDays
-		.filter(day => !!localAvailability.value[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
+		.filter((day) => !!localAvailability.value[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
 	if (changedDays.length === 0) {
 		return
 	}

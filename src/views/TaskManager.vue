@@ -230,49 +230,49 @@ export default {
 
 	computed: {
 		allTasks() {
-			return this.roomTasksStore.roomTasks.map(roomTask => this.enrich(roomTask))
+			return this.roomTasksStore.roomTasks.map((roomTask) => this.enrich(roomTask))
 		},
 
 		filteredTasks() {
 			const { status, priority, difficulty, visibility, search } = this.filters
 			const roomIds = new Set(this.roomsStore.rooms
-				.filter(room => !this.filters.floor || String(room.floorId) === this.filters.floor)
-				.map(room => room.id))
+				.filter((room) => !this.filters.floor || String(room.floorId) === this.filters.floor)
+				.map((room) => room.id))
 			// D-084-07: "Completed" lists the finished rows read on demand.
 			let tasks = status === 'completed'
-				? this.roomTasksStore.finishedRoomTasks.map(roomTask => this.enrich(roomTask))
+				? this.roomTasksStore.finishedRoomTasks.map((roomTask) => this.enrich(roomTask))
 				: this.allTasks
 			tasks = tasks.filter(({ roomTask }) => this.matchesScopeFilter(roomTask, roomIds))
 
 			if (status === 'active') {
-				tasks = tasks.filter(t => t.roomTask.isActive)
+				tasks = tasks.filter((t) => t.roomTask.isActive)
 			} else if (status === 'overdue') {
 				// Same missed-work rule as the row badge and claim button (D-084-08).
-				tasks = tasks.filter(t => isOverdue(t.roomTask))
+				tasks = tasks.filter((t) => isOverdue(t.roomTask))
 			} else if (status === 'due-today') {
 				// The row badge's house-local rule: due today or an open flex window (D-084-08).
-				tasks = tasks.filter(t => t.roomTask.nextDue && dueClass(t.roomTask, this.houseStore.timezone) === 'today')
+				tasks = tasks.filter((t) => t.roomTask.nextDue && dueClass(t.roomTask, this.houseStore.timezone) === 'today')
 			}
 
 			if (priority !== 'all') {
 				const priorityMap = { urgent: 3, normal: 2, low: 1 }
-				tasks = tasks.filter(t => t.task.priority === priorityMap[priority])
+				tasks = tasks.filter((t) => t.task.priority === priorityMap[priority])
 			}
 
 			if (difficulty !== 'all') {
-				tasks = tasks.filter(t => t.task.energyCost === parseInt(difficulty, 10))
+				tasks = tasks.filter((t) => t.task.energyCost === parseInt(difficulty, 10))
 			}
 
 			// Visibility filter (CS-PLAN-041): "private" scopes the list to the
 			// current user's private task definitions — the destination of the
 			// Dashboard QuickStats "My Private Tasks" chip.
 			if (visibility === 'private') {
-				tasks = tasks.filter(t => t.task.visibilityType === 'private')
+				tasks = tasks.filter((t) => t.task.visibilityType === 'private')
 			}
 
 			if (search.trim()) {
 				const query = search.toLowerCase()
-				tasks = tasks.filter(t => t.task.name?.toLowerCase().includes(query))
+				tasks = tasks.filter((t) => t.task.name?.toLowerCase().includes(query))
 			}
 
 			// Sorted here so each page holds the next rows of the visible order.
@@ -387,7 +387,7 @@ export default {
 			}
 			if (query.page !== current.page) {
 				// The page is already shown; a failed URL mirror only loses the deep link.
-				this.router?.replace({ query }).catch(error => logger.warn('Could not mirror the task page in the URL', { view: 'TaskManager', action: 'goToPage', page, error: error?.message }))
+				this.router?.replace({ query }).catch((error) => logger.warn('Could not mirror the task page in the URL', { view: 'TaskManager', action: 'goToPage', page, error: error?.message }))
 			}
 			if (scroll) {
 				this.$refs.listTop?.scrollIntoView?.({ block: 'start' })
@@ -450,7 +450,7 @@ export default {
 			// completes directly; multi-person work (or an agreement
 			// naming someone else) opens the participation dialog
 			// pre-filled with the server proposal.
-			const roomTask = this.roomTasksStore.roomTasks.find(row => row.id === roomTaskId)
+			const roomTask = this.roomTasksStore.roomTasks.find((row) => row.id === roomTaskId)
 			if (this.needsParticipationDialog(roomTask?.proposal ?? null)) {
 				await this.openParticipation(roomTask)
 				return
@@ -504,14 +504,14 @@ export default {
 				return []
 			}
 			const namesByUser = {}
-			;(this.userStore.houseUsers ?? []).forEach(member => {
+			;(this.userStore.houseUsers ?? []).forEach((member) => {
 				namesByUser[member.nextcloudUserId] = member.displayName
 			})
 			const assignees = roomTask.assignees ?? []
 			if (assignees.length > 0) {
-				return assignees.map(userId => ({ userId, displayName: namesByUser[userId] ?? userId }))
+				return assignees.map((userId) => ({ userId, displayName: namesByUser[userId] ?? userId }))
 			}
-			return Object.keys(namesByUser).map(userId => ({ userId, displayName: namesByUser[userId] }))
+			return Object.keys(namesByUser).map((userId) => ({ userId, displayName: namesByUser[userId] }))
 		},
 
 		async confirmParticipation(payload) {
@@ -604,7 +604,7 @@ export default {
 					this.showEditTaskModal = false
 					this.editingTask = null
 				})
-				.catch(error => {
+				.catch((error) => {
 					// Recoverable failure (CS-PLAN-066 §3.5): the modal stays
 					// open with the input intact and a visible error toast.
 					showError(t('chorestrike', 'Could not save the task'))

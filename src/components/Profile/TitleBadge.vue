@@ -66,7 +66,7 @@ export default {
 				return null
 			}
 			const labels = props.unlocked
-				.map(tier => titleLabel(t, tier))
+				.map((tier) => titleLabel(t, tier))
 				.filter(Boolean)
 			if (labels.length === 0) {
 				return null

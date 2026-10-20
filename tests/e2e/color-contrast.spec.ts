@@ -36,7 +36,7 @@ async function useTheme(page: Page, theme: 'light' | 'dark' | 'default'): Promis
 async function firstRoomId(page: Page): Promise<number> {
 	const response = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
 	expect(response.status()).toBe(200)
-	const rooms = ((await response.json()).data as Array<{ rooms: Array<{ id: number }> }>).flatMap(floor => floor.rooms)
+	const rooms = ((await response.json()).data as Array<{ rooms: Array<{ id: number }> }>).flatMap((floor) => floor.rooms)
 	expect(rooms.length, 'the family seed provides rooms').toBeGreaterThan(0)
 	return rooms[0].id
 }
@@ -70,8 +70,8 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 					// background) would otherwise be sampled at an intermediate color.
 					// Infinite decorative loops (e.g. the health bar shimmer) never settle.
 					await page.waitForFunction(() => document.getAnimations()
-						.filter(animation => animation.effect?.getTiming().iterations !== Infinity)
-						.every(animation => animation.playState !== 'running'))
+						.filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+						.every((animation) => animation.playState !== 'running'))
 					const result = await new AxeBuilder({ page }).include('#content').withRules(['color-contrast']).analyze()
 					for (const violation of result.violations) {
 						for (const node of violation.nodes) {

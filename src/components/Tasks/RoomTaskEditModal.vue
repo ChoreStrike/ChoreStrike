@@ -128,7 +128,7 @@ export default {
 
 				const originalAssignees = [...(props.roomTask.assignees || [])]
 				const changedAssignees = originalAssignees.length !== assigneeUserIds.value.length
-					|| originalAssignees.some(id => !assigneeUserIds.value.includes(id))
+					|| originalAssignees.some((id) => !assigneeUserIds.value.includes(id))
 				if (changedAssignees) {
 					try {
 						await roomTasksStore.setAssignees(props.roomTask.id, [...assigneeUserIds.value])

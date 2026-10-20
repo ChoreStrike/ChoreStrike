@@ -217,7 +217,7 @@ export default {
 				this.roomsStore.fetchFloorsWithRooms(),
 				this.gameStore.fetchGameState(),
 				this.houseStore.fetchHouse(),
-			]).then(results => {
+			]).then((results) => {
 				results.forEach((result, index) => {
 					if (result.status === 'rejected') {
 						logger.error('Post-wizard reload failed', result.reason, { view: 'Dashboard', action: 'handleWizardApplied', step: index })
@@ -238,7 +238,7 @@ export default {
 		 * container scrolls (focus also tells keyboard users where they are).
 		 */
 		async showRooms() {
-			this.roomsStore.floors.forEach(floor => this.roomsStore.setFloorExpanded(floor.id))
+			this.roomsStore.floors.forEach((floor) => this.roomsStore.setFloorExpanded(floor.id))
 			await this.$nextTick()
 			this.$refs.floorList?.$el?.focus()
 		},

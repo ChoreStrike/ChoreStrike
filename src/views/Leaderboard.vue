@@ -235,7 +235,7 @@ export default {
 		 * pre-pass) in initializeLeaderboard().
 		 */
 		weeklyMedals() {
-			return this.gameStore.medals.map(medal => ({
+			return this.gameStore.medals.map((medal) => ({
 				id: medal.id,
 				type: medal.medalType,
 				label: MEDAL_LABELS[medal.medalType]
@@ -296,7 +296,7 @@ export default {
 			}
 			return name
 				.split(' ')
-				.map(word => word[0])
+				.map((word) => word[0])
 				.join('')
 				.toUpperCase()
 				.slice(0, 2)

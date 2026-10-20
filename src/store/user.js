@@ -257,7 +257,7 @@ export const useUserStore = defineStore('user', {
 			try {
 				await api.delete(`/api/v1/users/${userId}`)
 				this.invalidateMemberReads()
-				this.houseUsers = this.houseUsers.filter(user => user.id !== userId)
+				this.houseUsers = this.houseUsers.filter((user) => user.id !== userId)
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to remove user', error, { store: 'user', action: 'removeUser', userId })
@@ -288,7 +288,7 @@ export const useUserStore = defineStore('user', {
 				const data = await api.put(`/api/v1/users/${userId}/role`, { role })
 				this.invalidateMemberReads()
 
-				const userIndex = this.houseUsers.findIndex(user => user.id === userId)
+				const userIndex = this.houseUsers.findIndex((user) => user.id === userId)
 				if (userIndex >= 0) {
 					this.houseUsers[userIndex] = data
 				}

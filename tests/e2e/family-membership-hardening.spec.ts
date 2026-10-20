@@ -41,7 +41,7 @@ test.describe('family membership hardening (CS-PLAN-081 H3)', () => {
 			// Fresh, exclusively owned NC identities isolate native cache keys on
 			// every run, without clearing shared caches or shortening the window.
 			const suffix = randomUUID().slice(0, 8)
-			const uids = ['owner_a', 'owner_b', 'target_a', 'target_b'].map(name => `cs81_${name}_${suffix}`)
+			const uids = ['owner_a', 'owner_b', 'target_a', 'target_b'].map((name) => `cs81_${name}_${suffix}`)
 			const created: string[] = []
 			const contexts: BrowserContext[] = []
 			const password = 'Synthetic-CS81-test-only!'

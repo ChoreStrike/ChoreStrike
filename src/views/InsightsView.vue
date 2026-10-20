@@ -204,7 +204,7 @@ export default {
 		 * participants are not re-addable).
 		 */
 		memberOptions() {
-			return (this.userStore.houseUsers ?? []).map(member => ({
+			return (this.userStore.houseUsers ?? []).map((member) => ({
 				userId: member.nextcloudUserId,
 				displayName: member.displayName ?? member.nextcloudUserId,
 			}))
@@ -241,13 +241,13 @@ export default {
 			}
 			const allocation = this.correction?.completion?.allocation ?? []
 			return allocation
-				.filter(entry => entry.userId != null)
-				.map(entry => ({ userId: entry.userId, sharePct: entry.sharePct }))
+				.filter((entry) => entry.userId != null)
+				.map((entry) => ({ userId: entry.userId, sharePct: entry.sharePct }))
 		},
 
 		correctionHint() {
 			const hasFormerShare = (this.correction?.completion?.allocation ?? [])
-				.some(entry => entry.userId == null)
+				.some((entry) => entry.userId == null)
 			return hasFormerShare
 				? t('chorestrike', 'A former member was part of this split — reassign their share. Shares must total exactly 100%.')
 				: t('chorestrike', 'Adjust who actually did the work. Shares must total exactly 100%.')
@@ -284,7 +284,7 @@ export default {
 		t,
 
 		memberName(userId) {
-			return this.memberOptions.find(member => member.userId === userId)?.displayName ?? userId
+			return this.memberOptions.find((member) => member.userId === userId)?.displayName ?? userId
 		},
 
 		/** User-triggered retry of the failed house-users fetch. */

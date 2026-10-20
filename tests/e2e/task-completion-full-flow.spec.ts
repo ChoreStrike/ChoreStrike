@@ -54,15 +54,15 @@ async function ownKitchenTask(page: Page, userId: string): Promise<{ id: number;
 	const kitchen = await kitchenRoom(page)
 	const candidates = ((rows.data ?? []) as Array<{
 		id: number; roomId: number; taskId: number; occurrence: unknown; proposal: { participants: Array<{ userId: string }> } | null
-	}>).filter(row => row.roomId === kitchen.id && row.occurrence)
-	const own = candidates.find(row => {
+	}>).filter((row) => row.roomId === kitchen.id && row.occurrence)
+	const own = candidates.find((row) => {
 		const participants = row.proposal?.participants ?? []
 		return participants.length === 0 || (participants.length === 1 && participants[0].userId === userId)
 	})
 	expect(own, 'the family seed always provides a Kitchen task the user may complete directly').toBeTruthy()
 
 	const tasks = await (await page.request.get('/apps/chorestrike/api/v1/tasks')).json()
-	const name = ((tasks.data ?? []) as Array<{ id: number; name: string }>).find(task => task.id === own!.taskId)?.name
+	const name = ((tasks.data ?? []) as Array<{ id: number; name: string }>).find((task) => task.id === own!.taskId)?.name
 	expect(name, 'the task definition must resolve').toBeTruthy()
 	return { id: own!.id, name: name! }
 }
@@ -342,7 +342,7 @@ test.describe('Task Completion Full Flow', () => {
 			// state (recurrence inverse via the API ground truth).
 			const roomTasksResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchen.id}`)
 			const restored = ((await roomTasksResponse.json()).data as Array<{ id: number }>)
-				.find(roomTask => roomTask.id === created.id)
+				.find((roomTask) => roomTask.id === created.id)
 			expect(restored).toBeTruthy()
 			expect(restored!.lastCompleted).toBeNull()
 			expect(restored!.isActive).toBe(true)

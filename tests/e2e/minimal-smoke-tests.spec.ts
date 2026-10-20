@@ -13,17 +13,17 @@ import { test, expect, type Page, type Response } from '@playwright/test'
 test.describe('Minimal Smoke Tests', () => {
 	test('Protected views wait for membership bootstrap before issuing reads', async ({ page }) => {
 		let release!: () => void
-		const bootstrapBarrier = new Promise<void>(resolve => {
+		const bootstrapBarrier = new Promise<void>((resolve) => {
 			release = resolve
 		})
 		const protectedReads: string[] = []
-		page.on('request', request => {
+		page.on('request', (request) => {
 			const pathname = new URL(request.url()).pathname
 			if (pathname.includes('/chorestrike/api/v1/') && !pathname.endsWith('/users/current')) {
 				protectedReads.push(pathname)
 			}
 		})
-		await page.route('**/api/v1/users/current', async route => {
+		await page.route('**/api/v1/users/current', async (route) => {
 			await bootstrapBarrier
 			await route.continue()
 		})
@@ -47,7 +47,7 @@ test.describe('Minimal Smoke Tests', () => {
 	test('App loads with title and visible shell', async ({ page }) => {
 		// CS-PLAN-087 WP-A: the header requests the app glyph — an <img> on
 		// NC34, a CSS mask (--app-icon-url) on NC35.
-		const headerIcon = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/chorestrike/img/app.svg'))
+		const headerIcon = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/chorestrike/img/app.svg'))
 		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 
@@ -68,7 +68,7 @@ test.describe('Minimal Smoke Tests', () => {
 
 		// The listener must be attached before navigation, otherwise
 		// load-time errors are never captured.
-		page.on('console', msg => {
+		page.on('console', (msg) => {
 			if (msg.type() === 'error') {
 				const text = msg.text()
 				// Filter out common non-critical errors
@@ -104,14 +104,14 @@ test.describe('Minimal Smoke Tests', () => {
 			const errors: string[] = []
 			const scripts: string[] = []
 			await page.setViewportSize(viewport)
-			page.on('console', message => {
+			page.on('console', (message) => {
 				if (message.type() === 'error') {
 					errors.push(message.text())
 				}
 			})
-			page.on('pageerror', error => errors.push(error.message))
-			page.on('requestfailed', request => errors.push(`Failed request: ${new URL(request.url()).pathname}`))
-			page.on('response', response => {
+			page.on('pageerror', (error) => errors.push(error.message))
+			page.on('requestfailed', (request) => errors.push(`Failed request: ${new URL(request.url()).pathname}`))
+			page.on('response', (response) => {
 				if (response.status() >= 400) {
 					errors.push(`HTTP ${response.status()}: ${new URL(response.url()).pathname}`)
 				}
@@ -131,7 +131,7 @@ test.describe('Minimal Smoke Tests', () => {
 			await page.addInitScript(() => {
 				const violations: string[] = []
 				Object.assign(window, { assetCspViolations: violations })
-				document.addEventListener('securitypolicyviolation', event => violations.push(event.effectiveDirective))
+				document.addEventListener('securitypolicyviolation', (event) => violations.push(event.effectiveDirective))
 			})
 
 			await page.goto('/apps/chorestrike/')
@@ -141,11 +141,11 @@ test.describe('Minimal Smoke Tests', () => {
 			await expect(page.locator('body')).toHaveCSS('overflow-x', 'hidden')
 			await expect(today).toHaveCSS('max-width', '900px')
 			for (const container of [page.locator('#app-content-vue'), today]) {
-				await expect.poll(() => container.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+				await expect.poll(() => container.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
 			}
-			expect(await today.evaluate(element => element.getAttributeNames().some(name => name.startsWith('data-v-')))).toBe(true)
-			expect(scripts.some(url => url.endsWith('/chorestrike-today.js'))).toBe(true)
-			expect(scripts.some(url => url.endsWith('/chorestrike-settings.js'))).toBe(false)
+			expect(await today.evaluate((element) => element.getAttributeNames().some((name) => name.startsWith('data-v-')))).toBe(true)
+			expect(scripts.some((url) => url.endsWith('/chorestrike-today.js'))).toBe(true)
+			expect(scripts.some((url) => url.endsWith('/chorestrike-settings.js'))).toBe(false)
 
 			if (viewport.width < 768) {
 				await page.getByRole('button', { name: /Open navigation|Navigation \u00f6ffnen/i }).click()
@@ -157,16 +157,16 @@ test.describe('Minimal Smoke Tests', () => {
 				await page.getByRole('button', { name: /Close navigation|Navigation schlie\u00dfen/i }).click()
 			}
 			await expect(settings).toHaveCSS('max-width', '1000px')
-			expect(await settings.evaluate(element => element.getAttributeNames().some(name => name.startsWith('data-v-')))).toBe(true)
-			expect(scripts.some(url => url.endsWith('/chorestrike-settings.js'))).toBe(true)
+			expect(await settings.evaluate((element) => element.getAttributeNames().some((name) => name.startsWith('data-v-')))).toBe(true)
+			expect(scripts.some((url) => url.endsWith('/chorestrike-settings.js'))).toBe(true)
 			await expect(page.locator('link[rel="stylesheet"][href*="chorestrike-main.css"]')).toHaveCount(0)
 			expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 			for (const container of [page.locator('#app-content-vue'), settings]) {
-				await expect.poll(() => container.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+				await expect.poll(() => container.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
 			}
 			for (const control of [page.getByTestId('settings-title'), page.getByTestId('task-digest-switch'), page.getByTestId('digest-time-input'), page.getByTestId('pause-reason-select')]) {
 				await expect(control).toBeVisible()
-				await expect.poll(() => control.evaluate(element => {
+				await expect.poll(() => control.evaluate((element) => {
 					const bounds = element.getBoundingClientRect()
 					const content = element.closest('#app-content-vue')!.getBoundingClientRect()
 					return bounds.width > 0 && bounds.left >= Math.max(0, content.left)

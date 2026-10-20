@@ -337,7 +337,7 @@ export default {
 
 		tasks() {
 			const roomTasks = this.roomTasksStore.roomTasksByRoom[this.roomId] || []
-			return roomTasks.map(roomTask => ({
+			return roomTasks.map((roomTask) => ({
 				roomTask,
 				task: this.tasksStore.getTaskById(roomTask.taskId) || {
 					id: roomTask.taskId,
@@ -354,7 +354,7 @@ export default {
 
 		overdueCount() {
 			// The shared D-084-08 boundary, identical to the rows below.
-			return this.tasks.filter(item => isOverdue(item.roomTask)).length
+			return this.tasks.filter((item) => isOverdue(item.roomTask)).length
 		},
 
 		editingTaskDefinition() {
@@ -414,7 +414,7 @@ export default {
 			// agreement naming someone else) opens the participation
 			// dialog pre-filled with the server proposal.
 			const roomTask = (this.roomTasksStore.roomTasksByRoom[this.roomId] || [])
-				.find(row => row.id === roomTaskId)
+				.find((row) => row.id === roomTaskId)
 			const proposal = roomTask?.proposal ?? null
 			if (this.needsParticipationDialog(proposal)) {
 				await this.openParticipation(roomTask)
@@ -470,14 +470,14 @@ export default {
 				return []
 			}
 			const namesByUser = {}
-			;(this.userStore.houseUsers ?? []).forEach(member => {
+			;(this.userStore.houseUsers ?? []).forEach((member) => {
 				namesByUser[member.nextcloudUserId] = member.displayName
 			})
 			const assignees = roomTask.assignees ?? []
 			if (assignees.length > 0) {
-				return assignees.map(userId => ({ userId, displayName: namesByUser[userId] ?? userId }))
+				return assignees.map((userId) => ({ userId, displayName: namesByUser[userId] ?? userId }))
 			}
-			return Object.keys(namesByUser).map(userId => ({ userId, displayName: namesByUser[userId] }))
+			return Object.keys(namesByUser).map((userId) => ({ userId, displayName: namesByUser[userId] }))
 		},
 
 		async confirmParticipation(payload) {

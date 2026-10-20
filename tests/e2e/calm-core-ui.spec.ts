@@ -35,22 +35,22 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 
 	test('reduced motion overrides an explicit animation opt-in on a real completion', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
-		const task = seededData.data.tasks.find(entry => entry.name === 'Do the dishes')!
-		const roomTask = seededData.data.roomTasks.find(entry => entry.taskId === task.id)!
+		const task = seededData.data.tasks.find((entry) => entry.name === 'Do the dishes')!
+		const roomTask = seededData.data.roomTasks.find((entry) => entry.taskId === task.id)!
 		const { context, page } = await createUserContext(browser, 'mom', { reducedMotion: 'reduce' })
 		try {
 			await page.goto('/apps/chorestrike/#/settings')
 			await expect(page.getByTestId('animation-toggle')).not.toBeChecked()
 			await page.getByText('Celebration animations', { exact: true }).click()
 			await expect(page.getByTestId('animation-toggle')).toBeChecked()
-			const saved = page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith('/preferences/me'))
+			const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/preferences/me'))
 			await page.getByTestId('save-preferences').click()
 			expect((await saved).ok()).toBe(true)
 			await page.getByTestId('nav-today').click()
 			// Observe insertions, not a late snapshot that could miss transient confetti.
 			await page.evaluate(() => {
 				document.body.dataset.celebrationCanvases = '0'
-				new MutationObserver(records => {
+				new MutationObserver((records) => {
 					for (const record of records) {
 						for (const node of record.addedNodes) {
 							if (node instanceof HTMLCanvasElement) {

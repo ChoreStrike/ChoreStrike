@@ -128,7 +128,7 @@ test.describe('Release: Task Lifecycle', () => {
 			// split naming the actor; mom's own rows stay participant-less.
 			const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
 			const participants = ((rows.data ?? []) as Array<{ id: number; proposal: { participants: Array<{ userId: string }> } | null }>)
-				.find(row => row.id === target.id)?.proposal?.participants ?? []
+				.find((row) => row.id === target.id)?.proposal?.participants ?? []
 			const needsSplit = participants.length > 1
 				|| (participants.length === 1 && participants[0].userId !== 'mom')
 			const completeResponse = needsSplit

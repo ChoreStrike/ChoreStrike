@@ -278,7 +278,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			const available = await owner.page.request.put('/apps/chorestrike/api/v1/scheduling/members/kid', {
 				data: {
 					maxDailyTasks: 10,
-					weekdayAvailability: Object.fromEntries(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => [day, true])),
+					weekdayAvailability: Object.fromEntries(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => [day, true])),
 				},
 			})
 			expect(available.status(), await available.text()).toBe(200)
@@ -300,7 +300,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			await handover.getByTestId('agreement-handover-member').selectOption('kid')
 			await expect(handover.getByTestId('agreement-handover-submit')).toBeDisabled()
 			await row.getByTestId('agreement-consent').check()
-			const amended = owner.page.waitForResponse(response => response.request().method() === 'POST'
+			const amended = owner.page.waitForResponse((response) => response.request().method() === 'POST'
 				&& response.url().endsWith(`/occurrences/${receipt!.occurrenceId}/amend`))
 			await handover.getByTestId('agreement-handover-submit').click()
 			const response = await amended
@@ -316,7 +316,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			// force every subsequent agreement into a stale-version conflict.
 			await row.getByTestId('agreement-amend-date').fill(houseDateOffset(0, 'UTC'))
 			await row.getByTestId('agreement-consent').check()
-			const secondAmendment = owner.page.waitForResponse(result => result.request().method() === 'POST'
+			const secondAmendment = owner.page.waitForResponse((result) => result.request().method() === 'POST'
 				&& result.url().endsWith(`/occurrences/${receipt!.occurrenceId}/amend`))
 			await row.getByTestId('agreement-amend-submit').click()
 			const second = await secondAmendment
@@ -333,7 +333,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			await expect(owner.page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(0)
 			await child.page.goto('/apps/chorestrike/#/today')
 			await expect(child.page.getByTestId(`today-complete-button-${roomTaskId}`)).toBeVisible()
-			const completed = child.page.waitForResponse(result => result.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
+			const completed = child.page.waitForResponse((result) => result.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
 			await holdToConfirm(child.page.getByTestId(`today-complete-button-${roomTaskId}`))
 			expect((await completed).status()).toBe(200)
 			await expect(child.page.getByTestId('participation-dialog')).toHaveCount(0)
@@ -353,7 +353,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			await page.goto('/apps/chorestrike/#/today')
 			const card = page.getByTestId('today-section-catchup').getByTestId('today-task-item').filter({ hasText: name })
 			await expect(card).toHaveCount(1)
-			const dateLabel = await page.evaluate(key => {
+			const dateLabel = await page.evaluate((key) => {
 				const [year, month, day] = key.split('-').map(Number)
 				return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 			}, plannedDate)

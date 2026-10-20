@@ -67,7 +67,7 @@ async function sidewaysScrollers(root: Locator): Promise<string[]> {
 async function firstRoomId(page: Page): Promise<number> {
 	const response = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
 	expect(response.status()).toBe(200)
-	const rooms = ((await response.json()).data as Array<{ rooms: Array<{ id: number }> }>).flatMap(floor => floor.rooms)
+	const rooms = ((await response.json()).data as Array<{ rooms: Array<{ id: number }> }>).flatMap((floor) => floor.rooms)
 	expect(rooms.length, 'the family seed provides rooms').toBeGreaterThan(0)
 	return rooms[0].id
 }
@@ -114,7 +114,7 @@ test.describe('Layout clearance and dashboard health bar', () => {
 						if (view.content) {
 							await expect(root.getByTestId(view.content)).toBeVisible()
 						}
-						scrolled.push(...(await sidewaysScrollers(root)).map(scroller => `${view.ready}: ${scroller}`))
+						scrolled.push(...(await sidewaysScrollers(root)).map((scroller) => `${view.ready}: ${scroller}`))
 					}
 				}
 				expect(covered, covered.join('\n')).toEqual([])

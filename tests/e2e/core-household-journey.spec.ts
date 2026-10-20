@@ -188,7 +188,7 @@ test.describe('Canonical household journey', () => {
 				await expect(zone).toHaveValue((await originalHouse.json()).data.timezone)
 				if ((await zone.inputValue()) !== clock.timeZone) {
 					await zone.selectOption(clock.timeZone)
-					const saved = page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith('/api/v1/house'))
+					const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/api/v1/house'))
 					await page.getByTestId('save-house-timezone').click()
 					expect((await saved).ok()).toBeTruthy()
 				}

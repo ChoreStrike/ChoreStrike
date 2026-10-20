@@ -50,12 +50,12 @@ const ACTION_STEPS: Record<string, (page: Page) => Promise<void>> = {
 		await page.getByTestId('preview-plan-button').click()
 		const changes = page.getByTestId('plan-changes')
 		await expect(changes).toBeVisible({ timeout: 30000 })
-		await changes.evaluate(list => list.parentElement!.scrollIntoView({ block: 'start' }))
+		await changes.evaluate((list) => list.parentElement!.scrollIntoView({ block: 'start' }))
 	},
 	async notificationSettings(page) {
 		const section = page.getByTestId('notifications-section')
 		await expect(section).toBeVisible({ timeout: 30000 })
-		await section.evaluate(element => element.scrollIntoView({ block: 'start' }))
+		await section.evaluate((element) => element.scrollIntoView({ block: 'start' }))
 	},
 	async completeTask(page) {
 		await holdToConfirm(page.locator('[data-testid^="today-complete-button-"]').first())
@@ -70,12 +70,12 @@ test('the target is the seeded demo household', async ({ browser, baseURL }) => 
 	try {
 		expect((await jsonOf(await page.request.get(`${API}/house`))).name).toBe(SEEDED_HOUSE_NAME)
 		const members: Array<{ id: number; nextcloudUserId: string }> = await jsonOf(await page.request.get(`${API}/users`))
-		expect(members.map(member => member.nextcloudUserId).sort()).toEqual([...SEEDED_ROLES, 'admin'].sort())
+		expect(members.map((member) => member.nextcloudUserId).sort()).toEqual([...SEEDED_ROLES, 'admin'].sort())
 
 		// Present the household: the seed's test-only admin member leaves
 		// (the planner would otherwise assign to "Admin"), the name reads
 		// like a family's, and a small catalog exists.
-		const admin = members.find(member => member.nextcloudUserId === 'admin')!
+		const admin = members.find((member) => member.nextcloudUserId === 'admin')!
 		expect((await page.request.delete(`${API}/users/${admin.id}`)).ok()).toBe(true)
 		await jsonOf(await page.request.put(`${API}/house`, { data: { name: PRESENTED_HOUSE_NAME } }))
 		const house = await jsonOf(await page.request.get(`${API}/house`))

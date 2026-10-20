@@ -353,14 +353,14 @@ export default {
 				return []
 			}
 			const namesByUser = {}
-			;(this.userStore.houseUsers ?? []).forEach(member => {
+			;(this.userStore.houseUsers ?? []).forEach((member) => {
 				namesByUser[member.nextcloudUserId] = member.displayName
 			})
 			const assignees = item.assignees ?? []
 			if (assignees.length > 0) {
-				return assignees.map(userId => ({ userId, displayName: namesByUser[userId] ?? userId }))
+				return assignees.map((userId) => ({ userId, displayName: namesByUser[userId] ?? userId }))
 			}
-			return Object.keys(namesByUser).map(userId => ({ userId, displayName: namesByUser[userId] }))
+			return Object.keys(namesByUser).map((userId) => ({ userId, displayName: namesByUser[userId] }))
 		},
 
 		// CS-PLAN-066 §3.3: the rows are SELECTORS of their owning store
@@ -372,34 +372,34 @@ export default {
 		// and the local mine/everyone preference.
 		todayIds() {
 			return new Set(this.roomTasksStore.dailyTasks
-				.filter(item => item.roomTask.isActive && this.isDueToday(item.roomTask))
-				.map(item => item.roomTask.id))
+				.filter((item) => item.roomTask.isActive && this.isDueToday(item.roomTask))
+				.map((item) => item.roomTask.id))
 		},
 
 		todayItems() {
 			// Completed rows stay visible (queued undo), a recurring task
 			// whose next occurrence moved past today leaves the list.
 			return this.roomTasksStore.dailyTasks
-				.filter(item => !item.roomTask.isActive || this.isDueToday(item.roomTask))
+				.filter((item) => !item.roomTask.isActive || this.isDueToday(item.roomTask))
 		},
 
 		overdueItems() {
 			return this.roomTasksStore.overdueTasks
-				.filter(item => item.roomTask.isActive && !this.todayIds.has(item.roomTask.id))
+				.filter((item) => item.roomTask.isActive && !this.todayIds.has(item.roomTask.id))
 		},
 
 		visibleTodayItems() {
 			if (this.filter === 'all') {
 				return this.todayItems
 			}
-			return this.todayItems.filter(item => this.isMine(item))
+			return this.todayItems.filter((item) => this.isMine(item))
 		},
 
 		visibleCatchUpItems() {
 			if (this.filter === 'all') {
 				return this.overdueItems
 			}
-			return this.overdueItems.filter(item => this.isMine(item))
+			return this.overdueItems.filter((item) => this.isMine(item))
 		},
 
 		isEmpty() {
@@ -441,7 +441,7 @@ export default {
 				return null
 			}
 			const planned = this.visibleTodayItems
-				.filter(item => item.roomTask.isActive)
+				.filter((item) => item.roomTask.isActive)
 				.reduce((sum, item) => sum + (item.task?.energyCost ?? 0), 0)
 			const outstanding = this.visibleCatchUpItems
 				.reduce((sum, item) => sum + (item.task?.energyCost ?? 0), 0)
@@ -709,14 +709,14 @@ export default {
 				return this.t('chorestrike', 'Checklist')
 			}
 			const progress = this.checklistStore.getRoomTaskProgress(item.roomTask.id)
-			const done = progress.filter(p => p.isChecked).length
+			const done = progress.filter((p) => p.isChecked).length
 			return this.t('chorestrike', 'Checklist ({done}/{total})', { done, total: items.length })
 		},
 
 		async toggleExpand(item) {
 			const id = item.roomTask.id
 			if (this.isExpanded(id)) {
-				this.expandedIds = this.expandedIds.filter(expandedId => expandedId !== id)
+				this.expandedIds = this.expandedIds.filter((expandedId) => expandedId !== id)
 				return
 			}
 			this.expandedIds = [...this.expandedIds, id]
@@ -731,7 +731,7 @@ export default {
 				// 2026-09-12): a checklist-less row must not keep offering a
 				// dead clickable control.
 				if (this.checklistStore.getTaskItems(item.task.id).length === 0) {
-					this.expandedIds = this.expandedIds.filter(expandedId => expandedId !== id)
+					this.expandedIds = this.expandedIds.filter((expandedId) => expandedId !== id)
 					if (!this.hasDiscoveredEmptyChecklist(item.task.id)) {
 						this.emptyChecklistTaskIds = [...this.emptyChecklistTaskIds, item.task.id]
 					}

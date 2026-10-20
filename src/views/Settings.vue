@@ -748,7 +748,7 @@ export default {
 		},
 
 		memberName(userId) {
-			return this.houseMembers.find(member => member.nextcloudUserId === userId)?.displayName ?? userId
+			return this.houseMembers.find((member) => member.nextcloudUserId === userId)?.displayName ?? userId
 		},
 
 		pauseReasonLabel(code) {
@@ -782,7 +782,7 @@ export default {
 
 		toggleFloorExpanded(floorId) {
 			this.expandedFloorIds = this.isFloorExpanded(floorId)
-				? this.expandedFloorIds.filter(id => id !== floorId)
+				? this.expandedFloorIds.filter((id) => id !== floorId)
 				: [...this.expandedFloorIds, floorId]
 		},
 
@@ -902,7 +902,7 @@ export default {
 		 */
 		async moveFloor(floor, direction) {
 			const ordered = this.orderedFloors
-			const index = ordered.findIndex(f => f.id === floor.id)
+			const index = ordered.findIndex((f) => f.id === floor.id)
 			const target = index + direction
 			if (index < 0 || target < 0 || target >= ordered.length) {
 				return
@@ -914,7 +914,7 @@ export default {
 			next[target] = moved
 
 			try {
-				await this.roomsStore.reorderFloors(next.map(f => f.id))
+				await this.roomsStore.reorderFloors(next.map((f) => f.id))
 				showSuccess(t('chorestrike', 'Floor order saved'))
 			} catch (error) {
 				showError(t('chorestrike', 'Failed to update floor'))

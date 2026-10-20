@@ -36,8 +36,8 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 
 	/** Resolve a room task by its task NAME from the seeded payload. */
 	const roomTaskByName = (seeded: SeededShape, name: string) => {
-		const task = seeded.data.tasks.find(entry => entry.name === name)!
-		return seeded.data.roomTasks.find(roomTask => roomTask.taskId === task.id)!
+		const task = seeded.data.tasks.find((entry) => entry.name === name)!
+		return seeded.data.roomTasks.find((roomTask) => roomTask.taskId === task.id)!
 	}
 
 	const goToScheduling = async (page: Page) => {

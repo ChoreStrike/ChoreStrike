@@ -32,7 +32,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 		const context = await browser.newContext({ baseURL, storageState: { cookies: [], origins: [] } })
 		const page = await context.newPage()
 		const login = async (userId: string) => {
-			const credentials = PROFILE_USERS.family.find(user => user.userId === userId)!
+			const credentials = PROFILE_USERS.family.find((user) => user.userId === userId)!
 			await page.goto('/login')
 			await page.locator('input[name="user"]').fill(credentials.userId)
 			await page.locator('input[name="password"]').fill(credentials.password)
@@ -48,7 +48,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			await expect(page.getByTestId('nav-arcade')).toHaveCount(0)
 			await page.getByTestId('nav-today').click()
 			const row = page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })
-			const completion = page.waitForResponse(response => response.request().method() === 'POST'
+			const completion = page.waitForResponse((response) => response.request().method() === 'POST'
 				&& /\/api\/v1\/room-tasks\/\d+\/complete$/.test(new URL(response.url()).pathname))
 			await holdToConfirm(row.getByRole('button', { name: 'Done', exact: true }))
 			const receipt = await completion
@@ -154,8 +154,8 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 
 	test('a committed completion survives a failing derived refresh; the retry is read-only (D3)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
-		const task = seededData.data.tasks.find(entry => entry.name === 'Do the dishes')!
-		const trashRoomTask = seededData.data.roomTasks.find(roomTask =>
+		const task = seededData.data.tasks.find((entry) => entry.name === 'Do the dishes')!
+		const trashRoomTask = seededData.data.roomTasks.find((roomTask) =>
 			roomTask.taskId === task.id && roomTask.isActive)!
 
 		const { context, page } = await createUserContext(browser, 'mom')
@@ -166,8 +166,8 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 
 			// Break ONLY the derived count refreshes (both projections).
-			await page.route('**/api/v1/room-tasks/overdue*', route => route.abort('connectionreset'))
-			await page.route('**/api/v1/room-tasks/due-today*', route => route.abort('connectionreset'))
+			await page.route('**/api/v1/room-tasks/overdue*', (route) => route.abort('connectionreset'))
+			await page.route('**/api/v1/room-tasks/due-today*', (route) => route.abort('connectionreset'))
 
 			const complete = page.waitForResponse((response) => {
 				const pathname = new URL(response.url()).pathname

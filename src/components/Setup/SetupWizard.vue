@@ -411,20 +411,20 @@ export default {
 			return this.userStore.houseUsers
 		},
 		hasValidInvites() {
-			return this.invites.some(invite => EMAIL_PATTERN.test(invite.email))
+			return this.invites.some((invite) => EMAIL_PATTERN.test(invite.email))
 		},
 		/**
 		 * Whether at least one valid email row has not joined yet — the
 		 * "Send invites" batch still has work (CS-PLAN-062 §3.4).
 		 */
 		hasPendingInvites() {
-			return this.invites.some(invite => EMAIL_PATTERN.test(invite.email) && invite.status !== 'joined')
+			return this.invites.some((invite) => EMAIL_PATTERN.test(invite.email) && invite.status !== 'joined')
 		},
 		totalRooms() {
 			return this.floors.reduce((sum, f) => sum + f.rooms.length, 0)
 		},
 		selectedLevelLabel() {
-			const lvl = this.setupStore.levels.find(l => l.id === this.quick.intensityLevel)
+			const lvl = this.setupStore.levels.find((l) => l.id === this.quick.intensityLevel)
 			return lvl ? lvl.label : this.quick.intensityLevel
 		},
 		/**
@@ -434,7 +434,7 @@ export default {
 		 */
 		skippedTemplateLabels() {
 			const ids = this.applyResult?.skipped ?? []
-			return ids.map(id => this.setupStore.templates.find(t => t.id === id)?.name || id)
+			return ids.map((id) => this.setupStore.templates.find((t) => t.id === id)?.name || id)
 		},
 		/**
 		 * Q-081-05 (CS-PLAN-081 H4): a basement counts toward the six-floor
@@ -455,7 +455,7 @@ export default {
 				return 0
 			}
 			const lastFloor = this.floors[this.floors.length - 1]
-			const lastFloorHasBasement = lastFloor.rooms.some(r => r.roomType === 'basement')
+			const lastFloorHasBasement = lastFloor.rooms.some((r) => r.roomType === 'basement')
 			return lastFloorHasBasement ? this.floors.length - 1 : 0
 		},
 		/**
@@ -466,8 +466,8 @@ export default {
 		 */
 		totalTaskCount() {
 			let total = 0
-			this.floors.forEach(floor => {
-				floor.rooms.forEach(room => {
+			this.floors.forEach((floor) => {
+				floor.rooms.forEach((room) => {
 					total += this.taskCountForRoom(room)
 				})
 				if (this.options.createHallways) {
@@ -583,7 +583,7 @@ export default {
 				this.floors.push({ name: t('chorestrike', 'Basement'), rooms: [] })
 			}
 			const roomsPerFloor = Math.min(6, Math.max(1, this.quick.roomsPerFloor))
-			this.floors.forEach(floor => {
+			this.floors.forEach((floor) => {
 				for (let r = 0; r < roomsPerFloor; r++) {
 					const rt = roomTypes[r % Math.max(1, roomTypes.length)] || roomTypes[0]
 					floor.rooms.push({
@@ -604,7 +604,7 @@ export default {
 			return `${index + 1}. ${t('chorestrike', 'Floor')}`
 		},
 		onRoomTypeChange(room) {
-			const rt = this.setupStore.roomTypes.find(r => r.id === room.roomType)
+			const rt = this.setupStore.roomTypes.find((r) => r.id === room.roomType)
 			if (rt) {
 				room.name = rt.defaultName
 			}
@@ -620,7 +620,7 @@ export default {
 			return this.taskCountForRoomType(room.roomType)
 		},
 		taskCountForRoomType(roomType) {
-			return this.setupStore.templates.filter(t =>
+			return this.setupStore.templates.filter((t) =>
 				Array.isArray(t.roomTypes)
 				&& t.roomTypes.includes(roomType)
 				&& t.levels
@@ -646,9 +646,9 @@ export default {
 					houseName: this.houseName,
 					intensityLevel: this.quick.intensityLevel,
 					options: { ...this.options },
-					floors: this.floors.map(floor => ({
+					floors: this.floors.map((floor) => ({
 						name: floor.name,
-						rooms: floor.rooms.map(room => ({
+						rooms: floor.rooms.map((room) => ({
 							name: room.name,
 							roomType: room.roomType,
 							icon: iconForRoomType(room.roomType),
@@ -702,7 +702,7 @@ export default {
 			const outcomes = await Promise.all(
 				pending.map(({ invite, index }) => this.inviteOne(invite, index)),
 			)
-			const failedCount = outcomes.filter(joined => !joined).length
+			const failedCount = outcomes.filter((joined) => !joined).length
 
 			// Log hygiene (CS-PLAN-061 §3.6): only the count goes to the log —
 			// the reasons can carry invite emails and are shown per row instead.

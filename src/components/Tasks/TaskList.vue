@@ -173,7 +173,7 @@ export default {
 			} catch (error) {
 				// Revert the draft on failure so the UI matches the server state
 				const previous = next.includes(userId)
-					? next.filter(id => id !== userId)
+					? next.filter((id) => id !== userId)
 					: [...next, userId]
 				assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: previous }
 			}
@@ -188,7 +188,7 @@ export default {
 		// Resolved reactively so a dialog opened before the member list
 		// loaded picks up the display name once the read lands.
 		const claimAssigneeName = computed(() => {
-			const member = (userStore.houseUsers || []).find(u => u.nextcloudUserId === claimAssigneeId.value)
+			const member = (userStore.houseUsers || []).find((u) => u.nextcloudUserId === claimAssigneeId.value)
 			return member?.displayName || claimAssigneeId.value || t('chorestrike', 'another member')
 		})
 
@@ -251,7 +251,7 @@ export default {
 
 		const toggleSelected = async (roomTaskId) => {
 			if (isSelected(roomTaskId)) {
-				selectedRoomTaskIds.value = selectedRoomTaskIds.value.filter(id => id !== roomTaskId)
+				selectedRoomTaskIds.value = selectedRoomTaskIds.value.filter((id) => id !== roomTaskId)
 			} else {
 				selectedRoomTaskIds.value = [...selectedRoomTaskIds.value, roomTaskId]
 				// Lazy-load house members for the target dropdown
@@ -286,7 +286,7 @@ export default {
 			bulkAssigning.value = true
 			try {
 				const assigned = await roomTasksStore.bulkAssignTasks(requested, targetUserId)
-				const assignedIds = new Set((assigned || []).map(rt => rt.id))
+				const assignedIds = new Set((assigned || []).map((rt) => rt.id))
 				const skippedCount = requested.length - assignedIds.size
 
 				if (skippedCount === 0) {

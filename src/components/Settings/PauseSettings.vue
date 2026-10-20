@@ -171,7 +171,7 @@ export default {
 			if (!myUserId) {
 				return []
 			}
-			return this.pausesStore.pauses.filter(pause => pause.subjectUserId === myUserId)
+			return this.pausesStore.pauses.filter((pause) => pause.subjectUserId === myUserId)
 		},
 
 		submitLabel() {

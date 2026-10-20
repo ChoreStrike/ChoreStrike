@@ -52,13 +52,13 @@ test.describe('Settings', () => {
 		let settingsDelivered = false
 		let releaseSettings!: () => void
 		let releaseLatest!: () => void
-		const settingsBarrier = new Promise<void>(resolve => {
+		const settingsBarrier = new Promise<void>((resolve) => {
 			releaseSettings = resolve
 		})
-		const latestBarrier = new Promise<void>(resolve => {
+		const latestBarrier = new Promise<void>((resolve) => {
 			releaseLatest = resolve
 		})
-		await page.route(`**${API}/house`, async route => {
+		await page.route(`**${API}/house`, async (route) => {
 			const index = ++requests
 			const response = await route.fetch()
 			if (index === 2) {
@@ -96,12 +96,12 @@ test.describe('Settings', () => {
 
 	test('Cold structure hydration survives room reconciliation', async ({ page }) => {
 		let release!: () => void
-		const barrier = new Promise<void>(resolve => {
+		const barrier = new Promise<void>((resolve) => {
 			release = resolve
 		})
 		let snapshot: { floor: { id: number }, rooms: { id: number }[] }[] | null = null
 		let requests = 0
-		await page.route(`**${API}/floors/with-rooms`, async route => {
+		await page.route(`**${API}/floors/with-rooms`, async (route) => {
 			const index = ++requests
 			const response = await route.fetch()
 			if (index === 1) {
@@ -113,9 +113,9 @@ test.describe('Settings', () => {
 		try {
 			await page.reload()
 			await expect.poll(() => snapshot?.length || 0).toBeGreaterThan(0)
-			const room = snapshot!.flatMap(item => item.rooms)[0]
+			const room = snapshot!.flatMap((item) => item.rooms)[0]
 			expect(room).toBeDefined()
-			await page.evaluate(room => {
+			await page.evaluate((room) => {
 				const app = (window as unknown as { chorestrike: { pinia: { _s: Map<string, { floors: unknown[], rooms: unknown[], reconcileRoom: (room: unknown) => void }> } } }).chorestrike
 				const store = app.pinia._s.get('rooms')!
 				if (store.floors.length || store.rooms.length) {
@@ -162,7 +162,7 @@ test.describe('Settings', () => {
 			for (const control of [timezone, page.getByTestId('save-house-timezone'), ...await actions.all()]) {
 				await expect(control).toBeVisible()
 				await control.scrollIntoViewIfNeeded()
-				await expect.poll(() => control.evaluate(element => {
+				await expect.poll(() => control.evaluate((element) => {
 					const bounds = element.getBoundingClientRect()
 					const content = element.closest('.setting-card')!.getBoundingClientRect()
 					return bounds.width > 0 && bounds.left >= Math.max(0, content.left)
@@ -170,17 +170,17 @@ test.describe('Settings', () => {
 				})).toBe(true)
 			}
 			for (const container of [page.locator('#app-content-vue'), page.getByTestId('settings-view'), floor]) {
-				await expect.poll(() => container.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+				await expect.poll(() => container.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
 			}
 
-			const saved = page.waitForResponse(response => response.url().endsWith(`${API}/house`) && response.request().method() === 'PUT')
+			const saved = page.waitForResponse((response) => response.url().endsWith(`${API}/house`) && response.request().method() === 'PUT')
 			await page.getByTestId('save-house-timezone').click()
 			expect((await saved).ok()).toBe(true)
 			await expect(page.getByTestId('save-house-timezone')).toBeDisabled()
 			await page.reload()
 			await expect(timezone).toHaveValue(changedZone)
 			await timezone.selectOption(originalZone)
-			const restored = page.waitForResponse(response => response.url().endsWith(`${API}/house`) && response.request().method() === 'PUT')
+			const restored = page.waitForResponse((response) => response.url().endsWith(`${API}/house`) && response.request().method() === 'PUT')
 			await page.getByTestId('save-house-timezone').click()
 			expect((await restored).ok()).toBe(true)
 			await expect(page.getByTestId('save-house-timezone')).toBeDisabled()
@@ -303,7 +303,7 @@ test.describe('Settings', () => {
 					name: entry.floor.name,
 					sortOrder: entry.floor.sortOrder,
 					// The room query has no ORDER BY: retained facts, not physical row order, are the contract.
-					rooms: entry.rooms.map(room => ({ id: room.id, floorId: room.floorId, name: room.name, icon: room.icon, roomType: room.roomType })).sort((a, b) => a.id - b.id),
+					rooms: entry.rooms.map((room) => ({ id: room.id, floorId: room.floorId, name: room.name, icon: room.icon, roomType: room.roomType })).sort((a, b) => a.id - b.id),
 				})),
 				tasks: await dataOf(await page.request.get(`${API}/tasks`)),
 				planning: taskRows.map((row: { id: number; roomId: number; taskId: number; assignees: string[]; occurrence?: { occurrenceId: string; expectedVersion: number; workDate: string } }) => ({
@@ -328,7 +328,7 @@ test.describe('Settings', () => {
 		expect(before.history.id).toBe(completion.completionId)
 		expect(before.history.allocation.length).toBeGreaterThan(0)
 		expect(before.achievements.length).toBeGreaterThan(0)
-		expect(before.planning.find(row => row.id === roomTaskId)?.occurrence?.expectedVersion).toBeGreaterThan(receipt!.expectedVersion)
+		expect(before.planning.find((row) => row.id === roomTaskId)?.occurrence?.expectedVersion).toBeGreaterThan(receipt!.expectedVersion)
 		await page.reload()
 		await expect(page.getByTestId('settings-view')).toBeVisible()
 		const dangerZone = page.locator('[data-testid="danger-zone"]')
@@ -346,7 +346,7 @@ test.describe('Settings', () => {
 		await modal.locator('input[placeholder="RESET"]').fill('reset')
 		await expect(modal.locator('.danger-button')).toBeDisabled()
 		let resetCalls = 0
-		page.on('request', request => {
+		page.on('request', (request) => {
 			if (request.url().endsWith('/house/reset')) {
 				resetCalls++
 			}
@@ -358,14 +358,14 @@ test.describe('Settings', () => {
 		await modal.locator('input[placeholder="RESET"]').fill('RESET')
 		// A transport/server failure leaves the modal and retained facts intact;
 		// the user's retry is exercised in the same populated installation.
-		await page.route(`**${API}/house/reset`, route => route.fulfill({
+		await page.route(`**${API}/house/reset`, (route) => route.fulfill({
 			status: 503, contentType: 'application/json', body: JSON.stringify({ success: false, error: { code: 'RESET_ERROR', message: 'Synthetic test failure' } }),
 		}), { times: 1 })
 		await modal.locator('.danger-button').click()
 		await expect(page.locator('body')).toContainText('Failed to reset house')
 		await expect(modal).toBeVisible()
 		expect(await snapshot()).toEqual(before)
-		const requestPromise = page.waitForRequest(request => request.url().endsWith('/house/reset') && request.method() === 'POST')
+		const requestPromise = page.waitForRequest((request) => request.url().endsWith('/house/reset') && request.method() === 'POST')
 		await modal.locator('.danger-button').click()
 		const resetRequest = await requestPromise
 		await expect(page.locator('body')).toContainText('Rooms and house health were reset', { timeout: 15000 })

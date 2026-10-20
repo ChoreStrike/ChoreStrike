@@ -47,8 +47,8 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 		// The family seed's overdue task is assigned to dad (canonical
 		// `assignees` key on the seed payload — CS-PLAN-060 WP1 D2).
 		const dadTaskIds = (seededData!.data.roomTasks ?? [])
-			.filter(rt => (rt.assignees ?? []).includes('dad'))
-			.map(rt => rt.id)
+			.filter((rt) => (rt.assignees ?? []).includes('dad'))
+			.map((rt) => rt.id)
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
@@ -61,7 +61,7 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 			const overdueTasks: OverdueRoomTask[] = (body.data || []).map(asRoomTask)
 			expect(overdueTasks.length).toBeGreaterThan(0)
 
-			const seededOverdue = overdueTasks.find(task => dadTaskIds.includes(task.id))
+			const seededOverdue = overdueTasks.find((task) => dadTaskIds.includes(task.id))
 			expect(seededOverdue).toBeDefined()
 		} finally {
 			await context.close()
@@ -72,8 +72,8 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 		expect(seededData).not.toBeNull()
 
 		const dadTaskIds = (seededData!.data.roomTasks ?? [])
-			.filter(rt => (rt.assignees ?? []).includes('dad'))
-			.map(rt => rt.id)
+			.filter((rt) => (rt.assignees ?? []).includes('dad'))
+			.map((rt) => rt.id)
 
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
@@ -83,7 +83,7 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 			const body = await response.json()
 			const overdueTasks: OverdueRoomTask[] = (body.data || []).map(asRoomTask)
 
-			const seededOverdue = overdueTasks.find(task => dadTaskIds.includes(task.id))
+			const seededOverdue = overdueTasks.find((task) => dadTaskIds.includes(task.id))
 			expect(seededOverdue).toBeDefined()
 
 			// Seeded three days ago → strictly past, still active.

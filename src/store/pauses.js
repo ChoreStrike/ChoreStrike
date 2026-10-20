@@ -72,7 +72,7 @@ export const usePausesStore = defineStore('pauses', {
 		 * @return {Array} Pending personal pause entries.
 		 */
 		pendingRequests: (state) => state.pauses.filter(
-			pause => pause.state === 'requested' && pause.scope === 'personal'),
+			(pause) => pause.state === 'requested' && pause.scope === 'personal'),
 
 		/**
 		 * Acknowledged pauses in every scope (the effective neutral suspensions).
@@ -80,7 +80,7 @@ export const usePausesStore = defineStore('pauses', {
 		 * @param {object} state Pinia state.
 		 * @return {Array} Acknowledged pause entries.
 		 */
-		activePauses: (state) => state.pauses.filter(pause => pause.state === 'acknowledged'),
+		activePauses: (state) => state.pauses.filter((pause) => pause.state === 'acknowledged'),
 
 		/**
 		 * Decided-but-not-yet-expired history the viewer may see (rejected/…).
@@ -89,7 +89,7 @@ export const usePausesStore = defineStore('pauses', {
 		 * @return {Array} Rejected pause entries.
 		 */
 		decidedPauses: (state) => state.pauses.filter(
-			pause => pause.state === 'rejected'),
+			(pause) => pause.state === 'rejected'),
 	},
 
 	actions: {

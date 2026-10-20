@@ -148,7 +148,7 @@ test.describe('Release: Notifications — quiet-hours digest', () => {
 			}
 			const slotDay = containerDate(1)
 			const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-			const available = Object.fromEntries(weekdays.map(day => [day, true]))
+			const available = Object.fromEntries(weekdays.map((day) => [day, true]))
 			const setAvailability = async (weekdayAvailability: Record<string, boolean>) => {
 				const saved = await free.page.request.put('/apps/chorestrike/api/v1/scheduling/preferences', { data: { weekdayAvailability } })
 				expect(saved.status(), await saved.text()).toBe(200)
@@ -165,10 +165,10 @@ test.describe('Release: Notifications — quiet-hours digest', () => {
 			expect(pause.status(), await pause.text()).toBe(200)
 			runDigestPass(`${slotDay} 00:05`)
 			for (const session of [free, paused]) {
-				const bells = (await fetchChoreStrikeNotifications(session.page)).filter(n => n.object_type === 'digest')
+				const bells = (await fetchChoreStrikeNotifications(session.page)).filter((n) => n.object_type === 'digest')
 				expect(bells, 'free or recognized-paused work never generates task reminders').toHaveLength(0)
 			}
-			const delivered = (await fetchChoreStrikeNotifications(working.page)).filter(n => n.object_type === 'digest')
+			const delivered = (await fetchChoreStrikeNotifications(working.page)).filter((n) => n.object_type === 'digest')
 			expect(delivered, 'the same pass must actually deliver an eligible task reminder').toHaveLength(1)
 			expect(delivered[0].subject).toMatch(/planned task/)
 		} finally {

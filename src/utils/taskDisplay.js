@@ -24,8 +24,8 @@ export const assignmentLabel = (userIds = [], members = []) => {
 	if (ids.length === 0) {
 		return t('chorestrike', 'Unassigned')
 	}
-	const namesById = new Map(members.map(member => [member.nextcloudUserId, member.displayName]))
-	const names = ids.map(id => namesById.get(id) || id)
+	const namesById = new Map(members.map((member) => [member.nextcloudUserId, member.displayName]))
+	const names = ids.map((id) => namesById.get(id) || id)
 	return t('chorestrike', 'Assigned to: {names}', { names: names.join(', ') })
 }
 

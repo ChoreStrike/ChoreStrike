@@ -93,7 +93,7 @@ export default {
 		variant: {
 			type: String,
 			default: 'navigation',
-			validator: value => ['navigation', 'context'].includes(value),
+			validator: (value) => ['navigation', 'context'].includes(value),
 		},
 		/**
 		 * The contextual topic id ('setup' | 'agreements' | 'progress' |

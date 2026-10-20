@@ -505,7 +505,7 @@ export default {
 					await setupStore.fetchCatalog()
 				}
 				const roomType = room.roomType || 'generic'
-				catalogTemplates.value = (setupStore.templates || []).filter(tpl => {
+				catalogTemplates.value = (setupStore.templates || []).filter((tpl) => {
 					const types = tpl.roomTypes || []
 					return types.includes(roomType)
 				})
@@ -541,7 +541,7 @@ export default {
 		// Catalog prefill fills supported definition fields (D4) — the level
 		// key matches the TaskTemplatePicker default (putzteufel).
 		const applyCatalogTemplate = (templateId) => {
-			const tpl = catalogTemplates.value.find(t => t.id === templateId)
+			const tpl = catalogTemplates.value.find((t) => t.id === templateId)
 			if (!tpl) {
 				return
 			}

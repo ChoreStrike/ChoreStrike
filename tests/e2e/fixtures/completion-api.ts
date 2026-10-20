@@ -94,7 +94,7 @@ export async function completeRoomTaskViaApi(page: Page, roomTaskId: number): Pr
 	const userId = await currentPageUserId(page)
 	const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
 	const participants = ((rows.data ?? []) as Array<{ id: number; proposal: { participants: Array<{ userId: string }> } | null }>)
-		.find(row => row.id === roomTaskId)?.proposal?.participants ?? []
+		.find((row) => row.id === roomTaskId)?.proposal?.participants ?? []
 	const needsSplit = participants.length > 1
 		|| (participants.length === 1 && userId !== null && participants[0].userId !== userId)
 	return postCompletionWithReceipt(

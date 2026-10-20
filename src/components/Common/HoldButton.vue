@@ -99,7 +99,7 @@ export default {
 		variant: {
 			type: String,
 			default: 'primary',
-			validator: value => ['primary', 'icon'].includes(value),
+			validator: (value) => ['primary', 'icon'].includes(value),
 		},
 		disabled: { type: Boolean, default: false },
 		// In-flight state of the confirmed action: blocks a second confirm.

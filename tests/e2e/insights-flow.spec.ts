@@ -289,7 +289,7 @@ test.describe('Release: Insights Flow', () => {
 			await review.getByTestId('correction-review-button').click()
 			await expect(dialog.getByTestId('participant-share-mom')).toHaveValue('60')
 			await expect(dialog.getByTestId('participant-share-dad')).toHaveValue('40')
-			const activityRefreshed = page.waitForResponse(response => response.url().includes('/api/v1/house/activity') && response.status() === 200)
+			const activityRefreshed = page.waitForResponse((response) => response.url().includes('/api/v1/house/activity') && response.status() === 200)
 			await dialog.getByTestId('participation-confirm').click()
 			await activityRefreshed
 			await expect(dialog).toBeHidden()

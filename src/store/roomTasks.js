@@ -43,12 +43,12 @@ function generateCommandId() {
  */
 function rangeDays(item, timezone) {
 	if (Array.isArray(item.occurrenceDetails) && item.occurrenceDetails.length) {
-		return item.occurrenceDetails.map(detail => ({ date: detail.date, late: detail.late === true }))
+		return item.occurrenceDetails.map((detail) => ({ date: detail.date, late: detail.late === true }))
 	}
 	const dates = Array.isArray(item.occurrences) && item.occurrences.length
 		? item.occurrences
 		: [dateKeyInZone(item.roomTask?.nextDue, timezone)]
-	return dates.map(date => ({ date, late: null }))
+	return dates.map((date) => ({ date, late: null }))
 }
 
 /**
@@ -153,13 +153,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 */
 		finishedRoomTasks: (state) => {
 			const seen = new Set()
-			return [...state.roomTasks.filter(roomTask => !roomTask.isActive), ...state.inactiveRoomTasks]
-				.filter(roomTask => !seen.has(roomTask.id) && seen.add(roomTask.id))
+			return [...state.roomTasks.filter((roomTask) => !roomTask.isActive), ...state.inactiveRoomTasks]
+				.filter((roomTask) => !seen.has(roomTask.id) && seen.add(roomTask.id))
 		},
 
 		roomTasksByRoom: (state) => {
 			const tasksByRoom = {}
-			state.roomTasks.forEach(roomTask => {
+			state.roomTasks.forEach((roomTask) => {
 				if (!tasksByRoom[roomTask.roomId]) {
 					tasksByRoom[roomTask.roomId] = []
 				}
@@ -172,11 +172,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// projections. Inactive rows are filtered defensively so a projection
 		// never counts a completed occurrence between refreshes.
 		totalOverdueTasks: (state) => {
-			return state.overdueTasks.filter(item => item.roomTask?.isActive).length
+			return state.overdueTasks.filter((item) => item.roomTask?.isActive).length
 		},
 
 		totalDueTodayTasks: (state) => {
-			return state.dueTodayTasks.filter(item => item.roomTask?.isActive).length
+			return state.dueTodayTasks.filter((item) => item.roomTask?.isActive).length
 		},
 
 		/**
@@ -262,10 +262,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 				if (seq !== this.roomRequestSeqs[roomId]) {
 					logger.debug('Dropping superseded room-task read', { store: 'roomTasks', action: 'fetchRoomTasks', roomId })
-					return this.roomTasks.filter(roomTask => roomTask.roomId === roomId)
+					return this.roomTasks.filter((roomTask) => roomTask.roomId === roomId)
 				}
 
-				this.roomTasks = this.roomTasks.filter(roomTask => roomTask.roomId !== roomId)
+				this.roomTasks = this.roomTasks.filter((roomTask) => roomTask.roomId !== roomId)
 				this.roomTasks.push(...data)
 				return data
 			} catch (error) {
@@ -386,7 +386,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 
 				const roomReadsRaced = Object.keys(roomSeqsAtStart)
-					.some(roomId => (this.roomRequestSeqs[roomId] ?? 0) !== roomSeqsAtStart[roomId])
+					.some((roomId) => (this.roomRequestSeqs[roomId] ?? 0) !== roomSeqsAtStart[roomId])
 				if (roomReadsRaced) {
 					logger.debug('Dropping house-task read superseded by a newer room read', { store: 'roomTasks', action: 'fetchHouseRoomTasks' })
 					return this.roomTasks
@@ -422,7 +422,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					logger.debug('Dropping superseded inactive house-task read', { store: 'roomTasks', action: 'fetchInactiveHouseRoomTasks' })
 					return this.inactiveRoomTasks
 				}
-				this.inactiveRoomTasks = data.filter(roomTask => !roomTask.isActive)
+				this.inactiveRoomTasks = data.filter((roomTask) => !roomTask.isActive)
 				return this.inactiveRoomTasks
 			} catch (error) {
 				logger.error('Failed to fetch inactive house room tasks', error, { store: 'roomTasks', action: 'fetchInactiveHouseRoomTasks' })
@@ -449,7 +449,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				// Canonical user-ID array (CS-PLAN-066 D1): the response IS
 				// the persisted set — no client-side union.
 				const assigneeIds = data || []
-				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				const roomTaskIndex = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
 				if (roomTaskIndex >= 0) {
 					this.roomTasks[roomTaskIndex] = {
 						...this.roomTasks[roomTaskIndex],
@@ -483,7 +483,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			try {
 				const data = await api.put(`/api/v1/room-tasks/${roomTaskId}/due-date`, { nextDue })
 
-				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				const roomTaskIndex = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
 				if (roomTaskIndex >= 0) {
 				// The due-date response carries the serialized entity only —
 				// keep the cached canonical assignees when the payload omits
@@ -692,7 +692,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				this.roomTasks,
 			]
 			for (const slice of sources) {
-				const row = slice.find(item => (item.roomTask?.id ?? item.id) === roomTaskId)
+				const row = slice.find((item) => (item.roomTask?.id ?? item.id) === roomTaskId)
 				const occurrence = row?.occurrence ?? row?.roomTask?.occurrence
 				if (occurrence?.occurrenceId && occurrence?.selectionToken) {
 					return occurrence
@@ -842,10 +842,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		reconcileCompletionPayload(roomTaskId, data) {
 			let reconciled = null
 			if (data.roomTask) {
-				const cached = this.roomTasks.find(rt => rt.id === roomTaskId)
-					?? this.dailyTasks.find(item => item.roomTask?.id === roomTaskId)?.roomTask
-					?? this.dueTodayTasks.find(item => item.roomTask?.id === roomTaskId)?.roomTask
-					?? this.overdueTasks.find(item => item.roomTask?.id === roomTaskId)?.roomTask
+				const cached = this.roomTasks.find((rt) => rt.id === roomTaskId)
+					?? this.dailyTasks.find((item) => item.roomTask?.id === roomTaskId)?.roomTask
+					?? this.dueTodayTasks.find((item) => item.roomTask?.id === roomTaskId)?.roomTask
+					?? this.overdueTasks.find((item) => item.roomTask?.id === roomTaskId)?.roomTask
 				// The aggregate's serialized room task carries no assignee
 				// relation — preserve the cached membership so assignee
 				// chips and the Today "mine" filter survive the reconcile.
@@ -861,7 +861,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			// stale in useTasksStore.
 			if (data.task?.id) {
 				const tasksStore = useTasksStore()
-				const taskIndex = tasksStore.tasks.findIndex(t => t.id === data.task.id)
+				const taskIndex = tasksStore.tasks.findIndex((t) => t.id === data.task.id)
 				if (taskIndex >= 0) {
 					tasksStore.tasks[taskIndex] = data.task
 				} else {
@@ -915,12 +915,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				return
 			}
 
-			const index = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+			const index = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
 			if (index >= 0) {
 				this.roomTasks[index] = roomTask
 			}
 
-			const dailyIndex = this.dailyTasks.findIndex(item => item.roomTask?.id === roomTaskId)
+			const dailyIndex = this.dailyTasks.findIndex((item) => item.roomTask?.id === roomTaskId)
 			if (dailyIndex >= 0) {
 				this.dailyTasks[dailyIndex] = {
 					...this.dailyTasks[dailyIndex],
@@ -929,7 +929,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			}
 
 			for (const slice of ['dueTodayTasks', 'overdueTasks']) {
-				const sliceIndex = this[slice].findIndex(item => item.roomTask?.id === roomTaskId)
+				const sliceIndex = this[slice].findIndex((item) => item.roomTask?.id === roomTaskId)
 				if (sliceIndex >= 0) {
 					this[slice][sliceIndex] = {
 						...this[slice][sliceIndex],
@@ -948,7 +948,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @param {?object} occurrence Fresh occurrence block (nullable).
 		 */
 		_replaceOccurrenceInState(roomTaskId, occurrence) {
-			const index = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+			const index = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
 			if (index >= 0) {
 				this.roomTasks[index] = {
 					...this.roomTasks[index],
@@ -956,7 +956,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			}
 			for (const slice of ['dailyTasks', 'dueTodayTasks', 'overdueTasks']) {
-				const sliceIndex = this[slice].findIndex(item => item.roomTask?.id === roomTaskId)
+				const sliceIndex = this[slice].findIndex((item) => item.roomTask?.id === roomTaskId)
 				if (sliceIndex >= 0) {
 					this[slice][sliceIndex] = {
 						...this[slice][sliceIndex],
@@ -977,11 +977,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			try {
 				await api.delete(`/api/v1/room-tasks/${roomTaskId}`)
 
-				this.roomTasks = this.roomTasks.filter(rt => rt.id !== roomTaskId)
-				this.inactiveRoomTasks = this.inactiveRoomTasks.filter(rt => rt.id !== roomTaskId)
-				this.dailyTasks = this.dailyTasks.filter(item => item.roomTask?.id !== roomTaskId)
-				this.dueTodayTasks = this.dueTodayTasks.filter(item => item.roomTask?.id !== roomTaskId)
-				this.overdueTasks = this.overdueTasks.filter(item => item.roomTask?.id !== roomTaskId)
+				this.roomTasks = this.roomTasks.filter((rt) => rt.id !== roomTaskId)
+				this.inactiveRoomTasks = this.inactiveRoomTasks.filter((rt) => rt.id !== roomTaskId)
+				this.dailyTasks = this.dailyTasks.filter((item) => item.roomTask?.id !== roomTaskId)
+				this.dueTodayTasks = this.dueTodayTasks.filter((item) => item.roomTask?.id !== roomTaskId)
+				this.overdueTasks = this.overdueTasks.filter((item) => item.roomTask?.id !== roomTaskId)
 				this.onInstanceMutated()
 			} catch (error) {
 				this.error = error.message
@@ -1118,12 +1118,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					this.overdueStale = true
 				}
 
-				const results = await Promise.all(attempts.map(attempt => attempt().then(
+				const results = await Promise.all(attempts.map((attempt) => attempt().then(
 					() => true,
 					() => false,
 				)))
 
-				const failed = results.some(success => !success)
+				const failed = results.some((success) => !success)
 				this.refreshFailed = failed
 				return !failed
 			} finally {

@@ -215,7 +215,7 @@ export default {
 		// Task counts (would be fetched from roomTasks store)
 		const activeTasks = computed(() => {
 			const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
-			return roomTasks.filter(task => task.isActive).length
+			return roomTasks.filter((task) => task.isActive).length
 		})
 
 		// The same missed-work / due rule as the task rows (CS-PLAN-084 D-084-08).
@@ -226,7 +226,7 @@ export default {
 
 		const dueTodayTasks = computed(() => {
 			const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
-			return roomTasks.filter(task => task.nextDue && dueClass(task, houseStore.timezone) === 'today').length
+			return roomTasks.filter((task) => task.nextDue && dueClass(task, houseStore.timezone) === 'today').length
 		})
 
 		// Methods

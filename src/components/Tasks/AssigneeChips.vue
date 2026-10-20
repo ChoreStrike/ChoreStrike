@@ -61,7 +61,7 @@ export default {
 
 		const toggle = (userId) => {
 			const next = isSelected(userId)
-				? props.modelValue.filter(id => id !== userId)
+				? props.modelValue.filter((id) => id !== userId)
 				: [...props.modelValue, userId]
 			emit('update:modelValue', next)
 		}

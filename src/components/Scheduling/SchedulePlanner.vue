@@ -293,8 +293,8 @@ const noChanges = computed(() => schedulingStore.planPreview?.changes?.length ==
 const schedulableTasks = computed(() => {
 	const roomsById = roomsByIdMap()
 	return roomTasksStore.roomTasks
-		.filter(roomTask => roomTask.isActive)
-		.map(roomTask => {
+		.filter((roomTask) => roomTask.isActive)
+		.map((roomTask) => {
 			const task = tasksStore.getTaskById(roomTask.taskId)
 			return {
 				id: roomTask.id,
@@ -308,7 +308,7 @@ const schedulableTasks = computed(() => {
 })
 
 const memberOptions = computed(() =>
-	schedulingStore.memberAvailability.map(member => member.userId))
+	schedulingStore.memberAvailability.map((member) => member.userId))
 
 const canPreview = computed(() =>
 	!planning.value && !applying.value && selectedIds.value.length > 0 && startDate.value !== '')
@@ -365,11 +365,11 @@ const assigneeLabel = (assignees) => {
 	if (!assignees || assignees.length === 0) {
 		return t('chorestrike', 'Unassigned')
 	}
-	return assignees.map(id => memberDisplayName(id)).join(', ')
+	return assignees.map((id) => memberDisplayName(id)).join(', ')
 }
 
 const memberDisplayName = (userId) => {
-	const member = schedulingStore.memberAvailability.find(m => m.userId === userId)
+	const member = schedulingStore.memberAvailability.find((m) => m.userId === userId)
 	if (member?.userName) {
 		return member.userName
 	}
@@ -391,7 +391,7 @@ const formatDateKey = (key) => {
 const describeRow = (row) => {
 	const people = row.assignees.length === 0
 		? t('chorestrike', 'unassigned')
-		: row.assignees.map(id => memberDisplayName(id)).join(', ')
+		: row.assignees.map((id) => memberDisplayName(id)).join(', ')
 	return t('chorestrike', '{people}, {date}', {
 		people,
 		date: row.dueDate ? formatDateKey(row.dueDate) : t('chorestrike', 'no date'),
@@ -399,7 +399,7 @@ const describeRow = (row) => {
 }
 
 const taskNameById = (roomTaskId) => {
-	const item = schedulableTasks.value.find(task => task.id === roomTaskId)
+	const item = schedulableTasks.value.find((task) => task.id === roomTaskId)
 	return item?.name ?? t('chorestrike', 'Task')
 }
 

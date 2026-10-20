@@ -50,7 +50,7 @@ async function createProbe(page: Page, name: string, assignees: string[], nextDu
 	const floors = await page.request.get(`${API}/floors/with-rooms`)
 	expect(floors.status()).toBe(200)
 	const kitchen = ((await floors.json()).data as Array<{ rooms: Array<{ id: number; name: string }> }>)
-		.flatMap(floor => floor.rooms).find(room => room.name === 'Kitchen')
+		.flatMap((floor) => floor.rooms).find((room) => room.name === 'Kitchen')
 	expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
 	const response = await page.request.post(`${API}/room-tasks`, {
 		data: { roomId: kitchen!.id, assigneeUserIds: assignees, nextDue, task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
@@ -62,12 +62,12 @@ async function createProbe(page: Page, name: string, assignees: string[], nextDu
 async function listRow(page: Page, roomTaskId: number): Promise<ListRow | undefined> {
 	const response = await page.request.get(`${API}/room-tasks`)
 	expect(response.status()).toBe(200)
-	return ((await response.json()).data as ListRow[]).find(row => row.id === roomTaskId)
+	return ((await response.json()).data as ListRow[]).find((row) => row.id === roomTaskId)
 }
 
 /** Children have small daily limits in the seed; lift them so probes reach My Day. */
 async function openDailyLimit(owner: Page, userId: string): Promise<void> {
-	const everyDay = Object.fromEntries(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(name => [name, true]))
+	const everyDay = Object.fromEntries(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((name) => [name, true]))
 	const response = await owner.request.put(`${API}/scheduling/members/${userId}`, { data: { maxDailyTasks: 10, weekdayAvailability: everyDay } })
 	expect(response.status(), await response.text()).toBe(200)
 }
@@ -92,8 +92,8 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 	test.use({ databaseProfile: 'family' })
 
 	test('My Day hold-complete and undo: a tap explains the hold, the hold completes once, undo restores', async ({ browser, seededData }, testInfo) => {
-		const task = seededData!.data.tasks!.find(entry => entry.name === 'Tidy up toys')!
-		const roomTaskId = seededData!.data.roomTasks!.find(entry => entry.taskId === task.id)!.id
+		const task = seededData!.data.tasks!.find((entry) => entry.name === 'Tidy up toys')!
+		const roomTaskId = seededData!.data.roomTasks!.find((entry) => entry.taskId === task.id)!.id
 		const { context, page } = await phone(browser, 'kid', testInfo)
 		try {
 			await openMyDay(page)
@@ -106,7 +106,7 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			const rowBox = await row.boundingBox()
 			expect((await row.locator('.task-info').boundingBox())!.width).toBeGreaterThan(rowBox!.width * 0.7)
 			const completions: string[] = []
-			page.on('request', request => {
+			page.on('request', (request) => {
 				if (request.method() === 'POST' && request.url().endsWith('/complete')) {
 					completions.push(request.url())
 				}
@@ -122,7 +122,7 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			expect(completions).toHaveLength(1)
 			await expectWithinViewport(page, page.getByTestId(`undo-snackbar-undo-button-${roomTaskId}`))
 
-			const undo = page.waitForResponse(response => response.request().method() === 'POST' && /\/completions\/\d+\/undo$/.test(response.url()))
+			const undo = page.waitForResponse((response) => response.request().method() === 'POST' && /\/completions\/\d+\/undo$/.test(response.url()))
 			await page.getByTestId(`undo-snackbar-undo-button-${roomTaskId}`).tap()
 			expect((await (await undo).json()).data.undone).toBe(true)
 			await expect(done).toBeVisible()
@@ -147,7 +147,7 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			const dialog = page.getByTestId('overdue-claim-dialog')
 			await expect(dialog).toContainText('Dad')
 			await expectWithinViewport(page, dialog.getByTestId('confirm-claim-button'))
-			const completion = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
+			const completion = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
 			await dialog.getByTestId('confirm-claim-button').tap()
 			expect((await completion).status()).toBe(200)
 			await expect(page.getByTestId('participation-dialog')).toHaveCount(0)
@@ -181,13 +181,13 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			await expectWithinViewport(owner.page, handover.getByTestId('agreement-handover-member'))
 			await handover.getByTestId('agreement-handover-member').selectOption('kid')
 			await row.getByTestId('agreement-consent').check()
-			const amended = owner.page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/occurrences/${handedOccurrence}/amend`))
+			const amended = owner.page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith(`/occurrences/${handedOccurrence}/amend`))
 			await handover.getByTestId('agreement-handover-submit').tap()
 			expect((await amended).status()).toBe(200)
 
 			await openMyDay(child.page)
 			const done = child.page.getByTestId(`today-complete-button-${roomTaskId}`)
-			const completed = child.page.waitForResponse(response => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
+			const completed = child.page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
 			await holdToConfirm(done)
 			expect((await completed).status()).toBe(200)
 			await expect(child.page.getByTestId('participation-dialog')).toHaveCount(0)
@@ -225,7 +225,7 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
 			await row.getByRole('button', { name: 'Show details', exact: true }).tap()
 			for (const userId of ['teen', 'kid']) {
-				const saved = owner.page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith(`/room-tasks/${roomTaskId}/assignees`))
+				const saved = owner.page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith(`/room-tasks/${roomTaskId}/assignees`))
 				await row.getByTestId(`assignee-chip-${userId}`).tap()
 				expect((await saved).status()).toBe(200)
 			}

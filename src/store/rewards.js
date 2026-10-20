@@ -119,7 +119,7 @@ function isUncertainOutcome(error) {
  * @return {object} The context (mutated).
  */
 function appendPage(ctx, incoming) {
-	const seen = new Set(ctx.items.map(item => item.id))
+	const seen = new Set(ctx.items.map((item) => item.id))
 	for (const item of incoming) {
 		if (!seen.has(item.id)) {
 			seen.add(item.id)
@@ -582,7 +582,7 @@ export const useRewardsStore = defineStore('rewards', {
 				return
 			}
 			const results = await Promise.allSettled(jobs)
-			const failed = results.find(result => result.status === 'rejected')
+			const failed = results.find((result) => result.status === 'rejected')
 			this.refreshError = failed ? (failed.reason?.message ?? String(failed.reason)) : null
 		},
 

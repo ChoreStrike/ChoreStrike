@@ -28,11 +28,11 @@ export const useRoomsStore = defineStore('rooms', {
 		roomsByFloor: (state) => {
 			const roomsByFloor = {}
 			// First add all known floors
-			state.floors.forEach(floor => {
-				roomsByFloor[floor.id] = state.rooms.filter(room => room.floorId === floor.id)
+			state.floors.forEach((floor) => {
+				roomsByFloor[floor.id] = state.rooms.filter((room) => room.floorId === floor.id)
 			})
 			// Then add rooms for floors not yet in state.floors
-			state.rooms.forEach(room => {
+			state.rooms.forEach((room) => {
 				if (!roomsByFloor[room.floorId]) {
 					roomsByFloor[room.floorId] = []
 				}
@@ -44,22 +44,22 @@ export const useRoomsStore = defineStore('rooms', {
 		},
 
 		getRoomById: (state) => (roomId) => {
-			return state.rooms.find(room => room.id === roomId)
+			return state.rooms.find((room) => room.id === roomId)
 		},
 
 		getFloorById: (state) => (floorId) => {
-			return state.floors.find(floor => floor.id === floorId)
+			return state.floors.find((floor) => floor.id === floorId)
 		},
 
 		isFloorExpanded: (state) => (floorId) => {
-			return state.expandedFloors.some(id => String(id) === String(floorId))
+			return state.expandedFloors.some((id) => String(id) === String(floorId))
 		},
 
 		totalRooms: (state) => state.rooms.length,
 
-		cleanRooms: (state) => state.rooms.filter(room => room.cleanliness >= 60).length,
+		cleanRooms: (state) => state.rooms.filter((room) => room.cleanliness >= 60).length,
 
-		dirtyRooms: (state) => state.rooms.filter(room => room.cleanliness < 60).length,
+		dirtyRooms: (state) => state.rooms.filter((room) => room.cleanliness < 60).length,
 
 		averageCleanliness: (state) => {
 			if (state.rooms.length === 0) {
@@ -107,8 +107,8 @@ export const useRoomsStore = defineStore('rooms', {
 							? this.structureRequest
 							: this.fetchFloorsWithRooms()
 					}
-					this.floors = data.map(item => item.floor)
-					this.rooms = data.flatMap(item => item.rooms)
+					this.floors = data.map((item) => item.floor)
+					this.rooms = data.flatMap((item) => item.rooms)
 					return data
 				} catch (error) {
 					if (resetSeq === this.resetSeq && seq === this.requestSeq) {
@@ -146,7 +146,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 				// Also invalidate reads that started while the write was pending.
 				this.requestSeq++
-				this.floors = [...this.floors.filter(floor => floor.id !== data.id), data]
+				this.floors = [...this.floors.filter((floor) => floor.id !== data.id), data]
 				return data
 			} catch (error) {
 				if (resetSeq === this.resetSeq) {
@@ -179,7 +179,7 @@ export const useRoomsStore = defineStore('rooms', {
 					return null
 				}
 				this.requestSeq++
-				this.rooms = [...this.rooms.filter(room => room.id !== data.id), data]
+				this.rooms = [...this.rooms.filter((room) => room.id !== data.id), data]
 				return data
 			} catch (error) {
 				if (resetSeq === this.resetSeq) {
@@ -212,7 +212,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 				this.requestSeq++
 
-				const floorIndex = this.floors.findIndex(f => f.id === floorId)
+				const floorIndex = this.floors.findIndex((f) => f.id === floorId)
 				if (floorIndex >= 0) {
 					this.floors[floorIndex] = data
 				}
@@ -247,7 +247,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 				this.requestSeq++
 
-				const roomIndex = this.rooms.findIndex(r => r.id === roomId)
+				const roomIndex = this.rooms.findIndex((r) => r.id === roomId)
 				if (roomIndex >= 0) {
 					this.rooms[roomIndex] = data
 				}
@@ -284,7 +284,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 				this.requestSeq++
 
-				const roomIndex = this.rooms.findIndex(r => r.id === roomId)
+				const roomIndex = this.rooms.findIndex((r) => r.id === roomId)
 				if (roomIndex >= 0) {
 					this.rooms[roomIndex] = data
 				}
@@ -313,7 +313,7 @@ export const useRoomsStore = defineStore('rooms', {
 			}
 			this.requestSeq++
 
-			const index = this.rooms.findIndex(r => r.id === room.id)
+			const index = this.rooms.findIndex((r) => r.id === room.id)
 			if (index >= 0) {
 				this.rooms[index] = room
 			}
@@ -334,8 +334,8 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 				this.requestSeq++
 
-				this.floors = this.floors.filter(f => f.id !== floorId)
-				this.rooms = this.rooms.filter(r => r.floorId !== floorId)
+				this.floors = this.floors.filter((f) => f.id !== floorId)
+				this.rooms = this.rooms.filter((r) => r.floorId !== floorId)
 			} catch (error) {
 				if (resetSeq === this.resetSeq) {
 					this.error = error.message
@@ -362,7 +362,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 				this.requestSeq++
 
-				this.rooms = this.rooms.filter(r => r.id !== roomId)
+				this.rooms = this.rooms.filter((r) => r.id !== roomId)
 			} catch (error) {
 				if (resetSeq === this.resetSeq) {
 					this.error = error.message
@@ -428,7 +428,7 @@ export const useRoomsStore = defineStore('rooms', {
 		 */
 		toggleFloorExpanded(floorId) {
 			const key = String(floorId)
-			const index = this.expandedFloors.findIndex(id => String(id) === key)
+			const index = this.expandedFloors.findIndex((id) => String(id) === key)
 			if (index > -1) {
 				this.expandedFloors.splice(index, 1)
 			} else {
@@ -453,7 +453,7 @@ export const useRoomsStore = defineStore('rooms', {
 		 */
 		setFloorCollapsed(floorId) {
 			const key = String(floorId)
-			const index = this.expandedFloors.findIndex(id => String(id) === key)
+			const index = this.expandedFloors.findIndex((id) => String(id) === key)
 			if (index > -1) {
 				this.expandedFloors.splice(index, 1)
 			}

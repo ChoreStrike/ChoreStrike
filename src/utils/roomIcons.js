@@ -70,7 +70,7 @@ export function resolveRoomIcon(iconName, roomName = '') {
 
 	const normalizedName = String(roomName || '').toLowerCase()
 	for (const rule of ROOM_NAME_ICON_RULES) {
-		if (rule.keywords.some(keyword => normalizedName.includes(keyword))) {
+		if (rule.keywords.some((keyword) => normalizedName.includes(keyword))) {
 			return rule.icon
 		}
 	}

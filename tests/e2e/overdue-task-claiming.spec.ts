@@ -160,7 +160,7 @@ test.describe('Overdue Task Claiming', () => {
 			const overdueRow = page.locator('[data-testid="task-item"]').filter({ hasText: probeName }).first()
 			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad', { timeout: 15000 })
 
-			const completion = page.waitForResponse(response => response.request().method() === 'POST'
+			const completion = page.waitForResponse((response) => response.request().method() === 'POST'
 				&& response.url().includes(`/room-tasks/${roomTaskId}/complete`))
 			await overdueRow.getByTestId('claim-overdue-button').click()
 			await page.getByTestId('overdue-claim-dialog').getByTestId('confirm-claim-button').click()
@@ -171,7 +171,7 @@ test.describe('Overdue Task Claiming', () => {
 
 			const rows = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
 			const row = ((await rows.json()).data as Array<{ id: number; wasClaimed: boolean; claimedByUser: string;
-				originalAssignee: string; assignees?: string[]; status: string }>).find(item => item.id === roomTaskId)
+				originalAssignee: string; assignees?: string[]; status: string }>).find((item) => item.id === roomTaskId)
 			expect(row).toMatchObject({ wasClaimed: true, claimedByUser: 'mom', originalAssignee: 'dad' })
 			expect(row?.status, 'the claimed occurrence is done; the next one is not overdue').not.toBe('overdue')
 			await expect(overdueRow.getByTestId('claim-overdue-button')).toHaveCount(0)

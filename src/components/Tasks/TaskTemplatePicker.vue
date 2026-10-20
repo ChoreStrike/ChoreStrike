@@ -129,7 +129,7 @@ export default {
 	computed: {
 		filteredTemplates() {
 			const templates = this.setupStore.templates
-			return templates.filter(tpl => {
+			return templates.filter((tpl) => {
 				const types = tpl.roomTypes || []
 				return types.includes(this.roomType) || types.includes('household')
 			})

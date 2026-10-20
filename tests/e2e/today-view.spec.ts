@@ -24,9 +24,9 @@ test.describe('Release: Today view', () => {
 	test('shows seeded due-today rows and completes one with row state change', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
-		const dishesTask = seededData.data.tasks.find(task => task.name === 'Do the dishes')
+		const dishesTask = seededData.data.tasks.find((task) => task.name === 'Do the dishes')
 		expect(dishesTask).toBeDefined()
-		const dishesRoomTask = seededData.data.roomTasks.find(roomTask => roomTask.taskId === dishesTask.id)
+		const dishesRoomTask = seededData.data.roomTasks.find((roomTask) => roomTask.taskId === dishesTask.id)
 		expect(dishesRoomTask).toBeDefined()
 
 		const { context, page } = await createUserContext(browser, 'mom')
@@ -79,10 +79,10 @@ test.describe('Release: Today view', () => {
 	test('undo queue keeps two completions independently undoable (UX-015, CS-PLAN-064)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
-		const taskIdsByName = (name: string) => seededData.data.tasks.find(task => task.name === name)
+		const taskIdsByName = (name: string) => seededData.data.tasks.find((task) => task.name === name)
 		const roomTaskIdFor = (name: string) => {
 			const task = taskIdsByName(name)
-			const roomTask = seededData.data.roomTasks.find(rt => rt.taskId === task.id)
+			const roomTask = seededData.data.roomTasks.find((rt) => rt.taskId === task.id)
 			return roomTask.id
 		}
 		const dishesId = roomTaskIdFor('Do the dishes')

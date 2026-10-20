@@ -186,8 +186,8 @@ export default {
 		// checklistItemId + isChecked)
 		const completedIds = computed(() => {
 			return props.progress
-				?.filter(p => p.isChecked)
-				?.map(p => p.checklistItemId) || []
+				?.filter((p) => p.isChecked)
+				?.map((p) => p.checklistItemId) || []
 		})
 
 		const isCompleted = (itemId) => {
@@ -301,7 +301,7 @@ export default {
 				return
 			}
 
-			const reordered = sortedItems.value.map(item => item.id)
+			const reordered = sortedItems.value.map((item) => item.id)
 			const fromIndex = reordered.indexOf(draggedItem.value.id)
 			const toIndex = reordered.indexOf(targetItem.id)
 

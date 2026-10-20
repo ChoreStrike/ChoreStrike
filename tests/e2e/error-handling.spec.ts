@@ -27,9 +27,9 @@ test.describe('Data Integrity', () => {
 		expect(seededData).not.toBeNull()
 		const rooms = seededData!.data.rooms!
 		const roomTasks = seededData!.data.roomTasks!
-		const roomIds = new Set(rooms.map(r => r.id))
+		const roomIds = new Set(rooms.map((r) => r.id))
 
-		roomTasks.forEach(rt => {
+		roomTasks.forEach((rt) => {
 			expect(roomIds.has(rt.roomId)).toBe(true)
 		})
 	})
@@ -38,9 +38,9 @@ test.describe('Data Integrity', () => {
 		expect(seededData).not.toBeNull()
 		const tasks = seededData!.data.tasks!
 		const roomTasks = seededData!.data.roomTasks!
-		const taskIds = new Set(tasks.map(t => t.id))
+		const taskIds = new Set(tasks.map((t) => t.id))
 
-		roomTasks.forEach(rt => {
+		roomTasks.forEach((rt) => {
 			expect(taskIds.has(rt.taskId)).toBe(true)
 		})
 	})
@@ -54,7 +54,7 @@ test.describe('User Role Validation', () => {
 		const users = seededData!.data.users!
 		const validRoles = ['owner', 'child', 'member']
 
-		users.forEach(user => {
+		users.forEach((user) => {
 			expect(validRoles).toContain(user.role)
 		})
 	})
@@ -79,11 +79,11 @@ test.describe('Task Assignment Validation', () => {
 		expect(seededData).not.toBeNull()
 		const users = seededData!.data.users!
 		const roomTasks = seededData!.data.roomTasks!
-		const userIds = new Set(users.map(u => u.nextcloudUserId))
+		const userIds = new Set(users.map((u) => u.nextcloudUserId))
 
-		roomTasks.forEach(rt => {
+		roomTasks.forEach((rt) => {
 			if ((rt.assignees ?? []).length > 0) {
-				rt.assignees!.forEach(a => expect(userIds.has(a) || true).toBe(true))
+				rt.assignees!.forEach((a) => expect(userIds.has(a) || true).toBe(true))
 			}
 		})
 	})
@@ -92,7 +92,7 @@ test.describe('Task Assignment Validation', () => {
 		expect(seededData).not.toBeNull()
 		const roomTasks = seededData!.data.roomTasks!
 
-		const unassigned = roomTasks.filter(rt => (rt.assignees ?? []).length === 0)
+		const unassigned = roomTasks.filter((rt) => (rt.assignees ?? []).length === 0)
 		expect(unassigned.length).toBeGreaterThanOrEqual(0)
 	})
 })
@@ -147,7 +147,7 @@ test.describe('Room Cleanliness Bounds', () => {
 		expect(seededData).not.toBeNull()
 		const rooms = seededData!.data.rooms!
 
-		rooms.forEach(room => {
+		rooms.forEach((room) => {
 			expect(room.cleanliness).toBeGreaterThanOrEqual(0)
 		})
 	})
@@ -156,7 +156,7 @@ test.describe('Room Cleanliness Bounds', () => {
 		expect(seededData).not.toBeNull()
 		const rooms = seededData!.data.rooms!
 
-		rooms.forEach(room => {
+		rooms.forEach((room) => {
 			expect(room.cleanliness).toBeLessThanOrEqual(100)
 		})
 	})
@@ -164,7 +164,7 @@ test.describe('Room Cleanliness Bounds', () => {
 	test('rooms have varying cleanliness', async ({ seededData }) => {
 		expect(seededData).not.toBeNull()
 		const rooms = seededData!.data.rooms!
-		const values = rooms.map(r => r.cleanliness)
+		const values = rooms.map((r) => r.cleanliness)
 
 		const uniqueValues = new Set(values)
 		expect(uniqueValues.size).toBeGreaterThanOrEqual(1)

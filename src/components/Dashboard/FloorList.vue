@@ -209,7 +209,7 @@ export default {
 
 		const isFloorExpanded = (floorId) => {
 			// Access state directly for better compatibility
-			return roomsStore.expandedFloors.some(id => String(id) === String(floorId))
+			return roomsStore.expandedFloors.some((id) => String(id) === String(floorId))
 		}
 
 		const toggleFloor = async (floorId) => {

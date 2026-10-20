@@ -237,8 +237,8 @@ export default {
 		 */
 		const onAssigneeDraftChange = (next) => {
 			const previous = props.assigneeDraft
-			const added = next.find(id => !previous.includes(id))
-			const removed = previous.find(id => !next.includes(id))
+			const added = next.find((id) => !previous.includes(id))
+			const removed = previous.find((id) => !next.includes(id))
 			const toggled = added ?? removed
 			if (toggled !== undefined) {
 				emit('toggle-assignee', props.item.roomTask.id, toggled)

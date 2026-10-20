@@ -174,11 +174,11 @@ export default {
 
 	computed: {
 		floorRooms() {
-			return this.rooms.filter(room => !this.modelValue.floor || String(room.floorId) === this.modelValue.floor)
+			return this.rooms.filter((room) => !this.modelValue.floor || String(room.floorId) === this.modelValue.floor)
 		},
 
 		activeCount() {
-			const changed = Object.keys(PANEL_DEFAULTS).filter(key => this.modelValue[key] !== PANEL_DEFAULTS[key]).length
+			const changed = Object.keys(PANEL_DEFAULTS).filter((key) => this.modelValue[key] !== PANEL_DEFAULTS[key]).length
 			return changed + (this.modelValue.search.trim() ? 1 : 0)
 		},
 

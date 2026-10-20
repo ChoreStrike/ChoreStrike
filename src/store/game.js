@@ -164,8 +164,8 @@ export const useGameStore = defineStore('game', {
 			try {
 				const data = await api.get('/api/v1/game/medals')
 
-				const previousIds = new Set(this.medals.map(m => m.id))
-				const newMedals = data.filter(m => !previousIds.has(m.id))
+				const previousIds = new Set(this.medals.map((m) => m.id))
+				const newMedals = data.filter((m) => !previousIds.has(m.id))
 
 				this.medals = data
 
@@ -264,7 +264,7 @@ export const useGameStore = defineStore('game', {
 		 * @param {number} celebrationId - The ID of the celebration to dismiss
 		 */
 		dismissCelebration(celebrationId) {
-			const celebration = this.celebrations.find(c => c.id === celebrationId)
+			const celebration = this.celebrations.find((c) => c.id === celebrationId)
 			if (celebration) {
 				celebration.dismissed = true
 			}
@@ -274,7 +274,7 @@ export const useGameStore = defineStore('game', {
 		 * Clear dismissed celebrations
 		 */
 		clearDismissedCelebrations() {
-			this.celebrations = this.celebrations.filter(c => !c.dismissed)
+			this.celebrations = this.celebrations.filter((c) => !c.dismissed)
 		},
 
 		/**

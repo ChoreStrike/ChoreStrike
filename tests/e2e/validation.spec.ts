@@ -20,7 +20,7 @@ test.describe('Data Validation - Family Profile', () => {
 		const users = seededData!.data.users!
 		expect(users).toHaveLength(6)
 
-		users.forEach(user => {
+		users.forEach((user) => {
 			expect(user.displayName).toBeTruthy()
 			expect(user.nextcloudUserId).toBeTruthy()
 			expect(user.role).toBeTruthy()
@@ -32,7 +32,7 @@ test.describe('Data Validation - Family Profile', () => {
 		const rooms = seededData!.data.rooms!
 		expect(rooms.length).toBeGreaterThanOrEqual(1)
 
-		rooms.forEach(room => {
+		rooms.forEach((room) => {
 			expect(room.name).toBeTruthy()
 			expect(room.cleanliness).toBeGreaterThanOrEqual(0)
 			expect(room.cleanliness).toBeLessThanOrEqual(100)
@@ -44,7 +44,7 @@ test.describe('Data Validation - Family Profile', () => {
 		const tasks = seededData!.data.tasks!
 		expect(tasks).toHaveLength(12)
 
-		tasks.forEach(task => {
+		tasks.forEach((task) => {
 			expect(task.name).toBeTruthy()
 			expect(['cleaning', 'maintenance', 'organizing']).toContain(task.category)
 		})
@@ -55,7 +55,7 @@ test.describe('Data Validation - Family Profile', () => {
 		const roomTasks = seededData!.data.roomTasks!
 		expect(roomTasks.length).toBeGreaterThanOrEqual(1)
 
-		roomTasks.forEach(roomTask => {
+		roomTasks.forEach((roomTask) => {
 			expect(roomTask.roomId).toBeDefined()
 			expect(roomTask.taskId).toBeDefined()
 		})
@@ -66,7 +66,7 @@ test.describe('Data Validation - Family Profile', () => {
 		const floors = seededData!.data.floors!
 		expect(floors).toHaveLength(3)
 
-		floors.forEach(floor => {
+		floors.forEach((floor) => {
 			expect(floor.name).toBeTruthy()
 		})
 	})
@@ -129,7 +129,7 @@ test.describe('Boundary Values', () => {
 		expect(seededData).not.toBeNull()
 		const rooms = seededData!.data.rooms!
 
-		const cleanlinessValues = rooms.map(r => r.cleanliness)
+		const cleanlinessValues = rooms.map((r) => r.cleanliness)
 		const min = Math.min(...cleanlinessValues)
 		const max = Math.max(...cleanlinessValues)
 
@@ -142,7 +142,7 @@ test.describe('Boundary Values', () => {
 		const tasks = seededData!.data.tasks!
 
 		const validCategories = ['cleaning', 'maintenance', 'organizing']
-		tasks.forEach(task => {
+		tasks.forEach((task) => {
 			expect(validCategories).toContain(task.category)
 		})
 	})

@@ -177,7 +177,7 @@ test.describe('Setup wizard journey (empty house)', () => {
 				await page.getByTestId('wizard-next').click()
 				await expect(page.getByTestId('wizard-step-preview').locator('.preview-floor')).toHaveCount(6)
 				expect(await page.getByTestId('wizard-step-preview').locator('.preview-floor h4').allTextContents()).toEqual(floorNames)
-				const apply = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/api/v1/setup/apply'))
+				const apply = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/api/v1/setup/apply'))
 				await page.getByTestId('wizard-apply').click()
 				const response = await apply
 				expect(response.status()).toBe(200)

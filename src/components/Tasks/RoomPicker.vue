@@ -89,7 +89,7 @@ export default {
 		const isLocked = computed(() => props.presetRoomId !== null)
 
 		const floorsWithRooms = computed(() => {
-			return roomsStore.floors.filter(floor =>
+			return roomsStore.floors.filter((floor) =>
 				(roomsStore.roomsByFloor[floor.id] || []).length > 0,
 			)
 		})

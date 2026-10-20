@@ -113,7 +113,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 				// A concurrent fetchTaskItems (row expansion) may already have
 				// delivered the new item; replace it instead of rendering it twice.
-				const existing = this.items[taskId].findIndex(item => item.id === data.id)
+				const existing = this.items[taskId].findIndex((item) => item.id === data.id)
 				if (existing >= 0) {
 					this.items[taskId][existing] = data
 				} else {
@@ -146,7 +146,7 @@ export const useChecklistStore = defineStore('checklist', {
 				const data = await api.put(`/api/v1/checklists/item/${itemId}`, { label })
 
 				for (const taskId in this.items) {
-					const index = this.items[taskId].findIndex(item => item.id === itemId)
+					const index = this.items[taskId].findIndex((item) => item.id === itemId)
 					if (index >= 0) {
 						this.items[taskId][index] = data
 						break
@@ -175,7 +175,7 @@ export const useChecklistStore = defineStore('checklist', {
 				await api.delete(`/api/v1/checklists/item/${itemId}`)
 
 				if (this.items[taskId]) {
-					this.items[taskId] = this.items[taskId].filter(item => item.id !== itemId)
+					this.items[taskId] = this.items[taskId].filter((item) => item.id !== itemId)
 				}
 			} catch (error) {
 				this.error = error.message
@@ -217,7 +217,7 @@ export const useChecklistStore = defineStore('checklist', {
 
 				const row = data?.progress || data
 				const existingIndex = this.progress[roomTaskId]
-					.findIndex(p => p.checklistItemId === row.checklistItemId)
+					.findIndex((p) => p.checklistItemId === row.checklistItemId)
 				if (existingIndex >= 0) {
 					this.progress[roomTaskId][existingIndex] = row
 				} else {
@@ -268,8 +268,8 @@ export const useChecklistStore = defineStore('checklist', {
 
 				if (this.items[taskId]) {
 					const orderedItems = []
-					itemIds.forEach(id => {
-						const item = this.items[taskId].find(i => i.id === id)
+					itemIds.forEach((id) => {
+						const item = this.items[taskId].find((i) => i.id === id)
 						if (item) {
 							orderedItems.push(item)
 						}

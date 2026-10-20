@@ -66,8 +66,8 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const structureResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
 			expect(structureResponse.ok()).toBe(true)
 			const floors = (await structureResponse.json()).data
-			const kitchenFloor = floors.find(entry => entry.rooms.some(room => room.name === 'Kitchen'))
-			const kitchen = kitchenFloor.rooms.find(room => room.name === 'Kitchen')
+			const kitchenFloor = floors.find((entry) => entry.rooms.some((room) => room.name === 'Kitchen'))
+			const kitchen = kitchenFloor.rooms.find((room) => room.name === 'Kitchen')
 			for (const [name, assignees] of [['Own filter probe', ['mom']], ['Unassigned filter probe', []], ['Other filter probe', ['teen']]] as const) {
 				const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 					data: { roomId: kitchen.id, assigneeUserIds: assignees, nextDue: utcDayKey(0), task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
@@ -103,7 +103,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				await page.keyboard.press('Enter')
 				await expect(own).toBeVisible()
 				await expect(other).toHaveCount(0)
-				expect(await page.getByTestId('tasks-filter-mine').evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
+				expect(await page.getByTestId('tasks-filter-mine').evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
 				await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 				await page.goto('/apps/chorestrike/#/today')
 				const appointment = page.getByTestId('today-appointment').first().getByRole('link')
@@ -125,7 +125,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		const { context, page } = await createUserContext(browser, 'mom', { viewport: { width: 390, height: 844 } })
 		try {
 			const structure = (await (await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')).json()).data
-			const kitchen = structure.flatMap(entry => entry.rooms).find(room => room.name === 'Kitchen')
+			const kitchen = structure.flatMap((entry) => entry.rooms).find((room) => room.name === 'Kitchen')
 			const createTask = async (name: string, extra: Record<string, unknown> = {}) => {
 				const response = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 					data: { roomId: kitchen.id, assigneeUserIds: ['mom'], nextDue: utcDayKey(0), task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1, ...extra } },
@@ -148,7 +148,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const secondPageRows = Math.min(20, total - 20)
 
 			const roomTaskReads: string[] = []
-			page.on('request', request => {
+			page.on('request', (request) => {
 				const url = new URL(request.url())
 				if (url.pathname.endsWith('/api/v1/room-tasks')) {
 					roomTaskReads.push(url.searchParams.get('activeOnly') ?? '')
@@ -179,7 +179,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await expect(page.getByTestId('tasks-filter-toggle')).toContainText('Filters (1 active)')
 			expect(roomTaskReads).toEqual(['true', 'true', 'false'])
 			const contrast = await new AxeBuilder({ page }).include('#content').withRules(['color-contrast']).analyze()
-			expect(contrast.violations.flatMap(violation => violation.nodes.map(node => node.target.join(' ')))).toEqual([])
+			expect(contrast.violations.flatMap((violation) => violation.nodes.map((node) => node.target.join(' ')))).toEqual([])
 		} finally {
 			await context.close()
 		}
@@ -193,8 +193,8 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 	}
 
 	const roomTaskByName = (seeded: SeededShape, name: string, activeOnly = true) => {
-		const task = seeded.data.tasks.find(entry => entry.name === name)!
-		return seeded.data.roomTasks.find(roomTask =>
+		const task = seeded.data.tasks.find((entry) => entry.name === name)!
+		return seeded.data.roomTasks.find((roomTask) =>
 			roomTask.taskId === task.id && (!activeOnly || roomTask.isActive))!
 	}
 
@@ -218,7 +218,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 
 	test('owner desktop: overview tiles lead to their targets and Quick clean needs a hold (CS-PLAN-084 WP-C)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
-		const kidsBedroom = seededData.data.rooms!.find(room => room.name === 'Kids Bedroom')!
+		const kidsBedroom = seededData.data.rooms!.find((room) => room.name === 'Kids Bedroom')!
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			await page.goto('/apps/chorestrike/#/dashboard')
@@ -253,7 +253,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			expect(cleanRequests).toEqual([])
 			await expect(page.getByTestId('dashboard-view')).toBeVisible()
 
-			const cleaned = page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith(`/rooms/${kidsBedroom.id}/cleanliness`))
+			const cleaned = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith(`/rooms/${kidsBedroom.id}/cleanliness`))
 			await holdToConfirm(quickClean)
 			expect((await cleaned).ok()).toBe(true)
 			await expect(card.getByTestId('cleanliness-value')).toHaveText(`${kidsBedroom.cleanliness + 10}%`)
@@ -418,7 +418,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const tabTo = async (control: Locator) => {
 				for (let i = 0; i < 60; i++) {
 					await page.keyboard.press('Tab')
-					if (await control.evaluate(element => element === document.activeElement)) {
+					if (await control.evaluate((element) => element === document.activeElement)) {
 						return
 					}
 				}
@@ -438,7 +438,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const complete = page.getByTestId(`today-complete-button-${countersRoomTask.id}`)
 			await tabTo(complete)
 			await expect(complete).toBeFocused()
-			const response = page.waitForResponse(result => result.request().method() === 'POST' && result.url().endsWith(`/${countersRoomTask.id}/complete`))
+			const response = page.waitForResponse((result) => result.request().method() === 'POST' && result.url().endsWith(`/${countersRoomTask.id}/complete`))
 			// WP-E: a held Enter confirms (a single press only shows the hint).
 			await holdToConfirm(complete, 'keyboard')
 			expect((await response).ok()).toBe(true)

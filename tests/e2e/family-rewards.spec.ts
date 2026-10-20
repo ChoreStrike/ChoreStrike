@@ -105,7 +105,7 @@ async function waitForRequest(page: Page, scope: 'mine' | 'house', title: string
 		if (Date.now() > deadline) {
 			throw new Error(`timed out waiting for a ${scope} request "${title}"${state ? ` in state "${state}"` : ''}`)
 		}
-		await new Promise(resolve => setTimeout(resolve, 700))
+		await new Promise((resolve) => setTimeout(resolve, 700))
 	}
 }
 
@@ -117,10 +117,10 @@ async function waitForRequest(page: Page, scope: 'mine' | 'house', title: string
  * moment, so the helper walks the candidates.
  */
 const fundUserViaCompletion = async (page: Page, seeded: { data: { roomTasks: Array<{ id: number; assignees: string[]; isActive: boolean }> } }, userId: string): Promise<{ roomTaskId: number; response: APIResponse }> => {
-	const active = seeded.data.roomTasks.filter(entry => entry.isActive)
+	const active = seeded.data.roomTasks.filter((entry) => entry.isActive)
 	const ordered = [
-		...active.filter(entry => entry.assignees.includes(userId)),
-		...active.filter(entry => !entry.assignees.includes(userId)),
+		...active.filter((entry) => entry.assignees.includes(userId)),
+		...active.filter((entry) => !entry.assignees.includes(userId)),
 	]
 	for (const roomTask of ordered) {
 		const response = await completeAsSoleParticipantViaApi(page, roomTask.id, userId).catch(() => null)

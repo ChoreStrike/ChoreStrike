@@ -22,7 +22,7 @@ export const useTasksStore = defineStore('tasks', {
 		activeTasks: (state) => state.tasks,
 
 		getTaskById: (state) => (taskId) => {
-			return state.tasks.find(task => task.id === taskId)
+			return state.tasks.find((task) => task.id === taskId)
 		},
 	},
 
@@ -73,7 +73,7 @@ export const useTasksStore = defineStore('tasks', {
 				// Accepted mutation invalidates pre-mutation definition reads
 				// (CS-PLAN-066 §3.3) — the authoritative row lands here.
 				this.requestSeq++
-				const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+				const taskIndex = this.tasks.findIndex((t) => t.id === taskId)
 				if (taskIndex >= 0) {
 					this.tasks[taskIndex] = data
 				}

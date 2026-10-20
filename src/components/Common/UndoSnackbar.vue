@@ -88,7 +88,7 @@ export default {
 
 	unmounted() {
 		unsubscribe('chorestrike:task-completed', this.handler)
-		this.timers.forEach(timerId => clearTimeout(timerId))
+		this.timers.forEach((timerId) => clearTimeout(timerId))
 		this.timers.clear()
 	},
 
@@ -114,7 +114,7 @@ export default {
 		},
 
 		dismiss(key) {
-			this.entries = this.entries.filter(entry => entry.key !== key)
+			this.entries = this.entries.filter((entry) => entry.key !== key)
 			if (this.timers.has(key)) {
 				clearTimeout(this.timers.get(key))
 				this.timers.delete(key)

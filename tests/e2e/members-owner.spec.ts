@@ -63,7 +63,7 @@ test.describe('Release: Members (owner)', () => {
 	test('role change updates the member row', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
-		const teen = seededData.data.users.find(user => user.nextcloudUserId === 'teen')
+		const teen = seededData.data.users.find((user) => user.nextcloudUserId === 'teen')
 		expect(teen).toBeDefined()
 
 		const { context, page } = await createUserContext(browser, 'mom')

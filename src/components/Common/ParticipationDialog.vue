@@ -161,7 +161,7 @@ export default {
 		},
 
 		activeParticipants() {
-			return this.participants.filter(participant => participant.active)
+			return this.participants.filter((participant) => participant.active)
 		},
 
 		totalPct() {
@@ -170,13 +170,13 @@ export default {
 
 		actorParticipates() {
 			return this.initialParticipants !== null || (Boolean(this.actorUserId)
-				&& this.activeParticipants.some(participant => participant.userId === this.actorUserId && participant.sharePct > 0))
+				&& this.activeParticipants.some((participant) => participant.userId === this.actorUserId && participant.sharePct > 0))
 		},
 
 		isValid() {
 			return this.actorParticipates && this.activeParticipants.length > 0
 				&& this.totalPct === 100
-				&& this.activeParticipants.every(participant => Number.isInteger(participant.sharePct) && participant.sharePct >= 1 && participant.sharePct <= 100)
+				&& this.activeParticipants.every((participant) => Number.isInteger(participant.sharePct) && participant.sharePct >= 1 && participant.sharePct <= 100)
 		},
 	},
 
@@ -186,7 +186,7 @@ export default {
 		// default to the equal wallet-order mirror client-side.
 		const proposed = this.proposal?.participants ?? []
 		const namesByUser = {}
-		this.members.forEach(member => {
+		this.members.forEach((member) => {
 			namesByUser[member.userId] = member.displayName
 		})
 
@@ -196,13 +196,13 @@ export default {
 			// participants are not members anymore and cannot be named
 			// again — the correter redistributes their share).
 			const recordedByUser = {}
-			this.initialParticipants.forEach(participant => {
+			this.initialParticipants.forEach((participant) => {
 				if (participant.userId != null) {
 					recordedByUser[participant.userId] = participant.sharePct
 				}
 			})
 			this.participants = this.members
-				.map(member => ({
+				.map((member) => ({
 					userId: member.userId,
 					displayName: member.displayName,
 					active: recordedByUser[member.userId] != null,
@@ -211,7 +211,7 @@ export default {
 				.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
 		} else if (proposed.length > 0) {
 			this.participants = proposed
-				.map(participant => ({
+				.map((participant) => ({
 					userId: participant.userId,
 					displayName: namesByUser[participant.userId] ?? participant.userId,
 					active: true,
@@ -221,7 +221,7 @@ export default {
 		} else {
 			// Default: everyone equal, remainder split by stable user order
 			// (the wallet-order 34/33/33 shape mirrored client-side for display).
-			const entries = this.members.map(member => ({ ...member }))
+			const entries = this.members.map((member) => ({ ...member }))
 			entries.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
 			this.participants = this.buildEqualSplit(entries)
 		}
@@ -234,7 +234,7 @@ export default {
 		if (!this.initialParticipants
 			&& this.actorUserId
 			&& this.participants.length > 0
-			&& !this.participants.some(participant => participant.userId === this.actorUserId)) {
+			&& !this.participants.some((participant) => participant.userId === this.actorUserId)) {
 			this.participants.push({
 				userId: this.actorUserId,
 				displayName: namesByUser[this.actorUserId] ?? this.actorUserId,
@@ -259,7 +259,7 @@ export default {
 			const count = Math.max(1, sorted.length)
 			const base = Math.floor(100 / count)
 			let remainder = 100 - base * count
-			return sorted.map(entry => {
+			return sorted.map((entry) => {
 				const pct = base + (remainder > 0 ? 1 : 0)
 				if (remainder > 0) {
 					remainder--
@@ -278,7 +278,7 @@ export default {
 				return
 			}
 			this.$emit('confirm', {
-				participants: this.activeParticipants.map(participant => ({
+				participants: this.activeParticipants.map((participant) => ({
 					userId: participant.userId,
 					sharePct: participant.sharePct,
 				})),

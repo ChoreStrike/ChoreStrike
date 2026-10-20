@@ -28,7 +28,7 @@ test.describe('Multi-User Family Interactions', () => {
 		expect(seededData!.profile).toBe('family')
 		expect(seededData!.data.users).toHaveLength(6)
 
-		const userIds = seededData!.data.users!.map(u => u.nextcloudUserId)
+		const userIds = seededData!.data.users!.map((u) => u.nextcloudUserId)
 		expect(userIds).toContain('mom')
 		expect(userIds).toContain('dad')
 		expect(userIds).toContain('teen')
@@ -200,11 +200,11 @@ test.describe('Family Profile Data Validation', () => {
 		expect(seededData).not.toBeNull()
 		const rooms = seededData!.data.rooms!
 
-		const kitchen = rooms.find(r => r.name === 'Kitchen')
+		const kitchen = rooms.find((r) => r.name === 'Kitchen')
 		expect(kitchen).toBeDefined()
 		expect(kitchen!.cleanliness).toBe(75)
 
-		const kidsBedroom = rooms.find(r => r.name === 'Kids Bedroom')
+		const kidsBedroom = rooms.find((r) => r.name === 'Kids Bedroom')
 		expect(kidsBedroom).toBeDefined()
 		expect(kidsBedroom!.cleanliness).toBe(40)
 	})
@@ -215,12 +215,12 @@ test.describe('Family Profile Data Validation', () => {
 
 		expect(tasks).toHaveLength(12)
 
-		const dishes = tasks.find(t => t.name === 'Do the dishes')
+		const dishes = tasks.find((t) => t.name === 'Do the dishes')
 		expect(dishes).toBeDefined()
 		expect(dishes!.category).toBe('cleaning')
 
 		const validCategories = ['cleaning', 'maintenance', 'organizing']
-		tasks.forEach(task => {
+		tasks.forEach((task) => {
 			expect(validCategories).toContain(task.category)
 		})
 	})
@@ -231,8 +231,8 @@ test.describe('Family Profile Data Validation', () => {
 
 		expect(roomTasks).toHaveLength(12)
 
-		const assigned = roomTasks.filter(rt => (rt.assignees ?? []).length > 0)
-		const unassigned = roomTasks.filter(rt => (rt.assignees ?? []).length === 0)
+		const assigned = roomTasks.filter((rt) => (rt.assignees ?? []).length > 0)
+		const unassigned = roomTasks.filter((rt) => (rt.assignees ?? []).length === 0)
 
 		expect(assigned.length).toBeGreaterThan(0)
 		expect(unassigned.length).toBeGreaterThan(0)

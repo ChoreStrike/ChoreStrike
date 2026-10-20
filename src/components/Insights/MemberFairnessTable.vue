@@ -78,7 +78,7 @@ export default {
 
 	computed: {
 		rows() {
-			return this.members.map(member => {
+			return this.members.map((member) => {
 				const preferences = member.schedulingPreferences || {}
 				const budgets = preferences.energyBudget || {}
 				const availability = preferences.weekdayAvailability || {}

@@ -129,7 +129,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 			const dayKey = day.toLowerCase()
 			if (state.memberAvailability.length > 0) {
 				const availableMembers = state.memberAvailability.filter(
-					m => isMemberAvailable(m, dayKey),
+					(m) => isMemberAvailable(m, dayKey),
 				)
 				return availableMembers.reduce(
 					(sum, m) => sum + resolveEnergyForDay(m.energyBudget, dayKey),
@@ -347,7 +347,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 			try {
 				await api.put(`/api/v1/scheduling/members/${userId}`, updates)
 
-				const index = this.memberAvailability.findIndex(m => m.userId === userId)
+				const index = this.memberAvailability.findIndex((m) => m.userId === userId)
 				if (index >= 0) {
 					this.memberAvailability[index] = {
 						...this.memberAvailability[index],
@@ -506,7 +506,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		async refreshAfterApply(roomTaskId = null) {
 			const roomTasksStore = useRoomTasksStore()
 			try {
-				const cached = roomTasksStore.roomTasks.find(row => row.id === roomTaskId)
+				const cached = roomTasksStore.roomTasks.find((row) => row.id === roomTaskId)
 				const jobs = [
 					roomTasksStore.fetchFilteredDailyTasks(),
 					roomTasksStore.fetchOverdueTasks(),

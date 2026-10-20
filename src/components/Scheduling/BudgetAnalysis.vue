@@ -72,7 +72,7 @@ const peakDay = computed(() => {
 			peakDayKey = day
 		}
 	})
-	const day = weekDays.find(d => d.key === peakDayKey)
+	const day = weekDays.find((d) => d.key === peakDayKey)
 	return day ? day.short : t('chorestrike', 'None')
 })
 
