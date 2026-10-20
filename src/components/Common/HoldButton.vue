@@ -55,23 +55,11 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import Icon from './Icon.vue'
+import { HOLD_MS, useHoldPress } from '../../composables/useHoldPress.js'
 
-export const HOLD_MS = 600
-const HINT_MS = 2500
-// A confirmed press with no in-flight action (e.g. a dialog opened over the
-// button, swallowing the release) returns to idle after this delay.
-const SETTLE_MS = 1000
-// Moving further than this while pressed is a scroll or drag, not a hold.
-const MOVE_TOLERANCE_PX = 10
-const HOLD_KEYS = ['Enter', ' ', 'Spacebar']
+export { HOLD_MS }
 
 let hintCounter = 0
-
-function prefersReducedMotion() {
-	return typeof window !== 'undefined'
-		&& typeof window.matchMedia === 'function'
-		&& window.matchMedia('(prefers-reduced-motion: reduce)').matches === true
-}
 
 /**
  * Press-and-hold confirmation for frequent, consequential taps
@@ -80,7 +68,8 @@ function prefersReducedMotion() {
  * button, scrolling or blurring cancels without emitting; a short tap
  * shows an inline "press and hold" hint instead of silently doing
  * nothing. A filling ring shows progress; `prefers-reduced-motion`
- * replaces it with a static state change.
+ * replaces it with a static state change. The timers and the press state
+ * live in the `useHoldPress` composable (CR-084-04).
  *
  * Non-class attributes (`data-testid`, `aria-label`, `title`) land on
  * the inner button; `class`/`style` stay on the wrapper.
@@ -110,12 +99,18 @@ export default {
 
 	emits: ['confirm'],
 
+	setup(props, { emit }) {
+		return useHoldPress({
+			holdMs: () => props.holdMs,
+			disabled: () => props.disabled,
+			busy: () => props.busy,
+			onConfirm: () => emit('confirm'),
+		})
+	},
+
 	data() {
 		hintCounter += 1
 		return {
-			phase: 'idle',
-			hintVisible: false,
-			staticFill: false,
 			hintId: `chorestrike-hold-hint-${hintCounter}`,
 		}
 	},
@@ -135,154 +130,6 @@ export default {
 		hintTestId() {
 			const testId = this.$attrs['data-testid']
 			return testId ? `${testId}-hint` : null
-		},
-	},
-
-	watch: {
-		// A disabled button receives no release event: a running hold stops
-		// when the button becomes disabled or busy, and the button returns to
-		// idle once the confirmed action is no longer in flight (or re-enabled).
-		busy(value) {
-			if (value) {
-				this.abort()
-			} else {
-				this.phase = 'idle'
-			}
-		},
-
-		disabled(value) {
-			if (value) {
-				this.abort()
-			} else {
-				this.phase = 'idle'
-			}
-		},
-	},
-
-	beforeUnmount() {
-		clearTimeout(this.holdTimer)
-		clearTimeout(this.hintTimer)
-		clearTimeout(this.settleTimer)
-	},
-
-	methods: {
-		start() {
-			if (this.disabled || this.busy || this.phase !== 'idle') {
-				return
-			}
-			this.hideHint()
-			this.staticFill = prefersReducedMotion()
-			this.phase = 'holding'
-			this.holdTimer = setTimeout(() => {
-				// Never confirm a button that became disabled or busy mid-hold.
-				if (this.disabled || this.busy) {
-					this.phase = 'idle'
-					return
-				}
-				this.phase = 'confirmed'
-				this.$emit('confirm')
-				clearTimeout(this.settleTimer)
-				this.settleTimer = setTimeout(this.settle, SETTLE_MS)
-			}, this.holdMs)
-		},
-
-		// Leave, scroll or blur: a running hold stops without confirming. A
-		// confirmed press is untouched — disabling the focused busy button
-		// blurs it, and a dialog opening over it ends the pointer's stay.
-		abort() {
-			if (this.phase !== 'holding') {
-				return
-			}
-			clearTimeout(this.holdTimer)
-			this.phase = 'idle'
-		},
-
-		// End a confirmed press unless its action is still in flight (the
-		// busy/disabled watchers end it then).
-		settle() {
-			if (this.phase === 'confirmed' && !this.busy && !this.disabled) {
-				this.phase = 'idle'
-			}
-		},
-
-		// Released before the hold completed: explain instead of doing nothing.
-		release() {
-			const wasHolding = this.phase === 'holding'
-			this.abort()
-			this.settle()
-			if (wasHolding) {
-				this.showHint()
-			}
-			// The native click that follows this release is already handled.
-			this.releaseHandled = true
-		},
-
-		showHint() {
-			this.hintVisible = true
-			clearTimeout(this.hintTimer)
-			this.hintTimer = setTimeout(this.hideHint, HINT_MS)
-		},
-
-		hideHint() {
-			clearTimeout(this.hintTimer)
-			this.hintVisible = false
-		},
-
-		onPointerDown(event) {
-			if (event.button !== undefined && event.button !== 0) {
-				return
-			}
-			this.releaseHandled = false
-			this.origin = { x: event.clientX ?? 0, y: event.clientY ?? 0 }
-			this.start()
-		},
-
-		onPointerMove(event) {
-			if (this.phase !== 'holding' || !this.origin) {
-				return
-			}
-			const dx = (event.clientX ?? 0) - this.origin.x
-			const dy = (event.clientY ?? 0) - this.origin.y
-			if (Math.hypot(dx, dy) > MOVE_TOLERANCE_PX) {
-				this.abort()
-			}
-		},
-
-		onPointerUp() {
-			this.release()
-		},
-
-		onKeyDown(event) {
-			if (!HOLD_KEYS.includes(event.key)) {
-				return
-			}
-			// Suppress the native keyboard activation: only the hold confirms.
-			event.preventDefault()
-			if (event.repeat) {
-				return
-			}
-			this.releaseHandled = false
-			this.start()
-		},
-
-		onKeyUp(event) {
-			if (!HOLD_KEYS.includes(event.key)) {
-				return
-			}
-			event.preventDefault()
-			this.release()
-		},
-
-		// A click without a tracked press (e.g. an assistive-technology
-		// activation) never confirms; it explains the gesture instead.
-		onClick() {
-			if (this.releaseHandled) {
-				this.releaseHandled = false
-				return
-			}
-			if (!this.disabled && !this.busy) {
-				this.showHint()
-			}
 		},
 	},
 }

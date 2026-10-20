@@ -39,7 +39,7 @@ below.)*
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
 ### [P4] CR-084-04 — Split the HoldButton hold state machine from its view
-**Status**: In Progress (plan activated; implementation not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
+**Status**: In Progress (implemented 2026-10-20: `useHoldPress` composable, `HoldButton.vue` 440 → 287 lines, HoldButton spec unchanged and green; the browser `holdToConfirm` paths in both gates are pending) · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
 
