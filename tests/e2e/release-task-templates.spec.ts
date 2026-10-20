@@ -20,6 +20,8 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
+import type { Page } from '@playwright/test'
+
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 
@@ -36,7 +38,7 @@ interface Catalog {
 	templates: CatalogTemplate[]
 }
 
-async function fetchCatalog(page: import('@playwright/test').Page): Promise<Catalog> {
+async function fetchCatalog(page: Page): Promise<Catalog> {
 	const response = await page.request.get('/apps/chorestrike/api/v1/setup/catalog', {
 		headers: { Accept: 'application/json' },
 	})
@@ -56,7 +58,7 @@ interface FloorRoom {
  * `floors/with-rooms` (the `room#show` route was pruned in CS-PLAN-055 —
  * the with-rooms payload carries the same `Room::jsonSerialize` shape).
  */
-async function firstRoom(page: import('@playwright/test').Page): Promise<FloorRoom> {
+async function firstRoom(page: Page): Promise<FloorRoom> {
 	const response = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
 		headers: { Accept: 'application/json' },
 	})

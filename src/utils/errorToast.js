@@ -14,7 +14,7 @@ const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/
  * Short diagnostic reference for a failed request (CS-PLAN-084 WP-F): the
  * stable API `code`, else the HTTP status, else `NETWORK` for an API call
  * that received no response. Never a raw message or stack data.
- * @param {*} error The caught error.
+ * @param {unknown} error The caught error.
  * @return {?string} The reference, or null when none is known.
  */
 export function errorReference(error) {
@@ -37,7 +37,7 @@ export function errorReference(error) {
  * matched to the server log.
  * @param {string} message Output of `t()` — already HTML-escaped; never raw
  *   or server-provided text.
- * @param {*} error The caught error.
+ * @param {unknown} error The caught error.
  */
 export function showErrorWithReference(message, error) {
 	const reference = errorReference(error)
@@ -53,7 +53,7 @@ export function showErrorWithReference(message, error) {
  * The failure toast of a completion attempt. A refused join behind an
  * in-flight completion with another work split (CR-084-02) gets its own
  * hint: the first completion usually succeeds, only the split is not used.
- * @param {*} error The caught error.
+ * @param {unknown} error The caught error.
  */
 export function showCompletionError(error) {
 	if (error?.code === 'COMPLETION_IN_FLIGHT') {

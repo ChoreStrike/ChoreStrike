@@ -78,8 +78,8 @@ export const useMinigameStore = defineStore('minigame', {
 		 *
 		 * @param {string} gameId Game identifier
 		 * @param {string} field Slice field to fill
-		 * @param {function(): Promise<*>} request The API read
-		 * @param {function(*): *} [pick] Maps the response data to the field value
+		 * @param {() => Promise<unknown>} request The API read
+		 * @param {(data: unknown) => unknown} [pick] Maps the response data to the field value
 		 */
 		async readInto(gameId, field, request, pick = (data) => data) {
 			try {

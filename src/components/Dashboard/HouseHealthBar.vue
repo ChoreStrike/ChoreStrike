@@ -70,7 +70,7 @@ export default {
 		},
 	},
 
-	setup(props) {
+	setup() {
 		const houseStore = useHouseStore()
 
 		// Computed properties

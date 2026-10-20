@@ -566,7 +566,8 @@ export default {
 		 * @param {object} taskData Form payload: definition + roomId + assigneeUserIds + nextDue.
 		 */
 		async handleAddTask(taskData) {
-			const { roomId: _roomId, assigneeUserIds, nextDue, ...definition } = taskData
+			const { assigneeUserIds, nextDue, ...definition } = taskData
+			delete definition.roomId
 			this.creating = true
 			try {
 				await this.roomTasksStore.createTaskAggregate({

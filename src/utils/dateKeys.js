@@ -64,7 +64,7 @@ export function dateKeyInZone(dateIso, timeZone) {
 	const zone = timeZone || 'UTC'
 	try {
 		return formatterFor(zone).format(date)
-	} catch (RangeError) {
+	} catch {
 		// Unknown timezone id — fall back to UTC.
 		return formatterFor('UTC').format(date)
 	}

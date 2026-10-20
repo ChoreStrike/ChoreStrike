@@ -7,7 +7,7 @@ import { onMounted, ref } from 'vue'
 /**
  * Load display names without making task execution depend on the member list.
  * @param {object} userStore The calling view's household user store.
- * @return {{ membersError: object, membersLoading: object, loadMembers: Function }}
+ * @return {{ membersError: object, membersLoading: object, loadMembers: () => Promise<void> }}
  */
 export function useHouseMemberNames(userStore) {
 	const membersError = ref(false)

@@ -353,7 +353,7 @@ export const wizardDismissedKey = (houseId) => `chorestrike:wizard-dismissed:${h
 export function isWizardDismissedForHouse(houseId) {
 	try {
 		return window.localStorage.getItem(wizardDismissedKey(houseId)) === '1'
-	} catch (error) {
+	} catch {
 		return false
 	}
 }
@@ -763,7 +763,7 @@ export default {
 		skip() {
 			try {
 				window.localStorage.setItem(wizardDismissedKey(this.houseStore.house?.id ?? null), '1')
-			} catch (error) {
+			} catch {
 				logger.warn('Could not persist wizard dismissal', { component: 'SetupWizard', action: 'skip' })
 			}
 			this.$emit('skipped')

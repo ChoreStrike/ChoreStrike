@@ -464,7 +464,8 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				Object.defineProperty(navigator, 'vibrate', {
 					configurable: true,
 					value: (pattern: unknown) => {
-						calls.push(pattern); return true
+						calls.push(pattern)
+						return true
 					},
 				})
 			})

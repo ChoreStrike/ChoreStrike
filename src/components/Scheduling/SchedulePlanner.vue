@@ -490,7 +490,7 @@ async function runPreview() {
 			roomTaskIds: [...selectedIds.value],
 			overrides: buildOverrides(),
 		})
-	} catch (error) {
+	} catch {
 		showError(t('chorestrike', 'The plan could not be prepared. Please try again.'))
 	}
 }

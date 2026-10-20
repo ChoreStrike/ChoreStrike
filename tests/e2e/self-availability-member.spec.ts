@@ -3,6 +3,8 @@
  * @license MIT
  */
 
+import type { Page } from '@playwright/test'
+
 import { expect, test } from '@playwright/test'
 
 // CS-PLAN-032: admin is a plain house *member* under the unconditionally
@@ -30,7 +32,7 @@ let originalMonday: boolean | null = null
 // (requesttoken header), which a bare page.request cannot replicate — its
 // GET would fail the Nextcloud CSRF check. Returns null when the role has
 // not resolved (yet), which the caller treats as "unknown".
-async function resolveUserRole(page: import('@playwright/test').Page): Promise<string | null> {
+async function resolveUserRole(page: Page): Promise<string | null> {
 	return page.evaluate(() => {
 		const app = (window as unknown as {
 			chorestrike?: {

@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test'
+
 import { expect, test } from '@playwright/test'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 /**
@@ -8,7 +10,7 @@ import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
  * assertions (response waits, visibility assertions); modal via testid.
  */
 
-async function selectFirstRoomWithRooms(page: import('@playwright/test').Page): Promise<boolean> {
+async function selectFirstRoomWithRooms(page: Page): Promise<boolean> {
 	const roomSelect = page.getByTestId('room-picker-room')
 	await expect(roomSelect).toBeVisible({ timeout: 15000 })
 	const optionValue = await roomSelect.locator('option').nth(1).getAttribute('value')

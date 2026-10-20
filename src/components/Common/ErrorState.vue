@@ -57,8 +57,6 @@ export default {
 
 	data() {
 		return {
-			// Browser API; the rule flags Node 20's experimental navigator.
-			// eslint-disable-next-line n/no-unsupported-features/node-builtins
 			isOffline: typeof window !== 'undefined' && window.navigator.onLine === false,
 			handleOffline: null,
 			handleOnline: null,

@@ -111,7 +111,7 @@ export function createSteerKeys() {
  * The latest control alone decides that state, so a newer one replaces a
  * queued one.
  *
- * @param {*} input A queued game input
+ * @param {unknown} input A queued game input
  * @return {boolean}
  */
 export function isPaddleControl(input) {

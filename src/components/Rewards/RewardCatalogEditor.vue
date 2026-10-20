@@ -362,7 +362,7 @@ export default {
 			if (!this.formError) {
 				try {
 					priceMinor = this.parsePrice(this.createDraft.price)
-				} catch (error) {
+				} catch {
 					this.formError = t('chorestrike', 'Enter a valid price, e.g. 12 or 12.50 — at most two decimals.')
 				}
 			}
@@ -405,7 +405,7 @@ export default {
 			if (!this.formError) {
 				try {
 					priceMinor = this.parsePrice(this.editDraft.price)
-				} catch (error) {
+				} catch {
 					this.formError = t('chorestrike', 'Enter a valid price, e.g. 12 or 12.50 — at most two decimals.')
 				}
 			}

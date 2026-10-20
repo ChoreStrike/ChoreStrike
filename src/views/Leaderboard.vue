@@ -276,7 +276,7 @@ export default {
 			try {
 				await this.rankingStore.giveConsent()
 				showSuccess(t('chorestrike', 'You join the ranking next Monday.'))
-			} catch (error) {
+			} catch {
 				showError(t('chorestrike', 'Failed to update participation'))
 			}
 		},
@@ -285,7 +285,7 @@ export default {
 			try {
 				await this.rankingStore.withdrawConsent()
 				showSuccess(t('chorestrike', 'You left the ranking.'))
-			} catch (error) {
+			} catch {
 				showError(t('chorestrike', 'Failed to update participation'))
 			}
 		},

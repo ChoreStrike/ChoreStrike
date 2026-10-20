@@ -174,7 +174,7 @@ function filtersFromQuery(query = {}) {
 
 /**
  * Page number from `?page=` (1 when missing or invalid).
- * @param {*} value Raw query value.
+ * @param {unknown} value Raw query value.
  * @return {number}
  */
 function pageFromQuery(value) {

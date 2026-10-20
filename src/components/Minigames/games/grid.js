@@ -22,7 +22,7 @@ export const OPPOSITE = Object.freeze({ up: 'down', down: 'up', left: 'right', r
 /**
  * The cell a tap names, or -1 for any other input.
  *
- * @param {*} input A game input
+ * @param {unknown} input A game input
  * @param {number} count Cells on the board
  * @return {number}
  */

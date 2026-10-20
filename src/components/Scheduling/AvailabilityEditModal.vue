@@ -164,7 +164,7 @@ const schedulingStore = useSchedulingStore()
 let currentUserId = null
 try {
 	currentUserId = resolveCurrentUser()?.uid ?? null
-} catch (error) {
+} catch {
 	currentUserId = null
 }
 const isSelf = computed(() => props.member.userId === currentUserId)

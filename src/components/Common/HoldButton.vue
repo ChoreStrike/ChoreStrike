@@ -122,7 +122,9 @@ export default {
 
 	computed: {
 		buttonAttrs() {
-			const { class: _class, style: _style, ...rest } = this.$attrs
+			const rest = { ...this.$attrs }
+			delete rest.class
+			delete rest.style
 			return rest
 		},
 

@@ -552,7 +552,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					return
 				}
 				inFlightCompletions.delete(roomTaskId)
-				const { [roomTaskId]: _done, ...rest } = this.completingIds
+				const rest = { ...this.completingIds }
+				delete rest[roomTaskId]
 				this.completingIds = rest
 			})
 			inFlightCompletions.set(roomTaskId, { request, splitKey })

@@ -34,11 +34,11 @@ function DEFAULT_STATE() {
 		catalogVisible: true,
 		ranking: { state: 'none', generation: null, effectiveMonday: null },
 		/**
-	 * True only after an authoritative read/write landed (CS-PLAN-070 WP8
-	 * §3.1): the initial neutral defaults are NOT a completed preference
-	 * read — optional-area consumers must treat unknown/loading/failed
-	 * preferences as fail-closed instead of trusting the initial `true`.
-	 */
+		 * True only after an authoritative read/write landed (CS-PLAN-070 WP8
+		 * §3.1): the initial neutral defaults are NOT a completed preference
+		 * read — optional-area consumers must treat unknown/loading/failed
+		 * preferences as fail-closed instead of trusting the initial `true`.
+		 */
 		loaded: false,
 		loading: false,
 		saving: false,

@@ -670,7 +670,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 				try {
 					await this.fetchMemberAvailability()
-				} catch (error) {
+				} catch {
 					// Member availability is owner-only and non-critical. A 403 for
 					// non-owners (or any transient failure) must not block the view —
 					// the user can still edit their own preferences. The action logs

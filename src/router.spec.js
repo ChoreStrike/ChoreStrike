@@ -8,7 +8,7 @@ jest.mock('@nextcloud/router', () => ({
 }))
 
 jest.mock('vue-router', () => ({
-	createRouter: jest.fn((config) => ({
+	createRouter: jest.fn(() => ({
 		resolve: (path) => {
 			if (path === '/today') {
 				return {

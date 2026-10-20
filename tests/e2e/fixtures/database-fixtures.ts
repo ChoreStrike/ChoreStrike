@@ -206,21 +206,19 @@ export const test = baseTest.extend<DatabaseFixtures>({
 				+ ' — move the spec into the serial pool selection or make it read-only.')
 		}
 
-		let data: SeededData | null = null
-
 		// Check if test mode is available
 		const isTestMode = await databaseManager.isTestMode()
 
-		if (isTestMode) {
-			console.log(`[${testInfo.title}] Seeding database with profile: ${databaseProfile}`)
-			data = await databaseManager.seed(databaseProfile)
-			console.log(`[${testInfo.title}] Database seeded successfully`)
-		} else {
+		if (!isTestMode) {
 			// CS-PLAN-068 §3.4: a missing test environment is a failure, not
 			// a silent null the assertions have to trip over.
 			throw new Error(`Test mode unavailable: cannot seed the '${databaseProfile}' profile required by '${testInfo.title}'`
 				+ ' — the gate requires NEXTCLOUD_TEST_MODE=true on the test container.')
 		}
+
+		console.log(`[${testInfo.title}] Seeding database with profile: ${databaseProfile}`)
+		const data = await databaseManager.seed(databaseProfile)
+		console.log(`[${testInfo.title}] Database seeded successfully`)
 
 		await use(data)
 	},

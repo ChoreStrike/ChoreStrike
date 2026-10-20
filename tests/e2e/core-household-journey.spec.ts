@@ -25,7 +25,7 @@
  * auth.setup survive the `emptyhouse` reset).
  */
 
-import type { Browser, Page } from '@playwright/test'
+import type { Browser, BrowserContext, Page } from '@playwright/test'
 
 import { addDaysToKey } from '../../src/utils/dateKeys.js'
 import { createUserContext } from './fixtures/auth-contexts.ts'
@@ -447,7 +447,7 @@ test.describe('Canonical household journey', () => {
 		// The kid session stays OPEN: the queued-undo snackbar is per-session
 		// UI state, so phase 7 undoes it in the same session.
 		// ----------------------------------------------------------------
-		let kidSession: { context: import('@playwright/test').BrowserContext, page: Page } | null = null
+		let kidSession: { context: BrowserContext, page: Page } | null = null
 		await test.step('the child executes the assigned task on My Day, completes it and queues the undo', async () => {
 			// Independently captured before-state (read-only API snapshots).
 			const kidPreview = await createUserContext(browser, 'kid')

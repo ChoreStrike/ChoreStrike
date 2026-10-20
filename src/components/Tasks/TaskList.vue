@@ -145,7 +145,7 @@ export default {
 				if ((userStore.houseUsers || []).length === 0) {
 					try {
 						await userStore.fetchHouseUsers()
-					} catch (error) {
+					} catch {
 						// non-fatal: picker will show an empty hint
 					}
 				}
@@ -172,7 +172,7 @@ export default {
 			assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: next }
 			try {
 				await roomTasksStore.setAssignees(roomTaskId, next)
-			} catch (error) {
+			} catch {
 				// Revert the draft on failure so the UI matches the server state
 				const previous = next.includes(userId)
 					? next.filter((id) => id !== userId)
@@ -260,7 +260,7 @@ export default {
 				if ((userStore.houseUsers || []).length === 0) {
 					try {
 						await userStore.fetchHouseUsers()
-					} catch (error) {
+					} catch {
 						// non-fatal: dropdown will show an empty list
 					}
 				}
