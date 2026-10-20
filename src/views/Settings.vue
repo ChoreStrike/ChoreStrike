@@ -986,14 +986,14 @@ export default {
 
 <style scoped>
 .settings {
-	padding: 1rem 2rem 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 1rem var(--cs-view-gutter) 2rem;
 	max-width: 1000px;
 	margin: 0 auto;
 }
 
 .settings-header {
 	margin-bottom: 2rem;
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .settings-header h1 {

@@ -307,8 +307,7 @@ export default {
 
 <style scoped>
 .leaderboard {
-	padding: 1rem 2rem 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 1rem var(--cs-view-gutter) 2rem;
 	max-width: 1000px;
 	margin: 0 auto;
 }
@@ -316,6 +315,7 @@ export default {
 .leaderboard-header {
 	text-align: center;
 	margin-bottom: 2rem;
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .leaderboard-header h1 {

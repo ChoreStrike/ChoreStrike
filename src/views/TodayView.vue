@@ -791,8 +791,7 @@ export default {
 
 <style scoped>
 .today-view {
-	padding: 1rem 2rem 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 1rem var(--cs-view-gutter) 2rem;
 	max-width: 900px;
 	margin: 0 auto;
 }
@@ -804,6 +803,7 @@ export default {
 	margin-bottom: 1.5rem;
 	flex-wrap: wrap;
 	gap: 1rem;
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .today-header h1 {
@@ -1102,8 +1102,7 @@ export default {
 
 @media (max-width: 600px) {
 	.today-view {
-		padding: 1rem;
-		padding-inline-start: var(--cs-view-inline-start);
+		padding: 1rem var(--cs-view-gutter);
 	}
 
 	.task-row {

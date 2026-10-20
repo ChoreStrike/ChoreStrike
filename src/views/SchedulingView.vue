@@ -108,13 +108,13 @@ onMounted(async () => {
 .scheduling-view {
 	max-width: 1200px;
 	margin: 0 auto;
-	padding: 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 2rem var(--cs-view-gutter);
 }
 
 .scheduling-header {
 	text-align: center;
 	margin-bottom: 3rem;
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .scheduling-header h1 {
@@ -181,8 +181,7 @@ onMounted(async () => {
 
 @media (max-width: 768px) {
 	.scheduling-view {
-		padding: 1rem;
-		padding-inline-start: var(--cs-view-inline-start);
+		padding: 1rem var(--cs-view-gutter);
 	}
 
 	.scheduling-header h1 {

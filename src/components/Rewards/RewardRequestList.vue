@@ -304,8 +304,7 @@ export default {
 
 <style scoped>
 .request-list-view {
-	padding: 1rem 2rem 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 1rem var(--cs-view-gutter) 2rem;
 	max-width: 900px;
 	margin: 0 auto;
 }
@@ -315,6 +314,7 @@ export default {
 	align-items: center;
 	gap: 0.75rem;
 	margin-bottom: 1.25rem;
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .request-header h1 {

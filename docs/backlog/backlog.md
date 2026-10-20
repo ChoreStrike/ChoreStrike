@@ -53,7 +53,7 @@ regression net.
 ---
 
 ### [P3] CR-LAYOUT-01 — View inset token resolves at `:root`, where Nextcloud defines neither metric
-**Status**: In Progress (Q-088-02: heading-only inset; implementation not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: theming
+**Status**: In Progress (implemented 2026-10-20 per Q-088-02: tokens on `.app-content`, shared view gutter, heading-row inset in all 13 consumers; the extended `layout-clearance.spec.ts` passes on the canonical stack, the full gates on both rows are pending) · **Effort**: S · **Layer**: frontend · **Journey stage**: theming
 **Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: whole-view inset on phones (same review)
 **Source**: Review of TECH-DOCS-005 UI fix `1ee898d` (Standard B, 2026-10-17; user-deferred until after the `0.8.0-alpha.1` deployment)
 

@@ -26,6 +26,17 @@ const VIEWPORTS = [
 	{ name: 'phone', width: 390, height: 844 },
 ] as const
 
+// Real Nextcloud 34/35 metrics: 34 px clickable area + 2 * 8 px navigation
+// padding clear the toggle. Views keep a 2rem gutter on desktop and 1rem on
+// phones; Nextcloud sets 1rem to its 15 px base font size.
+const TOGGLE_CLEARANCE = 50
+const DESKTOP_GUTTER_REM = 2
+const PHONE_GUTTER_REM = 1
+
+async function remSize(page: Page): Promise<number> {
+	return await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
+}
+
 type Box = { left: number, right: number, top: number, bottom: number }
 
 const overlaps = (a: Box, b: Box): boolean => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
@@ -94,6 +105,8 @@ test.describe('Layout clearance and dashboard health bar', () => {
 				]
 				const covered: string[] = []
 				const scrolled: string[] = []
+				const insets: string[] = []
+				const gutter = (viewport.name === 'phone' ? PHONE_GUTTER_REM : DESKTOP_GUTTER_REM) * await remSize(page)
 				for (const view of views) {
 					await page.goto(`/apps/chorestrike/${view.path}`)
 					const root = page.getByTestId(view.ready)
@@ -108,6 +121,18 @@ test.describe('Layout clearance and dashboard health bar', () => {
 					if (overlaps(toggleBox, headingBox)) {
 						covered.push(`${view.ready}: toggle ${JSON.stringify(toggleBox)} covers heading text ${JSON.stringify(headingBox)}`)
 					}
+					// CR-LAYOUT-01: the content keeps the gutter, only the heading row adds
+					// the toggle clearance on top of it.
+					const padding = await root.evaluate((element) => {
+						const header = element.querySelector('header')
+						return {
+							root: parseFloat(getComputedStyle(element).paddingInlineStart),
+							header: header ? parseFloat(getComputedStyle(header).paddingInlineStart) : Number.NaN,
+						}
+					})
+					if (padding.root !== gutter || padding.header !== TOGGLE_CLEARANCE - gutter) {
+						insets.push(`${view.ready}: root ${padding.root}px / heading row ${padding.header}px, expected ${gutter}px / ${TOGGLE_CLEARANCE - gutter}px`)
+					}
 					if (viewport.name === 'phone') {
 						// The content that once overflowed must be rendered, or the
 						// check would pass on an empty view.
@@ -118,12 +143,78 @@ test.describe('Layout clearance and dashboard health bar', () => {
 					}
 				}
 				expect(covered, covered.join('\n')).toEqual([])
+				expect(insets, `content keeps the ${gutter}px gutter, the heading row clears the toggle (CR-LAYOUT-01)\n${insets.join('\n')}`).toEqual([])
 				expect(scrolled, `no view scrolls sideways at phone width (UX-018)\n${scrolled.join('\n')}`).toEqual([])
 			} finally {
 				await context.close()
 			}
 		})
 	}
+
+	test('the view insets follow the host navigation metrics, not constants (CR-LAYOUT-01)', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, USER, { viewport: VIEWPORTS[0] })
+		try {
+			await page.goto('/apps/chorestrike/#/today')
+			const root = page.getByTestId('today-view')
+			await expect(root).toBeVisible({ timeout: 20000 })
+			await page.waitForLoadState('networkidle')
+			const heading = root.getByRole('heading').first()
+			await expect(heading).toBeVisible()
+
+			// The tokens resolve inside `.app-content`; a probe child reads them.
+			const measure = async (): Promise<{ inlineStart: number, headingInset: number }> => await page.evaluate(() => {
+				const content = document.querySelector('.app-content')
+				if (!content) {
+					throw new Error('the app content is missing')
+				}
+				const probe = document.createElement('div')
+				content.appendChild(probe)
+				probe.style.paddingInlineStart = 'var(--cs-view-inline-start)'
+				const inlineStart = parseFloat(getComputedStyle(probe).paddingInlineStart)
+				probe.style.paddingInlineStart = 'var(--cs-view-heading-inset)'
+				const headingInset = parseFloat(getComputedStyle(probe).paddingInlineStart)
+				probe.remove()
+				return { inlineStart, headingInset }
+			})
+
+			const desktopGutter = DESKTOP_GUTTER_REM * await remSize(page)
+			expect(await measure()).toEqual({ inlineStart: TOGGLE_CLEARANCE, headingInset: TOGGLE_CLEARANCE - desktopGutter })
+			const before = (await textBox(heading)).left
+
+			// A host with larger metrics: 44 px clickable area, 12 px navigation padding.
+			await page.evaluate(() => {
+				document.body.style.setProperty('--default-clickable-area', '44px')
+				const content = document.querySelector<HTMLElement>('.app-content')
+				content?.style.setProperty('--app-navigation-padding', '12px')
+			})
+			expect(await measure()).toEqual({ inlineStart: 68, headingInset: 68 - desktopGutter })
+			expect((await textBox(heading)).left - before, 'the heading row follows the metrics').toBe(68 - TOGGLE_CLEARANCE)
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('the toggle covers no heading in a right-to-left layout (CR-LAYOUT-01)', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, USER, { viewport: VIEWPORTS[1] })
+		try {
+			for (const view of [{ path: '#/today', ready: 'today-view' }, { path: '#/dashboard', ready: 'dashboard-view' }]) {
+				await page.goto(`/apps/chorestrike/${view.path}`)
+				const root = page.getByTestId(view.ready)
+				await expect(root).toBeVisible({ timeout: 20000 })
+				await page.waitForLoadState('networkidle')
+				await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'))
+				const toggle = page.getByRole('button', { name: /(open|close) navigation/i })
+				await expect(toggle).toBeVisible()
+				const heading = root.getByRole('heading').first()
+				await expect(heading).toBeVisible()
+				expect(overlaps(await boxOf(toggle), await textBox(heading)), `${view.ready}: toggle and heading text must not overlap in RTL`).toBe(false)
+				const rootStart = await root.evaluate((element) => parseFloat(getComputedStyle(element).paddingInlineStart))
+				expect(rootStart, 'the content keeps the gutter on the inline-start side').toBe(PHONE_GUTTER_REM * await remSize(page))
+			}
+		} finally {
+			await context.close()
+		}
+	})
 
 	test('the house-health bar shows its fill, icon and a gap before the percentage', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, USER, { viewport: VIEWPORTS[0] })

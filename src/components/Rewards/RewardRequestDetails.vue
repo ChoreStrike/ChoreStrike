@@ -519,10 +519,13 @@ export default {
 
 <style scoped>
 .request-detail-view {
-	padding: 1rem 2rem 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 1rem var(--cs-view-gutter) 2rem;
 	max-width: 760px;
 	margin: 0 auto;
+}
+
+.detail-header {
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .back-link {

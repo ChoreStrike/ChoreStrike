@@ -238,10 +238,13 @@ export default {
 
 <style scoped>
 .calendar-view {
-	padding: 20px;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 20px var(--cs-view-gutter);
 	max-width: 1200px;
 	margin: 0 auto;
+}
+
+.calendar-header {
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .calendar-header h1 {

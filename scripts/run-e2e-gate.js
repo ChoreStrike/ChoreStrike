@@ -117,7 +117,7 @@ const REQUIRED_SPECS = [
 	{ file: 'dashboard-navigation.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'fast-core-tests.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	// TECH-DOCS-005 follow-up: navigation-toggle clearance (desktop + phone) and the health bar.
-	{ file: 'layout-clearance.spec.ts', project: 'chromium', scenarios: ['the navigation toggle covers no view heading', 'the house-health bar shows its fill'], minTests: 3 },
+	{ file: 'layout-clearance.spec.ts', project: 'chromium', scenarios: ['the navigation toggle covers no view heading', 'the view insets follow the host navigation metrics', 'right-to-left layout', 'the house-health bar shows its fill'], minTests: 5 },
 	{ file: 'leaderboard.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'minimal-smoke-tests.spec.ts', project: 'chromium', scenarios: ['injected styles and lazy assets work at 1440px', 'injected styles and lazy assets work at 390px', 'protected views wait for membership bootstrap'], minTests: 6 },
 	{ file: 'overdue-task-claiming.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },

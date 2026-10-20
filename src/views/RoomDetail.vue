@@ -660,8 +660,7 @@ export default {
 
 <style scoped>
 .room-detail {
-	padding: 1rem 2rem 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 1rem var(--cs-view-gutter) 2rem;
 	max-width: 1200px;
 	margin: 0 auto;
 }
@@ -673,6 +672,7 @@ export default {
 	margin-bottom: 2rem;
 	gap: 2rem;
 	flex-wrap: wrap;
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .header-content {

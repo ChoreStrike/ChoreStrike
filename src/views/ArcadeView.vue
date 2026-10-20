@@ -54,14 +54,14 @@ export default {
 
 <style scoped>
 .arcade-view {
-	padding: 1rem 2rem 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 1rem var(--cs-view-gutter) 2rem;
 	max-width: 1000px;
 	margin: 0 auto;
 }
 
 .arcade-view-header {
 	margin-bottom: 1.5rem;
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .arcade-view-header h1 {

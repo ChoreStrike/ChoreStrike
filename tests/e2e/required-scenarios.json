@@ -322,7 +322,9 @@
   "layout-clearance.spec.ts": [
     "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the house-health bar shows its fill, icon and a gap before the percentage",
     "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the navigation toggle covers no view heading (desktop)",
-    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the navigation toggle covers no view heading (phone)"
+    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the navigation toggle covers no view heading (phone)",
+    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the toggle covers no heading in a right-to-left layout (CR-LAYOUT-01)",
+    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the view insets follow the host navigation metrics, not constants (CR-LAYOUT-01)"
   ],
   "leaderboard.spec.ts": [
     "leaderboard.spec.ts > Leaderboard and Gamification (consent-filtered) > Disabled ranking shows the opt-in/closed state (default seed)",

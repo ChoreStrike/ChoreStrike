@@ -469,8 +469,7 @@ export default {
 
 <style scoped>
 .insights-view {
-	padding: 1rem 2rem 2rem;
-	padding-inline-start: var(--cs-view-inline-start);
+	padding: 1rem var(--cs-view-gutter) 2rem;
 	max-width: 1000px;
 	margin: 0 auto;
 }
@@ -478,6 +477,7 @@ export default {
 .insights-header {
 	text-align: center;
 	margin-bottom: 2rem;
+	padding-inline-start: var(--cs-view-heading-inset);
 }
 
 .insights-header h1 {
@@ -596,8 +596,7 @@ export default {
 
 @media (max-width: 768px) {
 	.insights-view {
-		padding: 1rem;
-		padding-inline-start: var(--cs-view-inline-start);
+		padding: 1rem var(--cs-view-gutter);
 	}
 
 	.insights-section {
