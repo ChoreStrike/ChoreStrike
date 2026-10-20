@@ -1,6 +1,6 @@
 # CS-PLAN-088: 0.8.0-alpha.3 — Trial Feedback and Backlog Round
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-10-19; drafted 2026-10-19; implementation not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-10-19; drafted 2026-10-19; WP-C toolchain series started 2026-10-20 (branch `chore/tech-dev-001-node24`)
 > **Effort:** M — 8–12 engineering days inside a 2–3 week window: feedback intake 2026-10-20 → ~2026-11-02 (the 14-day HUMAN-02 window of CS-PLAN-080 ends the same weekend), candidate freeze, qualification and deployment in the week of 2026-11-03
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.2` deployed on the retained baseline (done 2026-10-19); the family trial's sanitized feedback (collected by the operator); no schema change intended
@@ -54,11 +54,11 @@ One plan, four work streams, one candidate:
   rebases on it. Everything else waits for the bundle.
 - **WP-B Hardening:** the five small backlog items, one commit each, behavior
   preserved unless the item is the behavior change.
-- **WP-C Toolchain:** the Node/bundler update first, because every later change should
-  be built with the chain the candidate ships with. ESLint follows WP-B in
-  its own series; all earlier work is revalidated on the final chain. Proof is a
-  byte-level comparison of the built `js/` (apart from the per-build `?v=`
-  stamp) plus the full gates.
+- **WP-C Toolchain:** one series, first, because every later change should be
+  built and linted with the chain the candidate ships with (D-088-08: the Node 24
+  engines, the bundler major and the ESLint 10 toolchain cannot be installed
+  strictly apart). Proof is a content-equivalence comparison of the built `js/`
+  (D-088-09) plus the full gates.
 - **WP-D Release `0.8.0-alpha.3`:** freeze at the end of the window, version
   bump, changelog, final Full review, the
   [qualification pipeline](../../standards/ai/skills/release/SKILL.md#qualification-pipeline),
@@ -117,6 +117,32 @@ The scope/engine recommendations below replace the draft alternatives.
   `test-runtime-stage.js`. Three complete clean parallel rounds may close the
   observation as bounded non-reproduction, never as an attributed root-cause
   fix. Rejected: documentation-only matrix commands.
+
+### Decisions recorded during implementation (operator 2026-10-20)
+
+Both questions were answered with their recommended option.
+
+- **D-088-08 Toolchain series:** TECH-DEV-001 and TECH-LINT-008 land as one
+  series on one branch. A strict install on Node 24 is impossible while
+  `@nextcloud/eslint-config@8` and `@nextcloud/eslint-plugin@2` (both declare
+  `node ^20`, `npm ^10`) are installed, and ESLint 10 / `@nextcloud/eslint-config@9`
+  need Node ≥ 22.14: the engines, the bundler major and the ESLint toolchain
+  share one lockfile state, then the rule families follow as separate commits.
+  `@nextcloud/initial-state` (declared `^2.2.0` with `node ^20`, never imported
+  by `src/` or `tests/`) leaves `dependencies`; the Node-24-compatible 3.x copy
+  stays through `@nextcloud/vue` and `@nextcloud/dialogs`. Rejected: strict
+  install without ESLint (not possible), `npm ci` without `--engine-strict`.
+- **D-088-09 Bundle proof:** byte identity of the built `js/` is unattainable
+  and no longer required: `@nextcloud/webpack-vue-config` 7.1 swaps
+  `terser-webpack-plugin` for `minimizer-webpack-plugin` and moves webpack to
+  5.112 (measured: every chunk differs, `chorestrike-main.js` shrinks from
+  3.93 MB to 3.60 MB). The proof is content equivalence — the same module set
+  and module bodies in an unminified same-source build on both chains, emitted
+  CSS inspected, both browser gates, a reproducible package build — plus a
+  documented, reviewed minifier difference. Rejected: pinning the old
+  minimizer/webpack to force byte identity; gates only.
+- **Git:** commits per work item and rule family on the task branch, local only
+  (no push, no merge to `master` without a separate request).
 
 ## 3. Backend / Frontend Changes
 
@@ -177,18 +203,23 @@ implemented here.
   Preserve clean-source and immutable-image qualification; update its tests
   and README requirements, not only the CI `setup-node` inputs.
   Validate dependency engine and peer ranges before changing the lockfile;
-  no `--force` or `--legacy-peer-deps`. Proof: built
-  `js/` byte-identical to the previous chain apart from `?v=`, full gates on
-  both runtime rows, reproducible `test:package:build`.
+  no `--force` or `--legacy-peer-deps`. Proof (D-088-09): content equivalence of
+  the built `js/` against a same-source build on the previous chain, full gates
+  on both runtime rows, reproducible `test:package:build`. The unused
+  `@nextcloud/initial-state` direct dependency is dropped (D-088-08).
 - **TECH-LINT-008** — `eslint.config.js` (flat) on ESLint 10 with
-  `@nextcloud/eslint-config` 9, an ESLint-10-compatible release of
-  `@vue/eslint-config-typescript` 14 and
-  `eslint-plugin-vue` 10; `npm run lint` covers the same file sets (`src`,
-  `tests/e2e`, `tests/docs-screenshots`); new-rule findings fixed per rule
+  `@nextcloud/eslint-config` 9, which bundles `eslint-plugin-vue` 10,
+  `typescript-eslint` 8, `eslint-plugin-jsdoc` and the Nextcloud rules, so the
+  former direct ESLint plugin/parser/resolver devDependencies are removed;
+  `npm run lint` covers the same file sets (`src`, `tests/e2e`,
+  `tests/docs-screenshots`); new-rule findings fixed per rule
   family; no warning suppression to make the gate green. A deliberate rule
-  policy change needs explicit review and approval, not a silent disable.
-  The `postcss-selector-parser` and
-  `fast-xml-parser` overrides removed; `.eslintrc.js` archived.
+  policy change needs explicit review and approval, not a silent disable; the
+  three rules the legacy config already disabled (`jsdoc/require-jsdoc`,
+  `jsdoc/tag-lines`, `vue/first-attribute-linebreak`) and the existing Playwright
+  and webpack-global overrides carry over unchanged. The
+  `postcss-selector-parser`, `fast-xml-parser` and `@vue/eslint-config-typescript`
+  overrides are removed; `.eslintrc.js` archived.
 
 ### WP-D Release `0.8.0-alpha.3` (RELEASE-002)
 
@@ -241,12 +272,14 @@ reviewed plan; this round's explicit matrix targets do not deliver that feature.
   unchanged canonical mode. Three real four-target parallel runs retain full
   reports; any failure stays evidence and requires attribution or an explicit
   unresolved finding, never a false green.
-- **TECH-DEV-001 / TECH-LINT-008:** `npm ci --engine-strict` on the new range;
-  Jest, ESLint, Stylelint, production build; built `js/` compared byte-wise;
-  CI `checks` green on the new Node; `test:package:build` reproducible (two
-  builds, one archive hash). Record the normalized JS comparison against a
-  same-source build on the previous toolchain, not against a different app
-  revision; any additional difference blocks pending review, not a new ignored
+- **TECH-DEV-001 / TECH-LINT-008:** `npm ci --engine-strict` on the new range at
+  the minimum (24.14.0, the first Node 24 whose bundled npm 11.9.0 satisfies
+  `^11.8.2`) and a current patch; Jest, ESLint, Stylelint, production build;
+  built `js/` compared for content equivalence (D-088-09); CI `checks` green on
+  the new Node; `test:package:build` reproducible (two builds, one archive
+  hash). Record the comparison against a same-source build on the previous
+  toolchain, not against a different app revision; any difference beyond the
+  documented minimizer/webpack effect blocks pending review, not a new ignored
   pattern. Inspect emitted CSS and browser appearance for Sass API changes.
 - **WP-D:** `npm run test:runtime:check` current; full browser gate and PHPUnit
   suites on the primary and AIO rows plus the MariaDB/SQLite provider suites;
@@ -290,7 +323,8 @@ modified: docker/package-build.json, docker/Dockerfile.package,
 modified: appinfo/info.xml, CHANGELOG.md, README.md, docs/release/roadmap.md, docs/README.md,
           docs/engineering/deployment.md, docs/backlog/ACTIVE_TASKS.md, docs/backlog/backlog.md,
           docs/backlog/archive/2026-11.md                     (WP-D)
-archived: archive/2026-11/eslintrc-legacy/.eslintrc.js        (if TECH-LINT-008 lands)
+archived: archive/2026-10/eslintrc-legacy/.eslintrc.js        (TECH-LINT-008; actual archive month)
+modified: src/** and tests/** rule-family fixes, l10n/* where an ellipsis msgid changes   (TECH-LINT-008)
 ```
 
 ## 6. Implementation Order
@@ -300,11 +334,13 @@ archived: archive/2026-11/eslintrc-legacy/.eslintrc.js        (if TECH-LINT-008 
    backlog items, update `ACTIVE_TASKS.md`.
 2. Open the feedback register; triage incoming items at least weekly; the
    hotfix rule is in force from day one.
-3. WP-C TECH-DEV-001 (engine range, bundler major, override removal, CI node);
-   byte-level `js/` comparison and full gates before anything else lands on it.
+3. WP-C toolchain series (D-088-08): dependency/engine commit with the flat
+   config, then one commit per ESLint rule family, then package builder, CI and
+   documentation; content-equivalence comparison and full gates before
+   anything else lands on it.
 4. WP-B, one commit each: CR-PERF-01, TECH-DIGEST-001, CR-084-04, CR-LAYOUT-01,
    TECH-TEST-009.
-5. TECH-LINT-008 as its own commit series (config, then rule families).
+5. (Folded into step 3 by D-088-08.)
 6. WP-A fixes as they arrive, each with its regression test; focused browser
    runs for visible changes.
 7. Check the selected scope against the date; seek explicit user rescoping
@@ -323,7 +359,7 @@ archived: archive/2026-11/eslintrc-legacy/.eslintrc.js        (if TECH-LINT-008 
 |------|-----------|------------|
 | Feedback volume exceeds the window | Medium | Date is a target; in-scope findings/tests remain required until explicitly user-rescoped; out-of-scope feedback folds into existing backlog owners |
 | A P0/P1 finding appears mid-window | Low | Hotfix rule: own branch, requalification, exchange handoff; this plan rebases |
-| Toolchain majors change the bundle or lint set | Medium | Byte-level `js/` comparison, full gates on both rows, package smoke; each major is one revertible commit series |
+| Toolchain majors change the bundle or lint set | Medium | Content-equivalence `js/` comparison (D-088-09), full gates on both rows, package smoke; each major is one revertible commit series |
 | ESLint 10 rule fallout churns many files | Medium | One commit per rule family; rule-policy changes need explicit approval, never suppress warnings to pass |
 | A feedback fix needs a schema change | Low | None without a plan update and the populated-baseline upgrade test; the pinned-migration test fails on edits |
 | Family data reaches the public register | Low | Role-level sanitized entries only; raw notes stay with the operator in `private/` |
@@ -335,7 +371,7 @@ archived: archive/2026-11/eslintrc-legacy/.eslintrc.js        (if TECH-LINT-008 
 - [ ] Every selected item delivered with its tests, or explicitly user-rescoped with recorded approval and backlog state updated; no still-required deferred test
 - [ ] Feedback register: every sanitized item routed (fixed with regression test / backlog ID / rejected with reason); no open P0 or P1
 - [ ] No schema or migration change (or an approved plan update with the populated-baseline upgrade proof)
-- [ ] Built `js/` compared byte-wise after each toolchain change; `npm ci --engine-strict` passes on the new range; CI green
+- [ ] Built `js/` compared for content equivalence after the toolchain change (D-088-09); `npm ci --engine-strict` passes on the new range at the minimum and a current Node 24 patch; CI green
 - [ ] `0.8.0-alpha.3` qualified: runtime check `current`, full browser gates and PHPUnit suites on both runtime rows, MariaDB/SQLite provider suites, reproducible package build and smoke
 - [ ] Manual alpha record completed before any tag; tags and GitHub pre-releases per Q-088-03
 - [ ] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide's *Updates on the Retained Baseline*
@@ -364,6 +400,8 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-088-06 (minor) - Manifest/tests: missing view consumers, named PHP/runner tests and dynamic cascade proof added; excluded stretch requires separate contract/test review before admission.
 - [x] RF-088-07 (minor) - Count/order/policy: seven, not eight, backlog items; actual toolchain ordering clarified; no silent lint suppression; monthly archive uses actual completion date.
 - [x] RF-088-08 (major) - Package builder: host/CI upgrade alone leaves the isolated package builder on pinned Node 20.19; add its image inventory, npm/engine checks, tests and README requirements to WP-C.
+- [x] RF-088-09 (major) - Toolchain ordering: a strict Node 24 install is blocked by `@nextcloud/eslint-config@8`, `@nextcloud/eslint-plugin@2` and the unused `@nextcloud/initial-state@2.2.0` (all `node ^20`/`npm ^10`), so TECH-DEV-001 cannot precede TECH-LINT-008; D-088-08 merges them into one series (found 2026-10-20 while preparing the lockfile; operator answered the recommended option).
+- [x] RF-088-10 (major) - Bundle proof: byte identity of `js/` is unattainable across the bundler major (webpack 5.105.2 → 5.112.0, terser → `minimizer-webpack-plugin`; `chorestrike-main.js` 3.93 → 3.60 MB); D-088-09 replaces it with content equivalence plus the gates (operator answered the recommended option).
 
 ## Feedback Register (sanitized)
 
