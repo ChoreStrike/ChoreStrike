@@ -13,13 +13,15 @@ import { logger } from '../utils/logger.js'
  *
  * @return {object} Empty slice
  */
-const emptySlice = () => ({
+function emptySlice () {
+  return {
 	leaderboard: [],
 	weeklyLeaderboard: [],
 	personalBest: null,
 	userRank: 0,
 	recentScores: [],
-})
+}
+}
 
 const EMPTY_SLICE = Object.freeze(emptySlice())
 

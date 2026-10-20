@@ -32,7 +32,7 @@ const CATALOG = [
 
 test.describe.configure({ mode: 'serial' })
 
-const jsonOf = async (response: APIResponse) => {
+async function jsonOf (response: APIResponse) {
 	expect(response.ok(), await response.text()).toBe(true)
 	return (await response.json()).data
 }

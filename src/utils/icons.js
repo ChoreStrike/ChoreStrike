@@ -69,7 +69,8 @@ import SvgIcon from '../components/Common/SvgIcon.vue'
  * @param {string} name Icon display name used as the component name prefix
  * @param {string} svgMarkup Raw SVG markup string for the icon shape
  */
-const createFluentSvgComponent = (name, svgMarkup) => ({
+function createFluentSvgComponent (name, svgMarkup) {
+  return {
 	name: `${name}FluentSvgIcon`,
 	inheritAttrs: false,
 	props: {
@@ -101,9 +102,11 @@ const createFluentSvgComponent = (name, svgMarkup) => ({
 			...this.$attrs,
 		})
 	},
-})
+}
+}
 
-const createIconComponent = (name, shapes, viewBox = '0 0 24 24') => ({
+function createIconComponent (name, shapes, viewBox = '0 0 24 24') {
+  return {
 	name: `${name}Icon`,
 	props: {
 		size: {
@@ -125,7 +128,8 @@ const createIconComponent = (name, shapes, viewBox = '0 0 24 24') => ({
 			...this.$attrs,
 		})
 	},
-})
+}
+}
 
 const fluentSvgIcons = {
 	Home: createFluentSvgComponent('Home', home20Regular),

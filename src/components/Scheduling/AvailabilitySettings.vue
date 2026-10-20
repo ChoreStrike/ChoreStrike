@@ -97,18 +97,18 @@ const editingMember = ref(null)
 // resolves self vs. member persistence on its own.
 const members = computed(() => schedulingStore.memberAvailability)
 
-const getAvailableDaysCount = (member) => {
+function getAvailableDaysCount (member) {
 	if (!member.weekdayAvailability) {
 		return 7
 	}
 	return Object.values(member.weekdayAvailability).filter(Boolean).length
 }
 
-const openEditModal = (member) => {
+function openEditModal (member) {
 	editingMember.value = member
 }
 
-const closeEditModal = () => {
+function closeEditModal () {
 	editingMember.value = null
 }
 </script>

@@ -320,7 +320,7 @@ const canApply = computed(() => hasPreview.value
 
 const hasChanges = computed(() => (schedulingStore.planPreview?.changes?.length ?? 0) > 0)
 
-const onConsentChange = (event) => {
+function onConsentChange (event) {
 	schedulingStore.setPlanConsent(event.target.checked === true)
 }
 
@@ -343,7 +343,7 @@ const statusAnnouncement = computed(() => {
 	return ''
 })
 
-const roomsByIdMap = () => {
+function roomsByIdMap () {
 	const map = {}
 	for (const room of roomsStore.rooms) {
 		map[room.id] = room
@@ -351,21 +351,21 @@ const roomsByIdMap = () => {
 	return map
 }
 
-const dueLabel = (nextDue) => {
+function dueLabel (nextDue) {
 	if (!nextDue) {
 		return t('chorestrike', 'No due date')
 	}
 	return t('chorestrike', 'Due {date}', { date: formatDateKey(dateKeyInZone(nextDue, houseStore.timezone)) })
 }
 
-const assigneeLabel = (assignees) => {
+function assigneeLabel (assignees) {
 	if (!assignees || assignees.length === 0) {
 		return t('chorestrike', 'Unassigned')
 	}
 	return assignees.map((id) => memberDisplayName(id)).join(', ')
 }
 
-const memberDisplayName = (userId) => {
+function memberDisplayName (userId) {
 	const member = schedulingStore.memberAvailability.find((m) => m.userId === userId)
 	if (member?.userName) {
 		return member.userName
@@ -377,7 +377,7 @@ const memberDisplayName = (userId) => {
 	return userId
 }
 
-const formatDateKey = (key) => {
+function formatDateKey (key) {
 	if (!key) {
 		return '—'
 	}
@@ -385,7 +385,7 @@ const formatDateKey = (key) => {
 	return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
-const describeRow = (row) => {
+function describeRow (row) {
 	const people = row.assignees.length === 0
 		? t('chorestrike', 'unassigned')
 		: row.assignees.map((id) => memberDisplayName(id)).join(', ')
@@ -395,12 +395,12 @@ const describeRow = (row) => {
 	})
 }
 
-const taskNameById = (roomTaskId) => {
+function taskNameById (roomTaskId) {
 	const item = schedulableTasks.value.find((task) => task.id === roomTaskId)
 	return item?.name ?? t('chorestrike', 'Task')
 }
 
-const warningText = (code) => {
+function warningText (code) {
 	const messages = {
 		EXISTING_OVERLOAD: t('chorestrike', 'Some days are already over capacity — existing overload is reported, not silently moved.'),
 		DATE_MOVED: t('chorestrike', 'The due day moves.'),
@@ -409,7 +409,7 @@ const warningText = (code) => {
 	return messages[code] ?? code
 }
 
-const reasonText = (code) => {
+function reasonText (code) {
 	const messages = {
 		UP_TO_DATE: t('chorestrike', 'already scheduled as proposed'),
 		CLAIMED: t('chorestrike', 'claimed by someone — resolve the claim first'),
@@ -421,7 +421,7 @@ const reasonText = (code) => {
 	return messages[code] ?? code
 }
 
-const capacityCell = (entry) => {
+function capacityCell (entry) {
 	if (!entry) {
 		return '—'
 	}
@@ -450,7 +450,7 @@ const capacityCell = (entry) => {
  * @param {object} change The preview change row
  * @return {string} The rendered label (empty when no shares ride the row)
  */
-const shareLabel = (change) => {
+function shareLabel (change) {
 	const shares = change?.proposed?.shares ?? change?.shares ?? null
 	if (!shares || Object.keys(shares).length === 0) {
 		return ''
@@ -460,7 +460,7 @@ const shareLabel = (change) => {
 	return t('chorestrike', 'Exact shares: {shares}', { shares: parts.join(', ') })
 }
 
-const ensureEditSlots = () => {
+function ensureEditSlots () {
 	for (const id of selectedIds.value) {
 		if (!edits.value[id]) {
 			edits.value = { ...edits.value, [id]: { assignee: '', date: '' } }
@@ -480,7 +480,7 @@ watch(startDate, () => {
 	schedulingStore.markPlanStale()
 })
 
-const runPreview = async () => {
+async function runPreview () {
 	if (!canPreview.value) {
 		return
 	}
@@ -495,7 +495,7 @@ const runPreview = async () => {
 	}
 }
 
-const buildOverrides = () => {
+function buildOverrides () {
 	const overrides = {}
 	for (const id of selectedIds.value) {
 		const edit = edits.value[id]
@@ -516,11 +516,11 @@ const buildOverrides = () => {
 	return overrides
 }
 
-const markStale = () => {
+function markStale () {
 	schedulingStore.markPlanStale()
 }
 
-const apply = async () => {
+async function apply () {
 	if (!canApply.value) {
 		return
 	}

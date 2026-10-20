@@ -194,7 +194,7 @@ const limitHasChanges = computed(() => nextLimit() !== storedLimit())
 // Effective full week the save would persist (CR-016-14): availability from
 // the form, energy from the edited values with unset days defaulting to the
 // member's stored budget (empty input = leave unchanged).
-const buildWeeklyPayload = () => {
+function buildWeeklyPayload () {
 	const storedBudget = props.member.energyBudget ?? {}
 	const defaultBudget = createDefaultEnergyBudget()
 	const weekdayAvailability = {}
@@ -231,11 +231,11 @@ const editHasChanges = computed(() => {
 	})
 })
 
-const close = () => {
+function close () {
 	emit('close')
 }
 
-const saveAvailability = async () => {
+async function saveAvailability () {
 	// Guard: nothing changed — close without firing a redundant PUT.
 	if (!editHasChanges.value) {
 		close()
@@ -288,7 +288,7 @@ const saveAvailability = async () => {
 	}
 }
 
-const applyTemplate = (templateType) => {
+function applyTemplate (templateType) {
 	const templates = {
 		'weekend-warrior': {
 			availability: { monday: false, tuesday: false, wednesday: false, thursday: false, friday: false, saturday: true, sunday: true },

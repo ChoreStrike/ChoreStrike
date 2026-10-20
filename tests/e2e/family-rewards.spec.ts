@@ -55,35 +55,35 @@ interface Wallet {
 // run in the UI)
 // ---------------------------------------------------------------------------
 
-const jsonOf = async (response: APIResponse) => {
+async function jsonOf (response: APIResponse) {
 	expect(response.ok(), await response.text()).toBe(true)
 	return (await response.json()).data
 }
 
 /** The ONLY catalog gate writer (narrow versioned command). */
-const setCatalogGate = async (page: Page, enabled: boolean): Promise<void> => {
+async function setCatalogGate (page: Page, enabled: boolean): Promise<void> {
 	const house = await jsonOf(await page.request.get(`${API}/house`))
 	await jsonOf(await page.request.put(`${API}/house/catalog`, {
 		data: { catalogEnabled: enabled, expectedVersion: house.stateVersion, commandId: newCommandId() },
 	}))
 }
 
-const createItem = async (page: Page, fields: { title: string, description?: string, priceMinor: number }): Promise<RewardItem> => {
+async function createItem (page: Page, fields: { title: string, description?: string, priceMinor: number }): Promise<RewardItem> {
 	return await jsonOf(await page.request.post(`${API}/rewards`, {
 		data: { title: fields.title, description: fields.description ?? null, priceMinor: fields.priceMinor, commandId: newCommandId() },
 	})) as RewardItem
 }
 
-const fetchHouseUsers = async (page: Page): Promise<Array<{ id: number, nextcloudUserId: string, role: string }>> => {
+async function fetchHouseUsers (page: Page): Promise<Array<{ id: number, nextcloudUserId: string, role: string }>> {
 	return await jsonOf(await page.request.get(`${API}/users`))
 }
 
-const myWallet = async (page: Page): Promise<Wallet> => {
+async function myWallet (page: Page): Promise<Wallet> {
 	const state = await jsonOf(await page.request.get(`${API}/game/state`))
 	return state.wallet as Wallet
 }
 
-const fetchMyRequest = async (page: Page, id: number): Promise<RewardRequest> => {
+async function fetchMyRequest (page: Page, id: number): Promise<RewardRequest> {
 	return await jsonOf(await page.request.get(`${API}/reward-requests/${id}`)) as RewardRequest
 }
 
@@ -114,7 +114,7 @@ async function waitForRequest(page: Page, scope: 'mine' | 'house', title: string
  * assigned task exposes a completable occurrence at every wall-clock
  * moment, so the helper walks the candidates.
  */
-const fundUserViaCompletion = async (page: Page, seeded: { data: { roomTasks: Array<{ id: number, assignees: string[], isActive: boolean }> } }, userId: string): Promise<{ roomTaskId: number, response: APIResponse }> => {
+async function fundUserViaCompletion (page: Page, seeded: { data: { roomTasks: Array<{ id: number, assignees: string[], isActive: boolean }> } }, userId: string): Promise<{ roomTaskId: number, response: APIResponse }> {
 	const active = seeded.data.roomTasks.filter((entry) => entry.isActive)
 	const ordered = [
 		...active.filter((entry) => entry.assignees.includes(userId)),

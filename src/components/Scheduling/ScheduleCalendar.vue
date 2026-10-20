@@ -115,7 +115,7 @@ const rangeFormatter = new Intl.DateTimeFormat(getLocale(), { day: 'numeric', mo
 
 const members = computed(() => schedulingStore.memberAvailability)
 
-const dateAtNoonUtc = (key) => {
+function dateAtNoonUtc (key) {
 	const [year, month, day] = key.split('-').map(Number)
 	return new Date(Date.UTC(year, month - 1, day, 12))
 }
@@ -129,18 +129,18 @@ const weekRange = computed(() => {
 	return `${rangeFormatter.format(dateAtNoonUtc(first.date))} - ${rangeFormatter.format(dateAtNoonUtc(last.date))}`
 })
 
-const weekdayIndexOfKey = (key) => {
+function weekdayIndexOfKey (key) {
 	const [year, month, day] = key.split('-').map(Number)
 	return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
 }
 
-const mondayOfWeekOfKey = (key) => {
+function mondayOfWeekOfKey (key) {
 	const index = weekdayIndexOfKey(key)
 	// Monday-start week (matches the availability/energy data model).
 	return addDaysToKey(key, index === 0 ? -6 : 1 - index)
 }
 
-const generateWeekDays = () => {
+function generateWeekDays () {
 	if (!currentWeekStartKey.value) {
 		return
 	}
@@ -159,7 +159,7 @@ const generateWeekDays = () => {
 	weekDays.value = days
 }
 
-const getDayCapacity = (dayKey) => {
+function getDayCapacity (dayKey) {
 	// getCapacityForDay falls back to the current user's own budget for
 	// non-owners (member availability is owner-only data).
 	return schedulingStore.getCapacityForDay(dayKey)
@@ -167,53 +167,53 @@ const getDayCapacity = (dayKey) => {
 
 // CS-PLAN-040 (FEAT-UX-022): per-day overcapacity marker — planned energy
 // vs available capacity, computed by the scheduling-store getters.
-const plannedEnergy = (dateKey) => {
+function plannedEnergy (dateKey) {
 	return schedulingStore.plannedEnergyForDay(dateKey)
 }
 
-const isOvercapacity = (day) => {
+function isOvercapacity (day) {
 	const planned = plannedEnergy(day.date)
 	return planned > 0 && planned > getDayCapacity(day.dayKey)
 }
 
-const overcapacityTitle = (day) => {
+function overcapacityTitle (day) {
 	return t('chorestrike', 'Planned energy ({planned}) exceeds the available capacity ({capacity})', {
 		planned: plannedEnergy(day.date),
 		capacity: getDayCapacity(day.dayKey),
 	})
 }
 
-const isMemberAvailableOnDay = (member, dayKey) => {
+function isMemberAvailableOnDay (member, dayKey) {
 	return isMemberAvailable(member, dayKey)
 }
 
-const getMemberDayEnergy = (member, dayKey) => {
+function getMemberDayEnergy (member, dayKey) {
 	if (!isMemberAvailableOnDay(member, dayKey)) {
 		return '—'
 	}
 	return getMemberEnergy(member, dayKey)
 }
 
-const isToday = (date) => {
+function isToday (date) {
 	return date === todayKeyInZone(houseStore.timezone)
 }
 
-const isWeekend = (date) => {
+function isWeekend (date) {
 	const dayName = weekdayOfKey(date)
 	return dayName === 'saturday' || dayName === 'sunday'
 }
 
-const previousWeek = () => {
+function previousWeek () {
 	currentWeekStartKey.value = addDaysToKey(currentWeekStartKey.value, -7)
 	generateWeekDays()
 }
 
-const nextWeek = () => {
+function nextWeek () {
 	currentWeekStartKey.value = addDaysToKey(currentWeekStartKey.value, 7)
 	generateWeekDays()
 }
 
-const goToToday = () => {
+function goToToday () {
 	currentWeekStartKey.value = mondayOfWeekOfKey(todayKeyInZone(houseStore.timezone))
 	generateWeekDays()
 }

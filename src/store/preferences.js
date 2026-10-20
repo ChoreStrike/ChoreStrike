@@ -20,7 +20,8 @@ import { logger } from '../utils/logger.js'
  * store like every other store.
  */
 
-const DEFAULT_STATE = () => ({
+function DEFAULT_STATE () {
+  return {
 	version: 0,
 	taskDigestEnabled: false,
 	orgDigestEnabled: false,
@@ -43,7 +44,8 @@ const DEFAULT_STATE = () => ({
 	saving: false,
 	error: null,
 	conflict: false,
-})
+}
+}
 
 /**
  * Generate a client idempotency UUID (one FRESH UUID per save attempt —

@@ -26,7 +26,8 @@ import { logger } from '../utils/logger.js'
  * nothing until an owner decides them.
  */
 
-const DEFAULT_STATE = () => ({
+function DEFAULT_STATE () {
+  return {
 	/** @type {Array} Viewer-whitelisted pause entries. */
 	pauses: [],
 	loading: false,
@@ -36,7 +37,8 @@ const DEFAULT_STATE = () => ({
 	conflict: false,
 	/** Request generation — a superseded read never lands after a reset. */
 	requestSeq: 0,
-})
+}
+}
 
 /**
  * Generate a client idempotency UUID (one FRESH UUID per command

@@ -89,15 +89,15 @@ const hasChanges = computed(() => {
 	return weekDays.some((day) => !!localAvailability.value[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
 })
 
-const syncFromStore = () => {
+function syncFromStore () {
 	localAvailability.value = { ...defaultAvailability(), ...schedulingStore.weekdayAvailability }
 }
 
-const resetFromStore = () => {
+function resetFromStore () {
 	syncFromStore()
 }
 
-const saveAvailability = async () => {
+async function saveAvailability () {
 	const changedDays = weekDays
 		.filter((day) => !!localAvailability.value[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
 	if (changedDays.length === 0) {

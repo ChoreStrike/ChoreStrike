@@ -350,7 +350,7 @@ export const wizardDismissedKey = (houseId) => `chorestrike:wizard-dismissed:${h
  * @param {?number} houseId The current house ID
  * @return {boolean}
  */
-export const isWizardDismissedForHouse = (houseId) => {
+export function isWizardDismissedForHouse (houseId) {
 	try {
 		return window.localStorage.getItem(wizardDismissedKey(houseId)) === '1'
 	} catch (error) {

@@ -157,7 +157,7 @@ const PAGE_SIZE = 20
  * @param {object} query Route query.
  * @return {object} Filter values for TaskFilterBar.
  */
-const filtersFromQuery = (query = {}) => {
+function filtersFromQuery (query = {}) {
 	const filters = { scope: 'mine', person: '', floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all', search: '' }
 	if (query.visibility === 'private') {
 		filters.visibility = 'private'
@@ -177,7 +177,7 @@ const filtersFromQuery = (query = {}) => {
  * @param {*} value Raw query value.
  * @return {number}
  */
-const pageFromQuery = (value) => {
+function pageFromQuery (value) {
 	const page = Number.parseInt(value, 10)
 	return Number.isInteger(page) && page > 0 ? page : 1
 }

@@ -112,21 +112,21 @@ const hasChanges = computed(() => {
 	return JSON.stringify(localBudget.value) !== JSON.stringify(schedulingStore.energyBudget)
 })
 
-const syncFromStore = () => {
+function syncFromStore () {
 	localBudget.value = { ...createDefaultEnergyBudget(), ...schedulingStore.energyBudget }
 }
 
 // Apply one day's edit onto the CURRENT budget — the grid emits deltas so a
 // fast interaction can never resurrect stale values (see WeekBudgetGrid).
-const setBudgetDay = ({ key, value }) => {
+function setBudgetDay ({ key, value }) {
 	localBudget.value = { ...localBudget.value, [key]: value }
 }
 
-const applyEnergyTemplate = (template) => {
+function applyEnergyTemplate (template) {
 	localBudget.value = { ...template.budget }
 }
 
-const saveEnergyBudget = async () => {
+async function saveEnergyBudget () {
 	// Validate every value up front so a partial set is never saved silently.
 	const invalid = weekDays.filter((day) => {
 		const energy = localBudget.value[day.key]

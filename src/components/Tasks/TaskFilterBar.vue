@@ -125,9 +125,11 @@ const PANEL_DEFAULTS = { person: '', floor: '', room: '', status: 'all', priorit
  * there (CS-PLAN-084 D-084-02).
  * @return {boolean}
  */
-const isPhoneViewport = () => typeof window !== 'undefined'
+function isPhoneViewport () {
+  return typeof window !== 'undefined'
 	&& typeof window.matchMedia === 'function'
 	&& window.matchMedia('(max-width: 768px)').matches
+}
 
 /**
  * TaskManager filter surface (CS-PLAN-084 WP-D, RF-080-16): always-visible
