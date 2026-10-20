@@ -120,7 +120,7 @@ The scope/engine recommendations below replace the draft alternatives.
 
 ### Decisions recorded during implementation (operator 2026-10-20)
 
-Both questions were answered with their recommended option.
+All questions were answered with their recommended option.
 
 - **D-088-08 Toolchain series:** TECH-DEV-001 and TECH-LINT-008 land as one
   series on one branch. A strict install on Node 24 is impossible while
@@ -141,6 +141,13 @@ Both questions were answered with their recommended option.
   CSS inspected, both browser gates, a reproducible package build — plus a
   documented, reviewed minifier difference. Rejected: pinning the old
   minimizer/webpack to force byte identity; gates only.
+- **D-088-10 Boolean props:** `vue/no-boolean-default` is switched off only for
+  the six components that default a Boolean prop to `true` (`ErrorState`, `Modal`,
+  `HouseHealthBar`, `QuickStats`, `SetupWizard`, `FlexWindowDisplay`), in a
+  commented block of `eslint.config.js`; inverting the props changes their public
+  API and callers and is routed to TECH-LINT-009 (user-approved narrow policy
+  deviation, 2026-10-20). Rejected: inverting all six props now; disabling the
+  rule project-wide.
 - **Git:** commits per work item and rule family on the task branch, local only
   (no push, no merge to `master` without a separate request).
 

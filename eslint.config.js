@@ -40,6 +40,22 @@ module.exports = [
 		},
 	},
 	{
+		// Reviewed exception (CS-PLAN-088 D-088-10, follow-up TECH-LINT-009):
+		// these components default a Boolean prop to `true`, which the preset
+		// wants inverted. Inverting changes each component's public API and
+		// every caller, which does not belong in a toolchain change. New
+		// components stay under the rule.
+		files: [
+			'src/components/Common/ErrorState.vue',
+			'src/components/Common/Modal.vue',
+			'src/components/Dashboard/HouseHealthBar.vue',
+			'src/components/Dashboard/QuickStats.vue',
+			'src/components/Setup/SetupWizard.vue',
+			'src/components/Tasks/FlexWindowDisplay.vue',
+		],
+		rules: { 'vue/no-boolean-default': 'off' },
+	},
+	{
 		// Injected by webpack, not declared anywhere.
 		files: ['src/public-path.js'],
 		languageOptions: { globals: { __webpack_public_path__: 'writable' } },

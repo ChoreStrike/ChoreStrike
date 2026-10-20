@@ -59,6 +59,20 @@ export interface SeededData {
 	}
 }
 
+/**
+ * The ONLY projects that may seed/reset the shared database
+ * (CS-PLAN-068 §3.2, decision D1): the serial DB pool and the owner-scoped
+ * scheduling pool run sequentially behind the e2e gate against one
+ * disposable database. A seed attempt from any other project (e.g. the
+ * parallel `chromium` pool or an optional firefox/webkit matrix run) would
+ * wipe data under live workers — it fails loudly instead of racing.
+ * The serial mobile projects (CS-PLAN-084 WP-G) own the database the same
+ * way while the gate runs them.
+ */
+// `docs` is the documentation capture (playwright.docs.config.ts): one worker
+// on its own staged row, outside the gate (CS-PLAN-087 WP-B).
+const RESET_OWNING_PROJECTS = new Set(['chromium-serial-db', 'chromium-scheduling-owner', 'mobile-chromium', 'mobile-webkit', 'docs'])
+
 // Database manager class
 export class DatabaseManager {
 	private baseURL: string
@@ -172,20 +186,6 @@ type DatabaseFixtures = {
 
 // Default profile from environment or 'minimal'
 const DEFAULT_PROFILE: DatabaseProfile = (process.env.TEST_DB_PROFILE as DatabaseProfile) || 'minimal'
-
-/**
- * The ONLY projects that may seed/reset the shared database
- * (CS-PLAN-068 §3.2, decision D1): the serial DB pool and the owner-scoped
- * scheduling pool run sequentially behind the e2e gate against one
- * disposable database. A seed attempt from any other project (e.g. the
- * parallel `chromium` pool or an optional firefox/webkit matrix run) would
- * wipe data under live workers — it fails loudly instead of racing.
- * The serial mobile projects (CS-PLAN-084 WP-G) own the database the same
- * way while the gate runs them.
- */
-// `docs` is the documentation capture (playwright.docs.config.ts): one worker
-// on its own staged row, outside the gate (CS-PLAN-087 WP-B).
-const RESET_OWNING_PROJECTS = new Set(['chromium-serial-db', 'chromium-scheduling-owner', 'mobile-chromium', 'mobile-webkit', 'docs'])
 
 // Extended test with database fixtures
 export const test = baseTest.extend<DatabaseFixtures>({

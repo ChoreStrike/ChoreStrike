@@ -500,6 +500,26 @@ hold the patched versions; drop them once the migrated stack resolves them.
 
 ---
 
+### [P3] TECH-LINT-009 — Boolean props that default to `true`
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: —
+**Owning**: unassigned · **Depends on**: TECH-LINT-008 · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-088 D-088-10 (operator, 2026-10-20)
+
+`vue/no-boolean-default` of the Nextcloud ESLint preset wants Boolean props to
+default to `false`. Six components default one to `true` and are exempted
+file by file in `eslint.config.js`: `ErrorState` (`showRetry`), `Modal`
+(`show`), `HouseHealthBar` (`showRefreshButton`), `QuickStats`
+(`showActions`), `SetupWizard` (`show`) and `FlexWindowDisplay`
+(`showStatus`). Inverting them (for example `hideRetry`) changes each
+component's public API, every caller and the specs, so it was kept out of the
+toolchain change. `show` on the two dialogs is the usual visibility idiom and
+may be better left as a permanent, documented exception.
+
+- [ ] Each exempted prop is inverted with its callers and specs, or its exception is documented as permanent in `eslint.config.js`.
+- [ ] The file-by-file exemption block is removed.
+
+---
+
 ### [P2] TECH-TEST-008 — One reusable Docker test stack per worktree
 **Status**: Backlog · **Effort**: M · **Layer**: tests+tooling · **Journey stage**: —
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
