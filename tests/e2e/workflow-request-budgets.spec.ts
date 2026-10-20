@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createUserContext } from './fixtures/auth-contexts'
+import { createUserContext } from './fixtures/auth-contexts.ts'
 
 /**
  * Workflow request budgets over the real HTTP boundary (CS-PLAN-067 §3.5

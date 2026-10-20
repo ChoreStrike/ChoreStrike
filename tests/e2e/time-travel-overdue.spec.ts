@@ -17,8 +17,8 @@
  * @see docs/plans/active/cs-plan-023-time-travel-testing.md §4
  */
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { expect, test } from './fixtures/database-fixtures'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
 
 interface OverdueRoomTask {
 	id: number

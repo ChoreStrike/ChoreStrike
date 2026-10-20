@@ -20,11 +20,11 @@
 import type { Locator } from '@playwright/test'
 
 import { AxeBuilder } from '@axe-core/playwright'
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeRoomTaskViaApi, completeWithOptionalDialog } from './fixtures/completion-api'
-import { expect, test } from './fixtures/database-fixtures'
-import { holdToConfirm } from './fixtures/hold-to-confirm'
-import { runOcc } from './fixtures/occ-runner'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { completeRoomTaskViaApi, completeWithOptionalDialog } from './fixtures/completion-api.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
+import { runOcc } from './fixtures/occ-runner.ts'
 
 test.describe('Family core UX (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })

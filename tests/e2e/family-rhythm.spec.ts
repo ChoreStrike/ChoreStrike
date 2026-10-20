@@ -28,16 +28,16 @@
 
 import type { Page } from '@playwright/test'
 
-import { createUserContext } from './fixtures/auth-contexts'
+import { createUserContext } from './fixtures/auth-contexts.ts'
 import {
 	completeWithOptionalDialog,
 	newCommandId,
 	postCompletionWithReceipt,
 	resolveOccurrenceReceipt,
-} from './fixtures/completion-api'
-import { expandAllFloors } from './fixtures/dashboard-floors'
-import { expect, test } from './fixtures/database-fixtures'
-import { holdToConfirm } from './fixtures/hold-to-confirm'
+} from './fixtures/completion-api.ts'
+import { expandAllFloors } from './fixtures/dashboard-floors.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const OCCURRENCE_KEY_RE = /^\d+:\d+$/

@@ -13,11 +13,11 @@
  */
 
 import type { Page } from '@playwright/test'
-import type { DatabaseProfile } from './fixtures/database-fixtures'
+import type { DatabaseProfile } from './fixtures/database-fixtures.ts'
 
-import { setArcadeGate } from './fixtures/arcade-gate'
-import { expect, test } from './fixtures/database-fixtures'
-import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer'
+import { setArcadeGate } from './fixtures/arcade-gate.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer.ts'
 
 /** Let real game time pass: the round runs on animation frames. */
 async function playFor(page: Page, ms: number): Promise<void> {

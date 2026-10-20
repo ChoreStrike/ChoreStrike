@@ -12,7 +12,7 @@
 import type { Browser } from '@playwright/test'
 
 import { expect } from '@playwright/test'
-import { createUserContext } from './auth-contexts'
+import { createUserContext } from './auth-contexts.ts'
 
 /** An owner of the family seed. */
 const OWNER = 'mom'

@@ -27,10 +27,10 @@
  * profile seed).
  */
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { expect, test } from './fixtures/database-fixtures'
-import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer'
-import { runOcc } from './fixtures/occ-runner'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer.ts'
+import { runOcc } from './fixtures/occ-runner.ts'
 
 const DAD_EMAIL = 'dad@chorestrike.test'
 

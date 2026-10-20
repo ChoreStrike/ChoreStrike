@@ -13,10 +13,10 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeWithOptionalDialog } from './fixtures/completion-api'
-import { expect, test } from './fixtures/database-fixtures'
-import { holdToConfirm } from './fixtures/hold-to-confirm'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { completeWithOptionalDialog } from './fixtures/completion-api.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 test.describe('Release: Today view', () => {
 	test.use({ databaseProfile: 'family' })
 

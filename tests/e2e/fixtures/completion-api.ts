@@ -14,7 +14,7 @@
 
 import type { APIResponse, Locator, Page, Response } from '@playwright/test'
 
-import { holdToConfirm } from './hold-to-confirm'
+import { holdToConfirm } from './hold-to-confirm.ts'
 
 export interface OccurrenceReceipt {
 	occurrenceId: string

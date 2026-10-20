@@ -1,10 +1,10 @@
 import type { APIResponse, Browser, BrowserContext, Page } from '@playwright/test'
 
 import { randomUUID } from 'node:crypto'
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeAsSoleParticipantViaApi } from './fixtures/completion-api'
-import { expect, test } from './fixtures/database-fixtures'
-import { runOcc } from './fixtures/occ-runner'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { completeAsSoleParticipantViaApi } from './fixtures/completion-api.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { runOcc } from './fixtures/occ-runner.ts'
 
 const API = '/apps/chorestrike/api/v1'
 

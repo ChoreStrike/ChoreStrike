@@ -17,8 +17,8 @@
 
 import type { Locator, Page } from '@playwright/test'
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { expect, test } from './fixtures/database-fixtures'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
 
 const USER = 'friend'
 const VIEWPORTS = [

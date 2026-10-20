@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer'
+import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer.ts'
 
 /**
  * E2E test: Task Manager filters and display

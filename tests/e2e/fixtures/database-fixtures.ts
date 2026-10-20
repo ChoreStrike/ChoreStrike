@@ -1,5 +1,5 @@
 import { test as baseTest, expect } from '@playwright/test'
-import { assertTestTarget } from '../../../scripts/test-target'
+import { assertTestTarget } from '../../../scripts/test-target.js'
 
 /**
  * Database fixtures for ChoreStrike E2E tests

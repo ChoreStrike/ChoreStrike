@@ -20,8 +20,8 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { expect, test } from './fixtures/database-fixtures'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
 
 interface CatalogTemplate {
 	id: string

@@ -1,9 +1,9 @@
 import type { Page } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
-import { userStatePath } from './fixtures/auth-contexts'
-import { expandAllFloors } from './fixtures/dashboard-floors'
-import { holdToConfirm } from './fixtures/hold-to-confirm'
+import { userStatePath } from './fixtures/auth-contexts.ts'
+import { expandAllFloors } from './fixtures/dashboard-floors.ts'
+import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. Read via an IN-PAGE fetch (the
  * restored session's request context has no CSRF token; the page's own

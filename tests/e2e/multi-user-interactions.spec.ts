@@ -14,11 +14,11 @@
  * the leaderboard assertions are unconditional durable-outcome checks.
  */
 
-import type { DatabaseProfile } from './fixtures/database-fixtures'
+import type { DatabaseProfile } from './fixtures/database-fixtures.ts'
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { expandAllFloors, expandUntilRoomVisible } from './fixtures/dashboard-floors'
-import { expect, test } from './fixtures/database-fixtures'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expandAllFloors, expandUntilRoomVisible } from './fixtures/dashboard-floors.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
 
 test.describe('Multi-User Family Interactions', () => {
 	test.describe.configure({ mode: 'serial' })

@@ -19,10 +19,10 @@
 
 import type { Page } from '@playwright/test'
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { expandAllFloors } from './fixtures/dashboard-floors'
-import { expect, test } from './fixtures/database-fixtures'
-import { holdToConfirm } from './fixtures/hold-to-confirm'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expandAllFloors } from './fixtures/dashboard-floors.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. */

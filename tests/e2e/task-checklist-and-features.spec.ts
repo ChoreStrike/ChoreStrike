@@ -4,7 +4,7 @@
  */
 
 import { expect, test } from '@playwright/test'
-import { createUserContext } from './fixtures/auth-contexts'
+import { createUserContext } from './fixtures/auth-contexts.ts'
 
 /**
  * E2E Tests for Task Checklist (Feature 3: Sub-Checklists)

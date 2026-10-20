@@ -20,12 +20,12 @@
  */
 
 import type { Browser, Page } from '@playwright/test'
-import type { DatabaseProfile, SeededData } from './fixtures/database-fixtures'
+import type { DatabaseProfile, SeededData } from './fixtures/database-fixtures.ts'
 
-import { setArcadeGate } from './fixtures/arcade-gate'
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeAsSoleParticipantViaApi } from './fixtures/completion-api'
-import { expect, test } from './fixtures/database-fixtures'
+import { setArcadeGate } from './fixtures/arcade-gate.ts'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { completeAsSoleParticipantViaApi } from './fixtures/completion-api.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
 
 /**
  * Run a step as the admin member in its own context (primed CSRF token

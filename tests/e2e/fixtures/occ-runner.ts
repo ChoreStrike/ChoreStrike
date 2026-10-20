@@ -17,7 +17,7 @@
  */
 
 import { execFileSync } from 'child_process'
-import { assertTestTarget, configuredTarget } from '../../../scripts/test-target'
+import { assertTestTarget, configuredTarget } from '../../../scripts/test-target.js'
 
 /**
  * Resolve the configured Nextcloud container without guessing a custom target.

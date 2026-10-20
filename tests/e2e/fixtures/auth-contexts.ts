@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from '@playwright/test'
 
-import { authScope } from '../../../scripts/test-target'
+import { authScope } from '../../../scripts/test-target.js'
 
 // Auth storage states live in the gitignored build/ tree (CS-PLAN-069 WP4).
 export const AUTH_DIR = `build/.playwright-auth/${authScope()}`

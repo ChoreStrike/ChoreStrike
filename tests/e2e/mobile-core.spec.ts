@@ -16,10 +16,10 @@
 
 import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page, TestInfo } from '@playwright/test'
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeWithOptionalDialog } from './fixtures/completion-api'
-import { expect, test } from './fixtures/database-fixtures'
-import { holdToConfirm } from './fixtures/hold-to-confirm'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { completeWithOptionalDialog } from './fixtures/completion-api.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 
 // The family seed house runs in UTC.

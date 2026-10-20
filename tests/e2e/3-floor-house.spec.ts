@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { createUserContext, userStatePath } from './fixtures/auth-contexts'
-import { createRoomViaSettings, setupTestHouse } from './fixtures/test-house'
+import { createUserContext, userStatePath } from './fixtures/auth-contexts.ts'
+import { createRoomViaSettings, setupTestHouse } from './fixtures/test-house.ts'
 
 /**
  * E2E Test: 3-Floor House Scenario

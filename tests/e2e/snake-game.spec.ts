@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
-import { setArcadeGate } from './fixtures/arcade-gate'
+import { setArcadeGate } from './fixtures/arcade-gate.ts'
 
 /**
  * E2E test: Crumb Snake on the arcade game shell

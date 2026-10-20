@@ -15,11 +15,11 @@ import type { APIResponse, Page } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
 import path from 'node:path'
-import { createUserContext } from '../e2e/fixtures/auth-contexts'
-import { newCommandId } from '../e2e/fixtures/completion-api'
-import { DatabaseManager } from '../e2e/fixtures/database-fixtures'
-import { holdToConfirm } from '../e2e/fixtures/hold-to-confirm'
-import { assertCaptureTarget, PHONE, PRESENTED_HOUSE_NAME, SCENES, SEEDED_HOUSE_NAME, SEEDED_ROLES } from './scenes'
+import { createUserContext } from '../e2e/fixtures/auth-contexts.ts'
+import { newCommandId } from '../e2e/fixtures/completion-api.ts'
+import { DatabaseManager } from '../e2e/fixtures/database-fixtures.ts'
+import { holdToConfirm } from '../e2e/fixtures/hold-to-confirm.ts'
+import { assertCaptureTarget, PHONE, PRESENTED_HOUSE_NAME, SCENES, SEEDED_HOUSE_NAME, SEEDED_ROLES } from './scenes.js'
 
 const API = '/apps/chorestrike/api/v1'
 const OUTPUT_DIR = path.resolve(__dirname, '../../docs/screenshots')

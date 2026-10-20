@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { holdToConfirm } from './fixtures/hold-to-confirm'
+import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 /**
  * E2E test: Task creation and completion flow
  * Critical flow: Create task → Assign to room → Complete task → Verify score

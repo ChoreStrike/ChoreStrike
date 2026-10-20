@@ -16,9 +16,9 @@
 
 import type { Page } from '@playwright/test'
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { expect, test } from './fixtures/database-fixtures'
-import { createVisibilityFixture } from './fixtures/visibility-fixtures'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { createVisibilityFixture } from './fixtures/visibility-fixtures.ts'
 
 /** Open #/tasks without load-fragile networkidle waits (CS-PLAN-051). */
 async function navigateToTasks(page: Page): Promise<void> {

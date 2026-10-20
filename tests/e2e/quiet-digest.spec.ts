@@ -27,9 +27,9 @@
 
 import type { Page } from '@playwright/test'
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { expect, test } from './fixtures/database-fixtures'
-import { containerDate, runOcc } from './fixtures/occ-runner'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
+import { containerDate, runOcc } from './fixtures/occ-runner.ts'
 
 interface OcsNotification {
 	notification_id: number

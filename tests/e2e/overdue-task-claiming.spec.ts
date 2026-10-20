@@ -21,9 +21,9 @@
 
 import type { Page } from '@playwright/test'
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeAsSoleParticipantViaApi, placeholderReceipt, postCompletionWithReceipt } from './fixtures/completion-api'
-import { expect, test } from './fixtures/database-fixtures'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { completeAsSoleParticipantViaApi, placeholderReceipt, postCompletionWithReceipt } from './fixtures/completion-api.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 
 test.describe('Overdue Task Claiming', () => {

@@ -1,10 +1,10 @@
 import type { Page } from '@playwright/test'
-import type { DatabaseProfile } from './fixtures/database-fixtures'
+import type { DatabaseProfile } from './fixtures/database-fixtures.ts'
 
 import { expect, test as setup } from '@playwright/test'
-import { assertTestTarget } from '../../scripts/test-target'
-import { AUTH_DIR, userStatePath } from './fixtures/auth-contexts'
-import { PROFILE_USERS } from './fixtures/database-fixtures'
+import { assertTestTarget } from '../../scripts/test-target.js'
+import { AUTH_DIR, userStatePath } from './fixtures/auth-contexts.ts'
+import { PROFILE_USERS } from './fixtures/database-fixtures.ts'
 
 /**
  * Playwright auth setup (CS-PLAN-015b Phase 1)

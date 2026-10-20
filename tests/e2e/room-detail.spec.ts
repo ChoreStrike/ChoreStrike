@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { expandUntilRoomVisible } from './fixtures/dashboard-floors'
+import { expandUntilRoomVisible } from './fixtures/dashboard-floors.ts'
 
 /**
  * E2E test: Room detail view and task management

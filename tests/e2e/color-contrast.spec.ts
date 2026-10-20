@@ -14,9 +14,9 @@
 import type { Page } from '@playwright/test'
 
 import { AxeBuilder } from '@axe-core/playwright'
-import { setArcadeGate } from './fixtures/arcade-gate'
-import { createUserContext } from './fixtures/auth-contexts'
-import { expect, test } from './fixtures/database-fixtures'
+import { setArcadeGate } from './fixtures/arcade-gate.ts'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
 
 const USER = 'friend'
 const THEMES = ['light', 'dark'] as const

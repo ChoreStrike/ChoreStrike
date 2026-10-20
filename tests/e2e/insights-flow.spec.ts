@@ -20,9 +20,9 @@
 
 import type { Page } from '@playwright/test'
 
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeRoomTaskViaApi, newCommandId, postCompletionWithReceipt, resolveOccurrenceReceipt } from './fixtures/completion-api'
-import { expect, test } from './fixtures/database-fixtures'
+import { createUserContext } from './fixtures/auth-contexts.ts'
+import { completeRoomTaskViaApi, newCommandId, postCompletionWithReceipt, resolveOccurrenceReceipt } from './fixtures/completion-api.ts'
+import { expect, test } from './fixtures/database-fixtures.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 
 interface RoomTaskJson {
