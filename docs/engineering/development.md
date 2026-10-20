@@ -9,7 +9,10 @@ If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md
 ### Prerequisites
 
 - **PHP 8.4.x**, with extensions: `pdo`, `mbstring`, `curl`, `gd`, `zip`
-- **Node.js 20.19.0 or later within 20.x** and **npm 10.8.2 or later within 10.x**
+- **Node.js 24.14.0 or later within 24.x** and **npm 11.8.2 or later within 11.x**
+  (24.14.0 is the first Node 24 release whose bundled npm, 11.9.0, meets the npm
+  range; Node 24.13 ships npm 11.8.0, so use a newer Node or run
+  `npm install -g npm@^11.8.2` first)
 - **Nextcloud 35 primary / 34 AIO compatibility row** — the promoted current-stable
   baseline (declared in `appinfo/info.xml`; CS-PLAN-082, promoted 2026-10-06)
 - **Composer** for PHP dependencies
@@ -82,11 +85,15 @@ npm run test:runtime:canonical
    npm ci --engine-strict --legacy-peer-deps=false
    ```
 
-   The supported build-engine ranges are `node: ^20.19.0` and `npm: ^10.8.2`
-   in `package.json`; newer major versions are not currently supported by the
-   complete toolchain. CI validates the exact minimum versions. Keep dialogs on
-   `~7.2.0`: its files 3 dependency supports Node 20, while dialogs 7.3 introduces
-   Node-24-only files 4. Do not bypass peer or engine validation to upgrade it.
+   The supported build-engine ranges are `node: ^24` and `npm: ^11.8.2` in
+   `package.json` (CS-PLAN-088: Node 20 is end-of-life, `sass-loader` 17 needs
+   Node 22.11+ and `@nextcloud/eslint-config` 9 needs 22.14+). CI and the
+   isolated package builder pin the exact minimum, Node 24.14.0 with npm 11.9.0,
+   and `tests/unit/scripts/toolchainEngines.spec.js` fails when the pins drift
+   apart. The lint setup is ESLint 10 with the flat `eslint.config.js` on the
+   shared `@nextcloud/eslint-config` preset. Keep dialogs on `~7.2.0` until a
+   dedicated update qualifies 7.3; its Node-20 blocker no longer exists. Do not
+   bypass peer or engine validation to upgrade it.
 
    `npm ci` also activates the tracked branch guard (`core.hooksPath=.githooks`,
    via `prepare`): no direct commits on `master`, and a worktree pinned with

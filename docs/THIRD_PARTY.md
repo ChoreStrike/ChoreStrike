@@ -15,7 +15,7 @@
 | `lucide-vue-next` (^0.474.0) | ISC (Lucide) | Older icon fallback path. |
 | `pinia` (^2.2.6) | MIT | `src/store/*` — state management. |
 | `vue` (^3.5.13) | MIT | `src/**` — UI framework. |
-| `@nextcloud/*` (l10n, dialogs, event-bus, router, vue, axios, auth, initial-state) | AGPL-3.0 (Nextcloud) | `src/**` — Nextcloud host integration. |
+| `@nextcloud/*` (l10n, dialogs, event-bus, router, vue, axios, auth) | AGPL-3.0 (Nextcloud) | `src/**` — Nextcloud host integration. |
 | `@playwright/test` (^1.58.2) | Apache-2.0 | `tests/e2e/**` — E2E test runner. |
 
 ## Game implementations

@@ -951,7 +951,7 @@ End-to-end tests run against a full Docker-based Nextcloud instance with the Cho
 ### Prerequisites
 
 - Docker and Docker Compose
-- Node.js 20.19.0 / npm 10.8.2 minimum within the supported major ranges; see
+- Node.js 24.14.0 / npm 11.9.0 minimum within the supported major ranges; see
   [the build prerequisites](development.md) and `package.json` engines.
 - Playwright browsers installed: `npx playwright install chromium`
 

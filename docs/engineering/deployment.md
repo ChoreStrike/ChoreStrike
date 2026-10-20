@@ -27,7 +27,7 @@
 - Composer in a PHP 8.4 build environment
 - MariaDB/MySQL/PostgreSQL/SQLite
 - Docker & Docker Compose (for the test environment)
-- Node.js 20.19.0 or later within 20.x and npm 10.8.2 or later within 10.x
+- Node.js 24.14.0 or later within 24.x and npm 11.8.2 or later within 11.x
   (for the frontend build; see the [engine contract](development.md#initial-setup))
 
 ## Installation
