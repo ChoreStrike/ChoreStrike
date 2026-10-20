@@ -14,11 +14,12 @@
  * previous action's message).
  */
 
+import type { DatabaseProfile } from './fixtures/database-fixtures'
+import type { APIResponse, Page } from './fixtures/database-fixtures'
+
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeAsSoleParticipantViaApi, newCommandId } from './fixtures/completion-api'
-import type { DatabaseProfile} from './fixtures/database-fixtures';
 import { expect, test } from './fixtures/database-fixtures'
-import type {APIResponse, Page} from './fixtures/database-fixtures';
 import { runOcc } from './fixtures/occ-runner'
 
 const API = '/apps/chorestrike/api/v1'
@@ -57,35 +58,35 @@ interface Wallet {
 // run in the UI)
 // ---------------------------------------------------------------------------
 
-async function jsonOf (response: APIResponse) {
+async function jsonOf(response: APIResponse) {
 	expect(response.ok(), await response.text()).toBe(true)
 	return (await response.json()).data
 }
 
 /** The ONLY catalog gate writer (narrow versioned command). */
-async function setCatalogGate (page: Page, enabled: boolean): Promise<void> {
+async function setCatalogGate(page: Page, enabled: boolean): Promise<void> {
 	const house = await jsonOf(await page.request.get(`${API}/house`))
 	await jsonOf(await page.request.put(`${API}/house/catalog`, {
 		data: { catalogEnabled: enabled, expectedVersion: house.stateVersion, commandId: newCommandId() },
 	}))
 }
 
-async function createItem (page: Page, fields: { title: string, description?: string, priceMinor: number }): Promise<RewardItem> {
+async function createItem(page: Page, fields: { title: string, description?: string, priceMinor: number }): Promise<RewardItem> {
 	return await jsonOf(await page.request.post(`${API}/rewards`, {
 		data: { title: fields.title, description: fields.description ?? null, priceMinor: fields.priceMinor, commandId: newCommandId() },
 	})) as RewardItem
 }
 
-async function fetchHouseUsers (page: Page): Promise<Array<{ id: number, nextcloudUserId: string, role: string }>> {
+async function fetchHouseUsers(page: Page): Promise<Array<{ id: number, nextcloudUserId: string, role: string }>> {
 	return await jsonOf(await page.request.get(`${API}/users`))
 }
 
-async function myWallet (page: Page): Promise<Wallet> {
+async function myWallet(page: Page): Promise<Wallet> {
 	const state = await jsonOf(await page.request.get(`${API}/game/state`))
 	return state.wallet as Wallet
 }
 
-async function fetchMyRequest (page: Page, id: number): Promise<RewardRequest> {
+async function fetchMyRequest(page: Page, id: number): Promise<RewardRequest> {
 	return await jsonOf(await page.request.get(`${API}/reward-requests/${id}`)) as RewardRequest
 }
 
@@ -98,7 +99,7 @@ async function waitForRequest(page: Page, scope: 'mine' | 'house', title: string
 	const deadline = Date.now() + 45000
 	for (;;) {
 		const data = await jsonOf(await page.request.get(`${API}/reward-requests?scope=${scope}&limit=50`)).catch(() => null)
-		const match = (data?.requests as RewardRequest[] | undefined)?.find((entry) => entry.title === title && (!state || entry.state === state),)
+		const match = (data?.requests as RewardRequest[] | undefined)?.find((entry) => entry.title === title && (!state || entry.state === state))
 		if (match) {
 			return match.id
 		}
@@ -116,7 +117,7 @@ async function waitForRequest(page: Page, scope: 'mine' | 'house', title: string
  * assigned task exposes a completable occurrence at every wall-clock
  * moment, so the helper walks the candidates.
  */
-async function fundUserViaCompletion (page: Page, seeded: { data: { roomTasks: Array<{ id: number, assignees: string[], isActive: boolean }> } }, userId: string): Promise<{ roomTaskId: number, response: APIResponse }> {
+async function fundUserViaCompletion(page: Page, seeded: { data: { roomTasks: Array<{ id: number, assignees: string[], isActive: boolean }> } }, userId: string): Promise<{ roomTaskId: number, response: APIResponse }> {
 	const active = seeded.data.roomTasks.filter((entry) => entry.isActive)
 	const ordered = [
 		...active.filter((entry) => entry.assignees.includes(userId)),

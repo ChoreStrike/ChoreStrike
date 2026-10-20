@@ -75,7 +75,7 @@ const marks = [ENERGY_MIN, 5, 10, 15, ENERGY_MAX]
 // Emit only the edited day's delta; the parent applies it onto its current
 // budget state. Spreading a (possibly stale) prop snapshot here would let a
 // fast interaction overwrite freshly synced days with old values.
-function setDay (key, value) {
+function setDay(key, value) {
 	emit('update-day', { key, value })
 }
 </script>

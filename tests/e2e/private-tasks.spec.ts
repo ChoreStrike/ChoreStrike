@@ -144,7 +144,7 @@ test.describe('Private Tasks', () => {
 			const body = await response.json()
 			expect(body.success).toBe(true)
 
-			const privateTasks = (body.data || []).filter((t: { visibilityType?: string, ownerUserId?: string }) => t.visibilityType === 'private' && t.ownerUserId !== 'teen',)
+			const privateTasks = (body.data || []).filter((t: { visibilityType?: string, ownerUserId?: string }) => t.visibilityType === 'private' && t.ownerUserId !== 'teen')
 			expect(privateTasks).toHaveLength(0)
 		} finally {
 			await context.close()

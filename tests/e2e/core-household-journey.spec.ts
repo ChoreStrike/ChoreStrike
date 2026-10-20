@@ -400,7 +400,7 @@ test.describe('Canonical household journey', () => {
 
 				// No writes during preview: the room task still carries its
 				// future due date and the pre-preview assignee set.
-				const beforeApplyResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,)
+				const beforeApplyResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`)
 				const beforeApply = ((await beforeApplyResponse.json()).data as Array<{ id: number, nextDue: string, assignees: string[] }>)
 					.find((roomTask) => roomTask.id === flexRoomTaskId)
 				expect(beforeApply!.nextDue.startsWith(houseLocalDate(2))).toBeTruthy()
@@ -425,7 +425,7 @@ test.describe('Canonical household journey', () => {
 				await expect(page.getByTestId('plan-applied')).toBeVisible({ timeout: 20000 })
 
 				// The APPLIED result: due today, assigned to the child.
-				const afterApplyResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,)
+				const afterApplyResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`)
 				const afterApply = ((await afterApplyResponse.json()).data as Array<{ id: number, nextDue: string, assignees: string[] }>)
 					.find((roomTask) => roomTask.id === flexRoomTaskId)
 				expect(afterApply!.nextDue.startsWith(houseLocalDate(0))).toBeTruthy()
@@ -566,7 +566,7 @@ test.describe('Canonical household journey', () => {
 				expect(current.data.currentStreak).toBe(0)
 				expect(await walletOf(browser)).toBe(baselineCoins)
 				expect(await kitchenCleanliness(browser)).toBe(baselineCleanliness)
-				const roomTasksResponse = await kidAgain.page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,)
+				const roomTasksResponse = await kidAgain.page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`)
 				const restored = ((await roomTasksResponse.json()).data as Array<{ id: number, lastCompleted: string | null, isActive: boolean, nextDue: string }>)
 					.find((roomTask) => roomTask.id === flexRoomTaskId)
 				expect(restored!.isActive).toBe(true)

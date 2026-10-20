@@ -350,7 +350,7 @@ export const wizardDismissedKey = (houseId) => `chorestrike:wizard-dismissed:${h
  * @param {?number} houseId The current house ID
  * @return {boolean}
  */
-export function isWizardDismissedForHouse (houseId) {
+export function isWizardDismissedForHouse(houseId) {
 	try {
 		return window.localStorage.getItem(wizardDismissedKey(houseId)) === '1'
 	} catch (error) {
@@ -559,7 +559,7 @@ export default {
 			if (!container) {
 				return
 			}
-			const focusables = container.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',)
+			const focusables = container.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')
 			if (focusables.length === 0) {
 				return
 			}
@@ -638,7 +638,7 @@ export default {
 			return this.setupStore.templates.filter((t) => Array.isArray(t.roomTypes)
 				&& t.roomTypes.includes(roomType)
 				&& t.levels
-				&& t.levels[this.quick.intensityLevel] != null,).length
+				&& t.levels[this.quick.intensityLevel] != null).length
 		},
 
 		addRoom(floorIndex) {
@@ -718,7 +718,7 @@ export default {
 			}
 
 			this.sendingInvites = true
-			const outcomes = await Promise.all(pending.map(({ invite, index }) => this.inviteOne(invite, index)),)
+			const outcomes = await Promise.all(pending.map(({ invite, index }) => this.inviteOne(invite, index)))
 			const failedCount = outcomes.filter((joined) => !joined).length
 
 			// Log hygiene (CS-PLAN-061 §3.6): only the count goes to the log —

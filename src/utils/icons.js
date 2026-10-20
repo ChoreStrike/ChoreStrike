@@ -69,66 +69,66 @@ import SvgIcon from '../components/Common/SvgIcon.vue'
  * @param {string} name Icon display name used as the component name prefix
  * @param {string} svgMarkup Raw SVG markup string for the icon shape
  */
-function createFluentSvgComponent (name, svgMarkup) {
-  return {
-	name: `${name}FluentSvgIcon`,
-	inheritAttrs: false,
-	props: {
-		size: {
-			type: [Number, String],
-			default: 20,
+function createFluentSvgComponent(name, svgMarkup) {
+	return {
+		name: `${name}FluentSvgIcon`,
+		inheritAttrs: false,
+		props: {
+			size: {
+				type: [Number, String],
+				default: 20,
+			},
+			strokeWidth: {
+				type: [Number, String],
+				default: 1.75,
+			},
 		},
-		strokeWidth: {
-			type: [Number, String],
-			default: 1.75,
+		computed: {
+			computedSize() {
+				return typeof this.size === 'number' ? this.size : parseInt(this.size, 10)
+			},
+			styledMarkup() {
+				return String(svgMarkup)
+					.replace('<svg', `<svg width="${this.computedSize}" height="${this.computedSize}" class="icon-svg-content"`)
+			},
 		},
-	},
-	computed: {
-		computedSize() {
-			return typeof this.size === 'number' ? this.size : parseInt(this.size, 10)
-		},
-		styledMarkup() {
-			return String(svgMarkup)
-				.replace('<svg', `<svg width="${this.computedSize}" height="${this.computedSize}" class="icon-svg-content"`)
-		},
-	},
-	render() {
+		render() {
 		// A `template:` string would need the runtime compiler, which the
 		// esm-bundler build does not ship (CS-PLAN-051: fluent icons rendered
 		// as empty comment nodes in production). Render explicitly instead.
-		return h('span', {
-			class: 'icon-svg',
-			innerHTML: this.styledMarkup,
-			...this.$attrs,
-		})
-	},
-}
+			return h('span', {
+				class: 'icon-svg',
+				innerHTML: this.styledMarkup,
+				...this.$attrs,
+			})
+		},
+	}
 }
 
-function createIconComponent (name, shapes, viewBox = '0 0 24 24') {
-  return {
-	name: `${name}Icon`,
-	props: {
-		size: {
-			type: [Number, String],
-			default: 20,
+function createIconComponent(name, shapes, viewBox = '0 0 24 24') {
+	return {
+		name: `${name}Icon`,
+		props: {
+			size: {
+				type: [Number, String],
+				default: 20,
+			},
+			strokeWidth: {
+				type: [Number, String],
+				default: 1.75,
+			},
 		},
-		strokeWidth: {
-			type: [Number, String],
-			default: 1.75,
+		render() {
+			return h(SvgIcon, {
+				name,
+				shapes,
+				viewBox,
+				size: this.size,
+				strokeWidth: this.strokeWidth,
+				...this.$attrs,
+			})
 		},
-	},
-	render() {
-		return h(SvgIcon, {
-			name,
-			shapes,
-			viewBox,
-			size: this.size,
-			strokeWidth: this.strokeWidth,
-			...this.$attrs,
-		})
-	},
-}
+	}
 }
 
 const fluentSvgIcons = {
@@ -570,7 +570,7 @@ const iconDefinitions = {
 	GripVertical: SHARED_SHAPES.gripVertical,
 }
 
-export const icons = Object.fromEntries(Object.entries(iconDefinitions).map(([name, shapes]) => [name, createIconComponent(name, shapes)]),)
+export const icons = Object.fromEntries(Object.entries(iconDefinitions).map(([name, shapes]) => [name, createIconComponent(name, shapes)]))
 
 Object.assign(icons, fluentSvgIcons)
 

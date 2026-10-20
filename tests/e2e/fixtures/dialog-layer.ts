@@ -7,8 +7,9 @@
  * stacking context, the toggle stayed on top and covered the dialog.
  */
 
+import type { Locator, Page } from '@playwright/test'
+
 import { expect } from '@playwright/test'
-import type {Locator, Page} from '@playwright/test';
 
 /**
  * Assert that the topmost element under the navigation toggle's center

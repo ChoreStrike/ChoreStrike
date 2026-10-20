@@ -1,5 +1,6 @@
+import type { Locator, Page } from '@playwright/test'
+
 import { expect } from '@playwright/test'
-import type {Locator, Page} from '@playwright/test';
 
 /**
  * Dashboard floor-expansion helpers (CS-PLAN-050).

@@ -29,12 +29,12 @@ export async function createVisibilityFixture(
 		headers: { Accept: 'application/json' },
 	})
 	if (floors.status() !== 200) {
-		throw new Error(`visibility fixture precondition failed: GET floors/with-rooms answered ${floors.status()} (expected 200)`,)
+		throw new Error(`visibility fixture precondition failed: GET floors/with-rooms answered ${floors.status()} (expected 200)`)
 	}
 	const roomId = ((await floors.json()).data ?? [])
 		.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
 	if (!roomId) {
-		throw new Error('visibility fixture precondition failed: the seeded house exposes no room to attach the probe task to',)
+		throw new Error('visibility fixture precondition failed: the seeded house exposes no room to attach the probe task to')
 	}
 
 	// CS-PLAN-063: one atomic aggregate request (definition + room-task link).
@@ -43,6 +43,6 @@ export async function createVisibilityFixture(
 		headers: { Accept: 'application/json' },
 	})
 	if (aggregate.status() !== 200) {
-		throw new Error(`visibility fixture precondition failed: POST room-tasks answered ${aggregate.status()} (expected 200)`,)
+		throw new Error(`visibility fixture precondition failed: POST room-tasks answered ${aggregate.status()} (expected 200)`)
 	}
 }

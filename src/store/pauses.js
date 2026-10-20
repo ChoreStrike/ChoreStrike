@@ -26,18 +26,18 @@ import { logger } from '../utils/logger.js'
  * nothing until an owner decides them.
  */
 
-function DEFAULT_STATE () {
-  return {
+function DEFAULT_STATE() {
+	return {
 	/** @type {Array} Viewer-whitelisted pause entries. */
-	pauses: [],
-	loading: false,
-	saving: false,
-	error: null,
-	/** True after a 409 — the authoritative list was re-read, the caller's draft stays. */
-	conflict: false,
-	/** Request generation — a superseded read never lands after a reset. */
-	requestSeq: 0,
-}
+		pauses: [],
+		loading: false,
+		saving: false,
+		error: null,
+		/** True after a 409 — the authoritative list was re-read, the caller's draft stays. */
+		conflict: false,
+		/** Request generation — a superseded read never lands after a reset. */
+		requestSeq: 0,
+	}
 }
 
 /**

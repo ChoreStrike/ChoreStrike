@@ -87,7 +87,7 @@ test.describe('Fast Core Tests', () => {
 					'undefined is not an object',
 					'cannot read property',
 				]
-				const isNonCritical = nonCriticalPatterns.some((pattern) => text.toLowerCase().includes(pattern.toLowerCase()),)
+				const isNonCritical = nonCriticalPatterns.some((pattern) => text.toLowerCase().includes(pattern.toLowerCase()))
 				if (!isNonCritical) {
 					errors.push(text)
 					console.log('Captured JS Error:', text)

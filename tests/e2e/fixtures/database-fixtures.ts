@@ -203,7 +203,7 @@ export const test = baseTest.extend<DatabaseFixtures>({
 		if (!RESET_OWNING_PROJECTS.has(testInfo.project.name)) {
 			throw new Error(`Pool guard violation: the '${databaseProfile}' seed/reset may only run in a reset-owning project`
 				+ ` (${[...RESET_OWNING_PROJECTS].join(', ')}), but '${testInfo.project.name}' requested it`
-				+ ' — move the spec into the serial pool selection or make it read-only.',)
+				+ ' — move the spec into the serial pool selection or make it read-only.')
 		}
 
 		let data: SeededData | null = null
@@ -219,7 +219,7 @@ export const test = baseTest.extend<DatabaseFixtures>({
 			// CS-PLAN-068 §3.4: a missing test environment is a failure, not
 			// a silent null the assertions have to trip over.
 			throw new Error(`Test mode unavailable: cannot seed the '${databaseProfile}' profile required by '${testInfo.title}'`
-				+ ' — the gate requires NEXTCLOUD_TEST_MODE=true on the test container.',)
+				+ ' — the gate requires NEXTCLOUD_TEST_MODE=true on the test container.')
 		}
 
 		await use(data)

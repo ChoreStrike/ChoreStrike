@@ -224,7 +224,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await page.getByTestId('nav-calendar').click()
 		await page.getByTestId('calendar-view').waitFor({ state: 'visible' })
 		await page.getByTestId(`calendar-day-${todayKey}`).click()
-		await expect(page.getByTestId('calendar-day-list').getByText(taskName),).toHaveCount(1)
+		await expect(page.getByTestId('calendar-day-list').getByText(taskName)).toHaveCount(1)
 
 		// 7. The CHILD session sees exactly the expected assigned due tasks
 		//    in My Day: the applied task plus the two seeded kid rows, and
@@ -248,7 +248,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 			await kidPage.getByTestId('nav-calendar').click()
 			await kidPage.getByTestId('calendar-view').waitFor({ state: 'visible' })
 			await kidPage.getByTestId(`calendar-day-${todayKey}`).click()
-			await expect(kidPage.getByTestId('calendar-day-list').getByText(taskName),).toHaveCount(1)
+			await expect(kidPage.getByTestId('calendar-day-list').getByText(taskName)).toHaveCount(1)
 		} finally {
 			await kidContext.close()
 		}

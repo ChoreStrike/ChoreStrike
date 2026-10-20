@@ -28,7 +28,7 @@ interface OverdueRoomTask {
 }
 
 /** CS-PLAN-066 (D1): overdue rows are the enriched `{roomTask, …}` shape. */
-function asRoomTask (row: Record<string, unknown>): OverdueRoomTask {
+function asRoomTask(row: Record<string, unknown>): OverdueRoomTask {
 	const roomTask = (row.roomTask ?? row) as OverdueRoomTask
 	return {
 		id: roomTask.id,

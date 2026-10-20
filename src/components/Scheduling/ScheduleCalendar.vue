@@ -40,7 +40,8 @@
 					<div
 						v-for="day in weekDays"
 						:key="day.date"
-						class="day-header" :class="[{ today: isToday(day.date), weekend: isWeekend(day.date) }]">
+						class="day-header"
+:class="[{ today: isToday(day.date), weekend: isWeekend(day.date) }]">
 						<div class="day-info">
 							<span class="day-name">{{ day.name }}</span>
 							<span class="day-date">{{ day.dayNumber }}</span>
@@ -70,7 +71,8 @@
 						<div
 							v-for="day in weekDays"
 							:key="`${member.userId}-${day.date}`"
-							class="member-day-cell" :class="[{ available: isMemberAvailableOnDay(member, day.dayKey), unavailable: !isMemberAvailableOnDay(member, day.dayKey) }]"
+							class="member-day-cell"
+:class="[{ available: isMemberAvailableOnDay(member, day.dayKey), unavailable: !isMemberAvailableOnDay(member, day.dayKey) }]"
 							:data-testid="`slot-${day.dayKey}`">
 							<span class="cell-energy">{{ getMemberDayEnergy(member, day.dayKey) }}</span>
 						</div>
@@ -115,7 +117,7 @@ const rangeFormatter = new Intl.DateTimeFormat(getLocale(), { day: 'numeric', mo
 
 const members = computed(() => schedulingStore.memberAvailability)
 
-function dateAtNoonUtc (key) {
+function dateAtNoonUtc(key) {
 	const [year, month, day] = key.split('-').map(Number)
 	return new Date(Date.UTC(year, month - 1, day, 12))
 }
@@ -129,18 +131,18 @@ const weekRange = computed(() => {
 	return `${rangeFormatter.format(dateAtNoonUtc(first.date))} - ${rangeFormatter.format(dateAtNoonUtc(last.date))}`
 })
 
-function weekdayIndexOfKey (key) {
+function weekdayIndexOfKey(key) {
 	const [year, month, day] = key.split('-').map(Number)
 	return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
 }
 
-function mondayOfWeekOfKey (key) {
+function mondayOfWeekOfKey(key) {
 	const index = weekdayIndexOfKey(key)
 	// Monday-start week (matches the availability/energy data model).
 	return addDaysToKey(key, index === 0 ? -6 : 1 - index)
 }
 
-function generateWeekDays () {
+function generateWeekDays() {
 	if (!currentWeekStartKey.value) {
 		return
 	}
@@ -159,7 +161,7 @@ function generateWeekDays () {
 	weekDays.value = days
 }
 
-function getDayCapacity (dayKey) {
+function getDayCapacity(dayKey) {
 	// getCapacityForDay falls back to the current user's own budget for
 	// non-owners (member availability is owner-only data).
 	return schedulingStore.getCapacityForDay(dayKey)
@@ -167,53 +169,53 @@ function getDayCapacity (dayKey) {
 
 // CS-PLAN-040 (FEAT-UX-022): per-day overcapacity marker — planned energy
 // vs available capacity, computed by the scheduling-store getters.
-function plannedEnergy (dateKey) {
+function plannedEnergy(dateKey) {
 	return schedulingStore.plannedEnergyForDay(dateKey)
 }
 
-function isOvercapacity (day) {
+function isOvercapacity(day) {
 	const planned = plannedEnergy(day.date)
 	return planned > 0 && planned > getDayCapacity(day.dayKey)
 }
 
-function overcapacityTitle (day) {
+function overcapacityTitle(day) {
 	return t('chorestrike', 'Planned energy ({planned}) exceeds the available capacity ({capacity})', {
 		planned: plannedEnergy(day.date),
 		capacity: getDayCapacity(day.dayKey),
 	})
 }
 
-function isMemberAvailableOnDay (member, dayKey) {
+function isMemberAvailableOnDay(member, dayKey) {
 	return isMemberAvailable(member, dayKey)
 }
 
-function getMemberDayEnergy (member, dayKey) {
+function getMemberDayEnergy(member, dayKey) {
 	if (!isMemberAvailableOnDay(member, dayKey)) {
 		return '—'
 	}
 	return getMemberEnergy(member, dayKey)
 }
 
-function isToday (date) {
+function isToday(date) {
 	return date === todayKeyInZone(houseStore.timezone)
 }
 
-function isWeekend (date) {
+function isWeekend(date) {
 	const dayName = weekdayOfKey(date)
 	return dayName === 'saturday' || dayName === 'sunday'
 }
 
-function previousWeek () {
+function previousWeek() {
 	currentWeekStartKey.value = addDaysToKey(currentWeekStartKey.value, -7)
 	generateWeekDays()
 }
 
-function nextWeek () {
+function nextWeek() {
 	currentWeekStartKey.value = addDaysToKey(currentWeekStartKey.value, 7)
 	generateWeekDays()
 }
 
-function goToToday () {
+function goToToday() {
 	currentWeekStartKey.value = mondayOfWeekOfKey(todayKeyInZone(houseStore.timezone))
 	generateWeekDays()
 }

@@ -171,7 +171,7 @@ test.describe('Overdue Task Claiming', () => {
 			await expect(page.getByTestId(`undo-snackbar-entry-${roomTaskId}`)).toBeVisible({ timeout: 10000 })
 
 			const rows = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
-			const row = ((await rows.json()).data as Array<{ id: number, wasClaimed: boolean, claimedByUser: string,originalAssignee: string, assignees?: string[], status: string }>).find((item) => item.id === roomTaskId)
+			const row = ((await rows.json()).data as Array<{ id: number, wasClaimed: boolean, claimedByUser: string, originalAssignee: string, assignees?: string[], status: string }>).find((item) => item.id === roomTaskId)
 			expect(row).toMatchObject({ wasClaimed: true, claimedByUser: 'mom', originalAssignee: 'dad' })
 			expect(row?.status, 'the claimed occurrence is done; the next one is not overdue').not.toBe('overdue')
 			await expect(overdueRow.getByTestId('claim-overdue-button')).toHaveCount(0)

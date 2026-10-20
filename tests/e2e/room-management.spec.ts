@@ -158,7 +158,7 @@ test.describe('Room and Floor Management', () => {
 		}
 
 		// A sits above B right after creation (creation order = sort order)
-		const indexOfFloor = (name: string) => page.getByTestId(`floor-${name}`).evaluate((el) => Array.prototype.indexOf.call(el.parentElement.querySelectorAll('.floor-item'), el),)
+		const indexOfFloor = (name: string) => page.getByTestId(`floor-${name}`).evaluate((el) => Array.prototype.indexOf.call(el.parentElement.querySelectorAll('.floor-item'), el))
 		await expect(async () => {
 			expect(await indexOfFloor(floorA)).toBeLessThan(await indexOfFloor(floorB))
 		}).toPass({ timeout: 20000 })

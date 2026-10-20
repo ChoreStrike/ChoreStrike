@@ -20,31 +20,31 @@ import { logger } from '../utils/logger.js'
  * store like every other store.
  */
 
-function DEFAULT_STATE () {
-  return {
-	version: 0,
-	taskDigestEnabled: false,
-	orgDigestEnabled: false,
-	digestTime: '18:00',
-	quietStart: null,
-	quietEnd: null,
-	soundEnabled: false,
-	animationEnabled: false,
-	arcadeVisible: true,
-	catalogVisible: true,
-	ranking: { state: 'none', generation: null, effectiveMonday: null },
-	/**
+function DEFAULT_STATE() {
+	return {
+		version: 0,
+		taskDigestEnabled: false,
+		orgDigestEnabled: false,
+		digestTime: '18:00',
+		quietStart: null,
+		quietEnd: null,
+		soundEnabled: false,
+		animationEnabled: false,
+		arcadeVisible: true,
+		catalogVisible: true,
+		ranking: { state: 'none', generation: null, effectiveMonday: null },
+		/**
 	 * True only after an authoritative read/write landed (CS-PLAN-070 WP8
 	 * §3.1): the initial neutral defaults are NOT a completed preference
 	 * read — optional-area consumers must treat unknown/loading/failed
 	 * preferences as fail-closed instead of trusting the initial `true`.
 	 */
-	loaded: false,
-	loading: false,
-	saving: false,
-	error: null,
-	conflict: false,
-}
+		loaded: false,
+		loading: false,
+		saving: false,
+		error: null,
+		conflict: false,
+	}
 }
 
 /**

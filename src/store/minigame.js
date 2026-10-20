@@ -13,14 +13,14 @@ import { logger } from '../utils/logger.js'
  *
  * @return {object} Empty slice
  */
-function emptySlice () {
-  return {
-	leaderboard: [],
-	weeklyLeaderboard: [],
-	personalBest: null,
-	userRank: 0,
-	recentScores: [],
-}
+function emptySlice() {
+	return {
+		leaderboard: [],
+		weeklyLeaderboard: [],
+		personalBest: null,
+		userRank: 0,
+		recentScores: [],
+	}
 }
 
 const EMPTY_SLICE = Object.freeze(emptySlice())
@@ -94,7 +94,7 @@ export const useMinigameStore = defineStore('minigame', {
 			return this.readInto(
 				gameId,
 				'leaderboard',
-				() => api.get(`/api/v1/minigames/${gameId}/leaderboard`, { params: { limit } })
+				() => api.get(`/api/v1/minigames/${gameId}/leaderboard`, { params: { limit } }),
 			)
 		},
 
@@ -102,7 +102,7 @@ export const useMinigameStore = defineStore('minigame', {
 			return this.readInto(
 				gameId,
 				'weeklyLeaderboard',
-				() => api.get(`/api/v1/minigames/${gameId}/leaderboard/weekly`, { params: { limit } })
+				() => api.get(`/api/v1/minigames/${gameId}/leaderboard/weekly`, { params: { limit } }),
 			)
 		},
 
@@ -110,7 +110,7 @@ export const useMinigameStore = defineStore('minigame', {
 			return this.readInto(
 				gameId,
 				'personalBest',
-				() => api.get(`/api/v1/minigames/${gameId}/personal-best`)
+				() => api.get(`/api/v1/minigames/${gameId}/personal-best`),
 			)
 		},
 
@@ -119,7 +119,7 @@ export const useMinigameStore = defineStore('minigame', {
 				gameId,
 				'userRank',
 				() => api.get(`/api/v1/minigames/${gameId}/rank`),
-				(data) => data.rank
+				(data) => data.rank,
 			)
 		},
 
@@ -127,7 +127,7 @@ export const useMinigameStore = defineStore('minigame', {
 			return this.readInto(
 				gameId,
 				'recentScores',
-				() => api.get(`/api/v1/minigames/${gameId}/recent`, { params: { limit } })
+				() => api.get(`/api/v1/minigames/${gameId}/recent`, { params: { limit } }),
 			)
 		},
 

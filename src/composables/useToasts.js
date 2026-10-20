@@ -35,7 +35,7 @@ export function useToasts() {
 	on('chorestrike:weekly-goal-reached', (data) => {
 		const percent = Number.isFinite(data?.percent) ? data.percent : 0
 		const target = Number.isFinite(data?.targetPercent) ? data.targetPercent : 80
-		showSuccess(t('chorestrike', 'Weekly goal reached! {percent}% of target {target}%', { percent, target }),)
+		showSuccess(t('chorestrike', 'Weekly goal reached! {percent}% of target {target}%', { percent, target }))
 	})
 
 	on('chorestrike:medal-awarded', () => {

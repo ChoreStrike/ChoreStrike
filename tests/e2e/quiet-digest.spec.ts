@@ -62,7 +62,7 @@ async function fetchChoreStrikeNotifications(page: Page): Promise<OcsNotificatio
  */
 async function dismissDigestNotifications(page: Page): Promise<void> {
 	for (let round = 0; round < 10; round++) {
-		const stale = (await fetchChoreStrikeNotifications(page)).filter((n) => n.object_type === 'digest',)
+		const stale = (await fetchChoreStrikeNotifications(page)).filter((n) => n.object_type === 'digest')
 		if (stale.length === 0) {
 			return
 		}

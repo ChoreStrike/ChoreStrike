@@ -19,7 +19,7 @@ import { dateKeyInZone, todayKeyInZone } from './dateKeys.js'
  * @param {object[]} members Loaded household members.
  * @return {string}
  */
-export function assignmentLabel (userIds = [], members = []) {
+export function assignmentLabel(userIds = [], members = []) {
 	const ids = userIds ?? []
 	if (ids.length === 0) {
 		return t('chorestrike', 'Unassigned')
@@ -38,7 +38,7 @@ export function assignmentLabel (userIds = [], members = []) {
  * @param {object} roomTask Room task payload with isActive/occurrence/status.
  * @return {boolean}
  */
-export function isOverdue (roomTask) {
+export function isOverdue(roomTask) {
 	if (!roomTask?.isActive) {
 		return false
 	}
@@ -53,7 +53,7 @@ export function isOverdue (roomTask) {
  * @param {number} priority Stored task priority.
  * @return {string}
  */
-export function priorityClass (priority) {
+export function priorityClass(priority) {
 	return { 1: 'low', 2: 'medium', 3: 'high' }[priority] || 'medium'
 }
 
@@ -62,7 +62,7 @@ export function priorityClass (priority) {
  * @param {number} priority Stored task priority.
  * @return {string}
  */
-export function priorityLabel (priority) {
+export function priorityLabel(priority) {
 	return { 1: t('chorestrike', 'Low'), 2: t('chorestrike', 'Normal'), 3: t('chorestrike', 'High') }[priority]
 }
 
@@ -71,7 +71,7 @@ export function priorityLabel (priority) {
  * @param {object} task Task definition with frequencyType/frequencyValue.
  * @return {string}
  */
-export function frequencyLabel (task) {
+export function frequencyLabel(task) {
 	const labels = {
 		daily: t('chorestrike', 'Daily'),
 		weekly: task.frequencyValue === 1 ? t('chorestrike', 'Weekly') : t('chorestrike', 'Every {n} weeks', { n: task.frequencyValue }),
@@ -87,7 +87,7 @@ export function frequencyLabel (task) {
  * @param {string} timezone IANA timezone of the household.
  * @return {?number} null without a due date
  */
-function dueDayOffset (roomTask, timezone) {
+function dueDayOffset(roomTask, timezone) {
 	const dueKey = dateKeyInZone(roomTask.nextDue, timezone)
 	if (dueKey === '') {
 		return null
@@ -103,7 +103,7 @@ function dueDayOffset (roomTask, timezone) {
  * @param {string} timezone IANA timezone of the household.
  * @return {string}
  */
-export function dueClass (roomTask, timezone) {
+export function dueClass(roomTask, timezone) {
 	if (!roomTask.isActive) {
 		return 'completed'
 	}
@@ -123,7 +123,7 @@ export function dueClass (roomTask, timezone) {
  * @param {string} timezone IANA timezone of the household.
  * @return {string}
  */
-export function dueText (roomTask, timezone) {
+export function dueText(roomTask, timezone) {
 	if (!roomTask.isActive) {
 		return t('chorestrike', 'Completed')
 	}
@@ -151,7 +151,7 @@ export function dueText (roomTask, timezone) {
  * @param {object} item Enriched row with roomTask and task.
  * @return {{earliest: ?string, ideal: ?string, latest: ?string}} ISO strings or null
  */
-export function flexWindowKeys (item) {
+export function flexWindowKeys(item) {
 	const ideal = item.roomTask.idealDueDate || item.roomTask.nextDue
 	if (!ideal || item.task.flexDays <= 0) {
 		return { earliest: null, ideal: ideal || null, latest: null }
@@ -177,7 +177,7 @@ export function flexWindowKeys (item) {
  * @param {object} b Enriched row with roomTask and task.
  * @return {number}
  */
-export function compareTaskItems (a, b) {
+export function compareTaskItems(a, b) {
 	const dueA = a.roomTask.nextDue ? new Date(a.roomTask.nextDue).getTime() : Infinity
 	const dueB = b.roomTask.nextDue ? new Date(b.roomTask.nextDue).getTime() : Infinity
 	if (dueA !== dueB) {

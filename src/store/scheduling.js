@@ -128,7 +128,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		getCapacityForDay: (state) => (day) => {
 			const dayKey = day.toLowerCase()
 			if (state.memberAvailability.length > 0) {
-				const availableMembers = state.memberAvailability.filter((m) => isMemberAvailable(m, dayKey),)
+				const availableMembers = state.memberAvailability.filter((m) => isMemberAvailable(m, dayKey))
 				return availableMembers.reduce(
 					(sum, m) => sum + resolveEnergyForDay(m.energyBudget, dayKey),
 					0,

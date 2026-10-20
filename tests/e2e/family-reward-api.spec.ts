@@ -26,9 +26,10 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
+import type { DatabaseProfile } from './fixtures/database-fixtures'
+
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeRoomTaskViaApi } from './fixtures/completion-api'
-import type { DatabaseProfile} from './fixtures/database-fixtures';
 import { expect, test } from './fixtures/database-fixtures'
 
 const CATALOG_URL = '/apps/chorestrike/api/v1/house/catalog'

@@ -36,7 +36,8 @@
 					<div
 						v-for="day in weekDays"
 						:key="day.key"
-						class="day-item" :class="[{ available: isMemberAvailable(member, day.key), unavailable: !isMemberAvailable(member, day.key) }]"
+						class="day-item"
+:class="[{ available: isMemberAvailable(member, day.key), unavailable: !isMemberAvailable(member, day.key) }]"
 						data-testid="availability-slot">
 						<div class="day-name">
 							{{ day.name }}
@@ -97,18 +98,18 @@ const editingMember = ref(null)
 // resolves self vs. member persistence on its own.
 const members = computed(() => schedulingStore.memberAvailability)
 
-function getAvailableDaysCount (member) {
+function getAvailableDaysCount(member) {
 	if (!member.weekdayAvailability) {
 		return 7
 	}
 	return Object.values(member.weekdayAvailability).filter(Boolean).length
 }
 
-function openEditModal (member) {
+function openEditModal(member) {
 	editingMember.value = member
 }
 
-function closeEditModal () {
+function closeEditModal() {
 	editingMember.value = null
 }
 </script>

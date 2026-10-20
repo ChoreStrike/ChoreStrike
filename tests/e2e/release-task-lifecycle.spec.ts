@@ -71,7 +71,7 @@ async function pickActiveRoomTask(page: Page): Promise<RoomTaskJson | null> {
 			continue
 		}
 		const tasks = ((await response.json()).data || []) as RoomTaskJson[]
-		const found = tasks.find((rt) => rt.isActive && rt.nextDue && ((rt.assignees ?? []).length === 0 || rt.assignees!.includes('mom')),)
+		const found = tasks.find((rt) => rt.isActive && rt.nextDue && ((rt.assignees ?? []).length === 0 || rt.assignees!.includes('mom')))
 		if (found) {
 			return found
 		}

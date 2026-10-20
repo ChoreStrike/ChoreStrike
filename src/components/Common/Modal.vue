@@ -168,7 +168,7 @@ export default {
 				return
 			}
 
-			const focusables = Array.from(this.$refs.container?.querySelectorAll(FOCUSABLE_SELECTOR) || [],)
+			const focusables = Array.from(this.$refs.container?.querySelectorAll(FOCUSABLE_SELECTOR) || [])
 			if (focusables.length === 0) {
 				return
 			}

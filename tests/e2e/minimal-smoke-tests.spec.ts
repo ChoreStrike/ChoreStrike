@@ -1,5 +1,6 @@
+import type { Page, Response } from '@playwright/test'
+
 import { expect, test } from '@playwright/test'
-import type {Page, Response} from '@playwright/test';
 
 /**
  * Minimal Smoke Tests

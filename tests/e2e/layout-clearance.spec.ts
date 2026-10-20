@@ -138,9 +138,7 @@ test.describe('Layout clearance and dashboard health bar', () => {
 			const fill = health.locator('.health-bar-fill')
 			const fillBox = await boxOf(fill)
 			expect(fillBox.right - fillBox.left).toBeGreaterThan(0)
-			const topmostIsFill = await page.evaluate(
-({ x, y }) => document.elementFromPoint(x, y)?.closest('.health-bar-fill') !== null,{ x: (fillBox.left + fillBox.right) / 2, y: (fillBox.top + fillBox.bottom) / 2 }
-)
+			const topmostIsFill = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.health-bar-fill') !== null, { x: (fillBox.left + fillBox.right) / 2, y: (fillBox.top + fillBox.bottom) / 2 })
 			expect(topmostIsFill, 'the fill paints above the track').toBe(true)
 
 			const titleBox = await textBox(health.locator('.health-title'))

@@ -214,7 +214,7 @@ test.describe('Settings', () => {
 	test('Floors list or empty state is displayed', async ({ page }) => {
 		// The floors fetch resolves asynchronously after the view mounts; wait
 		// for whichever end state applies instead of probing instantly.
-		await expect(page.getByTestId('floors-list').or(page.getByTestId('no-floors-message')),).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('floors-list').or(page.getByTestId('no-floors-message'))).toBeVisible({ timeout: 15000 })
 	})
 
 	test('User can open add floor modal', async ({ page }) => {

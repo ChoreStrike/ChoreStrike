@@ -1,4 +1,5 @@
-import type {Browser, BrowserContext, BrowserContextOptions, Page} from '@playwright/test';
+import type { Browser, BrowserContext, BrowserContextOptions, Page } from '@playwright/test'
+
 import { authScope } from '../../../scripts/test-target'
 
 // Auth storage states live in the gitignored build/ tree (CS-PLAN-069 WP4).
@@ -19,10 +20,10 @@ const BASE_URL = process.env.NEXTCLOUD_URL || 'http://localhost:8080'
  */
 async function primeCsrfToken(context: BrowserContext, page: Page): Promise<void> {
 	await page.goto(`${BASE_URL}/index.php/apps/dashboard/`)
-	const token = await page.evaluate(() => (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken,)
+	const token = await page.evaluate(() => (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken)
 	if (!token) {
 		throw new Error('primeCsrfToken: OC.requestToken not found after loading the dashboard. '
-			+ 'The storageState may be expired or the Nextcloud instance is unreachable.',)
+			+ 'The storageState may be expired or the Nextcloud instance is unreachable.')
 	}
 	await context.setExtraHTTPHeaders({ requesttoken: token })
 }

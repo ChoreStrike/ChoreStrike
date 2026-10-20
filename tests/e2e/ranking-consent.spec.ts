@@ -1,5 +1,6 @@
+import type { DatabaseProfile } from './fixtures/database-fixtures'
+
 import { createUserContext } from './fixtures/auth-contexts'
-import type { DatabaseProfile} from './fixtures/database-fixtures';
 import { expect, test } from './fixtures/database-fixtures'
 
 /**

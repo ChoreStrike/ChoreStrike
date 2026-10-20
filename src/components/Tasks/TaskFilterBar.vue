@@ -125,10 +125,10 @@ const PANEL_DEFAULTS = { person: '', floor: '', room: '', status: 'all', priorit
  * there (CS-PLAN-084 D-084-02).
  * @return {boolean}
  */
-function isPhoneViewport () {
-  return typeof window !== 'undefined'
-	&& typeof window.matchMedia === 'function'
-	&& window.matchMedia('(max-width: 768px)').matches
+function isPhoneViewport() {
+	return typeof window !== 'undefined'
+		&& typeof window.matchMedia === 'function'
+		&& window.matchMedia('(max-width: 768px)').matches
 }
 
 /**

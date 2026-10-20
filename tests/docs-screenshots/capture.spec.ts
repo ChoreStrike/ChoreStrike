@@ -11,8 +11,9 @@
  * (name, a small reward catalog) and captures the scenes of scenes.js.
  */
 
+import type { APIResponse, Page } from '@playwright/test'
+
 import { expect, test } from '@playwright/test'
-import type {APIResponse, Page} from '@playwright/test';
 import path from 'node:path'
 import { createUserContext } from '../e2e/fixtures/auth-contexts'
 import { newCommandId } from '../e2e/fixtures/completion-api'
@@ -33,7 +34,7 @@ const CATALOG = [
 
 test.describe.configure({ mode: 'serial' })
 
-async function jsonOf (response: APIResponse) {
+async function jsonOf(response: APIResponse) {
 	expect(response.ok(), await response.text()).toBe(true)
 	return (await response.json()).data
 }
