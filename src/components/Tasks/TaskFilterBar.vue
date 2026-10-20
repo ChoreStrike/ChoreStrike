@@ -105,7 +105,7 @@
 						type="text"
 						class="search-input"
 						data-testid="search-input"
-						:placeholder="t('chorestrike', 'Search tasks...')"
+						:placeholder="t('chorestrike', 'Search tasks…')"
 						@input="update({ search: $event.target.value })">
 				</div>
 			</div>

@@ -1643,10 +1643,10 @@ msgstr ""
 msgid "Loading activity…"
 msgstr ""
 
-msgid "Loading floors..."
+msgid "Loading floors…"
 msgstr ""
 
-msgid "Loading game …"
+msgid "Loading game …"
 msgstr ""
 
 msgid "Loading members…"
@@ -1655,7 +1655,7 @@ msgstr ""
 msgid "Loading requests…"
 msgstr ""
 
-msgid "Loading rooms..."
+msgid "Loading rooms…"
 msgstr ""
 
 msgid "Loading the catalog…"
@@ -1665,9 +1665,6 @@ msgid "Loading the request…"
 msgstr ""
 
 msgid "Loading your day…"
-msgstr ""
-
-msgid "Loading..."
 msgstr ""
 
 msgid "Loading…"
@@ -2039,10 +2036,10 @@ msgstr ""
 msgid "Optional areas"
 msgstr ""
 
-msgid "Optional description..."
+msgid "Optional description…"
 msgstr ""
 
-msgid "Optional step-by-step instructions..."
+msgid "Optional step-by-step instructions…"
 msgstr ""
 
 msgid "Organize and declutter the basement."
@@ -2546,9 +2543,6 @@ msgstr ""
 msgid "Save correction"
 msgstr ""
 
-msgid "Saving..."
-msgstr ""
-
 msgid "Saving…"
 msgstr ""
 
@@ -2597,7 +2591,7 @@ msgstr ""
 msgid "Search"
 msgstr ""
 
-msgid "Search tasks..."
+msgid "Search tasks…"
 msgstr ""
 
 msgid "Select a room"
@@ -2759,7 +2753,7 @@ msgstr ""
 msgid "Sub-Tasks"
 msgstr ""
 
-msgid "Sub-task title..."
+msgid "Sub-task title…"
 msgstr ""
 
 msgid "Suggest affordable, family-agreed treats that are not essentials, measured against the child's own realistic effort and share — not adult output. Care, affection, meals, rest and necessary chore exemptions are not purchasable rewards. There are no automatic catalog templates and no household earning-rate controls."

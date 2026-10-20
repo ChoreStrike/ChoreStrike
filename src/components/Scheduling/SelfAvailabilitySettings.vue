@@ -49,7 +49,7 @@
 					:disabled="saving || !hasChanges"
 					data-testid="save-self-availability-button"
 					@click="saveAvailability">
-					{{ saving ? t('chorestrike', 'Saving...') : t('chorestrike', 'Save Changes') }}
+					{{ saving ? t('chorestrike', 'Saving…') : t('chorestrike', 'Save Changes') }}
 				</button>
 			</div>
 		</div>

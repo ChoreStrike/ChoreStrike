@@ -81,7 +81,7 @@
 					type="text"
 					class="form-input"
 					data-testid="checklist-new-item-input"
-					:placeholder="t('chorestrike', 'Sub-task title...')"
+					:placeholder="t('chorestrike', 'Sub-task title…')"
 					@keyup.enter="saveNewItem"
 					@keyup.esc="cancelAdd">
 				<div class="form-actions">

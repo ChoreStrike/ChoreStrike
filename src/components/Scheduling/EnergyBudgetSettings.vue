@@ -49,7 +49,7 @@
 					:disabled="saving || !hasChanges"
 					data-testid="save-energy-budget-button"
 					@click="saveEnergyBudget">
-					{{ saving ? t('chorestrike', 'Saving...') : t('chorestrike', 'Save Energy Budget') }}
+					{{ saving ? t('chorestrike', 'Saving…') : t('chorestrike', 'Save Energy Budget') }}
 				</button>
 			</div>
 		</div>

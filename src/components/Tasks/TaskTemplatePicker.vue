@@ -36,7 +36,7 @@
 		</div>
 
 		<p v-if="setupStore.loading">
-			{{ t('chorestrike', 'Loading...') }}
+			{{ t('chorestrike', 'Loading…') }}
 		</p>
 		<ul v-else class="template-list">
 			<li

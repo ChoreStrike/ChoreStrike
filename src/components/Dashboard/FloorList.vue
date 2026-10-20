@@ -26,7 +26,7 @@
 		<!-- Loading State -->
 		<div v-if="loading && floors.length === 0" class="loading-state">
 			<div class="loading-spinner" />
-			<p>{{ t('chorestrike', 'Loading floors...') }}</p>
+			<p>{{ t('chorestrike', 'Loading floors…') }}</p>
 		</div>
 
 		<!-- Empty State -->
@@ -83,7 +83,7 @@
 					<!-- Loading Rooms -->
 					<div v-if="loadingRooms[floor.id]" class="loading-rooms">
 						<div class="loading-spinner small" />
-						<span>{{ t('chorestrike', 'Loading rooms...') }}</span>
+						<span>{{ t('chorestrike', 'Loading rooms…') }}</span>
 					</div>
 
 					<!-- Empty Floor -->

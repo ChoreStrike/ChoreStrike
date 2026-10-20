@@ -34,7 +34,7 @@
 
 			<div class="leaderboard-list">
 				<p v-if="loading" class="leaderboard-note">
-					{{ t('chorestrike', 'Loading...') }}
+					{{ t('chorestrike', 'Loading…') }}
 				</p>
 				<div v-else-if="entries.length === 0" class="leaderboard-note" data-testid="game-leaderboard-empty">
 					<p>{{ t('chorestrike', 'No scores yet!') }}</p>

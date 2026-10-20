@@ -24,7 +24,7 @@
 				:message="t('chorestrike', 'Failed to load members')"
 				@retry="loadMembers" />
 			<p v-else-if="membersLoading">
-				{{ t('chorestrike', 'Loading...') }}
+				{{ t('chorestrike', 'Loading…') }}
 			</p>
 			<AssigneeChips v-else v-model="assigneeUserIds" :members="houseMembers" />
 		</div>

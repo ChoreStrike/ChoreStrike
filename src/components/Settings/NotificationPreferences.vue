@@ -143,7 +143,7 @@
 		</p>
 
 		<NcButton
-			type="primary"
+			variant="primary"
 			:disabled="preferencesStore.saving"
 			data-testid="save-preferences"
 			@click="save">

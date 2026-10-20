@@ -129,7 +129,7 @@
 					:disabled="saving || !editHasChanges"
 					data-testid="save-availability-button"
 					@click="saveAvailability">
-					{{ saving ? t('chorestrike', 'Saving...') : t('chorestrike', 'Save Changes') }}
+					{{ saving ? t('chorestrike', 'Saving…') : t('chorestrike', 'Save Changes') }}
 				</button>
 			</div>
 		</template>

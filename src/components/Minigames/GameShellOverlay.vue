@@ -9,7 +9,7 @@
 		:data-phase="phase"
 		:style="entry && entry.accent ? { '--game-accent': entry.accent } : null">
 		<p v-if="phase === 'loading'" class="game-overlay-text">
-			{{ t('chorestrike', 'Loading game …') }}
+			{{ t('chorestrike', 'Loading game …') }}
 		</p>
 		<template v-else-if="phase === 'failed'">
 			<p class="game-overlay-text">

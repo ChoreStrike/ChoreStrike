@@ -54,7 +54,7 @@
 					class="form-input"
 					data-testid="task-description-input"
 					rows="2"
-					:placeholder="t('chorestrike', 'Optional description...')" />
+					:placeholder="t('chorestrike', 'Optional description…')" />
 			</div>
 
 			<div class="form-group">
@@ -65,7 +65,7 @@
 					data-testid="task-instructions-input"
 					rows="3"
 					maxlength="2000"
-					:placeholder="t('chorestrike', 'Optional step-by-step instructions...')" />
+					:placeholder="t('chorestrike', 'Optional step-by-step instructions…')" />
 			</div>
 		</div>
 
@@ -281,7 +281,7 @@
 					:message="t('chorestrike', 'Failed to load members')"
 					@retry="loadMembers" />
 				<p v-else-if="membersLoading">
-					{{ t('chorestrike', 'Loading...') }}
+					{{ t('chorestrike', 'Loading…') }}
 				</p>
 				<AssigneeChips v-else v-model="assigneeUserIds" :members="houseMembers" />
 			</div>
