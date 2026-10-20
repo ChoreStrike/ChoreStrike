@@ -474,6 +474,46 @@ remote CI evidence are still open.
   WP-D qualification; no PHP changed), `test:package:smoke`, and the final Full review.
   Follow-up TECH-LINT-009 (Boolean props that default to `true`) is routed to the backlog.
 
+## WP-B Evidence (hardening, 2026-10-20)
+
+Local branch `fix/alpha3-hardening` from the merged WP-C state (`b5c8568`); one commit per
+item, nothing pushed. Not a review outcome.
+
+- **Delivered and archived:** CR-PERF-01 (`ddf3431`), TECH-DIGEST-001 (`6e5f545`) and
+  TECH-TEST-009 (`9a8a634`); archive entries in `docs/backlog/archive/2026-10.md`.
+- **Implemented, waiting for a green full browser gate:** CR-084-04 (`56b11f4`,
+  `HoldButton.vue` 440 → 287 lines) and CR-LAYOUT-01 (`47b42ed`, tokens on `.app-content`,
+  heading-row inset in all 13 consumers). The extended `layout-clearance.spec.ts` (8 tests,
+  including varied host metrics and RTL) and every `holdToConfirm` path passed in all gate
+  attempts.
+- **Jest / lint:** 158 suites / 2189 tests, ESLint 0 findings, Stylelint, `docs:encoding`,
+  `backlog:check`, `composer cs:check` (424 files) green.
+- **PHPUnit, provider matrix (TECH-TEST-009 criterion):** three complete four-target runs
+  with the new `--matrix` mode (MariaDB, PostgreSQL and SQLite on the NC 35.0.2 primary row,
+  PostgreSQL + Redis on the NC 34.0.4 AIO row) on the unchanged commit `9a8a634`: unit 1467
+  and integration 635 on every target, no failure, error or skip, in all three rounds
+  (`wb-round-1..3`, reports kept locally). They also exercised `DigestChangeMapperTest` on
+  every provider. The earlier two unnamed SQLite failures stay unattributed; the three clean
+  rounds bound the observation as not reproduced, they do not fix a root cause.
+- **Browser gates — not green yet.** Four complete gate runs, no retries, each with a different
+  small set of failures and all unrelated to the changed code:
+  1. primary `run-SZI84s`: three required scenarios (`settings.spec.ts` ×2, `mobile-core`
+     handover) with `TypeError: fetch failed` before any assertion, while four staged
+     provider rows were also running;
+  2. primary `run-QAySf3` (rows removed): one `mobile-core` webkit scenario (Settings not
+     reached through the phone navigation within 5 s), not reproduced in five isolated runs;
+  3. primary `run-yeFj8s`: one `calm-core-ui` scenario, `fetch failed`;
+  4. AIO `run-6x3cI2`: `release-task-lifecycle` (`fetch failed`) and `arcade-mobile` Crumb
+     Snake (game already *over* when the steer was checked).
+
+  All seven scenarios pass when run alone on the same stack. The five `fetch failed` cases
+  match the open TECH-TRANSPORT-001 pattern (seed/API connection closed before a response;
+  no Apache error, OOM or restart; a foreign Testcontainers run was active on the shared
+  Docker host); the evidence is folded into that item, not claimed as its cause. The two
+  other failures are timing-sensitive and also unattributed. The same two toolchain gates
+  passed first time earlier the same day (`run-JEPAkY`, `run-HcYDxR`), so no gate was green
+  on this branch yet; CR-084-04 and CR-LAYOUT-01 stay In Progress until one is.
+
 ## Review Outcome
 
 **Standard A, 2026-10-19: PASS-WITH-FIXES.** Scope: this plan, checked against

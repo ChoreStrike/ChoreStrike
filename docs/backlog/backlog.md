@@ -39,7 +39,7 @@ below.)*
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
 ### [P4] CR-084-04 — Split the HoldButton hold state machine from its view
-**Status**: In Progress (implemented 2026-10-20: `useHoldPress` composable, `HoldButton.vue` 440 → 287 lines, HoldButton spec unchanged and green; the browser `holdToConfirm` paths in both gates are pending) · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
+**Status**: In Progress (implemented 2026-10-20: `useHoldPress` composable, `HoldButton.vue` 440 → 287 lines, HoldButton spec unchanged and green; the browser `holdToConfirm` paths passed in every gate attempt, but no full gate is green yet — see the CS-PLAN-088 WP-B evidence) · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-084 (final Full review, 2026-10-17; user-rescoped)
 
@@ -53,7 +53,7 @@ regression net.
 ---
 
 ### [P3] CR-LAYOUT-01 — View inset token resolves at `:root`, where Nextcloud defines neither metric
-**Status**: In Progress (implemented 2026-10-20 per Q-088-02: tokens on `.app-content`, shared view gutter, heading-row inset in all 13 consumers; the extended `layout-clearance.spec.ts` passes on the canonical stack, the full gates on both rows are pending) · **Effort**: S · **Layer**: frontend · **Journey stage**: theming
+**Status**: In Progress (implemented 2026-10-20 per Q-088-02: tokens on `.app-content`, shared view gutter, heading-row inset in all 13 consumers; the extended `layout-clearance.spec.ts` passed in every gate attempt, but no full gate is green yet — see the CS-PLAN-088 WP-B evidence) · **Effort**: S · **Layer**: frontend · **Journey stage**: theming
 **Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: whole-view inset on phones (same review)
 **Source**: Review of TECH-DOCS-005 UI fix `1ee898d` (Standard B, 2026-10-17; user-deferred until after the `0.8.0-alpha.1` deployment)
 
@@ -241,7 +241,7 @@ vibration motor.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs; 2026-10-20 CS-PLAN-088 WP-B gates: three full primary-row gates and one AIO-row gate each lost one to three required scenarios (`settings`, `mobile-core` handover, `calm-core-ui`, `release-task-lifecycle`) to seed/API `fetch failed` before any assertion, with no Apache error, OOM or restart and a foreign Testcontainers run active on the shared Docker host; every one passes in isolation. Two non-transport scenarios failed once and passed in isolation too (`mobile-core` webkit navigation to Settings, `arcade-mobile` Crumb Snake reaching *over* before the steer), also unattributed
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel
@@ -538,43 +538,6 @@ sessions never touch each other's database.
 - [ ] A cleanup command removes a worktree's stack with the worktree and lists stale `cs082-*` leftovers without deleting other owners' resources.
 - [ ] Update the `docker-dev` and `git-workflow` skills, `development.md` and `testing.md` (canonical source, then `npm run agents:sync`).
 - [ ] Tests for the derivation, collision refusal and target resolution (Jest, Docker-free), plus one real two-worktree run.
-
----
-
-### [P3] TECH-TEST-009 — Unattributed SQLite integration failures under four parallel provider suites
-**Status**: In Progress (explicit matrix mode `run-tests.js --matrix` implemented 2026-10-20 per Q-088-07, Jest-pinned; the three real four-target runs that bound the observation are pending) · **Effort**: S · **Layer**: tests · **Journey stage**: test-runtime reliability
-**Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-086 WP-H final gate (2026-10-19)
-
-The provider matrix may run its independent databases in parallel
-([testing.md](../engineering/testing.md#isolated-supported-database-matrix)).
-In the first such run of the WP-H gate (four fresh staged rows, unit and
-integration suites at once, shortly after a Docker Desktop restart) the SQLite
-integration suite reported `Tests: 623, Failures: 2`; the runner kept only the
-summary, so the failing tests are unknown. The same suite passed alone and in
-two further four-way parallel runs on the final code. Next time capture the
-names (`--log-junit` per provider), then attribute: a load-sensitive SQLite
-locking or barrier test, or a product race.
-
-- [ ] Per-run/runtime/provider/suite JUnit and complete output retained by explicit verified matrix targets in `scripts/run-tests.js`; missing reports and suite failures propagate.
-- [ ] Failures attributed with a regression, or three complete clean parallel rounds on an unchanged source/runtime set document bounded non-reproduction, not a root-cause fix (Q-088-07).
-
----
-
-### [P4] TECH-DIGEST-001 — `DigestChangeMapper::expireQueuedBefore` uses `setMaxResults()` on an UPDATE
-**Status**: In Progress (implemented 2026-10-20 as bounded conditional batches per Q-088-06; PostgreSQL integration green, MariaDB and SQLite provider runs pending) · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
-**Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-078 WP7 final Standard B (2026-10-01)
-
-Doctrine DBAL's `getSQLForUpdate()` never emits LIMIT (verified on the NC31
-container), so the documented 500-row batch bound in
-`DigestChangeMapper::expireQueuedBefore()` never applies — the expiry sweep
-updates ALL matching queued rows in one statement. The expiry path is a
-maintenance sweep (not the hot digest pass), so the current behavior is
-functionally correct and merely unbounded; either drop the limit parameter
-and document unbounded expiry, or implement chunked expiry via a bounded
-SELECT of ids followed by UPDATE ... WHERE id IN (...). Not a WP7 regression
-(pre-existing WP5 defect).
 
 ---
 
