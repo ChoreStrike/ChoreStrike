@@ -109,8 +109,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { ref } from 'vue'
 import { prefersReducedMotion } from '../../utils/confetti.js'
 
 /**

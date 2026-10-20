@@ -3,8 +3,8 @@
  * @license MIT
  */
 
-import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
+import { translate as t } from '@nextcloud/l10n'
 
 export const API_PREFIX = '/apps/chorestrike'
 

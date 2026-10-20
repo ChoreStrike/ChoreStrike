@@ -88,18 +88,18 @@
 </template>
 
 <script>
-import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import HoldButton from '../Common/HoldButton.vue'
+import Icon from '../Common/Icon.vue'
+import { useHouseStore } from '../../store/house.js'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
-import { useHouseStore } from '../../store/house.js'
-import { dueClass, isOverdue } from '../../utils/taskDisplay.js'
-import { logger } from '../../utils/logger.js'
 import { showErrorWithReference } from '../../utils/errorToast.js'
-import Icon from '../Common/Icon.vue'
-import HoldButton from '../Common/HoldButton.vue'
+import { logger } from '../../utils/logger.js'
 import { resolveRoomIcon } from '../../utils/roomIcons.js'
+import { dueClass, isOverdue } from '../../utils/taskDisplay.js'
 
 export default {
 	name: 'RoomCard',

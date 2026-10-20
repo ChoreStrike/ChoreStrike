@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test'
-import { userStatePath } from './fixtures/auth-contexts'
-import { expandAllFloors } from './fixtures/dashboard-floors'
 import type { Page } from '@playwright/test'
 
+import { expect, test } from '@playwright/test'
+import { userStatePath } from './fixtures/auth-contexts'
+import { expandAllFloors } from './fixtures/dashboard-floors'
 import { holdToConfirm } from './fixtures/hold-to-confirm'
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. Read via an IN-PAGE fetch (the

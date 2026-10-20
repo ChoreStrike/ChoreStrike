@@ -171,14 +171,14 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
-import { useUserStore } from '../store/user.js'
-import { useGameStore } from '../store/game.js'
-import { useRankingStore } from '../store/ranking.js'
 import { showError, showSuccess } from '@nextcloud/dialogs'
-import { logger } from '../utils/logger.js'
+import { translate as t } from '@nextcloud/l10n'
 import Icon from '../components/Common/Icon.vue'
 import MedalBadge, { MEDAL_LABELS } from '../components/Common/MedalBadge.vue'
+import { useGameStore } from '../store/game.js'
+import { useRankingStore } from '../store/ranking.js'
+import { useUserStore } from '../store/user.js'
+import { logger } from '../utils/logger.js'
 
 export default {
 	name: 'Leaderboard',

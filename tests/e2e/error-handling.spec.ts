@@ -8,8 +8,8 @@
  * CS-PLAN-015b: auth via per-user storageState (no loginAsUser / no logout).
  */
 
-import { test, expect, DatabaseProfile } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { DatabaseProfile, expect, test } from './fixtures/database-fixtures'
 
 test.describe.configure({ mode: 'serial' })
 

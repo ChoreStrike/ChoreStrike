@@ -6,8 +6,30 @@
  */
 const { recommended } = require('@nextcloud/eslint-config')
 
+// The preset sorts side-effect imports behind all others. `src/main.js` must
+// run `public-path.js` first (it sets the webpack public path before any other
+// module is evaluated), so that one import leads there; the stylesheets stay
+// behind the application imports and every other sorting option stays the
+// preset's own.
+const [severity, sortImportsOptions] = recommended
+	.map((config) => config.rules?.['perfectionist/sort-imports'])
+	.find(Boolean)
+
 module.exports = [
 	...recommended,
+	{
+		files: ['src/main.js'],
+		rules: {
+			'perfectionist/sort-imports': [severity, {
+				...sortImportsOptions,
+				groups: ['runtimePublicPath', ...sortImportsOptions.groups],
+				customGroups: [
+					...sortImportsOptions.customGroups,
+					{ groupName: 'runtimePublicPath', elementNamePattern: ['^\\./public-path\\.js$'] },
+				],
+			}],
+		},
+	},
 	{
 		rules: {
 			// Policy kept from the legacy configuration: no mandatory JSDoc

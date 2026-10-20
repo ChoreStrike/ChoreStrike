@@ -47,16 +47,16 @@
 </template>
 
 <script>
-import { computed, onMounted, ref } from 'vue'
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
-import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { translate as t } from '@nextcloud/l10n'
+import { computed, onMounted, ref } from 'vue'
+import ErrorState from '../Common/ErrorState.vue'
+import AssigneeChips from './AssigneeChips.vue'
 import { useHouseStore } from '../../store/house.js'
+import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useUserStore } from '../../store/user.js'
 import { dateKeyInZone } from '../../utils/dateKeys.js'
 import { logger } from '../../utils/logger.js'
-import AssigneeChips from './AssigneeChips.vue'
-import ErrorState from '../Common/ErrorState.vue'
 
 export default {
 	name: 'RoomTaskEditModal',

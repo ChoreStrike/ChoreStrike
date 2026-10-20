@@ -119,12 +119,12 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
+import ConfirmDialog from '../Common/ConfirmDialog.vue'
+import Icon from '../Common/Icon.vue'
 import { useUserStore } from '../../store/user.js'
 import { logger } from '../../utils/logger.js'
-import Icon from '../Common/Icon.vue'
-import ConfirmDialog from '../Common/ConfirmDialog.vue'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

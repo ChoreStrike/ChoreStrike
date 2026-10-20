@@ -82,12 +82,12 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useSchedulingStore } from '../../store/scheduling.js'
-import { weekDays, isMemberAvailable, getMemberEnergy } from '../../constants/scheduling.js'
-import AvailabilityEditModal from './AvailabilityEditModal.vue'
+import { computed, ref } from 'vue'
 import EmptyState from '../Common/EmptyState.vue'
+import AvailabilityEditModal from './AvailabilityEditModal.vue'
+import { getMemberEnergy, isMemberAvailable, weekDays } from '../../constants/scheduling.js'
+import { useSchedulingStore } from '../../store/scheduling.js'
 
 const schedulingStore = useSchedulingStore()
 

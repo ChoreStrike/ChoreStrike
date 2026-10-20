@@ -1,6 +1,7 @@
-import { test, expect } from '@playwright/test'
-import { BrowserAwareNavigation } from './fixtures/browser-aware-navigation'
 import type { Page, TestInfo } from '@playwright/test'
+
+import { expect, test } from '@playwright/test'
+import { BrowserAwareNavigation } from './fixtures/browser-aware-navigation'
 
 /**
  * Fast, stable E2E tests using browser-aware navigation.

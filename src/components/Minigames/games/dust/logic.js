@@ -3,8 +3,8 @@
  * @license MIT
  */
 
-import { COLS, DIRECTIONS, ROWS, cellIndex, fillDistances, isFloor, roomAt } from './rooms.js'
-import { RELEASE_GAP_MS, RELEASE_MS, RESPAWN_MS, bunnyInterval, moveBunny, nestedBunny, sendHome } from './bunnies.js'
+import { bunnyInterval, moveBunny, nestedBunny, RELEASE_GAP_MS, RELEASE_MS, RESPAWN_MS, sendHome } from './bunnies.js'
+import { cellIndex, COLS, DIRECTIONS, fillDistances, isFloor, roomAt, ROWS } from './rooms.js'
 
 /**
  * Dust Runner rules (CS-PLAN-086 §3.1): a robot vacuum clears the dust of

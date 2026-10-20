@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 /**
  * E2E test: the consent-filtered Leaderboard in its DEFAULT (opt-in

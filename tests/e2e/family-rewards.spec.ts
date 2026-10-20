@@ -14,9 +14,9 @@
  * previous action's message).
  */
 
-import { test, expect, type APIResponse, type Page, DatabaseProfile } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeAsSoleParticipantViaApi, newCommandId } from './fixtures/completion-api'
+import { type APIResponse, type Page, DatabaseProfile, expect, test } from './fixtures/database-fixtures'
 import { runOcc } from './fixtures/occ-runner'
 
 const API = '/apps/chorestrike/api/v1'

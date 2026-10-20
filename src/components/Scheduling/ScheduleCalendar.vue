@@ -86,12 +86,12 @@
 </template>
 
 <script setup>
+import { getDayNames, getLocale, translate as t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
-import { translate as t, getDayNames, getLocale } from '@nextcloud/l10n'
-import { useSchedulingStore } from '../../store/scheduling.js'
+import { getMemberEnergy, isMemberAvailable } from '../../constants/scheduling.js'
 import { useHouseStore } from '../../store/house.js'
+import { useSchedulingStore } from '../../store/scheduling.js'
 import { addDaysToKey, todayKeyInZone, weekdayOfKey } from '../../utils/dateKeys.js'
-import { isMemberAvailable, getMemberEnergy } from '../../constants/scheduling.js'
 
 const schedulingStore = useSchedulingStore()
 const houseStore = useHouseStore()

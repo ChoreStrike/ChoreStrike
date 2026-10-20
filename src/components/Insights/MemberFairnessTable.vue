@@ -58,8 +58,8 @@
 // foreign balance in member DTOs) and dated pauses replaced freezes. The
 // exact contributionMinor is the work evidence (100 = 1 energy).
 import { translate as t } from '@nextcloud/l10n'
+import { resolveEnergyForDay, WEEKDAY_KEYS } from '../../utils/energyBudgets.js'
 import { formatMinor } from '../../utils/minorUnits.js'
-import { WEEKDAY_KEYS, resolveEnergyForDay } from '../../utils/energyBudgets.js'
 
 export default {
 	name: 'MemberFairnessTable',

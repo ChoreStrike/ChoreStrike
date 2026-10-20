@@ -15,10 +15,10 @@
  * @see docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md Phase 3
  */
 
-import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { placeholderReceipt, postCompletionWithReceipt } from './fixtures/completion-api'
+import { expect, test } from './fixtures/database-fixtures'
 import { createVisibilityFixture } from './fixtures/visibility-fixtures'
-import { postCompletionWithReceipt, placeholderReceipt } from './fixtures/completion-api'
 
 test.describe('Admin-Only Tasks', () => {
 	test.use({ databaseProfile: 'family' })

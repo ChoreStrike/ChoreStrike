@@ -1,6 +1,6 @@
-import { test, expect, DatabaseProfile } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeWithOptionalDialog } from './fixtures/completion-api'
+import { DatabaseProfile, expect, test } from './fixtures/database-fixtures'
 
 /**
  * E2E test: the calm core UI (CS-PLAN-070 WP6) — serial family pool.

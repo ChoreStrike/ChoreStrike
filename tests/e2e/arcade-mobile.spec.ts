@@ -12,10 +12,11 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { test, expect } from './fixtures/database-fixtures'
-import type { DatabaseProfile } from './fixtures/database-fixtures'
 import type { Page } from '@playwright/test'
+import type { DatabaseProfile } from './fixtures/database-fixtures'
+
 import { setArcadeGate } from './fixtures/arcade-gate'
+import { expect, test } from './fixtures/database-fixtures'
 import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer'
 
 /** Let real game time pass: the round runs on animation frames. */

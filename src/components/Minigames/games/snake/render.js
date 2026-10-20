@@ -3,8 +3,8 @@
  * @license MIT
  */
 
-import { COLS, DIRECTIONS, ROWS, nextDirection } from './logic.js'
 import { disc, drawEyes, lerp, pulse, roundedRect, star } from '../../draw.js'
+import { COLS, DIRECTIONS, nextDirection, ROWS } from './logic.js'
 
 /** How far the nozzle sits in the obstacle after a crash (share of a cell). */
 const BUMP = 0.35

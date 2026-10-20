@@ -54,21 +54,21 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useSchedulingStore } from '../store/scheduling.js'
-import { useRoomTasksStore } from '../store/roomTasks.js'
+import { computed, onMounted } from 'vue'
+import HelpEntry from '../components/Help/HelpEntry.vue'
+import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
+import EnergyBudgetSettings from '../components/Scheduling/EnergyBudgetSettings.vue'
+import OvercapacityWarning from '../components/Scheduling/OvercapacityWarning.vue'
+import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
+import SchedulePlanner from '../components/Scheduling/SchedulePlanner.vue'
+import SelfAvailabilitySettings from '../components/Scheduling/SelfAvailabilitySettings.vue'
 import { useRoomsStore } from '../store/rooms.js'
+import { useRoomTasksStore } from '../store/roomTasks.js'
+import { useSchedulingStore } from '../store/scheduling.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
-import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
-import EnergyBudgetSettings from '../components/Scheduling/EnergyBudgetSettings.vue'
-import SchedulePlanner from '../components/Scheduling/SchedulePlanner.vue'
-import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
-import SelfAvailabilitySettings from '../components/Scheduling/SelfAvailabilitySettings.vue'
-import OvercapacityWarning from '../components/Scheduling/OvercapacityWarning.vue'
-import HelpEntry from '../components/Help/HelpEntry.vue'
 
 const schedulingStore = useSchedulingStore()
 const tasksStore = useTasksStore()

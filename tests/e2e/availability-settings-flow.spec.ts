@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Availability Settings Flow', () => {
 	test.beforeEach(async ({ page }) => {

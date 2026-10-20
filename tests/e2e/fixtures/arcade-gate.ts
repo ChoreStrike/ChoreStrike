@@ -9,8 +9,9 @@
  * default (on), so every reseeded spec starts locked again.
  */
 
-import { expect } from '@playwright/test'
 import type { Browser } from '@playwright/test'
+
+import { expect } from '@playwright/test'
 import { createUserContext } from './auth-contexts'
 
 /** An owner of the family seed. */

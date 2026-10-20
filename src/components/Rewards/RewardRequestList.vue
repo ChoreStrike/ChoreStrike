@@ -166,17 +166,17 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 import { mapStores } from 'pinia'
-import { useRewardsStore } from '../../store/rewards.js'
-import { useGameStore } from '../../store/game.js'
-import { useUserStore } from '../../store/user.js'
-import { formatCoinMinor } from '../../utils/minorUnits.js'
-import { logger } from '../../utils/logger.js'
 import EmptyState from '../Common/EmptyState.vue'
 import ErrorState from '../Common/ErrorState.vue'
 import HelpEntry from '../Help/HelpEntry.vue'
+import { useGameStore } from '../../store/game.js'
+import { useRewardsStore } from '../../store/rewards.js'
+import { useUserStore } from '../../store/user.js'
+import { logger } from '../../utils/logger.js'
+import { formatCoinMinor } from '../../utils/minorUnits.js'
 
 /**
  * Own and (owner-only) household reward-request lists (CS-PLAN-070 WP8

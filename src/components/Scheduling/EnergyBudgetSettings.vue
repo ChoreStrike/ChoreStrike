@@ -57,15 +57,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import { showSuccess, showError } from '@nextcloud/dialogs'
-import { useSchedulingStore } from '../../store/scheduling.js'
-import { logger } from '../../utils/logger.js'
-import { weekDays, ENERGY_MIN, ENERGY_MAX } from '../../constants/scheduling.js'
-import { createDefaultEnergyBudget } from '../../utils/energyBudgets.js'
-import WeekBudgetGrid from './WeekBudgetGrid.vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import BudgetAnalysis from './BudgetAnalysis.vue'
+import WeekBudgetGrid from './WeekBudgetGrid.vue'
+import { ENERGY_MAX, ENERGY_MIN, weekDays } from '../../constants/scheduling.js'
+import { useSchedulingStore } from '../../store/scheduling.js'
+import { createDefaultEnergyBudget } from '../../utils/energyBudgets.js'
+import { logger } from '../../utils/logger.js'
 
 const schedulingStore = useSchedulingStore()
 

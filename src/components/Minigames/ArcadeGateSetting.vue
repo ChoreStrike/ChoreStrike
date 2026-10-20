@@ -40,8 +40,8 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed, ref, watch } from 'vue'
 import { useHouseStore } from '../../store/house.js'
 import { logger } from '../../utils/logger.js'
 

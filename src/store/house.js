@@ -3,8 +3,8 @@
  * @license MIT
  */
 
-import { defineStore } from 'pinia'
 import { translate as t } from '@nextcloud/l10n'
+import { defineStore } from 'pinia'
 import { api, setCatalogEnabled } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 

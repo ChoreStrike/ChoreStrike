@@ -40,8 +40,8 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { ref, watch } from 'vue'
 import { Icon } from '../Common/index.js'
 
 /**

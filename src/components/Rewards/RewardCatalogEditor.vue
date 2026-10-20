@@ -221,16 +221,16 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 import { mapStores } from 'pinia'
-import { useRewardsStore } from '../../store/rewards.js'
-import { useHouseStore } from '../../store/house.js'
-import { formatCoinMinor, parseCoinMinor } from '../../utils/minorUnits.js'
-import { logger } from '../../utils/logger.js'
-import Modal from '../Common/Modal.vue'
 import ConfirmDialog from '../Common/ConfirmDialog.vue'
+import Modal from '../Common/Modal.vue'
 import HelpEntry from '../Help/HelpEntry.vue'
+import { useHouseStore } from '../../store/house.js'
+import { useRewardsStore } from '../../store/rewards.js'
+import { logger } from '../../utils/logger.js'
+import { formatCoinMinor, parseCoinMinor } from '../../utils/minorUnits.js'
 
 const TITLE_MAX = 120
 const DESCRIPTION_MAX = 2000

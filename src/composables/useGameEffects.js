@@ -4,10 +4,10 @@
  */
 
 import { usePreferencesStore } from '../store/preferences.js'
-import { syncEffectGates } from '../utils/effectGates.js'
 import { areCelebrationsEnabled, fireConfetti } from '../utils/confetti.js'
-import { playSound, unlockAudio } from '../utils/sound.js'
+import { syncEffectGates } from '../utils/effectGates.js'
 import { pulseCompletion } from '../utils/haptics.js'
+import { playSound, unlockAudio } from '../utils/sound.js'
 
 /** The sound of each game event; events without one stay silent. */
 const EVENT_SOUNDS = Object.freeze({

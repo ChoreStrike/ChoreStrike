@@ -45,8 +45,8 @@
 </template>
 
 <script>
-import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed } from 'vue'
 import { useHouseStore } from '../../store/house.js'
 import { logger } from '../../utils/logger.js'
 import { Icon } from '../Common/index.js'

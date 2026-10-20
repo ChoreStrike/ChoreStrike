@@ -145,25 +145,25 @@
 </template>
 
 <script>
-import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { Icon } from '../Common/index.js'
+import { computed } from 'vue'
 import HoldButton from '../Common/HoldButton.vue'
 import FlexWindowDisplay from './FlexWindowDisplay.vue'
 import TaskListDetails from './TaskListDetails.vue'
-import { useUserStore } from '../../store/user.js'
 import { useHouseStore } from '../../store/house.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { useUserStore } from '../../store/user.js'
 import {
 	assignmentLabel,
-	isOverdue,
-	priorityClass,
-	priorityLabel,
-	frequencyLabel,
 	dueClass,
 	dueText,
 	flexWindowKeys,
+	frequencyLabel,
+	isOverdue,
+	priorityClass,
+	priorityLabel,
 } from '../../utils/taskDisplay.js'
+import { Icon } from '../Common/index.js'
 
 /**
  * One TaskList row (CS-PLAN-067 §3.4): status/claim actions, definition

@@ -90,14 +90,14 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
-import { useRoomTasksStore } from '../store/roomTasks.js'
+import { translate as t } from '@nextcloud/l10n'
+import TaskCalendar from '../components/Tasks/TaskCalendar.vue'
 import { useHouseStore } from '../store/house.js'
+import { useRoomTasksStore } from '../store/roomTasks.js'
 import { addDaysToKey, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
 import { isOverdue as isRowOverdue } from '../utils/taskDisplay.js'
-import TaskCalendar from '../components/Tasks/TaskCalendar.vue'
 
 export default {
 	name: 'CalendarView',

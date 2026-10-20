@@ -3,17 +3,17 @@
  * @license MIT
  */
 
+import { emit } from '@nextcloud/event-bus'
 import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
-import { emit } from '@nextcloud/event-bus'
-import { logger } from '../utils/logger.js'
 import { dateKeyInZone } from '../utils/dateKeys.js'
-import { useHouseStore } from './house.js'
+import { logger } from '../utils/logger.js'
 import { useGameStore } from './game.js'
+import { useHouseStore } from './house.js'
 import { useRoomsStore } from './rooms.js'
 import { useTasksStore } from './tasks.js'
-import { useUserStore } from './user.js'
 import { useTitlesStore } from './titles.js'
+import { useUserStore } from './user.js'
 
 /**
  * Generate a client idempotency UUID (CS-PLAN-072 WP1): one fresh UUID

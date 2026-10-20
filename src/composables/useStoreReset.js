@@ -3,21 +3,21 @@
  * @license MIT
  */
 
-import { useUserStore } from '../store/user.js'
+import { useChecklistStore } from '../store/checklist.js'
+import { useGameStore } from '../store/game.js'
+import { useHouseStore } from '../store/house.js'
+import { useMinigameStore } from '../store/minigame.js'
+import { usePausesStore } from '../store/pauses.js'
 import { usePreferencesStore } from '../store/preferences.js'
 import { useRankingStore } from '../store/ranking.js'
-import { useGameStore } from '../store/game.js'
-import { useMinigameStore } from '../store/minigame.js'
-import { useHouseStore } from '../store/house.js'
+import { useRewardsStore } from '../store/rewards.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
-import { useTasksStore } from '../store/tasks.js'
-import { useChecklistStore } from '../store/checklist.js'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { useSetupStore } from '../store/setup.js'
+import { useTasksStore } from '../store/tasks.js'
 import { useTitlesStore } from '../store/titles.js'
-import { usePausesStore } from '../store/pauses.js'
-import { useRewardsStore } from '../store/rewards.js'
+import { useUserStore } from '../store/user.js'
 
 /**
  * Central identity/house-switch reset (CS-PLAN-070 WP6 §3.8, C5h): ONE

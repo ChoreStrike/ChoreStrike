@@ -18,11 +18,11 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { test, expect } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeRoomTaskViaApi, resolveOccurrenceReceipt, postCompletionWithReceipt, newCommandId } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
+import { createUserContext } from './fixtures/auth-contexts'
+import { completeRoomTaskViaApi, newCommandId, postCompletionWithReceipt, resolveOccurrenceReceipt } from './fixtures/completion-api'
+import { expect, test } from './fixtures/database-fixtures'
 import { houseDateOffset } from './fixtures/house-clock.js'
 
 interface RoomTaskJson {

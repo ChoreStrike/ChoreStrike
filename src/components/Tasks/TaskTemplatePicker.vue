@@ -97,8 +97,8 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { useSetupStore } from '../../store/setup.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { useSetupStore } from '../../store/setup.js'
 import { logger } from '../../utils/logger.js'
 
 export default {

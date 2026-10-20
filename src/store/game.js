@@ -3,9 +3,9 @@
  * @license MIT
  */
 
+import { emit } from '@nextcloud/event-bus'
 import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
-import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
 
 export const useGameStore = defineStore('game', {

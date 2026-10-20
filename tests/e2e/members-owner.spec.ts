@@ -14,8 +14,8 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { expect, test } from './fixtures/database-fixtures'
 import { runOcc } from './fixtures/occ-runner'
 
 const ADMIN_EMAIL = 'admin@chorestrike.test'

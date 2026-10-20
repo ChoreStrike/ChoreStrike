@@ -3,8 +3,8 @@
  * @license MIT
  */
 
-import { translate as t } from '@nextcloud/l10n'
 import { showError } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 
 // Stable machine codes only (`ControllerErrorFormatter` codes, client codes
 // such as STALE_TARGET) — never a free-text message.

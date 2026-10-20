@@ -35,8 +35,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed } from 'vue'
 
 /**
  * Score header of GameShell (CS-PLAN-086 §3.4): score, the time left of a

@@ -3,8 +3,8 @@
  * @license MIT
  */
 
-import { createRouter, createWebHashHistory } from 'vue-router'
 import { generateUrl } from '@nextcloud/router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 
 // Lazy-loaded routes with named chunks for better caching
 export const routes = [

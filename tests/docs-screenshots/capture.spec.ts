@@ -11,13 +11,13 @@
  * (name, a small reward catalog) and captures the scenes of scenes.js.
  */
 
+import { type APIResponse, type Page, expect, test } from '@playwright/test'
 import path from 'node:path'
-import { test, expect, type APIResponse, type Page } from '@playwright/test'
 import { createUserContext } from '../e2e/fixtures/auth-contexts'
 import { newCommandId } from '../e2e/fixtures/completion-api'
 import { DatabaseManager } from '../e2e/fixtures/database-fixtures'
 import { holdToConfirm } from '../e2e/fixtures/hold-to-confirm'
-import { PHONE, PRESENTED_HOUSE_NAME, SCENES, SEEDED_HOUSE_NAME, SEEDED_ROLES, assertCaptureTarget } from './scenes'
+import { assertCaptureTarget, PHONE, PRESENTED_HOUSE_NAME, SCENES, SEEDED_HOUSE_NAME, SEEDED_ROLES } from './scenes'
 
 const API = '/apps/chorestrike/api/v1'
 const OUTPUT_DIR = path.resolve(__dirname, '../../docs/screenshots')

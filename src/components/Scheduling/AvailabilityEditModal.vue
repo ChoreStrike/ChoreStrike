@@ -137,15 +137,15 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import { showSuccess, showError } from '@nextcloud/dialogs'
+import { computed, ref } from 'vue'
+import Modal from '../Common/Modal.vue'
+import { ENERGY_MAX, ENERGY_MIN, MAX_DAILY_TASKS_MAX, MAX_DAILY_TASKS_MIN, weekDays } from '../../constants/scheduling.js'
 import { useSchedulingStore } from '../../store/scheduling.js'
 import { resolveCurrentUser } from '../../utils/currentUser.js'
-import { logger } from '../../utils/logger.js'
-import { weekDays, ENERGY_MIN, ENERGY_MAX, MAX_DAILY_TASKS_MIN, MAX_DAILY_TASKS_MAX } from '../../constants/scheduling.js'
 import { createDefaultEnergyBudget } from '../../utils/energyBudgets.js'
-import Modal from '../Common/Modal.vue'
+import { logger } from '../../utils/logger.js'
 
 const props = defineProps({
 	member: {

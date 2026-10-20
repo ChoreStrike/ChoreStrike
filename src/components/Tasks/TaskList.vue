@@ -67,16 +67,16 @@
 </template>
 
 <script>
-import { computed, ref } from 'vue'
+import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import { showSuccess, showWarning, showError } from '@nextcloud/dialogs'
+import { computed, ref } from 'vue'
 import EmptyState from '../Common/EmptyState.vue'
-import TaskListItem from './TaskListItem.vue'
-import TaskListBulkBar from './TaskListBulkBar.vue'
 import OverdueClaimDialog from './OverdueClaimDialog.vue'
+import TaskListBulkBar from './TaskListBulkBar.vue'
+import TaskListItem from './TaskListItem.vue'
 import { useChecklistStore } from '../../store/checklist.js'
-import { useUserStore } from '../../store/user.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { useUserStore } from '../../store/user.js'
 import { logger } from '../../utils/logger.js'
 import { compareTaskItems, isOverdue } from '../../utils/taskDisplay.js'
 

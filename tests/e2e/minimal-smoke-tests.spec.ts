@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Response } from '@playwright/test'
+import { type Page, type Response, expect, test } from '@playwright/test'
 
 /**
  * Minimal Smoke Tests

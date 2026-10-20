@@ -3,9 +3,9 @@
  * @license MIT
  */
 
-import { translate as t } from '@nextcloud/l10n'
-import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { showSuccess } from '@nextcloud/dialogs'
+import { subscribe, unsubscribe } from '@nextcloud/event-bus'
+import { translate as t } from '@nextcloud/l10n'
 import { logger } from '../utils/logger.js'
 
 /**

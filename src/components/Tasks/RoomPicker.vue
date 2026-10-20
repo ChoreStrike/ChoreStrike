@@ -54,11 +54,11 @@
 </template>
 
 <script>
-import { computed, onMounted, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed, onMounted, ref, watch } from 'vue'
+import Icon from '../Common/Icon.vue'
 import { useRoomsStore } from '../../store/rooms.js'
 import { logger } from '../../utils/logger.js'
-import Icon from '../Common/Icon.vue'
 
 export default {
 	name: 'RoomPicker',

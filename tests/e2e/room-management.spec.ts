@@ -1,8 +1,8 @@
-import { existsSync } from 'node:fs'
 import { expect } from '@playwright/test'
-import { test } from './fixtures/database-fixtures'
+import { existsSync } from 'node:fs'
 import { createUserContext, userStatePath } from './fixtures/auth-contexts'
 import { expandUntilRoomVisible } from './fixtures/dashboard-floors'
+import { test } from './fixtures/database-fixtures'
 
 /**
  * E2E test: Room and floor management (CS-PLAN-042, UX-004)

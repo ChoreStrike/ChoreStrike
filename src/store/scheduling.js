@@ -3,18 +3,18 @@
  * @license MIT
  */
 
-import { defineStore } from 'pinia'
 import { emit } from '@nextcloud/event-bus'
+import { defineStore } from 'pinia'
+import { isMemberAvailable } from '../constants/scheduling.js'
 import {
-	api,
 	amendOccurrence as amendOccurrenceRequest,
+	api,
 	catchUpOccurrence as catchUpOccurrenceRequest,
 	restartOccurrence as restartOccurrenceRequest,
 } from '../services/api.js'
-import { logger } from '../utils/logger.js'
-import { createDefaultEnergyBudget, resolveEnergyForDay } from '../utils/energyBudgets.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
-import { isMemberAvailable } from '../constants/scheduling.js'
+import { createDefaultEnergyBudget, resolveEnergyForDay } from '../utils/energyBudgets.js'
+import { logger } from '../utils/logger.js'
 import { useHouseStore } from './house.js'
 import { useRoomTasksStore } from './roomTasks.js'
 import { useTasksStore } from './tasks.js'

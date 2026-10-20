@@ -54,7 +54,7 @@
 
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
-import { weekDays, ENERGY_MIN, ENERGY_MAX } from '../../constants/scheduling.js'
+import { ENERGY_MAX, ENERGY_MIN, weekDays } from '../../constants/scheduling.js'
 
 defineProps({
 	/** Budget map keyed by weekday */

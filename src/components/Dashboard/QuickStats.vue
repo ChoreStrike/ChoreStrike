@@ -127,14 +127,13 @@
 </template>
 
 <script>
-import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import Icon from '../Common/Icon.vue'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
-
 import { logger } from '../../utils/logger.js'
-import Icon from '../Common/Icon.vue'
 
 export default {
 	name: 'QuickStats',

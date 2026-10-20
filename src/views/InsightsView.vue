@@ -139,19 +139,19 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError } from '@nextcloud/dialogs'
-import { useHouseStore } from '../store/house.js'
-import { useUserStore } from '../store/user.js'
-import { useRoomTasksStore } from '../store/roomTasks.js'
-import { logger } from '../utils/logger.js'
-import { showErrorWithReference } from '../utils/errorToast.js'
-import Modal from '../components/Common/Modal.vue'
+import { translate as t } from '@nextcloud/l10n'
 import ErrorState from '../components/Common/ErrorState.vue'
+import Modal from '../components/Common/Modal.vue'
+import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
+import ActivityFeed from '../components/Insights/ActivityFeed.vue'
 import HouseStatsCards from '../components/Insights/HouseStatsCards.vue'
 import MemberFairnessTable from '../components/Insights/MemberFairnessTable.vue'
-import ActivityFeed from '../components/Insights/ActivityFeed.vue'
-import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
+import { useHouseStore } from '../store/house.js'
+import { useRoomTasksStore } from '../store/roomTasks.js'
+import { useUserStore } from '../store/user.js'
+import { showErrorWithReference } from '../utils/errorToast.js'
+import { logger } from '../utils/logger.js'
 
 export default {
 	name: 'InsightsView',

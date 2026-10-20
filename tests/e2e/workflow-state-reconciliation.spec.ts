@@ -18,10 +18,9 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { test, expect, PROFILE_USERS } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
 import { formatCoinMinor } from '../../src/utils/minorUnits'
-
+import { createUserContext } from './fixtures/auth-contexts'
+import { expect, PROFILE_USERS, test } from './fixtures/database-fixtures'
 import { holdToConfirm } from './fixtures/hold-to-confirm'
 test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })

@@ -356,18 +356,18 @@
 </template>
 
 <script>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { Icon } from '../Common/index.js'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import ErrorState from '../Common/ErrorState.vue'
+import AssigneeChips from './AssigneeChips.vue'
 import RecurrencePresetSelector from './RecurrencePresetSelector.vue'
 import RoomPicker from './RoomPicker.vue'
-import AssigneeChips from './AssigneeChips.vue'
-import ErrorState from '../Common/ErrorState.vue'
-import { useUserStore } from '../../store/user.js'
+import { VISIBILITY_ADMIN_ONLY, VISIBILITY_PRIVATE, VISIBILITY_PUBLIC } from '../../constants/taskVisibility.js'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useSetupStore } from '../../store/setup.js'
+import { useUserStore } from '../../store/user.js'
 import { logger } from '../../utils/logger.js'
-import { VISIBILITY_PUBLIC, VISIBILITY_PRIVATE, VISIBILITY_ADMIN_ONLY } from '../../constants/taskVisibility.js'
+import { Icon } from '../Common/index.js'
 
 export default {
 	name: 'TaskEditForm',

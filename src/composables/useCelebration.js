@@ -6,10 +6,10 @@
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { usePreferencesStore } from '../store/preferences.js'
 import { fireConfetti, fireMilestoneConfetti } from '../utils/confetti.js'
-import { playSound } from '../utils/sound.js'
 import { syncEffectGates } from '../utils/effectGates.js'
-import { logger } from '../utils/logger.js'
 import { pulseCompletion } from '../utils/haptics.js'
+import { logger } from '../utils/logger.js'
+import { playSound } from '../utils/sound.js'
 
 /**
  * Initialize celebration effects (C5g): subscribe to ChoreStrike event-bus

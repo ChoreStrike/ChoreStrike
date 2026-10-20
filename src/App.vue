@@ -135,22 +135,22 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import {
-	NcContent,
+	NcAppContent,
 	NcAppNavigation,
 	NcAppNavigationItem,
-	NcAppContent,
+	NcContent,
 	NcLoadingIcon,
 } from '@nextcloud/vue'
 import { mapStores } from 'pinia'
-import UndoSnackbar from './components/Common/UndoSnackbar.vue'
-import NotAuthorizedState from './components/Common/NotAuthorizedState.vue'
 import ErrorState from './components/Common/ErrorState.vue'
-import HelpEntry from './components/Help/HelpEntry.vue'
 import Icon from './components/Common/Icon.vue'
-import { useUserStore } from './store/user.js'
-import { usePreferencesStore } from './store/preferences.js'
-import { useHouseStore } from './store/house.js'
+import NotAuthorizedState from './components/Common/NotAuthorizedState.vue'
+import UndoSnackbar from './components/Common/UndoSnackbar.vue'
+import HelpEntry from './components/Help/HelpEntry.vue'
 import { resetIdentityStores } from './composables/useStoreReset.js'
+import { useHouseStore } from './store/house.js'
+import { usePreferencesStore } from './store/preferences.js'
+import { useUserStore } from './store/user.js'
 
 export default {
 	name: 'App',

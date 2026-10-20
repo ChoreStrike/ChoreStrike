@@ -5,6 +5,7 @@
 
 import {
 	BUBBLE_R,
+	clamp,
 	COLS,
 	DROP_HALF,
 	DROP_KINDS,
@@ -19,7 +20,6 @@ import {
 	WALL_COLS,
 	WALL_ROWS,
 	WALL_TOP,
-	clamp,
 } from './constants.js'
 
 /**

@@ -16,8 +16,8 @@
 </template>
 
 <script>
-import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed } from 'vue'
 import { TIER_STYLES, titleLabel } from '../../constants/titles.js'
 
 /**

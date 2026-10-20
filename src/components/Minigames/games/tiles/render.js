@@ -3,6 +3,7 @@
  * @license MIT
  */
 
+import { disc, roundedRect } from '../../draw.js'
 import {
 	BUBBLE_R,
 	COLS,
@@ -15,7 +16,6 @@ import {
 	WALL_COLS,
 	WALL_TOP,
 } from './constants.js'
-import { disc, roundedRect } from '../../draw.js'
 
 /** Gap between two tiles, in cells. */
 const GROUT = 0.08

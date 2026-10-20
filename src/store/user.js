@@ -3,9 +3,9 @@
  * @license MIT
  */
 
+import { translate as t } from '@nextcloud/l10n'
 import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
-import { translate as t } from '@nextcloud/l10n'
 import { logger } from '../utils/logger.js'
 
 export const useUserStore = defineStore('user', {

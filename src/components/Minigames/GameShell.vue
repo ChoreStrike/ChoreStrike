@@ -72,23 +72,23 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import GameLeaderboard from './GameLeaderboard.vue'
+import GameShellDpad from './GameShellDpad.vue'
+import GameShellHeader from './GameShellHeader.vue'
+import GameShellOverlay from './GameShellOverlay.vue'
+import { useGameEffects } from '../../composables/useGameEffects.js'
+import { useGameLoop } from '../../composables/useGameLoop.js'
 import { useMinigameStore } from '../../store/minigame.js'
 import { usePreferencesStore } from '../../store/preferences.js'
-import { useGameLoop } from '../../composables/useGameLoop.js'
-import { useGameEffects } from '../../composables/useGameEffects.js'
+import { showErrorWithReference } from '../../utils/errorToast.js'
 import { logger } from '../../utils/logger.js'
 import { unlockAudio } from '../../utils/sound.js'
-import { showErrorWithReference } from '../../utils/errorToast.js'
-import { findGame } from './gameRegistry.js'
 import { canvasPixelRatio, fitBoard, readBoardPalette } from './board.js'
 import { createEffectsLayer } from './effectsLayer.js'
 import { createSteerKeys, isPaddleControl, keyAction, swipeDirection } from './gameInput.js'
-import GameShellHeader from './GameShellHeader.vue'
-import GameShellOverlay from './GameShellOverlay.vue'
-import GameShellDpad from './GameShellDpad.vue'
-import GameLeaderboard from './GameLeaderboard.vue'
+import { findGame } from './gameRegistry.js'
 
 /**
  * Shared frame of every arcade game (CS-PLAN-086 §3.4): score header,

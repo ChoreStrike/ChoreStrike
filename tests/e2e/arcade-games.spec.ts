@@ -19,12 +19,13 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { test, expect } from './fixtures/database-fixtures'
-import type { DatabaseProfile, SeededData } from './fixtures/database-fixtures'
 import type { Browser, Page } from '@playwright/test'
+import type { DatabaseProfile, SeededData } from './fixtures/database-fixtures'
+
+import { setArcadeGate } from './fixtures/arcade-gate'
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeAsSoleParticipantViaApi } from './fixtures/completion-api'
-import { setArcadeGate } from './fixtures/arcade-gate'
+import { expect, test } from './fixtures/database-fixtures'
 
 /**
  * Run a step as the admin member in its own context (primed CSRF token

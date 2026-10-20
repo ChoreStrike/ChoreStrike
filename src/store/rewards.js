@@ -5,17 +5,17 @@
 
 import { defineStore } from 'pinia'
 import {
-	fetchCatalog,
-	createCatalogItem as createCatalogItemRequest,
-	updateCatalogItem as updateCatalogItemRequest,
-	fetchRewardRequests,
-	fetchRewardRequest,
-	createRewardRequest as createRewardRequestRequest,
 	approveRewardRequest,
-	rejectRewardRequest,
 	cancelRewardRequest,
-	fulfillRewardRequest,
 	correctRewardRequest,
+	createCatalogItem as createCatalogItemRequest,
+	createRewardRequest as createRewardRequestRequest,
+	fetchCatalog,
+	fetchRewardRequest,
+	fetchRewardRequests,
+	fulfillRewardRequest,
+	rejectRewardRequest,
+	updateCatalogItem as updateCatalogItemRequest,
 } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 

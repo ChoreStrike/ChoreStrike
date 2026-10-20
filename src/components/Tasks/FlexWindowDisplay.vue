@@ -73,8 +73,8 @@
 </template>
 
 <script>
-import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed } from 'vue'
 import { Icon } from '../Common/index.js'
 
 /**

@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test'
-
+import { expect, test } from '@playwright/test'
 import { holdToConfirm } from './fixtures/hold-to-confirm'
 /**
  * E2E test: Task creation and completion flow

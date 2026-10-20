@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { DIRECTIONS, DIRECTION_ORDER, OPPOSITE, cellIndex, isFloor } from './rooms.js'
+import { cellIndex, DIRECTION_ORDER, DIRECTIONS, isFloor, OPPOSITE } from './rooms.js'
 
 /**
  * Dust bunny movement for Dust Runner (CS-PLAN-086 §3.1). Bunnies leave

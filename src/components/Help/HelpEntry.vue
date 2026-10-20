@@ -62,8 +62,8 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import HelpGlossary from './HelpGlossary.vue'
 import Modal from '../Common/Modal.vue'
+import HelpGlossary from './HelpGlossary.vue'
 
 /**
  * The help entry point (CS-PLAN-070 WP6 §3.7 + WP8 §3.6, FEAT-UX-023

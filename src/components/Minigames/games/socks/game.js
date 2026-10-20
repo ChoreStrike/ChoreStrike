@@ -4,5 +4,5 @@
  */
 
 // The lazy chunk of Sock Match: an untimed DOM game (view + Board) GameShell drives.
-export { COLS as cols, ROWS as rows, createState, step, view } from './logic.js'
+export { COLS as cols, createState, ROWS as rows, step, view } from './logic.js'
 export { default as Board } from './Board.vue'

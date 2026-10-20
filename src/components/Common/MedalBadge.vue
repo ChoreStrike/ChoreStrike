@@ -11,8 +11,8 @@
 </template>
 
 <script>
-import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed } from 'vue'
 
 /**
  * Medal type → translation key (source string). Exported so surfaces that

@@ -3,9 +3,9 @@
  * @license MIT
  */
 
-import { COLS, FLOOR, NEST, ROWS, cellIndex, themeAt } from './rooms.js'
+import { disc, drawEyes, pulse, roundedRect, TAU } from '../../draw.js'
 import { drawBunny, drawRobot } from './actors.js'
-import { TAU, disc, drawEyes, pulse, roundedRect } from '../../draw.js'
+import { cellIndex, COLS, FLOOR, NEST, ROWS, themeAt } from './rooms.js'
 
 /** Gap around a piece of furniture, in cells. */
 const GAP = 0.08

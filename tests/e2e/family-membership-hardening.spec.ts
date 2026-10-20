@@ -1,8 +1,9 @@
-import { randomUUID } from 'node:crypto'
 import type { APIResponse, Browser, BrowserContext, Page } from '@playwright/test'
-import { test, expect } from './fixtures/database-fixtures'
+
+import { randomUUID } from 'node:crypto'
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeAsSoleParticipantViaApi } from './fixtures/completion-api'
+import { expect, test } from './fixtures/database-fixtures'
 import { runOcc } from './fixtures/occ-runner'
 
 const API = '/apps/chorestrike/api/v1'

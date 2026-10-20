@@ -5,10 +5,10 @@
 
 import { defineStore } from 'pinia'
 import {
-	fetchPauses,
-	createPause,
-	recognizeIllness as recognizeIllnessRequest,
 	approvePause,
+	createPause,
+	fetchPauses,
+	recognizeIllness as recognizeIllnessRequest,
 	rejectPause,
 	updatePause,
 } from '../services/api.js'

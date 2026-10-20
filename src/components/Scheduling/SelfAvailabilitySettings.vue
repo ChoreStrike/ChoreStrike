@@ -57,12 +57,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import { showSuccess, showError } from '@nextcloud/dialogs'
+import { computed, onMounted, ref, watch } from 'vue'
+import { weekDays } from '../../constants/scheduling.js'
 import { useSchedulingStore } from '../../store/scheduling.js'
 import { logger } from '../../utils/logger.js'
-import { weekDays } from '../../constants/scheduling.js'
 
 const schedulingStore = useSchedulingStore()
 

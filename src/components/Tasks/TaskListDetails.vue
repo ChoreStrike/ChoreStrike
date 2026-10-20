@@ -162,11 +162,11 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
+import HelpEntry from '../Help/HelpEntry.vue'
 import AssigneeChips from './AssigneeChips.vue'
 import TaskChecklist from './TaskChecklist.vue'
-import HelpEntry from '../Help/HelpEntry.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { useSchedulingStore } from '../../store/scheduling.js'
 import { logger } from '../../utils/logger.js'

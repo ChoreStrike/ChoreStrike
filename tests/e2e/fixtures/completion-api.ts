@@ -12,7 +12,8 @@
  * (the same block the UI store consumes) and post it unchanged.
  */
 
-import type { Page, APIResponse, Locator, Response } from '@playwright/test'
+import type { APIResponse, Locator, Page, Response } from '@playwright/test'
+
 import { holdToConfirm } from './hold-to-confirm'
 
 export interface OccurrenceReceipt {

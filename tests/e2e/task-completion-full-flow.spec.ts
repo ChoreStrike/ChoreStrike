@@ -17,13 +17,13 @@
  * intent (CS-PLAN-064).
  */
 
-import { test, expect } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
-import { expandAllFloors } from './fixtures/dashboard-floors'
-import { houseDateOffset } from './fixtures/house-clock.js'
 import type { Page } from '@playwright/test'
 
+import { createUserContext } from './fixtures/auth-contexts'
+import { expandAllFloors } from './fixtures/dashboard-floors'
+import { expect, test } from './fixtures/database-fixtures'
 import { holdToConfirm } from './fixtures/hold-to-confirm'
+import { houseDateOffset } from './fixtures/house-clock.js'
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. */
 async function kitchenRoom(page: Page): Promise<{ id: number, cleanliness: number }> {

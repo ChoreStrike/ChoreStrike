@@ -248,18 +248,18 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 import { mapStores } from 'pinia'
-import { useRewardsStore, REASON_CODES } from '../../store/rewards.js'
-import { useGameStore } from '../../store/game.js'
-import { useUserStore } from '../../store/user.js'
-import { formatCoinMinor } from '../../utils/minorUnits.js'
-import { logger } from '../../utils/logger.js'
-import Modal from '../Common/Modal.vue'
+import ConfirmDialog from '../Common/ConfirmDialog.vue'
 import EmptyState from '../Common/EmptyState.vue'
 import ErrorState from '../Common/ErrorState.vue'
-import ConfirmDialog from '../Common/ConfirmDialog.vue'
+import Modal from '../Common/Modal.vue'
+import { useGameStore } from '../../store/game.js'
+import { REASON_CODES, useRewardsStore } from '../../store/rewards.js'
+import { useUserStore } from '../../store/user.js'
+import { logger } from '../../utils/logger.js'
+import { formatCoinMinor } from '../../utils/minorUnits.js'
 
 /**
  * One authorized reward request (CS-PLAN-070 WP8 §3.4): frozen terms,

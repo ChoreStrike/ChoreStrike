@@ -16,9 +16,10 @@
  * with the `family` database profile.
  */
 
-import { test, expect } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
 import type { Page } from '@playwright/test'
+
+import { createUserContext } from './fixtures/auth-contexts'
+import { expect, test } from './fixtures/database-fixtures'
 
 /** House-local day key — the Docker test environment runs the house on UTC. */
 const utcDayKey = (offsetDays = 0): string => new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)

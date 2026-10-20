@@ -26,19 +26,19 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { test, expect } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
-import { expandAllFloors } from './fixtures/dashboard-floors'
-import { houseDateOffset } from './fixtures/house-clock.js'
-import {
-	resolveOccurrenceReceipt,
-	postCompletionWithReceipt,
-	newCommandId,
-	completeWithOptionalDialog,
-} from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
+import { createUserContext } from './fixtures/auth-contexts'
+import {
+	completeWithOptionalDialog,
+	newCommandId,
+	postCompletionWithReceipt,
+	resolveOccurrenceReceipt,
+} from './fixtures/completion-api'
+import { expandAllFloors } from './fixtures/dashboard-floors'
+import { expect, test } from './fixtures/database-fixtures'
 import { holdToConfirm } from './fixtures/hold-to-confirm'
+import { houseDateOffset } from './fixtures/house-clock.js'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const OCCURRENCE_KEY_RE = /^\d+:\d+$/
 

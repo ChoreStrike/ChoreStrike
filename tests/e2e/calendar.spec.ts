@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test.describe('Calendar View', () => {
 	test.beforeEach(async ({ page }) => {

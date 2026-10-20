@@ -175,20 +175,20 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 import { mapStores } from 'pinia'
-import { useRewardsStore } from '../store/rewards.js'
-import { useHouseStore } from '../store/house.js'
-import { usePreferencesStore } from '../store/preferences.js'
-import { useGameStore } from '../store/game.js'
-import { useUserStore } from '../store/user.js'
-import { formatCoinMinor } from '../utils/minorUnits.js'
-import { logger } from '../utils/logger.js'
-import Modal from '../components/Common/Modal.vue'
 import EmptyState from '../components/Common/EmptyState.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
+import Modal from '../components/Common/Modal.vue'
 import HelpEntry from '../components/Help/HelpEntry.vue'
+import { useGameStore } from '../store/game.js'
+import { useHouseStore } from '../store/house.js'
+import { usePreferencesStore } from '../store/preferences.js'
+import { useRewardsStore } from '../store/rewards.js'
+import { useUserStore } from '../store/user.js'
+import { logger } from '../utils/logger.js'
+import { formatCoinMinor } from '../utils/minorUnits.js'
 
 /**
  * The optional reward catalog surface (CS-PLAN-070 WP8 §3.1/§3.4). Both

@@ -134,8 +134,8 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 import { usePausesStore } from '../../store/pauses.js'
 import { useUserStore } from '../../store/user.js'
 import { logger } from '../../utils/logger.js'

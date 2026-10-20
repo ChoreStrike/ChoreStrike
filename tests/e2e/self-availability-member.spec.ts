@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 // CS-PLAN-032: admin is a plain house *member* under the unconditionally
 // seeded family profile, so this spec exercises the non-owner scheduling

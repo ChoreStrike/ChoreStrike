@@ -19,10 +19,11 @@
  * the old finds always missed and skipped).
  */
 
-import { test, expect } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
-import { completeAsSoleParticipantViaApi, postCompletionWithReceipt, placeholderReceipt } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
+
+import { createUserContext } from './fixtures/auth-contexts'
+import { completeAsSoleParticipantViaApi, placeholderReceipt, postCompletionWithReceipt } from './fixtures/completion-api'
+import { expect, test } from './fixtures/database-fixtures'
 import { houseDateOffset } from './fixtures/house-clock.js'
 
 test.describe('Overdue Task Claiming', () => {

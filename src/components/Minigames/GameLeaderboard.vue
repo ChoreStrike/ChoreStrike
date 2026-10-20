@@ -70,11 +70,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed, onMounted, ref } from 'vue'
+import Modal from '../Common/Modal.vue'
 import { useMinigameStore } from '../../store/minigame.js'
 import { useUserStore } from '../../store/user.js'
-import Modal from '../Common/Modal.vue'
 import { findGame } from './gameRegistry.js'
 
 /**

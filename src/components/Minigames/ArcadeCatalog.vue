@@ -82,14 +82,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useMinigameStore } from '../../store/minigame.js'
+import { computed, onMounted, ref } from 'vue'
 import Modal from '../Common/Modal.vue'
-import GameShell from './GameShell.vue'
 import GameLeaderboard from './GameLeaderboard.vue'
+import GameShell from './GameShell.vue'
+import { useMinigameStore } from '../../store/minigame.js'
 import { logger } from '../../utils/logger.js'
-import { GAME_IDS, findGame } from './gameRegistry.js'
+import { findGame, GAME_IDS } from './gameRegistry.js'
 
 /**
  * The arcade's game catalog (CS-PLAN-086 §3.4; replaces the single Snake

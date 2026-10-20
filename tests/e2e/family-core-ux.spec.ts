@@ -17,13 +17,14 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { AxeBuilder } from '@axe-core/playwright'
-import { test, expect } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
-import { runOcc } from './fixtures/occ-runner'
-import { completeRoomTaskViaApi, completeWithOptionalDialog } from './fixtures/completion-api'
-import { holdToConfirm } from './fixtures/hold-to-confirm'
 import type { Locator } from '@playwright/test'
+
+import { AxeBuilder } from '@axe-core/playwright'
+import { createUserContext } from './fixtures/auth-contexts'
+import { completeRoomTaskViaApi, completeWithOptionalDialog } from './fixtures/completion-api'
+import { expect, test } from './fixtures/database-fixtures'
+import { holdToConfirm } from './fixtures/hold-to-confirm'
+import { runOcc } from './fixtures/occ-runner'
 
 test.describe('Family core UX (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })

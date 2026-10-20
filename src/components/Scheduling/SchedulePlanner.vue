@@ -256,17 +256,17 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import { showSuccess, showError } from '@nextcloud/dialogs'
-import { useSchedulingStore } from '../../store/scheduling.js'
-import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { computed, ref, watch } from 'vue'
+import { useHouseStore } from '../../store/house.js'
 import { useRoomsStore } from '../../store/rooms.js'
+import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { useSchedulingStore } from '../../store/scheduling.js'
 import { useTasksStore } from '../../store/tasks.js'
 import { useUserStore } from '../../store/user.js'
-import { useHouseStore } from '../../store/house.js'
-import { logger } from '../../utils/logger.js'
 import { dateKeyInZone, todayKeyInZone } from '../../utils/dateKeys.js'
+import { logger } from '../../utils/logger.js'
 
 const schedulingStore = useSchedulingStore()
 const roomTasksStore = useRoomTasksStore()

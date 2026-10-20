@@ -5,16 +5,16 @@
 
 import {
 	BUBBLE_R,
+	clamp,
 	COLS,
 	MAX_SPEED,
 	SERVE_MS,
 	SQUEEGEE_W,
 	SQUEEGEE_Y,
 	START_LIVES,
-	WALLS,
 	WALL_COLS,
 	WALL_ROWS,
-	clamp,
+	WALLS,
 } from './constants.js'
 import { moveBubbles, moveDrops } from './physics.js'
 

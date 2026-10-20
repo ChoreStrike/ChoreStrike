@@ -221,25 +221,25 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
+import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
+import ErrorState from '../components/Common/ErrorState.vue'
+import Icon from '../components/Common/Icon.vue'
+import Modal from '../components/Common/Modal.vue'
+import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
+import RoomTaskEditModal from '../components/Tasks/RoomTaskEditModal.vue'
+import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
+import TaskList from '../components/Tasks/TaskList.vue'
+import TaskTemplatePicker from '../components/Tasks/TaskTemplatePicker.vue'
+import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
-import { logger } from '../utils/logger.js'
 import { showCompletionError } from '../utils/errorToast.js'
+import { logger } from '../utils/logger.js'
 import { isOverdue } from '../utils/taskDisplay.js'
-import Icon from '../components/Common/Icon.vue'
-import TaskList from '../components/Tasks/TaskList.vue'
-import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
-import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
-import RoomTaskEditModal from '../components/Tasks/RoomTaskEditModal.vue'
-import TaskTemplatePicker from '../components/Tasks/TaskTemplatePicker.vue'
-import Modal from '../components/Common/Modal.vue'
-import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
-import ErrorState from '../components/Common/ErrorState.vue'
-import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 
 export default {
 	name: 'RoomDetail',

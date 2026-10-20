@@ -40,13 +40,13 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
-import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { showError } from '@nextcloud/dialogs'
-import { useRoomTasksStore } from '../../store/roomTasks.js'
-import { logger } from '../../utils/logger.js'
+import { subscribe, unsubscribe } from '@nextcloud/event-bus'
+import { translate as t } from '@nextcloud/l10n'
 import Icon from './Icon.vue'
+import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { showErrorWithReference } from '../../utils/errorToast.js'
+import { logger } from '../../utils/logger.js'
 
 const SNACKBAR_TIMEOUT_MS = 5000
 const MAX_QUEUE_ENTRIES = 3

@@ -3,11 +3,11 @@
  * @license MIT
  */
 
-import spots from './games/spots/index.js'
-import socks from './games/socks/index.js'
-import snake from './games/snake/index.js'
-import tiles from './games/tiles/index.js'
 import dust from './games/dust/index.js'
+import snake from './games/snake/index.js'
+import socks from './games/socks/index.js'
+import spots from './games/spots/index.js'
+import tiles from './games/tiles/index.js'
 
 /**
  * Client game registry (CS-PLAN-086 §3.4). Each entry carries its id, names,

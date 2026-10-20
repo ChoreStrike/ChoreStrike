@@ -325,12 +325,12 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import HelpEntry from '../Help/HelpEntry.vue'
+import { useHouseStore } from '../../store/house.js'
 import { useSetupStore } from '../../store/setup.js'
 import { useUserStore } from '../../store/user.js'
-import { useHouseStore } from '../../store/house.js'
-import { iconForRoomType } from '../../utils/roomIcons.js'
-import HelpEntry from '../Help/HelpEntry.vue'
 import { logger } from '../../utils/logger.js'
+import { iconForRoomType } from '../../utils/roomIcons.js'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

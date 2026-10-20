@@ -153,8 +153,8 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
 import { showSuccess } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 import { NcButton, NcCheckboxRadioSwitch, NcNoteCard } from '@nextcloud/vue'
 import { usePreferencesStore } from '../../store/preferences.js'
 import { logger } from '../../utils/logger.js'

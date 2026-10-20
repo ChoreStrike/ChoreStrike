@@ -57,10 +57,10 @@
 </template>
 
 <script>
-import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useGameStore } from '../../store/game.js'
+import { computed } from 'vue'
 import Icon from '../Common/Icon.vue'
+import { useGameStore } from '../../store/game.js'
 
 export default {
 	name: 'HouseholdGoalBar',

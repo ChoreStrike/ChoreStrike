@@ -129,11 +129,11 @@
 </template>
 
 <script>
-import { computed, ref, nextTick } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { computed, nextTick, ref } from 'vue'
+import ConfirmDialog from '../Common/ConfirmDialog.vue'
 import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
-import ConfirmDialog from '../Common/ConfirmDialog.vue'
 
 export default {
 	name: 'TaskChecklist',

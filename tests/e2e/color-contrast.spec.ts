@@ -11,11 +11,12 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { AxeBuilder } from '@axe-core/playwright'
-import { test, expect } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
-import { setArcadeGate } from './fixtures/arcade-gate'
 import type { Page } from '@playwright/test'
+
+import { AxeBuilder } from '@axe-core/playwright'
+import { setArcadeGate } from './fixtures/arcade-gate'
+import { createUserContext } from './fixtures/auth-contexts'
+import { expect, test } from './fixtures/database-fixtures'
 
 const USER = 'friend'
 const THEMES = ['light', 'dark'] as const

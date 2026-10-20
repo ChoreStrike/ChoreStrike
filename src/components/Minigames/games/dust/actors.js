@@ -3,10 +3,10 @@
  * @license MIT
  */
 
-import { DIRECTIONS } from './rooms.js'
+import { disc, drawEyes, lerp, pulse, TAU } from '../../draw.js'
 import { bunnyInterval } from './bunnies.js'
-import { ROBOT_MS, nextMove } from './logic.js'
-import { TAU, disc, drawEyes, lerp, pulse } from '../../draw.js'
+import { nextMove, ROBOT_MS } from './logic.js'
+import { DIRECTIONS } from './rooms.js'
 
 /** Hop height of a moving bunny, in cells. */
 const HOP = 0.12

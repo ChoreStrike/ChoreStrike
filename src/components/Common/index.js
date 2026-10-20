@@ -19,4 +19,4 @@ export { default as ErrorState } from './ErrorState.vue'
 export { default as NotAuthorizedState } from './NotAuthorizedState.vue'
 
 // Export icons registry for programmatic access
-export { icons, getIcon, hasIcon } from '../../utils/icons.js'
+export { getIcon, hasIcon, icons } from '../../utils/icons.js'

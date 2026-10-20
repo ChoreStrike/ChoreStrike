@@ -4,18 +4,20 @@
  */
 
 import './public-path.js'
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
+
 import axios from '@nextcloud/axios'
 import { translate as t } from '@nextcloud/l10n'
+import { createPinia } from 'pinia'
+import { createApp } from 'vue'
 import App from './App.vue'
-import router from './router.js'
-import { initI18n } from './i18n.js'
-import { piniaUserAutoInitPlugin } from './store/userAutoInit.js'
-import { logger } from './utils/logger.js'
 import { useCelebration } from './composables/useCelebration.js'
 import { useToasts } from './composables/useToasts.js'
+import { initI18n } from './i18n.js'
+import router from './router.js'
+import { piniaUserAutoInitPlugin } from './store/userAutoInit.js'
+import { logger } from './utils/logger.js'
 import { unlockAudio } from './utils/sound.js'
+
 import './styles/tokens.css'
 import './styles/a11y.css'
 import './styles/mobile.css'

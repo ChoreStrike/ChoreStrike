@@ -20,8 +20,8 @@
 </template>
 
 <script>
-import { todayKeyInZone } from '../../utils/dateKeys.js'
 import { useHouseStore } from '../../store/house.js'
+import { todayKeyInZone } from '../../utils/dateKeys.js'
 
 export default {
 	name: 'CalendarDayCell',

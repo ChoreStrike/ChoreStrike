@@ -15,9 +15,10 @@
  * Requires: Docker test environment with the `family` database profile.
  */
 
-import { test, expect } from './fixtures/database-fixtures'
-import { createUserContext } from './fixtures/auth-contexts'
 import type { Locator, Page } from '@playwright/test'
+
+import { createUserContext } from './fixtures/auth-contexts'
+import { expect, test } from './fixtures/database-fixtures'
 
 const USER = 'friend'
 const VIEWPORTS = [

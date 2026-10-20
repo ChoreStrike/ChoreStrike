@@ -4,5 +4,5 @@
  */
 
 // The lazy chunk of Crumb Snake: the module interface GameShell drives.
-export { COLS as cols, ROWS as rows, createState, step } from './logic.js'
+export { COLS as cols, createState, ROWS as rows, step } from './logic.js'
 export { render } from './render.js'

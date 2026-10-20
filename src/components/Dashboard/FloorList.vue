@@ -107,13 +107,13 @@
 </template>
 
 <script>
-import { computed, ref, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useRoomsStore } from '../../store/rooms.js'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
 import RoomCard from './RoomCard.vue'
+import { useRoomsStore } from '../../store/rooms.js'
+import { logger } from '../../utils/logger.js'
 
 export default {
 	name: 'FloorList',
