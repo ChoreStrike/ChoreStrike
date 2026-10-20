@@ -159,7 +159,7 @@ export default {
 		},
 
 		isAvailable(tpl) {
-			return (tpl.levels || {})[this.selectedLevel] != null
+			return ((tpl.levels || {})[this.selectedLevel] ?? null) !== null
 		},
 
 		toggleAdjust(id) {

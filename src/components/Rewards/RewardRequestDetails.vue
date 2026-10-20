@@ -314,7 +314,7 @@ export default {
 		},
 
 		isOwnRequest() {
-			return this.request?.requester?.houseUserId != null
+			return (this.request?.requester?.houseUserId ?? null) !== null
 				&& this.request.requester.houseUserId === this.userStore.currentUser?.id
 		},
 

@@ -809,7 +809,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				} catch (error) {
 					// 409/other 4xx are definitive. A missing response or 5xx
 					// may have committed, so only those retain the receipt.
-					if (error?.status != null && error.status < 500) {
+					if ((error?.status ?? null) !== null && error.status < 500) {
 						delete this.pendingAttributions[completionId]
 					}
 					throw error
@@ -895,7 +895,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				// WP3: the caller's OWN wallet/contribution live on the
 				// rewards block in minor units — reconcile the user store
 				// without an extra request.
-				if (rewards.wallet || rewards.contributionMinor != null) {
+				if (rewards.wallet || (rewards.contributionMinor ?? null) !== null) {
 					useUserStore().applyOwnWallet(rewards.wallet, rewards.contributionMinor)
 				}
 				if (rewards.completion?.id) {

@@ -221,7 +221,7 @@ export default {
 		completedEnergyByUser() {
 			const byUser = {}
 			for (const item of this.houseStore.activity) {
-				if (item.energyCost == null) {
+				if ((item.energyCost ?? null) === null) {
 					continue
 				}
 				byUser[item.houseUserId] = (byUser[item.houseUserId] ?? 0) + item.energyCost
@@ -241,13 +241,13 @@ export default {
 			}
 			const allocation = this.correction?.completion?.allocation ?? []
 			return allocation
-				.filter((entry) => entry.userId != null)
+				.filter((entry) => (entry.userId ?? null) !== null)
 				.map((entry) => ({ userId: entry.userId, sharePct: entry.sharePct }))
 		},
 
 		correctionHint() {
 			const hasFormerShare = (this.correction?.completion?.allocation ?? [])
-				.some((entry) => entry.userId == null)
+				.some((entry) => (entry.userId ?? null) === null)
 			return hasFormerShare
 				? t('chorestrike', 'A former member was part of this split — reassign their share. Shares must total exactly 100%.')
 				: t('chorestrike', 'Adjust who actually did the work. Shares must total exactly 100%.')
@@ -393,7 +393,7 @@ export default {
 						session.conflict = true
 						session.current = null
 						await this.reloadCurrentSplit(session)
-					} else if (error?.status == null || error.status >= 500) {
+					} else if ((error?.status ?? null) === null || error.status >= 500) {
 						session.uncertain = true
 					} else {
 						this.correction = null
@@ -434,7 +434,7 @@ export default {
 		},
 
 		async undoCompletion(item) {
-			if (!item.canCorrect || item.undoneAt || this.undoingId != null || this.blockedUndoIds.includes(item.id)) {
+			if (!item.canCorrect || item.undoneAt || (this.undoingId ?? null) !== null || this.blockedUndoIds.includes(item.id)) {
 				return
 			}
 			this.undoingId = item.id

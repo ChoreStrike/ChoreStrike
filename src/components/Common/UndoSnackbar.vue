@@ -124,7 +124,7 @@ export default {
 		async handleUndo(entry) {
 			const roomTasksStore = useRoomTasksStore()
 
-			if (entry.completionId == null) {
+			if ((entry.completionId ?? null) === null) {
 				// Without the completion identity no targeted undo can run —
 				// surface the failure instead of undoing a guessed target.
 				showError(t('chorestrike', 'Could not undo the completion'))

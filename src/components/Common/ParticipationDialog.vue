@@ -204,7 +204,7 @@ export default {
 			// again — the correter redistributes their share).
 			const recordedByUser = {}
 			this.initialParticipants.forEach((participant) => {
-				if (participant.userId != null) {
+				if ((participant.userId ?? null) !== null) {
 					recordedByUser[participant.userId] = participant.sharePct
 				}
 			})
@@ -212,7 +212,7 @@ export default {
 				.map((member) => ({
 					userId: member.userId,
 					displayName: member.displayName,
-					active: recordedByUser[member.userId] != null,
+					active: (recordedByUser[member.userId] ?? null) !== null,
 					sharePct: recordedByUser[member.userId] ?? 0,
 				}))
 				.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))

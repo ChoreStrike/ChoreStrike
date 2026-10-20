@@ -638,7 +638,7 @@ export default {
 			return this.setupStore.templates.filter((t) => Array.isArray(t.roomTypes)
 				&& t.roomTypes.includes(roomType)
 				&& t.levels
-				&& t.levels[this.quick.intensityLevel] != null).length
+				&& (t.levels[this.quick.intensityLevel] ?? null) !== null).length
 		},
 
 		addRoom(floorIndex) {
