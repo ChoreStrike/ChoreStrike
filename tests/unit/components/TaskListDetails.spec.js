@@ -99,11 +99,11 @@ describe('TaskListDetails (CS-PLAN-067 §3.4)', () => {
 	it('reports the single toggled member id to the orchestrator', async () => {
 		const wrapper = mountDetails()
 		await wrapper.find('[data-testid="assignee-chip-u2"]').find('input').setValue(true)
-		expect(wrapper.emitted('toggle-assignee')).toEqual([[42, 'u2']])
+		expect(wrapper.emitted('toggleAssignee')).toEqual([[42, 'u2']])
 
 		const wrapper2 = mountDetails()
 		await wrapper2.find('[data-testid="assignee-chip-u1"]').find('input').setValue(false)
-		expect(wrapper2.emitted('toggle-assignee')).toEqual([[42, 'u1']])
+		expect(wrapper2.emitted('toggleAssignee')).toEqual([[42, 'u1']])
 	})
 })
 
@@ -172,7 +172,7 @@ describe('TaskListDetails occurrence agreements', () => {
 			participants: [{ userId: 'u2', role: 'responsible', sharePct: 100 }],
 			consent: true,
 		})
-		expect(wrapper.emitted('toggle-assignee')).toBeUndefined()
+		expect(wrapper.emitted('toggleAssignee')).toBeUndefined()
 		expect(wrapper.find('[data-testid="agreement-handover-member"]').element.value).toBe('')
 		expect(wrapper.find('[data-testid="agreement-consent"]').element.checked).toBe(false)
 	})

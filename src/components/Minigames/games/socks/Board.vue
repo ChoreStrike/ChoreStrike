@@ -42,6 +42,8 @@
  * with a flip, a wrong pair shakes and a found pair bounces; face-down
  * socks lie on wicker.
  */
+defineOptions({ name: 'SocksBoard' })
+
 defineProps({
 	view: {
 		type: Object,

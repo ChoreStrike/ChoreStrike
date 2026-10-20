@@ -535,7 +535,7 @@ import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 
 export default {
-	name: 'Settings',
+	name: 'SettingsView',
 
 	components: {
 		NcLoadingIcon,

@@ -123,14 +123,14 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 		expect(wrapper.get('[data-testid="complete-task-button"]').attributes('disabled')).toBeDefined()
 	})
 
-	it('emits toggle-select and toggle-expand', async () => {
+	it('emits toggleSelect and toggleExpand', async () => {
 		const wrapper = mountItem({}, 'owner')
 
 		await wrapper.find('[data-testid="select-task-42"]').setValue(true)
 		await wrapper.findAll('.action-btn')[1].trigger('click')
 
-		expect(wrapper.emitted('toggle-select')).toEqual([[42]])
-		expect(wrapper.emitted('toggle-expand')).toBeTruthy()
+		expect(wrapper.emitted('toggleSelect')).toEqual([[42]])
+		expect(wrapper.emitted('toggleExpand')).toBeTruthy()
 	})
 
 	it('hides the selection checkbox, edit and delete for children', () => {
@@ -173,9 +173,9 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 		const wrapper = mountItem({ expanded: true, assigneeDraft: ['u1'] }, 'owner')
 		const details = wrapper.findComponent(TaskListDetails)
 
-		details.vm.$emit('toggle-assignee', 42, 'u2')
+		details.vm.$emit('toggleAssignee', 42, 'u2')
 		await flushPromises()
 
-		expect(wrapper.emitted('toggle-assignee')).toEqual([[42, 'u2']])
+		expect(wrapper.emitted('toggleAssignee')).toEqual([[42, 'u2']])
 	})
 })

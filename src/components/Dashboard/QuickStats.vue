@@ -155,7 +155,7 @@ export default {
 		},
 	},
 
-	emits: ['toggle-private-filter', 'show-rooms'],
+	emits: ['togglePrivateFilter', 'showRooms'],
 
 	setup(props, { emit }) {
 		const roomsStore = useRoomsStore()
@@ -197,12 +197,12 @@ export default {
 		 * tasks (CS-PLAN-041) — QuickStats itself renders no task list.
 		 */
 		const togglePrivateFilter = () => {
-			emit('toggle-private-filter', true)
+			emit('togglePrivateFilter', true)
 		}
 
 		/** Room tiles: the Dashboard reveals and focuses its floor list. */
 		const showRooms = () => {
-			emit('show-rooms')
+			emit('showRooms')
 		}
 
 		return {

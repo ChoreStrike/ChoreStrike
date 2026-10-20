@@ -43,6 +43,8 @@
  * opt-in new items pop in, the sponge glows, the sock swings and a wiped
  * tile sends up soap bubbles.
  */
+defineOptions({ name: 'SpotsBoard' })
+
 defineProps({
 	view: {
 		type: Object,

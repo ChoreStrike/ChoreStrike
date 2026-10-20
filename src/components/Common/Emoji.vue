@@ -189,7 +189,7 @@ function getUnicodeFallback(name) {
  * <Emoji name="fox" :size="128" style="3d" />
  */
 export default {
-	name: 'Emoji',
+	name: 'CsEmoji',
 
 	inheritAttrs: false,
 
@@ -235,14 +235,6 @@ export default {
 		className: {
 			type: String,
 			default: '',
-		},
-
-		/**
-		 * Kept for backward compatibility. Emojis are always local-only.
-		 */
-		local: {
-			type: Boolean,
-			default: true,
 		},
 	},
 

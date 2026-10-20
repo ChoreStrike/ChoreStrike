@@ -5,7 +5,6 @@
 
 <template>
 	<div v-if="show"
-		ref="overlay"
 		class="wizard-overlay"
 		role="dialog"
 		aria-modal="true"

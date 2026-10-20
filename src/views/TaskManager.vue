@@ -197,6 +197,8 @@ export default {
 		ParticipationDialog,
 	},
 
+	emits: ['taskCompleted'],
+
 	setup() {
 		const roomTasksStore = useRoomTasksStore()
 		const roomsStore = useRoomsStore()
@@ -530,7 +532,7 @@ export default {
 				} else {
 					await this.roomTasksStore.completeRoomTask(roomTaskId)
 				}
-				this.$emit('task-completed', roomTaskId)
+				this.$emit('taskCompleted', roomTaskId)
 			} catch (error) {
 				// CS-PLAN-066 §3.5: mutation failures are visible toasts,
 				// not logger-only lines.

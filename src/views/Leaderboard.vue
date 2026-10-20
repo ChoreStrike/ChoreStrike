@@ -181,7 +181,7 @@ import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 
 export default {
-	name: 'Leaderboard',
+	name: 'LeaderboardView',
 
 	components: {
 		Icon,

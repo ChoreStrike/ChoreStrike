@@ -8,7 +8,7 @@
 		class="calendar-day-cell"
 		:class="{ 'has-tasks': totalCount > 0, 'is-today': isToday }"
 		:data-testid="'calendar-day-' + day"
-		@click="$emit('select-day', day)">
+		@click="$emit('selectDay', day)">
 		<span class="day-label">{{ dayLabel }}</span>
 		<span
 			v-if="totalCount > 0"
@@ -38,7 +38,7 @@ export default {
 		},
 	},
 
-	emits: ['select-day'],
+	emits: ['selectDay'],
 
 	computed: {
 		totalCount() {

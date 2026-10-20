@@ -28,7 +28,7 @@ import { logger } from '../../utils/logger.js'
  * <Icon name="CheckCircle" :size="32" stroke-width="2.5" />
  */
 export default {
-	name: 'Icon',
+	name: 'CsIcon',
 
 	inheritAttrs: false,
 

@@ -37,7 +37,7 @@ describe('WeekBudgetGrid', () => {
 	it('emits only the edited day delta from the slider', async () => {
 		const wrapper = mountGrid()
 		await wrapper.find('[data-testid="energy-slider-wednesday"]').setValue('7')
-		const events = wrapper.emitted('update-day')
+		const events = wrapper.emitted('updateDay')
 		expect(events).toHaveLength(1)
 		expect(events[0][0]).toEqual({ key: 'wednesday', value: 7 })
 	})
@@ -45,7 +45,7 @@ describe('WeekBudgetGrid', () => {
 	it('emits only the edited day delta from the number input', async () => {
 		const wrapper = mountGrid()
 		await wrapper.find('[data-testid="energy-input-friday"]').setValue('12')
-		const events = wrapper.emitted('update-day')
+		const events = wrapper.emitted('updateDay')
 		expect(events).toHaveLength(1)
 		expect(events[0][0]).toEqual({ key: 'friday', value: 12 })
 	})

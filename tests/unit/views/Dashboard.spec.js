@@ -58,7 +58,7 @@ jest.mock('../../../src/components/Dashboard/HouseholdGoalBar.vue', () => ({
 
 jest.mock('../../../src/components/Dashboard/QuickStats.vue', () => ({
 	name: 'QuickStats',
-	emits: ['toggle-private-filter', 'show-rooms'],
+	emits: ['togglePrivateFilter', 'showRooms'],
 	template: '<div class="quick-stats">Quick Stats</div>',
 }))
 
@@ -144,14 +144,14 @@ describe('Dashboard.vue', () => {
 		expect(wrapper.find('.quick-stats').exists()).toBe(true)
 	})
 
-	it('routes to the private task scope when QuickStats emits toggle-private-filter (CS-PLAN-041)', async () => {
+	it('routes to the private task scope when QuickStats emits togglePrivateFilter (CS-PLAN-041)', async () => {
 		const wrapper = mount(Dashboard, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
-		wrapper.findComponent({ name: 'QuickStats' }).vm.$emit('toggle-private-filter', true)
+		wrapper.findComponent({ name: 'QuickStats' }).vm.$emit('togglePrivateFilter', true)
 		await wrapper.vm.$nextTick()
 
 		expect(mockRouterPush).toHaveBeenCalledWith({ name: 'tasks', query: { visibility: 'private' } })
@@ -342,7 +342,7 @@ describe('Dashboard.vue', () => {
 		const wrapper = mount(Dashboard, { global: { plugins: [pinia] }, attachTo: document.body })
 		await flushPromises()
 
-		wrapper.findComponent({ name: 'QuickStats' }).vm.$emit('show-rooms')
+		wrapper.findComponent({ name: 'QuickStats' }).vm.$emit('showRooms')
 		await flushPromises()
 
 		expect(mockRoomsState.setFloorExpanded.mock.calls).toEqual([[1], [2]])

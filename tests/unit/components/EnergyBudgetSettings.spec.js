@@ -102,7 +102,7 @@ describe('EnergyBudgetSettings', () => {
 
 		const wrapper = mountComponent()
 		// The range-slider path emits valueAsNumber, which is NaN mid-edit.
-		wrapper.findComponent(WeekBudgetGrid).vm.$emit('update-day', { key: 'monday', value: NaN })
+		wrapper.findComponent(WeekBudgetGrid).vm.$emit('updateDay', { key: 'monday', value: NaN })
 		await wrapper.vm.$nextTick()
 
 		expect(wrapper.find('.total-energy').text()).toBe('60 total energy/week')

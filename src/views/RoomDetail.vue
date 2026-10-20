@@ -179,7 +179,6 @@
 					<label for="room-rename-input">{{ t('chorestrike', 'Room Name') }}</label>
 					<input
 						id="room-rename-input"
-						ref="roomRenameInput"
 						v-model="renamingRoomName"
 						type="text"
 						class="text-input"
@@ -262,6 +261,8 @@ export default {
 			required: true,
 		},
 	},
+
+	emits: ['taskCompleted'],
 
 	setup() {
 		const roomsStore = useRoomsStore()
@@ -497,7 +498,7 @@ export default {
 				} else {
 					await this.roomTasksStore.completeRoomTask(roomTaskId)
 				}
-				this.$emit('task-completed', roomTaskId)
+				this.$emit('taskCompleted', roomTaskId)
 				// The room's own stats card is a view-local projection —
 				// refresh it after the committed completion (CS-PLAN-066
 				// §3.2).

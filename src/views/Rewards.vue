@@ -199,7 +199,7 @@ import { formatCoinMinor } from '../utils/minorUnits.js'
  * terms — never an optimistic local reservation.
  */
 export default {
-	name: 'Rewards',
+	name: 'RewardsView',
 
 	components: {
 		Modal,

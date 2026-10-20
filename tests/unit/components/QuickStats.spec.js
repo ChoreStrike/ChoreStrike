@@ -175,7 +175,7 @@ describe('QuickStats', () => {
 				expect(tile.attributes('type')).toBe('button')
 				await tile.trigger('click')
 			}
-			expect(wrapper.emitted('show-rooms')).toHaveLength(3)
+			expect(wrapper.emitted('showRooms')).toHaveLength(3)
 		})
 	})
 

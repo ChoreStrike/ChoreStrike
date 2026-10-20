@@ -68,7 +68,7 @@ defineProps({
 	},
 })
 
-const emit = defineEmits(['update-day'])
+const emit = defineEmits(['updateDay'])
 
 const marks = [ENERGY_MIN, 5, 10, 15, ENERGY_MAX]
 
@@ -76,7 +76,7 @@ const marks = [ENERGY_MIN, 5, 10, 15, ENERGY_MAX]
 // budget state. Spreading a (possibly stale) prop snapshot here would let a
 // fast interaction overwrite freshly synced days with old values.
 function setDay(key, value) {
-	emit('update-day', { key, value })
+	emit('updateDay', { key, value })
 }
 </script>
 

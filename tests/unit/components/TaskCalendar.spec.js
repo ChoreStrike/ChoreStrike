@@ -42,12 +42,12 @@ describe('TaskCalendar', () => {
 		expect(wrapper.findAllComponents(CalendarDayCell)).toHaveLength(30)
 	})
 
-	it('emits select-day when a day cell is clicked', async () => {
+	it('emits selectDay when a day cell is clicked', async () => {
 		const wrapper = mount(TaskCalendar, { props: defaultProps })
 		const cell = wrapper.find('[data-testid="calendar-day-2026-07-28"]')
 		await cell.trigger('click')
-		expect(wrapper.emitted('select-day')).toBeTruthy()
-		expect(wrapper.emitted('select-day')[0]).toEqual(['2026-07-28'])
+		expect(wrapper.emitted('selectDay')).toBeTruthy()
+		expect(wrapper.emitted('selectDay')[0]).toEqual(['2026-07-28'])
 	})
 
 	it('passes tasksByDay data to day cells', () => {

@@ -18,7 +18,7 @@
 				:data-testid="`select-task-${item.roomTask.id}`"
 				:checked="selected"
 				:aria-label="t('chorestrike', 'Select task')"
-				@change="$emit('toggle-select', item.roomTask.id)">
+				@change="$emit('toggleSelect', item.roomTask.id)">
 		</div>
 		<div class="task-main">
 			<div class="task-status">
@@ -118,7 +118,7 @@
 					class="action-btn"
 					:aria-label="t('chorestrike', 'Show details')"
 					:title="t('chorestrike', 'Show details')"
-					@click="$emit('toggle-expand', item)">
+					@click="$emit('toggleExpand', item)">
 					<Icon :name="expanded ? 'ChevronUp' : 'ChevronDown'" :size="16" />
 				</button>
 				<button
@@ -140,7 +140,7 @@
 			:canManageTasks="userStore.canManageTasks"
 			:members="userStore.houseUsers || []"
 			:assigneeDraft="assigneeDraft"
-			@toggleAssignee="(...args) => $emit('toggle-assignee', ...args)" />
+			@toggleAssignee="(...args) => $emit('toggleAssignee', ...args)" />
 	</div>
 </template>
 
@@ -214,7 +214,7 @@ export default {
 		},
 	},
 
-	emits: ['complete', 'edit', 'delete', 'toggle-expand', 'toggle-select', 'claim', 'toggle-assignee'],
+	emits: ['complete', 'edit', 'delete', 'toggleExpand', 'toggleSelect', 'claim', 'toggleAssignee'],
 
 	setup(props) {
 		const userStore = useUserStore()

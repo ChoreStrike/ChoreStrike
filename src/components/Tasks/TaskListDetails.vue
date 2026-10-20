@@ -227,7 +227,7 @@ export default {
 		},
 	},
 
-	emits: ['toggle-assignee'],
+	emits: ['toggleAssignee'],
 
 	setup(props, { emit }) {
 		const checklistStore = useChecklistStore()
@@ -245,7 +245,7 @@ export default {
 			const removed = previous.find((id) => !next.includes(id))
 			const toggled = added ?? removed
 			if (toggled !== undefined) {
-				emit('toggle-assignee', props.item.roomTask.id, toggled)
+				emit('toggleAssignee', props.item.roomTask.id, toggled)
 			}
 		}
 

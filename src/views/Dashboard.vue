@@ -99,7 +99,7 @@ import { logger } from '../utils/logger.js'
 import { formatCoinMinor } from '../utils/minorUnits.js'
 
 export default {
-	name: 'Dashboard',
+	name: 'DashboardView',
 
 	components: {
 		Icon,

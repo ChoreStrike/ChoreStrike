@@ -53,13 +53,13 @@ describe('CalendarDayCell', () => {
 		expect(wrapper.find('.is-today').exists()).toBe(false)
 	})
 
-	it('emits select-day on click', async () => {
+	it('emits selectDay on click', async () => {
 		const wrapper = mount(CalendarDayCell, {
 			props: { day: '2026-07-30', data: { scheduled: [], completed: [] } },
 		})
 		await wrapper.trigger('click')
-		expect(wrapper.emitted('select-day')).toBeTruthy()
-		expect(wrapper.emitted('select-day')[0]).toEqual(['2026-07-30'])
+		expect(wrapper.emitted('selectDay')).toBeTruthy()
+		expect(wrapper.emitted('selectDay')[0]).toEqual(['2026-07-30'])
 	})
 
 	it('adds has-tasks class when tasks present', () => {

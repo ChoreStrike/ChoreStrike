@@ -110,12 +110,6 @@ export default {
 			default: null,
 		},
 
-		/** Whether any member currently has availability constraints (hint only). */
-		showAvailabilityHint: {
-			type: Boolean,
-			default: false,
-		},
-
 		/**
 		 * Attribution-correction mode (WP3 §3.7 "reuse the form for
 		 * attribution correction"): the recorded split of the corrected

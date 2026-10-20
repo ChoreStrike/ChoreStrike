@@ -56,7 +56,7 @@ const FOCUSABLE_SELECTOR = [
 ].join(', ')
 
 export default {
-	name: 'Modal',
+	name: 'CsModal',
 	// A teleport root cannot inherit attributes: callers' test ids and
 	// classes stay on the overlay, as before the teleport.
 	inheritAttrs: false,
