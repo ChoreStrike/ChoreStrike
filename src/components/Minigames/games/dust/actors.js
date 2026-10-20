@@ -25,7 +25,9 @@ const HOP = 0.12
  * @param {object} palette Board colors
  */
 export function drawBunny(ctx, state, bunny, cell, palette) {
-	if (bunny.waitMs > 0) return
+	if (bunny.waitMs > 0) {
+		return
+	}
 	const own = bunnyInterval(state.roomIndex) * (bunny.catchable ? 2 : 1)
 	const t = Math.min(1, bunny.elapsed / own)
 	const cx = (lerp(bunny.fromX, bunny.x, t) + 0.5) * cell
@@ -85,7 +87,9 @@ export function drawRobot(ctx, state, cell, palette, view) {
 	ctx.lineWidth = Math.max(1.5, cell * 0.09)
 	ctx.strokeStyle = palette.blueLight
 	ctx.stroke()
-	if (state.chargeMs > 0) drawCharge(ctx, cx, cy, cell, palette, view)
+	if (state.chargeMs > 0) {
+		drawCharge(ctx, cx, cy, cell, palette, view)
+	}
 	drawEyes(ctx, cx + facing.x * cell * 0.1, cy + facing.y * cell * 0.1, cell * 0.22, facing.x, facing.y, palette)
 }
 

@@ -46,9 +46,13 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 					await expect(handover).toContainText(language === 'de' ? 'Diesen Termin übergeben an' : 'Hand this occurrence to')
 					await expect(handover.getByTestId('agreement-handover-submit')).toHaveText(language === 'de' ? 'Vereinbarte Übergabe festhalten' : 'Record agreed handover')
 					await expect(handover).toContainText(language === 'de' ? 'Künftige Zuweisungen bleiben unverändert.' : 'Future assignments stay unchanged.')
-				} finally { await session.context.close() }
+				} finally {
+					await session.context.close()
+				}
 			}
-		} finally { runOcc('user:setting mom core lang en') }
+		} finally {
+			runOcc('user:setting mom core lang en')
+		}
 	})
 
 	/** House-local day key — the Docker test environment runs the house on UTC. */
@@ -86,7 +90,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				// CS-PLAN-084 D-084-02: the filter panel starts collapsed on phones.
 				const filterToggle = page.getByTestId('tasks-filter-toggle')
 				await expect(filterToggle).toHaveAttribute('aria-expanded', width < 768 ? 'false' : 'true')
-				if (width < 768) await filterToggle.click()
+				if (width < 768) {
+					await filterToggle.click()
+				}
 				await page.getByTestId('person-filter').selectOption('teen')
 				await expect(other).toBeVisible()
 				await expect(unassigned).toHaveCount(0)
@@ -108,7 +114,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				await expect(page.getByTestId('room-detail-view')).toBeVisible()
 				await expect(page.getByTestId('task-item').filter({ hasText: appointmentName }).first()).toBeVisible()
 			}
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('owner phone: the all-tasks list pages by 20 and "Completed" loads finished work on demand (CS-PLAN-084 WP-D)', async ({ browser, seededData }) => {
@@ -132,7 +140,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			expect((await page.request.delete(`/apps/chorestrike/api/v1/room-tasks/${deletedId}`)).ok()).toBe(true)
 			// At least 21 active household tasks → two pages.
 			const active = (await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()).data.length
-			for (let index = active; index < 21; index++) await createTask(`Paging probe ${index}`)
+			for (let index = active; index < 21; index++) {
+				await createTask(`Paging probe ${index}`)
+			}
 			const total = Math.max(active, 21)
 			const pages = Math.ceil(total / 20)
 			const secondPageRows = Math.min(20, total - 20)
@@ -140,7 +150,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const roomTaskReads: string[] = []
 			page.on('request', request => {
 				const url = new URL(request.url())
-				if (url.pathname.endsWith('/api/v1/room-tasks')) roomTaskReads.push(url.searchParams.get('activeOnly') ?? '')
+				if (url.pathname.endsWith('/api/v1/room-tasks')) {
+					roomTaskReads.push(url.searchParams.get('activeOnly') ?? '')
+				}
 			})
 			await page.goto('/apps/chorestrike/#/tasks?scope=all')
 			await expect(page.getByTestId('task-item')).toHaveCount(20)
@@ -168,7 +180,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			expect(roomTaskReads).toEqual(['true', 'true', 'false'])
 			const contrast = await new AxeBuilder({ page }).include('#content').withRules(['color-contrast']).analyze()
 			expect(contrast.violations.flatMap(violation => violation.nodes.map(node => node.target.join(' ')))).toEqual([])
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	interface SeededShape {
@@ -227,7 +241,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			// A short tap explains the hold and sends nothing; the hold cleans once.
 			const cleanRequests: string[] = []
 			page.on('request', (request) => {
-				if (request.method() === 'PUT' && request.url().endsWith(`/rooms/${kidsBedroom.id}/cleanliness`)) cleanRequests.push(request.url())
+				if (request.method() === 'PUT' && request.url().endsWith(`/rooms/${kidsBedroom.id}/cleanliness`)) {
+					cleanRequests.push(request.url())
+				}
 			})
 			const quickClean = page.getByTestId(`quick-clean-${kidsBedroom.id}`)
 			const box = await quickClean.boundingBox()
@@ -402,7 +418,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const tabTo = async (control: Locator) => {
 				for (let i = 0; i < 60; i++) {
 					await page.keyboard.press('Tab')
-					if (await control.evaluate(element => element === document.activeElement)) return
+					if (await control.evaluate(element => element === document.activeElement)) {
+						return
+					}
 				}
 				throw new Error('Core control is unreachable by keyboard')
 			}
@@ -446,7 +464,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				Object.defineProperty(window, '__vibrations', { value: calls })
 				Object.defineProperty(navigator, 'vibrate', {
 					configurable: true,
-					value: (pattern: unknown) => { calls.push(pattern); return true },
+					value: (pattern: unknown) => {
+						calls.push(pattern); return true
+					},
 				})
 			})
 			// Direct hash navigation: the app navigation collapses behind the
@@ -468,7 +488,9 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			// WP-E: a short tap sends nothing and explains the hold gesture.
 			const completeRequests: string[] = []
 			page.on('request', (request) => {
-				if (request.method() === 'POST' && request.url().endsWith('/complete')) completeRequests.push(request.url())
+				if (request.method() === 'POST' && request.url().endsWith('/complete')) {
+					completeRequests.push(request.url())
+				}
 			})
 			await page.getByTestId(`today-complete-button-${countersRoomTask.id}`).tap()
 			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}-hint`)).toHaveText('Press and hold to confirm')

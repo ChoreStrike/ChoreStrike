@@ -119,7 +119,9 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 				expect(String((await response.json()).data.roomTask.nextDue)).toContain(houseDateOffset(offset, 'UTC'))
 				await expect(button).toHaveCount(0)
 			}
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('a UI completion carries the full occurrence receipt', async ({ browser, seededData }) => {
@@ -358,7 +360,9 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			await expect(card.getByTestId('catchup-planned')).toContainText(dateLabel)
 			await expect(page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(1)
 			await expect(page.getByTestId('today-task-item').filter({ hasText: name })).toHaveCount(1)
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('owner date amendment keeps the occurrence identity visible to the child', async ({ browser, seededData }) => {

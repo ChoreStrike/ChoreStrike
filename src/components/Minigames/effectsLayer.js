@@ -165,7 +165,9 @@ export function createEffectsLayer({ random = Math.random, clock = () => perform
 		const dt = last === null ? 0 : Math.min(0.05, Math.max(0, (time - last) / 1000))
 		last = time
 		for (const particle of particles) {
-			if (!particle.live) continue
+			if (!particle.live) {
+				continue
+			}
 			if (time - particle.born >= PARTICLE_MS) {
 				particle.live = false
 				continue
@@ -175,7 +177,9 @@ export function createEffectsLayer({ random = Math.random, clock = () => perform
 			particle.y += particle.vy * dt
 		}
 		for (const item of popups) {
-			if (item.live && time - item.born >= POPUP_MS) item.live = false
+			if (item.live && time - item.born >= POPUP_MS) {
+				item.live = false
+			}
 		}
 	}
 
@@ -187,7 +191,9 @@ export function createEffectsLayer({ random = Math.random, clock = () => perform
 	 * @return {{x: number, y: number}} Offset in CSS pixels
 	 */
 	function offset(time, cell) {
-		if (time >= shakeUntil) return ZERO
+		if (time >= shakeUntil) {
+			return ZERO
+		}
 		const left = (shakeUntil - time) / SHAKE_MS
 		const reach = shakeStrength * left * cell
 		offsetPoint.x = Math.sin(time * 0.11) * reach
@@ -205,11 +211,16 @@ export function createEffectsLayer({ random = Math.random, clock = () => perform
 	function draw(ctx, view, time) {
 		const cell = view.cell
 		for (const particle of particles) {
-			if (!particle.live) continue
+			if (!particle.live) {
+				continue
+			}
 			ctx.globalAlpha = Math.max(0, 1 - (time - particle.born) / PARTICLE_MS)
 			ctx.fillStyle = particle.color
-			if (particle.shape === 'star') star(ctx, particle.x * cell, particle.y * cell, particle.size * cell)
-			else disc(ctx, particle.x * cell, particle.y * cell, particle.size * cell)
+			if (particle.shape === 'star') {
+				star(ctx, particle.x * cell, particle.y * cell, particle.size * cell)
+			} else {
+				disc(ctx, particle.x * cell, particle.y * cell, particle.size * cell)
+			}
 		}
 		drawPopups(ctx, cell, time)
 		if (time < flashUntil) {
@@ -223,7 +234,9 @@ export function createEffectsLayer({ random = Math.random, clock = () => perform
 	function drawPopups(ctx, cell, time) {
 		let styled = false
 		for (const item of popups) {
-			if (!item.live) continue
+			if (!item.live) {
+				continue
+			}
 			if (!styled) {
 				if (cell !== popupFontCell) {
 					popupFont = `bold ${Math.round(cell * 0.85)}px system-ui, sans-serif`
@@ -248,8 +261,12 @@ export function createEffectsLayer({ random = Math.random, clock = () => perform
 
 	/** Drop everything (a new round). */
 	function clear() {
-		for (const particle of particles) particle.live = false
-		for (const item of popups) item.live = false
+		for (const particle of particles) {
+			particle.live = false
+		}
+		for (const item of popups) {
+			item.live = false
+		}
 		shakeUntil = 0
 		flashUntil = 0
 		last = null

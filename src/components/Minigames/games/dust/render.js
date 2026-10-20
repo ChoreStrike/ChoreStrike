@@ -42,10 +42,14 @@ export function render(ctx, state, view) {
 	ctx.fillRect(0, 0, view.width, view.height)
 	drawRoom(ctx, state, themeAt(state.roomIndex), cell, palette)
 	for (const bunny of state.bunnies) {
-		if (bunny.waitMs > 0) drawPeek(ctx, state, bunny.nest, cell, palette)
+		if (bunny.waitMs > 0) {
+			drawPeek(ctx, state, bunny.nest, cell, palette)
+		}
 	}
 	drawDock(ctx, state, cell, palette, view)
-	for (const bunny of state.bunnies) drawBunny(ctx, state, bunny, cell, palette)
+	for (const bunny of state.bunnies) {
+		drawBunny(ctx, state, bunny, cell, palette)
+	}
 	drawRobot(ctx, state, cell, palette, view)
 }
 
@@ -57,10 +61,14 @@ function drawRoom(ctx, state, theme, cell, palette) {
 			const kind = kinds[cellIndex(x, y)]
 			if (kind === FLOOR) {
 				drawFloorCell(ctx, theme, x, y, cell, palette)
-				if (state.dust[cellIndex(x, y)] === 1) drawDust(ctx, x, y, cell, palette)
+				if (state.dust[cellIndex(x, y)] === 1) {
+					drawDust(ctx, x, y, cell, palette)
+				}
 			} else {
 				drawFurniture(ctx, kinds, x, y, cell, palette, colors)
-				if (kind === NEST) drawNest(ctx, x, y, cell, palette)
+				if (kind === NEST) {
+					drawNest(ctx, x, y, cell, palette)
+				}
 			}
 		}
 	}
@@ -85,7 +93,9 @@ function drawFloorCell(ctx, theme, x, y, cell, palette) {
 		}
 		ctx.fillStyle = palette.grout
 		ctx.fillRect(x * cell, (y + 0.95) * cell, cell, cell * 0.05)
-		if ((x + y) % 3 === 0) ctx.fillRect((x + 0.95) * cell, y * cell, cell * 0.05, cell)
+		if ((x + y) % 3 === 0) {
+			ctx.fillRect((x + 0.95) * cell, y * cell, cell * 0.05, cell)
+		}
 	} else if (theme === 'tiles') {
 		if ((x + y) % 2 === 1) {
 			ctx.fillStyle = palette.tealLight
@@ -213,7 +223,9 @@ function drawDock(ctx, state, cell, palette, view) {
 	}
 	ctx.beginPath()
 	ctx.moveTo((x + BOLT[0]) * cell, (y + BOLT[1]) * cell)
-	for (let i = 2; i < BOLT.length; i += 2) ctx.lineTo((x + BOLT[i]) * cell, (y + BOLT[i + 1]) * cell)
+	for (let i = 2; i < BOLT.length; i += 2) {
+		ctx.lineTo((x + BOLT[i]) * cell, (y + BOLT[i + 1]) * cell)
+	}
 	ctx.closePath()
 	ctx.lineWidth = Math.max(1, cell * 0.06)
 	ctx.strokeStyle = palette.yellow

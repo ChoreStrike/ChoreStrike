@@ -21,7 +21,9 @@ import { dateKeyInZone, todayKeyInZone } from './dateKeys.js'
  */
 export const assignmentLabel = (userIds = [], members = []) => {
 	const ids = userIds ?? []
-	if (ids.length === 0) return t('chorestrike', 'Unassigned')
+	if (ids.length === 0) {
+		return t('chorestrike', 'Unassigned')
+	}
 	const namesById = new Map(members.map(member => [member.nextcloudUserId, member.displayName]))
 	const names = ids.map(id => namesById.get(id) || id)
 	return t('chorestrike', 'Assigned to: {names}', { names: names.join(', ') })
@@ -37,8 +39,12 @@ export const assignmentLabel = (userIds = [], members = []) => {
  * @return {boolean}
  */
 export const isOverdue = (roomTask) => {
-	if (!roomTask?.isActive) return false
-	if (roomTask.occurrence) return roomTask.occurrence.classification === 'late'
+	if (!roomTask?.isActive) {
+		return false
+	}
+	if (roomTask.occurrence) {
+		return roomTask.occurrence.classification === 'late'
+	}
 	return roomTask.status === 'overdue'
 }
 
@@ -83,7 +89,9 @@ export const frequencyLabel = (task) => {
  */
 const dueDayOffset = (roomTask, timezone) => {
 	const dueKey = dateKeyInZone(roomTask.nextDue, timezone)
-	if (dueKey === '') return null
+	if (dueKey === '') {
+		return null
+	}
 	const todayKey = todayKeyInZone(timezone)
 	return Math.round((Date.parse(`${dueKey}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86400000)
 }
@@ -96,8 +104,12 @@ const dueDayOffset = (roomTask, timezone) => {
  * @return {string}
  */
 export const dueClass = (roomTask, timezone) => {
-	if (!roomTask.isActive) return 'completed'
-	if (isOverdue(roomTask)) return 'overdue'
+	if (!roomTask.isActive) {
+		return 'completed'
+	}
+	if (isOverdue(roomTask)) {
+		return 'overdue'
+	}
 	// House-local day bucketing (CS-PLAN-057): today — or a past planned day
 	// whose flex window is still open — is due, not overdue.
 	const days = dueDayOffset(roomTask, timezone)
@@ -112,17 +124,25 @@ export const dueClass = (roomTask, timezone) => {
  * @return {string}
  */
 export const dueText = (roomTask, timezone) => {
-	if (!roomTask.isActive) return t('chorestrike', 'Completed')
+	if (!roomTask.isActive) {
+		return t('chorestrike', 'Completed')
+	}
 	const days = dueDayOffset(roomTask, timezone)
-	if (days === null) return t('chorestrike', 'No due date')
+	if (days === null) {
+		return t('chorestrike', 'No due date')
+	}
 	if (isOverdue(roomTask)) {
 		const overdueDays = Math.max(1, -days)
 		return overdueDays === 1
 			? t('chorestrike', 'Overdue by 1 day')
 			: t('chorestrike', 'Overdue by {days} days', { days: overdueDays })
 	}
-	if (days <= 0) return t('chorestrike', 'Due today')
-	if (days === 1) return t('chorestrike', 'Due tomorrow')
+	if (days <= 0) {
+		return t('chorestrike', 'Due today')
+	}
+	if (days === 1) {
+		return t('chorestrike', 'Due tomorrow')
+	}
 	return t('chorestrike', 'Due in {days} days', { days })
 }
 
@@ -160,6 +180,8 @@ export const flexWindowKeys = (item) => {
 export const compareTaskItems = (a, b) => {
 	const dueA = a.roomTask.nextDue ? new Date(a.roomTask.nextDue).getTime() : Infinity
 	const dueB = b.roomTask.nextDue ? new Date(b.roomTask.nextDue).getTime() : Infinity
-	if (dueA !== dueB) return dueA < dueB ? -1 : 1
+	if (dueA !== dueB) {
+		return dueA < dueB ? -1 : 1
+	}
 	return (b.task.priority ?? 0) - (a.task.priority ?? 0)
 }

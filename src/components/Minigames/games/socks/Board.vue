@@ -75,7 +75,9 @@ const BASKET = 'M15 19a9 9 0 0 1 18 0h-3a6 6 0 0 0-12 0zM9 20h30l-3.5 16.5A3 3 0
 
 function onPointerDown(event) {
 	const card = event.target.closest?.('[data-cell]')
-	if (card) emit('tap', Number(card.dataset.cell))
+	if (card) {
+		emit('tap', Number(card.dataset.cell))
+	}
 }
 </script>
 

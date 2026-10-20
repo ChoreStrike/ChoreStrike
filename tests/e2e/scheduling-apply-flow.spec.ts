@@ -338,7 +338,9 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		const outline = await page.evaluate((roomTaskId: number) => {
 			const input = document.querySelector(`[data-testid="planner-task-checkbox-${roomTaskId}"]`)
 			const label = input?.closest('label')
-			if (!label) return null
+			if (!label) {
+				return null
+			}
 			const style = getComputedStyle(label)
 			return { width: style.outlineWidth, style: style.outlineStyle }
 		}, toilet.id)

@@ -28,7 +28,9 @@ export function render(ctx, state, view) {
 	const cell = view.width / COLS
 	const { palette } = view
 	drawFloor(ctx, cell, palette)
-	for (const piece of state.furniture) drawFurniture(ctx, piece, cell, palette)
+	for (const piece of state.furniture) {
+		drawFurniture(ctx, piece, cell, palette)
+	}
 	drawCrumb(ctx, state.crumb, cell, palette, view)
 	drawHose(ctx, state, cell, palette)
 }
@@ -57,9 +59,13 @@ function drawFurniture(ctx, piece, cell, palette) {
 	const x = piece.x * cell
 	const y = piece.y * cell
 	const kind = (piece.x * 7 + piece.y * 13) % 3
-	if (kind === 0) drawChair(ctx, x, y, cell, palette)
-	else if (kind === 1) drawPlant(ctx, x, y, cell, palette)
-	else drawCrate(ctx, x, y, cell, palette)
+	if (kind === 0) {
+		drawChair(ctx, x, y, cell, palette)
+	} else if (kind === 1) {
+		drawPlant(ctx, x, y, cell, palette)
+	} else {
+		drawCrate(ctx, x, y, cell, palette)
+	}
 }
 
 function drawChair(ctx, x, y, cell, palette) {

@@ -221,7 +221,9 @@ export default {
 		completedEnergyByUser() {
 			const byUser = {}
 			for (const item of this.houseStore.activity) {
-				if (item.energyCost == null) continue
+				if (item.energyCost == null) {
+					continue
+				}
 				byUser[item.houseUserId] = (byUser[item.houseUserId] ?? 0) + item.energyCost
 			}
 			return byUser
@@ -234,7 +236,9 @@ export default {
 		 * corrector redistributes their share).
 		 */
 		correctionDraft() {
-			if (this.correction?.draft) return this.correction.draft
+			if (this.correction?.draft) {
+				return this.correction.draft
+			}
 			const allocation = this.correction?.completion?.allocation ?? []
 			return allocation
 				.filter(entry => entry.userId != null)
@@ -353,16 +357,22 @@ export default {
 		 */
 		async confirmCorrection(payload) {
 			const session = this.correction
-			if (!session || session.saving || session.conflict) return
+			if (!session || session.saving || session.conflict) {
+				return
+			}
 			const participants = payload?.participants ?? session.draft
-			if (!participants) return
+			if (!participants) {
+				return
+			}
 			session.saving = true
 			try {
 				await this.roomTasksStore.attributeCompletion(session.item.id, {
 					participants,
 					expectedVersion: session.expectedVersion,
 				})
-				if (this.correction === session) this.correction = null
+				if (this.correction === session) {
+					this.correction = null
+				}
 				await this.refreshActivity()
 			} catch (error) {
 				if (error?.status === 409) {
@@ -395,11 +405,15 @@ export default {
 		},
 
 		async reloadCurrentSplit(session) {
-			if (session !== this.correction || session.loadingCurrent) return
+			if (session !== this.correction || session.loadingCurrent) {
+				return
+			}
 			session.loadingCurrent = true
 			try {
 				const current = await this.roomTasksStore.fetchCompletion(session.item.id)
-				if (this.correction === session) session.current = current
+				if (this.correction === session) {
+					session.current = current
+				}
 			} catch (error) {
 				showErrorWithReference(t('chorestrike', 'Could not load the completion'), error)
 				logger.error('Failed to refresh completion for review', error, { view: 'InsightsView', action: 'reloadCurrentSplit', completionId: session.item.id })
@@ -410,7 +424,9 @@ export default {
 
 		reviewCurrentSplit() {
 			const session = this.correction
-			if (!session?.conflict || !session.current?.canCorrect) return
+			if (!session?.conflict || !session.current?.canCorrect) {
+				return
+			}
 			session.completion = session.current
 			session.expectedVersion = session.current.version
 			session.current = null
@@ -418,7 +434,9 @@ export default {
 		},
 
 		async undoCompletion(item) {
-			if (!item.canCorrect || item.undoneAt || this.undoingId != null || this.blockedUndoIds.includes(item.id)) return
+			if (!item.canCorrect || item.undoneAt || this.undoingId != null || this.blockedUndoIds.includes(item.id)) {
+				return
+			}
 			this.undoingId = item.id
 			try {
 				await this.roomTasksStore.undoRoomTaskCompletion(item.id, item.version)

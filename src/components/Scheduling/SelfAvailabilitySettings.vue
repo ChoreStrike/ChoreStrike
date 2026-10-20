@@ -100,7 +100,9 @@ const resetFromStore = () => {
 const saveAvailability = async () => {
 	const changedDays = weekDays
 		.filter(day => !!localAvailability.value[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
-	if (changedDays.length === 0) return
+	if (changedDays.length === 0) {
+		return
+	}
 
 	saving.value = true
 	try {

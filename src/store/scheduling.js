@@ -158,8 +158,12 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 			let total = 0
 			for (const roomTask of roomTasksStore.roomTasks) {
-				if (!roomTask.isActive || !roomTask.nextDue) continue
-				if (dateKeyInZone(roomTask.nextDue, houseStore.timezone) !== dateKey) continue
+				if (!roomTask.isActive || !roomTask.nextDue) {
+					continue
+				}
+				if (dateKeyInZone(roomTask.nextDue, houseStore.timezone) !== dateKey) {
+					continue
+				}
 				const task = tasksStore.getTaskById(roomTask.taskId)
 				total += task?.energyCost ?? 0
 			}
@@ -184,9 +188,13 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 			const dueByDay = {}
 			for (const roomTask of roomTasksStore.roomTasks) {
-				if (!roomTask.isActive || !roomTask.nextDue) continue
+				if (!roomTask.isActive || !roomTask.nextDue) {
+					continue
+				}
 				const task = tasksStore.getTaskById(roomTask.taskId)
-				if (!task) continue
+				if (!task) {
+					continue
+				}
 				const dateKey = dateKeyInZone(roomTask.nextDue, houseStore.timezone)
 				if (!dueByDay[dateKey]) {
 					dueByDay[dateKey] = []
@@ -204,14 +212,20 @@ export const useSchedulingStore = defineStore('scheduling', {
 			const overloaded = []
 			for (let i = 0; i < 7; i++) {
 				const dateKey = addDaysToKey(todayKey, i)
-				if (!dateKey) break
+				if (!dateKey) {
+					break
+				}
 				const items = dueByDay[dateKey]
-				if (!items) continue
+				if (!items) {
+					continue
+				}
 
 				const dayName = weekdayOfKey(dateKey)
 				const planned = items.reduce((sum, item) => sum + item.energyCost, 0)
 				const capacity = this.getCapacityForDay(dayName)
-				if (planned <= capacity) continue
+				if (planned <= capacity) {
+					continue
+				}
 
 				// Highest priority first; what no longer fits is deferred.
 				const ordered = [...items].sort((a, b) =>
@@ -276,8 +290,12 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 */
 		async saveWeeklyPreferences({ weekdayAvailability = null, energyBudget = null } = {}) {
 			const payload = {}
-			if (weekdayAvailability !== null) payload.weekdayAvailability = weekdayAvailability
-			if (energyBudget !== null) payload.energyBudget = energyBudget
+			if (weekdayAvailability !== null) {
+				payload.weekdayAvailability = weekdayAvailability
+			}
+			if (energyBudget !== null) {
+				payload.energyBudget = energyBudget
+			}
 
 			this.error = null
 
@@ -494,7 +512,9 @@ export const useSchedulingStore = defineStore('scheduling', {
 					roomTasksStore.fetchOverdueTasks(),
 				]
 				const { from, to } = roomTasksStore.rangeTasks
-				if (cached) jobs.push(roomTasksStore.fetchRoomTasks(cached.roomId))
+				if (cached) {
+					jobs.push(roomTasksStore.fetchRoomTasks(cached.roomId))
+				}
 				if (from && to) {
 					jobs.push(roomTasksStore.fetchRangeTasks(from, to))
 				}

@@ -448,7 +448,9 @@ export default {
 
 		// Parse fixedScheduleDays from task or default to empty
 		const parseWeekdays = (daysJson) => {
-			if (!daysJson) return []
+			if (!daysJson) {
+				return []
+			}
 			try {
 				const parsed = typeof daysJson === 'string' ? JSON.parse(daysJson) : daysJson
 				return Array.isArray(parsed) ? parsed : []
@@ -495,7 +497,9 @@ export default {
 			catalogTemplates.value = []
 			appliedCatalogTemplateId.value = null
 			const room = roomsStore.getRoomById(roomId)
-			if (!room) return
+			if (!room) {
+				return
+			}
 			try {
 				if (!setupStore.hasCatalog) {
 					await setupStore.fetchCatalog()
@@ -538,7 +542,9 @@ export default {
 		// key matches the TaskTemplatePicker default (putzteufel).
 		const applyCatalogTemplate = (templateId) => {
 			const tpl = catalogTemplates.value.find(t => t.id === templateId)
-			if (!tpl) return
+			if (!tpl) {
+				return
+			}
 			form.name = tpl.name || form.name
 			form.category = tpl.category || form.category
 			form.energyCost = tpl.energyCost || form.energyCost
@@ -590,10 +596,18 @@ export default {
 		})
 
 		const isValid = computed(() => {
-			if (!form.name?.trim()) return false
-			if (!isEditing.value && !selectedRoomId.value) return false
-			if (form.schedulingMode === 'static' && !form.fixedScheduleTime) return false
-			if (form.schedulingMode === 'static' && form.frequencyType === 'weekly' && selectedWeekdays.value.length === 0) return false
+			if (!form.name?.trim()) {
+				return false
+			}
+			if (!isEditing.value && !selectedRoomId.value) {
+				return false
+			}
+			if (form.schedulingMode === 'static' && !form.fixedScheduleTime) {
+				return false
+			}
+			if (form.schedulingMode === 'static' && form.frequencyType === 'weekly' && selectedWeekdays.value.length === 0) {
+				return false
+			}
 			return true
 		})
 
@@ -601,12 +615,12 @@ export default {
 			switch (form.visibilityType) {
 			// Real matrix (CS-PLAN-061 §3.2, D2): private tasks are visible
 			// to their creator AND the explicitly assigned members.
-			case VISIBILITY_PRIVATE:
-				return t('chorestrike', 'Only you and the assigned members can see and complete this task. Assigned members can also edit it.')
-			case VISIBILITY_ADMIN_ONLY:
-				return t('chorestrike', 'Only house owners can see and complete this task')
-			default:
-				return t('chorestrike', 'All house members can see and complete this task')
+				case VISIBILITY_PRIVATE:
+					return t('chorestrike', 'Only you and the assigned members can see and complete this task. Assigned members can also edit it.')
+				case VISIBILITY_ADMIN_ONLY:
+					return t('chorestrike', 'Only house owners can see and complete this task')
+				default:
+					return t('chorestrike', 'All house members can see and complete this task')
 			}
 		})
 
@@ -614,7 +628,9 @@ export default {
 		// due/flex window, assignees — read-only reflections of the form.
 		const previewRoomPath = computed(() => {
 			const room = roomsStore.getRoomById(selectedRoomId.value)
-			if (!room) return t('chorestrike', 'No room selected')
+			if (!room) {
+				return t('chorestrike', 'No room selected')
+			}
 			const floor = roomsStore.getFloorById(room.floorId)
 			return floor ? `${floor.name} → ${room.name}` : room.name
 		})

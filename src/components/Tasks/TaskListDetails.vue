@@ -349,8 +349,12 @@ export default {
 
 	watch: {
 		'occurrence.occurrenceId'(next, previous) {
-			if (next === previous) return
-			for (const mode of ['amend', 'handover', 'catchup', 'restart']) this.resetDraft(mode)
+			if (next === previous) {
+				return
+			}
+			for (const mode of ['amend', 'handover', 'catchup', 'restart']) {
+				this.resetDraft(mode)
+			}
 			this.occurrenceReplaced = true
 		},
 	},
@@ -402,7 +406,9 @@ export default {
 		},
 
 		submitAmend() {
-			if (!this.amendDraft.date || !this.consent) return
+			if (!this.amendDraft.date || !this.consent) {
+				return
+			}
 			return this.runAgreement('amend', () => this.schedulingStore.amendOccurrence({
 				roomTaskId: this.item.roomTask.id,
 				occurrence: this.occurrence,
@@ -412,7 +418,9 @@ export default {
 		},
 
 		submitHandover() {
-			if (!this.handoverDraft || !this.consent || this.submitting !== null) return
+			if (!this.handoverDraft || !this.consent || this.submitting !== null) {
+				return
+			}
 			return this.runAgreement('handover', () => this.schedulingStore.amendOccurrence({
 				roomTaskId: this.item.roomTask.id,
 				occurrence: this.occurrence,
@@ -422,7 +430,9 @@ export default {
 		},
 
 		submitCatchUp() {
-			if (!this.catchUpDraft.workDate || !this.consent) return
+			if (!this.catchUpDraft.workDate || !this.consent) {
+				return
+			}
 			return this.runAgreement('catchup', () => this.schedulingStore.catchUpOccurrence({
 				roomTaskId: this.item.roomTask.id,
 				occurrence: this.occurrence,
@@ -432,7 +442,9 @@ export default {
 		},
 
 		submitRestart() {
-			if (!this.restartDraft.workDate || !this.consent) return
+			if (!this.restartDraft.workDate || !this.consent) {
+				return
+			}
 			return this.runAgreement('restart', () => this.schedulingStore.restartOccurrence({
 				roomTaskId: this.item.roomTask.id,
 				occurrence: this.occurrence,

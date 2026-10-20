@@ -328,11 +328,21 @@ const onConsentChange = (event) => {
 }
 
 const statusAnnouncement = computed(() => {
-	if (planning.value) return t('chorestrike', 'Building the plan from your tasks…')
-	if (applying.value) return t('chorestrike', 'Applying the plan…')
-	if (schedulingStore.planStatus === 'applied') return t('chorestrike', 'The plan was applied.')
-	if (schedulingStore.planStatus === 'stale') return t('chorestrike', 'The preview is stale.')
-	if (schedulingStore.planStatus === 'error') return t('chorestrike', 'The plan failed.')
+	if (planning.value) {
+		return t('chorestrike', 'Building the plan from your tasks…')
+	}
+	if (applying.value) {
+		return t('chorestrike', 'Applying the plan…')
+	}
+	if (schedulingStore.planStatus === 'applied') {
+		return t('chorestrike', 'The plan was applied.')
+	}
+	if (schedulingStore.planStatus === 'stale') {
+		return t('chorestrike', 'The preview is stale.')
+	}
+	if (schedulingStore.planStatus === 'error') {
+		return t('chorestrike', 'The plan failed.')
+	}
 	return ''
 })
 
@@ -345,25 +355,35 @@ const roomsByIdMap = () => {
 }
 
 const dueLabel = (nextDue) => {
-	if (!nextDue) return t('chorestrike', 'No due date')
+	if (!nextDue) {
+		return t('chorestrike', 'No due date')
+	}
 	return t('chorestrike', 'Due {date}', { date: formatDateKey(dateKeyInZone(nextDue, houseStore.timezone)) })
 }
 
 const assigneeLabel = (assignees) => {
-	if (!assignees || assignees.length === 0) return t('chorestrike', 'Unassigned')
+	if (!assignees || assignees.length === 0) {
+		return t('chorestrike', 'Unassigned')
+	}
 	return assignees.map(id => memberDisplayName(id)).join(', ')
 }
 
 const memberDisplayName = (userId) => {
 	const member = schedulingStore.memberAvailability.find(m => m.userId === userId)
-	if (member?.userName) return member.userName
+	if (member?.userName) {
+		return member.userName
+	}
 	const current = userStore.currentUser
-	if (current?.nextcloudUserId === userId && current?.displayName) return current.displayName
+	if (current?.nextcloudUserId === userId && current?.displayName) {
+		return current.displayName
+	}
 	return userId
 }
 
 const formatDateKey = (key) => {
-	if (!key) return '—'
+	if (!key) {
+		return '—'
+	}
 	const [y, m, d] = key.split('-').map(Number)
 	return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 }
@@ -405,12 +425,18 @@ const reasonText = (code) => {
 }
 
 const capacityCell = (entry) => {
-	if (!entry) return '—'
+	if (!entry) {
+		return '—'
+	}
 	// WP2 neutral/overload clarification (RF-073-WP2-13): a paused member
 	// is neutral, an existing overload stays visible with its amounts —
 	// never silently hidden or truncated.
-	if (entry.paused) return t('chorestrike', 'Paused')
-	if (!entry.available) return t('chorestrike', 'Away')
+	if (entry.paused) {
+		return t('chorestrike', 'Paused')
+	}
+	if (!entry.available) {
+		return t('chorestrike', 'Away')
+	}
 	if (entry.overloaded) {
 		return t('chorestrike', '{planned}/{budget} — over capacity', {
 			planned: entry.planned,
@@ -429,7 +455,9 @@ const capacityCell = (entry) => {
  */
 const shareLabel = (change) => {
 	const shares = change?.proposed?.shares ?? change?.shares ?? null
-	if (!shares || Object.keys(shares).length === 0) return ''
+	if (!shares || Object.keys(shares).length === 0) {
+		return ''
+	}
 	const parts = Object.entries(shares)
 		.map(([userId, pct]) => `${memberDisplayName(userId)} ${pct}%`)
 	return t('chorestrike', 'Exact shares: {shares}', { shares: parts.join(', ') })
@@ -456,7 +484,9 @@ watch(startDate, () => {
 })
 
 const runPreview = async () => {
-	if (!canPreview.value) return
+	if (!canPreview.value) {
+		return
+	}
 	try {
 		await schedulingStore.previewPlan({
 			startDate: startDate.value,
@@ -472,11 +502,19 @@ const buildOverrides = () => {
 	const overrides = {}
 	for (const id of selectedIds.value) {
 		const edit = edits.value[id]
-		if (!edit) continue
+		if (!edit) {
+			continue
+		}
 		const override = {}
-		if (edit.assignee !== '') override.assigneeUserIds = [edit.assignee]
-		if (edit.date !== '') override.date = edit.date
-		if (Object.keys(override).length > 0) overrides[id] = override
+		if (edit.assignee !== '') {
+			override.assigneeUserIds = [edit.assignee]
+		}
+		if (edit.date !== '') {
+			override.date = edit.date
+		}
+		if (Object.keys(override).length > 0) {
+			overrides[id] = override
+		}
 	}
 	return overrides
 }
@@ -486,7 +524,9 @@ const markStale = () => {
 }
 
 const apply = async () => {
-	if (!canApply.value) return
+	if (!canApply.value) {
+		return
+	}
 	try {
 		const applied = await schedulingStore.applyPlan()
 		if (applied && schedulingStore.planStatus === 'applied') {

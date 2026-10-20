@@ -121,7 +121,9 @@ const dateAtNoonUtc = (key) => {
 }
 
 const weekRange = computed(() => {
-	if (weekDays.value.length === 0) return ''
+	if (weekDays.value.length === 0) {
+		return ''
+	}
 	const first = weekDays.value[0]
 	const last = weekDays.value[weekDays.value.length - 1]
 	return `${rangeFormatter.format(dateAtNoonUtc(first.date))} - ${rangeFormatter.format(dateAtNoonUtc(last.date))}`
@@ -139,7 +141,9 @@ const mondayOfWeekOfKey = (key) => {
 }
 
 const generateWeekDays = () => {
-	if (!currentWeekStartKey.value) return
+	if (!currentWeekStartKey.value) {
+		return
+	}
 	const days = []
 
 	for (let i = 0; i < 7; i++) {
@@ -184,7 +188,9 @@ const isMemberAvailableOnDay = (member, dayKey) => {
 }
 
 const getMemberDayEnergy = (member, dayKey) => {
-	if (!isMemberAvailableOnDay(member, dayKey)) return '—'
+	if (!isMemberAvailableOnDay(member, dayKey)) {
+		return '—'
+	}
 	return getMemberEnergy(member, dayKey)
 }
 

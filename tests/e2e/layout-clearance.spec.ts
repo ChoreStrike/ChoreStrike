@@ -111,7 +111,9 @@ test.describe('Layout clearance and dashboard health bar', () => {
 					if (viewport.name === 'phone') {
 						// The content that once overflowed must be rendered, or the
 						// check would pass on an empty view.
-						if (view.content) await expect(root.getByTestId(view.content)).toBeVisible()
+						if (view.content) {
+							await expect(root.getByTestId(view.content)).toBeVisible()
+						}
 						scrolled.push(...(await sidewaysScrollers(root)).map(scroller => `${view.ready}: ${scroller}`))
 					}
 				}

@@ -160,7 +160,9 @@ export default {
 
 		const getFloorCleanliness = (floorId) => {
 			const rooms = getFloorRooms(floorId)
-			if (rooms.length === 0) return 100
+			if (rooms.length === 0) {
+				return 100
+			}
 
 			const totalCleanliness = rooms.reduce((sum, room) => sum + room.cleanliness, 0)
 			return Math.round(totalCleanliness / rooms.length)
@@ -168,24 +170,40 @@ export default {
 
 		const getFloorCleanlinessClass = (floorId) => {
 			const cleanliness = getFloorCleanliness(floorId)
-			if (cleanliness >= 80) return 'excellent'
-			if (cleanliness >= 60) return 'good'
-			if (cleanliness >= 40) return 'fair'
-			if (cleanliness >= 20) return 'poor'
+			if (cleanliness >= 80) {
+				return 'excellent'
+			}
+			if (cleanliness >= 60) {
+				return 'good'
+			}
+			if (cleanliness >= 40) {
+				return 'fair'
+			}
+			if (cleanliness >= 20) {
+				return 'poor'
+			}
 			return 'terrible'
 		}
 
 		const getFloorIconName = (floor) => {
 			const sortOrder = Number(floor.sortOrder || 0)
-			if (sortOrder <= 0) return 'House'
-			if (sortOrder === 1) return 'Building'
+			if (sortOrder <= 0) {
+				return 'House'
+			}
+			if (sortOrder === 1) {
+				return 'Building'
+			}
 			return 'LayoutGrid'
 		}
 
 		const getFloorIconClass = (floor) => {
 			const sortOrder = Number(floor.sortOrder || 0)
-			if (sortOrder <= 0) return 'ground-floor'
-			if (sortOrder === 1) return 'first-floor'
+			if (sortOrder <= 0) {
+				return 'ground-floor'
+			}
+			if (sortOrder === 1) {
+				return 'first-floor'
+			}
 			return 'upper-floor'
 		}
 

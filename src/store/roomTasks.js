@@ -61,7 +61,9 @@ function rangeDays(item, timezone) {
  * @return {string}
  */
 function completionSplitKey({ participants, allocationReviewed } = {}) {
-	if (!participants || participants.length === 0) return ''
+	if (!participants || participants.length === 0) {
+		return ''
+	}
 	const sorted = [...participants]
 		.map(({ userId, sharePct }) => [userId, sharePct])
 		.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -197,8 +199,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				const days = rangeDays(item, houseStore.timezone)
 
 				for (const { date, late } of days) {
-					if (!date) continue
-					if (!byDay[date]) byDay[date] = { scheduled: [], completed: [] }
+					if (!date) {
+						continue
+					}
+					if (!byDay[date]) {
+						byDay[date] = { scheduled: [], completed: [] }
+					}
 					byDay[date].scheduled.push({
 						roomTask: item.roomTask,
 						task: item.task,
@@ -211,8 +217,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			}
 			for (const item of state.rangeTasks.completed) {
 				const day = dateKeyInZone(item.completedAt, houseStore.timezone)
-				if (!day) continue
-				if (!byDay[day]) byDay[day] = { scheduled: [], completed: [] }
+				if (!day) {
+					continue
+				}
+				if (!byDay[day]) {
+					byDay[day] = { scheduled: [], completed: [] }
+				}
 				byDay[day].completed.push(item)
 			}
 			return byDay
@@ -525,7 +535,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			const splitKey = completionSplitKey(options)
 			const pending = inFlightCompletions.get(roomTaskId)
 			if (pending) {
-				if (pending.splitKey === splitKey) return pending.request
+				if (pending.splitKey === splitKey) {
+					return pending.request
+				}
 				// The calling view logs and shows the failure (showCompletionError).
 				const error = new Error('Completion with a different split already in flight')
 				error.code = 'COMPLETION_IN_FLIGHT'
@@ -536,7 +548,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			const request = this._submitCompletion(roomTaskId, options).finally(() => {
 				// After a reset() this request no longer owns the marks (a newer
 				// completion of the same task may already be in flight).
-				if (inFlightCompletions.get(roomTaskId)?.request !== request) return
+				if (inFlightCompletions.get(roomTaskId)?.request !== request) {
+					return
+				}
 				inFlightCompletions.delete(roomTaskId)
 				const { [roomTaskId]: _done, ...rest } = this.completingIds
 				this.completingIds = rest
@@ -897,7 +911,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @param {object} roomTask Fresh room task payload.
 		 */
 		replaceRoomTaskInState(roomTaskId, roomTask) {
-			if (!roomTask) return
+			if (!roomTask) {
+				return
+			}
 
 			const index = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
 			if (index >= 0) {

@@ -21,7 +21,9 @@ export function hapticsSupported() {
  * @return {boolean} Whether a vibration was started.
  */
 export function pulseCompletion() {
-	if (!hapticsSupported()) return false
+	if (!hapticsSupported()) {
+		return false
+	}
 	try {
 		return navigator.vibrate(COMPLETION_PULSE_MS) === true
 	} catch {

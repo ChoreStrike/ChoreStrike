@@ -340,13 +340,17 @@ export default {
 		},
 
 		cancelRequest() {
-			if (this.rewardsStore.saving) return
+			if (this.rewardsStore.saving) {
+				return
+			}
 			this.requestItem = null
 			this.requestError = null
 		},
 
 		async submitRequest() {
-			if (!this.requestItem || this.requesting) return
+			if (!this.requestItem || this.requesting) {
+				return
+			}
 			this.requesting = true
 			this.requestError = null
 			try {

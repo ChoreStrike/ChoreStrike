@@ -69,8 +69,12 @@ export function createState(rng) {
  * @return {object} The same state object
  */
 export function step(state, input, dt) {
-	if (state.over) return state
-	if (typeof input === 'string' && DIRECTIONS[input]) state.robot.wanted = input
+	if (state.over) {
+		return state
+	}
+	if (typeof input === 'string' && DIRECTIONS[input]) {
+		state.robot.wanted = input
+	}
 	tickTimers(state, dt)
 	const robot = state.robot
 	robot.elapsed += dt
@@ -81,18 +85,28 @@ export function step(state, input, dt) {
 			nextRoom(state)
 			return state
 		}
-		if (meet(state)) return state
+		if (meet(state)) {
+			return state
+		}
 	}
 	moveBunnies(state, dt)
 	return state
 }
 
 function tickTimers(state, dt) {
-	if (state.dockMs > 0) state.dockMs = Math.max(0, state.dockMs - dt)
-	if (state.chargeMs === 0) return
+	if (state.dockMs > 0) {
+		state.dockMs = Math.max(0, state.dockMs - dt)
+	}
+	if (state.chargeMs === 0) {
+		return
+	}
 	state.chargeMs = Math.max(0, state.chargeMs - dt)
-	if (state.chargeMs > 0) return
-	for (const bunny of state.bunnies) bunny.catchable = false
+	if (state.chargeMs > 0) {
+		return
+	}
+	for (const bunny of state.bunnies) {
+		bunny.catchable = false
+	}
 }
 
 /**
@@ -105,7 +119,9 @@ function tickTimers(state, dt) {
  */
 export function nextMove(state) {
 	const robot = state.robot
-	if (robot.wanted && opens(state, robot.wanted)) return robot.wanted
+	if (robot.wanted && opens(state, robot.wanted)) {
+		return robot.wanted
+	}
 	return opens(state, robot.direction) ? robot.direction : null
 }
 
@@ -119,8 +135,12 @@ export function nextMove(state) {
 function moveRobot(state) {
 	const robot = state.robot
 	const direction = nextMove(state)
-	if (direction === null) return
-	if (direction === robot.wanted) robot.wanted = null
+	if (direction === null) {
+		return
+	}
+	if (direction === robot.wanted) {
+		robot.wanted = null
+	}
 	robot.direction = direction
 	robot.x += DIRECTIONS[direction].x
 	robot.y += DIRECTIONS[direction].y
@@ -132,7 +152,9 @@ function moveRobot(state) {
 		state.events.push({ type: 'clean', x: robot.x, y: robot.y })
 	}
 	const dock = state.room.dock
-	if (robot.x === dock.x && robot.y === dock.y && state.dockMs === 0) charge(state)
+	if (robot.x === dock.x && robot.y === dock.y && state.dockMs === 0) {
+		charge(state)
+	}
 	fillDistances(state.room, robot, state.distances, state.queue)
 }
 
@@ -151,7 +173,9 @@ function charge(state) {
 	state.chargeMs = CHARGE_MS
 	state.dockMs = DOCK_RECHARGE_MS
 	for (const bunny of state.bunnies) {
-		if (bunny.waitMs === 0) bunny.catchable = true
+		if (bunny.waitMs === 0) {
+			bunny.catchable = true
+		}
 	}
 	state.events.push({ type: 'pickup', kind: 'bonus', x: state.robot.x, y: state.robot.y })
 }
@@ -167,7 +191,9 @@ function moveBunnies(state, dt) {
 	const interval = bunnyInterval(state.roomIndex)
 	for (const bunny of state.bunnies) {
 		if (bunny.waitMs > 0) {
-			if (state.chargeMs === 0) bunny.waitMs = Math.max(0, bunny.waitMs - dt)
+			if (state.chargeMs === 0) {
+				bunny.waitMs = Math.max(0, bunny.waitMs - dt)
+			}
 			continue
 		}
 		bunny.elapsed += dt
@@ -175,7 +201,9 @@ function moveBunnies(state, dt) {
 		while (bunny.waitMs === 0 && bunny.elapsed >= own) {
 			bunny.elapsed -= own
 			moveBunny(state, bunny)
-			if (meet(state)) return
+			if (meet(state)) {
+				return
+			}
 		}
 	}
 }
@@ -190,7 +218,9 @@ function moveBunnies(state, dt) {
 function meet(state) {
 	const robot = state.robot
 	for (const bunny of state.bunnies) {
-		if (bunny.x !== robot.x || bunny.y !== robot.y) continue
+		if (bunny.x !== robot.x || bunny.y !== robot.y) {
+			continue
+		}
 		if (!bunny.catchable) {
 			loseLife(state)
 			return true

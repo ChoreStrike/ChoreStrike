@@ -276,7 +276,9 @@ export default {
 		// The quoted-title pattern must live in script — nested double
 		// quotes are not parseable inside template attribute expressions.
 		archiveTitle() {
-			if (!this.itemToArchive) return ''
+			if (!this.itemToArchive) {
+				return ''
+			}
 			return t('chorestrike', 'Archive "{title}"?', { title: this.itemToArchive.title })
 		},
 	},
@@ -306,7 +308,9 @@ export default {
 			try {
 				await this.houseStore.updateCatalogEnabled(this.gateDraft)
 				this.gateSaved = true
-				setTimeout(() => { this.gateSaved = false }, 4000)
+				setTimeout(() => {
+					this.gateSaved = false
+				}, 4000)
 			} catch (error) {
 				this.gateFailed = true
 				logger.error('Failed to save the catalog gate', error, { component: 'RewardCatalogEditor', action: 'saveGate' })
@@ -360,7 +364,9 @@ export default {
 					this.formError = t('chorestrike', 'Enter a valid price, e.g. 12 or 12.50 — at most two decimals.')
 				}
 			}
-			if (this.formError) return
+			if (this.formError) {
+				return
+			}
 			try {
 				await this.rewardsStore.createCatalogItem({
 					title: this.createDraft.title.trim(),
@@ -389,7 +395,9 @@ export default {
 
 		async submitEdit() {
 			const item = this.editingItem
-			if (!item) return
+			if (!item) {
+				return
+			}
 			this.formError = this.validateDraft(this.editDraft)
 			let priceMinor = null
 			if (!this.formError) {
@@ -399,7 +407,9 @@ export default {
 					this.formError = t('chorestrike', 'Enter a valid price, e.g. 12 or 12.50 — at most two decimals.')
 				}
 			}
-			if (this.formError) return
+			if (this.formError) {
+				return
+			}
 			try {
 				await this.rewardsStore.updateCatalogItem(item, {
 					title: this.editDraft.title.trim(),
@@ -420,7 +430,9 @@ export default {
 
 		async confirmArchive() {
 			const item = this.itemToArchive
-			if (!item) return
+			if (!item) {
+				return
+			}
 			try {
 				await this.rewardsStore.updateCatalogItem(item, { archived: true })
 				showSuccess(t('chorestrike', 'The reward was archived.'))

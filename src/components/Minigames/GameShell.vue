@@ -167,17 +167,23 @@ const loop = useGameLoop({ onStep, onRender: draw, onAutoPause: enterPause })
 function onStep(dt) {
 	const before = state.score
 	game.value.step(state, inputs.shift() ?? null, dt)
-	if (state.score !== score.value) score.value = state.score
+	if (state.score !== score.value) {
+		score.value = state.score
+	}
 	let origin = null
 	for (const event of state.events) {
 		handleEvent(event)
-		if (origin === null && (event.type === 'pickup' || event.type === 'penalty')) origin = event
+		if (origin === null && (event.type === 'pickup' || event.type === 'penalty')) {
+			origin = event
+		}
 	}
 	state.events.length = 0
 	if (origin && state.score !== before && boardEffects()) {
 		fx.score(origin.x + eventOffset, origin.y + eventOffset, state.score - before, view.palette)
 	}
-	if (state.over) finishRound()
+	if (state.over) {
+		finishRound()
+	}
 }
 
 /**
@@ -187,9 +193,14 @@ function onStep(dt) {
  * @param {{type: string, kind?: string, x?: number, y?: number}} event Game event
  */
 function handleEvent(event) {
-	if (event.type === 'pickup') effects.pickup(event.kind)
-	else effects.event(event.type)
-	if (boardEffects()) fx.react(event, event.x + eventOffset, event.y + eventOffset, view.palette, center)
+	if (event.type === 'pickup') {
+		effects.pickup(event.kind)
+	} else {
+		effects.event(event.type)
+	}
+	if (boardEffects()) {
+		fx.react(event, event.x + eventOffset, event.y + eventOffset, view.palette, center)
+	}
 }
 
 function boardEffects() {
@@ -197,7 +208,9 @@ function boardEffects() {
 }
 
 function draw() {
-	if (!state) return
+	if (!state) {
+		return
+	}
 	syncHeader()
 	if (isDom) {
 		if (state.revision !== drawnRevision) {
@@ -206,7 +219,9 @@ function draw() {
 		}
 		return
 	}
-	if (!context) return
+	if (!context) {
+		return
+	}
 	const now = performance.now()
 	view.time = now
 	const ratio = canvasPixelRatio(window.devicePixelRatio)
@@ -226,24 +241,34 @@ function draw() {
 function syncHeader() {
 	if (game.value.roundMs) {
 		const seconds = Math.ceil(state.timeLeftMs / 1000)
-		if (seconds !== timeLeft.value) timeLeft.value = seconds
+		if (seconds !== timeLeft.value) {
+			timeLeft.value = seconds
+		}
 	}
-	if (state.lives !== undefined && state.lives !== lives.value) lives.value = state.lives
+	if (state.lives !== undefined && state.lives !== lives.value) {
+		lives.value = state.lives
+	}
 }
 
 function resize() {
-	if (!stageRef.value || !game.value) return
+	if (!stageRef.value || !game.value) {
+		return
+	}
 	const next = fitBoard(stageRef.value.clientWidth, window.innerHeight * BOARD_HEIGHT_SHARE, game.value.cols, game.value.rows)
 	// A scrolling container's scrollbar that the board itself brings and
 	// removes narrows the stage without a viewport change; growing back then
 	// would loop (bigger board, scrollbar, smaller board, no scrollbar ...).
 	// Shrinking always applies; growing only for a new viewport.
 	const viewport = `${window.innerWidth}x${window.innerHeight}`
-	if (viewport === sizedViewport && next.width > board.value.width) return
+	if (viewport === sizedViewport && next.width > board.value.width) {
+		return
+	}
 	sizedViewport = viewport
 	board.value = next
 	const canvas = canvasRef.value
-	if (canvas) sizeCanvas(canvas)
+	if (canvas) {
+		sizeCanvas(canvas)
+	}
 	draw()
 }
 
@@ -298,7 +323,9 @@ function refreshMotion() {
 }
 
 function startGame() {
-	if (!game.value || phase.value === 'playing') return
+	if (!game.value || phase.value === 'playing') {
+		return
+	}
 	newState()
 	refreshMotion()
 	inputs.length = 0
@@ -306,7 +333,9 @@ function startGame() {
 	fx.clear()
 	score.value = 0
 	result.value = null
-	if (!loop.start()) return
+	if (!loop.start()) {
+		return
+	}
 	round++
 	phase.value = 'playing'
 	effects.event('start')
@@ -316,7 +345,9 @@ function startGame() {
 }
 
 function pauseGame() {
-	if (loop.pause()) enterPause()
+	if (loop.pause()) {
+		enterPause()
+	}
 }
 
 function enterPause() {
@@ -326,12 +357,16 @@ function enterPause() {
 }
 
 function resumeGame() {
-	if (!loop.resume()) return
+	if (!loop.resume()) {
+		return
+	}
 	phase.value = 'playing'
 	refreshMotion()
 	// Keys released during the pause sent no release: a paddle starts still.
 	steerKeys.clear()
-	if (entry.input === 'paddle') queueInput({ steer: 0 })
+	if (entry.input === 'paddle') {
+		queueInput({ steer: 0 })
+	}
 	announce(t('chorestrike', 'Resumed'))
 	focusShell()
 }
@@ -347,7 +382,9 @@ async function finishRound() {
 	draw()
 	focusOverlay()
 	const roundResult = await store.finishGame(props.gameId, finalScore, loop.elapsedMs())
-	if (finished !== round) return
+	if (finished !== round) {
+		return
+	}
 	result.value = roundResult
 	if (roundResult.newBest) {
 		effects.newPersonalBest()
@@ -364,10 +401,14 @@ async function finishRound() {
  * @param {string} kind 'sound' or 'effects'
  */
 async function toggleEffect(kind) {
-	if (preferences.saving) return
+	if (preferences.saving) {
+		return
+	}
 	const field = kind === 'sound' ? 'soundEnabled' : 'animationEnabled'
 	const value = preferences[field] !== true
-	if (field === 'soundEnabled' && value) unlockAudio()
+	if (field === 'soundEnabled' && value) {
+		unlockAudio()
+	}
 	try {
 		await preferences.savePreferences({ [field]: value })
 	} catch (error) {
@@ -381,10 +422,14 @@ async function toggleEffect(kind) {
  * @param {string|{cell: number}|{steer: number}|{aim: number}} input A direction, 'act', a tapped tile or a paddle control
  */
 function queueInput(input) {
-	if (phase.value !== 'playing') return
+	if (phase.value !== 'playing') {
+		return
+	}
 	if (isPaddleControl(input)) {
 		const queued = inputs.findIndex(isPaddleControl)
-		if (queued >= 0) inputs.splice(queued, 1)
+		if (queued >= 0) {
+			inputs.splice(queued, 1)
+		}
 		inputs.push(input)
 	} else if (inputs.length < MAX_QUEUED_INPUTS) {
 		inputs.push(input)
@@ -397,9 +442,13 @@ function onTileTap(cell) {
 
 function onKeyDown(event) {
 	const action = keyAction(event.code)
-	if (!action) return
+	if (!action) {
+		return
+	}
 	if (action.type === 'direction') {
-		if (phase.value !== 'playing') return
+		if (phase.value !== 'playing') {
+			return
+		}
 		event.preventDefault()
 		if (entry.input === 'paddle') {
 			steer(steerKeys.press(event.code, action.direction))
@@ -410,14 +459,20 @@ function onKeyDown(event) {
 	}
 	// A focused button keeps its own Enter/Space activation (no double handling).
 	if (action.type === 'act') {
-		if (phase.value !== 'playing' || event.target !== shellRef.value) return
+		if (phase.value !== 'playing' || event.target !== shellRef.value) {
+			return
+		}
 		event.preventDefault()
 		queueInput('act')
 		return
 	}
-	if (event.code === 'Space' && event.target !== shellRef.value) return
+	if (event.code === 'Space' && event.target !== shellRef.value) {
+		return
+	}
 	// A held key toggles once: its repeats would flip pause and resume.
-	if (event.repeat) return
+	if (event.repeat) {
+		return
+	}
 	if (phase.value === 'playing') {
 		event.preventDefault()
 		pauseGame()
@@ -428,14 +483,18 @@ function onKeyDown(event) {
 }
 
 function onKeyUp(event) {
-	if (entry?.input === 'paddle') steer(steerKeys.release(event.code))
+	if (entry?.input === 'paddle') {
+		steer(steerKeys.release(event.code))
+	}
 }
 
 /**
  * @param {number|null} value New steer value of the held keys, null when unchanged
  */
 function steer(value) {
-	if (value !== null) queueInput({ steer: value })
+	if (value !== null) {
+		queueInput({ steer: value })
+	}
 }
 
 /**
@@ -445,9 +504,13 @@ function steer(value) {
  * @param {PointerEvent} event Pointer event on the board
  */
 function onPointerAim(event) {
-	if (phase.value !== 'playing' || entry.input !== 'paddle') return
+	if (phase.value !== 'playing' || entry.input !== 'paddle') {
+		return
+	}
 	const rect = event.currentTarget.getBoundingClientRect()
-	if (rect.width > 0) queueInput({ aim: (event.clientX - rect.left) / rect.width })
+	if (rect.width > 0) {
+		queueInput({ aim: (event.clientX - rect.left) / rect.width })
+	}
 }
 
 function onTouchStart(event) {
@@ -459,10 +522,14 @@ function onTouchEnd(event) {
 	const start = touchStart
 	touchStart = null
 	// Swipes steer D-pad games; a tap game reads its taps from the board.
-	if (!start || phase.value !== 'playing' || entry.input !== 'dpad') return
+	if (!start || phase.value !== 'playing' || entry.input !== 'dpad') {
+		return
+	}
 	const touch = event.changedTouches[0]
 	const direction = swipeDirection(touch.clientX - start.x, touch.clientY - start.y)
-	if (!direction) return
+	if (!direction) {
+		return
+	}
 	event.preventDefault()
 	queueInput(direction)
 }
@@ -479,7 +546,9 @@ function announce(message) {
  * @param {MouseEvent} event Click on the board
  */
 function onBoardClick(event) {
-	if (event.target.closest('button')) return
+	if (event.target.closest('button')) {
+		return
+	}
 	focusShell()
 }
 

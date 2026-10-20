@@ -163,8 +163,12 @@ const filtersFromQuery = (query = {}) => {
 		filters.visibility = 'private'
 		filters.scope = 'all'
 	}
-	if (['mine', 'unassigned', 'all'].includes(query.scope)) filters.scope = query.scope
-	if (STATUS_PRESETS.includes(query.status)) filters.status = query.status
+	if (['mine', 'unassigned', 'all'].includes(query.scope)) {
+		filters.scope = query.scope
+	}
+	if (STATUS_PRESETS.includes(query.status)) {
+		filters.status = query.status
+	}
 	return filters
 }
 
@@ -396,10 +400,18 @@ export default {
 			const assignees = roomTask.assignees ?? []
 			// Unknown user (identity not resolved yet): show assigned rows
 			// rather than an empty list, mirroring TodayView.isMine.
-			if (scope === 'mine' && actorId && assignees.length > 0 && !assignees.includes(actorId)) return false
-			if (scope === 'unassigned' && assignees.length > 0) return false
-			if (person && !assignees.includes(person)) return false
-			if (floor && !roomIds.has(roomTask.roomId)) return false
+			if (scope === 'mine' && actorId && assignees.length > 0 && !assignees.includes(actorId)) {
+				return false
+			}
+			if (scope === 'unassigned' && assignees.length > 0) {
+				return false
+			}
+			if (person && !assignees.includes(person)) {
+				return false
+			}
+			if (floor && !roomIds.has(roomTask.roomId)) {
+				return false
+			}
 			return !room || String(roomTask.roomId) === room
 		},
 
@@ -488,7 +500,9 @@ export default {
 		 */
 		participationMembers() {
 			const roomTask = this.participation
-			if (!roomTask) return []
+			if (!roomTask) {
+				return []
+			}
 			const namesByUser = {}
 			;(this.userStore.houseUsers ?? []).forEach(member => {
 				namesByUser[member.nextcloudUserId] = member.displayName
@@ -503,7 +517,9 @@ export default {
 		async confirmParticipation(payload) {
 			const roomTask = this.participation
 			this.participation = null
-			if (!roomTask) return
+			if (!roomTask) {
+				return
+			}
 			await this.performComplete(roomTask.id, payload)
 		},
 
@@ -534,7 +550,9 @@ export default {
 
 		async confirmDeleteTask() {
 			const roomTaskId = this.taskToDelete
-			if (roomTaskId === null) return
+			if (roomTaskId === null) {
+				return
+			}
 			this.deleting = true
 			try {
 				await this.roomTasksStore.deleteRoomTask(roomTaskId)
@@ -578,7 +596,9 @@ export default {
 		},
 
 		handleUpdateTask(taskData) {
-			if (!this.editingTask) return
+			if (!this.editingTask) {
+				return
+			}
 			this.tasksStore.updateTask(this.editingTask.id, taskData)
 				.then(() => {
 					this.showEditTaskModal = false

@@ -261,7 +261,9 @@ export default {
 			let remainder = 100 - base * count
 			return sorted.map(entry => {
 				const pct = base + (remainder > 0 ? 1 : 0)
-				if (remainder > 0) remainder--
+				if (remainder > 0) {
+					remainder--
+				}
 				return {
 					userId: entry.userId,
 					displayName: entry.displayName,
@@ -272,7 +274,9 @@ export default {
 		},
 
 		confirm() {
-			if (!this.isValid) return
+			if (!this.isValid) {
+				return
+			}
 			this.$emit('confirm', {
 				participants: this.activeParticipants.map(participant => ({
 					userId: participant.userId,

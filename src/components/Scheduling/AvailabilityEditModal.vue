@@ -216,9 +216,13 @@ const editHasChanges = computed(() => {
 	const storedAvailability = props.member.weekdayAvailability ?? {}
 	const storedBudget = props.member.energyBudget ?? {}
 	const defaultBudget = createDefaultEnergyBudget()
-	if (!isSelf.value && limitHasChanges.value) return true
+	if (!isSelf.value && limitHasChanges.value) {
+		return true
+	}
 	return weekDays.some((day) => {
-		if (!!editForm.value.availability[day.key] !== !!storedAvailability[day.key]) return true
+		if (!!editForm.value.availability[day.key] !== !!storedAvailability[day.key]) {
+			return true
+		}
 		const formEnergy = editForm.value.energyBudget[day.key]
 		const next = Number.isInteger(formEnergy)
 			? formEnergy

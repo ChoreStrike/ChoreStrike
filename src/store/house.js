@@ -338,7 +338,9 @@ export const useHouseStore = defineStore('house', {
 			if (this.houseRequest) {
 				const pendingSeq = this.houseRequestSeq
 				await this.houseRequest
-				if (pendingSeq !== this.houseRequestSeq) return this.house?.houseHealth ?? null
+				if (pendingSeq !== this.houseRequestSeq) {
+					return this.house?.houseHealth ?? null
+				}
 			}
 			const seq = ++this.houseRequestSeq
 			this.loading = true
@@ -363,7 +365,9 @@ export const useHouseStore = defineStore('house', {
 				logger.error('Failed to calculate house health', error, { store: 'house', action: 'calculateHouseHealth' })
 				throw error
 			} finally {
-				if (seq === this.houseRequestSeq) this.loading = false
+				if (seq === this.houseRequestSeq) {
+					this.loading = false
+				}
 			}
 		},
 
@@ -376,7 +380,9 @@ export const useHouseStore = defineStore('house', {
 
 			try {
 				if (!this.pendingResetCommand) {
-					if (!this.house) await this.fetchHouse()
+					if (!this.house) {
+						await this.fetchHouse()
+					}
 					if (!Number.isInteger(this.house?.stateVersion)) {
 						throw new Error('House state version is unavailable')
 					}
@@ -392,7 +398,9 @@ export const useHouseStore = defineStore('house', {
 			} catch (error) {
 				// A timeout/5xx may mean the reset committed. Only a definitive
 				// rejection allows a new command identity on the next attempt.
-				if (error.status >= 400 && error.status < 500) this.pendingResetCommand = null
+				if (error.status >= 400 && error.status < 500) {
+					this.pendingResetCommand = null
+				}
 				this.error = error.message
 				logger.error('Failed to reset house', error, { store: 'house', action: 'resetHouse' })
 				throw error

@@ -89,20 +89,32 @@ export default {
 		t,
 
 		relativeDate(isoDate) {
-			if (!isoDate) return ''
+			if (!isoDate) {
+				return ''
+			}
 			const date = new Date(isoDate)
 			const diffMs = Date.now() - date.getTime()
 			const diffMinutes = Math.floor(diffMs / 60000)
 
-			if (diffMinutes < 1) return t('chorestrike', 'just now')
-			if (diffMinutes < 60) return t('chorestrike', '{minutes} min ago', { minutes: diffMinutes })
-			if (diffMinutes < 24 * 60) return t('chorestrike', '{hours} h ago', { hours: Math.floor(diffMinutes / 60) })
-			if (diffMinutes < 7 * 24 * 60) return t('chorestrike', '{days} d ago', { days: Math.floor(diffMinutes / (24 * 60)) })
+			if (diffMinutes < 1) {
+				return t('chorestrike', 'just now')
+			}
+			if (diffMinutes < 60) {
+				return t('chorestrike', '{minutes} min ago', { minutes: diffMinutes })
+			}
+			if (diffMinutes < 24 * 60) {
+				return t('chorestrike', '{hours} h ago', { hours: Math.floor(diffMinutes / 60) })
+			}
+			if (diffMinutes < 7 * 24 * 60) {
+				return t('chorestrike', '{days} d ago', { days: Math.floor(diffMinutes / (24 * 60)) })
+			}
 			return date.toLocaleDateString()
 		},
 
 		absoluteDate(isoDate) {
-			if (!isoDate) return ''
+			if (!isoDate) {
+				return ''
+			}
 			return new Date(isoDate).toLocaleString()
 		},
 	},

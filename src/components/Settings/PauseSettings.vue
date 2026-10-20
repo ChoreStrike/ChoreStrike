@@ -168,7 +168,9 @@ export default {
 	computed: {
 		ownPauses() {
 			const myUserId = this.userStore.currentUser?.nextcloudUserId
-			if (!myUserId) return []
+			if (!myUserId) {
+				return []
+			}
 			return this.pausesStore.pauses.filter(pause => pause.subjectUserId === myUserId)
 		},
 
@@ -189,7 +191,9 @@ export default {
 		t,
 
 		async submitRequest() {
-			if (!this.draft.startDate || !this.draft.endDate) return
+			if (!this.draft.startDate || !this.draft.endDate) {
+				return
+			}
 			try {
 				await this.pausesStore.requestPersonalPause({
 					startDate: this.draft.startDate,
@@ -209,7 +213,9 @@ export default {
 
 		async submitShorten(pause) {
 			const endDate = this.shortenDrafts[pause.pauseGroupId]
-			if (!endDate) return
+			if (!endDate) {
+				return
+			}
 			try {
 				await this.pausesStore.shortenPause(pause.pauseGroupId, {
 					endDate,

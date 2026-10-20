@@ -66,7 +66,9 @@ async function save() {
 	try {
 		await houseStore.updateArcadeGateEnabled(draft.value)
 		saved.value = true
-		setTimeout(() => { saved.value = false }, 4000)
+		setTimeout(() => {
+			saved.value = false
+		}, 4000)
 	} catch (error) {
 		failed.value = true
 		logger.error('Failed to save the arcade gate', error, { component: 'ArcadeGateSetting', action: 'save' })

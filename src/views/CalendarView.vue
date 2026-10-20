@@ -149,7 +149,9 @@ export default {
 		},
 
 		dayDetail() {
-			if (!this.selectedDay) return { scheduled: [], completed: [] }
+			if (!this.selectedDay) {
+				return { scheduled: [], completed: [] }
+			}
 			return this.roomTasksStore.rangeTasksByDay[this.selectedDay] || { scheduled: [], completed: [] }
 		},
 	},
@@ -203,7 +205,9 @@ export default {
 
 		mondayOfKey(key) {
 			const dayName = weekdayOfKey(key)
-			if (!dayName) return key
+			if (!dayName) {
+				return key
+			}
 			const index = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(dayName)
 			return addDaysToKey(key, index === 0 ? -6 : 1 - index)
 		},
@@ -219,7 +223,9 @@ export default {
 			// window has ended without the work (server `late` mark) — a past
 			// planned day inside an open flex window is still due. Entries
 			// without a mark follow the row rule of the task lists.
-			if (typeof item.late === 'boolean') return item.late
+			if (typeof item.late === 'boolean') {
+				return item.late
+			}
 			return isRowOverdue(item.roomTask)
 		},
 

@@ -93,7 +93,9 @@ async function playSockMatch(page: Page): Promise<void> {
 	}
 	const unknown = (): number => {
 		const cell = [...Array(16).keys()].find((index) => !found.has(index) && !seen.has(index))
-		if (cell === undefined) throw new Error('no unknown sock left')
+		if (cell === undefined) {
+			throw new Error('no unknown sock left')
+		}
 		return cell
 	}
 	const partnerOf = (cell: number, pattern: string): number | undefined => [...seen]

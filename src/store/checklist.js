@@ -270,7 +270,9 @@ export const useChecklistStore = defineStore('checklist', {
 					const orderedItems = []
 					itemIds.forEach(id => {
 						const item = this.items[taskId].find(i => i.id === id)
-						if (item) orderedItems.push(item)
+						if (item) {
+							orderedItems.push(item)
+						}
 					})
 					this.items[taskId] = orderedItems
 				}

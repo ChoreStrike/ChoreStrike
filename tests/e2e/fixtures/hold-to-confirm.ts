@@ -26,7 +26,9 @@ const MAX_ATTEMPTS = 3
  */
 export async function holdToConfirm(locator: Locator, input: HoldInput = 'pointer'): Promise<void> {
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-		if (await pressUntilSettled(locator, input) !== 'idle') return
+		if (await pressUntilSettled(locator, input) !== 'idle') {
+			return
+		}
 	}
 	throw new Error(`Hold was aborted ${MAX_ATTEMPTS} times without confirming`)
 }
@@ -48,7 +50,9 @@ async function pressUntilSettled(locator: Locator, input: HoldInput): Promise<st
 			await page.mouse.down()
 		}
 		const outcome = await page.waitForFunction((element) => {
-			if (!element.isConnected) return 'detached'
+			if (!element.isConnected) {
+				return 'detached'
+			}
 			const state = element.getAttribute('data-hold-state')
 			return state === 'holding' ? false : state
 		}, handle, { timeout: 5000 })

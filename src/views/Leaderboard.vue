@@ -291,7 +291,9 @@ export default {
 		},
 
 		getInitials(name) {
-			if (!name) return '?'
+			if (!name) {
+				return '?'
+			}
 			return name
 				.split(' ')
 				.map(word => word[0])

@@ -56,7 +56,9 @@ export function runOcc(args: string, environment: Record<string, string> = {}): 
  * @returns The date formatted as YYYY-MM-DD.
  */
 export function containerDate(offsetDays: number): string {
-	if (!Number.isSafeInteger(offsetDays)) throw new Error('Calendar offset must be an integer')
+	if (!Number.isSafeInteger(offsetDays)) {
+		throw new Error('Calendar offset must be an integer')
+	}
 	const container = resolveNextcloudContainer()
 	return execFileSync('docker', ['exec', container, 'date', '-d', `${offsetDays} day`, '+%Y-%m-%d'], { encoding: 'utf8' }).trim()
 }

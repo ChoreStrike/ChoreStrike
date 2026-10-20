@@ -33,9 +33,15 @@ export const SWIPE_MIN_PX = 24
  * @return {{type: 'direction', direction: string}|{type: 'toggle'}|{type: 'act'}|null}
  */
 export function keyAction(code) {
-	if (DIRECTION_KEYS[code]) return { type: 'direction', direction: DIRECTION_KEYS[code] }
-	if (TOGGLE_KEYS.has(code)) return { type: 'toggle' }
-	if (ACT_KEYS.has(code)) return { type: 'act' }
+	if (DIRECTION_KEYS[code]) {
+		return { type: 'direction', direction: DIRECTION_KEYS[code] }
+	}
+	if (TOGGLE_KEYS.has(code)) {
+		return { type: 'toggle' }
+	}
+	if (ACT_KEYS.has(code)) {
+		return { type: 'act' }
+	}
 	return null
 }
 
@@ -45,8 +51,12 @@ export function keyAction(code) {
  * @return {string|null} The dominant direction, or null for a tap
  */
 export function swipeDirection(dx, dy) {
-	if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN_PX) return null
-	if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left'
+	if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN_PX) {
+		return null
+	}
+	if (Math.abs(dx) > Math.abs(dy)) {
+		return dx > 0 ? 'right' : 'left'
+	}
 	return dy > 0 ? 'down' : 'up'
 }
 
@@ -66,8 +76,11 @@ export function createSteerKeys() {
 		let left = 0
 		let right = 0
 		for (const direction of held.values()) {
-			if (direction === 'left') left = 1
-			else right = 1
+			if (direction === 'left') {
+				left = 1
+			} else {
+				right = 1
+			}
 		}
 		return right - left
 	}
@@ -79,7 +92,9 @@ export function createSteerKeys() {
 	}
 	return {
 		press(code, direction) {
-			if (!STEER_DIRECTIONS.has(direction)) return null
+			if (!STEER_DIRECTIONS.has(direction)) {
+				return null
+			}
 			return change(() => held.set(code, direction))
 		},
 		release(code) {

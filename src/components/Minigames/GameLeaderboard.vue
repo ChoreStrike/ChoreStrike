@@ -115,10 +115,18 @@ function formatDate(dateString) {
 	const diffMins = Math.floor((Date.now() - date.getTime()) / 60000)
 	const diffHours = Math.floor(diffMins / 60)
 	const diffDays = Math.floor(diffHours / 24)
-	if (diffMins < 1) return t('chorestrike', 'Just now')
-	if (diffMins < 60) return t('chorestrike', '{n} min ago', { n: diffMins })
-	if (diffHours < 24) return t('chorestrike', '{n}h ago', { n: diffHours })
-	if (diffDays < 7) return t('chorestrike', '{n}d ago', { n: diffDays })
+	if (diffMins < 1) {
+		return t('chorestrike', 'Just now')
+	}
+	if (diffMins < 60) {
+		return t('chorestrike', '{n} min ago', { n: diffMins })
+	}
+	if (diffHours < 24) {
+		return t('chorestrike', '{n}h ago', { n: diffHours })
+	}
+	if (diffDays < 7) {
+		return t('chorestrike', '{n}d ago', { n: diffDays })
+	}
 	return date.toLocaleDateString()
 }
 

@@ -199,13 +199,19 @@ export default {
 		})
 
 		const progressPercent = computed(() => {
-			if (props.items.length === 0) return 0
+			if (props.items.length === 0) {
+				return 0
+			}
 			return Math.round((completedCount.value / props.items.length) * 100)
 		})
 
 		const progressClass = computed(() => {
-			if (progressPercent.value === 100) return 'complete'
-			if (progressPercent.value >= 50) return 'half'
+			if (progressPercent.value === 100) {
+				return 'complete'
+			}
+			if (progressPercent.value >= 50) {
+				return 'half'
+			}
 			return 'start'
 		})
 
@@ -236,7 +242,9 @@ export default {
 		}
 
 		const saveNewItem = () => {
-			if (!newItemLabel.value.trim()) return
+			if (!newItemLabel.value.trim()) {
+				return
+			}
 
 			emit('add', {
 				label: newItemLabel.value.trim(),
@@ -255,7 +263,9 @@ export default {
 		}
 
 		const saveEdit = () => {
-			if (!editingItem.value?.label || !editingItem.value.label.trim()) return
+			if (!editingItem.value?.label || !editingItem.value.label.trim()) {
+				return
+			}
 
 			emit('update', {
 				itemId: editingItem.value.id,
@@ -271,7 +281,9 @@ export default {
 
 		const confirmDeleteItem = () => {
 			const itemId = itemToDelete.value
-			if (itemId === null) return
+			if (itemId === null) {
+				return
+			}
 			itemToDelete.value = null
 			emit('delete', { itemId, taskId: props.taskId })
 		}
@@ -285,7 +297,9 @@ export default {
 		const drop = (event, targetItem) => {
 			event.preventDefault()
 
-			if (!draggedItem.value || draggedItem.value.id === targetItem.id) return
+			if (!draggedItem.value || draggedItem.value.id === targetItem.id) {
+				return
+			}
 
 			const reordered = sortedItems.value.map(item => item.id)
 			const fromIndex = reordered.indexOf(draggedItem.value.id)

@@ -52,15 +52,25 @@ test.describe('Settings', () => {
 		let settingsDelivered = false
 		let releaseSettings!: () => void
 		let releaseLatest!: () => void
-		const settingsBarrier = new Promise<void>(resolve => { releaseSettings = resolve })
-		const latestBarrier = new Promise<void>(resolve => { releaseLatest = resolve })
+		const settingsBarrier = new Promise<void>(resolve => {
+			releaseSettings = resolve
+		})
+		const latestBarrier = new Promise<void>(resolve => {
+			releaseLatest = resolve
+		})
 		await page.route(`**${API}/house`, async route => {
 			const index = ++requests
 			const response = await route.fetch()
-			if (index === 2) await settingsBarrier
-			if (index === 3) await latestBarrier
+			if (index === 2) {
+				await settingsBarrier
+			}
+			if (index === 3) {
+				await latestBarrier
+			}
 			await route.fulfill({ response })
-			if (index === 2) settingsDelivered = true
+			if (index === 2) {
+				settingsDelivered = true
+			}
 		})
 		try {
 			await page.reload()
@@ -86,7 +96,9 @@ test.describe('Settings', () => {
 
 	test('Cold structure hydration survives room reconciliation', async ({ page }) => {
 		let release!: () => void
-		const barrier = new Promise<void>(resolve => { release = resolve })
+		const barrier = new Promise<void>(resolve => {
+			release = resolve
+		})
 		let snapshot: { floor: { id: number }, rooms: { id: number }[] }[] | null = null
 		let requests = 0
 		await page.route(`**${API}/floors/with-rooms`, async route => {
@@ -106,7 +118,9 @@ test.describe('Settings', () => {
 			await page.evaluate(room => {
 				const app = (window as unknown as { chorestrike: { pinia: { _s: Map<string, { floors: unknown[], rooms: unknown[], reconcileRoom: (room: unknown) => void }> } } }).chorestrike
 				const store = app.pinia._s.get('rooms')!
-				if (store.floors.length || store.rooms.length) throw new Error('Expected a cold structure cache')
+				if (store.floors.length || store.rooms.length) {
+					throw new Error('Expected a cold structure cache')
+				}
 				store.reconcileRoom(room)
 			}, room)
 			await expect(page.getByTestId('structure-loading')).toBeVisible()
@@ -125,10 +139,14 @@ test.describe('Settings', () => {
 			await page.setViewportSize({ width, height: width === 390 ? 844 : 900 })
 			await page.goto('/apps/chorestrike/')
 			await expect(page.getByTestId('today-view')).toBeVisible()
-			if (width < 768) await page.getByRole('button', { name: /Open navigation/i }).click()
+			if (width < 768) {
+				await page.getByRole('button', { name: /Open navigation/i }).click()
+			}
 			await page.getByTestId('nav-settings').click()
 			await expect(page.getByTestId('house-section')).toBeVisible()
-			if (width < 768) await page.getByRole('button', { name: /Close navigation/i }).click()
+			if (width < 768) {
+				await page.getByRole('button', { name: /Close navigation/i }).click()
+			}
 
 			const floor = page.getByTestId('floors-list').locator('.floor-item').first()
 			await expect(floor).toBeVisible()
@@ -328,7 +346,11 @@ test.describe('Settings', () => {
 		await modal.locator('input[placeholder="RESET"]').fill('reset')
 		await expect(modal.locator('.danger-button')).toBeDisabled()
 		let resetCalls = 0
-		page.on('request', request => { if (request.url().endsWith('/house/reset')) resetCalls++ })
+		page.on('request', request => {
+			if (request.url().endsWith('/house/reset')) {
+				resetCalls++
+			}
+		})
 		await modal.locator('.secondary-button').click()
 		expect(resetCalls).toBe(0)
 		expect(await snapshot()).toEqual(before)

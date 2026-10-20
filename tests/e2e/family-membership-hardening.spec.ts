@@ -65,7 +65,9 @@ test.describe('family membership hardening (CS-PLAN-081 H3)', () => {
 				let targetB: { id: number }
 				if (endpoint === 'invite') {
 					const started = Date.now()
-					for (let i = 0; i < 60; i++) await dataOf(await invite(a.page, uids[2]))
+					for (let i = 0; i < 60; i++) {
+						await dataOf(await invite(a.page, uids[2]))
+					}
 					const before = await dataOf(await a.page.request.get(`${API}/users`))
 					expect((await invite(a.page, uids[3])).status()).toBe(429)
 					expect(await dataOf(await a.page.request.get(`${API}/users`))).toEqual(before)
@@ -86,7 +88,9 @@ test.describe('family membership hardening (CS-PLAN-081 H3)', () => {
 						} else {
 							const response = await a.page.request.delete(`${API}/users/${targetA.id}`)
 							expect(response.status(), await response.text()).toBe(i === 0 ? 200 : 404)
-							if (i > 0) expect((await response.json()).error.code).toBe('USER_NOT_FOUND')
+							if (i > 0) {
+								expect((await response.json()).error.code).toBe('USER_NOT_FOUND')
+							}
 						}
 					}
 					const before = await dataOf(await a.page.request.get(`${API}/users`))
@@ -109,8 +113,12 @@ test.describe('family membership hardening (CS-PLAN-081 H3)', () => {
 				expect(completable).toBeTruthy()
 				await dataOf(await completeAsSoleParticipantViaApi(a.page, completable.id, uids[0]))
 			} finally {
-				for (const context of contexts.reverse()) await context.close()
-				for (const uid of created.reverse()) runOcc(`user:delete ${uid}`)
+				for (const context of contexts.reverse()) {
+					await context.close()
+				}
+				for (const uid of created.reverse()) {
+					runOcc(`user:delete ${uid}`)
+				}
 			}
 		})
 	}

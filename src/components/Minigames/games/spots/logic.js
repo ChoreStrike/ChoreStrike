@@ -80,12 +80,18 @@ export function createState(rng) {
  * @return {object} The same state object
  */
 export function step(state, input, dt) {
-	if (state.over) return state
-	if (input) applyInput(state, input)
+	if (state.over) {
+		return state
+	}
+	if (input) {
+		applyInput(state, input)
+	}
 	state.timeLeftMs -= dt
 	if (state.doubleMs > 0) {
 		state.doubleMs = Math.max(0, state.doubleMs - dt)
-		if (state.doubleMs === 0) state.revision++
+		if (state.doubleMs === 0) {
+			state.revision++
+		}
 	}
 	age(state, dt)
 	state.sinceSpawn += dt
@@ -125,7 +131,9 @@ function applyInput(state, input) {
  */
 function wipe(state, index) {
 	const item = state.tiles[index]
-	if (!item) return
+	if (!item) {
+		return
+	}
 	state.tiles[index] = null
 	state.revision++
 	const x = index % COLS
@@ -147,10 +155,14 @@ function age(state, dt) {
 	for (let index = 0; index < state.tiles.length; index++) {
 		if (state.flashes[index] > 0) {
 			state.flashes[index] = Math.max(0, state.flashes[index] - dt)
-			if (state.flashes[index] === 0) state.revision++
+			if (state.flashes[index] === 0) {
+				state.revision++
+			}
 		}
 		const item = state.tiles[index]
-		if (!item) continue
+		if (!item) {
+			continue
+		}
 		const wasDrying = isDrying(item)
 		item.age += dt
 		if (item.age >= item.life) {
@@ -170,15 +182,21 @@ function isDrying(item) {
 function spawn(state) {
 	let free = 0
 	for (let index = 0; index < state.tiles.length; index++) {
-		if (isFree(state, index)) free++
+		if (isFree(state, index)) {
+			free++
+		}
 	}
 	const kind = pickKind(state)
 	state.spawnMs = Math.max(MIN_SPAWN_MS, state.spawnMs - SPAWN_SPEEDUP_MS)
 	state.dryMs = Math.max(MIN_DRY_MS, state.dryMs - DRY_SPEEDUP_MS)
-	if (free === 0) return
+	if (free === 0) {
+		return
+	}
 	let target = Math.floor(state.rng() * free)
 	for (let index = 0; index < state.tiles.length; index++) {
-		if (!isFree(state, index)) continue
+		if (!isFree(state, index)) {
+			continue
+		}
 		if (target-- === 0) {
 			state.tiles[index] = { kind, age: 0, life: kind === 'sock' ? SOCK_LIFE_MS : state.dryMs }
 			state.revision++
@@ -193,8 +211,12 @@ function isFree(state, index) {
 
 function pickKind(state) {
 	const roll = state.rng()
-	if (ROUND_MS - state.timeLeftMs >= SOCK_FROM_MS && roll < SOCK_CHANCE) return 'sock'
-	if (state.doubleMs === 0 && roll >= 1 - GOLDEN_CHANCE) return 'golden'
+	if (ROUND_MS - state.timeLeftMs >= SOCK_FROM_MS && roll < SOCK_CHANCE) {
+		return 'sock'
+	}
+	if (state.doubleMs === 0 && roll >= 1 - GOLDEN_CHANCE) {
+		return 'golden'
+	}
 	return 'stain'
 }
 
@@ -208,7 +230,9 @@ function pickKind(state) {
 export function view(state) {
 	return {
 		tiles: state.tiles.map((item, index) => {
-			if (!item) return state.flashes[index] > 0 ? 'wiped' : 'empty'
+			if (!item) {
+				return state.flashes[index] > 0 ? 'wiped' : 'empty'
+			}
 			return isDrying(item) ? 'drying' : item.kind
 		}),
 		cursor: state.cursor,

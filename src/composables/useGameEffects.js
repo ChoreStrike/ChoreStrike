@@ -69,9 +69,13 @@ export function useGameEffects() {
 	 */
 	function event(type) {
 		const sound = EVENT_SOUNDS[type]
-		if (!sound) return
+		if (!sound) {
+			return
+		}
 		syncEffectGates(preferences)
-		if (type === 'start' && preferences.soundEnabled === true) unlockAudio()
+		if (type === 'start' && preferences.soundEnabled === true) {
+			unlockAudio()
+		}
 		playSound(sound)
 		if (PULSED.has(type) && preferences.animationEnabled === true) {
 			pulseCompletion()

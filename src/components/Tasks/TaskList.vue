@@ -195,16 +195,26 @@ export default {
 		const currentUserId = computed(() => userStore.currentUser?.nextcloudUserId || userStore.userId)
 
 		const canClaimFromItem = (item) => {
-			if (!item.roomTask.isActive) return false
-			if (!isOverdue(item.roomTask)) return false
-			if ((item.task.visibilityType || 'public') !== 'public') return false
+			if (!item.roomTask.isActive) {
+				return false
+			}
+			if (!isOverdue(item.roomTask)) {
+				return false
+			}
+			if ((item.task.visibilityType || 'public') !== 'public') {
+				return false
+			}
 			const assignees = item.roomTask.assignees || []
-			if (assignees.length === 0) return false
+			if (assignees.length === 0) {
+				return false
+			}
 			return !assignees.includes(currentUserId.value)
 		}
 
 		const openClaimDialog = (item) => {
-			if (!canClaimFromItem(item)) return
+			if (!canClaimFromItem(item)) {
+				return
+			}
 			claimRoomTaskId.value = item.roomTask.id
 			claimAssigneeId.value = (item.roomTask.assignees || [])[0] || ''
 			claimDialogVisible.value = true
@@ -215,7 +225,9 @@ export default {
 		// second participation dialog (CS-PLAN-084 WP-G, RF-080-14 path).
 		const confirmClaim = async () => {
 			claimDialogVisible.value = false
-			if (!claimRoomTaskId.value) return
+			if (!claimRoomTaskId.value) {
+				return
+			}
 			if (!currentUserId.value) {
 				// Unresolved identity: the participation dialog's safe path decides.
 				emit('complete', claimRoomTaskId.value)
@@ -267,7 +279,9 @@ export default {
 		 */
 		const handleBulkAssign = async (targetUserId) => {
 			const requested = [...selectedRoomTaskIds.value]
-			if (!targetUserId || requested.length === 0) return
+			if (!targetUserId || requested.length === 0) {
+				return
+			}
 
 			bulkAssigning.value = true
 			try {

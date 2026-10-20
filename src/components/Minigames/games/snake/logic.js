@@ -68,8 +68,12 @@ export function createState(rng) {
  * @return {object} The same state object
  */
 export function step(state, input, dt) {
-	if (state.over) return state
-	if (input) queueTurn(state, input)
+	if (state.over) {
+		return state
+	}
+	if (input) {
+		queueTurn(state, input)
+	}
 	state.elapsed += dt
 	while (state.elapsed >= state.tickMs && !state.over) {
 		state.elapsed -= state.tickMs
@@ -87,9 +91,13 @@ export function step(state, input, dt) {
  * @param {string} direction Requested direction
  */
 function queueTurn(state, direction) {
-	if (!DIRECTIONS[direction] || state.turns.length >= MAX_QUEUED_TURNS) return
+	if (!DIRECTIONS[direction] || state.turns.length >= MAX_QUEUED_TURNS) {
+		return
+	}
 	const last = state.turns.length > 0 ? state.turns[state.turns.length - 1] : state.direction
-	if (direction === last || direction === OPPOSITE[last]) return
+	if (direction === last || direction === OPPOSITE[last]) {
+		return
+	}
 	state.turns.push(direction)
 }
 
@@ -105,7 +113,9 @@ export function nextDirection(state) {
 }
 
 function advance(state) {
-	if (state.turns.length > 0) state.direction = state.turns.shift()
+	if (state.turns.length > 0) {
+		state.direction = state.turns.shift()
+	}
 	const delta = DIRECTIONS[state.direction]
 	const head = { x: state.snake[0].x + delta.x, y: state.snake[0].y + delta.y }
 	const eats = head.x === state.crumb.x && head.y === state.crumb.y
@@ -138,7 +148,9 @@ function inBounds(cell) {
 function hitsHose(state, cell, grows) {
 	const length = grows ? state.snake.length : state.snake.length - 1
 	for (let i = 0; i < length; i++) {
-		if (state.snake[i].x === cell.x && state.snake[i].y === cell.y) return true
+		if (state.snake[i].x === cell.x && state.snake[i].y === cell.y) {
+			return true
+		}
 	}
 	return false
 }
@@ -165,7 +177,9 @@ function addFurniture(state) {
 	const target = Math.min(MAX_FURNITURE, Math.floor(state.score / POINTS_PER_FURNITURE))
 	while (state.furniture.length < target) {
 		const cell = pickCell(state, (candidate) => isFree(state, candidate) && isSafeFromHead(state, candidate))
-		if (!cell) return
+		if (!cell) {
+			return
+		}
 		state.furniture.push(cell)
 	}
 }
@@ -195,11 +209,15 @@ function isFree(state, cell) {
  */
 export function isSafeFromHead(state, cell) {
 	const head = state.snake[0]
-	if (Math.max(Math.abs(cell.x - head.x), Math.abs(cell.y - head.y)) <= SAFE_RADIUS) return false
+	if (Math.max(Math.abs(cell.x - head.x), Math.abs(cell.y - head.y)) <= SAFE_RADIUS) {
+		return false
+	}
 	for (const direction of [state.direction, ...state.turns]) {
 		const delta = DIRECTIONS[direction]
 		for (let distance = 1; distance <= SAFE_AHEAD; distance++) {
-			if (cell.x === head.x + delta.x * distance && cell.y === head.y + delta.y * distance) return false
+			if (cell.x === head.x + delta.x * distance && cell.y === head.y + delta.y * distance) {
+				return false
+			}
 		}
 	}
 	return true
@@ -210,9 +228,13 @@ function pickCell(state, accept) {
 	for (let y = 0; y < ROWS; y++) {
 		for (let x = 0; x < COLS; x++) {
 			const cell = { x, y }
-			if (accept(cell)) candidates.push(cell)
+			if (accept(cell)) {
+				candidates.push(cell)
+			}
 		}
 	}
-	if (candidates.length === 0) return null
+	if (candidates.length === 0) {
+		return null
+	}
 	return candidates[Math.floor(state.rng() * candidates.length)]
 }

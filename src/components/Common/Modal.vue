@@ -96,7 +96,9 @@ export default {
 		t,
 
 		registerModal() {
-			if (openModals.includes(this)) return
+			if (openModals.includes(this)) {
+				return
+			}
 			this.previouslyFocused = document.activeElement
 			openModals.push(this)
 			document.addEventListener('keydown', this.onKeydown, true)
@@ -110,7 +112,9 @@ export default {
 
 		unregisterModal() {
 			const index = openModals.indexOf(this)
-			if (index === -1) return
+			if (index === -1) {
+				return
+			}
 			openModals.splice(index, 1)
 			document.removeEventListener('keydown', this.onKeydown, true)
 			if (openModals.length === 0) {
@@ -129,19 +133,25 @@ export default {
 		},
 
 		lockScroll() {
-			if (savedOverflow !== null) return
+			if (savedOverflow !== null) {
+				return
+			}
 			savedOverflow = document.body.style.overflow
 			document.body.style.overflow = 'hidden'
 		},
 
 		unlockScroll() {
-			if (savedOverflow === null) return
+			if (savedOverflow === null) {
+				return
+			}
 			document.body.style.overflow = savedOverflow
 			savedOverflow = null
 		},
 
 		onKeydown(event) {
-			if (!this.isTopMost()) return
+			if (!this.isTopMost()) {
+				return
+			}
 
 			if (event.key === 'Escape') {
 				event.stopPropagation()
@@ -149,12 +159,16 @@ export default {
 				return
 			}
 
-			if (event.key !== 'Tab') return
+			if (event.key !== 'Tab') {
+				return
+			}
 
 			const focusables = Array.from(
 				this.$refs.container?.querySelectorAll(FOCUSABLE_SELECTOR) || [],
 			)
-			if (focusables.length === 0) return
+			if (focusables.length === 0) {
+				return
+			}
 
 			const first = focusables[0]
 			const last = focusables[focusables.length - 1]

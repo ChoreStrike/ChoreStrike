@@ -166,8 +166,12 @@ const primaryRef = ref(null)
  * @return {string}
  */
 function saveFailedText(failure) {
-	if (failure === 'locked') return t('chorestrike', 'This game is locked again, so your score was not saved.')
-	if (failure === 'limit') return t('chorestrike', "Today's score limit is reached, so your score was not saved.")
+	if (failure === 'locked') {
+		return t('chorestrike', 'This game is locked again, so your score was not saved.')
+	}
+	if (failure === 'limit') {
+		return t('chorestrike', "Today's score limit is reached, so your score was not saved.")
+	}
 	return t('chorestrike', 'Your score could not be saved.')
 }
 

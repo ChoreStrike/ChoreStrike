@@ -595,8 +595,12 @@ export default {
 			})
 		},
 		floorName(index, total) {
-			if (total === 1) return t('chorestrike', 'Ground Floor')
-			if (index === 0) return t('chorestrike', 'Ground Floor')
+			if (total === 1) {
+				return t('chorestrike', 'Ground Floor')
+			}
+			if (index === 0) {
+				return t('chorestrike', 'Ground Floor')
+			}
 			return `${index + 1}. ${t('chorestrike', 'Floor')}`
 		},
 		onRoomTypeChange(room) {
@@ -690,7 +694,9 @@ export default {
 			const pending = this.invites
 				.map((invite, index) => ({ invite, index }))
 				.filter(({ invite }) => EMAIL_PATTERN.test(invite.email) && invite.status !== 'joined')
-			if (pending.length === 0) return
+			if (pending.length === 0) {
+				return
+			}
 
 			this.sendingInvites = true
 			const outcomes = await Promise.all(

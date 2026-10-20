@@ -20,7 +20,9 @@ import { expectDialogAboveNavigationToggle } from './fixtures/dialog-layer'
 
 /** Let real game time pass: the round runs on animation frames. */
 async function playFor(page: Page, ms: number): Promise<void> {
-	await page.evaluate((delay) => new Promise((resolve) => { setTimeout(resolve, delay) }), ms)
+	await page.evaluate((delay) => new Promise((resolve) => {
+		setTimeout(resolve, delay)
+	}), ms)
 }
 
 async function openGame(page: Page, gameId: string): Promise<void> {
@@ -96,7 +98,9 @@ test.describe('Arcade touch controls (CS-PLAN-086)', () => {
 		// the WebKit emulation) missed that window (R086G-02).
 		const canvas = page.getByTestId('game-shell').locator('canvas')
 		const box = await canvas.boundingBox()
-		if (!box) throw new Error('the Tile Breaker canvas has no bounding box')
+		if (!box) {
+			throw new Error('the Tile Breaker canvas has no bounding box')
+		}
 		await page.waitForFunction(
 			() => document.querySelector('[data-testid="game-score"]')?.textContent?.trim() === '10',
 			null,

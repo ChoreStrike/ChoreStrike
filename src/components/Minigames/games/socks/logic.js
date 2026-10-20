@@ -82,7 +82,9 @@ function swap(items, a, b) {
  * @return {object} The same state object
  */
 export function step(state, input) {
-	if (state.over || !input) return state
+	if (state.over || !input) {
+		return state
+	}
 	const tapped = tappedCell(input, state.cards.length)
 	if (tapped >= 0) {
 		if (state.cursor !== tapped) {
@@ -108,12 +110,16 @@ export function step(state, input) {
  */
 function turn(state, index) {
 	if (state.shown) {
-		for (const shown of state.shown) state.cards[shown].face = 'down'
+		for (const shown of state.shown) {
+			state.cards[shown].face = 'down'
+		}
 		state.shown = null
 		state.revision++
 	}
 	const card = state.cards[index]
-	if (card.face !== 'down') return
+	if (card.face !== 'down') {
+		return
+	}
 	card.face = 'up'
 	state.revision++
 	state.events.push({ type: 'flip' })

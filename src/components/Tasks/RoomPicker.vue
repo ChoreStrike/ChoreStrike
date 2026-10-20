@@ -95,13 +95,17 @@ export default {
 		})
 
 		const roomsInFloor = computed(() => {
-			if (selectedFloorId.value === null) return []
+			if (selectedFloorId.value === null) {
+				return []
+			}
 			return roomsStore.roomsByFloor[selectedFloorId.value] || []
 		})
 
 		const lockedRoomLabel = computed(() => {
 			const room = roomsStore.getRoomById(props.presetRoomId)
-			if (!room) return t('chorestrike', 'This room')
+			if (!room) {
+				return t('chorestrike', 'This room')
+			}
 			const floor = roomsStore.getFloorById(room.floorId)
 			return floor ? `${room.name} · ${floor.name}` : room.name
 		})
@@ -113,7 +117,9 @@ export default {
 
 		// Selecting a floor resets an incompatible room selection
 		watch(selectedFloorId, (floorId) => {
-			if (selectedRoomId.value === null) return
+			if (selectedRoomId.value === null) {
+				return
+			}
 			const room = roomsStore.getRoomById(selectedRoomId.value)
 			if (!room || room.floorId !== floorId) {
 				selectedRoomId.value = null
@@ -122,12 +128,16 @@ export default {
 
 		// Derive the floor from a restored/changed model value
 		watch(() => props.modelValue, (roomId) => {
-			if (roomId === selectedRoomId.value) return
+			if (roomId === selectedRoomId.value) {
+				return
+			}
 			selectedRoomId.value = roomId
 		})
 
 		watch(selectedRoomId, (roomId) => {
-			if (roomId === null) return
+			if (roomId === null) {
+				return
+			}
 			const room = roomsStore.getRoomById(roomId)
 			if (room && room.floorId !== selectedFloorId.value) {
 				selectedFloorId.value = room.floorId

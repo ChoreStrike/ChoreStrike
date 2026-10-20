@@ -138,12 +138,18 @@ export default {
 		// when the button becomes disabled or busy, and the button returns to
 		// idle once the confirmed action is no longer in flight (or re-enabled).
 		busy(value) {
-			if (value) this.abort()
-			else this.phase = 'idle'
+			if (value) {
+				this.abort()
+			} else {
+				this.phase = 'idle'
+			}
 		},
 		disabled(value) {
-			if (value) this.abort()
-			else this.phase = 'idle'
+			if (value) {
+				this.abort()
+			} else {
+				this.phase = 'idle'
+			}
 		},
 	},
 
@@ -155,7 +161,9 @@ export default {
 
 	methods: {
 		start() {
-			if (this.disabled || this.busy || this.phase !== 'idle') return
+			if (this.disabled || this.busy || this.phase !== 'idle') {
+				return
+			}
 			this.hideHint()
 			this.staticFill = prefersReducedMotion()
 			this.phase = 'holding'
@@ -176,7 +184,9 @@ export default {
 		// confirmed press is untouched — disabling the focused busy button
 		// blurs it, and a dialog opening over it ends the pointer's stay.
 		abort() {
-			if (this.phase !== 'holding') return
+			if (this.phase !== 'holding') {
+				return
+			}
 			clearTimeout(this.holdTimer)
 			this.phase = 'idle'
 		},
@@ -194,7 +204,9 @@ export default {
 			const wasHolding = this.phase === 'holding'
 			this.abort()
 			this.settle()
-			if (wasHolding) this.showHint()
+			if (wasHolding) {
+				this.showHint()
+			}
 			// The native click that follows this release is already handled.
 			this.releaseHandled = true
 		},
@@ -211,17 +223,23 @@ export default {
 		},
 
 		onPointerDown(event) {
-			if (event.button !== undefined && event.button !== 0) return
+			if (event.button !== undefined && event.button !== 0) {
+				return
+			}
 			this.releaseHandled = false
 			this.origin = { x: event.clientX ?? 0, y: event.clientY ?? 0 }
 			this.start()
 		},
 
 		onPointerMove(event) {
-			if (this.phase !== 'holding' || !this.origin) return
+			if (this.phase !== 'holding' || !this.origin) {
+				return
+			}
 			const dx = (event.clientX ?? 0) - this.origin.x
 			const dy = (event.clientY ?? 0) - this.origin.y
-			if (Math.hypot(dx, dy) > MOVE_TOLERANCE_PX) this.abort()
+			if (Math.hypot(dx, dy) > MOVE_TOLERANCE_PX) {
+				this.abort()
+			}
 		},
 
 		onPointerUp() {
@@ -229,16 +247,22 @@ export default {
 		},
 
 		onKeyDown(event) {
-			if (!HOLD_KEYS.includes(event.key)) return
+			if (!HOLD_KEYS.includes(event.key)) {
+				return
+			}
 			// Suppress the native keyboard activation: only the hold confirms.
 			event.preventDefault()
-			if (event.repeat) return
+			if (event.repeat) {
+				return
+			}
 			this.releaseHandled = false
 			this.start()
 		},
 
 		onKeyUp(event) {
-			if (!HOLD_KEYS.includes(event.key)) return
+			if (!HOLD_KEYS.includes(event.key)) {
+				return
+			}
 			event.preventDefault()
 			this.release()
 		},
@@ -250,7 +274,9 @@ export default {
 				this.releaseHandled = false
 				return
 			}
-			if (!this.disabled && !this.busy) this.showHint()
+			if (!this.disabled && !this.busy) {
+				this.showHint()
+			}
 		},
 	},
 }

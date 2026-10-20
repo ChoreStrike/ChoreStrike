@@ -76,7 +76,9 @@ async function openDailyLimit(owner: Page, userId: string): Promise<void> {
 async function openMyDay(page: Page): Promise<void> {
 	const again = page.url().includes('#/today')
 	await page.goto('/apps/chorestrike/#/today')
-	if (again) await page.reload()
+	if (again) {
+		await page.reload()
+	}
 	await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 20000 })
 	await expect(page.getByTestId('today-section-today').or(page.getByTestId('today-empty-state'))).toBeVisible()
 }
@@ -105,7 +107,9 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			expect((await row.locator('.task-info').boundingBox())!.width).toBeGreaterThan(rowBox!.width * 0.7)
 			const completions: string[] = []
 			page.on('request', request => {
-				if (request.method() === 'POST' && request.url().endsWith('/complete')) completions.push(request.url())
+				if (request.method() === 'POST' && request.url().endsWith('/complete')) {
+					completions.push(request.url())
+				}
 			})
 			await done.tap()
 			await expect(page.getByTestId(`today-complete-button-${roomTaskId}-hint`)).toHaveText('Press and hold to confirm')
@@ -123,7 +127,9 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			expect((await (await undo).json()).data.undone).toBe(true)
 			await expect(done).toBeVisible()
 			await expectNoHorizontalOverflow(page)
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('claim confirm: an owner takes over overdue work in one confirmation and the next occurrence stays with the assignee', async ({ browser, seededData }, testInfo) => {
@@ -152,7 +158,9 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			expect(claimed?.status).not.toBe('overdue')
 			await expect(row.getByTestId('claim-overdue-button')).toHaveCount(0)
 			await expectNoHorizontalOverflow(page)
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('handover: a child completes the handed-over occurrence and the successor returns to the default owner', async ({ browser, seededData }, testInfo) => {
@@ -240,7 +248,9 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 		const { context, page } = await phone(browser, 'mom', testInfo)
 		try {
 			const active = ((await (await page.request.get(`${API}/room-tasks`)).json()).data as ListRow[]).length
-			for (let index = active; index < 21; index++) await createProbe(page, `Mobile paging ${index}`, ['mom'])
+			for (let index = active; index < 21; index++) {
+				await createProbe(page, `Mobile paging ${index}`, ['mom'])
+			}
 			const total = Math.max(active, 21)
 
 			await openHouseholdTasks(page)
@@ -262,7 +272,9 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			await expect(page.getByTestId('task-item').first()).toBeVisible()
 			await expect(page.locator('[data-testid="task-item"]:not(.overdue)')).toHaveCount(0)
 			await expectNoHorizontalOverflow(page)
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('dashboard tiles lead to their targets and a room card opens the room', async ({ browser, seededData }, testInfo) => {
@@ -292,7 +304,9 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			await kitchen.locator('[data-testid^="room-link-"]').tap()
 			await expect(page.getByTestId('room-detail-view')).toBeVisible()
 			await expectNoHorizontalOverflow(page)
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('settings stay reachable through the phone navigation for a child', async ({ browser, seededData }, testInfo) => {
@@ -310,6 +324,8 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 				await expectWithinViewport(page, control)
 			}
 			await expectNoHorizontalOverflow(page)
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 })

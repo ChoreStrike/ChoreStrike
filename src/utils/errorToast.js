@@ -19,9 +19,15 @@ const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/
  */
 export function errorReference(error) {
 	const code = error?.code
-	if (typeof code === 'string' && CODE_PATTERN.test(code)) return code
-	if (Number.isInteger(error?.status)) return `HTTP ${error.status}`
-	if (error?.name === 'ApiError') return 'NETWORK'
+	if (typeof code === 'string' && CODE_PATTERN.test(code)) {
+		return code
+	}
+	if (Number.isInteger(error?.status)) {
+		return `HTTP ${error.status}`
+	}
+	if (error?.name === 'ApiError') {
+		return 'NETWORK'
+	}
 	return null
 }
 

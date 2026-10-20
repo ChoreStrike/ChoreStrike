@@ -184,7 +184,9 @@ export const useUserStore = defineStore('user', {
 			const result = []
 			for (const member of incoming || []) {
 				const key = member?.id ?? member?.nextcloudUserId
-				if (key === undefined || key === null || seen.has(key)) continue
+				if (key === undefined || key === null || seen.has(key)) {
+					continue
+				}
 				seen.add(key)
 				result.push(member)
 			}
@@ -314,7 +316,9 @@ export const useUserStore = defineStore('user', {
 		 * @param {?number} contributionMinor Exact contribution minor units.
 		 */
 		applyOwnWallet(wallet, contributionMinor) {
-			if (!this.currentUser) return
+			if (!this.currentUser) {
+				return
+			}
 			const patch = {}
 			if (wallet && typeof wallet === 'object') {
 				patch.wallet = wallet
@@ -322,7 +326,9 @@ export const useUserStore = defineStore('user', {
 			if (Number.isFinite(contributionMinor)) {
 				patch.contributionMinor = contributionMinor
 			}
-			if (Object.keys(patch).length === 0) return
+			if (Object.keys(patch).length === 0) {
+				return
+			}
 
 			this.currentUser = { ...this.currentUser, ...patch }
 		},

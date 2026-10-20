@@ -13,11 +13,15 @@ export function useHouseMemberNames(userStore) {
 	const membersError = ref(false)
 	const membersLoading = ref(false)
 	const loadMembers = async () => {
-		if (membersLoading.value) return
+		if (membersLoading.value) {
+			return
+		}
 		// Already-loaded members stay cached across view mounts (the same
 		// guard TaskList uses) — the retry below only applies to a cold or
 		// failed read.
-		if ((userStore.houseUsers || []).length > 0) return
+		if ((userStore.houseUsers || []).length > 0) {
+			return
+		}
 		membersLoading.value = true
 		membersError.value = false
 		try {

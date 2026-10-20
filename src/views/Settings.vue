@@ -625,7 +625,9 @@ export default {
 		},
 
 		deleteRoomTitle() {
-			if (!this.roomToDelete) return ''
+			if (!this.roomToDelete) {
+				return ''
+			}
 			return t('chorestrike', 'Delete "{name}"?', { name: this.roomToDelete.name })
 		},
 
@@ -639,7 +641,9 @@ export default {
 
 		deleteFloorTitle() {
 			const floor = this.floorToDelete
-			if (!floor) return ''
+			if (!floor) {
+				return ''
+			}
 			return t('chorestrike', 'Delete "{name}"?', { name: floor.name })
 		},
 	},
@@ -657,13 +661,17 @@ export default {
 			this.initializationError = false
 			try {
 				await this.houseStore.fetchHouse()
-				if (!this.houseStore.house?.name) throw new Error('House name is required')
+				if (!this.houseStore.house?.name) {
+					throw new Error('House name is required')
+				}
 				this.houseName = this.houseStore.house.name
 				this.houseTimezone = this.houseStore.timezone
 				this.rankingEnabled = this.houseStore.rankingEnabled
 				this.houseReady = true
 				const structure = await this.roomsStore.fetchFloorsWithRooms()
-				if (structure === null) return
+				if (structure === null) {
+					return
+				}
 				this.structureReady = true
 				await this.loadTitle()
 				// The delivery-preferences draft lives in
@@ -683,7 +691,9 @@ export default {
 		},
 
 		async createHousePause() {
-			if (!this.housePauseDraft.startDate || !this.housePauseDraft.endDate) return
+			if (!this.housePauseDraft.startDate || !this.housePauseDraft.endDate) {
+				return
+			}
 			try {
 				await this.pausesStore.createHousePause({
 					startDate: this.housePauseDraft.startDate,
@@ -718,7 +728,9 @@ export default {
 		},
 
 		async recordIllness() {
-			if (!this.illnessDraft.subjectUserId || !this.illnessDraft.startDate || !this.illnessDraft.endDate) return
+			if (!this.illnessDraft.subjectUserId || !this.illnessDraft.startDate || !this.illnessDraft.endDate) {
+				return
+			}
 			try {
 				await this.pausesStore.recognizeIllness({
 					subjectUserId: this.illnessDraft.subjectUserId,
@@ -782,7 +794,9 @@ export default {
 		 */
 		async createRoomForFloor(floor) {
 			const name = (this.newRoomNames[floor.id] || '').trim()
-			if (!name) return
+			if (!name) {
+				return
+			}
 			try {
 				await this.roomsStore.createRoom(floor.id, name)
 				showSuccess(t('chorestrike', 'Room created'))
@@ -795,7 +809,9 @@ export default {
 
 		async confirmDeleteRoom() {
 			const room = this.roomToDelete
-			if (!room) return
+			if (!room) {
+				return
+			}
 			this.deletingRoom = true
 			try {
 				await this.roomsStore.deleteRoom(room.id)
@@ -810,7 +826,9 @@ export default {
 		},
 
 		async saveHouseName() {
-			if (!this.canSaveHouseName) return
+			if (!this.canSaveHouseName) {
+				return
+			}
 			try {
 				await this.houseStore.updateHouseName(this.houseName.trim())
 				showSuccess(t('chorestrike', 'House name saved'))
@@ -821,7 +839,9 @@ export default {
 		},
 
 		async saveHouseTimezone() {
-			if (!this.canSaveHouseTimezone) return
+			if (!this.canSaveHouseTimezone) {
+				return
+			}
 			try {
 				// Name is passed unchanged so the owner-gated PUT keeps it intact.
 				await this.houseStore.updateHouseName(this.houseStore.house.name, this.houseTimezone)
@@ -835,7 +855,9 @@ export default {
 		},
 
 		async saveRanking() {
-			if (!this.canSaveRanking) return
+			if (!this.canSaveRanking) {
+				return
+			}
 			try {
 				await this.houseStore.updateRankingEnabled(this.rankingEnabled)
 				showSuccess(this.rankingEnabled
@@ -850,7 +872,9 @@ export default {
 		},
 
 		async createFloor() {
-			if (!this.newFloorName.trim()) return
+			if (!this.newFloorName.trim()) {
+				return
+			}
 			try {
 				await this.roomsStore.createFloor(this.newFloorName.trim())
 				showSuccess(t('chorestrike', 'Floor created'))
@@ -880,7 +904,9 @@ export default {
 			const ordered = this.orderedFloors
 			const index = ordered.findIndex(f => f.id === floor.id)
 			const target = index + direction
-			if (index < 0 || target < 0 || target >= ordered.length) return
+			if (index < 0 || target < 0 || target >= ordered.length) {
+				return
+			}
 
 			const next = [...ordered]
 			const moved = next[index]
@@ -897,7 +923,9 @@ export default {
 		},
 
 		async updateFloor() {
-			if (!this.editingFloor || !this.editingFloorName.trim()) return
+			if (!this.editingFloor || !this.editingFloorName.trim()) {
+				return
+			}
 			try {
 				await this.roomsStore.updateFloorName(this.editingFloor.id, this.editingFloorName.trim())
 				showSuccess(t('chorestrike', 'Floor renamed'))
@@ -916,7 +944,9 @@ export default {
 
 		async confirmDeleteFloor() {
 			const floor = this.floorToDelete
-			if (!floor) return
+			if (!floor) {
+				return
+			}
 			this.deletingFloor = true
 			try {
 				await this.roomsStore.deleteFloor(floor.id)
@@ -936,7 +966,9 @@ export default {
 		},
 
 		async resetHouse() {
-			if (this.resetConfirmation !== 'RESET') return
+			if (this.resetConfirmation !== 'RESET') {
+				return
+			}
 			try {
 				await this.houseStore.resetHouse()
 				showSuccess(t('chorestrike', 'Rooms and house health were reset'))

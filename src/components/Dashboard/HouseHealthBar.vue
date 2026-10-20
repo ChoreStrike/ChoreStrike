@@ -79,19 +79,35 @@ export default {
 
 		const healthClass = computed(() => {
 			const health = houseHealth.value
-			if (health >= 80) return 'excellent'
-			if (health >= 60) return 'good'
-			if (health >= 40) return 'fair'
-			if (health >= 20) return 'poor'
+			if (health >= 80) {
+				return 'excellent'
+			}
+			if (health >= 60) {
+				return 'good'
+			}
+			if (health >= 40) {
+				return 'fair'
+			}
+			if (health >= 20) {
+				return 'poor'
+			}
 			return 'terrible'
 		})
 
 		const healthStatus = computed(() => {
 			const health = houseHealth.value
-			if (health >= 80) return t('chorestrike', 'Excellent! 🌟')
-			if (health >= 60) return t('chorestrike', 'Good! 👍')
-			if (health >= 40) return t('chorestrike', 'Fair 📊')
-			if (health >= 20) return t('chorestrike', 'Needs attention ⚠️')
+			if (health >= 80) {
+				return t('chorestrike', 'Excellent! 🌟')
+			}
+			if (health >= 60) {
+				return t('chorestrike', 'Good! 👍')
+			}
+			if (health >= 40) {
+				return t('chorestrike', 'Fair 📊')
+			}
+			if (health >= 20) {
+				return t('chorestrike', 'Needs attention ⚠️')
+			}
 			return t('chorestrike', 'Critical! 🚨')
 		})
 

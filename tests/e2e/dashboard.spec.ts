@@ -78,8 +78,12 @@ test.describe('User Login and Dashboard', () => {
 			return true
 		}
 
-		if (!await createTask('E2E Public Filter Task', 'public')) return
-		if (!await createTask('E2E Private Filter Task', 'private')) return
+		if (!await createTask('E2E Public Filter Task', 'public')) {
+			return
+		}
+		if (!await createTask('E2E Private Filter Task', 'private')) {
+			return
+		}
 
 		// The chip on the Dashboard routes to the pre-filtered task list.
 		await page.goto('/apps/chorestrike/#/dashboard')

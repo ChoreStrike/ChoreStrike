@@ -192,7 +192,9 @@ export default {
 		},
 
 		async submitInvite() {
-			if (!this.isValidEmail) return
+			if (!this.isValidEmail) {
+				return
+			}
 			this.inviting = true
 			try {
 				const data = await this.userStore.inviteUser(this.inviteEmail, this.inviteRole)
@@ -220,14 +222,14 @@ export default {
 				// Stable backend codes are first-class on ApiError
 				// (CS-PLAN-061 §3.9) — branch for specific, localized copy.
 				switch (error?.code) {
-				case 'CANNOT_DEMOTE_SELF':
-					showError(t('chorestrike', 'You cannot change your own role'))
-					break
-				case 'CANNOT_DEMOTE_LAST_OWNER':
-					showError(t('chorestrike', 'Cannot demote the last house owner'))
-					break
-				default:
-					showError(error?.message || t('chorestrike', 'Failed to change role'))
+					case 'CANNOT_DEMOTE_SELF':
+						showError(t('chorestrike', 'You cannot change your own role'))
+						break
+					case 'CANNOT_DEMOTE_LAST_OWNER':
+						showError(t('chorestrike', 'Cannot demote the last house owner'))
+						break
+					default:
+						showError(error?.message || t('chorestrike', 'Failed to change role'))
 				}
 				logger.error('Failed to update role', error, { component: 'MemberList', action: 'changeRole', role })
 				// Reset the select to the member's actual role
@@ -240,7 +242,9 @@ export default {
 		},
 
 		async confirmRemove() {
-			if (!this.removingMember) return
+			if (!this.removingMember) {
+				return
+			}
 			this.removing = true
 			try {
 				await this.userStore.removeUser(this.removingMember.id)

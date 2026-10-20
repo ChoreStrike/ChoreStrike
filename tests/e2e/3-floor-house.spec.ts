@@ -154,8 +154,12 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		let createPosts = 0
 		let assigneePuts = 0
 		page.on('request', (request) => {
-			if (request.method() === 'POST' && request.url().includes('/api/v1/room-tasks')) createPosts++
-			if (request.method() === 'PUT' && request.url().includes('/assignees')) assigneePuts++
+			if (request.method() === 'POST' && request.url().includes('/api/v1/room-tasks')) {
+				createPosts++
+			}
+			if (request.method() === 'PUT' && request.url().includes('/assignees')) {
+				assigneePuts++
+			}
 		})
 
 		const aggregatePromise = page.waitForResponse((response) => {

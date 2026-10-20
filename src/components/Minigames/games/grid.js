@@ -27,7 +27,9 @@ export const OPPOSITE = Object.freeze({ up: 'down', down: 'up', left: 'right', r
  * @return {number}
  */
 export function tappedCell(input, count) {
-	if (typeof input !== 'object' || input === null || !Number.isInteger(input.cell)) return -1
+	if (typeof input !== 'object' || input === null || !Number.isInteger(input.cell)) {
+		return -1
+	}
 	return input.cell >= 0 && input.cell < count ? input.cell : -1
 }
 

@@ -62,7 +62,9 @@ export const useRoomsStore = defineStore('rooms', {
 		dirtyRooms: (state) => state.rooms.filter(room => room.cleanliness < 60).length,
 
 		averageCleanliness: (state) => {
-			if (state.rooms.length === 0) return 100
+			if (state.rooms.length === 0) {
+				return 100
+			}
 			const total = state.rooms.reduce((sum, room) => sum + room.cleanliness, 0)
 			return Math.round(total / state.rooms.length)
 		},
@@ -78,7 +80,9 @@ export const useRoomsStore = defineStore('rooms', {
 		},
 
 		_endRequest(resetSeq) {
-			if (resetSeq !== this.resetSeq) return
+			if (resetSeq !== this.resetSeq) {
+				return
+			}
 			this.pendingRequests--
 			this.loading = this.pendingRequests > 0
 		},
@@ -93,7 +97,9 @@ export const useRoomsStore = defineStore('rooms', {
 			const request = (async () => {
 				try {
 					const data = await api.get('/api/v1/floors/with-rooms')
-					if (resetSeq !== this.resetSeq) return null
+					if (resetSeq !== this.resetSeq) {
+						return null
+					}
 					if (seq !== this.requestSeq) {
 						// Keep hydration callers attached to a complete authoritative
 						// read, even when a write invalidated their initial snapshot.
@@ -105,7 +111,9 @@ export const useRoomsStore = defineStore('rooms', {
 					this.rooms = data.flatMap(item => item.rooms)
 					return data
 				} catch (error) {
-					if (resetSeq === this.resetSeq && seq === this.requestSeq) this.error = error.message
+					if (resetSeq === this.resetSeq && seq === this.requestSeq) {
+						this.error = error.message
+					}
 					logger.error('Failed to fetch floors with rooms', error, { store: 'rooms', action: 'fetchFloorsWithRooms' })
 					throw error
 				} finally {
@@ -133,13 +141,17 @@ export const useRoomsStore = defineStore('rooms', {
 			try {
 				this.requestSeq++
 				const data = await api.post('/api/v1/floors', { name, sortOrder })
-				if (resetSeq !== this.resetSeq) return null
+				if (resetSeq !== this.resetSeq) {
+					return null
+				}
 				// Also invalidate reads that started while the write was pending.
 				this.requestSeq++
 				this.floors = [...this.floors.filter(floor => floor.id !== data.id), data]
 				return data
 			} catch (error) {
-				if (resetSeq === this.resetSeq) this.error = error.message
+				if (resetSeq === this.resetSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to create floor', error, { store: 'rooms', action: 'createFloor' })
 				throw error
 			} finally {
@@ -163,12 +175,16 @@ export const useRoomsStore = defineStore('rooms', {
 			try {
 				this.requestSeq++
 				const data = await api.post('/api/v1/rooms', { floorId, name, icon })
-				if (resetSeq !== this.resetSeq) return null
+				if (resetSeq !== this.resetSeq) {
+					return null
+				}
 				this.requestSeq++
 				this.rooms = [...this.rooms.filter(room => room.id !== data.id), data]
 				return data
 			} catch (error) {
-				if (resetSeq === this.resetSeq) this.error = error.message
+				if (resetSeq === this.resetSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to create room', error, { store: 'rooms', action: 'createRoom', floorId })
 				throw error
 			} finally {
@@ -191,7 +207,9 @@ export const useRoomsStore = defineStore('rooms', {
 			try {
 				this.requestSeq++
 				const data = await api.put(`/api/v1/floors/${floorId}`, { name })
-				if (resetSeq !== this.resetSeq) return null
+				if (resetSeq !== this.resetSeq) {
+					return null
+				}
 				this.requestSeq++
 
 				const floorIndex = this.floors.findIndex(f => f.id === floorId)
@@ -199,7 +217,9 @@ export const useRoomsStore = defineStore('rooms', {
 					this.floors[floorIndex] = data
 				}
 			} catch (error) {
-				if (resetSeq === this.resetSeq) this.error = error.message
+				if (resetSeq === this.resetSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to update floor', error, { store: 'rooms', action: 'updateFloorName', floorId })
 				throw error
 			} finally {
@@ -222,7 +242,9 @@ export const useRoomsStore = defineStore('rooms', {
 			try {
 				this.requestSeq++
 				const data = await api.put(`/api/v1/rooms/${roomId}`, { name })
-				if (resetSeq !== this.resetSeq) return null
+				if (resetSeq !== this.resetSeq) {
+					return null
+				}
 				this.requestSeq++
 
 				const roomIndex = this.rooms.findIndex(r => r.id === roomId)
@@ -230,7 +252,9 @@ export const useRoomsStore = defineStore('rooms', {
 					this.rooms[roomIndex] = data
 				}
 			} catch (error) {
-				if (resetSeq === this.resetSeq) this.error = error.message
+				if (resetSeq === this.resetSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to update room', error, { store: 'rooms', action: 'updateRoomName', roomId })
 				throw error
 			} finally {
@@ -255,7 +279,9 @@ export const useRoomsStore = defineStore('rooms', {
 					cleanlinessChange,
 					commandId: crypto.randomUUID(),
 				})
-				if (resetSeq !== this.resetSeq) return null
+				if (resetSeq !== this.resetSeq) {
+					return null
+				}
 				this.requestSeq++
 
 				const roomIndex = this.rooms.findIndex(r => r.id === roomId)
@@ -263,7 +289,9 @@ export const useRoomsStore = defineStore('rooms', {
 					this.rooms[roomIndex] = data
 				}
 			} catch (error) {
-				if (resetSeq === this.resetSeq) this.error = error.message
+				if (resetSeq === this.resetSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to update room cleanliness', error, { store: 'rooms', action: 'updateRoomCleanliness', roomId })
 				throw error
 			} finally {
@@ -280,7 +308,9 @@ export const useRoomsStore = defineStore('rooms', {
 		 * @param {object} room Serialized room from `{roomTask, room, task, rewards}`.
 		 */
 		reconcileRoom(room) {
-			if (!room?.id) return
+			if (!room?.id) {
+				return
+			}
 			this.requestSeq++
 
 			const index = this.rooms.findIndex(r => r.id === room.id)
@@ -299,13 +329,17 @@ export const useRoomsStore = defineStore('rooms', {
 			try {
 				this.requestSeq++
 				await api.delete(`/api/v1/floors/${floorId}`)
-				if (resetSeq !== this.resetSeq) return null
+				if (resetSeq !== this.resetSeq) {
+					return null
+				}
 				this.requestSeq++
 
 				this.floors = this.floors.filter(f => f.id !== floorId)
 				this.rooms = this.rooms.filter(r => r.floorId !== floorId)
 			} catch (error) {
-				if (resetSeq === this.resetSeq) this.error = error.message
+				if (resetSeq === this.resetSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to delete floor', error, { store: 'rooms', action: 'deleteFloor', floorId })
 				throw error
 			} finally {
@@ -323,12 +357,16 @@ export const useRoomsStore = defineStore('rooms', {
 			try {
 				this.requestSeq++
 				await api.delete(`/api/v1/rooms/${roomId}`)
-				if (resetSeq !== this.resetSeq) return null
+				if (resetSeq !== this.resetSeq) {
+					return null
+				}
 				this.requestSeq++
 
 				this.rooms = this.rooms.filter(r => r.id !== roomId)
 			} catch (error) {
-				if (resetSeq === this.resetSeq) this.error = error.message
+				if (resetSeq === this.resetSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to delete room', error, { store: 'rooms', action: 'deleteRoom', roomId })
 				throw error
 			} finally {
@@ -346,11 +384,15 @@ export const useRoomsStore = defineStore('rooms', {
 			try {
 				this.requestSeq++
 				const data = await api.post('/api/v1/floors/reorder', { floorOrder })
-				if (resetSeq !== this.resetSeq) return null
+				if (resetSeq !== this.resetSeq) {
+					return null
+				}
 				this.requestSeq++
 				this.floors = data
 			} catch (error) {
-				if (resetSeq === this.resetSeq) this.error = error.message
+				if (resetSeq === this.resetSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to reorder floors', error, { store: 'rooms', action: 'reorderFloors' })
 				throw error
 			} finally {

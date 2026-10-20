@@ -74,13 +74,19 @@ export function createState(rng) {
  * @return {object} The same state object
  */
 export function step(state, input, dt) {
-	if (state.over) return state
-	if (input) applyInput(state, input)
+	if (state.over) {
+		return state
+	}
+	if (input) {
+		applyInput(state, input)
+	}
 	tickEffects(state, dt)
 	moveSqueegee(state, dt)
 	if (state.serveMs > 0) {
 		state.serveMs = Math.max(0, state.serveMs - dt)
-		if (state.serveMs === 0) launch(state)
+		if (state.serveMs === 0) {
+			launch(state)
+		}
 	}
 	moveBubbles(state, dt)
 	moveDrops(state, dt)
@@ -111,7 +117,9 @@ function buildWall(state) {
 		for (let col = 0; col < WALL_COLS; col++) {
 			const hits = Number(layout[row][col])
 			state.tiles[row * WALL_COLS + col] = hits
-			if (hits > 0) state.tilesLeft++
+			if (hits > 0) {
+				state.tilesLeft++
+			}
 		}
 	}
 }
@@ -135,7 +143,9 @@ function serve(state) {
 
 function launch(state) {
 	for (const bubble of state.bubbles) {
-		if (!bubble.held) continue
+		if (!bubble.held) {
+			continue
+		}
 		bubble.held = false
 		bubble.dx = Math.sin(LAUNCH_ANGLE)
 		bubble.dy = -Math.cos(LAUNCH_ANGLE)
@@ -146,9 +156,13 @@ function launch(state) {
 function tickEffects(state, dt) {
 	if (state.widthMs > 0) {
 		state.widthMs = Math.max(0, state.widthMs - dt)
-		if (state.widthMs === 0) state.squeegee.width = SQUEEGEE_W
+		if (state.widthMs === 0) {
+			state.squeegee.width = SQUEEGEE_W
+		}
 	}
-	if (state.waxMs > 0) state.waxMs = Math.max(0, state.waxMs - dt)
+	if (state.waxMs > 0) {
+		state.waxMs = Math.max(0, state.waxMs - dt)
+	}
 }
 
 /**
@@ -170,7 +184,9 @@ function moveSqueegee(state, dt) {
 	const half = squeegee.width / 2
 	squeegee.x = clamp(x, half, COLS - half)
 	for (const bubble of state.bubbles) {
-		if (bubble.held) bubble.x = squeegee.x
+		if (bubble.held) {
+			bubble.x = squeegee.x
+		}
 	}
 }
 

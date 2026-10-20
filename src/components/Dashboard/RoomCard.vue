@@ -130,28 +130,52 @@ export default {
 		// Computed properties
 		const statusClass = computed(() => {
 			const cleanliness = props.room.cleanliness
-			if (cleanliness >= 80) return 'excellent'
-			if (cleanliness >= 60) return 'good'
-			if (cleanliness >= 40) return 'fair'
-			if (cleanliness >= 20) return 'poor'
+			if (cleanliness >= 80) {
+				return 'excellent'
+			}
+			if (cleanliness >= 60) {
+				return 'good'
+			}
+			if (cleanliness >= 40) {
+				return 'fair'
+			}
+			if (cleanliness >= 20) {
+				return 'poor'
+			}
 			return 'terrible'
 		})
 
 		const statusText = computed(() => {
 			const cleanliness = props.room.cleanliness
-			if (cleanliness >= 80) return t('chorestrike', 'Excellent')
-			if (cleanliness >= 60) return t('chorestrike', 'Good')
-			if (cleanliness >= 40) return t('chorestrike', 'Fair')
-			if (cleanliness >= 20) return t('chorestrike', 'Poor')
+			if (cleanliness >= 80) {
+				return t('chorestrike', 'Excellent')
+			}
+			if (cleanliness >= 60) {
+				return t('chorestrike', 'Good')
+			}
+			if (cleanliness >= 40) {
+				return t('chorestrike', 'Fair')
+			}
+			if (cleanliness >= 20) {
+				return t('chorestrike', 'Poor')
+			}
 			return t('chorestrike', 'Terrible')
 		})
 
 		const cleanlinessClass = computed(() => {
 			const cleanliness = props.room.cleanliness
-			if (cleanliness >= 80) return 'excellent'
-			if (cleanliness >= 60) return 'good'
-			if (cleanliness >= 40) return 'fair'
-			if (cleanliness >= 20) return 'poor'
+			if (cleanliness >= 80) {
+				return 'excellent'
+			}
+			if (cleanliness >= 60) {
+				return 'good'
+			}
+			if (cleanliness >= 40) {
+				return 'fair'
+			}
+			if (cleanliness >= 20) {
+				return 'poor'
+			}
 			return 'terrible'
 		})
 
@@ -163,16 +187,24 @@ export default {
 		const roomIconName = computed(() => resolveRoomIcon(props.room.icon, props.room.name))
 
 		const lastCleanedText = computed(() => {
-			if (!props.room.lastCleaned) return t('chorestrike', 'Never')
+			if (!props.room.lastCleaned) {
+				return t('chorestrike', 'Never')
+			}
 
 			const lastCleaned = new Date(props.room.lastCleaned)
 			const now = new Date()
 			const diffMs = now - lastCleaned
 			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-			if (diffDays === 0) return t('chorestrike', 'Today')
-			if (diffDays === 1) return t('chorestrike', 'Yesterday')
-			if (diffDays < 7) return t('chorestrike', '{count} days ago', { count: diffDays })
+			if (diffDays === 0) {
+				return t('chorestrike', 'Today')
+			}
+			if (diffDays === 1) {
+				return t('chorestrike', 'Yesterday')
+			}
+			if (diffDays < 7) {
+				return t('chorestrike', '{count} days ago', { count: diffDays })
+			}
 			if (diffDays < 30) {
 				return t('chorestrike', '{count} weeks ago', { count: Math.floor(diffDays / 7) })
 			}
@@ -199,7 +231,9 @@ export default {
 
 		// Methods
 		const quickClean = async () => {
-			if (loading.value) return
+			if (loading.value) {
+				return
+			}
 			loading.value = true
 			try {
 				await roomsStore.updateRoomCleanliness(props.room.id, 10)

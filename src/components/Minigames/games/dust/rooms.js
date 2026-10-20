@@ -126,9 +126,15 @@ export function parseRoom(rows) {
 				room.dust[index] = 1
 				room.dustCount++
 			}
-			if (mark === 'R') room.start = Object.freeze({ x, y })
-			if (mark === 'D') room.dock = Object.freeze({ x, y })
-			if (mark === 'N') room.nests.push(Object.freeze({ x, y }))
+			if (mark === 'R') {
+				room.start = Object.freeze({ x, y })
+			}
+			if (mark === 'D') {
+				room.dock = Object.freeze({ x, y })
+			}
+			if (mark === 'N') {
+				room.nests.push(Object.freeze({ x, y }))
+			}
 		}
 	}
 	return Object.freeze(room)
@@ -177,7 +183,9 @@ export function fillDistances(room, from, distances, queue) {
 		for (const direction of DIRECTION_ORDER) {
 			const nx = x + DIRECTIONS[direction].x
 			const ny = y + DIRECTIONS[direction].y
-			if (!isFloor(room, nx, ny) || distances[cellIndex(nx, ny)] !== -1) continue
+			if (!isFloor(room, nx, ny) || distances[cellIndex(nx, ny)] !== -1) {
+				continue
+			}
 			distances[cellIndex(nx, ny)] = distances[index] + 1
 			queue[tail++] = cellIndex(nx, ny)
 		}

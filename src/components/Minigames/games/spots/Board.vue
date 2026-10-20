@@ -71,7 +71,9 @@ const SHAPES = Object.freeze({
 
 function onPointerDown(event) {
 	const tile = event.target.closest?.('[data-cell]')
-	if (tile) emit('tap', Number(tile.dataset.cell))
+	if (tile) {
+		emit('tap', Number(tile.dataset.cell))
+	}
 }
 </script>
 

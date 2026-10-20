@@ -98,7 +98,9 @@ const editingMember = ref(null)
 const members = computed(() => schedulingStore.memberAvailability)
 
 const getAvailableDaysCount = (member) => {
-	if (!member.weekdayAvailability) return 7
+	if (!member.weekdayAvailability) {
+		return 7
+	}
 	return Object.values(member.weekdayAvailability).filter(Boolean).length
 }
 

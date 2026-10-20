@@ -41,9 +41,15 @@ export function moveBubbles(state, dt) {
 	const moves = Math.ceil(distance / MAX_MOVE)
 	for (let i = state.bubbles.length - 1; i >= 0; i--) {
 		const bubble = state.bubbles[i]
-		if (bubble.held) continue
-		for (let move = 0; move < moves; move++) moveBubble(state, bubble, distance / moves)
-		if (bubble.y - BUBBLE_R > ROWS) state.bubbles.splice(i, 1)
+		if (bubble.held) {
+			continue
+		}
+		for (let move = 0; move < moves; move++) {
+			moveBubble(state, bubble, distance / moves)
+		}
+		if (bubble.y - BUBBLE_R > ROWS) {
+			state.bubbles.splice(i, 1)
+		}
 	}
 }
 
@@ -87,7 +93,9 @@ function moveBubble(state, bubble, distance) {
 function hitTiles(state, bubble) {
 	const top = bubble.y - BUBBLE_R
 	const bottom = bubble.y + BUBBLE_R
-	if (bottom <= WALL_TOP || top >= WALL_TOP + WALL_ROWS * TILE_H) return false
+	if (bottom <= WALL_TOP || top >= WALL_TOP + WALL_ROWS * TILE_H) {
+		return false
+	}
 	const firstCol = Math.max(0, Math.floor((bubble.x - BUBBLE_R) / TILE_W))
 	const lastCol = Math.min(WALL_COLS - 1, Math.floor((bubble.x + BUBBLE_R) / TILE_W))
 	const firstRow = Math.max(0, Math.floor((top - WALL_TOP) / TILE_H))
@@ -119,7 +127,9 @@ function hitTile(state, row, col) {
 	state.tiles[index]--
 	state.score += TILE_POINTS
 	state.events.push({ type: 'pickup', kind: 'normal', x, y })
-	if (state.tiles[index] > 0) return
+	if (state.tiles[index] > 0) {
+		return
+	}
 	state.tilesLeft--
 	if (state.rng() < DROP_CHANCE) {
 		state.drops.push({ x, y, kind: DROP_KINDS[Math.floor(state.rng() * DROP_KINDS.length)] })
@@ -192,7 +202,9 @@ function catchDrop(state, drop) {
 }
 
 function addBubble(state, side) {
-	if (state.bubbles.length >= MAX_BUBBLES) return
+	if (state.bubbles.length >= MAX_BUBBLES) {
+		return
+	}
 	state.bubbles.push({
 		x: state.squeegee.x,
 		y: SQUEEGEE_Y - BUBBLE_R,

@@ -240,7 +240,9 @@ export default {
 		},
 
 		switchScope(scope) {
-			if (scope === this.scope) return
+			if (scope === this.scope) {
+				return
+			}
 			this.scope = scope
 			this.reload()
 		},

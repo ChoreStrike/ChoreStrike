@@ -28,7 +28,9 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 			await expect(page.getByTestId('today-section-catchup')).toHaveCount(0)
 			await expect(page.getByTestId('today-overload')).toHaveCount(0)
 			await expect(page.locator('[data-testid^="today-completed-check-"]')).toHaveCount(0)
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('reduced motion overrides an explicit animation opt-in on a real completion', async ({ browser, seededData }) => {
@@ -73,7 +75,9 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 			await expect(button).toHaveCount(0)
 			await expect(page.getByTestId(`undo-snackbar-entry-${roomTask.id}`)).toBeVisible()
 			await expect(page.locator('body')).toHaveAttribute('data-celebration-canvases', '1')
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('every role lands on My Day and the Dashboard stays reachable as the secondary overview', async ({ browser, seededData: _seededData }) => {

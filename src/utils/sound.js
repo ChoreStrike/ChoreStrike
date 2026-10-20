@@ -102,8 +102,11 @@ export function playSound(name) {
 		}
 		for (const note of profile) {
 			const at = ctx.currentTime + (note.at ?? 0)
-			if (note.noise) playNoise(ctx, note, at)
-			else playTone(ctx, note, at)
+			if (note.noise) {
+				playNoise(ctx, note, at)
+			} else {
+				playTone(ctx, note, at)
+			}
 		}
 	} catch (error) {
 		logger.error('Failed to play sound', { name, error: error.message })
@@ -166,7 +169,9 @@ function noiseBuffer(ctx) {
 		const length = Math.floor(ctx.sampleRate * NOISE_SECONDS)
 		noise = ctx.createBuffer(1, length, ctx.sampleRate)
 		const data = noise.getChannelData(0)
-		for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1
+		for (let i = 0; i < length; i++) {
+			data[i] = Math.random() * 2 - 1
+		}
 	}
 	return noise
 }

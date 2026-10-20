@@ -349,7 +349,9 @@ export default {
 		 */
 		participationMembers() {
 			const item = this.participation?.item
-			if (!item) return []
+			if (!item) {
+				return []
+			}
 			const namesByUser = {}
 			;(this.userStore.houseUsers ?? []).forEach(member => {
 				namesByUser[member.nextcloudUserId] = member.displayName
@@ -387,12 +389,16 @@ export default {
 		},
 
 		visibleTodayItems() {
-			if (this.filter === 'all') return this.todayItems
+			if (this.filter === 'all') {
+				return this.todayItems
+			}
 			return this.todayItems.filter(item => this.isMine(item))
 		},
 
 		visibleCatchUpItems() {
-			if (this.filter === 'all') return this.overdueItems
+			if (this.filter === 'all') {
+				return this.overdueItems
+			}
 			return this.overdueItems.filter(item => this.isMine(item))
 		},
 
@@ -431,14 +437,18 @@ export default {
 		 */
 		overload() {
 			const capacity = this.schedulingStore.getCapacityForDay(weekdayOfKey(todayKeyInZone(this.houseStore.timezone)))
-			if (!Number.isFinite(capacity)) return null
+			if (!Number.isFinite(capacity)) {
+				return null
+			}
 			const planned = this.visibleTodayItems
 				.filter(item => item.roomTask.isActive)
 				.reduce((sum, item) => sum + (item.task?.energyCost ?? 0), 0)
 			const outstanding = this.visibleCatchUpItems
 				.reduce((sum, item) => sum + (item.task?.energyCost ?? 0), 0)
 			const total = planned + outstanding
-			if (total === 0 || total <= capacity) return null
+			if (total === 0 || total <= capacity) {
+				return null
+			}
 			return { total, capacity }
 		},
 
@@ -454,9 +464,15 @@ export default {
 			for (const item of this.roomTasksStore.rangeTasks.scheduled) {
 				const details = Array.isArray(item.occurrenceDetails) ? item.occurrenceDetails : []
 				for (const detail of details) {
-					if (detail.classification !== 'agreed') continue
-					if (detail.fulfilled === true) continue
-					if (!detail.date || detail.date < todayKey) continue
+					if (detail.classification !== 'agreed') {
+						continue
+					}
+					if (detail.fulfilled === true) {
+						continue
+					}
+					if (!detail.date || detail.date < todayKey) {
+						continue
+					}
 					appointments.push({
 						occurrenceId: detail.occurrenceId,
 						task: item.task,
@@ -508,9 +524,13 @@ export default {
 			// Unknown user (store not resolved yet): show everything rather
 			// than an empty list. Canonical assignees ride the enriched row
 			// (D1) — top-level on the payload.
-			if (!this.myUserId) return true
+			if (!this.myUserId) {
+				return true
+			}
 			const obligated = item.proposal?.obligatedUserIds
-			if (Array.isArray(obligated)) return obligated.includes(this.myUserId)
+			if (Array.isArray(obligated)) {
+				return obligated.includes(this.myUserId)
+			}
 			const assignees = item.assignees ?? item.roomTask.assignees ?? []
 			return assignees.length === 0 || assignees.includes(this.myUserId)
 		},
@@ -620,7 +640,9 @@ export default {
 		async confirmParticipation(payload) {
 			const item = this.participation?.item
 			this.participation = null
-			if (!item) return
+			if (!item) {
+				return
+			}
 			await this.performComplete(item.roomTask.id, payload)
 		},
 
@@ -658,7 +680,9 @@ export default {
 		 */
 		catchUpDateLabel(item) {
 			const occurrence = item.occurrence ?? item.roomTask?.occurrence
-			if (!occurrence?.plannedDate) return ''
+			if (!occurrence?.plannedDate) {
+				return ''
+			}
 			const windowLabel = occurrence.windowEnd
 				? t('chorestrike', 'planned {date}, until {time}', {
 					date: this.formatDayKey(occurrence.plannedDate),
@@ -736,21 +760,29 @@ export default {
 		},
 
 		isDueToday(roomTask) {
-			if (!roomTask?.nextDue) return false
+			if (!roomTask?.nextDue) {
+				return false
+			}
 			return dateKeyInZone(roomTask.nextDue, this.houseStore.timezone)
 				=== todayKeyInZone(this.houseStore.timezone)
 		},
 
 		formatDayKey(key) {
-			if (!key) return '—'
+			if (!key) {
+				return '—'
+			}
 			const [year, month, day] = key.split('-').map(Number)
 			return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 		},
 
 		formatTime(iso) {
-			if (!iso) return '—'
+			if (!iso) {
+				return '—'
+			}
 			const date = new Date(iso)
-			if (Number.isNaN(date.getTime())) return '—'
+			if (Number.isNaN(date.getTime())) {
+				return '—'
+			}
 			return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 		},
 	},

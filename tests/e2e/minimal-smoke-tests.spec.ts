@@ -13,11 +13,15 @@ import { test, expect, type Page, type Response } from '@playwright/test'
 test.describe('Minimal Smoke Tests', () => {
 	test('Protected views wait for membership bootstrap before issuing reads', async ({ page }) => {
 		let release!: () => void
-		const bootstrapBarrier = new Promise<void>(resolve => { release = resolve })
+		const bootstrapBarrier = new Promise<void>(resolve => {
+			release = resolve
+		})
 		const protectedReads: string[] = []
 		page.on('request', request => {
 			const pathname = new URL(request.url()).pathname
-			if (pathname.includes('/chorestrike/api/v1/') && !pathname.endsWith('/users/current')) protectedReads.push(pathname)
+			if (pathname.includes('/chorestrike/api/v1/') && !pathname.endsWith('/users/current')) {
+				protectedReads.push(pathname)
+			}
 		})
 		await page.route('**/api/v1/users/current', async route => {
 			await bootstrapBarrier
@@ -101,12 +105,16 @@ test.describe('Minimal Smoke Tests', () => {
 			const scripts: string[] = []
 			await page.setViewportSize(viewport)
 			page.on('console', message => {
-				if (message.type() === 'error') errors.push(message.text())
+				if (message.type() === 'error') {
+					errors.push(message.text())
+				}
 			})
 			page.on('pageerror', error => errors.push(error.message))
 			page.on('requestfailed', request => errors.push(`Failed request: ${new URL(request.url()).pathname}`))
 			page.on('response', response => {
-				if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${new URL(response.url()).pathname}`)
+				if (response.status() >= 400) {
+					errors.push(`HTTP ${response.status()}: ${new URL(response.url()).pathname}`)
+				}
 				if (response.request().resourceType() === 'script') {
 					const url = new URL(response.url())
 					scripts.push(url.pathname)

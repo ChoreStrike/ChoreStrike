@@ -32,9 +32,13 @@ export function render(ctx, state, view) {
 	ctx.fillStyle = palette.floor
 	ctx.fillRect(0, 0, view.width, view.height)
 	drawWall(ctx, state.tiles, cell, palette)
-	for (const drop of state.drops) drawDrop(ctx, drop, cell, palette)
+	for (const drop of state.drops) {
+		drawDrop(ctx, drop, cell, palette)
+	}
 	drawSqueegee(ctx, state, cell, palette)
-	for (const bubble of state.bubbles) drawBubble(ctx, bubble, cell, palette, state.waxMs > 0)
+	for (const bubble of state.bubbles) {
+		drawBubble(ctx, bubble, cell, palette, state.waxMs > 0)
+	}
 }
 
 function drawWall(ctx, tiles, cell, palette) {
@@ -45,9 +49,13 @@ function drawWall(ctx, tiles, cell, palette) {
 		const y = WALL_TOP + Math.floor(index / WALL_COLS) * TILE_H
 		ctx.fillStyle = hits === 0 ? palette.tealLight : (hits === 1 ? palette.tan : palette.cocoa)
 		roundedRect(ctx, (x + GROUT) * cell, (y + GROUT) * cell, (TILE_W - 2 * GROUT) * cell, (TILE_H - 2 * GROUT) * cell, cell * 0.12)
-		if (hits === 0) drawShine(ctx, x, y, cell, palette)
-		else if (hits === 1) drawStreaks(ctx, x, y, cell, palette)
-		else drawSpeckles(ctx, x, y, cell, palette)
+		if (hits === 0) {
+			drawShine(ctx, x, y, cell, palette)
+		} else if (hits === 1) {
+			drawStreaks(ctx, x, y, cell, palette)
+		} else {
+			drawSpeckles(ctx, x, y, cell, palette)
+		}
 	}
 }
 

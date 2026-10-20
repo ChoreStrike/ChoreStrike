@@ -121,7 +121,9 @@ export function parseCoinMinor(text) {
  * @return {string}
  */
 function formatMinorWithScale(minor, scale) {
-	if (!Number.isFinite(minor)) return '0'
+	if (!Number.isFinite(minor)) {
+		return '0'
+	}
 	const sign = minor < 0 ? '-' : ''
 	const value = Math.abs(Math.trunc(minor))
 	const whole = Math.trunc(value / scale)

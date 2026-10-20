@@ -85,7 +85,9 @@ export default {
 
 				let weeklyCapacity = 0
 				for (const day of WEEKDAY_KEYS) {
-					if (availability[day] === false) continue
+					if (availability[day] === false) {
+						continue
+					}
 					weeklyCapacity += resolveEnergyForDay(budgets, day)
 				}
 
@@ -113,7 +115,9 @@ export default {
 		},
 
 		loadPercent(row) {
-			if (row.loadRatio <= 0) return '0%'
+			if (row.loadRatio <= 0) {
+				return '0%'
+			}
 			return `${Math.min(100, Math.round(row.loadRatio * 100))}%`
 		},
 	},

@@ -133,37 +133,51 @@ export default {
 		const latestDate = computed(() => props.latest ? new Date(props.latest) : null)
 
 		const isEarliestActive = computed(() => {
-			if (!earliestDate.value) return false
+			if (!earliestDate.value) {
+				return false
+			}
 			return now.value >= earliestDate.value
 		})
 
 		const isIdealActive = computed(() => {
-			if (!idealDate.value) return false
+			if (!idealDate.value) {
+				return false
+			}
 			return now.value >= idealDate.value
 		})
 
 		const isLatestActive = computed(() => {
-			if (!latestDate.value) return false
+			if (!latestDate.value) {
+				return false
+			}
 			return now.value >= latestDate.value
 		})
 
 		const isLatestOverdue = computed(() => {
-			if (!latestDate.value) return false
+			if (!latestDate.value) {
+				return false
+			}
 			return now.value > latestDate.value
 		})
 
 		const isEarlyCompletion = computed(() => {
-			if (!earliestDate.value || !idealDate.value) return false
+			if (!earliestDate.value || !idealDate.value) {
+				return false
+			}
 			return now.value >= earliestDate.value && now.value < idealDate.value
 		})
 
 		const isInWindow = computed(() => {
-			if (!idealDate.value || !latestDate.value) return false
+			if (!idealDate.value || !latestDate.value) {
+				return false
+			}
 			return now.value >= idealDate.value && now.value <= latestDate.value
 		})
 
 		const isPastLatest = computed(() => {
-			if (!latestDate.value) return false
+			if (!latestDate.value) {
+				return false
+			}
 			return now.value > latestDate.value
 		})
 
@@ -173,7 +187,9 @@ export default {
 		 * @return {string} Formatted date
 		 */
 		const formatDate = (dateStr) => {
-			if (!dateStr) return ''
+			if (!dateStr) {
+				return ''
+			}
 			const date = new Date(dateStr)
 			const today = new Date()
 			today.setHours(0, 0, 0, 0)

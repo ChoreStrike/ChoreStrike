@@ -312,7 +312,9 @@ export default {
 		},
 
 		floor() {
-			if (!this.room) return null
+			if (!this.room) {
+				return null
+			}
 			return this.roomsStore.getFloorById(this.room.floorId)
 		},
 
@@ -321,9 +323,15 @@ export default {
 		},
 
 		cleanlinessClass() {
-			if (this.cleanliness >= 80) return 'excellent'
-			if (this.cleanliness >= 60) return 'good'
-			if (this.cleanliness >= 40) return 'fair'
+			if (this.cleanliness >= 80) {
+				return 'excellent'
+			}
+			if (this.cleanliness >= 60) {
+				return 'good'
+			}
+			if (this.cleanliness >= 40) {
+				return 'fair'
+			}
 			return 'poor'
 		},
 
@@ -350,12 +358,16 @@ export default {
 		},
 
 		editingTaskDefinition() {
-			if (!this.editingTask) return null
+			if (!this.editingTask) {
+				return null
+			}
 			return this.tasksStore.getTaskById(this.editingTask.taskId) || null
 		},
 
 		deleteRoomTitle() {
-			if (!this.roomToDelete) return ''
+			if (!this.roomToDelete) {
+				return ''
+			}
 			return t('chorestrike', 'Delete "{name}"?', { name: this.room?.name })
 		},
 	},
@@ -454,7 +466,9 @@ export default {
 		 */
 		participationMembers() {
 			const roomTask = this.participation
-			if (!roomTask) return []
+			if (!roomTask) {
+				return []
+			}
 			const namesByUser = {}
 			;(this.userStore.houseUsers ?? []).forEach(member => {
 				namesByUser[member.nextcloudUserId] = member.displayName
@@ -469,7 +483,9 @@ export default {
 		async confirmParticipation(payload) {
 			const roomTask = this.participation
 			this.participation = null
-			if (!roomTask) return
+			if (!roomTask) {
+				return
+			}
 			await this.performComplete(roomTask.id, payload)
 		},
 
@@ -524,7 +540,9 @@ export default {
 
 		async confirmDeleteTask() {
 			const roomTaskId = this.taskToDelete
-			if (roomTaskId === null) return
+			if (roomTaskId === null) {
+				return
+			}
 			this.deleting = true
 			try {
 				await this.roomTasksStore.deleteRoomTask(roomTaskId)
@@ -597,7 +615,9 @@ export default {
 
 		async confirmRenameRoom() {
 			const trimmedName = this.renamingRoomName.trim()
-			if (!trimmedName || trimmedName === this.room?.name) return
+			if (!trimmedName || trimmedName === this.room?.name) {
+				return
+			}
 			this.renamingRoom = true
 			try {
 				await this.roomsStore.updateRoomName(this.roomId, trimmedName)

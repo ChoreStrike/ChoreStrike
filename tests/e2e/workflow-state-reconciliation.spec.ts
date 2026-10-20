@@ -82,7 +82,9 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			await expect(page.getByTestId('own-wallet-available')).not.toHaveText(priorWallet)
 			await page.getByTestId('nav-settings').click()
 			await expect(page.getByTestId('arcade-visible-switch')).toBeChecked()
-		} finally { await context.close() }
+		} finally {
+			await context.close()
+		}
 	})
 
 	test('rapid parallel navigation ends in the reconciled state — no stale overwrite', async ({ browser, seededData }) => {

@@ -152,7 +152,9 @@ export class DatabaseManager {
 			const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/profiles`, {
 				headers: this.authHeaders(),
 			})
-			if (!response.ok) return false
+			if (!response.ok) {
+				return false
+			}
 			const result = await response.json()
 			return result.success === true
 		} catch {

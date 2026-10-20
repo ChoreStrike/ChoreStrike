@@ -223,11 +223,19 @@ export default {
 		// (CS-PLAN-060 §3.4). Same rule as before the extraction.
 		const canClaim = computed(() => {
 			const roomTask = props.item.roomTask
-			if (!roomTask.isActive) return false
-			if (!isOverdue(roomTask)) return false
-			if ((props.item.task.visibilityType || 'public') !== 'public') return false
+			if (!roomTask.isActive) {
+				return false
+			}
+			if (!isOverdue(roomTask)) {
+				return false
+			}
+			if ((props.item.task.visibilityType || 'public') !== 'public') {
+				return false
+			}
 			const assignees = roomTask.assignees || []
-			if (assignees.length === 0) return false
+			if (assignees.length === 0) {
+				return false
+			}
 			const currentUserId = userStore.currentUser?.nextcloudUserId || userStore.userId
 			return !assignees.includes(currentUserId)
 		})

@@ -62,8 +62,11 @@ export function star(ctx, cx, cy, radius) {
 		const angle = (point / 8) * TAU - Math.PI / 2
 		const x = cx + Math.cos(angle) * reach
 		const y = cy + Math.sin(angle) * reach
-		if (point === 0) ctx.moveTo(x, y)
-		else ctx.lineTo(x, y)
+		if (point === 0) {
+			ctx.moveTo(x, y)
+		} else {
+			ctx.lineTo(x, y)
+		}
 	}
 	ctx.closePath()
 	ctx.fill()

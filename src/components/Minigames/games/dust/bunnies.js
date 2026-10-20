@@ -86,7 +86,9 @@ export function moveBunny(state, bunny) {
 	bunny.fromX = bunny.x
 	bunny.fromY = bunny.y
 	const direction = chooseDirection(state, bunny)
-	if (!direction) return
+	if (!direction) {
+		return
+	}
 	bunny.direction = direction
 	bunny.x += DIRECTIONS[direction].x
 	bunny.y += DIRECTIONS[direction].y
@@ -105,14 +107,24 @@ function chooseDirection(state, bunny) {
 	const back = bunny.direction ? OPPOSITE[bunny.direction] : null
 	let open = 0
 	for (const direction of DIRECTION_ORDER) {
-		if (direction !== back && canEnter(state, bunny, direction)) open++
+		if (direction !== back && canEnter(state, bunny, direction)) {
+			open++
+		}
 	}
-	if (open === 0) return back && canEnter(state, bunny, back) ? back : null
-	if (state.rng() < chaseChance(state.roomIndex)) return drift(state, bunny, back)
+	if (open === 0) {
+		return back && canEnter(state, bunny, back) ? back : null
+	}
+	if (state.rng() < chaseChance(state.roomIndex)) {
+		return drift(state, bunny, back)
+	}
 	let pick = Math.floor(state.rng() * open)
 	for (const direction of DIRECTION_ORDER) {
-		if (direction === back || !canEnter(state, bunny, direction)) continue
-		if (pick === 0) return direction
+		if (direction === back || !canEnter(state, bunny, direction)) {
+			continue
+		}
+		if (pick === 0) {
+			return direction
+		}
 		pick--
 	}
 	return null
@@ -130,7 +142,9 @@ function drift(state, bunny, back) {
 	let best = null
 	let bestDistance = 0
 	for (const direction of DIRECTION_ORDER) {
-		if (direction === back || !canEnter(state, bunny, direction)) continue
+		if (direction === back || !canEnter(state, bunny, direction)) {
+			continue
+		}
 		const distance = state.distances[cellIndex(bunny.x + DIRECTIONS[direction].x, bunny.y + DIRECTIONS[direction].y)]
 		if (best === null || (bunny.catchable ? distance > bestDistance : distance < bestDistance)) {
 			best = direction

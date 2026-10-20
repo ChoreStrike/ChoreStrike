@@ -43,7 +43,9 @@ export function useGameLoop({ onStep, onRender = () => {}, onAutoPause = () => {
 
 	function frame(now) {
 		frameId = null
-		if (status.value !== 'running') return
+		if (status.value !== 'running') {
+			return
+		}
 		const delta = lastTime === null ? 0 : now - lastTime
 		lastTime = now
 		accumulator += Math.max(delta, 0)
@@ -77,7 +79,9 @@ export function useGameLoop({ onStep, onRender = () => {}, onAutoPause = () => {
 	}
 
 	function start() {
-		if (status.value === 'running' || status.value === 'paused') return false
+		if (status.value === 'running' || status.value === 'paused') {
+			return false
+		}
 		accumulator = 0
 		elapsed = 0
 		status.value = 'running'
@@ -86,14 +90,18 @@ export function useGameLoop({ onStep, onRender = () => {}, onAutoPause = () => {
 	}
 
 	function pause() {
-		if (status.value !== 'running') return false
+		if (status.value !== 'running') {
+			return false
+		}
 		cancel()
 		status.value = 'paused'
 		return true
 	}
 
 	function resume() {
-		if (status.value !== 'paused') return false
+		if (status.value !== 'paused') {
+			return false
+		}
 		status.value = 'running'
 		schedule()
 		return true
@@ -101,15 +109,21 @@ export function useGameLoop({ onStep, onRender = () => {}, onAutoPause = () => {
 
 	function stop() {
 		cancel()
-		if (status.value !== 'idle') status.value = 'stopped'
+		if (status.value !== 'idle') {
+			status.value = 'stopped'
+		}
 	}
 
 	function autoPause() {
-		if (pause()) onAutoPause()
+		if (pause()) {
+			onAutoPause()
+		}
 	}
 
 	function onVisibilityChange() {
-		if (document.visibilityState === 'hidden') autoPause()
+		if (document.visibilityState === 'hidden') {
+			autoPause()
+		}
 	}
 
 	document.addEventListener('visibilitychange', onVisibilityChange)
