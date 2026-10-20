@@ -8,7 +8,7 @@
 # workspace, ignored build outputs or host-OS path separators can never leak
 # into a qualified package. Pin updates require re-running the two-build
 # reproducibility proof.
-ARG NODE_IMAGE=node:20.19.0@sha256:e44d951c16cd042012215a3473d69d3364e62ffcebf7e7acccf44163e0385327
+ARG NODE_IMAGE=node:24.14.0@sha256:1698b8f453a36aa5b2545a0ab21b1781bef5c62a4626a2e8d2a01e7cde4fad45
 ARG COMPOSER_IMAGE=composer:2.9.5@sha256:698d3801b2a622ace460c4743c781282fcbcb733a4cbf8b31c44731e846585e8
 ARG PHP_IMAGE=php:8.4.25-apache@sha256:82256e3beb70749ba80a2bfdaa005e35dd446678cd136c45a9de94ccad27cd74
 

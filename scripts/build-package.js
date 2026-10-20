@@ -492,7 +492,7 @@ const CONTAINER_BUILD_SCRIPT = [
 	'tar -xf /inputs/source.tar', // build inputs: git archive HEAD (read-only mount)
 	// Tool summaries must never touch stdout: it carries the transport tar.
 	// Logs travel inside the transport for the runner's evidence records.
-	'npm ci --no-audit --no-fund --loglevel=error >/tmp/npm.log 2>&1 || { cat /tmp/npm.log >&2; exit 1; }',
+	'npm ci --engine-strict --no-audit --no-fund --loglevel=error >/tmp/npm.log 2>&1 || { cat /tmp/npm.log >&2; exit 1; }',
 	'composer install --no-dev --no-interaction --prefer-dist --no-progress >/tmp/composer.log 2>&1 || { cat /tmp/composer.log >&2; exit 1; }',
 	'NODE_ENV=production CHORESTRIKE_PACKAGE_BUILD=true npx webpack --mode production --json /tmp/stats.json 1>/tmp/webpack.log',
 	'node scripts/package-licenses.js /tmp/stats.json',

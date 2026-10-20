@@ -5,9 +5,9 @@
 // Only DEP0040 is silenced; every other deprecation stays visible.
 //
 // This runs as a Jest `setupFiles` entry (before the test framework loads),
-// because the warning fires during early module loading. `--disable-warning`
-// is Node >=21 only, but `engines` declares `^20.19.0`, so overriding
-// `process.emitWarning` keeps the Node-20 floor valid.
+// because the warning fires during early module loading; overriding
+// `process.emitWarning` filters it by code in the main process and in every
+// worker alike.
 
 const originalEmitWarning = process.emitWarning.bind(process)
 
