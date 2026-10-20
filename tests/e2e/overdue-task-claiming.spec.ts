@@ -36,11 +36,11 @@ test.describe('Overdue Task Claiming', () => {
 	async function createOverdueProbe(
 		page: Page,
 		name: string,
-		options: { visibility?: string; assignees?: string[]; nextDue?: string; expectedStatus?: string } = {},
+		options: { visibility?: string, assignees?: string[], nextDue?: string, expectedStatus?: string } = {},
 	): Promise<number> {
 		const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
 		expect(floorsResponse.status()).toBe(200)
-		const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number; name: string }> }>)
+		const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number, name: string }> }>)
 			.flatMap((floor) => floor.rooms)
 		const kitchen = rooms.find((room) => room.name === 'Kitchen')
 		expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
@@ -66,7 +66,7 @@ test.describe('Overdue Task Claiming', () => {
 		// Confirm the probe is really overdue before the test continues.
 		const listResponse = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
 		expect(listResponse.status()).toBe(200)
-		const probe = ((await listResponse.json()).data as Array<{ id: number; status: string }>)
+		const probe = ((await listResponse.json()).data as Array<{ id: number, status: string }>)
 			.find((row) => row.id === roomTaskId)
 		expect(probe?.status, 'the probe row must serialize with its house-local status')
 			.toBe(options.expectedStatus ?? 'overdue')
@@ -170,8 +170,7 @@ test.describe('Overdue Task Claiming', () => {
 			await expect(page.getByTestId(`undo-snackbar-entry-${roomTaskId}`)).toBeVisible({ timeout: 10000 })
 
 			const rows = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
-			const row = ((await rows.json()).data as Array<{ id: number; wasClaimed: boolean; claimedByUser: string;
-				originalAssignee: string; assignees?: string[]; status: string }>).find((item) => item.id === roomTaskId)
+			const row = ((await rows.json()).data as Array<{ id: number, wasClaimed: boolean, claimedByUser: string,originalAssignee: string, assignees?: string[], status: string }>).find((item) => item.id === roomTaskId)
 			expect(row).toMatchObject({ wasClaimed: true, claimedByUser: 'mom', originalAssignee: 'dad' })
 			expect(row?.status, 'the claimed occurrence is done; the next one is not overdue').not.toBe('overdue')
 			await expect(overdueRow.getByTestId('claim-overdue-button')).toHaveCount(0)

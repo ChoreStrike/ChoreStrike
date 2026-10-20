@@ -11,7 +11,6 @@ export const API_PREFIX = '/apps/chorestrike'
 const GENERIC_ERROR = () => t('chorestrike', 'Request failed')
 
 export class ApiError extends Error {
-
 	/**
 	 * @param {string} message Error message from backend or generic fallback
 	 * @param {number} [status] HTTP status code if available
@@ -25,7 +24,6 @@ export class ApiError extends Error {
 		this.code = code
 		this.data = data
 	}
-
 }
 
 /**

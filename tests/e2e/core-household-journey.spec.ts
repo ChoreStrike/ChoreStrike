@@ -157,8 +157,7 @@ test.describe('Canonical household journey', () => {
 
 				// Wizard invite step: dad joins as a member.
 				await page.getByTestId('wizard-invite-email-0').fill(DAD_EMAIL)
-				const inviteResponse = page.waitForResponse((response) =>
-					response.request().method() === 'POST'
+				const inviteResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 					&& response.url().includes('/api/v1/users/invite'))
 				await page.getByTestId('wizard-send-invites').click()
 				expect((await inviteResponse).ok()).toBeTruthy()
@@ -197,8 +196,7 @@ test.describe('Canonical household journey', () => {
 				await page.getByTestId('show-invite-button').click()
 				await page.getByTestId('invite-email-input').fill(KID_EMAIL)
 				await page.getByTestId('invite-role-select').selectOption('child')
-				const childInviteResponse = page.waitForResponse((response) =>
-					response.request().method() === 'POST'
+				const childInviteResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 					&& response.url().includes('/api/v1/users/invite'))
 				await page.getByTestId('invite-submit-button').click()
 				expect((await childInviteResponse).ok()).toBeTruthy()
@@ -299,8 +297,7 @@ test.describe('Canonical household journey', () => {
 				const levelTarget = await page.getByTestId('picker-level-putzmuffel').boundingBox()
 				expect(levelTarget!.height).toBeGreaterThanOrEqual(44)
 				expect(levelTarget!.width).toBeGreaterThanOrEqual(44)
-				const templateResponse = page.waitForResponse((response) =>
-					response.request().method() === 'POST'
+				const templateResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 					&& response.url().includes('/api/v1/room-tasks'))
 				await page.getByTestId('picker-template-kitchen_sink').click()
 				const templateCreated = await templateResponse
@@ -316,7 +313,7 @@ test.describe('Canonical household journey', () => {
 				// The definition list carries name/instructions; the room-task
 				// rows are FLAT (taskId + assignees, no nested task object).
 				const taskResponse = await page.request.get('/apps/chorestrike/api/v1/tasks')
-				const definitions = (await taskResponse.json()).data as Array<{ id: number; name: string; instructions?: string }>
+				const definitions = (await taskResponse.json()).data as Array<{ id: number, name: string, instructions?: string }>
 				const definition = definitions.find((task) => task.name === CUSTOM_TASK)
 				expect(definition).toBeDefined()
 				expect(definition!.instructions).toBe('Rinse everything, then load the racks.')
@@ -386,8 +383,7 @@ test.describe('Canonical household journey', () => {
 				// The toggle input is visually hidden — click its label.
 				await page.locator('label:has([data-testid="limit-enabled-toggle"])').click()
 				await page.getByTestId('limit-value-input').fill('2')
-				const availabilityResponse = page.waitForResponse((response) =>
-					response.request().method() === 'PUT'
+				const availabilityResponse = page.waitForResponse((response) => response.request().method() === 'PUT'
 					&& response.url().includes('/api/v1/scheduling/'))
 				await page.getByTestId('save-availability-button').click()
 				expect((await availabilityResponse).ok()).toBeTruthy()
@@ -404,10 +400,8 @@ test.describe('Canonical household journey', () => {
 
 				// No writes during preview: the room task still carries its
 				// future due date and the pre-preview assignee set.
-				const beforeApplyResponse = await page.request.get(
-					`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,
-				)
-				const beforeApply = ((await beforeApplyResponse.json()).data as Array<{ id: number; nextDue: string; assignees: string[] }>)
+				const beforeApplyResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,)
+				const beforeApply = ((await beforeApplyResponse.json()).data as Array<{ id: number, nextDue: string, assignees: string[] }>)
 					.find((roomTask) => roomTask.id === flexRoomTaskId)
 				expect(beforeApply!.nextDue.startsWith(houseLocalDate(2))).toBeTruthy()
 				expect(beforeApply!.assignees).toEqual([])
@@ -424,18 +418,15 @@ test.describe('Canonical household journey', () => {
 				// explicit consent attestation before apply unlocks.
 				await page.getByTestId('planner-consent').check()
 
-				const applyResponse = page.waitForResponse((response) =>
-					response.request().method() === 'POST'
+				const applyResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 					&& response.url().includes('/api/v1/scheduling/apply'))
 				await page.getByTestId('apply-plan-button').click()
 				expect((await applyResponse).ok()).toBeTruthy()
 				await expect(page.getByTestId('plan-applied')).toBeVisible({ timeout: 20000 })
 
 				// The APPLIED result: due today, assigned to the child.
-				const afterApplyResponse = await page.request.get(
-					`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,
-				)
-				const afterApply = ((await afterApplyResponse.json()).data as Array<{ id: number; nextDue: string; assignees: string[] }>)
+				const afterApplyResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,)
+				const afterApply = ((await afterApplyResponse.json()).data as Array<{ id: number, nextDue: string, assignees: string[] }>)
 					.find((roomTask) => roomTask.id === flexRoomTaskId)
 				expect(afterApply!.nextDue.startsWith(houseLocalDate(0))).toBeTruthy()
 				expect(afterApply!.assignees).toEqual(['kid'])
@@ -456,7 +447,7 @@ test.describe('Canonical household journey', () => {
 		// The kid session stays OPEN: the queued-undo snackbar is per-session
 		// UI state, so phase 7 undoes it in the same session.
 		// ----------------------------------------------------------------
-		let kidSession: { context: import('@playwright/test').BrowserContext; page: Page } | null = null
+		let kidSession: { context: import('@playwright/test').BrowserContext, page: Page } | null = null
 		await test.step('the child executes the assigned task on My Day, completes it and queues the undo', async () => {
 			// Independently captured before-state (read-only API snapshots).
 			const kidPreview = await createUserContext(browser, 'kid')
@@ -549,7 +540,7 @@ test.describe('Canonical household journey', () => {
 				const undoResponsePromise = kid.page.waitForResponse((response) => {
 					const pathname = new URL(response.url()).pathname
 					return response.request().method() === 'POST'
-					&& pathname === `/apps/chorestrike/api/v1/completions/${completionIdForUndo}/undo`
+						&& pathname === `/apps/chorestrike/api/v1/completions/${completionIdForUndo}/undo`
 				})
 				await snackbar.click()
 				const undoBody = await (await undoResponsePromise).json()
@@ -575,10 +566,8 @@ test.describe('Canonical household journey', () => {
 				expect(current.data.currentStreak).toBe(0)
 				expect(await walletOf(browser)).toBe(baselineCoins)
 				expect(await kitchenCleanliness(browser)).toBe(baselineCleanliness)
-				const roomTasksResponse = await kidAgain.page.request.get(
-					`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,
-				)
-				const restored = ((await roomTasksResponse.json()).data as Array<{ id: number; lastCompleted: string | null; isActive: boolean; nextDue: string }>)
+				const roomTasksResponse = await kidAgain.page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`,)
+				const restored = ((await roomTasksResponse.json()).data as Array<{ id: number, lastCompleted: string | null, isActive: boolean, nextDue: string }>)
 					.find((roomTask) => roomTask.id === flexRoomTaskId)
 				expect(restored!.isActive).toBe(true)
 				expect(restored!.lastCompleted).toBeNull()
@@ -682,7 +671,7 @@ async function walletOf(browser: Browser): Promise<number> {
 	}
 }
 
-async function userSnapshot(browser: Browser): Promise<{ contribution: number; streak: number }> {
+async function userSnapshot(browser: Browser): Promise<{ contribution: number, streak: number }> {
 	const session = await createUserContext(browser, 'kid')
 	try {
 		const current = await (await session.page.request.get('/apps/chorestrike/api/v1/users/current')).json()

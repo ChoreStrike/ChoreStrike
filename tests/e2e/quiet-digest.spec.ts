@@ -61,9 +61,7 @@ async function fetchChoreStrikeNotifications(page: Page): Promise<OcsNotificatio
  */
 async function dismissDigestNotifications(page: Page): Promise<void> {
 	for (let round = 0; round < 10; round++) {
-		const stale = (await fetchChoreStrikeNotifications(page)).filter(
-			(n) => n.object_type === 'digest',
-		)
+		const stale = (await fetchChoreStrikeNotifications(page)).filter((n) => n.object_type === 'digest',)
 		if (stale.length === 0) {
 			return
 		}
@@ -84,7 +82,7 @@ const todayKey = (): string => containerDate(0)
 async function createDueWork(page: Page, name: string, assignee: string, plannedDay = todayKey()): Promise<void> {
 	const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
 	expect(floorsResponse.status()).toBe(200)
-	const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number; name: string }> }>)
+	const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number, name: string }> }>)
 		.flatMap((floor) => floor.rooms)
 	const kitchen = rooms.find((room) => room.name === 'Kitchen')
 	expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()

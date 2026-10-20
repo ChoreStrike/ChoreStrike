@@ -566,9 +566,7 @@ const iconDefinitions = {
 	GripVertical: SHARED_SHAPES.gripVertical,
 }
 
-export const icons = Object.fromEntries(
-	Object.entries(iconDefinitions).map(([name, shapes]) => [name, createIconComponent(name, shapes)]),
-)
+export const icons = Object.fromEntries(Object.entries(iconDefinitions).map(([name, shapes]) => [name, createIconComponent(name, shapes)]),)
 
 Object.assign(icons, fluentSvgIcons)
 

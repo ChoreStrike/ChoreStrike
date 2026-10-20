@@ -213,9 +213,7 @@ test.describe('Settings', () => {
 	test('Floors list or empty state is displayed', async ({ page }) => {
 		// The floors fetch resolves asynchronously after the view mounts; wait
 		// for whichever end state applies instead of probing instantly.
-		await expect(
-			page.getByTestId('floors-list').or(page.getByTestId('no-floors-message')),
-		).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('floors-list').or(page.getByTestId('no-floors-message')),).toBeVisible({ timeout: 15000 })
 	})
 
 	test('User can open add floor modal', async ({ page }) => {
@@ -260,27 +258,38 @@ test.describe('Settings', () => {
 		expect(receipt).not.toBeNull()
 		await dataOf(await page.request.post(`${API}/occurrences/${receipt!.occurrenceId}/amend`, {
 			data: {
-				roomTaskId, commandId: newCommandId(), ...receipt, consent: true, date: houseDateOffset(0, 'UTC'),
+				roomTaskId,
+				commandId: newCommandId(),
+				...receipt,
+				consent: true,
+				date: houseDateOffset(0, 'UTC'),
 			},
 		}))
 		const rows = await dataOf(await page.request.get(`${API}/room-tasks`))
-		const earningTask = rows.find((row: { id: number; assignees: string[]; occurrence?: object }) => row.id !== roomTaskId && row.assignees.includes('mom') && row.occurrence)
+		const earningTask = rows.find((row: { id: number, assignees: string[], occurrence?: object }) => row.id !== roomTaskId && row.assignees.includes('mom') && row.occurrence)
 		expect(earningTask).toBeTruthy()
 		const completion = await dataOf(await completeRoomTaskViaApi(page, earningTask.id))
 		const house = await dataOf(await page.request.get(`${API}/house`))
 		await dataOf(await page.request.put(`${API}/house/catalog`, {
 			data: {
-				catalogEnabled: true, expectedVersion: house.stateVersion, commandId: newCommandId(),
+				catalogEnabled: true,
+				expectedVersion: house.stateVersion,
+				commandId: newCommandId(),
 			},
 		}))
 		const item = await dataOf(await page.request.post(`${API}/rewards`, {
 			data: {
-				title: 'Retained reservation', priceMinor: 100, commandId: newCommandId(),
+				title: 'Retained reservation',
+				priceMinor: 100,
+				commandId: newCommandId(),
 			},
 		}))
 		const rewardRequest = await dataOf(await page.request.post(`${API}/reward-requests`, {
 			data: {
-				itemId: item.id, itemVersion: item.version, priceMinor: 100, commandId: newCommandId(),
+				itemId: item.id,
+				itemVersion: item.version,
+				priceMinor: 100,
+				commandId: newCommandId(),
 			},
 		}))
 		expect(rewardRequest.wallet.reservedMinor).toBe(100)
@@ -298,7 +307,7 @@ test.describe('Settings', () => {
 					timezone: currentHouse.timezone,
 					catalogEnabled: currentHouse.catalogEnabled,
 				},
-				structure: structure.map((entry: { floor: { id: number; name: string; sortOrder: number }; rooms: Array<{ id: number; floorId: number; name: string; icon: string; roomType: string }> }) => ({
+				structure: structure.map((entry: { floor: { id: number, name: string, sortOrder: number }, rooms: Array<{ id: number, floorId: number, name: string, icon: string, roomType: string }> }) => ({
 					id: entry.floor.id,
 					name: entry.floor.name,
 					sortOrder: entry.floor.sortOrder,
@@ -306,7 +315,7 @@ test.describe('Settings', () => {
 					rooms: entry.rooms.map((room) => ({ id: room.id, floorId: room.floorId, name: room.name, icon: room.icon, roomType: room.roomType })).sort((a, b) => a.id - b.id),
 				})),
 				tasks: await dataOf(await page.request.get(`${API}/tasks`)),
-				planning: taskRows.map((row: { id: number; roomId: number; taskId: number; assignees: string[]; occurrence?: { occurrenceId: string; expectedVersion: number; workDate: string } }) => ({
+				planning: taskRows.map((row: { id: number, roomId: number, taskId: number, assignees: string[], occurrence?: { occurrenceId: string, expectedVersion: number, workDate: string } }) => ({
 					id: row.id,
 					roomId: row.roomId,
 					taskId: row.taskId,
@@ -359,7 +368,9 @@ test.describe('Settings', () => {
 		// A transport/server failure leaves the modal and retained facts intact;
 		// the user's retry is exercised in the same populated installation.
 		await page.route(`**${API}/house/reset`, (route) => route.fulfill({
-			status: 503, contentType: 'application/json', body: JSON.stringify({ success: false, error: { code: 'RESET_ERROR', message: 'Synthetic test failure' } }),
+			status: 503,
+			contentType: 'application/json',
+			body: JSON.stringify({ success: false, error: { code: 'RESET_ERROR', message: 'Synthetic test failure' } }),
 		}), { times: 1 })
 		await modal.locator('.danger-button').click()
 		await expect(page.locator('body')).toContainText('Failed to reset house')
@@ -374,7 +385,7 @@ test.describe('Settings', () => {
 		const resetHouse = await dataOf(await page.request.get(`${API}/house`))
 		expect(resetHouse.houseHealth).toBe(100)
 		const cleanFloors = await dataOf(await page.request.get(`${API}/floors/with-rooms`))
-		for (const room of cleanFloors.flatMap((floor: { rooms: Array<{ cleanliness: number; monsterCount: number }> }) => floor.rooms)) {
+		for (const room of cleanFloors.flatMap((floor: { rooms: Array<{ cleanliness: number, monsterCount: number }> }) => floor.rooms)) {
 			expect(room.cleanliness).toBe(100)
 			expect(room.monsterCount).toBe(0)
 		}

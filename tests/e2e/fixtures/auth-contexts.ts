@@ -19,14 +19,10 @@ const BASE_URL = process.env.NEXTCLOUD_URL || 'http://localhost:8080'
  */
 async function primeCsrfToken(context: BrowserContext, page: Page): Promise<void> {
 	await page.goto(`${BASE_URL}/index.php/apps/dashboard/`)
-	const token = await page.evaluate(
-		() => (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken,
-	)
+	const token = await page.evaluate(() => (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken,)
 	if (!token) {
-		throw new Error(
-			'primeCsrfToken: OC.requestToken not found after loading the dashboard. '
-			+ 'The storageState may be expired or the Nextcloud instance is unreachable.',
-		)
+		throw new Error('primeCsrfToken: OC.requestToken not found after loading the dashboard. '
+			+ 'The storageState may be expired or the Nextcloud instance is unreachable.',)
 	}
 	await context.setExtraHTTPHeaders({ requesttoken: token })
 }
@@ -64,7 +60,7 @@ export async function createUserContext(
 	browser: Browser,
 	userId: string,
 	contextOptions: BrowserContextOptions = {},
-): Promise<{ context: BrowserContext; page: Page }> {
+): Promise<{ context: BrowserContext, page: Page }> {
 	const context = await browser.newContext({
 		storageState: userStatePath(userId),
 		...contextOptions,

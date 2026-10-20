@@ -67,7 +67,7 @@ test.describe('Fast Core Tests', () => {
 	test('No critical JavaScript errors', async ({ page }: { page: Page }) => {
 		const errors: string[] = []
 
-		page.on('console', (msg: { type: () => string; text: () => string }) => {
+		page.on('console', (msg: { type: () => string, text: () => string }) => {
 			if (msg.type() === 'error') {
 				const text = msg.text()
 				const nonCriticalPatterns = [
@@ -86,9 +86,7 @@ test.describe('Fast Core Tests', () => {
 					'undefined is not an object',
 					'cannot read property',
 				]
-				const isNonCritical = nonCriticalPatterns.some((pattern) =>
-					text.toLowerCase().includes(pattern.toLowerCase()),
-				)
+				const isNonCritical = nonCriticalPatterns.some((pattern) => text.toLowerCase().includes(pattern.toLowerCase()),)
 				if (!isNonCritical) {
 					errors.push(text)
 					console.log('Captured JS Error:', text)

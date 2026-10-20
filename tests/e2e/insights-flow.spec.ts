@@ -255,7 +255,8 @@ test.describe('Release: Insights Flow', () => {
 			const receipt = await resolveOccurrenceReceipt(page, roomTask!.id)
 			expect(receipt).not.toBeNull()
 			const complete = await postCompletionWithReceipt(page, roomTask!.id, receipt!, [
-				{ userId: 'mom', sharePct: 50 }, { userId: 'dad', sharePct: 50 },
+				{ userId: 'mom', sharePct: 50 },
+				{ userId: 'dad', sharePct: 50 },
 			])
 			expect(complete.status(), await complete.text()).toBe(200)
 			const completionId = (await complete.json()).data.completionId as number
@@ -344,7 +345,8 @@ test.describe('Release: Insights Flow', () => {
 			const receipt = await resolveOccurrenceReceipt(page, roomTask!.id)
 			expect(receipt).not.toBeNull()
 			const complete = await postCompletionWithReceipt(page, roomTask!.id, receipt!, [
-				{ userId: 'mom', sharePct: 50 }, { userId: 'dad', sharePct: 50 },
+				{ userId: 'mom', sharePct: 50 },
+				{ userId: 'dad', sharePct: 50 },
 			])
 			expect(complete.status(), await complete.text()).toBe(200)
 			const completionId = (await complete.json()).data.completionId as number

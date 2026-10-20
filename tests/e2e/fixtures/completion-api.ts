@@ -42,7 +42,7 @@ export async function resolveOccurrenceReceipt(page: Page, roomTaskId: number): 
 	if (response.status() !== 200) {
 		return null
 	}
-	const rows = ((await response.json()).data ?? []) as Array<{ id: number; occurrence?: OccurrenceReceipt | null }>
+	const rows = ((await response.json()).data ?? []) as Array<{ id: number, occurrence?: OccurrenceReceipt | null }>
 	const occurrence = rows.find((row) => row.id === roomTaskId)?.occurrence
 	if (!occurrence?.occurrenceId || !occurrence?.selectionToken) {
 		return null
@@ -63,7 +63,7 @@ export async function postCompletionWithReceipt(
 	page: Page,
 	roomTaskId: number,
 	receipt: OccurrenceReceipt,
-	participants?: Array<{ userId: string; sharePct: number }>,
+	participants?: Array<{ userId: string, sharePct: number }>,
 ): Promise<APIResponse> {
 	const data: Record<string, unknown> = { commandId: newCommandId(), ...receipt }
 	if (participants) {
@@ -93,7 +93,7 @@ export async function completeRoomTaskViaApi(page: Page, roomTaskId: number): Pr
 	}
 	const userId = await currentPageUserId(page)
 	const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
-	const participants = ((rows.data ?? []) as Array<{ id: number; proposal: { participants: Array<{ userId: string }> } | null }>)
+	const participants = ((rows.data ?? []) as Array<{ id: number, proposal: { participants: Array<{ userId: string }> } | null }>)
 		.find((row) => row.id === roomTaskId)?.proposal?.participants ?? []
 	const needsSplit = participants.length > 1
 		|| (participants.length === 1 && userId !== null && participants[0].userId !== userId)

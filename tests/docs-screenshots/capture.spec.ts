@@ -69,7 +69,7 @@ test('the target is the seeded demo household', async ({ browser, baseURL }) => 
 	const { context, page } = await createUserContext(browser, 'mom')
 	try {
 		expect((await jsonOf(await page.request.get(`${API}/house`))).name).toBe(SEEDED_HOUSE_NAME)
-		const members: Array<{ id: number; nextcloudUserId: string }> = await jsonOf(await page.request.get(`${API}/users`))
+		const members: Array<{ id: number, nextcloudUserId: string }> = await jsonOf(await page.request.get(`${API}/users`))
 		expect(members.map((member) => member.nextcloudUserId).sort()).toEqual([...SEEDED_ROLES, 'admin'].sort())
 
 		// Present the household: the seed's test-only admin member leaves

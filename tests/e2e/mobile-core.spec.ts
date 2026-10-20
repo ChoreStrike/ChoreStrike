@@ -25,10 +25,10 @@ import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page, Tes
 const day = (offset: number): string => houseDateOffset(offset, 'UTC')
 const API = '/apps/chorestrike/api/v1'
 
-interface ListRow { id: number; status: string; nextDue?: string | null; assignees?: string[]; wasClaimed?: boolean; claimedByUser?: string; originalAssignee?: string; occurrence?: { occurrenceId: string; plannedDate?: string } | null }
+interface ListRow { id: number, status: string, nextDue?: string | null, assignees?: string[], wasClaimed?: boolean, claimedByUser?: string, originalAssignee?: string, occurrence?: { occurrenceId: string, plannedDate?: string } | null }
 
 /** Sign `userId` in on this project's phone (contexts do not inherit the project device). */
-async function phone(browser: Browser, userId: string, testInfo: TestInfo): Promise<{ context: BrowserContext; page: Page }> {
+async function phone(browser: Browser, userId: string, testInfo: TestInfo): Promise<{ context: BrowserContext, page: Page }> {
 	const { viewport, screen, userAgent, deviceScaleFactor, isMobile, hasTouch } = testInfo.project.use
 	const device: BrowserContextOptions = { viewport, screen, userAgent, deviceScaleFactor, isMobile, hasTouch }
 	return createUserContext(browser, userId, device)
@@ -49,7 +49,7 @@ async function expectWithinViewport(page: Page, locator: Locator): Promise<void>
 async function createProbe(page: Page, name: string, assignees: string[], nextDue = day(0)): Promise<number> {
 	const floors = await page.request.get(`${API}/floors/with-rooms`)
 	expect(floors.status()).toBe(200)
-	const kitchen = ((await floors.json()).data as Array<{ rooms: Array<{ id: number; name: string }> }>)
+	const kitchen = ((await floors.json()).data as Array<{ rooms: Array<{ id: number, name: string }> }>)
 		.flatMap((floor) => floor.rooms).find((room) => room.name === 'Kitchen')
 	expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
 	const response = await page.request.post(`${API}/room-tasks`, {

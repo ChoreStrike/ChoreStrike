@@ -27,8 +27,7 @@ const VIEWPORTS = [
 
 type Box = { left: number, right: number, top: number, bottom: number }
 
-const overlaps = (a: Box, b: Box): boolean =>
-	a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+const overlaps = (a: Box, b: Box): boolean => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 
 /** Box of the heading's rendered text, not of its (often full-width) element. */
 async function textBox(heading: Locator): Promise<Box> {
@@ -138,9 +137,9 @@ test.describe('Layout clearance and dashboard health bar', () => {
 			const fill = health.locator('.health-bar-fill')
 			const fillBox = await boxOf(fill)
 			expect(fillBox.right - fillBox.left).toBeGreaterThan(0)
-			const topmostIsFill = await page.evaluate(({ x, y }) =>
-				document.elementFromPoint(x, y)?.closest('.health-bar-fill') !== null,
-			{ x: (fillBox.left + fillBox.right) / 2, y: (fillBox.top + fillBox.bottom) / 2 })
+			const topmostIsFill = await page.evaluate(
+({ x, y }) => document.elementFromPoint(x, y)?.closest('.health-bar-fill') !== null,{ x: (fillBox.left + fillBox.right) / 2, y: (fillBox.top + fillBox.bottom) / 2 }
+)
 			expect(topmostIsFill, 'the fill paints above the track').toBe(true)
 
 			const titleBox = await textBox(health.locator('.health-title'))

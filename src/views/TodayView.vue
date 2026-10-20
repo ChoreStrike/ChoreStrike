@@ -685,9 +685,9 @@ export default {
 			}
 			const windowLabel = occurrence.windowEnd
 				? t('chorestrike', 'planned {date}, until {time}', {
-					date: this.formatDayKey(occurrence.plannedDate),
-					time: this.formatTime(occurrence.windowEnd),
-				})
+						date: this.formatDayKey(occurrence.plannedDate),
+						time: this.formatTime(occurrence.windowEnd),
+					})
 				: t('chorestrike', 'planned {date}', { date: this.formatDayKey(occurrence.plannedDate) })
 			return windowLabel
 		},

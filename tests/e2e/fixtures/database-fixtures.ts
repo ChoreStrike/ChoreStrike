@@ -23,7 +23,7 @@ import { assertTestTarget } from '../../../scripts/test-target'
 export type DatabaseProfile = 'empty' | 'emptyhouse' | 'minimal' | 'family'
 
 // User credentials for each profile
-export const PROFILE_USERS: Record<DatabaseProfile, Array<{ userId: string; password: string; displayName: string }>> = {
+export const PROFILE_USERS: Record<DatabaseProfile, Array<{ userId: string, password: string, displayName: string }>> = {
 	empty: [],
 	// The emptyhouse profile seeds no rows — the NC accounts come from the
 	// auth-setup family seed and survive resets; the journey spec logs in
@@ -50,12 +50,12 @@ export const PROFILE_USERS: Record<DatabaseProfile, Array<{ userId: string; pass
 export interface SeededData {
 	profile: DatabaseProfile
 	data: {
-		house?: { id: number; name: string }
-		floors?: Array<{ id: number; name: string; sortOrder?: number }>
-		rooms?: Array<{ id: number; name: string; cleanliness: number; floorId?: number }>
-		users?: Array<{ id: number; nextcloudUserId: string; displayName: string; role: string; maxDailyTasks?: number }>
-		tasks?: Array<{ id: number; name: string; category: string; energyCost?: number }>
-		roomTasks?: Array<{ id: number; roomId: number; taskId: number; assignees?: string[] }>
+		house?: { id: number, name: string }
+		floors?: Array<{ id: number, name: string, sortOrder?: number }>
+		rooms?: Array<{ id: number, name: string, cleanliness: number, floorId?: number }>
+		users?: Array<{ id: number, nextcloudUserId: string, displayName: string, role: string, maxDailyTasks?: number }>
+		tasks?: Array<{ id: number, name: string, category: string, energyCost?: number }>
+		roomTasks?: Array<{ id: number, roomId: number, taskId: number, assignees?: string[] }>
 	}
 }
 
@@ -90,7 +90,7 @@ export class DatabaseManager {
 	/**
 	 * Get available profiles
 	 */
-	async getProfiles(): Promise<Array<{ name: string; description: string }>> {
+	async getProfiles(): Promise<Array<{ name: string, description: string }>> {
 		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/profiles`, {
 			headers: this.authHeaders(),
 		})
@@ -201,11 +201,9 @@ export const test = baseTest.extend<DatabaseFixtures>({
 	// Seeded data fixture - seeds before test and provides data
 	seededData: async ({ databaseProfile, databaseManager }, use, testInfo) => {
 		if (!RESET_OWNING_PROJECTS.has(testInfo.project.name)) {
-			throw new Error(
-				`Pool guard violation: the '${databaseProfile}' seed/reset may only run in a reset-owning project`
+			throw new Error(`Pool guard violation: the '${databaseProfile}' seed/reset may only run in a reset-owning project`
 				+ ` (${[...RESET_OWNING_PROJECTS].join(', ')}), but '${testInfo.project.name}' requested it`
-				+ ' — move the spec into the serial pool selection or make it read-only.',
-			)
+				+ ' — move the spec into the serial pool selection or make it read-only.',)
 		}
 
 		let data: SeededData | null = null
@@ -220,10 +218,8 @@ export const test = baseTest.extend<DatabaseFixtures>({
 		} else {
 			// CS-PLAN-068 §3.4: a missing test environment is a failure, not
 			// a silent null the assertions have to trip over.
-			throw new Error(
-				`Test mode unavailable: cannot seed the '${databaseProfile}' profile required by '${testInfo.title}'`
-				+ ' — the gate requires NEXTCLOUD_TEST_MODE=true on the test container.',
-			)
+			throw new Error(`Test mode unavailable: cannot seed the '${databaseProfile}' profile required by '${testInfo.title}'`
+				+ ' — the gate requires NEXTCLOUD_TEST_MODE=true on the test container.',)
 		}
 
 		await use(data)

@@ -224,9 +224,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 			// The task list must not contain the rejected definition.
 			await page.goto('/apps/chorestrike/#/tasks')
 			await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
-			await expect(
-				page.locator('[data-testid="task-item"]').filter({ hasText: 'Orphan Probe' }),
-			).toHaveCount(0)
+			await expect(page.locator('[data-testid="task-item"]').filter({ hasText: 'Orphan Probe' }),).toHaveCount(0)
 		} finally {
 			await context.close()
 		}

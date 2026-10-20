@@ -51,7 +51,7 @@ async function openArcade(page: Page): Promise<void> {
  * Q-074-02), each room task at most once.
  */
 async function finishChores(page: Page, seeded: SeededData | null, count: number): Promise<void> {
-	const roomTasks = (seeded?.data.roomTasks ?? []) as Array<{ id: number; isActive?: boolean }>
+	const roomTasks = (seeded?.data.roomTasks ?? []) as Array<{ id: number, isActive?: boolean }>
 	let finished = 0
 	for (const roomTask of roomTasks.filter((row) => row.isActive !== false)) {
 		const response = await completeAsSoleParticipantViaApi(page, roomTask.id, 'admin').catch(() => null)

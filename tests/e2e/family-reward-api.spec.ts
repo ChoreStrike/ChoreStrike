@@ -188,7 +188,9 @@ test.describe('Family reward catalog & requests (WP7)', () => {
 			const detail = await (await teen.page.request.get(`${REQUESTS_URL}/${requestId}`)).json()
 			expect(detail.data.priceMinor).toBe(700)
 			expect(detail.data.audit.map((event: { action: string }) => event.action)).toEqual([
-				'create', 'approve', 'fulfill',
+				'create',
+				'approve',
+				'fulfill',
 			])
 
 			// The owner corrects the false fulfillment against the stored

@@ -98,8 +98,7 @@ test.describe('Self Availability (member)', () => {
 		// The disabled state alone is already true while the save is in flight
 		// and would let the reload race the request — wait for the actual PUT
 		// round-trip instead.
-		const putResponse = page.waitForResponse((response) =>
-			response.request().method() === 'PUT'
+		const putResponse = page.waitForResponse((response) => response.request().method() === 'PUT'
 			&& response.url().includes('/scheduling/preferences'))
 		await saveButton.click()
 		expect((await putResponse).ok()).toBe(true)
@@ -127,8 +126,7 @@ test.describe('Self Availability (member)', () => {
 			await expect(saveButton).toBeEnabled()
 			// Verify the restore PUT actually round-tripped so a failed save
 			// cannot pass silently on local checkbox state alone.
-			const putResponse = page.waitForResponse((response) =>
-				response.request().method() === 'PUT'
+			const putResponse = page.waitForResponse((response) => response.request().method() === 'PUT'
 				&& response.url().includes('/scheduling/preferences'))
 			await saveButton.click()
 			expect((await putResponse).ok()).toBe(true)

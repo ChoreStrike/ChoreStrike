@@ -112,8 +112,7 @@ test.describe('Scheduling save flow', () => {
 				}
 			})
 
-			const putResponse = page.waitForResponse((response) =>
-				response.request().method() === 'PUT'
+			const putResponse = page.waitForResponse((response) => response.request().method() === 'PUT'
 				&& response.url().includes('/scheduling/preferences'))
 			await page.getByTestId('save-energy-budget-button').click()
 			expect((await putResponse).ok()).toBe(true)
@@ -134,8 +133,7 @@ test.describe('Scheduling save flow', () => {
 				if (current !== originalMonday) {
 					await slider.fill(originalMonday)
 
-					const putResponse = page.waitForResponse((response) =>
-						response.request().method() === 'PUT'
+					const putResponse = page.waitForResponse((response) => response.request().method() === 'PUT'
 						&& response.url().includes('/scheduling/preferences'))
 					await page.getByTestId('save-energy-budget-button').click()
 					expect((await putResponse).ok()).toBe(true)

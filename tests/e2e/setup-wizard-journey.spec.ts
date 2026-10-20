@@ -104,8 +104,7 @@ test.describe('Setup wizard journey (empty house)', () => {
 			runOcc(`user:setting dad settings email ${DAD_EMAIL}`)
 			await page.getByTestId('wizard-invite-email-0').fill(DAD_EMAIL)
 
-			const inviteResponse = page.waitForResponse((response) =>
-				response.request().method() === 'POST'
+			const inviteResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 				&& response.url().includes('/api/v1/users/invite'))
 			await page.getByTestId('wizard-send-invites').click()
 			expect((await inviteResponse).ok()).toBeTruthy()

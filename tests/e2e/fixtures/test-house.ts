@@ -17,16 +17,16 @@ import { test as base, expect, type Page } from '@playwright/test'
 
 export type TestHouseData = {
 	floors: {
-		keller: { id: number | null; name: string }
-		eg: { id: number | null; name: string }
-		og: { id: number | null; name: string }
+		keller: { id: number | null, name: string }
+		eg: { id: number | null, name: string }
+		og: { id: number | null, name: string }
 	}
 	rooms: {
-		kellerWC: { id: number | null; name: string; floor: string }
-		kellerDusche: { id: number | null; name: string; floor: string }
-		egGaestebad: { id: number | null; name: string; floor: string }
-		egGarten: { id: number | null; name: string; floor: string }
-		ogWC: { id: number | null; name: string; floor: string }
+		kellerWC: { id: number | null, name: string, floor: string }
+		kellerDusche: { id: number | null, name: string, floor: string }
+		egGaestebad: { id: number | null, name: string, floor: string }
+		egGarten: { id: number | null, name: string, floor: string }
+		ogWC: { id: number | null, name: string, floor: string }
 	}
 }
 

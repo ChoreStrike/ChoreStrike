@@ -128,9 +128,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		getCapacityForDay: (state) => (day) => {
 			const dayKey = day.toLowerCase()
 			if (state.memberAvailability.length > 0) {
-				const availableMembers = state.memberAvailability.filter(
-					(m) => isMemberAvailable(m, dayKey),
-				)
+				const availableMembers = state.memberAvailability.filter((m) => isMemberAvailable(m, dayKey),)
 				return availableMembers.reduce(
 					(sum, m) => sum + resolveEnergyForDay(m.energyBudget, dayKey),
 					0,
@@ -228,8 +226,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 				}
 
 				// Highest priority first; what no longer fits is deferred.
-				const ordered = [...items].sort((a, b) =>
-					(b.priority - a.priority) || (b.energyCost - a.energyCost))
+				const ordered = [...items].sort((a, b) => (b.priority - a.priority) || (b.energyCost - a.energyCost))
 				let remaining = capacity
 				const deferred = []
 				for (const item of ordered) {

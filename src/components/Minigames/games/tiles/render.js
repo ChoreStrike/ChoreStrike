@@ -4,7 +4,16 @@
  */
 
 import {
-	BUBBLE_R, COLS, DROP_HALF, SQUEEGEE_H, SQUEEGEE_W, SQUEEGEE_Y, TILE_H, TILE_W, WALL_COLS, WALL_TOP,
+	BUBBLE_R,
+	COLS,
+	DROP_HALF,
+	SQUEEGEE_H,
+	SQUEEGEE_W,
+	SQUEEGEE_Y,
+	TILE_H,
+	TILE_W,
+	WALL_COLS,
+	WALL_TOP,
 } from './constants.js'
 import { disc, roundedRect } from '../../draw.js'
 

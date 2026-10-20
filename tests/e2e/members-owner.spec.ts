@@ -48,8 +48,7 @@ test.describe('Release: Members (owner)', () => {
 			await page.getByTestId('invite-email-input').fill(ADMIN_EMAIL)
 			await page.getByTestId('invite-role-select').selectOption('member')
 
-			const inviteResponse = page.waitForResponse((response) =>
-				response.request().method() === 'POST'
+			const inviteResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 				&& response.url().includes('/api/v1/users/invite'))
 			await page.getByTestId('invite-submit-button').click()
 			expect((await inviteResponse).ok()).toBe(true)
@@ -73,8 +72,7 @@ test.describe('Release: Members (owner)', () => {
 			const roleSelect = page.getByTestId('member-role-select-teen')
 			await expect(roleSelect).toHaveValue('child')
 
-			const putResponse = page.waitForResponse((response) =>
-				response.request().method() === 'PUT'
+			const putResponse = page.waitForResponse((response) => response.request().method() === 'PUT'
 				&& response.url().includes(`/api/v1/users/${teen.id}/role`))
 
 			// Restore in the same test (serial): flip to member, assert, flip back.
@@ -82,8 +80,7 @@ test.describe('Release: Members (owner)', () => {
 			expect((await putResponse).ok()).toBe(true)
 			await expect(page.getByTestId('member-role-badge-teen')).toHaveText('Member')
 
-			const restoreResponse = page.waitForResponse((response) =>
-				response.request().method() === 'PUT'
+			const restoreResponse = page.waitForResponse((response) => response.request().method() === 'PUT'
 				&& response.url().includes(`/api/v1/users/${teen.id}/role`))
 			await roleSelect.selectOption('child')
 			expect((await restoreResponse).ok()).toBe(true)

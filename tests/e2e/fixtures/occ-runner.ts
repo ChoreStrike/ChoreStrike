@@ -42,8 +42,7 @@ export function resolveNextcloudContainer(): string {
 export function runOcc(args: string, environment: Record<string, string> = {}): string {
 	const { container } = assertTestTarget(process.env.NEXTCLOUD_URL || 'http://localhost:8080')
 	const envArgs = Object.entries(environment).flatMap(([key, value]) => ['--env', `${key}=${value}`])
-	return execFileSync('docker', ['exec', ...envArgs, container, 'su', '-s', '/bin/bash', 'www-data',
-		'-c', `cd /var/www/html && php occ ${args}`], { encoding: 'utf8' })
+	return execFileSync('docker', ['exec', ...envArgs, container, 'su', '-s', '/bin/bash', 'www-data','-c', `cd /var/www/html && php occ ${args}`], { encoding: 'utf8' })
 }
 
 /**

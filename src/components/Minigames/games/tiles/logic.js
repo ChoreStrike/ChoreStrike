@@ -4,7 +4,17 @@
  */
 
 import {
-	BUBBLE_R, COLS, MAX_SPEED, SERVE_MS, SQUEEGEE_W, SQUEEGEE_Y, START_LIVES, WALLS, WALL_COLS, WALL_ROWS, clamp,
+	BUBBLE_R,
+	COLS,
+	MAX_SPEED,
+	SERVE_MS,
+	SQUEEGEE_W,
+	SQUEEGEE_Y,
+	START_LIVES,
+	WALLS,
+	WALL_COLS,
+	WALL_ROWS,
+	clamp,
 } from './constants.js'
 import { moveBubbles, moveDrops } from './physics.js'
 

@@ -52,9 +52,7 @@ test.describe('Admin-Only Tasks', () => {
 			const body = await response.json()
 			expect(body.success).toBe(true)
 
-			const adminOnlyTasks = (body.data || []).filter(
-				(t: { visibilityType?: string }) => t.visibilityType === 'admin-only',
-			)
+			const adminOnlyTasks = (body.data || []).filter((t: { visibilityType?: string }) => t.visibilityType === 'admin-only',)
 			expect(adminOnlyTasks).toHaveLength(0)
 		} finally {
 			await context.close()

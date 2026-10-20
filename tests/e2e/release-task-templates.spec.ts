@@ -32,7 +32,7 @@ interface CatalogTemplate {
 
 interface Catalog {
 	levels: { id: string }[]
-	roomTypes: { id: string; defaultName: string }[]
+	roomTypes: { id: string, defaultName: string }[]
 	templates: CatalogTemplate[]
 }
 

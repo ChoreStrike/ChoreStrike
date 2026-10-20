@@ -89,28 +89,44 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		fetchLeaderboard(gameId, limit = 10) {
-			return this.readInto(gameId, 'leaderboard',
-				() => api.get(`/api/v1/minigames/${gameId}/leaderboard`, { params: { limit } }))
+			return this.readInto(
+				gameId,
+				'leaderboard',
+				() => api.get(`/api/v1/minigames/${gameId}/leaderboard`, { params: { limit } })
+			)
 		},
 
 		fetchWeeklyLeaderboard(gameId, limit = 10) {
-			return this.readInto(gameId, 'weeklyLeaderboard',
-				() => api.get(`/api/v1/minigames/${gameId}/leaderboard/weekly`, { params: { limit } }))
+			return this.readInto(
+				gameId,
+				'weeklyLeaderboard',
+				() => api.get(`/api/v1/minigames/${gameId}/leaderboard/weekly`, { params: { limit } })
+			)
 		},
 
 		fetchPersonalBest(gameId) {
-			return this.readInto(gameId, 'personalBest',
-				() => api.get(`/api/v1/minigames/${gameId}/personal-best`))
+			return this.readInto(
+				gameId,
+				'personalBest',
+				() => api.get(`/api/v1/minigames/${gameId}/personal-best`)
+			)
 		},
 
 		fetchUserRank(gameId) {
-			return this.readInto(gameId, 'userRank',
-				() => api.get(`/api/v1/minigames/${gameId}/rank`), (data) => data.rank)
+			return this.readInto(
+				gameId,
+				'userRank',
+				() => api.get(`/api/v1/minigames/${gameId}/rank`),
+				(data) => data.rank
+			)
 		},
 
 		fetchRecentScores(gameId, limit = 5) {
-			return this.readInto(gameId, 'recentScores',
-				() => api.get(`/api/v1/minigames/${gameId}/recent`, { params: { limit } }))
+			return this.readInto(
+				gameId,
+				'recentScores',
+				() => api.get(`/api/v1/minigames/${gameId}/recent`, { params: { limit } })
+			)
 		},
 
 		/**

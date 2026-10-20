@@ -70,9 +70,7 @@ async function pickActiveRoomTask(page: Page): Promise<RoomTaskJson | null> {
 			continue
 		}
 		const tasks = ((await response.json()).data || []) as RoomTaskJson[]
-		const found = tasks.find(
-			(rt) => rt.isActive && rt.nextDue && ((rt.assignees ?? []).length === 0 || rt.assignees!.includes('mom')),
-		)
+		const found = tasks.find((rt) => rt.isActive && rt.nextDue && ((rt.assignees ?? []).length === 0 || rt.assignees!.includes('mom')),)
 		if (found) {
 			return found
 		}
@@ -127,7 +125,7 @@ test.describe('Release: Task Lifecycle', () => {
 			// (or several people), the completion must carry the explicit
 			// split naming the actor; mom's own rows stay participant-less.
 			const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
-			const participants = ((rows.data ?? []) as Array<{ id: number; proposal: { participants: Array<{ userId: string }> } | null }>)
+			const participants = ((rows.data ?? []) as Array<{ id: number, proposal: { participants: Array<{ userId: string }> } | null }>)
 				.find((row) => row.id === target.id)?.proposal?.participants ?? []
 			const needsSplit = participants.length > 1
 				|| (participants.length === 1 && participants[0].userId !== 'mom')

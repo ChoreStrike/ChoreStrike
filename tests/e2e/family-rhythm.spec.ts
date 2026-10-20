@@ -48,7 +48,7 @@ async function kitchenRoom(page: Page): Promise<{ id: number }> {
 		headers: { Accept: 'application/json' },
 	})
 	expect(floorsResponse.status()).toBe(200)
-	const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number; name: string }> }>)
+	const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number, name: string }> }>)
 		.flatMap((floor) => floor.rooms)
 	const kitchen = rooms.find((room) => room.name === 'Kitchen')
 	expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()

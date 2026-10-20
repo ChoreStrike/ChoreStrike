@@ -37,7 +37,7 @@ interface RewardRequest {
 	priceMinor: number
 	state: 'pending' | 'approved' | 'fulfilled' | 'rejected' | 'cancelled' | 'corrected'
 	version: number
-	requester: { houseUserId: number; displayName: string; isFormerMember: boolean } | null
+	requester: { houseUserId: number, displayName: string, isFormerMember: boolean } | null
 	allowedActions: string[]
 	fundingHold: boolean
 	settlementEntryId?: number | null
@@ -68,13 +68,13 @@ const setCatalogGate = async (page: Page, enabled: boolean): Promise<void> => {
 	}))
 }
 
-const createItem = async (page: Page, fields: { title: string; description?: string; priceMinor: number }): Promise<RewardItem> => {
+const createItem = async (page: Page, fields: { title: string, description?: string, priceMinor: number }): Promise<RewardItem> => {
 	return await jsonOf(await page.request.post(`${API}/rewards`, {
 		data: { title: fields.title, description: fields.description ?? null, priceMinor: fields.priceMinor, commandId: newCommandId() },
 	})) as RewardItem
 }
 
-const fetchHouseUsers = async (page: Page): Promise<Array<{ id: number; nextcloudUserId: string; role: string }>> => {
+const fetchHouseUsers = async (page: Page): Promise<Array<{ id: number, nextcloudUserId: string, role: string }>> => {
 	return await jsonOf(await page.request.get(`${API}/users`))
 }
 
@@ -96,9 +96,7 @@ async function waitForRequest(page: Page, scope: 'mine' | 'house', title: string
 	const deadline = Date.now() + 45000
 	for (;;) {
 		const data = await jsonOf(await page.request.get(`${API}/reward-requests?scope=${scope}&limit=50`)).catch(() => null)
-		const match = (data?.requests as RewardRequest[] | undefined)?.find(
-			(entry) => entry.title === title && (!state || entry.state === state),
-		)
+		const match = (data?.requests as RewardRequest[] | undefined)?.find((entry) => entry.title === title && (!state || entry.state === state),)
 		if (match) {
 			return match.id
 		}
@@ -116,7 +114,7 @@ async function waitForRequest(page: Page, scope: 'mine' | 'house', title: string
  * assigned task exposes a completable occurrence at every wall-clock
  * moment, so the helper walks the candidates.
  */
-const fundUserViaCompletion = async (page: Page, seeded: { data: { roomTasks: Array<{ id: number; assignees: string[]; isActive: boolean }> } }, userId: string): Promise<{ roomTaskId: number; response: APIResponse }> => {
+const fundUserViaCompletion = async (page: Page, seeded: { data: { roomTasks: Array<{ id: number, assignees: string[], isActive: boolean }> } }, userId: string): Promise<{ roomTaskId: number, response: APIResponse }> => {
 	const active = seeded.data.roomTasks.filter((entry) => entry.isActive)
 	const ordered = [
 		...active.filter((entry) => entry.assignees.includes(userId)),

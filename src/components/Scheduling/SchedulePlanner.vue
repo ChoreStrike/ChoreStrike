@@ -307,14 +307,11 @@ const schedulableTasks = computed(() => {
 		.sort((a, b) => String(a.nextDue ?? '9999').localeCompare(String(b.nextDue ?? '9999')))
 })
 
-const memberOptions = computed(() =>
-	schedulingStore.memberAvailability.map((member) => member.userId))
+const memberOptions = computed(() => schedulingStore.memberAvailability.map((member) => member.userId))
 
-const canPreview = computed(() =>
-	!planning.value && !applying.value && selectedIds.value.length > 0 && startDate.value !== '')
+const canPreview = computed(() => !planning.value && !applying.value && selectedIds.value.length > 0 && startDate.value !== '')
 
-const canApply = computed(() =>
-	hasPreview.value
+const canApply = computed(() => hasPreview.value
 	&& schedulingStore.planStatus === 'ready'
 	&& (schedulingStore.planPreview?.changes?.length ?? 0) > 0
 	// WP2 §3.3.2 (RF-073-WP2-06/13): the explicit owner consent attestation

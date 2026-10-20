@@ -21,16 +21,15 @@ import { createUserContext } from './fixtures/auth-contexts'
 import type { Page } from '@playwright/test'
 
 /** House-local day key — the Docker test environment runs the house on UTC. */
-const utcDayKey = (offsetDays = 0): string =>
-	new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+const utcDayKey = (offsetDays = 0): string => new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
 test.describe('Scheduling apply flow (owner plan)', () => {
 	test.use({ databaseProfile: 'family' })
 
 	interface SeededShape {
 		data: {
-			tasks: Array<{ id: number; name: string }>
-			roomTasks: Array<{ id: number; taskId: number }>
+			tasks: Array<{ id: number, name: string }>
+			roomTasks: Array<{ id: number, taskId: number }>
 		}
 	}
 
@@ -56,8 +55,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		}).toPass({ timeout: 45000 })
 	}
 
-	const activeTestId = (page: Page) =>
-		page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? '')
+	const activeTestId = (page: Page) => page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? '')
 
 	/** Press Tab until the focus lands on the control with `testid`. */
 	const tabUntil = async (page: Page, testid: string, maxTabs = 40) => {
@@ -147,8 +145,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await expect(page.getByTestId('limit-value-input')).toHaveValue('2')
 		await page.getByTestId('limit-value-input').fill('3')
 
-		const limitPut = page.waitForResponse((response) =>
-			response.request().method() === 'PUT'
+		const limitPut = page.waitForResponse((response) => response.request().method() === 'PUT'
 			&& response.url().includes('/scheduling/members/kid'))
 		await page.getByTestId('save-availability-button').click()
 		const limitResponse = await limitPut
@@ -170,8 +167,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await expect(kidCard.getByTestId('member-task-limit')).toContainText('3')
 
 		// 3. Preview over the freshly created real task.
-		const previewResponse = page.waitForResponse((response) =>
-			response.request().method() === 'POST'
+		const previewResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/suggestions')
 			&& response.status() === 200)
 		await page.getByTestId(`planner-task-checkbox-${roomTaskId}`).check()
@@ -190,8 +186,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await expect(page.getByTestId('apply-plan-button')).toBeDisabled()
 
 		// 5. Re-preview with the override, then confirm exactly once.
-		const preview2 = page.waitForResponse((response) =>
-			response.request().method() === 'POST'
+		const preview2 = page.waitForResponse((response) => response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/suggestions')
 			&& response.status() === 200)
 		await page.getByTestId('preview-plan-button').click()
@@ -208,8 +203,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await page.getByTestId('planner-consent').check()
 		await expect(page.getByTestId('apply-plan-button')).toBeEnabled()
 
-		const applyResponse = page.waitForResponse((response) =>
-			response.request().method() === 'POST'
+		const applyResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/apply'))
 		await page.getByTestId('apply-plan-button').click()
 		const apply = await applyResponse
@@ -229,9 +223,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await page.getByTestId('nav-calendar').click()
 		await page.getByTestId('calendar-view').waitFor({ state: 'visible' })
 		await page.getByTestId(`calendar-day-${todayKey}`).click()
-		await expect(
-			page.getByTestId('calendar-day-list').getByText(taskName),
-		).toHaveCount(1)
+		await expect(page.getByTestId('calendar-day-list').getByText(taskName),).toHaveCount(1)
 
 		// 7. The CHILD session sees exactly the expected assigned due tasks
 		//    in My Day: the applied task plus the two seeded kid rows, and
@@ -255,9 +247,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 			await kidPage.getByTestId('nav-calendar').click()
 			await kidPage.getByTestId('calendar-view').waitFor({ state: 'visible' })
 			await kidPage.getByTestId(`calendar-day-${todayKey}`).click()
-			await expect(
-				kidPage.getByTestId('calendar-day-list').getByText(taskName),
-			).toHaveCount(1)
+			await expect(kidPage.getByTestId('calendar-day-list').getByText(taskName),).toHaveCount(1)
 		} finally {
 			await kidContext.close()
 		}
@@ -283,7 +273,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 				// Direct API calls with well-formed bodies are forbidden —
 				// the owner gate runs before any plan computation.
 				const statuses = await page.evaluate(
-					async ({ todayKey, roomTaskId }: { todayKey: string; roomTaskId: number }) => {
+					async ({ todayKey, roomTaskId }: { todayKey: string, roomTaskId: number }) => {
 						const token = document.head.querySelector('meta[name="requesttoken"]')?.content
 						const post = async (url: string, body: object) => {
 							const response = await fetch(url, {
@@ -361,8 +351,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await expect(page.getByTestId('planner-consent')).toBeChecked()
 
 		await tabUntil(page, 'apply-plan-button')
-		const applyResponse = page.waitForResponse((response) =>
-			response.request().method() === 'POST'
+		const applyResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/apply'))
 		await page.keyboard.press('Enter')
 		expect((await applyResponse).status()).toBe(200)
@@ -411,8 +400,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await expect(applyButton).toBeEnabled()
 		expect((await applyButton.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 
-		const applyResponse = page.waitForResponse((response) =>
-			response.request().method() === 'POST'
+		const applyResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/apply'))
 		await applyButton.tap()
 		expect((await applyResponse).status()).toBe(200)
@@ -454,8 +442,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		expect(assignStatus).toBe(200)
 
 		// The confirmation must be rejected — no partial writes.
-		const applyResponse = page.waitForResponse((response) =>
-			response.request().method() === 'POST'
+		const applyResponse = page.waitForResponse((response) => response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/apply'))
 		await page.getByTestId('apply-plan-button').click()
 		expect((await applyResponse).status()).toBe(409)
@@ -490,7 +477,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		// The UI cannot produce this request (apply is gated on the
 		// checkbox) — the API must still refuse a consent-less apply.
 		const status = await page.evaluate(
-			async ({ todayKey, roomTaskId }: { todayKey: string; roomTaskId: number }) => {
+			async ({ todayKey, roomTaskId }: { todayKey: string, roomTaskId: number }) => {
 				const token = document.head.querySelector('meta[name="requesttoken"]')?.content
 				const post = async (url: string, body: object) => {
 					const response = await fetch(url, {

@@ -548,9 +548,7 @@ export default {
 			if (!container) {
 				return
 			}
-			const focusables = container.querySelectorAll(
-				'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
-			)
+			const focusables = container.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',)
 			if (focusables.length === 0) {
 				return
 			}
@@ -620,12 +618,10 @@ export default {
 			return this.taskCountForRoomType(room.roomType)
 		},
 		taskCountForRoomType(roomType) {
-			return this.setupStore.templates.filter((t) =>
-				Array.isArray(t.roomTypes)
+			return this.setupStore.templates.filter((t) => Array.isArray(t.roomTypes)
 				&& t.roomTypes.includes(roomType)
 				&& t.levels
-				&& t.levels[this.quick.intensityLevel] != null,
-			).length
+				&& t.levels[this.quick.intensityLevel] != null,).length
 		},
 		addRoom(floorIndex) {
 			this.floors[floorIndex].rooms.push({
@@ -699,9 +695,7 @@ export default {
 			}
 
 			this.sendingInvites = true
-			const outcomes = await Promise.all(
-				pending.map(({ invite, index }) => this.inviteOne(invite, index)),
-			)
+			const outcomes = await Promise.all(pending.map(({ invite, index }) => this.inviteOne(invite, index)),)
 			const failedCount = outcomes.filter((joined) => !joined).length
 
 			// Log hygiene (CS-PLAN-061 §3.6): only the count goes to the log —

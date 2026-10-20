@@ -17,7 +17,7 @@ async function kitchenRoomId(page: Page): Promise<number> {
 			},
 		})
 		const body = await response.json()
-		return (body.data ?? []) as Array<{ rooms: Array<{ id: number; name: string }> }>
+		return (body.data ?? []) as Array<{ rooms: Array<{ id: number, name: string }> }>
 	})
 	const kitchen = rooms
 		.flatMap((floor) => floor.rooms)

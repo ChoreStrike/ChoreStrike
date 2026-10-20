@@ -26,9 +26,9 @@ import type { Page } from '@playwright/test'
 import { holdToConfirm } from './fixtures/hold-to-confirm'
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. */
-async function kitchenRoom(page: Page): Promise<{ id: number; cleanliness: number }> {
+async function kitchenRoom(page: Page): Promise<{ id: number, cleanliness: number }> {
 	const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
-	const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number; name: string; cleanliness: number }> }>)
+	const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number, name: string, cleanliness: number }> }>)
 		.flatMap((floor) => floor.rooms)
 	const kitchen = rooms.find((room) => room.name === 'Kitchen')
 	expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
@@ -49,11 +49,15 @@ async function openKitchenRoomDetail(page: Page): Promise<void> {
  * naming the user — rows agreed to someone else would open the
  * participation dialog instead.
  */
-async function ownKitchenTask(page: Page, userId: string): Promise<{ id: number; name: string }> {
+async function ownKitchenTask(page: Page, userId: string): Promise<{ id: number, name: string }> {
 	const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
 	const kitchen = await kitchenRoom(page)
 	const candidates = ((rows.data ?? []) as Array<{
-		id: number; roomId: number; taskId: number; occurrence: unknown; proposal: { participants: Array<{ userId: string }> } | null
+		id: number
+		roomId: number
+		taskId: number
+		occurrence: unknown
+		proposal: { participants: Array<{ userId: string }> } | null
 	}>).filter((row) => row.roomId === kitchen.id && row.occurrence)
 	const own = candidates.find((row) => {
 		const participants = row.proposal?.participants ?? []
@@ -62,7 +66,7 @@ async function ownKitchenTask(page: Page, userId: string): Promise<{ id: number;
 	expect(own, 'the family seed always provides a Kitchen task the user may complete directly').toBeTruthy()
 
 	const tasks = await (await page.request.get('/apps/chorestrike/api/v1/tasks')).json()
-	const name = ((tasks.data ?? []) as Array<{ id: number; name: string }>).find((task) => task.id === own!.taskId)?.name
+	const name = ((tasks.data ?? []) as Array<{ id: number, name: string }>).find((task) => task.id === own!.taskId)?.name
 	expect(name, 'the task definition must resolve').toBeTruthy()
 	return { id: own!.id, name: name! }
 }
@@ -115,7 +119,6 @@ test.describe('Task Completion Full Flow', () => {
 			// contribution scores — the state endpoint is the authoritative
 			// read for the credited amount, decision D10).
 			expect(stateAfter.data.contributionMinor).toBe(receipt.data.rewards.contributionMinor)
-
 		} finally {
 			await context.close()
 		}
@@ -149,7 +152,7 @@ test.describe('Task Completion Full Flow', () => {
 			// The retired combo flag is gone; the durable claim is that every
 			// completion books its own frozen-rate credit into the wallet.
 
-			const receipts: Array<{ bookedMinor: number; totalEnergy: number }> = []
+			const receipts: Array<{ bookedMinor: number, totalEnergy: number }> = []
 			for (const name of probeNames) {
 				const button = page.locator('[data-testid="task-item"]')
 					.filter({ hasText: name })

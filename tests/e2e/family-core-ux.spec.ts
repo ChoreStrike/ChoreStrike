@@ -56,8 +56,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 	})
 
 	/** House-local day key — the Docker test environment runs the house on UTC. */
-	const utcDayKey = (offsetDays = 0): string =>
-		new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+	const utcDayKey = (offsetDays = 0): string => new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
 	test('core task filters show own and unassigned work with names and clickable appointments', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
@@ -187,15 +186,14 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 
 	interface SeededShape {
 		data: {
-			tasks: Array<{ id: number; name: string }>
-			roomTasks: Array<{ id: number; taskId: number; isActive: boolean }>
+			tasks: Array<{ id: number, name: string }>
+			roomTasks: Array<{ id: number, taskId: number, isActive: boolean }>
 		}
 	}
 
 	const roomTaskByName = (seeded: SeededShape, name: string, activeOnly = true) => {
 		const task = seeded.data.tasks.find((entry) => entry.name === name)!
-		return seeded.data.roomTasks.find((roomTask) =>
-			roomTask.taskId === task.id && (!activeOnly || roomTask.isActive))!
+		return seeded.data.roomTasks.find((roomTask) => roomTask.taskId === task.id && (!activeOnly || roomTask.isActive))!
 	}
 
 	test('owner desktop: cold Dashboard counters are correct without any room visit (D2)', async ({ browser, seededData }) => {

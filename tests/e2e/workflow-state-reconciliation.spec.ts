@@ -155,8 +155,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 	test('a committed completion survives a failing derived refresh; the retry is read-only (D3)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const task = seededData.data.tasks.find((entry) => entry.name === 'Do the dishes')!
-		const trashRoomTask = seededData.data.roomTasks.find((roomTask) =>
-			roomTask.taskId === task.id && roomTask.isActive)!
+		const trashRoomTask = seededData.data.roomTasks.find((roomTask) => roomTask.taskId === task.id && roomTask.isActive)!
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
