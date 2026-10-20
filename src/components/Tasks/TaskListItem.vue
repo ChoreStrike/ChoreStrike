@@ -100,9 +100,9 @@
 					:earliest="flexWindow.earliest"
 					:ideal="flexWindow.ideal"
 					:latest="flexWindow.latest"
-					:flex-days="item.task.flexDays"
+					:flexDays="item.task.flexDays"
 					:compact="true"
-					:show-status="true" />
+					:showStatus="true" />
 			</div>
 
 			<div class="task-actions">
@@ -136,11 +136,11 @@
 		<TaskListDetails
 			v-if="expanded"
 			:item="item"
-			:is-house-owner="userStore.isHouseOwner"
-			:can-manage-tasks="userStore.canManageTasks"
+			:isHouseOwner="userStore.isHouseOwner"
+			:canManageTasks="userStore.canManageTasks"
 			:members="userStore.houseUsers || []"
-			:assignee-draft="assigneeDraft"
-			@toggle-assignee="(...args) => $emit('toggle-assignee', ...args)" />
+			:assigneeDraft="assigneeDraft"
+			@toggleAssignee="(...args) => $emit('toggle-assignee', ...args)" />
 	</div>
 </template>
 
@@ -188,21 +188,25 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		/** Whether this row is part of the bulk-assign selection. */
 		selected: {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Whether the expanded details are shown. */
 		expanded: {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Optimistic assignee draft (user-ID array) for this row. */
 		assigneeDraft: {
 			type: Array,
 			default: () => [],
 		},
+
 		/** Dense list row (CS-PLAN-084 WP-D): description only when expanded, tighter spacing. */
 		compact: {
 			type: Boolean,

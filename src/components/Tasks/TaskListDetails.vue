@@ -12,8 +12,8 @@
 			<label class="assignee-label">{{ t('chorestrike', 'Assigned members') }}</label>
 			<AssigneeChips
 				:members="members"
-				:model-value="assigneeDraft"
-				@update:model-value="onAssigneeDraftChange" />
+				:modelValue="assigneeDraft"
+				@update:modelValue="onAssigneeDraftChange" />
 		</div>
 
 		<!-- Essential onboarding slice (WP8 §3.6): how actual work
@@ -23,10 +23,10 @@
 		<TaskChecklist
 			:items="checklistStore.getTaskItems(item.task.id)"
 			:progress="checklistStore.getRoomTaskProgress(item.roomTask.id)"
-			:can-edit="isHouseOwner"
+			:canEdit="isHouseOwner"
 			:readonly="!item.roomTask.isActive"
-			:room-task-id="item.roomTask.id"
-			:task-id="item.task.id"
+			:roomTaskId="item.roomTask.id"
+			:taskId="item.task.id"
 			@toggle="handleToggleChecklistItem"
 			@add="handleAddChecklistItem"
 			@update="handleUpdateChecklistItem"
@@ -203,19 +203,23 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		isHouseOwner: {
 			type: Boolean,
 			default: false,
 		},
+
 		canManageTasks: {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Preloaded house members for the picker (no per-row fetch). */
 		members: {
 			type: Array,
 			default: () => [],
 		},
+
 		/** Optimistic assignee draft (user-ID array) owned by TaskList. */
 		assigneeDraft: {
 			type: Array,

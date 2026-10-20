@@ -101,6 +101,7 @@ export default {
 			default: 'primary',
 			validator: (value) => ['primary', 'icon'].includes(value),
 		},
+
 		disabled: { type: Boolean, default: false },
 		// In-flight state of the confirmed action: blocks a second confirm.
 		busy: { type: Boolean, default: false },
@@ -124,9 +125,11 @@ export default {
 			const { class: _class, style: _style, ...rest } = this.$attrs
 			return rest
 		},
+
 		hintText() {
 			return t('chorestrike', 'Press and hold to confirm')
 		},
+
 		hintTestId() {
 			const testId = this.$attrs['data-testid']
 			return testId ? `${testId}-hint` : null
@@ -144,6 +147,7 @@ export default {
 				this.phase = 'idle'
 			}
 		},
+
 		disabled(value) {
 			if (value) {
 				this.abort()

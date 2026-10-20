@@ -157,14 +157,17 @@ export default {
 				priority: null,
 			}
 		},
+
 		isAvailable(tpl) {
 			return (tpl.levels || {})[this.selectedLevel] != null
 		},
+
 		toggleAdjust(id) {
 			this.expandedId = this.expandedId === id ? null : id
 			this.selectedTemplateId = id
 			this.overrides = this.freshOverrides()
 		},
+
 		async select(tpl) {
 			this.selectedTemplateId = tpl.id
 			const payload = {

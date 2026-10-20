@@ -118,7 +118,7 @@
 							<HoldButton
 								v-if="item.roomTask.isActive"
 								:label="t('chorestrike', 'Done')"
-								:icon-size="22"
+								:iconSize="22"
 								:busy="roomTasksStore.isCompleting(item.roomTask.id)"
 								:data-testid="`today-complete-button-${item.roomTask.id}`"
 								:title="t('chorestrike', 'Mark as done')"
@@ -159,10 +159,10 @@
 							class="today-checklist"
 							:items="checklistStore.getTaskItems(item.task.id)"
 							:progress="checklistStore.getRoomTaskProgress(item.roomTask.id)"
-							:can-edit="false"
+							:canEdit="false"
 							:readonly="!item.roomTask.isActive"
-							:room-task-id="item.roomTask.id"
-							:task-id="item.task.id"
+							:roomTaskId="item.roomTask.id"
+							:taskId="item.task.id"
 							@toggle="handleToggleChecklistItem" />
 					</div>
 				</div>
@@ -182,7 +182,7 @@
 							<HoldButton
 								v-if="item.roomTask.isActive"
 								:label="t('chorestrike', 'Done')"
-								:icon-size="22"
+								:iconSize="22"
 								:busy="roomTasksStore.isCompleting(item.roomTask.id)"
 								:data-testid="`today-complete-button-${item.roomTask.id}`"
 								:title="t('chorestrike', 'Mark as done')"
@@ -217,10 +217,10 @@
 							class="today-checklist"
 							:items="checklistStore.getTaskItems(item.task.id)"
 							:progress="checklistStore.getRoomTaskProgress(item.roomTask.id)"
-							:can-edit="false"
+							:canEdit="false"
 							:readonly="!item.roomTask.isActive"
-							:room-task-id="item.roomTask.id"
-							:task-id="item.task.id"
+							:roomTaskId="item.roomTask.id"
+							:taskId="item.task.id"
 							@toggle="handleToggleChecklistItem" />
 					</div>
 				</div>
@@ -267,7 +267,7 @@
 			v-if="participation"
 			:members="participationMembers"
 			:proposal="participation.item.proposal ?? null"
-			:actor-user-id="userStore.currentUser?.nextcloudUserId ?? null"
+			:actorUserId="userStore.currentUser?.nextcloudUserId ?? null"
 			@close="participation = null"
 			@confirm="confirmParticipation" />
 	</div>

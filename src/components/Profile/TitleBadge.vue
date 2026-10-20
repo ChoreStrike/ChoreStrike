@@ -35,6 +35,7 @@ export default {
 			type: Object,
 			default: null,
 		},
+
 		/**
 		 * Unlocked tier descriptors for the history tooltip.
 		 */
@@ -42,6 +43,7 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+
 		/**
 		 * Compact variant for dense rows (leaderboard).
 		 */
@@ -50,6 +52,7 @@ export default {
 			default: false,
 		},
 	},
+
 	setup(props) {
 		const label = computed(() => titleLabel(t, props.title))
 

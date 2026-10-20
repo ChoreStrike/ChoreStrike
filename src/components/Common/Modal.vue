@@ -65,6 +65,7 @@ export default {
 			type: Boolean,
 			default: true,
 		},
+
 		/**
 		 * Accessible name for the dialog. Callers should pass one (usually
 		 * the dialog heading); without it the dialog has no accessible name.
@@ -74,6 +75,7 @@ export default {
 			default: undefined,
 		},
 	},
+
 	emits: ['close'],
 	watch: {
 		show(value) {
@@ -84,14 +86,17 @@ export default {
 			}
 		},
 	},
+
 	mounted() {
 		if (this.show) {
 			this.registerModal()
 		}
 	},
+
 	beforeUnmount() {
 		this.unregisterModal()
 	},
+
 	methods: {
 		t,
 

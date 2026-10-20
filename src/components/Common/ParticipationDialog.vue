@@ -49,7 +49,7 @@
 			<div class="dialog-actions">
 				<button
 					class="btn btn-secondary"
-					:data-testid="'participation-cancel'"
+					data-testid="participation-cancel"
 					@click="$emit('close')">
 					{{ t('chorestrike', 'Cancel') }}
 				</button>
@@ -86,6 +86,7 @@ export default {
 			type: Array,
 			required: true,
 		},
+
 		/**
 		 * Server-derived actual-work proposal (WP3 §3.6):
 		 * `{occurrenceId, basis, participants: [{userId, sharePct}]}` —
@@ -97,6 +98,7 @@ export default {
 			type: Object,
 			default: null,
 		},
+
 		/**
 		 * The acting user (WP3 Q-074-02): the completer must take part in
 		 * the work. When the proposal names other people, the actor is
@@ -107,11 +109,13 @@ export default {
 			type: String,
 			default: null,
 		},
+
 		/** Whether any member currently has availability constraints (hint only). */
 		showAvailabilityHint: {
 			type: Boolean,
 			default: false,
 		},
+
 		/**
 		 * Attribution-correction mode (WP3 §3.7 "reuse the form for
 		 * attribution correction"): the recorded split of the corrected
@@ -126,16 +130,19 @@ export default {
 			type: Array,
 			default: null,
 		},
+
 		/** Optional dialog heading override (defaults to the completion copy). */
 		heading: {
 			type: String,
 			default: '',
 		},
+
 		/** Optional hint override (defaults to the completion copy). */
 		hint: {
 			type: String,
 			default: '',
 		},
+
 		/** Optional confirm-button label override. */
 		confirmLabel: {
 			type: String,

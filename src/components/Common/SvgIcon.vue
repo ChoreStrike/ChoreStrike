@@ -80,18 +80,22 @@ export default {
 			type: String,
 			required: true,
 		},
+
 		shapes: {
 			type: Array,
 			required: true,
 		},
+
 		size: {
 			type: [Number, String],
 			default: 20,
 		},
+
 		strokeWidth: {
 			type: [Number, String],
 			default: 1.75,
 		},
+
 		viewBox: {
 			type: String,
 			default: '0 0 24 24',

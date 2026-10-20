@@ -4,7 +4,7 @@
 -->
 
 <template>
-	<NcContent app-name="chorestrike">
+	<NcContent appName="chorestrike">
 		<!-- Authorization gate (CS-PLAN-061 §3.9): while membership is
 		     'denied' (403 from user#current), the whole app is replaced by
 		     the explicit NotAuthorizedState — removed vs. never-invited is
@@ -173,6 +173,7 @@ export default {
 		membershipDenied() {
 			return this.userStore.membership === 'denied'
 		},
+
 		/**
 		 * Optional-area consumer (C5h, Q-077-05): the arcade is an opt-in
 		 * surface — default-on, hideable per person. The preference loads
@@ -182,6 +183,7 @@ export default {
 		arcadeVisible() {
 			return this.preferencesStore.arcadeVisible !== false
 		},
+
 		/**
 		 * Reward catalog browsing (WP8 §3.1): both independent gates must
 		 * be open — the household gate AND the current person's LOADED

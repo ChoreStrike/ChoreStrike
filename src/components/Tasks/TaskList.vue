@@ -32,10 +32,10 @@
 		<div v-else class="task-list-body">
 			<TaskListBulkBar
 				v-if="userStore.canManageTasks && selectedRoomTaskIds.length > 0"
-				:selected-count="selectedRoomTaskIds.length"
+				:selectedCount="selectedRoomTaskIds.length"
 				:members="houseMembers"
 				:assigning="bulkAssigning"
-				:clear-signal="bulkClearSignal"
+				:clearSignal="bulkClearSignal"
 				@assign="handleBulkAssign"
 				@clear="clearSelection" />
 
@@ -46,20 +46,20 @@
 					:item="item"
 					:selected="isSelected(item.roomTask.id)"
 					:expanded="isExpanded(item.roomTask.id)"
-					:assignee-draft="assigneeDraft[item.roomTask.id] || []"
+					:assigneeDraft="assigneeDraft[item.roomTask.id] || []"
 					:compact="compact"
 					@complete="$emit('complete', $event)"
 					@edit="$emit('edit', $event)"
 					@delete="$emit('delete', $event)"
-					@toggle-expand="toggleExpand"
-					@toggle-select="toggleSelected"
+					@toggleExpand="toggleExpand"
+					@toggleSelect="toggleSelected"
 					@claim="openClaimDialog"
-					@toggle-assignee="toggleAssignee" />
+					@toggleAssignee="toggleAssignee" />
 			</div>
 
 			<OverdueClaimDialog
 				:visible="claimDialogVisible"
-				:assignee-name="claimAssigneeName"
+				:assigneeName="claimAssigneeName"
 				@confirm="confirmClaim"
 				@cancel="claimDialogVisible = false" />
 		</div>
@@ -103,10 +103,12 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+
 		loading: {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Dense rows for long lists (CS-PLAN-084 WP-D). */
 		compact: {
 			type: Boolean,

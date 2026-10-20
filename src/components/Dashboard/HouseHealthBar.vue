@@ -63,6 +63,7 @@ export default {
 			type: Boolean,
 			default: true,
 		},
+
 		compact: {
 			type: Boolean,
 			default: false,

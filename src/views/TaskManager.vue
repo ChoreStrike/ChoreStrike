@@ -35,12 +35,12 @@
 				:message="t('chorestrike', 'Failed to load members')"
 				@retry="loadMembers" />
 			<TaskFilterBar
-				:model-value="filters"
+				:modelValue="filters"
 				:members="userStore.houseUsers"
-				:members-disabled="membersLoading || membersError"
+				:membersDisabled="membersLoading || membersError"
 				:floors="roomsStore.floors"
 				:rooms="roomsStore.rooms"
-				@update:model-value="setFilters" />
+				@update:modelValue="setFilters" />
 
 			<div class="stats-bar">
 				<div class="stat" data-testid="total-tasks-stat">
@@ -63,9 +63,9 @@
 
 			<div ref="listTop" />
 			<TaskList
-				:room-tasks="pagedTasks"
+				:roomTasks="pagedTasks"
 				:loading="loading || finishedLoading"
-				:show-room="true"
+				:showRoom="true"
 				:compact="true"
 				@complete="handleCompleteTask"
 				@edit="handleEditTask"
@@ -116,7 +116,7 @@
 			v-if="participation"
 			:members="participationMembers()"
 			:proposal="participation.proposal ?? null"
-			:actor-user-id="userStore.currentUser?.nextcloudUserId ?? null"
+			:actorUserId="userStore.currentUser?.nextcloudUserId ?? null"
 			@close="participation = null"
 			@confirm="confirmParticipation" />
 	</div>

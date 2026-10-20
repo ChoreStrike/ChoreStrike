@@ -40,7 +40,7 @@
 					<div
 						v-for="day in weekDays"
 						:key="day.date"
-						:class="['day-header', { 'today': isToday(day.date), 'weekend': isWeekend(day.date) }]">
+						class="day-header" :class="[{ today: isToday(day.date), weekend: isWeekend(day.date) }]">
 						<div class="day-info">
 							<span class="day-name">{{ day.name }}</span>
 							<span class="day-date">{{ day.dayNumber }}</span>
@@ -70,7 +70,7 @@
 						<div
 							v-for="day in weekDays"
 							:key="`${member.userId}-${day.date}`"
-							:class="['member-day-cell', { available: isMemberAvailableOnDay(member, day.dayKey), unavailable: !isMemberAvailableOnDay(member, day.dayKey) }]"
+							class="member-day-cell" :class="[{ available: isMemberAvailableOnDay(member, day.dayKey), unavailable: !isMemberAvailableOnDay(member, day.dayKey) }]"
 							:data-testid="`slot-${day.dayKey}`">
 							<span class="cell-energy">{{ getMemberDayEnergy(member, day.dayKey) }}</span>
 						</div>

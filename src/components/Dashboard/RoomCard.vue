@@ -76,7 +76,7 @@
 			<HoldButton
 				variant="icon"
 				icon="Sparkles"
-				:icon-size="18"
+				:iconSize="18"
 				:disabled="room.cleanliness >= 90"
 				:busy="loading"
 				:data-testid="`quick-clean-${room.id}`"
@@ -114,6 +114,7 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		compact: {
 			type: Boolean,
 			default: false,

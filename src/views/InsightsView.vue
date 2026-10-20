@@ -41,7 +41,7 @@
 				<MemberFairnessTable
 					v-else
 					:members="members"
-					:completed-energy-by-user="completedEnergyByUser" />
+					:completedEnergyByUser="completedEnergyByUser" />
 			</section>
 
 			<section class="insights-section">
@@ -58,8 +58,8 @@
 				<ActivityFeed
 					v-else
 					:items="houseStore.activity"
-					:busy-id="undoingId"
-					:blocked-ids="blockedUndoIds"
+					:busyId="undoingId"
+					:blockedIds="blockedUndoIds"
 					@correct="startCorrection"
 					@undo="undoCompletion" />
 			</section>
@@ -128,10 +128,10 @@
 			<ParticipationDialog
 				v-if="correction && !correction.conflict && !correction.uncertain"
 				:members="memberOptions"
-				:initial-participants="correctionDraft"
+				:initialParticipants="correctionDraft"
 				:heading="t('chorestrike', 'Correct the work split')"
 				:hint="correctionHint"
-				:confirm-label="t('chorestrike', 'Save correction')"
+				:confirmLabel="t('chorestrike', 'Save correction')"
 				@close="cancelCorrection"
 				@confirm="confirmCorrection" />
 		</template>

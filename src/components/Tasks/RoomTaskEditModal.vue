@@ -72,6 +72,7 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		// Task definition (for the modal title)
 		task: {
 			type: Object,

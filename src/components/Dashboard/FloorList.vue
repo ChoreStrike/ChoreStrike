@@ -98,7 +98,7 @@
 							:key="room.id"
 							:room="room"
 							:compact="compact"
-							@room-click="handleRoomClick" />
+							@roomClick="handleRoomClick" />
 					</div>
 				</div>
 			</div>
@@ -128,6 +128,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		autoExpand: {
 			type: Boolean,
 			default: false,

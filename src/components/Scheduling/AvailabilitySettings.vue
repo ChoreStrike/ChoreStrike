@@ -36,7 +36,7 @@
 					<div
 						v-for="day in weekDays"
 						:key="day.key"
-						:class="['day-item', { available: isMemberAvailable(member, day.key), unavailable: !isMemberAvailable(member, day.key) }]"
+						class="day-item" :class="[{ available: isMemberAvailable(member, day.key), unavailable: !isMemberAvailable(member, day.key) }]"
 						data-testid="availability-slot">
 						<div class="day-name">
 							{{ day.name }}

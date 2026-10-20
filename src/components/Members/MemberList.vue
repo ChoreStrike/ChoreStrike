@@ -111,7 +111,7 @@
 			v-if="removingMember"
 			:title="t('chorestrike', 'Remove {name} from the house?', { name: removingMember.displayName })"
 			:description="t('chorestrike', 'They will lose access to all house tasks and progress.')"
-			:confirm-label="t('chorestrike', 'Remove')"
+			:confirmLabel="t('chorestrike', 'Remove')"
 			:loading="removing"
 			@confirm="confirmRemove"
 			@cancel="removingMember = null" />

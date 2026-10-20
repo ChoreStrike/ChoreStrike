@@ -146,20 +146,24 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		/** Household members for the person filter. */
 		members: {
 			type: Array,
 			default: () => [],
 		},
+
 		/** Disables the person filter while member names are unavailable. */
 		membersDisabled: {
 			type: Boolean,
 			default: false,
 		},
+
 		floors: {
 			type: Array,
 			default: () => [],
 		},
+
 		rooms: {
 			type: Array,
 			default: () => [],

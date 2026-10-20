@@ -72,6 +72,7 @@ export default {
 			type: Number,
 			default: null,
 		},
+
 		// When set, the room is fixed (e.g. creation from a room's context)
 		// and the selects are replaced by a read-only label.
 		presetRoomId: {

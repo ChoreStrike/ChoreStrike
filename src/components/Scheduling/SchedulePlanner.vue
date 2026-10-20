@@ -21,7 +21,7 @@
 					v-model="startDate"
 					type="date"
 					class="date-input"
-					:data-testid="`planner-start-date`"
+					data-testid="planner-start-date"
 					:min="todayKey">
 			</div>
 

@@ -10,7 +10,7 @@
 		<div v-if="!isEditing" class="form-section">
 			<h3>{{ t('chorestrike', 'Start from Template') }}</h3>
 			<RecurrencePresetSelector
-				:selected-template="selectedTemplate"
+				:selectedTemplate="selectedTemplate"
 				@select="applyTemplate"
 				@clear="clearTemplate" />
 
@@ -271,7 +271,7 @@
 
 			<div class="form-group">
 				<label>{{ t('chorestrike', 'Room') }} *</label>
-				<RoomPicker v-model="selectedRoomId" :preset-room-id="presetRoomId" />
+				<RoomPicker v-model="selectedRoomId" :presetRoomId="presetRoomId" />
 			</div>
 
 			<div class="form-group">
@@ -385,10 +385,12 @@ export default {
 			type: Object,
 			default: null,
 		},
+
 		loading: {
 			type: Boolean,
 			default: false,
 		},
+
 		// Fixed room for creation from a room's context (locked picker)
 		presetRoomId: {
 			type: Number,

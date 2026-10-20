@@ -21,7 +21,7 @@
 			<WeekBudgetGrid
 				:budget="localBudget"
 				:disabled="saving"
-				@update-day="setBudgetDay" />
+				@updateDay="setBudgetDay" />
 
 			<div class="quick-actions">
 				<h4>{{ t('chorestrike', 'Quick Templates') }}</h4>

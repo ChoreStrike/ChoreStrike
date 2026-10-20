@@ -69,6 +69,7 @@ export default {
 			type: Array,
 			required: true,
 		},
+
 		/** Completed energy per house user id (from the activity feed). */
 		completedEnergyByUser: {
 			type: Object,

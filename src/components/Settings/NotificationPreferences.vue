@@ -20,10 +20,10 @@
 
 		<div class="preference-rows">
 			<NcCheckboxRadioSwitch
-				:model-value="draft.taskDigestEnabled"
+				:modelValue="draft.taskDigestEnabled"
 				type="switch"
 				data-testid="task-digest-switch"
-				@update:model-value="onTaskDigestChange">
+				@update:modelValue="onTaskDigestChange">
 				{{ t('chorestrike', 'Daily task digest') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
@@ -31,10 +31,10 @@
 			</p>
 
 			<NcCheckboxRadioSwitch
-				:model-value="draft.orgDigestEnabled"
+				:modelValue="draft.orgDigestEnabled"
 				type="switch"
 				data-testid="org-digest-switch"
-				@update:model-value="onOrgDigestChange">
+				@update:modelValue="onOrgDigestChange">
 				{{ t('chorestrike', 'Weekly organization digest') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
@@ -82,18 +82,18 @@
 			</p>
 
 			<NcCheckboxRadioSwitch
-				:model-value="draft.soundEnabled"
+				:modelValue="draft.soundEnabled"
 				type="switch"
 				data-testid="sound-toggle"
-				@update:model-value="draft.soundEnabled = $event">
+				@update:modelValue="draft.soundEnabled = $event">
 				{{ t('chorestrike', 'Sounds on completions and awards') }}
 			</NcCheckboxRadioSwitch>
 
 			<NcCheckboxRadioSwitch
-				:model-value="draft.animationEnabled"
+				:modelValue="draft.animationEnabled"
 				type="switch"
 				data-testid="animation-toggle"
-				@update:model-value="draft.animationEnabled = $event">
+				@update:modelValue="draft.animationEnabled = $event">
 				{{ t('chorestrike', 'Celebration animations') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
@@ -108,18 +108,18 @@
 			</p>
 
 			<NcCheckboxRadioSwitch
-				:model-value="draft.arcadeVisible"
+				:modelValue="draft.arcadeVisible"
 				type="switch"
 				data-testid="arcade-visible-switch"
-				@update:model-value="draft.arcadeVisible = $event">
+				@update:modelValue="draft.arcadeVisible = $event">
 				{{ t('chorestrike', 'Show the arcade') }}
 			</NcCheckboxRadioSwitch>
 
 			<NcCheckboxRadioSwitch
-				:model-value="draft.catalogVisible"
+				:modelValue="draft.catalogVisible"
 				type="switch"
 				data-testid="catalog-visible-switch"
-				@update:model-value="draft.catalogVisible = $event">
+				@update:modelValue="draft.catalogVisible = $event">
 				{{ t('chorestrike', 'Show the reward catalog') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
@@ -203,6 +203,7 @@ export default {
 		preferencesVersion() {
 			return this.preferencesStore.version
 		},
+
 		saveLabel() {
 			return this.preferencesStore.saving
 				? t('chorestrike', 'Saving…')

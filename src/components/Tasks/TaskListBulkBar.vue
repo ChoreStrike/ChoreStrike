@@ -62,14 +62,17 @@ export default {
 			type: Number,
 			required: true,
 		},
+
 		members: {
 			type: Array,
 			default: () => [],
 		},
+
 		assigning: {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Reset signal: bumped by the parent when the selection clears. */
 		clearSignal: {
 			type: Number,

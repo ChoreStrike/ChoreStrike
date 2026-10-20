@@ -94,26 +94,31 @@ export default {
 			type: String,
 			default: null,
 		},
+
 		/** ISO date string for ideal due date */
 		ideal: {
 			type: String,
 			default: null,
 		},
+
 		/** ISO date string for latest bound */
 		latest: {
 			type: String,
 			default: null,
 		},
+
 		/** Number of flex days */
 		flexDays: {
 			type: Number,
 			default: 0,
 		},
+
 		/** Show compact version */
 		compact: {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Show status indicator */
 		showStatus: {
 			type: Boolean,

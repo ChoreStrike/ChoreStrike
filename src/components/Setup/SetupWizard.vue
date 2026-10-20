@@ -389,10 +389,12 @@ export default {
 				roomsPerFloor: 3,
 				intensityLevel: 'putzteufel',
 			},
+
 			options: {
 				createHouseholdRoom: true,
 				createHallways: true,
 			},
+
 			floors: [],
 			// Each row carries its per-recipient invite outcome
 			// (CS-PLAN-062 §3.4): status null | 'joined' | 'failed'.
@@ -410,9 +412,11 @@ export default {
 		people() {
 			return this.userStore.houseUsers
 		},
+
 		hasValidInvites() {
 			return this.invites.some((invite) => EMAIL_PATTERN.test(invite.email))
 		},
+
 		/**
 		 * Whether at least one valid email row has not joined yet — the
 		 * "Send invites" batch still has work (CS-PLAN-062 §3.4).
@@ -420,13 +424,16 @@ export default {
 		hasPendingInvites() {
 			return this.invites.some((invite) => EMAIL_PATTERN.test(invite.email) && invite.status !== 'joined')
 		},
+
 		totalRooms() {
 			return this.floors.reduce((sum, f) => sum + f.rooms.length, 0)
 		},
+
 		selectedLevelLabel() {
 			const lvl = this.setupStore.levels.find((l) => l.id === this.quick.intensityLevel)
 			return lvl ? lvl.label : this.quick.intensityLevel
 		},
+
 		/**
 		 * Catalog labels for the templates the apply skipped at the chosen
 		 * level (CS-PLAN-062 §3.5) — falls back to the raw id when the
@@ -436,6 +443,7 @@ export default {
 			const ids = this.applyResult?.skipped ?? []
 			return ids.map((id) => this.setupStore.templates.find((t) => t.id === id)?.name || id)
 		},
+
 		/**
 		 * Q-081-05 (CS-PLAN-081 H4): a basement counts toward the six-floor
 		 * total, so the above-ground input caps at five while a basement is
@@ -445,6 +453,7 @@ export default {
 		maxAboveGroundFloors() {
 			return this.quick.basement && this.quick.homeType !== 'apartment' ? 5 : 6
 		},
+
 		/**
 		 * Floor index that receives the auto-created household room — mirrors
 		 * HouseSetupService::injectAutoRooms(): the ground floor, unless the
@@ -458,6 +467,7 @@ export default {
 			const lastFloorHasBasement = lastFloor.rooms.some((r) => r.roomType === 'basement')
 			return lastFloorHasBasement ? this.floors.length - 1 : 0
 		},
+
 		/**
 		 * Approximate number of room tasks applySetup will create (CR-027-04):
 		 * per room the templates matching its roomType at the chosen level,
@@ -497,6 +507,7 @@ export default {
 				this.quick.floorCount = 2
 			}
 		},
+
 		/**
 		 * Q-081-05 (CS-PLAN-081 H4): selecting a basement clamps an
 		 * above-ground selection that would exceed the six-floor total —
@@ -563,12 +574,14 @@ export default {
 				event.preventDefault()
 			}
 		},
+
 		next() {
 			if (this.step === 1) {
 				this.generateRooms()
 			}
 			this.step++
 		},
+
 		generateRooms() {
 			const roomTypes = this.setupStore.roomTypes
 			this.floors = []
@@ -592,6 +605,7 @@ export default {
 				}
 			})
 		},
+
 		floorName(index, total) {
 			if (total === 1) {
 				return t('chorestrike', 'Ground Floor')
@@ -601,12 +615,14 @@ export default {
 			}
 			return `${index + 1}. ${t('chorestrike', 'Floor')}`
 		},
+
 		onRoomTypeChange(room) {
 			const rt = this.setupStore.roomTypes.find((r) => r.id === room.roomType)
 			if (rt) {
 				room.name = rt.defaultName
 			}
 		},
+
 		/**
 		 * Approximate task count for one wizard room: catalog templates that
 		 * target its roomType and are not level-exclusive at the chosen level
@@ -617,12 +633,14 @@ export default {
 		taskCountForRoom(room) {
 			return this.taskCountForRoomType(room.roomType)
 		},
+
 		taskCountForRoomType(roomType) {
 			return this.setupStore.templates.filter((t) => Array.isArray(t.roomTypes)
 				&& t.roomTypes.includes(roomType)
 				&& t.levels
 				&& t.levels[this.quick.intensityLevel] != null,).length
 		},
+
 		addRoom(floorIndex) {
 			this.floors[floorIndex].rooms.push({
 				name: t('chorestrike', 'Room'),
@@ -630,9 +648,11 @@ export default {
 				assigneeUserId: '',
 			})
 		},
+
 		removeRoom(floorIndex, roomIndex) {
 			this.floors[floorIndex].rooms.splice(roomIndex, 1)
 		},
+
 		async apply() {
 			try {
 				// The house name is part of the setup command (CS-PLAN-062
@@ -673,12 +693,15 @@ export default {
 				logger.error('Wizard apply failed', error, { component: 'SetupWizard', action: 'apply' })
 			}
 		},
+
 		addInviteRow() {
 			this.invites.push({ email: '', status: null, statusName: '', statusReason: '' })
 		},
+
 		removeInviteRow(index) {
 			this.invites.splice(index, 1)
 		},
+
 		/**
 		 * Send one invite per pending row and record the per-recipient outcome
 		 * on the row itself (CS-PLAN-062 §3.4): 'joined' names the joined
@@ -705,6 +728,7 @@ export default {
 			}
 			this.sendingInvites = false
 		},
+
 		/**
 		 * Invite one recipient; never throws — the outcome is recorded on the
 		 * row and reported as the boolean return.
@@ -726,9 +750,11 @@ export default {
 				return false
 			}
 		},
+
 		finish() {
 			this.$emit('applied', this.applyResult)
 		},
+
 		/**
 		 * "Start empty" (UX-011): the dismissal persists per house so the
 		 * wizard does not re-open on every reload while the house is empty.

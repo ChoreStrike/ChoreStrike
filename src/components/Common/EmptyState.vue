@@ -42,10 +42,12 @@ export default {
 			type: String,
 			default: 'List',
 		},
+
 		message: {
 			type: String,
 			default: () => t('chorestrike', 'Nothing here yet'),
 		},
+
 		hint: {
 			type: String,
 			default: '',

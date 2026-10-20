@@ -42,6 +42,7 @@ export default {
 			required: true,
 			validator: (value) => Object.keys(MEDAL_LABELS).includes(value),
 		},
+
 		/**
 		 * Display size variant
 		 */
@@ -50,6 +51,7 @@ export default {
 			default: 'medium',
 			validator: (value) => ['small', 'medium', 'large'].includes(value),
 		},
+
 		/**
 		 * Whether to show the label text
 		 */
@@ -58,6 +60,7 @@ export default {
 			default: false,
 		},
 	},
+
 	setup(props) {
 		const icons = {
 			rhythm_3: '🔥',

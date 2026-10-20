@@ -36,6 +36,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		assigneeName: {
 			type: String,
 			default: '',

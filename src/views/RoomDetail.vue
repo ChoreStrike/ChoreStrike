@@ -130,7 +130,7 @@
 					</div>
 
 					<TaskList
-						:room-tasks="tasks"
+						:roomTasks="tasks"
 						:loading="loading"
 						@complete="handleCompleteTask"
 						@edit="handleEditTask"
@@ -142,15 +142,15 @@
 		<Modal v-if="showAddTaskModal" :aria-label="t('chorestrike', 'Add Task')" @close="showAddTaskModal = false">
 			<TaskTemplatePicker
 				v-if="addTaskMode === 'template'"
-				:room-id="roomId"
-				:room-type="roomType"
+				:roomId="roomId"
+				:roomType="roomType"
 				data-testid="add-task-picker"
 				@custom="addTaskMode = 'custom'"
 				@created="handleTemplateCreated"
 				@error="handleTemplateError" />
 			<TaskEditForm
 				v-else
-				:preset-room-id="roomId"
+				:presetRoomId="roomId"
 				:loading="creating"
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
@@ -158,7 +158,7 @@
 
 		<Modal v-if="showEditTaskModal" :aria-label="t('chorestrike', 'Edit Task')" @close="closeEditModal">
 			<RoomTaskEditModal
-				:room-task="editingTask"
+				:roomTask="editingTask"
 				:task="editingTaskDefinition"
 				@saved="handleTaskSaved"
 				@cancel="closeEditModal" />
@@ -214,7 +214,7 @@
 			v-if="participation"
 			:members="participationMembers()"
 			:proposal="participation.proposal ?? null"
-			:actor-user-id="userStore.currentUser?.nextcloudUserId ?? null"
+			:actorUserId="userStore.currentUser?.nextcloudUserId ?? null"
 			@close="participation = null"
 			@confirm="confirmParticipation" />
 	</div>
@@ -382,6 +382,7 @@ export default {
 			this.addTaskMode = 'template'
 			this.showAddTaskModal = true
 		},
+
 		async initializeRoom() {
 			this.loading = true
 			this.initError = false

@@ -54,8 +54,8 @@
 			v-else
 			:mode="mode"
 			:days="visibleDays"
-			:tasks-by-day="roomTasksStore.rangeTasksByDay"
-			@select-day="selectedDay = $event" />
+			:tasksByDay="roomTasksStore.rangeTasksByDay"
+			@selectDay="selectedDay = $event" />
 
 		<div v-if="selectedDay" class="day-detail" data-testid="calendar-day-list">
 			<h3>{{ formatDate(selectedDay) }}</h3>

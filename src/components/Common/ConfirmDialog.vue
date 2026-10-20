@@ -56,19 +56,23 @@ export default {
 			type: String,
 			required: true,
 		},
+
 		/** Optional consequence hint below the title */
 		description: {
 			type: String,
 			default: '',
 		},
+
 		confirmLabel: {
 			type: String,
 			default: () => t('chorestrike', 'Delete'),
 		},
+
 		cancelLabel: {
 			type: String,
 			default: () => t('chorestrike', 'Cancel'),
 		},
+
 		/** Disables the confirm button while the action is in flight */
 		loading: {
 			type: Boolean,

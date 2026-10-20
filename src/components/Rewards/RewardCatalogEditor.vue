@@ -212,7 +212,7 @@
 			v-if="itemToArchive"
 			:title="archiveTitle"
 			:description="t('chorestrike', 'Archived rewards disappear from browsing. Existing requests keep their frozen terms and stay processable.')"
-			:confirm-label="t('chorestrike', 'Archive')"
+			:confirmLabel="t('chorestrike', 'Archive')"
 			:loading="rewardsStore.saving"
 			data-testid="archive-dialog"
 			@confirm="confirmArchive"
@@ -270,9 +270,11 @@ export default {
 		page() {
 			return this.rewardsStore.catalog.admin
 		},
+
 		canSaveGate() {
 			return this.gateDraft !== this.houseStore.catalogEnabled
 		},
+
 		// The quoted-title pattern must live in script — nested double
 		// quotes are not parseable inside template attribute expressions.
 		archiveTitle() {

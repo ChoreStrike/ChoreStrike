@@ -149,22 +149,27 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+
 		progress: {
 			type: Array,
 			default: () => [],
 		},
+
 		canEdit: {
 			type: Boolean,
 			default: false,
 		},
+
 		readonly: {
 			type: Boolean,
 			default: false,
 		},
+
 		roomTaskId: {
 			type: Number,
 			default: null,
 		},
+
 		// Task definition ID — needed by the add/delete/reorder endpoints
 		taskId: {
 			type: Number,

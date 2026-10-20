@@ -133,7 +133,7 @@
 			v-if="pendingAction === 'fulfill'"
 			:title="fulfillTitle"
 			:description="t('chorestrike', 'Only confirm once the reward was actually handed over. The {price} Coins are then spent exactly once.', { price: formatCoinMinor(request?.priceMinor ?? 0) })"
-			:confirm-label="t('chorestrike', 'It was delivered')"
+			:confirmLabel="t('chorestrike', 'It was delivered')"
 			:loading="rewardsStore.saving"
 			data-testid="fulfill-dialog"
 			@confirm="runFulfill"
@@ -145,7 +145,7 @@
 				? t('chorestrike', 'Approve your own request?')
 				: t('chorestrike', 'Approve the request of {name}?', { name: requesterLabel })"
 			:description="t('chorestrike', 'Approving reserves nothing new — the Coins stay reserved until delivery. A child’s request needs this owner approval; an adult explicitly approves their own request.')"
-			:confirm-label="t('chorestrike', 'Approve')"
+			:confirmLabel="t('chorestrike', 'Approve')"
 			:loading="rewardsStore.saving"
 			data-testid="approve-dialog"
 			@confirm="runApprove"
@@ -300,25 +300,32 @@ export default {
 		detail() {
 			return this.rewardsStore.detail
 		},
+
 		request() {
 			return this.detail.request
 		},
+
 		audit() {
 			return this.detail.audit
 		},
+
 		actions() {
 			return this.request?.allowedActions ?? []
 		},
+
 		isOwnRequest() {
 			return this.request?.requester?.houseUserId != null
 				&& this.request.requester.houseUserId === this.userStore.currentUser?.id
 		},
+
 		optionalReasons() {
 			return REASON_CODES
 		},
+
 		correctReasons() {
 			return REASON_CODES
 		},
+
 		requesterLabel() {
 			const requester = this.request?.requester
 			if (!requester || requester.isFormerMember || !requester.displayName) {
@@ -326,6 +333,7 @@ export default {
 			}
 			return requester.displayName
 		},
+
 		// The quoted-title pattern must live in script — nested double
 		// quotes are not parseable inside template attribute expressions.
 		fulfillTitle() {

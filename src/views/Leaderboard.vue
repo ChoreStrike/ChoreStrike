@@ -158,7 +158,7 @@
 						class="medal-card"
 						data-testid="medal-badge"
 						:data-medal-type="medal.type">
-						<MedalBadge :type="medal.type" :size="'large'" />
+						<MedalBadge :type="medal.type" size="large" />
 						<div class="medal-recipient">
 							<span class="medal-label">{{ medal.label }}</span>
 							<span class="recipient-name">{{ medal.recipient }}</span>

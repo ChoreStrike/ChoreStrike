@@ -71,12 +71,12 @@
 
 		<Modal v-if="activeGameId" :aria-label="activeGameName" @close="activeGameId = null">
 			<div class="arcade-game-frame">
-				<GameShell :game-id="activeGameId" />
+				<GameShell :gameId="activeGameId" />
 			</div>
 		</Modal>
 
 		<GameLeaderboard v-if="leaderboardGameId"
-			:game-id="leaderboardGameId"
+			:gameId="leaderboardGameId"
 			@close="leaderboardGameId = null" />
 	</div>
 </template>

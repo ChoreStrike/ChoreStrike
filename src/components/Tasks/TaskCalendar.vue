@@ -11,7 +11,7 @@
 				:key="day"
 				:day="day"
 				:data="tasksByDay[day] || { scheduled: [], completed: [] }"
-				@select-day="$emit('select-day', $event)" />
+				@selectDay="$emit('select-day', $event)" />
 		</div>
 		<div v-else class="month-grid">
 			<CalendarDayCell
@@ -19,7 +19,7 @@
 				:key="day"
 				:day="day"
 				:data="tasksByDay[day] || { scheduled: [], completed: [] }"
-				@select-day="$emit('select-day', $event)" />
+				@selectDay="$emit('select-day', $event)" />
 		</div>
 	</div>
 </template>
@@ -40,10 +40,12 @@ export default {
 			default: 'week',
 			validator: (v) => ['week', 'month'].includes(v),
 		},
+
 		days: {
 			type: Array,
 			required: true,
 		},
+
 		tasksByDay: {
 			type: Object,
 			default: () => ({}),

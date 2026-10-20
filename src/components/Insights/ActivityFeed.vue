@@ -73,10 +73,12 @@ export default {
 			type: Array,
 			required: true,
 		},
+
 		busyId: {
 			type: Number,
 			default: null,
 		},
+
 		blockedIds: {
 			type: Array,
 			default: () => [],

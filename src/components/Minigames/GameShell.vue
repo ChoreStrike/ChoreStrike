@@ -16,7 +16,7 @@
 			@keydown="onKeyDown"
 			@keyup="onKeyUp">
 			<GameShellHeader :score="score"
-				:time-left="timeLeft"
+				:timeLeft="timeLeft"
 				:lives="lives"
 				:best="bestScore"
 				:playing="phase === 'playing'"
@@ -67,7 +67,7 @@
 		</section>
 
 		<!-- Outside the application region: the board dialog stays browsable. -->
-		<GameLeaderboard v-if="showLeaderboard" :game-id="gameId" @close="showLeaderboard = false" />
+		<GameLeaderboard v-if="showLeaderboard" :gameId="gameId" @close="showLeaderboard = false" />
 	</div>
 </template>
 

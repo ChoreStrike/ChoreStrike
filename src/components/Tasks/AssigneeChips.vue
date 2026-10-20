@@ -47,6 +47,7 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+
 		/** Preloaded house members: [{ nextcloudUserId, displayName }, …]. */
 		members: {
 			type: Array,

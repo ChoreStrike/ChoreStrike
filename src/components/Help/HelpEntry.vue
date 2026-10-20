@@ -95,6 +95,7 @@ export default {
 			default: 'navigation',
 			validator: (value) => ['navigation', 'context'].includes(value),
 		},
+
 		/**
 		 * The contextual topic id ('setup' | 'agreements' | 'progress' |
 		 * 'catalog' | 'owner-pricing'). Null/unknown opens the full
@@ -104,6 +105,7 @@ export default {
 			type: String,
 			default: null,
 		},
+
 		/** Optional trigger label override for the context variant. */
 		label: {
 			type: String,
@@ -127,10 +129,12 @@ export default {
 					title: t('chorestrike', 'Accounts and roles'),
 					body: t('chorestrike', 'Every person — including a child — needs their own existing Nextcloud account; creating accounts and signing in belongs to Nextcloud. Wizard invites add members, and an owner sets the child role in the member settings. On a shared device everyone uses their own sign-in — there are no local child profiles.'),
 				},
+
 				agreements: {
 					title: t('chorestrike', 'Agreements and shares'),
 					body: t('chorestrike', 'Agreements are what the family has planned — responsibility and joint obligations differ from voluntary help. Actual shares split the total work; they never multiply it: a total energy-1 chore earns 10 Coins once, so 34/33/33% give 3.4/3.3/3.3 Coins.'),
 				},
+
 				progress: {
 					// The trigger label renders inline on My Day, which
 					// stays Coin-free (C5f) — the Coins line lives in the
@@ -138,10 +142,12 @@ export default {
 					title: t('chorestrike', 'Progress, windows and rhythm'),
 					body: t('chorestrike', 'Each chore has a completion window around its planned day. Free and paused days are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve.'),
 				},
+
 				catalog: {
 					title: t('chorestrike', 'The reward catalog'),
 					body: t('chorestrike', 'Owners control the household catalog, and each person controls whether they see it — the two gates are independent. Child requests and owner approvals, and adult requests too, reserve the Coins first; delivery is confirmed separately afterwards. Hiding the catalog never touches existing requests, and spending Coins never removes earned rhythm titles or awards. Games only have their own scores.'),
 				},
+
 				'owner-pricing': {
 					title: t('chorestrike', 'Pricing rewards as an owner'),
 					body: t('chorestrike', 'Suggest affordable, family-agreed treats that are not essentials, measured against the child\'s own realistic effort and share — not adult output. Care, affection, meals, rest and necessary chore exemptions are not purchasable rewards. There are no automatic catalog templates and no household earning-rate controls.'),

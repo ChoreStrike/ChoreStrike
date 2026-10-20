@@ -46,6 +46,7 @@ export default {
 			type: String,
 			default: () => t('chorestrike', 'Something went wrong'),
 		},
+
 		showRetry: {
 			type: Boolean,
 			default: true,

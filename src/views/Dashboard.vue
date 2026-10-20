@@ -44,7 +44,7 @@
 				</div>
 				<HouseHealthBar
 					:health="houseHealth"
-					:size="'large'"
+					size="large"
 					data-testid="house-health" />
 			</header>
 
@@ -57,8 +57,8 @@
 				<QuickStats
 					class="quick-stats-section"
 					data-testid="quick-stats"
-					@toggle-private-filter="handleTogglePrivateFilter"
-					@show-rooms="showRooms" />
+					@togglePrivateFilter="handleTogglePrivateFilter"
+					@showRooms="showRooms" />
 				<FloorList
 					ref="floorList"
 					class="floor-list-section"
@@ -133,9 +133,11 @@ export default {
 		houseName() {
 			return this.houseStore.houseName
 		},
+
 		houseHealth() {
 			return this.houseStore.houseHealth
 		},
+
 		isLoading() {
 			return this.houseStore.loading || this.roomsStore.loading
 		},
@@ -206,6 +208,7 @@ export default {
 				this.showWizard = true
 			}
 		},
+
 		handleWizardApplied() {
 			this.showWizard = false
 			this.wizardDismissed = true
@@ -225,13 +228,16 @@ export default {
 				})
 			})
 		},
+
 		handleWizardSkipped() {
 			this.showWizard = false
 			this.wizardDismissed = true
 		},
+
 		closeWizard() {
 			this.showWizard = false
 		},
+
 		/**
 		 * Room overview tiles (CS-PLAN-084 WP-C): expand every floor and move
 		 * focus to the floor list, which scrolls it into view in whichever
@@ -242,6 +248,7 @@ export default {
 			await this.$nextTick()
 			this.$refs.floorList?.$el?.focus()
 		},
+
 		/**
 		 * "My Private Tasks" chip (CS-PLAN-041): the Dashboard renders no task
 		 * list of its own, so the binding routes to the Task Manager

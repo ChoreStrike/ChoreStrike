@@ -225,21 +225,26 @@ export default {
 				&& this.houseStore.house !== null
 				&& this.preferencesStore.loaded
 		},
+
 		/** Both gates open — identical contract to the navigation entry. */
 		browsable() {
 			return this.houseStore.catalogEnabled
 				&& this.preferencesStore.loaded
 				&& this.preferencesStore.catalogVisible === true
 		},
+
 		catalogItems() {
 			return this.rewardsStore.catalog.active.items
 		},
+
 		catalogLoading() {
 			return this.rewardsStore.catalog.active.loading
 		},
+
 		catalogExhausted() {
 			return this.rewardsStore.catalog.active.exhausted
 		},
+
 		walletOnHold() {
 			return this.gameStore.wallet?.fundingHold === true
 		},
@@ -260,6 +265,7 @@ export default {
 				}
 			},
 		},
+
 		/**
 		 * Returning to this route reuses the component instance (no
 		 * remount): refresh the wallet source so a hold cleared elsewhere
