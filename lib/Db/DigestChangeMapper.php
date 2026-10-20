@@ -16,6 +16,9 @@ use OCP\IDBConnection;
  * @template-extends QBMapper<DigestChange>
  */
 class DigestChangeMapper extends QBMapper {
+	/** Upper bound of ids per expiry statement. */
+	private const EXPIRE_BATCH_LIMIT = 500;
+
 	public function __construct(IDBConnection $db) {
 		parent::__construct($db, 'chorestrike_digest_changes', DigestChange::class);
 	}
@@ -99,16 +102,85 @@ class DigestChangeMapper extends QBMapper {
 	 * everywhere (covers slots that were never materialized because the
 	 * member was opted out): every queued row for a target_slot day
 	 * before $dayKey is dead — a missed slot never catches up.
+	 *
+	 * Doctrine never emits LIMIT on an UPDATE, so the sweep runs in batches
+	 * of at most $limit (capped at EXPIRE_BATCH_LIMIT) rows: a bounded,
+	 * id-ordered SELECT, then an UPDATE ... WHERE id IN (...) that repeats
+	 * the queued and cutoff predicates, so a row delivered or moved after
+	 * the SELECT keeps its newer state. The id watermark is fixed when the
+	 * sweep starts and the cursor only moves forward, which keeps the sweep
+	 * finite under concurrent writers; rows queued meanwhile wait for the
+	 * next sweep (TECH-DIGEST-001).
+	 *
+	 * @return int Rows moved to expired.
+	 * @throws \InvalidArgumentException For a batch size below one.
 	 */
-	public function expireQueuedBefore(string $dayKey, \DateTimeInterface $now, int $limit = 500): void {
+	public function expireQueuedBefore(string $dayKey, \DateTimeInterface $now, int $limit = self::EXPIRE_BATCH_LIMIT): int {
+		if ($limit < 1) {
+			throw new \InvalidArgumentException('The expiry batch size must be positive');
+		}
+		$batchSize = min($limit, self::EXPIRE_BATCH_LIMIT);
+		$watermark = $this->maxQueuedIdBefore($dayKey);
+		$cursor = 0;
+		$expired = 0;
+		while ($watermark !== null && $cursor < $watermark) {
+			$ids = $this->queuedIdsBefore($dayKey, $cursor, $watermark, $batchSize);
+			if ($ids === []) {
+				break;
+			}
+			$expired += $this->expireIds($ids, $dayKey, $now);
+			$cursor = max($ids);
+		}
+		return $expired;
+	}
+
+	private function maxQueuedIdBefore(string $dayKey): ?int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->max('id'))
+			->from($this->getTableName())
+			->where($qb->expr()->eq('disposition', $qb->createNamedParameter(DigestChange::DISPOSITION_QUEUED)))
+			->andWhere($qb->expr()->lt('target_slot', $qb->createNamedParameter($dayKey)));
+		$result = $qb->executeQuery();
+		$max = $result->fetchOne();
+		$result->closeCursor();
+		return $max === false || $max === null ? null : (int)$max;
+	}
+
+	/**
+	 * @return list<int> Ascending ids of queued rows before the cutoff in (cursor, watermark].
+	 */
+	private function queuedIdsBefore(string $dayKey, int $cursor, int $watermark, int $batchSize): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('disposition', $qb->createNamedParameter(DigestChange::DISPOSITION_QUEUED)))
+			->andWhere($qb->expr()->lt('target_slot', $qb->createNamedParameter($dayKey)))
+			->andWhere($qb->expr()->gt('id', $qb->createNamedParameter($cursor, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte('id', $qb->createNamedParameter($watermark, IQueryBuilder::PARAM_INT)))
+			->orderBy('id', 'ASC')
+			->setMaxResults($batchSize);
+		$result = $qb->executeQuery();
+		$rows = $result->fetchAll();
+		$result->closeCursor();
+		return array_map(static fn (array $row): int => (int)$row['id'], $rows);
+	}
+
+	/**
+	 * One batch UPDATE. The queued and cutoff conditions are checked again
+	 * here, not only in the SELECT.
+	 *
+	 * @param list<int> $ids
+	 * @return int Rows actually expired.
+	 */
+	protected function expireIds(array $ids, string $dayKey, \DateTimeInterface $now): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update($this->getTableName())
 			->set('disposition', $qb->createNamedParameter(DigestChange::DISPOSITION_EXPIRED))
 			->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_DATE))
-			->where($qb->expr()->eq('disposition', $qb->createNamedParameter(DigestChange::DISPOSITION_QUEUED)))
-			->andWhere($qb->expr()->lt('target_slot', $qb->createNamedParameter($dayKey)))
-			->setMaxResults($limit)
-			->executeStatement();
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->eq('disposition', $qb->createNamedParameter(DigestChange::DISPOSITION_QUEUED)))
+			->andWhere($qb->expr()->lt('target_slot', $qb->createNamedParameter($dayKey)));
+		return $qb->executeStatement();
 	}
 
 	/**

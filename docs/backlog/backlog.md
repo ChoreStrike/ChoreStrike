@@ -562,7 +562,7 @@ locking or barrier test, or a product race.
 ---
 
 ### [P4] TECH-DIGEST-001 — `DigestChangeMapper::expireQueuedBefore` uses `setMaxResults()` on an UPDATE
-**Status**: In Progress (Q-088-06: bounded conditional batches; implementation not started) · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
+**Status**: In Progress (implemented 2026-10-20 as bounded conditional batches per Q-088-06; PostgreSQL integration green, MariaDB and SQLite provider runs pending) · **Effort**: S · **Layer**: backend · **Journey stage**: digest maintenance
 **Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-078 WP7 final Standard B (2026-10-01)
 
