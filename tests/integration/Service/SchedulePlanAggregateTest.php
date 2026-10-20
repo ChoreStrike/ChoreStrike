@@ -363,6 +363,54 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		);
 	}
 
+	/**
+	 * CR-PERF-01: both write phases take each row's proposal from the plan
+	 * by room-task id. Three rows with three different explicit assignee
+	 * sets would swap or collapse their proposals if the lookup picked the
+	 * wrong change.
+	 */
+	public function testApply_SeveralChangedRows_EachRowGetsItsOwnProposal(): void {
+		['houseId' => $houseId, 'makeTask' => $makeTask] = $this->familyHouse();
+		$toMom = $makeTask('To Mom', 2);
+		$toDad = $makeTask('To Dad', 2);
+		$toBoth = $makeTask('To Both', 2);
+		$roomTaskIds = [$toBoth, $toMom, $toDad];
+		$overrides = [
+			$toMom => ['assigneeUserIds' => ['mom']],
+			$toDad => ['assigneeUserIds' => ['dad']],
+			$toBoth => ['assigneeUserIds' => ['dad', 'mom']],
+		];
+
+		$preview = $this->service->preview($houseId, $this->ownerActor($houseId), $this->todayKey, $roomTaskIds, $overrides);
+		self::assertCount(3, $preview['changes']);
+
+		$result = $this->service->apply(
+			$houseId,
+			$this->ownerActor($houseId),
+			$this->todayKey,
+			$roomTaskIds,
+			$overrides,
+			$preview['previewVersion'],
+			self::planCommandUuid(),
+			true
+		);
+
+		self::assertSame(3, $result['appliedCount']);
+		$expected = [$toMom => ['mom'], $toDad => ['dad'], $toBoth => ['dad', 'mom']];
+		foreach ($preview['changes'] as $change) {
+			$roomTaskId = (int)$change['roomTaskId'];
+			$assignees = array_map(static fn (array $r): string => (string)$r['user_id'], $this->assigneeRows($roomTaskId));
+			sort($assignees);
+			self::assertSame($expected[$roomTaskId], $assignees, 'assignees of room task ' . $roomTaskId);
+			self::assertSame($change['proposed']['assignees'], $assignees);
+			self::assertSame(
+				$change['proposed']['dueDate'],
+				substr((string)$this->roomTaskRow($roomTaskId)['next_due'], 0, 10),
+				'due date of room task ' . $roomTaskId
+			);
+		}
+	}
+
 	public function testApply_ConsumedPreview_RetryConflictsWithoutWrites(): void {
 		['houseId' => $houseId, 'makeTask' => $makeTask] = $this->familyHouse();
 		$roomTaskId = $makeTask('Dishes', 2);

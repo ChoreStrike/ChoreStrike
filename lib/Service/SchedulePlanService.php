@@ -375,6 +375,11 @@ class SchedulePlanService {
 			static fn (array $change): int => (int)$change['roomTaskId'],
 			$plan['response']['changes']
 		);
+		// Keyed once (CR-PERF-01): both write phases look the row up by id.
+		$changesById = [];
+		foreach ($plan['response']['changes'] as $change) {
+			$changesById[(int)$change['roomTaskId']] ??= $change;
+		}
 
 		if ($changedIds !== []) {
 			// CS-PLAN-072 WP1 (Q-072-01): the planner persists through
@@ -389,7 +394,7 @@ class SchedulePlanService {
 			$house = $this->houseMapper->find($houseId);
 			sort($changedIds);
 			foreach ($changedIds as $roomTaskId) {
-				$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
+				$change = $changesById[$roomTaskId];
 				$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
 				if ($change['before']['dueDate'] !== $change['proposed']['dueDate']) {
 					$this->occurrenceService->amendOccurrenceDateUnderLock(
@@ -403,7 +408,7 @@ class SchedulePlanService {
 				}
 			}
 			foreach ($changedIds as $roomTaskId) {
-				$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
+				$change = $changesById[$roomTaskId];
 				$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
 				$this->taskAssigneeMapper->deleteByRoomTask($roomTaskId);
 				foreach ($change['proposed']['assignees'] as $assigneeUserId) {
@@ -1215,18 +1220,6 @@ class SchedulePlanService {
 		$fromDate = new \DateTime($from . ' 00:00:00');
 		$toDate = new \DateTime($to . ' 00:00:00');
 		return (int)$fromDate->diff($toDate)->format('%r%a');
-	}
-
-	/**
-	 * @param array<int|string, mixed> $rows
-	 */
-	private function findRowById(array $rows, int $roomTaskId): array {
-		foreach ($rows as $row) {
-			if ((int)$row['roomTaskId'] === $roomTaskId) {
-				return $row;
-			}
-		}
-		throw new \RuntimeException('Plan row missing for room task ' . $roomTaskId);
 	}
 
 	/**

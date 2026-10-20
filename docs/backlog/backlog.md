@@ -38,19 +38,6 @@ below.)*
 > Standalone correctness, API, persistence, i18n, and security remainders. Each
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
-### [P4] CR-PERF-01 — SchedulePlanService apply O(n²) row scans
-**Status**: In Progress (plan activated; implementation not started) · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
-**Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-14)
-
-`SchedulePlanService::apply` calls `findRowById` (linear scan of
-`plan['response']['changes']`) inside the loop over changed room-task ids for
-both the due-date and assignee phases — O(n²) scans, though in-memory only and
-bounded by ≤100 changed rows (no queries, no frozen-budget impact). Fix: key
-the changes array by roomTaskId once before the loops.
-
----
-
 ### [P4] CR-084-04 — Split the HoldButton hold state machine from its view
 **Status**: In Progress (plan activated; implementation not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
