@@ -542,7 +542,7 @@ sessions never touch each other's database.
 ---
 
 ### [P3] TECH-TEST-009 — Unattributed SQLite integration failures under four parallel provider suites
-**Status**: In Progress (Q-088-07: explicit matrix reporting; implementation not started) · **Effort**: S · **Layer**: tests · **Journey stage**: test-runtime reliability
+**Status**: In Progress (explicit matrix mode `run-tests.js --matrix` implemented 2026-10-20 per Q-088-07, Jest-pinned; the three real four-target runs that bound the observation are pending) · **Effort**: S · **Layer**: tests · **Journey stage**: test-runtime reliability
 **Owning**: CS-PLAN-088 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-086 WP-H final gate (2026-10-19)
 

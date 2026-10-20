@@ -22,6 +22,11 @@ function redisServices(selection, provider) {
 	}
 }
 
+/** The Nextcloud container name of an owned staged project (also used by the matrix runner). */
+function containerName(project, provider) {
+	return `${project}-nextcloud-${provider}-1`
+}
+
 function stageSettings(selection, project, provider, imageId, port, preservation = {}, row = 'primary') {
 	validateRuntimeShape(selection)
 	if (!['primary', 'aio'].includes(row)) throw new Error('Invalid runtime row')
@@ -39,7 +44,7 @@ function stageSettings(selection, project, provider, imageId, port, preservation
 	const service = `nextcloud-${provider}`
 	return {
 		project, provider, imageId, port, redis,
-		container: `${project}-nextcloud-${provider}-1`,
+		container: containerName(project, provider),
 		url: `http://127.0.0.1:${port}`,
 		environment: {
 			...process.env,
@@ -268,4 +273,4 @@ if (require.main === module) {
 	}
 }
 
-module.exports = { stageSettings, composeArguments, assertFreshProject, assertOwnedProject, assertProviderImage, assertRedisCache, verifyInstallation, stage, preserve }
+module.exports = { containerName, stageSettings, composeArguments, assertFreshProject, assertOwnedProject, assertProviderImage, assertRedisCache, verifyInstallation, stage, preserve }

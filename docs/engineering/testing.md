@@ -396,6 +396,42 @@ docker image inspect chorestrike-wp9-test:local --format "{{.Id}}"
 docker compose -p cs-wp9-example -f docker/compose.test-matrix.yml --profile mysql --profile pgsql --profile sqlite down -v
 ```
 
+#### Running the staged targets in parallel (TECH-TEST-009)
+
+`scripts/run-tests.js --matrix` runs both complete PHPUnit suites on staged
+targets that already exist (the staged rows of `test-runtime-stage.js`, see
+[Current-Stable Candidate Staging](#current-stable-candidate-staging)) and
+keeps the evidence a summary line loses:
+
+```powershell
+node scripts/run-tests.js --matrix --run-id <id> `
+  cs082-<run>-mysql:mysql:cs082-runtime-35.0.2-local:8183 `
+  cs082-<run>-pgsql:pgsql:cs082-runtime-35.0.2-local:8182 `
+  cs082-<run>-sqlite:sqlite:cs082-runtime-35.0.2-local:8184 `
+  cs082-<run>-aio:pgsql:cs082-runtime-34.0.4-local:8185:aio
+```
+
+- Targets are `project:provider:runtime:port[:primary|aio]`. Every target first
+  passes the read-only `test-runtime-stage.js verify`; one failed verification
+  stops the run before any suite starts. The mode never provisions, seeds,
+  resets or cleans anything, and the staged rows must have been started from the
+  checkout that runs the matrix (they bind-mount it).
+- Independent targets run in parallel; the unit and integration suite of one
+  target run in sequence, never overlapping on one database.
+- Each suite passes `--log-junit` and keeps its complete stdout/stderr under
+  `build/test-reports/<run-id>/<runtime>-<row>/<provider>/` as `<suite>.junit.xml`
+  and `<suite>.log` (gitignored; the report names a failing test even when the
+  run only prints a total). Two targets can never share a report directory.
+- The aggregate fails on a failed or interrupted process (its exit code is
+  preserved), a missing or unreadable report, or any failure, error or skip in a
+  report; `--fail-on-skipped` stays on. There are no retries: a failed attempt
+  stays as evidence and is attributed to a regression test or reported as an
+  unresolved finding, never discarded.
+- Closing an unattributed failure as *not reproduced* needs three complete clean
+  four-target runs (primary MySQL/MariaDB, PostgreSQL, SQLite and the AIO row)
+  on one unchanged source and runtime set. That bounds the observation; it is not
+  a root-cause fix.
+
 Health is fail-closed: validated selector/settings and PDO driver, authenticated
 DB readiness, successful Nextcloud installation on the expected provider, app
 enablement, HTTP readiness and successful required seed all precede the ready
