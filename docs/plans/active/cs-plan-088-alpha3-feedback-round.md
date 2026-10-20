@@ -419,6 +419,61 @@ accounts, quotations or household details. Raw notes stay with the operator.
 |---|------|------|-------------|-----------------|---------|-------|
 | — | — | — | (none yet) | — | — | — |
 
+## WP-C Evidence (toolchain series, 2026-10-20)
+
+Local branch `chore/tech-dev-001-node24` (commits `ba88d8b`..`e1ac8bc` on top of the
+activated plan; nothing pushed). Not a review outcome: the final Full review and the
+remote CI evidence are still open.
+
+- **Dependency state:** engines `node ^24` / `npm ^11.8.2`; `@nextcloud/webpack-vue-config` 7.1.0
+  (webpack 5.112, `minimizer-webpack-plugin`), `sass-loader` 17.0.1, ESLint 10.13 with
+  `@nextcloud/eslint-config` 9.0.1. The three security/compat overrides are gone: `sockjs`
+  and `uuid` left the tree with webpack-dev-server 6, `postcss-selector-parser` 7.1.6 and
+  `fast-xml-parser` 5.11.2 resolve patched without them. `@nextcloud/initial-state` is no
+  longer a direct dependency (D-088-08).
+- **Strict install:** `npm ci --engine-strict --legacy-peer-deps=false` passes on Node 24.14.0 /
+  npm 11.9.0 (the minimum, 1469 packages, lockfile unchanged) and on Node 24.22.0 /
+  npm 11.19.1 (portable zips, SHA-256 verified against the release checksums; no host
+  installation). Host Node 24.13.1 ships npm 11.8.0 and therefore fails the npm range.
+- **Lint:** ESLint 10 reported 2594 findings in 194 of 221 files on first contact (2311
+  autofixable). Fixed in rule-family commits with a Jest run (156 suites / 2147 tests) before
+  each; `npm run lint` now exits 0 without a single warning. Deliberate, reviewed
+  deviations from the preset: three rules the legacy config already disabled, the webpack
+  and Jest globals, the logger's `console`, the Playwright relaxations, `src/main.js` keeps
+  `public-path.js` first and its stylesheets after the app imports (the preset's import
+  sorter had moved them, which the existing `assetContract` spec caught), and D-088-10.
+  Visible side effects of the new rules: nine message keys changed to the ellipsis
+  character with POT/EN/DE in the same commit (two merged into existing keys, so the German
+  UI shows "Wird geladen…" / "Speichern…"), component events are emitted in camelCase
+  (listeners are unaffected), single-word component `name` options got a prefix, two dead
+  props and two dead refs were removed.
+- **Bundle (D-088-09):** the production bundle is not byte-identical (numeric module ids
+  shift with the new optimizer). Same-source development-mode builds of the old and new
+  toolchain are: 58 of 62 files byte-identical; the other four (`main`, `arcade`,
+  `rehype-highlight` chunk, license list) contain the identical module sets (974 / 68 / 45
+  modules, no module added or removed) and differ only by webpack 5.112 output:
+  `.then(()=>n(id))` instead of `.then(n.bind(n,id))`, unused re-exports dropped,
+  `__VUE_OPTIONS_API__` folded to `true`, runtime helper variables. No CSS module differs,
+  so the Sass API change is neutral.
+- **Package builder:** `node:24.14.0` (index `sha256:5a593d74…`, linux/amd64 `sha256:1698b8f4…`,
+  verified as v24.14.0 / npm 11.9.0), `npm ci --engine-strict` inside the builder;
+  `node scripts/build-package.js --verify-reproducible` (`run-mvgawtf9`): two builds, one
+  archive hash `c7aced8a…`, 542 files, asset contract satisfied.
+  `tests/unit/scripts/toolchainEngines.spec.js` pins builder, Dockerfile, every workflow
+  step and `package.json` to one contract.
+- **Gates on the final tree (Node 24.14.0):** Jest 156 / 2147, ESLint, Stylelint, production
+  build, `l10n:check-keys` (1332 keys), `docs:encoding`, `backlog:check`, `agents:check`,
+  `test:runtime:validate` and `check` (current, no drift). Browser gate, primary row
+  (canonical stack, family profile): `run-JEPAkY` passed first attempt — chromium 97,
+  chromium-serial-db 176, chromium-scheduling-owner 36, mobile-chromium 12, mobile-webkit 12
+  plus three setup results each, zero skipped, failed or flaky (the counts of the last green
+  run). Browser gate, AIO row (NC 34.0.4, Redis cache/locking/sessions): `run-HcYDxR`, the
+  same counts. The staged AIO project was removed afterwards.
+- **Still open for TECH-DEV-001 / TECH-LINT-008:** remote CI evidence (needs a push on explicit
+  request), the full PHPUnit suites on both rows and the provider suites (run with the
+  WP-D qualification; no PHP changed), `test:package:smoke`, and the final Full review.
+  Follow-up TECH-LINT-009 (Boolean props that default to `true`) is routed to the backlog.
+
 ## Review Outcome
 
 **Standard A, 2026-10-19: PASS-WITH-FIXES.** Scope: this plan, checked against

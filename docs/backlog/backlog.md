@@ -456,7 +456,7 @@ not close parent findings or replace WP9 evidence.
 ---
 
 ### [P3] TECH-DEV-001 — Local Node 24 runs outside the supported `^20.19.0` engine range
-**Status**: In Progress (Q-088-05: Node ^24/npm ^11.8.2 qualification selected; implementation not started) · **Effort**: S · **Layer**: tooling · **Journey stage**: —
+**Status**: In Progress (Node ^24 / npm ^11.8.2 implemented on `chore/tech-dev-001-node24` 2026-10-20 with bundler 7.1, `sass-loader` 17, package builder `node:24.14.0` and CI pins; strict installs, reproducible package build and both browser gates green locally; remote CI evidence and the final Full review open) · **Effort**: S · **Layer**: tooling · **Journey stage**: —
 **Owning**: CS-PLAN-088 WP-C · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PR #3 (2026-10-18)
 **Source**: worktree hygiene task, 2026-10-17
 
@@ -480,7 +480,7 @@ override in `package.json`.
 ---
 
 ### [P3] TECH-LINT-008 — Migrate linting to ESLint 10 flat config
-**Status**: In Progress (selected Should scope; implementation not started) · **Effort**: M · **Layer**: tooling · **Journey stage**: —
+**Status**: In Progress (implemented on `chore/tech-dev-001-node24` 2026-10-20 as one series with TECH-DEV-001: `npm run lint` exits 0 without warnings, Jest/browser gates green on both rows; remote CI and the final Full review open) · **Effort**: M · **Layer**: tooling · **Journey stage**: —
 **Owning**: CS-PLAN-088 WP-C · **Depends on**: TECH-DEV-001 · **Blocks**: — · **Folded-in**: —
 **Source**: Dependabot PR #4, 2026-10-18
 
