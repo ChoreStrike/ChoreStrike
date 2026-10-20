@@ -312,7 +312,7 @@ export default {
 
 	watch: {
 		// Browser back/forward between pages keeps the view mounted.
-		'route.query.page'(value) {
+		'route.query.page': function(value) {
 			this.page = pageFromQuery(value)
 		},
 	},

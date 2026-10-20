@@ -16,7 +16,9 @@
 
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeAsSoleParticipantViaApi, newCommandId } from './fixtures/completion-api'
-import { type APIResponse, type Page, DatabaseProfile, expect, test } from './fixtures/database-fixtures'
+import type { DatabaseProfile} from './fixtures/database-fixtures';
+import { expect, test } from './fixtures/database-fixtures'
+import type {APIResponse, Page} from './fixtures/database-fixtures';
 import { runOcc } from './fixtures/occ-runner'
 
 const API = '/apps/chorestrike/api/v1'

@@ -11,7 +11,8 @@
  * (name, a small reward catalog) and captures the scenes of scenes.js.
  */
 
-import { type APIResponse, type Page, expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import type {APIResponse, Page} from '@playwright/test';
 import path from 'node:path'
 import { createUserContext } from '../e2e/fixtures/auth-contexts'
 import { newCommandId } from '../e2e/fixtures/completion-api'

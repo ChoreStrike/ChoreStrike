@@ -28,7 +28,8 @@
 
 import { createUserContext } from './fixtures/auth-contexts'
 import { completeRoomTaskViaApi } from './fixtures/completion-api'
-import { DatabaseProfile, expect, test } from './fixtures/database-fixtures'
+import type { DatabaseProfile} from './fixtures/database-fixtures';
+import { expect, test } from './fixtures/database-fixtures'
 
 const CATALOG_URL = '/apps/chorestrike/api/v1/house/catalog'
 const REWARDS_URL = '/apps/chorestrike/api/v1/rewards'

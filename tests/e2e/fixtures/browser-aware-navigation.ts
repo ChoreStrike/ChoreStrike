@@ -1,4 +1,4 @@
-import { Locator, Page, TestInfo } from '@playwright/test'
+import type { Locator, Page, TestInfo } from '@playwright/test'
 
 /**
  * Browser-aware navigation helper.

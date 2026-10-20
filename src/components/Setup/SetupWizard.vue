@@ -499,7 +499,7 @@ export default {
 		 *
 		 * @param {string} type The newly selected home type
 		 */
-		'quick.homeType'(type) {
+		'quick.homeType': function(type) {
 			if (type === 'apartment') {
 				this.quick.floorCount = 1
 				this.quick.basement = false
@@ -515,7 +515,7 @@ export default {
 		 *
 		 * @param {boolean} selected Whether the basement checkbox is on
 		 */
-		'quick.basement'(selected) {
+		'quick.basement': function(selected) {
 			if (selected && this.quick.homeType !== 'apartment' && this.quick.floorCount > 5) {
 				this.quick.floorCount = 5
 			}

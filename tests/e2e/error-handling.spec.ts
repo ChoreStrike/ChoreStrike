@@ -9,7 +9,8 @@
  */
 
 import { createUserContext } from './fixtures/auth-contexts'
-import { DatabaseProfile, expect, test } from './fixtures/database-fixtures'
+import type { DatabaseProfile} from './fixtures/database-fixtures';
+import { expect, test } from './fixtures/database-fixtures'
 
 test.describe.configure({ mode: 'serial' })
 

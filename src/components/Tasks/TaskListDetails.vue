@@ -352,7 +352,7 @@ export default {
 	},
 
 	watch: {
-		'occurrence.occurrenceId'(next, previous) {
+		'occurrence.occurrenceId': function(next, previous) {
 			if (next === previous) {
 				return
 			}

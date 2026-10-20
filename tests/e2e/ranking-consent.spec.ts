@@ -1,5 +1,6 @@
 import { createUserContext } from './fixtures/auth-contexts'
-import { DatabaseProfile, expect, test } from './fixtures/database-fixtures'
+import type { DatabaseProfile} from './fixtures/database-fixtures';
+import { expect, test } from './fixtures/database-fixtures'
 
 /**
  * E2E test: the consent lifecycle against an ENABLED ranking flag

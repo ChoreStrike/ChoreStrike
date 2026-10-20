@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, type BrowserContextOptions, type Page } from '@playwright/test'
+import type {Browser, BrowserContext, BrowserContextOptions, Page} from '@playwright/test';
 import { authScope } from '../../../scripts/test-target'
 
 // Auth storage states live in the gitignored build/ tree (CS-PLAN-069 WP4).
