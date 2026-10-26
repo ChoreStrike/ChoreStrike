@@ -73,6 +73,281 @@ to the navigation toggle; decide whether the heading row alone should clear it.
 
 ---
 
+### [P2] BUG-UX-001 — Form dialogs close on a stray click and lose the input; their actions scroll away
+**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-11, 2026-10-26; not started) · **Effort**: M · **Layer**: frontend · **Journey stage**: task creation
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #3
+
+`src/components/Common/Modal.vue` emits `close` on a click on the overlay
+(`@click.self`), so a click next to the New Task dialog discards everything typed
+so far. The same component backs about 20 dialogs. The Cancel/Create buttons sit
+at the end of the form inside the scrolling `.modal-container`, so on a long form
+or a small screen they are out of sight.
+
+- [ ] Form dialogs (New/Edit Task in `TaskManager` and `RoomDetail`, floor/room
+      dialogs, reward and availability editors) close only through the close
+      button, Cancel, the submit action or Esc; a click on the backdrop does
+      nothing. Informational dialogs (help, leaderboard, confirmations) keep their
+      current behavior. Use an opt-in prop that defaults to `false` (a Boolean
+      prop defaulting to `true` is the TECH-LINT-009 pattern).
+- [ ] The action row stays visible at the bottom of those dialogs while the form
+      body scrolls (also at phone height); the dialog keeps its focus trap and its
+      layer above the navigation toggle.
+- [ ] Tests: Modal spec (backdrop click ignored when locked, still closes when
+      not; Esc, close button and Cancel always close) and a browser layout check
+      that the actions stay inside the viewport on a long form at phone size.
+
+---
+
+### [P2] FEAT-UX-038 — New Task dialog should take over the active floor/room filter
+**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-11, 2026-10-26; not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: task creation
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #1
+
+`TaskManager` keeps the floor and room filters (`filters.floor`, `filters.room`)
+but opens `TaskEditForm` without them, so the dialog starts on the first floor
+even while the list is filtered to one room. `RoomPicker` only knows
+`presetRoomId`, which locks the picker (used by `RoomDetail`).
+
+- [ ] With a room filter, the dialog opens with that floor and room selected and
+      still changeable; with only a floor filter, that floor is selected and the
+      room stays a required choice; without filters nothing changes. Later filter
+      changes while the dialog is open are ignored.
+- [ ] An explicit person filter (`filters.person`) preselects that member as
+      assignee, still changeable (operator, 2026-10-26). The scopes "mine" and
+      "unassigned" preselect nobody: "mine" is the default and also shows
+      unassigned rows.
+- [ ] Tests: `RoomPicker`/`TaskEditForm`/`TaskManager` specs for the room,
+      floor-only, person and no-filter cases and for the unchanged edit form.
+
+---
+
+### [P2] FEAT-UX-039 — Flex days should scale with the recurrence period (cap 50%)
+**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-11, 2026-10-26; not started) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #2
+
+Flex days are capped at 7 everywhere (`TaskService::FLEX_DAYS_MAX`, the form's
+`max="7"`, the `min(7, …)` clamp in `OccurrenceRevisionService`), whatever the
+period. A task repeating every 6 months cannot get a meaningful window. The
+operator asks for a cap of 50% of the period. No schema change: `flex_days` is a
+plain integer column.
+
+- [ ] Cap `flexDays ≤ ceil(0.5 × period days)` (operator, 2026-10-26). Period
+      days = `frequencyValue` × unit days (day 1, week 7, month 30; the legacy
+      `custom` type maps to one week). Examples: every 10 days → 5, every 2
+      weeks → 7, every 6 months → 90, daily → 1. For a fixed weekly rule with
+      several weekdays the period is the smallest gap between them (operator,
+      2026-10-26, D-088-12; Mon+Thu → 3 → cap 2), otherwise the windows of one
+      week overlap heavily.
+- [ ] With `ceil` the windows of neighbouring occurrences share one day (even
+      period) or two days (odd period); the canonical selection (earliest
+      window end first) must stay deterministic there.
+- [ ] Backend validation and the form's `max`/hint derive from frequency type and
+      value; changing the frequency re-validates the flex value in the form.
+- [ ] Persisted facts stay untouched: no rewrite of stored values; the cap
+      applies to new or changed flex/frequency input only (editing an unrelated
+      field of a task above the new cap must still save), and read-side clamps may
+      only guard a hard sanity bound, never shrink a stored value.
+- [ ] Tests: PHPUnit boundary cases per unit and for a weekday set (at the cap,
+      one above, legacy value kept on an unrelated update), a selection case with
+      overlapping windows, Jest for the form; `docs/api/` and `l10n/` updated in
+      the same change.
+
+---
+
+### [P2] FEAT-UX-040 — One task form for new and edit: recurrence, layout and controls
+**Status**: Backlog (alpha.2 trial feedback 2026-10-24/26; needs operator feedback on design variants before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: same mask for New Task and Edit Task with assignees and room (operator, 2026-10-26, CS-PLAN-088 feedback register #11)
+**Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #4
+
+In create mode the form opens with "Start from Template" and a "Repeat" preset
+selector (`RecurrencePresetSelector`), while the real recurrence inputs
+(Frequency, Every, Scheduling Mode, Flex Days) sit further down under "Schedule &
+Recurrence"; the preview repeats "Repeat". Two places for one setting confuse,
+and the size and grouping of the controls (six sections in one long scroll) need
+a second look.
+
+- [ ] Present two or three variants to the operator (for example presets as
+      quick-fill inside the Schedule section; room and assignees first; advanced
+      fields collapsed) and record the choice as a decision before coding.
+- [ ] Implement the chosen layout once for both entry points (`TaskManager`,
+      `RoomDetail`), keeping the `data-testid` hooks the Playwright specs use.
+- [ ] Tests: Jest form specs and the affected browser scenarios updated.
+
+**Folded in 2026-10-26 (operator):** New Task and Edit Task should share one
+mask, with assignees and room in both. Today there are three: `TaskEditForm` in
+create mode (room and assignees), `TaskEditForm` in edit mode in the Tasks tab
+(definition only) and `RoomTaskEditModal` in the room view (due date and
+assignees).
+
+- [ ] One mask for create and edit in both entry points; edit mode includes the
+      assignees (existing per-room-task assignee command) and the room.
+- [ ] Changing the room of an existing task needs a backend move command
+      (house-scoped, under the room-task lock). Decide what moves along (open
+      occurrence, assignees); every completion and journal entry stays with the
+      room it happened in. PHPUnit for the move and its history.
+- [ ] The edit mask states when the definition is shared by several rooms
+      (see FEAT-UX-043).
+
+Sequencing: land it after BUG-UX-001, FEAT-UX-038 and FEAT-UX-039 so the new
+layout is not built twice; show its mockup together with the template picker
+of FEAT-UX-043.
+
+---
+
+### [P2] BUG-UX-002 — Moving one occurrence reports "changed in the meantime" for every refusal
+**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-14, 2026-10-26; reproduction first; not started) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: agreements
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #15
+
+Moving a single occurrence ("Move this occurrence to" → "Record amendment")
+answered "The occurrence changed in the meantime. Your entries were kept …"
+although nothing had changed. `TaskListDetails.runAgreement()` shows that text
+for every HTTP 409. The amend command, however, also answers 409 for domain
+refusals: the member is paused or not available on the new day, the daily task
+limit or energy budget would be exceeded (`DailyCapacityService`), or the
+amendment deadline has passed (`OccurrenceAgreementService`). The 409 body
+carries the localized reason (`error.message`, code `CONFLICT`,
+`ControllerErrorFormatter::conflictResponse()`), but the UI drops it. The
+browser scenario in `family-rhythm.spec.ts` makes the member available every day
+with a limit of 10 before it moves an occurrence, and the test stack runs in UTC,
+so these refusals never occur there.
+
+- [ ] Reproduce on a non-UTC house with real availability and limits and name
+      the conflict that fires. If it is a genuine false stale-token or version
+      mismatch, raise to P1 and follow the CS-PLAN-088 hotfix rule.
+- [ ] Domain refusals show the server's reason; the "changed in the meantime"
+      text (with draft preservation) stays for real staleness only, told apart by
+      a dedicated conflict code, never by message matching.
+- [ ] Same for catch-up, handover and restart, which share `runAgreement()`.
+- [ ] Tests: `TaskListDetails` spec for a capacity refusal vs. a stale conflict,
+      PHPUnit pinning the conflict codes, a browser case moving an occurrence onto
+      a day the member is unavailable.
+
+---
+
+### [P3] BUG-UX-003 — My Day offers a checklist toggle for tasks without a checklist
+**Status**: Backlog (alpha.2 trial feedback 2026-10-26) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #9
+
+`TodayView` renders the "Checklist" toggle on every catch-up and due-today row
+until a click has loaded the items. Only then does it learn that the definition
+has none and hide the toggle (one-shot discovery from the 2026-09-12 a11y pass),
+so the control appears on tasks without sub-tasks and vanishes on the first
+click.
+
+- [ ] The daily and overdue rows carry the checklist item count (or the view
+      preloads it in one bounded request); the toggle renders only when items
+      exist and the empty-discovery state goes away.
+- [ ] No per-row request (`workflow-request-budgets.spec.ts` stays green).
+- [ ] Tests: `TodayView` spec (no toggle without items, toggle with items) and a
+      read/DTO test for the count.
+
+---
+
+### [P2] BUG-UX-004 — Selecting a person in the task details scrolls the page
+**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-14, 2026-10-26; cause to confirm in the browser; not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: assignment
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #10
+
+In the Tasks tab a click on a member chip in the expanded details moves the
+whole view upwards. Likely cause: the chip checkbox uses `.cs-visually-hidden`
+(`position: absolute`), but `.assignee-chip` is not positioned, so the input sits
+at the nearest positioned ancestor and the browser scrolls to it when the click
+focuses it. A list re-render during the optimistic assignee save is the other
+candidate.
+
+- [ ] Confirm the cause in the browser and fix it in `AssigneeChips` (anchor the
+      hidden input inside its chip); check the other hidden-input chips (weekday
+      chips in `TaskEditForm`).
+- [ ] Tests: a browser assertion that the scroll position stays put after
+      toggling a chip in the details of a lower list row.
+
+---
+
+### [P2] BUG-UX-005 — Work inside its flex window cannot be completed from My Day before the planned day
+**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-14, 2026-10-26; affected view to confirm; not started) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #5
+
+The operator could not complete a task inside its flex days before the due
+date. The server accepts that completion: the target is the occurrence whose
+window `[planned − early, planned + late]` is open. My Day, however, lists under
+"Due Today" only occurrences planned for today (`TodayView.isDueToday()`,
+`RoomTaskReadService::getDueTodayTasks()`) and shows later ones under "Next
+appointments" without a Done button. Occurrences that were already agreed also
+keep their saved window: a later flex edit applies through a new schedule
+revision only.
+
+- [ ] Confirm the view (My Day or the Tasks tab/room view) and whether the
+      occurrence's saved window included the flex days.
+- [ ] My Day offers Done for every occurrence whose window is open today (for
+      example as its own group), without changing the on-time rules.
+- [ ] Tests: `TodayView` spec and a browser scenario completing an occurrence one
+      day before its planned day inside a two-day window.
+
+---
+
+### [P2] FEAT-UX-041 — Allow completing work before its window opens
+**Status**: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #6
+
+Work is completable only inside its occurrence window. Before the window opens
+the row has no completion target (`OccurrenceSelectionService::selectFromAgreed()`),
+and the Tasks tab then answers Done with the generic "The task changed since it
+was displayed". The operator wants early completion by default: completing
+before the due date, even before the flex days, fulfills the next occurrence,
+and an interval task's next due date moves earlier accordingly. A restriction
+should at most be an owner option, or apply to children only.
+
+The approved timeline rules already cover part of it: early completion moves a
+completion-relative interval but not a fixed cadence, and early work shows as
+done at once while its streak step waits for the planned day
+([task timeline C1](../concepts/task-model-and-sync.md#approved-timeline-contract-c1-2026-09-17),
+[rewards](../concepts/gamification-and-rewards.md)). What is missing is a
+completion target before the window.
+
+- [ ] Decide: early completion on by default; restriction by an owner house
+      setting, by role (children not early), or both; only the next occurrence;
+      for a fixed cadence the occurrence counts as done early and the cadence
+      stays.
+- [ ] Decide the classification and rewards of early work (on time or its own
+      class; energy and coins unchanged; streak step on the planned day per C1;
+      day-capacity accounting).
+- [ ] Update [ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md),
+      the concepts and `docs/api/` before code.
+- [ ] Tests: PHPUnit for early completion on interval and fixed cadence, the
+      owner/child rules and the selection; a browser scenario.
+
+BUG-UX-005 covers the in-window case and ships on its own.
+
+---
+
+### [P3] FEAT-UX-044 — Unique room names within the house (numbered suffix)
+**Status**: Backlog (alpha.2 trial feedback 2026-10-26) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #14
+
+Rooms may share a name (no check in `RoomService::createRoom()`,
+`updateRoomName()` or the setup wizard), so two rooms called "Kids' room" cannot
+be told apart in pickers, filters and the task list. Operator direction: names
+must be unique; a duplicate gets " 2", " 3", … appended; applying this to new and
+renamed rooms is enough.
+
+- [ ] Create, rename and the setup wizard append the next free number to a
+      duplicate (recommended: trimmed, case-insensitive, deleted rooms ignored)
+      and the UI shows the final name.
+- [ ] Existing duplicates stay as they are (no data rewrite) until renamed.
+- [ ] Resolve the name under the house lock so two parallel creates cannot both
+      get " 2".
+- [ ] Tests: PHPUnit for create, rename and setup suffixing incl. case and
+      whitespace; `l10n/` for any new hint.
+
+---
+
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
@@ -84,7 +359,7 @@ followed by the optional family catalog; those choices do not activate code work
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
 **Status**: Open (semantics decided, endpoint/UI open; re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: removing another owner (operator feedback 2026-10-26, CS-PLAN-088 feedback register #7)
 **Source**: UX-003 remainder (CS-PLAN-038); owner-transfer/last-owner semantics decided by CS-PLAN-061 D6 (ADR-010, user-ratified 2026-09-03)
 
 Members cannot leave a house on their own; removal is owner-only. The
@@ -95,6 +370,17 @@ re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 
 - [x] Decide owner-transfer/last-owner semantics for leaving. (D6, ADR-010, 2026-09-03)
 - [ ] Backend leave endpoint (+ guards) + Settings Leave button + tests.
+
+**Folded in 2026-10-26 (operator):** the account that bootstrapped the house
+(the first to open the app, often the Nextcloud admin) is an owner, and
+`removeHouseMember()` refuses every owner target (`CANNOT_REMOVE_OWNER`). It
+therefore stays in member pickers, filters and rankings. Workaround today:
+another owner first changes that account's role to member, then removes it.
+
+- [ ] An owner can remove another owner directly while at least one owner
+      remains (D6 last-owner invariant unchanged, re-checked under the house
+      lock), with the same departure cleanup as a member removal; PHPUnit for the
+      last-owner race and the cleanup, Settings spec for the enabled action.
 
 ---
 
@@ -212,6 +498,67 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 - [ ] Server-side bulk reschedule endpoint + owner action on the overdue list.
 - [ ] Seasonal deactivate/reactivate by filter (room/category/idle).
 - [ ] Styled confirmations per cross-cutting conventions + tests.
+
+---
+
+### [P2] FEAT-UX-043 — Templates: copy instead of shared definitions, and a simple catalog picker
+**Status**: Backlog (alpha.2 trial feedback 2026-10-26; operator feedback on a mockup before implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #12
+
+The setup wizard creates **one** task definition per catalog template and mounts
+it in every room of that type (`HouseSetupService` reuses
+`$createdTasks[$template['id']]`). Two bedrooms therefore share one definition:
+a rename in one room renames both, a rule change revises every mounted room
+task, while already agreed dates and the per-room assignees stay as they were,
+hence "the title changes everywhere, other details apparently not". The New
+Task form's "Prefill from catalog" already copies. Operator direction: "use a
+task as template": a template only fills the form, afterwards every room's task
+is independent.
+
+Picker sketch (operator): a "Choose from template" button; room type as a
+dropdown and its tasks as a list; picking one fills the form; a small preview
+with the start of the description, frequency etc. A Putzmuffel ↔ Putzteufel
+switch: the catalog already has both levels, but only the setup wizard uses
+them; Putzteufel means the same tasks plus more, with higher frequencies.
+Special sets such as pets (cats, …) and garden (the `outdoor` type has three
+templates today).
+
+- [ ] Decide the handling of existing shared definitions on the retained
+      baseline. Recommended: no bulk rewrite; editing a definition mounted in
+      several rooms asks "this room only / all rooms", and "this room only"
+      splits off a copy for that room task while every completion, occurrence
+      and journal row stays valid. New setups create one definition per room.
+- [ ] Picker per the sketch, shown as a mockup first (together with FEAT-UX-040).
+- [ ] Catalog content: Putzteufel a strict superset of Putzmuffel with equal or
+      higher frequencies (enforced by a catalog test); new sets for pets and
+      garden, plus proposals for the operator (e.g. plants, laundry, car/bike);
+      all strings through `t()` with `l10n/`.
+- [ ] Tests: catalog invariants, per-room definitions on setup, split-on-edit
+      keeping history, picker specs.
+
+---
+
+### [P3] FEAT-UX-045 — Record or correct "last cleaned" after setup
+**Status**: Backlog (alpha.2 trial feedback 2026-10-26; decision needed) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #16
+
+The room card shows "Last cleaned: …" from the room journal; only completion and
+manual cleanliness events stamp `last_cleaned` (`RoomReplayService`). A freshly
+set-up house therefore shows nothing, and a wrong value cannot be corrected. The
+operator wants to set or change it afterwards, for example right after creating
+the house.
+
+- [ ] Decide the level: (a) per room, a backdated manual journal event without
+      reward or completion fact; (b) per task, a "last done on" date at creation
+      or edit that anchors the next due date (interval: last done + period).
+      Recommended: (b), because after setup the schedule is what matters, plus
+      the room card showing the latest of both.
+- [ ] Existing completion facts are never edited; a correction is a new,
+      traceable event (retained-baseline rules).
+- [ ] Tests: replay/projection tests for the backdated anchor, form spec,
+      `l10n/`.
 
 ---
 

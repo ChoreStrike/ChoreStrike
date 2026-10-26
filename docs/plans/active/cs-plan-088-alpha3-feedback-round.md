@@ -4,7 +4,7 @@
 > **Effort:** M — 8–12 engineering days inside a 2–3 week window: feedback intake 2026-10-20 → ~2026-11-02 (the 14-day HUMAN-02 window of CS-PLAN-080 ends the same weekend), candidate freeze, qualification and deployment in the week of 2026-11-03
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.2` deployed on the retained baseline (done 2026-10-19); the family trial's sanitized feedback (collected by the operator); no schema change intended
-> **Related backlog items:** RELEASE-002 (field use, alpha release rhythm) · CR-PERF-01 · CR-084-04 · CR-LAYOUT-01 · TECH-DIGEST-001 · TECH-TEST-009 · TECH-DEV-001 · TECH-LINT-008 · stretch candidates FEAT-UX-015, TECH-TEST-008 · **not in scope:** TECH-TEST-005 and CONCEPT-001 (owned by CS-PLAN-080), BUG-SEC-001 (awaits the authority's feedback), TECH-TRANSPORT-001 (needs its own instrumentation round), FEAT-UX-018/019/023/027/028/029 (product decisions or features the trial has not asked for)
+> **Related backlog items:** RELEASE-002 (field use, alpha release rhythm) · CR-PERF-01 · CR-084-04 · CR-LAYOUT-01 · TECH-DIGEST-001 · TECH-TEST-009 · TECH-DEV-001 · TECH-LINT-008 · WP-A feedback FEAT-UX-038, FEAT-UX-039, BUG-UX-001, BUG-UX-002, BUG-UX-004, BUG-UX-005 (D-088-11, D-088-14) · stretch candidates FEAT-UX-015, TECH-TEST-008 · **not in scope:** TECH-TEST-005 and CONCEPT-001 (owned by CS-PLAN-080), BUG-SEC-001 (awaits the authority's feedback), TECH-TRANSPORT-001 (needs its own instrumentation round), FEAT-UX-018/019/023/027/028/029 (product decisions or features the trial has not asked for)
 
 ## 1. Problem Summary
 
@@ -151,6 +151,36 @@ All questions were answered with their recommended option.
 - **Git:** commits per work item and rule family on the task branch, local only
   (no push, no merge to `master` without a separate request).
 
+### Decisions recorded for WP-A (operator 2026-10-26)
+
+- **D-088-11 WP-A admission:** feedback register #1–#3 enter WP-A with the
+  manifest and tests below: FEAT-UX-038, FEAT-UX-039 and BUG-UX-001. FEAT-UX-040
+  and the 2026-10-26 register entries (#5–#16) stay in the backlog until
+  admitted separately. Still no schema change: `flex_days` stays an integer
+  column and stored values are never rewritten.
+- **D-088-12 Flex cap:** `flexDays ≤ ceil(0.5 × period days)`, period days =
+  `frequencyValue` × unit days (day 1, week 7, month 30). Rejected: `floor`.
+  Neighbouring windows may then share one or two days; the canonical selection
+  stays earliest-window-end first. For a fixed weekly rule with several weekdays
+  the period is the smallest weekday gap (operator-confirmed 2026-10-26;
+  Mon+Thu → 3 days → cap 2). Rejected: the full week as the period, which lets
+  the windows of one week overlap heavily.
+- **D-088-13 Person filter:** an explicit person filter also preselects the
+  assignee in the New Task dialog; the "mine"/"unassigned" scopes preselect
+  nobody. Rejected: no assignee preselection.
+- **D-088-14 Second WP-A admission:** feedback register #5, #10 and #15 enter
+  WP-A with the manifest and tests below: BUG-UX-005, BUG-UX-004 and BUG-UX-002.
+  BUG-UX-002 starts with a reproduction on a non-UTC house; if that shows a
+  genuine stale-token or version mismatch, it becomes P1 and leaves the bundle
+  under the hotfix rule. Register #4, #6, #7, #9, #11–#14 and #16 stay in the
+  backlog until admitted separately. Still no schema change.
+- **D-088-15 One house per instance:** register #8 is rejected, not deferred.
+  The operator judged several houses per instance too much effort: a house
+  choice in every request and store, per-house membership, notifications and
+  background passes, a house switcher and an upgrade path for the retained
+  house. FEAT-UX-042 is archived as rejected. Rejected: keeping it as a P4
+  candidate for v1.0.
+
 ## 3. Backend / Frontend Changes
 
 ### WP-A Trial feedback (RELEASE-002)
@@ -161,6 +191,44 @@ new or changed string with `l10n/` in the same change; no feedback-specific
 telemetry. Items that need a product decision (approval workflows, Task Pass,
 search, print, bulk ops) are routed to their existing backlog entries, not
 implemented here.
+
+Admitted items (D-088-11, D-088-14):
+
+- **FEAT-UX-038 filter prefill:** `TaskManager` passes its floor, room and
+  person filters to the create form; `RoomPicker` gains a non-locking initial
+  floor/room selection next to the locking `presetRoomId`; `TaskEditForm`
+  preselects the filtered person in `AssigneeChips`. Edit mode is unchanged.
+- **FEAT-UX-039 flex cap (D-088-12):** one pure policy class computes period days
+  and the cap for `TaskService` validation and `OccurrenceRevisionService`
+  (whose `min(7, …)` clamp becomes the cap for new or changed input and a hard
+  sanity bound otherwise); the form mirrors the formula in a small utility for
+  its `max` and hint. A flex value above the new cap that is already stored stays
+  valid on unrelated edits. `docs/api/README.md` documents the new range.
+- **BUG-UX-001 dialogs:** `Modal.vue` gains an opt-in prop (default `false`) that
+  ignores backdrop clicks, and a sticky action row for slotted form actions;
+  every dialog with user input sets it (task create/edit, room-task edit, room
+  rename, floor add/edit, sub-task edit, reward editor and request reasons,
+  availability, participation, work-split correction). Confirmations and
+  informational dialogs keep the backdrop close.
+- **BUG-UX-005 open window on My Day:** first confirm the affected view with
+  the operator. The filtered daily read then also returns the viewer-visible
+  rows whose canonical open window contains today while their planned day lies
+  ahead, flagged and with their occurrence block; `TodayView` shows them in a
+  group of their own with Done. Visibility and child eligibility apply as for
+  due-today rows; completion uses the unchanged canonical target and on-time
+  rules; the due-today set and its other consumers (digest, daily limit) stay
+  unchanged.
+- **BUG-UX-004 chip scroll:** confirm the cause in the browser; `AssigneeChips`
+  anchors its visually hidden input inside the chip, and the weekday chips in
+  `TaskEditForm` get the same check.
+- **BUG-UX-002 refusal reason:** reproduce first (D-088-14). The agreement
+  services throw a `ConflictException` subclass for a version or
+  selection-token mismatch, which `ControllerErrorFormatter` answers with the
+  dedicated code `STALE_TARGET`; every other 409 keeps `CONFLICT` and its
+  localized reason. `TaskListDetails.runAgreement()` keeps the "changed in the
+  meantime" note for `STALE_TARGET` only and shows the server's reason inline
+  in the note otherwise (amend, handover, catch-up, restart). Drafts survive
+  both; no toast carries server text (design guideline).
 
 ### WP-B Hardening
 
@@ -255,7 +323,28 @@ reviewed plan; this round's explicit matrix targets do not deliver that feature.
 - **WP-A:** one regression test per fix in the layer of the defect (PHPUnit
   unit/integration, Jest, or a Playwright scenario in an existing spec);
   browser-visible fixes get a focused run on the canonical stack before the
-  final gates.
+  final gates. Admitted items (D-088-11): FEAT-UX-038 — `RoomPicker`,
+  `TaskEditForm` and `TaskManager` specs for room, floor-only, person and
+  no-filter cases plus the unchanged edit form; FEAT-UX-039 — PHPUnit policy
+  cases per unit and for a weekday set (at the cap, one above, `custom`, legacy
+  value kept on an unrelated update), a `TaskService` validation case, an
+  `OccurrenceService` selection case with overlapping windows, Jest for the
+  utility and the form; BUG-UX-001 — `Modal` spec (backdrop ignored when locked,
+  still closing when not; Esc, close button and Cancel always close) and a
+  browser check at phone size that a long task form keeps its actions inside the
+  viewport and survives a backdrop click. Admitted items (D-088-14): BUG-UX-005 —
+  `RoomTaskReadService` cases (open window before the planned day included and
+  flagged; a window not yet open and planned-today rows unchanged; child
+  eligibility), `TodayView` spec for the group and its Done, a
+  `flex-window-scheduling.spec.ts` case completing one day before the planned
+  day inside a two-day window; BUG-UX-004 — a `task-manager.spec.ts` case
+  asserting an unchanged scroll position after toggling a member chip in the
+  details of a lower row; BUG-UX-002 — the reproduction result recorded in the
+  register first, PHPUnit pinning `STALE_TARGET` for version/token mismatches
+  and `CONFLICT` with the localized reason for each domain refusal (formatter,
+  controller, services), a `TaskListDetails` spec for a capacity refusal vs. a
+  stale conflict (drafts kept in both), a `family-rhythm.spec.ts` case moving an
+  occurrence onto a day the member is unavailable.
 - **CR-PERF-01:** existing `SchedulePlanService` apply tests stay green; add a
   unit case with several changed rows in both phases asserting identical
   results to the current implementation.
@@ -332,6 +421,40 @@ modified: appinfo/info.xml, CHANGELOG.md, README.md, docs/release/roadmap.md, do
           docs/backlog/archive/2026-11.md                     (WP-D)
 archived: archive/2026-10/eslintrc-legacy/.eslintrc.js        (TECH-LINT-008; actual archive month)
 modified: src/** and tests/** rule-family fixes, l10n/* where an ellipsis msgid changes   (TECH-LINT-008)
+modified: src/views/TaskManager.vue, src/components/Tasks/TaskEditForm.vue,
+          src/components/Tasks/RoomPicker.vue,
+          tests/unit/views/TaskManager.spec.js, tests/unit/components/TaskEditForm.spec.js,
+          tests/unit/components/RoomPicker.spec.js            (FEAT-UX-038)
+new:      lib/Service/FlexDaysPolicy.php, tests/unit/Service/FlexDaysPolicyTest.php,
+          src/utils/flexDays.js, tests/unit/utils/flexDays.spec.js   (FEAT-UX-039)
+modified: lib/Service/TaskService.php, lib/Service/OccurrenceRevisionService.php,
+          tests/unit/Service/TaskServiceTest.php, tests/unit/Service/OccurrenceServiceTest.php,
+          src/components/Tasks/TaskEditForm.vue, tests/unit/components/TaskEditForm.spec.js,
+          docs/api/README.md, l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-039)
+modified: src/components/Common/Modal.vue, tests/unit/components/Modal.spec.js,
+          src/views/TaskManager.vue, src/views/RoomDetail.vue, src/views/Settings.vue,
+          src/views/InsightsView.vue, src/components/Tasks/TaskEditForm.vue,
+          src/components/Tasks/RoomTaskEditModal.vue, src/components/Tasks/TaskChecklist.vue,
+          src/components/Rewards/RewardCatalogEditor.vue,
+          src/components/Rewards/RewardRequestDetails.vue,
+          src/components/Scheduling/AvailabilityEditModal.vue,
+          src/components/Common/ParticipationDialog.vue,
+          tests/e2e/core-household-journey.spec.ts             (BUG-UX-001)
+modified: lib/Service/RoomTaskReadService.php, tests/unit/Service/RoomTaskReadServiceTest.php,
+          src/views/TodayView.vue, src/store/roomTasks.js,
+          tests/unit/components/TodayView.spec.js, tests/unit/store/roomTasks.spec.js,
+          tests/e2e/flex-window-scheduling.spec.ts, docs/api/README.md,
+          l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (BUG-UX-005)
+modified: src/components/Tasks/AssigneeChips.vue, src/components/Tasks/TaskEditForm.vue,
+          tests/e2e/task-manager.spec.ts                       (BUG-UX-004)
+new:      lib/Exception/StaleTargetException.php               (BUG-UX-002)
+modified: lib/Controller/ControllerErrorFormatter.php, lib/Service/AgreementService.php,
+          lib/Service/OccurrenceAgreementService.php,
+          tests/unit/Controller/ControllerErrorFormatterTest.php,
+          tests/unit/Controller/OccurrenceControllerTest.php,
+          tests/unit/Service/AgreementServiceTest.php, tests/unit/Service/OccurrenceServiceTest.php,
+          src/components/Tasks/TaskListDetails.vue, tests/unit/components/TaskListDetails.spec.js,
+          tests/e2e/family-rhythm.spec.ts, docs/api/README.md   (BUG-UX-002)
 ```
 
 ## 6. Implementation Order
@@ -364,7 +487,7 @@ modified: src/** and tests/** rule-family fixes, l10n/* where an ellipsis msgid 
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| Feedback volume exceeds the window | Medium | Date is a target; in-scope findings/tests remain required until explicitly user-rescoped; out-of-scope feedback folds into existing backlog owners |
+| Feedback volume exceeds the window | High (six WP-A items admitted 2026-10-26, a week before the freeze target) | Date is a target; in-scope findings/tests remain required until explicitly user-rescoped; out-of-scope feedback folds into existing backlog owners |
 | A P0/P1 finding appears mid-window | Low | Hotfix rule: own branch, requalification, exchange handoff; this plan rebases |
 | Toolchain majors change the bundle or lint set | Medium | Content-equivalence `js/` comparison (D-088-09), full gates on both rows, package smoke; each major is one revertible commit series |
 | ESLint 10 rule fallout churns many files | Medium | One commit per rule family; rule-policy changes need explicit approval, never suppress warnings to pass |
@@ -417,7 +540,22 @@ accounts, quotations or household details. Raw notes stay with the operator.
 
 | # | Date | Role | Observation | Type / priority | Routing | State |
 |---|------|------|-------------|-----------------|---------|-------|
-| — | — | — | (none yet) | — | — | — |
+| 1 | 2026-10-24 | owner | New Task dialog does not take over the active floor/room filter | Improvement / P2 | [FEAT-UX-038](../../backlog/backlog.md#p2-feat-ux-038--new-task-dialog-should-take-over-the-active-floorroom-filter) | Admitted to WP-A (D-088-11); open |
+| 2 | 2026-10-24 | owner | Flex days stop at 7 although a 6-month period needs more; wanted: up to 50% of the period (rounded up, D-088-12) | Improvement / P2 | [FEAT-UX-039](../../backlog/backlog.md#p2-feat-ux-039--flex-days-should-scale-with-the-recurrence-period-cap-50) | Admitted to WP-A (D-088-11); open |
+| 3 | 2026-10-24 | owner | A click beside the dialog closes it and discards the input; action buttons scroll away (wanted: close only via X, Cancel, Create or Esc; fixed action row, also in other form dialogs) | Bug / P2 | [BUG-UX-001](../../backlog/backlog.md#p2-bug-ux-001--form-dialogs-close-on-a-stray-click-and-lose-the-input-their-actions-scroll-away) | Admitted to WP-A (D-088-11); open |
+| 4 | 2026-10-24 | owner | The "Repeat" selector at the top contradicts the recurrence inputs further down; control size and organisation need rework, with operator feedback first | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Open; design feedback first |
+| 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/backlog.md#p2-bug-ux-005--work-inside-its-flex-window-cannot-be-completed-from-my-day-before-the-planned-day) | Admitted to WP-A (D-088-14); open; affected view to confirm |
+| 6 | 2026-10-26 | owner | Completing before the due date, even before the flex days, should be allowed by default and move the next due date; at most an owner option or a child restriction | Feature / P2 | [FEAT-UX-041](../../backlog/backlog.md#p2-feat-ux-041--allow-completing-work-before-its-window-opens) | Open; product decision |
+| 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; workaround: demote to member, then remove |
+| 8 | 2026-10-26 | owner | Several houses per instance? (question for v1.0) | Feature / P4 | FEAT-UX-042, [archived as rejected](../../backlog/archive/2026-10.md#feat-ux-042-rejected-one-house-per-instance-10-26) | Rejected (D-088-15): too much effort |
+| 9 | 2026-10-26 | owner | My Day shows a checklist button on tasks without a checklist; it vanishes on click | Bug / P3 | [BUG-UX-003](../../backlog/backlog.md#p3-bug-ux-003--my-day-offers-a-checklist-toggle-for-tasks-without-a-checklist) | Open |
+| 10 | 2026-10-26 | owner | Clicking a person in the task details scrolls the whole screen up | Bug / P2 | [BUG-UX-004](../../backlog/backlog.md#p2-bug-ux-004--selecting-a-person-in-the-task-details-scrolls-the-page) | Admitted to WP-A (D-088-14); open |
+| 11 | 2026-10-26 | owner | New Task and Edit Task should share one mask, both with assignees and room | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Folded in; design feedback first |
+| 12 | 2026-10-26 | owner | Templates should mean "copy a task"; a template task in several rooms changes its title everywhere but other details apparently not | Improvement / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; decision on existing shared definitions |
+| 13 | 2026-10-26 | owner | Template picker: room type dropdown and task list, short preview, Putzmuffel/Putzteufel switch, special sets such as pets and garden | Feature / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; mockup first |
+| 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Open |
+| 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/backlog.md#p2-bug-ux-002--moving-one-occurrence-reports-changed-in-the-meantime-for-every-refusal) | Admitted to WP-A (D-088-14); reproduce first (P1 hotfix if a real stale-token defect) |
+| 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Open; decision needed |
 
 ## WP-C Evidence (toolchain series, 2026-10-20)
 
