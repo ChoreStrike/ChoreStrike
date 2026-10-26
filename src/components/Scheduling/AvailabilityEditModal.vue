@@ -5,6 +5,7 @@
 
 <template>
 	<Modal
+		persistent
 		:aria-label="t('chorestrike', 'Edit Availability')"
 		data-testid="edit-availability-modal"
 		@close="close">
@@ -117,7 +118,7 @@
 		</div>
 
 		<template #footer>
-			<div class="modal-footer">
+			<div class="modal-footer cs-dialog-actions">
 				<button
 					class="secondary-button"
 					data-testid="cancel-edit-button"

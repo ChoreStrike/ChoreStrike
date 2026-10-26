@@ -69,4 +69,26 @@ test.describe('Task Manager', () => {
 		await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
 		await expectDialogAboveNavigationToggle(page, page.getByTestId('modal'))
 	})
+
+	// BUG-UX-001 (CS-PLAN-088 feedback #3): a stray click beside the long
+	// form keeps the input, and its actions stay in view on a phone.
+	test('the New Task dialog survives a backdrop click and keeps its actions in view on a phone', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 844 })
+		await page.getByTestId('add-task-button').click()
+		const dialog = page.getByTestId('modal')
+		await expect(dialog).toBeVisible({ timeout: 15000 })
+		await page.getByTestId('task-name-input').fill('Stray click probe')
+
+		expect(await dialog.evaluate((element) => element.scrollHeight > element.clientHeight), 'the form scrolls on a phone').toBe(true)
+		await expect(page.getByTestId('save-task-button')).toBeInViewport({ ratio: 1 })
+
+		const backdrop = { x: 195, y: 834 }
+		expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.classList.contains('modal-overlay'), backdrop), 'the click lands on the backdrop').toBe(true)
+		await page.mouse.click(backdrop.x, backdrop.y)
+		await expect(dialog).toBeVisible()
+		await expect(page.getByTestId('task-name-input')).toHaveValue('Stray click probe')
+
+		await page.getByTestId('modal-close').click()
+		await expect(dialog).toHaveCount(0)
+	})
 })

@@ -154,6 +154,7 @@
 		     draft and shows the refreshed item. -->
 		<Modal
 			v-if="editingItem"
+			persistent
 			:aria-label="t('chorestrike', 'Edit reward')"
 			data-testid="catalog-item-edit"
 			@close="editingItem = null">
@@ -189,7 +190,7 @@
 					role="alert">
 					{{ formError }}
 				</p>
-				<div class="modal-actions">
+				<div class="modal-actions cs-dialog-actions">
 					<button type="button"
 						class="secondary-button"
 						data-testid="edit-item-cancel"

@@ -5,6 +5,7 @@
 
 <template>
 	<Modal
+		persistent
 		:aria-label="dialogHeading"
 		@close="$emit('close')">
 		<div class="participation-dialog" data-testid="participation-dialog">
@@ -46,7 +47,7 @@
 				{{ t('chorestrike', 'To complete a task, include yourself in the work split. If your account is missing, close this dialog and reload.') }}
 			</p>
 
-			<div class="dialog-actions">
+			<div class="dialog-actions cs-dialog-actions">
 				<button
 					class="btn btn-secondary"
 					data-testid="participation-cancel"

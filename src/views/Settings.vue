@@ -407,7 +407,10 @@
 		</div>
 
 		<!-- Add Floor Modal -->
-		<Modal v-if="showAddFloorModal" :aria-label="t('chorestrike', 'Add New Floor')" @close="showAddFloorModal = false">
+		<Modal v-if="showAddFloorModal"
+			persistent
+			:aria-label="t('chorestrike', 'Add New Floor')"
+			@close="showAddFloorModal = false">
 			<div class="modal-content">
 				<h3>{{ t('chorestrike', 'Add New Floor') }}</h3>
 				<div class="form-group">
@@ -420,7 +423,7 @@
 						:placeholder="t('chorestrike', 'e.g., Ground Floor')"
 						@keyup.enter="createFloor">
 				</div>
-				<div class="modal-actions">
+				<div class="modal-actions cs-dialog-actions">
 					<button class="secondary-button" @click="showAddFloorModal = false">
 						{{ t('chorestrike', 'Cancel') }}
 					</button>
@@ -435,7 +438,10 @@
 		</Modal>
 
 		<!-- Edit Floor Modal -->
-		<Modal v-if="showEditFloorModal" :aria-label="t('chorestrike', 'Edit Floor')" @close="showEditFloorModal = false">
+		<Modal v-if="showEditFloorModal"
+			persistent
+			:aria-label="t('chorestrike', 'Edit Floor')"
+			@close="showEditFloorModal = false">
 			<div class="modal-content">
 				<h3>{{ t('chorestrike', 'Edit Floor') }}</h3>
 				<div class="form-group">
@@ -447,7 +453,7 @@
 						class="text-input"
 						@keyup.enter="updateFloor">
 				</div>
-				<div class="modal-actions">
+				<div class="modal-actions cs-dialog-actions">
 					<button class="secondary-button" @click="showEditFloorModal = false">
 						{{ t('chorestrike', 'Cancel') }}
 					</button>

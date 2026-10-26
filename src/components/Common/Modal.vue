@@ -11,7 +11,7 @@
 		<div v-if="show"
 			class="modal-overlay"
 			v-bind="$attrs"
-			@click.self="$emit('close')">
+			@click.self="onBackdropClick">
 			<div
 				ref="container"
 				class="modal-container"
@@ -74,6 +74,17 @@ export default {
 			type: String,
 			default: undefined,
 		},
+
+		/**
+		 * Ignore backdrop clicks (BUG-UX-001): a dialog with user input closes
+		 * only through ×, Escape or its own actions, so a stray click beside
+		 * it keeps the input. Confirmations and informational dialogs leave it
+		 * off.
+		 */
+		persistent: {
+			type: Boolean,
+			default: false,
+		},
 	},
 
 	emits: ['close'],
@@ -135,6 +146,12 @@ export default {
 
 		isTopMost() {
 			return openModals[openModals.length - 1] === this
+		},
+
+		onBackdropClick() {
+			if (!this.persistent) {
+				this.$emit('close')
+			}
 		},
 
 		lockScroll() {
@@ -236,5 +253,18 @@ export default {
 
 .close-button:hover {
 	color: var(--color-main-text);
+}
+</style>
+
+<style>
+/* BUG-UX-001: a dialog's action row stays visible at the bottom of the
+   scrolling dialog. Unscoped, because the row belongs to the caller's
+   slotted content; callers mark it with `cs-dialog-actions`. */
+.modal-container .cs-dialog-actions {
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	padding-block: 0.75rem;
+	background: var(--color-main-background);
 }
 </style>

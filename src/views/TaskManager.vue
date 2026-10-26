@@ -91,14 +91,20 @@
 			</nav>
 		</template>
 
-		<Modal v-if="showAddTaskModal" :aria-label="t('chorestrike', 'New Task')" @close="showAddTaskModal = false">
+		<Modal v-if="showAddTaskModal"
+			persistent
+			:aria-label="t('chorestrike', 'New Task')"
+			@close="showAddTaskModal = false">
 			<TaskEditForm
 				:loading="creating"
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
 		</Modal>
 
-		<Modal v-if="showEditTaskModal" :aria-label="t('chorestrike', 'Edit Task')" @close="showEditTaskModal = false">
+		<Modal v-if="showEditTaskModal"
+			persistent
+			:aria-label="t('chorestrike', 'Edit Task')"
+			@close="showEditTaskModal = false">
 			<TaskEditForm
 				:task="editingTask"
 				@submit="handleUpdateTask"

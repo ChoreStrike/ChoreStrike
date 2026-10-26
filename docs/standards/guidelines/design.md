@@ -163,6 +163,12 @@ FEAT-UX-030 and are enforced in review.
   forwards its required `title` automatically; a `title` attribute on
   `<Modal>` is not an accessible name (the component has no such prop)
   and must not be used.
+- A dialog with user input (forms, reasons, splits) passes `persistent`: a
+  backdrop click no longer closes it, so a stray click keeps the input; ×,
+  Escape and the dialog's own actions still close it. Its action row carries
+  `cs-dialog-actions` and stays visible at the bottom of a scrolling dialog.
+  Confirmations and informational dialogs keep the backdrop close
+  (BUG-UX-001).
 
 ### Focus & motion
 

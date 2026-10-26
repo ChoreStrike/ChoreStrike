@@ -339,7 +339,7 @@
 			</ul>
 		</div>
 
-		<div class="form-actions">
+		<div class="form-actions cs-dialog-actions">
 			<button type="button" class="secondary-button" @click="$emit('cancel')">
 				<Icon name="X" :size="16" class="icon" />
 				{{ t('chorestrike', 'Cancel') }}

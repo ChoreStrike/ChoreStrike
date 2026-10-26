@@ -119,6 +119,34 @@ describe('Modal', () => {
 		})
 	})
 
+	describe('Persistent dialogs (BUG-UX-001)', () => {
+		it('ignores a backdrop click so the input survives', async () => {
+			const wrapper = createWrapper({ persistent: true })
+			await wrapper.find('.modal-overlay').trigger('click')
+			expect(wrapper.emitted('close')).toBeFalsy()
+		})
+
+		it('still closes through the close button', async () => {
+			const wrapper = createWrapper({ persistent: true })
+			await wrapper.find('[data-testid="modal-close"]').trigger('click')
+			expect(wrapper.emitted('close')).toHaveLength(1)
+		})
+
+		it('still closes on Escape', async () => {
+			const wrapper = createWrapper({ persistent: true })
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+			await wrapper.vm.$nextTick()
+			expect(wrapper.emitted('close')).toHaveLength(1)
+		})
+
+		it('is off by default, so confirmations keep the backdrop close', async () => {
+			const wrapper = createWrapper()
+			expect(wrapper.props('persistent')).toBe(false)
+			await wrapper.find('.modal-overlay').trigger('click')
+			expect(wrapper.emitted('close')).toHaveLength(1)
+		})
+	})
+
 	describe('Accessibility (CS-PLAN-044, UX-012)', () => {
 		it('renders role="dialog" with aria-modal="true"', () => {
 			const wrapper = createWrapper()

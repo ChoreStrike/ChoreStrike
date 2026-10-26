@@ -29,7 +29,7 @@
 			<AssigneeChips v-else v-model="assigneeUserIds" :members="houseMembers" />
 		</div>
 
-		<div class="form-actions">
+		<div class="form-actions cs-dialog-actions">
 			<button type="button"
 				class="secondary-button"
 				data-testid="room-task-edit-cancel"

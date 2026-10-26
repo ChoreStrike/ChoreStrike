@@ -74,7 +74,7 @@ to the navigation toggle; decide whether the heading row alone should clear it.
 ---
 
 ### [P2] BUG-UX-001 — Form dialogs close on a stray click and lose the input; their actions scroll away
-**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-11, 2026-10-26; not started) · **Effort**: M · **Layer**: frontend · **Journey stage**: task creation
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-11; implemented 2026-10-26 on `fix/alpha3-feedback`; full browser gate and the operator GUI review open) · **Effort**: M · **Layer**: frontend · **Journey stage**: task creation
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #3
 
@@ -84,18 +84,23 @@ so far. The same component backs about 20 dialogs. The Cancel/Create buttons sit
 at the end of the form inside the scrolling `.modal-container`, so on a long form
 or a small screen they are out of sight.
 
-- [ ] Form dialogs (New/Edit Task in `TaskManager` and `RoomDetail`, floor/room
+- [x] Form dialogs (New/Edit Task in `TaskManager` and `RoomDetail`, floor/room
       dialogs, reward and availability editors) close only through the close
       button, Cancel, the submit action or Esc; a click on the backdrop does
       nothing. Informational dialogs (help, leaderboard, confirmations) keep their
       current behavior. Use an opt-in prop that defaults to `false` (a Boolean
-      prop defaulting to `true` is the TECH-LINT-009 pattern).
-- [ ] The action row stays visible at the bottom of those dialogs while the form
+      prop defaulting to `true` is the TECH-LINT-009 pattern). *`Modal`
+      `persistent`, set on the 14 input dialogs (also sub-task edit, request
+      reasons, participation, work-split correction).*
+- [x] The action row stays visible at the bottom of those dialogs while the form
       body scrolls (also at phone height); the dialog keeps its focus trap and its
-      layer above the navigation toggle.
-- [ ] Tests: Modal spec (backdrop click ignored when locked, still closes when
+      layer above the navigation toggle. *`cs-dialog-actions` (sticky in the
+      dialog's scroll container); rule in `design.md` → Dialogs.*
+- [x] Tests: Modal spec (backdrop click ignored when locked, still closes when
       not; Esc, close button and Cancel always close) and a browser layout check
       that the actions stay inside the viewport on a long form at phone size.
+      *`task-manager.spec.ts` at 390×844: the form scrolls, Create stays fully
+      in view, a backdrop click keeps the typed name.*
 
 ---
 

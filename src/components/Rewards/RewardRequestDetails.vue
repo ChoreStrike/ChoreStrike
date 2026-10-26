@@ -154,6 +154,7 @@
 		<!-- Reject/cancel: closed-set reasons only, never free text. -->
 		<Modal
 			v-if="pendingAction === 'reject' || pendingAction === 'cancel'"
+			persistent
 			:aria-label="pendingAction === 'reject' ? t('chorestrike', 'Decline the request?') : t('chorestrike', 'Cancel the request?')"
 			:data-testid="`${pendingAction}-dialog`"
 			@close="pendingAction = null">
@@ -177,7 +178,7 @@
 						</option>
 					</select>
 				</label>
-				<div class="modal-actions">
+				<div class="modal-actions cs-dialog-actions">
 					<button type="button"
 						class="secondary-button"
 						data-testid="reason-cancel"
@@ -201,6 +202,7 @@
 		     the refund is the server's original settlement entry. -->
 		<Modal
 			v-if="pendingAction === 'correct'"
+			persistent
 			:aria-label="t('chorestrike', 'Report a reward as not delivered?')"
 			data-testid="correct-dialog"
 			@close="pendingAction = null">
@@ -226,7 +228,7 @@
 						data-testid="correct-attestation">
 					{{ t('chorestrike', 'I attest that this reward was never delivered.') }}
 				</label>
-				<div class="modal-actions">
+				<div class="modal-actions cs-dialog-actions">
 					<button type="button"
 						class="secondary-button"
 						data-testid="correct-cancel"

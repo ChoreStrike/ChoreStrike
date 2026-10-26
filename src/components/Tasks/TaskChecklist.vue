@@ -100,7 +100,10 @@
 		</div>
 
 		<!-- Edit Item Modal -->
-		<Modal v-if="editingItem" :aria-label="t('chorestrike', 'Edit Sub-Task')" @close="cancelEdit">
+		<Modal v-if="editingItem"
+			persistent
+			:aria-label="t('chorestrike', 'Edit Sub-Task')"
+			@close="cancelEdit">
 			<div class="edit-item-modal">
 				<h4>{{ t('chorestrike', 'Edit Sub-Task') }}</h4>
 				<input
@@ -108,7 +111,7 @@
 					type="text"
 					class="form-input"
 					:placeholder="t('chorestrike', 'Title')">
-				<div class="form-actions">
+				<div class="form-actions cs-dialog-actions">
 					<button class="btn-secondary" @click="cancelEdit">
 						{{ t('chorestrike', 'Cancel') }}
 					</button>

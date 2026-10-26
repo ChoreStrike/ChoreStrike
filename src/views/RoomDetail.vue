@@ -139,7 +139,10 @@
 			</template>
 		</main>
 
-		<Modal v-if="showAddTaskModal" :aria-label="t('chorestrike', 'Add Task')" @close="showAddTaskModal = false">
+		<Modal v-if="showAddTaskModal"
+			persistent
+			:aria-label="t('chorestrike', 'Add Task')"
+			@close="showAddTaskModal = false">
 			<TaskTemplatePicker
 				v-if="addTaskMode === 'template'"
 				:roomId="roomId"
@@ -156,7 +159,10 @@
 				@cancel="showAddTaskModal = false" />
 		</Modal>
 
-		<Modal v-if="showEditTaskModal" :aria-label="t('chorestrike', 'Edit Task')" @close="closeEditModal">
+		<Modal v-if="showEditTaskModal"
+			persistent
+			:aria-label="t('chorestrike', 'Edit Task')"
+			@close="closeEditModal">
 			<RoomTaskEditModal
 				:roomTask="editingTask"
 				:task="editingTaskDefinition"
@@ -172,7 +178,10 @@
 			@cancel="taskToDelete = null" />
 
 		<!-- Rename Room (owner only) -->
-		<Modal v-if="showRenameRoomModal" :aria-label="t('chorestrike', 'Rename Room')" @close="closeRenameRoom">
+		<Modal v-if="showRenameRoomModal"
+			persistent
+			:aria-label="t('chorestrike', 'Rename Room')"
+			@close="closeRenameRoom">
 			<div class="modal-content">
 				<h3>{{ t('chorestrike', 'Rename Room') }}</h3>
 				<div class="form-group">
@@ -185,7 +194,7 @@
 						data-testid="room-rename-input"
 						@keyup.enter="confirmRenameRoom">
 				</div>
-				<div class="modal-actions">
+				<div class="modal-actions cs-dialog-actions">
 					<button class="secondary-button" @click="closeRenameRoom">
 						{{ t('chorestrike', 'Cancel') }}
 					</button>

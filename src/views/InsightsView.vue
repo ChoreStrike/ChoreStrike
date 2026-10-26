@@ -66,6 +66,7 @@
 
 			<Modal
 				v-if="correction && (correction.conflict || correction.uncertain)"
+				persistent
 				:aria-label="t('chorestrike', 'Correct the work split')"
 				@close="cancelCorrection">
 				<section
@@ -97,7 +98,7 @@
 							</ul>
 						</div>
 					</div>
-					<div class="review-actions">
+					<div class="review-actions cs-dialog-actions">
 						<button type="button" @click="cancelCorrection">
 							{{ t('chorestrike', 'Cancel') }}
 						</button>
