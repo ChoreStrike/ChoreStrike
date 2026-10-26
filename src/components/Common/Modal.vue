@@ -228,6 +228,9 @@ export default {
 	width: 100%;
 	max-height: 90vh;
 	overflow: auto;
+	/* A field scrolled into view (focus, Tab) stays clear of a sticky
+	   `cs-dialog-actions` row (BUG-UX-001). */
+	scroll-padding-block-end: 6rem;
 }
 
 .modal-container:focus {
