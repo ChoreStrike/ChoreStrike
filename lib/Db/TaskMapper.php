@@ -128,7 +128,7 @@ class TaskMapper extends QBMapper {
 	 * @param string|null $fixedScheduleDays Optional fixed schedule days
 	 * @param string $visibilityType The visibility type
 	 * @param string|null $ownerUserId The owner for private definitions
-	 * @param int $flexDays Flex-window size in days (0-7, CS-PLAN-063 §3.3)
+	 * @param int $flexDays Flex-window size in days (0 up to the rule's cap, FlexDaysPolicy)
 	 */
 	public function create(
 		string $name,

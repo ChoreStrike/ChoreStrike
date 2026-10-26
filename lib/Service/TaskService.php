@@ -50,9 +50,8 @@ class TaskService {
 	/** Hard length cap for free-text instruction/tip fields (CS-PLAN-063 §3.1). */
 	public const MAX_TEXT_LENGTH = 2000;
 
-	/** Valid flex-window bounds (CS-PLAN-063 D3, ratified [0, 7]). */
+	/** Lower flex-window bound; the upper bound is the rule's cap ({@see FlexDaysPolicy}, FEAT-UX-039). */
 	public const FLEX_DAYS_MIN = 0;
-	public const FLEX_DAYS_MAX = 7;
 
 	/** Canonical weekday names accepted in fixedScheduleDays. */
 	public const WEEKDAYS = [
@@ -237,6 +236,7 @@ class TaskService {
 			$task = $this->taskMapper->lockForUpdate($taskId);
 			$before = clone $task;
 			$this->applyUpdates($task, array_intersect_key($updates, array_flip(self::MUTABLE_FIELDS)));
+			$this->assertFlexWithinCap($before, $task);
 			$updated = $this->taskMapper->update($task);
 
 			if ($this->ruleRelevantInputsChanged($before, $updated)) {
@@ -285,6 +285,28 @@ class TaskService {
 			|| $before->getFlexDays() !== $after->getFlexDays()
 			|| $before->getIsVoluntary() !== $after->getIsVoluntary()
 			|| $before->getVisibilityType() !== $after->getVisibilityType();
+	}
+
+	/**
+	 * FEAT-UX-039: a changed flex value or rule input must fit the merged
+	 * rule's cap. A stored value above the cap stays valid while neither
+	 * changes, so unrelated edits of a legacy definition still save.
+	 *
+	 * @throws ValidationException
+	 */
+	private function assertFlexWithinCap(Task $before, Task $after): void {
+		$weekdays = static fn (Task $task): array => FlexDaysPolicy::fixedWeekdays(Task::SCHEDULING_STATIC, $task->getFixedScheduleDays());
+		$changed = $before->getFlexDays() !== $after->getFlexDays()
+			|| $before->getFrequencyType() !== $after->getFrequencyType()
+			|| $before->getFrequencyValue() !== $after->getFrequencyValue()
+			|| $before->getRecurrenceMode() !== $after->getRecurrenceMode()
+			|| $before->getSchedulingMode() !== $after->getSchedulingMode()
+			|| $weekdays($before) !== $weekdays($after);
+		$max = FlexDaysPolicy::maxForTask($after);
+		if ($changed && (int)$after->getFlexDays() > $max) {
+			$message = $this->flexRangeError($max);
+			throw new ValidationException($message, [$message]);
+		}
 	}
 
 	/**
@@ -417,7 +439,11 @@ class TaskService {
 
 		$this->validateDateFields($taskData, $errors);
 		$this->validateFixedScheduleFields($taskData, $errors);
-		$this->validateFlexAndTextFields($taskData, $errors);
+		// The creation path validates a complete definition (defaults merged),
+		// so its rule cap applies here; partial updates only get the sanity
+		// bound and check the merged entity in assertFlexWithinCap().
+		$maxFlexDays = $requireName ? $this->flexCapOfDefinition($taskData) : FlexDaysPolicy::SANITY_MAX;
+		$this->validateFlexAndTextFields($taskData, $errors, $maxFlexDays);
 
 		// Visibility type validation
 		if (isset($taskData['visibilityType'])) {
@@ -512,19 +538,20 @@ class TaskService {
 
 	/**
 	 * Flex-window and free-text validation: flexDays is an integer within
-	 * the ratified [0, 7] bound (CS-PLAN-063 D3); instructions/tips are
-	 * length-capped strings.
+	 * [0, $maxFlexDays] (FEAT-UX-039: the rule's cap, formerly a fixed 7);
+	 * instructions/tips are length-capped strings.
 	 *
 	 * @param array $taskData The task data to validate
 	 * @param string[] $errors Error accumulator
+	 * @param int $maxFlexDays Upper flex bound for this payload
 	 */
-	private function validateFlexAndTextFields(array $taskData, array &$errors): void {
+	private function validateFlexAndTextFields(array $taskData, array &$errors, int $maxFlexDays): void {
 		$flexDays = $taskData['flexDays'] ?? null;
 		if ($flexDays !== null) {
 			if (!is_int($flexDays)) {
 				$errors[] = $this->typeError('flexDays');
-			} elseif ($flexDays < self::FLEX_DAYS_MIN || $flexDays > self::FLEX_DAYS_MAX) {
-				$errors[] = $this->l10n->t('Flex days must be between %1$d and %2$d', [self::FLEX_DAYS_MIN, self::FLEX_DAYS_MAX]);
+			} elseif ($flexDays < self::FLEX_DAYS_MIN || $flexDays > $maxFlexDays) {
+				$errors[] = $this->flexRangeError($maxFlexDays);
 			}
 		}
 
@@ -547,6 +574,27 @@ class TaskService {
 	 */
 	private function typeError(string $field): string {
 		return $this->l10n->t('Invalid value type for field: %1$s', [$field]);
+	}
+
+	private function flexRangeError(int $maxFlexDays): string {
+		return $this->l10n->t('Flex days must be between %1$d and %2$d', [self::FLEX_DAYS_MIN, $maxFlexDays]);
+	}
+
+	/**
+	 * The flex cap of a complete creation definition; malformed rule
+	 * values (already reported) fall back to the creation defaults.
+	 */
+	private function flexCapOfDefinition(array $taskData): int {
+		$frequencyType = $taskData['frequencyType'] ?? 'weekly';
+		$frequencyValue = $taskData['frequencyValue'] ?? 1;
+		$recurrenceMode = $taskData['recurrenceMode'] ?? Task::RECURRENCE_RECURRING;
+		$schedulingMode = $taskData['schedulingMode'] ?? Task::SCHEDULING_DYNAMIC;
+		return FlexDaysPolicy::maxFlexDays(
+			is_string($frequencyType) ? $frequencyType : 'weekly',
+			is_int($frequencyValue) ? $frequencyValue : 1,
+			is_string($recurrenceMode) ? $recurrenceMode : Task::RECURRENCE_RECURRING,
+			FlexDaysPolicy::fixedWeekdays(is_string($schedulingMode) ? $schedulingMode : '', $taskData['fixedScheduleDays'] ?? null),
+		);
 	}
 
 	/**

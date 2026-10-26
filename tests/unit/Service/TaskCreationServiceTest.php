@@ -600,13 +600,18 @@ class TaskCreationServiceTest extends TestCase {
 				['schedulingMode' => 'sometimes'],
 				'Invalid scheduling mode',
 			],
-			'flexDays above the ratified bound' => [
-				['flexDays' => 8],
-				'Flex days must be between 0 and 7',
+			// FEAT-UX-039: the weekly payload's cap is ceil(7 / 2) = 4.
+			'flexDays one above the weekly cap' => [
+				['flexDays' => 5],
+				'Flex days must be between 0 and 4',
 			],
 			'flexDays negative' => [
 				['flexDays' => -1],
-				'Flex days must be between 0 and 7',
+				'Flex days must be between 0 and 4',
+			],
+			'flexDays above the cap of a weekday set' => [
+				['schedulingMode' => 'static', 'fixedScheduleTime' => '08:00', 'fixedScheduleDays' => ['monday', 'thursday'], 'flexDays' => 3],
+				'Flex days must be between 0 and 2',
 			],
 			'flexDays non-integer is never coerced' => [
 				['flexDays' => '3'],
@@ -647,7 +652,8 @@ class TaskCreationServiceTest extends TestCase {
 	 * Create_ValidSchedulingPayloads_Accepted
 	 *
 	 * Positive half of the closed set: static scheduling with canonical
-	 * weekday lists and the flex bounds 0 and 7 pass validation.
+	 * weekday lists and a flex value at the rule's cap (FEAT-UX-039: weekly
+	 * 4, every six months 90) pass validation.
 	 */
 	public function testCreate_ValidSchedulingPayloads_Accepted(): void {
 		$this->stubAggregateHappyPath();
@@ -663,10 +669,15 @@ class TaskCreationServiceTest extends TestCase {
 
 		$this->service->create(10, $this->createHouseUser(), [
 			'roomId' => 5,
-			'task' => $this->validTaskPayload(['flexDays' => 7]),
+			'task' => $this->validTaskPayload(['flexDays' => 4]),
 		]);
 
-		$this->assertCount(2, $this->definitionInserts);
+		$this->service->create(10, $this->createHouseUser(), [
+			'roomId' => 5,
+			'task' => $this->validTaskPayload(['frequencyType' => 'monthly', 'frequencyValue' => 6, 'flexDays' => 90]),
+		]);
+
+		$this->assertCount(3, $this->definitionInserts);
 		$this->assertSame(
 			json_encode(['monday', 'friday']),
 			$this->definitionArg($this->definitionInserts[0], 'fixedScheduleDays'),

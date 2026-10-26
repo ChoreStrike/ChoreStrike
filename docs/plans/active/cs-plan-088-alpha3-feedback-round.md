@@ -210,6 +210,13 @@ Admitted items (D-088-11, D-088-14, D-088-16):
   sanity bound otherwise); the form mirrors the formula in a small utility for
   its `max` and hint. A flex value above the new cap that is already stored stays
   valid on unrelated edits. `docs/api/README.md` documents the new range.
+  *Implementation note (2026-10-26):* the 7-day clamp mirrored the 7-day
+  agreement horizon (`OccurrenceReconcileService::HORIZON_DAYS`). Late windows
+  of any length and the early windows of completion-relative tasks (successors
+  materialize at completion) work in full; a fixed calendar cadence agrees
+  occurrences seven days ahead and so opens at most seven days early. The
+  horizon stays unchanged — a longer frontier would delay every rule edit to
+  beyond it — and the form states the limit for fixed schedules.
 - **BUG-UX-001 dialogs:** `Modal.vue` gains an opt-in prop (default `false`) that
   ignores backdrop clicks, and a sticky action row for slotted form actions;
   every dialog with user input sets it (task create/edit, room-task edit, room
@@ -442,9 +449,13 @@ modified: src/views/TaskManager.vue, src/components/Tasks/TaskEditForm.vue,
 new:      lib/Service/FlexDaysPolicy.php, tests/unit/Service/FlexDaysPolicyTest.php,
           src/utils/flexDays.js, tests/unit/utils/flexDays.spec.js   (FEAT-UX-039)
 modified: lib/Service/TaskService.php, lib/Service/OccurrenceRevisionService.php,
+          lib/Db/TaskMapper.php (docblock),
           tests/unit/Service/TaskServiceTest.php, tests/unit/Service/OccurrenceServiceTest.php,
+          tests/unit/Service/TaskCreationServiceTest.php,
+          tests/integration/Service/TaskCreationAggregateTest.php, tests/e2e/3-floor-house.spec.ts,
           src/components/Tasks/TaskEditForm.vue, tests/unit/components/TaskEditForm.spec.js,
-          docs/api/README.md, l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-039)
+          docs/api/README.md, docs/concepts/task-model-and-sync.md,
+          l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-039)
 modified: src/components/Common/Modal.vue, tests/unit/components/Modal.spec.js,
           src/views/TaskManager.vue, src/views/RoomDetail.vue, src/views/Settings.vue,
           src/views/InsightsView.vue, src/components/Tasks/TaskEditForm.vue,
@@ -564,7 +575,7 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | # | Date | Role | Observation | Type / priority | Routing | State |
 |---|------|------|-------------|-----------------|---------|-------|
 | 1 | 2026-10-24 | owner | New Task dialog does not take over the active floor/room filter | Improvement / P2 | [FEAT-UX-038](../../backlog/backlog.md#p2-feat-ux-038--new-task-dialog-should-take-over-the-active-floorroom-filter) | Fixed on `fix/alpha3-feedback` (D-088-11, D-088-13); full gate and GUI review open |
-| 2 | 2026-10-24 | owner | Flex days stop at 7 although a 6-month period needs more; wanted: up to 50% of the period (rounded up, D-088-12) | Improvement / P2 | [FEAT-UX-039](../../backlog/backlog.md#p2-feat-ux-039--flex-days-should-scale-with-the-recurrence-period-cap-50) | Admitted to WP-A (D-088-11); open |
+| 2 | 2026-10-24 | owner | Flex days stop at 7 although a 6-month period needs more; wanted: up to 50% of the period (rounded up, D-088-12) | Improvement / P2 | [FEAT-UX-039](../../backlog/backlog.md#p2-feat-ux-039--flex-days-should-scale-with-the-recurrence-period-cap-50) | Fixed on `fix/alpha3-feedback` (D-088-11, D-088-12); fixed schedules open at most 7 days early; full gate and GUI review open |
 | 3 | 2026-10-24 | owner | A click beside the dialog closes it and discards the input; action buttons scroll away (wanted: close only via X, Cancel, Create or Esc; fixed action row, also in other form dialogs) | Bug / P2 | [BUG-UX-001](../../backlog/backlog.md#p2-bug-ux-001--form-dialogs-close-on-a-stray-click-and-lose-the-input-their-actions-scroll-away) | Fixed on `fix/alpha3-feedback` (D-088-11); full gate and GUI review open |
 | 4 | 2026-10-24 | owner | The "Repeat" selector at the top contradicts the recurrence inputs further down; control size and organisation need rework, with operator feedback first | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Open; design feedback first |
 | 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/backlog.md#p2-bug-ux-005--work-inside-its-flex-window-cannot-be-completed-from-my-day-before-the-planned-day) | Admitted to WP-A (D-088-14); open; affected view to confirm |

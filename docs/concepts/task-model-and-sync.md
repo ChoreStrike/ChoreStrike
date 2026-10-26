@@ -120,6 +120,11 @@ and non-punitive recovery. WP1-WP4 implement the approved rules below.
 - By default a chore is on time on its planned day through day-end. The household
   can instead agree an earlier/later window for that task, such as Friday-Sunday
   for a Saturday chore. One completion fulfills that occurrence exactly once.
+  The window (flex days, symmetric) is at most half the recurrence period,
+  rounded up — every 6 months → 90 days, weekly → 4, daily → 1 (FEAT-UX-039,
+  [API](../api/README.md#tasks)); neighbouring windows may then share a day, and
+  the earliest deadline is the target there. Occurrences of a fixed calendar
+  cadence are agreed seven days ahead, so they open at most seven days early.
 - Repeated misses produce one visible catch-up item per recurring chore, not an
   accumulating list of identical cards. Missed occurrences remain historical
   misses; completing once does not turn every missed occurrence into a success.

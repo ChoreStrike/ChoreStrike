@@ -211,22 +211,68 @@ describe('TaskEditForm', () => {
 			.toBe('Only house owners can see and complete this task')
 	})
 
-	it('submits nextDue and persists flexDays within the ratified 0-7 bound (CS-PLAN-063 §3.5)', async () => {
+	it('submits nextDue and persists flexDays within the weekly cap (CS-PLAN-063 §3.5, FEAT-UX-039)', async () => {
 		const wrapper = mountForm()
 		await fillRequiredCreateFields(wrapper)
 
 		const flexInput = wrapper.find('[data-testid="task-flex-days-input"]')
-		expect(flexInput.attributes('max')).toBe('7')
+		expect(flexInput.attributes('max')).toBe('4')
 
-		await flexInput.setValue('5')
+		await flexInput.setValue('3')
 		await wrapper.find('[data-testid="task-next-due-input"]').setValue('2030-05-10')
 		await wrapper.find('[data-testid="task-instructions-input"]').setValue('Step 1: sweep')
 		await wrapper.find('form').trigger('submit')
 
 		const payload = wrapper.emitted('submit')[0][0]
 		expect(payload.nextDue).toBe('2030-05-10')
-		expect(payload.flexDays).toBe(5)
+		expect(payload.flexDays).toBe(3)
 		expect(payload.instructions).toBe('Step 1: sweep')
+	})
+
+	// FEAT-UX-039 (D-088-12): the flex cap follows the recurrence.
+	it('derives the flex maximum from the recurrence and blocks a value above it', async () => {
+		const wrapper = mountForm()
+		await fillRequiredCreateFields(wrapper)
+		const flexInput = wrapper.find('[data-testid="task-flex-days-input"]')
+		const save = () => wrapper.find('[data-testid="save-task-button"]').attributes('disabled')
+
+		await wrapper.find('[data-testid="task-frequency-type"]').setValue('monthly')
+		await wrapper.find('[data-testid="task-frequency-value"]').setValue('6')
+		expect(flexInput.attributes('max')).toBe('90')
+		expect(wrapper.find('[data-testid="task-flex-days-limit"]').text()).toContain('Up to 90 days')
+		await flexInput.setValue('90')
+		expect(save()).toBeUndefined()
+
+		// Shortening the period re-validates the entered value.
+		await wrapper.find('[data-testid="task-frequency-type"]').setValue('weekly')
+		await wrapper.find('[data-testid="task-frequency-value"]').setValue('1')
+		expect(flexInput.attributes('max')).toBe('4')
+		expect(wrapper.find('[data-testid="task-flex-days-limit"]').classes()).toContain('field-error')
+		expect(save()).toBeDefined()
+	})
+
+	it('keeps a stored legacy value above the cap valid until flex or the rule changes', async () => {
+		const wrapper = mountForm({ task: { id: 1, name: 'Wipe the table', frequencyType: 'daily', frequencyValue: 1, flexDays: 7 } })
+		const save = () => wrapper.find('[data-testid="save-task-button"]').attributes('disabled')
+		expect(save()).toBeUndefined()
+
+		await wrapper.find('[data-testid="task-name-input"]').setValue('Wipe the big table')
+		expect(save()).toBeUndefined()
+
+		await wrapper.find('[data-testid="task-flex-days-input"]').setValue('6')
+		expect(wrapper.find('[data-testid="task-flex-days-input"]').attributes('max')).toBe('1')
+		expect(save()).toBeDefined()
+	})
+
+	it('explains the early limit of a fixed schedule with a long window', async () => {
+		const wrapper = mountForm()
+		await wrapper.find('[data-testid="task-frequency-type"]').setValue('monthly')
+		await wrapper.find('[data-testid="task-frequency-value"]').setValue('6')
+		await wrapper.find('[data-testid="task-flex-days-input"]').setValue('30')
+		expect(wrapper.find('[data-testid="task-flex-days-fixed-note"]').exists()).toBe(false)
+
+		await wrapper.find('input[type="radio"][value="static"]').setValue(true)
+		expect(wrapper.find('[data-testid="task-flex-days-fixed-note"]').text()).toContain('at most 7 days early')
 	})
 
 	it('submits nextDue null when the due date is left empty', async () => {

@@ -103,7 +103,9 @@ class OccurrenceRevisionService {
 			}
 		}
 
-		$flex = min(7, max(0, (int)$task->getFlexDays()));
+		// FEAT-UX-039: validation owns the rule's cap; this read side only
+		// guards the sanity bound and never shrinks a stored legacy value.
+		$flex = min(FlexDaysPolicy::SANITY_MAX, max(0, (int)$task->getFlexDays()));
 
 		return [
 			'cadenceMode' => $cadenceMode,

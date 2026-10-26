@@ -251,12 +251,22 @@
 						type="number"
 						class="form-input"
 						min="0"
-						max="7"
+						:max="flexDaysMax"
 						data-testid="task-flex-days-input">
 					<span class="flex-days-hint">
 						{{ t('chorestrike', 'Flexible scheduling window in days') }}
 					</span>
 				</div>
+				<p class="flex-days-limit"
+					:class="{ 'field-error': flexDaysExceeded }"
+					data-testid="task-flex-days-limit">
+					{{ t('chorestrike', 'Up to {max} days for this recurrence', { max: flexDaysMax }) }}
+				</p>
+				<p v-if="form.schedulingMode === 'static' && form.flexDays > fixedScheduleEarlyDays"
+					class="flex-days-info"
+					data-testid="task-flex-days-fixed-note">
+					{{ t('chorestrike', 'With a fixed schedule, the task can be done at most {days} days early.', { days: fixedScheduleEarlyDays }) }}
+				</p>
 				<p v-if="form.flexDays > 0" class="flex-days-info">
 					<Icon name="Info" :size="14" />
 					{{ t('chorestrike', 'Task can be completed {days} days before or after ideal date', { days: form.flexDays }) }}
@@ -366,6 +376,7 @@ import { VISIBILITY_ADMIN_ONLY, VISIBILITY_PRIVATE, VISIBILITY_PUBLIC } from '..
 import { useRoomsStore } from '../../store/rooms.js'
 import { useSetupStore } from '../../store/setup.js'
 import { useUserStore } from '../../store/user.js'
+import { FIXED_SCHEDULE_EARLY_DAYS, maxFlexDays } from '../../utils/flexDays.js'
 import { logger } from '../../utils/logger.js'
 import { Icon } from '../Common/index.js'
 
@@ -614,8 +625,38 @@ export default {
 			return suffixes[form.frequencyType] || ''
 		})
 
+		// FEAT-UX-039: the flex cap follows the rule. A stored legacy value
+		// above it stays valid while neither flex nor the rule changes —
+		// the server applies the same exception.
+		const ruleInputsUnchanged = computed(() => {
+			const task = props.task
+			return !!task
+				&& form.flexDays === (task.flexDays || 0)
+				&& form.frequencyType === (task.frequencyType || 'weekly')
+				&& form.frequencyValue === (task.frequencyValue || 1)
+				&& form.recurrenceMode === (task.recurrenceMode || 'recurring')
+				&& form.schedulingMode === (task.schedulingMode || 'dynamic')
+				&& JSON.stringify(selectedWeekdays.value) === JSON.stringify(parseWeekdays(task.fixedScheduleDays))
+		})
+
+		const flexDaysMax = computed(() => {
+			const cap = maxFlexDays({
+				frequencyType: form.frequencyType,
+				frequencyValue: form.frequencyValue,
+				recurrenceMode: form.recurrenceMode,
+				schedulingMode: form.schedulingMode,
+				weekdays: selectedWeekdays.value,
+			})
+			return ruleInputsUnchanged.value ? Math.max(cap, form.flexDays) : cap
+		})
+
+		const flexDaysExceeded = computed(() => form.flexDays > flexDaysMax.value)
+
 		const isValid = computed(() => {
 			if (!form.name?.trim()) {
+				return false
+			}
+			if (form.flexDays < 0 || flexDaysExceeded.value) {
 				return false
 			}
 			if (!isEditing.value && !selectedRoomId.value) {
@@ -721,6 +762,9 @@ export default {
 			weekdays,
 			selectedWeekdays,
 			frequencySuffix,
+			flexDaysMax,
+			flexDaysExceeded,
+			fixedScheduleEarlyDays: FIXED_SCHEDULE_EARLY_DAYS,
 			isValid,
 			visibilityHint,
 			catalogTemplates,
@@ -957,6 +1001,16 @@ export default {
 	margin-top: 0.5rem;
 	color: var(--color-primary-element);
 	font-size: 0.85rem;
+}
+
+.flex-days-limit {
+	margin: 0.4rem 0 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
+}
+
+.flex-days-limit.field-error {
+	color: var(--color-error-text);
 }
 
 /* Preview block (CS-PLAN-063 §3.5) */

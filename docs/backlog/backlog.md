@@ -130,7 +130,7 @@ even while the list is filtered to one room. `RoomPicker` only knows
 ---
 
 ### [P2] FEAT-UX-039 — Flex days should scale with the recurrence period (cap 50%)
-**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-11, 2026-10-26; not started) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-11/-12; implemented 2026-10-26 on `fix/alpha3-feedback`; full browser gate and the operator GUI review open) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #2
 
@@ -140,26 +140,34 @@ period. A task repeating every 6 months cannot get a meaningful window. The
 operator asks for a cap of 50% of the period. No schema change: `flex_days` is a
 plain integer column.
 
-- [ ] Cap `flexDays ≤ ceil(0.5 × period days)` (operator, 2026-10-26). Period
+- [x] Cap `flexDays ≤ ceil(0.5 × period days)` (operator, 2026-10-26). Period
       days = `frequencyValue` × unit days (day 1, week 7, month 30; the legacy
       `custom` type maps to one week). Examples: every 10 days → 5, every 2
       weeks → 7, every 6 months → 90, daily → 1. For a fixed weekly rule with
       several weekdays the period is the smallest gap between them (operator,
       2026-10-26, D-088-12; Mon+Thu → 3 → cap 2), otherwise the windows of one
-      week overlap heavily.
-- [ ] With `ceil` the windows of neighbouring occurrences share one day (even
+      week overlap heavily. *`FlexDaysPolicy` (one-time tasks keep 7, sanity
+      bound 366), mirrored by `src/utils/flexDays.js`.*
+- [x] With `ceil` the windows of neighbouring occurrences share one day (even
       period) or two days (odd period); the canonical selection (earliest
       window end first) must stay deterministic there.
-- [ ] Backend validation and the form's `max`/hint derive from frequency type and
+- [x] Backend validation and the form's `max`/hint derive from frequency type and
       value; changing the frequency re-validates the flex value in the form.
-- [ ] Persisted facts stay untouched: no rewrite of stored values; the cap
+- [x] Persisted facts stay untouched: no rewrite of stored values; the cap
       applies to new or changed flex/frequency input only (editing an unrelated
       field of a task above the new cap must still save), and read-side clamps may
       only guard a hard sanity bound, never shrink a stored value.
-- [ ] Tests: PHPUnit boundary cases per unit and for a weekday set (at the cap,
+- [x] Tests: PHPUnit boundary cases per unit and for a weekday set (at the cap,
       one above, legacy value kept on an unrelated update), a selection case with
       overlapping windows, Jest for the form; `docs/api/` and `l10n/` updated in
       the same change.
+
+*Found while implementing (2026-10-26):* the former clamp mirrored the 7-day
+agreement horizon. A fixed calendar cadence agrees occurrences seven days
+ahead, so its window opens at most seven days early whatever the flex value;
+completion-relative tasks and all late windows use the full window. The form
+says so for fixed schedules; early completion beyond the window stays
+FEAT-UX-041.
 
 ---
 

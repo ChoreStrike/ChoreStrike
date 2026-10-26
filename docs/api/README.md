@@ -481,9 +481,21 @@ argument can never bind from that shape and would 500 on every real HTTP call
 > is range/type-checked — `schedulingMode` ∈ `dynamic|static`, parseable
 > `fixedScheduleTime` / `activeFrom` / `activeUntil`, `fixedScheduleDays` as a
 > weekday list over `monday`…`sunday` (canonical JSON persisted),
-> `flexDays` ∈ [0, 7], `instructions`/`tips` ≤ 2000 chars, and strict types
+> `flexDays` ∈ [0, cap], `instructions`/`tips` ≤ 2000 chars, and strict types
 > (non-strings/floats are rejected with 400, never coerced). Empty strings
 > clear a date field.
+>
+> **Flex cap (FEAT-UX-039, CS-PLAN-088 D-088-12):** `flexDays` may be at most
+> half the recurrence period, rounded up: period = `frequencyValue` × unit
+> days (daily 1, weekly 7, monthly 30; `custom` one week); a fixed weekly rule
+> on several weekdays uses the smallest gap between them (Mon+Thu → 3 → cap 2);
+> a one-time task keeps 7; 366 is the sanity bound. Examples: every 10 days → 5,
+> every 2 weeks → 7, every 6 months → 90, daily → 1. An update re-checks the cap
+> against the merged definition only when `flexDays` or a rule input
+> (`frequencyType`, `frequencyValue`, `recurrenceMode`, `schedulingMode`,
+> `fixedScheduleDays`) changes, so a stored value above the cap stays valid on
+> unrelated edits. A fixed schedule agrees occurrences seven days ahead, so it
+> can be completed at most seven days early whatever its flex.
 
 ### Room Tasks
 

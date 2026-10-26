@@ -3419,6 +3419,9 @@ msgstr ""
 msgid "Up"
 msgstr ""
 
+msgid "Up to {max} days for this recurrence"
+msgstr ""
+
 msgid "Update Task"
 msgstr ""
 
@@ -3585,6 +3588,9 @@ msgid "Wipe the stains before they dry. A golden sponge doubles your points — 
 msgstr ""
 
 msgid "With a basement, the above-ground floors are limited to five. The basement counts toward the six-floor total."
+msgstr ""
+
+msgid "With a fixed schedule, the task can be done at most {days} days early."
 msgstr ""
 
 msgid "Withdraw participation"

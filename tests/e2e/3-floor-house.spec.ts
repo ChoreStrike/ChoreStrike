@@ -211,7 +211,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
 			expect(roomId, 'the test house setup must provide a room').toBeTruthy()
 
-			// flexDays 8 violates the ratified [0, 7] bound → 400, zero writes.
+			// flexDays 8 exceeds the weekly cap (4, FEAT-UX-039) → 400, zero writes.
 			const failed = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 				data: {
 					roomId,

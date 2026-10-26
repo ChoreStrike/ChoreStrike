@@ -9,6 +9,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TaskService;
@@ -457,6 +458,80 @@ class TaskServiceTest extends TestCase {
 		$result = $this->service->updateTask(1, ['ownerUserId' => 'new-owner'], $actor);
 
 		$this->assertSame('new-owner', $result->getOwnerUserId());
+	}
+
+	// ------------------------------------------------------------------
+	// FEAT-UX-039: the flex cap follows the merged rule (D-088-12)
+	// ------------------------------------------------------------------
+
+	private function ruleTask(string $frequencyType, int $frequencyValue, int $flexDays): Task {
+		$task = new Task();
+		$task->setId(1);
+		$task->setName('Clean the gutters');
+		$task->setFrequencyType($frequencyType);
+		$task->setFrequencyValue($frequencyValue);
+		$task->setRecurrenceMode(Task::RECURRENCE_RECURRING);
+		$task->setSchedulingMode(Task::SCHEDULING_DYNAMIC);
+		$task->setFlexDays($flexDays);
+		return $task;
+	}
+
+	private function stubEditableTask(Task $task): void {
+		$this->taskMapper->method('find')->willReturn($task);
+		$this->stubTaskVisible();
+		$this->stubLockedTask($task);
+	}
+
+	public function testUpdateTask_FlexAtTheCapOfAHalfYearRule_Saves(): void {
+		$this->stubEditableTask($this->ruleTask('monthly', 6, 7));
+		$this->taskMapper->method('update')->willReturnArgument(0);
+
+		$result = $this->service->updateTask(1, ['flexDays' => 90], $this->createHouseUser());
+
+		$this->assertSame(90, $result->getFlexDays());
+	}
+
+	public function testUpdateTask_FlexOneAboveTheCap_RejectedWithoutWrite(): void {
+		$this->stubEditableTask($this->ruleTask('monthly', 6, 7));
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(ValidationException::class);
+		$this->service->updateTask(1, ['flexDays' => 91], $this->createHouseUser());
+	}
+
+	public function testUpdateTask_UnrelatedEditOfALegacyValueAboveTheCap_Saves(): void {
+		// A daily task kept its former 7 flex days (cap now 1); the edit form
+		// re-sends the unchanged rule fields with the new name.
+		$this->stubEditableTask($this->ruleTask('daily', 1, 7));
+		$this->taskMapper->method('update')->willReturnArgument(0);
+
+		$result = $this->service->updateTask(1, [
+			'name' => 'Wipe the table',
+			'frequencyType' => 'daily',
+			'frequencyValue' => 1,
+			'flexDays' => 7,
+		], $this->createHouseUser());
+
+		$this->assertSame('Wipe the table', $result->getName());
+		$this->assertSame(7, $result->getFlexDays(), 'a stored legacy value is never rewritten');
+	}
+
+	public function testUpdateTask_ChangedRuleRevalidatesALegacyValue(): void {
+		$this->stubEditableTask($this->ruleTask('daily', 1, 7));
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(ValidationException::class);
+		// Every 2 days → cap 1, the stored 7 no longer fits the changed rule.
+		$this->service->updateTask(1, ['frequencyValue' => 2], $this->createHouseUser());
+	}
+
+	public function testUpdateTask_FlexAboveTheSanityBound_RejectedBeforeTheLock(): void {
+		$this->taskMapper->method('find')->willReturn($this->ruleTask('monthly', 24, 0));
+		$this->stubTaskVisible();
+
+		// No stubLockedTask(): reaching the lock would fail the test.
+		$this->expectException(ValidationException::class);
+		$this->service->updateTask(1, ['flexDays' => 400], $this->createHouseUser());
 	}
 
 	/**

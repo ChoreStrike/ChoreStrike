@@ -311,7 +311,9 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 				'fixedScheduleDays' => ['monday', 'thursday'],
 			],
 			'flex bound 0' => ['flexDays' => 0],
-			'flex bound 7' => ['flexDays' => 7],
+			// FEAT-UX-039: the cap follows the rule (weekly 4, half a year 90).
+			'flex at the weekly cap' => ['flexDays' => 4],
+			'flex at the half-year cap' => ['frequencyType' => 'monthly', 'frequencyValue' => 6, 'flexDays' => 90],
 		];
 
 		foreach ($permutations as $label => $override) {
@@ -336,13 +338,13 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 			}
 		}
 
-		// flexDays 8 → 400 (ratified bound).
+		// flexDays 5 → 400 (one above the weekly cap).
 		try {
 			$this->service->create($houseId, $this->actor($houseId, 'agg_owner7'), [
 				'roomId' => $roomId,
-				'task' => $this->validTaskPayload(['flexDays' => 8]),
+				'task' => $this->validTaskPayload(['flexDays' => 5]),
 			]);
-			self::fail('flexDays 8 must be rejected');
+			self::fail('flexDays 5 must be rejected for a weekly rule');
 		} catch (ValidationException $e) {
 			self::assertStringContainsString('Flex days', $e->getMessage());
 		}

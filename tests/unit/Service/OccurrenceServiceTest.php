@@ -179,6 +179,54 @@ class OccurrenceServiceTest extends TestCase {
 		self::assertSame('4:1', $selection['occurrence']->toPublicKey());
 	}
 
+	/**
+	 * FEAT-UX-039 (D-088-12): with the rounded-up cap, neighbours of an
+	 * every-two-weeks rule with 7 flex days share one day. On that day the
+	 * earlier occurrence (smaller window end) is the target; the next day
+	 * the later one is.
+	 */
+	public function testSelectFromAgreed_NeighboursSharingADay_StayDeterministic(): void {
+		$earlier = $this->entry(4, 1, '2026-09-15', '2026-09-08 00:00:00', '2026-09-23 00:00:00');
+		$later = $this->entry(4, 2, '2026-09-29', '2026-09-22 00:00:00', '2026-10-07 00:00:00');
+
+		$sharedDay = $this->service->selectFromAgreed([$later, $earlier], $this->now);
+		self::assertSame('4:1', $sharedDay['occurrence']->toPublicKey(), 'the earlier deadline wins on the shared day');
+
+		$nextDay = $this->service->selectFromAgreed([$later, $earlier], new \DateTime('2026-09-23 08:00:00'));
+		self::assertSame('4:2', $nextDay['occurrence']->toPublicKey());
+		self::assertSame('agreed', $nextDay['classification'], 'the later window is open, the earlier one now a miss');
+	}
+
+	/**
+	 * FEAT-UX-039: the revision mapping no longer clamps flex to 7 days —
+	 * a stored long-period value becomes symmetric window days; only the
+	 * sanity bound guards the read side.
+	 */
+	public function testRuleInputsFromTask_KeepsLongFlexWindows(): void {
+		$revisions = new OccurrenceRevisionService(
+			$this->createMock(\OCA\ChoreStrike\Db\TransactionExecutor::class),
+			$this->createMock(ScheduleRevisionMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\TaskMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\WalletMapper::class),
+			new RecurrenceCalculator(),
+			new CalendarService(),
+			$this->createMock(OccurrenceReconcileService::class),
+		);
+		$task = new \OCA\ChoreStrike\Db\Task();
+		$task->setFrequencyType('monthly');
+		$task->setFrequencyValue(6);
+		$task->setFlexDays(90);
+
+		$inputs = $revisions->ruleInputsFromTask($task);
+		self::assertSame(90, $inputs['early']);
+		self::assertSame(90, $inputs['late']);
+
+		$task->setFlexDays(500);
+		self::assertSame(\OCA\ChoreStrike\Service\FlexDaysPolicy::SANITY_MAX, $revisions->ruleInputsFromTask($task)['late']);
+	}
+
 	public function testSelectFromAgreed_FutureWindowIsNeverSelected(): void {
 		$future = $this->entry(4, 1, '2026-09-25', '2026-09-25 00:00:00', '2026-09-27 00:00:00');
 
