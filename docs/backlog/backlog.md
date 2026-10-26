@@ -270,7 +270,7 @@ click.
 ---
 
 ### [P2] BUG-UX-004 — Selecting a person in the task details scrolls the page
-**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-14, 2026-10-26; cause to confirm in the browser; not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: assignment
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-14; implemented 2026-10-26 on `fix/alpha3-feedback`, cause confirmed in the browser; full browser gate and the operator GUI review open) · **Effort**: S · **Layer**: frontend · **Journey stage**: assignment
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #10
 
@@ -281,11 +281,15 @@ at the nearest positioned ancestor and the browser scrolls to it when the click
 focuses it. A list re-render during the optimistic assignee save is the other
 candidate.
 
-- [ ] Confirm the cause in the browser and fix it in `AssigneeChips` (anchor the
+- [x] Confirm the cause in the browser and fix it in `AssigneeChips` (anchor the
       hidden input inside its chip); check the other hidden-input chips (weekday
-      chips in `TaskEditForm`).
-- [ ] Tests: a browser assertion that the scroll position stays put after
+      chips in `TaskEditForm`). *Confirmed: the browser case failed with the
+      unanchored input and passes once it is anchored. One rule in
+      `src/styles/a11y.css` (`label:has(> .cs-visually-hidden)`) covers the
+      member and weekday chips and both availability toggle lists.*
+- [x] Tests: a browser assertion that the scroll position stays put after
       toggling a chip in the details of a lower list row.
+      *`family-core-ux.spec.ts`.*
 
 ---
 

@@ -18,3 +18,10 @@
 	white-space: nowrap;
 	border: 0;
 }
+
+/* BUG-UX-004: anchor a hidden input inside its label. Unanchored, it sits at
+   the nearest positioned ancestor far away, and focusing it on click
+   scrolled the page there (member and weekday chips, availability toggles). */
+label:has(> .cs-visually-hidden) {
+	position: relative;
+}

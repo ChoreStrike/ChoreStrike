@@ -471,8 +471,9 @@ modified: lib/Service/RoomTaskReadService.php, tests/unit/Service/RoomTaskReadSe
           tests/unit/components/TodayView.spec.js, tests/unit/store/roomTasks.spec.js,
           tests/e2e/flex-window-scheduling.spec.ts, docs/api/README.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (BUG-UX-005)
-modified: src/components/Tasks/AssigneeChips.vue, src/components/Tasks/TaskEditForm.vue,
-          tests/e2e/task-manager.spec.ts                       (BUG-UX-004)
+modified: src/styles/a11y.css, tests/e2e/family-core-ux.spec.ts   (BUG-UX-004; one rule
+          anchors every label-wrapped hidden input: member and weekday chips,
+          availability toggles)
 new:      lib/Exception/StaleTargetException.php               (BUG-UX-002)
 modified: lib/Controller/ControllerErrorFormatter.php, lib/Service/AgreementService.php,
           lib/Service/OccurrenceAgreementService.php,
@@ -583,7 +584,7 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; workaround: demote to member, then remove |
 | 8 | 2026-10-26 | owner | Several houses per instance? (question for v1.0) | Feature / P4 | FEAT-UX-042, [archived as rejected](../../backlog/archive/2026-10.md#feat-ux-042-rejected-one-house-per-instance-10-26) | Rejected (D-088-15): too much effort |
 | 9 | 2026-10-26 | owner | My Day shows a checklist button on tasks without a checklist; it vanishes on click | Bug / P3 | [BUG-UX-003](../../backlog/backlog.md#p3-bug-ux-003--my-day-offers-a-checklist-toggle-for-tasks-without-a-checklist) | Open |
-| 10 | 2026-10-26 | owner | Clicking a person in the task details scrolls the whole screen up | Bug / P2 | [BUG-UX-004](../../backlog/backlog.md#p2-bug-ux-004--selecting-a-person-in-the-task-details-scrolls-the-page) | Admitted to WP-A (D-088-14); open |
+| 10 | 2026-10-26 | owner | Clicking a person in the task details scrolls the whole screen up | Bug / P2 | [BUG-UX-004](../../backlog/backlog.md#p2-bug-ux-004--selecting-a-person-in-the-task-details-scrolls-the-page) | Fixed on `fix/alpha3-feedback` (D-088-14); cause confirmed in the browser; full gate and GUI review open |
 | 11 | 2026-10-26 | owner | New Task and Edit Task should share one mask, both with assignees and room | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Folded in; design feedback first |
 | 12 | 2026-10-26 | owner | Templates should mean "copy a task"; a template task in several rooms changes its title everywhere but other details apparently not | Improvement / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; decision on existing shared definitions |
 | 13 | 2026-10-26 | owner | Template picker: room type dropdown and task list, short preview, Putzmuffel/Putzteufel switch, special sets such as pets and garden | Feature / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; mockup first |

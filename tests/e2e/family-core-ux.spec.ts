@@ -353,6 +353,33 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		}
 	})
 
+	// BUG-UX-004 (CS-PLAN-088 feedback #10): toggling a member chip in the
+	// details of a lower row must not scroll the page.
+	test('owner: toggling a member chip in a lower row keeps the scroll position', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom', { viewport: { width: 1280, height: 720 } })
+		try {
+			await page.goto('/apps/chorestrike/#/tasks')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+			await page.getByTestId('tasks-filter-all').click()
+			const row = page.getByTestId('task-item').last()
+			await row.scrollIntoViewIfNeeded()
+			await row.getByRole('button', { name: 'Show details', exact: true }).click()
+			const chip = row.getByTestId('assignee-chip-friend')
+			await chip.scrollIntoViewIfNeeded()
+			const top = () => chip.evaluate((element) => element.getBoundingClientRect().top)
+			const before = await top()
+
+			const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && /\/room-tasks\/\d+\/assignees$/.test(response.url()))
+			await chip.click()
+			expect((await saved).status()).toBe(200)
+			await expect(chip).toHaveClass(/selected/)
+			expect(Math.abs(await top() - before), 'the chip stays where it was clicked').toBeLessThan(2)
+		} finally {
+			await context.close()
+		}
+	})
+
 	test('child: the initial bare root visit lands on My Day; deep links stay usable (D4)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'teen')
