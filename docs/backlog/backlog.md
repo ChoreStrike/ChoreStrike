@@ -290,6 +290,31 @@ revision only.
 
 ---
 
+### [P2] BUG-UX-006 — Graphics are hard to see in the dark theme (non-text contrast)
+**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-16, 2026-10-26; affected graphics to confirm by a dark-theme audit; not started) · **Effort**: M · **Layer**: frontend · **Journey stage**: theming
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #17
+
+In the dark theme several graphics are barely visible. UX-017 (October
+archive, CS-PLAN-084) made text contrast theme-correct, and
+`color-contrast.spec.ts` runs axe's `color-contrast` rule over nine views and
+the arcade in both themes. That rule checks text only: bars, progress tracks,
+grid cells, icons and game elements fall under WCAG 1.4.11 (non-text contrast,
+at least 3:1 against the adjacent color), and no gate measures them. Candidates
+with fixed light-theme shades: `HouseHealthBar` (`#4FA8E0`, white overlays),
+`HouseholdGoalBar`, `RoomCard`, `QuickStats`, `WeekBudgetGrid` and the arcade
+boards.
+
+- [ ] Audit every main view and the arcade in the dark theme (light for
+      comparison) at phone and desktop width; list the graphics below 3:1 and
+      the screens the operator noticed.
+- [ ] Fix them with theme tokens (`src/styles/tokens.css`, Nextcloud semantic
+      colors) instead of fixed shades; text contrast stays at zero axe violations.
+- [ ] Tests: `color-contrast.spec.ts` gains a non-text check that measures the
+      audited graphics against their background in both themes (≥ 3:1).
+
+---
+
 ### [P2] FEAT-UX-041 — Allow completing work before its window opens
 **Status**: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —

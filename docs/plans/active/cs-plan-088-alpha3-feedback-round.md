@@ -4,7 +4,7 @@
 > **Effort:** M — 8–12 engineering days inside a 2–3 week window: feedback intake 2026-10-20 → ~2026-11-02 (the 14-day HUMAN-02 window of CS-PLAN-080 ends the same weekend), candidate freeze, qualification and deployment in the week of 2026-11-03
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.2` deployed on the retained baseline (done 2026-10-19); the family trial's sanitized feedback (collected by the operator); no schema change intended
-> **Related backlog items:** RELEASE-002 (field use, alpha release rhythm) · CR-PERF-01 · CR-084-04 · CR-LAYOUT-01 · TECH-DIGEST-001 · TECH-TEST-009 · TECH-DEV-001 · TECH-LINT-008 · WP-A feedback FEAT-UX-038, FEAT-UX-039, BUG-UX-001, BUG-UX-002, BUG-UX-004, BUG-UX-005 (D-088-11, D-088-14) · stretch candidates FEAT-UX-015, TECH-TEST-008 · **not in scope:** TECH-TEST-005 and CONCEPT-001 (owned by CS-PLAN-080), BUG-SEC-001 (awaits the authority's feedback), TECH-TRANSPORT-001 (needs its own instrumentation round), FEAT-UX-018/019/023/027/028/029 (product decisions or features the trial has not asked for)
+> **Related backlog items:** RELEASE-002 (field use, alpha release rhythm) · CR-PERF-01 · CR-084-04 · CR-LAYOUT-01 · TECH-DIGEST-001 · TECH-TEST-009 · TECH-DEV-001 · TECH-LINT-008 · WP-A feedback FEAT-UX-038, FEAT-UX-039, BUG-UX-001, BUG-UX-002, BUG-UX-004, BUG-UX-005, BUG-UX-006 (D-088-11, D-088-14, D-088-16) · stretch candidates FEAT-UX-015, TECH-TEST-008 · **not in scope:** TECH-TEST-005 and CONCEPT-001 (owned by CS-PLAN-080), BUG-SEC-001 (awaits the authority's feedback), TECH-TRANSPORT-001 (needs its own instrumentation round), FEAT-UX-018/019/023/027/028/029 (product decisions or features the trial has not asked for)
 
 ## 1. Problem Summary
 
@@ -180,6 +180,12 @@ All questions were answered with their recommended option.
   background passes, a house switcher and an upgrade path for the retained
   house. FEAT-UX-042 is archived as rejected. Rejected: keeping it as a P4
   candidate for v1.0.
+- **D-088-16 Graphics contrast and GUI review:** register #17 (graphics hard to
+  see in the dark theme) enters WP-A as BUG-UX-006; a dark-theme audit names
+  the affected graphics before the fix and completes the manifest. After the
+  WP-A fixes the operator gets a small GUI review of all WP-A items
+  (screenshots in light and dark, phone and desktop width) before the freeze;
+  its findings are routed scope-first like any other feedback.
 
 ## 3. Backend / Frontend Changes
 
@@ -192,7 +198,7 @@ telemetry. Items that need a product decision (approval workflows, Task Pass,
 search, print, bulk ops) are routed to their existing backlog entries, not
 implemented here.
 
-Admitted items (D-088-11, D-088-14):
+Admitted items (D-088-11, D-088-14, D-088-16):
 
 - **FEAT-UX-038 filter prefill:** `TaskManager` passes its floor, room and
   person filters to the create form; `RoomPicker` gains a non-locking initial
@@ -229,6 +235,11 @@ Admitted items (D-088-11, D-088-14):
   meantime" note for `STALE_TARGET` only and shows the server's reason inline
   in the note otherwise (amend, handover, catch-up, restart). Drafts survive
   both; no toast carries server text (design guideline).
+- **BUG-UX-006 graphics contrast:** audit every main view and the arcade in the
+  dark theme first. Graphics below 3:1 against their background (WCAG 1.4.11:
+  bars, tracks, grid cells, icons, game elements) get theme tokens from
+  `src/styles/tokens.css` or Nextcloud's semantic colors instead of fixed
+  light-theme shades; text contrast stays at zero axe violations.
 
 ### WP-B Hardening
 
@@ -344,7 +355,10 @@ reviewed plan; this round's explicit matrix targets do not deliver that feature.
   and `CONFLICT` with the localized reason for each domain refusal (formatter,
   controller, services), a `TaskListDetails` spec for a capacity refusal vs. a
   stale conflict (drafts kept in both), a `family-rhythm.spec.ts` case moving an
-  occurrence onto a day the member is unavailable.
+  occurrence onto a day the member is unavailable. Admitted item (D-088-16):
+  BUG-UX-006 — `color-contrast.spec.ts` gains a non-text check measuring the
+  audited graphics against their background in both themes (≥ 3:1); the text
+  check stays at zero violations.
 - **CR-PERF-01:** existing `SchedulePlanService` apply tests stay green; add a
   unit case with several changed rows in both phases asserting identical
   results to the current implementation.
@@ -455,6 +469,11 @@ modified: lib/Controller/ControllerErrorFormatter.php, lib/Service/AgreementServ
           tests/unit/Service/AgreementServiceTest.php, tests/unit/Service/OccurrenceServiceTest.php,
           src/components/Tasks/TaskListDetails.vue, tests/unit/components/TaskListDetails.spec.js,
           tests/e2e/family-rhythm.spec.ts, docs/api/README.md   (BUG-UX-002)
+modified: src/styles/tokens.css, tests/e2e/color-contrast.spec.ts and the components the
+          dark-theme audit names (candidates: src/components/Dashboard/HouseHealthBar.vue,
+          src/components/Dashboard/HouseholdGoalBar.vue, src/components/Dashboard/RoomCard.vue,
+          src/components/Dashboard/QuickStats.vue, src/components/Scheduling/WeekBudgetGrid.vue,
+          the arcade boards)                                   (BUG-UX-006)
 ```
 
 ## 6. Implementation Order
@@ -472,7 +491,9 @@ modified: lib/Controller/ControllerErrorFormatter.php, lib/Service/AgreementServ
    TECH-TEST-009.
 5. (Folded into step 3 by D-088-08.)
 6. WP-A fixes as they arrive, each with its regression test; focused browser
-   runs for visible changes.
+   runs for visible changes. After the admitted fixes: the operator GUI review
+   (D-088-16) with screenshots of every changed surface in light and dark at
+   phone and desktop width.
 7. Check the selected scope against the date; seek explicit user rescoping
    for any unfinished selected item. Do not absorb stretch or omit required tests.
 8. Freeze ~2026-11-02: version bump, changelog, docs; final Full review;
@@ -487,7 +508,7 @@ modified: lib/Controller/ControllerErrorFormatter.php, lib/Service/AgreementServ
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| Feedback volume exceeds the window | High (six WP-A items admitted 2026-10-26, a week before the freeze target) | Date is a target; in-scope findings/tests remain required until explicitly user-rescoped; out-of-scope feedback folds into existing backlog owners |
+| Feedback volume exceeds the window | High (seven WP-A items admitted 2026-10-26, a week before the freeze target) | Date is a target; in-scope findings/tests remain required until explicitly user-rescoped; out-of-scope feedback folds into existing backlog owners |
 | A P0/P1 finding appears mid-window | Low | Hotfix rule: own branch, requalification, exchange handoff; this plan rebases |
 | Toolchain majors change the bundle or lint set | Medium | Content-equivalence `js/` comparison (D-088-09), full gates on both rows, package smoke; each major is one revertible commit series |
 | ESLint 10 rule fallout churns many files | Medium | One commit per rule family; rule-policy changes need explicit approval, never suppress warnings to pass |
@@ -556,6 +577,7 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Open |
 | 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/backlog.md#p2-bug-ux-002--moving-one-occurrence-reports-changed-in-the-meantime-for-every-refusal) | Admitted to WP-A (D-088-14); reproduce first (P1 hotfix if a real stale-token defect) |
 | 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Open; decision needed |
+| 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/backlog.md#p2-bug-ux-006--graphics-are-hard-to-see-in-the-dark-theme-non-text-contrast) | Admitted to WP-A (D-088-16); audit first |
 
 ## WP-C Evidence (toolchain series, 2026-10-20)
 
