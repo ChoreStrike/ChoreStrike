@@ -105,7 +105,7 @@ or a small screen they are out of sight.
 ---
 
 ### [P2] FEAT-UX-038 — New Task dialog should take over the active floor/room filter
-**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-11, 2026-10-26; not started) · **Effort**: S · **Layer**: frontend · **Journey stage**: task creation
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-11; implemented 2026-10-26 on `fix/alpha3-feedback`; full browser gate and the operator GUI review open) · **Effort**: S · **Layer**: frontend · **Journey stage**: task creation
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #1
 
@@ -114,15 +114,17 @@ but opens `TaskEditForm` without them, so the dialog starts on the first floor
 even while the list is filtered to one room. `RoomPicker` only knows
 `presetRoomId`, which locks the picker (used by `RoomDetail`).
 
-- [ ] With a room filter, the dialog opens with that floor and room selected and
+- [x] With a room filter, the dialog opens with that floor and room selected and
       still changeable; with only a floor filter, that floor is selected and the
       room stays a required choice; without filters nothing changes. Later filter
-      changes while the dialog is open are ignored.
-- [ ] An explicit person filter (`filters.person`) preselects that member as
+      changes while the dialog is open are ignored. *`TaskEditForm`
+      `initialRoomId`/`initialFloorId` (read once at mount), `RoomPicker`
+      `initialFloorId`; `presetRoomId` keeps locking the room view's form.*
+- [x] An explicit person filter (`filters.person`) preselects that member as
       assignee, still changeable (operator, 2026-10-26). The scopes "mine" and
       "unassigned" preselect nobody: "mine" is the default and also shows
-      unassigned rows.
-- [ ] Tests: `RoomPicker`/`TaskEditForm`/`TaskManager` specs for the room,
+      unassigned rows. *`initialAssigneeIds`, only for a current member.*
+- [x] Tests: `RoomPicker`/`TaskEditForm`/`TaskManager` specs for the room,
       floor-only, person and no-filter cases and for the unchanged edit form.
 
 ---

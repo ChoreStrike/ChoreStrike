@@ -92,6 +92,30 @@ describe('RoomPicker', () => {
 		expect(wrapper.emitted('update:modelValue').at(-1)).toEqual([null])
 	})
 
+	// FEAT-UX-038: the Tasks tab filters prefill without locking the picker.
+	it('starts on the initial floor without a room when only a floor is given', async () => {
+		const wrapper = mount(RoomPicker, { props: { modelValue: null, initialFloorId: 2 } })
+		await wrapper.vm.$nextTick()
+		expect(Number(wrapper.find('[data-testid="room-picker-floor"]').element.value)).toBe(2)
+		// The disabled "Select a room" placeholder stays selected.
+		expect(wrapper.find('[data-testid="room-picker-room"]').element.selectedIndex).toBe(0)
+		expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+	})
+
+	it('keeps an initial room selectable and its own floor over the initial floor', async () => {
+		const wrapper = mount(RoomPicker, { props: { modelValue: 21, initialFloorId: 1 } })
+		await wrapper.vm.$nextTick()
+		expect(wrapper.find('[data-testid="room-picker-locked"]').exists()).toBe(false)
+		expect(Number(wrapper.find('[data-testid="room-picker-floor"]').element.value)).toBe(2)
+		expect(Number(wrapper.find('[data-testid="room-picker-room"]').element.value)).toBe(21)
+	})
+
+	it('falls back to the first floor for an initial floor without rooms', async () => {
+		const wrapper = mount(RoomPicker, { props: { modelValue: null, initialFloorId: 99 } })
+		await wrapper.vm.$nextTick()
+		expect(Number(wrapper.find('[data-testid="room-picker-floor"]').element.value)).toBe(1)
+	})
+
 	it('shows the read-only locked label in preset mode', () => {
 		const wrapper = mount(RoomPicker, { props: { modelValue: null, presetRoomId: 11 } })
 		expect(wrapper.find('[data-testid="room-picker-locked"]').exists()).toBe(true)

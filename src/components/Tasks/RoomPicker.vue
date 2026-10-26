@@ -79,6 +79,13 @@ export default {
 			type: Number,
 			default: null,
 		},
+
+		// Floor shown first when no room is selected yet (FEAT-UX-038:
+		// a floor-only filter); unlike presetRoomId it locks nothing.
+		initialFloorId: {
+			type: Number,
+			default: null,
+		},
 	},
 
 	emits: ['update:modelValue'],
@@ -152,7 +159,10 @@ export default {
 				}
 			}
 			if (selectedFloorId.value === null && floorsWithRooms.value.length > 0) {
-				selectedFloorId.value = floorsWithRooms.value[0].id
+				// A room selected before the floors loaded keeps its floor.
+				const preferred = roomsStore.getRoomById(selectedRoomId.value)?.floorId ?? props.initialFloorId
+				const floor = floorsWithRooms.value.find((candidate) => candidate.id === preferred) ?? floorsWithRooms.value[0]
+				selectedFloorId.value = floor.id
 			}
 		})
 

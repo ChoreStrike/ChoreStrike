@@ -44,7 +44,7 @@ jest.mock('@/store/setup', () => ({
 
 jest.mock('@/components/Tasks/RoomPicker.vue', () => ({
 	name: 'RoomPicker',
-	props: ['modelValue', 'presetRoomId'],
+	props: ['modelValue', 'presetRoomId', 'initialFloorId'],
 	emits: ['update:modelValue'],
 	template: `<div class="room-picker-stub">
 		<span v-if="presetRoomId !== null" data-testid="room-picker-locked">locked-{{ presetRoomId }}</span>
@@ -129,6 +129,29 @@ describe('TaskEditForm', () => {
 
 		expect(wrapper.find('[data-testid="room-picker-locked"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="save-task-button"]').attributes('disabled')).toBeUndefined()
+	})
+
+	// FEAT-UX-038: the Tasks tab filters prefill creation without locking.
+	it('prefills an unlocked room, the initial floor and preselected members', async () => {
+		const wrapper = mountForm({ initialRoomId: 12, initialFloorId: 3, initialAssigneeIds: ['dad'] })
+		const picker = wrapper.findComponent({ name: 'RoomPicker' })
+		expect(picker.props('modelValue')).toBe(12)
+		expect(picker.props('presetRoomId')).toBeNull()
+		expect(picker.props('initialFloorId')).toBe(3)
+		expect(wrapper.find('[data-testid="room-picker-locked"]').exists()).toBe(false)
+		expect(wrapper.findComponent({ name: 'AssigneeChips' }).props('modelValue')).toEqual(['dad'])
+
+		await wrapper.find('[data-testid="task-name-input"]').setValue('Wipe the counter')
+		await wrapper.find('form').trigger('submit')
+		const payload = wrapper.emitted('submit')[0][0]
+		expect(payload.roomId).toBe(12)
+		expect(payload.assigneeUserIds).toEqual(['dad'])
+	})
+
+	it('starts without a room or members when no filter applies', () => {
+		const wrapper = mountForm()
+		expect(wrapper.findComponent({ name: 'RoomPicker' }).props('modelValue')).toBeNull()
+		expect(wrapper.findComponent({ name: 'AssigneeChips' }).props('modelValue')).toEqual([])
 	})
 
 	it('hides the room and assignee sections in edit mode (definition-only edit)', () => {

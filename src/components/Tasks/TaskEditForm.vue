@@ -271,7 +271,7 @@
 
 			<div class="form-group">
 				<label>{{ t('chorestrike', 'Room') }} *</label>
-				<RoomPicker v-model="selectedRoomId" :presetRoomId="presetRoomId" />
+				<RoomPicker v-model="selectedRoomId" :presetRoomId="presetRoomId" :initialFloorId="initialFloorId" />
 			</div>
 
 			<div class="form-group">
@@ -396,6 +396,23 @@ export default {
 			type: Number,
 			default: null,
 		},
+
+		// FEAT-UX-038: non-locking creation prefill from the Tasks tab
+		// filters; the user may still pick another floor, room or person.
+		initialRoomId: {
+			type: Number,
+			default: null,
+		},
+
+		initialFloorId: {
+			type: Number,
+			default: null,
+		},
+
+		initialAssigneeIds: {
+			type: Array,
+			default: () => [],
+		},
 	},
 
 	emits: ['submit', 'cancel'],
@@ -486,8 +503,8 @@ export default {
 		const nextDue = ref('')
 
 		const selectedWeekdays = ref([])
-		const selectedRoomId = ref(props.presetRoomId)
-		const assigneeUserIds = ref([])
+		const selectedRoomId = ref(props.presetRoomId ?? props.initialRoomId)
+		const assigneeUserIds = ref([...props.initialAssigneeIds])
 
 		// Catalog prefill (CS-PLAN-063 D4): templates for the selected
 		// room's type, from the same GET /setup/catalog surface the

@@ -96,6 +96,9 @@
 			:aria-label="t('chorestrike', 'New Task')"
 			@close="showAddTaskModal = false">
 			<TaskEditForm
+				:initialRoomId="newTaskPrefill.roomId"
+				:initialFloorId="newTaskPrefill.floorId"
+				:initialAssigneeIds="newTaskPrefill.assigneeIds"
 				:loading="creating"
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
@@ -307,6 +310,21 @@ export default {
 
 		canManageTasks() {
 			return this.userStore.canManageTasks
+		},
+
+		/**
+		 * FEAT-UX-038: the active floor/room/person filters prefill a new
+		 * task; the "mine"/"unassigned" scopes preselect nobody (D-088-13).
+		 * @return {{roomId: ?number, floorId: ?number, assigneeIds: string[]}}
+		 */
+		newTaskPrefill() {
+			const { floor, room, person } = this.filters
+			const isMember = this.userStore.houseUsers.some((member) => member.nextcloudUserId === person)
+			return {
+				roomId: room ? Number(room) : null,
+				floorId: floor ? Number(floor) : null,
+				assigneeIds: person && isMember ? [person] : [],
+			}
 		},
 
 		overdueTasks() {

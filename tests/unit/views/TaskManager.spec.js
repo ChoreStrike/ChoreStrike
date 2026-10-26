@@ -47,7 +47,7 @@ jest.mock('@/components/Tasks/TaskList.vue', () => ({
 
 jest.mock('@/components/Tasks/TaskEditForm.vue', () => ({
 	name: 'TaskEditForm',
-	props: ['task', 'loading', 'presetRoomId'],
+	props: ['task', 'loading', 'presetRoomId', 'initialRoomId', 'initialFloorId', 'initialAssigneeIds'],
 	emits: ['submit', 'cancel'],
 	template: '<div class="task-edit-form-stub">form</div>',
 }))
@@ -206,6 +206,38 @@ describe('TaskManager', () => {
 		expect(shown()).toEqual([2])
 		expect(wrapper.get('[data-testid="room-filter"]').element.value).toBe('')
 		expect(wrapper.get('[data-testid="room-filter"]').text()).not.toContain('Kitchen')
+	})
+
+	// FEAT-UX-038 (D-088-13): the New Task dialog takes over the active
+	// floor/room/person filters; the scopes preselect nobody.
+	it.each([
+		['a room filter', { room: '12' }, { roomId: 12, floorId: null, assigneeIds: [] }],
+		['a floor-only filter', { floor: '1' }, { roomId: null, floorId: 1, assigneeIds: [] }],
+		['a person filter', { scope: 'all', person: 'teen' }, { roomId: null, floorId: null, assigneeIds: ['teen'] }],
+		['the unassigned scope', { scope: 'unassigned' }, { roomId: null, floorId: null, assigneeIds: [] }],
+		['no filter', {}, { roomId: null, floorId: null, assigneeIds: [] }],
+	])('prefills the create form from %s', async (_label, { scope, floor, room, person }, expected) => {
+		mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor' }]
+		mockRoomsStore.rooms = [{ id: 12, name: 'Kitchen', floorId: 1 }]
+		const wrapper = mountView()
+		await flushPromises()
+		if (scope) {
+			await wrapper.get(`[data-testid="tasks-filter-${scope}"]`).trigger('click')
+		}
+		if (floor) {
+			await wrapper.get('[data-testid="floor-filter"]').setValue(floor)
+		}
+		if (room) {
+			await wrapper.get('[data-testid="room-filter"]').setValue(room)
+		}
+		if (person) {
+			await wrapper.get('[data-testid="person-filter"]').setValue(person)
+		}
+		const form = await openCreateModal(wrapper)
+		expect(form.props('initialRoomId')).toBe(expected.roomId)
+		expect(form.props('initialFloorId')).toBe(expected.floorId)
+		expect(form.props('initialAssigneeIds')).toEqual(expected.assigneeIds)
+		expect(form.props('presetRoomId')).toBeUndefined()
 	})
 
 	it.each(['definitions', 'instances'])('does not allow creation before the initial %s read finishes', async (resource) => {
