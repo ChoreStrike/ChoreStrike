@@ -173,6 +173,7 @@ export default {
 .load-bar {
 	height: 8px;
 	background: var(--color-background-dark);
+	box-shadow: var(--cs-graphic-track-outline);
 	border-radius: 4px;
 	overflow: hidden;
 	margin-bottom: 0.35rem;
@@ -180,7 +181,7 @@ export default {
 
 .load-fill {
 	height: 100%;
-	background: var(--color-primary);
+	background: var(--color-primary-element);
 	border-radius: 4px;
 	transition: width 0.3s ease;
 }

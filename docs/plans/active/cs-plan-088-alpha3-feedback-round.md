@@ -484,11 +484,13 @@ modified: lib/Controller/ControllerErrorFormatter.php, lib/Service/AgreementServ
           src/components/Tasks/TaskListDetails.vue, tests/unit/components/TaskListDetails.spec.js,
           tests/e2e/family-rhythm.spec.ts, docs/api/README.md,
           docs/engineering/testing.md                          (BUG-UX-002)
-modified: src/styles/tokens.css, tests/e2e/color-contrast.spec.ts and the components the
-          dark-theme audit names (candidates: src/components/Dashboard/HouseHealthBar.vue,
-          src/components/Dashboard/HouseholdGoalBar.vue, src/components/Dashboard/RoomCard.vue,
-          src/components/Dashboard/QuickStats.vue, src/components/Scheduling/WeekBudgetGrid.vue,
-          the arcade boards)                                   (BUG-UX-006)
+modified: src/utils/icons.js, tests/unit/utils/icons.spec.js, src/styles/tokens.css,
+          src/components/Dashboard/HouseHealthBar.vue, src/components/Dashboard/HouseholdGoalBar.vue,
+          src/components/Dashboard/RoomCard.vue, src/components/Insights/MemberFairnessTable.vue,
+          tests/e2e/color-contrast.spec.ts, docs/standards/guidelines/design.md
+                                                               (BUG-UX-006; the audit
+          cleared QuickStats, WeekBudgetGrid and the arcade boards)
+new:      tests/e2e/fixtures/non-text-contrast.ts               (BUG-UX-006)
 ```
 
 ## 6. Implementation Order
@@ -592,7 +594,7 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Open |
 | 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/backlog.md#p2-bug-ux-002--moving-one-occurrence-reports-changed-in-the-meantime-for-every-refusal) | Fixed on `fix/alpha3-feedback` (D-088-14); reproduced 2026-10-26: no stale-token defect, a refused move (member not available) was shown as "changed"; stays P2; full gate open |
 | 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Open; decision needed |
-| 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/backlog.md#p2-bug-ux-006--graphics-are-hard-to-see-in-the-dark-theme-non-text-contrast) | Admitted to WP-A (D-088-16); audit first |
+| 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/backlog.md#p2-bug-ux-006--graphics-are-hard-to-see-in-the-dark-theme-non-text-contrast) | Fixed on `fix/alpha3-feedback` (D-088-16): black icon default, invisible bar tracks, low fills; the screens the operator meant still to confirm; full gate and GUI review open |
 
 ## WP-C Evidence (toolchain series, 2026-10-20)
 

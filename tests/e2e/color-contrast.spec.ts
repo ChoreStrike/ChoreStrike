@@ -6,7 +6,9 @@
  * WP-B, UX-017). axe's WCAG 2 AA `color-contrast` rule runs over the app
  * container (`#content`) of every main view. The theme is switched for
  * one dedicated member through the Nextcloud theming API and restored to the
- * system default afterwards; Nextcloud's own chrome is out of scope.
+ * system default afterwards; Nextcloud's own chrome is out of scope. Because
+ * axe measures text only, every view also runs the non-text probe (WCAG
+ * 1.4.11, BUG-UX-006): icons, bar tracks and bar fills need 3:1.
  *
  * Requires: Docker test environment with the `family` database profile.
  */
@@ -17,6 +19,7 @@ import { AxeBuilder } from '@axe-core/playwright'
 import { setArcadeGate } from './fixtures/arcade-gate.ts'
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
+import { nonTextContrastViolations } from './fixtures/non-text-contrast.ts'
 
 const USER = 'friend'
 const THEMES = ['light', 'dark'] as const
@@ -78,6 +81,10 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 						for (const node of violation.nodes) {
 							violations.push(`${name}: ${node.target.join(' ')} — ${node.failureSummary?.split('\n').slice(-1)[0]?.trim()}`)
 						}
+					}
+					// BUG-UX-006: axe measures text only; icons and bar graphics need 3:1.
+					for (const line of await nonTextContrastViolations(page)) {
+						violations.push(`${name}: ${line}`)
 					}
 				}
 				for (const view of views) {

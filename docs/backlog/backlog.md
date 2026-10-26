@@ -322,7 +322,7 @@ revision only.
 ---
 
 ### [P2] BUG-UX-006 — Graphics are hard to see in the dark theme (non-text contrast)
-**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-16, 2026-10-26; affected graphics to confirm by a dark-theme audit; not started) · **Effort**: M · **Layer**: frontend · **Journey stage**: theming
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-16; audited and fixed 2026-10-26 on `fix/alpha3-feedback`; full browser gate and the operator GUI review open) · **Effort**: M · **Layer**: frontend · **Journey stage**: theming
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #17
 
@@ -336,13 +336,25 @@ with fixed light-theme shades: `HouseHealthBar` (`#4FA8E0`, white overlays),
 `HouseholdGoalBar`, `RoomCard`, `QuickStats`, `WeekBudgetGrid` and the arcade
 boards.
 
-- [ ] Audit every main view and the arcade in the dark theme (light for
+- [x] Audit every main view and the arcade in the dark theme (light for
       comparison) at phone and desktop width; list the graphics below 3:1 and
-      the screens the operator noticed.
-- [ ] Fix them with theme tokens (`src/styles/tokens.css`, Nextcloud semantic
+      the screens the operator noticed. *Audit 2026-10-26 (screenshots of eight
+      views, both themes and widths, plus a measuring probe): every Fluent icon
+      painted the black SVG default (navigation, section, button and tile icons,
+      near-invisible on dark); the tracks of the house-health, weekly-goal,
+      room-cleanliness and fairness-load bars matched their card (1.0–1.2:1,
+      both themes); the load fill used `--color-primary` (2.4:1 in dark); the
+      goal and health fills faded into `-light`/pastel stops (down to 1.97:1 in
+      light). The screens the operator noticed are still to confirm.*
+- [x] Fix them with theme tokens (`src/styles/tokens.css`, Nextcloud semantic
       colors) instead of fixed shades; text contrast stays at zero axe violations.
-- [ ] Tests: `color-contrast.spec.ts` gains a non-text check that measures the
+      *Icons paint `currentColor`; tracks draw `--cs-graphic-track-outline`
+      (max-contrast border); fills use `--color-primary-element` and the
+      element state colors.*
+- [x] Tests: `color-contrast.spec.ts` gains a non-text check that measures the
       audited graphics against their background in both themes (≥ 3:1).
+      *`fixtures/non-text-contrast.ts` (icons, tracks, fills) failed before the
+      fix and passes in both themes; `icons.spec.js` pins the icon fill.*
 
 ---
 

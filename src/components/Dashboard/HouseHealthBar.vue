@@ -186,6 +186,7 @@ export default {
   inset-inline: 0;
   bottom: 0;
   background: var(--color-background-dark);
+  box-shadow: var(--cs-graphic-track-outline);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -200,24 +201,26 @@ export default {
   overflow: hidden;
 }
 
+/* BUG-UX-006: Nextcloud's element colors reach 3:1 on the card in both
+   themes; the former pastel stops faded into the light surface. */
 .health-bar-fill.excellent {
-  background: linear-gradient(90deg, var(--cs-health-full), var(--cs-health-good));
+  background: linear-gradient(90deg, var(--color-primary-element), var(--color-element-success));
 }
 
 .health-bar-fill.good {
-  background: linear-gradient(90deg, var(--cs-health-full), var(--color-primary-element-light, #4FA8E0));
+  background: var(--color-primary-element);
 }
 
 .health-bar-fill.fair {
-  background: linear-gradient(90deg, var(--cs-celebrate-gold), var(--cs-celebrate-accent));
+  background: var(--color-element-warning);
 }
 
 .health-bar-fill.poor {
-  background: linear-gradient(90deg, var(--cs-celebrate-accent), var(--cs-health-low));
+  background: linear-gradient(90deg, var(--color-element-warning), var(--color-element-error));
 }
 
 .health-bar-fill.terrible {
-  background: linear-gradient(90deg, var(--cs-health-low), var(--cs-streak-flame));
+  background: var(--color-element-error);
 }
 
 .health-bar-glow {

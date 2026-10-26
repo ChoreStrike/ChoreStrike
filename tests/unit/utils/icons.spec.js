@@ -1,3 +1,4 @@
+import { mount } from '@vue/test-utils'
 import { getIcon, hasIcon } from '@/utils/icons'
 
 describe('icons utils', () => {
@@ -26,6 +27,14 @@ describe('icons utils', () => {
 
 		it('returns undefined for unknown icons', () => {
 			expect(getIcon('NonExistentIcon')).toBeUndefined()
+		})
+
+		// BUG-UX-006: unfilled Fluent paths painted black — invisible on the
+		// dark theme. The SVG follows the surrounding text color.
+		it('paints a Fluent icon in the current text color', () => {
+			const svg = mount(getIcon('Home'), { props: { size: 16 } }).find('svg')
+			expect(svg.attributes('fill')).toBe('currentColor')
+			expect(svg.attributes('width')).toBe('16')
 		})
 	})
 })

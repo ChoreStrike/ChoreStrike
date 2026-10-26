@@ -449,6 +449,7 @@ export default {
 .cleanliness-bar {
   height: 6px;
   background: var(--color-background-dark);
+  box-shadow: var(--cs-graphic-track-outline);
   border-radius: 3px;
   overflow: hidden;
 }

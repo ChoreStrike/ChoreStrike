@@ -88,8 +88,10 @@ function createFluentSvgComponent(name, svgMarkup) {
 				return typeof this.size === 'number' ? this.size : parseInt(this.size, 10)
 			},
 			styledMarkup() {
+				// BUG-UX-006: the Fluent paths carry no fill, so SVG painted them
+				// black — invisible on the dark theme. They follow the text color.
 				return String(svgMarkup)
-					.replace('<svg', `<svg width="${this.computedSize}" height="${this.computedSize}" class="icon-svg-content"`)
+					.replace('<svg', `<svg width="${this.computedSize}" height="${this.computedSize}" fill="currentColor" class="icon-svg-content"`)
 			},
 		},
 		render() {

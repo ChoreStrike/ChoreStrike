@@ -141,22 +141,24 @@ export default {
   position: relative;
   height: 14px;
   background: var(--color-background-dark);
+  box-shadow: var(--cs-graphic-track-outline);
   border-radius: 8px;
   overflow: visible;
 }
 
+/* BUG-UX-006: solid, the former gradient faded into the light token. */
 .goal-bar-fill {
   position: absolute;
   top: 0;
   inset-inline-start: 0;
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary-element), var(--color-primary-element-light));
+  background: var(--color-primary-element);
   border-radius: 8px;
   transition: width 0.5s ease;
 }
 
 .household-goal-bar.achieved .goal-bar-fill {
-  background: linear-gradient(90deg, var(--cs-celebrate-success), var(--cs-health-good));
+  background: var(--color-element-success);
 }
 
 .goal-target-marker {

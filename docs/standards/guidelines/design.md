@@ -23,7 +23,9 @@ work automatically (NC34/35 semantics, verified on both runtime rows):
 |---|---|---|
 | Status text (ok / due / overdue / info) | `--color-success-text`, `--color-warning-text`, `--color-error-text`, `--color-info-text` | `color: var(--color-success)` (a pale tint since NC32) |
 | Status badge / chip / soft danger button | background `--color-<state>` + text `--color-<state>-text` (+ border `--color-element-<state>`) | white text on `--color-<state>` |
-| Borders, progress fills, dots, status icons | `--color-element-<state>` | the pale `--color-<state>` tint |
+| Borders, progress fills, dots, status icons | `--color-element-<state>` | the pale `--color-<state>` tint; pastel brand hues or `-light` gradient stops in a fill |
+| Progress track (BUG-UX-006) | a faint fill plus `box-shadow: var(--cs-graphic-track-outline)` (max-contrast border, 3:1) | a track whose only cue is `--color-background-dark` (1.0–1.2:1 on cards) |
+| Icons (BUG-UX-006) | the registry's Fluent SVGs paint `currentColor`; color an icon through its text color | a fixed fill, or relying on the black SVG default |
 | Accent text, links, focus/selection borders | `--color-primary-element` | `--color-primary` (theme-independent, 2.4:1 in dark) |
 | Filled primary button | `--color-primary-element` + `--color-primary-element-text` | — |
 
@@ -31,7 +33,9 @@ Dark overrides of the `--cs-*` tokens key on the Nextcloud theme attributes on
 `<body>` (`data-theme-dark`, or `data-theme-default` + OS dark), never on `:root`
 or the OS preference alone. `tests/unit/css/theme-consistency.spec.js` guards the
 rules statically; `tests/e2e/color-contrast.spec.ts` checks WCAG AA text contrast
-of every main view in the light and dark themes.
+of every main view in the light and dark themes, and its non-text probe
+(`tests/e2e/fixtures/non-text-contrast.ts`) holds icons, progress tracks and
+fills to 3:1 (WCAG 1.4.11) — axe measures text only.
 
 ## 3. Typography & Styling
 - **Fonts:** Inherited globally from the Nextcloud system (usually system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto). We do **not** define our own custom fonts to ensure native integration and keep things simple.

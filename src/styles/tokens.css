@@ -33,9 +33,10 @@
 	--cs-rank-second: #B2BEC3; /* Polished silver */
 	--cs-rank-third:  #E17055; /* Coral bronze */
 
-	/* === House Health gradient (clean → defend) =======================
-	 * Drives the HouseHealthBar fill and the dashboard header glow.
-	 * Anchored to the brand primary but brightens in the upper bands.
+	/* === House Health hues (clean → defend) ===========================
+	 * Brand hues of the health scale. Bar fills use Nextcloud's element
+	 * colors instead (BUG-UX-006): these pastels stay below 3:1 on the
+	 * light card.
 	 */
 	--cs-health-low:    #FF7675; /* Coral Pop — danger / low health */
 	--cs-health-mid:    #FAB1A0; /* Coral soft — mid health */
@@ -109,6 +110,14 @@
 	--cs-chip-bg: var(--color-background-dark, #F4F5F7);
 	--cs-card-bg: var(--color-main-background, #FFFFFF);
 	--cs-card-border: var(--color-border, #E5E7EB);
+
+	/* === Graphics (BUG-UX-006, WCAG 1.4.11) ===========================
+	 * A progress track draws its extent with Nextcloud's max-contrast
+	 * border (3:1 on the card in both themes) — its faint fill alone
+	 * matched the card. Fills use element colors (--color-primary-element,
+	 * --color-element-<state>), never pastel or "-light" stops.
+	 */
+	--cs-graphic-track-outline: inset 0 0 0 1px var(--color-border-maxcontrast, #7D7D7D);
 
 	/* === Motion ======================================================= */
 	--cs-transition-fast: 120ms ease;
