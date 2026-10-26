@@ -242,6 +242,9 @@ msgstr ""
 msgid "Already as planned"
 msgstr ""
 
+msgid "Also possible today"
+msgstr ""
+
 msgid "An amendment needs a date or participants"
 msgstr ""
 

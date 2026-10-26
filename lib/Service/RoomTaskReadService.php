@@ -755,8 +755,17 @@ class RoomTaskReadService {
 	 * @return RoomTask[] Deterministic `next_due, created_at, id` order
 	 */
 	public function getDailyTasks(int $houseId, \DateTime $date): array {
+		return $this->dailyTasksAmong($houseId, $date, $this->roomTaskMapper->findByHouse($houseId, true));
+	}
+
+	/**
+	 * The due-today subset of already loaded active room tasks.
+	 *
+	 * @param RoomTask[] $candidates
+	 * @return RoomTask[]
+	 */
+	private function dailyTasksAmong(int $houseId, \DateTime $date, array $candidates): array {
 		$dayKey = $this->calendarService->dayKey($date, $this->timeZoneForHouse($houseId));
-		$candidates = $this->roomTaskMapper->findByHouse($houseId, true);
 		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $candidates, $dayKey, $dayKey);
 
 		$result = [];
@@ -766,18 +775,6 @@ class RoomTaskReadService {
 			}
 		}
 		return $result;
-	}
-
-	/**
-	 * Get the day's tasks including task and room details, filtered to the
-	 * viewer's visibility (CS-PLAN-061 §3.3) — the shared assembly behind
-	 * the daily and filtered-daily reads.
-	 *
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
-	 */
-	public function getDailyTasksWithDetails(int $houseId, \DateTime $date, HouseUser $viewer): array {
-		$dailyTasks = $this->getDailyTasks($houseId, $date);
-		return $this->rowsForRoomTasks($dailyTasks, $viewer);
 	}
 
 	/**
@@ -804,34 +801,35 @@ class RoomTaskReadService {
 	): array {
 		// Daily tasks, already filtered through the visibility matrix and in
 		// the deterministic `nextDue, createdAt, id` order — each row
-		// enriched with the canonical occurrence target (WP1).
+		// enriched with the canonical occurrence target (WP1). One house
+		// read serves the due set and the open-window rows (BUG-UX-005).
+		$candidates = $this->roomTaskMapper->findByHouse($houseId, true);
 		$allTasks = $this->withOccurrenceBlocks(
-			$this->getDailyTasksWithDetails($houseId, $date, $viewer),
+			$this->rowsForRoomTasks($this->dailyTasksAmong($houseId, $date, $candidates), $viewer),
 			$houseId
 		);
+		$openWindow = $this->openWindowRows($houseId, $viewer, $date, $candidates, $allTasks);
 
 		// Non-child users see all (visible) tasks.
 		if (!$viewer->isChild()) {
-			return $this->withAssignees($allTasks);
+			return $this->withAssignees([...$allTasks, ...$openWindow]);
 		}
 
 		// Eligibility first (D4): assigned to the viewer OR unassigned.
 		// The single batched assignee read serves eligibility AND the
 		// returned rows (RF-058-11 — no duplicate assignee query).
 		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
-			array_map(static fn (array $item): int => $item['roomTask']->getId(), $allTasks)
+			array_map(static fn (array $item): int => $item['roomTask']->getId(), [...$allTasks, ...$openWindow])
 		);
-		$eligible = array_values(array_filter(
-			$allTasks,
-			function (array $item) use ($assigneesByRoomTask, $viewer): bool {
-				$obligated = $item['proposal']['obligatedUserIds'] ?? null;
-				if ($obligated !== null) {
-					return in_array($viewer->getNextcloudUserId(), $obligated, true);
-				}
-				$assignees = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
-				return $assignees === [] || in_array($viewer->getNextcloudUserId(), $assignees, true);
+		$isEligible = function (array $item) use ($assigneesByRoomTask, $viewer): bool {
+			$obligated = $item['proposal']['obligatedUserIds'] ?? null;
+			if ($obligated !== null) {
+				return in_array($viewer->getNextcloudUserId(), $obligated, true);
 			}
-		));
+			$assignees = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
+			return $assignees === [] || in_array($viewer->getNextcloudUserId(), $assignees, true);
+		};
+		$eligible = array_values(array_filter($allTasks, $isEligible));
 
 		// Get user's scheduling preferences
 		$preferences = $viewer->getSchedulingPreferences();
@@ -854,7 +852,49 @@ class RoomTaskReadService {
 			$eligible = array_slice($eligible, 0, $maxDailyTasks);
 		}
 
+		// BUG-UX-005: rows that are also possible today follow the limit and
+		// never consume one of the day's slots.
+		$eligible = [...$eligible, ...array_values(array_filter($openWindow, $isEligible))];
+
 		return $this->withAssignees($eligible, $assigneesByRoomTask);
+	}
+
+	/**
+	 * BUG-UX-005 (CS-PLAN-088 WP-A): viewer-visible active rows whose
+	 * canonical target is an open window although nothing is planned for
+	 * today — before or after the planned day, inside its flex days. They
+	 * carry `openWindow: true`; My Day lists them in their own group, and the
+	 * due-today set and its consumers stay as they are.
+	 *
+	 * @param RoomTask[] $houseRoomTasks The house's active room tasks
+	 * @param list<array<string, mixed>> $dueRows The day's rows (excluded)
+	 * @return list<array<string, mixed>>
+	 */
+	private function openWindowRows(int $houseId, HouseUser $viewer, \DateTime $date, array $houseRoomTasks, array $dueRows): array {
+		$dueIds = [];
+		foreach ($dueRows as $row) {
+			$dueIds[$row['roomTask']->getId()] = true;
+		}
+		$candidates = array_values(array_filter(
+			$houseRoomTasks,
+			static fn (RoomTask $roomTask): bool => !isset($dueIds[$roomTask->getId()])
+		));
+		if ($candidates === []) {
+			return [];
+		}
+		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $candidates, $date);
+
+		// 'agreed' is the open-window selection; a miss is 'late' (overdue).
+		$open = array_values(array_filter(
+			$candidates,
+			static fn (RoomTask $roomTask): bool => ($selections[$roomTask->getId()]['classification'] ?? null) === 'agreed'
+		));
+
+		$rows = $this->withOccurrenceBlocks($this->rowsForRoomTasks($open, $viewer), $houseId);
+		foreach ($rows as $index => $row) {
+			$rows[$index]['openWindow'] = true;
+		}
+		return $rows;
 	}
 
 	/**

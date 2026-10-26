@@ -39,8 +39,11 @@ class RoomTaskServiceDailyTest extends TestCase {
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
 	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
+	/** @var int[]|null Room tasks with work planned today (null = all). */
+	private ?array $dueTodayIds = null;
 
 	protected function setUp(): void {
+		$this->dueTodayIds = null;
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
@@ -63,10 +66,12 @@ class RoomTaskServiceDailyTest extends TestCase {
 		// authority — the derivation mock answers with one agreed entry per
 		// room task unless a test narrows it.
 		$this->occurrenceService->method('agreedOccurrencesForHouseTasks')
-			->willReturnCallback(static function (int $houseId, array $roomTasks, ?string $fromKey, ?string $toKey): array {
+			->willReturnCallback(function (int $houseId, array $roomTasks, ?string $fromKey, ?string $toKey): array {
 				$result = [];
 				foreach ($roomTasks as $roomTask) {
-					$result[$roomTask->getId()] = [['occurrence' => null, 'revision' => null]];
+					if ($this->dueTodayIds === null || in_array($roomTask->getId(), $this->dueTodayIds, true)) {
+						$result[$roomTask->getId()] = [['occurrence' => null, 'revision' => null]];
+					}
 				}
 				return $result;
 			});
@@ -527,5 +532,79 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
 
 		$this->assertCount(3, $result);
+	}
+
+	// ------------------------------------------------------------------
+	// BUG-UX-005: open flex windows without work planned today
+	// ------------------------------------------------------------------
+
+	/**
+	 * Wire room tasks 1..$count with shared task/room rows, and the
+	 * canonical selections of the open-window pass by classification.
+	 *
+	 * @param array<int, ?string> $classifications room task id => classification (null = no target)
+	 * @return RoomTask[]
+	 */
+	private function wireOpenWindowHouse(int $count, array $classifications): array {
+		$roomTasks = [];
+		for ($i = 1; $i <= $count; $i++) {
+			$roomTask = new RoomTask();
+			$roomTask->setId($i);
+			$roomTask->setTaskId($i);
+			$roomTask->setRoomId(1);
+			$roomTasks[] = $roomTask;
+		}
+		$task = new Task();
+		$task->setId(1);
+		$task->setName('Clean the oven');
+		$room = new Room();
+		$room->setId(1);
+		$room->setName('Kitchen');
+		$this->roomTaskMapper->expects($this->once())->method('findByHouse')->willReturn($roomTasks);
+		$this->taskMapper->method('findByIds')->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
+		$this->roomMapper->method('findByIds')->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
+		$this->occurrenceService->method('selectionsForHouseTasks')
+			->willReturnCallback(function (int $houseId, array $tasks) use ($classifications): array {
+				$selections = [];
+				foreach ($tasks as $roomTask) {
+					$classification = $classifications[$roomTask->getId()] ?? null;
+					$selections[$roomTask->getId()] = $classification === null ? null : [
+						'occurrence' => new \OCA\ChoreStrike\Db\Occurrence(),
+						'revision' => new \OCA\ChoreStrike\Db\ScheduleRevision(),
+						'classification' => $classification,
+					];
+				}
+				return $selections;
+			});
+		return $roomTasks;
+	}
+
+	public function testGetFilteredDailyTasks_OpenWindowWithoutWorkToday_IsAppendedAndFlagged(): void {
+		$this->dueTodayIds = [1];
+		// 2: open window (before or after its planned day), 3: a miss, 4: no target.
+		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'late', 4 => null]);
+		$viewer = $this->createHouseUser('parent', 'owner');
+
+		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
+
+		$this->assertSame([1, 2], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+		$this->assertArrayNotHasKey('openWindow', $result[0], 'a row planned today stays a plain due row');
+		$this->assertTrue($result[1]['openWindow']);
+	}
+
+	public function testGetFilteredDailyTasksForChild_OpenWindowRows_AreEligibleButNeverUseASlot(): void {
+		$this->dueTodayIds = [1, 2];
+		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'agreed', 4 => 'agreed']);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')
+			->willReturn([1 => ['teen'], 2 => ['teen'], 3 => [], 4 => ['teen-sibling']]);
+		$viewer = $this->createHouseUser('teen', 'child');
+		$viewer->setSchedulingPreferences(['maxDailyTasks' => 1]);
+
+		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
+
+		// One due slot (limit 1), the unassigned open-window row on top; the
+		// sibling's open-window row is not the child's.
+		$this->assertSame([1, 3], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+		$this->assertTrue($result[1]['openWindow']);
 	}
 }

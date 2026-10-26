@@ -894,7 +894,14 @@ unknown set as unassigned after a child limit truncated the list. For child
 users the assignment eligibility (assigned to the viewer OR unassigned) is
 evaluated **before** the availability gate and the daily limit.
 
-**Response `data`:** list of `{ roomTask, task, room, assignees }` objects.
+**Open flex windows (BUG-UX-005, CS-PLAN-088):** after the day's rows follow
+the viewer-visible rows whose canonical target is an open window although no
+work is planned for today — before or after the planned day, inside its flex
+days. They carry `openWindow: true`, pass the same child eligibility and never
+count toward the daily limit; the due-today set itself is unchanged.
+
+**Response `data`:** list of `{ roomTask, task, room, assignees, occurrence,
+proposal, openWindow }` objects.
 
 #### GET /room-tasks/room/{roomId}/stats
 Room task statistics for the RoomDetail stats card (CS-PLAN-040). Rejects a

@@ -267,6 +267,37 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 			await context.close()
 		}
 	})
+
+	// BUG-UX-005 (CS-PLAN-088 feedback #5): work inside its flex window can
+	// be completed from My Day one day before its planned day.
+	test('My Day offers work inside its flex window before the planned day', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const kitchen = await kitchenRoom(page)
+			const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				data: {
+					roomId: kitchen.id,
+					assigneeUserIds: ['mom'],
+					nextDue: houseDateOffset(1, 'UTC'),
+					task: { name: 'Flex window probe', energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 },
+				},
+				headers: { Accept: 'application/json' },
+			})
+			expect(created.status(), await created.text()).toBe(200)
+			const roomTaskId = (await created.json()).data.roomTask.id as number
+
+			await page.goto('/apps/chorestrike/#/today')
+			await expect(page.getByTestId('today-section-open-window')).toBeVisible({ timeout: 20000 })
+			await expect(page.getByTestId(`today-open-window-planned-${roomTaskId}`)).toBeVisible()
+			const completed = page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
+			await holdToConfirm(page.getByTestId(`today-complete-button-${roomTaskId}`))
+			const response = await completed
+			expect(response.status(), await response.text()).toBe(200)
+		} finally {
+			await context.close()
+		}
+	})
 })
 
 /**

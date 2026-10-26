@@ -173,60 +173,75 @@
 					<Icon name="Sun" :size="18" class="section-icon" />
 					{{ t('chorestrike', 'Due Today') }}
 				</h2>
-				<div v-if="visibleTodayItems.length > 0" class="task-rows">
-					<div v-for="item in visibleTodayItems" :key="item.roomTask.id" class="today-row-group">
-						<div
-							class="task-row"
-							:class="{ completed: !item.roomTask.isActive }"
-							data-testid="today-task-item">
-							<HoldButton
-								v-if="item.roomTask.isActive"
-								:label="t('chorestrike', 'Done')"
-								:iconSize="22"
-								:busy="roomTasksStore.isCompleting(item.roomTask.id)"
-								:data-testid="`today-complete-button-${item.roomTask.id}`"
-								:title="t('chorestrike', 'Mark as done')"
-								@confirm="complete(item)" />
-							<span v-else class="completed-check" :data-testid="`today-completed-check-${item.roomTask.id}`">
-								<Icon name="CheckCircle" :size="22" />
-							</span>
-
-							<div class="task-info">
-								<span class="task-name">{{ item.task.name }}</span>
-								<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
-								<span class="task-assignees">{{ assigneeLabel(item) }}</span>
-								<p v-if="taskInstructions(item)" class="task-instructions">
-									{{ taskInstructions(item) }}
-								</p>
-							</div>
-
-							<button
-								v-if="!hasDiscoveredEmptyChecklist(item.task.id)"
-								class="checklist-toggle"
-								:aria-expanded="isExpanded(item.roomTask.id)"
-								:data-testid="`today-checklist-toggle-${item.roomTask.id}`"
-								@click="toggleExpand(item)">
-								<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
-								<span>{{ checklistSummary(item) }}</span>
-							</button>
-						</div>
-
-						<TaskChecklist
-							v-if="isExpanded(item.roomTask.id)"
-							:key="`checklist-${item.roomTask.id}`"
-							class="today-checklist"
-							:items="checklistStore.getTaskItems(item.task.id)"
-							:progress="checklistStore.getRoomTaskProgress(item.roomTask.id)"
-							:canEdit="false"
-							:readonly="!item.roomTask.isActive"
-							:roomTaskId="item.roomTask.id"
-							:taskId="item.task.id"
-							@toggle="handleToggleChecklistItem" />
-					</div>
-				</div>
-				<p v-else class="section-empty">
+				<p v-if="visibleTodayItems.length === 0" class="section-empty">
 					{{ t('chorestrike', 'Nothing due today') }}
 				</p>
+				<!-- BUG-UX-005: rows whose flex window is open although nothing
+				     is planned today follow the due rows under their own
+				     heading; they share the row markup and completion path. -->
+				<div v-if="dayRows.length > 0" class="task-rows">
+					<template v-for="item in dayRows" :key="item.roomTask.id">
+						<h3 v-if="item === dayRows[visibleTodayItems.length]"
+							class="today-subheading"
+							data-testid="today-section-open-window">
+							{{ t('chorestrike', 'Also possible today') }}
+						</h3>
+						<div class="today-row-group">
+							<div
+								class="task-row"
+								:class="{ completed: !item.roomTask.isActive }"
+								data-testid="today-task-item">
+								<HoldButton
+									v-if="item.roomTask.isActive"
+									:label="t('chorestrike', 'Done')"
+									:iconSize="22"
+									:busy="roomTasksStore.isCompleting(item.roomTask.id)"
+									:data-testid="`today-complete-button-${item.roomTask.id}`"
+									:title="t('chorestrike', 'Mark as done')"
+									@confirm="complete(item)" />
+								<span v-else class="completed-check" :data-testid="`today-completed-check-${item.roomTask.id}`">
+									<Icon name="CheckCircle" :size="22" />
+								</span>
+
+								<div class="task-info">
+									<span class="task-name">{{ item.task.name }}</span>
+									<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
+									<span class="task-assignees">{{ assigneeLabel(item) }}</span>
+									<p v-if="item.openWindow && item.occurrence?.plannedDate"
+										class="task-window-meta"
+										:data-testid="`today-open-window-planned-${item.roomTask.id}`">
+										{{ t('chorestrike', 'planned {date}', { date: formatDayKey(item.occurrence.plannedDate) }) }}
+									</p>
+									<p v-if="taskInstructions(item)" class="task-instructions">
+										{{ taskInstructions(item) }}
+									</p>
+								</div>
+
+								<button
+									v-if="!hasDiscoveredEmptyChecklist(item.task.id)"
+									class="checklist-toggle"
+									:aria-expanded="isExpanded(item.roomTask.id)"
+									:data-testid="`today-checklist-toggle-${item.roomTask.id}`"
+									@click="toggleExpand(item)">
+									<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+									<span>{{ checklistSummary(item) }}</span>
+								</button>
+							</div>
+
+							<TaskChecklist
+								v-if="isExpanded(item.roomTask.id)"
+								:key="`checklist-${item.roomTask.id}`"
+								class="today-checklist"
+								:items="checklistStore.getTaskItems(item.task.id)"
+								:progress="checklistStore.getRoomTaskProgress(item.roomTask.id)"
+								:canEdit="false"
+								:readonly="!item.roomTask.isActive"
+								:roomTaskId="item.roomTask.id"
+								:taskId="item.task.id"
+								@toggle="handleToggleChecklistItem" />
+						</div>
+					</template>
+				</div>
 			</section>
 
 			<!-- Next appointments (C5f): upcoming AGREED occurrences from
@@ -372,7 +387,7 @@ export default {
 		// and the local mine/everyone preference.
 		todayIds() {
 			return new Set(this.roomTasksStore.dailyTasks
-				.filter((item) => item.roomTask.isActive && this.isDueToday(item.roomTask))
+				.filter((item) => !item.openWindow && item.roomTask.isActive && this.isDueToday(item.roomTask))
 				.map((item) => item.roomTask.id))
 		},
 
@@ -380,7 +395,31 @@ export default {
 			// Completed rows stay visible (queued undo), a recurring task
 			// whose next occurrence moved past today leaves the list.
 			return this.roomTasksStore.dailyTasks
-				.filter((item) => !item.roomTask.isActive || this.isDueToday(item.roomTask))
+				.filter((item) => !item.openWindow && (!item.roomTask.isActive || this.isDueToday(item.roomTask)))
+		},
+
+		/**
+		 * BUG-UX-005: rows whose flex window is open today although nothing
+		 * is planned for today (server flag `openWindow`). A completed
+		 * one-time row stays for its queued undo; a recurring row leaves once
+		 * its next target is no longer an open window.
+		 * @return {object[]}
+		 */
+		openWindowItems() {
+			return this.roomTasksStore.dailyTasks.filter((item) => item.openWindow
+				&& (!item.roomTask.isActive || item.occurrence?.classification === 'agreed'))
+		},
+
+		visibleOpenWindowItems() {
+			if (this.filter === 'all') {
+				return this.openWindowItems
+			}
+			return this.openWindowItems.filter((item) => this.isMine(item))
+		},
+
+		/** Due rows first, then the rows that are also possible today. */
+		dayRows() {
+			return [...this.visibleTodayItems, ...this.visibleOpenWindowItems]
 		},
 
 		overdueItems() {
@@ -403,7 +442,7 @@ export default {
 		},
 
 		isEmpty() {
-			return this.visibleTodayItems.length === 0 && this.visibleCatchUpItems.length === 0
+			return this.dayRows.length === 0 && this.visibleCatchUpItems.length === 0
 		},
 
 		/**
@@ -460,11 +499,13 @@ export default {
 		 */
 		nextAppointments() {
 			const todayKey = todayKeyInZone(this.houseStore.timezone)
+			// An occurrence already offered under "Also possible today" is not repeated.
+			const offered = new Set(this.openWindowItems.map((item) => item.occurrence?.occurrenceId))
 			const appointments = []
 			for (const item of this.roomTasksStore.rangeTasks.scheduled) {
 				const details = Array.isArray(item.occurrenceDetails) ? item.occurrenceDetails : []
 				for (const detail of details) {
-					if (detail.classification !== 'agreed') {
+					if (detail.classification !== 'agreed' || offered.has(detail.occurrenceId)) {
 						continue
 					}
 					if (detail.fulfilled === true) {
@@ -999,10 +1040,17 @@ export default {
 	overflow-wrap: anywhere;
 }
 
-.task-catchup-meta {
+.task-catchup-meta,
+.task-window-meta {
 	margin: 0.25rem 0 0 0;
 	font-size: 0.85rem;
 	color: var(--color-main-text);
+}
+
+.today-subheading {
+	margin: 0.75rem 0 0 0;
+	font-size: 1rem;
+	color: var(--color-text-maxcontrast);
 }
 
 .task-catchup-hint {

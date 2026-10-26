@@ -1011,6 +1011,8 @@ class RoomTaskController extends Controller {
 					// WP3 §3.6: the actual-work proposal block shares the
 					// ParticipationDialog preview across every read path.
 					'proposal' => $item['proposal'] ?? null,
+					// BUG-UX-005: an open flex window without work planned today.
+					'openWindow' => $item['openWindow'] ?? false,
 				], $filteredTasks)
 			]);
 		} catch (ForbiddenException $e) {

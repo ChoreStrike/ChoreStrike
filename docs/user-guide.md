@@ -58,7 +58,9 @@ sees "You are not a member of this household yet".
 
 - **Catch-up** — agreed tasks from earlier days that are still open, with an
   honest date for catching up.
-- **Due Today** — today's tasks.
+- **Due Today** — today's tasks. Below them, **Also possible today** lists
+  tasks planned for another day whose flex days include today; Done counts
+  them on time.
 - **Next appointments** — what comes up next, with a link to the room.
 
 The line above the list shows how many days in a row you confirmed and the

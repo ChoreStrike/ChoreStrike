@@ -466,10 +466,11 @@ modified: src/components/Common/Modal.vue, tests/unit/components/Modal.spec.js,
           src/components/Common/ParticipationDialog.vue,
           tests/e2e/task-manager.spec.ts,
           docs/standards/guidelines/design.md                  (BUG-UX-001)
-modified: lib/Service/RoomTaskReadService.php, tests/unit/Service/RoomTaskReadServiceTest.php,
-          src/views/TodayView.vue, src/store/roomTasks.js,
-          tests/unit/components/TodayView.spec.js, tests/unit/store/roomTasks.spec.js,
-          tests/e2e/flex-window-scheduling.spec.ts, docs/api/README.md,
+modified: lib/Service/RoomTaskReadService.php, lib/Controller/RoomTaskController.php,
+          tests/unit/Service/RoomTaskServiceDailyTest.php,
+          src/views/TodayView.vue, tests/unit/components/TodayView.spec.js,
+          tests/e2e/family-rhythm.spec.ts, docs/api/README.md,
+          docs/concepts/task-model-and-sync.md, docs/user-guide.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (BUG-UX-005)
 modified: src/styles/a11y.css, tests/e2e/family-core-ux.spec.ts   (BUG-UX-004; one rule
           anchors every label-wrapped hidden input: member and weekday chips,
@@ -579,7 +580,7 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 2 | 2026-10-24 | owner | Flex days stop at 7 although a 6-month period needs more; wanted: up to 50% of the period (rounded up, D-088-12) | Improvement / P2 | [FEAT-UX-039](../../backlog/backlog.md#p2-feat-ux-039--flex-days-should-scale-with-the-recurrence-period-cap-50) | Fixed on `fix/alpha3-feedback` (D-088-11, D-088-12); fixed schedules open at most 7 days early; full gate and GUI review open |
 | 3 | 2026-10-24 | owner | A click beside the dialog closes it and discards the input; action buttons scroll away (wanted: close only via X, Cancel, Create or Esc; fixed action row, also in other form dialogs) | Bug / P2 | [BUG-UX-001](../../backlog/backlog.md#p2-bug-ux-001--form-dialogs-close-on-a-stray-click-and-lose-the-input-their-actions-scroll-away) | Fixed on `fix/alpha3-feedback` (D-088-11); full gate and GUI review open |
 | 4 | 2026-10-24 | owner | The "Repeat" selector at the top contradicts the recurrence inputs further down; control size and organisation need rework, with operator feedback first | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Open; design feedback first |
-| 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/backlog.md#p2-bug-ux-005--work-inside-its-flex-window-cannot-be-completed-from-my-day-before-the-planned-day) | Admitted to WP-A (D-088-14); open; affected view to confirm |
+| 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/backlog.md#p2-bug-ux-005--work-inside-its-flex-window-cannot-be-completed-from-my-day-before-the-planned-day) | Fixed for My Day on `fix/alpha3-feedback` (D-088-14); the operator's view and a possibly later flex edit still to confirm; full gate and GUI review open |
 | 6 | 2026-10-26 | owner | Completing before the due date, even before the flex days, should be allowed by default and move the next due date; at most an owner option or a child restriction | Feature / P2 | [FEAT-UX-041](../../backlog/backlog.md#p2-feat-ux-041--allow-completing-work-before-its-window-opens) | Open; product decision |
 | 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; workaround: demote to member, then remove |
 | 8 | 2026-10-26 | owner | Several houses per instance? (question for v1.0) | Feature / P4 | FEAT-UX-042, [archived as rejected](../../backlog/archive/2026-10.md#feat-ux-042-rejected-one-house-per-instance-10-26) | Rejected (D-088-15): too much effort |

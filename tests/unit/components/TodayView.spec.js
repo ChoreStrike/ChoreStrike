@@ -347,6 +347,54 @@ describe('TodayView', () => {
 		expect(wrapper.text()).not.toContain('Leaderboard')
 	})
 
+	// BUG-UX-005 (CS-PLAN-088 feedback #5): work whose flex window is open
+	// although it is planned for another day can be completed from My Day.
+	const openWindowRow = (occurrence) => {
+		const tomorrowKey = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+		return {
+			roomTask: { id: 41, taskId: 7, roomId: 1, isActive: true, nextDue: `${tomorrowKey}T00:00:00+00:00` },
+			task: { id: 7, name: 'Clean the oven', energyCost: 2 },
+			room: { id: 1, name: 'Kitchen' },
+			assignees: [],
+			openWindow: true,
+			occurrence: { occurrenceId: '15:3', classification: 'agreed', plannedDate: tomorrowKey, ...occurrence },
+		}
+	}
+
+	it('offers a row with an open flex window under its own heading with Done', async () => {
+		const row = openWindowRow()
+		mockRoomTasksStore.dailyTasks = [row]
+		mockRoomTasksStore.overdueTasks = []
+		mockRoomTasksStore.rangeTasks.scheduled = [{
+			roomTask: { id: 41, taskId: 7, roomId: 1 },
+			task: { id: 7, name: 'Clean the oven' },
+			room: { id: 1, name: 'Kitchen' },
+			occurrenceDetails: [{ date: row.occurrence.plannedDate, occurrenceId: '15:3', classification: 'agreed', version: 0, fulfilled: false }],
+		}]
+
+		const wrapper = await mountView()
+
+		expect(wrapper.get('[data-testid="today-section-open-window"]').text()).toContain('Also possible today')
+		expect(wrapper.text()).toContain('Nothing due today')
+		expect(wrapper.get(`[data-testid="today-open-window-planned-41"]`).text()).toContain('planned')
+		expect(wrapper.find('[data-testid="today-empty-state"]').exists()).toBe(false)
+		// The offered occurrence is not repeated under Next appointments.
+		expect(wrapper.find('[data-testid="today-section-appointments"]').exists()).toBe(false)
+
+		await confirmHold(wrapper, '[data-testid="today-complete-button-41"]')
+		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(41)
+	})
+
+	it('drops an open-window row once its next target is no longer an open window', async () => {
+		mockRoomTasksStore.dailyTasks = [openWindowRow({ classification: 'late' })]
+		mockRoomTasksStore.overdueTasks = []
+
+		const wrapper = await mountView()
+
+		expect(wrapper.find('[data-testid="today-section-open-window"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="today-complete-button-41"]').exists()).toBe(false)
+	})
+
 	it('renders the short plain instructions of a row (CS-PLAN-066 §3.5)', async () => {
 		const wrapper = await mountView()
 

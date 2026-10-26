@@ -71,6 +71,9 @@ is **My tasks** (assigned to me or unassigned/claimable); "Everyone" is one
 tap away, and the Dashboard *Due Today*/*Overdue* cards link into the view.
 Completing a recurring task moves its next due date out of today — the row
 leaves the list (one-time tasks keep their row with a completed state).
+Under *Also possible today* the section also offers work whose flex window is
+open although it is planned for another day (BUG-UX-005): Done credits that
+occurrence on time, and it never counts toward a child's daily limit.
 Celebration feedback (confetti, sounds, toasts) fires globally via the
 `chorestrike:task-completed` event.
 

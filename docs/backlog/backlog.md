@@ -294,7 +294,7 @@ candidate.
 ---
 
 ### [P2] BUG-UX-005 — Work inside its flex window cannot be completed from My Day before the planned day
-**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-14, 2026-10-26; affected view to confirm; not started) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-14; My Day part implemented 2026-10-26 on `fix/alpha3-feedback`; the operator's view to confirm, full browser gate and the GUI review open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #5
 
@@ -308,11 +308,16 @@ keep their saved window: a later flex edit applies through a new schedule
 revision only.
 
 - [ ] Confirm the view (My Day or the Tasks tab/room view) and whether the
-      occurrence's saved window included the flex days.
-- [ ] My Day offers Done for every occurrence whose window is open today (for
-      example as its own group), without changing the on-time rules.
-- [ ] Tests: `TodayView` spec and a browser scenario completing an occurrence one
-      day before its planned day inside a two-day window.
+      occurrence's saved window included the flex days. *Asked 2026-10-26.*
+- [x] My Day offers Done for every occurrence whose window is open today (for
+      example as its own group), without changing the on-time rules. *The
+      filtered daily read appends `openWindow` rows (open window, nothing
+      planned today — before and after the planned day); My Day lists them
+      under "Also possible today"; child eligibility applies, the daily limit
+      does not count them, Next appointments does not repeat them.*
+- [x] Tests: `TodayView` spec and a browser scenario completing an occurrence one
+      day before its planned day inside a two-day window. *Plus
+      `RoomTaskServiceDailyTest` (flagged rows, child eligibility and limit).*
 
 ---
 
