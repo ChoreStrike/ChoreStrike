@@ -1151,8 +1151,11 @@ rows (an explicit feasible 100% agreement before the original deadline is
 how a suspended joint occurrence resumes — no automatic redistribution),
 and a catch-up appointment keeps its zone on the
 replaced rows. Errors: 400 malformed, 403 visible role denial, 404
-invisible/foreign target, 409 stale version/token, passed deadline or
-business conflict.
+invisible/foreign target, 409 `STALE_TARGET` for a stale version/token or a
+target the shown read no longer matches (reload, keep the draft), 409
+`CONFLICT` for a passed deadline or a business refusal (member paused or not
+available, daily task limit, energy budget) whose localized `message` clients
+show as the reason (BUG-UX-002).
 
 `GET|POST /pauses`, `POST /pauses/recognize-illness`,
 `POST /pauses/{id}/approve|reject`, `PUT /pauses/{id}` — the revisioned pause
@@ -1557,6 +1560,7 @@ The following stable error codes are returned by the API. **Note:** The `message
 | `USER_NOT_FOUND` | 404 | Specified Nextcloud user does not exist |
 | `FORBIDDEN` | 403 | User lacks permission for this action |
 | `CONFLICT` | 409 | Resource conflict (e.g., duplicate entry) |
+| `STALE_TARGET` | 409 | The shown occurrence target changed (version, selection token); occurrence agreement commands only — reload and retry |
 | `USERS_ERROR` | 500 | Internal error during users operation |
 | `INTERNAL_ERROR` | 500 | Generic server error |
 

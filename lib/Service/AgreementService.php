@@ -23,6 +23,7 @@ use OCA\ChoreStrike\Db\WalletMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\StaleTargetException;
 use OCP\IL10N;
 
 /**
@@ -272,7 +273,7 @@ class AgreementService {
 				if ($selection === null
 					|| $selection['classification'] !== 'late'
 					|| $selection['occurrence']->toPublicKey() !== $occurrence->toPublicKey()) {
-					throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+					throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 				}
 
 				// Whole-day capacity of the people the appointment will
@@ -517,7 +518,7 @@ class AgreementService {
 		$workAppointment = $this->occurrenceService->stampProjection($ctx->houseId, $occurrence, $revision);
 
 		if ($occurrence->getVersion() !== $ctx->expectedVersion) {
-			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+			throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 		}
 
 		// RF-073-WP2-22: version equality alone cannot detect pause/input
@@ -533,7 +534,7 @@ class AgreementService {
 				$workAppointment
 			);
 			if (!hash_equals($authoritative, $ctx->selectionToken)) {
-				throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+				throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 			}
 		}
 

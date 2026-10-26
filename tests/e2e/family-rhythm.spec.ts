@@ -28,6 +28,7 @@
 
 import type { Page } from '@playwright/test'
 
+import { weekdayOfKey } from '../../src/utils/dateKeys.js'
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import {
 	completeWithOptionalDialog,
@@ -74,6 +75,16 @@ async function createProbeTask(page: Page, name: string, assignees: string[], ne
 	const roomTaskId = (await createResponse.json()).data?.roomTask?.id
 	expect(roomTaskId, 'the aggregate create returns the linked room task').toBeTruthy()
 	return roomTaskId as number
+}
+
+/** Switch the household timezone (owner) and return the previous one. */
+async function setHouseTimezone(page: Page, timezone: string): Promise<string> {
+	const read = await page.request.get('/apps/chorestrike/api/v1/house')
+	expect(read.status()).toBe(200)
+	const house = (await read.json()).data as { name: string, timezone: string }
+	const update = await page.request.put('/apps/chorestrike/api/v1/house', { data: { name: house.name, timezone } })
+	expect(update.status(), await update.text()).toBe(200)
+	return house.timezone
 }
 
 test.describe('Family rhythm — occurrence timeline (WP1)', () => {
@@ -340,6 +351,62 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 		} finally {
 			await owner.context.close()
 			await child.context.close()
+		}
+	})
+
+	// BUG-UX-002 (CS-PLAN-088 feedback #15): in a non-UTC house a refused
+	// move shows the server's reason and keeps the draft, and a feasible
+	// move is accepted — never a false "changed in the meantime".
+	test('an owner sees why a move is refused and then moves the occurrence in a non-UTC house', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const zone = 'Europe/Berlin'
+		const owner = await createUserContext(browser, 'mom')
+		const previousZone = await setHouseTimezone(owner.page, zone)
+		try {
+			const tomorrow = houseDateOffset(1, zone)
+			const unavailable = houseDateOffset(2, zone)
+			const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+			const preferences = await owner.page.request.put('/apps/chorestrike/api/v1/scheduling/members/mom', {
+				data: {
+					maxDailyTasks: 10,
+					weekdayAvailability: Object.fromEntries(weekdays.map((day) => [day, day !== weekdayOfKey(unavailable)])),
+				},
+			})
+			expect(preferences.status(), await preferences.text()).toBe(200)
+			const name = 'Non-UTC occurrence move'
+			const roomTaskId = await createProbeTask(owner.page, name, ['mom'], houseDateOffset(0, zone))
+			const receipt = await resolveOccurrenceReceipt(owner.page, roomTaskId)
+			expect(receipt).not.toBeNull()
+			await owner.page.goto('/apps/chorestrike/#/dashboard')
+			await expandAllFloors(owner.page)
+			await owner.page.getByTestId('room-card-Kitchen').first().click()
+			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
+			await row.getByRole('button', { name: 'Show details', exact: true }).click()
+			const amendResponse = () => owner.page.waitForResponse((response) => response.request().method() === 'POST'
+				&& response.url().endsWith(`/occurrences/${receipt!.occurrenceId}/amend`))
+
+			await row.getByTestId('agreement-amend-date').fill(unavailable)
+			await row.getByTestId('agreement-consent').check()
+			const refusedResponse = amendResponse()
+			await row.getByTestId('agreement-amend-submit').click()
+			const refused = await refusedResponse
+			expect(refused.status()).toBe(409)
+			expect((await refused.json()).error.code).toBe('CONFLICT')
+			await expect(row.getByTestId('agreement-refused')).toContainText('not available')
+			await expect(row.getByTestId('agreement-conflict')).toHaveCount(0)
+			await expect(row.getByTestId('agreement-amend-date')).toHaveValue(unavailable)
+
+			await row.getByTestId('agreement-amend-date').fill(tomorrow)
+			const movedResponse = amendResponse()
+			await row.getByTestId('agreement-amend-submit').click()
+			const moved = await movedResponse
+			expect(moved.status(), await moved.text()).toBe(200)
+			expect(moved.request().postDataJSON()).toMatchObject({ ...receipt, date: tomorrow, consent: true })
+			await expect(row.getByTestId('agreement-refused')).toHaveCount(0)
+			await expect(row.getByTestId('agreement-conflict')).toHaveCount(0)
+		} finally {
+			await setHouseTimezone(owner.page, previousZone).catch(() => {})
+			await owner.context.close()
 		}
 	})
 

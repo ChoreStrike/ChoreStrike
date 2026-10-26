@@ -7,8 +7,10 @@
 declare(strict_types=1);
 
 use OCA\ChoreStrike\Controller\ControllerErrorFormatter;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\StaleTargetException;
 use OCP\AppFramework\Http\JSONResponse;
 
 class ControllerErrorFormatterTest extends \PHPUnit\Framework\TestCase {
@@ -75,5 +77,22 @@ class ControllerErrorFormatterTest extends \PHPUnit\Framework\TestCase {
 		$data = $response->getData();
 		$this->assertSame('PURCHASE_BOOST_ERROR', $data['error']['code']);
 		$this->assertSame('Unknown boost: xyz', $data['error']['message']);
+	}
+
+	public function testConflictResponseKeepsConflictCodeAndReasonForDomainRefusals(): void {
+		$response = ControllerErrorFormatter::conflictResponse(new ConflictException('This member is not available on that day'));
+
+		$this->assertSame(409, $response->getStatus());
+		$data = $response->getData();
+		$this->assertSame('CONFLICT', $data['error']['code']);
+		$this->assertSame('This member is not available on that day', $data['error']['message']);
+	}
+
+	public function testConflictResponseMarksAStaleTargetWithItsOwnCode(): void {
+		// BUG-UX-002: clients tell a drifted target apart by code, never by message.
+		$response = ControllerErrorFormatter::conflictResponse(new StaleTargetException('The task changed since it was displayed. Reload and try again.'));
+
+		$this->assertSame(409, $response->getStatus());
+		$this->assertSame('STALE_TARGET', $response->getData()['error']['code']);
 	}
 }

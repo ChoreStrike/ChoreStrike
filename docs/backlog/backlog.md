@@ -197,7 +197,7 @@ of FEAT-UX-043.
 ---
 
 ### [P2] BUG-UX-002 — Moving one occurrence reports "changed in the meantime" for every refusal
-**Status**: Planned (admitted to CS-PLAN-088 WP-A by operator decision D-088-14, 2026-10-26; reproduction first; not started) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: agreements
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-14; implemented 2026-10-26 on `fix/alpha3-feedback`, no stale-token defect reproduced, stays P2; full browser gate and the operator GUI review open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: agreements
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #15
 
@@ -214,14 +214,21 @@ browser scenario in `family-rhythm.spec.ts` makes the member available every day
 with a limit of 10 before it moves an occurrence, and the test stack runs in UTC,
 so these refusals never occur there.
 
-- [ ] Reproduce on a non-UTC house with real availability and limits and name
+- [x] Reproduce on a non-UTC house with real availability and limits and name
       the conflict that fires. If it is a genuine false stale-token or version
-      mismatch, raise to P1 and follow the CS-PLAN-088 hotfix rule.
-- [ ] Domain refusals show the server's reason; the "changed in the meantime"
+      mismatch, raise to P1 and follow the CS-PLAN-088 hotfix rule. *Reproduced
+      2026-10-26 on the canonical stack with a Europe/Berlin house: a feasible
+      move answers 200; a move onto the member's unavailable day answers 409
+      `CONFLICT` "This member is not available on that day", which the UI
+      showed as "changed in the meantime". The token material is zone-stable
+      (UTC window instants, plain day keys); no hotfix.*
+- [x] Domain refusals show the server's reason; the "changed in the meantime"
       text (with draft preservation) stays for real staleness only, told apart by
-      a dedicated conflict code, never by message matching.
-- [ ] Same for catch-up, handover and restart, which share `runAgreement()`.
-- [ ] Tests: `TaskListDetails` spec for a capacity refusal vs. a stale conflict,
+      a dedicated conflict code, never by message matching. *`StaleTargetException`
+      → 409 `STALE_TARGET` for version/token/virtual-target drift in the
+      agreement services; the reason renders inline, never in a toast.*
+- [x] Same for catch-up, handover and restart, which share `runAgreement()`.
+- [x] Tests: `TaskListDetails` spec for a capacity refusal vs. a stale conflict,
       PHPUnit pinning the conflict codes, a browser case moving an occurrence onto
       a day the member is unavailable.
 

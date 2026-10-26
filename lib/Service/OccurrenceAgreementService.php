@@ -22,6 +22,7 @@ use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Exception\ConflictException;
+use OCA\ChoreStrike\Exception\StaleTargetException;
 use OCP\IL10N;
 
 /**
@@ -190,7 +191,7 @@ class OccurrenceAgreementService {
 		if ($occurrence->getId() === null) {
 			// Virtual target: materialize through the same resolver before
 			// mutating (no domain write on virtual state).
-			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+			throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 		}
 
 		$old = [
@@ -250,7 +251,7 @@ class OccurrenceAgreementService {
 		\DateTime $now,
 	): Occurrence {
 		if ($occurrence->getId() === null) {
-			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+			throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 		}
 		if ($occurrence->getCompletionId() !== null || $occurrence->getCoveredByCompletionId() !== null) {
 			throw new ConflictException($this->l10n->t('This occurrence is already completed'));
@@ -406,7 +407,7 @@ class OccurrenceAgreementService {
 		\DateTime $now,
 	): Occurrence {
 		if ($occurrence->getId() === null) {
-			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+			throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 		}
 		if ($occurrence->getCompletionId() !== null || $occurrence->getCoveredByCompletionId() !== null) {
 			throw new ConflictException($this->l10n->t('This occurrence is already completed'));
@@ -507,7 +508,7 @@ class OccurrenceAgreementService {
 		\DateTime $now,
 	): Occurrence {
 		if ($predecessor->getId() === null) {
-			throw new ConflictException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
+			throw new StaleTargetException($this->l10n->t('The task changed since it was displayed. Reload and try again.'));
 		}
 		// Portable uniqueness invariant: the locked predecessor plus the
 		// open-restart scan prevents duplicate live restarts (plan §3.3.5).

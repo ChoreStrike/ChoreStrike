@@ -465,10 +465,11 @@ new:      lib/Exception/StaleTargetException.php               (BUG-UX-002)
 modified: lib/Controller/ControllerErrorFormatter.php, lib/Service/AgreementService.php,
           lib/Service/OccurrenceAgreementService.php,
           tests/unit/Controller/ControllerErrorFormatterTest.php,
-          tests/unit/Controller/OccurrenceControllerTest.php,
-          tests/unit/Service/AgreementServiceTest.php, tests/unit/Service/OccurrenceServiceTest.php,
+          tests/unit/Service/AgreementServiceTest.php,
+          tests/integration/Service/OccurrenceTimelineTest.php,
           src/components/Tasks/TaskListDetails.vue, tests/unit/components/TaskListDetails.spec.js,
-          tests/e2e/family-rhythm.spec.ts, docs/api/README.md   (BUG-UX-002)
+          tests/e2e/family-rhythm.spec.ts, docs/api/README.md,
+          docs/engineering/testing.md                          (BUG-UX-002)
 modified: src/styles/tokens.css, tests/e2e/color-contrast.spec.ts and the components the
           dark-theme audit names (candidates: src/components/Dashboard/HouseHealthBar.vue,
           src/components/Dashboard/HouseholdGoalBar.vue, src/components/Dashboard/RoomCard.vue,
@@ -575,7 +576,7 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 12 | 2026-10-26 | owner | Templates should mean "copy a task"; a template task in several rooms changes its title everywhere but other details apparently not | Improvement / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; decision on existing shared definitions |
 | 13 | 2026-10-26 | owner | Template picker: room type dropdown and task list, short preview, Putzmuffel/Putzteufel switch, special sets such as pets and garden | Feature / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; mockup first |
 | 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Open |
-| 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/backlog.md#p2-bug-ux-002--moving-one-occurrence-reports-changed-in-the-meantime-for-every-refusal) | Admitted to WP-A (D-088-14); reproduce first (P1 hotfix if a real stale-token defect) |
+| 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/backlog.md#p2-bug-ux-002--moving-one-occurrence-reports-changed-in-the-meantime-for-every-refusal) | Fixed on `fix/alpha3-feedback` (D-088-14); reproduced 2026-10-26: no stale-token defect, a refused move (member not available) was shown as "changed"; stays P2; full gate open |
 | 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Open; decision needed |
 | 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/backlog.md#p2-bug-ux-006--graphics-are-hard-to-see-in-the-dark-theme-non-text-contrast) | Admitted to WP-A (D-088-16); audit first |
 

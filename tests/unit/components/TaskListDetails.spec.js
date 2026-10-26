@@ -291,4 +291,42 @@ describe('TaskListDetails occurrence agreements', () => {
 		// Consent re-attests for the retry.
 		expect(wrapper.find('[data-testid="agreement-consent"]').element.checked).toBe(true)
 	})
+
+	// BUG-UX-002: a domain refusal is not "changed in the meantime".
+	const amendRejectedWith = async (error) => {
+		const { wrapper, store } = mountWithOccurrence()
+		jest.spyOn(store, 'amendOccurrence').mockRejectedValue(error)
+		await wrapper.find('[data-testid="agreement-amend-date"]').setValue('2999-02-01')
+		await wrapper.find('[data-testid="agreement-consent"]').setValue(true)
+		await wrapper.find('[data-testid="agreement-amend-submit"]').trigger('click')
+		await new Promise(resolve => setTimeout(resolve, 0))
+		return wrapper
+	}
+
+	it('shows the server reason of a coded refusal inline and keeps the draft', async () => {
+		const { showError } = require('@nextcloud/dialogs')
+		const wrapper = await amendRejectedWith(Object.assign(
+			new Error('This member is not available on that day'),
+			{ status: 409, code: 'CONFLICT' },
+		))
+
+		const note = wrapper.find('[data-testid="agreement-refused"]')
+		expect(note.exists()).toBe(true)
+		expect(note.text()).toContain('This member is not available on that day')
+		expect(wrapper.find('[data-testid="agreement-conflict"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="agreement-amend-date"]').element.value).toBe('2999-02-01')
+		expect(wrapper.find('[data-testid="agreement-consent"]').element.checked).toBe(true)
+		expect(showError).not.toHaveBeenCalled()
+	})
+
+	it('keeps the changed-in-the-meantime note for a stale target', async () => {
+		const wrapper = await amendRejectedWith(Object.assign(
+			new Error('The task changed since it was displayed. Reload and try again.'),
+			{ status: 409, code: 'STALE_TARGET' },
+		))
+
+		expect(wrapper.find('[data-testid="agreement-conflict"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="agreement-refused"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="agreement-amend-date"]').element.value).toBe('2999-02-01')
+	})
 })

@@ -20,8 +20,10 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\Wallet;
 use OCA\ChoreStrike\Db\WalletMapper;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\StaleTargetException;
 use OCA\ChoreStrike\Service\AgreementService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CommandService;
@@ -60,6 +62,7 @@ class AgreementServiceTest extends TestCase {
 
 	/** @var list<array{dayKey: string, commitments: list<array<string, mixed>>}> */
 	private array $capturedCapacityChecks = [];
+	private ?string $capacityRefusal = null;
 
 	/** The token the authoritative recomputation returns (RF-22 seam). */
 	private string $authoritativeToken = 'tok';
@@ -86,6 +89,7 @@ class AgreementServiceTest extends TestCase {
 		parent::setUp();
 		$this->capturedCommands = [];
 		$this->capturedCapacityChecks = [];
+		$this->capacityRefusal = null;
 		$this->dateWriterTargets = [];
 		$this->authoritativeToken = 'tok';
 		$this->stampedSuspension = \OCA\ChoreStrike\Db\Occurrence::SUSPENSION_NONE;
@@ -103,6 +107,9 @@ class AgreementServiceTest extends TestCase {
 		$this->dailyCapacity->method('assertCommitmentsFit')->willReturnCallback(
 			function (int $houseId, string $dayKey, array $commitments): void {
 				$this->capturedCapacityChecks[] = ['dayKey' => $dayKey, 'commitments' => $commitments];
+				if ($this->capacityRefusal !== null) {
+					throw new ConflictException($this->capacityRefusal);
+				}
 			}
 		);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
@@ -547,13 +554,45 @@ class AgreementServiceTest extends TestCase {
 		$this->wireVisibleTask();
 		$this->authoritativeToken = 'drifted-authoritative-token';
 
-		$this->expectException(\OCA\ChoreStrike\Exception\ConflictException::class);
+		// BUG-UX-002: a drifted target answers STALE_TARGET, not CONFLICT.
+		$this->expectException(StaleTargetException::class);
 		try {
 			$this->service->amend(7, 'dad', 5, $this->amendPayload());
 		} finally {
 			// No writer ran before the token gate.
 			self::assertSame([], $this->capturedCapacityChecks);
 		}
+	}
+
+	/**
+	 * BUG-UX-002: a shown version behind the locked target is a stale
+	 * target as well.
+	 */
+	public function testAmend_StaleVersion_IsAStaleTarget(): void {
+		$this->wireVisibleTask();
+
+		$this->expectException(StaleTargetException::class);
+		$this->service->amend(7, 'dad', 5, $this->amendPayload(['expectedVersion' => 3]));
+	}
+
+	/**
+	 * BUG-UX-002: a capacity refusal on the new day stays a plain domain
+	 * conflict that keeps its localized reason for the client.
+	 */
+	public function testAmend_CapacityRefusal_StaysADomainConflict(): void {
+		$this->wireVisibleTask();
+		$this->stubHouseMembers();
+		$this->stubConcreteMembers();
+		$this->capacityRefusal = 'This member is not available on that day';
+
+		try {
+			$this->service->amend(7, 'dad', 5, $this->amendPayload(['date' => '2026-10-08']));
+			self::fail('the capacity refusal must surface');
+		} catch (ConflictException $e) {
+			self::assertNotInstanceOf(StaleTargetException::class, $e);
+			self::assertSame('This member is not available on that day', $e->getMessage());
+		}
+		self::assertSame([], $this->dateWriterTargets, 'a refused move writes nothing');
 	}
 
 	/**

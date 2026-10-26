@@ -1156,7 +1156,8 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 				'date' => (new \DateTime('+1 day'))->format('Y-m-d'),
 			]));
 			self::fail('a non-matching token must conflict');
-		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+		} catch (\OCA\ChoreStrike\Exception\StaleTargetException $e) {
+			// BUG-UX-002: the drift is a stale target (409 STALE_TARGET).
 			self::assertStringContainsString('changed since', $e->getMessage());
 		}
 		$row = $this->occurrenceMapper->find($occurrenceId);

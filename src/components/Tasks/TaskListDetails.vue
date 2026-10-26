@@ -151,6 +151,13 @@
 				{{ t('chorestrike', 'The occurrence changed in the meantime. Your entries were kept — review and send again.') }}
 			</p>
 			<p
+				v-if="refusal && !occurrenceReplaced"
+				class="agreement-note"
+				data-testid="agreement-refused"
+				role="alert">
+				{{ t('chorestrike', 'The agreement could not be recorded.') }} {{ refusal }}
+			</p>
+			<p
 				v-if="occurrenceReplaced"
 				class="agreement-note"
 				data-testid="agreement-replaced"
@@ -181,7 +188,9 @@ import { logger } from '../../utils/logger.js'
  * current miss) and restart (linked interval restart after a neutral
  * suspension). Every command sends a fresh command UUID, the SHOWN
  * occurrence identity and version, and the explicit consent attestation;
- * a 409 PRESERVES the drafts.
+ * a 409 PRESERVES the drafts. Only `STALE_TARGET` means the occurrence
+ * changed; any other 409 is a domain refusal whose localized server reason
+ * renders inline (BUG-UX-002), never in a toast.
  *
  * The optimistic assignee DRAFT stays owned by the TaskList orchestrator
  * (CS-PLAN-065 §3.5): this component diffs the AssigneeChips value change
@@ -309,6 +318,7 @@ export default {
 			consent: false,
 			submitting: null,
 			conflict: false,
+			refusal: '',
 			occurrenceReplaced: false,
 			amendDraft: { date: '' },
 			handoverDraft: '',
@@ -366,15 +376,16 @@ export default {
 	methods: {
 		/**
 		 * Run one agreement command: 409 keeps the draft and surfaces the
-		 * conflict note; any other failure toasts; success refreshes the
-		 * projections (the store already re-read the readers) and clears
-		 * the used draft.
+		 * stale note (`STALE_TARGET`) or the server's refusal reason; any
+		 * other failure toasts; success refreshes the projections (the store
+		 * already re-read the readers) and clears the used draft.
 		 * @param {string} mode 'amend' | 'handover' | 'catchup' | 'restart'.
 		 * @param {function(): Promise<object>} command The store call.
 		 */
 		async runAgreement(mode, command) {
 			this.submitting = mode
 			this.conflict = false
+			this.refusal = ''
 			try {
 				const result = await command()
 				if (result?.refreshFailed) {
@@ -386,7 +397,15 @@ export default {
 				this.occurrenceReplaced = false
 			} catch (error) {
 				if (error?.status === 409 || error?.response?.status === 409) {
-					this.conflict = true
+					// Only a coded domain refusal shows its reason; STALE_TARGET
+					// and uncoded 409s keep the "changed in the meantime" note.
+					const code = error?.code ?? error?.response?.data?.error?.code
+					const reason = error?.message ?? error?.response?.data?.error?.message
+					if (code === 'CONFLICT' && reason) {
+						this.refusal = reason
+					} else {
+						this.conflict = true
+					}
 				} else {
 					showError(t('chorestrike', 'The agreement could not be recorded.'))
 					logger.error('Failed to record the occurrence agreement', error, { component: 'TaskListDetails', action: 'runAgreement', mode })
