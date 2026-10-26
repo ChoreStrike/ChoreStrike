@@ -453,6 +453,7 @@ modified: lib/Service/TaskService.php, lib/Service/OccurrenceRevisionService.php
           tests/unit/Service/TaskServiceTest.php, tests/unit/Service/OccurrenceServiceTest.php,
           tests/unit/Service/TaskCreationServiceTest.php,
           tests/integration/Service/TaskCreationAggregateTest.php, tests/e2e/3-floor-house.spec.ts,
+          tests/e2e/core-household-journey.spec.ts (weekly flex candidate),
           src/components/Tasks/TaskEditForm.vue, tests/unit/components/TaskEditForm.spec.js,
           docs/api/README.md, docs/concepts/task-model-and-sync.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-039)

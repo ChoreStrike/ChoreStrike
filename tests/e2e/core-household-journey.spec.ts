@@ -265,7 +265,9 @@ test.describe('Canonical household journey', () => {
 				await page.getByTestId('task-name-input').fill(CUSTOM_TASK)
 				await page.getByTestId('task-instructions-input').fill('Rinse everything, then load the racks.')
 				await page.getByTestId('task-energy-select').selectOption('2')
-				await page.getByTestId('task-frequency-type').selectOption('daily')
+				// Weekly: flex 3 fits its cap of 4; a daily rule caps at 1
+				// (FEAT-UX-039, half the period rounded up).
+				await page.getByTestId('task-frequency-type').selectOption('weekly')
 				// The flex candidate starts on a FUTURE day inside a valid
 				// flex window (due +2, flex 3) — movable to house-local today.
 				await page.getByTestId('task-next-due-input').fill(houseLocalDate(2))
