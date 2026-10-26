@@ -692,6 +692,29 @@ item, nothing pushed. Not a review outcome.
   passed first time earlier the same day (`run-JEPAkY`, `run-HcYDxR`), so no gate was green
   on this branch yet; CR-084-04 and CR-LAYOUT-01 stay In Progress until one is.
 
+## WP-A Evidence (feedback fixes, 2026-10-26)
+
+Local branch `fix/alpha3-feedback` from `master` `a84ee95`; one commit per item, nothing
+pushed or merged. Not a review outcome.
+
+- **Implemented:** BUG-UX-002 (`1837a4f`), BUG-UX-001 (`567bc3f`, scroll-padding follow-up
+  `178b6f4`), FEAT-UX-038 (`a5b3cab`), FEAT-UX-039 (`fb0742e`, journey candidate
+  `9772b89`), BUG-UX-004 (`40ac1e0`), BUG-UX-005 (`a33d958`), BUG-UX-006 (`95d1ed4`).
+- **Reproductions:** BUG-UX-002 in a Europe/Berlin house (no stale-token defect; the refusal
+  was a domain reason, so no hotfix); BUG-UX-004 (the browser case failed with the
+  unanchored input); BUG-UX-006 dark-theme audit of eight views in both themes and widths
+  plus the non-text probe (failed before, passes after).
+- **Jest / lint:** 159 suites / 2225 tests, ESLint 0, Stylelint, `test:noise`,
+  `l10n:check-keys`, `agents:check`, `backlog:check`, `docs:encoding` green.
+- **PHPUnit (canonical NC 35 stack, PostgreSQL):** unit 1498, integration 635, no failure,
+  error or skip; `composer cs:check` (427 files) clean.
+- **Browser, focused on the canonical stack:** the new or changed cases in
+  `family-rhythm.spec.ts` (non-UTC move, open flex window on My Day), `task-manager.spec.ts`
+  (phone dialog), `family-core-ux.spec.ts` (chip scroll), `color-contrast.spec.ts` (both
+  themes with the non-text probe) and the canonical `core-household-journey.spec.ts`.
+- **Open:** the full browser gate on both runtime rows, the operator GUI review (D-088-16),
+  and two operator confirmations (BUG-UX-005: the view used; BUG-UX-006: the screens meant).
+
 ## Review Outcome
 
 **Standard A, 2026-10-19: PASS-WITH-FIXES.** Scope: this plan, checked against
