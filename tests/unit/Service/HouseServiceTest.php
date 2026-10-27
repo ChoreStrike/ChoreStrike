@@ -682,29 +682,61 @@ class HouseServiceTest extends TestCase {
 	}
 
 	/**
-	 * RemoveHouseMember_OwnerTarget_ThrowsForbiddenException
+	 * RemoveHouseMember_SelfTarget_ThrowsForbiddenException
 	 *
 	 * The API maps this to its CANNOT_REMOVE_OWNER 403; the service guard
-	 * keeps the invariant even for direct (non-controller) callers.
+	 * keeps the invariant even for direct (non-controller) callers. Leaving
+	 * the house oneself is the separate self-service departure (FEAT-UX-015).
 	 */
-	public function testRemoveHouseMember_OwnerTarget_ThrowsForbiddenException(): void {
-		$owner = new HouseUser();
-		$owner->setId(11);
-		$owner->setHouseId(3);
-		$owner->setNextcloudUserId('owner-nc');
-		$owner->setRole('owner');
-
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(11)
-			->willReturn($owner);
+	public function testRemoveHouseMember_SelfTarget_ThrowsForbiddenException(): void {
+		$owner = $this->houseUserForRoleGuard(11, 'owner-nc', 'owner');
+		$this->houseUserMapper->expects($this->once())->method('find')->with(11)->willReturn($owner);
+		$this->authorization->method('requireHouseOwner')->willReturn($owner);
 
 		$this->db->expects($this->never())->method('beginTransaction');
 		$this->houseUserMapper->expects($this->never())->method('delete');
 		$this->taskAssigneeMapper->expects($this->never())->method('deleteByUserForHouse');
 
 		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Cannot remove the house owner');
+		$this->expectExceptionMessage('You cannot remove yourself from the house');
+
+		$this->service->removeHouseMember(11);
+	}
+
+	/**
+	 * FEAT-UX-015 (CS-PLAN-088 D-088-19): an owner removes ANOTHER owner
+	 * through the ordinary departure path; the acting owner remains, so the
+	 * house keeps an owner.
+	 */
+	public function testRemoveHouseMember_OtherOwner_IsRemovedLikeAMember(): void {
+		$target = $this->houseUserForRoleGuard(11, 'admin-nc', 'owner');
+		$actor = new HouseUser();
+		$actor->setId(12);
+		$actor->setRole('owner');
+		$this->houseUserMapper->method('find')->willReturn($target);
+		$this->authorization->expects($this->exactly(2))->method('requireHouseOwner')->with(3)->willReturn($actor);
+
+		$this->taskAssigneeMapper->expects($this->once())->method('deleteByUserForHouse')->with('admin-nc', 3);
+		$this->houseUserMapper->expects($this->once())->method('delete')->with($target);
+		$this->db->expects($this->once())->method('commit');
+
+		$this->service->removeHouseMember(11);
+	}
+
+	/**
+	 * A non-owner never reaches the target guard: the owner gate refuses
+	 * first, without any write (CS-PLAN-081 H3).
+	 */
+	public function testRemoveHouseMember_NonOwnerActor_IsRefusedBeforeAnyWrite(): void {
+		$this->houseUserMapper->method('find')->willReturn($this->houseUserForRoleGuard(11, 'admin-nc', 'owner'));
+		$this->authorization->method('requireHouseOwner')
+			->willThrowException(new ForbiddenException('Owner role required'));
+
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->houseUserMapper->expects($this->never())->method('delete');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Owner role required');
 
 		$this->service->removeHouseMember(11);
 	}
@@ -723,6 +755,7 @@ class HouseServiceTest extends TestCase {
 		$member->setRole('member');
 
 		$this->houseUserMapper->method('find')->willReturn($member);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($member);
 		$this->taskAssigneeMapper->method('deleteByUserForHouse')
 			->willThrowException(new \RuntimeException('db down'));
 

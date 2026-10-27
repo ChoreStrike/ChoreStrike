@@ -189,10 +189,14 @@ re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 therefore stays in member pickers, filters and rankings. Workaround today:
 another owner first changes that account's role to member, then removes it.
 
-- [ ] An owner can remove another owner directly while at least one owner
+- [x] An owner can remove another owner directly while at least one owner
       remains (D6 last-owner invariant unchanged, re-checked under the house
       lock), with the same departure cleanup as a member removal; PHPUnit for the
       last-owner race and the cleanup, Settings spec for the enabled action.
+      *Implemented 2026-10-28 on `feat/alpha3-feedback-2` (CS-PLAN-088
+      D-088-19): only self-removal is refused; `HouseServiceTest`,
+      `HouseMemberRemovalIntegrationTest` (cleanup, serialized mutual removal)
+      and the `MemberList` spec. Full browser gate open.*
 
 ---
 

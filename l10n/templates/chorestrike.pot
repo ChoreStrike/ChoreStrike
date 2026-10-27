@@ -461,12 +461,6 @@ msgstr ""
 msgid "Cannot demote yourself"
 msgstr ""
 
-msgid "Cannot remove house owner"
-msgstr ""
-
-msgid "Cannot remove the house owner"
-msgstr ""
-
 msgid "Capacity"
 msgstr ""
 
@@ -3636,6 +3630,9 @@ msgid "You are not part of the ranking. Participation is voluntary and only ever
 msgstr ""
 
 msgid "You cannot change your own role"
+msgstr ""
+
+msgid "You cannot remove yourself from the house"
 msgstr ""
 
 msgid "You earned a new medal!"

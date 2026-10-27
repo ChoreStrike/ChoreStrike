@@ -169,6 +169,32 @@ describe('MemberList', () => {
 		expect(showSuccess).toHaveBeenCalled()
 	})
 
+	// FEAT-UX-015 (CS-PLAN-088 D-088-19): another owner is removable; only
+	// the own row stays locked.
+	it('removes another owner after confirmation', async () => {
+		mockUserStore.houseUsers.push({ id: 4, nextcloudUserId: 'admin', displayName: 'Admin', role: 'owner' })
+		const wrapper = await mountList()
+
+		expect(wrapper.find('[data-testid="member-remove-admin"]').attributes('disabled')).toBeUndefined()
+		await wrapper.find('[data-testid="member-remove-admin"]').trigger('click')
+		await wrapper.find('[data-testid="confirm-dialog-confirm"]').trigger('click')
+		await flushAsync()
+
+		expect(mockUserStore.removeUser).toHaveBeenCalledWith(4)
+		expect(showSuccess).toHaveBeenCalled()
+	})
+
+	it('names self-removal when the server refuses an owner target', async () => {
+		mockUserStore.removeUser.mockRejectedValue(Object.assign(new Error('refused'), { code: 'CANNOT_REMOVE_OWNER' }))
+		const wrapper = await mountList()
+
+		await wrapper.find('[data-testid="member-remove-friend"]').trigger('click')
+		await wrapper.find('[data-testid="confirm-dialog-confirm"]').trigger('click')
+		await flushAsync()
+
+		expect(showError).toHaveBeenCalledWith('You cannot remove yourself from the house')
+	})
+
 	it('cancel in the confirm dialog closes it without removing', async () => {
 		const wrapper = await mountList()
 

@@ -237,14 +237,15 @@ class UserController extends Controller {
 				// authoritative service-side owner gate, not a parameter.
 				$this->houseService->removeHouseMember($houseUser->getId());
 			} catch (CannotRemoveOwnerException $e) {
-				// The service's owner-target guard — map it to the
-				// endpoint-specific 403 code (response contract unchanged).
-				// A racing-demotion denial surfaces as the generic 403 below.
+				// The service's self-removal guard (FEAT-UX-015: another
+				// owner may be removed) — map it to the endpoint-specific 403
+				// code (response contract unchanged). A racing-demotion
+				// denial surfaces as the generic 403 below.
 				return new JSONResponse([
 					'success' => false,
 					'error' => [
 						'code' => 'CANNOT_REMOVE_OWNER',
-						'message' => $this->l->t('Cannot remove house owner')
+						'message' => $this->l->t('You cannot remove yourself from the house')
 					]
 				], 403);
 			}

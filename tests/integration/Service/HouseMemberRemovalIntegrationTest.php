@@ -181,9 +181,10 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * RemoveHouseMember_OwnerTarget_ThrowsForbidden
+	 * RemoveHouseMember_SelfTarget_ThrowsForbidden — leaving the house is
+	 * the separate self-service departure (FEAT-UX-015).
 	 */
-	public function testRemoveHouseMember_OwnerTarget_ThrowsForbidden(): void {
+	public function testRemoveHouseMember_SelfTarget_ThrowsForbidden(): void {
 		$fixture = $this->seedFixture();
 
 		$this->actingAs('rmr_owner_a');
@@ -191,15 +192,51 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 
 		try {
 			$houseService->removeHouseMember($fixture['ownerHouseUserIdA']);
-			self::fail('removing the house owner must be rejected');
+			self::fail('removing oneself must be rejected');
 		} catch (ForbiddenException $e) {
-			self::assertStringContainsString('owner', $e->getMessage());
+			self::assertStringContainsString('yourself', $e->getMessage());
 		}
 
 		// Nothing was removed: owner membership and all references survive.
 		self::assertSame(1, $this->countHouseUsers($fixture['houseAId'], 'rmr_owner_a'));
 		self::assertSame(1, $this->countHouseUsers($fixture['houseAId'], 'rmr_member'));
 		self::assertSame(1, $this->countAssignees($fixture['roomTaskAId'], 'rmr_member'));
+	}
+
+	/**
+	 * FEAT-UX-015 (CS-PLAN-088 D-088-19): an owner removes ANOTHER owner —
+	 * e.g. the bootstrap admin account — with the ordinary departure
+	 * cleanup; the acting owner stays, so the house keeps an owner.
+	 */
+	public function testRemoveHouseMember_OtherOwner_RemovedWithTheMemberCleanup(): void {
+		$fixture = $this->seedFixture();
+		$this->addHouseMember($fixture['houseAId'], 'rmr_admin', 'Admin', 'owner');
+		$floorId = $this->createFloor($fixture['houseAId'], 'Upstairs', 2);
+		$roomTaskId = $this->assignTaskToRoom(
+			$this->createTask($fixture['houseAId'], 'Windows'),
+			$this->createRoom($fixture['houseAId'], $floorId, 'Office'),
+			'rmr_admin'
+		);
+
+		$this->actingAs('rmr_owner_a');
+		\OC::$server->get(HouseService::class)->removeHouseMember($this->findHouseUserId($fixture['houseAId'], 'rmr_admin'));
+
+		self::assertSame(0, $this->countHouseUsers($fixture['houseAId'], 'rmr_admin'), 'the other owner\'s membership is deleted');
+		self::assertSame(0, $this->countAssignees($roomTaskId, 'rmr_admin'), 'its assignee rows are deleted');
+		self::assertSame(1, $this->countHouseUsers($fixture['houseAId'], 'rmr_owner_a'), 'the acting owner remains');
+		self::assertSame(1, \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->countOwnersForHouse($fixture['houseAId']));
+
+		// The mutual-removal race serializes on the house lock: the loser is
+		// no longer a member when its own removal runs, so the house can
+		// never end up without an owner.
+		$this->actingAs('rmr_admin');
+		try {
+			\OC::$server->get(HouseService::class)->removeHouseMember($fixture['ownerHouseUserIdA']);
+			self::fail('a removed owner must not remove the remaining owner');
+		} catch (ForbiddenException) {
+			self::addToAssertionCount(1);
+		}
+		self::assertSame(1, $this->countHouseUsers($fixture['houseAId'], 'rmr_owner_a'));
 	}
 
 	/**

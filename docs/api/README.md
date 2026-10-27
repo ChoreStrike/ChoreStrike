@@ -1438,6 +1438,13 @@ USER_NOT_FOUND`.
 #### DELETE /users/{id}
 Remove user from house (owner only).
 
+> **Owner targets (FEAT-UX-015, CS-PLAN-088 D-088-19):** another owner can be
+> removed like any member (same departure cleanup, re-checked under the
+> house lock); the acting owner remains, so the house keeps an owner. Removing
+> oneself answers `403 CANNOT_REMOVE_OWNER` — leaving the house is a separate,
+> not yet implemented flow. Removal is durable: membership after the first
+> owner is invite-only (ADR-010).
+
 > **Pruned (CS-PLAN-040):** `GET /users/{id}/stats` was fully dead — every
 > field it returned is already part of the `GET /users` serialization, which
 > since CS-PLAN-040 also includes `streakFreezes` (owned freeze count) and

@@ -787,7 +787,10 @@ job runs.
   own action. `updateUserRole` rejects self-demotion (403
   `CANNOT_DEMOTE_SELF`) and last-owner demotion (409
   `CANNOT_DEMOTE_LAST_OWNER`, backed by `countOwnersForHouse`);
-  `removeHouseMember` rejects owner targets (403 `CANNOT_REMOVE_OWNER`).
+  `removeHouseMember` rejects only the acting owner as target (403
+  `CANNOT_REMOVE_OWNER`); another owner is removed with the ordinary
+  departure cleanup, and the actor remains an owner (FEAT-UX-015,
+  CS-PLAN-088 D-088-19).
   Known gap: ownership handover requires promoting a co-owner first, and
   the former owner still cannot demote themselves afterwards (BUG-SEC-002).
 

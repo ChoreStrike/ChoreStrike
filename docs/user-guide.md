@@ -23,9 +23,10 @@ owners.
 | Set up floors and rooms, house settings, reward catalog | ✓ | — | — |
 | Plan and apply the week, set others' availability and daily limits | ✓ | — | — |
 
-Nobody can change their own role. An owner cannot be removed from the
-household — change the role to member first — and the last owner cannot be
-demoted.
+Nobody can change their own role or remove themselves. An owner can remove
+any other person, another owner too (for example the administrator account
+that opened ChoreStrike first); the last owner cannot be demoted, so a
+household always keeps an owner.
 
 ## First start
 

@@ -587,10 +587,12 @@ modified: src/utils/icons.js, tests/unit/utils/icons.spec.js, src/styles/tokens.
                                                                (BUG-UX-006; the audit
           cleared QuickStats, WeekBudgetGrid and the arcade boards)
 new:      tests/e2e/fixtures/non-text-contrast.ts, tests/e2e/fixtures/theme.ts   (BUG-UX-006)
-modified: lib/Service/HouseService.php, src/components/Members/MemberList.vue,
+modified: lib/Service/HouseService.php, lib/Controller/UserController.php,
+          src/components/Members/MemberList.vue,
           tests/unit/Service/HouseServiceTest.php,
           tests/integration/Service/HouseMemberRemovalIntegrationTest.php,
           tests/unit/components/MemberList.spec.js, docs/api/README.md,
+          docs/engineering/architecture.md, docs/user-guide.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot
                                                                (FEAT-UX-015 owner removal)
 modified: lib/Service/RoomTaskReadService.php, src/views/TodayView.vue,

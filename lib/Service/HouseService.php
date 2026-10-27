@@ -249,29 +249,26 @@ class HouseService {
 	 * parameter. The HTTP layer may gate again — defense in depth, no
 	 * anonymous compatibility path.
 	 *
-	 * The method guards its own invariant: the target must not be an owner
-	 * (throws CannotRemoveOwnerException so the API can map its
-	 * CANNOT_REMOVE_OWNER 403).
+	 * The method guards its own invariant: an owner may remove any other
+	 * member, other owners included, but not themselves (throws
+	 * CannotRemoveOwnerException so the API can map its CANNOT_REMOVE_OWNER
+	 * 403). The acting owner remains, so the house always keeps an owner.
 	 *
 	 * @param int $houseUserId The house user ID of the member to remove
-	 * @throws CannotRemoveOwnerException if the target is the house owner
+	 * @throws CannotRemoveOwnerException if the acting owner targets themselves
 	 * @throws ForbiddenException if the current user is not a house owner
 	 * @throws DoesNotExistException if the house user does not exist
 	 */
 	public function removeHouseMember(int $houseUserId): void {
 		$houseUser = $this->houseUserMapper->find($houseUserId);
 
-		if ($houseUser->isOwner()) {
-			throw new CannotRemoveOwnerException($this->l10n->t('Cannot remove the house owner'));
-		}
-
 		// CS-PLAN-081 H3: service-side owner gate before any write.
-		$this->authorization->requireHouseOwner($houseUser->getHouseId());
+		$actor = $this->authorization->requireHouseOwner($houseUser->getHouseId());
+		$this->assertRemovableBy($houseUser, $actor);
 
 		$ncUserId = $houseUser->getNextcloudUserId();
 		$houseId = $houseUser->getHouseId();
 		$walletId = $houseUser->getWalletId();
-		$actor = null;
 
 		$this->transactions->run(function () use ($houseUserId, $ncUserId, $houseId, $walletId, &$actor): void {
 			// FIRST lock of the documented order: the house row, then the
@@ -281,9 +278,7 @@ class HouseService {
 			$this->houseMapper->findForUpdate($houseId);
 			$actor = $this->authorization->requireHouseOwner($houseId);
 			$houseUser = $this->houseUserMapper->findForUpdate($houseUserId);
-			if ($houseUser->isOwner()) {
-				throw new CannotRemoveOwnerException($this->l10n->t('Cannot remove the house owner'));
-			}
+			$this->assertRemovableBy($houseUser, $actor);
 
 			// CS-PLAN-070 WP7 (CS-PLAN-078 §3.4, C4): cancel every
 			// unfulfilled reward request and release its reservation in the
@@ -324,6 +319,20 @@ class HouseService {
 			'memberId' => $houseUserId,
 			'outcome' => 'removed',
 		]);
+	}
+
+	/**
+	 * FEAT-UX-015 (CS-PLAN-088 D-088-19): the acting owner may remove another
+	 * owner — they remain an owner themselves, so the D6 last-owner invariant
+	 * holds. Removing oneself is the separate self-service departure and
+	 * stays refused.
+	 *
+	 * @throws CannotRemoveOwnerException if the acting owner targets themselves
+	 */
+	private function assertRemovableBy(HouseUser $target, HouseUser $actor): void {
+		if ((int)$target->getId() === (int)$actor->getId()) {
+			throw new CannotRemoveOwnerException($this->l10n->t('You cannot remove yourself from the house'));
+		}
 	}
 
 	/**

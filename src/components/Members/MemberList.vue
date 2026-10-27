@@ -252,7 +252,7 @@ export default {
 				this.removingMember = null
 			} catch (error) {
 				if (error?.code === 'CANNOT_REMOVE_OWNER') {
-					showError(t('chorestrike', 'Cannot remove house owner'))
+					showError(t('chorestrike', 'You cannot remove yourself from the house'))
 				} else {
 					showError(error?.message || t('chorestrike', 'Failed to remove member'))
 				}
