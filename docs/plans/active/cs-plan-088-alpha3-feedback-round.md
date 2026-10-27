@@ -695,23 +695,23 @@ accounts, quotations or household details. Raw notes stay with the operator.
 
 | # | Date | Role | Observation | Type / priority | Routing | State |
 |---|------|------|-------------|-----------------|---------|-------|
-| 1 | 2026-10-24 | owner | New Task dialog does not take over the active floor/room filter | Improvement / P2 | [FEAT-UX-038](../../backlog/backlog.md#p2-feat-ux-038--new-task-dialog-should-take-over-the-active-floorroom-filter) | Fixed on `fix/alpha3-feedback` (D-088-11, D-088-13); full gate and GUI review open |
-| 2 | 2026-10-24 | owner | Flex days stop at 7 although a 6-month period needs more; wanted: up to 50% of the period (rounded up, D-088-12) | Improvement / P2 | [FEAT-UX-039](../../backlog/backlog.md#p2-feat-ux-039--flex-days-should-scale-with-the-recurrence-period-cap-50) | Fixed on `fix/alpha3-feedback` (D-088-11, D-088-12); fixed schedules open at most 7 days early; full gate and GUI review open |
-| 3 | 2026-10-24 | owner | A click beside the dialog closes it and discards the input; action buttons scroll away (wanted: close only via X, Cancel, Create or Esc; fixed action row, also in other form dialogs) | Bug / P2 | [BUG-UX-001](../../backlog/backlog.md#p2-bug-ux-001--form-dialogs-close-on-a-stray-click-and-lose-the-input-their-actions-scroll-away) | Fixed on `fix/alpha3-feedback` (D-088-11); full gate and GUI review open |
+| 1 | 2026-10-24 | owner | New Task dialog does not take over the active floor/room filter | Improvement / P2 | [FEAT-UX-038](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-11, D-088-13); archived 2026-10-28 |
+| 2 | 2026-10-24 | owner | Flex days stop at 7 although a 6-month period needs more; wanted: up to 50% of the period (rounded up, D-088-12) | Improvement / P2 | [FEAT-UX-039](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-11, D-088-12); archived 2026-10-28 |
+| 3 | 2026-10-24 | owner | A click beside the dialog closes it and discards the input; action buttons scroll away (wanted: close only via X, Cancel, Create or Esc; fixed action row, also in other form dialogs) | Bug / P2 | [BUG-UX-001](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-11); archived 2026-10-28 |
 | 4 | 2026-10-24 | owner | The "Repeat" selector at the top contradicts the recurrence inputs further down; control size and organisation need rework, with operator feedback first | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Open; design feedback first |
-| 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/backlog.md#p2-bug-ux-005--work-inside-its-flex-window-cannot-be-completed-from-my-day-before-the-planned-day) | Fixed on `fix/alpha3-feedback` for My Day (D-088-14) and the Tasks tab after a flex edit (D-088-17, D-088-18); views confirmed in the GUI review; full gate open |
+| 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-14, D-088-17, D-088-18); archived 2026-10-28 |
 | 6 | 2026-10-26 | owner | Completing before the due date, even before the flex days, should be allowed by default and move the next due date; at most an owner option or a child restriction | Feature / P2 | [FEAT-UX-041](../../backlog/backlog.md#p2-feat-ux-041--allow-completing-work-before-its-window-opens) | Open; product decision |
 | 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; owner-removal part admitted (D-088-19); self-service departure stays in the backlog |
 | 8 | 2026-10-26 | owner | Several houses per instance? (question for v1.0) | Feature / P4 | FEAT-UX-042, [archived as rejected](../../backlog/archive/2026-10.md#feat-ux-042-rejected-one-house-per-instance-10-26) | Rejected (D-088-15): too much effort |
 | 9 | 2026-10-26 | owner | My Day shows a checklist button on tasks without a checklist; it vanishes on click | Bug / P3 | [BUG-UX-003](../../backlog/backlog.md#p3-bug-ux-003--my-day-offers-a-checklist-toggle-for-tasks-without-a-checklist) | Admitted (D-088-19) |
-| 10 | 2026-10-26 | owner | Clicking a person in the task details scrolls the whole screen up | Bug / P2 | [BUG-UX-004](../../backlog/backlog.md#p2-bug-ux-004--selecting-a-person-in-the-task-details-scrolls-the-page) | Fixed on `fix/alpha3-feedback` (D-088-14); cause confirmed in the browser; full gate and GUI review open |
+| 10 | 2026-10-26 | owner | Clicking a person in the task details scrolls the whole screen up | Bug / P2 | [BUG-UX-004](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-14); archived 2026-10-28 |
 | 11 | 2026-10-26 | owner | New Task and Edit Task should share one mask, both with assignees and room | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Folded in; design feedback first |
 | 12 | 2026-10-26 | owner | Templates should mean "copy a task"; a template task in several rooms changes its title everywhere but other details apparently not | Improvement / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; decision on existing shared definitions |
 | 13 | 2026-10-26 | owner | Template picker: room type dropdown and task list, short preview, Putzmuffel/Putzteufel switch, special sets such as pets and garden | Feature / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; mockup first |
 | 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Admitted (D-088-19) |
-| 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/backlog.md#p2-bug-ux-002--moving-one-occurrence-reports-changed-in-the-meantime-for-every-refusal) | Fixed on `fix/alpha3-feedback` (D-088-14); reproduced 2026-10-26: no stale-token defect, a refused move (member not available) was shown as "changed"; stays P2; full gate open |
+| 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-14; no stale-token defect, no hotfix); archived 2026-10-28 |
 | 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Admitted (D-088-19, variant b) |
-| 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/backlog.md#p2-bug-ux-006--graphics-are-hard-to-see-in-the-dark-theme-non-text-contrast) | Fixed on `fix/alpha3-feedback` (D-088-16): black icon default, invisible bar tracks, low fills, and the Tasks tab's flex window (confirmed by the operator 2026-10-27); GUI review passed 2026-10-27; full gate open |
+| 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-16); archived 2026-10-28 |
 
 ## WP-C Evidence (toolchain series, 2026-10-20)
 
@@ -806,7 +806,9 @@ item, nothing pushed. Not a review outcome.
   Docker host); the evidence is folded into that item, not claimed as its cause. The two
   other failures are timing-sensitive and also unattributed. The same two toolchain gates
   passed first time earlier the same day (`run-JEPAkY`, `run-HcYDxR`), so no gate was green
-  on this branch yet; CR-084-04 and CR-LAYOUT-01 stay In Progress until one is.
+  on this branch yet; CR-084-04 and CR-LAYOUT-01 stay In Progress until one is. *Closed
+  2026-10-28:* the full gates over the merged code (`run-zthKaf`, `run-WAcLa3`, see WP-A
+  evidence) are green on both rows; both items are archived.
 
 ## WP-A Evidence (feedback fixes, 2026-10-26)
 
@@ -836,7 +838,13 @@ pushed or merged. Not a review outcome.
   the planned occurrence on its old window, so the Tasks-tab Done had no open target. The
   widening and the `NOT_OPEN_YET` message are covered by two `OccurrenceTimelineTest`
   cases and the store and toast specs.
-- **Open:** the full browser gate on both runtime rows.
+- **Full browser gate, 2026-10-28 (HEAD `4f19e1a`; scenario inventory extended by the five
+  new cases, no existing scenario changed):** primary row (canonical stack, NC 35) `run-zthKaf`
+  and AIO row (NC 34.0.4, Redis cache/locking/sessions, project `cs082-alpha3wpa-aio`)
+  `run-WAcLa3`, both green on the first run — chromium 103, chromium-serial-db 183,
+  chromium-scheduling-owner 39, mobile-chromium 15, mobile-webkit 15 (setup results included),
+  zero skipped, failed or flaky. PHPUnit on the AIO row: unit 1498, integration 637, no
+  failure, error or skip. The seven WP-A items are archived; RF-088-11 stays open for WP-D.
 
 ## Review Outcome
 
