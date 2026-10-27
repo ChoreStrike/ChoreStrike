@@ -632,8 +632,11 @@ export default {
 			}
 			this.renamingRoom = true
 			try {
-				await this.roomsStore.updateRoomName(this.roomId, trimmedName)
-				showSuccess(t('chorestrike', 'Room renamed'))
+				const room = await this.roomsStore.updateRoomName(this.roomId, trimmedName)
+				// FEAT-UX-044: a taken name comes back numbered.
+				showSuccess(room && room.name !== trimmedName
+					? t('chorestrike', 'Name already taken — room renamed to "{name}"', { name: room.name })
+					: t('chorestrike', 'Room renamed'))
 				this.closeRenameRoom()
 			} catch (error) {
 				showError(t('chorestrike', 'Failed to rename room'))

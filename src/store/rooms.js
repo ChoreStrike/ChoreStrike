@@ -231,6 +231,7 @@ export const useRoomsStore = defineStore('rooms', {
 		 * Update room name
 		 * @param {number} roomId Room identifier to update.
 		 * @param {string} name New room name.
+		 * @return {Promise<?object>} The renamed room with its final (unique) name.
 		 */
 		async updateRoomName(roomId, name) {
 			if (!name || name.trim() === '') {
@@ -251,6 +252,7 @@ export const useRoomsStore = defineStore('rooms', {
 				if (roomIndex >= 0) {
 					this.rooms[roomIndex] = data
 				}
+				return data
 			} catch (error) {
 				if (resetSeq === this.resetSeq) {
 					this.error = error.message

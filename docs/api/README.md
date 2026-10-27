@@ -401,6 +401,13 @@ Create a new room.
 #### PUT /rooms/{id}
 Update room.
 
+> **Unique names (FEAT-UX-044, CS-PLAN-088 D-088-19):** create, rename and
+> the setup wizard store a name already used by another live room of the
+> house — compared trimmed and case-insensitively — with the next free
+> " 2", " 3", … appended (a taken "Bath 2" continues as "Bath 3" when "Bath"
+> exists). The response carries the final name. Existing duplicates stay
+> until renamed.
+
 #### DELETE /rooms/{id}
 Delete room.
 

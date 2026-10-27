@@ -148,6 +148,32 @@ class RoomMapper extends QBMapper {
 	}
 
 	/**
+	 * Names of the live rooms of a house, optionally without one room
+	 * (FEAT-UX-044 unique names; read under the house lock by the writers).
+	 *
+	 * @param int $houseId The house ID
+	 * @param ?int $exceptRoomId A room to leave out (the one being renamed)
+	 * @return list<string>
+	 */
+	public function findLiveNamesByHouseId(int $houseId, ?int $exceptRoomId = null): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('r.name')
+			->from($this->getTableName(), 'r')
+			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('r.deleted_at'));
+		if ($exceptRoomId !== null) {
+			$qb->andWhere($qb->expr()->neq('r.id', $qb->createNamedParameter($exceptRoomId, IQueryBuilder::PARAM_INT)));
+		}
+
+		$result = $qb->executeQuery();
+		$names = array_map('strval', $result->fetchAll(\PDO::FETCH_COLUMN));
+		$result->closeCursor();
+		return $names;
+	}
+
+	/**
 	 * Create a new room
 	 *
 	 * @param int $floorId The floor ID

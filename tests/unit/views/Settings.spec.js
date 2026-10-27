@@ -741,7 +741,22 @@ describe('Settings.vue', () => {
 		await flushPromises()
 
 		expect(mockRoomsState.createRoom).toHaveBeenCalledWith(1, 'Pantry')
-		expect(showSuccess).toHaveBeenCalled()
+		expect(showSuccess).toHaveBeenCalledWith('Room created')
+	})
+
+	// FEAT-UX-044: a taken name is numbered by the server, and the toast says so.
+	it('names the numbered room when the name was taken', async () => {
+		mockRoomsState.createRoom.mockResolvedValue({ id: 9, name: 'Pantry 2', floorId: 1 })
+
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+		await wrapper.find('[data-testid="expand-floor-1"]').trigger('click')
+		await wrapper.find('[data-testid="new-room-name-input"]').setValue('Pantry')
+		await wrapper.find('[data-testid="add-room-to-floor-button"]').trigger('click')
+		await flushPromises()
+
+		// The spec's t() mock returns the source string without interpolation.
+		expect(showSuccess).toHaveBeenCalledWith('Name already taken — room created as "{name}"')
 	})
 
 	it('deletes a room via the styled confirm dialog', async () => {

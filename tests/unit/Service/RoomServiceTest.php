@@ -203,6 +203,23 @@ class RoomServiceTest extends TestCase {
 	}
 
 	/**
+	 * FEAT-UX-044: a duplicate name gets the next free number, read from
+	 * the house's live rooms under the house lock.
+	 */
+	public function testCreateRoom_DuplicateName_GetsTheNextFreeNumber(): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(4);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->roomMapper->expects($this->once())->method('findLiveNamesByHouseId')
+			->with(4)->willReturn(["Kids' room", "kids' room 2"]);
+		$this->roomMapper->expects($this->once())->method('create')
+			->with(1, "Kids' room 3", null, 'generic')->willReturn(new Room());
+
+		$this->service->createRoom(1, " Kids' room ");
+	}
+
+	/**
 	 * CreateRoom_TombstonedFloor_Yields404
 	 *
 	 * Q-70-01: no live planning state beneath deleted structure — a
@@ -304,6 +321,29 @@ class RoomServiceTest extends TestCase {
 		$result = $this->service->updateRoomName($roomId, $newName);
 
 		$this->assertEquals($newName, $result->getName());
+	}
+
+	/**
+	 * FEAT-UX-044: a rename is unique among the house's OTHER live rooms —
+	 * the renamed room itself never collides with its own name.
+	 */
+	public function testUpdateRoomName_DuplicateName_GetsTheNextFreeNumber(): void {
+		$room = new Room();
+		$room->setId(5);
+		$room->setFloorId(7);
+		$room->setName('Office');
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(1);
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->roomMapper->expects($this->once())->method('findLiveNamesByHouseId')
+			->with(1, 5)->willReturn(['Bath']);
+		$this->roomMapper->expects($this->once())->method('update')
+			->with($this->callback(static fn (Room $r): bool => $r->getName() === 'bath 2'))
+			->willReturnArgument(0);
+
+		$this->assertSame('bath 2', $this->service->updateRoomName(5, ' bath ')->getName());
 	}
 
 	/**

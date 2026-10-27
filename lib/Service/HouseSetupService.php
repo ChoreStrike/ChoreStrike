@@ -172,6 +172,9 @@ class HouseSetupService {
 			$taskCount = 0;
 			$roomTaskCount = 0;
 			$roomCount = 0;
+			// FEAT-UX-044: the first-run gate guarantees no live room yet, so
+			// only the plan's own rooms can collide.
+			$roomNames = [];
 			$timezoneId = $this->calendarService->getTimeZone($house)->getName();
 			$now = new \DateTime();
 
@@ -179,9 +182,10 @@ class HouseSetupService {
 				$floorEntity = $this->floorMapper->create($houseId, $floor['name'], $floorIndex);
 
 				foreach ($floor['rooms'] as $room) {
+					$roomNames[] = RoomNamePolicy::unique($room['name'], $roomNames);
 					$roomEntity = $this->roomMapper->create(
 						$floorEntity->getId(),
-						$room['name'],
+						end($roomNames),
 						$room['icon'] ?? null,
 						$room['roomType']
 					);

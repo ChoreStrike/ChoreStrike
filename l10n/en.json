@@ -598,6 +598,8 @@
         "My Private Tasks": "My Private Tasks",
         "My Requests": "My Requests",
         "My tasks": "My tasks",
+        "Name already taken — room created as \"{name}\"": "Name already taken — room created as \"{name}\"",
+        "Name already taken — room renamed to \"{name}\"": "Name already taken — room renamed to \"{name}\"",
         "Need cleaning": "Need cleaning",
         "Needs attention ⚠️": "Needs attention ⚠️",
         "Neutral": "Neutral",

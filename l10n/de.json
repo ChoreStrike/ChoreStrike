@@ -598,6 +598,8 @@
         "My Private Tasks": "Meine privaten Aufgaben",
         "My Requests": "Meine Anfragen",
         "My tasks": "Meine Aufgaben",
+        "Name already taken — room created as \"{name}\"": "Name schon vergeben – Zimmer als \"{name}\" erstellt",
+        "Name already taken — room renamed to \"{name}\"": "Name schon vergeben – Zimmer in \"{name}\" umbenannt",
         "Need cleaning": "Putzen nötig",
         "Needs attention ⚠️": "Braucht Aufmerksamkeit ⚠️",
         "Neutral": "Neutral",

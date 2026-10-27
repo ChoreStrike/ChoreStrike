@@ -1796,6 +1796,12 @@ msgstr ""
 msgid "My tasks"
 msgstr ""
 
+msgid "Name already taken — room created as \"{name}\""
+msgstr ""
+
+msgid "Name already taken — room renamed to \"{name}\""
+msgstr ""
+
 msgid "Need cleaning"
 msgstr ""
 

@@ -345,6 +345,20 @@ describe('Rooms Store', () => {
 			})
 		})
 
+		// FEAT-UX-044: the caller needs the server's final (numbered) name.
+		describe('updateRoomName', () => {
+			it('adopts and returns the renamed room', async () => {
+				const renamed = { id: 1, floorId: 1, name: 'Bath 2' }
+				api.put.mockResolvedValue(renamed)
+				store.rooms = [{ id: 1, floorId: 1, name: 'Office' }]
+
+				const result = await store.updateRoomName(1, 'Bath')
+
+				expect(result).toEqual(renamed)
+				expect(store.rooms[0].name).toBe('Bath 2')
+			})
+		})
+
 		describe('deleteFloor', () => {
 			it('deletes floor successfully', async () => {
 				api.delete.mockResolvedValue(undefined)

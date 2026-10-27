@@ -38,7 +38,9 @@ floors yet; you can also start it with **Set up your home**.
 1. **Quick Start** — house name, home type, number of floors, basement, rooms
    per floor and the cleaning level: *Putzteufel* adds all suitable tasks at
    standard frequencies, *Putzmuffel* only the essentials, less often.
-2. **Room List** — name and adjust the rooms.
+2. **Room List** — name and adjust the rooms. Room names are unique in the
+   house: a name that is already taken gets a number, such as "Bedroom 2"
+   (also for the hallway the wizard adds on each floor).
 3. **Preview** — check the suggested tasks, then **Let's go!**
 4. **Invite Family** — add the people who share the household.
 

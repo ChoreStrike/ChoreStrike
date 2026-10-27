@@ -150,6 +150,9 @@ class RoomService {
 				throw new NotFoundException($this->l10n->t('Floor not found'));
 			}
 
+			// FEAT-UX-044: a duplicate name gets the next free number,
+			// resolved under the house lock.
+			$name = RoomNamePolicy::unique($name, $this->roomMapper->findLiveNamesByHouseId((int)$floor->getHouseId()));
 			$room = $this->roomMapper->create($floorId, $name, $icon, $roomType);
 			// WP3 §3.5: the creation baseline is journaled BEFORE any room
 			// mutation (cleanliness 50, monsters 0, no last_cleaned).
@@ -200,6 +203,8 @@ class RoomService {
 				throw new NotFoundException($this->l10n->t('Room not found'));
 			}
 
+			// FEAT-UX-044: unique among the house's other live rooms.
+			$name = RoomNamePolicy::unique($name, $this->roomMapper->findLiveNamesByHouseId((int)$houseId, $roomId));
 			$changed = $fresh->getName() !== $name;
 			$fresh->setName($name);
 			return $this->roomMapper->update($fresh);

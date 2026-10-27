@@ -135,7 +135,7 @@ BUG-UX-005 covers the in-window case and ships on its own.
 ---
 
 ### [P3] FEAT-UX-044 — Unique room names within the house (numbered suffix)
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; admitted 2026-10-27, implemented on a fresh branch after the WP-A merge) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; full browser gate and the operator check open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #14
 
@@ -145,14 +145,18 @@ be told apart in pickers, filters and the task list. Operator direction: names
 must be unique; a duplicate gets " 2", " 3", … appended; applying this to new and
 renamed rooms is enough.
 
-- [ ] Create, rename and the setup wizard append the next free number to a
+- [x] Create, rename and the setup wizard append the next free number to a
       duplicate (recommended: trimmed, case-insensitive, deleted rooms ignored)
-      and the UI shows the final name.
-- [ ] Existing duplicates stay as they are (no data rewrite) until renamed.
-- [ ] Resolve the name under the house lock so two parallel creates cannot both
-      get " 2".
-- [ ] Tests: PHPUnit for create, rename and setup suffixing incl. case and
-      whitespace; `l10n/` for any new hint.
+      and the UI shows the final name. *`RoomNamePolicy`; a taken "Bath 2"
+      continues as "Bath 3" when "Bath" exists; the toast names a numbered
+      result.*
+- [x] Existing duplicates stay as they are (no data rewrite) until renamed.
+- [x] Resolve the name under the house lock so two parallel creates cannot both
+      get " 2". *Read inside the house-first transaction.*
+- [x] Tests: PHPUnit for create, rename and setup suffixing incl. case and
+      whitespace; `l10n/` for any new hint. *`RoomNamePolicyTest`,
+      `RoomServiceTest`, `HouseSetupServiceTest`, integration
+      `RoomMapperLiveNamesTest`; store and Settings specs.*
 
 ---
 

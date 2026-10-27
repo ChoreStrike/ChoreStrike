@@ -804,8 +804,11 @@ export default {
 				return
 			}
 			try {
-				await this.roomsStore.createRoom(floor.id, name)
-				showSuccess(t('chorestrike', 'Room created'))
+				const room = await this.roomsStore.createRoom(floor.id, name)
+				// FEAT-UX-044: a taken name comes back numbered.
+				showSuccess(room && room.name !== name
+					? t('chorestrike', 'Name already taken — room created as "{name}"', { name: room.name })
+					: t('chorestrike', 'Room created'))
 				this.newRoomNames[floor.id] = ''
 			} catch (error) {
 				showError(t('chorestrike', 'Failed to create room'))

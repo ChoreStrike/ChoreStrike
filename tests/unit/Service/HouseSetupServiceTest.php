@@ -317,6 +317,32 @@ class HouseSetupServiceTest extends TestCase {
 		$this->assertSame('WashingMachine', $byType['household']['icon']);
 	}
 
+	/**
+	 * FEAT-UX-044: duplicate names within the plan — including the per-floor
+	 * hallways — are numbered as they are created.
+	 */
+	public function testApplySetup_DuplicateRoomNames_AreNumbered(): void {
+		$this->stubPersistence();
+		$payload = $this->basePayload();
+		$payload['options']['createHallways'] = true;
+		$payload['floors'][0]['rooms'][] = ['name' => 'kitchen', 'roomType' => 'kitchen'];
+		$payload['floors'][] = ['name' => 'Upstairs', 'rooms' => [['name' => 'Kitchen', 'roomType' => 'kitchen']]];
+
+		$names = [];
+		$this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
+		$this->roomMapper->method('create')->willReturnCallback(function ($floorId, $name) use (&$names) {
+			$names[] = $name;
+			$room = new Room();
+			$this->setEntityId($room, $this->freshId());
+			return $room;
+		});
+		$this->rebuildService();
+
+		$this->service->applySetup(1, $payload);
+
+		$this->assertSame(['Kitchen', 'kitchen 2', 'Hallway & Stairs', 'Kitchen 3', 'Hallway & Stairs 2'], $names);
+	}
+
 	public function testApplySetup_FloorWithoutRooms_Throws(): void {
 		$this->stubPersistence();
 		$payload = $this->basePayload();

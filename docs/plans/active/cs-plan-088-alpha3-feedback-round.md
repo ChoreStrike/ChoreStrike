@@ -596,10 +596,14 @@ modified: lib/Service/HouseService.php, src/components/Members/MemberList.vue,
 modified: lib/Service/RoomTaskReadService.php, src/views/TodayView.vue,
           tests/unit/Service/RoomTaskServiceDailyTest.php,
           tests/unit/components/TodayView.spec.js, docs/api/README.md   (BUG-UX-003)
-modified: lib/Service/RoomService.php, lib/Service/HouseSetupService.php,
-          tests/unit/Service/RoomServiceTest.php,
-          tests/unit/Service/HouseSetupServiceTest.php, docs/api/README.md,
-          docs/user-guide.md                                   (FEAT-UX-044)
+new:      lib/Service/RoomNamePolicy.php, tests/unit/Service/RoomNamePolicyTest.php,
+          tests/integration/Db/RoomMapperLiveNamesTest.php
+modified: lib/Db/RoomMapper.php, lib/Service/RoomService.php,
+          lib/Service/HouseSetupService.php, src/store/rooms.js, src/views/Settings.vue,
+          src/views/RoomDetail.vue, tests/unit/Service/RoomServiceTest.php,
+          tests/unit/Service/HouseSetupServiceTest.php, tests/unit/store/rooms.spec.js,
+          tests/unit/views/Settings.spec.js, docs/api/README.md, docs/user-guide.md,
+          l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-044)
 new:      lib/Service/RoomTaskLastDoneService.php, its unit and integration tests
 modified: lib/Db/RoomEvent.php, lib/Service/RoomReplayService.php,
           lib/Controller/RoomTaskController.php, appinfo/routes.php,
