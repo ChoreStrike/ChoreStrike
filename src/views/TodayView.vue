@@ -143,7 +143,7 @@
 							</div>
 
 							<button
-								v-if="!hasDiscoveredEmptyChecklist(item.task.id)"
+								v-if="hasChecklist(item)"
 								class="checklist-toggle"
 								:aria-expanded="isExpanded(item.roomTask.id)"
 								:data-testid="`today-checklist-toggle-${item.roomTask.id}`"
@@ -218,7 +218,7 @@
 								</div>
 
 								<button
-									v-if="!hasDiscoveredEmptyChecklist(item.task.id)"
+									v-if="hasChecklist(item)"
 									class="checklist-toggle"
 									:aria-expanded="isExpanded(item.roomTask.id)"
 									:data-testid="`today-checklist-toggle-${item.roomTask.id}`"
@@ -343,11 +343,6 @@ export default {
 			// WP3 §3.6: the multi-person completion dialog target
 			// (`{item}`) while open; solo work bypasses the dialog.
 			participation: null,
-			// Definitions whose checklist was discovered to be EMPTY: the
-			// toggle is hidden for them after the one-shot discovery so a
-			// checklist-less row never offers a dead control (manual a11y
-			// pass 2026-09-12).
-			emptyChecklistTaskIds: [],
 		}
 	},
 
@@ -766,16 +761,10 @@ export default {
 					this.checklistStore.fetchTaskItems(item.task.id),
 					this.checklistStore.fetchRoomTaskProgress(id),
 				])
-				// Tasks without a checklist collapse again instead of showing
-				// an empty sub-task box — and the toggle disappears for that
-				// definition (one-shot discovery, manual a11y pass
-				// 2026-09-12): a checklist-less row must not keep offering a
-				// dead clickable control.
+				// Items deleted since the row was read: collapse again instead
+				// of showing an empty sub-task box.
 				if (this.checklistStore.getTaskItems(item.task.id).length === 0) {
 					this.expandedIds = this.expandedIds.filter((expandedId) => expandedId !== id)
-					if (!this.hasDiscoveredEmptyChecklist(item.task.id)) {
-						this.emptyChecklistTaskIds = [...this.emptyChecklistTaskIds, item.task.id]
-					}
 				}
 			} catch (error) {
 				showError(t('chorestrike', 'Could not load the checklist'))
@@ -787,8 +776,15 @@ export default {
 			return this.expandedIds.includes(roomTaskId)
 		},
 
-		hasDiscoveredEmptyChecklist(taskId) {
-			return this.emptyChecklistTaskIds.includes(taskId)
+		/**
+		 * BUG-UX-003: the toggle renders only for a definition with checklist
+		 * items — the daily and overdue reads carry the count, so a
+		 * checklist-less row never offers a dead control.
+		 * @param {object} item Enriched daily/overdue row.
+		 * @return {boolean} Whether the row has checklist items.
+		 */
+		hasChecklist(item) {
+			return (item.checklistItemCount ?? 0) > 0
 		},
 
 		async handleToggleChecklistItem({ itemId, roomTaskId }) {

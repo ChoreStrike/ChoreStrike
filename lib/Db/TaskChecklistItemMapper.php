@@ -155,4 +155,34 @@ class TaskChecklistItemMapper extends QBMapper {
 		$result = $qb->executeQuery();
 		return (int)$result->fetchOne();
 	}
+
+	/**
+	 * Checklist item counts for a batch of task definitions in one grouped
+	 * query (BUG-UX-003: My Day offers the toggle only where items exist).
+	 * Tasks without items are absent from the map.
+	 *
+	 * @param int[] $taskIds
+	 * @return array<int, int> Map of task ID → item count
+	 */
+	public function countByTaskIds(array $taskIds): array {
+		$taskIds = array_values(array_unique(array_map('intval', $taskIds)));
+		if ($taskIds === []) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('task_id')
+			->selectAlias($qb->func()->count('*'), 'item_count')
+			->from($this->getTableName())
+			->where($qb->expr()->in('task_id', $qb->createNamedParameter($taskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->groupBy('task_id');
+
+		$counts = [];
+		$result = $qb->executeQuery();
+		while (($row = $result->fetch()) !== false) {
+			$counts[(int)$row['task_id']] = (int)$row['item_count'];
+		}
+		$result->closeCursor();
+		return $counts;
+	}
 }

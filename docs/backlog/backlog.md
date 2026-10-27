@@ -79,7 +79,7 @@ of FEAT-UX-043.
 ---
 
 ### [P3] BUG-UX-003 — My Day offers a checklist toggle for tasks without a checklist
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; admitted 2026-10-27, implemented on a fresh branch after the WP-A merge) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; full browser gate and the operator check open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #9
 
@@ -89,12 +89,16 @@ has none and hide the toggle (one-shot discovery from the 2026-09-12 a11y pass),
 so the control appears on tasks without sub-tasks and vanishes on the first
 click.
 
-- [ ] The daily and overdue rows carry the checklist item count (or the view
+- [x] The daily and overdue rows carry the checklist item count (or the view
       preloads it in one bounded request); the toggle renders only when items
-      exist and the empty-discovery state goes away.
+      exist and the empty-discovery state goes away. *`checklistItemCount` on
+      the filtered-daily, due-today and overdue rows from one grouped
+      `TaskChecklistItemMapper::countByTaskIds` query.*
 - [ ] No per-row request (`workflow-request-budgets.spec.ts` stays green).
-- [ ] Tests: `TodayView` spec (no toggle without items, toggle with items) and a
-      read/DTO test for the count.
+      *No new HTTP request; confirmed by the full browser gate.*
+- [x] Tests: `TodayView` spec (no toggle without items, toggle with items) and a
+      read/DTO test for the count. *Plus `RoomTaskServiceDailyTest` and the
+      integration `TaskChecklistItemCountTest`.*
 
 ---
 

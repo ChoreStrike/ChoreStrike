@@ -595,9 +595,13 @@ modified: lib/Service/HouseService.php, lib/Controller/UserController.php,
           docs/engineering/architecture.md, docs/user-guide.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot
                                                                (FEAT-UX-015 owner removal)
-modified: lib/Service/RoomTaskReadService.php, src/views/TodayView.vue,
-          tests/unit/Service/RoomTaskServiceDailyTest.php,
-          tests/unit/components/TodayView.spec.js, docs/api/README.md   (BUG-UX-003)
+new:      tests/integration/Db/TaskChecklistItemCountTest.php
+modified: lib/Db/TaskChecklistItemMapper.php, lib/Service/RoomTaskReadService.php,
+          src/views/TodayView.vue, tests/unit/Service/RoomTaskServiceDailyTest.php,
+          tests/unit/components/TodayView.spec.js, docs/api/README.md, and the
+          read-service constructions in RoomTaskReadServiceTest,
+          RoomTaskServiceTest, RoomTaskServiceLoggingTest and
+          RoomTaskServiceExtendedFeaturesTest                  (BUG-UX-003)
 new:      lib/Service/RoomNamePolicy.php, tests/unit/Service/RoomNamePolicyTest.php,
           tests/integration/Db/RoomMapperLiveNamesTest.php
 modified: lib/Db/RoomMapper.php, lib/Service/RoomService.php,

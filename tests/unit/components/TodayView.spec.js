@@ -44,6 +44,7 @@ const todayFixture = () => ([
 		task: { id: 1, name: 'Do the dishes', energyCost: 3, instructions: 'Rinse first, then load the dishwasher.' },
 		room: { id: 1, name: 'Kitchen' },
 		assignees: [],
+		checklistItemCount: 1,
 	},
 	{
 		roomTask: { id: 12, taskId: 2, roomId: 1, isActive: true, nextDue: utcTodayIso(9) },
@@ -584,24 +585,27 @@ describe('TodayView', () => {
 		expect(mockChecklistStore.toggleItem).toHaveBeenCalledWith(11, 77)
 	})
 
-	it('hides the checklist toggle for a checklist-less row after the one-shot discovery (manual a11y pass 2026-09-12)', async () => {
+	// BUG-UX-003 (CS-PLAN-088 D-088-19): the rows carry the item count, so
+	// a checklist-less row never offers a toggle — no click needed to learn
+	// that, and no per-row request.
+	it('offers the checklist toggle only for rows with checklist items', async () => {
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()
 
-		// Row 12's definition (task 2) has no checklist items.
-		const toggle = wrapper.find('[data-testid="today-checklist-toggle-12"]')
-		expect(toggle.exists()).toBe(true)
+		expect(wrapper.find('[data-testid="today-checklist-toggle-11"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="today-checklist-toggle-12"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="today-checklist-toggle-13"]').exists()).toBe(false)
+		expect(mockChecklistStore.fetchTaskItems).not.toHaveBeenCalled()
+	})
 
-		await toggle.trigger('click')
+	it('collapses again when the items were deleted since the row was read', async () => {
+		const wrapper = await mountView()
+		await wrapper.vm.$nextTick()
+
+		await wrapper.find('[data-testid="today-checklist-toggle-11"]').trigger('click')
 		await flushAsync()
 
-		// Collapsed again (no empty sub-task box) AND the dead control is
-		// gone for that definition — a checklist-less row must not keep
-		// offering a clickable toggle that flashes and disappears.
 		expect(wrapper.find('[data-testid="task-checklist"]').exists()).toBe(false)
-		expect(wrapper.find('[data-testid="today-checklist-toggle-12"]').exists()).toBe(false)
-		// Sibling rows keep their toggle until their own discovery.
-		expect(wrapper.find('[data-testid="today-checklist-toggle-11"]').exists()).toBe(true)
 	})
 
 	// CS-PLAN-070 WP8 §3.6: the contextual progress/windows help sits on

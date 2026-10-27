@@ -79,7 +79,8 @@ class RoomTaskReadServiceTest extends TestCase {
 			$this->occMemberMapper,
 			new \OCA\ChoreStrike\Service\EffortAllocationService(),
 			$this->createIdentityL10n(),
-			$this->logger
+			$this->logger,
+			$this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class)
 		);
 	}
 

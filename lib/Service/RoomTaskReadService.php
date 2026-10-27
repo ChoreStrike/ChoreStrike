@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -53,6 +54,7 @@ class RoomTaskReadService {
 	private EffortAllocationService $allocationService;
 	private IL10N $l10n;
 	private AppLogger $logger;
+	private TaskChecklistItemMapper $checklistItemMapper;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
@@ -70,6 +72,7 @@ class RoomTaskReadService {
 		EffortAllocationService $allocationService,
 		IL10N $l10n,
 		AppLogger $logger,
+		TaskChecklistItemMapper $checklistItemMapper,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
@@ -86,6 +89,7 @@ class RoomTaskReadService {
 		$this->allocationService = $allocationService;
 		$this->l10n = $l10n;
 		$this->logger = $logger;
+		$this->checklistItemMapper = $checklistItemMapper;
 	}
 
 	/**
@@ -680,7 +684,7 @@ class RoomTaskReadService {
 				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
 		}
-		return $this->attachProposalBlocks($rows, $houseId, $selections);
+		return $this->withChecklistCounts($this->attachProposalBlocks($rows, $houseId, $selections));
 	}
 
 	/**
@@ -704,7 +708,7 @@ class RoomTaskReadService {
 				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
 				: null;
 		}
-		return $this->attachProposalBlocks($rows, $houseId, $map['selections']);
+		return $this->withChecklistCounts($this->attachProposalBlocks($rows, $houseId, $map['selections']));
 	}
 
 	/**
@@ -812,7 +816,7 @@ class RoomTaskReadService {
 
 		// Non-child users see all (visible) tasks.
 		if (!$viewer->isChild()) {
-			return $this->withAssignees([...$allTasks, ...$openWindow]);
+			return $this->withChecklistCounts($this->withAssignees([...$allTasks, ...$openWindow]));
 		}
 
 		// Eligibility first (D4): assigned to the viewer OR unassigned.
@@ -856,7 +860,7 @@ class RoomTaskReadService {
 		// never consume one of the day's slots.
 		$eligible = [...$eligible, ...array_values(array_filter($openWindow, $isEligible))];
 
-		return $this->withAssignees($eligible, $assigneesByRoomTask);
+		return $this->withChecklistCounts($this->withAssignees($eligible, $assigneesByRoomTask));
 	}
 
 	/**
@@ -916,6 +920,27 @@ class RoomTaskReadService {
 		}
 		foreach ($rows as $index => $item) {
 			$rows[$index]['assignees'] = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
+		}
+		return $rows;
+	}
+
+	/**
+	 * The definition's checklist item count per execution row, from one
+	 * grouped query (BUG-UX-003): My Day renders the checklist toggle only
+	 * for rows with items, without a per-row request.
+	 *
+	 * @param list<array<string, mixed>> $rows Rows carrying `task`
+	 * @return list<array<string, mixed>> Rows with a `checklistItemCount` key
+	 */
+	private function withChecklistCounts(array $rows): array {
+		if ($rows === []) {
+			return [];
+		}
+		$counts = $this->checklistItemMapper->countByTaskIds(
+			array_map(static fn (array $row): int => (int)$row['task']->getId(), $rows)
+		);
+		foreach ($rows as $index => $row) {
+			$rows[$index]['checklistItemCount'] = $counts[(int)$row['task']->getId()] ?? 0;
 		}
 		return $rows;
 	}

@@ -39,6 +39,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
 	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
+	private \OCA\ChoreStrike\Db\TaskChecklistItemMapper|MockObject $checklistItemMapper;
 	/** @var int[]|null Room tasks with work planned today (null = all). */
 	private ?array $dueTodayIds = null;
 
@@ -51,6 +52,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
+		$this->checklistItemMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class);
 		// CS-PLAN-057: day windows resolve the house timezone (UTC here, so
 		// the [start, end) bounds match the injected date's UTC calendar day).
 		$utcHouse = new House();
@@ -91,7 +93,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
 			new \OCA\ChoreStrike\Service\EffortAllocationService(),
 			$this->createIdentityL10n(),
-			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class)
+			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
+			$this->checklistItemMapper
 		);
 	}
 
@@ -173,6 +176,40 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
 
 		$this->assertCount(2, $result);
+	}
+
+	/**
+	 * BUG-UX-003 (CS-PLAN-088 D-088-19): every daily row carries its
+	 * definition's checklist item count from ONE grouped query, 0 without
+	 * items — My Day renders the toggle only where items exist.
+	 */
+	public function testGetFilteredDailyTasks_RowsCarryTheChecklistItemCount(): void {
+		$roomTasks = [];
+		$tasks = [];
+		foreach ([1, 2] as $id) {
+			$roomTask = new RoomTask();
+			$roomTask->setId($id);
+			$roomTask->setTaskId(10 + $id);
+			$roomTask->setRoomId(1);
+			$roomTasks[] = $roomTask;
+			$task = new Task();
+			$task->setId(10 + $id);
+			$tasks[10 + $id] = $task;
+		}
+		$room = new Room();
+		$room->setId(1);
+		$this->roomTaskMapper->method('findByHouse')->willReturn($roomTasks);
+		$this->taskMapper->method('findByIds')->willReturn($tasks);
+		$this->roomMapper->method('findByIds')->willReturn([1 => $room]);
+		$this->checklistItemMapper->expects($this->once())->method('countByTaskIds')
+			->with([11, 12])->willReturn([11 => 3]);
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$viewer->setNextcloudUserId('parent');
+		$viewer->setRole('owner');
+
+		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
+
+		$this->assertSame([3, 0], array_column($result, 'checklistItemCount'));
 	}
 
 	public function testGetFilteredDailyTasksForUserFiltersByWeekdayAvailabilityForChild(): void {

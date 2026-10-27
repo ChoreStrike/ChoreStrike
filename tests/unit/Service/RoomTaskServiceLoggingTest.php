@@ -61,7 +61,8 @@ class RoomTaskServiceLoggingTest extends TestCase {
 				$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
 				new \OCA\ChoreStrike\Service\EffortAllocationService(),
 				$this->createIdentityL10n(),
-				$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class)
+				$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
+				$this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class)
 			),
 			$roomService,
 			$taskAssigneeMapper,

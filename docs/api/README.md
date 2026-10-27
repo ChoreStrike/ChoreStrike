@@ -553,7 +553,8 @@ execution-row consumer (no client-side assignee re-fetch):
     "roomTask": { "id": 11, "isActive": true, "nextDue": "…", "status": "overdue", "daysUntilDue": -2 },
     "task": { "id": 4, "name": "Take out kitchen trash", "instructions": "…" },
     "room": { "id": 2, "name": "Living Room" },
-    "assignees": ["dad"]
+    "assignees": ["dad"],
+    "checklistItemCount": 0
   }
 ]
 ```
@@ -911,7 +912,12 @@ days. They carry `openWindow: true`, pass the same child eligibility and never
 count toward the daily limit; the due-today set itself is unchanged.
 
 **Response `data`:** list of `{ roomTask, task, room, assignees, occurrence,
-proposal, openWindow }` objects.
+proposal, openWindow, checklistItemCount }` objects.
+
+**Checklist count (BUG-UX-003, CS-PLAN-088 D-088-19):** the filtered-daily,
+due-today and overdue rows carry `checklistItemCount`, the number of checklist
+items of the row's definition (0 without items), from one grouped query; My
+Day offers its checklist toggle only above zero.
 
 #### GET /room-tasks/room/{roomId}/stats
 Room task statistics for the RoomDetail stats card (CS-PLAN-040). Rejects a
