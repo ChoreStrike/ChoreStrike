@@ -250,8 +250,8 @@ so these refusals never occur there.
 ---
 
 ### [P3] BUG-UX-003 — My Day offers a checklist toggle for tasks without a checklist
-**Status**: Backlog (alpha.2 trial feedback 2026-10-26) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; admitted 2026-10-27, implemented on a fresh branch after the WP-A merge) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #9
 
 `TodayView` renders the "Checklist" toggle on every catch-up and due-today row
@@ -406,8 +406,8 @@ BUG-UX-005 covers the in-window case and ships on its own.
 ---
 
 ### [P3] FEAT-UX-044 — Unique room names within the house (numbered suffix)
-**Status**: Backlog (alpha.2 trial feedback 2026-10-26) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; admitted 2026-10-27, implemented on a fresh branch after the WP-A merge) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #14
 
 Rooms may share a name (no check in `RoomService::createRoom()`,
@@ -437,7 +437,7 @@ now explicitly selects notification settings and dated pauses for its new core,
 followed by the optional family catalog; those choices do not activate code work.
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
-**Status**: Open (semantics decided, endpoint/UI open; re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
+**Status**: Open (semantics decided, endpoint/UI open; re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03; the owner-removal fold-in is admitted to CS-PLAN-088 WP-A by D-088-19, self-service departure stays unassigned) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: removing another owner (operator feedback 2026-10-26, CS-PLAN-088 feedback register #7)
 **Source**: UX-003 remainder (CS-PLAN-038); owner-transfer/last-owner semantics decided by CS-PLAN-061 D6 (ADR-010, user-ratified 2026-09-03)
 
@@ -619,8 +619,8 @@ templates today).
 ---
 
 ### [P3] FEAT-UX-045 — Record or correct "last cleaned" after setup
-**Status**: Backlog (alpha.2 trial feedback 2026-10-26; decision needed) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19, D-088-20; admitted 2026-10-27, implemented on a fresh branch after the WP-A merge) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #16
 
 The room card shows "Last cleaned: …" from the room journal; only completion and
@@ -629,11 +629,12 @@ set-up house therefore shows nothing, and a wrong value cannot be corrected. The
 operator wants to set or change it afterwards, for example right after creating
 the house.
 
-- [ ] Decide the level: (a) per room, a backdated manual journal event without
+- [x] Decide the level: (a) per room, a backdated manual journal event without
       reward or completion fact; (b) per task, a "last done on" date at creation
       or edit that anchors the next due date (interval: last done + period).
       Recommended: (b), because after setup the schedule is what matters, plus
-      the room card showing the latest of both.
+      the room card showing the latest of both. *Operator, 2026-10-27: (b);
+      design in CS-PLAN-088 D-088-20.*
 - [ ] Existing completion facts are never edited; a correction is a new,
       traceable event (retained-baseline rules).
 - [ ] Tests: replay/projection tests for the backdated anchor, form spec,

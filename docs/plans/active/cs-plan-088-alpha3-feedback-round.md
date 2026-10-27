@@ -199,6 +199,28 @@ All questions were answered with their recommended option.
   target says "Not open yet — this task can be completed within its time
   window." instead of the generic stale failure. Rejected: hiding or disabling
   Done, which FEAT-UX-041 may revisit.
+- **D-088-19 Third WP-A admission:** feedback register #7, #9, #14 and #16
+  enter WP-A with the manifest and tests below: the owner-removal part of
+  FEAT-UX-015, BUG-UX-003, FEAT-UX-044 and FEAT-UX-045 (variant b, per task).
+  Self-service departure stays excluded (see *Excluded stretch candidates*).
+  Register #4, #6, #11, #12 and #13 (FEAT-UX-040, -041, -043) stay in the
+  backlog for a later round; no mockups in this round. They are implemented on
+  a fresh branch after the WP-A merge, with their own gate run.
+- **D-088-20 "Last done" per room task (FEAT-UX-045, variant b):** the
+  room-task edit dialog records "Last done on" (today or a past house-local
+  day; owners and members, not children). It appends a room-journal event
+  `last_done` dated that day, which stamps "Last cleaned" without a
+  cleanliness change, reward, completion fact or rhythm effect; a newer entry
+  for the same room task replaces the older one, and a later real completion
+  or quick clean still wins. A completion-relative interval re-anchors its
+  pending occurrence to `max(today, last done + period)` through the date
+  agreement writer; a fixed cadence keeps its dates (C1); an overdue pending
+  occurrence refuses the command with its reason (a miss stays a miss,
+  catch-up applies). No schema change: `room_events.kind` is a free string and
+  older code skips an unknown kind, so a code downgrade only drops the stamp.
+  Rejected: (a) a per-room date only; writing `room_tasks.last_completed`
+  (completion-owned and recomputed on undo); extra fields in the create form
+  and the setup wizard (the first due date already anchors a new task).
 
 ## 3. Backend / Frontend Changes
 
@@ -264,6 +286,33 @@ Admitted items (D-088-11, D-088-14, D-088-16):
   bars, tracks, grid cells, icons, game elements) get theme tokens from
   `src/styles/tokens.css` or Nextcloud's semantic colors instead of fixed
   light-theme shades; text contrast stays at zero axe violations.
+
+Admitted items (D-088-19):
+
+- **FEAT-UX-015 owner removal (register #7):** `HouseService::removeHouseMember()`
+  accepts an owner target when it is not the acting owner, re-checked on the
+  locked house and membership rows; the actor stays an owner, so the D6
+  last-owner invariant holds and removal stays durable (invite-only after the
+  first owner, ADR-010). Self-removal keeps `CANNOT_REMOVE_OWNER`. The cleanup
+  is the existing member departure path. `MemberList` already enables the
+  action for every other member; its owner refusal text names self-removal.
+- **BUG-UX-003 checklist toggle (register #9):** the daily, due-today and
+  overdue rows carry the definition's checklist item count from one grouped
+  query; `TodayView` renders the toggle only for a count above zero and drops
+  the empty-discovery state. No per-row request.
+- **FEAT-UX-044 unique room names (register #14):** `RoomService` create and
+  rename, and the setup wizard, resolve a duplicate under the house lock to the
+  next free " 2", " 3", … (trimmed, case-insensitive, within the house); the
+  response carries the final name, which the UI shows. Existing duplicates stay
+  until renamed; no data rewrite.
+- **FEAT-UX-045 last done (register #16, D-088-20):** a receipt command
+  `PUT /api/v1/room-tasks/{id}/last-done` (`commandId`, `date`) in a small
+  service of its own, under the house-first and room-task locks: it records
+  the `last_done` journal event (stable id per room task and command), resyncs
+  the room cache and, for an interval task, amends the pending occurrence
+  through `amendOccurrenceDateUnderLock`. `RoomReplayService` stamps
+  `lastCleaned` from the newest `last_done` per room task after the latest
+  reset. `RoomTaskEditModal` gains the date field.
 
 ### WP-B Hardening
 
@@ -344,8 +393,9 @@ tags and GitHub pre-releases per Q-088-03.
 
 ### Excluded stretch candidates
 
-FEAT-UX-015 and TECH-TEST-008 stay in their existing backlog entries, without
-implementation authorization here. In particular, `removeHouseMember()` is
+TECH-TEST-008 and the self-service departure of FEAT-UX-015 stay in their
+existing backlog entries, without implementation authorization here (the
+owner-removal part of FEAT-UX-015 is admitted by D-088-19). In particular, `removeHouseMember()` is
 owner-only and refuses any owner target: calling it unchanged cannot implement
 self-service departure. Any later plan must specify server-derived self identity,
 house-first locking and last-owner races, departure cleanup/rollback, route,
@@ -386,7 +436,22 @@ reviewed plan; this round's explicit matrix targets do not deliver that feature.
   occurrence onto a day the member is unavailable. Admitted item (D-088-16):
   BUG-UX-006 — `color-contrast.spec.ts` gains a non-text check measuring the
   audited graphics against their background in both themes (≥ 3:1); the text
-  check stays at zero violations.
+  check stays at zero violations. Admitted items (D-088-19): FEAT-UX-015 owner
+  removal — `HouseServiceTest` (another owner removed; self-removal and a
+  non-owner actor refused) and `HouseMemberRemovalIntegrationTest` (an owner
+  target gets the member departure cleanup; the actor stays owner);
+  BUG-UX-003 — `RoomTaskServiceDailyTest` for the item count on daily,
+  due-today and overdue rows, `TodayView` spec (no toggle without items, toggle
+  with items), `workflow-request-budgets.spec.ts` unchanged and green;
+  FEAT-UX-044 — `RoomServiceTest` and `HouseSetupServiceTest` for create,
+  rename and setup suffixing incl. case, whitespace, the renamed room itself
+  and existing duplicates left alone; FEAT-UX-045 — `RoomReplayService` cases
+  (the stamp without a cleanliness change, a newer entry replacing an older
+  one, a later completion winning, an entry before a reset hidden), service
+  cases (interval re-anchor to `max(today, last done + period)`, fixed cadence
+  unchanged, future date and child refused, overdue refused with its reason,
+  idempotent replay of the receipt), an integration case on a populated house
+  (no completion, wallet or rhythm row written) and a `RoomTaskEditModal` spec.
 - **CR-PERF-01:** existing `SchedulePlanService` apply tests stay green; add a
   unit case with several changed rows in both phases asserting identical
   results to the current implementation.
@@ -522,6 +587,26 @@ modified: src/utils/icons.js, tests/unit/utils/icons.spec.js, src/styles/tokens.
                                                                (BUG-UX-006; the audit
           cleared QuickStats, WeekBudgetGrid and the arcade boards)
 new:      tests/e2e/fixtures/non-text-contrast.ts, tests/e2e/fixtures/theme.ts   (BUG-UX-006)
+modified: lib/Service/HouseService.php, src/components/Members/MemberList.vue,
+          tests/unit/Service/HouseServiceTest.php,
+          tests/integration/Service/HouseMemberRemovalIntegrationTest.php,
+          tests/unit/components/MemberList.spec.js, docs/api/README.md,
+          l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot
+                                                               (FEAT-UX-015 owner removal)
+modified: lib/Service/RoomTaskReadService.php, src/views/TodayView.vue,
+          tests/unit/Service/RoomTaskServiceDailyTest.php,
+          tests/unit/components/TodayView.spec.js, docs/api/README.md   (BUG-UX-003)
+modified: lib/Service/RoomService.php, lib/Service/HouseSetupService.php,
+          tests/unit/Service/RoomServiceTest.php,
+          tests/unit/Service/HouseSetupServiceTest.php, docs/api/README.md,
+          docs/user-guide.md                                   (FEAT-UX-044)
+new:      lib/Service/RoomTaskLastDoneService.php, its unit and integration tests
+modified: lib/Db/RoomEvent.php, lib/Service/RoomReplayService.php,
+          lib/Controller/RoomTaskController.php, appinfo/routes.php,
+          src/store/roomTasks.js, src/components/Tasks/RoomTaskEditModal.vue,
+          tests/unit/components/RoomTaskEditModal.spec.js, docs/api/README.md,
+          docs/concepts/task-model-and-sync.md, docs/user-guide.md,
+          l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-045)
 ```
 
 ## 6. Implementation Order
@@ -601,6 +686,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-088-08 (major) - Package builder: host/CI upgrade alone leaves the isolated package builder on pinned Node 20.19; add its image inventory, npm/engine checks, tests and README requirements to WP-C.
 - [x] RF-088-09 (major) - Toolchain ordering: a strict Node 24 install is blocked by `@nextcloud/eslint-config@8`, `@nextcloud/eslint-plugin@2` and the unused `@nextcloud/initial-state@2.2.0` (all `node ^20`/`npm ^10`), so TECH-DEV-001 cannot precede TECH-LINT-008; D-088-08 merges them into one series (found 2026-10-20 while preparing the lockfile; operator answered the recommended option).
 - [x] RF-088-10 (major) - Bundle proof: byte identity of `js/` is unattainable across the bundler major (webpack 5.105.2 → 5.112.0, terser → `minimizer-webpack-plugin`; `chorestrike-main.js` 3.93 → 3.60 MB); D-088-09 replaces it with content equivalence plus the gates (operator answered the recommended option).
+- [ ] RF-088-11 (major) - Runtime currency: AIO `v14.4.1` (seen 2026-10-27) bundles Nextcloud 34.0.5 on PHP 8.4.27 (inventory: AIO 14.3.0, Nextcloud 34.0.4, PHP 8.4.26; APCu, phpredis, Redis and PostgreSQL unchanged, upstream still 35.0.2). `test:runtime:check` fails closed (`AIO apcu metadata`) because the AIO Dockerfile now pins its PECL versions as `ARG …_VERSION` and builds them from GitHub tarballs instead of `pecl install`. Fix the parser for that form (with a fixture test), then promote the AIO row through a reviewed inventory update and requalification before the WP-D qualification. The WP-A browser gate ran on the rows the inventory names.
 
 ## Feedback Register (sanitized)
 
@@ -615,16 +701,16 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 4 | 2026-10-24 | owner | The "Repeat" selector at the top contradicts the recurrence inputs further down; control size and organisation need rework, with operator feedback first | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Open; design feedback first |
 | 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/backlog.md#p2-bug-ux-005--work-inside-its-flex-window-cannot-be-completed-from-my-day-before-the-planned-day) | Fixed on `fix/alpha3-feedback` for My Day (D-088-14) and the Tasks tab after a flex edit (D-088-17, D-088-18); views confirmed in the GUI review; full gate open |
 | 6 | 2026-10-26 | owner | Completing before the due date, even before the flex days, should be allowed by default and move the next due date; at most an owner option or a child restriction | Feature / P2 | [FEAT-UX-041](../../backlog/backlog.md#p2-feat-ux-041--allow-completing-work-before-its-window-opens) | Open; product decision |
-| 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; workaround: demote to member, then remove |
+| 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; owner-removal part admitted (D-088-19); self-service departure stays in the backlog |
 | 8 | 2026-10-26 | owner | Several houses per instance? (question for v1.0) | Feature / P4 | FEAT-UX-042, [archived as rejected](../../backlog/archive/2026-10.md#feat-ux-042-rejected-one-house-per-instance-10-26) | Rejected (D-088-15): too much effort |
-| 9 | 2026-10-26 | owner | My Day shows a checklist button on tasks without a checklist; it vanishes on click | Bug / P3 | [BUG-UX-003](../../backlog/backlog.md#p3-bug-ux-003--my-day-offers-a-checklist-toggle-for-tasks-without-a-checklist) | Open |
+| 9 | 2026-10-26 | owner | My Day shows a checklist button on tasks without a checklist; it vanishes on click | Bug / P3 | [BUG-UX-003](../../backlog/backlog.md#p3-bug-ux-003--my-day-offers-a-checklist-toggle-for-tasks-without-a-checklist) | Admitted (D-088-19) |
 | 10 | 2026-10-26 | owner | Clicking a person in the task details scrolls the whole screen up | Bug / P2 | [BUG-UX-004](../../backlog/backlog.md#p2-bug-ux-004--selecting-a-person-in-the-task-details-scrolls-the-page) | Fixed on `fix/alpha3-feedback` (D-088-14); cause confirmed in the browser; full gate and GUI review open |
 | 11 | 2026-10-26 | owner | New Task and Edit Task should share one mask, both with assignees and room | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Folded in; design feedback first |
 | 12 | 2026-10-26 | owner | Templates should mean "copy a task"; a template task in several rooms changes its title everywhere but other details apparently not | Improvement / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; decision on existing shared definitions |
 | 13 | 2026-10-26 | owner | Template picker: room type dropdown and task list, short preview, Putzmuffel/Putzteufel switch, special sets such as pets and garden | Feature / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; mockup first |
-| 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Open |
+| 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Admitted (D-088-19) |
 | 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/backlog.md#p2-bug-ux-002--moving-one-occurrence-reports-changed-in-the-meantime-for-every-refusal) | Fixed on `fix/alpha3-feedback` (D-088-14); reproduced 2026-10-26: no stale-token defect, a refused move (member not available) was shown as "changed"; stays P2; full gate open |
-| 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Open; decision needed |
+| 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Admitted (D-088-19, variant b) |
 | 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/backlog.md#p2-bug-ux-006--graphics-are-hard-to-see-in-the-dark-theme-non-text-contrast) | Fixed on `fix/alpha3-feedback` (D-088-16): black icon default, invisible bar tracks, low fills, and the Tasks tab's flex window (confirmed by the operator 2026-10-27); GUI review passed 2026-10-27; full gate open |
 
 ## WP-C Evidence (toolchain series, 2026-10-20)
