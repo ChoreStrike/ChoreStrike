@@ -48,6 +48,11 @@ floors yet; you can also start it with **Set up your home**.
 **Start empty** skips the wizard; you can then create floors, rooms and tasks
 yourself.
 
+**When was it last done?** In a room, edit a task and fill in *Last done on*.
+The room then shows that day as "Last cleaned", and a task that repeats after
+completion is next due one interval later. It earns nothing and counts as no
+completion. A newer entry corrects an older one; children cannot set it.
+
 **Invitations.** You invite people by the email address of their existing
 account on your Nextcloud — ChoreStrike sends no email; the person is part of
 the household right away and sees it the next time they open the app. People

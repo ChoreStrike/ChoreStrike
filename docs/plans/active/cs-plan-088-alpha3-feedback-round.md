@@ -610,12 +610,18 @@ modified: lib/Db/RoomMapper.php, lib/Service/RoomService.php,
           tests/unit/Service/HouseSetupServiceTest.php, tests/unit/store/rooms.spec.js,
           tests/unit/views/Settings.spec.js, docs/api/README.md, docs/user-guide.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-044)
-new:      lib/Service/RoomTaskLastDoneService.php, its unit and integration tests
-modified: lib/Db/RoomEvent.php, lib/Service/RoomReplayService.php,
-          lib/Controller/RoomTaskController.php, appinfo/routes.php,
-          src/store/roomTasks.js, src/components/Tasks/RoomTaskEditModal.vue,
+new:      lib/Service/RoomTaskLastDoneService.php, lib/Controller/RoomTaskLastDoneController.php,
+          tests/integration/Service/RoomTaskLastDoneIntegrationTest.php,
+          tests/unit/Controller/RoomTaskLastDoneControllerTest.php
+modified: lib/Db/RoomEvent.php, lib/Db/RoomEventMapper.php, lib/Service/RoomReplayService.php,
+          lib/Service/RoomTaskService.php (child day-limit check public),
+          appinfo/routes.php, tests/unit/RouteMatrixTest.php (route pin 96 → 97),
+          tests/unit/Service/RoomReplayServiceTest.php, src/store/roomTasks.js,
+          src/components/Tasks/RoomTaskEditModal.vue, tests/unit/store/roomTasks.spec.js,
           tests/unit/components/RoomTaskEditModal.spec.js, docs/api/README.md,
-          docs/concepts/task-model-and-sync.md, docs/user-guide.md,
+          docs/concepts/task-model-and-sync.md, docs/concepts/ui-use-cases.md,
+          docs/user-guide.md, docs/adr/ADR-013-occurrence-agreements-and-corrections.md,
+          docs/adr/ADR-014-work-accounting-ledger-and-replay.md, docs/engineering/architecture.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-045)
 ```
 

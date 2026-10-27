@@ -269,6 +269,7 @@ points:** RoomDetail (slim modal), TaskManager, TaskList.
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Edit due date | RoomDetail → `RoomTaskEditModal` | `PUT /room-tasks/{id}/due-date` | ✅ |
+| Record "last done on" (FEAT-UX-045) | RoomDetail → `RoomTaskEditModal` (adults) | `PUT /room-tasks/{id}/last-done` | ✅ |
 | Edit assignees | RoomTaskEditModal, TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
 | Delete room task | RoomDetail, TaskManager | `DELETE /room-tasks/{id}` | ✅ |
 | Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate`/`uncomplete` followed by CS-PLAN-064) |

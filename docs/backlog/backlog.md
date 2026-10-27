@@ -360,7 +360,7 @@ templates today).
 ---
 
 ### [P3] FEAT-UX-045 — Record or correct "last cleaned" after setup
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19, D-088-20; admitted 2026-10-27, implemented on a fresh branch after the WP-A merge) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19, D-088-20; implemented 2026-10-28 on `feat/alpha3-feedback-2`; full browser gate and the operator check open) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #16
 
@@ -376,10 +376,15 @@ the house.
       Recommended: (b), because after setup the schedule is what matters, plus
       the room card showing the latest of both. *Operator, 2026-10-27: (b);
       design in CS-PLAN-088 D-088-20.*
-- [ ] Existing completion facts are never edited; a correction is a new,
-      traceable event (retained-baseline rules).
-- [ ] Tests: replay/projection tests for the backdated anchor, form spec,
-      `l10n/`.
+- [x] Existing completion facts are never edited; a correction is a new,
+      traceable event (retained-baseline rules). *A `last_done` room-journal
+      event per entry (the newest per room task counts) and, for an interval,
+      a `date` agreement; no schema change.*
+- [x] Tests: replay/projection tests for the backdated anchor, form spec,
+      `l10n/`. *`RoomReplayServiceTest`, integration
+      `RoomTaskLastDoneIntegrationTest` (re-anchor, long ago → today, fixed
+      cadence, overdue, future day, child, correction, receipt replay),
+      `RoomTaskLastDoneControllerTest`, `RoomTaskEditModal` and store specs.*
 
 ---
 

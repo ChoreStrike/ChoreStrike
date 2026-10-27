@@ -130,6 +130,12 @@ and non-punitive recovery. WP1-WP4 implement the approved rules below.
   cadence are agreed seven days ahead, so they open at most seven days early.
   Widening the flex days applies at once to occurrences still open; narrowing
   applies from the next one, so an agreed window never shrinks (D-088-17).
+- An adult can record when a task was last done, e.g. right after setting up
+  the house (FEAT-UX-045): the room shows that day as "Last cleaned", and a
+  task that repeats after completion is next due one interval later (never
+  before today). It is no completion: no reward, no rhythm step; a fixed
+  calendar cadence keeps its dates, and an overdue appointment must be
+  completed or caught up instead ([API](../api/README.md#put-room-tasksidlast-done)).
 - Repeated misses produce one visible catch-up item per recurring chore, not an
   accumulating list of identical cards. Missed occurrences remain historical
   misses; completing once does not turn every missed occurrence into a success.

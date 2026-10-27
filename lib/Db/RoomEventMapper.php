@@ -94,6 +94,28 @@ class RoomEventMapper extends QBMapper {
 	}
 
 	/**
+	 * Id and stable id of every event of one kind in a room (FEAT-UX-045:
+	 * the replay keeps the newest `last_done` per room task).
+	 *
+	 * @return array<int, string> Map of event id → stable id
+	 */
+	public function findStableIdsByRoomAndKind(int $roomId, string $kind): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id', 'stable_id')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter($kind)));
+
+		$stableIds = [];
+		$result = $qb->executeQuery();
+		while (($row = $result->fetch()) !== false) {
+			$stableIds[(int)$row['id']] = (string)$row['stable_id'];
+		}
+		$result->closeCursor();
+		return $stableIds;
+	}
+
+	/**
 	 * Count the journaled events of one room (query-budget probe).
 	 */
 	public function countByRoom(int $roomId): int {

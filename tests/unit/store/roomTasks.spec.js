@@ -378,6 +378,23 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
+		// FEAT-UX-045 (CS-PLAN-088 D-088-20).
+		describe('recordLastDone', () => {
+			it('sends a fresh command id with the day and merges the written row', async () => {
+				store.roomTasks = [{ id: 7, nextDue: '2030-05-09T00:00:00Z', assignees: ['user1'] }]
+				api.put.mockResolvedValue({ id: 7, nextDue: '2030-05-14T00:00:00Z' })
+
+				const row = await store.recordLastDone(7, '2030-05-07')
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/room-tasks/7/last-done', {
+					commandId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+					date: '2030-05-07',
+				})
+				expect(row.nextDue).toBe('2030-05-14T00:00:00Z')
+				expect(store.roomTasks[0]).toEqual({ id: 7, nextDue: '2030-05-14T00:00:00Z', assignees: ['user1'] })
+			})
+		})
+
 		describe('completeRoomTask', () => {
 			it('completes task', async () => {
 				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]

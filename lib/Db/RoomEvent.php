@@ -26,6 +26,10 @@ use OCP\AppFramework\Db\Entity;
  * - `reset`: an absolute reset (cleanliness 100, monsters 0,
  *   last_cleaned cleared).
  * - `baseline`: the creation/setup seed baseline of the room.
+ * - `last_done`: a recorded "last done on" day of one room task
+ *   (FEAT-UX-045, CS-PLAN-088 D-088-20) — stamps `last_cleaned` only, no
+ *   cleanliness effect; the newest entry per room task replaces older ones
+ *   (stable id `last_done:<roomTaskId>:<commandUuid>`).
  *
  * Replay order is `(effective_at, id)`; correction execution time must
  * never become `last_cleaned` (the completion event freezes its own
@@ -61,12 +65,14 @@ class RoomEvent extends Entity implements JsonSerializable {
 	public const KIND_COMPLETION = 'completion';
 	public const KIND_MANUAL_DELTA = 'manual_delta';
 	public const KIND_RESET = 'reset';
+	public const KIND_LAST_DONE = 'last_done';
 
 	public const KINDS = [
 		self::KIND_BASELINE,
 		self::KIND_COMPLETION,
 		self::KIND_MANUAL_DELTA,
 		self::KIND_RESET,
+		self::KIND_LAST_DONE,
 	];
 
 	/** @var int */

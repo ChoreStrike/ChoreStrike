@@ -26,18 +26,24 @@ use OCA\ChoreStrike\Db\RoomMapper;
  *    invalidates exactly this effect, attribution never touches it;
  *  - `manual_delta`: a requested cleanliness delta
  *    ({@see RoomService::updateRoomCleanliness});
- *  - `reset`: absolute cleanliness 100, monsters 0, `last_cleaned` NULL.
+ *  - `reset`: absolute cleanliness 100, monsters 0, `last_cleaned` NULL;
+ *  - `last_done`: a recorded "last done on" day of one room task — stamps
+ *    `last_cleaned` only (FEAT-UX-045); the newest entry per room task
+ *    replaces older ones.
  *
  * The room cache is rebuilt by folding the VALID events in
  * `(effective_at, id)` order with the saved requested values and clamps:
  * baseline 90 → false +20 (clamps to 100) → undone → later valid +20
  * replays to 100 with the later valid timestamp. A correction's execution
- * time never becomes `last_cleaned` — only completion/manual events stamp
- * it, with their own work instant. A later reset remains authoritative
- * over earlier corrections. Runs inside the caller's transaction; lower
- * service, never calls the completion coordinator back.
+ * time never becomes `last_cleaned` — only completion/manual/last-done
+ * events stamp it, with their own day or work instant. A later reset
+ * remains authoritative over earlier corrections. Runs inside the
+ * caller's transaction; lower service, never calls the completion
+ * coordinator back.
  */
 class RoomReplayService {
+	private const LAST_DONE_PREFIX = 'last_done:';
+
 	private RoomEventMapper $eventMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private RoomMapper $roomMapper;
@@ -118,6 +124,22 @@ class RoomReplayService {
 	}
 
 	/**
+	 * Record the "last done on" day of one room task (FEAT-UX-045,
+	 * CS-PLAN-088 D-088-20): it stamps `last_cleaned` with that day and has
+	 * no cleanliness effect. The caller's receipt owns idempotency.
+	 */
+	public function recordLastDone(int $roomId, int $roomTaskId, string $commandUuid, \DateTime $at): RoomEvent {
+		$event = new RoomEvent();
+		$event->setRoomId($roomId);
+		$event->setKind(RoomEvent::KIND_LAST_DONE);
+		$event->setEffectiveAt($at);
+		$event->setStableId(self::LAST_DONE_PREFIX . $roomTaskId . ':' . $commandUuid);
+		$event->setCommandUuid($commandUuid);
+		$event->setCreatedAt(new \DateTime());
+		return $this->eventMapper->insert($event);
+	}
+
+	/**
 	 * Fold the valid events of one room into the current state (bounded
 	 * cursor batches, replay order `(effective_at, id)`).
 	 *
@@ -127,6 +149,7 @@ class RoomReplayService {
 		$cleanliness = 50;
 		$monsters = 0;
 		$lastCleaned = null;
+		$lastDone = [];
 		$reset = $this->eventMapper->findLatestResetByRoom($roomId);
 		$cursor = $reset === null ? null : ['at' => $reset->getEffectiveAt(), 'id' => (int)$reset->getId()];
 		if ($reset !== null) {
@@ -167,6 +190,10 @@ class RoomReplayService {
 						$cleanliness = (int)($event->getBaselineCleanliness() ?? 100);
 						$monsters = (int)($event->getBaselineMonsters() ?? 0);
 						$lastCleaned = null;
+						$lastDone = [];
+						break;
+					case RoomEvent::KIND_LAST_DONE:
+						$lastDone[] = $event;
 						break;
 				}
 				$cursor = ['at' => $event->getEffectiveAt(), 'id' => (int)$event->getId()];
@@ -176,8 +203,28 @@ class RoomReplayService {
 		return [
 			'cleanliness' => $cleanliness,
 			'monsterCount' => $monsters,
-			'lastCleaned' => $lastCleaned,
+			'lastCleaned' => $this->withLastDone($roomId, $lastCleaned, $lastDone),
 		];
+	}
+
+	/**
+	 * Fold the replayed `last_done` entries into the stamp: only the newest
+	 * entry per room task counts, and a later completion or quick clean
+	 * still wins. A room without entries costs no extra query.
+	 *
+	 * @param list<RoomEvent> $events `last_done` events after the latest reset
+	 */
+	private function withLastDone(int $roomId, ?\DateTime $lastCleaned, array $events): ?\DateTime {
+		if ($events === []) {
+			return $lastCleaned;
+		}
+		$current = $this->currentLastDoneIds($roomId);
+		foreach ($events as $event) {
+			if (isset($current[(int)$event->getId()]) && ($lastCleaned === null || $event->getEffectiveAt() > $lastCleaned)) {
+				$lastCleaned = \DateTime::createFromInterface($event->getEffectiveAt());
+			}
+		}
+		return $lastCleaned;
 	}
 
 	/**
@@ -194,5 +241,20 @@ class RoomReplayService {
 
 	private function clamp(int $value): int {
 		return max(0, min(100, $value));
+	}
+
+	/**
+	 * Ids of the newest-recorded `last_done` event per room task — a newer
+	 * entry corrects an older one, whatever day either names.
+	 *
+	 * @return array<int, true>
+	 */
+	private function currentLastDoneIds(int $roomId): array {
+		$newestByRoomTask = [];
+		foreach ($this->eventMapper->findStableIdsByRoomAndKind($roomId, RoomEvent::KIND_LAST_DONE) as $id => $stableId) {
+			$roomTaskKey = explode(':', $stableId)[1] ?? '';
+			$newestByRoomTask[$roomTaskKey] = max($newestByRoomTask[$roomTaskKey] ?? 0, $id);
+		}
+		return array_fill_keys(array_values($newestByRoomTask), true);
 	}
 }

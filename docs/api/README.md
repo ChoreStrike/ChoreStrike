@@ -693,6 +693,26 @@ label tagged at 00:00 UTC, which would land one local day early for houses
 west of UTC). Any other parseable datetime is persisted as that instant;
 unparseable input → `400 VALIDATION_ERROR`.
 
+#### PUT /room-tasks/{id}/last-done
+Record the day a room task was last done (FEAT-UX-045, CS-PLAN-088 D-088-20).
+Closed payload: `{ "commandId": "<uuid>", "date": "Y-m-d" }` — the house-local
+day, today or earlier. Owners and adult members only (`403` for children).
+Receipt-protected: replaying the same `commandId` changes nothing.
+
+- The room's `lastCleaned` shows that day through a `last_done` journal event:
+  no cleanliness change, reward, completion fact or rhythm effect. A newer
+  entry for the same room task replaces the older one (also to an earlier
+  day); a later real completion or quick clean still wins; an entry before the
+  latest house reset stays hidden.
+- A completion-relative interval moves its pending occurrence to
+  `max(today, date + interval)` as a `date` agreement (version bump, C2h child
+  day limit). A fixed cadence keeps its dates (C1).
+- `409 CONFLICT` while the current appointment is overdue (a miss stays a
+  miss; complete or catch it up), or when the move would exceed a child's day
+  limit; `400 VALIDATION_ERROR` for a malformed or future day.
+
+**Response `data`:** the written room-task row, as for the due-date edit.
+
 #### GET /room-tasks/{id}/assignees · PUT /room-tasks/{id}/assignees
 Read / replace the multi-assignee set for a room task. Assignee mutations
 are validated for house membership server-side. (Since CS-PLAN-067 §3.4 the

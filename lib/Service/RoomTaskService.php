@@ -465,9 +465,10 @@ class RoomTaskService {
 	 * based counter (open, unfulfilled/uncovered occurrences with
 	 * open-or-future windows per member wallet — batched, never
 	 * `next_due`-equality, which missed same-day occurrences and
-	 * disagreed with the participant-amendment guard).
+	 * disagreed with the participant-amendment guard). Public for the
+	 * "last done" re-anchor, another date amendment (FEAT-UX-045).
 	 */
-	private function assertChildCapacityForDate(int $houseId, RoomTask $roomTask, House $house, string $newDateKey): void {
+	public function assertChildCapacityForDate(int $houseId, RoomTask $roomTask, House $house, string $newDateKey): void {
 		$assigneeIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId());
 		if ($assigneeIds === []) {
 			return;

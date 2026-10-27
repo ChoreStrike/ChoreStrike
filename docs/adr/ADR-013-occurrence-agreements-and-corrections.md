@@ -157,7 +157,10 @@ zone. Growing a task's flex days (D-088-17, `widenOpenWindowsUnderLock`) widens
 every saved occurrence whose window has not ended to the new early/late bounds
 at once, recorded as a `window` agreement with a version bump; a window never
 shrinks (narrowing applies from the next generated occurrence) and a missed
-occurrence stays missed.
+occurrence stays missed. Recording a task's "last done" day (D-088-20,
+`RoomTaskLastDoneService`) moves an interval's pending occurrence to
+`max(today, last done + interval)` through the same date writer and refuses
+while that occurrence is overdue; a fixed cadence keeps its dates.
 
 ### WP2 agreements, pauses and capacity (CS-PLAN-073, delivered 2026-09-24)
 

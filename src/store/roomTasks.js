@@ -482,21 +482,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 			try {
 				const data = await api.put(`/api/v1/room-tasks/${roomTaskId}/due-date`, { nextDue })
-
-				const roomTaskIndex = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
-				if (roomTaskIndex >= 0) {
-				// The due-date response carries the serialized entity only —
-				// keep the cached canonical assignees when the payload omits
-				// them, so assignee chips and My Day "mine" filtering stay
-				// intact until the next enriched read (RF-058-09).
-					this.roomTasks[roomTaskIndex] = {
-						...this.roomTasks[roomTaskIndex],
-						...data,
-						...(data.assignees === undefined
-							? { assignees: this.roomTasks[roomTaskIndex].assignees }
-							: {}),
-					}
-				}
+				this._mergeWrittenRoomTask(roomTaskId, data)
 				this.onInstanceMutated()
 			} catch (error) {
 				this.error = error.message
@@ -504,6 +490,53 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				throw error
 			} finally {
 				this._endRead()
+			}
+		},
+
+		/**
+		 * Record the day a room task was last done (FEAT-UX-045, CS-PLAN-088
+		 * D-088-20): the server stamps the room's "Last cleaned" and moves
+		 * the next due date of a task that repeats after completion.
+		 * @param {number} roomTaskId Room task identifier.
+		 * @param {string} date House-local `Y-m-d`, today or earlier.
+		 * @return {Promise<object>} The written room task row.
+		 */
+		async recordLastDone(roomTaskId, date) {
+			this._beginRead()
+			this.error = null
+			try {
+				const data = await api.put(`/api/v1/room-tasks/${roomTaskId}/last-done`, { commandId: generateCommandId(), date })
+				this._mergeWrittenRoomTask(roomTaskId, data)
+				this.onInstanceMutated()
+				return data
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to record last done', error, { store: 'roomTasks', action: 'recordLastDone', roomTaskId })
+				throw error
+			} finally {
+				this._endRead()
+			}
+		},
+
+		/**
+		 * Merge a single-row write response into the cached room-task list.
+		 * The response carries the serialized entity only — keep the cached
+		 * canonical assignees when the payload omits them, so assignee chips
+		 * and My Day "mine" filtering stay intact until the next enriched
+		 * read (RF-058-09).
+		 * @param {number} roomTaskId Room task identifier.
+		 * @param {object} data The written row.
+		 */
+		_mergeWrittenRoomTask(roomTaskId, data) {
+			const roomTaskIndex = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
+			if (roomTaskIndex >= 0) {
+				this.roomTasks[roomTaskIndex] = {
+					...this.roomTasks[roomTaskIndex],
+					...data,
+					...(data.assignees === undefined
+						? { assignees: this.roomTasks[roomTaskIndex].assignees }
+						: {}),
+				}
 			}
 		},
 

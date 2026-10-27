@@ -17,6 +17,26 @@
 				required>
 		</div>
 
+		<div v-if="canRecordLastDone" class="form-group">
+			<label for="room-task-last-done">{{ t('chorestrike', 'Last done on') }}</label>
+			<input id="room-task-last-done"
+				v-model="lastDone"
+				type="date"
+				class="form-input"
+				:max="todayKey"
+				aria-describedby="room-task-last-done-hint"
+				data-testid="room-task-last-done-input">
+			<p id="room-task-last-done-hint" class="field-hint">
+				{{ t('chorestrike', 'Optional. Shows as "Last cleaned" for the room. A task that repeats after completion is then next due one interval later.') }}
+			</p>
+			<p v-if="lastDoneRefusal"
+				class="field-error"
+				role="alert"
+				data-testid="room-task-last-done-refusal">
+				{{ lastDoneRefusal }}
+			</p>
+		</div>
+
 		<div class="form-group">
 			<label>{{ t('chorestrike', 'Assigned members') }}</label>
 			<ErrorState v-if="membersError"
@@ -118,11 +138,39 @@ export default {
 		const dueDate = ref(props.roomTask.nextDue ? dateKeyInZone(props.roomTask.nextDue, houseStore.timezone) : '')
 		const assigneeUserIds = ref([...(props.roomTask.assignees || [])])
 		const taskName = props.task?.name || t('chorestrike', 'Edit task')
+		// FEAT-UX-045 (CS-PLAN-088 D-088-20): adults may record the day the
+		// task was last done — today or earlier in the household's zone.
+		const canRecordLastDone = computed(() => userStore.currentUser?.role !== 'child')
+		const todayKey = dateKeyInZone(new Date(), houseStore.timezone)
+		const lastDone = ref('')
+		const lastDoneRefusal = ref('')
+
+		const recordLastDone = async () => {
+			lastDoneRefusal.value = ''
+			try {
+				await roomTasksStore.recordLastDone(props.roomTask.id, lastDone.value)
+				return true
+			} catch (error) {
+				// A coded refusal (overdue, child day limit, date) keeps the
+				// dialog open with its reason inline — never server text in a toast.
+				if (['CONFLICT', 'VALIDATION_ERROR'].includes(error?.code) && error?.message) {
+					lastDoneRefusal.value = error.message
+				} else {
+					showError(t('chorestrike', 'Could not record the last done date'))
+				}
+				return false
+			}
+		}
 
 		const save = async () => {
 			saving.value = true
 			try {
+				// Captured first: the last-done write may move the due date
+				// and refresh the row; only an explicit picker change follows.
 				const originalDue = props.roomTask.nextDue ? dateKeyInZone(props.roomTask.nextDue, houseStore.timezone) : ''
+				if (lastDone.value && !(await recordLastDone())) {
+					return
+				}
 				if (dueDate.value && dueDate.value !== originalDue) {
 					await roomTasksStore.updateRoomTaskDueDate(props.roomTask.id, dueDate.value)
 				}
@@ -154,6 +202,10 @@ export default {
 		return {
 			taskName,
 			dueDate,
+			canRecordLastDone,
+			todayKey,
+			lastDone,
+			lastDoneRefusal,
 			assigneeUserIds,
 			houseMembers,
 			membersError,
@@ -187,6 +239,18 @@ export default {
 	margin-bottom: 0.4rem;
 	font-size: 0.9rem;
 	font-weight: 600;
+}
+
+.field-hint {
+	margin-top: 0.4rem;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
+}
+
+.field-error {
+	margin-top: 0.5rem;
+	color: var(--color-error-text);
+	font-size: 0.85rem;
 }
 
 .form-input {

@@ -69,6 +69,8 @@ return [
         // completion targeting; the latest-by-room-task route is gone
         // without a compatibility alias).
         ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // FEAT-UX-045 (CS-PLAN-088 D-088-20): "last done on" per room task.
+        ['name' => 'room_task_last_done#update', 'url' => '/api/v1/room-tasks/{id}/last-done', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET', 'requirements' => ['roomId' => '\d+']],
 
         // Completion correction API (CS-PLAN-070 WP3 §3.6): versioned,

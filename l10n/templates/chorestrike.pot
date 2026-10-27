@@ -107,6 +107,9 @@ msgstr ""
 msgid "A valid %1$s is required"
 msgstr ""
 
+msgid "A valid commandId (UUID) and date are required"
+msgstr ""
+
 msgid "A valid commandId (UUID) is required"
 msgstr ""
 
@@ -735,6 +738,9 @@ msgid "Could not load your household"
 msgstr ""
 
 msgid "Could not load your tasks"
+msgstr ""
+
+msgid "Could not record the last done date"
 msgstr ""
 
 msgid "Could not save the correction"
@@ -1574,6 +1580,9 @@ msgstr ""
 msgid "Last cleaned: {time}"
 msgstr ""
 
+msgid "Last done on"
+msgstr ""
+
 msgid "Latest"
 msgstr ""
 
@@ -1982,6 +1991,9 @@ msgstr ""
 msgid "Only a pending pause request can be decided"
 msgstr ""
 
+msgid "Only adults can record when a task was last done"
+msgstr ""
+
 msgid "Only an acknowledged pause can be shortened"
 msgstr ""
 
@@ -2046,6 +2058,9 @@ msgid "Optional description…"
 msgstr ""
 
 msgid "Optional step-by-step instructions…"
+msgstr ""
+
+msgid "Optional. Shows as \"Last cleaned\" for the room. A task that repeats after completion is then next due one interval later."
 msgstr ""
 
 msgid "Organize and declutter the basement."
@@ -3020,6 +3035,9 @@ msgstr ""
 msgid "The last action did not return a result. You can safely retry it — it will not be applied twice."
 msgstr ""
 
+msgid "The last done date must be today or earlier"
+msgstr ""
+
 msgid "The number of days in a row you kept your agreements. Today stays pending until the day closes."
 msgstr ""
 
@@ -3249,6 +3267,9 @@ msgid "This score is not possible in the time played."
 msgstr ""
 
 msgid "This task is already being completed with another work split. Check the split once it is done."
+msgstr ""
+
+msgid "This task is overdue. Complete it or catch it up instead."
 msgstr ""
 
 msgid "This will be recorded as taken over from {assignee}."

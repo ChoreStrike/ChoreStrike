@@ -132,6 +132,42 @@ describe('RoomTaskEditModal', () => {
 		expect(wrapper.emitted('saved')).toBeFalsy()
 	})
 
+	// FEAT-UX-045 (CS-PLAN-088 D-088-20): "Last done on".
+	it('records the last done day first and never resets a due date the server moved', async () => {
+		const wrapper = mountModal()
+		// The server re-anchors the interval; the parent row refreshes mid-save.
+		roomTasksStore.recordLastDone = jest.fn().mockImplementation(async () => {
+			await wrapper.setProps({ roomTask: { id: 42, taskId: 7, nextDue: '2026-08-28T00:00:00+00:00', assignees: ['mom'] } })
+		})
+		await wrapper.find('[data-testid="room-task-last-done-input"]').setValue('2026-08-19')
+		await wrapper.find('form').trigger('submit')
+		await flushPromises()
+
+		expect(roomTasksStore.recordLastDone).toHaveBeenCalledWith(42, '2026-08-19')
+		expect(roomTasksStore.updateRoomTaskDueDate).not.toHaveBeenCalled()
+		expect(wrapper.emitted('saved')).toBeTruthy()
+	})
+
+	it('shows a coded refusal inline and stays open', async () => {
+		showError.mockClear()
+		roomTasksStore.recordLastDone = jest.fn().mockRejectedValue(Object.assign(new Error('This task is overdue. Complete it or catch it up instead.'), { code: 'CONFLICT' }))
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="room-task-last-done-input"]').setValue('2026-08-19')
+		await wrapper.find('form').trigger('submit')
+		await flushPromises()
+
+		expect(wrapper.get('[data-testid="room-task-last-done-refusal"]').text()).toBe('This task is overdue. Complete it or catch it up instead.')
+		expect(showError).not.toHaveBeenCalled()
+		expect(wrapper.emitted('saved')).toBeFalsy()
+	})
+
+	it('hides the last done field from children', () => {
+		useUserStore.mockReturnValueOnce({ currentUser: { role: 'child' }, houseUsers: [{ nextcloudUserId: 'mom' }], fetchHouseUsers: jest.fn() })
+		const wrapper = mountModal()
+
+		expect(wrapper.find('[data-testid="room-task-last-done-input"]').exists()).toBe(false)
+	})
+
 	it('reports partial success when only the assignment fails', async () => {
 		roomTasksStore.setAssignees = jest.fn().mockRejectedValue(new Error('assign boom'))
 		const wrapper = mountModal()

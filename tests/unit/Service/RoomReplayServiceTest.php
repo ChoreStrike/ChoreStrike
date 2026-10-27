@@ -190,6 +190,82 @@ class RoomReplayServiceTest extends TestCase {
 	}
 
 	/**
+	 * FEAT-UX-045 (CS-PLAN-088 D-088-20): a recorded "last done" day stamps
+	 * last_cleaned without a cleanliness effect.
+	 */
+	public function testReplay_LastDone_StampsTheDayWithoutACleanlinessEffect(): void {
+		$baseline = $this->event(RoomEvent::KIND_BASELINE, '2026-09-20 08:00:00', 1, baselineClean: 50, baselineMonsters: 0);
+		$lastDone = $this->lastDone('2026-09-25 00:00:00', 2, 31, 'cmd-a');
+		$this->eventMapper->method('findStableIdsByRoomAndKind')->with(7, RoomEvent::KIND_LAST_DONE)
+			->willReturn([2 => $lastDone->getStableId()]);
+		$this->eventMapper->method('findEventsByRoomAfter')->willReturn([$baseline, $lastDone]);
+
+		$state = $this->service->replay(7);
+
+		self::assertSame(50, $state['cleanliness']);
+		self::assertSame('2026-09-25 00:00:00', $state['lastCleaned']->format('Y-m-d H:i:s'));
+	}
+
+	/**
+	 * A newer entry for the same room task corrects an older one — even to
+	 * an EARLIER day; entries of another room task stay independent, and a
+	 * later real completion still wins by replay order.
+	 */
+	public function testReplay_NewerLastDoneReplacesOlder_AndALaterCompletionWins(): void {
+		$wrong = $this->lastDone('2026-09-28 00:00:00', 2, 31, 'cmd-a');
+		$corrected = $this->lastDone('2026-09-24 00:00:00', 3, 31, 'cmd-b');
+		$this->eventMapper->method('findStableIdsByRoomAndKind')
+			->willReturn([2 => $wrong->getStableId(), 3 => $corrected->getStableId()]);
+		$this->eventMapper->method('findEventsByRoomAfter')->willReturn([$corrected, $wrong]);
+		self::assertSame('2026-09-24 00:00:00', $this->service->replay(7)['lastCleaned']->format('Y-m-d H:i:s'));
+
+		$completion = $this->event(RoomEvent::KIND_COMPLETION, '2026-09-26 10:00:00', 4, delta: 10, completionId: 90);
+		$service = $this->serviceWithEvents([$corrected, $completion, $wrong], [2 => $wrong->getStableId(), 3 => $corrected->getStableId()]);
+		$this->completedTaskMapper->method('findValidIds')->willReturn([90]);
+		self::assertSame('2026-09-26 10:00:00', $service->replay(7)['lastCleaned']->format('Y-m-d H:i:s'));
+	}
+
+	/**
+	 * The completion/undo query budgets stay unchanged: a room without
+	 * `last_done` entries never reads the entry index.
+	 */
+	public function testReplay_WithoutLastDone_IssuesNoEntryIndexQuery(): void {
+		$baseline = $this->event(RoomEvent::KIND_BASELINE, '2026-09-20 08:00:00', 1, baselineClean: 50, baselineMonsters: 0);
+		$this->eventMapper->method('findEventsByRoomAfter')->willReturn([$baseline]);
+		$this->eventMapper->expects($this->never())->method('findStableIdsByRoomAndKind');
+
+		self::assertNull($this->service->replay(7)['lastCleaned']);
+	}
+
+	/**
+	 * RecordLastDone_ReceiptOwnedWriter_KeysTheEntryByRoomTaskAndCommand
+	 */
+	public function testRecordLastDone_ReceiptOwnedWriter_KeysTheEntryByRoomTaskAndCommand(): void {
+		$this->eventMapper->expects($this->once())->method('insert')->with($this->callback(
+			static fn (RoomEvent $e): bool => $e->getKind() === RoomEvent::KIND_LAST_DONE
+				&& $e->getStableId() === 'last_done:31:uuid-3' && $e->getDeltaCleanliness() === null
+		))->willReturnArgument(0);
+		$this->service->recordLastDone(7, 31, 'uuid-3', new \DateTime('2026-09-25'));
+	}
+
+	private function lastDone(string $at, int $id, int $roomTaskId, string $command): RoomEvent {
+		$event = $this->event(RoomEvent::KIND_LAST_DONE, $at, $id);
+		$event->setStableId('last_done:' . $roomTaskId . ':' . $command);
+		return $event;
+	}
+
+	/**
+	 * @param list<RoomEvent> $events
+	 * @param array<int, string> $lastDone
+	 */
+	private function serviceWithEvents(array $events, array $lastDone): RoomReplayService {
+		$eventMapper = $this->createMock(RoomEventMapper::class);
+		$eventMapper->method('findStableIdsByRoomAndKind')->willReturn($lastDone);
+		$eventMapper->method('findEventsByRoomAfter')->willReturn($events);
+		return new RoomReplayService($eventMapper, $this->completedTaskMapper, $this->roomMapper);
+	}
+
+	/**
 	 * Replay_NoBaseline_UsesSchemaDefaults
 	 */
 	public function testReplay_NoBaseline_UsesSchemaDefaults(): void {
