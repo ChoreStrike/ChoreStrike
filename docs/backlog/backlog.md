@@ -294,7 +294,7 @@ candidate.
 ---
 
 ### [P2] BUG-UX-005 — Work inside its flex window cannot be completed from My Day before the planned day
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-14; My Day part implemented 2026-10-26 on `fix/alpha3-feedback`; the operator's view to confirm, full browser gate and the GUI review open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-14, D-088-17, D-088-18; My Day part implemented 2026-10-26, Tasks-tab part 2026-10-27 on `fix/alpha3-feedback`; GUI review passed, full browser gate open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #5
 
@@ -307,8 +307,14 @@ appointments" without a Done button. Occurrences that were already agreed also
 keep their saved window: a later flex edit applies through a new schedule
 revision only.
 
-- [ ] Confirm the view (My Day or the Tasks tab/room view) and whether the
-      occurrence's saved window included the flex days. *Asked 2026-10-26.*
+- [x] Confirm the view (My Day or the Tasks tab/room view) and whether the
+      occurrence's saved window included the flex days. *Operator, 2026-10-27:
+      both views, possibly after a later flex edit.*
+- [x] Tasks tab after a flex edit: growing flex days widens the saved open
+      windows at once as a `window` agreement (D-088-17; narrowing applies from
+      the next occurrence, a miss stays a miss), and Done without an open
+      target says "Not open yet" instead of a bare `STALE_TARGET` (D-088-18).
+      *Two `OccurrenceTimelineTest` cases, store and toast specs.*
 - [x] My Day offers Done for every occurrence whose window is open today (for
       example as its own group), without changing the on-time rules. *The
       filtered daily read appends `openWindow` rows (open window, nothing
@@ -322,7 +328,7 @@ revision only.
 ---
 
 ### [P2] BUG-UX-006 — Graphics are hard to see in the dark theme (non-text contrast)
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-16; audited and fixed 2026-10-26 on `fix/alpha3-feedback`; full browser gate and the operator GUI review open) · **Effort**: M · **Layer**: frontend · **Journey stage**: theming
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-16; audited and fixed 2026-10-26 on `fix/alpha3-feedback`, Tasks-tab flex window 2026-10-27; operator GUI review passed, full browser gate open) · **Effort**: M · **Layer**: frontend · **Journey stage**: theming
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #17
 

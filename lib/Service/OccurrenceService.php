@@ -429,6 +429,14 @@ class OccurrenceService {
 	}
 
 	/**
+	 * D-088-17 UNDER LOCK: widened flex days widen the windows of the room
+	 * task's open, not yet ended occurrences at once (never shrink them).
+	 */
+	public function widenOpenWindowsUnderLock(RoomTask $roomTask, int $flexDays, ?int $actorHouseUserId, \DateTime $now): void {
+		$this->agreements->widenOpenWindowsUnderLock($roomTask, $flexDays, $actorHouseUserId, $now);
+	}
+
+	/**
 	 * WP2 single-occurrence participant amendment UNDER LOCK (handover /
 	 * share) — future revision defaults stay untouched; former participants
 	 * are persisted as neutral releases (RF-073-WP2-02) and the evidence

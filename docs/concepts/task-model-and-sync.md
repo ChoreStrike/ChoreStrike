@@ -128,6 +128,8 @@ and non-punitive recovery. WP1-WP4 implement the approved rules below.
   [API](../api/README.md#tasks)); neighbouring windows may then share a day, and
   the earliest deadline is the target there. Occurrences of a fixed calendar
   cadence are agreed seven days ahead, so they open at most seven days early.
+  Widening the flex days applies at once to occurrences still open; narrowing
+  applies from the next one, so an agreed window never shrinks (D-088-17).
 - Repeated misses produce one visible catch-up item per recurring chore, not an
   accumulating list of identical cards. Missed occurrences remain historical
   misses; completing once does not turn every missed occurrence into a success.

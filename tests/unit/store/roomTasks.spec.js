@@ -581,6 +581,16 @@ describe('RoomTasks Store', () => {
 				expect(api.post).not.toHaveBeenCalled()
 			})
 
+			// D-088-18: the server delivered the row without a target — its
+			// window has not opened yet; nothing is sent.
+			it('throws NOT_OPEN_YET without a request when the row has no open target', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: null }]
+				api.post.mockClear()
+
+				await expect(store.completeRoomTask(1)).rejects.toMatchObject({ code: 'NOT_OPEN_YET' })
+				expect(api.post).not.toHaveBeenCalled()
+			})
+
 			it('refreshes derived projections on a 409 stale-target conflict', async () => {
 				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 				const conflict = new Error('The task changed since it was displayed. Reload and try again.')

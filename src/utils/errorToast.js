@@ -53,11 +53,16 @@ export function showErrorWithReference(message, error) {
  * The failure toast of a completion attempt. A refused join behind an
  * in-flight completion with another work split (CR-084-02) gets its own
  * hint: the first completion usually succeeds, only the split is not used.
+ * Work whose time window has not opened yet says so (D-088-18).
  * @param {unknown} error The caught error.
  */
 export function showCompletionError(error) {
 	if (error?.code === 'COMPLETION_IN_FLIGHT') {
 		showError(t('chorestrike', 'This task is already being completed with another work split. Check the split once it is done.'))
+		return
+	}
+	if (error?.code === 'NOT_OPEN_YET') {
+		showError(t('chorestrike', 'Not open yet — this task can be completed within its time window.'))
 		return
 	}
 	showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)

@@ -575,8 +575,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			try {
 				const target = this._completionTargetFor(roomTaskId)
 				if (!target) {
-					const error = new Error('The task changed since it was displayed. Reload and try again.')
-					error.code = 'STALE_TARGET'
+					// D-088-18: a row the server delivered with `occurrence: null`
+					// has no open window yet — not a stale read.
+					const notOpen = this._deliveredWithoutTarget(roomTaskId)
+					const error = new Error(notOpen
+						? 'The task cannot be completed before its time window opens.'
+						: 'The task changed since it was displayed. Reload and try again.')
+					error.code = notOpen ? 'NOT_OPEN_YET' : 'STALE_TARGET'
 					throw error
 				}
 
@@ -700,6 +705,20 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			}
 			return null
+		},
+
+		/**
+		 * Whether a cached row of the room task carries an explicit
+		 * `occurrence: null` — the server found no open window or miss to
+		 * complete (D-088-18), as opposed to a row without a block at all.
+		 * @param {number} roomTaskId Room task identifier.
+		 * @return {boolean}
+		 */
+		_deliveredWithoutTarget(roomTaskId) {
+			return [this.dailyTasks, this.dueTodayTasks, this.overdueTasks, this.roomTasks].some((slice) => slice.some((item) => {
+				const row = item.roomTask && 'occurrence' in item.roomTask ? item.roomTask : item
+				return (item.roomTask?.id ?? item.id) === roomTaskId && 'occurrence' in row && row.occurrence === null
+			}))
 		},
 
 		/**

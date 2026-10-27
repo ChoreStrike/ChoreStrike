@@ -319,6 +319,59 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * D-088-17 (CS-PLAN-088 BUG-UX-005): widening the flex days widens the
+	 * already planned open occurrence at once, so it is completable before
+	 * its planned day; a later narrower flex never shrinks it again.
+	 */
+	public function testFlexWidening_WidensThePlannedOccurrenceAtOnce_AndNeverShrinksIt(): void {
+		$planned = (new \DateTime('+2 days'))->format('Y-m-d');
+		$f = $this->fixture(['frequency_type' => 'weekly'], $planned);
+		$pending = $this->occurrenceMapper->findOpenByRoomTasks([$f['roomTaskId']])[0];
+		self::assertGreaterThan(new \DateTime(), $pending->getWindowStart(), 'precondition: without flex the window opens on the planned day');
+
+		$this->actingAs('ot_owner');
+		$owner = $this->houseUser($f['houseId'], 'ot_owner');
+		$this->taskService->updateTask($f['taskId'], ['flexDays' => 3], $owner);
+
+		$widened = $this->occurrenceMapper->find((int)$pending->getId());
+		self::assertSame($pending->toPublicKey(), $widened->toPublicKey(), 'the planned occurrence keeps its identity');
+		self::assertSame($pending->getVersion() + 1, $widened->getVersion());
+		self::assertSame((new \DateTime('-1 day'))->format('Y-m-d'), $widened->getWindowStart()->format('Y-m-d'));
+		self::assertSame((new \DateTime('+6 days'))->format('Y-m-d'), $widened->getWindowEnd()->format('Y-m-d'));
+		$evidence = $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $pending->getId(), 'kind' => 'window']);
+		self::assertCount(1, $evidence, 'the widening is a traceable window agreement');
+
+		$this->taskService->updateTask($f['taskId'], ['flexDays' => 1], $owner);
+		$kept = $this->occurrenceMapper->find((int)$pending->getId());
+		self::assertEquals($widened->getWindowStart(), $kept->getWindowStart(), 'a narrower flex does not shrink planned work');
+		self::assertEquals($widened->getWindowEnd(), $kept->getWindowEnd());
+
+		$this->completeOccurrence($this->completionService, $f['houseId'], 'ot_owner', $f['roomTaskId']);
+		$ledger = $this->fetchRows('chorestrike_completed_tasks', ['room_task_id' => $f['roomTaskId']]);
+		self::assertCount(1, $ledger);
+		self::assertSame('agreed', $ledger[0]['completion_class'], 'completed before the planned day, inside the widened window');
+	}
+
+	/**
+	 * D-088-17: a window that already ended stays a miss — wider flex days
+	 * never turn missed work into on-time work.
+	 */
+	public function testFlexWidening_LeavesAMissedOccurrenceMissed(): void {
+		$planned = (new \DateTime('-3 days'))->format('Y-m-d');
+		$f = $this->fixture(['frequency_type' => 'weekly'], $planned);
+		$missed = $this->occurrenceMapper->findOpenByRoomTasks([$f['roomTaskId']])[0];
+		self::assertLessThanOrEqual(new \DateTime(), $missed->getWindowEnd(), 'precondition: the window has ended');
+
+		$this->actingAs('ot_owner');
+		$this->taskService->updateTask($f['taskId'], ['flexDays' => 4], $this->houseUser($f['houseId'], 'ot_owner'));
+
+		$still = $this->occurrenceMapper->find((int)$missed->getId());
+		self::assertEquals($missed->getWindowEnd(), $still->getWindowEnd());
+		self::assertSame($missed->getVersion(), $still->getVersion());
+		self::assertSame([], $this->fetchRows('chorestrike_agreements', ['occurrence_id' => $missed->getId(), 'kind' => 'window']));
+	}
+
+	/**
 	 * T1-D regression (RF-072-WP1-02): a keep-anchor edit (energy) on a
 	 * fixed rule closes the old revision and appends a new one with the
 	 * ORIGINAL anchor. The new revision must not re-derive the predecessor's

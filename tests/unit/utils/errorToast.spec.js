@@ -51,6 +51,13 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		expect(showError).toHaveBeenCalledWith('This task is already being completed with another work split. Check the split once it is done.')
 	})
 
+	// D-088-18: work before its window opens is explained, not a bare failure.
+	it('explains a completion before the time window opens', () => {
+		showCompletionError(Object.assign(new Error('not open'), { code: 'NOT_OPEN_YET' }))
+
+		expect(showError).toHaveBeenCalledWith('Not open yet — this task can be completed within its time window.')
+	})
+
 	it('shows the referenced failure for any other completion error', () => {
 		showCompletionError(new ApiError('Conflict', 409, {}, 'CONFLICT'))
 

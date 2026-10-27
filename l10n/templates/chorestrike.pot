@@ -1937,6 +1937,9 @@ msgstr ""
 msgid "Not needed"
 msgstr ""
 
+msgid "Not open yet — this task can be completed within its time window."
+msgstr ""
+
 msgid "Not schedulable right now"
 msgstr ""
 

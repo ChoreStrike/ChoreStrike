@@ -495,7 +495,10 @@ argument can never bind from that shape and would 500 on every real HTTP call
 > (`frequencyType`, `frequencyValue`, `recurrenceMode`, `schedulingMode`,
 > `fixedScheduleDays`) changes, so a stored value above the cap stays valid on
 > unrelated edits. A fixed schedule agrees occurrences seven days ahead, so it
-> can be completed at most seven days early whatever its flex.
+> can be completed at most seven days early whatever its flex. Raising
+> `flexDays` also widens every saved occurrence whose window has not ended
+> (D-088-17, a `window` agreement with a version bump); lowering it applies from
+> the next generated occurrence, and a missed occurrence stays missed.
 
 ### Room Tasks
 

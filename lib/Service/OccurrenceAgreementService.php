@@ -129,6 +129,40 @@ class OccurrenceAgreementService {
 	}
 
 	/**
+	 * D-088-17 (CS-PLAN-088 BUG-UX-005) UNDER LOCK: an owner who widens a
+	 * definition's flex days widens the window of every open occurrence of
+	 * the room task whose window has not ended, so already planned work
+	 * follows the new flex days at once. Windows only grow — a narrower flex
+	 * applies from the next occurrence on, and an ended window (a miss) never
+	 * becomes on-time work. Each widening bumps the version and is recorded
+	 * as a `window` agreement by the editing owner.
+	 */
+	public function widenOpenWindowsUnderLock(RoomTask $roomTask, int $flexDays, ?int $actorHouseUserId, \DateTime $now): void {
+		foreach ($this->occurrenceMapper->findOpenByRoomTasks([$roomTask->getId()]) as $occurrence) {
+			if ($occurrence->getWindowEnd() <= $now) {
+				continue;
+			}
+			$plannedKey = $occurrence->getPlannedDate()->format('Y-m-d');
+			$wanted = $this->rowFactory->windowBounds($plannedKey, $flexDays, $flexDays, new \DateTimeZone($occurrence->getTimezone()));
+			$old = ['windowStart' => $occurrence->getWindowStart()->format('c'), 'windowEnd' => $occurrence->getWindowEnd()->format('c')];
+			$start = min($occurrence->getWindowStart(), $wanted['start']);
+			$end = max($occurrence->getWindowEnd(), $wanted['end']);
+			if ($start == $occurrence->getWindowStart() && $end == $occurrence->getWindowEnd()) {
+				continue;
+			}
+			$occurrence->setWindowStart($start);
+			$occurrence->setWindowEnd($end);
+			$occurrence->setVersion($occurrence->getVersion() + 1);
+			$this->occurrenceMapper->update($occurrence);
+			$this->agreementMapper->record($occurrence->getId(), Agreement::KIND_WINDOW, $actorHouseUserId, null, $old, [
+				'windowStart' => $start->format('c'),
+				'windowEnd' => $end->format('c'),
+				'flexDays' => $flexDays,
+			]);
+		}
+	}
+
+	/**
 	 * WP2 explicit-target date amendment UNDER LOCK (RF-073-WP2-01): moves
 	 * EXACTLY the occurrence the command resolved from the client's public
 	 * key — never a re-selected different one — and returns the moved row

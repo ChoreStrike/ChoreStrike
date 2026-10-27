@@ -153,7 +153,11 @@ child day-limit and the amendment deadline (an occurrence past its window cannot
 move), records an `agreements` evidence row and bumps the occurrence version. A
 house timezone edit appends a revision (`reviseForZoneChangeUnderLock`): saved
 occurrences keep their zone/deadlines, only new agreements resolve in the new
-zone.
+zone. Growing a task's flex days (D-088-17, `widenOpenWindowsUnderLock`) widens
+every saved occurrence whose window has not ended to the new early/late bounds
+at once, recorded as a `window` agreement with a version bump; a window never
+shrinks (narrowing applies from the next generated occurrence) and a missed
+occurrence stays missed.
 
 ### WP2 agreements, pauses and capacity (CS-PLAN-073, delivered 2026-09-24)
 

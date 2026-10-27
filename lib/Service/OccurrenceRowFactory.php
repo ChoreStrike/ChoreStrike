@@ -56,18 +56,27 @@ class OccurrenceRowFactory {
 	 */
 	public function applyWindow(Occurrence $occurrence, ScheduleRevision $revision, string $plannedKey): void {
 		$tz = new \DateTimeZone($revision->getTimezone());
-		$early = max(0, $revision->getEarlyWindowDays());
-		$late = max(0, $revision->getLateWindowDays());
-
-		$startKey = RecurrenceCalculator::offsetDays($plannedKey, -$early);
-		$endKey = RecurrenceCalculator::offsetDays($plannedKey, $late + 1);
+		$window = $this->windowBounds($plannedKey, $revision->getEarlyWindowDays(), $revision->getLateWindowDays(), $tz);
 
 		$occurrence->setPlannedDate(RecurrenceCalculator::dayKeyToDate($plannedKey));
 		$occurrence->setWeekStart(RecurrenceCalculator::dayKeyToDate(RecurrenceCalculator::mondayOf($plannedKey)));
 		$occurrence->setTimezone($revision->getTimezone());
 		$occurrence->setDayStart($this->calendar->dayStartInstant($plannedKey, $tz));
-		$occurrence->setWindowStart($this->calendar->dayStartInstant($startKey, $tz));
-		$occurrence->setWindowEnd($this->calendar->dayStartInstant($endKey, $tz));
+		$occurrence->setWindowStart($window['start']);
+		$occurrence->setWindowEnd($window['end']);
+	}
+
+	/**
+	 * The half-open UTC window `[start, end)` of a planned local day with
+	 * `$early`/`$late` flex days in the given zone.
+	 *
+	 * @return array{start: \DateTime, end: \DateTime}
+	 */
+	public function windowBounds(string $plannedKey, int $early, int $late, \DateTimeZone $tz): array {
+		return [
+			'start' => $this->calendar->dayStartInstant(RecurrenceCalculator::offsetDays($plannedKey, -max(0, $early)), $tz),
+			'end' => $this->calendar->dayStartInstant(RecurrenceCalculator::offsetDays($plannedKey, max(0, $late) + 1), $tz),
+		];
 	}
 
 	/**

@@ -240,29 +240,39 @@ class TaskService {
 			$updated = $this->taskMapper->update($task);
 
 			if ($this->ruleRelevantInputsChanged($before, $updated)) {
-				$mounted = $this->roomTaskMapper->findByTaskIdScopedToHouse($taskId, (int)$actor->getHouseId());
-				if ($mounted !== []) {
-					$house = $this->houseMapper->find((int)$actor->getHouseId());
-					$timezoneId = $this->calendarService->getTimeZone($house)->getName();
-					foreach ($mounted as $roomTask) {
-						$lockedRoomTask = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
-						if ($lockedRoomTask->getDeletedAt() !== null) {
-							continue;
-						}
-						$this->occurrenceService->reviseUnderLock(
-							(int)$actor->getHouseId(),
-							$lockedRoomTask,
-							$updated,
-							$timezoneId,
-							null,
-							new \DateTime(),
-						);
-					}
-				}
+				$this->reviseMountedRoomTasksUnderLock($taskId, $before, $updated, $actor);
 			}
 
 			return $updated;
 		});
+	}
+
+	/**
+	 * Revise every mounted room task after a rule-relevant edit (CS-PLAN-072
+	 * WP1). D-088-17: widened flex days also widen the windows of the work
+	 * already planned, so the change applies at once; a narrower flex
+	 * applies from the next occurrence on.
+	 */
+	private function reviseMountedRoomTasksUnderLock(int $taskId, Task $before, Task $updated, HouseUser $actor): void {
+		$mounted = $this->roomTaskMapper->findByTaskIdScopedToHouse($taskId, (int)$actor->getHouseId());
+		if ($mounted === []) {
+			return;
+		}
+		$house = $this->houseMapper->find((int)$actor->getHouseId());
+		$timezoneId = $this->calendarService->getTimeZone($house)->getName();
+		$widened = (int)$updated->getFlexDays() > (int)$before->getFlexDays();
+		foreach ($mounted as $roomTask) {
+			$lockedRoomTask = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
+			if ($lockedRoomTask->getDeletedAt() !== null) {
+				continue;
+			}
+			$now = new \DateTime();
+			$this->occurrenceService->reviseUnderLock((int)$actor->getHouseId(), $lockedRoomTask, $updated, $timezoneId, null, $now);
+			if ($widened) {
+				$flexDays = min(FlexDaysPolicy::SANITY_MAX, (int)$updated->getFlexDays());
+				$this->occurrenceService->widenOpenWindowsUnderLock($lockedRoomTask, $flexDays, $actor->getId(), $now);
+			}
+		}
 	}
 
 	/**

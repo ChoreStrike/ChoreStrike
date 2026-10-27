@@ -187,6 +187,19 @@ All questions were answered with their recommended option.
   (screenshots in light and dark, phone and desktop width) before the freeze;
   its findings are routed scope-first like any other feedback.
 
+### Decisions recorded from the GUI review (operator 2026-10-27)
+
+- **D-088-17 Flex edit widens at once:** growing a task's flex days widens every
+  saved occurrence whose window has not ended to the new bounds immediately,
+  recorded as a `window` agreement with a version bump. Narrowing applies from
+  the next generated occurrence (a saved window never shrinks), and a missed
+  occurrence stays missed. Rejected: the new flex days only from the next
+  occurrence, which left the planned one without an open window.
+- **D-088-18 Clear message before the window:** Done on a row without an open
+  target says "Not open yet — this task can be completed within its time
+  window." instead of the generic stale failure. Rejected: hiding or disabling
+  Done, which FEAT-UX-041 may revisit.
+
 ## 3. Backend / Frontend Changes
 
 ### WP-A Trial feedback (RELEASE-002)
@@ -230,7 +243,11 @@ Admitted items (D-088-11, D-088-14, D-088-16):
   group of their own with Done. Visibility and child eligibility apply as for
   due-today rows; completion uses the unchanged canonical target and on-time
   rules; the due-today set and its other consumers (digest, daily limit) stay
-  unchanged.
+  unchanged. Tasks tab (operator-confirmed 2026-10-27): a flex edit kept the
+  planned occurrence on its old window, so Done had no open target and failed
+  with a bare `STALE_TARGET`. `TaskService::updateTask` now widens the open
+  windows of every mounted room task when flex days grow (D-088-17), and the
+  store raises `NOT_OPEN_YET` for a row delivered without a target (D-088-18).
 - **BUG-UX-004 chip scroll:** confirm the cause in the browser; `AssigneeChips`
   anchors its visually hidden input inside the chip, and the weekday chips in
   `TaskEditForm` get the same check.
@@ -355,7 +372,11 @@ reviewed plan; this round's explicit matrix targets do not deliver that feature.
   flagged; a window not yet open and planned-today rows unchanged; child
   eligibility), `TodayView` spec for the group and its Done, a
   `flex-window-scheduling.spec.ts` case completing one day before the planned
-  day inside a two-day window; BUG-UX-004 — a `task-manager.spec.ts` case
+  day inside a two-day window; for the Tasks tab, `OccurrenceTimelineTest`
+  cases (a flex increase widens the planned occurrence at once with a `window`
+  agreement and never shrinks it; a missed occurrence stays missed), a
+  `roomTasks` store case (`NOT_OPEN_YET` without a request) and an
+  `errorToast` case for its message; BUG-UX-004 — a `task-manager.spec.ts` case
   asserting an unchanged scroll position after toggling a member chip in the
   details of a lower row; BUG-UX-002 — the reproduction result recorded in the
   register first, PHPUnit pinning `STALE_TARGET` for version/token mismatches
@@ -473,6 +494,14 @@ modified: lib/Service/RoomTaskReadService.php, lib/Controller/RoomTaskController
           tests/e2e/family-rhythm.spec.ts, docs/api/README.md,
           docs/concepts/task-model-and-sync.md, docs/user-guide.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (BUG-UX-005)
+modified: lib/Service/TaskService.php, lib/Service/OccurrenceService.php,
+          lib/Service/OccurrenceAgreementService.php, lib/Service/OccurrenceRowFactory.php,
+          tests/integration/Service/OccurrenceTimelineTest.php,
+          src/store/roomTasks.js, src/utils/errorToast.js,
+          tests/unit/store/roomTasks.spec.js, tests/unit/utils/errorToast.spec.js,
+          docs/adr/ADR-013-occurrence-agreements-and-corrections.md, docs/api/README.md,
+          docs/concepts/task-model-and-sync.md, l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot
+          (BUG-UX-005 Tasks tab, D-088-17/18)
 modified: src/styles/a11y.css, tests/e2e/family-core-ux.spec.ts   (BUG-UX-004; one rule
           anchors every label-wrapped hidden input: member and weekday chips,
           availability toggles)
@@ -584,7 +613,7 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 2 | 2026-10-24 | owner | Flex days stop at 7 although a 6-month period needs more; wanted: up to 50% of the period (rounded up, D-088-12) | Improvement / P2 | [FEAT-UX-039](../../backlog/backlog.md#p2-feat-ux-039--flex-days-should-scale-with-the-recurrence-period-cap-50) | Fixed on `fix/alpha3-feedback` (D-088-11, D-088-12); fixed schedules open at most 7 days early; full gate and GUI review open |
 | 3 | 2026-10-24 | owner | A click beside the dialog closes it and discards the input; action buttons scroll away (wanted: close only via X, Cancel, Create or Esc; fixed action row, also in other form dialogs) | Bug / P2 | [BUG-UX-001](../../backlog/backlog.md#p2-bug-ux-001--form-dialogs-close-on-a-stray-click-and-lose-the-input-their-actions-scroll-away) | Fixed on `fix/alpha3-feedback` (D-088-11); full gate and GUI review open |
 | 4 | 2026-10-24 | owner | The "Repeat" selector at the top contradicts the recurrence inputs further down; control size and organisation need rework, with operator feedback first | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Open; design feedback first |
-| 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/backlog.md#p2-bug-ux-005--work-inside-its-flex-window-cannot-be-completed-from-my-day-before-the-planned-day) | Fixed for My Day on `fix/alpha3-feedback` (D-088-14); the operator's view and a possibly later flex edit still to confirm; full gate and GUI review open |
+| 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/backlog.md#p2-bug-ux-005--work-inside-its-flex-window-cannot-be-completed-from-my-day-before-the-planned-day) | Fixed on `fix/alpha3-feedback` for My Day (D-088-14) and the Tasks tab after a flex edit (D-088-17, D-088-18); views confirmed in the GUI review; full gate open |
 | 6 | 2026-10-26 | owner | Completing before the due date, even before the flex days, should be allowed by default and move the next due date; at most an owner option or a child restriction | Feature / P2 | [FEAT-UX-041](../../backlog/backlog.md#p2-feat-ux-041--allow-completing-work-before-its-window-opens) | Open; product decision |
 | 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; workaround: demote to member, then remove |
 | 8 | 2026-10-26 | owner | Several houses per instance? (question for v1.0) | Feature / P4 | FEAT-UX-042, [archived as rejected](../../backlog/archive/2026-10.md#feat-ux-042-rejected-one-house-per-instance-10-26) | Rejected (D-088-15): too much effort |
@@ -705,9 +734,9 @@ pushed or merged. Not a review outcome.
   was a domain reason, so no hotfix); BUG-UX-004 (the browser case failed with the
   unanchored input); BUG-UX-006 dark-theme audit of eight views in both themes and widths
   plus the non-text probe (failed before, passes after).
-- **Jest / lint:** 159 suites / 2225 tests, ESLint 0, Stylelint, `test:noise`,
+- **Jest / lint:** 159 suites / 2227 tests, ESLint 0, Stylelint, `test:noise`,
   `l10n:check-keys`, `agents:check`, `backlog:check`, `docs:encoding` green.
-- **PHPUnit (canonical NC 35 stack, PostgreSQL):** unit 1498, integration 635, no failure,
+- **PHPUnit (canonical NC 35 stack, PostgreSQL):** unit 1498, integration 637, no failure,
   error or skip; `composer cs:check` (427 files) clean.
 - **Browser, focused on the canonical stack:** the new or changed cases in
   `family-rhythm.spec.ts` (non-UTC move, open flex window on My Day), `task-manager.spec.ts`
@@ -717,7 +746,11 @@ pushed or merged. Not a review outcome.
   in both themes and widths — the GUI looks good. Answers: BUG-UX-005 happened in My Day
   and the Tasks tab; BUG-UX-006 meant the Tasks tab too, where the flex window of a task
   row was the remaining weak graphic (fixed, with its own browser case).
-- **Open:** the full browser gate on both runtime rows; the Tasks-tab half of BUG-UX-005.
+- **BUG-UX-005 Tasks tab (D-088-17, D-088-18):** cause confirmed in code — a flex edit left
+  the planned occurrence on its old window, so the Tasks-tab Done had no open target. The
+  widening and the `NOT_OPEN_YET` message are covered by two `OccurrenceTimelineTest`
+  cases and the store and toast specs.
+- **Open:** the full browser gate on both runtime rows.
 
 ## Review Outcome
 
