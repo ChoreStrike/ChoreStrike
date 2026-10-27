@@ -35,6 +35,8 @@
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: overview tiles lead to their targets and Quick clean needs a hold (CS-PLAN-084 WP-C)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: the real HTTP PUT /tasks/{id} edit roundtrip works with the production body shape (D6)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner phone: the all-tasks list pages by 20 and \"Completed\" loads finished work on demand (CS-PLAN-084 WP-D)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner: the flex window of a task row is legible in the light and dark themes",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner: toggling a member chip in a lower row keeps the scroll position",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > real Nextcloud DE and EN core rendering uses the shipped translations"
   ],
   "workflow-state-reconciliation.spec.ts": [
@@ -50,7 +52,9 @@
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an API-created house pause renders its neutral clarification in the owner planner",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an overloaded child day renders the clarification amounts in the owner planner",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an owner records an agreed handover in the UI without changing future assignments",
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an owner sees why a move is refused and then moves the occurrence in a non-UTC house",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > owner date amendment keeps the occurrence identity visible to the child",
+    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > My Day offers work inside its flex window before the planned day",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a UI completion carries the full occurrence receipt",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a new command on a fulfilled occurrence conflicts 409, never credits another target",
     "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a stale receipt after a due-date move conflicts 409",
@@ -396,7 +400,8 @@
     "task-manager.spec.ts > Task Manager > User can filter tasks by priority",
     "task-manager.spec.ts > Task Manager > User can filter tasks by status",
     "task-manager.spec.ts > Task Manager > User can open add task modal from Task Manager",
-    "task-manager.spec.ts > Task Manager > User can search for tasks"
+    "task-manager.spec.ts > Task Manager > User can search for tasks",
+    "task-manager.spec.ts > Task Manager > the New Task dialog survives a backdrop click and keeps its actions in view on a phone"
   ],
   "title-selection.spec.ts": [
     "title-selection.spec.ts > Role Title System (single series) > Reward-request reads stay available while the catalog is disabled (fourth role-display surface)",
