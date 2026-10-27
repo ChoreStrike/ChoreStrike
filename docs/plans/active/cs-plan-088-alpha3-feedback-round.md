@@ -488,10 +488,11 @@ modified: lib/Controller/ControllerErrorFormatter.php, lib/Service/AgreementServ
 modified: src/utils/icons.js, tests/unit/utils/icons.spec.js, src/styles/tokens.css,
           src/components/Dashboard/HouseHealthBar.vue, src/components/Dashboard/HouseholdGoalBar.vue,
           src/components/Dashboard/RoomCard.vue, src/components/Insights/MemberFairnessTable.vue,
+          src/components/Tasks/FlexWindowDisplay.vue, tests/e2e/family-core-ux.spec.ts,
           tests/e2e/color-contrast.spec.ts, docs/standards/guidelines/design.md
                                                                (BUG-UX-006; the audit
           cleared QuickStats, WeekBudgetGrid and the arcade boards)
-new:      tests/e2e/fixtures/non-text-contrast.ts               (BUG-UX-006)
+new:      tests/e2e/fixtures/non-text-contrast.ts, tests/e2e/fixtures/theme.ts   (BUG-UX-006)
 ```
 
 ## 6. Implementation Order
@@ -595,7 +596,7 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Open |
 | 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/backlog.md#p2-bug-ux-002--moving-one-occurrence-reports-changed-in-the-meantime-for-every-refusal) | Fixed on `fix/alpha3-feedback` (D-088-14); reproduced 2026-10-26: no stale-token defect, a refused move (member not available) was shown as "changed"; stays P2; full gate open |
 | 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Open; decision needed |
-| 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/backlog.md#p2-bug-ux-006--graphics-are-hard-to-see-in-the-dark-theme-non-text-contrast) | Fixed on `fix/alpha3-feedback` (D-088-16): black icon default, invisible bar tracks, low fills; the screens the operator meant still to confirm; full gate and GUI review open |
+| 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/backlog.md#p2-bug-ux-006--graphics-are-hard-to-see-in-the-dark-theme-non-text-contrast) | Fixed on `fix/alpha3-feedback` (D-088-16): black icon default, invisible bar tracks, low fills, and the Tasks tab's flex window (confirmed by the operator 2026-10-27); GUI review passed 2026-10-27; full gate open |
 
 ## WP-C Evidence (toolchain series, 2026-10-20)
 
@@ -712,8 +713,11 @@ pushed or merged. Not a review outcome.
   `family-rhythm.spec.ts` (non-UTC move, open flex window on My Day), `task-manager.spec.ts`
   (phone dialog), `family-core-ux.spec.ts` (chip scroll), `color-contrast.spec.ts` (both
   themes with the non-text probe) and the canonical `core-household-journey.spec.ts`.
-- **Open:** the full browser gate on both runtime rows, the operator GUI review (D-088-16),
-  and two operator confirmations (BUG-UX-005: the view used; BUG-UX-006: the screens meant).
+- **Operator GUI review (D-088-16), 2026-10-27:** nine screenshots of the changed surfaces
+  in both themes and widths — the GUI looks good. Answers: BUG-UX-005 happened in My Day
+  and the Tasks tab; BUG-UX-006 meant the Tasks tab too, where the flex window of a task
+  row was the remaining weak graphic (fixed, with its own browser case).
+- **Open:** the full browser gate on both runtime rows; the Tasks-tab half of BUG-UX-005.
 
 ## Review Outcome
 

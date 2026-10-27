@@ -345,7 +345,10 @@ boards.
       room-cleanliness and fairness-load bars matched their card (1.0–1.2:1,
       both themes); the load fill used `--color-primary` (2.4:1 in dark); the
       goal and health fills faded into `-light`/pastel stops (down to 1.97:1 in
-      light). The screens the operator noticed are still to confirm.*
+      light). The operator meant the Tasks tab as well (2026-10-27): the flex
+      window of a task row drew its markers and connectors in `--color-border`
+      (1.1:1 in dark) and its ideal marker in `--color-primary`; the family seed
+      holds no flex task, so neither the audit nor axe had ever seen it.*
 - [x] Fix them with theme tokens (`src/styles/tokens.css`, Nextcloud semantic
       colors) instead of fixed shades; text contrast stays at zero axe violations.
       *Icons paint `currentColor`; tracks draw `--cs-graphic-track-outline`
@@ -353,8 +356,10 @@ boards.
       element state colors.*
 - [x] Tests: `color-contrast.spec.ts` gains a non-text check that measures the
       audited graphics against their background in both themes (≥ 3:1).
-      *`fixtures/non-text-contrast.ts` (icons, tracks, fills) failed before the
-      fix and passes in both themes; `icons.spec.js` pins the icon fill.*
+      *`fixtures/non-text-contrast.ts` (icons, tracks, fills, flex-window
+      markers and connectors) failed before the fix and passes in both themes;
+      `family-core-ux.spec.ts` creates a flex task for the flex-window case;
+      `icons.spec.js` pins the icon fill.*
 
 ---
 

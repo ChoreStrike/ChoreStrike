@@ -24,7 +24,9 @@ import { createUserContext } from './fixtures/auth-contexts.ts'
 import { completeRoomTaskViaApi, completeWithOptionalDialog } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
+import { nonTextContrastViolations } from './fixtures/non-text-contrast.ts'
 import { runOcc } from './fixtures/occ-runner.ts'
+import { useTheme } from './fixtures/theme.ts'
 
 test.describe('Family core UX (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })
@@ -376,6 +378,37 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await expect(chip).toHaveClass(/selected/)
 			expect(Math.abs(await top() - before), 'the chip stays where it was clicked').toBeLessThan(2)
 		} finally {
+			await context.close()
+		}
+	})
+
+	// BUG-UX-006 (CS-PLAN-088 feedback #17): the flex window of a task row —
+	// absent from the seed, so the main-view contrast sweep never saw it —
+	// reaches AA text and 3:1 graphics contrast in both themes.
+	test('owner: the flex window of a task row is legible in the light and dark themes', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const rooms = ((await (await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')).json()).data as Array<{ rooms: Array<{ id: number }> }>)
+				.flatMap((floor) => floor.rooms)
+			const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				data: { roomId: rooms[0].id, assigneeUserIds: ['mom'], task: { name: 'Flex window contrast probe', energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 } },
+			})
+			expect(created.status(), await created.text()).toBe(200)
+			for (const theme of ['dark', 'light'] as const) {
+				await useTheme(page, theme)
+				await page.goto('/apps/chorestrike/#/tasks')
+				await page.reload()
+				await expect(page.locator('body')).toHaveAttribute(`data-theme-${theme}`, '')
+				await page.getByTestId('tasks-filter-all').click()
+				const row = page.getByTestId('task-item').filter({ hasText: 'Flex window contrast probe' })
+				await expect(row.locator('.flex-window-display')).toBeVisible({ timeout: 20000 })
+				const text = await new AxeBuilder({ page }).include('.flex-window-display').withRules(['color-contrast']).analyze()
+				expect(text.violations.flatMap((violation) => violation.nodes.map((node) => node.target.join(' '))), `${theme}: text`).toEqual([])
+				expect(await nonTextContrastViolations(page), `${theme}: graphics`).toEqual([])
+			}
+		} finally {
+			await useTheme(page, 'default').catch(() => {})
 			await context.close()
 		}
 	})

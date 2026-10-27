@@ -10,13 +10,17 @@
 
 import type { Page } from '@playwright/test'
 
-/** Progress-bar tracks and the fills drawn on them (one class list per component). */
-const TRACKS = ['.health-bar-background', '.goal-bar-track', '.cleanliness-bar', '.load-bar']
+/**
+ * Shapes whose fill, outline or border must stand out from their surface
+ * (progress tracks, flex-window markers and connectors), and the fills drawn
+ * on the tracks.
+ */
+const SHAPES = ['.health-bar-background', '.goal-bar-track', '.cleanliness-bar', '.load-bar', '.point-marker', '.connector-line']
 const FILLS = ['.health-bar-fill', '.goal-bar-fill', '.cleanliness-fill', '.load-fill']
 
 /** Every visible graphic under `#content` below 3:1, as readable lines. */
 export async function nonTextContrastViolations(page: Page): Promise<string[]> {
-	return page.evaluate(({ tracks, fills }) => {
+	return page.evaluate(({ shapes, fills }) => {
 		const colors = (value: string): number[][] => [...value.matchAll(/rgba?\(([^)]+)\)/g)]
 			.map((match) => match[1].split(',').map((part) => Number.parseFloat(part)))
 		const channel = (value: number): number => {
@@ -61,16 +65,20 @@ export async function nonTextContrastViolations(page: Page): Promise<string[]> {
 			}
 		}
 
-		for (const track of document.querySelectorAll(tracks.join(','))) {
-			if (!visible(track)) {
+		for (const shape of document.querySelectorAll(shapes.join(','))) {
+			if (!visible(shape)) {
 				continue
 			}
-			const behind = surface(track.parentElement)
-			const own = colors(getComputedStyle(track).backgroundColor)[0]
-			const outline = colors(getComputedStyle(track).boxShadow)[0]
-			const best = Math.max(own ? ratio(blend(own, behind), behind) : 1, outline ? ratio(blend(outline, behind), behind) : 1)
+			const behind = surface(shape.parentElement)
+			const style = getComputedStyle(shape)
+			const candidates = [
+				colors(style.backgroundColor)[0],
+				colors(style.boxShadow)[0],
+				Number.parseFloat(style.borderTopWidth) > 0 ? colors(style.borderTopColor)[0] : undefined,
+			].filter((color): color is number[] => color !== undefined)
+			const best = Math.max(1, ...candidates.map((color) => ratio(blend(color, behind), behind)))
 			if (best < 3) {
-				violations.push(`track ${label(track)}: ${best.toFixed(2)}:1`)
+				violations.push(`shape ${label(shape)}: ${best.toFixed(2)}:1`)
 			}
 		}
 
@@ -91,5 +99,5 @@ export async function nonTextContrastViolations(page: Page): Promise<string[]> {
 			}
 		}
 		return violations
-	}, { tracks: TRACKS, fills: FILLS })
+	}, { shapes: SHAPES, fills: FILLS })
 }

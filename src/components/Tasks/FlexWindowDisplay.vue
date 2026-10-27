@@ -291,7 +291,8 @@ export default {
 	height: 16px;
 	border-radius: 50%;
 	background: var(--color-background-dark);
-	border: 2px solid var(--color-border);
+	/* BUG-UX-006: --color-border matched the panel (1.2:1 in dark). */
+	border: 2px solid var(--color-border-maxcontrast);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -303,9 +304,9 @@ export default {
 }
 
 .timeline-point.ideal .point-marker {
-	background: var(--color-primary);
+	background: var(--color-primary-element);
 	border-color: var(--color-primary-element);
-	color: white;
+	color: var(--color-primary-element-text);
 }
 
 .timeline-point.latest .point-marker {
@@ -355,7 +356,7 @@ export default {
 .connector-line {
 	width: 100%;
 	height: 2px;
-	background: var(--color-border);
+	background: var(--color-border-maxcontrast);
 }
 
 .flex-window-status {

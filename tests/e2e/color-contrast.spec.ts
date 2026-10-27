@@ -20,22 +20,10 @@ import { setArcadeGate } from './fixtures/arcade-gate.ts'
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { nonTextContrastViolations } from './fixtures/non-text-contrast.ts'
+import { useTheme } from './fixtures/theme.ts'
 
 const USER = 'friend'
 const THEMES = ['light', 'dark'] as const
-
-/** Enable exactly one Nextcloud theme for the signed-in user (default = follow the system). */
-async function useTheme(page: Page, theme: 'light' | 'dark' | 'default'): Promise<void> {
-	for (const other of ['light', 'dark']) {
-		if (other !== theme) {
-			await page.request.delete(`/ocs/v2.php/apps/theming/api/v1/theme/${other}`, { headers: { 'OCS-APIRequest': 'true' } })
-		}
-	}
-	if (theme !== 'default') {
-		const response = await page.request.put(`/ocs/v2.php/apps/theming/api/v1/theme/${theme}/enable`, { headers: { 'OCS-APIRequest': 'true' } })
-		expect(response.status(), await response.text()).toBe(200)
-	}
-}
 
 async function firstRoomId(page: Page): Promise<number> {
 	const response = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
