@@ -221,6 +221,11 @@ All questions were answered with their recommended option.
   Rejected: (a) a per-room date only; writing `room_tasks.last_completed`
   (completion-owned and recomputed on undo); extra fields in the create form
   and the setup wizard (the first due date already anchors a new task).
+- **D-088-21 GUI review of the third admission (operator 2026-10-28):** the ten
+  screenshots of the four items in both themes and widths pass. The capture
+  found BUG-UX-007 (a direct room-to-room navigation keeps the previous room's
+  content); the operator admits its fix into WP-A on the same branch before the
+  local merge. Rejected: leaving it in the backlog.
 
 ## 3. Backend / Frontend Changes
 
@@ -313,6 +318,9 @@ Admitted items (D-088-19):
   through `amendOccurrenceDateUnderLock`. `RoomReplayService` stamps
   `lastCleaned` from the newest `last_done` per room task after the latest
   reset. `RoomTaskEditModal` gains the date field.
+- **BUG-UX-007 room switch (D-088-21):** `RoomDetail` watches its room id,
+  resets the per-room dialogs and stats and reloads; a slower load of the
+  previous room no longer writes its stats, error or loading state.
 
 ### WP-B Hardening
 
@@ -623,6 +631,7 @@ modified: lib/Db/RoomEvent.php, lib/Db/RoomEventMapper.php, lib/Service/RoomRepl
           docs/user-guide.md, docs/adr/ADR-013-occurrence-agreements-and-corrections.md,
           docs/adr/ADR-014-work-accounting-ledger-and-replay.md, docs/engineering/architecture.md,
           l10n/en.json, l10n/de.json, l10n/templates/chorestrike.pot   (FEAT-UX-045)
+modified: src/views/RoomDetail.vue, tests/unit/views/RoomDetail.spec.js   (BUG-UX-007)
 ```
 
 ## 6. Implementation Order
@@ -878,7 +887,11 @@ pushed or merged. Not a review outcome.
   15 + 15) and zero skipped, failed or flaky. A first replay design read the entry index on
   every replay and broke the completion/undo query budgets; the index is now read only for
   rooms with a `last_done` entry (`RoomReplayServiceTest` pins it).
-- **Open (third admission):** the operator check of the four items, then the local merge.
+- **Operator GUI review (D-088-21), 2026-10-28:** ten screenshots of the four items in both
+  themes and widths pass. BUG-UX-007, found during the capture, is admitted and fixed with a
+  `RoomDetail` regression spec (fails without the fix).
+- **Open (third admission):** the browser gates after the BUG-UX-007 fix, then the local merge
+  (operator-approved).
 
 ## Review Outcome
 

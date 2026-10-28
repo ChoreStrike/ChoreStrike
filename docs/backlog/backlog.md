@@ -79,7 +79,7 @@ of FEAT-UX-043.
 ---
 
 ### [P3] BUG-UX-003 — My Day offers a checklist toggle for tasks without a checklist
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, the operator check open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, operator GUI review passed) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #9
 
@@ -103,8 +103,8 @@ click.
 ---
 
 ### [P3] BUG-UX-007 — Switching directly from one room to another keeps the previous room's content
-**Status**: Backlog (found 2026-10-28 while capturing the CS-PLAN-088 GUI review screenshots) · **Effort**: S · **Layer**: frontend · **Journey stage**: room detail
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-21; found 2026-10-28 while capturing the GUI review screenshots, fixed the same day on `feat/alpha3-feedback-2`; browser gates open) · **Effort**: S · **Layer**: frontend · **Journey stage**: room detail
+**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: GUI review capture (2026-10-28), CS-PLAN-088 D-088-19 review
 
 `RoomDetail` loads its room once on mount and does not watch the route
@@ -114,10 +114,12 @@ shows room B, while the task list reads "No tasks yet" and the stats still show
 room A. Normal use goes through the dashboard or My Day, which remounts the
 view; a typed URL or a future room-to-room link shows the stale state.
 
-- [ ] Reload the room data when the `id` parameter changes (watcher or
-      `beforeRouteUpdate`), cancelling the previous load.
-- [ ] Tests: `RoomDetail` spec for a parameter change (new room's tasks and
-      stats, no stale rows).
+- [x] Reload the room data when the `id` parameter changes (watcher or
+      `beforeRouteUpdate`), cancelling the previous load. *A `roomId` watcher
+      resets the dialogs and stats and reloads; a late answer for the old room
+      is ignored.*
+- [x] Tests: `RoomDetail` spec for a parameter change (new room's tasks and
+      stats, no stale rows). *Fails without the fix.*
 
 ---
 
@@ -158,7 +160,7 @@ BUG-UX-005 covers the in-window case and ships on its own.
 ---
 
 ### [P3] FEAT-UX-044 — Unique room names within the house (numbered suffix)
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, the operator check open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, operator GUI review passed) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #14
 
@@ -379,7 +381,7 @@ templates today).
 ---
 
 ### [P3] FEAT-UX-045 — Record or correct "last cleaned" after setup
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19, D-088-20; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, the operator check open) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19, D-088-20; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, operator GUI review passed) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #16
 

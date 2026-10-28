@@ -382,6 +382,24 @@ export default {
 		},
 	},
 
+	watch: {
+		// BUG-UX-007: the router reuses this view for a direct room-to-room
+		// navigation — reset the per-room state and load the new room.
+		roomId(newId, oldId) {
+			if (newId === oldId) {
+				return
+			}
+			this.closeEditModal()
+			this.showAddTaskModal = false
+			this.taskToDelete = null
+			this.showRenameRoomModal = false
+			this.roomToDelete = false
+			this.participation = null
+			this.roomStats = null
+			this.initializeRoom()
+		},
+	},
+
 	async mounted() {
 		await this.initializeRoom()
 	},
@@ -394,21 +412,30 @@ export default {
 		},
 
 		async initializeRoom() {
+			// A slower load of the previous room must not overwrite this one.
+			const roomId = this.roomId
 			this.loading = true
 			this.initError = false
 			try {
 				await this.roomsStore.fetchFloorsWithRooms()
 				await this.tasksStore.fetchTasks()
-				await this.roomTasksStore.fetchRoomTasks(this.roomId)
+				await this.roomTasksStore.fetchRoomTasks(roomId)
 				// Best-effort: the stats card must not block the room view.
-				this.roomStats = await this.roomTasksStore.fetchRoomTaskStats(this.roomId)
+				const roomStats = await this.roomTasksStore.fetchRoomTaskStats(roomId)
+				if (roomId === this.roomId) {
+					this.roomStats = roomStats
+				}
 			} catch (error) {
 				// CS-PLAN-066 §3.5: an initialization failure is an explicit
 				// localized error + retry state, never a silent empty room.
-				this.initError = true
-				logger.error('Failed to initialize room', error, { view: 'RoomDetail', action: 'initializeRoom', roomId: this.roomId })
+				if (roomId === this.roomId) {
+					this.initError = true
+				}
+				logger.error('Failed to initialize room', error, { view: 'RoomDetail', action: 'initializeRoom', roomId })
 			} finally {
-				this.loading = false
+				if (roomId === this.roomId) {
+					this.loading = false
+				}
 			}
 		},
 

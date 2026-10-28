@@ -227,6 +227,33 @@ describe('RoomDetail.vue', () => {
 		expect(wrapper.find('.cleanliness-ring').exists()).toBe(true)
 	})
 
+	// BUG-UX-007 (CS-PLAN-088): a direct room-to-room navigation reuses the
+	// view; it loads the new room, and a late answer for the old one never
+	// overwrites it.
+	it('loads the new room when the id changes and ignores a late answer for the old one', async () => {
+		let resolveOld
+		const stats = (total) => ({ totalTasks: total, activeTasks: 1, overdueTasks: 0, dueTodayTasks: 0, completionRate: 0 })
+		const wrapper = mount(RoomDetail, { props: { id: '1' }, global: { plugins: [pinia], stubs: { RouterLink: true } } })
+		await flushPromises()
+		const store = wrapper.vm.roomTasksStore
+		store.fetchRoomTaskStats.mockImplementation((roomId) => (roomId === 1
+			? new Promise((resolve) => { resolveOld = resolve })
+			: Promise.resolve(stats(9))))
+		// A slow reload of room 1 is still pending when the route moves on.
+		const pendingOld = wrapper.vm.initializeRoom()
+		await flushPromises()
+
+		await wrapper.setProps({ id: '2' })
+		await flushPromises()
+		resolveOld(stats(4))
+		await pendingOld
+		await flushPromises()
+
+		expect(store.fetchRoomTasks).toHaveBeenLastCalledWith(2)
+		expect(wrapper.vm.roomStats.totalTasks).toBe(9)
+		expect(wrapper.vm.loading).toBe(false)
+	})
+
 	it('renders the task stats card after loading (CS-PLAN-040)', async () => {
 		const wrapper = mount(RoomDetail, {
 			props: { id: '1' },
