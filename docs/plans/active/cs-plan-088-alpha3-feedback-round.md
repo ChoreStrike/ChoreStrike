@@ -861,6 +861,24 @@ pushed or merged. Not a review outcome.
   chromium-scheduling-owner 39, mobile-chromium 15, mobile-webkit 15 (setup results included),
   zero skipped, failed or flaky. PHPUnit on the AIO row: unit 1498, integration 637, no
   failure, error or skip. The seven WP-A items are archived; RF-088-11 stays open for WP-D.
+- **Third admission (D-088-19, D-088-20), 2026-10-28:** branch `feat/alpha3-feedback-2` from
+  `master` `670793b` (worktree `~/worktrees/chorestrike-alpha3-feedback-2`), one commit per item,
+  not merged: FEAT-UX-044 (`2774fe8`), FEAT-UX-015 owner removal (`367ac1f`), BUG-UX-003
+  (`ac3bb37`, payload fix `821e464`), FEAT-UX-045 (`f44b65f`). No schema change; the route pin
+  moves 96 → 97 for `PUT /room-tasks/{id}/last-done`. Jest 159 suites / 2236 tests, ESLint 0,
+  Stylelint, `l10n:check-keys` (1344), `backlog:check`, `docs:encoding`, `agents:check`;
+  `composer cs:check` (435 files) clean.
+- **Third admission gates:** PHPUnit on the canonical stack unit 1521 / integration 646 and on the
+  AIO row (NC 34.0.4, Redis) unit 1521 / integration 646 with `--fail-on-skipped`. The first full
+  browser gate (`run-Ay7iey`) failed two child My Day checklist scenarios: the execution-row
+  serializers dropped the new `checklistItemCount`, so the toggle vanished for tasks with a
+  checklist — fixed in `821e464` with controller tests on the HTTP shape. The reruns passed on
+  the first attempt on both rows: `run-dSEFzj` (primary) and `run-WuUlh2` (AIO), with the
+  WP-A counts (chromium 103, chromium-serial-db 183, chromium-scheduling-owner 39, mobile
+  15 + 15) and zero skipped, failed or flaky. A first replay design read the entry index on
+  every replay and broke the completion/undo query budgets; the index is now read only for
+  rooms with a `last_done` entry (`RoomReplayServiceTest` pins it).
+- **Open (third admission):** the operator check of the four items, then the local merge.
 
 ## Review Outcome
 

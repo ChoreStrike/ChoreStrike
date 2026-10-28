@@ -79,7 +79,7 @@ of FEAT-UX-043.
 ---
 
 ### [P3] BUG-UX-003 — My Day offers a checklist toggle for tasks without a checklist
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; full browser gate and the operator check open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, the operator check open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #9
 
@@ -94,8 +94,8 @@ click.
       exist and the empty-discovery state goes away. *`checklistItemCount` on
       the filtered-daily, due-today and overdue rows from one grouped
       `TaskChecklistItemMapper::countByTaskIds` query.*
-- [ ] No per-row request (`workflow-request-budgets.spec.ts` stays green).
-      *No new HTTP request; confirmed by the full browser gate.*
+- [x] No per-row request (`workflow-request-budgets.spec.ts` stays green).
+      *No new HTTP request; the budget spec passed in `run-dSEFzj` and `run-WuUlh2`.*
 - [x] Tests: `TodayView` spec (no toggle without items, toggle with items) and a
       read/DTO test for the count. *Plus `RoomTaskServiceDailyTest` and the
       integration `TaskChecklistItemCountTest`.*
@@ -139,7 +139,7 @@ BUG-UX-005 covers the in-window case and ships on its own.
 ---
 
 ### [P3] FEAT-UX-044 — Unique room names within the house (numbered suffix)
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; full browser gate and the operator check open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, the operator check open) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #14
 
@@ -200,7 +200,7 @@ another owner first changes that account's role to member, then removes it.
       *Implemented 2026-10-28 on `feat/alpha3-feedback-2` (CS-PLAN-088
       D-088-19): only self-removal is refused; `HouseServiceTest`,
       `HouseMemberRemovalIntegrationTest` (cleanup, serialized mutual removal)
-      and the `MemberList` spec. Full browser gate open.*
+      and the `MemberList` spec; browser gates green.*
 
 ---
 
@@ -360,7 +360,7 @@ templates today).
 ---
 
 ### [P3] FEAT-UX-045 — Record or correct "last cleaned" after setup
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19, D-088-20; implemented 2026-10-28 on `feat/alpha3-feedback-2`; full browser gate and the operator check open) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
+**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19, D-088-20; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, the operator check open) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #16
 
