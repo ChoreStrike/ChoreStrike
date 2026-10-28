@@ -845,6 +845,8 @@ class RoomTaskController extends Controller {
 				// WP3 §3.6: the actual-work proposal block shares the
 				// ParticipationDialog preview across every read path.
 				'proposal' => $row['proposal'] ?? null,
+				// BUG-UX-003: My Day offers the checklist toggle only above 0.
+				'checklistItemCount' => $row['checklistItemCount'] ?? 0,
 			];
 		}, $rows);
 	}
@@ -1013,6 +1015,8 @@ class RoomTaskController extends Controller {
 					'proposal' => $item['proposal'] ?? null,
 					// BUG-UX-005: an open flex window without work planned today.
 					'openWindow' => $item['openWindow'] ?? false,
+					// BUG-UX-003: My Day offers the checklist toggle only above 0.
+					'checklistItemCount' => $item['checklistItemCount'] ?? 0,
 				], $filteredTasks)
 			]);
 		} catch (ForbiddenException $e) {

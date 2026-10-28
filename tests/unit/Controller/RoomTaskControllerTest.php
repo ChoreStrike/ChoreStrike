@@ -625,7 +625,7 @@ class RoomTaskControllerTest extends TestCase {
 		$this->roomTaskReadService->expects($this->once())
 			->method('getOverdueTaskRows')
 			->with(1, $this->identicalTo($houseUser), null)
-			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room]]);
+			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room, 'checklistItemCount' => 2]]);
 		$this->roomTaskReadService->method('assigneesByRoomTasks')
 			->willReturn([11 => ['alice', 'bob']]);
 
@@ -638,6 +638,33 @@ class RoomTaskControllerTest extends TestCase {
 		$this->assertArrayHasKey('room', $row);
 		// Canonical user-ID array (D1): unique, deterministically ordered.
 		$this->assertSame(['alice', 'bob'], $row['assignees']);
+		// BUG-UX-003: the service's checklist count reaches the client.
+		$this->assertSame(2, $row['checklistItemCount']);
+	}
+
+	/**
+	 * BUG-UX-003 regression: the My Day read keeps the service's checklist
+	 * count and open-window flag in its explicit row shape (the browser gate
+	 * caught the count missing from the HTTP payload).
+	 */
+	public function testFilteredDaily_RowsCarryTheChecklistCountAndOpenWindow(): void {
+		$house = new House();
+		$house->setId(1);
+		$roomTask = new RoomTask();
+		$roomTask->setId(11);
+		$task = new Task();
+		$task->setId(4);
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
+		$this->roomTaskReadService->method('getFilteredDailyTasksForUser')->willReturn([
+			['roomTask' => $roomTask, 'task' => $task, 'room' => new Room(), 'assignees' => [], 'checklistItemCount' => 3, 'openWindow' => true],
+			['roomTask' => $roomTask, 'task' => $task, 'room' => new Room(), 'assignees' => []],
+		]);
+
+		$rows = $this->controller->filteredDaily()->getData()['data'];
+
+		$this->assertSame([3, 0], array_column($rows, 'checklistItemCount'));
+		$this->assertSame([true, false], array_column($rows, 'openWindow'));
 	}
 
 	/**
