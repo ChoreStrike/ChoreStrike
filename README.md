@@ -108,7 +108,7 @@ These bounds are the promoted current-stable baseline (CS-PLAN-082,
 2026-10-06), not a pending qualification candidate: fresh NC35 installations
 and the complete backend suite are verified on all three providers, and the
 canonical Docker test environment provisions this pinned runtime by default
-(Nextcloud 35.0.2 / PHP 8.4.26 / PostgreSQL 18.6; frozen inventory in
+(Nextcloud 35.0.2 / PHP 8.4.27 / PostgreSQL 18.6; frozen inventory in
 `docker/test-runtime.json`). AIO deployment, production rollout and
 retained-baseline adoption remain separate, explicitly approved steps; see
 [CS-PLAN-082](docs/plans/done/cs-plan-082-current-stable-test-baseline-and-data-preservation.md)

@@ -146,7 +146,7 @@ describe('coherent owned browser/CLI target', () => {
 		expect(() => assertTestTarget('http://localhost:8080', { NEXTCLOUD_CONTAINER: 'chorestrike-test' }, execute)).toThrow('preflight failed')
 		expect(execute).toHaveBeenCalledTimes(1)
 	})
-	it.each(['31.0.0.1', '35.0.0.10', '34.0.4.1'])('refuses canonical stale or compatibility runtime %s', version => {
+	it.each(['31.0.0.1', '35.0.0.10', '34.0.5.1'])('refuses canonical stale or compatibility runtime %s', version => {
 		const value = container()
 		value.Name = '/chorestrike-test'
 		value.NetworkSettings.Ports['80/tcp'] = [{ HostIp: '127.0.0.1', HostPort: '8080' }, { HostIp: '::1', HostPort: '8080' }]

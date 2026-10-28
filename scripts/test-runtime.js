@@ -219,6 +219,15 @@ async function fetchMetadata(url) {
 }
 
 /**
+ * A PECL extension version as AIO pins it since v14.4.1: `ARG <NAME>=x.y.z`,
+ * counted only while the extension's source download still consumes that pin.
+ */
+function aioExtensionVersion(dockerfile, arg, sourceUrl) {
+	const version = dockerfile.match(new RegExp(`^ARG ${arg}=(\\d+\\.\\d+\\.\\d+)\\s*$`, 'm'))?.[1]
+	return dockerfile.includes(`${sourceUrl}$${arg}.tar.gz`) ? version : undefined
+}
+
+/**
  * Versions of the AIO subcomponents the app runs against, parsed from the
  * official AIO container sources of one release tag. Every value must parse;
  * unknown/malformed metadata fails closed instead of reporting "current".
@@ -228,8 +237,8 @@ async function aioComponents(io, aio, nextcloudFile) {
 	const [redisFile, postgresFile] = [await source('redis'), await source('postgresql')]
 	const components = {
 		php: nextcloudFile.match(/^FROM php:(\d+\.\d+\.\d+)-fpm\S*\s*$/m)?.[1],
-		apcu: nextcloudFile.match(/pecl install (?:-\S+ )*APCu-(\d+\.\d+\.\d+);/)?.[1],
-		phpredis: nextcloudFile.match(/pecl install (?:-\S+ )*(?:'[^']*' )?redis-(\d+\.\d+\.\d+);/)?.[1],
+		apcu: aioExtensionVersion(nextcloudFile, 'APCU_VERSION', 'https://github.com/krakjoe/apcu/archive/refs/tags/v'),
+		phpredis: aioExtensionVersion(nextcloudFile, 'REDIS_VERSION', 'https://github.com/phpredis/phpredis/archive/refs/tags/'),
 		redis: redisFile.match(/^FROM redis:(\d+\.\d+\.\d+)-alpine\S*\s*$/m)?.[1],
 		postgres: postgresFile.match(/^FROM postgres:(\d+\.\d+)-alpine\S*\s*$/m)?.[1],
 	}

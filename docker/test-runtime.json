@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "qualified",
-  "verifiedAt": "2026-10-15",
+  "verifiedAt": "2026-10-28",
   "platform": "linux/amd64",
   "nextcloud": {
     "version": "35.0.2",
@@ -34,10 +34,10 @@
     }
   },
   "php": {
-    "version": "8.4.26",
-    "image": "php:8.4.26-apache",
-    "digest": "sha256:901b0dbcd2419cc9cd307ea05e57403449ce722ccd5b32335da6e8d39f2b1ee0",
-    "platformDigest": "sha256:6114a2bd4956c50e4db20f08b9377e4fc7e08417b2aa34a44ec7ff52a07996b5"
+    "version": "8.4.27",
+    "image": "php:8.4.27-apache",
+    "digest": "sha256:be1326658a7d36dba6be79a71212d6ff9c5f854335b8ba77d714da1852c1b2ea",
+    "platformDigest": "sha256:f285280aa665ef0fe6f9645ed5e6aa94df2c4595b62c07d4c90c79dcc0ddc8a4"
   },
   "composer": {
     "version": "2.9.5",
@@ -55,8 +55,8 @@
     "pgsql": {
       "version": "18.6",
       "image": "postgres:18.6-alpine",
-      "digest": "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
-      "platformDigest": "sha256:d8703cd7fba306b9fec9268ecedfa8a966846c053036a60e3635791957eb2f66"
+      "digest": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
+      "platformDigest": "sha256:3b0ef735388b2cb097fc29b8bb421d86d57d0ddbe7aa1fbd6493e06d65028503"
     },
     "sqlite": {
       "version": "3.46.1"
@@ -73,44 +73,44 @@
     "redis": {
       "version": "8.10.2",
       "image": "redis:8.10.2-alpine",
-      "digest": "sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0",
-      "platformDigest": "sha256:2d3814be5e9b06a30a0be54770b7e12052e7e79ec85271aefd34875c1f393b23"
+      "digest": "sha256:9f8d2d789b9a1d1e3f283f979aa9cbf393373806472e1ccd460e2f9c869b833b",
+      "platformDigest": "sha256:16b124a2d3eacd620d917ead6fd26cbf1f1d7117fa94122398971931cfe2d403"
     }
   },
   "aio": {
-    "version": "14.3.0",
-    "nextcloudVersion": "34.0.4"
+    "version": "14.4.2",
+    "nextcloudVersion": "34.0.5"
   },
   "compatibility": {
     "aio": {
       "nextcloud": {
+        "version": "34.0.5",
+        "internalVersion": "34.0.5.1",
+        "ref": "v34.0.5",
+        "revision": "77e3cab12d2215bf94d6de67f23b98ed7bad236e"
+      },
+      "previous": {
         "version": "34.0.4",
         "internalVersion": "34.0.4.1",
         "ref": "v34.0.4",
         "revision": "77c7284fed1f5c7b4bce1a94299e229f3281b606"
       },
-      "previous": {
-        "version": "34.0.3",
-        "internalVersion": "34.0.3.2",
-        "ref": "v34.0.3",
-        "revision": "b11c68e25d6030187e02477d3d82013405f62965"
-      },
       "notifications": {
-        "ref": "v34.0.4",
-        "revision": "68bd4ea7773d24664425d525f3c87012e5313bfa"
+        "ref": "v34.0.5",
+        "revision": "4ad7881fa676b827fe8a11fa631753aab882160e"
       },
       "viewer": {
-        "ref": "v34.0.4",
-        "revision": "73ac591a6696b992e0009a71eef0f06c1c9e04a2"
+        "ref": "v34.0.5",
+        "revision": "09f8b9ff256c874c69e1d180d9a50d70bee04df8"
       },
       "patches": {
         "previousNotifications": {
-          "ref": "v34.0.3",
-          "revision": "2a62d472d31b97de522c897c979912cd49b820a9"
+          "ref": "v34.0.4",
+          "revision": "68bd4ea7773d24664425d525f3c87012e5313bfa"
         },
         "previousViewer": {
-          "ref": "v34.0.3",
-          "revision": "1556dd3a53cc280a28eb082d1cca15b6eb8f3c96"
+          "ref": "v34.0.4",
+          "revision": "73ac591a6696b992e0009a71eef0f06c1c9e04a2"
         }
       }
     }

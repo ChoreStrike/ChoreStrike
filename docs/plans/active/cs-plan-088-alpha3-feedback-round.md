@@ -711,7 +711,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-088-08 (major) - Package builder: host/CI upgrade alone leaves the isolated package builder on pinned Node 20.19; add its image inventory, npm/engine checks, tests and README requirements to WP-C.
 - [x] RF-088-09 (major) - Toolchain ordering: a strict Node 24 install is blocked by `@nextcloud/eslint-config@8`, `@nextcloud/eslint-plugin@2` and the unused `@nextcloud/initial-state@2.2.0` (all `node ^20`/`npm ^10`), so TECH-DEV-001 cannot precede TECH-LINT-008; D-088-08 merges them into one series (found 2026-10-20 while preparing the lockfile; operator answered the recommended option).
 - [x] RF-088-10 (major) - Bundle proof: byte identity of `js/` is unattainable across the bundler major (webpack 5.105.2 → 5.112.0, terser → `minimizer-webpack-plugin`; `chorestrike-main.js` 3.93 → 3.60 MB); D-088-09 replaces it with content equivalence plus the gates (operator answered the recommended option).
-- [ ] RF-088-11 (major) - Runtime currency: AIO `v14.4.1` (seen 2026-10-27) bundles Nextcloud 34.0.5 on PHP 8.4.27 (inventory: AIO 14.3.0, Nextcloud 34.0.4, PHP 8.4.26; APCu, phpredis, Redis and PostgreSQL unchanged, upstream still 35.0.2). `test:runtime:check` fails closed (`AIO apcu metadata`) because the AIO Dockerfile now pins its PECL versions as `ARG …_VERSION` and builds them from GitHub tarballs instead of `pecl install`. Fix the parser for that form (with a fixture test), then promote the AIO row through a reviewed inventory update and requalification before the WP-D qualification. The WP-A browser gate ran on the rows the inventory names.
+- [x] RF-088-11 (major) - Runtime currency: AIO `v14.4.1` (seen 2026-10-27) bundles Nextcloud 34.0.5 on PHP 8.4.27 (inventory: AIO 14.3.0, Nextcloud 34.0.4, PHP 8.4.26; APCu, phpredis, Redis and PostgreSQL unchanged, upstream still 35.0.2). `test:runtime:check` fails closed (`AIO apcu metadata`) because the AIO Dockerfile now pins its PECL versions as `ARG …_VERSION` and builds them from GitHub tarballs instead of `pecl install`. Fix the parser for that form (with a fixture test), then promote the AIO row through a reviewed inventory update and requalification before the WP-D qualification. The WP-A browser gate ran on the rows the inventory names. Resolved 2026-10-28: parser fixed, inventory promoted to AIO v14.4.2 (NC 34.0.5, PHP 8.4.27), both rows requalified ([evidence](#rf-088-11-evidence-aio-v1442-runtime-promotion-2026-10-28)).
 
 ## Feedback Register (sanitized)
 
@@ -901,6 +901,56 @@ pushed or merged. Not a review outcome.
   pushed); BUG-UX-003, BUG-UX-007, FEAT-UX-044 and FEAT-UX-045 archived, the FEAT-UX-015
   owner-removal fold-in checked off (self-service departure stays open).
 
+## RF-088-11 Evidence (AIO v14.4.2 runtime promotion, 2026-10-28)
+
+Branch `chore/aio-14.4.2-runtime` from `master` `afec524` (worktree
+`~/worktrees/chorestrike-aio-14.4.2`). No app code, schema or migration change.
+
+- **Parser:** `scripts/test-runtime.js` reads the APCu and phpredis pins from the
+  `ARG APCU_VERSION=` / `ARG REDIS_VERSION=` lines AIO uses since v14.4.1 and counts a pin
+  only while the extension's GitHub tarball download still consumes it. A missing pin or a
+  pin the download no longer uses fails closed. The Jest fixture has the v14.4.2 Dockerfile
+  shape, with fail-closed cases for both pins and both download lines.
+- **Upstream (2026-10-28):** AIO v14.4.2 is the highest stable release (it supersedes the
+  v14.4.1 seen on 2026-10-27): NC 34.0.5, PHP 8.4.27, APCu 5.1.28, phpredis 6.3.0, Redis
+  8.10.2, PostgreSQL 18.6. Upstream stable is still 35.0.2.
+- **Inventory:** `verifiedAt` 2026-10-28, status stays `qualified`. PHP 8.4.26 → **8.4.27**
+  (`php:8.4.27-apache`, index `be132665…`, amd64 `f285280a…`); AIO 14.3.0 → **14.4.2** with
+  NC 34.0.4 → **34.0.5** (internal 34.0.5.1, revision `77e3cab1…`, notifications
+  `4ad7881f…`, viewer `09f8b9ff…`) and update source 34.0.3 → 34.0.4 with its pins as
+  patches. PostgreSQL 18.6 and Redis 8.10.2 keep their versions; their images were
+  republished, so the digests moved (pgsql `10a5c69a…` / `3b0ef735…`, Redis `9f8d2d78…` /
+  `16b124a2…`). PHP is one inventory field, so the primary row moved too: `Dockerfile.test`
+  defaults, selection hash primary `0ddc6760…` / AIO `704381b9…`, the compose PHP identity
+  and the PostgreSQL digest in all three compose files. Current-state statements in README,
+  docker README, development, deployment and testing docs and the docker-dev skill follow;
+  historical records keep their versions. The `lcobucci/clock` limitation is the same
+  reviewed failure on PHP 8.4.27 (NC 34.0.5 still locks clock 3.0.0), so no new disposition.
+- **Images:** all four rebuilt, `verify-image` `frozen-image-identity-match`:
+  `cs082-runtime-35.0.2-local` (`51a536ff6efb`), `-35.0.1-local` (`1c84b83b8c03`),
+  `-34.0.5-local --runtime=aio` (`60e53ebb229e`), `-34.0.4-local --runtime=aio`
+  (`7481bfc91b51`), with exactly the two reviewed upstream limitations.
+- **Check:** `test:runtime:check` `current` (upstream 35.0.2, AIO 14.4.2 / NC 34.0.5, no
+  drift); `test-runtime.js validate` `valid` / `qualified`.
+- **Gates:** canonical stack recreated (`test:runtime:canonical` match, PHP 8.4.27): PHPUnit
+  unit 1521 / integration 646 with `--fail-on-skipped`, full browser gate `run-1tN7fk`. AIO
+  row `cs082-rf08811-aio` (NC 34.0.5.1 / PHP 8.4.27 / PostgreSQL 18.6 / Redis 8.10.2 for
+  sessions, cache and locking): unit 1521 / integration 646, full browser gate `run-anL2IM`.
+  Both gates passed on the first attempt with the WP-A counts (chromium 103,
+  chromium-serial-db 183, chromium-scheduling-owner 39, mobile 15 + 15) and zero skipped,
+  failed or flaky; the AIO stage is torn down.
+- **P2 populated update on the AIO row** (`test-runtime-preservation.ps1 -Proof p2 -Row aio`):
+  the official Nextcloud upgrade 34.0.4.1 → 34.0.5.1 on populated synthetic facts, the update
+  production's AIO will take. 26 migrations unchanged, 3 volumes preserved, all 30 app table
+  snapshots equal, sentinels and post-update read/mutation pass. The first run
+  (`cs082-adfb0ee0`) passed but left the Redis peer and the project network behind while
+  reporting a clean teardown; fixed in this round (R088-11-01 below). The rerun
+  `cs082-ecb43565` passed with the same results and an empty residue check.
+- **Deployment consequence:** the inventory now names only AIO v14.4.2 / NC 34.0.5. Per the
+  pre-deployment checklist the production AIO must run NC 34.0.5 before `0.8.0-alpha.3` is
+  deployed (operator step before WP-D's deployment; the last record, `0.8.0-alpha.2` on
+  2026-10-19, shows AIO 14.3.0 / NC 34.0.4).
+
 ## Review Outcome
 
 **Standard A, 2026-10-19: PASS-WITH-FIXES.** Scope: this plan, checked against
@@ -934,3 +984,14 @@ points, release rules and package metadata. No subagents or implementation edits
   [2026-10-19 review](../../backlog/archive/CODE_REVIEW_2026-10-19.md#standard-a---cs-plan-088-alpha3-feedback-round).
 - Finalization is one scoped review commit; no merge, push, tag, deployment,
   feedback import or host toolchain change.
+
+**Interim Standard B, 2026-10-28 (RF-088-11 runtime promotion): PASS-WITH-FIXES.** Scope:
+branch `chore/aio-14.4.2-runtime` at base `afec524`, 15 modified tracked paths (unstaged
+diff SHA-256 prefix `94d90c789d0e8bd8` at capture): drift-check parser, inventory, image
+and compose pins, spec hashes and current-runtime docs. One minor finding fixed in this
+round: R088-11-01, a passing AIO-row P1/P2 left the Redis peer and the project network
+behind while reporting a clean teardown (`--remove-orphans` plus a label residue check,
+self-test, `testing.md`). No open findings. Gates: runtime check `current`, PHPUnit
+1521/646 and full browser gates `run-1tN7fk` / `run-anL2IM` on both rows, P2 on the AIO
+row, Jest 159/2240, ESLint, `backlog:check`, `docs:encoding`, `agents:check`. The plan stays
+active. Record: [2026-10-28 review](../../backlog/archive/CODE_REVIEW_2026-10-28.md).

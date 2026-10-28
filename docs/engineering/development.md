@@ -23,7 +23,7 @@ If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md
 For isolated testing, use the included Docker setup:
 
 The canonical commands below provision the pinned current-stable test runtime
-directly: **Nextcloud 35.0.2 (internal 35.0.2.2) / PHP 8.4.26 / PostgreSQL
+directly: **Nextcloud 35.0.2 (internal 35.0.2.2) / PHP 8.4.27 / PostgreSQL
 18.6**, frozen in `docker/test-runtime.json` and built by
 `docker/Dockerfile.test`. The old disposable NC31/MariaDB canonical stack was
 retired on 2026-10-06 after recording evidence; the container names

@@ -192,7 +192,7 @@ baseline.** From it, persisted facts are preserved by default and applied
 migrations are immutable under the
 [canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary).
 Disposable development installs and the canonical test environment (Nextcloud
-35.0.2 / PHP 8.4.26 / PostgreSQL 18.6, frozen in `docker/test-runtime.json`)
+35.0.2 / PHP 8.4.27 / PostgreSQL 18.6, frozen in `docker/test-runtime.json`)
 stay disposable; they are neither retained data nor supported upgrade sources.
 The installed build on that baseline is `0.8.0-alpha.2` since 2026-10-19
 ([updates](#updates-on-the-retained-baseline)).
@@ -316,7 +316,7 @@ npm test
 ### Integration & E2E Tests (Docker)
 
 The compose defaults provision the pinned current-stable test runtime
-(Nextcloud 35.0.2 / PHP 8.4.26 / PostgreSQL 18.6, CS-PLAN-082); see
+(Nextcloud 35.0.2 / PHP 8.4.27 / PostgreSQL 18.6, CS-PLAN-082); see
 [testing.md](testing.md#runtime-baseline-cs-plan-082). The environment remains
 disposable (fresh installs only).
 

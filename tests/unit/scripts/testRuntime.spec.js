@@ -31,16 +31,18 @@ function probeFixtures(row = 'primary', overrides = {}) {
 	})
 }
 
-/** Official AIO container sources (shape of the v14.2.0 Dockerfiles) for one inventory. */
+/** Official AIO container sources (shape of the v14.4.2 Dockerfiles) for one inventory. */
 function aioDockerfile(url, inventory = frozen, overrides = {}) {
 	const value = { nextcloud: inventory.aio.nextcloudVersion, php: inventory.php.version, apcu: inventory.tools.apcu,
 		phpredis: inventory.tools.phpredis, redis: inventory.cache.redis.version, postgres: inventory.databases.pgsql.version, ...overrides }
 	if (url.endsWith('/Containers/redis/Dockerfile')) return `# syntax=docker/dockerfile:latest\nFROM redis:${value.redis}-alpine\n`
 	if (url.endsWith('/Containers/postgresql/Dockerfile')) return `# syntax=docker/dockerfile:latest\nFROM postgres:${value.postgres}-alpine\n`
-	return `FROM php:${value.php}-fpm-alpine3.24\nENV NEXTCLOUD_VERSION=${value.nextcloud}\n`
-		+ `    pecl install -o igbinary-3.2.16; \\\n    pecl install APCu-${value.apcu}; \\\n`
-		+ `    pecl install -D 'enable-memcached-igbinary="yes"' memcached-3.4.0; \\\n`
-		+ `    pecl install -oD 'enable-redis-igbinary="yes" enable-redis-zstd="yes" enable-redis-lz4="yes"' redis-${value.phpredis}; \\\n`
+	return `FROM php:${value.php}-fpm-alpine3.24\n\nARG IGBINARY_VERSION=3.2.16\nARG APCU_VERSION=${value.apcu}\n`
+		+ `ARG MEMCACHED_VERSION=3.4.0\nARG REDIS_VERSION=${value.phpredis}\n\nENV NEXTCLOUD_VERSION=${value.nextcloud}\n`
+		+ `    curl -fsSL --retry 5 "https://github.com/igbinary/igbinary/archive/refs/tags/$IGBINARY_VERSION.tar.gz" \\\n`
+		+ `    curl -fsSL --retry 5 "https://github.com/krakjoe/apcu/archive/refs/tags/v$APCU_VERSION.tar.gz" \\\n`
+		+ `    curl -fsSL --retry 5 "https://github.com/php-memcached-dev/php-memcached/archive/refs/tags/v$MEMCACHED_VERSION.tar.gz" \\\n`
+		+ `    curl -fsSL --retry 5 "https://github.com/phpredis/phpredis/archive/refs/tags/$REDIS_VERSION.tar.gz" \\\n`
 }
 
 function officialFixtures(inventory = frozen) {
@@ -96,7 +98,7 @@ describe('frozen runtime inventory', () => {
 		['mutable Redis image', value => { value.cache.redis.image = 'redis:latest' }],
 		['Redis digest', value => { value.cache.redis.platformDigest = 'unknown' }],
 		['distribution', value => { value.aio.version = 'latest' }],
-		['AIO compatibility identity', value => { value.compatibility.aio.nextcloud.version = '34.0.5' }],
+		['AIO compatibility identity', value => { value.compatibility.aio.nextcloud.version = '34.0.6' }],
 		['AIO compatibility revision', value => { value.compatibility.aio.notifications.revision = 'HEAD' }],
 		['unknown compatibility row', value => { value.compatibility.unknown = value.compatibility.aio }],
 	])('rejects malformed %s before execution', (_, mutate) => {
@@ -109,9 +111,9 @@ describe('frozen runtime inventory', () => {
 		const primary = selectRuntime(value)
 		const aio = selectRuntime(value, 'aio')
 		expect(primary.nextcloud.version).toBe('35.0.2')
-		expect(aio.nextcloud.version).toBe('34.0.4')
-		expect(aio.previous.version).toBe('34.0.3')
-		expect(inventoryHash(aio)).toBe('84b3d7c2f9d1823c4bb900d313751c1a0af63894b99ace94d23cd280661ee5d2')
+		expect(aio.nextcloud.version).toBe('34.0.5')
+		expect(aio.previous.version).toBe('34.0.4')
+		expect(inventoryHash(aio)).toBe('704381b9a49544aea322d661f61af18284267a370bb4f44ed4fdfe60093fad82')
 		expect(inventoryHash(primary)).not.toBe(inventoryHash(aio))
 		expect(value).toEqual(frozen)
 		expect(() => selectRuntime(value, 'unknown')).toThrow('runtime selector')
@@ -123,7 +125,7 @@ describe('frozen runtime inventory', () => {
 		['forged previous viewer pin', value => { value.patches.previousViewer.ref = 'v35.0.2' }],
 		['unknown patches key', value => { value.patches.future = {} }],
 		['missing previous viewer pin', value => { delete value.patches.previousViewer }],
-		['AIO previous notifications pin', value => { value.compatibility.aio.patches.previousNotifications.ref = 'v34.0.4' }],
+		['AIO previous notifications pin', value => { value.compatibility.aio.patches.previousNotifications.ref = 'v34.0.5' }],
 		['viewer ref', value => { value.viewer.ref = 'v34.0.4' }],
 		['viewer revision', value => { value.viewer.revision = 'HEAD' }],
 		['AIO viewer pin', value => { value.compatibility.aio.viewer.revision = 'HEAD' }],
@@ -172,11 +174,11 @@ describe('pinned update-source (previous patch) selection', () => {
 		expect(previousPrimary.previous.version).toBe('35.0.1')
 		expect(previousPrimary.notifications).toEqual({ ref: 'v35.0.1', revision: '0389f40a52d07663efa09de8750a2e26cb528144' })
 		expect(previousPrimary.viewer).toEqual({ ref: 'v35.0.1', revision: '3509a539e695f21fd872434cbd3ee84d4bc2b605' })
-		expect(previousAio.nextcloud.version).toBe('34.0.3')
-		expect(previousAio.notifications.ref).toBe('v34.0.3')
-		expect(previousAio.viewer).toEqual({ ref: 'v34.0.3', revision: '1556dd3a53cc280a28eb082d1cca15b6eb8f3c96' })
-		expect(selectionHash(currentPrimary)).toBe('60d56d39c50749bb84afac0d5cf3813d62d31c1cf4a01adf26b6741ebc73a8de')
-		expect(selectionHash(currentAio)).toBe('84b3d7c2f9d1823c4bb900d313751c1a0af63894b99ace94d23cd280661ee5d2')
+		expect(previousAio.nextcloud.version).toBe('34.0.4')
+		expect(previousAio.notifications.ref).toBe('v34.0.4')
+		expect(previousAio.viewer).toEqual({ ref: 'v34.0.4', revision: '73ac591a6696b992e0009a71eef0f06c1c9e04a2' })
+		expect(selectionHash(currentPrimary)).toBe('0ddc67606f6c8779078bcab667d55d3470f26339af91e818953a76b31e16a2f7')
+		expect(selectionHash(currentAio)).toBe('704381b9a49544aea322d661f61af18284267a370bb4f44ed4fdfe60093fad82')
 		expect(selectionHash(previousPrimary)).not.toBe(selectionHash(currentPrimary))
 		expect(selectionHash(previousAio)).not.toBe(selectionHash(currentAio))
 		expect(value).toEqual(frozen)
@@ -243,7 +245,7 @@ describe('read-only stable discovery', () => {
 		const io = officialFixtures()
 		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases('35.0.3')
 			: url.includes('/releases') ? releases(frozen.aio.version) : aioDockerfile(url))
-		await expect(checkStable(value, io)).resolves.toMatchObject({ status: 'update-needed', upstream: '35.0.3', aioNextcloud: '34.0.4', drift: ['upstream-nextcloud'] })
+		await expect(checkStable(value, io)).resolves.toMatchObject({ status: 'update-needed', upstream: '35.0.3', aioNextcloud: '34.0.5', drift: ['upstream-nextcloud'] })
 		expect(value).toEqual(frozen)
 	})
 	it('reports a different AIO bundle even when its Nextcloud version stays unchanged', async () => {
@@ -263,7 +265,7 @@ describe('read-only stable discovery', () => {
 			`https://raw.githubusercontent.com/nextcloud/all-in-one/v${frozen.aio.version}/Containers/${name}/Dockerfile`))
 	})
 	it.each([
-		['php', '8.4.27', 'aio-php'], ['apcu', '5.1.29', 'aio-apcu'], ['phpredis', '6.3.1', 'aio-phpredis'],
+		['php', '8.4.28', 'aio-php'], ['apcu', '5.1.29', 'aio-apcu'], ['phpredis', '6.3.1', 'aio-phpredis'],
 		['redis', '8.10.3', 'aio-redis'], ['postgres', '18.7', 'aio-postgres'],
 	])('reports an AIO %s update as drift even when the bundled Nextcloud stays unchanged', async (component, version, label) => {
 		const io = officialFixtures()
@@ -272,8 +274,10 @@ describe('read-only stable discovery', () => {
 		await expect(checkStable(frozen, io)).resolves.toMatchObject({ status: 'update-needed', drift: [label] })
 	})
 	it.each([
-		['nextcloud', 'pecl install APCu-'], ['redis', 'FROM redis:'], ['postgresql', 'FROM postgres:'],
-	])('fails closed when the AIO %s source no longer exposes a parsable version', async (container, marker) => {
+		['nextcloud', 'ARG APCU_VERSION='], ['nextcloud', 'ARG REDIS_VERSION='], ['redis', 'FROM redis:'], ['postgresql', 'FROM postgres:'],
+		// A pin the extension download no longer consumes says nothing about the build.
+		['nextcloud', 'v$APCU_VERSION.tar.gz'], ['nextcloud', '/$REDIS_VERSION.tar.gz'],
+	])('fails closed when the AIO %s source no longer exposes a parsable version (%s)', async (container, marker) => {
 		const io = officialFixtures()
 		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases(frozen.nextcloud.version)
 			: url.includes('/releases') ? releases(frozen.aio.version)

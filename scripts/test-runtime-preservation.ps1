@@ -61,6 +61,16 @@ function Add-ProofLog {
     [IO.File]::AppendAllText($Path, ($Lines -join "`n") + "`n")
 }
 
+function Get-ProjectResidue {
+    param([string]$Project, [scriptblock]$Operation)
+    # Compose exits 0 even when it leaves a network "still in use"; only empty
+    # label queries prove the owned staging project is gone.
+    $label = "label=com.docker.compose.project=$Project"
+    return @(foreach ($kind in @(@('ps', '--all'), @('volume', 'ls'), @('network', 'ls'))) {
+        & $Operation -Arguments ($kind + @('--quiet', '--filter', $label)) | Where-Object { $_ }
+    })
+}
+
 if ($SelfTest) {
     $seen = [Collections.Generic.List[string]]::new()
     $failures = Invoke-OwnedCleanup @('first', 'second') 'owned-network' {
@@ -106,6 +116,18 @@ if ($SelfTest) {
         }
     }
     'Preservation network lifecycle self-test: PASS'
+    $seen.Clear()
+    $residue = Get-ProjectResidue 'cs082-owned' {
+        param([string[]]$Arguments)
+        $seen.Add(($Arguments -join ' '))
+        if ($Arguments[0] -eq 'network') { 'still-in-use-network' }
+    }
+    $label = '--quiet --filter label=com.docker.compose.project=cs082-owned'
+    if (($residue -join ',') -ne 'still-in-use-network' -or
+        ($seen -join ',') -ne "ps --all $label,volume ls $label,network ls $label") {
+        throw 'Teardown must query every owned resource kind and report what remains.'
+    }
+    'Preservation teardown residue self-test: PASS'
     $log = [IO.Path]::GetTempFileName()
     try {
         [IO.File]::AppendAllText($log, "initial`n")
@@ -529,12 +551,20 @@ finally {
     if ($Proof -in @('p1', 'p2')) {
         # Qualified teardown of the owned disposable staging project only on success;
         # a failed proof retains its resources for diagnosis (cs082 ownership prefix).
+        # The AIO Redis peer lives in the stage script's stdin overlay, not in the
+        # matrix file, so only --remove-orphans reaches it.
         if (-not $failure) {
             $ErrorActionPreference = 'Continue'
-            $output = & docker compose --project-name $project --file (Join-Path $repo 'docker\compose.test-matrix.yml') --profile $Provider down -v 2>&1
+            $output = & docker compose --project-name $project --file (Join-Path $repo 'docker\compose.test-matrix.yml') --profile $Provider down -v --remove-orphans 2>&1
             $exitCode = $LASTEXITCODE
             Add-ProofLog (Join-Path $evidence 'commands.log') (@($output) + "Owned staging teardown exit=$exitCode")
             if ($exitCode -ne 0) { $failure = "Owned staging teardown failed (exit $exitCode)." }
+            else {
+                try {
+                    $residue = Get-ProjectResidue $project { param([string[]]$Arguments) Invoke-Docker $Arguments }
+                    if ($residue.Count -gt 0) { $failure = "Owned staging teardown left $($residue.Count) project resources behind." }
+                } catch { $failure = $_ }
+            }
         }
         $cleanupFailures = @()
     } else {

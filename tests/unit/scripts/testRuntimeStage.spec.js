@@ -53,7 +53,7 @@ describe('isolated frozen runtime staging', () => {
 		expect(value.environment.WP9_PGDATA).toBe('/var/lib/postgresql/18/docker')
 		expect(value.environment.WP9_PGSQL_VOLUME_TARGET).toBe('/var/lib/postgresql')
 		expect(JSON.parse(value.input).services['nextcloud-pgsql']).toMatchObject({
-			ports: ['127.0.0.1:8182:80'], environment: { TEST_RUNTIME_INTERNAL_VERSION: '35.0.2.2', TEST_RUNTIME_PHP_VERSION: '8.4.26' },
+			ports: ['127.0.0.1:8182:80'], environment: { TEST_RUNTIME_INTERNAL_VERSION: '35.0.2.2', TEST_RUNTIME_PHP_VERSION: '8.4.27' },
 		})
 		expect(composeArguments(value, ['up'])).toEqual(expect.arrayContaining(['cs082-unit-pgsql', 'docker/compose.test-matrix.yml', '-', 'pgsql']))
 	})

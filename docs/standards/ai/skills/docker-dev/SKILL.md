@@ -24,7 +24,7 @@ docker/compose.test.yml
     └── App mounted at: /var/www/html/custom_apps/chorestrike
 ```
 
-The app source is **bind-mounted** into the container — code changes on the host are immediately visible inside. The canonical runtime is the promoted CS-PLAN-082 baseline: Nextcloud 35.0.2 / PHP 8.4.26 / PostgreSQL 18.6 (was NC31 / PHP 8.2 / MariaDB 10.6, retired 2026-10-06).
+The app source is **bind-mounted** into the container — code changes on the host are immediately visible inside. The canonical runtime is the promoted CS-PLAN-082 baseline: Nextcloud 35.0.2 / PHP 8.4.27 / PostgreSQL 18.6 (was NC31 / PHP 8.2 / MariaDB 10.6, retired 2026-10-06).
 
 Canonical HTTP is published only on IPv4/IPv6 loopback. Named config, data and
 database volumes must travel together across recreation or `down`/`up`.
