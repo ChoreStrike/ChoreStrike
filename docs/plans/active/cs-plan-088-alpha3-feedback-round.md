@@ -4,7 +4,7 @@
 > **Effort:** M — 8–12 engineering days inside a 2–3 week window: feedback intake 2026-10-20 → ~2026-11-02 (the 14-day HUMAN-02 window of CS-PLAN-080 ends the same weekend), candidate freeze, qualification and deployment in the week of 2026-11-03
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.2` deployed on the retained baseline (done 2026-10-19); the family trial's sanitized feedback (collected by the operator); no schema change intended
-> **Related backlog items:** RELEASE-002 (field use, alpha release rhythm) · CR-PERF-01 · CR-084-04 · CR-LAYOUT-01 · TECH-DIGEST-001 · TECH-TEST-009 · TECH-DEV-001 · TECH-LINT-008 · WP-A feedback FEAT-UX-038, FEAT-UX-039, BUG-UX-001, BUG-UX-002, BUG-UX-004, BUG-UX-005, BUG-UX-006 (D-088-11, D-088-14, D-088-16) · stretch candidates FEAT-UX-015, TECH-TEST-008 · **not in scope:** TECH-TEST-005 and CONCEPT-001 (owned by CS-PLAN-080), BUG-SEC-001 (awaits the authority's feedback), TECH-TRANSPORT-001 (needs its own instrumentation round), FEAT-UX-018/019/023/027/028/029 (product decisions or features the trial has not asked for)
+> **Related backlog items:** RELEASE-002 (field use, alpha release rhythm) · CR-PERF-01 · CR-084-04 · CR-LAYOUT-01 · TECH-DIGEST-001 · TECH-TEST-009 · TECH-DEV-001 · TECH-LINT-008 · WP-A feedback FEAT-UX-038, FEAT-UX-039, BUG-UX-001, BUG-UX-002, BUG-UX-004, BUG-UX-005, BUG-UX-006 (D-088-11, D-088-14, D-088-16) · third admission BUG-UX-003, BUG-UX-007, FEAT-UX-044, FEAT-UX-045 and the FEAT-UX-015 owner-removal fold-in (D-088-19..21) · stretch candidates FEAT-UX-015, TECH-TEST-008 · **not in scope:** TECH-TEST-005 and CONCEPT-001 (owned by CS-PLAN-080), BUG-SEC-001 (awaits the authority's feedback), TECH-TRANSPORT-001 (needs its own instrumentation round), FEAT-UX-018/019/023/027/028/029 (product decisions or features the trial has not asked for)
 
 ## 1. Problem Summary
 
@@ -726,16 +726,16 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 4 | 2026-10-24 | owner | The "Repeat" selector at the top contradicts the recurrence inputs further down; control size and organisation need rework, with operator feedback first | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Open; design feedback first |
 | 5 | 2026-10-26 | owner | A task inside its flex days but before the due date could not be completed | Bug / P2 | [BUG-UX-005](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-14, D-088-17, D-088-18); archived 2026-10-28 |
 | 6 | 2026-10-26 | owner | Completing before the due date, even before the flex days, should be allowed by default and move the next due date; at most an owner option or a child restriction | Feature / P2 | [FEAT-UX-041](../../backlog/backlog.md#p2-feat-ux-041--allow-completing-work-before-its-window-opens) | Open; product decision |
-| 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; owner-removal part admitted (D-088-19); self-service departure stays in the backlog |
+| 7 | 2026-10-26 | owner | The account that created the house cannot be removed and appears everywhere | Improvement / P3 | [FEAT-UX-015](../../backlog/backlog.md#p3-feat-ux-015--leave-house-self-service-membership-exit) | Folded in; owner-removal part delivered (D-088-19); self-service departure stays in the backlog |
 | 8 | 2026-10-26 | owner | Several houses per instance? (question for v1.0) | Feature / P4 | FEAT-UX-042, [archived as rejected](../../backlog/archive/2026-10.md#feat-ux-042-rejected-one-house-per-instance-10-26) | Rejected (D-088-15): too much effort |
-| 9 | 2026-10-26 | owner | My Day shows a checklist button on tasks without a checklist; it vanishes on click | Bug / P3 | [BUG-UX-003](../../backlog/backlog.md#p3-bug-ux-003--my-day-offers-a-checklist-toggle-for-tasks-without-a-checklist) | Admitted (D-088-19) |
+| 9 | 2026-10-26 | owner | My Day shows a checklist button on tasks without a checklist; it vanishes on click | Bug / P3 | [BUG-UX-003](../../backlog/archive/2026-10.md#alpha3-third-admission-cs-plan-088-wp-a-10-28) | Delivered (D-088-19); archived 2026-10-28 |
 | 10 | 2026-10-26 | owner | Clicking a person in the task details scrolls the whole screen up | Bug / P2 | [BUG-UX-004](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-14); archived 2026-10-28 |
 | 11 | 2026-10-26 | owner | New Task and Edit Task should share one mask, both with assignees and room | Improvement / P2 | [FEAT-UX-040](../../backlog/backlog.md#p2-feat-ux-040--one-task-form-for-new-and-edit-recurrence-layout-and-controls) | Folded in; design feedback first |
 | 12 | 2026-10-26 | owner | Templates should mean "copy a task"; a template task in several rooms changes its title everywhere but other details apparently not | Improvement / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; decision on existing shared definitions |
 | 13 | 2026-10-26 | owner | Template picker: room type dropdown and task list, short preview, Putzmuffel/Putzteufel switch, special sets such as pets and garden | Feature / P2 | [FEAT-UX-043](../../backlog/backlog.md#p2-feat-ux-043--templates-copy-instead-of-shared-definitions-and-a-simple-catalog-picker) | Open; mockup first |
-| 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/backlog.md#p3-feat-ux-044--unique-room-names-within-the-house-numbered-suffix) | Admitted (D-088-19) |
+| 14 | 2026-10-26 | owner | Room names should be unique; duplicates get a number appended (new and renamed rooms) | Improvement / P3 | [FEAT-UX-044](../../backlog/archive/2026-10.md#alpha3-third-admission-cs-plan-088-wp-a-10-28) | Delivered (D-088-19); archived 2026-10-28 |
 | 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-14; no stale-token defect, no hotfix); archived 2026-10-28 |
-| 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/backlog.md#p3-feat-ux-045--record-or-correct-last-cleaned-after-setup) | Admitted (D-088-19, variant b) |
+| 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/archive/2026-10.md#alpha3-third-admission-cs-plan-088-wp-a-10-28) | Delivered (D-088-19, D-088-20 variant b); archived 2026-10-28 |
 | 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-16); archived 2026-10-28 |
 
 ## WP-C Evidence (toolchain series, 2026-10-20)
@@ -872,7 +872,7 @@ pushed or merged. Not a review outcome.
   failure, error or skip. The seven WP-A items are archived; RF-088-11 stays open for WP-D.
 - **Third admission (D-088-19, D-088-20), 2026-10-28:** branch `feat/alpha3-feedback-2` from
   `master` `670793b` (worktree `~/worktrees/chorestrike-alpha3-feedback-2`), one commit per item,
-  not merged: FEAT-UX-044 (`2774fe8`), FEAT-UX-015 owner removal (`367ac1f`), BUG-UX-003
+  merged after the gates (below): FEAT-UX-044 (`2774fe8`), FEAT-UX-015 owner removal (`367ac1f`), BUG-UX-003
   (`ac3bb37`, payload fix `821e464`), FEAT-UX-045 (`f44b65f`). No schema change; the route pin
   moves 96 → 97 for `PUT /room-tasks/{id}/last-done`. Jest 159 suites / 2236 tests, ESLint 0,
   Stylelint, `l10n:check-keys` (1344), `backlog:check`, `docs:encoding`, `agents:check`;
@@ -890,8 +890,16 @@ pushed or merged. Not a review outcome.
 - **Operator GUI review (D-088-21), 2026-10-28:** ten screenshots of the four items in both
   themes and widths pass. BUG-UX-007, found during the capture, is admitted and fixed with a
   `RoomDetail` regression spec (fails without the fix).
-- **Open (third admission):** the browser gates after the BUG-UX-007 fix, then the local merge
-  (operator-approved).
+- **Gates after the BUG-UX-007 fix (`4a7fd4d`), 2026-10-28:** AIO row `run-qnqrVb` passed on the
+  first attempt. The primary row `run-vHWEsl` failed one scenario on a 15 s locator timeout
+  (`family-rhythm.spec.ts`, agreed handover): the trace shows correct data, but the room's
+  task read took 7.4 s while every response slowed steadily under host load from a parallel
+  stack; the scenario's code path is unchanged by the fix. The unchanged rerun `run-Hw7uA8`
+  passed on the first attempt. Both green runs carry the WP-A counts with zero skipped, failed
+  or flaky required scenarios.
+- **Merged** into the local `master` by fast-forward on 2026-10-28 (operator-approved, nothing
+  pushed); BUG-UX-003, BUG-UX-007, FEAT-UX-044 and FEAT-UX-045 archived, the FEAT-UX-015
+  owner-removal fold-in checked off (self-service departure stays open).
 
 ## Review Outcome
 

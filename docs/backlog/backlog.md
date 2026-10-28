@@ -78,51 +78,6 @@ of FEAT-UX-043.
 
 ---
 
-### [P3] BUG-UX-003 — My Day offers a checklist toggle for tasks without a checklist
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, operator GUI review passed) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: completion
-**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #9
-
-`TodayView` renders the "Checklist" toggle on every catch-up and due-today row
-until a click has loaded the items. Only then does it learn that the definition
-has none and hide the toggle (one-shot discovery from the 2026-09-12 a11y pass),
-so the control appears on tasks without sub-tasks and vanishes on the first
-click.
-
-- [x] The daily and overdue rows carry the checklist item count (or the view
-      preloads it in one bounded request); the toggle renders only when items
-      exist and the empty-discovery state goes away. *`checklistItemCount` on
-      the filtered-daily, due-today and overdue rows from one grouped
-      `TaskChecklistItemMapper::countByTaskIds` query.*
-- [x] No per-row request (`workflow-request-budgets.spec.ts` stays green).
-      *No new HTTP request; the budget spec passed in `run-dSEFzj` and `run-WuUlh2`.*
-- [x] Tests: `TodayView` spec (no toggle without items, toggle with items) and a
-      read/DTO test for the count. *Plus `RoomTaskServiceDailyTest` and the
-      integration `TaskChecklistItemCountTest`.*
-
----
-
-### [P3] BUG-UX-007 — Switching directly from one room to another keeps the previous room's content
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-21; found 2026-10-28 while capturing the GUI review screenshots, fixed the same day on `feat/alpha3-feedback-2`; browser gates open) · **Effort**: S · **Layer**: frontend · **Journey stage**: room detail
-**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: GUI review capture (2026-10-28), CS-PLAN-088 D-088-19 review
-
-`RoomDetail` loads its room once on mount and does not watch the route
-parameter, and the app's `<router-view>` carries no `:key`. A navigation from
-`#/room/A` straight to `#/room/B` therefore reuses the component: the header
-shows room B, while the task list reads "No tasks yet" and the stats still show
-room A. Normal use goes through the dashboard or My Day, which remounts the
-view; a typed URL or a future room-to-room link shows the stale state.
-
-- [x] Reload the room data when the `id` parameter changes (watcher or
-      `beforeRouteUpdate`), cancelling the previous load. *A `roomId` watcher
-      resets the dialogs and stats and reloads; a late answer for the old room
-      is ignored.*
-- [x] Tests: `RoomDetail` spec for a parameter change (new room's tasks and
-      stats, no stale rows). *Fails without the fix.*
-
----
-
 ### [P2] FEAT-UX-041 — Allow completing work before its window opens
 **Status**: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -159,32 +114,6 @@ BUG-UX-005 covers the in-window case and ships on its own.
 
 ---
 
-### [P3] FEAT-UX-044 — Unique room names within the house (numbered suffix)
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, operator GUI review passed) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: setup
-**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #14
-
-Rooms may share a name (no check in `RoomService::createRoom()`,
-`updateRoomName()` or the setup wizard), so two rooms called "Kids' room" cannot
-be told apart in pickers, filters and the task list. Operator direction: names
-must be unique; a duplicate gets " 2", " 3", … appended; applying this to new and
-renamed rooms is enough.
-
-- [x] Create, rename and the setup wizard append the next free number to a
-      duplicate (recommended: trimmed, case-insensitive, deleted rooms ignored)
-      and the UI shows the final name. *`RoomNamePolicy`; a taken "Bath 2"
-      continues as "Bath 3" when "Bath" exists; the toast names a numbered
-      result.*
-- [x] Existing duplicates stay as they are (no data rewrite) until renamed.
-- [x] Resolve the name under the house lock so two parallel creates cannot both
-      get " 2". *Read inside the house-first transaction.*
-- [x] Tests: PHPUnit for create, rename and setup suffixing incl. case and
-      whitespace; `l10n/` for any new hint. *`RoomNamePolicyTest`,
-      `RoomServiceTest`, `HouseSetupServiceTest`, integration
-      `RoomMapperLiveNamesTest`; store and Settings specs.*
-
----
-
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
@@ -195,7 +124,7 @@ now explicitly selects notification settings and dated pauses for its new core,
 followed by the optional family catalog; those choices do not activate code work.
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
-**Status**: Open (semantics decided, endpoint/UI open; re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03; the owner-removal fold-in is admitted to CS-PLAN-088 WP-A by D-088-19, self-service departure stays unassigned) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
+**Status**: Open (semantics decided, endpoint/UI open; re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03; the owner-removal fold-in was delivered by CS-PLAN-088 WP-A, D-088-19, merged 2026-10-28; self-service departure stays unassigned) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: removing another owner (operator feedback 2026-10-26, CS-PLAN-088 feedback register #7)
 **Source**: UX-003 remainder (CS-PLAN-038); owner-transfer/last-owner semantics decided by CS-PLAN-061 D6 (ADR-010, user-ratified 2026-09-03)
 
@@ -221,7 +150,8 @@ another owner first changes that account's role to member, then removes it.
       *Implemented 2026-10-28 on `feat/alpha3-feedback-2` (CS-PLAN-088
       D-088-19): only self-removal is refused; `HouseServiceTest`,
       `HouseMemberRemovalIntegrationTest` (cleanup, serialized mutual removal)
-      and the `MemberList` spec; browser gates green.*
+      and the `MemberList` spec; browser gates green; merged into the local
+      `master` 2026-10-28.*
 
 ---
 
@@ -377,35 +307,6 @@ templates today).
       all strings through `t()` with `l10n/`.
 - [ ] Tests: catalog invariants, per-room definitions on setup, split-on-edit
       keeping history, picker specs.
-
----
-
-### [P3] FEAT-UX-045 — Record or correct "last cleaned" after setup
-**Status**: In Progress (CS-PLAN-088 WP-A, D-088-19, D-088-20; implemented 2026-10-28 on `feat/alpha3-feedback-2`; browser gates `run-dSEFzj`/`run-WuUlh2` green, operator GUI review passed) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
-**Owning**: CS-PLAN-088 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #16
-
-The room card shows "Last cleaned: …" from the room journal; only completion and
-manual cleanliness events stamp `last_cleaned` (`RoomReplayService`). A freshly
-set-up house therefore shows nothing, and a wrong value cannot be corrected. The
-operator wants to set or change it afterwards, for example right after creating
-the house.
-
-- [x] Decide the level: (a) per room, a backdated manual journal event without
-      reward or completion fact; (b) per task, a "last done on" date at creation
-      or edit that anchors the next due date (interval: last done + period).
-      Recommended: (b), because after setup the schedule is what matters, plus
-      the room card showing the latest of both. *Operator, 2026-10-27: (b);
-      design in CS-PLAN-088 D-088-20.*
-- [x] Existing completion facts are never edited; a correction is a new,
-      traceable event (retained-baseline rules). *A `last_done` room-journal
-      event per entry (the newest per room task counts) and, for an interval,
-      a `date` agreement; no schema change.*
-- [x] Tests: replay/projection tests for the backdated anchor, form spec,
-      `l10n/`. *`RoomReplayServiceTest`, integration
-      `RoomTaskLastDoneIntegrationTest` (re-anchor, long ago → today, fixed
-      cadence, overdue, future day, child, correction, receipt replay),
-      `RoomTaskLastDoneControllerTest`, `RoomTaskEditModal` and store specs.*
 
 ---
 
