@@ -94,25 +94,24 @@ class RoomEventMapper extends QBMapper {
 	}
 
 	/**
-	 * Id and stable id of every event of one kind in a room (FEAT-UX-045:
-	 * the replay keeps the newest `last_done` per room task).
+	 * The events of one kind in a room recorded after the event `$afterId`
+	 * (all when null), in recording order — FEAT-UX-045: the replay keeps
+	 * the newest `last_done` per room task recorded after the latest reset.
 	 *
-	 * @return array<int, string> Map of event id → stable id
+	 * @return list<RoomEvent>
 	 */
-	public function findStableIdsByRoomAndKind(int $roomId, string $kind): array {
+	public function findByRoomAndKindAfterId(int $roomId, string $kind, ?int $afterId): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('id', 'stable_id')
+		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter($kind)));
-
-		$stableIds = [];
-		$result = $qb->executeQuery();
-		while (($row = $result->fetch()) !== false) {
-			$stableIds[(int)$row['id']] = (string)$row['stable_id'];
+		if ($afterId !== null) {
+			$qb->andWhere($qb->expr()->gt('id', $qb->createNamedParameter($afterId, IQueryBuilder::PARAM_INT)));
 		}
-		$result->closeCursor();
-		return $stableIds;
+		$qb->orderBy('id', 'ASC');
+
+		return $this->findEntities($qb);
 	}
 
 	/**

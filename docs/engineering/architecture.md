@@ -1057,7 +1057,8 @@ replay.
   enforced, per-house funding-hold watermark maintenance.
 - **`RoomReplayService`** — the room journal truth: `baseline` / requested
   `delta` / `manual_delta` / absolute `reset` / `last_done` (stamp only, newest
-  per room task, FEAT-UX-045) events fold in `(effective_at, id)` order with
+  per room task recorded after the latest reset, FEAT-UX-045) events fold in
+  `(effective_at, id)` order with
   clamps; undo invalidates exactly its own completion effect
   (the correction execution time never becomes `last_cleaned`); a later reset
   stays authoritative over earlier corrections; the room cache columns are

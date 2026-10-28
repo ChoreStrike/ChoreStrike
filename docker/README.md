@@ -26,7 +26,7 @@ docker exec chorestrike-test curl -s http://localhost:80/status.php
 docker exec chorestrike-test bash -c "cd /var/www/html && su -s /bin/bash www-data -c 'php occ app:list' | grep chorestrike"
 ```
 
-Expected: `"installed":true` and `chorestrike: 0.8.0-alpha.2` in the enabled list.
+Expected: `"installed":true` and `chorestrike: 0.8.0-alpha.3` in the enabled list.
 
 ## Run Integration Tests
 

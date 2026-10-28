@@ -347,6 +347,28 @@ class RoomServiceTest extends TestCase {
 	}
 
 	/**
+	 * FEAT-UX-044 review fix: saving a legacy duplicate under its own,
+	 * unchanged name is no rename — it keeps the name, unnumbered.
+	 */
+	public function testUpdateRoomName_UnchangedLegacyDuplicate_KeepsItsName(): void {
+		$room = new Room();
+		$room->setId(5);
+		$room->setFloorId(7);
+		$room->setName('Bath');
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(1);
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->roomMapper->expects($this->never())->method('findLiveNamesByHouseId');
+		$this->roomMapper->expects($this->once())->method('update')
+			->with($this->callback(static fn (Room $r): bool => $r->getName() === 'Bath'))
+			->willReturnArgument(0);
+
+		$this->assertSame('Bath', $this->service->updateRoomName(5, ' Bath ')->getName());
+	}
+
+	/**
 	 * DeleteRoom_WithTasks_TombstonesInOneTransaction
 	 *
 	 * CS-PLAN-071 WP0 (Q-70-01): room deletion TOMBSTONES instead of

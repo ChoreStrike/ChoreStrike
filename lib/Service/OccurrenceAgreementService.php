@@ -131,14 +131,20 @@ class OccurrenceAgreementService {
 	/**
 	 * D-088-17 (CS-PLAN-088 BUG-UX-005) UNDER LOCK: an owner who widens a
 	 * definition's flex days widens the window of every open occurrence of
-	 * the room task whose window has not ended, so already planned work
-	 * follows the new flex days at once. Windows only grow — a narrower flex
-	 * applies from the next occurrence on, and an ended window (a miss) never
-	 * becomes on-time work. Each widening bumps the version and is recorded
-	 * as a `window` agreement by the editing owner.
+	 * its room tasks whose window has not ended (one batched read), so
+	 * already planned work follows the new flex days at once. Windows only
+	 * grow — a narrower flex applies from the next occurrence on, and an
+	 * ended window (a miss) never becomes on-time work. Each widening bumps
+	 * the version and is recorded as a `window` agreement by the editing owner.
+	 *
+	 * @param list<RoomTask> $roomTasks Locked room tasks of one definition
 	 */
-	public function widenOpenWindowsUnderLock(RoomTask $roomTask, int $flexDays, ?int $actorHouseUserId, \DateTime $now): void {
-		foreach ($this->occurrenceMapper->findOpenByRoomTasks([$roomTask->getId()]) as $occurrence) {
+	public function widenOpenWindowsUnderLock(array $roomTasks, int $flexDays, ?int $actorHouseUserId, \DateTime $now): void {
+		if ($roomTasks === []) {
+			return;
+		}
+		$ids = array_map(static fn (RoomTask $roomTask): int => (int)$roomTask->getId(), $roomTasks);
+		foreach ($this->occurrenceMapper->findOpenByRoomTasks($ids) as $occurrence) {
 			if ($occurrence->getWindowEnd() <= $now) {
 				continue;
 			}

@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskLastDoneService;
@@ -62,11 +63,11 @@ class RoomTaskLastDoneController extends Controller {
 			], 400);
 		}
 		try {
-			$house = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId());
-			$roomTask = $this->lastDoneService->recordLastDone($id, (int)$house->getId(), $date, strtolower($commandId));
+			$houseId = (int)$this->houseService->getOrCreateHouse($this->houseService->getInstanceId())->getId();
+			$roomTask = $this->lastDoneService->recordLastDone($id, $houseId, $date, strtolower($commandId));
 			return new JSONResponse([
 				'success' => true,
-				'data' => $this->readService->committedRoomTaskPayload((int)$house->getId(), $roomTask, $this->readService->timeZoneForHouse((int)$house->getId()), 'recordLastDone'),
+				'data' => $this->readService->committedRoomTaskPayload($houseId, $roomTask, $this->readService->timeZoneForHouse($houseId), 'recordLastDone'),
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -74,8 +75,8 @@ class RoomTaskLastDoneController extends Controller {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (ConflictException $e) {
 			return ControllerErrorFormatter::conflictResponse($e);
-		} catch (\InvalidArgumentException $e) {
-			// Curated date message — safe to surface verbatim.
+		} catch (ValidationException $e) {
+			// Curated, localized date message; any other invalid argument is internal (500).
 			return ControllerErrorFormatter::validation($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('update', $e, ['roomTaskId' => $id]);

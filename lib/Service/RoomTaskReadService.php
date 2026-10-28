@@ -132,23 +132,25 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * Attach the WP3 §3.6 proposal blocks to rows whose occurrence blocks
-	 * were built by an INLINE path (due-today/overdue reads): the
-	 * ParticipationDialog preview must not depend on the read path.
+	 * Occurrence and WP3 §3.6 proposal blocks for rows whose selection map
+	 * the read path already derived (due-today, overdue and open-window
+	 * reads — one derivation per read): the ParticipationDialog preview
+	 * must not depend on the read path.
 	 *
 	 * @param list<array<string, mixed>> $rows Rows carrying `roomTask`
 	 * @param array<int, mixed> $selections The already-derived selection map
 	 * @return list<array<string, mixed>>
 	 */
-	private function attachProposalBlocks(array $rows, int $houseId, array $selections): array {
+	private function withSelectionBlocks(array $rows, int $houseId, array $selections): array {
+		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
 		$proposals = $this->buildProposalMapForSelections($houseId, $selections);
-		foreach ($rows as &$row) {
-			$roomTask = $row['roomTask'] ?? null;
-			if ($roomTask instanceof RoomTask) {
-				$row['proposal'] = $proposals[$roomTask->getId()] ?? null;
-			}
+		foreach ($rows as $index => $row) {
+			$selection = $selections[$row['roomTask']->getId()] ?? null;
+			$rows[$index]['occurrence'] = $selection !== null
+				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
+				: null;
+			$rows[$index]['proposal'] = $proposals[$row['roomTask']->getId()] ?? null;
 		}
-		unset($row);
 		return $rows;
 	}
 
@@ -676,15 +678,7 @@ class RoomTaskReadService {
 
 		$rows = $this->rowsForVisibleRoomTasks($visible);
 		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $visible, $now);
-		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
-		foreach ($rows as $index => $row) {
-			$roomTask = $row['roomTask'];
-			$selection = $selections[$roomTask->getId()] ?? null;
-			$rows[$index]['occurrence'] = $selection !== null
-				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
-				: null;
-		}
-		return $this->withChecklistCounts($this->attachProposalBlocks($rows, $houseId, $selections));
+		return $this->withChecklistCounts($this->withSelectionBlocks($rows, $houseId, $selections));
 	}
 
 	/**
@@ -700,15 +694,7 @@ class RoomTaskReadService {
 	public function getOverdueTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
 		$map = $this->overdueSelectionMap($houseId, $viewer, $roomId);
 		$rows = $this->rowsForVisibleRoomTasks($map['tasks']);
-		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
-		foreach ($rows as $index => $row) {
-			$roomTask = $row['roomTask'];
-			$selection = $map['selections'][$roomTask->getId()] ?? null;
-			$rows[$index]['occurrence'] = $selection !== null
-				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
-				: null;
-		}
-		return $this->withChecklistCounts($this->attachProposalBlocks($rows, $houseId, $map['selections']));
+		return $this->withChecklistCounts($this->withSelectionBlocks($rows, $houseId, $map['selections']));
 	}
 
 	/**
@@ -818,49 +804,57 @@ class RoomTaskReadService {
 		if (!$viewer->isChild()) {
 			return $this->withChecklistCounts($this->withAssignees([...$allTasks, ...$openWindow]));
 		}
+		return $this->childDailyRows($houseId, $viewer, $date, $allTasks, $openWindow);
+	}
 
-		// Eligibility first (D4): assigned to the viewer OR unassigned.
-		// The single batched assignee read serves eligibility AND the
-		// returned rows (RF-058-11 — no duplicate assignee query).
+	/**
+	 * A child's My Day rows: eligibility first (D4: assigned to the viewer
+	 * OR unassigned), then the weekday availability gate and the owner-set
+	 * daily limit (D5); open-window rows follow the limit and never consume
+	 * a slot (BUG-UX-005). The single batched assignee read serves
+	 * eligibility AND the returned rows (RF-058-11).
+	 *
+	 * @param list<array<string, mixed>> $dueRows The day's visible rows
+	 * @param list<array<string, mixed>> $openWindow The open-window rows
+	 * @return list<array<string, mixed>>
+	 */
+	private function childDailyRows(int $houseId, HouseUser $viewer, \DateTime $date, array $dueRows, array $openWindow): array {
 		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
-			array_map(static fn (array $item): int => $item['roomTask']->getId(), [...$allTasks, ...$openWindow])
+			array_map(static fn (array $item): int => $item['roomTask']->getId(), [...$dueRows, ...$openWindow])
 		);
-		$isEligible = function (array $item) use ($assigneesByRoomTask, $viewer): bool {
-			$obligated = $item['proposal']['obligatedUserIds'] ?? null;
-			if ($obligated !== null) {
-				return in_array($viewer->getNextcloudUserId(), $obligated, true);
-			}
-			$assignees = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
-			return $assignees === [] || in_array($viewer->getNextcloudUserId(), $assignees, true);
-		};
-		$eligible = array_values(array_filter($allTasks, $isEligible));
+		$isEligible = static fn (array $item): bool => self::isChildEligible($item, $viewer, $assigneesByRoomTask);
+		$eligible = array_values(array_filter($dueRows, $isEligible));
 
-		// Get user's scheduling preferences
 		$preferences = $viewer->getSchedulingPreferences();
-		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
-		$maxDailyTasks = $preferences['maxDailyTasks'] ?? null;
-
-		// Get current day name (lowercase, house TZ — CS-PLAN-057)
-		$tz = $this->timeZoneForHouse($houseId);
-		$currentDay = strtolower(\DateTime::createFromInterface($date)->setTimezone($tz)->format('l'));
-
-		// If not available today, return empty array
-		$isAvailableToday = $weekdayAvailability[$currentDay] ?? true;
-		if (!$isAvailableToday) {
+		// Current day name (lowercase, house TZ — CS-PLAN-057).
+		$currentDay = strtolower(\DateTime::createFromInterface($date)->setTimezone($this->timeZoneForHouse($houseId))->format('l'));
+		if (!($preferences['weekdayAvailability'][$currentDay] ?? true)) {
 			return [];
 		}
-
-		// A finite owner-set limit truncates AFTER eligibility (decision
-		// D5); a missing or non-finite value means unlimited.
+		// A missing or non-finite limit means unlimited.
+		$maxDailyTasks = $preferences['maxDailyTasks'] ?? null;
 		if (is_int($maxDailyTasks)) {
 			$eligible = array_slice($eligible, 0, $maxDailyTasks);
 		}
-
-		// BUG-UX-005: rows that are also possible today follow the limit and
-		// never consume one of the day's slots.
 		$eligible = [...$eligible, ...array_values(array_filter($openWindow, $isEligible))];
 
 		return $this->withChecklistCounts($this->withAssignees($eligible, $assigneesByRoomTask));
+	}
+
+	/**
+	 * Whether a row is the child's: the agreed obligation when the row has
+	 * one, otherwise assigned to the child or unassigned.
+	 *
+	 * @param array<string, mixed> $item
+	 * @param array<int, string[]> $assigneesByRoomTask
+	 */
+	private static function isChildEligible(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
+		$obligated = $item['proposal']['obligatedUserIds'] ?? null;
+		if ($obligated !== null) {
+			return in_array($viewer->getNextcloudUserId(), $obligated, true);
+		}
+		$assignees = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
+		return $assignees === [] || in_array($viewer->getNextcloudUserId(), $assignees, true);
 	}
 
 	/**
@@ -879,22 +873,28 @@ class RoomTaskReadService {
 		foreach ($dueRows as $row) {
 			$dueIds[$row['roomTask']->getId()] = true;
 		}
-		$candidates = array_values(array_filter(
+		// Visibility first: the one selection derivation covers only rows the
+		// viewer may see, and the blocks reuse it.
+		$candidates = $this->visibleRoomTasks(array_values(array_filter(
 			$houseRoomTasks,
 			static fn (RoomTask $roomTask): bool => !isset($dueIds[$roomTask->getId()])
-		));
+		)), $viewer);
 		if ($candidates === []) {
 			return [];
 		}
 		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $candidates, $date);
 
 		// 'agreed' is the open-window selection; a miss is 'late' (overdue).
+		$openSelections = array_filter($selections, static fn (?array $selection): bool => ($selection['classification'] ?? null) === 'agreed');
 		$open = array_values(array_filter(
 			$candidates,
-			static fn (RoomTask $roomTask): bool => ($selections[$roomTask->getId()]['classification'] ?? null) === 'agreed'
+			static fn (RoomTask $roomTask): bool => isset($openSelections[$roomTask->getId()])
 		));
+		if ($open === []) {
+			return [];
+		}
 
-		$rows = $this->withOccurrenceBlocks($this->rowsForRoomTasks($open, $viewer), $houseId);
+		$rows = $this->withSelectionBlocks($this->rowsForVisibleRoomTasks($open), $houseId, $openSelections);
 		foreach ($rows as $index => $row) {
 			$rows[$index]['openWindow'] = true;
 		}

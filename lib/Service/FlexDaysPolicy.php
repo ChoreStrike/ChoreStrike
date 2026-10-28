@@ -61,7 +61,9 @@ final class FlexDaysPolicy {
 		if ($frequencyType === 'custom') {
 			return 7;
 		}
-		$period = (self::UNIT_DAYS[$frequencyType] ?? 7) * max(1, $frequencyValue);
+		// From 2 × SANITY_MAX on, every cap is SANITY_MAX: clamping there
+		// changes no result and keeps the product an int (no overflow).
+		$period = (self::UNIT_DAYS[$frequencyType] ?? 7) * max(1, min($frequencyValue, 2 * self::SANITY_MAX));
 		if ($frequencyType !== 'weekly') {
 			return $period;
 		}

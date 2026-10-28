@@ -385,10 +385,7 @@ export default {
 	watch: {
 		// BUG-UX-007: the router reuses this view for a direct room-to-room
 		// navigation — reset the per-room state and load the new room.
-		roomId(newId, oldId) {
-			if (newId === oldId) {
-				return
-			}
+		roomId() {
 			this.closeEditModal()
 			this.showAddTaskModal = false
 			this.taskToDelete = null
@@ -396,7 +393,7 @@ export default {
 			this.roomToDelete = false
 			this.participation = null
 			this.roomStats = null
-			this.initializeRoom()
+			this.initializeRoom({ roomSwitch: true })
 		},
 	},
 
@@ -411,15 +408,28 @@ export default {
 			this.showAddTaskModal = true
 		},
 
-		async initializeRoom() {
+		/**
+		 * Load the room view. A direct room switch refreshes the room list
+		 * (name, cleanliness) but keeps the house's task definitions unless
+		 * the new room uses one this view has not loaded.
+		 *
+		 * @param {{ roomSwitch?: boolean }} [options] Whether the route moved to another room
+		 */
+		async initializeRoom({ roomSwitch = false } = {}) {
 			// A slower load of the previous room must not overwrite this one.
 			const roomId = this.roomId
 			this.loading = true
 			this.initError = false
 			try {
 				await this.roomsStore.fetchFloorsWithRooms()
-				await this.tasksStore.fetchTasks()
+				if (!roomSwitch) {
+					await this.tasksStore.fetchTasks()
+				}
 				await this.roomTasksStore.fetchRoomTasks(roomId)
+				const roomTasks = this.roomTasksStore.roomTasksByRoom[roomId] || []
+				if (roomSwitch && roomTasks.some((roomTask) => !this.tasksStore.getTaskById(roomTask.taskId))) {
+					await this.tasksStore.fetchTasks()
+				}
 				// Best-effort: the stats card must not block the room view.
 				const roomStats = await this.roomTasksStore.fetchRoomTaskStats(roomId)
 				if (roomId === this.roomId) {

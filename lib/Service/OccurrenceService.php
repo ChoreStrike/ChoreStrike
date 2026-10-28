@@ -430,10 +430,12 @@ class OccurrenceService {
 
 	/**
 	 * D-088-17 UNDER LOCK: widened flex days widen the windows of the room
-	 * task's open, not yet ended occurrences at once (never shrink them).
+	 * tasks' open, not yet ended occurrences at once (never shrink them).
+	 *
+	 * @param list<RoomTask> $roomTasks Locked room tasks of one definition
 	 */
-	public function widenOpenWindowsUnderLock(RoomTask $roomTask, int $flexDays, ?int $actorHouseUserId, \DateTime $now): void {
-		$this->agreements->widenOpenWindowsUnderLock($roomTask, $flexDays, $actorHouseUserId, $now);
+	public function widenOpenWindowsUnderLock(array $roomTasks, int $flexDays, ?int $actorHouseUserId, \DateTime $now): void {
+		$this->agreements->widenOpenWindowsUnderLock($roomTasks, $flexDays, $actorHouseUserId, $now);
 	}
 
 	/**

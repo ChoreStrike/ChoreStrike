@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Nextcloud 34-35](https://img.shields.io/badge/Nextcloud-34%E2%80%9335-0082c9)](https://nextcloud.com)
 [![PHP 8.4](https://img.shields.io/badge/PHP-8.4-777bb4)](https://www.php.net)
-[![Status: alpha 0.8.0-alpha.2](https://img.shields.io/badge/status-alpha%200.8.0--alpha.2-orange)](#project-status)
+[![Status: alpha 0.8.0-alpha.3](https://img.shields.io/badge/status-alpha%200.8.0--alpha.3-orange)](#project-status)
 
 ChoreStrike is a gamified household task management app for Nextcloud.
 Families and flatmates organize their home in floors and rooms, plan fair
@@ -33,7 +33,7 @@ first; using the reward catalog and games is optional.
   </tr>
 </table>
 
-<sub>Screenshots: seeded demo household on Nextcloud 35, version 0.8.0-alpha.2.</sub>
+<sub>Screenshots: seeded demo household on Nextcloud 35, version 0.8.0-alpha.3.</sub>
 
 New here? The [user guide](docs/user-guide.md) walks a household through
 setup, everyday use and planning.
@@ -97,7 +97,7 @@ a Nextcloud instance may still have hosting costs.
 - PHP 8.4.x
 - MySQL/MariaDB, PostgreSQL or SQLite (via Nextcloud's database layer)
 
-ChoreStrike is a **pre-release app (`0.8.0-alpha.2`, internal alpha)**. Its
+ChoreStrike is a **pre-release app (`0.8.0-alpha.3`, internal alpha)**. Its
 first [retained baseline](docs/engineering/deployment.md#first-retained-baseline)
 was adopted on 2026-10-17: from it, updates preserve household data — the
 update to `0.8.0-alpha.2` on 2026-10-19 ran without a migration and kept every
@@ -159,12 +159,13 @@ instance. Installation and retained-baseline adoption are separate decisions.
 ChoreStrike is a privately maintained, non-commercial open source project,
 not a hosted service.
 
-**v0.8.0-alpha.2 — alpha pre-release.** The core household workflow (setup wizard,
+**v0.8.0-alpha.3 — alpha pre-release.** The core household workflow (setup wizard,
 invitations, tasks, scheduling, My Day, completion/undo, gamification,
 insights, optional rewards and the arcade) is implemented. Cross-database
-verification and repeated browser gates have passed, and this version has run
-on the maintainer's family instance since 2026-10-19, where the 14-day family
-trial takes place. The real-device checklist, voluntary family comprehension,
+verification and repeated browser gates have passed. The 14-day family trial
+has run on the maintainer's family instance since 2026-10-19 on
+`0.8.0-alpha.2`; this version collects the fixes from its first feedback
+round. The real-device checklist, voluntary family comprehension,
 the 14-day everyday-use evidence and the final WP9 review remain open.
 Automated passes are not a family-acceptance sign-off. The app is not yet
 published in the Nextcloud App Store; roadmap targets are described in

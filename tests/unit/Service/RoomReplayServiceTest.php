@@ -196,8 +196,8 @@ class RoomReplayServiceTest extends TestCase {
 	public function testReplay_LastDone_StampsTheDayWithoutACleanlinessEffect(): void {
 		$baseline = $this->event(RoomEvent::KIND_BASELINE, '2026-09-20 08:00:00', 1, baselineClean: 50, baselineMonsters: 0);
 		$lastDone = $this->lastDone('2026-09-25 00:00:00', 2, 31, 'cmd-a');
-		$this->eventMapper->method('findStableIdsByRoomAndKind')->with(7, RoomEvent::KIND_LAST_DONE)
-			->willReturn([2 => $lastDone->getStableId()]);
+		$this->eventMapper->method('findByRoomAndKindAfterId')->with(7, RoomEvent::KIND_LAST_DONE, null)
+			->willReturn([$lastDone]);
 		$this->eventMapper->method('findEventsByRoomAfter')->willReturn([$baseline, $lastDone]);
 
 		$state = $this->service->replay(7);
@@ -214,25 +214,44 @@ class RoomReplayServiceTest extends TestCase {
 	public function testReplay_NewerLastDoneReplacesOlder_AndALaterCompletionWins(): void {
 		$wrong = $this->lastDone('2026-09-28 00:00:00', 2, 31, 'cmd-a');
 		$corrected = $this->lastDone('2026-09-24 00:00:00', 3, 31, 'cmd-b');
-		$this->eventMapper->method('findStableIdsByRoomAndKind')
-			->willReturn([2 => $wrong->getStableId(), 3 => $corrected->getStableId()]);
+		$this->eventMapper->method('findByRoomAndKindAfterId')->willReturn([$wrong, $corrected]);
 		$this->eventMapper->method('findEventsByRoomAfter')->willReturn([$corrected, $wrong]);
 		self::assertSame('2026-09-24 00:00:00', $this->service->replay(7)['lastCleaned']->format('Y-m-d H:i:s'));
 
 		$completion = $this->event(RoomEvent::KIND_COMPLETION, '2026-09-26 10:00:00', 4, delta: 10, completionId: 90);
-		$service = $this->serviceWithEvents([$corrected, $completion, $wrong], [2 => $wrong->getStableId(), 3 => $corrected->getStableId()]);
+		$service = $this->serviceWithEvents([$corrected, $completion, $wrong], [$wrong, $corrected]);
 		$this->completedTaskMapper->method('findValidIds')->willReturn([90]);
 		self::assertSame('2026-09-26 10:00:00', $service->replay(7)['lastCleaned']->format('Y-m-d H:i:s'));
 	}
 
 	/**
-	 * The completion/undo query budgets stay unchanged: a room without
-	 * `last_done` entries never reads the entry index.
+	 * Review fix: an entry recorded after the latest reset counts although
+	 * it names a day before that reset (the replay cursor starts at the
+	 * reset); entries recorded before the reset stay cleared.
+	 */
+	public function testReplay_LastDoneRecordedAfterAReset_CountsForAnEarlierDay(): void {
+		$reset = $this->event(RoomEvent::KIND_RESET, '2026-09-22 09:00:00', 3, baselineClean: 100, baselineMonsters: 0);
+		$reset->setClearsLastCleaned(true);
+		$afterReset = $this->lastDone('2026-09-21 00:00:00', 4, 31, 'cmd-c');
+		$this->eventMapper->method('findLatestResetByRoom')->willReturn($reset);
+		$this->eventMapper->method('findEventsByRoomAfter')->willReturn([]);
+		$this->eventMapper->expects($this->once())->method('findByRoomAndKindAfterId')
+			->with(7, RoomEvent::KIND_LAST_DONE, 3)->willReturn([$afterReset]);
+
+		$state = $this->service->replay(7);
+
+		self::assertSame(100, $state['cleanliness']);
+		self::assertSame('2026-09-21 00:00:00', $state['lastCleaned']->format('Y-m-d H:i:s'));
+	}
+
+	/**
+	 * The completion/undo query budgets stay unchanged: a room without a
+	 * reset and without `last_done` entries never reads the entry index.
 	 */
 	public function testReplay_WithoutLastDone_IssuesNoEntryIndexQuery(): void {
 		$baseline = $this->event(RoomEvent::KIND_BASELINE, '2026-09-20 08:00:00', 1, baselineClean: 50, baselineMonsters: 0);
 		$this->eventMapper->method('findEventsByRoomAfter')->willReturn([$baseline]);
-		$this->eventMapper->expects($this->never())->method('findStableIdsByRoomAndKind');
+		$this->eventMapper->expects($this->never())->method('findByRoomAndKindAfterId');
 
 		self::assertNull($this->service->replay(7)['lastCleaned']);
 	}
@@ -256,11 +275,11 @@ class RoomReplayServiceTest extends TestCase {
 
 	/**
 	 * @param list<RoomEvent> $events
-	 * @param array<int, string> $lastDone
+	 * @param list<RoomEvent> $lastDone The `last_done` entries in recording order
 	 */
 	private function serviceWithEvents(array $events, array $lastDone): RoomReplayService {
 		$eventMapper = $this->createMock(RoomEventMapper::class);
-		$eventMapper->method('findStableIdsByRoomAndKind')->willReturn($lastDone);
+		$eventMapper->method('findByRoomAndKindAfterId')->willReturn($lastDone);
 		$eventMapper->method('findEventsByRoomAfter')->willReturn($events);
 		return new RoomReplayService($eventMapper, $this->completedTaskMapper, $this->roomMapper);
 	}

@@ -21,6 +21,7 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\ValidationException;
 use OCP\IL10N;
 
 /**
@@ -62,16 +63,17 @@ class RoomTaskLastDoneService {
 	 *
 	 * @throws ForbiddenException for a child or a non-member
 	 * @throws NotFoundException for a foreign, invisible or deleted room task
-	 * @throws \InvalidArgumentException for a malformed or future day
+	 * @throws ValidationException for a malformed, impossible or future day
 	 * @throws ConflictException while the current appointment is overdue
 	 */
 	public function recordLastDone(int $roomTaskId, int $houseId, string $dateKey, string $commandId): RoomTask {
 		$actor = $this->assertAdultMember($houseId);
 		$this->visibleRoomTask($roomTaskId, $houseId, $actor, false);
 		$tz = $this->readService->timeZoneForHouse($houseId);
-		if (!$this->calendarService->isDayKey($dateKey)
+		$day = $this->calendarService->isDayKey($dateKey) ? \DateTime::createFromFormat('!Y-m-d', $dateKey) : false;
+		if ($day === false || $day->format('Y-m-d') !== $dateKey
 			|| $dateKey > $this->calendarService->dayKey(new \DateTime(), $tz)) {
-			throw new \InvalidArgumentException($this->l10n->t('The last done date must be today or earlier'));
+			throw new ValidationException($this->l10n->t('The last done date must be today or earlier'));
 		}
 
 		$this->commandService->runCommand($houseId, (int)$actor->getId(), $commandId, 'room_task.last_done', [

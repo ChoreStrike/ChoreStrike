@@ -7,9 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### App Version 0.8.0-alpha.2 — Family-Trial Start (2026-10-19)
+### App Version 0.8.0-alpha.3 — Trial Feedback Round (candidate, 2026-10-28)
 
-The candidate the family trial starts on; the app metadata moves from
+The fixes from the first feedback round of the family trial; the app metadata
+moves from `0.8.0-alpha.2` to `0.8.0-alpha.3` so the update is detected. No
+schema or migration change: the 26 migrations of the retained baseline stay
+unchanged. This section gets its own dated version heading once the
+deployment is verified.
+
+- **New tasks keep the context:** *New task* in the Tasks tab takes over the
+  active floor, room and person filter; the "mine" and "unassigned" filters
+  preselect nobody.
+- **Flexible windows fit the rhythm:** a task's flex days are at most half its
+  period (four for a weekly task, 15 for a monthly one), and a fixed schedule
+  opens at most seven days early. A stored value above the new cap stays valid
+  when unrelated fields are edited.
+- **Work inside its window:** My Day lists open-window work planned for another
+  day under *Also possible today*. Widening a task's flexible window opens its
+  already planned occurrences at once, and *Done* before a window opens says
+  *Not open yet*.
+- **"Last done on" after setup:** an adult can record when a room task was last
+  done. An interval task then plans its next occurrence from that day, and the
+  room card shows it; the entry is no completion and earns no reward.
+- **Unique room names:** creating or renaming a room, also in the setup wizard,
+  appends the next free number to a name that already exists.
+- **Dialogs keep your input:** a click next to a form dialog no longer closes it
+  and its buttons stay in view; Esc, the close button and *Cancel* still close.
+- **The real reason for a refusal:** a refused change shows its reason instead
+  of "changed in the meantime"; only a truly outdated view still says so.
+- **Owners can remove another owner** while at least one owner remains; leaving
+  the house yourself is not possible yet.
+- **Fixed:** the checklist button in My Day appears only for tasks that have a
+  checklist; a direct switch from one room to another reloads the room page;
+  clicking a member or weekday chip no longer makes the page jump; bars, tracks
+  and icons stay visible in the dark theme.
+- **Under the hood:** the toolchain moves to Node 24 / npm 11 with ESLint 10 and
+  the current Nextcloud build configuration; expiring old digest entries works
+  in bounded batches; applying a weekly plan no longer scans the change list
+  per task.
+- **Qualification:** gates run on the latest upstream Nextcloud (35.0.2) and on
+  the Nextcloud of the current AIO release v14.4.2 (34.0.5, PHP 8.4.27, Redis
+  for sessions, cache and locking).
+
+## [0.8.0-alpha.2] - 2026-10-19
+
+### Family-Trial Start
+
+Deployed on 2026-10-19 as an app update on the retained baseline; the family
+trial runs on it. The app metadata moves from
 `0.8.0-alpha.1` to `0.8.0-alpha.2` so the update is detected. No schema or
 migration change: the 26 migrations of the retained baseline are unchanged and
 now pinned by a test.
@@ -58,9 +103,12 @@ The fixes collected after `0.8.0-alpha.1` below are part of this version.
   security reports to GitHub private vulnerability reporting and conduct
   reports to *Report content*; the project mailbox is no longer published.
 
-### App Version 0.8.0-alpha.1 — Family-Trial Candidate (2026-10-17)
+## [0.8.0-alpha.1] - 2026-10-17
 
-First version of the `v0.8` alpha stage
+### Family-Trial Candidate
+
+Deployed on 2026-10-17 and adopted as the first retained baseline. First
+version of the `v0.8` alpha stage
 ([release strategy](docs/release/release-strategy.md)); the app metadata moves
 from `0.1.1` to `0.8.0-alpha.1` so a deployed update is detected and phones
 load the new scripts. No schema or migration change. The `v0.8.0-alpha.1` tag
@@ -130,7 +178,7 @@ follows only after the completed manual alpha record.
   baseline adoption remain pending. No stable release or upgrade support for
   earlier disposable development installations is claimed.
 
-### Earlier Unreleased Development Notes
+### Earlier Development Notes
 
 The notes below preserve intermediate development history; mechanics and paths
 may have been superseded by the current summary. The app version was `0.1.1`

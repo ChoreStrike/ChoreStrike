@@ -75,7 +75,8 @@ derivations** of that fact.
 - `room_events` is the journaled room truth: `baseline` (creation), requested
   `delta` effects from completions, `manual_delta` and absolute `reset` kinds
   (plus `last_done` since CS-PLAN-088 D-088-20: a recorded day that stamps
-  `last_cleaned` only, the newest entry per room task counting),
+  `last_cleaned` only, the newest entry per room task recorded after the
+  latest reset counting, whatever day it names),
   each with a stable command UUID, `(effective_at, id)` ordering and the saved
   absolute `baseline_*` values for resets. Room cache columns become derived
   projections replayed from the journal.

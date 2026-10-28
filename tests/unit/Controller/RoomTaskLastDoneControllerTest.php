@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Controller\RoomTaskLastDoneController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Exception\ConflictException;
+use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskLastDoneService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
@@ -84,5 +85,28 @@ class RoomTaskLastDoneControllerTest extends TestCase {
 
 		$this->assertSame(409, $response->getStatus());
 		$this->assertSame('CONFLICT', $response->getData()['error']['code']);
+	}
+
+	public function testUpdate_CuratedDateRefusal_Is400WithItsMessage(): void {
+		$this->params(['commandId' => self::UUID, 'date' => '2026-02-30']);
+		$this->service->method('recordLastDone')
+			->willThrowException(new ValidationException('The last done date must be today or earlier'));
+
+		$response = $this->controller->update(5);
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('The last done date must be today or earlier', $response->getData()['error']['message']);
+	}
+
+	/** Review fix: an uncurated invalid argument is internal — 500, its text never echoed. */
+	public function testUpdate_InternalInvalidArgument_Is500WithoutItsMessage(): void {
+		$this->params(['commandId' => self::UUID, 'date' => '2026-10-20']);
+		$this->service->method('recordLastDone')
+			->willThrowException(new \InvalidArgumentException('Invalid day key: 2026-10-20 (expected Y-m-d)'));
+
+		$response = $this->controller->update(5);
+
+		$this->assertSame(500, $response->getStatus());
+		$this->assertStringNotContainsString('day key', $response->getData()['error']['message']);
 	}
 }

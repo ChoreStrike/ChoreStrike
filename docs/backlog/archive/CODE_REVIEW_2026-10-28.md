@@ -70,3 +70,69 @@
 
 **PASS-WITH-FIXES (interim).** One minor finding fixed in this round, none open. The plan
 stays active; next are the local merge (operator) and WP-D.
+
+## Pre-candidate Full review - CS-PLAN-088 `0.8.0-alpha.3` release delta
+
+**Outcome:** `PASS-WITH-FIXES` (interim, pre-candidate; the plan stays in `active/`).
+
+### Scope and capture
+
+- Branch `chore/release-0.8.0-alpha.3` in its pinned worktree, base HEAD `dccafeb`
+  (equal to `master`, the RF-088-11 merge), after the early freeze (D-088-22).
+- Reviewed delta: everything the round changed since the qualified `0.8.0-alpha.2`
+  candidate, `fcb65cf..dccafeb` over `lib/`, `appinfo/`, `src/` and `css/` (153 files,
+  +4185 / −1755; binary diff SHA-256 prefix `d3a6587c99ddb015`), with the round's 126
+  changed test files as context. At capture the working tree held only the WP-D
+  candidate preparation (version, changelog, README, screenshots), outside those paths.
+- Four parallel read-only reviewers on the captured patches: architecture, security,
+  performance, correctness. Owning plan:
+  [CS-PLAN-088](../../plans/active/cs-plan-088-alpha3-feedback-round.md).
+
+### Findings
+
+| ID | Severity | Area | Issue | Resolution |
+|---|---|---|---|---|
+| RF-088-12 | minor | FEAT-UX-044 room rename | Re-saving a room's unchanged name renumbered a legacy duplicate ("Bath" → "Bath 2") and logged it as a change, against "existing duplicates stay". Found by the correctness and performance tracks. | Fixed (D-088-23): an unchanged trimmed name skips the numbering; `RoomServiceTest`. |
+| RF-088-13 | minor | FEAT-UX-045 last-done day | An impossible day (`2025-02-29`) passed the pattern check and returned an untranslated internal message; the controller also returned every other `InvalidArgumentException` message verbatim as a 400. | Fixed (D-088-23): strict calendar parse; the curated message is a `ValidationException` (400), anything else a 500 with the safe message; controller and integration tests. |
+| RF-088-14 | minor | FEAT-UX-039 flex cap | A repeat value above about 3·10^17 overflowed the period product into a `TypeError` (500) for the caller's own request. | Fixed (D-088-23): the repeat value is clamped at 2 × the sanity bound, where every cap is already the bound, so no result changes; `PHP_INT_MAX` cases. |
+| RF-088-15 | minor | FEAT-UX-045 replay | An entry recorded after a house reset never reached "Last cleaned": the replay starts at the reset and the entry's day lies before it. | Fixed (D-088-24, operator): the newest entry per room task recorded after the latest reset counts (one indexed query; the reset-bounded query budget is now 3); unit and integration tests with a real reset; API, ADR-014 and architecture docs. |
+| RF-088-16 | minor | structure / performance | Open-window rows derived their selections twice and before the visibility filter; flex-window widening read open occurrences once per room task; a direct room switch refetched every task definition; `getFilteredDailyTasksForUser` far above the method-size guideline; the flex-cap input list duplicated in `TaskService`; small readability issues. | Fixed (D-088-25, behavior-neutral; details in the plan's §9); the `RoomDetail` spec pins the switch. The pre-existing file size of `RoomTaskReadService` (928 lines before the round, 993 now) went to CR-SVC-65 (operator). |
+
+### Accepted without change
+
+- The room-state version bump under the house lock repeats the pattern of
+  `CompletionService` and `RoomService`; a shared helper waits for a third variant.
+- `RoomTaskLastDoneService` reuses `RoomTaskReadService::timeZoneForHouse()` instead of
+  duplicating the house time-zone lookup.
+- `TaskService` reads the stored fixed weekdays for the flex-cap comparison in static mode
+  whatever the task's mode, on purpose: a changed day list is re-checked rather than missed.
+- The security track found nothing exploitable; RF-088-13 and RF-088-14 were its findings.
+
+### Gates
+
+- `test:runtime:check` `current`; production build; Jest 159 suites / 2241 tests, ESLint,
+  stylelint and `composer cs:check` (435 files) green.
+- Canonical stack recreated (`test:runtime:canonical` match): PHPUnit unit 1531 /
+  integration 647 with `--fail-on-skipped`.
+- Matrix run `a3c` (SQLite and MySQL on NC 35.0.2, the AIO row on NC 34.0.5 / PostgreSQL
+  18.6 / Redis): unit 1531 and integration 647 on each, every suite reported.
+- AIO-row browser gate `run-hlouAh` passed on the first attempt: chromium 103,
+  chromium-serial-db 183, chromium-scheduling-owner 39, mobile 15 + 15; zero skipped,
+  failed or flaky.
+- Primary browser gate: the first run `run-8CHJRU` was invalid. During a host slowdown
+  (the same specs ran 3–8× slower than on the AIO row, e.g. 16 s for a 2 s dashboard
+  test) one request ended in a client-side `socket hang up` the server never logged, one
+  seed call in `fetch failed`, and one room view rendered its correct tasks just after
+  the 5 s assertion window. No assertion failed on content. The complete rerun
+  `run-ECyo8u` on the unchanged candidate passed on the first attempt with the same
+  counts as the AIO row; zero skipped, failed or flaky.
+- Tested runtime and test inputs: 22 non-documentation paths against `dccafeb`, binary
+  diff SHA-256 prefix `0aeebff1e13d3a85`, no untracked paths; only documentation changed
+  after the qualification started.
+
+### Outcome
+
+**PASS-WITH-FIXES (interim, pre-candidate).** Five minor findings, all fixed in this round
+with regression tests; the file-size follow-up went to CR-SVC-65 by operator decision; none
+open. The plan stays active for the package build and smoke, the export, the deployment
+and the final completion review.

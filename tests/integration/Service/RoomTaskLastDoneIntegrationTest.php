@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\RoomTaskLastDoneService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -95,9 +96,19 @@ class RoomTaskLastDoneIntegrationTest extends IntegrationTestCase {
 		try {
 			$this->service->recordLastDone($f['roomTaskId'], $f['houseId'], $this->day(+1), $this->uuid(5));
 			self::fail('a future day must be refused');
-		} catch (\InvalidArgumentException) {
+		} catch (ValidationException) {
 			self::addToAssertionCount(1);
 		}
+		// Review fix: an impossible calendar day gets the same curated refusal.
+		foreach (['2025-02-29', '2026-13-01', '0000-00-00'] as $impossible) {
+			try {
+				$this->service->recordLastDone($f['roomTaskId'], $f['houseId'], $impossible, $this->uuid(5));
+				self::fail("$impossible must be refused");
+			} catch (ValidationException $e) {
+				self::assertSame('The last done date must be today or earlier', $e->getMessage());
+			}
+		}
+		self::assertSame([], $this->lastDoneEvents($f['roomId']));
 		$this->actingAs('ld_child');
 		$this->expectException(ForbiddenException::class);
 		$this->service->recordLastDone($f['roomTaskId'], $f['houseId'], $this->day(-1), $this->uuid(6));
@@ -113,6 +124,23 @@ class RoomTaskLastDoneIntegrationTest extends IntegrationTestCase {
 
 		self::assertSame($this->day(-6), $this->roomMapper->find($f['roomId'])->getLastCleaned()->format('Y-m-d'), 'the newer entry corrects to an earlier day');
 		self::assertCount(2, $this->lastDoneEvents($f['roomId']), 'the replayed receipt journals nothing twice');
+	}
+
+	/**
+	 * Review fix: a house reset clears the stamp, and an entry recorded
+	 * after it counts although its day lies before the reset.
+	 */
+	public function testEntryAfterAHouseReset_StampsAnEarlierDay(): void {
+		$f = $this->fixture('static', $this->day(+3));
+
+		$this->actingAs('ld_owner');
+		$this->service->recordLastDone($f['roomTaskId'], $f['houseId'], $this->day(-2), $this->uuid(9));
+		\OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class)->resetHouse($f['houseId'], $this->uuid(10));
+		self::assertNull($this->roomMapper->find($f['roomId'])->getLastCleaned(), 'the reset clears the earlier entry');
+
+		$this->service->recordLastDone($f['roomTaskId'], $f['houseId'], $this->day(-4), $this->uuid(11));
+
+		self::assertSame($this->day(-4), $this->roomMapper->find($f['roomId'])->getLastCleaned()->format('Y-m-d'));
 	}
 
 	/**

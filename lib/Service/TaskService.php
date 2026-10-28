@@ -260,18 +260,19 @@ class TaskService {
 		}
 		$house = $this->houseMapper->find((int)$actor->getHouseId());
 		$timezoneId = $this->calendarService->getTimeZone($house)->getName();
-		$widened = (int)$updated->getFlexDays() > (int)$before->getFlexDays();
+		$now = new \DateTime();
+		$revised = [];
 		foreach ($mounted as $roomTask) {
 			$lockedRoomTask = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
 			if ($lockedRoomTask->getDeletedAt() !== null) {
 				continue;
 			}
-			$now = new \DateTime();
 			$this->occurrenceService->reviseUnderLock((int)$actor->getHouseId(), $lockedRoomTask, $updated, $timezoneId, null, $now);
-			if ($widened) {
-				$flexDays = min(FlexDaysPolicy::SANITY_MAX, (int)$updated->getFlexDays());
-				$this->occurrenceService->widenOpenWindowsUnderLock($lockedRoomTask, $flexDays, $actor->getId(), $now);
-			}
+			$revised[] = $lockedRoomTask;
+		}
+		if ((int)$updated->getFlexDays() > (int)$before->getFlexDays()) {
+			$flexDays = min(FlexDaysPolicy::SANITY_MAX, (int)$updated->getFlexDays());
+			$this->occurrenceService->widenOpenWindowsUnderLock($revised, $flexDays, $actor->getId(), $now);
 		}
 	}
 
@@ -283,18 +284,29 @@ class TaskService {
 	 * revision.
 	 */
 	private function ruleRelevantInputsChanged(Task $before, Task $after): bool {
-		return $before->getEnergyCost() !== $after->getEnergyCost()
-			|| $before->getFrequencyType() !== $after->getFrequencyType()
-			|| $before->getFrequencyValue() !== $after->getFrequencyValue()
-			|| $before->getRecurrenceMode() !== $after->getRecurrenceMode()
-			|| $before->getSchedulingMode() !== $after->getSchedulingMode()
+		return self::flexCapInputsChanged($before, $after)
+			|| $before->getEnergyCost() !== $after->getEnergyCost()
 			|| $before->getFixedScheduleTime()?->format('H:i') !== $after->getFixedScheduleTime()?->format('H:i')
 			|| $before->getFixedScheduleDays() !== $after->getFixedScheduleDays()
 			|| $before->getActiveFrom()?->format('Y-m-d') !== $after->getActiveFrom()?->format('Y-m-d')
 			|| $before->getActiveUntil()?->format('Y-m-d') !== $after->getActiveUntil()?->format('Y-m-d')
-			|| $before->getFlexDays() !== $after->getFlexDays()
 			|| $before->getIsVoluntary() !== $after->getIsVoluntary()
 			|| $before->getVisibilityType() !== $after->getVisibilityType();
+	}
+
+	/**
+	 * The inputs of the flex cap (FEAT-UX-039, {@see FlexDaysPolicy}): the
+	 * flex value, cadence, recurrence and scheduling mode, and the fixed
+	 * weekdays — one list for the cap check and the revision trigger.
+	 */
+	private static function flexCapInputsChanged(Task $before, Task $after): bool {
+		$weekdays = static fn (Task $task): array => FlexDaysPolicy::fixedWeekdays(Task::SCHEDULING_STATIC, $task->getFixedScheduleDays());
+		return $before->getFlexDays() !== $after->getFlexDays()
+			|| $before->getFrequencyType() !== $after->getFrequencyType()
+			|| $before->getFrequencyValue() !== $after->getFrequencyValue()
+			|| $before->getRecurrenceMode() !== $after->getRecurrenceMode()
+			|| $before->getSchedulingMode() !== $after->getSchedulingMode()
+			|| $weekdays($before) !== $weekdays($after);
 	}
 
 	/**
@@ -305,15 +317,8 @@ class TaskService {
 	 * @throws ValidationException
 	 */
 	private function assertFlexWithinCap(Task $before, Task $after): void {
-		$weekdays = static fn (Task $task): array => FlexDaysPolicy::fixedWeekdays(Task::SCHEDULING_STATIC, $task->getFixedScheduleDays());
-		$changed = $before->getFlexDays() !== $after->getFlexDays()
-			|| $before->getFrequencyType() !== $after->getFrequencyType()
-			|| $before->getFrequencyValue() !== $after->getFrequencyValue()
-			|| $before->getRecurrenceMode() !== $after->getRecurrenceMode()
-			|| $before->getSchedulingMode() !== $after->getSchedulingMode()
-			|| $weekdays($before) !== $weekdays($after);
 		$max = FlexDaysPolicy::maxForTask($after);
-		if ($changed && (int)$after->getFlexDays() > $max) {
+		if (self::flexCapInputsChanged($before, $after) && (int)$after->getFlexDays() > $max) {
 			$message = $this->flexRangeError($max);
 			throw new ValidationException($message, [$message]);
 		}

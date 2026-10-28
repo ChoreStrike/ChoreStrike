@@ -307,8 +307,12 @@ class RoomReplayConcurrencyTest extends IntegrationTestCase {
 
 		self::assertSame(90, $state['cleanliness']);
 		self::assertSame(81, $this->countRoomEvents($f['roomId'], 'manual_delta'));
-		self::assertSame(2, $count, implode("\n", $sql));
+		// Reset lookup, the event read after the checkpoint and — for a room
+		// with a reset only — the `last_done` entries recorded after it
+		// (FEAT-UX-045 review fix: such an entry counts for an earlier day).
+		self::assertSame(3, $count, implode("\n", $sql));
 		self::assertStringContainsString('effective_at', $sql[1], 'the event read starts after the absolute checkpoint');
+		self::assertStringNotContainsString('effective_at', $sql[2], 'the entry read is bounded by the reset id, not by time');
 	}
 
 	/**

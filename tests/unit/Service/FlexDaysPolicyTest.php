@@ -46,6 +46,13 @@ class FlexDaysPolicyTest extends TestCase {
 			'one-time keeps the former bound' => ['weekly', 1, Task::RECURRENCE_ONCE, [], 7],
 			'bounded recurrence follows the period' => ['monthly', 6, Task::RECURRENCE_BOUNDED, [], 90],
 			'the sanity bound caps very long periods' => ['monthly', 100, $recurring, [], FlexDaysPolicy::SANITY_MAX],
+			// Review fix: no int overflow (TypeError) for any repeat value.
+			'every 731 days still saturates' => ['daily', 731, $recurring, [], FlexDaysPolicy::SANITY_MAX],
+			'every 730 days stays below the bound' => ['daily', 730, $recurring, [], 365],
+			'PHP_INT_MAX days' => ['daily', PHP_INT_MAX, $recurring, [], FlexDaysPolicy::SANITY_MAX],
+			'PHP_INT_MAX weeks on one weekday' => ['weekly', PHP_INT_MAX, $recurring, ['monday'], FlexDaysPolicy::SANITY_MAX],
+			'PHP_INT_MAX weeks keeps the weekday gap' => ['weekly', PHP_INT_MAX, $recurring, ['monday', 'thursday'], 2],
+			'PHP_INT_MAX months' => ['monthly', PHP_INT_MAX, $recurring, [], FlexDaysPolicy::SANITY_MAX],
 		];
 	}
 

@@ -114,6 +114,28 @@ BUG-UX-005 covers the in-window case and ships on its own.
 
 ---
 
+### [P3] CR-SVC-65 — Split `RoomTaskReadService` below the file-size guideline
+**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-088 pre-candidate Full review (2026-10-28, D-088-25)
+
+`lib/Service/RoomTaskReadService.php` has 993 lines (928 before `0.8.0-alpha.3`)
+against the ~300-line guideline. The review fixed what alpha.3 added (the My Day
+method is split, one selection derivation per read, one shared block builder);
+the file itself stayed, because splitting the central read service moves code
+that My Day, the room views and the completion preview share, which the frozen
+candidate did not take on. Cohesive parts to extract: the participation
+proposal derivation (`proposalBlocksFor` and its helpers, about 120 lines), the
+My Day rows (filtered daily, child rows, open-window rows, checklist counts)
+and the payload/time-zone helpers.
+
+- [ ] The read service and each extracted class stay within ~300 lines, with no
+      change of any response shape.
+- [ ] Unit and integration suites green unchanged, the query-budget tests
+      included; a full browser gate on both rows.
+
+---
+
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot

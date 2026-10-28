@@ -406,7 +406,7 @@ Update room.
 > house — compared trimmed and case-insensitively — with the next free
 > " 2", " 3", … appended (a taken "Bath 2" continues as "Bath 3" when "Bath"
 > exists). The response carries the final name. Existing duplicates stay
-> until renamed.
+> until renamed; saving a room's unchanged name is no rename.
 
 #### DELETE /rooms/{id}
 Delete room.
@@ -702,14 +702,16 @@ Receipt-protected: replaying the same `commandId` changes nothing.
 - The room's `lastCleaned` shows that day through a `last_done` journal event:
   no cleanliness change, reward, completion fact or rhythm effect. A newer
   entry for the same room task replaces the older one (also to an earlier
-  day); a later real completion or quick clean still wins; an entry before the
-  latest house reset stays hidden.
+  day); a later real completion or quick clean still wins. An entry recorded
+  before the latest house reset stays hidden; one recorded after it counts,
+  also for a day before the reset.
 - A completion-relative interval moves its pending occurrence to
   `max(today, date + interval)` as a `date` agreement (version bump, C2h child
   day limit). A fixed cadence keeps its dates (C1).
 - `409 CONFLICT` while the current appointment is overdue (a miss stays a
   miss; complete or catch it up), or when the move would exceed a child's day
-  limit; `400 VALIDATION_ERROR` for a malformed or future day.
+  limit; `400 VALIDATION_ERROR` for a malformed, impossible (e.g. `2025-02-29`)
+  or future day.
 
 **Response `data`:** the written room-task row, as for the due-date edit.
 

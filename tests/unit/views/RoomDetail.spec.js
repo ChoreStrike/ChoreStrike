@@ -254,6 +254,28 @@ describe('RoomDetail.vue', () => {
 		expect(wrapper.vm.loading).toBe(false)
 	})
 
+	// CS-PLAN-088 WP-D review: a room switch refreshes the room list but
+	// keeps the loaded task definitions unless the new room uses one the
+	// view does not know yet.
+	it('keeps the task definitions on a room switch unless the new room uses an unknown one', async () => {
+		const wrapper = mount(RoomDetail, { props: { id: '1' }, global: { plugins: [pinia], stubs: { RouterLink: true } } })
+		await flushPromises()
+		const { roomsStore, roomTasksStore, tasksStore } = wrapper.vm
+		expect(tasksStore.fetchTasks).toHaveBeenCalledTimes(1)
+
+		roomTasksStore.roomTasksByRoom[2] = [{ id: 5, roomId: 2, taskId: 10, isActive: true }]
+		await wrapper.setProps({ id: '2' })
+		await flushPromises()
+		expect(roomsStore.fetchFloorsWithRooms).toHaveBeenCalledTimes(2)
+		expect(tasksStore.fetchTasks).toHaveBeenCalledTimes(1)
+
+		roomTasksStore.roomTasksByRoom[3] = [{ id: 6, roomId: 3, taskId: 99, isActive: true }]
+		tasksStore.getTaskById.mockImplementation((id) => (id === 10 ? { id: 10, name: 'Clean counters' } : undefined))
+		await wrapper.setProps({ id: '3' })
+		await flushPromises()
+		expect(tasksStore.fetchTasks).toHaveBeenCalledTimes(2)
+	})
+
 	it('renders the task stats card after loading (CS-PLAN-040)', async () => {
 		const wrapper = mount(RoomDetail, {
 			props: { id: '1' },

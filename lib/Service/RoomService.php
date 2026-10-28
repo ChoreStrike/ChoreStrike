@@ -203,8 +203,11 @@ class RoomService {
 				throw new NotFoundException($this->l10n->t('Room not found'));
 			}
 
-			// FEAT-UX-044: unique among the house's other live rooms.
-			$name = RoomNamePolicy::unique($name, $this->roomMapper->findLiveNamesByHouseId((int)$houseId, $roomId));
+			// FEAT-UX-044: unique among the house's other live rooms; saving
+			// the unchanged name keeps a legacy duplicate as it is.
+			$name = trim($name) === $fresh->getName()
+				? $fresh->getName()
+				: RoomNamePolicy::unique($name, $this->roomMapper->findLiveNamesByHouseId((int)$houseId, $roomId));
 			$changed = $fresh->getName() !== $name;
 			$fresh->setName($name);
 			return $this->roomMapper->update($fresh);

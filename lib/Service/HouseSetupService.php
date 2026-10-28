@@ -182,10 +182,11 @@ class HouseSetupService {
 				$floorEntity = $this->floorMapper->create($houseId, $floor['name'], $floorIndex);
 
 				foreach ($floor['rooms'] as $room) {
-					$roomNames[] = RoomNamePolicy::unique($room['name'], $roomNames);
+					$name = RoomNamePolicy::unique($room['name'], $roomNames);
+					$roomNames[] = $name;
 					$roomEntity = $this->roomMapper->create(
 						$floorEntity->getId(),
-						end($roomNames),
+						$name,
 						$room['icon'] ?? null,
 						$room['roomType']
 					);

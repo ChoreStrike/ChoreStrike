@@ -227,6 +227,29 @@ All questions were answered with their recommended option.
   content); the operator admits its fix into WP-A on the same branch before the
   local merge. Rejected: leaving it in the backlog.
 
+### Decisions recorded for WP-D (operator 2026-10-28)
+
+- **D-088-22 Early freeze:** after the RF-088-11 merge (`dccafeb`) the operator
+  freezes the candidate now instead of at the end of the window (~2026-11-02).
+  WP-D starts on branch `chore/release-0.8.0-alpha.3` (worktree
+  `~/worktrees/chorestrike-alpha3-release`): version bump, changelog, docs,
+  screenshots, the pre-candidate Full review, the qualification pipeline and the
+  package build and smoke. Feedback arriving from now on is triaged into the
+  backlog for the next round unless it is a P0/P1 hotfix. Export, deployment,
+  record import, tags, pre-releases and the push each still need their own
+  approval. Rejected: freezing on the planned date.
+- **D-088-23 Pre-candidate review fixes:** the three small defects of the Full
+  review (RF-088-12..14) are fixed in WP-D with regression tests before the
+  qualification. Rejected: fixing only the rename; routing all three.
+- **D-088-24 "Last done" after a house reset:** an entry recorded after the
+  latest reset counts like any other, also for a day before the reset (newest
+  entry per room task, a later completion still wins). Rejected: the reset
+  wins (documented no-op); refusing days before the reset.
+- **D-088-25 Structure and performance findings:** fixed in WP-D (RF-088-16).
+  Splitting `RoomTaskReadService` below the file-size guideline — 928 lines
+  before alpha.3 — goes to the backlog as CR-SVC-65. Rejected: routing all of
+  them to the backlog; a partial or full split in the frozen candidate.
+
 ## 3. Backend / Frontend Changes
 
 ### WP-A Trial feedback (RELEASE-002)
@@ -712,6 +735,11 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-088-09 (major) - Toolchain ordering: a strict Node 24 install is blocked by `@nextcloud/eslint-config@8`, `@nextcloud/eslint-plugin@2` and the unused `@nextcloud/initial-state@2.2.0` (all `node ^20`/`npm ^10`), so TECH-DEV-001 cannot precede TECH-LINT-008; D-088-08 merges them into one series (found 2026-10-20 while preparing the lockfile; operator answered the recommended option).
 - [x] RF-088-10 (major) - Bundle proof: byte identity of `js/` is unattainable across the bundler major (webpack 5.105.2 → 5.112.0, terser → `minimizer-webpack-plugin`; `chorestrike-main.js` 3.93 → 3.60 MB); D-088-09 replaces it with content equivalence plus the gates (operator answered the recommended option).
 - [x] RF-088-11 (major) - Runtime currency: AIO `v14.4.1` (seen 2026-10-27) bundles Nextcloud 34.0.5 on PHP 8.4.27 (inventory: AIO 14.3.0, Nextcloud 34.0.4, PHP 8.4.26; APCu, phpredis, Redis and PostgreSQL unchanged, upstream still 35.0.2). `test:runtime:check` fails closed (`AIO apcu metadata`) because the AIO Dockerfile now pins its PECL versions as `ARG …_VERSION` and builds them from GitHub tarballs instead of `pecl install`. Fix the parser for that form (with a fixture test), then promote the AIO row through a reviewed inventory update and requalification before the WP-D qualification. The WP-A browser gate ran on the rows the inventory names. Resolved 2026-10-28: parser fixed, inventory promoted to AIO v14.4.2 (NC 34.0.5, PHP 8.4.27), both rows requalified ([evidence](#rf-088-11-evidence-aio-v1442-runtime-promotion-2026-10-28)).
+- [x] RF-088-12 (minor) - FEAT-UX-044: re-saving a room's unchanged name renumbered a legacy duplicate ("Bath" → "Bath 2") and logged it as a change, against "existing duplicates stay" (`RoomService.php` rename). Fixed (D-088-23): an unchanged trimmed name skips the numbering; `RoomServiceTest` pins it.
+- [x] RF-088-13 (minor) - FEAT-UX-045: an impossible day such as `2025-02-29` passed the pattern check and returned an untranslated internal message; the controller also passed every other invalid argument verbatim. Fixed (D-088-23): strict calendar parse with the curated message as a `ValidationException`; only that is a 400, anything else a 500 with the safe message (controller and integration tests).
+- [x] RF-088-14 (minor) - FEAT-UX-039: a repeat value above about 3·10^17 overflowed the period product into a `TypeError` (500) in `FlexDaysPolicy`. Fixed (D-088-23) by clamping the repeat value at 2 × the sanity bound, where every cap is already the bound, so no result changes (`FlexDaysPolicyTest`, `PHP_INT_MAX` cases).
+- [x] RF-088-15 (minor) - FEAT-UX-045: an entry recorded after a house reset never reached "Last cleaned", because the replay starts at the reset and the entry's day lies before it. Fixed (D-088-24): the replay folds the newest entry per room task recorded after the latest reset (by id); a room with a reset reads those entries with one indexed query (the reset-bounded replay budget is now 3), a room without a reset or entries still reads nothing extra. A builder/parser pair owns the persisted `last_done:<roomTaskId>:<command>` key (replay unit tests, integration case with a real reset).
+- [x] RF-088-16 (minor) - Structure and performance (D-088-25): `getFilteredDailyTasksForUser` split (22 lines, `childDailyRows` 22, `isChildEligible`); open-window rows derive their selections once, on viewer-visible candidates only, and one shared `withSelectionBlocks` serves the due-today, overdue and open-window paths; widening flex windows reads the open occurrences of all mounted room tasks in one query; a direct room switch refreshes the room list but keeps loaded task definitions unless the new room uses an unknown one (`RoomDetail` spec); one flex-cap input list in `TaskService`; readability fixes in `HouseSetupService` and the last-done controller. The pre-existing file size of `RoomTaskReadService` (993 lines, 928 before alpha.3) went to CR-SVC-65.
 
 ## Feedback Register (sanitized)
 
@@ -951,6 +979,33 @@ Branch `chore/aio-14.4.2-runtime` from `master` `afec524` (worktree
   deployed (operator step before WP-D's deployment; the last record, `0.8.0-alpha.2` on
   2026-10-19, shows AIO 14.3.0 / NC 34.0.4).
 
+## WP-D Evidence (release candidate, 2026-10-28)
+
+Branch `chore/release-0.8.0-alpha.3` from `master` `dccafeb` (worktree
+`~/worktrees/chorestrike-alpha3-release`), frozen early per D-088-22.
+
+- **Candidate:** `0.8.0-alpha.3` in `appinfo/info.xml`, `package.json` and
+  `package-lock.json`; `CHANGELOG.md` section *0.8.0-alpha.3 — Trial Feedback Round
+  (candidate)* under *Unreleased* (dated heading after the verified deployment, Q-088-04),
+  with dated headings for the deployed alpha.2 and alpha.1; README badge, caption and
+  status; the docker README's expected version; eight screenshots recaptured on the
+  candidate. Roadmap snapshot and documentation map follow after the deployment.
+- **Pre-candidate Full review:** RF-088-12..16 fixed with regression tests (§9), CR-SVC-65
+  routed ([record](../../backlog/archive/CODE_REVIEW_2026-10-28.md#pre-candidate-full-review---cs-plan-088-080-alpha3-release-delta)).
+- **Qualification on the reviewed working tree:** `test:runtime:check` `current`;
+  production build; canonical stack recreated (`test:runtime:canonical` match), PHPUnit
+  unit 1531 / integration 647; matrix run `a3c` with the same counts on SQLite, MySQL and
+  the AIO row (NC 34.0.5 / PostgreSQL 18.6 / Redis); AIO-row browser gate `run-hlouAh`
+  green on the first attempt (chromium 103, chromium-serial-db 183,
+  chromium-scheduling-owner 39, mobile 15 + 15). Primary browser gate: the first run
+  `run-8CHJRU` was invalid during a host slowdown (client-side `socket hang up` and
+  `fetch failed`, one correct room view rendered just after its 5 s window; no content
+  assertion failed); the complete rerun `run-ECyo8u` passed on the first attempt with the
+  same counts. Tested inputs: 22 non-documentation paths against `dccafeb`, diff SHA-256
+  prefix `0aeebff1e13d3a85`; only documentation changed afterwards.
+- **Package:** build and smoke from the committed candidate follow (run ID and archive
+  hash recorded here).
+
 ## Review Outcome
 
 **Standard A, 2026-10-19: PASS-WITH-FIXES.** Scope: this plan, checked against
@@ -995,3 +1050,17 @@ self-test, `testing.md`). No open findings. Gates: runtime check `current`, PHPU
 1521/646 and full browser gates `run-1tN7fk` / `run-anL2IM` on both rows, P2 on the AIO
 row, Jest 159/2240, ESLint, `backlog:check`, `docs:encoding`, `agents:check`. The plan stays
 active. Record: [2026-10-28 review](../../backlog/archive/CODE_REVIEW_2026-10-28.md).
+
+**Pre-candidate Full review, 2026-10-28 (WP-D): PASS-WITH-FIXES (interim).** Scope: the
+release delta since the qualified alpha.2 candidate, `fcb65cf..dccafeb` over `lib/`,
+`appinfo/`, `src/` and `css/` (153 files, binary diff SHA-256 prefix `d3a6587c99ddb015`),
+on branch `chore/release-0.8.0-alpha.3`; four read-only tracks (architecture, security,
+performance, correctness). Five minor findings, all fixed with regression tests in this
+round: RF-088-12..14 (D-088-23), RF-088-15 (D-088-24), RF-088-16 (D-088-25); the
+`RoomTaskReadService` file size went to CR-SVC-65. No open findings; nothing exploitable.
+Gates: Jest 159/2241, ESLint, stylelint, `composer cs:check`, PHPUnit 1531/647 on the
+canonical stack and on SQLite, MySQL and the AIO row (matrix `a3c`), AIO browser gate
+`run-hlouAh`, primary browser gate `run-ECyo8u` (rerun after the invalid `run-8CHJRU`
+under a host slowdown). The plan stays active for the package build and smoke,
+export, deployment and the final completion review. Record:
+[pre-candidate Full review](../../backlog/archive/CODE_REVIEW_2026-10-28.md#pre-candidate-full-review---cs-plan-088-080-alpha3-release-delta).
