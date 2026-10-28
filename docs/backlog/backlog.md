@@ -102,6 +102,25 @@ click.
 
 ---
 
+### [P3] BUG-UX-007 — Switching directly from one room to another keeps the previous room's content
+**Status**: Backlog (found 2026-10-28 while capturing the CS-PLAN-088 GUI review screenshots) · **Effort**: S · **Layer**: frontend · **Journey stage**: room detail
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: GUI review capture (2026-10-28), CS-PLAN-088 D-088-19 review
+
+`RoomDetail` loads its room once on mount and does not watch the route
+parameter, and the app's `<router-view>` carries no `:key`. A navigation from
+`#/room/A` straight to `#/room/B` therefore reuses the component: the header
+shows room B, while the task list reads "No tasks yet" and the stats still show
+room A. Normal use goes through the dashboard or My Day, which remounts the
+view; a typed URL or a future room-to-room link shows the stale state.
+
+- [ ] Reload the room data when the `id` parameter changes (watcher or
+      `beforeRouteUpdate`), cancelling the previous load.
+- [ ] Tests: `RoomDetail` spec for a parameter change (new room's tasks and
+      stats, no stale rows).
+
+---
+
 ### [P2] FEAT-UX-041 — Allow completing work before its window opens
 **Status**: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
