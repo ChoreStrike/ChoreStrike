@@ -249,6 +249,14 @@ All questions were answered with their recommended option.
   Splitting `RoomTaskReadService` below the file-size guideline — 928 lines
   before alpha.3 — goes to the backlog as CR-SVC-65. Rejected: routing all of
   them to the backlog; a partial or full split in the frozen candidate.
+- **D-088-26 Candidate handoff (operator 2026-10-29):** after the qualified
+  package smoke the operator approved, each on its own: the evidence commit and
+  the local fast-forward merge of `chore/release-0.8.0-alpha.3` into `master`;
+  the export of smoke run `run-mvsq7gf7` through the private exchange; and
+  pushing `master` with remote CI now rather than after the deployment.
+  Deployment, the production AIO update to v14.4.2 / NC 34.0.5, the record
+  import, tags and pre-releases stay separate operator steps. The release
+  worktree stays until the export, since it holds the qualified run.
 
 ## 3. Backend / Frontend Changes
 
@@ -1003,8 +1011,18 @@ Branch `chore/release-0.8.0-alpha.3` from `master` `dccafeb` (worktree
   assertion failed); the complete rerun `run-ECyo8u` passed on the first attempt with the
   same counts. Tested inputs: 22 non-documentation paths against `dccafeb`, diff SHA-256
   prefix `0aeebff1e13d3a85`; only documentation changed afterwards.
-- **Package:** build and smoke from the committed candidate follow (run ID and archive
-  hash recorded here).
+- **Candidate commit:** `0142a3881ef8d9b692bf471e0894f04c63e03a06` on
+  `chore/release-0.8.0-alpha.3`; its non-documentation diff against `dccafeb` has the
+  tested fingerprint `0aeebff1e13d3a85`.
+- **Package:** `test:package:build --verify-reproducible` from the clean candidate:
+  `reproducible` (run `run-mvsq4ldw`, 548 files). `test:package:smoke` run
+  `run-mvsq7gf7`: `package-qualified` at 2026-10-28T23:13Z on `primary@35.0.2` and
+  `aio@34.0.5` from the same extracted archive (cold owner bootstrap and the six owner
+  cases per row, post-qualification rehash ok, owned resources removed).
+  `chorestrike.tar.gz` SHA-256
+  `77dcc0a632b28f042c145a150f50b106a268650263a107f76d5df03323165ada` (1,714,603 bytes),
+  equal in both runs. This smoke run is the proposed export candidate (the export needs
+  its own approval).
 
 ## Review Outcome
 
