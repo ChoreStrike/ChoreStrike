@@ -93,7 +93,7 @@ describe the WP3 model as the shipped contract.
   see [calm-core-ux](../../../../concepts/calm-core-ux.md).
 
 ### 6. Energy Model
-- Each task costs 1–5 energy (~5 min per unit).
+- Each task costs 1–20 energy (~10 min per unit); `EffortAllocationService::ENERGY_MAX` is the one limit.
 - Members define daily energy budgets and presence days.
 - Owner plan placement checks capacity/availability (`DailyCapacityService`,
   exact minor-unit shares, frozen occurrence energies — a definition edit

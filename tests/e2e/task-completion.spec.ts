@@ -65,6 +65,31 @@ test.describe('Task Creation and Completion', () => {
 		await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
 	})
 
+	test('A longer task takes its energy through the dialog', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 844 })
+		await page.goto('/apps/chorestrike/#/tasks')
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+		await page.getByTestId('add-task-button').click()
+		await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
+
+		await page.getByTestId('task-name-input').fill('Test Task - Clear the attic')
+		const energy = await page.getByTestId('task-energy-select').boundingBox()
+		expect(energy!.width, 'five bolts and their time need the whole row on a phone').toBeGreaterThan(280)
+		await page.getByTestId('task-energy-select').selectOption('longer')
+		await expect(page.getByTestId('task-energy-hint')).toBeVisible()
+		await page.getByTestId('task-energy-custom').fill('12')
+		expect(await selectFirstRoomWithRooms(page)).toBe(true)
+
+		const roomTaskResponse = page.waitForResponse((response) => response.request().method() === 'POST'
+			&& new URL(response.url()).pathname.endsWith('/apps/chorestrike/api/v1/room-tasks'))
+		await page.getByTestId('save-task-button').click()
+		const created = await roomTaskResponse
+
+		expect(created.ok()).toBeTruthy()
+		expect((await created.json()).data.task.energyCost).toBe(12)
+		await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
+	})
+
 	test('User can create a custom task inside a room', async ({ page }) => {
 		await page.goto('/apps/chorestrike/#/dashboard')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })

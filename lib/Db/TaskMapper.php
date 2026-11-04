@@ -111,7 +111,7 @@ class TaskMapper extends QBMapper {
 	 *
 	 * @param string $name The task name
 	 * @param string|null $description The task description
-	 * @param int $energyCost The energy cost (1-5)
+	 * @param int $energyCost The energy cost (validated by TaskService)
 	 * @param int $priority The priority (1-3)
 	 * @param string $frequencyType The frequency type
 	 * @param int $frequencyValue The frequency value

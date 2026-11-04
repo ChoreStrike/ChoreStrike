@@ -36,7 +36,7 @@ ChoreStrike transforms household chores into a cooperative game that motivates r
 
 ### 2. Task System
 - Predefined task templates + custom tasks
-- Energy cost scale (1-5 stars)
+- Energy cost scale (1-20, shown as bolts)
 - Recurrence patterns (daily, weekly, monthly, custom)
 - Filtering by energy cost and urgency
 
@@ -303,7 +303,7 @@ tasks
   - id
   - name
   - description
-  - difficulty (1-5 stars)
+  - energy_cost (1-20)
   - priority (1-3)
   - frequency_type (daily/weekly/monthly/custom)
   - frequency_value

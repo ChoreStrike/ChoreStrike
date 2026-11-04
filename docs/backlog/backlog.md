@@ -265,7 +265,7 @@ whether the first floor above ground counts as 1st or 2nd.
 ---
 
 ### [P2] FEAT-UX-046 — Energy as the only effort measure, shown as bolts
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
+**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-1, T-2
 
@@ -277,12 +277,12 @@ bound of a daily budget (D-089-07). Estimated minutes feed no calculation, so th
 column and the API field can stay, which keeps every persisted definition fact and
 needs no migration.
 
-- [ ] The server accepts 1–20 through one constant; the unused
-      `energy_max_per_task` config key goes.
-- [ ] The form offers 1–5 as bolts plus a custom value up to 20, shown as a bolt
+- [x] The server accepts 1–20 through one constant, which the ledger's guard uses too;
+      the unused `energy_max_per_task` config key goes.
+- [x] The form offers 1–5 as bolts plus a custom value up to 20, shown as a bolt
       with a number, and explains a task above a person's daily budget.
-- [ ] Estimated time leaves the form, the template picker and the task list.
-- [ ] Concept, API reference, user guide and help follow; tests per the plan.
+- [x] Estimated time leaves the form, the template picker and the task list.
+- [x] Concept, API reference, user guide and help follow; tests per the plan.
 
 ---
 

@@ -389,6 +389,7 @@
     "snake-game.spec.ts > Snake Arcade Game > User can start Snake game"
   ],
   "task-completion.spec.ts": [
+    "task-completion.spec.ts > Task Creation and Completion > A longer task takes its energy through the dialog",
     "task-completion.spec.ts > Task Creation and Completion > Completion offers Undo which restores the task (CS-PLAN-041)",
     "task-completion.spec.ts > Task Creation and Completion > User can complete a task and earn points",
     "task-completion.spec.ts > Task Creation and Completion > User can create a custom task inside a room",

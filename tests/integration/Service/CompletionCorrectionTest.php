@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -153,6 +154,52 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		self::assertCount(2, $revs);
 		self::assertSame('complete', $revs[0]['action']);
 		self::assertSame('attribution', $revs[1]['action']);
+	}
+
+	/**
+	 * EnergyAboveFive_CompletesAndCorrectsAtTheFrozenRate (D-089-07)
+	 *
+	 * The ledger has its own energy guard, so a limit raised only in the
+	 * validator would create tasks nobody can complete. Runs the real
+	 * creation path, the split and the correction with the largest task.
+	 */
+	public function testEnergyAboveFive_CompletesAndCorrectsAtTheFrozenRate(): void {
+		$f = $this->seedSplitFixture();
+		$service = \OC::$server->get(CompletionService::class);
+		$owner = $this->houseUser($f['houseId'], 'cc_owner');
+		$created = \OC::$server->get(TaskCreationService::class)->create($f['houseId'], $owner, [
+			'roomId' => $f['roomId'],
+			'task' => ['name' => 'Clear the attic', 'energyCost' => 20, 'frequencyType' => 'weekly', 'frequencyValue' => 1],
+			'assigneeUserIds' => ['cc_owner'],
+			'nextDue' => (new \DateTime())->format('Y-m-d'),
+		]);
+		$this->registerCreatedTask((int)$created['task']->getId());
+		$roomTaskId = (int)$created['roomTask']->getId();
+		$this->cleanupRoomTaskIds[] = $roomTaskId;
+
+		$this->completeOccurrenceWithParticipants(
+			$service, $f['houseId'], 'cc_owner', $roomTaskId,
+			[['userId' => 'cc_owner', 'sharePct' => 75], ['userId' => 'cc_member', 'sharePct' => 25]]
+		);
+
+		$completion = $this->completionRow($roomTaskId);
+		self::assertSame(20, (int)$completion['total_energy']);
+		self::assertSame(15000, $this->bookedMinor($f['houseId'], 'cc_owner'));
+		self::assertSame(5000, $this->bookedMinor($f['houseId'], 'cc_member'));
+		self::assertSame(
+			2000,
+			array_sum(array_map(static fn (array $share): int => (int)$share['energy_minor'], $this->selectedShares((int)$completion['id'])))
+		);
+
+		$service->attribute(
+			$f['houseId'], $owner, (int)$completion['id'], $this->uuid(),
+			(int)$completion['completion_version'],
+			[['userId' => 'cc_owner', 'sharePct' => 100]],
+			true, 'wrong_split'
+		);
+
+		self::assertSame(20000, $this->bookedMinor($f['houseId'], 'cc_owner'));
+		self::assertSame(0, $this->bookedMinor($f['houseId'], 'cc_member'));
 	}
 
 	/**

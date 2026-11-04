@@ -35,7 +35,7 @@ class TaskServiceTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		// Identity mock: assertions below match the wrapped source text
 		// (no parameter substitution), mirroring TemplateServiceTest.
-		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$l10n->method('t')->willReturnCallback(static fn (string $text, array $parameters = []) => $parameters === [] ? $text : vsprintf($text, $parameters));
 
 		// CS-PLAN-071 WP0: updateTask writes run house-first — the house
 		// row lock is a stub here, and the under-lock task re-read returns
@@ -404,7 +404,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->never())->method('update');
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Unknown or immutable field: %1$s');
+		$this->expectExceptionMessage('Unknown or immutable field: taskTier');
 
 		$this->service->updateTask(1, ['taskTier' => 'gold'], $this->createHouseUser('house-owner', 'owner'));
 	}
@@ -549,11 +549,47 @@ class TaskServiceTest extends TestCase {
 	 * ValidateTaskData_InvalidEnergyCost_ReturnsError
 	 */
 	public function testValidateTaskData_InvalidEnergyCost_ReturnsError(): void {
-		$taskData = ['name' => 'Test', 'energyCost' => 10];
+		$taskData = ['name' => 'Test', 'energyCost' => 21];
 
 		$result = $this->service->validateTaskData($taskData);
 
-		$this->assertContains('Energy cost must be between 1 and 5', $result);
+		$this->assertContains('Energy cost must be between 1 and 20', $result);
+	}
+
+	/**
+	 * @dataProvider energyCostBoundsProvider
+	 */
+	public function testValidateTaskData_EnergyCostBounds(int $energyCost, bool $accepted): void {
+		$errors = $this->service->validateTaskData(['name' => 'Test', 'energyCost' => $energyCost]);
+
+		$this->assertSame($accepted, !in_array('Energy cost must be between 1 and 20', $errors, true));
+	}
+
+	public static function energyCostBoundsProvider(): array {
+		return [
+			'below' => [0, false],
+			'lowest' => [1, true],
+			'highest' => [20, true],
+			'above' => [21, false],
+		];
+	}
+
+	public function testUpdateTask_EnergyAboveTheLimit_RefusesWithoutWriting(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setName('Old Name');
+		$task->setEnergyCost(2);
+		$this->taskMapper->method('find')->with(1)->willReturn($task);
+		$this->stubTaskVisible();
+		$this->stubLockedTask($task);
+		$this->taskMapper->expects($this->never())->method('update');
+
+		try {
+			$this->service->updateTask(1, ['energyCost' => 21], $this->createHouseUser());
+			$this->fail('Expected ValidationException');
+		} catch (ValidationException $e) {
+			$this->assertSame(['Energy cost must be between 1 and 20'], $e->getErrors());
+		}
 	}
 
 	/**

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -17,8 +16,8 @@ use PHPUnit\Framework\TestCase;
  * recognition is valid-history rhythm. CS-PLAN-070 WP4: the weekly-goal
  * target (fixed 80%) and the per-tier title thresholds (fixed 3/6/12)
  * are fixed policy — no override keys exist. This suite pins the
- * REMAINING registry (energyMaxPerTask, titlesEnabled, the CS-PLAN-086
- * arcadeGateEnabled) and the absence of the retired override surfaces.
+ * REMAINING registry (titlesEnabled, the CS-PLAN-086 arcadeGateEnabled)
+ * and the absence of the retired override surfaces.
  */
 class RewardConfigServiceTest extends TestCase {
 	private RewardConfigService $service;
@@ -26,22 +25,7 @@ class RewardConfigServiceTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->config = $this->createMock(IAppConfig::class);
-		$this->service = new RewardConfigService(
-			$this->config,
-			$this->createMock(AppLogger::class)
-		);
-	}
-
-	public function testGetEnergyMaxPerTask_ReturnsDefault(): void {
-		$this->config->method('getValueString')->willReturnCallback(static fn ($app, $key, $default) => $default);
-		$this->assertSame(9, $this->service->getEnergyMaxPerTask());
-	}
-
-	public function testSetEnergyMaxPerTask_NegativeValue_ClampsToZero(): void {
-		$this->config->expects($this->once())
-			->method('setValueString')
-			->with('chorestrike', 'energy_max_per_task', '0');
-		$this->service->setEnergyMaxPerTask(-10);
+		$this->service = new RewardConfigService($this->config);
 	}
 
 	public function testGetTitlesEnabled_ReturnsDefaultTrue(): void {
@@ -95,13 +79,21 @@ class RewardConfigServiceTest extends TestCase {
 		$this->assertFalse($reflection->hasMethod('setTitleThreshold'));
 	}
 
+	/** D-089-07: one energy limit remains, in EffortAllocationService. */
+	public function testEnergyLimitPerTask_IsNoConfigKey(): void {
+		$reflection = new \ReflectionClass(RewardConfigService::class);
+		$this->assertFalse($reflection->hasConstant('KEY_ENERGY_MAX_PER_TASK'));
+		$this->assertFalse($reflection->hasMethod('getEnergyMaxPerTask'));
+		$this->assertFalse($reflection->hasMethod('setEnergyMaxPerTask'));
+	}
+
 	public function testGetAllConfig_ContainsOnlyRetainedFields(): void {
 		$this->config->method('getValueString')->willReturnCallback(static fn ($app, $key, $default) => $default);
 		$config = $this->service->getAllConfig();
 
 		// WP3/WP4: multiplier/freeze/combo/teamwork/goal/threshold fields
 		// are retired — the config surface carries exactly the retained keys.
-		$this->assertSame(['energyMaxPerTask', 'titlesEnabled', 'arcadeGateEnabled'], array_keys($config));
+		$this->assertSame(['titlesEnabled', 'arcadeGateEnabled'], array_keys($config));
 	}
 
 	public function testUpdateConfig_IgnoresRetiredFields(): void {
@@ -114,6 +106,7 @@ class RewardConfigServiceTest extends TestCase {
 			'coinBasePerEnergy' => 42,
 			'weeklyGoalTargetPercent' => 90,
 			'titleThresholds' => ['family_rhythm' => [0 => 1]],
+			'energyMaxPerTask' => 9,
 		]);
 	}
 

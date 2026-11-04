@@ -99,7 +99,7 @@ class CompletedTask extends Entity implements JsonSerializable {
 	 * matching DB defaults as the safety net; the writer always sets
 	 * every field explicitly.
 	 *
-	 * @var int Frozen task effort 1-5 at completion.
+	 * @var int Frozen task effort at completion.
 	 */
 	protected $totalEnergy;
 

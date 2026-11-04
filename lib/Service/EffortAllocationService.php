@@ -16,7 +16,7 @@ use OCA\ChoreStrike\Db\OccurrenceMember;
  * shared by planned shares (SchedulePlanService) and actual shares
  * (CompletionService).
  *
- * Exact integer hundredths: for total energy `E` (1-5) and percentage `P`,
+ * Exact integer hundredths: for total energy `E` and percentage `P`,
  * `energyMinor = E * P` and `coinMinor = 10 * E * P`; totals are exactly
  * `100 * E` and `1000 * E`. All arithmetic stays inside both PHP integer
  * bounds and the signed JavaScript safe-integer range (JSON boundary).
@@ -26,6 +26,12 @@ use OCA\ChoreStrike\Db\OccurrenceMember;
  * request order. This class performs no I/O.
  */
 class EffortAllocationService {
+	/** Inclusive lower bound of a task's energy. */
+	public const ENERGY_MIN = 1;
+
+	/** Inclusive upper bound of a task's energy: it fits the largest daily budget (D-089-07). */
+	public const ENERGY_MAX = SchedulingService::ENERGY_BUDGET_MAX;
+
 	/** Coin minor units per whole energy unit (frozen rate: 10 Coins). */
 	public const COIN_MINOR_PER_ENERGY = 1000;
 
@@ -97,8 +103,8 @@ class EffortAllocationService {
 	 * @throws \InvalidArgumentException on an out-of-range energy or share
 	 */
 	public function allocate(int $totalEnergy, int $sharePct): array {
-		if ($totalEnergy < 1 || $totalEnergy > 5) {
-			throw new \InvalidArgumentException('Total energy must be between 1 and 5');
+		if ($totalEnergy < self::ENERGY_MIN || $totalEnergy > self::ENERGY_MAX) {
+			throw new \InvalidArgumentException('Total energy must be between ' . self::ENERGY_MIN . ' and ' . self::ENERGY_MAX);
 		}
 		if ($sharePct < 1 || $sharePct > 100) {
 			throw new \InvalidArgumentException('Every share must be a whole percent between 1 and 100');

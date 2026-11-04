@@ -19,118 +19,48 @@ use OCP\IAppConfig;
  * valid-history rhythm. CS-PLAN-070 WP4 cutover: the weekly-goal target
  * (fixed 80%) and the per-tier title thresholds (fixed 3/6/12) are fixed
  * policy too — no owner override exists for the first-slice rewards.
- * What remains: task-energy validation, the title system flag and the
- * arcade unlock gate (CS-PLAN-086 D-086-02).
+ * What remains: the title system flag and the arcade unlock gate
+ * (CS-PLAN-086 D-086-02).
  */
 class RewardConfigService {
 	private const APP_NAME = 'chorestrike';
 
 	// Config keys with defaults
-	public const KEY_ENERGY_MAX_PER_TASK = 'energy_max_per_task';
 	public const KEY_TITLES_ENABLED = 'titles_enabled';
 	public const KEY_ARCADE_GATE_ENABLED = 'arcade_gate_enabled';
 
 	/**
-	 * Single source of truth for every scalar config key (CR-SVC-16):
-	 * IAppConfig key => spec with `type` ('int'|'float'|'bool'), `default`
-	 * (stored string), `min`/`max` clamp bounds (null = unbounded), and the
-	 * camelCase `apiField` used by getAllConfig()/updateConfig().
+	 * Single source of truth for every config flag (CR-SVC-16): IAppConfig
+	 * key => spec with `default` (stored string) and the camelCase
+	 * `apiField` used by getAllConfig()/updateConfig().
 	 *
 	 * Insertion order is the public getAllConfig() field order.
 	 */
 	private const REGISTRY = [
-		self::KEY_ENERGY_MAX_PER_TASK => ['type' => 'int', 'default' => '9', 'min' => 0, 'max' => null, 'apiField' => 'energyMaxPerTask'],
-		self::KEY_TITLES_ENABLED => ['type' => 'bool', 'default' => '1', 'min' => null, 'max' => null, 'apiField' => 'titlesEnabled'],
-		self::KEY_ARCADE_GATE_ENABLED => ['type' => 'bool', 'default' => '1', 'min' => null, 'max' => null, 'apiField' => 'arcadeGateEnabled'],
+		self::KEY_TITLES_ENABLED => ['default' => '1', 'apiField' => 'titlesEnabled'],
+		self::KEY_ARCADE_GATE_ENABLED => ['default' => '1', 'apiField' => 'arcadeGateEnabled'],
 	];
 
 	private IAppConfig $config;
-	private AppLogger $appLogger;
 
-	public function __construct(IAppConfig $config, AppLogger $appLogger) {
+	public function __construct(IAppConfig $config) {
 		$this->config = $config;
-		$this->appLogger = $appLogger;
 	}
 
 	/**
-	 * Clamp an int config value into [min, max] and log when clamping fires.
-	 *
-	 * CR-SVC-19: applied on BOTH the write and the read path so previously
-	 * persisted out-of-range values are never applied raw.
+	 * Read a flag: the stored string, or the registry default when unset.
 	 */
-	private function clampInt(string $key, int $value, int $min, ?int $max = null): int {
-		$clamped = max($min, $value);
-		if ($max !== null) {
-			$clamped = min($max, $clamped);
-		}
-		$this->logClamp($key, $value, $clamped);
-		return $clamped;
+	private function readSpec(string $key): bool {
+		return $this->config->getValueString(self::APP_NAME, $key, self::REGISTRY[$key]['default']) === '1';
 	}
 
 	/**
-	 * Log a clamp event once (only when the value actually changed).
-	 *
-	 * @param int|float $value The original value
-	 * @param int|float $clamped The clamped value
-	 */
-	private function logClamp(string $key, $value, $clamped): void {
-		if ($value === $clamped) {
-			return;
-		}
-
-		$this->appLogger->warning('Reward config value clamped', [
-			'service' => 'RewardConfigService',
-			'key' => $key,
-			'value' => $value,
-			'clampedTo' => $clamped,
-		]);
-	}
-
-	/**
-	 * Read a registry key: fetch the stored string (registry default when
-	 * unset), cast it to the spec type, and clamp numeric values into the
-	 * spec bounds (CR-SVC-19).
-	 *
-	 * @return int|float|bool The typed and clamped value
-	 */
-	private function readSpec(string $key): int|float|bool {
-		$spec = self::REGISTRY[$key];
-		$raw = $this->config->getValueString(self::APP_NAME, $key, $spec['default']);
-		switch ($spec['type']) {
-			case 'int':
-				return $this->clampInt($key, (int)$raw, $spec['min'], $spec['max']);
-			default:
-				return $raw === '1';
-		}
-	}
-
-	/**
-	 * Write a registry key: cast the value to the spec type, clamp numeric
-	 * values into the spec bounds (CR-SVC-19), and persist as a string.
+	 * Write a flag as a stored string.
 	 *
 	 * @param mixed $value Raw input value (client payload or typed setter arg)
 	 */
 	private function writeSpec(string $key, $value): void {
-		$spec = self::REGISTRY[$key];
-		switch ($spec['type']) {
-			case 'int':
-				$this->config->setValueString(
-					self::APP_NAME,
-					$key,
-					(string)$this->clampInt($key, (int)$value, $spec['min'], $spec['max'])
-				);
-				return;
-			default:
-				$this->config->setValueString(self::APP_NAME, $key, $value ? '1' : '0');
-				return;
-		}
-	}
-
-	/**
-	 * Get maximum energy per task (clamped to >= 0, CR-SVC-19).
-	 */
-	public function getEnergyMaxPerTask(): int {
-		return (int)$this->readSpec(self::KEY_ENERGY_MAX_PER_TASK);
+		$this->config->setValueString(self::APP_NAME, $key, $value ? '1' : '0');
 	}
 
 	/**
@@ -140,7 +70,7 @@ class RewardConfigService {
 	 * celebration cadence can be disabled without a redeploy. Default true.
 	 */
 	public function getTitlesEnabled(): bool {
-		return $this->readSpec(self::KEY_TITLES_ENABLED) === true;
+		return $this->readSpec(self::KEY_TITLES_ENABLED);
 	}
 
 	/**
@@ -149,14 +79,7 @@ class RewardConfigService {
 	 * is one house per instance, so an app-config flag needs no schema.
 	 */
 	public function getArcadeGateEnabled(): bool {
-		return $this->readSpec(self::KEY_ARCADE_GATE_ENABLED) === true;
-	}
-
-	/**
-	 * Set max energy per task (clamped to >= 0, CR-SVC-19).
-	 */
-	public function setEnergyMaxPerTask(int $max): void {
-		$this->writeSpec(self::KEY_ENERGY_MAX_PER_TASK, $max);
+		return $this->readSpec(self::KEY_ARCADE_GATE_ENABLED);
 	}
 
 	/**

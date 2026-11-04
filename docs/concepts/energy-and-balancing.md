@@ -6,23 +6,30 @@ Replace abstract difficulty stars with a practical effort model that improves fa
 
 ## Energy Unit
 
-- Each task costs 1-5 energy.
-- 1 energy corresponds to roughly 5 minutes of effort.
+- Each task costs 1-20 energy. 20 is also the largest daily budget; larger work should be split.
+- 1 energy corresponds to roughly 10 minutes of effort.
 - The conversion is intentionally approximate and should not be treated as exact time tracking.
+- Energy is the only effort measure the app shows. The stored estimated time feeds no
+  calculation, so it stays in the data and the API without a place in the interface.
 
 ## Estimated Duration Table
 
 The ranges below are rough household examples, not a second exact conversion
-formula. The current stored/validated scale is 1-5; the household should agree
-what each level means rather than turn children's effort into timed competition.
+formula. The task dialog lists 1-5 and takes 6-20 as a custom value; the household should
+agree what each level means rather than turn children's effort into timed competition.
 
 | Energy | Approximate effort |
 |---|---|
-| 1 | 5-10 minutes |
-| 2 | 10-15 minutes |
-| 3 | 15-20 minutes |
-| 4 | 20-25 minutes |
-| 5 | 25-30 minutes |
+| 1 | 10 minutes |
+| 2 | 20 minutes |
+| 3 | 30 minutes |
+| 4 | 40 minutes |
+| 5 | 50 minutes |
+| 6-20 | 1 to 3 hours |
+
+The scale changes no stored value. Tasks and templates keep their energy, and a saved
+occurrence keeps its frozen energy: a changed definition applies from its next revision
+(ADR-013, ADR-014).
 
 ## Weekly Capacity Planning
 
@@ -33,7 +40,9 @@ Example profile:
 - Monday-Friday: 5 energy per day
 - Saturday-Sunday: 15 energy per day
 
-The scheduler should distribute due tasks against these daily limits.
+The scheduler should distribute due tasks against these daily limits. A task above a
+person's budget for a day cannot be placed for them on that day: the planner reports it as
+unplaced, and an agreement is refused. The task dialog says so for longer tasks.
 
 ## Presence Days and Fairness
 

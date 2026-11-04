@@ -986,9 +986,6 @@ msgstr ""
 msgid "Early completion bonus available!"
 msgstr ""
 
-msgid "Easy"
-msgstr ""
-
 msgid "Edit"
 msgstr ""
 
@@ -1061,7 +1058,7 @@ msgstr ""
 msgid "Energy budget saved successfully!"
 msgstr ""
 
-msgid "Energy cost must be between 1 and 5"
+msgid "Energy cost must be between %1$s and %2$s"
 msgstr ""
 
 msgid "Energy values must be between 1 and 20"
@@ -1071,12 +1068,6 @@ msgid "Enter a valid price, e.g. 12 or 12.50 — at most two decimals."
 msgstr ""
 
 msgid "Enter house name"
-msgstr ""
-
-msgid "Estimated Time (minutes)"
-msgstr ""
-
-msgid "Estimated time"
 msgstr ""
 
 msgid "Estimated time minimum must not be greater than the maximum"
@@ -1385,9 +1376,6 @@ msgstr ""
 msgid "Hand this occurrence to"
 msgstr ""
 
-msgid "Hard"
-msgstr ""
-
 msgid "Has basement"
 msgstr ""
 
@@ -1676,6 +1664,9 @@ msgstr ""
 msgid "Loading…"
 msgstr ""
 
+msgid "Longer task ({min} to {max})"
+msgstr ""
+
 msgid "Low"
 msgstr ""
 
@@ -1691,9 +1682,6 @@ msgstr ""
 msgid "Maintenance"
 msgstr ""
 
-msgid "Major"
-msgstr ""
-
 msgid "Make the bed"
 msgstr ""
 
@@ -1707,9 +1695,6 @@ msgid "Mark as done"
 msgstr ""
 
 msgid "Max daily tasks must be an integer between 1 and 100"
-msgstr ""
-
-msgid "Medium"
 msgstr ""
 
 msgid "Member"
@@ -1731,9 +1716,6 @@ msgid "Mine"
 msgstr ""
 
 msgid "Minimal"
-msgstr ""
-
-msgid "Minutes"
 msgstr ""
 
 msgid "Moderate Schedule"
@@ -2256,9 +2238,6 @@ msgid "Putzmuffel"
 msgstr ""
 
 msgid "Putzteufel"
-msgstr ""
-
-msgid "Quick"
 msgstr ""
 
 msgid "Quick Start"
@@ -3092,6 +3071,9 @@ msgstr ""
 msgid "The plan was applied. Calendar and My Day are up to date."
 msgstr ""
 
+msgid "The planner only places a task on a day when it fits a person's energy budget. By default that is {weekday} energy on weekdays and {weekend} at weekends."
+msgstr ""
+
 msgid "The preferences changed since they were displayed"
 msgstr ""
 
@@ -3714,6 +3696,9 @@ msgid "Your system reduced-motion setting always wins over this switch."
 msgstr ""
 
 msgid "Your tasks and unassigned tasks"
+msgstr ""
+
+msgid "about {minutes} min"
 msgstr ""
 
 msgid "allocationReviewed must be a boolean"

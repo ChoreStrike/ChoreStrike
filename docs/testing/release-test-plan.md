@@ -169,7 +169,8 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| Create task | Add a task (set energy, priority, tier, frequency) | Task appears in the task list / room | `task-manager` |
+| Create task | Add a task (set energy, priority, frequency) | Task appears in the task list / room | `task-manager` |
+| Longer task | Choose *Longer task* in the task dialog, enter 12, save, complete it | The hint names the daily budget; the task keeps 12 energy and pays 120 Coins | `task-completion`, `CompletionCorrectionTest` |
 | Complete task | Mark a room-task complete with the actual-work split | Work facts freeze (occurrence, work date/zone, total energy, rate); exact minor-unit wallet deltas post to the immutable ledger; the room journal records the requested effect (WP3 / ADR-014) | `task-completion`, `task-completion-full-flow`, `today-view` |
 | Undo completion | Use the snackbar undo action after completion | The targeted completion undo reverses the latest selected allocation exactly once: occurrence release, exact negative wallet deltas, room replay (the correction time never becomes `last_cleaned`), recognition recompute; idempotent, a second completion keeps the first entry's undo (UX-015 queue) | `release-task-lifecycle`, `task-completion`, `task-completion-full-flow`, `today-view` |
 | Correct the split (attribution) | Open a live completion from the Insights history, adjust the recorded participants | The reused participation form pre-fills the recorded split; the receipt-protected PUT re-accounts with exact wallet-union deltas (departed participants' retained wallets included) and the frozen work facts stay byte-identical (WP3 §3.4/§3.6) | `insights-flow` (owner attribution), `CompletionCorrectionTest`, `HouseMemberRemovalIntegrationTest` |

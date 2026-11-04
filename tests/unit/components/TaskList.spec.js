@@ -172,7 +172,7 @@ describe('TaskList', () => {
 			})
 
 			expect(wrapper.text()).toContain('3')
-			expect(wrapper.text()).toContain('45m')
+			expect(wrapper.text()).not.toContain('45m')
 		})
 
 		it('should show assigned indicator when task is assigned', () => {

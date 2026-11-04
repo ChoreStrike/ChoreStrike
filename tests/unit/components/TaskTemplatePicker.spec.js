@@ -83,6 +83,17 @@ describe('TaskTemplatePicker.vue', () => {
 		expect(wrapper.find('[data-testid="picker-overrides-kitchen_counters"]').exists()).toBe(true)
 	})
 
+	it('adjusts energy up to the limit and offers no estimated time', async () => {
+		const wrapper = mountPicker({ roomType: 'kitchen' })
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="picker-adjust-kitchen_counters"]').trigger('click')
+		const overrides = wrapper.get('[data-testid="picker-overrides-kitchen_counters"]')
+
+		expect(overrides.text()).toContain('Energy (1–20)')
+		expect(overrides.text()).not.toContain('Estimated time')
+		expect(overrides.find('input[max="20"]').exists()).toBe(true)
+	})
+
 	it('creates a room task from the template and emits created', async () => {
 		const wrapper = mountPicker({ roomType: 'kitchen' })
 		await wrapper.vm.$nextTick()

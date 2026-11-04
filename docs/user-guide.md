@@ -109,7 +109,12 @@ and an energy budget for a day. Owners then plan the week:
 
 The capacity overview shows each day's planned load against everyone's budget,
 and *Overloaded days ahead* warns early. An owner can give a child a **daily
-task limit**; it caps what the child sees in *My Day*.
+task limit**; it caps the unassigned tasks a child is offered in *My Day*, never
+their own.
+
+Each unit of **energy** stands for about 10 minutes of work. The task dialog
+lists 1 to 5; **Longer task** takes up to 20. The planner only places a task on
+a day when it fits a person's energy budget.
 
 ## Optional features
 

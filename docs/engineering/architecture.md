@@ -269,7 +269,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 #### `chorestrike_tasks` (task catalog/templates)
 - `id` (bigint, PK)
 - `name`, `description` (text, nullable)
-- `energy_cost` (int, 1-5) — the energy/effort of a task (the legacy `difficulty` column was renamed; `energy_cost` is the source of truth)
+- `energy_cost` (int, 1-20, `EffortAllocationService::ENERGY_MAX`) — the energy/effort of a task (the legacy `difficulty` column was renamed; `energy_cost` is the source of truth)
 - `priority` (int, 1-3)
 - `task_tier` (string: `bronze`/`silver`/`gold`) — coin-tier multiplier source
 - `frequency_type` (daily/weekly/monthly/custom), `frequency_value` (int)

@@ -12,7 +12,7 @@ const DYNAMIC = {
 	'src/constants/titles.js': ['title.labelKey'],
 	'src/components/Common/MedalBadge.vue': ['key'],
 	'src/views/Leaderboard.vue': ['MEDAL_LABELS[medal.medalType]'],
-	'src/components/Tasks/TaskEditForm.vue': ['energyLabels[n]', 'frequencyLabel', 'everyKey'],
+	'src/components/Tasks/TaskEditForm.vue': ['frequencyLabel', 'everyKey'],
 	'lib/Service/TaskService.php': ['$message'],
 	'lib/Service/TemplateService.php': ["(string)$rt['defaultName']", "(string)$template['name']", "(string)($template['description']??'')", "(string)($template['instructions']??'')", "(string)$t['name']", "(string)($t['description']??'')", "(string)($t['instructions']??'')"],
 }
@@ -65,11 +65,10 @@ function extractKeysFromSource(file, content) {
 	}
 	// Local finite maps and ternary branches are owned by their declarations.
 	// (Leaderboard.vue imports MEDAL_LABELS from MedalBadge.vue — covered
-	// there; only MedalBadge and TaskEditForm own local maps.)
-	if (file === 'src/components/Tasks/TaskEditForm.vue' || file.endsWith('/MedalBadge.vue')) {
-		const name = file.endsWith('/MedalBadge.vue') ? 'MEDAL_LABELS' : 'energyLabels'
-		const map = source.match(new RegExp(`const ${name} = \\{([\\s\\S]*?)\\}`))
-		if (!map) throw new Error(`Missing dynamic map: ${file}: ${name}`)
+	// there; only MedalBadge owns a local map.)
+	if (file.endsWith('/MedalBadge.vue')) {
+		const map = source.match(/const MEDAL_LABELS = \{([\s\S]*?)\}/)
+		if (!map) throw new Error(`Missing dynamic map: ${file}: MEDAL_LABELS`)
 		for (const entry of map[1].matchAll(/:\s*('(?:\\.|[^'\\])*')/g)) keys.push(decodeLiteral(entry[1]))
 	}
 	if (file === 'src/components/Tasks/TaskEditForm.vue') {

@@ -74,9 +74,6 @@
 					<span class="meta-item energy">
 						<Icon name="Zap" :size="16" /> {{ item.task.energyCost }}
 					</span>
-					<span class="meta-item time">
-						<Icon name="Clock" :size="16" /> {{ item.task.estimatedMinutes }}m
-					</span>
 					<span class="meta-item frequency">
 						<Icon name="RotateCcw" :size="16" /> {{ frequencyLabel(item.task) }}
 					</span>

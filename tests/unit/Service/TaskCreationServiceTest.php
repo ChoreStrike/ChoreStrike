@@ -637,15 +637,36 @@ class TaskCreationServiceTest extends TestCase {
 				['instructions' => str_repeat('x', 2001)],
 				'Instructions must not exceed 2000 characters',
 			],
-			'energyCost out of range' => [
-				['energyCost' => 9],
-				'Energy cost must be between 1 and 5',
+			'energyCost above the limit' => [
+				['energyCost' => 21],
+				'Energy cost must be between 1 and 20',
+			],
+			'energyCost below the limit' => [
+				['energyCost' => 0],
+				'Energy cost must be between 1 and 20',
 			],
 			'inverted active window' => [
 				['activeFrom' => '2026-09-10', 'activeUntil' => '2026-09-01'],
 				'Active until must be equal or after active from',
 			],
 		];
+	}
+
+	/**
+	 * Create_EnergyAtTheBounds_Accepted (D-089-07)
+	 */
+	public function testCreate_EnergyAtTheBounds_Accepted(): void {
+		$this->stubAggregateHappyPath();
+
+		foreach ([1, 20] as $energyCost) {
+			$this->service->create(10, $this->createHouseUser(), [
+				'roomId' => 5,
+				'task' => $this->validTaskPayload(['energyCost' => $energyCost]),
+			]);
+		}
+
+		$this->assertSame(1, $this->definitionArg($this->definitionInserts[0], 'energyCost'));
+		$this->assertSame(20, $this->definitionArg($this->definitionInserts[1], 'energyCost'));
 	}
 
 	/**
@@ -702,12 +723,12 @@ class TaskCreationServiceTest extends TestCase {
 				5,
 				$this->firstCatalogTemplateId(),
 				TemplateService::LEVEL_PUTZTEUFEL,
-				['energyCost' => 9],
+				['energyCost' => 21],
 				'member-user',
 			);
 			$this->fail('Expected ValidationException');
 		} catch (ValidationException $e) {
-			$this->assertSame(['Energy cost must be between 1 and 5'], $e->getErrors());
+			$this->assertSame(['Energy cost must be between 1 and 20'], $e->getErrors());
 		}
 
 		$this->assertSame([], $this->definitionInserts, 'no definition write on template validation failure');

@@ -75,14 +75,7 @@
 			<div class="form-row">
 				<div class="form-group half">
 					<label for="energyCost">{{ t('chorestrike', 'Energy Cost') }}</label>
-					<select id="energyCost"
-						v-model.number="form.energyCost"
-						class="form-input"
-						data-testid="task-energy-select">
-						<option v-for="n in 5" :key="n" :value="n">
-							{{ '★'.repeat(n) }} ({{ t('chorestrike', energyLabels[n]) }})
-						</option>
-					</select>
+					<TaskEnergyField v-model="form.energyCost" />
 				</div>
 
 				<div class="form-group half">
@@ -105,16 +98,6 @@
 			</div>
 
 			<div class="form-row">
-				<div class="form-group half">
-					<label for="estimatedMinutes">{{ t('chorestrike', 'Estimated Time (minutes)') }}</label>
-					<input id="estimatedMinutes"
-						v-model.number="form.estimatedMinutes"
-						type="number"
-						class="form-input"
-						min="1"
-						max="480">
-				</div>
-
 				<div class="form-group half">
 					<label for="category">{{ t('chorestrike', 'Category') }}</label>
 					<select id="category" v-model="form.category" class="form-input">
@@ -372,6 +355,7 @@ import ErrorState from '../Common/ErrorState.vue'
 import AssigneeChips from './AssigneeChips.vue'
 import RecurrencePresetSelector from './RecurrencePresetSelector.vue'
 import RoomPicker from './RoomPicker.vue'
+import TaskEnergyField from './TaskEnergyField.vue'
 import { VISIBILITY_ADMIN_ONLY, VISIBILITY_PRIVATE, VISIBILITY_PUBLIC } from '../../constants/taskVisibility.js'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useSetupStore } from '../../store/setup.js'
@@ -387,6 +371,7 @@ export default {
 		Icon,
 		RecurrencePresetSelector,
 		RoomPicker,
+		TaskEnergyField,
 		AssigneeChips,
 		ErrorState,
 	},
@@ -458,14 +443,6 @@ export default {
 			}
 		})
 
-		const energyLabels = {
-			1: 'Quick',
-			2: 'Easy',
-			3: 'Medium',
-			4: 'Hard',
-			5: 'Major',
-		}
-
 		const weekdays = [
 			{ value: 'monday', label: t('chorestrike', 'Mon') },
 			{ value: 'tuesday', label: t('chorestrike', 'Tue') },
@@ -498,7 +475,6 @@ export default {
 			instructions: '',
 			energyCost: 2,
 			priority: 2,
-			estimatedMinutes: 15,
 			category: 'cleaning',
 			frequencyType: 'weekly',
 			frequencyValue: 1,
@@ -583,7 +559,6 @@ export default {
 			if (level) {
 				form.frequencyType = level.frequencyType || form.frequencyType
 				form.frequencyValue = level.frequencyValue || form.frequencyValue
-				form.estimatedMinutes = level.estimatedMinutes || form.estimatedMinutes
 			}
 			form.instructions = tpl.instructions || form.instructions
 			selectedTemplate.value = null
@@ -603,7 +578,6 @@ export default {
 				form.instructions = newTask.instructions || ''
 				form.energyCost = newTask.energyCost || 2
 				form.priority = newTask.priority || 2
-				form.estimatedMinutes = newTask.estimatedMinutes || 15
 				form.category = newTask.category || 'cleaning'
 				form.frequencyType = newTask.frequencyType || 'weekly'
 				form.frequencyValue = newTask.frequencyValue || 1
@@ -758,7 +732,6 @@ export default {
 			selectedTemplate,
 			selectedRoomId,
 			assigneeUserIds,
-			energyLabels,
 			weekdays,
 			selectedWeekdays,
 			frequencySuffix,
@@ -817,11 +790,13 @@ export default {
 
 .form-row {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 1rem;
 }
 
+/* Below two columns of this width a field stacks, so a long value stays readable. */
 .form-group.half {
-	flex: 1;
+	flex: 1 1 14rem;
 }
 
 .form-input {

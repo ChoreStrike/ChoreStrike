@@ -19,7 +19,7 @@ Each task includes:
   occurrence timeline, with `RoomTask.next_due` as a derived projection
   (CS-PLAN-072 WP1 / ADR-013)
 - priority
-- energy cost (1-5)
+- energy cost (1-20)
 - reminder settings (**planned — never implemented**: the column-less
   `reminderType`/`reminderMinutesBefore` entity fields and the whole
   `task_sync` HTTP surface were pruned in CS-PLAN-055; see *Reminder

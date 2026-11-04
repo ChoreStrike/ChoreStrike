@@ -74,14 +74,11 @@
 							<option value="monthly">{{ t('chorestrike', 'Monthly') }}</option>
 						</select>
 					</label>
-					<label>{{ t('chorestrike', 'Estimated time') }} ({{ t('chorestrike', 'Minutes') }})
-						<input v-model.number="overrides.estimatedMinutes" type="number" min="1">
-					</label>
-					<label>{{ t('chorestrike', 'Energy') }} (1–5)
+					<label>{{ t('chorestrike', 'Energy') }} ({{ ENERGY_MIN }}–{{ ENERGY_MAX }})
 						<input v-model.number="overrides.energyCost"
 							type="number"
-							min="1"
-							max="5">
+							:min="ENERGY_MIN"
+							:max="ENERGY_MAX">
 					</label>
 					<label>{{ t('chorestrike', 'Priority') }} (1–3)
 						<input v-model.number="overrides.priority"
@@ -97,6 +94,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { ENERGY_MAX, ENERGY_MIN } from '../../constants/scheduling.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useSetupStore } from '../../store/setup.js'
 import { logger } from '../../utils/logger.js'
@@ -114,7 +112,7 @@ export default {
 	setup() {
 		const setupStore = useSetupStore()
 		const roomTasksStore = useRoomTasksStore()
-		return { setupStore, roomTasksStore }
+		return { setupStore, roomTasksStore, ENERGY_MAX, ENERGY_MIN }
 	},
 
 	data() {
@@ -152,7 +150,6 @@ export default {
 			return {
 				name: null,
 				frequencyType: null,
-				estimatedMinutes: null,
 				energyCost: null,
 				priority: null,
 			}

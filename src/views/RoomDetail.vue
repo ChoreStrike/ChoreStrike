@@ -354,7 +354,6 @@ export default {
 					name: this.t('chorestrike', 'Unknown Task'),
 					description: '',
 					energyCost: 0,
-					estimatedMinutes: 0,
 					priority: 2,
 					frequencyType: 'weekly',
 					frequencyValue: 1,

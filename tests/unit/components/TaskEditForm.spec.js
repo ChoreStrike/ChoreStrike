@@ -175,6 +175,30 @@ describe('TaskEditForm', () => {
 		expect(payload.assigneeUserIds).toEqual(['mom', 'kid'])
 	})
 
+	it('submits a longer task with its energy and without an estimated time', async () => {
+		const wrapper = mountForm()
+		await fillRequiredCreateFields(wrapper)
+		await wrapper.find('[data-testid="task-energy-select"]').setValue('longer')
+		await wrapper.find('[data-testid="task-energy-custom"]').setValue('12')
+		await wrapper.find('form').trigger('submit')
+
+		const payload = wrapper.emitted('submit')[0][0]
+		expect(payload.energyCost).toBe(12)
+		expect(payload).not.toHaveProperty('estimatedMinutes')
+		expect(wrapper.find('#estimatedMinutes').exists()).toBe(false)
+	})
+
+	it('loads a stored longer task and leaves its stored estimated time alone', async () => {
+		const wrapper = mountForm({ task: { id: 1, name: 'Attic', energyCost: 12, estimatedMinutes: 90 } })
+		await wrapper.vm.$nextTick()
+		await wrapper.find('form').trigger('submit')
+
+		expect(wrapper.find('[data-testid="task-energy-select"]').element.value).toBe('longer')
+		const payload = wrapper.emitted('submit')[0][0]
+		expect(payload.energyCost).toBe(12)
+		expect(payload).not.toHaveProperty('estimatedMinutes')
+	})
+
 	it('submits definition without roomId/assigneeUserIds and without a scope field in edit mode', async () => {
 		const wrapper = mountForm({ task: { id: 1, name: 'Test Task' } })
 		await wrapper.find('form').trigger('submit')

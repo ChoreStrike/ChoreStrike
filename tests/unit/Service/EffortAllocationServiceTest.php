@@ -91,7 +91,13 @@ class EffortAllocationServiceTest extends TestCase {
 
 	public function testAllocateRejectsOutOfRangeEnergyHigh(): void {
 		$this->expectException(\InvalidArgumentException::class);
-		$this->service->allocate(6, 100);
+		$this->service->allocate(EffortAllocationService::ENERGY_MAX + 1, 100);
+	}
+
+	/** D-089-07: the whole range pays at the frozen rate. */
+	public function testAllocatePaysTheLargestTaskAtTheFrozenRate(): void {
+		$this->assertSame(['energyMinor' => 2000, 'coinMinor' => 20000], $this->service->allocate(20, 100));
+		$this->assertSame(['energyMinor' => 500, 'coinMinor' => 5000], $this->service->allocate(20, 25));
 	}
 
 	public function testAssertSafeAmountAcceptsJsSafeBound(): void {

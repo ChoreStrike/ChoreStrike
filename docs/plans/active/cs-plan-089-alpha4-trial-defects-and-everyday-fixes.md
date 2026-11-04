@@ -223,13 +223,20 @@ browser gates follow with the candidate.
   templates keep their values, so only
   [`energy-and-balancing.md`](../../concepts/energy-and-balancing.md) (which says 5
   minutes) and the user-facing help change.
-- **Limit:** 1–20 through one constant in `TaskService` (D-089-07). The unused
-  `energy_max_per_task` key in `RewardConfigService` (default 9, enforced nowhere) goes,
-  so no second limit remains. No frontend reads it.
-- **Form:** `TaskEditForm.vue` offers 1–5 as bolts with their approximate time, plus a
-  custom value of 6–20, shown as a bolt with a number. `data-testid="task-energy-select"`
-  stays. A hint explains that a task above a person's daily budget (default 10 on
-  weekdays, 15 at weekends) cannot be placed for that person by the planner.
+- **Limit:** 1–20 through one constant, `EffortAllocationService::ENERGY_MAX` (D-089-07),
+  tied to the largest daily budget. The ledger had its own 1–5 guard in `allocate()`,
+  which this plan had missed: raised only in `TaskService`, a task above 5 could be created
+  and never completed. So the constant sits in the allocation service, and `TaskService`
+  reads it. The unused `energy_max_per_task` key in `RewardConfigService` (default 9,
+  enforced nowhere) goes, so no second limit remains, and with the last integer key its
+  clamping goes too. No frontend reads it.
+- **Downgrade:** a build before this one cannot complete a task above 5, because its guard
+  still stands. Any rollback decision has to count such tasks.
+- **Form:** the new `TaskEnergyField.vue` offers 1–5 as bolts with their approximate time,
+  plus a custom value of 6–20, shown as a bolt with a number.
+  `data-testid="task-energy-select"` stays. A hint explains that the planner only places a
+  task on a day when it fits a person's budget (default 10 on weekdays, 15 at weekends);
+  an agreement is refused at the same limit. The names Quick to Major go with the stars.
   `TaskTemplatePicker.vue` follows.
 - **Estimated time:** gone from `TaskEditForm`, `TaskTemplatePicker` and `TaskListItem`.
   It feeds no calculation. The column and the API field stay.
@@ -307,9 +314,11 @@ export of one selected smoke run; operator deployment; verified record under
   `app` key next to the sanitized context, for `audit()` too.
 - **FEAT-UX-046:** `TaskServiceTest` and `TaskCreationServiceTest` for 0, 1, 20 and 21 on
   create and update, with the changed range message; `RewardConfigServiceTest` without the
-  removed key; `TaskEditForm.spec.js`, `TaskTemplatePicker.spec.js`, `TaskListItem.spec.js`; the
-  four browser specs that use `task-energy-select`; an integration case with an energy above 5
-  through completion, work shares and Coins. The template-level assertion in
+  removed key; `EffortAllocationServiceTest` for the ledger guard; `TaskEnergyField.spec.js`,
+  `TaskEditForm.spec.js`, `TaskTemplatePicker.spec.js`, `TaskList.spec.js`; the four browser
+  specs that use `task-energy-select`, with a longer task in `task-completion.spec.ts`; an
+  integration case with an energy above 5 through completion, work shares, Coins and a
+  correction (`CompletionCorrectionTest`). The template-level assertion in
   `core-household-journey.spec.ts` stays valid, because the API field stays.
 - **FEAT-UX-047:** a spec for the meta component; `TaskListItem.spec.js`, `TodayView` specs,
   `theme-consistency.spec.js`; a contrast check of the energy colour in both themes; one
@@ -342,8 +351,10 @@ modified: lib/Controller/RoomTaskController.php, lib/Service/RoomTaskLastDoneSer
           lib/Service/AppLogger.php, lib/Service/TaskService.php,
           lib/Service/RewardConfigService.php, lib/Service/OccurrenceAgreementService.php,
           lib/Service/AgreementService.php
+modified: lib/Service/EffortAllocationService.php, lib/Db/TaskMapper.php, lib/Db/CompletedTask.php
 modified: src/components/Tasks/RoomTaskEditModal.vue, TaskEditForm.vue, TaskTemplatePicker.vue,
           TaskList.vue, TaskListItem.vue, TaskListDetails.vue, TaskFilterBar.vue
+new:      src/components/Tasks/TaskEnergyField.vue, tests/unit/components/TaskEnergyField.spec.js
 modified: src/components/Dashboard/RoomCard.vue, FloorList.vue
 modified: src/components/Setup/SetupWizard.vue, src/components/Help/HelpGlossary.vue,
           src/components/Help/HelpEntry.vue
@@ -443,8 +454,8 @@ D-5 come from the server log. D-6 and D-7 date from 2026-11-04. Owning items are
 | D-6 | Tasks created the day before do not appear on a child's My Day | Bug / P2 | BUG-UX-013 | Round 1; fixed on `fix/alpha4-round1`, cause confirmed by the operator |
 | D-7 | *Next appointments* shows other people's tasks under *My tasks* | Improvement / P3 | FEAT-UX-047 | Round 1; found in the D-2 check, D-089-12; fixed on `fix/alpha4-round1` |
 | L-1 | About 4–6 colour schemes that work in the light and the dark theme | Feature / P3 | FEAT-UX-057 | Round 3 |
-| T-1 | Energy as the only effort measure at about 10 minutes each, with room for longer tasks | Improvement / P2 | FEAT-UX-046 | Round 1 (D-089-07) |
-| T-2 | Energy shown as bolts in the task dialog, scaling above 5 | Improvement / P3 | FEAT-UX-046 | Round 1 |
+| T-1 | Energy as the only effort measure at about 10 minutes each, with room for longer tasks | Improvement / P2 | FEAT-UX-046 | Round 1 (D-089-07); implemented on `fix/alpha4-round1` |
+| T-2 | Energy shown as bolts in the task dialog, scaling above 5 | Improvement / P3 | FEAT-UX-046 | Round 1; implemented on `fix/alpha4-round1` |
 | T-3 | Owner-managed categories with a permanent *Other* as default and fallback | Feature / P3 | FEAT-UX-053 | Round 2 (D-089-04) |
 | T-4 | Flex days for a fixed schedule, with later dates staying on the grid | Feature / P3 | FEAT-UX-040 (mode naming only) | Closed: already delivered; the form offers the field in both modes and the backend applies it to both |
 | T-5 | Per-task history with who did it, any period, statistics, owner edits | Feature / P2 | FEAT-UX-052, FEAT-UX-058, FEAT-UX-060 | Split: Round 2 (history, corrections), Round 3 (statistics), later (ranking periods) |

@@ -395,8 +395,8 @@ class TaskService {
 		}
 
 		if (isset($taskData['energyCost']) && is_int($taskData['energyCost'])
-			&& ($taskData['energyCost'] < 1 || $taskData['energyCost'] > 5)) {
-			$errors[] = $this->l10n->t('Energy cost must be between 1 and 5');
+			&& ($taskData['energyCost'] < EffortAllocationService::ENERGY_MIN || $taskData['energyCost'] > EffortAllocationService::ENERGY_MAX)) {
+			$errors[] = $this->l10n->t('Energy cost must be between %1$s and %2$s', [EffortAllocationService::ENERGY_MIN, EffortAllocationService::ENERGY_MAX]);
 		}
 
 		if (isset($taskData['priority']) && is_int($taskData['priority'])

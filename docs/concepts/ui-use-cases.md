@@ -352,7 +352,7 @@ preview/apply). **Entry points:** SchedulingView.
 | Medal evaluation trigger | Leaderboard mount (pre-pass) | `POST /game/check-medals` | ✅ (CS-PLAN-041) |
 | Title display (single series, no selection) | Settings | `GET /users/{id}/titles`; `PUT …/titles/select` pruned (CS-PLAN-070 WP4 — `currentTitle` always derives from the valid-history maximum) | ✅ |
 | Weekly goal progress | HouseholdGoalBar | `GET /game/state` (`weeklyGoal` + personal `myWeeklyGoal`) | ✅ |
-| Reward rules configuration (coin/combo values) | — | `GET+PUT /reward-config` | ⛔ HTTP surface pruned (CS-PLAN-055); the WP4 retirement removed the weekly-goal/threshold override keys — only `energyMaxPerTask` and `titlesEnabled` remain |
+| Reward rules configuration (coin/combo values) | — | `GET+PUT /reward-config` | ⛔ HTTP surface pruned (CS-PLAN-055); the WP4 retirement removed the weekly-goal/threshold override keys — only `titlesEnabled` and `arcadeGateEnabled` remain |
 
 ## UC-12 — Minigames
 

@@ -26,7 +26,7 @@ describe('global localization gate', () => {
 		for (const template of templates) for (const field of ['name', 'description', 'instructions']) expect(actual.has(template[field])).toBe(true)
 		// WP5 (CS-PLAN-070): 'Team Anchor' left the live surface with the
 		// retired team medals — the pin follows the current MEDAL_LABELS.
-		for (const label of ['Daily', 'Every {n} days', 'Quick', 'Rhythm 3', 'Weekly Milestone']) expect(actual.has(label)).toBe(true)
+		for (const label of ['Daily', 'Every {n} days', 'Rhythm 3', 'Weekly Milestone']) expect(actual.has(label)).toBe(true)
 	})
 	it('accepts complete artifacts with real German copy', () => expect(validate(keys, en, de, pot)).toEqual([]))
 	it.each([...keys])('rejects a missing literal/plural/catalog key in both locales: %s', key => {

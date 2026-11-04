@@ -6,10 +6,10 @@
 import { translate as t } from '@nextcloud/l10n'
 import { resolveEnergyForDay } from '../utils/energyBudgets.js'
 
-/** Minimum allowed daily energy value (backend-enforced bound). */
+/** Minimum allowed daily or task energy value (backend-enforced bound). */
 export const ENERGY_MIN = 1
 
-/** Maximum allowed daily energy value (backend-enforced bound). */
+/** Maximum allowed daily or task energy value (backend-enforced bound). */
 export const ENERGY_MAX = 20
 
 /**

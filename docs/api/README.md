@@ -485,12 +485,14 @@ argument can never bind from that shape and would 500 on every real HTTP call
 > `Unknown or immutable field`).
 
 > **Closed constraint set (CS-PLAN-063 §3.1):** every accepted update field
-> is range/type-checked — `schedulingMode` ∈ `dynamic|static`, parseable
+> is range/type-checked — `energyCost` ∈ [1, 20], `schedulingMode` ∈ `dynamic|static`, parseable
 > `fixedScheduleTime` / `activeFrom` / `activeUntil`, `fixedScheduleDays` as a
 > weekday list over `monday`…`sunday` (canonical JSON persisted),
 > `flexDays` ∈ [0, cap], `instructions`/`tips` ≤ 2000 chars, and strict types
 > (non-strings/floats are rejected with 400, never coerced). Empty strings
-> clear a date field.
+> clear a date field. `estimatedMinutes` stays accepted and stored, but no
+> client shows it and it feeds no calculation; energy is the only effort
+> measure (FEAT-UX-046).
 >
 > **Flex cap (FEAT-UX-039, CS-PLAN-088 D-088-12):** `flexDays` may be at most
 > half the recurrence period, rounded up: period = `frequencyValue` × unit

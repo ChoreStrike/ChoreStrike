@@ -249,7 +249,7 @@ Implemented by WP3 (CS-PLAN-074,
 [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)); reservations and
 the funding hold by WP7 ([ADR-017](../adr/ADR-017-family-catalog-and-redemption.md)).
 
-- Fixed rate: 10 Coins per energy unit, hence 10-50 total Coins for energy 1-5.
+- Fixed rate: 10 Coins per energy unit, hence 10-200 total Coins for energy 1-20.
   No personal/household earning multiplier. Families configure catalog prices,
   not the earning formula. Actual allocation follows the
   [effort-share contract](energy-and-balancing.md#approved-effort-allocation-c3-2026-09-17).
