@@ -39,8 +39,8 @@ below.)*
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
 ### [P2] FEAT-UX-040 — One task form for new and edit: recurrence, layout and controls
-**Status**: Backlog (alpha.2 trial feedback 2026-10-24/26; needs operator feedback on design variants before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: same mask for New Task and Edit Task with assignees and room (operator, 2026-10-26, CS-PLAN-088 feedback register #11)
+**Status**: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-24/26; needs operator feedback on design variants before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: same mask for New Task and Edit Task with assignees and room (operator, 2026-10-26, CS-PLAN-088 feedback register #11); sub-tasks, assigned members, room picker and mode naming (operator, 2026-11-03, CS-PLAN-089 feedback register)
 **Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #4
 
 In create mode the form opens with "Start from Template" and a "Repeat" preset
@@ -71,6 +71,19 @@ assignees).
       room it happened in. PHPUnit for the move and its history.
 - [ ] The edit mask states when the definition is shared by several rooms
       (see FEAT-UX-043).
+
+**Folded in 2026-11-04 (CS-PLAN-089 register G-1, G-2, G-3, T-4):** *Add* also
+offers *From template* (FEAT-UX-043). When editing, owners can also edit past
+occurrences (FEAT-UX-052); when creating, the creator sets only *Last done on*.
+The room is picked with a button, first the floor, then the room. Sub-tasks and
+assigned members change only here, no longer in the task details. The family
+trial closes first (D-089-06).
+
+- [ ] Sub-tasks and assigned members are edited in the form only.
+- [ ] One saved form is one atomic write, so a refusal never leaves it partly
+      applied (the partial save of BUG-UX-011).
+- [ ] The mode names read clearly. Flex days already work in both modes (T-4
+      needs no new behavior), but a mode called "Flexible" suggests otherwise.
 
 Sequencing: land it after BUG-UX-001, FEAT-UX-038 and FEAT-UX-039 so the new
 layout is not built twice; show its mockup together with the template picker
@@ -133,6 +146,175 @@ and the payload/time-zone helpers.
       change of any response shape.
 - [ ] Unit and integration suites green unchanged, the query-budget tests
       included; a full browser gate on both rows.
+
+---
+
+### [P2] BUG-UX-008 — Recurrence label reads "Daily" for every day interval
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: task overview
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register D-1
+
+`frequencyLabel()` in `src/utils/taskDisplay.js` ignores `frequencyValue` in its
+`daily` branch, while `weekly` and `monthly` handle n > 1. The form preview
+already uses the translated `Every {n} days`.
+
+- [ ] Task lists show `Every {n} days` for n > 1.
+- [ ] Regression test in `taskDisplay.spec.js`.
+
+---
+
+### [P2] BUG-UX-009 — Nested `#content` breaks the app frame
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: every view
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register D-2
+
+`templates/main.php` renders a second `#content` inside the one from Nextcloud's
+`layout.user.php`, so the core rule (`position: fixed`, margins, width, height)
+applies twice. The frame keeps a gap on the left but reaches the right window
+edge, and it extends below the visible area. By the core rules 44 px stay unused
+under the header and the last 36 px of every scroll area never come into view
+(44 px on a phone). The numbers come from the core CSS and the tracked settings
+screenshot; the scroll loss is not yet measured in a browser.
+
+- [ ] The app template keeps only its mount element; `NcContent` positions itself,
+      and core's hidden page heading stays.
+- [ ] `layout-clearance.spec.ts` pins equal margins, the top edge and a reachable
+      end of a long view on both viewports; both runtime rows pass.
+- [ ] Documentation screenshots recaptured.
+
+---
+
+### [P2] BUG-UX-010 — Selects clip their value in the settings
+**Status**: In Progress (Round 1, D-089-01; probable cause, not reproduced yet) · **Effort**: S · **Layer**: frontend · **Journey stage**: settings
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register D-3
+
+A dark area partly covers the value of *Settings → Timezone*. Probable cause:
+`.text-input` sets 12 px block padding on a `<select>` that core fixes at 36 px,
+which leaves 10 px for the text; its `background` shorthand also drops core's
+chevron. Device and theme were not recorded.
+
+- [ ] Reproduced first; on another cause this item is updated before fixing.
+- [ ] No select clips its value: the three in Settings and the audit of the other
+      components with a `<select>`.
+- [ ] Browser assertion that a select's value fits its content box.
+
+---
+
+### [P2] BUG-UX-011 — Refused due-date and assignee changes answer 500; the dialog saves partly
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task editing
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Deployment report for `0.8.0-alpha.3`, server log 2026-11-01, CS-PLAN-089 register D-4
+
+`RoomTaskController::updateDueDate()`, `setAssignees()` and `bulkAssign()` do not
+catch `ConflictException`, so every refusal becomes a 500 with an error-level log
+entry: the passed amendment deadline, the child day limit, a stale target.
+`RoomTaskEditModal.save()` writes "Last done on" and the due date as two
+transactions, so the reported save stored the first and failed on the second,
+behind a generic toast. The refusal itself is right (ADR-013): the dialog and the
+writer use the oldest open occurrence, which was already missed. A trace of the
+case also shows that the documented refusal of "Last done" while overdue runs only
+for an interval, not for a fixed cadence (D-088-20, API reference, service docblock).
+
+- [ ] The three actions answer 409 with the stable code; the controller's other
+      mutations are audited against the paths they reach.
+- [ ] "Last done" is refused on every cadence while an open occurrence has ended
+      (D-089-08), so an older miss next to a current window is covered too.
+- [ ] The dialog shows due-date and assignee refusals inline, says what was saved
+      after a partial save and does not record "Last done" twice on retry; the
+      assignee chips and the bulk assignment show the reason too.
+- [ ] The amendment-deadline message is a reason a person can act on.
+- [ ] PHPUnit and Jest regressions per the plan; atomic saving follows with
+      FEAT-UX-040.
+
+---
+
+### [P3] BUG-UX-012 — The setup wizard skips the first upper floor
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: setup
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: numbered floors with a choice of counting (operator, 2026-11-03)
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-10; numbering defect found in its review
+
+`floorName()` in `SetupWizard.vue` names floors "Ground Floor, 2. Floor, 3.
+Floor", which is wrong under either convention. Floor naming differs between
+countries, so the operator proposes numbered floors by default, with a choice
+whether the first floor above ground counts as 1st or 2nd.
+
+- [ ] Numbered floors by default, with the choice in the wizard, through
+      translatable source strings. New setups only; existing floors stay.
+- [ ] `SetupWizard.spec.js` covers both countings.
+
+---
+
+### [P2] FEAT-UX-046 — Energy as the only effort measure, shown as bolts
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-1, T-2
+
+Estimated time goes; energy stays the only effort measure at 1 energy ≈ 10
+minutes, with room for longer tasks. The catalog already fits that scale (medians
+of about 10, 15, 25 and 45 minutes for energy 1–4), so only the concept, which
+says 5 minutes, changes; no value is converted. The limit rises to 20, the upper
+bound of a daily budget (D-089-07). Estimated minutes feed no calculation, so the
+column and the API field can stay, which keeps every persisted definition fact and
+needs no migration.
+
+- [ ] The server accepts 1–20 through one constant; the unused
+      `energy_max_per_task` config key goes.
+- [ ] The form offers 1–5 as bolts plus a custom value up to 20, shown as a bolt
+      with a number, and explains a task above a person's daily budget.
+- [ ] Estimated time leaves the form, the template picker and the task list.
+- [ ] Concept, API reference, user guide and help follow; tests per the plan.
+
+---
+
+### [P2] FEAT-UX-047 — One task row everywhere
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: task overview
+**Owning**: CS-PLAN-089 · **Depends on**: FEAT-UX-046 · **Blocks**: — · **Folded-in**: removal of the stale *Teamwork bonus* label (review of the feedback, 2026-11-03)
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register G-7
+
+The same layout wherever a task appears: energy in colour, no clock, flex days
+directly after the recurrence ("Every 3 days ±2") instead of a separate display,
+floor and room below the title. `TaskListItem` and `TodayView` render their rows
+separately today. The *Teamwork bonus* label contradicts ADR-014, which retired
+multipliers: shared work splits the reward.
+
+- [ ] One presentational component serves My Day, Tasks and the room view.
+- [ ] `FlexWindowDisplay` goes with its only consumer, and with its TECH-LINT-009
+      exemption.
+- [ ] The energy colour passes the contrast check in both themes.
+
+---
+
+### [P3] FEAT-UX-048 — Remove the catch-up agreement action and Quick clean
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: daily execution
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register C-3, T-6
+
+Only these two actions go. The catch-up status stays: a missed chore keeps its
+original date and can still be completed, and already agreed appointments keep
+showing. Retained `manual_delta` entries keep replaying. The two routes stay until
+FEAT-UX-050 (D-089-09).
+
+- [ ] The form goes from `TaskListDetails`, the control and its store action from
+      `RoomCard` and the rooms store.
+- [ ] Refusal texts, help, concepts and the user guide stop offering the actions.
+- [ ] The hold-button coverage of `family-core-ux.spec.ts` moves to *Done*.
+
+---
+
+### [P3] FEAT-UX-049 — Floors & Rooms list: rename, task count, one expand control
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-7, S-8
+
+Every room in the list gets *Rename room* and shows its number of tasks. The expand
+control and the reorder arrows both use chevrons today, and the expand style differs
+between menus.
+
+- [ ] Rename reuses the dialog of `RoomDetail`; the count comes from the house's room
+      tasks in the owner-only section, without a new API field.
+- [ ] One expand control, a right chevron turning 90° when open, in every menu;
+      reorder controls use arrows.
 
 ---
 
@@ -295,8 +477,8 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 ---
 
 ### [P2] FEAT-UX-043 — Templates: copy instead of shared definitions, and a simple catalog picker
-**Status**: Backlog (alpha.2 trial feedback 2026-10-26; operator feedback on a mockup before implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-26; operator feedback on a mockup before implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: *From template* in the one form (operator, 2026-11-03, CS-PLAN-089 feedback register)
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #12
 
 The setup wizard creates **one** task definition per catalog template and mounts
@@ -329,6 +511,234 @@ templates today).
       all strings through `t()` with `l10n/`.
 - [ ] Tests: catalog invariants, per-room definitions on setup, split-on-edit
       keeping history, picker specs.
+
+---
+
+### [P2] FEAT-UX-050 — Postpone, direct handover and no separate details view
+**Status**: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
+**Owning**: unassigned · **Depends on**: CS-PLAN-080, FEAT-UX-040, FEAT-UX-051 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-6, G-4, G-5, G-6
+
+For tasks with flex days, *Postpone* moves the due date one day later per press, up
+to the flex-day limit, and replaces *Move this occurrence to*. *Hand this occurrence
+to* becomes a direct button. The separate details view may then go.
+
+- **Writer:** the date writer re-centres the whole window
+  (`OccurrenceRowFactory::applyWindow()`), so every press would also extend the
+  deadline and the limit would never apply. Postpone needs its own path that moves
+  only the planned day inside the saved window.
+- **Target:** the shown occurrence by key, version and token, never the oldest open
+  one (see BUG-UX-011). A missed occurrence cannot be postponed, but it no longer
+  blocks a later occurrence, which the dialog of Round 1 still cannot move.
+- **Rights (D-089-03):** assignees and adults postpone without the consent tick; the
+  child day limit still applies. Handover stays owner-only with the consent tick.
+- **Details view:** it can go once *Restart the linked interval work on* has a home,
+  for example a conditional row button; the feedback did not list that action, and
+  without it paused interval tasks have no restart.
+
+- [ ] ADR-013, the task-model concept and the API reference describe postponement
+      before code.
+- [ ] Postpone, handover button and the restart home implemented; PHPUnit for the
+      window, the limit, the target and the rights; browser scenario.
+- [ ] The details view goes; checklist ticking moves to FEAT-UX-051 and editing to
+      FEAT-UX-040.
+- [ ] The routes without a client go: `PUT /rooms/{id}/cleanliness` and
+      `occurrence#catchUp` (D-089-09). Journal replay and read paths stay.
+
+---
+
+### [P2] FEAT-UX-051 — Completion dialog: record for someone else, sub-tasks on completion
+**Status**: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
+**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register C-1, C-2
+
+Hold-to-complete stays. A short tap opens a picker for who did the task, like for
+shared tasks; with sub-tasks the same dialog picks the finished ones. Holding marks
+all sub-tasks as done.
+
+- **Operator decision:** every household member, children included, may record a
+  completion for any other member. This reverses Q-074-02, which the server enforces
+  (`The completer must take part in the work`). Coins, rhythm and arcade unlocks
+  follow the work shares, so they need no special path.
+- **Who recorded (source-project answer, 2026-11-03):** the history shows it when the
+  recorder differs from the people credited. `completed_tasks.user_id` already keeps
+  the audit actor, so no schema step is needed.
+- **Partly ticked (D-089-02):** the task stays open and the ticks stay saved.
+
+- [ ] ADR-014, the concepts and the API reference state the new rule before code.
+- [ ] Marking all sub-tasks runs inside the completion command, so it stays atomic
+      and undo stays correct.
+- [ ] The tap replaces today's hint in `HoldButton`, with keyboard parity.
+- [ ] PHPUnit for recording for others, private-task visibility and undo; Jest and a
+      browser scenario for tap and hold.
+
+---
+
+### [P2] FEAT-UX-052 — Task history with owner corrections
+**Status**: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
+**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-5
+
+Each task shows its next due date and all past occurrences with who completed them.
+No new storage is needed: `occurrences`, `completed_tasks`, `work_shares` and
+`completion_revs` hold everything. Owners can delete an entry, which is the existing
+undo; assign it to someone else, which is the existing attribution correction; and
+move it to another date, which is new.
+
+- **Move date:** a frozen work fact changes (ADR-014), which touches the work date and
+  zone, the rhythm classification, the weekly goal and the room journal. It needs its
+  own audited correction kind.
+- **Most recent entry:** editing it recalculates the next due date. Undo already does;
+  a moved date re-anchors an interval's successor, and a fixed cadence stays.
+
+- [ ] ADR-014 and the concepts describe the date correction before code.
+- [ ] History view per task, reachable from the one form (FEAT-UX-040).
+- [ ] Tests for all three corrections across coins, rhythm, weekly goal and room.
+
+---
+
+### [P3] FEAT-UX-053 — Owner-managed task categories
+**Status**: Backlog (Round 2, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-058 · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-3, S-4
+
+Owners manage the categories in the household settings. *Other* always exists, cannot
+be deleted, is the default and is the fallback for a deleted or unknown category.
+`tasks.category` is a free string without server validation today, with six fixed
+values in `TaskEditForm`, and it appears nowhere but the form. They therefore get a
+purpose (D-089-04): a filter in the Tasks list and an evaluation in the statistics.
+
+- [ ] Decide the storage: a typed app-config list needs no schema step, since there is
+      one house per instance (the ADR-019 pattern); a table would be a migration.
+- [ ] Tasks keep stable keys; unknown values read as *Other* and nothing rewrites
+      retained rows.
+- [ ] Filter, settings section and tests.
+
+---
+
+### [P3] FEAT-UX-054 — Personal and household settings structure
+**Status**: Backlog (Round 2, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
+**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-1, S-2, S-3, S-5
+
+Separate personal from household settings and group them into categories that start
+collapsed, so the page fits one screen. *Notifications* becomes one category, and
+*House Name* and *Timezone* join *Floors & Rooms* in a household category.
+
+Source-project answer (2026-11-03): collapsible sections work with two levels, not
+three, which get unwieldy on a phone: a switch *Personal | Household* on top, categories
+below. Non-owners see only *Personal*. `Settings.vue` has 1440 lines against the ~300
+guideline and is split per category along the way.
+
+- [ ] Structure shown as a mockup first.
+- [ ] Browser specs open collapsed categories through one helper; help links open
+      their target category.
+
+---
+
+### [P3] FEAT-UX-055 — Icons and colours for floors and rooms
+**Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-9
+
+Each floor and room gets an icon and a colour, with sensible defaults and a manual
+choice: about 20–40 icons and 10–20 colours, perhaps a background per floor. Every
+colour works in the light and the dark theme. Rooms already have an icon; floors have
+neither, and rooms have no colour.
+
+- [ ] New columns are the first schema step on the retained baseline: a new ordered
+      migration, a populated-baseline upgrade proof and fresh/upgrade parity on all
+      providers (project rules §1).
+- [ ] Palette contrast checked in both themes.
+
+---
+
+### [P3] FEAT-UX-056 — Owner controls for the arcade
+**Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: arcade
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-6
+
+Owners change the unlock threshold of each game and reset a person's unlock progress
+to start a new round, only after a confirmation prompt. This amends ADR-019, which
+keeps thresholds as one constant map, treats unlocks as permanent and stores nothing.
+
+- [ ] ADR-019 amended before code.
+- [ ] Thresholds become typed app config, as the gate switch already is. A reset stores
+      a start point per person from which finished chores count; the work ledger stays
+      untouched and highscores stay (D-089-05).
+- [ ] Owner-only checks on both layers; tests for a reset, an undo across the start
+      point and the score lock.
+
+---
+
+### [P3] FEAT-UX-057 — Selectable colour schemes
+**Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register L-1
+
+About 4–6 selectable schemes, each working in the light and the dark theme. Hard-coded
+colours remain in about a dozen components outside `tokens.css`, mostly scheduling and
+the calendar, and move to tokens first.
+
+- [ ] Decide personal or household scope; personal fits the split of FEAT-UX-054.
+- [ ] Contrast checked per scheme and theme.
+
+---
+
+### [P3] FEAT-UX-058 — Household statistics
+**Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: review and correction
+**Owning**: unassigned · **Depends on**: FEAT-UX-053 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-5
+
+Which tasks get done regularly and which do not, also by category (D-089-04). The operator
+would like this area to grow. It compares tasks, not people, so ADR-015 does not apply, and
+it reads the existing occurrence history.
+
+- [ ] Insights shows the first evaluations; the definitions of "regular" are written down.
+
+---
+
+### [P3] FEAT-UX-059 — Planned date and scheduler rules
+**Status**: Backlog (later, D-089-01; the operator wants the scheduler discussed separately) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
+**Owning**: unassigned · **Depends on**: FEAT-UX-050 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-7
+
+The report proposes a separate *scheduled* date per task, set by the scheduler and allowed
+outside the flex days when no valid plan exists otherwise. Source-project answer
+(2026-11-03): no second date on the task. The occurrence already separates obligation
+(window) and plan (`planned_date`). The planner sets the planned day inside the window,
+reusing the path of FEAT-UX-050; when nothing fits, it proposes an agreed amendment through
+the existing date writer, which keeps its evidence row. Today `SchedulePlanService` allows
+only dates inside the window.
+
+- [ ] Scheduler discussion with the operator; the decision recorded before a plan.
+
+---
+
+### [P4] FEAT-UX-060 — Ranking over chosen periods
+**Status**: Backlog (later, D-089-01; needs its own decision) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: ranking
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-5
+
+The report asks for leaderboards computed for any period. ADR-015 shows only the current
+week, and consent, which children give themselves, starts at the next full week and never
+applies backwards. A period across older weeks would compare people who never agreed to it.
+
+- [ ] Decide whether and how far ADR-015 changes; children's consent stays self-only.
+
+---
+
+### [P3] FEAT-UX-061 — More languages
+**Status**: Backlog (later, D-089-01; once the texts of Rounds 1–3 settle) · **Effort**: L · **Layer**: frontend · **Journey stage**: every view
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register I-1
+
+Support the more widely used European languages; English, Spanish and Portuguese would also
+cover the Americas. About 1,340 strings, the task templates and the role-title packs of the
+content policy need translating. `src/i18n.js` registers only German and bundles it, because
+AIO can deny l10n JSON, so several languages need per-language chunks.
+
+- [ ] Decide the languages and who reviews the translations.
 
 ---
 
@@ -720,14 +1130,44 @@ payloads.
 
 ---
 
+### [P2] TECH-RUNTIME-003 — Promote AIO v14.4.3 and the moved PHP image
+**Status**: In Progress (Round 1, D-089-01; `test:runtime:check` exits 2 since 2026-11-02) · **Effort**: M · **Layer**: tests · **Journey stage**: —
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: RELEASE-002 (next deployment) · **Folded-in**: —
+**Source**: Weekly `runtime-check` run of 2026-11-02, drift `aio-bundle` and `moved-php-image`
+
+AIO v14.4.3 bundles the same Nextcloud 34.0.5 and components, and the digest behind
+`php:8.4.27-apache` moved. The project rules forbid deploying to a runtime the inventory
+does not name, so the promotion comes first, as in RF-088-11.
+
+- [ ] Reviewed inventory update, image and compose pins, spec hashes and docs.
+- [ ] Both runtime rows requalified; the check reports `current` at the freeze.
+
+---
+
+### [P3] TECH-LOG-001 — Expected owner refusals fill the log; entries lack the `app` key
+**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: scheduling
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: missing `app` key in `AppLogger` (deployment report, 2026-11-03)
+**Source**: Deployment report for `0.8.0-alpha.3`, server log 2026-10-29, CS-PLAN-089 register D-5
+
+`initializeScheduling()` fetches the owner-only member availability for every user, so each
+non-owner visit to *Scheduling* writes `Owner role required` at warning level, which hides
+real warnings. Separately, `AppLogger` sets no `app` key, so entries show `no app in context`
+and the post-deployment log check cannot filter by app.
+
+- [ ] Only owners fetch the member availability; a store spec covers both roles.
+- [ ] `AppLogger` adds the `app` key; `AppLoggerTest` covers it; the deployment guide's
+      filter note goes.
+
+---
+
 ## Release
 
 > Stage path: `v0.8.x` alpha → `v0.9.x` beta → `v1.0.0` stable (manual install).
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (CS-PLAN-088 alpha.3 round activated; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: CS-PLAN-088 WP-A/WP-D (alpha.3 feedback/release slice only); CS-PLAN-080 (family evidence); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Status**: In Progress (`0.8.0-alpha.3` deployed 2026-10-29, CS-PLAN-088 closing; CS-PLAN-089 activated for the alpha.4 slice; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: CS-PLAN-088 WP-A/WP-D (alpha.3 feedback/release slice only); CS-PLAN-089 WP-F (alpha.4 release slice only); CS-PLAN-080 (family evidence); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;

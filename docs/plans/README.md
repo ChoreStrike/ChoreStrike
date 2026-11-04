@@ -21,7 +21,13 @@ majors) into one alpha update in two to three weeks, with a hotfix rule for
 anything urgent and a sanitized feedback register. Q-088-01..07 resolved:
 Must + Should selected, stretch excluded pending separate approval, Node 24/npm
 11 qualification, heading-only inset, bounded digest updates and explicit matrix
-reports. Implementation not started; publication/production approvals remain separate.
+reports. `0.8.0-alpha.3` is deployed since 2026-10-29; the tag step and the final
+completion review remain open.
+
+Active: [CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)](active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md)
+(2026-11-04, Standard A `PASS-WITH-FIXES`): the defects and everyday fixes from the operator's
+report on `0.8.0-alpha.3`, without a schema change, and the register that routes all 34
+entries into three rounds.
 
 Delivered: [CS-PLAN-083: Release Qualification Gates](done/cs-plan-083-release-qualification-gates.md)
 (final Full `PASS-WITH-FIXES`, 2026-10-10). RELEASE-002's bounded WP1-WP3 slice
