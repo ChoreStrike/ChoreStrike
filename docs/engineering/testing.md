@@ -73,7 +73,8 @@ canonical `docker/compose.test.yml` stack now provisions **Nextcloud 35.0.2
 `ba900af933e61ffa005315b09d6454bfbbcbcc81`) / PHP 8.4.27 / PostgreSQL 18.6**
 (was: Nextcloud 31 / PHP 8.2 / MariaDB 10.6; PHP 8.4.25 → 8.4.26 with AIO
 v14.3.0, CS-PLAN-084 D-084-09; NC 35.0.1 → 35.0.2, D-084-11; PHP 8.4.26 → 8.4.27 with
-AIO v14.4.2, CS-PLAN-088 RF-088-11). `docker/Dockerfile.test` build
+AIO v14.4.2, CS-PLAN-088 RF-088-11; AIO v14.4.3 keeps Nextcloud 34.0.5 and its components,
+CS-PLAN-089). `docker/Dockerfile.test` build
 defaults are pinned to the inventory (PHP image `php:8.4.27-apache` by digest,
 Composer 2.9.5 by digest, pinned server/notifications/viewer git revisions), so
 a plain `docker compose -f docker/compose.test.yml up --build` always builds
@@ -553,7 +554,7 @@ silently changing upstream vendor trees. `verify-image` reports them as
 
 - NC34.0.5 and its NC34.0.4 update source on PHP8.4.27 have exactly the
   `lcobucci/clock` 3.0.0 constraint `~8.1.0 || ~8.2.0` failing the core
-  **3rdparty** platform check; the core root check must pass. AIO v14.4.2 ships
+  **3rdparty** platform check; the core root check must pass. AIO v14.4.3 ships
   NC34.0.5 with PHP8.4.27 itself (v14.3.0: NC34.0.4 on PHP8.4.26). The operator
   approved retaining that authentic combination on 2026-10-06 after finding no
   newer NC34 patch, without ignoring platform requirements or patching
