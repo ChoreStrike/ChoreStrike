@@ -39,6 +39,13 @@ describe('TaskFilterBar (CS-PLAN-084 WP-D)', () => {
 		expect(wrapper.get('#task-filter-panel').isVisible()).toBe(false)
 	})
 
+	it('filters by energy in bolts and reaches a longer task (FEAT-UX-046)', () => {
+		window.matchMedia = () => ({ matches: false })
+		const labels = mountBar().get('[data-testid="difficulty-filter"]').findAll('option').map((option) => option.text())
+
+		expect(labels).toEqual(['All energy levels', '⚡', '⚡⚡', '⚡⚡⚡', '⚡⚡⚡⚡', '⚡⚡⚡⚡⚡', 'Longer task (6 to 20)'])
+	})
+
 	it('starts collapsed on phones while the scope buttons stay visible', () => {
 		window.matchMedia = (query) => ({ matches: query === '(max-width: 768px)' })
 		const wrapper = mountBar()

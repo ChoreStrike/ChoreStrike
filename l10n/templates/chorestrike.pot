@@ -206,9 +206,6 @@ msgstr ""
 msgid "All"
 msgstr ""
 
-msgid "All Difficulties"
-msgstr ""
-
 msgid "All Priorities"
 msgstr ""
 
@@ -216,6 +213,9 @@ msgid "All Tasks"
 msgstr ""
 
 msgid "All Time"
+msgstr ""
+
+msgid "All energy levels"
 msgstr ""
 
 msgid "All floors"
@@ -867,9 +867,6 @@ msgid "Description"
 msgstr ""
 
 msgid "Description (optional)"
-msgstr ""
-
-msgid "Difficulty"
 msgstr ""
 
 msgid "Digest delivery time"
@@ -1578,21 +1575,6 @@ msgid "Let's go!"
 msgstr ""
 
 msgid "Let's set up your home in about 5 minutes."
-msgstr ""
-
-msgid "Level 1 (Quick)"
-msgstr ""
-
-msgid "Level 2 (Easy)"
-msgstr ""
-
-msgid "Level 3 (Medium)"
-msgstr ""
-
-msgid "Level 4 (Hard)"
-msgstr ""
-
-msgid "Level 5 (Major)"
 msgstr ""
 
 msgid "Light Schedule"

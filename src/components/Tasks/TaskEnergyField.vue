@@ -9,11 +9,11 @@
 			v-model="choice"
 			class="form-input"
 			data-testid="task-energy-select">
-			<option v-for="energy in LISTED_ENERGY" :key="energy" :value="String(energy)">
+			<option v-for="energy in ENERGY_LISTED_MAX" :key="energy" :value="String(energy)">
 				{{ '⚡'.repeat(energy) }} {{ durationLabel(energy) }}
 			</option>
-			<option :value="LONGER_TASK">
-				{{ t('chorestrike', 'Longer task ({min} to {max})', { min: LONGER_TASK_MIN, max: ENERGY_MAX }) }}
+			<option :value="ENERGY_LONGER">
+				{{ longerTaskLabel() }}
 			</option>
 		</select>
 		<template v-if="isLongerTask">
@@ -39,8 +39,9 @@
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
-import { ENERGY_MAX } from '../../constants/scheduling.js'
+import { ENERGY_LISTED_MAX, ENERGY_LONGER, ENERGY_MAX } from '../../constants/scheduling.js'
 import { DEFAULT_ENERGY_BUDGET } from '../../utils/energyBudgets.js'
+import { longerTaskLabel } from '../../utils/taskDisplay.js'
 import { Icon } from '../Common/index.js'
 
 const props = defineProps({
@@ -48,17 +49,14 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
-/** The largest energy the list offers; everything above is typed in. */
-const LISTED_ENERGY = 5
-const LONGER_TASK = 'longer'
-const LONGER_TASK_MIN = LISTED_ENERGY + 1
+const LONGER_TASK_MIN = ENERGY_LISTED_MAX + 1
 const MINUTES_PER_ENERGY = 10
 
-const isLongerTask = computed(() => props.modelValue > LISTED_ENERGY)
+const isLongerTask = computed(() => props.modelValue > ENERGY_LISTED_MAX)
 
 const choice = computed({
-	get: () => (isLongerTask.value ? LONGER_TASK : String(props.modelValue)),
-	set: (value) => emit('update:modelValue', value === LONGER_TASK ? LONGER_TASK_MIN : Number(value)),
+	get: () => (isLongerTask.value ? ENERGY_LONGER : String(props.modelValue)),
+	set: (value) => emit('update:modelValue', value === ENERGY_LONGER ? LONGER_TASK_MIN : Number(value)),
 })
 
 // The input keeps what is being typed: on the way to 12 the 1 is no task

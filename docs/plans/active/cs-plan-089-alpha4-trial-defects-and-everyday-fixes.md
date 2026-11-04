@@ -237,7 +237,9 @@ browser gates follow with the candidate.
   `data-testid="task-energy-select"` stays. A hint explains that the planner only places a
   task on a day when it fits a person's budget (default 10 on weekdays, 15 at weekends);
   an agreement is refused at the same limit. The names Quick to Major go with the stars.
-  `TaskTemplatePicker.vue` follows.
+  `TaskTemplatePicker.vue` follows. So does the filter in Tasks, which offered levels 1–5
+  under *Difficulty* and could not reach a longer task: it is now *Energy*, in bolts, with
+  *Longer task* for everything above 5.
 - **Estimated time:** gone from `TaskEditForm`, `TaskTemplatePicker` and `TaskListItem`.
   It feeds no calculation. The column and the API field stay.
 - **Coins:** stay linear at 10 per energy. Saved occurrences keep their frozen energy, so

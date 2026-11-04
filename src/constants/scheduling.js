@@ -12,6 +12,12 @@ export const ENERGY_MIN = 1
 /** Maximum allowed daily or task energy value (backend-enforced bound). */
 export const ENERGY_MAX = 20
 
+/** The largest task energy that dialog and filter offer one by one. */
+export const ENERGY_LISTED_MAX = 5
+
+/** The choice for every task energy above the listed ones. */
+export const ENERGY_LONGER = 'longer'
+
 /**
  * Owner-set child daily-task limit bounds (CS-PLAN-065 decision D5).
  * `0` is deliberately rejected — an unavailable weekday already expresses

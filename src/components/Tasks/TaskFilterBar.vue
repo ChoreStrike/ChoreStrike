@@ -116,6 +116,8 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import Icon from '../Common/Icon.vue'
+import { ENERGY_LISTED_MAX, ENERGY_LONGER } from '../../constants/scheduling.js'
+import { longerTaskLabel } from '../../utils/taskDisplay.js'
 
 // Panel values that count as "no filter" for the active-filter badge.
 const PANEL_DEFAULTS = { person: '', floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all' }
@@ -213,14 +215,14 @@ export default {
 				},
 				{
 					key: 'difficulty',
-					label: t('chorestrike', 'Difficulty'),
+					label: t('chorestrike', 'Energy'),
 					options: [
-						{ value: 'all', label: t('chorestrike', 'All Difficulties') },
-						{ value: '1', label: t('chorestrike', 'Level 1 (Quick)') },
-						{ value: '2', label: t('chorestrike', 'Level 2 (Easy)') },
-						{ value: '3', label: t('chorestrike', 'Level 3 (Medium)') },
-						{ value: '4', label: t('chorestrike', 'Level 4 (Hard)') },
-						{ value: '5', label: t('chorestrike', 'Level 5 (Major)') },
+						{ value: 'all', label: t('chorestrike', 'All energy levels') },
+						...Array.from({ length: ENERGY_LISTED_MAX }, (_, index) => ({
+							value: String(index + 1),
+							label: '⚡'.repeat(index + 1),
+						})),
+						{ value: ENERGY_LONGER, label: longerTaskLabel() },
 					],
 				},
 				{

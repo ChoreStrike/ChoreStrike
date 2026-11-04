@@ -5,12 +5,13 @@
 
 /**
  * Pure display helpers for the TaskList row surface (CS-PLAN-067 §3.4):
- * priority/frequency/due-date presentation and flex-window bounds, shared
- * by TaskListItem and its unit tests. No store access — context (e.g. the
+ * priority/frequency/energy/due-date presentation, shared by the task rows
+ * and their unit tests. No store access — context (e.g. the
  * house timezone) is passed in by the caller.
  */
 
 import { translate as t } from '@nextcloud/l10n'
+import { ENERGY_LISTED_MAX, ENERGY_LONGER, ENERGY_MAX } from '../constants/scheduling.js'
 import { dateKeyInZone, todayKeyInZone } from './dateKeys.js'
 
 /**
@@ -113,6 +114,24 @@ export function locationLabel(room, floor) {
  */
 export function taskEnergy(item) {
 	return item.occurrence?.energy ?? item.roomTask?.occurrence?.energy ?? item.task.energyCost
+}
+
+/**
+ * The choice for a task above the listed energies.
+ * @return {string}
+ */
+export function longerTaskLabel() {
+	return t('chorestrike', 'Longer task ({min} to {max})', { min: ENERGY_LISTED_MAX + 1, max: ENERGY_MAX })
+}
+
+/**
+ * Whether an energy fits the task list's filter.
+ * @param {number} energy Energy of the row.
+ * @param {string} filter A listed energy, or ENERGY_LONGER.
+ * @return {boolean}
+ */
+export function matchesEnergyFilter(energy, filter) {
+	return filter === ENERGY_LONGER ? energy > ENERGY_LISTED_MAX : energy === Number(filter)
 }
 
 /**

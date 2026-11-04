@@ -13,6 +13,7 @@ import {
 	dueClass,
 	dueText,
 	locationLabel,
+	matchesEnergyFilter,
 	recurrenceLabel,
 	taskEnergy,
 } from '../../../src/utils/taskDisplay.js'
@@ -191,6 +192,19 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 
 		it('falls back to the definition', () => {
 			expect(taskEnergy({ task, roomTask: {} })).toBe(5)
+		})
+	})
+
+	describe('matchesEnergyFilter (FEAT-UX-046)', () => {
+		it('matches a listed energy exactly', () => {
+			expect(matchesEnergyFilter(3, '3')).toBe(true)
+			expect(matchesEnergyFilter(4, '3')).toBe(false)
+		})
+
+		it('gathers every task above the list under the longer choice', () => {
+			expect(matchesEnergyFilter(5, 'longer')).toBe(false)
+			expect(matchesEnergyFilter(6, 'longer')).toBe(true)
+			expect(matchesEnergyFilter(20, 'longer')).toBe(true)
 		})
 	})
 

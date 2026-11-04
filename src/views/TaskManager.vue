@@ -152,7 +152,7 @@ import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { showCompletionError, showErrorWithReference } from '../utils/errorToast.js'
 import { logger } from '../utils/logger.js'
-import { compareTaskItems, dueClass, isOverdue } from '../utils/taskDisplay.js'
+import { compareTaskItems, dueClass, isOverdue, matchesEnergyFilter, taskEnergy } from '../utils/taskDisplay.js'
 
 // Status filter values a `/tasks?status=` link may preset.
 const STATUS_PRESETS = ['active', 'overdue', 'due-today']
@@ -271,7 +271,7 @@ export default {
 			}
 
 			if (difficulty !== 'all') {
-				tasks = tasks.filter((t) => t.task.energyCost === parseInt(difficulty, 10))
+				tasks = tasks.filter((t) => matchesEnergyFilter(taskEnergy(t), difficulty))
 			}
 
 			// Visibility filter (CS-PLAN-041): "private" scopes the list to the
