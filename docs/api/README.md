@@ -925,7 +925,9 @@ CS-PLAN-065 changes (decision D4): the deterministic read order is
 embeds its canonical `assignees` list so the client never re-interprets an
 unknown set as unassigned after a child limit truncated the list. For child
 users the assignment eligibility (assigned to the viewer OR unassigned) is
-evaluated **before** the availability gate and the daily limit.
+evaluated **before** the availability gate and the daily limit. The limit caps
+offered work only: every row the child owes stays, even above the limit, and
+unassigned rows fill the slots that remain (BUG-UX-013).
 
 **Open flex windows (BUG-UX-005, CS-PLAN-088):** after the day's rows follow
 the viewer-visible rows whose canonical target is an open window although no

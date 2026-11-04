@@ -89,7 +89,9 @@ overdue-claim dialog completes the work with the claimer as sole participant.
 The child availability/daily-limit filter applies to the daily query, not to
 the whole overdue list or all completion paths. "My tasks" also includes
 unassigned, claimable work. It is therefore not yet a definition of a child's
-agreed obligations or a guaranteed maximum catch-up workload.
+agreed obligations or a guaranteed maximum catch-up workload. The daily limit
+caps only unassigned offers: a child's own tasks stay on My Day even above it
+(BUG-UX-013).
 
 ## Recurrence and Rhythm
 

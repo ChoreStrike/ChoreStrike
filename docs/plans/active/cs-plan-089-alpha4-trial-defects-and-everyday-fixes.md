@@ -1,10 +1,10 @@
 # CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-04; drafted 2026-11-04; implementation not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-04; drafted 2026-11-04; implementation started 2026-11-04 on `fix/alpha4-round1`
 > **Effort:** M — about 8–10 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.3` deployed on the retained baseline (done 2026-10-29); the operator's sanitized trial report of 2026-11-03; no schema change intended
-> **Related backlog items:** WP-0 TECH-RUNTIME-003 · WP-A BUG-UX-008, BUG-UX-009, BUG-UX-010, BUG-UX-011, TECH-LOG-001 · WP-B FEAT-UX-046 · WP-C FEAT-UX-047 · WP-D FEAT-UX-048 · WP-E FEAT-UX-049, BUG-UX-012 · WP-F RELEASE-002 (alpha.4 slice) · **not in scope:** Round 2, Round 3 and later items of the [register](#feedback-register-sanitized); TECH-TEST-005 and CONCEPT-001 (owned by [CS-PLAN-080](cs-plan-080-wp9-cross-db-and-family-evidence.md))
+> **Related backlog items:** WP-0 TECH-RUNTIME-003 · WP-A BUG-UX-008, BUG-UX-009, BUG-UX-010, BUG-UX-011, BUG-UX-013, TECH-LOG-001 · WP-B FEAT-UX-046 · WP-C FEAT-UX-047 · WP-D FEAT-UX-048 · WP-E FEAT-UX-049, BUG-UX-012 · WP-F RELEASE-002 (alpha.4 slice) · **not in scope:** Round 2, Round 3 and later items of the [register](#feedback-register-sanitized); TECH-TEST-005 and CONCEPT-001 (owned by [CS-PLAN-080](cs-plan-080-wp9-cross-db-and-family-evidence.md))
 
 ## 1. Problem Summary
 
@@ -44,6 +44,18 @@ Two are larger than reported:
   reference and the service docblock say "Last done" is refused while the appointment
   is overdue, but the code checks that only for an interval.
 
+A sixth defect arrived on 2026-11-04, after the report: tasks created the day before
+did not appear on a child's My Day. **D-6** reproduces with a daily limit.
+`childDailyRows()` cut the due rows at the limit in the order `nextDue, createdAt, id`, so
+the newest tasks fell off first, including tasks the child owes, and an unassigned row that
+sorted earlier could take their place. The creation path accepts a task for a child on a
+full day, while a later assignment is refused, and the overload banner counts visible rows
+only, so nothing showed. This contradicts contract C2 ("silently hiding excess obligations
+is not recovery"). Without a limit the task appears in all eleven tested variants: assigned
+at creation or later, shared, fixed, flexible, one-time and private. Whether the reported
+child has a limit is still to be confirmed. The owner can raise a limit at once, so this is
+a P2 without a hotfix.
+
 Many change requests touch a recorded contract (ADR-013, ADR-014, ADR-015,
 ADR-019) or need the first schema step on the retained baseline, so they cannot
 ship with the defects. Separately, the weekly runtime check has failed since
@@ -58,7 +70,7 @@ plans from the backlog.
 
 | Round | Content | Migration |
 |-------|---------|-----------|
-| 1: `0.8.0-alpha.4` (this plan) | D-1..D-5, the log `app` key, runtime promotion, T-1, T-2, G-7, C-3, removal of Quick clean, S-7, S-8, S-10 | none |
+| 1: `0.8.0-alpha.4` (this plan) | D-1..D-6, the log `app` key, runtime promotion, T-1, T-2, G-7, C-3, removal of Quick clean, S-7, S-8, S-10 | none |
 | 2: task flow | G-1..G-6 (mockups first), T-3, T-5, T-6, C-1, C-2, S-1..S-5; starts after the family trial closes (D-089-06) | none expected |
 | 3: appearance and evaluation | S-9, S-6, L-1, statistics | first step on the retained baseline |
 | Later | T-7 with the scheduler discussion, ranking over chosen periods, I-1 | open |
@@ -96,6 +108,10 @@ plans from the backlog.
 - **D-089-06 Family trial:** it closes before Round 2 starts, because Round 2 changes
   the flows it evaluates. Round 1 may ship while it runs (recorded in
   [CS-PLAN-080](cs-plan-080-wp9-cross-db-and-family-evidence.md#deployment-080-alpha3-2026-10-29)).
+
+- **D-089-10 Sixth defect (operator 2026-11-04):** D-6 joins Round 1 and comes first. The
+  child limit caps only what My Day offers: own tasks always stay visible, and unassigned
+  rows fill the slots that remain.
 
 ### Decisions left to the source project
 
@@ -177,6 +193,10 @@ freeze, and any newer drift is promoted the same way.
     later occurrence, because it edits the oldest open one. The refusal says so; the
     explicit-target path of FEAT-UX-050 ends the limit. Atomic saving of the whole dialog
     comes with the one form in FEAT-UX-040.
+- **BUG-UX-013 (D-6):** `childDailyRows()` no longer cuts own tasks. An own task is the agreed
+  obligation when the row has one, otherwise the assignment. Own tasks all stay, and unassigned
+  rows fill the slots that remain in canonical order. Open: whether creating a task for a child
+  on a full day should be refused like a later assignment. Round 1 only makes the result visible.
 - **TECH-LOG-001 (D-5):** `initializeScheduling()` fetches the member availability only
   for owners. The role is known by then, because `App.vue` renders the router view only
   after the membership resolved, and the section that uses the data is already
@@ -268,6 +288,8 @@ export of one selected smoke run; operator deployment; verified record under
   `RoomTaskEditModal.spec.js` for inline refusals, the message after a partial save and no
   repeated last-done call on retry; the `TaskList` spec for the shown reason on chips and bulk
   assignment.
+- **BUG-UX-013:** `RoomTaskServiceDailyTest` for own tasks above the limit and free slots at four
+  limits; `ChildDailyLimitTest` on the real creation path, where a later assignment stays refused.
 - **TECH-LOG-001:** a scheduling store spec for owner and non-owner; `AppLoggerTest` for the
   `app` key next to the sanitized context, for `audit()` too.
 - **FEAT-UX-046:** `TaskServiceTest` and `TaskCreationServiceTest` for 0, 1, 20 and 21 on
@@ -301,6 +323,8 @@ modified: src/views/Settings.vue, src/views/TodayView.vue, src/views/RoomDetail.
           src/views/TaskManager.vue
 modified: src/components/Rewards/RewardCatalogEditor.vue, RewardRequestDetails.vue,
           RewardRequestList.vue, src/components/Members/MemberList.vue (select audit)
+new:      tests/integration/Service/ChildDailyLimitTest.php
+modified: lib/Service/RoomTaskReadService.php, tests/unit/Service/RoomTaskServiceDailyTest.php
 modified: lib/Controller/RoomTaskController.php, lib/Service/RoomTaskLastDoneService.php,
           lib/Service/AppLogger.php, lib/Service/TaskService.php,
           lib/Service/RewardConfigService.php, lib/Service/OccurrenceAgreementService.php,
@@ -328,7 +352,8 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 ## 6. Implementation Order
 
 1. Standard A review of this plan; backlog items `In Progress`; move to `active/`.
-2. WP-0, so that every later gate runs on the promoted inventory.
+2. BUG-UX-013, reported during the round and the only defect that hides work from a child.
+   Then WP-0, so that every later gate runs on the promoted inventory.
 3. WP-A, starting with BUG-UX-009 and BUG-UX-011, the two that change the most behavior.
 4. WP-B, then WP-C, which builds on the removed clock and the corrected label.
 5. WP-D and WP-E, independent of each other.
@@ -356,6 +381,7 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 - [ ] No schema or migration change; the 26 applied migrations stay pinned and `estimated_minutes` keeps its column
 - [ ] `npm run test:runtime:check` reports `current` at the freeze
 - [ ] The app frame keeps equal margins on the desktop viewport, and the end of a long view is reachable, on both runtime rows
+- [ ] A child's own tasks stay on My Day above the daily limit; the limit caps only unassigned rows
 - [ ] Refused due-date and assignee changes answer 409 with their reason, shown in the dialog, without an error-level log entry; a partly applied save says what was saved
 - [ ] Energy accepts 1–20 on every path; existing tasks, frozen occurrences and earlier payouts are unchanged; the concept states 1 energy ≈ 10 minutes
 - [ ] One task row on My Day, Tasks and room views, in both themes and on both viewports
@@ -392,7 +418,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 Role-level, sanitized entries only (adult / child / owner); no names, ages, accounts,
 quotations or household details. Raw notes stay with the operator. All entries date from
 2026-11-03 and were reported by the owner role; the IDs follow the operator's report. D-4 and
-D-5 come from the server log. Owning items are in [`backlog.md`](../../backlog/backlog.md).
+D-5 come from the server log. D-6 dates from 2026-11-04. Owning items are in [`backlog.md`](../../backlog/backlog.md).
 
 | ID | Observation | Type / priority | Routing | State |
 |----|-------------|-----------------|---------|-------|
@@ -401,6 +427,7 @@ D-5 come from the server log. Owning items are in [`backlog.md`](../../backlog/b
 | D-3 | A dark area partly covers the selected timezone | Bug / P2 | BUG-UX-010 | Round 1; probable cause known, not reproduced yet |
 | D-4 | HTTP 500 on a refused due-date change | Bug / P2 | BUG-UX-011 | Round 1; confirmed, wider than reported, partial save traced |
 | D-5 | An owner-only endpoint is called for every member and fills the log | Bug / P3 | TECH-LOG-001 | Round 1; confirmed |
+| D-6 | Tasks created the day before do not appear on a child's My Day | Bug / P2 | BUG-UX-013 | Round 1; reproduced with a daily limit, operator confirmation open |
 | L-1 | About 4–6 colour schemes that work in the light and the dark theme | Feature / P3 | FEAT-UX-057 | Round 3 |
 | T-1 | Energy as the only effort measure at about 10 minutes each, with room for longer tasks | Improvement / P2 | FEAT-UX-046 | Round 1 (D-089-07) |
 | T-2 | Energy shown as bolts in the task dialog, scaling above 5 | Improvement / P3 | FEAT-UX-046 | Round 1 |

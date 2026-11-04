@@ -229,6 +229,27 @@ for an interval, not for a fixed cadence (D-088-20, API reference, service docbl
 
 ---
 
+### [P2] BUG-UX-013 — A child's My Day hides own tasks above the daily limit
+**Status**: In Progress (Round 1, D-089-10; implemented on `fix/alpha4-round1`, the operator's confirmation of the reported case is open) · **Effort**: S · **Layer**: backend · **Journey stage**: daily execution
+**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator report of 2026-11-04, CS-PLAN-089 register D-6
+
+`childDailyRows()` cut the due rows at `maxDailyTasks` in the order `nextDue, createdAt, id`.
+The newest tasks fell off first, own tasks included, an unassigned row could take their place,
+and the overload banner counts visible rows only. The creation path accepts a task for a child
+on a full day, while a later assignment is refused. Contract C2 forbids silently hiding excess
+obligations. Without a limit the task appears in every tested variant, so the confirmation of
+the reported case depends on whether that child has a limit.
+
+- [x] Own tasks stay on My Day above the limit; unassigned rows fill only the free slots.
+- [x] Regression tests on the real creation path, failing without the fix.
+- [ ] The operator confirms that the reported child has a limit; otherwise this item stays open
+      with the task's assignment and due date.
+- [ ] Decide whether creating a task for a child on a full day is refused like a later
+      assignment.
+
+---
+
 ### [P3] BUG-UX-012 — The setup wizard skips the first upper floor
 **Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: numbered floors with a choice of counting (operator, 2026-11-03)

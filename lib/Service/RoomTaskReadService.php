@@ -810,9 +810,9 @@ class RoomTaskReadService {
 	/**
 	 * A child's My Day rows: eligibility first (D4: assigned to the viewer
 	 * OR unassigned), then the weekday availability gate and the owner-set
-	 * daily limit (D5); open-window rows follow the limit and never consume
-	 * a slot (BUG-UX-005). The single batched assignee read serves
-	 * eligibility AND the returned rows (RF-058-11).
+	 * daily limit (D5, {@see withinChildLimit()}); open-window rows follow
+	 * the limit and never consume a slot (BUG-UX-005). The single batched
+	 * assignee read serves eligibility AND the returned rows (RF-058-11).
 	 *
 	 * @param list<array<string, mixed>> $dueRows The day's visible rows
 	 * @param list<array<string, mixed>> $openWindow The open-window rows
@@ -834,11 +834,30 @@ class RoomTaskReadService {
 		// A missing or non-finite limit means unlimited.
 		$maxDailyTasks = $preferences['maxDailyTasks'] ?? null;
 		if (is_int($maxDailyTasks)) {
-			$eligible = array_slice($eligible, 0, $maxDailyTasks);
+			$eligible = self::withinChildLimit($eligible, $viewer, $assigneesByRoomTask, $maxDailyTasks);
 		}
 		$eligible = [...$eligible, ...array_values(array_filter($openWindow, $isEligible))];
 
 		return $this->withChecklistCounts($this->withAssignees($eligible, $assigneesByRoomTask));
+	}
+
+	/**
+	 * The daily limit caps what My Day offers, never what the child owes
+	 * (C2, BUG-UX-013): every own obligation stays visible, even above the
+	 * limit, and unassigned rows only fill the slots that remain. A hidden
+	 * obligation would turn into a silent miss.
+	 *
+	 * @param list<array<string, mixed>> $eligible Eligible rows in canonical order
+	 * @param array<int, string[]> $assigneesByRoomTask
+	 * @return list<array<string, mixed>>
+	 */
+	private static function withinChildLimit(array $eligible, HouseUser $viewer, array $assigneesByRoomTask, int $maxDailyTasks): array {
+		$isOwn = static fn (array $item): bool => self::isOwnObligation($item, $viewer, $assigneesByRoomTask);
+		$openSlots = max(0, $maxDailyTasks - count(array_filter($eligible, $isOwn)));
+
+		return array_values(array_filter($eligible, static function (array $item) use ($isOwn, &$openSlots): bool {
+			return $isOwn($item) || $openSlots-- > 0;
+		}));
 	}
 
 	/**
@@ -849,12 +868,25 @@ class RoomTaskReadService {
 	 * @param array<int, string[]> $assigneesByRoomTask
 	 */
 	private static function isChildEligible(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
-		$obligated = $item['proposal']['obligatedUserIds'] ?? null;
-		if ($obligated !== null) {
-			return in_array($viewer->getNextcloudUserId(), $obligated, true);
+		if (self::isOwnObligation($item, $viewer, $assigneesByRoomTask)) {
+			return true;
 		}
-		$assignees = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
-		return $assignees === [] || in_array($viewer->getNextcloudUserId(), $assignees, true);
+		return ($item['proposal']['obligatedUserIds'] ?? null) === null
+			&& ($assigneesByRoomTask[$item['roomTask']->getId()] ?? []) === [];
+	}
+
+	/**
+	 * Whether the row binds the child: the agreed obligation when the row
+	 * has one, otherwise its assignment.
+	 *
+	 * @param array<string, mixed> $item
+	 * @param array<int, string[]> $assigneesByRoomTask
+	 */
+	private static function isOwnObligation(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
+		$userIds = $item['proposal']['obligatedUserIds']
+			?? $assigneesByRoomTask[$item['roomTask']->getId()]
+			?? [];
+		return in_array($viewer->getNextcloudUserId(), $userIds, true);
 	}
 
 	/**

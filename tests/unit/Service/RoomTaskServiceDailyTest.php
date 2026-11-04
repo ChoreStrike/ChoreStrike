@@ -633,15 +633,66 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->dueTodayIds = [1, 2];
 		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'agreed', 4 => 'agreed']);
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')
-			->willReturn([1 => ['teen'], 2 => ['teen'], 3 => [], 4 => ['teen-sibling']]);
+			->willReturn([1 => ['teen'], 2 => [], 3 => [], 4 => ['teen-sibling']]);
 		$viewer = $this->createHouseUser('teen', 'child');
 		$viewer->setSchedulingPreferences(['maxDailyTasks' => 1]);
 
 		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
 
-		// One due slot (limit 1), the unassigned open-window row on top; the
-		// sibling's open-window row is not the child's.
+		// The own task takes the only slot, so the unassigned due row stays
+		// out; the unassigned open-window row comes on top, and the sibling's
+		// open-window row is not the child's.
 		$this->assertSame([1, 3], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
 		$this->assertTrue($result[1]['openWindow']);
+	}
+
+	/**
+	 * BUG-UX-013: the limit never hides what the child owes. An own task
+	 * created after the limit filled up stays visible, and an unassigned
+	 * row that sorts first cannot take its place.
+	 */
+	public function testGetFilteredDailyTasksForChild_OwnTasksAboveTheLimit_StayVisible(): void {
+		$this->dueTodayIds = [1, 2, 3, 4];
+		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'agreed', 4 => 'agreed']);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')
+			->willReturn([1 => [], 2 => ['teen'], 3 => ['teen'], 4 => ['teen']]);
+		$viewer = $this->createHouseUser('teen', 'child');
+		$viewer->setSchedulingPreferences(['maxDailyTasks' => 2]);
+
+		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
+
+		$this->assertSame([2, 3, 4], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+	}
+
+	/**
+	 * BUG-UX-013: unassigned rows fill the slots the own tasks leave free,
+	 * in canonical order, and a zero limit offers none of them.
+	 *
+	 * @dataProvider limitsForOffers
+	 * @param int[] $expected
+	 */
+	public function testGetFilteredDailyTasksForChild_UnassignedRows_FillOnlyFreeSlots(int $limit, array $expected): void {
+		$this->dueTodayIds = [1, 2, 3, 4];
+		$this->wireOpenWindowHouse(4, [1 => 'agreed', 2 => 'agreed', 3 => 'agreed', 4 => 'agreed']);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')
+			->willReturn([1 => [], 2 => ['teen'], 3 => [], 4 => []]);
+		$viewer = $this->createHouseUser('teen', 'child');
+		$viewer->setSchedulingPreferences(['maxDailyTasks' => $limit]);
+
+		$result = $this->service->getFilteredDailyTasksForUser(1, $viewer, new \DateTime('2026-03-07'));
+
+		$this->assertSame($expected, array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+	}
+
+	/**
+	 * @return array<string, array{int, int[]}>
+	 */
+	public function limitsForOffers(): array {
+		return [
+			'no free slot' => [1, [2]],
+			'one free slot' => [2, [1, 2]],
+			'two free slots' => [3, [1, 2, 3]],
+			'more slots than rows' => [9, [1, 2, 3, 4]],
+		];
 	}
 }
