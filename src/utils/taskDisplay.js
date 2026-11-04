@@ -67,13 +67,13 @@ export function priorityLabel(priority) {
 }
 
 /**
- * Localized recurrence label ("Every {n} weeks" for n > 1).
+ * Localized recurrence label ("Every {n} days" for n > 1).
  * @param {object} task Task definition with frequencyType/frequencyValue.
  * @return {string}
  */
 export function frequencyLabel(task) {
 	const labels = {
-		daily: t('chorestrike', 'Daily'),
+		daily: task.frequencyValue > 1 ? t('chorestrike', 'Every {n} days', { n: task.frequencyValue }) : t('chorestrike', 'Daily'),
 		weekly: task.frequencyValue === 1 ? t('chorestrike', 'Weekly') : t('chorestrike', 'Every {n} weeks', { n: task.frequencyValue }),
 		monthly: task.frequencyValue === 1 ? t('chorestrike', 'Monthly') : t('chorestrike', 'Every {n} months', { n: task.frequencyValue }),
 		custom: t('chorestrike', 'Custom'),

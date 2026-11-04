@@ -63,6 +63,8 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 		})
 
 		it('carries the interval count for n > 1', () => {
+			expect(frequencyLabel({ frequencyType: 'daily', frequencyValue: 3 })).toBe('Every 3 days')
+			expect(frequencyLabel({ frequencyType: 'daily', frequencyValue: 1 })).toBe('Daily')
 			expect(frequencyLabel({ frequencyType: 'weekly', frequencyValue: 2 })).toBe('Every 2 weeks')
 			expect(frequencyLabel({ frequencyType: 'monthly', frequencyValue: 3 })).toBe('Every 3 months')
 		})
