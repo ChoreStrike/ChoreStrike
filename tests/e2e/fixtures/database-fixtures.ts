@@ -102,6 +102,21 @@ export class DatabaseManager {
 	}
 
 	/**
+	 * POST that keeps the socket-level reason. Node reports a lost connection
+	 * as "fetch failed" and holds the reason in `cause`, which the Playwright
+	 * report drops, so a lost seed would otherwise stay unexplained.
+	 */
+	private async post(url: string): Promise<Response> {
+		try {
+			return await fetch(url, { method: 'POST', headers: this.authHeaders() })
+		} catch (error) {
+			// `localhost` fails as an empty AggregateError that only carries a code.
+			const reason = ((error as Error).cause ?? error) as Error & { code?: string }
+			throw new Error(`POST ${new URL(url).pathname} failed: ${reason.code ?? reason.name} ${reason.message}`, { cause: error })
+		}
+	}
+
+	/**
 	 * Get available profiles
 	 */
 	async getProfiles(): Promise<Array<{ name: string, description: string }>> {
@@ -121,10 +136,7 @@ export class DatabaseManager {
 	async seed(profile: DatabaseProfile): Promise<SeededData> {
 		this.assertResetOwner()
 		const { url } = assertTestTarget(this.baseURL)
-		const response = await fetch(`${url}/apps/chorestrike/api/v1/test/seed/${profile}`, {
-			method: 'POST',
-			headers: this.authHeaders(),
-		})
+		const response = await this.post(`${url}/apps/chorestrike/api/v1/test/seed/${profile}`)
 
 		if (!response.ok) {
 			throw new Error(`Failed to seed database with profile '${profile}': HTTP ${response.status}`)
@@ -144,10 +156,7 @@ export class DatabaseManager {
 	async reset(): Promise<void> {
 		this.assertResetOwner()
 		const { url } = assertTestTarget(this.baseURL)
-		const response = await fetch(`${url}/apps/chorestrike/api/v1/test/reset`, {
-			method: 'POST',
-			headers: this.authHeaders(),
-		})
+		const response = await this.post(`${url}/apps/chorestrike/api/v1/test/reset`)
 
 		if (!response.ok) {
 			throw new Error(`Failed to reset database: ${response.status}`)

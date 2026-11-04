@@ -1200,6 +1200,7 @@ When changing task or room flows, update these layers together:
 **Test flakiness:**
 - Increase timeouts in `playwright.config.ts`
 - Run with `--workers=1` for sequential execution
+- Specs run on the real clock: use relative dates (`houseDateOffset` in `tests/e2e/fixtures/house-clock.js`), never calendar literals. A literal starts failing the day it passes, without any code change.
 
 ### Stopping the Test Environment
 

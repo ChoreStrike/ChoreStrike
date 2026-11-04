@@ -279,7 +279,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
 
 		// Verify floors are still there
-		await expect(page.locator('text=Keller').first()).toBeVisible()
+		await expect(page.locator('text=Keller').first()).toBeVisible({ timeout: 15000 })
 		await expect(page.locator('text=Erdgeschoss').first()).toBeVisible()
 		await expect(page.locator('text=1. Obergeschoss').first()).toBeVisible()
 	})

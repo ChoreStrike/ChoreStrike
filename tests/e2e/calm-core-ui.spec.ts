@@ -3,6 +3,7 @@ import type { DatabaseProfile } from './fixtures/database-fixtures.ts'
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { completeWithOptionalDialog } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
+import { houseDateOffset } from './fixtures/house-clock.js'
 
 /**
  * E2E test: the calm core UI (CS-PLAN-070 WP6) — serial family pool.
@@ -177,14 +178,19 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 	test('the pause lifecycle stays neutral through request, owner decision and early end', async ({ browser, seededData: _seededData }) => {
 		const child = await createUserContext(browser, 'teen')
 		const owner = await createUserContext(browser, 'mom')
+		// The server never cuts today or earlier, so the end must stay ahead of
+		// the real clock. One day of margin covers every house time zone.
+		const pauseStart = houseDateOffset(1, 'UTC')
+		const earlyEnd = houseDateOffset(2, 'UTC')
+		const pauseEnd = houseDateOffset(3, 'UTC')
 		try {
 			// The child requests a personal pause through the self-only
 			// surface (pending — nothing changes until the owner decides).
 			await child.page.goto('/apps/chorestrike/#/settings')
 			const pauseSurface = child.page.getByTestId('pause-settings')
 			await expect(pauseSurface).toBeVisible({ timeout: 30000 })
-			await child.page.getByTestId('pause-start-input').fill('2026-11-02')
-			await child.page.getByTestId('pause-end-input').fill('2026-11-04')
+			await child.page.getByTestId('pause-start-input').fill(pauseStart)
+			await child.page.getByTestId('pause-end-input').fill(pauseEnd)
 			await child.page.getByTestId('pause-reason-select').selectOption('illness')
 			await child.page.getByTestId('pause-request-submit').click()
 
@@ -207,9 +213,9 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 			await expect(shortenInput).toBeVisible({ timeout: 15000 })
 
 			// The early end shortens the pause to the next local day.
-			await shortenInput.fill('2026-11-03')
+			await shortenInput.fill(earlyEnd)
 			await child.page.locator('[data-testid^="pause-shorten-submit-"]').first().click()
-			await expect(child.page.locator('.pause-entry').filter({ hasText: '2026-11-03' })).toBeVisible({ timeout: 15000 })
+			await expect(child.page.locator('.pause-entry').filter({ hasText: earlyEnd })).toBeVisible({ timeout: 15000 })
 		} finally {
 			await owner.context.close()
 			await child.context.close()
