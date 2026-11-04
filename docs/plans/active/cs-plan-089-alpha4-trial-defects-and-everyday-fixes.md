@@ -28,8 +28,8 @@ Two are larger than reported:
   [settings screenshot](../../screenshots/guide-settings.png) shows; by the same
   rules it ends at y=836. Beyond the reported margins, 44 px of height stay unused
   under the header, and the last 36 px of every scroll area never come into view (44
-  px on a phone). That last point is derived from the CSS, not yet measured in a
-  browser.
+  px on a phone). The browser confirmed this: right margin 0 against 16 on the left on
+  the desktop, and the frame ending 44 px below the window on a phone.
 - **D-4 (HTTP 500):** `RoomTaskController::updateDueDate()` does not catch
   `ConflictException`. That turns every refusal of the date writer into a 500: the
   passed amendment deadline, the child day limit and a stale target.
@@ -173,8 +173,10 @@ browser gates follow with the candidate.
   sizing; by the core rules the frame then spans x=8..1272 and y=44..792 at 1280×800,
   which is 8 px on every side. The app keeps its own mount element because core's
   `#content` also holds the hidden page heading, which a mount on `#content` would
-  replace. Measure before and after on both runtime rows: every view moves up by 44
-  px, and the removed `#app-content` wrapper also carried a background and a z-index.
+  replace. Every view moves up by 44 px, and the removed `#app-content` wrapper also
+  carried a background and a z-index. Delivered on the primary row: equal margins on both
+  viewports, reachable end of a long view, screenshots reviewed by eye; the navigation now
+  shows the usual translucent Nextcloud background. The AIO row follows with the candidate.
 - **BUG-UX-010 (D-3):** reproduce first. Probable cause: `.text-input` in
   `Settings.vue` sets 12 px block padding on a `<select>` that core fixes at 36 px, so
   10 px remain for the text. Its `background` shorthand also drops core's chevron. The

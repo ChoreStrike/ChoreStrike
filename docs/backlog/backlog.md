@@ -171,15 +171,15 @@ already uses the translated `Every {n} days`.
 `templates/main.php` renders a second `#content` inside the one from Nextcloud's
 `layout.user.php`, so the core rule (`position: fixed`, margins, width, height)
 applies twice. The frame keeps a gap on the left but reaches the right window
-edge, and it extends below the visible area. By the core rules 44 px stay unused
-under the header and the last 36 px of every scroll area never come into view
-(44 px on a phone). The numbers come from the core CSS and the tracked settings
-screenshot; the scroll loss is not yet measured in a browser.
+edge, and it extends below the visible area. 44 px stay unused under the header and
+the last 36 px of every scroll area never come into view (44 px on a phone), as the
+browser test confirmed before the fix.
 
-- [ ] The app template keeps only its mount element; `NcContent` positions itself,
+- [x] The app template keeps only its mount element; `NcContent` positions itself,
       and core's hidden page heading stays.
 - [ ] `layout-clearance.spec.ts` pins equal margins, the top edge and a reachable
-      end of a long view on both viewports; both runtime rows pass.
+      end of a long view on both viewports; the primary row passes, the AIO row follows
+      with the candidate.
 - [ ] Documentation screenshots recaptured.
 
 ---

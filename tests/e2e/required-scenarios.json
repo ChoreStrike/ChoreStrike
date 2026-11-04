@@ -324,6 +324,8 @@
     "fast-core-tests.spec.ts > Fast Core Tests > Task Manager basic functionality"
   ],
   "layout-clearance.spec.ts": [
+    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the app frame keeps its margins and a long view stays reachable (desktop)",
+    "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the app frame keeps its margins and a long view stays reachable (phone)",
     "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the house-health bar shows its fill, icon and a gap before the percentage",
     "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the navigation toggle covers no view heading (desktop)",
     "layout-clearance.spec.ts > Layout clearance and dashboard health bar > the navigation toggle covers no view heading (phone)",

@@ -151,6 +151,32 @@ test.describe('Layout clearance and dashboard health bar', () => {
 		})
 	}
 
+	// BUG-UX-009: a second `#content` from the app template doubled the core
+	// frame rule, so the frame ran past the right and bottom window edges.
+	for (const viewport of VIEWPORTS) {
+		test(`the app frame keeps its margins and a long view stays reachable (${viewport.name})`, async ({ browser }) => {
+			const { context, page } = await createUserContext(browser, USER, { viewport })
+			try {
+				await page.goto('/apps/chorestrike/#/settings')
+				const root = page.getByTestId('settings-view')
+				await expect(root).toBeVisible({ timeout: 20000 })
+				await page.waitForLoadState('networkidle')
+
+				const frame = await boxOf(page.locator('#content-vue'))
+				const header = await boxOf(page.locator('#header'))
+				expect(viewport.width - frame.right, 'the right margin equals the left one').toBe(frame.left)
+				expect(viewport.height - frame.bottom, 'the bottom margin equals the left one').toBe(frame.left)
+				expect(frame.top, 'the frame starts under the header').toBe(header.bottom)
+
+				const end = root.locator('.settings-section').last()
+				await end.scrollIntoViewIfNeeded()
+				expect((await boxOf(end)).bottom, 'the end of the view scrolls into the frame').toBeLessThanOrEqual(frame.bottom)
+			} finally {
+				await context.close()
+			}
+		})
+	}
+
 	test('the view insets follow the host navigation metrics, not constants (CR-LAYOUT-01)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, USER, { viewport: VIEWPORTS[0] })
 		try {
