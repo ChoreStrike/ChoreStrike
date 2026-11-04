@@ -231,7 +231,7 @@ for an interval, not for a fixed cadence (D-088-20, API reference, service docbl
 ---
 
 ### [P2] BUG-UX-013 — A child's My Day hides own tasks above the daily limit
-**Status**: In Progress (Round 1, D-089-10; implemented on `fix/alpha4-round1`, the operator's confirmation of the reported case is open) · **Effort**: S · **Layer**: backend · **Journey stage**: daily execution
+**Status**: In Progress (Round 1, D-089-10; implemented on `fix/alpha4-round1`, cause confirmed by the operator) · **Effort**: S · **Layer**: backend · **Journey stage**: daily execution
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator report of 2026-11-04, CS-PLAN-089 register D-6
 
@@ -239,15 +239,12 @@ for an interval, not for a fixed cadence (D-088-20, API reference, service docbl
 The newest tasks fell off first, own tasks included, an unassigned row could take their place,
 and the overload banner counts visible rows only. The creation path accepts a task for a child
 on a full day, while a later assignment is refused. Contract C2 forbids silently hiding excess
-obligations. Without a limit the task appears in every tested variant, so the confirmation of
-the reported case depends on whether that child has a limit.
+obligations. The operator confirmed that the reported child has a limit.
 
 - [x] Own tasks stay on My Day above the limit; unassigned rows fill only the free slots.
 - [x] Regression tests on the real creation path, failing without the fix.
-- [ ] The operator confirms that the reported child has a limit; otherwise this item stays open
-      with the task's assignment and due date.
-- [ ] Decide whether creating a task for a child on a full day is refused like a later
-      assignment.
+- [x] The operator confirms that the reported child has a limit (2026-11-04).
+- [x] Creating a task for a child on a full day stays possible (D-089-11).
 
 ---
 
@@ -291,7 +288,7 @@ needs no migration.
 
 ### [P2] FEAT-UX-047 — One task row everywhere
 **Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: task overview
-**Owning**: CS-PLAN-089 · **Depends on**: FEAT-UX-046 · **Blocks**: — · **Folded-in**: removal of the stale *Teamwork bonus* label (review of the feedback, 2026-11-03)
+**Owning**: CS-PLAN-089 · **Depends on**: FEAT-UX-046 · **Blocks**: — · **Folded-in**: removal of the stale *Teamwork bonus* label (review of the feedback, 2026-11-03); *Next appointments* follows the filter (operator decision, 2026-11-04)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register G-7
 
 The same layout wherever a task appears: energy in colour, no clock, flex days

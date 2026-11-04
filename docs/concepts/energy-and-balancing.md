@@ -156,7 +156,8 @@ so real work stays recordable.
   within the limits instead of bypassing them with a per-item override. Existing
   overload remains visible; silently hiding excess obligations is not recovery.
   My Day follows this: the child limit caps unassigned offers, never own tasks
-  (BUG-UX-013).
+  (BUG-UX-013). Creating a task is never refused: a day may be overbooked, and the
+  overload stays visible (D-089-11).
 - Actual work remains immediately recordable, with normal effort credit, even
   if it exceeded the plan's limit. Show overload neutrally, stop offering extra
   work and have the owner clarify remaining commitments. Do not erase reality,

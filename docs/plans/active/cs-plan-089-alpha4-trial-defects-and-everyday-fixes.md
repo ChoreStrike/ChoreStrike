@@ -52,9 +52,9 @@ sorted earlier could take their place. The creation path accepts a task for a ch
 full day, while a later assignment is refused, and the overload banner counts visible rows
 only, so nothing showed. This contradicts contract C2 ("silently hiding excess obligations
 is not recovery"). Without a limit the task appears in all eleven tested variants: assigned
-at creation or later, shared, fixed, flexible, one-time and private. Whether the reported
-child has a limit is still to be confirmed. The owner can raise a limit at once, so this is
-a P2 without a hotfix.
+at creation or later, shared, fixed, flexible, one-time and private. The operator confirmed
+that the reported child has a limit, and older open tasks had filled it. The owner can raise
+a limit at once, so this is a P2 without a hotfix.
 
 Many change requests touch a recorded contract (ADR-013, ADR-014, ADR-015,
 ADR-019) or need the first schema step on the retained baseline, so they cannot
@@ -112,6 +112,11 @@ plans from the backlog.
 - **D-089-10 Sixth defect (operator 2026-11-04):** D-6 joins Round 1 and comes first. The
   child limit caps only what My Day offers: own tasks always stay visible, and unassigned
   rows fill the slots that remain.
+- **D-089-11 Overbooked days (operator 2026-11-04):** the operator confirmed that the reported
+  child has a daily limit. Creating a task stays possible on a full day: refusals only
+  irritate, and a day may be overbooked in principle.
+- **D-089-12 Next appointments (operator 2026-11-04):** the list on My Day follows the filter,
+  so *My tasks* no longer shows other people's appointments.
 
 ### Decisions left to the source project
 
@@ -203,8 +208,8 @@ browser gates follow with the candidate.
     comes with the one form in FEAT-UX-040.
 - **BUG-UX-013 (D-6):** `childDailyRows()` no longer cuts own tasks. An own task is the agreed
   obligation when the row has one, otherwise the assignment. Own tasks all stay, and unassigned
-  rows fill the slots that remain in canonical order. Open: whether creating a task for a child
-  on a full day should be refused like a later assignment. Round 1 only makes the result visible.
+  rows fill the slots that remain in canonical order. Creating a task on a full day stays
+  possible (D-089-11).
 - **TECH-LOG-001 (D-5):** `initializeScheduling()` fetches the member availability only
   for owners. The role is known by then, because `App.vue` renders the router view only
   after the membership resolved, and the section that uses the data is already
@@ -426,7 +431,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 Role-level, sanitized entries only (adult / child / owner); no names, ages, accounts,
 quotations or household details. Raw notes stay with the operator. All entries date from
 2026-11-03 and were reported by the owner role; the IDs follow the operator's report. D-4 and
-D-5 come from the server log. D-6 dates from 2026-11-04. Owning items are in [`backlog.md`](../../backlog/backlog.md).
+D-5 come from the server log. D-6 and D-7 date from 2026-11-04. Owning items are in [`backlog.md`](../../backlog/backlog.md).
 
 | ID | Observation | Type / priority | Routing | State |
 |----|-------------|-----------------|---------|-------|
@@ -435,7 +440,8 @@ D-5 come from the server log. D-6 dates from 2026-11-04. Owning items are in [`b
 | D-3 | A dark area partly covers the selected timezone | Bug / P2 | BUG-UX-010 | Round 1; reproduced and fixed on `fix/alpha4-round1` |
 | D-4 | HTTP 500 on a refused due-date change | Bug / P2 | BUG-UX-011 | Round 1; fixed on `fix/alpha4-round1`, wider than reported |
 | D-5 | An owner-only endpoint is called for every member and fills the log | Bug / P3 | TECH-LOG-001 | Round 1; fixed on `fix/alpha4-round1` |
-| D-6 | Tasks created the day before do not appear on a child's My Day | Bug / P2 | BUG-UX-013 | Round 1; reproduced with a daily limit, operator confirmation open |
+| D-6 | Tasks created the day before do not appear on a child's My Day | Bug / P2 | BUG-UX-013 | Round 1; fixed on `fix/alpha4-round1`, cause confirmed by the operator |
+| D-7 | *Next appointments* shows other people's tasks under *My tasks* | Improvement / P3 | FEAT-UX-047 | Round 1; found in the D-2 check, D-089-12; fixed on `fix/alpha4-round1` |
 | L-1 | About 4–6 colour schemes that work in the light and the dark theme | Feature / P3 | FEAT-UX-057 | Round 3 |
 | T-1 | Energy as the only effort measure at about 10 minutes each, with room for longer tasks | Improvement / P2 | FEAT-UX-046 | Round 1 (D-089-07) |
 | T-2 | Energy shown as bolts in the task dialog, scaling above 5 | Improvement / P3 | FEAT-UX-046 | Round 1 |

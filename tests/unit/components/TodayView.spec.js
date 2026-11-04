@@ -293,6 +293,26 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
 	})
 
+	it('lists only own and unassigned appointments under My tasks, all of them under Everyone', async () => {
+		const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+		const row = (id, name, assignees) => ({
+			roomTask: { id, taskId: id, roomId: 1 },
+			task: { id, name },
+			room: { id: 1, name: 'Kitchen' },
+			assignees,
+			occurrenceDetails: [{ date: tomorrow, occurrenceId: `${id}:1`, classification: 'agreed', version: 1, fulfilled: false }],
+		})
+		mockRoomTasksStore.rangeTasks.scheduled = [row(1, 'Own task', ['mom']), row(2, 'Unassigned task', []), row(3, 'Someone else', ['teen'])]
+		const wrapper = await mountView()
+		const names = () => wrapper.findAll('[data-testid="today-appointment"]').map((appointment) => appointment.find('.appointment-name').text())
+
+		expect(names()).toEqual(['Own task', 'Unassigned task'])
+
+		await wrapper.get('[data-testid="today-filter-all"]').trigger('click')
+
+		expect(names()).toEqual(['Own task', 'Unassigned task', 'Someone else'])
+	})
+
 	it('renders next agreed appointments from the delivered range read without optional work (C5f)', async () => {
 		const todayKey = new Date().toISOString().slice(0, 10)
 		const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)

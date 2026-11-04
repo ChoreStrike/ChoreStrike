@@ -867,6 +867,7 @@ endpoint still answers `200` with `rewards.weeklyGoal = null`.
 #### GET /room-tasks/range?from=&to=
 Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.
 
+Every scheduled item carries its `assignees` (user ids), the set My Day filters by.
 Recurring tasks are **projected** across the window: each scheduled item carries an
 `occurrences` array of `Y-m-d` dates (one per future occurrence in `[from, to]`), so a
 daily task appears on every day it recurs. One-time tasks emit a single occurrence.

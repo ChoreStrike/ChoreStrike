@@ -498,6 +498,9 @@ export default {
 			const offered = new Set(this.openWindowItems.map((item) => item.occurrence?.occurrenceId))
 			const appointments = []
 			for (const item of this.roomTasksStore.rangeTasks.scheduled) {
+				if (this.filter !== 'all' && !this.isMine(item)) {
+					continue
+				}
 				const details = Array.isArray(item.occurrenceDetails) ? item.occurrenceDetails : []
 				for (const detail of details) {
 					if (detail.classification !== 'agreed' || offered.has(detail.occurrenceId)) {

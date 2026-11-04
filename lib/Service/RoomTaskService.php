@@ -813,6 +813,9 @@ class RoomTaskService {
 		// reads it, and a second selection derivation would only add reads.
 		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $roomTasks, $fromKey, $toKey);
 		$now = new \DateTime();
+		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
+			array_map(static fn (RoomTask $rt): int => (int)$rt->getId(), $roomTasks)
+		);
 
 		$scheduled = [];
 		foreach ($roomTasks as $rt) {
@@ -863,6 +866,7 @@ class RoomTaskService {
 				'roomTask' => $rt->jsonSerialize($tz),
 				'task' => $task->jsonSerialize(),
 				'room' => $room->jsonSerialize(),
+				'assignees' => $assigneesByRoomTask[$rt->getId()] ?? [],
 				'flexWindow' => [
 					'earliest' => $flexWindow['earliest']?->format('Y-m-d'),
 					'ideal' => $flexWindow['ideal']?->format('Y-m-d'),
