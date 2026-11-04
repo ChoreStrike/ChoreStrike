@@ -372,6 +372,9 @@ explicit estimate/scope decision, not a weaker test gate or fictional deadline.
   user-rescoped; required deferred evidence still blocks completion. The parent's
   whole-item verdicts were recorded at its closure (2026-10-18).
 - [x] Durable matrix/protocol/contract outcomes are integrated into permanent docs.
+- [ ] Tags `v0.8.0-alpha.2` at `fcb65cf` and `v0.8.0-alpha.3` at `0142a38` with their GitHub
+  pre-releases, each only after its complete stage-mapped manual sign-off and with its own
+  authorization (Q-088-03, moved here by D-088-27).
 - [ ] Final Standard B or Full review passes for complete WP9 and the consolidated
   parent G3; plans/tracking and CONCEPT-001 archive reflect actual completion.
   Technical green alone does not authorize closure.
@@ -416,10 +419,13 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   smoke passed. The family trial continues on this version. Record:
   [deployment.md](../../engineering/deployment.md#update-to-080-alpha3-2026-10-29);
   candidate and verification:
-  [CS-PLAN-088](cs-plan-088-alpha3-feedback-round.md#wp-d-deployment-record-2026-10-29).
+  [CS-PLAN-088](../done/cs-plan-088-alpha3-feedback-round.md#wp-d-deployment-record-2026-10-29).
 - **Trial feedback (operator, 2026-11-03):** the operator's change requests are
   registered in CS-PLAN-089. They are product feedback, not HUMAN-01/02 evidence:
   no execution result is recorded by that report.
+- **Tags (D-088-27, operator 2026-11-04):** this plan takes over the tag step from
+  CS-PLAN-088, because it owns the real-device checklist and the human evidence the complete
+  stage-mapped sign-off depends on. Q-088-03 stays the policy: no tag exists yet.
 - **Sequencing (D-089-06, operator 2026-11-04):** the family trial closes before
   Round 2 of the feedback work, because Round 2 changes the task and completion
   flows the trial evaluates. Round 1 (`0.8.0-alpha.4`) may ship while it runs; the

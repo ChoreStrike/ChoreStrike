@@ -969,54 +969,9 @@ not close parent findings or replace WP9 evidence.
 
 ---
 
-### [P3] TECH-DEV-001 — Local Node 24 runs outside the supported `^20.19.0` engine range
-**Status**: In Progress (Node ^24 / npm ^11.8.2 implemented on `chore/tech-dev-001-node24` 2026-10-20 with bundler 7.1, `sass-loader` 17, package builder `node:24.14.0` and CI pins; strict installs, reproducible package build and both browser gates green locally; remote CI evidence and the final Full review open) · **Effort**: S · **Layer**: tooling · **Journey stage**: —
-**Owning**: CS-PLAN-088 WP-C · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PR #3 (2026-10-18)
-**Source**: worktree hygiene task, 2026-10-17
-
-The development machine has only Node 24.13 / npm 11.8 and no version manager,
-so the documented `npm ci --engine-strict` ([development.md](../engineering/development.md))
-fails with `EBADENGINE`; local checkouts install without engine validation and
-run Jest/ESLint/webpack on an unsupported engine (ESLint already prints Node
-`DEP0180` deprecation warnings), while CI validates the minimum. Either
-provide Node 20.19 locally (version manager or pinned install) or deliberately
-widen the supported range after qualifying the toolchain (dialogs `~7.2.0`
-constraint) — not both silently.
-
-Folded in 2026-10-18: Node 20 reached end of life on 2026-04-30, and
-`@nextcloud/webpack-vue-config` 7.1 (Dependabot PR #3) needs `sass-loader` ^17,
-which requires Node ≥ 22.11 — the PR fails `npm ci` with `ERESOLVE` against the
-current range. Moving the supported range to Node 22/24 unblocks that bundler
-major; adopt it together with `sass-loader` 17 (modern Sass API only) and a
-byte-level comparison of the built `js/`, then drop the `sockjs` → `uuid`
-override in `package.json`.
-
----
-
-### [P3] TECH-LINT-008 — Migrate linting to ESLint 10 flat config
-**Status**: In Progress (implemented on `chore/tech-dev-001-node24` 2026-10-20 as one series with TECH-DEV-001: `npm run lint` exits 0 without warnings, Jest/browser gates green on both rows; remote CI and the final Full review open) · **Effort**: M · **Layer**: tooling · **Journey stage**: —
-**Owning**: CS-PLAN-088 WP-C · **Depends on**: TECH-DEV-001 · **Blocks**: — · **Folded-in**: —
-**Source**: Dependabot PR #4, 2026-10-18
-
-`@nextcloud/eslint-config` 9 (with `@vue/eslint-config-typescript` 14 and
-`eslint-plugin-vue` 10) requires ESLint ≥ 10 and a flat `eslint.config.js`;
-the project still runs ESLint 8 with `.eslintrc.js`, so the grouped Dependabot
-bump fails `npm ci` with `ERESOLVE`. The new config also adds rules (camelCase
-events and slot names, consistent type imports, top-level functions, …) whose
-fallout across `src/`, `tests/e2e` and `tests/docs-screenshots` needs its own
-pass. Until then the `eslint-plugin-vue` → `postcss-selector-parser` and
-`@nextcloud/eslint-plugin` → `fast-xml-parser` overrides in `package.json`
-hold the patched versions; drop them once the migrated stack resolves them.
-
-- [ ] A flat `eslint.config.js` on ESLint 10 replaces `.eslintrc.js`; `npm run lint` covers the same file sets.
-- [ ] New-rule findings fixed; any deliberate rule-policy change explicitly reviewed and approved with a stated reason, never warning suppression to pass.
-- [ ] The two lint-stack overrides are removed.
-
----
-
 ### [P3] TECH-LINT-009 — Boolean props that default to `true`
 **Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: —
-**Owning**: unassigned · **Depends on**: TECH-LINT-008 · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-088 D-088-10 (operator, 2026-10-20)
 
 `vue/no-boolean-default` of the Nextcloud ESLint preset wants Boolean props to
@@ -1166,8 +1121,8 @@ and the post-deployment log check cannot filter by app.
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (`0.8.0-alpha.3` deployed 2026-10-29, CS-PLAN-088 closing; CS-PLAN-089 activated for the alpha.4 slice; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: CS-PLAN-088 WP-A/WP-D (alpha.3 feedback/release slice only); CS-PLAN-089 WP-F (alpha.4 release slice only); CS-PLAN-080 (family evidence); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Status**: In Progress (`0.8.0-alpha.3` deployed 2026-10-29, CS-PLAN-088 closed 2026-11-04; CS-PLAN-089 activated for the alpha.4 slice; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: CS-PLAN-089 WP-F (alpha.4 release slice only); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
@@ -1242,7 +1197,7 @@ preserved, other apps unaffected, production smoke passed
 Still open here: real-world `v0.8.x` field use (the family trial in CS-PLAN-080)
 and the optional `v0.9.x` tester onboarding.
 
-**Alpha.3 round (2026-10-19):** [CS-PLAN-088](../plans/active/cs-plan-088-alpha3-feedback-round.md)
+**Alpha.3 round (2026-10-19):** [CS-PLAN-088](../plans/done/cs-plan-088-alpha3-feedback-round.md)
 passed Standard A with fixes and owns only the next feedback/release bundle.
 Q-088-03/04 select full-sign-off-gated alpha.2/alpha.3 tags and deployment-dated
 changelog sections as policy, not permission to publish or deploy. The operator

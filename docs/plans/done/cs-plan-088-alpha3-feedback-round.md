@@ -1,6 +1,6 @@
 # CS-PLAN-088: 0.8.0-alpha.3 — Trial Feedback and Backlog Round
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-10-19; drafted 2026-10-19; WP-C toolchain series started 2026-10-20 (branch `chore/tech-dev-001-node24`); `0.8.0-alpha.3` deployed 2026-10-29, [record](#wp-d-deployment-record-2026-10-29) imported 2026-11-04; open: the tag and pre-release step and the final completion review
+> **Status:** Done - final Standard B `PASS-WITH-FIXES` 2026-11-04; Standard A `PASS-WITH-FIXES` 2026-10-19; `0.8.0-alpha.3` deployed 2026-10-29, [record](#wp-d-deployment-record-2026-10-29) imported 2026-11-04; the tag step moved to CS-PLAN-080 (D-088-27)
 > **Effort:** M — 8–12 engineering days inside a 2–3 week window: feedback intake 2026-10-20 → ~2026-11-02 (the 14-day HUMAN-02 window of CS-PLAN-080 ends the same weekend), candidate freeze, qualification and deployment in the week of 2026-11-03
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.2` deployed on the retained baseline (done 2026-10-19); the family trial's sanitized feedback (collected by the operator); no schema change intended
@@ -257,6 +257,15 @@ All questions were answered with their recommended option.
   Deployment, the production AIO update to v14.4.2 / NC 34.0.5, the record
   import, tags and pre-releases stay separate operator steps. The release
   worktree stays until the export, since it holds the qualified run.
+- **D-088-27 Tag step (operator 2026-11-04):** the tags and GitHub pre-releases of
+  Q-088-03 move to CS-PLAN-080, which owns the real-device checklist and the human
+  evidence the complete stage-mapped sign-off depends on. Q-088-03 stays the policy:
+  `v0.8.0-alpha.2` at `fcb65cf` and `v0.8.0-alpha.3` at `0142a38`, each only after its
+  sign-off and with its own authorization. Rejected: keeping this plan open until then.
+- **D-088-28 Final review tier (operator 2026-11-04):** the final completion review
+  runs as a final Standard B instead of a second Full review. The pre-candidate Full
+  review covered the release delta, and only documentation changed after `0142a38`.
+  Rejected: a second Full review with four parallel reviewers.
 
 ## 3. Backend / Frontend Changes
 
@@ -538,7 +547,7 @@ manifest only when a concrete fix is admitted. CI publication waits for an
 explicit push request; local gates do not claim remote CI evidence.
 
 ```
-modified: docs/plans/active/cs-plan-088-alpha3-feedback-round.md
+modified: docs/plans/done/cs-plan-088-alpha3-feedback-round.md
 new:      src/composables/useHoldPress.js
 new:      tests/unit/composables/useHoldPress.spec.js
 new:      eslint.config.js                                   (TECH-LINT-008)
@@ -708,22 +717,22 @@ modified: src/views/RoomDetail.vue, tests/unit/views/RoomDetail.spec.js   (BUG-U
 
 ## 8. Acceptance Criteria
 
-- [ ] Every selected item delivered with its tests, or explicitly user-rescoped with recorded approval and backlog state updated; no still-required deferred test
-- [ ] Feedback register: every sanitized item routed (fixed with regression test / backlog ID / rejected with reason); no open P0 or P1
-- [ ] No schema or migration change (or an approved plan update with the populated-baseline upgrade proof)
-- [ ] Built `js/` compared for content equivalence after the toolchain change (D-088-09); `npm ci --engine-strict` passes on the new range at the minimum and a current Node 24 patch; CI green
-- [ ] `0.8.0-alpha.3` qualified: runtime check `current`, full browser gates and PHPUnit suites on both runtime rows, MariaDB/SQLite provider suites, reproducible package build and smoke
-- [ ] Manual alpha record completed before any tag; tags and GitHub pre-releases per Q-088-03
+- [x] Every selected item delivered with its tests, or explicitly user-rescoped with recorded approval and backlog state updated; no still-required deferred test
+- [x] Feedback register: every sanitized item routed (fixed with regression test / backlog ID / rejected with reason); no open P0 or P1
+- [x] No schema or migration change (or an approved plan update with the populated-baseline upgrade proof)
+- [x] Built `js/` compared for content equivalence after the toolchain change (D-088-09); `npm ci --engine-strict` passes on the new range at the minimum and a current Node 24 patch; CI green
+- [x] `0.8.0-alpha.3` qualified: runtime check `current`, full browser gates and PHPUnit suites on both runtime rows, MariaDB/SQLite provider suites, reproducible package build and smoke
+- [x] Manual alpha record and tags: user-rescoped to CS-PLAN-080 (D-088-27); no tag exists, so the record-before-tag rule held
 - [x] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide's *Updates on the Retained Baseline*
 - [x] `CHANGELOG.md`, README status/badge/caption, roadmap snapshot and documentation map name the new version
-- [ ] Build gate green (`npm test` + lint + backend tests)
-- [ ] Required tests ran without new or unapproved skips
-- [ ] All implementation decisions and review questions resolved and recorded
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
-- [ ] Owning backlog items updated or archived according to their actual completion state
-- [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
-- [ ] Final Full completion review after all required evidence is `PASS` or `PASS-WITH-FIXES`
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] Build gate green (`npm test` + lint + backend tests)
+- [x] Required tests ran without new or unapproved skips
+- [x] All implementation decisions and review questions resolved and recorded
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
+- [x] Owning backlog items updated or archived according to their actual completion state
+- [x] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
+- [x] Final completion review after all required evidence is `PASS` or `PASS-WITH-FIXES`: final Standard B instead of Full (D-088-28)
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated
 
 ## 9. Review Findings (plan-owned)
 
@@ -748,6 +757,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-088-14 (minor) - FEAT-UX-039: a repeat value above about 3·10^17 overflowed the period product into a `TypeError` (500) in `FlexDaysPolicy`. Fixed (D-088-23) by clamping the repeat value at 2 × the sanity bound, where every cap is already the bound, so no result changes (`FlexDaysPolicyTest`, `PHP_INT_MAX` cases).
 - [x] RF-088-15 (minor) - FEAT-UX-045: an entry recorded after a house reset never reached "Last cleaned", because the replay starts at the reset and the entry's day lies before it. Fixed (D-088-24): the replay folds the newest entry per room task recorded after the latest reset (by id); a room with a reset reads those entries with one indexed query (the reset-bounded replay budget is now 3), a room without a reset or entries still reads nothing extra. A builder/parser pair owns the persisted `last_done:<roomTaskId>:<command>` key (replay unit tests, integration case with a real reset).
 - [x] RF-088-16 (minor) - Structure and performance (D-088-25): `getFilteredDailyTasksForUser` split (22 lines, `childDailyRows` 22, `isChildEligible`); open-window rows derive their selections once, on viewer-visible candidates only, and one shared `withSelectionBlocks` serves the due-today, overdue and open-window paths; widening flex windows reads the open occurrences of all mounted room tasks in one query; a direct room switch refreshes the room list but keeps loaded task definitions unless the new room uses an unknown one (`RoomDetail` spec); one flex-cap input list in `TaskService`; readability fixes in `HouseSetupService` and the last-done controller. The pre-existing file size of `RoomTaskReadService` (993 lines, 928 before alpha.3) went to CR-SVC-65.
+- [x] RF-088-17 (minor) - Tracking: TECH-DEV-001 and TECH-LINT-008 stayed open in `backlog.md` after delivery, waiting for remote CI and this review. Their criteria were verified (engines, flat config, removed overrides, green CI) and both are archived; TECH-LINT-009 no longer depends on them.
 
 ## Feedback Register (sanitized)
 
@@ -1065,9 +1075,10 @@ Branch `chore/release-0.8.0-alpha.3` from `master` `dccafeb` (worktree
 - **Guide findings of the report** moved into the deployment guide: the platform update as
   its own step, a pending update of an unrelated app, per-package file and directory counts,
   and reading the server log on AIO.
-- **Open for this plan:** tags and GitHub pre-releases per Q-088-03, which need the complete
-  stage-mapped manual sign-off, and the final completion review. Retained worktree:
-  `~/worktrees/chorestrike-alpha3-release` still holds run `mvsq7gf7`.
+- **Closure (2026-11-04):** the tag step moved to CS-PLAN-080 (D-088-27) and the final review
+  ran as Standard B (D-088-28). The records of run `mvsq7gf7` are kept in the local
+  `archive/2026-11/package-run-mvsq7gf7/`; the release worktree and its merged branch go with
+  this closure.
 
 ## Review Outcome
 
@@ -1127,3 +1138,31 @@ canonical stack and on SQLite, MySQL and the AIO row (matrix `a3c`), AIO browser
 under a host slowdown). The plan stays active for the package build and smoke,
 export, deployment and the final completion review. Record:
 [pre-candidate Full review](../../backlog/archive/CODE_REVIEW_2026-10-28.md#pre-candidate-full-review---cs-plan-088-080-alpha3-release-delta).
+
+**Final Standard B, 2026-11-04: PASS-WITH-FIXES.** Scope: the whole plan per D-088-28, not a
+working-tree diff: file manifest, required tests, acceptance criteria, review findings, feedback
+register, owning backlog items, durable docs and implementation history, plus the shared
+checklist over the code delta after the pre-candidate Full review (`dccafeb..0142a38`, 13 files
+under `lib/`, `src/` and `appinfo/`). No subagents.
+
+- Base HEAD `d2432fbda351c5a84c5e7f72b152bac036f237cc`, branch
+  `docs/alpha3-closure-alpha4-plan`, clean index and worktree. Outside documentation,
+  `git diff 0142a38 HEAD` is empty, so the candidate gates of the WP-D evidence stay valid for
+  the deployed build and for this HEAD.
+- Verified: all 147 concrete manifest paths and every named test tracked; RF-088-01..16 resolved;
+  all 17 register entries routed, no open P0 or P1; no migration file changed since `fcb65cf`;
+  the delivered backlog items archived.
+- One finding, fixed here: RF-088-17 (§9). The delta shows no architecture, authorization, input,
+  logging or i18n finding: the refused last-done date is a curated `ValidationException` and any
+  other invalid argument stays internal, and the new mapper query uses named parameters.
+- Durable docs checked: ADR-013, ADR-014, the API reference, the task-model concept, architecture,
+  testing and development guides, the design standard and the user guide carry the delivered
+  behavior.
+- Decisions: D-088-27 and D-088-28 (operator). No question is open.
+- Gates on this HEAD: Jest 159 suites / 2241 tests, `npm run lint`, `backlog:check`,
+  `docs:encoding`, `agents:check`, `git diff --check`. No code changed since the candidate, so
+  PHPUnit and browser evidence stay those of the qualified candidate and were not rerun.
+- Transition: `active/` to `done/`; TECH-DEV-001 and TECH-LINT-008 archived; RELEASE-002 keeps
+  its later stages. Record:
+  [2026-11-04 review](../../backlog/archive/CODE_REVIEW_2026-11-04.md#final-standard-b---cs-plan-088-alpha3-feedback-round).
+- Finalization is one scoped review commit; no merge, push, tag or deployment.

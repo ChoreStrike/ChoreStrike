@@ -14,20 +14,15 @@ docs/plans/
 
 ## Lifecycle
 
-Active: [CS-PLAN-088: 0.8.0-alpha.3 — Trial Feedback and Backlog Round](active/cs-plan-088-alpha3-feedback-round.md)
-(2026-10-19, Standard A `PASS-WITH-FIXES`): collects the family-trial feedback of
-`0.8.0-alpha.2` and the unowned small backlog items (hardening, toolchain
-majors) into one alpha update in two to three weeks, with a hotfix rule for
-anything urgent and a sanitized feedback register. Q-088-01..07 resolved:
-Must + Should selected, stretch excluded pending separate approval, Node 24/npm
-11 qualification, heading-only inset, bounded digest updates and explicit matrix
-reports. `0.8.0-alpha.3` is deployed since 2026-10-29; the tag step and the final
-completion review remain open.
-
 Active: [CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)](active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md)
 (2026-11-04, Standard A `PASS-WITH-FIXES`): the defects and everyday fixes from the operator's
 report on `0.8.0-alpha.3`, without a schema change, and the register that routes all 34
 entries into three rounds.
+
+Delivered: [CS-PLAN-088: 0.8.0-alpha.3 — Trial Feedback and Backlog Round](done/cs-plan-088-alpha3-feedback-round.md)
+(final Standard B `PASS-WITH-FIXES`, 2026-11-04): the first feedback round of the family trial,
+the toolchain majors and the small hardening items, deployed on 2026-10-29 without a migration.
+The tag step moved to CS-PLAN-080.
 
 Delivered: [CS-PLAN-083: Release Qualification Gates](done/cs-plan-083-release-qualification-gates.md)
 (final Full `PASS-WITH-FIXES`, 2026-10-10). RELEASE-002's bounded WP1-WP3 slice

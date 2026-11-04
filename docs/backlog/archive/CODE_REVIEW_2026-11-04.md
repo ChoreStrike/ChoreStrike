@@ -49,3 +49,54 @@ not required and did not run; they stay binding for the implementation.
 
 `new/` to `active/`; 11 owning backlog items `In Progress`; RELEASE-002 assigns the plan its alpha.4
 slice. One scoped review commit; no merge, push, tag or deployment.
+
+## Final Standard B - CS-PLAN-088 alpha3 feedback round
+
+**Outcome:** `PASS-WITH-FIXES`. Final review; the plan moves to `done/`.
+
+### Scope and capture
+
+- Tier: Standard B instead of Full by operator decision D-088-28. Owning plan given explicitly:
+  `docs/plans/active/cs-plan-088-alpha3-feedback-round.md`.
+- Base HEAD `d2432fbda351c5a84c5e7f72b152bac036f237cc` on branch
+  `docs/alpha3-closure-alpha4-plan`, clean index and worktree. A clean tree proves nothing about
+  completion, so the review covered the whole plan: manifest, tests, criteria, findings, register,
+  owning backlog items, durable docs and history.
+- Code delta after the pre-candidate Full review: `dccafeb..0142a38`, 13 files under `lib/`,
+  `src/` and `appinfo/`. Outside documentation, `git diff 0142a38 HEAD` is empty.
+
+### Findings
+
+| ID | Severity | Area | Issue | Resolution |
+|---|---|---|---|---|
+| RF-088-17 | minor | Tracking | TECH-DEV-001 and TECH-LINT-008 stayed open in `backlog.md` after delivery | Criteria verified, both archived; TECH-LINT-009 no longer depends on them |
+
+No architecture, authorization, input, logging or i18n finding in the delta. The refused last-done
+date is a curated `ValidationException`, any other invalid argument stays internal, and the new
+mapper query uses named parameters.
+
+### Verification
+
+- Manifest: all 147 concrete paths tracked. Named tests present. RF-088-01..16 resolved.
+- Register: all 17 entries routed, no open P0 or P1.
+- No migration file changed since `fcb65cf`; the 26 applied migrations are pinned.
+- Toolchain: engines Node `^24` / npm `^11.8.2`, flat ESLint config, the lint-stack and `sockjs`
+  overrides gone, remote `checks` and CodeQL green on `65f9725`.
+- Durable docs: ADR-013, ADR-014, the API reference, the task-model concept, architecture, testing
+  and development guides, the design standard and the user guide carry the delivered behavior.
+
+### Questions and decisions
+
+D-088-27: the tag step moves to CS-PLAN-080. D-088-28: this final Standard B replaces a second Full
+review. No question is open.
+
+### Gates
+
+Jest 159 suites / 2241 tests, `npm run lint`, `backlog:check`, `docs:encoding`, `agents:check`,
+`git diff --check`. No code changed since the candidate, so PHPUnit (1531/647 on four rows) and the
+browser gates `run-ECyo8u` and `run-hlouAh` stay the evidence and were not rerun.
+
+### Transition
+
+`active/` to `done/`; TECH-DEV-001 and TECH-LINT-008 archived; RELEASE-002 keeps its later stages.
+One scoped review commit; no merge, push, tag or deployment.

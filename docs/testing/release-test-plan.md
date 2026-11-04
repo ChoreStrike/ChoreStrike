@@ -379,7 +379,7 @@ agreed retention limits. Do not add telemetry or engagement/pressure scores.
   since 2026-10-29 `0.8.0-alpha.3` (`0142a38`, package run `mvsq7gf7`) on
   Nextcloud 34.0.5 / PHP 8.4.27 / PostgreSQL 18.6 / Redis 8.10.2 —
   [installed identity](../engineering/deployment.md#update-to-080-alpha3-2026-10-29),
-  [candidate gates](../plans/active/cs-plan-088-alpha3-feedback-round.md#wp-d-evidence-release-candidate-2026-10-28).
+  [candidate gates](../plans/done/cs-plan-088-alpha3-feedback-round.md#wp-d-evidence-release-candidate-2026-10-28).
   CS-PLAN-082 supplies renewed runtime qualification, not proof of what is
   installed for this trial. Do not run fixture resets against a trial instance.
 - [x] Confirm the trial environment and data boundary: the retained family
