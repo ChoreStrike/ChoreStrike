@@ -342,11 +342,12 @@ request; see the deployment guide. Do not reset the instance to obtain evidence.
 
 The canonical [family acceptance protocol](../concepts/ui-use-cases.md#family-acceptance-protocol)
 defines this gate. The following is its execution record, not a competing
-protocol and not evidence of participation. **Current status (2026-10-19):
+protocol and not evidence of participation. **Current status (2026-11-04):
 coordination authorized, guardian consent and minimum adult/child voluntary
-participation confirmed (2026-10-07); the trial candidate `0.8.0-alpha.2` has
-been installed on the retained family instance since 2026-10-19; no execution
-results recorded yet. HUMAN-01 and HUMAN-02 remain open.**
+participation confirmed (2026-10-07); the trial candidate on the retained family
+instance was `0.8.0-alpha.2` from 2026-10-19 and is `0.8.0-alpha.3` since
+2026-10-29; no execution results recorded yet. HUMAN-01 and HUMAN-02 remain
+open.**
 Automation cannot replace them; authorization does not start the 14-day clock.
 
 Start only after technical readiness and separately authorized coordination:
@@ -374,7 +375,11 @@ agreed retention limits. Do not add telemetry or engagement/pressure scores.
   `0.8.0-alpha.2` (`fcb65cf`, package run `mvfk6u1m`) on the production AIO row
   (Nextcloud 34.0.4 / PHP 8.4.26 / PostgreSQL 18.6 / Redis 8.10.2) since
   2026-10-19 — [installed identity](../engineering/deployment.md#update-to-080-alpha2-2026-10-19),
-  [candidate gates](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#pre-deployment-candidate-080-alpha2-2026-10-19).
+  [candidate gates](../plans/active/cs-plan-080-wp9-cross-db-and-family-evidence.md#pre-deployment-candidate-080-alpha2-2026-10-19);
+  since 2026-10-29 `0.8.0-alpha.3` (`0142a38`, package run `mvsq7gf7`) on
+  Nextcloud 34.0.5 / PHP 8.4.27 / PostgreSQL 18.6 / Redis 8.10.2 —
+  [installed identity](../engineering/deployment.md#update-to-080-alpha3-2026-10-29),
+  [candidate gates](../plans/active/cs-plan-088-alpha3-feedback-round.md#wp-d-evidence-release-candidate-2026-10-28).
   CS-PLAN-082 supplies renewed runtime qualification, not proof of what is
   installed for this trial. Do not run fixture resets against a trial instance.
 - [x] Confirm the trial environment and data boundary: the retained family

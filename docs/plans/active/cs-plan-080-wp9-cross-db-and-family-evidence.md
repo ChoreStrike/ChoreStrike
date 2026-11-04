@@ -408,6 +408,25 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 
 ## Implementation Evidence
 
+### Deployment 0.8.0-alpha.3 (2026-10-29)
+
+- **Deployed (operator, 2026-10-29):** `0.8.0-alpha.3` (`0142a38`, package run
+  `mvsq7gf7`) on the production AIO after its platform update to AIO 14.4.2 /
+  Nextcloud 34.0.5; no migration executed, all 30 app tables preserved, production
+  smoke passed. The family trial continues on this version. Record:
+  [deployment.md](../../engineering/deployment.md#update-to-080-alpha3-2026-10-29);
+  candidate and verification:
+  [CS-PLAN-088](cs-plan-088-alpha3-feedback-round.md#wp-d-deployment-record-2026-10-29).
+- **Trial feedback (operator, 2026-11-03):** the operator's change requests are
+  registered in CS-PLAN-089. They are product feedback, not HUMAN-01/02 evidence:
+  no execution result is recorded by that report.
+- **Sequencing (D-089-06, operator 2026-11-04):** the family trial closes before
+  Round 2 of the feedback work, because Round 2 changes the task and completion
+  flows the trial evaluates. Round 1 (`0.8.0-alpha.4`) may ship while it runs; the
+  record then names the version in use. Still open and owned by the operator: the
+  real-device checklist (RF-080-15, TECH-TEST-005), HUMAN-01 comprehension and the
+  14-day HUMAN-02 record (RF-080-05), then the final review.
+
 ### Deployment 0.8.0-alpha.2 (2026-10-19)
 
 - **Deployed (operator, 2026-10-19):** the candidate below went to the

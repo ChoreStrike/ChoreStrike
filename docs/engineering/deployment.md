@@ -159,6 +159,7 @@ both defaults — individual users can switch to any available language.
 - [ ] `npm run test:runtime:check` reports `current` (no upstream, AIO bundle or AIO component drift); otherwise update and requalify the inventory first
 - [ ] The production AIO runs the Nextcloud version of the inventory's AIO row (`docker/test-runtime.json` → `aio.nextcloudVersion`)
 - [ ] The AIO row (Redis sessions/cache/locking, PostgreSQL) passed the backend suites and the browser gate for that version ([AIO-near runtime row](testing.md#aio-near-runtime-row))
+- [ ] A platform update (AIO/Nextcloud) runs as its own step with its own completed backup, before the app window and against the inventory's AIO row. Deployment tooling that pins the qualified runtime stops on any difference, so it needs its new pinned values first
 
 ### Versions & Metadata
 
@@ -183,7 +184,7 @@ tests remain required: a working backup does not prove an update preserves facts
 
 ### Upgrade Scope
 
-- [ ] No enabled app has a pending App Store update (`occ app:update --showonly`; ignore the disabled apps it also lists) — `occ upgrade` would apply them together with ChoreStrike ([step 3](#3-run-migrations))
+- [ ] No enabled app has a pending App Store update (`occ app:update --showonly`; ignore the disabled apps it also lists) — `occ upgrade` would apply them together with ChoreStrike ([step 3](#3-run-migrations)). Install an unrelated pending update through the Nextcloud app management first, then repeat this check
 
 ## First Retained Baseline
 
@@ -194,7 +195,7 @@ migrations are immutable under the
 Disposable development installs and the canonical test environment (Nextcloud
 35.0.2 / PHP 8.4.27 / PostgreSQL 18.6, frozen in `docker/test-runtime.json`)
 stay disposable; they are neither retained data nor supported upgrade sources.
-The installed build on that baseline is `0.8.0-alpha.2` since 2026-10-19
+The installed build on that baseline is `0.8.0-alpha.3` since 2026-10-29
 ([updates](#updates-on-the-retained-baseline)).
 
 The production household has been non-disposable since the operator request of
@@ -261,6 +262,26 @@ An app update whose package carries the same applied migration files adopts no
 new baseline; it only changes the installed build identity of the baseline.
 Each update is recorded here once the operator's sanitized report has been
 verified against the local qualification run, Git and the pinned inventory.
+File and directory counts belong to one package, so before/after checks pin the
+installed and the new tree separately.
+
+#### Update to 0.8.0-alpha.3 (2026-10-29)
+
+| Item | Record |
+|------|--------|
+| Decision | Operator decisions D-088-22 and D-088-26 ([CS-PLAN-088](../plans/active/cs-plan-088-alpha3-feedback-round.md#decisions-recorded-for-wp-d-operator-2026-10-28)): early freeze and export of the qualified run. The operator deployed on 2026-10-29; the family trial continues on this version |
+| Source | `master` `0142a3881ef8d9b692bf471e0894f04c63e03a06` |
+| Artifact | `chorestrike.tar.gz`, 1714603 bytes, SHA-256 `77dcc0a632b28f042c145a150f50b106a268650263a107f76d5df03323165ada`; `package-manifest.json` `6eef9df38b77eea993467e9accbc4398d0c4cf7be10da398670ccace09709f1b`; `identity.json` `dbf710efdc5076539b0ddcf9fba5384cdd1e69427995bd6c6d49f2ad2121efb0`; package smoke `mvsq7gf7` (`package-qualified`, NC 35.0.2 and AIO NC 34.0.5) |
+| Receiver checks | Operator-reported: all sizes and hashes matched; full in-memory archive validation before extraction (no links, traversal or duplicates; 548 file hashes and 1122 source blob comparisons); all 548 files re-verified at the install location after the upgrade. 315 directories instead of 317: the two `licenses/npm/material-colors` entries are gone (confirmed against both package manifests) |
+| Installed version | `0.8.0-alpha.2` → `0.8.0-alpha.3` as reported by Nextcloud; app enabled, no pending database upgrade |
+| Runtime | Platform update first, as its own step through the supported AIO flow: AIO 14.3.0 / Nextcloud 34.0.4 → AIO 14.4.2 / Nextcloud 34.0.5. No core or app upgrade ran on the restart after it. Then Nextcloud 34.0.5, PHP 8.4.27, PostgreSQL 18.6, Redis 8.10.2 — the inventory's AIO row |
+| Upgrade | The pre-check stopped on one pending patch of another enabled app, as designed; the operator installed it through the Nextcloud app management and the repeated check found none. Files replaced under maintenance mode (about 40 seconds) with writers paused, then `occ upgrade`: only ChoreStrike updated, no repair warnings; enabled/disabled app list otherwise unchanged. App metadata differs from `0.8.0-alpha.2` only in the version; one new route (`PUT /api/v1/room-tasks/{id}/last-done`), no new app config key |
+| Migrations | The 26 applied migrations above, unchanged and none executed; the package carries the same 26 files byte-identically (26 of 26 by order and SHA-256 against the package, Git at `0142a38` and the pinned inventory) |
+| Data preservation | All 30 app tables (row counts and content digests) and the app config except `installed_version` identical before and after |
+| Technical evidence | Candidate gates in [CS-PLAN-088](../plans/active/cs-plan-088-alpha3-feedback-round.md#wp-d-evidence-release-candidate-2026-10-28): full gates on both runtime rows plus the MySQL/SQLite provider suites, pre-candidate Full review `PASS-WITH-FIXES`; remote `checks` and CodeQL green on `master` `65f9725` |
+| Smoke | Operator production browser smoke passed 2026-10-29 ([post-deployment verification](#post-deployment-verification)) |
+| Server log | Read-only check of 2026-10-29 to 2026-11-03: cron ran normally, the notifier warning stayed gone; two app defects, one of them an HTTP 500 on a refused due-date change (BUG-UX-011, TECH-LOG-001; neither needs a hotfix) |
+| Recovery | Current whole-instance backup taken after the platform update; established recovery procedure confirmed, no new restore test. Recovery from here is a whole-instance restore, never an app downgrade; "Last done on" entries recorded since are new persisted facts such a restore would lose |
 
 #### Update to 0.8.0-alpha.2 (2026-10-19)
 
@@ -491,17 +512,21 @@ sign-off record. **A release tag requires a completed record.**
 
 ## Post-Deployment Verification
 
-Operator-reported smoke of the deployed `0.8.0-alpha.2` (2026-10-19), after the
-`0.8.0-alpha.1` smoke of 2026-10-17 and the initial smoke of 2026-10-11: the
-checks below are manual reports, not independent server verification, reported
-as a whole rather than itemized; console/CSP checks and 403 probes were not
-recorded separately. 2026-10-19, phone and desktop: My Day, task completion with
-the hold button, the calendar, Insights on a phone and the arcade — no failure
-toast, so no API error code. Ticks the 2026-10-19 smoke did not re-check carry
-the 2026-10-17 result on the same instance (fresh private browser window, cold
-login, dashboard, settings and the remaining views; the member-completion
-failure of 2026-10-11 did not reproduce). Optional Coins/reward checks are
-deferred, not passed or removed from the eventual release gate.
+Operator-reported smoke of the deployed `0.8.0-alpha.3` (2026-10-29), after the
+`0.8.0-alpha.2` smoke of 2026-10-19, the `0.8.0-alpha.1` smoke of 2026-10-17 and
+the initial smoke of 2026-10-11: the checks below are manual reports, not
+independent server verification, reported as a whole rather than itemized;
+console/CSP checks and 403 probes were not recorded separately. 2026-10-29,
+phone and desktop: My Day including *Also possible today*, task completion with
+the hold button, creating a task from a filtered Tasks view, "Last done on" on a
+room task, renaming a room and a form dialog that stays open on an outside
+click — no failure toast, so no API error code. Ticks the 2026-10-29 smoke did
+not re-check carry the earlier results on the same instance: 2026-10-19 (the
+calendar, Insights on a phone and the arcade) and 2026-10-17 (fresh private
+browser window, cold login, dashboard, settings and the remaining views; the
+member-completion failure of 2026-10-11 did not reproduce). Optional
+Coins/reward checks are deferred, not passed or removed from the eventual
+release gate.
 
 - [x] App appears in Nextcloud app list
 - [x] App icon visible in the app launcher
@@ -514,7 +539,12 @@ deferred, not passed or removed from the eventual release gate.
 - [x] User management works (invite, remove)
 - [x] Nextcloud cron runs regularly (normally every five minutes); timeline and optional digest processing are operational, not dependent on page visits
 - [ ] Test mode remains disabled; no test accounts, seeds or fixture resets were introduced
-- [x] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — the recurring `ChoreStrikeNotifier::prepare()` deprecation warning of `0.8.0-alpha.1` no longer appears since `0.8.0-alpha.2`. Known and harmless: one level-2 `cron.php` entry a few minutes after any `occ upgrade` on AIO, `Skipping updater backup clean-up - could not find updater backup folder …` — the core repair step `AddCleanupUpdaterBackupsJob` queues `BackgroundCleanupUpdaterBackupsJob` on every upgrade and AIO has no web-updater backup folder (Nextcloud `stable34`); it also shows that background jobs ran after the maintenance window
+- [ ] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — read-only check of 2026-10-29 to 2026-11-03 on `0.8.0-alpha.3`: one level-3 `Controller action failed` on a refused due-date change (BUG-UX-011) and two level-2 `Owner role required` entries from *Scheduling* (TECH-LOG-001), both due in the next version; the recurring `ChoreStrikeNotifier::prepare()` deprecation warning of `0.8.0-alpha.1` no longer appears since `0.8.0-alpha.2`. Known and harmless: one level-2 `cron.php` entry a few minutes after any `occ upgrade` on AIO, `Skipping updater backup clean-up - could not find updater backup folder …` — the core repair step `AddCleanupUpdaterBackupsJob` queues `BackgroundCleanupUpdaterBackupsJob` on every upgrade and AIO has no web-updater backup folder (Nextcloud `stable34`); it also shows that background jobs ran after the maintenance window
+
+On AIO an unprivileged host account cannot read the server log, so this check
+needs the operator or an explicitly approved read inside the Nextcloud
+container. ChoreStrike entries show `no app in context` until TECH-LOG-001 sets
+the `app` key: filter on the message text or the app's URL prefix.
 
 ### Performance
 

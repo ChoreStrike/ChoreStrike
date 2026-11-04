@@ -5,8 +5,8 @@
 The phases below are **historical delivery records** — several early phase
 descriptions contain ambitions that were later removed or never shipped (the
 notes in each phase mark the corrections). What the app can do **today**
-(`0.8.0-alpha.2`, verified by the automated release gate and running on the
-maintainer's family instance since 2026-10-19):
+(`0.8.0-alpha.3`, verified by the automated release gate and running on the
+maintainer's family instance since 2026-10-29):
 
 - **Shipped**: first-owner bootstrap with a guided setup wizard; invite-only
   membership by email with owner/member/child roles; floors/rooms structure;
@@ -24,10 +24,10 @@ maintainer's family instance since 2026-10-19):
 - **Verification**: WP9 cross-provider and consecutive browser gates passed;
   CS-PLAN-082 qualified the NC35/PHP8.4 baseline and named NC34 AIO row.
   `0.8.0-alpha.1` was deployed and adopted as the first retained baseline on
-  2026-10-17; `0.8.0-alpha.2` followed on 2026-10-19 as an app update without
-  a migration, and the 14-day family trial runs on it. The real-device
-  checklist, family comprehension/14-day evidence and the final WP9 review
-  remain open.
+  2026-10-17; `0.8.0-alpha.2` (2026-10-19) and `0.8.0-alpha.3` (2026-10-29)
+  followed as app updates without a migration, and the 14-day family trial
+  runs on them. The real-device checklist, family comprehension/14-day
+  evidence and the final WP9 review remain open.
 - **Not implemented** (do not assume otherwise): task approval workflows,
   external-calendar sync, Home-Assistant/webhook integrations, mobile apps,
   AI task suggestions, App Store publication.
@@ -380,8 +380,8 @@ maintainer's family instance since 2026-10-19):
 **Timeline**: Week 29-32
 
 > **Correction (2026-09):** the app version was `0.1.1` (`0.8.0-alpha.1`
-> since 2026-10-17, `0.8.0-alpha.2` since 2026-10-19, see the
-> [changelog](../../CHANGELOG.md)) — the historical
+> since 2026-10-17, `0.8.0-alpha.2` since 2026-10-19, `0.8.0-alpha.3` since
+> 2026-10-29, see the [changelog](../../CHANGELOG.md)) — the historical
 > "v1.0.0 release candidate" claim in the old README was wrong and has been
 > removed (CS-PLAN-068 D6). Phase 8's *targets* below remain the roadmap;
 > they are not current capability.
@@ -406,9 +406,9 @@ maintainer's family instance since 2026-10-19):
   - [ ] **Nextcloud isolation verification** (app cannot crash server)
 - [ ] Internal Testing Phase
   - [ ] Test DB exploration (manual testing)
-  - [x] Alpha deployment on the personal Nextcloud server (`0.8.0-alpha.1` 2026-10-17, `0.8.0-alpha.2` 2026-10-19; [deployment guide](../engineering/deployment.md#first-retained-baseline))
+  - [x] Alpha deployment on the personal Nextcloud server (`0.8.0-alpha.1` 2026-10-17, `0.8.0-alpha.2` 2026-10-19, `0.8.0-alpha.3` 2026-10-29; [deployment guide](../engineering/deployment.md#first-retained-baseline))
   - [x] Backup strategy verification (operator-confirmed whole-instance recovery procedure, 2026-10-11)
-  - [ ] Family trial (14-day everyday use on `0.8.0-alpha.2`, running since 2026-10-19; CS-PLAN-080)
+  - [ ] Family trial (14-day everyday use, running since 2026-10-19, on `0.8.0-alpha.3` since 2026-10-29; CS-PLAN-080)
 - [ ] Final testing
   - [x] Integration tests with Docker (canonical stack, every release gate)
   - [x] E2E test stabilization (Playwright gate passes on both runtime rows without retries)
@@ -482,7 +482,7 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ---
 
-**Last Updated**: 2026-10-19
+**Last Updated**: 2026-11-04
 **Current Phase**: Phase 8 (Release Preparation) — `v0.8` internal alpha,
-`0.8.0-alpha.2` deployed on the maintainer's family instance; see the Current
+`0.8.0-alpha.3` deployed on the maintainer's family instance; see the Current
 Capability Snapshot at the top for what is shipped versus still open.

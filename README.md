@@ -100,9 +100,9 @@ a Nextcloud instance may still have hosting costs.
 ChoreStrike is a **pre-release app (`0.8.0-alpha.3`, internal alpha)**. Its
 first [retained baseline](docs/engineering/deployment.md#first-retained-baseline)
 was adopted on 2026-10-17: from it, updates preserve household data — the
-update to `0.8.0-alpha.2` on 2026-10-19 ran without a migration and kept every
-table. Disposable development installs remain fresh-install-only; there is no
-upgrade promise for them.
+updates to `0.8.0-alpha.2` on 2026-10-19 and `0.8.0-alpha.3` on 2026-10-29 ran
+without a migration and kept every table. Disposable development installs remain
+fresh-install-only; there is no upgrade promise for them.
 
 These bounds are the promoted current-stable baseline (CS-PLAN-082,
 2026-10-06), not a pending qualification candidate: fresh NC35 installations
@@ -163,9 +163,9 @@ not a hosted service.
 invitations, tasks, scheduling, My Day, completion/undo, gamification,
 insights, optional rewards and the arcade) is implemented. Cross-database
 verification and repeated browser gates have passed. The 14-day family trial
-has run on the maintainer's family instance since 2026-10-19 on
-`0.8.0-alpha.2`; this version collects the fixes from its first feedback
-round. The real-device checklist, voluntary family comprehension,
+has run on the maintainer's family instance since 2026-10-19, on this version
+since 2026-10-29; it collects the fixes from the trial's first feedback round.
+The real-device checklist, voluntary family comprehension,
 the 14-day everyday-use evidence and the final WP9 review remain open.
 Automated passes are not a family-acceptance sign-off. The app is not yet
 published in the Nextcloud App Store; roadmap targets are described in

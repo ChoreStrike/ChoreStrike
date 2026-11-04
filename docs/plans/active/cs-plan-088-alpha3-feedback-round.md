@@ -1,6 +1,6 @@
 # CS-PLAN-088: 0.8.0-alpha.3 — Trial Feedback and Backlog Round
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-10-19; drafted 2026-10-19; WP-C toolchain series started 2026-10-20 (branch `chore/tech-dev-001-node24`)
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-10-19; drafted 2026-10-19; WP-C toolchain series started 2026-10-20 (branch `chore/tech-dev-001-node24`); `0.8.0-alpha.3` deployed 2026-10-29, [record](#wp-d-deployment-record-2026-10-29) imported 2026-11-04; open: the tag and pre-release step and the final completion review
 > **Effort:** M — 8–12 engineering days inside a 2–3 week window: feedback intake 2026-10-20 → ~2026-11-02 (the 14-day HUMAN-02 window of CS-PLAN-080 ends the same weekend), candidate freeze, qualification and deployment in the week of 2026-11-03
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.2` deployed on the retained baseline (done 2026-10-19); the family trial's sanitized feedback (collected by the operator); no schema change intended
@@ -714,8 +714,8 @@ modified: src/views/RoomDetail.vue, tests/unit/views/RoomDetail.spec.js   (BUG-U
 - [ ] Built `js/` compared for content equivalence after the toolchain change (D-088-09); `npm ci --engine-strict` passes on the new range at the minimum and a current Node 24 patch; CI green
 - [ ] `0.8.0-alpha.3` qualified: runtime check `current`, full browser gates and PHPUnit suites on both runtime rows, MariaDB/SQLite provider suites, reproducible package build and smoke
 - [ ] Manual alpha record completed before any tag; tags and GitHub pre-releases per Q-088-03
-- [ ] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide's *Updates on the Retained Baseline*
-- [ ] `CHANGELOG.md`, README status/badge/caption, roadmap snapshot and documentation map name the new version
+- [x] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide's *Updates on the Retained Baseline*
+- [x] `CHANGELOG.md`, README status/badge/caption, roadmap snapshot and documentation map name the new version
 - [ ] Build gate green (`npm test` + lint + backend tests)
 - [ ] Required tests ran without new or unapproved skips
 - [ ] All implementation decisions and review questions resolved and recorded
@@ -773,6 +773,9 @@ accounts, quotations or household details. Raw notes stay with the operator.
 | 15 | 2026-10-26 | owner | Moving an appointment reported "changed in the meantime" although nothing had changed | Bug / P2 | [BUG-UX-002](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-14; no stale-token defect, no hotfix); archived 2026-10-28 |
 | 16 | 2026-10-26 | owner | "Last cleaned" should be settable or correctable afterwards, e.g. right after creating the house | Feature / P3 | [FEAT-UX-045](../../backlog/archive/2026-10.md#alpha3-third-admission-cs-plan-088-wp-a-10-28) | Delivered (D-088-19, D-088-20 variant b); archived 2026-10-28 |
 | 17 | 2026-10-26 | owner | Graphics have poor contrast, at least in the dark theme; some are barely visible | Bug / P2 | [BUG-UX-006](../../backlog/archive/2026-10.md#alpha3-trial-feedback-fixes-cs-plan-088-wp-a-10-28) | Delivered (D-088-16); archived 2026-10-28 |
+
+This register closed with the freeze (D-088-22). Feedback on the deployed
+`0.8.0-alpha.3` has its own register in CS-PLAN-089.
 
 ## WP-C Evidence (toolchain series, 2026-10-20)
 
@@ -1023,6 +1026,48 @@ Branch `chore/release-0.8.0-alpha.3` from `master` `dccafeb` (worktree
   `77dcc0a632b28f042c145a150f50b106a268650263a107f76d5df03323165ada` (1,714,603 bytes),
   equal in both runs. This smoke run is the proposed export candidate (the export needs
   its own approval).
+
+## WP-D Deployment Record (2026-10-29)
+
+- **Remote CI:** `master` `65f9725` pushed 2026-10-29 (D-088-26); `checks` and the CodeQL
+  run are green.
+- **Export and deployment:** smoke run `mvsq7gf7` went through the private exchange. The
+  operator first updated the platform (AIO 14.3.0 / Nextcloud 34.0.4 → AIO 14.4.2 /
+  Nextcloud 34.0.5), took a current whole-instance backup and deployed on 2026-10-29:
+  `0.8.0-alpha.2` → `0.8.0-alpha.3`, maintenance about 40 seconds, ChoreStrike the only
+  updated app, no migration executed, all 30 app tables and the app config (except
+  `installed_version`) identical before and after, production smoke passed. No new baseline
+  adoption: the installed build identity of the 2026-10-17 baseline is now `0142a38`. Full
+  record in [deployment.md](../../engineering/deployment.md#update-to-080-alpha3-2026-10-29).
+- **Verification before import (2026-11-04):** the sanitized operator report was read in
+  full, a pattern scan found no forbidden identifier, and its claims were checked
+  independently:
+  - Source commit is `0142a38`; archive size and SHA-256 recomputed from the local run
+    `mvsq7gf7`; manifest and identity hashes equal in the report, the exchange copy and the
+    local run. The archive itself no longer lies in the exchange, which the receiver's rules
+    allow after processing.
+  - The 26 reported migration hashes match the package files, Git at `0142a38` and the
+    pinned inventory in order, with no further migration file.
+  - Package counts match the manifests: 548 files, 1122 source blobs, 315 directories
+    against 317 for `0.8.0-alpha.2`; the difference is exactly
+    `licenses/npm/material-colors` and its version directory.
+  - `git diff fcb65cf 0142a38`: `appinfo/info.xml` changes only the version,
+    `appinfo/routes.php` adds only `PUT /api/v1/room-tasks/{id}/last-done`, no reward-config
+    key and no migration file changes.
+  - The runtime row matches `docker/test-runtime.json` (AIO 14.4.2, Nextcloud 34.0.5).
+  - Defects A and B of the report were traced in the source; see below.
+- **After the deployment:** the server log of 2026-10-29 to 2026-11-03 shows two app defects,
+  neither a P0/P1 hotfix under the release strategy: the HTTP 500 on a refused due-date
+  change (BUG-UX-011) and the owner-only endpoint called for every member (TECH-LOG-001).
+  Both belong to the next round, as does the weekly `runtime-check` drift of 2026-11-02
+  (AIO 14.4.3 and a moved `php:8.4.27-apache` digest, TECH-RUNTIME-003). The operator's
+  second feedback report and all three items are registered in CS-PLAN-089.
+- **Guide findings of the report** moved into the deployment guide: the platform update as
+  its own step, a pending update of an unrelated app, per-package file and directory counts,
+  and reading the server log on AIO.
+- **Open for this plan:** tags and GitHub pre-releases per Q-088-03, which need the complete
+  stage-mapped manual sign-off, and the final completion review. Retained worktree:
+  `~/worktrees/chorestrike-alpha3-release` still holds run `mvsq7gf7`.
 
 ## Review Outcome
 

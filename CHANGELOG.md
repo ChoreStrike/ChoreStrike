@@ -7,13 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### App Version 0.8.0-alpha.3 — Trial Feedback Round (candidate, 2026-10-28)
+## [0.8.0-alpha.3] - 2026-10-29
 
-The fixes from the first feedback round of the family trial; the app metadata
-moves from `0.8.0-alpha.2` to `0.8.0-alpha.3` so the update is detected. No
-schema or migration change: the 26 migrations of the retained baseline stay
-unchanged. This section gets its own dated version heading once the
-deployment is verified.
+### Trial Feedback Round
+
+Deployed on 2026-10-29 as an app update on the retained baseline; the family
+trial continues on it. The fixes from the first feedback round of the family
+trial; the app metadata moves from `0.8.0-alpha.2` to `0.8.0-alpha.3` so the
+update is detected. No schema or migration change: the 26 migrations of the
+retained baseline stay unchanged.
 
 - **New tasks keep the context:** *New task* in the Tasks tab takes over the
   active floor, room and person filter; the "mine" and "unassigned" filters
