@@ -1121,7 +1121,7 @@ and the post-deployment log check cannot filter by app.
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (`0.8.0-alpha.3` deployed 2026-10-29, CS-PLAN-088 closed 2026-11-04; CS-PLAN-089 activated for the alpha.4 slice; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Status**: In Progress (`0.8.0-alpha.3` deployed 2026-10-29 and its CS-PLAN-088 slice finished; CS-PLAN-089 activated for the alpha.4 slice; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
 **Owning**: CS-PLAN-089 WP-F (alpha.4 release slice only); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
