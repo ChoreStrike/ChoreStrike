@@ -74,26 +74,6 @@
 				</button>
 			</div>
 
-			<div v-if="catchUpAvailable" class="agreement-form" data-testid="agreement-catchup">
-				<label :for="`catchup-date-${item.roomTask.id}`" class="agreement-label">
-					{{ t('chorestrike', 'Agree a catch-up appointment on') }}
-				</label>
-				<input
-					:id="`catchup-date-${item.roomTask.id}`"
-					v-model="catchUpDraft.workDate"
-					type="date"
-					class="agreement-input"
-					data-testid="agreement-catchup-date">
-				<button
-					type="button"
-					class="agreement-button"
-					data-testid="agreement-catchup-submit"
-					:disabled="!catchUpDraft.workDate || !consent || submitting !== null"
-					@click="submitCatchUp">
-					{{ t('chorestrike', 'Record catch-up') }}
-				</button>
-			</div>
-
 			<div v-if="amendAvailable" class="agreement-form" data-testid="agreement-handover">
 				<label :for="`handover-member-${item.roomTask.id}`" class="agreement-label">
 					{{ t('chorestrike', 'Hand this occurrence to') }}
@@ -190,9 +170,8 @@ import { logger } from '../../utils/logger.js'
  * members arrive via the preloaded list) and the TaskChecklist wiring.
  *
  * CS-PLAN-070 WP6 §3.5 adds the OWNER agreement entry points: amend
- * (single-occurrence date move), catch-up (agreed work date on the
- * current miss) and restart (linked interval restart after a neutral
- * suspension). Every command sends a fresh command UUID, the SHOWN
+ * (single-occurrence date move) and restart (linked interval restart after
+ * a neutral suspension). Every command sends a fresh command UUID, the SHOWN
  * occurrence identity and version, and the explicit consent attestation;
  * a 409 PRESERVES the drafts. Only `STALE_TARGET` means the occurrence
  * changed; any other 409 is a domain refusal whose localized server reason
@@ -334,7 +313,6 @@ export default {
 			occurrenceReplaced: false,
 			amendDraft: { date: '' },
 			handoverDraft: '',
-			catchUpDraft: { workDate: '' },
 			restartDraft: { workDate: '' },
 		}
 	},
@@ -354,15 +332,6 @@ export default {
 		},
 
 		/**
-		 * Catch-up applies to the CURRENT unfulfilled miss only (C5d) —
-		 * the delivered overdue selection (classification 'late').
-		 * @return {boolean}
-		 */
-		catchUpAvailable() {
-			return this.occurrence?.classification === 'late'
-		},
-
-		/**
 		 * Restart applies only to neutrally suspended interval-cadence
 		 * work; the task's schedulingMode carries the cadence fact.
 		 * @return {boolean}
@@ -378,7 +347,7 @@ export default {
 			if (next === previous) {
 				return
 			}
-			for (const mode of ['amend', 'handover', 'catchup', 'restart']) {
+			for (const mode of ['amend', 'handover', 'restart']) {
 				this.resetDraft(mode)
 			}
 			this.occurrenceReplaced = true
@@ -391,7 +360,7 @@ export default {
 		 * stale note (`STALE_TARGET`) or the server's refusal reason; any
 		 * other failure toasts; success refreshes the projections (the store
 		 * already re-read the readers) and clears the used draft.
-		 * @param {string} mode 'amend' | 'handover' | 'catchup' | 'restart'.
+		 * @param {string} mode 'amend' | 'handover' | 'restart'.
 		 * @param {function(): Promise<object>} command The store call.
 		 */
 		async runAgreement(mode, command) {
@@ -432,8 +401,6 @@ export default {
 				this.amendDraft = { date: '' }
 			} else if (mode === 'handover') {
 				this.handoverDraft = ''
-			} else if (mode === 'catchup') {
-				this.catchUpDraft = { workDate: '' }
 			} else {
 				this.restartDraft = { workDate: '' }
 			}
@@ -460,18 +427,6 @@ export default {
 				roomTaskId: this.item.roomTask.id,
 				occurrence: this.occurrence,
 				participants: [{ userId: this.handoverDraft, role: 'responsible', sharePct: 100 }],
-				consent: this.consent,
-			}))
-		},
-
-		submitCatchUp() {
-			if (!this.catchUpDraft.workDate || !this.consent) {
-				return
-			}
-			return this.runAgreement('catchup', () => this.schedulingStore.catchUpOccurrence({
-				roomTaskId: this.item.roomTask.id,
-				occurrence: this.occurrence,
-				workDate: this.catchUpDraft.workDate,
 				consent: this.consent,
 			}))
 		},

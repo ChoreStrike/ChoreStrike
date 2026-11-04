@@ -17,7 +17,7 @@
 					</div>
 					<!-- Stretched link (CS-PLAN-084 WP-C): the name is the card's one
 					     real link; its ::after covers the card so a click anywhere
-					     opens the room, while Quick clean stays its own control. -->
+					     opens the room. -->
 					<h4 class="room-name">
 						<RouterLink
 							class="room-link"
@@ -73,31 +73,17 @@
 			<span class="last-updated">
 				{{ t('chorestrike', 'Last cleaned: {time}', { time: lastCleanedText }) }}
 			</span>
-			<HoldButton
-				variant="icon"
-				icon="Sparkles"
-				:iconSize="18"
-				:disabled="room.cleanliness >= 90"
-				:busy="loading"
-				:data-testid="`quick-clean-${room.id}`"
-				:aria-label="t('chorestrike', 'Quick clean (+10% cleanliness)')"
-				:title="t('chorestrike', 'Quick clean (+10% cleanliness)')"
-				@confirm="quickClean" />
 		</div>
 	</div>
 </template>
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import HoldButton from '../Common/HoldButton.vue'
 import Icon from '../Common/Icon.vue'
 import { useHouseStore } from '../../store/house.js'
-import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
-import { showErrorWithReference } from '../../utils/errorToast.js'
-import { logger } from '../../utils/logger.js'
 import { resolveRoomIcon } from '../../utils/roomIcons.js'
 import { dueClass, isOverdue } from '../../utils/taskDisplay.js'
 
@@ -105,7 +91,6 @@ export default {
 	name: 'RoomCard',
 	components: {
 		Icon,
-		HoldButton,
 		RouterLink,
 	},
 
@@ -122,11 +107,8 @@ export default {
 	},
 
 	setup(props) {
-		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
 		const houseStore = useHouseStore()
-
-		const loading = ref(false)
 
 		// Computed properties
 		const statusClass = computed(() => {
@@ -230,25 +212,8 @@ export default {
 			return roomTasks.filter((task) => task.nextDue && dueClass(task, houseStore.timezone) === 'today').length
 		})
 
-		// Methods
-		const quickClean = async () => {
-			if (loading.value) {
-				return
-			}
-			loading.value = true
-			try {
-				await roomsStore.updateRoomCleanliness(props.room.id, 10)
-			} catch (error) {
-				showErrorWithReference(t('chorestrike', 'Could not clean the room'), error)
-				logger.error('Failed to quick clean room', error, { component: 'RoomCard', action: 'quickClean', roomId: props.room.id })
-			} finally {
-				loading.value = false
-			}
-		}
-
 		return {
 			t,
-			loading,
 			statusClass,
 			statusText,
 			cleanlinessClass,
@@ -258,7 +223,6 @@ export default {
 			activeTasks,
 			overdueTasks,
 			dueTodayTasks,
-			quickClean,
 		}
 	},
 }
@@ -370,11 +334,6 @@ export default {
 .room-link:focus-visible::after {
   outline: 2px solid var(--color-main-text);
   outline-offset: -2px;
-}
-
-/* Quick clean sits above the stretched link (HoldButton's root is positioned). */
-.room-footer .hold-button {
-  z-index: 1;
 }
 
 .room-status {

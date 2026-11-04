@@ -3,7 +3,7 @@
  * @license MIT
  *
  * Press-and-hold helpers for HoldButton controls (CS-PLAN-084 WP-E:
- * Done and Quick clean confirm only after a 600 ms hold).
+ * Done confirms only after a 600 ms hold).
  *
  * The hold ends on the component's own state, never on a fixed sleep:
  * the press is released once the button reports `data-hold-state=

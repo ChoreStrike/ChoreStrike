@@ -546,7 +546,7 @@ release record (§18). It complements the gate and never replaces it.
 | D5 | Owner: claim an overdue task of another person | One confirmation dialog, no second dialog; the task stays with its assignee afterwards |
 | D6 | Owner: hand one occurrence to the child; child completes it | The child sees it on My Day; next day it is back with the owner |
 | D7 | Owner: *All tasks* | 20 tasks per page, filters behind *Filters*, no sideways scrolling |
-| D8 | Owner: Dashboard tiles and a room card | Each tile opens its target; the room card opens the room; *Quick clean* needs a hold |
+| D8 | Owner: Dashboard tiles and a room card | Each tile opens its target; the room card opens the room; *Done* on My Day needs a hold |
 | D9 | Light and dark Nextcloud theme | Text, badges and buttons readable in both themes (follows the Nextcloud theme, not only the phone setting) |
 | D10 | Screen reader (TalkBack / VoiceOver) on *Done* | Announced with its hold hint; double-tap-and-hold completes it |
 

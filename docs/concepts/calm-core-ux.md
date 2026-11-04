@@ -37,7 +37,7 @@ a catch-up up as a success streak.
 
 ## Completion needs a deliberate press (hold-to-confirm)
 
-- **Done** (My Day, task lists, room detail) and **Quick clean** confirm
+- **Done** (My Day, task lists, room detail) confirms
   only after a **600 ms press-and-hold** — pointer, finger or held
   Enter/Space ([CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md)
   D-084-05). A ring fills while holding; `prefers-reduced-motion` shows a
@@ -75,7 +75,7 @@ a catch-up up as a success streak.
   Milestone Ideas"); rhythm recognition celebrates through medal, title and
   weekly-goal events.
 - Failure toasts of the completion journey (complete, claim, undo, history
-  correction, My Day checklist, Quick clean) append a short reference — the
+  correction, My Day checklist) append a short reference — the
   stable API `code`, else `HTTP <status>`, else `NETWORK` — e.g. "Could not
   complete the task (CONFLICT)", so a reported failure can be matched to the
   server log without exposing messages or stack data.

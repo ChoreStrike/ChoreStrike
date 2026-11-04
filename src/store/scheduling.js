@@ -9,7 +9,6 @@ import { isMemberAvailable } from '../constants/scheduling.js'
 import {
 	amendOccurrence as amendOccurrenceRequest,
 	api,
-	catchUpOccurrence as catchUpOccurrenceRequest,
 	restartOccurrence as restartOccurrenceRequest,
 } from '../services/api.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
@@ -551,24 +550,6 @@ export const useSchedulingStore = defineStore('scheduling', {
 		},
 
 		/**
-		 * Agree the catch-up work appointment on the current miss.
-		 *
-		 * @param {object} agreement The occurrence agreement identity.
-		 * @param {number} agreement.roomTaskId The owning room task id.
-		 * @param {object} agreement.occurrence The occurrence block.
-		 * @param {string} agreement.workDate The agreed catch-up work date.
-		 * @param {boolean} agreement.consent The owner consent attestation.
-		 * @return {Promise<object>} Identity refs.
-		 */
-		async catchUpOccurrence({ roomTaskId, occurrence, workDate, consent }) {
-			return this.runOccurrenceAgreement('catch-up', occurrence, {
-				roomTaskId,
-				workDate,
-				consent,
-			})
-		},
-
-		/**
 		 * Linked restart of a neutrally suspended interval predecessor.
 		 *
 		 * @param {object} agreement The occurrence agreement identity.
@@ -626,7 +607,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 			this.error = null
 			try {
-				const command = { amend: amendOccurrenceRequest, 'catch-up': catchUpOccurrenceRequest, restart: restartOccurrenceRequest }[action]
+				const command = { amend: amendOccurrenceRequest, restart: restartOccurrenceRequest }[action]
 				const refs = await command(occurrence.occurrenceId, payload)
 				const refreshed = await this.refreshAfterApply(roomTaskId)
 				return { ...refs, refreshFailed: !refreshed }

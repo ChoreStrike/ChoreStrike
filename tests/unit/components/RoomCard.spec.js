@@ -1,9 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import RoomCard from '../../../src/components/Dashboard/RoomCard.vue'
-import { confirmHold } from '../helpers/hold.js'
-import { showError } from '@nextcloud/dialogs'
-import { logger } from '../../../src/utils/logger.js'
 
 const mockPush = jest.fn()
 
@@ -25,13 +22,6 @@ jest.mock('vue-router', () => ({
 }))
 
 // Mock stores
-const mockUpdateRoomCleanliness = jest.fn()
-jest.mock('../../../src/store/rooms.js', () => ({
-	useRoomsStore: jest.fn(() => ({
-		updateRoomCleanliness: mockUpdateRoomCleanliness,
-	})),
-}))
-
 const mockRoomTasksByRoom = {}
 jest.mock('../../../src/store/roomTasks.js', () => ({
 	useRoomTasksStore: jest.fn(() => ({
@@ -52,8 +42,6 @@ describe('RoomCard', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		mockPush.mockClear()
-		mockUpdateRoomCleanliness.mockReset()
-		showError.mockClear()
 		wrapper = mount(RoomCard, {
 			props: {
 				room: mockRoom,
@@ -136,53 +124,9 @@ describe('RoomCard', () => {
 		})
 	})
 
-	describe('Quick Clean', () => {
-		it('Renders a labelled quick clean hold button', () => {
-			const button = wrapper.find('[data-testid="quick-clean-1"]')
-			expect(button.exists()).toBe(true)
-			expect(button.attributes('aria-label')).toBe('Quick clean (+10% cleanliness)')
-		})
-
-		it('Cleans only after the hold is confirmed, without opening the room', async () => {
-			await wrapper.find('[data-testid="quick-clean-1"]').trigger('click')
-			expect(mockUpdateRoomCleanliness).not.toHaveBeenCalled()
-			expect(mockPush).not.toHaveBeenCalled()
-
-			await confirmHold(wrapper, '[data-testid="quick-clean-1"]')
-			expect(mockUpdateRoomCleanliness).toHaveBeenCalledWith(1, 10)
-		})
-
-		it('Shows a failure toast with the API code when quick clean fails (RF-084-03)', async () => {
-			mockUpdateRoomCleanliness.mockRejectedValue(Object.assign(new Error('Forbidden'), { status: 403, code: 'FORBIDDEN' }))
-			const loggerError = jest.spyOn(logger, 'error').mockImplementation(() => {})
-
-			await confirmHold(wrapper, '[data-testid="quick-clean-1"]')
-
-			expect(showError).toHaveBeenCalledWith('Could not clean the room (FORBIDDEN)')
-			expect(wrapper.find('[data-testid="quick-clean-1"]').attributes('disabled')).toBeUndefined()
-			loggerError.mockRestore()
-		})
-
-		it('Sends one quick clean while the first is in flight', async () => {
-			let resolve
-			mockUpdateRoomCleanliness.mockImplementation(() => new Promise(done => { resolve = done }))
-			const hold = wrapper.findComponent({ name: 'HoldButton' })
-			hold.vm.$emit('confirm')
-			hold.vm.$emit('confirm')
-			await wrapper.vm.$nextTick()
-
-			expect(mockUpdateRoomCleanliness).toHaveBeenCalledTimes(1)
-			expect(wrapper.find('[data-testid="quick-clean-1"]').attributes('disabled')).toBeDefined()
-			resolve()
-		})
-
-		it('Disables quick clean when room is already clean', async () => {
-			await wrapper.setProps({
-				room: { ...mockRoom, cleanliness: 95 },
-			})
-			const button = wrapper.find('[data-testid="quick-clean-1"]')
-			expect(button.attributes('disabled')).toBeDefined()
-		})
+	it('offers no quick clean (FEAT-UX-048)', () => {
+		expect(wrapper.find('[data-testid="quick-clean-1"]').exists()).toBe(false)
+		expect(wrapper.findComponent({ name: 'HoldButton' }).exists()).toBe(false)
 	})
 
 	describe('Compact Mode', () => {

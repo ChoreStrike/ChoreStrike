@@ -265,43 +265,6 @@ export const useRoomsStore = defineStore('rooms', {
 		},
 
 		/**
-		 * Update room cleanliness (WP3 §3.5: the REQUESTED delta is
-		 * journaled server-side under a receipt-protected command
-		 * identity — a replayed command never repeats a delta over later
-		 * work).
-		 * @param {number} roomId Room identifier to update.
-		 * @param {number} cleanlinessChange Requested delta to apply to cleanliness.
-		 */
-		async updateRoomCleanliness(roomId, cleanlinessChange) {
-			const resetSeq = this._beginRequest()
-
-			try {
-				this.requestSeq++
-				const data = await api.put(`/api/v1/rooms/${roomId}/cleanliness`, {
-					cleanlinessChange,
-					commandId: crypto.randomUUID(),
-				})
-				if (resetSeq !== this.resetSeq) {
-					return null
-				}
-				this.requestSeq++
-
-				const roomIndex = this.rooms.findIndex((r) => r.id === roomId)
-				if (roomIndex >= 0) {
-					this.rooms[roomIndex] = data
-				}
-			} catch (error) {
-				if (resetSeq === this.resetSeq) {
-					this.error = error.message
-				}
-				logger.error('Failed to update room cleanliness', error, { store: 'rooms', action: 'updateRoomCleanliness', roomId })
-				throw error
-			} finally {
-				this._endRequest(resetSeq)
-			}
-		},
-
-		/**
 		 * Reconcile a cached room from an authoritative completion/undo
 		 * payload (CS-PLAN-064 §3.5, decision D10): the aggregate response
 		 * carries the LOCKED, post-mutation room row — cleanliness and

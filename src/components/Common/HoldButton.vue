@@ -4,7 +4,7 @@
 -->
 
 <template>
-	<span class="hold-button" :class="[`hold-button--${variant}`, $attrs.class]" :style="$attrs.style">
+	<span class="hold-button" :class="$attrs.class" :style="$attrs.style">
 		<button
 			v-bind="buttonAttrs"
 			type="button"
@@ -85,12 +85,6 @@ export default {
 		label: { type: String, default: '' },
 		icon: { type: String, default: 'CheckCircle' },
 		iconSize: { type: Number, default: 20 },
-		variant: {
-			type: String,
-			default: 'primary',
-			validator: (value) => ['primary', 'icon'].includes(value),
-		},
-
 		disabled: { type: Boolean, default: false },
 		// In-flight state of the confirmed action: blocks a second confirm.
 		busy: { type: Boolean, default: false },
@@ -156,9 +150,6 @@ export default {
 	-webkit-user-select: none;
 	-webkit-touch-callout: none;
 	transition: background-color 0.2s, color 0.2s;
-}
-
-.hold-button--primary .hold-button__control {
 	padding: 0.4rem 0.9rem 0.4rem 0.5rem;
 	border: 2px solid var(--color-primary-element);
 	border-radius: 22px;
@@ -167,22 +158,8 @@ export default {
 	font-size: 1rem;
 }
 
-.hold-button--primary .hold-button__control:hover:not(:disabled) {
+.hold-button__control:hover:not(:disabled) {
 	background: var(--color-primary-element-hover);
-}
-
-.hold-button--icon .hold-button__control {
-	inline-size: 44px;
-	block-size: 44px;
-	padding: 0;
-	border: 1px solid var(--color-border-maxcontrast);
-	border-radius: 50%;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
-}
-
-.hold-button--icon .hold-button__control:hover:not(:disabled) {
-	background: var(--color-background-hover);
 }
 
 .hold-button__control:disabled {
@@ -274,11 +251,6 @@ export default {
 	white-space: nowrap;
 	pointer-events: none;
 	visibility: hidden;
-}
-
-.hold-button--icon .hold-button__hint {
-	inset-inline-start: auto;
-	inset-inline-end: 0;
 }
 
 .hold-button__hint.is-visible {

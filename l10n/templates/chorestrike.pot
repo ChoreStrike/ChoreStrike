@@ -191,9 +191,6 @@ msgstr ""
 msgid "Admins only"
 msgstr ""
 
-msgid "Agree a catch-up appointment on"
-msgstr ""
-
 msgid "Agreement"
 msgstr ""
 
@@ -711,9 +708,6 @@ msgid "Corrected (not delivered)"
 msgstr ""
 
 msgid "Correction requires the explicit notDelivered confirmation"
-msgstr ""
-
-msgid "Could not clean the room"
 msgstr ""
 
 msgid "Could not complete the task"
@@ -2210,9 +2204,6 @@ msgstr ""
 msgid "Quick Templates"
 msgstr ""
 
-msgid "Quick clean (+10% cleanliness)"
-msgstr ""
-
 msgid "Quiet time"
 msgstr ""
 
@@ -2265,9 +2256,6 @@ msgid "Record agreed handover"
 msgstr ""
 
 msgid "Record amendment"
-msgstr ""
-
-msgid "Record catch-up"
 msgstr ""
 
 msgid "Record illness retrospectively"

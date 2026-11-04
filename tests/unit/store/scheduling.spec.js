@@ -19,7 +19,6 @@ jest.mock('../../../src/services/api.js', () => ({
 		post: jest.fn(),
 	},
 	amendOccurrence: jest.fn(),
-	catchUpOccurrence: jest.fn(),
 	restartOccurrence: jest.fn(),
 }))
 
@@ -540,19 +539,6 @@ describe('Scheduling Store', () => {
 					consent: true,
 					date: '2026-10-05',
 				})
-			})
-
-			it('sends the catch-up command with workDate and the occurrence work zone', async () => {
-				const { catchUpOccurrence } = require('../../../src/services/api.js')
-				catchUpOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 5 })
-
-				await store.catchUpOccurrence({ roomTaskId: 42, occurrence, workDate: '2026-10-06', consent: true })
-
-				const [id, payload] = catchUpOccurrence.mock.calls[0]
-				expect(id).toBe('12:1')
-				expect(payload.workDate).toBe('2026-10-06')
-				expect(payload.workZone).toBe('Europe/Berlin')
-				expect(payload.expectedVersion).toBe(3)
 			})
 
 			it('sends a handover with exact participants and no implicit date change', async () => {

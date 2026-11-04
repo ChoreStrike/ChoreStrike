@@ -305,7 +305,7 @@ multipliers: shared work splits the reward.
 ---
 
 ### [P3] FEAT-UX-048 — Remove the catch-up agreement action and Quick clean
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: daily execution
+**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: S · **Layer**: frontend · **Journey stage**: daily execution
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register C-3, T-6
 
@@ -314,10 +314,10 @@ original date and can still be completed, and already agreed appointments keep
 showing. Retained `manual_delta` entries keep replaying. The two routes stay until
 FEAT-UX-050 (D-089-09).
 
-- [ ] The form goes from `TaskListDetails`, the control and its store action from
+- [x] The form goes from `TaskListDetails`, the control and its store action from
       `RoomCard` and the rooms store.
-- [ ] Refusal texts, help, concepts and the user guide stop offering the actions.
-- [ ] The hold-button coverage of `family-core-ux.spec.ts` moves to *Done*.
+- [x] Refusal texts, help, concepts and the user guide stop offering the actions.
+- [x] The hold-button coverage of `family-core-ux.spec.ts` moves to *Done*.
 
 ---
 

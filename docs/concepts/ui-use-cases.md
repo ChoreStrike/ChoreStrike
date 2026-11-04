@@ -207,9 +207,9 @@ read-only).
 | Add room (inline name input per floor row) | Settings structure section | `POST /rooms` | ✅ (CS-PLAN-042; icon defaults, the old FloorList icon-picker modal was removed with the duplicate surface) |
 | Rename room (header action) | RoomDetail | `PUT /rooms/{id}` | ✅ (CS-PLAN-042) |
 | Delete room (styled confirm) | RoomDetail header; Settings floor room list | `DELETE /rooms/{id}` | ✅ (CS-PLAN-042) |
-| Cleanliness change (Quick clean +10) | RoomCard (600 ms hold, 44 px labelled control, CS-PLAN-084 WP-E) | `PUT /rooms/{id}/cleanliness` | ✅ |
+| Cleanliness change (Quick clean +10) | — | `PUT /rooms/{id}/cleanliness` | ⛔ control removed (FEAT-UX-048); the route stays until FEAT-UX-050 (D-089-09), and retained entries keep replaying |
 | "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ⛔ pruned (CS-PLAN-055 — route + dead `fetchRoomsNeedingCleaning` wrapper gone) |
-| Open room detail | RoomCard: the room name is the card's one link, stretched over the card (click anywhere, Tab + Enter); Quick clean stays a separate control above it → RoomDetail | `GET /room-tasks?roomId=` | ✅ (keyboard access CS-PLAN-084 WP-C) |
+| Open room detail | RoomCard: the room name is the card's one link, stretched over the card (click anywhere, Tab + Enter) → RoomDetail | `GET /room-tasks?roomId=` | ✅ (keyboard access CS-PLAN-084 WP-C) |
 | Room-card task counts (active/overdue/due today) | RoomCard on the Dashboard | ONE house-wide `GET /room-tasks` on Dashboard load (request budget pinned in `workflow-request-budgets.spec.ts`) | ✅ (CS-PLAN-084 WP-C; before, the counts showed only rooms whose tasks another view had loaded) |
 | Task stats card (total/active/overdue/due-today/completion) | RoomDetail stats card | `GET /room-tasks/room/{roomId}/stats` | ✅ (live since CS-PLAN-040; cross-house roomId → 404; overdue/due-today follow the list-row `status` since CS-PLAN-084 RF-084-02) |
 
@@ -331,7 +331,7 @@ preview/apply). **Entry points:** SchedulingView.
 | Neutral/overload capacity clarifications | `SchedulePlanner` capacity grid | preview `capacity` report | ✅ CS-PLAN-073 WP2 — `Paused`, `Away` and `{planned}/{budget} — over capacity` labels; existing overload stays visible |
 | Consent attestation before apply | `SchedulePlanner` consent checkbox (`planner-consent`) | rides `POST /scheduling/apply` as `consent: true` | ✅ CS-PLAN-073 WP2 — apply is disabled until the owner attests the agreement; a fresh preview requires a fresh attestation; the attestation survives a 409 retry with the retained draft and command UUID |
 | Apply the confirmed plan | `SchedulePlanner` Apply button (owner only) | `POST /scheduling/apply` (exact input + `previewVersion` + `commandId` + `consent`) | ✅ CS-PLAN-065/073 — one atomic CommandService batch; a stale confirmation (incl. a local-midnight crossing) is a clean 409 with zero writes; identical retries replay the receipt; Calendar and My Day refresh from the reconciled stores |
-| Pause lifecycle (request/decide/shorten/illness) | **no dedicated UI yet (WP6)** — frozen HTTP contract | `POST/PUT /pauses*` | ✅ API CS-PLAN-073 WP2 — personal requests (child → pending), owner house pauses/approvals/illness recognition, acknowledged-only shortening; UI surfaces stay WP5/6 |
+| Pause lifecycle (request/decide/shorten/illness) | Task details: amend, handover, restart. Catch-up has no client since FEAT-UX-048 (D-089-09); a missed chore keeps its date and can be completed | `POST/PUT /pauses*` | ✅ API CS-PLAN-073 WP2 — personal requests (child → pending), owner house pauses/approvals/illness recognition, acknowledged-only shortening; UI surfaces stay WP5/6 |
 | Occurrence agreements (amend/catch-up/restart) | **no dedicated UI yet (WP6)** — frozen HTTP contract | `POST /occurrences/{key}/{amend,catch-up,restart}` | ✅ API CS-PLAN-073 WP2 — owner-recorded, receipt-identity commands with version/token gates and persisted neutral releases |
 
 *Last verified: 2026-09-24 (CS-PLAN-073 WP2 fix round).*
@@ -465,7 +465,7 @@ store: [`architecture.md → useRewardsStore`](../engineering/architecture.md).
 - **Destructive actions:** styled confirm modals; typed confirmation only for
   house reset (UX-006).
 - **Touch targets ≥ 44 px** for complete/claim/primary actions; icon+text
-  labels (UX-007). Done and Quick clean are press-and-hold (`HoldButton`,
+  labels (UX-007). Done is press-and-hold (`HoldButton`,
   CS-PLAN-084 D-084-05).
 - **Feedback:** success/error toasts for every mutation; celebration pipeline
   for gamified successes (`chorestrike:task-completed` event).

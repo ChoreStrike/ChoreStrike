@@ -268,8 +268,10 @@ browser gates follow with the candidate.
   texts, help and docs stop offering the action.
 - **Quick clean:** the control and `updateRoomCleanliness` go from `RoomCard.vue` and the
   rooms store. Retained `manual_delta` journal entries keep replaying. The hold-button
-  coverage in `family-core-ux.spec.ts` moves to the *Done* control.
-- The two routes stay for now (D-089-09).
+  coverage in `family-core-ux.spec.ts` moves to the *Done* control. Its icon variant had
+  Quick clean as its only consumer and goes too.
+- The two routes stay for now (D-089-09); their store actions and API helpers go, because
+  nothing calls them any more.
 
 ### WP-E Floors & Rooms and the setup wizard (FEAT-UX-049: S-7, S-8; BUG-UX-012: S-10)
 
@@ -465,7 +467,7 @@ D-5 come from the server log. D-6 and D-7 date from 2026-11-04. Owning items are
 | T-3 | Owner-managed categories with a permanent *Other* as default and fallback | Feature / P3 | FEAT-UX-053 | Round 2 (D-089-04) |
 | T-4 | Flex days for a fixed schedule, with later dates staying on the grid | Feature / P3 | FEAT-UX-040 (mode naming only) | Closed: already delivered; the form offers the field in both modes and the backend applies it to both |
 | T-5 | Per-task history with who did it, any period, statistics, owner edits | Feature / P2 | FEAT-UX-052, FEAT-UX-058, FEAT-UX-060 | Split: Round 2 (history, corrections), Round 3 (statistics), later (ranking periods) |
-| T-6 | Postpone by one day per press within the flex days; remove Quick clean | Feature / P2 | FEAT-UX-050, FEAT-UX-048 | Postpone Round 2 (D-089-03); Quick clean Round 1 |
+| T-6 | Postpone by one day per press within the flex days; remove Quick clean | Feature / P2 | FEAT-UX-050, FEAT-UX-048 | Postpone Round 2 (D-089-03); Quick clean Round 1, removed on `fix/alpha4-round1` |
 | T-7 | A separate scheduled date set by the scheduler | Feature / P3 | FEAT-UX-059 | Later; scheduler discussion first |
 | G-1 | One form for Add and Edit; room picked by floor, then room; the room can change | Improvement / P2 | FEAT-UX-040, FEAT-UX-043 | Round 2; mockups first |
 | G-2 | Sub-tasks are edited in Edit Task | Improvement / P2 | FEAT-UX-040 | Round 2 |
@@ -476,7 +478,7 @@ D-5 come from the server log. D-6 and D-7 date from 2026-11-04. Owning items are
 | G-7 | The same task entry everywhere: energy in colour, no clock, flex after the recurrence, floor and room under the title | Improvement / P2 | FEAT-UX-047 | Round 1; implemented on `fix/alpha4-round1` |
 | C-1 | A short tap picks who did the task; every member may record for any other | Feature / P2 | FEAT-UX-051 | Round 2; reverses Q-074-02 by operator decision |
 | C-2 | A tap picks finished sub-tasks and people; holding marks all done | Feature / P2 | FEAT-UX-051 | Round 2 (D-089-02) |
-| C-3 | Remove the catch-up agreement action; the status stays | Improvement / P3 | FEAT-UX-048 | Round 1 |
+| C-3 | Remove the catch-up agreement action; the status stays | Improvement / P3 | FEAT-UX-048 | Round 1; removed on `fix/alpha4-round1` |
 | S-1 | Separate personal from household settings | Improvement / P3 | FEAT-UX-054 | Round 2 |
 | S-2 | Group settings into collapsible categories, starting collapsed | Improvement / P3 | FEAT-UX-054 | Round 2; two levels |
 | S-3 | Notifications become one category | Improvement / P3 | FEAT-UX-054 | Round 2 |

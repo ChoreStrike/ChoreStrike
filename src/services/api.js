@@ -219,16 +219,6 @@ export function amendOccurrence(id, payload) {
 }
 
 /**
- * POST the agreed catch-up work appointment on the current miss.
- * @param {string} id Public occurrence key.
- * @param {object} payload {roomTaskId, commandId, occurrenceId, expectedVersion, selectionToken, consent, workDate, workZone?, participants?}.
- * @return {Promise<object>} Identity refs.
- */
-export function catchUpOccurrence(id, payload) {
-	return post(`/api/v1/occurrences/${id}/catch-up`, payload)
-}
-
-/**
  * POST the linked restart of a neutrally suspended interval predecessor.
  * @param {string} id Public occurrence key.
  * @param {object} payload {roomTaskId, commandId, occurrenceId, expectedVersion, consent, workDate}.

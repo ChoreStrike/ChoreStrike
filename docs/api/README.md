@@ -708,7 +708,7 @@ Receipt-protected: replaying the same `commandId` changes nothing.
 - The room's `lastCleaned` shows that day through a `last_done` journal event:
   no cleanliness change, reward, completion fact or rhythm effect. A newer
   entry for the same room task replaces the older one (also to an earlier
-  day); a later real completion or quick clean still wins. An entry recorded
+  day); a later real completion or cleanliness change still wins. An entry recorded
   before the latest house reset stays hidden; one recorded after it counts,
   also for a day before the reset.
 - A completion-relative interval moves its pending occurrence to
@@ -1190,6 +1190,9 @@ never other members' rows; each `{ id, score, createdAt }`.
 ### Scheduling
 
 #### Occurrence agreement commands (CS-PLAN-073 WP2)
+
+> `catch-up` has no client since `0.8.0-alpha.4`. Like `PUT /rooms/{id}/cleanliness`, it stays
+> until FEAT-UX-050 reworks that surface (D-089-09), and retained facts keep reading.
 
 `POST /occurrences/{id}/amend`, `POST /occurrences/{id}/catch-up`,
 `POST /occurrences/{id}/restart` — owner-recorded agreement commands over one

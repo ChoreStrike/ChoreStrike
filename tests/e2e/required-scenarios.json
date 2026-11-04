@@ -32,7 +32,7 @@
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > member mobile: My Day completion and checklist execution work at the mobile viewport with 44px targets",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: cold Dashboard counters are correct without any room visit (D2)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: complete from My Day reconciles counters without reload and the queued undo restores them (D3/D10)",
-    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: overview tiles lead to their targets and Quick clean needs a hold (CS-PLAN-084 WP-C)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: overview tiles lead to their targets and Done needs a hold (CS-PLAN-084 WP-C)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: the real HTTP PUT /tasks/{id} edit roundtrip works with the production body shape (D6)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner phone: the all-tasks list pages by 20 and \"Completed\" loads finished work on demand (CS-PLAN-084 WP-D)",
     "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner: the facts of a task row are legible in the light and dark themes",

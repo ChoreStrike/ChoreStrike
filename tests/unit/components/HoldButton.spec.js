@@ -242,10 +242,10 @@ describe('HoldButton (CS-PLAN-084 WP-E)', () => {
 	})
 
 	it('puts test ids and labels on the button and classes on the wrapper', () => {
-		const wrapper = mountButton({ label: '', variant: 'icon' }, { class: 'extra', 'aria-label': 'Quick clean' })
+		const wrapper = mountButton({ label: '' }, { class: 'extra', 'aria-label': 'Mark as done' })
 
-		expect(wrapper.classes()).toEqual(expect.arrayContaining(['hold-button', 'hold-button--icon', 'extra']))
-		expect(control(wrapper).attributes('aria-label')).toBe('Quick clean')
+		expect(wrapper.classes()).toEqual(expect.arrayContaining(['hold-button', 'extra']))
+		expect(control(wrapper).attributes('aria-label')).toBe('Mark as done')
 		expect(control(wrapper).classes()).not.toContain('extra')
 		expect(control(wrapper).attributes('type')).toBe('button')
 	})

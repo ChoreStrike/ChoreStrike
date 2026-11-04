@@ -217,7 +217,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		}
 	})
 
-	test('owner desktop: overview tiles lead to their targets and Quick clean needs a hold (CS-PLAN-084 WP-C)', async ({ browser, seededData }) => {
+	test('owner desktop: overview tiles lead to their targets and Done needs a hold (CS-PLAN-084 WP-C)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const kidsBedroom = seededData.data.rooms!.find((room) => room.name === 'Kids Bedroom')!
 		const { context, page } = await createUserContext(browser, 'mom')
@@ -239,26 +239,26 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const card = page.getByTestId('room-card-Kids Bedroom')
 			await expect(card.getByTestId('cleanliness-value')).toHaveText(`${kidsBedroom.cleanliness}%`)
 
-			// A short tap explains the hold and sends nothing; the hold cleans once.
-			const cleanRequests: string[] = []
+			await expect(card.locator('[data-testid^="quick-clean-"]')).toHaveCount(0)
+
+			// A short tap explains the hold and sends nothing; the hold completes once.
+			const completions: string[] = []
 			page.on('request', (request) => {
-				if (request.method() === 'PUT' && request.url().endsWith(`/rooms/${kidsBedroom.id}/cleanliness`)) {
-					cleanRequests.push(request.url())
+				if (request.method() === 'POST' && request.url().endsWith('/complete')) {
+					completions.push(request.url())
 				}
 			})
-			const quickClean = page.getByTestId(`quick-clean-${kidsBedroom.id}`)
-			const box = await quickClean.boundingBox()
+			await page.goto('/apps/chorestrike/#/today')
+			const done = page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' }).locator('button[data-testid^="today-complete-button-"]')
+			const box = await done.boundingBox()
 			expect(box!.height).toBeGreaterThanOrEqual(44)
-			await quickClean.click()
-			await expect(page.getByTestId(`quick-clean-${kidsBedroom.id}-hint`)).toHaveText('Press and hold to confirm')
-			expect(cleanRequests).toEqual([])
-			await expect(page.getByTestId('dashboard-view')).toBeVisible()
+			await done.click()
+			await expect(page.getByTestId(`${await done.getAttribute('data-testid')}-hint`)).toHaveText('Press and hold to confirm')
+			expect(completions).toEqual([])
+			await expect(page.getByTestId('today-view')).toBeVisible()
 
-			const cleaned = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith(`/rooms/${kidsBedroom.id}/cleanliness`))
-			await holdToConfirm(quickClean)
-			expect((await cleaned).ok()).toBe(true)
-			await expect(card.getByTestId('cleanliness-value')).toHaveText(`${kidsBedroom.cleanliness + 10}%`)
-			expect(cleanRequests).toHaveLength(1)
+			expect((await completeWithOptionalDialog(page, done)).ok()).toBe(true)
+			expect(completions).toHaveLength(1)
 		} finally {
 			await context.close()
 		}

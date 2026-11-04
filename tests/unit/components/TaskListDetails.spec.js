@@ -248,28 +248,11 @@ describe('TaskListDetails occurrence agreements', () => {
 		}))
 	})
 
-	it('shows the catch-up entry only for the current miss (classification late)', async () => {
+	it('offers no catch-up agreement for a missed occurrence, whose date stays visible (FEAT-UX-048)', () => {
 		const { wrapper } = mountWithOccurrence({}, { classification: 'late' })
-		expect(wrapper.find('[data-testid="agreement-catchup"]').exists()).toBe(true)
 
-		const { wrapper: agreedWrapper } = mountWithOccurrence({}, { classification: 'agreed' })
-		expect(agreedWrapper.find('[data-testid="agreement-catchup"]').exists()).toBe(false)
-	})
-
-	it('sends the catch-up command with the agreed work date and work zone', async () => {
-		const { wrapper, store } = mountWithOccurrence({}, { classification: 'late' })
-		const spy = jest.spyOn(store, 'catchUpOccurrence').mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 5 })
-
-		await wrapper.find('[data-testid="agreement-catchup-date"]').setValue('2999-02-02')
-		await wrapper.find('[data-testid="agreement-consent"]').setValue(true)
-		await wrapper.find('[data-testid="agreement-catchup-submit"]').trigger('click')
-
-		expect(spy).toHaveBeenCalledWith(expect.objectContaining({
-			roomTaskId: 42,
-			occurrence: expect.objectContaining({ occurrenceId: '12:1', expectedVersion: 3 }),
-			workDate: '2999-02-02',
-			consent: true,
-		}))
+		expect(wrapper.find('[data-testid="agreement-catchup"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="agreement-target-date"]').exists()).toBe(true)
 	})
 
 	it('offers the restart entry only for suspended interval-cadence work', () => {
