@@ -209,7 +209,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						roomTask: item.roomTask,
 						task: item.task,
 						room: item.room,
-						flexWindow: item.flexWindow,
 						dueDate: date,
 						late,
 					})

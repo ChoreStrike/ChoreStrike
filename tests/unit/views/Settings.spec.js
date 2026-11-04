@@ -81,6 +81,8 @@ jest.mock('../../../src/store/rooms.js', () => ({
 }))
 
 const mockRoomTasksState = {
+	houseLoaded: false,
+	houseStale: false,
 	roomTasksByRoom: {},
 	fetchHouseRoomTasks: jest.fn(),
 }
@@ -197,6 +199,8 @@ describe('Settings.vue', () => {
 		mockRoomsState.fetchFloorsWithRooms.mockReset().mockResolvedValue()
 		mockRoomTasksState.fetchHouseRoomTasks.mockReset().mockResolvedValue([])
 		mockRoomTasksState.roomTasksByRoom = {}
+		mockRoomTasksState.houseLoaded = false
+		mockRoomTasksState.houseStale = false
 		mockHouseState.updateHouseName.mockClear().mockResolvedValue()
 		mockHouseState.updateRankingEnabled.mockClear().mockResolvedValue()
 		mockHouseState.resetHouse.mockClear().mockResolvedValue()
@@ -753,6 +757,18 @@ describe('Settings.vue', () => {
 		expect(wrapper.find('[data-testid="room-task-count-1"]').text()).toBe('1 task')
 		expect(wrapper.find('[data-testid="room-task-count-2"]').text()).toBe('{count} tasks')
 		expect(mockRoomTasksState.fetchHouseRoomTasks).toHaveBeenCalledTimes(1)
+	})
+
+	it('reuses a fresh house read for the counts (FEAT-UX-049)', async () => {
+		mockRoomTasksState.houseLoaded = true
+		mockRoomTasksState.roomTasksByRoom = { 1: [{ id: 1, isActive: true }] }
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+		await wrapper.find('[data-testid="expand-floor-1"]').trigger('click')
+		await flushPromises()
+
+		expect(mockRoomTasksState.fetchHouseRoomTasks).not.toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="room-task-count-1"]').text()).toBe('1 task')
 	})
 
 	it('hides the count when the read fails and tries again on the next floor (FEAT-UX-049)', async () => {

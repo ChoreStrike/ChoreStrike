@@ -78,6 +78,7 @@ import TaskListItem from './TaskListItem.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useUserStore } from '../../store/user.js'
+import { refusalReason, showErrorWithReference } from '../../utils/errorToast.js'
 import { logger } from '../../utils/logger.js'
 import { compareTaskItems, isOverdue } from '../../utils/taskDisplay.js'
 
@@ -182,8 +183,11 @@ export default {
 					? next.filter((id) => id !== userId)
 					: [...next, userId]
 				assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: previous }
-				if (error?.code === 'CONFLICT' && error?.message) {
-					assigneeRefusal.value = { ...assigneeRefusal.value, [roomTaskId]: error.message }
+				const reason = refusalReason(error)
+				if (reason) {
+					assigneeRefusal.value = { ...assigneeRefusal.value, [roomTaskId]: reason }
+				} else {
+					showErrorWithReference(t('chorestrike', 'Failed to update task'), error)
 				}
 			}
 		}

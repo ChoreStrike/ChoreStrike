@@ -32,6 +32,7 @@ use PHPUnit\Framework\TestCase;
  */
 class RoomTaskControllerTest extends TestCase {
 	private RoomTaskController $controller;
+	private AppLogger $appLogger;
 	private $roomTaskService;
 	private $roomTaskReadService;
 	private $completionService;
@@ -41,6 +42,7 @@ class RoomTaskControllerTest extends TestCase {
 	private $request;
 
 	protected function setUp(): void {
+		$this->appLogger = $this->createMock(AppLogger::class);
 		parent::setUp();
 
 		$this->request = $this->createMock(IRequest::class);
@@ -64,7 +66,7 @@ class RoomTaskControllerTest extends TestCase {
 			$this->authService,
 			$l10n,
 			new CalendarService(),
-			$this->createMock(AppLogger::class)
+			$this->appLogger
 		);
 	}
 
@@ -745,17 +747,12 @@ class RoomTaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * SetAssignees_ReturnsCanonicalUserIdArray
-	 *
-	 * CS-PLAN-066 (D1): the PUT assignees response IS the persisted
-	 * user-ID set — no client-side union on relation objects.
-	 */
-	/**
 	 * BUG-UX-011: a refused change is a 409 with its reason, never a logged
 	 * 500; the child day limit reaches both actions.
 	 */
 	public function testSetAssignees_RefusedChange_Is409WithTheReason(): void {
 		$this->wireRoomTaskAction();
+		$this->appLogger->expects($this->never())->method('logException');
 		$this->roomTaskService->method('setAssignees')
 			->willThrowException(new \OCA\ChoreStrike\Exception\ConflictException('Over the day limit'));
 
@@ -767,6 +764,7 @@ class RoomTaskControllerTest extends TestCase {
 
 	public function testUpdateDueDate_RefusedChange_Is409WithTheReason(): void {
 		$this->wireRoomTaskAction();
+		$this->appLogger->expects($this->never())->method('logException');
 		$this->roomTaskService->method('updateDueDate')
 			->willThrowException(new \OCA\ChoreStrike\Exception\ConflictException('A missed appointment'));
 
@@ -795,6 +793,12 @@ class RoomTaskControllerTest extends TestCase {
 		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
 	}
 
+	/**
+	 * SetAssignees_ReturnsCanonicalUserIdArray
+	 *
+	 * CS-PLAN-066 (D1): the PUT assignees response IS the persisted
+	 * user-ID set — no client-side union on relation objects.
+	 */
 	public function testSetAssignees_ReturnsCanonicalUserIdArray(): void {
 		$house = new House();
 		$house->setId(1);

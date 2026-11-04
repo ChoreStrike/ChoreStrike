@@ -869,7 +869,10 @@ endpoint still answers `200` with `rewards.weeklyGoal = null`.
 #### GET /room-tasks/range?from=&to=
 Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.
 
-Every scheduled item carries its `assignees` (user ids), the set My Day filters by.
+Every scheduled item carries its `assignees` (user ids). An agreed occurrence with concrete
+members also carries `obligatedUserIds`, else `null`; My Day filters by that set first, so a
+handed-over appointment follows the person it was handed to. `flexWindow` stays in the payload,
+but no client reads it since `0.8.0-alpha.4`.
 Recurring tasks are **projected** across the window: each scheduled item carries an
 `occurrences` array of `Y-m-d` dates (one per future occurrence in `[from, to]`), so a
 daily task appears on every day it recurs. One-time tasks emit a single occurrence.
@@ -898,6 +901,7 @@ rule as the fallback for a row without a selection (CR-084-03).
         "roomTask": { "id": 1, "nextDue": "2026-07-28", "isActive": true },
         "task": { "id": 5, "name": "Vacuum", "energyCost": 3 },
         "room": { "id": 2, "name": "Living Room" },
+        "assignees": ["mom"],
         "flexWindow": { "earliest": "2026-07-26", "ideal": "2026-07-28", "latest": "2026-07-30" },
         "occurrences": ["2026-07-28", "2026-08-04", "2026-08-11"],
         "occurrenceDetails": [

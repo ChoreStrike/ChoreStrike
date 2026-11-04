@@ -166,6 +166,7 @@ describe('TodayView', () => {
 		})
 		mockHouseStore = { timezone: 'UTC' }
 		mockRoomsStore = {
+			floors: [],
 			fetchFloorsWithRooms: jest.fn().mockResolvedValue([]),
 			getFloorById: jest.fn(floorId => (floorId === 3 ? { id: 3, name: 'Upstairs' } : undefined)),
 		}
@@ -430,6 +431,38 @@ describe('TodayView', () => {
 		expect(wrapper.text()).toContain('Rinse first, then load the dishwasher.')
 		// Plain escaped text — no v-html surface.
 		expect(wrapper.html()).not.toContain('v-html')
+	})
+
+	it('reuses floors another view has loaded (FEAT-UX-047)', async () => {
+		mockRoomsStore.floors = [{ id: 3, name: 'Upstairs' }]
+		await mountView()
+
+		expect(mockRoomsStore.fetchFloorsWithRooms).not.toHaveBeenCalled()
+	})
+
+	it('adds up the energy the rows show, so a saved occurrence keeps its value in the overload note', async () => {
+		mockSchedulingStore.getCapacityForDay = () => 4
+		mockRoomTasksStore.dailyTasks = [{ ...todayFixture()[0], task: { id: 1, name: 'Do the dishes', energyCost: 9 }, occurrence: { energy: 3 } }]
+		mockRoomTasksStore.overdueTasks = []
+		const wrapper = await mountView()
+
+		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
+	})
+
+	it('lists an appointment for the person it was handed to, not for the task assignee (D-089-12)', async () => {
+		const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+		const row = (id, name, assignees, obligatedUserIds) => ({
+			roomTask: { id, taskId: id, roomId: 1 },
+			task: { id, name },
+			room: { id: 1, name: 'Kitchen' },
+			assignees,
+			occurrenceDetails: [{ date: tomorrow, occurrenceId: `${id}:1`, classification: 'agreed', version: 1, fulfilled: false, obligatedUserIds }],
+		})
+		mockRoomTasksStore.rangeTasks.scheduled = [row(1, 'Handed to me', ['teen'], ['mom']), row(2, 'Handed away', ['mom'], ['teen'])]
+		const wrapper = await mountView()
+		const names = wrapper.findAll('[data-testid="today-appointment"]').map((appointment) => appointment.find('.appointment-name').text())
+
+		expect(names).toEqual(['Handed to me'])
 	})
 
 	it('gives a row the same facts as a task list: energy, recurrence, floor and room (FEAT-UX-047)', async () => {

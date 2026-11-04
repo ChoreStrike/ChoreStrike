@@ -20,7 +20,8 @@ describe('ExpandChevron', () => {
 		const source = readFileSync(resolve(SRC, 'components/Common/ExpandChevron.vue'), 'utf8')
 
 		expect(source).toMatch(/\.expand-chevron--open\s*\{\s*transform:\s*rotate\(90deg\)/)
-		expect(source).toMatch(/prefers-reduced-motion: reduce[\s\S]*transition:\s*none/)
+		// The token drops to 0ms under prefers-reduced-motion.
+		expect(source).toContain('transition: transform var(--cs-transition-fast)')
 	})
 
 	it.each([

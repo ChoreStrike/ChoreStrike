@@ -5,12 +5,23 @@
 
 import { describe, it, expect, beforeEach } from '@jest/globals'
 import { showError } from '@nextcloud/dialogs'
-import { errorReference, showCompletionError, showErrorWithReference } from '@/utils/errorToast.js'
+import { errorReference, refusalReason, showCompletionError, showErrorWithReference } from '@/utils/errorToast.js'
 import { ApiError } from '@/services/api.js'
 
 describe('errorToast (CS-PLAN-084 WP-F)', () => {
 	beforeEach(() => {
 		showError.mockClear()
+	})
+
+	it.each(['CONFLICT', 'STALE_TARGET', 'VALIDATION_ERROR'])('reads the reason of a coded refusal: %s', (code) => {
+		expect(refusalReason({ code, message: 'Over the limit' })).toBe('Over the limit')
+	})
+
+	it('finds no reason in anything else', () => {
+		expect(refusalReason({ code: 'INTERNAL_ERROR', message: 'Boom' })).toBe('')
+		expect(refusalReason({ code: 'CONFLICT' })).toBe('')
+		expect(refusalReason(new Error('Network'))).toBe('')
+		expect(refusalReason(undefined)).toBe('')
 	})
 
 	it('prefers the stable API code', () => {

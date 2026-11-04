@@ -209,6 +209,27 @@ describe('RoomTaskEditModal', () => {
 		expect(wrapper.emitted('saved')).toBeTruthy()
 	})
 
+	it('does not move the due date again on the retry after a refused assignment', async () => {
+		roomTasksStore.updateRoomTaskDueDate = jest.fn().mockResolvedValue({})
+		roomTasksStore.setAssignees = jest.fn()
+			.mockRejectedValueOnce(refused('Assigning this member would exceed a daily task limit'))
+			.mockResolvedValueOnce({})
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="room-task-due-input"]').setValue('2026-08-25')
+		await wrapper.find('[data-testid="assignee-chips-stub"]').trigger('click')
+		await wrapper.find('form').trigger('submit')
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="room-task-partly-saved"]').exists()).toBe(true)
+
+		await wrapper.find('form').trigger('submit')
+		await flushPromises()
+
+		expect(roomTasksStore.updateRoomTaskDueDate).toHaveBeenCalledTimes(1)
+		expect(roomTasksStore.setAssignees).toHaveBeenCalledTimes(2)
+		expect(wrapper.emitted('saved')).toBeTruthy()
+	})
+
 	it('shows a refused assignment inline and keeps the dialog open', async () => {
 		showWarning.mockClear()
 		roomTasksStore.setAssignees = jest.fn().mockRejectedValue(refused('Assigning this member would exceed a daily task limit'))

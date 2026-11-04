@@ -45,9 +45,8 @@ reward merely to manufacture equal rankings is not an agreed requirement.
 
 - Household progress/health bars, a weekly goal and completion celebrations exist.
 - Team streaks are an earlier idea, not an implemented household-rhythm counter.
-- Shared assignment currently does not distribute contribution or coins to all
-  participants. The completer receives the contribution, base coins and teamwork
-  bonus; the planner reserves full effort for every assignee.
+- Shared work splits the reward by the recorded shares; there is no teamwork
+  bonus. The planner reserves full effort for every assignee.
 - Rankings and many medal thresholds use raw activity rather than fulfillment of
   each person's agreed plan. Capacity-normalized Insights is a separate view.
 

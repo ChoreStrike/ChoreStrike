@@ -32,6 +32,16 @@ export function errorReference(error) {
 }
 
 /**
+ * The server's localized reason for a refused change, shown next to the
+ * field. Only a coded refusal has one; anything else stays a generic toast.
+ * @param {unknown} error The caught error.
+ * @return {string} The reason, or '' when there is none.
+ */
+export function refusalReason(error) {
+	return ['CONFLICT', 'STALE_TARGET', 'VALIDATION_ERROR'].includes(error?.code) && error?.message ? error.message : ''
+}
+
+/**
  * Show a translated failure toast with the error reference appended, e.g.
  * "Could not complete the task (CONFLICT)", so a reported failure can be
  * matched to the server log.

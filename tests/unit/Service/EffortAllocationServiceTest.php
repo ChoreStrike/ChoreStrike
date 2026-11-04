@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Service\EffortAllocationService;
+use OCA\ChoreStrike\Service\SchedulingService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -92,6 +93,11 @@ class EffortAllocationServiceTest extends TestCase {
 	public function testAllocateRejectsOutOfRangeEnergyHigh(): void {
 		$this->expectException(\InvalidArgumentException::class);
 		$this->service->allocate(EffortAllocationService::ENERGY_MAX + 1, 100);
+	}
+
+	/** D-089-07: no task outgrows the largest daily budget. */
+	public function testTaskLimitEqualsTheLargestDailyBudget(): void {
+		$this->assertSame(SchedulingService::ENERGY_BUDGET_MAX, EffortAllocationService::ENERGY_MAX);
 	}
 
 	/** D-089-07: the whole range pays at the frozen rate. */

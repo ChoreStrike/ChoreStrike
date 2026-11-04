@@ -629,6 +629,12 @@ export default {
 			return number === 0 ? t('chorestrike', 'Ground Floor') : t('chorestrike', '{n}. Floor', { n: number })
 		},
 
+		/**
+		 * The first floors under one counting, as the label of its option.
+		 *
+		 * @param {number} firstUpperFloor Number of the first floor above ground.
+		 * @return {string}
+		 */
 		floorNumberingExample(firstUpperFloor) {
 			return [0, 1, 2].map((index) => this.floorName(index, firstUpperFloor)).join(', ')
 		},

@@ -768,7 +768,7 @@ class RoomTaskService {
 	 * @param \DateTime $from Inclusive range start
 	 * @param \DateTime $to Inclusive range end
 	 * @param HouseUser $viewer The acting user's house membership
-	 * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array, occurrences: array<int, string>, occurrenceDetails: array<int, array{date: string, occurrenceId: ?string, classification: string, version: ?int, fulfilled: ?bool, late: bool}>}>, completed: array<int, array>}
+	 * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, assignees: list<string>, flexWindow: array, occurrences: array<int, string>, occurrenceDetails: array<int, array{date: string, occurrenceId: ?string, classification: string, version: ?int, fulfilled: ?bool, late: bool}>}>, completed: array<int, array>}
 	 */
 	public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to, HouseUser $viewer): array {
 		// CS-PLAN-057: reinterpret the controller's Y-m-d keys as house-local
@@ -816,6 +816,10 @@ class RoomTaskService {
 		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
 			array_map(static fn (RoomTask $rt): int => (int)$rt->getId(), $roomTasks)
 		);
+		$obligatedByOccurrence = $this->readService->obligatedUsersByOccurrence($houseId, array_values(array_filter(array_map(
+			static fn (array $entry): ?int => $entry['occurrence']->getId(),
+			array_merge(...array_values($agreedByTask))
+		))));
 
 		$scheduled = [];
 		foreach ($roomTasks as $rt) {
@@ -838,6 +842,7 @@ class RoomTaskService {
 					// Per-day overdue mark (CR-084-01): the saved window has
 					// ended without the work, not merely the planned day.
 					'late' => $this->occurrenceService->isMissed($occurrence, $now),
+					'obligatedUserIds' => $obligatedByOccurrence[$occurrence->getId()] ?? null,
 				];
 			}
 
@@ -850,6 +855,7 @@ class RoomTaskService {
 					'version' => null,
 					'fulfilled' => null,
 					'late' => false,
+					'obligatedUserIds' => null,
 				];
 			}
 

@@ -488,9 +488,9 @@ export default {
 			}
 			const planned = this.visibleTodayItems
 				.filter((item) => item.roomTask.isActive)
-				.reduce((sum, item) => sum + (item.task?.energyCost ?? 0), 0)
+				.reduce((sum, item) => sum + taskEnergy(item), 0)
 			const outstanding = this.visibleCatchUpItems
-				.reduce((sum, item) => sum + (item.task?.energyCost ?? 0), 0)
+				.reduce((sum, item) => sum + taskEnergy(item), 0)
 			const total = planned + outstanding
 			if (total === 0 || total <= capacity) {
 				return null
@@ -510,12 +510,12 @@ export default {
 			const offered = new Set(this.openWindowItems.map((item) => item.occurrence?.occurrenceId))
 			const appointments = []
 			for (const item of this.roomTasksStore.rangeTasks.scheduled) {
-				if (this.filter !== 'all' && !this.isMine(item)) {
-					continue
-				}
 				const details = Array.isArray(item.occurrenceDetails) ? item.occurrenceDetails : []
 				for (const detail of details) {
 					if (detail.classification !== 'agreed' || offered.has(detail.occurrenceId)) {
+						continue
+					}
+					if (this.filter !== 'all' && !this.isMyAppointment(item, detail)) {
 						continue
 					}
 					if (detail.fulfilled === true) {
@@ -553,7 +553,9 @@ export default {
 		subscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
 		// Floor names are optional here: without them a row names its room,
 		// and the store has logged the failure.
-		this.roomsStore.fetchFloorsWithRooms().catch(() => {})
+		if (this.roomsStore.floors.length === 0) {
+			this.roomsStore.fetchFloorsWithRooms().catch(() => {})
+		}
 		await this.load()
 	},
 
@@ -593,6 +595,19 @@ export default {
 			}
 			const assignees = item.assignees ?? item.roomTask.assignees ?? []
 			return assignees.length === 0 || assignees.includes(this.myUserId)
+		},
+
+		/**
+		 * An agreed appointment can belong to someone other than the task's
+		 * assignees, for example after a handover.
+		 * @param {object} item Range row.
+		 * @param {object} detail One occurrence of that row.
+		 * @return {boolean}
+		 */
+		isMyAppointment(item, detail) {
+			return this.myUserId && Array.isArray(detail.obligatedUserIds)
+				? detail.obligatedUserIds.includes(this.myUserId)
+				: this.isMine(item)
 		},
 
 		async load() {

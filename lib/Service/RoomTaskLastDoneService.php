@@ -64,7 +64,7 @@ class RoomTaskLastDoneService {
 	 * @throws ForbiddenException for a child or a non-member
 	 * @throws NotFoundException for a foreign, invisible or deleted room task
 	 * @throws ValidationException for a malformed, impossible or future day
-	 * @throws ConflictException while the current appointment is overdue
+	 * @throws ConflictException while an appointment of the task is missed
 	 */
 	public function recordLastDone(int $roomTaskId, int $houseId, string $dateKey, string $commandId): RoomTask {
 		$actor = $this->assertAdultMember($houseId);
@@ -85,7 +85,7 @@ class RoomTaskLastDoneService {
 			$actor = $this->assertAdultMember($houseId);
 			$roomTask = $this->visibleRoomTask($roomTaskId, $houseId, $actor, true);
 			$now = new \DateTime();
-			$this->reanchorIntervalUnderLock($houseId, $roomTask, $actor, $dateKey, $this->calendarService->dayKey($now, $tz), $now);
+			$this->refuseMissedThenReanchorUnderLock($houseId, $roomTask, $actor, $dateKey, $this->calendarService->dayKey($now, $tz), $now);
 
 			$room = $this->roomMapper->lockForUpdate($roomTask->getRoomId());
 			$this->roomReplayService->recordLastDone((int)$room->getId(), $roomTaskId, $commandId, $this->calendarService->dayStartInstant($dateKey, $tz));
@@ -121,7 +121,7 @@ class RoomTaskLastDoneService {
 	 *
 	 * @throws ConflictException while an appointment of the task is missed
 	 */
-	private function reanchorIntervalUnderLock(int $houseId, RoomTask $roomTask, HouseUser $actor, string $dateKey, string $todayKey, \DateTime $now): void {
+	private function refuseMissedThenReanchorUnderLock(int $houseId, RoomTask $roomTask, HouseUser $actor, string $dateKey, string $todayKey, \DateTime $now): void {
 		$pending = null;
 		foreach ($this->occurrenceMapper->findOpenByRoomTasks([(int)$roomTask->getId()]) as $occurrence) {
 			if ($occurrence->getKind() === Occurrence::KIND_VOLUNTARY

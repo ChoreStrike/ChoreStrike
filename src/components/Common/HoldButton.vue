@@ -38,7 +38,7 @@
 						cy="18"
 						r="16" />
 				</svg>
-				<Icon :name="icon" :size="iconSize" class="hold-button__icon" />
+				<Icon name="CheckCircle" :size="iconSize" class="hold-button__icon" />
 			</span>
 			<span v-if="label" class="hold-button__label">{{ label }}</span>
 		</button>
@@ -83,7 +83,6 @@ export default {
 
 	props: {
 		label: { type: String, default: '' },
-		icon: { type: String, default: 'CheckCircle' },
 		iconSize: { type: Number, default: 20 },
 		disabled: { type: Boolean, default: false },
 		// In-flight state of the confirmed action: blocks a second confirm.

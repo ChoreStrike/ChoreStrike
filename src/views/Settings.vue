@@ -356,6 +356,7 @@
 										<span
 											v-if="roomTaskCountsLoaded"
 											class="room-row-count"
+											:title="t('chorestrike', 'Tasks you can see in this room')"
 											:data-testid="`room-task-count-${room.id}`">
 											{{ roomTaskCountLabel(room.id) }}
 										</span>
@@ -830,7 +831,9 @@ export default {
 			}
 			this.roomTaskCountsRequested = true
 			try {
-				await this.roomTasksStore.fetchHouseRoomTasks()
+				if (!this.roomTasksStore.houseLoaded || this.roomTasksStore.houseStale) {
+					await this.roomTasksStore.fetchHouseRoomTasks()
+				}
 				this.roomTaskCountsLoaded = true
 			} catch {
 				// The store has logged it; the next expanded floor tries again.

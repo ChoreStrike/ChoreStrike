@@ -28,12 +28,14 @@ use PHPUnit\Framework\TestCase;
  */
 class TaskControllerTest extends TestCase {
 	private TaskController $controller;
+	private AppLogger $appLogger;
 	private TaskService $taskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IRequest $request;
 
 	protected function setUp(): void {
+		$this->appLogger = $this->createMock(AppLogger::class);
 		parent::setUp();
 
 		$this->request = $this->createMock(IRequest::class);
@@ -50,7 +52,7 @@ class TaskControllerTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$l10n,
-			$this->createMock(AppLogger::class)
+			$this->appLogger
 		);
 	}
 
@@ -186,11 +188,6 @@ class TaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * A stale client still sending the removed `isPrivate` key has it
-	 * dropped (CS-PLAN-060 WP1 D1); the canonical `visibilityType` stays
-	 * the sole source of truth.
-	 */
-	/**
 	 * BUG-UX-011: a refused edit is a 409 with its reason, never a logged 500.
 	 */
 	public function testUpdate_RefusedEdit_Is409WithTheReason(): void {
@@ -203,6 +200,7 @@ class TaskControllerTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 		$this->taskService->method('getVisibleTask')->willReturn($task);
 		$this->taskService->method('updateTask')->willThrowException(new ConflictException('Refused'));
+		$this->appLogger->expects($this->never())->method('logException');
 
 		$this->mockUpdateRequest(['name' => 'Renamed']);
 		$response = $this->controller->update(1);
@@ -211,6 +209,11 @@ class TaskControllerTest extends TestCase {
 		$this->assertSame(['code' => 'CONFLICT', 'message' => 'Refused'], $response->getData()['error']);
 	}
 
+	/**
+	 * A stale client still sending the removed `isPrivate` key has it
+	 * dropped (CS-PLAN-060 WP1 D1); the canonical `visibilityType` stays
+	 * the sole source of truth.
+	 */
 	public function testUpdate_DropsLegacyIsPrivateKey(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());

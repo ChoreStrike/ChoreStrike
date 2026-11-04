@@ -1,5 +1,49 @@
 # Code Review Record — 2026-11-04
 
+## Final Full - CS-PLAN-089 Round 1 implementation
+
+**Outcome:** `PASS-WITH-FIXES`. Interim for the plan, which stays active until WP-F is done.
+
+### Scope and capture
+
+- Tier: Full, four parallel read-only reviewers (correctness, architecture, security,
+  performance and quality), each given the same diff of the branch against `master`.
+- Base HEAD `39c4eba` on `fix/alpha4-round1`, clean tree, 122 changed files. Reviewed fixes:
+  binary diff SHA-256 prefix `d557be905bb8b750`.
+- Owning plan: CS-PLAN-089. No production access and no exchange read for this review.
+
+### Findings
+
+| ID | Severity | Area | Issue | Resolution |
+|---|---|---|---|---|
+| RF-089-07 | major | TECH-LOG-001 | The owner check in `initializeScheduling()` ran before the current user resolved, so a reload lost the member availability silently | Awaits the user; regression tests for a late role and an unreadable role |
+| RF-089-08 | minor | BUG-UX-011 | A retry after a refused assignment recorded the due date twice | A saved step moves the baseline; spec |
+| RF-089-09 | minor | D-089-07 | The ledger bound referenced the budget bound, so a planner setting could block corrections of frozen completions | Own value, pinned equal by a test |
+| RF-089-10 | minor | D-089-12 | *Next appointments* judged a handed-over occurrence by the task's assignees | `obligatedUserIds` per occurrence on range rows; unit, integration and view tests |
+| RF-089-11 | minor | FEAT-UX-047 | The overload note added up definition energy while rows show frozen energy | Same value in both |
+| RF-089-12 | minor | BUG-UX-011 | Refusals read differently in dialog and chips; other chip failures were silent | `refusalReason()` and a toast |
+| RF-089-13 | minor | Tests | The 409 tests did not prove the absence of an error log; docblocks detached | Asserted; docblocks moved back |
+| RF-089-14 | minor | FEAT-UX-047, FEAT-UX-049 | Redundant reads of floors and of a fresh house list | Reuse what is loaded |
+| RF-089-15 | minor | FEAT-UX-049 | The count covers only visible tasks, next to a delete that removes all | Tooltip says so; delete text already names all tasks |
+| RF-089-16 | nit | Removals, docs | Passthrough, unused prop, method name, docblock, API example, stale concept sentence, JSDoc, transition token | Fixed |
+
+### Refuted and accepted
+
+- **Refuted:** "a miss the job has not written escapes the last-done refusal". Every date up to a
+  revision's agreed frontier has a row, because materialization and frontier advance share one
+  transaction. The drafted fix was withdrawn with its test, which could only fail by deleting
+  rows and so breaking that invariant.
+- **Accepted:** the unused chevrons stay in the icon registry; `TaskEnergyField` keeps the id its
+  parent's label points to; `TaskMeta` stays free of store access; `body select` reaches only the
+  page that loads this app's styles; the `flexWindow` API field stays documented without a client.
+
+### Gates
+
+PHPUnit unit 1549 and integration 655 on the canonical stack, after `occ upgrade` to the candidate
+version. Jest 162 suites / 2294 tests, ESLint, stylelint, `composer cs:check`, l10n, backlog and
+encoding checks. Browser: `scheduling-apply-flow`, `family-core-ux`, `settings` and `room-detail` on the primary row. The full browser gates, the AIO row and the package
+smoke follow with the qualification.
+
 ## Standard A - CS-PLAN-089 alpha4 trial defects and everyday fixes
 
 **Outcome:** `PASS-WITH-FIXES`. Documentation-only plan review; no implementation.

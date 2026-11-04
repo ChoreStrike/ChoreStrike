@@ -26,16 +26,10 @@ defineProps({
 <style scoped>
 .expand-chevron {
 	display: inline-flex;
-	transition: transform 0.15s ease;
+	transition: transform var(--cs-transition-fast);
 }
 
 .expand-chevron--open {
 	transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.expand-chevron {
-		transition: none;
-	}
 }
 </style>

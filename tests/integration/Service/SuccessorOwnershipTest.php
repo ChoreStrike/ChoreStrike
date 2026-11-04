@@ -202,6 +202,19 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 		}
 	}
 
+	/** D-089-12: the range read names who an appointment was handed to. */
+	public function testRange_NamesWhoAnAppointmentWasHandedTo(): void {
+		$f = $this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00', 2);
+		$this->handOver($f, self::OTHER_KID);
+
+		$owner = $this->houseUserMapper->findByNextcloudUserId($f['houseId'], self::OWNER);
+		$range = \OC::$server->get(RoomTaskService::class)->getRangeTasks(
+			$f['houseId'], new \DateTime('-1 day'), new \DateTime('+3 days'), $owner);
+		$rows = array_values(array_filter($range['scheduled'], static fn (array $row): bool => $row['roomTask']['id'] === $f['roomTaskId']));
+
+		self::assertContains([self::OTHER_KID], array_column($rows[0]['occurrenceDetails'], 'obligatedUserIds'));
+	}
+
 	/** @return array{0: string, 1: ?string} [status, classification] as the list endpoint serializes them */
 	private function listStatus(array $f): array {
 		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);

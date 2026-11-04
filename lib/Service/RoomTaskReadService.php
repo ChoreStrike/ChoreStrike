@@ -240,6 +240,34 @@ class RoomTaskReadService {
 	}
 
 	/**
+	 * Who is obligated to each persisted occurrence. Without concrete
+	 * members an occurrence has no entry, and the task's assignees stand.
+	 *
+	 * @param int[] $occurrenceIds
+	 * @return array<int, list<string>> occurrence id => Nextcloud user ids
+	 */
+	public function obligatedUsersByOccurrence(int $houseId, array $occurrenceIds): array {
+		$membersByOccurrence = $this->occMemberMapper->findByOccurrenceIds($occurrenceIds);
+		if ($membersByOccurrence === []) {
+			return [];
+		}
+		$userIdByWallet = [];
+		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
+			if ($member->getWalletId() !== null) {
+				$userIdByWallet[(int)$member->getWalletId()] = $member->getNextcloudUserId();
+			}
+		}
+		$obligated = [];
+		foreach ($membersByOccurrence as $occurrenceId => $members) {
+			$users = $this->obligatedUsers($members, $userIdByWallet);
+			if ($users !== []) {
+				$obligated[$occurrenceId] = $users;
+			}
+		}
+		return $obligated;
+	}
+
+	/**
 	 * Concrete responsibility is distinct from voluntary actual-work shares.
 	 * @param list<OccurrenceMember> $members
 	 * @param array<int, string> $userIdByWallet

@@ -29,8 +29,12 @@ class EffortAllocationService {
 	/** Inclusive lower bound of a task's energy. */
 	public const ENERGY_MIN = 1;
 
-	/** Inclusive upper bound of a task's energy: it fits the largest daily budget (D-089-07). */
-	public const ENERGY_MAX = SchedulingService::ENERGY_BUDGET_MAX;
+	/**
+	 * Inclusive upper bound of a task's energy (D-089-07). It equals the largest
+	 * daily budget by decision, not by reference: allocate() also re-reads
+	 * frozen completions, so this bound may rise and must never fall.
+	 */
+	public const ENERGY_MAX = 20;
 
 	/** Coin minor units per whole energy unit (frozen rate: 10 Coins). */
 	public const COIN_MINOR_PER_ENERGY = 1000;

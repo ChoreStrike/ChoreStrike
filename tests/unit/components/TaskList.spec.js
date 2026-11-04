@@ -1,5 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { showError } from '@nextcloud/dialogs'
 import TaskList from '../../../src/components/Tasks/TaskList.vue'
 import { useUserStore } from '../../../src/store/user.js'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
@@ -92,11 +93,13 @@ describe('TaskList', () => {
 			expect(item.props('assigneeRefusal')).toBe('Assigning this member would exceed a daily task limit')
 		})
 
-		it('never shows an uncoded error text', async () => {
+		it('never shows an uncoded error text, and says that it failed', async () => {
+			showError.mockClear()
 			const item = await toggleRejectedWith(new Error('Request failed with status code 500'))
 
 			expect(item.props('assigneeDraft')).toEqual([])
 			expect(item.props('assigneeRefusal')).toBe('')
+			expect(showError).toHaveBeenCalledWith('Failed to update task')
 		})
 	})
 

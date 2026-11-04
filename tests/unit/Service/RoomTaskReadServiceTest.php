@@ -536,6 +536,28 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->assertSame($proposal['participants'], $helperProposal['participants']);
 	}
 
+	/** D-089-12: an appointment names the people who owe it, nobody else. */
+	public function testObligatedUsersByOccurrence_NamesActiveObligationsOnly(): void {
+		$this->houseUserMapper->method('findByHouseId')->willReturn($this->proposalMembers());
+		$member = static function (int $occurrenceId, bool $obligated, string $disposition): \OCA\ChoreStrike\Db\OccurrenceMember {
+			$row = new \OCA\ChoreStrike\Db\OccurrenceMember();
+			$row->setOccurrenceId($occurrenceId);
+			$row->setWalletId(101);
+			$row->setObligated($obligated);
+			$row->setDisposition($disposition);
+			return $row;
+		};
+		$active = \OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_ACTIVE;
+		$released = \OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_RELEASED;
+		$this->occMemberMapper->method('findByOccurrenceIds')->with([50, 51, 52])->willReturn([
+			50 => [$member(50, true, $active)],
+			51 => [$member(51, false, $active)],
+			52 => [$member(52, true, $released)],
+		]);
+
+		$this->assertSame([50 => ['dad']], $this->service->obligatedUsersByOccurrence(1, [50, 51, 52]));
+	}
+
 	/**
 	 * WithOccurrenceBlocks_NoAgreement_EqualWalletOrderAssigneeProposal
 	 */

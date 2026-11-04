@@ -483,6 +483,31 @@ describe('Scheduling Store', () => {
 				expect(store.loading).toBe(false)
 			})
 
+			it('initializeScheduling waits for the role on a reload, where the user is still loading', async () => {
+				api.get.mockResolvedValue({})
+				const userStore = useUserStore()
+				userStore.currentUser = null
+				userStore.initializeCurrentUser = jest.fn(async () => {
+					userStore.currentUser = { id: 3, role: 'owner' }
+				})
+
+				await store.initializeScheduling()
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/scheduling/members')
+			})
+
+			it('initializeScheduling treats a role it cannot read as no owner', async () => {
+				api.get.mockResolvedValue({})
+				const userStore = useUserStore()
+				userStore.currentUser = null
+				userStore.initializeCurrentUser = jest.fn().mockRejectedValue(new Error('down'))
+
+				await store.initializeScheduling()
+
+				expect(api.get).not.toHaveBeenCalledWith('/api/v1/scheduling/members')
+				expect(store.loading).toBe(false)
+			})
+
 			it('initializeScheduling owns the loading flag and survives owner-only member fetch failures', async () => {
 				useUserStore().currentUser = { id: 3, role: 'owner' }
 				api.get.mockImplementation((path) => {

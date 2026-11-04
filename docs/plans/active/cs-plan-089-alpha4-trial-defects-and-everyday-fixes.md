@@ -231,7 +231,8 @@ browser gates follow with the candidate.
   [`energy-and-balancing.md`](../../concepts/energy-and-balancing.md) (which says 5
   minutes) and the user-facing help change.
 - **Limit:** 1–20 through one constant, `EffortAllocationService::ENERGY_MAX` (D-089-07),
-  tied to the largest daily budget. The ledger had its own 1–5 guard in `allocate()`,
+  equal to the largest daily budget and pinned to it by a test, but not derived from it, because
+  frozen completions must never depend on a planner setting (RF-089-09). The ledger had its own 1–5 guard in `allocate()`,
   which this plan had missed: raised only in `TaskService`, a task above 5 could be created
   and never completed. So the constant sits in the allocation service, and `TaskService`
   reads it. The unused `energy_max_per_task` key in `RewardConfigService` (default 9,
@@ -257,7 +258,8 @@ browser gates follow with the candidate.
 - One presentational meta component for `TaskListItem` (Tasks, rooms) and the My Day row
   groups in `TodayView`: energy in colour through a new token, recurrence with its flex
   days in one label (`Every 3 days ±2`), floor and room below the title. My Day does not
-  load floors yet, so it calls `fetchFloorsWithRooms()` once per view, never per row.
+  load floors yet, so it calls `fetchFloorsWithRooms()` once per view, never per row, and
+  reuses floors another view has loaded (RF-089-14).
 - No clock (WP-B) and no separate flex display: `FlexWindowDisplay.vue` loses its only
   consumer and goes with its spec, its `flexWindow` helper and its exemption in
   TECH-LINT-009.
@@ -452,6 +454,16 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-089-04 (minor) - BUG-UX-011: `TaskList.vue` (assignee chips, bulk assignment) and the message shared with `AgreementService` were missing from scope, tests and manifest.
 - [x] RF-089-05 (minor) - FEAT-UX-047: My Day does not load floors; one `fetchFloorsWithRooms()` per view, never per row.
 - [x] RF-089-06 (minor) - Tests and manifest: the `#content` contrast selectors, `TaskCreationServiceTest`, the scenario name that mentions Quick clean and the docs naming the removed actions or the 1–5 scale were missing.
+- [x] RF-089-07 (major) - TECH-LOG-001: `initializeScheduling()` judged the role before the current user had resolved, so an owner reloading Scheduling silently lost the member availability. It now awaits the user; a role it cannot read counts as no owner.
+- [x] RF-089-08 (minor) - BUG-UX-011: a retry after a refused assignment compared the picker with a stale row and recorded the due date a second time. A saved step now moves the baseline.
+- [x] RF-089-09 (minor) - D-089-07: the ledger bound referenced the budget bound, so a lowered budget could have blocked corrections of frozen completions. It is its own value now, pinned equal by a test.
+- [x] RF-089-10 (minor) - D-089-12: *Next appointments* judged a handed-over occurrence by the task's assignees. Range rows carry `obligatedUserIds` per occurrence, and the filter reads that first.
+- [x] RF-089-11 (minor) - FEAT-UX-047: the overload note added up the definition's energy while the rows show the frozen energy. Both read the same value.
+- [x] RF-089-12 (minor) - BUG-UX-011: the dialog and the chips read refusals differently, and any other failure of a chip stayed silent. One helper, `refusalReason()`, and a toast for the rest.
+- [x] RF-089-13 (minor) - BUG-UX-011, TECH-LOG-001: the 409 tests did not prove the absence of an error log, and two docblocks had come apart from their tests.
+- [x] RF-089-14 (minor) - FEAT-UX-047, FEAT-UX-049: My Day re-read the floors on every visit and Settings re-read a fresh house list. Both reuse what is loaded.
+- [x] RF-089-15 (minor) - FEAT-UX-049: the task count covers only what the viewer can see, next to a delete that removes everything. The count says so in its tooltip; the delete confirmation already names all tasks.
+- [x] RF-089-16 (nit) - Leftovers of the removals and small gaps: the `flexWindow` passthrough in the store, the `icon` prop of `HoldButton`, the name and `@throws` of the last-done guard, the `getRangeTasks` docblock and API example, a stale teamwork sentence in the concept, a missing JSDoc, and the chevron's own transition instead of the token.
 
 ## Feedback Register (sanitized)
 
@@ -524,3 +536,25 @@ rules. No subagents and no implementation edits.
   assigns this plan its alpha.4 slice. Record:
   [2026-11-04 review](../../backlog/archive/CODE_REVIEW_2026-11-04.md#standard-a---cs-plan-089-alpha4-trial-defects-and-everyday-fixes).
 - Finalization is one scoped review commit; no merge, push, tag or deployment.
+
+**Final Full review, 2026-11-04: PASS-WITH-FIXES** (implementation of Round 1, interim for the plan).
+Scope: everything on `fix/alpha4-round1` against `master`, base HEAD `39c4eba`, 122 files, four
+parallel reviewers. The plan stays active: the qualification, deployment and record of WP-F
+remain, and durable integration is checked at closure.
+
+- RF-089-07..16 fixed with regression tests (§9). One major, none security-relevant, no
+  exploitable finding, no applied migration touched.
+- Refuted, no change: the correctness track reported that a miss a stopped cron has not written
+  escapes the last-done refusal. It does not exist: every date up to a revision's agreed
+  frontier has a row, because materialization and frontier advance share one transaction. A
+  regression test built for it could only fail by deleting rows, which breaks that invariant,
+  so fix and test were withdrawn.
+- Accepted, no change: `ChevronUp` and `ChevronDown` stay in the icon registry; `TaskEnergyField`
+  keeps the `energyCost` id its parent's label points to; `TaskMeta` stays free of store access,
+  which leaves the wiring with its callers; `body select` reaches only the page that loads this
+  app's styles; the `flexWindow` API field stays documented without a client.
+- Decisions: D-089-13 recorded before the review; no open question.
+- Gates: PHPUnit unit 1549 and integration 655, Jest 162 suites / 2294 tests, ESLint, stylelint,
+  `composer cs:check`, l10n, backlog and encoding checks. Browser: `scheduling-apply-flow`, `family-core-ux`, `settings` and `room-detail` on the primary row. Full gates,
+  AIO row and package smoke follow with the qualification.
+- Record: [2026-11-04 review](../../backlog/archive/CODE_REVIEW_2026-11-04.md#final-full---cs-plan-089-round-1-implementation).

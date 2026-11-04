@@ -640,8 +640,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 *
 		 * Runs sequentially: preferences (member-gated, required) first so a
 		 * failure surfaces to the view; member availability (owner-only) is
-		 * fetched best-effort — for non-owners it 403s, which is expected and
-		 * must not error the whole view.
+		 * fetched best-effort for owners. The role is awaited, because a
+		 * reload lands here before the current user has resolved.
 		 */
 		async initializeScheduling() {
 			this.loading = true
@@ -652,7 +652,10 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 				// Member availability is owner-only: any other role would only
 				// write an expected refusal into the server log (TECH-LOG-001).
-				if (!useUserStore().isHouseOwner) {
+				const userStore = useUserStore()
+				// A failed read is logged by the store and leaves the role unknown.
+				await userStore.initializeCurrentUser().catch(() => null)
+				if (!userStore.isHouseOwner) {
 					return
 				}
 				try {
