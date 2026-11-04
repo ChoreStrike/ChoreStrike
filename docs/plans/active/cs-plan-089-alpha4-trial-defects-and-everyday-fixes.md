@@ -33,7 +33,7 @@ Two are larger than reported:
 - **D-4 (HTTP 500):** `RoomTaskController::updateDueDate()` does not catch
   `ConflictException`. That turns every refusal of the date writer into a 500: the
   passed amendment deadline, the child day limit and a stale target.
-  `setAssignees()` and `bulkAssign()` have the same gap. The two questions the
+  `setAssignees()` has the same gap. The two questions the
   report left open can be answered from the code. The reported dialog saved only
   partly, because `RoomTaskEditModal.save()` runs "Last done on" and the due-date
   change as two transactions. It must have been a fixed-cadence task: an overdue
@@ -159,6 +159,11 @@ AIO v14.4.3 with unchanged Nextcloud 34.0.5 and components, and a new digest beh
 current-runtime docs; rebuild; requalify both rows. The check runs again before the
 freeze, and any newer drift is promoted the same way.
 
+Delivered 2026-11-04: `test:runtime:check` reports `current`. Only the multi-arch index of
+`php:8.4.27-apache` moved; its `linux/amd64` digest is unchanged, so the tested runtime stays
+identical. The canonical stack was rebuilt, PHPUnit is green on it, and the AIO row and the
+browser gates follow with the candidate.
+
 ### WP-A Defects
 
 - **BUG-UX-008 (D-1):** `frequencyLabel()` uses the existing `Every {n} days` for
@@ -177,18 +182,19 @@ freeze, and any newer drift is promoted the same way.
   in Settings, `RewardCatalogEditor`, `RewardRequestDetails`, `RewardRequestList`,
   `MemberList`, and the rest of the 13 components with a `<select>`.
 - **BUG-UX-011 (D-4):**
-  - `RoomTaskController`: `updateDueDate()`, `setAssignees()` and `bulkAssign()` catch
-    `ConflictException` through `ControllerErrorFormatter::conflictResponse()`. Audit the
-    other mutations of this controller against the service paths they reach.
+  - `RoomTaskController`: `updateDueDate()` and `setAssignees()` catch `ConflictException`
+    through `ControllerErrorFormatter::conflictResponse()`. The audit of the other mutations
+    corrected the plan and added one: `bulkAssign()` has no gap, because its service counts a
+    refused item as skipped, while `TaskController::update()` can reach the same 500.
   - `RoomTaskLastDoneService`: the overdue refusal runs for every cadence (D-089-08).
   - `RoomTaskEditModal.vue`: due-date and assignee refusals appear inline, as the
     last-done refusal already does. When a later step is refused after "Last done" was
     saved, the dialog stays open, says what was saved and clears the field so a retry
     does not record it again.
-  - `TaskList.vue`: the assignee chips and the bulk assignment now receive a 409 instead
-    of a 500 and show its reason, as BUG-UX-002 established for refusals.
-  - The message "The amendment deadline has passed" becomes a reason a person can act on.
-    `AgreementService` uses the same string, so both callers change together.
+  - `TaskList.vue`: the assignee chips rolled back silently; they now show the reason at the
+    chips, as BUG-UX-002 established for refusals.
+  - Both refusals of a missed appointment share one reason a person can act on: "This task
+    has a missed appointment. Complete it first."
   - Known limit until FEAT-UX-050: while an older miss stands, the dialog cannot move a
     later occurrence, because it edits the oldest open one. The refusal says so; the
     explicit-target path of FEAT-UX-050 ends the limit. Atomic saving of the whole dialog
@@ -283,11 +289,11 @@ export of one selected smoke run; operator deployment; verified record under
 - **BUG-UX-010:** a browser assertion in `settings.spec.ts` that a select's value fits its
   content box, on the phone viewport and in the dark theme.
 - **BUG-UX-011:** `RoomTaskControllerTest` for 409, stable code and no error-level log on all
-  three actions; `RoomTaskLastDoneIntegrationTest` for a refused fixed cadence, both with a miss
+  actions, for `TaskController::update()` too; `RoomTaskLastDoneIntegrationTest` for a refused fixed cadence, both with a miss
   alone and with a miss next to a current window, without any write;
   `RoomTaskEditModal.spec.js` for inline refusals, the message after a partial save and no
-  repeated last-done call on retry; the `TaskList` spec for the shown reason on chips and bulk
-  assignment.
+  repeated last-done call on retry; the `TaskList` and `TaskListDetails` specs for the reason at
+  the chips.
 - **BUG-UX-013:** `RoomTaskServiceDailyTest` for own tasks above the limit and free slots at four
   limits; `ChildDailyLimitTest` on the real creation path, where a later assignment stays refused.
 - **TECH-LOG-001:** a scheduling store spec for owner and non-owner; `AppLoggerTest` for the

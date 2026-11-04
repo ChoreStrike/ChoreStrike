@@ -206,9 +206,11 @@ chevron. Device and theme were not recorded.
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Deployment report for `0.8.0-alpha.3`, server log 2026-11-01, CS-PLAN-089 register D-4
 
-`RoomTaskController::updateDueDate()`, `setAssignees()` and `bulkAssign()` do not
-catch `ConflictException`, so every refusal becomes a 500 with an error-level log
-entry: the passed amendment deadline, the child day limit, a stale target.
+`RoomTaskController::updateDueDate()` and `setAssignees()` do not catch
+`ConflictException`, so every refusal becomes a 500 with an error-level log entry:
+the passed amendment deadline, the child day limit, a stale target.
+`TaskController::update()` has the same gap. `bulkAssign()` has none: its service
+counts a refused item as skipped.
 `RoomTaskEditModal.save()` writes "Last done on" and the due date as two
 transactions, so the reported save stored the first and failed on the second,
 behind a generic toast. The refusal itself is right (ADR-013): the dialog and the
@@ -216,13 +218,13 @@ writer use the oldest open occurrence, which was already missed. A trace of the
 case also shows that the documented refusal of "Last done" while overdue runs only
 for an interval, not for a fixed cadence (D-088-20, API reference, service docblock).
 
-- [ ] The three actions answer 409 with the stable code; the controller's other
-      mutations are audited against the paths they reach.
+- [ ] The three actions answer 409 with the stable code; the room task controller's
+      other mutations are audited against the paths they reach.
 - [ ] "Last done" is refused on every cadence while an open occurrence has ended
       (D-089-08), so an older miss next to a current window is covered too.
 - [ ] The dialog shows due-date and assignee refusals inline, says what was saved
       after a partial save and does not record "Last done" twice on retry; the
-      assignee chips and the bulk assignment show the reason too.
+      assignee chips show the reason too.
 - [ ] The amendment-deadline message is a reason a person can act on.
 - [ ] PHPUnit and Jest regressions per the plan; atomic saving follows with
       FEAT-UX-040.
@@ -1107,12 +1109,12 @@ payloads.
 ---
 
 ### [P2] TECH-RUNTIME-003 — Promote AIO v14.4.3 and the moved PHP image
-**Status**: In Progress (Round 1, D-089-01; `test:runtime:check` exits 2 since 2026-11-02) · **Effort**: M · **Layer**: tests · **Journey stage**: —
+**Status**: In Progress (Round 1, D-089-01; inventory promoted, `test:runtime:check` reports `current`, the AIO row and browser gates follow with the candidate) · **Effort**: M · **Layer**: tests · **Journey stage**: —
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: RELEASE-002 (next deployment) · **Folded-in**: —
 **Source**: Weekly `runtime-check` run of 2026-11-02, drift `aio-bundle` and `moved-php-image`
 
-AIO v14.4.3 bundles the same Nextcloud 34.0.5 and components, and the digest behind
-`php:8.4.27-apache` moved. The project rules forbid deploying to a runtime the inventory
+AIO v14.4.3 bundles the same Nextcloud 34.0.5 and components, and the multi-arch index
+behind `php:8.4.27-apache` moved while its `linux/amd64` digest stayed. The project rules forbid deploying to a runtime the inventory
 does not name, so the promotion comes first, as in RF-088-11.
 
 - [ ] Reviewed inventory update, image and compose pins, spec hashes and docs.

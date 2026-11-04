@@ -47,6 +47,7 @@
 					:selected="isSelected(item.roomTask.id)"
 					:expanded="isExpanded(item.roomTask.id)"
 					:assigneeDraft="assigneeDraft[item.roomTask.id] || []"
+					:assigneeRefusal="assigneeRefusal[item.roomTask.id] || ''"
 					:compact="compact"
 					@complete="$emit('complete', $event)"
 					@edit="$emit('edit', $event)"
@@ -125,6 +126,8 @@ export default {
 		const expandedTaskId = ref(null)
 		// Local draft of assignee user IDs per expanded room task (optimistic)
 		const assigneeDraft = ref({})
+		// The server's reason per room task when it refused the last toggle
+		const assigneeRefusal = ref({})
 
 		const sortedTasks = computed(() => {
 			const tasks = props.roomTasks || []
@@ -170,14 +173,18 @@ export default {
 			}
 			const next = [...current]
 			assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: next }
+			assigneeRefusal.value = { ...assigneeRefusal.value, [roomTaskId]: '' }
 			try {
 				await roomTasksStore.setAssignees(roomTaskId, next)
-			} catch {
+			} catch (error) {
 				// Revert the draft on failure so the UI matches the server state
 				const previous = next.includes(userId)
 					? next.filter((id) => id !== userId)
 					: [...next, userId]
 				assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: previous }
+				if (error?.code === 'CONFLICT' && error?.message) {
+					assigneeRefusal.value = { ...assigneeRefusal.value, [roomTaskId]: error.message }
+				}
 			}
 		}
 
@@ -317,6 +324,7 @@ export default {
 			isExpanded,
 			houseMembers,
 			assigneeDraft,
+			assigneeRefusal,
 			toggleAssignee,
 			selectedRoomTaskIds,
 			bulkAssigning,

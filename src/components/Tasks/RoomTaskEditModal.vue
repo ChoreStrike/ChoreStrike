@@ -15,6 +15,12 @@
 				class="form-input"
 				data-testid="room-task-due-input"
 				required>
+			<p v-if="dueRefusal"
+				class="field-error"
+				role="alert"
+				data-testid="room-task-due-refusal">
+				{{ dueRefusal }}
+			</p>
 		</div>
 
 		<div v-if="canRecordLastDone" class="form-group">
@@ -47,7 +53,17 @@
 				{{ t('chorestrike', 'Loading…') }}
 			</p>
 			<AssigneeChips v-else v-model="assigneeUserIds" :members="houseMembers" />
+			<p v-if="assigneeRefusal"
+				class="field-error"
+				role="alert"
+				data-testid="room-task-assignee-refusal">
+				{{ assigneeRefusal }}
+			</p>
 		</div>
+
+		<p v-if="partlySaved" class="field-hint" data-testid="room-task-partly-saved">
+			{{ t('chorestrike', 'Your other changes were saved.') }}
+		</p>
 
 		<div class="form-actions cs-dialog-actions">
 			<button type="button"
@@ -144,19 +160,65 @@ export default {
 		const todayKey = dateKeyInZone(new Date(), houseStore.timezone)
 		const lastDone = ref('')
 		const lastDoneRefusal = ref('')
+		const dueRefusal = ref('')
+		const assigneeRefusal = ref('')
+		// The dialog writes in steps (BUG-UX-011): a refused step must not
+		// read as if nothing was saved.
+		const partlySaved = ref(false)
+
+		// A coded refusal keeps the dialog open with its reason inline —
+		// never server text in a toast.
+		const refusalOf = (error) => (['CONFLICT', 'STALE_TARGET', 'VALIDATION_ERROR'].includes(error?.code) && error?.message
+			? error.message
+			: '')
 
 		const recordLastDone = async () => {
 			lastDoneRefusal.value = ''
 			try {
 				await roomTasksStore.recordLastDone(props.roomTask.id, lastDone.value)
+				lastDone.value = ''
+				partlySaved.value = true
 				return true
 			} catch (error) {
-				// A coded refusal (overdue, child day limit, date) keeps the
-				// dialog open with its reason inline — never server text in a toast.
-				if (['CONFLICT', 'VALIDATION_ERROR'].includes(error?.code) && error?.message) {
-					lastDoneRefusal.value = error.message
-				} else {
+				lastDoneRefusal.value = refusalOf(error)
+				if (!lastDoneRefusal.value) {
 					showError(t('chorestrike', 'Could not record the last done date'))
+				}
+				return false
+			}
+		}
+
+		const saveDueDate = async () => {
+			try {
+				await roomTasksStore.updateRoomTaskDueDate(props.roomTask.id, dueDate.value)
+				partlySaved.value = true
+				return true
+			} catch (error) {
+				dueRefusal.value = refusalOf(error)
+				if (!dueRefusal.value) {
+					showError(t('chorestrike', 'Failed to update task'))
+					logger.error('Failed to update room task', error, { component: 'RoomTaskEditModal', action: 'save', roomTaskId: props.roomTask.id })
+				}
+				return false
+			}
+		}
+
+		const saveAssignees = async () => {
+			const originalAssignees = [...(props.roomTask.assignees || [])]
+			const changedAssignees = originalAssignees.length !== assigneeUserIds.value.length
+				|| originalAssignees.some((id) => !assigneeUserIds.value.includes(id))
+			if (!changedAssignees) {
+				return true
+			}
+			try {
+				await roomTasksStore.setAssignees(props.roomTask.id, [...assigneeUserIds.value])
+				return true
+			} catch (error) {
+				assigneeRefusal.value = refusalOf(error)
+				if (!assigneeRefusal.value) {
+					showWarning(t('chorestrike', 'Due date saved, but assigning members failed'))
+					logger.error('Failed to set assignees', error, { component: 'RoomTaskEditModal', action: 'save', roomTaskId: props.roomTask.id })
+					emit('saved')
 				}
 				return false
 			}
@@ -164,6 +226,9 @@ export default {
 
 		const save = async () => {
 			saving.value = true
+			dueRefusal.value = ''
+			assigneeRefusal.value = ''
+			partlySaved.value = false
 			try {
 				// Captured first: the last-done write may move the due date
 				// and refresh the row; only an explicit picker change follows.
@@ -171,29 +236,13 @@ export default {
 				if (lastDone.value && !(await recordLastDone())) {
 					return
 				}
-				if (dueDate.value && dueDate.value !== originalDue) {
-					await roomTasksStore.updateRoomTaskDueDate(props.roomTask.id, dueDate.value)
+				if (dueDate.value && dueDate.value !== originalDue && !(await saveDueDate())) {
+					return
 				}
-
-				const originalAssignees = [...(props.roomTask.assignees || [])]
-				const changedAssignees = originalAssignees.length !== assigneeUserIds.value.length
-					|| originalAssignees.some((id) => !assigneeUserIds.value.includes(id))
-				if (changedAssignees) {
-					try {
-						await roomTasksStore.setAssignees(props.roomTask.id, [...assigneeUserIds.value])
-					} catch (error) {
-						showWarning(t('chorestrike', 'Due date saved, but assigning members failed'))
-						logger.error('Failed to set assignees', error, { component: 'RoomTaskEditModal', action: 'save', roomTaskId: props.roomTask.id })
-						emit('saved')
-						return
-					}
+				if (await saveAssignees()) {
+					showSuccess(t('chorestrike', 'Task updated'))
+					emit('saved')
 				}
-
-				showSuccess(t('chorestrike', 'Task updated'))
-				emit('saved')
-			} catch (error) {
-				showError(t('chorestrike', 'Failed to update task'))
-				logger.error('Failed to update room task', error, { component: 'RoomTaskEditModal', action: 'save', roomTaskId: props.roomTask.id })
 			} finally {
 				saving.value = false
 			}
@@ -206,6 +255,9 @@ export default {
 			todayKey,
 			lastDone,
 			lastDoneRefusal,
+			dueRefusal,
+			assigneeRefusal,
+			partlySaved,
 			assigneeUserIds,
 			houseMembers,
 			membersError,

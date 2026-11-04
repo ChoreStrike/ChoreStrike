@@ -714,7 +714,7 @@ class PauseAgreementTest extends IntegrationTestCase {
 			]));
 			self::fail('a resumption after the original deadline must conflict');
 		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
-			self::assertStringContainsString('deadline', $e->getMessage());
+			self::assertStringContainsString('missed appointment', $e->getMessage());
 		}
 		self::assertSame($versionBefore, $this->reload($today)->getVersion(), 'zero writes after the deadline rejection');
 

@@ -73,6 +73,33 @@ describe('TaskList', () => {
 		setActivePinia(pinia)
 	})
 
+	// BUG-UX-011: the chips rolled back silently on a refused change.
+	describe('refused assignee change', () => {
+		const toggleRejectedWith = async (error) => {
+			const store = useRoomTasksStore()
+			store.setAssignees = jest.fn().mockRejectedValue(error)
+			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: [mockTask()] } })
+			const item = wrapper.findComponent({ name: 'TaskListItem' })
+			item.vm.$emit('toggleAssignee', 1, 'kid')
+			await flushPromises()
+			return item
+		}
+
+		it('rolls the draft back and passes the coded reason to the row', async () => {
+			const item = await toggleRejectedWith(Object.assign(new Error('Assigning this member would exceed a daily task limit'), { code: 'CONFLICT' }))
+
+			expect(item.props('assigneeDraft')).toEqual([])
+			expect(item.props('assigneeRefusal')).toBe('Assigning this member would exceed a daily task limit')
+		})
+
+		it('never shows an uncoded error text', async () => {
+			const item = await toggleRejectedWith(new Error('Request failed with status code 500'))
+
+			expect(item.props('assigneeDraft')).toEqual([])
+			expect(item.props('assigneeRefusal')).toBe('')
+		})
+	})
+
 	describe('rendering states', () => {
 		it('should show loading state when loading prop is true', () => {
 			const wrapper = mount(TaskList, {

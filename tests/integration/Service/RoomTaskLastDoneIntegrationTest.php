@@ -82,10 +82,40 @@ class RoomTaskLastDoneIntegrationTest extends IntegrationTestCase {
 			$this->service->recordLastDone($f['roomTaskId'], $f['houseId'], $this->day(-1), $this->uuid(4));
 			self::fail('an overdue appointment must refuse the command');
 		} catch (ConflictException $e) {
-			self::assertStringContainsString('overdue', $e->getMessage());
+			self::assertStringContainsString('missed appointment', $e->getMessage());
 		}
 		self::assertNull($this->roomMapper->find($f['roomId'])->getLastCleaned());
 		self::assertSame([], $this->lastDoneEvents($f['roomId']));
+	}
+
+	/**
+	 * D-089-08: the refusal holds on every cadence. It keeps the dialog from
+	 * saving "Last done" and then failing on the due date (BUG-UX-011).
+	 *
+	 * @dataProvider fixedCadenceMisses
+	 */
+	public function testMissedFixedAppointment_IsRefusedWithoutAnyWrite(int $anchorOffset): void {
+		$f = $this->fixture('static', $this->day($anchorOffset));
+
+		$this->actingAs('ld_owner');
+		try {
+			$this->service->recordLastDone($f['roomTaskId'], $f['houseId'], $this->day(-1), $this->uuid(10));
+			self::fail('a missed appointment must refuse the command');
+		} catch (ConflictException $e) {
+			self::assertStringContainsString('missed appointment', $e->getMessage());
+		}
+		self::assertNull($this->roomMapper->find($f['roomId'])->getLastCleaned());
+		self::assertSame([], $this->lastDoneEvents($f['roomId']));
+	}
+
+	/**
+	 * @return array<string, array{int}>
+	 */
+	public function fixedCadenceMisses(): array {
+		return [
+			'a miss alone' => [-1],
+			'a miss next to a current window' => [-7],
+		];
 	}
 
 	public function testFutureDayAndChild_AreRefused(): void {

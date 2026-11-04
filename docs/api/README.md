@@ -693,6 +693,10 @@ label tagged at 00:00 UTC, which would land one local day early for houses
 west of UTC). Any other parseable datetime is persisted as that instant;
 unparseable input → `400 VALIDATION_ERROR`.
 
+The edit moves the oldest open occurrence. A refusal answers `409` with its
+localized reason: `CONFLICT` when that occurrence is already missed or the new
+day exceeds a child's day limit, `STALE_TARGET` when the target changed.
+
 #### PUT /room-tasks/{id}/last-done
 Record the day a room task was last done (FEAT-UX-045, CS-PLAN-088 D-088-20).
 Closed payload: `{ "commandId": "<uuid>", "date": "Y-m-d" }` — the house-local
@@ -708,8 +712,9 @@ Receipt-protected: replaying the same `commandId` changes nothing.
 - A completion-relative interval moves its pending occurrence to
   `max(today, date + interval)` as a `date` agreement (version bump, C2h child
   day limit). A fixed cadence keeps its dates (C1).
-- `409 CONFLICT` while the current appointment is overdue (a miss stays a
-  miss; complete or catch it up), or when the move would exceed a child's day
+- `409 CONFLICT` while an open appointment of the task has ended, on every
+  cadence (a miss stays a miss; complete the task first), or when the move
+  would exceed a child's day
   limit; `400 VALIDATION_ERROR` for a malformed, impossible (e.g. `2025-02-29`)
   or future day.
 
@@ -717,7 +722,8 @@ Receipt-protected: replaying the same `commandId` changes nothing.
 
 #### GET /room-tasks/{id}/assignees · PUT /room-tasks/{id}/assignees
 Read / replace the multi-assignee set for a room task. Assignee mutations
-are validated for house membership server-side. (Since CS-PLAN-067 §3.4 the
+are validated for house membership server-side. A change that would exceed a
+child's day limit answers `409 CONFLICT` with its reason. (Since CS-PLAN-067 §3.4 the
 GET route has no frontend consumer — list rows already carry their canonical
 `assignees` arrays — but it stays available for API consumers.)
 

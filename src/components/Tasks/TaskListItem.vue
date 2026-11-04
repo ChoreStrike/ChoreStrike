@@ -140,6 +140,7 @@
 			:canManageTasks="userStore.canManageTasks"
 			:members="userStore.houseUsers || []"
 			:assigneeDraft="assigneeDraft"
+			:assigneeRefusal="assigneeRefusal"
 			@toggleAssignee="(...args) => $emit('toggleAssignee', ...args)" />
 	</div>
 </template>
@@ -205,6 +206,12 @@ export default {
 		assigneeDraft: {
 			type: Array,
 			default: () => [],
+		},
+
+		/** The server's reason when it refused the last assignee change. */
+		assigneeRefusal: {
+			type: String,
+			default: '',
 		},
 
 		/** Dense list row (CS-PLAN-084 WP-D): description only when expanded, tighter spacing. */

@@ -2927,9 +2927,6 @@ msgstr ""
 msgid "The agreement was recorded."
 msgstr ""
 
-msgid "The amendment deadline has passed"
-msgstr ""
-
 msgid "The arcade is hidden. You can turn it on again in the Settings."
 msgstr ""
 
@@ -3266,10 +3263,10 @@ msgstr ""
 msgid "This score is not possible in the time played."
 msgstr ""
 
-msgid "This task is already being completed with another work split. Check the split once it is done."
+msgid "This task has a missed appointment. Complete it first."
 msgstr ""
 
-msgid "This task is overdue. Complete it or catch it up instead."
+msgid "This task is already being completed with another work split. Check the split once it is done."
 msgstr ""
 
 msgid "This will be recorded as taken over from {assignee}."
@@ -3699,6 +3696,9 @@ msgid "Your home is set up!"
 msgstr ""
 
 msgid "Your household, organized together."
+msgstr ""
+
+msgid "Your other changes were saved."
 msgstr ""
 
 msgid "Your participation starts on {monday}. Nothing is counted before then."

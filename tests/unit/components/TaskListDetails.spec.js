@@ -96,6 +96,14 @@ describe('TaskListDetails (CS-PLAN-067 §3.4)', () => {
 		expect(memberWrapper.findComponent({ name: 'TaskChecklist' }).props('canEdit')).toBe(false)
 	})
 
+	it('shows the reason of a refused assignee change at the chips', () => {
+		expect(mountDetails().find('[data-testid="assignee-refusal"]').exists()).toBe(false)
+
+		const wrapper = mountDetails({ assigneeRefusal: 'Assigning this member would exceed a daily task limit' })
+		expect(wrapper.get('[data-testid="assignee-refusal"]').text()).toContain('daily task limit')
+		expect(wrapper.get('[data-testid="assignee-refusal"]').attributes('role')).toBe('alert')
+	})
+
 	it('reports the single toggled member id to the orchestrator', async () => {
 		const wrapper = mountDetails()
 		await wrapper.find('[data-testid="assignee-chip-u2"]').find('input').setValue(true)

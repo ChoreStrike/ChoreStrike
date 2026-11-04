@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\TaskController;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
@@ -189,6 +190,27 @@ class TaskControllerTest extends TestCase {
 	 * dropped (CS-PLAN-060 WP1 D1); the canonical `visibilityType` stays
 	 * the sole source of truth.
 	 */
+	/**
+	 * BUG-UX-011: a refused edit is a 409 with its reason, never a logged 500.
+	 */
+	public function testUpdate_RefusedEdit_Is409WithTheReason(): void {
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+		$this->authService->method('assertHouseMember')
+			->willReturn($this->createHouseUserMock('member', false));
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+		$this->taskService->method('getVisibleTask')->willReturn($task);
+		$this->taskService->method('updateTask')->willThrowException(new ConflictException('Refused'));
+
+		$this->mockUpdateRequest(['name' => 'Renamed']);
+		$response = $this->controller->update(1);
+
+		$this->assertSame(409, $response->getStatus());
+		$this->assertSame(['code' => 'CONFLICT', 'message' => 'Refused'], $response->getData()['error']);
+	}
+
 	public function testUpdate_DropsLegacyIsPrivateKey(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());

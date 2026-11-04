@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Exception\ValidationException;
@@ -192,6 +193,9 @@ class TaskController extends Controller {
 			], 404);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			// A refused change, no server error (BUG-UX-011).
+			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('update', $e, ['taskId' => $id]);
 			return new JSONResponse([

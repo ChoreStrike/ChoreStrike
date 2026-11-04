@@ -34,8 +34,8 @@ use OCP\IL10N;
  * A completion-relative interval re-anchors its pending occurrence to
  * `max(today, last done + period)` through the date-agreement writer
  * (evidence row, version bump, C2h child limit); a fixed cadence keeps its
- * dates (C1). While the current appointment is overdue the command is
- * refused — a miss stays a miss, catch-up applies.
+ * dates (C1). While any open appointment of the task has ended the command
+ * is refused on every cadence (D-089-08): a miss stays a miss.
  */
 class RoomTaskLastDoneService {
 	public function __construct(
@@ -114,16 +114,14 @@ class RoomTaskLastDoneService {
 	}
 
 	/**
-	 * Move the pending occurrence of a completion-relative interval to
-	 * `max(today, last done + period)`; a fixed cadence keeps its dates.
+	 * Refuse while an open appointment has ended, on every cadence and also
+	 * next to a current window, then move the pending occurrence of a
+	 * completion-relative interval to `max(today, last done + period)`; a
+	 * fixed cadence keeps its dates.
 	 *
-	 * @throws ConflictException while the current appointment is overdue
+	 * @throws ConflictException while an appointment of the task is missed
 	 */
 	private function reanchorIntervalUnderLock(int $houseId, RoomTask $roomTask, HouseUser $actor, string $dateKey, string $todayKey, \DateTime $now): void {
-		$revision = $this->revisionMapper->findCurrentByRoomTask((int)$roomTask->getId());
-		if ($revision->getCadenceMode() !== ScheduleRevision::CADENCE_INTERVAL) {
-			return;
-		}
 		$pending = null;
 		foreach ($this->occurrenceMapper->findOpenByRoomTasks([(int)$roomTask->getId()]) as $occurrence) {
 			if ($occurrence->getKind() === Occurrence::KIND_VOLUNTARY
@@ -131,9 +129,13 @@ class RoomTaskLastDoneService {
 				continue;
 			}
 			if ($occurrence->getWindowEnd() <= $now) {
-				throw new ConflictException($this->l10n->t('This task is overdue. Complete it or catch it up instead.'));
+				throw new ConflictException($this->l10n->t('This task has a missed appointment. Complete it first.'));
 			}
 			$pending = $occurrence;
+		}
+		$revision = $this->revisionMapper->findCurrentByRoomTask((int)$roomTask->getId());
+		if ($revision->getCadenceMode() !== ScheduleRevision::CADENCE_INTERVAL) {
+			return;
 		}
 		$targetKey = max($todayKey, $this->recurrence->nextIntervalDate($dateKey, $revision->getCadenceUnit(), (int)$revision->getCadenceInterval()));
 		if ($pending === null || $pending->getPlannedDate()->format('Y-m-d') === $targetKey) {

@@ -226,7 +226,7 @@ class OccurrenceAgreementService {
 		?array $consent,
 	): Occurrence {
 		if ($now >= $occurrence->getWindowEnd()) {
-			throw new ConflictException($this->l10n->t('The amendment deadline has passed'));
+			throw new ConflictException($this->l10n->t('This task has a missed appointment. Complete it first.'));
 		}
 		if ($occurrence->getId() === null) {
 			// Virtual target: materialize through the same resolver before

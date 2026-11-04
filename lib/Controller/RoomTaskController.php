@@ -430,6 +430,9 @@ class RoomTaskController extends Controller {
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			// A refused change, no server error (BUG-UX-011).
+			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('setAssignees', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
@@ -467,6 +470,9 @@ class RoomTaskController extends Controller {
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			// A refused change, no server error (BUG-UX-011).
+			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('updateDueDate', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([

@@ -14,6 +14,12 @@
 				:members="members"
 				:modelValue="assigneeDraft"
 				@update:modelValue="onAssigneeDraftChange" />
+			<p v-if="assigneeRefusal"
+				class="agreement-note"
+				role="alert"
+				data-testid="assignee-refusal">
+				{{ assigneeRefusal }}
+			</p>
 		</div>
 
 		<!-- Essential onboarding slice (WP8 §3.6): how actual work
@@ -233,6 +239,12 @@ export default {
 		assigneeDraft: {
 			type: Array,
 			default: () => [],
+		},
+
+		/** The server's reason when it refused the last assignee change. */
+		assigneeRefusal: {
+			type: String,
+			default: '',
 		},
 	},
 

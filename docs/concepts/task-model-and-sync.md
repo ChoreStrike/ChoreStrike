@@ -136,8 +136,8 @@ and non-punitive recovery. WP1-WP4 implement the approved rules below.
   the house (FEAT-UX-045): the room shows that day as "Last cleaned", and a
   task that repeats after completion is next due one interval later (never
   before today). It is no completion: no reward, no rhythm step; a fixed
-  calendar cadence keeps its dates, and an overdue appointment must be
-  completed or caught up instead ([API](../api/README.md#put-room-tasksidlast-done)).
+  calendar cadence keeps its dates, and on every cadence a missed appointment
+  must be completed first ([API](../api/README.md#put-room-tasksidlast-done)).
 - Repeated misses produce one visible catch-up item per recurring chore, not an
   accumulating list of identical cards. Missed occurrences remain historical
   misses; completing once does not turn every missed occurrence into a success.

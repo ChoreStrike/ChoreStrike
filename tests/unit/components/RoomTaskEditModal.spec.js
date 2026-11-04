@@ -97,6 +97,7 @@ describe('RoomTaskEditModal', () => {
 		await wrapper.find('[data-testid="room-task-due-input"]').setValue('2026-08-25')
 		await wrapper.find('[data-testid="assignee-chips-stub"]').trigger('click')
 		await wrapper.find('form').trigger('submit')
+		await flushPromises()
 
 		expect(roomTasksStore.updateRoomTaskDueDate).toHaveBeenCalledWith(42, '2026-08-25')
 		expect(roomTasksStore.setAssignees).toHaveBeenCalledWith(42, ['dad'])
@@ -150,13 +151,13 @@ describe('RoomTaskEditModal', () => {
 
 	it('shows a coded refusal inline and stays open', async () => {
 		showError.mockClear()
-		roomTasksStore.recordLastDone = jest.fn().mockRejectedValue(Object.assign(new Error('This task is overdue. Complete it or catch it up instead.'), { code: 'CONFLICT' }))
+		roomTasksStore.recordLastDone = jest.fn().mockRejectedValue(Object.assign(new Error('This task has a missed appointment. Complete it first.'), { code: 'CONFLICT' }))
 		const wrapper = mountModal()
 		await wrapper.find('[data-testid="room-task-last-done-input"]').setValue('2026-08-19')
 		await wrapper.find('form').trigger('submit')
 		await flushPromises()
 
-		expect(wrapper.get('[data-testid="room-task-last-done-refusal"]').text()).toBe('This task is overdue. Complete it or catch it up instead.')
+		expect(wrapper.get('[data-testid="room-task-last-done-refusal"]').text()).toBe('This task has a missed appointment. Complete it first.')
 		expect(showError).not.toHaveBeenCalled()
 		expect(wrapper.emitted('saved')).toBeFalsy()
 	})
@@ -166,6 +167,59 @@ describe('RoomTaskEditModal', () => {
 		const wrapper = mountModal()
 
 		expect(wrapper.find('[data-testid="room-task-last-done-input"]').exists()).toBe(false)
+	})
+
+	// BUG-UX-011: a refused step keeps the dialog open with its real reason.
+	const refused = (message, code = 'CONFLICT') => Object.assign(new Error(message), { code, status: 409 })
+
+	it('shows a refused due date inline, without a toast', async () => {
+		showError.mockClear()
+		roomTasksStore.updateRoomTaskDueDate = jest.fn().mockRejectedValue(refused('This task has a missed appointment.'))
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="room-task-due-input"]').setValue('2026-08-25')
+		await wrapper.find('form').trigger('submit')
+		await flushPromises()
+
+		expect(wrapper.get('[data-testid="room-task-due-refusal"]').text()).toBe('This task has a missed appointment.')
+		expect(wrapper.find('[data-testid="room-task-partly-saved"]').exists()).toBe(false)
+		expect(showError).not.toHaveBeenCalled()
+		expect(wrapper.emitted('saved')).toBeFalsy()
+	})
+
+	it('says what was saved when a later step is refused, and does not record it twice', async () => {
+		roomTasksStore.recordLastDone = jest.fn().mockResolvedValue({})
+		roomTasksStore.updateRoomTaskDueDate = jest.fn()
+			.mockRejectedValueOnce(refused('Moving this task would exceed a daily task limit'))
+			.mockResolvedValueOnce({})
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="room-task-last-done-input"]').setValue('2026-08-19')
+		await wrapper.find('[data-testid="room-task-due-input"]').setValue('2026-08-25')
+		await wrapper.find('form').trigger('submit')
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="room-task-due-refusal"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="room-task-partly-saved"]').exists()).toBe(true)
+		expect(wrapper.get('[data-testid="room-task-last-done-input"]').element.value).toBe('')
+
+		await wrapper.find('form').trigger('submit')
+		await flushPromises()
+
+		expect(roomTasksStore.recordLastDone).toHaveBeenCalledTimes(1)
+		expect(roomTasksStore.updateRoomTaskDueDate).toHaveBeenCalledTimes(2)
+		expect(wrapper.emitted('saved')).toBeTruthy()
+	})
+
+	it('shows a refused assignment inline and keeps the dialog open', async () => {
+		showWarning.mockClear()
+		roomTasksStore.setAssignees = jest.fn().mockRejectedValue(refused('Assigning this member would exceed a daily task limit'))
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="assignee-chips-stub"]').trigger('click')
+		await wrapper.find('form').trigger('submit')
+		await flushPromises()
+
+		expect(wrapper.get('[data-testid="room-task-assignee-refusal"]').text()).toContain('daily task limit')
+		expect(showWarning).not.toHaveBeenCalled()
+		expect(wrapper.emitted('saved')).toBeFalsy()
 	})
 
 	it('reports partial success when only the assignment fails', async () => {

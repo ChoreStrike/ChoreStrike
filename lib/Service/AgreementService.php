@@ -154,7 +154,7 @@ class AgreementService {
 				// Deadline check BEFORE considering the proposed new one
 				// (plan §3.3.1): at exactly the exclusive end it conflicts.
 				if ($ctx->now >= $occurrence->getWindowEnd()) {
-					throw new ConflictException($this->l10n->t('The amendment deadline has passed'));
+					throw new ConflictException($this->l10n->t('This task has a missed appointment. Complete it first.'));
 				}
 
 				$consentSubjects = [];

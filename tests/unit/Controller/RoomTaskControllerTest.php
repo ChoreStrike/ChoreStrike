@@ -750,6 +750,51 @@ class RoomTaskControllerTest extends TestCase {
 	 * CS-PLAN-066 (D1): the PUT assignees response IS the persisted
 	 * user-ID set — no client-side union on relation objects.
 	 */
+	/**
+	 * BUG-UX-011: a refused change is a 409 with its reason, never a logged
+	 * 500; the child day limit reaches both actions.
+	 */
+	public function testSetAssignees_RefusedChange_Is409WithTheReason(): void {
+		$this->wireRoomTaskAction();
+		$this->roomTaskService->method('setAssignees')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ConflictException('Over the day limit'));
+
+		$response = $this->controller->setAssignees(7, ['kid']);
+
+		$this->assertSame(409, $response->getStatus());
+		$this->assertSame(['code' => 'CONFLICT', 'message' => 'Over the day limit'], $response->getData()['error']);
+	}
+
+	public function testUpdateDueDate_RefusedChange_Is409WithTheReason(): void {
+		$this->wireRoomTaskAction();
+		$this->roomTaskService->method('updateDueDate')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ConflictException('A missed appointment'));
+
+		$response = $this->controller->updateDueDate(5, '2026-10-20');
+
+		$this->assertSame(409, $response->getStatus());
+		$this->assertSame(['code' => 'CONFLICT', 'message' => 'A missed appointment'], $response->getData()['error']);
+	}
+
+	public function testUpdateDueDate_StaleTarget_KeepsItsCode(): void {
+		$this->wireRoomTaskAction();
+		$this->roomTaskService->method('updateDueDate')
+			->willThrowException(new \OCA\ChoreStrike\Exception\StaleTargetException('Changed since it was displayed'));
+
+		$response = $this->controller->updateDueDate(5, '2026-10-20');
+
+		$this->assertSame(409, $response->getStatus());
+		$this->assertSame('STALE_TARGET', $response->getData()['error']['code']);
+	}
+
+	private function wireRoomTaskAction(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
+	}
+
 	public function testSetAssignees_ReturnsCanonicalUserIdArray(): void {
 		$house = new House();
 		$house->setId(1);
