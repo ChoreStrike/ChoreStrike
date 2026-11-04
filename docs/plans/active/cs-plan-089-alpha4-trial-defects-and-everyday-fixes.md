@@ -117,6 +117,13 @@ plans from the backlog.
   irritate, and a day may be overbooked in principle.
 - **D-089-12 Next appointments (operator 2026-11-04):** the list on My Day follows the filter,
   so *My tasks* no longer shows other people's appointments.
+- **D-089-13 Overbooking after creation (operator 2026-11-04):** creating a task stays possible
+  on a full day (D-089-11), while a later assignment or date move stays refused at a person's
+  budget or a child's limit. With energy up to 20 that refusal comes up more often, for example
+  for a task above a weekday budget. The operator wants this reworked together with the
+  scheduler (FEAT-UX-059), so Round 1 leaves it as it is.
+- **Operator GUI review (2026-11-04):** the operator checked Round 1 on the development stack
+  and reported no findings.
 
 ### Decisions left to the source project
 
@@ -419,7 +426,7 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 - [ ] Energy accepts 1–20 on every path; existing tasks, frozen occurrences and earlier payouts are unchanged; the concept states 1 energy ≈ 10 minutes
 - [ ] One task row on My Day, Tasks and room views, in both themes and on both viewports
 - [ ] The catch-up status and already agreed appointments still display; retained `manual_delta` entries still replay
-- [ ] Operator GUI review recorded; its findings resolved or routed
+- [x] Operator GUI review recorded; its findings resolved or routed
 - [ ] `0.8.0-alpha.4` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
 - [ ] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
 - [ ] `CHANGELOG.md`, README status/badge/caption, roadmap snapshot and documentation map name the new version

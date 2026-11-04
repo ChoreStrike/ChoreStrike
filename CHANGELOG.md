@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### App Version 0.8.0-alpha.4 — Everyday Fixes (candidate, 2026-11-04)
+
+The defects and everyday fixes from the second feedback round of the family
+trial; the app metadata moves from `0.8.0-alpha.3` to `0.8.0-alpha.4` so the
+update is detected. No schema or migration change: the 26 migrations of the
+retained baseline stay unchanged. This section gets its own dated version
+heading once the deployment is verified.
+
+- **Energy is the only effort measure:** one energy stands for about ten
+  minutes, and a task takes 1 to 20. The task dialog shows bolts with their
+  time; *Longer task* takes a value above 5 and explains the daily budget.
+  The filter in Tasks follows. Estimated time leaves the interface; stored
+  values stay, as do existing tasks, saved occurrences and earlier payouts.
+  Coins stay at ten per energy.
+- **One task row:** My Day, Tasks and the room view show a task the same way,
+  with floor and room below the title, the energy in its own colour, the flex
+  days after the recurrence (*Every 3 days ±2*) and the people. A one-time task
+  says so, and a row shows the energy that completing it pays.
+- **A child's own tasks stay on My Day:** the daily limit now caps only the
+  unassigned tasks offered to a child, never what the child owes. *Next
+  appointments* follows the *My tasks* filter.
+- **Refused changes explain themselves:** a refused date or assignee change
+  answers with its reason instead of an HTTP 500 and shows it in the dialog,
+  which also says what was already saved. *Last done* is refused on every
+  cadence while an appointment is missed.
+- **Floors & Rooms:** a room can be renamed in the list and shows its number of
+  tasks. There is one expand mark everywhere, a chevron that turns, and reorder
+  controls use arrows.
+- **Setup wizard:** floors are numbered correctly, with a choice whether the
+  first floor above ground counts as 1st or 2nd. Existing floors stay.
+- **Removed:** the form for agreeing a catch-up appointment, Quick clean, the
+  separate flex window display and the *Teamwork bonus* label, which promised a
+  bonus that no longer exists. A missed chore keeps its date and can still be
+  completed; agreed appointments and retained entries keep showing and replaying.
+- **Fixed:** the app frame keeps its margins and a long view reaches its end;
+  every select shows its whole value; a task repeating every n days no longer
+  says *Daily*; the facts of an overdue row stay legible in the dark theme.
+- **Quieter logs:** members no longer trigger an owner-only read, and log
+  entries carry the app name, so a filter on `chorestrike` finds them.
+- **Qualification:** gates run on the latest upstream Nextcloud (35.0.2) and on
+  the Nextcloud of the current AIO release v14.4.3 (34.0.5, Redis for sessions,
+  cache and locking).
+
 ## [0.8.0-alpha.3] - 2026-10-29
 
 ### Trial Feedback Round

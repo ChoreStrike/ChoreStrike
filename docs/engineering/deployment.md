@@ -564,6 +564,10 @@ rolls back **all apps and core state** to the recovery point, not just ChoreStri
 Table-only restores are not an approved shortcut: cross-table/core identities,
 receipts and financial relations can become inconsistent.
 
+From `0.8.0-alpha.4` a task can carry more than 5 energy. An older build shows
+such a task but cannot complete it, because its ledger guard stops at 5, so a
+downgrade below that version has to count those tasks.
+
 Before any production backup/restore, obtain explicit operator approval for
 the named instance, access, recovery point/window, acceptable loss of writes
 since that point, outage and other-app impact. Test authorization never grants

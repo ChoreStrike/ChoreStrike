@@ -719,7 +719,7 @@ it reads the existing occurrence history.
 
 ### [P3] FEAT-UX-059 — Planned date and scheduler rules
 **Status**: Backlog (later, D-089-01; the operator wants the scheduler discussed separately) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
-**Owning**: unassigned · **Depends on**: FEAT-UX-050 · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: FEAT-UX-050 · **Blocks**: — · **Folded-in**: refused assignments and date moves after creation (operator decision, 2026-11-04)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-7
 
 The report proposes a separate *scheduled* date per task, set by the scheduler and allowed
@@ -730,7 +730,12 @@ reusing the path of FEAT-UX-050; when nothing fits, it proposes an agreed amendm
 the existing date writer, which keeps its evidence row. Today `SchedulePlanService` allows
 only dates inside the window.
 
+Overbooking belongs here too (D-089-13). A day may be overbooked when a task is created, but
+a later assignment or date move is refused at a person's budget or a child's limit, and with
+energy up to 20 a task can exceed a whole weekday. The operator wants both reworked together.
+
 - [ ] Scheduler discussion with the operator; the decision recorded before a plan.
+- [ ] The refusals after creation become a visible overload, or stay with a stated reason.
 
 ---
 
