@@ -94,8 +94,9 @@
 					class="action-btn"
 					:aria-label="t('chorestrike', 'Show details')"
 					:title="t('chorestrike', 'Show details')"
+					:aria-expanded="expanded ? 'true' : 'false'"
 					@click="$emit('toggleExpand', item)">
-					<Icon :name="expanded ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+					<ExpandChevron :open="expanded" />
 				</button>
 				<button
 					v-if="userStore.canManageTasks"
@@ -124,6 +125,7 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import { computed } from 'vue'
+import ExpandChevron from '../Common/ExpandChevron.vue'
 import HoldButton from '../Common/HoldButton.vue'
 import TaskListDetails from './TaskListDetails.vue'
 import TaskMeta from './TaskMeta.vue'
@@ -156,6 +158,7 @@ export default {
 
 	components: {
 		Icon,
+		ExpandChevron,
 		HoldButton,
 		TaskListDetails,
 		TaskMeta,

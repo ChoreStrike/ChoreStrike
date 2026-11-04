@@ -275,13 +275,15 @@ browser gates follow with the candidate.
 
 ### WP-E Floors & Rooms and the setup wizard (FEAT-UX-049: S-7, S-8; BUG-UX-012: S-10)
 
-- **Rename:** each room in the Settings list gets *Rename room*, reusing the dialog of
-  `RoomDetail.vue`.
-- **Task count:** per room, from `fetchHouseRoomTasks()` in the owner-only section; no new
-  API field, so non-owners learn nothing new.
-- **Expand control:** one small component, a right chevron turning 90° when open, in
-  Settings, `FloorList`, `TaskFilterBar` and `TaskListItem`; it respects reduced motion.
-  Reorder controls use up and down arrows, so the two no longer look alike.
+- **Rename:** each room in the Settings list gets *Rename room*, through a dialog extracted
+  from `RoomDetail.vue` that both now share (`RoomRenameDialog.vue`).
+- **Task count:** per room, from `fetchHouseRoomTasks()` in the owner-only section, read once
+  on the first expanded floor; no new API field, so non-owners learn nothing new. An unknown
+  count stays hidden instead of showing 0.
+- **Expand control:** one small component, `ExpandChevron.vue`, a right chevron turning 90°
+  when open, in Settings, `FloorList`, `TaskFilterBar`, `TaskListItem` and the checklist
+  toggles on My Day; it respects reduced motion. Reorder controls use up and down arrows, so
+  the two no longer look alike.
 - **Wizard:** today it creates "Ground Floor, 2. Floor, 3. Floor", which is wrong under
   either convention. Numbered floors become the default, with a choice whether the first
   floor above ground counts as 1st or 2nd, through translatable source strings. It affects
@@ -368,8 +370,7 @@ modified: src/components/Setup/SetupWizard.vue, src/components/Help/HelpGlossary
 modified: src/store/scheduling.js, src/store/rooms.js, src/styles/tokens.css, eslint.config.js
 modified: l10n/de.json, l10n/en.json and the l10n templates
 new:      src/components/Tasks/TaskMeta.vue, tests/unit/components/TaskMeta.spec.js
-new:      an expand control under src/components/ with specs
-new:      a shared room rename dialog, if RoomDetail's cannot be reused in place
+new:      src/components/Common/ExpandChevron.vue, RoomRenameDialog.vue with specs
 removed:  src/components/Tasks/FlexWindowDisplay.vue, tests/unit/components/FlexWindowDisplay.spec.js
 modified: tests named in section 4
 modified: docs/concepts/energy-and-balancing.md, gamification-and-rewards.md, design.md,
@@ -485,8 +486,8 @@ D-5 come from the server log. D-6 and D-7 date from 2026-11-04. Owning items are
 | S-4 | Task categories are managed in the household settings | Feature / P3 | FEAT-UX-053 | Round 2 |
 | S-5 | House name and timezone join Floors & Rooms in a household category | Improvement / P3 | FEAT-UX-054 | Round 2 |
 | S-6 | Owners set each game's unlock threshold and reset a person's progress after a confirmation | Feature / P3 | FEAT-UX-056 | Round 3 (D-089-05); amends ADR-019 |
-| S-7 | Rename a room in the Floors & Rooms list; show its task count | Improvement / P3 | FEAT-UX-049 | Round 1 |
-| S-8 | Nicer expand and reorder controls that look different; one expand style everywhere | Improvement / P3 | FEAT-UX-049 | Round 1 |
+| S-7 | Rename a room in the Floors & Rooms list; show its task count | Improvement / P3 | FEAT-UX-049 | Round 1; implemented on `fix/alpha4-round1` |
+| S-8 | Nicer expand and reorder controls that look different; one expand style everywhere | Improvement / P3 | FEAT-UX-049 | Round 1; implemented on `fix/alpha4-round1` |
 | S-9 | Icons and colours for floors and rooms, with defaults and a manual choice | Feature / P3 | FEAT-UX-055 | Round 3; first schema step on the retained baseline |
 | S-10 | Numbered floors by default, with a choice whether the first floor above ground counts as 1st or 2nd | Improvement / P3 | BUG-UX-012 | Round 1; the wizard's numbering is also wrong today |
 | I-1 | Support the more widely used European languages | Feature / P3 | FEAT-UX-061 | Later, once the texts settle |

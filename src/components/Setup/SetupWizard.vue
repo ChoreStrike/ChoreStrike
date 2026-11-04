@@ -64,6 +64,14 @@
 						:max="maxAboveGroundFloors"
 						data-testid="wizard-floor-count">
 				</label>
+				<label v-if="quick.floorCount > 1" class="field">
+					<span>{{ t('chorestrike', 'Floor numbering') }}</span>
+					<select v-model.number="quick.firstUpperFloor" data-testid="wizard-floor-numbering">
+						<option v-for="start in [1, 2]" :key="start" :value="start">
+							{{ floorNumberingExample(start) }}
+						</option>
+					</select>
+				</label>
 				<p v-if="quick.basement && quick.homeType !== 'apartment'"
 					class="invite-hint"
 					data-testid="wizard-basement-hint">
@@ -384,6 +392,8 @@ export default {
 			quick: {
 				homeType: 'house',
 				floorCount: 2,
+				// The number of the first floor above ground (BUG-UX-012).
+				firstUpperFloor: 1,
 				basement: false,
 				roomsPerFloor: 3,
 				intensityLevel: 'putzteufel',
@@ -586,7 +596,7 @@ export default {
 			this.floors = []
 			const floorTotal = Math.min(this.maxAboveGroundFloors, Math.max(1, this.quick.floorCount))
 			for (let f = 0; f < floorTotal; f++) {
-				this.floors.push({ name: this.floorName(f, floorTotal), rooms: [] })
+				this.floors.push({ name: this.floorName(f, floorTotal > 1 ? this.quick.firstUpperFloor : 1), rooms: [] })
 			}
 			const wantsBasement = this.quick.basement && this.quick.homeType !== 'apartment'
 			if (wantsBasement && this.floors.length < 6) {
@@ -605,14 +615,22 @@ export default {
 			})
 		},
 
-		floorName(index, total) {
-			if (total === 1) {
-				return t('chorestrike', 'Ground Floor')
-			}
-			if (index === 0) {
-				return t('chorestrike', 'Ground Floor')
-			}
-			return `${index + 1}. ${t('chorestrike', 'Floor')}`
+		/**
+		 * BUG-UX-012: with the first floor above ground counted as 1st, the
+		 * ground floor keeps its name; counted as 2nd, the ground floor is
+		 * the 1st.
+		 *
+		 * @param {number} index Floor index, ground floor first.
+		 * @param {number} firstUpperFloor Number of the first floor above ground.
+		 * @return {string}
+		 */
+		floorName(index, firstUpperFloor) {
+			const number = index + firstUpperFloor - 1
+			return number === 0 ? t('chorestrike', 'Ground Floor') : t('chorestrike', '{n}. Floor', { n: number })
+		},
+
+		floorNumberingExample(firstUpperFloor) {
+			return [0, 1, 2].map((index) => this.floorName(index, firstUpperFloor)).join(', ')
 		},
 
 		onRoomTypeChange(room) {

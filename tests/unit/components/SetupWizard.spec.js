@@ -115,6 +115,46 @@ describe('SetupWizard.vue', () => {
 		expect(wrapper.find('[data-testid="wizard-room-name-0-1"]').exists()).toBe(true)
 	})
 
+	describe('floor numbering (BUG-UX-012)', () => {
+		const floorNames = async (floorCount, numbering) => {
+			const wrapper = mountWizard()
+			await wrapper.vm.$nextTick()
+			await wrapper.find('[data-testid="wizard-floor-count"]').setValue(floorCount)
+			if (numbering !== undefined) {
+				await wrapper.find('[data-testid="wizard-floor-numbering"]').setValue(numbering)
+			}
+			await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+			return wrapper.vm.floors.map((floor) => floor.name)
+		}
+
+		it('counts the first floor above ground as 1st by default', async () => {
+			expect(await floorNames(3)).toEqual(['Ground Floor', '1. Floor', '2. Floor'])
+		})
+
+		it('counts it as 2nd on request, which makes the ground floor the 1st', async () => {
+			expect(await floorNames(3, 2)).toEqual(['1. Floor', '2. Floor', '3. Floor'])
+		})
+
+		it('offers no choice for one floor, which stays the ground floor', async () => {
+			const wrapper = mountWizard()
+			await wrapper.vm.$nextTick()
+			await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
+
+			expect(wrapper.find('[data-testid="wizard-floor-numbering"]').exists()).toBe(false)
+
+			await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+			expect(wrapper.vm.floors.map((floor) => floor.name)).toEqual(['Ground Floor'])
+		})
+
+		it('shows the two countings as examples', async () => {
+			const wrapper = mountWizard()
+			await wrapper.vm.$nextTick()
+			const labels = wrapper.findAll('[data-testid="wizard-floor-numbering"] option').map((option) => option.text())
+
+			expect(labels).toEqual(['Ground Floor, 1. Floor, 2. Floor', '1. Floor, 2. Floor, 3. Floor'])
+		})
+	})
+
 	it('caps above-ground floors at five with a basement and shows a hint (Q-081-05, CS-PLAN-081 H4)', async () => {
 		const wrapper = mountWizard()
 		await wrapper.vm.$nextTick()

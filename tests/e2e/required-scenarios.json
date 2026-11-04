@@ -94,6 +94,7 @@
     "family-membership-hardening.spec.ts > family membership hardening (CS-PLAN-081 H3) > updateRole enforces the approved 60/300 boundary with no rejected mutation and isolated counters"
   ],
   "settings.spec.ts": [
+    "settings.spec.ts > Settings > A room in the list shows its tasks and can be renamed (FEAT-UX-049)",
     "settings.spec.ts > Settings > Cold structure hydration survives room reconciliation",
     "settings.spec.ts > Settings > Floors list or empty state is displayed",
     "settings.spec.ts > Settings > Floors section is displayed with add button",

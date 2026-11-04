@@ -21,7 +21,7 @@
 							data-testid="rename-room-button"
 							:aria-label="t('chorestrike', 'Rename room')"
 							:title="t('chorestrike', 'Rename room')"
-							@click="openRenameRoom">
+							@click="showRenameRoomModal = true">
 							<Icon name="Edit" :size="16" />
 						</button>
 						<button
@@ -178,36 +178,10 @@
 			@cancel="taskToDelete = null" />
 
 		<!-- Rename Room (owner only) -->
-		<Modal v-if="showRenameRoomModal"
-			persistent
-			:aria-label="t('chorestrike', 'Rename Room')"
-			@close="closeRenameRoom">
-			<div class="modal-content">
-				<h3>{{ t('chorestrike', 'Rename Room') }}</h3>
-				<div class="form-group">
-					<label for="room-rename-input">{{ t('chorestrike', 'Room Name') }}</label>
-					<input
-						id="room-rename-input"
-						v-model="renamingRoomName"
-						type="text"
-						class="text-input"
-						data-testid="room-rename-input"
-						@keyup.enter="confirmRenameRoom">
-				</div>
-				<div class="modal-actions cs-dialog-actions">
-					<button class="secondary-button" @click="closeRenameRoom">
-						{{ t('chorestrike', 'Cancel') }}
-					</button>
-					<button
-						class="primary-button"
-						data-testid="room-rename-save"
-						:disabled="!renamingRoomName.trim() || renamingRoom || renamingRoomName.trim() === room?.name"
-						@click="confirmRenameRoom">
-						{{ t('chorestrike', 'Save') }}
-					</button>
-				</div>
-			</div>
-		</Modal>
+		<RoomRenameDialog
+			v-if="showRenameRoomModal"
+			:room="room"
+			@close="showRenameRoomModal = false" />
 
 		<!-- Delete Room Confirmation (owner only) -->
 		<ConfirmDialog
@@ -236,6 +210,7 @@ import ErrorState from '../components/Common/ErrorState.vue'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
+import RoomRenameDialog from '../components/Common/RoomRenameDialog.vue'
 import RoomTaskEditModal from '../components/Tasks/RoomTaskEditModal.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
@@ -262,6 +237,7 @@ export default {
 		ConfirmDialog,
 		ErrorState,
 		ParticipationDialog,
+		RoomRenameDialog,
 	},
 
 	props: {
@@ -294,8 +270,6 @@ export default {
 			taskToDelete: null,
 			deleting: false,
 			showRenameRoomModal: false,
-			renamingRoomName: '',
-			renamingRoom: false,
 			roomToDelete: false,
 			deletingRoom: false,
 			// WP3 §3.6: the multi-person completion dialog target (the
@@ -648,41 +622,6 @@ export default {
 		},
 
 		/**
-		 * Owner-only room rename (CS-PLAN-042, UX-004) — wires the
-		 * rooms-store updateRoomName action that previously had no button.
-		 */
-		openRenameRoom() {
-			this.renamingRoomName = this.room?.name || ''
-			this.showRenameRoomModal = true
-		},
-
-		closeRenameRoom() {
-			this.showRenameRoomModal = false
-			this.renamingRoomName = ''
-		},
-
-		async confirmRenameRoom() {
-			const trimmedName = this.renamingRoomName.trim()
-			if (!trimmedName || trimmedName === this.room?.name) {
-				return
-			}
-			this.renamingRoom = true
-			try {
-				const room = await this.roomsStore.updateRoomName(this.roomId, trimmedName)
-				// FEAT-UX-044: a taken name comes back numbered.
-				showSuccess(room && room.name !== trimmedName
-					? t('chorestrike', 'Name already taken — room renamed to "{name}"', { name: room.name })
-					: t('chorestrike', 'Room renamed'))
-				this.closeRenameRoom()
-			} catch (error) {
-				showError(t('chorestrike', 'Failed to rename room'))
-				logger.error('Failed to rename room', error, { view: 'RoomDetail', action: 'confirmRenameRoom', roomId: this.roomId })
-			} finally {
-				this.renamingRoom = false
-			}
-		},
-
-		/**
 		 * Owner-only room delete — deletes the room and returns to the
 		 * Dashboard (the room no longer exists to render). The explicit
 		 * named route keeps the post-delete return on the Dashboard — the
@@ -783,72 +722,9 @@ h1 {
 	color: var(--color-error-text);
 }
 
-.modal-content {
-	padding: 1rem;
-}
-
-.modal-content h3 {
-	margin: 0 0 1rem 0;
-	font-size: 1.2rem;
-}
-
-.form-group {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-	margin-bottom: 1rem;
-}
-
-.form-group label {
-	font-size: 0.9rem;
-	font-weight: 500;
-	color: var(--color-main-text);
-}
-
-.text-input {
-	padding: 0.6rem;
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
-	font-size: 0.95rem;
-}
-
-.text-input:focus {
-	outline: none;
-	border-color: var(--color-primary-element);
-}
-
-.modal-actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 0.75rem;
-	margin-top: 1rem;
-}
-
-.primary-button,
-.secondary-button {
-	padding: 0.6rem 1rem;
-	border-radius: 6px;
-	cursor: pointer;
-	font-size: 0.9rem;
-}
-
-.primary-button {
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-	border: none;
-}
-
 .primary-button:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
-}
-
-.secondary-button {
-	background: var(--color-background-dark);
-	color: var(--color-main-text);
-	border: 1px solid var(--color-border);
 }
 
 .floor-info {

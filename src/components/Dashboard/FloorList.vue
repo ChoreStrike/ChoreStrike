@@ -70,8 +70,9 @@
 							data-testid="floor-expand-toggle"
 							:aria-label="isFloorExpanded(floor.id) ? t('chorestrike', 'Collapse floor') : t('chorestrike', 'Expand floor')"
 							:title="isFloorExpanded(floor.id) ? t('chorestrike', 'Collapse floor') : t('chorestrike', 'Expand floor')"
+							:aria-expanded="isFloorExpanded(floor.id) ? 'true' : 'false'"
 							@click="toggleFloor(floor.id)">
-							<Icon :name="isFloorExpanded(floor.id) ? 'ChevronDown' : 'ChevronRight'" :size="16" />
+							<ExpandChevron :open="isFloorExpanded(floor.id)" />
 						</button>
 					</div>
 				</div>
@@ -110,6 +111,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import ExpandChevron from '../Common/ExpandChevron.vue'
 import Icon from '../Common/Icon.vue'
 import RoomCard from './RoomCard.vue'
 import { useRoomsStore } from '../../store/rooms.js'
@@ -119,6 +121,7 @@ export default {
 	name: 'FloorList',
 
 	components: {
+		ExpandChevron,
 		Icon,
 		RoomCard,
 	},

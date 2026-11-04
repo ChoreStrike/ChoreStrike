@@ -314,8 +314,9 @@
 											class="icon-button"
 											:data-testid="`expand-floor-${floor.id}`"
 											:title="isFloorExpanded(floor.id) ? t('chorestrike', 'Hide rooms') : t('chorestrike', 'Show rooms')"
+											:aria-expanded="isFloorExpanded(floor.id) ? 'true' : 'false'"
 											@click="toggleFloorExpanded(floor.id)">
-											<Icon :name="isFloorExpanded(floor.id) ? 'ChevronDown' : 'ChevronRight'" :size="16" />
+											<ExpandChevron :open="isFloorExpanded(floor.id)" />
 										</button>
 										<button
 											class="icon-button"
@@ -323,7 +324,7 @@
 											:title="t('chorestrike', 'Move floor up')"
 											:disabled="index === 0 || roomsStore.loading"
 											@click="moveFloor(floor, -1)">
-											<Icon name="ChevronUp" :size="16" />
+											<Icon name="ArrowUp" :size="16" />
 										</button>
 										<button
 											class="icon-button"
@@ -331,7 +332,7 @@
 											:title="t('chorestrike', 'Move floor down')"
 											:disabled="index === orderedFloors.length - 1 || roomsStore.loading"
 											@click="moveFloor(floor, 1)">
-											<Icon name="ChevronDown" :size="16" />
+											<Icon name="ArrowDown" :size="16" />
 										</button>
 										<button
 											class="icon-button"
@@ -352,6 +353,20 @@
 								<div v-if="isFloorExpanded(floor.id)" class="floor-rooms" :data-testid="`floor-rooms-${floor.id}`">
 									<div v-for="room in roomsStore.roomsByFloor[floor.id] || []" :key="room.id" class="room-row">
 										<span class="room-row-name">{{ room.name }}</span>
+										<span
+											v-if="roomTaskCountsLoaded"
+											class="room-row-count"
+											:data-testid="`room-task-count-${room.id}`">
+											{{ roomTaskCountLabel(room.id) }}
+										</span>
+										<button
+											class="icon-button"
+											:data-testid="`rename-room-${room.id}`"
+											:aria-label="t('chorestrike', 'Rename room')"
+											:title="t('chorestrike', 'Rename room')"
+											@click="roomToRename = room">
+											<Icon name="Edit" :size="16" />
+										</button>
 										<button
 											class="icon-button danger"
 											:data-testid="`delete-room-${room.id}`"
@@ -405,6 +420,11 @@
 				</div>
 			</section>
 		</div>
+
+		<RoomRenameDialog
+			v-if="roomToRename !== null"
+			:room="roomToRename"
+			@close="roomToRename = null" />
 
 		<!-- Add Floor Modal -->
 		<Modal v-if="showAddFloorModal"
@@ -523,8 +543,10 @@ import { translate as t } from '@nextcloud/l10n'
 import { NcLoadingIcon } from '@nextcloud/vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
+import ExpandChevron from '../components/Common/ExpandChevron.vue'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
+import RoomRenameDialog from '../components/Common/RoomRenameDialog.vue'
 import MemberList from '../components/Members/MemberList.vue'
 import ArcadeGateSetting from '../components/Minigames/ArcadeGateSetting.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
@@ -536,6 +558,7 @@ import { useHouseStore } from '../store/house.js'
 import { usePausesStore } from '../store/pauses.js'
 import { usePreferencesStore } from '../store/preferences.js'
 import { useRoomsStore } from '../store/rooms.js'
+import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useTitlesStore } from '../store/titles.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
@@ -545,8 +568,10 @@ export default {
 
 	components: {
 		NcLoadingIcon,
+		ExpandChevron,
 		Icon,
 		Modal,
+		RoomRenameDialog,
 		ConfirmDialog,
 		ErrorState,
 		MemberList,
@@ -560,11 +585,12 @@ export default {
 	setup() {
 		const houseStore = useHouseStore()
 		const roomsStore = useRoomsStore()
+		const roomTasksStore = useRoomTasksStore()
 		const userStore = useUserStore()
 		const titlesStore = useTitlesStore()
 		const preferencesStore = usePreferencesStore()
 		const pausesStore = usePausesStore()
-		return { houseStore, roomsStore, userStore, titlesStore, preferencesStore, pausesStore }
+		return { houseStore, roomsStore, roomTasksStore, userStore, titlesStore, preferencesStore, pausesStore }
 	},
 
 	data() {
@@ -589,6 +615,11 @@ export default {
 			expandedFloorIds: [],
 			newRoomNames: {},
 			roomToDelete: null,
+			roomToRename: null,
+			// FEAT-UX-049: read once, on the first expanded floor. An unknown
+			// count stays hidden, never a misleading 0.
+			roomTaskCountsLoaded: false,
+			roomTaskCountsRequested: false,
 			deletingRoom: false,
 		}
 	},
@@ -790,6 +821,26 @@ export default {
 			this.expandedFloorIds = this.isFloorExpanded(floorId)
 				? this.expandedFloorIds.filter((id) => id !== floorId)
 				: [...this.expandedFloorIds, floorId]
+			this.loadRoomTaskCounts()
+		},
+
+		async loadRoomTaskCounts() {
+			if (this.roomTaskCountsRequested) {
+				return
+			}
+			this.roomTaskCountsRequested = true
+			try {
+				await this.roomTasksStore.fetchHouseRoomTasks()
+				this.roomTaskCountsLoaded = true
+			} catch {
+				// The store has logged it; the next expanded floor tries again.
+				this.roomTaskCountsRequested = false
+			}
+		},
+
+		roomTaskCountLabel(roomId) {
+			const count = (this.roomTasksStore.roomTasksByRoom[roomId] || []).filter((task) => task.isActive).length
+			return count === 1 ? t('chorestrike', '1 task') : t('chorestrike', '{count} tasks', { count })
 		},
 
 		/**
@@ -1261,8 +1312,16 @@ export default {
 }
 
 .room-row-name {
+	flex: 1;
+	min-width: 0;
 	font-size: 0.9rem;
 	color: var(--color-main-text);
+}
+
+.room-row-count {
+	font-size: 0.85rem;
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
 }
 
 .no-rooms-hint {

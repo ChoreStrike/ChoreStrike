@@ -31,7 +31,7 @@
 				data-testid="tasks-filter-toggle"
 				@click="open = !open">
 				{{ activeCount > 0 ? t('chorestrike', 'Filters ({count} active)', { count: activeCount }) : t('chorestrike', 'Filters') }}
-				<Icon :name="open ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+				<ExpandChevron :open="open" />
 			</button>
 		</div>
 		<p v-if="modelValue.scope === 'mine'" class="scope-hint">
@@ -115,6 +115,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import ExpandChevron from '../Common/ExpandChevron.vue'
 import Icon from '../Common/Icon.vue'
 import { ENERGY_LISTED_MAX, ENERGY_LONGER } from '../../constants/scheduling.js'
 import { longerTaskLabel } from '../../utils/taskDisplay.js'
@@ -142,7 +143,7 @@ function isPhoneViewport() {
 export default {
 	name: 'TaskFilterBar',
 
-	components: { Icon },
+	components: { ExpandChevron, Icon },
 
 	props: {
 		/** Filter values: { scope, person, floor, room, status, priority, difficulty, visibility, search }. */

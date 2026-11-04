@@ -36,7 +36,7 @@ floors yet; you can also start it with **Set up your home**.
 
 <img src="screenshots/guide-setup-wizard.png" alt="Setup wizard, Quick Start step: house name, home type, floors, rooms per floor and the cleaning level" width="720">
 
-1. **Quick Start** — house name, home type, number of floors, basement, rooms
+1. **Quick Start** — house name, home type, number of floors, floor numbering, basement, rooms
    per floor and the cleaning level: *Putzteufel* adds all suitable tasks at
    standard frequencies, *Putzmuffel* only the essentials, less often.
 2. **Room List** — name and adjust the rooms. Room names are unique in the

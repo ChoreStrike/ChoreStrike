@@ -20,6 +20,9 @@ msgstr ""
 msgid "* same on-time share — tied"
 msgstr ""
 
+msgid "1 task"
+msgstr ""
+
 msgid "15-20 energy per day"
 msgstr ""
 
@@ -1266,6 +1269,9 @@ msgid "Floor name is required"
 msgstr ""
 
 msgid "Floor not found"
+msgstr ""
+
+msgid "Floor numbering"
 msgstr ""
 
 msgid "Floor order is required"
@@ -3890,6 +3896,9 @@ msgstr ""
 msgid "{count} task(s) assigned"
 msgstr ""
 
+msgid "{count} tasks"
+msgstr ""
+
 msgid "{count} weeks ago"
 msgstr ""
 
@@ -3930,6 +3939,9 @@ msgid "{name} was removed from the house"
 msgstr ""
 
 msgid "{n} min ago"
+msgstr ""
+
+msgid "{n}. Floor"
 msgstr ""
 
 msgid "{n}d ago"

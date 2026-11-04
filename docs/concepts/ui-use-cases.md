@@ -205,7 +205,7 @@ read-only).
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Add room (inline name input per floor row) | Settings structure section | `POST /rooms` | ✅ (CS-PLAN-042; icon defaults, the old FloorList icon-picker modal was removed with the duplicate surface) |
-| Rename room (header action) | RoomDetail | `PUT /rooms/{id}` | ✅ (CS-PLAN-042) |
+| Rename room | RoomDetail header; Settings floor room list, which also counts the room's active tasks | `PUT /rooms/{id}` | ✅ (CS-PLAN-042, FEAT-UX-049) |
 | Delete room (styled confirm) | RoomDetail header; Settings floor room list | `DELETE /rooms/{id}` | ✅ (CS-PLAN-042) |
 | Cleanliness change (Quick clean +10) | — | `PUT /rooms/{id}/cleanliness` | ⛔ control removed (FEAT-UX-048); the route stays until FEAT-UX-050 (D-089-09), and retained entries keep replaying |
 | "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ⛔ pruned (CS-PLAN-055 — route + dead `fetchRoomsNeedingCleaning` wrapper gone) |

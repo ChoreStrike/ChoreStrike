@@ -151,7 +151,7 @@
 								:aria-expanded="isExpanded(item.roomTask.id)"
 								:data-testid="`today-checklist-toggle-${item.roomTask.id}`"
 								@click="toggleExpand(item)">
-								<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+								<ExpandChevron :open="isExpanded(item.roomTask.id)" />
 								<span>{{ checklistSummary(item) }}</span>
 							</button>
 						</div>
@@ -229,7 +229,7 @@
 									:aria-expanded="isExpanded(item.roomTask.id)"
 									:data-testid="`today-checklist-toggle-${item.roomTask.id}`"
 									@click="toggleExpand(item)">
-									<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+									<ExpandChevron :open="isExpanded(item.roomTask.id)" />
 									<span>{{ checklistSummary(item) }}</span>
 								</button>
 							</div>
@@ -299,6 +299,7 @@ import { showError } from '@nextcloud/dialogs'
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { translate as t } from '@nextcloud/l10n'
 import ErrorState from '../components/Common/ErrorState.vue'
+import ExpandChevron from '../components/Common/ExpandChevron.vue'
 import HoldButton from '../components/Common/HoldButton.vue'
 import Icon from '../components/Common/Icon.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
@@ -325,6 +326,7 @@ export default {
 
 	components: {
 		Icon,
+		ExpandChevron,
 		ErrorState,
 		TaskChecklist,
 		TaskMeta,

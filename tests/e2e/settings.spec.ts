@@ -243,6 +243,19 @@ test.describe('Settings', () => {
 		await expect(page.locator('.modal-content')).toBeVisible()
 	})
 
+	test('A room in the list shows its tasks and can be renamed (FEAT-UX-049)', async ({ page, seededData }) => {
+		const kitchen = seededData!.data.rooms!.find((room) => room.name === 'Kitchen')!
+		await page.getByTestId(`expand-floor-${kitchen.floorId}`).click()
+		await expect(page.getByTestId(`room-task-count-${kitchen.id}`)).toHaveText(/\d+ tasks?/)
+
+		await page.getByTestId(`rename-room-${kitchen.id}`).click()
+		await page.getByTestId('room-rename-input').fill('Scullery')
+		await page.getByTestId('room-rename-save').click()
+
+		await expect(page.getByTestId('room-rename-input')).toHaveCount(0)
+		await expect(page.getByTestId(`floor-rooms-${kitchen.floorId}`)).toContainText('Scullery')
+	})
+
 	test('Settings page has danger zone section', async ({ page }) => {
 		const dangerZone = page.locator('.danger-zone, .reset-section, [data-testid="danger-zone"]')
 

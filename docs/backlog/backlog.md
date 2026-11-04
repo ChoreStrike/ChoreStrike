@@ -249,7 +249,7 @@ obligations. The operator confirmed that the reported child has a limit.
 ---
 
 ### [P3] BUG-UX-012 — The setup wizard skips the first upper floor
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: setup
+**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: S · **Layer**: frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: numbered floors with a choice of counting (operator, 2026-11-03)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-10; numbering defect found in its review
 
@@ -258,9 +258,9 @@ Floor", which is wrong under either convention. Floor naming differs between
 countries, so the operator proposes numbered floors by default, with a choice
 whether the first floor above ground counts as 1st or 2nd.
 
-- [ ] Numbered floors by default, with the choice in the wizard, through
+- [x] Numbered floors by default, with the choice in the wizard, through
       translatable source strings. New setups only; existing floors stay.
-- [ ] `SetupWizard.spec.js` covers both countings.
+- [x] `SetupWizard.spec.js` covers both countings.
 
 ---
 
@@ -322,7 +322,7 @@ FEAT-UX-050 (D-089-09).
 ---
 
 ### [P3] FEAT-UX-049 — Floors & Rooms list: rename, task count, one expand control
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
+**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-7, S-8
 
@@ -330,9 +330,9 @@ Every room in the list gets *Rename room* and shows its number of tasks. The exp
 control and the reorder arrows both use chevrons today, and the expand style differs
 between menus.
 
-- [ ] Rename reuses the dialog of `RoomDetail`; the count comes from the house's room
+- [x] Rename reuses the dialog of `RoomDetail`; the count comes from the house's room
       tasks in the owner-only section, without a new API field.
-- [ ] One expand control, a right chevron turning 90° when open, in every menu;
+- [x] One expand control, a right chevron turning 90° when open, in every menu;
       reorder controls use arrows.
 
 ---

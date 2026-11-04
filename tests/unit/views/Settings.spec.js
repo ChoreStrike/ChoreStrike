@@ -80,6 +80,15 @@ jest.mock('../../../src/store/rooms.js', () => ({
 	useRoomsStore: () => mockRoomsState,
 }))
 
+const mockRoomTasksState = {
+	roomTasksByRoom: {},
+	fetchHouseRoomTasks: jest.fn(),
+}
+
+jest.mock('../../../src/store/roomTasks.js', () => ({
+	useRoomTasksStore: () => mockRoomTasksState,
+}))
+
 // Mutable role so tests can switch between owner and member (CS-PLAN-042
 // role gating). Defaults to owner: the owner-only sections under test.
 // `fetchHouseUsers`/`houseUsers` satisfy the MemberList child mounted in the
@@ -186,6 +195,8 @@ describe('Settings.vue', () => {
 		mockHouseState.timezone = 'UTC'
 		mockHouseState.fetchHouse.mockReset().mockResolvedValue()
 		mockRoomsState.fetchFloorsWithRooms.mockReset().mockResolvedValue()
+		mockRoomTasksState.fetchHouseRoomTasks.mockReset().mockResolvedValue([])
+		mockRoomTasksState.roomTasksByRoom = {}
 		mockHouseState.updateHouseName.mockClear().mockResolvedValue()
 		mockHouseState.updateRankingEnabled.mockClear().mockResolvedValue()
 		mockHouseState.resetHouse.mockClear().mockResolvedValue()
@@ -722,6 +733,63 @@ describe('Settings.vue', () => {
 		expect(rooms.exists()).toBe(true)
 		expect(rooms.text()).toContain('Kitchen')
 		expect(wrapper.find('[data-testid="add-room-to-floor-button"]').exists()).toBe(true)
+	})
+
+	it('counts the active tasks of each room, read once on the first expanded floor (FEAT-UX-049)', async () => {
+		mockRoomTasksState.roomTasksByRoom = {
+			1: [{ id: 1, isActive: true }, { id: 2, isActive: false }],
+			2: [{ id: 3, isActive: true }, { id: 4, isActive: true }],
+		}
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		expect(mockRoomTasksState.fetchHouseRoomTasks).not.toHaveBeenCalled()
+
+		await wrapper.find('[data-testid="expand-floor-1"]').trigger('click')
+		await flushPromises()
+		await wrapper.find('[data-testid="expand-floor-2"]').trigger('click')
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="room-task-count-1"]').text()).toBe('1 task')
+		expect(wrapper.find('[data-testid="room-task-count-2"]').text()).toBe('{count} tasks')
+		expect(mockRoomTasksState.fetchHouseRoomTasks).toHaveBeenCalledTimes(1)
+	})
+
+	it('hides the count when the read fails and tries again on the next floor (FEAT-UX-049)', async () => {
+		mockRoomTasksState.fetchHouseRoomTasks.mockRejectedValueOnce(new Error('down'))
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		await wrapper.find('[data-testid="expand-floor-1"]').trigger('click')
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="floor-rooms-1"]').text()).toContain('Kitchen')
+		expect(wrapper.find('[data-testid="room-task-count-1"]').exists()).toBe(false)
+
+		await wrapper.find('[data-testid="expand-floor-2"]').trigger('click')
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="room-task-count-1"]').exists()).toBe(true)
+		expect(mockRoomTasksState.fetchHouseRoomTasks).toHaveBeenCalledTimes(2)
+	})
+
+	it('renames a room from the list through the shared dialog (FEAT-UX-049)', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+		await wrapper.find('[data-testid="expand-floor-1"]').trigger('click')
+		await flushPromises()
+
+		expect(wrapper.findComponent({ name: 'RoomRenameDialog' }).exists()).toBe(false)
+
+		await wrapper.find('[data-testid="rename-room-1"]').trigger('click')
+
+		const dialog = wrapper.findComponent({ name: 'RoomRenameDialog' })
+		expect(dialog.props('room')).toEqual({ id: 1, name: 'Kitchen' })
+
+		dialog.vm.$emit('close')
+		await flushPromises()
+
+		expect(wrapper.findComponent({ name: 'RoomRenameDialog' }).exists()).toBe(false)
 	})
 
 	it('creates a room on the expanded floor via the store', async () => {
