@@ -25,3 +25,10 @@
 label:has(> .cs-visually-hidden) {
 	position: relative;
 }
+
+/* BUG-UX-010: Nextcloud fixes the height of a select, so a component's padding
+   left less than one text line and clipped the chosen value. Dialogs are
+   teleported out of the app content, so the rule sits on the body. */
+body select {
+	height: auto;
+}

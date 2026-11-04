@@ -177,12 +177,12 @@ browser gates follow with the candidate.
   carried a background and a z-index. Delivered on the primary row: equal margins on both
   viewports, reachable end of a long view, screenshots reviewed by eye; the navigation now
   shows the usual translucent Nextcloud background. The AIO row follows with the candidate.
-- **BUG-UX-010 (D-3):** reproduce first. Probable cause: `.text-input` in
-  `Settings.vue` sets 12 px block padding on a `<select>` that core fixes at 36 px, so
-  10 px remain for the text. Its `background` shorthand also drops core's chevron. The
-  fix uses no block padding on selects. Audit the other selects: the two further ones
-  in Settings, `RewardCatalogEditor`, `RewardRequestDetails`, `RewardRequestList`,
-  `MemberList`, and the rest of the 13 components with a `<select>`.
+- **BUG-UX-010 (D-3):** reproduced in the browser: three selects in Settings had 11.5 px
+  for a 17.1 px line, because core fixes the height of a `<select>` and `.text-input` adds
+  12 px block padding. The select in the task dialog was short too, and dialogs are
+  teleported out of the app content. So one rule on the body lets every select take its
+  natural height, instead of a fix per component. Eight components also lost core's
+  dropdown arrow to a `background` shorthand; they set `background-color` now.
 - **BUG-UX-011 (D-4):**
   - `RoomTaskController`: `updateDueDate()` and `setAssignees()` catch `ConflictException`
     through `ControllerErrorFormatter::conflictResponse()`. The audit of the other mutations
@@ -288,8 +288,8 @@ export of one selected smoke run; operator deployment; verified record under
   `#app-content-vue`, `tests/package/owner-smoke.cjs` and the contrast checks that select
   `#content` (`color-contrast.spec.ts`, `family-core-ux.spec.ts`,
   `fixtures/non-text-contrast.ts`) stay green; `#content` then matches core's element alone.
-- **BUG-UX-010:** a browser assertion in `settings.spec.ts` that a select's value fits its
-  content box, on the phone viewport and in the dark theme.
+- **BUG-UX-010:** a browser assertion in `settings.spec.ts` that every select in Settings and
+  in the task dialog fits one text line; the measurement does not depend on the theme.
 - **BUG-UX-011:** `RoomTaskControllerTest` for 409, stable code and no error-level log on all
   actions, for `TaskController::update()` too; `RoomTaskLastDoneIntegrationTest` for a refused fixed cadence, both with a miss
   alone and with a miss next to a current window, without any write;
@@ -430,11 +430,11 @@ D-5 come from the server log. D-6 dates from 2026-11-04. Owning items are in [`b
 
 | ID | Observation | Type / priority | Routing | State |
 |----|-------------|-----------------|---------|-------|
-| D-1 | A task repeating every n days shows "Daily" in the list | Bug / P2 | BUG-UX-008 | Round 1; confirmed in the code |
-| D-2 | The main frame has no right or bottom margin | Bug / P2 | BUG-UX-009 | Round 1; confirmed by the core CSS and a tracked screenshot, wider than reported |
-| D-3 | A dark area partly covers the selected timezone | Bug / P2 | BUG-UX-010 | Round 1; probable cause known, not reproduced yet |
-| D-4 | HTTP 500 on a refused due-date change | Bug / P2 | BUG-UX-011 | Round 1; confirmed, wider than reported, partial save traced |
-| D-5 | An owner-only endpoint is called for every member and fills the log | Bug / P3 | TECH-LOG-001 | Round 1; confirmed |
+| D-1 | A task repeating every n days shows "Daily" in the list | Bug / P2 | BUG-UX-008 | Round 1; fixed on `fix/alpha4-round1` |
+| D-2 | The main frame has no right or bottom margin | Bug / P2 | BUG-UX-009 | Round 1; fixed on `fix/alpha4-round1`, wider than reported |
+| D-3 | A dark area partly covers the selected timezone | Bug / P2 | BUG-UX-010 | Round 1; reproduced and fixed on `fix/alpha4-round1` |
+| D-4 | HTTP 500 on a refused due-date change | Bug / P2 | BUG-UX-011 | Round 1; fixed on `fix/alpha4-round1`, wider than reported |
+| D-5 | An owner-only endpoint is called for every member and fills the log | Bug / P3 | TECH-LOG-001 | Round 1; fixed on `fix/alpha4-round1` |
 | D-6 | Tasks created the day before do not appear on a child's My Day | Bug / P2 | BUG-UX-013 | Round 1; reproduced with a daily limit, operator confirmation open |
 | L-1 | About 4–6 colour schemes that work in the light and the dark theme | Feature / P3 | FEAT-UX-057 | Round 3 |
 | T-1 | Energy as the only effort measure at about 10 minutes each, with room for longer tasks | Improvement / P2 | FEAT-UX-046 | Round 1 (D-089-07) |

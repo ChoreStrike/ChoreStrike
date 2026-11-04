@@ -105,7 +105,8 @@
     "settings.spec.ts > Settings > Settings page has danger zone section",
     "settings.spec.ts > Settings > Settings page loads correctly",
     "settings.spec.ts > Settings > User can open add floor modal",
-    "settings.spec.ts > Settings > User can type in house name field"
+    "settings.spec.ts > Settings > User can type in house name field",
+    "settings.spec.ts > Settings > every select shows its whole value"
   ],
   "room-management.spec.ts": [
     "room-management.spec.ts > Room and Floor Management > Dashboard FloorList is read-only (no structure controls)",

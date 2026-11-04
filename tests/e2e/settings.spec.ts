@@ -1,4 +1,4 @@
-import type { APIResponse } from '@playwright/test'
+import type { APIResponse, Locator } from '@playwright/test'
 
 import { userStatePath } from './fixtures/auth-contexts.ts'
 import { completeRoomTaskViaApi, newCommandId, resolveOccurrenceReceipt } from './fixtures/completion-api.ts'
@@ -192,6 +192,26 @@ test.describe('Settings', () => {
 			await expect(floor).toBeVisible()
 		})
 	}
+
+	// BUG-UX-010: Nextcloud fixes the height of a select, so padding that leaves
+	// less than one text line clips the chosen value.
+	test('every select shows its whole value', async ({ page }) => {
+		const clippedSelects = async (root: Locator): Promise<string[]> => await root.locator('select').evaluateAll((selects) => selects.flatMap((select) => {
+			const style = getComputedStyle(select)
+			const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2
+			const inner = select.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
+			return inner < line ? [`${select.id || select.className}: ${inner}px for a ${line}px line`] : []
+		}))
+
+		await expect(page.getByTestId('house-timezone-select')).toBeVisible()
+		expect(await clippedSelects(page.getByTestId('settings-view'))).toEqual([])
+
+		// Dialogs are teleported out of the app content.
+		await page.goto('/apps/chorestrike/#/tasks')
+		await page.getByTestId('add-task-button').click()
+		await expect(page.getByTestId('task-energy-select')).toBeVisible()
+		expect(await clippedSelects(page.locator('body'))).toEqual([])
+	})
 
 	test('House name input is displayed and interactive', async ({ page }) => {
 		await expect(page.locator('[data-testid="house-name-input"]')).toBeVisible()

@@ -1095,7 +1095,7 @@ export default {
 	padding: 0.75rem;
 	border: 1px solid var(--color-border);
 	border-radius: 6px;
-	background: var(--color-main-background);
+	background-color: var(--color-main-background);
 	color: var(--color-main-text);
 	font-size: 0.95rem;
 }

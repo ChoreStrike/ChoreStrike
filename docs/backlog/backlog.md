@@ -158,8 +158,8 @@ and the payload/time-zone helpers.
 `daily` branch, while `weekly` and `monthly` handle n > 1. The form preview
 already uses the translated `Every {n} days`.
 
-- [ ] Task lists show `Every {n} days` for n > 1.
-- [ ] Regression test in `taskDisplay.spec.js`.
+- [x] Task lists show `Every {n} days` for n > 1.
+- [x] Regression test in `taskDisplay.spec.js`.
 
 ---
 
@@ -185,19 +185,18 @@ browser test confirmed before the fix.
 ---
 
 ### [P2] BUG-UX-010 — Selects clip their value in the settings
-**Status**: In Progress (Round 1, D-089-01; probable cause, not reproduced yet) · **Effort**: S · **Layer**: frontend · **Journey stage**: settings
+**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: S · **Layer**: frontend · **Journey stage**: settings
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register D-3
 
-A dark area partly covers the value of *Settings → Timezone*. Probable cause:
-`.text-input` sets 12 px block padding on a `<select>` that core fixes at 36 px,
-which leaves 10 px for the text; its `background` shorthand also drops core's
-chevron. Device and theme were not recorded.
+A dark area partly covers the value of *Settings → Timezone*. Core fixes the height of
+a `<select>`, and `.text-input` adds 12 px block padding, which left 11.5 px for a
+17.1 px line in three selects; the task dialog was short too. A `background` shorthand
+also removed core's dropdown arrow in eight components.
 
-- [ ] Reproduced first; on another cause this item is updated before fixing.
-- [ ] No select clips its value: the three in Settings and the audit of the other
-      components with a `<select>`.
-- [ ] Browser assertion that a select's value fits its content box.
+- [x] Reproduced first, in the browser.
+- [x] No select clips its value: one rule on the body, because dialogs are teleported.
+- [x] Browser assertion for Settings and the task dialog.
 
 ---
 
@@ -218,15 +217,15 @@ writer use the oldest open occurrence, which was already missed. A trace of the
 case also shows that the documented refusal of "Last done" while overdue runs only
 for an interval, not for a fixed cadence (D-088-20, API reference, service docblock).
 
-- [ ] The three actions answer 409 with the stable code; the room task controller's
+- [x] The three actions answer 409 with the stable code; the room task controller's
       other mutations are audited against the paths they reach.
-- [ ] "Last done" is refused on every cadence while an open occurrence has ended
+- [x] "Last done" is refused on every cadence while an open occurrence has ended
       (D-089-08), so an older miss next to a current window is covered too.
-- [ ] The dialog shows due-date and assignee refusals inline, says what was saved
+- [x] The dialog shows due-date and assignee refusals inline, says what was saved
       after a partial save and does not record "Last done" twice on retry; the
       assignee chips show the reason too.
-- [ ] The amendment-deadline message is a reason a person can act on.
-- [ ] PHPUnit and Jest regressions per the plan; atomic saving follows with
+- [x] The amendment-deadline message is a reason a person can act on.
+- [x] PHPUnit and Jest regressions per the plan; atomic saving follows with
       FEAT-UX-040.
 
 ---
@@ -1132,9 +1131,9 @@ non-owner visit to *Scheduling* writes `Owner role required` at warning level, w
 real warnings. Separately, `AppLogger` sets no `app` key, so entries show `no app in context`
 and the post-deployment log check cannot filter by app.
 
-- [ ] Only owners fetch the member availability; a store spec covers both roles.
-- [ ] `AppLogger` adds the `app` key; `AppLoggerTest` covers it; the deployment guide's
-      filter note goes.
+- [x] Only owners fetch the member availability; a store spec covers the roles.
+- [x] `AppLogger` adds the `app` key; `AppLoggerTest` covers it; the deployment guide
+      names the filter.
 
 ---
 
