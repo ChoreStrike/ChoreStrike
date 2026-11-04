@@ -55,7 +55,8 @@ class AppLoggerTest extends TestCase {
 						&& $context['nested']['token'] === '[redacted]'
 						&& $context['requestId'] === 'req-123'
 						&& $context['requestMethod'] === 'POST'
-						&& $context['currentUserId'] === 'current-user';
+						&& $context['currentUserId'] === 'current-user'
+						&& $context['app'] === 'chorestrike';
 				})
 			);
 
@@ -69,7 +70,7 @@ class AppLoggerTest extends TestCase {
 	public function testAudit_AuthenticatedSession_DoesNotAddIdentitySnapshot(): void {
 		$this->user->expects($this->never())->method('getUID');
 		$context = ['event' => 'house.member.invited', 'houseId' => 3, 'actorId' => 7, 'memberId' => 21, 'outcome' => 'invited'];
-		$this->logger->expects($this->once())->method('info')->with('House member invite completed', $context);
+		$this->logger->expects($this->once())->method('info')->with('House member invite completed', ['app' => 'chorestrike'] + $context);
 		$this->service->audit('House member invite completed', $context);
 	}
 

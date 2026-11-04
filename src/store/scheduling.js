@@ -18,6 +18,7 @@ import { logger } from '../utils/logger.js'
 import { useHouseStore } from './house.js'
 import { useRoomTasksStore } from './roomTasks.js'
 import { useTasksStore } from './tasks.js'
+import { useUserStore } from './user.js'
 
 /**
  * Null or finite number → the internal limit representation (Infinity = unlimited).
@@ -668,12 +669,16 @@ export const useSchedulingStore = defineStore('scheduling', {
 			try {
 				await this.fetchUserPreferences()
 
+				// Member availability is owner-only: any other role would only
+				// write an expected refusal into the server log (TECH-LOG-001).
+				if (!useUserStore().isHouseOwner) {
+					return
+				}
 				try {
 					await this.fetchMemberAvailability()
 				} catch {
-					// Member availability is owner-only and non-critical. A 403 for
-					// non-owners (or any transient failure) must not block the view —
-					// the user can still edit their own preferences. The action logs
+					// Non-critical: a transient failure must not block the view —
+					// the owner can still edit their own preferences. The action logs
 					// the failure; clear the action's error so the view stays usable.
 					this.error = null
 				}

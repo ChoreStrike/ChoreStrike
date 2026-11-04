@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
+import { useUserStore } from '../../../src/store/user.js'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 import { useTasksStore } from '../../../src/store/tasks.js'
@@ -465,7 +466,26 @@ describe('Scheduling Store', () => {
 				expect(store.loading).toBe(false)
 			})
 
+			it('initializeScheduling reads the member availability for owners only', async () => {
+				api.get.mockResolvedValue({})
+				const userStore = useUserStore()
+
+				userStore.currentUser = { id: 1, role: 'child' }
+				await store.initializeScheduling()
+				expect(api.get).not.toHaveBeenCalledWith('/api/v1/scheduling/members')
+
+				userStore.currentUser = { id: 2, role: 'member' }
+				await store.initializeScheduling()
+				expect(api.get).not.toHaveBeenCalledWith('/api/v1/scheduling/members')
+
+				userStore.currentUser = { id: 3, role: 'owner' }
+				await store.initializeScheduling()
+				expect(api.get).toHaveBeenCalledWith('/api/v1/scheduling/members')
+				expect(store.loading).toBe(false)
+			})
+
 			it('initializeScheduling owns the loading flag and survives owner-only member fetch failures', async () => {
+				useUserStore().currentUser = { id: 3, role: 'owner' }
 				api.get.mockImplementation((path) => {
 					if (path === '/api/v1/scheduling/preferences') {
 						return Promise.resolve({ energyBudget: { monday: 11 } })

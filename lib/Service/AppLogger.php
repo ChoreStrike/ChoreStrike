@@ -17,6 +17,9 @@ use Psr\Log\LoggerInterface;
  * Application-level structured logger for privacy-safe diagnostics.
  */
 class AppLogger {
+	/** Nextcloud files every entry under this app (TECH-LOG-001). */
+	private const APP_ID = 'chorestrike';
+
 	/**
 	 * @var string[]
 	 */
@@ -66,7 +69,7 @@ class AppLogger {
 	 * @param array<string, mixed> $context Stable event metadata and numeric resource identifiers
 	 */
 	public function audit(string $message, array $context): void {
-		$this->logger->info($message, $this->sanitizeContext($context));
+		$this->logger->info($message, ['app' => self::APP_ID] + $this->sanitizeContext($context));
 	}
 
 	/**
@@ -144,7 +147,7 @@ class AppLogger {
 			'currentUserId' => $this->userSession->getUser()?->getUID(),
 		];
 
-		return $this->sanitizeContext(array_merge($context, $requestContext, $userContext));
+		return ['app' => self::APP_ID] + $this->sanitizeContext(array_merge($context, $requestContext, $userContext));
 	}
 
 	/**

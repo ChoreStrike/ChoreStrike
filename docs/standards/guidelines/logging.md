@@ -54,6 +54,8 @@ that the event stream alone proves a complete history of persisted changes.
 
 Stable keys when available: `event`, `controller`, `action`, `service`, `houseId`, `roomId`, `floorId`, `taskId`, `roomTaskId`, `userId`, `requestId`, `exception`.
 
+`AppLogger` adds `app` (`chorestrike`) to every entry, so the log can be filtered by app.
+
 Any key containing `password`, `token`, `secret`, `authorization`, `cookie`, `session`, `credential`, or `csrf` must be removed or redacted.
 
 Messages: short, stable, action-oriented, English. ✅ `Task controller action failed` · ❌ `Something went wrong lol`.

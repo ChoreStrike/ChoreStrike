@@ -543,8 +543,9 @@ release gate.
 
 On AIO an unprivileged host account cannot read the server log, so this check
 needs the operator or an explicitly approved read inside the Nextcloud
-container. ChoreStrike entries show `no app in context` until TECH-LOG-001 sets
-the `app` key: filter on the message text or the app's URL prefix.
+container. Filter on the `app` field `chorestrike`; up to `0.8.0-alpha.3` entries
+show `no app in context`, so filter those on the message text or the app's URL
+prefix.
 
 ### Performance
 
