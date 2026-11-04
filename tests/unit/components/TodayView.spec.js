@@ -90,6 +90,7 @@ let mockHouseStore
 let mockChecklistStore
 let mockUserStore
 let mockGameStore
+let mockRoomsStore
 let mockSchedulingStore
 
 jest.mock('@/store/roomTasks.js', () => ({
@@ -112,6 +113,9 @@ jest.mock('@/store/game.js', () => ({
 	useGameStore: () => mockGameStore,
 }))
 
+jest.mock('@/store/rooms.js', () => ({
+	useRoomsStore: () => mockRoomsStore,
+}))
 jest.mock('@/store/scheduling.js', () => ({
 	useSchedulingStore: () => mockSchedulingStore,
 }))
@@ -161,6 +165,10 @@ describe('TodayView', () => {
 			}),
 		})
 		mockHouseStore = { timezone: 'UTC' }
+		mockRoomsStore = {
+			fetchFloorsWithRooms: jest.fn().mockResolvedValue([]),
+			getFloorById: jest.fn(floorId => (floorId === 3 ? { id: 3, name: 'Upstairs' } : undefined)),
+		}
 		mockChecklistStore = {
 			items: {},
 			progress: {},
@@ -422,6 +430,32 @@ describe('TodayView', () => {
 		expect(wrapper.text()).toContain('Rinse first, then load the dishwasher.')
 		// Plain escaped text — no v-html surface.
 		expect(wrapper.html()).not.toContain('v-html')
+	})
+
+	it('gives a row the same facts as a task list: energy, recurrence, floor and room (FEAT-UX-047)', async () => {
+		mockRoomTasksStore.dailyTasks = [{
+			...todayFixture()[0],
+			task: { id: 1, name: 'Do the dishes', energyCost: 5, frequencyType: 'daily', frequencyValue: 3, flexDays: 2 },
+			room: { id: 1, name: 'Kitchen', floorId: 3 },
+			occurrence: { energy: 2, plannedDate: '2026-08-18' },
+		}]
+		const wrapper = await mountView()
+		const row = wrapper.get('[data-testid="today-task-item"]')
+
+		expect(row.get('[data-testid="task-energy"]').text()).toMatch(/ 2$/)
+		expect(row.get('[data-testid="task-recurrence"]').text()).toContain('Every 3 days ±2')
+		expect(row.get('[data-testid="task-location"]').text()).toBe('Upstairs · Kitchen')
+	})
+
+	it('reads the floors once per view and keeps the room when they fail (FEAT-UX-047)', async () => {
+		mockRoomsStore.fetchFloorsWithRooms.mockRejectedValue(new Error('floors down'))
+		mockRoomsStore.getFloorById.mockReturnValue(undefined)
+		mockRoomTasksStore.dailyTasks = [{ ...todayFixture()[0], room: { id: 1, name: 'Kitchen', floorId: 3 } }]
+		const wrapper = await mountView()
+
+		expect(mockRoomsStore.fetchFloorsWithRooms).toHaveBeenCalledTimes(1)
+		expect(wrapper.get('[data-testid="task-location"]').text()).toBe('Kitchen')
+		expect(wrapper.find('[data-testid="today-error"]').exists()).toBe(false)
 	})
 
 	it('shows assigned-to-me and unassigned tasks under the mine filter (default)', async () => {

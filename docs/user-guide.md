@@ -80,6 +80,11 @@ your own tasks and the whole household's.
 | <img src="screenshots/guide-my-day-phone.png" alt="My Day on a phone: today's tasks, each with a Done button and a checklist" width="300"> | <img src="screenshots/guide-undo-phone.png" alt="After completing a task: a Task completed message with an Undo button" width="300"> |
 | My Day on a phone | Right after completing: undo |
 
+Every task looks the same on *My Day*, in **Tasks** and in a room: below its
+name stand the floor and room, then its energy, how often it repeats and who
+does it. *Every 3 days ±2* means every three days, with two flex days either
+way.
+
 **Completing a task.** Press and hold **Done** for 0.6 seconds until the ring
 is full (with a keyboard: hold Enter or Space). A short tap only explains the
 hold, so a task is never completed by accident. If several people worked on

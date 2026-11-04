@@ -82,6 +82,40 @@ export function frequencyLabel(task) {
 }
 
 /**
+ * How often a task repeats, with its flex days in one label: "Every 3 days ±2".
+ * @param {object} task Task definition.
+ * @return {string}
+ */
+export function recurrenceLabel(task) {
+	if (task.recurrenceMode === 'once') {
+		return t('chorestrike', 'One-time')
+	}
+	const label = frequencyLabel(task)
+	return task.flexDays > 0 ? `${label} ±${task.flexDays}` : label
+}
+
+/**
+ * Floor and room of a task, for the line below its title.
+ * @param {?object} room Room of the task.
+ * @param {?object} floor Floor of that room.
+ * @return {string} Empty while neither is known.
+ */
+export function locationLabel(room, floor) {
+	return [floor?.name, room?.name].filter(Boolean).join(' · ')
+}
+
+/**
+ * The energy of a row: a saved occurrence keeps its frozen value, which is
+ * what completing it pays, even after the definition changed (ADR-014).
+ * @param {object} item Enriched row with task and an occurrence block on the
+ * row (My Day) or on its room task (Tasks, rooms).
+ * @return {number}
+ */
+export function taskEnergy(item) {
+	return item.occurrence?.energy ?? item.roomTask?.occurrence?.energy ?? item.task.energyCost
+}
+
+/**
  * Whole house-local days from today to the planned due day (negative = past).
  * @param {object} roomTask Room task payload with nextDue.
  * @param {string} timezone IANA timezone of the household.
@@ -144,29 +178,6 @@ export function dueText(roomTask, timezone) {
 		return t('chorestrike', 'Due tomorrow')
 	}
 	return t('chorestrike', 'Due in {days} days', { days })
-}
-
-/**
- * Flex window bounds for the FlexWindowDisplay (earliest/ideal/latest).
- * @param {object} item Enriched row with roomTask and task.
- * @return {{earliest: ?string, ideal: ?string, latest: ?string}} ISO strings or null
- */
-export function flexWindowKeys(item) {
-	const ideal = item.roomTask.idealDueDate || item.roomTask.nextDue
-	if (!ideal || item.task.flexDays <= 0) {
-		return { earliest: null, ideal: ideal || null, latest: null }
-	}
-
-	const earliest = new Date(ideal)
-	earliest.setDate(earliest.getDate() - item.task.flexDays)
-	const latest = new Date(ideal)
-	latest.setDate(latest.getDate() + item.task.flexDays)
-
-	return {
-		earliest: earliest.toISOString(),
-		ideal,
-		latest: latest.toISOString(),
-	}
 }
 
 /**

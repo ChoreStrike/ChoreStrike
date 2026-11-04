@@ -12,7 +12,9 @@ import {
 	frequencyLabel,
 	dueClass,
 	dueText,
-	flexWindowKeys,
+	locationLabel,
+	recurrenceLabel,
+	taskEnergy,
 } from '../../../src/utils/taskDisplay.js'
 
 describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
@@ -147,36 +149,48 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 		})
 	})
 
-	describe('flexWindowKeys', () => {
-		it('falls back to nextDue as the ideal anchor', () => {
-			const item = {
-				roomTask: { nextDue: '2030-05-10T00:00:00Z', idealDueDate: null },
-				task: { flexDays: 2 },
-			}
-			const win = flexWindowKeys(item)
-			expect(win.ideal).toBe('2030-05-10T00:00:00Z')
+	describe('recurrenceLabel (FEAT-UX-047)', () => {
+		it('adds the flex days to the recurrence', () => {
+			expect(recurrenceLabel({ frequencyType: 'daily', frequencyValue: 3, flexDays: 2 })).toBe('Every 3 days ±2')
+			expect(recurrenceLabel({ frequencyType: 'weekly', frequencyValue: 1, flexDays: 1 })).toBe('Weekly ±1')
 		})
 
-		it('computes earliest/latest symmetrically around the ideal day', () => {
-			const item = {
-				roomTask: { nextDue: '2030-05-10T00:00:00Z', idealDueDate: '2030-05-12T00:00:00Z' },
-				task: { flexDays: 2 },
-			}
-			const win = flexWindowKeys(item)
-			expect(win.ideal).toBe('2030-05-12T00:00:00Z')
-			expect(new Date(win.earliest).toISOString()).toBe('2030-05-10T00:00:00.000Z')
-			expect(new Date(win.latest).toISOString()).toBe('2030-05-14T00:00:00.000Z')
+		it('stays plain without flex days', () => {
+			expect(recurrenceLabel({ frequencyType: 'weekly', frequencyValue: 1, flexDays: 0 })).toBe('Weekly')
 		})
 
-		it('returns null bounds for non-flex tasks', () => {
-			const item = {
-				roomTask: { nextDue: '2030-05-10T00:00:00Z', idealDueDate: null },
-				task: { flexDays: 0 },
-			}
-			const win = flexWindowKeys(item)
-			expect(win.earliest).toBeNull()
-			expect(win.latest).toBeNull()
-			expect(win.ideal).toBe('2030-05-10T00:00:00Z')
+		it('calls a one-time task what it is', () => {
+			expect(recurrenceLabel({ recurrenceMode: 'once', frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 })).toBe('One-time')
+		})
+	})
+
+	describe('locationLabel (FEAT-UX-047)', () => {
+		it('names floor and room', () => {
+			expect(locationLabel({ name: 'Bathroom' }, { name: 'Upstairs' })).toBe('Upstairs · Bathroom')
+		})
+
+		it('names the room alone while the floors are unknown', () => {
+			expect(locationLabel({ name: 'Bathroom' }, undefined)).toBe('Bathroom')
+		})
+
+		it('stays empty without a room', () => {
+			expect(locationLabel(undefined, undefined)).toBe('')
+		})
+	})
+
+	describe('taskEnergy (FEAT-UX-047)', () => {
+		const task = { energyCost: 5 }
+
+		it('prefers the frozen energy of a My Day occurrence', () => {
+			expect(taskEnergy({ task, occurrence: { energy: 2 } })).toBe(2)
+		})
+
+		it('prefers the frozen energy of a list occurrence', () => {
+			expect(taskEnergy({ task, roomTask: { occurrence: { energy: 3 } } })).toBe(3)
+		})
+
+		it('falls back to the definition', () => {
+			expect(taskEnergy({ task, roomTask: {} })).toBe(5)
 		})
 	})
 

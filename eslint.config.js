@@ -51,7 +51,6 @@ module.exports = [
 			'src/components/Dashboard/HouseHealthBar.vue',
 			'src/components/Dashboard/QuickStats.vue',
 			'src/components/Setup/SetupWizard.vue',
-			'src/components/Tasks/FlexWindowDisplay.vue',
 		],
 		rules: { 'vue/no-boolean-default': 'off' },
 	},

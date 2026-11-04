@@ -10,6 +10,7 @@ import TaskListItem from '../../../src/components/Tasks/TaskListItem.vue'
 import TaskListDetails from '../../../src/components/Tasks/TaskListDetails.vue'
 import { useUserStore } from '../../../src/store/user.js'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+import { useRoomsStore } from '../../../src/store/rooms.js'
 import { confirmHold } from '../helpers/hold.js'
 
 jest.mock('@nextcloud/dialogs', () => ({
@@ -49,6 +50,52 @@ const task = (over = {}) => ({
 	flexDays: 0,
 	visibilityType: 'public',
 	...over,
+})
+
+describe('TaskListItem row facts (FEAT-UX-047)', () => {
+	beforeEach(() => {
+		setActivePinia(createPinia())
+	})
+
+	const mountRow = (taskOver = {}, roomTaskOver = {}) => mount(TaskListItem, {
+		props: { item: { roomTask: roomTask(roomTaskOver), task: task(taskOver) } },
+		global: { stubs: { CsIcon: true } },
+	})
+
+	it('names floor and room below the title', () => {
+		const roomsStore = useRoomsStore()
+		roomsStore.rooms = [{ id: 10, name: 'Bathroom', floorId: 3 }]
+		roomsStore.floors = [{ id: 3, name: 'Upstairs' }]
+
+		const wrapper = mountRow()
+
+		expect(wrapper.get('[data-testid="task-location"]').text()).toBe('Upstairs · Bathroom')
+	})
+
+	it('puts the flex days after the recurrence and shows no separate flex display', () => {
+		const wrapper = mountRow({ frequencyType: 'daily', frequencyValue: 3, flexDays: 2 })
+
+		expect(wrapper.get('[data-testid="task-recurrence"]').text()).toContain('Every 3 days ±2')
+		expect(wrapper.find('.flex-window-display').exists()).toBe(false)
+	})
+
+	it('shows the frozen energy of the occurrence', () => {
+		const wrapper = mountRow({ energyCost: 5 }, { occurrence: { energy: 2, classification: 'open' } })
+
+		expect(wrapper.get('[data-testid="task-energy"]').text()).toMatch(/ 2$/)
+	})
+
+	it('promises no teamwork bonus for shared work', () => {
+		const wrapper = mountRow({}, { assignees: ['mom', 'dad'] })
+
+		expect(wrapper.text()).not.toContain('Teamwork bonus')
+	})
+
+	it('shows no estimated time', () => {
+		const wrapper = mountRow({ estimatedMinutes: 45 })
+
+		expect(wrapper.text()).not.toContain('45')
+	})
 })
 
 const mountItem = (propsOver = {}, storeRole = null) => {

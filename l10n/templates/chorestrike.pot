@@ -980,12 +980,6 @@ msgstr ""
 msgid "Each person needs an existing Nextcloud account with this email address."
 msgstr ""
 
-msgid "Earliest"
-msgstr ""
-
-msgid "Early completion bonus available!"
-msgstr ""
-
 msgid "Edit"
 msgstr ""
 
@@ -1250,9 +1244,6 @@ msgstr ""
 msgid "Flex Days"
 msgstr ""
 
-msgid "Flex Window"
-msgstr ""
-
 msgid "Flex days must be between %1$d and %2$d"
 msgstr ""
 
@@ -1451,9 +1442,6 @@ msgstr ""
 msgid "I attest that this reward was never delivered."
 msgstr ""
 
-msgid "Ideal"
-msgstr ""
-
 msgid "Illness"
 msgstr ""
 
@@ -1569,9 +1557,6 @@ msgid "Last cleaned: {time}"
 msgstr ""
 
 msgid "Last done on"
-msgstr ""
-
-msgid "Latest"
 msgstr ""
 
 msgid "Leaderboard"
@@ -2091,9 +2076,6 @@ msgid "Participants must be house members"
 msgstr ""
 
 msgid "Participants must be unique"
-msgstr ""
-
-msgid "Past latest date"
 msgstr ""
 
 msgid "Pause"
@@ -2864,9 +2846,6 @@ msgstr ""
 msgid "Tasks"
 msgstr ""
 
-msgid "Teamwork bonus"
-msgstr ""
-
 msgid "Template \"%1$s\" is not available for level \"%2$s\""
 msgstr ""
 
@@ -3320,9 +3299,6 @@ msgstr ""
 msgid "Toggles must be true or false"
 msgstr ""
 
-msgid "Tomorrow"
-msgstr ""
-
 msgid "Too many score submissions today. Try again tomorrow."
 msgstr ""
 
@@ -3600,9 +3576,6 @@ msgid "With a fixed schedule, the task can be done at most {days} days early."
 msgstr ""
 
 msgid "Withdraw participation"
-msgstr ""
-
-msgid "Within optimal window"
 msgstr ""
 
 msgid "Work top to bottom, dust the shelves and decor, and wipe the nightstand and dresser."

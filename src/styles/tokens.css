@@ -14,6 +14,12 @@
  */
 
 :root {
+	/* === Task energy ===================================================
+	 * The bolt and its number on every task row (FEAT-UX-047). AA on the
+	 * row backgrounds; the dark blocks below override it.
+	 */
+	--cs-energy: #A34A00;
+
 	/* === Tier palette (bronze / silver / gold) =========================
 	 * Used by task badges and the medal/title tier display.
 	 * Light-mode values; the dark block below overrides for dark themes.
@@ -174,6 +180,7 @@ body[data-theme-dark-highcontrast] {
 	--cs-arcade-paper: #F4F6F8;
 	--cs-arcade-teal-light: #2A6F75;
 	--cs-arcade-dust-light: #B2BEC3;
+	--cs-energy: #FFB454;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -191,6 +198,7 @@ body[data-theme-dark-highcontrast] {
 		--cs-arcade-paper: #F4F6F8;
 		--cs-arcade-teal-light: #2A6F75;
 		--cs-arcade-dust-light: #B2BEC3;
+		--cs-energy: #FFB454;
 	}
 }
 

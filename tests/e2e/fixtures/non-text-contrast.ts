@@ -12,10 +12,10 @@ import type { Page } from '@playwright/test'
 
 /**
  * Shapes whose fill, outline or border must stand out from their surface
- * (progress tracks, flex-window markers and connectors), and the fills drawn
+ * (progress tracks), and the fills drawn
  * on the tracks.
  */
-const SHAPES = ['.health-bar-background', '.goal-bar-track', '.cleanliness-bar', '.load-bar', '.point-marker', '.connector-line']
+const SHAPES = ['.health-bar-background', '.goal-bar-track', '.cleanliness-bar', '.load-bar']
 const FILLS = ['.health-bar-fill', '.goal-bar-fill', '.cleanliness-fill', '.load-fill']
 
 /** Every visible graphic under `#content` below 3:1, as readable lines. */

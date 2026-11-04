@@ -382,17 +382,17 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		}
 	})
 
-	// BUG-UX-006 (CS-PLAN-088 feedback #17): the flex window of a task row —
-	// absent from the seed, so the main-view contrast sweep never saw it —
-	// reaches AA text and 3:1 graphics contrast in both themes.
-	test('owner: the flex window of a task row is legible in the light and dark themes', async ({ browser, seededData }) => {
+	// BUG-UX-006 (CS-PLAN-088 feedback #17), FEAT-UX-047: the facts of a task
+	// row, with the energy in its own colour and the flex days after the
+	// recurrence, reach AA text and 3:1 graphics contrast in both themes.
+	test('owner: the facts of a task row are legible in the light and dark themes', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const rooms = ((await (await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')).json()).data as Array<{ rooms: Array<{ id: number }> }>)
 				.flatMap((floor) => floor.rooms)
 			const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
-				data: { roomId: rooms[0].id, assigneeUserIds: ['mom'], task: { name: 'Flex window contrast probe', energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 } },
+				data: { roomId: rooms[0].id, assigneeUserIds: ['mom'], task: { name: 'Task facts contrast probe', energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 } },
 			})
 			expect(created.status(), await created.text()).toBe(200)
 			for (const theme of ['dark', 'light'] as const) {
@@ -401,9 +401,10 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				await page.reload()
 				await expect(page.locator('body')).toHaveAttribute(`data-theme-${theme}`, '')
 				await page.getByTestId('tasks-filter-all').click()
-				const row = page.getByTestId('task-item').filter({ hasText: 'Flex window contrast probe' })
-				await expect(row.locator('.flex-window-display')).toBeVisible({ timeout: 20000 })
-				const text = await new AxeBuilder({ page }).include('.flex-window-display').withRules(['color-contrast']).analyze()
+				const row = page.getByTestId('task-item').filter({ hasText: 'Task facts contrast probe' })
+				await expect(row.getByTestId('task-recurrence')).toHaveText('Weekly ±2', { timeout: 20000 })
+				await expect(row.getByTestId('task-energy')).toHaveText('1')
+				const text = await new AxeBuilder({ page }).include('.task-facts').withRules(['color-contrast']).analyze()
 				expect(text.violations.flatMap((violation) => violation.nodes.map((node) => node.target.join(' '))), `${theme}: text`).toEqual([])
 				expect(await nonTextContrastViolations(page), `${theme}: graphics`).toEqual([])
 			}

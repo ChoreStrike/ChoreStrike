@@ -91,7 +91,7 @@ ChoreStrike/
 │   │   │                       #   QuickStats
 │   │   ├── Tasks/              # TaskList, TaskListItem, TaskListDetails, TaskListBulkBar,
 │   │   │                       #   TaskEditForm, AssigneeChips, TaskChecklist, RoomPicker,
-│   │   │                       #   TaskTemplatePicker, FlexWindowDisplay, OverdueClaimDialog
+│   │   │                       #   TaskTemplatePicker, TaskEnergyField, TaskMeta, OverdueClaimDialog
 │   │   ├── Minigames/          # ArcadeCatalog, GameShell (+Header, Overlay, Dpad), GameLeaderboard,
 │   │   │                       #   ArcadeGateSetting (owner switch), gameRegistry,
 │   │   │                       #   board.js (arcade palette + sizing), draw.js (canvas
@@ -1300,7 +1300,6 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Tasks/TaskListItem.vue` | 420 | WP8 row unit: status/content/controls/a11y incl. scoped CSS | accepted (row surface) |
 | `components/Tasks/TaskList.vue` | 357 | WP8 orchestrator: sorting, bulk selection, expansion (was ~1,160) | accepted (orchestrator, extracted units carry the rest) |
 | `components/Common/ParticipationDialog.vue` | 339 | The actual-work split form (WP3 §3.7 reuse: completion proposal pre-fill + attribution-correction mode, validation surface) | accepted (one form contract across both flows) |
-| `components/Tasks/FlexWindowDisplay.vue` | 334 | Flex-window bounds presentation | accepted (presentational) |
 | `components/Scheduling/SchedulePlanner.vue` | 765 | WP6 planning surface (member grids, preview/apply, dialogs); WP2: exact-share labels, consent attestation, neutral/overload capacity clarifications | accepted (planning composition root) |
 | `components/Scheduling/AvailabilityEditModal.vue` | 469 | Owner availability grid editor | accepted (grid editor surface) |
 | `components/Scheduling/ScheduleCalendar.vue` | 391 | Week grid + capacity/overcapacity display | accepted (presentational grid) |

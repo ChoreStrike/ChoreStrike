@@ -129,8 +129,11 @@
 
 							<div class="task-info">
 								<span class="task-name">{{ item.task.name }}</span>
-								<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
-								<span class="task-assignees">{{ assigneeLabel(item) }}</span>
+								<TaskMeta
+									:energy="taskEnergy(item)"
+									:recurrence="recurrenceLabel(item.task)"
+									:location="locationOf(item)"
+									:assignees="assigneeLabel(item)" />
 								<p v-if="catchUpDateLabel(item)" class="task-catchup-meta" data-testid="catchup-planned">
 									{{ catchUpDateLabel(item) }}
 								</p>
@@ -205,8 +208,11 @@
 
 								<div class="task-info">
 									<span class="task-name">{{ item.task.name }}</span>
-									<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
-									<span class="task-assignees">{{ assigneeLabel(item) }}</span>
+									<TaskMeta
+										:energy="taskEnergy(item)"
+										:recurrence="recurrenceLabel(item.task)"
+										:location="locationOf(item)"
+										:assignees="assigneeLabel(item)" />
 									<p v-if="item.openWindow && item.occurrence?.plannedDate"
 										class="task-window-meta"
 										:data-testid="`today-open-window-planned-${item.roomTask.id}`">
@@ -298,17 +304,19 @@ import Icon from '../components/Common/Icon.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
 import HelpEntry from '../components/Help/HelpEntry.vue'
 import TaskChecklist from '../components/Tasks/TaskChecklist.vue'
+import TaskMeta from '../components/Tasks/TaskMeta.vue'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 import { useChecklistStore } from '../store/checklist.js'
 import { useGameStore } from '../store/game.js'
 import { useHouseStore } from '../store/house.js'
+import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { useUserStore } from '../store/user.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { showCompletionError, showErrorWithReference } from '../utils/errorToast.js'
 import { logger } from '../utils/logger.js'
-import { assignmentLabel } from '../utils/taskDisplay.js'
+import { assignmentLabel, locationLabel, recurrenceLabel, taskEnergy } from '../utils/taskDisplay.js'
 
 const APPOINTMENT_LIMIT = 5
 
@@ -319,6 +327,7 @@ export default {
 		Icon,
 		ErrorState,
 		TaskChecklist,
+		TaskMeta,
 		ParticipationDialog,
 		HoldButton,
 		HelpEntry,
@@ -331,7 +340,8 @@ export default {
 		const userStore = useUserStore()
 		const gameStore = useGameStore()
 		const schedulingStore = useSchedulingStore()
-		return { roomTasksStore, houseStore, checklistStore, userStore, gameStore, schedulingStore, ...useHouseMemberNames(userStore) }
+		const roomsStore = useRoomsStore()
+		return { roomTasksStore, roomsStore, houseStore, checklistStore, userStore, gameStore, schedulingStore, ...useHouseMemberNames(userStore) }
 	},
 
 	data() {
@@ -539,6 +549,9 @@ export default {
 			this.load()
 		}
 		subscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
+		// Floor names are optional here: without them a row names its room,
+		// and the store has logged the failure.
+		this.roomsStore.fetchFloorsWithRooms().catch(() => {})
 		await this.load()
 	},
 
@@ -551,6 +564,12 @@ export default {
 	methods: {
 		t,
 		assignmentLabel,
+		recurrenceLabel,
+		taskEnergy,
+
+		locationOf(item) {
+			return locationLabel(item.room, this.roomsStore.getFloorById(item.room?.floorId))
+		},
 
 		assigneeLabel(item) {
 			return this.assignmentLabel(
@@ -1026,17 +1045,6 @@ export default {
 	font-size: 1.05rem;
 	font-weight: 600;
 	color: var(--color-main-text);
-}
-
-.task-room {
-	font-size: 0.85rem;
-	color: var(--color-text-maxcontrast);
-}
-
-.task-assignees {
-	font-size: 0.85rem;
-	color: var(--color-main-text);
-	overflow-wrap: anywhere;
 }
 
 .task-catchup-meta,

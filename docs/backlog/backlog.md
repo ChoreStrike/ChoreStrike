@@ -287,7 +287,7 @@ needs no migration.
 ---
 
 ### [P2] FEAT-UX-047 — One task row everywhere
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: task overview
+**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: M · **Layer**: frontend · **Journey stage**: task overview
 **Owning**: CS-PLAN-089 · **Depends on**: FEAT-UX-046 · **Blocks**: — · **Folded-in**: removal of the stale *Teamwork bonus* label (review of the feedback, 2026-11-03); *Next appointments* follows the filter (operator decision, 2026-11-04)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register G-7
 
@@ -297,10 +297,10 @@ floor and room below the title. `TaskListItem` and `TodayView` render their rows
 separately today. The *Teamwork bonus* label contradicts ADR-014, which retired
 multipliers: shared work splits the reward.
 
-- [ ] One presentational component serves My Day, Tasks and the room view.
-- [ ] `FlexWindowDisplay` goes with its only consumer, and with its TECH-LINT-009
+- [x] One presentational component serves My Day, Tasks and the room view.
+- [x] `FlexWindowDisplay` goes with its only consumer, and with its TECH-LINT-009
       exemption.
-- [ ] The energy colour passes the contrast check in both themes.
+- [x] The energy colour passes the contrast check in both themes.
 
 ---
 
@@ -994,11 +994,10 @@ not close parent findings or replace WP9 evidence.
 **Source**: CS-PLAN-088 D-088-10 (operator, 2026-10-20)
 
 `vue/no-boolean-default` of the Nextcloud ESLint preset wants Boolean props to
-default to `false`. Six components default one to `true` and are exempted
+default to `false`. Five components default one to `true` and are exempted
 file by file in `eslint.config.js`: `ErrorState` (`showRetry`), `Modal`
 (`show`), `HouseHealthBar` (`showRefreshButton`), `QuickStats`
-(`showActions`), `SetupWizard` (`show`) and `FlexWindowDisplay`
-(`showStatus`). Inverting them (for example `hideRetry`) changes each
+(`showActions`) and `SetupWizard` (`show`). Inverting them (for example `hideRetry`) changes each
 component's public API, every caller and the specs, so it was kept out of the
 toolchain change. `show` on the two dialogs is the usual visibility idiom and
 may be better left as a permanent, documented exception.

@@ -66,40 +66,19 @@
 					</span>
 				</div>
 
+				<TaskMeta
+					:energy="taskEnergy(item)"
+					:recurrence="recurrenceLabel(item.task)"
+					:location="location"
+					:assignees="assignmentLabel(item.roomTask.assignees, userStore.houseUsers)" />
+
 				<p v-if="item.task.description && (!compact || expanded)" class="task-description">
 					{{ item.task.description }}
 				</p>
 
-				<div class="task-meta">
-					<span class="meta-item energy">
-						<Icon name="Zap" :size="16" /> {{ item.task.energyCost }}
-					</span>
-					<span class="meta-item frequency">
-						<Icon name="RotateCcw" :size="16" /> {{ frequencyLabel(item.task) }}
-					</span>
-					<span class="meta-item assigned" data-testid="task-assignees">
-						<Icon name="Users" :size="16" />
-						{{ assignmentLabel(item.roomTask.assignees, userStore.houseUsers) }}
-					</span>
-					<span v-if="assigneeCount > 1" class="meta-item teamwork-hint">
-						<Icon name="Sparkles" :size="16" />
-						{{ t('chorestrike', 'Teamwork bonus') }}
-					</span>
-				</div>
-
 				<div class="task-due" :class="dueClass(item.roomTask, houseStore.timezone)">
 					{{ dueText(item.roomTask, houseStore.timezone) }}
 				</div>
-
-				<!-- Flex Window Display -->
-				<FlexWindowDisplay
-					v-if="item.task.flexDays > 0"
-					:earliest="flexWindow.earliest"
-					:ideal="flexWindow.ideal"
-					:latest="flexWindow.latest"
-					:flexDays="item.task.flexDays"
-					:compact="true"
-					:showStatus="true" />
 			</div>
 
 			<div class="task-actions">
@@ -146,26 +125,28 @@
 import { translate as t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import HoldButton from '../Common/HoldButton.vue'
-import FlexWindowDisplay from './FlexWindowDisplay.vue'
 import TaskListDetails from './TaskListDetails.vue'
+import TaskMeta from './TaskMeta.vue'
 import { useHouseStore } from '../../store/house.js'
+import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useUserStore } from '../../store/user.js'
 import {
 	assignmentLabel,
 	dueClass,
 	dueText,
-	flexWindowKeys,
-	frequencyLabel,
 	isOverdue,
+	locationLabel,
 	priorityClass,
 	priorityLabel,
+	recurrenceLabel,
+	taskEnergy,
 } from '../../utils/taskDisplay.js'
 import { Icon } from '../Common/index.js'
 
 /**
  * One TaskList row (CS-PLAN-067 §3.4): status/claim actions, definition
- * surface, due/flex-window presentation and the expand toggle. Display
+ * surface, due presentation and the expand toggle. Display
  * helpers live in utils/taskDisplay.js; the expanded details surface lives
  * in TaskListDetails. Pure presentation — list state (selection, drafts,
  * expansion) stays owned by the TaskList orchestrator.
@@ -176,8 +157,8 @@ export default {
 	components: {
 		Icon,
 		HoldButton,
-		FlexWindowDisplay,
 		TaskListDetails,
+		TaskMeta,
 	},
 
 	props: {
@@ -224,8 +205,12 @@ export default {
 		const userStore = useUserStore()
 		const houseStore = useHouseStore()
 		const roomTasksStore = useRoomTasksStore()
+		const roomsStore = useRoomsStore()
 
-		const assigneeCount = computed(() => (props.item.roomTask.assignees || []).length)
+		const location = computed(() => {
+			const room = roomsStore.getRoomById(props.item.roomTask.roomId)
+			return locationLabel(room, roomsStore.getFloorById(room?.floorId))
+		})
 
 		// Claimable: active, overdue, public, assigned to someone else
 		// (CS-PLAN-060 §3.4). Same rule as before the extraction.
@@ -248,20 +233,18 @@ export default {
 			return !assignees.includes(currentUserId)
 		})
 
-		const flexWindow = computed(() => flexWindowKeys(props.item))
-
 		return {
 			assignmentLabel,
 			userStore,
 			houseStore,
 			roomTasksStore,
-			assigneeCount,
 			canClaim,
-			flexWindow,
+			location,
 			isOverdue,
 			priorityClass,
 			priorityLabel,
-			frequencyLabel,
+			recurrenceLabel,
+			taskEnergy,
 			dueClass,
 			dueText,
 			t,
@@ -385,15 +368,6 @@ export default {
 	line-height: 1.4;
 }
 
-.task-meta {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75rem;
-	margin-top: 0.5rem;
-	font-size: 12px;
-	color: var(--color-text-maxcontrast);
-}
-
 .task-due {
 	margin-top: 0.5rem;
 	font-size: 13px;
@@ -455,11 +429,6 @@ export default {
 
 .visibility-icon.admin-only {
 	color: var(--color-element-warning);
-}
-
-.teamwork-hint {
-	color: var(--color-primary-element);
-	font-weight: 500;
 }
 
 .claim-button {

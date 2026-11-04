@@ -254,6 +254,9 @@ browser gates follow with the candidate.
   TECH-LINT-009.
 - The *Teamwork bonus* label goes. ADR-014 retired multipliers, and shared work splits the
   reward, so the label promises something that does not exist.
+- Found while building it: a one-time task showed *Weekly*, which the flex days would have
+  made worse, so it says *One-time*. The row shows the frozen energy of its occurrence, which
+  is what completing it pays, and the definition's value only without one.
 
 ### WP-D Removals (FEAT-UX-048: C-3, Quick clean of T-6)
 
@@ -360,7 +363,8 @@ modified: src/components/Setup/SetupWizard.vue, src/components/Help/HelpGlossary
           src/components/Help/HelpEntry.vue
 modified: src/store/scheduling.js, src/store/rooms.js, src/styles/tokens.css, eslint.config.js
 modified: l10n/de.json, l10n/en.json and the l10n templates
-new:      a task meta component and an expand control under src/components/ with specs
+new:      src/components/Tasks/TaskMeta.vue, tests/unit/components/TaskMeta.spec.js
+new:      an expand control under src/components/ with specs
 new:      a shared room rename dialog, if RoomDetail's cannot be reused in place
 removed:  src/components/Tasks/FlexWindowDisplay.vue, tests/unit/components/FlexWindowDisplay.spec.js
 modified: tests named in section 4
@@ -467,7 +471,7 @@ D-5 come from the server log. D-6 and D-7 date from 2026-11-04. Owning items are
 | G-4 | Postpone replaces moving a single occurrence | Improvement / P2 | FEAT-UX-050 | Round 2 |
 | G-5 | Handover as a direct button | Improvement / P3 | FEAT-UX-050 | Round 2 (D-089-03) |
 | G-6 | Drop the details view if nothing remains in it | Improvement / P3 | FEAT-UX-050 | Round 2; *Restart* needs a home |
-| G-7 | The same task entry everywhere: energy in colour, no clock, flex after the recurrence, floor and room under the title | Improvement / P2 | FEAT-UX-047 | Round 1 |
+| G-7 | The same task entry everywhere: energy in colour, no clock, flex after the recurrence, floor and room under the title | Improvement / P2 | FEAT-UX-047 | Round 1; implemented on `fix/alpha4-round1` |
 | C-1 | A short tap picks who did the task; every member may record for any other | Feature / P2 | FEAT-UX-051 | Round 2; reverses Q-074-02 by operator decision |
 | C-2 | A tap picks finished sub-tasks and people; holding marks all done | Feature / P2 | FEAT-UX-051 | Round 2 (D-089-02) |
 | C-3 | Remove the catch-up agreement action; the status stays | Improvement / P3 | FEAT-UX-048 | Round 1 |

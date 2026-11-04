@@ -54,20 +54,6 @@ describe('BUG-UI-001 — Dark-Mode-safe colors in overdue/priority styles', () =
 		})
 	})
 
-	describe('FlexWindowDisplay.vue', () => {
-		const css = readComponent('components/Tasks/FlexWindowDisplay.vue')
-
-		it('uses a theme variable for the overdue status background', () => {
-			const block = declarationsForSelector(css, '.status-overdue')
-			expect(block).toMatch(/background:\s*var\(--color-error/)
-		})
-
-		it('uses a theme variable for the early status background', () => {
-			const block = declarationsForSelector(css, '.status-early')
-			expect(block).toMatch(/background:\s*var\(--color-success/)
-		})
-	})
-
 	describe('RoomCard.vue', () => {
 		const css = readComponent('components/Dashboard/RoomCard.vue')
 
