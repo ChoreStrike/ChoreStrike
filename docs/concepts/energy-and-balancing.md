@@ -27,9 +27,11 @@ agree what each level means rather than turn children's effort into timed compet
 | 5 | 50 minutes |
 | 6-20 | 1 to 3 hours |
 
-The scale changes no stored value. Tasks and templates keep their energy, and a saved
-occurrence keeps its frozen energy: a changed definition applies from its next revision
-(ADR-013, ADR-014).
+The scale changes no stored value. Tasks and templates keep their energy.
+
+A changed energy applies to all open work at once, overdue work included, so the row, the
+planner and the payout show the same value. Completed work keeps the energy it was
+completed with ([ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md), BUG-UX-014).
 
 ## Weekly Capacity Planning
 
@@ -64,8 +66,10 @@ Balancing must exclude unavailable days from assignment calculations.
 
 **Implemented (CS-PLAN-040):** the Insights `MemberFairnessTable` normalizes
 load per member as `completed energy / weekly capacity`, where completed
-energy is the Σ `energyCost` of the member's completions in the activity
-window (`GET /house/activity`) and weekly capacity is Σ `energyBudget` over
+energy is the Σ of the member's frozen `energyMinor` shares of the valid
+completions among the newest 50 rows of the 30-day activity window
+(`GET /house/activity`), so shared work counts for each participant and an
+energy edit never changes past work. Weekly capacity is Σ `energyBudget` over
 the member's available weekdays from their serialized
 `schedulingPreferences` (fallback budgets 10 weekday / 15 weekend).
 Contribution score and coins are always shown as separate columns — they are
@@ -112,7 +116,7 @@ authoritative server-side sources — never from client-side counters:
    selection. Since WP2 each participant's agreed share counts, not the
    full task effort per assignee (see *Delivered planning capacity* below);
    a selected row's current in-window occurrence is replaced, not added again.
-3. **Completion effort** — the Σ `energyCost` of non-undone completions on
+3. **Completion effort** — the Σ frozen energy of non-undone completions on
    that day. `undone_at` rows are excluded (decision D11): an undone
    completion is no longer planned work.
 

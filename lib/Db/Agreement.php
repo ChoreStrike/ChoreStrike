@@ -16,7 +16,8 @@ use OCP\AppFramework\Db\Entity;
  * moved into WP1 by Q-072-01 Option A). Traceable facts, never a second
  * current-state authority: the occurrence row remains the state, this log
  * records how an agreement changed (date/window/handover/share/catch-up/
- * restart/pause) with old/new snapshots.
+ * restart/pause) or what a definition edit did to the occurrence
+ * (window/energy) with old/new snapshots.
  *
  * @method int getId()
  * @method void setId(int $id)
@@ -49,6 +50,7 @@ class Agreement extends Entity implements JsonSerializable {
 	public const KIND_CATCHUP = 'catchup';
 	public const KIND_RESTART = 'restart';
 	public const KIND_PAUSE = 'pause';
+	public const KIND_ENERGY = 'energy';
 
 	public const KINDS = [
 		self::KIND_DATE,
@@ -58,6 +60,17 @@ class Agreement extends Entity implements JsonSerializable {
 		self::KIND_CATCHUP,
 		self::KIND_RESTART,
 		self::KIND_PAUSE,
+		self::KIND_ENERGY,
+	];
+
+	/**
+	 * Evidence of what a definition edit did to an occurrence. Nobody agreed
+	 * anything about this one occurrence, so these rows do not pin it when
+	 * an undo re-derives the open successor.
+	 */
+	public const DEFINITION_KINDS = [
+		self::KIND_WINDOW,
+		self::KIND_ENERGY,
 	];
 
 	/** @var int */

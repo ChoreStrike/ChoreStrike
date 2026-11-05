@@ -303,6 +303,47 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		}
 	})
 
+	// BUG-UX-014: a saved energy reaches the open task at once. The row shows
+	// it without a reload, and completing that row pays it without a conflict,
+	// also when My Day cached the row before the edit.
+	test('owner: a changed energy reaches the open task at once', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const name = 'Energy edit probe'
+			const rooms = ((await (await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')).json()).data as Array<{ rooms: Array<{ id: number }> }>)
+				.flatMap((floor) => floor.rooms)
+			const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				// The flex days open the window of a task due tomorrow.
+				data: { roomId: rooms[0].id, assigneeUserIds: ['mom'], task: { name, energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 } },
+			})
+			expect(created.status(), await created.text()).toBe(200)
+
+			await page.goto('/apps/chorestrike/')
+			await page.getByTestId('nav-today').click()
+			await expect(page.getByTestId('today-view')).toContainText(name, { timeout: 20000 })
+			await page.getByTestId('nav-tasks').click()
+			await page.getByTestId('tasks-filter-all').click()
+			const row = page.getByTestId('task-item').filter({ hasText: name })
+			await expect(row.getByTestId('task-energy')).toHaveText('1', { timeout: 20000 })
+
+			await row.locator('button[title="Edit"]').click()
+			await page.getByTestId('task-energy-select').selectOption('3')
+			// Completion reads the My Day row first, so wait for that reread too.
+			const dailyReread = page.waitForResponse((response) => response.url().includes('/room-tasks/filtered-daily'))
+			await page.getByTestId('save-task-button').click()
+			await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 20000 })
+			await dailyReread
+			await expect(row.getByTestId('task-energy')).toHaveText('3', { timeout: 20000 })
+
+			const completed = await completeWithOptionalDialog(page, row.getByTestId('complete-task-button'))
+			expect(completed.ok(), await completed.text()).toBe(true)
+			expect((await completed.json()).data.rewards.completion.totalEnergy).toBe(3)
+		} finally {
+			await context.close()
+		}
+	})
+
 	test('owner desktop: complete from My Day reconciles counters without reload and the queued undo restores them (D3/D10)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const countersRoomTask = roomTaskByName(seededData, 'Wipe kitchen counters')

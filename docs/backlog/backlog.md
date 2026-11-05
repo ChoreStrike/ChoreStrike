@@ -248,6 +248,54 @@ obligations. The operator confirmed that the reported child has a limit.
 
 ---
 
+### [P2] BUG-UX-014 — A changed energy does not reach open tasks
+**Status**: Merged, not released (Full review `PASS-WITH-FIXES` 2026-11-05, on local `master`; no release of its own, it ships with the next planned release, operator 2026-11-05) · **Effort**: S · **Layer**: backend, frontend · **Journey stage**: task setup, daily execution
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator report of 2026-11-05 on the deployed `0.8.0-alpha.4`
+
+A saved energy changed the definition and the next schedule revision only. Open occurrences kept
+their value, so the task dialog showed the new one while the row and the payout used the old
+one: until completion on an interval task, for up to eight more dates on a daily fixed rule, and
+forever on a one-time task. `0.8.0-alpha.4` made this visible, because rows used to show the
+definition's value (FEAT-UX-047). The operator decided that the edit applies at once to all open
+work, and that open work already diverged is aligned once after the update. The job pass does
+that instead of a migration: it is the first step that would have run since the retained
+baseline and it needs no schema change. Fairness counted the live definition, the whole value
+for the completer and undone work. The Full review of 2026-11-05 found that a one-time task
+edited before completion stayed active and came back with the next job pass, which pre-dates this
+item and is fixed with it.
+
+- [x] An edit applies to all open occurrences of the definition, with version bump and `energy` evidence.
+- [x] Undo, restart and the timeline job keep open work at the current energy.
+- [x] Definition evidence no longer pins a derived successor on undo (`window` had the same defect); the evidence stays.
+- [x] A one-time task edited before completion stays done; a finished room task gets no new work from an edit.
+- [x] The restart gate charges the energy the row will carry.
+- [x] A completion conflict rereads the rows, so the next attempt works without a page reload.
+- [x] Task list and My Day reread their rows after a saved edit.
+- [x] Fairness adds up the frozen shares of valid work.
+- [x] ADR-013, concepts, API and user guide updated.
+- [x] Reviewed and merged ([review](archive/CODE_REVIEW_2026-11-05.md#full---bug-ux-014-energy-edits-and-open-work)).
+- [ ] The read-only count before and after that deployment ([deployment.md](../engineering/deployment.md#updates-on-the-retained-baseline)).
+- [ ] Released with the next planned release and verified on the deployed version.
+
+---
+
+### [P3] BUG-UX-015 — An energy or flex edit drops queued agreement digest lines
+**Status**: Open · **Effort**: S · **Layer**: backend · **Journey stage**: notifications
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of BUG-UX-014, 2026-11-05
+
+`AgreementService` queues an `agreement` digest line with the occurrence version as its revision,
+and `DigestService::orgSourceIsRelevant()` requires that version at send time. An edit that only
+records definition evidence bumps the version too, so a queued line about a changed date or
+participant is dropped without a replacement. Flex widening has done this since D-088-17, and
+BUG-UX-014 adds energy edits and the job pass. The digest is a daily summary and the change
+itself stays visible in the app.
+
+- [ ] A queued agreement line survives an evidence-only version bump, with a regression test.
+
+---
+
 ### [P3] BUG-UX-012 — The setup wizard skips the first upper floor
 **Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: S · **Layer**: frontend · **Journey stage**: setup
 **Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: numbered floors with a choice of counting (operator, 2026-11-03)

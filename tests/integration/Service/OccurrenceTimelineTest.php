@@ -1333,6 +1333,66 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * BUG-UX-014: the restart is new open work under the predecessor's
+	 * closed revision, so it takes the predecessor's current energy.
+	 */
+	public function testRestart_AfterAnEnergyEdit_CarriesTheCurrentEnergy(): void {
+		$f = $this->agreementFixture();
+		$this->acknowledgePause($f['houseId'], $f['owner'], (new \DateTime())->format('Y-m-d'), (new \DateTime('+4 days'))->format('Y-m-d'));
+		$this->actingAs($f['owner']);
+		$this->taskService->updateTask($f['taskId'], ['energyCost' => 5], $this->houseUser($f['houseId'], $f['owner']));
+		$pending = $this->occurrenceMapper->findByRoomTask($f['roomTaskId'])[0];
+		self::assertSame(5, $pending->getEnergy());
+
+		$this->agreementService()->restart($f['houseId'], $f['owner'], $f['roomTaskId'], [
+			'commandId' => self::uuid(),
+			'occurrenceId' => $pending->toPublicKey(),
+			'expectedVersion' => $pending->getVersion(),
+			'consent' => true,
+			'workDate' => (new \DateTime('+5 days'))->format('Y-m-d'),
+		]);
+
+		$restarts = array_values(array_filter(
+			$this->occurrenceMapper->findByRoomTask($f['roomTaskId']),
+			static fn (Occurrence $o): bool => $o->getRestartOfId() !== null
+		));
+		self::assertCount(1, $restarts);
+		self::assertSame(5, $restarts[0]->getEnergy());
+	}
+
+	/**
+	 * BUG-UX-014: the restart gate charges the energy the row will carry, not
+	 * the old value of the predecessor's closed revision.
+	 */
+	public function testRestart_AfterAnEnergyEdit_ChecksCapacityWithTheCurrentEnergy(): void {
+		$f = $this->agreementFixture();
+		$this->acknowledgePause($f['houseId'], $f['owner'], (new \DateTime())->format('Y-m-d'), (new \DateTime('+4 days'))->format('Y-m-d'));
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_house_users')
+			->set('scheduling_preferences', $qb->createNamedParameter(json_encode([
+				'energyBudget' => array_fill_keys(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'], 3),
+			])))
+			->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($f['owner'])))
+			->executeStatement();
+		$this->actingAs($f['owner']);
+		$this->taskService->updateTask($f['taskId'], ['energyCost' => 5], $this->houseUser($f['houseId'], $f['owner']));
+		$pending = $this->occurrenceMapper->findByRoomTask($f['roomTaskId'])[0];
+
+		try {
+			$this->agreementService()->restart($f['houseId'], $f['owner'], $f['roomTaskId'], [
+				'commandId' => self::uuid(),
+				'occurrenceId' => $pending->toPublicKey(),
+				'expectedVersion' => $pending->getVersion(),
+				'consent' => true,
+				'workDate' => (new \DateTime('+5 days'))->format('Y-m-d'),
+			]);
+			self::fail('energy 5 does not fit a budget of 3');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertCount(1, $this->occurrenceMapper->findByRoomTask($f['roomTaskId']), 'no restart was created');
+		}
+	}
+
+	/**
 	 * RF-073-WP2-07: a concretely agreed HELPER commitment is capacity-
 	 * checked with its exact share — an over-budget helper share conflicts
 	 * (the pre-fix code skipped non-obligated rows entirely), a fitting

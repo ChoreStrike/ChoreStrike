@@ -97,8 +97,9 @@ describe the WP3 model as the shipped contract.
 - Members define daily energy budgets and presence days.
 - Owner plan placement checks capacity/availability (`DailyCapacityService`,
   exact minor-unit shares, frozen occurrence energies — a definition edit
-  never re-prices recorded work). Completion never consults the evaluator;
-  over-limit real work stays recordable.
+  never re-prices recorded work). An energy edit applies to all open
+  occurrences at once (ADR-013, BUG-UX-014). Completion never consults the
+  evaluator; over-limit real work stays recordable.
 
 ### 7. Role Titles (single series)
 - One retained series: **Family Rhythm**, signal `longestStreak`

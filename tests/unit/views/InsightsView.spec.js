@@ -69,8 +69,8 @@ const USERS = [
 ]
 
 const ACTIVITY = [
-	{ id: 1, completedAt: new Date().toISOString(), totalEnergy: 4, houseUserId: 7, displayName: 'Alice', taskId: 3, taskTitle: 'Vacuum', energyCost: 4, roomId: 2, roomName: 'Living Room', canCorrect: true, version: 1 },
-	{ id: 2, completedAt: new Date().toISOString(), totalEnergy: 2, houseUserId: 8, displayName: 'Bob', taskTitle: null, energyCost: null, roomId: null, roomName: null, canCorrect: false },
+	{ id: 1, completedAt: new Date().toISOString(), totalEnergy: 4, houseUserId: 7, displayName: 'Alice', taskId: 3, taskTitle: 'Vacuum', energyCost: 4, roomId: 2, roomName: 'Living Room', canCorrect: true, version: 1, allocation: [{ userId: 'alice', displayName: 'Alice', sharePct: 100, energyMinor: 400 }] },
+	{ id: 2, completedAt: new Date().toISOString(), totalEnergy: null, houseUserId: 8, displayName: 'Bob', taskTitle: null, energyCost: null, roomId: null, roomName: null, canCorrect: false, allocation: [] },
 ]
 
 describe('InsightsView.vue', () => {
@@ -182,9 +182,28 @@ describe('InsightsView.vue', () => {
 		expect(aliceLoad.text()).toContain('4 / 65')
 
 		// Bob has no preferences → fallback budgets (10/15 all week) and his
-		// completion is dangling (null energyCost) → 0 energy counted.
+		// completion is dangling (no allocation) → 0 energy counted.
 		const bobLoad = wrapper.find('[data-testid="load-8"]')
 		expect(bobLoad.text()).toContain('0 /')
+	})
+
+	it('counts the frozen shares of valid work, never the current definition', async () => {
+		const base = { completedAt: new Date().toISOString(), houseUserId: 7, displayName: 'Alice', taskTitle: 'Vacuum', roomName: 'Living Room', canCorrect: false }
+		const activity = [
+			{ ...base, id: 11, totalEnergy: 2, energyCost: 9, allocation: [{ userId: 'alice', sharePct: 75, energyMinor: 150 }, { userId: 'bob', sharePct: 25, energyMinor: 50 }] },
+			{ ...base, id: 12, totalEnergy: 5, energyCost: 5, undoneAt: new Date().toISOString(), allocation: [{ userId: 'alice', sharePct: 100, energyMinor: 500 }] },
+			{ ...base, id: 13, totalEnergy: 3, energyCost: 3, allocation: [{ userId: null, sharePct: 100, energyMinor: 300 }] },
+		]
+		api.get.mockImplementation((path) => {
+			if (path === '/api/v1/house/stats') return Promise.resolve(STATS_PAYLOAD)
+			if (path === '/api/v1/users') return Promise.resolve(USERS)
+			return Promise.resolve({ completions: activity, total: 3 })
+		})
+
+		const wrapper = await mountView()
+
+		expect(wrapper.find('[data-testid="load-7"]').text()).toContain('1.5 / 65')
+		expect(wrapper.find('[data-testid="load-8"]').text()).toContain('0.5 /')
 	})
 
 	it('renders activity feed rows with actor, task, and frozen effort (WP3)', async () => {

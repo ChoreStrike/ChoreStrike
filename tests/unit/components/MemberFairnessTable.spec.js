@@ -18,9 +18,9 @@ const FULL_WEEK = {
 	weekdayAvailability: { monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true, sunday: true },
 }
 
-function mountTable(members, completedEnergyByUser = {}) {
+function mountTable(members, completedEnergyMinorByUser = {}) {
 	return mount(MemberFairnessTable, {
-		props: { members, completedEnergyByUser },
+		props: { members, completedEnergyMinorByUser },
 	})
 }
 
@@ -69,8 +69,13 @@ describe('MemberFairnessTable', () => {
 	})
 
 	it('maps completed energy per user id into the load cell', () => {
-		const wrapper = mountTable([MEMBER], { 7: 25 })
+		const wrapper = mountTable([MEMBER], { 7: 2500 })
 		expect(wrapper.find('[data-testid="load-7"] .load-label').text()).toContain('25 / 80')
+	})
+
+	it('shows an exact share of shared work', () => {
+		const wrapper = mountTable([MEMBER], { 7: 150 })
+		expect(wrapper.find('[data-testid="load-7"] .load-label').text()).toContain('1.5 / 80')
 	})
 
 	it('renders no freeze badge anymore (retired with the WP3 cutover)', () => {
@@ -80,7 +85,7 @@ describe('MemberFairnessTable', () => {
 
 	it('marks overload bars and falls back to the user id as name', () => {
 		const overloaded = { ...MEMBER, displayName: '' }
-		const wrapper = mountTable([overloaded], { 7: 160 })
+		const wrapper = mountTable([overloaded], { 7: 16000 })
 		expect(wrapper.find('.member-name').text()).toBe('mom')
 		expect(wrapper.find('[data-testid="load-7"] .load-bar').classes()).toContain('over')
 	})

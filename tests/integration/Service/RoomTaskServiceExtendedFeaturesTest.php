@@ -90,6 +90,7 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$l10n,
 			$appLogger,
 			$rowFactory,
+			$this->createMock(\OCA\ChoreStrike\Db\AgreementMapper::class),
 		);
 		$selectionService = new \OCA\ChoreStrike\Service\OccurrenceSelectionService(
 			$revisionMapper,

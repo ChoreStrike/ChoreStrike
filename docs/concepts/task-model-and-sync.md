@@ -132,6 +132,8 @@ and non-punitive recovery. WP1-WP4 implement the approved rules below.
   cadence are agreed seven days ahead, so they open at most seven days early.
   Widening the flex days applies at once to occurrences still open; narrowing
   applies from the next one, so an agreed window never shrinks (D-088-17).
+  A changed energy applies at once to every occurrence still open; completed
+  work keeps its energy (BUG-UX-014).
 - An adult can record when a task was last done, e.g. right after setting up
   the house (FEAT-UX-045): the room shows that day as "Last cleaned", and a
   task that repeats after completion is next due one interval later (never

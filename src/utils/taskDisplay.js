@@ -106,8 +106,8 @@ export function locationLabel(room, floor) {
 }
 
 /**
- * The energy of a row: a saved occurrence keeps its frozen value, which is
- * what completing it pays, even after the definition changed (ADR-014).
+ * The energy of a row: what completing its occurrence pays. An open
+ * occurrence follows the definition, completed work keeps its value (ADR-013).
  * @param {object} item Enriched row with task and an occurrence block on the
  * row (My Day) or on its room task (Tasks, rooms).
  * @return {number}

@@ -265,6 +265,29 @@ verified against the local qualification run, Git and the pinned inventory.
 File and directory counts belong to one package, so before/after checks pin the
 installed and the new tree separately.
 
+**Expected data change after the first update that carries BUG-UX-014.** No
+migration runs, and the before/after comparison of the maintenance window stays
+identical. Afterwards the first `TimelineJob` pass aligns open occurrences with
+the current energy: `occurrences.energy` and `version` change on those rows and
+`agreements` gains one `energy` row each, without an actor. Each room task logs
+`timeline_energy_aligned` at info level. Completed and covered occurrences, work
+shares and ledger entries stay identical. It also ends one-time tasks that were
+edited before completion and are still active. The operator counts the affected
+open rows before the update and again after the first job pass, when the count
+must be 0 (check the table prefix of the instance):
+
+```sql
+SELECT count(*) AS occurrences, count(DISTINCT o.room_task_id) AS tasks
+FROM oc_chorestrike_occurrences o
+JOIN oc_chorestrike_room_tasks t
+  ON t.id = o.room_task_id AND t.is_active AND t.deleted_at IS NULL
+JOIN oc_chorestrike_schedule_revs r
+  ON r.room_task_id = o.room_task_id AND r.closed_at IS NULL
+WHERE o.completion_id IS NULL
+  AND o.covered_by_completion_id IS NULL
+  AND o.energy <> r.energy;
+```
+
 #### Update to 0.8.0-alpha.3 (2026-10-29)
 
 | Item | Record |

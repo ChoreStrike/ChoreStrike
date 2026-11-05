@@ -78,6 +78,7 @@ const mockTasksStore = {
 	tasks: [],
 	fetchTasks: jest.fn().mockResolvedValue([]),
 	getTaskById: jest.fn(() => null),
+	updateTask: jest.fn(),
 }
 
 const mockRoomTasksStore = {
@@ -88,6 +89,7 @@ const mockRoomTasksStore = {
 	fetchHouseRoomTasks: jest.fn().mockResolvedValue([]),
 	fetchDueTodayTasks: jest.fn().mockResolvedValue([]),
 	fetchOverdueTasks: jest.fn().mockResolvedValue([]),
+	refreshDerivedProjections: jest.fn().mockResolvedValue(true),
 	createTaskAggregate: jest.fn(),
 	completeRoomTask: jest.fn().mockResolvedValue({}),
 	deleteRoomTask: jest.fn().mockResolvedValue(),
@@ -399,6 +401,32 @@ describe('TaskManager', () => {
 
 		expect(wrapper.find('[data-testid="task-manager-error"]').exists()).toBe(false)
 		expect(wrapper.find('[data-testid="add-task-button"]').element.disabled).toBe(false)
+	})
+
+	describe('saving an edited task', () => {
+		const saveEdit = async (outcome) => {
+			mockTasksStore.getTaskById.mockReturnValue({ id: 101, name: 'Chore', visibilityType: 'public' })
+			mockTasksStore.updateTask.mockImplementationOnce(outcome)
+			const wrapper = mountView()
+			await flushPromises()
+			wrapper.vm.handleEditTask({ taskId: 101 })
+			wrapper.vm.handleUpdateTask({ energyCost: 7 })
+			await flushPromises()
+			return wrapper
+		}
+
+		it('rereads the rows, whose open occurrences changed with the definition', async () => {
+			const wrapper = await saveEdit(() => Promise.resolve({ id: 101 }))
+			expect(mockTasksStore.updateTask).toHaveBeenCalledWith(101, { energyCost: 7 })
+			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({ rows: true })
+			expect(wrapper.vm.showEditTaskModal).toBe(false)
+		})
+
+		it('keeps the rows and reports the error when the save is refused', async () => {
+			await saveEdit(() => Promise.reject(new Error('refused')))
+			expect(showError).toHaveBeenCalledWith('Could not save the task')
+			expect(mockRoomTasksStore.refreshDerivedProjections).not.toHaveBeenCalled()
+		})
 	})
 
 	it('surfaces a visible error toast when a completion fails (never logger-only)', async () => {

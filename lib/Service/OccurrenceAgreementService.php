@@ -562,6 +562,8 @@ class OccurrenceAgreementService {
 		$maxOrdinal = $this->reconcile->maxOrdinalOfRevision($revision->getId());
 		$restart = $this->rowFactory->buildOccurrence($houseId, $roomTask->getId(), $revision, $maxOrdinal + 1, $plannedDateKey, $now);
 		$restart->setRestartOfId($predecessor->getId());
+		// The revision may be closed; the open predecessor has the current energy.
+		$restart->setEnergy($predecessor->getEnergy());
 		$restart = $this->occurrenceMapper->insertOrGet($restart);
 		$this->reconcile->attachMembersUnderLock($revision, $restart);
 		$this->revisionMapper->advanceFrontier($revision, RecurrenceCalculator::dayKeyToDate($plannedDateKey));

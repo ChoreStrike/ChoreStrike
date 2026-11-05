@@ -723,13 +723,7 @@ class AgreementService {
 	 * @param array<int, array{walletId: int, userId: string}> $consentSubjects
 	 */
 	private function assertRowsDayCapacity(int $houseId, string $dayKey, ScheduleRevision $revision, array $rows, array &$consentSubjects, ?Occurrence $replaced = null): void {
-		// The energy basis the writer will persist: the occurrence's own
-		// frozen energy when a materialized occurrence is rearranged (the
-		// capacity baseline charges occurrence energy, never mutable
-		// task-definition energy), else the revision's agreed energy.
-		$energy = ($replaced !== null && $replaced->getId() !== null)
-			? $replaced->getEnergy()
-			: $revision->getEnergy();
+		$energy = $this->energyBasis($revision, $replaced);
 		$commitments = [];
 		foreach ($rows as $row) {
 			$userId = $consentSubjects[$row['walletId']]['userId'] ?? null;
@@ -836,7 +830,7 @@ class AgreementService {
 		if ($defaults === []) {
 			return;
 		}
-		$energy = $revision->getEnergy();
+		$energy = $this->energyBasis($revision, $replaced);
 		$commitments = [];
 		foreach ($defaults as $member) {
 			$userId = (string)($member['userId'] ?? '');
@@ -854,6 +848,18 @@ class AgreementService {
 			}
 		}
 		$this->dailyCapacity->assertCommitmentsFit($houseId, $dayKey, $commitments, $replaced);
+	}
+
+	/**
+	 * The energy basis the writer will persist: the occurrence's own energy
+	 * when a materialized occurrence is rearranged or restarted (the
+	 * capacity baseline charges occurrence energy, and a closed revision may
+	 * be older), else the revision's agreed energy.
+	 */
+	private function energyBasis(ScheduleRevision $revision, ?Occurrence $replaced): int {
+		return $replaced !== null && $replaced->getId() !== null
+			? $replaced->getEnergy()
+			: $revision->getEnergy();
 	}
 
 	/**

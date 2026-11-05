@@ -342,7 +342,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 | `chorestrike_completion_revs` | Append-only completion audit chain (revision counters, actor house-user id, action complete/attribution/undo, bounded reason_code) | `CompletionRevision` |
 | `chorestrike_room_events` | Journaled room truth (baseline/requested-delta/manual-delta/absolute-reset, command UUID, `(effective_at, id)` order, saved baselines; the room cache is a replayed projection) | `RoomEvent` |
 | `chorestrike_schedule_revs` | Immutable schedule revisions (cadence/window defaults, agreed frontier) — WP1 timeline authority | `ScheduleRevision` |
-| `chorestrike_occurrences` | Durable occurrence rows (public key `rev:ordinal`, saved windows, frozen energy, suspension state/evidence, restart links) | `Occurrence` |
+| `chorestrike_occurrences` | Durable occurrence rows (public key `rev:ordinal`, saved windows, energy: current while open, frozen once completed, suspension state/evidence, restart links) | `Occurrence` |
 | `chorestrike_occ_members` | Per-occurrence participant facts (role, obligation, exact share, agreed work appointment, active/released/excused disposition) | `OccurrenceMember` |
 | `chorestrike_agreements` | Agreement evidence log (kind, actor, old/new state, consent, pause_ref) | `Agreement` |
 | `chorestrike_pauses` | Revisioned pause groups (personal/house scope, requested/acknowledged/rejected/cancelled states, ranges, illness flag) | `Pause` |

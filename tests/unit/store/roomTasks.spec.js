@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
+import { flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 import { useHouseStore } from '../../../src/store/house.js'
@@ -609,14 +610,31 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('refreshes derived projections on a 409 stale-target conflict', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, roomId: 12, isActive: true, occurrence: occurrenceFixture() }]
 				const conflict = new Error('The task changed since it was displayed. Reload and try again.')
 				conflict.status = 409
 				api.post.mockRejectedValue(conflict)
 				const refreshSpy = jest.spyOn(store, 'refreshDerivedProjections').mockResolvedValue(undefined)
 
 				await expect(store.completeRoomTask(1)).rejects.toBe(conflict)
-				expect(refreshSpy).toHaveBeenCalled()
+				expect(refreshSpy).toHaveBeenCalledWith({ rows: true, roomId: 12 })
+			})
+
+			it('the attempt after a 409 carries the target of the reread row (BUG-UX-014)', async () => {
+				store.houseLoaded = true
+				store.dailyTasks = [{ roomTask: { id: 1 }, task: { id: 5 }, occurrence: occurrenceFixture({ expectedVersion: 0 }) }]
+				store.roomTasks = [{ id: 1, roomId: 12, isActive: true, occurrence: occurrenceFixture({ expectedVersion: 0 }) }]
+				const conflict = new Error('The task changed since it was displayed. Reload and try again.')
+				conflict.status = 409
+				api.post.mockRejectedValueOnce(conflict)
+				api.get.mockImplementation((path) => Promise.resolve(path.endsWith('filtered-daily')
+					? [{ roomTask: { id: 1 }, task: { id: 5 }, occurrence: occurrenceFixture({ expectedVersion: 1 }) }]
+					: [{ id: 1, roomId: 12, isActive: true, occurrence: occurrenceFixture({ expectedVersion: 1 }) }]))
+
+				await expect(store.completeRoomTask(1)).rejects.toBe(conflict)
+				await flushPromises()
+
+				expect(store._completionTargetFor(1).expectedVersion).toBe(1)
 			})
 
 			it('stores the fresh occurrence block from the completion response', async () => {
@@ -1477,6 +1495,41 @@ describe('RoomTasks Store', () => {
 				expect(ok).toBe(true)
 				expect(api.get).toHaveBeenCalledTimes(1)
 				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/due-today', {})
+			})
+
+			it('rereads the loaded row lists on request, and leaves them alone otherwise', async () => {
+				store.houseLoaded = true
+				store.dailyTasks = [{ roomTask: { id: 1 } }]
+				api.get.mockResolvedValue([])
+
+				await store.refreshDerivedProjections()
+				expect(api.get).not.toHaveBeenCalled()
+
+				await store.refreshDerivedProjections({ rows: true })
+				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks', { params: { activeOnly: true } })
+				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/filtered-daily')
+				expect(store.houseStale).toBe(false)
+			})
+
+			it('rereads only the room when the house list is not loaded, and never an unloaded My Day', async () => {
+				const fetchRoom = jest.spyOn(store, 'fetchRoomTasks').mockResolvedValue([])
+				const fetchDaily = jest.spyOn(store, 'fetchFilteredDailyTasks')
+
+				await store.refreshDerivedProjections({ rows: true, roomId: 12 })
+
+				expect(fetchRoom).toHaveBeenCalledWith(12)
+				expect(fetchDaily).not.toHaveBeenCalled()
+			})
+
+			it('a failed row reread stays stale and offers the retry', async () => {
+				store.houseLoaded = true
+				api.get.mockRejectedValueOnce(new Error('offline'))
+
+				const ok = await store.refreshDerivedProjections({ rows: true })
+
+				expect(ok).toBe(false)
+				expect(store.houseStale).toBe(true)
+				expect(store.refreshFailed).toBe(true)
 			})
 
 			it('a refresh failure keeps the committed action, marks projections stale, and offers a refresh-only retry', async () => {

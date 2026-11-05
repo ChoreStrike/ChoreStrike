@@ -119,7 +119,8 @@ their own.
 
 Each unit of **energy** stands for about 10 minutes of work. The task dialog
 lists 1 to 5; **Longer task** takes up to 20. The planner only places a task on
-a day when it fits a person's energy budget.
+a day when it fits a person's energy budget. A changed energy applies at once
+to everything still open, overdue tasks included. Completed work keeps its value.
 
 ## Optional features
 

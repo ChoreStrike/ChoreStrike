@@ -628,6 +628,9 @@ export default {
 				.then(() => {
 					this.showEditTaskModal = false
 					this.editingTask = null
+					// A saved definition changes open occurrences too (energy,
+					// flex days): without their rows, completing conflicts.
+					this.roomTasksStore.refreshDerivedProjections({ rows: true })
 				})
 				.catch((error) => {
 					// Recoverable failure (CS-PLAN-066 §3.5): the modal stays

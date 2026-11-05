@@ -41,7 +41,7 @@
 				<MemberFairnessTable
 					v-else
 					:members="members"
-					:completedEnergyByUser="completedEnergyByUser" />
+					:completedEnergyMinorByUser="completedEnergyMinorByUser" />
 			</section>
 
 			<section class="insights-section">
@@ -216,16 +216,24 @@ export default {
 		},
 
 		/**
-		 * Per-member completed energy over the activity window, normalized
-		 * against each member's weekly capacity in the fairness table.
+		 * Per-member completed energy in exact minor units over the activity
+		 * window, normalized against each member's weekly capacity in the
+		 * fairness table. It adds up the frozen shares of the valid
+		 * completions, so an energy edit never changes past work.
 		 */
-		completedEnergyByUser() {
+		completedEnergyMinorByUser() {
+			const memberIds = new Map(this.members.map((member) => [member.nextcloudUserId, member.id]))
 			const byUser = {}
 			for (const item of this.houseStore.activity) {
-				if ((item.energyCost ?? null) === null) {
+				if (item.undoneAt) {
 					continue
 				}
-				byUser[item.houseUserId] = (byUser[item.houseUserId] ?? 0) + item.energyCost
+				for (const share of item.allocation ?? []) {
+					const memberId = memberIds.get(share.userId)
+					if (memberId !== undefined) {
+						byUser[memberId] = (byUser[memberId] ?? 0) + share.energyMinor
+					}
+				}
 			}
 			return byUser
 		},

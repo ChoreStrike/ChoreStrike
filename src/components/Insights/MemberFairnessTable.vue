@@ -44,7 +44,7 @@
 						<div class="load-bar" :class="{ over: row.loadRatio > 1 }">
 							<div class="load-fill" :style="{ width: loadPercent(row) }" />
 						</div>
-						<span class="load-label">{{ row.completedEnergy }} / {{ row.weeklyCapacity }} {{ t('chorestrike', 'energy') }}</span>
+						<span class="load-label">{{ formatEnergyMinor(row.completedEnergyMinor) }} / {{ row.weeklyCapacity }} {{ t('chorestrike', 'energy') }}</span>
 					</td>
 				</tr>
 			</tbody>
@@ -59,7 +59,7 @@
 // exact contributionMinor is the work evidence (100 = 1 energy).
 import { translate as t } from '@nextcloud/l10n'
 import { resolveEnergyForDay, WEEKDAY_KEYS } from '../../utils/energyBudgets.js'
-import { formatMinor } from '../../utils/minorUnits.js'
+import { ENERGY_MINOR_PER_UNIT, formatEnergyMinor, formatMinor } from '../../utils/minorUnits.js'
 
 export default {
 	name: 'MemberFairnessTable',
@@ -70,8 +70,8 @@ export default {
 			required: true,
 		},
 
-		/** Completed energy per house user id (from the activity feed). */
-		completedEnergyByUser: {
+		/** Completed energy minor units per house user id (from the activity feed). */
+		completedEnergyMinorByUser: {
 			type: Object,
 			default: () => ({}),
 		},
@@ -92,16 +92,16 @@ export default {
 					weeklyCapacity += resolveEnergyForDay(budgets, day)
 				}
 
-				const completedEnergy = this.completedEnergyByUser[member.id] ?? 0
+				const completedEnergyMinor = this.completedEnergyMinorByUser[member.id] ?? 0
 
 				return {
 					id: member.id,
 					displayName: member.displayName || member.nextcloudUserId,
 					contributionMinor: member.contributionMinor ?? 0,
 					currentStreak: member.currentStreak ?? 0,
-					completedEnergy,
+					completedEnergyMinor,
 					weeklyCapacity,
-					loadRatio: weeklyCapacity > 0 ? completedEnergy / weeklyCapacity : 0,
+					loadRatio: weeklyCapacity > 0 ? completedEnergyMinor / (weeklyCapacity * ENERGY_MINOR_PER_UNIT) : 0,
 				}
 			})
 		},
@@ -109,6 +109,7 @@ export default {
 
 	methods: {
 		t,
+		formatEnergyMinor,
 		formatMinor,
 
 		formatNumber(value) {

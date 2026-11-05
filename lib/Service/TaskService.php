@@ -251,7 +251,8 @@ class TaskService {
 	 * Revise every mounted room task after a rule-relevant edit (CS-PLAN-072
 	 * WP1). D-088-17: widened flex days also widen the windows of the work
 	 * already planned, so the change applies at once; a narrower flex
-	 * applies from the next occurrence on.
+	 * applies from the next occurrence on. BUG-UX-014: a changed energy
+	 * applies to all open work at once.
 	 */
 	private function reviseMountedRoomTasksUnderLock(int $taskId, Task $before, Task $updated, HouseUser $actor): void {
 		$mounted = $this->roomTaskMapper->findByTaskIdScopedToHouse($taskId, (int)$actor->getHouseId());
@@ -273,6 +274,9 @@ class TaskService {
 		if ((int)$updated->getFlexDays() > (int)$before->getFlexDays()) {
 			$flexDays = min(FlexDaysPolicy::SANITY_MAX, (int)$updated->getFlexDays());
 			$this->occurrenceService->widenOpenWindowsUnderLock($revised, $flexDays, $actor->getId(), $now);
+		}
+		if ((int)$updated->getEnergyCost() !== (int)$before->getEnergyCost()) {
+			$this->occurrenceService->alignOpenEnergyUnderLock($revised, (int)$updated->getEnergyCost(), $actor->getId());
 		}
 	}
 

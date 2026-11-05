@@ -21,8 +21,9 @@ use OCP\BackgroundJob\TimedJob;
  * Thin delegate: derives "now" from the injected clock and hands the pass
  * to {@see OccurrenceService::reconcileHouseForJobs()}, which advances the
  * agreement frontier of every active schedule through the same generator
- * the creation and mutation paths use, then converges the WP2 pause
- * suspension facts ({@see PauseService::reconcilePauseEffectsForJobs()}).
+ * the creation and mutation paths use and keeps open occurrences at the
+ * current energy, then converges the WP2 pause suspension facts
+ * ({@see PauseService::reconcilePauseEffectsForJobs()}).
  * Runs at five-minute intervals; a late or missed run reconciles history
  * from the immutable rule inputs — it never reconstructs history from
  * today's mutable task definition.

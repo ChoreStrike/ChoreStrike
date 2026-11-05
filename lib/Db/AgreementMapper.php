@@ -36,15 +36,17 @@ class AgreementMapper extends QBMapper {
 	}
 
 	/**
-	 * Whether ANY explicit agreement revision exists for an occurrence
+	 * Whether an explicit agreement revision exists for an occurrence
 	 * (WP3 §3.4 provenance probe — the undo re-derivation never deletes
-	 * explicitly amended rows).
+	 * explicitly amended rows). The evidence of a definition edit is no
+	 * such agreement ({@see Agreement::DEFINITION_KINDS}).
 	 */
-	public function hasAgreementFor(int $occurrenceId): bool {
+	public function hasExplicitAgreementFor(int $occurrenceId): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))
 			->from($this->getTableName())
-			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter($occurrenceId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter($occurrenceId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->notIn('kind', $qb->createNamedParameter(Agreement::DEFINITION_KINDS, IQueryBuilder::PARAM_STR_ARRAY)));
 
 		$result = $qb->executeQuery();
 		$count = (int)$result->fetchOne();

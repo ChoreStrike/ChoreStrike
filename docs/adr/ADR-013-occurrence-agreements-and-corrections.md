@@ -26,6 +26,28 @@
 > facts immutable and re-account value through the ledger. The occurrence
 > completion validity (`completion_id` release on undo) is the single input the
 > WP3 rhythm/weekly projections re-derive from.
+>
+> **Energy edits (2026-11-05, BUG-UX-014):** the energy of an occurrence is
+> frozen when the work is completed, not when the row is created. A saved
+> energy edit applies to every open occurrence of the definition at once: one
+> that is neither completed nor covered, including an overdue one. Without this,
+> a one-time task could never take a new value, and an interval task kept the
+> old one until it was done. Each change bumps the occurrence version, so a
+> state shown before the edit conflicts instead of paying the old value, and
+> is recorded as an `energy` agreement. Completed and covered occurrences,
+> `completed_tasks.total_energy`, work shares and ledger entries never change.
+> Undo reopens work at the current energy, so completing it again pays the
+> value that applies then while the undo reversed the old payout exactly
+> (operator decision 2026-11-05). A restart takes the energy of its predecessor,
+> and the timeline job converges the rest (no actor): open energy
+> equals the energy of the current revision as a standing invariant, not a
+> one-time repair. `energy` and `window` rows record what a definition edit did:
+> nobody agreed anything about that one occurrence, so they do not pin it when
+> an undo re-derives the open successor. The rows stay when the undo removes
+> that successor, because they are the record of who changed what. A once rule
+> owns one occurrence under any revision: fulfilling it ends the room task even
+> after an edit appended a revision, and a finished room task gets no new
+> pending occurrence from an edit.
 
 ## Context
 
@@ -84,8 +106,8 @@ become **derived projections** of the timeline, never the source of truth.
 - `occ_members` - per-occurrence participant shares. Unique
   `(occurrence_id, wallet_id)`.
 - `agreements` - append-only evidence of every correction (date amendment,
-  participant change), carrying `kind`, actor, `old_state`, `new_state` and a
-  per-occurrence `revision`.
+  participant change, the effects of a definition edit), carrying `kind`, actor,
+  `old_state`, `new_state` and a per-occurrence `revision`.
 - `chk_progress` is re-keyed to `(schedule_rev_id, ordinal, checklist_item_id)`
   with a progress `revision` column (Version1005). `completed_tasks` gains
   frozen occurrence evidence: `schedule_rev_id`, `occurrence_ordinal`,
@@ -119,7 +141,9 @@ date** (not the planned date), so early/late work never moves the next fixed
 anchor. A 5-minute `TimelineJob` (and `chorestrike:trigger-jobs timeline
 --as-of`) extends the frontier for the house in indexed cursor batches. **No
 GET and no job ever awards coins, credits work, or emits notifications** -
-materialization is write-of-rows only and fabricates no command actor.
+materialization is write-of-rows only and fabricates no command actor. The
+job also keeps open occurrences at the current energy, with `energy` evidence
+and no actor.
 
 ### Selection and completion receipts
 
@@ -190,7 +214,7 @@ uniqueness makes duplicate restarts a clean conflict). Capacity and consent
 validation follow the arrangement the writer will actually persist:
 date-only amendments and catch-ups without a participant payload resolve the
 **concrete active occurrence members under the lock** (after a handover the
-actual people and exact shares on the occurrence's frozen energy, never the
+actual people and exact shares on the occurrence's energy, never the
 replaced revision defaults, which remain the basis only for virtual
 derivations and the restart successor), and a participant change re-derives
 the effective suspension from the new rows so an explicit feasible 100%

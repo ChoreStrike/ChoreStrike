@@ -702,10 +702,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				this.error = error.message
 				logger.error('Failed to complete room task', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
 				// A 409 (stale selection/version/target) means the shown
-				// target is gone: refresh the derived projections so the
-				// next attempt carries the current target.
+				// target is gone: refresh the projections and the rows so
+				// the next attempt carries the current target.
 				if (error?.status === 409) {
-					this.refreshDerivedProjections()
+					this.refreshDerivedProjections({ rows: true, roomId: this.roomTasks.find((row) => row.id === roomTaskId)?.roomId })
 				}
 				throw error
 			} finally {
@@ -1138,9 +1138,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * rejects the already committed mutation: the affected projections
 		 * stay marked stale, `refreshFailed` turns true, and the retry is a
 		 * read-only re-run of this method.
+		 * @param {object} [options] What else to refresh.
+		 * @param {boolean} [options.rows] Also reread the loaded row lists, which
+		 * carry the completion targets: the server changed occurrences behind
+		 * them (a saved definition edit, a conflict after someone else's edit).
+		 * @param {?number} [options.roomId] The room to reread when the house
+		 * list is not loaded.
 		 * @return {Promise<boolean>} True when every attempted refresh succeeded.
 		 */
-		async refreshDerivedProjections() {
+		async refreshDerivedProjections({ rows = false, roomId = null } = {}) {
 			if (this.countsRefreshing) {
 				// A refresh is already in flight for this transition — one
 				// owner per mutation, no duplicate refetches.
@@ -1153,6 +1159,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			}
 			if (this.overdueLoaded) {
 				attempts.push(() => this.fetchOverdueTasks())
+			}
+			if (rows && this.dailyTasks.length > 0) {
+				attempts.push(() => this.fetchFilteredDailyTasks())
+			}
+			if (rows && this.houseLoaded) {
+				attempts.push(() => this.fetchHouseRoomTasks())
+			} else if (rows && roomId !== null) {
+				attempts.push(() => this.fetchRoomTasks(roomId))
 			}
 			if (attempts.length === 0) {
 				return true
@@ -1168,6 +1182,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 				if (this.overdueLoaded) {
 					this.overdueStale = true
+				}
+				if (rows && this.houseLoaded) {
+					this.houseStale = true
 				}
 
 				const results = await Promise.all(attempts.map((attempt) => attempt().then(

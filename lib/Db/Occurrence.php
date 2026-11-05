@@ -121,7 +121,7 @@ class Occurrence extends Entity implements JsonSerializable {
 	/** @var \DateTime UTC instant, EXCLUSIVE window end. */
 	protected $windowEnd;
 
-	/** @var int Frozen agreed total energy. */
+	/** @var int Total energy: current while open, frozen once completed or covered. */
 	protected $energy = 1;
 
 	/** @var bool Public-at-agreement classification. */

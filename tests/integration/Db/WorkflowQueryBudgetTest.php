@@ -85,9 +85,10 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	// completion re-read (the room-task lock is the serialization point).
 	// Under-lock re-authorization, obligated-member selection, actor-wallet
 	// provenance, reset-bounded journal replay and compact-response hydration
-	// bring the fresh family-profile measurement to 82. These are one batched
+	// bring the fresh family-profile measurement to 82. BUG-UX-014 adds one
+	// read of the open work to align its energy: 83. These are one batched
 	// read per concern, not one query per historical event or work share.
-	private const UNDO_BUDGET = 82;
+	private const UNDO_BUDGET = 83;
 
 	/**
 	 * HouseWideRead_ConstantQueryCount_10vs100Rows

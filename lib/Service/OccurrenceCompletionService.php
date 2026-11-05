@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\Agreement;
 use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
@@ -325,11 +326,18 @@ class OccurrenceCompletionService {
 					if ($this->hasExplicitProvenance($row)) {
 						continue;
 					}
+					// Definition evidence stays: it records who changed what.
 					$this->occMemberMapper->deleteByOccurrenceIds([$row->getId()]);
 					$this->occurrenceMapper->delete($row);
 				}
 			}
 			$this->reconcile->ensureIntervalPendingUnderLock($houseId, $roomTask, $current, $now);
+		}
+
+		// Reopened work carries the current energy, also after an edit made
+		// while it was completed (BUG-UX-014).
+		if ($current !== null) {
+			$this->reconcile->alignOpenEnergyUnderLock([$roomTask], $current->getEnergy(), null);
 		}
 
 		// A once/bounded deactivation caused by this completion reverts
@@ -365,7 +373,8 @@ class OccurrenceCompletionService {
 
 	/**
 	 * WP3 §3.4: explicit-agreement/progress provenance of an occurrence —
-	 * an owner-recorded agreement (any kind), a restart link, or surviving
+	 * an agreement about this occurrence ({@see Agreement::DEFINITION_KINDS}
+	 * record a definition edit instead), a restart link, or surviving
 	 * occurrence-scoped checklist progress. Such rows are NEVER deleted by
 	 * the undo re-derivation.
 	 */
@@ -373,7 +382,7 @@ class OccurrenceCompletionService {
 		if ($row->getRestartOfId() !== null) {
 			return true;
 		}
-		if ($this->agreementMapper->hasAgreementFor((int)$row->getId())) {
+		if ($this->agreementMapper->hasExplicitAgreementFor((int)$row->getId())) {
 			return true;
 		}
 		return $this->checklistProgressMapper->findByOccurrence(

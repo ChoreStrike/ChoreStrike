@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\Agreement;
+use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\Occurrence;
@@ -30,8 +32,9 @@ use OCP\IL10N;
  *
  * Advances the agreement frontier to the horizon, materializes agreed
  * occurrence rows (version 0, members from the revision snapshot),
- * guarantees the interval pending, applies end-of-life deactivation and
- * refreshes the derived `next_due` read projection.
+ * guarantees the interval pending, keeps open occurrences at the current
+ * energy, applies end-of-life deactivation and refreshes the derived
+ * `next_due` read projection.
  * {@see RecurrenceCalculator} provides the pure enumeration;
  * {@see OccurrenceRowFactory} builds the rows.
  *
@@ -40,8 +43,9 @@ use OCP\IL10N;
  * their own house-first transaction (house row lock first); methods
  * suffixed `UnderLock` run inside a CALLER-owned open transaction and
  * never begin one. Natural (revision, ordinal) uniqueness plus frontier
- * monotonicity make every pass idempotent — no fabricated member actor
- * is ever needed.
+ * monotonicity make every pass idempotent, and an energy alignment finds
+ * nothing to do once the values match — no fabricated member actor is ever
+ * needed.
  */
 class OccurrenceReconcileService {
 	/** Agreement horizon: planned local days covered by the frontier. */
@@ -70,6 +74,7 @@ class OccurrenceReconcileService {
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private OccurrenceRowFactory $rowFactory;
+	private AgreementMapper $agreementMapper;
 
 	public function __construct(
 		TransactionExecutor $transactions,
@@ -84,6 +89,7 @@ class OccurrenceReconcileService {
 		IL10N $l10n,
 		AppLogger $appLogger,
 		OccurrenceRowFactory $rowFactory,
+		AgreementMapper $agreementMapper,
 	) {
 		$this->transactions = $transactions;
 		$this->revisionMapper = $revisionMapper;
@@ -97,6 +103,7 @@ class OccurrenceReconcileService {
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->rowFactory = $rowFactory;
+		$this->agreementMapper = $agreementMapper;
 	}
 
 	/**
@@ -120,9 +127,9 @@ class OccurrenceReconcileService {
 	 * Reconcile one room task UNDER LOCK (caller owns the house-first
 	 * transaction). Fixed rules extend to the saved-zone horizon (clamped
 	 * by the active bounds); interval rules only guarantee that exactly
-	 * one pending occurrence exists. Also applies end-of-life
-	 * deactivation when a bounded/once rule can produce no further
-	 * obligation.
+	 * one pending occurrence exists. Also keeps open occurrences at the
+	 * current energy and applies end-of-life deactivation when a
+	 * bounded/once rule can produce no further obligation.
 	 */
 	public function reconcileUnderLock(int $houseId, RoomTask $roomTask, \DateTime $now): int {
 		try {
@@ -159,9 +166,52 @@ class OccurrenceReconcileService {
 			}
 		}
 
+		$aligned = $this->alignOpenEnergyUnderLock([$roomTask], $revision->getEnergy(), null);
+		if ($aligned > 0) {
+			$this->appLogger->info('Timeline: open work aligned to the current energy', [
+				'event' => 'timeline_energy_aligned',
+				'service' => 'OccurrenceReconcileService',
+				'houseId' => $houseId,
+				'roomTaskId' => $roomTask->getId(),
+				'occurrences' => $aligned,
+			]);
+		}
 		$this->applyEndOfLifeUnderLock($roomTask, $revision, $now);
 		$this->updateNextDueProjectionUnderLock($roomTask, $now);
 		return $materialized;
+	}
+
+	/**
+	 * BUG-UX-014 UNDER LOCK, the invariant of the timeline: open occurrences
+	 * carry the current energy, so the row, the planner and the payout
+	 * agree; completed and covered work keeps the energy it was recorded
+	 * with. An energy edit calls this at once, an undo for the work it
+	 * reopens, and every job pass converges what is left (without an
+	 * actor). Each change bumps the version, so a state shown before it
+	 * conflicts instead of paying the old value, and is recorded as an
+	 * `energy` agreement.
+	 *
+	 * @param list<RoomTask> $roomTasks Locked room tasks of one definition
+	 * @return int The number of occurrences changed
+	 */
+	public function alignOpenEnergyUnderLock(array $roomTasks, int $energy, ?int $actorHouseUserId): int {
+		if ($roomTasks === []) {
+			return 0;
+		}
+		$aligned = 0;
+		$ids = array_map(static fn (RoomTask $roomTask): int => (int)$roomTask->getId(), $roomTasks);
+		foreach ($this->occurrenceMapper->findOpenByRoomTasks($ids) as $occurrence) {
+			$old = $occurrence->getEnergy();
+			if ($old === $energy) {
+				continue;
+			}
+			$occurrence->setEnergy($energy);
+			$occurrence->setVersion($occurrence->getVersion() + 1);
+			$this->occurrenceMapper->update($occurrence);
+			$this->agreementMapper->record($occurrence->getId(), Agreement::KIND_ENERGY, $actorHouseUserId, null, ['energy' => $old], ['energy' => $energy]);
+			$aligned++;
+		}
+		return $aligned;
 	}
 
 	/**
@@ -223,7 +273,8 @@ class OccurrenceReconcileService {
 	/**
 	 * The timeline job pass over the instance house (CS-PLAN-072 WP1;
 	 * parent §3.3 rule 2): advance every active room task's current
-	 * revision to the agreement horizon. Each task reconciles inside its
+	 * revision to the agreement horizon and keep its open work at the
+	 * current energy. Each task reconciles inside its
 	 * own house-first transaction (bounded lock hold); natural
 	 * revision/ordinal uniqueness plus frontier monotonicity make repeated
 	 * or interrupted runs converge. A GET never calls this — a timeline
@@ -337,14 +388,20 @@ class OccurrenceReconcileService {
 	 * of a room task UNDER LOCK (creation/reconcile/undo paths; completion
 	 * normally inserts the successor itself). The pending check spans ALL
 	 * revisions of the room task — an unfulfilled occurrence of a closed
-	 * revision remains THE next obligation until completed.
+	 * revision remains THE next obligation until completed. A finished
+	 * room task gets none, and a once rule owns exactly one occurrence,
+	 * whichever revision holds it.
 	 */
 	public function ensureIntervalPendingUnderLock(int $houseId, RoomTask $roomTask, ScheduleRevision $revision, \DateTime $now): int {
+		if (!$roomTask->getIsActive()) {
+			return 0;
+		}
+		$rows = $this->occurrenceMapper->findByRoomTask($roomTask->getId());
 		$open = array_values(array_filter(
-			$this->occurrenceMapper->findByRoomTask($roomTask->getId()),
+			$rows,
 			static fn (Occurrence $row): bool => $row->getCompletionId() === null && $row->getCoveredByCompletionId() === null
 		));
-		if ($open !== []) {
+		if ($open !== [] || ($revision->getLifetime() === Task::RECURRENCE_ONCE && $rows !== [])) {
 			return 0;
 		}
 
@@ -397,17 +454,18 @@ class OccurrenceReconcileService {
 	}
 
 	/**
-	 * End-of-life deactivation: a once rule whose occurrence is fulfilled,
-	 * or a bounded/once rule with active bounds that can produce no
-	 * further obligation, deactivates the room task (planning surface
-	 * only — occurrence/completion evidence stays).
+	 * End-of-life deactivation: a once rule whose occurrence is fulfilled
+	 * (under any revision: an edit appends one without moving the row), or
+	 * a bounded/once rule with active bounds that can produce no further
+	 * obligation, deactivates the room task (planning surface only —
+	 * occurrence/completion evidence stays).
 	 */
 	public function applyEndOfLifeUnderLock(RoomTask $roomTask, ScheduleRevision $revision, \DateTime $now): void {
 		if (!$roomTask->getIsActive()) {
 			return;
 		}
 		if ($revision->getLifetime() === Task::RECURRENCE_ONCE) {
-			$rows = $this->occurrenceMapper->findByRevision($revision->getId());
+			$rows = $this->occurrenceMapper->findByRoomTask($roomTask->getId());
 			$fulfilled = array_filter($rows, static fn (Occurrence $row): bool => $row->getCompletionId() !== null);
 			if ($rows !== [] && count($fulfilled) === count($rows)) {
 				$roomTask->setIsActive(false);

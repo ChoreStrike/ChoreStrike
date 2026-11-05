@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed after 0.8.0-alpha.4
+
+- **A changed energy applies at once:** it now reaches everything still open,
+  overdue and one-time tasks included, and the task list shows it without a
+  reload. Before, open tasks kept showing and paying the old value until they
+  were done, and a one-time task never took the new one. Completed work keeps
+  its value. After the update the timeline job aligns open tasks that were
+  changed earlier; no migration runs.
+- **A one-time task stays done:** one edited before it was completed stayed
+  active and came back with the next job pass, ready to pay again. Editing a
+  task shared by several rooms no longer adds work to a room that has finished.
+- **Completing after someone else's edit recovers:** the conflict now rereads
+  the list, so the next attempt works without reloading the page.
+- **The fairness table counts what was recorded:** it adds up each person's
+  frozen share of valid work. An energy edit no longer changes past work,
+  shared work no longer counts in full for the person who completed it, and
+  undone work no longer counts.
+
 ### App Version 0.8.0-alpha.4 — Everyday Fixes (candidate, 2026-11-04)
 
 The defects and everyday fixes from the second feedback round of the family

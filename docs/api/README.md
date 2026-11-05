@@ -484,6 +484,12 @@ argument can never bind from that shape and would 500 on every real HTTP call
 > client sending it gets the generic whitelist rejection (`400 VALIDATION_ERROR`,
 > `Unknown or immutable field`).
 
+> **Energy edits (BUG-UX-014):** a changed `energyCost` applies to every open
+> occurrence of the task at once, so their `occurrence.energy`, `expectedVersion`
+> and `selectionToken` change. A client refreshes its rows after the update; a
+> completion with the older values answers 409. Completed work keeps its
+> `totalEnergy`.
+
 > **Closed constraint set (CS-PLAN-063 §3.1):** every accepted update field
 > is range/type-checked — `energyCost` ∈ [1, 20], `schedulingMode` ∈ `dynamic|static`, parseable
 > `fixedScheduleTime` / `activeFrom` / `activeUntil`, `fixedScheduleDays` as a
@@ -1214,7 +1220,7 @@ concretely agreed helper commitments — plus the original deadline and child
 limits are enforced inside the locked aggregate; date-only amendments and
 catch-ups without a participant payload validate the **concrete current
 occurrence members** (after a handover the actual arrangement, never the
-replaced revision defaults), charging the occurrence's frozen energy with
+replaced revision defaults), charging the occurrence's energy with
 the exact shares. The receipt identity covers
 the action and every normalized semantic input (date, canonical participant
 set, work appointment): an identical retry replays the original result, the

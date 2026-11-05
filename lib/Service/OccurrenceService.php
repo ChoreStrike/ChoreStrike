@@ -439,6 +439,16 @@ class OccurrenceService {
 	}
 
 	/**
+	 * BUG-UX-014 UNDER LOCK: an energy edit applies to the room tasks' open
+	 * occurrences at once; completed work keeps its energy.
+	 *
+	 * @param list<RoomTask> $roomTasks Locked room tasks of one definition
+	 */
+	public function alignOpenEnergyUnderLock(array $roomTasks, int $energy, ?int $actorHouseUserId): int {
+		return $this->reconcile->alignOpenEnergyUnderLock($roomTasks, $energy, $actorHouseUserId);
+	}
+
+	/**
 	 * WP2 single-occurrence participant amendment UNDER LOCK (handover /
 	 * share) — future revision defaults stay untouched; former participants
 	 * are persisted as neutral releases (RF-073-WP2-02) and the evidence
