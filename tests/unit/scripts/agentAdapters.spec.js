@@ -46,6 +46,7 @@ describe('agent adapters', () => {
 		expect(adapters['.kilo/command/do-it.md']).toBe(adapters['.claude/commands/do-it.md'])
 		expect(adapters['.kilo/command/do-it.md']).toContain('Run $ARGUMENTS.')
 		expect(adapters['.claude/agents/checker.md']).toContain('tools: Read, Grep, Glob\n')
+		expect(adapters['.claude/agents/checker.md']).not.toMatch(/^model:/m)
 		for (const content of Object.values(adapters)) expect(content).toContain(MARKER)
 	})
 

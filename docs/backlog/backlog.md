@@ -1186,6 +1186,23 @@ and the post-deployment log check cannot filter by app.
 
 ---
 
+### [P3] TECH-TEST-010 — Nested Jest probe failed once in a full run
+**Status**: Backlog · **Effort**: S · **Layer**: infra · **Journey stage**: testing
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Full Jest run on the working tree, 2026-11-05
+
+In one of three consecutive full runs, the nested `jest --runInBand --no-cache` probe of
+`jestDiscovery.spec.js` (*does not index dependency package metadata from extracted build
+artifacts*) exited non-zero, failing 1 of 2294 tests. The spec alone and the two following full
+runs were green. The assertion discards the probe's output, so the cause is unknown; a slow
+uncached probe under parallel load and other suites writing below `build/` are unverified
+candidates.
+
+- [ ] The spec reports the probe's stdout and stderr when its exit status is not 0.
+- [ ] The next occurrence is attributed and its cause fixed.
+
+---
+
 ## Release
 
 > Stage path: `v0.8.x` alpha → `v0.9.x` beta → `v1.0.0` stable (manual install).

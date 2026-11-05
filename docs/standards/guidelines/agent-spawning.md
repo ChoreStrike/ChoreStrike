@@ -10,13 +10,17 @@
 ## 1. Models are a setting, not a doc
 
 Model names are volatile and user/tool-specific; configure them in the active
-tool's settings. Durable principle — **escalate, don't start high**:
+tool's settings and never pin one in an agent definition or generated adapter.
+Durable principle — **escalate, don't start high**:
 
 | Work class | Examples | Model class |
 | ---------- | -------- | ----------- |
-| Read-only / I/O-bound | review tracks, explore, "find where X is" | cheap / fast |
+| Read-only / I/O-bound | explore, "find where X is" | cheap / fast |
 | Routine coding | bug fixes, tests, refactors, triage | mid |
 | Synthesis / hard problems | architecture, hard bugs, consolidation | frontier |
+
+Review tracks judge rather than search: `reviewer` runs on the model the tool is
+configured with, and a Full Review multiplies its cost by the number of tracks.
 
 ## 2. Use `explore` for read-only lookups
 
@@ -77,7 +81,7 @@ the repository and any sync folder and keep it integrated with `master`
 
 ## 7. Anti-patterns
 
-- Spawn-by-default or a frontier model on read-only work.
+- Spawn-by-default or a frontier model on read-only lookups.
 - Main agent grepping broadly for trivial lookups instead of `explore` — or spawning for a single known file.
 - Read-only subagents that edit (breaks the main-agent-owns-state contract).
 - Worktrees without frozen contracts.
