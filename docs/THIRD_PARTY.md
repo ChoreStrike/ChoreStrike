@@ -9,12 +9,12 @@
 
 | Library | Licence | Where used |
 |---|---|---|
-| `@fluentui/svg-icons` (^1.1.320) | MIT (Microsoft) | `src/components/Common/Icon.vue` — local SVG icon registry. |
+| `@fluentui/svg-icons` (^1.1.345) | MIT (Microsoft) | `src/components/Common/Icon.vue` — local SVG icon registry. |
 | `canvas-confetti` (^1.9.4) | MIT | `src/utils/confetti.js` — celebration burst. |
 | `howler` (^2.2.4) | MIT | `src/utils/sound.js` — sound wrapper (currently Web-Audio fallback; howler kept as the upgrade path for vendored CC0 assets). |
 | `lucide-vue-next` (^0.474.0) | ISC (Lucide) | Older icon fallback path. |
-| `pinia` (^2.2.6) | MIT | `src/store/*` — state management. |
-| `vue` (^3.5.13) | MIT | `src/**` — UI framework. |
+| `pinia` (^3.0.4) | MIT | `src/store/*` — state management. |
+| `vue` (^3.5.44) | MIT | `src/**` — UI framework. |
 | `@nextcloud/*` (l10n, dialogs, event-bus, router, vue, axios, auth) | AGPL-3.0 (Nextcloud) | `src/**` — Nextcloud host integration. |
 | `@playwright/test` (^1.58.2) | Apache-2.0 | `tests/e2e/**` — E2E test runner. |
 

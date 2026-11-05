@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   affected options were not reached. `follow-redirects`, `fast-uri`, `qs` and
   `body-parser` take their patches in the same lockfile update.
 
+### Changed after 0.8.0-alpha.4
+
+- **Compatible dependency updates:** `vue` 3.5.44, `@nextcloud/auth` 2.6,
+  `@nextcloud/axios` 2.6, `@nextcloud/router` 3.2 and the build and test tooling
+  within their major versions. Major updates stay open as TECH-DEPS-001.
+
 ### App Version 0.8.0-alpha.4 — Everyday Fixes (candidate, 2026-11-04)
 
 The defects and everyday fixes from the second feedback round of the family

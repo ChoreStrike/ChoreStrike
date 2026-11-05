@@ -20,6 +20,8 @@
 
 ## Recently Completed (rolling - last ~2 weeks / max 10)
 
+- **Dependabot triage** (2026-11-05, branch `chore/deps-2026-11`, merged to local `master`, not pushed): PRs #5, #6, #7 and #10 plus `body-parser` patched, RF-089-20 resolved, the compatible part of #11 taken. The majors and PHPUnit 13 (#8) moved to [TECH-DEPS-001](backlog.md#p3-tech-deps-001--major-updates-dependabot-cannot-land) with their blockers. The contrast spec measured views before their data loaded; corrected, it found overdue descriptions at 3.51:1, fixed. No release of its own; everything ships with the next planned release.
+
 - **BUG-UX-014 / a changed energy reaches open tasks** (2026-11-05, Full `PASS-WITH-FIXES`, branch `fix/energy-edit-open-occurrences`, merged to local `master`, not pushed): an edit applies at once to all open work, the timeline job aligns what is left, no migration. The review also fixed one-time tasks that came back after an edit. No release of its own, it ships with the next planned release; the item stays open until then. [Item](backlog.md#p2-bug-ux-014--a-changed-energy-does-not-reach-open-tasks) · [Review](archive/CODE_REVIEW_2026-11-05.md#full---bug-ux-014-energy-edits-and-open-work).
 
 - **`reviewer` follows the configured model** (2026-11-05, branch `chore/reviewer-configured-model`, merged after the `0.8.0-alpha.4` deployment because of the release freeze): the generated Claude adapter no longer pins a model, so review tracks run on the tool's configured subagent or session model; [agent-spawning](../standards/guidelines/agent-spawning.md#1-models-are-a-setting-not-a-doc) updated and the generator test extended.

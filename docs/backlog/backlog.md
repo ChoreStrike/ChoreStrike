@@ -1221,6 +1221,46 @@ missed a real contrast defect and failed once mid-transition. It is corrected.
 
 ---
 
+### [P3] TECH-DEPS-001 — Major updates Dependabot cannot land
+**Status**: Backlog · **Effort**: L · **Layer**: infra · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05)
+**Source**: Dependabot triage of 2026-11-05
+
+PR #11 groups 29 npm updates and stops at `npm ci` with ERESOLVE, so its compatible part landed
+by hand on 2026-11-05. What remains has a peer blocker or moves a core library, and each row
+needs its own slice. Green Dependabot checks prove little here: neither workflow on a PR runs
+PHPUnit or the browser gate.
+
+| Update | Blocker on 2026-11-05 |
+|---|---|
+| Babel 8, `@nextcloud/babel-config` 2, Jest 30, `jest-environment-jsdom` 30 | `@vue/vue3-jest` 29.2.6, its latest release, peers Jest 29, `babel-jest` 29 and Babel 7; `@babel/plugin-syntax-dynamic-import` peers Babel 7 |
+| TypeScript 7 | `typescript-eslint` peers `<6.1.0` |
+| `webpack-cli` 7, `node-polyfill-webpack-plugin` 4.1 | `@nextcloud/webpack-vue-config` 7.1.0, its latest release, peers `^6.0.1` and exactly `4.0.0` |
+| `stylelint-config-recommended-vue` 2, `postcss-html` 2 | `@nextcloud/stylelint-config` peers `^1.6.1` |
+| `@nextcloud/vue` 9.14, `@nextcloud/dialogs` 7.4 or 8 | `@nextcloud/vue` 9.14 peers dialogs `^7.4 \|\| ^8` and files `^4.1.1`; dialogs stays on `~7.2.0` until a dedicated update qualifies it ([development guide](../engineering/development.md)) |
+| `pinia` 4, `vue-router` 5 | No peer blocker; they carry 17 and 7 `src` files, so they need the browser gate |
+| `@playwright/test` 1.64, `@axe-core/playwright` 4.14 | No peer blocker; they change the gate itself, so they go alone and not with app updates |
+| PHPUnit 13 (PR #8) | Four majors: 65 `@dataProvider` docblocks in 45 test files, removed in PHPUnit 12, three non-static providers, 9.5 schemas in both `phpunit.*.xml`, and the 9.6.34 pin in `docker/test-runtime.json` |
+
+Four advisories stay open behind these rows, and the bounded disposition in
+[RELEASE-002](#p2-release-002--beta-deployment--real-world-alpha-usage) keeps applying to the
+build and test chains:
+
+- `minimatch` below 11.0.1 (moderate): 9.0.9 through `webdav` under dialogs, 10.2.6 through the
+  ESLint and `js-beautify` chains. No major override without a test of the affected chain.
+- `glob` 13.0.6 (moderate) through `js-beautify`.
+- `deepmerge` 4.3.1 (low) through `jest-config`, no fixed release published.
+- `elliptic` 6.6.1 (low) through `node-polyfill-webpack-plugin` 4.0.0.
+
+- [ ] Each row above lands in its own slice, or is declined with a reason.
+- [ ] PR #8 and the rest of PR #11 are closed by those slices or declined.
+- [ ] `lucide-vue-next` and `ajv` have no importer in tracked code: remove them after a peer
+      check instead of updating them.
+- [ ] `dependabot.yml` limits the `npm-all` group to minor and patch updates, so one blocked
+      major no longer stops the whole group.
+
+---
+
 ## Release
 
 > Stage path: `v0.8.x` alpha → `v0.9.x` beta → `v1.0.0` stable (manual install).
