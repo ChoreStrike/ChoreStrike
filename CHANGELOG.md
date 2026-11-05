@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shared work no longer counts in full for the person who completed it, and
   undone work no longer counts.
 
+### Security after 0.8.0-alpha.4
+
+- **Sanitizer update:** the bundled `dompurify` moves to 3.4.17 and closes three
+  advisories. The bundled callers use default options and no hooks, so the
+  affected options were not reached. `follow-redirects`, `fast-uri`, `qs` and
+  `body-parser` take their patches in the same lockfile update.
+
 ### App Version 0.8.0-alpha.4 — Everyday Fixes (candidate, 2026-11-04)
 
 The defects and everyday fixes from the second feedback round of the family
