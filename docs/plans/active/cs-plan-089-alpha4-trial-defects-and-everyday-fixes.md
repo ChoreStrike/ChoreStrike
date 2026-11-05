@@ -128,6 +128,10 @@ plans from the backlog.
   exchange, and pushing `master` with remote CI now rather than after the deployment.
   Deployment, the record import and tags stay separate operator steps. The worktree stays until
   the export, since it holds the qualified run.
+- **D-089-15 Dependency update after the deployment (operator 2026-11-05):** the update below
+  (RF-089-20) was found only while writing the handoff notes, after the qualification. The
+  operator keeps the exported package and takes the update as the first step after the
+  deployment; a new candidate would have delayed the round's fixes for no reachable benefit.
 - **Operator GUI review (2026-11-04):** the operator checked Round 1 on the development stack
   and reported no findings.
 
@@ -473,6 +477,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-089-17 (major) - Qualification, primary gate `run-HNGxIN` on `fed3bd0`: the pause scenario in `calm-core-ui.spec.ts` carried fixed dates, so it had to fail from 2026-11-04 on: the server rightly never cuts today, and the end date had arrived. The product is correct. The dates now follow the clock, with a day of margin for every house time zone.
 - [x] RF-089-18 (minor) - Qualification, same run: `3-floor-house.spec.ts` read the floors with the default 5 s while the rest of the journey waits 10 to 30 s. The final page held the expected heading, so the view was right and only late. It waits 15 s now.
 - [x] RF-089-19 (minor) - Qualification, same run: eight seeds ended in `fetch failed` without reaching the server, in two windows of a host slowdown (API median 1.7 s against 0.26 s minutes later) while another project's containers restarted on the same Docker Desktop. Closed by observation, not by a root cause: the mechanism stays unproven. A stale keep-alive socket behind the blocking target check was tested and refuted (POST after a 7 s and a 9 s block, three times each, over `127.0.0.1` and `localhost`), AJAX cron is excluded. Two full gates on the new candidate ran clean, at about 35 test minutes each. The fixture now keeps the socket-level reason, so a recurrence names it and is analysed from there.
+- [ ] RF-089-20 (minor) - Release: the `0.8.0-alpha.3` handoff moved a bundled dependency update to this round, and it was neither planned nor tracked here. The update is Dependabot PR #5, the same for the deployed and the exported package. The bundled callers use default options and no hooks, so the affected options are not reached. First step after the deployment (D-089-15); it blocks `done/`.
 
 ## Feedback Register (sanitized)
 
@@ -588,4 +593,7 @@ record import and the final completion review.
   post-qualification rehash ok, owned resources removed. `chorestrike.tar.gz` SHA-256
   `3558a65a07b11283819b6f15d226ee8957afa6fcbaa9e2526a2bb561d0e8256e` (1,715,572 bytes), equal in
   both runs.
-- The staged rows of `a42151` and `a4q2` are removed. Export approved by D-089-14.
+- The staged rows of `a42151` and `a4q2` are removed.
+- **Handoff (D-089-14):** `master` `70cbfd2` pushed 2026-11-05, remote `checks` and CodeQL passed.
+  Smoke run `run-mw2s5ai2` exported as `handoff-1a4988f60836-727e2f7f-2f83-4c11-aa3e-c72dd668b9d8`;
+  archive and both manifests byte-identical with the qualified run.
