@@ -371,6 +371,11 @@ export default {
 	line-height: 1.4;
 }
 
+/* The muted text tone stays below 4.5:1 on the overdue background. */
+.task-item.overdue .task-description {
+	color: var(--color-main-text);
+}
+
 .task-due {
 	margin-top: 0.5rem;
 	font-size: 13px;

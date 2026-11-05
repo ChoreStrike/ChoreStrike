@@ -56,6 +56,13 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 					{ name: 'Settings', path: '#/settings', ready: 'settings-view' },
 				]
 				const violations: string[] = []
+				// A hash route stays in its document, where `networkidle` has already
+				// fired: `collect` would measure while the view still loads, and a button
+				// leaving its loading state would be sampled mid-transition.
+				const openView = async (path: string): Promise<void> => {
+					await page.goto('about:blank')
+					await page.goto(`/apps/chorestrike/${path}`)
+				}
 				const collect = async (name: string): Promise<void> => {
 					await page.waitForLoadState('networkidle')
 					// Measure the settled UI: CSS transitions (e.g. the active navigation
@@ -76,7 +83,7 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 					}
 				}
 				for (const view of views) {
-					await page.goto(`/apps/chorestrike/${view.path}`)
+					await openView(view.path)
 					await expect(page.locator('body')).toHaveAttribute(`data-theme-${theme}`, '')
 					await expect(page.getByTestId(view.ready)).toBeVisible({ timeout: 20000 })
 					await collect(view.name)
@@ -84,7 +91,7 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 				// CS-PLAN-086: the arcade catalog and an open game on its start overlay
 				// (the owner gate opens the game for the seeded member).
 				await setArcadeGate(browser, false)
-				await page.goto('/apps/chorestrike/#/arcade')
+				await openView('#/arcade')
 				await expect(page.getByTestId('arcade-card-snake')).toBeVisible({ timeout: 20000 })
 				await collect('Arcade')
 				await page.getByTestId('arcade-play-snake').click()

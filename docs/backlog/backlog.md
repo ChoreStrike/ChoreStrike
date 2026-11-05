@@ -1203,6 +1203,24 @@ candidates.
 
 ---
 
+### [P3] TECH-TEST-011 — Browser specs that wait for `networkidle` on a hash route
+**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: testing
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Browser gate `run-zQecqD` on `chore/deps-2026-11`, 2026-11-05
+
+A `page.goto()` between hash routes keeps the document, so `waitForLoadState('networkidle')`
+returns at once: with six API requests held for 1.5 s it waited 1 ms, and 1636 ms on a fresh
+document. `color-contrast.spec.ts` measured views before their data loaded because of this,
+missed a real contrast defect and failed once mid-transition. It is corrected.
+`layout-clearance.spec.ts` walks all views the same way, and `dashboard-navigation`, `calendar`,
+`error-handling`, `flex-window-scheduling`, `scheduling`, `self-availability-member` and
+`workflow-request-budgets` use the same wait. Whether each of them depends on it is unverified.
+
+- [ ] Each call is reviewed; a measurement of loaded content waits for that content.
+- [ ] A corrected `layout-clearance.spec.ts` shows whether loaded views still pass.
+
+---
+
 ## Release
 
 > Stage path: `v0.8.x` alpha → `v0.9.x` beta → `v1.0.0` stable (manual install).

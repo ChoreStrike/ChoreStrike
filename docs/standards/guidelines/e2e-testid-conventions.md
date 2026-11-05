@@ -72,7 +72,10 @@ Replace them with Playwright's auto-waiting:
 - **Visibility/state:** `await expect(locator).toBeVisible()` / `toHaveText()`
   retry until the assertion holds or the test times out.
 - **Navigation:** `await page.waitForURL(...)`, `waitForLoadState('networkidle')`
-  (sparingly — prefer a visible-content assertion).
+  (sparingly — prefer a visible-content assertion). After a hash route it returns
+  at once: the document stays the same and the state has already been reached.
+  Wait for the loaded content, or `goto('about:blank')` first as in
+  `color-contrast.spec.ts`.
 - **Element ready:** `await page.getByTestId(...).waitFor()`.
 
 A `waitForTimeout` in a spec is a defect — fix the underlying race (a missing

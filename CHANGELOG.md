@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   frozen share of valid work. An energy edit no longer changes past work,
   shared work no longer counts in full for the person who completed it, and
   undone work no longer counts.
+- **Overdue task descriptions are readable:** their muted text reached only
+  3.5:1 on the overdue background and now uses the main text color. The contrast
+  test did not see it, because it measured views before their data had loaded.
 
 ### Security after 0.8.0-alpha.4
 
