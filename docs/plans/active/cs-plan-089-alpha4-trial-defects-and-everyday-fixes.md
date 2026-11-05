@@ -1,6 +1,6 @@
 # CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-04; drafted 2026-11-04; implementation started 2026-11-04 on `fix/alpha4-round1`
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-04; drafted 2026-11-04; implementation started 2026-11-04 on `fix/alpha4-round1`; candidate `1a4988f` qualified 2026-11-05, deployment open
 > **Effort:** M — about 8–10 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.3` deployed on the retained baseline (done 2026-10-29); the operator's sanitized trial report of 2026-11-03; no schema change intended
@@ -122,6 +122,12 @@ plans from the backlog.
   budget or a child's limit. With energy up to 20 that refusal comes up more often, for example
   for a task above a weekday budget. The operator wants this reworked together with the
   scheduler (FEAT-UX-059), so Round 1 leaves it as it is.
+- **D-089-14 Candidate handoff (operator 2026-11-05):** after the qualified package smoke the
+  operator approved, each on its own: the evidence commit, the local fast-forward merge of
+  `fix/alpha4-round1` into `master`, the export of smoke run `run-mw2s5ai2` through the private
+  exchange, and pushing `master` with remote CI now rather than after the deployment.
+  Deployment, the record import and tags stay separate operator steps. The worktree stays until
+  the export, since it holds the qualified run.
 - **Operator GUI review (2026-11-04):** the operator checked Round 1 on the development stack
   and reported no findings.
 
@@ -429,7 +435,7 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 - [ ] One task row on My Day, Tasks and room views, in both themes and on both viewports
 - [ ] The catch-up status and already agreed appointments still display; retained `manual_delta` entries still replay
 - [x] Operator GUI review recorded; its findings resolved or routed
-- [ ] `0.8.0-alpha.4` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
+- [x] `0.8.0-alpha.4` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
 - [ ] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
 - [ ] `CHANGELOG.md`, README status/badge/caption, roadmap snapshot and documentation map name the new version
 - [ ] Build gate green (`npm test` + lint + backend tests)
@@ -466,7 +472,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-089-16 (nit) - Leftovers of the removals and small gaps: the `flexWindow` passthrough in the store, the `icon` prop of `HoldButton`, the name and `@throws` of the last-done guard, the `getRangeTasks` docblock and API example, a stale teamwork sentence in the concept, a missing JSDoc, and the chevron's own transition instead of the token.
 - [x] RF-089-17 (major) - Qualification, primary gate `run-HNGxIN` on `fed3bd0`: the pause scenario in `calm-core-ui.spec.ts` carried fixed dates, so it had to fail from 2026-11-04 on: the server rightly never cuts today, and the end date had arrived. The product is correct. The dates now follow the clock, with a day of margin for every house time zone.
 - [x] RF-089-18 (minor) - Qualification, same run: `3-floor-house.spec.ts` read the floors with the default 5 s while the rest of the journey waits 10 to 30 s. The final page held the expected heading, so the view was right and only late. It waits 15 s now.
-- [ ] RF-089-19 (minor) - Qualification, same run: eight seeds ended in `fetch failed` without reaching the server, in two windows of a host slowdown (API median 1.7 s against 0.26 s minutes later) while another project's containers restarted on the same Docker Desktop. The mechanism is unproven: a stale keep-alive socket behind the blocking target check was tested and refuted (POST after a 7 s and a 9 s block, three times each, over `127.0.0.1` and `localhost`), AJAX cron is excluded. The fixture now keeps the socket-level reason, so a recurrence names it. Closes with a full clean gate on the new candidate; a recurrence is analysed from that reason.
+- [x] RF-089-19 (minor) - Qualification, same run: eight seeds ended in `fetch failed` without reaching the server, in two windows of a host slowdown (API median 1.7 s against 0.26 s minutes later) while another project's containers restarted on the same Docker Desktop. Closed by observation, not by a root cause: the mechanism stays unproven. A stale keep-alive socket behind the blocking target check was tested and refuted (POST after a 7 s and a 9 s block, three times each, over `127.0.0.1` and `localhost`), AJAX cron is excluded. Two full gates on the new candidate ran clean, at about 35 test minutes each. The fixture now keeps the socket-level reason, so a recurrence names it and is analysed from there.
 
 ## Feedback Register (sanitized)
 
@@ -561,3 +567,25 @@ remain, and durable integration is checked at closure.
   `composer cs:check`, l10n, backlog and encoding checks. Browser: `scheduling-apply-flow`, `family-core-ux`, `settings` and `room-detail` on the primary row. Full gates,
   AIO row and package smoke follow with the qualification.
 - Record: [2026-11-04 review](../../backlog/archive/CODE_REVIEW_2026-11-04.md#final-full---cs-plan-089-round-1-implementation).
+
+**Qualification, 2026-11-05 (WP-F).** The plan stays active for the export, the deployment, the
+record import and the final completion review.
+
+- **Candidate commit:** `1a4988f608368bc43603a3387d97617c4451e0ed` on `fix/alpha4-round1`.
+- **Failed attempt, kept as evidence:** on `fed3bd0` the backend matrix `a42151` passed, the
+  primary browser gate `run-HNGxIN` failed 10 of 185 tests in `chromium-serial-db`, the other
+  four projects passed. The product was correct in every case. It was not rerun unchanged; the
+  three causes are RF-089-17..19, and their fix made the new candidate.
+- **Runtime:** `test:runtime:check` current, no drift. Primary row NC 35.0.2 (inventory
+  `902b957a…`), AIO row NC 34.0.5 (inventory `191eb1cd…`).
+- **Backend:** matrix `a4q2`, unit 1549 and integration 655 on MySQL, PostgreSQL, SQLite and the
+  AIO row, plus Jest 162 suites / 2294 tests, ESLint, stylelint and `composer cs:check`.
+- **Browser:** primary gate `run-OYBZLq` and AIO gate `run-oOIqOq`, 360 tests each across five
+  projects, none failed, skipped or flaky.
+- **Package:** `test:package:build --verify-reproducible` from the clean candidate: `reproducible`
+  (run `run-mw2s2d5r`, 548 files). `test:package:smoke` run `run-mw2s5ai2`: `package-qualified`
+  at 2026-11-05T00:04Z on `primary@35.0.2` and `aio@34.0.5` from the same extracted archive,
+  post-qualification rehash ok, owned resources removed. `chorestrike.tar.gz` SHA-256
+  `3558a65a07b11283819b6f15d226ee8957afa6fcbaa9e2526a2bb561d0e8256e` (1,715,572 bytes), equal in
+  both runs.
+- The staged rows of `a42151` and `a4q2` are removed. Export approved by D-089-14.
