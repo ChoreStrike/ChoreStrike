@@ -1,6 +1,6 @@
 # CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-04; drafted 2026-11-04; implementation started 2026-11-04 on `fix/alpha4-round1`; candidate `1a4988f` qualified 2026-11-05, deployment open
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-04; drafted 2026-11-04; implementation started 2026-11-04 on `fix/alpha4-round1`; candidate `1a4988f` qualified and deployed 2026-11-05, record imported 2026-11-09; final completion review open
 > **Effort:** M — about 8–10 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.3` deployed on the retained baseline (done 2026-10-29); the operator's sanitized trial report of 2026-11-03; no schema change intended
@@ -440,8 +440,8 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 - [ ] The catch-up status and already agreed appointments still display; retained `manual_delta` entries still replay
 - [x] Operator GUI review recorded; its findings resolved or routed
 - [x] `0.8.0-alpha.4` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
-- [ ] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
-- [ ] `CHANGELOG.md`, README status/badge/caption, roadmap snapshot and documentation map name the new version
+- [x] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
+- [x] `CHANGELOG.md`, README status/badge/caption, roadmap snapshot and documentation map name the new version
 - [ ] Build gate green (`npm test` + lint + backend tests)
 - [ ] Required tests ran without new or unapproved skips
 - [ ] All implementation decisions and review questions resolved and recorded
@@ -597,3 +597,45 @@ record import and the final completion review.
 - **Handoff (D-089-14):** `master` `70cbfd2` pushed 2026-11-05, remote `checks` and CodeQL passed.
   Smoke run `run-mw2s5ai2` exported as `handoff-1a4988f60836-727e2f7f-2f83-4c11-aa3e-c72dd668b9d8`;
   archive and both manifests byte-identical with the qualified run.
+
+**Deployment record, 2026-11-05 (WP-F), imported 2026-11-09.** The plan stays active for the
+final completion review.
+
+- **Deployment:** the operator deployed on 2026-11-05: `0.8.0-alpha.3` → `0.8.0-alpha.4`,
+  maintenance about 40 seconds, ChoreStrike the only updated app, no migration executed, all
+  30 app tables and the app config (except `installed_version`) identical before and after,
+  production smoke reported as passed. AIO 14.4.3 was already in place: the operator had made
+  the platform step before this round, as the handoff asked. No new baseline adoption: the
+  installed build identity of the 2026-10-17 baseline is now `1a4988f`. Full record in
+  [deployment.md](../../engineering/deployment.md#update-to-080-alpha4-2026-11-05).
+- **Verification before import (2026-11-09):** the sanitized operator report was read in full
+  and holds no host, account, path or infrastructure detail. Its claims were checked
+  independently:
+  - Source commit is `1a4988f` and an ancestor of `master`; archive size and SHA-256 recomputed
+    from the local run `mw2s5ai2`; manifest and identity hashes equal in the report, the
+    exchange copy and the local run. The archive itself no longer lies in the exchange, which
+    the receiver's rules allow after processing.
+  - The 26 migration files of the package match Git at `1a4988f`, the pinned inventory
+    (`tests/migrations/applied-migrations.json`) and the table in the deployment guide, with
+    no further migration file.
+  - Package counts match the manifest: 548 files, 1132 source blobs, 315 directories
+    including the app root.
+  - `git diff 0142a38 1a4988f`: `appinfo/info.xml` changes only the version;
+    `appinfo/routes.php`, the Composer files and `lib/Migration/` are unchanged.
+  - The runtime row matches `docker/test-runtime.json` (AIO 14.4.3, Nextcloud 34.0.5); the
+    report's `34.0.5.1` is the four-part form of that release.
+  - Both fixes the report names are in the source at `1a4988f`: `updateDueDate()` catches
+    `ConflictException`, and `initializeScheduling()` reads the owner-only endpoint only for
+    house owners.
+- **Not verifiable from here, recorded as operator-reported:** the installation itself, the
+  table digests, the smoke and the server log. The smoke was reported as a whole, not item by
+  item. The log covers the first seven hours and shows no ChoreStrike entry at warning level or
+  above, so it proves neither fix and did not show the new `app` key.
+- **Noted, no action:** the app config stayed unchanged, so a stored `energy_max_per_task`
+  value, if the instance has one, stays in place without a reader. Whether one is stored was
+  not checked.
+- **Still open per the report:** the `dompurify` raise, which is on `master` since 2026-11-05
+  (RF-089-20) and reaches production with the next planned release; the real-device checklist
+  and HUMAN-01/02, owned by CS-PLAN-080.
+- **Public status:** the changelog section carries its dated heading; README, roadmap,
+  documentation map and the release test plan name the deployed version.

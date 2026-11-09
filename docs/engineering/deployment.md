@@ -195,7 +195,7 @@ migrations are immutable under the
 Disposable development installs and the canonical test environment (Nextcloud
 35.0.2 / PHP 8.4.27 / PostgreSQL 18.6, frozen in `docker/test-runtime.json`)
 stay disposable; they are neither retained data nor supported upgrade sources.
-The installed build on that baseline is `0.8.0-alpha.3` since 2026-10-29
+The installed build on that baseline is `0.8.0-alpha.4` since 2026-11-05
 ([updates](#updates-on-the-retained-baseline)).
 
 The production household has been non-disposable since the operator request of
@@ -287,6 +287,24 @@ WHERE o.completion_id IS NULL
   AND o.covered_by_completion_id IS NULL
   AND o.energy <> r.energy;
 ```
+
+#### Update to 0.8.0-alpha.4 (2026-11-05)
+
+| Item | Record |
+|------|--------|
+| Decision | Operator decision D-089-14 ([CS-PLAN-089](../plans/active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#decisions-recorded-operator-2026-11-04)): export of the qualified run after its package smoke. The operator deployed on 2026-11-05; the family trial continues on this version |
+| Source | `master` `1a4988f608368bc43603a3387d97617c4451e0ed` |
+| Artifact | `chorestrike.tar.gz`, 1715572 bytes, SHA-256 `3558a65a07b11283819b6f15d226ee8957afa6fcbaa9e2526a2bb561d0e8256e`; `package-manifest.json` `0387eb63e3c24c46fe4e2d9bc6ad95eb0fee5bb448d219f000f31696d8e5f82d`; `identity.json` `0ddea2a681fdc23d397bba91966efa5baa5e5ae8a8065ed5cc40f0bf358c3a48`; package smoke `mw2s5ai2` (`package-qualified`, NC 35.0.2 and AIO NC 34.0.5) |
+| Receiver checks | Operator-reported: all sizes and hashes matched; full in-memory archive validation before extraction (no links, traversal or duplicates; 548 file hashes and 1132 source blob comparisons); all 548 files re-verified at the install location after the upgrade. 315 directories, as for `0.8.0-alpha.3` |
+| Installed version | `0.8.0-alpha.3` → `0.8.0-alpha.4` as reported by Nextcloud; app enabled, no pending database upgrade |
+| Runtime | AIO 14.4.3 was already in place: the operator had updated the platform through the supported AIO flow before this round, with ChoreStrike still enabled at `0.8.0-alpha.3`; no separate browser check of that intermediate state was recorded. Nextcloud 34.0.5 (reported as `34.0.5.1`), PHP 8.4.27, PostgreSQL 18.6, Redis 8.10.2 — the inventory's AIO row |
+| Upgrade | No enabled app had a pending App Store update, at the pre-check and again inside the window. Files replaced under maintenance mode (about 40 seconds) with writers paused, then `occ upgrade`: only ChoreStrike updated, no repair warnings; enabled/disabled app list otherwise unchanged. App metadata differs from `0.8.0-alpha.3` only in the version; routes and Composer files are unchanged |
+| Migrations | The 26 applied migrations above, unchanged and none executed; the package carries the same 26 files byte-identically (26 of 26 by order and SHA-256 against the package, Git at `1a4988f` and the pinned inventory) |
+| Data preservation | All 30 app tables (row counts and content digests) and the app config except `installed_version` identical before and after |
+| Technical evidence | Candidate gates in [CS-PLAN-089](../plans/active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome): full gates on both runtime rows plus the MySQL/SQLite provider suites, final Full review `PASS-WITH-FIXES`; remote `checks` and CodeQL passed on `master` `70cbfd2` |
+| Smoke | Operator production browser smoke passed 2026-11-05, reported as a whole and not as itemized evidence ([post-deployment verification](#post-deployment-verification)) |
+| Server log | Read-only check of the first seven hours after the update: no ChoreStrike warning or error, no HTTP 500, cron ran normally. A quiet log does not prove the fixes for the two defects of the previous update (BUG-UX-011, TECH-LOG-001), because neither path has to have occurred; the new `app` key was not observed either, since the app wrote no entry at warning level or above |
+| Recovery | Current whole-instance backup taken on this platform version; established recovery procedure confirmed, no new restore test. Recovery from here is a whole-instance restore, never an app downgrade; tasks saved above 5 energy are new persisted facts such a restore would lose |
 
 #### Update to 0.8.0-alpha.3 (2026-10-29)
 
@@ -535,16 +553,22 @@ sign-off record. **A release tag requires a completed record.**
 
 ## Post-Deployment Verification
 
-Operator-reported smoke of the deployed `0.8.0-alpha.3` (2026-10-29), after the
-`0.8.0-alpha.2` smoke of 2026-10-19, the `0.8.0-alpha.1` smoke of 2026-10-17 and
-the initial smoke of 2026-10-11: the checks below are manual reports, not
-independent server verification, reported as a whole rather than itemized;
-console/CSP checks and 403 probes were not recorded separately. 2026-10-29,
+Operator-reported smoke of the deployed `0.8.0-alpha.4` (2026-11-05), after the
+`0.8.0-alpha.3` smoke of 2026-10-29, the `0.8.0-alpha.2` smoke of 2026-10-19,
+the `0.8.0-alpha.1` smoke of 2026-10-17 and the initial smoke of 2026-10-11: the
+checks below are manual reports, not independent server verification, reported
+as a whole rather than itemized; console/CSP checks and 403 probes were not
+recorded separately. 2026-11-05, phone and desktop, with the handoff's list as
+the checklist: My Day signed in as a child with its own tasks, the one task row,
+the *Longer task* option, *Next appointments* under *My tasks*, renaming a room
+in Settings and a long view that reaches its end in both themes — no failure
+reported, so no API error code; whether a refused change occurred, and so
+whether its new message was seen, is not known. 2026-10-29,
 phone and desktop: My Day including *Also possible today*, task completion with
 the hold button, creating a task from a filtered Tasks view, "Last done on" on a
 room task, renaming a room and a form dialog that stays open on an outside
-click — no failure toast, so no API error code. Ticks the 2026-10-29 smoke did
-not re-check carry the earlier results on the same instance: 2026-10-19 (the
+click — no failure toast, so no API error code. Ticks that neither of these two
+smokes re-checked carry the earlier results on the same instance: 2026-10-19 (the
 calendar, Insights on a phone and the arcade) and 2026-10-17 (fresh private
 browser window, cold login, dashboard, settings and the remaining views; the
 member-completion failure of 2026-10-11 did not reproduce). Optional
@@ -562,7 +586,7 @@ release gate.
 - [x] User management works (invite, remove)
 - [x] Nextcloud cron runs regularly (normally every five minutes); timeline and optional digest processing are operational, not dependent on page visits
 - [ ] Test mode remains disabled; no test accounts, seeds or fixture resets were introduced
-- [ ] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — read-only check of 2026-10-29 to 2026-11-03 on `0.8.0-alpha.3`: one level-3 `Controller action failed` on a refused due-date change (BUG-UX-011) and two level-2 `Owner role required` entries from *Scheduling* (TECH-LOG-001), both due in the next version; the recurring `ChoreStrikeNotifier::prepare()` deprecation warning of `0.8.0-alpha.1` no longer appears since `0.8.0-alpha.2`. Known and harmless: one level-2 `cron.php` entry a few minutes after any `occ upgrade` on AIO, `Skipping updater backup clean-up - could not find updater backup folder …` — the core repair step `AddCleanupUpdaterBackupsJob` queues `BackgroundCleanupUpdaterBackupsJob` on every upgrade and AIO has no web-updater backup folder (Nextcloud `stable34`); it also shows that background jobs ran after the maintenance window
+- [x] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`) — read-only check of the first seven hours after the 2026-11-05 update to `0.8.0-alpha.4`: no ChoreStrike warning or error and no HTTP 500. Both defects of the earlier check are fixed in this version, which a quiet log over seven hours does not prove. Earlier, read-only check of 2026-10-29 to 2026-11-03 on `0.8.0-alpha.3`: one level-3 `Controller action failed` on a refused due-date change (BUG-UX-011) and two level-2 `Owner role required` entries from *Scheduling* (TECH-LOG-001), both due in the next version; the recurring `ChoreStrikeNotifier::prepare()` deprecation warning of `0.8.0-alpha.1` no longer appears since `0.8.0-alpha.2`. Known and harmless: one level-2 `cron.php` entry a few minutes after any `occ upgrade` on AIO, `Skipping updater backup clean-up - could not find updater backup folder …` — the core repair step `AddCleanupUpdaterBackupsJob` queues `BackgroundCleanupUpdaterBackupsJob` on every upgrade and AIO has no web-updater backup folder (Nextcloud `stable34`); it also shows that background jobs ran after the maintenance window
 
 On AIO an unprivileged host account cannot read the server log, so this check
 needs the operator or an explicitly approved read inside the Nextcloud

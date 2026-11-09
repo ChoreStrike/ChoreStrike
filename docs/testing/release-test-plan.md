@@ -343,12 +343,12 @@ request; see the deployment guide. Do not reset the instance to obtain evidence.
 
 The canonical [family acceptance protocol](../concepts/ui-use-cases.md#family-acceptance-protocol)
 defines this gate. The following is its execution record, not a competing
-protocol and not evidence of participation. **Current status (2026-11-04):
+protocol and not evidence of participation. **Current status (2026-11-09):
 coordination authorized, guardian consent and minimum adult/child voluntary
 participation confirmed (2026-10-07); the trial candidate on the retained family
-instance was `0.8.0-alpha.2` from 2026-10-19 and is `0.8.0-alpha.3` since
-2026-10-29; no execution results recorded yet. HUMAN-01 and HUMAN-02 remain
-open.**
+instance was `0.8.0-alpha.2` from 2026-10-19, `0.8.0-alpha.3` from 2026-10-29
+and is `0.8.0-alpha.4` since 2026-11-05; no execution results recorded yet.
+HUMAN-01 and HUMAN-02 remain open.**
 Automation cannot replace them; authorization does not start the 14-day clock.
 
 Start only after technical readiness and separately authorized coordination:
@@ -380,7 +380,11 @@ agreed retention limits. Do not add telemetry or engagement/pressure scores.
   since 2026-10-29 `0.8.0-alpha.3` (`0142a38`, package run `mvsq7gf7`) on
   Nextcloud 34.0.5 / PHP 8.4.27 / PostgreSQL 18.6 / Redis 8.10.2 —
   [installed identity](../engineering/deployment.md#update-to-080-alpha3-2026-10-29),
-  [candidate gates](../plans/done/cs-plan-088-alpha3-feedback-round.md#wp-d-evidence-release-candidate-2026-10-28).
+  [candidate gates](../plans/done/cs-plan-088-alpha3-feedback-round.md#wp-d-evidence-release-candidate-2026-10-28);
+  since 2026-11-05 `0.8.0-alpha.4` (`1a4988f`, package run `mw2s5ai2`) on the
+  same runtime at AIO 14.4.3 —
+  [installed identity](../engineering/deployment.md#update-to-080-alpha4-2026-11-05),
+  [candidate gates](../plans/active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome).
   CS-PLAN-082 supplies renewed runtime qualification, not proof of what is
   installed for this trial. Do not run fixture resets against a trial instance.
 - [x] Confirm the trial environment and data boundary: the retained family

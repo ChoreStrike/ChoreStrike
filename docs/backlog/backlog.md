@@ -1267,7 +1267,7 @@ build and test chains:
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (`0.8.0-alpha.3` deployed 2026-10-29 and its CS-PLAN-088 slice finished; CS-PLAN-089 activated for the alpha.4 slice; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its record imported 2026-11-09; the CS-PLAN-089 slice awaits its final completion review; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
 **Owning**: CS-PLAN-089 WP-F (alpha.4 release slice only); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
@@ -1349,6 +1349,15 @@ Q-088-03/04 select full-sign-off-gated alpha.2/alpha.3 tags and deployment-dated
 changelog sections as policy, not permission to publish or deploy. The operator
 retains those task-specific approvals; completing the bundle does not close
 this whole item or CS-PLAN-080's family evidence.
+
+**Deployment `0.8.0-alpha.4` (2026-11-05):** qualified in
+[CS-PLAN-089](../plans/active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome)
+and deployed by the operator as an app update on the retained baseline
+([record](../engineering/deployment.md#update-to-080-alpha4-2026-11-05)): verified
+package identity, unchanged 26-migration inventory, all app tables preserved, other
+apps unaffected, production smoke reported as passed. The plan's slice ends with its
+final completion review, which closes neither this item nor CS-PLAN-080's family
+evidence.
 
 ---
 

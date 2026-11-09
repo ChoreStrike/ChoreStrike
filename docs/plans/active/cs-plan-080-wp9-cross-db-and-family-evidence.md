@@ -411,6 +411,17 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
 
 ## Implementation Evidence
 
+### Deployment 0.8.0-alpha.4 (2026-11-05)
+
+- **Deployed (operator, 2026-11-05):** `0.8.0-alpha.4` (`1a4988f`, package run
+  `mw2s5ai2`) on the production AIO at AIO 14.4.3 / Nextcloud 34.0.5; no migration
+  executed, all 30 app tables preserved, production smoke reported as passed. The
+  family trial continues on this version. Record:
+  [deployment.md](../../engineering/deployment.md#update-to-080-alpha4-2026-11-05);
+  candidate and verification:
+  [CS-PLAN-089](cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome).
+  The report lists the real-device checklist and HUMAN-01/02 as still open.
+
 ### Deployment 0.8.0-alpha.3 (2026-10-29)
 
 - **Deployed (operator, 2026-10-29):** `0.8.0-alpha.3` (`0142a38`, package run

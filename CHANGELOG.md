@@ -41,13 +41,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `@nextcloud/axios` 2.6, `@nextcloud/router` 3.2 and the build and test tooling
   within their major versions. Major updates stay open as TECH-DEPS-001.
 
-### App Version 0.8.0-alpha.4 — Everyday Fixes (candidate, 2026-11-04)
+## [0.8.0-alpha.4] - 2026-11-05
 
-The defects and everyday fixes from the second feedback round of the family
-trial; the app metadata moves from `0.8.0-alpha.3` to `0.8.0-alpha.4` so the
-update is detected. No schema or migration change: the 26 migrations of the
-retained baseline stay unchanged. This section gets its own dated version
-heading once the deployment is verified.
+### Everyday Fixes
+
+Deployed on 2026-11-05 as an app update on the retained baseline; the family
+trial continues on it. The defects and everyday fixes from the second feedback
+round of the family trial; the app metadata moves from `0.8.0-alpha.3` to
+`0.8.0-alpha.4` so the update is detected. No schema or migration change: the
+26 migrations of the retained baseline stay unchanged.
 
 - **Energy is the only effort measure:** one energy stands for about ten
   minutes, and a task takes 1 to 20. The task dialog shows bolts with their
