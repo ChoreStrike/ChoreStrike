@@ -40,7 +40,7 @@ below.)*
 
 ### [P2] FEAT-UX-040 — One task form for new and edit: recurrence, layout and controls
 **Status**: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-24/26; needs operator feedback on design variants before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
-**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: same mask for New Task and Edit Task with assignees and room (operator, 2026-10-26, CS-PLAN-088 feedback register #11); sub-tasks, assigned members, room picker and mode naming (operator, 2026-11-03, CS-PLAN-089 feedback register)
+**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: same mask for New Task and Edit Task with assignees and room (operator, 2026-10-26, CS-PLAN-088 feedback register #11); sub-tasks, assigned members, room picker and mode naming (operator, 2026-11-03, CS-PLAN-089 feedback register); first date, read-only next window, sleeping and bonus switches (operator, 2026-11-09, CONCEPT-002)
 **Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #4
 
 In create mode the form opens with "Start from Template" and a "Repeat" preset
@@ -85,6 +85,13 @@ trial closes first (D-089-06).
 - [ ] The mode names read clearly. Flex days already work in both modes (T-4
       needs no new behavior), but a mode called "Flexible" suggests otherwise.
 
+**Folded in 2026-11-09 (operator, CONCEPT-002):** the form shows the next window
+read-only, derived from *Last done* (or the first date of a new task, which stays
+editable) and the rhythm. A fixed day offers a weekday or a day of the month. It
+gains the switches for sleeping and bonus tasks. Adults and the owner edit;
+children do not. The mockups under family review are the variants step of this
+item. Detail: [simplified core](../concepts/simplified-core.md#due-windows).
+
 Sequencing: land it after BUG-UX-001, FEAT-UX-038 and FEAT-UX-039 so the new
 layout is not built twice; show its mockup together with the template picker
 of FEAT-UX-043.
@@ -93,7 +100,7 @@ of FEAT-UX-043.
 
 ### [P2] FEAT-UX-041 — Allow completing work before its window opens
 **Status**: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: operator decision of 2026-11-09 (CONCEPT-002)
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #6
 
 Work is completable only inside its occurrence window. Before the window opens
@@ -111,10 +118,13 @@ done at once while its streak step waits for the planned day
 [rewards](../concepts/gamification-and-rewards.md)). What is missing is a
 completion target before the window.
 
-- [ ] Decide: early completion on by default; restriction by an owner house
+- [x] Decide: early completion on by default; restriction by an owner house
       setting, by role (children not early), or both; only the next occurrence;
       for a fixed cadence the occurrence counts as done early and the cadence
-      stays.
+      stays. **Decided (operator, 2026-11-09, CONCEPT-002):** always possible for
+      everyone, without an owner option or a child restriction, except on the
+      same local day as the previous completion of that task
+      ([simplified core](../concepts/simplified-core.md#due-windows)).
 - [ ] Decide the classification and rewards of early work (on time or its own
       class; energy and coins unchanged; streak step on the planned day per C1;
       day-capacity accounting).
@@ -395,7 +405,7 @@ templates today).
 
 ### [P2] FEAT-UX-050 — Postpone, direct handover and no separate details view
 **Status**: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
-**Owning**: unassigned · **Depends on**: CS-PLAN-080, FEAT-UX-040, FEAT-UX-051 · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: CS-PLAN-080, FEAT-UX-040, FEAT-UX-051 · **Blocks**: — · **Folded-in**: operator decisions of 2026-11-09 (CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-6, G-4, G-5, G-6
 
 For tasks with flex days, *Postpone* moves the due date one day later per press, up
@@ -414,6 +424,14 @@ to* becomes a direct button. The separate details view may then go.
 - **Details view:** it can go once *Restart the linked interval work on* has a home,
   for example a conditional row button; the feedback did not list that action, and
   without it paused interval tasks have no restart.
+
+**Folded in 2026-11-09 (operator, CONCEPT-002):** the postpone rule changes. Every
+member may postpone, children included, which widens D-089-03: up to three times per
+cycle, each press by half the flex days, rounded up. Due windows become derived state
+and the catch-up entries go, so *Move this occurrence to* and the missed-occurrence
+target disappear with them. Whether *Restart* and the single-cycle handover are still
+needed is for the owning plan to settle. Detail:
+[simplified core](../concepts/simplified-core.md#due-windows).
 
 - [ ] ADR-013, the task-model concept and the API reference describe postponement
       before code.
@@ -469,6 +487,12 @@ move it to another date, which is new.
   own audited correction kind.
 - **Most recent entry:** editing it recalculates the next due date. Undo already does;
   a moved date re-anchors an interval's successor, and a fixed cadence stays.
+
+**Folded in 2026-11-09 (operator, CONCEPT-002):** the rights widen. Every member may
+change the date of, or delete, their own latest entry of a task; the owner may correct
+every entry. Correcting the last date is also the way to move a task, because the next
+window is no longer edited directly. Detail:
+[simplified core](../concepts/simplified-core.md#people-and-rights).
 
 - [ ] ADR-014 and the concepts describe the date correction before code.
 - [ ] History view per task, reachable from the one form (FEAT-UX-040).
@@ -579,7 +603,7 @@ it reads the existing occurrence history.
 
 ### [P3] FEAT-UX-059 — Planned date and scheduler rules
 **Status**: Backlog (later, D-089-01; the operator wants the scheduler discussed separately) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
-**Owning**: unassigned · **Depends on**: FEAT-UX-050 · **Blocks**: — · **Folded-in**: refused assignments and date moves after creation (operator decision, 2026-11-04)
+**Owning**: unassigned · **Depends on**: FEAT-UX-050 · **Blocks**: — · **Folded-in**: refused assignments and date moves after creation (operator decision, 2026-11-04); live suggestion, preferred days and team placement (operator, 2026-11-09, CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-7
 
 The report proposes a separate *scheduled* date per task, set by the scheduler and allowed
@@ -594,7 +618,15 @@ Overbooking belongs here too (D-089-13). A day may be overbooked when a task is 
 a later assignment or date move is refused at a person's budget or a child's limit, and with
 energy up to 20 a task can exceed a whole weekday. The operator wants both reworked together.
 
-- [ ] Scheduler discussion with the operator; the decision recorded before a plan.
+**Folded in 2026-11-09 (operator, CONCEPT-002):** the scheduler discussion took place.
+The planner becomes a live suggestion on *Today* and in the calendar, computed on read
+and never applied. It honours a new per-member setting for preferred days, recalculates
+after every change and places team tasks by the responsible person alone. Capacity then
+shapes the suggestion instead of refusing (proposed). Detail:
+[simplified core](../concepts/simplified-core.md#scheduler).
+
+- [x] Scheduler discussion with the operator; the decision recorded before a plan
+      (2026-11-09, [simplified core](../concepts/simplified-core.md#scheduler)).
 - [ ] The refusals after creation become a visible overload, or stay with a stated reason.
 
 ---
@@ -850,6 +882,38 @@ not close parent findings or replace WP9 evidence.
 - [x] Specify technical cross-contract draft, exact file/test manifest, work-package owners/dependencies and estimates (2026-09-18; not implementation approval).
 - [x] Resolve Q-070-01/02 explicitly and have Standard A accept the integrated design before activation (2026-09-18: tombstone retention + account erasure; Standard A `PASS-WITH-FIXES`).
 - [ ] Resolve the plan's findings or explicitly rescope to named owners before completion.
+
+---
+
+### [P1] CONCEPT-002 — Simplified core target picture
+**Status**: In Progress — draft recorded 2026-11-09; operator confirmation and the release plans are open · **Effort**: XL implementation (the target picture was M) · **Layer**: docs+backend+frontend · **Journey stage**: product definition
+**Owning**: unassigned · **Depends on**: — · **Blocks**: FEAT-UX-040, FEAT-UX-041, FEAT-UX-050, FEAT-UX-052, FEAT-UX-059 · **Folded-in**: —
+**Source**: Operator feedback at the close of the family trial (2026-11-09)
+
+The operator's feedback after the trial goes beyond the planned Round 2 (D-089-01). It
+replaces agreed appointments with derived due windows, requests with trust, and the applied
+plan with a live suggestion. [`simplified-core.md`](../concepts/simplified-core.md) is the
+target picture and the decision record. It changes recorded contracts (ADR-012, ADR-013,
+ADR-014, calm core UX), so each of its three releases needs its own plan, a Standard A review
+and a superseding ADR before code. Until then the shipped contracts stay binding.
+
+The decisions are folded into the items that already own a topic (FEAT-UX-040, FEAT-UX-041,
+FEAT-UX-050, FEAT-UX-052, FEAT-UX-059). The other Round 2 items (FEAT-UX-043, FEAT-UX-051,
+FEAT-UX-053, FEAT-UX-054) keep their content, and the release plans slot them. Round 3 is not
+affected. The topics below have no item yet and stay here until a release plan takes them:
+
+- Navigation: *Today* merges My Day and the Dashboard; tasks grouped by room replace the room
+  page; denser lists and Insights.
+- Absence as a plain period for everyone, replacing pause requests and reasons.
+- Sleeping tasks and bonus tasks.
+- A coin factor per member and bonus days (amends ADR-014).
+- Overdue as one red entry per task; the catch-up entries go.
+- Feedback defaults: animation on, sound as an opt-in.
+
+- [x] Operator decisions of 2026-11-09 recorded in the concept.
+- [ ] Mockups reviewed with the family; the operator confirms the target picture.
+- [ ] The concept's open points are settled in the owning plans.
+- [ ] Plans for the releases A, B and C drafted, each with Standard A.
 
 ---
 

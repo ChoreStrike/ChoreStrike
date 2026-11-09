@@ -443,6 +443,12 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   record then names the version in use. Still open and owned by the operator: the
   real-device checklist (RF-080-15, TECH-TEST-005), HUMAN-01 comprehension and the
   14-day HUMAN-02 record (RF-080-05), then the final review.
+- **Trial close (operator, 2026-11-09):** the operator closes the family trial and
+  takes the feedback of that day as its product result; it is recorded in the
+  [simplified-core concept](../../concepts/simplified-core.md) (CONCEPT-002). The
+  decision records no HUMAN-01/02 evidence. The real-device checklist (RF-080-15) and
+  the comprehension and 14-day records (RF-080-05) are still open, and how this plan
+  closes without or with them is a separate decision.
 
 ### Deployment 0.8.0-alpha.2 (2026-10-19)
 
