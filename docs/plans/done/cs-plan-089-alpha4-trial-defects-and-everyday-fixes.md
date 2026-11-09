@@ -1,10 +1,10 @@
 # CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-04; drafted 2026-11-04; implementation started 2026-11-04 on `fix/alpha4-round1`; candidate `1a4988f` qualified and deployed 2026-11-05, record imported 2026-11-09; final completion review open
+> **Status:** Done - final Standard B `PASS-WITH-FIXES` 2026-11-09; final Full review of the implementation `PASS-WITH-FIXES` 2026-11-04; Standard A `PASS-WITH-FIXES` 2026-11-04; `0.8.0-alpha.4` (candidate `1a4988f`) deployed 2026-11-05, [record](#review-outcome) imported 2026-11-09
 > **Effort:** M — about 8–10 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P2
 > **Depends on:** `0.8.0-alpha.3` deployed on the retained baseline (done 2026-10-29); the operator's sanitized trial report of 2026-11-03; no schema change intended
-> **Related backlog items:** WP-0 TECH-RUNTIME-003 · WP-A BUG-UX-008, BUG-UX-009, BUG-UX-010, BUG-UX-011, BUG-UX-013, TECH-LOG-001 · WP-B FEAT-UX-046 · WP-C FEAT-UX-047 · WP-D FEAT-UX-048 · WP-E FEAT-UX-049, BUG-UX-012 · WP-F RELEASE-002 (alpha.4 slice) · **not in scope:** Round 2, Round 3 and later items of the [register](#feedback-register-sanitized); TECH-TEST-005 and CONCEPT-001 (owned by [CS-PLAN-080](cs-plan-080-wp9-cross-db-and-family-evidence.md))
+> **Related backlog items:** WP-0 TECH-RUNTIME-003 · WP-A BUG-UX-008, BUG-UX-009, BUG-UX-010, BUG-UX-011, BUG-UX-013, TECH-LOG-001 · WP-B FEAT-UX-046 · WP-C FEAT-UX-047 · WP-D FEAT-UX-048 · WP-E FEAT-UX-049, BUG-UX-012 · WP-F RELEASE-002 (alpha.4 slice) · **not in scope:** Round 2, Round 3 and later items of the [register](#feedback-register-sanitized); TECH-TEST-005 and CONCEPT-001 (owned by [CS-PLAN-080](../active/cs-plan-080-wp9-cross-db-and-family-evidence.md))
 
 ## 1. Problem Summary
 
@@ -107,7 +107,7 @@ plans from the backlog.
   progress is reset.
 - **D-089-06 Family trial:** it closes before Round 2 starts, because Round 2 changes
   the flows it evaluates. Round 1 may ship while it runs (recorded in
-  [CS-PLAN-080](cs-plan-080-wp9-cross-db-and-family-evidence.md#deployment-080-alpha3-2026-10-29)).
+  [CS-PLAN-080](../active/cs-plan-080-wp9-cross-db-and-family-evidence.md#deployment-080-alpha3-2026-10-29)).
 
 - **D-089-10 Sixth defect (operator 2026-11-04):** D-6 joins Round 1 and comes first. The
   child limit caps only what My Day offers: own tasks always stay visible, and unassigned
@@ -428,28 +428,28 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 
 ## 8. Acceptance Criteria
 
-- [ ] Every item of Round 1 delivered with its tests, or explicitly user-rescoped with recorded approval and backlog state updated; no still-required deferred test
-- [ ] Feedback register: every entry routed (Round 1 delivered, backlog ID, or closed with a reason); no open P0 or P1
-- [ ] No schema or migration change; the 26 applied migrations stay pinned and `estimated_minutes` keeps its column
-- [ ] `npm run test:runtime:check` reports `current` at the freeze
-- [ ] The app frame keeps equal margins on the desktop viewport, and the end of a long view is reachable, on both runtime rows
-- [ ] A child's own tasks stay on My Day above the daily limit; the limit caps only unassigned rows
-- [ ] Refused due-date and assignee changes answer 409 with their reason, shown in the dialog, without an error-level log entry; a partly applied save says what was saved
-- [ ] Energy accepts 1–20 on every path; existing tasks, frozen occurrences and earlier payouts are unchanged; the concept states 1 energy ≈ 10 minutes
-- [ ] One task row on My Day, Tasks and room views, in both themes and on both viewports
-- [ ] The catch-up status and already agreed appointments still display; retained `manual_delta` entries still replay
+- [x] Every item of Round 1 delivered with its tests, or explicitly user-rescoped with recorded approval and backlog state updated; no still-required deferred test
+- [x] Feedback register: every entry routed (Round 1 delivered, backlog ID, or closed with a reason); no open P0 or P1
+- [x] No schema or migration change; the 26 applied migrations stay pinned and `estimated_minutes` keeps its column
+- [x] `npm run test:runtime:check` reports `current` at the freeze
+- [x] The app frame keeps equal margins on the desktop viewport, and the end of a long view is reachable, on both runtime rows
+- [x] A child's own tasks stay on My Day above the daily limit; the limit caps only unassigned rows
+- [x] Refused due-date and assignee changes answer 409 with their reason, shown in the dialog, without an error-level log entry; a partly applied save says what was saved
+- [x] Energy accepts 1–20 on every path; existing tasks, frozen occurrences and earlier payouts are unchanged; the concept states 1 energy ≈ 10 minutes
+- [x] One task row on My Day, Tasks and room views, in both themes and on both viewports
+- [x] The catch-up status and already agreed appointments still display; retained `manual_delta` entries still replay
 - [x] Operator GUI review recorded; its findings resolved or routed
 - [x] `0.8.0-alpha.4` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
 - [x] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
 - [x] `CHANGELOG.md`, README status/badge/caption, roadmap snapshot and documentation map name the new version
-- [ ] Build gate green (`npm test` + lint + backend tests)
-- [ ] Required tests ran without new or unapproved skips
-- [ ] All implementation decisions and review questions resolved and recorded
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
-- [ ] Owning backlog items updated or archived according to their actual completion state
-- [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
-- [ ] Final Full review is `PASS` or `PASS-WITH-FIXES` (the round touches controllers and refusal paths)
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] Build gate green (`npm test` + lint + backend tests)
+- [x] Required tests ran without new or unapproved skips
+- [x] All implementation decisions and review questions resolved and recorded
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
+- [x] Owning backlog items updated or archived according to their actual completion state
+- [x] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
+- [x] Final Full review is `PASS` or `PASS-WITH-FIXES` (the round touches controllers and refusal paths)
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated
 
 ## 9. Review Findings (plan-owned)
 
@@ -477,6 +477,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-089-17 (major) - Qualification, primary gate `run-HNGxIN` on `fed3bd0`: the pause scenario in `calm-core-ui.spec.ts` carried fixed dates, so it had to fail from 2026-11-04 on: the server rightly never cuts today, and the end date had arrived. The product is correct. The dates now follow the clock, with a day of margin for every house time zone.
 - [x] RF-089-18 (minor) - Qualification, same run: `3-floor-house.spec.ts` read the floors with the default 5 s while the rest of the journey waits 10 to 30 s. The final page held the expected heading, so the view was right and only late. It waits 15 s now.
 - [x] RF-089-19 (minor) - Qualification, same run: eight seeds ended in `fetch failed` without reaching the server, in two windows of a host slowdown (API median 1.7 s against 0.26 s minutes later) while another project's containers restarted on the same Docker Desktop. Closed by observation, not by a root cause: the mechanism stays unproven. A stale keep-alive socket behind the blocking target check was tested and refuted (POST after a 7 s and a 9 s block, three times each, over `127.0.0.1` and `localhost`), AJAX cron is excluded. Two full gates on the new candidate ran clean, at about 35 test minutes each. The fixture now keeps the socket-level reason, so a recurrence names it and is analysed from there.
+- [x] RF-089-21 (minor) - Tracking, final review: three acceptance boxes of delivered items were still open in `backlog.md`: the browser pin and the recaptured screenshots of BUG-UX-009, and both boxes of TECH-RUNTIME-003. All three are met: `layout-clearance.spec.ts` ran in the full gates of both rows on the candidate, `fed3bd0` recaptured the screenshots, and `e6039b0` promoted the inventory, with the check `current` at the freeze. Verified and archived with the other owning items.
 - [x] RF-089-20 (minor) - Release: the `0.8.0-alpha.3` handoff moved a bundled dependency update to this round, and it was neither planned nor tracked here. The update is Dependabot PR #5, the same for the deployed and the exported package. The bundled callers use default options and no hooks, so the affected options are not reached. First step after the deployment (D-089-15). Done 2026-11-05 on `chore/deps-2026-11`: `dompurify` 3.4.17 on `master`, with the lockfile patches of PRs #6, #7 and #10 and `body-parser` 2.4.0. It reaches production with the next planned release; the deployed `0.8.0-alpha.4` keeps 3.4.16 until then.
 
 ## Feedback Register (sanitized)
@@ -639,3 +640,37 @@ final completion review.
   and HUMAN-01/02, owned by CS-PLAN-080.
 - **Public status:** the changelog section carries its dated heading; README, roadmap,
   documentation map and the release test plan name the deployed version.
+
+**Final Standard B, 2026-11-09: PASS-WITH-FIXES.** Final review; the plan moves to `done/`.
+
+- **Scope:** the whole plan on branch `docs/alpha4-deployment-record`, base HEAD
+  `32a479cf4f41f560182cf68234240da5f20a2ec9`, clean index and worktree. A clean tree proves
+  nothing about completion, so the review covered the manifest, tests, criteria, findings,
+  register, owning backlog items, durable docs and history.
+- **Tier:** Standard B. The implementation had its Full review on 2026-11-04, which is the
+  Full review §8 asks for. After its fixes (`9b36a53`) only the screenshots (`fed3bd0`) and
+  three browser-test files (`1a4988f`) changed up to the candidate: nothing under `lib/`,
+  `src/`, `appinfo/`, `templates/` or `l10n/`.
+- **Finding:** RF-089-21, a tracking finding, fixed (§9). No architecture, authorization,
+  input, logging or i18n finding in the delta.
+- **Verified:** all 77 manifest entries exist at the candidate and both removed files are gone;
+  three listed files needed no change (`testTarget.spec.js` and the two help components, which
+  hold nothing stale). All 33 named test files are present. RF-089-01..21 resolved. Register:
+  36 entries routed, no P0 or P1. No migration file changed since `0142a38`. Durable docs carry
+  the delivered behavior: the energy and task-model concepts, the API reference (409 refusals,
+  last-done on every cadence, the child limit, `obligatedUserIds`), the user guide, the UI
+  use cases, the logging guideline, the architecture overview and the deployment guide.
+- **Not this plan's deliverable:** the later commits on `master` (BUG-UX-014, the dependency
+  updates, the reviewer adapter). They carry their own reviews and ship with the next planned
+  release.
+- **Decisions:** none new; no question is open.
+- **Gates:** Jest 162 suites / 2302 tests, `npm run lint`, `backlog:check`, `docs:encoding`,
+  `agents:check`, `git diff --check`. This review changed documentation only, so PHPUnit (unit
+  1549 and integration 655 on four rows, matrix `a4q2`), the browser gates `run-OYBZLq` and
+  `run-oOIqOq` and package smoke `mw2s5ai2` of the candidate stay the evidence and were not
+  rerun.
+- **Transition:** `active/` to `done/`; the twelve owning backlog items archived; RELEASE-002
+  keeps its later stages. The records of run `mw2s5ai2` are kept in the local
+  `archive/2026-11/package-run-mw2s5ai2/`; the release worktree and its merged branch go with
+  this closure. Record:
+  [2026-11-09 review](../../backlog/archive/CODE_REVIEW_2026-11-09.md#final-standard-b---cs-plan-089-alpha4-trial-defects-and-everyday-fixes).

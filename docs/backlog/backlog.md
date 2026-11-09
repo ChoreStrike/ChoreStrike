@@ -149,105 +149,6 @@ and the payload/time-zone helpers.
 
 ---
 
-### [P2] BUG-UX-008 — Recurrence label reads "Daily" for every day interval
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: task overview
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register D-1
-
-`frequencyLabel()` in `src/utils/taskDisplay.js` ignores `frequencyValue` in its
-`daily` branch, while `weekly` and `monthly` handle n > 1. The form preview
-already uses the translated `Every {n} days`.
-
-- [x] Task lists show `Every {n} days` for n > 1.
-- [x] Regression test in `taskDisplay.spec.js`.
-
----
-
-### [P2] BUG-UX-009 — Nested `#content` breaks the app frame
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: frontend · **Journey stage**: every view
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register D-2
-
-`templates/main.php` renders a second `#content` inside the one from Nextcloud's
-`layout.user.php`, so the core rule (`position: fixed`, margins, width, height)
-applies twice. The frame keeps a gap on the left but reaches the right window
-edge, and it extends below the visible area. 44 px stay unused under the header and
-the last 36 px of every scroll area never come into view (44 px on a phone), as the
-browser test confirmed before the fix.
-
-- [x] The app template keeps only its mount element; `NcContent` positions itself,
-      and core's hidden page heading stays.
-- [ ] `layout-clearance.spec.ts` pins equal margins, the top edge and a reachable
-      end of a long view on both viewports; the primary row passes, the AIO row follows
-      with the candidate.
-- [ ] Documentation screenshots recaptured.
-
----
-
-### [P2] BUG-UX-010 — Selects clip their value in the settings
-**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: S · **Layer**: frontend · **Journey stage**: settings
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register D-3
-
-A dark area partly covers the value of *Settings → Timezone*. Core fixes the height of
-a `<select>`, and `.text-input` adds 12 px block padding, which left 11.5 px for a
-17.1 px line in three selects; the task dialog was short too. A `background` shorthand
-also removed core's dropdown arrow in eight components.
-
-- [x] Reproduced first, in the browser.
-- [x] No select clips its value: one rule on the body, because dialogs are teleported.
-- [x] Browser assertion for Settings and the task dialog.
-
----
-
-### [P2] BUG-UX-011 — Refused due-date and assignee changes answer 500; the dialog saves partly
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task editing
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Deployment report for `0.8.0-alpha.3`, server log 2026-11-01, CS-PLAN-089 register D-4
-
-`RoomTaskController::updateDueDate()` and `setAssignees()` do not catch
-`ConflictException`, so every refusal becomes a 500 with an error-level log entry:
-the passed amendment deadline, the child day limit, a stale target.
-`TaskController::update()` has the same gap. `bulkAssign()` has none: its service
-counts a refused item as skipped.
-`RoomTaskEditModal.save()` writes "Last done on" and the due date as two
-transactions, so the reported save stored the first and failed on the second,
-behind a generic toast. The refusal itself is right (ADR-013): the dialog and the
-writer use the oldest open occurrence, which was already missed. A trace of the
-case also shows that the documented refusal of "Last done" while overdue runs only
-for an interval, not for a fixed cadence (D-088-20, API reference, service docblock).
-
-- [x] The three actions answer 409 with the stable code; the room task controller's
-      other mutations are audited against the paths they reach.
-- [x] "Last done" is refused on every cadence while an open occurrence has ended
-      (D-089-08), so an older miss next to a current window is covered too.
-- [x] The dialog shows due-date and assignee refusals inline, says what was saved
-      after a partial save and does not record "Last done" twice on retry; the
-      assignee chips show the reason too.
-- [x] The amendment-deadline message is a reason a person can act on.
-- [x] PHPUnit and Jest regressions per the plan; atomic saving follows with
-      FEAT-UX-040.
-
----
-
-### [P2] BUG-UX-013 — A child's My Day hides own tasks above the daily limit
-**Status**: In Progress (Round 1, D-089-10; implemented on `fix/alpha4-round1`, cause confirmed by the operator) · **Effort**: S · **Layer**: backend · **Journey stage**: daily execution
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator report of 2026-11-04, CS-PLAN-089 register D-6
-
-`childDailyRows()` cut the due rows at `maxDailyTasks` in the order `nextDue, createdAt, id`.
-The newest tasks fell off first, own tasks included, an unassigned row could take their place,
-and the overload banner counts visible rows only. The creation path accepts a task for a child
-on a full day, while a later assignment is refused. Contract C2 forbids silently hiding excess
-obligations. The operator confirmed that the reported child has a limit.
-
-- [x] Own tasks stay on My Day above the limit; unassigned rows fill only the free slots.
-- [x] Regression tests on the real creation path, failing without the fix.
-- [x] The operator confirms that the reported child has a limit (2026-11-04).
-- [x] Creating a task for a child on a full day stays possible (D-089-11).
-
----
-
 ### [P2] BUG-UX-014 — A changed energy does not reach open tasks
 **Status**: Merged, not released (Full review `PASS-WITH-FIXES` 2026-11-05, on local `master`; no release of its own, it ships with the next planned release, operator 2026-11-05) · **Effort**: S · **Layer**: backend, frontend · **Journey stage**: task setup, daily execution
 **Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -293,95 +194,6 @@ BUG-UX-014 adds energy edits and the job pass. The digest is a daily summary and
 itself stays visible in the app.
 
 - [ ] A queued agreement line survives an evidence-only version bump, with a regression test.
-
----
-
-### [P3] BUG-UX-012 — The setup wizard skips the first upper floor
-**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: S · **Layer**: frontend · **Journey stage**: setup
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: numbered floors with a choice of counting (operator, 2026-11-03)
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-10; numbering defect found in its review
-
-`floorName()` in `SetupWizard.vue` names floors "Ground Floor, 2. Floor, 3.
-Floor", which is wrong under either convention. Floor naming differs between
-countries, so the operator proposes numbered floors by default, with a choice
-whether the first floor above ground counts as 1st or 2nd.
-
-- [x] Numbered floors by default, with the choice in the wizard, through
-      translatable source strings. New setups only; existing floors stay.
-- [x] `SetupWizard.spec.js` covers both countings.
-
----
-
-### [P2] FEAT-UX-046 — Energy as the only effort measure, shown as bolts
-**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-1, T-2
-
-Estimated time goes; energy stays the only effort measure at 1 energy ≈ 10
-minutes, with room for longer tasks. The catalog already fits that scale (medians
-of about 10, 15, 25 and 45 minutes for energy 1–4), so only the concept, which
-says 5 minutes, changes; no value is converted. The limit rises to 20, the upper
-bound of a daily budget (D-089-07). Estimated minutes feed no calculation, so the
-column and the API field can stay, which keeps every persisted definition fact and
-needs no migration.
-
-- [x] The server accepts 1–20 through one constant, which the ledger's guard uses too;
-      the unused `energy_max_per_task` config key goes.
-- [x] The form offers 1–5 as bolts plus a custom value up to 20, shown as a bolt
-      with a number, and explains a task above a person's daily budget.
-- [x] Estimated time leaves the form, the template picker and the task list.
-- [x] Concept, API reference, user guide and help follow; tests per the plan.
-
----
-
-### [P2] FEAT-UX-047 — One task row everywhere
-**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: M · **Layer**: frontend · **Journey stage**: task overview
-**Owning**: CS-PLAN-089 · **Depends on**: FEAT-UX-046 · **Blocks**: — · **Folded-in**: removal of the stale *Teamwork bonus* label (review of the feedback, 2026-11-03); *Next appointments* follows the filter (operator decision, 2026-11-04)
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register G-7
-
-The same layout wherever a task appears: energy in colour, no clock, flex days
-directly after the recurrence ("Every 3 days ±2") instead of a separate display,
-floor and room below the title. `TaskListItem` and `TodayView` render their rows
-separately today. The *Teamwork bonus* label contradicts ADR-014, which retired
-multipliers: shared work splits the reward.
-
-- [x] One presentational component serves My Day, Tasks and the room view.
-- [x] `FlexWindowDisplay` goes with its only consumer, and with its TECH-LINT-009
-      exemption.
-- [x] The energy colour passes the contrast check in both themes.
-
----
-
-### [P3] FEAT-UX-048 — Remove the catch-up agreement action and Quick clean
-**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: S · **Layer**: frontend · **Journey stage**: daily execution
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register C-3, T-6
-
-Only these two actions go. The catch-up status stays: a missed chore keeps its
-original date and can still be completed, and already agreed appointments keep
-showing. Retained `manual_delta` entries keep replaying. The two routes stay until
-FEAT-UX-050 (D-089-09).
-
-- [x] The form goes from `TaskListDetails`, the control and its store action from
-      `RoomCard` and the rooms store.
-- [x] Refusal texts, help, concepts and the user guide stop offering the actions.
-- [x] The hold-button coverage of `family-core-ux.spec.ts` moves to *Done*.
-
----
-
-### [P3] FEAT-UX-049 — Floors & Rooms list: rename, task count, one expand control
-**Status**: In Progress (Round 1, D-089-01; implemented on `fix/alpha4-round1`) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-7, S-8
-
-Every room in the list gets *Rename room* and shows its number of tasks. The expand
-control and the reorder arrows both use chevrons today, and the expand style differs
-between menus.
-
-- [x] Rename reuses the dialog of `RoomDetail`; the count comes from the house's room
-      tasks in the owner-only section, without a new API field.
-- [x] One expand control, a right chevron turning 90° when open, in every menu;
-      reorder controls use arrows.
 
 ---
 
@@ -1156,36 +968,6 @@ payloads.
 
 ---
 
-### [P2] TECH-RUNTIME-003 — Promote AIO v14.4.3 and the moved PHP image
-**Status**: In Progress (Round 1, D-089-01; inventory promoted, `test:runtime:check` reports `current`, the AIO row and browser gates follow with the candidate) · **Effort**: M · **Layer**: tests · **Journey stage**: —
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: RELEASE-002 (next deployment) · **Folded-in**: —
-**Source**: Weekly `runtime-check` run of 2026-11-02, drift `aio-bundle` and `moved-php-image`
-
-AIO v14.4.3 bundles the same Nextcloud 34.0.5 and components, and the multi-arch index
-behind `php:8.4.27-apache` moved while its `linux/amd64` digest stayed. The project rules forbid deploying to a runtime the inventory
-does not name, so the promotion comes first, as in RF-088-11.
-
-- [ ] Reviewed inventory update, image and compose pins, spec hashes and docs.
-- [ ] Both runtime rows requalified; the check reports `current` at the freeze.
-
----
-
-### [P3] TECH-LOG-001 — Expected owner refusals fill the log; entries lack the `app` key
-**Status**: In Progress (Round 1, D-089-01) · **Effort**: S · **Layer**: backend+frontend · **Journey stage**: scheduling
-**Owning**: CS-PLAN-089 · **Depends on**: — · **Blocks**: — · **Folded-in**: missing `app` key in `AppLogger` (deployment report, 2026-11-03)
-**Source**: Deployment report for `0.8.0-alpha.3`, server log 2026-10-29, CS-PLAN-089 register D-5
-
-`initializeScheduling()` fetches the owner-only member availability for every user, so each
-non-owner visit to *Scheduling* writes `Owner role required` at warning level, which hides
-real warnings. Separately, `AppLogger` sets no `app` key, so entries show `no app in context`
-and the post-deployment log check cannot filter by app.
-
-- [x] Only owners fetch the member availability; a store spec covers the roles.
-- [x] `AppLogger` adds the `app` key; `AppLoggerTest` covers it; the deployment guide
-      names the filter.
-
----
-
 ### [P3] TECH-TEST-010 — Nested Jest probe failed once in a full run
 **Status**: Backlog · **Effort**: S · **Layer**: infra · **Journey stage**: testing
 **Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -1267,8 +1049,8 @@ build and test chains:
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its record imported 2026-11-09; the CS-PLAN-089 slice awaits its final completion review; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: CS-PLAN-089 WP-F (alpha.4 release slice only); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its CS-PLAN-089 slice finished 2026-11-09; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
@@ -1351,13 +1133,13 @@ retains those task-specific approvals; completing the bundle does not close
 this whole item or CS-PLAN-080's family evidence.
 
 **Deployment `0.8.0-alpha.4` (2026-11-05):** qualified in
-[CS-PLAN-089](../plans/active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome)
+[CS-PLAN-089](../plans/done/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome)
 and deployed by the operator as an app update on the retained baseline
 ([record](../engineering/deployment.md#update-to-080-alpha4-2026-11-05)): verified
 package identity, unchanged 26-migration inventory, all app tables preserved, other
-apps unaffected, production smoke reported as passed. The plan's slice ends with its
-final completion review, which closes neither this item nor CS-PLAN-080's family
-evidence.
+apps unaffected, production smoke reported as passed. The plan closed on 2026-11-09
+with its final Standard B review, which closes neither this item nor CS-PLAN-080's
+family evidence.
 
 ---
 

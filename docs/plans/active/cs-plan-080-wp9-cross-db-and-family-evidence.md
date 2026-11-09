@@ -419,7 +419,7 @@ parent RF-070 entries in the parent without creating duplicate backlog owners.
   family trial continues on this version. Record:
   [deployment.md](../../engineering/deployment.md#update-to-080-alpha4-2026-11-05);
   candidate and verification:
-  [CS-PLAN-089](cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome).
+  [CS-PLAN-089](../done/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome).
   The report lists the real-device checklist and HUMAN-01/02 as still open.
 
 ### Deployment 0.8.0-alpha.3 (2026-10-29)

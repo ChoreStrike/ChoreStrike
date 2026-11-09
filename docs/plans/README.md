@@ -14,10 +14,10 @@ docs/plans/
 
 ## Lifecycle
 
-Active: [CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)](active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md)
-(2026-11-04, Standard A `PASS-WITH-FIXES`): the defects and everyday fixes from the operator's
-report on `0.8.0-alpha.3`, without a schema change, and the register that routes all 34
-entries into three rounds.
+Delivered: [CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)](done/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md)
+(final Standard B `PASS-WITH-FIXES`, 2026-11-09): the defects and everyday fixes from the
+operator's report on `0.8.0-alpha.3`, deployed on 2026-11-05 without a migration, and the
+register that routes all 36 entries into three rounds.
 
 Delivered: [CS-PLAN-088: 0.8.0-alpha.3 — Trial Feedback and Backlog Round](done/cs-plan-088-alpha3-feedback-round.md)
 (final Standard B `PASS-WITH-FIXES`, 2026-11-04): the first feedback round of the family trial,

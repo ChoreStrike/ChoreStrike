@@ -384,7 +384,7 @@ agreed retention limits. Do not add telemetry or engagement/pressure scores.
   since 2026-11-05 `0.8.0-alpha.4` (`1a4988f`, package run `mw2s5ai2`) on the
   same runtime at AIO 14.4.3 —
   [installed identity](../engineering/deployment.md#update-to-080-alpha4-2026-11-05),
-  [candidate gates](../plans/active/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome).
+  [candidate gates](../plans/done/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md#review-outcome).
   CS-PLAN-082 supplies renewed runtime qualification, not proof of what is
   installed for this trial. Do not run fixture resets against a trial instance.
 - [x] Confirm the trial environment and data boundary: the retained family
