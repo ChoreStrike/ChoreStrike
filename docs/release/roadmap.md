@@ -389,7 +389,7 @@ maintainer's family instance since 2026-11-05):
 
 **Release Direction**:
 - `v0.8.x` is the internal alpha phase for personal real-world testing.
-- `v0.9.x` is the private beta phase for invited testers and structured feedback.
+- `v0.9.x` is the private beta phase for invited testers and structured feedback. It starts after the three [simplified-core](../concepts/simplified-core.md#delivery) releases are built and tested as alpha versions (operator decision, 2026-11-10).
 - `v1.0.0` is the first stable manual-install release.
 - Nextcloud App Store submission is intentionally deferred until after stable release quality is proven.
 

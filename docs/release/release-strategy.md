@@ -42,6 +42,11 @@ This order is intentional. ChoreStrike should first define the release path, the
 
 **Audience**: Small private tester group first, then possibly small community outreach.
 
+**Timing (operator decision, 2026-11-10)**: the beta starts only after the three releases of the
+[simplified core](../concepts/simplified-core.md#delivery) are built and tested as alpha versions
+on the family instance. Outside testers then meet the simplified model, and no second
+installation has to carry the model change. The circle may be larger than first planned.
+
 **Purpose**:
 - Validate ChoreStrike with external users and different usage patterns.
 - Verify upgrade behavior and test reproducibility on more than one setup.
@@ -253,7 +258,7 @@ For each release candidate, ChoreStrike should capture:
 
 ## Immediate Next Steps
 
-1. Keep `v0.8 Alpha` focused on personal testing.
-2. Prepare a lightweight private beta process for `v0.9`.
+1. Keep `v0.8 Alpha` focused on personal testing, through the three simplified-core releases.
+2. Prepare a lightweight private beta process for `v0.9`, to start after them.
 3. Finalize issue templates and release checklists before broad beta.
 4. Decide on App Store timing only after `v1.0` has proven stable.

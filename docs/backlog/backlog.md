@@ -207,6 +207,109 @@ itself stays visible in the app.
 
 ---
 
+### [P1] FEAT-UX-062 — Today merges My Day and the Dashboard
+**Status**: In Progress (Release A, CS-PLAN-090 WP-B; CONCEPT-002) · **Effort**: L · **Layer**: frontend · **Journey stage**: daily execution
+**Owning**: CS-PLAN-090 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback at the close of the family trial (2026-11-09), confirmed with the mockups (2026-11-10)
+
+One landing page instead of two: a status line (energy, weekly goal, streak, coins), the
+overdue block in red, what is due today and what is already possible. The Dashboard's tiles,
+bars and room cards go; house health stays in Insights. `TodayView.vue` has 1201 lines and
+holds its row markup twice.
+
+- [ ] Today shows the four sections in that order; `/dashboard` redirects to it.
+- [ ] The setup wizard opens from Today for an owner with an empty house, and from Settings.
+- [ ] The participation flow, which exists three times, lives in one composable.
+- [ ] The Dashboard specs, fixtures and gate entries move or go with a recorded reason.
+
+---
+
+### [P1] FEAT-UX-063 — Tasks grouped by due date, room or person; the room page goes
+**Status**: In Progress (Release A, CS-PLAN-090 WP-C; CONCEPT-002) · **Effort**: L · **Layer**: frontend · **Journey stage**: task overview
+**Owning**: CS-PLAN-090 WP-C · **Depends on**: FEAT-UX-062 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback at the close of the family trial (2026-11-09), confirmed with the mockups (2026-11-10)
+
+Floors and rooms become collapsible headings of the one task list, with their open and overdue
+counts and a small cleanliness percentage (D-090-19). The separate room page and the room
+cards go. The template picker and the dialog for
+the due date and *Last done* exist only on the room page today and need a new home.
+
+- [ ] The list groups by due date, by room and by person; the choice is part of the URL.
+- [ ] `/room/:id` redirects to the task list with that room open.
+- [ ] Template picker, due date, *Last done* and *Last cleaned* are reachable from the list.
+- [ ] One house-wide read feeds every grouping.
+
+---
+
+### [P2] FEAT-UX-064 — Navigation with eight entries
+**Status**: In Progress (Release A, CS-PLAN-090 WP-D; CONCEPT-002) · **Effort**: M · **Layer**: frontend · **Journey stage**: every view
+**Owning**: CS-PLAN-090 WP-D · **Depends on**: FEAT-UX-062, FEAT-UX-063 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback at the close of the family trial (2026-11-09), confirmed with the mockups (2026-11-10)
+
+Today, Tasks, Calendar, Insights, Absence, Rewards, Arcade and Settings, instead of eleven
+entries. The ranking moves into Insights, the planning settings into Settings and *My requests*
+under Rewards. The owner's weekly plan keeps its page until the live suggestion replaces it and
+is reached from the calendar.
+
+- [ ] Eight entries plus Help; the old addresses redirect.
+- [ ] Everything a role could reach before stays reachable, with either reward gate closed too.
+
+---
+
+### [P1] FEAT-UX-065 — Absence as a plain period
+**Status**: In Progress (Release A, CS-PLAN-090 WP-A; CONCEPT-002) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: planning
+**Owning**: CS-PLAN-090 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback at the close of the family trial (2026-11-09)
+
+Everyone enters an absence for themselves without a reason or a request; everyone sees the
+entries; the owner may delete any. Today a child's entry waits for the owner, a reason is asked,
+members see only their own entries, and nothing can be deleted: shortening clamps to today and
+cannot remove an absence that has not started. No schema change is needed.
+
+- [ ] ADR-020 states the rule before code and amends the pause section of ADR-013.
+- [ ] An entry takes effect at once for every role.
+- [ ] A delete command for the subject and the owner, for absences that have not ended
+      (D-090-22); later days are free again, today and earlier stay, an absence that has not
+      started disappears; every cancelled revision is read alike (D-090-21).
+- [ ] An Absence view with everyone's entries; no reason asked or shown.
+- [ ] PHPUnit on all providers for the roles, the boundary and concurrency; a browser scenario.
+
+---
+
+### [P2] FEAT-UX-066 — Dense Insights with the ranking and a single-line activity list
+**Status**: In Progress (Release A, CS-PLAN-090 WP-E; CONCEPT-002) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: review and correction
+**Owning**: CS-PLAN-090 WP-E · **Depends on**: FEAT-UX-064 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback at the close of the family trial (2026-11-09)
+
+*Recent activity* is good but takes several lines per entry. Insights becomes a few key
+figures, compact fairness bars, the ranking and one line per activity with the coins it paid.
+The activity endpoint does not return coins today, although the API reference shows them.
+Absences and date changes join the list in Release B, when those events exist.
+
+- [ ] One line per entry, grouped by day; corrections stay reachable from the row.
+- [ ] The endpoint returns `coinMinor` under the existing redaction; the API reference matches.
+- [ ] The ranking is a section of Insights with an error state of its own.
+
+---
+
+### [P2] FEAT-UX-067 — Feedback defaults and visible completion feedback
+**Status**: In Progress (Release A, CS-PLAN-090 WP-F; CONCEPT-002) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: completion
+**Owning**: CS-PLAN-090 WP-F · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator feedback at the close of the family trial (2026-11-09)
+
+The completion animation is on by default, sound stays an opt-in, and reduced motion keeps
+winning. Completing a task should show more than a snackbar. A stored "off" cannot be told
+apart from a value nobody chose, and a first save of one field stores the column default for
+the others, so the default needs care where preference rows are created.
+
+- [ ] Every member gets the animation after the update: one data-only migration step switches
+      it on in existing preference rows too (operator decision D-090-16, the first step on the
+      retained baseline), with populated-upgrade tests on all providers.
+- [ ] Every path that creates a preference row writes the delivery fields explicitly.
+- [ ] The completed row, the snackbar and a new title give visible feedback.
+
+---
+
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
@@ -520,8 +623,8 @@ purpose (D-089-04): a filter in the Tasks list and an evaluation in the statisti
 ---
 
 ### [P3] FEAT-UX-054 — Personal and household settings structure
-**Status**: Backlog (Round 2, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
-**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (Release A, CS-PLAN-090 WP-D; included by operator decision D-090-18) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
+**Owning**: CS-PLAN-090 WP-D · **Depends on**: — · **Blocks**: — · **Folded-in**: the planning settings move into a personal category (operator, 2026-11-09, CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-1, S-2, S-3, S-5
 
 Separate personal from household settings and group them into categories that start
@@ -886,7 +989,7 @@ not close parent findings or replace WP9 evidence.
 ---
 
 ### [P1] CONCEPT-002 — Simplified core target picture
-**Status**: In Progress — draft recorded 2026-11-09; operator confirmation and the release plans are open · **Effort**: XL implementation (the target picture was M) · **Layer**: docs+backend+frontend · **Journey stage**: product definition
+**Status**: In Progress — confirmed by the operator 2026-11-10; the plan for Release A is active (CS-PLAN-090, Standard A 2026-11-10), those for B and C are open · **Effort**: XL implementation (the target picture was M) · **Layer**: docs+backend+frontend · **Journey stage**: product definition
 **Owning**: unassigned · **Depends on**: — · **Blocks**: FEAT-UX-040, FEAT-UX-041, FEAT-UX-050, FEAT-UX-052, FEAT-UX-059 · **Folded-in**: —
 **Source**: Operator feedback at the close of the family trial (2026-11-09)
 
@@ -900,18 +1003,18 @@ and a superseding ADR before code. Until then the shipped contracts stay binding
 The decisions are folded into the items that already own a topic (FEAT-UX-040, FEAT-UX-041,
 FEAT-UX-050, FEAT-UX-052, FEAT-UX-059). The other Round 2 items (FEAT-UX-043, FEAT-UX-051,
 FEAT-UX-053, FEAT-UX-054) keep their content, and the release plans slot them. Round 3 is not
-affected. The topics below have no item yet and stay here until a release plan takes them:
+affected. Release A has its items since 2026-11-10 (FEAT-UX-062 to FEAT-UX-067, with
+FEAT-UX-054). The topics below belong to Release B, have no item yet and stay here until its
+plan takes them:
 
-- Navigation: *Today* merges My Day and the Dashboard; tasks grouped by room replace the room
-  page; denser lists and Insights.
-- Absence as a plain period for everyone, replacing pause requests and reasons.
 - Sleeping tasks and bonus tasks.
 - A coin factor per member and bonus days (amends ADR-014).
 - Overdue as one red entry per task; the catch-up entries go.
-- Feedback defaults: animation on, sound as an opt-in.
+
+All three releases stay alpha versions; the beta follows after them (operator, 2026-11-10).
 
 - [x] Operator decisions of 2026-11-09 recorded in the concept.
-- [ ] Mockups reviewed with the family; the operator confirms the target picture.
+- [x] Mockups reviewed with the family; the operator confirms the target picture (2026-11-10).
 - [ ] The concept's open points are settled in the owning plans.
 - [ ] Plans for the releases A, B and C drafted, each with Standard A.
 
@@ -1113,8 +1216,8 @@ build and test chains:
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its CS-PLAN-089 slice finished 2026-11-09; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its CS-PLAN-089 slice finished 2026-11-09; CS-PLAN-090 activated 2026-11-10 for the `0.8.0-alpha.5` slice; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: CS-PLAN-090 WP-G (`0.8.0-alpha.5` release slice only); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;

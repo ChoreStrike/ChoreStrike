@@ -1,8 +1,9 @@
 # Simplified Core — Target Picture
 
-> **Status:** Draft target picture. It records the operator's decisions of 2026-11-09 after
-> the family trial. Nothing here is implemented. The shipped contracts stay binding until a
-> reviewed plan and a new ADR replace them ([what this replaces](#what-this-replaces)).
+> **Status:** Target picture, confirmed by the operator on 2026-11-10 after the family reviewed
+> the mockups. It records the decisions of 2026-11-09 and 2026-11-10. Nothing here is
+> implemented. The shipped contracts stay binding until a reviewed plan and a new ADR replace
+> them ([what this replaces](#what-this-replaces)).
 > Owning item: [CONCEPT-002](../backlog/backlog.md#p1-concept-002--simplified-core-target-picture).
 
 ## Why
@@ -51,10 +52,10 @@ inside the window is on time.
   early completion fulfils the upcoming cycle and the day stays.
 - **Overdue** means the window has ended. There is one red entry per task until it is done once.
   Missed cycles do not pile up and there are no catch-up appointments. On a fixed day, the red
-  entry ends when the next cycle's window opens (proposed; see [open points](#open-points)).
+  entry ends when the next cycle's window opens.
 - **Postpone** is open to every member, children included: up to three times per cycle, each
   press shifting the current window by half the flex days, rounded up. A postponed window still
-  counts as on time. Tasks without flex days cannot be postponed (proposed). The next cycle is
+  counts as on time. Tasks without flex days cannot be postponed. The next cycle is
   not affected.
 - **Sleeping tasks.** A task can be put to sleep, optionally until a wake date (lawn mowing in
   winter). While asleep it has no window, is never overdue and takes no capacity.
@@ -95,12 +96,12 @@ inside the window is on time.
 - **Team tasks** are placed by the responsible person alone. The others see the task on the same
   day; their budget does not block it.
 - **Capacity shapes the suggestion and shows overload. It never refuses** an assignment or a new
-  task (proposed; this settles D-089-13). A child's daily limit keeps limiting what *Today*
+  task (this settles D-089-13). A child's daily limit keeps limiting what *Today*
   offers that child.
 
 ### Rewards
 
-- **Coin factor per member.** The owner sets a factor per member (proposed range × 1 to × 3), so
+- **Coin factor per member.** The owner sets a factor per member (× 1, × 2 or × 3), so
   that children with less time can collect as much as adults.
 - **Bonus days.** The owner starts a period of one to three days in which everyone's coins count
   × 1.5. *Today* shows it.
@@ -131,10 +132,10 @@ inside the window is on time.
 - **One form** for new and edit. It shows the next window read-only, derived from the fields
   above it.
 - **Insights** becomes dense: a few key figures and a single-line activity list. The ranking
-  moves here, and the planning settings move into Settings (proposed).
+  moves here, and the planning settings move into Settings.
 
-Mockups of these screens are reviewed with the family before implementation. They are kept
-outside the repository.
+The family reviewed mockups of these screens, and the operator confirmed them on 2026-11-10.
+They are kept outside the repository.
 
 ## What this replaces
 
@@ -176,7 +177,6 @@ To be settled in the owning plans, before code:
 4. Handing a single cycle to someone else: keep it, or leave it to the assignees in the form.
 5. The scheduler's horizon, its tie-breaks and the exact stability rule.
 6. The digest notifications that refer to agreements and pause requests today.
-7. The exact range and steps of the coin factor.
 
 ## Delivery
 
@@ -185,9 +185,14 @@ from the first visible improvements.
 
 | Release | Content | Model change |
 |---------|---------|--------------|
-| A | Navigation, *Today*, tasks grouped by room, denser lists and Insights, absence without request, feedback defaults | none |
+| A | Navigation, *Today*, tasks grouped by room, denser lists and Insights, absence without request, feedback defaults | none; one data-only migration step switches the animation on for everyone |
 | B | Windows as derived state, first date and history editing, early completion, postpone, sleeping and bonus tasks, coin multipliers, the one form and the inline expansion | yes |
 | C | Live suggestion on *Today* and in the calendar, preferred days | scheduler |
+
+All three stay alpha versions on the family instance. The `v0.9` beta starts only after they are
+built and tested there, so that outside testers meet the simplified model and no second
+installation has to carry the model change
+([release strategy](../release/release-strategy.md#stage-2-v09-beta)).
 
 ## Decision record (operator, 2026-11-09)
 
@@ -216,3 +221,13 @@ from the first visible improvements.
 - My Day and the Dashboard merge; floors and rooms move to the tasks; Insights becomes compact.
 - Animation on by default, sound as an opt-in.
 - GUI concepts come before implementation and are reviewed with the family.
+
+### Confirmation (operator, 2026-11-10)
+
+- The mockups fit as reviewed with the family.
+- The five rules this document had proposed are confirmed: on a fixed day the red entry ends
+  when the next cycle's window opens; tasks without flex days cannot be postponed; capacity
+  never refuses; the ranking moves into Insights and the planning settings into Settings; the
+  coin factor is × 1, × 2 or × 3.
+- The releases A, B and C stay alpha versions. The beta follows once they are built and tested,
+  possibly with a larger circle than first planned.
