@@ -206,6 +206,122 @@ class PauseProjectionServiceTest extends TestCase {
 		self::assertSame(1, $excused[11][0]['revision'], 'the acknowledged revision stays authoritative');
 	}
 
+	// -----------------------------------------------------------------
+	// Cancelled revisions (ADR-020, D-090-07, D-090-21)
+	// ------------------------------------------------------------------
+
+	public function testExcusedWallets_DeletedRunningAbsence_KeepsTodayAndEarlierFreesLaterDays(): void {
+		// October 5-9, deleted ON October 6: the range is kept, the state ends it.
+		$current = [11 => true];
+		$revisions = [
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', groupId: 1, revision: 1),
+			$this->pause(Pause::STATE_CANCELLED, '2026-10-05', '2026-10-09', groupId: 1, revision: 2, decidedAt: '2026-10-06 12:00:00'),
+		];
+
+		self::assertArrayHasKey(11, PauseProjectionService::excusedWalletsOn($revisions, '2026-10-05', $current), 'what was excused stays excused');
+		self::assertSame(
+			[['pauseGroupId' => 1, 'revision' => 1, 'reasonCode' => Pause::REASON_TRAVEL]],
+			PauseProjectionService::excusedWalletsOn($revisions, '2026-10-06', $current)[11],
+			'the day of the deletion stays covered by the revision that recognized it'
+		);
+		foreach (['2026-10-07', '2026-10-08', '2026-10-09'] as $freed) {
+			self::assertSame([], PauseProjectionService::excusedWalletsOn($revisions, $freed, $current), "$freed is free again");
+		}
+	}
+
+	public function testExcusedWallets_DeletedFutureAbsence_CoversNothing(): void {
+		$current = [11 => true];
+		$revisions = [
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-12', '2026-10-16', groupId: 1, revision: 1),
+			$this->pause(Pause::STATE_CANCELLED, '2026-10-12', '2026-10-16', groupId: 1, revision: 2, decidedAt: '2026-10-06 12:00:00'),
+		];
+
+		foreach (['2026-10-11', '2026-10-12', '2026-10-14', '2026-10-16', '2026-10-17'] as $day) {
+			self::assertSame([], PauseProjectionService::excusedWalletsOn($revisions, $day, $current), "$day is uncovered");
+		}
+	}
+
+	public function testExcusedWallets_EnteredAndDeletedOnTheSameDay_CoversOnlyThatDay(): void {
+		$current = [11 => true];
+		$revisions = [
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-06', '2026-10-09', groupId: 1, revision: 1, decidedAt: '2026-10-06 08:00:00'),
+			$this->pause(Pause::STATE_CANCELLED, '2026-10-06', '2026-10-09', groupId: 1, revision: 2, decidedAt: '2026-10-06 09:00:00'),
+		];
+
+		self::assertArrayHasKey(11, PauseProjectionService::excusedWalletsOn($revisions, '2026-10-06', $current), 'today is never cut');
+		self::assertSame([], PauseProjectionService::excusedWalletsOn($revisions, '2026-10-07', $current), 'the later revision wins at a shared boundary');
+	}
+
+	public function testExcusedWallets_DeletionBoundary_FollowsTheSavedZone(): void {
+		// 23:30 UTC on October 6 is already October 7 in Berlin: the
+		// deletion frees the days from October 8 there.
+		$current = [11 => true];
+		$revisions = [
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', groupId: 1, revision: 1, timezone: 'Europe/Berlin'),
+			$this->pause(Pause::STATE_CANCELLED, '2026-10-05', '2026-10-09', groupId: 1, revision: 2, decidedAt: '2026-10-06 23:30:00', timezone: 'Europe/Berlin'),
+		];
+
+		self::assertArrayHasKey(11, PauseProjectionService::excusedWalletsOn($revisions, '2026-10-07', $current));
+		self::assertSame([], PauseProjectionService::excusedWalletsOn($revisions, '2026-10-08', $current));
+	}
+
+	public function testExcusedWallets_DeletedAfterShortening_TheShorteningStillGovernsItsDays(): void {
+		$current = [11 => true];
+		$revisions = [
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-16', groupId: 1, revision: 1),
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-12', groupId: 1, revision: 2, decidedAt: '2026-10-06 12:00:00'),
+			$this->pause(Pause::STATE_CANCELLED, '2026-10-05', '2026-10-12', groupId: 1, revision: 3, decidedAt: '2026-10-08 12:00:00'),
+		];
+
+		self::assertSame(2, PauseProjectionService::excusedWalletsOn($revisions, '2026-10-08', $current)[11][0]['revision']);
+		self::assertSame([], PauseProjectionService::excusedWalletsOn($revisions, '2026-10-09', $current));
+	}
+
+	public function testExcusedWallets_DeletingOneGroup_NeverRemovesAnotherGroupsExcuse(): void {
+		$current = [11 => true];
+		$revisions = [
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', groupId: 1, revision: 1),
+			$this->pause(Pause::STATE_CANCELLED, '2026-10-05', '2026-10-09', groupId: 1, revision: 2, decidedAt: '2026-10-06 12:00:00'),
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', groupId: 2, revision: 1, scope: Pause::SCOPE_HOUSE, walletId: null),
+		];
+
+		self::assertSame([2], array_column(PauseProjectionService::excusedWalletsOn($revisions, '2026-10-08', $current)[11], 'pauseGroupId'));
+	}
+
+	public function testExcusedWallets_DepartureCancelledFirstRequest_CoversNothing(): void {
+		// Q-073-03: the pending request was stamped `cancelled` in place.
+		$current = [11 => true];
+		$revisions = [
+			$this->pauseDecidedLater(Pause::STATE_CANCELLED, '2026-10-05', '2026-10-09', '2026-10-01 09:00:00', '2026-10-06 12:00:00'),
+		];
+
+		foreach (['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-09'] as $day) {
+			self::assertSame([], PauseProjectionService::excusedWalletsOn($revisions, $day, $current), "$day was never covered");
+		}
+	}
+
+	public function testExcusedWallets_DepartureCancelledPendingShortening_EndsCoverageFromTheNextLocalDay(): void {
+		// D-090-21: one reading for every cancelled revision. The member
+		// left on October 6 with a pending shortening and rejoined with the
+		// retained wallet — the old absence does not cover them again.
+		$current = [11 => true];
+		$revisions = [
+			$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', groupId: 1, revision: 1),
+			$this->pauseDecidedLater(Pause::STATE_CANCELLED, '2026-10-05', '2026-10-06', '2026-10-05 10:00:00', '2026-10-06 12:00:00', groupId: 1, revision: 2),
+		];
+
+		self::assertArrayHasKey(11, PauseProjectionService::excusedWalletsOn($revisions, '2026-10-06', $current), 'the departure day and earlier stay excused');
+		self::assertSame([], PauseProjectionService::excusedWalletsOn($revisions, '2026-10-07', $current));
+		self::assertSame([], PauseProjectionService::excusedWalletsOn($revisions, '2026-10-09', $current));
+	}
+
+	public function testGoverningRevisionsOn_GroupWithoutAcknowledgedRevision_HasNoGoverningRevisionBeforeItsBoundary(): void {
+		$cancelled = $this->pause(Pause::STATE_CANCELLED, '2026-10-05', '2026-10-09', decidedAt: '2026-10-06 12:00:00');
+
+		self::assertSame([], PauseProjectionService::governingRevisionsOn([$cancelled], '2026-10-05'));
+		self::assertSame([$cancelled], PauseProjectionService::governingRevisionsOn([$cancelled], '2026-10-07'));
+	}
+
 	public function testExcusedWallets_ShorteningOneGroup_NeverRemovesAnotherGroupsExcuse(): void {
 		$current = [11 => true];
 		$revisions = [

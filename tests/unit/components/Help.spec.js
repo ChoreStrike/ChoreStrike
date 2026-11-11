@@ -105,13 +105,14 @@ describe('Help entry and glossary', () => {
 	it('explains the core household terms in plain family language', () => {
 		const wrapper = mount(HelpGlossary)
 
-		for (const term of ['my-day', 'agreement', 'catch-up', 'pause', 'streak', 'quiet-time']) {
+		for (const term of ['my-day', 'agreement', 'catch-up', 'absence', 'streak', 'quiet-time']) {
 			expect(wrapper.find(`[data-testid="help-term-${term}"]`).exists()).toBe(true)
 		}
 		// The C1d cover semantics are explained honestly.
 		expect(wrapper.text()).toContain('it stays a catch-up')
-		// The neutral pause semantics (C2b).
+		// The neutral absence semantics (C2b, ADR-020).
 		expect(wrapper.text()).toContain('nothing counts for or against anyone')
+		expect(wrapper.text()).toContain('no reason and no request are needed')
 		// The calm landing statement (C5f): Coins never on My Day.
 		expect(wrapper.text()).toContain('never on My Day')
 	})

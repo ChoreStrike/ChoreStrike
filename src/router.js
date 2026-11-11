@@ -62,6 +62,12 @@ export const routes = [
 		name: 'calendar',
 		component: () => import(/* webpackChunkName: "calendar" */ './views/CalendarView.vue'),
 	},
+	// Absence (ADR-020): a period for everyone, no request and no reason.
+	{
+		path: '/absence',
+		name: 'absence',
+		component: () => import(/* webpackChunkName: "absence" */ './views/AbsenceView.vue'),
+	},
 	{
 		path: '/settings',
 		name: 'settings',

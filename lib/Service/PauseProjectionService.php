@@ -69,13 +69,14 @@ class PauseProjectionService {
 	}
 
 	/**
-	 * The recognized (acknowledged) revisions of the house. Coverage is
-	 * the UNION across pause GROUPS of each group's governing revision
-	 * ({@see governingRevisionsOn}): within one group the latest
-	 * acknowledged decision is authoritative for the dates it governs, so
-	 * a shortening actually removes its superseded future coverage
+	 * The revisions of the house that can govern coverage: acknowledged
+	 * ones and cancelled ones (ADR-020). Coverage is the UNION across pause
+	 * GROUPS of each group's governing revision
+	 * ({@see governingRevisionsOn}): within one group the latest decision
+	 * is authoritative for the dates it governs, so a shortening or a
+	 * deletion actually removes the superseded future coverage
 	 * (RF-073-WP2-23) while today's and earlier recognized excuses
-	 * survive it; shortening one group never removes another group's
+	 * survive it; changing one group never removes another group's
 	 * excuse.
 	 *
 	 * @return Pause[]
@@ -83,7 +84,7 @@ class PauseProjectionService {
 	public function recognizedForHouse(int $houseId): array {
 		return array_values(array_filter(
 			$this->pauseMapper->findByHouseId($houseId),
-			static fn (Pause $pause): bool => $pause->isRecognized()
+			static fn (Pause $pause): bool => self::canGovern($pause)
 		));
 	}
 
@@ -264,8 +265,9 @@ class PauseProjectionService {
 	 * a shortening removes its superseded future coverage instead of
 	 * letting the retained old revision keep it alive, while dates before
 	 * the decision boundary stay covered by the revision that recognized
-	 * them. Pending/rejected revisions never govern (an undecided child
-	 * shortening leaves acknowledged coverage unchanged).
+	 * them. Pending/rejected revisions never govern (an undecided
+	 * shortening leaves acknowledged coverage unchanged). A governing
+	 * CANCELLED revision means no coverage (ADR-020).
 	 *
 	 * R3/RF-073-WP2-25: an ordinary recognition excuses only when its
 	 * decision predates the given exclusive `$deadline` (the occurrence's
@@ -282,7 +284,7 @@ class PauseProjectionService {
 	 * personal groups, keeps every entry). Shortening one group removes
 	 * only its own superseded coverage, never another group's excuse.
 	 *
-	 * @param Pause[] $recognized Revision history (acknowledged revisions are selected internally)
+	 * @param Pause[] $recognized Revision history (governing revisions are selected internally)
 	 * @param array<int, bool> $currentWallets
 	 * @param \DateTime|null $deadline Original exclusive obligation deadline (occurrence window end) or null for the day-level rule
 	 * @return array<int, list<array{pauseGroupId: int, revision: int, reasonCode: string}>> walletId => covering pause provenance list
@@ -299,7 +301,8 @@ class PauseProjectionService {
 			$excused[$walletId][] = $provenance;
 		};
 		foreach (self::governingRevisionsOn($recognized, $plannedDateKey) as $pause) {
-			if (!$pause->coversDate($plannedDateKey) || !self::isEffectiveFor($pause, $plannedDateKey, $deadline)) {
+			if (!$pause->isRecognized() || !$pause->coversDate($plannedDateKey)
+				|| !self::isEffectiveFor($pause, $plannedDateKey, $deadline)) {
 				continue;
 			}
 			$provenance = [
@@ -323,9 +326,9 @@ class PauseProjectionService {
 
 	/**
 	 * The per-group revision precedence of R2 (plan §3.4): within one
-	 * pause group, the acknowledged revision whose next-day effective
-	 * boundary ({@see effectiveBoundaryKey}) is the latest one at or
-	 * before the candidate date GOVERNS that date — an acknowledged
+	 * pause group, the acknowledged or cancelled revision whose next-day
+	 * effective boundary ({@see effectiveBoundaryKey}) is the latest one at
+	 * or before the candidate date GOVERNS that date — an acknowledged
 	 * shortening actually removes its superseded future coverage, while
 	 * dates before the boundary stay governed by the revision that was
 	 * authoritative when the decision was made. A date before EVERY
@@ -334,13 +337,19 @@ class PauseProjectionService {
 	 * Different groups stay independent — the caller unions their
 	 * governed coverage.
 	 *
+	 * ADR-020: a CANCELLED revision takes part with the same boundary and
+	 * means no coverage — a deleted absence frees the days from the next
+	 * local day and keeps what it already excused. Every cancelled
+	 * revision reads alike, also a pending request that a departure
+	 * cancelled in place (D-090-21).
+	 *
 	 * @param Pause[] $revisions
-	 * @return Pause[] At most one governing acknowledged revision per pause group
+	 * @return Pause[] At most one governing revision per pause group; a cancelled one covers nothing
 	 */
 	public static function governingRevisionsOn(array $revisions, string $dateKey): array {
 		$byGroup = [];
 		foreach ($revisions as $pause) {
-			if (!$pause->isRecognized()) {
+			if (!self::canGovern($pause)) {
 				continue;
 			}
 			$byGroup[$pause->getPauseGroupId()][] = $pause;
@@ -349,15 +358,27 @@ class PauseProjectionService {
 		foreach ($byGroup as $group) {
 			usort($group, static fn (Pause $a, Pause $b): int => $a->getRevision() <=> $b->getRevision());
 			$chosen = null;
+			$firstRecognized = null;
 			foreach ($group as $pause) {
+				if ($firstRecognized === null && $pause->isRecognized()) {
+					$firstRecognized = $pause;
+				}
 				$boundary = self::effectiveBoundaryKey($pause);
 				if ($boundary === null || $boundary <= $dateKey) {
 					$chosen = $pause;
 				}
 			}
-			$governing[] = $chosen ?? $group[0];
+			$chosen ??= $firstRecognized;
+			if ($chosen !== null) {
+				$governing[] = $chosen;
+			}
 		}
 		return $governing;
+	}
+
+	/** Acknowledged and cancelled revisions carry a decision that governs dates. */
+	private static function canGovern(Pause $pause): bool {
+		return $pause->isRecognized() || $pause->getState() === Pause::STATE_CANCELLED;
 	}
 
 	/**

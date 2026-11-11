@@ -67,9 +67,10 @@ existing source transaction (the house lock is already held):
   joins the completion transaction; a rollback leaves no queued change).
 - `AgreementService` — amend/catch-up/restart recordings, recipients =
   affected consent subjects minus the actor.
-- `PauseService` — acknowledge/reject/shorten/retrospective
+- `PauseService` — acknowledge/reject/shorten/delete/retrospective
   recognition/household pause; personal pauses notify the subject,
-  household pauses every member.
+  household pauses every member. Entering or deleting one's own absence
+  queues nothing (ADR-020).
 - `RewardRequestService` (WP7, CS-PLAN-078 §3.5) — reward-request
   effects (`reward_request`): new child requests reach the opted-in
   owners, owner decisions reach the requester, requester cancellations

@@ -1239,17 +1239,34 @@ available, daily task limit, energy budget) whose localized `message` clients
 show as the reason (BUG-UX-002).
 
 `GET|POST /pauses`, `POST /pauses/recognize-illness`,
-`POST /pauses/{id}/approve|reject`, `PUT /pauses/{id}` — the revisioned pause
-lifecycle. `POST /pauses` creates a personal pause for the caller (child →
-pending `requested`, adult → `acknowledged`) or a household pause with
-`scope: 'house'` (owner only); `PUT /pauses/{id}` shortens an **acknowledged**
-pause (a pending request is decided via approve/reject, never shortened) with
-the next-local-day boundary of the pause's saved zone. Within each pause
-group the latest acknowledged revision governs every date from its decision
-boundary on, so a shortening actually removes its superseded future coverage
-while today's and earlier recognized excuses survive it; different groups
-compose as a union and an undecided/rejected child shortening leaves
-acknowledged coverage unchanged. An **ordinary** recognition excuses an
+`POST /pauses/{id}/approve|reject`, `PUT|DELETE /pauses/{id}` — the revisioned
+pause lifecycle; the interface calls a pause an *absence*
+([ADR-020](../adr/ADR-020-absences-without-requests.md)). `POST /pauses`
+enters a personal absence for the caller, `acknowledged` at once for every
+role, or a household absence with `scope: 'house'` (owner only); `reasonCode`
+is optional (default `other`) and the interface never sends or shows it. No
+command creates a `requested` revision any more; `approve`/`reject` remain for
+requests stored before ADR-020. `DELETE /pauses/{id}` (`commandId` and
+`expectedRevision` as query parameters or body) deletes an absence that has
+not ended: the subject an own personal one, the owner any; everyone else gets
+403, a stale revision 409 and an absence that has ended 409. It appends a
+`cancelled` revision and withdraws a pending request the same way.
+`PUT /pauses/{id}` shortens an **acknowledged** pause with the same
+next-local-day boundary of the pause's saved zone; it has no client since
+ADR-020. Within each pause group the latest acknowledged or cancelled revision
+governs every date from its decision boundary on, so a shortening or a
+deletion actually removes the superseded future coverage while today's and
+earlier recognized excuses survive it; a governing cancelled revision means
+no coverage, whatever cancelled it. Different groups compose as a union and an
+undecided/rejected shortening leaves acknowledged coverage unchanged. The
+list describes each group by the revision it stands for: its latest one,
+except that a request declined on top of an absence (a child's shortening
+from before ADR-020) leaves the absence as it stood, so the entry carries the
+latest acknowledged or cancelled revision's state and range while `revision`
+stays the group's latest (the `expectedRevision` of the next command). Groups
+that stand for a cancelled revision are left out. Each entry carries
+`deletable`: whether this viewer may delete it now (subject or owner, and not
+ended by the revision that governs today). An **ordinary** recognition excuses an
 obligation only when its decision (the acknowledgment/approval time, never a
 child's earlier request time) predates the obligation's original exclusive
 deadline — a late approval cannot erase an expired miss; only
@@ -1264,7 +1281,7 @@ the personal `reasonCode`/`isRetrospectiveIllness` metadata stays
 self/owner-only in **every** state — unrelated members receive only the
 neutral shared facts (`pauseGroupId`, `revision`, `scope`, `subjectWalletId`,
 `subjectUserId`, `state`, `startDate`, `endDate`, `timezone`,
-`createdAt`/`updatedAt`); house-scope pauses stay fully visible. Suspending
+`createdAt`/`updatedAt`, `deletable`); house-scope pauses stay fully visible. Suspending
 an occurrence requires ANY obligated (responsible/joint) participant to be
 covered — pausing one partner of an explicit joint arrangement suspends the
 whole occurrence (retained share snapshot, zero live planned capacity) until

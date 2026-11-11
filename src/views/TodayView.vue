@@ -314,7 +314,7 @@ import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { useUserStore } from '../store/user.js'
-import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
+import { addDaysToKey, dateKeyInZone, formatDayKey, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { showCompletionError, showErrorWithReference } from '../utils/errorToast.js'
 import { logger } from '../utils/logger.js'
 import { assignmentLabel, locationLabel, recurrenceLabel, taskEnergy } from '../utils/taskDisplay.js'
@@ -843,13 +843,7 @@ export default {
 				=== todayKeyInZone(this.houseStore.timezone)
 		},
 
-		formatDayKey(key) {
-			if (!key) {
-				return '—'
-			}
-			const [year, month, day] = key.split('-').map(Number)
-			return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
-		},
+		formatDayKey,
 
 		formatTime(iso) {
 			if (!iso) {

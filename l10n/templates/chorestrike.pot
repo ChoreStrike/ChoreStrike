@@ -62,12 +62,6 @@ msgstr ""
 msgid "A missed chore stays visible as catch-up with its original date. Completing it now covers the miss — it stays a catch-up."
 msgstr ""
 
-msgid "A pause is neutral: during a pause nothing counts for or against anyone. Illness, travel or simply too much at once are all fine reasons."
-msgstr ""
-
-msgid "A pause is neutral: during a pause nothing counts for or against anyone. Your own requests stay visible to you; owners decide pending child requests."
-msgstr ""
-
 msgid "A paused occurrence cannot be amended"
 msgstr ""
 
@@ -128,19 +122,22 @@ msgstr ""
 msgid "A valid roomTaskId is required"
 msgstr ""
 
-msgid "A weekly overview of catch-ups and pause activity."
+msgid "A weekly overview of catch-ups and absences."
+msgstr ""
+
+msgid "Absence"
+msgstr ""
+
+msgid "Absence not found"
+msgstr ""
+
+msgid "Absent"
 msgstr ""
 
 msgid "Accounts and roles"
 msgstr ""
 
 msgid "Acknowledge"
-msgstr ""
-
-msgid "Acknowledge a past illness for one member — neutral, like any other pause."
-msgstr ""
-
-msgid "Acknowledged"
 msgstr ""
 
 msgid "Active"
@@ -246,6 +243,12 @@ msgid "Already as planned"
 msgstr ""
 
 msgid "Also possible today"
+msgstr ""
+
+msgid "An absence is a period in which nothing is planned for you and nothing counts for or against anyone. Everyone enters their own under Absence; no reason and no request are needed."
+msgstr ""
+
+msgid "An absence that has ended cannot be deleted"
 msgstr ""
 
 msgid "An amendment needs a date or participants"
@@ -851,6 +854,15 @@ msgstr ""
 msgid "Delete room"
 msgstr ""
 
+msgid "Delete the absence of the whole household"
+msgstr ""
+
+msgid "Delete the absence of {name}"
+msgstr ""
+
+msgid "Delete this absence?"
+msgstr ""
+
 msgid "Delete this sub-task?"
 msgstr ""
 
@@ -959,7 +971,7 @@ msgstr ""
 msgid "Dust the surfaces in the room."
 msgstr ""
 
-msgid "Each chore has a completion window around its planned day. Free and paused days are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve."
+msgid "Each chore has a completion window around its planned day. Free days and absences are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve."
 msgstr ""
 
 msgid "Each override must be an object"
@@ -1025,12 +1037,6 @@ msgstr ""
 msgid "Empty the sink, scrub the basin and drain, and wipe the tap until it shines."
 msgstr ""
 
-msgid "End early"
-msgstr ""
-
-msgid "End early on"
-msgstr ""
-
 msgid "Energy"
 msgstr ""
 
@@ -1052,10 +1058,19 @@ msgstr ""
 msgid "Energy values must be between 1 and 20"
 msgstr ""
 
+msgid "Enter"
+msgstr ""
+
 msgid "Enter a valid price, e.g. 12 or 12.50 — at most two decimals."
 msgstr ""
 
+msgid "Enter for someone afterwards"
+msgstr ""
+
 msgid "Enter house name"
+msgstr ""
+
+msgid "Entered"
 msgstr ""
 
 msgid "Estimated time minimum must not be greater than the maximum"
@@ -1089,6 +1104,9 @@ msgid "Everyone"
 msgstr ""
 
 msgid "Everyone affected has agreed to this plan"
+msgstr ""
+
+msgid "Everyone sees the entries. The house owner can delete any entry."
 msgstr ""
 
 msgid "Everything shines! Lots of tasks, but everything is sparkling clean in no time."
@@ -1286,7 +1304,13 @@ msgstr ""
 msgid "Floors & Rooms"
 msgstr ""
 
+msgid "For days that have already passed. Tasks missed in that time no longer count against the person."
+msgstr ""
+
 msgid "For everyone"
+msgstr ""
+
+msgid "For the household"
 msgstr ""
 
 msgid "Former member"
@@ -1308,6 +1332,9 @@ msgid "From"
 msgstr ""
 
 msgid "From template"
+msgstr ""
+
+msgid "From tomorrow the days count as usual again. What was already excused stays excused."
 msgstr ""
 
 msgid "Fulfillment requires the explicit delivered confirmation"
@@ -1421,9 +1448,6 @@ msgstr ""
 msgid "House name: {name}"
 msgstr ""
 
-msgid "House pause"
-msgstr ""
-
 msgid "House set up successfully"
 msgstr ""
 
@@ -1436,10 +1460,10 @@ msgstr ""
 msgid "How your household is really doing"
 msgstr ""
 
-msgid "I attest that this reward was never delivered."
+msgid "I am away"
 msgstr ""
 
-msgid "Illness"
+msgid "I attest that this reward was never delivered."
 msgstr ""
 
 msgid "Insights"
@@ -1796,6 +1820,9 @@ msgstr ""
 msgid "No Nextcloud user found with this email address"
 msgstr ""
 
+msgid "No absences entered."
+msgstr ""
+
 msgid "No active tasks to schedule yet. Create tasks first."
 msgstr ""
 
@@ -1829,13 +1856,13 @@ msgstr ""
 msgid "No members yet — invite your family to get started."
 msgstr ""
 
-msgid "No pauses recorded."
-msgstr ""
-
 msgid "No prefill"
 msgstr ""
 
 msgid "No reason given"
+msgstr ""
+
+msgid "No reason, no request. Nothing is planned for you during this time."
 msgstr ""
 
 msgid "No rewards yet — add the first one above."
@@ -1905,6 +1932,9 @@ msgid "Nothing due today"
 msgstr ""
 
 msgid "Nothing here yet"
+msgstr ""
+
+msgid "Nothing is planned for anyone during this time."
 msgstr ""
 
 msgid "Nothing is planned for today."
@@ -2063,28 +2093,10 @@ msgstr ""
 msgid "Pause"
 msgstr ""
 
-msgid "Pause house"
-msgstr ""
-
-msgid "Pause not found"
-msgstr ""
-
 msgid "Paused"
 msgstr ""
 
-msgid "Pauses"
-msgstr ""
-
-msgid "Pauses the whole household neutrally — nothing counts for or against anyone during the pause."
-msgstr ""
-
 msgid "Peak Day"
-msgstr ""
-
-msgid "Pending child requests change nothing until you decide them."
-msgstr ""
-
-msgid "Pending pause requests"
 msgstr ""
 
 msgid "Person"
@@ -2255,25 +2267,16 @@ msgstr ""
 msgid "Reconnect and try again"
 msgstr ""
 
-msgid "Record"
-msgstr ""
-
 msgid "Record agreed handover"
 msgstr ""
 
 msgid "Record amendment"
 msgstr ""
 
-msgid "Record illness retrospectively"
-msgstr ""
-
 msgid "Record restart"
 msgstr ""
 
 msgid "Record the actual work split. Shares must total exactly 100%."
-msgstr ""
-
-msgid "Recorded retrospectively by the house owner"
 msgstr ""
 
 msgid "Refresh"
@@ -2336,13 +2339,7 @@ msgstr ""
 msgid "Request"
 msgstr ""
 
-msgid "Request a pause"
-msgstr ""
-
 msgid "Request failed"
-msgstr ""
-
-msgid "Request pause"
 msgstr ""
 
 msgid "Request scope"
@@ -2565,9 +2562,6 @@ msgid "Send invite"
 msgstr ""
 
 msgid "Send invites"
-msgstr ""
-
-msgid "Sending…"
 msgstr ""
 
 msgid "Set how much energy you have for tasks each day (1-20)"
@@ -2840,6 +2834,21 @@ msgstr ""
 msgid "The Coins are reserved now and only spent once the reward is actually delivered. You can cancel while it is not delivered."
 msgstr ""
 
+msgid "The absence changed since it was displayed. Reload and try again."
+msgstr ""
+
+msgid "The absence could not be deleted."
+msgstr ""
+
+msgid "The absence could not be entered."
+msgstr ""
+
+msgid "The absence was deleted."
+msgstr ""
+
+msgid "The absence was entered."
+msgstr ""
+
 msgid "The action could not be recorded."
 msgstr ""
 
@@ -2927,6 +2936,9 @@ msgstr ""
 msgid "The due day moves."
 msgstr ""
 
+msgid "The entries changed in the meantime. Check the list and try again."
+msgstr ""
+
 msgid "The game could not be loaded."
 msgstr ""
 
@@ -2934,15 +2946,6 @@ msgid "The games could not be loaded."
 msgstr ""
 
 msgid "The house is already set up. Use the per-room template picker instead."
-msgstr ""
-
-msgid "The house owner declined this request."
-msgstr ""
-
-msgid "The house pause could not be recorded."
-msgstr ""
-
-msgid "The house pause was recorded."
 msgstr ""
 
 msgid "The house state changed since it was displayed"
@@ -2955,12 +2958,6 @@ msgid "The household ranking is opt-in. A house owner can enable it in the setti
 msgstr ""
 
 msgid "The household reward currency for completed work. The balance lives in the household overview — never on My Day. Available Coins can be requested; reserved Coins back open requests and are only spent on actual delivery."
-msgstr ""
-
-msgid "The illness could not be recorded."
-msgstr ""
-
-msgid "The illness was recorded."
 msgstr ""
 
 msgid "The item changed since it was displayed"
@@ -2982,27 +2979,6 @@ msgid "The optional list of family-agreed rewards. Owners enable it for the hous
 msgstr ""
 
 msgid "The pause already covers no later date"
-msgstr ""
-
-msgid "The pause changed in the meantime. Your entries were kept — review and send again."
-msgstr ""
-
-msgid "The pause changed since it was displayed. Reload and try again."
-msgstr ""
-
-msgid "The pause could not be shortened."
-msgstr ""
-
-msgid "The pause request was acknowledged."
-msgstr ""
-
-msgid "The pause request was declined."
-msgstr ""
-
-msgid "The pause was recorded."
-msgstr ""
-
-msgid "The pause was shortened."
 msgstr ""
 
 msgid "The person needs an existing Nextcloud account with this email address."
@@ -3048,12 +3024,6 @@ msgid "The request changed since it was displayed"
 msgstr ""
 
 msgid "The request could not be created."
-msgstr ""
-
-msgid "The request could not be sent."
-msgstr ""
-
-msgid "The request could not be sent. Please try again."
 msgstr ""
 
 msgid "The request was approved."
@@ -3143,6 +3113,9 @@ msgstr ""
 msgid "The weekly ranking is final."
 msgstr ""
 
+msgid "The whole household is away"
+msgstr ""
+
 msgid "There are no household requests for this filter."
 msgstr ""
 
@@ -3153,6 +3126,9 @@ msgid "This Week"
 msgstr ""
 
 msgid "This Week's Medals"
+msgstr ""
+
+msgid "This absence can no longer be deleted"
 msgstr ""
 
 msgid "This game is locked again, so your score was not saved."
@@ -3167,10 +3143,10 @@ msgstr ""
 msgid "This is only for a reward that was marked as delivered but never actually arrived. The original {price} Coins are refunded exactly once; there is no refund for a reward that was really delivered."
 msgstr ""
 
-msgid "This member is not available on that day"
+msgid "This member is away on that day"
 msgstr ""
 
-msgid "This member is paused on that day"
+msgid "This member is not available on that day"
 msgstr ""
 
 msgid "This occurrence is already completed"
@@ -3281,9 +3257,6 @@ msgstr ""
 msgid "Too many score submissions today. Try again tomorrow."
 msgstr ""
 
-msgid "Too much at once"
-msgstr ""
-
 msgid "Toss expired food and wipe the shelves."
 msgstr ""
 
@@ -3294,9 +3267,6 @@ msgid "Total Rooms"
 msgstr ""
 
 msgid "Total: {total}%"
-msgstr ""
-
-msgid "Travel"
 msgstr ""
 
 msgid "Try again"
@@ -3374,7 +3344,7 @@ msgstr ""
 msgid "Unlocks at {threshold} finished chores · {remaining} to go"
 msgstr ""
 
-msgid "Until (inclusive)"
+msgid "Until"
 msgstr ""
 
 msgid "Up"
@@ -3527,6 +3497,9 @@ msgstr ""
 msgid "Who did the work?"
 msgstr ""
 
+msgid "Whole household"
+msgstr ""
+
 msgid "Wipe down appliances"
 msgstr ""
 
@@ -3636,9 +3609,6 @@ msgid "Your other changes were saved."
 msgstr ""
 
 msgid "Your participation starts on {monday}. Nothing is counted before then."
-msgstr ""
-
-msgid "Your pauses"
 msgstr ""
 
 msgid "Your score could not be saved."

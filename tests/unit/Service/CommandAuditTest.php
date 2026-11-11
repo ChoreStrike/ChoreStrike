@@ -66,7 +66,8 @@ class CommandAuditTest extends TestCase {
 	public static function commandAuditProvider(): array {
 		$cases = [];
 		foreach (['house.reset', 'scheduling.apply', 'occurrence.amend', 'occurrence.catch-up', 'occurrence.restart',
-			'pause.request', 'pause.house', 'pause.approve', 'pause.reject', 'pause.recognize-illness', 'pause.shorten'] as $action) {
+			'pause.request', 'pause.house', 'pause.approve', 'pause.reject', 'pause.recognize-illness', 'pause.shorten',
+			'pause.delete'] as $action) {
 			foreach (['commit', 'replay', 'rollback'] as $mode) {
 				$cases[$action . ' ' . $mode] = [$action, $mode];
 			}

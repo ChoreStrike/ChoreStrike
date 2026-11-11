@@ -135,28 +135,6 @@ jest.mock('../../../src/store/preferences.js', () => ({
 	usePreferencesStore: () => require('vue').reactive(mockPreferencesState),
 }))
 
-// WP6 pause administration (Q-077-03 A): the owner house controls and the
-// self-only PauseSettings surface read the pause store; the cross-layer
-// contract lives in pauses.spec.js.
-const mockPausesState = {
-	pauses: [],
-	// Plain projection (the real store derives it via a getter).
-	pendingRequests: [],
-	loading: false,
-	saving: false,
-	error: null,
-	conflict: false,
-	fetchPauses: jest.fn().mockResolvedValue([]),
-	createHousePause: jest.fn().mockResolvedValue({ pauseGroupId: 1, revision: 1 }),
-	approvePause: jest.fn().mockResolvedValue({ pauseGroupId: 1, revision: 2 }),
-	rejectPause: jest.fn().mockResolvedValue({ pauseGroupId: 1, revision: 2 }),
-	recognizeIllness: jest.fn().mockResolvedValue({ pauseGroupId: 2, revision: 1 }),
-}
-
-jest.mock('../../../src/store/pauses.js', () => ({
-	usePausesStore: () => require('vue').reactive(mockPausesState),
-}))
-
 // Mock child components
 jest.mock('../../../src/components/Common/Icon.vue', () => ({
 	name: 'Icon',
@@ -211,16 +189,6 @@ describe('Settings.vue', () => {
 		mockUserState.initializeCurrentUser.mockClear().mockResolvedValue()
 		mockUserState.fetchHouseUsers.mockClear().mockResolvedValue()
 		mockUserState.houseUsers = []
-		mockPausesState.pauses = []
-		mockPausesState.pendingRequests = []
-		mockPausesState.saving = false
-		mockPausesState.conflict = false
-		mockPausesState.error = null
-		mockPausesState.fetchPauses.mockClear().mockResolvedValue([])
-		mockPausesState.createHousePause.mockClear().mockResolvedValue({ pauseGroupId: 1, revision: 1 })
-		mockPausesState.approvePause.mockClear().mockResolvedValue({ pauseGroupId: 1, revision: 2 })
-		mockPausesState.rejectPause.mockClear().mockResolvedValue({ pauseGroupId: 1, revision: 2 })
-		mockPausesState.recognizeIllness.mockClear().mockResolvedValue({ pauseGroupId: 2, revision: 1 })
 		mockPreferencesState.version = 0
 		mockPreferencesState.taskDigestEnabled = false
 		mockPreferencesState.orgDigestEnabled = false
@@ -889,56 +857,15 @@ describe('Settings.vue', () => {
 		expect(wrapper.findComponent({ name: 'NcCheckboxRadioSwitch' }).exists()).toBe(true)
 	})
 
-	// --- Pauses (CS-PLAN-070 WP6 §3.4, Q-077-03 A) ---
+	// --- Absences moved to their own view (ADR-020) ---
 
-	it('renders the self-only pause section for every member', async () => {
-		mockUserState.isHouseOwner = false
+	it('no longer holds any pause or absence controls', async () => {
+		mockUserState.isHouseOwner = true
 		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
 		await flushPromises()
 
-		expect(wrapper.find('[data-testid="pause-section"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="pause-settings"]').exists()).toBe(true)
-		// Owner administration stays in the owner House section.
-		expect(wrapper.find('[data-testid="house-pause-section"]').exists()).toBe(false)
-	})
-
-	it('offers the owner the house pause, request decisions and illness recognition', async () => {
-		const pendingRequest = {
-			pauseGroupId: 5,
-			revision: 1,
-			scope: 'personal',
-			subjectUserId: 'teen',
-			state: 'requested',
-			startDate: '2026-10-01',
-			endDate: '2026-10-03',
-			reasonCode: 'illness',
-			isRetrospectiveIllness: false,
+		for (const testId of ['pause-section', 'pause-settings', 'house-pause-section', 'pending-pause-requests', 'illness-recognition']) {
+			expect(wrapper.find(`[data-testid="${testId}"]`).exists()).toBe(false)
 		}
-		mockPausesState.pauses = [pendingRequest]
-		mockPausesState.pendingRequests = [pendingRequest]
-		mockUserState.houseUsers = [{ nextcloudUserId: 'teen', displayName: 'Teen' }]
-		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
-		await flushPromises()
-
-		expect(wrapper.find('[data-testid="house-pause-section"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="illness-recognition"]').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="pending-pause-requests"]').exists()).toBe(true)
-
-		// Approve sends the displayed expectedRevision.
-		await wrapper.find('[data-testid="pause-approve-5"]').trigger('click')
-		await flushPromises()
-		expect(mockPausesState.approvePause).toHaveBeenCalledWith(5, 1)
-
-		// The house pause form sends the whitelisted fields.
-		await wrapper.find('[data-testid="house-pause-start-input"]').setValue('2026-12-01')
-		await wrapper.find('[data-testid="house-pause-end-input"]').setValue('2026-12-05')
-		await wrapper.find('[data-testid="house-pause-reason-select"]').setValue('travel')
-		await wrapper.find('[data-testid="house-pause-submit"]').trigger('click')
-		await flushPromises()
-		expect(mockPausesState.createHousePause).toHaveBeenCalledWith({
-			startDate: '2026-12-01',
-			endDate: '2026-12-05',
-			reasonCode: 'travel',
-		})
 	})
 })

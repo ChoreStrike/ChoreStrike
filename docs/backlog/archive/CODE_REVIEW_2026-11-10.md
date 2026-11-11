@@ -60,3 +60,78 @@ not required and did not run; they stay binding for the implementation.
 `new/` to `active/`; FEAT-UX-062..067 and FEAT-UX-054 `In Progress` under CS-PLAN-090; RELEASE-002
 assigns the plan its alpha.5 slice; CONCEPT-002 names the active plan. One scoped review commit;
 no merge, push, tag or deployment.
+
+## Standard B - CS-PLAN-090 WP-A absence (interim)
+
+**Outcome:** `PASS-WITH-FIXES`. Interim review of WP-A (FEAT-UX-065); the plan stays in `active/`.
+
+### Scope and capture
+
+- `/review-chorestrike` without arguments, tier Standard B, no subagents. The main checkout on
+  `master` was clean; the only non-empty candidate was the pinned worktree `docs/release-a-plan`,
+  whose uncommitted change set is WP-A.
+- Base HEAD `c34f6e3349a8200427da7b15447e79ebaa39dcf4` (the Standard A activation), 1 ahead and
+  0 behind `master` (`9872cbf`), pin matching the branch.
+- Two staged deletions (`PauseSettings.vue` and its spec), 57 modified tracked files, five
+  untracked paths (ADR-020, `AbsenceView.vue` and its spec, `AbsenceOwnerPanel.vue`,
+  `AbsenceRangeForm.vue`). Scope fingerprint over the staged and unstaged binary diffs and the
+  sorted untracked paths with their SHA-256:
+  `4debce0ecf331e27545697e7523749a80471d9d5906038d905bbeb4f2d851e9c`.
+- Owning plan CS-PLAN-090; the other active plan, CS-PLAN-080, owns none of these files.
+- Read: every changed PHP file and every caller of the projection (suspension effects, capacity,
+  the planner fingerprint, digest relevance and content), the mapper's revision, decision and
+  departure paths, controller and route, store, API client, router and navigation, the three
+  Absence components, Settings, help and planner wording, the l10n diff, every changed test, the
+  three browser specs and the gate manifest, ADR-020, the API reference and the concept, guide
+  and engineering diffs.
+
+### Findings
+
+| ID | Severity | Area | Issue | Resolution |
+|---|---|---|---|---|
+| RF-090-08 | minor | `PauseService`, `AbsenceView.vue` | A child's shortening declined before the update (`acknowledged` r1, `rejected` r2) leaves r1 in force, but the list returned r2: the view hid the absence from everyone and deletion answered 409, against D-090-22. The view also offered deletion on a pending shortening of an ended absence, which the server refuses (D-090-25) | Fixed (operator, D-090-27): the list and the delete command use the revision a group stands for; each entry carries the server's `deletable` for its viewer, which the view uses. Unit, all-provider integration and Jest cases; ADR-020 and the API reference |
+| RF-090-09 | nit | `AbsenceView.vue` | Third copy of the day-key label (`TodayView.vue`, `SchedulePlanner.vue`) | Fixed (operator's choice): `formatDayKey()` in `src/utils/dateKeys.js` with its spec, used by all three |
+| RF-090-10 | nit | `src/store/pauses.js` | The `pendingRequests` getter had no reader left | Removed with its spec cases |
+| RF-090-11 | minor | `layout-clearance.spec.ts` | The browser gate failed on desktop and phone: the reachability probe relied on a member's Settings ending with the short pause section; the notification preferences are taller than the frame. `#/absence` was missing from the routed-view checks | Fixed: the probe aligns the section's end with the scroller (a clipped frame, BUG-UX-009, still fails it); the Absence view joins the heading, gutter and sideways-scroll checks |
+
+Out of scope: in the first browser run, `mobile-core` on `mobile-webkit` did not see Today within
+5 s of a Dashboard tile tap, although the failure screenshot shows Today rendered. No WP-A code is
+on that path, `mobile-chromium` passed the same scenario and the next complete gate passed. Folded
+into TECH-TRANSPORT-001 as unattributed.
+
+Checked without findings: the route is `@NoAdminRequired`; membership is checked in the
+controller and the service, subject-or-owner both before and under the house lock; a foreign
+house answers 404, a stale revision and an ended absence 409. `DELETE` reads its fields through
+`IRequest::getParams()`, from the query or the body (D-090-23). Every coverage reader goes through
+`excusedWalletsOn()`, which re-checks the acknowledgment after the governing selection, so a
+governing cancelled revision covers nothing in suspension effects, capacity, planner and digest
+content; digest relevance already accepted `cancelled`, and the fingerprint covers the state.
+Audit, digest recipients and receipt replay match ADR-020. Every new string goes through `t()`
+with real German; *Absent* (Abwesenheit) stays apart from *Away* (Abwesend), D-090-26.
+`PauseService.php` grows to 914 lines, a named accepted exception whose count `architecture.md`
+now carries.
+
+### Questions and decisions
+
+Two questions, both answered by the operator with the recommended option on 2026-11-10: fix
+RF-090-08 in this round (recorded as D-090-27) and extract the day label now (RF-090-09).
+D-090-23 to D-090-26 bind with this review. No question is open.
+
+### Gates
+
+On the final tree: Jest 162 suites / 2319 tests, `npm run lint`, stylelint, `l10n:check-keys`,
+`backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`, `composer cs:check` (0 of
+437 files), `npm run build`. PHPUnit on the canonical stack (NC 35.0.2, PHP 8.4.27, PostgreSQL
+18.6): unit 1590, integration 691 (1585 / 690 before the fixes). Matrix run `cs090-wpa-r1` with
+`--fail-on-skipped` on staged targets: NC 35.0.2 with MySQL/MariaDB 11.8.6 and with SQLite, and
+the AIO row (NC 34.0.5, PostgreSQL, Redis), each unit 1590 and integration 691. Browser gate on
+the primary row: `run-YXOhYK` failed (RF-090-11 and the folded webkit timing); after the fix
+`run-G53HP8` passed with 361 tests in five projects and no skipped, failed or flaky result.
+Browser gate on the AIO row: `run-BjeJTR` passed with the same 361 tests and no skipped, failed or
+flaky result. Reports and traces stay under the gitignored `build/e2e-gate/`.
+
+### Transition
+
+None: an interim review. WP-B to WP-G are open. FEAT-UX-065 has every criterion checked and stays
+in `backlog.md` until the plan's final review. One scoped review commit; no merge, push, tag or
+deployment.

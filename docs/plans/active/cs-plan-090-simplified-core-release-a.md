@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; drafted 2026-11-10; implementation not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-B to WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -124,6 +124,26 @@ Positions of this plan. They bind once Standard A passes.
   cannot write the old value back unnoticed. The column default stays as it is: every path that
   creates a row writes the delivery fields explicitly, which makes the column default
   irrelevant and avoids a definition change on three database providers.
+
+Positions taken while implementing WP-A (2026-11-10). They bind once its interim review passes.
+
+- **D-090-23 Delete parameters:** the client sends `commandId` and `expectedRevision` of
+  `DELETE /pauses/{id}` as query parameters, because a DELETE body does not survive every
+  proxy. The server reads both places.
+- **D-090-24 Pending requests in the list:** a request stored before the update appears as a
+  row of the shared list, for its subject and the owner, with the owner's decision buttons in
+  the row instead of a separate block in the owner section. Declined requests are not listed.
+- **D-090-25 What "ended" means:** the revision that governs today decides, so a pending
+  shortening does not make an ended absence deletable. A pending first request never covered
+  anything and can be withdrawn whatever its dates.
+- **D-090-26 Wording in the planner:** the capacity grid says *Absent* where it said *Paused*;
+  *Away* stays the label of a free day.
+- **D-090-27 The revision a group stands for (operator, 2026-11-10, interim review of WP-A):**
+  a group is its latest revision, except that a request declined on top of an absence (a child's
+  shortening from before ADR-020) leaves the absence as it stood. The list then shows the latest
+  acknowledged or cancelled revision with the group's latest revision number, and deletion
+  follows the same rule. Each list entry carries `deletable` for its viewer, by the rule the
+  delete command applies, and the view uses it instead of deciding on its own (RF-090-08).
 
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). No question
@@ -446,6 +466,10 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-05 (minor) - Coordination with CS-PLAN-080: its open real-device checklist (rows D1, D6, D8) and `mobile-core.spec.ts` name screens this release removes. A risk row now keeps the run and the closure with CS-PLAN-080 and the updated rows with this plan.
 - [x] RF-090-06 (minor) - Tests: several affected browser specs were not named (`mobile-core`, `scheduling`, `scheduling-apply-flow`, `3-floor-house`, `core-household-journey`, `layout-clearance`, `color-contrast`, `multi-user-interactions`). The shared inventory now names them and routes each to the package that removes its page.
 - [x] RF-090-07 (nit) - D-090-10 and WP-A: D-089-09 also covered the cleanliness route, and the digest for a deleted household absence was unstated. Corrected.
+- [x] RF-090-08 (minor) - WP-A, `PauseService::listForViewer()`/`delete()`, `AbsenceView.vue`: a child's shortening declined before the update (`acknowledged` r1, `rejected` r2) left the absence in force, but the list returned r2, the view hid it from everyone and deletion answered 409, against D-090-22. Separately, the view offered deletion on a pending shortening of an ended absence, which the server refuses (D-090-25). Fixed in the interim review by D-090-27: the standing revision and the server's `deletable`, with unit, integration and Jest cases, ADR-020 and the API reference.
+- [x] RF-090-09 (nit) - WP-A, `AbsenceView.vue`: a third copy of the day-key label (with `TodayView.vue` and `SchedulePlanner.vue`). Fixed in the interim review (operator's choice): one `formatDayKey()` in `src/utils/dateKeys.js` with its spec, used by all three.
+- [x] RF-090-10 (nit) - WP-A, `src/store/pauses.js`: the `pendingRequests` getter had no reader left; the plan says the store loses its unused getters. Removed with its spec cases.
+- [x] RF-090-11 (minor) - WP-A, `tests/e2e/layout-clearance.spec.ts`: the browser gate failed twice (desktop, phone). Its reachability probe scrolled the last Settings section with `scrollIntoViewIfNeeded()`, which worked only while a member's Settings ended with the short pause section; the notification preferences are taller than the frame. The routed-view list also lacked `#/absence`. Fixed in the interim review: the probe aligns the section's end with the scroller, which a clipped frame (BUG-UX-009) would still fail, and the Absence view joins the heading, gutter and sideways-scroll checks.
 
 ## Review Outcome
 
@@ -471,3 +495,25 @@ testing and retention rules. No subagents and no implementation edits.
   RELEASE-002 assigns this plan its alpha.5 slice. Record:
   [2026-11-10 review](../../backlog/archive/CODE_REVIEW_2026-11-10.md#standard-a---cs-plan-090-simplified-core-release-a).
 - Finalization is one scoped review commit; no merge, push, tag or deployment.
+
+**Standard B, interim (WP-A), 2026-11-10: PASS-WITH-FIXES.** Scope: the uncommitted WP-A change
+set of this worktree (`/review-chorestrike` without arguments; the main checkout was clean). No
+subagents.
+
+- Base HEAD `c34f6e3349a8200427da7b15447e79ebaa39dcf4`, branch `docs/release-a-plan`, pinned,
+  0 behind `master`. Capture: two staged deletions, 57 modified tracked files, five untracked
+  paths; scope fingerprint (staged and unstaged binary diffs, sorted untracked paths with SHA-256)
+  `4debce0ecf331e27545697e7523749a80471d9d5906038d905bbeb4f2d851e9c`.
+- RF-090-08..11 fixed in the review (§9). The operator chose the recommended option on both
+  questions: fix RF-090-08 now (D-090-27), extract the day label now (RF-090-09). D-090-23 to
+  D-090-26 bind with this review. One unattributed `mobile-webkit` timing failure of the first
+  browser run is out of scope and folded into TECH-TRANSPORT-001.
+- Gates on the final tree: Jest 162 suites / 2319 tests, `npm run lint`, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`,
+  `composer cs:check`, `npm run build`; PHPUnit unit 1590 / integration 691 on the canonical
+  PostgreSQL stack and, in matrix run `cs090-wpa-r1` with `--fail-on-skipped`, on MySQL, SQLite
+  and the AIO row; browser gate `run-G53HP8` on the primary row (361 tests, five projects) and
+  `run-BjeJTR` on the AIO row (the same 361), both without skipped, failed or flaky results.
+- No transition: WP-B to WP-G are open. Record:
+  [2026-11-10 review](../../backlog/archive/CODE_REVIEW_2026-11-10.md#standard-b---cs-plan-090-wp-a-absence-interim).
+  One scoped review commit; no merge, push, tag or deployment.

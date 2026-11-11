@@ -113,15 +113,20 @@ by quiet times.
 - Opt-out is per person and lives in the Settings delivery-preferences
   surface.
 
-## Pauses are neutral
+## Absences are neutral
 
-- A pause is **neutral**: during a pause nothing counts for or against
-  anyone. Reasons (illness, travel, overload, other) are labels, never
-  justifications.
-- Children create **pending requests** (effect-free until an owner
-  decides); adults are acknowledged directly. Households can be paused as
-  a whole; owners may record an illness retrospectively.
-- The pause lifecycle commands (request, decide, shorten) are
+- An absence is a **period, nothing more**
+  ([ADR-020](../adr/ADR-020-absences-without-requests.md)): during it nothing
+  is planned for the person and nothing counts for or against anyone. The
+  interface asks for no reason and shows none.
+- Everyone, children included, enters an absence for themselves on the
+  **Absence** view and it takes effect at once. Everyone sees all entries; a
+  member deletes their own and the owner any, as long as it has not ended.
+  Deleting keeps today and frees the days from tomorrow.
+- Owners enter an absence for the whole household and may enter one for
+  someone else afterwards. Requests stored before ADR-020 stay decidable
+  there until they are closed.
+- The commands (enter, delete, decide) are
   version-aware with one fresh command UUID per attempt; a 409 keeps the
   caller's draft. See `docs/engineering/notifications.md` for the digest
   side and the plan archive for the API contract details.

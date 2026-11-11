@@ -56,9 +56,9 @@ export default {
 					text: t('chorestrike', 'A missed chore stays visible as catch-up with its original date. Completing it now covers the miss — it stays a catch-up.'),
 				},
 				{
-					id: 'pause',
-					title: t('chorestrike', 'Pause'),
-					text: t('chorestrike', 'A pause is neutral: during a pause nothing counts for or against anyone. Illness, travel or simply too much at once are all fine reasons.'),
+					id: 'absence',
+					title: t('chorestrike', 'Absence'),
+					text: t('chorestrike', 'An absence is a period in which nothing is planned for you and nothing counts for or against anyone. Everyone enters their own under Absence; no reason and no request are needed.'),
 				},
 				{
 					id: 'streak',

@@ -289,9 +289,10 @@ the funding hold by WP7 ([ADR-017](../adr/ADR-017-family-catalog-and-redemption.
   day starts a new run. Personal best, earned awards and Coins remain intact.
   No threatening reminders or additional penalty accompany the reset.
 - Recognized dated illness/absence pauses are neutral, with no fake completion.
-  Adults manage their own pauses; children request owner approval. Owners manage
-  household pauses and may explicitly recognize retrospective illness with a
-  traceable decision. Freezes/jokers are removed (WP4, ADR-015).
+  Everyone enters and deletes their own absence without a request
+  ([ADR-020](../adr/ADR-020-absences-without-requests.md)). Owners manage
+  household absences and may explicitly enter one for someone else afterwards
+  with a traceable decision. Freezes/jokers are removed (WP4, ADR-015).
 - Personal credit requires actual participation. A pre-deadline agreed handover
   releases the previous responsible person neutrally; another person's unplanned
   completion alone does not automatically fulfill that person's streak obligation.
@@ -333,8 +334,9 @@ and retain C1 chronological evaluation.
 
 - Neutrally suspended occurrences leave the weekly denominator but remain visible
   as exceptions, not successes: ten opportunities with two suspended become
-  eight. An undecided child pause request alone changes neither denominator nor
-  personal obligation. Correctly completed work remains intact.
+  eight. An undecided pause request (stored before ADR-020) alone changes neither
+  denominator nor personal obligation; a deleted absence that had not started
+  leaves the denominator as if it had never been entered. Correctly completed work remains intact.
 - A valid handover changes responsibility, not the number of opportunities: the
   occurrence still counts once. The former responsible person gains neutral
   release, not success; actual participation remains required for personal credit.

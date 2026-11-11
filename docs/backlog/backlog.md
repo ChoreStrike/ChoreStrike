@@ -266,13 +266,15 @@ entries; the owner may delete any. Today a child's entry waits for the owner, a 
 members see only their own entries, and nothing can be deleted: shortening clamps to today and
 cannot remove an absence that has not started. No schema change is needed.
 
-- [ ] ADR-020 states the rule before code and amends the pause section of ADR-013.
-- [ ] An entry takes effect at once for every role.
-- [ ] A delete command for the subject and the owner, for absences that have not ended
+- [x] ADR-020 states the rule before code and amends the pause section of ADR-013.
+- [x] An entry takes effect at once for every role.
+- [x] A delete command for the subject and the owner, for absences that have not ended
       (D-090-22); later days are free again, today and earlier stay, an absence that has not
       started disappears; every cancelled revision is read alike (D-090-21).
-- [ ] An Absence view with everyone's entries; no reason asked or shown.
-- [ ] PHPUnit on all providers for the roles, the boundary and concurrency; a browser scenario.
+- [x] An Absence view with everyone's entries; no reason asked or shown.
+- [x] PHPUnit on all providers for the roles, the boundary and concurrency; a browser scenario.
+      (2026-11-10 interim review `PASS-WITH-FIXES`: canonical PostgreSQL, MySQL, SQLite and the
+      AIO row, browser gates on both rows; the item closes with the plan's final review.)
 
 ---
 
@@ -787,7 +789,7 @@ vibration motor.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs; 2026-10-20 CS-PLAN-088 WP-B gates: three full primary-row gates and one AIO-row gate each lost one to three required scenarios (`settings`, `mobile-core` handover, `calm-core-ui`, `release-task-lifecycle`) to seed/API `fetch failed` before any assertion, with no Apache error, OOM or restart and a foreign Testcontainers run active on the shared Docker host; every one passes in isolation. Two non-transport scenarios failed once and passed in isolation too (`mobile-core` webkit navigation to Settings, `arcade-mobile` Crumb Snake reaching *over* before the steer), also unattributed
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs; 2026-10-20 CS-PLAN-088 WP-B gates: three full primary-row gates and one AIO-row gate each lost one to three required scenarios (`settings`, `mobile-core` handover, `calm-core-ui`, `release-task-lifecycle`) to seed/API `fetch failed` before any assertion, with no Apache error, OOM or restart and a foreign Testcontainers run active on the shared Docker host; every one passes in isolation. Two non-transport scenarios failed once and passed in isolation too (`mobile-core` webkit navigation to Settings, `arcade-mobile` Crumb Snake reaching *over* before the steer), also unattributed; 2026-11-10 CS-PLAN-090 WP-A interim gate `run-YXOhYK` (primary row): `mobile-core` webkit "dashboard tiles lead to their targets" did not see Today within 5 s of the tile tap, while the failure screenshot shows Today rendered; `mobile-chromium` passed the same scenario, no WP-A code is on its path, and the next complete gate `run-G53HP8` passed, so it stays unattributed
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel

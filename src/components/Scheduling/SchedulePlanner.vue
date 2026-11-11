@@ -161,7 +161,7 @@
 									{{ t('chorestrike', 'As proposed') }}
 								</option>
 								<option v-for="date in change.legalDates" :key="date" :value="date">
-									{{ formatDateKey(date) }}
+									{{ formatDayKey(date) }}
 								</option>
 							</select>
 						</div>
@@ -209,7 +209,7 @@
 					<tbody>
 						<tr v-for="day in planPreview.capacity" :key="day.date">
 							<th scope="row">
-								{{ formatDateKey(day.date) }}
+								{{ formatDayKey(day.date) }}
 							</th>
 							<td
 								v-for="member in memberOptions"
@@ -265,7 +265,7 @@ import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useSchedulingStore } from '../../store/scheduling.js'
 import { useTasksStore } from '../../store/tasks.js'
 import { useUserStore } from '../../store/user.js'
-import { dateKeyInZone, todayKeyInZone } from '../../utils/dateKeys.js'
+import { dateKeyInZone, formatDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
 import { logger } from '../../utils/logger.js'
 
 const schedulingStore = useSchedulingStore()
@@ -355,7 +355,7 @@ function dueLabel(nextDue) {
 	if (!nextDue) {
 		return t('chorestrike', 'No due date')
 	}
-	return t('chorestrike', 'Due {date}', { date: formatDateKey(dateKeyInZone(nextDue, houseStore.timezone)) })
+	return t('chorestrike', 'Due {date}', { date: formatDayKey(dateKeyInZone(nextDue, houseStore.timezone)) })
 }
 
 function assigneeLabel(assignees) {
@@ -377,21 +377,13 @@ function memberDisplayName(userId) {
 	return userId
 }
 
-function formatDateKey(key) {
-	if (!key) {
-		return '—'
-	}
-	const [y, m, d] = key.split('-').map(Number)
-	return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
-}
-
 function describeRow(row) {
 	const people = row.assignees.length === 0
 		? t('chorestrike', 'unassigned')
 		: row.assignees.map((id) => memberDisplayName(id)).join(', ')
 	return t('chorestrike', '{people}, {date}', {
 		people,
-		date: row.dueDate ? formatDateKey(row.dueDate) : t('chorestrike', 'no date'),
+		date: row.dueDate ? formatDayKey(row.dueDate) : t('chorestrike', 'no date'),
 	})
 }
 
@@ -425,11 +417,11 @@ function capacityCell(entry) {
 	if (!entry) {
 		return '—'
 	}
-	// WP2 neutral/overload clarification (RF-073-WP2-13): a paused member
+	// WP2 neutral/overload clarification (RF-073-WP2-13): an absent member
 	// is neutral, an existing overload stays visible with its amounts —
 	// never silently hidden or truncated.
 	if (entry.paused) {
-		return t('chorestrike', 'Paused')
+		return t('chorestrike', 'Absent')
 	}
 	if (!entry.available) {
 		return t('chorestrike', 'Away')

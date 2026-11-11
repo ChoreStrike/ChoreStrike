@@ -101,6 +101,7 @@ test.describe('Layout clearance and dashboard health bar', () => {
 					{ path: '#/arcade', ready: 'arcade-view' },
 					{ path: '#/scheduling', ready: 'scheduling-view' },
 					{ path: '#/calendar', ready: 'calendar-view' },
+					{ path: '#/absence', ready: 'absence-view', content: 'absence-list' },
 					{ path: '#/settings', ready: 'settings-view' },
 				]
 				const covered: string[] = []
@@ -168,8 +169,11 @@ test.describe('Layout clearance and dashboard health bar', () => {
 				expect(viewport.height - frame.bottom, 'the bottom margin equals the left one').toBe(frame.left)
 				expect(frame.top, 'the frame starts under the header').toBe(header.bottom)
 
+				// The last section can be taller than the frame (a member's
+				// Settings end with the notification preferences since
+				// ADR-020), so its END is aligned with the scroller's end.
 				const end = root.locator('.settings-section').last()
-				await end.scrollIntoViewIfNeeded()
+				await end.evaluate((element) => element.scrollIntoView({ block: 'end', behavior: 'instant' }))
 				expect((await boxOf(end)).bottom, 'the end of the view scrolls into the frame').toBeLessThanOrEqual(frame.bottom)
 			} finally {
 				await context.close()

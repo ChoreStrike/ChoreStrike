@@ -261,7 +261,7 @@ class DailyCapacityService {
 				: max(1, (int)($commitment['energy'] ?? 1)) * self::ENERGY_MINOR;
 			$count = max(1, (int)($commitment['count'] ?? 1));
 			if ($evaluation['paused']) {
-				throw new ConflictException($this->l10n->t('This member is paused on that day'));
+				throw new ConflictException($this->l10n->t('This member is away on that day'));
 			}
 			if (!$evaluation['available']) {
 				throw new ConflictException($this->l10n->t('This member is not available on that day'));

@@ -100,11 +100,11 @@ const REQUIRED_SPECS = [
 	// family DB (flag flip + UI consent/withdraw).
 	{ file: 'ranking-consent.spec.ts', project: 'chromium-serial-db', scenarios: ['owner enables ranking; member joins pending and withdraws'], minTests: 1 },
 	// CS-PLAN-070 WP6: the calm-core spec flips the personal optional-area
-	// preference and walks the pause lifecycle through the real API — a
+	// preference and walks an absence through the real UI — a
 	// parallel reseed would corrupt the preference/pause state, serial only.
 	// CS-PLAN-086: chore unlocks and the owner arcade gate (reseeds, flips the household flag).
 	{ file: 'arcade-games.spec.ts', project: 'chromium-serial-db', scenarios: ['a locked game shows neutral progress', 'a crafted score for a locked game is refused', 'three finished chores unlock sock match', 'sock match saves a round', 'tile breaker saves a hands-off round', 'dust runner saves a hands-off round', 'the owner switch opens every game', 'spot sprint is open without chores'], minTests: 8 },
-	{ file: 'calm-core-ui.spec.ts', project: 'chromium-serial-db', scenarios: ['every role lands on my day', 'optional arcade hides', 'pause lifecycle stays neutral', 'a free day stays neutral', 'reduced motion overrides an explicit animation opt-in'], minTests: 6 },
+	{ file: 'calm-core-ui.spec.ts', project: 'chromium-serial-db', scenarios: ['every role lands on my day', 'optional arcade hides', 'a child enters an absence', 'a free day stays neutral', 'reduced motion overrides an explicit animation opt-in'], minTests: 6 },
 	// Owner-scoped scheduling pool.
 	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
 	{ file: 'flex-window-scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },

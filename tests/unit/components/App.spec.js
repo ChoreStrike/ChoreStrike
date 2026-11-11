@@ -48,6 +48,7 @@ describe('App', () => {
 			expect(html).toContain('data-testid="nav-insights"')
 			expect(html).toContain('data-testid="nav-scheduling"')
 			expect(html).toContain('data-testid="nav-calendar"')
+			expect(html).toContain('data-testid="nav-absence"')
 			expect(html).toContain('data-testid="nav-arcade"')
 			expect(html).toContain('data-testid="nav-reward-requests"')
 			expect(html).toContain('data-testid="nav-settings"')
@@ -57,9 +58,10 @@ describe('App', () => {
 			const wrapper = mountApp()
 			const navItems = wrapper.findAllComponents({ name: 'NcAppNavigationItem' })
 
-			// Ten persistent entries (nine WP6 entries + My Requests);
+			// Eleven persistent entries (nine WP6 entries, My Requests and
+			// Absence, ADR-020);
 			// the Rewards catalog entry renders only when both gates open.
-			expect(navItems).toHaveLength(10)
+			expect(navItems).toHaveLength(11)
 			expect(wrapper.html()).toContain('data-testid="nav-today"')
 			expect(wrapper.find('[data-testid="nav-today"]').exists()).toBe(true)
 			expect(wrapper.find('[data-testid="nav-rewards"]').exists()).toBe(false)
@@ -70,7 +72,7 @@ describe('App', () => {
 			const navItems = mountApp().findAllComponents({ name: 'NcAppNavigationItem' })
 			const icons = navItems.map((item) => item.find('.icon').text())
 
-			expect(icons).toHaveLength(10)
+			expect(icons).toHaveLength(11)
 			icons.forEach((name) => expect(name).not.toBe(''))
 			expect(new Set(icons).size).toBe(icons.length)
 		})

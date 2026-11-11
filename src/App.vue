@@ -71,6 +71,14 @@
 						<Icon name="Calendar" />
 					</template>
 				</NcAppNavigationItem>
+				<NcAppNavigationItem
+					:to="{ name: 'absence' }"
+					data-testid="nav-absence"
+					:name="t('chorestrike', 'Absence')">
+					<template #icon>
+						<Icon name="Luggage" />
+					</template>
+				</NcAppNavigationItem>
 				<!-- Optional-area gating (C5h, Q-077-05): the opt-in arcade
 				     surface disappears from the navigation entirely while the
 				     personal arcadeVisible preference is off. -->

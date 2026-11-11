@@ -295,16 +295,17 @@ class RouteMatrixTest extends TestCase {
 	 * catalog read (GET /minigames/catalog) and the owner-only arcade
 	 * gate writer (PUT /house/arcade-gate) → 96. CS-PLAN-088 D-088-20
 	 * added the "last done" writer (PUT /room-tasks/{id}/last-done,
-	 * consumed by the room-task edit dialog) → 97.
+	 * consumed by the room-task edit dialog) → 97. CS-PLAN-090 WP-A added
+	 * the absence deletion (DELETE /pauses/{id}, ADR-020) → 98.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			97,
+			98,
 			$this->routes['routes'],
-			'Route count drifted from the pin (97 after CS-PLAN-088 D-088-20) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (98 after CS-PLAN-090 WP-A) — add only with a consumer, then update deliberately'
 		);
 	}
 

@@ -33,8 +33,8 @@ use OCP\IL10N;
  * Commands run as ONE `CommandService` command each (house lock first,
  * receipt replay per UUID): personal pause request/acknowledgment,
  * household pause, explicit owner approve/reject, explicit
- * retrospective-illness recognition and the next-day shortening/
- * revocation. Every mutation then persists the derived neutral
+ * retrospective-illness recognition, the next-day shortening and the
+ * deletion (ADR-020). Every mutation then persists the derived neutral
  * suspension effects idempotently against the pause revision
  * ({@see applyPauseEffectsUnderLock}) — materialized rows carry the
  * state, the write-free projection (PauseProjectionService) keeps
@@ -57,6 +57,7 @@ class PauseService {
 	public const ACTION_REJECT = 'pause.reject';
 	public const ACTION_RECOGNIZE_ILLNESS = 'pause.recognize-illness';
 	public const ACTION_SHORTEN = 'pause.shorten';
+	public const ACTION_DELETE = 'pause.delete';
 
 	private CommandService $commands;
 	private PauseMapper $pauseMapper;
@@ -110,8 +111,11 @@ class PauseService {
 	 * self/owner data, and the personal reason plus the retrospective-
 	 * illness marker stay self/owner-only in EVERY state (plan §3.5,
 	 * RF-073-WP2-28) — other members see only the neutral shared facts
-	 * of the recognized/cancelled pauses. House-scope pauses are
-	 * household data and stay fully visible.
+	 * of the recognized pauses. House-scope pauses are household data and
+	 * stay fully visible. Each group is described by the revision it
+	 * stands for ({@see standingRevision}); a cancelled one is a deleted
+	 * absence and is left out (ADR-020). `deletable` tells whether the
+	 * viewer may delete the group now.
 	 *
 	 * @return list<array<string, mixed>>
 	 */
@@ -130,16 +134,19 @@ class PauseService {
 		}
 		$isOwner = $viewer->isOwner();
 
-		// One pass over the ordered revision history: the highest revision
-		// per group is the current projection (no per-row re-query).
-		$revisions = $this->pauseMapper->findByHouseId($houseId);
-		$latestByGroup = [];
-		foreach ($revisions as $pause) {
-			$latestByGroup[$pause->getPauseGroupId()] = $pause;
+		// One pass over the ordered revision history, grouped (no per-row
+		// re-query); each group is described by the revision it stands for.
+		$historyByGroup = [];
+		foreach ($this->pauseMapper->findByHouseId($houseId) as $revision) {
+			$historyByGroup[$revision->getPauseGroupId()][] = $revision;
 		}
 
 		$result = [];
-		foreach ($latestByGroup as $pause) {
+		foreach ($historyByGroup as $history) {
+			$pause = self::standingRevision($history);
+			if ($pause->getState() === Pause::STATE_CANCELLED) {
+				continue;
+			}
 			$subjectUserId = null;
 			if ($pause->getScope() === Pause::SCOPE_PERSONAL) {
 				$subjectUserId = $userByWallet[(int)($pause->getSubjectWalletId() ?? 0)] ?? null;
@@ -158,7 +165,9 @@ class PauseService {
 			// regains personal metadata through its retained wallet.
 			$entry = [
 				'pauseGroupId' => $pause->getPauseGroupId(),
-				'revision' => $pause->getRevision(),
+				// The expected revision of the next command is the group's
+				// latest one, also when the group stands for an earlier one.
+				'revision' => $history[count($history) - 1]->getRevision(),
 				'scope' => $pause->getScope(),
 				'subjectWalletId' => $pause->getSubjectWalletId(),
 				'subjectUserId' => $subjectUserId,
@@ -174,6 +183,9 @@ class PauseService {
 				$entry['reasonCode'] = $pause->getReasonCode();
 				$entry['isRetrospectiveIllness'] = $pause->getIsRetrospectiveIllness();
 			}
+			// Whether THIS viewer may delete it now: the same rule the
+			// delete command applies (D-090-22, D-090-25).
+			$entry['deletable'] = ($isOwner || $isSelf) && $this->deletionBlocker($history) === null;
 			$result[] = $entry;
 		}
 		usort($result, static fn (array $a, array $b): int => $a['pauseGroupId'] <=> $b['pauseGroupId']);
@@ -181,10 +193,9 @@ class PauseService {
 	}
 
 	/**
-	 * Personal pause for the CALLER (any member): children create a
-	 * pending `requested` request; adults (owner/member) create an
-	 * `acknowledged` pause directly (plan §3.4 table). Pending only —
-	 * no changed duty, deadline, capacity or goal eligibility.
+	 * Personal absence for the CALLER (any member, children included):
+	 * acknowledged directly, without a request or an owner decision
+	 * (ADR-020).
 	 *
 	 * Payload: {commandId, startDate, endDate, reasonCode}.
 	 *
@@ -201,7 +212,6 @@ class PauseService {
 			self::ACTION_REQUEST,
 			$validated['receipt'],
 			function () use ($houseId, &$actor, $validated): array {
-				$state = $actor->isOwner() || $actor->getRole() === 'member' ? Pause::STATE_ACKNOWLEDGED : Pause::STATE_REQUESTED;
 				$wallet = $this->requireWallet($houseId, $actor->getNextcloudUserId());
 				$pause = new Pause();
 				$pause->setHouseId($houseId);
@@ -209,7 +219,7 @@ class PauseService {
 				$pause->setScope(Pause::SCOPE_PERSONAL);
 				$pause->setSubjectWalletId((int)$wallet->getId());
 				$pause->setRequesterHouseUserId((int)$actor->getId());
-				$pause->setState($state);
+				$pause->setState(Pause::STATE_ACKNOWLEDGED);
 				$pause->setReasonCode($validated['reasonCode']);
 				$this->applyRange($pause, $validated, $this->houseZone($houseId));
 				$pause = $this->pauseMapper->appendRevision($pause);
@@ -348,9 +358,8 @@ class PauseService {
 	 * Shorten / revoke an acknowledged pause (plan §3.4): appends a new
 	 * revision whose coverage ends no earlier than TODAY in the pause's
 	 * saved zone — today's and earlier recognized excuses are preserved
-	 * by the retained old revision. Adult self and house-scope owner
-	 * append an `acknowledged` revision directly; a child's change
-	 * creates a pending revision that requires the owner decision.
+	 * by the retained old revision. The subject of a personal pause and
+	 * the owner append an `acknowledged` revision directly (ADR-020).
 	 *
 	 * Payload: {commandId, endDate, expectedRevision}.
 	 *
@@ -358,14 +367,7 @@ class PauseService {
 	 */
 	public function shorten(int $houseId, string $actorUserId, int $pauseGroupId, array $payload): array {
 		$actor = $this->assertMember($houseId, $actorUserId);
-		$expectedRevision = $payload['expectedRevision'] ?? null;
-		if (!is_numeric($expectedRevision) || (int)$expectedRevision < 1) {
-			throw new \InvalidArgumentException($this->l10n->t('A valid expectedRevision is required'));
-		}
-		$commandId = $payload['commandId'] ?? null;
-		if (!is_string($commandId) || trim($commandId) === '' || strlen($commandId) > 36) {
-			throw new \InvalidArgumentException($this->l10n->t('A valid commandId (UUID) is required'));
-		}
+		['commandId' => $commandId, 'expectedRevision' => $expectedRevisionInt] = $this->validateRevisionPayload($payload);
 		$newEnd = $payload['endDate'] ?? null;
 		if (!is_string($newEnd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $newEnd)
 			|| \DateTime::createFromFormat('Y-m-d', $newEnd)->format('Y-m-d') !== $newEnd) {
@@ -373,30 +375,28 @@ class PauseService {
 		}
 		$receipt = [
 			'pauseGroupId' => $pauseGroupId,
-			'expectedRevision' => (int)$expectedRevision,
+			'expectedRevision' => $expectedRevisionInt,
 			'endDate' => $newEnd,
-			'commandId' => strtolower($commandId),
+			'commandId' => $commandId,
 		];
-		$expectedRevisionInt = (int)$expectedRevision;
 
 		['result' => $refs] = $this->commands->runCommand(
 			$houseId,
 			(int)$actor->getId(),
-			strtolower($commandId),
+			$commandId,
 			self::ACTION_SHORTEN,
 			$receipt,
 			function () use ($houseId, &$actor, $pauseGroupId, $expectedRevisionInt, $newEnd): array {
 				$current = $this->pauseMapper->findCurrentByGroup($pauseGroupId);
 				if ($current->getHouseId() !== $houseId) {
-					throw new NotFoundException($this->l10n->t('Pause not found'));
+					throw new NotFoundException($this->l10n->t('Absence not found'));
 				}
 				if ($current->getRevision() !== $expectedRevisionInt) {
-					throw new ConflictException($this->l10n->t('The pause changed since it was displayed. Reload and try again.'));
+					throw new ConflictException($this->l10n->t('The absence changed since it was displayed. Reload and try again.'));
 				}
 				// Role denial is VISIBLE (403 before the state conflict):
 				// personal pauses — the subject shortens their own, the
 				// owner may shorten anyone's; house scope is owner-only.
-				$isOwner = $actor->isOwner();
 				$this->assertCanShortenPause($houseId, $actor, $current);
 				// Plan §3.4 row 6 scopes shortening/revocation to
 				// ACKNOWLEDGED pauses (RF-073-WP2-18): a pending request
@@ -420,35 +420,73 @@ class PauseService {
 					throw new ConflictException($this->l10n->t('The shortened pause would lose its start date'));
 				}
 
-				// Child-requested shortenings stay pending until the owner
-				// acknowledges them (plan §3.4 row 6).
-				$isChild = $actor->getRole() === 'child';
-				$state = ($isChild && !$isOwner) ? Pause::STATE_REQUESTED : Pause::STATE_ACKNOWLEDGED;
-				$revision = new Pause();
-				$revision->setHouseId($houseId);
-				$revision->setPauseGroupId($pauseGroupId);
-				$revision->setScope($current->getScope());
-				$revision->setSubjectWalletId($current->getSubjectWalletId());
-				$revision->setRequesterHouseUserId((int)$actor->getId());
-				$revision->setDeciderHouseUserId(!$isChild || $isOwner ? (int)$actor->getId() : null);
-				$revision->setState($state);
-				$revision->setReasonCode($current->getReasonCode());
-				$revision->setIsRetrospectiveIllness($current->getIsRetrospectiveIllness());
-				$revision->setStartDate($current->getStartDate());
-				$revision->setEndDate(\DateTime::createFromFormat('Y-m-d', $effectiveEnd) ?: $current->getEndDate());
-				$revision->setTimezone($zone);
 				$now = new \DateTime();
-				$revision->setCreatedAt($now);
-				$revision->setUpdatedAt($now);
+				$revision = $this->nextRevisionOf($current, $actor, Pause::STATE_ACKNOWLEDGED, $now);
+				$revision->setEndDate(\DateTime::createFromFormat('Y-m-d', $effectiveEnd) ?: $current->getEndDate());
 				$revision = $this->pauseMapper->appendRevision($revision);
 				$this->applyPauseEffectsUnderLock($houseId);
-				// WP5 (C5m): an acknowledged shortening/cancellation is a
-				// pause decision affecting the subject — transactional
-				// queue write (a pending child revision is a request, not
-				// a decision).
-				if ($revision->getState() === Pause::STATE_ACKNOWLEDGED) {
-					$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
+				// WP5 (C5m): a shortening is a pause decision affecting the
+				// subject — transactional queue write.
+				$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
+				return ['pauseGroupId' => $pauseGroupId, 'revision' => $revision->getRevision(), 'state' => $revision->getState()];
+			},
+			$this->actorGuard($actor, false, $pauseGroupId)
+		);
+		return $refs;
+	}
+
+	/**
+	 * Delete an absence (ADR-020): the subject deletes an own personal
+	 * one, the owner any, a household one included. Appends a `cancelled`
+	 * revision that governs from the NEXT local day of the pause's saved
+	 * zone — an absence that has not started disappears, a running one
+	 * ends today, and what it already excused stays excused. A pending
+	 * request is withdrawn the same way, and a declined shortening deletes
+	 * the absence it left in force. An absence that has ended has nothing
+	 * left to free and answers a conflict (D-090-22).
+	 *
+	 * Payload: {commandId, expectedRevision}.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function delete(int $houseId, string $actorUserId, int $pauseGroupId, array $payload): array {
+		$actor = $this->assertMember($houseId, $actorUserId);
+		['commandId' => $commandId, 'expectedRevision' => $expectedRevision] = $this->validateRevisionPayload($payload);
+		$receipt = [
+			'pauseGroupId' => $pauseGroupId,
+			'expectedRevision' => $expectedRevision,
+			'commandId' => $commandId,
+		];
+
+		['result' => $refs] = $this->commands->runCommand(
+			$houseId,
+			(int)$actor->getId(),
+			$commandId,
+			self::ACTION_DELETE,
+			$receipt,
+			function () use ($houseId, &$actor, $pauseGroupId, $expectedRevision): array {
+				$current = $this->pauseMapper->findCurrentByGroup($pauseGroupId);
+				if ($current->getHouseId() !== $houseId) {
+					throw new NotFoundException($this->l10n->t('Absence not found'));
 				}
+				if ($current->getRevision() !== $expectedRevision) {
+					throw new ConflictException($this->l10n->t('The absence changed since it was displayed. Reload and try again.'));
+				}
+				$this->assertCanShortenPause($houseId, $actor, $current);
+				$history = $this->pauseMapper->findByGroup($pauseGroupId);
+				$blocker = $this->deletionBlocker($history);
+				if ($blocker !== null) {
+					throw new ConflictException($blocker);
+				}
+
+				$now = new \DateTime();
+				$revision = $this->pauseMapper->appendRevision(
+					$this->nextRevisionOf(self::standingRevision($history), $actor, Pause::STATE_CANCELLED, $now)
+				);
+				$this->applyPauseEffectsUnderLock($houseId);
+				// Someone else's absence: the subject learns it through the
+				// digest; a household absence concerns every other member.
+				$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
 				return ['pauseGroupId' => $pauseGroupId, 'revision' => $revision->getRevision(), 'state' => $revision->getState()];
 			},
 			$this->actorGuard($actor, false, $pauseGroupId)
@@ -599,8 +637,75 @@ class PauseService {
 	// Internals
 	// ------------------------------------------------------------------
 
-	private function decide(int $houseId, string $actorUserId, int $pauseGroupId, array $payload, string $action, string $decisionState): array {
-		$actor = $this->assertOwner($houseId, $actorUserId);
+	/**
+	 * The revision a group stands for: its latest one, except that a
+	 * request declined on top of an absence (a child's shortening from
+	 * before ADR-020) leaves the absence as it stood — the latest
+	 * acknowledged or cancelled revision, which keeps governing.
+	 *
+	 * @param Pause[] $history The group's revisions, ascending
+	 */
+	private static function standingRevision(array $history): Pause {
+		$current = $history[count($history) - 1];
+		if ($current->getState() !== Pause::STATE_REJECTED) {
+			return $current;
+		}
+		for ($index = count($history) - 2; $index >= 0; $index--) {
+			if ($history[$index]->isRecognized() || $history[$index]->getState() === Pause::STATE_CANCELLED) {
+				return $history[$index];
+			}
+		}
+		return $current;
+	}
+
+	/**
+	 * Why a group can no longer be deleted, or null (D-090-22): only
+	 * pending, upcoming and running absences can be. Whether one has
+	 * ended is read from the revision that governs today, so a pending
+	 * shortening does not hide it (D-090-25).
+	 *
+	 * @param Pause[] $history The group's revisions, ascending
+	 */
+	private function deletionBlocker(array $history): ?string {
+		$standing = self::standingRevision($history);
+		if (!in_array($standing->getState(), [Pause::STATE_ACKNOWLEDGED, Pause::STATE_REQUESTED], true)) {
+			return $this->l10n->t('This absence can no longer be deleted');
+		}
+		// The list reads this for every group: the same zone fallback as
+		// the projection's boundary, so no stored row can fail the read.
+		$todayKey = $this->calendar->dayKey(new \DateTime(), new \DateTimeZone($standing->getTimezone() ?: 'UTC'));
+		foreach (PauseProjectionService::governingRevisionsOn($history, $todayKey) as $governing) {
+			if ($governing->isRecognized() && $governing->getEndDate()->format('Y-m-d') < $todayKey) {
+				return $this->l10n->t('An absence that has ended cannot be deleted');
+			}
+		}
+		return null;
+	}
+
+	/** A new revision of the same group that carries the current facts under a new state. */
+	private function nextRevisionOf(Pause $current, HouseUser $actor, string $state, \DateTime $now): Pause {
+		$revision = new Pause();
+		$revision->setHouseId($current->getHouseId());
+		$revision->setPauseGroupId($current->getPauseGroupId());
+		$revision->setScope($current->getScope());
+		$revision->setSubjectWalletId($current->getSubjectWalletId());
+		$revision->setRequesterHouseUserId((int)$actor->getId());
+		$revision->setDeciderHouseUserId((int)$actor->getId());
+		$revision->setState($state);
+		$revision->setReasonCode($current->getReasonCode());
+		$revision->setIsRetrospectiveIllness($current->getIsRetrospectiveIllness());
+		$revision->setStartDate($current->getStartDate());
+		$revision->setEndDate($current->getEndDate());
+		$revision->setTimezone($current->getTimezone());
+		$revision->setCreatedAt($now);
+		$revision->setUpdatedAt($now);
+		return $revision;
+	}
+
+	/**
+	 * @return array{commandId: string, expectedRevision: int}
+	 */
+	private function validateRevisionPayload(array $payload): array {
 		$expectedRevision = $payload['expectedRevision'] ?? null;
 		if (!is_numeric($expectedRevision) || (int)$expectedRevision < 1) {
 			throw new \InvalidArgumentException($this->l10n->t('A valid expectedRevision is required'));
@@ -609,27 +714,32 @@ class PauseService {
 		if (!is_string($commandId) || trim($commandId) === '' || strlen($commandId) > 36) {
 			throw new \InvalidArgumentException($this->l10n->t('A valid commandId (UUID) is required'));
 		}
+		return ['commandId' => strtolower($commandId), 'expectedRevision' => (int)$expectedRevision];
+	}
+
+	private function decide(int $houseId, string $actorUserId, int $pauseGroupId, array $payload, string $action, string $decisionState): array {
+		$actor = $this->assertOwner($houseId, $actorUserId);
+		['commandId' => $commandId, 'expectedRevision' => $expectedRevisionInt] = $this->validateRevisionPayload($payload);
 		$receipt = [
 			'pauseGroupId' => $pauseGroupId,
-			'expectedRevision' => (int)$expectedRevision,
+			'expectedRevision' => $expectedRevisionInt,
 			'decision' => $decisionState,
-			'commandId' => strtolower($commandId),
+			'commandId' => $commandId,
 		];
-		$expectedRevisionInt = (int)$expectedRevision;
 
 		['result' => $refs] = $this->commands->runCommand(
 			$houseId,
 			(int)$actor->getId(),
-			strtolower($commandId),
+			$commandId,
 			$action,
 			$receipt,
 			function () use ($houseId, $actor, $pauseGroupId, $expectedRevisionInt, $decisionState): array {
 				$current = $this->pauseMapper->findCurrentByGroup($pauseGroupId);
 				if ($current->getHouseId() !== $houseId) {
-					throw new NotFoundException($this->l10n->t('Pause not found'));
+					throw new NotFoundException($this->l10n->t('Absence not found'));
 				}
 				if ($current->getRevision() !== $expectedRevisionInt) {
-					throw new ConflictException($this->l10n->t('The pause changed since it was displayed. Reload and try again.'));
+					throw new ConflictException($this->l10n->t('The absence changed since it was displayed. Reload and try again.'));
 				}
 				if ($current->getState() !== Pause::STATE_REQUESTED) {
 					throw new ConflictException($this->l10n->t('Only a pending pause request can be decided'));
@@ -725,10 +835,10 @@ class PauseService {
 				try {
 					$pause = $this->pauseMapper->findCurrentByGroup($pauseGroupId);
 				} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
-					throw new NotFoundException($this->l10n->t('Pause not found'));
+					throw new NotFoundException($this->l10n->t('Absence not found'));
 				}
 				if ($pause->getHouseId() !== $houseId) {
-					throw new NotFoundException($this->l10n->t('Pause not found'));
+					throw new NotFoundException($this->l10n->t('Absence not found'));
 				}
 				if (!$ownerOnly) {
 					$this->assertCanShortenPause($houseId, $fresh, $pause);

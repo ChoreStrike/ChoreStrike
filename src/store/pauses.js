@@ -7,23 +7,22 @@ import { defineStore } from 'pinia'
 import {
 	approvePause,
 	createPause,
+	deletePause as deletePauseRequest,
 	fetchPauses,
 	recognizeIllness as recognizeIllnessRequest,
 	rejectPause,
-	updatePause,
 } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 /**
- * Pause store (CS-PLAN-070 WP6 §3.4, FEAT-UX-025 remainder; contract:
- * CS-PLAN-073 WP2 §3.4/§3.5). Reads only the viewer-whitelisted pause
- * list and sends every lifecycle command exactly as the delivered
- * service defines it: one FRESH command UUID per attempt, the displayed
- * `expectedRevision` on decisions/shortening. A 409 (stale revision or
- * business conflict) PRESERVES the caller's draft: the store flags
- * `conflict` and re-reads the authoritative list; the caller retries
- * with fresh inputs. Neutral domain: pending child requests change
- * nothing until an owner decides them.
+ * Absence store (ADR-020; contract: CS-PLAN-073 WP2 §3.4/§3.5). Reads
+ * only the viewer-whitelisted pause list and sends every command exactly
+ * as the service defines it: one FRESH command UUID per attempt, the
+ * displayed `expectedRevision` on decisions and deletions. A 409 (stale
+ * revision or business conflict) PRESERVES the caller's draft: the store
+ * flags `conflict` and re-reads the authoritative list; the caller
+ * retries with fresh inputs. An absence takes effect at once for every
+ * role; only requests stored before ADR-020 can still be pending.
  */
 
 function DEFAULT_STATE() {
@@ -62,36 +61,6 @@ function generateCommandId() {
 export const usePausesStore = defineStore('pauses', {
 	state: () => DEFAULT_STATE(),
 
-	getters: {
-		/**
-		 * Pending personal requests visible to the viewer: the viewer's own
-		 * pending request plus — for owners — every pending request.
-		 * Pending requests of OTHER members are never whitelisted for
-		 * non-owners (server-side 404 class); this getter mirrors that
-		 * surface for rendering.
-		 *
-		 * @param {object} state Pinia state.
-		 * @return {Array} Pending personal pause entries.
-		 */
-		pendingRequests: (state) => state.pauses.filter((pause) => pause.state === 'requested' && pause.scope === 'personal'),
-
-		/**
-		 * Acknowledged pauses in every scope (the effective neutral suspensions).
-		 *
-		 * @param {object} state Pinia state.
-		 * @return {Array} Acknowledged pause entries.
-		 */
-		activePauses: (state) => state.pauses.filter((pause) => pause.state === 'acknowledged'),
-
-		/**
-		 * Decided-but-not-yet-expired history the viewer may see (rejected/…).
-		 *
-		 * @param {object} state Pinia state.
-		 * @return {Array} Rejected pause entries.
-		 */
-		decidedPauses: (state) => state.pauses.filter((pause) => pause.state === 'rejected'),
-	},
-
 	actions: {
 		/**
 		 * Fetch the viewer-whitelisted pause list (generation-guarded).
@@ -120,9 +89,8 @@ export const usePausesStore = defineStore('pauses', {
 		},
 
 		/**
-		 * Request a personal pause for the CALLER (child → pending request,
-		 * adult → acknowledged directly). The server owns the state
-		 * transition; the fresh list is re-read afterwards.
+		 * Enter a personal absence for the CALLER (acknowledged at once for
+		 * every role). The fresh list is re-read afterwards.
 		 * @param {object} fields {startDate, endDate, reasonCode}.
 		 * @return {Promise<object>} Identity refs {pauseGroupId, revision, state}.
 		 */
@@ -186,19 +154,15 @@ export const usePausesStore = defineStore('pauses', {
 		},
 
 		/**
-		 * Shorten/revoke an acknowledged pause (next-local-day boundary
-		 * server-side). A child's shortening creates a pending revision.
-		 *
+		 * Delete an absence that has not ended: one's own, or any as the
+		 * owner. A pending request is withdrawn the same way.
 		 * @param {number} pauseGroupId Pause group id.
-		 * @param {object} fields The shortening fields.
-		 * @param {string} fields.endDate The new inclusive end date.
-		 * @param {number} fields.expectedRevision The displayed revision.
+		 * @param {number} expectedRevision The displayed revision.
 		 * @return {Promise<object>} Identity refs.
 		 */
-		async shortenPause(pauseGroupId, { endDate, expectedRevision }) {
-			return this.runCommand(() => updatePause(pauseGroupId, {
+		async deletePause(pauseGroupId, expectedRevision) {
+			return this.runCommand(() => deletePauseRequest(pauseGroupId, {
 				commandId: generateCommandId(),
-				endDate,
 				expectedRevision,
 			}))
 		},

@@ -37,16 +37,6 @@
 				<NotificationPreferences />
 			</section>
 
-			<!-- Pauses (CS-PLAN-070 WP6 §3.4, Q-077-03 A): the self-only
-			     pause surface for every member; owner administration lives
-			     in the House section above. -->
-			<section class="settings-section" data-testid="pause-section">
-				<h2>{{ t('chorestrike', 'Pauses') }}</h2>
-				<div class="setting-card">
-					<PauseSettings />
-				</div>
-			</section>
-
 			<!-- House Settings (owner only: PUT /house requires the owner role) -->
 			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="house-section">
 				<h2>{{ t('chorestrike', 'House') }}</h2>
@@ -118,127 +108,6 @@
 								@click="saveRanking">
 								<Icon name="Save" :size="16" />
 								{{ t('chorestrike', 'Save') }}
-							</button>
-						</div>
-					</div>
-
-					<!-- House pause controls (CS-PLAN-070 WP6 §3.4, Q-077-03 A):
-					     owner-only pause administration on the delivered
-					     CS-PLAN-073 WP2 contract. -->
-					<div class="form-group" data-testid="house-pause-section">
-						<label for="house-pause-start">{{ t('chorestrike', 'House pause') }}</label>
-						<p class="setting-hint">
-							{{ t('chorestrike', 'Pauses the whole household neutrally — nothing counts for or against anyone during the pause.') }}
-						</p>
-						<div class="input-group house-pause-row">
-							<input
-								id="house-pause-start"
-								v-model="housePauseDraft.startDate"
-								type="date"
-								class="text-input"
-								:aria-label="t('chorestrike', 'From')"
-								data-testid="house-pause-start-input">
-							<input
-								v-model="housePauseDraft.endDate"
-								type="date"
-								class="text-input"
-								:aria-label="t('chorestrike', 'Until (inclusive)')"
-								data-testid="house-pause-end-input">
-							<select
-								v-model="housePauseDraft.reasonCode"
-								class="text-input"
-								:aria-label="t('chorestrike', 'Reason')"
-								data-testid="house-pause-reason-select">
-								<option value="illness">
-									{{ t('chorestrike', 'Illness') }}
-								</option>
-								<option value="travel">
-									{{ t('chorestrike', 'Travel') }}
-								</option>
-								<option value="overload">
-									{{ t('chorestrike', 'Too much at once') }}
-								</option>
-								<option value="other">
-									{{ t('chorestrike', 'Other') }}
-								</option>
-							</select>
-							<button
-								class="save-button"
-								data-testid="house-pause-submit"
-								:disabled="!housePauseDraft.startDate || !housePauseDraft.endDate || pausesStore.saving"
-								@click="createHousePause">
-								{{ t('chorestrike', 'Pause house') }}
-							</button>
-						</div>
-					</div>
-
-					<div v-if="pendingPauseRequests.length > 0" class="form-group" data-testid="pending-pause-requests">
-						<label>{{ t('chorestrike', 'Pending pause requests') }}</label>
-						<p class="setting-hint">
-							{{ t('chorestrike', 'Pending child requests change nothing until you decide them.') }}
-						</p>
-						<ul class="pause-request-list">
-							<li
-								v-for="request in pendingPauseRequests"
-								:key="request.pauseGroupId"
-								class="pause-request-row"
-								:data-testid="`pause-request-${request.pauseGroupId}`">
-								<span class="pause-request-name">{{ memberName(request.subjectUserId) }}</span>
-								<span class="pause-request-range">
-									{{ t('chorestrike', '{start} – {end}', { start: request.startDate, end: request.endDate }) }}
-								</span>
-								<span v-if="request.reasonCode" class="pause-request-reason">{{ pauseReasonLabel(request.reasonCode) }}</span>
-								<button
-									class="save-button"
-									:data-testid="`pause-approve-${request.pauseGroupId}`"
-									:disabled="pausesStore.saving"
-									@click="decidePauseRequest(request, true)">
-									{{ t('chorestrike', 'Acknowledge') }}
-								</button>
-								<button
-									class="save-button danger"
-									:data-testid="`pause-reject-${request.pauseGroupId}`"
-									:disabled="pausesStore.saving"
-									@click="decidePauseRequest(request, false)">
-									{{ t('chorestrike', 'Decline') }}
-								</button>
-							</li>
-						</ul>
-					</div>
-
-					<div class="form-group" data-testid="illness-recognition">
-						<label for="illness-member">{{ t('chorestrike', 'Record illness retrospectively') }}</label>
-						<p class="setting-hint">
-							{{ t('chorestrike', 'Acknowledge a past illness for one member — neutral, like any other pause.') }}
-						</p>
-						<div class="input-group house-pause-row">
-							<select
-								id="illness-member"
-								v-model="illnessDraft.subjectUserId"
-								class="text-input"
-								data-testid="illness-member-select">
-								<option v-for="member in houseMembers" :key="member.nextcloudUserId" :value="member.nextcloudUserId">
-									{{ member.displayName }}
-								</option>
-							</select>
-							<input
-								v-model="illnessDraft.startDate"
-								type="date"
-								class="text-input"
-								:aria-label="t('chorestrike', 'From')"
-								data-testid="illness-start-input">
-							<input
-								v-model="illnessDraft.endDate"
-								type="date"
-								class="text-input"
-								:aria-label="t('chorestrike', 'Until (inclusive)')"
-								data-testid="illness-end-input">
-							<button
-								class="save-button"
-								data-testid="illness-submit"
-								:disabled="!illnessDraft.subjectUserId || !illnessDraft.startDate || !illnessDraft.endDate || pausesStore.saving"
-								@click="recordIllness">
-								{{ t('chorestrike', 'Record') }}
 							</button>
 						</div>
 					</div>
@@ -553,10 +422,8 @@ import ArcadeGateSetting from '../components/Minigames/ArcadeGateSetting.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
 import RewardCatalogEditor from '../components/Rewards/RewardCatalogEditor.vue'
 import NotificationPreferences from '../components/Settings/NotificationPreferences.vue'
-import PauseSettings from '../components/Settings/PauseSettings.vue'
 import { CURATED_TIMEZONES } from '../constants/timezones.js'
 import { useHouseStore } from '../store/house.js'
-import { usePausesStore } from '../store/pauses.js'
 import { usePreferencesStore } from '../store/preferences.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
@@ -578,7 +445,6 @@ export default {
 		MemberList,
 		TitleBadge,
 		NotificationPreferences,
-		PauseSettings,
 		RewardCatalogEditor,
 		ArcadeGateSetting,
 	},
@@ -590,8 +456,7 @@ export default {
 		const userStore = useUserStore()
 		const titlesStore = useTitlesStore()
 		const preferencesStore = usePreferencesStore()
-		const pausesStore = usePausesStore()
-		return { houseStore, roomsStore, roomTasksStore, userStore, titlesStore, preferencesStore, pausesStore }
+		return { houseStore, roomsStore, roomTasksStore, userStore, titlesStore, preferencesStore }
 	},
 
 	data() {
@@ -602,8 +467,6 @@ export default {
 			houseName: '',
 			houseTimezone: 'UTC',
 			rankingEnabled: false,
-			housePauseDraft: { startDate: '', endDate: '', reasonCode: 'travel' },
-			illnessDraft: { subjectUserId: '', startDate: '', endDate: '' },
 			showAddFloorModal: false,
 			showEditFloorModal: false,
 			showResetModal: false,
@@ -628,19 +491,6 @@ export default {
 	computed: {
 		canSaveHouseName() {
 			return this.houseReady && this.houseStore.house?.name && this.houseName.trim() && this.houseName !== this.houseStore.houseName
-		},
-
-		/**
-		 * Owner pause administration (Q-077-03 A): pending requests are
-		 * visible to owners only (the server whitelists them for the
-		 * owner role anyway).
-		 */
-		pendingPauseRequests() {
-			return this.pausesStore.pendingRequests
-		},
-
-		houseMembers() {
-			return this.userStore.houseUsers ?? []
 		},
 
 		canSaveHouseTimezone() {
@@ -716,87 +566,10 @@ export default {
 				// NotificationPreferences (WP6 §3.3); the Settings view only
 				// keeps the store warm for the arcade/feedback consumers.
 				this.preferencesStore.fetchPreferences().catch(() => {})
-				// Member names + the viewer-whitelisted pause list feed the
-				// owner pause administration (Q-077-03 A).
-				this.userStore.fetchHouseUsers().catch(() => {})
-				this.pausesStore.fetchPauses().catch((error) => {
-					logger.error('Failed to load the pause list', error, { view: 'Settings', action: 'initializeSettings' })
-				})
 			} catch (error) {
 				this.initializationError = true
 				logger.error('Failed to initialize settings', error, { view: 'Settings', action: 'initializeSettings' })
 			}
-		},
-
-		async createHousePause() {
-			if (!this.housePauseDraft.startDate || !this.housePauseDraft.endDate) {
-				return
-			}
-			try {
-				await this.pausesStore.createHousePause({
-					startDate: this.housePauseDraft.startDate,
-					endDate: this.housePauseDraft.endDate,
-					reasonCode: this.housePauseDraft.reasonCode,
-				})
-				showSuccess(t('chorestrike', 'The house pause was recorded.'))
-				this.housePauseDraft = { startDate: '', endDate: '', reasonCode: this.housePauseDraft.reasonCode }
-			} catch (error) {
-				if (error?.status !== 409) {
-					showError(t('chorestrike', 'The house pause could not be recorded.'))
-					logger.error('Failed to create the house pause', error, { view: 'Settings', action: 'createHousePause' })
-				}
-			}
-		},
-
-		async decidePauseRequest(request, approve) {
-			try {
-				if (approve) {
-					await this.pausesStore.approvePause(request.pauseGroupId, request.revision)
-					showSuccess(t('chorestrike', 'The pause request was acknowledged.'))
-				} else {
-					await this.pausesStore.rejectPause(request.pauseGroupId, request.revision)
-					showSuccess(t('chorestrike', 'The pause request was declined.'))
-				}
-			} catch (error) {
-				if (error?.status !== 409) {
-					showError(t('chorestrike', 'The decision could not be recorded.'))
-					logger.error('Failed to decide the pause request', error, { view: 'Settings', action: 'decidePauseRequest', pauseGroupId: request.pauseGroupId, approve })
-				}
-			}
-		},
-
-		async recordIllness() {
-			if (!this.illnessDraft.subjectUserId || !this.illnessDraft.startDate || !this.illnessDraft.endDate) {
-				return
-			}
-			try {
-				await this.pausesStore.recognizeIllness({
-					subjectUserId: this.illnessDraft.subjectUserId,
-					startDate: this.illnessDraft.startDate,
-					endDate: this.illnessDraft.endDate,
-				})
-				showSuccess(t('chorestrike', 'The illness was recorded.'))
-				this.illnessDraft = { subjectUserId: this.illnessDraft.subjectUserId, startDate: '', endDate: '' }
-			} catch (error) {
-				if (error?.status !== 409) {
-					showError(t('chorestrike', 'The illness could not be recorded.'))
-					logger.error('Failed to record the illness', error, { view: 'Settings', action: 'recordIllness' })
-				}
-			}
-		},
-
-		memberName(userId) {
-			return this.houseMembers.find((member) => member.nextcloudUserId === userId)?.displayName ?? userId
-		},
-
-		pauseReasonLabel(code) {
-			const labels = {
-				illness: t('chorestrike', 'Illness'),
-				travel: t('chorestrike', 'Travel'),
-				overload: t('chorestrike', 'Too much at once'),
-				other: t('chorestrike', 'Other'),
-			}
-			return labels[code] ?? code
 		},
 
 		async loadTitle() {
@@ -1178,43 +951,6 @@ export default {
 	background: var(--color-error);
 	color: var(--color-error-text);
 	border: 1px solid var(--color-element-error);
-}
-
-.house-pause-row {
-	display: flex;
-	gap: 0.5rem;
-	flex-wrap: wrap;
-	align-items: center;
-}
-
-.pause-request-list {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-	margin: 0.5rem 0 0 0;
-	padding: 0;
-	list-style: none;
-}
-
-.pause-request-row {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	flex-wrap: wrap;
-	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--color-border);
-	border-radius: 8px;
-	font-size: 0.9rem;
-}
-
-.pause-request-name {
-	font-weight: 600;
-}
-
-.pause-request-range,
-.pause-request-reason {
-	color: var(--color-text-maxcontrast);
-	font-size: 0.85rem;
 }
 
 .save-button:hover:not(:disabled) {

@@ -21,6 +21,7 @@ jest.mock('../../src/views/RoomDetail.vue', () => ({ default: {} }))
 jest.mock('../../src/views/Leaderboard.vue', () => ({ default: {} }))
 jest.mock('../../src/views/InsightsView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/ArcadeView.vue', () => ({ default: {} }))
+jest.mock('../../src/views/AbsenceView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/SchedulingView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/CalendarView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/Settings.vue', () => ({ default: {} }))
@@ -44,6 +45,12 @@ describe('router routes (CS-PLAN-070 WP6)', () => {
 	it('exposes the gated arcade surface on its own path (Q-077-05 A)', () => {
 		const arcade = routes.find(route => route.name === 'arcade')
 		expect(arcade.path).toBe('/arcade')
+	})
+
+	it('exposes the absence surface on its own path (ADR-020)', () => {
+		const absence = routes.find(route => route.name === 'absence')
+		expect(absence.path).toBe('/absence')
+		expect(absence.component).toBeDefined()
 	})
 
 	// CS-PLAN-070 WP8 §3.1: one catalog surface with explicit modes and a

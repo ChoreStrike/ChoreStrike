@@ -201,7 +201,7 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 		expect(shares.text()).toContain('Mom 66%')
 
 		// Neutral pause and existing overload stay visible with amounts.
-		expect(wrapper.text()).toContain('Paused')
+		expect(wrapper.text()).toContain('Absent')
 		expect(wrapper.text()).toContain('12/10 — over capacity')
 	})
 

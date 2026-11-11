@@ -243,6 +243,63 @@ class PauseAgreementConcurrencyTest extends IntegrationTestCase {
 		}
 	}
 
+	/**
+	 * ADR-020: deleting an absence against a plan apply. The deletion
+	 * always commits; the apply either won the lock first or answers a
+	 * clean conflict, because the deletion changed the pause fingerprint
+	 * its preview was computed against.
+	 */
+	public function testPlanApplyVsPauseDelete_SerializesIntoOneConsistentState(): void {
+		$f = $this->raceHouse('D', null);
+		$pauseService = \OC::$server->get(PauseService::class);
+		$created = $pauseService->requestForSelf($f['houseId'], $f['member'], [
+			'commandId' => $this->uuidPac(),
+			'startDate' => $this->todayKey,
+			'endDate' => (new \DateTime($this->todayKey))->modify('+4 days')->format('Y-m-d'),
+			'reasonCode' => Pause::REASON_TRAVEL,
+		]);
+
+		$planService = \OC::$server->get(SchedulePlanService::class);
+		$ownerActor = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
+			->findByNextcloudUserId($f['houseId'], $f['owner']);
+		$preview = $planService->preview($f['houseId'], $ownerActor, $this->todayKey, [$f['roomTaskId']], []);
+		self::assertCount(1, $preview['changes']);
+
+		$outcome = $this->raceWithHelper(
+			$this->buildDeleteHelperScript(),
+			[(string)$f['houseId'], $f['member'], (string)$created['pauseGroupId'], (string)$created['revision'], $this->uuidPac()],
+			function () use ($planService, $preview, $f, $ownerActor): string {
+				try {
+					$planService->apply($f['houseId'], $ownerActor, $this->todayKey, [$f['roomTaskId']], [], $preview['previewVersion'], $this->uuidPac(), true);
+					return 'ok';
+				} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+					return 'conflict';
+				}
+			}
+		);
+
+		self::assertSame('ok', $outcome['helper'], 'the deletion always commits');
+		self::assertContains($outcome['main'], ['ok', 'conflict'], 'the apply either wins the lock or cleanly conflicts');
+		self::assertSame(2, $this->currentRevision($created['pauseGroupId']), 'exactly one cancelled revision was appended');
+		self::assertSame(2, $this->countPauses($f['houseId']));
+
+		$assigneeRows = $this->fetchAssigneeRows($f['roomTaskId']);
+		if ($outcome['main'] === 'conflict') {
+			self::assertSame([], $assigneeRows, 'a conflicted apply wrote nothing');
+		} else {
+			$applied = array_map(static fn (array $row): string => (string)$row['user_id'], $assigneeRows);
+			sort($applied);
+			self::assertSame($preview['changes'][0]['proposed']['assignees'], $applied, 'the winning apply committed its assignment exactly once');
+		}
+		// A preview from before the deletion is stale in every serialization.
+		try {
+			$planService->apply($f['houseId'], $ownerActor, $this->todayKey, [$f['roomTaskId']], [], $preview['previewVersion'], $this->uuidPac(), true);
+			self::fail('the deletion must turn the earlier preview stale');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertNotSame('', $e->getMessage());
+		}
+	}
+
 	// ------------------------------------------------------------------
 	// 2. Duplicate restarts of one suspended predecessor
 	// ------------------------------------------------------------------
@@ -576,6 +633,39 @@ try {
     } catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
         file_put_contents($resultFile, 'conflict');
     }
+} catch (Throwable $e) {
+    file_put_contents($resultFile, 'error:' . get_class($e) . ':' . $e->getMessage());
+    exit(1);
+}
+PHP;
+	}
+
+	private function buildDeleteHelperScript(): string {
+		return <<<'PHP'
+<?php
+require '/var/www/html/lib/base.php';
+
+$houseId = (int)$argv[1];
+$member = $argv[2];
+$pauseGroupId = (int)$argv[3];
+$expectedRevision = (int)$argv[4];
+$commandId = $argv[5];
+$readyFile = $argv[6];
+$goFile = $argv[7];
+$resultFile = $argv[8];
+
+try {
+    file_put_contents($readyFile, 'ready');
+    $deadline = microtime(true) + 60.0;
+    while (!file_exists($goFile)) {
+        if (microtime(true) > $deadline) { file_put_contents($resultFile, 'error:timeout'); exit(1); }
+        usleep(20000);
+    }
+    \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class)->delete($houseId, $member, $pauseGroupId, [
+        'commandId' => $commandId,
+        'expectedRevision' => $expectedRevision,
+    ]);
+    file_put_contents($resultFile, 'ok');
 } catch (Throwable $e) {
     file_put_contents($resultFile, 'error:' . get_class($e) . ':' . $e->getMessage());
     exit(1);

@@ -171,6 +171,7 @@ return [
         ['name' => 'pause#approve', 'url' => '/api/v1/pauses/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
         ['name' => 'pause#reject', 'url' => '/api/v1/pauses/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
         ['name' => 'pause#update', 'url' => '/api/v1/pauses/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        ['name' => 'pause#destroy', 'url' => '/api/v1/pauses/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
 
         // Smart Scheduler API — removed 2026-07-28 (CS-016 review: the
         // SmartSchedulerController had no AuthorizationService, so all 7

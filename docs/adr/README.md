@@ -77,6 +77,7 @@ Example: `ADR-001-use-vue3-for-frontend.md`
 17. [ADR-017: Family Reward Catalog and Requested Redemption (C4)](ADR-017-family-catalog-and-redemption.md) - **Accepted** (2026-10-01; owner-gated catalog with frozen terms, reserve/approve/settle/refund lifecycle with exactly-once money effects, wallet-id identity provenance, derived orthogonal funding hold)
 18. [ADR-018: Repository Hosting and Contributor Identity](ADR-018-repository-hosting-and-contributor-identity.md) - **Accepted** (2026-10-16; GitHub organization `ChoreStrike` on `master`, one identity across the rewritten history from the global git config, no identity literals in tracked files, provenance wording allowed, retired orphan root, pre-migration SHAs resolved through a tracked commit map, Docker-free CI automatic and heavy gates manual)
 19. [ADR-019: Arcade Unlocks from Completion History](ADR-019-arcade-unlocks-from-completion-history.md) - **Accepted** (2026-10-17; amends CS-PLAN-070 D7d — games unlock permanently from the lifetime count of valid selected work shares, derived and never stored, server-enforced `MINIGAME_LOCKED`, owner-only `arcade_gate_enabled` app-config switch, no Coin/wallet/ranking coupling)
+20. [ADR-020: Absences Without Requests](ADR-020-absences-without-requests.md) - **Accepted** (2026-11-10; amends the pause part of ADR-013 — every role acknowledged directly, deletion as a `cancelled` revision that governs from the next local day, one reading for every cancelled revision, only absences that have not ended can be deleted, no reason asked or shown)
 
 ---
 

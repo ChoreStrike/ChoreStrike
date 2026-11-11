@@ -21,9 +21,10 @@ use OCP\IL10N;
 use OCP\IRequest;
 
 /**
- * Pause API (CS-PLAN-073 WP2 §3.5): the viewer-safe list, personal
- * request, household pause, owner decisions (approve/reject), explicit
- * retrospective-illness recognition and the next-day shortening.
+ * Pause API (CS-PLAN-073 WP2 §3.5, ADR-020): the viewer-safe list, the
+ * personal absence, the household absence, owner decisions on requests
+ * stored before ADR-020 (approve/reject), the owner's entry for someone
+ * else afterwards, the next-day shortening and the deletion.
  *
  * All routes are relative to `/apps/chorestrike/api/v1` and use
  * `@NoAdminRequired` with normal CSRF protection. Stable pause group
@@ -74,11 +75,11 @@ class PauseController extends Controller {
 	}
 
 	/**
-	 * Create a pause: a personal pause for the caller (child → pending
-	 * request, adult → acknowledged) or a household pause when
+	 * Enter an absence: a personal one for the caller (acknowledged at
+	 * once for every role, ADR-020) or a household one when
 	 * `scope: 'house'` (owner only).
 	 *
-	 * Body: {commandId, startDate, endDate, reasonCode, scope?}.
+	 * Body: {commandId, startDate, endDate, reasonCode?, scope?}.
 	 *
 	 * @NoAdminRequired
 	 */
@@ -215,6 +216,33 @@ class PauseController extends Controller {
 			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			return $this->error('update', $e);
+		}
+	}
+
+	/**
+	 * Delete an absence that has not ended (ADR-020): one's own, or any
+	 * as the owner.
+	 *
+	 * Parameters: {commandId, expectedRevision}.
+	 *
+	 * @param int $id Pause group id
+	 * @NoAdminRequired
+	 */
+	public function destroy(int $id): JSONResponse {
+		try {
+			$house = $this->house();
+			$userId = $this->authService->requireCurrentUserId();
+			return new JSONResponse(['success' => true, 'data' => $this->pauseService->delete((int)$house->getId(), $userId, $id, $this->params())]);
+		} catch (\InvalidArgumentException $e) {
+			return ControllerErrorFormatter::validation($e);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
+		} catch (\Exception $e) {
+			return $this->error('destroy', $e);
 		}
 	}
 

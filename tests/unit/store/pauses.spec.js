@@ -23,7 +23,7 @@ jest.mock('../../../src/services/api.js', () => ({
 	recognizeIllness: jest.fn(),
 	approvePause: jest.fn(),
 	rejectPause: jest.fn(),
-	updatePause: jest.fn(),
+	deletePause: jest.fn(),
 }))
 
 import {
@@ -32,7 +32,7 @@ import {
 	recognizeIllness,
 	approvePause,
 	rejectPause,
-	updatePause,
+	deletePause,
 } from '../../../src/services/api.js'
 import { usePausesStore } from '../../../src/store/pauses.js'
 
@@ -40,7 +40,7 @@ import { usePausesStore } from '../../../src/store/pauses.js'
  * Cross-layer contract for the pause store (CS-PLAN-070 WP6 §3.4 on the
  * delivered CS-PLAN-073 WP2 API): viewer-whitelisted list reads, one
  * fresh command UUID per command attempt, the displayed expectedRevision
- * on decisions/shortening, 409 draft preservation and the identity reset.
+ * on decisions/deletions, 409 draft preservation and the identity reset.
  */
 describe('pauses store', () => {
 	let pinia
@@ -76,7 +76,7 @@ describe('pauses store', () => {
 		recognizeIllness.mockReset()
 		approvePause.mockReset()
 		rejectPause.mockReset()
-		updatePause.mockReset()
+		deletePause.mockReset()
 		usePausesStore().reset()
 	})
 
@@ -97,7 +97,6 @@ describe('pauses store', () => {
 		await store.fetchPauses()
 
 		expect(store.pauses).toHaveLength(1)
-		expect(store.pendingRequests).toHaveLength(1)
 		expect(store.error).toBeNull()
 	})
 
@@ -169,17 +168,33 @@ describe('pauses store', () => {
 		expect(rejectPause).toHaveBeenCalledWith(2, expect.objectContaining({ expectedRevision: 1 }))
 	})
 
-	it('sends the shortening with endDate and expectedRevision', async () => {
-		updatePause.mockResolvedValue({ pauseGroupId: 1, revision: 2, state: 'acknowledged' })
+	it('sends the deletion with the displayed expectedRevision and re-reads the list', async () => {
+		deletePause.mockResolvedValue({ pauseGroupId: 1, revision: 2, state: 'cancelled' })
 		fetchPauses.mockResolvedValue([])
 		const store = usePausesStore()
+		store.pauses = [pauseEntry({ state: 'acknowledged' })]
 
-		await store.shortenPause(1, { endDate: '2026-10-02', expectedRevision: 1 })
+		const refs = await store.deletePause(1, 1)
+		await new Promise(resolve => setTimeout(resolve, 0))
 
-		expect(updatePause).toHaveBeenCalledWith(1, expect.objectContaining({
-			endDate: '2026-10-02',
+		expect(refs.state).toBe('cancelled')
+		expect(deletePause).toHaveBeenCalledWith(1, {
+			commandId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
 			expectedRevision: 1,
-		}))
+		})
+		expect(store.pauses).toEqual([])
+	})
+
+	it('flags a conflict when the absence changed or ended before the deletion', async () => {
+		deletePause.mockRejectedValue(apiError(409))
+		fetchPauses.mockResolvedValue([pauseEntry({ state: 'acknowledged', revision: 2 })])
+		const store = usePausesStore()
+
+		await expect(store.deletePause(1, 1)).rejects.toMatchObject({ status: 409 })
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(store.conflict).toBe(true)
+		expect(store.pauses[0].revision).toBe(2)
 	})
 
 	it('flags the conflict on 409 and keeps the caller draft surfaceable', async () => {
@@ -206,21 +221,6 @@ describe('pauses store', () => {
 
 		expect(store.conflict).toBe(false)
 		expect(store.error).toContain('403')
-	})
-
-	it('classifies pending, active and decided pauses', () => {
-		fetchPauses.mockResolvedValue([
-			pauseEntry({ pauseGroupId: 1, state: 'requested' }),
-			pauseEntry({ pauseGroupId: 2, state: 'acknowledged' }),
-			pauseEntry({ pauseGroupId: 3, state: 'rejected' }),
-		])
-		const store = usePausesStore()
-
-		return store.fetchPauses().then(() => {
-			expect(store.pendingRequests.map(p => p.pauseGroupId)).toEqual([1])
-			expect(store.activePauses.map(p => p.pauseGroupId)).toEqual([2])
-			expect(store.decidedPauses.map(p => p.pauseGroupId)).toEqual([3])
-		})
 	})
 
 	it('reset clears the state and invalidates in-flight reads', async () => {

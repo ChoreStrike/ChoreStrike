@@ -13,8 +13,8 @@ import { houseDateOffset } from './fixtures/house-clock.js'
  * Dashboard stays reachable as the secondary household overview, My Day
  * stays free of Coins/arcade/catalog surfaces, the optional arcade hides
  * together with its navigation entry while `arcadeVisible` is off, and
- * the pause lifecycle (request → owner decision → early end) stays
- * neutral through the real UI.
+ * an absence is a plain period (ADR-020): a child enters one, everyone
+ * sees it and the owner deletes it through the real UI.
  */
 
 test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
@@ -175,49 +175,55 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 		}
 	})
 
-	test('the pause lifecycle stays neutral through request, owner decision and early end', async ({ browser, seededData: _seededData }) => {
+	test('a child enters an absence, everyone sees it, the owner deletes it', async ({ browser, seededData: _seededData }) => {
 		const child = await createUserContext(browser, 'teen')
+		const sibling = await createUserContext(browser, 'kid')
 		const owner = await createUserContext(browser, 'mom')
-		// The server never cuts today or earlier, so the end must stay ahead of
-		// the real clock. One day of margin covers every house time zone.
-		const pauseStart = houseDateOffset(1, 'UTC')
-		const earlyEnd = houseDateOffset(2, 'UTC')
-		const pauseEnd = houseDateOffset(3, 'UTC')
+		// A running absence: deleting it keeps today and frees the days after.
+		const start = houseDateOffset(0, 'UTC')
+		const end = houseDateOffset(3, 'UTC')
 		try {
-			// The child requests a personal pause through the self-only
-			// surface (pending — nothing changes until the owner decides).
-			await child.page.goto('/apps/chorestrike/#/settings')
-			const pauseSurface = child.page.getByTestId('pause-settings')
-			await expect(pauseSurface).toBeVisible({ timeout: 30000 })
-			await child.page.getByTestId('pause-start-input').fill(pauseStart)
-			await child.page.getByTestId('pause-end-input').fill(pauseEnd)
-			await child.page.getByTestId('pause-reason-select').selectOption('illness')
-			await child.page.getByTestId('pause-request-submit').click()
+			// The child enters a plain period (ADR-020): no reason, no
+			// request, and it takes effect at once.
+			await child.page.goto('/apps/chorestrike/#/absence')
+			await expect(child.page.getByTestId('absence-view')).toBeVisible({ timeout: 30000 })
+			await expect(child.page.getByTestId('absence-view').locator('select')).toHaveCount(0)
+			await child.page.getByTestId('absence-own-start').fill(start)
+			await child.page.getByTestId('absence-own-end').fill(end)
+			const entered = child.page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith('/api/v1/pauses'))
+			await child.page.getByTestId('absence-own-submit').click()
+			const absence = (await (await entered).json()).data
+			expect(absence.state).toBe('acknowledged')
+			const entryId = `absence-entry-${absence.pauseGroupId}`
+			const deleteId = `absence-delete-${absence.pauseGroupId}`
 
-			// The child's own list shows the pending state, neutrally.
-			await expect(child.page.locator('.pause-state').filter({ hasText: 'Waiting for the house owner' }))
-				.toBeVisible({ timeout: 15000 })
+			// The child sees its entry and may delete it.
+			await expect(child.page.getByTestId(entryId)).toBeVisible({ timeout: 15000 })
+			await expect(child.page.getByTestId(deleteId)).toBeVisible()
 
-			// The owner decides the pending request (expectedRevision rides
-			// along); the pending section empties after the decision.
-			await owner.page.goto('/apps/chorestrike/#/settings')
-			await expect(owner.page.getByTestId('pending-pause-requests')).toBeVisible({ timeout: 30000 })
-			await owner.page.locator('[data-testid^="pause-approve-"]').first().click()
-			await expect(owner.page.getByTestId('pending-pause-requests')).toHaveCount(0, { timeout: 15000 })
+			// Everyone sees the entry; a sibling cannot delete it.
+			await sibling.page.goto('/apps/chorestrike/#/absence')
+			await expect(sibling.page.getByTestId(entryId)).toBeVisible({ timeout: 30000 })
+			await expect(sibling.page.getByTestId(deleteId)).toHaveCount(0)
+			await expect(sibling.page.getByTestId('absence-owner-panel')).toHaveCount(0)
 
-			// The child re-loads: the pause is acknowledged and the early
-			// end is offered with the displayed revision.
+			// The owner sees it and deletes it after the confirmation.
+			await owner.page.goto('/apps/chorestrike/#/absence')
+			await expect(owner.page.getByTestId(entryId)).toBeVisible({ timeout: 30000 })
+			await expect(owner.page.getByTestId('absence-owner-panel')).toBeVisible()
+			await owner.page.getByTestId(deleteId).click()
+			const deleted = owner.page.waitForResponse((response) => response.request().method() === 'DELETE' && response.url().includes(`/api/v1/pauses/${absence.pauseGroupId}`))
+			await owner.page.getByTestId('confirm-dialog-confirm').click()
+			expect((await (await deleted).json()).data.state).toBe('cancelled')
+			await expect(owner.page.getByTestId(entryId)).toHaveCount(0, { timeout: 15000 })
+
+			// The deleted absence is gone for the child as well.
 			await child.page.reload()
-			await expect(pauseSurface).toBeVisible({ timeout: 30000 })
-			const shortenInput = child.page.locator('[data-testid^="pause-shorten-input-"]').first()
-			await expect(shortenInput).toBeVisible({ timeout: 15000 })
-
-			// The early end shortens the pause to the next local day.
-			await shortenInput.fill(earlyEnd)
-			await child.page.locator('[data-testid^="pause-shorten-submit-"]').first().click()
-			await expect(child.page.locator('.pause-entry').filter({ hasText: earlyEnd })).toBeVisible({ timeout: 15000 })
+			await expect(child.page.getByTestId('absence-view')).toBeVisible({ timeout: 30000 })
+			await expect(child.page.getByTestId(entryId)).toHaveCount(0)
 		} finally {
 			await owner.context.close()
+			await sibling.context.close()
 			await child.context.close()
 		}
 	})

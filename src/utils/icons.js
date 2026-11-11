@@ -38,6 +38,7 @@ import grid20Regular from '@fluentui/svg-icons/icons/grid_20_regular.svg'
 import gridDots20Regular from '@fluentui/svg-icons/icons/grid_dots_20_regular.svg'
 import home20Regular from '@fluentui/svg-icons/icons/home_20_regular.svg'
 import list20Regular from '@fluentui/svg-icons/icons/list_20_regular.svg'
+import luggage20Regular from '@fluentui/svg-icons/icons/luggage_20_regular.svg'
 import medal20Regular from '@fluentui/svg-icons/icons/medal_20_regular.svg'
 import people20Regular from '@fluentui/svg-icons/icons/people_20_regular.svg'
 import person20Regular from '@fluentui/svg-icons/icons/person_20_regular.svg'
@@ -197,6 +198,7 @@ const fluentSvgIcons = {
 	DataBarVertical: createFluentSvgComponent('DataBarVertical', dataBarVertical20Regular),
 	Gift: createFluentSvgComponent('Gift', gift20Regular),
 	TicketDiagonal: createFluentSvgComponent('TicketDiagonal', ticketDiagonal20Regular),
+	Luggage: createFluentSvgComponent('Luggage', luggage20Regular),
 	Settings: createFluentSvgComponent('Settings', settings20Regular),
 }
 

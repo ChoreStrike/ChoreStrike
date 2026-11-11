@@ -394,11 +394,11 @@ class RoleGuardApiTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * A child's shorten of its own PENDING request is rejected (a pending
-	 * request is decided, not shortened — plan §3.4 row 6), and a member
-	 * shortening a foreign pause is denied 403.
+	 * A pending request from before ADR-020 is decided, not shortened
+	 * (plan §3.4 row 6), and a member shortening a foreign pause is
+	 * denied 403.
 	 */
-	public function testChildShortening_PendingRequest_Rejected_AndForeignShortening_Forbidden(): void {
+	public function testShortening_PendingRequest_Rejected_AndForeignShortening_Forbidden(): void {
 		$f = $this->wp2House();
 		$pauseService = \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class);
 		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
@@ -408,8 +408,7 @@ class RoleGuardApiTest extends IntegrationTestCase {
 			'reasonCode' => \OCA\ChoreStrike\Db\Pause::REASON_TRAVEL,
 		];
 
-		$created = $pauseService->requestForSelf($f['houseId'], 'rg2_child', array_merge(['commandId' => $this->uuid2()], $range));
-		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_REQUESTED, $created['state']);
+		$created = $this->seedPendingPauseRequest($f['houseId'], 'rg2_child', $range['startDate'], $range['endDate']);
 
 		try {
 			$pauseService->shorten($f['houseId'], 'rg2_child', $created['pauseGroupId'], [
@@ -437,6 +436,54 @@ class RoleGuardApiTest extends IntegrationTestCase {
 
 		// The pending request kept its single revision.
 		self::assertSame(1, $created['revision']);
+	}
+
+	/**
+	 * ADR-020 on the wire (DELETE /pauses/{id}): a child enters an absence
+	 * without a request and deletes it; anyone else but the owner is
+	 * denied 403; a stale revision answers 409.
+	 */
+	public function testPauseDestroy_WireResponse_SubjectAndOwnerOnly(): void {
+		// The controller resolves the shared instance house.
+		$houseId = $this->sharedHouseId();
+		$houseUserMapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+		$walletService = \OC::$server->get(\OCA\ChoreStrike\Service\WalletService::class);
+		foreach (['rg2_owner' => 'owner', 'rg2_member' => 'member', 'rg2_child' => 'child'] as $userId => $role) {
+			$this->seedMembership($houseId, $userId, $role);
+			$walletService->ensureBinding($houseId, $houseUserMapper->findByNextcloudUserId($houseId, $userId));
+		}
+		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
+		$range = ['startDate' => $todayKey, 'endDate' => (new \DateTime($todayKey))->modify('+3 days')->format('Y-m-d')];
+		$call = function (string $userId, string $method, array $params, ?int $id = null): \OCP\AppFramework\Http\JSONResponse {
+			$controller = $this->getController(\OCA\ChoreStrike\Controller\PauseController::class, $userId);
+			$this->injectRequestParams($controller, $params);
+			return $id === null ? $controller->$method() : $controller->$method($id);
+		};
+
+		$created = $call('rg2_child', 'create', array_merge(['commandId' => $this->uuid2()], $range));
+		self::assertSame(200, $created->getStatus());
+		$pause = $created->getData()['data'];
+		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_ACKNOWLEDGED, $pause['state'], 'a child needs no request');
+		$groupId = (int)$pause['pauseGroupId'];
+		$this->cleanupPauseGroupIds[] = $groupId;
+
+		$denied = $call('rg2_member', 'destroy', ['commandId' => $this->uuid2(), 'expectedRevision' => 1], $groupId);
+		self::assertSame(403, $denied->getStatus(), 'a member may not delete a foreign absence');
+		$stale = $call('rg2_child', 'destroy', ['commandId' => $this->uuid2(), 'expectedRevision' => 9], $groupId);
+		self::assertSame(409, $stale->getStatus());
+		self::assertSame(400, $call('rg2_child', 'destroy', ['commandId' => $this->uuid2()], $groupId)->getStatus());
+
+		$deleted = $call('rg2_child', 'destroy', ['commandId' => $this->uuid2(), 'expectedRevision' => 1], $groupId);
+		self::assertSame(200, $deleted->getStatus());
+		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_CANCELLED, $deleted->getData()['data']['state']);
+
+		$houseAbsence = $call('rg2_owner', 'create', array_merge(['commandId' => $this->uuid2(), 'scope' => 'house'], $range))->getData()['data'];
+		$this->cleanupPauseGroupIds[] = (int)$houseAbsence['pauseGroupId'];
+		foreach (['rg2_member', 'rg2_child'] as $userId) {
+			$response = $call($userId, 'destroy', ['commandId' => $this->uuid2(), 'expectedRevision' => 1], (int)$houseAbsence['pauseGroupId']);
+			self::assertSame(403, $response->getStatus(), "$userId may not delete a household absence");
+		}
+		self::assertSame(200, $call('rg2_owner', 'destroy', ['commandId' => $this->uuid2(), 'expectedRevision' => 1], (int)$houseAbsence['pauseGroupId'])->getStatus());
 	}
 
 	/**

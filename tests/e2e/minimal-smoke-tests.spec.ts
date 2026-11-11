@@ -166,7 +166,7 @@ test.describe('Minimal Smoke Tests', () => {
 			for (const container of [page.locator('#app-content-vue'), settings]) {
 				await expect.poll(() => container.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
 			}
-			for (const control of [page.getByTestId('settings-title'), page.getByTestId('task-digest-switch'), page.getByTestId('digest-time-input'), page.getByTestId('pause-reason-select')]) {
+			for (const control of [page.getByTestId('settings-title'), page.getByTestId('task-digest-switch'), page.getByTestId('digest-time-input'), page.getByTestId('quiet-start-input')]) {
 				await expect(control).toBeVisible()
 				await expect.poll(() => control.evaluate((element) => {
 					const bounds = element.getBoundingClientRect()

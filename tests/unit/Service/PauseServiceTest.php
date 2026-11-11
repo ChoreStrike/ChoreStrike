@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\AgreementMapper;
+use OCA\ChoreStrike\Db\DigestChange;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
@@ -30,10 +31,10 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The WP2 pause command semantics (CS-PLAN-073 §3.4): role-gated
- * creation (child request vs adult acknowledgment vs owner household
- * pause), the owner decision gate with the expected revision, and the
- * next-day shortening boundary in the pause's saved zone. The
+ * The pause command semantics (CS-PLAN-073 §3.4, ADR-020): direct
+ * acknowledgment for every role, the owner household pause, the owner
+ * decision gate with the expected revision, the next-day shortening
+ * boundary in the pause's saved zone and the deletion. The
  * CommandService mock EXECUTES the aggregate callable directly — the
  * receipt mechanics are CommandService's own contract.
  *
@@ -47,6 +48,7 @@ class PauseServiceTest extends TestCase {
 	private HouseMapper|MockObject $houseMapper;
 	private OccurrenceMapper|MockObject $occurrenceMapper;
 	private IL10N|MockObject $l10n;
+	private \OCA\ChoreStrike\Db\DigestChangeMapper|MockObject $digestChangeMapper;
 	private bool $commandReplay = false;
 
 	protected function setUp(): void {
@@ -92,7 +94,7 @@ class PauseServiceTest extends TestCase {
 			$this->createMock(AgreementMapper::class),
 			new TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			new CalendarService(),
-			$this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
+			$this->digestChangeMapper = $this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\DigestScheduleService::class),
 			$this->l10n,
 		);
@@ -162,7 +164,7 @@ class PauseServiceTest extends TestCase {
 		return $cases;
 	}
 
-	public function testRequestForSelf_RoleChangedUnderLock_UsesFreshChildState(): void {
+	public function testRequestForSelf_RoleChangedUnderLock_StillAcknowledged(): void {
 		$actor = $this->member('dad', 'owner');
 		$fresh = clone $actor;
 		$fresh->setRole('child');
@@ -170,12 +172,12 @@ class PauseServiceTest extends TestCase {
 		$this->walletMapper->method('findByHouseAndUser')->willReturn($this->wallet(11));
 		$this->pauseMapper->method('maxGroupId')->willReturn(1);
 		$this->pauseMapper->method('appendRevision')->willReturnCallback(static function (Pause $pause): Pause {
-			self::assertSame(Pause::STATE_REQUESTED, $pause->getState());
+			self::assertSame(Pause::STATE_ACKNOWLEDGED, $pause->getState());
 			$pause->setId(1);
 			$pause->setRevision(1);
 			return $pause;
 		});
-		self::assertSame(Pause::STATE_REQUESTED, $this->service->requestForSelf(7, 'dad', $this->payload())['state']);
+		self::assertSame(Pause::STATE_ACKNOWLEDGED, $this->service->requestForSelf(7, 'dad', $this->payload())['state']);
 	}
 
 	/** @dataProvider shortenReplayProvider */
@@ -205,7 +207,7 @@ class PauseServiceTest extends TestCase {
 	// Creation semantics
 	// ------------------------------------------------------------------
 
-	public function testRequestForSelf_Child_CreatesPendingRequest(): void {
+	public function testRequestForSelf_Child_CreatesAcknowledged(): void {
 		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('kid', 'child'));
 		$this->walletMapper->method('findByHouseAndUser')->willReturn($this->wallet(11));
 		$created = null;
@@ -219,8 +221,8 @@ class PauseServiceTest extends TestCase {
 
 		$result = $this->service->requestForSelf(7, 'kid', $this->payload());
 
-		self::assertSame(Pause::STATE_REQUESTED, $result['state'], 'a child self-request stays pending');
-		self::assertSame(Pause::STATE_REQUESTED, $created?->getState());
+		self::assertSame(Pause::STATE_ACKNOWLEDGED, $result['state'], 'a child needs no request (ADR-020)');
+		self::assertSame(Pause::STATE_ACKNOWLEDGED, $created?->getState());
 		self::assertSame(11, $created?->getSubjectWalletId());
 		self::assertSame(Pause::SCOPE_PERSONAL, $created?->getScope());
 	}
@@ -427,6 +429,254 @@ class PauseServiceTest extends TestCase {
 		]);
 	}
 
+	public function testShorten_ChildSubject_AcknowledgedWithoutOwnerDecision(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('kid', 'child'));
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$this->member('kid', 'child')]);
+		$acknowledged = $this->pause();
+		$acknowledged->setState(Pause::STATE_ACKNOWLEDGED);
+		$acknowledged->setStartDate(new \DateTime('2020-01-01'));
+		$acknowledged->setEndDate(new \DateTime('2999-12-31'));
+		$this->pauseMapper->method('findCurrentByGroup')->willReturn($acknowledged);
+		$created = null;
+		$this->captureAppended($created);
+
+		$result = $this->service->shorten(7, 'kid', 1, ['endDate' => '2999-01-01'] + self::REVISION_PAYLOAD);
+
+		self::assertSame(Pause::STATE_ACKNOWLEDGED, $result['state']);
+		self::assertSame(1, $created?->getDeciderHouseUserId(), 'the child decides for itself');
+	}
+
+	// -----------------------------------------------------------------
+	// Deletion (ADR-020, D-090-22)
+	// ------------------------------------------------------------------
+
+	private const REVISION_PAYLOAD = ['commandId' => '11111111-2222-4333-8444-555555555555', 'expectedRevision' => 1];
+
+	/**
+	 * A personal absence of wallet 11 ('kid') as the current revision of
+	 * group 1; by default it runs today.
+	 *
+	 * @param Pause[] $earlier
+	 */
+	private function wireDeletable(string $state, string $start = '2020-01-01', string $end = '2999-12-31', array $earlier = []): Pause {
+		$current = $this->pause();
+		$current->setState($state);
+		$current->setRevision(count($earlier) + 1);
+		$current->setStartDate(new \DateTime($start));
+		$current->setEndDate(new \DateTime($end));
+		$current->setCreatedAt(new \DateTime('2020-01-01 08:00:00'));
+		$current->setUpdatedAt(new \DateTime('2020-01-01 08:00:00'));
+		$this->pauseMapper->method('findCurrentByGroup')->willReturn($current);
+		$this->pauseMapper->method('findByGroup')->willReturn([...$earlier, $current]);
+		return $current;
+	}
+
+	private function captureAppended(?Pause &$created): void {
+		$this->pauseMapper->method('appendRevision')->willReturnCallback(function (Pause $pause) use (&$created): Pause {
+			$pause->setRevision(2);
+			$created = $pause;
+			return $pause;
+		});
+	}
+
+	public function testDelete_Subject_AppendsCancelledRevisionWithSameFacts(): void {
+		$kid = $this->member('kid', 'child');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($kid);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$kid]);
+		$this->wireDeletable(Pause::STATE_ACKNOWLEDGED);
+		$created = null;
+		$this->captureAppended($created);
+		$this->pauseMapper->expects($this->never())->method('update');
+
+		$result = $this->service->delete(7, 'kid', 1, self::REVISION_PAYLOAD);
+
+		self::assertSame(['pauseGroupId' => 1, 'revision' => 2, 'state' => Pause::STATE_CANCELLED], $result);
+		self::assertSame(Pause::STATE_CANCELLED, $created?->getState());
+		self::assertSame(1, $created?->getPauseGroupId());
+		self::assertSame(11, $created?->getSubjectWalletId());
+		self::assertSame('2020-01-01', $created?->getStartDate()->format('Y-m-d'), 'the range is kept, the state ends it');
+		self::assertSame('2999-12-31', $created?->getEndDate()->format('Y-m-d'));
+		self::assertNotNull($created?->getUpdatedAt(), 'the decision time carries the next-day boundary');
+	}
+
+	public function testDelete_Owner_DeletesSomeoneElsesAbsenceAndQueuesDigestForSubject(): void {
+		$owner = $this->member('dad', 'owner', 12);
+		$owner->setId(2);
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($owner);
+		$this->houseUserMapper->method('findByWalletId')->with(11)->willReturn($this->member('kid', 'child'));
+		$this->wireDeletable(Pause::STATE_ACKNOWLEDGED);
+		$created = null;
+		$this->captureAppended($created);
+		$queued = [];
+		$this->digestChangeMapper->method('queueOrCoalesce')->willReturnCallback(function (DigestChange $change) use (&$queued): DigestChange {
+			$queued[] = [$change->getHouseUserId(), $change->getObjectType(), $change->getObjectRevision()];
+			return $change;
+		});
+
+		$this->service->delete(7, 'dad', 1, self::REVISION_PAYLOAD);
+
+		self::assertSame(Pause::STATE_CANCELLED, $created?->getState());
+		self::assertSame([[1, 'pause', 2]], $queued, 'the subject learns about the deletion by the owner');
+	}
+
+	public function testDelete_OwnAbsence_QueuesNoDigest(): void {
+		$kid = $this->member('kid', 'child');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($kid);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$kid]);
+		$this->houseUserMapper->method('findByWalletId')->willReturn($kid);
+		$this->wireDeletable(Pause::STATE_ACKNOWLEDGED);
+		$created = null;
+		$this->captureAppended($created);
+		$this->digestChangeMapper->expects($this->never())->method('queueOrCoalesce');
+
+		$this->service->delete(7, 'kid', 1, self::REVISION_PAYLOAD);
+	}
+
+	public function testDelete_HouseAbsence_QueuesDigestForEveryOtherMember(): void {
+		$owner = $this->member('dad', 'owner', 12);
+		$owner->setId(2);
+		$mom = $this->member('mom', 'member', 13);
+		$mom->setId(3);
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($owner);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$owner, $mom, $this->member('kid', 'child')]);
+		$house = $this->wireDeletable(Pause::STATE_ACKNOWLEDGED);
+		$house->setScope(Pause::SCOPE_HOUSE);
+		$house->setSubjectWalletId(null);
+		$created = null;
+		$this->captureAppended($created);
+		$recipients = [];
+		$this->digestChangeMapper->method('queueOrCoalesce')->willReturnCallback(function (DigestChange $change) use (&$recipients): DigestChange {
+			$recipients[] = $change->getHouseUserId();
+			return $change;
+		});
+
+		$this->service->delete(7, 'dad', 1, self::REVISION_PAYLOAD);
+
+		self::assertSame([3, 1], $recipients);
+	}
+
+	/** @dataProvider foreignDeleteProvider */
+	public function testDelete_NeitherSubjectNorOwner_Forbidden(string $role, string $scope): void {
+		$other = $this->member('sis', $role, 13);
+		$other->setId(4);
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($other);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$other, $this->member('kid', 'child')]);
+		$this->wireDeletable(Pause::STATE_ACKNOWLEDGED)->setScope($scope);
+		$this->pauseMapper->expects($this->never())->method('appendRevision');
+
+		$this->expectException(ForbiddenException::class);
+		$this->service->delete(7, 'sis', 1, self::REVISION_PAYLOAD);
+	}
+
+	public static function foreignDeleteProvider(): array {
+		return [
+			'child, personal' => ['child', Pause::SCOPE_PERSONAL],
+			'member, personal' => ['member', Pause::SCOPE_PERSONAL],
+			'member, house' => ['member', Pause::SCOPE_HOUSE],
+		];
+	}
+
+	public function testDelete_StaleRevision_Conflict(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('dad', 'owner'));
+		$this->wireDeletable(Pause::STATE_ACKNOWLEDGED)->setRevision(3);
+		$this->pauseMapper->expects($this->never())->method('appendRevision');
+
+		$this->expectException(ConflictException::class);
+		$this->service->delete(7, 'dad', 1, self::REVISION_PAYLOAD);
+	}
+
+	public function testDelete_ForeignHouse_NotFound(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('dad', 'owner'));
+		$this->wireDeletable(Pause::STATE_ACKNOWLEDGED)->setHouseId(8);
+
+		$this->expectException(\OCA\ChoreStrike\Exception\NotFoundException::class);
+		$this->service->delete(7, 'dad', 1, self::REVISION_PAYLOAD);
+	}
+
+	public function testDelete_Replay_ReturnsReceiptWithoutNewRevision(): void {
+		$this->commandReplay = true;
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('dad', 'owner'));
+		$this->wireDeletable(Pause::STATE_CANCELLED);
+		$this->pauseMapper->expects($this->never())->method('appendRevision');
+
+		self::assertSame(['pauseGroupId' => 5], $this->service->delete(7, 'dad', 1, self::REVISION_PAYLOAD));
+	}
+
+	public function testDelete_PendingRequest_Withdrawn(): void {
+		$kid = $this->member('kid', 'child');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($kid);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$kid]);
+		// Also when its range lies in the past: nothing was ever covered.
+		$this->wireDeletable(Pause::STATE_REQUESTED, '2020-01-01', '2020-01-05');
+		$created = null;
+		$this->captureAppended($created);
+
+		$result = $this->service->delete(7, 'kid', 1, self::REVISION_PAYLOAD);
+
+		self::assertSame(Pause::STATE_CANCELLED, $result['state']);
+		self::assertSame(Pause::STATE_CANCELLED, $created?->getState());
+	}
+
+	public function testDelete_EndedAbsence_Conflict(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('dad', 'owner'));
+		$this->wireDeletable(Pause::STATE_ACKNOWLEDGED, '2020-01-01', '2020-01-05');
+		$this->pauseMapper->expects($this->never())->method('appendRevision');
+
+		$this->expectException(ConflictException::class);
+		$this->expectExceptionMessage('An absence that has ended cannot be deleted');
+		$this->service->delete(7, 'dad', 1, self::REVISION_PAYLOAD);
+	}
+
+	public function testDelete_EndedAbsenceBehindPendingShortening_Conflict(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('dad', 'owner'));
+		$ended = $this->pause();
+		$ended->setState(Pause::STATE_ACKNOWLEDGED);
+		$ended->setStartDate(new \DateTime('2020-01-01'));
+		$ended->setEndDate(new \DateTime('2020-01-05'));
+		$ended->setUpdatedAt(new \DateTime('2019-12-30 08:00:00'));
+		$this->wireDeletable(Pause::STATE_REQUESTED, '2020-01-01', '2020-01-03', [$ended]);
+		$this->pauseMapper->expects($this->never())->method('appendRevision');
+
+		$this->expectException(ConflictException::class);
+		$this->expectExceptionMessage('An absence that has ended cannot be deleted');
+		$this->service->delete(7, 'dad', 1, ['expectedRevision' => 2] + self::REVISION_PAYLOAD);
+	}
+
+	public function testDelete_DeclinedShortening_DeletesTheAbsenceItLeftInForce(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('dad', 'owner'));
+		$this->houseUserMapper->method('findByWalletId')->willReturn($this->member('kid', 'child'));
+		$running = $this->revisionOf(1, Pause::STATE_ACKNOWLEDGED, '2020-01-01', '2999-12-31');
+		$this->wireDeletable(Pause::STATE_REJECTED, '2020-01-01', '2020-01-03', [$running]);
+		$created = null;
+		$this->captureAppended($created);
+
+		$this->service->delete(7, 'dad', 1, ['expectedRevision' => 2] + self::REVISION_PAYLOAD);
+
+		self::assertSame(Pause::STATE_CANCELLED, $created?->getState(), 'the declined shortening does not block the deletion');
+		self::assertSame('2999-12-31', $created?->getEndDate()->format('Y-m-d'), 'the cancelled revision carries the absence that stood');
+	}
+
+	/** @dataProvider closedStateProvider */
+	public function testDelete_AlreadyClosed_Conflict(string $state): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('dad', 'owner'));
+		$this->wireDeletable($state);
+		$this->pauseMapper->expects($this->never())->method('appendRevision');
+
+		$this->expectException(ConflictException::class);
+		$this->service->delete(7, 'dad', 1, self::REVISION_PAYLOAD);
+	}
+
+	public static function closedStateProvider(): array {
+		return ['cancelled' => [Pause::STATE_CANCELLED], 'rejected' => [Pause::STATE_REJECTED]];
+	}
+
+	public function testDelete_MalformedPayload_Rejected(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->member('dad', 'owner'));
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->service->delete(7, 'dad', 1, ['commandId' => '11111111-2222-4333-8444-555555555555']);
+	}
+
 	// -----------------------------------------------------------------
 	// Viewer projection (RF-073-WP2-28): personal metadata is self/owner
 	// data in EVERY state; unrelated members receive only neutral facts.
@@ -472,16 +722,32 @@ class PauseServiceTest extends TestCase {
 		self::assertSame('kid', $list[0]['subjectUserId']);
 	}
 
-	public function testListForViewer_UnrelatedMember_EveryNonPendingState_HidesPersonalMetadata(): void {
-		$states = [Pause::STATE_ACKNOWLEDGED, Pause::STATE_REJECTED, Pause::STATE_CANCELLED];
-		foreach ($states as $index => $state) {
+	public function testListForViewer_UnrelatedMember_EveryListedState_HidesPersonalMetadata(): void {
+		$pauses = [];
+		foreach ([Pause::STATE_ACKNOWLEDGED, Pause::STATE_REJECTED] as $index => $state) {
 			$pause = $this->listedPause($state);
 			$pause->setPauseGroupId($index + 1);
-			$list = $this->wireListFor('mom', 'member', [$pause]);
-			self::assertCount(1, $list);
-			self::assertArrayNotHasKey('reasonCode', $list[0], "state $state leaks no personal reason");
-			self::assertArrayNotHasKey('isRetrospectiveIllness', $list[0]);
+			$pauses[] = $pause;
 		}
+		$list = $this->wireListFor('mom', 'member', $pauses);
+
+		self::assertSame([Pause::STATE_ACKNOWLEDGED, Pause::STATE_REJECTED], array_column($list, 'state'));
+		foreach ($list as $entry) {
+			self::assertArrayNotHasKey('reasonCode', $entry, "state {$entry['state']} leaks no personal reason");
+			self::assertArrayNotHasKey('isRetrospectiveIllness', $entry);
+		}
+	}
+
+	public function testListForViewer_CancelledCurrentRevision_LeftOutForEveryRole(): void {
+		$deleted = $this->listedPause(Pause::STATE_CANCELLED);
+		$deleted->setRevision(2);
+		$first = $this->listedPause(Pause::STATE_ACKNOWLEDGED);
+		$kept = $this->listedPause(Pause::STATE_ACKNOWLEDGED);
+		$kept->setPauseGroupId(2);
+
+		$list = $this->wireListFor('dad', 'owner', [$first, $deleted, $kept]);
+
+		self::assertSame([2], array_column($list, 'pauseGroupId'), 'a deleted absence is gone, also for the owner');
 	}
 
 	public function testListForViewer_UnrelatedChild_HidesPersonalMetadataOfOthers(): void {
@@ -542,5 +808,54 @@ class PauseServiceTest extends TestCase {
 		self::assertCount(1, $list);
 		self::assertNull($list[0]['subjectUserId']);
 		self::assertArrayNotHasKey('reasonCode', $list[0]);
+	}
+
+	/** One revision of a personal absence of wallet 11 ('kid'), decided long before today. */
+	private function revisionOf(int $revision, string $state, string $start, string $end, int $group = 1): Pause {
+		$pause = $this->listedPause($state);
+		$pause->setPauseGroupId($group);
+		$pause->setRevision($revision);
+		$pause->setStartDate(new \DateTime($start));
+		$pause->setEndDate(new \DateTime($end));
+		$pause->setCreatedAt(new \DateTime('2019-12-30 08:00:00'));
+		$pause->setUpdatedAt(new \DateTime('2019-12-30 08:00:00'));
+		return $pause;
+	}
+
+	public function testListForViewer_DeclinedShortening_ShowsTheAbsenceItLeftInForce(): void {
+		$list = $this->wireListFor('mom', 'member', [
+			$this->revisionOf(1, Pause::STATE_ACKNOWLEDGED, '2020-01-01', '2999-12-31'),
+			$this->revisionOf(2, Pause::STATE_REJECTED, '2020-01-01', '2020-01-03'),
+		]);
+
+		self::assertCount(1, $list, 'the absence still counts, so everyone sees it');
+		self::assertSame(Pause::STATE_ACKNOWLEDGED, $list[0]['state']);
+		self::assertSame('2999-12-31', $list[0]['endDate'], 'the range of the absence that stands, not of the declined request');
+		self::assertSame(2, $list[0]['revision'], 'the next command expects the latest revision');
+		self::assertFalse($list[0]['deletable'], 'neither subject nor owner');
+	}
+
+	/** @dataProvider deletableProvider */
+	public function testListForViewer_Deletable_FollowsTheDeleteRuleForThatViewer(string $viewer, string $role, array $expected): void {
+		$extra = $viewer === 'mom' ? null : [$this->member('mom', 'member', 13)];
+		$list = $this->wireListFor($viewer, $role, [
+			$this->revisionOf(1, Pause::STATE_ACKNOWLEDGED, '2020-01-01', '2999-12-31', 1),
+			$this->revisionOf(1, Pause::STATE_ACKNOWLEDGED, '2020-01-01', '2020-01-05', 2),
+			$this->revisionOf(1, Pause::STATE_REQUESTED, '2020-01-01', '2020-01-05', 3),
+			$this->revisionOf(1, Pause::STATE_ACKNOWLEDGED, '2020-01-01', '2020-01-05', 4),
+			$this->revisionOf(2, Pause::STATE_REQUESTED, '2020-01-01', '2020-01-03', 4),
+		], viewerWalletId: $viewer === 'kid' ? 11 : 12, extraMembers: $extra);
+
+		self::assertSame($expected, array_column($list, 'deletable', 'pauseGroupId'));
+	}
+
+	public static function deletableProvider(): array {
+		// 1 running · 2 ended · 3 a pending first request with past dates ·
+		// 4 a pending shortening behind an ended absence (D-090-25).
+		return [
+			'owner' => ['dad', 'owner', [1 => true, 2 => false, 3 => true, 4 => false]],
+			'subject' => ['kid', 'child', [1 => true, 2 => false, 3 => true, 4 => false]],
+			'anyone else' => ['mom', 'member', [1 => false, 2 => false]],
+		];
 	}
 }

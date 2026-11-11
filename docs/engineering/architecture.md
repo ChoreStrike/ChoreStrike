@@ -119,7 +119,8 @@ ChoreStrike/
 │   │                           #   + userAutoInit bootstrap plugin
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
 │   ├── views/                  # Dashboard, Today, Insights, RoomDetail, TaskManager,
-│   │                           #   Leaderboard, Scheduling, Calendar, Settings, Rewards
+│   │                           #   Leaderboard, Scheduling, Calendar, Settings, Rewards,
+│   │                           #   Arcade, Absence
 │   └── utils/                  # currentUser, dateKeys, icons, roomIcons, logger,
 │                               #   confetti, sound, energyBudgets
 ├── l10n/                       # Translations
@@ -1280,7 +1281,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Service/OccurrenceCompletionService.php` | 384 | Completion resolution (key/version/token), timeline effects, undo seam (WP3: share-row resolution for the correction aggregates) | accepted (cohesive collaborator of the occurrence authority) |
 | `Service/OccurrenceAgreementService.php` | 707 | C2 date/participant amendments + the shared whole-day child-capacity counter (WP2: explicit-target date writer, persisted neutral releases, appointment-carrying catch-up, derived evidence kinds) | accepted (cohesive collaborator of the occurrence authority — the single writer set for occurrence agreements; splitting would spread one lock choreography across files) |
 | `Service/AgreementService.php` | 816 | WP2 agreement command aggregate: closed validation, authorization/receipt/staleness/capacity gates, suspension restamp and WP5 transactional queue writes | accepted (D2-style visible ordered transaction choreography) |
-| `Service/PauseService.php` | 728 | Revisioned pause lifecycle, viewer projection, deadline-aware effects, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/effect/queue sequence per command) |
+| `Service/PauseService.php` | 914 | Revisioned pause lifecycle with the ADR-020 deletion, viewer projection, deadline-aware effects, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/effect/queue sequence per command) |
 | `Service/PauseProjectionService.php` | 485 | WP2 projection derivation: per-group revision precedence + decision-boundary math (RF-073-WP2-23), recognition-eligibility gate (RF-073-WP2-25), recognized coverage union, suspension decision (any-obligated rule, RF-073-WP2-24), virtual/materialized participant resolution (RF-073-WP2-26), work-appointment derivation, frozen zone-intersection math | accepted (cohesive projection math, single owner of the Q-073-02 rules) |
 | `Service/DailyCapacityService.php` | 529 | WP2 whole-day capacity evaluator: exact minor-unit shares, occurrence-identity dedupe, saved-zone time basis, commitment gates with replacement removal, shared-collection pass | accepted (cohesive evaluator — one owner of the §3.2 accounting rules) |
 | `Db/RoomTask.php` | 362 | Central entity: domain accessors, status computation, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1, RF-072-WP1-12/16) | accepted (entity surface; data-driven) |
@@ -1291,7 +1292,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `views/Settings.vue` | 1154 | Settings composition plus the WP5 minimal self-only notification section; the full preference component/redesign stays WP6 | accepted (section-per-concern template breadth; each section is independent UI) |
+| `views/Settings.vue` | 1238 | Settings composition plus the WP5 minimal self-only notification section (the pause blocks moved to `AbsenceView`, ADR-020; the per-category split is CS-PLAN-090 WP-D); the full preference component/redesign stays WP6 | accepted (section-per-concern template breadth; each section is independent UI) |
 | `components/Setup/SetupWizard.vue` | 816 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
 | `views/RoomDetail.vue` | 874 | Room composition root (stats, scoped list, dialogs) — rows carried by shared TaskList units | accepted (composition root) |
 | `views/TodayView.vue` | 690 | My Day surface (WP7 exit + WP3: explicit-split completion, undo, proposal pre-fill) | accepted (composition root) |

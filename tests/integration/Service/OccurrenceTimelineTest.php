@@ -1547,7 +1547,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 			]));
 			self::fail('the paused concrete participant must block the move');
 		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
-			self::assertStringContainsString('paused', $e->getMessage());
+			self::assertStringContainsString('away', $e->getMessage());
 		}
 
 		// Zero writes: the occurrence kept its planned date and version.
@@ -1602,7 +1602,7 @@ class OccurrenceTimelineTest extends IntegrationTestCase {
 			]));
 			self::fail('the concrete participant is paused on the proposed work day');
 		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
-			self::assertStringContainsString('paused', $e->getMessage());
+			self::assertStringContainsString('away', $e->getMessage());
 		}
 
 		// A day the concrete participant fits installs the appointment on

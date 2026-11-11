@@ -156,8 +156,8 @@ export function fetchPauses() {
 }
 
 /**
- * POST a pause: personal for the caller (child → pending request, adult
- * → acknowledged) or household (owner only) when `scope: 'house'`.
+ * POST an absence: personal for the caller (acknowledged at once for
+ * every role, ADR-020) or household (owner only) when `scope: 'house'`.
  * @param {object} payload {commandId, startDate, endDate, reasonCode, scope?}.
  * @return {Promise<object>} Identity refs {pauseGroupId, revision, state}.
  */
@@ -195,13 +195,15 @@ export function rejectPause(id, payload) {
 }
 
 /**
- * PUT the next-day shortening/revocation of an acknowledged pause.
+ * DELETE an absence that has not ended (ADR-020): one's own, or any as
+ * the owner. The command fields travel as query parameters, because a
+ * DELETE body does not survive every proxy.
  * @param {number} id Pause group id.
- * @param {object} payload {commandId, endDate, expectedRevision}.
+ * @param {object} payload {commandId, expectedRevision}.
  * @return {Promise<object>} Identity refs.
  */
-export function updatePause(id, payload) {
-	return put(`/api/v1/pauses/${id}`, payload)
+export function deletePause(id, payload) {
+	return del(`/api/v1/pauses/${id}`, { params: payload })
 }
 
 // Occurrence agreement API (CS-PLAN-073 WP2 §3.5, consumed by the WP6

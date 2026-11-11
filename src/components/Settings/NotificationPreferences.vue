@@ -38,7 +38,7 @@
 				{{ t('chorestrike', 'Weekly organization digest') }}
 			</NcCheckboxRadioSwitch>
 			<p class="preference-hint">
-				{{ t('chorestrike', 'A weekly overview of catch-ups and pause activity.') }}
+				{{ t('chorestrike', 'A weekly overview of catch-ups and absences.') }}
 			</p>
 
 			<div class="preference-field">

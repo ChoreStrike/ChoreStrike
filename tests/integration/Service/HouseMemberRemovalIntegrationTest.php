@@ -290,9 +290,9 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		self::assertNotNull($memberOccurrence);
 		self::assertSame(\OCA\ChoreStrike\Db\Occurrence::SUSPENSION_SUSPENDED, $memberOccurrence->getSuspensionState(), 'the acknowledged pause suspends the covered obligation');
 
-		// The child's request stays pending.
-		$childPause = $pauseService->requestForSelf($houseAId, 'rmr_child', array_merge(['commandId' => $this->uuidRmr()], $range(\OCA\ChoreStrike\Db\Pause::REASON_OTHER)));
-		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_REQUESTED, $childPause['state']);
+		// A child's request from before ADR-020 is still pending.
+		$childRange = $range(\OCA\ChoreStrike\Db\Pause::REASON_OTHER);
+		$childPause = $this->seedPendingPauseRequest($houseAId, 'rmr_child', $childRange['startDate'], $childRange['endDate']);
 
 		$this->actingAs('rmr_owner_a');
 		$houseService = \OC::$server->get(HouseService::class);

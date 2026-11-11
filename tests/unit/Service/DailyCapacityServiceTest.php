@@ -375,7 +375,7 @@ class DailyCapacityServiceTest extends TestCase {
 			$this->service->assertCommitmentsFit(7, self::MON, [['userId' => 'dad', 'energy' => 1]]);
 			self::fail('a paused member cannot take a new commitment');
 		} catch (ConflictException $e) {
-			self::assertStringContainsString('paused', $e->getMessage());
+			self::assertStringContainsString('away', $e->getMessage());
 		}
 		// Unavailable member.
 		try {

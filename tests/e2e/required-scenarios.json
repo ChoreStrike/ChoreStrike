@@ -48,7 +48,7 @@
   ],
   "family-rhythm.spec.ts": [
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > My Day shows one catch-up card with its original planned date, not a duplicate today",
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a pending child request stays effect-free and a child approval is denied",
+    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a child absence takes effect at once and deciding it stays owner-only",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a private task amendment stays a 404 for the house owner",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an API-created house pause renders its neutral clarification in the owner planner",
     "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an overloaded child day renders the clarification amounts in the owner planner",
@@ -234,11 +234,11 @@
   ],
   "calm-core-ui.spec.ts": [
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > My Day stays Coin-free while the wallet stays in the secondary overview",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > a child enters an absence, everyone sees it, the owner deletes it",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > a free day stays neutral without catch-up, extra offers or invented success",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > every role lands on My Day and the Dashboard stays reachable as the secondary overview",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > reduced motion overrides an explicit animation opt-in on a real completion",
-    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off",
-    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the pause lifecycle stays neutral through request, owner decision and early end"
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off"
   ],
   "scheduling.spec.ts": [
     "scheduling.spec.ts > Scheduling UI > can interact with energy slider",

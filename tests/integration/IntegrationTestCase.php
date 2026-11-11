@@ -448,6 +448,38 @@ abstract class IntegrationTestCase extends TestCase {
 	}
 
 	/**
+	 * A pending personal pause revision as it could only arise before
+	 * ADR-020 (a child's request, or its pending shortening when
+	 * `$pauseGroupId` names an existing group). Inserted directly: no
+	 * command creates one any more, but stored rows must stay decidable.
+	 *
+	 * @return array{pauseGroupId: int, revision: int, state: string}
+	 */
+	protected function seedPendingPauseRequest(int $houseId, string $userId, string $startDate, string $endDate, ?int $pauseGroupId = null): array {
+		$mapper = \OC::$server->get(\OCA\ChoreStrike\Db\PauseMapper::class);
+		$member = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByNextcloudUserId($houseId, $userId);
+		$house = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($houseId);
+		$now = new \DateTime();
+
+		$pause = new \OCA\ChoreStrike\Db\Pause();
+		$pause->setHouseId($houseId);
+		$pause->setPauseGroupId($pauseGroupId ?? $mapper->maxGroupId());
+		$pause->setScope(\OCA\ChoreStrike\Db\Pause::SCOPE_PERSONAL);
+		$pause->setSubjectWalletId((int)$member->getWalletId());
+		$pause->setRequesterHouseUserId((int)$member->getId());
+		$pause->setState(\OCA\ChoreStrike\Db\Pause::STATE_REQUESTED);
+		$pause->setReasonCode(\OCA\ChoreStrike\Db\Pause::REASON_OTHER);
+		$pause->setStartDate(new \DateTime($startDate));
+		$pause->setEndDate(new \DateTime($endDate));
+		$pause->setTimezone(\OC::$server->get(\OCA\ChoreStrike\Service\CalendarService::class)->getTimeZone($house)->getName());
+		$pause->setCreatedAt($now);
+		$pause->setUpdatedAt($now);
+		$pause = $mapper->appendRevision($pause);
+
+		return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
+	}
+
+	/**
 	 * Insert a raw work-evidence (completed task) row for read-path
 	 * fixtures (WP3 §3.1 shape: frozen energy/rate + versioning pair, no
 	 * monetary outputs). Writers that need the full aggregate should use

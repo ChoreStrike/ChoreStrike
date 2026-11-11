@@ -101,6 +101,22 @@ export function addDaysToKey(dateKey, days) {
 }
 
 /**
+ * Short display label of a `YYYY-MM-DD` key ("Tue, 10 Nov" in the
+ * browser's locale). The key is read as a civil date, never as an
+ * instant, so no zone can shift it.
+ *
+ * @param {string} dateKey House-local `YYYY-MM-DD` key.
+ * @return {string} The label, or `'—'` without a key.
+ */
+export function formatDayKey(dateKey) {
+	if (!dateKey) {
+		return '—'
+	}
+	const [year, month, day] = dateKey.split('-').map(Number)
+	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+/**
  * Weekday key (`sunday`..`saturday`) of a `YYYY-MM-DD` key.
  *
  * @param {string} dateKey House-local `YYYY-MM-DD` key.

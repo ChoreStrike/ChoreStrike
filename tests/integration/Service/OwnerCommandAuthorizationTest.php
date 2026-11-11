@@ -60,7 +60,7 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 
 	public static function lostAuthorityProvider(): array {
 		$cases = [];
-		foreach (['house', 'illness', 'approve', 'reject', 'shorten', 'apply', 'amend', 'catchUp', 'restart', 'reset'] as $action) {
+		foreach (['house', 'illness', 'approve', 'reject', 'shorten', 'delete', 'apply', 'amend', 'catchUp', 'restart', 'reset'] as $action) {
 			foreach ($action === 'reset' ? ['demoted', 'departed', 'replaced'] : ['demoted', 'departed'] as $loss) {
 				foreach ([false, true] as $replay) {
 					$cases[$action . ' ' . $loss . ' replay=' . (int)$replay] = [$action, $loss, $replay];
@@ -100,13 +100,17 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 		} else {
 			$service = clone \OC::$server->get(PauseService::class);
 			if (in_array($action, ['approve', 'reject'], true)) {
-				$pending = $service->requestForSelf($houseId, 'cmd_auth_child', array_merge($payload, ['commandId' => $this->uuid()]));
+				$pending = $this->seedPendingPauseRequest($houseId, 'cmd_auth_child', $payload['startDate'], $payload['endDate']);
 				$method = $action;
 				$invoke = static fn (): array => $service->$method($houseId, 'cmd_auth_owner', $pending['pauseGroupId'], ['commandId' => $uuid, 'expectedRevision' => $pending['revision']]);
 			} elseif ($action === 'shorten') {
 				$pause = $service->createHousePause($houseId, 'cmd_auth_owner', array_merge($payload, ['commandId' => $this->uuid()]));
 				$end = (new \DateTime($today))->modify('+2 days')->format('Y-m-d');
 				$invoke = static fn (): array => $service->shorten($houseId, 'cmd_auth_owner', $pause['pauseGroupId'], ['commandId' => $uuid, 'expectedRevision' => $pause['revision'], 'endDate' => $end]);
+			} elseif ($action === 'delete') {
+				// Someone else's absence: only the owner may delete it.
+				$pause = $service->requestForSelf($houseId, 'cmd_auth_child', array_merge($payload, ['commandId' => $this->uuid()]));
+				$invoke = static fn (): array => $service->delete($houseId, 'cmd_auth_owner', $pause['pauseGroupId'], ['commandId' => $uuid, 'expectedRevision' => $pause['revision']]);
 			} elseif ($action === 'illness') {
 				$invoke = static fn (): array => $service->recognizeIllness($houseId, 'cmd_auth_owner', array_merge($payload, ['subjectUserId' => 'cmd_auth_child']));
 			} else {

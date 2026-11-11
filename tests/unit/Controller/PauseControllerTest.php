@@ -142,6 +142,37 @@ class PauseControllerTest extends TestCase {
 		$this->assertEquals(404, $response->getStatus());
 	}
 
+	public function testDestroy_DelegatesToDeleteWithoutRoutingParams(): void {
+		$this->params(['commandId' => 'x', 'expectedRevision' => 2, 'id' => 7, '_route' => 'chorestrike.pause.destroy']);
+		$this->pauseService->expects($this->once())
+			->method('delete')
+			->with($this->anything(), $this->anything(), 7, ['commandId' => 'x', 'expectedRevision' => 2])
+			->willReturn(['pauseGroupId' => 7, 'revision' => 3, 'state' => 'cancelled']);
+
+		$response = $this->controller->destroy(7);
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertSame('cancelled', $response->getData()['data']['state']);
+	}
+
+	/** @dataProvider destroyErrorProvider */
+	public function testDestroy_MapsServiceExceptions(\Exception $exception, int $status): void {
+		$this->params([]);
+		$this->pauseService->method('delete')->willThrowException($exception);
+
+		$this->assertEquals($status, $this->controller->destroy(7)->getStatus());
+	}
+
+	public static function destroyErrorProvider(): array {
+		return [
+			'malformed' => [new \InvalidArgumentException('A valid expectedRevision is required'), 400],
+			'not the subject or the owner' => [new ForbiddenException('Owner role required'), 403],
+			'foreign target' => [new NotFoundException('Pause not found'), 404],
+			'stale or ended' => [new ConflictException('An absence that has ended cannot be deleted'), 409],
+			'unexpected' => [new \RuntimeException('boom'), 500],
+		];
+	}
+
 	public function testRecognizeIllness_Delegates(): void {
 		$this->params(['commandId' => 'x', 'subjectUserId' => 'kid', 'startDate' => '2026-10-01', 'endDate' => '2026-10-02']);
 		$this->pauseService->expects($this->once())

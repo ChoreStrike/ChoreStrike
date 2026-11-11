@@ -149,9 +149,11 @@ and non-punitive recovery. WP1-WP4 implement the approved rules below.
   person neutrally; unplanned substitution does not grant them personal success.
 - Ordinary date/window amendments must be agreed before the existing deadline
   expires. Later replanning does not turn a historical miss into on-time work.
-- Adults manage their own dated pauses; children request pauses for owner
-  confirmation. Owners manage house-wide pauses and may explicitly recognize
-  retrospective illness. This exception must be traceable, not hidden repair.
+- Everyone manages their own dated absences without a request; this replaced
+  the child request with owner confirmation
+  ([ADR-020](../adr/ADR-020-absences-without-requests.md), 2026-11-10). Owners
+  manage house-wide absences and may explicitly enter one for someone else
+  afterwards. This exception must be traceable, not hidden repair.
 - Timeline attribution, calendar boundaries and the agreement/pause rules are
   specified below and implemented by WP1-WP2 (ADR-013).
 
@@ -215,8 +217,9 @@ Target rules only; completion, assignment and pause APIs are not changed here.
   date lies within the pause. A Saturday task with a Friday-Monday window is
   excused by a Saturday pause, not automatically by a Monday-only pause. Already
   correctly completed work remains; retrospective illness recognition is explicit.
-- A child's undecided pause request stays visibly pending and changes no
-  obligation, deadline or goal. It neither auto-extends the window nor auto-rejects.
+- An undecided pause request (only rows stored before ADR-020; no command
+  creates one any more) stays visibly pending and changes no obligation,
+  deadline or goal. It neither auto-extends the window nor auto-rejects.
   After expiry, excusal requires explicit owner recognition of retrospective illness.
 - A pause does not automatically transfer work or enlarge anyone else's share.
   With the sole responsible person paused, neutrally suspend the occurrence while
@@ -228,8 +231,9 @@ Target rules only; completion, assignment and pause APIs are not changed here.
   preserve occurrence identity and visible exceptions. The
   [whole-day capacity contract](energy-and-balancing.md#approved-whole-day-capacity-c2-2026-09-17)
   protects new commitments without suppressing actual completed work.
-- Shortening/revoking an acknowledged pause takes effect no earlier than the next
-  local day, under existing pause roles. Already excused obligations for today or
+- Shortening or deleting an acknowledged pause takes effect no earlier than the next
+  local day: the subject for an own one, the owner for any (ADR-020). A deleted
+  absence that has not started leaves no coverage at all. Already excused obligations for today or
   earlier stay neutral, without retrospective misses. Voluntary actual work is
   recordable today without creating a retrospective duty; future commitments must
   still fit capacity.
@@ -270,6 +274,10 @@ self/owner data in every state), interval restart with exactly one linked
 successor, and departure/erasure handling per Q-073-03/§3.6. The API surface
 is `/api/v1/occurrences/{key}/{amend,catch-up,restart}` and
 `/api/v1/pauses*`; a dedicated pause-management UI remains WP6.
+ADR-020 (CS-PLAN-090, 2026-11-10) amends the pause part: every role is
+acknowledged directly, `DELETE /api/v1/pauses/{id}` appends a `cancelled`
+revision that governs from the next local day, and the surface is the
+Absence view.
 
 ## Reminder Configuration
 

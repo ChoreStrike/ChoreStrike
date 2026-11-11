@@ -140,7 +140,7 @@ export default {
 					// stays Coin-free (C5f) — the Coins line lives in the
 					// modal body only.
 					title: t('chorestrike', 'Progress, windows and rhythm'),
-					body: t('chorestrike', 'Each chore has a completion window around its planned day. Free and paused days are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve.'),
+					body: t('chorestrike', 'Each chore has a completion window around its planned day. Free days and absences are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve.'),
 				},
 
 				catalog: {

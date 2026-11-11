@@ -572,33 +572,32 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 		}
 	})
 
-	test('a pending child request stays effect-free and a child approval is denied', async ({ browser, seededData }) => {
+	test('a child absence takes effect at once and deciding it stays owner-only', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
 		const { context, page } = await createUserContext(browser, 'kid')
 		try {
 			// Task creation is adult-gated — the owner seeds the child's probe.
-			const roomTaskId = await createProbeTask(dadPage, `Request Probe ${Date.now()}`, ['kid'])
+			const roomTaskId = await createProbeTask(dadPage, `Absence Probe ${Date.now()}`, ['kid'])
+			expect(await resolveOccurrenceReceipt(page, roomTaskId), 'the probe is a live duty first').not.toBeNull()
 
-			// A child request stays pending (no execution effect).
+			// ADR-020: a child's absence needs no request.
 			const created = await page.request.post('/apps/chorestrike/api/v1/pauses', {
 				data: {
 					commandId: newCommandId(),
 					startDate: houseDateOffset(0, 'UTC'),
 					endDate: houseDateOffset(2, 'UTC'),
-					reasonCode: 'other',
 				},
 				headers: { Accept: 'application/json' },
 			})
 			expect(created.status(), await created.text()).toBe(200)
 			const createdData = (await created.json()).data
-			expect(createdData.state).toBe('requested')
+			expect(createdData.state).toBe('acknowledged')
 
-			// The pending request suspends nothing — the target stays live.
-			const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
-			expect(receipt, 'a pending request has zero execution effect').not.toBeNull()
+			// The covered duty is released at once.
+			expect(await resolveOccurrenceReceipt(page, roomTaskId), 'the absence suspends the covered duty').toBeNull()
 
-			// The child may not approve its own (or any) request.
+			// Decisions stay owner-only, also for a child's own entry.
 			const approve = await page.request.post(
 				`/apps/chorestrike/api/v1/pauses/${createdData.pauseGroupId}/approve`,
 				{
@@ -608,9 +607,17 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			)
 			expect(approve.status()).toBe(403)
 
-			// Still effect-free after the denied approval.
-			const stillLive = await resolveOccurrenceReceipt(page, roomTaskId)
-			expect(stillLive).not.toBeNull()
+			// The child deletes its own absence; today stays excused.
+			const deleted = await page.request.delete(
+				`/apps/chorestrike/api/v1/pauses/${createdData.pauseGroupId}`,
+				{
+					params: { commandId: newCommandId(), expectedRevision: createdData.revision },
+					headers: { Accept: 'application/json' },
+				},
+			)
+			expect(deleted.status(), await deleted.text()).toBe(200)
+			expect((await deleted.json()).data.state).toBe('cancelled')
+			expect(await resolveOccurrenceReceipt(page, roomTaskId), 'what today was excused stays excused').toBeNull()
 		} finally {
 			await context.close()
 			await dadContext.close()

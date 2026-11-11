@@ -124,17 +124,43 @@ class PauseAgreementTest extends IntegrationTestCase {
 		self::assertNull($this->occurrenceService->selectionFor($roomTask, new \DateTime(), (int)$this->houseId));
 	}
 
-	public function testChildRequest_HasNoEffectUntilOwnerDecides(): void {
-		// The shared fixture is assigned to pa_mom; the child's pause can
-		// only neutralize an obligation the CHILD owes — create one.
+	/** A task the CHILD owes: the shared fixture is assigned to pa_mom. */
+	private function kidTask(): int {
 		$floorId = $this->createFloor((int)$this->houseId, 'Upper Floor', 2);
 		$roomId = $this->createRoom((int)$this->houseId, $floorId, 'Playroom');
 		$taskId = $this->createTask((int)$this->houseId, 'Kid chores', '', 5, 2);
 		$kidTaskId = $this->assignTaskToRoom($taskId, $roomId, 'pa_kid');
 		$this->cleanupRoomTaskIds[] = $kidTaskId;
+		return $kidTaskId;
+	}
+
+	/** A request that was still pending when ADR-020 arrived. */
+	private function pendingKidRequest(?int $pauseGroupId = null, ?string $endDate = null): array {
+		$range = $this->range();
+		return $this->seedPendingPauseRequest((int)$this->houseId, 'pa_kid', $range['startDate'], $endDate ?? $range['endDate'], $pauseGroupId);
+	}
+
+	/** ADR-020: a child's absence needs no request and suspends at once. */
+	public function testChildAbsence_SuspendsAtOnceAndIsVisibleToEveryMember(): void {
+		$kidTaskId = $this->kidTask();
 
 		$result = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
-		self::assertSame(Pause::STATE_REQUESTED, $result['state']);
+
+		self::assertSame(Pause::STATE_ACKNOWLEDGED, $result['state']);
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $this->openOccurrence($kidTaskId)->getSuspensionState());
+		foreach (['pa_owner', 'pa_mom', 'pa_kid'] as $viewer) {
+			self::assertContains(
+				$result['pauseGroupId'],
+				array_column($this->pauseService->listForViewer((int)$this->houseId, $viewer), 'pauseGroupId'),
+				"$viewer sees the absence"
+			);
+		}
+	}
+
+	public function testPendingRequestFromBeforeTheUpdate_HasNoEffectUntilOwnerDecides(): void {
+		$kidTaskId = $this->kidTask();
+
+		$result = $this->pendingKidRequest();
 		self::assertSame(Occurrence::SUSPENSION_NONE, $this->openOccurrence($kidTaskId)->getSuspensionState(), 'a pending request changes no duty');
 
 		// A non-owner cannot decide the request.
@@ -152,7 +178,7 @@ class PauseAgreementTest extends IntegrationTestCase {
 	}
 
 	public function testStaleRevisionDecision_Conflicts(): void {
-		$result = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
+		$result = $this->pendingKidRequest();
 
 		$this->expectException(\OCA\ChoreStrike\Exception\ConflictException::class);
 		$this->pauseService->approve((int)$this->houseId, 'pa_owner', $result['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => $result['revision'] + 3]);
@@ -203,11 +229,212 @@ class PauseAgreementTest extends IntegrationTestCase {
 		self::assertContains('PAUSED', $after['reasons']);
 	}
 
-	public function testSuspensionLiftsOnRejection(): void {
-		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
+	public function testRejectedRequest_NeverSuspends(): void {
+		$kidTaskId = $this->kidTask();
+		$created = $this->pendingKidRequest();
 		$this->pauseService->reject((int)$this->houseId, 'pa_owner', $created['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => $created['revision']]);
 
-		self::assertSame(Occurrence::SUSPENSION_NONE, $this->openOccurrence()->getSuspensionState(), 'a rejected request lifts any neutral suspension');
+		self::assertSame(Occurrence::SUSPENSION_NONE, $this->openOccurrence($kidTaskId)->getSuspensionState(), 'a rejected request has no effect');
+	}
+
+	// -----------------------------------------------------------------
+	// Deletion (ADR-020, D-090-07, D-090-22)
+	// ------------------------------------------------------------------
+
+	private function deletePause(string $actor, array $pause): array {
+		return $this->pauseService->delete((int)$this->houseId, $actor, $pause['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => $pause['revision']]);
+	}
+
+	public function testDeleteRunningAbsence_KeepsTodayFreesTheNextDay(): void {
+		$roomTaskId = $this->dailyStaticTask('pa_kid', $this->todayKey, 'Kid delete');
+		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $this->occurrenceOn($roomTaskId, $this->dayKey(1))->getSuspensionState());
+
+		$deleted = $this->deletePause('pa_kid', $created);
+
+		self::assertSame(['pauseGroupId' => $created['pauseGroupId'], 'revision' => 2, 'state' => Pause::STATE_CANCELLED], $deleted);
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $this->occurrenceOn($roomTaskId, $this->todayKey)->getSuspensionState(), 'what today was excused stays excused');
+		self::assertSame(Occurrence::SUSPENSION_NONE, $this->occurrenceOn($roomTaskId, $this->dayKey(1))->getSuspensionState(), 'tomorrow is a duty again');
+		$rows = $this->fetchPauseRows($created['pauseGroupId']);
+		self::assertSame([Pause::STATE_ACKNOWLEDGED, Pause::STATE_CANCELLED], array_column($rows, 'state'), 'the deletion is a new revision, the first one is untouched');
+		foreach (['pa_owner', 'pa_mom', 'pa_kid'] as $viewer) {
+			self::assertNotContains(
+				$created['pauseGroupId'],
+				array_column($this->pauseService->listForViewer((int)$this->houseId, $viewer), 'pauseGroupId'),
+				"the deleted absence is gone for $viewer"
+			);
+		}
+		self::assertSame(0, $this->pauseService->applyPauseEffectsUnderLock((int)$this->houseId), 'repeated reconciliation writes nothing');
+	}
+
+	public function testDeleteFutureAbsence_LeavesNoTraceInCapacityGoalOrSuspension(): void {
+		$roomTaskId = $this->dailyStaticTask('pa_kid', $this->todayKey, 'Kid future');
+		$days = [$this->todayKey, $this->dayKey(2), $this->dayKey(3)];
+		$capacity = \OC::$server->get(DailyCapacityService::class);
+		$before = $capacity->evaluateDays((int)$this->houseId, $days);
+		$kid = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByNextcloudUserId((int)$this->houseId, 'pa_kid');
+		$goalAndRhythm = fn (): array => [
+			\OC::$server->get(\OCA\ChoreStrike\Service\WeeklyGoalService::class)->getWeeklyGoalProgress((int)$this->houseId),
+			\OC::$server->get(\OCA\ChoreStrike\Service\RhythmService::class)->evaluateForMembers((int)$this->houseId, [$kid], new \DateTime($this->dayKey(4) . ' 12:00:00')),
+		];
+		$goalAndRhythmBefore = $goalAndRhythm();
+
+		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', [
+			'commandId' => $this->uuid(), 'startDate' => $this->dayKey(2), 'endDate' => $this->dayKey(3), 'reasonCode' => Pause::REASON_OTHER,
+		]);
+		self::assertTrue($capacity->evaluateDays((int)$this->houseId, $days)[$this->dayKey(2)]['pa_kid']['paused']);
+
+		$this->deletePause('pa_kid', $created);
+
+		self::assertSame($before, $capacity->evaluateDays((int)$this->houseId, $days), 'capacity reads as if the absence had never been entered');
+		self::assertEquals($goalAndRhythmBefore, $goalAndRhythm(), 'the weekly goal and the rhythm, read after the freed days, show no trace');
+		foreach ($days as $day) {
+			self::assertSame(Occurrence::SUSPENSION_NONE, $this->occurrenceOn($roomTaskId, $day)->getSuspensionState(), "$day is an ordinary duty");
+		}
+	}
+
+	public function testDelete_OwnerDeletesAnyAbsence_OthersOnlyTheirOwn(): void {
+		$momPause = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_mom', array_merge(['commandId' => $this->uuid()], $this->range()));
+		$housePause = $this->pauseService->createHousePause((int)$this->houseId, 'pa_owner', array_merge(['commandId' => $this->uuid()], $this->range()));
+
+		foreach ([['pa_kid', $momPause], ['pa_kid', $housePause], ['pa_mom', $housePause]] as [$actor, $pause]) {
+			try {
+				$this->deletePause($actor, $pause);
+				self::fail("$actor may not delete this absence");
+			} catch (ForbiddenException $e) {
+				self::assertSame('Owner role required', $e->getMessage());
+			}
+		}
+		self::assertCount(1, $this->fetchPauseRows($momPause['pauseGroupId']), 'a denied deletion appends nothing');
+
+		self::assertSame(Pause::STATE_CANCELLED, $this->deletePause('pa_owner', $momPause)['state']);
+		self::assertSame(Pause::STATE_CANCELLED, $this->deletePause('pa_owner', $housePause)['state']);
+	}
+
+	public function testDelete_StaleRevisionEndedAndAlreadyDeleted_Conflict(): void {
+		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_mom', array_merge(['commandId' => $this->uuid()], $this->range()));
+		$ended = $this->pauseService->recognizeIllness((int)$this->houseId, 'pa_owner', [
+			'commandId' => $this->uuid(), 'subjectUserId' => 'pa_mom', 'startDate' => $this->dayKey(-5), 'endDate' => $this->dayKey(-3),
+		]);
+
+		$attempts = [
+			'stale revision' => ['pauseGroupId' => $created['pauseGroupId'], 'revision' => 7],
+			'ended absence' => $ended,
+		];
+		foreach ($attempts as $label => $pause) {
+			try {
+				$this->deletePause('pa_owner', $pause);
+				self::fail("$label must conflict");
+			} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+				self::assertNotSame('', $e->getMessage());
+			}
+		}
+		self::assertCount(1, $this->fetchPauseRows($ended['pauseGroupId']), 'the ended absence keeps its single revision');
+		self::assertContains(
+			$ended['pauseGroupId'],
+			array_column($this->pauseService->listForViewer((int)$this->houseId, 'pa_kid'), 'pauseGroupId'),
+			'an ended absence stays in the shared list'
+		);
+
+		$deleted = $this->deletePause('pa_mom', $created);
+		try {
+			$this->deletePause('pa_mom', $deleted);
+			self::fail('a deleted absence cannot be deleted again');
+		} catch (\OCA\ChoreStrike\Exception\ConflictException $e) {
+			self::assertCount(2, $this->fetchPauseRows($created['pauseGroupId']));
+		}
+	}
+
+	public function testDelete_ReplayedCommand_ReturnsTheSameResultOnce(): void {
+		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_mom', array_merge(['commandId' => $this->uuid()], $this->range()));
+		$payload = ['commandId' => $this->uuid(), 'expectedRevision' => $created['revision']];
+
+		$first = $this->pauseService->delete((int)$this->houseId, 'pa_mom', $created['pauseGroupId'], $payload);
+		$replay = $this->pauseService->delete((int)$this->houseId, 'pa_mom', $created['pauseGroupId'], $payload);
+
+		self::assertSame($first, $replay);
+		self::assertCount(2, $this->fetchPauseRows($created['pauseGroupId']), 'the replay appends no second cancellation');
+	}
+
+	public function testDelete_PendingRequestFromBeforeTheUpdate_IsWithdrawn(): void {
+		$kidTaskId = $this->kidTask();
+		$pending = $this->pendingKidRequest();
+
+		$deleted = $this->deletePause('pa_kid', $pending);
+
+		self::assertSame(Pause::STATE_CANCELLED, $deleted['state']);
+		self::assertSame(Occurrence::SUSPENSION_NONE, $this->openOccurrence($kidTaskId)->getSuspensionState());
+		self::assertSame([], $this->pauseService->listForViewer((int)$this->houseId, 'pa_owner'), 'nothing is left to decide');
+		$this->expectException(\OCA\ChoreStrike\Exception\ConflictException::class);
+		$this->pauseService->approve((int)$this->houseId, 'pa_owner', $pending['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => $deleted['revision']]);
+	}
+
+	public function testDelete_OwnerDeletesSomeoneElses_QueuesOneDigestChangeForTheSubject(): void {
+		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
+		self::assertSame([], $this->digestRecipients($created['pauseGroupId']), 'entering an own absence notifies nobody');
+
+		$this->deletePause('pa_owner', $created);
+
+		$kid = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByNextcloudUserId((int)$this->houseId, 'pa_kid');
+		self::assertSame([(int)$kid->getId()], $this->digestRecipients($created['pauseGroupId']));
+	}
+
+	public function testDelete_HouseAbsence_QueuesDigestChangeForEveryOtherMember(): void {
+		$created = $this->pauseService->createHousePause((int)$this->houseId, 'pa_owner', array_merge(['commandId' => $this->uuid()], $this->range()));
+
+		$this->deletePause('pa_owner', $created);
+
+		$houseUserMapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+		$others = [];
+		foreach (['pa_mom', 'pa_kid'] as $userId) {
+			$others[] = (int)$houseUserMapper->findByNextcloudUserId((int)$this->houseId, $userId)->getId();
+		}
+		sort($others);
+		self::assertSame($others, $this->digestRecipients($created['pauseGroupId']), 'mom and kid, never the deciding owner');
+	}
+
+	/**
+	 * The memberships of THIS house with a queued pause change (group ids
+	 * are reused across test houses).
+	 *
+	 * @return list<int>
+	 */
+	private function digestRecipients(int $pauseGroupId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->selectDistinct('house_user_id')->from('chorestrike_digest_changes')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter((int)$this->houseId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('object_type', $qb->createNamedParameter('pause')))
+			->andWhere($qb->expr()->eq('object_id', $qb->createNamedParameter((string)$pauseGroupId)));
+		$ids = array_map('intval', array_column($qb->executeQuery()->fetchAll(), 'house_user_id'));
+		sort($ids);
+		return $ids;
+	}
+
+	/**
+	 * D-090-21: one reading for every cancelled revision. A pending
+	 * shortening that a departure cancelled ends its group's coverage
+	 * from the next local day — the member who rejoins with the retained
+	 * wallet is not covered again by the old absence.
+	 */
+	public function testRejoinAfterDepartureWithPendingShortening_IsNotCoveredAgain(): void {
+		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
+		$this->pendingKidRequest($created['pauseGroupId'], $this->dayKey(1));
+		$houseUserMapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+		$kid = $houseUserMapper->findByNextcloudUserId((int)$this->houseId, 'pa_kid');
+		$walletId = (int)$kid->getWalletId();
+
+		$this->actingAs('pa_owner');
+		\OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class)->removeHouseMember((int)$kid->getId());
+		self::assertSame([Pause::STATE_ACKNOWLEDGED, Pause::STATE_CANCELLED], array_column($this->fetchPauseRows($created['pauseGroupId']), 'state'));
+
+		$this->addHouseMember((int)$this->houseId, 'pa_kid', 'Kid', 'child');
+		self::assertSame($walletId, (int)$houseUserMapper->findByNextcloudUserId((int)$this->houseId, 'pa_kid')->getWalletId(), 'the rejoin reattaches the retained wallet');
+
+		$days = [$this->todayKey, $this->dayKey(1), $this->dayKey(3)];
+		$report = \OC::$server->get(DailyCapacityService::class)->evaluateDays((int)$this->houseId, $days);
+		self::assertTrue($report[$this->todayKey]['pa_kid']['paused'], 'the departure day stays excused');
+		self::assertFalse($report[$this->dayKey(1)]['pa_kid']['paused'], 'the old absence covers nothing after the departure');
+		self::assertFalse($report[$this->dayKey(3)]['pa_kid']['paused']);
 	}
 
 	public function testHouseholdPause_SuspendsWithHouseScope(): void {
@@ -309,8 +536,7 @@ class PauseAgreementTest extends IntegrationTestCase {
 	 * shorten and is decided (approve/reject) instead.
 	 */
 	public function testShorten_PendingRequest_Conflicts(): void {
-		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
-		self::assertSame(Pause::STATE_REQUESTED, $created['state'], 'a child request stays pending');
+		$created = $this->pendingKidRequest();
 
 		try {
 			$this->pauseService->shorten(
@@ -437,25 +663,36 @@ class PauseAgreementTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * R2 / plan §3.4 row 6: a child's shortening stays a PENDING revision
-	 * (acknowledged coverage unchanged) until the owner explicitly
-	 * acknowledges it — and only then does the future coverage shrink.
+	 * ADR-020: a child's shortening is acknowledged directly and removes
+	 * the superseded future coverage without an owner decision.
 	 */
-	public function testChildShortening_PendingLeavesCoverageUnchanged_UntilOwnerAcknowledges(): void {
+	public function testChildShortening_TakesEffectWithoutOwnerDecision(): void {
 		$roomTaskId = $this->dailyStaticTask('pa_kid', $this->todayKey, 'Kid shorten');
 		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
-		self::assertSame(Pause::STATE_REQUESTED, $created['state']);
-		self::assertSame(Occurrence::SUSPENSION_NONE, $this->occurrenceOn($roomTaskId, $this->dayKey(1))->getSuspensionState(), 'pending has no effect');
 
-		$this->pauseService->approve((int)$this->houseId, 'pa_owner', $created['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => 1]);
-		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $this->reload($this->occurrenceOn($roomTaskId, $this->dayKey(1)))->getSuspensionState());
-
-		$pendingShorten = $this->pauseService->shorten((int)$this->houseId, 'pa_kid', $created['pauseGroupId'], [
+		$shortened = $this->pauseService->shorten((int)$this->houseId, 'pa_kid', $created['pauseGroupId'], [
 			'commandId' => $this->uuid(),
 			'expectedRevision' => 1,
 			'endDate' => $this->todayKey,
 		]);
-		self::assertSame(Pause::STATE_REQUESTED, $pendingShorten['state'], "a child's change needs owner acknowledgment");
+
+		self::assertSame(Pause::STATE_ACKNOWLEDGED, $shortened['state']);
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $this->occurrenceOn($roomTaskId, $this->todayKey)->getSuspensionState(), 'today stays recognized');
+		self::assertSame(Occurrence::SUSPENSION_NONE, $this->occurrenceOn($roomTaskId, $this->dayKey(1))->getSuspensionState());
+	}
+
+	/**
+	 * R2 / plan §3.4 row 6 for rows stored before ADR-020: a pending
+	 * shortening leaves the acknowledged coverage unchanged until the
+	 * owner explicitly acknowledges it — and only then does the future
+	 * coverage shrink.
+	 */
+	public function testPendingShorteningFromBeforeTheUpdate_LeavesCoverageUnchanged_UntilOwnerAcknowledges(): void {
+		$roomTaskId = $this->dailyStaticTask('pa_kid', $this->todayKey, 'Kid pending shorten');
+		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $this->reload($this->occurrenceOn($roomTaskId, $this->dayKey(1)))->getSuspensionState());
+
+		$pendingShorten = $this->pendingKidRequest($created['pauseGroupId'], $this->todayKey);
 		self::assertSame(2, $pendingShorten['revision']);
 		self::assertSame(
 			Occurrence::SUSPENSION_SUSPENDED,
@@ -470,6 +707,36 @@ class PauseAgreementTest extends IntegrationTestCase {
 			$this->reload($this->occurrenceOn($roomTaskId, $this->dayKey(1)))->getSuspensionState(),
 			'the acknowledged shortening removes the superseded future coverage'
 		);
+	}
+
+	/**
+	 * A child's shortening that the owner declined before ADR-020 leaves
+	 * the absence in force: everyone still sees it with its own range, and
+	 * its subject or the owner can still delete it (D-090-22).
+	 */
+	public function testDeclinedShorteningFromBeforeTheUpdate_AbsenceStaysListedAndDeletable(): void {
+		$roomTaskId = $this->dailyStaticTask('pa_kid', $this->todayKey, 'Kid declined shorten');
+		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
+		$declined = $this->pendingKidRequest($created['pauseGroupId'], $this->todayKey);
+		$this->pauseService->reject((int)$this->houseId, 'pa_owner', $created['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => $declined['revision']]);
+		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $this->reload($this->occurrenceOn($roomTaskId, $this->dayKey(1)))->getSuspensionState(), 'the declined shortening changes nothing');
+
+		foreach (['pa_owner' => true, 'pa_mom' => false, 'pa_kid' => true] as $viewer => $deletable) {
+			$entries = array_values(array_filter(
+				$this->pauseService->listForViewer((int)$this->houseId, $viewer),
+				static fn (array $row): bool => $row['pauseGroupId'] === $created['pauseGroupId']
+			));
+			self::assertCount(1, $entries, "$viewer sees the absence that stands");
+			self::assertSame(Pause::STATE_ACKNOWLEDGED, $entries[0]['state']);
+			self::assertSame($this->range()['endDate'], $entries[0]['endDate'], 'its own range, not the declined one');
+			self::assertSame(2, $entries[0]['revision'], 'the next command expects the latest revision');
+			self::assertSame($deletable, $entries[0]['deletable'], "deletable for $viewer");
+		}
+
+		$deleted = $this->deletePause('pa_kid', ['pauseGroupId' => $created['pauseGroupId'], 'revision' => 2]);
+
+		self::assertSame(Pause::STATE_CANCELLED, $deleted['state']);
+		self::assertSame(Occurrence::SUSPENSION_NONE, $this->reload($this->occurrenceOn($roomTaskId, $this->dayKey(1)))->getSuspensionState(), 'tomorrow is a duty again');
 	}
 
 	/**
@@ -538,14 +805,9 @@ class PauseAgreementTest extends IntegrationTestCase {
 		$miss = $this->occurrenceOn($roomTaskId, $missKey);
 		self::assertLessThanOrEqual(new \DateTime(), $miss->getWindowEnd(), 'the miss window already closed');
 
-		// The child requests a pause covering the miss day while the row
+		// A request from before ADR-020 covers the miss day while the row
 		// is already expired; the pending request has no effect.
-		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', [
-			'commandId' => $this->uuid(),
-			'startDate' => $missKey,
-			'endDate' => $this->dayKey(2),
-			'reasonCode' => Pause::REASON_OVERLOAD,
-		]);
+		$created = $this->seedPendingPauseRequest((int)$this->houseId, 'pa_kid', $missKey, $this->dayKey(2));
 		self::assertSame(Occurrence::SUSPENSION_NONE, $this->reload($miss)->getSuspensionState());
 
 		// The owner approves AFTER the original deadline: the decision time
@@ -592,9 +854,8 @@ class PauseAgreementTest extends IntegrationTestCase {
 		]));
 		$today = $this->occurrenceOn($roomTaskId, $this->todayKey);
 
-		// The child's pause is acknowledged by the owner.
+		// The child's absence takes effect at once (ADR-020).
 		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
-		$this->pauseService->approve((int)$this->houseId, 'pa_owner', $created['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => 1]);
 
 		$suspended = $this->reload($today);
 		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $suspended->getSuspensionState(), 'one paused obligated joint participant suspends the occurrence');
@@ -696,7 +957,6 @@ class PauseAgreementTest extends IntegrationTestCase {
 		]));
 		$today = $this->occurrenceOn($roomTaskId, $this->todayKey);
 		$created = $this->pauseService->requestForSelf((int)$this->houseId, 'pa_kid', array_merge(['commandId' => $this->uuid()], $this->range()));
-		$this->pauseService->approve((int)$this->houseId, 'pa_owner', $created['pauseGroupId'], ['commandId' => $this->uuid(), 'expectedRevision' => 1]);
 		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $this->reload($today)->getSuspensionState());
 
 		// Force the original exclusive deadline into the past.

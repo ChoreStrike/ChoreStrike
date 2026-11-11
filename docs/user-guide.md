@@ -16,7 +16,7 @@ owners.
 | | Owner | Member (adult) | Child |
 |---|:-:|:-:|:-:|
 | Complete tasks and tick checklist steps | ✓ | ✓ | ✓ |
-| Own availability, pauses and notification settings | ✓ | ✓ | ✓ (pauses need an owner) |
+| Own availability, absences and notification settings | ✓ | ✓ | ✓ |
 | Create, edit and assign tasks | ✓ | ✓ | — |
 | Request rewards | ✓ | ✓ | ✓ (an owner approves) |
 | Invite people, change roles, remove members | ✓ | — | — |
@@ -163,13 +163,17 @@ others.
 - **Sounds** and **celebration animations** can be switched on; your device's
   reduced-motion setting always wins.
 
-### Pauses
+### Absence
 
-Ill, travelling or simply too much at once? **Request a pause** in
-**Settings** with a start and end day and a reason. Adults' pauses apply right
-away; a child's pause waits for an owner. Owners can also pause the whole
-household and record an illness afterwards. Pauses and free days never count
-against anyone.
+Away, ill or simply out for a few days? Open **Absence**, pick the first and
+the last day and choose **Enter**. That is all: no reason and no request, for
+children as well, and it counts at once. Nothing is planned for you during
+that time, and absences and free days never count against anyone.
+
+Everyone sees all entries. You can delete your own entry as long as it has
+not ended; today stays as it is, and from tomorrow the days count as usual
+again. Owners can delete any entry, enter an absence for the whole household
+and enter one for someone afterwards, for days that have already passed.
 
 ### Arcade
 
