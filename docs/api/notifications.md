@@ -81,7 +81,7 @@ Delivered bell shape (rendered by `ChoreStrikeNotifier`):
   the slot identity is the actual guarantee)
 - Subject: count-based (`Daily summary: 3 planned tasks · 2 household
   updates`) — no task names, no object references.
-- Link: the app's My Day surface.
+- Link: the app's landing page, Today.
 
 Former subjects (`task_due_today`/`task_due_tomorrow`,
 `medal_awarded`, `weekly_goal_reached`, `title_unlocked`,

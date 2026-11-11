@@ -50,8 +50,8 @@ test.describe('Minimal Smoke Tests', () => {
 		// CS-PLAN-087 WP-A: the header requests the app glyph — an <img> on
 		// NC34, a CSS mask (--app-icon-url) on NC35.
 		const headerIcon = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/chorestrike/img/app.svg'))
-		await page.goto('/apps/chorestrike/#/dashboard')
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+		await page.goto('/apps/chorestrike/#/today')
+		await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
 
 		const title = await page.title()
 		expect(title.length).toBeGreaterThan(0)
@@ -80,8 +80,8 @@ test.describe('Minimal Smoke Tests', () => {
 			}
 		})
 
-		await page.goto('/apps/chorestrike/#/dashboard')
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+		await page.goto('/apps/chorestrike/#/today')
+		await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
 
 		expect(errors).toHaveLength(0)
 	})

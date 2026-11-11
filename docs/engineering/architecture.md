@@ -87,8 +87,9 @@ ChoreStrike/
 │   ├── App.vue                 # Root component
 │   ├── router.js               # Route definitions (lazy-loaded)
 │   ├── components/
-│   │   ├── Dashboard/          # HouseHealthBar, HouseholdGoalBar, FloorList, RoomCard,
-│   │   │                       #   QuickStats
+│   │   ├── Today/              # TodayStatusLine, TodayTaskRow (CS-PLAN-090 WP-B)
+│   │   ├── Setup/              # SetupWizard, SetupWizardEntry (the way in, on Today
+│   │   │                       #   and under Floors & Rooms in Settings)
 │   │   ├── Tasks/              # TaskList, TaskListItem, TaskListDetails, TaskListBulkBar,
 │   │   │                       #   TaskEditForm, AssigneeChips, TaskChecklist, RoomPicker,
 │   │   │                       #   TaskTemplatePicker, TaskEnergyField, TaskMeta, OverdueClaimDialog
@@ -109,7 +110,9 @@ ChoreStrike/
 │   │                           #   EnergyBudgetSettings, BudgetAnalysis, WeekBudgetGrid,
 │   │                           #   SchedulePlanner, ScheduleCalendar, OvercapacityWarning
 │   ├── composables/            # useCelebration (confetti + SFX), useToasts,
-│   │                           #   useStoreReset (central identity reset, WP6/WP8)
+│   │                           #   useStoreReset (central identity reset, WP6/WP8),
+│   │                           #   useTaskCompletion (the one completion flow with the
+│   │                           #   participation dialog, shared by every task surface)
 │   ├── constants/              # Shared constants (taskVisibility, titles, scheduling)
 │   ├── services/               # Shared API client (api.js — single URL prefix,
 │   │                           #   envelope unwrap, ApiError normalization)
@@ -119,11 +122,12 @@ ChoreStrike/
 │   │                           #   + userAutoInit bootstrap plugin
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css,
 │   │                           #   feedback.css (completion feedback of a row)
-│   ├── views/                  # Dashboard, Today, Insights, RoomDetail, TaskManager,
+│   ├── views/                  # Today (the landing page), Insights, RoomDetail, TaskManager,
 │   │                           #   Leaderboard, Scheduling, Calendar, Settings, Rewards,
 │   │                           #   Arcade, Absence
 │   └── utils/                  # currentUser, dateKeys, icons, roomIcons, logger,
-│                               #   confetti, sound, energyBudgets
+│                               #   confetti, sound, energyBudgets, todaySections (the
+│                               #   sections of Today as pure functions)
 ├── l10n/                       # Translations
 │   ├── templates/
 │   │   └── chorestrike.pot     # Translation template
@@ -393,8 +397,7 @@ bar derives its partial-success toast from the diff.
 
 Since CS-PLAN-042 there is exactly **one** UI surface for house structure
 mutations: the Settings structure section (owner-gated rendering; floor
-create/rename/delete/reorder + inline room add/delete). The Dashboard
-FloorList is strictly read-only (navigation), and RoomDetail exposes only
+create/rename/delete/reorder + inline room add/delete). RoomDetail exposes only
 per-room rename/delete in its header. New structure affordances belong in
 Settings — do not re-introduce a second editing surface.
 
@@ -474,7 +477,7 @@ stale response can never win and a committed write is never misreported:
   clear a newer request's loading state).
 - **Accepted mutations invalidate pre-mutation reads** of their slice
   (bump the generation) and land the authoritative response.
-- **Count projections are endpoint-backed.** Dashboard counters read dedicated
+- **Count projections are endpoint-backed.** The task counters read dedicated
   `dueTodayTasks` / `overdueTasks` slices holding complete viewer-visible
   endpoint results (D2) — scoped room loads and the child-limited daily list
   can never masquerade as count sources.
@@ -516,7 +519,6 @@ weaken the backend membership checks.
     activityError: null
   },
   getters: {
-    houseHealth(),        // derived: state.house?.houseHealth ?? 100
     houseName(),
     hasHouse(),
     timezone()            // house timezone with 'UTC' fallback
@@ -526,7 +528,6 @@ weaken the backend membership checks.
     updateHouseName(name, timezone),  // PUT /house (owner-gated)
     fetchInsights(),
     fetchActivity(days, limit),
-    calculateHouseHealth(),           // GET /api/v1/house/health, persists house.houseHealth
     resetHouse(),
     clearError(),
     reset()
@@ -534,9 +535,11 @@ weaken the backend membership checks.
 }
 ```
 
-> There is **no** standalone `health` state field or `updateHealth()` action —
-> house health is derived from `state.house.houseHealth` via the `houseHealth`
-> getter and refreshed by `calculateHouseHealth()`. Canonical definition:
+> There is **no** standalone `health` state field or `updateHealth()` action.
+> The house payload carries `houseHealth`; the one surface that shows it,
+> Insights, reads it from the insights payload. The client of
+> `GET /api/v1/house/health` went with the Dashboard's health bar (CS-PLAN-090
+> WP-B); the route stays until Release B reworks the surface. Canonical definition:
 > [`src/store/house.js`](../../src/store/house.js). (The former
 > `fetchHouseStats`/`initializeHouse` examples were fictional — removed,
 > CS-PLAN-068.)
@@ -1295,8 +1298,9 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 |------|-------|--------------------------|-------------|
 | `views/Settings.vue` | 1238 | Settings composition plus the WP5 minimal self-only notification section (the pause blocks moved to `AbsenceView`, ADR-020; the per-category split is CS-PLAN-090 WP-D); the full preference component/redesign stays WP6 | accepted (section-per-concern template breadth; each section is independent UI) |
 | `components/Setup/SetupWizard.vue` | 816 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
-| `views/RoomDetail.vue` | 874 | Room composition root (stats, scoped list, dialogs) — rows carried by shared TaskList units | accepted (composition root) |
-| `views/TodayView.vue` | 690 | My Day surface (WP7 exit + WP3: explicit-split completion, undo, proposal pre-fill) | accepted (composition root) |
+| `views/RoomDetail.vue` | 782 | Room composition root (stats, scoped list, dialogs) — rows carried by shared TaskList units | accepted (composition root) |
+| `views/TodayView.vue` | 582 | The landing page (CS-PLAN-090 WP-B): composes status line, overdue block, due and possible rows; the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |
+| `components/Today/TodayTaskRow.vue` | 306 | One row of Today with its execute-only checklist: the task facts, the planned and overdue labels, the completion feedback, scoped CSS | accepted (row surface, like `TaskListItem.vue`) |
 | `components/Tasks/TaskEditForm.vue` | 891 | Unified create/edit form contract (UX-001): field validation surface | accepted (one form contract; field breadth) |
 | `components/Tasks/TaskChecklist.vue` | 521 | Checklist surface: lazy discovery, toggles, sub-tasks | accepted (cohesive checklist domain) |
 | `components/Tasks/TaskListItem.vue` | 420 | WP8 row unit: status/content/controls/a11y incl. scoped CSS | accepted (row surface) |
@@ -1307,19 +1311,16 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Scheduling/ScheduleCalendar.vue` | 391 | Week grid + capacity/overcapacity display | accepted (presentational grid) |
 | `components/Members/MemberList.vue` | 412 | Member management surface | accepted (template+CSS dominant) |
 | `components/Profile/TitlePicker.vue` | — | Title pack/tier picker — retired with the CS-PLAN-070 WP4 single-series cutover | removed from the inventory (2026-09-27; archived under the gitignored `archive/`) |
-| `components/Dashboard/FloorList.vue` | 462 | Floor/room dashboard list | accepted (presentational) |
-| `components/Dashboard/RoomCard.vue` | 445 | Room status card | accepted (presentational) |
-| `components/Dashboard/QuickStats.vue` | 372 | Stat cards | accepted (presentational) |
 | `components/Minigames/SnakeGame.vue`, `SnakeLeaderboard.vue` | — | Single-game Snake and its board — replaced by the shared game shell (CS-PLAN-086 WP-A) | removed from the inventory (2026-10-17; archived under the gitignored `archive/`) |
 | `components/Minigames/GameShell.vue` | 510 | Shared frame of every arcade game: loop, shell-bound input (directions, taps, a paddle's held keys and pointer), responsive canvas or a game's DOM board, overlays, live region with a game's own end copy, result save, the event effects (sounds through `useGameEffects`, the board's `effectsLayer`, the overlay's Sound/Effects switches; WP-G); the score header lives in `GameShellHeader.vue` | accepted (one frame for all games; ~45 lines scoped CSS) |
 | `views/Leaderboard.vue` | 496 | Consent-filtered ranking surface (opt-in/closed state, entries/pending, provisional week) with the weekly-medal display — no unconditional member ranking, contribution column or freeze indicator (CS-PLAN-070 WP4) | accepted (presentational) |
-| `views/TaskManager.vue` | 614 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
-| `views/Dashboard.vue` | 351 | Dashboard composition | accepted (composition root) |
+| `views/TaskManager.vue` | 596 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
 | `views/CalendarView.vue` | 301 | Calendar composition | accepted (composition root) |
 | `views/InsightsView.vue` | 531 | Insights composition root + the WP3 §3.6 history-correction session (feed action, reused dialog, 409 draft retention) | accepted (composition root) |
 | `store/roomTasks.js` | 1064 | Canonical instance store: projections, generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache; WP3 completion correction actions | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
-| `store/scheduling.js` | 522 | Scheduling state: preferences, capacity/overcapacity getters | accepted (cohesive store) |
-| `store/rooms.js` | 341 | Floor/room state (WP3 journal receipt flows) | accepted (cohesive store) |
+| `store/scheduling.js` | 664 | Scheduling state: preferences, capacity/overcapacity getters | accepted (cohesive store) |
+| `store/house.js` | 368 | House state: the house payload with its gates, insights, the activity feed, the reset receipt | accepted (cohesive store) |
+| `store/rooms.js` | 340 | Floor/room state (WP3 journal receipt flows) | accepted (cohesive store) |
 | `utils/icons.js` | 571 | Static icon registry | accepted (static data table — not split to meet a physical target) |
 
 Maintenance rule: a file newly crossing the guideline must either be

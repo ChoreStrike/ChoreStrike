@@ -156,7 +156,7 @@ canonical display sources.
 ### Approved Whole-Day Capacity C2 (2026-09-17)
 
 Planning and amendment capacity is enforced since CS-PLAN-073 WP2 (see
-*Delivered planning capacity* below), and My Day shows the neutral overload
+*Delivered planning capacity* below), and Today shows the neutral overload
 clarification since WP6. Completion deliberately never consults the evaluator,
 so real work stays recordable.
 
@@ -168,7 +168,7 @@ so real work stays recordable.
 - At either daily limit, add no extra commitments or offers. Owners must replan
   within the limits instead of bypassing them with a per-item override. Existing
   overload remains visible; silently hiding excess obligations is not recovery.
-  My Day follows this: the child limit caps unassigned offers, never own tasks
+  Today follows this: the child limit caps unassigned offers, never own tasks
   (BUG-UX-013). Creating a task is never refused: a day may be overbooked, and the
   overload stays visible (D-089-11).
 - Actual work remains immediately recordable, with normal effort credit, even

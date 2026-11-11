@@ -32,12 +32,12 @@ cause of flakes: they break on copy changes, i18n, and reordering.
 
 ## 2. Testid naming
 
-- Pattern: **`{view}-{element}`** — e.g. `dashboard-view`, `task-manager-view`,
+- Pattern: **`{view}-{element}`** — e.g. `today-view`, `task-manager-view`,
   `complete-task-button`, `add-floor-button`, `nav-tasks`.
 - **Dynamic suffixes are allowed and encouraged** for repeated structures:
-  `task-item`, `floor-section-Keller`, `room-card-Kitchen`. Keep the static stem
+  `task-item`, `floor-Keller`, `today-complete-button-12`. Keep the static stem
   stable so `getByTestId('task-item')` (first match) and
-  `page.locator('[data-testid^="room-card-"]')` (all) both work.
+  `page.locator('[data-testid^="today-complete-button-"]')` (all) both work.
 - kebab-case, lowercase, no spaces. Stable for the life of the element — treat a
   testid rename as a breaking change to E2E.
 
@@ -52,7 +52,7 @@ without a stable hook is a defect.
 The Nextcloud `<NcAppNavigationItem>` component renders a single `<li>` root and
 relies on Vue 3 attribute fallthrough (`inheritAttrs` default `true`) to surface
 `data-testid` onto that `<li>`. Each nav entry in [`src/App.vue`](../../../src/App.vue)
-declares a `nav-*` testid (`nav-dashboard`, `nav-tasks`, `nav-leaderboard`,
+declares a `nav-*` testid (`nav-today`, `nav-tasks`, `nav-leaderboard`,
 `nav-settings`).
 
 - **Preferred selector for nav:** `page.getByRole('link', { name: 'Tasks' })` —

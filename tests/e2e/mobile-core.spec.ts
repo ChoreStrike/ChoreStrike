@@ -21,6 +21,7 @@ import { completeWithOptionalDialog } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
+import { openRoom } from './fixtures/rooms.ts'
 
 // The family seed house runs in UTC.
 const day = (offset: number): string => houseDateOffset(offset, 'UTC')
@@ -278,32 +279,36 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 		}
 	})
 
-	test('dashboard tiles lead to their targets and a room card opens the room', async ({ browser, seededData }, testInfo) => {
+	// CS-PLAN-090 WP-B: Today took the place of the Dashboard and its tiles.
+	test('today shows the status line and the overdue block, and a room opens', async ({ browser, seededData }, testInfo) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await phone(browser, 'mom', testInfo)
-		const openDashboard = async () => {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await expect(page.getByTestId('quick-stats')).toBeVisible({ timeout: 20000 })
-		}
 		try {
-			await openDashboard()
+			await page.goto('/apps/chorestrike/#/today')
+			const status = page.getByTestId('today-status-line')
+			await expect(status).toBeVisible({ timeout: 20000 })
 			await expectNoHorizontalOverflow(page)
-			await page.getByTestId('overdue-stat-card').tap()
+			const tileTops = await status.locator('.status-tile').evaluateAll((tiles) => tiles.map((tile) => Math.round(tile.getBoundingClientRect().top)))
+			expect(tileTops).toHaveLength(4)
+			expect(new Set(tileTops).size, 'the four tiles share one row').toBe(1)
+
+			// The household's overdue work stands first, in its own block.
+			await page.getByTestId('today-filter-all').tap()
+			const overdue = page.getByTestId('today-section-catchup')
+			await expect(overdue).toBeVisible()
+			await expectWithinViewport(page, overdue)
+			const overdueBox = await overdue.boundingBox()
+			const dueBox = await page.getByTestId('today-section-today').boundingBox()
+			expect(overdueBox!.y).toBeLessThan(dueBox!.y)
+			await expectNoHorizontalOverflow(page)
+
+			// The household's overdue list holds nothing but overdue work.
+			await page.goto('/apps/chorestrike/#/tasks?status=overdue&scope=all')
 			await expect(page.getByTestId('status-filter')).toHaveValue('overdue')
+			await expect(page.getByTestId('task-item').first()).toBeVisible()
 			await expect(page.locator('[data-testid="task-item"]:not(.overdue)')).toHaveCount(0)
 
-			await openDashboard()
-			await page.locator('.stat-card.due-today').tap()
-			await expect(page.getByTestId('today-view')).toBeVisible()
-
-			await openDashboard()
-			await page.getByTestId('stat-average-cleanliness').tap()
-			await expect(page.getByTestId('floor-list')).toBeFocused()
-			const kitchen = page.getByTestId('room-card-Kitchen').first()
-			await expect(kitchen).toBeVisible()
-			await expectWithinViewport(page, kitchen)
-			await kitchen.locator('[data-testid^="room-link-"]').tap()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible()
+			await openRoom(page, 'Kitchen')
 			await expectNoHorizontalOverflow(page)
 		} finally {
 			await context.close()

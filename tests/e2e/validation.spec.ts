@@ -77,11 +77,11 @@ test.describe('Data Validation - Family Profile', () => {
 test.describe('User Access Validation', () => {
 	test.use({ databaseProfile: 'family' as DatabaseProfile })
 
-	test('mom can access dashboard', async ({ browser }) => {
+	test('mom can access Today', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 		} finally {
 			await context.close()
 		}
@@ -98,11 +98,11 @@ test.describe('User Access Validation', () => {
 		}
 	})
 
-	test('grandma can access dashboard', async ({ browser }) => {
+	test('grandma can access Today', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'grandma')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 		} finally {
 			await context.close()
 		}

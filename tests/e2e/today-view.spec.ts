@@ -17,8 +17,45 @@ import { createUserContext } from './fixtures/auth-contexts.ts'
 import { completeWithOptionalDialog } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
+import { openToday } from './fixtures/rooms.ts'
+
 test.describe('Release: Today view', () => {
 	test.use({ databaseProfile: 'family' })
+
+	// CS-PLAN-090 WP-B: Today is the one landing page. It took over what the
+	// Dashboard answered at a glance; the Dashboard's tiles, health bar and
+	// room cards left the screens (D-090-11).
+	test('Today is the landing page with the own status, and the old Dashboard address leads to it', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await page.goto('/apps/chorestrike/#/dashboard')
+			await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
+			await expect(page).toHaveURL(/#\/today$/)
+			await expect(page.getByTestId('nav-dashboard')).toHaveCount(0)
+			await expect(page.getByTestId('today-date')).not.toBeEmpty()
+
+			// Every tile holds a value once its read arrived, never a dash.
+			const status = page.getByTestId('today-status-line')
+			for (const tile of ['today-energy', 'today-weekly-goal', 'today-streak', 'today-coins']) {
+				await expect(status.getByTestId(tile).locator('.status-value')).toHaveText(/\d/, { timeout: 15000 })
+			}
+			await expect(status.getByTestId('own-wallet-available')).toHaveText(/^-?\d+(\.\d+)?$/)
+
+			// Status first, then the work: the due-today heading follows it.
+			const statusBox = await status.boundingBox()
+			const dueBox = await page.getByTestId('today-section-today').boundingBox()
+			expect(statusBox.y).toBeLessThan(dueBox.y)
+
+			// What left the screens with the Dashboard.
+			for (const gone of ['quick-stats', 'house-health', 'floor-list', 'today-section-appointments']) {
+				await expect(page.getByTestId(gone)).toHaveCount(0)
+			}
+		} finally {
+			await context.close()
+		}
+	})
 
 	test('shows seeded due-today rows and completes one with row state change', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
@@ -30,11 +67,7 @@ test.describe('Release: Today view', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-
-			await page.getByTestId('nav-today').click()
-			await page.getByTestId('today-view').waitFor({ state: 'visible' })
+			await openToday(page)
 
 			// Default filter is "My tasks" (D3): the seeded dishes task is
 			// assigned to mom and must be visible with its room.
@@ -58,11 +91,7 @@ test.describe('Release: Today view', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-
-			await page.getByTestId('nav-today').click()
-			await page.getByTestId('today-view').waitFor({ state: 'visible' })
+			await openToday(page)
 
 			// 'Tidy up toys' is assigned to kid — hidden under mom's default
 			const toysRow = page.getByTestId('today-task-item').filter({ hasText: 'Tidy up toys' })
@@ -89,11 +118,7 @@ test.describe('Release: Today view', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-
-			await page.getByTestId('nav-today').click()
-			await page.getByTestId('today-view').waitFor({ state: 'visible' })
+			await openToday(page)
 
 			// Both kitchen daily tasks under the everyone filter (counters
 			// is teen's; the owner may complete it).

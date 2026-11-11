@@ -189,10 +189,10 @@ and URL credentials/query/fragment, and directly compare numeric-loopback HTTP
 status with OCC (installed, frozen internal version, no maintenance or pending
 DB upgrade). HTTP probes bypass proxies and never follow redirects.
 
-`setup` asserts zero houses/members/floors/rooms before the normal **My Day**
-entry, requires successful daily/overdue reads, and then opens Dashboard and
-drives the real wizard to one owner, floor and room. Starting directly on
-Dashboard is not equivalent first-entry coverage. `verify` requires that
+`setup` asserts zero houses/members/floors/rooms before the normal **Today**
+entry, requires successful daily/overdue reads, and then drives the real
+wizard, which opens there for the first owner, to one owner, floor and room.
+`verify` opens the old `#/dashboard` address, which must lead to Today, requires that
 persisted state and tests 390x844/1440x900 with browser locales `de-DE`, `de` and
 `en`. Native Nextcloud selects its `de` user catalog for the German cases;
 unit tests separately exercise exact regional `getLanguage()` inputs. Do not
@@ -200,7 +200,7 @@ claim the core emitted `de-DE` when its actual language was `de`.
 
 Checks include translated text, global/scoped styles, real inner/control
 widths, timezone save/reload/restore, cancellation of floor deletion, and
-Dashboard/My Day/Settings lazy navigation. Every requested app script must use
+Today/Settings lazy navigation. Every requested app script must use
 the exact `custom_apps` URL, HTTP 200, JavaScript MIME and matching package
 bytes. No l10n JSON request, scoped resource/console/page error or CSP violation
 is accepted. The runner also rejects console warnings and records sanitized
@@ -943,10 +943,10 @@ descriptor with a current iOS user agent — the descriptor's iOS 16 agent is
 redirected to Nextcloud's unsupported-browser page). Each scenario seeds the
 family profile, signs people in on the project's device (viewport, touch,
 mobile user agent; `createUserContext` does not inherit the project device)
-and ends without horizontal overflow: My Day hold-complete and undo, claim
+and ends without horizontal overflow: Today hold-complete and undo, claim
 confirm, one-occurrence handover with the child's completion and the default
 owner's successor, reassignment visibility, the paged task list with
-collapsed filters, dashboard tiles and room cards, and Settings through the
+collapsed filters, Today's status line and overdue block with a room page, and Settings through the
 phone navigation. `arcade-mobile.spec.ts` (CS-PLAN-086 WP-C) joins the set
 in both projects: the DOM games played by tapping (Spot Sprint and Sock
 Match, tiles at least 44 px), the canvas games steered with the on-screen pad
@@ -1102,7 +1102,8 @@ npx playwright test tests/e2e/ --project=chromium --headed
 |-----------|----------|
 | `minimal-smoke-tests.spec.ts`, `fast-core-tests.spec.ts` | Fast smoke coverage for boot, shell, hash deep-links, and key pages (lean auto-waiting smoke layer, CS-PLAN-050) |
 | `validation.spec.ts`, `error-handling.spec.ts`, `today-view.spec.ts` | Data validation, error handling, and daily-task flows (Today view) |
-| `dashboard.spec.ts`, `dashboard-navigation.spec.ts`, `core-functionality.spec.ts` | Dashboard and cross-view navigation coverage |
+| `core-functionality.spec.ts`, `fast-core-tests.spec.ts` | Landing page and cross-view navigation coverage |
+| `task-deep-links.spec.ts` | The task list's address contract (`/tasks?visibility=private`, `/tasks?status=overdue&scope=all`); successor of the Dashboard specs, which went with the Dashboard (CS-PLAN-090 WP-B). Runs in `chromium-serial-db` (it creates tasks) |
 | `room-management.spec.ts`, `room-detail.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD, room-detail flows, full-house scenarios |
 | `task-manager.spec.ts`, `task-completion.spec.ts`, `task-completion-full-flow.spec.ts`, `task-checklist-and-features.spec.ts` | Task management, creation, checklist, and completion flows |
 | `settings.spec.ts`, `core-household-journey.spec.ts` | Settings and the canonical empty-house UI-only setup/invite/create/plan/complete/undo journey |
@@ -1111,7 +1112,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
 | `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage — the arcade is its own opt-in surface under `#/arcade` (CS-PLAN-070 WP6), no longer a Dashboard section |
-| `calm-core-ui.spec.ts` | Calm core UI (CS-PLAN-070 WP6): all-role My Day landing with the Dashboard as the explicit secondary overview (`#/dashboard`), Coin-free My Day with the wallet staying in the secondary overview, the optional arcade hiding together with its navigation entry while `arcadeVisible` is off, and the absence journey of ADR-020 (a child enters an absence, everyone sees it, the owner deletes it). Runs in `chromium-serial-db` (preference/pause state is seed-mutating) |
+| `calm-core-ui.spec.ts` | Calm core UI (CS-PLAN-070 WP6, CS-PLAN-090 WP-B): every role lands on Today and the old `#/dashboard` address leads there, Today shows the own Coins and no arcade, catalog or ranking surface, the optional arcade hiding together with its navigation entry while `arcadeVisible` is off, and the absence journey of ADR-020 (a child enters an absence, everyone sees it, the owner deletes it). Runs in `chromium-serial-db` (preference/pause state is seed-mutating) |
 | `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Smart Scheduling UI — availability grid, energy budget, capacity calendar, owner-plan preview gating (revived by CS-PLAN-016; plan preview/apply contract by CS-PLAN-065) |
 | `scheduling-apply-flow.spec.ts` | Owner plan exit journey (CS-PLAN-065): preview → adjust → apply over real seeded tasks, applied-assignment verification in My Day + calendar, stale-preview 409, unplaced overdue zero-flex row, retired taskCount contract rejection |
 | `family-rhythm.spec.ts` | Occurrence-timeline client contract (CS-PLAN-072 WP1, ADR-013): a UI completion carries the full receipt (`commandId`/`occurrenceId`/`expectedVersion`/`selectionToken`), a new command on a fulfilled occurrence is a 409 (never credits another target), a replayed `commandId` returns the original identity, and a stale receipt after a due-date move is a 409; in a Europe/Berlin house a move onto an unavailable day shows the server's reason (`CONFLICT`, draft kept) and a feasible move is accepted (BUG-UX-002). Runs in `chromium-serial-db` (seed-mutating). The deep enumeration/revision/catch-up math stays owned by the service-level `OccurrenceTimelineTest` |
@@ -1233,7 +1234,7 @@ When changing task or room flows, update these layers together:
 
 ### Troubleshooting E2E Tests
 
-**Timeout waiting for dashboard-view:**
+**Timeout waiting for today-view:**
 - Ensure Docker containers are running: `docker ps`
 - Check Nextcloud logs: `docker logs chorestrike-test`
 - Verify app is enabled: `docker exec chorestrike-test occ app:list | grep chorestrike`

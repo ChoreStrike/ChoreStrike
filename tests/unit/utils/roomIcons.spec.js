@@ -1,7 +1,4 @@
-import { resolveRoomIcon } from '@/utils/roomIcons'
-
-// ROOM_ICON_OPTIONS / getRoomIconOption specs were removed together with the
-// pruned exports (CS-PLAN-055): resolveRoomIcon is the live room-icon API.
+import { iconForRoomType, ROOM_TYPE_TO_ICON } from '@/utils/roomIcons'
 
 jest.mock('@/utils/icons.js', () => ({
 	hasIcon: jest.fn((name) => ['Home', 'Bath', 'Utensils', 'Bed'].includes(name)),
@@ -10,25 +7,20 @@ jest.mock('@/utils/icons.js', () => ({
 }))
 
 describe('roomIcons', () => {
-	describe('resolveRoomIcon', () => {
-		it('returns the icon name if valid', () => {
-			expect(resolveRoomIcon('Home')).toBe('Home')
+	describe('iconForRoomType', () => {
+		it('returns the registered icon of a room type', () => {
+			expect(iconForRoomType('kitchen')).toBe('Utensils')
+			expect(iconForRoomType('bathroom')).toBe('Bath')
 		})
 
-		it('matches kitchen keywords', () => {
-			expect(resolveRoomIcon(null, 'Kitchen')).toBe('Utensils')
+		it('falls back to Home for an unknown room type', () => {
+			expect(iconForRoomType('dungeon')).toBe('Home')
+			expect(iconForRoomType(undefined)).toBe('Home')
 		})
 
-		it('matches bathroom keywords', () => {
-			expect(resolveRoomIcon(null, 'Bad')).toBe('Bath')
-		})
-
-		it('falls back to Home for unknown room', () => {
-			expect(resolveRoomIcon(null, 'Dungeon')).toBe('Home')
-		})
-
-		it('falls back to Home for empty room name', () => {
-			expect(resolveRoomIcon(null, '')).toBe('Home')
+		it('falls back to Home when the mapped icon is not registered', () => {
+			expect(ROOM_TYPE_TO_ICON.living).toBe('Sofa')
+			expect(iconForRoomType('living')).toBe('Home')
 		})
 	})
 })

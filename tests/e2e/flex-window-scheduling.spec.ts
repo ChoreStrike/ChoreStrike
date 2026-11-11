@@ -8,12 +8,12 @@ import { expect, test } from '@playwright/test'
 test.describe('Flex Window Scheduling', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle')
-		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+		await page.getByTestId('today-view').waitFor({ state: 'visible' })
 	})
 
-	test('scheduling nav item is visible from dashboard', async ({ page }) => {
+	test('scheduling nav item is visible from Today', async ({ page }) => {
 		await expect(page.getByTestId('nav-scheduling')).toBeVisible()
 	})
 

@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B to WP-E and WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C to WP-E and WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -173,6 +173,43 @@ Positions taken while implementing WP-F (2026-11-11). They bind once its interim
   failed it stays off, like the other optional surfaces, so the store's initial default never
   overrides a stored "off" (RF-090-13).
 
+Positions taken while implementing WP-B (2026-11-11). They bind once its interim review passes.
+
+- **D-090-33 Floor list and room cards go with the Dashboard:** `FloorList.vue` and
+  `RoomCard.vue` had no other host, so they leave in WP-B, not in WP-C. Until WP-C groups the
+  tasks by room, the interface has no link to a room page; it opens by its address
+  (`/room/:id`). The browser specs reach a room through one helper
+  (`tests/e2e/fixtures/rooms.ts`), which WP-C retargets (RF-090-14).
+- **D-090-34 The status line is about the viewer:** it counts the viewer's own open work, due
+  today or overdue, unassigned work included, against the viewer's own energy for the day
+  (new store getter `getOwnCapacityForDay`), whatever the list filter shows. The overload note
+  uses the same two numbers. Before, it added up the listed rows, everyone's under *Everyone*,
+  and compared them with the household's capacity once an owner had opened the planner. A
+  value no read has delivered shows a dash.
+- **D-090-35 The overdue block:** heading *Overdue · n*; the sentence that completing covers
+  the miss stands once in the block, not on every row; a row keeps its planned date and the
+  end of its window and adds the days since that window ended. The glossary keeps *Catch-up*
+  until Release B removes catch-up.
+- **D-090-36 Holding a completed row (refines D-090-30):** a row cannot keep itself in a list
+  its parent renders. The view remembers where a row stood when its completion started and
+  keeps it there, and nowhere else, while the store marks it in flight or just completed;
+  `TodayTaskRow` shows the check mark for that moment. The section rules are pure functions
+  (`src/utils/todaySections.js`).
+- **D-090-37 The Done button on Today:** the round check icon of the mockups, a `HoldButton`
+  without a label whose accessible name names the task. Task lists keep the labelled button.
+- **D-090-38 What loses its client:** `GET /house/health` joins the routes of D-090-10. In the
+  client, the health refresh and getter of the house store, the floor-expansion state and the
+  average-cleanliness getter of the rooms store, the name-based room icon and the unused
+  `/today?scope=all` handling go with their last reader. Settings keeps its own expansion
+  state; WP-C keeps a room's in the view and the URL.
+- **D-090-39 The way into the setup wizard:** one small component, `SetupWizardEntry`, on Today
+  (it opens the wizard by itself for a house that was never set up) and in the empty state of
+  *Floors & Rooms* in Settings. It shows only after the floors were read, so a failed read
+  never offers a setup.
+- **D-090-40 README and screenshots:** the Dashboard screenshot goes with its scene and its
+  README cell, and the README and the user guide name Today. The remaining screenshots show
+  the screens of `0.8.0-alpha.4` until WP-G recaptures them.
+
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). No question
 is open.
@@ -221,10 +258,12 @@ is open.
 - The overdue block is today's catch-up list in a strong red block, always first.
 - Extracted first, with specs: `useTaskCompletion` (the participation flow that exists three
   times), `TodayStatusLine.vue`, `TodayTaskRow.vue` (the row markup that exists twice in the
-  view). `TodayTaskRow` holds a just-completed row for the length of the completion feedback,
-  so a recurring row shows it before it leaves the list (D-090-30).
-- `Dashboard.vue`, `QuickStats.vue`, `HouseHealthBar.vue` and `HouseholdGoalBar.vue` go;
-  `/dashboard` redirects to `today`. `HouseStatsCards` keeps showing house health in Insights.
+  view) and the section rules (`todaySections.js`). A just-completed row keeps its place for
+  the length of the completion feedback, so a recurring row shows it before it leaves the
+  list (D-090-30, D-090-36).
+- `Dashboard.vue`, `QuickStats.vue`, `HouseHealthBar.vue` and `HouseholdGoalBar.vue` go, and
+  with them `FloorList.vue` and `RoomCard.vue` (D-090-33); `/dashboard` redirects to `today`.
+  `HouseStatsCards` keeps showing house health in Insights.
 - The setup wizard opens from Today for an owner with an empty house, with the existing
   dismissal rule, and from *Floors & Rooms* in Settings.
 
@@ -236,8 +275,10 @@ is open.
   `?group=`. Grouped by room, floors are headings and rooms are collapsible rows with their
   counts, a small cleanliness percentage (D-090-19) and *Last cleaned*; `?room=` opens one room. The pager stays for *By due date* only,
   because grouped views render a room's rows when it opens.
-- `/room/:id` redirects to `/tasks?group=room&room=:id`. `RoomDetail.vue`, `FloorList.vue` and
-  `RoomCard.vue` go; rename and delete stay in Settings, where they already are.
+- `/room/:id` redirects to `/tasks?group=room&room=:id`. `RoomDetail.vue` goes (`FloorList.vue`
+  and `RoomCard.vue` went with the Dashboard, D-090-33); rename and delete stay in Settings,
+  where they already are. The browser helper `fixtures/rooms.ts` opens a room in the grouped
+  list from then on (RF-090-14).
 - *New* inside a room heading opens the template picker for that room, with the custom form one
   step behind it, as the room page did. The expanded row gains *Date* for the dialog of
   `RoomTaskEditModal` (D-090-12).
@@ -324,10 +365,24 @@ Each step needs its own approval.
   `PauseControllerTest`. Jest for `AbsenceView` and the store. Browser: the pause scenario of
   `calm-core-ui.spec.ts` becomes "a child enters an absence, everyone sees it, the owner deletes
   it"; `family-rhythm.spec.ts` and `minimal-smoke-tests.spec.ts` follow.
-- **WP-B:** specs for `useTaskCompletion`, `TodayStatusLine` and `TodayTaskRow`; `TodayView.spec.js`
-  for the section order, the red block and the wizard entry; `router.spec.js` for the redirect.
+- **WP-B:** specs for `useTaskCompletion`, `TodayStatusLine`, `TodayTaskRow`, `SetupWizardEntry`
+  and `todaySections`; `TodayView.spec.js` for the section order, the red block, the held row
+  and the wizard entry; `router.spec.js` for the redirect.
   Browser: `today-view.spec.ts`, `family-core-ux.spec.ts`, `workflow-state-reconciliation.spec.ts`,
-  `setup-wizard-journey.spec.ts`.
+  `setup-wizard-journey.spec.ts`, and the specs that crossed the Dashboard (below).
+  **Scenario record (WP-B):** 335 pinned scenarios before, 327 after; no minimum count is
+  lowered. `dashboard.spec.ts` becomes `task-deep-links.spec.ts` (the private link, plus the
+  overdue link from `dashboard-navigation.spec.ts`), and `dashboard-navigation.spec.ts` goes.
+  New: the landing page with its status and the redirect (`today-view`), the status line's row
+  on desktop and phone (`layout-clearance`), Today's request budget
+  (`workflow-request-budgets`). Dropped with their surface (D-090-11), eleven scenarios: the
+  Dashboard's view, quick stats, house name and health bar, quick-stats section, floor list
+  (five); a room card opened by click and by keyboard with the due-today tile (two); the
+  read-only floor list (`room-management`); the health bar's layout (`layout-clearance`,
+  succeeded by the status-line check); and two duplicates of "navigate to all main views",
+  which `core-functionality` and `fast-core-tests` keep (the latter now with the
+  leaderboard). The mobile set keeps seven scenarios: the Dashboard-tiles scenario becomes
+  "today shows the status line and the overdue block, and a room opens".
 - **WP-C:** `taskGrouping.spec.js` for the three groupings, the counts and empty groups;
   `TaskManager.spec.js` for the switch, the URL, the room deep link and the paging rule;
   `requestCounts.spec.js` for one house-wide read. Browser: `task-manager.spec.ts`; the scenarios
@@ -389,6 +444,7 @@ modified: scripts/test-runtime-preservation.ps1 (proof P4: app upgrade from 0.8.
 new:      tests/recovery/upgrade-fixture.php, src/styles/feedback.css
 new:      src/views/AbsenceView.vue, src/components/Insights/RankingPanel.vue,
           src/components/Today/TodayStatusLine.vue, src/components/Today/TodayTaskRow.vue,
+          src/components/Setup/SetupWizardEntry.vue, src/utils/todaySections.js,
           src/composables/useTaskCompletion.js, src/utils/taskGrouping.js,
           src/components/Tasks/TaskGroupList.vue, src/components/Settings/ (one file per category)
 modified: src/App.vue, src/router.js, src/views/TodayView.vue, src/views/TaskManager.vue,
@@ -401,13 +457,20 @@ modified: src/components/Tasks/TaskList.vue, TaskListItem.vue, TaskListDetails.v
           src/components/Common/UndoSnackbar.vue, src/components/Help/HelpGlossary.vue,
           HelpEntry.vue
 modified: src/store/pauses.js, src/store/preferences.js, src/store/house.js, src/services/api.js,
+          src/store/rooms.js, src/store/scheduling.js, src/utils/dateKeys.js,
+          src/utils/taskDisplay.js, src/utils/roomIcons.js,
+          src/components/Common/HoldButton.vue,
           src/composables/useCelebration.js, src/composables/useToasts.js
 removed:  src/views/Dashboard.vue, src/views/RoomDetail.vue, src/views/Leaderboard.vue,
           src/components/Dashboard/QuickStats.vue, HouseHealthBar.vue, HouseholdGoalBar.vue,
           FloorList.vue, RoomCard.vue, src/components/Settings/PauseSettings.vue, with their specs
 modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/fixtures/*, tests/e2e/required-scenarios.json,
-          scripts/run-e2e-gate.js, tests/package/owner-smoke.cjs, tests/docs-screenshots/scenes.js
+          scripts/run-e2e-gate.js, playwright.config.ts, tests/package/owner-smoke.cjs,
+          tests/docs-screenshots/scenes.js
+new:      tests/e2e/fixtures/rooms.ts (replaces dashboard-floors.ts),
+          tests/e2e/task-deep-links.spec.ts (was dashboard.spec.ts)
+removed:  tests/e2e/dashboard-navigation.spec.ts, docs/screenshots/dashboard.png
 new:      docs/adr/ADR-020-absences-without-requests.md
 modified: docs/adr/README.md, docs/concepts/calm-core-ux.md, task-model-and-sync.md,
           gamification-and-rewards.md, ui-use-cases.md, simplified-core.md, docs/api/README.md,
@@ -503,6 +566,9 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-11 (minor) - WP-A, `tests/e2e/layout-clearance.spec.ts`: the browser gate failed twice (desktop, phone). Its reachability probe scrolled the last Settings section with `scrollIntoViewIfNeeded()`, which worked only while a member's Settings ended with the short pause section; the notification preferences are taller than the frame. The routed-view list also lacked `#/absence`. Fixed in the interim review: the probe aligns the section's end with the scroller, which a clipped frame (BUG-UX-009) would still fail, and the Absence view joins the heading, gutter and sideways-scroll checks.
 - [ ] RF-090-12 (minor) - WP-G, runtime currency: `npm run test:runtime:check` reports `update-needed` on 2026-11-11, and the scheduled check on `master` has been red since 2026-11-09. Upstream AIO is 15.0.2 and ships Nextcloud 35.0.2 and Redis 8.10.3; the pinned PHP and PostgreSQL image tags moved too. The inventory names AIO 14.4.3 with Nextcloud 34.0.5 and Redis 8.10.2. Found while implementing WP-F. The reviewed inventory update and the requalification belong before the freeze (§7 and the acceptance criterion); which AIO version production runs at the deployment is the operator's to state.
 - [x] RF-090-13 (minor) - WP-F, `src/utils/effectGates.js`, `src/composables/useGameEffects.js`: the effect gates read the store's initial `animationEnabled: true` before `/preferences/me` had answered, so a member who had switched the animation off saw confetti when completing a task while the read was pending or after it failed; before WP-F an unknown state meant off. Fixed in the interim review (operator's choice, D-090-32): `animationAllowed()` opens the animation only after an authoritative read, used by the celebration gate and the arcade's pulses, with Jest cases for the unread state; `calm-core-ux.md` and the gamification skill say so.
+- [ ] RF-090-14 (minor) - WP-C, `src/router.js`, `tests/e2e/fixtures/rooms.ts`: since WP-B removed the Dashboard with its room cards (D-090-33), nothing in the interface links to a room page; it opens by its address only, and the template picker and the date dialog are reachable only that way. Not a state to release. WP-C closes it with the grouped task list and the redirect of `/room/:id`, and retargets the browser helper.
+- [x] RF-090-15 (minor) - WP-B, `src/views/RoomDetail.vue`: the first browser gate of WP-B (`run-v47nfT`) lost a task created right after a room page opened by its address: *Add Task* was enabled while the room still loaded, and a read that had started before the creation replaced the list afterwards. Fixed while implementing: the button is disabled while the room loads, as in the task manager, with a Jest case. The store cause is older than this plan and out of its scope: BUG-UX-016.
+- [x] RF-090-16 (nit) - WP-B, `src/views/TodayView.vue`: the count next to *Due today* said "1 tasks" for a single row; the new label lacked the singular branch `Settings.vue` already uses. Fixed in the interim review with the existing `1 task` key and a Jest case.
 
 ## Review Outcome
 
@@ -572,4 +638,24 @@ subagents.
   and `run-b3hlTW` on the AIO row, 361 tests each without skipped, failed or flaky results.
 - No transition: WP-B to WP-E and WP-G are open, and so is RF-090-12. Record:
   [2026-11-11 review](../../backlog/archive/CODE_REVIEW_2026-11-11.md#standard-b---cs-plan-090-wp-f-feedback-interim).
+  One scoped review commit; no merge, push, tag or deployment.
+
+**Standard B, interim (WP-B), 2026-11-11: PASS-WITH-FIXES.** Scope: the uncommitted WP-B change
+set of this worktree (`/review-chorestrike` without arguments; the main checkout was clean). No
+subagents.
+
+- Base HEAD `c058b52cdd8348734f693d10214f6b987bd42a39`, branch `docs/release-a-plan`, pinned,
+  0 behind `master`. Capture: 16 staged deletions and one staged rename, 104 modified tracked
+  files, 11 untracked paths; scope fingerprint (staged and unstaged binary diffs, sorted untracked
+  paths with SHA-256) `4c9d8bf87201215fa1bc1ab3b77dd288be9e9bd69b26ce3ab1bb81837c0b840a`.
+- RF-090-16 fixed in the review (§9). Safe fixes: two stale Dashboard mentions in the release
+  test plan and the task model, one size in `architecture.md`. D-090-33 to D-090-40 bind with
+  this review; no question was asked. FEAT-UX-067's row-feedback criterion is done (D-090-36).
+- Gates on the final tree: Jest 160 suites / 2304 tests, `npm run lint`, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`,
+  `npm run build`; browser gate `run-H7fdXI` on the primary row and `run-k4TsjY` on the AIO
+  row, 353 tests each without skipped, failed or flaky results. No PHP changed, so PHPUnit did
+  not run; the package smoke runs in the WP-G qualification.
+- No transition: WP-C to WP-E and WP-G are open, and so are RF-090-12 and RF-090-14. Record:
+  [2026-11-11 review](../../backlog/archive/CODE_REVIEW_2026-11-11.md#standard-b---cs-plan-090-wp-b-today-interim).
   One scoped review commit; no merge, push, tag or deployment.

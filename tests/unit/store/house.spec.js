@@ -49,20 +49,6 @@ describe('House Store', () => {
 	})
 
 	describe('Getters', () => {
-		it('houseHealth returns default 100 when no house', () => {
-			expect(store.houseHealth).toBe(100)
-		})
-
-		it('houseHealth returns house health when house exists', () => {
-			store.house = { houseHealth: 85 }
-			expect(store.houseHealth).toBe(85)
-		})
-
-		it('houseHealth returns 0 for a critical house (nullish, not falsy fallback)', () => {
-			store.house = { houseHealth: 0 }
-			expect(store.houseHealth).toBe(0)
-		})
-
 		it('houseName returns default when no house', () => {
 			expect(store.houseName).toBe('My House')
 		})
@@ -413,94 +399,6 @@ describe('House Store', () => {
 				expect(store.activityError).toBe('Boom')
 				expect(store.error).toBeNull()
 				expect(store.activityLoading).toBe(false)
-			})
-		})
-
-		describe('calculateHouseHealth', () => {
-			it('calculates and updates health', async () => {
-				store.house = { id: 1, houseHealth: 50 }
-				api.get.mockResolvedValue({ houseHealth: 75 })
-
-				const result = await store.calculateHouseHealth()
-
-				expect(result).toBe(75)
-				expect(store.house.houseHealth).toBe(75)
-			})
-
-			it('returns health even without local house', async () => {
-				api.get.mockResolvedValue({ houseHealth: 60 })
-
-				const result = await store.calculateHouseHealth()
-
-				expect(result).toBe(60)
-			})
-
-			// CS-PLAN-066 §3.2/§3.3: the health refresh and the full house
-			// read share one generation — the newer request wins, and a
-			// health refresh patches ONLY houseHealth onto the loaded house.
-			it('patches only houseHealth, never clobbering fresher name/timezone fields', async () => {
-				store.house = { id: 1, name: 'Old', timezone: 'UTC', houseHealth: 50 }
-				api.get.mockResolvedValue({ houseHealth: 88 })
-
-				await store.calculateHouseHealth()
-
-				expect(store.house.houseHealth).toBe(88)
-				expect(store.house.name).toBe('Old')
-				expect(store.house.timezone).toBe('UTC')
-			})
-
-			it('waits for the full house read before refreshing only its health', async () => {
-				let resolveFetch
-				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFetch = resolve }))
-				api.get.mockResolvedValueOnce({ houseHealth: 88 })
-
-				const houseFetch = store.fetchHouse()
-				const healthRefresh = store.calculateHouseHealth()
-				expect(api.get).toHaveBeenCalledTimes(1)
-				resolveFetch({ id: 1, name: 'Fresh', houseHealth: 10 })
-				await houseFetch
-				await healthRefresh
-
-				// Partial health reads cannot invalidate required name/timezone data.
-				expect(store.house.name).toBe('Fresh')
-				expect(store.house.houseHealth).toBe(88)
-			})
-
-			it('an accepted house mutation invalidates pre-mutation reads', async () => {
-				let resolveFetch
-				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFetch = resolve }))
-				api.put.mockResolvedValue({ id: 1, name: 'Renamed' })
-
-				const houseFetch = store.fetchHouse()
-				await store.updateHouseName('Renamed')
-				resolveFetch({ id: 1, name: 'Stale' })
-				await houseFetch
-
-				expect(store.house.name).toBe('Renamed')
-			})
-
-			it('reset during an in-flight read discards the late result', async () => {
-				let resolveFetch
-				api.get.mockImplementation(() => new Promise((resolve) => { resolveFetch = resolve }))
-
-				const pending = store.fetchHouse()
-				store.reset()
-				resolveFetch({ id: 1, name: 'Late' })
-				await pending
-
-				expect(store.house).toBeNull()
-			})
-
-			it('does not start a queued health read after the identity is reset', async () => {
-				let resolveHouse
-				api.get.mockImplementationOnce(() => new Promise(resolve => { resolveHouse = resolve }))
-				const house = store.fetchHouse()
-				const health = store.calculateHouseHealth()
-				store.reset()
-				resolveHouse({ id: 1, name: 'Old identity' })
-				await Promise.all([house, health])
-				expect(api.get).toHaveBeenCalledTimes(1)
-				expect(store.house).toBeNull()
 			})
 		})
 

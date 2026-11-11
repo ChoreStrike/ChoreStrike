@@ -94,7 +94,8 @@ async function setup(browser) {
 		const page = await context.newPage()
 		await login(page)
 		const finish = await instrument(page)
-		// The real first entry is My Day, not a bootstrap-capable Dashboard shortcut.
+		// The real first entry is Today; the first owner of an empty house
+		// gets the setup wizard there.
 		const daily = page.waitForResponse('**/api/v1/room-tasks/filtered-daily')
 		const overdue = page.waitForResponse('**/api/v1/room-tasks/overdue')
 		await page.goto(appUrl)
@@ -102,9 +103,6 @@ async function setup(browser) {
 		expect((await overdue).status()).toBe(200)
 		await expect(page.getByTestId('today-view')).toBeVisible()
 		await expect(page.getByTestId('error-state')).toHaveCount(0)
-		await page.getByRole('button', { name: /Open navigation/i }).click()
-		await page.getByTestId('nav-dashboard').click()
-		await page.getByRole('button', { name: /Close navigation/i }).click()
 		await expect(page.getByTestId('setup-wizard')).toBeVisible({ timeout: 30000 })
 		const membersResponse = await page.request.get(`${appUrl}api/v1/users`, {
 			headers: { requesttoken: await page.evaluate(() => window.OC.requestToken) },
@@ -127,7 +125,7 @@ async function setup(browser) {
 		await page.getByTestId('wizard-finish').click()
 		await expect(page.getByTestId('setup-wizard')).toHaveCount(0)
 		expect(counts()).toEqual([1, 1, 1, 1])
-		return { normalOwnerBootstrap: true, counts: counts(), ...await finish(['main', 'today', 'dashboard']) }
+		return { normalOwnerBootstrap: true, counts: counts(), ...await finish(['main', 'today']) }
 	} finally { await context.close() }
 }
 async function verify(browser, language, width) {
@@ -141,14 +139,16 @@ async function verify(browser, language, width) {
 		const page = await context.newPage()
 		await login(page)
 		const finish = await instrument(page)
+		// The old Dashboard address leads to Today, also in the packaged build.
 		await page.goto(`${appUrl}#/dashboard`)
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+		await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
+		await expect(page).toHaveURL(/#\/today$/)
 		await expect(page.getByTestId('setup-wizard')).toHaveCount(0)
+		await expect(page.getByTestId('open-setup-wizard')).toHaveCount(0)
 		expect(await page.evaluate(() => document.documentElement.lang)).toBe(userLanguage)
 		expect(await page.evaluate(() => window._nc_l10n_language)).toBe(userLanguage)
 		expect(await page.evaluate(() => navigator.language)).toBe(language)
 		await expect(page.locator('html')).toHaveCSS('--cs-radius-md', '10px')
-		await page.evaluate(() => window.chorestrike.router.push('/today'))
 		await expect(page.getByTestId('today-view')).toHaveCSS('max-width', '900px')
 		if (width < 768) await page.getByRole('button', { name: /Open navigation|Navigation.*ffnen/i }).click()
 		await page.getByTestId('nav-settings').click()
@@ -197,7 +197,7 @@ async function verify(browser, language, width) {
 			await expect(timezone).toHaveValue(value)
 			await expect(page.getByTestId('save-house-timezone')).toBeDisabled()
 		}
-		const result = { browserLocale: language, userLanguage, width, bounds, containers, ...await finish(['main', 'dashboard', 'today', 'settings']) }
+		const result = { browserLocale: language, userLanguage, width, bounds, containers, ...await finish(['main', 'today', 'settings']) }
 		await page.screenshot({ path: reportFile.replace(/\.json$/, `-${language}-${width}.png`), fullPage: true })
 		return result
 	} finally { await context.close() }

@@ -18,17 +18,9 @@
 				<NcAppNavigationItem
 					:to="{ name: 'today' }"
 					data-testid="nav-today"
-					:name="t('chorestrike', 'My Day')">
+					:name="t('chorestrike', 'Today')">
 					<template #icon>
 						<Icon name="Clock" />
-					</template>
-				</NcAppNavigationItem>
-				<NcAppNavigationItem
-					:to="{ name: 'dashboard' }"
-					data-testid="nav-dashboard"
-					:name="t('chorestrike', 'Dashboard')">
-					<template #icon>
-						<Icon name="Home" />
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem

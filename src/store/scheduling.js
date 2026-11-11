@@ -125,16 +125,30 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * @param {object} state Store state
 		 * @return {(day: string) => number} Function that takes a weekday key
 		 */
-		getCapacityForDay: (state) => (day) => {
-			const dayKey = day.toLowerCase()
-			if (state.memberAvailability.length > 0) {
-				const availableMembers = state.memberAvailability.filter((m) => isMemberAvailable(m, dayKey))
-				return availableMembers.reduce(
-					(sum, m) => sum + resolveEnergyForDay(m.energyBudget, dayKey),
-					0,
-				)
+		getCapacityForDay(state) {
+			return (day) => {
+				const dayKey = day.toLowerCase()
+				if (state.memberAvailability.length > 0) {
+					const availableMembers = state.memberAvailability.filter((m) => isMemberAvailable(m, dayKey))
+					return availableMembers.reduce(
+						(sum, m) => sum + resolveEnergyForDay(m.energyBudget, dayKey),
+						0,
+					)
+				}
+				return this.getOwnCapacityForDay(dayKey)
 			}
+		},
 
+		/**
+		 * The current user's own energy capacity for a day, whatever the
+		 * owner's household read holds: Today compares a member's own work
+		 * with it.
+		 *
+		 * @param {object} state Store state
+		 * @return {(day: string) => number} Function that takes a weekday key
+		 */
+		getOwnCapacityForDay: (state) => (day) => {
+			const dayKey = day.toLowerCase()
 			if (state.weekdayAvailability[dayKey] === false) {
 				return 0
 			}

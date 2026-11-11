@@ -17,7 +17,7 @@ reminder also carries the family's private life. The product decision
   the household updates ride together in a single digest at the member's
   chosen time. There is no second bell, however much happens.
 - **Counts, not content.** The bell says "3 planned tasks · 2 household
-  updates" — details live in My Day. Private tasks can never leak
+  updates" — details live on Today. Private tasks can never leak
   through a notification.
 
 ## What Rides Along (Organizational Updates)

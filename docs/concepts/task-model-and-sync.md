@@ -62,15 +62,18 @@ input anywhere.
 
 ## Today View (CS-PLAN-038)
 
-`/today` ("My Day") is the single check-things-off surface: an *Overdue*
-section and a *Due Today* section with ≥44 px complete buttons. It composes
+`/today` (*Today*, the landing page of every role since CS-PLAN-090 WP-B;
+[calm core UX](calm-core-ux.md#today-is-the-one-landing-page-for-every-role))
+is the single check-things-off surface: an *Overdue* block first, a *Due Today*
+section and what is already possible today, with ≥44 px complete buttons. It composes
 `GET /room-tasks/filtered-daily` (child-aware: weekday availability +
 max-daily-tasks limits) with the overdue list, kept in a dedicated store slice
 so Today items never bleed into the shared room-task lists. The default filter
 is **My tasks** (assigned to me or unassigned/claimable); "Everyone" is one
-tap away, and the Dashboard *Due Today*/*Overdue* cards link into the view.
+tap away.
 Completing a recurring task moves its next due date out of today — the row
-leaves the list (one-time tasks keep their row with a completed state).
+shows its completion for a moment and then leaves the list (one-time tasks
+keep their row with a completed state).
 Under *Also possible today* the section also offers work whose flex window is
 open although it is planned for another day (BUG-UX-005): Done credits that
 occurrence on time, and it never counts toward a child's daily limit.
@@ -90,7 +93,7 @@ The child availability/daily-limit filter applies to the daily query, not to
 the whole overdue list or all completion paths. "My tasks" also includes
 unassigned, claimable work. It is therefore not yet a definition of a child's
 agreed obligations or a guaranteed maximum catch-up workload. The daily limit
-caps only unassigned offers: a child's own tasks stay on My Day even above it
+caps only unassigned offers: a child's own tasks stay on Today even above it
 (BUG-UX-013).
 
 ## Recurrence and Rhythm
@@ -367,7 +370,7 @@ Reminder fields in ChoreStrike must stay synchronized with Nextcloud Tasks-compa
 
 A task instance can be completed from:
 
-1. ChoreStrike UI (dashboard, room detail, task list)
+1. ChoreStrike UI (Today, task list, room page)
 2. *(planned)* Connected task clients through Nextcloud task completion
    status — see the prune note above; there is no external-completion path
    today.

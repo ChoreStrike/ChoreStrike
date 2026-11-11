@@ -16,20 +16,18 @@ first; using the reward catalog and games is optional.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/my-day.png" alt="My Day: a teenager's agreed tasks for today, each with a Done button and an optional checklist"></td>
-    <td width="50%"><img src="docs/screenshots/dashboard.png" alt="Dashboard: house health, Coins, the weekly household goal and room statistics"></td>
-  </tr>
-  <tr>
-    <td align="center"><b>My Day</b>: today's agreed tasks</td>
-    <td align="center"><b>Dashboard</b>: the household at a glance</td>
-  </tr>
-  <tr>
+    <td width="50%"><img src="docs/screenshots/my-day.png" alt="Today: a teenager's agreed tasks for today, each with a Done button and an optional checklist"></td>
     <td width="50%"><img src="docs/screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks, each adjustable by person and day, and the tasks that stay as planned"></td>
-    <td width="50%"><img src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
   </tr>
   <tr>
+    <td align="center"><b>Today</b>: your status and today's agreed tasks</td>
     <td align="center"><b>Weekly planner</b>: a preview, applied only once agreed</td>
-    <td align="center"><b>Rewards</b>: an optional family catalog</td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img width="50%" src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><b>Rewards</b>: an optional family catalog</td>
   </tr>
 </table>
 
@@ -51,8 +49,8 @@ setup, everyday use and planning.
 - **Recognition without pressure**: Coins reflect actual effort and shared
   work; rhythm progress reflects on-time agreed chores. Free days and recognized
   pauses are neutral, not missed opportunities to earn a streak.
-- **Built for families**: Adults and children start in "My Day", with agreed
-  tasks, next appointments and honest catch-up dates. Capacity checks, child
+- **Built for families**: Adults and children start on *Today*, with their
+  own status, overdue work first and honest catch-up dates. Capacity checks, child
   limits, pauses and owner-recorded handovers support realistic planning.
 
 ## Key Features (Implemented)
@@ -65,7 +63,7 @@ setup, everyday use and planning.
 - **Weekly planner** — availability and energy budgets per member,
   preview → adjust → apply scheduling, capacity and fairness aware, with
   child daily-task limits.
-- **Execution** - My Day for every member, checklists, shared-work allocation,
+- **Execution** - Today for every member, checklists, shared-work allocation,
   targeted undo/correction that preserves later work, and agreed catch-up and
   handover flows.
 - **Recognition** - effort-only Coins with exact shared accounting, planned-day
@@ -129,8 +127,8 @@ instance. Installation and retained-baseline adoption are separate decisions.
 
 ## Getting Started
 
-1. **Open ChoreStrike** — the first visitor becomes the owner; on the
-   *Dashboard* the setup wizard guides through house name, floors and rooms,
+1. **Open ChoreStrike** — the first visitor becomes the owner; on
+   *Today* the setup wizard guides through house name, floors and rooms,
    optional task templates from the quick-start catalog, and invitations.
 2. **Invite your household** — owners invite people by the email address of
    their existing Nextcloud account and assign the role (owner, member or
@@ -141,7 +139,7 @@ instance. Installation and retained-baseline adoption are separate decisions.
    instructions, and assign them; owners also maintain checklists.
 4. **Plan the week** — in *Scheduling*, select tasks, preview a fair
    distribution across the week, adjust person/day per task, and apply.
-5. **Work through My Day** — every member sees today's tasks and catch-ups,
+5. **Work through Today** — every member sees today's tasks and overdue work,
    ticks off checklist steps, and completes a task by pressing and holding
    *Done* for 0.6 seconds (a short tap only explains the hold); undo is
    available right on the confirmation.
@@ -162,7 +160,7 @@ ChoreStrike is a privately maintained, non-commercial open source project,
 not a hosted service.
 
 **v0.8.0-alpha.4 — alpha pre-release.** The core household workflow (setup wizard,
-invitations, tasks, scheduling, My Day, completion/undo, gamification,
+invitations, tasks, scheduling, Today, completion/undo, gamification,
 insights, optional rewards and the arcade) is implemented. Cross-database
 verification and repeated browser gates have passed. The 14-day family trial
 has run on the maintainer's family instance since 2026-10-19, on this version

@@ -117,6 +117,40 @@ export function formatDayKey(dateKey) {
 }
 
 /**
+ * Full display label of a `YYYY-MM-DD` key ("Tuesday, 10 November" in the
+ * browser's locale), read as a civil date like `formatDayKey`.
+ *
+ * @param {string} dateKey House-local `YYYY-MM-DD` key.
+ * @return {string} The label, or `'—'` without a key.
+ */
+export function formatLongDayKey(dateKey) {
+	if (!dateKey) {
+		return '—'
+	}
+	const [year, month, day] = dateKey.split('-').map(Number)
+	return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+/**
+ * Whole civil days from one `YYYY-MM-DD` key to another (negative when
+ * `toKey` is earlier).
+ *
+ * @param {string} fromKey Earlier house-local key.
+ * @param {string} toKey Later house-local key.
+ * @return {number|null} The day count, or null for invalid input.
+ */
+export function daysBetweenKeys(fromKey, toKey) {
+	if (!DAY_KEY_PATTERN.test(fromKey || '') || !DAY_KEY_PATTERN.test(toKey || '')) {
+		return null
+	}
+	const utcDay = (key) => {
+		const [year, month, day] = key.split('-').map(Number)
+		return Date.UTC(year, month - 1, day)
+	}
+	return Math.round((utcDay(toKey) - utcDay(fromKey)) / 86400000)
+}
+
+/**
  * Weekday key (`sunday`..`saturday`) of a `YYYY-MM-DD` key.
  *
  * @param {string} dateKey House-local `YYYY-MM-DD` key.

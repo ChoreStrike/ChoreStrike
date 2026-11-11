@@ -52,9 +52,9 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 	}
 
 	// Navigate to settings
-	await page.goto('/apps/chorestrike/#/dashboard')
+	await page.goto('/apps/chorestrike/#/today')
 	await page.waitForLoadState('networkidle')
-	await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+	await page.waitForSelector('[data-testid="today-view"]', { timeout: 10000 })
 
 	await page.click('[data-testid="nav-settings"]')
 	await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
@@ -104,8 +104,8 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 
 /**
  * Creates a room on a floor via the Settings structure section
- * (CS-PLAN-042, UX-004): the Dashboard FloorList is read-only and Settings
- * is the sole CRUD surface. Creates the floor when it is missing.
+ * (CS-PLAN-042, UX-004): Settings is the sole CRUD surface. Creates the
+ * floor when it is missing.
  */
 export async function createRoomViaSettings(page: Page, floorName: string, roomName: string): Promise<void> {
 	await page.click('[data-testid="nav-settings"]')

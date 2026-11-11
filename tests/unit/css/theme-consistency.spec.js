@@ -53,15 +53,6 @@ describe('BUG-UI-001 — Dark-Mode-safe colors in overdue/priority styles', () =
 			}
 		})
 	})
-
-	describe('RoomCard.vue', () => {
-		const css = readComponent('components/Dashboard/RoomCard.vue')
-
-		it('uses the error theme variable for the overdue count color', () => {
-			const block = declarationsForSelector(css, '.task-item.overdue')
-			expect(block).toMatch(/color:\s*var\(--color-error/)
-		})
-	})
 })
 
 /**

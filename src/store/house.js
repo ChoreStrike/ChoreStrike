@@ -48,7 +48,6 @@ export const useHouseStore = defineStore('house', {
 	}),
 
 	getters: {
-		houseHealth: (state) => state.house?.houseHealth ?? 100,
 		houseName: (state) => state.house?.name || t('chorestrike', 'My House'),
 		hasHouse: (state) => state.house !== null,
 		/**
@@ -321,53 +320,6 @@ export const useHouseStore = defineStore('house', {
 				throw error
 			} finally {
 				this.activityLoading = false
-			}
-		},
-
-		/**
-		 * Refresh the server-calculated house health (CS-PLAN-066 §3.2).
-		 *
-		 * The health value is authoritative from the server — never a
-		 * client average of loaded rooms. The refresh shares the house
-		 * generation: a newer full house read (or mutation) discards this
-		 * result, and this refresh can never clobber fresher
-		 * name/timezone fields — it patches ONLY `houseHealth` onto the
-		 * currently loaded house payload.
-		 */
-		async calculateHouseHealth() {
-			if (this.houseRequest) {
-				const pendingSeq = this.houseRequestSeq
-				await this.houseRequest
-				if (pendingSeq !== this.houseRequestSeq) {
-					return this.house?.houseHealth ?? null
-				}
-			}
-			const seq = ++this.houseRequestSeq
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get('/api/v1/house/health')
-
-				if (seq !== this.houseRequestSeq) {
-					logger.debug('Dropping superseded house-health refresh', { store: 'house', action: 'calculateHouseHealth' })
-					return this.house?.houseHealth ?? null
-				}
-
-				if (this.house) {
-					this.house = { ...this.house, houseHealth: data.houseHealth }
-				}
-				return data.houseHealth
-			} catch (error) {
-				if (seq === this.houseRequestSeq) {
-					this.error = error.message
-				}
-				logger.error('Failed to calculate house health', error, { store: 'house', action: 'calculateHouseHealth' })
-				throw error
-			} finally {
-				if (seq === this.houseRequestSeq) {
-					this.loading = false
-				}
 			}
 		},
 

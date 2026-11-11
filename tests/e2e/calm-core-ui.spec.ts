@@ -8,11 +8,11 @@ import { houseDateOffset } from './fixtures/house-clock.js'
 /**
  * E2E test: the calm core UI (CS-PLAN-070 WP6) — serial family pool.
  *
- * Replaces the retired Dashboard-landing assumptions with the WP6
- * contract: every role lands on My Day (route-level redirect), the
- * Dashboard stays reachable as the secondary household overview, My Day
- * stays free of Coins/arcade/catalog surfaces, the optional arcade hides
- * together with its navigation entry while `arcadeVisible` is off, and
+ * The WP6 contract as CS-PLAN-090 WP-B leaves it: every role lands on
+ * Today (route-level redirect), the old Dashboard address leads there
+ * too, Today shows the own Coins and stays free of arcade/catalog
+ * surfaces, the optional arcade hides together with its navigation entry
+ * while `arcadeVisible` is off, and
  * an absence is a plain period (ADR-020): a child enters one, everyone
  * sees it and the owner deletes it through the real UI.
  */
@@ -103,47 +103,51 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 		}
 	})
 
-	test('every role lands on My Day and the Dashboard stays reachable as the secondary overview', async ({ browser, seededData: _seededData }) => {
+	test('every role lands on My Day, now Today, and the old Dashboard address leads there', async ({ browser, seededData: _seededData }) => {
 		const owner = await createUserContext(browser, 'mom')
 		const child = await createUserContext(browser, 'teen')
 		try {
-			// Owner bare root → My Day (the retired child-only special case
-			// is now the universal landing, Q-077-01 Option A).
+			// Owner bare root → Today (the retired child-only special case
+			// is the universal landing, Q-077-01 Option A).
 			await owner.page.goto('/apps/chorestrike/')
 			await expect(owner.page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
-			await expect(owner.page.getByTestId('dashboard-view')).toHaveCount(0)
+			await expect(owner.page).toHaveURL(/#\/today$/)
 
-			// Child bare root → My Day as well.
+			// Child bare root → Today as well.
 			await child.page.goto('/apps/chorestrike/')
 			await expect(child.page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
-			await expect(child.page.getByTestId('dashboard-view')).toHaveCount(0)
+			await expect(child.page).toHaveURL(/#\/today$/)
 
-			// The Dashboard remains reachable on its explicit secondary path.
-			await owner.page.goto('/apps/chorestrike/#/dashboard')
-			await expect(owner.page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+			// The Dashboard merged into Today: its address redirects for
+			// every role, and no second overview is left in the navigation.
+			for (const page of [owner.page, child.page]) {
+				await page.goto('/apps/chorestrike/#/dashboard')
+				await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
+				await expect(page).toHaveURL(/#\/today$/)
+				await expect(page.getByTestId('nav-dashboard')).toHaveCount(0)
+			}
 			// The retired military tagline is gone (C5f).
-			await expect(owner.page.getByTestId('dashboard-view')).not.toContainText('Defend your Home Base')
-			await child.page.goto('/apps/chorestrike/#/dashboard')
-			await expect(child.page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+			await expect(owner.page.getByTestId('today-view')).not.toContainText('Defend your Home Base')
 		} finally {
 			await owner.context.close()
 			await child.context.close()
 		}
 	})
 
-	test('My Day stays Coin-free while the wallet stays in the secondary overview', async ({ browser, seededData: _seededData }) => {
+	test('Today shows the own Coins and no arcade, catalog or ranking surface', async ({ browser, seededData: _seededData }) => {
 		const owner = await createUserContext(browser, 'mom')
 		try {
 			await owner.page.goto('/apps/chorestrike/#/today')
-			await expect(owner.page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
+			const today = owner.page.getByTestId('today-view')
+			await expect(today).toBeVisible({ timeout: 30000 })
 
-			// No Coins, no arcade/catalog surfaces on the primary landing.
-			await expect(owner.page.getByTestId('today-view')).not.toContainText('Coins')
-			await expect(owner.page.getByTestId('own-wallet-available')).toHaveCount(0)
+			// The wallet moved here with the Dashboard (CS-PLAN-090 WP-B).
+			await expect(today.getByTestId('own-wallet-available')).toHaveText(/^-?\d+(\.\d+)?$/, { timeout: 30000 })
 
-			// The wallet stays reachable outside My Day (C5f/D10a).
-			await owner.page.goto('/apps/chorestrike/#/dashboard')
-			await expect(owner.page.getByTestId('own-wallet-available')).toBeVisible({ timeout: 30000 })
+			// Still none of the optional surfaces on the landing page.
+			for (const surface of ['arcade-view', 'arcade-catalog', 'rewards-view', 'leaderboard-view']) {
+				await expect(today.getByTestId(surface)).toHaveCount(0)
+			}
 		} finally {
 			await owner.context.close()
 		}

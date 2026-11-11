@@ -7,9 +7,9 @@
 	<div class="room-detail" data-testid="room-detail-view">
 		<header class="room-header">
 			<div class="header-content">
-				<router-link :to="{ name: 'dashboard' }" class="back-link" data-testid="back-link">
+				<router-link :to="{ name: 'today' }" class="back-link" data-testid="back-link">
 					<Icon name="ArrowLeft" :size="20" />
-					{{ t('chorestrike', 'Back to Dashboard') }}
+					{{ t('chorestrike', 'Back') }}
 				</router-link>
 				<div class="room-name-row">
 					<h1 data-testid="room-name">
@@ -119,10 +119,14 @@
 				<div class="tasks-section">
 					<div class="section-header">
 						<h2>{{ t('chorestrike', 'Tasks') }}</h2>
+						<!-- Disabled while the room loads, as in the task manager: a
+						     read that started before a task was created would land
+						     after it and drop the new row from the list. -->
 						<button
 							v-if="canManageTasks"
 							class="primary-button"
 							data-testid="add-task-button"
+							:disabled="loading"
 							@click="openAddTask">
 							<Icon name="Plus" :size="16" class="icon" />
 							{{ t('chorestrike', 'Add Task') }}
@@ -194,10 +198,10 @@
 
 		<ParticipationDialog
 			v-if="participation"
-			:members="participationMembers()"
+			:members="participationMembers"
 			:proposal="participation.proposal ?? null"
-			:actorUserId="userStore.currentUser?.nextcloudUserId ?? null"
-			@close="participation = null"
+			:actorUserId="actorUserId"
+			@close="closeParticipation"
 			@confirm="confirmParticipation" />
 	</div>
 </template>
@@ -205,6 +209,7 @@
 <script>
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
+import { ref } from 'vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import Icon from '../components/Common/Icon.vue'
@@ -216,11 +221,11 @@ import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import TaskTemplatePicker from '../components/Tasks/TaskTemplatePicker.vue'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
+import { useTaskCompletion } from '../composables/useTaskCompletion.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
-import { showCompletionError } from '../utils/errorToast.js'
 import { logger } from '../utils/logger.js'
 import { isOverdue } from '../utils/taskDisplay.js'
 
@@ -249,12 +254,32 @@ export default {
 
 	emits: ['taskCompleted'],
 
-	setup() {
+	setup(props, { emit }) {
 		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
 		const tasksStore = useTasksStore()
 		const userStore = useUserStore()
-		return { roomsStore, roomTasksStore, tasksStore, userStore, ...useHouseMemberNames(userStore) }
+		// The room's stats card is a view-local projection: it is refreshed
+		// after a committed completion (CS-PLAN-066 §3.2).
+		const roomStats = ref(null)
+		const refreshRoomStats = async () => {
+			const roomId = parseInt(props.id, 10)
+			try {
+				roomStats.value = await roomTasksStore.fetchRoomTaskStats(roomId)
+			} catch (error) {
+				logger.error('Failed to refresh room stats', error, { view: 'RoomDetail', action: 'refreshRoomStats', roomId })
+			}
+		}
+		const completion = useTaskCompletion({
+			roomTasksStore,
+			userStore,
+			view: 'RoomDetail',
+			onCompleted: (roomTaskId) => {
+				emit('taskCompleted', roomTaskId)
+				refreshRoomStats()
+			},
+		})
+		return { roomsStore, roomTasksStore, tasksStore, userStore, roomStats, ...useHouseMemberNames(userStore), ...completion }
 	},
 
 	data() {
@@ -266,15 +291,11 @@ export default {
 			addTaskMode: 'template',
 			showEditTaskModal: false,
 			editingTask: null,
-			roomStats: null,
 			taskToDelete: null,
 			deleting: false,
 			showRenameRoomModal: false,
 			roomToDelete: false,
 			deletingRoom: false,
-			// WP3 §3.6: the multi-person completion dialog target (the
-			// room-task row with its server proposal) while open.
-			participation: null,
 		}
 	},
 
@@ -422,120 +443,19 @@ export default {
 			}
 		},
 
+		/**
+		 * Complete a row through the shared flow (`useTaskCompletion`).
+		 * @param {number} roomTaskId The row's room task.
+		 * @param {?object} claimAllocation A confirmed overdue claim, completed directly.
+		 */
 		async handleCompleteTask(roomTaskId, claimAllocation = null) {
-			// A confirmed overdue claim carries its reviewed sole-participant
-			// allocation and completes directly.
-			if (claimAllocation) {
-				this.performComplete(roomTaskId, claimAllocation)
-				return
-			}
-			// WP3 §3.6 (Q-074-02): the actor must take part in the work.
-			// A solo agreement that already names the actor needs no
-			// review — it completes directly; multi-person work (or an
-			// agreement naming someone else) opens the participation
-			// dialog pre-filled with the server proposal.
 			const roomTask = (this.roomTasksStore.roomTasksByRoom[this.roomId] || [])
 				.find((row) => row.id === roomTaskId)
-			const proposal = roomTask?.proposal ?? null
-			if (this.needsParticipationDialog(proposal)) {
-				await this.openParticipation(roomTask)
-				return
-			}
-			this.performComplete(roomTaskId)
-		},
-
-		/**
-		 * Open the participation dialog with the actor identity resolved
-		 * (the actor joins a foreign split, Q-074-02).
-		 * @param {object} roomTask The room-task row with its proposal.
-		 */
-		async openParticipation(roomTask) {
-			if (!this.userStore.currentUser) {
-				await this.userStore.initializeCurrentUser().catch(() => {})
-			}
-			if ((this.userStore.houseUsers ?? []).length === 0) {
-				this.userStore.fetchHouseUsers().catch(() => {})
-			}
-			this.participation = roomTask
-		},
-
-		/**
-		 * Whether the completion needs the explicit participation dialog:
-		 * more than one proposed participant, or a sole proposed
-		 * participant who is not the acting user.
-		 * @param {?object} proposal The server proposal block.
-		 * @return {boolean}
-		 */
-		needsParticipationDialog(proposal) {
-			const participants = proposal?.participants ?? []
-			if (participants.length > 1) {
-				return true
-			}
-			if (participants.length === 1) {
-				const actorId = this.userStore.currentUser?.nextcloudUserId ?? null
-				// An unresolved identity still opens the dialog — the safe default
-				// never fires a participant-less completion into someone else's work.
-				return actorId === null || participants[0].userId !== actorId
-			}
-			return false
-		},
-
-		/**
-		 * Candidate members for the open participation dialog: the task's
-		 * canonical assignees, falling back to the house membership.
-		 * @return {Array<{userId: string, displayName: string}>}
-		 */
-		participationMembers() {
-			const roomTask = this.participation
-			if (!roomTask) {
-				return []
-			}
-			const namesByUser = {}
-			;(this.userStore.houseUsers ?? []).forEach((member) => {
-				namesByUser[member.nextcloudUserId] = member.displayName
-			})
-			const assignees = roomTask.assignees ?? []
-			if (assignees.length > 0) {
-				return assignees.map((userId) => ({ userId, displayName: namesByUser[userId] ?? userId }))
-			}
-			return Object.keys(namesByUser).map((userId) => ({ userId, displayName: namesByUser[userId] }))
-		},
-
-		async confirmParticipation(payload) {
-			const roomTask = this.participation
-			this.participation = null
-			if (!roomTask) {
-				return
-			}
-			await this.performComplete(roomTask.id, payload)
-		},
-
-		async performComplete(roomTaskId, options = {}) {
-			try {
-				if (Object.keys(options).length > 0) {
-					await this.roomTasksStore.completeRoomTask(roomTaskId, options)
-				} else {
-					await this.roomTasksStore.completeRoomTask(roomTaskId)
-				}
-				this.$emit('taskCompleted', roomTaskId)
-				// The room's own stats card is a view-local projection —
-				// refresh it after the committed completion (CS-PLAN-066
-				// §3.2).
-				this.refreshRoomStats()
-			} catch (error) {
-				// CS-PLAN-066 §3.5: mutation failures are visible toasts,
-				// not logger-only lines.
-				showCompletionError(error)
-				logger.error('Failed to complete task', error, { view: 'RoomDetail', action: 'handleCompleteTask', roomTaskId })
-			}
-		},
-
-		async refreshRoomStats() {
-			try {
-				this.roomStats = await this.roomTasksStore.fetchRoomTaskStats(this.roomId)
-			} catch (error) {
-				logger.error('Failed to refresh room stats', error, { view: 'RoomDetail', action: 'refreshRoomStats', roomId: this.roomId })
-			}
+			await this.requestCompletion({
+				roomTaskId,
+				proposal: roomTask?.proposal ?? null,
+				assignees: roomTask?.assignees ?? [],
+			}, claimAllocation)
 		},
 
 		handleEditTask(roomTask) {
@@ -622,10 +542,8 @@ export default {
 		},
 
 		/**
-		 * Owner-only room delete — deletes the room and returns to the
-		 * Dashboard (the room no longer exists to render). The explicit
-		 * named route keeps the post-delete return on the Dashboard — the
-		 * bare root lands on My Day for every role (CS-PLAN-070 WP6).
+		 * Owner-only room delete — deletes the room and returns to Today
+		 * (the room no longer exists to render).
 		 */
 		async confirmDeleteRoom() {
 			this.deletingRoom = true
@@ -633,7 +551,7 @@ export default {
 				await this.roomsStore.deleteRoom(this.roomId)
 				showSuccess(t('chorestrike', 'Room deleted'))
 				this.roomToDelete = false
-				this.$router.push({ name: 'dashboard' })
+				this.$router.push({ name: 'today' })
 			} catch (error) {
 				showError(t('chorestrike', 'Failed to delete room'))
 				logger.error('Failed to delete room', error, { view: 'RoomDetail', action: 'confirmDeleteRoom', roomId: this.roomId })

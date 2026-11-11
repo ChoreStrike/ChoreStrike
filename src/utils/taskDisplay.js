@@ -117,6 +117,15 @@ export function taskEnergy(item) {
 }
 
 /**
+ * A count of days as a label: "1 day", "4 days".
+ * @param {number} days Whole days.
+ * @return {string}
+ */
+export function daysLabel(days) {
+	return days === 1 ? t('chorestrike', '1 day') : t('chorestrike', '{days} days', { days })
+}
+
+/**
  * The choice for a task above the listed energies.
  * @return {string}
  */

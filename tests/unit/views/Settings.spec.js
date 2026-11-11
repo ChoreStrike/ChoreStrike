@@ -161,6 +161,13 @@ jest.mock('../../../src/components/Minigames/ArcadeGateSetting.vue', () => ({
 	template: '<div data-testid="arcade-gate-stub" />',
 }))
 
+// The wizard itself is covered by SetupWizard.spec.js; here only its entry.
+jest.mock('../../../src/components/Setup/SetupWizard.vue', () => ({
+	__esModule: true,
+	default: { name: 'SetupWizard', emits: ['applied', 'skipped', 'close'], template: '<div class="setup-wizard-stub" />' },
+	isWizardDismissedForHouse: () => false,
+}))
+
 describe('Settings.vue', () => {
 	let pinia
 
@@ -301,6 +308,32 @@ describe('Settings.vue', () => {
 		await flushPromises()
 		expect(wrapper.vm.structureReady).toBe(false)
 		expect(wrapper.find('[data-testid="floors-list"]').exists()).toBe(false)
+		wrapper.unmount()
+	})
+
+	it('offers the setup wizard under Floors & Rooms while the house has no floors, closed until asked (D-090-12)', async () => {
+		const floors = mockRoomsState.floors
+		mockRoomsState.floors = []
+		try {
+			const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+			await flushPromises()
+
+			const entry = wrapper.get('[data-testid="no-floors-message"] [data-testid="open-setup-wizard"]')
+			expect(wrapper.findComponent({ name: 'SetupWizard' }).exists()).toBe(false)
+			await entry.trigger('click')
+			expect(wrapper.findComponent({ name: 'SetupWizard' }).exists()).toBe(true)
+			wrapper.unmount()
+		} finally {
+			mockRoomsState.floors = floors
+		}
+	})
+
+	it('offers no setup wizard for a house that has floors', async () => {
+		const wrapper = mount(Settings, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="floors-list"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
 		wrapper.unmount()
 	})
 

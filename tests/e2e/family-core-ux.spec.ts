@@ -5,7 +5,7 @@
  * WP7 exit journey — canonical client state + family UX (CS-PLAN-066 §4.3).
  *
  * Pins the full family matrix against the `family` profile:
- *  - Owner desktop: cold Dashboard count projections (D2), the real HTTP
+ *  - Owner desktop: cold count projections (D2), the real HTTP
  *    PUT /tasks/{id} edit roundtrip (D6/BUG-API-001), complete → coordinated
  *    reconciliation without reload (D3/D10) and the queued undo.
  *  - Child (teen): the D4 landing redirect (bare root → My Day), explicit
@@ -34,12 +34,14 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 	test('real Nextcloud DE and EN core rendering uses the shipped translations', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		try {
-			for (const [language, myDay, tasks] of [['de', 'Mein Tag', 'Aufgabenverwaltung'], ['en', 'My Day', 'Task Manager']]) {
+			for (const [language, today, tasks] of [['de', 'Heute', 'Aufgabenverwaltung'], ['en', 'Today', 'Task Manager']]) {
 				runOcc(`user:setting mom core lang ${language}`)
 				const session = await createUserContext(browser, 'mom', { locale: language })
 				try {
 					await session.page.goto('/apps/chorestrike/')
-					await expect(session.page.getByTestId('nav-today')).toContainText(myDay)
+					await expect(session.page.getByTestId('nav-today')).toContainText(today)
+					await expect(session.page.getByTestId('today-title')).toHaveText(today)
+					await expect(session.page.getByTestId('today-status-line')).toContainText(language === 'de' ? 'Wochenziel' : 'Weekly goal')
 					await session.page.getByTestId('nav-tasks').click()
 					await expect(session.page.getByTestId('task-manager-view').getByRole('heading', { level: 1 })).toHaveText(tasks)
 					await session.page.getByTestId('tasks-filter-all').click()
@@ -61,7 +63,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 	/** House-local day key — the Docker test environment runs the house on UTC. */
 	const utcDayKey = (offsetDays = 0): string => new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-	test('core task filters show own and unassigned work with names and clickable appointments', async ({ browser, seededData }) => {
+	test('core task filters show own and unassigned work with names, on Tasks and on Today', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
@@ -107,14 +109,16 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				await expect(other).toHaveCount(0)
 				expect(await page.getByTestId('tasks-filter-mine').evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
 				await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+				// Today applies the same rule, and names the people on a row.
 				await page.goto('/apps/chorestrike/#/today')
-				const appointment = page.getByTestId('today-appointment').first().getByRole('link')
-				await expect(appointment).toBeVisible()
-				const appointmentName = await appointment.locator('.appointment-name').innerText()
-				await appointment.focus()
-				await page.keyboard.press('Enter')
-				await expect(page.getByTestId('room-detail-view')).toBeVisible()
-				await expect(page.getByTestId('task-item').filter({ hasText: appointmentName }).first()).toBeVisible()
+				const todayRow = (name: string) => page.getByTestId('today-task-item').filter({ hasText: name })
+				await expect(todayRow('Own filter probe')).toBeVisible()
+				await expect(todayRow('Unassigned filter probe')).toBeVisible()
+				await expect(todayRow('Other filter probe')).toHaveCount(0)
+				await expect(todayRow('Own filter probe').getByTestId('task-assignees')).toContainText('Assigned to: Mom')
+				await page.getByTestId('today-filter-all').click()
+				await expect(todayRow('Other filter probe')).toBeVisible()
+				await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 			}
 		} finally {
 			await context.close()
@@ -199,47 +203,38 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		return seeded.data.roomTasks.find((roomTask) => roomTask.taskId === task.id && (!activeOnly || roomTask.isActive))!
 	}
 
-	test('owner desktop: cold Dashboard counters are correct without any room visit (D2)', async ({ browser, seededData }) => {
+	test('owner desktop: cold counters are correct without any room visit (D2)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			// The counters render from the dedicated projections — non-zero
+			// on a cold start (the seed holds due and overdue rows).
+			await page.goto('/apps/chorestrike/#/tasks')
+			await page.getByTestId('task-manager-view').waitFor({ state: 'visible' })
+			await expect(page.getByTestId('due-today-count')).not.toHaveText('0')
+			await expect(page.getByTestId('overdue-count')).not.toHaveText('0')
 
-			// QuickStats counters render from the dedicated projections —
-			// non-zero on a cold Dashboard (the seed holds due/overdue rows).
-			await expect(page.getByTestId('quick-stats')).toContainText('Overdue')
-			const dueToday = page.locator('.stat-card.due-today')
-			await expect(dueToday).toBeVisible()
-			await expect(dueToday).not.toContainText('0')
+			// Today counts the same overdue work in its block.
+			const overdueCount = (await page.getByTestId('overdue-count').innerText()).trim()
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-filter-all').click()
+			await expect(page.getByTestId('today-section-catchup').getByRole('heading')).toContainText(overdueCount)
+			await expect(page.getByTestId('today-section-catchup').getByTestId('today-task-item')).toHaveCount(Number(overdueCount))
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('owner desktop: overview tiles lead to their targets and Done needs a hold (CS-PLAN-084 WP-C)', async ({ browser, seededData }) => {
+	test('owner desktop: the overdue list holds only overdue work and Done needs a hold (CS-PLAN-084 WP-C)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
-		const kidsBedroom = seededData.data.rooms!.find((room) => room.name === 'Kids Bedroom')!
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-
-			// Overdue tile → household task list filtered to overdue work.
-			await page.getByTestId('overdue-stat-card').click()
+			// The household task list filtered to overdue work.
+			await page.goto('/apps/chorestrike/#/tasks?status=overdue&scope=all')
 			await expect(page.getByTestId('task-manager-view')).toBeVisible()
 			await expect(page.getByTestId('status-filter')).toHaveValue('overdue')
 			await expect(page.getByTestId('task-item').first()).toBeVisible()
 			await expect(page.locator('[data-testid="task-item"]:not(.overdue)')).toHaveCount(0)
-
-			// Average cleanliness tile → every floor expanded, list focused.
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('stat-average-cleanliness').click()
-			await expect(page.getByTestId('floor-list')).toBeFocused()
-			const card = page.getByTestId('room-card-Kids Bedroom')
-			await expect(card.getByTestId('cleanliness-value')).toHaveText(`${kidsBedroom.cleanliness}%`)
-
-			await expect(card.locator('[data-testid^="quick-clean-"]')).toHaveCount(0)
 
 			// A short tap explains the hold and sends nothing; the hold completes once.
 			const completions: string[] = []
@@ -268,8 +263,8 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 			await page.getByTestId('nav-tasks').click()
 			await page.getByTestId('task-manager-view').waitFor({ state: 'visible' })
 
@@ -319,9 +314,11 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			})
 			expect(created.status(), await created.text()).toBe(200)
 
+			// Due tomorrow with an open window: Today offers it behind the
+			// line of what is already possible.
 			await page.goto('/apps/chorestrike/')
-			await page.getByTestId('nav-today').click()
-			await expect(page.getByTestId('today-view')).toContainText(name, { timeout: 20000 })
+			await page.getByTestId('today-section-open-window').click({ timeout: 20000 })
+			await expect(page.getByTestId('today-task-item').filter({ hasText: name })).toBeVisible()
 			await page.getByTestId('nav-tasks').click()
 			await page.getByTestId('tasks-filter-all').click()
 			const row = page.getByTestId('task-item').filter({ hasText: name })
@@ -329,7 +326,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 
 			await row.locator('button[title="Edit"]').click()
 			await page.getByTestId('task-energy-select').selectOption('3')
-			// Completion reads the My Day row first, so wait for that reread too.
+			// Completion reads the Today row first, so wait for that reread too.
 			const dailyReread = page.waitForResponse((response) => response.url().includes('/room-tasks/filtered-daily'))
 			await page.getByTestId('save-task-button').click()
 			await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 20000 })
@@ -350,9 +347,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-			await page.getByTestId('nav-today').click()
+			await page.goto('/apps/chorestrike/#/today')
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 
 			// The counters row belongs to teen — switch to the shared view.
@@ -463,7 +458,6 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await page.goto('/apps/chorestrike/')
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 			expect(new URL(page.url()).hash).toContain('/today')
-			await expect(page.getByTestId('dashboard-view')).toHaveCount(0)
 
 			// An explicit deep link keeps its target (hash-history URLs use
 			// the plain `#/` form).
@@ -484,8 +478,8 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 		const { context: ownerContext, page: ownerPage } = await createUserContext(browser, 'mom')
 		const itemLabel = `Checklist regression ${Date.now()}`
 		try {
-			await ownerPage.goto('/apps/chorestrike/#/dashboard')
-			await ownerPage.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await ownerPage.goto('/apps/chorestrike/#/today')
+			await ownerPage.getByTestId('today-view').waitFor({ state: 'visible' })
 			await ownerPage.getByTestId('nav-tasks').click()
 			await ownerPage.getByTestId('task-manager-view').waitFor({ state: 'visible' })
 

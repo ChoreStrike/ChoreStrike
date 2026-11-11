@@ -5,12 +5,12 @@
  * E2E: rendered layout regressions found while capturing the README
  * screenshots (TECH-DOCS-005). Nextcloud's navigation toggle sits in the
  * top-left corner of the app content and covered the first letters of most
- * view headings; the dashboard's house-health fill was painted under its own
- * track, the house name touched the percentage and the title icon was never
- * registered. Measured in a real browser at a docked-navigation desktop width
- * and a phone width; read-only on the `family` seed. At phone width no routed
- * view may scroll sideways (UX-018: the Insights fairness table and the room
- * detail grid did).
+ * view headings. Measured in a real browser at a docked-navigation desktop
+ * width and a phone width; read-only on the `family` seed. At phone width no
+ * routed view may scroll sideways (UX-018: the Insights fairness table and
+ * the room detail grid did). The Dashboard's house-health bar and its
+ * layout check went with the Dashboard (CS-PLAN-090 WP-B); Today's status
+ * line takes its place here.
  *
  * Requires: Docker test environment with the `family` database profile.
  */
@@ -83,7 +83,7 @@ async function firstRoomId(page: Page): Promise<number> {
 	return rooms[0].id
 }
 
-test.describe('Layout clearance and dashboard health bar', () => {
+test.describe('Layout clearance', () => {
 	test.use({ databaseProfile: 'family' })
 
 	for (const viewport of VIEWPORTS) {
@@ -93,7 +93,6 @@ test.describe('Layout clearance and dashboard health bar', () => {
 			try {
 				const views: Array<{ path: string, ready: string, content?: string }> = [
 					{ path: '#/today', ready: 'today-view' },
-					{ path: '#/dashboard', ready: 'dashboard-view' },
 					{ path: '#/tasks', ready: 'task-manager-view' },
 					{ path: `#/room/${await firstRoomId(page)}`, ready: 'room-detail-view', content: 'room-task-list' },
 					{ path: '#/leaderboard', ready: 'leaderboard-view' },
@@ -227,7 +226,7 @@ test.describe('Layout clearance and dashboard health bar', () => {
 	test('the toggle covers no heading in a right-to-left layout (CR-LAYOUT-01)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, USER, { viewport: VIEWPORTS[1] })
 		try {
-			for (const view of [{ path: '#/today', ready: 'today-view' }, { path: '#/dashboard', ready: 'dashboard-view' }]) {
+			for (const view of [{ path: '#/today', ready: 'today-view' }, { path: '#/tasks', ready: 'task-manager-view' }]) {
 				await page.goto(`/apps/chorestrike/${view.path}`)
 				const root = page.getByTestId(view.ready)
 				await expect(root).toBeVisible({ timeout: 20000 })
@@ -246,30 +245,32 @@ test.describe('Layout clearance and dashboard health bar', () => {
 		}
 	})
 
-	test('the house-health bar shows its fill, icon and a gap before the percentage', async ({ browser }) => {
-		const { context, page } = await createUserContext(browser, USER, { viewport: VIEWPORTS[0] })
-		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			const health = page.getByTestId('house-health')
-			await expect(health).toBeVisible({ timeout: 20000 })
-			await page.waitForLoadState('networkidle')
+	for (const viewport of VIEWPORTS) {
+		test(`the Today status line keeps its four tiles in one row (${viewport.name})`, async ({ browser }) => {
+			const { context, page } = await createUserContext(browser, USER, { viewport })
+			try {
+				await page.goto('/apps/chorestrike/#/today')
+				const status = page.getByTestId('today-status-line')
+				await expect(status).toBeVisible({ timeout: 20000 })
+				await page.waitForLoadState('networkidle')
 
-			// The family seed starts at full house health: the fill must be the
-			// topmost layer at its own center, not the track behind it.
-			const fill = health.locator('.health-bar-fill')
-			const fillBox = await boxOf(fill)
-			expect(fillBox.right - fillBox.left).toBeGreaterThan(0)
-			const topmostIsFill = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.health-bar-fill') !== null, { x: (fillBox.left + fillBox.right) / 2, y: (fillBox.top + fillBox.bottom) / 2 })
-			expect(topmostIsFill, 'the fill paints above the track').toBe(true)
-
-			const titleBox = await textBox(health.locator('.health-title'))
-			const percentageBox = await boxOf(health.locator('.health-percentage'))
-			expect(percentageBox.left - titleBox.right, 'gap between house name and percentage').toBeGreaterThanOrEqual(8)
-
-			const icon = await boxOf(health.locator('.health-title svg'))
-			expect(icon.right - icon.left, 'the title icon renders').toBeGreaterThan(0)
-		} finally {
-			await context.close()
-		}
-	})
+				const tiles = await status.locator('.status-tile').evaluateAll((elements) => elements.map((element) => {
+					const box = element.getBoundingClientRect()
+					return { top: Math.round(box.top), left: box.left, right: box.right, scrolls: element.scrollWidth > element.clientWidth + 1 }
+				}))
+				expect(tiles).toHaveLength(4)
+				expect(new Set(tiles.map((tile) => tile.top)).size, 'one row').toBe(1)
+				for (const [index, tile] of tiles.entries()) {
+					expect(tile.scrolls, `tile ${index} holds its text`).toBe(false)
+					expect(tile.right, `tile ${index} stays inside the view`).toBeLessThanOrEqual(viewport.width)
+					if (index > 0) {
+						expect(tile.left, `tile ${index} does not overlap its neighbour`).toBeGreaterThanOrEqual(tiles[index - 1].right)
+					}
+				}
+				expect(await sidewaysScrollers(page.getByTestId('today-view'))).toEqual([])
+			} finally {
+				await context.close()
+			}
+		})
+	}
 })

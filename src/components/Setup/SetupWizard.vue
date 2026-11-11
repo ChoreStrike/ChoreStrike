@@ -344,7 +344,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 /**
  * localStorage flag namespace for the persistent "start empty" dismissal
  * (CS-PLAN-042, UX-011) — per house so a reset/second house re-opens the
- * wizard. Also read by Dashboard to suppress the auto-open.
+ * wizard. Also read by SetupWizardEntry to suppress the auto-open.
  *
  * @param {?number} houseId The current house ID
  * @return {string} The storage key
@@ -781,7 +781,7 @@ export default {
 		/**
 		 * "Start empty" (UX-011): the dismissal persists per house so the
 		 * wizard does not re-open on every reload while the house is empty.
-		 * The manual entry point on the Dashboard stays available.
+		 * The manual entry point (SetupWizardEntry) stays available.
 		 */
 		skip() {
 			try {

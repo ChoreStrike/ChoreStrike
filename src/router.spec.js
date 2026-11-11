@@ -40,10 +40,6 @@ jest.mock('vue-router', () => ({
 	createWebHashHistory: jest.fn(() => ({})),
 }))
 
-jest.mock('./views/Dashboard.vue', () => ({
-	default: {},
-}))
-
 global.location = {
 	host: 'localhost',
 	pathname: '/',

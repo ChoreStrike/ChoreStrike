@@ -23,6 +23,9 @@ msgstr ""
 msgid "+{coins} Coins"
 msgstr ""
 
+msgid "1 day"
+msgstr ""
+
 msgid "1 task"
 msgstr ""
 
@@ -245,7 +248,7 @@ msgstr ""
 msgid "Already as planned"
 msgstr ""
 
-msgid "Also possible today"
+msgid "Also possible today · {count}"
 msgstr ""
 
 msgid "An absence is a period in which nothing is planned for you and nothing counts for or against anyone. Everyone enters their own under Absence; no reason and no request are needed."
@@ -392,9 +395,6 @@ msgstr ""
 msgid "Available:"
 msgstr ""
 
-msgid "Avg Cleanliness"
-msgstr ""
-
 msgid "Avg Daily Energy"
 msgstr ""
 
@@ -402,9 +402,6 @@ msgid "Away"
 msgstr ""
 
 msgid "Back"
-msgstr ""
-
-msgid "Back to Dashboard"
 msgstr ""
 
 msgid "Back to requests"
@@ -554,9 +551,6 @@ msgstr ""
 msgid "Clean"
 msgstr ""
 
-msgid "Clean Rooms"
-msgstr ""
-
 msgid "Clean basin, tap, and counter."
 msgstr ""
 
@@ -647,9 +641,6 @@ msgstr ""
 msgid "Coins"
 msgstr ""
 
-msgid "Collapse floor"
-msgstr ""
-
 msgid "Collect all mail and papers, sort into action, file, and recycle, and bin the junk right away."
 msgstr ""
 
@@ -734,9 +725,6 @@ msgstr ""
 msgid "Could not load this room"
 msgstr ""
 
-msgid "Could not load your household"
-msgstr ""
-
 msgid "Could not load your tasks"
 msgstr ""
 
@@ -762,12 +750,6 @@ msgid "Create First Floor"
 msgstr ""
 
 msgid "Create Task"
-msgstr ""
-
-msgid "Create your first floor to get started with organizing your home."
-msgstr ""
-
-msgid "Critical! 🚨"
 msgstr ""
 
 msgid "Crumb Snake"
@@ -810,9 +792,6 @@ msgid "Daily tasks: unlimited"
 msgstr ""
 
 msgid "Danger Zone"
-msgstr ""
-
-msgid "Dashboard"
 msgstr ""
 
 msgid "Day"
@@ -1118,15 +1097,6 @@ msgstr ""
 msgid "Exactly one of task or taskId is required"
 msgstr ""
 
-msgid "Excellent"
-msgstr ""
-
-msgid "Excellent! 🌟"
-msgstr ""
-
-msgid "Expand floor"
-msgstr ""
-
 msgid "Failed to add sub-task"
 msgstr ""
 
@@ -1215,12 +1185,6 @@ msgid "Failed to update task"
 msgstr ""
 
 msgid "Failed to update user role"
-msgstr ""
-
-msgid "Fair"
-msgstr ""
-
-msgid "Fair 📊"
 msgstr ""
 
 msgid "Fairness"
@@ -1368,18 +1332,6 @@ msgid "Glossary"
 msgstr ""
 
 msgid "Go room to room, empty the small bins, replace the liners, and take everything to the outdoor bins."
-msgstr ""
-
-msgid "Goal achieved!"
-msgstr ""
-
-msgid "Goal: {target}%"
-msgstr ""
-
-msgid "Good"
-msgstr ""
-
-msgid "Good! 👍"
 msgstr ""
 
 msgid "Ground Floor"
@@ -1574,9 +1526,6 @@ msgstr ""
 msgid "Kitchen"
 msgstr ""
 
-msgid "Last cleaned: {time}"
-msgstr ""
-
 msgid "Last done on"
 msgstr ""
 
@@ -1628,9 +1577,6 @@ msgstr ""
 msgid "Loading activity…"
 msgstr ""
 
-msgid "Loading floors…"
-msgstr ""
-
 msgid "Loading game …"
 msgstr ""
 
@@ -1638,9 +1584,6 @@ msgid "Loading members…"
 msgstr ""
 
 msgid "Loading requests…"
-msgstr ""
-
-msgid "Loading rooms…"
 msgstr ""
 
 msgid "Loading the catalog…"
@@ -1683,6 +1626,9 @@ msgid "Mark as complete"
 msgstr ""
 
 msgid "Mark as done"
+msgstr ""
+
+msgid "Mark “{name}” as done"
 msgstr ""
 
 msgid "Max daily tasks must be an integer between 1 and 100"
@@ -1754,19 +1700,16 @@ msgstr ""
 msgid "My Availability"
 msgstr ""
 
-msgid "My Day"
-msgstr ""
-
 msgid "My Energy Budget"
 msgstr ""
 
 msgid "My House"
 msgstr ""
 
-msgid "My Private Tasks"
+msgid "My Requests"
 msgstr ""
 
-msgid "My Requests"
+msgid "My status"
 msgstr ""
 
 msgid "My tasks"
@@ -1781,13 +1724,7 @@ msgstr ""
 msgid "Need cleaning"
 msgstr ""
 
-msgid "Needs attention ⚠️"
-msgstr ""
-
 msgid "Neutral"
-msgstr ""
-
-msgid "Never"
 msgstr ""
 
 msgid "New Personal Best!"
@@ -1809,9 +1746,6 @@ msgid "New title: {title}"
 msgstr ""
 
 msgid "Next"
-msgstr ""
-
-msgid "Next appointments"
 msgstr ""
 
 msgid "Next due shifts based on when you complete the task"
@@ -1839,9 +1773,6 @@ msgid "No due date"
 msgstr ""
 
 msgid "No floors created yet"
-msgstr ""
-
-msgid "No floors yet"
 msgstr ""
 
 msgid "No history yet"
@@ -2021,9 +1952,6 @@ msgstr ""
 msgid "Open Rewards"
 msgstr ""
 
-msgid "Open room"
-msgstr ""
-
 msgid "Open the Rewards catalog to request a reward."
 msgstr ""
 
@@ -2064,6 +1992,9 @@ msgid "Overdue by 1 day"
 msgstr ""
 
 msgid "Overdue by {days} days"
+msgstr ""
+
+msgid "Overdue · {count}"
 msgstr ""
 
 msgid "Overloaded days ahead"
@@ -2136,9 +2067,6 @@ msgid "Player"
 msgstr ""
 
 msgid "Please select at least one day"
-msgstr ""
-
-msgid "Poor"
 msgstr ""
 
 msgid "Preference row missing after update"
@@ -2285,19 +2213,10 @@ msgstr ""
 msgid "Refresh"
 msgstr ""
 
-msgid "Refresh floors"
-msgstr ""
-
-msgid "Refresh house health"
-msgstr ""
-
 msgid "Refresh the tile grout."
 msgstr ""
 
 msgid "Refund the Coins"
-msgstr ""
-
-msgid "Reload"
 msgstr ""
 
 msgid "Remove"
@@ -2579,9 +2498,6 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-msgid "Shared weekly goal: {percent}% of {target}%"
-msgstr ""
-
 msgid "Shares must be positive whole percents"
 msgstr ""
 
@@ -2768,9 +2684,6 @@ msgstr ""
 msgid "Tap two socks to turn them, or move with the arrow keys and turn with Enter. Space pauses."
 msgstr ""
 
-msgid "Target: {target}%"
-msgstr ""
-
 msgid "Task"
 msgstr ""
 
@@ -2826,9 +2739,6 @@ msgid "Template \"%1$s\" is not available for level \"%2$s\""
 msgstr ""
 
 msgid "Template not found: %1$s"
-msgstr ""
-
-msgid "Terrible"
 msgstr ""
 
 msgid "Text"
@@ -2963,7 +2873,7 @@ msgstr ""
 msgid "The household ranking is opt-in. A house owner can enable it in the settings — every member then decides on their own participation."
 msgstr ""
 
-msgid "The household reward currency for completed work. The balance lives in the household overview — never on My Day. Available Coins can be requested; reserved Coins back open requests and are only spent on actual delivery."
+msgid "The household reward currency for completed work. Today shows your available balance. Available Coins can be requested; reserved Coins back open requests and are only spent on actual delivery."
 msgstr ""
 
 msgid "The item changed since it was displayed"
@@ -3269,9 +3179,6 @@ msgstr ""
 msgid "Total"
 msgstr ""
 
-msgid "Total Rooms"
-msgstr ""
-
 msgid "Total: {total}%"
 msgstr ""
 
@@ -3419,9 +3326,6 @@ msgstr ""
 msgid "Vacuum the room"
 msgstr ""
 
-msgid "View All Tasks"
-msgstr ""
-
 msgid "Visibility"
 msgstr ""
 
@@ -3465,9 +3369,6 @@ msgid "Weekly"
 msgstr ""
 
 msgid "Weekly Availability"
-msgstr ""
-
-msgid "Weekly Household Goal"
 msgstr ""
 
 msgid "Weekly Milestone"
@@ -3542,9 +3443,6 @@ msgstr ""
 msgid "Work top to bottom, dust the shelves and furniture, and wipe the window sill."
 msgstr ""
 
-msgid "Yesterday"
-msgstr ""
-
 msgid "You"
 msgstr ""
 
@@ -3584,9 +3482,6 @@ msgstr ""
 msgid "Your Best"
 msgstr ""
 
-msgid "Your Coins"
-msgstr ""
-
 msgid "Your Rank"
 msgstr ""
 
@@ -3599,16 +3494,13 @@ msgstr ""
 msgid "Your changes were kept — someone else updated the settings in the meantime. Review the server values and save again."
 msgstr ""
 
-msgid "Your day at a glance: what is due today, what is catch-up, and which appointments are coming."
+msgid "Your day at a glance: your own status, what is overdue, what is due today and what is already possible. Upcoming work is in the calendar."
 msgstr ""
 
 msgid "Your draft"
 msgstr ""
 
 msgid "Your home is set up!"
-msgstr ""
-
-msgid "Your household, organized together."
 msgstr ""
 
 msgid "Your other changes were saved."
@@ -3830,6 +3722,9 @@ msgstr ""
 msgid "titles.pack.family_rhythm"
 msgstr ""
 
+msgid "today pending"
+msgstr ""
+
 msgid "tomorrow"
 msgstr ""
 
@@ -3857,18 +3752,6 @@ msgstr ""
 msgid "{assigned} task(s) assigned, {skipped} skipped"
 msgstr ""
 
-msgid "{completed} of {due} tasks this week"
-msgstr ""
-
-msgid "{count} days ago"
-msgstr ""
-
-msgid "{count} months ago"
-msgstr ""
-
-msgid "{count} rooms"
-msgstr ""
-
 msgid "{count} selected"
 msgstr ""
 
@@ -3878,16 +3761,10 @@ msgstr ""
 msgid "{count} tasks"
 msgstr ""
 
-msgid "{count} weeks ago"
-msgstr ""
-
 msgid "{days} d ago"
 msgstr ""
 
-msgid "{days} days confirmed"
-msgstr ""
-
-msgid "{days} days confirmed — today pending"
+msgid "{days} days"
 msgstr ""
 
 msgid "{due} (±{days} days)"
@@ -3932,7 +3809,10 @@ msgstr ""
 msgid "{people}, {date}"
 msgstr ""
 
-msgid "{percent}% clean"
+msgid "{percent}%"
+msgstr ""
+
+msgid "{planned} of {capacity}"
 msgstr ""
 
 msgid "{planned}/{budget} — over capacity"

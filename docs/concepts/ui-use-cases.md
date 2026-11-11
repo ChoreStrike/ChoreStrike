@@ -15,11 +15,11 @@ its pruned routes or superseded write bodies are available.
 | Agreed one-occurrence handover | In the expanded room/task details, an owner chooses one member and attests agreement before recording the handover. That member takes the occurrence's full responsibility; future assignments stay unchanged. My Day follows current obligations rather than replaced defaults, while voluntary actual-work shares remain separate. Success and conflict refresh the displayed receipt. Same-occurrence conflicts preserve drafts; a replacement occurrence clears drafts and consent with an explicit warning, never silently retargeting the agreement. |
 | Task creation readiness | Task Manager enables New Task only after the initial definition/instance/count reads succeed. A failed load requires retry first, so creation cannot race those initial snapshots or appear to disappear after a successful write. The aggregate response still renders the task without a post-create refetch. |
 | Task discovery | Task Manager defaults to the current person's assigned tasks plus unassigned work. My tasks / Unassigned / Everyone are explicit buttons; choosing a person switches to everyone-scoped filtering, and floor/room filters compose with it. Changing floors clears the room selection. Assignment names are visible without expansion. These are display filters, never authorization changes. |
-| Upcoming appointments | My Day's agreed appointment rows are keyboard/touch links to the task's room. The visible Open room action identifies the destination; navigation does not complete or reschedule an occurrence. |
+| Upcoming appointments | The calendar shows them. Today no longer lists the next agreed appointments (CS-PLAN-090 WP-B, D-090-11). |
 | Completion participation | Initial completion requires the signed-in actor to have a positive actual-work share. The dialog refuses missing identity or an excluded actor with an explanation; attribution correction intentionally does not require the correcting owner to participate. |
-| Scheduling | Owner preview is read-only, one `POST /scheduling/apply` persists the selected rows, and My Day/Calendar reconcile from canonical stores. |
+| Scheduling | Owner preview is read-only, one `POST /scheduling/apply` persists the selected rows, and Today/Calendar reconcile from canonical stores. |
 | Completion and undo | One complete receipt freezes the work evidence and updates wallet/contribution/streak/room/checklist projections before events (WP3 minor units, ADR-014). The queued targeted undo reverses the latest selected allocation from the valid history, including after reload; medals and sent notifications are not revoked. The Insights history exposes the authorized correction (completer/owner `canCorrect`) reusing the participation form; a 409 keeps the draft. |
-| Child/mobile | Bare-root child entry lands on My Day. Focused member/child mobile tests retain 44px controls, role gating and checklist execution. |
+| Child/mobile | The bare root lands on Today for every role. Focused member/child mobile tests retain 44px controls, role gating and checklist execution. |
 | Localization | Real Nextcloud DE and EN rendering is tested in `family-core-ux.spec.ts`; source/catalog ownership and artifacts are enforced globally. |
 | Arcade | Five household games on one shell (Spot Sprint, Sock Match, Crumb Snake, Tile Breaker, Dust Runner), scores only and per game; access unlocks from finished chores unless an owner switches the gate off (CS-PLAN-086, ADR-019). The server `ArcadeCatalog` is the only game list. |
 
@@ -35,7 +35,7 @@ records the thirteen explicit C5 answers. The family evidence (C5j) remains open
 
 | Surface | Approved target |
 |---|---|
-| Entry after setup | My Day for adults and children: today's personal agreements and next appointments. Keep planning, household and open requests reachable, without making arcade/catalog/rankings the primary area. |
+| Entry after setup | Today for adults and children, the one landing page: the own status (open energy against the day, weekly goal, streak, Coins), overdue work first, today's agreements and what is already possible. Keep planning, household and open requests reachable, without making arcade/catalog/rankings the primary area. The Dashboard merged into Today; `/dashboard` redirects (CS-PLAN-090 WP-B). |
 | Catch-up/overload | Separate catch-up without stacks of identical cards; show overload as a clarification need, not a demand to clear all accumulated work. |
 | Progress | Small confirmed personal streak/shared weekly progress line, with pending/provisional and neutral states distinguished. A free day is a neutral empty view, not an invitation to manufacture work. |
 | Completion | Short visible confirmation with undo access and no interrupting award modal. Sound requires a personal opt-in; the celebration animation is on by default since CS-PLAN-090 (D-090-05) and each person can switch it off. |
@@ -134,17 +134,17 @@ without a dedicated endpoint call.
 
 | UC | Use case | Primary surfaces |
 |---|---|---|
-| 01 | First-run setup & house creation | Dashboard → SetupWizard |
-| 02 | House administration | Settings, Dashboard |
-| 03 | Structure: floors | FloorList (Dashboard), Settings |
-| 04 | Structure: rooms | FloorList, RoomDetail |
+| 01 | First-run setup & house creation | TodayView → SetupWizard |
+| 02 | House administration | Settings, InsightsView |
+| 03 | Structure: floors | Settings |
+| 04 | Structure: rooms | Settings, RoomDetail |
 | 05 | Task definitions (catalog) | TaskManager |
 | 06 | Task creation (materialize room tasks) | RoomDetail, TaskManager |
 | 07 | Task lifecycle maintenance | RoomDetail, TaskManager, TaskList |
-| 08 | Daily execution ("My Day") | TodayView, TaskList |
+| 08 | Daily execution (Today) | TodayView, TaskList |
 | 09 | Assignment & teamwork | TaskList, TodayView |
 | 10 | Planning: availability, energy, task plans | SchedulingView |
-| 11 | Progress & gamification | Dashboard, Leaderboard, Settings |
+| 11 | Progress & gamification | TodayView (status line), Leaderboard, Settings |
 | 12 | Minigames | ArcadeCatalog (optional Arcade view) |
 | 13 | Members, roles & household changes | Settings → MemberList |
 | 14 | Notifications & reminders | (passive — no surface yet) |
@@ -155,11 +155,11 @@ without a dedicated endpoint call.
 ## UC-01 — First-run setup & house creation
 
 **Goal:** new household is playable within minutes. **Personas:** Owner.
-**Entry points:** app open with empty house → SetupWizard (auto).
+**Entry points:** app open with empty house → SetupWizard (auto, on Today); *Set up your home* on Today and under *Floors & Rooms* in Settings while the house has no floors (`SetupWizardEntry`, CS-PLAN-090 D-090-12).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Auto-create house on first open | Dashboard mount | `GET /house` | ✅ |
+| Auto-create house on first open | first authenticated read (`App.vue` membership bootstrap) | `GET /house` | ✅ |
 | Guided wizard: house name, home type, floor/room counts, cleaning level | SetupWizard step 1 | `GET /setup/catalog` | ✅ |
 | Room list editing (rename, type, person per room, add/remove) | SetupWizard step 2 | client state | ✅ |
 | Preview (floors/rooms/≈tasks) + apply | SetupWizard step 3 | `POST /setup/apply` | ✅ |
@@ -171,13 +171,13 @@ without a dedicated endpoint call.
 ## UC-02 — House administration
 
 **Goal:** rename, monitor, reset the household. **Personas:** Owner (member
-visibility should be read-only). **Entry points:** Settings; Dashboard bars.
+visibility should be read-only). **Entry points:** Settings; Insights.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Rename house | Settings | `PUT /house` | ⚠️ silent save, no toast (UX-006) |
-| House health bar | Dashboard `HouseHealthBar` | `GET /house/health` | ✅ |
-| Household weekly goal bar | Dashboard `HouseholdGoalBar` | client state | ✅ |
+| House health bar | — | `GET /house/health` | ⛔ removed with the Dashboard (CS-PLAN-090 WP-B, D-090-11); house health shows in the Insights statistics, and the route stays without a client until Release B |
+| Household weekly goal | TodayView status line (`TodayStatusLine`) | `GET /game/state` | ✅ (CS-PLAN-090 WP-B; the Dashboard bar is gone) |
 | House statistics | InsightsView `HouseStatsCards` | `GET /house/stats` | ✅ (live since CS-PLAN-040; wrapper renamed to `fetchInsights`) |
 | Reset house (typed `RESET` confirm) | Settings danger zone | `POST /house/reset` | ✅ server owner-gated |
 | Role-gate owner controls in Settings | Settings template (`v-if` owner role) | — | ✅ (CS-PLAN-042: house/floors/danger/members sections hidden for members — no 403 paths) |
@@ -185,22 +185,21 @@ visibility should be read-only). **Entry points:** Settings; Dashboard bars.
 ## UC-03 — Structure: floors
 
 **Goal:** model the home's storeys. **Personas:** Owner. **Entry points:**
-Settings (sole CRUD+reorder surface); Dashboard `FloorList` (read-only).
+Settings (sole CRUD+reorder surface).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| List floors with rooms | FloorList | `GET /floors/with-rooms` | ✅ |
-| Add floor (modal: name) | Settings | `POST /floors` | ✅ (single surface since CS-PLAN-042; FloorList is read-only) |
+| List floors with rooms | Settings structure section | `GET /floors/with-rooms` | ✅ (the read-only Dashboard `FloorList` is gone, CS-PLAN-090 WP-B) |
+| Add floor (modal: name) | Settings | `POST /floors` | ✅ (single surface since CS-PLAN-042) |
 | Rename floor (modal) | Settings | `PUT /floors/{id}` | ✅ (styled confirm/toasts; CS-PLAN-041/042) |
 | Delete floor (styled confirm) | Settings | `DELETE /floors/{id}` | ✅ (CS-PLAN-041) |
 | Reorder floors (up/down buttons) | Settings floor rows | `POST /floors/reorder` | ✅ (CS-PLAN-042) |
-| Expand/collapse, per-floor stats | FloorList, Settings room list | client state | ✅ |
+| Expand/collapse a floor | Settings room list | client state | ✅ |
 
 ## UC-04 — Structure: rooms
 
 **Goal:** model rooms and their state. **Personas:** Owner. **Entry points:**
-Settings (create/delete), RoomDetail (rename/delete), FloorList (cards,
-read-only).
+Settings (create/delete), RoomDetail (rename/delete).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
@@ -209,8 +208,8 @@ read-only).
 | Delete room (styled confirm) | RoomDetail header; Settings floor room list | `DELETE /rooms/{id}` | ✅ (CS-PLAN-042) |
 | Cleanliness change (Quick clean +10) | — | `PUT /rooms/{id}/cleanliness` | ⛔ control removed (FEAT-UX-048); the route stays until FEAT-UX-050 (D-089-09), and retained entries keep replaying |
 | "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ⛔ pruned (CS-PLAN-055 — route + dead `fetchRoomsNeedingCleaning` wrapper gone) |
-| Open room detail | RoomCard: the room name is the card's one link, stretched over the card (click anywhere, Tab + Enter) → RoomDetail | `GET /room-tasks?roomId=` | ✅ (keyboard access CS-PLAN-084 WP-C) |
-| Room-card task counts (active/overdue/due today) | RoomCard on the Dashboard | ONE house-wide `GET /room-tasks` on Dashboard load (request budget pinned in `workflow-request-budgets.spec.ts`) | ✅ (CS-PLAN-084 WP-C; before, the counts showed only rooms whose tasks another view had loaded) |
+| Open room detail | by address (`/room/:id`) until the tasks are grouped by room (CS-PLAN-090 WP-C); the Dashboard room cards are gone (WP-B) | `GET /room-tasks?roomId=` | ⚠️ no link in the interface between WP-B and WP-C |
+| Room-card task counts (active/overdue/due today) | — | — | ⛔ removed with the room cards (CS-PLAN-090 WP-B); room headings with counts follow in WP-C |
 | Task stats card (total/active/overdue/due-today/completion) | RoomDetail stats card | `GET /room-tasks/room/{roomId}/stats` | ✅ (live since CS-PLAN-040; cross-house roomId → 404; overdue/due-today follow the list-row `status` since CS-PLAN-084 RF-084-02) |
 
 ## UC-05 — Task definitions (catalog)
@@ -226,7 +225,7 @@ points:** TaskManager.
 | Delete definition | — | `DELETE /tasks/{id}` | ⛔ pruned (CS-PLAN-055) |
 | Search definitions | — | `GET /tasks/search` | ⛔ pruned (CS-PLAN-055) |
 | Browse by category / categories | — | `GET /tasks/category/{c}`, `GET /tasks/categories` | ⛔ pruned (CS-PLAN-055) |
-| Private (personal) task list | Dashboard chip → TaskManager visibility filter | `GET /tasks` + client-side `?visibility=private` scope | ✅ (CS-PLAN-041; `GET /tasks/my-private` was pruned in CS-PLAN-055 — the client-side filter is the only path) |
+| Private (personal) task list | TaskManager visibility filter (the Dashboard chip is gone, CS-PLAN-090 WP-B) | `GET /tasks` + client-side `?visibility=private` scope | ✅ (CS-PLAN-041; `GET /tasks/my-private` was pruned in CS-PLAN-055 — the client-side filter is the only path) |
 | Task-level complete/skip/reschedule/daily | — | legacy `PUT /tasks/{id}/…`, `GET /tasks/daily` | ⛔ pruned (CS-PLAN-055; RoomTask equivalents are the live completion path; `PUT /tasks/{id}/uncomplete` stays as the undo primitive) |
 
 ### `/tasks` query presets (router contract, CS-PLAN-084 WP-C/WP-D)
@@ -275,25 +274,27 @@ points:** RoomDetail (slim modal), TaskManager, TaskList.
 | Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate`/`uncomplete` followed by CS-PLAN-064) |
 | Undo a completion (snackbar) | global `UndoSnackbar` queued list (~5 s per entry, UX-015; single tap, never a hold) | `POST /completions/{id}/undo` — targeted correction of the exact completion (WP3; replaced the CS-PLAN-064 `POST /room-tasks/{id}/undo` aggregate) | ✅ exact server-side restore: recurrence, ledger, rewards/streak, cleanliness, checklist (CS-PLAN-064/ADR-011; the CS-PLAN-041 `uncomplete`+conditional-`reactivate` chain was pruned, D5) |
 
-## UC-08 — Daily execution ("My Day")
+## UC-08 — Daily execution (Today)
 
 **Goal:** one surface answering "what do I do today?" — the core loop for
-Member/child. **Entry points:** `/today` route; Dashboard stat cards link in;
-**role-based landing (CS-PLAN-066 D4): a child's initial bare-root visit opens
-My Day automatically** (explicit deep links and later Dashboard visits stay
-usable; owners/members keep the Dashboard default).
+every role. **Entry points:** the bare root and `/today`; `/dashboard` redirects
+here. **Landing (CS-PLAN-070 WP6, CS-PLAN-090 WP-B): every role lands on
+Today**; explicit deep links stay usable.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Personalized daily list (child-aware limits) | TodayView | `GET /room-tasks/filtered-daily` | ✅ CS-PLAN-065 (D4): child eligibility (own-or-unassigned) runs before the availability gate and the child limit; the read order is `nextDue, createdAt, id` and rows embed their canonical `assignees` |
 | My tasks ↔ Everyone filter | TodayView | client-side | ✅ (default: My tasks) |
-| Overdue section | TodayView | `GET /room-tasks/overdue` | ✅ |
+| Overdue block (first, red; one row per chore with its planned date, window end and days since) | TodayView → `TodayTaskRow` | `GET /room-tasks/overdue` | ✅ (CS-PLAN-090 WP-B) |
 | Short household instructions per row | TodayView | definition `instructions` (falls back to `description`) | ✅ CS-PLAN-066 §3.5 (plain escaped text, never v-html) |
-| Optional expandable checklist in My Day | TodayView → `TaskChecklist` (execute-only: `can-edit=false`, frozen when completed) | `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}`, `POST /checklists/toggle/{rt}/{item}` | ✅ CS-PLAN-066 §3.5 (progress refreshes after the server-side occurrence reset on completion; checklist-less rows hide the toggle after the one-shot empty discovery — final-review a11y fix 2026-09-12) |
+| Optional expandable checklist on Today | `TodayTaskRow` → `TaskChecklist` (execute-only: `can-edit=false`, frozen when completed) | `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}`, `POST /checklists/toggle/{rt}/{item}` | ✅ CS-PLAN-066 §3.5 (progress refreshes after the server-side occurrence reset on completion; checklist-less rows hide the toggle after the one-shot empty discovery — final-review a11y fix 2026-09-12) |
 | Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager — Done is a 600 ms press-and-hold with a short-tap hint and one in-flight request per room task (CS-PLAN-084 WP-E) | `POST /room-tasks/{id}/complete` | ✅ (CS-PLAN-065 D7 removed the dead per-completion energy-counter store write; CS-PLAN-066 reconciles every owning store before the events and re-syncs the titles store before the title-unlocked event fires once per response) |
-| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ CS-PLAN-066 (D2): the counters read dedicated endpoint-backed projections loaded on the cold Dashboard; a scoped room load or the child-limited daily list can never overwrite them; the coordinated derived refresh (D3) keeps them truthful after mutations. CS-PLAN-084 WP-C: every tile acts — Due Today → My Day, Overdue → `/tasks?status=overdue&scope=all`, Total rooms / Clean rooms / Avg cleanliness expand every floor and focus the floor list (in-page buttons) |
+| Counts of due and overdue work | TaskManager stats bar; Today's overdue heading | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ CS-PLAN-066 (D2): the counters read dedicated endpoint-backed projections; a scoped room load or the child-limited daily list can never overwrite them; the coordinated derived refresh (D3) keeps them truthful after mutations. The Dashboard tiles are gone (CS-PLAN-090 WP-B); `/tasks?status=overdue&scope=all` stays as an address |
 | Per-row assignee resolution | TodayView | daily AND overdue rows embed canonical `assignees` (D1) | ✅ CS-PLAN-066 (no per-row re-fetch remains) |
 | Partial derived-refresh failure | TodayView | read-only retry of the loaded projections | ✅ CS-PLAN-066 (D3): a committed action stays successful; stale slices offer a refresh-only retry |
+| Own status (open energy against the day, weekly goal, streak, Coins) | TodayView → `TodayStatusLine` | `GET /game/state`, `GET /scheduling/preferences` (both optional: a dash until read) | ✅ CS-PLAN-090 WP-B |
+| Work already possible today (open flex window) | TodayView, collapsed behind one line | `GET /room-tasks/filtered-daily` (`openWindow`) | ✅ BUG-UX-005, CS-PLAN-090 WP-B |
+| Next appointments | — | — | ⛔ removed from Today (CS-PLAN-090 D-090-11); the calendar shows upcoming work |
 | Checklist toggle while completing | TaskList → `TaskChecklist` | `POST /checklists/toggle/{rt}/{item}`, `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}` | ✅ |
 | Checklist editor (add/edit/delete/reorder items) | TaskList → `TaskChecklist` (owner-only `can-edit`) | `POST /checklists/task/{id}`, `PUT+DELETE /checklists/item/{id}`, `POST /checklists/reorder` | ✅ (unlocked for owners since CS-PLAN-042; store speaks the backend contract: `label`/`sortOrder`, `itemOrders` map, `{items, stats}` progress envelope) |
 | Complete/assign from calendar day | CalendarView | — | ❌ read-only (review W6) |
@@ -339,12 +340,12 @@ preview/apply). **Entry points:** SchedulingView.
 ## UC-11 — Progress & gamification
 
 **Goal:** make contribution visible and rewarding. **Personas:** all.
-**Entry points:** Dashboard, Leaderboard, Settings.
+**Entry points:** Today, Leaderboard, Settings.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Coin balance | — | `GET /minigames/coins` | ⛔ retired with the WP3 no-Coin arcade cutover (T10/D7d) |
-| Game/global state (streaks, goal) | Dashboard | `GET /game/state` | ✅ |
+| Game/global state (streak, goal, own Coins) | TodayView status line | `GET /game/state` | ✅ |
 | Weekly ranking (opt-in, consent-filtered) | Leaderboard | `GET /ranking` + `POST /ranking/(consent\|withdraw)`; the unconditional `GET /users` ranking (`getLeaderboard`) and the pruned test-only `GET /game/leaderboard` are gone (CS-PLAN-070 WP4) | ✅ |
 | Ranking flag (owner) | Settings → House | `PUT /house` (`rankingEnabled`, default off) | ✅ |
 | Leaderboard period filter (week/month/all) | Leaderboard | — | ⛔ removed (CS-PLAN-041): the ranking view has no period parameter; a filter that changes nothing is dishonest UI |

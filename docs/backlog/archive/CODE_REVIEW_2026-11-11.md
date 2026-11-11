@@ -86,3 +86,77 @@ build.
 None: an interim review. WP-B to WP-E and WP-G are open, and so is RF-090-12 (WP-G). FEAT-UX-067
 keeps its row-feedback criterion open until WP-B (D-090-30). One scoped review commit; no merge,
 push, tag or deployment.
+
+## Standard B - CS-PLAN-090 WP-B today (interim)
+
+**Outcome:** `PASS-WITH-FIXES`. Interim review of WP-B (FEAT-UX-062); the plan stays in `active/`.
+
+### Scope and capture
+
+- `/review-chorestrike` without arguments, tier Standard B, no subagents. The main checkout on
+  `master` was clean; the only non-empty candidate was the pinned worktree `docs/release-a-plan`,
+  whose uncommitted change set is WP-B.
+- Base HEAD `c058b52cdd8348734f693d10214f6b987bd42a39` (the WP-F review commit), 3 ahead and
+  0 behind `master`, pin matching the branch.
+- Index: 16 staged deletions and one staged rename (`dashboard.spec.ts` to
+  `task-deep-links.spec.ts`); 104 modified tracked files; 11 untracked paths (`SetupWizardEntry.vue`,
+  `TodayStatusLine.vue`, `TodayTaskRow.vue`, `useTaskCompletion.js`, `todaySections.js`,
+  `tests/e2e/fixtures/rooms.ts` and five Jest specs). Scope fingerprint over the staged and
+  unstaged binary diffs and the sorted untracked paths with their SHA-256:
+  `4c9d8bf87201215fa1bc1ab3b77dd288be9e9bd69b26ce3ab1bb81837c0b840a`.
+- Owning plan CS-PLAN-090; the other active plan, CS-PLAN-080, owns none of these files. No PHP,
+  `appinfo/`, migration or Docker file changed.
+- Read: the new Today view, its row, status line, section rules and setup entry; the shared
+  completion composable and its three hosts (Today, Tasks, the room page); the router, the
+  navigation, the removed store state and getters and their last readers; the scheduling getter
+  for the own capacity; the help texts; the browser fixture `rooms.ts`, the scenario manifest
+  against `HEAD` (each of the 40 removed and 32 added scenarios), the gate manifest, the package
+  owner smoke and the screenshot scenes; and the concept, guide, API, architecture, testing and
+  release-test-plan diffs.
+
+### Findings
+
+| ID | Severity | Area | Issue | Resolution |
+|---|---|---|---|---|
+| RF-090-16 | nit | `TodayView.vue` | The count next to *Due today* said "1 tasks" for a single row: the new label had no singular branch | Fixed: the existing `1 task` key, as in `Settings.vue`, with a Jest case |
+
+Safe fixes without a finding ID: `release-test-plan.md` still opened the arcade on the Dashboard
+(stale since CS-PLAN-086), `task-model-and-sync.md` still listed the Dashboard as a completion
+surface, and the size table of `architecture.md` gave `RoomDetail.vue` 778 non-blank lines where
+it has 782 after RF-090-15. FEAT-UX-067's last criterion is checked: WP-B keeps a recurring row
+that leaves *Today* in place with its check mark (D-090-36).
+
+Checked without findings: the completion flow exists once and keeps the three hosts' rules (the
+dialog for foreign or shared work, an unresolved identity opens it, a confirmed claim completes
+directly, failures toast). A held row is inserted at the place it stood and removed from every
+other section, so a completed miss is not shown twice. The status line counts the viewer's own
+open work whatever the filter shows, and shows a dash until each read delivered; the view renders
+only after the membership bootstrap, so the viewer is known. The setup entry needs a successful
+floor read on Today and sits behind the successful structure read in Settings. The redirect and
+the removed routes keep their server routes, as D-090-10 and D-090-38 say. The scenario record
+holds: 335 to 327 pinned scenarios, eleven dropped with their surface, three new, every other one
+renamed with its successor, no minimum count lowered. Every new string goes through `t()` with
+real German.
+
+### Questions and decisions
+
+None asked. D-090-33 to D-090-40 are positions within the confirmed plan and bind with this
+review. No question is open.
+
+### Gates
+
+On the final tree:
+
+- `npm test` (160 suites, 2304 tests), `npm run lint`, stylelint, `l10n:check-keys` (1277 keys),
+  `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check` and `npm run build`: green.
+- Browser gate, 5 projects, 52 required specs, 353 tests each with none skipped, failed or
+  flaky: the primary row (canonical stack, `run-H7fdXI`) and the AIO row (Nextcloud 34.0.5 with
+  Redis, `run-k4TsjY`). The count fell from 361 by the eight scenarios of the record above.
+- Not required and not run: PHPUnit, because no PHP, `appinfo/` or migration file changed; the
+  package smoke, which builds from a clean committed HEAD and belongs to the qualification of
+  WP-G, where the changed owner smoke runs.
+
+### Transition
+
+None: an interim review. WP-C to WP-E and WP-G are open, and so are RF-090-12 (WP-G) and
+RF-090-14 (WP-C). One scoped review commit; no merge, push, tag or deployment.

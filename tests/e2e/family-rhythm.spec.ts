@@ -36,10 +36,11 @@ import {
 	postCompletionWithReceipt,
 	resolveOccurrenceReceipt,
 } from './fixtures/completion-api.ts'
-import { expandAllFloors } from './fixtures/dashboard-floors.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
+import { openRoom } from './fixtures/rooms.ts'
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const OCCURRENCE_KEY_RE = /^\d+:\d+$/
 
@@ -139,11 +140,7 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
-			await expandAllFloors(page)
-			await page.getByTestId('room-card-Kitchen').first().click()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+			await openRoom(page, 'Kitchen')
 
 			const completeButton = page.getByTestId('complete-task-button').first()
 			await expect(completeButton).toBeVisible({ timeout: 15000 })
@@ -288,7 +285,11 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 			const roomTaskId = (await created.json()).data.roomTask.id as number
 
 			await page.goto('/apps/chorestrike/#/today')
-			await expect(page.getByTestId('today-section-open-window')).toBeVisible({ timeout: 20000 })
+			// Work that is only possible today waits behind one line.
+			const possible = page.getByTestId('today-section-open-window')
+			await expect(possible).toHaveAttribute('aria-expanded', 'false', { timeout: 20000 })
+			await expect(page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(0)
+			await possible.click()
 			await expect(page.getByTestId(`today-open-window-planned-${roomTaskId}`)).toBeVisible()
 			const completed = page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
 			await holdToConfirm(page.getByTestId(`today-complete-button-${roomTaskId}`))
@@ -328,9 +329,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			const roomTaskId = await createProbeTask(owner.page, name, ['mom'])
 			const receipt = await resolveOccurrenceReceipt(owner.page, roomTaskId)
 			expect(receipt).not.toBeNull()
-			await owner.page.goto('/apps/chorestrike/#/dashboard')
-			await expandAllFloors(owner.page)
-			await owner.page.getByTestId('room-card-Kitchen').first().click()
+			await openRoom(owner.page, 'Kitchen')
 			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
 			await row.getByRole('button', { name: 'Show details', exact: true }).click()
 			const handover = row.getByTestId('agreement-handover')
@@ -408,9 +407,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			const roomTaskId = await createProbeTask(owner.page, name, ['mom'], houseDateOffset(0, zone))
 			const receipt = await resolveOccurrenceReceipt(owner.page, roomTaskId)
 			expect(receipt).not.toBeNull()
-			await owner.page.goto('/apps/chorestrike/#/dashboard')
-			await expandAllFloors(owner.page)
-			await owner.page.getByTestId('room-card-Kitchen').first().click()
+			await openRoom(owner.page, 'Kitchen')
 			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
 			await row.getByRole('button', { name: 'Show details', exact: true }).click()
 			const amendResponse = () => owner.page.waitForResponse((response) => response.request().method() === 'POST'

@@ -31,13 +31,12 @@ const ACTIONS = ['planPreview', 'notificationSettings', 'completeTask']
 
 const SCENES = [
 	{ output: 'my-day.png', role: 'teen', route: '/today', ready: 'today-view', viewport: DESKTOP },
-	{ output: 'dashboard.png', role: 'mom', route: '/dashboard', ready: 'dashboard-view', viewport: DESKTOP },
 	{ output: 'weekly-planner.png', role: 'mom', route: '/scheduling', ready: 'scheduling-view', viewport: DESKTOP, action: 'planPreview' },
 	{ output: 'reward-catalog.png', role: 'teen', route: '/rewards', ready: 'rewards-view', viewport: DESKTOP },
 	{ output: 'guide-settings.png', role: 'teen', route: '/settings', ready: 'settings-view', viewport: DESKTOP, action: 'notificationSettings' },
 	{ output: 'guide-my-day-phone.png', role: 'teen', route: '/today', ready: 'today-view', viewport: PHONE },
 	{ output: 'guide-undo-phone.png', role: 'teen', route: '/today', ready: 'today-view', viewport: PHONE, action: 'completeTask' },
-	{ output: 'guide-setup-wizard.png', role: 'mom', route: '/dashboard', ready: 'setup-wizard', viewport: DESKTOP, prepare: 'emptyHousehold' },
+	{ output: 'guide-setup-wizard.png', role: 'mom', route: '/today', ready: 'setup-wizard', viewport: DESKTOP, prepare: 'emptyHousehold' },
 ]
 
 /**

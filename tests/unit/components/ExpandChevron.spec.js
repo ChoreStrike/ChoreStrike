@@ -27,7 +27,7 @@ describe('ExpandChevron', () => {
 	it.each([
 		'views/Settings.vue',
 		'views/TodayView.vue',
-		'components/Dashboard/FloorList.vue',
+		'components/Today/TodayTaskRow.vue',
 		'components/Tasks/TaskFilterBar.vue',
 		'components/Tasks/TaskListItem.vue',
 	])('is the expand mark of %s', (file) => {

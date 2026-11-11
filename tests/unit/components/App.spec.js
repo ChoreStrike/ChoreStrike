@@ -42,7 +42,7 @@ describe('App', () => {
 			const html = mountApp().html()
 
 			expect(html).toContain('data-testid="nav-today"')
-			expect(html).toContain('data-testid="nav-dashboard"')
+			expect(html).not.toContain('data-testid="nav-dashboard"')
 			expect(html).toContain('data-testid="nav-tasks"')
 			expect(html).toContain('data-testid="nav-leaderboard"')
 			expect(html).toContain('data-testid="nav-insights"')
@@ -54,14 +54,15 @@ describe('App', () => {
 			expect(html).toContain('data-testid="nav-settings"')
 		})
 
-		it('renders the persistent entries with My Day first (C5f); the catalog entry is gated', () => {
+		it('renders the persistent entries with Today first (C5f); the catalog entry is gated', () => {
 			const wrapper = mountApp()
 			const navItems = wrapper.findAllComponents({ name: 'NcAppNavigationItem' })
 
-			// Eleven persistent entries (nine WP6 entries, My Requests and
-			// Absence, ADR-020);
+			// Ten persistent entries: the WP6 entries without the Dashboard
+			// (CS-PLAN-090 WP-B), My Requests and Absence (ADR-020);
 			// the Rewards catalog entry renders only when both gates open.
-			expect(navItems).toHaveLength(11)
+			expect(navItems).toHaveLength(10)
+			expect(navItems[0].attributes('data-testid')).toBe('nav-today')
 			expect(wrapper.html()).toContain('data-testid="nav-today"')
 			expect(wrapper.find('[data-testid="nav-today"]').exists()).toBe(true)
 			expect(wrapper.find('[data-testid="nav-rewards"]').exists()).toBe(false)
@@ -72,7 +73,7 @@ describe('App', () => {
 			const navItems = mountApp().findAllComponents({ name: 'NcAppNavigationItem' })
 			const icons = navItems.map((item) => item.find('.icon').text())
 
-			expect(icons).toHaveLength(11)
+			expect(icons).toHaveLength(10)
 			icons.forEach((name) => expect(name).not.toBe(''))
 			expect(new Set(icons).size).toBe(icons.length)
 		})
@@ -125,7 +126,7 @@ describe('App', () => {
 
 			expect(store.membership).toBe('unknown')
 			expect(wrapper.find('[data-testid="not-authorized-state"]').exists()).toBe(false)
-			expect(wrapper.find('[data-testid="nav-dashboard"]').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="nav-today"]').exists()).toBe(true)
 
 			store.membership = 'member'
 			expect(wrapper.find('[data-testid="not-authorized-state"]').exists()).toBe(false)
@@ -139,7 +140,7 @@ describe('App', () => {
 			await wrapper.vm.$nextTick()
 
 			expect(wrapper.find('[data-testid="not-authorized-state"]').exists()).toBe(true)
-			expect(wrapper.find('[data-testid="nav-dashboard"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="nav-today"]').exists()).toBe(false)
 			expect(wrapper.find('[data-testid="not-authorized-retry"]').exists()).toBe(true)
 		})
 
@@ -220,7 +221,7 @@ describe('App', () => {
 		it('requests preferences only after membership resolves, never while unknown or denied', async () => {
 			const { usePreferencesStore } = require('../../../src/store/preferences.js')
 			let fetchPreferences
-			const { wrapper } = mountWithRouter({ path: '/dashboard' }, () => {
+			const { wrapper } = mountWithRouter({ path: '/today' }, () => {
 				fetchPreferences = jest.spyOn(usePreferencesStore(), 'fetchPreferences').mockResolvedValue({})
 			})
 			await wrapper.vm.$nextTick()

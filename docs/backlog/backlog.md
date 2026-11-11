@@ -207,6 +207,25 @@ itself stays visible in the app.
 
 ---
 
+### [P3] BUG-UX-016 — A read that started before a creation can drop the new task from a list
+**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: task management
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Browser gate `run-v47nfT` while implementing CS-PLAN-090 WP-B, 2026-11-11
+
+`createTaskAggregate` and the template creation add the new room task and its definition to
+the stores, but a room-task or definition read that was already in flight keeps its
+generation and replaces the list when it lands, without the new row. The gate showed it once
+on a cold server: a task created right after a room page opened was missing from the room's
+list. The room page now offers no creation while it loads, as the task manager already did,
+so no surface triggers it today. The store rule itself, that an accepted mutation supersedes
+earlier reads of its slice, is not applied to creations, and a superseded initial read must be
+repeated, not only dropped.
+
+- [ ] A creation supersedes in-flight room-task and definition reads and the list is read again.
+- [ ] A store test lands a read that started before the creation after it.
+
+---
+
 ### [P1] FEAT-UX-062 — Today merges My Day and the Dashboard
 **Status**: In Progress (Release A, CS-PLAN-090 WP-B; CONCEPT-002) · **Effort**: L · **Layer**: frontend · **Journey stage**: daily execution
 **Owning**: CS-PLAN-090 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -217,10 +236,14 @@ overdue block in red, what is due today and what is already possible. The Dashbo
 bars and room cards go; house health stays in Insights. `TodayView.vue` has 1201 lines and
 holds its row markup twice.
 
-- [ ] Today shows the four sections in that order; `/dashboard` redirects to it.
-- [ ] The setup wizard opens from Today for an owner with an empty house, and from Settings.
-- [ ] The participation flow, which exists three times, lives in one composable.
-- [ ] The Dashboard specs, fixtures and gate entries move or go with a recorded reason.
+- [x] Today shows the four sections in that order; `/dashboard` redirects to it.
+- [x] The setup wizard opens from Today for an owner with an empty house, and from Settings.
+- [x] The participation flow, which exists three times, lives in one composable.
+- [x] The Dashboard specs, fixtures and gate entries move or go with a recorded reason.
+
+Implemented 2026-11-11 (`TodayView.vue` at 645 lines; the floor list and the room cards left
+with the Dashboard, D-090-33); interim Standard B `PASS-WITH-FIXES` the same day. Until WP-C a
+room page opens by its address only (RF-090-14).
 
 ---
 
@@ -310,9 +333,10 @@ the others, so the default needs care where preference rows are created.
       2026-11-11 (`Version1034`, proof P4 of the preservation runner), interim review
       `PASS-WITH-FIXES` the same day; it is pinned after the verified deployment (WP-G).
 - [x] Every path that creates a preference row writes the delivery fields explicitly.
-- [ ] The completed row, the snackbar and a new title give visible feedback. The snackbar
+- [x] The completed row, the snackbar and a new title give visible feedback. The snackbar
       names the coins, a new title gets its toast and a row that stays in its list highlights
-      (2026-11-11); a recurring row that leaves *Today* follows with WP-B (D-090-30).
+      (2026-11-11); a recurring row that leaves *Today* keeps its place with the check mark
+      for that moment since WP-B (D-090-36, interim review 2026-11-11).
 
 ---
 
@@ -1167,7 +1191,7 @@ A `page.goto()` between hash routes keeps the document, so `waitForLoadState('ne
 returns at once: with six API requests held for 1.5 s it waited 1 ms, and 1636 ms on a fresh
 document. `color-contrast.spec.ts` measured views before their data loaded because of this,
 missed a real contrast defect and failed once mid-transition. It is corrected.
-`layout-clearance.spec.ts` walks all views the same way, and `dashboard-navigation`, `calendar`,
+`layout-clearance.spec.ts` walks all views the same way, and `calendar`,
 `error-handling`, `flex-window-scheduling`, `scheduling`, `self-availability-member` and
 `workflow-request-budgets` use the same wait. Whether each of them depends on it is unverified.
 

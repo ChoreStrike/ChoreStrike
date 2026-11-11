@@ -93,7 +93,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// CS-PLAN-066 (D2): dedicated due-today/overdue count projections.
 		// They hold complete viewer-visible ENDPOINT results (enriched rows
 		// `{roomTask, task, room, assignees}`) so counters stay truthful on
-		// a cold Dashboard — a scoped room load or the child-limited daily
+		// a cold start — a scoped room load or the child-limited daily
 		// list can never masquerade as a count source.
 		dueTodayTasks: [],
 		overdueTasks: [],

@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { reactive } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import TodayView from '@/views/TodayView.vue'
@@ -120,6 +120,13 @@ jest.mock('@/store/scheduling.js', () => ({
 	useSchedulingStore: () => mockSchedulingStore,
 }))
 
+// The wizard itself is covered by SetupWizard.spec.js; here only its entry.
+jest.mock('@/components/Setup/SetupWizard.vue', () => ({
+	__esModule: true,
+	default: { name: 'SetupWizard', emits: ['applied', 'skipped', 'close'], template: '<div class="setup-wizard-stub" />' },
+	isWizardDismissedForHouse: () => false,
+}))
+
 describe('TodayView', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
@@ -166,12 +173,16 @@ describe('TodayView', () => {
 				return { roomTask: { id: roomTaskId, isActive: false }, rewards: {} }
 			}),
 		})
-		mockHouseStore = { timezone: 'UTC' }
-		mockRoomsStore = {
+		mockHouseStore = { timezone: 'UTC', house: { id: 1 }, fetchHouse: jest.fn().mockResolvedValue({ id: 1 }) }
+		mockRoomsStore = reactive({
+			// A set-up house whose floors no other view has loaded yet.
 			floors: [],
-			fetchFloorsWithRooms: jest.fn().mockResolvedValue([]),
+			fetchFloorsWithRooms: jest.fn().mockImplementation(async () => {
+				mockRoomsStore.floors = [{ id: 3, name: 'Upstairs' }]
+				return []
+			}),
 			getFloorById: jest.fn(floorId => (floorId === 3 ? { id: 3, name: 'Upstairs' } : undefined)),
-		}
+		})
 		mockChecklistStore = {
 			items: {},
 			progress: {},
@@ -183,11 +194,14 @@ describe('TodayView', () => {
 		}
 		mockUserStore = {
 			currentUser: { id: 1, nextcloudUserId: 'mom', role: 'owner' },
+			isHouseOwner: true,
 			houseUsers: [{ nextcloudUserId: 'mom', displayName: 'Parent' }],
 			fetchHouseUsers: jest.fn().mockResolvedValue([]),
+			initializeCurrentUser: jest.fn().mockResolvedValue(undefined),
 		}
 		mockGameStore = {
 			gameState: {},
+			wallet: { availableMinor: 12850 },
 			rhythm: { confirmed: 4, current: 4, best: 9, pending: true },
 			weeklyGoal: { dueCount: 10, completedCount: 6, percent: 60, targetPercent: 80, achieved: false, weekStart: null, weekEnd: null },
 			fetchGameState: jest.fn().mockResolvedValue({}),
@@ -196,9 +210,7 @@ describe('TodayView', () => {
 			energyBudget: { monday: 5, tuesday: 5, wednesday: 5, thursday: 5, friday: 5, saturday: 5, sunday: 5 },
 			weekdayAvailability: { monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true, sunday: true },
 			memberAvailability: [],
-			getCapacityForDay() {
-				return mockSchedulingStore.memberAvailability.length > 0 ? 10 : 5
-			},
+			getOwnCapacityForDay: () => 5,
 			fetchUserPreferences: jest.fn().mockResolvedValue({}),
 		}
 	})
@@ -209,9 +221,6 @@ describe('TodayView', () => {
 		const wrapper = mount(TodayView, {
 			global: {
 				plugins: [createPinia()],
-				stubs: {
-					RouterLink: { props: ['to'], template: '<a :href="`#/room/${to.params.id}`"><slot /></a>' },
-				},
 			},
 		})
 		// Let the mounted load() promise chain settle
@@ -262,39 +271,73 @@ describe('TodayView', () => {
 		expect(catchup.findAll('[data-testid="today-task-item"]')).toHaveLength(1)
 	})
 
-	it('renders the calm progress line with pending state and the shared weekly goal (C1e/C1f)', async () => {
-		const wrapper = await mountView()
-
-		const progress = wrapper.find('[data-testid="today-progress-line"]')
-		expect(progress.exists()).toBe(true)
-		expect(progress.find('[data-testid="today-streak"]').text()).toContain('4 days confirmed')
-		expect(progress.find('[data-testid="today-streak"]').text()).toContain('today pending')
-		expect(progress.find('[data-testid="today-weekly-goal"]').text()).toContain('60%')
-		expect(progress.find('[data-testid="today-weekly-goal"]').text()).toContain('80%')
-		// No Coins on My Day (C5f/D10a negative pin).
-		expect(progress.text()).not.toContain('Coins')
-	})
-
-	it('hides the progress line when no progress snapshot exists (neutral start)', async () => {
-		mockGameStore.gameState = null
-		const wrapper = await mountView()
-
-		expect(wrapper.find('[data-testid="today-progress-line"]').exists()).toBe(false)
-	})
-
-	it('renders the neutral overload clarification when planned plus outstanding exceeds the day capacity (C5f)', async () => {
-		// Capacity 5 (own weekday budget) vs. planned 3+2+1=6 plus
-		// outstanding 2 under the all filter.
+	it('orders the page: status line, overdue block, due today, what is also possible (WP-B)', async () => {
+		mockRoomTasksStore.dailyTasks = [...todayFixture(), openWindowRow()]
 		const wrapper = await mountView()
 		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
+
+		const order = ['today-status-line', 'today-section-catchup', 'today-section-today', 'today-section-open-window']
+			.map((testId) => wrapper.html().indexOf(`data-testid="${testId}"`))
+		expect(order.every((position) => position >= 0)).toBe(true)
+		expect([...order].sort((a, b) => a - b)).toEqual(order)
+		expect(wrapper.get('[data-testid="today-title"]').text()).toBe('Today')
+		expect(wrapper.get('[data-testid="today-date"]').text())
+			.toBe(new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }))
+		expect(wrapper.get('[data-testid="today-section-catchup"] h2').text()).toBe('Overdue · 1')
+		expect(wrapper.get('.section-count').text()).toBe('3 tasks')
+	})
+
+	it('counts a single due task in the singular', async () => {
+		mockRoomTasksStore.dailyTasks = [todayFixture()[0]]
+		const wrapper = await mountView()
+
+		expect(wrapper.get('.section-count').text()).toBe('1 task')
+	})
+
+	it('shows the own status: open energy against the day, weekly goal, streak and coins (WP-B)', async () => {
+		const wrapper = await mountView()
+
+		const status = wrapper.get('[data-testid="today-status-line"]')
+		// Own and unassigned work: 3 + 2 of the day's 5.
+		expect(status.get('[data-testid="today-energy"]').text()).toContain('5 of 5')
+		expect(status.get('[data-testid="today-weekly-goal"]').text()).toContain('60%')
+		expect(status.get('[data-testid="today-streak"]').text()).toContain('4 days')
+		expect(status.get('[data-testid="today-streak"]').text()).toContain('today pending')
+		expect(status.get('[data-testid="own-wallet-available"]').text()).toBe('128.5')
+	})
+
+	it('keeps the status about the viewer when the list shows everyone', async () => {
+		const wrapper = await mountView()
+		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
+
+		expect(wrapper.get('[data-testid="today-energy"]').text()).toContain('5 of 5')
+		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
+	})
+
+	it('shows dashes, never zeros, while the status reads have not delivered (neutral start)', async () => {
+		mockGameStore.gameState = null
+		mockGameStore.wallet = null
+		mockSchedulingStore.fetchUserPreferences.mockRejectedValue(new Error('offline'))
+		const wrapper = await mountView()
+
+		const values = wrapper.findAll('[data-testid="today-status-line"] .status-value').map((value) => value.text())
+		expect(values).toEqual(['–', '–', '–', '–'])
+		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="today-error"]').exists()).toBe(false)
+	})
+
+	it('renders the neutral overload clarification when the own open work exceeds the day capacity (C5f)', async () => {
+		// Own and unassigned work 3 + 2, plus an own miss of 2, against 5.
+		mockRoomTasksStore.overdueTasks[0].assignees = ['mom']
+		const wrapper = await mountView()
 
 		const overload = wrapper.find('[data-testid="today-overload"]')
 		expect(overload.exists()).toBe(true)
 		// Amounts stay visible; the invitation targets the owner replan —
 		// neutral, never threatening.
-		expect(overload.text()).toContain('8')
-		expect(overload.text()).toContain('5')
+		expect(overload.text()).toContain('7 of 5')
 		expect(overload.text()).toContain('house owner can replan')
+		expect(wrapper.get('[data-testid="today-energy"]').classes()).toContain('over')
 	})
 
 	it('renders no overload banner when the day fits the capacity', async () => {
@@ -302,66 +345,6 @@ describe('TodayView', () => {
 		const wrapper = await mountView()
 
 		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
-	})
-
-	it('lists only own and unassigned appointments under My tasks, all of them under Everyone', async () => {
-		const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-		const row = (id, name, assignees) => ({
-			roomTask: { id, taskId: id, roomId: 1 },
-			task: { id, name },
-			room: { id: 1, name: 'Kitchen' },
-			assignees,
-			occurrenceDetails: [{ date: tomorrow, occurrenceId: `${id}:1`, classification: 'agreed', version: 1, fulfilled: false }],
-		})
-		mockRoomTasksStore.rangeTasks.scheduled = [row(1, 'Own task', ['mom']), row(2, 'Unassigned task', []), row(3, 'Someone else', ['teen'])]
-		const wrapper = await mountView()
-		const names = () => wrapper.findAll('[data-testid="today-appointment"]').map((appointment) => appointment.find('.appointment-name').text())
-
-		expect(names()).toEqual(['Own task', 'Unassigned task'])
-
-		await wrapper.get('[data-testid="today-filter-all"]').trigger('click')
-
-		expect(names()).toEqual(['Own task', 'Unassigned task', 'Someone else'])
-	})
-
-	it('renders next agreed appointments from the delivered range read without optional work (C5f)', async () => {
-		const todayKey = new Date().toISOString().slice(0, 10)
-		const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-		mockRoomTasksStore.rangeTasks.scheduled = [
-			{
-				roomTask: { id: 11, taskId: 1, roomId: 1 },
-				task: { id: 1, name: 'Do the dishes' },
-				room: { id: 1, name: 'Kitchen' },
-				occurrenceDetails: [
-					{ date: tomorrow, occurrenceId: '12:2', classification: 'agreed', version: 4, fulfilled: false },
-					{ date: tomorrow, occurrenceId: '12:9', classification: 'projection', version: null, fulfilled: null },
-					{ date: '2026-01-01', occurrenceId: '12:0', classification: 'agreed', version: 1, fulfilled: true },
-				],
-			},
-			{
-				roomTask: { id: 21, taskId: 9, roomId: 3 },
-				task: { id: 9, name: 'Water the plants' },
-				room: { id: 3, name: 'Garden' },
-				occurrenceDetails: [
-					{ date: todayKey, occurrenceId: '19:1', classification: 'agreed', version: 2, fulfilled: false },
-				],
-			},
-		]
-		const wrapper = await mountView()
-
-		const section = wrapper.find('[data-testid="today-section-appointments"]')
-		expect(section.exists()).toBe(true)
-		const rows = section.findAll('[data-testid="today-appointment"]')
-		// Only agreed, unfulfilled, today-or-later occurrences; sorted by
-		// date, capped at the small appointment list.
-		expect(rows).toHaveLength(2)
-		expect(rows[0].text()).toContain('Water the plants')
-		expect(rows[1].text()).toContain('Do the dishes')
-		expect(rows[0].get('a').attributes('href')).toBe('#/room/3')
-		expect(rows[1].get('a').attributes('href')).toBe('#/room/1')
-		expect(rows[1].get('a').text()).toContain('Open room')
-		// Read-only surface: no completion or edit affordances.
-		expect(section.find('button').exists()).toBe(false)
 	})
 
 	it('renders the neutral free-day empty state without an engagement prompt (C5f)', async () => {
@@ -373,15 +356,23 @@ describe('TodayView', () => {
 
 		expect(wrapper.find('[data-testid="today-empty-state"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="today-empty-state"]').text()).toContain('Nothing is planned for today.')
-		// No arcade/catalog/ranking/Coins surface anywhere on My Day.
-		expect(wrapper.text()).not.toContain('Coins')
+		// The free day says it once, not again under an empty heading.
+		expect(wrapper.find('[data-testid="today-section-today"]').exists()).toBe(false)
+		// No arcade, catalog or ranking surface anywhere on Today.
 		expect(wrapper.text()).not.toContain('Arcade')
 		expect(wrapper.text()).not.toContain('Leaderboard')
 	})
 
+	it('shows no upcoming appointments and reads no range for them (D-090-11)', async () => {
+		const wrapper = await mountView()
+
+		expect(wrapper.find('[data-testid="today-section-appointments"]').exists()).toBe(false)
+		expect(mockRoomTasksStore.fetchRangeTasks).not.toHaveBeenCalled()
+	})
+
 	// BUG-UX-005 (CS-PLAN-088 feedback #5): work whose flex window is open
-	// although it is planned for another day can be completed from My Day.
-	const openWindowRow = (occurrence) => {
+	// although it is planned for another day can be completed from Today.
+	function openWindowRow(occurrence) {
 		const tomorrowKey = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
 		return {
 			roomTask: { id: 41, taskId: 7, roomId: 1, isActive: true, nextDue: `${tomorrowKey}T00:00:00+00:00` },
@@ -393,26 +384,23 @@ describe('TodayView', () => {
 		}
 	}
 
-	it('offers a row with an open flex window under its own heading with Done', async () => {
-		const row = openWindowRow()
-		mockRoomTasksStore.dailyTasks = [row]
+	it('keeps rows with an open flex window behind one line and completes them from there', async () => {
+		mockRoomTasksStore.dailyTasks = [openWindowRow()]
 		mockRoomTasksStore.overdueTasks = []
-		mockRoomTasksStore.rangeTasks.scheduled = [{
-			roomTask: { id: 41, taskId: 7, roomId: 1 },
-			task: { id: 7, name: 'Clean the oven' },
-			room: { id: 1, name: 'Kitchen' },
-			occurrenceDetails: [{ date: row.occurrence.plannedDate, occurrenceId: '15:3', classification: 'agreed', version: 0, fulfilled: false }],
-		}]
 
 		const wrapper = await mountView()
+		const toggle = wrapper.get('[data-testid="today-section-open-window"]')
 
-		expect(wrapper.get('[data-testid="today-section-open-window"]').text()).toContain('Also possible today')
+		expect(toggle.text()).toContain('Also possible today · 1')
+		expect(toggle.attributes('aria-expanded')).toBe('false')
+		expect(wrapper.find('[data-testid="today-complete-button-41"]').exists()).toBe(false)
 		expect(wrapper.text()).toContain('Nothing due today')
-		expect(wrapper.get(`[data-testid="today-open-window-planned-41"]`).text()).toContain('planned')
 		expect(wrapper.find('[data-testid="today-empty-state"]').exists()).toBe(false)
-		// The offered occurrence is not repeated under Next appointments.
-		expect(wrapper.find('[data-testid="today-section-appointments"]').exists()).toBe(false)
 
+		await toggle.trigger('click')
+
+		expect(toggle.attributes('aria-expanded')).toBe('true')
+		expect(wrapper.get('[data-testid="today-open-window-planned-41"]').text()).toContain('planned')
 		await confirmHold(wrapper, '[data-testid="today-complete-button-41"]')
 		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(41)
 	})
@@ -424,7 +412,6 @@ describe('TodayView', () => {
 		const wrapper = await mountView()
 
 		expect(wrapper.find('[data-testid="today-section-open-window"]').exists()).toBe(false)
-		expect(wrapper.find('[data-testid="today-complete-button-41"]').exists()).toBe(false)
 	})
 
 	it('renders the short plain instructions of a row (CS-PLAN-066 §3.5)', async () => {
@@ -437,34 +424,20 @@ describe('TodayView', () => {
 
 	it('reuses floors another view has loaded (FEAT-UX-047)', async () => {
 		mockRoomsStore.floors = [{ id: 3, name: 'Upstairs' }]
-		await mountView()
+		const wrapper = await mountView()
 
 		expect(mockRoomsStore.fetchFloorsWithRooms).not.toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
 	})
 
 	it('adds up the energy the rows show, so a saved occurrence keeps its value in the overload note', async () => {
-		mockSchedulingStore.getCapacityForDay = () => 4
+		mockSchedulingStore.getOwnCapacityForDay = () => 4
 		mockRoomTasksStore.dailyTasks = [{ ...todayFixture()[0], task: { id: 1, name: 'Do the dishes', energyCost: 9 }, occurrence: { energy: 3 } }]
 		mockRoomTasksStore.overdueTasks = []
 		const wrapper = await mountView()
 
+		expect(wrapper.get('[data-testid="today-energy"]').text()).toContain('3 of 4')
 		expect(wrapper.find('[data-testid="today-overload"]').exists()).toBe(false)
-	})
-
-	it('lists an appointment for the person it was handed to, not for the task assignee (D-089-12)', async () => {
-		const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-		const row = (id, name, assignees, obligatedUserIds) => ({
-			roomTask: { id, taskId: id, roomId: 1 },
-			task: { id, name },
-			room: { id: 1, name: 'Kitchen' },
-			assignees,
-			occurrenceDetails: [{ date: tomorrow, occurrenceId: `${id}:1`, classification: 'agreed', version: 1, fulfilled: false, obligatedUserIds }],
-		})
-		mockRoomTasksStore.rangeTasks.scheduled = [row(1, 'Handed to me', ['teen'], ['mom']), row(2, 'Handed away', ['mom'], ['teen'])]
-		const wrapper = await mountView()
-		const names = wrapper.findAll('[data-testid="today-appointment"]').map((appointment) => appointment.find('.appointment-name').text())
-
-		expect(names).toEqual(['Handed to me'])
 	})
 
 	it('gives a row the same facts as a task list: energy, recurrence, floor and room (FEAT-UX-047)', async () => {
@@ -491,6 +464,43 @@ describe('TodayView', () => {
 		expect(mockRoomsStore.fetchFloorsWithRooms).toHaveBeenCalledTimes(1)
 		expect(wrapper.get('[data-testid="task-location"]').text()).toBe('Kitchen')
 		expect(wrapper.find('[data-testid="today-error"]').exists()).toBe(false)
+		// A failed read says nothing about the house: no setup offer.
+		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
+	})
+
+	describe('the setup wizard (D-090-12)', () => {
+		const emptyHouse = () => {
+			mockRoomsStore.fetchFloorsWithRooms.mockResolvedValue([])
+			mockRoomTasksStore.dailyTasks = []
+			mockRoomTasksStore.overdueTasks = []
+		}
+
+		it('opens for the owner of a house without floors and reloads the day once it applied', async () => {
+			emptyHouse()
+			const wrapper = await mountView()
+			await flushPromises()
+
+			const wizard = wrapper.findComponent({ name: 'SetupWizard' })
+			expect(wizard.exists()).toBe(true)
+			expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(true)
+			expect(mockRoomTasksStore.fetchFilteredDailyTasks).toHaveBeenCalledTimes(1)
+
+			wizard.vm.$emit('applied')
+			await flushPromises()
+
+			expect(mockRoomTasksStore.fetchFilteredDailyTasks).toHaveBeenCalledTimes(2)
+			expect(mockGameStore.fetchGameState).toHaveBeenCalledTimes(2)
+		})
+
+		it('stays away from a member who is not the owner', async () => {
+			emptyHouse()
+			mockUserStore.isHouseOwner = false
+			const wrapper = await mountView()
+			await flushPromises()
+
+			expect(wrapper.findComponent({ name: 'SetupWizard' }).exists()).toBe(false)
+			expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
+		})
 	})
 
 	it('shows assigned-to-me and unassigned tasks under the mine filter (default)', async () => {
@@ -543,15 +553,77 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="today-complete-button-11"]').exists()).toBe(false)
 	})
 
-	it('gives a row the completion feedback class while the store marks it just completed (WP-F)', async () => {
+	it('holds a just-completed recurring row in place with its feedback, then lets it go (D-090-30)', async () => {
+		const tomorrow = new Date(Date.now() + 86400000).toISOString()
+		mockRoomTasksStore.completeRoomTask.mockImplementation(async (roomTaskId) => {
+			// The store reconciles the read and marks the row in one step.
+			const index = mockRoomTasksStore.dailyTasks.findIndex(item => item.roomTask.id === roomTaskId)
+			const row = mockRoomTasksStore.dailyTasks[index]
+			mockRoomTasksStore.dailyTasks[index] = { ...row, roomTask: { ...row.roomTask, nextDue: tomorrow } }
+			mockRoomTasksStore.justCompletedIds = { [roomTaskId]: true }
+			return { roomTask: mockRoomTasksStore.dailyTasks[index].roomTask, rewards: {} }
+		})
 		const wrapper = await mountView()
-		const row = () => wrapper.get('[data-testid="today-complete-button-11"]').element.closest('.task-row')
-		expect(row().classList.contains('cs-just-completed')).toBe(false)
+		const names = () => wrapper.findAll('[data-testid="today-task-item"] .task-name').map((name) => name.text())
+		expect(names()).toEqual(['Do the dishes', 'Wipe kitchen counters'])
 
-		mockRoomTasksStore.justCompletedIds = { 11: true }
+		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
+
+		expect(names()).toEqual(['Do the dishes', 'Wipe kitchen counters'])
+		const held = wrapper.findAll('[data-testid="today-task-item"]')[0]
+		expect(held.classes()).toContain('cs-just-completed')
+		expect(held.find('[data-testid="today-completed-check-11"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="today-complete-button-11"]').exists()).toBe(false)
+		// The status already counts the work as done.
+		expect(wrapper.get('[data-testid="today-energy"]').text()).toContain('2 of 5')
+
+		mockRoomTasksStore.justCompletedIds = {}
 		await wrapper.vm.$nextTick()
 
-		expect(row().classList.contains('cs-just-completed')).toBe(true)
+		expect(names()).toEqual(['Wipe kitchen counters'])
+	})
+
+	it('holds a completed miss in the overdue block instead of showing it twice', async () => {
+		mockRoomTasksStore.completeRoomTask.mockImplementation(async (roomTaskId) => {
+			// The miss is covered and the task is due again today.
+			const row = mockRoomTasksStore.overdueTasks.find(item => item.roomTask.id === roomTaskId)
+			mockRoomTasksStore.overdueTasks = []
+			mockRoomTasksStore.dailyTasks = [...mockRoomTasksStore.dailyTasks, { ...row, roomTask: { ...row.roomTask, nextDue: new Date().toISOString() } }]
+			mockRoomTasksStore.justCompletedIds = { [roomTaskId]: true }
+			return { roomTask: row.roomTask, rewards: {} }
+		})
+		const wrapper = await mountView()
+		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
+
+		await confirmHold(wrapper, '[data-testid="today-complete-button-30"]')
+
+		expect(wrapper.findAll('[data-testid="today-completed-check-30"]')).toHaveLength(1)
+		expect(wrapper.get('[data-testid="today-section-catchup"]').text()).toContain('Take out trash')
+		expect(wrapper.find('[data-testid="today-complete-button-30"]').exists()).toBe(false)
+
+		mockRoomTasksStore.justCompletedIds = {}
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.find('[data-testid="today-section-catchup"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="today-complete-button-30"]').exists()).toBe(true)
+	})
+
+	it('asks who took part before completing work agreed for someone else (WP3 §3.6)', async () => {
+		mockRoomTasksStore.dailyTasks[0].proposal = { participants: [{ userId: 'teen', sharePct: 100 }] }
+		const wrapper = await mountView()
+
+		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
+
+		expect(mockRoomTasksStore.completeRoomTask).not.toHaveBeenCalled()
+		const dialog = wrapper.findComponent({ name: 'ParticipationDialog' })
+		expect(dialog.exists()).toBe(true)
+
+		const payload = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
+		dialog.vm.$emit('confirm', payload)
+		await flushPromises()
+
+		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(11, payload)
+		expect(wrapper.findComponent({ name: 'ParticipationDialog' }).exists()).toBe(false)
 	})
 
 	it('marks the Done button busy while its completion is in flight (WP-E)', async () => {
@@ -597,19 +669,6 @@ describe('TodayView', () => {
 		// …and the row re-rendered as an active Today row (not dropped).
 		expect(wrapper.text()).toContain('Take out trash')
 		expect(wrapper.find('[data-testid="today-complete-button-30"]').exists()).toBe(true)
-	})
-
-	it('uses the house timezone when deciding whether the next occurrence is today', async () => {
-		const wrapper = await mountView()
-		jest.useFakeTimers()
-		try {
-			jest.setSystemTime(new Date('2026-08-22T06:30:00Z'))
-			mockHouseStore.timezone = 'America/Los_Angeles'
-
-			expect(wrapper.vm.isDueToday({ nextDue: '2026-08-21T20:00:00Z' })).toBe(true)
-		} finally {
-			jest.useRealTimers()
-		}
 	})
 
 	it('renders a friendly empty state when nothing is due', async () => {
@@ -709,8 +768,8 @@ describe('TodayView', () => {
 	})
 
 	// CS-PLAN-070 WP8 §3.6: the contextual progress/windows help sits on
-	// My Day (inline trigger text stays Coin-free, C5f).
-	it('offers the contextual progress help next to the My Day header', async () => {
+	// Today (its inline trigger text stays Coin-free, C5f).
+	it('offers the contextual progress help next to the Today header', async () => {
 		const wrapper = await mountView()
 		expect(wrapper.find('[data-testid="help-context-progress"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="help-context-progress"]').text()).not.toContain('Coins')

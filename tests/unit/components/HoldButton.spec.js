@@ -142,6 +142,17 @@ describe('HoldButton (CS-PLAN-084 WP-E)', () => {
 		expect(hint(wrapper).text()).toBe('Press and hold to confirm')
 	})
 
+	it('is a round icon without a label and keeps its text form with one', () => {
+		const iconOnly = mountButton({ label: '' }, { 'aria-label': 'Mark as done' })
+		expect(control(iconOnly).classes()).toContain('is-icon-only')
+		expect(iconOnly.find('.hold-button__label').exists()).toBe(false)
+		expect(control(iconOnly).attributes('aria-label')).toBe('Mark as done')
+
+		const labelled = mountButton()
+		expect(control(labelled).classes()).not.toContain('is-icon-only')
+		expect(labelled.get('.hold-button__label').text()).toBe('Done')
+	})
+
 	it('describes the gesture to assistive technology', () => {
 		const wrapper = mountButton()
 		const describedBy = control(wrapper).attributes('aria-describedby')

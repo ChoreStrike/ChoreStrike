@@ -143,7 +143,7 @@
 			</section>
 
 			<!-- Floors & Rooms Management (owner only — the single structure
-			     editing surface; the Dashboard FloorList is read-only) -->
+			     editing surface) -->
 			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="floors-section">
 				<h2>{{ t('chorestrike', 'Floors & Rooms') }}</h2>
 				<div class="setting-card">
@@ -159,6 +159,7 @@
 
 						<div v-if="orderedFloors.length === 0" class="empty-state" data-testid="no-floors-message">
 							<p>{{ t('chorestrike', 'No floors created yet') }}</p>
+							<SetupWizardEntry ready />
 							<button class="primary-button" data-testid="create-first-floor" @click="showAddFloorModal = true">
 								{{ t('chorestrike', 'Create First Floor') }}
 							</button>
@@ -422,6 +423,7 @@ import ArcadeGateSetting from '../components/Minigames/ArcadeGateSetting.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
 import RewardCatalogEditor from '../components/Rewards/RewardCatalogEditor.vue'
 import NotificationPreferences from '../components/Settings/NotificationPreferences.vue'
+import SetupWizardEntry from '../components/Setup/SetupWizardEntry.vue'
 import { CURATED_TIMEZONES } from '../constants/timezones.js'
 import { useHouseStore } from '../store/house.js'
 import { usePreferencesStore } from '../store/preferences.js'
@@ -447,6 +449,7 @@ export default {
 		NotificationPreferences,
 		RewardCatalogEditor,
 		ArcadeGateSetting,
+		SetupWizardEntry,
 	},
 
 	setup() {

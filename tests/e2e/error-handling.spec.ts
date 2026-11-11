@@ -99,10 +99,10 @@ test.describe('Task Assignment Validation', () => {
 	})
 })
 
-test.describe('Dashboard Access', () => {
+test.describe('App Access', () => {
 	test.use({ databaseProfile: 'family' as DatabaseProfile })
 
-	test('teen can access the app (child lands on My Day, CS-PLAN-066 D4)', async ({ browser }) => {
+	test('teen can access the app (child lands on Today, CS-PLAN-066 D4)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -114,11 +114,11 @@ test.describe('Dashboard Access', () => {
 		}
 	})
 
-	test('friend can access dashboard', async ({ browser }) => {
+	test('friend can access Today', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'friend')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 		} finally {
 			await context.close()
 		}
@@ -131,8 +131,8 @@ test.describe('Leaderboard Access', () => {
 	test('mom can view leaderboard', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 
 			await page.goto('/apps/chorestrike/#/leaderboard')
 			await page.waitForLoadState('networkidle')

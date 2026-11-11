@@ -567,7 +567,7 @@ execution-row consumer (no client-side assignee re-fetch):
 ]
 ```
 
-These endpoints are the authoritative count projections for the Dashboard
+These endpoints are the authoritative count projections for the task
 counters (`totalOverdueTasks` / `totalDueTodayTasks` read the complete
 endpoint results — a scoped room load or the child-limited daily list can
 never masquerade as a count source, CS-PLAN-066 D2).
@@ -688,7 +688,7 @@ empty concrete obligation array is not an unassigned task offered to everyone.
 No selectable target means `proposal: null`.
 
 Child daily eligibility applies concrete obligations before the daily limit;
-My Day uses the same field for its personal filter, including catch-up cards.
+Today uses the same field for its personal filter, including overdue rows.
 The row's `assignees` remain the future/default assignment set. A one-occurrence
 handover must not rewrite them. This projection does not expand the task
 visibility policy: private/admin-only visibility is checked before enrichment.
@@ -876,8 +876,9 @@ endpoint still answers `200` with `rewards.weeklyGoal = null`.
 Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.
 
 Every scheduled item carries its `assignees` (user ids). An agreed occurrence with concrete
-members also carries `obligatedUserIds`, else `null`; My Day filters by that set first, so a
-handed-over appointment follows the person it was handed to. `flexWindow` stays in the payload,
+members also carries `obligatedUserIds`, else `null`; a client that filters by person uses that
+set first, so a handed-over appointment follows the person it was handed to. Today no longer
+lists upcoming appointments and does not read this route (CS-PLAN-090 WP-B). `flexWindow` stays in the payload,
 but no client reads it since `0.8.0-alpha.4`.
 Recurring tasks are **projected** across the window: each scheduled item carries an
 `occurrences` array of `Y-m-d` dates (one per future occurrence in `[from, to]`), so a
@@ -938,7 +939,7 @@ rule as the fallback for a row without a selection (CR-084-03).
 > in-flight response can never overwrite the refreshed results.
 
 #### GET /room-tasks/filtered-daily
-The My Day payload for the current user (CS-PLAN-057/061), now with two
+The Today payload for the current user (CS-PLAN-057/061), now with two
 CS-PLAN-065 changes (decision D4): the deterministic read order is
 `nextDue, createdAt, id` (engine-stable child-limit slicing), and every row
 embeds its canonical `assignees` list so the client never re-interprets an

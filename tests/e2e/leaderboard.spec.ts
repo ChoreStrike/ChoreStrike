@@ -16,9 +16,9 @@ test.describe('Leaderboard and Gamification (consent-filtered)', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('domcontentloaded')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 	})
 
 	test('User can view leaderboard with rankings', async ({ page }) => {

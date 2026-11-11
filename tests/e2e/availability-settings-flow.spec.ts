@@ -9,8 +9,8 @@ test.describe('Availability Settings Flow', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 		await expect(async () => {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 10000 })
 			await page.getByTestId('nav-scheduling').click()
 			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })

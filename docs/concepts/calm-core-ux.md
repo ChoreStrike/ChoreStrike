@@ -5,28 +5,48 @@
 
 # Calm Core UX
 
-> The product semantics of the calm core surfaces (CS-PLAN-070 WP6):
-> all-role My Day landing, neutral rhythm presentation, opt-in feedback
-> effects, optional areas, and the neutral pause domain. This document is
-> the canonical description — implementation plans in `docs/plans/` are
-> historical records only.
+> The product semantics of the calm core surfaces (CS-PLAN-070 WP6,
+> CS-PLAN-090): the one landing page for every role, neutral rhythm
+> presentation, feedback effects, optional areas, and the neutral pause
+> domain. This document is the canonical description — implementation
+> plans in `docs/plans/` are historical records only.
 
-## My Day is the primary landing for every role
+## Today is the one landing page for every role
 
-- After setup, **every role** (owner, member, child) lands on **My Day**
+- After setup, **every role** (owner, member, child) lands on **Today**
   (`/today`). The redirect is a route-level rule; no component carries a
   role-based landing decision.
-- The **Dashboard** stays reachable as the secondary household overview on
-  its explicit path (`/dashboard`) — household panels (wallet, floors,
-  quick stats) live there, never on My Day.
-- My Day shows exactly the C5f content set: due-today work, **catch-up**
-  cards (one per chore with its attributed planned date and window), the
-  **next agreed appointments** (read-only), a small **calm progress line**
-  (confirmed streak with its pending state + shared weekly goal), and a
-  **neutral overload clarification** when planned + outstanding work
-  exceeds the member's daily capacity (inviting the owner to replan).
+- There is no second overview. The Dashboard merged into Today
+  (CS-PLAN-090 WP-B, D-090-04); its address (`/dashboard`) redirects, so
+  bookmarks keep working. Its tiles, the house-health bar and the room
+  cards left the screens (D-090-11): house health is in Insights, rooms
+  are reached through the tasks.
+- Today shows, top to bottom:
+  1. a **status line** about the viewer: open work against today's own
+     energy, the shared weekly goal, the confirmed streak with its pending
+     state, and the own available Coins. A value no read has delivered
+     shows a dash, never a zero. The line stays about the viewer when the
+     list shows everyone;
+  2. a **neutral overload clarification** when the viewer's own open work
+     exceeds their energy for the day (inviting the owner to replan);
+  3. the **overdue block**: one row per chore with an unfulfilled miss,
+     with its attributed planned date, the end of its window and the days
+     since. It is the one loud element of the page and always comes first;
+  4. **Due today**;
+  5. **Also possible today**, collapsed behind one line: work whose flex
+     window is open although it is planned for another day.
+- Upcoming appointments are not listed on Today; the calendar shows them.
+- **My tasks** and **Everyone** filter the rows. A row belongs to the
+  people its occurrence obliges, before the task's standing assignees.
 - A free day shows a **neutral empty state** ("Nothing is planned for
   today.") — no engagement prompt, no pressure.
+- A row whose completion just succeeded keeps its place for a moment and
+  shows its check mark, also when the task recurs and leaves the list
+  afterwards (D-090-30).
+- For the owner of a house without floors the **setup wizard** opens on
+  Today by itself, unless "Start empty" was chosen for this house before;
+  *Set up your home* stays on Today and under *Floors & Rooms* in the
+  Settings while the house is empty (D-090-12).
 
 ## Catch-up is honest
 
@@ -37,7 +57,7 @@ a catch-up up as a success streak.
 
 ## Completion needs a deliberate press (hold-to-confirm)
 
-- **Done** (My Day, task lists, room detail) confirms
+- **Done** (Today, task lists, room detail) confirms
   only after a **600 ms press-and-hold** — pointer, finger or held
   Enter/Space ([CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md)
   D-084-05). A ring fills while holding; `prefers-reduced-motion` shows a

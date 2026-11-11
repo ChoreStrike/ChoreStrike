@@ -45,8 +45,7 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 			try {
 				await useTheme(page, theme)
 				const views = [
-					{ name: 'My Day', path: '#/today', ready: 'today-view' },
-					{ name: 'Dashboard', path: '#/dashboard', ready: 'dashboard-view' },
+					{ name: 'Today', path: '#/today', ready: 'today-view' },
 					{ name: 'Tasks', path: '#/tasks', ready: 'task-manager-view' },
 					{ name: 'Room', path: `#/room/${await firstRoomId(page)}`, ready: 'room-detail-view' },
 					{ name: 'Leaderboard', path: '#/leaderboard', ready: 'leaderboard-view' },

@@ -223,5 +223,5 @@ for these three cases:
   ErrorState offline variant only; actual retry success is decided by the
   request itself.
 
-Applied at minimum to Dashboard, TodayView, and TaskList; new views reuse
+Applied at minimum to TodayView and TaskList; new views reuse
 the components instead of inventing state markup.

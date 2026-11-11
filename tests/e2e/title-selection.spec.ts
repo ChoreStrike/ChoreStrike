@@ -16,9 +16,9 @@ test.describe('Role Title System (single series)', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
 
 		await page.getByTestId('nav-settings').click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })

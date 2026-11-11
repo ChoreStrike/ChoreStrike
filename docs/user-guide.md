@@ -2,7 +2,7 @@
 
 ChoreStrike is a household task app inside your own Nextcloud. A family or a
 flat shares one household: the tasks of every room, a fair plan for the week,
-and a calm *My Day* list for everyone. Agreed work earns Coins; everything
+and a calm *Today* page for everyone. Agreed work earns Coins; everything
 else — rewards, a weekly ranking, an arcade — is optional and can stay off.
 
 ChoreStrike follows your Nextcloud language (English or German). This guide
@@ -30,9 +30,10 @@ household always keeps an owner.
 
 ## First start
 
-The first person who opens ChoreStrike becomes the household's owner. On the
-**Dashboard**, the setup wizard opens by itself while the household has no
-floors yet; you can also start it with **Set up your home**.
+The first person who opens ChoreStrike becomes the household's owner. On
+**Today**, the setup wizard opens by itself while the household has no
+floors yet; you can also start it with **Set up your home**, there or under
+**Settings → Floors & Rooms**.
 
 <img src="screenshots/guide-setup-wizard.png" alt="Setup wizard, Quick Start step: house name, home type, floors, rooms per floor and the cleaning level" width="720">
 
@@ -60,33 +61,34 @@ invited in the wizard start as members; choose *Owner*, *Member* or *Child* in
 **Settings → Members**. Nobody can join without an invitation: anyone else
 sees "You are not a member of this household yet".
 
-## Every day: My Day
+## Every day: Today
 
-*My Day* opens first. It shows what you agreed to do:
+*Today* opens first. At the top stands your own status: the energy of your
+open work against your energy for the day, the household's shared weekly
+goal, how many days in a row you confirmed, and your Coins. Below it:
 
-- **Catch-up** — agreed tasks from earlier days that are still open, with an
-  honest date for catching up.
-- **Due Today** — today's tasks. Below them, **Also possible today** lists
-  tasks planned for another day whose flex days include today; Done counts
-  them on time.
-- **Next appointments** — what comes up next, with a link to the room.
+- **Overdue** — agreed tasks from earlier days that are still open, in a red
+  block with the date they were planned for and the days since.
+- **Due Today** — today's tasks.
+- **Also possible today** — one line that opens the tasks planned for another
+  day whose flex days include today; Done counts them on time.
 
-The line above the list shows how many days in a row you confirmed and the
-household's shared weekly goal. **My tasks** and **Everyone** switch between
-your own tasks and the whole household's.
+What comes up later is in the **Calendar**. **My tasks** and **Everyone**
+switch between your own tasks and the whole household's; your status stays
+about you.
 
 | | |
 |:-:|:-:|
-| <img src="screenshots/guide-my-day-phone.png" alt="My Day on a phone: today's tasks, each with a Done button and a checklist" width="300"> | <img src="screenshots/guide-undo-phone.png" alt="After completing a task: a Task completed message with an Undo button" width="300"> |
-| My Day on a phone | Right after completing: undo |
+| <img src="screenshots/guide-my-day-phone.png" alt="Today on a phone: today's tasks, each with a Done button and a checklist" width="300"> | <img src="screenshots/guide-undo-phone.png" alt="After completing a task: a Task completed message with an Undo button" width="300"> |
+| Today on a phone | Right after completing: undo |
 
-Every task looks the same on *My Day*, in **Tasks** and in a room: below its
+Every task shows the same facts on *Today*, in **Tasks** and in a room: below its
 name stand the floor and room, then its energy, how often it repeats and who
 does it. *Every 3 days ±2* means every three days, with two flex days either
 way.
 
-**Completing a task.** Press and hold **Done** for 0.6 seconds until the ring
-is full (with a keyboard: hold Enter or Space). A short tap only explains the
+**Completing a task.** Press and hold **Done** (on *Today* the round check
+button) for 0.6 seconds until the ring is full (with a keyboard: hold Enter or Space). A short tap only explains the
 hold, so a task is never completed by accident. If several people worked on
 it, ChoreStrike asks **Who did the work?** — the shares add up to 100 %.
 
@@ -114,7 +116,7 @@ and an energy budget for a day. Owners then plan the week:
 
 The capacity overview shows each day's planned load against everyone's budget,
 and *Overloaded days ahead* warns early. An owner can give a child a **daily
-task limit**; it caps the unassigned tasks a child is offered in *My Day*, never
+task limit**; it caps the unassigned tasks a child is offered on *Today*, never
 their own.
 
 Each unit of **energy** stands for about 10 minutes of work. The task dialog
@@ -207,7 +209,7 @@ score stay a choice; your device's reduced-motion setting always wins.
   headings explain that topic.
 - **"You are not a member of this household yet"** — ask an owner to invite
   you with the email address of your Nextcloud account.
-- **No setup wizard** — open the **Dashboard**; while the household has no
+- **No setup wizard** — open **Today**; while the household has no
   floors, owners can start it with **Set up your home**.
 - **An error message** about completing, undoing or a checklist ends with a
   short reference in brackets, such as *(CONFLICT)*, *(HTTP 500)* or

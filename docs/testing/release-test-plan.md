@@ -95,7 +95,7 @@ E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 - Rewards: `family-reward-api` (WP7 HTTP contract), `family-rewards` (WP8 UI flows)
 - Overdue/teamwork: `overdue-task-claiming`, `teamwork-rewards`, `multi-user-interactions`
 - Scheduling/calendar: `scheduling`, `availability-settings-flow`, `flex-window-scheduling`, `calendar`
-- Dashboard/nav: `dashboard`, `dashboard-navigation`
+- Landing/nav: `today-view`, `core-functionality`, `fast-core-tests`, `task-deep-links`
 - Minigames: `snake-game`
 - Settings: `settings`
 - Errors/validation: `error-handling`, `validation`
@@ -133,13 +133,13 @@ Route surface: `page#index`, `house#get/update/stats/health/reset`, `setup#catal
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
 | App install & enable | Enable `chorestrike` via `occ` / app list | App appears in launcher, main page loads, no errors in `nextcloud.log` | — |
-| First-run house bootstrap | Open the app for the first time as a new user | A house is created automatically, the Dashboard renders, and the setup wizard opens (house has no floors) | `gui-scratch-flow` |
+| First-run house bootstrap | Open the app for the first time as a new user | A house is created automatically, Today renders, and the setup wizard opens (house has no floors) | `gui-scratch-flow` |
 | Setup wizard — quick start | Pick home type, floors, basement, rooms/floor, Putzteufel/Putzmuffel; advance | A generated, editable room list (name, room type, person) appears | `release-setup-wizard` (gate only), `SetupWizard` Jest spec |
 | Setup wizard — apply | Apply the wizard | Floors, rooms (with room type), tasks from the leveled catalog, and per-room assignments are created in one transaction | `HouseSetupIntegrationTest`, `release-setup-wizard` (gate only) |
 | Setup wizard — skip | Click „Leer starten" | Wizard closes, empty house remains | `SetupWizard` Jest spec |
 | Wizard first-run gate | Open a house that already has floors | The wizard does not auto-open and `setup/apply` returns 409 | `release-setup-wizard` |
 | House name update | Edit the house name in Settings | Name persists after reload | — |
-| House health | Complete/skip a few tasks, reopen Dashboard | House health bar reflects recent activity | `dashboard` |
+| House health | Complete/skip a few tasks, open Insights | The house-health figure reflects recent activity | `multi-user-interactions` |
 | House reset (owner only) | Trigger house reset as owner, then as a non-owner | Owner succeeds; non-owner is denied (403) | partial `settings` (happy-path UI only; 403 branch still manual) |
 
 ---
@@ -159,7 +159,7 @@ Route surface: `floor#*`, `room#*`.
 | Edit room | Rename a room | Name updates | — |
 | Delete room (with tasks) | Delete a room that has tasks | Room and its room-tasks removed | — |
 | Room cleanliness | Complete tasks in a room | Room cleanliness percentage updates | `room-detail` |
-| Room detail navigation | Open a room from the Dashboard / floor list | Room detail view loads and is navigable | `room-detail` |
+| Room detail navigation | Open a room by its address (`/room/:id`; grouped tasks follow with CS-PLAN-090 WP-C) | Room detail view loads and is navigable | `room-detail` |
 
 ---
 
@@ -238,7 +238,7 @@ Route surface: `completion#show/undo/attribute`, `room_task#complete`, `game#sta
 | Titles | Cross a rhythm rung | Title badge shows the server-derived current title (valid-history maximum signal); no selection surface exists | `title-selection` |
 | Ranking opt-in | Open **Leaderboard** in nav with the flag off | Opt-in/closed state; no contribution ranking, no freeze indicators | `leaderboard` |
 | Ranking consent lifecycle | Owner enables the flag; member joins, withdraws | Join starts NEXT Monday (pending, unranked); withdraw removes immediately; non-consenting members never appear | `ranking-consent`, PHPUnit `RankingConsentTest` |
-| House health | Drive overall completion up/down | House health bar reflects aggregate activity | `dashboard` |
+| House health | Drive overall completion up/down | The house-health figure in Insights reflects aggregate activity | `multi-user-interactions` |
 
 ---
 
@@ -267,7 +267,7 @@ Route surface: `minigame#*`. Components: Snake, 2048, Memory (arcade section).
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| Play a minigame | Open the arcade on the Dashboard; play Snake/2048/Memory | Game is playable; score saved | `snake-game` |
+| Play a minigame | Open the Arcade from the navigation; play Snake/2048/Memory | Game is playable; score saved | `snake-game` |
 | Personal best / rank | Play repeatedly | Personal best and weekly leaderboard update | — |
 
 ---
@@ -529,7 +529,7 @@ notifications no longer exist (ADR-016).
 | Phone landscape | Rotate to landscape | Layout adjusts without overflow | — |
 | Tablet | Open on a tablet-width viewport | Optimal, non-stretched layout | — |
 | Touch interactions | Tap, scroll, drag-to-reorder, open modals | Touch targets work; no missed taps or broken gestures | — |
-| Phone core set (emulated) | My Day hold + undo, claim confirm, handover, reassignment, paged list, dashboard tiles, Settings | Works on the Pixel 7 and iPhone 14 descriptors without horizontal overflow | **partial** `mobile-core` *(real fingers, screen readers and vibration: §14.1)* |
+| Phone core set (emulated) | Today hold + undo, claim confirm, handover, reassignment, paged list, Today's status line and overdue block, Settings | Works on the Pixel 7 and iPhone 14 descriptors without horizontal overflow | **partial** `mobile-core` *(real fingers, screen readers and vibration: §14.1)* |
 
 ### 14.1 Real-Device Checklist (CS-PLAN-084, operator)
 
@@ -543,21 +543,24 @@ release record (§18). It complements the gate and never replaces it.
 
 | # | Check | Expected |
 |---|---|---|
-| D1 | Child: My Day, short tap on *Done* | Hint "Press and hold to confirm"; nothing is completed |
+| D1 | Child: Today, short tap on *Done* (the round check button) | Hint "Press and hold to confirm"; nothing is completed |
 | D2 | Child: press and hold *Done* (~0.6 s) | Ring fills, task completes once, check mark in the undo bar; Android vibrates briefly (iPhone: no vibration — expected) |
 | D3 | Child: start a hold, then scroll | The hold cancels, nothing is completed, the page scrolls |
 | D4 | Child: *Undo* in the undo bar | The task is open again |
 | D5 | Owner: claim an overdue task of another person | One confirmation dialog, no second dialog; the task stays with its assignee afterwards |
-| D6 | Owner: hand one occurrence to the child; child completes it | The child sees it on My Day; next day it is back with the owner |
+| D6 | Owner: hand one occurrence to the child; child completes it | The child sees it on Today; next day it is back with the owner |
 | D7 | Owner: *All tasks* | 20 tasks per page, filters behind *Filters*, no sideways scrolling |
-| D8 | Owner: Dashboard tiles and a room card | Each tile opens its target; the room card opens the room; *Done* on My Day needs a hold |
+| D8 | Owner: Today's status line and overdue block | The four status tiles stand in one row without sideways scrolling; under *Everyone*, overdue work stands first in its red block; *Done* needs a hold |
 | D9 | Light and dark Nextcloud theme | Text, badges and buttons readable in both themes (follows the Nextcloud theme, not only the phone setting) |
 | D10 | Screen reader (TalkBack / VoiceOver) on *Done* | Announced with its hold hint; double-tap-and-hold completes it |
 
 #### Real-Device Record (template)
 
 Copy this block once per run and fill every cell. Each result cell is `pass`,
-`deviation`, `skipped` or `open`; D9 has one row per theme. Explain every
+`deviation`, `skipped` or `open`; D9 has one row per theme. D1, D6 and D8
+name the screens of `0.8.0-alpha.5` (Today instead of My Day and the
+Dashboard, CS-PLAN-090); a run on an earlier version uses that version's
+screens and says so in its candidate line. Explain every
 `deviation` and `skipped` cell in its note. A deviation becomes a finding in the
 plan that owns the run (currently CS-PLAN-080). Record roles and devices only,
 never names, account IDs or household details.
@@ -576,14 +579,14 @@ never names, account IDs or household details.
 
 | # | Check | Android | iPhone | Note |
 |---|---|---|---|---|
-| D1 | Child: My Day, short tap on Done | | | |
+| D1 | Child: Today, short tap on Done | | | |
 | D2 | Child: press and hold Done (~0.6 s) | | | |
 | D3 | Child: start a hold, then scroll | | | |
 | D4 | Child: Undo in the undo bar | | | |
 | D5 | Owner: claim an overdue task of another person | | | |
 | D6 | Owner: hand one occurrence to the child; child completes it | | | |
 | D7 | Owner: All tasks | | | |
-| D8 | Owner: Dashboard tiles and a room card | | | |
+| D8 | Owner: Today's status line and overdue block | | | |
 | D9 | Light Nextcloud theme: text, badges and buttons readable | | | |
 | D9 | Dark Nextcloud theme: text, badges and buttons readable | | | |
 | D10 | Screen reader (TalkBack / VoiceOver) on Done | | | |

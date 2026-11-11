@@ -11,7 +11,7 @@
  *
  * Journey:
  *  1. mom logs in on the wiped instance → bootstraps to owner → the wizard
- *     auto-opens (owner-gated Dashboard entry).
+ *     auto-opens on Today (owner-gated entry).
  *  2. Every wizard step is completed through the UI: house name, floors/
  *     rooms, level, preview, apply.
  *  3. The rendered result panel and the persisted structure are asserted
@@ -53,9 +53,9 @@ test.describe('Setup wizard journey (empty house)', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			// mom's first request bootstraps her to owner; the empty house
-			// auto-opens the wizard on the Dashboard.
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			// auto-opens the wizard on Today.
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 			const wizard = page.getByTestId('setup-wizard')
 			await expect(wizard).toBeVisible()
 			await expectDialogAboveNavigationToggle(page, wizard)
@@ -112,10 +112,13 @@ test.describe('Setup wizard journey (empty house)', () => {
 			// Per-recipient success row names the joined user.
 			await expect(page.getByTestId('wizard-invite-status-0')).toContainText('Dad')
 
-			// Finish → the Dashboard reloads the created structure.
+			// Finish → Today reloads the created structure.
 			await page.getByTestId('wizard-finish').click()
 			await expect(wizard).toHaveCount(0)
-			await expect(page.getByTestId('floor-list')).toBeVisible()
+			// The reloaded structure reached the page: the house has floors,
+			// so Today no longer offers the wizard.
+			await expect(page.getByTestId('today-view')).toBeVisible()
+			await expect(page.getByTestId('open-setup-wizard')).toHaveCount(0)
 		} finally {
 			await context.close()
 		}
@@ -123,10 +126,9 @@ test.describe('Setup wizard journey (empty house)', () => {
 		// dad's own context sees the member view: no owner setup entry.
 		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
 		try {
-			await dadPage.goto('/apps/chorestrike/#/dashboard')
-			await dadPage.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await dadPage.goto('/apps/chorestrike/#/today')
+			await dadPage.getByTestId('today-view').waitFor({ state: 'visible' })
 			await expect(dadPage.getByTestId('open-setup-wizard')).toHaveCount(0)
-			await expect(dadPage.getByTestId('floor-list')).toBeVisible()
 
 			const currentResponse = await dadPage.request.get('/apps/chorestrike/api/v1/users/current')
 			const currentBody = await currentResponse.json()
@@ -141,7 +143,7 @@ test.describe('Setup wizard journey (empty house)', () => {
 			expect(seededData).not.toBeNull()
 			const { context, page } = await createUserContext(browser, 'mom')
 			try {
-				await page.goto('/apps/chorestrike/#/dashboard')
+				await page.goto('/apps/chorestrike/#/today')
 				await expect(page.getByTestId('setup-wizard')).toBeVisible()
 				const count = page.getByTestId('wizard-floor-count')
 				const basement = page.getByTestId('wizard-basement')
@@ -197,8 +199,8 @@ test.describe('Setup wizard journey (empty house)', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 			await expect(page.getByTestId('setup-wizard')).toBeVisible()
 
 			// Prepare the wizard input, but do NOT apply yet.
@@ -231,7 +233,10 @@ test.describe('Setup wizard journey (empty house)', () => {
 			// structure.
 			await page.getByTestId('wizard-continue').click()
 			await expect(page.getByTestId('setup-wizard')).toHaveCount(0)
-			await expect(page.getByTestId('floor-list')).toBeVisible()
+			// The reloaded structure reached the page: the house has floors,
+			// so Today no longer offers the wizard.
+			await expect(page.getByTestId('today-view')).toBeVisible()
+			await expect(page.getByTestId('open-setup-wizard')).toHaveCount(0)
 
 			// Exactly the winner's structure: one floor, the winner's name.
 			const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
@@ -273,8 +278,8 @@ test.describe('Setup wizard journey (empty house)', () => {
 			hasTouch: true,
 		})
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 			const wizard = page.getByTestId('setup-wizard')
 			await expect(wizard).toBeVisible()
 
@@ -302,7 +307,10 @@ test.describe('Setup wizard journey (empty house)', () => {
 			await page.getByTestId('wizard-finish').tap()
 
 			await expect(wizard).toHaveCount(0)
-			await expect(page.getByTestId('floor-list')).toBeVisible()
+			// The reloaded structure reached the page: the house has floors,
+			// so Today no longer offers the wizard.
+			await expect(page.getByTestId('today-view')).toBeVisible()
+			await expect(page.getByTestId('open-setup-wizard')).toHaveCount(0)
 
 			const houseResponse = await page.request.get('/apps/chorestrike/api/v1/house')
 			const houseBody = await houseResponse.json()

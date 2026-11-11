@@ -21,15 +21,16 @@ test.describe('Fast Core Tests', () => {
 		await expect(page.locator('body')).toBeVisible()
 
 		// Should have some content structure.
-		const hasContent = await page.locator('h1, main, .dashboard, [data-testid]').count() > 0
+		const hasContent = await page.locator('h1, main, [data-testid]').count() > 0
 		expect(hasContent).toBe(true)
 	})
 
 	test('Basic navigation works', async ({ page }: { page: Page }) => {
 		const navigationTests = [
 			{ testid: 'nav-tasks', viewTestid: 'task-manager-view' },
+			{ testid: 'nav-leaderboard', viewTestid: 'leaderboard-view' },
 			{ testid: 'nav-settings', viewTestid: 'settings-view' },
-			{ testid: 'nav-dashboard', viewTestid: 'dashboard-view' },
+			{ testid: 'nav-today', viewTestid: 'today-view' },
 		]
 
 		for (const navTest of navigationTests) {
@@ -58,8 +59,8 @@ test.describe('Fast Core Tests', () => {
 		await expect(page.getByTestId('change-title-button')).toHaveCount(0)
 	})
 
-	test('Dashboard shows content', async ({ page }: { page: Page }) => {
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
+	test('Today shows content', async ({ page }: { page: Page }) => {
+		await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 20000 })
 
 		const contentElements = await page.locator('h1, h2, .title, .header').count()
 		expect(contentElements).toBeGreaterThan(0)
@@ -102,8 +103,8 @@ test.describe('Fast Core Tests', () => {
 		await page.getByTestId('nav-settings').click()
 		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 15000 })
 
-		await page.getByTestId('nav-dashboard').click()
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 15000 })
+		await page.getByTestId('nav-today').click()
+		await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 15000 })
 
 		// Allow up to 5 non-critical errors for flakiness tolerance.
 		expect(errors.length).toBeLessThan(5)

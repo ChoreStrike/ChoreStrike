@@ -693,7 +693,7 @@ test.describe('Reward UI and onboarding (CS-PLAN-070 WP8)', () => {
 			for (let i = 0; i < 8; i++) {
 				await teen.page.keyboard.press('Tab')
 			}
-			await expect(teen.page.locator(':focus')).not.toContainText('My Day')
+			await expect(helpModal.locator(':focus'), 'the focus stays inside the dialog').toHaveCount(1)
 			await teen.page.keyboard.press('Escape')
 			await expect(helpModal).toHaveCount(0)
 			await expect(teen.page.locator(':focus')).toHaveAttribute('data-testid', 'help-context-progress')

@@ -1,38 +1,23 @@
 import { expect, test } from '@playwright/test'
-import { expandUntilRoomVisible } from './fixtures/dashboard-floors.ts'
+import { openRoom } from './fixtures/rooms.ts'
 
 /**
  * E2E test: Room detail view and task management
  * Tests room info display, task CRUD operations, and cleanliness updates
  *
- * CS-PLAN-050: the dashboard floors render collapsed, so every test expands
- * them through the shared helper before opening a room; the silent
- * `if (roomCount === 0) return` early-exits became explicit skips with a
- * reason (the family seed guarantees rooms, so they never fire). The dead
- * `monster-sprite` test was deleted — no such element exists in `src/`.
+ * CS-PLAN-090 WP-B: the Dashboard and its room cards are gone, so every
+ * test opens the first seeded room through the shared helper (the family
+ * seed guarantees rooms). The page itself goes with WP-C, when the tasks
+ * are grouped by room.
  */
 test.describe('Room Detail', () => {
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(() => {
 		test.setTimeout(60000)
-		await page.goto('/apps/chorestrike/#/dashboard')
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
 	})
 
 	test('Room detail displays room information', async ({ page }) => {
-		// Navigate to a room from the dashboard (floors start collapsed)
-		const roomCards = page.locator('[data-testid^="room-card-"]')
-		await expandUntilRoomVisible(page, roomCards.first())
-		await expect(roomCards.first()).toBeVisible()
-
-		const roomName = await roomCards.first().locator('.room-name').textContent()
-		await roomCards.first().click()
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-
-		// Verify room detail view
-		await expect(page.locator('[data-testid="room-detail-view"]')).toBeVisible()
-
-		// Verify room name is displayed
-		await expect(page.locator('[data-testid="room-name"]')).toContainText(roomName || '')
+		// The helper asserts the view and the room's name.
+		await openRoom(page)
 
 		// Verify room stats are displayed
 		await expect(page.locator('[data-testid="cleanliness-stat"]')).toBeVisible()
@@ -41,29 +26,17 @@ test.describe('Room Detail', () => {
 		await expect(page.locator('[data-testid="overdue-stat"]')).toBeVisible()
 	})
 
-	test('User can navigate back to dashboard from room detail', async ({ page }) => {
-		const roomCards = page.locator('[data-testid^="room-card-"]')
-		await expandUntilRoomVisible(page, roomCards.first())
-		await expect(roomCards.first()).toBeVisible()
-
-		await roomCards.first().click()
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
+	test('User can navigate back to Today from room detail', async ({ page }) => {
+		await openRoom(page)
 
 		// Click back link
 		await page.click('[data-testid="back-link"]')
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
-		// Verify we're back on dashboard
-		await expect(page.locator('[data-testid="dashboard-view"]')).toBeVisible()
+		await expect(page.locator('[data-testid="today-view"]')).toBeVisible({ timeout: 30000 })
 	})
 
 	test('User can open add task modal', async ({ page }) => {
-		const roomCards = page.locator('[data-testid^="room-card-"]')
-		await expandUntilRoomVisible(page, roomCards.first())
-		await expect(roomCards.first()).toBeVisible()
-
-		await roomCards.first().click()
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await openRoom(page)
 
 		// Click add task button — the shared Modal opens on the template
 		// picker (addTaskMode defaults to 'template').
@@ -72,16 +45,8 @@ test.describe('Room Detail', () => {
 	})
 
 	test('Room cleanliness value is displayed correctly', async ({ page }) => {
-		const roomCards = page.locator('[data-testid^="room-card-"]')
-		await expandUntilRoomVisible(page, roomCards.first())
-		await expect(roomCards.first()).toBeVisible()
+		await openRoom(page)
 
-		await roomCards.first().click()
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await expect(page.locator('[data-testid="room-detail-view"]')).toBeVisible()
-
-		// Get cleanliness value from the detail view (the dashboard room
-		// cards carry the same testid, so scope into the detail view).
 		const cleanlinessText = await page
 			.locator('[data-testid="room-detail-view"] [data-testid="cleanliness-value"]')
 			.textContent()

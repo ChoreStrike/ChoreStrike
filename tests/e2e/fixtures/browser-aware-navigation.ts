@@ -12,29 +12,13 @@ import type { Locator, Page, TestInfo } from '@playwright/test'
  */
 export class BrowserAwareNavigation {
 	/**
-	 * Navigate to the ChoreStrike app and wait for the dashboard shell.
-	 * CS-PLAN-070 WP6: the bare root lands on My Day for every role — the
-	 * dashboard shell is reached through its explicit secondary path.
+	 * Navigate to the ChoreStrike app and wait for Today, the landing page
+	 * of every role (CS-PLAN-070 WP6, CS-PLAN-090 WP-B).
 	 */
 	static async navigateToApp(page: Page, _testInfo?: TestInfo): Promise<void> {
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle')
-		await this.waitForDashboardContent(page)
-	}
-
-	/**
-	 * Wait for the dashboard root testid (or a content fallback) to appear.
-	 */
-	static async waitForDashboardContent(page: Page): Promise<void> {
-		try {
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 15000 })
-		} catch {
-			try {
-				await page.locator('.dashboard, .dashboard-view, main').first().waitFor({ state: 'visible', timeout: 10000 })
-			} catch {
-				await page.locator('h1, .content, [role="main"]').first().waitFor({ state: 'visible', timeout: 8000 })
-			}
-		}
+		await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 30000 })
 	}
 
 	/**

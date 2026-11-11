@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals'
-import { addDaysToKey, dateKeyInZone, formatDayKey, todayKeyInZone, weekdayOfKey } from '../../../src/utils/dateKeys.js'
+import { addDaysToKey, dateKeyInZone, daysBetweenKeys, formatDayKey, formatLongDayKey, todayKeyInZone, weekdayOfKey } from '../../../src/utils/dateKeys.js'
 
 describe('dateKeys (CS-PLAN-057 house-timezone day keys)', () => {
 	describe('dateKeyInZone', () => {
@@ -109,6 +109,38 @@ describe('dateKeys (CS-PLAN-057 house-timezone day keys)', () => {
 		it('shows a dash without a key', () => {
 			expect(formatDayKey('')).toBe('—')
 			expect(formatDayKey(null)).toBe('—')
+		})
+	})
+
+	describe('formatLongDayKey', () => {
+		it('labels the civil date of the key in full', () => {
+			const expected = new Date(2026, 10, 10).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+			expect(formatLongDayKey('2026-11-10')).toBe(expected)
+		})
+
+		it('shows a dash without a key', () => {
+			expect(formatLongDayKey(undefined)).toBe('—')
+		})
+	})
+
+	describe('daysBetweenKeys', () => {
+		it('counts whole civil days, also across a month, a leap day and a clock change', () => {
+			expect(daysBetweenKeys('2026-11-08', '2026-11-11')).toBe(3)
+			expect(daysBetweenKeys('2026-10-30', '2026-11-02')).toBe(3)
+			expect(daysBetweenKeys('2028-02-28', '2028-03-01')).toBe(2)
+			// The last Sunday of October has 25 hours in Central Europe.
+			expect(daysBetweenKeys('2026-10-24', '2026-10-26')).toBe(2)
+		})
+
+		it('is zero for the same day and negative for an earlier target', () => {
+			expect(daysBetweenKeys('2026-11-11', '2026-11-11')).toBe(0)
+			expect(daysBetweenKeys('2026-11-11', '2026-11-09')).toBe(-2)
+		})
+
+		it('is null for anything that is not a day key', () => {
+			expect(daysBetweenKeys('', '2026-11-11')).toBeNull()
+			expect(daysBetweenKeys('2026-11-11', null)).toBeNull()
+			expect(daysBetweenKeys('2026-11-11T08:00:00Z', '2026-11-12')).toBeNull()
 		})
 	})
 })

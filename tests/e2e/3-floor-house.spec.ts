@@ -14,8 +14,7 @@ import { createRoomViaSettings, setupTestHouse } from './fixtures/test-house.ts'
  * 1. Haus-Setup (alle Etagen erstellen)
  * 2. Navigation durch alle Etagen
  * 3. Räume verwalten (WC, Gästebad, Dusche, Garten) — via Settings
- *    (CS-PLAN-042: the Dashboard FloorList is read-only; Settings is the
- *    sole structure CRUD surface)
+ *    (CS-PLAN-042: Settings is the sole structure CRUD surface)
  * 4. Tasks für Badezimmer-Räume erstellen
  *
  * Runs as `mom` (a seeded family-house OWNER): structure CRUD is
@@ -30,9 +29,9 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		test.setTimeout(90000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
 	})
 
 	test('Setup: Create all 3 floors (Keller, EG, 1.OG)', async ({ page }) => {
@@ -49,23 +48,25 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await expect(page.locator('[data-testid="floor-1. Obergeschoss"]')).toBeVisible()
 	})
 
-	test('Navigation: Can navigate to all 3 floors from dashboard', async ({ page }) => {
+	test('Navigation: all 3 floors stay listed after leaving and reopening Settings', async ({ page }) => {
 		// Ensure house is set up
 		await setupTestHouse(page)
 
-		// Navigate to dashboard
-		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		// Leave for Today and come back: the structure is read again.
+		await page.click('[data-testid="nav-today"]')
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 10000 })
+		await page.click('[data-testid="nav-settings"]')
+		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
 
-		// Verify the three scenario floors are visible on the dashboard. The
-		// seeded family house contributes its own floors (Ground/First/Second),
-		// so assert presence + a floor count of at least three instead of an
-		// exact count that would couple the spec to the seed contents.
+		// The seeded family house contributes its own floors
+		// (Ground/First/Second), so assert presence + a floor count of at
+		// least three instead of an exact count that would couple the spec
+		// to the seed contents.
 		for (const name of ['Keller', 'Erdgeschoss', '1. Obergeschoss']) {
 			await expect(page.getByTestId(`floor-${name}`)).toBeVisible({ timeout: 15000 })
 		}
-		const sectionCount = await page.locator('.floor-section').count()
-		expect(sectionCount).toBeGreaterThanOrEqual(3)
+		const floorCount = await page.getByTestId('floors-list').locator('.floor-item').count()
+		expect(floorCount).toBeGreaterThanOrEqual(3)
 	})
 
 	test('Room Management: Create WC in Keller (Settings surface)', async ({ page }) => {
@@ -258,29 +259,23 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await setupTestHouse(page)
 
 		// Navigate through all views
-		// 1. Dashboard
-		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		// 1. Today
+		await page.click('[data-testid="nav-today"]')
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 10000 })
 
 		// 2. Tasks
 		await page.click('[data-testid="nav-tasks"]')
 		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 10000 })
 
-		// 3. Settings
-		await page.click('[data-testid="nav-settings"]')
-		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
-
-		// 4. Leaderboard
+		// 3. Leaderboard
 		await page.click('[data-testid="nav-leaderboard"]')
 		await page.waitForSelector('[data-testid="leaderboard-view"]', { timeout: 10000 })
 
-		// Return to dashboard
-		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
-
-		// Verify floors are still there
-		await expect(page.locator('text=Keller').first()).toBeVisible({ timeout: 15000 })
-		await expect(page.locator('text=Erdgeschoss').first()).toBeVisible()
-		await expect(page.locator('text=1. Obergeschoss').first()).toBeVisible()
+		// 4. Settings, where the floors are still listed
+		await page.click('[data-testid="nav-settings"]')
+		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+		for (const name of ['Keller', 'Erdgeschoss', '1. Obergeschoss']) {
+			await expect(page.getByTestId(`floor-${name}`)).toBeVisible({ timeout: 15000 })
+		}
 	})
 })

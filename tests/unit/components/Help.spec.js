@@ -105,7 +105,7 @@ describe('Help entry and glossary', () => {
 	it('explains the core household terms in plain family language', () => {
 		const wrapper = mount(HelpGlossary)
 
-		for (const term of ['my-day', 'agreement', 'catch-up', 'absence', 'streak', 'quiet-time']) {
+		for (const term of ['today', 'agreement', 'catch-up', 'absence', 'streak', 'quiet-time']) {
 			expect(wrapper.find(`[data-testid="help-term-${term}"]`).exists()).toBe(true)
 		}
 		// The C1d cover semantics are explained honestly.
@@ -113,8 +113,10 @@ describe('Help entry and glossary', () => {
 		// The neutral absence semantics (C2b, ADR-020).
 		expect(wrapper.text()).toContain('nothing counts for or against anyone')
 		expect(wrapper.text()).toContain('no reason and no request are needed')
-		// The calm landing statement (C5f): Coins never on My Day.
-		expect(wrapper.text()).toContain('never on My Day')
+		// Today is the one landing page and shows the own balance (WP-B).
+		expect(wrapper.get('[data-testid="help-term-today"]').text()).toContain('what is overdue')
+		expect(wrapper.text()).toContain('Today shows your available balance')
+		expect(wrapper.text()).not.toContain('My Day')
 	})
 
 	// CS-PLAN-070 WP8 §3.6: the reward terms join the glossary.

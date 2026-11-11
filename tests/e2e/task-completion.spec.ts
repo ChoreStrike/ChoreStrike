@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
+import { openRoom } from './fixtures/rooms.ts'
+
 /**
  * E2E test: Task creation and completion flow
  * Critical flow: Create task → Assign to room → Complete task → Verify score
@@ -91,21 +93,8 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('User can create a custom task inside a room', async ({ page }) => {
-		await page.goto('/apps/chorestrike/#/dashboard')
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
-
-		// Click Living Room card, fallback to first room.
-		const livingRoom = page.getByTestId('room-card-Living Room')
-		if (await livingRoom.count() > 0) {
-			await livingRoom.click()
-		} else {
-			const firstRoom = page.locator('[data-testid^="room-card-"]').first()
-			if (await firstRoom.count() > 0) {
-				await firstRoom.click()
-			} else {
-				return // Skip if no rooms exist
-			}
-		}
+		// The Living Room, or the first room the seed holds.
+		await openRoom(page, 'Living Room', { orFirst: true })
 
 		await page.getByTestId('add-task-button').click()
 		await expect(page.getByTestId('add-task-picker')).toBeVisible({ timeout: 15000 })
@@ -132,22 +121,8 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('User can complete a task and earn points', async ({ page }) => {
-		await page.goto('/apps/chorestrike/#/dashboard')
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
-
-		// Try Kitchen first, fallback to any room.
-		const kitchen = page.getByTestId('room-card-Kitchen')
-		if (await kitchen.count() > 0) {
-			await kitchen.click()
-		} else {
-			const firstRoom = page.locator('[data-testid^="room-card-"]').first()
-			if (await firstRoom.count() === 0) {
-				return // Skip if no rooms
-			}
-			await firstRoom.click()
-		}
-
-		await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+		// The Kitchen, or the first room the seed holds.
+		await openRoom(page, 'Kitchen', { orFirst: true })
 
 		// Capture the specific row we are about to complete.
 		const taskRow = page.locator('[data-testid="task-item"]:has([data-testid="complete-task-button"])').first()
@@ -165,21 +140,7 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('Completion offers Undo which restores the task (CS-PLAN-041)', async ({ page }) => {
-		await page.goto('/apps/chorestrike/#/dashboard')
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
-
-		const kitchen = page.getByTestId('room-card-Kitchen')
-		if (await kitchen.count() > 0) {
-			await kitchen.click()
-		} else {
-			const firstRoom = page.locator('[data-testid^="room-card-"]').first()
-			if (await firstRoom.count() === 0) {
-				return // Skip if no rooms
-			}
-			await firstRoom.click()
-		}
-
-		await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+		await openRoom(page, 'Kitchen', { orFirst: true })
 
 		const taskRow = page.locator('[data-testid="task-item"]:has([data-testid="complete-task-button"])').first()
 		const completeButton = taskRow.locator('[data-testid="complete-task-button"]')

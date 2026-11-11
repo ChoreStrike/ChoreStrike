@@ -29,9 +29,9 @@ describe('App navigation icons', () => {
 			icon: body.match(/<template #icon>\s*<Icon name="([^"]+)"/)?.[1],
 		}))
 
-	it('finds all twelve navigation entries, each closed with an icon slot', () => {
+	it('finds all eleven navigation entries, each closed with an icon slot', () => {
 		expect(entries.map((entry) => entry.testId)).toEqual([
-			'nav-today', 'nav-dashboard', 'nav-tasks', 'nav-leaderboard', 'nav-insights',
+			'nav-today', 'nav-tasks', 'nav-leaderboard', 'nav-insights',
 			'nav-scheduling', 'nav-calendar', 'nav-absence', 'nav-arcade', 'nav-rewards',
 			'nav-reward-requests', 'nav-settings',
 		])

@@ -2,26 +2,13 @@ import type { Page } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
 import { userStatePath } from './fixtures/auth-contexts.ts'
-import { expandAllFloors } from './fixtures/dashboard-floors.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
+import { listRooms, openRoom } from './fixtures/rooms.ts'
+
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
- * restarts AUTO_INCREMENT, so room ids grow. Read via an IN-PAGE fetch (the
- * restored session's request context has no CSRF token; the page's own
- * fetch carries OC.requestToken). */
+ * restarts AUTO_INCREMENT, so room ids grow. */
 async function kitchenRoomId(page: Page): Promise<number> {
-	const rooms = await page.evaluate(async () => {
-		const response = await fetch('/apps/chorestrike/api/v1/floors/with-rooms', {
-			headers: {
-				Accept: 'application/json',
-				requesttoken: (window as unknown as { OC: { requestToken: string } }).OC.requestToken,
-			},
-		})
-		const body = await response.json()
-		return (body.data ?? []) as Array<{ rooms: Array<{ id: number, name: string }> }>
-	})
-	const kitchen = rooms
-		.flatMap((floor) => floor.rooms)
-		.find((room) => room.name === 'Kitchen')
+	const kitchen = (await listRooms(page)).find((room) => room.name === 'Kitchen')
 	expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
 	return kitchen!.id
 }
@@ -33,22 +20,22 @@ async function kitchenRoomId(page: Page): Promise<number> {
  * CS-PLAN-015: nav uses `getByRole('link', { name })` (unlocked by the App.vue
  * testid/role passthrough fix); auth via storageState; fixed sleeps replaced by
  * auto-waiting assertions.
- * CS-PLAN-068 (CR-WF-05): no fixture-dependent skips — the Dashboard renders
- * floors COLLAPSED, so room cards appear only after `expandAllFloors`; the
- * former bare-count guards skipped forever on that collapsed default. The
- * family seed guarantees the Kitchen room and an active task in it.
+ * CS-PLAN-068 (CR-WF-05): no fixture-dependent skips. The family seed
+ * guarantees the Kitchen room and an active task in it.
+ * CS-PLAN-090 WP-B: Today is the landing page; a room opens through the
+ * shared `fixtures/rooms.ts` helper.
  */
 test.describe('Core App Functionality', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-		await page.goto('/apps/chorestrike/#/dashboard')
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+		await page.goto('/apps/chorestrike/#/today')
+		await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
 	})
 
-	test('Dashboard loads and displays basic components', async ({ page }) => {
-		await expect(page.getByTestId('house-health')).toBeVisible({ timeout: 15000 })
-		await expect(page.getByTestId('floor-list')).toBeVisible({ timeout: 15000 })
-		await expect(page.getByTestId('quick-stats')).toBeVisible({ timeout: 15000 })
+	test('Today loads and displays its basic components', async ({ page }) => {
+		await expect(page.getByTestId('today-title')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('today-status-line')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('today-filter-mine')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Navigation between main views works', async ({ page }) => {
@@ -61,8 +48,8 @@ test.describe('Core App Functionality', () => {
 		await page.getByTestId('nav-settings').click()
 		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 15000 })
 
-		await page.getByTestId('nav-dashboard').click()
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 15000 })
+		await page.getByTestId('nav-today').click()
+		await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Task Manager loads and displays controls', async ({ page }) => {
@@ -96,19 +83,13 @@ test.describe('Core App Functionality', () => {
 		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
 	})
 
-	test('Room cards are clickable and navigate to room detail', async ({ page }) => {
-		await expandAllFloors(page)
+	test('A room page opens by its address and lists its tasks', async ({ page }) => {
+		await openRoom(page)
 
-		const roomCards = page.locator('[data-testid^="room-card-"]')
-		await expect(roomCards.first()).toBeAttached({ timeout: 15000 })
-
-		await roomCards.first().click()
-		await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Task completion flow works', async ({ page }) => {
-		await expandAllFloors(page)
-
 		// Room-task completion lives in the room detail view; the family
 		// seed guarantees the Kitchen room. CS-PLAN-068: complete a DEDICATED
 		// probe task — parallel-pool siblings also complete Kitchen rows, so
@@ -138,8 +119,7 @@ test.describe('Core App Functionality', () => {
 		}, { roomId: kitchen, name: probeName })
 		expect(probeStatus).toBe(200)
 
-		await page.getByTestId('room-card-Kitchen').first().click()
-		await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+		await openRoom(page, 'Kitchen')
 
 		const probeRow = page.locator('[data-testid="task-item"]').filter({ hasText: probeName }).first()
 		await expect(probeRow).toBeVisible({ timeout: 15000 })

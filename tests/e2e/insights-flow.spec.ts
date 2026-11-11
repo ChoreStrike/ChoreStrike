@@ -311,7 +311,7 @@ test.describe('Release: Insights Flow', () => {
 		}
 	})
 
-	test('the caller wallet reads its exact minor-unit balance after a dashboard reload', async ({ browser, seededData }) => {
+	test('the caller wallet reads its exact minor-unit balance on Today after a reload', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const owner = await createUserContext(browser, 'mom')
 		try {
@@ -326,7 +326,7 @@ test.describe('Release: Insights Flow', () => {
 			const fraction = String(Math.abs(minor) % 100).padStart(2, '0').replace(/0+$/, '')
 			const expected = `${minor < 0 ? '-' : ''}${whole}${fraction ? `.${fraction}` : ''}`
 
-			await owner.page.goto('/apps/chorestrike/#/dashboard')
+			await owner.page.goto('/apps/chorestrike/#/today')
 			await expect(owner.page.getByTestId('own-wallet-available')).toHaveText(expected)
 			await owner.page.reload()
 			await expect(owner.page.getByTestId('own-wallet-available')).toHaveText(expected)

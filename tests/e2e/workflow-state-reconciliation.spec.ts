@@ -5,7 +5,7 @@
  * WP7 E2E — workflow state reconciliation (CS-PLAN-066 §4.3 row 2).
  *
  * Pins the race/reconciliation guarantees at the real HTTP boundary:
- *  - Rapid parallel navigation (Dashboard ↔ My Day) never leaves stale
+ *  - Rapid parallel navigation (Tasks ↔ Today) never leaves stale
  *    projections — the final rendered state matches the seeded server truth.
  *  - A committed completion stays successful when a derived-projection
  *    refetch fails: the stale-slice banner offers a read-only RETRY, and the
@@ -49,13 +49,13 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			const row = page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })
 			const completion = page.waitForResponse((response) => response.request().method() === 'POST'
 				&& /\/api\/v1\/room-tasks\/\d+\/complete$/.test(new URL(response.url()).pathname))
-			await holdToConfirm(row.getByRole('button', { name: 'Done', exact: true }))
+			await holdToConfirm(row.locator('button[data-testid^="today-complete-button-"]'))
 			const receipt = await completion
 			expect(receipt.status()).toBe(200)
 			const priorMinor = (await receipt.json()).data.rewards.wallet.availableMinor
 			expect(priorMinor).toBeGreaterThan(0)
 			await expect(page.locator('[data-testid^="undo-snackbar-entry-"]')).toHaveCount(1)
-			await page.getByTestId('nav-dashboard').click()
+			// Today's status line follows the completion without a reload.
 			await expect(page.getByTestId('own-wallet-available')).toBeVisible()
 			// A visible cached wallet is not proof that the new balance rendered.
 			await expect(page.getByTestId('own-wallet-available')).toHaveText(formatCoinMinor(priorMinor))
@@ -65,13 +65,12 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			await page.goto(logout)
 			await expect(page.locator('input[name="user"]')).toBeVisible()
 			await login('teen')
+			const childState = page.waitForResponse('**/api/v1/game/state')
 			await page.goto('/apps/chorestrike/#/today')
 			await expect(page.getByTestId('today-task-item').filter({ hasText: 'Wipe kitchen counters' })).toBeVisible()
 			await expect(page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })).toHaveCount(0)
 			await expect(page.locator('[data-testid^="undo-snackbar-entry-"]')).toHaveCount(0)
 			await expect(page.getByTestId('nav-arcade')).toBeVisible()
-			const childState = page.waitForResponse('**/api/v1/game/state')
-			await page.getByTestId('nav-dashboard').click()
 			const childResponse = await childState
 			expect(childResponse.status()).toBe(200)
 			const childMinor = (await childResponse.json()).data.wallet.availableMinor
@@ -91,18 +90,18 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await page.goto('/apps/chorestrike/#/tasks')
+			await page.getByTestId('task-manager-view').waitFor({ state: 'visible' })
 
-			// Race Dashboard ↔ My Day navigations back to back; every load
+			// Race Tasks ↔ Today navigations back to back; every load
 			// carries its own request generation (§3.3), so the LAST landed
 			// surface must render the complete, current data.
 			await page.getByTestId('nav-today').click()
-			await page.getByTestId('nav-dashboard').click()
+			await page.getByTestId('nav-tasks').click()
 			await page.getByTestId('nav-today').click()
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 
-			// My Day renders the seeded mom task under the default mine
+			// Today renders the seeded mom task under the default mine
 			// filter — nothing from an aborted earlier navigation got lost.
 			const row = page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' }).first()
 			await expect(row).toBeVisible()
@@ -128,15 +127,15 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 				await route.continue()
 			})
 
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await page.goto('/apps/chorestrike/#/tasks')
+			await page.getByTestId('task-manager-view').waitFor({ state: 'visible' })
 
-			// Navigate to My Day (slow first daily read starts), navigate
+			// Navigate to Today (slow first daily read starts), navigate
 			// away, then back (fast read lands first).
 			await page.getByTestId('nav-today').click()
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
-			await page.getByTestId('nav-dashboard').click()
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await page.getByTestId('nav-tasks').click()
+			await page.getByTestId('task-manager-view').waitFor({ state: 'visible' })
 			await page.getByTestId('nav-today').click()
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 
@@ -158,9 +157,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-			await page.getByTestId('nav-today').click()
+			await page.goto('/apps/chorestrike/#/today')
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 
 			// Break ONLY the derived count refreshes (both projections).

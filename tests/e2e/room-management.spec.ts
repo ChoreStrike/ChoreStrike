@@ -1,23 +1,22 @@
 import { expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { createUserContext, userStatePath } from './fixtures/auth-contexts.ts'
-import { expandUntilRoomVisible } from './fixtures/dashboard-floors.ts'
 import { test } from './fixtures/database-fixtures.ts'
+import { listRooms, openRoom } from './fixtures/rooms.ts'
 
 /**
  * E2E test: Room and floor management (CS-PLAN-042, UX-004)
  *
  * Structure editing lives in exactly one surface: Settings (owner-only).
- * The Dashboard FloorList is read-only; room rename/delete is reachable
- * from the RoomDetail header.
+ * Room rename/delete is also reachable from the RoomDetail header.
  *
  * The primary actor is `mom` (a seeded family-house OWNER): the structure
  * controls under test are owner-gated, and the default `admin` identity is
  * a plain member under the family profile.
  *
- * CS-PLAN-050: the local floor-expansion helper moved to the shared
- * `fixtures/dashboard-floors.ts`; the fixed sleeps before assertions were
- * dropped (the assertions themselves auto-wait).
+ * CS-PLAN-090 WP-B: the Dashboard's read-only floor list is gone, and
+ * with it the scenario that it offers no structure controls. A room is
+ * opened through the shared `fixtures/rooms.ts` helper.
  */
 
 test.describe('Room and Floor Management', () => {
@@ -28,9 +27,9 @@ test.describe('Room and Floor Management', () => {
 		test.setTimeout(60000)
 		expect(seededData).not.toBeNull()
 
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
 	})
 
 	test('User can create a new floor', async ({ page }) => {
@@ -68,17 +67,6 @@ test.describe('Room and Floor Management', () => {
 		await expect(floorItem.locator('.room-row-name', { hasText: 'Test Room' })).toBeVisible({ timeout: 15000 })
 	})
 
-	test('Dashboard FloorList is read-only (no structure controls)', async ({ page }) => {
-		await page.locator('.floor-section').first().waitFor({ state: 'attached', timeout: 15000 })
-
-		await expect(page.locator('.floor-list .add-button')).toHaveCount(0)
-		await expect(page.locator('[data-testid^="add-room-button-"]')).toHaveCount(0)
-		await expect(page.locator('[data-testid^="add-room-card-"]')).toHaveCount(0)
-		await expect(page.locator('.floor-list [data-testid^="move-floor-"]')).toHaveCount(0)
-		// Navigation aids stay available
-		await expect(page.getByTestId('refresh-floors-button')).toBeVisible()
-	})
-
 	test('Owner can rename a room from the RoomDetail header', async ({ page }) => {
 		await page.getByTestId('nav-settings').click()
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
@@ -89,18 +77,7 @@ test.describe('Room and Floor Management', () => {
 		await floorItem.locator('[data-testid^="expand-floor-"]').click()
 		await expect(floorItem.locator('[data-testid^="delete-room-"]').first()).toBeVisible({ timeout: 15000 })
 
-		// Open the first room from the dashboard (floors render collapsed —
-		// expand until a room card is visible)
-		await page.getByTestId('nav-dashboard').click()
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
-		const roomCards = page.locator('[data-testid^="room-card-"]')
-		await expandUntilRoomVisible(page, roomCards.first())
-		await expect(roomCards.first()).toBeVisible()
-		await roomCards.first().click()
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="room-detail-view"]', { timeout: 20000 })
-
-		const oldName = await page.getByTestId('room-name').textContent()
+		const { name: oldName } = await openRoom(page)
 
 		// Rename via the header action
 		await page.getByTestId('rename-room-button').click()
@@ -121,24 +98,16 @@ test.describe('Room and Floor Management', () => {
 		await floorItem.locator('[data-testid="add-room-to-floor-button"]').click()
 		await expect(floorItem.locator('.room-row-name', { hasText: 'Doomed Room' })).toBeVisible({ timeout: 15000 })
 
-		await page.getByTestId('nav-dashboard').click()
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
-		const doomedCard = page.locator('[data-testid^="room-card-"]', { hasText: 'Doomed Room' }).first()
-		await expandUntilRoomVisible(page, doomedCard)
-		await doomedCard.click()
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="room-detail-view"]', { timeout: 20000 })
+		await openRoom(page, 'Doomed Room')
 
 		await page.getByTestId('delete-room-button').click()
 		await expect(page.getByTestId('confirm-dialog')).toBeVisible()
 		await page.getByTestId('confirm-dialog-confirm').click()
 
-		// Back on the dashboard, the room card is gone (expand the sections
-		// again so the absence assertion is meaningful)
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
-		const doomedCardAfterDelete = page.locator('[data-testid^="room-card-"]', { hasText: 'Doomed Room' }).first()
-		await expandUntilRoomVisible(page, doomedCardAfterDelete)
-		await expect(page.locator('[data-testid^="room-card-"]', { hasText: 'Doomed Room' })).toHaveCount(0)
+		// The page of a deleted room has nothing to show: back on Today,
+		// and the house no longer holds the room.
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
+		expect((await listRooms(page)).map((room) => room.name)).not.toContain('Doomed Room')
 	})
 
 	test('Owner can reorder floors with the up/down buttons', async ({ page }) => {
@@ -187,16 +156,10 @@ test.describe('Room and Floor Management', () => {
 
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			// CS-PLAN-066 (D4): a child lands on My Day, a member on the
-			// Dashboard — the non-owner surface contract is the same.
-			await page.getByTestId('dashboard-view')
-				.or(page.getByTestId('today-view'))
-				.first()
-				.waitFor({ state: 'visible' })
-
-			// Dashboard FloorList: read-only for everyone
-			await expect(page.locator('.floor-list .add-button')).toHaveCount(0)
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible' })
+			// No way into the setup wizard for a member, on Today either.
+			await expect(page.getByTestId('open-setup-wizard')).toHaveCount(0)
 
 			// Settings: owner-only sections hidden for members. The navigation
 			// retries against the durable outcome (one-off load-flake class,

@@ -2,19 +2,16 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  *
- * CS-PLAN-070 WP6 (C5f, Q-077-01 Option A): the all-age My Day landing.
- * A route-level redirect sends EVERY unqualified root visit to the shared
- * My Day surface; the Dashboard stays reachable as the secondary household
- * overview on its explicit /dashboard path. The retired child-only
- * `landingRouteForRole` helper is gone — this spec pins the new route
- * table instead.
+ * CS-PLAN-070 WP6 (C5f, Q-077-01 Option A): the all-age landing. A
+ * route-level redirect sends EVERY unqualified root visit to Today. The
+ * Dashboard merged into Today (CS-PLAN-090 WP-B); its address redirects,
+ * so bookmarks keep working. This spec pins the route table.
  */
 
 jest.mock('@nextcloud/router', () => ({
 	generateUrl: (url) => url,
 }))
 
-jest.mock('../../src/views/Dashboard.vue', () => ({ default: {} }))
 jest.mock('../../src/views/TodayView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/TaskManager.vue', () => ({ default: {} }))
 jest.mock('../../src/views/RoomDetail.vue', () => ({ default: {} }))
@@ -31,15 +28,16 @@ jest.mock('../../src/components/Rewards/RewardRequestDetails.vue', () => ({ defa
 
 const { routes, default: router } = require('../../src/router.js')
 describe('router routes (CS-PLAN-070 WP6)', () => {
-	it('redirects the bare root to My Day for every role (C5f)', () => {
+	it('redirects the bare root to Today for every role (C5f)', () => {
 		const root = routes.find(route => route.path === '/')
 		expect(root.redirect).toEqual({ name: 'today' })
 	})
 
-	it('keeps the Dashboard reachable on its explicit secondary path (Q-077-01 A)', () => {
-		const dashboard = routes.find(route => route.name === 'dashboard')
-		expect(dashboard.path).toBe('/dashboard')
-		expect(dashboard.component).toBeDefined()
+	it('redirects the old Dashboard address to Today, without a view of its own (WP-B)', () => {
+		const dashboard = routes.find(route => route.path === '/dashboard')
+		expect(dashboard.redirect).toEqual({ name: 'today' })
+		expect(dashboard.component).toBeUndefined()
+		expect(routes.some(route => route.name === 'dashboard')).toBe(false)
 	})
 
 	it('exposes the gated arcade surface on its own path (Q-077-05 A)', () => {

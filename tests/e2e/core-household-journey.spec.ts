@@ -29,11 +29,12 @@ import type { Browser, BrowserContext, Page } from '@playwright/test'
 
 import { addDaysToKey } from '../../src/utils/dateKeys.js'
 import { createUserContext } from './fixtures/auth-contexts.ts'
-import { expandAllFloors } from './fixtures/dashboard-floors.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { journeyClock } from './fixtures/house-clock.js'
 import { runOcc } from './fixtures/occ-runner.ts'
+import { listRooms, openRoom } from './fixtures/rooms.ts'
+
 const DAD_EMAIL = 'dad@chorestrike.test'
 const KID_EMAIL = 'kid@chorestrike.test'
 const HOUSE_NAME = 'Journey Home'
@@ -42,8 +43,8 @@ const ADMIN_TASK = 'Journey Admin Audit'
 
 /** Open the app and wait for the shell. */
 async function openApp(page: Page): Promise<void> {
-	await page.goto('/apps/chorestrike/#/dashboard')
-	await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+	await page.goto('/apps/chorestrike/#/today')
+	await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
 }
 
 test.describe('Canonical household journey', () => {
@@ -164,7 +165,9 @@ test.describe('Canonical household journey', () => {
 				await expect(page.getByTestId('wizard-invite-status-0')).toContainText('Dad')
 				await page.getByTestId('wizard-finish').click()
 				await expect(page.getByTestId('setup-wizard')).toHaveCount(0)
-				await expect(page.getByTestId('floor-list')).toBeVisible()
+				// The house is set up: Today stays, without the way back in.
+				await expect(page.getByTestId('today-view')).toBeVisible()
+				await expect(page.getByTestId('open-setup-wizard')).toHaveCount(0)
 			} finally {
 				await context.close()
 			}
@@ -210,7 +213,7 @@ test.describe('Canonical household journey', () => {
 			const dad = await createUserContext(browser, 'dad')
 			try {
 				await openApp(dad.page)
-				await expect(dad.page.getByTestId('floor-list')).toBeVisible()
+				expect((await listRooms(dad.page)).map((room) => room.name)).toContain('Kitchen')
 				await expect(dad.page.getByTestId('open-setup-wizard')).toHaveCount(0)
 				const current = await (await dad.page.request.get('/apps/chorestrike/api/v1/users/current')).json()
 				expect(current.data.role).toBe('member')
@@ -247,13 +250,8 @@ test.describe('Canonical household journey', () => {
 			try {
 				await openApp(page)
 
-				// The Dashboard renders floors COLLAPSED — room cards appear
-				// only after expanding (CS-PLAN-050 fixture).
-				await expandAllFloors(page)
-
 				// ---- Custom task with instructions, flex window and assignee.
-				await page.getByTestId('room-card-Kitchen').first().click()
-				await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 20000 })
+				await openRoom(page, 'Kitchen')
 				await page.getByTestId('add-task-button').click()
 
 				// The unified picker opens on the template tab — switch to the

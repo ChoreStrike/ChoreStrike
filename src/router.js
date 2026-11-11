@@ -8,10 +8,9 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 
 // Lazy-loaded routes with named chunks for better caching
 export const routes = [
-	// CS-PLAN-070 WP6 (C5f, Q-077-01 Option A): EVERY role lands on the
-	// shared My Day surface after setup — a route-level redirect replaces
-	// the retired child-only special case. The Dashboard stays reachable
-	// as the secondary household overview on its explicit path.
+	// Today is the one landing page for every role (CS-PLAN-070 WP6 C5f,
+	// CS-PLAN-090 WP-B). The Dashboard merged into it; its address keeps
+	// working for bookmarks.
 	{
 		path: '/',
 		redirect: { name: 'today' },
@@ -23,8 +22,7 @@ export const routes = [
 	},
 	{
 		path: '/dashboard',
-		name: 'dashboard',
-		component: () => import(/* webpackChunkName: "dashboard" */ './views/Dashboard.vue'),
+		redirect: { name: 'today' },
 	},
 	{
 		path: '/tasks',

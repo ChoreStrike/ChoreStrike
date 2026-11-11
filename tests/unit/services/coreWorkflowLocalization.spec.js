@@ -19,12 +19,13 @@ const CORE_SURFACES = [
 	'src/App.vue',
 	'src/router.js',
 	'src/views/TodayView.vue',
-	'src/views/Dashboard.vue',
+	// CS-PLAN-090 WP-B: Today's status line, rows and setup entry hold
+	// what the view and the Dashboard said before.
+	'src/components/Today/TodayStatusLine.vue',
+	'src/components/Today/TodayTaskRow.vue',
+	'src/components/Setup/SetupWizardEntry.vue',
 	'src/views/TaskManager.vue',
 	'src/views/RoomDetail.vue',
-	'src/components/Dashboard/QuickStats.vue',
-	'src/components/Dashboard/HouseHealthBar.vue',
-	'src/components/Dashboard/FloorList.vue',
 	'src/components/Minigames/ArcadeCatalog.vue',
 	'src/components/Tasks/TaskList.vue',
 	// CS-PLAN-067 §3.4: the TaskList decomposition moved the row-surface
@@ -111,8 +112,9 @@ describe('WP7 core workflow localization (CS-PLAN-066 D7)', () => {
 
 	it('renders representative EN and DE copy through the artifacts', () => {
 		// Representative core journey strings: EN identity, real German copy.
-		expect(en['My Day']).toBe('My Day')
-		expect(de['My Day']).toBe('Mein Tag')
+		expect(en['Today']).toBe('Today')
+		expect(de['Today']).toBe('Heute')
+		expect(de['Overdue · {count}']).toBe('Überfällig · {count}')
 		expect(en['Some views could not be refreshed']).toBe('Some views could not be refreshed')
 		expect(de['Some views could not be refreshed']).toBe('Einige Ansichten konnten nicht aktualisiert werden')
 		expect(de['Checklist ({done}/{total})']).toBe('Checkliste ({done}/{total})')

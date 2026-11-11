@@ -227,6 +227,27 @@ describe('RoomDetail.vue', () => {
 		expect(wrapper.find('.cleanliness-ring').exists()).toBe(true)
 	})
 
+	// A room read that started before a creation lands after it and replaces
+	// the list, so the new row would vanish (seen in the browser gate once
+	// the room page was opened by its address, CS-PLAN-090 WP-B).
+	it('offers no task creation while the room is still loading', async () => {
+		let resolveTasks
+		const wrapper = mount(RoomDetail, { props: { id: '1' }, global: { plugins: [pinia], stubs: { RouterLink: true } } })
+		await flushPromises()
+		const add = () => wrapper.get('[data-testid="add-task-button"]')
+		expect(add().attributes('disabled')).toBeUndefined()
+
+		wrapper.vm.roomTasksStore.fetchRoomTasks.mockImplementationOnce(() => new Promise((resolve) => { resolveTasks = resolve }))
+		const reload = wrapper.vm.initializeRoom()
+		await flushPromises()
+		expect(add().attributes('disabled')).toBeDefined()
+
+		resolveTasks([])
+		await reload
+		await flushPromises()
+		expect(add().attributes('disabled')).toBeUndefined()
+	})
+
 	// BUG-UX-007 (CS-PLAN-088): a direct room-to-room navigation reuses the
 	// view; it loads the new room, and a late answer for the old one never
 	// overwrites it.

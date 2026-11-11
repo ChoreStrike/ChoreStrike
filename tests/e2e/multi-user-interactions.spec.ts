@@ -9,16 +9,19 @@
  *
  * CS-PLAN-015b: auth via per-user storageState (no loginAsUser / no logout).
  * Single-user tests use `createUserContext`; two-user tests create two contexts.
- * CS-PLAN-050: the copy-pasted floor-expansion loops and their fixed sleeps
- * are replaced by the shared `dashboard-floors` helpers (auto-waiting), and
- * the leaderboard assertions are unconditional durable-outcome checks.
+ * CS-PLAN-050: the leaderboard assertions are unconditional
+ * durable-outcome checks.
+ * CS-PLAN-090 WP-B: the Dashboard's room cards are gone. What every role
+ * sees is asserted where it now lives: the own rows on Today, the
+ * household's rooms through the shared `fixtures/rooms.ts` helper, the
+ * house health in Insights.
  */
 
 import type { DatabaseProfile } from './fixtures/database-fixtures.ts'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
-import { expandAllFloors, expandUntilRoomVisible } from './fixtures/dashboard-floors.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
+import { listRooms, openRoom, openToday } from './fixtures/rooms.ts'
 
 test.describe('Multi-User Family Interactions', () => {
 	test.describe.configure({ mode: 'serial' })
@@ -39,35 +42,28 @@ test.describe('Multi-User Family Interactions', () => {
 		expect(userIds).toContain('friend')
 	})
 
-	test('mom can see assigned tasks on dashboard', async ({ browser, seededData: _seededData }) => {
+	test('mom can see assigned tasks on Today', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await openToday(page)
 
-			await expandAllFloors(page)
-
-			const roomCards = page.locator('[data-testid^="room-card-"]')
-			await expect(roomCards.first()).toBeVisible({ timeout: 10000 })
-			expect(await roomCards.count()).toBeGreaterThanOrEqual(1)
+			// The seed assigns the dishes to mom, due today.
+			const row = page.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' })
+			await expect(row).toBeVisible({ timeout: 10000 })
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('teen can expand floors and see room cards', async ({ browser, seededData: _seededData }) => {
+	test('teen lands on Today and can open a room of the household', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
+			// CS-PLAN-066 (D4): the bare root lands on Today.
 			await page.goto('/apps/chorestrike/')
-			// CS-PLAN-066 (D4): the child lands on My Day; the Dashboard
-			// stays reachable through explicit navigation.
 			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
-			await page.getByTestId('nav-dashboard').click()
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
-			const roomCards = page.locator('[data-testid^="room-card-"]')
-			await expandUntilRoomVisible(page, roomCards.first())
-			await expect(roomCards.first()).toBeVisible({ timeout: 10000 })
+			await openRoom(page)
+			await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 10000 })
 		} finally {
 			await context.close()
 		}
@@ -76,8 +72,8 @@ test.describe('Multi-User Family Interactions', () => {
 	test('leaderboard shows the opt-in state for unconsented members (WP4)', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 
 			await page.getByTestId('nav-leaderboard').click()
 			await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })
@@ -94,18 +90,13 @@ test.describe('Multi-User Family Interactions', () => {
 	test('kid can see their simple task list', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'kid')
 		try {
+			// CS-PLAN-066 (D4): the child lands on Today.
 			await page.goto('/apps/chorestrike/')
-			// CS-PLAN-066 (D4): the child lands on My Day; the Dashboard
-			// stays reachable through explicit navigation.
 			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
-			await page.getByTestId('nav-dashboard').click()
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
-			await expandAllFloors(page)
-
-			const roomCards = page.locator('[data-testid^="room-card-"]')
-			await expect(roomCards.first()).toBeVisible({ timeout: 10000 })
-			expect(await roomCards.count()).toBeGreaterThanOrEqual(1)
+			// The seed assigns the toys to kid, due today.
+			const row = page.getByTestId('today-task-item').filter({ hasText: 'Tidy up toys' })
+			await expect(row).toBeVisible({ timeout: 10000 })
 		} finally {
 			await context.close()
 		}
@@ -114,14 +105,11 @@ test.describe('Multi-User Family Interactions', () => {
 	test('grandma can view but has limited tasks', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'grandma')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await openToday(page)
 
-			await expandAllFloors(page)
-
-			const roomCards = page.locator('[data-testid^="room-card-"]')
-			await expect(roomCards.first()).toBeVisible({ timeout: 10000 })
-			expect(await roomCards.count()).toBeGreaterThanOrEqual(1)
+			// Whatever her day holds, she sees the household's rooms.
+			expect((await listRooms(page)).length).toBeGreaterThanOrEqual(1)
+			await openRoom(page)
 		} finally {
 			await context.close()
 		}
@@ -136,40 +124,36 @@ test.describe('Multi-User Task Interactions', () => {
 		const teen = await createUserContext(browser, 'teen')
 
 		try {
-			await mom.page.goto('/apps/chorestrike/#/dashboard')
-			await mom.page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
-			await expandAllFloors(mom.page)
-
-			const momRooms = mom.page.locator('[data-testid^="room-card-"]')
-			await expect(momRooms.first()).toBeVisible({ timeout: 10000 })
-
+			await openToday(mom.page)
+			// CS-PLAN-066 (D4): the child lands on Today.
 			await teen.page.goto('/apps/chorestrike/')
-			// CS-PLAN-066 (D4): the child lands on My Day; the Dashboard
-			// stays reachable through explicit navigation.
 			await teen.page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
-			await teen.page.getByTestId('nav-dashboard').click()
-			await teen.page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
-			await expandAllFloors(teen.page)
 
-			const teenRooms = teen.page.locator('[data-testid^="room-card-"]')
-			await expect(teenRooms.first()).toBeVisible({ timeout: 10000 })
+			// Both look at the same household: the same rooms, and the row
+			// assigned to teen shows for teen and, under Everyone, for mom.
+			const momRooms = await listRooms(mom.page)
+			expect(momRooms.length).toBeGreaterThanOrEqual(1)
+			expect(await listRooms(teen.page)).toEqual(momRooms)
+
+			const teenRow = (page: typeof mom.page) => page.getByTestId('today-task-item').filter({ hasText: 'Wipe kitchen counters' })
+			await expect(teenRow(teen.page)).toBeVisible({ timeout: 10000 })
+			await expect(teenRow(mom.page)).toHaveCount(0)
+			await mom.page.getByTestId('today-filter-all').click()
+			await expect(teenRow(mom.page)).toBeVisible({ timeout: 10000 })
 		} finally {
 			await mom.context.close()
 			await teen.context.close()
 		}
 	})
 
-	test('task completion updates house health', async ({ browser, seededData: _seededData }) => {
+	test('the house health shows in Insights', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await openToday(page)
+			await page.getByTestId('nav-insights').click()
+			await expect(page.getByTestId('insights-view')).toBeVisible({ timeout: 30000 })
 
-			const healthIndicator = page.locator('[data-testid="house-health"]')
-			await expect(healthIndicator).toBeVisible()
-
-			const healthText = await healthIndicator.textContent()
-			expect(healthText).toBeDefined()
+			await expect(page.getByTestId('stat-house-health')).toContainText(/\d+%/, { timeout: 15000 })
 		} finally {
 			await context.close()
 		}
@@ -178,10 +162,10 @@ test.describe('Multi-User Task Interactions', () => {
 	test('leaderboard state stays consistent after task completion (WP4)', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 
-			await expect(page.getByTestId('quick-stats')).toBeVisible()
+			await expect(page.getByTestId('today-status-line')).toBeVisible()
 
 			await page.getByTestId('nav-leaderboard').click()
 			await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })

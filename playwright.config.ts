@@ -64,11 +64,11 @@ const SEED_DEPENDENT_SPECS = [
 	// `emptyhouse` profile, bootstraps a fresh owner and mutates app state
 	// exclusively through the real UI — serial pool, one DB owner.
 	/[/\\]core-household-journey\.spec\.ts$/,
-	// CS-PLAN-044: the dashboard private-filter spec creates room tasks and
+	// CS-PLAN-044: the private-filter deep-link spec creates room tasks and
 	// resolves room IDs from the seed while it holds the form open. Run
 	// concurrently with a reseed (e.g. today-view's `seededData` fixture),
 	// the room-task POST hits a replaced room ID and 404s — serial pool only.
-	/[/\\]dashboard\.spec\.ts$/,
+	/[/\\]task-deep-links\.spec\.ts$/,
 	// CS-PLAN-051: the checklist spec mutates seed state (adds checklist
 	// items + a sub-task to the first seeded task row) and resolves rows via
 	// seed-coupled `.task-item` locators. Under full-matrix load a parallel

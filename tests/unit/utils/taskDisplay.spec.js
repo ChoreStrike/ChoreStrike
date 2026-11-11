@@ -6,6 +6,7 @@
 import { describe, it, expect } from '@jest/globals'
 import {
 	compareTaskItems,
+	daysLabel,
 	isOverdue,
 	priorityClass,
 	priorityLabel,
@@ -162,6 +163,14 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 
 		it('calls a one-time task what it is', () => {
 			expect(recurrenceLabel({ recurrenceMode: 'once', frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 })).toBe('One-time')
+		})
+	})
+
+	describe('daysLabel', () => {
+		it('counts one day in the singular and every other count in the plural', () => {
+			expect(daysLabel(1)).toBe('1 day')
+			expect(daysLabel(0)).toBe('0 days')
+			expect(daysLabel(4)).toBe('4 days')
 		})
 	})
 

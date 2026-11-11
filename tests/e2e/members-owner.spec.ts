@@ -25,8 +25,8 @@ const ADMIN_EMAIL = 'admin@chorestrike.test'
 test.describe.configure({ mode: 'serial' })
 
 async function openMembersSection(page: Page) {
-	await page.goto('/apps/chorestrike/#/dashboard')
-	await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+	await page.goto('/apps/chorestrike/#/today')
+	await page.getByTestId('today-view').waitFor({ state: 'visible' })
 	await page.getByTestId('nav-settings').click()
 	await page.getByTestId('settings-view').waitFor({ state: 'visible' })
 	await page.getByTestId('members-section').waitFor({ state: 'visible' })

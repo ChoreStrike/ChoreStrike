@@ -129,10 +129,11 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
   rooms/floor, level) → *Room List* (editable name, room type, person;
   household/hallway toggles) → *Preview* → apply → **Invite Family**
   (CS-PLAN-038): optional email list (add/remove rows) inviting existing
-  Nextcloud accounts as members; skippable and non-blocking. The Dashboard
+  Nextcloud accounts as members; skippable and non-blocking. Today
   opens the wizard automatically on a first-run house (no floors) for the
-  owner; "Start empty" skips it. A manual entry point (Dashboard header
-  button) stays available while the house has no floors.
+  owner; "Start empty" skips it. A manual entry point (*Set up your home* on
+  Today and under *Floors & Rooms* in the Settings) stays available while the
+  house has no floors (CS-PLAN-090 D-090-12).
   CS-PLAN-062 behavior: the house name travels in the apply payload (no
   separate rename request); step 4 renders the apply result (confirmed house
   name, created floors/rooms/tasks, skipped templates with catalog labels);

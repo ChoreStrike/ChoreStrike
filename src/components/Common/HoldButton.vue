@@ -9,7 +9,7 @@
 			v-bind="buttonAttrs"
 			type="button"
 			class="hold-button__control"
-			:class="{ 'is-holding': phase === 'holding', 'is-confirmed': phase === 'confirmed', 'is-static': staticFill }"
+			:class="{ 'is-holding': phase === 'holding', 'is-confirmed': phase === 'confirmed', 'is-static': staticFill, 'is-icon-only': !label }"
 			:style="{ '--hold-ms': `${holdMs}ms` }"
 			:disabled="disabled || busy"
 			:aria-busy="busy ? 'true' : null"
@@ -72,7 +72,8 @@ let hintCounter = 0
  * live in the `useHoldPress` composable (CR-084-04).
  *
  * Non-class attributes (`data-testid`, `aria-label`, `title`) land on
- * the inner button; `class`/`style` stay on the wrapper.
+ * the inner button; `class`/`style` stay on the wrapper. Without a `label`
+ * the button is a round icon and needs an `aria-label` from its caller.
  */
 export default {
 	name: 'HoldButton',
@@ -155,6 +156,14 @@ export default {
 	background: var(--color-primary-element);
 	color: var(--color-primary-element-text);
 	font-size: 1rem;
+}
+
+/* A dense row shows the icon alone: a circle at the touch-target size. */
+.hold-button__control.is-icon-only {
+	inline-size: 44px;
+	block-size: 44px;
+	padding: 0;
+	border-radius: 50%;
 }
 
 .hold-button__control:hover:not(:disabled) {

@@ -68,8 +68,8 @@ See the current-state distinction below and the
 
 | Area | Current behavior | Remaining product gap |
 |---|---|---|
-| Planning | Fixed and interval recurrence, concrete occurrences, agreed amendments/handovers, pauses and whole-day capacity checks support owner preview/apply, Calendar and My Day. | Validate comprehension and organizing effort in everyday family use. |
-| Family use | Nextcloud-account membership, owner/member/child roles, all-role My Day, child limits and shared-device state reset are implemented. | Real-instance onboarding and voluntary adult/child evidence remain pending. |
+| Planning | Fixed and interval recurrence, concrete occurrences, agreed amendments/handovers, pauses and whole-day capacity checks support owner preview/apply, Calendar and Today. | Validate comprehension and organizing effort in everyday family use. |
+| Family use | Nextcloud-account membership, owner/member/child roles, Today as the landing page of every role, child limits and shared-device state reset are implemented. | Real-instance onboarding and voluntary adult/child evidence remain pending. |
 | Streaks | On-time planned-day fulfillment with neutral free days and recognized dated pauses; catch-up does not rewrite a miss as on-time work. | Confirm that participants understand pending, confirmed and neutral states. |
 | Rewards | Effort-only Coins, exact work shares, rhythm medals/titles, weekly goal and optional catalog/request lifecycle are implemented. The arcade (five household games, opened by finished chores) has scores only, without Coins or boosts. | Validate optional-feature comprehension and perceived pressure through WP9. |
 | Calm UX | Quiet completion feedback, personal opt-ins/quiet hours, at most one daily digest and voluntary ranking; reduced motion overrides animation. | Demonstrate unaided opt-out and collect anonymous family feedback. |
@@ -89,7 +89,7 @@ See the current-state distinction below and the
   and controllable animation. Rankings are initially off and include only
   voluntary participants, including a child's right to decline/leave. Shared
   activity history and private-task visibility remain separate contracts.
-- C5 now specifies My Day entry for all ages, quiet feedback without default
+- C5 now specifies one landing page for all ages (Today), quiet feedback without default
   sound (the celebration animation is on by default since CS-PLAN-090),
   personal cross-device opt-ins, one optional shared daily digest,
   prospective voluntary plan-fulfillment rankings and a required comprehension test

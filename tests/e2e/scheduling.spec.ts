@@ -9,8 +9,8 @@ test.describe('Scheduling UI', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 		await expect(async () => {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 10000 })
 			await page.getByTestId('nav-scheduling').click()
 			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
@@ -32,8 +32,8 @@ test.describe('Scheduling UI', () => {
 	})
 
 	test('navigates to scheduling via nav item', async ({ page }) => {
-		await page.getByTestId('nav-dashboard').click()
-		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+		await page.getByTestId('nav-today').click()
+		await page.getByTestId('today-view').waitFor({ state: 'visible' })
 		await page.getByTestId('nav-scheduling').click()
 		await expect(page.getByTestId('scheduling-view')).toBeVisible()
 	})
@@ -87,8 +87,8 @@ test.describe('Scheduling save flow', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 		await expect(async () => {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 10000 })
 			await page.getByTestId('nav-scheduling').click()
 			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })

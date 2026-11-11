@@ -3,6 +3,10 @@
 **Status:** Research Document  
 **Date:** 2026-03-15
 
+> The code samples name the views as they were in March 2026. The Dashboard
+> merged into Today with CS-PLAN-090 (`src/views/TodayView.vue`); read
+> "Dashboard" below as the landing page.
+
 ---
 
 ## Current Implementation

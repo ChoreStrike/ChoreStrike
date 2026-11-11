@@ -93,14 +93,6 @@ describe('Rooms Store', () => {
 			expect(store.dirtyRooms).toBe(1)
 		})
 
-		it('averageCleanliness calculates correctly', () => {
-			expect(store.averageCleanliness).toBe(73)
-		})
-
-		it('averageCleanliness returns 100 when no rooms', () => {
-			store.rooms = []
-			expect(store.averageCleanliness).toBe(100)
-		})
 	})
 
 	describe('Actions', () => {

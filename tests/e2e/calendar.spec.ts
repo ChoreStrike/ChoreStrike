@@ -8,9 +8,9 @@ import { expect, test } from '@playwright/test'
 test.describe('Calendar View', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle')
-		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+		await page.getByTestId('today-view').waitFor({ state: 'visible' })
 		await page.getByTestId('nav-calendar').click()
 		await page.getByTestId('calendar-view').waitFor({ state: 'visible' })
 	})

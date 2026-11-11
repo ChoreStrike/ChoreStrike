@@ -13,7 +13,6 @@ export const useRoomsStore = defineStore('rooms', {
 		rooms: [],
 		loading: false,
 		error: null,
-		expandedFloors: [],
 		// CS-PLAN-066 §3.3: mutations invalidate structure reads at dispatch
 		// and reconciliation, including reads started during the write.
 		// reset() discards in-flight read results.
@@ -51,23 +50,11 @@ export const useRoomsStore = defineStore('rooms', {
 			return state.floors.find((floor) => floor.id === floorId)
 		},
 
-		isFloorExpanded: (state) => (floorId) => {
-			return state.expandedFloors.some((id) => String(id) === String(floorId))
-		},
-
 		totalRooms: (state) => state.rooms.length,
 
 		cleanRooms: (state) => state.rooms.filter((room) => room.cleanliness >= 60).length,
 
 		dirtyRooms: (state) => state.rooms.filter((room) => room.cleanliness < 60).length,
-
-		averageCleanliness: (state) => {
-			if (state.rooms.length === 0) {
-				return 100
-			}
-			const total = state.rooms.reduce((sum, room) => sum + room.cleanliness, 0)
-			return Math.round(total / state.rooms.length)
-		},
 	},
 
 	actions: {
@@ -385,43 +372,6 @@ export const useRoomsStore = defineStore('rooms', {
 			this.rooms = []
 			this.loading = false
 			this.error = null
-		},
-
-		/**
-		 * Toggle floor expansion state
-		 * @param {number} floorId Floor identifier to toggle.
-		 */
-		toggleFloorExpanded(floorId) {
-			const key = String(floorId)
-			const index = this.expandedFloors.findIndex((id) => String(id) === key)
-			if (index > -1) {
-				this.expandedFloors.splice(index, 1)
-			} else {
-				this.expandedFloors.push(key)
-			}
-		},
-
-		/**
-		 * Set floor as expanded
-		 * @param {number} floorId Floor identifier to expand.
-		 */
-		setFloorExpanded(floorId) {
-			const key = String(floorId)
-			if (!this.expandedFloors.includes(key)) {
-				this.expandedFloors.push(key)
-			}
-		},
-
-		/**
-		 * Set floor as collapsed
-		 * @param {number} floorId Floor identifier to collapse.
-		 */
-		setFloorCollapsed(floorId) {
-			const key = String(floorId)
-			const index = this.expandedFloors.findIndex((id) => String(id) === key)
-			if (index > -1) {
-				this.expandedFloors.splice(index, 1)
-			}
 		},
 	},
 })

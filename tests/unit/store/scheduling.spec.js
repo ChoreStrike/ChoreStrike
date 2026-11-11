@@ -103,6 +103,18 @@ describe('Scheduling Store', () => {
 			expect(store.getCapacityForDay('monday')).toBe(13)
 		})
 
+		it('getOwnCapacityForDay ignores the household read and honours an unavailable day', () => {
+			store.memberAvailability = [
+				{ userId: 'a', weekdayAvailability: { monday: true }, energyBudget: { monday: 9 } },
+				{ userId: 'b', weekdayAvailability: { monday: true }, energyBudget: { monday: 4 } },
+			]
+			store.energyBudget = { ...store.energyBudget, monday: 6, tuesday: 7 }
+			store.weekdayAvailability = { ...store.weekdayAvailability, tuesday: false }
+
+			expect(store.getOwnCapacityForDay('Monday')).toBe(6)
+			expect(store.getOwnCapacityForDay('tuesday')).toBe(0)
+		})
+
 		it('getCapacityForDay falls back to own budget with weekend 15', () => {
 			store.memberAvailability = []
 			store.energyBudget = { monday: 6 }

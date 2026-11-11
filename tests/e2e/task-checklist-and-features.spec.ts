@@ -21,9 +21,9 @@ test.describe('Task Checklist', () => {
 		test.setTimeout(60000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
 	})
 
 	test('should display checklist when expanding a task', async ({ page }) => {
@@ -62,8 +62,8 @@ test.describe('Task Checklist', () => {
 		// toggle test acts as the seeded owner `mom`.
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 			await page.getByTestId('nav-tasks').click()
 			await page.waitForSelector('[data-testid="task-manager-view"]')
 
@@ -141,9 +141,9 @@ test.describe('Group Assignment', () => {
 		test.setTimeout(60000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
 	})
 
 	test('should show assigned status for tasks', async ({ page }) => {
@@ -167,9 +167,9 @@ test.describe('Task Scheduling Modes', () => {
 		test.setTimeout(60000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
 	})
 
 	test('should show scheduling mode options in task edit form', async ({ page }) => {
@@ -214,9 +214,9 @@ test.describe('Template Selector', () => {
 		test.setTimeout(60000)
 
 		// Navigate to app (assuming already logged in)
-		await page.goto('/apps/chorestrike/#/dashboard')
+		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
 	})
 
 	test('should show template selector when creating task', async ({ page }) => {

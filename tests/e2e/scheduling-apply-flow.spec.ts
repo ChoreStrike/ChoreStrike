@@ -44,13 +44,8 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		// One-off load flakes (CS-PLAN-068): retry the NAVIGATION against the
 		// durable outcome instead of a single fixed wait.
 		await expect(async () => {
-			await page.goto('/apps/chorestrike/#/dashboard')
-			// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day,
-			// owners/members on the Dashboard — both are valid entry points.
-			await page.getByTestId('dashboard-view')
-				.or(page.getByTestId('today-view'))
-				.first()
-				.waitFor({ state: 'visible' })
+			await page.goto('/apps/chorestrike/#/today')
+			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 			await page.getByTestId('nav-scheduling').click()
 			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
 		}).toPass({ timeout: 45000 })
@@ -535,8 +530,8 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 
 	test('the retired taskCount advice contract is rejected without a fallback', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
-		await page.goto('/apps/chorestrike/#/dashboard')
-		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+		await page.goto('/apps/chorestrike/#/today')
+		await page.getByTestId('today-view').waitFor({ state: 'visible' })
 
 		const status = await page.evaluate(async () => {
 			const token = document.head.querySelector('meta[name="requesttoken"]')?.content

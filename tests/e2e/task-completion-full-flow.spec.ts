@@ -20,10 +20,11 @@
 import type { Page } from '@playwright/test'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
-import { expandAllFloors } from './fixtures/dashboard-floors.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
+import { openRoom } from './fixtures/rooms.ts'
+
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. */
 async function kitchenRoom(page: Page): Promise<{ id: number, cleanliness: number }> {
@@ -36,11 +37,7 @@ async function kitchenRoom(page: Page): Promise<{ id: number, cleanliness: numbe
 }
 
 async function openKitchenRoomDetail(page: Page): Promise<void> {
-	await page.goto('/apps/chorestrike/#/dashboard')
-	await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
-	await expandAllFloors(page)
-	await page.getByTestId('room-card-Kitchen').first().click()
-	await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+	await openRoom(page, 'Kitchen')
 }
 
 /**
@@ -187,22 +184,15 @@ test.describe('Task Completion Full Flow', () => {
 	test('task completion updates room cleanliness by the exact delta', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
+			// CS-PLAN-066 (D4): a child's bare-root visit lands on Today.
 			await page.goto('/apps/chorestrike/')
-			// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day;
-			// the Dashboard stays reachable through explicit navigation.
 			await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
-			await page.getByTestId('nav-dashboard').click()
-			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
-
-			await expandAllFloors(page)
 
 			const kitchen = await kitchenRoom(page)
-			const roomCard = page.getByTestId('room-card-Kitchen').first()
-			await expect(roomCard.locator('.cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
 			const initialCleanliness = kitchen.cleanliness
 
-			await roomCard.click()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+			await openKitchenRoomDetail(page)
+			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${initialCleanliness}%`, { timeout: 15000 })
 
 			// Guaranteed precondition: an active task exists to complete.
 			const completeButton = page.getByTestId('task-item').filter({ hasText: 'Wipe kitchen counters' }).getByTestId('complete-task-button')

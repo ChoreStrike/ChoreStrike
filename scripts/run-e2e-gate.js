@@ -75,12 +75,13 @@ const REQUIRED_SPECS = [
 	// hold, privacy boundaries, the uncertain-command replay and the
 	// mobile/keyboard/localization proof.
 	{ file: 'family-rewards.spec.ts', project: 'chromium-serial-db', scenarios: ['catalog-off core works for every role', 'owner administration works while the catalog is off', 'child request', 'adult self-approval, cancellation', 'changed terms require renewed review', 'funding hold', 'foreign requests stay invisible', 'uncertain command outcome replays', 'mobile targets, keyboard operation'], minTests: 9 },
-	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
+	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: ['today is the landing page with the own status'], minTests: 4 },
 	{ file: 'members-owner.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 3 },
 	{ file: 'family-membership-hardening.spec.ts', project: 'chromium-serial-db', scenarios: ['invite enforces the approved 60/300 boundary', 'remove enforces the approved 60/300 boundary', 'updaterole enforces the approved 60/300 boundary'], minTests: 3 },
 	{ file: 'settings.spec.ts', project: 'chromium-serial-db', scenarios: ['a room in the list shows its tasks and can be renamed', 'every select shows its whole value', 'reset keeps setup, structure, tasks and history', 'owner timezone and populated floor controls remain reachable at 390px', 'owner timezone and populated floor controls remain reachable at 1440px', 'house drafts wait for the winning read', 'cold structure hydration survives room reconciliation'], minTests: 14 },
 	{ file: 'room-management.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
-	{ file: 'dashboard.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
+	// The task list's address contract; successor of dashboard.spec.ts (CS-PLAN-090 WP-B).
+	{ file: 'task-deep-links.spec.ts', project: 'chromium-serial-db', scenarios: ['the private link scopes the task list', 'the overdue link presets the household task list'], minTests: 2 },
 	{ file: 'task-checklist-and-features.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: '3-floor-house.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'error-handling.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
@@ -114,10 +115,9 @@ const REQUIRED_SPECS = [
 	{ file: 'admin-only-tasks.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'calendar.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'core-functionality.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
-	{ file: 'dashboard-navigation.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'fast-core-tests.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
-	// TECH-DOCS-005 follow-up: navigation-toggle clearance (desktop + phone) and the health bar.
-	{ file: 'layout-clearance.spec.ts', project: 'chromium', scenarios: ['the app frame keeps its margins', 'the navigation toggle covers no view heading', 'the view insets follow the host navigation metrics', 'right-to-left layout', 'the house-health bar shows its fill'], minTests: 7 },
+	// TECH-DOCS-005 follow-up: navigation-toggle clearance (desktop + phone) and Today's status line.
+	{ file: 'layout-clearance.spec.ts', project: 'chromium', scenarios: ['the app frame keeps its margins', 'the navigation toggle covers no view heading', 'the view insets follow the host navigation metrics', 'right-to-left layout', 'the today status line keeps its four tiles in one row'], minTests: 8 },
 	{ file: 'leaderboard.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'minimal-smoke-tests.spec.ts', project: 'chromium', scenarios: ['injected styles and lazy assets work at 1440px', 'injected styles and lazy assets work at 390px', 'protected views wait for membership bootstrap'], minTests: 6 },
 	{ file: 'overdue-task-claiming.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
@@ -133,7 +133,7 @@ const REQUIRED_SPECS = [
 	// CS-PLAN-084 WP-G: the curated phone core set, run by BOTH device projects.
 	// CS-PLAN-086 WP-C..WP-F: arcade touch controls, the DOM games and both canvas input modes, on both phones.
 	{ file: 'arcade-mobile.spec.ts', project: MOBILE_PROJECTS, scenarios: ['spot sprint plays by tapping', 'sock match plays by tapping', 'tile breaker steers by tapping the board', 'crumb snake steers with the on-screen pad', 'dust runner turns with the on-screen pad'], minTests: 5 },
-	{ file: 'mobile-core.spec.ts', project: MOBILE_PROJECTS, scenarios: ['my day hold-complete and undo', 'claim confirm', 'handover', 'reassignment', 'paged task list', 'dashboard tiles', 'settings'], minTests: 7 },
+	{ file: 'mobile-core.spec.ts', project: MOBILE_PROJECTS, scenarios: ['my day hold-complete and undo', 'claim confirm', 'handover', 'reassignment', 'paged task list', 'today shows the status line', 'settings'], minTests: 7 },
 	// Auth setup runs once as the dependency of every browser project.
 	{ file: 'auth.setup.ts', project: SETUP_PROJECT, scenarios: [], minTests: 3 },
 ]

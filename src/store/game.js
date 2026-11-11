@@ -110,7 +110,7 @@ export const useGameStore = defineStore('game', {
 					}
 				}
 
-				// CS-PLAN-066 (D5): hydration — silent. First load, Dashboard
+				// CS-PLAN-066 (D5): hydration — silent. First load, a view's
 				// remount, unchanged refetch and week rollover store the
 				// snapshot without manufacturing an achievement.
 				if (data?.weeklyGoal) {

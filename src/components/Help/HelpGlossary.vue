@@ -41,9 +41,9 @@ export default {
 		terms() {
 			return [
 				{
-					id: 'my-day',
-					title: t('chorestrike', 'My Day'),
-					text: t('chorestrike', 'Your day at a glance: what is due today, what is catch-up, and which appointments are coming.'),
+					id: 'today',
+					title: t('chorestrike', 'Today'),
+					text: t('chorestrike', 'Your day at a glance: your own status, what is overdue, what is due today and what is already possible. Upcoming work is in the calendar.'),
 				},
 				{
 					id: 'agreement',
@@ -88,7 +88,7 @@ export default {
 				{
 					id: 'coins',
 					title: t('chorestrike', 'Coins'),
-					text: t('chorestrike', 'The household reward currency for completed work. The balance lives in the household overview — never on My Day. Available Coins can be requested; reserved Coins back open requests and are only spent on actual delivery.'),
+					text: t('chorestrike', 'The household reward currency for completed work. Today shows your available balance. Available Coins can be requested; reserved Coins back open requests and are only spent on actual delivery.'),
 				},
 				{
 					id: 'reward-catalog',
