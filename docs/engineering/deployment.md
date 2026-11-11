@@ -288,6 +288,33 @@ WHERE o.completion_id IS NULL
   AND o.energy <> r.energy;
 ```
 
+**Expected data change of the update to `0.8.0-alpha.5`.** One migration step
+runs, the first on the retained baseline: `1034Date20261111000000`, data only
+(CS-PLAN-090 D-090-16, D-090-20). In `member_prefs` it sets `animation_enabled`
+to true in every row and raises `version` by one. The row count and every other
+column stay as they are, and a member without a row still has none; an empty
+table stays empty. Every other app table and the app config except
+`installed_version` are identical before and after, so the before/after
+comparison of the maintenance window expects exactly this one table to differ.
+The applied migration list grows from 26 to 27. The step also overrides a
+deliberate "off"; members can switch the animation off again in their settings,
+and the handoff says so. The operator runs this before and after (check the
+table prefix of the instance):
+
+```sql
+SELECT count(*) AS total_rows,
+       coalesce(sum(CASE WHEN animation_enabled THEN 1 ELSE 0 END), 0) AS animation_on,
+       coalesce(sum(version), 0) AS version_sum
+FROM oc_chorestrike_member_prefs;
+```
+
+Afterwards `total_rows` is unchanged, `animation_on` equals `total_rows` and
+`version_sum` is the earlier value plus `total_rows`. The P4 proof of the
+[preservation runner](testing.md#isolated-supported-database-matrix) runs this
+update from the installed build on all three providers. Once the deployment is
+verified, the step joins `tests/migrations/applied-migrations.json` with the
+SHA-256 from the operator's report and is immutable from then on.
+
 #### Update to 0.8.0-alpha.4 (2026-11-05)
 
 | Item | Record |

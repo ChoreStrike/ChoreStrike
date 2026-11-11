@@ -1,18 +1,25 @@
 # CS-PLAN-082 R5/R6: synthetic populated persistence (P1), real runtime update (P2)
 # and whole-instance recovery (P3) proofs on owned cs082 test targets.
+# CS-PLAN-090 WP-F: real app update from the retained baseline's build (P4).
 # Never runs against the canonical/WP9 stacks, never touches production, never
 # adopts a retained baseline; all fixtures are synthetic and separately owned.
 [CmdletBinding()]
 param(
-    [ValidateSet('p1', 'p2', 'p3')] [string]$Proof,
+    [ValidateSet('p1', 'p2', 'p3', 'p4')] [string]$Proof,
     [ValidateSet('mysql', 'pgsql', 'sqlite')] [string]$Provider = 'pgsql',
     [ValidateSet('primary', 'aio')] [string]$Row = 'primary',
     [string]$RunId = [Guid]::NewGuid().ToString('N').Substring(0, 8),
     [Parameter()][ValidateRange(1024, 65535)] [int]$Port = 0,
+    # P4 before the release's version bump only: the version the candidate copy gets.
+    [string]$StampVersion = '',
     [switch]$SelfTest
 )
 
 $ErrorActionPreference = 'Stop'
+
+# P4 source: the build installed on the retained baseline (deployment.md,
+# "Updates on the Retained Baseline"). Move it with every verified deployment.
+$UpgradeSource = @{ Version = '0.8.0-alpha.4'; Commit = '1a4988f608368bc43603a3387d97617c4451e0ed' }
 
 function Get-SanitizedArguments {
     param([string[]]$Arguments)
@@ -46,8 +53,25 @@ function Get-ProofProject {
         throw 'P3 whole-instance recovery runs on the target PostgreSQL primary runtime only.'
     }
     if ($Proof -eq 'p1' -and $Row -ne 'primary') { throw 'P1 same-build persistence is proven on the primary row.' }
+    if ($Proof -eq 'p4' -and $Row -eq 'aio' -and $Provider -ne 'pgsql') { throw 'P4 on the AIO row runs on PostgreSQL, as AIO does.' }
     if ($project -notmatch '^cs082-[a-z0-9][a-z0-9-]*$') { throw "Invalid owned proof project: $project" }
     return $project
+}
+
+function Resolve-UpgradeVersion {
+    # P4: an app update needs a version above the installed one. A candidate that
+    # still carries the source version (before the release's version bump) runs
+    # only with an explicit stamp, which the summary records; a candidate with
+    # its own version is never stamped.
+    param([string]$Source, [string]$Candidate, [string]$Stamp)
+    if ($Stamp -and $Stamp -cnotmatch '^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$') { throw 'Invalid stamp version.' }
+    if ($Candidate -ne $Source) {
+        if ($Stamp) { throw 'The candidate carries its own version; a stamp would hide it.' }
+        return $Candidate
+    }
+    if (-not $Stamp) { throw 'The candidate still carries the source version; pass -StampVersion for a run before the version bump.' }
+    if ($Stamp -eq $Source) { throw 'The stamp must differ from the source version.' }
+    return $Stamp
 }
 
 function New-OwnedNetwork {
@@ -92,13 +116,25 @@ if ($SelfTest) {
     'Preservation log sanitization self-test: PASS'
     if ((Get-ProofProject p1 mysql primary 'abcd1234') -ne 'cs082-abcd1234-p1-mysql') { throw 'P1 project naming drifted.' }
     if ((Get-ProofProject p2 pgsql aio 'abcd1234') -ne 'cs082-abcd1234-p2-pgsql-aio') { throw 'P2 AIO project naming drifted.' }
+    if ((Get-ProofProject p4 sqlite primary 'abcd1234') -ne 'cs082-abcd1234-p4-sqlite') { throw 'P4 project naming drifted.' }
+    if ((Get-ProofProject p4 pgsql aio 'abcd1234') -ne 'cs082-abcd1234-p4-pgsql-aio') { throw 'P4 AIO project naming drifted.' }
     foreach ($invalid in @(
             @('p3', 'mysql', 'primary', 'abcd1234'), @('p3', 'pgsql', 'aio', 'abcd1234'),
-            @('p1', 'pgsql', 'aio', 'abcd1234'), @('p1', 'mysql', 'primary', 'ABCD1234'))) {
+            @('p1', 'pgsql', 'aio', 'abcd1234'), @('p1', 'mysql', 'primary', 'ABCD1234'),
+            @('p4', 'mysql', 'aio', 'abcd1234'), @('p4', 'sqlite', 'aio', 'abcd1234'))) {
         try { $null = Get-ProofProject @invalid; throw "Invalid proof combination was accepted: $($invalid -join ',')" }
         catch { if ($_.Exception.Message -like '*accepted*') { throw } }
     }
     'Preservation proof routing self-test: PASS'
+    if ((Resolve-UpgradeVersion '0.8.0-alpha.4' '0.8.0-alpha.5' '') -ne '0.8.0-alpha.5') { throw 'A candidate with its own version must run unstamped.' }
+    if ((Resolve-UpgradeVersion '0.8.0-alpha.4' '0.8.0-alpha.4' '0.8.0-alpha.5') -ne '0.8.0-alpha.5') { throw 'An explicit stamp must apply before the version bump.' }
+    foreach ($invalid in @(
+            @('0.8.0-alpha.4', '0.8.0-alpha.4', ''), @('0.8.0-alpha.4', '0.8.0-alpha.4', '0.8.0-alpha.4'),
+            @('0.8.0-alpha.4', '0.8.0-alpha.5', '0.8.0-alpha.6'), @('0.8.0-alpha.4', '0.8.0-alpha.4', '1.0; rm -rf /'))) {
+        try { $null = Resolve-UpgradeVersion @invalid; throw "Invalid upgrade version was accepted: $($invalid -join ',')" }
+        catch { if ($_.Exception.Message -like '*accepted*') { throw } }
+    }
+    'Preservation app-upgrade version self-test: PASS'
     foreach ($failAfterCreate in @($false, $true)) {
         $state = @{ NetworkCreated = $false }
         $seen.Clear()
@@ -376,7 +412,7 @@ function Invoke-RecoveryProof {
     Wait-OwnedPostgres $db
 
     # Whitelist runtime/build paths: never copy private/, .git/, browser artifacts or node_modules.
-    & tar.exe -czf (Join-Path $evidence 'app.tar.gz') -C $repo appinfo lib templates img l10n js css vendor composer.json composer.lock LICENSE tests/recovery
+    & tar.exe -czf (Join-Path $evidence 'app.tar.gz') -C $repo appinfo lib templates img l10n js vendor composer.json composer.lock LICENSE tests/recovery
     [IO.File]::AppendAllText((Join-Path $evidence 'commands.log'), "Runtime whitelist archive (host tar) exit=$LASTEXITCODE`n")
     if ($LASTEXITCODE -ne 0) { throw 'Runtime/build capture failed.' }
     $common = @('--network', $project,
@@ -528,9 +564,183 @@ function Invoke-RecoveryProof {
     }
 }
 
+function Invoke-Git {
+    param([string[]]$Arguments)
+    $ErrorActionPreference = 'Continue'
+    $output = & git -C $repo @Arguments 2>&1
+    $exitCode = $LASTEXITCODE
+    [IO.File]::AppendAllText((Join-Path $evidence 'commands.log'),
+        '> git ' + ($Arguments -join ' ') + "`n" + ($output -join "`n") + "`nexit=$exitCode`n")
+    if ($exitCode -ne 0) { throw "Git operation failed (exit $exitCode); private commands.log retains diagnostics." }
+    return $output
+}
+
+function Wait-OwnedMariaDb {
+    param([string]$Name)
+    for ($i = 0; $i -lt 90; $i++) {
+        $ErrorActionPreference = 'Continue'
+        # TCP only: the image's initialization server listens on the socket alone.
+        & docker exec $Name mariadb -h 127.0.0.1 -unextcloud -pnextcloud nextcloud -e 'SELECT 1' 2>&1 | Out-Null
+        $exitCode = $LASTEXITCODE
+        [IO.File]::AppendAllText((Join-Path $evidence 'commands.log'), "Authenticated TCP DB readiness attempt=$i exit=$exitCode`n")
+        if ($exitCode -eq 0) { return }
+        Start-Sleep -Seconds 1
+    }
+    throw 'Owned upgrade DB failed to become ready for authenticated TCP queries.'
+}
+
+function Invoke-Occ {
+    param([string]$Container, [string[]]$Arguments, [string[]]$Environment = @())
+    return Invoke-Docker (@('exec', '-u', 'www-data', '-w', '/var/www/html') + $Environment + @($Container, 'php', 'occ') + $Arguments)
+}
+
+function Invoke-UpgradeFixture {
+    param([string]$Container, [string]$Mode)
+    $output = Invoke-Docker @('exec', '--user', 'www-data', '-e', 'CS_RECOVERY_REHEARSAL=true',
+        $Container, 'php', '/opt/cs-upgrade/upgrade-fixture.php', $Mode)
+    $text = ($output | Out-String).Trim()
+    if ($text -notmatch "Upgrade fixture ${Mode}: PASS") { throw "Upgrade fixture $Mode did not pass." }
+    return $text
+}
+
+function Install-AppTree {
+    # Replaces the app's files with one archive, as a deployment does.
+    param([string]$Container, [string]$Archive)
+    $app = '/var/www/html/custom_apps/chorestrike'
+    $null = Invoke-Docker @('cp', (Join-Path $evidence $Archive), "${Container}:/tmp/$Archive")
+    $null = Invoke-Docker @('exec', $Container, 'find', $app, '-mindepth', '1', '-delete')
+    $null = Invoke-Docker @('exec', $Container, 'tar', '-xf', "/tmp/$Archive", '-C', $app)
+    $null = Invoke-Docker @('exec', $Container, 'chown', '-R', 'www-data:www-data', $app)
+}
+
+function Invoke-AppUpgradeProof {
+    # P4: the build installed on the retained baseline, populated through its own
+    # services, then the candidate's files and `occ upgrade` without reseeding.
+    $candidateVersion = ([xml][IO.File]::ReadAllText((Join-Path $repo 'appinfo\info.xml'))).info.version
+    $targetVersion = Resolve-UpgradeVersion $UpgradeSource.Version $candidateVersion $StampVersion
+    $sourceXml = (Invoke-Git @('show', "$($UpgradeSource.Commit):appinfo/info.xml")) -join "`n"
+    if (([xml]$sourceXml).info.version -ne $UpgradeSource.Version) { throw 'The source commit does not carry the source version.' }
+    $current = Get-RuntimeSelection 'current'
+    $imageName = "cs082-runtime-$($current.nextcloud)-local"
+    $image = ((Invoke-Node @('scripts/test-runtime.js', 'verify-image', $imageName, "--runtime=$Row")) | ConvertFrom-Json).imageId
+    if ($image -notmatch '^sha256:[a-f0-9]{64}$') { throw 'Expected the verified frozen runtime image.' }
+
+    # Runtime whitelists: never private/, .git/, browser artifacts or node_modules.
+    $null = Invoke-Git @('archive', '--format=tar', '-o', (Join-Path $evidence 'source-app.tar'), $UpgradeSource.Commit,
+        'appinfo', 'lib', 'templates', 'img', 'l10n', 'composer.json', 'LICENSE')
+    & tar.exe -cf (Join-Path $evidence 'candidate-app.tar') -C $repo appinfo lib templates img l10n js vendor composer.json composer.lock LICENSE `
+        phpunit.integration.xml tests/bootstrap-integration.php tests/integration
+    [IO.File]::AppendAllText((Join-Path $evidence 'commands.log'), "Candidate whitelist archive (host tar) exit=$LASTEXITCODE`n")
+    if ($LASTEXITCODE -ne 0) { throw 'Candidate capture failed.' }
+
+    New-OwnedNetwork $lifecycle $project { param($Arguments) Invoke-Docker $Arguments }
+    $install = @('maintenance:install', '--admin-user=admin', '--admin-pass=admin', "--database=$Provider")
+    $environment = @('-e', 'NEXTCLOUD_TEST_ENV=true', '-e', 'NEXTCLOUD_TEST_MODE=true', '-e', "TEST_DB_TYPE=$Provider")
+    $dbImage = 'sqlite'
+    if ($Provider -ne 'sqlite') {
+        $db = "$project-db"
+        $dbImage = (Invoke-Node @('-e',
+            "const { readInventory } = require('./scripts/test-runtime'); const d = readInventory().databases['$Provider']; process.stdout.write(d.image + '@' + d.digest)")).Trim()
+        $null = Invoke-Docker @('image', 'inspect', $dbImage)
+        $dbEnvironment = if ($Provider -eq 'pgsql') {
+            @('-e', 'POSTGRES_DB=nextcloud', '-e', 'POSTGRES_USER=nextcloud', '-e', 'POSTGRES_PASSWORD=nextcloud')
+        } else {
+            @('-e', 'MYSQL_ROOT_PASSWORD=root', '-e', 'MYSQL_DATABASE=nextcloud', '-e', 'MYSQL_USER=nextcloud', '-e', 'MYSQL_PASSWORD=nextcloud')
+        }
+        $null = Invoke-Docker (@('create', '--name', $db, '--network', $project) + $dbEnvironment + @($dbImage))
+        $created.Add($db)
+        $null = Invoke-Docker @('start', $db)
+        if ($Provider -eq 'pgsql') { Wait-OwnedPostgres $db } else { Wait-OwnedMariaDb $db }
+        $install += @("--database-host=$db", '--database-name=nextcloud', '--database-user=nextcloud', '--database-pass=nextcloud')
+        $environment += @('-e', "DB_HOST=$db")
+    }
+
+    $container = "$project-nextcloud"
+    $null = Invoke-Docker (@('create', '--name', $container, '--network', $project) + $environment + @('--entrypoint', 'tail', $image, '-f', '/dev/null'))
+    $created.Add($container)
+    $null = Invoke-Docker @('start', $container)
+    Initialize-EvidenceShare $container
+    Install-AppTree $container 'source-app.tar'
+    $null = Invoke-Docker @('exec', $container, 'ln', '-s', '/var/www/html/custom_apps/chorestrike', '/var/www/html/apps/chorestrike')
+    # The source build's migration files are the pinned inventory, byte for byte.
+    $pinned = Invoke-Node @('-e',
+        "const m = require('./scripts/applied-migrations.js'); process.stdout.write(m.loadAppliedMigrations().map(x => x.sha256 + '  Version' + x.id + '.php').sort().join('\n'))")
+    $shipped = Invoke-Docker @('exec', '-w', '/var/www/html/custom_apps/chorestrike/lib/Migration', $container, 'sh', '-ec', 'sha256sum Version*.php | LC_ALL=C sort')
+    if ((($shipped | Out-String).Trim() -replace "`r", '') -ne ($pinned -replace "`r", '')) { throw 'The source build does not ship exactly the pinned migrations.' }
+
+    $null = Invoke-Occ $container $install
+    $null = Invoke-Occ $container @('app:enable', 'chorestrike')
+    foreach ($uid in @('mom', 'dad', 'teen', 'kid', 'grandma', 'friend')) {
+        $null = Invoke-Occ $container @('user:add', '--password-from-env', $uid) @('-e', 'OC_PASS=RecoveryTest123!')
+    }
+    # The fixture lives next to the app: it runs on both builds.
+    $null = Invoke-Docker @('exec', $container, 'mkdir', '-p', '/opt/cs-upgrade')
+    foreach ($file in @('upgrade-fixture.php', 'owned-target.php')) {
+        $null = Invoke-Docker @('cp', (Join-Path $repo "tests\recovery\$file"), "${container}:/opt/cs-upgrade/$file")
+    }
+    $seed = Invoke-UpgradeFixture $container 'seed'
+    # Control: the source state before the update must fail the verification.
+    $null = Invoke-Docker -Arguments @('exec', '--user', 'www-data', '-e', 'CS_RECOVERY_REHEARSAL=true',
+        $container, 'php', '/opt/cs-upgrade/upgrade-fixture.php', 'verify') -ExpectedExitCode 255
+    Copy-FromContainer $container @('upgrade-fixture.json', 'upgrade-before.json')
+    $identityBefore = Get-InstalledIdentity $container
+    $pinnedIds = @(($pinned -split "`n") | ForEach-Object { $_.Trim().Substring(66 + 'Version'.Length) -replace '\.php$', '' } | Sort-Object)
+    if (Compare-Object $pinnedIds @($identityBefore.migrations | Sort-Object)) { throw 'The populated source did not apply exactly the pinned migrations.' }
+    $installedBefore = ((Invoke-Occ $container @('config:app:get', 'chorestrike', 'installed_version')) | Out-String).Trim()
+    if ($installedBefore -ne $UpgradeSource.Version) { throw 'The populated source does not run the source version.' }
+    [IO.File]::WriteAllText((Join-Path $evidence 'identity-before.json'), ($identityBefore | ConvertTo-Json))
+
+    # The documented update: files replaced under maintenance mode, then occ upgrade.
+    $null = Invoke-Occ $container @('maintenance:mode', '--on')
+    Install-AppTree $container 'candidate-app.tar'
+    # For the schema parity run: the host archive carries no file modes, and PSR-4
+    # needs tests/Integration on this case-sensitive copy (bind mounts are not).
+    # HACK: TECH-TEST-012 - the integration namespace does not resolve on a
+    # case-sensitive file system; remove the link once it does.
+    $null = Invoke-Docker @('exec', $container, 'chmod', '+x', '/var/www/html/custom_apps/chorestrike/vendor/bin/phpunit')
+    $null = Invoke-Docker @('exec', $container, 'ln', '-s', 'integration', '/var/www/html/custom_apps/chorestrike/tests/Integration')
+    if ($StampVersion) {
+        $null = Invoke-Docker @('exec', $container, 'sed', '-i',
+            "s#<version>$candidateVersion</version>#<version>$targetVersion</version>#", '/var/www/html/custom_apps/chorestrike/appinfo/info.xml')
+        $null = Invoke-Docker @('exec', $container, 'grep', '-q', "<version>$targetVersion</version>", '/var/www/html/custom_apps/chorestrike/appinfo/info.xml')
+    }
+    $upgrade = Invoke-Occ $container @('upgrade')
+    $null = Invoke-Occ $container @('maintenance:mode', '--off')
+
+    $identityAfter = Get-InstalledIdentity $container
+    [IO.File]::WriteAllText((Join-Path $evidence 'identity-after.json'), ($identityAfter | ConvertTo-Json))
+    if ($identityBefore.instanceid -ne $identityAfter.instanceid -or $identityBefore.version -ne $identityAfter.version) {
+        throw 'The app update changed the instance identity or the Nextcloud version.'
+    }
+    $installedAfter = ((Invoke-Occ $container @('config:app:get', 'chorestrike', 'installed_version')) | Out-String).Trim()
+    if ($installedAfter -ne $targetVersion) { throw 'The installed app version is not the candidate version.' }
+    $applied = @($identityAfter.migrations | Where-Object { $identityBefore.migrations -notcontains $_ })
+    if ($applied.Count -eq 0) { throw 'The upgrade applied no new migration step.' }
+    if (@($identityBefore.migrations | Where-Object { $identityAfter.migrations -notcontains $_ }).Count -ne 0) { throw 'An applied migration disappeared.' }
+    $migrationCount = Test-MigrationFiles $identityAfter
+    $verify = Invoke-UpgradeFixture $container 'verify'
+
+    # Runs once: a second upgrade finds nothing to do and changes nothing.
+    $second = Invoke-Occ $container @('upgrade')
+    if (($second | Out-String) -notmatch 'No upgrade required\.') { throw 'A second upgrade still found work.' }
+    $verifyAgain = Invoke-UpgradeFixture $container 'verify'
+    Invoke-SchemaParity $container
+    $postcheck = Invoke-UpgradeFixture $container 'postcheck'
+    return [ordered]@{
+        image = $image; databaseImage = $dbImage; nextcloud = $identityAfter.version
+        sourceVersion = $UpgradeSource.Version; sourceCommit = $UpgradeSource.Commit
+        candidateVersion = $targetVersion; versionStamped = [bool]$StampVersion
+        migrationsBefore = @($identityBefore.migrations).Count; migrationsAfter = $migrationCount; appliedByUpgrade = ($applied -join ',')
+        upgradeOutputLines = @($upgrade).Count; seed = $seed; verify = $verify; verifyAfterSecondUpgrade = $verifyAgain; postcheck = $postcheck
+    }
+}
+
 try {
     $null = Invoke-Docker @('version', '--format', '{{.Server.Version}}')
-    if ($Proof -in @('p1', 'p2')) {
+    if ($Proof -eq 'p4') {
+        $result = Invoke-AppUpgradeProof
+        $summary = [ordered]@{ result = 'PASS'; proof = $Proof; target = $project; provider = $Provider; row = $Row } + $result
+    } elseif ($Proof -in @('p1', 'p2')) {
         if ($Port -eq 0) { throw 'Staged proofs require an explicit owned loopback -Port.' }
         $listener = $null
         try {

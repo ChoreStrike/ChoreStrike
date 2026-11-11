@@ -16,5 +16,9 @@ return static function (string $ownedTarget, string $dbHost): bool {
 	if (preg_match('/^cs082-[a-z0-9][a-z0-9-]*-p3-pgsql$/D', $ownedTarget) === 1) {
 		return $dbHost === $ownedTarget . '-db';
 	}
+	// P4 app-upgrade proof: its own database container, none for SQLite.
+	if (preg_match('/^cs082-[a-z0-9][a-z0-9-]*-p4-(mysql|pgsql|sqlite)(-aio)?$/D', $ownedTarget, $m) === 1) {
+		return $m[1] === 'sqlite' ? $dbHost === '' : $dbHost === $ownedTarget . '-db';
+	}
 	return false;
 };

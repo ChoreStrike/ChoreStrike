@@ -304,11 +304,15 @@ winning. Completing a task should show more than a snackbar. A stored "off" cann
 apart from a value nobody chose, and a first save of one field stores the column default for
 the others, so the default needs care where preference rows are created.
 
-- [ ] Every member gets the animation after the update: one data-only migration step switches
+- [x] Every member gets the animation after the update: one data-only migration step switches
       it on in existing preference rows too (operator decision D-090-16, the first step on the
-      retained baseline), with populated-upgrade tests on all providers.
-- [ ] Every path that creates a preference row writes the delivery fields explicitly.
-- [ ] The completed row, the snackbar and a new title give visible feedback.
+      retained baseline), with populated-upgrade tests on all providers. Implemented
+      2026-11-11 (`Version1034`, proof P4 of the preservation runner), interim review
+      `PASS-WITH-FIXES` the same day; it is pinned after the verified deployment (WP-G).
+- [x] Every path that creates a preference row writes the delivery fields explicitly.
+- [ ] The completed row, the snackbar and a new title give visible feedback. The snackbar
+      names the coins, a new title gets its toast and a row that stays in its list highlights
+      (2026-11-11); a recurring row that leaves *Today* follows with WP-B (D-090-30).
 
 ---
 
@@ -1169,6 +1173,28 @@ missed a real contrast defect and failed once mid-transition. It is corrected.
 
 - [ ] Each call is reviewed; a measurement of loaded content waits for that content.
 - [ ] A corrected `layout-clearance.spec.ts` shows whether loaded views still pass.
+
+---
+
+### [P2] TECH-TEST-012 — The integration suite does not load on a case-sensitive file system
+**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: testing
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-090 WP-F, app-upgrade proof P4, 2026-11-11
+
+The integration tests live in `tests/integration`, their namespace is
+`OCA\ChoreStrike\Tests\Integration`, and Composer maps `OCA\ChoreStrike\Tests\` to `tests/`.
+On a case-sensitive copy PSR-4 looks for `tests/Integration/IntegrationTestCase.php` and does
+not find it: PHPUnit ends with "Class ... IntegrationTestCase not found", which Nextcloud's
+exception handler turns into exit 0 without output. Every stack used so far bind-mounts a
+Windows checkout, where the lookup succeeds. Observed in an owned container with the
+candidate's files extracted from an archive; the proof P4 adds a `tests/Integration` link
+there. `.github/workflows/release-gate.yml` runs the suite on `ubuntu-latest` from a Linux
+checkout and is dispatched by hand; no run of it is recorded, so whether it is affected is
+unverified. A silent exit 0 would let its integration job pass without running a test.
+
+- [ ] The suite is run once from a Linux checkout; the result is recorded.
+- [ ] If it does not load there: the classes resolve on a case-sensitive file system, and the
+      job fails when PHPUnit runs no test.
 
 ---
 

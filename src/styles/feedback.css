@@ -1,0 +1,46 @@
+/**
+ * Completion feedback on a task row (CS-PLAN-090 WP-F, FEAT-UX-067).
+ *
+ * A row carries `.cs-just-completed` for a moment after its completion
+ * succeeded (`roomTasks.wasJustCompleted`): the row highlights briefly and,
+ * where it shows one, its check mark pops in. Always on, like the check
+ * mark of the snackbar: it needs neither the animation nor the sound
+ * switch. Reduced motion keeps the static row.
+ */
+.cs-just-completed {
+	animation: cs-row-highlight 1100ms ease-out;
+}
+
+.cs-just-completed .completed-check {
+	animation: cs-check-pop 360ms ease-out;
+}
+
+/* Only a start frame: the row fades back to its own background. */
+@keyframes cs-row-highlight {
+	from {
+		background-color: color-mix(in srgb, var(--color-element-success) 30%, var(--color-main-background));
+	}
+}
+
+@keyframes cs-check-pop {
+	0% {
+		transform: scale(0.4);
+		opacity: 0;
+	}
+
+	60% {
+		transform: scale(1.2);
+		opacity: 1;
+	}
+
+	100% {
+		transform: scale(1);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cs-just-completed,
+	.cs-just-completed .completed-check {
+		animation: none;
+	}
+}

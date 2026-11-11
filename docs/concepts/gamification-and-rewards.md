@@ -142,9 +142,9 @@ Dust Runner (`dust`, a robot vacuum clears the hallway, the kitchen and the
 living room while dust bunnies roam; a stop at the charging dock makes them
 catchable; open from 50 finished chores). Every game draws from the arcade
 palette with figures that glide and look around; event sounds, board effects
-and animations stay behind the personal opt-ins, which each game's start,
-pause and game-over screen also offers as Sound and Effects switches
-(CS-PLAN-086 WP-G).
+and animations follow the personal switches (sound an opt-in, effects on by
+default since CS-PLAN-090), which each game's start, pause and game-over
+screen also offers as Sound and Effects switches (CS-PLAN-086 WP-G).
 See the Minigames section in
 [`../api/README.md`](../api/README.md).
 

@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-B to WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B to WP-E and WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -145,6 +145,34 @@ Positions taken while implementing WP-A (2026-11-10). They bind once its interim
   follows the same rule. Each list entry carries `deletable` for its viewer, by the rule the
   delete command applies, and the view uses it instead of deciding on its own (RF-090-08).
 
+Positions taken while implementing WP-F (2026-11-11). They bind once its interim review passes.
+
+- **D-090-28 The app-upgrade proof and its source:** proof P4 of the preservation runner
+  installs the release commit of `0.8.0-alpha.4` from Git, the backend parts only, and checks
+  that it ships exactly the pinned migrations. The candidate still carries that version until
+  WP-G, and Nextcloud updates an app only to a higher one. Until then the proof runs with
+  `-StampVersion 0.8.0-alpha.5`, which changes the version in the owned copy alone and is
+  recorded in the summary; the release qualification runs unstamped. On the AIO row the proof
+  uses that row's Nextcloud and PHP image with PostgreSQL, without the Redis peer.
+- **D-090-29 Shape of the step in code:** it gets the database connection through its
+  constructor and only defines `postSchemaChange()`. A fresh install applies schema steps
+  only, so the step does not run there; new rows get the default from
+  `MemberPreference::createFor()`, which marks every delivery field for the insert because the
+  entity setters skip a value equal to the property default. The two tests that walk the
+  migration chain skip a step that inherits `changeSchema()`.
+- **D-090-30 Feedback on the row:** the store marks a room task as just completed for a moment
+  and a shared stylesheet highlights the row and pops its check mark. It is always on, like
+  the check mark of the snackbar, and follows reduced motion but not the animation switch. A
+  row shows it where it stays in its list. A recurring row that leaves *Today* on completion
+  shows it from WP-B on, where `TodayTaskRow` holds a just-completed row for the length of the
+  effect.
+- **D-090-31 Coins in the snackbar:** the viewer's own share of this completion. A completion
+  that paid the viewer nothing keeps the plain text.
+- **D-090-32 Unread preferences (operator, 2026-11-11, interim review of WP-F):** the animation
+  runs only after an authoritative preference read. While `/preferences/me` is pending or has
+  failed it stays off, like the other optional surfaces, so the store's initial default never
+  overrides a stored "off" (RF-090-13).
+
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). No question
 is open.
@@ -193,7 +221,8 @@ is open.
 - The overdue block is today's catch-up list in a strong red block, always first.
 - Extracted first, with specs: `useTaskCompletion` (the participation flow that exists three
   times), `TodayStatusLine.vue`, `TodayTaskRow.vue` (the row markup that exists twice in the
-  view).
+  view). `TodayTaskRow` holds a just-completed row for the length of the completion feedback,
+  so a recurring row shows it before it leaves the list (D-090-30).
 - `Dashboard.vue`, `QuickStats.vue`, `HouseHealthBar.vue` and `HouseholdGoalBar.vue` go;
   `/dashboard` redirects to `today`. `HouseStatsCards` keeps showing house health in Insights.
 - The setup wizard opens from Today for an owner with an empty house, with the existing
@@ -352,10 +381,12 @@ modified: lib/Controller/PauseController.php (destroy), appinfo/routes.php (one 
 modified: lib/Service/PauseService.php, lib/Service/PauseProjectionService.php,
           lib/Service/CommandService.php, lib/Service/ActivityService.php,
           lib/Service/PreferenceService.php, lib/Service/RankingService.php
-new:      lib/Migration/Version1034Date<date>.php (data only, D-090-20) with its upgrade tests;
-          after the verified deployment: tests/migrations/applied-migrations.json
-modified: scripts/test-runtime-preservation.ps1 and its synthetic fixture (app-upgrade proof
-          from 0.8.0-alpha.4, with its self-test)
+modified: lib/Db/MemberPreference.php (delivery defaults, createFor)
+new:      lib/Migration/Version1034Date20261111000000.php (data only, D-090-20) with its
+          upgrade tests; after the verified deployment: tests/migrations/applied-migrations.json
+modified: scripts/test-runtime-preservation.ps1 (proof P4: app upgrade from 0.8.0-alpha.4,
+          with its self-test), tests/recovery/owned-target.php
+new:      tests/recovery/upgrade-fixture.php, src/styles/feedback.css
 new:      src/views/AbsenceView.vue, src/components/Insights/RankingPanel.vue,
           src/components/Today/TodayStatusLine.vue, src/components/Today/TodayTaskRow.vue,
           src/composables/useTaskCompletion.js, src/utils/taskGrouping.js,
@@ -470,6 +501,8 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-09 (nit) - WP-A, `AbsenceView.vue`: a third copy of the day-key label (with `TodayView.vue` and `SchedulePlanner.vue`). Fixed in the interim review (operator's choice): one `formatDayKey()` in `src/utils/dateKeys.js` with its spec, used by all three.
 - [x] RF-090-10 (nit) - WP-A, `src/store/pauses.js`: the `pendingRequests` getter had no reader left; the plan says the store loses its unused getters. Removed with its spec cases.
 - [x] RF-090-11 (minor) - WP-A, `tests/e2e/layout-clearance.spec.ts`: the browser gate failed twice (desktop, phone). Its reachability probe scrolled the last Settings section with `scrollIntoViewIfNeeded()`, which worked only while a member's Settings ended with the short pause section; the notification preferences are taller than the frame. The routed-view list also lacked `#/absence`. Fixed in the interim review: the probe aligns the section's end with the scroller, which a clipped frame (BUG-UX-009) would still fail, and the Absence view joins the heading, gutter and sideways-scroll checks.
+- [ ] RF-090-12 (minor) - WP-G, runtime currency: `npm run test:runtime:check` reports `update-needed` on 2026-11-11, and the scheduled check on `master` has been red since 2026-11-09. Upstream AIO is 15.0.2 and ships Nextcloud 35.0.2 and Redis 8.10.3; the pinned PHP and PostgreSQL image tags moved too. The inventory names AIO 14.4.3 with Nextcloud 34.0.5 and Redis 8.10.2. Found while implementing WP-F. The reviewed inventory update and the requalification belong before the freeze (§7 and the acceptance criterion); which AIO version production runs at the deployment is the operator's to state.
+- [x] RF-090-13 (minor) - WP-F, `src/utils/effectGates.js`, `src/composables/useGameEffects.js`: the effect gates read the store's initial `animationEnabled: true` before `/preferences/me` had answered, so a member who had switched the animation off saw confetti when completing a task while the read was pending or after it failed; before WP-F an unknown state meant off. Fixed in the interim review (operator's choice, D-090-32): `animationAllowed()` opens the animation only after an authoritative read, used by the celebration gate and the arcade's pulses, with Jest cases for the unread state; `calm-core-ux.md` and the gamification skill say so.
 
 ## Review Outcome
 
@@ -516,4 +549,27 @@ subagents.
   `run-BjeJTR` on the AIO row (the same 361), both without skipped, failed or flaky results.
 - No transition: WP-B to WP-G are open. Record:
   [2026-11-10 review](../../backlog/archive/CODE_REVIEW_2026-11-10.md#standard-b---cs-plan-090-wp-a-absence-interim).
+  One scoped review commit; no merge, push, tag or deployment.
+
+**Standard B, interim (WP-F), 2026-11-11: PASS-WITH-FIXES.** Scope: the uncommitted WP-F change
+set of this worktree (`/review-chorestrike` without arguments; the main checkout was clean). No
+subagents.
+
+- Base HEAD `3ed38cf6ff41f3b874dfc97d7982f94b302f4dcf`, branch `docs/release-a-plan`, pinned,
+  0 behind `master`. Capture: empty index, 50 modified tracked files, five untracked paths;
+  scope fingerprint (staged and unstaged binary diffs, sorted untracked paths with their Git
+  object hashes) `8fca7b237af0195bfe93b7c8cb7347ff2083ef3c5461ed3fe101e067726e007d`.
+- RF-090-13 fixed in the review (§9); the operator chose the recommended option (D-090-32).
+  D-090-28 to D-090-31 bind with this review. Safe fixes: the README, the gamification skill and
+  the user guide on the new defaults, the `HACK` marker of the P4 link (TECH-TEST-012), and the
+  stale `css/` entry of the P3 archive list.
+- Gates on the final tree: Jest 162 suites / 2335 tests, `npm run lint`, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`,
+  `composer cs:check`, `npm run build`, the runner's `-SelfTest`; PHPUnit unit 1600 /
+  integration 698 with `--fail-on-skipped` on the canonical PostgreSQL stack and, in matrix run
+  `cs090-wpf-r1`, on MariaDB, SQLite and the AIO row; P4 `e090f001`..`e090f004` on PostgreSQL,
+  MariaDB, SQLite and the AIO row; P3 `e090f007`; browser gate `run-1GWdf0` on the primary row
+  and `run-b3hlTW` on the AIO row, 361 tests each without skipped, failed or flaky results.
+- No transition: WP-B to WP-E and WP-G are open, and so is RF-090-12. Record:
+  [2026-11-11 review](../../backlog/archive/CODE_REVIEW_2026-11-11.md#standard-b---cs-plan-090-wp-f-feedback-interim).
   One scoped review commit; no merge, push, tag or deployment.

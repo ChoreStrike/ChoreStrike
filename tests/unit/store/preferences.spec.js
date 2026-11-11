@@ -57,14 +57,25 @@ describe('preferences store', () => {
 		usePreferencesStore().reset()
 	})
 
-	it('starts at the neutral defaults with version 0', () => {
+	it('starts at the defaults with version 0: the animation on, sound off (D-090-05)', () => {
 		const store = usePreferencesStore()
 
 		expect(store.version).toBe(0)
 		expect(store.taskDigestEnabled).toBe(false)
 		expect(store.digestTime).toBe('18:00')
+		expect(store.animationEnabled).toBe(true)
+		expect(store.soundEnabled).toBe(false)
 		expect(store.arcadeVisible).toBe(true)
 		expect(store.ranking.state).toBe('none')
+	})
+
+	it('takes a stored "off" from the server over the default', async () => {
+		fetchMyPreferences.mockResolvedValue(serverPayload({ animationEnabled: false }))
+		const store = usePreferencesStore()
+
+		await store.fetchPreferences()
+
+		expect(store.animationEnabled).toBe(false)
 	})
 
 	it('fetches the own preferences and applies the authoritative state', async () => {
@@ -178,6 +189,7 @@ describe('preferences store', () => {
 
 		expect(store.version).toBe(0)
 		expect(store.taskDigestEnabled).toBe(false)
+		expect(store.animationEnabled).toBe(true)
 		expect(store.conflict).toBe(false)
 		expect(store.ranking.state).toBe('none')
 	})

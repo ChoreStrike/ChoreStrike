@@ -99,6 +99,23 @@ describe('NotificationPreferences', () => {
 		expect(wrapper.text()).toContain('Delivery and attention are different things')
 	})
 
+	// CS-PLAN-090 WP-F (D-090-05): the text names the default it describes.
+	it('says that the animation is on by default and sounds are off', async () => {
+		const wrapper = await mountComponent()
+
+		expect(wrapper.text()).toContain('The animation is on by default, sounds are off.')
+		expect(wrapper.text()).not.toContain('Both are off by default')
+	})
+
+	it('shows the stored animation switch, also when a member turned it off', async () => {
+		const wrapper = await mountComponent()
+		expect(wrapper.get('[data-testid="animation-toggle"]').element.checked).toBe(false)
+
+		mockPreferencesState.animationEnabled = true
+		const stored = await mountComponent()
+		expect(stored.get('[data-testid="animation-toggle"]').element.checked).toBe(true)
+	})
+
 	it('renders the full delivered field set with stable testids', async () => {
 		const wrapper = await mountComponent()
 

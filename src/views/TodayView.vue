@@ -113,7 +113,7 @@
 					<div v-for="item in visibleCatchUpItems" :key="item.roomTask.id" class="today-row-group">
 						<div
 							class="task-row catchup"
-							:class="{ completed: !item.roomTask.isActive }"
+							:class="{ completed: !item.roomTask.isActive, 'cs-just-completed': roomTasksStore.wasJustCompleted(item.roomTask.id) }"
 							data-testid="today-task-item">
 							<HoldButton
 								v-if="item.roomTask.isActive"
@@ -192,7 +192,7 @@
 						<div class="today-row-group">
 							<div
 								class="task-row"
-								:class="{ completed: !item.roomTask.isActive }"
+								:class="{ completed: !item.roomTask.isActive, 'cs-just-completed': roomTasksStore.wasJustCompleted(item.roomTask.id) }"
 								data-testid="today-task-item">
 								<HoldButton
 									v-if="item.roomTask.isActive"

@@ -668,12 +668,12 @@ describe('GameShell', () => {
 			expect(mockFx.react.mock.calls[0].slice(1, 3)).toEqual([3, 4.4])
 		})
 
-		it('shows both opt-ins off by default and writes the personal preference when switched', async () => {
-			updateMyPreferences.mockResolvedValue(serverPreferences({ soundEnabled: true }))
+		it('shows sound off and effects on by default and writes the personal preference when switched', async () => {
+			updateMyPreferences.mockResolvedValue(serverPreferences({ soundEnabled: true, animationEnabled: true }))
 			const wrapper = await mountShell()
 			const sound = wrapper.get('[data-testid="game-sound-toggle"]')
 			expect(sound.attributes('aria-pressed')).toBe('false')
-			expect(wrapper.get('[data-testid="game-effects-toggle"]').attributes('aria-pressed')).toBe('false')
+			expect(wrapper.get('[data-testid="game-effects-toggle"]').attributes('aria-pressed')).toBe('true')
 
 			await sound.trigger('click')
 			await flushPromises()
@@ -705,18 +705,18 @@ describe('GameShell', () => {
 			expect(wrapper.get('[data-testid="game-sound-toggle"]').attributes('aria-pressed')).toBe('true')
 		})
 
-		it('switching effects on re-reads the motion gate for the board', async () => {
-			updateMyPreferences.mockResolvedValue(serverPreferences({ animationEnabled: true }))
+		it('switching effects off re-reads the motion gate for the board', async () => {
+			updateMyPreferences.mockResolvedValue(serverPreferences({ animationEnabled: false }))
 			const wrapper = await mountShell()
 			mockEffects.motionAllowed.mockClear()
 
 			await wrapper.get('[data-testid="game-effects-toggle"]').trigger('click')
 			await flushPromises()
 
-			expect(updateMyPreferences).toHaveBeenCalledWith(expect.objectContaining({ animationEnabled: true }))
+			expect(updateMyPreferences).toHaveBeenCalledWith(expect.objectContaining({ animationEnabled: false }))
 			expect(unlockAudio).not.toHaveBeenCalled()
 			expect(mockEffects.motionAllowed).toHaveBeenCalled()
-			expect(wrapper.get('[data-testid="game-effects-toggle"]').attributes('aria-pressed')).toBe('true')
+			expect(wrapper.get('[data-testid="game-effects-toggle"]').attributes('aria-pressed')).toBe('false')
 		})
 
 		it('keeps the server state and shows a toast when the switch cannot be saved', async () => {

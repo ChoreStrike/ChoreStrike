@@ -78,7 +78,7 @@
 				{{ t('chorestrike', 'Feedback effects') }}
 			</h4>
 			<p class="preference-hint">
-				{{ t('chorestrike', 'Both are off by default. Celebrations are never a requirement for the household routine.') }}
+				{{ t('chorestrike', 'The animation is on by default, sounds are off. Neither is needed for the household routine.') }}
 			</p>
 
 			<NcCheckboxRadioSwitch
@@ -192,7 +192,7 @@ export default {
 				quietStart: null,
 				quietEnd: null,
 				soundEnabled: false,
-				animationEnabled: false,
+				animationEnabled: true,
 				arcadeVisible: true,
 				catalogVisible: true,
 			},

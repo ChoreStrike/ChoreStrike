@@ -33,12 +33,19 @@ if (!class_exists('OCP\AppFramework\Db\Entity')) {
 			$this->id = $id;
 		}
 
+		/** @var array<string, bool> Fields marked for the next write, as the real Entity tracks them. */
+		protected $_updatedFields = [];
+
 		public function resetUpdatedFields(): void {
-			// Mock implementation
+			$this->_updatedFields = [];
 		}
 
 		public function getUpdatedFields(): array {
-			return [];
+			return $this->_updatedFields;
+		}
+
+		protected function markFieldUpdated(string $attribute): void {
+			$this->_updatedFields[$attribute] = true;
 		}
 
 		/**
@@ -63,6 +70,7 @@ if (!class_exists('OCP\AppFramework\Db\Entity')) {
 			if (strpos($methodName, 'set') === 0) {
 				$property = lcfirst(substr($methodName, 3));
 				$this->_data[$property] = $args[0];
+				$this->markFieldUpdated($property);
 				// Also set actual property via reflection for protected properties
 				try {
 					$reflection = new \ReflectionClass($this);

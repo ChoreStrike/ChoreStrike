@@ -6,6 +6,7 @@
 import { showSuccess } from '@nextcloud/dialogs'
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { translate as t } from '@nextcloud/l10n'
+import { titleLabel } from '../constants/titles.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -40,6 +41,13 @@ export function useToasts() {
 
 	on('chorestrike:medal-awarded', () => {
 		showSuccess(t('chorestrike', 'You earned a new medal!'))
+	})
+
+	on('chorestrike:title-unlocked', (data) => {
+		const title = titleLabel(t, data)
+		if (title) {
+			showSuccess(t('chorestrike', 'New title: {title}', { title }))
+		}
 	})
 
 	logger.info('Toast notifications initialized')

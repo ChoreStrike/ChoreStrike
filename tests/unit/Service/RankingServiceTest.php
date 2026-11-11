@@ -385,12 +385,24 @@ class RankingServiceTest extends TestCase {
 		$this->houseMapper->method('findForUpdate')->willReturn($house);
 		$this->houseMapper->method('update')->willReturnArgument(0);
 		$this->houseUserMapper->method('findForUpdate')->willReturn($actor);
-		$this->prefMapper->method('insertOrGet')->willReturnCallback(static function (MemberPreference $pref): MemberPreference {
+		$created = null;
+		$this->prefMapper->method('insertOrGet')->willReturnCallback(static function (MemberPreference $pref) use (&$created): MemberPreference {
+			$created = clone $pref;
 			$pref->setId(77);
 			return $pref;
 		});
 
 		$state = $this->service->consent(1, $actor, new \DateTime('2026-09-23 12:00:00 UTC'));
+
+		// A row created by consent carries the delivery defaults in its
+		// INSERT (D-090-20): the animation stays on, sound stays off.
+		$this->assertSame(1, $created->getVersion());
+		$this->assertTrue($created->getAnimationEnabled());
+		$this->assertFalse($created->getSoundEnabled());
+		$written = array_keys($created->getUpdatedFields());
+		foreach (array_keys(MemberPreference::DELIVERY_DEFAULTS) as $field) {
+			$this->assertContains($field, $written, $field . ' is part of the INSERT');
+		}
 
 		// Wednesday → next Monday is 2026-09-28, generation 3 from the
 		// house-lock-protected watermark (never reused after withdrawal).

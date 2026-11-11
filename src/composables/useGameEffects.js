@@ -5,7 +5,7 @@
 
 import { usePreferencesStore } from '../store/preferences.js'
 import { areCelebrationsEnabled, fireConfetti } from '../utils/confetti.js'
-import { syncEffectGates } from '../utils/effectGates.js'
+import { animationAllowed, syncEffectGates } from '../utils/effectGates.js'
 import { pulseCompletion } from '../utils/haptics.js'
 import { playSound, unlockAudio } from '../utils/sound.js'
 
@@ -56,7 +56,7 @@ export function useGameEffects() {
 	function pickup(kind = 'normal') {
 		syncEffectGates(preferences)
 		playSound(kind === 'bonus' ? 'swish' : 'pop')
-		if (preferences.animationEnabled === true) {
+		if (animationAllowed(preferences)) {
 			pulseCompletion()
 		}
 	}
@@ -77,7 +77,7 @@ export function useGameEffects() {
 			unlockAudio()
 		}
 		playSound(sound)
-		if (PULSED.has(type) && preferences.animationEnabled === true) {
+		if (PULSED.has(type) && animationAllowed(preferences)) {
 			pulseCompletion()
 		}
 	}

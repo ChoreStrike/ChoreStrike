@@ -13,18 +13,19 @@ import { playSound } from '../utils/sound.js'
 
 /**
  * Initialize celebration effects (C5g): subscribe to ChoreStrike event-bus
- * events and fire confetti + sound ONLY behind the personal opt-ins
- * (`soundEnabled` / `animationEnabled`, both default OFF). The opt-in
+ * events and fire confetti + sound ONLY behind the personal switches
+ * (`animationEnabled`, on by default; `soundEnabled`, an opt-in). Their
  * state is pushed into the effect modules' gates on EVERY event, so a
  * mid-session preference change (or a late /preferences/me fetch)
  * applies to the next effect. `prefers-reduced-motion` stays the hard
  * floor inside the confetti module and always overrides an explicit
  * opt-in.
  *
- * The DEFAULT completion feedback is always on and subtle: the accessible
- * confirmation with undo and a check mark (UndoSnackbar) plus one short
- * vibration where supported — no sound, no confetti, no modal; the quiet
- * textual award toasts (useToasts) stay in-app.
+ * Independent of both switches a completion is always acknowledged: the
+ * confirmation with undo, a check mark and the coins earned
+ * (UndoSnackbar), a brief highlight of the row (`feedback.css`) and one
+ * short vibration where supported; the textual award toasts (useToasts)
+ * stay in-app.
  *
  * Returns a cleanup function that unsubscribes all handlers.
  *
@@ -49,7 +50,7 @@ export function useCelebration() {
 	on('chorestrike:task-completed', () => {
 		// Always-on subtle feedback (CS-PLAN-084 D-084-03): one short pulse
 		// where the browser supports vibration; the visible check mark lives
-		// in the UndoSnackbar. Confetti and sound stay behind the opt-ins.
+		// in the UndoSnackbar. Confetti and sound follow the switches.
 		pulseCompletion()
 		syncPreferenceGates()
 		fireConfetti()

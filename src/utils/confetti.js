@@ -19,7 +19,9 @@ export function prefersReducedMotion() {
 	return window.matchMedia('(prefers-reduced-motion: reduce)').matches === true
 }
 
-// CS-PLAN-070 WP6 (C5g): animations are a PERSONAL OPT-IN (default off).
+// Animations are a PERSONAL switch (C5g), on by default since CS-PLAN-090
+// (D-090-05). The gate stays closed until an authoritative preference read
+// opens it (`effectGates.js`, RF-090-13).
 // `prefers-reduced-motion` ALWAYS overrides even an explicit opt-in —
 // the module-level checks below are the hard floor.
 let animationsEnabled = false
@@ -106,7 +108,7 @@ export function fireMilestoneConfetti(options = {}) {
 }
 
 /**
- * Sync the personal animation opt-in (C5g, default off). Called through
+ * Sync the personal animation switch (C5g, default on). Called through
  * `syncEffectGates()` on every celebration and arcade effect; the
  * reduced-motion check stays the hard floor regardless of this flag.
  *

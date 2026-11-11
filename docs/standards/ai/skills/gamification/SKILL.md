@@ -85,10 +85,11 @@ describe the WP3 model as the shipped contract.
   marker only. Notifications use the self-opted-in shared daily digest
   ([pipeline](../../../../engineering/notifications.md), ADR-016), never
   recognition pressure.
-- **Frontend celebration contract (WP6, C5g):** sound and confetti are
-  personal opt-ins (default off), synced from the preference store into
-  the effect module gates on every celebration event;
-  `prefers-reduced-motion` always overrides an animation opt-in. The
+- **Frontend celebration contract (WP6, C5g):** sound is a personal opt-in
+  (default off) and confetti a personal switch (default on since
+  CS-PLAN-090, and only once the preferences were read), synced from the
+  preference store into the effect module gates on every celebration event;
+  `prefers-reduced-motion` always overrides the animation. The
   default completion feedback stays the accessible undo confirmation —
   see [calm-core-ux](../../../../concepts/calm-core-ux.md).
 

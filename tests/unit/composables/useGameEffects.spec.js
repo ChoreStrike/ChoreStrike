@@ -17,6 +17,8 @@ describe('useGameEffects', () => {
 		const { createPinia, setActivePinia } = require('pinia')
 		setActivePinia(createPinia())
 		preferences = require('@/store/preferences.js').usePreferencesStore()
+		// As after an authoritative read; RF-090-13 covers the unread state.
+		preferences.loaded = true
 		return require('@/composables/useGameEffects.js').useGameEffects()
 	}
 
@@ -42,14 +44,35 @@ describe('useGameEffects', () => {
 		jest.doMock('@/utils/logger', () => ({ logger: { info: jest.fn(), error: jest.fn() } }))
 	})
 
-	it('syncs the opt-ins (off by default) before a pickup and never pulses without the motion opt-in', () => {
+	it('syncs the defaults (sound off, animation on) before a pickup and pulses', () => {
 		const effects = load()
 
 		effects.pickup()
 
 		expect(mocks.setSoundEnabled).toHaveBeenCalledWith(false)
-		expect(mocks.setAnimationsEnabled).toHaveBeenCalledWith(false)
+		expect(mocks.setAnimationsEnabled).toHaveBeenCalledWith(true)
 		expect(mocks.playSound).toHaveBeenCalledWith('pop')
+		expect(mocks.pulseCompletion).toHaveBeenCalledTimes(1)
+	})
+
+	it('neither opens the animation gate nor pulses before the preferences are read (RF-090-13)', () => {
+		const effects = load()
+		preferences.loaded = false
+
+		effects.pickup()
+		effects.event('crash')
+
+		expect(mocks.setAnimationsEnabled).toHaveBeenLastCalledWith(false)
+		expect(mocks.pulseCompletion).not.toHaveBeenCalled()
+	})
+
+	it('never pulses once the member switched the animation off', () => {
+		const effects = load()
+		preferences.animationEnabled = false
+
+		effects.pickup()
+
+		expect(mocks.setAnimationsEnabled).toHaveBeenCalledWith(false)
 		expect(mocks.pulseCompletion).not.toHaveBeenCalled()
 	})
 
@@ -66,8 +89,9 @@ describe('useGameEffects', () => {
 		expect(mocks.pulseCompletion).toHaveBeenCalledTimes(1)
 	})
 
-	it('plays the sound of a game event and pulses only for a lost life or a penalty with the motion opt-in', () => {
+	it('plays the sound of a game event and pulses only for a lost life or a penalty while the animation is on', () => {
 		const effects = load()
+		preferences.animationEnabled = false
 
 		effects.event('bounce')
 		expect(mocks.playSound).toHaveBeenLastCalledWith('bounce')
@@ -112,7 +136,7 @@ describe('useGameEffects', () => {
 
 		effects.newPersonalBest()
 
-		expect(mocks.setAnimationsEnabled).toHaveBeenCalledWith(false)
+		expect(mocks.setAnimationsEnabled).toHaveBeenCalledWith(true)
 		expect(mocks.fireConfetti).toHaveBeenCalledTimes(1)
 		expect(mocks.playSound).toHaveBeenCalledWith('milestone')
 	})
@@ -128,7 +152,7 @@ describe('useGameEffects', () => {
 
 	it('shares the gate sync helper with useCelebration', () => {
 		const syncEffectGates = jest.fn()
-		jest.doMock('@/utils/effectGates', () => ({ syncEffectGates }))
+		jest.doMock('@/utils/effectGates', () => ({ syncEffectGates, animationAllowed: jest.fn(() => false) }))
 		jest.doMock('@nextcloud/event-bus', () => {
 			const handlers = {}
 			return {

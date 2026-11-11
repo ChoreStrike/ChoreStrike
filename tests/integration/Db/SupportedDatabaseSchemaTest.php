@@ -19,6 +19,7 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\ISchemaWrapper;
 use OCP\IConfig;
 use OCP\Migration\IOutput;
+use OCP\Migration\SimpleMigrationStep;
 
 /** Real installed-DB verification; the in-memory chain never creates DB tables. */
 class SupportedDatabaseSchemaTest extends IntegrationTestCase {
@@ -49,8 +50,12 @@ class SupportedDatabaseSchemaTest extends IntegrationTestCase {
 		foreach ($files as $file) {
 			$name = basename($file, '.php');
 			$class = 'OCA\\ChoreStrike\\Migration\\' . $name;
-			self::assertNotNull((new $class())->changeSchema($output, static fn (): ISchemaWrapper => $expected, []), $name);
 			$versions[] = substr($name, strlen('Version'));
+			if ((new \ReflectionMethod($class, 'changeSchema'))->getDeclaringClass()->getName() === SimpleMigrationStep::class) {
+				// A data-only step (Version1034) adds nothing to the schema.
+				continue;
+			}
+			self::assertNotNull(\OC::$server->get($class)->changeSchema($output, static fn (): ISchemaWrapper => $expected, []), $name);
 		}
 		$this->assertAppliedMigrationVersions($versions);
 		// Migrations use Nextcloud wrappers; parity compares the underlying DBAL schema.
@@ -118,9 +123,11 @@ class SupportedDatabaseSchemaTest extends IntegrationTestCase {
 			self::assertNotNull($actor->getWalletId());
 			$wallets[] = $actor->getWalletId();
 			$preferences = $prefs->getOwnPreferences($second['house']['id'], $actor);
-			foreach (['taskDigestEnabled', 'orgDigestEnabled', 'soundEnabled', 'animationEnabled'] as $key) {
+			foreach (['taskDigestEnabled', 'orgDigestEnabled', 'soundEnabled'] as $key) {
 				self::assertFalse($preferences[$key], $key . ' ships quiet');
 			}
+			// CS-PLAN-090 D-090-05: the animation is the one default that is on.
+			self::assertTrue($preferences['animationEnabled'], 'the animation ships on');
 		}
 		self::assertCount(6, array_unique($wallets));
 	}

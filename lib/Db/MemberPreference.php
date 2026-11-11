@@ -69,6 +69,22 @@ use OCP\AppFramework\Db\Entity;
  * @method void setUpdatedAt(\DateTime $updatedAt)
  */
 class MemberPreference extends Entity implements JsonSerializable {
+	/**
+	 * What a member without a row gets, and what a new row starts with
+	 * (CS-PLAN-090 D-090-05): the animation on, sound off.
+	 */
+	public const DELIVERY_DEFAULTS = [
+		'taskDigestEnabled' => false,
+		'orgDigestEnabled' => false,
+		'digestTime' => '18:00',
+		'quietStart' => null,
+		'quietEnd' => null,
+		'soundEnabled' => false,
+		'animationEnabled' => true,
+		'arcadeVisible' => true,
+		'catalogVisible' => true,
+	];
+
 	/** @var int */
 	protected $houseId;
 
@@ -129,10 +145,16 @@ class MemberPreference extends Entity implements JsonSerializable {
 	/** @var string|null Personal quiet-hours end (`HH:mm`). */
 	protected $quietEnd = null;
 
-	/** @var bool Persistence only until WP6 (sound.js consumer). */
+	/** @var bool Sound opt-in (sound.js). */
 	protected $soundEnabled = false;
 
-	/** @var bool Persistence only until WP6 (confetti.js consumer). */
+	/**
+	 * Animation switch (confetti.js). The property default mirrors the
+	 * column default and is NOT the default a member gets: that is
+	 * {@see self::DELIVERY_DEFAULTS}, written by {@see self::createFor()}.
+	 *
+	 * @var bool
+	 */
 	protected $animationEnabled = false;
 
 	/** @var bool Optional-area persistence; presentation arrives in WP6. */
@@ -166,6 +188,25 @@ class MemberPreference extends Entity implements JsonSerializable {
 		$this->addType('catalogVisible', 'boolean');
 		$this->addType('createdAt', 'datetime');
 		$this->addType('updatedAt', 'datetime');
+	}
+
+	/**
+	 * A new row at version 1 that writes every delivery field (D-090-20).
+	 * The setters skip a value equal to the property default, which would
+	 * leave that column to its database default; here each field is
+	 * marked, so the first save of one field cannot decide the others.
+	 */
+	public static function createFor(int $houseId, int $houseUserId, \DateTime $now): self {
+		$pref = new self();
+		$pref->setHouseId($houseId);
+		$pref->setHouseUserId($houseUserId);
+		$pref->setVersion(1);
+		$pref->setCreatedAt($now);
+		foreach (self::DELIVERY_DEFAULTS as $field => $value) {
+			$pref->$field = $value;
+			$pref->markFieldUpdated($field);
+		}
+		return $pref;
 	}
 
 	/**

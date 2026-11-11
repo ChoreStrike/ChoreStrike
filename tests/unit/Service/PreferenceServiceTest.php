@@ -94,7 +94,7 @@ class PreferenceServiceTest extends TestCase {
 	// Read shape
 	// ------------------------------------------------------------------
 
-	public function testGetOwnPreferences_WithoutRow_ReturnsNeutralDefaultsAtVersionZero(): void {
+	public function testGetOwnPreferences_WithoutRow_ReturnsTheDefaultsAtVersionZero(): void {
 		$payload = $this->service->getOwnPreferences(1, $this->actor(), new \DateTime('2026-09-29 12:00:00 UTC'));
 
 		$this->assertSame(0, $payload['version']);
@@ -103,8 +103,8 @@ class PreferenceServiceTest extends TestCase {
 		$this->assertSame('18:00', $payload['digestTime']);
 		$this->assertNull($payload['quietStart']);
 		$this->assertNull($payload['quietEnd']);
-		$this->assertFalse($payload['soundEnabled']);
-		$this->assertFalse($payload['animationEnabled']);
+		$this->assertFalse($payload['soundEnabled'], 'sound stays an opt-in');
+		$this->assertTrue($payload['animationEnabled'], 'the animation is on by default (D-090-05)');
 		$this->assertTrue($payload['arcadeVisible']);
 		$this->assertTrue($payload['catalogVisible']);
 		$this->assertSame(['state' => 'none', 'generation' => null, 'effectiveMonday' => null], $payload['ranking']);
@@ -209,6 +209,40 @@ class PreferenceServiceTest extends TestCase {
 		$this->assertSame('none', $payload['ranking']['state'], 'a first save never grants ranking consent (RF-076-01)');
 		$this->assertTrue($payload['taskDigestEnabled']);
 		$this->assertSame('19:30', $payload['digestTime']);
+	}
+
+	/**
+	 * D-090-20: the first save of one field writes every delivery field,
+	 * so the column default cannot switch the animation off.
+	 */
+	public function testUpdate_FirstSaveOfOneField_WritesEveryDeliveryFieldWithItsDefault(): void {
+		$payload = $this->service->updateOwnPreferences(1, $this->actor(), [
+			'expectedVersion' => 0,
+			'soundEnabled' => true,
+		], '11111111-1111-4111-8111-111111111112');
+
+		$row = $this->store['1:7'];
+		$this->assertSame(['insert'], $this->writes);
+		$this->assertTrue($payload['soundEnabled']);
+		$this->assertTrue($payload['animationEnabled'], 'an unnamed field keeps the default');
+		$this->assertSame('18:00', $row->getDigestTime());
+		$this->assertTrue($row->getArcadeVisible());
+		$written = array_keys($row->getUpdatedFields());
+		foreach (array_keys(MemberPreference::DELIVERY_DEFAULTS) as $field) {
+			$this->assertContains($field, $written, $field . ' is part of the INSERT');
+		}
+	}
+
+	public function testUpdate_FirstSaveWithTheAnimationOff_StoresOff(): void {
+		$payload = $this->service->updateOwnPreferences(1, $this->actor(), [
+			'expectedVersion' => 0,
+			'animationEnabled' => false,
+		], '11111111-1111-4111-8111-111111111113');
+
+		$row = $this->store['1:7'];
+		$this->assertFalse($payload['animationEnabled']);
+		$this->assertFalse($row->getAnimationEnabled());
+		$this->assertArrayHasKey('animationEnabled', $row->getUpdatedFields(), 'the explicit off is written, not left to the column');
 	}
 
 	public function testUpdate_StaleExpectedVersion_ConflictsWithoutAnyWrite(): void {

@@ -237,7 +237,7 @@
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > a child enters an absence, everyone sees it, the owner deletes it",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > a free day stays neutral without catch-up, extra offers or invented success",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > every role lands on My Day and the Dashboard stays reachable as the secondary overview",
-    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > reduced motion overrides an explicit animation opt-in on a real completion",
+    "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the animation is on by default, reduced motion wins and switching it off holds",
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off"
   ],
   "scheduling.spec.ts": [

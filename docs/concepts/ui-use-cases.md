@@ -38,7 +38,7 @@ records the thirteen explicit C5 answers. The family evidence (C5j) remains open
 | Entry after setup | My Day for adults and children: today's personal agreements and next appointments. Keep planning, household and open requests reachable, without making arcade/catalog/rankings the primary area. |
 | Catch-up/overload | Separate catch-up without stacks of identical cards; show overload as a clarification need, not a demand to clear all accumulated work. |
 | Progress | Small confirmed personal streak/shared weekly progress line, with pending/provisional and neutral states distinguished. A free day is a neutral empty view, not an invitation to manufacture work. |
-| Completion | Short visible confirmation with undo access, no default sound/confetti or interrupting award modal. Playful effects require personal opt-in. |
+| Completion | Short visible confirmation with undo access and no interrupting award modal. Sound requires a personal opt-in; the celebration animation is on by default since CS-PLAN-090 (D-090-05) and each person can switch it off. |
 | Accessibility | OS reduced-motion overrides animation choices. Errors, status and keyboard focus remain clear without sound/motion; preserve desktop/mobile/keyboard coverage. |
 | Preferences | Server-side per person/house across devices. Each person, including children, controls notification categories, sound/motion and optional-area visibility. No owner opt-in on another person's behalf or shared-device cross-account carryover. |
 | Catalog | Household owner enablement remains necessary; personal hiding does not hide authorized management of existing requests under C4. |

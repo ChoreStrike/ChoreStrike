@@ -36,48 +36,68 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 		}
 	})
 
-	test('reduced motion overrides an explicit animation opt-in on a real completion', async ({ browser, seededData }) => {
+	test('the animation is on by default, reduced motion wins and switching it off holds', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const task = seededData.data.tasks.find((entry) => entry.name === 'Do the dishes')!
 		const roomTask = seededData.data.roomTasks.find((entry) => entry.taskId === task.id)!
 		const { context, page } = await createUserContext(browser, 'mom', { reducedMotion: 'reduce' })
-		try {
-			await page.goto('/apps/chorestrike/#/settings')
-			await expect(page.getByTestId('animation-toggle')).not.toBeChecked()
-			await page.getByText('Celebration animations', { exact: true }).click()
-			await expect(page.getByTestId('animation-toggle')).toBeChecked()
-			const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/preferences/me'))
-			await page.getByTestId('save-preferences').click()
-			expect((await saved).ok()).toBe(true)
-			await page.getByTestId('nav-today').click()
-			// Observe insertions, not a late snapshot that could miss transient confetti.
-			await page.evaluate(() => {
-				document.body.dataset.celebrationCanvases = '0'
-				new MutationObserver((records) => {
-					for (const record of records) {
-						for (const node of record.addedNodes) {
-							if (node instanceof HTMLCanvasElement) {
-								document.body.dataset.celebrationCanvases = String(Number(document.body.dataset.celebrationCanvases) + 1)
-							}
+		const button = page.getByTestId(`today-complete-button-${roomTask.id}`)
+		const canvases = () => expect(page.locator('body'))
+		// Observe insertions, not a late snapshot that could miss transient confetti.
+		const countCanvases = () => page.evaluate(() => {
+			document.body.dataset.celebrationCanvases = '0'
+			new MutationObserver((records) => {
+				for (const record of records) {
+					for (const node of record.addedNodes) {
+						if (node instanceof HTMLCanvasElement) {
+							document.body.dataset.celebrationCanvases = String(Number(document.body.dataset.celebrationCanvases) + 1)
 						}
 					}
-				}).observe(document.body, { childList: true })
-			})
-			const button = page.getByTestId(`today-complete-button-${roomTask.id}`)
+				}
+			}).observe(document.body, { childList: true })
+		})
+		const completeOnce = async () => {
 			expect((await completeWithOptionalDialog(page, button)).ok()).toBe(true)
 			await expect(button).toHaveCount(0)
 			await expect(page.getByTestId(`undo-snackbar-entry-${roomTask.id}`)).toBeVisible()
-			await expect(page.locator('body')).toHaveAttribute('data-celebration-canvases', '0')
+		}
+		try {
+			// The seeded member never saved a preference: on by default (D-090-05).
+			await page.goto('/apps/chorestrike/#/settings')
+			await expect(page.getByTestId('animation-toggle')).toBeChecked()
+			await expect(page.getByTestId('sound-toggle')).not.toBeChecked()
+
+			// Reduced motion wins over the default on a real completion.
+			await page.getByTestId('nav-today').click()
+			await countCanvases()
+			await completeOnce()
+			// The snackbar names what the completion paid (WP-F).
+			await expect(page.getByTestId(`undo-snackbar-coins-${roomTask.id}`)).toContainText('Coins')
+			await canvases().toHaveAttribute('data-celebration-canvases', '0')
 			await expect(page.locator('body > canvas')).toHaveCount(0)
 			await page.getByTestId(`undo-snackbar-undo-button-${roomTask.id}`).click()
 			await expect(button).toBeVisible()
 
-			// Positive control: the same opted-in session really animates once the OS permits it.
+			// Positive control: without any opt-in the same session animates once the OS permits it.
 			await page.emulateMedia({ reducedMotion: 'no-preference' })
-			expect((await completeWithOptionalDialog(page, button)).ok()).toBe(true)
-			await expect(button).toHaveCount(0)
-			await expect(page.getByTestId(`undo-snackbar-entry-${roomTask.id}`)).toBeVisible()
-			await expect(page.locator('body')).toHaveAttribute('data-celebration-canvases', '1')
+			await completeOnce()
+			await canvases().toHaveAttribute('data-celebration-canvases', '1')
+			await page.getByTestId(`undo-snackbar-undo-button-${roomTask.id}`).click()
+			await expect(button).toBeVisible()
+
+			// Switching it off is the member's first save, and it holds.
+			await page.goto('/apps/chorestrike/#/settings')
+			await page.getByText('Celebration animations', { exact: true }).click()
+			await expect(page.getByTestId('animation-toggle')).not.toBeChecked()
+			const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/preferences/me'))
+			await page.getByTestId('save-preferences').click()
+			expect((await saved).ok()).toBe(true)
+			await page.reload()
+			await expect(page.getByTestId('animation-toggle')).not.toBeChecked()
+			await page.getByTestId('nav-today').click()
+			await countCanvases()
+			await completeOnce()
+			await canvases().toHaveAttribute('data-celebration-canvases', '0')
 		} finally {
 			await context.close()
 		}

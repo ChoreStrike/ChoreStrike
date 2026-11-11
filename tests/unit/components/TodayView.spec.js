@@ -140,7 +140,9 @@ describe('TodayView', () => {
 			fetchRangeTasks: jest.fn().mockResolvedValue({ scheduled: [], completed: [] }),
 			refreshDerivedProjections: jest.fn().mockResolvedValue(true),
 			completingIds: {},
+			justCompletedIds: {},
 			isCompleting: jest.fn(id => mockRoomTasksStore.completingIds[id] === true),
+			wasJustCompleted: jest.fn(id => mockRoomTasksStore.justCompletedIds[id] === true),
 			completeRoomTask: jest.fn().mockImplementation(async (roomTaskId) => {
 				// Mimic the store reconcile (D10): the owning slice is
 				// replaced with the response-owned room task.
@@ -539,6 +541,17 @@ describe('TodayView', () => {
 		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(11)
 		expect(wrapper.find('[data-testid="today-completed-check-11"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="today-complete-button-11"]').exists()).toBe(false)
+	})
+
+	it('gives a row the completion feedback class while the store marks it just completed (WP-F)', async () => {
+		const wrapper = await mountView()
+		const row = () => wrapper.get('[data-testid="today-complete-button-11"]').element.closest('.task-row')
+		expect(row().classList.contains('cs-just-completed')).toBe(false)
+
+		mockRoomTasksStore.justCompletedIds = { 11: true }
+		await wrapper.vm.$nextTick()
+
+		expect(row().classList.contains('cs-just-completed')).toBe(true)
 	})
 
 	it('marks the Done button busy while its completion is in flight (WP-E)', async () => {

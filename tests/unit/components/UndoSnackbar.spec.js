@@ -7,6 +7,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import UndoSnackbar from '@/components/Common/UndoSnackbar.vue'
 import { useRoomTasksStore } from '@/store/roomTasks.js'
+import { useUserStore } from '@/store/user.js'
 import { subscribe } from '@nextcloud/event-bus'
 
 jest.mock('@/components/Common/Icon.vue', () => ({
@@ -72,6 +73,51 @@ describe('UndoSnackbar (queued list, UX-015)', () => {
 
 		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)
 		expect(subscribe).toHaveBeenCalledWith('chorestrike:task-completed', expect.any(Function))
+	})
+
+	// CS-PLAN-090 WP-F: the entry names what this completion paid the viewer.
+	describe('coins earned', () => {
+		const coinsTestId = id => `[data-testid="undo-snackbar-coins-${id}"]`
+		const completeWith = async (wrapper, participants) => {
+			getCompletedHandler()({ roomTaskId: 5, completionId: 50, expectedVersion: 0, participants })
+			await wrapper.vm.$nextTick()
+		}
+
+		beforeEach(() => {
+			// The membership id differs from the account id the shares carry.
+			useUserStore().currentUser = { id: 7, nextcloudUserId: 'mom', role: 'owner' }
+		})
+
+		it('names the own share of a split completion', async () => {
+			const wrapper = mountSnackbar()
+
+			await completeWith(wrapper, [
+				{ userId: 'dad', coinMinor: 1750 },
+				{ userId: 'mom', coinMinor: 1250 },
+			])
+
+			expect(wrapper.get(coinsTestId(5)).text()).toBe('+12.5 Coins')
+			expect(wrapper.get(entryTestId(5)).text()).toContain('Task completed')
+		})
+
+		it('stays plain when the viewer took no part or the event carries no shares', async () => {
+			const wrapper = mountSnackbar()
+
+			await completeWith(wrapper, [{ userId: 'dad', coinMinor: 3000 }])
+			expect(wrapper.find(coinsTestId(5)).exists()).toBe(false)
+
+			await completeWith(wrapper, undefined)
+			expect(wrapper.findAll(coinsTestId(5))).toHaveLength(0)
+		})
+
+		it('stays plain for a share of zero and for a departed participant without a user', async () => {
+			const wrapper = mountSnackbar()
+			useUserStore().currentUser = null
+
+			await completeWith(wrapper, [{ userId: null, coinMinor: 500 }, { userId: 'mom', coinMinor: 0 }])
+
+			expect(wrapper.find(coinsTestId(5)).exists()).toBe(false)
+		})
 	})
 
 	it('shows for ~5 s after a completion and auto-hides that entry only', async () => {

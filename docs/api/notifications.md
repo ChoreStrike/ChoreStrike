@@ -11,8 +11,10 @@ preferences — `/preferences/me` is the only surface (children included).
 
 ### `GET /api/v1/preferences/me`
 
-Returns the caller's own versioned payload (never creates a row —
-unsaved members read the neutral defaults at version 0):
+Returns the caller's own versioned payload (never creates a row). A member
+without a row reads the defaults at version 0: `animationEnabled` true,
+`soundEnabled` and both digests false, `digestTime` `18:00`, no quiet range,
+both optional areas visible (CS-PLAN-090 D-090-05). Example of a saved row:
 
 ```json
 {
@@ -48,7 +50,8 @@ Validation happens before any side effect:
 
 Shape validation precedes command execution; under the house lock, partial
 updates are merged with the stored/default values before checking the quiet
-range and enabled-digest time invariant. Omitting a field preserves it;
+range and enabled-digest time invariant. Omitting a field preserves it; on a first save an omitted field is stored with
+its default, never with a column default (D-090-20);
 clearing only one saved quiet bound or clearing an enabled digest's time is
 invalid.
 

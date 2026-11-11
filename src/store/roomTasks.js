@@ -75,6 +75,11 @@ function completionSplitKey({ participants, allocationReviewed } = {}) {
 // `completingIds`.
 const inFlightCompletions = new Map()
 
+// How long a row keeps its completion feedback (CS-PLAN-090 WP-F); longer
+// than the highlight in `styles/feedback.css`.
+const JUST_COMPLETED_MS = 1500
+const justCompletedTimers = new Map()
+
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
 		roomTasks: [],
@@ -140,10 +145,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// Every completion surface reads it (`isCompleting`) to block a
 		// second submit; a concurrent call joins the pending request.
 		completingIds: {},
+		// CS-PLAN-090 WP-F: room tasks completed a moment ago. Their rows
+		// show the completion feedback (`feedback.css`) while the mark is set.
+		justCompletedIds: {},
 	}),
 
 	getters: {
 		isCompleting: (state) => (roomTaskId) => state.completingIds[roomTaskId] === true,
+
+		wasJustCompleted: (state) => (roomTaskId) => state.justCompletedIds[roomTaskId] === true,
 
 		/**
 		 * Finished room tasks: the on-demand inactive read plus rows of the
@@ -648,6 +658,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					delete this.pendingCommands[commandKey]
 
 					this.reconcileCompletionPayload(roomTaskId, data)
+					this.markJustCompleted(roomTaskId)
 
 					const rewards = data.rewards
 					emit('chorestrike:task-completed', {
@@ -878,6 +889,22 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			} finally {
 				this._endRead()
 			}
+		},
+
+		/**
+		 * Mark a room task as completed a moment ago, so its row can show
+		 * the completion feedback; the mark clears itself.
+		 * @param {number} roomTaskId The completed room task.
+		 */
+		markJustCompleted(roomTaskId) {
+			clearTimeout(justCompletedTimers.get(roomTaskId))
+			this.justCompletedIds = { ...this.justCompletedIds, [roomTaskId]: true }
+			justCompletedTimers.set(roomTaskId, setTimeout(() => {
+				justCompletedTimers.delete(roomTaskId)
+				const rest = { ...this.justCompletedIds }
+				delete rest[roomTaskId]
+				this.justCompletedIds = rest
+			}, JUST_COMPLETED_MS))
 		},
 
 		/**
@@ -1365,6 +1392,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.pendingAttributions = {}
 			this.completingIds = {}
 			inFlightCompletions.clear()
+			justCompletedTimers.forEach((timer) => clearTimeout(timer))
+			justCompletedTimers.clear()
+			this.justCompletedIds = {}
 			this.roomRequestSeqs = {}
 			// Invalidate in-flight reads so a stale response cannot land
 			// after the reset (house/user change).

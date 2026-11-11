@@ -152,16 +152,17 @@ share of public tasks, and only of people who joined.
 
 <img src="screenshots/guide-settings.png" alt="Notification settings: daily task digest, weekly organization digest, delivery time, quiet time and feedback effects" width="720">
 
-Everything here is off by default and personal — owners cannot change it for
-others.
+Everything here is personal — owners cannot change it for others. The digests
+and sounds are off by default; the celebration animation is on.
 
 - **Daily task digest** and **Weekly organization digest** arrive as a
   Nextcloud notification at your delivery time (and by email if your Nextcloud
   forwards notifications), at most once a day. They contain counts, never task
   details.
 - **Quiet time** holds deliveries back during the hours you choose.
-- **Sounds** and **celebration animations** can be switched on; your device's
-  reduced-motion setting always wins.
+- **Sounds** can be switched on, and the **celebration animation** can be
+  switched off; your device's reduced-motion setting always wins. Finishing a
+  chore always shows a short confirmation, with the Coins it earned you.
 
 ### Absence
 
@@ -189,8 +190,8 @@ under **Settings → Arcade**.
 
 Every game's start screen has **Sound** and **Effects** switches. They are
 the same personal settings as under *Notifications, sounds and celebrations*
-(both off by default), so sounds, sparkles and the floating score stay a
-choice; your device's reduced-motion setting always wins.
+(sound off, effects on by default), so sounds, sparkles and the floating
+score stay a choice; your device's reduced-motion setting always wins.
 
 ## Privacy
 

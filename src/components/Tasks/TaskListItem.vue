@@ -7,7 +7,7 @@
 	<div
 		class="task-item"
 		data-testid="task-item"
-		:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive, compact }">
+		:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive, compact, 'cs-just-completed': roomTasksStore.wasJustCompleted(item.roomTask.id) }">
 		<!-- Row selection exists only for the bulk-assign flow
 		     (CS-PLAN-042). Children have no available bulk action,
 		     so the non-actionable checkbox is hidden entirely

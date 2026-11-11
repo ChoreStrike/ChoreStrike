@@ -490,7 +490,7 @@ The following required browser scenarios supplement, never replace, section
 | Shared device | `workflow-state-reconciliation.spec.ts`: `same-device logout and child login discard the prior wallet, undo queue and optional preferences` | Fresh owned Nextcloud sessions in one browser context; a live undo entry precedes logout. This proves full login navigation, not arbitrary in-flight identity switching inside a surviving document. |
 | Free/paused task reminders | `quiet-digest.spec.ts`: `opted-in free and paused days suppress task reminders while due work still delivers` | Otherwise planned work on an explicitly unavailable weekday and a recognized personal pause produce no task bell; an eligible member receives one in the same real job pass. Organizational digests are disabled for this task-only proof. |
 | Keyboard core | `family-core-ux.spec.ts`: `child: My Day hides manage controls and executes the checklist read-only (D4)` | Actual Tab traversal, Enter expansion/completion and Space checkbox execution, followed by the real completion receipt and undo confirmation; no programmatic focus shortcut. |
-| Reduced motion | `calm-core-ui.spec.ts`: `reduced motion overrides an explicit animation opt-in on a real completion` | Personal opt-in remains enabled. Canvas insertion observation verifies suppression, then the same completion after undo and a live OS-preference change supplies the positive animation control. |
+| Reduced motion | `calm-core-ui.spec.ts`: `the animation is on by default, reduced motion wins and switching it off holds` | The member never saved a preference, so the default (animation on) applies. Canvas insertion observation verifies suppression, then the same completion after undo and a live OS-preference change supplies the positive animation control. Switching the animation off as a first save then suppresses it again. |
 
 For WP9 acceptance, run the entire gate (all pools and phone projects) twice consecutively on the
 same runtime/build/fixture/discovery candidate. Focused spec passes diagnose
@@ -617,9 +617,9 @@ never names, account IDs or household details.
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| Upgrade install | Replace the app version on a previously-installed instance; run `occ upgrade` | App enables; migrations apply with no errors | — |
-| Data preserved | Open existing floors/rooms/tasks/history after upgrade | All prior data intact and correctly typed | — |
-| Schema fresh-install parity | (Separately) install fresh and compare schema | Fresh install and upgrade reach the same schema state | PHPUnit migration suite |
+| Upgrade install | Replace the app version on a previously-installed instance; run `occ upgrade` | App enables; migrations apply with no errors | Synthetic: proof P4 of the preservation runner, from the installed build; the personal-instance smoke stays manual |
+| Data preserved | Open existing floors/rooms/tasks/history after upgrade | All prior data intact and correctly typed | Synthetic: P4 compares all 30 app tables and the app config row by row and allows only the documented change |
+| Schema fresh-install parity | (Separately) install fresh and compare schema | Fresh install and upgrade reach the same schema state | PHPUnit migration suite; P4 runs its read-only parity cases on the upgraded database |
 | Rollback | Under operator-approved quiescence restore matched code/config/whole DB/applicable data; compare app and unrelated state | Prior recovery point restored within the approved window; other-app rollback acknowledged; code downgrade alone is not recovery | — |
 
 The Rollback row describes an explicitly requested recovery exercise, not a

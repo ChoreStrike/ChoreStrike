@@ -21,7 +21,15 @@
 				class="snackbar-check"
 				aria-hidden="true"
 				:data-testid="`undo-snackbar-check-${entry.roomTaskId}`" />
-			<span class="snackbar-message">{{ t('chorestrike', 'Task completed') }}</span>
+			<span class="snackbar-message">
+				{{ t('chorestrike', 'Task completed') }}
+				<span
+					v-if="entry.coins"
+					class="snackbar-coins"
+					:data-testid="`undo-snackbar-coins-${entry.roomTaskId}`">
+					{{ t('chorestrike', '+{coins} Coins', { coins: entry.coins }) }}
+				</span>
+			</span>
 			<button
 				class="snackbar-undo"
 				:data-testid="`undo-snackbar-undo-button-${entry.roomTaskId}`"
@@ -45,8 +53,10 @@ import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { translate as t } from '@nextcloud/l10n'
 import Icon from './Icon.vue'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { useUserStore } from '../../store/user.js'
 import { showErrorWithReference } from '../../utils/errorToast.js'
 import { logger } from '../../utils/logger.js'
+import { formatCoinMinor } from '../../utils/minorUnits.js'
 
 const SNACKBAR_TIMEOUT_MS = 5000
 const MAX_QUEUE_ENTRIES = 3
@@ -66,8 +76,9 @@ let entryCounter = 0
  * never a room-task-latest lookup. The entry drops out immediately
  * (perceived instant revert); a failed undo surfaces an error toast while
  * the server truth (completed) stays. When the queue exceeds
- * MAX_QUEUE_ENTRIES the oldest entry is evicted. No reward internals are
- * shown — the copy stays "Task completed / Undo".
+ * MAX_QUEUE_ENTRIES the oldest entry is evicted. The entry names the
+ * coins the viewer earned with this completion (CS-PLAN-090 WP-F); a
+ * completion that paid the viewer nothing stays "Task completed".
  */
 export default {
 	name: 'UndoSnackbar',
@@ -102,6 +113,7 @@ export default {
 				roomTaskId: payload.roomTaskId,
 				completionId: payload.completionId ?? null,
 				expectedVersion: payload.expectedVersion ?? 0,
+				coins: this.ownCoins(payload.participants),
 			})
 			while (this.entries.length > MAX_QUEUE_ENTRIES) {
 				this.dismiss(this.entries[0].key)
@@ -111,6 +123,18 @@ export default {
 				key,
 				setTimeout(() => this.dismiss(key), SNACKBAR_TIMEOUT_MS),
 			)
+		},
+
+		/**
+		 * The viewer's own share of this completion, formatted; null when
+		 * the viewer took no part or earned nothing.
+		 * @param {Array<{userId: ?string, coinMinor: number}>} [participants] Shares of the completion.
+		 * @return {?string}
+		 */
+		ownCoins(participants) {
+			const userId = useUserStore().currentUser?.nextcloudUserId ?? null
+			const own = (participants ?? []).find((share) => userId !== null && share.userId === userId)
+			return own?.coinMinor > 0 ? formatCoinMinor(own.coinMinor) : null
 		},
 
 		dismiss(key) {
@@ -196,6 +220,12 @@ export default {
 .snackbar-message {
 	flex: 1;
 	font-size: 0.95rem;
+}
+
+.snackbar-coins {
+	margin-inline-start: 0.35rem;
+	font-weight: 700;
+	white-space: nowrap;
 }
 
 .snackbar-undo {

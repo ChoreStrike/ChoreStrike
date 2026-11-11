@@ -78,7 +78,8 @@ setup, everyday use and planning.
   Coins, boosts or planning advantage.
 - **Insights** — activity feed, member fairness table, and overcapacity
   warnings before a plan is applied.
-- **Quiet defaults** - reminders, sound and celebrations are off by default.
+- **Quiet defaults** - reminders and sound are off by default; the celebration
+  animation is on, and each person can switch it off.
   Personal preferences control a bounded daily Nextcloud digest and quiet hours;
   reduced-motion settings override animations.
 - **Two languages** — English and German, fully translated.

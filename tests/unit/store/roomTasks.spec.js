@@ -406,6 +406,34 @@ describe('RoomTasks Store', () => {
 				expect(result.roomTask.isActive).toBe(false)
 			})
 
+			// CS-PLAN-090 WP-F: the row feedback reads this mark.
+			it('marks the room task as just completed and clears the mark on its own', async () => {
+				jest.useFakeTimers()
+				try {
+					store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+					api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false } })
+					expect(store.wasJustCompleted(1)).toBe(false)
+
+					await store.completeRoomTask(1)
+
+					expect(store.wasJustCompleted(1)).toBe(true)
+					expect(store.wasJustCompleted(2)).toBe(false)
+					jest.advanceTimersByTime(1500)
+					expect(store.wasJustCompleted(1)).toBe(false)
+				} finally {
+					jest.useRealTimers()
+				}
+			})
+
+			it('sets no mark when the completion fails', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				api.post.mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409 }))
+
+				await expect(store.completeRoomTask(1)).rejects.toThrow('Conflict')
+
+				expect(store.wasJustCompleted(1)).toBe(false)
+			})
+
 			it('joins a concurrent completion of the same room task instead of sending twice (CS-PLAN-084 WP-E)', async () => {
 				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 				let respond
@@ -1024,6 +1052,14 @@ describe('RoomTasks Store', () => {
 				expect(store.roomTasks).toEqual([])
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
+			})
+
+			it('drops the just-completed marks', () => {
+				store.markJustCompleted(1)
+
+				store.reset()
+
+				expect(store.wasJustCompleted(1)).toBe(false)
 			})
 		})
 

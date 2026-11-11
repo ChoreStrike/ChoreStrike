@@ -60,12 +60,13 @@ describe('useCelebration composable', () => {
 		jest.restoreAllMocks()
 	})
 
-	/** Set the personal opt-ins on the preference store the composable reads. */
+	/** Set the personal opt-ins on the preference store as an authoritative read would. */
 	const setPreferences = ({ sound = false, animation = false }) => {
 		const { usePreferencesStore } = require('@/store/preferences')
 		const store = usePreferencesStore()
 		store.soundEnabled = sound
 		store.animationEnabled = animation
+		store.loaded = true
 		return store
 	}
 
@@ -82,7 +83,38 @@ describe('useCelebration composable', () => {
 		expect(mockSubscribe).not.toHaveBeenCalledWith('chorestrike:streak-freeze-used', expect.any(Function))
 	})
 
-	it('syncs the OFF gates per event and stays silent at the neutral defaults (C5g)', () => {
+	it('opens the animation gate and keeps sound closed for a member read without a row (D-090-05)', () => {
+		const { usePreferencesStore } = require('@/store/preferences')
+		usePreferencesStore().loaded = true
+		const { useCelebration } = require('@/composables/useCelebration')
+		useCelebration()
+
+		handlers['chorestrike:task-completed']({})
+
+		expect(mockSetAnimationsEnabled).toHaveBeenLastCalledWith(true)
+		expect(mockSetSoundEnabled).toHaveBeenLastCalledWith(false)
+		expect(mockFireConfetti).toHaveBeenCalledTimes(1)
+	})
+
+	// RF-090-13: the initial "on" is not a read; a stored "off" must not be
+	// overridden while /preferences/me is pending or after it failed.
+	it('keeps the animation gate closed while the preferences are not read', () => {
+		const { usePreferencesStore } = require('@/store/preferences')
+		const store = usePreferencesStore()
+		const { useCelebration } = require('@/composables/useCelebration')
+		useCelebration()
+
+		handlers['chorestrike:task-completed']({})
+		expect(store.animationEnabled).toBe(true)
+		expect(store.loaded).toBe(false)
+		expect(mockSetAnimationsEnabled).toHaveBeenLastCalledWith(false)
+
+		store.loaded = true
+		handlers['chorestrike:task-completed']({})
+		expect(mockSetAnimationsEnabled).toHaveBeenLastCalledWith(true)
+	})
+
+	it('syncs the OFF gates per event once the member switched both off (C5g)', () => {
 		setPreferences({})
 		const { useCelebration } = require('@/composables/useCelebration')
 		useCelebration()

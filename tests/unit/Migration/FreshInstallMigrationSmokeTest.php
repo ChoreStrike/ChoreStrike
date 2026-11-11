@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Migration;
 use OCP\DB\ISchemaWrapper;
 use OCP\IDBConnection;
 use OCP\Migration\IOutput;
+use OCP\Migration\SimpleMigrationStep;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -51,9 +52,10 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 
 			// Only `changeSchema()` diffs are persisted by the runner; steps
 			// that only define preSchemaChange/postSchemaChange (e.g. the
-			// void Version1018–1020 column adds) contribute nothing to a fresh
-			// schema and are intentionally skipped.
-			if (!method_exists($migration, 'changeSchema')) {
+			// void Version1018–1020 column adds, or a data-only step such
+			// as Version1034) contribute nothing to a fresh schema and are
+			// intentionally skipped.
+			if (!$this->declaresChangeSchema($migration)) {
 				continue;
 			}
 
@@ -158,7 +160,7 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 
 		foreach ($this->orderedMigrationClasses() as $class) {
 			$migration = $this->instantiateMigration($class);
-			if (!method_exists($migration, 'changeSchema')) {
+			if (!$this->declaresChangeSchema($migration)) {
 				continue;
 			}
 			$migration->changeSchema($output, fn (): ISchemaWrapper => $schema, []);
@@ -274,6 +276,16 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 		}
 		sort($classes);
 		return $classes;
+	}
+
+	/**
+	 * Whether the step declares its own `changeSchema()`. The inherited
+	 * `SimpleMigrationStep::changeSchema()` returns null by design; that is
+	 * a data-only step, not the dropped-diff defect this test guards.
+	 */
+	private function declaresChangeSchema(object $migration): bool {
+		return method_exists($migration, 'changeSchema')
+			&& (new \ReflectionMethod($migration, 'changeSchema'))->getDeclaringClass()->getName() !== SimpleMigrationStep::class;
 	}
 
 	/**

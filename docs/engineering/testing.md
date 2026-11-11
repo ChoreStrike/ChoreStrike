@@ -587,6 +587,8 @@ powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p1 -Pro
 powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p2 -Provider pgsql -Port 8198
 powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p2 -Provider pgsql -Row aio -Port 8198
 powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p3
+powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p4 -Provider mysql
+powershell -NoProfile -File scripts/test-runtime-preservation.ps1 -Proof p4 -Provider pgsql -Row aio
 ```
 
 Run sequentially with an unused port. P1/P2 support `mysql`, `pgsql` and `sqlite`;
@@ -613,6 +615,38 @@ failure, corrupted-file checksum rejection, data divergence and wrong code versi
 Cleanup must report failures and remove owned networks as well as containers.
 These synthetic proofs neither adopt a retained baseline nor prove production AIO
 backup configuration. Never run ordinary reseeding suites on populated proof targets.
+
+P4 is the app update itself (CS-PLAN-090 WP-F): P1 to P3 keep the app build
+and so never run a new migration step. It installs the build of the retained
+baseline (`$UpgradeSource` in the runner: version and release commit, exported
+with `git archive`) on an owned target, checks that this build ships exactly
+the pinned migrations, and populates it through that build's own services:
+preference rows in every state (an "off" nobody chose, an "on" with sound, a
+deliberate "off", a row created by ranking consent, members without a row) and
+pause rows in every stored state, the two the departure rule cancels in place
+included. Then it replaces the files with the candidate under maintenance mode
+and runs `occ upgrade`, as a deployment does. `tests/recovery/upgrade-fixture.php`
+sits next to the app because it runs on both builds. It must fail on the state
+before the update, and afterwards find the one expected change and nothing
+else: all 30 app tables and the app config (except `installed_version`) are
+compared row by row. A second `occ upgrade` finds no work and changes nothing,
+the read-only schema parity cases pass on the upgraded database, and the
+candidate's services read the default, take a first save that switches the
+animation off and reject a version from before the update. P4 supports
+`mysql`, `pgsql` and `sqlite` on the primary row, and `pgsql` on the AIO row's
+Nextcloud and PHP image, there without the Redis peer. Move `$UpgradeSource`
+with every verified deployment. A candidate that still carries the installed
+version cannot be updated to; before the release's version bump pass
+`-StampVersion <next version>`, which changes the version in the owned copy only
+and is recorded as `versionStamped` in the summary. A release qualification
+runs unstamped.
+
+A new migration step that arrives before the release's version bump is not
+applied to kept canonical volumes, because Nextcloud sees no app update. Until
+the bump, staged matrix projects (fresh installs) carry it; on the canonical
+stack apply it once through the migration runner
+(`(new \OC\DB\MigrationService('chorestrike', $connection))->migrate()` as
+`www-data`) instead of resetting the volumes.
 
 Nextcloud 31's `QBMapper` binds mutable `date` properties using datetime
 parameters. SQLite therefore may retain a midnight suffix where MariaDB and
@@ -816,6 +850,17 @@ An unchanged-app reinstall, edited already-applied step, or restore of the same
 build does not prove an upgrade. `npm test` rejects an edited, renamed or removed
 applied step against the pinned inventory `tests/migrations/applied-migrations.json`
 (`tests/unit/scripts/appliedMigrations.spec.js`).
+
+The first such step is `Version1034` (CS-PLAN-090 WP-F, data only). Its proof
+has two parts: `tests/integration/Db/AnimationDefaultStepTest.php` runs the
+step on every provider inside a transaction that is rolled back (every row on,
+version plus one, nothing else, an empty table left alone, a recorded step not
+applied again), and the P4 proof of the
+[preservation runner](#isolated-supported-database-matrix) runs the real app
+update from the installed build. A fresh install applies schema steps only, so
+a data-only step does not run there; `PreferenceDefaultsTest` shows that new
+rows get the same default. `SupportedDatabaseSchemaTest` and
+`FreshInstallMigrationSmokeTest` skip a step that inherits `changeSchema()`.
 
 Recovery runs need exclusive ownership, with no integration/browser/cron mutation
 jobs overlapping the backup point or assertions. Use separately named disposable

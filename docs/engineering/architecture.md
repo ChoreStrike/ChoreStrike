@@ -117,7 +117,8 @@ ChoreStrike/
 │   │                           #   user, scheduling, checklist, minigame, titles,
 │   │                           #   ranking, setup, preferences, pauses, rewards)
 │   │                           #   + userAutoInit bootstrap plugin
-│   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
+│   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css,
+│   │                           #   feedback.css (completion feedback of a row)
 │   ├── views/                  # Dashboard, Today, Insights, RoomDetail, TaskManager,
 │   │                           #   Leaderboard, Scheduling, Calendar, Settings, Rewards,
 │   │                           #   Arcade, Absence

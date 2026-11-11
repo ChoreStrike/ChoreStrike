@@ -165,11 +165,9 @@ class RankingService {
 			// the consent block and the delivery preferences.
 			$pref = $this->prefMapper->findByHouseAndUser($houseId, (int)$locked->getId());
 			if ($pref === null) {
-				$pref = new MemberPreference();
-				$pref->setHouseId($houseId);
-				$pref->setHouseUserId((int)$locked->getId());
-				$pref->setCreatedAt($now);
-				$pref->setVersion(1);
+				// The delivery fields are written with their defaults: a row
+				// created by consent must not switch the animation off.
+				$pref = MemberPreference::createFor($houseId, (int)$locked->getId(), $now);
 				$created = true;
 			} else {
 				$pref->setVersion($pref->getVersion() + 1);

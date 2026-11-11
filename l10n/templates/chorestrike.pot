@@ -20,6 +20,9 @@ msgstr ""
 msgid "* same on-time share — tied"
 msgstr ""
 
+msgid "+{coins} Coins"
+msgstr ""
+
 msgid "1 task"
 msgstr ""
 
@@ -429,9 +432,6 @@ msgid "Bedroom"
 msgstr ""
 
 msgid "Best"
-msgstr ""
-
-msgid "Both are off by default. Celebrations are never a requirement for the household routine."
 msgstr ""
 
 msgid "Bounce the soap bubble off the squeegee and scrub every grimy tile. Catch the helpers that fall — but dodge the mud."
@@ -1805,6 +1805,9 @@ msgstr ""
 msgid "New room name"
 msgstr ""
 
+msgid "New title: {title}"
+msgstr ""
+
 msgid "Next"
 msgstr ""
 
@@ -2871,6 +2874,9 @@ msgid "The agreement could not be recorded."
 msgstr ""
 
 msgid "The agreement was recorded."
+msgstr ""
+
+msgid "The animation is on by default, sounds are off. Neither is needed for the household routine."
 msgstr ""
 
 msgid "The arcade is hidden. You can turn it on again in the Settings."

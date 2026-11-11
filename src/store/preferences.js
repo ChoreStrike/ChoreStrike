@@ -29,7 +29,9 @@ function DEFAULT_STATE() {
 		quietStart: null,
 		quietEnd: null,
 		soundEnabled: false,
-		animationEnabled: false,
+		// On by default (CS-PLAN-090 D-090-05), like the server's default
+		// for a member without a row; sound stays an opt-in.
+		animationEnabled: true,
 		arcadeVisible: true,
 		catalogVisible: true,
 		ranking: { state: 'none', generation: null, effectiveMonday: null },
@@ -72,7 +74,7 @@ export const usePreferencesStore = defineStore('preferences', {
 	actions: {
 		/**
 		 * Fetch the caller's own preferences (never creates a row — the
-		 * neutral defaults arrive at version 0).
+		 * defaults arrive at version 0).
 		 */
 		async fetchPreferences() {
 			this.loading = true

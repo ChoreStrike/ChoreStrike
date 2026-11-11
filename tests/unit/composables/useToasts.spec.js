@@ -81,6 +81,26 @@ describe('useToasts composable', () => {
 		expect(mockShowSuccess).toHaveBeenCalledWith(expect.stringContaining('medal'))
 	})
 
+	// CS-PLAN-090 WP-F: a new title had confetti but no message.
+	it('names the new title on title-unlocked', () => {
+		const { useToasts } = require('@/composables/useToasts')
+		useToasts()
+
+		handlers['chorestrike:title-unlocked']({ pack: 'rhythm', labelKey: 'Steady hand', tierIndex: 1 })
+
+		expect(mockShowSuccess).toHaveBeenCalledTimes(1)
+		expect(mockShowSuccess).toHaveBeenCalledWith('New title: Steady hand')
+	})
+
+	it('stays silent for a title event without a label', () => {
+		const { useToasts } = require('@/composables/useToasts')
+		useToasts()
+
+		handlers['chorestrike:title-unlocked']({ pack: 'rhythm' })
+
+		expect(mockShowSuccess).not.toHaveBeenCalled()
+	})
+
 	it('never toasts for freeze/combo payloads (retired mechanics)', () => {
 		const { useToasts } = require('@/composables/useToasts')
 		useToasts()
@@ -97,7 +117,7 @@ describe('useToasts composable', () => {
 
 		cleanup()
 
-		// 2 subscriptions registered (weekly goal + medal).
-		expect(mockUnsubscribe).toHaveBeenCalledTimes(2)
+		// 3 subscriptions registered (weekly goal, medal, title).
+		expect(mockUnsubscribe).toHaveBeenCalledTimes(3)
 	})
 })

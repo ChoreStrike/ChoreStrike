@@ -90,7 +90,8 @@ See the current-state distinction below and the
   voluntary participants, including a child's right to decline/leave. Shared
   activity history and private-task visibility remain separate contracts.
 - C5 now specifies My Day entry for all ages, quiet feedback without default
-  sound/confetti, personal cross-device opt-ins, one optional shared daily digest,
+  sound (the celebration animation is on by default since CS-PLAN-090),
+  personal cross-device opt-ins, one optional shared daily digest,
   prospective voluntary plan-fulfillment rankings and a required comprehension test
   plus two-week family trial. See the [UI/evidence contract](ui-use-cases.md#approved-calm-ux-and-evidence-c5-2026-09-17)
   and [delivery contract](task-model-and-sync.md#approved-delivery-contract-c5-2026-09-17).

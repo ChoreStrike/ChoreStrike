@@ -29,6 +29,13 @@ class RecoveryOwnershipTest extends TestCase {
 			['cs082-abcd1234-p1-pgsql', '', false],
 			['cs082-abcd1234-p3-pgsql', 'cs082-abcd1234-p3-pgsql-db', true],
 			['cs082-abcd1234-p3-pgsql', 'db-pgsql', false],
+			['cs082-abcd1234-p4-pgsql', 'cs082-abcd1234-p4-pgsql-db', true],
+			['cs082-abcd1234-p4-pgsql-aio', 'cs082-abcd1234-p4-pgsql-aio-db', true],
+			['cs082-abcd1234-p4-mysql', 'cs082-abcd1234-p4-mysql-db', true],
+			['cs082-abcd1234-p4-sqlite', '', true],
+			['cs082-abcd1234-p4-sqlite', 'cs082-abcd1234-p4-sqlite-db', false],
+			['cs082-abcd1234-p4-pgsql', 'db-pgsql', false],
+			['cs082-abcd1234-p4-pgsql', '', false],
 			['CS082-abcd1234-p1-pgsql', 'db-pgsql', false],
 			["cs082-abcd1234-p1-pgsql\n", 'db-pgsql', false],
 			['cs082-abcd1234-p1-pgsql', 'DB-PGSQL', false],
@@ -37,13 +44,21 @@ class RecoveryOwnershipTest extends TestCase {
 		];
 	}
 
-	public function testFixture_InvalidTarget_RefusesBeforeBootstrap(): void {
-		$fixture = dirname(__DIR__, 2) . '/recovery/fixture.php';
+	/** @dataProvider fixtures */
+	public function testFixture_InvalidTarget_RefusesBeforeBootstrap(string $file, string $message): void {
+		$fixture = dirname(__DIR__, 2) . '/recovery/' . $file;
 		$command = 'CS_RECOVERY_REHEARSAL=true NEXTCLOUD_TEST_MODE=true DB_HOST=foreign-db '
 			. escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($fixture) . ' seed 2>&1';
 		exec($command, $output, $exit);
 		$this->assertNotSame(0, $exit);
-		$this->assertStringContainsString('Recovery fixture requires its isolated owned test target', implode("\n", $output));
+		$this->assertStringContainsString($message, implode("\n", $output));
 		$this->assertStringNotContainsString('lib/base.php', implode("\n", $output));
+	}
+
+	public static function fixtures(): array {
+		return [
+			['fixture.php', 'Recovery fixture requires its isolated owned test target'],
+			['upgrade-fixture.php', 'Upgrade fixture requires its isolated owned test target'],
+		];
 	}
 }

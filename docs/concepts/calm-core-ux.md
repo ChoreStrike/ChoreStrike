@@ -54,22 +54,36 @@ a catch-up up as a success streak.
   surface reads the shared in-flight state of the room-task store, and a
   concurrent call joins the pending request instead of sending a second.
 
-## Feedback effects are personal opt-ins (default off)
+## Feedback effects: animation on by default, sound an opt-in
 
-- Sounds and celebration animations are **off by default** and controlled
-  per person in the Settings (delivery preferences surface). The Sound and
-  Effects switches on an arcade game's start, pause and game-over screen
-  write the same preference (CS-PLAN-086 WP-G); they change no default.
-- `prefers-reduced-motion` **always overrides** an explicit animation
-  opt-in (hard floor inside the effect modules).
-- The **default completion feedback** is always on and subtle
+- The celebration animation is **on by default** and sounds are **off**
+  (CS-PLAN-090, D-090-05). Each person controls both in the Settings
+  (delivery preferences surface); the Sound and Effects switches on an
+  arcade game's start, pause and game-over screen write the same
+  preference (CS-PLAN-086 WP-G).
+- A member without stored preferences reads the default, and every path
+  that creates the preference row (a first save, ranking consent) writes
+  the delivery fields. So saving another setting first never switches the
+  animation off, and switching it off as a first save holds. Until the
+  preferences are read, the animation stays off, so a stored "off" is never
+  overridden while the read is pending or after it failed (RF-090-13).
+- The update that brings this default (`0.8.0-alpha.5`, migration step
+  `Version1034`) switches the animation on once for every member who
+  already has a row, a deliberate "off" included: a stored "off" cannot
+  be told apart from a value nobody chose (D-090-16). A member can switch
+  it off again afterwards; sound is not touched.
+- `prefers-reduced-motion` **always overrides** the animation switch
+  (hard floor inside the effect modules).
+- A completion is **always acknowledged**, whatever the switches say
   ([CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md)
-  D-084-03): the hold ring, the accessible confirmation with undo
-  (UndoSnackbar) with a short check-mark pop (static under
-  `prefers-reduced-motion`), and one short vibration where the browser
-  supports it (Android; iOS Safari has no web vibration). Quiet textual award
-  toasts stay in-app. There are no modals, sounds, or confetti without the
-  explicit opt-in.
+  D-084-03, extended by CS-PLAN-090 WP-F): the hold ring, the confirmation
+  with undo (UndoSnackbar) with a short check-mark pop and the coins the
+  viewer earned with this completion, a brief highlight of the row, and
+  one short vibration where the browser supports it (Android; iOS Safari
+  has no web vibration). The pop and the highlight stay static under
+  `prefers-reduced-motion`. Textual award toasts stay in-app, and a new
+  title gets one too. There are no modals; confetti follows the animation
+  switch and sound needs its opt-in.
 - A completion never plays a streak "milestone": 7/30/100-day streak
   milestones were never implemented (gamification concept, "Earlier Streak
   Milestone Ideas"); rhythm recognition celebrates through medal, title and

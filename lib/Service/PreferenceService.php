@@ -112,12 +112,9 @@ class PreferenceService {
 				if ($pref === null) {
 					// First save (RF-076-01): creates the row WITHOUT any
 					// ranking consent — a delivery-only, ranking-inactive
-					// row.
-					$pref = new MemberPreference();
-					$pref->setHouseId($houseId);
-					$pref->setHouseUserId((int)$actor->getId());
-					$pref->setCreatedAt($now);
-					$pref->setVersion(1);
+					// row. Every delivery field is written, so the fields
+					// this save does not name keep the member's defaults.
+					$pref = MemberPreference::createFor($houseId, (int)$actor->getId(), $now);
 					foreach ($fields['values'] as $name => $value) {
 						$this->applyField($pref, $name, $value);
 					}
@@ -273,17 +270,7 @@ class PreferenceService {
 	 */
 	private function payload(?MemberPreference $pref, \DateTime $now): array {
 		if ($pref === null) {
-			return [
-				'version' => 0,
-				'taskDigestEnabled' => false,
-				'orgDigestEnabled' => false,
-				'digestTime' => '18:00',
-				'quietStart' => null,
-				'quietEnd' => null,
-				'soundEnabled' => false,
-				'animationEnabled' => false,
-				'arcadeVisible' => true,
-				'catalogVisible' => true,
+			return ['version' => 0] + MemberPreference::DELIVERY_DEFAULTS + [
 				'ranking' => ['state' => 'none', 'generation' => null, 'effectiveMonday' => null],
 			];
 		}
