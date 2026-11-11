@@ -50,6 +50,26 @@ describe('agent adapters', () => {
 		for (const content of Object.values(adapters)) expect(content).toContain(MARKER)
 	})
 
+	it('maps a canonical claude-model alias to the Claude model field and rejects versioned IDs', () => {
+		const agent = model => `---\nname: finder\ndescription: Finder\nread-only: true\nclaude-model: ${model}\n---\n\nFind only.\n`
+		write(fixture, 'docs/standards/ai/agents/finder.md', agent('haiku'))
+
+		expect(buildAdapters(fixture)['.claude/agents/finder.md']).toContain('tools: Read, Grep, Glob\nmodel: haiku\n---')
+
+		write(fixture, 'docs/standards/ai/agents/finder.md', agent('claude-haiku-5-5'))
+		expect(() => buildAdapters(fixture)).toThrow('claude-model "claude-haiku-5-5" must be one of')
+	})
+
+	it('runs review tracks, searches and unassigned subagents below the session model', () => {
+		const adapters = buildAdapters(ROOT)
+		const settings = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude/settings.json'), 'utf8'))
+
+		expect(adapters['.claude/agents/reviewer.md']).toMatch(/^model: opus$/m)
+		expect(adapters['.claude/agents/explore.md']).toMatch(/^name: Explore$/m)
+		expect(adapters['.claude/agents/explore.md']).toMatch(/^model: haiku$/m)
+		expect(settings.env.CLAUDE_CODE_SUBAGENT_MODEL).toBe('sonnet')
+	})
+
 	it('reports missing, edited and stale adapters until a sync repairs them', () => {
 		expect(checkAdapters(fixture)).toHaveLength(4)
 

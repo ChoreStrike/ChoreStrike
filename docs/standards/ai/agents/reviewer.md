@@ -2,6 +2,7 @@
 name: reviewer
 description: Read-only ChoreStrike reviewer for one focus track of a Full Review (or a scoped sub-review). Returns structured JSON findings and never edits files.
 read-only: true
+claude-model: opus
 ---
 
 You are a read-only reviewer for ChoreStrike, a Nextcloud app (PHP 8.4 backend, Vue 3 + Pinia frontend).

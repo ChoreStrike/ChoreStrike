@@ -7,20 +7,38 @@
 
 ---
 
-## 1. Models are a setting, not a doc
+## 1. Model classes, not model versions
 
-Model names are volatile and user/tool-specific; configure them in the active
-tool's settings and never pin one in an agent definition or generated adapter.
+Versioned model names are volatile: no tracked file names one. Subagents are
+assigned a **class**, and each tool maps the class in its own configuration.
 Durable principle — **escalate, don't start high**:
 
-| Work class | Examples | Model class |
-| ---------- | -------- | ----------- |
-| Read-only / I/O-bound | explore, "find where X is" | cheap / fast |
-| Routine coding | bug fixes, tests, refactors, triage | mid |
-| Synthesis / hard problems | architecture, hard bugs, consolidation | frontier |
+| Work class | Examples | Model class | Claude Code alias |
+| ---------- | -------- | ----------- | ----------------- |
+| Read-only / I/O-bound | explore, "find where X is" | cheap / fast | `haiku` |
+| Routine coding, multi-step research | bug fixes, tests, refactors, triage | mid | `sonnet` |
+| Review tracks | `reviewer` (judges rather than searches) | strong | `opus` |
+| Synthesis / hard problems | architecture, hard bugs, consolidation | frontier | session model |
 
-Review tracks judge rather than search: `reviewer` runs on the model the tool is
-configured with, and a Full Review multiplies its cost by the number of tracks.
+A subagent never needs the session's frontier model by default; a Full Review
+multiplies the cost of its class by the number of tracks.
+
+**Claude Code** (aliases only, so the mapping survives model releases):
+
+- `reviewer` and `explore` carry `claude-model` in their canonical definition
+  under [`ai/agents/`](../ai/agents/); the generator writes it as `model` into
+  the adapter and rejects anything but an alias. The generated `Explore` agent
+  replaces Claude Code's built-in one, which would otherwise follow the session;
+  like every `read-only` agent it gets `Read`, `Grep` and `Glob` only, no shell.
+- Every subagent without an assignment (`general-purpose`, workflow agents)
+  defaults to `sonnet` through `CLAUDE_CODE_SUBAGENT_MODEL` in the tracked
+  `.claude/settings.json`. The built-in `Plan` agent and forks keep the session
+  model.
+- The main agent escalates a single call by passing a model when it spawns; a
+  personal default belongs in the untracked `.claude/settings.local.json`.
+
+**Kilo Code** keeps its model choice in the user's own Kilo settings; nothing
+about it is tracked.
 
 ## 2. Use `explore` for read-only lookups
 
@@ -33,7 +51,7 @@ A single known file or symbol needs no subagent — search it directly.
 | Role | Purpose | Kilo Code | Claude Code |
 | ---- | ------- | --------- | ----------- |
 | main agent | implements, synthesizes, owns **all writes** | `code` (or `orchestrator`) | main session |
-| `explore` | read-only codebase search | `explore` subagent | `Explore` agent |
+| `explore` | read-only codebase search | `explore` subagent | `Explore` agent (`.claude/agents/explore.md`, generated) |
 | `plan` | implementation plan synthesis | `plan` | `Plan` agent / plan mode |
 | `general` | multi-step research | `general` | `general-purpose` agent |
 | `reviewer` | read-only findings ([contract](../ai/agents/reviewer.md)) | user-configured `reviewer` agent | `.claude/agents/reviewer.md` (generated) |
