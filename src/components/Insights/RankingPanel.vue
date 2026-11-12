@@ -4,21 +4,22 @@
 -->
 
 <template>
-	<div class="leaderboard" data-testid="leaderboard-view">
-		<header class="leaderboard-header">
-			<h1 data-testid="leaderboard-title">
-				{{ t('chorestrike', 'Leaderboard') }}
-			</h1>
-			<p class="subtitle">
-				{{ t('chorestrike', 'Opt-in weekly rhythm ranking for your household') }}
-			</p>
-		</header>
+	<div class="ranking-panel" data-testid="ranking-panel">
+		<p v-if="loading" class="ranking-loading" data-testid="ranking-loading">
+			{{ t('chorestrike', 'Loading…') }}
+		</p>
+		<!-- A failed read is its own state: "off" would be a wrong answer. -->
+		<ErrorState
+			v-else-if="loadError"
+			data-testid="ranking-error"
+			:message="t('chorestrike', 'Could not load the ranking')"
+			@retry="initializeRanking" />
 
-		<div class="leaderboard-content">
+		<div v-else class="leaderboard-content">
 			<!-- Opt-in / closed state: ranking disabled or no visible consent yet -->
 			<div v-if="!rankingStore.rankingEnabled" class="rank-closed" data-testid="ranking-disabled">
 				<Icon name="Users" :size="48" />
-				<h2>{{ t('chorestrike', 'Weekly ranking is off') }}</h2>
+				<h3>{{ t('chorestrike', 'Weekly ranking is off') }}</h3>
 				<p>
 					{{ t('chorestrike', 'The household ranking is opt-in. A house owner can enable it in the settings — every member then decides on their own participation.') }}
 				</p>
@@ -137,7 +138,7 @@
 
 				<!-- Pending consents (consented, not yet effective — C5l) -->
 				<div v-if="rankingStore.pending.length > 0" class="pending-section" data-testid="ranking-pending">
-					<h2>{{ t('chorestrike', 'Starting next week') }}</h2>
+					<h3>{{ t('chorestrike', 'Starting next week') }}</h3>
 					<p
 						v-for="entry in rankingStore.pending"
 						:key="entry.houseUserId"
@@ -150,7 +151,7 @@
 
 			<!-- Weekly medals (store-driven; CS-PLAN-041) -->
 			<div v-if="weeklyMedals.length > 0" class="medals-section" data-testid="medal-summary">
-				<h2>{{ t('chorestrike', 'This Week\'s Medals') }}</h2>
+				<h3>{{ t('chorestrike', 'This Week\'s Medals') }}</h3>
 				<div class="medals-grid">
 					<div
 						v-for="medal in weeklyMedals"
@@ -173,17 +174,25 @@
 <script>
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import Icon from '../components/Common/Icon.vue'
-import MedalBadge, { MEDAL_LABELS } from '../components/Common/MedalBadge.vue'
-import { useGameStore } from '../store/game.js'
-import { useRankingStore } from '../store/ranking.js'
-import { useUserStore } from '../store/user.js'
-import { logger } from '../utils/logger.js'
+import ErrorState from '../Common/ErrorState.vue'
+import Icon from '../Common/Icon.vue'
+import MedalBadge, { MEDAL_LABELS } from '../Common/MedalBadge.vue'
+import { useGameStore } from '../../store/game.js'
+import { useRankingStore } from '../../store/ranking.js'
+import { useUserStore } from '../../store/user.js'
+import { logger } from '../../utils/logger.js'
 
+/**
+ * The opt-in weekly ranking with its medals, as a section of Insights
+ * (CS-PLAN-090 WP-E; the Leaderboard page it was). It reads the ranking on
+ * its own and has an error state of its own, so a failed read never looks
+ * like a ranking that is switched off and never takes Insights down.
+ */
 export default {
-	name: 'LeaderboardView',
+	name: 'RankingPanel',
 
 	components: {
+		ErrorState,
 		Icon,
 		MedalBadge,
 	},
@@ -193,6 +202,10 @@ export default {
 		const gameStore = useGameStore()
 		const rankingStore = useRankingStore()
 		return { userStore, gameStore, rankingStore }
+	},
+
+	data() {
+		return { loading: true, loadError: false }
 	},
 
 	computed: {
@@ -232,7 +245,7 @@ export default {
 		/**
 		 * Weekly medals from the game store, mapped for display. The store is
 		 * populated by fetchMedals() (after the check-medals evaluation
-		 * pre-pass) in initializeLeaderboard().
+		 * pre-pass) in initializeRanking().
 		 */
 		weeklyMedals() {
 			return this.gameStore.medals.map((medal) => ({
@@ -246,15 +259,16 @@ export default {
 		},
 	},
 
-	async mounted() {
-		await this.initializeLeaderboard()
+	mounted() {
+		return this.initializeRanking()
 	},
 
 	methods: {
 		t,
 
-		async initializeLeaderboard() {
+		async initializeRanking() {
 			this.loading = true
+			this.loadError = false
 			try {
 				await this.userStore.initializeCurrentUser()
 				// The consent-filtered server view is the sole ranking
@@ -266,7 +280,8 @@ export default {
 				await this.gameStore.checkMedals()
 				await this.gameStore.fetchMedals()
 			} catch (error) {
-				logger.error('Failed to initialize leaderboard', error, { view: 'Leaderboard', action: 'initializeLeaderboard' })
+				this.loadError = true
+				logger.error('Failed to load the ranking', error, { component: 'RankingPanel', action: 'initializeRanking' })
 			} finally {
 				this.loading = false
 			}
@@ -306,27 +321,8 @@ export default {
 </script>
 
 <style scoped>
-.leaderboard {
-	padding: 1rem var(--cs-view-gutter) 2rem;
-	max-width: 1000px;
-	margin: 0 auto;
-}
-
-.leaderboard-header {
-	text-align: center;
-	margin-bottom: 2rem;
-	padding-inline-start: var(--cs-view-heading-inset);
-}
-
-.leaderboard-header h1 {
-	font-size: 2rem;
-	font-weight: bold;
-	margin: 0 0 0.5rem 0;
-}
-
-.subtitle {
+.ranking-loading {
 	color: var(--color-text-maxcontrast);
-	margin: 0;
 }
 
 .leaderboard-content {
@@ -344,7 +340,7 @@ export default {
 	color: var(--color-text-maxcontrast);
 }
 
-.rank-closed h2 {
+.rank-closed h3 {
 	margin: 1rem 0 0.5rem 0;
 	font-size: 1.2rem;
 	color: var(--color-main-text);
@@ -510,7 +506,7 @@ export default {
 }
 
 /* Pending consents */
-.pending-section h2 {
+.pending-section h3 {
 	font-size: 1.1rem;
 	margin: 0 0 0.75rem 0;
 }
@@ -560,7 +556,7 @@ export default {
 	margin-top: 1rem;
 }
 
-.medals-section h2 {
+.medals-section h3 {
 	font-size: 1.2rem;
 	margin: 0 0 1rem 0;
 	text-align: center;

@@ -25,6 +25,19 @@ import { completeRoomTaskViaApi, newCommandId, postCompletionWithReceipt, resolv
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 
+/**
+ * Corrections sit behind a tap on the activity line (CS-PLAN-090 WP-E):
+ * open the line of one completion unless it is open already.
+ */
+async function openActivityLine(page: Page, completionId: number): Promise<void> {
+	const line = page.getByTestId(`activity-row-${completionId}`)
+	await expect(line).toBeVisible({ timeout: 15000 })
+	if ((await line.getAttribute('aria-expanded')) !== 'true') {
+		await line.click()
+	}
+	await expect(line).toHaveAttribute('aria-expanded', 'true')
+}
+
 interface RoomTaskJson {
 	id: number
 	isActive: boolean
@@ -102,12 +115,21 @@ test.describe('Release: Insights Flow', () => {
 
 		// WP3 cutover: contribution is the fairness currency — the retired
 		// aggregate coins column stays gone.
-		await expect(page.getByTestId('header-contribution')).toBeVisible()
+		await expect(page.locator('[data-testid^="contribution-"]').first()).toBeVisible()
 		await expect(page.getByTestId('header-coins')).toHaveCount(0)
 
-		// The feed lists mom's completion with actor + task.
+		// CS-PLAN-090 WP-E: four key figures, the ranking as a section, and
+		// one line per completion under its day, with the coins it paid.
+		await expect(page.getByTestId('house-stats-cards').locator('.stats-card')).toHaveCount(4)
+		await expect(page.getByTestId('insights-ranking').getByTestId('ranking-panel')).toBeVisible()
 		const feedItem = page.getByTestId('activity-item').first()
 		await expect(feedItem).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('activity-day').first()).toHaveText('Today')
+		await expect(feedItem.locator('[data-testid^="activity-coins-"]')).toHaveText(/^\s*\+\d/)
+		// The room and the effort wait behind a tap on the line.
+		await expect(feedItem.locator('[data-testid^="activity-details-"]')).toHaveCount(0)
+		await feedItem.locator('[data-testid^="activity-row-"]').click()
+		await expect(feedItem.locator('[data-testid^="activity-energy-"]')).toBeVisible()
 	})
 
 	test('overcapacity warning appears when a day exceeds its capacity', async ({ browser, seededData }) => {
@@ -182,7 +204,7 @@ test.describe('Release: Insights Flow', () => {
 		}
 	})
 
-	test('navigation exposes the insights entry between leaderboard and scheduling', async ({ page }) => {
+	test('navigation exposes the insights entry', async ({ page }) => {
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('domcontentloaded')
 
@@ -213,6 +235,7 @@ test.describe('Release: Insights Flow', () => {
 			// participation form pre-fills the recorded split.
 			await owner.page.goto('/apps/chorestrike/#/insights')
 			await expect(owner.page.getByTestId('insights-view')).toBeVisible({ timeout: 20000 })
+			await openActivityLine(owner.page, completionId)
 			const correctButton = owner.page.getByTestId(`activity-correct-${completionId}`)
 			await expect(correctButton).toBeVisible({ timeout: 15000 })
 			await correctButton.click()
@@ -262,6 +285,7 @@ test.describe('Release: Insights Flow', () => {
 			const completionId = (await complete.json()).data.completionId as number
 
 			await page.goto('/apps/chorestrike/#/insights')
+			await openActivityLine(page, completionId)
 			await page.getByTestId(`activity-correct-${completionId}`).click()
 			const dialog = page.getByTestId('participation-dialog')
 			await expect(dialog).toBeVisible()
@@ -299,6 +323,7 @@ test.describe('Release: Insights Flow', () => {
 
 			// Unlike the short snackbar, history remains actionable after a
 			// correction and sends the completion's current version, not a task ID.
+			await openActivityLine(page, completionId)
 			const undo = page.getByTestId(`activity-undo-${completionId}`)
 			await expect(undo).toBeVisible()
 			await expect(undo).toHaveAttribute('data-version', '2')
@@ -352,6 +377,7 @@ test.describe('Release: Insights Flow', () => {
 			const completionId = (await complete.json()).data.completionId as number
 
 			await page.goto('/apps/chorestrike/#/insights')
+			await openActivityLine(page, completionId)
 			await page.getByTestId(`activity-correct-${completionId}`).click()
 			const dialog = page.getByTestId('participation-dialog')
 			await expect(dialog).toBeVisible()

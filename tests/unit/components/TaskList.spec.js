@@ -555,4 +555,46 @@ describe('TaskList', () => {
 			expect(wrapper.findComponent({ name: 'TaskChecklist' }).props('canEdit')).toBe(false)
 		})
 	})
+
+	describe('sections and order from the view (CS-PLAN-090 WP-C)', () => {
+		const rows = () => [
+			mockTask({ task: { id: 1, name: 'Later' }, roomTask: { id: 1, nextDue: new Date(Date.now() + 86400000).toISOString() } }),
+			mockTask({ task: { id: 2, name: 'Sooner' }, roomTask: { id: 2, nextDue: new Date(Date.now() - 86400000).toISOString() } }),
+			mockTask({ task: { id: 3, name: 'Latest' }, roomTask: { id: 3, nextDue: new Date(Date.now() + 3 * 86400000).toISOString() } }),
+		]
+		const names = (wrapper) => wrapper.findAll('.task-name').map((name) => name.text())
+		const headings = (wrapper) => wrapper.findAll('[data-testid="task-section-heading"]').map((heading) => heading.text())
+
+		it('shows no heading and keeps the due order by default', () => {
+			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: rows() } })
+
+			expect(names(wrapper)).toEqual(['Sooner', 'Later', 'Latest'])
+			expect(headings(wrapper)).toEqual([])
+		})
+
+		it('uses the order it is given', () => {
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: rows(), compare: (a, b) => b.roomTask.id - a.roomTask.id },
+			})
+
+			expect(names(wrapper)).toEqual(['Latest', 'Sooner', 'Later'])
+		})
+
+		it('shows a heading where the section of a row differs from the row before', () => {
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: rows(), sectionLabel: (item) => (item.roomTask.id === 2 ? 'Overdue · 1' : 'Later · 2') },
+			})
+
+			expect(headings(wrapper)).toEqual(['Overdue · 1', 'Later · 2'])
+			expect(wrapper.find('.task-items').element.firstElementChild.textContent.trim()).toBe('Overdue · 1')
+		})
+
+		it('passes the request for the date dialog on', async () => {
+			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: rows() } })
+			const item = wrapper.findComponent({ name: 'TaskListItem' })
+
+			item.vm.$emit('editDate', item.props('item').roomTask)
+			expect(wrapper.emitted('editDate')).toEqual([[item.props('item').roomTask]])
+		})
+	})
 })

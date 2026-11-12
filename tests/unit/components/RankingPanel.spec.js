@@ -1,7 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import Leaderboard from '../../../src/views/Leaderboard.vue'
+import RankingPanel from '../../../src/components/Insights/RankingPanel.vue'
 
 /**
  * Unit tests for the consent-filtered Leaderboard (CS-PLAN-070 WP4,
@@ -110,7 +110,7 @@ jest.mock('../../../src/components/Common/MedalBadge.vue', () => ({
 	},
 }))
 
-describe('Leaderboard.vue (consent-filtered ranking)', () => {
+describe('RankingPanel (consent-filtered ranking, a section of Insights)', () => {
 	let pinia
 
 	beforeEach(() => {
@@ -125,17 +125,51 @@ describe('Leaderboard.vue (consent-filtered ranking)', () => {
 	})
 
 	const mountView = async () => {
-		const wrapper = mount(Leaderboard, {
+		const wrapper = mount(RankingPanel, {
 			global: { plugins: [pinia] },
 		})
 		await flushPromises()
 		return wrapper
 	}
 
-	it('renders the leaderboard shell', async () => {
+	// CS-PLAN-090 WP-E: the Leaderboard page became this panel. It brings
+	// no page title of its own; Insights names the section.
+	it('renders as a panel without page chrome', async () => {
 		const wrapper = await mountView()
-		expect(wrapper.find('.leaderboard').exists()).toBe(true)
-		expect(wrapper.find('[data-testid="leaderboard-title"]').text()).toContain('Leaderboard')
+		expect(wrapper.find('[data-testid="ranking-panel"]').exists()).toBe(true)
+		expect(wrapper.find('h1').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="ranking-error"]').exists()).toBe(false)
+	})
+
+	it('shows an error state of its own after a failed read, never "ranking is off", and reads again on retry', async () => {
+		rankingState.rankingEnabled = false
+		mockFetchRanking.mockRejectedValueOnce(new Error('down'))
+		const wrapper = await mountView()
+
+		expect(wrapper.get('[data-testid="ranking-error"]').text()).toContain('Could not load the ranking')
+		expect(wrapper.find('[data-testid="ranking-disabled"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="ranking-participation"]').exists()).toBe(false)
+
+		await wrapper.get('[data-testid="error-retry"]').trigger('click')
+		await flushPromises()
+		expect(mockFetchRanking).toHaveBeenCalledTimes(2)
+		expect(wrapper.find('[data-testid="ranking-error"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="ranking-disabled"]').exists()).toBe(true)
+	})
+
+	it('shows nothing of the ranking while it loads', async () => {
+		let release
+		mockFetchRanking.mockImplementationOnce(() => new Promise((resolve) => { release = resolve }))
+		const wrapper = mount(RankingPanel, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="ranking-loading"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="ranking-participation"]').exists()).toBe(false)
+
+		release()
+		await flushPromises()
+		expect(wrapper.find('[data-testid="ranking-loading"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="ranking-participation"]').exists()).toBe(true)
 	})
 
 	it('fetches the server ranking view and evaluates medals on mount', async () => {

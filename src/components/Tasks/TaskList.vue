@@ -40,22 +40,26 @@
 				@clear="clearSelection" />
 
 			<div class="task-items">
-				<TaskListItem
-					v-for="item in sortedTasks"
-					:key="item.roomTask.id"
-					:item="item"
-					:selected="isSelected(item.roomTask.id)"
-					:expanded="isExpanded(item.roomTask.id)"
-					:assigneeDraft="assigneeDraft[item.roomTask.id] || []"
-					:assigneeRefusal="assigneeRefusal[item.roomTask.id] || ''"
-					:compact="compact"
-					@complete="$emit('complete', $event)"
-					@edit="$emit('edit', $event)"
-					@delete="$emit('delete', $event)"
-					@toggleExpand="toggleExpand"
-					@toggleSelect="toggleSelected"
-					@claim="openClaimDialog"
-					@toggleAssignee="toggleAssignee" />
+				<template v-for="(item, index) in sortedTasks" :key="item.roomTask.id">
+					<h3 v-if="headingAt(index)" class="task-section-heading" data-testid="task-section-heading">
+						{{ headingAt(index) }}
+					</h3>
+					<TaskListItem
+						:item="item"
+						:selected="isSelected(item.roomTask.id)"
+						:expanded="isExpanded(item.roomTask.id)"
+						:assigneeDraft="assigneeDraft[item.roomTask.id] || []"
+						:assigneeRefusal="assigneeRefusal[item.roomTask.id] || ''"
+						:compact="compact"
+						@complete="$emit('complete', $event)"
+						@edit="$emit('edit', $event)"
+						@editDate="$emit('editDate', $event)"
+						@delete="$emit('delete', $event)"
+						@toggleExpand="toggleExpand"
+						@toggleSelect="toggleSelected"
+						@claim="openClaimDialog"
+						@toggleAssignee="toggleAssignee" />
+				</template>
 			</div>
 
 			<OverdueClaimDialog
@@ -116,9 +120,21 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
+		/** Row order; the list by due date keeps its due classes together. */
+		compare: {
+			type: Function,
+			default: compareTaskItems,
+		},
+
+		/** Heading of the section a row belongs to; shown where it changes. */
+		sectionLabel: {
+			type: Function,
+			default: null,
+		},
 	},
 
-	emits: ['complete', 'edit', 'delete'],
+	emits: ['complete', 'edit', 'editDate', 'delete'],
 
 	setup(props, { emit }) {
 		const checklistStore = useChecklistStore()
@@ -132,8 +148,16 @@ export default {
 
 		const sortedTasks = computed(() => {
 			const tasks = props.roomTasks || []
-			return [...tasks].sort(compareTaskItems)
+			return [...tasks].sort(props.compare)
 		})
+
+		const headingAt = (index) => {
+			if (!props.sectionLabel) {
+				return ''
+			}
+			const label = props.sectionLabel(sortedTasks.value[index])
+			return index === 0 || label !== props.sectionLabel(sortedTasks.value[index - 1]) ? label : ''
+		}
 
 		const toggleExpand = async (item) => {
 			if (expandedTaskId.value === item.roomTask.id) {
@@ -323,6 +347,7 @@ export default {
 
 		return {
 			sortedTasks,
+			headingAt,
 			expandedTaskId,
 			toggleExpand,
 			isExpanded,
@@ -363,6 +388,15 @@ export default {
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
+}
+
+.task-section-heading {
+	margin: 0.5rem 0 0;
+	font-size: 0.85rem;
+	font-weight: bold;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--color-text-maxcontrast);
 }
 
 /* Skeleton Loading Styles */

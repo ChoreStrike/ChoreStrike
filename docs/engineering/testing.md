@@ -946,7 +946,7 @@ mobile user agent; `createUserContext` does not inherit the project device)
 and ends without horizontal overflow: Today hold-complete and undo, claim
 confirm, one-occurrence handover with the child's completion and the default
 owner's successor, reassignment visibility, the paged task list with
-collapsed filters, Today's status line and overdue block with a room page, and Settings through the
+collapsed filters, Today's status line and overdue block with a room of the task list, and Settings through the
 phone navigation. `arcade-mobile.spec.ts` (CS-PLAN-086 WP-C) joins the set
 in both projects: the DOM games played by tapping (Spot Sprint and Sock
 Match, tiles at least 44 px), the canvas games steered with the on-screen pad
@@ -1104,10 +1104,11 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `validation.spec.ts`, `error-handling.spec.ts`, `today-view.spec.ts` | Data validation, error handling, and daily-task flows (Today view) |
 | `core-functionality.spec.ts`, `fast-core-tests.spec.ts` | Landing page and cross-view navigation coverage |
 | `task-deep-links.spec.ts` | The task list's address contract (`/tasks?visibility=private`, `/tasks?status=overdue&scope=all`); successor of the Dashboard specs, which went with the Dashboard (CS-PLAN-090 WP-B). Runs in `chromium-serial-db` (it creates tasks) |
-| `room-management.spec.ts`, `room-detail.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD, room-detail flows, full-house scenarios |
+| `room-management.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD in Settings, full-house scenarios |
+| `task-grouping.spec.ts` | The task list by due date, by room and by person: the switch and its address, a room heading's facts, *New* with the template picker, the date dialog and *Last cleaned*; successor of `room-detail.spec.ts`, which went with the room page (CS-PLAN-090 WP-C) |
 | `task-manager.spec.ts`, `task-completion.spec.ts`, `task-completion-full-flow.spec.ts`, `task-checklist-and-features.spec.ts` | Task management, creation, checklist, and completion flows |
-| `settings.spec.ts`, `core-household-journey.spec.ts` | Settings and the canonical empty-house UI-only setup/invite/create/plan/complete/undo journey |
-| `leaderboard.spec.ts`, `ranking-consent.spec.ts`, `title-selection.spec.ts` | Gamification: opt-in/closed leaderboard surface (WP4), the consent lifecycle (owner enable → join pending → withdraw, serial pool), and the single-series title surface (no pack selection) |
+| `settings.spec.ts`, `core-household-journey.spec.ts` | Settings (personal and household areas with categories that start closed; specs open one through `fixtures/settings.ts`, CS-PLAN-090 WP-D) and the canonical empty-house UI-only setup/invite/create/plan/complete/undo journey |
+| `leaderboard.spec.ts`, `ranking-consent.spec.ts`, `title-selection.spec.ts` | Gamification: the opt-in/closed ranking, a section of Insights since CS-PLAN-090 WP-E (WP4), the consent lifecycle (owner enable → join pending → withdraw, serial pool), and the single-series title surface (no pack selection) |
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
 | `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |
@@ -1226,7 +1227,7 @@ Important implications:
 When changing task or room flows, update these layers together:
 
 - `src/views/TaskManager.vue`
-- `src/views/RoomDetail.vue`
+- `src/components/Tasks/TaskGroupList.vue`
 - `src/components/Tasks/TaskList.vue`
 - `src/components/Tasks/TaskForm.vue`
 - `src/components/Tasks/TaskEditForm.vue`
@@ -1996,7 +1997,7 @@ journey is `core-household-journey.spec.ts` (`chromium-serial-db`,
 `emptyhouse` profile, ONE test with named `test.step` phases) — see the
 Playwright inventory above for its phase list. Focused specs at the WP9
 boundary: setup wizard (`release-setup-wizard`, `setup-wizard-journey`),
-task creation/assignment (`task-manager`, `room-detail`), scheduling
+task creation/assignment (`task-manager`, `task-grouping`), scheduling
 (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`,
 `scheduling-apply-flow` in `chromium-scheduling-owner`), My Day
 (`today-view`), completion/undo (`task-completion`,
@@ -2052,7 +2053,7 @@ counts and deferred-route lists are not evidence of current gaps.
   - backend room-task payloads
   - Pinia stores
   - `TaskList.vue`
-  - `RoomDetail.vue`
+  - `TaskGroupList.vue`
   - `TaskManager.vue`
   - Playwright selectors
 - Whenever these contracts change, add or refresh both unit regressions and E2E smoke coverage in the same change.

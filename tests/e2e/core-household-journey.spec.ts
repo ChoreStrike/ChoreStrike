@@ -33,7 +33,8 @@ import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { journeyClock } from './fixtures/house-clock.js'
 import { runOcc } from './fixtures/occ-runner.ts'
-import { listRooms, openRoom } from './fixtures/rooms.ts'
+import { listRooms, openRoom, roomGroup } from './fixtures/rooms.ts'
+import { openSettingsCategory } from './fixtures/settings.ts'
 
 const DAD_EMAIL = 'dad@chorestrike.test'
 const KID_EMAIL = 'kid@chorestrike.test'
@@ -184,6 +185,7 @@ test.describe('Canonical household journey', () => {
 				// Members UI: kid joins as a CHILD.
 				await page.getByTestId('nav-settings').click()
 				await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
+				await openSettingsCategory(page, 'house')
 				const zone = page.getByTestId('house-timezone-select')
 				await expect(zone).toBeVisible()
 				const originalHouse = await page.request.get('/apps/chorestrike/api/v1/house')
@@ -196,6 +198,7 @@ test.describe('Canonical household journey', () => {
 				}
 				const house = await page.request.get('/apps/chorestrike/api/v1/house')
 				expect((await house.json()).data.timezone).toBe(clock.timeZone)
+				await openSettingsCategory(page, 'members')
 				await page.getByTestId('show-invite-button').click()
 				await page.getByTestId('invite-email-input').fill(KID_EMAIL)
 				await page.getByTestId('invite-role-select').selectOption('child')
@@ -251,8 +254,8 @@ test.describe('Canonical household journey', () => {
 				await openApp(page)
 
 				// ---- Custom task with instructions, flex window and assignee.
-				await openRoom(page, 'Kitchen')
-				await page.getByTestId('add-task-button').click()
+				const kitchenGroup = roomGroup(page, await openRoom(page, 'Kitchen'))
+				await kitchenGroup.getByTestId('room-add-task-button').click()
 
 				// The unified picker opens on the template tab — switch to the
 				// custom form.
@@ -277,7 +280,7 @@ test.describe('Canonical household journey', () => {
 				await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 20000 })
 
 				// ---- Second custom task: admin-only visibility probe.
-				await page.getByTestId('add-task-button').click()
+				await kitchenGroup.getByTestId('room-add-task-button').click()
 				const picker2 = page.getByTestId('add-task-picker')
 				await expect(picker2).toBeVisible()
 				await page.getByTestId('picker-tab-custom').click()
@@ -288,7 +291,7 @@ test.describe('Canonical household journey', () => {
 				await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 20000 })
 
 				// ---- Template-based task through the picker UI.
-				await page.getByTestId('add-task-button').click()
+				await kitchenGroup.getByTestId('room-add-task-button').click()
 				await expect(page.getByTestId('add-task-picker')).toBeVisible()
 				await page.getByTestId('picker-level-putzmuffel').click()
 				await page.setViewportSize({ width: 390, height: 844 })
@@ -334,7 +337,7 @@ test.describe('Canonical household journey', () => {
 				expect(custom!.nextDue.startsWith(houseLocalDate(2))).toBeTruthy()
 
 				await page.reload()
-				await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 20000 })
+				await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 20000 })
 				await expect(page.getByTestId('room-task-list').getByText(CUSTOM_TASK)).toBeVisible({ timeout: 15000 })
 
 				// Checklist input through the owner edit surface (TaskManager);

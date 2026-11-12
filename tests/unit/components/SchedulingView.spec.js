@@ -39,10 +39,9 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const stubs = {
 	AvailabilitySettings: true,
-	EnergyBudgetSettings: true,
 	SchedulePlanner: true,
 	ScheduleCalendar: true,
-	SelfAvailabilitySettings: true,
+	RouterLink: { props: ['to'], template: '<a :data-to="to.name"><slot /></a>' },
 }
 
 describe('SchedulingView', () => {
@@ -62,13 +61,21 @@ describe('SchedulingView', () => {
 		expect(wrapper.find('h1').text()).toBe('Smart Scheduling')
 	})
 
-	it('renders the self-availability section for every role', async () => {
-		// No currentUser resolved yet (non-owner default): the personal
-		// self-service section must still render.
+	// CS-PLAN-090 WP-D: the own days and energy moved to the personal
+	// settings, and the page is reached from the calendar.
+	it('no longer holds the personal planning settings, for any role', async () => {
 		const wrapper = mount(SchedulingView, { global: { stubs } })
 		await flushPromises()
 
-		expect(wrapper.findComponent({ name: 'SelfAvailabilitySettings' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'SelfAvailabilitySettings' }).exists()).toBe(false)
+		expect(wrapper.findComponent({ name: 'EnergyBudgetSettings' }).exists()).toBe(false)
+		expect(wrapper.findComponent({ name: 'ScheduleCalendar' }).exists()).toBe(true)
+	})
+
+	it('leads back to the calendar it is reached from', () => {
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+
+		expect(wrapper.get('[data-testid="scheduling-back"]').attributes('data-to')).toBe('calendar')
 	})
 
 	it('renders the owner availability grid when the current user is owner', async () => {
@@ -80,7 +87,6 @@ describe('SchedulingView', () => {
 		await flushPromises()
 
 		expect(wrapper.findComponent({ name: 'AvailabilitySettings' }).exists()).toBe(true)
-		expect(wrapper.findComponent({ name: 'SelfAvailabilitySettings' }).exists()).toBe(true)
 	})
 
 	it('hides the owner availability grid for non-owners', async () => {
@@ -98,7 +104,7 @@ describe('SchedulingView', () => {
 	})
 
 	// CS-PLAN-065 §3.4 (RF-065-02): the task-plan preview/apply surface is
-	// owner-only — members and children keep the personal settings sections.
+	// owner-only.
 	it('renders the owner-only plan planner for owners', async () => {
 		const userStore = useUserStore()
 		userStore.currentUser = { id: 1, role: 'owner' }
@@ -119,9 +125,6 @@ describe('SchedulingView', () => {
 		await flushPromises()
 
 		expect(wrapper.findComponent({ name: 'SchedulePlanner' }).exists()).toBe(false)
-		// The personal surfaces stay available for every role.
-		expect(wrapper.findComponent({ name: 'SelfAvailabilitySettings' }).exists()).toBe(true)
-		expect(wrapper.findComponent({ name: 'EnergyBudgetSettings' }).exists()).toBe(true)
 	})
 
 	it('initializes the scheduling store on mount', async () => {

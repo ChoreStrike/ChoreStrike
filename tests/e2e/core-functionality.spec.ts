@@ -3,7 +3,9 @@ import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { userStatePath } from './fixtures/auth-contexts.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
-import { listRooms, openRoom } from './fixtures/rooms.ts'
+import { openRanking } from './fixtures/insights.ts'
+import { expectRoomOpen, listRooms, openRoom } from './fixtures/rooms.ts'
+import { openSettingsCategory } from './fixtures/settings.ts'
 
 /** Resolve the Kitchen room at runtime — the DELETE-based test reset never
  * restarts AUTO_INCREMENT, so room ids grow. */
@@ -42,8 +44,7 @@ test.describe('Core App Functionality', () => {
 		await page.getByTestId('nav-tasks').click()
 		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 15000 })
 
-		await page.getByTestId('nav-leaderboard').click()
-		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 15000 })
+		await openRanking(page)
 
 		await page.getByTestId('nav-settings').click()
 		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 15000 })
@@ -72,25 +73,40 @@ test.describe('Core App Functionality', () => {
 			await page.getByTestId('nav-settings').click()
 			await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
 
+			await openSettingsCategory(page, 'house')
+			await openSettingsCategory(page, 'structure')
 			await expect(page.getByTestId('house-name-input')).toBeVisible({ timeout: 15000 })
 			await expect(page.getByTestId('floors-list')).toBeVisible({ timeout: 15000 })
 			await expect(page.getByTestId('add-floor-button')).toBeVisible({ timeout: 15000 })
 		})
 	})
 
-	test('Leaderboard page loads', async ({ page }) => {
-		await page.getByTestId('nav-leaderboard').click()
-		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
+	// CS-PLAN-090 WP-E: the Leaderboard page became a section of Insights;
+	// its address (bookmarks) leads there.
+	test('The old Leaderboard address opens the ranking in Insights', async ({ page }) => {
+		await page.goto('/apps/chorestrike/#/leaderboard')
+
+		await expect(page).toHaveURL(/#\/insights#ranking$/)
+		await expect(page.getByTestId('insights-ranking').getByTestId('ranking-panel')).toBeVisible({ timeout: 20000 })
+		// The view follows the anchor itself (hash routing, D-090-54).
+		await expect(page.getByTestId('insights-ranking').getByRole('heading', { name: 'Ranking', exact: true })).toBeInViewport()
+		await expect(page.getByTestId('nav-leaderboard')).toHaveCount(0)
 	})
 
-	test('A room page opens by its address and lists its tasks', async ({ page }) => {
-		await openRoom(page)
+	// CS-PLAN-090 WP-C: the room page went into the task list; its address
+	// (bookmarks) redirects to that room there.
+	test('The old room address opens that room in the task list by room', async ({ page }) => {
+		const [room] = await listRooms(page)
 
-		await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
+		await page.goto(`/apps/chorestrike/#/room/${room.id}`)
+
+		await expectRoomOpen(page, room)
+		await expect(page).toHaveURL(new RegExp(`#/tasks\\?group=room&room=${room.id}$`))
+		await expect(page.getByTestId('tasks-group-room')).toHaveAttribute('aria-pressed', 'true')
 	})
 
 	test('Task completion flow works', async ({ page }) => {
-		// Room-task completion lives in the room detail view; the family
+		// A room's tasks are completed in the task list by room; the family
 		// seed guarantees the Kitchen room. CS-PLAN-068: complete a DEDICATED
 		// probe task — parallel-pool siblings also complete Kitchen rows, so
 		// "first complete button in the room" is not a stable target. The

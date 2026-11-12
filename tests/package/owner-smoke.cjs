@@ -155,6 +155,10 @@ async function verify(browser, language, width) {
 		await expect(page.getByTestId('settings-title')).toHaveText(language.startsWith('de') ? 'Einstellungen' : 'Settings')
 		if (width < 768) await page.getByRole('button', { name: /Close navigation|Navigation.*schlie/i }).click()
 		await expect(page.getByTestId('settings-view')).toHaveCSS('max-width', '1000px')
+		// The household categories start closed; the address keeps the one
+		// opened last (the house) across the reloads below.
+		await page.getByTestId('settings-tab-household').click()
+		for (const category of ['structure', 'house']) await page.getByTestId(`settings-category-${category}`).click()
 		await expect(page.getByTestId('house-name-input')).toHaveValue('Package Home')
 		await expect(page.getByTestId('house-section')).toBeVisible()
 		const floor = page.getByTestId('floors-list').locator('.floor-item').first()

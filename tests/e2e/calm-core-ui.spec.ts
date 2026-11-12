@@ -63,7 +63,7 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 		}
 		try {
 			// The seeded member never saved a preference: on by default (D-090-05).
-			await page.goto('/apps/chorestrike/#/settings')
+			await page.goto('/apps/chorestrike/#/settings?category=notifications')
 			await expect(page.getByTestId('animation-toggle')).toBeChecked()
 			await expect(page.getByTestId('sound-toggle')).not.toBeChecked()
 
@@ -86,7 +86,7 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 			await expect(button).toBeVisible()
 
 			// Switching it off is the member's first save, and it holds.
-			await page.goto('/apps/chorestrike/#/settings')
+			await page.goto('/apps/chorestrike/#/settings?category=notifications')
 			await page.getByText('Celebration animations', { exact: true }).click()
 			await expect(page.getByTestId('animation-toggle')).not.toBeChecked()
 			const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/preferences/me'))
@@ -145,7 +145,7 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 			await expect(today.getByTestId('own-wallet-available')).toHaveText(/^-?\d+(\.\d+)?$/, { timeout: 30000 })
 
 			// Still none of the optional surfaces on the landing page.
-			for (const surface of ['arcade-view', 'arcade-catalog', 'rewards-view', 'leaderboard-view']) {
+			for (const surface of ['arcade-view', 'arcade-catalog', 'rewards-view', 'ranking-panel']) {
 				await expect(today.getByTestId(surface)).toHaveCount(0)
 			}
 		} finally {
@@ -166,7 +166,7 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 			// input is visually hidden behind its content span — click the
 			// visible switch label (the realistic user interaction; mom is
 			// pinned to English by the family-core-ux language test).
-			await owner.page.goto('/apps/chorestrike/#/settings')
+			await owner.page.goto('/apps/chorestrike/#/settings?category=notifications')
 			await expect(owner.page.getByTestId('notification-preferences')).toBeVisible({ timeout: 30000 })
 			const arcadeSwitch = owner.page.getByTestId('arcade-visible-switch')
 			await expect(arcadeSwitch).toBeChecked()
@@ -185,7 +185,7 @@ test.describe('Calm core UI (CS-PLAN-070 WP6)', () => {
 			await expect(owner.page.getByTestId('arcade-surface')).toHaveCount(0)
 
 			// Restore the opt-in for the other gate pools (shared DB).
-			await owner.page.goto('/apps/chorestrike/#/settings')
+			await owner.page.goto('/apps/chorestrike/#/settings?category=notifications')
 			await expect(owner.page.getByTestId('notification-preferences')).toBeVisible({ timeout: 30000 })
 			const arcadeSwitchRestore = owner.page.getByTestId('arcade-visible-switch')
 			await expect(arcadeSwitchRestore).not.toBeChecked()

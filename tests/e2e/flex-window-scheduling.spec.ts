@@ -4,6 +4,7 @@
  */
 
 import { expect, test } from '@playwright/test'
+import { openPlanningSettings, openWeeklyPlan } from './fixtures/planning.ts'
 
 test.describe('Flex Window Scheduling', () => {
 	test.beforeEach(async ({ page }) => {
@@ -13,22 +14,28 @@ test.describe('Flex Window Scheduling', () => {
 		await page.getByTestId('today-view').waitFor({ state: 'visible' })
 	})
 
-	test('scheduling nav item is visible from Today', async ({ page }) => {
-		await expect(page.getByTestId('nav-scheduling')).toBeVisible()
+	// CS-PLAN-090 D-090-14: the weekly plan left the navigation and is
+	// reached from the calendar header, with a way back.
+	test('the weekly plan opens from the calendar and leads back to it', async ({ page }) => {
+		await expect(page.getByTestId('nav-scheduling')).toHaveCount(0)
+
+		await openWeeklyPlan(page)
+		await expect(page).toHaveURL(/#\/scheduling/)
+
+		await page.getByTestId('scheduling-back').click()
+		await expect(page.getByTestId('calendar-view')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('scheduling view loads with calendar section', async ({ page }) => {
 		await expect(async () => {
-			await page.getByTestId('nav-scheduling').click()
-			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
 	})
 
 	test('calendar shows week navigation controls', async ({ page }) => {
 		await expect(async () => {
-			await page.getByTestId('nav-scheduling').click()
-			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('previous-week-button')).toBeVisible()
@@ -38,8 +45,7 @@ test.describe('Flex Window Scheduling', () => {
 
 	test('calendar navigates between weeks', async ({ page }) => {
 		await expect(async () => {
-			await page.getByTestId('nav-scheduling').click()
-			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 
 		const weekRange = page.getByTestId('week-range')
@@ -56,8 +62,7 @@ test.describe('Flex Window Scheduling', () => {
 
 	test('calendar returns to current week with today button', async ({ page }) => {
 		await expect(async () => {
-			await page.getByTestId('nav-scheduling').click()
-			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 
 		await page.getByTestId('next-week-button').click()
@@ -68,8 +73,7 @@ test.describe('Flex Window Scheduling', () => {
 
 	test('schedule planner section is accessible', async ({ page }) => {
 		await expect(async () => {
-			await page.getByTestId('nav-scheduling').click()
-			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('schedule-planner')).toBeVisible()
@@ -79,8 +83,7 @@ test.describe('Flex Window Scheduling', () => {
 
 	test('the plan preview requires an explicit task selection', async ({ page }) => {
 		await expect(async () => {
-			await page.getByTestId('nav-scheduling').click()
-			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('preview-plan-button')).toBeDisabled()
@@ -88,10 +91,7 @@ test.describe('Flex Window Scheduling', () => {
 	})
 
 	test('energy budget settings persist slider changes', async ({ page }) => {
-		await expect(async () => {
-			await page.getByTestId('nav-scheduling').click()
-			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
-		}).toPass({ timeout: 45000 })
+		await openPlanningSettings(page)
 
 		const slider = page.getByTestId('energy-slider-wednesday')
 		await expect(slider).toBeVisible()

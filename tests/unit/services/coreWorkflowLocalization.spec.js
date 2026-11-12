@@ -25,7 +25,10 @@ const CORE_SURFACES = [
 	'src/components/Today/TodayTaskRow.vue',
 	'src/components/Setup/SetupWizardEntry.vue',
 	'src/views/TaskManager.vue',
-	'src/views/RoomDetail.vue',
+	// CS-PLAN-090 WP-C: the room page went into the grouped task list.
+	'src/components/Tasks/TaskGroupList.vue',
+	'src/components/Tasks/TaskCreateDialog.vue',
+	'src/components/Tasks/TaskPager.vue',
 	'src/components/Minigames/ArcadeCatalog.vue',
 	'src/components/Tasks/TaskList.vue',
 	// CS-PLAN-067 §3.4: the TaskList decomposition moved the row-surface

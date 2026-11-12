@@ -350,7 +350,7 @@ test.describe('Household arcade (CS-PLAN-086)', () => {
 
 		const owner = await createUserContext(browser, 'mom')
 		try {
-			await owner.page.goto('/apps/chorestrike/#/settings')
+			await owner.page.goto('/apps/chorestrike/#/settings?category=arcade')
 			const toggle = owner.page.getByTestId('arcade-gate-toggle')
 			await expect(toggle).toBeChecked({ timeout: 30000 })
 			await toggle.uncheck()

@@ -4,52 +4,28 @@
 -->
 
 <template>
-	<div
-		class="member-fairness-scroll"
-		data-testid="member-fairness-scroll"
-		role="region"
-		tabindex="0"
-		:aria-label="t('chorestrike', 'Fairness')">
-		<!-- UX-018: the table scrolls inside its own box, never the whole
-		     view; the box is focusable so a keyboard can scroll it too -->
-		<table class="member-fairness" data-testid="member-fairness-table">
-			<thead>
-				<tr class="fairness-header">
-					<th>{{ t('chorestrike', 'Member') }}</th>
-					<th data-testid="header-contribution">
-						{{ t('chorestrike', 'Contribution') }}
-					</th>
-					<th>{{ t('chorestrike', 'Streak') }}</th>
-					<th data-testid="header-load">
-						{{ t('chorestrike', 'Load') }}
-					</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr
-					v-for="row in rows"
-					:key="row.id"
-					class="fairness-row"
-					data-testid="fairness-row">
-					<td class="member-cell">
-						<span class="member-name">{{ row.displayName }}</span>
-					</td>
-					<td class="numeric" :data-testid="`contribution-${row.id}`">
-						{{ formatMinor(row.contributionMinor) }}
-					</td>
-					<td class="numeric">
-						{{ row.currentStreak }}
-					</td>
-					<td class="load-cell" :data-testid="`load-${row.id}`">
-						<div class="load-bar" :class="{ over: row.loadRatio > 1 }">
-							<div class="load-fill" :style="{ width: loadPercent(row) }" />
-						</div>
-						<span class="load-label">{{ formatEnergyMinor(row.completedEnergyMinor) }} / {{ row.weeklyCapacity }} {{ t('chorestrike', 'energy') }}</span>
-					</td>
-				</tr>
-			</tbody>
-		</table>
-	</div>
+	<!-- Compact bars (CS-PLAN-090 WP-E): one line per member, the bar is
+	     this period's completed energy against the weekly capacity. The
+	     rows wrap on a phone, so nothing scrolls sideways (UX-018). -->
+	<ul class="member-fairness" data-testid="member-fairness-table">
+		<li
+			v-for="row in rows"
+			:key="row.id"
+			class="fairness-row"
+			data-testid="fairness-row">
+			<span class="member-name">{{ row.displayName }}</span>
+			<span class="load-cell" :data-testid="`load-${row.id}`">
+				<span class="load-bar" :class="{ over: row.loadRatio > 1 }" aria-hidden="true">
+					<span class="load-fill" :style="{ width: loadPercent(row) }" />
+				</span>
+				<span class="load-label">{{ formatEnergyMinor(row.completedEnergyMinor) }} / {{ row.weeklyCapacity }} {{ t('chorestrike', 'energy') }}</span>
+			</span>
+			<span class="member-facts">
+				<span>{{ t('chorestrike', 'Contribution') }} <strong :data-testid="`contribution-${row.id}`">{{ formatMinor(row.contributionMinor) }}</strong></span>
+				<span>{{ t('chorestrike', 'Streak') }} <strong :data-testid="`streak-${row.id}`">{{ row.currentStreak }}</strong></span>
+			</span>
+		</li>
+	</ul>
 </template>
 
 <script>
@@ -112,10 +88,6 @@ export default {
 		formatEnergyMinor,
 		formatMinor,
 
-		formatNumber(value) {
-			return value?.toLocaleString() || '0'
-		},
-
 		loadPercent(row) {
 			if (row.loadRatio <= 0) {
 				return '0%'
@@ -127,60 +99,52 @@ export default {
 </script>
 
 <style scoped>
-.member-fairness-scroll {
-	max-width: 100%;
-	overflow-x: auto;
-}
-
 .member-fairness {
-	width: 100%;
-	border-collapse: collapse;
+	list-style: none;
+	margin: 0;
+	padding: 0;
 }
 
-.fairness-header th {
-	text-align: start;
-	padding: 0.75rem;
-	font-size: 0.85rem;
-	color: var(--color-text-maxcontrast);
-	border-bottom: 2px solid var(--color-border);
-}
-
-.numeric {
-	text-align: end;
-	padding: 0.75rem;
-}
-
-.member-cell {
-	padding: 0.75rem;
+.fairness-row {
 	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
-}
-
-.member-name {
-	font-weight: 500;
-	color: var(--color-main-text);
-}
-
-.fairness-row td {
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.15rem 0.75rem;
+	min-height: 36px;
+	padding: 0.25rem 0.5rem;
 	border-bottom: 1px solid var(--color-border);
 }
 
+.member-name {
+	flex: 0 0 7rem;
+	min-width: 0;
+	overflow: hidden;
+	font-weight: 500;
+	color: var(--color-main-text);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .load-cell {
-	padding: 0.75rem;
-	min-width: 160px;
+	display: flex;
+	flex: 1 1 12rem;
+	align-items: center;
+	gap: 0.5rem;
+	min-width: 0;
 }
 
 .load-bar {
+	display: block;
+	flex: 1;
 	height: 8px;
 	background: var(--color-background-dark);
 	box-shadow: var(--cs-graphic-track-outline);
 	border-radius: 4px;
 	overflow: hidden;
-	margin-bottom: 0.35rem;
 }
 
 .load-fill {
+	display: block;
 	height: 100%;
 	background: var(--color-primary-element);
 	border-radius: 4px;
@@ -191,8 +155,19 @@ export default {
 	background: var(--color-element-error);
 }
 
-.load-label {
+.load-label,
+.member-facts {
+	flex: none;
 	font-size: 0.8rem;
 	color: var(--color-text-maxcontrast);
+}
+
+.member-facts {
+	display: flex;
+	gap: 0.75rem;
+}
+
+.member-facts strong {
+	color: var(--color-main-text);
 }
 </style>

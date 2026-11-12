@@ -2,6 +2,7 @@ import type { Page, TestInfo } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
 import { BrowserAwareNavigation } from './fixtures/browser-aware-navigation.ts'
+import { openSettingsCategory } from './fixtures/settings.ts'
 
 /**
  * Fast, stable E2E tests using browser-aware navigation.
@@ -28,7 +29,7 @@ test.describe('Fast Core Tests', () => {
 	test('Basic navigation works', async ({ page }: { page: Page }) => {
 		const navigationTests = [
 			{ testid: 'nav-tasks', viewTestid: 'task-manager-view' },
-			{ testid: 'nav-leaderboard', viewTestid: 'leaderboard-view' },
+			{ testid: 'nav-insights', viewTestid: 'ranking-panel' },
 			{ testid: 'nav-settings', viewTestid: 'settings-view' },
 			{ testid: 'nav-today', viewTestid: 'today-view' },
 		]
@@ -49,6 +50,7 @@ test.describe('Fast Core Tests', () => {
 	test('Settings page loads', async ({ page }: { page: Page }) => {
 		await page.getByTestId('nav-settings').click()
 		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
+		await openSettingsCategory(page, 'title')
 
 		// The chromium project runs as the plain member `admin`: the owner
 		// house section is hidden, but the profile-title section always

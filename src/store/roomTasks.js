@@ -88,7 +88,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		rangeTasks: { scheduled: [], completed: [], from: null, to: null },
 		// Today-view slice: keeps the child-aware filtered daily payload
 		// separate so Today items never bleed into the shared flat list
-		// consumed by TaskManager/RoomDetail.
+		// consumed by TaskManager.
 		dailyTasks: [],
 		// CS-PLAN-066 (D2): dedicated due-today/overdue count projections.
 		// They hold complete viewer-visible ENDPOINT results (enriched rows
@@ -1224,26 +1224,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				return !failed
 			} finally {
 				this.countsRefreshing = false
-			}
-		},
-
-		/**
-		 * Get room task statistics
-		 * @param {number} roomId Room identifier to load statistics for.
-		 */
-		async fetchRoomTaskStats(roomId) {
-			this._beginRead()
-			this.error = null
-
-			try {
-				const data = await api.get(`/api/v1/room-tasks/room/${roomId}/stats`)
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch room task stats', error, { store: 'roomTasks', action: 'fetchRoomTaskStats', roomId })
-				throw error
-			} finally {
-				this._endRead()
 			}
 		},
 

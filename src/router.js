@@ -29,16 +29,17 @@ export const routes = [
 		name: 'tasks',
 		component: () => import(/* webpackChunkName: "tasks" */ './views/TaskManager.vue'),
 	},
+	// The room page went into the task list grouped by room (CS-PLAN-090
+	// WP-C); its address opens that room there.
 	{
 		path: '/room/:id',
-		name: 'room',
-		component: () => import(/* webpackChunkName: "room" */ './views/RoomDetail.vue'),
-		props: true,
+		redirect: (to) => ({ name: 'tasks', query: { group: 'room', room: to.params.id } }),
 	},
+	// The ranking is a section of Insights (CS-PLAN-090 WP-E); its address
+	// keeps working.
 	{
 		path: '/leaderboard',
-		name: 'leaderboard',
-		component: () => import(/* webpackChunkName: "leaderboard" */ './views/Leaderboard.vue'),
+		redirect: { name: 'insights', hash: '#ranking' },
 	},
 	{
 		path: '/insights',

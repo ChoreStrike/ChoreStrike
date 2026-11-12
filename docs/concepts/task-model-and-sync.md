@@ -370,7 +370,7 @@ Reminder fields in ChoreStrike must stay synchronized with Nextcloud Tasks-compa
 
 A task instance can be completed from:
 
-1. ChoreStrike UI (Today, task list, room page)
+1. ChoreStrike UI (Today, task list)
 2. *(planned)* Connected task clients through Nextcloud task completion
    status — see the prune note above; there is no external-completion path
    today.

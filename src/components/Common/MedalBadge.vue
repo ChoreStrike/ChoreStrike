@@ -16,7 +16,7 @@ import { computed } from 'vue'
 
 /**
  * Medal type → translation key (source string). Exported so surfaces that
- * only need the label (e.g. the Leaderboard medal cards) stay in sync with
+ * only need the label (e.g. the medal cards of the ranking) stay in sync with
  * the badge without re-declaring the mapping. The retired activity/combo
  * medal types dropped with the WP4 label cutover (CS-PLAN-070) — only the
  * retained rhythm tiers and the weekly milestone exist.

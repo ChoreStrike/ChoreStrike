@@ -197,6 +197,7 @@ viewer-scoped correction flags — never mutable reward outputs
   "completions": [
     {
       "id": 42,
+      "occurrenceId": "17:3",
       "completedAt": "2026-08-21T10:00:00+00:00",
       "version": 1,
       "allocationRevision": 2,
@@ -219,15 +220,19 @@ viewer-scoped correction flags — never mutable reward outputs
 }
 ```
 
+- `occurrenceId` names the completed occurrence (schedule revision and ordinal),
+  or is `null` for a completion from before occurrences existed.
 - `totalEnergy` is the frozen total effort; each allocation entry carries the
   exact minor units (`energyMinor = totalEnergy * sharePct`, `coinMinor` at
-  the frozen rate). A departed participant's share serializes with
+  the frozen rate; returned since CS-PLAN-090 WP-E, the activity list shows
+  their sum as the coins a completion paid). A departed participant's share serializes with
   `userId: null` (wallet retained, membership gone) and stays auditable.
 - `canCorrect` — viewer-scoped: completer or house owner on a still-valid
   completion. The feed exposes targeted correction and undo actions from this
   flag; it is never true for undone rows or unrelated members.
 - When the viewer cannot see a private or admin-only task, the household feed
-  redacts its task details, frozen effort and selected work shares together;
+  redacts its task details, frozen effort and selected work shares, with the
+  coins they paid, together;
   the event itself remains visible as an aggregate (`totalEnergy: null`,
   `allocation: []`, `canCorrect: false`).
 - Rows whose room task was deleted later keep appearing with
@@ -964,7 +969,8 @@ items of the row's definition (0 without items), from one grouped query; My
 Day offers its checklist toggle only above zero.
 
 #### GET /room-tasks/room/{roomId}/stats
-Room task statistics for the RoomDetail stats card (CS-PLAN-040). Rejects a
+Room task statistics (CS-PLAN-040). The app has no client for this route since the
+room page went into the task list (CS-PLAN-090 D-090-10); it stays until Release B. Rejects a
 cross-house `roomId` with `404 RESOURCE_NOT_FOUND`.
 
 **Response:**

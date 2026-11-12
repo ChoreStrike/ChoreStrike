@@ -29,11 +29,10 @@ describe('App navigation icons', () => {
 			icon: body.match(/<template #icon>\s*<Icon name="([^"]+)"/)?.[1],
 		}))
 
-	it('finds all eleven navigation entries, each closed with an icon slot', () => {
+	it('finds all eight navigation entries in their order, each closed with an icon slot (CS-PLAN-090 WP-D)', () => {
 		expect(entries.map((entry) => entry.testId)).toEqual([
-			'nav-today', 'nav-tasks', 'nav-leaderboard', 'nav-insights',
-			'nav-scheduling', 'nav-calendar', 'nav-absence', 'nav-arcade', 'nav-rewards',
-			'nav-reward-requests', 'nav-settings',
+			'nav-today', 'nav-tasks', 'nav-calendar', 'nav-insights',
+			'nav-absence', 'nav-rewards', 'nav-arcade', 'nav-settings',
 		])
 		expect(template).not.toMatch(/<NcAppNavigationItem\b[^>]*\/>/)
 	})

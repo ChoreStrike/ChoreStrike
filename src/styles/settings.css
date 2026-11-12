@@ -1,0 +1,181 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+/*
+ * The form pieces the Settings categories share (CS-PLAN-090 WP-D): cards,
+ * inputs and buttons. Scoped by `.cs-settings-form`, which the root of such a
+ * category and its dialogs carry (a dialog is teleported to the body), so
+ * the rules never reach a component that brings its own styles.
+ */
+
+.cs-settings-form .setting-card {
+	background: var(--color-background-dark);
+	border-radius: 12px;
+	padding: 1.5rem;
+}
+
+.cs-settings-form .setting-card.danger {
+	border: 1px solid var(--color-element-error);
+}
+
+.cs-settings-form .form-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.cs-settings-form .form-group label {
+	font-size: 0.9rem;
+	font-weight: 500;
+	color: var(--color-main-text);
+}
+
+.cs-settings-form .setting-hint {
+	margin: 0;
+	font-size: 0.8rem;
+	color: var(--color-text-maxcontrast);
+}
+
+.cs-settings-form .input-group {
+	display: flex;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+}
+
+.cs-settings-form .text-input {
+	flex: 1 1 12rem;
+	min-width: 0;
+	max-width: 100%;
+	padding: 0.75rem;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background-color: var(--color-main-background);
+	color: var(--color-main-text);
+	font-size: 0.95rem;
+}
+
+.cs-settings-form .text-input:focus {
+	outline: none;
+	border-color: var(--color-primary-element);
+}
+
+.cs-settings-form .save-button {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.75rem 1rem;
+	background: var(--color-primary);
+	color: var(--color-primary-text);
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 0.9rem;
+	font-weight: 500;
+	transition: opacity 0.2s;
+}
+
+.cs-settings-form .save-button.danger {
+	background: var(--color-error);
+	color: var(--color-error-text);
+	border: 1px solid var(--color-element-error);
+}
+
+.cs-settings-form .save-button:hover:not(:disabled) {
+	opacity: 0.9;
+}
+
+.cs-settings-form .save-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.cs-settings-form .icon-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	background: transparent;
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	color: var(--color-text-maxcontrast);
+	transition: all 0.2s;
+}
+
+.cs-settings-form .icon-button:hover {
+	background: var(--color-background-dark);
+	color: var(--color-main-text);
+}
+
+.cs-settings-form .icon-button.danger:hover {
+	color: var(--color-error-text);
+}
+
+.cs-settings-form .danger-button {
+	padding: 0.75rem 1rem;
+	background: var(--color-error);
+	color: var(--color-error-text);
+	border: 1px solid var(--color-element-error);
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 0.9rem;
+	font-weight: 500;
+	transition: opacity 0.2s;
+}
+
+.cs-settings-form .danger-button:hover:not(:disabled) {
+	opacity: 0.9;
+}
+
+.cs-settings-form .danger-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.cs-settings-form.modal-content {
+	padding: 1rem;
+}
+
+.cs-settings-form.modal-content h3 {
+	margin: 0 0 1.5rem 0;
+	font-size: 1.3rem;
+}
+
+.cs-settings-form .modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.75rem;
+	margin-top: 1.5rem;
+}
+
+.cs-settings-form .primary-button {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.75rem 1rem;
+	background: var(--color-primary);
+	color: var(--color-primary-text);
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 0.9rem;
+	font-weight: 500;
+}
+
+.cs-settings-form .primary-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.cs-settings-form .secondary-button {
+	padding: 0.75rem 1rem;
+	background: transparent;
+	color: var(--color-main-text);
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 0.9rem;
+}

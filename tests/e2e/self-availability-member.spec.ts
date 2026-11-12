@@ -6,6 +6,7 @@
 import type { Page } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
+import { openPlanningSettings } from './fixtures/planning.ts'
 
 // CS-PLAN-032: admin is a plain house *member* under the unconditionally
 // seeded family profile, so this spec exercises the non-owner scheduling
@@ -61,8 +62,7 @@ test.describe('Self Availability (member)', () => {
 		await page.goto('/apps/chorestrike/#/today')
 		await page.waitForLoadState('networkidle')
 		await page.getByTestId('today-view').waitFor({ state: 'visible' })
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await openPlanningSettings(page)
 
 		await expect.poll(() => resolveUserRole(page), { timeout: 10000 }).toBe('member')
 	})
@@ -80,6 +80,8 @@ test.describe('Self Availability (member)', () => {
 		await expect(page.getByTestId('self-availability-settings')).toBeVisible()
 
 		await expect(page.getByTestId('availability-settings')).toHaveCount(0)
+		// A member has no household settings either.
+		await expect(page.getByTestId('settings-tab-household')).toHaveCount(0)
 		// The misleading empty state of the owner grid must not leak to members.
 		await expect(page.getByText('No Members Found')).toHaveCount(0)
 	})
@@ -109,7 +111,7 @@ test.describe('Self Availability (member)', () => {
 		// Reload: the persisted value must survive the self-service PUT round-trip.
 		await page.reload()
 		await page.waitForLoadState('networkidle')
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await page.getByTestId('planning-settings').waitFor({ state: 'visible' })
 		const mondayAfterReload = page.getByTestId('self-availability-monday')
 		await expect(mondayAfterReload).toBeAttached()
 		expect(await mondayAfterReload.isChecked()).toBe(!originalMonday)

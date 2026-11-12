@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 
 import { expect, test } from '@playwright/test'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
-import { openRoom } from './fixtures/rooms.ts'
+import { createRoomTask, openRoom, roomGroup } from './fixtures/rooms.ts'
 
 /**
  * E2E test: Task creation and completion flow
@@ -94,9 +94,9 @@ test.describe('Task Creation and Completion', () => {
 
 	test('User can create a custom task inside a room', async ({ page }) => {
 		// The Living Room, or the first room the seed holds.
-		await openRoom(page, 'Living Room', { orFirst: true })
+		const room = await openRoom(page, 'Living Room', { orFirst: true })
 
-		await page.getByTestId('add-task-button').click()
+		await roomGroup(page, room).getByTestId('room-add-task-button').click()
 		await expect(page.getByTestId('add-task-picker')).toBeVisible({ timeout: 15000 })
 
 		// Switch to the custom-task tab; the room is preset and locked.
@@ -121,17 +121,16 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('User can complete a task and earn points', async ({ page }) => {
-		// The Kitchen, or the first room the seed holds.
-		await openRoom(page, 'Kitchen', { orFirst: true })
+		// The Kitchen, or the first room the seed holds, with a one-time
+		// task of this test's own (CS-PLAN-090 WP-C): the seed's rows are
+		// shared, and one assigned to someone else asks who did the work.
+		const room = await openRoom(page, 'Kitchen', { orFirst: true })
+		const name = await createRoomTask(page, room.id, 'Completion Probe', { once: true, dueToday: true })
+		await page.reload()
 
-		// Capture the specific row we are about to complete.
-		const taskRow = page.locator('[data-testid="task-item"]:has([data-testid="complete-task-button"])').first()
-		const completeButton = taskRow.locator('[data-testid="complete-task-button"]')
-		if (await completeButton.count() === 0) {
-			return // Skip if no tasks to complete
-		}
-
-		await holdToConfirm(completeButton)
+		const taskRow = roomGroup(page, room).getByTestId('task-item').filter({ hasText: name })
+		await expect(taskRow).toBeVisible({ timeout: 15000 })
+		await holdToConfirm(taskRow.locator('[data-testid="complete-task-button"]'))
 
 		// Completion is reflected by the row switching to the completed state
 		// (it stays rendered with a `completed` class + no complete button).
@@ -140,29 +139,26 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('Completion offers Undo which restores the task (CS-PLAN-041)', async ({ page }) => {
-		await openRoom(page, 'Kitchen', { orFirst: true })
+		const room = await openRoom(page, 'Kitchen', { orFirst: true })
+		const name = await createRoomTask(page, room.id, 'Undo Probe', { once: true, dueToday: true })
+		await page.reload()
 
-		const taskRow = page.locator('[data-testid="task-item"]:has([data-testid="complete-task-button"])').first()
-		const completeButton = taskRow.locator('[data-testid="complete-task-button"]')
-		if (await completeButton.count() === 0) {
-			return // Skip if no tasks to complete
-		}
-
-		await holdToConfirm(completeButton)
+		const taskRow = roomGroup(page, room).getByTestId('task-item').filter({ hasText: name })
+		await expect(taskRow).toBeVisible({ timeout: 15000 })
+		await holdToConfirm(taskRow.locator('[data-testid="complete-task-button"]'))
 
 		// The undo snackbar appears within its window…
 		const snackbar = page.getByTestId('undo-snackbar')
 		await expect(snackbar).toBeVisible({ timeout: 15000 })
 
-		// …and Undo reverts the row through the one undo aggregate
-		// (CS-PLAN-064 D5: POST /room-tasks/{id}/undo replaced the
-		// pruned uncomplete+reactivate chain). Queue entries carry the
-		// room task id in their testid.
+		// …and Undo reverts the row through one targeted correction
+		// (POST /completions/{id}/undo with the receipt id). Queue entries
+		// carry the room task id in their testid.
 		const undoButton = page.locator('[data-testid^="undo-snackbar-undo-button-"]')
 		const undoResponsePromise = page.waitForResponse((response) => {
 			const method = response.request().method()
 			const pathname = new URL(response.url()).pathname
-			return method === 'POST' && /\/api\/v1\/room-tasks\/\d+\/undo$/.test(pathname)
+			return method === 'POST' && /\/api\/v1\/completions\/\d+\/undo$/.test(pathname)
 		})
 		await undoButton.first().click()
 		const undoResponse = await undoResponsePromise

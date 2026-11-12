@@ -58,7 +58,9 @@ test.describe('Minimal Smoke Tests', () => {
 
 		// CS-PLAN-087 WP-A (CR-NAV-01): every navigation entry shows a glyph.
 		const entries = page.locator('[data-testid^="nav-"]:not([data-testid="nav-help"])')
-		await expect.poll(() => entries.count()).toBeGreaterThanOrEqual(10)
+		// Seven entries are always there (CS-PLAN-090 WP-D); Rewards joins
+		// them while both of its gates are open.
+		await expect.poll(() => entries.count()).toBeGreaterThanOrEqual(7)
 		for (const entry of await entries.all()) {
 			await expect(entry.locator('.app-navigation-entry-icon svg')).toBeVisible()
 		}
@@ -166,6 +168,8 @@ test.describe('Minimal Smoke Tests', () => {
 			for (const container of [page.locator('#app-content-vue'), settings]) {
 				await expect.poll(() => container.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
 			}
+			// Categories start closed (FEAT-UX-054).
+			await page.getByTestId('settings-category-notifications').click()
 			for (const control of [page.getByTestId('settings-title'), page.getByTestId('task-digest-switch'), page.getByTestId('digest-time-input'), page.getByTestId('quiet-start-input')]) {
 				await expect(control).toBeVisible()
 				await expect.poll(() => control.evaluate((element) => {

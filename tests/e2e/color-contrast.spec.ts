@@ -47,12 +47,11 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 				const views = [
 					{ name: 'Today', path: '#/today', ready: 'today-view' },
 					{ name: 'Tasks', path: '#/tasks', ready: 'task-manager-view' },
-					{ name: 'Room', path: `#/room/${await firstRoomId(page)}`, ready: 'room-detail-view' },
-					{ name: 'Leaderboard', path: '#/leaderboard', ready: 'leaderboard-view' },
-					{ name: 'Insights', path: '#/insights', ready: 'insights-view' },
+					{ name: 'Tasks by room', path: `#/tasks?group=room&room=${await firstRoomId(page)}`, ready: 'room-task-list' },
+					{ name: 'Insights', path: '#/insights', ready: 'ranking-panel' },
 					{ name: 'Scheduling', path: '#/scheduling', ready: 'scheduling-view' },
 					{ name: 'Calendar', path: '#/calendar', ready: 'calendar-view' },
-					{ name: 'Settings', path: '#/settings', ready: 'settings-view' },
+					{ name: 'Settings', path: '#/settings?category=notifications', ready: 'notification-preferences' },
 				]
 				const violations: string[] = []
 				// A hash route stays in its document, where `networkidle` has already

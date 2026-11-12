@@ -11,7 +11,7 @@ const EXCLUDED = new Set(['lib/Controller/TestController.php', 'lib/Service/Test
 const DYNAMIC = {
 	'src/constants/titles.js': ['title.labelKey'],
 	'src/components/Common/MedalBadge.vue': ['key'],
-	'src/views/Leaderboard.vue': ['MEDAL_LABELS[medal.medalType]'],
+	'src/components/Insights/RankingPanel.vue': ['MEDAL_LABELS[medal.medalType]'],
 	'src/components/Tasks/TaskEditForm.vue': ['frequencyLabel', 'everyKey'],
 	'lib/Service/TaskService.php': ['$message'],
 	'lib/Service/TemplateService.php': ["(string)$rt['defaultName']", "(string)$template['name']", "(string)($template['description']??'')", "(string)($template['instructions']??'')", "(string)$t['name']", "(string)($t['description']??'')", "(string)($t['instructions']??'')"],
@@ -64,7 +64,7 @@ function extractKeysFromSource(file, content) {
 		}
 	}
 	// Local finite maps and ternary branches are owned by their declarations.
-	// (Leaderboard.vue imports MEDAL_LABELS from MedalBadge.vue — covered
+	// (RankingPanel.vue imports MEDAL_LABELS from MedalBadge.vue — covered
 	// there; only MedalBadge owns a local map.)
 	if (file.endsWith('/MedalBadge.vue')) {
 		const map = source.match(/const MEDAL_LABELS = \{([\s\S]*?)\}/)

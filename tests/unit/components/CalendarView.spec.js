@@ -26,7 +26,7 @@ describe('CalendarView', () => {
 
 	it('renders the calendar view with testids', () => {
 		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true } },
+			global: { stubs: { TaskCalendar: true, RouterLink: true } },
 		})
 		expect(wrapper.find('[data-testid="calendar-view"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="calendar-mode-toggle"]').exists()).toBe(true)
@@ -39,14 +39,14 @@ describe('CalendarView', () => {
 
 	it('defaults to week mode', () => {
 		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true } },
+			global: { stubs: { TaskCalendar: true, RouterLink: true } },
 		})
 		expect(wrapper.find('[data-testid="calendar-mode-week"]').classes()).toContain('active')
 	})
 
 	it('switches to month mode on toggle click', async () => {
 		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true } },
+			global: { stubs: { TaskCalendar: true, RouterLink: true } },
 		})
 		await wrapper.find('[data-testid="calendar-mode-month"]').trigger('click')
 		expect(wrapper.find('[data-testid="calendar-mode-month"]').classes()).toContain('active')
@@ -55,7 +55,7 @@ describe('CalendarView', () => {
 
 	it('changes range label on next navigation', async () => {
 		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true } },
+			global: { stubs: { TaskCalendar: true, RouterLink: true } },
 		})
 		const labelBefore = wrapper.find('[data-testid="calendar-range-label"]').text()
 		await wrapper.find('[data-testid="calendar-next"]').trigger('click')
@@ -65,7 +65,7 @@ describe('CalendarView', () => {
 
 	it('shows 7 days in week mode and 30 in month mode', async () => {
 		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true } },
+			global: { stubs: { TaskCalendar: true, RouterLink: true } },
 		})
 		expect(wrapper.vm.visibleDays).toHaveLength(7)
 		await wrapper.find('[data-testid="calendar-mode-month"]').trigger('click')
@@ -75,7 +75,7 @@ describe('CalendarView', () => {
 	it('renders a recurring marker for recurring tasks in the day detail', async () => {
 		const store = useRoomTasksStore()
 		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true } },
+			global: { stubs: { TaskCalendar: true, RouterLink: true } },
 		})
 		// Let the mount-time range fetch settle before seeding the store.
 		await wrapper.vm.$nextTick()
@@ -105,7 +105,7 @@ describe('CalendarView', () => {
 	it('marks only day entries whose window has ended as overdue', async () => {
 		const store = useRoomTasksStore()
 		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true } },
+			global: { stubs: { TaskCalendar: true, RouterLink: true } },
 		})
 		await wrapper.vm.$nextTick()
 
@@ -136,7 +136,7 @@ describe('CalendarView', () => {
 
 	it('falls back to the row rule for a day entry without a late mark', () => {
 		const wrapper = mount(CalendarView, {
-			global: { stubs: { TaskCalendar: true } },
+			global: { stubs: { TaskCalendar: true, RouterLink: true } },
 		})
 		const roomTask = { isActive: true, nextDue: '2000-01-01T00:00:00', status: 'due_today' }
 		expect(wrapper.vm.isOverdue({ roomTask, dueDate: '2000-01-01', late: null })).toBe(false)
@@ -160,7 +160,7 @@ describe('CalendarView', () => {
 			const fetchSpy = jest.spyOn(store, 'fetchRangeTasks').mockResolvedValue(undefined)
 
 			const wrapper = mount(CalendarView, {
-				global: { stubs: { TaskCalendar: true } },
+				global: { stubs: { TaskCalendar: true, RouterLink: true } },
 			})
 			await wrapper.vm.$nextTick()
 
@@ -181,12 +181,24 @@ describe('CalendarView', () => {
 			jest.spyOn(store, 'fetchRangeTasks').mockResolvedValue(undefined)
 
 			const wrapper = mount(CalendarView, {
-				global: { stubs: { TaskCalendar: true } },
+				global: { stubs: { TaskCalendar: true, RouterLink: true } },
 			})
 			const handler = appliedHandler()
 
 			wrapper.unmount()
 			expect(unsubscribe).toHaveBeenCalledWith('chorestrike:schedule-applied', handler)
 		})
+	})
+
+	// CS-PLAN-090 D-090-14: the weekly plan left the navigation and is
+	// reached from the calendar header until Release C replaces it.
+	it('links the weekly plan from its header', () => {
+		const wrapper = mount(CalendarView, {
+			global: { stubs: { TaskCalendar: true, RouterLink: { props: ['to'], template: '<a :data-to="to.name"><slot /></a>' } } },
+		})
+
+		const link = wrapper.get('[data-testid="calendar-open-plan"]')
+		expect(link.attributes('data-to')).toBe('scheduling')
+		expect(link.text()).toBe('Weekly plan')
 	})
 })

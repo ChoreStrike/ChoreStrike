@@ -34,12 +34,14 @@ const MEMBER = {
 }
 
 describe('MemberFairnessTable', () => {
-	it('renders one row per member with the exact contributionMinor column', () => {
+	it('renders one row per member with the exact contributionMinor', () => {
 		const wrapper = mountTable([MEMBER])
 		expect(wrapper.find('[data-testid="member-fairness-table"]').exists()).toBe(true)
 		expect(wrapper.findAll('[data-testid="fairness-row"]')).toHaveLength(1)
 
-		expect(wrapper.find('[data-testid="header-contribution"]').exists()).toBe(true)
+		// Compact bars (CS-PLAN-090 WP-E): a list of one-line rows, no table.
+		expect(wrapper.find('table').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="streak-7"]').text()).toBe('5')
 		// WP3: exact minor units, 100 = 1 energy → 12000 renders as 120.
 		expect(wrapper.find('[data-testid="contribution-7"]').text()).toBe('120')
 		// Coins/freezes are gone — money is the wallet, pauses replaced

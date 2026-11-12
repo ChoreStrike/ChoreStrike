@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
 
 import { test as base, expect } from '@playwright/test'
+import { openSettingsCategory } from './settings.ts'
 
 /**
  * Test data fixture for ChoreStrike E2E tests
@@ -58,6 +59,7 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 
 	await page.click('[data-testid="nav-settings"]')
 	await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+	await openSettingsCategory(page, 'structure')
 
 	// Helper to create floor
 	const createFloor = async (floorName: string) => {
@@ -110,6 +112,7 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 export async function createRoomViaSettings(page: Page, floorName: string, roomName: string): Promise<void> {
 	await page.click('[data-testid="nav-settings"]')
 	await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+	await openSettingsCategory(page, 'structure')
 
 	const floorItem = page.getByTestId(`floor-${floorName}`).first()
 	// Bounded wait for the asynchronously rendered floors list (see

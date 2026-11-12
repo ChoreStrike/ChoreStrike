@@ -62,7 +62,7 @@ describe('workflow request budgets (CS-PLAN-067 §3.5)', () => {
 	})
 
 	describe('TaskManager initialization', () => {
-		it('loads the flat list with exactly ONE house-wide request', async () => {
+		it('loads the list, whatever its grouping, with exactly ONE house-wide request', async () => {
 			const houseTasks = [houseTask(1, 10), houseTask(2, 20), houseTask(3, 30)]
 			api.get.mockImplementation((url) => {
 				if (url === '/api/v1/room-tasks') {
@@ -121,7 +121,7 @@ describe('workflow request budgets (CS-PLAN-067 §3.5)', () => {
 		})
 	})
 
-	describe('room-scoped reads stay available for RoomDetail', () => {
+	describe('room-scoped reads stay available for Settings and the planner', () => {
 		it('a room fetch updates only its room slice of a loaded house set', async () => {
 			api.get.mockImplementation((url, config) => {
 				if (url === '/api/v1/room-tasks') {

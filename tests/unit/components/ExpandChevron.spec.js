@@ -25,7 +25,8 @@ describe('ExpandChevron', () => {
 	})
 
 	it.each([
-		'views/Settings.vue',
+		'components/Settings/SettingsCategory.vue',
+		'components/Settings/StructureSettings.vue',
 		'views/TodayView.vue',
 		'components/Today/TodayTaskRow.vue',
 		'components/Tasks/TaskFilterBar.vue',
@@ -38,7 +39,7 @@ describe('ExpandChevron', () => {
 	})
 
 	it('leaves the arrows to the reorder controls', () => {
-		const source = readFileSync(resolve(SRC, 'views/Settings.vue'), 'utf8')
+		const source = readFileSync(resolve(SRC, 'components/Settings/StructureSettings.vue'), 'utf8')
 
 		expect(source).toMatch(/move-floor-up-[\s\S]{0,200}name="ArrowUp"/)
 		expect(source).toMatch(/move-floor-down-[\s\S]{0,240}name="ArrowDown"/)

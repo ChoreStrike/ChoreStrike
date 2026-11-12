@@ -149,8 +149,10 @@ export default {
 	color: var(--color-main-text);
 }
 
+/* The main text colour: the muted one reaches only 4.27:1 on the warning
+   background (measured in the light theme, CS-PLAN-090 RF-090-18). */
 .deferred-meta {
-	color: var(--color-text-maxcontrast);
+	color: var(--color-main-text);
 	flex-shrink: 0;
 }
 </style>

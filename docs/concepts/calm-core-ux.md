@@ -57,7 +57,7 @@ a catch-up up as a success streak.
 
 ## Completion needs a deliberate press (hold-to-confirm)
 
-- **Done** (Today, task lists, room detail) confirms
+- **Done** (Today and the task lists) confirms
   only after a **600 ms press-and-hold** — pointer, finger or held
   Enter/Space ([CS-PLAN-084](../plans/done/cs-plan-084-family-trial-ux-baseline.md)
   D-084-05). A ring fills while holding; `prefers-reduced-motion` shows a

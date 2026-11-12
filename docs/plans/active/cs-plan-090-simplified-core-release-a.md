@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C to WP-E and WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -210,6 +210,83 @@ Positions taken while implementing WP-B (2026-11-11). They bind once its interim
   README cell, and the README and the user guide name Today. The remaining screenshots show
   the screens of `0.8.0-alpha.4` until WP-G recaptures them.
 
+Positions taken while implementing WP-C (2026-11-11). They bind once its interim review passes.
+
+- **D-090-41 A grouped list shows everyone:** *By room* and *By person* start with everyone's
+  tasks, by the switch and by a link alike, unless the link names a `scope`; the old room page
+  showed every task of its room. The filters stay changeable afterwards and apply to every
+  grouping. One group is open at a time. The open room is part of the address (`?room=`), the
+  open person is not.
+- **D-090-42 By due date:** it stays the one paged list. Its order is now the due class first
+  (missed, due today, later, finished) and the due date within a class, with a heading per
+  class that counts all pages. Before, a task planned earlier whose window was still open stood
+  above missed work.
+- **D-090-43 Which groups exist:** every room is a group, also one without tasks, so *New*
+  reaches it; the floor and room filters narrow the rooms shown. A person is a group only with
+  tasks, the unassigned tasks come last, and a shared task stands under each of its assignees.
+- **D-090-44 What goes with the room page:** its statistics card (the route stays without a
+  client, D-090-10), the large cleanliness ring, the back link, and rename and delete in its
+  header, which Settings offers (FEAT-UX-049). The store's statistics read goes with its last
+  reader. A room's rows are the compact rows of the task list: the description shows in the
+  expanded row.
+- **D-090-45 Creating and dating a task:** one dialog, `TaskCreateDialog`, serves *New Task* of
+  the page (the form, prefilled from the filters) and *New* of a room heading (that room's
+  templates, the custom form one step behind them). *Date* in the expanded row is offered to
+  those who may manage tasks, on open work. After that dialog saved, the room facts are read
+  again, because *Last done* sets the *Last cleaned* of the heading.
+- **D-090-46 Units beyond the manifest:** the filter rules (`src/utils/taskFilters.js`), the
+  create dialog and the pager (`TaskPager.vue`) left the view, and its switch is the shared
+  `SegmentedSwitch.vue` (D-090-56). The view ends at 665 lines (660 before WP-C, 743 before
+  this plan).
+
+Positions taken while implementing WP-D and WP-E (2026-11-11 and 2026-11-12). They bind once their interim
+review passes. The operator chose to build both on the uncommitted WP-C and to review the three
+together.
+
+- **D-090-47 Structure of Settings (operator, 2026-11-11):** a switch *Personal | Household*
+  and below it categories that all start closed; several may be open at once. Shown to the
+  operator as a text sketch before building, which is the "mockup first" FEAT-UX-054 asks for.
+  Personal: *Your Title*, *Notifications & feedback*, *Planning*, and the link *My Requests*.
+  Household: *House*, *Members*, *Floors & Rooms*, *Rewards*, *Arcade*, *Danger Zone*.
+- **D-090-48 Categories and addresses:** a category mounts when it opens and reads its own
+  data then, so a closed page reads nothing. `/settings?category=<id>` opens a category in its
+  area, and the address names the category opened last, so a reload or a link comes back to
+  it. A member has no household area, also by a link. The help has no links into Settings
+  today, so nothing else needed a target.
+- **D-090-49 Planning:** the own days and the own energy move to *Settings → Planning*; they
+  are no longer on the weekly plan's page. `PlanningSettings` reads the preferences once and
+  offers a retry in place; a failed save is reported at its form with the entries kept, not
+  by a toast and never by replacing the page. The weekly plan's page keeps the overload
+  warning, the owner's member grid, the planner and the plan calendar; every role reaches it
+  from the calendar header (*Weekly plan*) and gets a link back.
+- **D-090-50 My requests:** no navigation entry. Rewards keeps its link, and the personal
+  settings always show one, for every role and with either catalog gate closed.
+- **D-090-51 Navigation order:** Today, Tasks, Calendar, Insights, Absence, Rewards, Arcade,
+  Settings, then Help, as in the mockup.
+- **D-090-52 Key figures:** house health, clean rooms of all rooms, dirty rooms and rooms
+  that need cleaning, from the one house read Insights already makes; house health stays in
+  Insights (D-090-11). The mockup shows task figures (done, on time, open, overdue); a
+  household read for the on-time share does not exist in this release, so these four wait for
+  the GUI review to confirm or for Release B to supply the data.
+- **D-090-53 Activity line:** time and day are the household's. The coins are what the
+  completion paid to everyone together; an undone completion, one that paid nothing and work
+  the viewer may not see show none. Every line opens on a tap, one at a time: room, frozen
+  effort, who did how much, and for the completer or an owner *Correct split* and *Undo*. A
+  refresh keeps the list and the open line in place.
+- **D-090-54 Ranking:** a section of Insights with the anchor `#ranking`; `/leaderboard`
+  redirects to it, and the view brings it into view, because hash routing leaves the anchor
+  to the page (RF-090-24). `RankingPanel` has a loading and an error state of its own: a failed read
+  showed "ranking is off" on the old page.
+- **D-090-55 Fairness bars:** one line per member with the bar of completed energy against
+  the weekly capacity; contribution and streak stay as small facts on the line.
+- **D-090-56 Units beyond the manifest:** `Common/SegmentedSwitch.vue` (the switch of Tasks
+  and of Settings), `Settings/SettingsCategory.vue`, `TitleSettings.vue`, `HouseSettings.vue`,
+  `StructureSettings.vue`, `DangerZoneSettings.vue` and `PlanningSettings.vue`, their shared
+  form styles `src/styles/settings.css` (scoped by `.cs-settings-form`, so they reach no
+  component with styles of its own), `Tasks/CalendarControls.vue` and
+  `Insights/CorrectionReview.vue`. With them `Settings.vue` has 307 lines (1502 before this
+  plan), `InsightsView.vue` 545 (615; 528 before the ranking anchor of the interim review) and `CalendarView.vue` 282 (354).
+
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). No question
 is open.
@@ -384,17 +461,47 @@ Each step needs its own approval.
   leaderboard). The mobile set keeps seven scenarios: the Dashboard-tiles scenario becomes
   "today shows the status line and the overdue block, and a room opens".
 - **WP-C:** `taskGrouping.spec.js` for the three groupings, the counts and empty groups;
-  `TaskManager.spec.js` for the switch, the URL, the room deep link and the paging rule;
-  `requestCounts.spec.js` for one house-wide read. Browser: `task-manager.spec.ts`; the scenarios
-  of `room-detail.spec.ts`, `room-management.spec.ts`, `dashboard.spec.ts` and
-  `dashboard-navigation.spec.ts` move to the new surfaces or go with a recorded reason.
-- **WP-D:** `App.spec.js` and `navigationIcons.spec.js` for the eight entries; Settings specs per
-  category and for the non-owner view; the scheduling component specs for own loading and
-  inline errors. Browser: `settings.spec.ts` through one helper that opens a category;
-  `self-availability-member.spec.ts`, `availability-settings-flow.spec.ts`, `family-rewards.spec.ts`.
+  `taskFilters.spec.js` for the presets and the filter rules; `TaskGroupList.spec.js` (with the
+  switch) and `TaskCreateDialog.spec.js`; `TaskManager.spec.js` for the switch, the URL, the
+  room deep link, the paging rule and the two dialogs; `TaskList.spec.js` and
+  `TaskListDetails.spec.js` for the headings, the order and *Date*; `router.spec.js` for the
+  redirect; `requestCounts.spec.js` for one house-wide read.
+  **Scenario record (WP-C):** 327 pinned scenarios before, 327 after; no minimum count is
+  lowered. `room-detail.spec.ts` becomes `task-grouping.spec.ts` with four scenarios: the
+  switch with its address (new); a room heading's counts and cleanliness (successor of the
+  room page's information and cleanliness scenarios, two into one); *New* with the template
+  picker (successor of the add-task scenario); *Date* with *Last done* and *Last cleaned*
+  (new, the first browser proof of that dialog). Dropped with its surface: the back link of
+  the room page. `room-management`: rename and delete now run in Settings and check the list
+  by room. `core-functionality`: the room-address scenario proves the redirect. The Dashboard
+  specs named in the draft moved with WP-B. `color-contrast` and `layout-clearance` measure
+  the list by room in place of the room page. The helper `fixtures/rooms.ts` opens a room in
+  the grouped list and creates a spec's own task (RF-090-17).
+- **WP-D:** `App.spec.js` and `navigationIcons.spec.js` for the eight entries; `Settings.spec.js`
+  for the areas, the closed categories, mounting on open, the links and the non-owner view;
+  one spec per category (`SettingsCategory`, `HouseSettings`, `StructureSettings`,
+  `DangerZoneSettings`, `PlanningSettings`; the tests of the old page moved with their
+  category); `SelfAvailabilitySettings` and `EnergyBudgetSettings` for the error at the form;
+  `SchedulingView.spec.js`, `CalendarView.spec.js`, `SegmentedSwitch.spec.js`,
+  `router.spec.js`. Browser: `fixtures/settings.ts` opens a category and `fixtures/planning.ts`
+  the weekly plan and the planning settings; `settings.spec.ts`, `room-management`,
+  `members-owner`, `self-availability-member`, `availability-settings-flow`, `scheduling`,
+  `flex-window-scheduling`, `scheduling-apply-flow`, `family-rewards` and the specs that only
+  pass through Settings; `tests/package/owner-smoke.cjs` and the screenshot action.
 - **WP-E:** `ActivityServiceTest` and `HouseActivityIntegrationTest` for `coinMinor` and its
-  redaction; `RankingPanel` and `ActivityFeed` specs; `InsightsView.spec.js`. Browser:
-  `insights-flow.spec.ts`, `leaderboard.spec.ts`, `ranking-consent.spec.ts`.
+  redaction; `RankingPanel` (moved from `Leaderboard.spec.js`, with the loading and error
+  states), `ActivityFeed`, `HouseStatsCards` and `MemberFairnessTable` specs;
+  `InsightsView.spec.js`. Browser: `fixtures/insights.ts` opens the ranking;
+  `insights-flow.spec.ts`, `leaderboard.spec.ts`, `ranking-consent.spec.ts`,
+  `core-functionality` (the old Leaderboard address), `multi-user-interactions`.
+  **Scenario record (WP-D and WP-E):** 327 pinned scenarios before, 329 after;
+  no minimum count is lowered and no scenario goes without a successor. New in
+  `settings.spec.ts`: the page starts with the personal area and every category closed, and
+  the own requests open from the personal settings. Retitled with their surface: the
+  navigation scenarios of `scheduling` and `flex-window-scheduling` now reach the weekly plan
+  through the calendar (the latter also proves the way back), `core-functionality` proves
+  the redirect of the old Leaderboard address, and the Insights navigation scenario lost the
+  neighbours from its name.
 - **WP-F:** `PreferenceServiceTest` for the computed default and for row creation by a one-field
   save and by ranking consent; an integration test on all providers that an explicit "off" in a
   first save is stored as off; `SupportedDatabaseSchemaTest`; Jest for the store, the effect
@@ -446,7 +553,11 @@ new:      src/views/AbsenceView.vue, src/components/Insights/RankingPanel.vue,
           src/components/Today/TodayStatusLine.vue, src/components/Today/TodayTaskRow.vue,
           src/components/Setup/SetupWizardEntry.vue, src/utils/todaySections.js,
           src/composables/useTaskCompletion.js, src/utils/taskGrouping.js,
-          src/components/Tasks/TaskGroupList.vue, src/components/Settings/ (one file per category)
+          src/utils/taskFilters.js, src/components/Tasks/TaskGroupList.vue, TaskGroupSwitch.vue,
+          TaskCreateDialog.vue, TaskPager.vue, CalendarControls.vue,
+          src/components/Common/SegmentedSwitch.vue, src/components/Insights/CorrectionReview.vue,
+          src/components/Settings/ (SettingsCategory.vue and one file per category),
+          src/styles/settings.css
 modified: src/App.vue, src/router.js, src/views/TodayView.vue, src/views/TaskManager.vue,
           src/views/InsightsView.vue, src/views/Settings.vue, src/views/CalendarView.vue,
           src/views/Rewards.vue, src/views/SchedulingView.vue
@@ -457,7 +568,7 @@ modified: src/components/Tasks/TaskList.vue, TaskListItem.vue, TaskListDetails.v
           src/components/Common/UndoSnackbar.vue, src/components/Help/HelpGlossary.vue,
           HelpEntry.vue
 modified: src/store/pauses.js, src/store/preferences.js, src/store/house.js, src/services/api.js,
-          src/store/rooms.js, src/store/scheduling.js, src/utils/dateKeys.js,
+          src/store/rooms.js, src/store/roomTasks.js, src/store/scheduling.js, src/utils/dateKeys.js,
           src/utils/taskDisplay.js, src/utils/roomIcons.js,
           src/components/Common/HoldButton.vue,
           src/composables/useCelebration.js, src/composables/useToasts.js
@@ -468,8 +579,10 @@ modified: l10n/de.json, l10n/en.json, l10n/templates/chorestrike.pot
 modified: tests named in section 4, tests/e2e/fixtures/*, tests/e2e/required-scenarios.json,
           scripts/run-e2e-gate.js, playwright.config.ts, tests/package/owner-smoke.cjs,
           tests/docs-screenshots/scenes.js
-new:      tests/e2e/fixtures/rooms.ts (replaces dashboard-floors.ts),
-          tests/e2e/task-deep-links.spec.ts (was dashboard.spec.ts)
+new:      tests/e2e/fixtures/settings.ts, planning.ts, insights.ts,
+          tests/e2e/fixtures/rooms.ts (replaces dashboard-floors.ts),
+          tests/e2e/task-deep-links.spec.ts (was dashboard.spec.ts),
+          tests/e2e/task-grouping.spec.ts (was room-detail.spec.ts)
 removed:  tests/e2e/dashboard-navigation.spec.ts, docs/screenshots/dashboard.png
 new:      docs/adr/ADR-020-absences-without-requests.md
 modified: docs/adr/README.md, docs/concepts/calm-core-ux.md, task-model-and-sync.md,
@@ -566,9 +679,17 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-11 (minor) - WP-A, `tests/e2e/layout-clearance.spec.ts`: the browser gate failed twice (desktop, phone). Its reachability probe scrolled the last Settings section with `scrollIntoViewIfNeeded()`, which worked only while a member's Settings ended with the short pause section; the notification preferences are taller than the frame. The routed-view list also lacked `#/absence`. Fixed in the interim review: the probe aligns the section's end with the scroller, which a clipped frame (BUG-UX-009) would still fail, and the Absence view joins the heading, gutter and sideways-scroll checks.
 - [ ] RF-090-12 (minor) - WP-G, runtime currency: `npm run test:runtime:check` reports `update-needed` on 2026-11-11, and the scheduled check on `master` has been red since 2026-11-09. Upstream AIO is 15.0.2 and ships Nextcloud 35.0.2 and Redis 8.10.3; the pinned PHP and PostgreSQL image tags moved too. The inventory names AIO 14.4.3 with Nextcloud 34.0.5 and Redis 8.10.2. Found while implementing WP-F. The reviewed inventory update and the requalification belong before the freeze (§7 and the acceptance criterion); which AIO version production runs at the deployment is the operator's to state.
 - [x] RF-090-13 (minor) - WP-F, `src/utils/effectGates.js`, `src/composables/useGameEffects.js`: the effect gates read the store's initial `animationEnabled: true` before `/preferences/me` had answered, so a member who had switched the animation off saw confetti when completing a task while the read was pending or after it failed; before WP-F an unknown state meant off. Fixed in the interim review (operator's choice, D-090-32): `animationAllowed()` opens the animation only after an authoritative read, used by the celebration gate and the arcade's pulses, with Jest cases for the unread state; `calm-core-ux.md` and the gamification skill say so.
-- [ ] RF-090-14 (minor) - WP-C, `src/router.js`, `tests/e2e/fixtures/rooms.ts`: since WP-B removed the Dashboard with its room cards (D-090-33), nothing in the interface links to a room page; it opens by its address only, and the template picker and the date dialog are reachable only that way. Not a state to release. WP-C closes it with the grouped task list and the redirect of `/room/:id`, and retargets the browser helper.
+- [x] RF-090-14 (minor) - WP-C, `src/router.js`, `tests/e2e/fixtures/rooms.ts`: since WP-B removed the Dashboard with its room cards (D-090-33), nothing in the interface links to a room page; it opens by its address only, and the template picker and the date dialog are reachable only that way. Not a state to release. Closed by WP-C: the task list groups by room, `/room/:id` redirects to that room, *New* in a room heading opens the template picker and *Date* in the expanded row the date dialog, and the browser helper opens a room in the grouped list.
 - [x] RF-090-15 (minor) - WP-B, `src/views/RoomDetail.vue`: the first browser gate of WP-B (`run-v47nfT`) lost a task created right after a room page opened by its address: *Add Task* was enabled while the room still loaded, and a read that had started before the creation replaced the list afterwards. Fixed while implementing: the button is disabled while the room loads, as in the task manager, with a Jest case. The store cause is older than this plan and out of its scope: BUG-UX-016.
 - [x] RF-090-16 (nit) - WP-B, `src/views/TodayView.vue`: the count next to *Due today* said "1 tasks" for a single row; the new label lacked the singular branch `Settings.vue` already uses. Fixed in the interim review with the existing `1 task` key and a Jest case.
+- [x] RF-090-17 (minor) - WP-C, `tests/e2e/task-completion.spec.ts`: two pinned scenarios ("User can complete a task and earn points", "Completion offers Undo which restores the task") proved nothing. They read the number of Done buttons right after the room opened, before its rows had rendered, and returned at zero; the undo scenario also waited for `POST /room-tasks/{id}/undo`, a route that `POST /completions/{id}/undo` replaced with ADR-014. The retargeted helper waits for the rows, so both ran for the first time and failed: the first seeded row is assigned to someone else and asks who did the work. Fixed while implementing: each scenario creates a one-time task of its own through `createRoomTask()` and has no early return, and the undo scenario expects the current route. The exact receipt and undo proofs stay in `task-completion-full-flow.spec.ts`.
+- [x] RF-090-18 (minor) - WP-D, `src/components/Scheduling/OvercapacityWarning.vue`: the muted text of a deferred task (priority and energy) reached 4.27:1 on the warning background in the light theme, below the 4.5:1 the contrast check requires. Older than this plan and unseen by the gate, because the rows exist only while a day is over capacity, which the fresh seed is not; a focused run on a database that earlier runs had filled showed it. Fixed while implementing: the main text colour, with a Jest case that pins it.
+- [x] RF-090-19 (minor) - WP-E, `src/components/Insights/HouseStatsCards.vue`: the denser key figures made the house-health value small bold text in the primary colour, 4.38:1 in the dark theme. Found by `color-contrast.spec.ts` in the first browser run of WP-E. Fixed while implementing: the value keeps the main text colour.
+- [x] RF-090-20 (minor) - WP-C to WP-E, gates: the first full browser gate of WP-C on the primary row (`run-B7GTOA`) is not a pass. Four of five projects passed; in `chromium-serial-db` the seed request of `validation.spec.ts` ended with "other side closed" before any assertion, and its eight following tests were skipped (the pattern of TECH-TRANSPORT-001). With WP-D and WP-E on the tree, `run-9WVZYP` failed on one test (RF-090-21) and `run-Nqxc1g` passed on 2026-11-12: five projects, 355 tests, none skipped, failed or flaky. Closed in the interim review: on the final tree the complete gate passes on both rows, `run-nZTwVa` (primary) and `run-heRaa0` (AIO), 355 tests each in five projects without skipped, failed or flaky results. The AIO run before it (`run-blNRHT`) lost one scenario of `family-rewards.spec.ts` to a layout shift of the Rewards view, outside this plan: TECH-TEST-013.
+- [x] RF-090-21 (nit) - WP-D, `tests/e2e/layout-clearance.spec.ts`: the reachability probe of the long Settings view failed once on the phone in the full gate `run-9WVZYP` (844.375 against 844). It now aligns the link that ends the personal settings; the scroll position is a whole pixel and the boxes above the link are not. Fixed while implementing: the probe compares whole pixels, which a clipped frame (BUG-UX-009) still fails by its whole margin; 27 repeated runs and the gate `run-Nqxc1g` pass.
+- [x] RF-090-22 (minor) - WP-D, `src/components/Settings/StructureSettings.vue`: a failed read of the floors left an endless spinner without an error or a retry. The old page showed its error state for that read, and the house and planning categories have one. Fixed in the interim review (operator's choice): an error state with a retry in place, with a Jest case.
+- [x] RF-090-23 (minor) - WP-D, `src/components/Settings/DangerZoneSettings.vue`: when only the read after a successful reset failed, the category reported "Failed to reset house" after the success toast; the old page caught that read on its own. Fixed in the interim review (operator's choice): the reads run after the reset's own failure path and a failed read leaves the reset reported as done, with Jest cases for both paths.
+- [x] RF-090-24 (minor) - WP-E, `src/views/InsightsView.vue`: `/leaderboard` redirected to `#ranking`, but with hash routing the browser cannot follow that anchor and the router has no scroll behaviour, so an old bookmark landed at the top of Insights, on a phone above the fold of the ranking (D-090-54). Fixed in the interim review (operator's choice): the view brings the ranking into view once its content has rendered when the address names it, with Jest cases and a viewport check in the browser scenario of the old address.
 
 ## Review Outcome
 
@@ -659,3 +780,27 @@ subagents.
 - No transition: WP-C to WP-E and WP-G are open, and so are RF-090-12 and RF-090-14. Record:
   [2026-11-11 review](../../backlog/archive/CODE_REVIEW_2026-11-11.md#standard-b---cs-plan-090-wp-b-today-interim).
   One scoped review commit; no merge, push, tag or deployment.
+
+**Standard B, interim (WP-C, WP-D and WP-E), 2026-11-12: PASS-WITH-FIXES.** Scope: the
+uncommitted WP-C to WP-E change set of this worktree, reviewed together as the operator chose
+(`/review-chorestrike` without arguments; the main checkout was clean). No subagents.
+
+- Base HEAD `34a318913c5e16c758f34a38928ccdc9bda2f23f`, branch `docs/release-a-plan`, pinned,
+  never pushed, 2 behind `master` (two agent-tooling commits). Capture: three staged deletions
+  and two staged renames, 96 modified tracked files, 29 untracked paths; scope fingerprint
+  (staged and unstaged binary diffs, sorted untracked paths with SHA-256)
+  `bc40c8f38b783abcec15be3fd8efb02feda544b3d8d13e44f17f381ed90c93d1`.
+- RF-090-22..24 fixed in the review (§9). The operator chose the recommended option on all three
+  questions: fix both Settings regressions now, bring the ranking into view (D-090-54 amended),
+  and rebase the branch onto `master` after this commit. D-090-41 to D-090-56 bind with this
+  review. Safe fixes: stale sizes in `architecture.md`, a Leaderboard comment in `MedalBadge.vue`,
+  and section 11 of `release-test-plan.md` (Scheduling no longer in the navigation, *Absent*,
+  absences per ADR-020).
+- Gates on the final tree: Jest 169 suites / 2366 tests, `npm run lint`, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`, the gate
+  runner's self-test, `npm run build`, `composer cs:check`; PHPUnit unit 1600 / integration 698
+  on the canonical PostgreSQL stack and, with `--fail-on-skipped`, on the AIO row; browser gate `run-nZTwVa` on the primary row and `run-heRaa0` on the AIO row, 355 tests each without skipped, failed or flaky results (RF-090-20 closed). The AIO run before it, `run-blNRHT`, lost one `family-rewards` scenario to a layout shift of the Rewards view that this scope does not touch; routed to TECH-TEST-013 with its trace evidence, then the complete gate was rerun.
+- No transition: WP-G is open with RF-090-12, and so are the operator's GUI review and the final
+  Full review. Record:
+  [2026-11-12 review](../../backlog/archive/CODE_REVIEW_2026-11-12.md#standard-b---cs-plan-090-wp-c-to-wp-e-tasks-navigation-and-settings-insights-interim).
+  One scoped review commit, then the rebase; no merge, push, tag or deployment.

@@ -36,6 +36,15 @@
 				</div>
 			</div>
 
+			<!-- A failed save is reported here, with the entries kept
+			     (CS-PLAN-090 WP-D): never by replacing the page. -->
+			<p v-if="saveError"
+				class="save-error"
+				role="alert"
+				data-testid="self-availability-save-error">
+				{{ t('chorestrike', 'Failed to save availability settings') }}
+			</p>
+
 			<div class="actions">
 				<button
 					class="secondary-button"
@@ -57,7 +66,7 @@
 </template>
 
 <script setup>
-import { showError, showSuccess } from '@nextcloud/dialogs'
+import { showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
 import { computed, onMounted, ref, watch } from 'vue'
 import { weekDays } from '../../constants/scheduling.js'
@@ -67,6 +76,7 @@ import { logger } from '../../utils/logger.js'
 const schedulingStore = useSchedulingStore()
 
 const saving = ref(false)
+const saveError = ref(false)
 const localAvailability = ref(defaultAvailability())
 
 function defaultAvailability() {
@@ -105,6 +115,7 @@ async function saveAvailability() {
 	}
 
 	saving.value = true
+	saveError.value = false
 	try {
 		// One bulk save carrying the full week (CS-033 adoption hook,
 		// recorded in CS-PLAN-032's save handler).
@@ -116,7 +127,7 @@ async function saveAvailability() {
 		showSuccess(t('chorestrike', 'Availability settings saved successfully'))
 	} catch (error) {
 		logger.error('Failed to save availability', error, { component: 'SelfAvailabilitySettings', action: 'saveAvailability' })
-		showError(t('chorestrike', 'Failed to save availability settings'))
+		saveError.value = true
 	} finally {
 		saving.value = false
 	}
@@ -132,6 +143,11 @@ watch(() => schedulingStore.weekdayAvailability, () => {
 </script>
 
 <style scoped>
+.save-error {
+	margin: 1rem 0 0;
+	color: var(--color-error-text);
+}
+
 .self-availability-settings {
 	background: var(--color-main-background);
 	border-radius: 12px;

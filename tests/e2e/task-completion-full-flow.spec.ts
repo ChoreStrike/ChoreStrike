@@ -36,7 +36,7 @@ async function kitchenRoom(page: Page): Promise<{ id: number, cleanliness: numbe
 	return kitchen!
 }
 
-async function openKitchenRoomDetail(page: Page): Promise<void> {
+async function openKitchen(page: Page): Promise<void> {
 	await openRoom(page, 'Kitchen')
 }
 
@@ -79,7 +79,7 @@ test.describe('Task Completion Full Flow', () => {
 			// itself). WP3 §3.6: /game/state is the own-wallet surface.
 			const stateBefore = await (await page.request.get('/apps/chorestrike/api/v1/game/state')).json()
 
-			await openKitchenRoomDetail(page)
+			await openKitchen(page)
 
 			// Guaranteed precondition (family seed): a Kitchen task mom may
 			// complete DIRECTLY — a missing fixture is a FAILURE, not a skip.
@@ -144,7 +144,7 @@ test.describe('Task Completion Full Flow', () => {
 				probeNames.push(name)
 			}
 
-			await openKitchenRoomDetail(page)
+			await openKitchen(page)
 
 			// The retired combo flag is gone; the durable claim is that every
 			// completion books its own frozen-rate credit into the wallet.
@@ -191,8 +191,8 @@ test.describe('Task Completion Full Flow', () => {
 			const kitchen = await kitchenRoom(page)
 			const initialCleanliness = kitchen.cleanliness
 
-			await openKitchenRoomDetail(page)
-			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${initialCleanliness}%`, { timeout: 15000 })
+			await openKitchen(page)
+			await expect(page.getByTestId(`task-group-${kitchen.id}`).getByTestId('cleanliness-value')).toHaveText(`${initialCleanliness}%`, { timeout: 15000 })
 
 			// Guaranteed precondition: an active task exists to complete.
 			const completeButton = page.getByTestId('task-item').filter({ hasText: 'Wipe kitchen counters' }).getByTestId('complete-task-button')
@@ -207,13 +207,13 @@ test.describe('Task Completion Full Flow', () => {
 			expect(receipt.success).toBe(true)
 
 			await page.reload()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+			await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
 
 			// Exact clamp arithmetic: initial + 10% per energy point, capped
 			// at 100 (never "greater than or equal" hand-waving).
 			expect(initialCleanliness).toBe(75)
 			expect(receipt.data.rewards.cleanlinessChange).toBe(20)
-			await expect(page.getByTestId('cleanliness-value')).toHaveText('95%', { timeout: 15000 })
+			await expect(page.getByTestId(`task-group-${kitchen.id}`).getByTestId('cleanliness-value')).toHaveText('95%', { timeout: 15000 })
 		} finally {
 			await context.close()
 		}
@@ -222,7 +222,7 @@ test.describe('Task Completion Full Flow', () => {
 	test('completed task shows completed checkmark instead of button', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
-			await openKitchenRoomDetail(page)
+			await openKitchen(page)
 
 			// Guaranteed precondition — no runtime skip on a missing fixture.
 			const taskItem = page.locator('[data-testid="task-item"]:has([data-testid="complete-task-button"])').first()
@@ -238,7 +238,7 @@ test.describe('Task Completion Full Flow', () => {
 			expect(receipt.success).toBe(true)
 
 			await page.reload()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+			await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
 
 			// Unconditional: the completed task no longer offers a complete
 			// button (deactivated occurrence or completed projection).
@@ -283,7 +283,7 @@ test.describe('Task Completion Full Flow', () => {
 			const stateBefore = await (await page.request.get('/apps/chorestrike/api/v1/game/state')).json()
 			const walletBefore = stateBefore.data.wallet?.bookedMinor ?? 0
 
-			await openKitchenRoomDetail(page)
+			await openKitchen(page)
 
 			const taskRow = page.locator('[data-testid="task-item"]').filter({ hasText: 'WP5 Undo Proof' }).first()
 			await expect(taskRow).toBeVisible({ timeout: 15000 })
@@ -300,7 +300,7 @@ test.describe('Task Completion Full Flow', () => {
 			// is completed (one-time deactivation) and the cleanliness stat
 			// shows the reconciled server value — no re-fetch.
 			await expect(taskRow).toHaveClass(/completed/)
-			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${completeBody.data.room.cleanliness}%`)
+			await expect(page.getByTestId(`task-group-${kitchen.id}`).getByTestId('cleanliness-value')).toHaveText(`${completeBody.data.room.cleanliness}%`)
 
 			// Undo through the snackbar → one targeted correction
 			// (WP3 §3.4: POST /completions/{id}/undo with the receipt id).
@@ -317,14 +317,14 @@ test.describe('Task Completion Full Flow', () => {
 			// Live revert: the row is active again with its complete button.
 			await expect(taskRow).not.toHaveClass(/completed/)
 			await expect(taskRow.locator('[data-testid="complete-task-button"]')).toBeVisible()
-			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
+			await expect(page.getByTestId(`task-group-${kitchen.id}`).getByTestId('cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
 
 			// No stale caches: after a reload the ROOM VIEW carries the
 			// original persisted state again.
 			await page.reload()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+			await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
 			await expect(taskRow).not.toHaveClass(/completed/)
-			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
+			await expect(page.getByTestId(`task-group-${kitchen.id}`).getByTestId('cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
 
 			// …the OWN wallet shows the PRE-COMPLETION booked total again
 			// (the correction posted the exact negative entries)…

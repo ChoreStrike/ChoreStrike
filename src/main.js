@@ -22,6 +22,7 @@ import './styles/tokens.css'
 import './styles/a11y.css'
 import './styles/mobile.css'
 import './styles/feedback.css'
+import './styles/settings.css'
 
 // Configure axios for Nextcloud CSRF protection
 axios.defaults.headers.common.requesttoken = window.OC?.requestToken || ''

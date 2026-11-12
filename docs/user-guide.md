@@ -33,7 +33,7 @@ household always keeps an owner.
 The first person who opens ChoreStrike becomes the household's owner. On
 **Today**, the setup wizard opens by itself while the household has no
 floors yet; you can also start it with **Set up your home**, there or under
-**Settings → Floors & Rooms**.
+**Settings → Household → Floors & Rooms**.
 
 <img src="screenshots/guide-setup-wizard.png" alt="Setup wizard, Quick Start step: house name, home type, floors, rooms per floor and the cleaning level" width="720">
 
@@ -49,8 +49,8 @@ floors yet; you can also start it with **Set up your home**, there or under
 **Start empty** skips the wizard; you can then create floors, rooms and tasks
 yourself.
 
-**When was it last done?** In a room, edit a task and fill in *Last done on*.
-The room then shows that day as "Last cleaned", and a task that repeats after
+**When was it last done?** In **Tasks**, open a task's details, choose *Date* and fill in
+*Last done on*. The room then shows that day as "Last cleaned", and a task that repeats after
 completion is next due one interval later. It earns nothing and counts as no
 completion. A newer entry corrects an older one; children cannot set it.
 
@@ -58,7 +58,7 @@ completion. A newer entry corrects an older one; children cannot set it.
 account on your Nextcloud — ChoreStrike sends no email; the person is part of
 the household right away and sees it the next time they open the app. People
 invited in the wizard start as members; choose *Owner*, *Member* or *Child* in
-**Settings → Members**. Nobody can join without an invitation: anyone else
+**Settings → Household → Members**. Nobody can join without an invitation: anyone else
 sees "You are not a member of this household yet".
 
 ## Every day: Today
@@ -82,7 +82,12 @@ about you.
 | <img src="screenshots/guide-my-day-phone.png" alt="Today on a phone: today's tasks, each with a Done button and a checklist" width="300"> | <img src="screenshots/guide-undo-phone.png" alt="After completing a task: a Task completed message with an Undo button" width="300"> |
 | Today on a phone | Right after completing: undo |
 
-Every task shows the same facts on *Today*, in **Tasks** and in a room: below its
+**Tasks** is the one list of everything. Its switch groups it *By due date*, *By room* or
+*By person*. By room, each floor is a heading and each room a row with its open and overdue
+tasks, how clean it is and when it was last cleaned; a tap opens the room, and **New** in
+that row adds a task to it, starting with suggestions that fit the room.
+
+Every task shows the same facts on *Today* and in **Tasks**: below its
 name stand the floor and room, then its energy, how often it repeats and who
 does it. *Every 3 days ±2* means every three days, with two flex days either
 way.
@@ -101,8 +106,9 @@ step as you go. Owners edit the steps in the task.
 
 ## Planning the week
 
-In **Scheduling**, everyone sets **My Availability** (the days you can help)
-and an energy budget for a day. Owners then plan the week:
+Under **Settings → Planning**, everyone sets **My Availability** (the days you
+can help) and an energy budget for a day. Owners then plan the week: open the
+**Calendar** and choose **Weekly plan**.
 
 <img src="screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks, each adjustable by person and day" width="720">
 
@@ -134,19 +140,20 @@ undo or a corrected split adjusts the Coins of that completion.
 
 <img src="screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button" width="720">
 
-- The **reward catalog** is off until an owner switches it on in **Settings**
-  and adds rewards with Coin prices. Each person can still hide it with
+- The **reward catalog** is off until an owner switches it on under
+  **Settings → Household → Rewards** and adds rewards with Coin prices. Each person can still hide it with
   **Show the reward catalog** in their own settings.
 - **Requesting** a reward reserves its Coins. A child's request waits for an
   owner's approval; an owner confirms the delivery for a child, adults confirm
   their own. A request can be cancelled until it is delivered.
-- **My Requests** always stays in the navigation, even when the catalog is
-  hidden.
+- **My Requests** opens from **Rewards** and always from your **Settings**,
+  even when the catalog is hidden.
 
 ### Weekly ranking
 
-The ranking is off unless an owner switches it on, and then each person
-decides for themselves with **Join next week**; it counts from the following
+The ranking is a section of **Insights**. It is off unless an owner switches it
+on under **Settings → Household → House**, and then each person decides for
+themselves with **Join next week**; it counts from the following
 Monday, and **Withdraw participation** ends it. It compares only the on-time
 share of public tasks, and only of people who joined.
 
@@ -154,8 +161,14 @@ share of public tasks, and only of people who joined.
 
 <img src="screenshots/guide-settings.png" alt="Notification settings: daily task digest, weekly organization digest, delivery time, quiet time and feedback effects" width="720">
 
-Everything here is personal — owners cannot change it for others. The digests
-and sounds are off by default; the celebration animation is on.
+**Settings** has two areas. *Personal* is what you decide for yourself: your
+title, notifications and feedback, your planning, and the way to your reward
+requests. *Household* is for owners: house, members, floors and rooms, rewards,
+arcade and the danger zone. Every category opens with a tap.
+
+Everything under *Notifications & feedback* is personal — owners cannot change
+it for others. The digests and sounds are off by default; the celebration
+animation is on.
 
 - **Daily task digest** and **Weekly organization digest** arrive as a
   Nextcloud notification at your delivery time (and by email if your Nextcloud
@@ -188,7 +201,7 @@ boosts and no advantage in planning. Every game has its own highscores.
 Spot Sprint is always open; the other games open once you have finished 3,
 10, 25 or 50 chores (helping on a chore counts too). Owners can open every
 game for everyone by switching off **Unlock games with finished chores**
-under **Settings → Arcade**.
+under **Settings → Household → Arcade**.
 
 Every game's start screen has **Sound** and **Effects** switches. They are
 the same personal settings as under *Notifications, sounds and celebrations*

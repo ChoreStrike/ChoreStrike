@@ -557,7 +557,7 @@ keeps output structured:
 ```javascript
 import { logger } from '../utils/logger.js'
 
-logger.error('Failed to complete task', error, { view: 'RoomDetail', action: 'handleComplete' })
+logger.error('Failed to complete task', error, { view: 'TaskManager', action: 'handleComplete' })
 ```
 
 **Network Tab:**

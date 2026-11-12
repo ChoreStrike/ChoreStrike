@@ -17,23 +17,6 @@ jest.mock('vue-router', () => ({
 					matched: [{ name: 'today' }],
 				}
 			}
-			const match = path.match(/\/room\/(\d+)/)
-			if (match) {
-				return {
-					name: 'room',
-					params: { id: match[1] },
-					matched: [{ name: 'room' }],
-				}
-			}
-			// Check for legacy plural path
-			const legacyMatch = path.match(/\/rooms\/(\d+)/)
-			if (legacyMatch) {
-				return {
-					name: undefined,
-					params: {},
-					matched: [],
-				}
-			}
 			return { name: undefined, params: {}, matched: [] }
 		},
 	})),
@@ -47,19 +30,18 @@ global.location = {
 	hash: '',
 }
 
-const router = require('./router.js').default
+const { routes, default: router } = require('./router.js')
 
-describe('Router room detail route', () => {
-	it('should resolve room detail route for singular room path', () => {
-		const resolved = router.resolve('/room/42')
-		expect(resolved.name).toBe('room')
-		expect(resolved.params.id).toBe('42')
+describe('Router room address', () => {
+	it('redirects a room address to that room in the task list grouped by room', () => {
+		const room = routes.find((route) => route.path === '/room/:id')
+		expect(room.component).toBeUndefined()
+		expect(room.redirect({ params: { id: '42' } })).toEqual({ name: 'tasks', query: { group: 'room', room: '42' } })
+		expect(routes.some((route) => route.name === 'room')).toBe(false)
 	})
 
-	it('should not resolve detail route for legacy plural room path', () => {
-		const resolved = router.resolve('/rooms/42')
-		expect(resolved.name).toBeUndefined()
-		expect(resolved.matched.length).toBe(0)
+	it('has no route for the legacy plural room path', () => {
+		expect(routes.some((route) => route.path.startsWith('/rooms'))).toBe(false)
 	})
 })
 

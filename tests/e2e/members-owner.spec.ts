@@ -19,6 +19,7 @@ import type { Page } from '@playwright/test'
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { runOcc } from './fixtures/occ-runner.ts'
+import { openSettingsCategory } from './fixtures/settings.ts'
 
 const ADMIN_EMAIL = 'admin@chorestrike.test'
 
@@ -29,6 +30,7 @@ async function openMembersSection(page: Page) {
 	await page.getByTestId('today-view').waitFor({ state: 'visible' })
 	await page.getByTestId('nav-settings').click()
 	await page.getByTestId('settings-view').waitFor({ state: 'visible' })
+	await openSettingsCategory(page, 'members')
 	await page.getByTestId('members-section').waitFor({ state: 'visible' })
 }
 

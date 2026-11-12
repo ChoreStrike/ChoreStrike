@@ -116,4 +116,16 @@ describe('OvercapacityWarning.vue', () => {
 		expect(deferred[0].text()).toContain('Low')
 		expect(deferred[1].text()).toContain('Medium')
 	})
+
+	// RF-090-18: the muted text colour measured 4.27:1 on the warning
+	// background. The browser contrast check sees these rows only while a
+	// day is over capacity, which the fresh seed is not; this pins the rule.
+	it('never renders text in the muted colour on its warning background', () => {
+		const { readFileSync } = require('fs')
+		const { resolve } = require('path')
+		const source = readFileSync(resolve(__dirname, '../../../src/components/Scheduling/OvercapacityWarning.vue'), 'utf8')
+		const styles = source.slice(source.indexOf('<style'))
+
+		expect(styles).not.toContain('--color-text-maxcontrast')
+	})
 })

@@ -4,6 +4,7 @@ import { userStatePath } from './fixtures/auth-contexts.ts'
 import { completeRoomTaskViaApi, newCommandId, resolveOccurrenceReceipt } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
+import { openSettings, openSettingsCategory } from './fixtures/settings.ts'
 
 const API = '/apps/chorestrike/api/v1'
 
@@ -37,6 +38,46 @@ test.describe('Settings', () => {
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
+		// Categories start closed (FEAT-UX-054). The address names the one
+		// opened last, so the house category survives a reload.
+		await openSettingsCategory(page, 'structure')
+		await openSettingsCategory(page, 'house')
+	})
+
+	test('Settings start with the personal area and every category closed', async ({ page }) => {
+		await page.goto('/apps/chorestrike/#/today')
+		await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 20000 })
+		await page.goto('/apps/chorestrike/#/settings')
+		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
+
+		await expect(page.getByTestId('settings-tab-personal')).toHaveAttribute('aria-pressed', 'true')
+		for (const category of ['title', 'notifications', 'planning']) {
+			await expect(page.getByTestId(`settings-category-${category}`)).toHaveAttribute('aria-expanded', 'false')
+		}
+		await expect(page.getByTestId('settings-open-requests')).toBeVisible()
+		await expect(page.getByTestId('notification-preferences')).toHaveCount(0)
+
+		// The owner's household area sits behind the switch, closed as well.
+		await page.getByTestId('settings-tab-household').click()
+		for (const category of ['house', 'members', 'structure', 'rewards', 'arcade', 'danger']) {
+			await expect(page.getByTestId(`settings-category-${category}`)).toHaveAttribute('aria-expanded', 'false')
+		}
+		await expect(page.getByTestId('house-name-input')).toHaveCount(0)
+
+		// Opening a category puts it into the address; a reload comes back to it.
+		await page.getByTestId('settings-category-members').click()
+		await expect(page).toHaveURL(/category=members/)
+		await page.reload()
+		await expect(page.getByTestId('settings-category-members')).toHaveAttribute('aria-expanded', 'true', { timeout: 20000 })
+		await expect(page.getByTestId('settings-tab-household')).toHaveAttribute('aria-pressed', 'true')
+	})
+
+	test('The own reward requests open from the personal settings', async ({ page }) => {
+		await page.getByTestId('settings-tab-personal').click()
+		await page.getByTestId('settings-open-requests').click()
+
+		await expect(page).toHaveURL(/#\/reward-requests/)
+		await expect(page.getByTestId('request-list-view')).toBeVisible({ timeout: 20000 })
 	})
 
 	test('Settings page loads correctly', async ({ page }) => {
@@ -96,6 +137,8 @@ test.describe('Settings', () => {
 	})
 
 	test('Cold structure hydration survives room reconciliation', async ({ page }) => {
+		// Only the structure category is open after the reload below.
+		await openSettings(page, 'structure')
 		let release!: () => void
 		const barrier = new Promise<void>((resolve) => {
 			release = resolve
@@ -144,10 +187,13 @@ test.describe('Settings', () => {
 				await page.getByRole('button', { name: /Open navigation/i }).click()
 			}
 			await page.getByTestId('nav-settings').click()
-			await expect(page.getByTestId('house-section')).toBeVisible()
+			await expect(page.getByTestId('settings-view')).toBeVisible()
 			if (width < 768) {
 				await page.getByRole('button', { name: /Close navigation/i }).click()
 			}
+			await openSettingsCategory(page, 'structure')
+			await openSettingsCategory(page, 'house')
+			await expect(page.getByTestId('house-section')).toBeVisible()
 
 			const floor = page.getByTestId('floors-list').locator('.floor-item').first()
 			await expect(floor).toBeVisible()
@@ -185,6 +231,8 @@ test.describe('Settings', () => {
 			await page.getByTestId('save-house-timezone').click()
 			expect((await restored).ok()).toBe(true)
 			await expect(page.getByTestId('save-house-timezone')).toBeDisabled()
+			// The reload came back to the house category alone.
+			await openSettingsCategory(page, 'structure')
 			// Reach the far-right destructive action without deleting seeded facts.
 			await floor.getByTitle('Delete floor', { exact: true }).click()
 			await expect(page.getByTestId('confirm-dialog')).toBeVisible()
@@ -257,11 +305,10 @@ test.describe('Settings', () => {
 	})
 
 	test('Settings page has danger zone section', async ({ page }) => {
-		const dangerZone = page.locator('.danger-zone, .reset-section, [data-testid="danger-zone"]')
+		await openSettingsCategory(page, 'danger')
 
-		if (await dangerZone.count() > 0) {
-			await expect(dangerZone).toBeVisible()
-		}
+		await expect(page.getByTestId('danger-zone')).toBeVisible()
+		await expect(page.getByTestId('danger-zone').locator('.danger-button')).toBeVisible()
 	})
 
 	/**
@@ -372,8 +419,10 @@ test.describe('Settings', () => {
 		expect(before.history.allocation.length).toBeGreaterThan(0)
 		expect(before.achievements.length).toBeGreaterThan(0)
 		expect(before.planning.find((row) => row.id === roomTaskId)?.occurrence?.expectedVersion).toBeGreaterThan(receipt!.expectedVersion)
+		await openSettings(page, 'danger')
 		await page.reload()
 		await expect(page.getByTestId('settings-view')).toBeVisible()
+		await openSettingsCategory(page, 'danger')
 		const dangerZone = page.locator('[data-testid="danger-zone"]')
 		await expect(dangerZone).toBeVisible()
 		await expect(dangerZone).toContainText(/house health/i)

@@ -164,9 +164,6 @@ msgstr ""
 msgid "Add Room"
 msgstr ""
 
-msgid "Add Task"
-msgstr ""
-
 msgid "Add another email"
 msgstr ""
 
@@ -407,6 +404,9 @@ msgstr ""
 msgid "Back to requests"
 msgstr ""
 
+msgid "Back to the calendar"
+msgstr ""
+
 msgid "Balance clarification"
 msgstr ""
 
@@ -438,6 +438,15 @@ msgid "Budget Analysis"
 msgstr ""
 
 msgid "Building the plan from your tasks…"
+msgstr ""
+
+msgid "By due date"
+msgstr ""
+
+msgid "By person"
+msgstr ""
+
+msgid "By room"
 msgstr ""
 
 msgid "Calendar"
@@ -656,10 +665,10 @@ msgstr ""
 msgid "Completed"
 msgstr ""
 
-msgid "Completing it now covers the miss — it stays a catch-up."
+msgid "Completed · {count}"
 msgstr ""
 
-msgid "Completion"
+msgid "Completing it now covers the miss — it stays a catch-up."
 msgstr ""
 
 msgid "Completion not found"
@@ -722,7 +731,13 @@ msgstr ""
 msgid "Could not load the completion"
 msgstr ""
 
-msgid "Could not load this room"
+msgid "Could not load the floors and rooms"
+msgstr ""
+
+msgid "Could not load the ranking"
+msgstr ""
+
+msgid "Could not load your planning settings"
 msgstr ""
 
 msgid "Could not load your tasks"
@@ -792,6 +807,9 @@ msgid "Daily tasks: unlimited"
 msgstr ""
 
 msgid "Danger Zone"
+msgstr ""
+
+msgid "Date"
 msgstr ""
 
 msgid "Day"
@@ -891,6 +909,9 @@ msgid "Due in {days} days"
 msgstr ""
 
 msgid "Due today"
+msgstr ""
+
+msgid "Due today · {count}"
 msgstr ""
 
 msgid "Due tomorrow"
@@ -1337,6 +1358,9 @@ msgstr ""
 msgid "Ground Floor"
 msgstr ""
 
+msgid "Grouping"
+msgstr ""
+
 msgid "Hallway & Stairs"
 msgstr ""
 
@@ -1526,7 +1550,13 @@ msgstr ""
 msgid "Kitchen"
 msgstr ""
 
+msgid "Last cleaned: {date}"
+msgstr ""
+
 msgid "Last done on"
+msgstr ""
+
+msgid "Later · {count}"
 msgstr ""
 
 msgid "Leaderboard"
@@ -1566,9 +1596,6 @@ msgid "Lives"
 msgstr ""
 
 msgid "Living Room"
-msgstr ""
-
-msgid "Load"
 msgstr ""
 
 msgid "Load more"
@@ -1727,6 +1754,9 @@ msgstr ""
 msgid "Neutral"
 msgstr ""
 
+msgid "New"
+msgstr ""
+
 msgid "New Personal Best!"
 msgstr ""
 
@@ -1740,6 +1770,9 @@ msgid "New reward"
 msgstr ""
 
 msgid "New room name"
+msgstr ""
+
+msgid "New task in {room}"
 msgstr ""
 
 msgid "New title: {title}"
@@ -1883,6 +1916,9 @@ msgstr ""
 msgid "Notifications"
 msgstr ""
 
+msgid "Notifications & feedback"
+msgstr ""
+
 msgid "Number of floors"
 msgstr ""
 
@@ -1956,9 +1992,6 @@ msgid "Open the Rewards catalog to request a reward."
 msgstr ""
 
 msgid "Opt-in comparison of on-time shares. Every member decides separately on their own participation; turning it off removes everyone immediately."
-msgstr ""
-
-msgid "Opt-in weekly rhythm ranking for your household"
 msgstr ""
 
 msgid "Optional areas"
@@ -2036,6 +2069,9 @@ msgstr ""
 msgid "Person"
 msgstr ""
 
+msgid "Personal"
+msgstr ""
+
 msgid "Pick real tasks, preview who does what on which day, then confirm once — nothing changes until you apply."
 msgstr ""
 
@@ -2049,6 +2085,9 @@ msgid "Plan the week"
 msgstr ""
 
 msgid "Planned energy ({planned}) exceeds the available capacity ({capacity})"
+msgstr ""
+
+msgid "Planning"
 msgstr ""
 
 msgid "Play"
@@ -2172,6 +2211,9 @@ msgid "Rank"
 msgstr ""
 
 msgid "Ranked household members"
+msgstr ""
+
+msgid "Ranking"
 msgstr ""
 
 msgid "Ranking consent recorded"
@@ -2384,9 +2426,6 @@ msgstr ""
 msgid "Room type must be at most 50 characters"
 msgstr ""
 
-msgid "Rooms"
-msgstr ""
-
 msgid "Rooms and house health were reset"
 msgstr ""
 
@@ -2427,9 +2466,6 @@ msgid "Schedule & Recurrence"
 msgstr ""
 
 msgid "Schedule Calendar"
-msgstr ""
-
-msgid "Scheduling"
 msgstr ""
 
 msgid "Scheduling Mode"
@@ -2496,6 +2532,9 @@ msgid "Setting up your home…"
 msgstr ""
 
 msgid "Settings"
+msgstr ""
+
+msgid "Settings area"
 msgstr ""
 
 msgid "Shares must be positive whole percents"
@@ -2697,9 +2736,6 @@ msgid "Task Name"
 msgstr ""
 
 msgid "Task Properties"
-msgstr ""
-
-msgid "Task Stats"
 msgstr ""
 
 msgid "Task can be completed {days} days before or after ideal date"
@@ -3206,6 +3242,9 @@ msgstr ""
 msgid "Undo"
 msgstr ""
 
+msgid "Undone"
+msgstr ""
+
 msgid "Unknown Task"
 msgstr ""
 
@@ -3383,6 +3422,9 @@ msgstr ""
 msgid "Weekly organization digest"
 msgstr ""
 
+msgid "Weekly plan"
+msgstr ""
+
 msgid "Weekly ranking"
 msgstr ""
 
@@ -3441,6 +3483,9 @@ msgid "Work top to bottom, dust the shelves and decor, and wipe the nightstand a
 msgstr ""
 
 msgid "Work top to bottom, dust the shelves and furniture, and wipe the window sill."
+msgstr ""
+
+msgid "Yesterday"
 msgstr ""
 
 msgid "You"
@@ -3554,9 +3599,6 @@ msgstr ""
 msgid "cleanlinessChange must be between -100 and 100"
 msgstr ""
 
-msgid "completed"
-msgstr ""
-
 msgid "date must be a valid Y-m-d date"
 msgstr ""
 
@@ -3597,12 +3639,6 @@ msgid "from and to must be valid Y-m-d dates"
 msgstr ""
 
 msgid "from must not be after to"
-msgstr ""
-
-msgid "in"
-msgstr ""
-
-msgid "just now"
 msgstr ""
 
 msgid "maxDailyTasks can only be changed by a house owner"
@@ -3734,9 +3770,6 @@ msgstr ""
 msgid "unassigned"
 msgstr ""
 
-msgid "undid a completion of"
-msgstr ""
-
 msgid "week"
 msgstr ""
 
@@ -3752,6 +3785,12 @@ msgstr ""
 msgid "{assigned} task(s) assigned, {skipped} skipped"
 msgstr ""
 
+msgid "{count} open"
+msgstr ""
+
+msgid "{count} overdue"
+msgstr ""
+
 msgid "{count} selected"
 msgstr ""
 
@@ -3759,9 +3798,6 @@ msgid "{count} task(s) assigned"
 msgstr ""
 
 msgid "{count} tasks"
-msgstr ""
-
-msgid "{days} d ago"
 msgstr ""
 
 msgid "{days} days"
@@ -3776,13 +3812,7 @@ msgstr ""
 msgid "{from} → {to}"
 msgstr ""
 
-msgid "{hours} h ago"
-msgstr ""
-
 msgid "{message} ({reference})"
-msgstr ""
-
-msgid "{minutes} min ago"
 msgstr ""
 
 msgid "{name} joined the house"

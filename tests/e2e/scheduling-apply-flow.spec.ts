@@ -20,6 +20,7 @@ import type { Page } from '@playwright/test'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
+import { openPlanningSettings, openWeeklyPlan } from './fixtures/planning.ts'
 
 /** House-local day key — the Docker test environment runs the house on UTC. */
 const utcDayKey = (offsetDays = 0): string => new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -46,8 +47,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		await expect(async () => {
 			await page.goto('/apps/chorestrike/#/today')
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
-			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 	}
 
@@ -263,8 +263,10 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 				await goToScheduling(page)
 				// The owner-only planner section never renders (§3.4).
 				await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
-				// Personal settings remain available.
-				await expect(page.getByTestId('self-availability-settings')).toBeVisible()
+				// The own planning settings stay available, in the personal
+				// settings (CS-PLAN-090 WP-D); the app stays loaded for the
+				// direct calls below.
+				await openPlanningSettings(page)
 
 				// Direct API calls with well-formed bodies are forbidden —
 				// the owner gate runs before any plan computation.

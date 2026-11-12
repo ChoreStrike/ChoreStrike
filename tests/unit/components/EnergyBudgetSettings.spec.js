@@ -14,6 +14,11 @@ jest.mock('@nextcloud/dialogs', () => ({
 	showError: jest.fn(),
 }))
 
+// The failed-save case must not leak logger output into the noise gate.
+jest.mock('@/utils/logger', () => ({
+	logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
+}))
+
 jest.mock('../../../src/services/api.js', () => ({
 	api: {
 		get: jest.fn(),
@@ -149,5 +154,26 @@ describe('EnergyBudgetSettings', () => {
 		resolvePut({ energyBudget: fullBudget({ monday: 5 }) })
 		await flushPromises()
 		expect(wrapper.find('[data-testid="energy-input-monday"]').attributes('disabled')).toBeUndefined()
+	})
+
+	// CS-PLAN-090 WP-D: in the personal settings a failed save must not
+	// replace the page; the form reports it and keeps the entries.
+	it('reports a failed save at the form and keeps the edited values', async () => {
+		store.energyBudget = fullBudget()
+		api.put.mockRejectedValueOnce(new Error('network down'))
+
+		const wrapper = mountComponent()
+		await wrapper.find('[data-testid="energy-input-monday"]').setValue(5)
+		await wrapper.find('[data-testid="save-energy-budget-button"]').trigger('click')
+		await flushPromises()
+
+		expect(wrapper.get('[data-testid="energy-budget-save-error"]').attributes('role')).toBe('alert')
+		expect(wrapper.find('[data-testid="energy-input-monday"]').element.value).toBe('5')
+		expect(store.energyBudget.monday).toBe(10)
+
+		api.put.mockResolvedValueOnce({ energyBudget: fullBudget({ monday: 5 }) })
+		await wrapper.find('[data-testid="save-energy-budget-button"]').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="energy-budget-save-error"]').exists()).toBe(false)
 	})
 })

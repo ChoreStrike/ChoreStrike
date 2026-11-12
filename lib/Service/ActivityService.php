@@ -186,6 +186,9 @@ class ActivityService {
 						'displayName' => $shareMember?->getDisplayName() ?? $this->l10n->t('Former member'),
 						'sharePct' => $share->getSharePct(),
 						'energyMinor' => $share->getEnergyMinor(),
+						// What the share paid, frozen at completion; withheld
+						// with the energy for a task the viewer cannot see.
+						'coinMinor' => $share->getCoinMinor(),
 					];
 				}
 			}

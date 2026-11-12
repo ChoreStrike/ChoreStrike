@@ -41,7 +41,8 @@ jest.mock('@/store/user.js', () => ({
 
 jest.mock('@/components/Tasks/TaskList.vue', () => ({
 	name: 'TaskList',
-	props: ['roomTasks', 'loading', 'showRoom', 'compact'],
+	props: ['roomTasks', 'loading', 'compact', 'compare', 'sectionLabel'],
+	emits: ['complete', 'edit', 'editDate', 'delete'],
 	template: '<div class="task-list-stub">tasks</div>',
 }))
 
@@ -50,6 +51,20 @@ jest.mock('@/components/Tasks/TaskEditForm.vue', () => ({
 	props: ['task', 'loading', 'presetRoomId', 'initialRoomId', 'initialFloorId', 'initialAssigneeIds'],
 	emits: ['submit', 'cancel'],
 	template: '<div class="task-edit-form-stub">form</div>',
+}))
+
+jest.mock('@/components/Tasks/TaskGroupList.vue', () => ({
+	name: 'TaskGroupList',
+	props: ['sections', 'openKey', 'canAdd'],
+	emits: ['toggle', 'add', 'complete', 'edit', 'editDate', 'delete'],
+	template: '<div class="task-group-list-stub" />',
+}))
+
+jest.mock('@/components/Tasks/RoomTaskEditModal.vue', () => ({
+	name: 'RoomTaskEditModal',
+	props: ['roomTask', 'task'],
+	emits: ['saved', 'cancel'],
+	template: '<div class="room-task-edit-stub" />',
 }))
 
 jest.mock('@/components/Common/Modal.vue', () => ({
@@ -290,7 +305,7 @@ describe('TaskManager', () => {
 			nextDue: '2030-05-10',
 		})
 		expect(showSuccess).toHaveBeenCalled()
-		expect(wrapper.vm.showAddTaskModal).toBe(false)
+		expect(wrapper.vm.addTask).toBeNull()
 		// CS-PLAN-067 §3.4: the aggregate response already reconciled the
 		// instance and definition stores — no redundant refetch follows.
 		expect(roomTasksStore.fetchRoomTasks).not.toHaveBeenCalled()
@@ -310,7 +325,7 @@ describe('TaskManager', () => {
 		expect(showError).toHaveBeenCalled()
 		expect(showSuccess).not.toHaveBeenCalled()
 		// The modal stays open with the input preserved (no orphan definition).
-		expect(wrapper.vm.showAddTaskModal).toBe(true)
+		expect(wrapper.vm.addTask).toEqual({ room: null })
 		expect(roomTasksStore.fetchRoomTasks.mock.calls.length).toBe(refreshCallsBefore)
 	})
 
@@ -562,6 +577,180 @@ describe('TaskManager', () => {
 			await flushPromises()
 			expect(showError).toHaveBeenCalledWith('Could not load finished tasks (HTTP 503)')
 			expect(wrapper.findComponent({ name: 'TaskList' }).props('loading')).toBe(false)
+		})
+	})
+
+	describe('grouping (CS-PLAN-090 WP-C)', () => {
+		const daysFromToday = (days) => new Date(Date.now() + days * 86400000).toISOString()
+		const groupedRows = () => [
+			{ id: 1, taskId: 101, roomId: 12, assignees: ['teen'], isActive: true, nextDue: daysFromToday(2) },
+			{ id: 2, taskId: 102, roomId: 12, assignees: [], isActive: true, nextDue: daysFromToday(-2), occurrence: { classification: 'late' } },
+			{ id: 3, taskId: 103, roomId: 13, assignees: ['mom'], isActive: true, nextDue: daysFromToday(0) },
+		]
+		const groupList = (wrapper) => wrapper.findComponent({ name: 'TaskGroupList' })
+		const groupKeys = (wrapper) => groupList(wrapper).props('sections').flatMap((section) => section.groups.map((group) => group.key))
+
+		beforeEach(() => {
+			mockRoomTasksStore.roomTasks = groupedRows()
+			mockRoomsStore.rooms = [{ id: 12, name: 'Kitchen', floorId: 1, cleanliness: 90 }, { id: 13, name: 'Hall', floorId: 1, cleanliness: 100 }]
+		})
+
+		afterEach(() => {
+			mockRoomTasksStore.roomTasks = []
+			mockRoomsStore.rooms = [{ id: 12, name: 'Kitchen', floorId: 1 }]
+		})
+
+		it('lists by due date by default, missed work first, under one heading per due class', async () => {
+			mockRoute = { query: { scope: 'all' } }
+			const wrapper = mountView()
+			await flushPromises()
+
+			const list = wrapper.findComponent({ name: 'TaskList' })
+			expect(wrapper.get('[data-testid="tasks-group-due"]').attributes('aria-pressed')).toBe('true')
+			expect(groupList(wrapper).exists()).toBe(false)
+			expect(list.props('roomTasks').map((item) => item.roomTask.id)).toEqual([2, 3, 1])
+			expect(list.props('roomTasks').map((item) => list.props('sectionLabel')(item)))
+				.toEqual(['Overdue · 1', 'Due today · 1', 'Later · 1'])
+			expect([...list.props('roomTasks')].reverse().sort(list.props('compare')).map((item) => item.roomTask.id)).toEqual([2, 3, 1])
+		})
+
+		it('switches to rooms, shows everyone\'s tasks and mirrors the grouping in the URL', async () => {
+			const wrapper = mountView()
+			await flushPromises()
+
+			await wrapper.get('[data-testid="tasks-group-room"]').trigger('click')
+
+			expect(mockRouter.replace).toHaveBeenLastCalledWith({ query: { group: 'room' } })
+			expect(wrapper.get('[data-testid="tasks-filter-all"]').attributes('aria-pressed')).toBe('true')
+			const [floor] = groupList(wrapper).props('sections')
+			expect(floor).toMatchObject({ key: 1, label: 'Ground Floor', open: 3 })
+			expect(floor.groups.map((group) => [group.label, group.open, group.overdue])).toEqual([['Kitchen', 2, 1], ['Hall', 1, 0]])
+			expect(groupList(wrapper).props('openKey')).toBeNull()
+			expect(groupList(wrapper).props('canAdd')).toBe(true)
+		})
+
+		it('drops the grouping from the URL on the way back and keeps the pager for the list by due date only', async () => {
+			mockRoomTasksStore.roomTasks = Array.from({ length: 25 }, (_, index) => ({
+				id: index + 1, taskId: 100 + index, roomId: 12, assignees: [], isActive: true, nextDue: daysFromToday(index + 1),
+			}))
+			mockRoute = { query: { group: 'room', room: '12' } }
+			const wrapper = mountView()
+			await flushPromises()
+
+			expect(wrapper.find('[data-testid="task-pager"]').exists()).toBe(false)
+			expect(groupList(wrapper).props('sections')[0].groups[0].items).toHaveLength(25)
+
+			await wrapper.get('[data-testid="tasks-group-due"]').trigger('click')
+			expect(mockRouter.replace).toHaveBeenLastCalledWith({ query: {} })
+			expect(wrapper.find('[data-testid="task-pager"]').exists()).toBe(true)
+			expect(groupList(wrapper).exists()).toBe(false)
+		})
+
+		it('opens the room a deep link names, with everyone\'s tasks (the old room address)', async () => {
+			mockRoute = { query: { group: 'room', room: '13' } }
+			const wrapper = mountView()
+			await flushPromises()
+
+			expect(wrapper.get('[data-testid="tasks-group-room"]').attributes('aria-pressed')).toBe('true')
+			expect(groupList(wrapper).props('openKey')).toBe(13)
+			expect(groupKeys(wrapper)).toEqual([12, 13])
+		})
+
+		it('mirrors the open room in the URL and closes it on a second tap', async () => {
+			mockRoute = { query: { group: 'room' } }
+			const wrapper = mountView()
+			await flushPromises()
+
+			await groupList(wrapper).vm.$emit('toggle', 12)
+			expect(groupList(wrapper).props('openKey')).toBe(12)
+			expect(mockRouter.replace).toHaveBeenLastCalledWith({ query: { group: 'room', room: '12' } })
+
+			// The mocked route does not follow the router.
+			mockRoute.query = { group: 'room', room: '12' }
+			await groupList(wrapper).vm.$emit('toggle', 12)
+			expect(groupList(wrapper).props('openKey')).toBeNull()
+			expect(mockRouter.replace).toHaveBeenLastCalledWith({ query: { group: 'room' } })
+		})
+
+		it('narrows the rooms by the floor and room filters', async () => {
+			mockRoomsStore.rooms = [...mockRoomsStore.rooms, { id: 30, name: 'Attic', floorId: 2, cleanliness: 100 }]
+			mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor' }, { id: 2, name: 'Top' }]
+			mockRoute = { query: { group: 'room' } }
+			const wrapper = mountView()
+			await flushPromises()
+			expect(groupKeys(wrapper)).toEqual([12, 13, 30])
+
+			await wrapper.get('[data-testid="floor-filter"]').setValue('1')
+			expect(groupKeys(wrapper)).toEqual([12, 13])
+			await wrapper.get('[data-testid="room-filter"]').setValue('13')
+			expect(groupKeys(wrapper)).toEqual([13])
+			mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor' }]
+		})
+
+		it('groups by person with the unassigned rows last, and keeps the open person out of the URL', async () => {
+			mockRoute = { query: { group: 'person' } }
+			const wrapper = mountView()
+			await flushPromises()
+
+			const [people] = groupList(wrapper).props('sections')
+			expect(people.label).toBe('')
+			expect(people.groups.map((group) => [group.key, group.label])).toEqual([['user:mom', 'Parent'], ['user:teen', 'Teen'], ['unassigned', 'Unassigned']])
+
+			mockRouter.replace.mockClear()
+			await groupList(wrapper).vm.$emit('toggle', 'user:teen')
+			expect(groupList(wrapper).props('openKey')).toBe('user:teen')
+			expect(mockRouter.replace).not.toHaveBeenCalled()
+		})
+
+		it('opens the templates of a room from *New* in its heading, and the plain form from the page header', async () => {
+			mockRoute = { query: { group: 'room' } }
+			const wrapper = mountView()
+			await flushPromises()
+			const room = mockRoomsStore.rooms[1]
+
+			await groupList(wrapper).vm.$emit('add', room)
+			expect(wrapper.findComponent({ name: 'TaskCreateDialog' }).props('room')).toEqual(room)
+
+			await wrapper.findComponent({ name: 'TaskCreateDialog' }).vm.$emit('close')
+			expect(wrapper.findComponent({ name: 'TaskCreateDialog' }).exists()).toBe(false)
+
+			await wrapper.get('[data-testid="add-task-button"]').trigger('click')
+			expect(wrapper.findComponent({ name: 'TaskCreateDialog' }).props('room')).toBeNull()
+		})
+
+		it('opens the dialog for due date and "Last done" from a row, in either list (D-090-12)', async () => {
+			mockRoute = { query: { group: 'room', room: '12' } }
+			const wrapper = mountView()
+			await flushPromises()
+			const [roomTask] = mockRoomTasksStore.roomTasks
+
+			await groupList(wrapper).vm.$emit('editDate', roomTask)
+			const dialog = wrapper.findComponent({ name: 'RoomTaskEditModal' })
+			expect(dialog.props('roomTask')).toEqual(roomTask)
+
+			const roomReads = mockRoomsStore.fetchFloorsWithRooms.mock.calls.length
+			await dialog.vm.$emit('saved')
+			expect(wrapper.findComponent({ name: 'RoomTaskEditModal' }).exists()).toBe(false)
+			// "Last done" stamps the room's "Last cleaned" in the heading.
+			expect(mockRoomsStore.fetchFloorsWithRooms.mock.calls.length).toBe(roomReads + 1)
+
+			await wrapper.get('[data-testid="tasks-group-due"]').trigger('click')
+			await wrapper.findComponent({ name: 'TaskList' }).vm.$emit('editDate', roomTask)
+			await wrapper.findComponent({ name: 'RoomTaskEditModal' }).vm.$emit('cancel')
+			expect(wrapper.findComponent({ name: 'RoomTaskEditModal' }).exists()).toBe(false)
+			expect(mockRoomsStore.fetchFloorsWithRooms.mock.calls.length).toBe(roomReads + 1)
+		})
+
+		it('completes a row of a group through the shared flow', async () => {
+			mockRoute = { query: { group: 'room', room: '12' } }
+			const wrapper = mountView()
+			await flushPromises()
+			const claim = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
+
+			await groupList(wrapper).vm.$emit('complete', 2, claim)
+			await flushPromises()
+
+			expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(2, claim)
 		})
 	})
 })

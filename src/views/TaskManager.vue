@@ -14,7 +14,7 @@
 				class="primary-button"
 				data-testid="add-task-button"
 				:disabled="loading || initError"
-				@click="showAddTaskModal = true">
+				@click="addTask = { room: null }">
 				<Icon name="Plus" :size="16" class="icon" />
 				{{ t('chorestrike', 'New Task') }}
 			</button>
@@ -61,47 +61,59 @@
 				</div>
 			</div>
 
+			<SegmentedSwitch
+				:modelValue="group"
+				:options="groupingOptions()"
+				:label="t('chorestrike', 'Grouping')"
+				testidPrefix="tasks-group"
+				@update:modelValue="setGroup" />
+
 			<div ref="listTop" />
 			<TaskList
+				v-if="group === 'due' || loading || finishedLoading"
 				:roomTasks="pagedTasks"
 				:loading="loading || finishedLoading"
-				:showRoom="true"
 				:compact="true"
+				:compare="dueOrder"
+				:sectionLabel="dueSectionLabel"
 				@complete="handleCompleteTask"
 				@edit="handleEditTask"
+				@editDate="dateTask = $event"
+				@delete="handleDeleteTask" />
+			<TaskGroupList
+				v-else
+				:sections="sections"
+				:openKey="openGroup"
+				:canAdd="canManageTasks"
+				@toggle="toggleGroup"
+				@add="addTask = { room: $event }"
+				@complete="handleCompleteTask"
+				@edit="handleEditTask"
+				@editDate="dateTask = $event"
 				@delete="handleDeleteTask" />
 
-			<nav v-if="pageCount > 1"
-				class="task-pager"
-				data-testid="task-pager"
-				:aria-label="t('chorestrike', 'Task pages')">
-				<NcButton :disabled="currentPage <= 1"
-					data-testid="task-pager-previous"
-					@click="goToPage(currentPage - 1)">
-					{{ t('chorestrike', 'Previous') }}
-				</NcButton>
-				<span class="pager-status" data-testid="task-pager-status" aria-live="polite">
-					{{ t('chorestrike', 'Page {page} of {pages}', { page: currentPage, pages: pageCount }) }}
-				</span>
-				<NcButton :disabled="currentPage >= pageCount"
-					data-testid="task-pager-next"
-					@click="goToPage(currentPage + 1)">
-					{{ t('chorestrike', 'Next') }}
-				</NcButton>
-			</nav>
+			<TaskPager v-if="group === 'due' && pageCount > 1"
+				:page="currentPage"
+				:pageCount="pageCount"
+				@go="goToPage" />
 		</template>
 
-		<Modal v-if="showAddTaskModal"
+		<TaskCreateDialog
+			v-if="addTask"
+			:room="addTask.room"
+			:prefill="newTaskPrefill"
+			@close="addTask = null" />
+
+		<!-- Due date and "Last done" of one row (D-090-12). -->
+		<Modal v-if="dateTask"
 			persistent
-			:aria-label="t('chorestrike', 'New Task')"
-			@close="showAddTaskModal = false">
-			<TaskEditForm
-				:initialRoomId="newTaskPrefill.roomId"
-				:initialFloorId="newTaskPrefill.floorId"
-				:initialAssigneeIds="newTaskPrefill.assigneeIds"
-				:loading="creating"
-				@submit="handleAddTask"
-				@cancel="showAddTaskModal = false" />
+			:aria-label="t('chorestrike', 'Edit Task')"
+			@close="dateTask = null">
+			<RoomTaskEditModal
+				:roomTask="dateTask"
+				:task="tasksStore.getTaskById(dateTask.taskId) || null"
+				@saved="handleDateSaved"
+				@cancel="dateTask = null" />
 		</Modal>
 
 		<Modal v-if="showEditTaskModal"
@@ -132,18 +144,22 @@
 </template>
 
 <script>
-import { showError, showSuccess } from '@nextcloud/dialogs'
+import { showError } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import { NcButton } from '@nextcloud/vue'
 import { useRoute, useRouter } from 'vue-router'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
+import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
+import RoomTaskEditModal from '../components/Tasks/RoomTaskEditModal.vue'
+import TaskCreateDialog from '../components/Tasks/TaskCreateDialog.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import TaskFilterBar from '../components/Tasks/TaskFilterBar.vue'
+import TaskGroupList from '../components/Tasks/TaskGroupList.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
+import TaskPager from '../components/Tasks/TaskPager.vue'
 import { useHouseMemberNames } from '../composables/useHouseMemberNames.js'
 import { useTaskCompletion } from '../composables/useTaskCompletion.js'
 import { useHouseStore } from '../store/house.js'
@@ -153,54 +169,26 @@ import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { showErrorWithReference } from '../utils/errorToast.js'
 import { logger } from '../utils/logger.js'
-import { compareTaskItems, dueClass, isOverdue, matchesEnergyFilter, taskEnergy } from '../utils/taskDisplay.js'
+import { groupingOptions } from '../utils/taskDisplay.js'
+import { filtersFromQuery, filterTaskItems, pageFromQuery } from '../utils/taskFilters.js'
+import { compareByDueGroup, dueGroupOf, groupByDue, groupByPerson, groupByRoom, groupingFromQuery, openGroupFromQuery, UNASSIGNED } from '../utils/taskGrouping.js'
 
-// Status filter values a `/tasks?status=` link may preset.
-const STATUS_PRESETS = ['active', 'overdue', 'due-today']
 // Client-side page size of the all-tasks list (CS-PLAN-084 D-084-02).
 const PAGE_SIZE = 20
-
-/**
- * Initial filters from the router contract (`docs/concepts/ui-use-cases.md`):
- * `?visibility=private` (CS-PLAN-041), `?scope=`, `?status=` (CS-PLAN-084
- * WP-C); unknown values keep the defaults.
- * @param {object} query Route query.
- * @return {object} Filter values for TaskFilterBar.
- */
-function filtersFromQuery(query = {}) {
-	const filters = { scope: 'mine', person: '', floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all', search: '' }
-	if (query.visibility === 'private') {
-		filters.visibility = 'private'
-		filters.scope = 'all'
-	}
-	if (['mine', 'unassigned', 'all'].includes(query.scope)) {
-		filters.scope = query.scope
-	}
-	if (STATUS_PRESETS.includes(query.status)) {
-		filters.status = query.status
-	}
-	return filters
-}
-
-/**
- * Page number from `?page=` (1 when missing or invalid).
- * @param {unknown} value Raw query value.
- * @return {number}
- */
-function pageFromQuery(value) {
-	const page = Number.parseInt(value, 10)
-	return Number.isInteger(page) && page > 0 ? page : 1
-}
 
 export default {
 	name: 'TaskManager',
 
 	components: {
 		Icon,
-		NcButton,
 		TaskList,
+		TaskPager,
+		TaskGroupList,
+		SegmentedSwitch,
 		TaskFilterBar,
+		TaskCreateDialog,
 		TaskEditForm,
+		RoomTaskEditModal,
 		Modal,
 		ConfirmDialog,
 		ErrorState,
@@ -229,13 +217,19 @@ export default {
 	data() {
 		return {
 			loading: false,
-			creating: false,
 			initError: false,
 			filters: filtersFromQuery(this.route?.query),
 			page: pageFromQuery(this.route?.query?.page),
+			// By due date, by room or by person, mirrored in `?group=`; a
+			// grouped list has one open group, a room's mirrored in `?room=`.
+			group: groupingFromQuery(this.route?.query?.group),
+			openGroup: openGroupFromQuery(this.route?.query),
 			// D-084-07: the on-demand finished-task read behind "Completed".
 			finishedLoading: false,
-			showAddTaskModal: false,
+			// The create dialog: `{ room }`, a room when opened from its heading.
+			addTask: null,
+			// The row whose due date and "Last done" are edited.
+			dateTask: null,
 			showEditTaskModal: false,
 			editingTask: null,
 			taskToDelete: null,
@@ -249,48 +243,57 @@ export default {
 		},
 
 		filteredTasks() {
-			const { status, priority, difficulty, visibility, search } = this.filters
-			const roomIds = new Set(this.roomsStore.rooms
-				.filter((room) => !this.filters.floor || String(room.floorId) === this.filters.floor)
-				.map((room) => room.id))
 			// D-084-07: "Completed" lists the finished rows read on demand.
-			let tasks = status === 'completed'
+			const tasks = this.filters.status === 'completed'
 				? this.roomTasksStore.finishedRoomTasks.map((roomTask) => this.enrich(roomTask))
 				: this.allTasks
-			tasks = tasks.filter(({ roomTask }) => this.matchesScopeFilter(roomTask, roomIds))
-
-			if (status === 'active') {
-				tasks = tasks.filter((t) => t.roomTask.isActive)
-			} else if (status === 'overdue') {
-				// Same missed-work rule as the row badge and claim button (D-084-08).
-				tasks = tasks.filter((t) => isOverdue(t.roomTask))
-			} else if (status === 'due-today') {
-				// The row badge's house-local rule: due today or an open flex window (D-084-08).
-				tasks = tasks.filter((t) => t.roomTask.nextDue && dueClass(t.roomTask, this.houseStore.timezone) === 'today')
-			}
-
-			if (priority !== 'all') {
-				const priorityMap = { urgent: 3, normal: 2, low: 1 }
-				tasks = tasks.filter((t) => t.task.priority === priorityMap[priority])
-			}
-
-			if (difficulty !== 'all') {
-				tasks = tasks.filter((t) => matchesEnergyFilter(taskEnergy(t), difficulty))
-			}
-
-			// Visibility filter (CS-PLAN-041): "private" scopes the list to the
-			// current user's private task definitions.
-			if (visibility === 'private') {
-				tasks = tasks.filter((t) => t.task.visibilityType === 'private')
-			}
-
-			if (search.trim()) {
-				const query = search.toLowerCase()
-				tasks = tasks.filter((t) => t.task.name?.toLowerCase().includes(query))
-			}
-
 			// Sorted here so each page holds the next rows of the visible order.
-			return [...tasks].sort(compareTaskItems)
+			return filterTaskItems(tasks, this.filters, {
+				rooms: this.roomsStore.rooms,
+				actorId: this.userStore.currentUser?.nextcloudUserId,
+				timezone: this.houseStore.timezone,
+			}).sort(this.dueOrder)
+		},
+
+		dueOrder() {
+			return compareByDueGroup(this.houseStore.timezone)
+		},
+
+		/** Heading per due class with its count over all pages. */
+		dueHeadings() {
+			const labels = {
+				overdue: (count) => t('chorestrike', 'Overdue · {count}', { count }),
+				today: (count) => t('chorestrike', 'Due today · {count}', { count }),
+				upcoming: (count) => t('chorestrike', 'Later · {count}', { count }),
+				completed: (count) => t('chorestrike', 'Completed · {count}', { count }),
+			}
+			return Object.fromEntries(groupByDue(this.filteredTasks, this.houseStore.timezone)
+				.map((group) => [group.key, labels[group.key](group.items.length)]))
+		},
+
+		/**
+		 * The grouped list: floors with their rooms (narrowed by the floor
+		 * and room filters), or one section of people.
+		 * @return {object[]} Sections for TaskGroupList.
+		 */
+		sections() {
+			if (this.group === 'person') {
+				const groups = groupByPerson(this.filteredTasks, this.userStore.houseUsers)
+					.map((entry) => ({
+						...entry,
+						key: entry.key === UNASSIGNED ? 'unassigned' : `user:${entry.key}`,
+						label: entry.key === UNASSIGNED ? t('chorestrike', 'Unassigned') : entry.name,
+					}))
+				return groups.length > 0 ? [{ key: 'people', label: '', groups }] : []
+			}
+			const { floor, room } = this.filters
+			const rooms = this.roomsStore.rooms.filter((entry) => (!floor || String(entry.floorId) === floor) && (!room || String(entry.id) === room))
+			return groupByRoom(this.filteredTasks, this.roomsStore.floors, rooms).map((entry) => ({
+				key: entry.floor.id,
+				label: entry.floor.name,
+				open: entry.open,
+				groups: entry.rooms.map((roomGroup) => ({ ...roomGroup, key: roomGroup.room.id, label: roomGroup.room.name })),
+			}))
 		},
 
 		pageCount() {
@@ -340,9 +343,21 @@ export default {
 	},
 
 	watch: {
-		// Browser back/forward between pages keeps the view mounted.
+		// Browser back/forward keeps the view mounted.
 		'route.query.page': function(value) {
 			this.page = pageFromQuery(value)
+		},
+
+		// A link into a grouped list shows everyone's tasks, like the switch.
+		'route.query.group': function(value) {
+			this.group = groupingFromQuery(value)
+			this.showEveryoneWhenGrouped()
+		},
+
+		'route.query.room': function() {
+			if (this.group === 'room') {
+				this.openGroup = openGroupFromQuery(this.route?.query)
+			}
 		},
 	},
 
@@ -352,6 +367,7 @@ export default {
 
 	methods: {
 		t,
+		groupingOptions,
 
 		/**
 		 * Enriched list row; a missing definition gets a neutral placeholder.
@@ -399,6 +415,31 @@ export default {
 			}
 		},
 
+		// The due-class heading of a row, for TaskList.
+		dueSectionLabel(item) {
+			return this.dueHeadings[dueGroupOf(item, this.houseStore.timezone)] ?? ''
+		},
+
+		/**
+		 * Mirror view state in the route query; a null value drops its key.
+		 * The state is already shown, so a failed mirror only loses the deep link.
+		 * @param {object} patch Query keys to set or drop.
+		 */
+		mirrorQuery(patch) {
+			const current = this.route?.query ?? {}
+			const query = { ...current }
+			for (const [key, value] of Object.entries(patch)) {
+				if (value === null) {
+					delete query[key]
+				} else {
+					query[key] = String(value)
+				}
+			}
+			if (Object.keys({ ...current, ...query }).some((key) => query[key] !== current[key])) {
+				this.router?.replace({ query }).catch((error) => logger.warn('Could not mirror the task list in the URL', { view: 'TaskManager', action: 'mirrorQuery', error: error?.message }))
+			}
+		},
+
 		/**
 		 * Show a page and mirror it in `?page=` (omitted for page 1).
 		 * @param {number} page Target page.
@@ -406,41 +447,40 @@ export default {
 		 */
 		goToPage(page, scroll = true) {
 			this.page = page
-			const current = this.route?.query ?? {}
-			const query = { ...current }
-			if (page > 1) {
-				query.page = String(page)
-			} else {
-				delete query.page
-			}
-			if (query.page !== current.page) {
-				// The page is already shown; a failed URL mirror only loses the deep link.
-				this.router?.replace({ query }).catch((error) => logger.warn('Could not mirror the task page in the URL', { view: 'TaskManager', action: 'goToPage', page, error: error?.message }))
-			}
+			this.mirrorQuery({ page: page > 1 ? page : null })
 			if (scroll) {
 				this.$refs.listTop?.scrollIntoView?.({ block: 'start' })
 			}
 		},
 
-		matchesScopeFilter(roomTask, roomIds) {
-			const { scope, person, floor, room } = this.filters
-			const actorId = this.userStore.currentUser?.nextcloudUserId
-			const assignees = roomTask.assignees ?? []
-			// Unknown user (identity not resolved yet): show assigned rows
-			// rather than an empty list, mirroring TodayView.isMine.
-			if (scope === 'mine' && actorId && assignees.length > 0 && !assignees.includes(actorId)) {
-				return false
+		/**
+		 * Switch the grouping. A grouped list starts with everyone's tasks
+		 * and no open group (D-090-41).
+		 * @param {string} group 'due' | 'room' | 'person'.
+		 */
+		setGroup(group) {
+			this.group = group
+			this.openGroup = null
+			this.page = 1
+			this.showEveryoneWhenGrouped()
+			this.mirrorQuery({ group: group === 'due' ? null : group, room: null, page: null })
+		},
+
+		showEveryoneWhenGrouped() {
+			if (this.group !== 'due' && this.filters.scope === 'mine') {
+				this.filters = { ...this.filters, scope: 'all' }
 			}
-			if (scope === 'unassigned' && assignees.length > 0) {
-				return false
+		},
+
+		/**
+		 * Open a group, or close the open one; a room's is mirrored in `?room=`.
+		 * @param {string|number} key Group key.
+		 */
+		toggleGroup(key) {
+			this.openGroup = this.openGroup === key ? null : key
+			if (this.group === 'room') {
+				this.mirrorQuery({ room: this.openGroup })
 			}
-			if (person && !assignees.includes(person)) {
-				return false
-			}
-			if (floor && !roomIds.has(roomTask.roomId)) {
-				return false
-			}
-			return !room || String(roomTask.roomId) === room
 		},
 
 		async initializeTasks() {
@@ -486,6 +526,13 @@ export default {
 			this.showEditTaskModal = true
 		},
 
+		/** A recorded "Last done" stamps the room's "Last cleaned": reread the room facts. */
+		handleDateSaved() {
+			this.dateTask = null
+			// The store logs a failed read; the headings then keep their last values.
+			this.roomsStore.fetchFloorsWithRooms().catch(() => {})
+		},
+
 		handleDeleteTask(roomTaskId) {
 			this.taskToDelete = roomTaskId
 		},
@@ -504,36 +551,6 @@ export default {
 				logger.error('Failed to delete task', error, { view: 'TaskManager', action: 'confirmDeleteTask', roomTaskId })
 			} finally {
 				this.deleting = false
-			}
-		},
-
-		/**
-		 * The atomic creation aggregate (CS-PLAN-063 §3.5): exactly one
-		 * request — on failure the modal stays open with the input preserved
-		 * (no partial success toasts, no orphan definition). The store
-		 * reconciles the aggregate response into the instance and definition
-		 * stores, so no post-create re-fetch is needed (CS-PLAN-067 §3.4:
-		 * aggregate vs. list field equality is pinned by unit tests).
-		 * @param {object} taskData Form payload: definition + roomId + assigneeUserIds + nextDue.
-		 */
-		async handleAddTask(taskData) {
-			const { roomId, assigneeUserIds, nextDue, ...definition } = taskData
-			this.creating = true
-			try {
-				await this.roomTasksStore.createTaskAggregate({
-					roomId,
-					task: definition,
-					assigneeUserIds: assigneeUserIds || [],
-					nextDue: nextDue || null,
-				})
-				showSuccess(t('chorestrike', 'Task created'))
-				this.showAddTaskModal = false
-			} catch (error) {
-				// Recoverable failure: keep the modal open and the input intact.
-				showError(t('chorestrike', 'Failed to create task'))
-				logger.error('Failed to create task', error, { view: 'TaskManager', action: 'handleAddTask', roomId })
-			} finally {
-				this.creating = false
 			}
 		},
 
@@ -630,18 +647,6 @@ export default {
 
 .stat-number.success {
 	color: var(--color-success-text);
-}
-
-.task-pager {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 1rem;
-	margin-block-start: 1rem;
-}
-
-.pager-status {
-	color: var(--color-main-text);
 }
 
 .stat-label {

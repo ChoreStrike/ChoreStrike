@@ -134,7 +134,7 @@ test.describe('Leaderboard Access', () => {
 			await page.goto('/apps/chorestrike/#/today')
 			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 
-			await page.goto('/apps/chorestrike/#/leaderboard')
+			await page.goto('/apps/chorestrike/#/insights')
 			await page.waitForLoadState('networkidle')
 		} finally {
 			await context.close()

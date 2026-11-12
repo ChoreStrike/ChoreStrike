@@ -43,6 +43,15 @@
 
 			<BudgetAnalysis :budget="localBudget" />
 
+			<!-- A failed save is reported here, with the entries kept
+			     (CS-PLAN-090 WP-D): never by replacing the page. -->
+			<p v-if="saveError"
+				class="save-error"
+				role="alert"
+				data-testid="energy-budget-save-error">
+				{{ t('chorestrike', 'Failed to save energy budget') }}
+			</p>
+
 			<div class="save-section">
 				<button
 					class="save-button"
@@ -70,6 +79,7 @@ import { logger } from '../../utils/logger.js'
 const schedulingStore = useSchedulingStore()
 
 const saving = ref(false)
+const saveError = ref(false)
 const localBudget = ref(createDefaultEnergyBudget())
 
 const energyTemplates = [
@@ -138,12 +148,13 @@ async function saveEnergyBudget() {
 	}
 
 	saving.value = true
+	saveError.value = false
 	try {
 		await schedulingStore.saveWeeklyPreferences({ energyBudget: { ...localBudget.value } })
 		showSuccess(t('chorestrike', 'Energy budget saved successfully!'))
 	} catch (error) {
 		logger.error('Failed to save energy budget', error, { component: 'EnergyBudgetSettings', action: 'saveEnergyBudget' })
-		showError(t('chorestrike', 'Failed to save energy budget'))
+		saveError.value = true
 	} finally {
 		saving.value = false
 	}
@@ -159,6 +170,11 @@ watch(() => schedulingStore.energyBudget, () => {
 </script>
 
 <style scoped>
+.save-error {
+	margin: 1rem 0 0;
+	color: var(--color-error-text);
+}
+
 .energy-budget-settings {
 	background: var(--color-main-background);
 	border-radius: 12px;

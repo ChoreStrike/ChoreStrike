@@ -122,12 +122,14 @@ ChoreStrike/
 │   │                           #   + userAutoInit bootstrap plugin
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css,
 │   │                           #   feedback.css (completion feedback of a row)
-│   ├── views/                  # Today (the landing page), Insights, RoomDetail, TaskManager,
-│   │                           #   Leaderboard, Scheduling, Calendar, Settings, Rewards,
+│   ├── views/                  # Today (the landing page), Insights, TaskManager (the one task
+│   │                           #   list: by due date, by room or by person),
+│   │                           #   Scheduling (the weekly plan), Calendar, Settings, Rewards,
 │   │                           #   Arcade, Absence
 │   └── utils/                  # currentUser, dateKeys, icons, roomIcons, logger,
 │                               #   confetti, sound, energyBudgets, todaySections (the
-│                               #   sections of Today as pure functions)
+│                               #   sections of Today as pure functions), taskGrouping and
+│                               #   taskFilters (the groups and filters of the task list)
 ├── l10n/                       # Translations
 │   ├── templates/
 │   │   └── chorestrike.pot     # Translation template
@@ -397,8 +399,9 @@ bar derives its partial-success toast from the diff.
 
 Since CS-PLAN-042 there is exactly **one** UI surface for house structure
 mutations: the Settings structure section (owner-gated rendering; floor
-create/rename/delete/reorder + inline room add/delete). RoomDetail exposes only
-per-room rename/delete in its header. New structure affordances belong in
+create/rename/delete/reorder + inline room add/rename/delete). The room page with
+its rename and delete actions went into the task list (CS-PLAN-090 WP-C), which only
+shows a room's state. New structure affordances belong in
 Settings — do not re-introduce a second editing surface.
 
 ### Response Format
@@ -719,7 +722,8 @@ does not mark that result as ready.
 
 > Plan-failure state is deliberately scoped: `previewPlan`/`applyPlan` never
 > set the shared view-wide `error` (SchedulingView replaces its whole content
-> on that field) — the planner component carries its own status banner and
+> on that field; the own days and energy left that page for *Settings → Planning*,
+> where a failed read or save is reported in place, CS-PLAN-090 WP-D) — the planner component carries its own status banner and
 > toasts (CS-PLAN-065 §3.4). After a committed apply, the store reconciles
 > the returned room tasks into `useRoomTasksStore` caches, refetches the
 > filtered-daily/overdue slices and the cached range window, then emits
@@ -1296,12 +1300,12 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `views/Settings.vue` | 1238 | Settings composition plus the WP5 minimal self-only notification section (the pause blocks moved to `AbsenceView`, ADR-020; the per-category split is CS-PLAN-090 WP-D); the full preference component/redesign stays WP6 | accepted (section-per-concern template breadth; each section is independent UI) |
+| `components/Settings/StructureSettings.vue` | 629 | Floors and rooms, the single surface that edits the house structure, with its dialogs; one category of Settings since the split per category (CS-PLAN-090 WP-D; `Settings.vue` itself has 307 lines, was 1,238) | accepted (one cohesive editing surface; template and CSS dominant) |
+| `components/Insights/RankingPanel.vue` | 609 | The consent-filtered ranking with its medals as a section of Insights (the Leaderboard page it was, CS-PLAN-090 WP-E), with a loading and an error state of its own | accepted (presentational; CSS dominant) |
 | `components/Setup/SetupWizard.vue` | 816 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
-| `views/RoomDetail.vue` | 782 | Room composition root (stats, scoped list, dialogs) — rows carried by shared TaskList units | accepted (composition root) |
-| `views/TodayView.vue` | 582 | The landing page (CS-PLAN-090 WP-B): composes status line, overdue block, due and possible rows; the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |
+| `views/TodayView.vue` | 645 | The landing page (CS-PLAN-090 WP-B): composes status line, overdue block, due and possible rows; the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |
 | `components/Today/TodayTaskRow.vue` | 306 | One row of Today with its execute-only checklist: the task facts, the planned and overdue labels, the completion feedback, scoped CSS | accepted (row surface, like `TaskListItem.vue`) |
-| `components/Tasks/TaskEditForm.vue` | 891 | Unified create/edit form contract (UX-001): field validation surface | accepted (one form contract; field breadth) |
+| `components/Tasks/TaskEditForm.vue` | 1057 | Unified create/edit form contract (UX-001): field validation surface | accepted (one form contract; field breadth) |
 | `components/Tasks/TaskChecklist.vue` | 521 | Checklist surface: lazy discovery, toggles, sub-tasks | accepted (cohesive checklist domain) |
 | `components/Tasks/TaskListItem.vue` | 420 | WP8 row unit: status/content/controls/a11y incl. scoped CSS | accepted (row surface) |
 | `components/Tasks/TaskList.vue` | 357 | WP8 orchestrator: sorting, bulk selection, expansion (was ~1,160) | accepted (orchestrator, extracted units carry the rest) |
@@ -1313,10 +1317,9 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Profile/TitlePicker.vue` | — | Title pack/tier picker — retired with the CS-PLAN-070 WP4 single-series cutover | removed from the inventory (2026-09-27; archived under the gitignored `archive/`) |
 | `components/Minigames/SnakeGame.vue`, `SnakeLeaderboard.vue` | — | Single-game Snake and its board — replaced by the shared game shell (CS-PLAN-086 WP-A) | removed from the inventory (2026-10-17; archived under the gitignored `archive/`) |
 | `components/Minigames/GameShell.vue` | 510 | Shared frame of every arcade game: loop, shell-bound input (directions, taps, a paddle's held keys and pointer), responsive canvas or a game's DOM board, overlays, live region with a game's own end copy, result save, the event effects (sounds through `useGameEffects`, the board's `effectsLayer`, the overlay's Sound/Effects switches; WP-G); the score header lives in `GameShellHeader.vue` | accepted (one frame for all games; ~45 lines scoped CSS) |
-| `views/Leaderboard.vue` | 496 | Consent-filtered ranking surface (opt-in/closed state, entries/pending, provisional week) with the weekly-medal display — no unconditional member ranking, contribution column or freeze indicator (CS-PLAN-070 WP4) | accepted (presentational) |
-| `views/TaskManager.vue` | 596 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
-| `views/CalendarView.vue` | 301 | Calendar composition | accepted (composition root) |
-| `views/InsightsView.vue` | 531 | Insights composition root + the WP3 §3.6 history-correction session (feed action, reused dialog, 409 draft retention) | accepted (composition root) |
+| `views/TaskManager.vue` | 665 | The one task list (CS-PLAN-090 WP-C): composes filter bar, stats bar, grouping switch, the list by due date or the grouped list, and the dialogs; the grouping and filter rules (`utils/taskGrouping.js`, `utils/taskFilters.js`), the grouped list, the pager and the create dialog are extracted units | accepted (composition root) |
+| `views/CalendarView.vue` | 282 | Calendar composition; its header controls are `Tasks/CalendarControls.vue` (CS-PLAN-090 WP-D) | accepted (composition root) |
+| `views/InsightsView.vue` | 545 | Insights composition root (CS-PLAN-090 WP-E: key figures, fairness bars, the ranking section and the activity list; the correction review is `Insights/CorrectionReview.vue`) + the WP3 §3.6 history-correction session (feed action, reused dialog, 409 draft retention) | accepted (composition root) |
 | `store/roomTasks.js` | 1064 | Canonical instance store: projections, generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache; WP3 completion correction actions | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
 | `store/scheduling.js` | 664 | Scheduling state: preferences, capacity/overcapacity getters | accepted (cohesive store) |
 | `store/house.js` | 368 | House state: the house payload with its gates, insights, the activity feed, the reset receipt | accepted (cohesive store) |

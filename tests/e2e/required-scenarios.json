@@ -20,7 +20,7 @@
     "insights-flow.spec.ts > Release: Insights Flow > a concurrent correction requires explicit review before resubmission and history can undo it",
     "insights-flow.spec.ts > Release: Insights Flow > a lost attribution response replays the same correction after a completion refetch",
     "insights-flow.spec.ts > Release: Insights Flow > insights renders stats cards, fairness table, and activity feed",
-    "insights-flow.spec.ts > Release: Insights Flow > navigation exposes the insights entry between leaderboard and scheduling",
+    "insights-flow.spec.ts > Release: Insights Flow > navigation exposes the insights entry",
     "insights-flow.spec.ts > Release: Insights Flow > overcapacity warning appears when a day exceeds its capacity",
     "insights-flow.spec.ts > Release: Insights Flow > owner corrects a recorded work split from the activity history (WP3 §3.6)",
     "insights-flow.spec.ts > Release: Insights Flow > the caller wallet reads its exact minor-unit balance on Today after a reload"
@@ -107,15 +107,17 @@
     "settings.spec.ts > Settings > Reset keeps setup, structure, tasks and history (CS-PLAN-081 H4)",
     "settings.spec.ts > Settings > Settings page has danger zone section",
     "settings.spec.ts > Settings > Settings page loads correctly",
+    "settings.spec.ts > Settings > Settings start with the personal area and every category closed",
+    "settings.spec.ts > Settings > The own reward requests open from the personal settings",
     "settings.spec.ts > Settings > User can open add floor modal",
     "settings.spec.ts > Settings > User can type in house name field",
     "settings.spec.ts > Settings > every select shows its whole value"
   ],
   "room-management.spec.ts": [
     "room-management.spec.ts > Room and Floor Management > Member sees no owner-only structure controls",
-    "room-management.spec.ts > Room and Floor Management > Owner can delete a room from the RoomDetail header",
-    "room-management.spec.ts > Room and Floor Management > Owner can rename a room from the RoomDetail header",
     "room-management.spec.ts > Room and Floor Management > Owner can reorder floors with the up/down buttons",
+    "room-management.spec.ts > Room and Floor Management > Owner deletes a room in Settings and it leaves the task list by room",
+    "room-management.spec.ts > Room and Floor Management > Owner renames a room in Settings and the task list by room shows the new name",
     "room-management.spec.ts > Room and Floor Management > User can add room to a floor via the Settings structure section",
     "room-management.spec.ts > Room and Floor Management > User can create a new floor"
   ],
@@ -242,7 +244,7 @@
     "scheduling.spec.ts > Scheduling UI > can interact with energy slider",
     "scheduling.spec.ts > Scheduling UI > displays the scheduling header",
     "scheduling.spec.ts > Scheduling UI > loads the scheduling view with all sections",
-    "scheduling.spec.ts > Scheduling UI > navigates to scheduling via nav item",
+    "scheduling.spec.ts > Scheduling UI > navigates to the weekly plan through the calendar",
     "scheduling.spec.ts > Scheduling UI > shows availability grid with 7 day slots",
     "scheduling.spec.ts > Scheduling UI > shows energy budget number inputs",
     "scheduling.spec.ts > Scheduling UI > shows energy budget sliders for each day",
@@ -257,9 +259,9 @@
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar shows week navigation controls",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > energy budget settings persist slider changes",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > schedule planner section is accessible",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > scheduling nav item is visible from Today",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > scheduling view loads with calendar section",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the plan preview requires an explicit task selection"
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the plan preview requires an explicit task selection",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the weekly plan opens from the calendar and leads back to it"
   ],
   "availability-settings-flow.spec.ts": [
     "availability-settings-flow.spec.ts > Availability Settings Flow > can adjust energy budget with number input",
@@ -298,13 +300,13 @@
     "calendar.spec.ts > Calendar View > switches to month mode"
   ],
   "core-functionality.spec.ts": [
-    "core-functionality.spec.ts > Core App Functionality > A room page opens by its address and lists its tasks",
     "core-functionality.spec.ts > Core App Functionality > Filters and search work in Task Manager",
-    "core-functionality.spec.ts > Core App Functionality > Leaderboard page loads",
     "core-functionality.spec.ts > Core App Functionality > Navigation between main views works",
     "core-functionality.spec.ts > Core App Functionality > Settings page controls (owner surface) > Settings page loads and displays controls",
     "core-functionality.spec.ts > Core App Functionality > Task Manager loads and displays controls",
     "core-functionality.spec.ts > Core App Functionality > Task completion flow works",
+    "core-functionality.spec.ts > Core App Functionality > The old Leaderboard address opens the ranking in Insights",
+    "core-functionality.spec.ts > Core App Functionality > The old room address opens that room in the task list by room",
     "core-functionality.spec.ts > Core App Functionality > Today loads and displays its basic components"
   ],
   "fast-core-tests.spec.ts": [
@@ -354,11 +356,11 @@
     "private-tasks.spec.ts > Private Tasks > private task shows lock icon in task list",
     "private-tasks.spec.ts > Private Tasks > user can create a private task via the form"
   ],
-  "room-detail.spec.ts": [
-    "room-detail.spec.ts > Room Detail > Room cleanliness value is displayed correctly",
-    "room-detail.spec.ts > Room Detail > Room detail displays room information",
-    "room-detail.spec.ts > Room Detail > User can navigate back to Today from room detail",
-    "room-detail.spec.ts > Room Detail > User can open add task modal"
+  "task-grouping.spec.ts": [
+    "task-grouping.spec.ts > Task grouping > A room heading shows its open tasks and its cleanliness",
+    "task-grouping.spec.ts > Task grouping > Date in an expanded row records the last done day, shown as Last cleaned",
+    "task-grouping.spec.ts > Task grouping > New in a room heading opens the template picker for that room",
+    "task-grouping.spec.ts > Task grouping > The switch groups by room and by person and mirrors the grouping in the address"
   ],
   "self-availability-member.spec.ts": [
     "self-availability-member.spec.ts > Self Availability (member) > hides the owner-only member grid for a non-owner",

@@ -134,7 +134,9 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		$memberAId = $this->houseUserId($houseId, self::MEMBER_A);
 
 		$roomTaskId = $this->seedRoomTaskFixture($houseId, 'Vacuum Activity Room');
-		$this->seedCompletion($roomTaskId, $memberAId, date('Y-m-d H:i:s', time() - 3600), 4);
+		$completionId = $this->seedCompletion($roomTaskId, $memberAId, date('Y-m-d H:i:s', time() - 3600), 4);
+		$walletId = \OC::$server->get(HouseUserMapper::class)->find($memberAId)->getWalletId();
+		$this->seedShare($completionId, $walletId, 1, 400);
 
 		/** @var HouseController $controller */
 		$controller = $this->getController(HouseController::class, self::MEMBER_A);
@@ -160,6 +162,11 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		self::assertSame(3, $item['energyCost']);
 		self::assertArrayNotHasKey('coinsEarned', $item);
 		self::assertNotEmpty($item['completedAt']);
+		// CS-PLAN-090 WP-E: each selected share carries the coins it paid,
+		// frozen at completion, next to its energy.
+		self::assertSame([
+			['userId' => self::MEMBER_A, 'displayName' => self::MEMBER_A, 'sharePct' => 100, 'energyMinor' => 400, 'coinMinor' => 4000],
+		], $item['allocation']);
 	}
 
 	/**
@@ -233,7 +240,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		self::assertNull($viewerRows[0]['taskTitle'], 'invisible task names are redacted');
 		self::assertNull($viewerRows[0]['energyCost'], 'invisible task energy is redacted');
 		self::assertNull($viewerRows[0]['totalEnergy'], 'frozen effort is private task content');
-		self::assertSame([], $viewerRows[0]['allocation'], 'private participant identities and shares are redacted');
+		self::assertSame([], $viewerRows[0]['allocation'], 'private participant identities, shares and the coins they paid are redacted');
 		self::assertFalse($viewerRows[0]['canCorrect']);
 		self::assertSame(self::MEMBER_A, $viewerRows[0]['displayName']);
 
@@ -253,6 +260,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		self::assertSame(12, $creatorRows[0]['totalEnergy']);
 		self::assertSame(self::MEMBER_A, $creatorRows[0]['allocation'][0]['userId']);
 		self::assertSame(100, $creatorRows[0]['allocation'][0]['sharePct']);
+		self::assertSame(12000, $creatorRows[0]['allocation'][0]['coinMinor']);
 	}
 
 	/**

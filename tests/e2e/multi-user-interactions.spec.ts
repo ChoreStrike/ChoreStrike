@@ -21,6 +21,7 @@ import type { DatabaseProfile } from './fixtures/database-fixtures.ts'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
+import { openRanking } from './fixtures/insights.ts'
 import { listRooms, openRoom, openToday } from './fixtures/rooms.ts'
 
 test.describe('Multi-User Family Interactions', () => {
@@ -75,8 +76,7 @@ test.describe('Multi-User Family Interactions', () => {
 			await page.goto('/apps/chorestrike/#/today')
 			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 
-			await page.getByTestId('nav-leaderboard').click()
-			await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })
+			await openRanking(page)
 
 			// The family seed leaves the ranking flag off: the opt-in/closed
 			// state shows and no unconditional member ranking renders.
@@ -167,8 +167,7 @@ test.describe('Multi-User Task Interactions', () => {
 
 			await expect(page.getByTestId('today-status-line')).toBeVisible()
 
-			await page.getByTestId('nav-leaderboard').click()
-			await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })
+			await openRanking(page)
 
 			// Without consent the completion never surfaces in a ranking —
 			// the opt-in state stays.

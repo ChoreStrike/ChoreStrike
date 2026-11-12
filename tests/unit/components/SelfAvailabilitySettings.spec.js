@@ -126,7 +126,7 @@ describe('SelfAvailabilitySettings', () => {
 		expect(wrapper.find('[data-testid="self-availability-monday"]').attributes('disabled')).toBeUndefined()
 	})
 
-	it('shows an error toast and keeps local edits on API failure', async () => {
+	it('reports a failed save at the form, keeps local edits and clears the note on the next save (CS-PLAN-090 WP-D)', async () => {
 		api.put.mockRejectedValueOnce(new Error('network down'))
 		const wrapper = mountComponent()
 
@@ -135,11 +135,17 @@ describe('SelfAvailabilitySettings', () => {
 		await flushPromises()
 
 		expect(api.put).toHaveBeenCalledTimes(1)
-		expect(showError).toHaveBeenCalled()
+		expect(showError).not.toHaveBeenCalled()
+		expect(wrapper.get('[data-testid="self-availability-save-error"]').attributes('role')).toBe('alert')
 		// Store state must not be corrupted by the failed call.
 		expect(store.weekdayAvailability.wednesday).toBe(true)
 		// Local edit survives so the user can retry.
 		expect(wrapper.find('[data-testid="self-availability-wednesday"]').element.checked).toBe(false)
+
+		api.put.mockResolvedValueOnce({})
+		await wrapper.find('[data-testid="save-self-availability-button"]').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="self-availability-save-error"]').exists()).toBe(false)
 	})
 
 	it('cancel reverts local edits to the store state', async () => {

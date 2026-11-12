@@ -209,6 +209,18 @@ export function dueText(roomTask, timezone) {
 }
 
 /**
+ * The groupings of the task list, for its switch.
+ * @return {Array<{value: string, label: string}>}
+ */
+export function groupingOptions() {
+	return [
+		{ value: 'due', label: t('chorestrike', 'By due date') },
+		{ value: 'room', label: t('chorestrike', 'By room') },
+		{ value: 'person', label: t('chorestrike', 'By person') },
+	]
+}
+
+/**
  * List order for enriched rows: earliest due date first (rows without a due
  * date last), then higher priority first. Shared by TaskList and the paged
  * TaskManager list so a page always holds the next rows of the visible order.

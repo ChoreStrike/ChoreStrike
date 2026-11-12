@@ -14,8 +14,6 @@ jest.mock('@nextcloud/router', () => ({
 
 jest.mock('../../src/views/TodayView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/TaskManager.vue', () => ({ default: {} }))
-jest.mock('../../src/views/RoomDetail.vue', () => ({ default: {} }))
-jest.mock('../../src/views/Leaderboard.vue', () => ({ default: {} }))
 jest.mock('../../src/views/InsightsView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/ArcadeView.vue', () => ({ default: {} }))
 jest.mock('../../src/views/AbsenceView.vue', () => ({ default: {} }))
@@ -38,6 +36,26 @@ describe('router routes (CS-PLAN-070 WP6)', () => {
 		expect(dashboard.redirect).toEqual({ name: 'today' })
 		expect(dashboard.component).toBeUndefined()
 		expect(routes.some(route => route.name === 'dashboard')).toBe(false)
+	})
+
+	// CS-PLAN-090 WP-C and WP-E: the room page and the Leaderboard went into
+	// the task list and Insights; their addresses keep working.
+	it('redirects a room address to that room in the task list by room', () => {
+		const room = routes.find(route => route.path === '/room/:id')
+		expect(room.component).toBeUndefined()
+		expect(room.redirect({ params: { id: '42' } })).toEqual({ name: 'tasks', query: { group: 'room', room: '42' } })
+	})
+
+	it('redirects the old Leaderboard address to the ranking section of Insights', () => {
+		const leaderboard = routes.find(route => route.path === '/leaderboard')
+		expect(leaderboard.component).toBeUndefined()
+		expect(leaderboard.redirect).toEqual({ name: 'insights', hash: '#ranking' })
+		expect(routes.some(route => route.name === 'leaderboard' || route.name === 'room')).toBe(false)
+	})
+
+	it('keeps the weekly plan and the own reward requests on their addresses, without a navigation entry', () => {
+		expect(routes.find(route => route.name === 'scheduling').path).toBe('/scheduling')
+		expect(routes.find(route => route.name === 'reward-requests').path).toBe('/reward-requests')
 	})
 
 	it('exposes the gated arcade surface on its own path (Q-077-05 A)', () => {

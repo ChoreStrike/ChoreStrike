@@ -150,6 +150,7 @@ class ActivityServiceTest extends TestCase {
 		$share->setWalletId(77);
 		$share->setSharePct(100);
 		$share->setEnergyMinor(300);
+		$share->setCoinMinor(3000);
 
 		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([$c1, $c2]);
 		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(2);
@@ -178,7 +179,7 @@ class ActivityServiceTest extends TestCase {
 		// WP3: frozen work facts instead of reward outputs.
 		self::assertSame(3, $first['totalEnergy']);
 		self::assertSame([
-			['userId' => 'alice', 'displayName' => 'Alice', 'sharePct' => 100, 'energyMinor' => 300],
+			['userId' => 'alice', 'displayName' => 'Alice', 'sharePct' => 100, 'energyMinor' => 300, 'coinMinor' => 3000],
 		], $first['allocation']);
 
 		self::assertSame('Bob', $result['completions'][1]['displayName']);
@@ -346,6 +347,7 @@ class ActivityServiceTest extends TestCase {
 		$share->setWalletId(77);
 		$share->setSharePct(100);
 		$share->setEnergyMinor(1200);
+		$share->setCoinMinor(12000);
 
 		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([$completion]);
 		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(1);
@@ -368,7 +370,7 @@ class ActivityServiceTest extends TestCase {
 		self::assertNull($item['taskTitle'], 'invisible task names are redacted');
 		self::assertNull($item['energyCost'], 'invisible task energy is redacted');
 		self::assertNull($item['totalEnergy'], 'frozen effort is private task content');
-		self::assertSame([], $item['allocation'], 'selected participants and shares must not leak');
+		self::assertSame([], $item['allocation'], 'selected participants, shares and coins must not leak');
 		self::assertFalse($item['canCorrect']);
 		self::assertSame('Kitchen', $item['roomName'], 'rooms are structural and stay visible');
 
@@ -386,6 +388,7 @@ class ActivityServiceTest extends TestCase {
 		self::assertSame(12, $creatorItem['totalEnergy']);
 		self::assertSame('alice', $creatorItem['allocation'][0]['userId']);
 		self::assertSame(100, $creatorItem['allocation'][0]['sharePct']);
+		self::assertSame(12000, $creatorItem['allocation'][0]['coinMinor']);
 		self::assertTrue($creatorItem['canCorrect']);
 	}
 

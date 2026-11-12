@@ -53,8 +53,9 @@ a second look.
 - [ ] Present two or three variants to the operator (for example presets as
       quick-fill inside the Schedule section; room and assignees first; advanced
       fields collapsed) and record the choice as a decision before coding.
-- [ ] Implement the chosen layout once for both entry points (`TaskManager`,
-      `RoomDetail`), keeping the `data-testid` hooks the Playwright specs use.
+- [ ] Implement the chosen layout once for both entry points (*New Task* and *New*
+      in a room heading, both in `TaskCreateDialog` since CS-PLAN-090 WP-C), keeping
+      the `data-testid` hooks the Playwright specs use.
 - [ ] Tests: Jest form specs and the affected browser scenarios updated.
 
 **Folded in 2026-10-26 (operator):** New Task and Edit Task should share one
@@ -216,8 +217,9 @@ itself stays visible in the app.
 the stores, but a room-task or definition read that was already in flight keeps its
 generation and replaces the list when it lands, without the new row. The gate showed it once
 on a cold server: a task created right after a room page opened was missing from the room's
-list. The room page now offers no creation while it loads, as the task manager already did,
-so no surface triggers it today. The store rule itself, that an accepted mutation supersedes
+list. That page offered no creation while it loaded from then on, and went with
+CS-PLAN-090 WP-C; the task list never offered creation before its first read. So no surface
+triggers it today. The store rule itself, that an accepted mutation supersedes
 earlier reads of its slice, is not applied to creations, and a superseded initial read must be
 repeated, not only dropped.
 
@@ -243,12 +245,12 @@ holds its row markup twice.
 
 Implemented 2026-11-11 (`TodayView.vue` at 645 lines; the floor list and the room cards left
 with the Dashboard, D-090-33); interim Standard B `PASS-WITH-FIXES` the same day. Until WP-C a
-room page opens by its address only (RF-090-14).
+room page opened by its address only (RF-090-14, closed by WP-C).
 
 ---
 
 ### [P1] FEAT-UX-063 — Tasks grouped by due date, room or person; the room page goes
-**Status**: In Progress (Release A, CS-PLAN-090 WP-C; CONCEPT-002) · **Effort**: L · **Layer**: frontend · **Journey stage**: task overview
+**Status**: In Progress (Release A, CS-PLAN-090 WP-C implemented 2026-11-11, interim Standard B `PASS-WITH-FIXES` 2026-11-12 with WP-C to WP-E; CONCEPT-002) · **Effort**: L · **Layer**: frontend · **Journey stage**: task overview
 **Owning**: CS-PLAN-090 WP-C · **Depends on**: FEAT-UX-062 · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback at the close of the family trial (2026-11-09), confirmed with the mockups (2026-11-10)
 
@@ -257,15 +259,21 @@ counts and a small cleanliness percentage (D-090-19). The separate room page and
 cards go. The template picker and the dialog for
 the due date and *Last done* exist only on the room page today and need a new home.
 
-- [ ] The list groups by due date, by room and by person; the choice is part of the URL.
-- [ ] `/room/:id` redirects to the task list with that room open.
-- [ ] Template picker, due date, *Last done* and *Last cleaned* are reachable from the list.
-- [ ] One house-wide read feeds every grouping.
+- [x] The list groups by due date, by room and by person; the choice is part of the URL.
+- [x] `/room/:id` redirects to the task list with that room open.
+- [x] Template picker, due date, *Last done* and *Last cleaned* are reachable from the list.
+- [x] One house-wide read feeds every grouping.
+
+Implemented 2026-11-11 (`TaskManager.vue` at 658 lines; the grouping and filter rules are pure
+functions, the grouped list, the pager and the create dialog components of their own; 665
+lines with the shared switch of WP-D). The
+room page, its statistics card and its rename and delete actions are gone; rename and delete
+stay in Settings. Interim Standard B `PASS-WITH-FIXES` on 2026-11-12, one review for WP-C to WP-E.
 
 ---
 
 ### [P2] FEAT-UX-064 — Navigation with eight entries
-**Status**: In Progress (Release A, CS-PLAN-090 WP-D; CONCEPT-002) · **Effort**: M · **Layer**: frontend · **Journey stage**: every view
+**Status**: In Progress (Release A, CS-PLAN-090 WP-D implemented 2026-11-12, interim Standard B `PASS-WITH-FIXES` 2026-11-12 with WP-C to WP-E; CONCEPT-002) · **Effort**: M · **Layer**: frontend · **Journey stage**: every view
 **Owning**: CS-PLAN-090 WP-D · **Depends on**: FEAT-UX-062, FEAT-UX-063 · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback at the close of the family trial (2026-11-09), confirmed with the mockups (2026-11-10)
 
@@ -274,8 +282,13 @@ entries. The ranking moves into Insights, the planning settings into Settings an
 under Rewards. The owner's weekly plan keeps its page until the live suggestion replaces it and
 is reached from the calendar.
 
-- [ ] Eight entries plus Help; the old addresses redirect.
-- [ ] Everything a role could reach before stays reachable, with either reward gate closed too.
+- [x] Eight entries plus Help; the old addresses redirect.
+- [x] Everything a role could reach before stays reachable, with either reward gate closed too.
+
+Implemented 2026-11-12: `/room/:id` and `/leaderboard` redirect, `/dashboard` did since WP-B;
+the weekly plan opens from the calendar header for every role, the own days and energy are in
+*Settings → Planning*, and *My Requests* opens from Rewards and from the personal settings.
+Interim Standard B `PASS-WITH-FIXES` on 2026-11-12, one review for WP-C to WP-E.
 
 ---
 
@@ -302,7 +315,7 @@ cannot remove an absence that has not started. No schema change is needed.
 ---
 
 ### [P2] FEAT-UX-066 — Dense Insights with the ranking and a single-line activity list
-**Status**: In Progress (Release A, CS-PLAN-090 WP-E; CONCEPT-002) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: review and correction
+**Status**: In Progress (Release A, CS-PLAN-090 WP-E implemented 2026-11-12, interim Standard B `PASS-WITH-FIXES` 2026-11-12 with WP-C to WP-E; CONCEPT-002) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: review and correction
 **Owning**: CS-PLAN-090 WP-E · **Depends on**: FEAT-UX-064 · **Blocks**: — · **Folded-in**: —
 **Source**: Operator feedback at the close of the family trial (2026-11-09)
 
@@ -311,9 +324,15 @@ figures, compact fairness bars, the ranking and one line per activity with the c
 The activity endpoint does not return coins today, although the API reference shows them.
 Absences and date changes join the list in Release B, when those events exist.
 
-- [ ] One line per entry, grouped by day; corrections stay reachable from the row.
-- [ ] The endpoint returns `coinMinor` under the existing redaction; the API reference matches.
-- [ ] The ranking is a section of Insights with an error state of its own.
+- [x] One line per entry, grouped by day; corrections stay reachable from the row.
+- [x] The endpoint returns `coinMinor` under the existing redaction; the API reference matches.
+- [x] The ranking is a section of Insights with an error state of its own.
+
+Implemented 2026-11-12. The four key figures are house health and three room figures from the
+existing house read (D-090-52); the task figures of the mockup need data this release does not
+read, which the GUI review decides on.
+Interim Standard B `PASS-WITH-FIXES` on 2026-11-12, one review for WP-C to WP-E. The old
+Leaderboard address brings the ranking into view (RF-090-24).
 
 ---
 
@@ -653,7 +672,7 @@ purpose (D-089-04): a filter in the Tasks list and an evaluation in the statisti
 ---
 
 ### [P3] FEAT-UX-054 — Personal and household settings structure
-**Status**: In Progress (Release A, CS-PLAN-090 WP-D; included by operator decision D-090-18) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
+**Status**: In Progress (Release A, CS-PLAN-090 WP-D implemented 2026-11-12, interim Standard B `PASS-WITH-FIXES` 2026-11-12 with WP-C to WP-E; included by operator decision D-090-18) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
 **Owning**: CS-PLAN-090 WP-D · **Depends on**: — · **Blocks**: — · **Folded-in**: the planning settings move into a personal category (operator, 2026-11-09, CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-1, S-2, S-3, S-5
 
@@ -666,9 +685,14 @@ three, which get unwieldy on a phone: a switch *Personal | Household* on top, ca
 below. Non-owners see only *Personal*. `Settings.vue` has 1440 lines against the ~300
 guideline and is split per category along the way.
 
-- [ ] Structure shown as a mockup first.
-- [ ] Browser specs open collapsed categories through one helper; help links open
-      their target category.
+- [x] Structure shown as a mockup first (a text sketch in the session, operator's choice
+      of "all closed" on 2026-11-11, D-090-47).
+- [x] Browser specs open collapsed categories through one helper
+      (`tests/e2e/fixtures/settings.ts`); `?category=` opens a target category. The help has
+      no link into Settings today.
+
+Implemented 2026-11-12: `Settings.vue` has 307 lines and one component per category.
+Interim Standard B `PASS-WITH-FIXES` on 2026-11-12, one review for WP-C to WP-E.
 
 ---
 
@@ -817,7 +841,7 @@ vibration motor.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs; 2026-10-20 CS-PLAN-088 WP-B gates: three full primary-row gates and one AIO-row gate each lost one to three required scenarios (`settings`, `mobile-core` handover, `calm-core-ui`, `release-task-lifecycle`) to seed/API `fetch failed` before any assertion, with no Apache error, OOM or restart and a foreign Testcontainers run active on the shared Docker host; every one passes in isolation. Two non-transport scenarios failed once and passed in isolation too (`mobile-core` webkit navigation to Settings, `arcade-mobile` Crumb Snake reaching *over* before the steer), also unattributed; 2026-11-10 CS-PLAN-090 WP-A interim gate `run-YXOhYK` (primary row): `mobile-core` webkit "dashboard tiles lead to their targets" did not see Today within 5 s of the tile tap, while the failure screenshot shows Today rendered; `mobile-chromium` passed the same scenario, no WP-A code is on its path, and the next complete gate `run-G53HP8` passed, so it stays unattributed
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs; 2026-10-20 CS-PLAN-088 WP-B gates: three full primary-row gates and one AIO-row gate each lost one to three required scenarios (`settings`, `mobile-core` handover, `calm-core-ui`, `release-task-lifecycle`) to seed/API `fetch failed` before any assertion, with no Apache error, OOM or restart and a foreign Testcontainers run active on the shared Docker host; every one passes in isolation. Two non-transport scenarios failed once and passed in isolation too (`mobile-core` webkit navigation to Settings, `arcade-mobile` Crumb Snake reaching *over* before the steer), also unattributed; 2026-11-10 CS-PLAN-090 WP-A interim gate `run-YXOhYK` (primary row): `mobile-core` webkit "dashboard tiles lead to their targets" did not see Today within 5 s of the tile tap, while the failure screenshot shows Today rendered; `mobile-chromium` passed the same scenario, no WP-A code is on its path, and the next complete gate `run-G53HP8` passed, so it stays unattributed; 2026-11-11 CS-PLAN-090 WP-C full gate `run-B7GTOA`: seed POST of `validation.spec.ts` closed ("other side closed") before any assertion, eight tests skipped behind it, the other four projects passed (see the review findings of CS-PLAN-090)
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel
@@ -1219,6 +1243,29 @@ unverified. A silent exit 0 would let its integration job pass without running a
 - [ ] The suite is run once from a Linux checkout; the result is recorded.
 - [ ] If it does not load there: the classes resolve on a case-sensitive file system, and the
       job fails when PHPUnit runs no test.
+
+---
+
+### [P3] TECH-TEST-013 — The wallet banner of Rewards moves the catalog while it loads
+**Status**: Backlog · **Effort**: S · **Layer**: frontend+tests · **Journey stage**: rewards
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-090 WP-C to WP-E, AIO browser gate `run-blNRHT`, 2026-11-12
+
+`Rewards.vue` renders the catalog when `GET /rewards` answers and the wallet banner above it
+when `GET /game/state` answers; both start together and either can come first. When the
+wallet comes second, the banner pushes the *Request* buttons down by its height. In
+`family-rewards.spec.ts` ("mobile targets, keyboard operation and real EN/DE copy work",
+`chromium-serial-db`, 390 px) the tap on *Request* came about 70 ms after the button appeared
+and in the frame the wallet answered: the trace shows the tap performed, no confirmation
+opened, and the final screenshot shows the banner where the button had been. The scenario
+passed in each of the 12 earlier gate runs kept locally and in the primary row of the same review; the
+view and that step are older than the review. A person tapping during the load can hit the
+banner the same way.
+
+- [ ] The catalog does not move when the wallet arrives (its place is held, or the list waits
+      for both reads), with a Jest case.
+- [ ] The scenario waits for the wallet before it taps, or proves that the layout no longer
+      moves.
 
 ---
 

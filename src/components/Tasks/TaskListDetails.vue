@@ -20,6 +20,16 @@
 				data-testid="assignee-refusal">
 				{{ assigneeRefusal }}
 			</p>
+			<!-- Due date and "Last done" (CS-PLAN-090 D-090-12): the dialog the
+			     room page opened, now one step behind the expanded row. -->
+			<button
+				v-if="item.roomTask.isActive"
+				type="button"
+				class="agreement-button date-button"
+				data-testid="task-date-button"
+				@click="$emit('editDate', item.roomTask)">
+				{{ t('chorestrike', 'Date') }}
+			</button>
 		</div>
 
 		<!-- Essential onboarding slice (WP8 §3.6): how actual work
@@ -227,7 +237,7 @@ export default {
 		},
 	},
 
-	emits: ['toggleAssignee'],
+	emits: ['toggleAssignee', 'editDate'],
 
 	setup(props, { emit }) {
 		const checklistStore = useChecklistStore()
@@ -463,6 +473,10 @@ export default {
 	font-size: 0.85rem;
 	font-weight: 600;
 	color: var(--color-main-text);
+}
+
+.date-button {
+	margin-block-start: 0.75rem;
 }
 
 .agreements {

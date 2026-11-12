@@ -8,7 +8,7 @@
  * view headings. Measured in a real browser at a docked-navigation desktop
  * width and a phone width; read-only on the `family` seed. At phone width no
  * routed view may scroll sideways (UX-018: the Insights fairness table and
- * the room detail grid did). The Dashboard's house-health bar and its
+ * the grid of the former room page did). The Dashboard's house-health bar and its
  * layout check went with the Dashboard (CS-PLAN-090 WP-B); Today's status
  * line takes its place here.
  *
@@ -94,8 +94,7 @@ test.describe('Layout clearance', () => {
 				const views: Array<{ path: string, ready: string, content?: string }> = [
 					{ path: '#/today', ready: 'today-view' },
 					{ path: '#/tasks', ready: 'task-manager-view' },
-					{ path: `#/room/${await firstRoomId(page)}`, ready: 'room-detail-view', content: 'room-task-list' },
-					{ path: '#/leaderboard', ready: 'leaderboard-view' },
+					{ path: `#/tasks?group=room&room=${await firstRoomId(page)}`, ready: 'task-manager-view', content: 'room-task-list' },
 					{ path: '#/insights', ready: 'insights-view', content: 'member-fairness-table' },
 					{ path: '#/arcade', ready: 'arcade-view' },
 					{ path: '#/scheduling', ready: 'scheduling-view' },
@@ -157,9 +156,12 @@ test.describe('Layout clearance', () => {
 		test(`the app frame keeps its margins and a long view stays reachable (${viewport.name})`, async ({ browser }) => {
 			const { context, page } = await createUserContext(browser, USER, { viewport })
 			try {
-				await page.goto('/apps/chorestrike/#/settings')
+				// A long view: the notification preferences are taller than
+				// the frame, and the categories start closed (FEAT-UX-054).
+				await page.goto('/apps/chorestrike/#/settings?category=notifications')
 				const root = page.getByTestId('settings-view')
 				await expect(root).toBeVisible({ timeout: 20000 })
+				await expect(page.getByTestId('notification-preferences')).toBeVisible({ timeout: 20000 })
 				await page.waitForLoadState('networkidle')
 
 				const frame = await boxOf(page.locator('#content-vue'))
@@ -168,12 +170,15 @@ test.describe('Layout clearance', () => {
 				expect(viewport.height - frame.bottom, 'the bottom margin equals the left one').toBe(frame.left)
 				expect(frame.top, 'the frame starts under the header').toBe(header.bottom)
 
-				// The last section can be taller than the frame (a member's
-				// Settings end with the notification preferences since
-				// ADR-020), so its END is aligned with the scroller's end.
-				const end = root.locator('.settings-section').last()
+				// The view ends with the link to the own requests, below the
+				// open category: its END is aligned with the scroller's end.
+				const end = root.getByTestId('settings-open-requests')
 				await end.evaluate((element) => element.scrollIntoView({ block: 'end', behavior: 'instant' }))
-				expect((await boxOf(end)).bottom, 'the end of the view scrolls into the frame').toBeLessThanOrEqual(frame.bottom)
+				// The scroll position is a whole pixel while the boxes above
+				// the link are not, so its end may sit a fraction of a pixel
+				// low (844.375 against 844 on the phone); a clipped frame
+				// (BUG-UX-009) is off by the frame's whole margin.
+				expect(Math.floor((await boxOf(end)).bottom), 'the end of the view scrolls into the frame').toBeLessThanOrEqual(frame.bottom)
 			} finally {
 				await context.close()
 			}

@@ -21,6 +21,7 @@ import { createUserContext } from './fixtures/auth-contexts.ts'
 import { completeAsSoleParticipantViaApi, newCommandId } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { runOcc } from './fixtures/occ-runner.ts'
+import { expectOwnRequestsLink } from './fixtures/settings.ts'
 
 const API = '/apps/chorestrike/api/v1'
 
@@ -156,9 +157,10 @@ test.describe('Reward UI and onboarding (CS-PLAN-070 WP8)', () => {
 				await expect(session.page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
 				await session.page.goto('/apps/chorestrike/#/scheduling')
 				await expect(session.page.getByTestId('scheduling-view')).toBeVisible({ timeout: 30000 })
-				// No catalog entry; the request surface is persistent.
+				// No catalog entry; the own requests stay reachable through
+				// the personal settings (CS-PLAN-090 WP-D).
 				await expect(session.page.getByTestId('nav-rewards')).toHaveCount(0)
-				await expect(session.page.getByTestId('nav-reward-requests')).toBeVisible()
+				await expectOwnRequestsLink(session.page)
 			}
 
 			// A direct entry while hidden shows the neutral explanation.
@@ -176,7 +178,7 @@ test.describe('Reward UI and onboarding (CS-PLAN-070 WP8)', () => {
 
 			// The personal opt-out wins over the house gate: teen hides the
 			// catalog in the own notification settings…
-			await teen.page.goto('/apps/chorestrike/#/settings')
+			await teen.page.goto('/apps/chorestrike/#/settings?category=notifications')
 			const catalogSwitch = teen.page.getByTestId('catalog-visible-switch')
 			await expect(catalogSwitch).toBeChecked()
 			await teen.page.getByText('Show the reward catalog', { exact: true }).click()
@@ -186,11 +188,11 @@ test.describe('Reward UI and onboarding (CS-PLAN-070 WP8)', () => {
 			// …and the navigation entry disappears immediately — while My
 			// Requests stays and the owner still sees the catalog.
 			await expect(teen.page.getByTestId('nav-rewards')).toHaveCount(0, { timeout: 15000 })
-			await expect(teen.page.getByTestId('nav-reward-requests')).toBeVisible()
+			await expectOwnRequestsLink(teen.page)
 			await expect(owner.page.getByTestId('nav-rewards')).toBeVisible()
 
 			// Personal opt-in restores browsing for teen.
-			await teen.page.goto('/apps/chorestrike/#/settings')
+			await teen.page.goto('/apps/chorestrike/#/settings?category=notifications')
 			await teen.page.getByText('Show the reward catalog', { exact: true }).click()
 			await teen.page.getByTestId('save-preferences').click()
 			await teen.page.goto('/apps/chorestrike/#/today')
@@ -211,7 +213,7 @@ test.describe('Reward UI and onboarding (CS-PLAN-070 WP8)', () => {
 		const member = await createUserContext(browser, 'grandma')
 		try {
 			// The gate stays OFF: owner administration must not depend on it.
-			await owner.page.goto('/apps/chorestrike/#/settings')
+			await owner.page.goto('/apps/chorestrike/#/settings?category=rewards')
 			const catalogSection = owner.page.getByTestId('catalog-section')
 			await expect(catalogSection).toBeVisible({ timeout: 30000 })
 
@@ -703,8 +705,7 @@ test.describe('Reward UI and onboarding (CS-PLAN-070 WP8)', () => {
 			try {
 				const german = await createUserContext(browser, 'teen')
 				try {
-					await german.page.goto('/apps/chorestrike/')
-					await expect(german.page.getByTestId('nav-reward-requests')).toContainText('Meine Anfragen')
+					await expectOwnRequestsLink(german.page, 'Meine Anfragen')
 					await german.page.goto('/apps/chorestrike/#/reward-requests')
 					await expect(german.page.getByTestId(`request-row-${picnicId}`)).toContainText('Wartet auf Freigabe')
 					await expect(german.page.getByTestId('help-context-catalog')).toBeVisible()

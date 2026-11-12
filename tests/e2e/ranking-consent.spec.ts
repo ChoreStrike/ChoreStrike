@@ -34,7 +34,7 @@ test.describe('Ranking Consent Lifecycle (WP4)', () => {
 			const member = await createUserContext(browser, 'dad')
 			try {
 				await member.page.goto('/apps/chorestrike/#/leaderboard')
-				await expect(member.page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })
+				await expect(member.page.getByTestId('ranking-panel')).toBeVisible({ timeout: 30000 })
 
 				// Unconsented: opt-in hint, no ranked entries.
 				await expect(member.page.getByTestId('ranking-optin-hint')).toBeVisible({ timeout: 15000 })

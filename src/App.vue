@@ -15,6 +15,10 @@
 
 		<template v-else>
 			<NcAppNavigation>
+				<!-- Eight entries plus Help (CS-PLAN-090 WP-D). The ranking is a
+				     section of Insights, the planning settings are in Settings,
+				     the weekly plan opens from the calendar, and the own reward
+				     requests from Rewards and from the personal settings. -->
 				<NcAppNavigationItem
 					:to="{ name: 'today' }"
 					data-testid="nav-today"
@@ -32,11 +36,11 @@
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					:to="{ name: 'leaderboard' }"
-					data-testid="nav-leaderboard"
-					:name="t('chorestrike', 'Leaderboard')">
+					:to="{ name: 'calendar' }"
+					data-testid="nav-calendar"
+					:name="t('chorestrike', 'Calendar')">
 					<template #icon>
-						<Icon name="Trophy" />
+						<Icon name="Calendar" />
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
@@ -48,39 +52,11 @@
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem
-					:to="{ name: 'scheduling' }"
-					data-testid="nav-scheduling"
-					:name="t('chorestrike', 'Scheduling')">
-					<template #icon>
-						<Icon name="CalendarWorkWeek" />
-					</template>
-				</NcAppNavigationItem>
-				<NcAppNavigationItem
-					:to="{ name: 'calendar' }"
-					data-testid="nav-calendar"
-					:name="t('chorestrike', 'Calendar')">
-					<template #icon>
-						<Icon name="Calendar" />
-					</template>
-				</NcAppNavigationItem>
-				<NcAppNavigationItem
 					:to="{ name: 'absence' }"
 					data-testid="nav-absence"
 					:name="t('chorestrike', 'Absence')">
 					<template #icon>
 						<Icon name="Luggage" />
-					</template>
-				</NcAppNavigationItem>
-				<!-- Optional-area gating (C5h, Q-077-05): the opt-in arcade
-				     surface disappears from the navigation entirely while the
-				     personal arcadeVisible preference is off. -->
-				<NcAppNavigationItem
-					v-if="arcadeVisible"
-					:to="{ name: 'arcade' }"
-					data-testid="nav-arcade"
-					:name="t('chorestrike', 'Arcade')">
-					<template #icon>
-						<Icon name="Gamepad2" />
 					</template>
 				</NcAppNavigationItem>
 				<!-- Reward catalog (WP8 §3.1): optional browsing behind BOTH
@@ -98,15 +74,16 @@
 						<Icon name="Gift" />
 					</template>
 				</NcAppNavigationItem>
-				<!-- Own reward requests: ONE persistent entry, independent of
-			     BOTH catalog gates and the request count — hiding or
-			     disabling browsing never strands existing promises. -->
+				<!-- Optional-area gating (C5h, Q-077-05): the opt-in arcade
+				     surface disappears from the navigation entirely while the
+				     personal arcadeVisible preference is off. -->
 				<NcAppNavigationItem
-					:to="{ name: 'reward-requests' }"
-					data-testid="nav-reward-requests"
-					:name="t('chorestrike', 'My Requests')">
+					v-if="arcadeVisible"
+					:to="{ name: 'arcade' }"
+					data-testid="nav-arcade"
+					:name="t('chorestrike', 'Arcade')">
 					<template #icon>
-						<Icon name="TicketDiagonal" />
+						<Icon name="Gamepad2" />
 					</template>
 				</NcAppNavigationItem>
 				<NcAppNavigationItem

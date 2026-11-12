@@ -17,6 +17,13 @@ jest.mock('../../../src/services/api.js', () => ({
 	},
 }))
 
+// The ranking section has its own spec (RankingPanel.spec.js) and its own
+// reads; here it is only hosted.
+jest.mock('../../../src/components/Insights/RankingPanel.vue', () => ({
+	name: 'RankingPanel',
+	template: '<div data-testid="ranking-panel-stub" />',
+}))
+
 jest.mock('@nextcloud/dialogs', () => ({
 	showError: jest.fn(),
 	showSuccess: jest.fn(),
@@ -90,6 +97,14 @@ describe('InsightsView.vue', () => {
 		})
 	})
 
+	// Corrections sit behind a tap on the activity line (CS-PLAN-090 WP-E).
+	const openActivity = async (wrapper, id) => {
+		const row = wrapper.find(`[data-testid="activity-row-${id}"]`)
+		if (row.exists() && row.attributes('aria-expanded') !== 'true') {
+			await row.trigger('click')
+		}
+	}
+
 	const mountView = async () => {
 		const wrapper = mount(InsightsView)
 		await flushPromises()
@@ -153,20 +168,18 @@ describe('InsightsView.vue', () => {
 	it('renders house stats cards with values', async () => {
 		const wrapper = await mountView()
 
-		expect(wrapper.find('[data-testid="stat-total-rooms"]').text()).toContain('6')
-		expect(wrapper.find('[data-testid="stat-clean-rooms"]').text()).toContain('4')
+		expect(wrapper.find('[data-testid="stat-clean-rooms"]').text()).toContain('4 / 6')
 		expect(wrapper.find('[data-testid="stat-dirty-rooms"]').text()).toContain('2')
 		expect(wrapper.find('[data-testid="stat-needing-cleaning"]').text()).toContain('1')
 		expect(wrapper.find('[data-testid="stat-house-health"]').text()).toContain('82%')
 	})
 
-	it('renders fairness rows with the exact contributionMinor column (WP3)', async () => {
+	it('renders fairness rows with the exact contributionMinor (WP3)', async () => {
 		const wrapper = await mountView()
 
 		const rows = wrapper.findAll('[data-testid="fairness-row"]')
 		expect(rows).toHaveLength(2)
 
-		expect(wrapper.find('[data-testid="header-contribution"]').exists()).toBe(true)
 		// WP3: exact minor units (100 = 1 energy) — no Coin column anymore.
 		expect(wrapper.find('[data-testid="contribution-7"]').text()).toBe('120')
 		expect(wrapper.find('[data-testid="header-coins"]').exists()).toBe(false)
@@ -206,17 +219,61 @@ describe('InsightsView.vue', () => {
 		expect(wrapper.find('[data-testid="load-8"]').text()).toContain('0.5 /')
 	})
 
-	it('renders activity feed rows with actor, task, and frozen effort (WP3)', async () => {
+	it('renders one activity line per completion and its room and frozen effort behind a tap (WP3, CS-PLAN-090 WP-E)', async () => {
 		const wrapper = await mountView()
 
 		const items = wrapper.findAll('[data-testid="activity-item"]')
 		expect(items).toHaveLength(2)
 		expect(items[0].text()).toContain('Alice')
 		expect(items[0].text()).toContain('Vacuum')
+		expect(items[0].text()).not.toContain('Living Room')
+
+		await openActivity(wrapper, 1)
 		expect(items[0].text()).toContain('Living Room')
 		// WP3: the frozen total effort renders — never a combo flag.
 		expect(items[0].find('.activity-icon.combo').exists()).toBe(false)
-		expect(items[0].text()).toContain('4')
+		expect(wrapper.find('[data-testid="activity-energy-1"]').text()).toContain('4')
+	})
+
+	it('hosts the ranking as a section of its own and passes the house timezone to the activity list (CS-PLAN-090 WP-E)', async () => {
+		const wrapper = await mountView()
+
+		expect(wrapper.get('[data-testid="insights-ranking"]').attributes('id')).toBe('ranking')
+		expect(wrapper.find('[data-testid="insights-ranking"] [data-testid="ranking-panel-stub"]').exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'ActivityFeed' }).props('timezone')).toBe(wrapper.vm.houseStore.timezone)
+	})
+
+	// D-090-54: `/leaderboard` redirects to `#ranking`; hash routing leaves
+	// that anchor to the view.
+	describe('the ranking anchor', () => {
+		let scrolled
+
+		beforeEach(() => {
+			scrolled = []
+			HTMLElement.prototype.scrollIntoView = function(options) {
+				scrolled.push({ element: this, options })
+			}
+		})
+
+		afterEach(() => {
+			delete HTMLElement.prototype.scrollIntoView
+		})
+
+		it('brings the ranking into view once the content has rendered when the address names it', async () => {
+			const wrapper = mount(InsightsView, { global: { mocks: { $route: { hash: '#ranking' } } } })
+			await flushPromises()
+
+			expect(scrolled).toHaveLength(1)
+			expect(scrolled[0].element).toBe(wrapper.get('[data-testid="insights-ranking"]').element)
+			expect(scrolled[0].options).toEqual({ block: 'start' })
+		})
+
+		it('scrolls nowhere without the anchor', async () => {
+			mount(InsightsView, { global: { mocks: { $route: { hash: '' } } } })
+			await flushPromises()
+
+			expect(scrolled).toHaveLength(0)
+		})
 	})
 
 	it('renders fallback labels for dangling activity references', async () => {
@@ -326,7 +383,8 @@ describe('InsightsView.vue', () => {
 			})
 
 			const wrapper = await mountView()
-			await wrapper.find('[data-testid="activity-correct-1"]').trigger('click')
+			await openActivity(wrapper, 1)
+			await wrapper.find('[data-testid=\"activity-correct-1\"]').trigger('click')
 			await flushPromises()
 
 			const dialog = wrapper.find('[data-testid="participation-dialog"]')
@@ -372,7 +430,8 @@ describe('InsightsView.vue', () => {
 			api.put.mockResolvedValueOnce({ completionId: 1 })
 
 			const wrapper = await mountView()
-			await wrapper.find('[data-testid="activity-correct-1"]').trigger('click')
+			await openActivity(wrapper, 1)
+			await wrapper.find('[data-testid=\"activity-correct-1\"]').trigger('click')
 			await flushPromises()
 
 			await wrapper.find('[data-testid="participant-share-alice"]').setValue('70')
@@ -406,7 +465,8 @@ describe('InsightsView.vue', () => {
 			api.put.mockRejectedValueOnce(new Error('lost response'))
 			api.put.mockResolvedValueOnce({ completionId: 1, replay: true })
 			const wrapper = await mountView()
-			await wrapper.find('[data-testid="activity-correct-1"]').trigger('click')
+			await openActivity(wrapper, 1)
+			await wrapper.find('[data-testid=\"activity-correct-1\"]').trigger('click')
 			await flushPromises()
 			await wrapper.find('[data-testid="participation-confirm"]').trigger('click')
 			await flushPromises()
@@ -424,7 +484,8 @@ describe('InsightsView.vue', () => {
 			api.post.mockRejectedValueOnce(Object.assign(new Error('denied'), { status: 403, code: 'FORBIDDEN' }))
 			const wrapper = await mountView()
 
-			await wrapper.find('[data-testid="activity-undo-1"]').trigger('click')
+			await openActivity(wrapper, 1)
+			await wrapper.find('[data-testid=\"activity-undo-1\"]').trigger('click')
 			await flushPromises()
 
 			expect(showError).toHaveBeenCalledWith('Could not undo the completion (FORBIDDEN)')
@@ -436,12 +497,14 @@ describe('InsightsView.vue', () => {
 			api.post.mockRejectedValueOnce(Object.assign(new Error('stale'), { status: 409 }))
 			const wrapper = await mountView()
 			const before = api.get.mock.calls.filter(([path]) => path === '/api/v1/house/activity').length
-			await wrapper.find('[data-testid="activity-undo-1"]').trigger('click')
+			await openActivity(wrapper, 1)
+			await wrapper.find('[data-testid=\"activity-undo-1\"]').trigger('click')
 			await flushPromises()
 			expect(api.post.mock.calls[0][0]).toBe('/api/v1/completions/1/undo')
 			expect(api.post.mock.calls[0][1].expectedVersion).toBe(1)
 			expect(api.get.mock.calls.filter(([path]) => path === '/api/v1/house/activity')).toHaveLength(before + 1)
-			await wrapper.find('[data-testid="activity-undo-1"]').trigger('click')
+			await openActivity(wrapper, 1)
+			await wrapper.find('[data-testid=\"activity-undo-1\"]').trigger('click')
 			await flushPromises()
 			expect(showError).toHaveBeenCalledWith('The completion changed since it was displayed')
 			expect(api.get.mock.calls.filter(([path]) => path === '/api/v1/house/activity')).toHaveLength(before + 2)
@@ -463,11 +526,13 @@ describe('InsightsView.vue', () => {
 			})
 			api.post.mockRejectedValueOnce(Object.assign(new Error('stale'), { status: 409 }))
 			const wrapper = await mountView()
-			await wrapper.find('[data-testid="activity-undo-1"]').trigger('click')
+			await openActivity(wrapper, 1)
+			await wrapper.find('[data-testid=\"activity-undo-1\"]').trigger('click')
 			await flushPromises()
 			expect(wrapper.find('[data-testid="activity-error"]').exists()).toBe(true)
 			await wrapper.find('[data-testid="activity-retry"]').trigger('click')
 			await flushPromises()
+			await openActivity(wrapper, 1)
 			expect(wrapper.find('[data-testid="activity-undo-1"]').exists()).toBe(true)
 			expect(api.post).toHaveBeenCalledTimes(1)
 		})
@@ -476,7 +541,9 @@ describe('InsightsView.vue', () => {
 			mockActivityBackend()
 			const wrapper = await mountView()
 
+			await openActivity(wrapper, 1)
 			expect(wrapper.find('[data-testid="activity-correct-1"]').exists()).toBe(true)
+			await openActivity(wrapper, 2)
 			expect(wrapper.find('[data-testid="activity-correct-2"]').exists()).toBe(false)
 		})
 	})

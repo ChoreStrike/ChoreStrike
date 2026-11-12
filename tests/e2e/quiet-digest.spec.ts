@@ -194,7 +194,7 @@ test.describe('Release: Notifications — quiet-hours digest', () => {
 
 			// The notifications section is on the member's own settings
 			// surface — visible for every member, owner or not (C5h).
-			await page.goto('/apps/chorestrike/#/settings')
+			await page.goto('/apps/chorestrike/#/settings?category=notifications')
 			await expect(page.getByTestId('notifications-section')).toBeVisible({ timeout: 20000 })
 
 			// NcCheckboxRadioSwitch renders the actual input visually hidden

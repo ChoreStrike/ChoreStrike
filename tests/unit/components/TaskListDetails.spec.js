@@ -321,3 +321,20 @@ describe('TaskListDetails occurrence agreements', () => {
 		expect(wrapper.find('[data-testid="agreement-amend-date"]').element.value).toBe('2999-02-01')
 	})
 })
+
+// CS-PLAN-090 D-090-12: the dialog for due date and "Last done" lost its
+// page with the room view and opens from the expanded row.
+describe('TaskListDetails date entry (CS-PLAN-090 WP-C)', () => {
+	it('asks for the date dialog of its room task', async () => {
+		const wrapper = mountDetails()
+
+		await wrapper.get('[data-testid="task-date-button"]').trigger('click')
+		expect(wrapper.emitted('editDate')).toEqual([[wrapper.props('item').roomTask]])
+	})
+
+	it('is hidden from a child and on finished work', () => {
+		expect(mountDetails({ canManageTasks: false }).find('[data-testid="task-date-button"]').exists()).toBe(false)
+		const finished = mountDetails({ item: { roomTask: roomTask({ isActive: false }), task: task() } })
+		expect(finished.find('[data-testid="task-date-button"]').exists()).toBe(false)
+	})
+})

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { openRanking } from './fixtures/insights.ts'
 
 /**
  * E2E test: the consent-filtered Leaderboard in its DEFAULT (opt-in
@@ -22,13 +23,12 @@ test.describe('Leaderboard and Gamification (consent-filtered)', () => {
 	})
 
 	test('User can view leaderboard with rankings', async ({ page }) => {
-		await page.getByTestId('nav-leaderboard').click()
-		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
+		await openRanking(page)
 	})
 
 	test('Disabled ranking shows the opt-in/closed state (default seed)', async ({ page }) => {
 		await page.goto('/apps/chorestrike/#/leaderboard')
-		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
+		await expect(page.getByTestId('ranking-panel')).toBeVisible({ timeout: 20000 })
 
 		await expect(page.getByTestId('ranking-disabled')).toBeVisible({ timeout: 15000 })
 		// No ranked list exists while the flag is off.
@@ -37,10 +37,10 @@ test.describe('Leaderboard and Gamification (consent-filtered)', () => {
 
 	test('No freeze indicators or contribution score column remain', async ({ page }) => {
 		await page.goto('/apps/chorestrike/#/leaderboard')
-		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
+		await expect(page.getByTestId('ranking-panel')).toBeVisible({ timeout: 20000 })
 
 		await expect(page.getByTestId('ranking-disabled')).toBeVisible({ timeout: 15000 })
-		const html = await page.locator('.leaderboard').innerHTML()
+		const html = await page.getByTestId('ranking-panel').innerHTML()
 		expect(html).not.toContain('freeze')
 		expect(html).not.toContain('score-col')
 		expect(html).not.toContain('streak-badge')
@@ -48,7 +48,7 @@ test.describe('Leaderboard and Gamification (consent-filtered)', () => {
 
 	test('Weekly medals render from the game store when medals exist', async ({ page }) => {
 		await page.goto('/apps/chorestrike/#/leaderboard')
-		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
+		await expect(page.getByTestId('ranking-panel')).toBeVisible({ timeout: 20000 })
 
 		const medalSummary = page.getByTestId('medal-summary')
 		await medalSummary.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {

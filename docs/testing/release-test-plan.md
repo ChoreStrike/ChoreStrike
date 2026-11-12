@@ -88,7 +88,7 @@ full inventory and how to run it). Representative automated coverage (Playwright
 E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 
 - Core CRUD / scratch flow: `gui-scratch-flow`, `minimal-smoke-tests`, `fast-core-tests`, `core-functionality`, `3-floor-house`
-- Floors/rooms: `room-management`, `room-detail`
+- Floors/rooms: `room-management`, `task-grouping`
 - Tasks: `task-manager`, `task-completion`, `task-completion-full-flow`, `task-checklist-and-features`, `today-view`, `insights-flow` (history correction, WP3 §3.6)
 - Visibility: `private-tasks`, `admin-only-tasks`
 - Gamification: `leaderboard`, `title-selection`, `teamwork-rewards`
@@ -158,8 +158,8 @@ Route surface: `floor#*`, `room#*`.
 | Create room | Add a room to a floor | Room appears under the floor | `room-management` |
 | Edit room | Rename a room | Name updates | — |
 | Delete room (with tasks) | Delete a room that has tasks | Room and its room-tasks removed | — |
-| Room cleanliness | Complete tasks in a room | Room cleanliness percentage updates | `room-detail` |
-| Room detail navigation | Open a room by its address (`/room/:id`; grouped tasks follow with CS-PLAN-090 WP-C) | Room detail view loads and is navigable | `room-detail` |
+| Room cleanliness | Complete tasks in a room | The percentage in the room heading updates | `task-grouping`, `task-completion-full-flow` |
+| Tasks by room | Switch the task list to *By room*, open a room; open an old room address (`/room/:id`) | Floors are headings, the room opens with its tasks; the address redirects to that room | `task-grouping`, `core-functionality` |
 
 ---
 
@@ -236,7 +236,7 @@ Route surface: `completion#show/undo/attribute`, `room_task#complete`, `game#sta
 | Weekly goal | Complete due tasks across the week; undo one | `completed/(due∪completed)` percent and the achieved flag re-evaluate from the valid set (fixed 80% target — no config override) | PHPUnit `RhythmProjectionTest`, `WeeklyGoalServiceTest` |
 | Medals | Trigger the live rhythm medal | `rhythm_3/6/12` and the weekly milestone award correctly via `awardMedalIfNew()`; retired activity/combo types stay gone | PHPUnit `MedalServiceTest` |
 | Titles | Cross a rhythm rung | Title badge shows the server-derived current title (valid-history maximum signal); no selection surface exists | `title-selection` |
-| Ranking opt-in | Open **Leaderboard** in nav with the flag off | Opt-in/closed state; no contribution ranking, no freeze indicators | `leaderboard` |
+| Ranking opt-in | Open **Insights** with the flag off; open the old address `/leaderboard` | Opt-in/closed state; no contribution ranking, no freeze indicators | `leaderboard` |
 | Ranking consent lifecycle | Owner enables the flag; member joins, withdraws | Join starts NEXT Monday (pending, unranked); withdraw removes immediately; non-consenting members never appear | `ranking-consent`, PHPUnit `RankingConsentTest` |
 | House health | Drive overall completion up/down | The house-health figure in Insights reflects aggregate activity | `multi-user-interactions` |
 
@@ -287,29 +287,30 @@ fields (`participants`/`allocationReviewed`).
 
 ## 11. Scheduling (Member Availability & Energy)
 
-Route surface: `scheduling#*`. View: **Scheduling** in nav — role-dependent
-sections: My Availability + Energy Budget, Preview, Calendar, Suggestions for
-everyone; the owner-only Member Availability grid renders for owners only
-(CS-032).
+Route surface: `scheduling#*`. Since CS-PLAN-090 WP-D the own days and energy
+(My Availability + Energy Budget) are under **Settings → Planning** for every
+role, and the weekly plan opens from the **Calendar** header (*Weekly plan*), no
+longer from the navigation: overcapacity warning, Calendar and, for owners only,
+the Member Availability grid (CS-032) and the planner.
 
 > The unauthenticated `smart-schedule#*` routes were removed (CS-016). The UI
 > consumes `scheduling#*` only.
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| My Availability (any role) | Open Scheduling → My Availability → toggle a weekday → Save → reload | Section with 7 toggles renders for non-owners too; value persists | `self-availability-member` |
-| View availability (owner) | Open Scheduling → Member Availability section | Owner sees member cards with weekday grid; non-owners see no grid and no "No Members Found" state | `scheduling`, `self-availability-member` |
+| My Availability (any role) | Open Settings → Planning → My Availability → toggle a weekday → Save → reload | Section with 7 toggles renders for non-owners too; value persists; a failed save is reported at the form with the entries kept | `self-availability-member` |
+| View availability (owner) | Open Calendar → *Weekly plan* → Member Availability section | Owner sees member cards with weekday grid; non-owners see no grid and no "No Members Found" state | `scheduling`, `self-availability-member` |
 | Edit own availability | Toggle weekdays on your card → Save | Availability persists after reload | `availability-settings-flow` |
-| Energy budget | Adjust an energy value for a day → Save | Energy value persists after reload | `flex-window-scheduling` |
+| Energy budget | Settings → Planning: adjust an energy value for a day → Save | Energy value persists after reload | `flex-window-scheduling` |
 | Schedule calendar | Open the Schedule Calendar section | Week grid with member rows/capacity renders | `scheduling` |
 | Preview & suggestions | Load Preview then Suggestions | Preview/suggestions render or show a correct empty state | `scheduling` |
 | Owner edits member availability | Owner edits another member's availability | Allowed; a member editing someone else is denied | `scheduling` |
 | Planner exact shares (WP2) | Owner previews a plan with a joint proposal | Change rows show the exact whole-percent share labels (e.g. 34/33/33) | `scheduling-apply-flow`, SchedulePlanner spec |
 | Planner consent attestation (WP2) | Owner previews → Apply stays disabled until the consent checkbox is checked → apply | Apply payload carries `consent: true`; a fresh preview requires a fresh attestation; the attestation and draft survive a 409 retry | `scheduling-apply-flow`, scheduling store spec |
-| Neutral/overload clarification (WP2) | A member is paused (API) or a day is over budget | Capacity grid shows `Paused`/`{planned}/{budget} — over capacity`; paused rows are never silently dropped | `family-rhythm` (WP2 describe), SchedulePlanner spec |
+| Neutral/overload clarification (WP2) | A member is paused (API) or a day is over budget | Capacity grid shows `Absent`/`{planned}/{budget} — over capacity` (`Absent` since CS-PLAN-090 D-090-26); absent rows are never silently dropped | `family-rhythm` (WP2 describe), SchedulePlanner spec |
 | Local-midnight staleness (WP2) | Preview before local midnight, apply after | Clean 409, zero writes; malformed input stays 400 | PHPUnit `SchedulePlanAggregateTest` (injected clock) |
 | Agreement commands (WP2, API) | Owner amends/catches up/restarts an occurrence via `/occurrences/{key}/*` | Receipt identity (same UUID + changed input conflicts); stale token/version → 409 zero writes; handover persists the neutral release; catch-up keeps date+zone | PHPUnit `OccurrenceTimelineTest`, `RoleGuardApiTest`, `family-rhythm` (WP2 describe) |
-| Pause lifecycle (WP2, API) | Personal request (child pending / adult acknowledged), owner house pause, approve/reject, shorten acknowledged, owner illness recognition | Only recognized pauses have effects; overlapping pauses keep union provenance; shortening a pending request conflicts; member/child denials are 403; foreign illness subject is 404 | PHPUnit `PauseServiceTest`, `PauseAgreementTest`, `PauseAgreementConcurrencyTest`, `RoleGuardApiTest` |
+| Pause lifecycle (WP2, API; absences per ADR-020) | Personal absence (acknowledged at once for every role since ADR-020), owner house absence, approve/reject of a request pending from before that update, delete (a `cancelled` revision), shorten acknowledged, owner illness recognition | Only recognized pauses have effects; a deletion frees the days from the next local day and an ended absence answers 409; overlapping pauses keep union provenance; shortening a pending request conflicts; member/child denials are 403; foreign illness subject is 404 | PHPUnit `PauseServiceTest`, `PauseAgreementTest`, `PauseAgreementConcurrencyTest`, `RoleGuardApiTest` |
 | Shortening precedence (WP2 fix round) | Acknowledged multi-day pause, shortened to today (full persisted revision history) | Superseded future dates actually resume duty; today/past stay recognized in the saved zone; pending/rejected child shortenings change nothing; job replay is inert | PHPUnit `PauseProjectionServiceTest`, `PauseAgreementTest` |
 | Recognition eligibility (WP2 fix round) | Ordinary acknowledgment whose range reaches over an expired miss; request before expiry approved after | The expired miss is NOT neutralized (decision time = approval, not request); the explicit retrospective-illness marker neutralizes it without fabricating a completion | PHPUnit `PauseProjectionServiceTest`, `PauseAgreementTest` |
 | Joint suspension & resumption (WP2 fix round) | One obligated partner of a 50/50 arrangement pauses | The whole occurrence suspends (retained snapshot, zero live capacity for both); an explicit feasible 100% agreement with consent before the deadline resumes it; over-budget/after-deadline/no-consent proposals write nothing | PHPUnit `PauseProjectionServiceTest`, `PauseAgreementTest` |

@@ -44,36 +44,41 @@ describe('App', () => {
 			expect(html).toContain('data-testid="nav-today"')
 			expect(html).not.toContain('data-testid="nav-dashboard"')
 			expect(html).toContain('data-testid="nav-tasks"')
-			expect(html).toContain('data-testid="nav-leaderboard"')
 			expect(html).toContain('data-testid="nav-insights"')
-			expect(html).toContain('data-testid="nav-scheduling"')
 			expect(html).toContain('data-testid="nav-calendar"')
 			expect(html).toContain('data-testid="nav-absence"')
 			expect(html).toContain('data-testid="nav-arcade"')
-			expect(html).toContain('data-testid="nav-reward-requests"')
 			expect(html).toContain('data-testid="nav-settings"')
+			// CS-PLAN-090 WP-D: the ranking is in Insights, the weekly plan
+			// behind the calendar, the own requests behind Rewards and the
+			// personal settings.
+			for (const gone of ['nav-leaderboard', 'nav-scheduling', 'nav-reward-requests']) {
+				expect(html).not.toContain(`data-testid="${gone}"`)
+			}
 		})
 
 		it('renders the persistent entries with Today first (C5f); the catalog entry is gated', () => {
 			const wrapper = mountApp()
 			const navItems = wrapper.findAllComponents({ name: 'NcAppNavigationItem' })
 
-			// Ten persistent entries: the WP6 entries without the Dashboard
-			// (CS-PLAN-090 WP-B), My Requests and Absence (ADR-020);
-			// the Rewards catalog entry renders only when both gates open.
-			expect(navItems).toHaveLength(10)
+			// Seven persistent entries (CS-PLAN-090 WP-D): Today, Tasks,
+			// Calendar, Insights, Absence, Arcade and Settings. Rewards is
+			// the eighth and renders only when both gates open.
+			expect(navItems).toHaveLength(7)
+			expect(navItems.map((item) => item.attributes('data-testid'))).toEqual([
+				'nav-today', 'nav-tasks', 'nav-calendar', 'nav-insights', 'nav-absence', 'nav-arcade', 'nav-settings',
+			])
 			expect(navItems[0].attributes('data-testid')).toBe('nav-today')
 			expect(wrapper.html()).toContain('data-testid="nav-today"')
 			expect(wrapper.find('[data-testid="nav-today"]').exists()).toBe(true)
 			expect(wrapper.find('[data-testid="nav-rewards"]').exists()).toBe(false)
-			expect(wrapper.find('[data-testid="nav-reward-requests"]').exists()).toBe(true)
 		})
 
 		it('renders a distinct icon in every navigation entry (CR-NAV-01)', () => {
 			const navItems = mountApp().findAllComponents({ name: 'NcAppNavigationItem' })
 			const icons = navItems.map((item) => item.find('.icon').text())
 
-			expect(icons).toHaveLength(10)
+			expect(icons).toHaveLength(7)
 			icons.forEach((name) => expect(name).not.toBe(''))
 			expect(new Set(icons).size).toBe(icons.length)
 		})
@@ -288,9 +293,10 @@ describe('App', () => {
 			expect(wrapper.find('[data-testid="nav-rewards"]').exists()).toBe(false)
 		})
 
-		// The My Requests entry is persistent: independent of both
-		// catalog gates and the request count.
-		it('keeps My Requests reachable while the catalog is hidden', () => {
+		// The own requests left the navigation (CS-PLAN-090 WP-D). They
+		// stay reachable with either gate closed through the personal
+		// settings (Settings.spec.js) and keep their routes (router.spec.js).
+		it('has no navigation entry for the own requests, with the catalog hidden too', () => {
 			const { wrapper } = mountWithRouter(
 				{ path: '/today', name: 'today', query: {} },
 				store => {
@@ -299,7 +305,8 @@ describe('App', () => {
 				},
 			)
 
-			expect(wrapper.find('[data-testid="nav-reward-requests"]').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="nav-reward-requests"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="nav-settings"]').exists()).toBe(true)
 		})
 	})
 })

@@ -5,56 +5,77 @@
 
 <template>
 	<div class="activity-feed" data-testid="activity-feed">
-		<ul v-if="items.length > 0" class="activity-list">
-			<li
-				v-for="item in items"
-				:key="item.id"
-				class="activity-item"
-				:class="{ undone: item.undoneAt }"
-				data-testid="activity-item">
-				<span class="activity-icon">
-					{{ item.undoneAt ? '↩' : '✓' }}
-				</span>
-				<span class="activity-text">
-					<strong class="activity-actor">{{ item.displayName || t('chorestrike', 'Unknown member') }}</strong>
-					{{ item.undoneAt ? t('chorestrike', 'undid a completion of') : t('chorestrike', 'completed') }}
-					<strong class="activity-task">{{ item.taskTitle || t('chorestrike', 'Unknown task') }}</strong>
-					<span v-if="item.roomName" class="activity-room">
-						{{ t('chorestrike', 'in') }} {{ item.roomName }}
-					</span>
-				</span>
-				<span class="activity-meta">
-					<span class="activity-time" :title="absoluteDate(item.completedAt)">
-						{{ relativeDate(item.completedAt) }}
-					</span>
-					<!-- WP3: the frozen total effort — never the mutable live
-					     definition, never a Coin mint. -->
-					<span v-if="item.totalEnergy != null" class="activity-energy" :data-testid="`activity-energy-${item.id}`">
-						{{ item.totalEnergy }} ⚡
-					</span>
-					<!-- WP3 §3.6: authorized older-completion correction
-					     (completer or owner, still-valid target) — opens the
-					     attribution dialog reusing the participation form. -->
-					<button
-						v-if="item.canCorrect && !item.undoneAt"
-						class="activity-correct"
-						:data-testid="`activity-correct-${item.id}`"
-						:disabled="busyId === item.id || blockedIds.includes(item.id)"
-						@click="$emit('correct', item)">
-						{{ t('chorestrike', 'Correct split') }}
-					</button>
-					<button
-						v-if="item.canCorrect && !item.undoneAt"
-						class="activity-correct"
-						:data-testid="`activity-undo-${item.id}`"
-						:data-version="item.version"
-						:disabled="busyId === item.id || blockedIds.includes(item.id)"
-						@click="$emit('undo', item)">
-						{{ t('chorestrike', 'Undo') }}
-					</button>
-				</span>
-			</li>
-		</ul>
+		<template v-if="days.length > 0">
+			<section v-for="day in days" :key="day.key" class="activity-day">
+				<h3 class="day-heading" data-testid="activity-day">
+					{{ day.label }}
+				</h3>
+				<ul class="activity-list">
+					<li
+						v-for="item in day.items"
+						:key="item.id"
+						class="activity-item"
+						:class="{ undone: item.undoneAt, open: openId === item.id }"
+						data-testid="activity-item">
+						<!-- One line per entry: time, person, task, coins. A tap
+						     opens the details and the corrections below it. -->
+						<button
+							type="button"
+							class="activity-row"
+							:aria-expanded="openId === item.id ? 'true' : 'false'"
+							:data-testid="`activity-row-${item.id}`"
+							@click="openId = openId === item.id ? null : item.id">
+							<span class="activity-time">{{ timeOf(item.completedAt) }}</span>
+							<span class="activity-actor">{{ item.displayName || t('chorestrike', 'Unknown member') }}</span>
+							<span class="activity-task">
+								<span v-if="item.undoneAt" class="activity-undone-mark" :title="t('chorestrike', 'Undone')">↩</span>
+								{{ item.taskTitle || t('chorestrike', 'Unknown task') }}
+							</span>
+							<!-- What the completion paid, frozen then; withheld with
+							     the work of a task the viewer cannot see. -->
+							<span v-if="coinsOf(item) !== null" class="activity-coins" :data-testid="`activity-coins-${item.id}`">
+								+{{ coinsOf(item) }}
+							</span>
+						</button>
+						<div v-if="openId === item.id" class="activity-details" :data-testid="`activity-details-${item.id}`">
+							<p class="activity-facts">
+								<span v-if="item.undoneAt">{{ t('chorestrike', 'Undone') }}</span>
+								<span v-if="item.roomName" class="activity-room">{{ item.roomName }}</span>
+								<!-- The frozen total effort — never the mutable
+								     live definition. -->
+								<span v-if="item.totalEnergy != null" :data-testid="`activity-energy-${item.id}`">
+									{{ item.totalEnergy }} ⚡
+								</span>
+								<span v-for="(share, index) in item.allocation ?? []" :key="index" class="activity-share">
+									{{ share.displayName }} {{ share.sharePct }}%
+								</span>
+							</p>
+							<!-- Corrections of a still-valid completion, for its
+							     completer or an owner (WP3 §3.6). -->
+							<div v-if="item.canCorrect && !item.undoneAt" class="activity-actions">
+								<button
+									type="button"
+									class="activity-correct"
+									:data-testid="`activity-correct-${item.id}`"
+									:disabled="busyId === item.id || blockedIds.includes(item.id)"
+									@click="$emit('correct', item)">
+									{{ t('chorestrike', 'Correct split') }}
+								</button>
+								<button
+									type="button"
+									class="activity-correct"
+									:data-testid="`activity-undo-${item.id}`"
+									:data-version="item.version"
+									:disabled="busyId === item.id || blockedIds.includes(item.id)"
+									@click="$emit('undo', item)">
+									{{ t('chorestrike', 'Undo') }}
+								</button>
+							</div>
+						</div>
+					</li>
+				</ul>
+			</section>
+		</template>
 
 		<div v-else class="empty-state" data-testid="activity-empty">
 			<p>{{ t('chorestrike', 'No activity in this period yet.') }}</p>
@@ -64,14 +85,28 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { addDaysToKey, dateKeyInZone, formatLongDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
+import { formatCoinMinor } from '../../utils/minorUnits.js'
 
+/**
+ * The household's completions, one line each and grouped by day
+ * (CS-PLAN-090 WP-E). Days and times are the household's, not the
+ * browser's. Presentation only: the view owns the corrections.
+ */
 export default {
 	name: 'ActivityFeed',
 
 	props: {
+		/** Completions of `GET /house/activity`, newest first. */
 		items: {
 			type: Array,
 			required: true,
+		},
+
+		/** IANA timezone of the household. */
+		timezone: {
+			type: String,
+			default: 'UTC',
 		},
 
 		busyId: {
@@ -87,43 +122,79 @@ export default {
 
 	emits: ['correct', 'undo'],
 
+	data() {
+		return { openId: null }
+	},
+
+	computed: {
+		/**
+		 * The items by household day, in their order.
+		 * @return {Array<{key: string, label: string, items: object[]}>}
+		 */
+		days() {
+			const today = todayKeyInZone(this.timezone)
+			const yesterday = addDaysToKey(today, -1)
+			const days = []
+			for (const item of this.items) {
+				const key = dateKeyInZone(item.completedAt, this.timezone)
+				let day = days.find((entry) => entry.key === key)
+				if (!day) {
+					day = { key, label: this.dayLabel(key, today, yesterday), items: [] }
+					days.push(day)
+				}
+				day.items.push(item)
+			}
+			return days
+		},
+	},
+
 	methods: {
 		t,
 
-		relativeDate(isoDate) {
-			if (!isoDate) {
-				return ''
+		dayLabel(key, today, yesterday) {
+			if (key === today) {
+				return t('chorestrike', 'Today')
 			}
-			const date = new Date(isoDate)
-			const diffMs = Date.now() - date.getTime()
-			const diffMinutes = Math.floor(diffMs / 60000)
-
-			if (diffMinutes < 1) {
-				return t('chorestrike', 'just now')
-			}
-			if (diffMinutes < 60) {
-				return t('chorestrike', '{minutes} min ago', { minutes: diffMinutes })
-			}
-			if (diffMinutes < 24 * 60) {
-				return t('chorestrike', '{hours} h ago', { hours: Math.floor(diffMinutes / 60) })
-			}
-			if (diffMinutes < 7 * 24 * 60) {
-				return t('chorestrike', '{days} d ago', { days: Math.floor(diffMinutes / (24 * 60)) })
-			}
-			return date.toLocaleDateString()
+			return key === yesterday ? t('chorestrike', 'Yesterday') : formatLongDayKey(key)
 		},
 
-		absoluteDate(isoDate) {
+		/**
+		 * The time of day in the household's timezone ("08:10").
+		 * @param {?string} isoDate Completion instant.
+		 * @return {string} Empty without a date.
+		 */
+		timeOf(isoDate) {
 			if (!isoDate) {
 				return ''
 			}
-			return new Date(isoDate).toLocaleString()
+			return new Date(isoDate).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: this.timezone })
+		},
+
+		/**
+		 * The coins a completion paid to everyone, or null when it paid
+		 * none: undone, or work the viewer may not see.
+		 * @param {object} item Completion.
+		 * @return {?string}
+		 */
+		coinsOf(item) {
+			const coinMinor = item.undoneAt
+				? 0
+				: (item.allocation ?? []).reduce((sum, share) => sum + (share.coinMinor ?? 0), 0)
+			return coinMinor > 0 ? formatCoinMinor(coinMinor) : null
 		},
 	},
 }
 </script>
 
 <style scoped>
+.day-heading {
+	margin: 0;
+	padding: 0.5rem 0.5rem 0.15rem;
+	font-size: 0.8rem;
+	font-weight: bold;
+	color: var(--color-text-maxcontrast);
+}
+
 .activity-list {
 	list-style: none;
 	margin: 0;
@@ -131,56 +202,95 @@ export default {
 }
 
 .activity-item {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	padding: 0.75rem 0.5rem;
 	border-bottom: 1px solid var(--color-border);
 }
 
-.activity-item:last-child {
-	border-bottom: none;
-}
-
-.activity-icon {
+.activity-row {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	width: 32px;
-	height: 32px;
-	border-radius: 50%;
-	background: var(--color-success-hover, #d5f4e6);
-	color: var(--color-success-text);
-	flex-shrink: 0;
-}
-
-.activity-text {
-	flex: 1;
+	gap: 0.5rem;
+	width: 100%;
+	min-height: 44px;
+	margin: 0;
+	padding: 0 0.5rem;
+	border: none;
+	border-radius: 0;
+	background: transparent;
 	color: var(--color-main-text);
+	font-weight: normal;
+	text-align: start;
+	cursor: pointer;
 }
 
-.activity-room {
-	color: var(--color-text-maxcontrast);
+.activity-row:focus-visible {
+	outline: 2px solid var(--color-main-text);
+	outline-offset: -2px;
 }
 
-.activity-meta {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	gap: 0.15rem;
-	flex-shrink: 0;
+.activity-item.open .activity-row {
+	background: var(--color-primary-element-light);
 }
 
 .activity-time {
+	flex: none;
+	min-width: 2.75rem;
 	font-size: 0.8rem;
 	color: var(--color-text-maxcontrast);
+}
+
+.activity-actor {
+	flex: none;
+	max-width: 6rem;
+	overflow: hidden;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.activity-task {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.activity-item.undone .activity-task {
+	color: var(--color-text-maxcontrast);
+	text-decoration: line-through;
+}
+
+.activity-coins {
+	flex: none;
+	font-weight: 600;
+	color: var(--color-success-text);
+}
+
+.activity-details {
+	padding: 0.5rem 0.5rem 0.75rem;
+}
+
+.activity-facts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 0.75rem;
+	margin: 0;
+	font-size: 0.85rem;
+	color: var(--color-text-maxcontrast);
+}
+
+.activity-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-block-start: 0.5rem;
 }
 
 .activity-correct {
 	min-height: 44px;
 	padding: 0.3rem 0.75rem;
 	background: transparent;
-	color: var(--color-text-maxcontrast);
+	color: var(--color-main-text);
 	border: 1px solid var(--color-border);
 	border-radius: 6px;
 	cursor: pointer;
@@ -189,7 +299,6 @@ export default {
 }
 
 .activity-correct:hover:not(:disabled) {
-	color: var(--color-main-text);
 	border-color: var(--color-main-text);
 }
 
@@ -202,22 +311,5 @@ export default {
 	text-align: center;
 	padding: 2rem;
 	color: var(--color-text-maxcontrast);
-}
-
-@media (max-width: 600px) {
-	.activity-item {
-		flex-wrap: wrap;
-	}
-
-	.activity-text {
-		min-width: calc(100% - 44px);
-	}
-
-	.activity-meta {
-		margin-inline-start: 44px;
-		align-items: center;
-		flex-direction: row;
-		flex-wrap: wrap;
-	}
 }
 </style>

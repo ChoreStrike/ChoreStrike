@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { openSettingsCategory } from './fixtures/settings.ts'
 
 /**
  * E2E test: the single-series role title surface (CS-PLAN-070 WP4,
@@ -23,6 +24,7 @@ test.describe('Role Title System (single series)', () => {
 		await page.getByTestId('nav-settings').click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
+		await openSettingsCategory(page, 'title')
 	})
 
 	test('Title section renders without a change-title control (retired surface)', async ({ page }) => {

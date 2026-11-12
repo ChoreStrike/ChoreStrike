@@ -2,13 +2,13 @@ import { expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { createUserContext, userStatePath } from './fixtures/auth-contexts.ts'
 import { test } from './fixtures/database-fixtures.ts'
-import { listRooms, openRoom } from './fixtures/rooms.ts'
+import { listRooms, openRoom, roomGroup } from './fixtures/rooms.ts'
+import { openSettingsCategory } from './fixtures/settings.ts'
 
 /**
  * E2E test: Room and floor management (CS-PLAN-042, UX-004)
  *
  * Structure editing lives in exactly one surface: Settings (owner-only).
- * Room rename/delete is also reachable from the RoomDetail header.
  *
  * The primary actor is `mom` (a seeded family-house OWNER): the structure
  * controls under test are owner-gated, and the default `admin` identity is
@@ -16,7 +16,9 @@ import { listRooms, openRoom } from './fixtures/rooms.ts'
  *
  * CS-PLAN-090 WP-B: the Dashboard's read-only floor list is gone, and
  * with it the scenario that it offers no structure controls. A room is
- * opened through the shared `fixtures/rooms.ts` helper.
+ * opened through the shared `fixtures/rooms.ts` helper. WP-C: the room page
+ * and its rename and delete actions are gone too; a room is a group of the
+ * task list by room.
  */
 
 test.describe('Room and Floor Management', () => {
@@ -36,6 +38,7 @@ test.describe('Room and Floor Management', () => {
 		await page.getByTestId('nav-settings').click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
+		await openSettingsCategory(page, 'structure')
 
 		// Click add floor
 		await page.click('[data-testid="add-floor-button"]')
@@ -54,6 +57,7 @@ test.describe('Room and Floor Management', () => {
 	test('User can add room to a floor via the Settings structure section', async ({ page }) => {
 		await page.getByTestId('nav-settings').click()
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
+		await openSettingsCategory(page, 'structure')
 
 		// The family seed guarantees at least one floor row for the owner.
 		const floorItem = page.locator('.floor-item').first()
@@ -67,29 +71,29 @@ test.describe('Room and Floor Management', () => {
 		await expect(floorItem.locator('.room-row-name', { hasText: 'Test Room' })).toBeVisible({ timeout: 15000 })
 	})
 
-	test('Owner can rename a room from the RoomDetail header', async ({ page }) => {
+	// CS-PLAN-090 WP-C: the room page and its header actions are gone;
+	// rename and delete live in Settings, and the task list by room follows.
+	test('Owner renames a room in Settings and the task list by room shows the new name', async ({ page }) => {
+		const [room] = await listRooms(page)
 		await page.getByTestId('nav-settings').click()
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
+		await openSettingsCategory(page, 'structure')
 
-		// The family seed guarantees a room on the first floor — assert it
-		// instead of silently creating a fallback.
 		const floorItem = page.locator('.floor-item').first()
 		await floorItem.locator('[data-testid^="expand-floor-"]').click()
-		await expect(floorItem.locator('[data-testid^="delete-room-"]').first()).toBeVisible({ timeout: 15000 })
-
-		const { name: oldName } = await openRoom(page)
-
-		// Rename via the header action
-		await page.getByTestId('rename-room-button').click()
-		await page.getByTestId('room-rename-input').fill(`${oldName} II`)
+		await page.getByTestId(`rename-room-${room.id}`).click()
+		await page.getByTestId('room-rename-input').fill(`${room.name} II`)
 		await page.getByTestId('room-rename-save').click()
+		await expect(page.getByTestId('room-rename-input')).toHaveCount(0, { timeout: 15000 })
 
-		await expect(page.getByTestId('room-name')).toHaveText(`${oldName} II`, { timeout: 15000 })
+		const renamed = await openRoom(page, `${room.name} II`)
+		expect(renamed.id).toBe(room.id)
 	})
 
-	test('Owner can delete a room from the RoomDetail header', async ({ page }) => {
+	test('Owner deletes a room in Settings and it leaves the task list by room', async ({ page }) => {
 		await page.getByTestId('nav-settings').click()
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
+		await openSettingsCategory(page, 'structure')
 
 		// Create a dedicated room to delete
 		const floorItem = page.locator('.floor-item').first()
@@ -98,16 +102,24 @@ test.describe('Room and Floor Management', () => {
 		await floorItem.locator('[data-testid="add-room-to-floor-button"]').click()
 		await expect(floorItem.locator('.room-row-name', { hasText: 'Doomed Room' })).toBeVisible({ timeout: 15000 })
 
-		await openRoom(page, 'Doomed Room')
+		// A room without tasks is a group of its own, so a task can be added to it.
+		const doomed = await openRoom(page, 'Doomed Room')
+		await expect(roomGroup(page, doomed).getByTestId('task-group-open')).toHaveText('0 open')
 
-		await page.getByTestId('delete-room-button').click()
+		await page.getByTestId('nav-settings').click()
+		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
+		await openSettingsCategory(page, 'structure')
+		await page.locator('.floor-item').first().locator('[data-testid^="expand-floor-"]').click()
+		await page.getByTestId(`delete-room-${doomed.id}`).click()
 		await expect(page.getByTestId('confirm-dialog')).toBeVisible()
 		await page.getByTestId('confirm-dialog-confirm').click()
+		await expect(page.getByTestId('confirm-dialog')).toHaveCount(0, { timeout: 15000 })
 
-		// The page of a deleted room has nothing to show: back on Today,
-		// and the house no longer holds the room.
-		await page.waitForSelector('[data-testid="today-view"]', { timeout: 20000 })
+		// The house no longer holds the room, and neither does the list.
 		expect((await listRooms(page)).map((room) => room.name)).not.toContain('Doomed Room')
+		await page.goto('/apps/chorestrike/#/tasks?group=room')
+		await expect(page.getByTestId('task-group-list')).toBeVisible({ timeout: 20000 })
+		await expect(roomGroup(page, doomed)).toHaveCount(0)
 	})
 
 	test('Owner can reorder floors with the up/down buttons', async ({ page }) => {
@@ -117,6 +129,7 @@ test.describe('Room and Floor Management', () => {
 
 		await page.getByTestId('nav-settings').click()
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
+		await openSettingsCategory(page, 'structure')
 
 		for (const name of [floorA, floorB]) {
 			await page.click('[data-testid="add-floor-button"]')
@@ -168,6 +181,9 @@ test.describe('Room and Floor Management', () => {
 				await page.getByTestId('nav-settings').click()
 				await page.getByTestId('settings-view').waitFor({ state: 'visible', timeout: 10000 })
 			}).toPass({ timeout: 45000 })
+
+			// A member has no household area at all (FEAT-UX-054).
+			await expect(page.getByTestId('settings-tab-household')).toHaveCount(0)
 
 			await expect(page.getByTestId('house-section')).toHaveCount(0)
 			await expect(page.getByTestId('floors-section')).toHaveCount(0)

@@ -57,6 +57,9 @@ const ACTION_STEPS: Record<string, (page: Page) => Promise<void>> = {
 	async notificationSettings(page) {
 		const section = page.getByTestId('notifications-section')
 		await expect(section).toBeVisible({ timeout: 30000 })
+		// Categories start closed (FEAT-UX-054).
+		await page.getByTestId('settings-category-notifications').click()
+		await expect(page.getByTestId('notification-preferences')).toBeVisible({ timeout: 30000 })
 		await section.evaluate((element) => element.scrollIntoView({ block: 'start' }))
 	},
 	async completeTask(page) {

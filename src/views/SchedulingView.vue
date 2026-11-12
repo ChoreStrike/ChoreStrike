@@ -6,6 +6,9 @@
 <template>
 	<div class="scheduling-view" data-testid="scheduling-view">
 		<header class="scheduling-header">
+			<router-link :to="{ name: 'calendar' }" class="back-link" data-testid="scheduling-back">
+				{{ t('chorestrike', 'Back to the calendar') }}
+			</router-link>
 			<h1>{{ t('chorestrike', 'Smart Scheduling') }}</h1>
 			<!-- Essential onboarding slice (WP8 §3.6): agreements vs
 			     voluntary help and how actual shares split the work. -->
@@ -26,22 +29,14 @@
 		</div>
 
 		<div v-else class="scheduling-content">
-			<section class="scheduling-section">
-				<SelfAvailabilitySettings data-testid="self-availability-settings" />
-			</section>
-
 			<OvercapacityWarning data-testid="overcapacity-warning" />
 
 			<section v-if="userStore.isHouseOwner" class="scheduling-section">
 				<AvailabilitySettings data-testid="availability-settings" />
 			</section>
 
-			<section class="scheduling-section">
-				<EnergyBudgetSettings data-testid="energy-budget-settings" />
-			</section>
-
-			<!-- CS-PLAN-065: the task-plan preview/apply is owner-only —
-			     members and children keep the personal settings surfaces. -->
+			<!-- CS-PLAN-065: owner-only. The own days and energy are in the
+			     personal settings (CS-PLAN-090 WP-D). -->
 			<section v-if="userStore.isHouseOwner" class="scheduling-section">
 				<SchedulePlanner data-testid="schedule-planner" />
 			</section>
@@ -58,11 +53,9 @@ import { translate as t } from '@nextcloud/l10n'
 import { computed, onMounted } from 'vue'
 import HelpEntry from '../components/Help/HelpEntry.vue'
 import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
-import EnergyBudgetSettings from '../components/Scheduling/EnergyBudgetSettings.vue'
 import OvercapacityWarning from '../components/Scheduling/OvercapacityWarning.vue'
 import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
 import SchedulePlanner from '../components/Scheduling/SchedulePlanner.vue'
-import SelfAvailabilitySettings from '../components/Scheduling/SelfAvailabilitySettings.vue'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useSchedulingStore } from '../store/scheduling.js'
@@ -115,6 +108,13 @@ onMounted(async () => {
 	text-align: center;
 	margin-bottom: 3rem;
 	padding-inline-start: var(--cs-view-heading-inset);
+}
+
+.back-link {
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+	color: var(--color-main-text);
 }
 
 .scheduling-header h1 {

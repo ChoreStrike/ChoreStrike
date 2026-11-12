@@ -7,39 +7,11 @@
 	<div class="calendar-view" data-testid="calendar-view">
 		<header class="calendar-header">
 			<h1>{{ t('chorestrike', 'Calendar') }}</h1>
-			<div class="calendar-controls">
-				<div class="calendar-mode-toggle" data-testid="calendar-mode-toggle">
-					<button
-						class="toggle-btn"
-						:class="{ active: mode === 'week' }"
-						data-testid="calendar-mode-week"
-						@click="mode = 'week'">
-						{{ t('chorestrike', 'Week') }}
-					</button>
-					<button
-						class="toggle-btn"
-						:class="{ active: mode === 'month' }"
-						data-testid="calendar-mode-month"
-						@click="mode = 'month'">
-						{{ t('chorestrike', 'Month') }}
-					</button>
-				</div>
-				<div class="calendar-nav">
-					<button
-						data-testid="calendar-prev"
-						:aria-label="t('chorestrike', 'Previous')"
-						@click="navigate(-1)">
-						&lt;
-					</button>
-					<span data-testid="calendar-range-label" class="range-label">{{ rangeLabel }}</span>
-					<button
-						data-testid="calendar-next"
-						:aria-label="t('chorestrike', 'Next')"
-						@click="navigate(1)">
-						&gt;
-					</button>
-				</div>
-			</div>
+			<CalendarControls
+				:mode="mode"
+				:rangeLabel="rangeLabel"
+				@update:mode="mode = $event"
+				@navigate="navigate" />
 		</header>
 
 		<div v-if="loading" class="calendar-loading">
@@ -92,6 +64,7 @@
 <script>
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { translate as t } from '@nextcloud/l10n'
+import CalendarControls from '../components/Tasks/CalendarControls.vue'
 import TaskCalendar from '../components/Tasks/TaskCalendar.vue'
 import { useHouseStore } from '../store/house.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
@@ -103,6 +76,7 @@ export default {
 	name: 'CalendarView',
 
 	components: {
+		CalendarControls,
 		TaskCalendar,
 	},
 
@@ -249,52 +223,6 @@ export default {
 
 .calendar-header h1 {
 	margin-bottom: 12px;
-}
-
-.calendar-controls {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	flex-wrap: wrap;
-}
-
-.calendar-mode-toggle {
-	display: flex;
-	border: 1px solid var(--color-border, #ddd);
-	border-radius: 6px;
-	overflow: hidden;
-}
-
-.toggle-btn {
-	padding: 6px 14px;
-	min-height: 44px;
-	border: none;
-	background: var(--color-main-background, #fff);
-	cursor: pointer;
-}
-
-.toggle-btn.active {
-	background: var(--color-primary, #0082c9);
-	color: var(--color-primary-text, #fff);
-}
-
-.calendar-nav {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.calendar-nav button {
-	padding: 4px 10px;
-	min-width: 44px;
-	min-height: 44px;
-	cursor: pointer;
-}
-
-.range-label {
-	font-weight: 600;
-	min-width: 180px;
-	text-align: center;
 }
 
 .calendar-loading .skeleton-grid {

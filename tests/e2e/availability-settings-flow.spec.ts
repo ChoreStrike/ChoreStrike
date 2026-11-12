@@ -4,6 +4,7 @@
  */
 
 import { expect, test } from '@playwright/test'
+import { openPlanningSettings, openWeeklyPlan } from './fixtures/planning.ts'
 
 test.describe('Availability Settings Flow', () => {
 	test.beforeEach(async ({ page }) => {
@@ -11,8 +12,7 @@ test.describe('Availability Settings Flow', () => {
 		await expect(async () => {
 			await page.goto('/apps/chorestrike/#/today')
 			await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 10000 })
-			await page.getByTestId('nav-scheduling').click()
-			await page.locator('.scheduling-content').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 	})
 
@@ -78,11 +78,13 @@ test.describe('Availability Settings Flow', () => {
 	})
 
 	test('shows energy budget settings with save button', async ({ page }) => {
+		await openPlanningSettings(page)
 		await expect(page.getByTestId('energy-budget-settings')).toBeVisible()
 		await expect(page.getByTestId('save-energy-budget-button')).toBeVisible()
 	})
 
 	test('can adjust energy budget with number input', async ({ page }) => {
+		await openPlanningSettings(page)
 		const input = page.getByTestId('energy-input-monday')
 		await expect(input).toBeVisible()
 		await input.fill('12')
@@ -90,6 +92,7 @@ test.describe('Availability Settings Flow', () => {
 	})
 
 	test('shows energy templates in budget settings', async ({ page }) => {
+		await openPlanningSettings(page)
 		await expect(page.getByTestId('template-light')).toBeVisible()
 		await expect(page.getByTestId('template-moderate')).toBeVisible()
 		await expect(page.getByTestId('template-heavy')).toBeVisible()

@@ -4,6 +4,7 @@
  */
 
 import { expect, test } from '@playwright/test'
+import { openPlanningSettings, openWeeklyPlan } from './fixtures/planning.ts'
 
 test.describe('Scheduling UI', () => {
 	test.beforeEach(async ({ page }) => {
@@ -11,17 +12,18 @@ test.describe('Scheduling UI', () => {
 		await expect(async () => {
 			await page.goto('/apps/chorestrike/#/today')
 			await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 10000 })
-			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 	})
 
 	test('loads the scheduling view with all sections', async ({ page }) => {
 		await expect(page.getByTestId('scheduling-view')).toBeVisible()
 		await expect(page.getByTestId('availability-settings')).toBeVisible()
-		await expect(page.getByTestId('energy-budget-settings')).toBeVisible()
 		await expect(page.getByTestId('schedule-planner')).toBeVisible()
 		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
+		// The own days and energy moved to the personal settings (WP-D).
+		await expect(page.getByTestId('energy-budget-settings')).toHaveCount(0)
+		await expect(page.getByTestId('self-availability-settings')).toHaveCount(0)
 	})
 
 	test('displays the scheduling header', async ({ page }) => {
@@ -31,10 +33,11 @@ test.describe('Scheduling UI', () => {
 		await expect(page.getByTestId('scheduling-view').locator('h1')).toBeVisible()
 	})
 
-	test('navigates to scheduling via nav item', async ({ page }) => {
+	test('navigates to the weekly plan through the calendar', async ({ page }) => {
 		await page.getByTestId('nav-today').click()
 		await page.getByTestId('today-view').waitFor({ state: 'visible' })
-		await page.getByTestId('nav-scheduling').click()
+		await expect(page.getByTestId('nav-scheduling')).toHaveCount(0)
+		await openWeeklyPlan(page)
 		await expect(page.getByTestId('scheduling-view')).toBeVisible()
 	})
 
@@ -45,16 +48,19 @@ test.describe('Scheduling UI', () => {
 	})
 
 	test('shows energy budget sliders for each day', async ({ page }) => {
+		await openPlanningSettings(page)
 		await expect(page.getByTestId('energy-slider-monday')).toBeVisible()
 		await expect(page.getByTestId('energy-slider-sunday')).toBeVisible()
 	})
 
 	test('shows energy budget number inputs', async ({ page }) => {
+		await openPlanningSettings(page)
 		await expect(page.getByTestId('energy-input-monday')).toBeVisible()
 		await expect(page.getByTestId('energy-input-sunday')).toBeVisible()
 	})
 
 	test('can interact with energy slider', async ({ page }) => {
+		await openPlanningSettings(page)
 		const slider = page.getByTestId('energy-slider-monday')
 		await expect(slider).toBeVisible()
 		await slider.fill('15')
@@ -86,12 +92,9 @@ test.describe('Scheduling UI', () => {
 test.describe('Scheduling save flow', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
-		await expect(async () => {
-			await page.goto('/apps/chorestrike/#/today')
-			await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 10000 })
-			await page.getByTestId('nav-scheduling').click()
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
-		}).toPass({ timeout: 45000 })
+		await page.goto('/apps/chorestrike/#/today')
+		await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 30000 })
+		await openPlanningSettings(page)
 	})
 
 	test('persists a changed energy budget with exactly one bulk PUT and restores the seed', async ({ page }) => {
@@ -125,7 +128,7 @@ test.describe('Scheduling save flow', () => {
 			// Reload: the persisted value must survive the bulk PUT round-trip.
 			await page.reload()
 			await page.waitForLoadState('networkidle')
-			await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+			await page.getByTestId('planning-settings').waitFor({ state: 'visible' })
 			await expect(page.getByTestId('energy-slider-monday')).toHaveValue(changed)
 		} finally {
 			if (originalMonday !== null) {

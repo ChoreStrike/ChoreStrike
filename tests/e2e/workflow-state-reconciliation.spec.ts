@@ -22,6 +22,7 @@ import { formatCoinMinor } from '../../src/utils/minorUnits.js'
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import { expect, PROFILE_USERS, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
+import { openSettingsCategory } from './fixtures/settings.ts'
 test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })
 
@@ -40,7 +41,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 		}
 		try {
 			await login('mom')
-			await page.goto('/apps/chorestrike/#/settings')
+			await page.goto('/apps/chorestrike/#/settings?category=notifications')
 			await expect(page.getByTestId('arcade-visible-switch')).toBeChecked()
 			await page.getByText('Show the arcade', { exact: true }).click()
 			await page.getByTestId('save-preferences').click()
@@ -79,6 +80,7 @@ test.describe('Workflow state reconciliation (CS-PLAN-066)', () => {
 			await expect(page.getByTestId('own-wallet-available')).toHaveText(formatCoinMinor(childMinor))
 			await expect(page.getByTestId('own-wallet-available')).not.toHaveText(priorWallet)
 			await page.getByTestId('nav-settings').click()
+			await openSettingsCategory(page, 'notifications')
 			await expect(page.getByTestId('arcade-visible-switch')).toBeChecked()
 		} finally {
 			await context.close()

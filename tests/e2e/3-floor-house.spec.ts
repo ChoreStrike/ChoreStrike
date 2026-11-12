@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { createUserContext, userStatePath } from './fixtures/auth-contexts.ts'
+import { openRanking } from './fixtures/insights.ts'
+import { openSettingsCategory } from './fixtures/settings.ts'
 import { createRoomViaSettings, setupTestHouse } from './fixtures/test-house.ts'
 
 /**
@@ -57,6 +59,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await page.waitForSelector('[data-testid="today-view"]', { timeout: 10000 })
 		await page.click('[data-testid="nav-settings"]')
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+		await openSettingsCategory(page, 'structure')
 
 		// The seeded family house contributes its own floors
 		// (Ground/First/Second), so assert presence + a floor count of at
@@ -238,6 +241,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		// Navigate to settings
 		await page.click('[data-testid="nav-settings"]')
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+		await openSettingsCategory(page, 'structure')
 
 		// Verify floors section exists
 		await expect(page.locator('[data-testid="floors-list"], .floors-list')).toBeVisible()
@@ -267,13 +271,13 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await page.click('[data-testid="nav-tasks"]')
 		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 10000 })
 
-		// 3. Leaderboard
-		await page.click('[data-testid="nav-leaderboard"]')
-		await page.waitForSelector('[data-testid="leaderboard-view"]', { timeout: 10000 })
+		// 3. Insights with the ranking
+		await openRanking(page)
 
 		// 4. Settings, where the floors are still listed
 		await page.click('[data-testid="nav-settings"]')
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+		await openSettingsCategory(page, 'structure')
 		for (const name of ['Keller', 'Erdgeschoss', '1. Obergeschoss']) {
 			await expect(page.getByTestId(`floor-${name}`)).toBeVisible({ timeout: 15000 })
 		}

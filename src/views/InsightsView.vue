@@ -25,8 +25,7 @@
 		</div>
 
 		<template v-else>
-			<section class="insights-section">
-				<h2>{{ t('chorestrike', 'House Overview') }}</h2>
+			<section class="insights-section" :aria-label="t('chorestrike', 'House Overview')">
 				<HouseStatsCards :stats="stats" />
 			</section>
 
@@ -44,6 +43,16 @@
 					:completedEnergyMinorByUser="completedEnergyMinorByUser" />
 			</section>
 
+			<!-- The opt-in ranking with its medals (CS-PLAN-090 WP-E): the
+			     Leaderboard page became this section; `/leaderboard` leads here. -->
+			<section id="ranking"
+				ref="ranking"
+				class="insights-section"
+				data-testid="insights-ranking">
+				<h2>{{ t('chorestrike', 'Ranking') }}</h2>
+				<RankingPanel />
+			</section>
+
 			<section class="insights-section">
 				<h2>{{ t('chorestrike', 'Recent Activity') }}</h2>
 				<p v-if="houseStore.activityError" class="error-hint" data-testid="activity-error">
@@ -52,79 +61,30 @@
 						{{ t('chorestrike', 'Refresh') }}
 					</button>
 				</p>
-				<p v-else-if="activityLoading" class="empty-hint" data-testid="activity-loading">
+				<!-- Only before the first read: a refresh keeps the list, and
+				     with it the line that is open, in place. -->
+				<p v-else-if="activityLoading && houseStore.activity.length === 0" class="empty-hint" data-testid="activity-loading">
 					{{ t('chorestrike', 'Loading activity…') }}
 				</p>
 				<ActivityFeed
 					v-else
 					:items="houseStore.activity"
+					:timezone="houseStore.timezone"
 					:busyId="undoingId"
 					:blockedIds="blockedUndoIds"
 					@correct="startCorrection"
 					@undo="undoCompletion" />
 			</section>
 
-			<Modal
+			<CorrectionReview
 				v-if="correction && (correction.conflict || correction.uncertain)"
-				persistent
-				:aria-label="t('chorestrike', 'Correct the work split')"
-				@close="cancelCorrection">
-				<section
-					class="insights-section correction-review"
-					data-testid="correction-review"
-					role="alert">
-					<h2>{{ t('chorestrike', 'Correct the work split') }}</h2>
-					<p v-if="correction.conflict" data-testid="correction-conflict">
-						{{ t('chorestrike', 'The completion changed since it was displayed') }}
-					</p>
-					<p v-else data-testid="correction-uncertain">
-						{{ t('chorestrike', 'Could not save the correction') }}
-					</p>
-					<div class="split-comparison">
-						<div>
-							<h3>{{ t('chorestrike', 'Your draft') }}</h3>
-							<ul data-testid="correction-draft">
-								<li v-for="entry in correctionDraft" :key="entry.userId">
-									{{ memberName(entry.userId) }}: {{ entry.sharePct }}%
-								</li>
-							</ul>
-						</div>
-						<div v-if="correction.conflict && correction.current">
-							<h3>{{ t('chorestrike', 'Current split') }}</h3>
-							<ul data-testid="correction-current">
-								<li v-for="(entry, index) in correction.current.allocation" :key="index">
-									{{ entry.displayName }}: {{ entry.sharePct }}%
-								</li>
-							</ul>
-						</div>
-					</div>
-					<div class="review-actions cs-dialog-actions">
-						<button type="button" @click="cancelCorrection">
-							{{ t('chorestrike', 'Cancel') }}
-						</button>
-						<button v-if="correction.conflict && !correction.current"
-							type="button"
-							:disabled="correction.loadingCurrent"
-							data-testid="correction-refresh"
-							@click="reloadCurrentSplit(correction)">
-							{{ t('chorestrike', 'Refresh') }}
-						</button>
-						<button v-if="correction.conflict && correction.current?.canCorrect"
-							type="button"
-							data-testid="correction-review-button"
-							@click="reviewCurrentSplit">
-							{{ t('chorestrike', 'Review current split') }}
-						</button>
-						<button v-if="correction.uncertain"
-							type="button"
-							:disabled="correction.saving"
-							data-testid="correction-retry"
-							@click="confirmCorrection()">
-							{{ t('chorestrike', 'Save correction') }}
-						</button>
-					</div>
-				</section>
-			</Modal>
+				:correction="correction"
+				:draft="correctionDraft"
+				:members="memberOptions"
+				@cancel="cancelCorrection"
+				@refresh="reloadCurrentSplit(correction)"
+				@review="reviewCurrentSplit"
+				@retry="confirmCorrection()" />
 
 			<ParticipationDialog
 				v-if="correction && !correction.conflict && !correction.uncertain"
@@ -143,11 +103,12 @@
 import { showError } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
 import ErrorState from '../components/Common/ErrorState.vue'
-import Modal from '../components/Common/Modal.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
 import ActivityFeed from '../components/Insights/ActivityFeed.vue'
+import CorrectionReview from '../components/Insights/CorrectionReview.vue'
 import HouseStatsCards from '../components/Insights/HouseStatsCards.vue'
 import MemberFairnessTable from '../components/Insights/MemberFairnessTable.vue'
+import RankingPanel from '../components/Insights/RankingPanel.vue'
 import { useHouseStore } from '../store/house.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useUserStore } from '../store/user.js'
@@ -158,10 +119,11 @@ export default {
 	name: 'InsightsView',
 
 	components: {
-		Modal,
 		ErrorState,
+		CorrectionReview,
 		HouseStatsCards,
 		MemberFairnessTable,
+		RankingPanel,
 		ActivityFeed,
 		ParticipationDialog,
 	},
@@ -280,6 +242,7 @@ export default {
 			logger.error('Failed to load house members', usersResult.reason, { view: 'InsightsView', action: 'mounted' })
 		}
 		this.loading = false
+		await this.showLinkedSection()
 
 		// Activity loads independently so a failure cannot blank the stats.
 		try {
@@ -292,8 +255,17 @@ export default {
 	methods: {
 		t,
 
-		memberName(userId) {
-			return this.memberOptions.find((member) => member.userId === userId)?.displayName ?? userId
+		/**
+		 * Bring the ranking into view when the address names it: the old
+		 * Leaderboard address redirects to `#ranking` (D-090-54), and with
+		 * hash routing the browser cannot follow that anchor by itself.
+		 */
+		async showLinkedSection() {
+			if (this.$route?.hash !== '#ranking') {
+				return
+			}
+			await this.$nextTick()
+			this.$refs.ranking?.scrollIntoView?.({ block: 'start' })
 		},
 
 		/** User-triggered retry of the failed house-users fetch. */
@@ -500,61 +472,19 @@ export default {
 	margin: 0;
 }
 
+/* Dense (CS-PLAN-090 WP-E): sections are plain blocks under a small heading. */
 .insights-section {
-	background: var(--color-background-dark);
-	border-radius: 12px;
-	padding: 1.5rem;
-	margin-bottom: 2rem;
+	margin-bottom: 1.25rem;
 }
 
 .insights-section h2 {
-	margin: 0 0 1rem 0;
-	font-size: 1.3rem;
-	color: var(--color-main-text);
-}
-
-.correction-review {
-	border: 1px solid var(--color-element-warning);
-	margin: 0;
-	padding-inline-end: 3.5rem;
-}
-
-.split-comparison {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-	gap: 1rem;
-	margin: 1rem 0;
-}
-
-.split-comparison h3 {
-	font-size: 1rem;
-	margin: 0 0 0.5rem;
-}
-
-.split-comparison ul {
-	margin: 0;
-	padding-inline-start: 1.5rem;
-}
-
-.review-actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75rem;
-}
-
-.review-actions button {
-	min-height: 44px;
-	padding: 0.5rem 1rem;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	cursor: pointer;
-}
-
-.review-actions button:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
+	margin: 0 0 0.4rem 0;
+	padding-inline-start: 0.5rem;
+	font-size: 0.85rem;
+	font-weight: bold;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--color-text-maxcontrast);
 }
 
 .empty-hint,

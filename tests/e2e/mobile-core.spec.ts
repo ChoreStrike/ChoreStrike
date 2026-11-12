@@ -325,6 +325,7 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 			const settings = page.getByTestId('settings-view')
 			await expect(settings).toBeVisible()
 			await page.getByRole('button', { name: /Close navigation|Navigation schließen/i }).tap()
+			await page.getByTestId('settings-category-notifications').tap()
 			for (const control of [page.getByTestId('settings-title'), page.getByTestId('task-digest-switch')]) {
 				await expect(control).toBeVisible()
 				await expectWithinViewport(page, control)
