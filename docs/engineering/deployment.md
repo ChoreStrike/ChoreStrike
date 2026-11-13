@@ -67,8 +67,8 @@ packages only from a clean, HEAD-pinned checkout inside the pinned Docker
 builder, emits the archive plus package/source manifests, the source-vs-git-blob
 identity proof and the asset-contract report under gitignored `build/package/`,
 and `--verify-reproducible` proves the two-build byte-identity. `npm run
-test:package:smoke` (WP3) then qualifies the same extracted archive on the NC35
-canonical and NC34 compatibility runtime rows and writes the identity-bound
+test:package:smoke` (WP3) then qualifies the same extracted archive on the
+primary and the AIO runtime row and writes the identity-bound
 qualification record. See `docs/engineering/testing.md` §Package Identity Gate.
 The captured SHA owns archive/tree/configuration inputs; Git failures or
 candidate drift refuse qualification. The pinned Linux builder also performs
@@ -193,7 +193,7 @@ baseline.** From it, persisted facts are preserved by default and applied
 migrations are immutable under the
 [canonical retention rule](../standards/ai/rules/project-rules.md#data-retention-boundary).
 Disposable development installs and the canonical test environment (Nextcloud
-35.0.2 / PHP 8.4.27 / PostgreSQL 18.6, frozen in `docker/test-runtime.json`)
+35.0.3 / PHP 8.4.27 / PostgreSQL 18.6, frozen in `docker/test-runtime.json`)
 stay disposable; they are neither retained data nor supported upgrade sources.
 The installed build on that baseline is `0.8.0-alpha.4` since 2026-11-05
 ([updates](#updates-on-the-retained-baseline)).
@@ -405,7 +405,7 @@ npm test
 ### Integration & E2E Tests (Docker)
 
 The compose defaults provision the pinned current-stable test runtime
-(Nextcloud 35.0.2 / PHP 8.4.27 / PostgreSQL 18.6, CS-PLAN-082); see
+(Nextcloud 35.0.3 / PHP 8.4.27 / PostgreSQL 18.6, CS-PLAN-082); see
 [testing.md](testing.md#runtime-baseline-cs-plan-082). The environment remains
 disposable (fresh installs only).
 

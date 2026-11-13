@@ -1,43 +1,43 @@
 {
   "schemaVersion": 1,
   "status": "qualified",
-  "verifiedAt": "2026-11-04",
+  "verifiedAt": "2026-11-12",
   "platform": "linux/amd64",
   "nextcloud": {
+    "version": "35.0.3",
+    "internalVersion": "35.0.3.2",
+    "ref": "v35.0.3",
+    "revision": "7764ef4927e5f85071e495ce7602ccd247bb6b30"
+  },
+  "previous": {
     "version": "35.0.2",
     "internalVersion": "35.0.2.2",
     "ref": "v35.0.2",
     "revision": "ba900af933e61ffa005315b09d6454bfbbcbcc81"
   },
-  "previous": {
-    "version": "35.0.1",
-    "internalVersion": "35.0.1.1",
-    "ref": "v35.0.1",
-    "revision": "3c012e618ab46ac73c61a96f5bb7168a693ca1fb"
-  },
   "notifications": {
-    "ref": "v35.0.2",
-    "revision": "6490bd9c2d9f19e4f26f42eb8c50a745b6c01a24"
+    "ref": "v35.0.3",
+    "revision": "cd6d2329d5dee2d183ad558fd9a75df822589471"
   },
   "viewer": {
-    "ref": "v35.0.2",
-    "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
+    "ref": "v35.0.3",
+    "revision": "0ca47becdc2aaebb1057e04439d0641966009838"
   },
   "patches": {
     "previousNotifications": {
-      "ref": "v35.0.1",
-      "revision": "0389f40a52d07663efa09de8750a2e26cb528144"
+      "ref": "v35.0.2",
+      "revision": "6490bd9c2d9f19e4f26f42eb8c50a745b6c01a24"
     },
     "previousViewer": {
-      "ref": "v35.0.1",
+      "ref": "v35.0.2",
       "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
     }
   },
   "php": {
     "version": "8.4.27",
     "image": "php:8.4.27-apache",
-    "digest": "sha256:4af38a0245996e700e20ec211b9f1c44fb789ad8cc7d24c7ea81ff382b641052",
-    "platformDigest": "sha256:f285280aa665ef0fe6f9645ed5e6aa94df2c4595b62c07d4c90c79dcc0ddc8a4"
+    "digest": "sha256:884f64b47174de2c0e813270fe7b24a18605729fcebe201302d98c38805530d0",
+    "platformDigest": "sha256:7c3d8b9e579e29cdf2fbce05649f8427840798800d4d7c1528e0bf17dec7354c"
   },
   "composer": {
     "version": "2.9.5",
@@ -55,8 +55,8 @@
     "pgsql": {
       "version": "18.6",
       "image": "postgres:18.6-alpine",
-      "digest": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
-      "platformDigest": "sha256:3b0ef735388b2cb097fc29b8bb421d86d57d0ddbe7aa1fbd6493e06d65028503"
+      "digest": "sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b",
+      "platformDigest": "sha256:300ebd02c6d4de9ee27ad7f6855d5d21b4d3a4a5117767c1197d284c635d9736"
     },
     "sqlite": {
       "version": "3.46.1"
@@ -71,46 +71,46 @@
   },
   "cache": {
     "redis": {
-      "version": "8.10.2",
-      "image": "redis:8.10.2-alpine",
-      "digest": "sha256:9f8d2d789b9a1d1e3f283f979aa9cbf393373806472e1ccd460e2f9c869b833b",
-      "platformDigest": "sha256:16b124a2d3eacd620d917ead6fd26cbf1f1d7117fa94122398971931cfe2d403"
+      "version": "8.10.3",
+      "image": "redis:8.10.3-alpine",
+      "digest": "sha256:7958cfbb9d152f87dadfbc89f1b0b15938f0b81ff8982feb327476f4911935c3",
+      "platformDigest": "sha256:41ed50f5c0d9cf8b2151ad63df24ba96d018ccc84804d0688e9b9f1ed3d9f558"
     }
   },
   "aio": {
-    "version": "14.4.3",
-    "nextcloudVersion": "34.0.5"
+    "version": "15.0.2",
+    "nextcloudVersion": "35.0.2"
   },
   "compatibility": {
     "aio": {
       "nextcloud": {
-        "version": "34.0.5",
-        "internalVersion": "34.0.5.1",
-        "ref": "v34.0.5",
-        "revision": "77e3cab12d2215bf94d6de67f23b98ed7bad236e"
+        "version": "35.0.2",
+        "internalVersion": "35.0.2.2",
+        "ref": "v35.0.2",
+        "revision": "ba900af933e61ffa005315b09d6454bfbbcbcc81"
       },
       "previous": {
-        "version": "34.0.4",
-        "internalVersion": "34.0.4.1",
-        "ref": "v34.0.4",
-        "revision": "77c7284fed1f5c7b4bce1a94299e229f3281b606"
+        "version": "35.0.1",
+        "internalVersion": "35.0.1.1",
+        "ref": "v35.0.1",
+        "revision": "3c012e618ab46ac73c61a96f5bb7168a693ca1fb"
       },
       "notifications": {
-        "ref": "v34.0.5",
-        "revision": "4ad7881fa676b827fe8a11fa631753aab882160e"
+        "ref": "v35.0.2",
+        "revision": "6490bd9c2d9f19e4f26f42eb8c50a745b6c01a24"
       },
       "viewer": {
-        "ref": "v34.0.5",
-        "revision": "09f8b9ff256c874c69e1d180d9a50d70bee04df8"
+        "ref": "v35.0.2",
+        "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
       },
       "patches": {
         "previousNotifications": {
-          "ref": "v34.0.4",
-          "revision": "68bd4ea7773d24664425d525f3c87012e5313bfa"
+          "ref": "v35.0.1",
+          "revision": "0389f40a52d07663efa09de8750a2e26cb528144"
         },
         "previousViewer": {
-          "ref": "v34.0.4",
-          "revision": "73ac591a6696b992e0009a71eef0f06c1c9e04a2"
+          "ref": "v35.0.1",
+          "revision": "3509a539e695f21fd872434cbd3ee84d4bc2b605"
         }
       }
     }

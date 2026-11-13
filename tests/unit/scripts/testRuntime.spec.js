@@ -1,7 +1,7 @@
 /** @jest-environment node */
 const fs = require('node:fs')
 const path = require('node:path')
-const { validateInventory, validateRuntimeShape, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, highestStableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, UPSTREAM_BUILD_CONDITIONS } = require('../../../scripts/test-runtime')
+const { validateInventory, validateRuntimeShape, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, highestStableRelease, tagRevision, registryIdentity, checkStable, inventoryHash, runtimeImageName, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, UPSTREAM_BUILD_CONDITIONS } = require('../../../scripts/test-runtime')
 
 const frozen = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../docker/test-runtime.json'), 'utf8'))
 const copy = () => JSON.parse(JSON.stringify(frozen))
@@ -10,14 +10,16 @@ const release = version => ({ tag_name: `v${version}`, draft: false, prerelease:
 const releases = (...versions) => JSON.stringify(versions.map(release))
 
 const STALE_LOCK_WARNING = 'Warning: The lock file is not up to date with the latest changes in composer.json. You may be getting outdated dependencies. It is recommended that you run `composer update` or `composer update <package name>`.'
+const STALE = { warnings: { stdout: `${STALE_LOCK_WARNING}\n` } }
 const LCOBUCCI_FAILURE = { name: 'php', version: '8.4.25', status: 'failed', failed_requirement: { source: 'lcobucci/clock', type: 'requires', target: 'php', constraint: '~8.1.0 || ~8.2.0' }, provider: null }
 
+/** Probe answers of one row's current image: only Nextcloud 35.0.2 (the AIO row and the primary update source) carries the stale notifications lock. */
 function probeFixtures(row = 'primary', overrides = {}) {
 	return jest.fn((command, args) => {
 		const line = args.join(' ')
 		if (line.includes('check-platform-reqs')) {
 			const thirdparty = line.includes('/var/www/html/3rdparty')
-			const failures = row === 'aio' && thirdparty ? [LCOBUCCI_FAILURE] : []
+			const failures = []
 			const response = {
 				status: failures.length ? 1 : 0,
 				stdout: JSON.stringify([{ name: 'php', version: '8.4.25', status: 'success', failed_requirement: null, provider: null }, ...failures]),
@@ -26,7 +28,7 @@ function probeFixtures(row = 'primary', overrides = {}) {
 			return { ...response, ...(overrides[thirdparty ? 'thirdparty' : 'core'] || {}) }
 		}
 		if (args.includes('-r')) return { status: 0, stdout: JSON.stringify({ matches: true, locked: 15, installed: 15 }), stderr: '', ...overrides.lock }
-		if (args.includes('pipefail')) return { status: 0, stdout: row === 'primary' ? `${STALE_LOCK_WARNING}\n` : '', stderr: '', ...overrides.warnings }
+		if (args.includes('pipefail')) return { status: 0, stdout: row === 'aio' ? `${STALE_LOCK_WARNING}\n` : '', stderr: '', ...overrides.warnings }
 		throw new Error(`unexpected probe: ${line}`)
 	})
 }
@@ -110,22 +112,22 @@ describe('frozen runtime inventory', () => {
 		const value = copy()
 		const primary = selectRuntime(value)
 		const aio = selectRuntime(value, 'aio')
-		expect(primary.nextcloud.version).toBe('35.0.2')
-		expect(aio.nextcloud.version).toBe('34.0.5')
-		expect(aio.previous.version).toBe('34.0.4')
-		expect(inventoryHash(aio)).toBe('191eb1cd03df3a6cf5b4664d3c4dcbfddf10a703edc239d71c228198e56acf6d')
+		expect(primary.nextcloud.version).toBe('35.0.3')
+		expect(aio.nextcloud.version).toBe('35.0.2')
+		expect(aio.previous.version).toBe('35.0.1')
+		expect(inventoryHash(aio)).toBe('9fba5eca0516b735b1a1d2103f5392641f7602b6dae6ef8d3cc478c0252e2249')
 		expect(inventoryHash(primary)).not.toBe(inventoryHash(aio))
 		expect(value).toEqual(frozen)
 		expect(() => selectRuntime(value, 'unknown')).toThrow('runtime selector')
 		expect(() => selectRuntime(primary, 'aio')).toThrow('missing compatibility row')
 	})
 	it.each([
-		['forged previous notifications ref', value => { value.patches.previousNotifications.ref = 'v35.0.2' }],
+		['forged previous notifications ref', value => { value.patches.previousNotifications.ref = 'v35.0.3' }],
 		['forged previous notifications revision', value => { value.patches.previousNotifications.revision = 'HEAD' }],
-		['forged previous viewer pin', value => { value.patches.previousViewer.ref = 'v35.0.2' }],
+		['forged previous viewer pin', value => { value.patches.previousViewer.ref = 'v35.0.3' }],
 		['unknown patches key', value => { value.patches.future = {} }],
 		['missing previous viewer pin', value => { delete value.patches.previousViewer }],
-		['AIO previous notifications pin', value => { value.compatibility.aio.patches.previousNotifications.ref = 'v34.0.5' }],
+		['AIO previous notifications pin', value => { value.compatibility.aio.patches.previousNotifications.ref = 'v35.0.2' }],
 		['viewer ref', value => { value.viewer.ref = 'v34.0.4' }],
 		['viewer revision', value => { value.viewer.revision = 'HEAD' }],
 		['AIO viewer pin', value => { value.compatibility.aio.viewer.revision = 'HEAD' }],
@@ -170,15 +172,20 @@ describe('pinned update-source (previous patch) selection', () => {
 		const currentAio = selectRuntimeSource(value, 'aio', 'current')
 		const previousPrimary = selectRuntimeSource(value, 'primary', 'previous')
 		const previousAio = selectRuntimeSource(value, 'aio', 'previous')
-		expect(previousPrimary.nextcloud.version).toBe('35.0.1')
-		expect(previousPrimary.previous.version).toBe('35.0.1')
-		expect(previousPrimary.notifications).toEqual({ ref: 'v35.0.1', revision: '0389f40a52d07663efa09de8750a2e26cb528144' })
-		expect(previousPrimary.viewer).toEqual({ ref: 'v35.0.1', revision: '3509a539e695f21fd872434cbd3ee84d4bc2b605' })
-		expect(previousAio.nextcloud.version).toBe('34.0.4')
-		expect(previousAio.notifications.ref).toBe('v34.0.4')
-		expect(previousAio.viewer).toEqual({ ref: 'v34.0.4', revision: '73ac591a6696b992e0009a71eef0f06c1c9e04a2' })
-		expect(selectionHash(currentPrimary)).toBe('902b957a62ea7965d797d5b2f4a705cadbc6504c082885324ff3c4955ee5155b')
-		expect(selectionHash(currentAio)).toBe('191eb1cd03df3a6cf5b4664d3c4dcbfddf10a703edc239d71c228198e56acf6d')
+		expect(previousPrimary.nextcloud.version).toBe('35.0.2')
+		expect(previousPrimary.previous.version).toBe('35.0.2')
+		expect(previousPrimary.notifications).toEqual({ ref: 'v35.0.2', revision: '6490bd9c2d9f19e4f26f42eb8c50a745b6c01a24' })
+		expect(previousPrimary.viewer).toEqual({ ref: 'v35.0.2', revision: '3509a539e695f21fd872434cbd3ee84d4bc2b605' })
+		expect(previousAio.nextcloud.version).toBe('35.0.1')
+		expect(previousAio.notifications.ref).toBe('v35.0.1')
+		expect(previousAio.viewer).toEqual({ ref: 'v35.0.1', revision: '3509a539e695f21fd872434cbd3ee84d4bc2b605' })
+		expect(selectionHash(currentPrimary)).toBe('121b91515c715e22611c5ff3c2eee184d83de400016ef50074a96313a73a3e77')
+		expect(selectionHash(currentAio)).toBe('9fba5eca0516b735b1a1d2103f5392641f7602b6dae6ef8d3cc478c0252e2249')
+		// The AIO row's current patch is the primary row's update source: same sources, another identity.
+		expect(currentAio.nextcloud).toEqual(previousPrimary.nextcloud)
+		expect(selectionHash(currentAio)).not.toBe(selectionHash(previousPrimary))
+		expect(runtimeImageName(currentAio, 'aio')).toBe('cs082-runtime-35.0.2-aio-local')
+		expect(runtimeImageName(previousPrimary)).toBe('cs082-runtime-35.0.2-local')
 		expect(selectionHash(previousPrimary)).not.toBe(selectionHash(currentPrimary))
 		expect(selectionHash(previousAio)).not.toBe(selectionHash(currentAio))
 		expect(value).toEqual(frozen)
@@ -195,11 +202,11 @@ describe('pinned update-source (previous patch) selection', () => {
 	})
 	it('builds the pinned previous-patch source image with its own label hash', () => {
 		const previous = selectRuntimeSource(copy(), 'primary', 'previous')
-		const args = buildArguments(previous, 'cs082-runtime-35.0.1-local')
+		const args = buildArguments(previous, 'cs082-runtime-35.0.2-local')
 		expect(args).toEqual(expect.arrayContaining([
-			`NEXTCLOUD_REF=v35.0.1`, `NEXTCLOUD_REVISION=${frozen.previous.revision}`,
-			`NOTIFICATIONS_REF=v35.0.1`, `NOTIFICATIONS_REVISION=${previous.notifications.revision}`,
-			`VIEWER_REF=v35.0.1`, `VIEWER_REVISION=${previous.viewer.revision}`,
+			`NEXTCLOUD_REF=v35.0.2`, `NEXTCLOUD_REVISION=${frozen.previous.revision}`,
+			`NOTIFICATIONS_REF=v35.0.2`, `NOTIFICATIONS_REVISION=${previous.notifications.revision}`,
+			`VIEWER_REF=v35.0.2`, `VIEWER_REVISION=${previous.viewer.revision}`,
 		]))
 		expect(args.join(' ')).toContain(`RUNTIME_INVENTORY_SHA256=${selectionHash(previous)}`)
 		expect(args.join(' ')).not.toContain(frozen.nextcloud.revision)
@@ -217,14 +224,14 @@ describe('pinned update-source (previous patch) selection', () => {
 			if (args.at(-1).includes('notifications-ready')) return 'notifications-ready'
 			return JSON.stringify(actual)
 		})
-		expect(verifyImage(previous, 'cs082-runtime-35.0.1-local', run, 'primary', probeFixtures(), 'previous')).toMatchObject({
-			status: 'frozen-image-identity-match', nextcloud: '35.0.1',
+		expect(verifyImage(previous, 'cs082-runtime-35.0.2-local', run, 'primary', probeFixtures('primary', STALE), 'previous')).toMatchObject({
+			status: 'frozen-image-identity-match', nextcloud: '35.0.2',
 			upstreamLimitations: [`${previous.notifications.ref}-notifications-stale-root-lock`],
 		})
 		const mismatchedLabel = jest.fn((command, args) => args[0] === 'image'
 			? JSON.stringify([{ Id: `sha256:${'3'.repeat(64)}`, Os: 'linux', Architecture: 'amd64', Config: { Labels: { 'org.chorestrike.test-runtime.inventory': selectionHash(selectRuntime(copy())) } } }])
 			: run(command, args))
-		expect(() => verifyImage(previous, 'cs082-runtime-35.0.1-local', mismatchedLabel, 'primary', probeFixtures(), 'previous'))
+		expect(() => verifyImage(previous, 'cs082-runtime-35.0.2-local', mismatchedLabel, 'primary', probeFixtures(), 'previous'))
 			.toThrow('inventory/platform mismatch')
 	})
 })
@@ -243,9 +250,9 @@ describe('read-only stable discovery', () => {
 	it('reports newer upstream separately from the unchanged AIO bundle without rewriting the lock', async () => {
 		const value = copy()
 		const io = officialFixtures()
-		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases('35.0.3')
+		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases('35.0.4')
 			: url.includes('/releases') ? releases(frozen.aio.version) : aioDockerfile(url))
-		await expect(checkStable(value, io)).resolves.toMatchObject({ status: 'update-needed', upstream: '35.0.3', aioNextcloud: '34.0.5', drift: ['upstream-nextcloud'] })
+		await expect(checkStable(value, io)).resolves.toMatchObject({ status: 'update-needed', upstream: '35.0.4', aioNextcloud: '35.0.2', drift: ['upstream-nextcloud'] })
 		expect(value).toEqual(frozen)
 	})
 	it('reports a different AIO bundle even when its Nextcloud version stays unchanged', async () => {
@@ -266,7 +273,7 @@ describe('read-only stable discovery', () => {
 	})
 	it.each([
 		['php', '8.4.28', 'aio-php'], ['apcu', '5.1.29', 'aio-apcu'], ['phpredis', '6.3.1', 'aio-phpredis'],
-		['redis', '8.10.3', 'aio-redis'], ['postgres', '18.7', 'aio-postgres'],
+		['redis', '8.10.4', 'aio-redis'], ['postgres', '18.7', 'aio-postgres'],
 	])('reports an AIO %s update as drift even when the bundled Nextcloud stays unchanged', async (component, version, label) => {
 		const io = officialFixtures()
 		io.fetchMetadata.mockImplementation(async url => url.includes('/server/releases') ? releases(frozen.nextcloud.version)
@@ -364,7 +371,7 @@ describe('frozen candidate execution', () => {
 		})
 		const probe = probeFixtures()
 		expect(verifyImage(selection, 'cs082-runtime-34.0.4-local', run, 'primary', probe)).toMatchObject({ status: 'frozen-image-identity-match', qualification: 'qualified', composer: frozen.composer.version,
-			notificationsLockedPackages: 15, upstreamLimitations: [`${frozen.notifications.ref}-notifications-stale-root-lock`] })
+			notificationsLockedPackages: 15, upstreamLimitations: [] })
 		expect(run.mock.calls.slice(1).every(([, args]) => args.includes('--rm') && args.includes('none'))).toBe(true)
 		expect(run.mock.calls.slice(1).every(([, args]) => args.includes(`sha256:${'1'.repeat(64)}`) && !args.includes('cs082-runtime-34.0.4-local'))).toBe(true)
 		expect(probe.mock.calls.every(([, args]) => args.includes('--rm') && args.includes('none') && args.includes(`sha256:${'1'.repeat(64)}`))).toBe(true)
@@ -378,20 +385,20 @@ describe('frozen candidate execution', () => {
 
 describe('upstream build condition dispositions', () => {
 	const imageId = `sha256:${'2'.repeat(64)}`
-	it('accepts the clean primary platform gate and records the exact notifications stale-lock warning', () => {
+	it('accepts the clean primary platform gate and notifications build', () => {
 		expect(assertPlatformGate('primary', imageId, probeFixtures())).toEqual([])
-		expect(assertNotificationsBuild('primary', imageId, probeFixtures())).toEqual({ lockedPackages: 15, warnings: [STALE_LOCK_WARNING] })
+		expect(assertNotificationsBuild('primary', imageId, probeFixtures())).toEqual({ lockedPackages: 15, warnings: [] })
 	})
-	it('accepts the exact named NC34 lcobucci/clock limitation on the AIO row without relabeling it as passed', () => {
-		expect(assertPlatformGate('aio', imageId, probeFixtures('aio'))).toEqual([{ name: 'php', source: 'lcobucci/clock', constraint: '~8.1.0 || ~8.2.0' }])
-		expect(assertNotificationsBuild('aio', imageId, probeFixtures('aio'))).toEqual({ lockedPackages: 15, warnings: [] })
+	it('records the exact notifications stale-lock warning of Nextcloud 35.0.2 on the AIO row and the primary update source', () => {
+		expect(assertPlatformGate('aio', imageId, probeFixtures('aio'))).toEqual([])
+		expect(assertNotificationsBuild('aio', imageId, probeFixtures('aio'))).toEqual({ lockedPackages: 15, warnings: [STALE_LOCK_WARNING] })
+		expect(assertNotificationsBuild('primary', imageId, probeFixtures('primary', STALE), 'previous')).toEqual({ lockedPackages: 15, warnings: [STALE_LOCK_WARNING] })
 	})
 	it.each([
 		['unexpected core failure', 'primary', { core: { status: 1, stdout: JSON.stringify([LCOBUCCI_FAILURE]) } }, 'core platform gate mismatch'],
 		['unexpected primary 3rdparty failure', 'primary', { thirdparty: { status: 1, stdout: JSON.stringify([LCOBUCCI_FAILURE]) } }, '3rdparty platform gate mismatch'],
-		['different AIO failure', 'aio', { thirdparty: { stdout: JSON.stringify([{ ...LCOBUCCI_FAILURE, failed_requirement: { ...LCOBUCCI_FAILURE.failed_requirement, constraint: '~8.2.0' } }]) } }, '3rdparty platform gate mismatch'],
-		['additional AIO failure', 'aio', { thirdparty: { stdout: JSON.stringify([LCOBUCCI_FAILURE, { ...LCOBUCCI_FAILURE, name: 'ext-gmp' }]) } }, '3rdparty platform gate mismatch'],
-		['unexpectedly clean AIO gate', 'aio', { thirdparty: { status: 0, stdout: JSON.stringify([{ name: 'php', version: '8.4.25', status: 'success', failed_requirement: null, provider: null }]) } }, '3rdparty platform gate mismatch'],
+		['the retired NC34 lcobucci/clock failure on the AIO row', 'aio', { thirdparty: { status: 1, stdout: JSON.stringify([LCOBUCCI_FAILURE]) } }, '3rdparty platform gate mismatch'],
+		['a failing exit without a named failure', 'aio', { thirdparty: { status: 1 } }, '3rdparty platform gate mismatch'],
 		['probe diagnostics', 'primary', { core: { stderr: 'Deprecated: something' } }, 'core platform probe emitted unexpected diagnostics'],
 		['malformed probe output', 'primary', { core: { stdout: 'not json' } }, 'core platform probe malformed'],
 	])('fails closed on %s', (_, row, overrides, message) => {
@@ -400,8 +407,8 @@ describe('upstream build condition dispositions', () => {
 	it.each([
 		['vendor divergence', 'primary', { lock: { stdout: JSON.stringify({ matches: false, locked: 15, installed: 14 }) } }, 'diverges from the upstream lock'],
 		['lock probe failure', 'primary', { lock: { status: 1 } }, 'lock probe failed'],
-		['missing primary stale-lock warning', 'primary', { warnings: { stdout: '' } }, 'build warnings mismatch'],
-		['unexpected AIO warning', 'aio', { warnings: { stdout: `${STALE_LOCK_WARNING}\n` } }, 'build warnings mismatch'],
+		['unexpected primary warning', 'primary', STALE, 'build warnings mismatch'],
+		['missing AIO stale-lock warning', 'aio', { warnings: { stdout: '' } }, 'build warnings mismatch'],
 		['warnings probe failure', 'primary', { warnings: { status: 1 } }, 'build probe failed'],
 	])('fails closed on %s', (_, row, overrides, message) => {
 		expect(() => assertNotificationsBuild(row, imageId, probeFixtures(row, overrides))).toThrow(message)
@@ -409,8 +416,10 @@ describe('upstream build condition dispositions', () => {
 	it('rejects unknown rows or patches instead of defaulting to permissive expectations', () => {
 		expect(() => assertPlatformGate('unknown', imageId, probeFixtures())).toThrow('Unknown runtime row/patch')
 		expect(() => assertPlatformGate('primary', imageId, probeFixtures(), 'unknown')).toThrow('Unknown runtime row/patch')
-		expect(UPSTREAM_BUILD_CONDITIONS.primary.current.notificationsWarnings).toEqual([STALE_LOCK_WARNING])
-		expect(UPSTREAM_BUILD_CONDITIONS.aio.current['3rdpartyFailures']).toEqual([{ name: 'php', source: 'lcobucci/clock', constraint: '~8.1.0 || ~8.2.0' }])
+		expect(UPSTREAM_BUILD_CONDITIONS.primary.current).toEqual({ '3rdpartyFailures': [], notificationsWarnings: [] })
+		for (const conditions of [UPSTREAM_BUILD_CONDITIONS.primary.previous, UPSTREAM_BUILD_CONDITIONS.aio.current, UPSTREAM_BUILD_CONDITIONS.aio.previous]) {
+			expect(conditions).toEqual({ '3rdpartyFailures': [], notificationsWarnings: [STALE_LOCK_WARNING] })
+		}
 	})
 	it('threads the row through verifyImage so the AIO image records its named limitation', () => {
 		const aio = selectRuntime(copy(), 'aio')
@@ -425,9 +434,9 @@ describe('upstream build condition dispositions', () => {
 			if (args.at(-1).includes('notifications-ready')) return 'notifications-ready'
 			return JSON.stringify(actual)
 		})
-		expect(verifyImage(aio, 'cs082-runtime-34.0.4-local', run, 'aio', probeFixtures('aio'))).toMatchObject({
+		expect(verifyImage(aio, 'cs082-runtime-35.0.2-aio-local', run, 'aio', probeFixtures('aio'))).toMatchObject({
 			status: 'frozen-image-identity-match',
-			upstreamLimitations: [`${aio.nextcloud.ref}-3rdparty-lcobucci/clock-~8.1.0 || ~8.2.0-php-${aio.php.version}`],
+			upstreamLimitations: [`${aio.notifications.ref}-notifications-stale-root-lock`],
 		})
 	})
 })
@@ -481,8 +490,8 @@ describe('promoted canonical default stack (R7)', () => {
 
 	it('propagates the frozen build into the CI gates that consume the inventory', () => {
 		const releaseGate = fs.readFileSync(path.join(root, '.github/workflows/release-gate.yml'), 'utf8')
-		expect(releaseGate).toContain('node scripts/test-runtime.js build cs082-runtime-35.0.2-local')
-		expect(releaseGate).toContain('node scripts/test-runtime.js verify-image cs082-runtime-35.0.2-local')
+		expect(releaseGate).toContain('node scripts/test-runtime.js build cs082-runtime-35.0.3-local')
+		expect(releaseGate).toContain('node scripts/test-runtime.js verify-image cs082-runtime-35.0.3-local')
 		expect(releaseGate).toContain('docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900')
 		expect(releaseGate).toContain("php-version: '8.4'")
 		const test = fs.readFileSync(path.join(root, '.github/workflows/test.yml'), 'utf8')

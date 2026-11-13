@@ -45,7 +45,7 @@ const path = require('node:path')
 const zlib = require('node:zlib')
 const { readGitState, readTar, buildTar, sha256Hex, buildPackage, assertSafeArchiveName } = require('./build-package')
 const { OWNER_SMOKE_CASES, validatePackageTarget, assertPackageCoherence } = require('./package-target')
-const { readInventory, selectRuntime, selectionHash, verifyImage, execute, probe } = require('./test-runtime')
+const { readInventory, selectRuntime, selectionHash, runtimeImageName, verifyImage, execute, probe } = require('./test-runtime')
 
 const ROOT = path.resolve(__dirname, '..')
 const COMPOSE_FILE = path.join('docker', 'compose.package-smoke.yml')
@@ -186,8 +186,8 @@ function inspectOwnedResources(settings, invoke = run) {
 	})
 }
 
-function defaultImageName(selection) {
-	return `cs082-runtime-${selection.nextcloud.version}-local`
+function defaultImageName(selection, row) {
+	return runtimeImageName(selection, row)
 }
 
 function ownerSmoke(targetFile, extractDir, reportFile, action, invoke = run) {

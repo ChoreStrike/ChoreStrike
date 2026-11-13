@@ -68,13 +68,14 @@ concurrent changes; the measured actions run in the UI.
 
 `docker/test-runtime.json` is the single machine-readable frozen runtime
 inventory. CS-PLAN-082 promoted the current-stable baseline on 2026-10-06: the
-canonical `docker/compose.test.yml` stack now provisions **Nextcloud 35.0.2
-(internal 35.0.2.2, source revision
-`ba900af933e61ffa005315b09d6454bfbbcbcc81`) / PHP 8.4.27 / PostgreSQL 18.6**
+canonical `docker/compose.test.yml` stack now provisions **Nextcloud 35.0.3
+(internal 35.0.3.2, source revision
+`7764ef4927e5f85071e495ce7602ccd247bb6b30`) / PHP 8.4.27 / PostgreSQL 18.6**
 (was: Nextcloud 31 / PHP 8.2 / MariaDB 10.6; PHP 8.4.25 → 8.4.26 with AIO
 v14.3.0, CS-PLAN-084 D-084-09; NC 35.0.1 → 35.0.2, D-084-11; PHP 8.4.26 → 8.4.27 with
 AIO v14.4.2, CS-PLAN-088 RF-088-11; AIO v14.4.3 keeps Nextcloud 34.0.5 and its components,
-CS-PLAN-089). `docker/Dockerfile.test` build
+CS-PLAN-089; NC 35.0.2 → 35.0.3, and the AIO row to Nextcloud 35.0.2 and Redis
+8.10.3 with AIO v15.0.2, CS-PLAN-090 RF-090-12). `docker/Dockerfile.test` build
 defaults are pinned to the inventory (PHP image `php:8.4.27-apache` by digest,
 Composer 2.9.5 by digest, pinned server/notifications/viewer git revisions), so
 a plain `docker compose -f docker/compose.test.yml up --build` always builds
@@ -247,7 +248,7 @@ unique ownership token and are removed by verified ID after a client timeout.
 
 `npm run test:package:smoke` is the one-command pre-handoff qualification:
 build-package → safe extraction of the manifest-verified archive → per
-runtime row (NC35 canonical, NC34 compatibility from
+runtime row (primary and AIO, from
 `docker/test-runtime.json`) an owned `cs082-pkg-*` Compose project
 (`docker/compose.package-smoke.yml`, both test markers false, read-only
 package mount, `org.chorestrike.package-smoke=true`) → fail-closed package
@@ -407,10 +408,10 @@ keeps the evidence a summary line loses:
 
 ```powershell
 node scripts/run-tests.js --matrix --run-id <id> `
-  cs082-<run>-mysql:mysql:cs082-runtime-35.0.2-local:8183 `
-  cs082-<run>-pgsql:pgsql:cs082-runtime-35.0.2-local:8182 `
-  cs082-<run>-sqlite:sqlite:cs082-runtime-35.0.2-local:8184 `
-  cs082-<run>-aio:pgsql:cs082-runtime-34.0.5-local:8185:aio
+  cs082-<run>-mysql:mysql:cs082-runtime-35.0.3-local:8183 `
+  cs082-<run>-pgsql:pgsql:cs082-runtime-35.0.3-local:8182 `
+  cs082-<run>-sqlite:sqlite:cs082-runtime-35.0.3-local:8184 `
+  cs082-<run>-aio:pgsql:cs082-runtime-35.0.2-aio-local:8185:aio
 ```
 
 - Targets are `project:provider:runtime:port[:primary|aio]`. Every target first
@@ -462,8 +463,9 @@ The canonical stack is the promoted CS-PLAN-082 baseline (see
 [Runtime baseline](#runtime-baseline-cs-plan-082) above); the old canonical/WP9
 resources remain historical evidence, not the default. The staging procedure
 below stays the way to run isolated, exclusively owned staging targets against
-the frozen inventory. `docker/test-runtime.json` pins the NC35 primary row and
-the separate NC34 AIO compatibility row. `test-runtime.js check` checks
+the frozen inventory. `docker/test-runtime.json` pins the primary row (the latest upstream stable
+Nextcloud) and the separate AIO row (the Nextcloud release of the operator's
+AIO, 35.0.2 since AIO v15.0.2; Nextcloud 34 until then). `test-runtime.js check` checks
 upstream, the AIO bundle and every row's source/image identity without
 rewriting anything. Exit 2 means update-needed; malformed/unavailable metadata
 exits 3, never green.
@@ -471,16 +473,16 @@ exits 3, never green.
 ```powershell
 npm run test:runtime:validate
 npm run test:runtime:check
-node scripts/test-runtime.js build cs082-runtime-35.0.2-local
-node scripts/test-runtime.js verify-image cs082-runtime-35.0.2-local
+node scripts/test-runtime.js build cs082-runtime-35.0.3-local
+node scripts/test-runtime.js verify-image cs082-runtime-35.0.3-local
 
 # Use distinct fresh projects and unused loopback ports; start sequentially.
-node scripts/test-runtime-stage.js up cs082-example-pgsql pgsql cs082-runtime-35.0.2-local 8182
-node scripts/test-runtime-stage.js up cs082-example-mysql mysql cs082-runtime-35.0.2-local 8183
-node scripts/test-runtime-stage.js up cs082-example-sqlite sqlite cs082-runtime-35.0.2-local 8184
+node scripts/test-runtime-stage.js up cs082-example-pgsql pgsql cs082-runtime-35.0.3-local 8182
+node scripts/test-runtime-stage.js up cs082-example-mysql mysql cs082-runtime-35.0.3-local 8183
+node scripts/test-runtime-stage.js up cs082-example-sqlite sqlite cs082-runtime-35.0.3-local 8184
 
 # Read-only verification of the installed, enabled, seeded provider target.
-node scripts/test-runtime-stage.js verify cs082-example-pgsql pgsql cs082-runtime-35.0.2-local 8182
+node scripts/test-runtime-stage.js verify cs082-example-pgsql pgsql cs082-runtime-35.0.3-local 8182
 docker exec cs082-example-pgsql-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
 docker exec cs082-example-pgsql-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --order-by=default --do-not-cache-result
 ```
@@ -509,6 +511,10 @@ state is scoped to both. A port change alone must never reroute OCC implicitly.
 
 For the named AIO row, add `--runtime=aio` to image build/verification and the
 final `aio` argument to the stage runner, with a distinct image/project/port.
+Both rows can hold the same Nextcloud patch (the AIO row's release is then the
+primary row's update source), so an AIO image carries `-aio` in its name:
+`node scripts/test-runtime.js selection --runtime=<row> --patch=<patch>` prints
+the name the tooling expects.
 The row tests the Apache-based app runtime, not AIO packaging or production.
 
 #### AIO-Near Runtime Row
@@ -527,7 +533,7 @@ branch (2026-10-15: 35.0.2, 34.0.5, then 33.0.10) while AIO also publishes
 `helm-chart-*` releases.
 
 The AIO row stage (`node scripts/test-runtime-stage.js up <project> pgsql
-cs082-runtime-<aio-version>-local <port> aio`) adds a pinned Redis companion
+cs082-runtime-<aio-version>-aio-local <port> aio`) adds a pinned Redis companion
 (`cache.redis` in the inventory) on the project network. The entrypoint then
 mirrors the AIO Nextcloud container: PHP sessions in Redis with session
 locking, `memcache.distributed` and `memcache.locking` on Redis, APCu as
@@ -536,9 +542,9 @@ cache factory, the Redis session handler and the owned, pinned, healthy Redis
 peer. The primary row and the canonical stack stay APCu-only.
 
 ```powershell
-node scripts/test-runtime.js build cs082-runtime-34.0.5-local --runtime=aio
-node scripts/test-runtime.js verify-image cs082-runtime-34.0.5-local --runtime=aio
-node scripts/test-runtime-stage.js up cs082-<run-id>-aio pgsql cs082-runtime-34.0.5-local 8185 aio
+node scripts/test-runtime.js build cs082-runtime-35.0.2-aio-local --runtime=aio
+node scripts/test-runtime.js verify-image cs082-runtime-35.0.2-aio-local --runtime=aio
+node scripts/test-runtime-stage.js up cs082-<run-id>-aio pgsql cs082-runtime-35.0.2-aio-local 8185 aio
 docker exec cs082-<run-id>-aio-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
 docker exec cs082-<run-id>-aio-nextcloud-pgsql-1 vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --order-by=default --do-not-cache-result
 ```
@@ -548,25 +554,23 @@ AIO's Apache httpd/Caddy proxy instead of mod_php, igbinary serializers,
 memcached/imagick extensions, Redis authentication/TLS, notify_push, Imaginary
 and AIO's other optional containers.
 
-The frozen rows retain two explicitly reviewed upstream limitations rather than
-silently changing upstream vendor trees. `verify-image` reports them as
-`upstreamLimitations`, never as clean dependency gates:
+The frozen rows retain one explicitly reviewed upstream limitation rather than
+silently changing upstream vendor trees. `verify-image` reports it as
+`upstreamLimitations`, never as a clean dependency gate:
 
-- NC34.0.5 and its NC34.0.4 update source on PHP8.4.27 have exactly the
-  `lcobucci/clock` 3.0.0 constraint `~8.1.0 || ~8.2.0` failing the core
-  **3rdparty** platform check; the core root check must pass. AIO v14.4.3 ships
-  NC34.0.5 with PHP8.4.27 itself (v14.3.0: NC34.0.4 on PHP8.4.26). The operator
-  approved retaining that authentic combination on 2026-10-06 after finding no
-  newer NC34 patch, without ignoring platform requirements or patching
-  dependencies; the PHP patch follows AIO (D-084-09, 2026-10-15). NC34.0.5 still
-  locks `lcobucci/clock` 3.0.0, so the disposition carries over unchanged
-  (CS-PLAN-088 RF-088-11, 2026-10-28).
-- The primary NC35 Notifications pin emits exactly one stale-root-lock warning
-  for both current and previous patches. Its upstream revision had no fixed
-  artifact at review; the operator approved keeping the original source/lock.
-  Installed production packages must equal the lock (19 primary, 17 AIO), and
-  production dry-run warning sets must match exactly. The NC34 bamarni dev-tool
-  sub-lock notice remains visible in build output, not a runtime exception.
+- The Notifications pins of Nextcloud 35.0.2 and 35.0.1 emit exactly one
+  stale-root-lock warning. That covers the AIO row (35.0.2 with its update
+  source 35.0.1) and the primary row's update source (35.0.2). Their upstream
+  revisions had no fixed artifact at review; the operator approved keeping the
+  original source/lock. Nextcloud 35.0.3, the primary row, ships a current
+  lock: its dry run must stay free of warnings. Installed production packages
+  must equal the lock (19 on every row), and production dry-run warning sets
+  must match exactly.
+
+The `lcobucci/clock` 3.0.0 platform failure of Nextcloud 34 on PHP 8.4
+(approved 2026-10-06, D-084-09) left the inventory with that major version on
+2026-11-12 (CS-PLAN-090 RF-090-12): every 3rdparty platform check must pass now,
+and its return fails closed.
 
 Extra, changed, **or missing** platform failures/warnings fail closed. A newer
 upstream artifact requires requalification and review of these exact assertions
@@ -1058,7 +1062,7 @@ docker compose -f docker/compose.test.yml logs -f nextcloud-test
 
 The test environment includes:
 - **PostgreSQL 18.6** (`chorestrike-db`): Database with healthchecks
-- **Nextcloud Test** (`chorestrike-test`): Apache + PHP 8.4 with Nextcloud 35.0.2
+- **Nextcloud Test** (`chorestrike-test`): Apache + PHP 8.4 with Nextcloud 35.0.3
   (pinned runtime; see [Runtime baseline](#runtime-baseline-cs-plan-082))
 - **Auto-setup**: Nextcloud installs automatically, ChoreStrike app is linked and enabled
 

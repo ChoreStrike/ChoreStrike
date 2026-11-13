@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -287,9 +287,31 @@ together.
   `Insights/CorrectionReview.vue`. With them `Settings.vue` has 307 lines (1502 before this
   plan), `InsightsView.vue` 545 (615; 528 before the ranking anchor of the interim review) and `CalendarView.vue` 282 (354).
 
+- **Operator GUI review (2026-11-12):** the operator checked the screens of this release on the
+  development stack (family profile, the tree of the WP-C to WP-E review commit) and reported no
+  findings.
+
+Decisions and positions of the runtime update before the freeze (2026-11-12, RF-090-12).
+
+- **D-090-57 Runtime of the release (operator, 2026-11-12):** `0.8.0-alpha.5` is installed on
+  AIO 15.0.2 with Nextcloud 35.0.2. By the operator's statement the production already runs
+  that AIO with `0.8.0-alpha.4`, so the major update from Nextcloud 34.0.5 has happened there
+  and needs no proof of its own; the sanitized deployment report confirms the installed
+  identity as usual. The inventory follows: the primary row moves to Nextcloud 35.0.3, the AIO
+  row to 35.0.2 with 35.0.1 as its update source and Redis 8.10.3.
+- **D-090-58 Lower bound (operator, 2026-11-12):** no row tests Nextcloud 34 any more, so
+  `0.8.0-alpha.5` declares Nextcloud 35 only. `min-version` in `appinfo/info.xml`, the README
+  badge and requirement, the prerequisites of the deployment guide and the development guide
+  change in the metadata step of WP-G.
+- **D-090-59 Two rows on one patch:** the AIO row's release is now the primary row's update
+  source, so an image name built from the version alone would stand for two identities. The
+  local image of the AIO row carries `-aio` in its name (`runtimeImageName()`, printed by
+  `test-runtime.js selection`), and the target check picks the row by the image label, not by
+  the first row with that version.
+
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
-D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). No question
-is open.
+D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). The three
+of the runtime update were answered on 2026-11-12 (D-090-57, D-090-58). No question is open.
 
 ## 3. Backend / Frontend Changes
 
@@ -408,7 +430,8 @@ is open.
 
 ### WP-G Release `0.8.0-alpha.5` (RELEASE-002)
 
-App metadata in `appinfo/info.xml` and `package.json`; changelog section, dated after the
+App metadata in `appinfo/info.xml` and `package.json`, with Nextcloud 35 as the lower bound
+(D-090-58); changelog section, dated after the
 verified deployment; README, roadmap and documentation map; screenshots recaptured, because
 every view moves; the operator's GUI review on the development stack; final review; the
 [qualification pipeline](../../standards/ai/skills/release/SKILL.md#qualification-pipeline);
@@ -548,6 +571,12 @@ new:      lib/Migration/Version1034Date20261111000000.php (data only, D-090-20) 
           upgrade tests; after the verified deployment: tests/migrations/applied-migrations.json
 modified: scripts/test-runtime-preservation.ps1 (proof P4: app upgrade from 0.8.0-alpha.4,
           with its self-test), tests/recovery/owned-target.php
+modified: docker/test-runtime.json, docker/Dockerfile.test, docker/compose.test.yml,
+          docker/compose.test-matrix.yml, docker/compose.package-smoke.yml, docker/README.md,
+          scripts/test-runtime.js, scripts/test-runtime-stage.js, scripts/test-target.js,
+          scripts/run-package-smoke.js, .github/workflows/release-gate.yml, full-matrix.yml,
+          tests/unit/scripts/testRuntime.spec.js, testRuntimeStage.spec.js (runtime update,
+          RF-090-12)
 new:      tests/recovery/upgrade-fixture.php, src/styles/feedback.css
 new:      src/views/AbsenceView.vue, src/components/Insights/RankingPanel.vue,
           src/components/Today/TodayStatusLine.vue, src/components/Today/TodayTaskRow.vue,
@@ -646,7 +675,7 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 - [ ] No view touched by this plan is longer than before; the participation flow exists once
 - [ ] Every user-visible string goes through `t()`; `l10n:check-keys` is green with real German copy
 - [ ] `npm run test:runtime:check` reports `current` at the freeze
-- [ ] Operator GUI review recorded; its findings resolved or routed
+- [x] Operator GUI review recorded; its findings resolved or routed
 - [ ] `0.8.0-alpha.5` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
 - [ ] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
 - [ ] `CHANGELOG.md`, README, roadmap and documentation map name the new version; screenshots recaptured
@@ -677,7 +706,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-09 (nit) - WP-A, `AbsenceView.vue`: a third copy of the day-key label (with `TodayView.vue` and `SchedulePlanner.vue`). Fixed in the interim review (operator's choice): one `formatDayKey()` in `src/utils/dateKeys.js` with its spec, used by all three.
 - [x] RF-090-10 (nit) - WP-A, `src/store/pauses.js`: the `pendingRequests` getter had no reader left; the plan says the store loses its unused getters. Removed with its spec cases.
 - [x] RF-090-11 (minor) - WP-A, `tests/e2e/layout-clearance.spec.ts`: the browser gate failed twice (desktop, phone). Its reachability probe scrolled the last Settings section with `scrollIntoViewIfNeeded()`, which worked only while a member's Settings ended with the short pause section; the notification preferences are taller than the frame. The routed-view list also lacked `#/absence`. Fixed in the interim review: the probe aligns the section's end with the scroller, which a clipped frame (BUG-UX-009) would still fail, and the Absence view joins the heading, gutter and sideways-scroll checks.
-- [ ] RF-090-12 (minor) - WP-G, runtime currency: `npm run test:runtime:check` reports `update-needed` on 2026-11-11, and the scheduled check on `master` has been red since 2026-11-09. Upstream AIO is 15.0.2 and ships Nextcloud 35.0.2 and Redis 8.10.3; the pinned PHP and PostgreSQL image tags moved too. The inventory names AIO 14.4.3 with Nextcloud 34.0.5 and Redis 8.10.2. Found while implementing WP-F. The reviewed inventory update and the requalification belong before the freeze (§7 and the acceptance criterion); which AIO version production runs at the deployment is the operator's to state.
+- [x] RF-090-12 (minor) - WP-G, runtime currency: `npm run test:runtime:check` reports `update-needed` on 2026-11-11, and the scheduled check on `master` has been red since 2026-11-09. Upstream AIO is 15.0.2 and ships Nextcloud 35.0.2 and Redis 8.10.3; the pinned PHP and PostgreSQL image tags moved too. The inventory names AIO 14.4.3 with Nextcloud 34.0.5 and Redis 8.10.2. Found while implementing WP-F. The reviewed inventory update and the requalification belong before the freeze (§7 and the acceptance criterion); which AIO version production runs at the deployment is the operator's to state. **Resolved 2026-11-13:** the operator named AIO 15.0.2 (D-090-57). The inventory holds Nextcloud 35.0.3 (update source 35.0.2) on the primary row and AIO 15.0.2 with Nextcloud 35.0.2 (update source 35.0.1) and Redis 8.10.3 on the AIO row, with the moved PHP and PostgreSQL images; the check reports `current`. Two rows on one patch needed row-aware image names and a target check that reads the image label (D-090-59). Upstream conditions changed and are pinned: the `lcobucci/clock` exception left with Nextcloud 34, and 35.0.3 ships a current Notifications lock. Evidence: all four images verified; PHPUnit unit 1600 / integration 698 with skips forbidden on PostgreSQL, MariaDB, SQLite and the AIO row (matrix run `cs090-rt-r1`); P2 `c0901211` (35.0.2 to 35.0.3) and `c0901212` (AIO row, 35.0.1 to 35.0.2); P4 `c0901203`..`c0901206` on the four targets; P3 `c0901221`. The complete browser gate passes on both rows without retries, skips or flaky scenarios: `run-zBcjiF` on the AIO row and `run-RwKd3N` on the primary row (canonical stack on 35.0.3), each started after the shared Docker host had been quiet for three minutes; Jest 169 suites / 2367 tests and lint pass on the same tree. Two earlier complete browser gates on the AIO row are not passes: `run-F2Vfj0` lost one scenario of `workflow-state-reconciliation.spec.ts` and `run-6OZBYh` four of `mobile-core.spec.ts` on `mobile-webkit`, the other four projects passing each time. Three of the five are seed requests that ended with "other side closed" before any assertion and never reached the server's access log (the pattern of TECH-TRANSPORT-001); the other two are timeouts in the same five minutes. Test runs of another project on the shared Docker host started in the first window and in the later part of the second; the two closures at its start have no such record. Both failed runs are folded into TECH-TRANSPORT-001 and stay unattributed. The package smoke on both rows and the check at the freeze belong to the WP-G qualification (acceptance criteria), not to this finding.
 - [x] RF-090-13 (minor) - WP-F, `src/utils/effectGates.js`, `src/composables/useGameEffects.js`: the effect gates read the store's initial `animationEnabled: true` before `/preferences/me` had answered, so a member who had switched the animation off saw confetti when completing a task while the read was pending or after it failed; before WP-F an unknown state meant off. Fixed in the interim review (operator's choice, D-090-32): `animationAllowed()` opens the animation only after an authoritative read, used by the celebration gate and the arcade's pulses, with Jest cases for the unread state; `calm-core-ux.md` and the gamification skill say so.
 - [x] RF-090-14 (minor) - WP-C, `src/router.js`, `tests/e2e/fixtures/rooms.ts`: since WP-B removed the Dashboard with its room cards (D-090-33), nothing in the interface links to a room page; it opens by its address only, and the template picker and the date dialog are reachable only that way. Not a state to release. Closed by WP-C: the task list groups by room, `/room/:id` redirects to that room, *New* in a room heading opens the template picker and *Date* in the expanded row the date dialog, and the browser helper opens a room in the grouped list.
 - [x] RF-090-15 (minor) - WP-B, `src/views/RoomDetail.vue`: the first browser gate of WP-B (`run-v47nfT`) lost a task created right after a room page opened by its address: *Add Task* was enabled while the room still loaded, and a read that had started before the creation replaced the list afterwards. Fixed while implementing: the button is disabled while the room loads, as in the task manager, with a Jest case. The store cause is older than this plan and out of its scope: BUG-UX-016.

@@ -79,8 +79,10 @@ function assertTargetIdentity(target, container, cli, http) {
 			.map(patch => { try { return selectRuntimeSource(inventory, row, patch) } catch { return null } }))
 		const runtime = selections
 			.filter(Boolean)
-			.find(selection => selection.nextcloud.internalVersion === cli.version)
-		if (!runtime || container.Config.Labels['org.chorestrike.test-runtime.inventory'] !== selectionHash(runtime)
+			// Both rows may hold the same Nextcloud patch, so the image label picks the row.
+			.find(selection => selection.nextcloud.internalVersion === cli.version
+				&& container.Config.Labels['org.chorestrike.test-runtime.inventory'] === selectionHash(selection))
+		if (!runtime
 			|| !container.Config.Env.includes(`TEST_RUNTIME_INTERNAL_VERSION=${runtime.nextcloud.internalVersion}`)
 			|| !container.Config.Env.includes(`TEST_RUNTIME_PHP_VERSION=${runtime.php.version}`)) {
 			throw new Error('HTTP/OCC test target mismatch: frozen runtime inventory')

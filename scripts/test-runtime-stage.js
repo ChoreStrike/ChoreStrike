@@ -2,7 +2,7 @@
 /** Fresh owned qualification and owned-volume preservation; never promotes or cleans an existing stack. */
 const { spawnSync } = require('node:child_process')
 const path = require('node:path')
-const { readInventory, validateRuntimeShape, selectRuntimeSource, selectionHash, verifyImage, assertInstalled, execute, probe, RUNTIME_FIELDS } = require('./test-runtime')
+const { readInventory, validateRuntimeShape, selectRuntimeSource, selectionHash, runtimeImageName, verifyImage, assertInstalled, execute, probe, RUNTIME_FIELDS } = require('./test-runtime')
 const { assertTestTarget } = require('./test-target')
 
 /**
@@ -243,7 +243,7 @@ function main(args) {
 		const source = selectRuntimeSource(full, row, patch)
 		const target = selectRuntimeSource(full, row, 'current')
 		const targetImage = verifyImage(target, imageName, execute, row, probe, 'current')
-		const sourceImageName = `cs082-runtime-${source.nextcloud.version}-local`
+		const sourceImageName = runtimeImageName(source, row)
 		const sourceImage = sourceImageName === imageName && patch === 'current'
 			? targetImage
 			: verifyImage(source, sourceImageName, execute, row, probe, patch)

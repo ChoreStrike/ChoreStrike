@@ -183,25 +183,26 @@ const PLATFORM_PROBE_NOTES = {
  * deviation (extra, different or missing entries) fails closed so the disposition
  * is re-reviewed instead of drifting silently.
  */
+const STALE_NOTIFICATIONS_LOCK = 'Warning: The lock file is not up to date with the latest changes in composer.json. You may be getting outdated dependencies. It is recommended that you run `composer update` or `composer update <package name>`.'
 const UPSTREAM_BUILD_CONDITIONS = {
 	primary: {
 		current: {
 			'3rdpartyFailures': [],
-			notificationsWarnings: ['Warning: The lock file is not up to date with the latest changes in composer.json. You may be getting outdated dependencies. It is recommended that you run `composer update` or `composer update <package name>`.'],
+			notificationsWarnings: [],
 		},
 		previous: {
 			'3rdpartyFailures': [],
-			notificationsWarnings: ['Warning: The lock file is not up to date with the latest changes in composer.json. You may be getting outdated dependencies. It is recommended that you run `composer update` or `composer update <package name>`.'],
+			notificationsWarnings: [STALE_NOTIFICATIONS_LOCK],
 		},
 	},
 	aio: {
 		current: {
-			'3rdpartyFailures': [{ name: 'php', source: 'lcobucci/clock', constraint: '~8.1.0 || ~8.2.0' }],
-			notificationsWarnings: [],
+			'3rdpartyFailures': [],
+			notificationsWarnings: [STALE_NOTIFICATIONS_LOCK],
 		},
 		previous: {
-			'3rdpartyFailures': [{ name: 'php', source: 'lcobucci/clock', constraint: '~8.1.0 || ~8.2.0' }],
-			notificationsWarnings: [],
+			'3rdpartyFailures': [],
+			notificationsWarnings: [STALE_NOTIFICATIONS_LOCK],
 		},
 	},
 }
@@ -286,6 +287,11 @@ async function checkStable(inventory, io = { fetchMetadata, execute }) {
 		if (current.digest !== image.digest || current.platformDigest !== image.platformDigest) drift.push(`moved-${name}-image`)
 	}
 	return { status: drift.length ? 'update-needed' : 'current', upstream, aio, aioNextcloud, aioComponents: components, drift, qualification: inventory.status }
+}
+
+/** Local image name of one row's selection; both rows may hold the same Nextcloud patch. */
+function runtimeImageName(selection, row = 'primary') {
+	return `cs082-runtime-${selection.nextcloud.version}${row === 'aio' ? '-aio' : ''}-local`
 }
 
 function inventoryHash(inventory) {
@@ -490,7 +496,7 @@ async function main(args) {
 		process.exitCode = result.status === 'current' ? 0 : 2
 	} else if (args.length === 1 && args[0] === 'selection') {
 		const selection = selectRuntimeSource(readInventory(), selector, patch)
-		process.stdout.write(`${JSON.stringify({ status: 'selection', row: selector, patch, inventoryHash: selectionHash(selection),
+		process.stdout.write(`${JSON.stringify({ status: 'selection', row: selector, patch, image: runtimeImageName(selection, selector), inventoryHash: selectionHash(selection),
 			nextcloud: selection.nextcloud.version, internalVersion: selection.nextcloud.internalVersion,
 			revision: selection.nextcloud.revision, notifications: selection.notifications, php: selection.php.version,
 			qualification: selection.status }, null, 2)}\n`)
@@ -513,7 +519,7 @@ async function main(args) {
 // The CLI entry point runs AFTER module.exports below: verify-canonical
 // lazily requires ./test-target, which requires this module back — invoking
 // main() before the exports are replaced would re-enter a circular require.
-module.exports = { validateInventory, validateRuntimeShape, readInventory, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, highestStableRelease, tagRevision, registryIdentity, aioComponents, aioComponentDrift, checkStable, inventoryHash, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS, CANONICAL_CONTAINER, CANONICAL_DB_CONTAINER }
+module.exports = { validateInventory, validateRuntimeShape, readInventory, selectRuntime, selectRuntimeSource, selectionHash, stableRelease, highestStableRelease, tagRevision, registryIdentity, aioComponents, aioComponentDrift, checkStable, inventoryHash, runtimeImageName, buildArguments, assertInstalled, assertPlatformGate, assertNotificationsBuild, verifyImage, verifyCanonical, execute, probe, UPSTREAM_BUILD_CONDITIONS, RUNTIME_FIELDS, CANONICAL_CONTAINER, CANONICAL_DB_CONTAINER }
 
 if (require.main === module) main(process.argv.slice(2)).catch((error) => {
 	process.stderr.write(`Runtime check/execution failed: ${error?.message ?? 'unknown'}; inventory and environments were not updated.\n`)

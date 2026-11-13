@@ -224,7 +224,7 @@ function Get-RuntimeSelection {
     param([string]$Patch = 'current')
     $json = Invoke-Node @('scripts/test-runtime.js', 'selection', "--runtime=$Row", "--patch=$Patch")
     $record = ($json | ConvertFrom-Json)
-    if ($record.status -ne 'selection') { throw 'Runtime selection probe malformed.' }
+    if ($record.status -ne 'selection' -or $record.image -notmatch '^cs082-runtime-[a-z0-9.-]+$') { throw 'Runtime selection probe malformed.' }
     return $record
 }
 
@@ -326,8 +326,8 @@ function Invoke-StagedProof {
     param([string]$SourcePatch)
     $current = Get-RuntimeSelection 'current'
     $source = Get-RuntimeSelection $SourcePatch
-    $sourceImage = "cs082-runtime-$($source.nextcloud)-local"
-    $targetImage = "cs082-runtime-$($current.nextcloud)-local"
+    $sourceImage = $source.image
+    $targetImage = $current.image
     $container = "$project-nextcloud-$Provider-1"
     if ($SourcePatch -eq 'previous') {
         $ErrorActionPreference = 'Continue'
@@ -395,7 +395,7 @@ function Invoke-RecoveryProof {
     # P3: whole-instance backup/restore on the frozen target PostgreSQL runtime
     # into a separate owned target, with wrong-version/manifest/divergence controls.
     $current = Get-RuntimeSelection 'current'
-    $imageName = "cs082-runtime-$($current.nextcloud)-local"
+    $imageName = $current.image
     $verify = Invoke-Node @('scripts/test-runtime.js', 'verify-image', $imageName, "--runtime=$Row")
     $image = (($verify | ConvertFrom-Json).imageId)
     if ($image -notmatch '^sha256:[a-f0-9]{64}$') { throw 'Expected the verified frozen candidate image.' }
@@ -516,7 +516,7 @@ function Invoke-RecoveryProof {
     # Nextcloud's needUpgrade only covers upgrades, so the downgrade is proven by
     # code != configured version.
     $previous = Get-RuntimeSelection 'previous'
-    $previousImage = "cs082-runtime-$($previous.nextcloud)-local"
+    $previousImage = $previous.image
     $previousVerify = Invoke-Node @('scripts/test-runtime.js', 'verify-image', $previousImage, "--runtime=$Row", '--patch=previous')
     $previousImageId = ($previousVerify | ConvertFrom-Json).imageId
     $wrong = "$project-wrongversion"
@@ -621,7 +621,7 @@ function Invoke-AppUpgradeProof {
     $sourceXml = (Invoke-Git @('show', "$($UpgradeSource.Commit):appinfo/info.xml")) -join "`n"
     if (([xml]$sourceXml).info.version -ne $UpgradeSource.Version) { throw 'The source commit does not carry the source version.' }
     $current = Get-RuntimeSelection 'current'
-    $imageName = "cs082-runtime-$($current.nextcloud)-local"
+    $imageName = $current.image
     $image = ((Invoke-Node @('scripts/test-runtime.js', 'verify-image', $imageName, "--runtime=$Row")) | ConvertFrom-Json).imageId
     if ($image -notmatch '^sha256:[a-f0-9]{64}$') { throw 'Expected the verified frozen runtime image.' }
 
