@@ -74,6 +74,11 @@ export const useSchedulingStore = defineStore('scheduling', {
 		loading: false,
 		/** @type {string|null} Error message */
 		error: null,
+		// Monotonic read token and the read in flight (RF-090-37): an older
+		// preferences read can never overwrite a newer read or an accepted
+		// save, so an unsaved form edit is never replaced by a stale answer.
+		preferencesRequestSeq: 0,
+		preferencesRequest: null,
 
 		// Plan aggregate state (CS-PLAN-065 §3.4): idle → loading → ready |
 		// empty | error; ready → applying → applied | refreshFailed; a 409
@@ -267,22 +272,38 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 *
 		 * Does not touch `loading`: the initial-page-load flag is owned by
 		 * `initializeScheduling` so per-action calls never unmount the view.
+		 * An answer that a newer read or a save overtook is dropped, and its
+		 * caller waits for the winning read instead (RF-090-37).
 		 */
-		async fetchUserPreferences() {
+		fetchUserPreferences() {
+			const seq = ++this.preferencesRequestSeq
 			this.error = null
 
-			try {
-				const data = await api.get('/api/v1/scheduling/preferences')
-
-				this.energyBudget = data.energyBudget || this.energyBudget
-				this.weekdayAvailability = data.weekdayAvailability || this.weekdayAvailability
-				// Decision D5: null (unset) means unlimited.
-				this.maxDailyTasks = normalizeMaxDailyTasks(data.maxDailyTasks)
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch scheduling preferences', error, { store: 'scheduling', action: 'fetchUserPreferences' })
-				throw error
-			}
+			const request = (async () => {
+				try {
+					const data = await api.get('/api/v1/scheduling/preferences')
+					if (seq !== this.preferencesRequestSeq) {
+						// Wait for the winning read when one is still in flight.
+						return this.preferencesRequest !== request ? this.preferencesRequest : null
+					}
+					this.energyBudget = data.energyBudget || this.energyBudget
+					this.weekdayAvailability = data.weekdayAvailability || this.weekdayAvailability
+					// Decision D5: null (unset) means unlimited.
+					this.maxDailyTasks = normalizeMaxDailyTasks(data.maxDailyTasks)
+				} catch (error) {
+					if (seq === this.preferencesRequestSeq) {
+						this.error = error.message
+					}
+					logger.error('Failed to fetch scheduling preferences', error, { store: 'scheduling', action: 'fetchUserPreferences' })
+					throw error
+				} finally {
+					if (this.preferencesRequest === request) {
+						this.preferencesRequest = null
+					}
+				}
+			})()
+			this.preferencesRequest = request
+			return request
 		},
 
 		/**
@@ -313,6 +334,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 			try {
 				const data = await api.put('/api/v1/scheduling/preferences', payload)
 
+				// An accepted save invalidates every read that started before it.
+				this.preferencesRequestSeq++
 				this.weekdayAvailability = data.weekdayAvailability || this.weekdayAvailability
 				this.energyBudget = data.energyBudget || this.energyBudget
 			} catch (error) {
@@ -696,6 +719,9 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * Reset store state
 		 */
 		reset() {
+			// A late read of the previous identity can never land after the reset.
+			this.preferencesRequestSeq++
+			this.preferencesRequest = null
 			this.memberAvailability = []
 			this.maxDailyTasks = Infinity
 			this.energyBudget = createDefaultEnergyBudget()

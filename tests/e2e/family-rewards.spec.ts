@@ -670,6 +670,9 @@ test.describe('Reward UI and onboarding (CS-PLAN-070 WP8)', () => {
 			await teen.page.goto('/apps/chorestrike/#/rewards')
 			const requestButton = teen.page.getByTestId(`catalog-request-${item.id}`)
 			await expect(requestButton).toBeVisible({ timeout: 30000 })
+			// The list renders only after the wallet read, so the banner is
+			// already in place and cannot move the button under the tap.
+			await expect(teen.page.getByTestId('rewards-wallet')).toBeVisible()
 			const box = await requestButton.boundingBox()
 			expect(box).not.toBeNull()
 			expect(box!.height).toBeGreaterThanOrEqual(44)

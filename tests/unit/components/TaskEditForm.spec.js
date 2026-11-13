@@ -1,6 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { reactive } from 'vue'
 import { useUserStore } from '@/store/user.js'
+import { useHouseStore } from '@/store/house.js'
 import { createPinia, setActivePinia } from 'pinia'
 import TaskEditForm from '@/components/Tasks/TaskEditForm.vue'
 
@@ -95,6 +96,39 @@ describe('TaskEditForm', () => {
 		expect(wrapper.get('[data-testid="task-name-input"]').element.value).toBe('Keep this draft')
 		expect(wrapper.emitted('submit')).toBeUndefined()
 		wrapper.unmount()
+	})
+
+	it('offers the household categories and reads a deleted key as Other (CS-PLAN-090 WP-I)', () => {
+		const pinia = createPinia()
+		setActivePinia(pinia)
+		useHouseStore().house = { taskCategories: { revision: 1, items: [{ key: 'kitchen', label: null }, { key: 'c0a1b2c3d', label: 'Garden' }, { key: 'other', label: null }] } }
+		const formWith = (props) => mount(TaskEditForm, { props, global: { plugins: [pinia] } })
+		const category = (wrapper) => wrapper.get('[data-testid="task-category"]')
+
+		const created = formWith({})
+		expect(category(created).findAll('option').map((option) => option.text())).toEqual(['Kitchen', 'Garden', 'Other'])
+		expect(category(created).element.value).toBe('other')
+		expect(category(formWith({ task: { id: 1, name: 'Old', category: 'bathroom' } })).element.value).toBe('other')
+		expect(category(formWith({ task: { id: 2, name: 'Pan', category: 'kitchen' } })).element.value).toBe('kitchen')
+	})
+
+	it('keeps a stored category until the house list arrives, then reads it against the list (RF-090-34)', async () => {
+		const pinia = createPinia()
+		setActivePinia(pinia)
+		const house = useHouseStore()
+		const formWith = (props) => mount(TaskEditForm, { props, global: { plugins: [pinia] } })
+		const category = (wrapper) => wrapper.get('[data-testid="task-category"]').element.value
+
+		const listed = formWith({ task: { id: 1, name: 'Weeds', category: 'c0a1b2c3d' } })
+		const deleted = formWith({ task: { id: 2, name: 'Hedge', category: 'c11111111' } })
+		expect(category(listed)).toBe('c0a1b2c3d')
+		expect(category(deleted)).toBe('c11111111')
+
+		house.house = { taskCategories: { revision: 2, items: [{ key: 'c0a1b2c3d', label: 'Garden' }, { key: 'other', label: null }] } }
+		await flushPromises()
+		expect(category(listed)).toBe('c0a1b2c3d')
+		expect(category(deleted)).toBe('other')
+		expect(listed.get('[data-testid="task-category"]').findAll('option').map((option) => option.text())).toEqual(['Garden', 'Other'])
 	})
 
 	it('emits cancel on cancel button', async () => {

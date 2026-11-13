@@ -23,7 +23,11 @@ class TemplateServiceTest extends TestCase {
 		// source text so this mirrors the untranslated (en) path exactly.
 		$this->l10n->method('t')->willReturnCallback(fn ($text) => $text);
 
-		$this->service = new TemplateService($this->l10n);
+		$taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$taskCategories->method('isKnown')->willReturnCallback(static fn (string $key): bool => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true));
+		$taskCategories->method('keyOrOther')->willReturnCallback(static fn (string $key): string => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true) ? $key : 'other');
+		$taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
+		$this->service = new TemplateService($this->l10n, $taskCategories);
 
 		$this->injectProperty('templatesCache', self::FIXTURE_TEMPLATES);
 		$this->injectProperty('templatesById', null);
@@ -163,6 +167,22 @@ class TemplateServiceTest extends TestCase {
 		$this->assertSame(1, $payload['energyCost']);
 		$this->assertSame('room', $payload['scopeType']);
 		$this->assertSame('dynamic', $payload['schedulingMode']);
+	}
+
+	/**
+	 * CS-PLAN-090 WP-I (D-090-65): a template keeps its key while the
+	 * household lists it and falls back to *Other* once it was deleted.
+	 */
+	public function testMaterializeTemplate_CategoryFollowsTheHouseholdList(): void {
+		$this->assertSame('cleaning', $this->service->materializeTemplate('kitchen_counters', TemplateService::LEVEL_PUTZTEUFEL)['category']);
+
+		$withoutCleaning = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$withoutCleaning->method('keyOrOther')->willReturnCallback(static fn (string $key): string => $key === 'cleaning' ? 'other' : $key);
+		$this->service = new TemplateService($this->l10n, $withoutCleaning);
+		$this->injectProperty('templatesCache', self::FIXTURE_TEMPLATES);
+		$this->injectProperty('roomTypesCache', self::FIXTURE_ROOM_TYPES);
+
+		$this->assertSame('other', $this->service->materializeTemplate('kitchen_counters', TemplateService::LEVEL_PUTZTEUFEL)['category']);
 	}
 
 	public function testMaterializeTemplate_Putmuffel_UsesRelaxedFrequency(): void {

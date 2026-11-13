@@ -97,6 +97,7 @@
   ],
   "settings.spec.ts": [
     "settings.spec.ts > Settings > A room in the list shows its tasks and can be renamed (FEAT-UX-049)",
+    "settings.spec.ts > Settings > An owner adds a task category, gives it to a task, and the task list filters by it",
     "settings.spec.ts > Settings > Cold structure hydration survives room reconciliation",
     "settings.spec.ts > Settings > Floors list or empty state is displayed",
     "settings.spec.ts > Settings > Floors section is displayed with add button",

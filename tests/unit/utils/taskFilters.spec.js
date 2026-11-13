@@ -38,6 +38,14 @@ describe('taskFilters', () => {
 			expect(filtersFromQuery({ status: 'overdue', scope: 'unassigned' })).toMatchObject({ status: 'overdue', scope: 'unassigned' })
 			expect(filtersFromQuery({ status: 'completed', scope: 'nobody' })).toMatchObject({ status: 'all', scope: 'mine' })
 		})
+
+		it('presets a category by its key shape only (CS-PLAN-090 WP-I)', () => {
+			expect(filtersFromQuery().category).toBe('all')
+			expect(filtersFromQuery({ category: 'kitchen' }).category).toBe('kitchen')
+			expect(filtersFromQuery({ category: 'c0a1b2c3d' }).category).toBe('c0a1b2c3d')
+			expect(filtersFromQuery({ category: '../x' }).category).toBe('all')
+			expect(filtersFromQuery({ category: ['kitchen'] }).category).toBe('all')
+		})
 	})
 
 	it('reads the page and falls back to the first', () => {
@@ -92,6 +100,23 @@ describe('taskFilters', () => {
 			expect(filtered(mixed, { difficulty: '4' })).toEqual([2])
 			expect(filtered(mixed, { visibility: 'private' })).toEqual([3])
 			expect(filtered(mixed, { search: '  WIN ' })).toEqual([2])
+		})
+
+		it('narrows by category and counts a deleted key as Other (D-090-65)', () => {
+			const categorized = [
+				row(1, {}, { category: 'kitchen' }),
+				row(2, {}, { category: 'cleaning' }),
+				row(3, {}, { category: 'c0a1b2c3d' }),
+				row(4, {}, { category: 'other' }),
+			]
+			const household = { categories: [{ key: 'kitchen', label: null }, { key: 'c0a1b2c3d', label: 'Garden' }, { key: 'other', label: null }] }
+
+			expect(filtered(categorized, { category: 'kitchen' }, household)).toEqual([1])
+			expect(filtered(categorized, { category: 'c0a1b2c3d' }, household)).toEqual([3])
+			expect(filtered(categorized, { category: 'other' }, household)).toEqual([2, 4])
+			expect(filtered(categorized, { category: 'all' }, household)).toEqual([1, 2, 3, 4])
+			// Before the house loads, the six built-in keys apply.
+			expect(filtered(categorized, { category: 'cleaning' })).toEqual([2])
 		})
 	})
 })

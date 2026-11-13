@@ -15,6 +15,9 @@ interface IAppConfig {
 	public function setValueFloat(string $app, string $key, float $value): void;
 	public function getValueBool(string $app, string $key, bool $default = false): bool;
 	public function setValueBool(string $app, string $key, bool $value): void;
+	public function getValueArray(string $app, string $key, array $default = [], bool $lazy = false): array;
+	public function setValueArray(string $app, string $key, array $value, bool $lazy = false, bool $sensitive = false): bool;
+	public function clearCache(bool $reload = false): void;
 	public function getAppKeys(string $app): array;
 	public function deleteKey(string $app, string $key): void;
 	public function deleteApp(string $app): void;

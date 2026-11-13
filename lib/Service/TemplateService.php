@@ -52,12 +52,14 @@ class TemplateService {
 	];
 
 	private IL10N $l10n;
+	private TaskCategoryService $categories;
 	private ?array $templatesCache = null;
 	private ?array $templatesById = null;
 	private ?array $roomTypesCache = null;
 
-	public function __construct(IL10N $l10n) {
+	public function __construct(IL10N $l10n, TaskCategoryService $categories) {
 		$this->l10n = $l10n;
+		$this->categories = $categories;
 	}
 
 	/**
@@ -280,7 +282,8 @@ class TemplateService {
 			'name' => $this->l10n->t((string)$template['name']),
 			'description' => $this->l10n->t((string)($template['description'] ?? '')),
 			'instructions' => $this->l10n->t((string)($template['instructions'] ?? '')),
-			'category' => (string)$template['category'],
+			// The template's key while the household lists it (D-090-65).
+			'category' => $this->categories->keyOrOther((string)$template['category']),
 			'energyCost' => (int)$template['energyCost'],
 			'priority' => (int)$template['priority'],
 			'frequencyType' => (string)$levelData['frequencyType'],

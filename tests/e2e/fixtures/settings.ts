@@ -9,7 +9,7 @@ import { expect } from '@playwright/test'
  * one it needs through this helper.
  */
 
-const HOUSEHOLD = ['house', 'members', 'structure', 'rewards', 'arcade', 'danger'] as const
+const HOUSEHOLD = ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger'] as const
 
 export type SettingsCategory = typeof HOUSEHOLD[number] | 'notifications' | 'planning' | 'title'
 

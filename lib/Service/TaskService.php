@@ -67,6 +67,7 @@ class TaskService {
 	private TransactionExecutor $transactions;
 	private OccurrenceService $occurrenceService;
 	private CalendarService $calendarService;
+	private TaskCategoryService $categories;
 
 	public function __construct(
 		TaskMapper $taskMapper,
@@ -78,7 +79,9 @@ class TaskService {
 		TransactionExecutor $transactions,
 		OccurrenceService $occurrenceService,
 		CalendarService $calendarService,
+		TaskCategoryService $categories,
 	) {
+		$this->categories = $categories;
 		$this->taskMapper = $taskMapper;
 		$this->houseMapper = $houseMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -431,6 +434,13 @@ class TaskService {
 		// Frequency value validation
 		if (isset($taskData['frequencyValue']) && is_int($taskData['frequencyValue']) && $taskData['frequencyValue'] < 1) {
 			$errors[] = $this->l10n->t('Frequency value must be at least 1');
+		}
+
+		// Only a key of the household's current list (D-090-65); a retained
+		// row with a deleted key is never rewritten, but cannot be written.
+		if (array_key_exists('category', $taskData)
+			&& (!is_string($taskData['category']) || !$this->categories->isKnown($taskData['category']))) {
+			$errors[] = $this->l10n->t('Unknown task category');
 		}
 
 		// Scope type validation

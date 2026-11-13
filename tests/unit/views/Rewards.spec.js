@@ -225,6 +225,34 @@ describe('Rewards.vue', () => {
 		expect(html).not.toContain('<script>')
 	})
 
+	it('holds the catalog back until the wallet read ends, so the banner never pushes the list', async () => {
+		mockRewardsState.catalog.active.items = [{ id: 1, title: 'Zoo day', priceMinor: 500, version: 0 }]
+		let resolveWallet
+		mockGameState.fetchGameState.mockImplementationOnce(() => new Promise((resolve) => { resolveWallet = resolve }))
+		const wrapper = mountView()
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="catalog-loading"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="catalog-list"]').exists()).toBe(false)
+
+		require('vue').reactive(mockGameState).wallet = { bookedMinor: 900, reservedMinor: 0, availableMinor: 900, fundingHold: false }
+		resolveWallet()
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="rewards-wallet"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="catalog-request-1"]').exists()).toBe(true)
+	})
+
+	it('shows the catalog without the banner when the wallet read fails', async () => {
+		mockRewardsState.catalog.active.items = [{ id: 1, title: 'Zoo day', priceMinor: 500, version: 0 }]
+		mockGameState.fetchGameState.mockRejectedValueOnce(new Error('Network dropped'))
+		const wrapper = mountView()
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="rewards-wallet"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="catalog-request-1"]').exists()).toBe(true)
+	})
+
 	it('re-fetches the catalog when retry follows a failed initial load (no fake empty catalog)', async () => {
 		mockRewardsState.fetchCatalogPage.mockRejectedValueOnce(new Error('Network dropped'))
 		const wrapper = mountView()

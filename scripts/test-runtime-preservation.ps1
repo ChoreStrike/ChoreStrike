@@ -693,12 +693,8 @@ function Invoke-AppUpgradeProof {
     # The documented update: files replaced under maintenance mode, then occ upgrade.
     $null = Invoke-Occ $container @('maintenance:mode', '--on')
     Install-AppTree $container 'candidate-app.tar'
-    # For the schema parity run: the host archive carries no file modes, and PSR-4
-    # needs tests/Integration on this case-sensitive copy (bind mounts are not).
-    # HACK: TECH-TEST-012 - the integration namespace does not resolve on a
-    # case-sensitive file system; remove the link once it does.
+    # For the schema parity run: the host archive carries no file modes.
     $null = Invoke-Docker @('exec', $container, 'chmod', '+x', '/var/www/html/custom_apps/chorestrike/vendor/bin/phpunit')
-    $null = Invoke-Docker @('exec', $container, 'ln', '-s', 'integration', '/var/www/html/custom_apps/chorestrike/tests/Integration')
     if ($StampVersion) {
         $null = Invoke-Docker @('exec', $container, 'sed', '-i',
             "s#<version>$candidateVersion</version>#<version>$targetVersion</version>#", '/var/www/html/custom_apps/chorestrike/appinfo/info.xml')

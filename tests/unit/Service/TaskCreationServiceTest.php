@@ -86,6 +86,10 @@ class TaskCreationServiceTest extends TestCase {
 		// mocked validators would prove nothing about §3.1.
 		$taskServiceHouseMapper = $this->createMock(HouseMapper::class);
 		$taskServiceHouseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
+		$taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$taskCategories->method('isKnown')->willReturnCallback(static fn (string $key): bool => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true));
+		$taskCategories->method('keyOrOther')->willReturnCallback(static fn (string $key): string => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true) ? $key : 'other');
+		$taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
 		$this->taskService = new TaskService(
 			$this->taskMapper,
 			$taskServiceHouseMapper,
@@ -96,10 +100,11 @@ class TaskCreationServiceTest extends TestCase {
 			new TransactionExecutor($this->createMock(IDBConnection::class)),
 			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
 			new CalendarService(),
+			$taskCategories,
 		);
 
 		// The REAL TemplateService loads the file-based catalog.
-		$this->templateService = new TemplateService($l10n);
+		$this->templateService = new TemplateService($l10n, $taskCategories);
 
 		$this->service = new TaskCreationService(
 			new TransactionExecutor($this->db),
@@ -287,6 +292,29 @@ class TaskCreationServiceTest extends TestCase {
 		$this->assertSame(42, $result['task']->getId());
 		$this->assertSame(7, $result['roomTask']->getId());
 		$this->assertTrue($this->assigneesRead, 'assignees are read back into the response');
+	}
+
+	/**
+	 * CS-PLAN-090 WP-I (D-090-65): a definition without a category is
+	 * created as *Other*; an unlisted key is refused before any write.
+	 */
+	public function testCreate_CategoryDefaultsToOtherAndRefusesUnlistedKeys(): void {
+		$this->stubAggregateHappyPath();
+		$payload = $this->validTaskPayload();
+		unset($payload['category']);
+
+		$this->service->create(10, $this->createHouseUser('creator', 'owner'), ['roomId' => 5, 'task' => $payload]);
+		$this->assertSame('other', $this->definitionInserts[0][self::CREATE_ARG['category']]);
+
+		try {
+			$this->service->create(10, $this->createHouseUser('creator', 'owner'), [
+				'roomId' => 5, 'task' => $this->validTaskPayload(['category' => 'garden']),
+			]);
+			$this->fail('an unlisted category must be refused');
+		} catch (\OCA\ChoreStrike\Exception\ValidationException $e) {
+			$this->assertContains('Unknown task category', $e->getErrors());
+		}
+		$this->assertCount(1, $this->definitionInserts, 'the refused create wrote nothing');
 	}
 
 	/**

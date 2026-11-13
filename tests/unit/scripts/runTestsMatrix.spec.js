@@ -4,7 +4,7 @@
 // are real files under the gitignored build/test-reports/<run-id>/.
 const fs = require('node:fs')
 const path = require('node:path')
-const { main, parseMatrixArgs, reportPaths, junitSummary, runMatrix } = require('../../../scripts/run-tests')
+const { main, parseMatrixArgs, reportPaths, junitSummary, runMatrix, checkReports } = require('../../../scripts/run-tests')
 
 const root = path.resolve(__dirname, '../../..')
 const T_PG = 'cs082-w1-pg:pgsql:cs082-runtime-35.0.2-local:8182'
@@ -204,6 +204,44 @@ describe('runMatrix', () => {
 
 		const broken = jest.fn(async () => ({ status: null, error: new Error('docker unavailable') }))
 		expect(await runMatrix(['--run-id', nextRunId(), T_PG], { verify: verifyOk, exec: broken, out })).toBe(1)
+	})
+})
+
+describe('checkReports (CI reports, TECH-TEST-012)', () => {
+	const lines = []
+	const out = line => lines.push(line)
+	let directory
+
+	beforeEach(() => {
+		lines.length = 0
+		directory = path.join(root, 'build', 'test-reports', nextRunId())
+		fs.mkdirSync(directory, { recursive: true })
+	})
+
+	const report = (name, counts) => {
+		const file = path.join(directory, `${name}.junit.xml`)
+		fs.writeFileSync(file, xml(counts))
+		return file
+	}
+
+	it('passes only when every report shows tests and nothing failed, errored or skipped', () => {
+		expect(checkReports([report('unit'), report('integration', { tests: 698 })], out)).toBe(0)
+		expect(lines).toEqual([expect.stringMatching(/PASS .*unit\.junit\.xml: 12 tests/), expect.stringMatching(/PASS .*: 698 tests/)])
+	})
+
+	it.each([
+		['a suite that loaded no test', { tests: 0 }],
+		['a skipped test', { skipped: 1 }],
+		['an error', { errors: 1 }],
+	])('fails %s', (label, counts) => {
+		expect(checkReports([report('unit'), report('integration', counts)], out)).toBe(1)
+		expect(lines[1]).toMatch(/FAIL .*report shows/)
+	})
+
+	it('fails a report that was never written, and needs at least one file', () => {
+		expect(checkReports([path.join(directory, 'absent.junit.xml')], out)).toBe(1)
+		expect(lines[0]).toMatch(/FAIL .*missing or unreadable JUnit report/)
+		expect(() => checkReports([], out)).toThrow('Usage')
 	})
 })
 

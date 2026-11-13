@@ -57,6 +57,10 @@ class TaskServiceWhitelistTest extends TestCase {
 			return $this->lockedTask;
 		});
 
+		$taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$taskCategories->method('isKnown')->willReturnCallback(static fn (string $key): bool => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true));
+		$taskCategories->method('keyOrOther')->willReturnCallback(static fn (string $key): string => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true) ? $key : 'other');
+		$taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
 		$this->service = new TaskService(
 			$this->taskMapper,
 			$houseMapper,
@@ -67,6 +71,7 @@ class TaskServiceWhitelistTest extends TestCase {
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
 			new \OCA\ChoreStrike\Service\CalendarService(),
+			$taskCategories,
 		);
 	}
 

@@ -22,6 +22,9 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "OCA\\ChoreStrike\\Tests\\Unit\\": "tests/unit/",
+            "OCA\\ChoreStrike\\Tests\\Integration\\": "tests/integration/",
+            "OCA\\ChoreStrike\\Tests\\Fixtures\\": "tests/fixtures/",
             "OCA\\ChoreStrike\\Tests\\": "tests/"
         }
     },

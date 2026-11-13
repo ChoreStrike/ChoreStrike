@@ -11,6 +11,8 @@
  *   complete stdout/stderr under
  *   `build/test-reports/<run-id>/<runtime>-<row>/<provider>/` (gitignored), so
  *   a failing test is named in the report instead of lost with the summary.
+ * - `--check-junit <report> ...`: judge JUnit reports a CI job wrote itself
+ *   by the same rule, so a suite that loads no test cannot pass (TECH-TEST-012).
  */
 const { spawn, spawnSync } = require('node:child_process')
 const crypto = require('node:crypto')
@@ -93,6 +95,33 @@ function junitSummary(xml) {
 	return { tests: attribute('tests'), failures: attribute('failures'), errors: attribute('errors'), skipped: attribute('skipped') }
 }
 
+/** Why a report does not prove a complete green suite, or null when it does. */
+function reportProblem(summary) {
+	if (!summary) return 'missing or unreadable JUnit report'
+	if (summary.tests === 0 || summary.failures || summary.errors || summary.skipped) return `report shows ${JSON.stringify(summary)}`
+	return null
+}
+
+function readSummary(file) {
+	try {
+		return junitSummary(fs.readFileSync(file, 'utf8'))
+	} catch {
+		return null
+	}
+}
+
+/** `--check-junit`: every named report must prove a complete green suite. */
+function checkReports(files, out = line => process.stdout.write(`${line}\n`)) {
+	if (!files.length) throw new Error('Usage: scripts/run-tests.js --check-junit <report.junit.xml> ...')
+	const failed = files.filter((file) => {
+		const summary = readSummary(file)
+		const problem = reportProblem(summary)
+		out(`[junit] ${problem ? 'FAIL' : 'PASS'} ${file}: ${problem ?? `${summary.tests} tests`}`)
+		return problem !== null
+	})
+	return failed.length ? 1 : 0
+}
+
 function suiteArguments(container, suite, junit) {
 	return ['exec', container, 'vendor/bin/phpunit', '--configuration', `phpunit.${suite}.xml`, '--fail-on-skipped',
 		'--do-not-cache-result', '--order-by=default', '--log-junit', junit]
@@ -121,15 +150,11 @@ function judge(target, suite, outcome, paths) {
 	if (outcome.error || outcome.signal || outcome.status !== 0) {
 		return { name, ok: false, status: outcome.status || 1, detail: `process ${outcome.signal ?? outcome.status ?? outcome.error?.message}; see ${paths.log}` }
 	}
-	let summary = null
-	try {
-		summary = junitSummary(fs.readFileSync(paths.junit, 'utf8'))
-	} catch { /* reported below */ }
-	if (!summary) {
-		return { name, ok: false, status: 1, detail: `missing or unreadable JUnit report ${paths.junit} (is the target staged from this checkout?)` }
-	}
-	if (summary.tests === 0 || summary.failures || summary.errors || summary.skipped) {
-		return { name, ok: false, status: 1, detail: `report shows ${JSON.stringify(summary)}; see ${paths.junit}` }
+	const summary = readSummary(paths.junit)
+	const problem = reportProblem(summary)
+	if (problem) {
+		const detail = summary ? `${problem}; see ${paths.junit}` : `${problem} ${paths.junit} (is the target staged from this checkout?)`
+		return { name, ok: false, status: 1, detail }
 	}
 	return { name, ok: true, status: 0, detail: `${summary.tests} tests` }
 }
@@ -168,7 +193,7 @@ async function runMatrix(args, deps = {}) {
 	return failed.length ? failed[0].status : 0
 }
 
-module.exports = { main, parseMatrixArgs, reportPaths, junitSummary, judge, runMatrix }
+module.exports = { main, parseMatrixArgs, reportPaths, junitSummary, judge, runMatrix, checkReports }
 
 if (require.main === module) {
 	const args = process.argv.slice(2)
@@ -178,7 +203,7 @@ if (require.main === module) {
 			(error) => { process.stderr.write(`${error.message}\n`); process.exitCode = 1 },
 		)
 	} else {
-		try { process.exitCode = main() } catch (error) {
+		try { process.exitCode = args[0] === '--check-junit' ? checkReports(args.slice(1)) : main() } catch (error) {
 			process.stderr.write(`${error.message}\n`)
 			process.exitCode = 1
 		}

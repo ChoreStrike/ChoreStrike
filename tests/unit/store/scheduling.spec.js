@@ -202,6 +202,70 @@ describe('Scheduling Store', () => {
 
 				expect(store.maxDailyTasks).toBe(4)
 			})
+
+			// RF-090-37: Today and the planning settings both read the
+			// preferences; an older answer landing last must not replace the
+			// newer one, or the form's watcher discards an unsaved edit.
+			const deferredGet = () => {
+				let resolve
+				api.get.mockImplementationOnce(() => new Promise((done) => {
+					resolve = done
+				}))
+				return (data) => resolve(data)
+			}
+
+			it('never lets an older read overwrite a newer one (RF-090-37)', async () => {
+				const answerOlder = deferredGet()
+				const answerNewer = deferredGet()
+				const older = store.fetchUserPreferences()
+				const newer = store.fetchUserPreferences()
+
+				answerNewer({ energyBudget: { monday: 9 } })
+				await newer
+				const landed = store.energyBudget
+				answerOlder({ energyBudget: { monday: 5 } })
+				await older
+
+				expect(store.energyBudget).toBe(landed)
+				expect(store.energyBudget.monday).toBe(9)
+			})
+
+			it('lets the caller of an overtaken read wait for the winning read (RF-090-37)', async () => {
+				const answerOlder = deferredGet()
+				const answerNewer = deferredGet()
+				let olderDone = false
+				const older = store.fetchUserPreferences().then(() => {
+					olderDone = true
+				})
+				const newer = store.fetchUserPreferences()
+
+				answerOlder({ energyBudget: { monday: 5 } })
+				await new Promise((resolve) => setTimeout(resolve, 0))
+				expect(olderDone).toBe(false)
+				expect(store.energyBudget.monday).toBe(10)
+
+				answerNewer({ energyBudget: { monday: 9 } })
+				await Promise.all([older, newer])
+				expect(olderDone).toBe(true)
+				expect(store.energyBudget.monday).toBe(9)
+			})
+
+			it('drops a read that started before an accepted save or a reset (RF-090-37)', async () => {
+				const answerBeforeSave = deferredGet()
+				const beforeSave = store.fetchUserPreferences()
+				api.put.mockResolvedValue({ energyBudget: { monday: 12 } })
+				await store.saveWeeklyPreferences({ energyBudget: { monday: 12 } })
+				answerBeforeSave({ energyBudget: { monday: 5 } })
+				await beforeSave
+				expect(store.energyBudget.monday).toBe(12)
+
+				const answerBeforeReset = deferredGet()
+				const beforeReset = store.fetchUserPreferences()
+				store.reset()
+				answerBeforeReset({ energyBudget: { monday: 5 } })
+				await beforeReset
+				expect(store.energyBudget.monday).toBe(10)
+			})
 		})
 
 		describe('saveWeeklyPreferences', () => {

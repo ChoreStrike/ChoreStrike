@@ -102,7 +102,9 @@ the creator's Nextcloud timezone at house creation; `UTC` fallback.
 Every house payload (`GET`/`PUT /house`, `PUT /house/catalog`,
 `PUT /house/arcade-gate`, `POST /house/reset`) also carries
 `arcadeGateEnabled` — the household arcade unlock gate, stored in app config
-rather than on the house row (CS-PLAN-086, see `PUT /house/arcade-gate`).
+rather than on the house row (CS-PLAN-086, see `PUT /house/arcade-gate`) —
+and `taskCategories`, the household's task categories (CS-PLAN-090 WP-I, see
+`PUT /house/task-categories`).
 
 #### PUT /house
 Update house name and (owner only) timezone and ranking flag.
@@ -160,6 +162,42 @@ app-config flag. Response: the house payload with the new
 `arcadeGateEnabled`. Failure envelopes: `403 FORBIDDEN` for non-owners
 (checked before the payload), `400 VALIDATION_ERROR` for a non-boolean value,
 `500 HOUSE_UPDATE_ERROR`.
+
+#### PUT /house/task-categories
+Owner-only writer of the household's task categories (CS-PLAN-090 WP-I,
+FEAT-UX-053). Every member reads the list as `taskCategories` in the house
+payload: `{ "revision": int, "items": [{ "key": string, "label": string|null }] }`.
+Until an owner saves a list, it holds the six built-in keys `cleaning`,
+`kitchen`, `bathroom`, `organizing`, `maintenance` and `other` at revision 0.
+A `label` of `null` keeps the translated name of a built-in key.
+
+**Request:** the whole ordered list and the revision the client read.
+```json
+{
+  "revision": 0,
+  "items": [
+    { "key": "kitchen", "label": "Kitchen & dining" },
+    { "key": null, "label": "Garden" },
+    { "key": "other", "label": null }
+  ]
+}
+```
+
+- An item without a key adds a category; the server generates its key.
+  A listed key keeps its category, possibly renamed or moved. A key that is
+  left out deletes the category.
+- `other` must be the last item and keeps its name. The list may have at most
+  20 items, and each name 1 to 40 characters, unique regardless of case.
+- Stored task rows are never rewritten. A task whose key is no longer listed
+  counts as `other` in the client's lists and filters. A task write
+  (`PUT /tasks/{id}`, `POST /room-tasks`) accepts only a listed key and
+  answers `400` with "Unknown task category" otherwise. A new task without a
+  category gets `other`, and a template keeps its key while it is listed.
+- Response: the saved list with the next revision. Failure envelopes:
+  `403 FORBIDDEN` for non-owners (checked before the payload),
+  `400 VALIDATION_ERROR` for a malformed envelope or a list that breaks a rule,
+  `409 CONFLICT` when the list changed since `revision`,
+  `500 TASK_CATEGORIES_ERROR`.
 
 #### GET /house/stats
 House overview statistics for the Insights view (CS-PLAN-040).

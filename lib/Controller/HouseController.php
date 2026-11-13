@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\ArcadeAccessService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\TaskCategoryService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
@@ -34,6 +35,7 @@ class HouseController extends Controller {
 	private IL10N $l;
 	private \OCA\ChoreStrike\Service\CalendarService $calendarService;
 	private ArcadeAccessService $arcadeAccess;
+	private TaskCategoryService $taskCategories;
 
 	public function __construct(
 		IRequest $request,
@@ -44,7 +46,9 @@ class HouseController extends Controller {
 		AppLogger $appLogger,
 		\OCA\ChoreStrike\Service\CalendarService $calendarService,
 		ArcadeAccessService $arcadeAccess,
+		TaskCategoryService $taskCategories,
 	) {
+		$this->taskCategories = $taskCategories;
 		parent::__construct('chorestrike', $request);
 		$this->houseService = $houseService;
 		$this->authService = $authService;
@@ -58,12 +62,16 @@ class HouseController extends Controller {
 	/**
 	 * The house payload of every response the client stores as its house:
 	 * the entity plus the household's arcade gate flag (CS-PLAN-086
-	 * D-086-02), which lives in app config rather than on the house row.
+	 * D-086-02) and task categories (CS-PLAN-090 D-090-65), which live in
+	 * app config rather than on the house row.
 	 *
 	 * @return array<string, mixed>
 	 */
 	private function housePayload(House $house): array {
-		return $house->jsonSerialize() + ['arcadeGateEnabled' => $this->arcadeAccess->isGateEnabled()];
+		return $house->jsonSerialize() + [
+			'arcadeGateEnabled' => $this->arcadeAccess->isGateEnabled(),
+			'taskCategories' => $this->taskCategories->getList(),
+		];
 	}
 
 	/**

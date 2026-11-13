@@ -35,6 +35,7 @@ class HouseControllerTest extends TestCase {
 	private $authService;
 	private $activityService;
 	private $arcadeAccess;
+	private $taskCategories;
 	private $request;
 
 	protected function setUp(): void {
@@ -49,6 +50,10 @@ class HouseControllerTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
+		$this->taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$this->taskCategories->method('isKnown')->willReturnCallback(static fn (string $key): bool => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true));
+		$this->taskCategories->method('keyOrOther')->willReturnCallback(static fn (string $key): string => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true) ? $key : 'other');
+		$this->taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
 		$this->controller = new HouseController(
 			$this->request,
 			$this->houseService,
@@ -57,7 +62,8 @@ class HouseControllerTest extends TestCase {
 			$l10n,
 			$this->createMock(AppLogger::class),
 			new CalendarService(),
-			$this->arcadeAccess
+			$this->arcadeAccess,
+			$this->taskCategories,
 		);
 	}
 
@@ -361,7 +367,23 @@ class HouseControllerTest extends TestCase {
 		$data = $this->controller->get()->getData()['data'];
 
 		$this->assertFalse($data['arcadeGateEnabled']);
-		$this->assertSame(array_keys($house->jsonSerialize()), array_slice(array_keys($data), 0, -1), 'the entity fields stay unchanged');
+		$this->assertSame(array_keys($house->jsonSerialize()), array_slice(array_keys($data), 0, -2), 'the entity fields stay unchanged');
+	}
+
+	/**
+	 * CS-PLAN-090 WP-I (D-090-65): every member reads the household's task
+	 * categories with the house payload.
+	 */
+	public function testGet_CarriesTheTaskCategories(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+
+		$categories = $this->controller->get()->getData()['data']['taskCategories'];
+
+		$this->assertSame(0, $categories['revision']);
+		$this->assertSame(\OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, array_column($categories['items'], 'key'));
 	}
 
 	/**

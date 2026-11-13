@@ -49,6 +49,10 @@ class TaskServiceTest extends TestCase {
 			return $this->lockedTask;
 		});
 
+		$taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$taskCategories->method('isKnown')->willReturnCallback(static fn (string $key): bool => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true));
+		$taskCategories->method('keyOrOther')->willReturnCallback(static fn (string $key): string => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true) ? $key : 'other');
+		$taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
 		$this->service = new TaskService(
 			$this->taskMapper,
 			$houseMapper,
@@ -59,6 +63,7 @@ class TaskServiceTest extends TestCase {
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
 			new \OCA\ChoreStrike\Service\CalendarService(),
+			$taskCategories,
 		);
 	}
 
@@ -612,6 +617,28 @@ class TaskServiceTest extends TestCase {
 		$result = $this->service->validateTaskData($taskData);
 
 		$this->assertContains('Invalid frequency type', $result);
+	}
+
+	/**
+	 * CS-PLAN-090 WP-I (D-090-65): a task takes only a key of the household's
+	 * current list; a deleted key and a non-string value are refused.
+	 *
+	 * @dataProvider categoryProvider
+	 */
+	public function testValidateTaskData_Category(mixed $category, bool $accepted): void {
+		$errors = $this->service->validateTaskData(['name' => 'Test', 'category' => $category]);
+
+		$this->assertSame($accepted, !in_array('Unknown task category', $errors, true));
+	}
+
+	public static function categoryProvider(): array {
+		return [
+			'a listed built-in key' => ['kitchen', true],
+			'other' => ['other', true],
+			'a key the household deleted or never had' => ['garden', false],
+			'not a string' => [3, false],
+			'null' => [null, false],
+		];
 	}
 
 	/**

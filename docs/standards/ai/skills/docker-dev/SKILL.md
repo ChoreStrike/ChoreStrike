@@ -148,6 +148,8 @@ configuration path.
 | `chorestrike-db` unhealthy | Inspect logs/health first; recreate volumes only with explicit ownership of that disposable environment, never as an unqualified shared-environment recovery step |
 | Tests fail with "connection refused" | Wait for DB healthcheck: `docker inspect --format='{{.State.Health.Status}}' chorestrike-db` |
 | Stale vendor/ in container | Rebuild: `docker compose -f docker/compose.test.yml build --no-cache` |
+| A route added in `appinfo/routes.php` answers 404 on a running stack | Nextcloud caches the routes in APCu while the app version stays the same: `docker exec chorestrike-test apache2ctl -k restart` (data and container stay); PHPUnit is not affected. A release bumps the version, so installs are not affected either |
+| A new `composer.json` autoload mapping is not found | `docker exec -w /var/www/html/custom_apps/chorestrike chorestrike-test composer dump-autoload` |
 | Port 8080 conflict | Change port mapping in `docker/compose.test.yml` or stop conflicting service |
 | Permission errors on mounted files | Ensure Docker Desktop file sharing includes the project directory |
 

@@ -40,7 +40,8 @@ class HouseControllerIntegrationTest extends TestCase {
 			$l10n,
 			$this->createMock(AppLogger::class),
 			new \OCA\ChoreStrike\Service\CalendarService(),
-			$this->createMock(\OCA\ChoreStrike\Service\ArcadeAccessService::class)
+			$this->createMock(\OCA\ChoreStrike\Service\ArcadeAccessService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\TaskCategoryService::class),
 		);
 	}
 

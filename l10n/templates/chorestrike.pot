@@ -2,6 +2,9 @@ msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 
+msgid "\"Other\" stays the last category and keeps its name."
+msgstr ""
+
 msgid "%1$s must contain all seven weekdays (missing: %2$s)"
 msgstr ""
 
@@ -50,6 +53,9 @@ msgstr ""
 msgid "A daily summary of the agreements for the coming day."
 msgstr ""
 
+msgid "A deleted category no longer appears; its tasks count as \"Other\" until someone gives them a new category."
+msgstr ""
+
 msgid "A different occurrence is now displayed. Choose a new agreement and confirm consent again."
 msgstr ""
 
@@ -57,6 +63,9 @@ msgid "A former member was part of this split — reassign their share. Shares m
 msgstr ""
 
 msgid "A house name must be a string"
+msgstr ""
+
+msgid "A household can have at most %1$s categories."
 msgstr ""
 
 msgid "A maximum of %1$d floors is allowed"
@@ -213,6 +222,9 @@ msgid "All Tasks"
 msgstr ""
 
 msgid "All Time"
+msgstr ""
+
+msgid "All categories"
 msgstr ""
 
 msgid "All energy levels"
@@ -480,6 +492,9 @@ msgid "Capacity per day"
 msgstr ""
 
 msgid "Catch-up"
+msgstr ""
+
+msgid "Categories sort the tasks, and the task list can filter by them. \"Other\" collects every task without a fitting category."
 msgstr ""
 
 msgid "Category"
@@ -863,6 +878,9 @@ msgstr ""
 msgid "Delete this sub-task?"
 msgstr ""
 
+msgid "Delete {name}"
+msgstr ""
+
 msgid "Delivered"
 msgstr ""
 
@@ -969,6 +987,9 @@ msgid "Dust the shelves, wipe the desk and window sill, and tidy as you go."
 msgstr ""
 
 msgid "Dust the surfaces in the room."
+msgstr ""
+
+msgid "Each category needs a name of 1 to %1$s characters."
 msgstr ""
 
 msgid "Each chore has a completion window around its planned day. Free days and absences are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve."
@@ -1721,6 +1742,12 @@ msgstr ""
 msgid "Move this occurrence to"
 msgstr ""
 
+msgid "Move {name} down"
+msgstr ""
+
+msgid "Move {name} up"
+msgstr ""
+
 msgid "Moving this task would exceed a daily task limit"
 msgstr ""
 
@@ -1748,6 +1775,9 @@ msgstr ""
 msgid "Name already taken — room renamed to \"{name}\""
 msgstr ""
 
+msgid "Name of the category"
+msgstr ""
+
 msgid "Need cleaning"
 msgstr ""
 
@@ -1761,6 +1791,9 @@ msgid "New Personal Best!"
 msgstr ""
 
 msgid "New Task"
+msgstr ""
+
+msgid "New category"
 msgstr ""
 
 msgid "New personal best: {score}"
@@ -2591,6 +2624,9 @@ msgstr ""
 msgid "Some views could not be refreshed"
 msgstr ""
 
+msgid "Someone else saved the categories first. The current list is shown; please make your changes again."
+msgstr ""
+
 msgid "Something went wrong"
 msgstr ""
 
@@ -2607,6 +2643,9 @@ msgid "Sort mail and papers"
 msgstr ""
 
 msgid "Sort toys into their boxes, put away games and books, and clear the floor so you can vacuum."
+msgstr ""
+
+msgid "Sorts a task and lets the task list filter by it. Owners keep the list in the household settings; a task whose category was deleted counts as Other."
 msgstr ""
 
 msgid "Sound"
@@ -2741,6 +2780,9 @@ msgstr ""
 msgid "Task can be completed {days} days before or after ideal date"
 msgstr ""
 
+msgid "Task categories"
+msgstr ""
+
 msgid "Task completed"
 msgstr ""
 
@@ -2858,6 +2900,15 @@ msgstr ""
 msgid "The catalog setting was saved."
 msgstr ""
 
+msgid "The categories changed in the meantime. Please check them and save again."
+msgstr ""
+
+msgid "The categories could not be saved. Please try again."
+msgstr ""
+
+msgid "The categories were saved."
+msgstr ""
+
 msgid "The checklist changed since it was displayed. Reload and try again."
 msgstr ""
 
@@ -2919,6 +2970,9 @@ msgid "The last action did not return a result. You can safely retry it — it w
 msgstr ""
 
 msgid "The last done date must be today or earlier"
+msgstr ""
+
+msgid "The list names a category that does not exist."
 msgstr ""
 
 msgid "The number of days in a row you kept your agreements. Today stays pending until the day closes."
@@ -3227,6 +3281,9 @@ msgstr ""
 msgid "Tuesday"
 msgstr ""
 
+msgid "Two categories cannot have the same name."
+msgstr ""
+
 msgid "Type \"RESET\" to confirm"
 msgstr ""
 
@@ -3279,6 +3336,9 @@ msgid "Unknown state filter"
 msgstr ""
 
 msgid "Unknown task"
+msgstr ""
+
+msgid "Unknown task category"
 msgstr ""
 
 msgid "Unknown timezone"
@@ -3690,6 +3750,9 @@ msgid "priceMinor must be a positive whole number of hundredths"
 msgstr ""
 
 msgid "reasonCode must be a string of at most 64 characters"
+msgstr ""
+
+msgid "revision must be an integer and items a list"
 msgstr ""
 
 msgid "roomId is required"

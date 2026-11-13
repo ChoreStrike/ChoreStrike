@@ -8,9 +8,12 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    # Majors come as PRs of their own: one blocked major must not stop the
+    # group (TECH-DEPS-001).
     groups:
       npm-all:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: composer
     directory: "/"

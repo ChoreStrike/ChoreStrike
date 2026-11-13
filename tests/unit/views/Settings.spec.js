@@ -64,15 +64,16 @@ jest.mock('../../../src/components/Settings/NotificationPreferences.vue', () => 
 jest.mock('../../../src/components/Settings/PlanningSettings.vue', () => mockCategory('PlanningSettings'))
 jest.mock('../../../src/components/Settings/HouseSettings.vue', () => mockCategory('HouseSettings'))
 jest.mock('../../../src/components/Settings/StructureSettings.vue', () => mockCategory('StructureSettings'))
+jest.mock('../../../src/components/Settings/TaskCategorySettings.vue', () => mockCategory('TaskCategorySettings'))
 jest.mock('../../../src/components/Settings/DangerZoneSettings.vue', () => mockCategory('DangerZoneSettings'))
 jest.mock('../../../src/components/Members/MemberList.vue', () => mockCategory('MemberList'))
 jest.mock('../../../src/components/Rewards/RewardCatalogEditor.vue', () => mockCategory('RewardCatalogEditor'))
 jest.mock('../../../src/components/Minigames/ArcadeGateSetting.vue', () => mockCategory('ArcadeGateSetting'))
 
 const PERSONAL = ['title', 'notifications', 'planning']
-const HOUSEHOLD = ['house', 'members', 'structure', 'rewards', 'arcade', 'danger']
+const HOUSEHOLD = ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger']
 // The section test ids the page had before the split stay.
-const SECTION_IDS = ['house-section', 'members-section', 'floors-section', 'catalog-section', 'arcade-gate-section', 'danger-zone']
+const SECTION_IDS = ['house-section', 'members-section', 'floors-section', 'task-categories-section', 'catalog-section', 'arcade-gate-section', 'danger-zone']
 
 const toggle = (wrapper, id) => wrapper.get(`[data-testid="settings-category-${id}"]`)
 const shown = (wrapper) => wrapper.findAll('[data-testid^="settings-category-"]')
@@ -134,6 +135,7 @@ describe('Settings.vue', () => {
 		['house', 'HouseSettings'],
 		['members', 'MemberList'],
 		['structure', 'StructureSettings'],
+		['categories', 'TaskCategorySettings'],
 		['rewards', 'RewardCatalogEditor'],
 		['arcade', 'ArcadeGateSetting'],
 		['danger', 'DangerZoneSettings'],

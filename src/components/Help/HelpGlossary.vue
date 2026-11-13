@@ -61,6 +61,11 @@ export default {
 					text: t('chorestrike', 'An absence is a period in which nothing is planned for you and nothing counts for or against anyone. Everyone enters their own under Absence; no reason and no request are needed.'),
 				},
 				{
+					id: 'category',
+					title: t('chorestrike', 'Category'),
+					text: t('chorestrike', 'Sorts a task and lets the task list filter by it. Owners keep the list in the household settings; a task whose category was deleted counts as Other.'),
+				},
+				{
 					id: 'streak',
 					title: t('chorestrike', 'Streak'),
 					text: t('chorestrike', 'The number of days in a row you kept your agreements. Today stays pending until the day closes.'),

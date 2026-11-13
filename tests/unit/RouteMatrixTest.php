@@ -296,17 +296,31 @@ class RouteMatrixTest extends TestCase {
 	 * gate writer (PUT /house/arcade-gate) → 96. CS-PLAN-088 D-088-20
 	 * added the "last done" writer (PUT /room-tasks/{id}/last-done,
 	 * consumed by the room-task edit dialog) → 97. CS-PLAN-090 WP-A added
-	 * the absence deletion (DELETE /pauses/{id}, ADR-020) → 98.
+	 * the absence deletion (DELETE /pauses/{id}, ADR-020) → 98. CS-PLAN-090
+	 * WP-I added the owner-only task-category writer (PUT
+	 * /house/task-categories, consumed by the household settings) → 99.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			98,
+			99,
 			$this->routes['routes'],
-			'Route count drifted from the pin (98 after CS-PLAN-090 WP-A) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (99 after CS-PLAN-090 WP-I) — add only with a consumer, then update deliberately'
 		);
+	}
+
+	/**
+	 * CS-PLAN-090 WP-I (D-090-65): the categories have exactly one writer,
+	 * and members read them with the house.
+	 */
+	public function testTaskCategoryWriterIsTheOnlyCategoryRoute(): void {
+		$categoryRoutes = array_values(array_filter(
+			array_map(static fn (array $route): string => $route['verb'] . ' ' . $route['url'] . ' ' . $route['name'], $this->routes['routes']),
+			static fn (string $route): bool => str_contains($route, 'categor'),
+		));
+		$this->assertSame(['PUT /api/v1/house/task-categories taskCategory#update'], $categoryRoutes);
 	}
 
 	/**

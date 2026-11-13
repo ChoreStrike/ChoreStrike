@@ -18,6 +18,9 @@ return [
         // CS-PLAN-086 (D-086-02): the owner-only arcade unlock gate — the
         // only HTTP writer of the `arcade_gate_enabled` app-config flag.
         ['name' => 'house#updateArcadeGate', 'url' => '/api/v1/house/arcade-gate', 'verb' => 'PUT'],
+        // CS-PLAN-090 WP-I (D-090-65): the owner-only, revisioned writer of
+        // the household's task categories; members read them with the house.
+        ['name' => 'taskCategory#update', 'url' => '/api/v1/house/task-categories', 'verb' => 'PUT'],
 
         // Floor API
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],

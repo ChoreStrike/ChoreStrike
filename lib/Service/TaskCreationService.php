@@ -286,7 +286,7 @@ class TaskCreationService {
 			'frequencyType' => 'weekly',
 			'frequencyValue' => 1,
 			'estimatedMinutes' => 15,
-			'category' => 'cleaning',
+			'category' => TaskCategoryService::OTHER,
 			'recurrenceMode' => Task::RECURRENCE_RECURRING,
 			'schedulingMode' => Task::SCHEDULING_DYNAMIC,
 			'flexDays' => 0,

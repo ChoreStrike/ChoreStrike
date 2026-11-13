@@ -59,7 +59,7 @@ test.describe('Settings', () => {
 
 		// The owner's household area sits behind the switch, closed as well.
 		await page.getByTestId('settings-tab-household').click()
-		for (const category of ['house', 'members', 'structure', 'rewards', 'arcade', 'danger']) {
+		for (const category of ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger']) {
 			await expect(page.getByTestId(`settings-category-${category}`)).toHaveAttribute('aria-expanded', 'false')
 		}
 		await expect(page.getByTestId('house-name-input')).toHaveCount(0)
@@ -70,6 +70,40 @@ test.describe('Settings', () => {
 		await page.reload()
 		await expect(page.getByTestId('settings-category-members')).toHaveAttribute('aria-expanded', 'true', { timeout: 20000 })
 		await expect(page.getByTestId('settings-tab-household')).toHaveAttribute('aria-pressed', 'true')
+	})
+
+	test('An owner adds a task category, gives it to a task, and the task list filters by it', async ({ page }) => {
+		// CS-PLAN-090 WP-I (FEAT-UX-053, D-090-65).
+		const name = `Garden ${Date.now() % 100000}`
+		await openSettingsCategory(page, 'categories')
+		await page.getByTestId('task-category-new').fill(name)
+		await page.getByTestId('task-category-add').click()
+		const saved = page.waitForResponse((response) => response.url().endsWith('/house/task-categories') && response.request().method() === 'PUT')
+		await page.getByTestId('task-category-save').click()
+		expect((await saved).status()).toBe(200)
+		await expect(page.getByTestId('task-category-save')).toBeDisabled()
+		await expect(page.getByTestId('task-category-error')).toHaveCount(0)
+
+		const token = await page.evaluate(() => (window as unknown as { OC: { requestToken: string } }).OC.requestToken)
+		await page.context().setExtraHTTPHeaders({ requesttoken: token })
+		const listed = (await dataOf(await page.request.get(`${API}/house`))).taskCategories
+		const created = listed.items.find((item: { label: string | null }) => item.label === name)
+		expect(created?.key).toMatch(/^c[0-9a-f]{8}$/)
+		const task = (await dataOf(await page.request.get(`${API}/tasks`)))[0]
+		try {
+			await dataOf(await page.request.put(`${API}/tasks/${task.id}`, { data: { category: created.key } }))
+			await page.goto(`/apps/chorestrike/#/tasks?scope=all&category=${created.key}`)
+			await expect(page.getByTestId('category-filter')).toHaveValue(created.key, { timeout: 20000 })
+			const rows = page.getByTestId('task-item')
+			await expect(rows.filter({ hasText: task.name }).first()).toBeVisible({ timeout: 20000 })
+			await expect(rows.filter({ hasNotText: task.name })).toHaveCount(0)
+		} finally {
+			await dataOf(await page.request.put(`${API}/tasks/${task.id}`, { data: { category: task.category } }))
+			const current = (await dataOf(await page.request.get(`${API}/house`))).taskCategories
+			await dataOf(await page.request.put(`${API}/house/task-categories`, {
+				data: { revision: current.revision, items: current.items.filter((item: { key: string }) => item.key !== created.key) },
+			}))
+		}
 	})
 
 	test('The own reward requests open from the personal settings', async ({ page }) => {

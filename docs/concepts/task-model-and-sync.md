@@ -25,6 +25,25 @@ Each task includes:
   `task_sync` HTTP surface were pruned in CS-PLAN-055; see *Reminder
   Configuration* below)
 - multi-assignment on the room-task join rows, not a definition-owned user scalar
+- a category key from the household's list (CS-PLAN-090 WP-I, FEAT-UX-053)
+
+### Categories
+
+The household keeps one ordered list of task categories, which an owner
+edits in the household settings. It lives in typed app configuration, since
+there is one house per instance, and needs no schema. Until an owner saves a
+list, it holds the six keys the task form always offered, so tasks stored
+before the list existed keep their meaning without a write. Keys are stable;
+a built-in key keeps its translated name until an owner renames it. *Other*
+is always last, keeps its name and cannot be deleted.
+
+A task stores only the key. Deleting a category rewrites no task: a task whose
+key is no longer listed counts as *Other* in lists and filters, and saving
+that task stores a listed key. Task writes accept only listed keys; a new task
+starts as *Other*, and a template keeps its key while the list holds it. The
+task list filters by category. The list carries a revision, so two owners
+saving at once cannot overwrite each other (`409`). API:
+[`PUT /house/task-categories`](../api/README.md#put-housetask-categories).
 
 ## Creation Model (CS-PLAN-038, atomic since CS-PLAN-063)
 

@@ -139,14 +139,17 @@ jobs:
             cs082-runtime-35.0.3-local \
             composer install --no-interaction --prefer-dist
 
+      # The report check fails a suite that loads no test (TECH-TEST-012).
       - name: Run PHPUnit unit (blocking)
         run: |
+          mkdir -p build/test-reports/ci
           docker run --rm \
             -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
             -e NEXTCLOUD_TEST_ENV=true \
             -w /var/www/html/custom_apps/chorestrike \
             cs082-runtime-35.0.3-local \
-            vendor/bin/phpunit --configuration phpunit.unit.xml
+            vendor/bin/phpunit --configuration phpunit.unit.xml --log-junit build/test-reports/ci/unit.junit.xml
+          node scripts/run-tests.js --check-junit build/test-reports/ci/unit.junit.xml
 
   # ---------- Backend integration tests (Docker) ----------
   phpunit-integration:
@@ -160,10 +163,14 @@ jobs:
       - name: Bring up canonical test env (NC 35.0.3 / PHP 8.4 / PostgreSQL 18.6, frozen inventory build)
         run: TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build --wait --wait-timeout 900
 
+      # The report check fails a suite that loads no test (TECH-TEST-012).
       - name: Run PHPUnit integration (blocking)
         run: |
+          mkdir -p build/test-reports/ci
           docker compose -f docker/compose.test.yml exec -T nextcloud-test \
-            vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --do-not-cache-result
+            vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped --do-not-cache-result \
+            --log-junit build/test-reports/ci/integration.junit.xml
+          node scripts/run-tests.js --check-junit build/test-reports/ci/integration.junit.xml
 
       - name: Tear down integration environment
         if: always()

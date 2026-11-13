@@ -39,11 +39,15 @@ jobs:
           docker run --rm -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
             chorestrike-test:ci composer install --no-interaction --prefer-dist
 
+      # The report check fails a suite that loads no test (TECH-TEST-012).
       - name: Run PHPUnit
         run: |
+          mkdir -p build/test-reports/ci
           docker run --rm -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
             -e NEXTCLOUD_TEST_ENV=true chorestrike-test:ci \
-            vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result
+            vendor/bin/phpunit --configuration phpunit.unit.xml --fail-on-skipped --do-not-cache-result \
+            --log-junit build/test-reports/ci/unit.junit.xml
+          node scripts/run-tests.js --check-junit build/test-reports/ci/unit.junit.xml
         env:
           NEXTCLOUD_TEST_MODE: true
 

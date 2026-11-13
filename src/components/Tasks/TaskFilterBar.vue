@@ -121,7 +121,7 @@ import { ENERGY_LISTED_MAX, ENERGY_LONGER } from '../../constants/scheduling.js'
 import { longerTaskLabel } from '../../utils/taskDisplay.js'
 
 // Panel values that count as "no filter" for the active-filter badge.
-const PANEL_DEFAULTS = { person: '', floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all' }
+const PANEL_DEFAULTS = { person: '', floor: '', room: '', status: 'all', priority: 'all', difficulty: 'all', visibility: 'all', category: 'all' }
 
 /**
  * Whether the viewport is phone-sized; the filter panel starts collapsed
@@ -173,6 +173,12 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+
+		/** The household's categories as `{ value, label }` (CS-PLAN-090 WP-I). */
+		categories: {
+			type: Array,
+			default: () => [],
+		},
 	},
 
 	emits: ['update:modelValue'],
@@ -187,7 +193,7 @@ export default {
 		},
 
 		activeCount() {
-			const changed = Object.keys(PANEL_DEFAULTS).filter((key) => this.modelValue[key] !== PANEL_DEFAULTS[key]).length
+			const changed = Object.keys(PANEL_DEFAULTS).filter((key) => (this.modelValue[key] ?? PANEL_DEFAULTS[key]) !== PANEL_DEFAULTS[key]).length
 			return changed + (this.modelValue.search.trim() ? 1 : 0)
 		},
 
@@ -233,6 +239,11 @@ export default {
 						{ value: 'all', label: t('chorestrike', 'All') },
 						{ value: 'private', label: t('chorestrike', 'Private') },
 					],
+				},
+				{
+					key: 'category',
+					label: t('chorestrike', 'Category'),
+					options: [{ value: 'all', label: t('chorestrike', 'All categories') }, ...this.categories],
 				},
 			]
 		},

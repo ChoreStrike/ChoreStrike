@@ -7,6 +7,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { defineStore } from 'pinia'
 import { api, setCatalogEnabled } from '../services/api.js'
 import { logger } from '../utils/logger.js'
+import { DEFAULT_CATEGORY_LIST } from '../utils/taskCategories.js'
 
 /**
  * Client idempotency UUID for the catalog-gate command (RFC 4122 v4).
@@ -88,6 +89,14 @@ export const useHouseStore = defineStore('house', {
 		 * @return {boolean} Whether games unlock through finished chores
 		 */
 		arcadeGateEnabled: (state) => state.house?.arcadeGateEnabled !== false,
+		/**
+		 * The household's task categories (CS-PLAN-090 WP-I, D-090-65) —
+		 * the six built-in keys until the loaded house says otherwise.
+		 *
+		 * @param {object} state Pinia state
+		 * @return {{revision: number, items: Array<{key: string, label: ?string}>}}
+		 */
+		taskCategories: (state) => state.house?.taskCategories ?? DEFAULT_CATEGORY_LIST,
 	},
 
 	actions: {
@@ -263,6 +272,29 @@ export const useHouseStore = defineStore('house', {
 				throw error
 			} finally {
 				this.loading = false
+			}
+		},
+
+		/**
+		 * Save the household's task categories (owner only, CS-PLAN-090
+		 * WP-I) against the revision this client read. A 409 means another
+		 * save landed first: the house is read again, so the editor shows
+		 * the current list, and the error is rethrown.
+		 * @param {Array<{key?: ?string, label: ?string}>} items Whole ordered list; no key adds a category.
+		 * @return {Promise<object>} The saved list.
+		 */
+		async saveTaskCategories(items) {
+			try {
+				const data = await api.put('/api/v1/house/task-categories', { revision: this.taskCategories.revision, items })
+				this.houseRequestSeq++
+				this.house = { ...this.house, taskCategories: data }
+				return data
+			} catch (error) {
+				logger.error('Failed to save the task categories', error, { store: 'house', action: 'saveTaskCategories' })
+				if (error?.status === 409) {
+					await this.fetchHouse().catch(() => {})
+				}
+				throw error
 			}
 		},
 

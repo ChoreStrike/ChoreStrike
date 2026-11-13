@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\tests\integration\Service;
+namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;

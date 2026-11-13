@@ -653,7 +653,7 @@ window is no longer edited directly. Detail:
 ---
 
 ### [P3] FEAT-UX-053 — Owner-managed task categories
-**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; planned in CS-PLAN-090 WP-I, Standard A of the extension `PASS-WITH-FIXES` 2026-11-13; storage and rules D-090-65) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
+**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; CS-PLAN-090 WP-I implemented 2026-11-13, interim Standard B `PASS-WITH-FIXES` 2026-11-13; storage and rules D-090-65) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
 **Owning**: CS-PLAN-090 WP-I · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-058 · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-3, S-4
 
@@ -665,9 +665,10 @@ purpose (D-089-04): a filter in the Tasks list and an evaluation in the statisti
 
 - [x] Decide the storage: a typed app-config list, no schema step (CS-PLAN-090 D-090-64,
       D-090-65, 2026-11-13).
-- [ ] Tasks keep stable keys; unknown values read as *Other* and nothing rewrites
-      retained rows.
-- [ ] Filter, settings section and tests.
+- [x] Tasks keep stable keys; unknown values read as *Other* and nothing rewrites
+      retained rows (2026-11-13, CS-PLAN-090 WP-I, integration test on the real store).
+- [x] Filter, settings section and tests (2026-11-13; interim Standard B `PASS-WITH-FIXES`
+      2026-11-13).
 
 ---
 
@@ -841,7 +842,7 @@ vibration motor.
 
 ### [P3] TECH-TRANSPORT-001 — Attribute intermittent browser API connection termination
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: test-runtime reliability
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs; 2026-10-20 CS-PLAN-088 WP-B gates: three full primary-row gates and one AIO-row gate each lost one to three required scenarios (`settings`, `mobile-core` handover, `calm-core-ui`, `release-task-lifecycle`) to seed/API `fetch failed` before any assertion, with no Apache error, OOM or restart and a foreign Testcontainers run active on the shared Docker host; every one passes in isolation. Two non-transport scenarios failed once and passed in isolation too (`mobile-core` webkit navigation to Settings, `arcade-mobile` Crumb Snake reaching *over* before the steer), also unattributed; 2026-11-10 CS-PLAN-090 WP-A interim gate `run-YXOhYK` (primary row): `mobile-core` webkit "dashboard tiles lead to their targets" did not see Today within 5 s of the tile tap, while the failure screenshot shows Today rendered; `mobile-chromium` passed the same scenario, no WP-A code is on its path, and the next complete gate `run-G53HP8` passed, so it stays unattributed; 2026-11-11 CS-PLAN-090 WP-C full gate `run-B7GTOA`: seed POST of `validation.spec.ts` closed ("other side closed") before any assertion, eight tests skipped behind it, the other four projects passed (see the review findings of CS-PLAN-090); 2026-11-12 CS-PLAN-090 RF-090-12 runtime requalification, AIO row (Nextcloud 35.0.2, Redis 8.10.3): `run-F2Vfj0` lost one scenario of `workflow-state-reconciliation.spec.ts` and `run-6OZBYh` four of `mobile-core.spec.ts` on `mobile-webkit`; three of the five are seed requests closed ("other side closed") before any assertion that never reached the server's access log, two are timeouts within the same five minutes. A foreign Testcontainers run started during the first failure window and the later part of the second, while the two closures at the start of the second have no such record. The next complete gates passed on both rows (`run-zBcjiF`, `run-RwKd3N`), each started after a quiet host
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: 2026-10-11 core-feedback gate fixture-seed connection closures; 2026-10-14 CS-PLAN-084 WP-B/WP-E/WP-F/WP-C focused-run closures; 2026-10-15 CS-PLAN-084 full-gate closures with access-log correlation; 2026-10-18 CS-PLAN-087 interim gates (NC 35 seed `fetch failed` under foreign host load, NC 34 AIO `socket hang up` on `GET /api/v1/users` in `family-rewards`, no Apache error; both passed in isolation); 2026-10-18 CS-PLAN-086 WP-F staged row: one failure of `arcade-games` "a crafted score for a locked game is refused" (a seed and one POST, no WP-F code on its path; the error text was not captured, so it stays unattributed), green in three later runs; 2026-10-20 CS-PLAN-088 WP-B gates: three full primary-row gates and one AIO-row gate each lost one to three required scenarios (`settings`, `mobile-core` handover, `calm-core-ui`, `release-task-lifecycle`) to seed/API `fetch failed` before any assertion, with no Apache error, OOM or restart and a foreign Testcontainers run active on the shared Docker host; every one passes in isolation. Two non-transport scenarios failed once and passed in isolation too (`mobile-core` webkit navigation to Settings, `arcade-mobile` Crumb Snake reaching *over* before the steer), also unattributed; 2026-11-10 CS-PLAN-090 WP-A interim gate `run-YXOhYK` (primary row): `mobile-core` webkit "dashboard tiles lead to their targets" did not see Today within 5 s of the tile tap, while the failure screenshot shows Today rendered; `mobile-chromium` passed the same scenario, no WP-A code is on its path, and the next complete gate `run-G53HP8` passed, so it stays unattributed; 2026-11-11 CS-PLAN-090 WP-C full gate `run-B7GTOA`: seed POST of `validation.spec.ts` closed ("other side closed") before any assertion, eight tests skipped behind it, the other four projects passed (see the review findings of CS-PLAN-090); 2026-11-12 CS-PLAN-090 RF-090-12 runtime requalification, AIO row (Nextcloud 35.0.2, Redis 8.10.3): `run-F2Vfj0` lost one scenario of `workflow-state-reconciliation.spec.ts` and `run-6OZBYh` four of `mobile-core.spec.ts` on `mobile-webkit`; three of the five are seed requests closed ("other side closed") before any assertion that never reached the server's access log, two are timeouts within the same five minutes. A foreign Testcontainers run started during the first failure window and the later part of the second, while the two closures at the start of the second have no such record. The next complete gates passed on both rows (`run-zBcjiF`, `run-RwKd3N`), each started after a quiet host; 2026-11-13 CS-PLAN-090 interim review of WP-H and WP-I, AIO row (`run-cyYpmo`, started after three quiet minutes): the test's own `apiRequestContext` GET `/floors/with-rooms` in `task-completion-full-flow.spec.ts` ended in `socket hang up` before any assertion and is absent from the server's access log, where the page's own GET of the same second and all 325 requests of that window answered 200. The other failure of that run was an application race, fixed as RF-090-37 of CS-PLAN-090. After that fix the AIO row passed (`run-8xxQBQ`), and the primary row (`run-mvRorq`, canonical stack, started after three quiet minutes) lost `arcade-games.spec.ts` "Sock Match saves a round of found pairs to its own board" the same way: the test's own GET `/minigames/spots/personal-best` ended in `socket hang up` after the score POST and is absent from the access log, whose 413 requests of that 20-second window all answered 2xx or 3xx. The same scenario passed on both rows earlier in that session (`run-yV6aya`, `run-8xxQBQ`); the symptom again spans both rows and both containers
 **Source**: installation follow-up qualification, 2026-10-09 (`run-J0ndFy`; sanitized summary in [the handoff](../testing/install-preparation-2026-10-08.md#diagnostic-boundaries))
 
 An NC35 browser API GET terminated before any HTTP response during parallel
@@ -1221,57 +1222,6 @@ missed a real contrast defect and failed once mid-transition. It is corrected.
 
 - [ ] Each call is reviewed; a measurement of loaded content waits for that content.
 - [ ] A corrected `layout-clearance.spec.ts` shows whether loaded views still pass.
-
----
-
-### [P2] TECH-TEST-012 — The integration suite does not load on a case-sensitive file system
-**Status**: In Progress (CS-PLAN-090 WP-H by operator decision D-090-60; implemented 2026-11-13, uncommitted until its interim review) · **Effort**: S · **Layer**: tests · **Journey stage**: testing
-**Owning**: CS-PLAN-090 WP-H · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-090 WP-F, app-upgrade proof P4, 2026-11-11
-
-The integration tests live in `tests/integration`, their namespace is
-`OCA\ChoreStrike\Tests\Integration`, and Composer maps `OCA\ChoreStrike\Tests\` to `tests/`.
-On a case-sensitive copy PSR-4 looks for `tests/Integration/IntegrationTestCase.php` and does
-not find it: PHPUnit ends with "Class ... IntegrationTestCase not found", which Nextcloud's
-exception handler turns into exit 0 without output. Every stack used so far bind-mounts a
-Windows checkout, where the lookup succeeds. Observed in an owned container with the
-candidate's files extracted from an archive; the proof P4 adds a `tests/Integration` link
-there. `.github/workflows/release-gate.yml` runs the suite on `ubuntu-latest` from a Linux
-checkout and is dispatched by hand; no run of it is recorded, so whether it is affected is
-unverified. A silent exit 0 would let its integration job pass without running a test.
-
-The unit suite has the same mismatch (`tests/unit`, `Tests\Unit`), and so do the fixtures.
-
-- [x] The suite is run once from a Linux checkout; the result is recorded (2026-11-13, a copy
-      on the container's own file system: with the old map PHPUnit exits 0 without output or
-      report; with the new map integration 698 and unit 1600 tests pass).
-- [x] If it does not load there: the classes resolve on a case-sensitive file system, and the
-      job fails when PHPUnit runs no test (`composer.json` maps the lower-case directories;
-      `run-tests.js --check-junit` in `release-gate.yml` and `test.yml`; the P4 link is gone).
-
----
-
-### [P3] TECH-TEST-013 — The wallet banner of Rewards moves the catalog while it loads
-**Status**: In Progress (CS-PLAN-090 WP-H by operator decision D-090-60; implemented 2026-11-13, uncommitted until its interim review; the browser gate runs with the review) · **Effort**: S · **Layer**: frontend+tests · **Journey stage**: rewards
-**Owning**: CS-PLAN-090 WP-H · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-090 WP-C to WP-E, AIO browser gate `run-blNRHT`, 2026-11-12
-
-`Rewards.vue` renders the catalog when `GET /rewards` answers and the wallet banner above it
-when `GET /game/state` answers; both start together and either can come first. When the
-wallet comes second, the banner pushes the *Request* buttons down by its height. In
-`family-rewards.spec.ts` ("mobile targets, keyboard operation and real EN/DE copy work",
-`chromium-serial-db`, 390 px) the tap on *Request* came about 70 ms after the button appeared
-and in the frame the wallet answered: the trace shows the tap performed, no confirmation
-opened, and the final screenshot shows the banner where the button had been. The scenario
-passed in each of the 12 earlier gate runs kept locally and in the primary row of the same review; the
-view and that step are older than the review. A person tapping during the load can hit the
-banner the same way.
-
-- [x] The catalog does not move when the wallet arrives (its place is held, or the list waits
-      for both reads), with a Jest case (the list waits for the wallet read, success or
-      failure; two Jest cases).
-- [x] The scenario waits for the wallet before it taps, or proves that the layout no longer
-      moves (it sees the banner before the tap).
 
 ---
 

@@ -48,8 +48,6 @@ module.exports = [
 		files: [
 			'src/components/Common/ErrorState.vue',
 			'src/components/Common/Modal.vue',
-			'src/components/Dashboard/HouseHealthBar.vue',
-			'src/components/Dashboard/QuickStats.vue',
 			'src/components/Setup/SetupWizard.vue',
 		],
 		rules: { 'vue/no-boolean-default': 'off' },

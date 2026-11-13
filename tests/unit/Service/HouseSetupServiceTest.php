@@ -54,7 +54,11 @@ class HouseSetupServiceTest extends TestCase {
 
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(fn ($t) => $t);
-		$this->templateService = new TemplateService($l10n);
+		$taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$taskCategories->method('isKnown')->willReturnCallback(static fn (string $key): bool => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true));
+		$taskCategories->method('keyOrOther')->willReturnCallback(static fn (string $key): string => in_array($key, \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS, true) ? $key : 'other');
+		$taskCategories->method('getList')->willReturn(['revision' => 0, 'items' => array_map(static fn (string $key): array => ['key' => $key, 'label' => null], \OCA\ChoreStrike\Service\TaskCategoryService::DEFAULT_KEYS)]);
+		$this->templateService = new TemplateService($l10n, $taskCategories);
 		$this->injectTemplateFixtures();
 
 		// CS-PLAN-071 WP0: applySetup ensures a wallet per member inside

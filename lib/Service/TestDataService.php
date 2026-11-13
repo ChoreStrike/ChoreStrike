@@ -133,6 +133,7 @@ class TestDataService {
 	private CompletedTaskMapper $completedTaskMapper;
 	private WorkShareMapper $workShareMapper;
 	private RewardConfigService $rewardConfig;
+	private TaskCategoryService $taskCategories;
 
 	// CR-SVC-40 / CS-PLAN-060 WP1, decision D6 documented exemption: this
 	// service is NON-PRODUCTION test tooling (every entry point is guarded by
@@ -158,6 +159,7 @@ class TestDataService {
 		CompletedTaskMapper $completedTaskMapper,
 		WorkShareMapper $workShareMapper,
 		RewardConfigService $rewardConfig,
+		TaskCategoryService $taskCategories,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -176,6 +178,7 @@ class TestDataService {
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->workShareMapper = $workShareMapper;
 		$this->rewardConfig = $rewardConfig;
+		$this->taskCategories = $taskCategories;
 	}
 
 	/**
@@ -220,6 +223,7 @@ class TestDataService {
 	public function reset(): void {
 		$this->assertTestMode();
 		$this->rewardConfig->resetArcadeGateEnabled();
+		$this->taskCategories->resetToDefaults();
 
 		foreach (self::RESET_TABLES as $table) {
 			$qb = $this->db->getQueryBuilder();

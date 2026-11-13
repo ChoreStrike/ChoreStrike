@@ -78,6 +78,13 @@
 					@toggle="toggle">
 					<StructureSettings />
 				</SettingsCategory>
+				<SettingsCategory id="categories"
+					:title="t('chorestrike', 'Task categories')"
+					:open="isOpen('categories')"
+					testid="task-categories-section"
+					@toggle="toggle">
+					<TaskCategorySettings />
+				</SettingsCategory>
 				<!-- Catalog administration works while browsing is hidden or
 				     the gate is off (CS-PLAN-070 WP8 §3.1). -->
 				<SettingsCategory id="rewards"
@@ -125,6 +132,7 @@ import NotificationPreferences from '../components/Settings/NotificationPreferen
 import PlanningSettings from '../components/Settings/PlanningSettings.vue'
 import SettingsCategory from '../components/Settings/SettingsCategory.vue'
 import StructureSettings from '../components/Settings/StructureSettings.vue'
+import TaskCategorySettings from '../components/Settings/TaskCategorySettings.vue'
 import TitleSettings from '../components/Settings/TitleSettings.vue'
 import { usePreferencesStore } from '../store/preferences.js'
 import { useUserStore } from '../store/user.js'
@@ -133,7 +141,7 @@ import { logger } from '../utils/logger.js'
 // Categories per area; a `?category=` link opens one of them.
 const CATEGORIES = {
 	personal: ['title', 'notifications', 'planning'],
-	household: ['house', 'members', 'structure', 'rewards', 'arcade', 'danger'],
+	household: ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger'],
 }
 
 /**
@@ -164,6 +172,7 @@ export default {
 		HouseSettings,
 		MemberList,
 		StructureSettings,
+		TaskCategorySettings,
 		RewardCatalogEditor,
 		ArcadeGateSetting,
 		DangerZoneSettings,

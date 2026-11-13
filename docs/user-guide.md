@@ -87,6 +87,12 @@ about you.
 tasks, how clean it is and when it was last cleaned; a tap opens the room, and **New** in
 that row adds a task to it, starting with suggestions that fit the room.
 
+**Categories.** Each task has a category, chosen in the task form. Owners keep the list
+under **Settings → Household → Task categories**: add, rename, reorder and delete
+categories. *Other* always stays last and collects every task without a fitting category;
+a task whose category was deleted counts as *Other* until someone gives it a new one. In
+**Tasks**, the filters include **Category**.
+
 Every task shows the same facts on *Today* and in **Tasks**: below its
 name stand the floor and room, then its energy, how often it repeats and who
 does it. *Every 3 days ±2* means every three days, with two flex days either

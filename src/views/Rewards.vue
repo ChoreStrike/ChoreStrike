@@ -70,7 +70,9 @@
 				{{ t('chorestrike', 'The action succeeded, but refreshing the list failed. Please reload the page.') }}
 			</p>
 
-			<div v-if="catalogLoading && catalogItems.length === 0"
+			<!-- The list waits for the wallet read too: a banner arriving
+			     later would push the Request buttons down under a tap. -->
+			<div v-if="!walletReady || (catalogLoading && catalogItems.length === 0)"
 				class="status-line"
 				data-testid="catalog-loading"
 				role="status">
@@ -215,6 +217,7 @@ export default {
 			requestError: null,
 			requesting: false,
 			catalogRequested: false,
+			walletSettled: false,
 		}
 	},
 
@@ -247,6 +250,11 @@ export default {
 
 		walletOnHold() {
 			return this.gameStore.wallet?.fundingHold === true
+		},
+
+		/** The wallet is known, or its read ended without one. */
+		walletReady() {
+			return this.walletSettled || this.gameStore.wallet !== null
 		},
 	},
 
@@ -301,8 +309,11 @@ export default {
 					await this.preferencesStore.fetchPreferences()
 				}
 				// The wallet read is independent of the catalog gate and
-				// powers the available-vs-reserved explanation.
-				this.gameStore.fetchGameState().catch(() => {})
+				// powers the available-vs-reserved explanation. A failed
+				// read shows the list without the banner.
+				this.gameStore.fetchGameState().catch(() => {}).finally(() => {
+					this.walletSettled = true
+				})
 				// The catalog read itself is driven by the `browsable`
 				// watcher — only when both gates have resolved may items
 				// load. On a retry the gates are already resolved (the

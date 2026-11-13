@@ -40,6 +40,7 @@
 				:membersDisabled="membersLoading || membersError"
 				:floors="roomsStore.floors"
 				:rooms="roomsStore.rooms"
+				:categories="categoryChoices"
 				@update:modelValue="setFilters" />
 
 			<div class="stats-bar">
@@ -169,6 +170,7 @@ import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { showErrorWithReference } from '../utils/errorToast.js'
 import { logger } from '../utils/logger.js'
+import { categoryOptions } from '../utils/taskCategories.js'
 import { groupingOptions } from '../utils/taskDisplay.js'
 import { filtersFromQuery, filterTaskItems, pageFromQuery } from '../utils/taskFilters.js'
 import { compareByDueGroup, dueGroupOf, groupByDue, groupByPerson, groupByRoom, groupingFromQuery, openGroupFromQuery, UNASSIGNED } from '../utils/taskGrouping.js'
@@ -252,7 +254,12 @@ export default {
 				rooms: this.roomsStore.rooms,
 				actorId: this.userStore.currentUser?.nextcloudUserId,
 				timezone: this.houseStore.timezone,
+				categories: this.houseStore.taskCategories.items,
 			}).sort(this.dueOrder)
+		},
+
+		categoryChoices() {
+			return categoryOptions(this.houseStore.taskCategories.items)
 		},
 
 		dueOrder() {

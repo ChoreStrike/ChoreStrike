@@ -100,24 +100,12 @@
 			<div class="form-row">
 				<div class="form-group half">
 					<label for="category">{{ t('chorestrike', 'Category') }}</label>
-					<select id="category" v-model="form.category" class="form-input">
-						<option value="cleaning">
-							{{ t('chorestrike', 'Cleaning') }}
-						</option>
-						<option value="kitchen">
-							{{ t('chorestrike', 'Kitchen') }}
-						</option>
-						<option value="bathroom">
-							{{ t('chorestrike', 'Bathroom') }}
-						</option>
-						<option value="organizing">
-							{{ t('chorestrike', 'Organizing') }}
-						</option>
-						<option value="maintenance">
-							{{ t('chorestrike', 'Maintenance') }}
-						</option>
-						<option value="other">
-							{{ t('chorestrike', 'Other') }}
+					<select id="category"
+						v-model="form.category"
+						class="form-input"
+						data-testid="task-category">
+						<option v-for="choice in categoryChoices" :key="choice.value" :value="choice.value">
+							{{ choice.label }}
 						</option>
 					</select>
 				</div>
@@ -357,11 +345,13 @@ import RecurrencePresetSelector from './RecurrencePresetSelector.vue'
 import RoomPicker from './RoomPicker.vue'
 import TaskEnergyField from './TaskEnergyField.vue'
 import { VISIBILITY_ADMIN_ONLY, VISIBILITY_PRIVATE, VISIBILITY_PUBLIC } from '../../constants/taskVisibility.js'
+import { useHouseStore } from '../../store/house.js'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useSetupStore } from '../../store/setup.js'
 import { useUserStore } from '../../store/user.js'
 import { FIXED_SCHEDULE_EARLY_DAYS, maxFlexDays } from '../../utils/flexDays.js'
 import { logger } from '../../utils/logger.js'
+import { categoryOptions, OTHER_CATEGORY, resolveCategory } from '../../utils/taskCategories.js'
 import { Icon } from '../Common/index.js'
 
 export default {
@@ -418,7 +408,14 @@ export default {
 		const userStore = useUserStore()
 		const roomsStore = useRoomsStore()
 		const setupStore = useSetupStore()
+		const houseStore = useHouseStore()
 		const isOwner = computed(() => userStore.isHouseOwner)
+		// The household's list (D-090-65); a stored key it no longer holds
+		// shows and saves as Other. The list decides only once the house
+		// carries it: until then a stored key stays as it is (RF-090-34).
+		const categoryItems = computed(() => houseStore.taskCategories.items)
+		const categoriesLoaded = computed(() => Boolean(houseStore.house?.taskCategories))
+		const formCategory = (key) => (categoriesLoaded.value ? resolveCategory(key, categoryItems.value) : (key || OTHER_CATEGORY))
 		// CS-PLAN-068: the assignee chips render ONLY from the members prop
 		// (AssigneeChips performs no fetch of its own) — without this the
 		// creation form could never assign anyone.
@@ -475,7 +472,7 @@ export default {
 			instructions: '',
 			energyCost: 2,
 			priority: 2,
-			category: 'cleaning',
+			category: OTHER_CATEGORY,
 			frequencyType: 'weekly',
 			frequencyValue: 1,
 			recurrenceMode: 'recurring',
@@ -483,6 +480,15 @@ export default {
 			fixedScheduleTime: '',
 			flexDays: 0,
 			visibilityType: VISIBILITY_PUBLIC,
+		})
+
+		// A stored key the not yet loaded list lacks stays selectable.
+		const categoryChoices = computed(() => {
+			const choices = categoryOptions(categoryItems.value)
+			return choices.some((choice) => choice.value === form.category) ? choices : [...choices, { value: form.category, label: form.category }]
+		})
+		watch(categoryItems, () => {
+			form.category = formCategory(form.category)
 		})
 
 		// Creation-only due date (kept out of the editable-definition form
@@ -552,7 +558,7 @@ export default {
 				return
 			}
 			form.name = tpl.name || form.name
-			form.category = tpl.category || form.category
+			form.category = tpl.category ? formCategory(tpl.category) : form.category
 			form.energyCost = tpl.energyCost || form.energyCost
 			form.priority = tpl.priority || form.priority
 			const level = (tpl.levels || {}).putzteufel || Object.values(tpl.levels || {})[0]
@@ -578,7 +584,7 @@ export default {
 				form.instructions = newTask.instructions || ''
 				form.energyCost = newTask.energyCost || 2
 				form.priority = newTask.priority || 2
-				form.category = newTask.category || 'cleaning'
+				form.category = formCategory(newTask.category)
 				form.frequencyType = newTask.frequencyType || 'weekly'
 				form.frequencyValue = newTask.frequencyValue || 1
 				form.recurrenceMode = newTask.recurrenceMode || 'recurring'
@@ -722,6 +728,7 @@ export default {
 
 		return {
 			form,
+			categoryChoices,
 			nextDue,
 			isEditing,
 			isOwner,

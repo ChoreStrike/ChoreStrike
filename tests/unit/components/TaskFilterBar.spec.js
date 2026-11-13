@@ -46,6 +46,23 @@ describe('TaskFilterBar (CS-PLAN-084 WP-D)', () => {
 		expect(labels).toEqual(['All energy levels', '⚡', '⚡⚡', '⚡⚡⚡', '⚡⚡⚡⚡', '⚡⚡⚡⚡⚡', 'Longer task (6 to 20)'])
 	})
 
+	it('filters by the household categories and counts a chosen one (CS-PLAN-090 WP-I)', async () => {
+		window.matchMedia = () => ({ matches: false })
+		const wrapper = mount(TaskFilterBar, {
+			props: {
+				modelValue: { ...defaults(), category: 'all' },
+				categories: [{ value: 'kitchen', label: 'Kitchen' }, { value: 'c0a1b2c3d', label: 'Garden' }, { value: 'other', label: 'Other' }],
+			},
+		})
+		const select = wrapper.get('[data-testid="category-filter"]')
+		expect(select.findAll('option').map((option) => option.text())).toEqual(['All categories', 'Kitchen', 'Garden', 'Other'])
+
+		await select.setValue('c0a1b2c3d')
+		expect(lastUpdate(wrapper)).toMatchObject({ category: 'c0a1b2c3d' })
+		await wrapper.setProps({ modelValue: { ...defaults(), category: 'c0a1b2c3d' } })
+		expect(wrapper.get('[data-testid="tasks-filter-toggle"]').text()).toContain('Filters (1 active)')
+	})
+
 	it('starts collapsed on phones while the scope buttons stay visible', () => {
 		window.matchMedia = (query) => ({ matches: query === '(max-width: 768px)' })
 		const wrapper = mountBar()

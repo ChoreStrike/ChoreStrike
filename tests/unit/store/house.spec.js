@@ -339,6 +339,39 @@ describe('House Store', () => {
 			})
 		})
 
+		describe('task categories (CS-PLAN-090 WP-I)', () => {
+			const saved = { revision: 3, items: [{ key: 'c0a1b2c3d', label: 'Garden' }, { key: 'other', label: null }] }
+
+			it('reads the six built-in keys until the house carries a list', () => {
+				store.house = null
+				expect(store.taskCategories.items.map(item => item.key)).toEqual(['cleaning', 'kitchen', 'bathroom', 'organizing', 'maintenance', 'other'])
+				store.house = { id: 1, taskCategories: saved }
+				expect(store.taskCategories).toEqual(saved)
+			})
+
+			it('saves against the revision it read and keeps the rest of the house', async () => {
+				store.house = { id: 1, name: 'Test House', taskCategories: { revision: 2, items: [{ key: 'other', label: null }] } }
+				api.put.mockResolvedValue(saved)
+				const items = [{ key: null, label: 'Garden' }, { key: 'other', label: null }]
+
+				await expect(store.saveTaskCategories(items)).resolves.toEqual(saved)
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/house/task-categories', { revision: 2, items })
+				expect(store.house).toEqual({ id: 1, name: 'Test House', taskCategories: saved })
+			})
+
+			it('reads the house again after a conflict and rethrows', async () => {
+				store.house = { id: 1, taskCategories: { revision: 2, items: [{ key: 'other', label: null }] } }
+				api.put.mockRejectedValue(Object.assign(new Error('changed'), { status: 409 }))
+				api.get.mockResolvedValue({ id: 1, taskCategories: saved })
+
+				await expect(store.saveTaskCategories([{ key: 'other', label: null }])).rejects.toThrow('changed')
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/house')
+				expect(store.taskCategories).toEqual(saved)
+			})
+		})
+
 		describe('fetchInsights', () => {
 			it('fetches insights and stores them', async () => {
 				const mockInsights = {

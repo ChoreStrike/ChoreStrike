@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H implemented, uncommitted until its interim review; WP-I to WP-K and WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J, WP-K and WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -287,6 +287,21 @@ together.
   `Insights/CorrectionReview.vue`. With them `Settings.vue` has 307 lines (1502 before this
   plan), `InsightsView.vue` 545 (615; 528 before the ranking anchor of the interim review) and `CalendarView.vue` 282 (354).
 
+- **WP-H and WP-I (2026-11-13), implemented; interim Standard B `PASS-WITH-FIXES` the same day
+  (see the Review Outcome):** the Rewards list
+  waits for the wallet read; test autoload works on a case-sensitive file system (control and
+  fix run on a Linux copy: integration 698 and unit 1600 pass, the old map exits 0 without a
+  report), and the CI jobs check their JUnit reports; the dependency slice
+  (`fast-xml-parser` 5.12.1 resolves its advisory; `npm audit` keeps only the four bounded
+  advisories of TECH-DEPS-001). Task categories: `TaskCategoryService` and the thin
+  `TaskCategoryController`, the form, the filter, the household settings category, the in-app
+  glossary, the API reference, the task-model concept and the user guide. A running stack
+  answers 404 for a new route until Apache restarts (APCu route cache); the `docker-dev` skill
+  names the step. Gates on that tree: Jest 171 suites / 2391 tests, lint, stylelint, build,
+  `composer cs:check`, `l10n:check-keys`; PHPUnit unit 1636 / integration 700 on the canonical
+  PostgreSQL stack; the new browser scenario and the Settings category scenario on the
+  canonical stack.
+
 - **Operator GUI review (2026-11-12):** the operator checked the screens of this release on the
   development stack (family profile, the tree of the WP-C to WP-E review commit) and reported no
   findings.
@@ -519,7 +534,8 @@ the six of the scope extension on 2026-11-13 (D-090-60 to D-090-63). No question
 
 - `TaskCategoryService` reads and saves the list (D-090-65) in typed app configuration, owner-only
   with the revision check, and with an audit entry. `HouseController` adds `taskCategories` to
-  the house payload and gets `PUT /api/v1/house/task-categories`.
+  the house payload. `PUT /api/v1/house/task-categories` lives in a thin
+  `TaskCategoryController`, because `HouseController` already exceeds the file-size guideline.
 - `TaskService` and `TaskCreationService` accept only keys of the current list. The server
   default becomes `other`, and a template or the wizard keeps its key while it exists.
 - Frontend: a household settings category *Task categories* (`TaskCategorySettings.vue`), the
@@ -790,6 +806,9 @@ modified: src/views/Rewards.vue, tests/unit/views/Rewards.spec.js, tests/e2e/fam
           scripts/run-tests.js, tests/unit/scripts/runTestsMatrix.spec.js,
           .github/workflows/release-gate.yml, test.yml, .github/dependabot.yml, eslint.config.js
           (WP-H; eslint.config.js loses the exemptions of two components WP-B removed)
+new:      lib/Controller/TaskCategoryController.php, tests/unit/Controller/TaskCategoryControllerTest.php,
+          tests/integration/Service/TaskCategoryTest.php (WP-I);
+          tests/__mocks__/OCP/IAppConfig.php gains the typed array methods
 new:      lib/Service/TaskCategoryService.php, ColorSchemeService.php,
           src/components/Settings/TaskCategorySettings.vue, AppearanceSettings.vue,
           src/components/Minigames/ArcadeThresholdSettings.vue, ArcadeResetList.vue,
@@ -927,6 +946,10 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-31 (minor) - WP-J, D-090-66: "the start point is taken under the house-row lock" claimed a serialization with completions that the code does not give; a completion locks wallets and only later the house row. Resolved at plan level: the wording says that a reset never interleaves with a score save, and that an overlapping chore may land on either side of the start point without counting twice.
 - [x] RF-090-32 (minor) - Tests: the new browser scenarios and routes named no registration. Resolved at plan level: `RouteMatrixTest` at 103 routes, and every new scenario joins `required-scenarios.json` with a scenario record.
 - [x] RF-090-33 (nit) - Implementation order: WP-H had no review step. Resolved at plan level: it joins the first interim Standard B of the extension.
+- [x] RF-090-34 (minor) - WP-I, `src/components/Tasks/TaskEditForm.vue`: until the house read landed (slow or failed), the form read every stored custom key as *Other*, and a save then rewrote the task's category, a silent change D-090-65 rules out. Fixed in the interim review (operator's choice): the list decides only once the house carries it; until then the stored key stays selectable, and the form reads it against the list when the list arrives; Jest case.
+- [x] RF-090-35 (minor) - WP-I, `lib/Service/TaskCategoryService.php`: the size limit was checked after the whole list had been walked, and the key generator compares against a growing list, so an oversized owner payload cost quadratic time before its refusal. Fixed in the interim review (operator's choice): more than 20 items are refused before the walk; unit case.
+- [x] RF-090-36 (nit) - WP-I, `src/components/Settings/TaskCategorySettings.vue`: the move and delete buttons of a row said "Move up" or "Delete category" without the row, ambiguous for a screen reader. Fixed in the interim review: each names its category, with German copy and a Jest assertion.
+- [x] RF-090-37 (major) - WP-D, `src/store/scheduling.js`: Today and the planning settings both read the scheduling preferences, and the store applied every answer in arrival order. When Today's older read landed after the settings' own read, it replaced the stored budget, and the watcher of `EnergyBudgetSettings` (and of `SelfAvailabilitySettings`) reset the form, so a fresh edit was lost and *Save* stayed disabled. Found by the AIO browser gate of this review (`run-cyYpmo`, `scheduling.spec.ts`; the trace shows the two reads finishing out of order). Fixed in the interim review: the store keeps a read sequence and the read in flight, as `fetchHouse` does and the client-state contract of [`architecture.md`](../../engineering/architecture.md#client-state-contract-cs-plan-066-3233) requires; an overtaken answer is dropped and its caller waits for the winning read; an accepted save and `reset()` invalidate older reads. Three Jest cases, red against the old store.
 
 ## Review Outcome
 
@@ -1066,3 +1089,29 @@ risks and criteria), as the operator chose. No subagents.
   [2026-11-13 review](../../backlog/archive/CODE_REVIEW_2026-11-13.md#standard-a---cs-plan-090-scope-extension-wp-h-to-wp-k).
   One scoped review commit of the plan, the record and the tracking files; the WP-H code stays
   out of it. No merge, push, tag or deployment.
+
+**Standard B, interim (WP-H and WP-I), 2026-11-13: PASS-WITH-FIXES.** Scope: the uncommitted WP-H
+and WP-I change set of this worktree, reviewed together as the operator chose. No subagents.
+
+- Base HEAD `87d6254932a243da1797113a021a57430344a7f9`, branch `docs/release-a-plan`, pinned,
+  never pushed, 7 ahead and 0 behind `master`. Capture: empty index, 56 modified tracked files,
+  9 untracked paths; scope fingerprint (unstaged binary diff, sorted untracked paths with
+  SHA-256) `34130e1fd7b60f1c8f5e3dcc2a023971bcb1f8318d4d936f240b7741e70c9611`.
+- RF-090-34..37 fixed in the review (§9). The operator chose to fix RF-090-34 and RF-090-35 now;
+  RF-090-36 and RF-090-37 fell under the fix-now rule. RF-090-37 belongs to WP-D: the AIO browser
+  gate of this review found it. TECH-TEST-012 and TECH-TEST-013 are archived.
+- Gates on the final tree: Jest 171 suites / 2395 tests, `npm run lint`, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`,
+  `npm run build`, `composer cs:check`; PHPUnit unit 1637 / integration 700 on the canonical
+  PostgreSQL stack and, with `--fail-on-skipped`, on the AIO row (matrix run `cs090-rv-r1`,
+  Nextcloud 35.0.2 with Redis). Browser gate: before RF-090-37 the primary row passed
+  (`run-yV6aya`) and the AIO row lost two scenarios (`run-cyYpmo`): the race fixed as RF-090-37,
+  and one test GET that never reached the server, folded into TECH-TRANSPORT-001. After the fix
+  the AIO row passed (`run-8xxQBQ`); on the primary row `run-mvRorq` lost one `arcade-games`
+  scenario to the same transport symptom (folded in too), and the complete rerun `run-5vA2t2`
+  passed. Each pass: 356 tests without skipped, failed or flaky results. The AIO target is torn
+  down.
+- No transition: WP-J, WP-K and WP-G are open, and so are the second GUI review and the final
+  Full review. Record:
+  [2026-11-13 review](../../backlog/archive/CODE_REVIEW_2026-11-13.md#standard-b---cs-plan-090-wp-h-and-wp-i-release-hardening-and-task-categories-interim).
+  One scoped review commit; no merge, push, tag or deployment.
