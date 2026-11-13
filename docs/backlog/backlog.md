@@ -653,8 +653,8 @@ window is no longer edited directly. Detail:
 ---
 
 ### [P3] FEAT-UX-053 — Owner-managed task categories
-**Status**: Backlog (Round 2, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
-**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-058 · **Folded-in**: —
+**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; planned in CS-PLAN-090 WP-I, Standard A of the extension `PASS-WITH-FIXES` 2026-11-13; storage and rules D-090-65) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: CS-PLAN-090 WP-I · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-058 · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-3, S-4
 
 Owners manage the categories in the household settings. *Other* always exists, cannot
@@ -663,8 +663,8 @@ be deleted, is the default and is the fallback for a deleted or unknown category
 values in `TaskEditForm`, and it appears nowhere but the form. They therefore get a
 purpose (D-089-04): a filter in the Tasks list and an evaluation in the statistics.
 
-- [ ] Decide the storage: a typed app-config list needs no schema step, since there is
-      one house per instance (the ADR-019 pattern); a table would be a migration.
+- [x] Decide the storage: a typed app-config list, no schema step (CS-PLAN-090 D-090-64,
+      D-090-65, 2026-11-13).
 - [ ] Tasks keep stable keys; unknown values read as *Other* and nothing rewrites
       retained rows.
 - [ ] Filter, settings section and tests.
@@ -714,8 +714,8 @@ neither, and rooms have no colour.
 ---
 
 ### [P3] FEAT-UX-056 — Owner controls for the arcade
-**Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: arcade
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; planned in CS-PLAN-090 WP-J, Standard A of the extension `PASS-WITH-FIXES` 2026-11-13; reset per person for all games D-090-63, storage D-090-66) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: arcade
+**Owning**: CS-PLAN-090 WP-J · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-6
 
 Owners change the unlock threshold of each game and reset a person's unlock progress
@@ -732,15 +732,15 @@ keeps thresholds as one constant map, treats unlocks as permanent and stores not
 ---
 
 ### [P3] FEAT-UX-057 — Selectable colour schemes
-**Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; planned in CS-PLAN-090 WP-K, Standard A of the extension `PASS-WITH-FIXES` 2026-11-13; per person across devices D-090-61, accent only D-090-62) · **Effort**: M · **Layer**: frontend+backend · **Journey stage**: settings
+**Owning**: CS-PLAN-090 WP-K · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register L-1
 
 About 4–6 selectable schemes, each working in the light and the dark theme. Hard-coded
 colours remain in about a dozen components outside `tokens.css`, mostly scheduling and
 the calendar, and move to tokens first.
 
-- [ ] Decide personal or household scope; personal fits the split of FEAT-UX-054.
+- [x] Decide personal or household scope: personal, kept across devices (operator, 2026-11-13, D-090-61).
 - [ ] Contrast checked per scheme and theme.
 
 ---
@@ -1080,10 +1080,10 @@ All three releases stay alpha versions; the beta follows after them (operator, 2
 **Source**: CS-PLAN-088 D-088-10 (operator, 2026-10-20)
 
 `vue/no-boolean-default` of the Nextcloud ESLint preset wants Boolean props to
-default to `false`. Five components default one to `true` and are exempted
+default to `false`. Three components default one to `true` and are exempted
 file by file in `eslint.config.js`: `ErrorState` (`showRetry`), `Modal`
-(`show`), `HouseHealthBar` (`showRefreshButton`), `QuickStats`
-(`showActions`) and `SetupWizard` (`show`). Inverting them (for example `hideRetry`) changes each
+(`show`) and `SetupWizard` (`show`); `HouseHealthBar` and `QuickStats` went with
+the Dashboard (CS-PLAN-090 WP-B). Inverting them (for example `hideRetry`) changes each
 component's public API, every caller and the specs, so it was kept out of the
 toolchain change. `show` on the two dialogs is the usual visibility idiom and
 may be better left as a permanent, documented exception.
@@ -1225,8 +1225,8 @@ missed a real contrast defect and failed once mid-transition. It is corrected.
 ---
 
 ### [P2] TECH-TEST-012 — The integration suite does not load on a case-sensitive file system
-**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: testing
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-090 WP-H by operator decision D-090-60; implemented 2026-11-13, uncommitted until its interim review) · **Effort**: S · **Layer**: tests · **Journey stage**: testing
+**Owning**: CS-PLAN-090 WP-H · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-090 WP-F, app-upgrade proof P4, 2026-11-11
 
 The integration tests live in `tests/integration`, their namespace is
@@ -1240,15 +1240,20 @@ there. `.github/workflows/release-gate.yml` runs the suite on `ubuntu-latest` fr
 checkout and is dispatched by hand; no run of it is recorded, so whether it is affected is
 unverified. A silent exit 0 would let its integration job pass without running a test.
 
-- [ ] The suite is run once from a Linux checkout; the result is recorded.
-- [ ] If it does not load there: the classes resolve on a case-sensitive file system, and the
-      job fails when PHPUnit runs no test.
+The unit suite has the same mismatch (`tests/unit`, `Tests\Unit`), and so do the fixtures.
+
+- [x] The suite is run once from a Linux checkout; the result is recorded (2026-11-13, a copy
+      on the container's own file system: with the old map PHPUnit exits 0 without output or
+      report; with the new map integration 698 and unit 1600 tests pass).
+- [x] If it does not load there: the classes resolve on a case-sensitive file system, and the
+      job fails when PHPUnit runs no test (`composer.json` maps the lower-case directories;
+      `run-tests.js --check-junit` in `release-gate.yml` and `test.yml`; the P4 link is gone).
 
 ---
 
 ### [P3] TECH-TEST-013 — The wallet banner of Rewards moves the catalog while it loads
-**Status**: Backlog · **Effort**: S · **Layer**: frontend+tests · **Journey stage**: rewards
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-090 WP-H by operator decision D-090-60; implemented 2026-11-13, uncommitted until its interim review; the browser gate runs with the review) · **Effort**: S · **Layer**: frontend+tests · **Journey stage**: rewards
+**Owning**: CS-PLAN-090 WP-H · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-090 WP-C to WP-E, AIO browser gate `run-blNRHT`, 2026-11-12
 
 `Rewards.vue` renders the catalog when `GET /rewards` answers and the wallet banner above it
@@ -1262,16 +1267,17 @@ passed in each of the 12 earlier gate runs kept locally and in the primary row o
 view and that step are older than the review. A person tapping during the load can hit the
 banner the same way.
 
-- [ ] The catalog does not move when the wallet arrives (its place is held, or the list waits
-      for both reads), with a Jest case.
-- [ ] The scenario waits for the wallet before it taps, or proves that the layout no longer
-      moves.
+- [x] The catalog does not move when the wallet arrives (its place is held, or the list waits
+      for both reads), with a Jest case (the list waits for the wallet read, success or
+      failure; two Jest cases).
+- [x] The scenario waits for the wallet before it taps, or proves that the layout no longer
+      moves (it sees the banner before the tap).
 
 ---
 
 ### [P3] TECH-DEPS-001 — Major updates Dependabot cannot land
 **Status**: Backlog · **Effort**: L · **Layer**: infra · **Journey stage**: —
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05)
+**Owning**: CS-PLAN-090 WP-H (the in-range slice only; the major rows are unassigned) · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05); `fast-xml-parser` 5.11.2 advisory (2026-11-13, resolved in range)
 **Source**: Dependabot triage of 2026-11-05
 
 PR #11 groups 29 npm updates and stops at `npm ci` with ERESOLVE, so its compatible part landed
@@ -1302,10 +1308,11 @@ build and test chains:
 
 - [ ] Each row above lands in its own slice, or is declined with a reason.
 - [ ] PR #8 and the rest of PR #11 are closed by those slices or declined.
-- [ ] `lucide-vue-next` and `ajv` have no importer in tracked code: remove them after a peer
-      check instead of updating them.
-- [ ] `dependabot.yml` limits the `npm-all` group to minor and patch updates, so one blocked
-      major no longer stops the whole group.
+- [x] `lucide-vue-next` and `ajv` have no importer in tracked code: remove them after a peer
+      check instead of updating them (2026-11-13, CS-PLAN-090 WP-H; `ajv` 8 stays installed
+      through `schema-utils`).
+- [x] `dependabot.yml` limits the `npm-all` group to minor and patch updates, so one blocked
+      major no longer stops the whole group (2026-11-13, CS-PLAN-090 WP-H).
 
 ---
 

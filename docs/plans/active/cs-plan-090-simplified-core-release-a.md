@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H implemented, uncommitted until its interim review; WP-I to WP-K and WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -309,9 +309,76 @@ Decisions and positions of the runtime update before the freeze (2026-11-12, RF-
   `test-runtime.js selection`), and the target check picks the row by the image label, not by
   the first row with that version.
 
+Decisions and positions of the scope extension (2026-11-13). The deployment takes the operator
+time, so the release carries as much as can be built without the model change of Release B.
+
+- **D-090-60 Scope extension (operator, 2026-11-13):** four packages join this release. WP-H
+  takes three small items (TECH-TEST-013, TECH-TEST-012 and the in-range slice of
+  TECH-DEPS-001). WP-I takes FEAT-UX-053, WP-J FEAT-UX-056 and WP-K FEAT-UX-057. FEAT-UX-055
+  stays out because it needs a schema step, FEAT-UX-058 because it depends on FEAT-UX-053 and
+  on the occurrence history that Release B changes, and every Release B topic stays out. The
+  extension gets a Standard A of its own, limited to these packages, before their code. WP-H
+  started before it, because its items carry no design question.
+- **D-090-61 Colour scheme per person (operator, 2026-11-13):** each person picks a scheme
+  under *Personal*, and the choice follows them to every device.
+- **D-090-62 Accent only (operator, 2026-11-13):** a scheme changes the accent colours inside the
+  app: buttons, highlights, progress, energy and celebration. Backgrounds and text stay with
+  Nextcloud's light or dark theme. *Standard* keeps the colour of the Nextcloud instance.
+- **D-090-63 Arcade reset (operator, 2026-11-13):** an owner resets one person's progress for all
+  games at once, after a confirmation. From then on only chores finished after the reset count,
+  so locked games unlock anew. Highscores stay (D-089-05).
+- **D-090-64 No schema step for the extension:** the three features store settings, not facts.
+  The household's task categories and arcade thresholds live in typed app configuration (one
+  house per instance, the ADR-019 pattern). A person's colour scheme and arcade start point live
+  in Nextcloud's per-user app configuration (`IUserConfig`). Nextcloud deletes those values with
+  the account. Account erasure also deletes them explicitly, and the test-data reset clears every
+  value. An instance that has never stored a value reads the defaults, so retained installs need
+  no migration. The acceptance criterion "no table or column definition changes" holds.
+- **D-090-65 Task categories:** the list starts as the six values the form offers today
+  (`cleaning`, `kitchen`, `bathroom`, `organizing`, `maintenance`, `other`), so retained tasks
+  keep their meaning without a write. Keys are stable. The labels of the six are translated
+  until an owner renames one. An owner adds, renames, reorders and deletes categories, with at
+  most 20 and labels of 1 to 40 characters, unique regardless of case. The server generates the
+  key of a new category, short enough for the 50 characters of `tasks.category`. *Other* stays
+  last and can be neither deleted nor renamed. The list carries a revision, and a save against
+  an older one answers 409. The comparison and the write run under the house-row lock against
+  a value read past the request cache of `IAppConfig`, so two concurrent saves cannot both
+  pass. New tasks default to *Other*; a template or the wizard keeps its `cleaning`
+  while that key exists. Task writes accept only keys of the current list. A task whose stored
+  key was deleted reads and filters as *Other*, and nothing rewrites it until someone saves that
+  task. The filter is one more select in the panel of the task list (`?category=`), and the row
+  shows no category.
+- **D-090-66 Arcade thresholds and reset:** the constant map of `ArcadeCatalog` stays the default.
+  An owner overrides it per game with a whole number from 0 to 500. The start point of a reset
+  is the highest committed completion id at the moment of the reset. The reset holds the
+  house-row lock like the score lock, so a score save and a reset never interleave. A chore
+  whose transaction overlaps the reset may land on either side of the start point, and none
+  counts twice. The count then takes only completions above the start point, so an undo or a
+  correction of earlier work changes nothing. The count keeps one grouped query for several
+  wallets, with each wallet's own lower bound, so the owner's progress list stays one read. The owner sees each member's count since their
+  last reset, which the activity list already shows in another form. ADR-019 is amended: the
+  thresholds become a setting, an unlock lasts until an owner resets the person, and the
+  storage statement changes. It also corrects the name of the count method
+  (`countValidSelectedByWallet()`).
+- **D-090-67 Colour schemes:** *Standard* plus five schemes (working names Ocean, Forest, Sunset,
+  Berry, Slate), each with a light and a dark variant keyed to Nextcloud's theme attributes like
+  `tokens.css`. The attribute sits on `body`, because the app's dialogs are teleported there
+  (`Modal.vue`, `SetupWizardEntry.vue`). The overrides of Nextcloud's primary-element variables
+  and the app's accent tokens are scoped to the app content and those teleported roots, so the
+  Nextcloud header keeps its colour. Under Nextcloud's high-contrast themes every scheme yields
+  to *Standard*, because a person chose those themes for contrast. The page delivers the scheme
+  as initial state, read with `@nextcloud/initial-state`, a new dependency from Nextcloud's own
+  libraries, so the first paint already has it.
+  Colour literals outside `tokens.css` move to tokens first, in 18 files. The arcade boards and
+  `confetti.js` keep their own game palette. Contrast is proven in two ways. Jest computes
+  WCAG ratios for every scheme, theme and token pair: 4.5:1 for text on the accent, 3:1 for the
+  accent against the background. The browser contrast spec samples two views per scheme and
+  theme, and the full view set on *Standard*.
+
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). The three
-of the runtime update were answered on 2026-11-12 (D-090-57, D-090-58). No question is open.
+of the runtime update were answered on 2026-11-12 (D-090-57, D-090-58), and the five of the
+the six of the scope extension on 2026-11-13 (D-090-60 to D-090-63). No question is open.
 
 ## 3. Backend / Frontend Changes
 
@@ -428,6 +495,68 @@ of the runtime update were answered on 2026-11-12 (D-090-57, D-090-58). No quest
   respects reduced motion; none of it needs the sound opt-in.
 - The settings text that says both effects are off by default changes with it.
 
+### WP-H Release hardening (TECH-TEST-013, TECH-TEST-012, TECH-DEPS-001 slice)
+
+- **Rewards:** the catalog list renders only after the wallet read has ended, whether it
+  succeeded or failed. Before, the wallet banner could arrive after the list and push the
+  *Request* buttons under a tap. The request buttons also appear only once it is known whether
+  a funding hold applies.
+- **Case-sensitive file systems:** `composer.json` maps the lower-case test directories
+  (`tests/unit`, `tests/integration`, `tests/fixtures`) to their namespaces, and the one file
+  with a lower-case namespace is corrected. The `tests/Integration` link of proof P4 goes with
+  its `HACK` marker. `run-tests.js --check-junit` judges a report by the matrix rule: a missing
+  report, zero tests, a failure, an error or a skip fails it. The PHPUnit jobs of
+  `release-gate.yml` and `test.yml` write a report and run that check, so a suite that loads no
+  test can no longer pass.
+- **Dependencies:** updates inside the declared ranges (Vue, Sass, the Babel patches) and the
+  `fast-xml-parser` advisory, which `npm audit fix` resolves without a major. `lucide-vue-next`
+  and `ajv` have no importer and are removed after a peer check. `dependabot.yml` limits the
+  `npm-all` group to minor and patch updates. The rows of TECH-DEPS-001 that move a major or the
+  gate itself stay there: `@nextcloud/vue` 9.14 with dialogs, Playwright, Pinia 4, Vue Router 5,
+  Jest 30 and the rest.
+
+### WP-I Task categories (FEAT-UX-053)
+
+- `TaskCategoryService` reads and saves the list (D-090-65) in typed app configuration, owner-only
+  with the revision check, and with an audit entry. `HouseController` adds `taskCategories` to
+  the house payload and gets `PUT /api/v1/house/task-categories`.
+- `TaskService` and `TaskCreationService` accept only keys of the current list. The server
+  default becomes `other`, and a template or the wizard keeps its key while it exists.
+- Frontend: a household settings category *Task categories* (`TaskCategorySettings.vue`), the
+  select of `TaskEditForm` from the list, the category select in `TaskFilterBar` with
+  `?category=` in `taskFilters.js`, and one resolver that reads unknown keys as *Other*.
+
+### WP-J Arcade owner controls (FEAT-UX-056)
+
+- `ArcadeAccessService` reads the thresholds from typed app configuration over the defaults of
+  `ArcadeCatalog`, and counts only completions above a member's start point (D-090-66).
+  `WorkShareMapper::countValidSelectedByWallet()` takes a lower bound per wallet in its grouped
+  query.
+- Owner-only commands, each audited: `PUT /api/v1/house/arcade-thresholds` (every game, 0 to
+  500), `POST /api/v1/house/members/{userId}/arcade-reset` (under the house-row lock), and the
+  read `GET /api/v1/house/arcade-progress` (each member's count and the time of their last
+  reset). The score lock keeps its order and uses the same count.
+- `AccountErasureService` deletes the start point, and `TestDataService` clears thresholds and
+  start points.
+- Frontend: the *Arcade* settings category gets `ArcadeThresholdSettings.vue` and
+  `ArcadeResetList.vue` beside the gate switch, with the confirmation dialog. The catalog
+  already shows the threshold the server sends.
+- ADR-019 amended (D-090-66) before code.
+
+### WP-K Colour schemes (FEAT-UX-057)
+
+- First, colour literals outside `tokens.css` become tokens, with the game palettes excepted
+  (D-090-67), and `theme-consistency.spec.js` holds that line.
+- `src/styles/schemes.css` defines *Standard* and five schemes for light and dark. Each overrides
+  Nextcloud's primary-element variables and the app's accent tokens under
+  `body[data-cs-scheme="…"]`, scoped to the app content and its teleported dialogs, and none
+  applies under a high-contrast theme (D-090-67).
+- `ColorSchemeService` stores the choice in per-user app configuration and checks it against the
+  list. `PUT /api/v1/preferences/me/color-scheme` sets the caller's own scheme, and
+  `PageController` provides it as initial state. `GET /preferences/me` reports it too.
+- Frontend: a personal settings category *Appearance* (`AppearanceSettings.vue`) with swatches,
+  and `useColorScheme` setting the attribute at mount and after a change.
+
 ### WP-G Release `0.8.0-alpha.5` (RELEASE-002)
 
 App metadata in `appinfo/info.xml` and `package.json`, with Nextcloud 35 as the lower bound
@@ -448,6 +577,11 @@ Each step needs its own approval.
   `ui-use-cases.md`: the use cases of the removed pages, and the stale landing rule found in the
   inventory. `docs/api/README.md` and `docs/api/notifications.md`. `user-guide.md` and the in-app
   help. `architecture.md`: the component map and its large-file list.
+- Scope extension: ADR-019 amended (thresholds, reset, storage). `task-model-and-sync.md` gets the
+  categories, and `docs/standards/guidelines/design.md` with `docs/concepts/design.md` the
+  schemes and their contrast rule. `docs/api/README.md` gains the five new routes,
+  `user-guide.md` and the in-app help the three settings, and `testing.md` the report check and
+  the scheme dimension of the contrast spec.
 
 ## 4. Tests
 
@@ -555,6 +689,36 @@ Each step needs its own approval.
   `color-contrast` and `multi-user-interactions`. Each spec moves with the work package that
   removes its page. No scenario is dropped without a successor or a recorded reason, and no
   minimum count is lowered.
+- **WP-H:** `Rewards.spec.js` holds the list back until the wallet read ends and shows it
+  without a banner after a failed read. `family-rewards.spec.ts` sees the banner before it taps.
+  `runTestsMatrix.spec.js` covers `--check-junit` (zero tests, a skip, an error, a missing
+  report). The integration suite runs once from a copy on a case-sensitive file system: with the
+  old map as the control, then with the new one; the result is recorded. P4 runs without the
+  link. Dependencies: the complete gates of the qualification, plus `npm audit` before and
+  after.
+- **WP-I:** `TaskCategoryServiceTest` (default list, add, rename, reorder, delete, *Other* fixed,
+  limits, unique labels, owner-only, revision conflict, audit); `TaskServiceTest` and
+  `TaskCreationServiceTest` (unknown key refused, default `other`, template key kept or
+  replaced); `HouseControllerTest`; `RouteMatrixTest`; an integration test on all providers that
+  a deleted key leaves the task row untouched. Jest for the settings component, the house store,
+  `taskFilters.spec.js` (`?category=`, unknown as *Other*), `TaskFilterBar` and `TaskEditForm`.
+  Browser: an owner adds a category, a task gets it, and the filter finds it.
+- **WP-J:** `ArcadeAccessServiceTest` (thresholds over the defaults, range and unknown games
+  refused, a reset excludes earlier chores, an undo on either side of the start point,
+  owner-only, audit); `MinigameServiceTest` (the score lock with a lowered threshold and after a
+  reset); `ArcadeUnlockTest` on all providers (a reset relocks, new chores unlock, highscores
+  stay); controller tests; `RouteMatrixTest`; `AccountErasureServiceTest`;
+  `TestDataServiceTest`. Jest for both settings components and the store. Browser
+  (`arcade-games.spec.ts`): a lowered threshold opens Sock for a child, and a reset locks it
+  again while the highscore stays.
+- **WP-K:** `ColorSchemeServiceTest` and controller tests (unknown scheme refused, only the
+  caller's own); `RouteMatrixTest`; Jest: a contrast spec over every scheme, theme and token
+  pair, `theme-consistency.spec.js` without the moved literals, `useColorScheme`,
+  `AppearanceSettings`. Browser: a scheme chosen in Settings holds after a reload and colours an
+  open dialog too, a high-contrast theme shows *Standard*, and `color-contrast.spec.ts` gains
+  the scheme dimension (D-090-67).
+- **Extension, shared:** `RouteMatrixTest` at 103 routes. Each new browser scenario joins
+  `required-scenarios.json` with a scenario record per package, and no minimum is lowered.
 - **Gates:** Jest, ESLint, stylelint, `composer cs:check`, `npm run l10n:check-keys`,
   `backlog:check`, `docs:encoding`, `agents:check`; PHPUnit unit and integration on the canonical
   stack, SQLite, MySQL and the AIO row; browser gates on both rows; package build and smoke.
@@ -621,6 +785,26 @@ modified: docs/adr/README.md, docs/concepts/calm-core-ux.md, task-model-and-sync
           docs/testing/release-test-plan.md
 modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, README.md,
           docs/screenshots/*, docs/release/roadmap.md, docs/README.md, docs/backlog/*
+modified: src/views/Rewards.vue, tests/unit/views/Rewards.spec.js, tests/e2e/family-rewards.spec.ts,
+          composer.json, tests/integration/Service/RoomTaskServiceExtendedFeaturesTest.php,
+          scripts/run-tests.js, tests/unit/scripts/runTestsMatrix.spec.js,
+          .github/workflows/release-gate.yml, test.yml, .github/dependabot.yml, eslint.config.js
+          (WP-H; eslint.config.js loses the exemptions of two components WP-B removed)
+new:      lib/Service/TaskCategoryService.php, ColorSchemeService.php,
+          src/components/Settings/TaskCategorySettings.vue, AppearanceSettings.vue,
+          src/components/Minigames/ArcadeThresholdSettings.vue, ArcadeResetList.vue,
+          src/composables/useColorScheme.js, src/styles/schemes.css, src/utils/taskCategories.js,
+          with their tests; dependency @nextcloud/initial-state (package.json, package-lock.json)
+modified: lib/Controller/HouseController.php, PreferenceController.php, PageController.php,
+          MinigameController.php, appinfo/routes.php (five routes),
+          lib/Service/TaskService.php, TaskCreationService.php, ArcadeAccessService.php,
+          RewardConfigService.php, AccountErasureService.php, TestDataService.php,
+          lib/Db/WorkShareMapper.php, src/components/Tasks/TaskEditForm.vue, TaskFilterBar.vue,
+          src/utils/taskFilters.js, src/views/Settings.vue, src/store/house.js,
+          src/store/preferences.js, src/store/minigame.js, src/styles/tokens.css and the 18 files
+          with colour literals (WP-I to WP-K)
+modified: docs/adr/ADR-019-arcade-unlocks-from-completion-history.md,
+          docs/standards/guidelines/design.md, docs/concepts/design.md
 ```
 
 ## 6. Implementation Order
@@ -635,7 +819,12 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 5. WP-C: grouping, then the room page goes.
 6. WP-D, then WP-E, which builds on the new navigation.
 7. Operator GUI review on the development stack; findings go to §9.
-8. WP-G, each step with its own approval.
+8. WP-H (D-090-60), then a Standard A limited to WP-I to WP-K.
+9. WP-I, WP-J and WP-K, each with an interim Standard B and a browser gate on both rows. WP-H
+   joins the first of them. WP-J amends ADR-019 before its code; WP-K moves the literals to
+   tokens before the schemes.
+10. A second operator GUI review for the three settings and the schemes.
+11. WP-G, each step with its own approval.
 
 ## 7. Risks & Mitigations
 
@@ -655,6 +844,11 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 | Bookmarks and the digest link break | Low | Redirects for the four old addresses; router specs |
 | The runtime check moves during the round | Medium | Rerun before the freeze; promotion is routine |
 | Docker Desktop is shared with another project | Medium | Check for its runs first; rerun the complete gate, never explain a timeout away |
+| The extension delays the release | Certain | Operator decision D-090-60; each package is reviewed on its own and could leave the release without touching the others |
+| A deleted category hides retained tasks | Low | Unknown keys read as *Other*; nothing rewrites stored rows; an integration test pins it |
+| A reset loses or double-counts chores at its boundary | Low | The start point is a completion id taken under the house-row lock; undo cases on both sides |
+| A scheme fails contrast in one theme | Medium | Accent only (D-090-62); Jest ratios for every pair; the browser contrast spec per scheme and theme |
+| Per-user values outlive an account | Low | Nextcloud removes them with the account; account erasure deletes them explicitly, with a test |
 
 ## 8. Acceptance Criteria
 
@@ -674,6 +868,11 @@ modified: appinfo/info.xml, package.json, package-lock.json, CHANGELOG.md, READM
 - [ ] Each room heading shows its open and overdue counts, a small cleanliness percentage and *Last cleaned*
 - [ ] No view touched by this plan is longer than before; the participation flow exists once
 - [ ] Every user-visible string goes through `t()`; `l10n:check-keys` is green with real German copy
+- [ ] The Rewards list does not move when the wallet arrives; PHPUnit suites load and run on a case-sensitive file system, and a CI suite that runs no test fails (WP-H)
+- [ ] Owners manage task categories with *Other* fixed; tasks accept only listed keys; a deleted key reads as *Other* without a rewrite; the task list filters by category (WP-I)
+- [ ] Owners set each game's threshold and reset one person's progress after a confirmation; highscores stay; ADR-019 amended (WP-J)
+- [ ] Each person picks one of six colour schemes, kept across devices and applied at first paint; every scheme passes contrast in both themes (WP-K)
+- [ ] The extension stores no fact and changes no table; account erasure removes the per-user values
 - [ ] `npm run test:runtime:check` reports `current` at the freeze
 - [x] Operator GUI review recorded; its findings resolved or routed
 - [ ] `0.8.0-alpha.5` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
@@ -719,6 +918,15 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-22 (minor) - WP-D, `src/components/Settings/StructureSettings.vue`: a failed read of the floors left an endless spinner without an error or a retry. The old page showed its error state for that read, and the house and planning categories have one. Fixed in the interim review (operator's choice): an error state with a retry in place, with a Jest case.
 - [x] RF-090-23 (minor) - WP-D, `src/components/Settings/DangerZoneSettings.vue`: when only the read after a successful reset failed, the category reported "Failed to reset house" after the success toast; the old page caught that read on its own. Fixed in the interim review (operator's choice): the reads run after the reset's own failure path and a failed read leaves the reset reported as done, with Jest cases for both paths.
 - [x] RF-090-24 (minor) - WP-E, `src/views/InsightsView.vue`: `/leaderboard` redirected to `#ranking`, but with hash routing the browser cannot follow that anchor and the router has no scroll behaviour, so an old bookmark landed at the top of Insights, on a phone above the fold of the ranking (D-090-54). Fixed in the interim review (operator's choice): the view brings the ranking into view once its content has rendered when the address names it, with Jest cases and a viewport check in the browser scenario of the old address.
+- [x] RF-090-25 (minor) - WP-K, D-090-67: a scheme set on the app container would not reach the app's dialogs, which `Modal.vue` and `SetupWizardEntry.vue` teleport to `body`. Resolved in the Standard A of the extension: the attribute sits on `body`, the overrides are scoped to the app content and its teleported roots, and a browser check opens a dialog.
+- [x] RF-090-26 (minor) - WP-J: `countValidSelectedByWallet()` counts several wallets in one grouped query, so one start point per person would have turned the owner's progress list into one query per member. Resolved at plan level: a lower bound per wallet inside the same query.
+- [x] RF-090-27 (minor) - WP-I, D-090-65: the revision check would compare against `IAppConfig`'s request cache, so two concurrent saves could both pass. Resolved at plan level: compare and write under the house-row lock against a value read past the cache.
+- [x] RF-090-28 (minor) - WP-K: initial state needs `@nextcloud/initial-state`, which is not a dependency. Resolved at plan level: named as a new dependency from Nextcloud's own libraries, in D-090-67 and the manifest.
+- [x] RF-090-29 (minor) - WP-K: a scheme could lower the contrast of Nextcloud's high-contrast themes, which a person chose for contrast. Resolved at plan level: schemes yield to *Standard* there, with a browser check.
+- [x] RF-090-30 (nit) - WP-I, D-090-65: `tasks.category` holds 50 characters, and the plan left open where the key of a new category comes from. Resolved at plan level: the server generates a short key.
+- [x] RF-090-31 (minor) - WP-J, D-090-66: "the start point is taken under the house-row lock" claimed a serialization with completions that the code does not give; a completion locks wallets and only later the house row. Resolved at plan level: the wording says that a reset never interleaves with a score save, and that an overlapping chore may land on either side of the start point without counting twice.
+- [x] RF-090-32 (minor) - Tests: the new browser scenarios and routes named no registration. Resolved at plan level: `RouteMatrixTest` at 103 routes, and every new scenario joins `required-scenarios.json` with a scenario record.
+- [x] RF-090-33 (nit) - Implementation order: WP-H had no review step. Resolved at plan level: it joins the first interim Standard B of the extension.
 
 ## Review Outcome
 
@@ -833,3 +1041,28 @@ uncommitted WP-C to WP-E change set of this worktree, reviewed together as the o
   Full review. Record:
   [2026-11-12 review](../../backlog/archive/CODE_REVIEW_2026-11-12.md#standard-b---cs-plan-090-wp-c-to-wp-e-tasks-navigation-and-settings-insights-interim).
   One scoped review commit, then the rebase; no merge, push, tag or deployment.
+
+**Standard A, scope extension (WP-H to WP-K), 2026-11-13: PASS-WITH-FIXES.** Scope: the parts of
+this plan that D-090-60 added (D-090-60 to D-090-67, WP-H to WP-K, their tests, manifest, order,
+risks and criteria), as the operator chose. No subagents.
+
+- Base HEAD `97c917be`, branch `docs/release-a-plan`, pinned, 6 ahead and 0 behind `master`, empty
+  index. Capture: the plan file with SHA-256 prefix `c64bbbf3235a148e`, and the uncommitted WP-H
+  implementation beside it (binary diff hash `1e25be53`), which this review does not judge.
+- RF-090-25..33 resolved at plan level (§9); none claims delivered code. The rest checked out
+  against the code and the Nextcloud 35 runtime: the six category keys of the form and the 48
+  `cleaning` templates, the free `tasks.category` column, the threshold map and the derived
+  count, the gate's app-config key, `IAppConfig::getValueArray`/`clearCache` and `IUserConfig`,
+  the absence of per-user storage and initial state, the token file and the 18 files with
+  literals, the two-theme contrast spec, and the task rows that already carry their definition.
+  The extension changes no table, and every new route is `@NoAdminRequired` with membership and
+  owner checks in the service.
+- Questions: the operator's six answers of 2026-11-13 (D-090-60 to D-090-63); D-090-64 to
+  D-090-67 bind with this review. No question is open.
+- Gates: Jest 169 suites / 2374 tests, `npm run lint`, stylelint, `npm run build`,
+  `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`. Documentation only for
+  this review, so no Docker backend or browser gate was required for it.
+- No transition. Record:
+  [2026-11-13 review](../../backlog/archive/CODE_REVIEW_2026-11-13.md#standard-a---cs-plan-090-scope-extension-wp-h-to-wp-k).
+  One scoped review commit of the plan, the record and the tracking files; the WP-H code stays
+  out of it. No merge, push, tag or deployment.
