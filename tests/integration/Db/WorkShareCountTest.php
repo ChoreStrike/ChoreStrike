@@ -59,6 +59,34 @@ class WorkShareCountTest extends IntegrationTestCase {
 		self::assertSame([$f['owner'] => 1], $this->counts($f), 'only the selected revision-2 share counts');
 	}
 
+	/**
+	 * Count_LowerBoundPerWallet_InOneQuery (CS-PLAN-090 D-090-66,
+	 * RF-090-26): each wallet counts only completions above its own bound,
+	 * a wallet without a bound counts everything, and a shared chore below
+	 * one wallet's bound still counts for the other.
+	 */
+	public function testCount_LowerBoundPerWallet_InOneQuery(): void {
+		$f = $this->seedFixture(3);
+		$service = \OC::$server->get(CompletionService::class);
+		$both = [['userId' => 'wc_owner', 'sharePct' => 50], ['userId' => 'wc_helper', 'sharePct' => 50]];
+
+		$this->completeOccurrenceWithParticipants($service, $f['houseId'], 'wc_owner', $f['roomTaskIds'][0], $both);
+		$this->completeOccurrence($service, $f['houseId'], 'wc_owner', $f['roomTaskIds'][1]);
+		$bound = (int)$this->latestCompletion($f['roomTaskIds'][1])['id'];
+		$this->completeOccurrenceWithParticipants($service, $f['houseId'], 'wc_owner', $f['roomTaskIds'][2], $both);
+
+		$mapper = \OC::$server->get(WorkShareMapper::class);
+		$counts = $mapper->countValidSelectedByWallet([$f['owner'], $f['helper']], [$f['owner'] => $bound]);
+		ksort($counts);
+		self::assertSame([$f['owner'] => 1, $f['helper'] => 2], $counts, 'the owner counts only the chore above the bound');
+
+		$counts = $mapper->countValidSelectedByWallet([$f['owner'], $f['helper']], [$f['owner'] => $bound, $f['helper'] => $bound]);
+		ksort($counts);
+		self::assertSame([$f['owner'] => 1, $f['helper'] => 1], $counts, 'two wallets with one bound share a group');
+
+		self::assertSame([], $mapper->countValidSelectedByWallet([$f['owner']], [$f['owner'] => $bound + 1000]), 'nothing above the bound is no row');
+	}
+
 	public function testCount_WithoutWalletsOrShares(): void {
 		$mapper = \OC::$server->get(WorkShareMapper::class);
 		self::assertSame([], $mapper->countValidSelectedByWallet([]));

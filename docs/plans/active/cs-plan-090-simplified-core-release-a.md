@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J, WP-K and WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K and WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -558,6 +558,31 @@ the six of the scope extension on 2026-11-13 (D-090-60 to D-090-63). No question
   `ArcadeResetList.vue` beside the gate switch, with the confirmation dialog. The catalog
   already shows the threshold the server sends.
 - ADR-019 amended (D-090-66) before code.
+- **Implemented 2026-11-14.** The three routes live in a thin `ArcadeSettingsController`,
+  because `MinigameController` would pass the file-size guideline. `ArcadeStartPointStore` owns
+  the per-user key (`arcade_reset`, lazy, the start point with the time of the reset) for the
+  access service, account erasure and the test reset. It reads past the config cache with
+  `getValuesByUsers()`, so the score lock under the house-row lock sees a reset that committed
+  before it. The threshold payload names every game. The progress list is sorted by name, never
+  by contribution (ADR-019 decision 7). The category is one component, `ArcadeSettings.vue`, so
+  `Settings.vue` shrinks from 316 to 314 lines. A threshold of 1 reads in the singular on the
+  card. A catalog that arrives during an edit moves only the untouched fields, and the store
+  drops a catalog or progress read that a newer read or write overtook (client-state contract).
+  The in-app help, the user guide, the API reference, `ui-use-cases.md` and
+  `gamification-and-rewards.md` name the controls.
+  **Scenario record (WP-J):** 330 pinned scenarios before, 331 after; the minimum of
+  `arcade-games.spec.ts` rises from 8 to 9, and no minimum is lowered. `RouteMatrixTest` pins
+  102 routes (103 once WP-K adds its route).
+  **Test record (implementation, before the interim review):** PHPUnit unit 1682 and
+  integration 709 on the canonical stack, Jest 2419, ESLint, stylelint, `composer cs:check`,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check` and
+  `npm run build` green; `arcade-games.spec.ts` on the primary row (9 scenarios) green. The first
+  integration run after that browser run failed twice: `MinigameControllerIntegrationTest` read
+  the threshold the browser scenario had left on the shared stack (its `setUp` now clears the
+  thresholds, as it already set the gate), and `PauseAgreementConcurrencyTest` got no answer
+  from its helper process once. The full rerun and three isolated runs of the latter passed;
+  the cause of that one failure is not established. The interim review added MariaDB, SQLite,
+  the AIO row and the browser gate on both rows (see the Review Outcome).
 
 ### WP-K Colour schemes (FEAT-UX-057)
 
@@ -809,6 +834,12 @@ modified: src/views/Rewards.vue, tests/unit/views/Rewards.spec.js, tests/e2e/fam
 new:      lib/Controller/TaskCategoryController.php, tests/unit/Controller/TaskCategoryControllerTest.php,
           tests/integration/Service/TaskCategoryTest.php (WP-I);
           tests/__mocks__/OCP/IAppConfig.php gains the typed array methods
+new:      lib/Controller/ArcadeSettingsController.php, lib/Service/ArcadeStartPointStore.php,
+          src/components/Settings/ArcadeSettings.vue, tests/__mocks__/OCP/Config/IUserConfig.php,
+          ValueType.php (loaded by tests/bootstrap-entity.php), with their unit and
+          integration tests (WP-J; the routes leave MinigameController.php unchanged)
+modified: lib/Db/CompletedTaskMapper.php (maxId), src/components/Minigames/ArcadeCatalog.vue,
+          src/components/Help/HelpGlossary.vue, docs/concepts/ui-use-cases.md (WP-J)
 new:      lib/Service/TaskCategoryService.php, ColorSchemeService.php,
           src/components/Settings/TaskCategorySettings.vue, AppearanceSettings.vue,
           src/components/Minigames/ArcadeThresholdSettings.vue, ArcadeResetList.vue,
@@ -950,6 +981,8 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-35 (minor) - WP-I, `lib/Service/TaskCategoryService.php`: the size limit was checked after the whole list had been walked, and the key generator compares against a growing list, so an oversized owner payload cost quadratic time before its refusal. Fixed in the interim review (operator's choice): more than 20 items are refused before the walk; unit case.
 - [x] RF-090-36 (nit) - WP-I, `src/components/Settings/TaskCategorySettings.vue`: the move and delete buttons of a row said "Move up" or "Delete category" without the row, ambiguous for a screen reader. Fixed in the interim review: each names its category, with German copy and a Jest assertion.
 - [x] RF-090-37 (major) - WP-D, `src/store/scheduling.js`: Today and the planning settings both read the scheduling preferences, and the store applied every answer in arrival order. When Today's older read landed after the settings' own read, it replaced the stored budget, and the watcher of `EnergyBudgetSettings` (and of `SelfAvailabilitySettings`) reset the form, so a fresh edit was lost and *Save* stayed disabled. Found by the AIO browser gate of this review (`run-cyYpmo`, `scheduling.spec.ts`; the trace shows the two reads finishing out of order). Fixed in the interim review: the store keeps a read sequence and the read in flight, as `fetchHouse` does and the client-state contract of [`architecture.md`](../../engineering/architecture.md#client-state-contract-cs-plan-066-3233) requires; an overtaken answer is dropped and its caller waits for the winning read; an accepted save and `reset()` invalidate older reads. Three Jest cases, red against the old store.
+- [x] RF-090-38 (minor) - WP-J, `src/components/Settings/ArcadeSettings.vue`: the category root carried `cs-settings-form`, so the shared rules of `settings.css` reached the gate switch, the threshold form and the reset list, which bring their own styles; that sheet keeps its rules away from such components, and rules of equal weight then win by load order. Fixed in the interim review: the root drops the class and styles its cards itself, as `Settings.vue` does; the Jest case pins it.
+- [x] RF-090-39 (minor) - Tests, `tests/e2e/settings.spec.ts` (from `b545c97d`, 2026-10-10): "House drafts wait for the winning read on a direct Settings load" routes the house reads and never waits for the overtaken first one. On the AIO row of this review (`run-qrPuOs`) that read was still in `route.fetch()` when the test ended, so the closing page failed the test after every check had passed; all three reads had answered 200 in the access log. "Cold structure hydration survives room reconciliation" has the same gap for its second read. Fixed in the interim review: both wait for their handlers (`page.unrouteAll({ behavior: 'wait' })`) before the page closes. A temporary hanging first fetch reproduced the failure against the old cleanup and passed with the new one.
 
 ## Review Outcome
 
@@ -1114,4 +1147,30 @@ and WP-I change set of this worktree, reviewed together as the operator chose. N
 - No transition: WP-J, WP-K and WP-G are open, and so are the second GUI review and the final
   Full review. Record:
   [2026-11-13 review](../../backlog/archive/CODE_REVIEW_2026-11-13.md#standard-b---cs-plan-090-wp-h-and-wp-i-release-hardening-and-task-categories-interim).
+  One scoped review commit; no merge, push, tag or deployment.
+
+**Standard B, interim (WP-J), 2026-11-14: PASS-WITH-FIXES.** Scope: the uncommitted WP-J change
+set of this worktree. No subagents.
+
+- Base HEAD `13097788907092c146fe9895aa843755da8d3990`, branch `docs/release-a-plan`, pinned,
+  never pushed, 9 ahead and 0 behind `master`. Capture: empty index, 40 modified tracked files,
+  12 untracked paths; scope fingerprint (staged and unstaged binary diff, sorted untracked paths
+  with SHA-256) `2735ff2ce78dd917792ca31c6424289105dcf2464e0df68cd541984fdd651bbf`.
+- RF-090-38 and RF-090-39 fixed in the review (§9), under the fix-now rule. RF-090-39 lies outside
+  WP-J, in a settings browser test of 2026-10-10; the AIO browser gate of this review found it. No
+  question was open.
+- Gates on the final tree: Jest 174 suites / 2419 tests, `npm run lint`, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`,
+  `npm run build`, `composer cs:check`; PHPUnit unit 1682 / integration 709 on the canonical
+  PostgreSQL stack and, with `--fail-on-skipped`, on MariaDB, SQLite (Nextcloud 35.0.3) and the
+  AIO row (Nextcloud 35.0.2 with Redis), matrix run `cs090-wpj-r1`, because the grouped count
+  changed its query. RF-090-38 and RF-090-39 changed only the client and a browser test, so
+  these stand. Browser gate: the primary row passed (`run-yXLnZu`); the AIO row lost one
+  scenario (`run-qrPuOs`), the test defect fixed as RF-090-39, and the complete rerun on the
+  final tree passed (`run-BRaDiN`). Each pass: 357 tests without skipped, failed or flaky
+  results. RF-090-39 changed only `settings.spec.ts`, which passed in full on the primary row
+  afterwards (20 tests). The staged targets are torn down with their volumes.
+- No transition: WP-K and WP-G are open, and so are the second GUI review and the final Full
+  review. Record:
+  [2026-11-14 review](../../backlog/archive/CODE_REVIEW_2026-11-14.md#standard-b---cs-plan-090-wp-j-arcade-owner-controls-interim).
   One scoped review commit; no merge, push, tag or deployment.

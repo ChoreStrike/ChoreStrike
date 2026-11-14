@@ -68,7 +68,7 @@ jest.mock('../../../src/components/Settings/TaskCategorySettings.vue', () => moc
 jest.mock('../../../src/components/Settings/DangerZoneSettings.vue', () => mockCategory('DangerZoneSettings'))
 jest.mock('../../../src/components/Members/MemberList.vue', () => mockCategory('MemberList'))
 jest.mock('../../../src/components/Rewards/RewardCatalogEditor.vue', () => mockCategory('RewardCatalogEditor'))
-jest.mock('../../../src/components/Minigames/ArcadeGateSetting.vue', () => mockCategory('ArcadeGateSetting'))
+jest.mock('../../../src/components/Settings/ArcadeSettings.vue', () => mockCategory('ArcadeSettings'))
 
 const PERSONAL = ['title', 'notifications', 'planning']
 const HOUSEHOLD = ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger']
@@ -137,7 +137,7 @@ describe('Settings.vue', () => {
 		['structure', 'StructureSettings'],
 		['categories', 'TaskCategorySettings'],
 		['rewards', 'RewardCatalogEditor'],
-		['arcade', 'ArcadeGateSetting'],
+		['arcade', 'ArcadeSettings'],
 		['danger', 'DangerZoneSettings'],
 	])('hosts the %s category', async (id, component) => {
 		const wrapper = mountSettings()

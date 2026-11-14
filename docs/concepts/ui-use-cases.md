@@ -383,6 +383,8 @@ or chore value (T10/D7d). **Personas:** all (child-relevant).
 | Personal best / rank per game | `ArcadeCatalog` card, `GameLeaderboard` | `GET /minigames/{g}/personal-best`, `/rank` | ✅ |
 | All-time + weekly board and own recent rounds per game | `GameLeaderboard` | `GET /minigames/{g}/leaderboard(/weekly)`, `/recent` | ✅ |
 | Switch the chore unlocks off for the household (owner) | Settings → Arcade (`ArcadeGateSetting`) | `PUT /house/arcade-gate` | ✅ (CS-PLAN-086 WP-B) |
+| Set how many finished chores open each game, 0 to 500 (owner) | Settings → Arcade (`ArcadeThresholdSettings`) | `PUT /house/arcade-thresholds` | ✅ (CS-PLAN-090 WP-J, ADR-019) |
+| See each person's finished chores since their last reset and let one person start over after a confirmation; highscores stay (owner) | Settings → Arcade (`ArcadeResetList`) | `GET /house/arcade-progress`, `POST /house/members/{userId}/arcade-reset` | ✅ (CS-PLAN-090 WP-J, ADR-019) |
 | Memory / 2048 prototypes, boost shop | — | — | ⛔ retired with the WP3 cutover |
 
 ## UC-13 — Members, roles & household changes

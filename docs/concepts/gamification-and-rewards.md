@@ -148,7 +148,7 @@ screen also offers as Sound and Effects switches (CS-PLAN-086 WP-G).
 See the Minigames section in
 [`../api/README.md`](../api/README.md).
 
-Games unlock as **permanent milestones of finished chores**
+Games unlock as **milestones of finished chores**
 ([ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md),
 amending D7d): a member's count is the number of valid completions in whose
 selected allocation revision they hold a share, so helpers count and undone
@@ -156,7 +156,12 @@ or revised-away work does not. The lock state is derived on every read and
 never stored; an undo can re-lock a game. There is no daily coupling, and
 the arcade still never mints, spends or shows Coins, wallet values,
 contribution or ranking. Owners can switch the gate off for the household
-(`arcade_gate_enabled`), which opens every game for everyone.
+(`arcade_gate_enabled`), which opens every game for everyone. Since
+CS-PLAN-090 WP-J they also set each game's threshold from 0 to 500 (the
+numbers above are the defaults) and let one person start over: from the
+reset on only that person's later chores count, so the games lock again,
+while the highscores stay. The thresholds and a person's start point are
+settings, not facts, and need no schema step.
 
 The chore-ranking comparison between members is NOT the arcade leaderboard —
 it is the consent-filtered weekly ranking described above

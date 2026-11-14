@@ -167,6 +167,10 @@ test.describe('Settings', () => {
 		} finally {
 			releaseSettings()
 			releaseLatest()
+			// The first read is overtaken, so nothing above waits for it; on a
+			// slow row its handler is still fetching here. Closing the page
+			// under it fails the test after every check passed.
+			await page.unrouteAll({ behavior: 'wait' })
 		}
 	})
 
@@ -209,6 +213,9 @@ test.describe('Settings', () => {
 			await expect(page.getByTestId('no-floors-message')).toHaveCount(0)
 		} finally {
 			release()
+			// The checks above can pass on the first answer while the second
+			// is still fetching; let it finish before the page closes.
+			await page.unrouteAll({ behavior: 'wait' })
 		}
 	})
 

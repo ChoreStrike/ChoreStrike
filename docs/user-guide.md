@@ -204,10 +204,18 @@ Match, Crumb Snake, Tile Breaker and Dust Runner. It is optional — **Show the
 arcade** in your settings hides it — and keeps scores only: no Coins, no
 boosts and no advantage in planning. Every game has its own highscores.
 
-Spot Sprint is always open; the other games open once you have finished 3,
-10, 25 or 50 chores (helping on a chore counts too). Owners can open every
-game for everyone by switching off **Unlock games with finished chores**
-under **Settings → Household → Arcade**.
+Unless an owner changes it, Spot Sprint is always open and the other games
+open once you have finished 3, 10, 25 or 50 chores (helping on a chore counts
+too). Owners manage this under **Settings → Household → Arcade**:
+
+- **Unlock games with finished chores** switched off opens every game for
+  everyone.
+- **Finished chores per game** sets how many chores open each game, from 0
+  (open right away) to 500.
+- **Start over** resets one person after a confirmation: the games lock again
+  for them and open with chores they finish after the reset. Their
+  highscores stay, and the list shows each person's finished chores since
+  their last reset.
 
 Every game's start screen has **Sound** and **Effects** switches. They are
 the same personal settings as under *Notifications, sounds and celebrations*

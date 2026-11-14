@@ -500,6 +500,23 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * The highest committed completion id, 0 for an empty table — the
+	 * start point of an arcade reset (CS-PLAN-090 D-090-66). Ids only grow,
+	 * so every later completion lies above it.
+	 */
+	public function maxId(): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->max('id'))
+			->from($this->getTableName());
+
+		$result = $qb->executeQuery();
+		$max = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $max;
+	}
+
+	/**
 	 * Valid completion IDs for one room-event batch (at most 500 IDs).
 	 *
 	 * @param int[] $ids

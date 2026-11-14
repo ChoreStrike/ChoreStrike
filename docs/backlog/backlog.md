@@ -715,7 +715,7 @@ neither, and rooms have no colour.
 ---
 
 ### [P3] FEAT-UX-056 — Owner controls for the arcade
-**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; planned in CS-PLAN-090 WP-J, Standard A of the extension `PASS-WITH-FIXES` 2026-11-13; reset per person for all games D-090-63, storage D-090-66) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: arcade
+**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; CS-PLAN-090 WP-J implemented 2026-11-14, interim Standard B `PASS-WITH-FIXES` 2026-11-14; reset per person for all games D-090-63, storage D-090-66) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: arcade
 **Owning**: CS-PLAN-090 WP-J · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-6
 
@@ -723,12 +723,18 @@ Owners change the unlock threshold of each game and reset a person's unlock prog
 to start a new round, only after a confirmation prompt. This amends ADR-019, which
 keeps thresholds as one constant map, treats unlocks as permanent and stores nothing.
 
-- [ ] ADR-019 amended before code.
-- [ ] Thresholds become typed app config, as the gate switch already is. A reset stores
+- [x] ADR-019 amended before code.
+- [x] Thresholds become typed app config, as the gate switch already is. A reset stores
       a start point per person from which finished chores count; the work ledger stays
       untouched and highscores stay (D-089-05).
-- [ ] Owner-only checks on both layers; tests for a reset, an undo across the start
+- [x] Owner-only checks on both layers; tests for a reset, an undo across the start
       point and the score lock.
+
+Implemented 2026-11-14: `PUT /house/arcade-thresholds`, `POST /house/members/{userId}/arcade-reset`
+and `GET /house/arcade-progress` in `ArcadeSettingsController`; the start point lives in
+`IUserConfig` through `ArcadeStartPointStore`; *Settings → Household → Arcade* holds the gate,
+the thresholds and the reset list (`ArcadeSettings.vue`). Interim Standard B `PASS-WITH-FIXES`
+2026-11-14 (RF-090-38); the item stays `In Progress` until the release.
 
 ---
 

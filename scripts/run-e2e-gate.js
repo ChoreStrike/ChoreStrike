@@ -104,7 +104,7 @@ const REQUIRED_SPECS = [
 	// preference and walks an absence through the real UI — a
 	// parallel reseed would corrupt the preference/pause state, serial only.
 	// CS-PLAN-086: chore unlocks and the owner arcade gate (reseeds, flips the household flag).
-	{ file: 'arcade-games.spec.ts', project: 'chromium-serial-db', scenarios: ['a locked game shows neutral progress', 'a crafted score for a locked game is refused', 'three finished chores unlock sock match', 'sock match saves a round', 'tile breaker saves a hands-off round', 'dust runner saves a hands-off round', 'the owner switch opens every game', 'spot sprint is open without chores'], minTests: 8 },
+	{ file: 'arcade-games.spec.ts', project: 'chromium-serial-db', scenarios: ['a locked game shows neutral progress', 'a crafted score for a locked game is refused', 'three finished chores unlock sock match', 'sock match saves a round', 'tile breaker saves a hands-off round', 'dust runner saves a hands-off round', 'the owner switch opens every game', 'spot sprint is open without chores', 'a lower threshold opens sock match for a child'], minTests: 9 },
 	{ file: 'calm-core-ui.spec.ts', project: 'chromium-serial-db', scenarios: ['every role lands on my day', 'optional arcade hides', 'a child enters an absence', 'a free day stays neutral', 'the animation is on by default, reduced motion wins'], minTests: 6 },
 	// Owner-scoped scheduling pool.
 	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },

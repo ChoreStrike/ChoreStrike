@@ -68,6 +68,35 @@ class RewardConfigServiceTest extends TestCase {
 		$this->service->resetArcadeGateEnabled();
 	}
 
+	/** CS-PLAN-090 D-090-66: an instance that never saved reads no thresholds. */
+	public function testGetArcadeThresholds_NothingStored_ReadsEmpty(): void {
+		$this->config->method('getValueArray')
+			->with('chorestrike', 'arcade_thresholds', [])
+			->willReturnCallback(static fn ($app, $key, $default) => $default);
+		$this->assertSame([], $this->service->getArcadeThresholds());
+	}
+
+	public function testSetArcadeThresholds_StoresATypedArray(): void {
+		$this->config->expects($this->once())
+			->method('setValueArray')
+			->with('chorestrike', 'arcade_thresholds', ['spots' => 0, 'socks' => 1]);
+		$this->service->setArcadeThresholds(['spots' => 0, 'socks' => 1]);
+	}
+
+	public function testResetArcadeThresholds_DeletesTheStoredKey(): void {
+		$this->config->expects($this->once())
+			->method('deleteKey')
+			->with('chorestrike', 'arcade_thresholds');
+		$this->service->resetArcadeThresholds();
+	}
+
+	/** The thresholds are no flag: the generic config surface never carries them. */
+	public function testUpdateConfig_NeverWritesThresholds(): void {
+		$this->config->expects($this->never())->method('setValueArray');
+		$this->config->expects($this->never())->method('setValueString');
+		$this->service->updateConfig(['arcadeThresholds' => ['socks' => 1]]);
+	}
+
 	/** WP4: the weekly-goal target override is retired with its key. */
 	public function testWeeklyGoalTargetPercent_OverrideIsRetired(): void {
 		$reflection = new \ReflectionClass(RewardConfigService::class);

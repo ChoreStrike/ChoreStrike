@@ -29,6 +29,12 @@ msgstr ""
 msgid "1 day"
 msgstr ""
 
+msgid "1 finished chore"
+msgstr ""
+
+msgid "1 finished chore since the reset on {date}"
+msgstr ""
+
 msgid "1 task"
 msgstr ""
 
@@ -90,6 +96,9 @@ msgid "A quiet range needs both a start and an end"
 msgstr ""
 
 msgid "A request reserves the Coins first. A child's request waits for owner approval; adults confirm their own request explicitly. Delivery is confirmed separately — only then are the Coins actually spent."
+msgstr ""
+
+msgid "A reset locks the games again for one person: from then on only chores finished after the reset count. Highscores stay."
 msgstr ""
 
 msgid "A restart already exists for this occurrence"
@@ -275,7 +284,7 @@ msgstr ""
 msgid "An occurrenceId is required"
 msgstr ""
 
-msgid "An optional play area outside the daily routine. You can hide it in the Settings."
+msgid "An optional play area outside the daily routine. Games open with finished chores; owners set how many per game and can let a person start over, while the highscores stay. You can hide it in the Settings."
 msgstr ""
 
 msgid "An optional weekly comparison of on-time shares. Participation is voluntary and shows shares, never amounts."
@@ -995,6 +1004,9 @@ msgstr ""
 msgid "Each chore has a completion window around its planned day. Free days and absences are neutral, and catch-up covers a miss without backdating on-time credit. Your contribution share is separate from your Coins: Coins are what you can spend or reserve."
 msgstr ""
 
+msgid "Each game needs a threshold from 0 to %1$s finished chores."
+msgstr ""
+
 msgid "Each override must be an object"
 msgstr ""
 
@@ -1083,6 +1095,9 @@ msgid "Enter"
 msgstr ""
 
 msgid "Enter a valid price, e.g. 12 or 12.50 — at most two decimals."
+msgstr ""
+
+msgid "Enter a whole number from 0 to {max} for every game."
 msgstr ""
 
 msgid "Enter for someone afterwards"
@@ -1245,6 +1260,9 @@ msgid "Find the matching socks in the laundry basket. No clock — the fewer wro
 msgstr ""
 
 msgid "Finish"
+msgstr ""
+
+msgid "Finished chores per game"
 msgstr ""
 
 msgid "First due"
@@ -1452,6 +1470,9 @@ msgid "Household"
 msgstr ""
 
 msgid "Household & Co."
+msgstr ""
+
+msgid "How many finished chores open each game while games unlock with finished chores. 0 opens a game right away."
 msgstr ""
 
 msgid "How your household is really doing"
@@ -2372,6 +2393,12 @@ msgstr ""
 msgid "Reset House?"
 msgstr ""
 
+msgid "Reset arcade progress?"
+msgstr ""
+
+msgid "Reset the arcade progress of {name}"
+msgstr ""
+
 msgid "Resets all rooms to a clean state and restores house health. Setup, tasks, agreements, completion history, finances, reward requests, and achievements are kept. This cannot be undone."
 msgstr ""
 
@@ -2669,6 +2696,9 @@ msgstr ""
 msgid "Start from Template"
 msgstr ""
 
+msgid "Start over"
+msgstr ""
+
 msgid "Start planning on"
 msgstr ""
 
@@ -2873,6 +2903,12 @@ msgstr ""
 msgid "The arcade is opt-in and stays outside the daily surfaces. Hiding it removes its navigation entry immediately."
 msgstr ""
 
+msgid "The arcade progress could not be reset. Please try again."
+msgstr ""
+
+msgid "The arcade progress of {name} was reset."
+msgstr ""
+
 msgid "The arcade setting could not be saved. Please try again."
 msgstr ""
 
@@ -3020,6 +3056,9 @@ msgstr ""
 msgid "The preview is stale."
 msgstr ""
 
+msgid "The progress could not be loaded."
+msgstr ""
+
 msgid "The request changed in the meantime — please review it before acting again."
 msgstr ""
 
@@ -3111,6 +3150,12 @@ msgid "The task changed since it was displayed. Reload and try again."
 msgstr ""
 
 msgid "The task has too many unreconciled occurrences to be edited safely. Run the timeline job first."
+msgstr ""
+
+msgid "The thresholds could not be saved. Please try again."
+msgstr ""
+
+msgid "The thresholds were saved."
 msgstr ""
 
 msgid "The title must be at most 120 characters long."
@@ -3351,6 +3396,9 @@ msgid "Unlock games with finished chores"
 msgstr ""
 
 msgid "Unlocked titles: {titles}"
+msgstr ""
+
+msgid "Unlocks at 1 finished chore · {remaining} to go"
 msgstr ""
 
 msgid "Unlocks at {threshold} finished chores · {remaining} to go"
@@ -3809,6 +3857,9 @@ msgstr ""
 msgid "the chosen day is not allowed for this task"
 msgstr ""
 
+msgid "thresholds must map game ids to whole numbers"
+msgstr ""
+
 msgid "titles.family_rhythm.rhythm_12"
 msgstr ""
 
@@ -3848,6 +3899,12 @@ msgstr ""
 msgid "{assigned} task(s) assigned, {skipped} skipped"
 msgstr ""
 
+msgid "{count} finished chores"
+msgstr ""
+
+msgid "{count} finished chores since the reset on {date}"
+msgstr ""
+
 msgid "{count} open"
 msgstr ""
 
@@ -3882,6 +3939,9 @@ msgid "{name} joined the house"
 msgstr ""
 
 msgid "{name} joins on {monday}"
+msgstr ""
+
+msgid "{name} starts over: the games lock again and open with newly finished chores. Highscores stay."
 msgstr ""
 
 msgid "{name} was removed from the house"

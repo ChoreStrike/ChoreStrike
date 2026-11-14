@@ -44,6 +44,7 @@ class TestDataServiceTest extends TestCase {
 	private \OCA\ChoreStrike\Db\WalletMapper&MockObject $walletMapper;
 	private \OCA\ChoreStrike\Service\RewardConfigService&MockObject $rewardConfig;
 	private \OCA\ChoreStrike\Service\TaskCategoryService&MockObject $taskCategories;
+	private \OCA\ChoreStrike\Service\ArcadeStartPointStore&MockObject $arcadeStartPoints;
 	private TestDataService $service;
 
 	protected function setUp(): void {
@@ -75,6 +76,7 @@ class TestDataServiceTest extends TestCase {
 		$this->config->method('getSystemValue')->willReturn('test-instance');
 		$this->rewardConfig = $this->createMock(\OCA\ChoreStrike\Service\RewardConfigService::class);
 		$this->taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
+		$this->arcadeStartPoints = $this->createMock(\OCA\ChoreStrike\Service\ArcadeStartPointStore::class);
 
 		$this->service = new TestDataService(
 			$this->db,
@@ -97,6 +99,7 @@ class TestDataServiceTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class),
 			$this->rewardConfig,
 			$this->taskCategories,
+			$this->arcadeStartPoints,
 		);
 	}
 
@@ -451,6 +454,9 @@ class TestDataServiceTest extends TestCase {
 		$this->db->method('getQueryBuilder')->willReturn($qb);
 
 		$this->rewardConfig->expects($this->once())->method('resetArcadeGateEnabled');
+		// CS-PLAN-090 WP-J: nor its thresholds or reset start points.
+		$this->rewardConfig->expects($this->once())->method('resetArcadeThresholds');
+		$this->arcadeStartPoints->expects($this->once())->method('forgetAll');
 		// CS-PLAN-090 WP-I: a spec's own categories never leak into the next.
 		$this->taskCategories->expects($this->once())->method('resetToDefaults');
 

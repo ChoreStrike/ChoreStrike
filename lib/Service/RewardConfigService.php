@@ -19,8 +19,9 @@ use OCP\IAppConfig;
  * valid-history rhythm. CS-PLAN-070 WP4 cutover: the weekly-goal target
  * (fixed 80%) and the per-tier title thresholds (fixed 3/6/12) are fixed
  * policy too — no owner override exists for the first-slice rewards.
- * What remains: the title system flag and the arcade unlock gate
- * (CS-PLAN-086 D-086-02).
+ * What remains: the title system flag, the arcade unlock gate
+ * (CS-PLAN-086 D-086-02) and the owner's arcade thresholds (CS-PLAN-090
+ * D-090-66, a typed array outside the flag registry).
  */
 class RewardConfigService {
 	private const APP_NAME = 'chorestrike';
@@ -28,6 +29,7 @@ class RewardConfigService {
 	// Config keys with defaults
 	public const KEY_TITLES_ENABLED = 'titles_enabled';
 	public const KEY_ARCADE_GATE_ENABLED = 'arcade_gate_enabled';
+	public const KEY_ARCADE_THRESHOLDS = 'arcade_thresholds';
 
 	/**
 	 * Single source of truth for every config flag (CR-SVC-16): IAppConfig
@@ -103,6 +105,35 @@ class RewardConfigService {
 	 */
 	public function resetArcadeGateEnabled(): void {
 		$this->config->deleteKey(self::APP_NAME, self::KEY_ARCADE_GATE_ENABLED);
+	}
+
+	/**
+	 * The owner's arcade thresholds as stored (game id => whole number), an
+	 * empty array until the first save. The catalog defaults and the range
+	 * check belong to {@see ArcadeAccessService::thresholds()}.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function getArcadeThresholds(): array {
+		return $this->config->getValueArray(self::APP_NAME, self::KEY_ARCADE_THRESHOLDS, []);
+	}
+
+	/**
+	 * Store the arcade thresholds. The only caller is the owner-checked
+	 * {@see ArcadeAccessService::setThresholds()}.
+	 *
+	 * @param array<string, int> $thresholds
+	 */
+	public function setArcadeThresholds(array $thresholds): void {
+		$this->config->setValueArray(self::APP_NAME, self::KEY_ARCADE_THRESHOLDS, $thresholds);
+	}
+
+	/**
+	 * Drop the stored thresholds, so every game reads its catalog default
+	 * again (test-mode reset only).
+	 */
+	public function resetArcadeThresholds(): void {
+		$this->config->deleteKey(self::APP_NAME, self::KEY_ARCADE_THRESHOLDS);
 	}
 
 	/**

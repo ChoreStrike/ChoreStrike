@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Db;
 
 use OCP\AppFramework\Db\QBMapper;
+use OCP\DB\QueryBuilder\ICompositeExpression;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -180,16 +181,20 @@ class WorkShareMapper extends QBMapper {
 	}
 
 	/**
-	 * Lifetime count of finished chores per wallet (CS-PLAN-086 §3.2): the
-	 * distinct VALID completions in whose SELECTED allocation revision the
-	 * wallet holds a share — the attribution of
-	 * {@see sumValidSelectedByWallet()}, so helpers count and an undone
-	 * completion does not.
+	 * Count of finished chores per wallet (CS-PLAN-086 §3.2): the distinct
+	 * VALID completions in whose SELECTED allocation revision the wallet
+	 * holds a share — the attribution of {@see sumValidSelectedByWallet()},
+	 * so helpers count and an undone completion does not.
+	 *
+	 * CS-PLAN-090 D-090-66: a wallet with a lower bound counts only
+	 * completions above it (an arcade reset); the query stays one grouped
+	 * read for every wallet (RF-090-26).
 	 *
 	 * @param int[] $walletIds
+	 * @param array<int, int> $afterByWallet walletId => exclusive lower completion id
 	 * @return array<int, int> walletId => finished chores (wallets without any are omitted)
 	 */
-	public function countValidSelectedByWallet(array $walletIds): array {
+	public function countValidSelectedByWallet(array $walletIds, array $afterByWallet = []): array {
 		$walletIds = array_values(array_unique(array_filter(array_map('intval', $walletIds))));
 		if ($walletIds === []) {
 			return [];
@@ -200,7 +205,7 @@ class WorkShareMapper extends QBMapper {
 			->selectAlias($qb->createFunction('COUNT(DISTINCT ws.completion_id)'), 'finished')
 			->from($this->getTableName(), 'ws')
 			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
-			->where($qb->expr()->in('ws.wallet_id', $qb->createNamedParameter($walletIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->where($this->walletScope($qb, $walletIds, $afterByWallet))
 			->andWhere($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
 			->andWhere($qb->expr()->isNull('ct.undone_at'))
 			->groupBy('ws.wallet_id');
@@ -213,6 +218,30 @@ class WorkShareMapper extends QBMapper {
 		$result->closeCursor();
 
 		return $counts;
+	}
+
+	/**
+	 * The wallet filter of {@see countValidSelectedByWallet()}: wallets
+	 * sharing a lower bound form one `IN` group, so the filter grows with
+	 * the distinct bounds, not with the wallets.
+	 *
+	 * @param int[] $walletIds
+	 * @param array<int, int> $afterByWallet
+	 */
+	private function walletScope(IQueryBuilder $qb, array $walletIds, array $afterByWallet): string|ICompositeExpression {
+		$groups = [];
+		foreach ($walletIds as $walletId) {
+			$groups[max(0, (int)($afterByWallet[$walletId] ?? 0))][] = $walletId;
+		}
+
+		$parts = [];
+		foreach ($groups as $after => $ids) {
+			$in = $qb->expr()->in('ws.wallet_id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY));
+			$parts[] = $after === 0
+				? $in
+				: $qb->expr()->andX($in, $qb->expr()->gt('ws.completion_id', $qb->createNamedParameter($after, IQueryBuilder::PARAM_INT)));
+		}
+		return count($parts) === 1 ? $parts[0] : $qb->expr()->orX(...$parts);
 	}
 
 	/**

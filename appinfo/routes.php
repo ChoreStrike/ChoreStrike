@@ -21,6 +21,11 @@ return [
         // CS-PLAN-090 WP-I (D-090-65): the owner-only, revisioned writer of
         // the household's task categories; members read them with the house.
         ['name' => 'taskCategory#update', 'url' => '/api/v1/house/task-categories', 'verb' => 'PUT'],
+        // CS-PLAN-090 WP-J (D-090-63/66, ADR-019): the owner's arcade
+        // controls — thresholds, one member's reset and the progress list.
+        ['name' => 'arcadeSettings#updateThresholds', 'url' => '/api/v1/house/arcade-thresholds', 'verb' => 'PUT'],
+        ['name' => 'arcadeSettings#resetMember', 'url' => '/api/v1/house/members/{userId}/arcade-reset', 'verb' => 'POST', 'requirements' => ['userId' => '[a-zA-Z0-9_.@-]+']],
+        ['name' => 'arcadeSettings#progress', 'url' => '/api/v1/house/arcade-progress', 'verb' => 'GET'],
 
         // Floor API
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],

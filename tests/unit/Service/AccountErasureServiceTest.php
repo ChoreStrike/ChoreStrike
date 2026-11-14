@@ -47,6 +47,7 @@ class AccountErasureServiceTest extends TestCase {
 	private AppLogger $appLogger;
 	private \OCA\ChoreStrike\Service\RewardRequestService&\PHPUnit\Framework\MockObject\MockObject $rewardRequestService;
 	private \OCA\ChoreStrike\Service\RewardService&\PHPUnit\Framework\MockObject\MockObject $rewardService;
+	private \OCA\ChoreStrike\Service\ArcadeStartPointStore&\PHPUnit\Framework\MockObject\MockObject $arcadeStartPoints;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
@@ -60,6 +61,7 @@ class AccountErasureServiceTest extends TestCase {
 		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->rewardRequestService = $this->createMock(\OCA\ChoreStrike\Service\RewardRequestService::class);
 		$this->rewardService = $this->createMock(\OCA\ChoreStrike\Service\RewardService::class);
+		$this->arcadeStartPoints = $this->createMock(\OCA\ChoreStrike\Service\ArcadeStartPointStore::class);
 	}
 
 	private function membership(int $id, int $houseId): HouseUser {
@@ -93,7 +95,8 @@ class AccountErasureServiceTest extends TestCase {
 			$this->rewardRequestService,
 			$this->rewardService,
 			$this->transactions,
-			$this->appLogger
+			$this->appLogger,
+			$this->arcadeStartPoints,
 		);
 	}
 
@@ -149,6 +152,25 @@ class AccountErasureServiceTest extends TestCase {
 		$this->appLogger->expects($this->once())->method('info');
 
 		$this->service()->eraseAccount('erased_user');
+	}
+
+	/**
+	 * Erasure_DeletesTheArcadeStartPoint (CS-PLAN-090 D-090-64): the
+	 * per-user setting goes with the account, also for a departed-only
+	 * account.
+	 */
+	public function testErasure_DeletesTheArcadeStartPoint(): void {
+		$this->houseUserMapper->method('findAllByNextcloudUserId')->willReturn([]);
+		$this->walletMapper->method('findAllByUserId')->willReturn([]);
+		$this->arcadeStartPoints->expects($this->once())->method('forget')->with('erased_user');
+
+		$this->service()->eraseAccount('erased_user');
+	}
+
+	public function testBlankUid_TouchesNoArcadeStartPoint(): void {
+		$this->arcadeStartPoints->expects($this->never())->method('forget');
+
+		$this->service()->eraseAccount('  ');
 	}
 
 	/**

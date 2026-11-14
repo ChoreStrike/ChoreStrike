@@ -88,7 +88,7 @@ export default {
 				{
 					id: 'arcade',
 					title: t('chorestrike', 'Arcade'),
-					text: t('chorestrike', 'An optional play area outside the daily routine. You can hide it in the Settings.'),
+					text: t('chorestrike', 'An optional play area outside the daily routine. Games open with finished chores; owners set how many per game and can let a person start over, while the highscores stay. You can hide it in the Settings.'),
 				},
 				{
 					id: 'coins',

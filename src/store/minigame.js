@@ -41,11 +41,20 @@ const SAVE_FAILURES = Object.freeze({
  * `catalog` slice is the server's view of the member's arcade
  * (`{gateEnabled, finishedChores, games: [{gameId, threshold, unlocked}]}`),
  * null until it loads.
+ *
+ * CS-PLAN-090 WP-J: the owner's controls — thresholds, the progress list
+ * (`progress`, `[{userId, displayName, finishedChores, resetAt}]`, null
+ * until it loads) and one member's reset. A read sequence per slice drops
+ * an answer that a newer read or write overtook (client-state contract,
+ * RF-090-37).
  */
 export const useMinigameStore = defineStore('minigame', {
 	state: () => ({
 		byGame: {},
 		catalog: null,
+		progress: null,
+		catalogSeq: 0,
+		progressSeq: 0,
 		loading: false,
 		error: null,
 	}),
@@ -136,12 +145,75 @@ export const useMinigameStore = defineStore('minigame', {
 		 * states (CS-PLAN-086 §3.2). Soft-fails like the score reads.
 		 */
 		async fetchCatalog() {
+			const seq = ++this.catalogSeq
 			try {
-				this.catalog = await api.get('/api/v1/minigames/catalog')
+				const catalog = await api.get('/api/v1/minigames/catalog')
+				if (seq === this.catalogSeq) {
+					this.catalog = catalog
+				}
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch the arcade catalog', error, { store: 'minigame', action: 'fetchCatalog' })
 			}
+		},
+
+		/**
+		 * Owner-only: save every game's threshold (CS-PLAN-090 D-090-66).
+		 * The answer is the owner's catalog, so cards and form agree at once;
+		 * an older catalog read still in flight is dropped. A failure reaches
+		 * the form.
+		 *
+		 * @param {Object<string, number>} thresholds Game id => whole number
+		 */
+		async saveThresholds(thresholds) {
+			const seq = ++this.catalogSeq
+			try {
+				const catalog = await api.put('/api/v1/house/arcade-thresholds', { thresholds })
+				if (seq === this.catalogSeq) {
+					this.catalog = catalog
+				}
+			} catch (error) {
+				logger.error('Failed to save the arcade thresholds', error, { store: 'minigame', action: 'saveThresholds' })
+				throw error
+			}
+		},
+
+		/**
+		 * Owner-only: each member's finished chores since their last reset.
+		 * A failure reaches the list.
+		 */
+		async fetchProgress() {
+			const seq = ++this.progressSeq
+			try {
+				const progress = await api.get('/api/v1/house/arcade-progress')
+				if (seq === this.progressSeq) {
+					this.progress = progress
+				}
+			} catch (error) {
+				logger.error('Failed to fetch the arcade progress', error, { store: 'minigame', action: 'fetchProgress' })
+				throw error
+			}
+		},
+
+		/**
+		 * Owner-only: reset one member for all games (CS-PLAN-090 D-090-63).
+		 * The answer is the progress list; the catalog is read again, because
+		 * the owner may have reset themselves.
+		 *
+		 * @param {string} userId The member's Nextcloud user id
+		 */
+		async resetProgress(userId) {
+			const seq = ++this.progressSeq
+			try {
+				const progress = await api.post(`/api/v1/house/members/${encodeURIComponent(userId)}/arcade-reset`)
+				if (seq === this.progressSeq) {
+					this.progress = progress
+				}
+			} catch (error) {
+				logger.error('Failed to reset the arcade progress', error, { store: 'minigame', action: 'resetProgress' })
+				throw error
+			}
+			await this.fetchCatalog()
 		},
 
 		/**
@@ -222,6 +294,10 @@ export const useMinigameStore = defineStore('minigame', {
 		reset() {
 			this.byGame = {}
 			this.catalog = null
+			this.progress = null
+			// Invalidate reads still in flight.
+			this.catalogSeq++
+			this.progressSeq++
 			this.loading = false
 			this.error = null
 		},

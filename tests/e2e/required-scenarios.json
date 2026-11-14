@@ -230,6 +230,7 @@
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > Tile Breaker saves a hands-off round to its own board and steers with held keys",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a crafted score for a locked game is refused",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a locked game shows neutral progress and keeps its leaderboard readable",
+    "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > a lower threshold opens Sock Match for a child, and a reset locks it again while the highscore stays",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > the owner switch opens every game and members cannot use it",
     "arcade-games.spec.ts > Household arcade (CS-PLAN-086) > three finished chores unlock Sock Match, which opens with a known pair"
   ],

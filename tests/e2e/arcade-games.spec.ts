@@ -12,9 +12,13 @@
  * Runner's robot stops at a wall without input, so its hands-off round
  * always scores the 12 dust patches of its start row.
  *
+ * CS-PLAN-090 WP-J: an owner's lower threshold opens Sock Match for the
+ * child, and the owner's reset locks it again while its highscore stays.
+ *
  * Serial pool: the owner switch is household-wide app config; every test
- * reseeds the family profile, which restores the default (gate on). The
- * admin session is a plain member without finished chores.
+ * reseeds the family profile, which restores the default (gate on, the
+ * catalog thresholds, no reset). The admin session is a plain member
+ * without finished chores.
  *
  * Requires: Docker test environment with the `family` database profile.
  */
@@ -32,12 +36,7 @@ import { expect, test } from './fixtures/database-fixtures.ts'
  * for the direct API calls).
  */
 async function asAdmin(browser: Browser, step: (page: Page) => Promise<void>): Promise<void> {
-	const { context, page } = await createUserContext(browser, 'admin')
-	try {
-		await step(page)
-	} finally {
-		await context.close()
-	}
+	await as(browser, 'admin', step)
 }
 
 async function openArcade(page: Page): Promise<void> {
@@ -46,21 +45,31 @@ async function openArcade(page: Page): Promise<void> {
 }
 
 /**
- * Finish `count` seeded chores as the admin member. Not every seeded task
- * has a completable occurrence at every wall-clock moment, so walk the
- * active ones with an explicit solo split (the completer takes part,
- * Q-074-02), each room task at most once.
+ * Finish `count` seeded chores as one member (the admin member by default).
+ * Not every seeded task has a completable occurrence at every wall-clock
+ * moment, so walk the active ones with an explicit solo split (the
+ * completer takes part, Q-074-02), each room task at most once.
  */
-async function finishChores(page: Page, seeded: SeededData | null, count: number): Promise<void> {
+async function finishChores(page: Page, seeded: SeededData | null, count: number, userId = 'admin'): Promise<void> {
 	const roomTasks = (seeded?.data.roomTasks ?? []) as Array<{ id: number, isActive?: boolean }>
 	let finished = 0
 	for (const roomTask of roomTasks.filter((row) => row.isActive !== false)) {
-		const response = await completeAsSoleParticipantViaApi(page, roomTask.id, 'admin').catch(() => null)
+		const response = await completeAsSoleParticipantViaApi(page, roomTask.id, userId).catch(() => null)
 		if (response?.ok() && ++finished === count) {
 			return
 		}
 	}
-	throw new Error(`only ${finished} of ${count} seeded room tasks could be finished by admin`)
+	throw new Error(`only ${finished} of ${count} seeded room tasks could be finished by ${userId}`)
+}
+
+/** Run a step in a context of one seeded member. */
+async function as(browser: Browser, userId: string, step: (page: Page) => Promise<void>): Promise<void> {
+	const { context, page } = await createUserContext(browser, userId)
+	try {
+		await step(page)
+	} finally {
+		await context.close()
+	}
 }
 
 async function startGame(page: Page, gameId: string): Promise<void> {
@@ -366,6 +375,54 @@ test.describe('Household arcade (CS-PLAN-086)', () => {
 			await expect(page.getByTestId('arcade-progress-snake')).toHaveCount(0)
 			await page.getByTestId('arcade-play-snake').click()
 			await expect(page.getByTestId('game-shell')).toHaveAttribute('data-phase', 'ready', { timeout: 15000 })
+		})
+	})
+
+	// CS-PLAN-090 WP-J (D-090-63/66): the seeded child has finished no chore.
+	test('a lower threshold opens Sock Match for a child, and a reset locks it again while the highscore stays', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		await as(browser, 'mom', async (page) => {
+			await page.goto('/apps/chorestrike/#/settings?category=arcade')
+			const socks = page.getByTestId('arcade-threshold-socks')
+			await expect(socks).toHaveValue('3', { timeout: 30000 })
+			await socks.fill('1')
+			await page.getByTestId('arcade-thresholds-save').click()
+			await expect(page.getByTestId('arcade-thresholds-saved')).toBeVisible()
+		})
+
+		await as(browser, 'kid', async (page) => {
+			await openArcade(page)
+			await expect(page.getByTestId('arcade-progress-socks')).toHaveText('Unlocks at 1 finished chore · 1 to go')
+			await finishChores(page, seededData, 1, 'kid')
+			await page.reload()
+			await expect(page.getByTestId('arcade-surface')).toBeVisible({ timeout: 30000 })
+			await expect(page.getByTestId('arcade-card-socks')).toHaveAttribute('data-unlocked', 'true')
+			const saved = await page.request.post('/apps/chorestrike/api/v1/minigames/socks/scores', {
+				data: { score: 640, durationMs: 60000 },
+			})
+			expect(saved.status(), await saved.text()).toBe(200)
+		})
+
+		await as(browser, 'mom', async (page) => {
+			await page.goto('/apps/chorestrike/#/settings?category=arcade')
+			const row = page.locator('[data-testid="arcade-reset-row"][data-user-id="kid"]')
+			await expect(row).toContainText('1 finished chore', { timeout: 30000 })
+			await row.getByTestId('arcade-reset-button').click()
+			await page.getByTestId('arcade-reset-confirm').click()
+			await expect(page.getByTestId('arcade-reset-done')).toHaveText('The arcade progress of Kid was reset.')
+			await expect(row).toContainText('0 finished chores since the reset on')
+		})
+
+		await as(browser, 'kid', async (page) => {
+			await openArcade(page)
+			await expect(page.getByTestId('arcade-card-socks')).toHaveAttribute('data-unlocked', 'false')
+			await expect(page.getByTestId('arcade-progress-socks')).toHaveText('Unlocks at 1 finished chore · 1 to go')
+			const refused = await page.request.post('/apps/chorestrike/api/v1/minigames/socks/scores', {
+				data: { score: 500, durationMs: 60000 },
+			})
+			expect(refused.status()).toBe(403)
+			const best = await page.request.get('/apps/chorestrike/api/v1/minigames/socks/personal-best')
+			expect((await best.json()).data.score, 'the highscore stays').toBe(640)
 		})
 	})
 })

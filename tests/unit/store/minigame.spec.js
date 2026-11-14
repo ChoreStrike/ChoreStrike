@@ -11,6 +11,7 @@ jest.mock('@/services/api.js', () => ({
 	api: {
 		get: jest.fn(),
 		post: jest.fn(),
+		put: jest.fn(),
 	},
 }))
 
@@ -202,5 +203,105 @@ describe('minigame store (CS-PLAN-086 per-game slices)', () => {
 		store.error = 'x'
 		store.clearError()
 		expect(store.error).toBeNull()
+	})
+
+	describe('owner controls (CS-PLAN-090 WP-J)', () => {
+		const PROGRESS = [{ userId: 'kid', displayName: 'Kid', finishedChores: 4, resetAt: null }]
+
+		/**
+		 * @return {{promise: Promise<unknown>, resolve: function(unknown): void}}
+		 */
+		const deferred = () => {
+			let resolve
+			const promise = new Promise((done) => { resolve = done })
+			return { promise, resolve }
+		}
+
+		it('saves every threshold and takes the owner\'s catalog from the answer', async () => {
+			const saved = { ...CATALOG, games: [{ gameId: 'snake', threshold: 1, unlocked: true }] }
+			api.put.mockResolvedValue(saved)
+
+			await store.saveThresholds({ snake: 1, tiles: 25 })
+
+			expect(api.put).toHaveBeenCalledWith('/api/v1/house/arcade-thresholds', { thresholds: { snake: 1, tiles: 25 } })
+			expect(store.catalog).toEqual(saved)
+		})
+
+		it('a failed save reaches the caller and keeps the catalog', async () => {
+			await store.fetchCatalog()
+			api.put.mockRejectedValue(new Error('Owner role required'))
+
+			await expect(store.saveThresholds({ snake: 1 })).rejects.toThrow('Owner role required')
+			expect(store.catalog).toEqual(CATALOG)
+		})
+
+		it('drops a catalog read that a save overtook', async () => {
+			const read = deferred()
+			api.get.mockImplementation(() => read.promise)
+			const saved = { ...CATALOG, finishedChores: 9 }
+			api.put.mockResolvedValue(saved)
+
+			const stale = store.fetchCatalog()
+			await store.saveThresholds({ snake: 1 })
+			read.resolve(CATALOG)
+			await stale
+
+			expect(store.catalog).toEqual(saved)
+		})
+
+		it('reads the progress list, and a failure reaches the caller', async () => {
+			api.get.mockResolvedValueOnce(PROGRESS)
+			await store.fetchProgress()
+			expect(api.get).toHaveBeenCalledWith('/api/v1/house/arcade-progress')
+			expect(store.progress).toEqual(PROGRESS)
+
+			api.get.mockRejectedValueOnce(new Error('Owner role required'))
+			await expect(store.fetchProgress()).rejects.toThrow('Owner role required')
+			expect(store.progress).toEqual(PROGRESS)
+		})
+
+		it('resets one member, takes the list from the answer and reads the catalog again', async () => {
+			const after = [{ ...PROGRESS[0], finishedChores: 0, resetAt: '2026-11-14T10:00:00+00:00' }]
+			api.post.mockResolvedValue(after)
+
+			await store.resetProgress('kid.one@home')
+
+			expect(api.post).toHaveBeenCalledWith('/api/v1/house/members/kid.one%40home/arcade-reset')
+			expect(store.progress).toEqual(after)
+			expect(api.get).toHaveBeenCalledWith('/api/v1/minigames/catalog')
+		})
+
+		it('a failed reset reaches the caller without a catalog read', async () => {
+			api.post.mockRejectedValue(new Error('User is not a member of this house'))
+
+			await expect(store.resetProgress('stranger')).rejects.toThrow('User is not a member of this house')
+			expect(api.get).not.toHaveBeenCalled()
+		})
+
+		it('drops a progress read that a reset overtook', async () => {
+			const read = deferred()
+			api.get.mockImplementation((url) => (url === '/api/v1/house/arcade-progress' ? read.promise : CATALOG))
+			const after = [{ ...PROGRESS[0], finishedChores: 0, resetAt: '2026-11-14T10:00:00+00:00' }]
+			api.post.mockResolvedValue(after)
+
+			const stale = store.fetchProgress()
+			await store.resetProgress('kid')
+			read.resolve(PROGRESS)
+			await stale
+
+			expect(store.progress).toEqual(after)
+		})
+
+		it('reset drops the progress list and every read still in flight', async () => {
+			const read = deferred()
+			api.get.mockImplementation(() => read.promise)
+
+			const pending = store.fetchProgress()
+			store.reset()
+			read.resolve(PROGRESS)
+			await pending
+
+			expect(store.progress).toBeNull()
+		})
 	})
 })

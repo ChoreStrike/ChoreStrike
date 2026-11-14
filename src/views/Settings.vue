@@ -101,9 +101,7 @@
 					:open="isOpen('arcade')"
 					testid="arcade-gate-section"
 					@toggle="toggle">
-					<div class="setting-card">
-						<ArcadeGateSetting />
-					</div>
+					<ArcadeSettings />
 				</SettingsCategory>
 				<SettingsCategory id="danger"
 					danger
@@ -124,8 +122,8 @@ import { useRoute, useRouter } from 'vue-router'
 import Icon from '../components/Common/Icon.vue'
 import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
 import MemberList from '../components/Members/MemberList.vue'
-import ArcadeGateSetting from '../components/Minigames/ArcadeGateSetting.vue'
 import RewardCatalogEditor from '../components/Rewards/RewardCatalogEditor.vue'
+import ArcadeSettings from '../components/Settings/ArcadeSettings.vue'
 import DangerZoneSettings from '../components/Settings/DangerZoneSettings.vue'
 import HouseSettings from '../components/Settings/HouseSettings.vue'
 import NotificationPreferences from '../components/Settings/NotificationPreferences.vue'
@@ -174,7 +172,7 @@ export default {
 		StructureSettings,
 		TaskCategorySettings,
 		RewardCatalogEditor,
-		ArcadeGateSetting,
+		ArcadeSettings,
 		DangerZoneSettings,
 	},
 

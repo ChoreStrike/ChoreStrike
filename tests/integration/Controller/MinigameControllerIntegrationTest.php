@@ -43,6 +43,9 @@ class MinigameControllerIntegrationTest extends IntegrationTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->appConfig()->setValueString('chorestrike', RewardConfigService::KEY_ARCADE_GATE_ENABLED, '0');
+		// CS-PLAN-090 WP-J: the catalog pins the default thresholds, which a
+		// browser run on the shared stack may have changed.
+		$this->appConfig()->deleteKey('chorestrike', RewardConfigService::KEY_ARCADE_THRESHOLDS);
 	}
 
 	private function appConfig(): IAppConfig {

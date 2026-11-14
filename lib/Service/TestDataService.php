@@ -134,6 +134,7 @@ class TestDataService {
 	private WorkShareMapper $workShareMapper;
 	private RewardConfigService $rewardConfig;
 	private TaskCategoryService $taskCategories;
+	private ArcadeStartPointStore $arcadeStartPoints;
 
 	// CR-SVC-40 / CS-PLAN-060 WP1, decision D6 documented exemption: this
 	// service is NON-PRODUCTION test tooling (every entry point is guarded by
@@ -160,6 +161,7 @@ class TestDataService {
 		WorkShareMapper $workShareMapper,
 		RewardConfigService $rewardConfig,
 		TaskCategoryService $taskCategories,
+		ArcadeStartPointStore $arcadeStartPoints,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -179,6 +181,7 @@ class TestDataService {
 		$this->workShareMapper = $workShareMapper;
 		$this->rewardConfig = $rewardConfig;
 		$this->taskCategories = $taskCategories;
+		$this->arcadeStartPoints = $arcadeStartPoints;
 	}
 
 	/**
@@ -218,11 +221,14 @@ class TestDataService {
 	/**
 	 * Reset all tables (truncate, preserve schema) and the household app
 	 * config a test may switch (CS-PLAN-086: the arcade gate returns to its
-	 * default, so a spec that opened every game never leaks into the next).
+	 * default, so a spec that opened every game never leaks into the next;
+	 * CS-PLAN-090 WP-J: so do the thresholds and every start point).
 	 */
 	public function reset(): void {
 		$this->assertTestMode();
 		$this->rewardConfig->resetArcadeGateEnabled();
+		$this->rewardConfig->resetArcadeThresholds();
+		$this->arcadeStartPoints->forgetAll();
 		$this->taskCategories->resetToDefaults();
 
 		foreach (self::RESET_TABLES as $table) {

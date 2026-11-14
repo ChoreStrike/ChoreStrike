@@ -299,15 +299,18 @@ class RouteMatrixTest extends TestCase {
 	 * the absence deletion (DELETE /pauses/{id}, ADR-020) → 98. CS-PLAN-090
 	 * WP-I added the owner-only task-category writer (PUT
 	 * /house/task-categories, consumed by the household settings) → 99.
+	 * CS-PLAN-090 WP-J added the owner's arcade controls (PUT
+	 * /house/arcade-thresholds, POST /house/members/{userId}/arcade-reset,
+	 * GET /house/arcade-progress, consumed by the arcade settings) → 102.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			99,
+			102,
 			$this->routes['routes'],
-			'Route count drifted from the pin (99 after CS-PLAN-090 WP-I) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (102 after CS-PLAN-090 WP-J) — add only with a consumer, then update deliberately'
 		);
 	}
 
@@ -327,6 +330,7 @@ class RouteMatrixTest extends TestCase {
 	 * CS-PLAN-086 WP-B: the arcade catalog is a literal segment no
 	 * `{gameId}` route can swallow (in either registration order), and the
 	 * owner gate is the only arcade writer besides the score save.
+	 * CS-PLAN-090 WP-J adds exactly the owner's thresholds and reset.
 	 */
 	public function testArcadeCatalogAndGateRoutes(): void {
 		$declared = array_map(
@@ -346,7 +350,13 @@ class RouteMatrixTest extends TestCase {
 
 		$arcadeWriters = array_values(array_filter($declared, static fn (string $route): bool
 			=> !str_starts_with($route, 'GET ') && (str_contains($route, '/minigames') || str_contains($route, 'arcade'))));
-		$this->assertSame(['PUT /api/v1/house/arcade-gate', 'POST /api/v1/minigames/{gameId}/scores'], $arcadeWriters);
+		$this->assertSame([
+			'PUT /api/v1/house/arcade-gate',
+			'PUT /api/v1/house/arcade-thresholds',
+			'POST /api/v1/house/members/{userId}/arcade-reset',
+			'POST /api/v1/minigames/{gameId}/scores',
+		], $arcadeWriters);
+		$this->assertContains('GET /api/v1/house/arcade-progress', $declared);
 	}
 
 	/**

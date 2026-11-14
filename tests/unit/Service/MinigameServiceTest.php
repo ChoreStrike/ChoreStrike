@@ -45,6 +45,7 @@ class MinigameServiceTest extends TestCase {
 	private HouseMapper $houseMapper;
 	private ArcadeAccessService $arcadeAccess;
 	private bool $memberPresent;
+	private ?HouseUser $member = null;
 	/** @var callable(): void */
 	private $onLock;
 
@@ -71,7 +72,7 @@ class MinigameServiceTest extends TestCase {
 			return $utcHouse;
 		});
 		$this->houseUserMapper->method('findByHouseAndUser')->willReturnCallback(
-			fn (): ?HouseUser => $this->memberPresent ? new HouseUser() : null
+			fn (): ?HouseUser => $this->memberPresent ? ($this->member ?? new HouseUser()) : null
 		);
 		$l10n = $this->createMock(IL10N::class);
 		// Identity mock: message assertions match the wrapped source text
@@ -171,6 +172,85 @@ class MinigameServiceTest extends TestCase {
 
 		$this->expectException(GameLockedException::class);
 		$this->service->saveScore(1, 'user1', 'snake', 150, self::ROUND_MS);
+	}
+
+	/**
+	 * The score service over a real ArcadeAccessService (CS-PLAN-090 WP-J):
+	 * the owner's thresholds, the member's start point and the count come
+	 * from mocks; the member holds wallet 7.
+	 *
+	 * @param array<string, int> $thresholds Stored owner thresholds
+	 * @param array<string, array{after: int, at: int}> $points Stored start points
+	 */
+	private function serviceWithRealAccess(array $thresholds, array $points, \OCA\ChoreStrike\Db\WorkShareMapper $workShares, ?callable $onPointRead = null): MinigameService {
+		$this->member = new HouseUser();
+		$this->member->setId(3);
+		$this->member->setHouseId(1);
+		$this->member->setNextcloudUserId('user1');
+		$this->member->setWalletId(7);
+		$config = $this->createMock(\OCA\ChoreStrike\Service\RewardConfigService::class);
+		$config->method('getArcadeGateEnabled')->willReturn(true);
+		$config->method('getArcadeThresholds')->willReturn($thresholds);
+		$startPoints = $this->createMock(\OCA\ChoreStrike\Service\ArcadeStartPointStore::class);
+		$startPoints->method('forUsers')->willReturnCallback(static function () use ($points, $onPointRead): array {
+			if ($onPointRead !== null) {
+				$onPointRead();
+			}
+			return $points;
+		});
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$transactions = new \OCA\ChoreStrike\Db\TransactionExecutor($this->db);
+		$access = new ArcadeAccessService(
+			$workShares,
+			$this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class),
+			$this->houseMapper,
+			$this->houseUserMapper,
+			$transactions,
+			$startPoints,
+			$config,
+			$this->createMock(\OCA\ChoreStrike\Service\AuthorizationService::class),
+			$l10n,
+			$this->appLogger,
+		);
+		return new MinigameService($this->scoreMapper, $this->houseUserMapper, $transactions, $l10n, $this->appLogger, $this->houseMapper, new CalendarService(), $access);
+	}
+
+	/**
+	 * SaveScore_LoweredThreshold_AcceptsSockMatchAfterOneChore (D-090-66):
+	 * the score lock reads the owner's threshold, not the catalog default.
+	 */
+	public function testSaveScore_LoweredThreshold_AcceptsSockMatchAfterOneChore(): void {
+		$workShares = $this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class);
+		$workShares->method('countValidSelectedByWallet')->with([7], [])->willReturn([7 => 1]);
+		$this->scoreMapper->expects($this->once())->method('insert')->willReturnArgument(0);
+
+		$saved = $this->serviceWithRealAccess(['socks' => 1], [], $workShares)->saveScore(1, 'user1', 'socks', 400, self::ROUND_MS);
+
+		$this->assertSame('socks', $saved->getGameId());
+	}
+
+	/**
+	 * SaveScore_AfterAReset_LockedUntilNewChores (D-090-63/66): the start
+	 * point is read under the house lock and bounds the count, so the
+	 * member's earlier chores no longer open the game.
+	 */
+	public function testSaveScore_AfterAReset_LockedUntilNewChores(): void {
+		$locked = false;
+		$this->onLock = function () use (&$locked): void {
+			$locked = true;
+		};
+		$workShares = $this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class);
+		$workShares->expects($this->once())->method('countValidSelectedByWallet')->with([7], [7 => 42])->willReturn([]);
+		$this->scoreMapper->expects($this->never())->method('insert');
+		$this->db->expects($this->once())->method('rollBack');
+
+		$service = $this->serviceWithRealAccess([], ['user1' => ['after' => 42, 'at' => 1700000000]], $workShares, function () use (&$locked): void {
+			$this->assertTrue($locked, 'the start point is read under the house lock');
+		});
+
+		$this->expectException(GameLockedException::class);
+		$service->saveScore(1, 'user1', 'socks', 400, self::ROUND_MS);
 	}
 
 	/**

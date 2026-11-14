@@ -43,12 +43,12 @@
 							<dd>#{{ store.slice(game.id).userRank || '-' }}</dd>
 						</div>
 					</dl>
-					<!-- Neutral progress, no countdown or nagging (§3.2):
-					     thresholds are 0 or >= 3, so one plural-free text. -->
+					<!-- Neutral progress, no countdown or nagging (§3.2). An
+					     owner's threshold can be 1 (CS-PLAN-090 D-090-66). -->
 					<p v-if="!access.unlocked"
 						class="arcade-card-progress"
 						:data-testid="`arcade-progress-${game.id}`">
-						{{ t('chorestrike', 'Unlocks at {threshold} finished chores · {remaining} to go', { threshold: access.threshold, remaining: remainingChores(access) }) }}
+						{{ progressText(access) }}
 					</p>
 				</div>
 				<div class="arcade-card-actions">
@@ -119,6 +119,17 @@ const cards = computed(() => (store.catalog?.games ?? [])
  */
 function remainingChores(access) {
 	return Math.max(0, access.threshold - (store.catalog?.finishedChores ?? 0))
+}
+
+/**
+ * @param {{threshold: number}} access The game's catalog entry
+ * @return {string} The neutral progress line of a locked game
+ */
+function progressText(access) {
+	const remaining = remainingChores(access)
+	return access.threshold === 1
+		? t('chorestrike', 'Unlocks at 1 finished chore · {remaining} to go', { remaining })
+		: t('chorestrike', 'Unlocks at {threshold} finished chores · {remaining} to go', { threshold: access.threshold, remaining })
 }
 
 /**

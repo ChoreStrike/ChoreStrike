@@ -163,6 +163,39 @@ app-config flag. Response: the house payload with the new
 (checked before the payload), `400 VALIDATION_ERROR` for a non-boolean value,
 `500 HOUSE_UPDATE_ERROR`.
 
+#### PUT /house/arcade-thresholds
+Owner-only arcade thresholds (CS-PLAN-090 WP-J, D-090-66,
+[ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md)):
+`{ "thresholds": { "spots": 0, "socks": 3, "snake": 10, "tiles": 25, "dust": 50 } }`
+names every game of the catalog with a whole number from 0 to 500 (the
+finished chores that open it while the gate is on). Stored as the typed
+`arcade_thresholds` app-config array; until an owner saves, every game reads
+the `ArcadeCatalog` default shown above. Audited, last write wins. Response:
+the owner's catalog as `GET /minigames/catalog` returns it. Failure envelopes:
+`403 FORBIDDEN` for non-owners (checked before the payload),
+`400 VALIDATION_ERROR` for a payload that is not an object of game ids, an
+unknown or missing game, or a value that is not a whole number in range,
+`500 ARCADE_SETTINGS_ERROR`.
+
+#### POST /house/members/{userId}/arcade-reset
+Owner-only reset of one member's arcade progress for all games (D-090-63);
+the client asks for a confirmation first. The member's start point becomes
+the highest committed completion id, under the house-row lock like a score
+save; from then on only completions above it count, so locked games unlock
+anew. Highscores stay. The start point lives in the member's per-user app
+config (`arcade_reset`) and is deleted with the account. Audited. No body.
+Response: the progress list of `GET /house/arcade-progress`. Failure
+envelopes: `403 FORBIDDEN` for non-owners and for a `userId` that is not a
+member of the house (no write), `500 ARCADE_SETTINGS_ERROR`.
+
+#### GET /house/arcade-progress
+Owner-only list of every member's finished chores since their last reset,
+sorted by display name (never by contribution):
+`[{ "userId": string, "displayName": string, "finishedChores": int, "resetAt": string|null }]`,
+where `resetAt` is the ISO 8601 time of the last reset, `null` if there was
+none. One grouped count for all members. Failure envelopes: `403 FORBIDDEN`
+for non-owners, `500 ARCADE_SETTINGS_ERROR`.
+
 #### PUT /house/task-categories
 Owner-only writer of the household's task categories (CS-PLAN-090 WP-I,
 FEAT-UX-053). Every member reads the list as `taskCategories` in the house
@@ -1172,13 +1205,16 @@ parameters are clamped to `1..50`. Saves are rate-limited to **100 per member
 and house-local day** (`429 MINIGAME_RATE_LIMITED`). Ordered reads break score
 ties by ascending id.
 
-Games unlock as permanent milestones of finished chores
+Games unlock as milestones of finished chores
 ([ADR-019](../adr/ADR-019-arcade-unlocks-from-completion-history.md)): a
 member's count is the number of valid completions in whose selected
 allocation revision they hold a share (helpers count; undone and revised-away
-work does not). The state is derived on every read, so an undo can re-lock a
-game. Saves for a locked game are refused; every read stays open, so a locked
-game's leaderboard remains readable.
+work does not), since the member's last owner reset if there was one
+(`POST /house/members/{userId}/arcade-reset`). The thresholds are the
+owner's (`PUT /house/arcade-thresholds`) or the catalog defaults. The state is
+derived on every read, so an undo can re-lock a game. Saves for a locked game
+are refused; every read stays open, so a locked game's leaderboard remains
+readable.
 
 #### GET /minigames/catalog
 The requesting member's arcade: every game in catalog order with its unlock
@@ -1193,8 +1229,9 @@ threshold and lock state.
 }
 ```
 `gateEnabled` is the owner switch (`PUT /house/arcade-gate`); while it is
-off, every game is `unlocked`. Failure envelopes: `403 FORBIDDEN`,
-`500 MINIGAME_CATALOG_ERROR`.
+off, every game is `unlocked`. `finishedChores` counts since the member's last
+reset, and `threshold` is the effective value (an owner's, else the default).
+Failure envelopes: `403 FORBIDDEN`, `500 MINIGAME_CATALOG_ERROR`.
 
 #### POST /minigames/{gameId}/scores
 Save a finished game.

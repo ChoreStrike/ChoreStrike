@@ -33,6 +33,8 @@ require_once __DIR__ . '/__mocks__/OCP/Migration/SimpleMigrationStep.php';
 require_once __DIR__ . '/__mocks__/OCP/Log/ILogFactory.php';
 require_once __DIR__ . '/__mocks__/OCP/IConfig.php';
 require_once __DIR__ . '/__mocks__/OCP/IAppConfig.php';
+require_once __DIR__ . '/__mocks__/OCP/Config/ValueType.php';
+require_once __DIR__ . '/__mocks__/OCP/Config/IUserConfig.php';
 require_once __DIR__ . '/__mocks__/OCP/ILogger.php';
 require_once __DIR__ . '/__mocks__/OCP/IL10N.php';
 require_once __DIR__ . '/__mocks__/OCP/IUserManager.php';

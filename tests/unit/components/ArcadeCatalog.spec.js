@@ -155,6 +155,13 @@ describe('ArcadeCatalog', () => {
 			expect(wrapper.get('[data-testid="board-stub"]').attributes('data-game-id')).toBe('snake')
 		})
 
+		it('an owner threshold of 1 reads in the singular (CS-PLAN-090 D-090-66)', async () => {
+			serve({ gateEnabled: true, finishedChores: 0, games: [{ gameId: 'socks', threshold: 1, unlocked: false }] })
+			await mountCatalog()
+
+			expect(wrapper.get('[data-testid="arcade-progress-socks"]').text()).toBe('Unlocks at 1 finished chore · 1 to go')
+		})
+
 		it('an unlocked card shows no progress and can be played', async () => {
 			serve({ gateEnabled: true, finishedChores: 10, games: [{ gameId: 'snake', threshold: 10, unlocked: true }] })
 			await mountCatalog()
