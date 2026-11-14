@@ -1067,11 +1067,15 @@ plan takes them:
 - Overdue as one red entry per task; the catch-up entries go.
 
 All three releases stay alpha versions; the beta follows after them (operator, 2026-11-10).
+Release A is deployed on its own as `0.8.0-alpha.5`; B and C keep their own plans and are
+deployed together as one version (operator, 2026-11-14,
+[delivery](../concepts/simplified-core.md#delivery)).
 
 - [x] Operator decisions of 2026-11-09 recorded in the concept.
 - [x] Mockups reviewed with the family; the operator confirms the target picture (2026-11-10).
 - [ ] The concept's open points are settled in the owning plans.
-- [ ] Plans for the releases A, B and C drafted, each with Standard A.
+- [ ] Plans for the releases A, B and C drafted, each with Standard A; B and C share one
+      deployment.
 
 ---
 

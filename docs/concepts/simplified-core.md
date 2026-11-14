@@ -177,19 +177,25 @@ To be settled in the owning plans, before code:
 4. Handing a single cycle to someone else: keep it, or leave it to the assignees in the form.
 5. The scheduler's horizon, its tie-breaks and the exact stability rule.
 6. The digest notifications that refer to agreements and pause requests today.
+7. How Release B is integrated while C is not built: `master` stays releasable, so B either keeps
+   the planner working or waits with C on a shared branch.
 
 ## Delivery
 
-Three planned releases, each with its own plan and review. The order keeps the model change away
-from the first visible improvements.
+Three planned releases, each with its own plan and review, in two deployments. The order keeps
+the model change away from the first visible improvements.
 
-| Release | Content | Model change |
-|---------|---------|--------------|
-| A | Navigation, *Today*, tasks grouped by room, denser lists and Insights, absence without request, feedback defaults | none; one data-only migration step switches the animation on for everyone |
-| B | Windows as derived state, first date and history editing, early completion, postpone, sleeping and bonus tasks, coin multipliers, the one form and the inline expansion | yes |
-| C | Live suggestion on *Today* and in the calendar, preferred days | scheduler |
+| Release | Content | Model change | Deployed |
+|---------|---------|--------------|----------|
+| A | Navigation, *Today*, tasks grouped by room, denser lists and Insights, absence without request, feedback defaults | none; one data-only migration step switches the animation on for everyone | on its own, as `0.8.0-alpha.5` |
+| B | Windows as derived state, first date and history editing, early completion, postpone, sleeping and bonus tasks, coin multipliers, the one form and the inline expansion | yes | together with C, as one version |
+| C | Live suggestion on *Today* and in the calendar, preferred days | scheduler | together with B |
 
-All three stay alpha versions on the family instance. The `v0.9` beta starts only after they are
+B and C keep their names, plans and reviews and are built in this order, but reach the family
+instance as one version (operator, 2026-11-14). A deployment takes the operator time, and no
+deployed version then has to run the preview-and-apply planner on derived windows.
+
+All of them stay alpha versions on the family instance. The `v0.9` beta starts only after they are
 built and tested there, so that outside testers meet the simplified model and no second
 installation has to carry the model change
 ([release strategy](../release/release-strategy.md#stage-2-v09-beta)).
@@ -231,3 +237,9 @@ installation has to carry the model change
   coin factor is × 1, × 2 or × 3.
 - The releases A, B and C stay alpha versions. The beta follows once they are built and tested,
   possibly with a larger circle than first planned.
+
+### Two deployments (operator, 2026-11-14)
+
+- Release A is deployed on its own as `0.8.0-alpha.5`, as planned.
+- Releases B and C are deployed together as one version, because every deployment takes the
+  operator time. Each keeps its own plan, Standard A review and superseding ADR.

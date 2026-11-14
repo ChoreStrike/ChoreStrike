@@ -44,8 +44,9 @@ This order is intentional. ChoreStrike should first define the release path, the
 
 **Timing (operator decision, 2026-11-10)**: the beta starts only after the three releases of the
 [simplified core](../concepts/simplified-core.md#delivery) are built and tested as alpha versions
-on the family instance. Outside testers then meet the simplified model, and no second
-installation has to carry the model change. The circle may be larger than first planned.
+on the family instance, in two deployments: Release A on its own, B and C together (operator,
+2026-11-14). Outside testers then meet the simplified model, and no second installation has to
+carry the model change. The circle may be larger than first planned.
 
 **Purpose**:
 - Validate ChoreStrike with external users and different usage patterns.
