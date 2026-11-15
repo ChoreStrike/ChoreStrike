@@ -654,9 +654,12 @@ stack apply it once through the migration runner
 
 Nextcloud 31's `QBMapper` binds mutable `date` properties using datetime
 parameters. SQLite therefore may retain a midnight suffix where MariaDB and
-PostgreSQL normalize a DATE column. Raw fixture queries use half-open local-day
-boundaries rather than date-string equality or an inclusive textual upper bound;
-entity/schema date semantics remain unchanged. The optional closed-week family
+PostgreSQL normalize a DATE column. Raw fixture queries and the day bounds of
+`OccurrenceMapper` use half-open local-day boundaries (`>=` the day, `<` the
+next day) rather than date-string equality, an inclusive textual upper bound or
+an exclusive textual lower bound; entity/schema date semantics remain unchanged.
+`OccurrenceDayBoundsTest` writes its rows through the entity on fixed days, so
+the provider suites prove every bound on any weekday (RF-090-57). The optional closed-week family
 evidence seed keeps its overdue example before that completed week, without
 fabricating a pause or a successful completion. Digest concurrency workers
 bootstrap/capture stale inputs before the parent holds SQLite's database write

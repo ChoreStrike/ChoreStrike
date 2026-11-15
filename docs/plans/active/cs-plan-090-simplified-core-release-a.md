@@ -991,6 +991,8 @@ modified: lib/Service/TaskCategoryService.php, PauseService.php,
           docs/engineering/architecture.md, deployment.md, docs/api/README.md, docs/adr/README.md,
           ADR-013, docs/concepts/task-model-and-sync.md, ui-use-cases.md,
           docs/standards/guidelines/e2e-testid-conventions.md (final Full review, RF-090-41..55)
+modified: lib/Db/OccurrenceMapper.php, CHANGELOG.md, docs/engineering/testing.md;
+new:      tests/integration/Db/OccurrenceDayBoundsTest.php (qualification, RF-090-57)
 ```
 
 ## 6. Implementation Order
@@ -1136,6 +1138,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-54 (nit) - WP-J, `ArcadeThresholdSettings.vue`, `ArcadeResetList.vue`: the saved note's timer was never cleared, so a second save lost its note early and the timer outlived the component, and both components logged failures the store had already logged. Fixed in the review; Jest case for the timer.
 - [x] RF-090-55 (nit) - WP-A, `lib/Service/PauseService.php`: `listForViewer()` had grown to about 71 lines with D-090-27. Fixed in the review: the viewer's entry is `viewerEntry()`, behaviour unchanged (unit and integration suites).
 - [x] RF-090-56 (minor) - WP-J, `appinfo/routes.php`: the reset route restricts the user ID to `[a-zA-Z0-9_.@-]+`, copied from the older scheduling route, so a member whose Nextcloud ID holds a space or an apostrophe cannot be reset. User-rescoped to `backlog.md` (operator, 2026-11-15): [BUG-API-002](../../backlog/backlog.md#p3-bug-api-002--member-routes-refuse-nextcloud-user-ids-with-a-space-or-an-apostrophe) fixes both routes together.
+- [x] RF-090-57 (major) - WP-G qualification, matrix `a5q1` on `f426d75c` (Sunday 2026-11-15): the SQLite integration suite failed two tests, `RankingConsentTest::testOnTimeRatio_CountsOnlyPublicAgreedOccurrences` and `RhythmProjectionTest::testWeeklyGoal_PercentAndAchievedFollowTheValidCompletionSet`, because the week's last day was missing. Cause, present since the occurrence model of the retained baseline: Nextcloud binds an entity's date field as `Y-m-d 00:00:00`, SQLite keeps that text, and `OccurrenceMapper` compared it with bare day keys, so `<=` and `>` put a day after itself and `=` never matched. On SQLite the daily summary missed the day's planned and agreed work, every inclusive window lost its last day, the history paging could reread its cursor day, and the interval cleanup could delete an open row of its exclusive day. PostgreSQL and MySQL store the day and were not affected. Fixed in the qualification: every day bound is half-open (`>=` the day, `<` the next day), which holds for either stored form, so no data changes. `OccurrenceDayBoundsTest` writes through the entity on fixed days and failed 4 of 4 on SQLite without the fix (control run); the testing guide names the rule.
 
 ## Review Outcome
 
@@ -1374,3 +1377,14 @@ candidate commit and the second GUI review. Four read-only reviewers in parallel
   open. Record:
   [2026-11-15 review](../../backlog/archive/CODE_REVIEW_2026-11-15.md#full-review-final---cs-plan-090-simplified-core-release-a-candidate).
   One scoped review commit; no merge, push, tag or deployment.
+
+**Qualification, 2026-11-15 (WP-G), first attempt on `f426d75c`: failed, kept as evidence.**
+
+- `test:runtime:check` current, no drift: upstream 35.0.3, AIO 15.0.2 with Nextcloud 35.0.2
+  (PHP 8.4.27, APCu 5.1.28, phpredis 6.3.0, Redis 8.10.3, PostgreSQL 18.6).
+- Jest 179 suites / 2499 tests, ESLint, stylelint and `composer cs:check` green.
+- Staged rows `cs082-a5q1-{mysql,pgsql,sqlite}` (primary 35.0.3) and `cs082-a5q1-aio`
+  (35.0.2 with Redis sessions, cache and locking), each verified. Matrix `a5q1`: unit 1703 on
+  all four rows, integration 716 on MySQL, PostgreSQL and the AIO row; the SQLite integration
+  suite failed 2 of 716 (RF-090-57). Not rerun unchanged; the fix of RF-090-57 makes the next
+  candidate, and the browser gates and the package did not run on this one.

@@ -99,6 +99,13 @@ gets its own dated version heading once the deployment is verified.
 - **Overdue task descriptions are readable:** their muted text reached only
   3.5:1 on the overdue background and now uses the main text color. The contrast
   test did not see it, because it measured views before their data had loaded.
+- **Day ranges are right on SQLite:** there the daily summary missed the day's
+  planned tasks and agreed catch-up work, a week left out its Sunday for the
+  weekly goal and the ranking, streaks could count a day twice, and early work
+  on an interval task could remove a pending task of the day before its
+  successor. SQLite stores these dates with a time of day, and the comparisons
+  now hold for either form. PostgreSQL and MySQL/MariaDB were not affected;
+  stored data stays as it is.
 
 ### Security after 0.8.0-alpha.4
 

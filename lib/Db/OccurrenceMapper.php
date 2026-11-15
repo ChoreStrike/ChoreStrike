@@ -146,8 +146,8 @@ class OccurrenceMapper extends QBMapper {
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
-			->andWhere($qb->expr()->gte('planned_date', $qb->createNamedParameter($fromKey, IQueryBuilder::PARAM_STR)))
-			->andWhere($qb->expr()->lte('planned_date', $qb->createNamedParameter($toKey, IQueryBuilder::PARAM_STR)))
+			->andWhere($this->onOrAfter($qb, 'planned_date', $fromKey))
+			->andWhere($this->onOrBefore($qb, 'planned_date', $toKey))
 			->orderBy('room_task_id', 'ASC')
 			->addOrderBy('schedule_rev_id', 'ASC')
 			->addOrderBy('ordinal', 'ASC');
@@ -213,7 +213,7 @@ class OccurrenceMapper extends QBMapper {
 			->where($qb->expr()->eq('schedule_rev_id', $qb->createNamedParameter($revision->getId(), IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->isNull('completion_id'))
 			->andWhere($qb->expr()->isNull('covered_by_completion_id'))
-			->andWhere($qb->expr()->gt('planned_date', $qb->createNamedParameter($fromDateExclusive->format('Y-m-d'), IQueryBuilder::PARAM_STR)))
+			->andWhere($this->onOrAfter($qb, 'planned_date', self::dayAfter($fromDateExclusive->format('Y-m-d'))))
 			->executeStatement();
 	}
 
@@ -266,14 +266,12 @@ class OccurrenceMapper extends QBMapper {
 	 */
 	public function findByHousePlannedBetween(int $houseId, string $fromKey, string $toKey): array {
 		$qb = $this->db->getQueryBuilder();
-		// NOTE: the day keys bind as strings — Doctrine's PARAM_DATE
-		// conversion rejects plain 'Y-m-d' strings.
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter(Occurrence::KIND_SCHEDULED, IQueryBuilder::PARAM_STR)))
-			->andWhere($qb->expr()->gte('planned_date', $qb->createNamedParameter($fromKey, IQueryBuilder::PARAM_STR)))
-			->andWhere($qb->expr()->lte('planned_date', $qb->createNamedParameter($toKey, IQueryBuilder::PARAM_STR)))
+			->andWhere($this->onOrAfter($qb, 'planned_date', $fromKey))
+			->andWhere($this->onOrBefore($qb, 'planned_date', $toKey))
 			->orderBy('room_task_id', 'ASC')
 			->addOrderBy('schedule_rev_id', 'ASC')
 			->addOrderBy('ordinal', 'ASC');
@@ -299,7 +297,8 @@ class OccurrenceMapper extends QBMapper {
 			->andWhere($qb->expr()->isNull('o.completion_id'))
 			->andWhere($qb->expr()->isNull('o.covered_by_completion_id'))
 			->andWhere($qb->expr()->eq('om.wallet_id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('om.work_date', $qb->createNamedParameter($workDateKey, IQueryBuilder::PARAM_STR)))
+			->andWhere($this->onOrAfter($qb, 'om.work_date', $workDateKey))
+			->andWhere($this->onOrBefore($qb, 'om.work_date', $workDateKey))
 			->orderBy('o.room_task_id', 'ASC')
 			->addOrderBy('o.schedule_rev_id', 'ASC')
 			->addOrderBy('o.ordinal', 'ASC');
@@ -318,15 +317,16 @@ class OccurrenceMapper extends QBMapper {
 			->from($this->getTableName())
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter(Occurrence::KIND_SCHEDULED, IQueryBuilder::PARAM_STR)))
-			->andWhere($qb->expr()->lte('planned_date', $qb->createNamedParameter($throughKey, IQueryBuilder::PARAM_STR)))
+			->andWhere($this->onOrBefore($qb, 'planned_date', $throughKey))
 			->orderBy('planned_date', 'ASC')
 			->addOrderBy('id', 'ASC')
 			->setMaxResults($limit);
 		if ($afterDay !== null) {
 			$qb->andWhere($qb->expr()->orX(
-				$qb->expr()->gt('planned_date', $qb->createNamedParameter($afterDay, IQueryBuilder::PARAM_STR)),
+				$this->onOrAfter($qb, 'planned_date', self::dayAfter($afterDay)),
 				$qb->expr()->andX(
-					$qb->expr()->eq('planned_date', $qb->createNamedParameter($afterDay, IQueryBuilder::PARAM_STR)),
+					$this->onOrAfter($qb, 'planned_date', $afterDay),
+					$this->onOrBefore($qb, 'planned_date', $afterDay),
 					$qb->expr()->gt('id', $qb->createNamedParameter($afterId, IQueryBuilder::PARAM_INT))
 				)
 			));
@@ -334,4 +334,24 @@ class OccurrenceMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
+	/*
+	 * Day bounds on DATE columns. Nextcloud binds an entity's date field as
+	 * 'Y-m-d 00:00:00'; PostgreSQL and MySQL store the day, SQLite keeps the
+	 * text and compares strings, so `<=`, `=` and `>` against a bare day key
+	 * put that day after itself there. `>=` a day and `<` the next day hold
+	 * for either form on every provider. Bare keys, because Doctrine's
+	 * PARAM_DATE conversion rejects plain 'Y-m-d' strings.
+	 */
+
+	private function onOrAfter(IQueryBuilder $qb, string $column, string $dayKey): string {
+		return $qb->expr()->gte($column, $qb->createNamedParameter($dayKey, IQueryBuilder::PARAM_STR));
+	}
+
+	private function onOrBefore(IQueryBuilder $qb, string $column, string $dayKey): string {
+		return $qb->expr()->lt($column, $qb->createNamedParameter(self::dayAfter($dayKey), IQueryBuilder::PARAM_STR));
+	}
+
+	private static function dayAfter(string $dayKey): string {
+		return (new \DateTimeImmutable($dayKey, new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d');
+	}
 }
