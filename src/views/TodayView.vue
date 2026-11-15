@@ -367,14 +367,12 @@ export default {
 			try {
 				// Rows are enriched server-side (CS-PLAN-066 D1) — the daily
 				// and overdue reads carry task, room and canonical assignees.
+				// No due-today read: nothing on Today shows that count, and a
+				// loaded count would join every refresh after a completion.
 				await Promise.all([
 					this.roomTasksStore.fetchFilteredDailyTasks(),
 					this.roomTasksStore.fetchOverdueTasks(),
 				])
-				this.roomTasksStore.fetchDueTodayTasks().catch(() => {
-					// Count projections refresh opportunistically; the view
-					// rows do not depend on them.
-				})
 				this.loadStatus()
 			} catch (error) {
 				this.error = true

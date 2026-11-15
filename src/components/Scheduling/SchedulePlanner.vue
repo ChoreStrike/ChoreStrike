@@ -85,7 +85,7 @@
 		</p>
 
 		<p v-else-if="planStatus === 'applied'" class="status-banner success" data-testid="plan-applied">
-			{{ t('chorestrike', 'The plan was applied. Calendar and My Day are up to date.') }}
+			{{ t('chorestrike', 'The plan was applied. Calendar and Today are up to date.') }}
 		</p>
 
 		<p v-else-if="planStatus === 'refreshFailed'" class="status-banner warning" data-testid="plan-refresh-failed">

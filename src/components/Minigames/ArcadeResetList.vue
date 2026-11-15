@@ -82,7 +82,6 @@ import Modal from '../Common/Modal.vue'
 import { useHouseStore } from '../../store/house.js'
 import { useMinigameStore } from '../../store/minigame.js'
 import { dateKeyInZone, formatDayKey } from '../../utils/dateKeys.js'
-import { logger } from '../../utils/logger.js'
 
 /**
  * Owner-only arcade reset (CS-PLAN-090 WP-J, D-090-63): every member with
@@ -135,9 +134,9 @@ async function confirm() {
 	try {
 		await store.resetProgress(member.userId)
 		doneName.value = member.displayName
-	} catch (error) {
+	} catch {
+		// The store has logged it.
 		failed.value = true
-		logger.error('Failed to reset the arcade progress', error, { component: 'ArcadeResetList', action: 'confirm' })
 	} finally {
 		resetting.value = false
 		pending.value = null

@@ -1640,7 +1640,7 @@ msgstr ""
 msgid "Limit daily tasks"
 msgstr ""
 
-msgid "Limit how many tasks this member sees per day in My Day (1-100)"
+msgid "Limit how many tasks this member sees per day on Today (1-100)"
 msgstr ""
 
 msgid "Line up shoes, hang up coats, and clear the mail and clutter by the door."
@@ -2048,13 +2048,13 @@ msgstr ""
 msgid "Only you and the assigned members can see and complete this task. Assigned members can also edit it."
 msgstr ""
 
-msgid "Open My Day to see the details. You receive at most one summary per day."
-msgstr ""
-
 msgid "Open My Requests"
 msgstr ""
 
 msgid "Open Rewards"
+msgstr ""
+
+msgid "Open Today to see the details. You receive at most one summary per day."
 msgstr ""
 
 msgid "Open the Rewards catalog to request a reward."
@@ -3077,7 +3077,7 @@ msgstr ""
 msgid "The plan was applied."
 msgstr ""
 
-msgid "The plan was applied. Calendar and My Day are up to date."
+msgid "The plan was applied. Calendar and Today are up to date."
 msgstr ""
 
 msgid "The planner only places a task on a day when it fits a person's energy budget. By default that is {weekday} energy on weekdays and {weekend} at weekends."

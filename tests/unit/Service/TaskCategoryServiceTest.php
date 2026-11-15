@@ -102,6 +102,12 @@ class TaskCategoryServiceTest extends TestCase {
 		$this->service->save(3, 2, [['key' => $garden, 'label' => null], ['key' => 'other']]);
 	}
 
+	public function testSave_ABuiltInNameIsFreeOnceItsCategoryIsRenamed(): void {
+		$saved = $this->service->save(3, 0, [['key' => 'kitchen', 'label' => 'Cooking'], ['label' => 'Kitchen'], ['key' => 'other']]);
+
+		$this->assertSame(['Cooking', 'Kitchen'], array_column(array_slice($saved['items'], 0, 2), 'label'));
+	}
+
 	public function testSave_TwentyCategoriesAreAllowed(): void {
 		$items = array_map(static fn (int $i): array => ['label' => "Category $i"], range(1, 19));
 		$items[] = ['key' => 'other'];
@@ -135,6 +141,9 @@ class TaskCategoryServiceTest extends TestCase {
 			'a name of 41 characters' => [[['label' => str_repeat('a', 41)], $other]],
 			'a name that is not a string' => [[['label' => 5], $other]],
 			'two names that differ only in case' => [[['label' => 'Garden'], ['label' => 'GARDEN'], $other]],
+			'a new name equal to a kept built-in name' => [[['key' => 'kitchen'], ['label' => 'kitchen'], $other]],
+			'a second category named like Other' => [[['label' => 'Other'], $other]],
+			'a built-in renamed like another kept built-in' => [[['key' => 'cleaning', 'label' => 'Kitchen'], ['key' => 'kitchen'], $other]],
 			'an item that is not an object' => [['cleaning', $other]],
 			'an empty list' => [[]],
 			'21 categories' => [[...array_map(static fn (int $i): array => ['label' => "Category $i"], range(1, 20)), $other]],

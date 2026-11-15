@@ -220,7 +220,9 @@ A `label` of `null` keeps the translated name of a built-in key.
   A listed key keeps its category, possibly renamed or moved. A key that is
   left out deletes the category.
 - `other` must be the last item and keeps its name. The list may have at most
-  20 items, and each name 1 to 40 characters, unique regardless of case.
+  20 items, and each name 1 to 40 characters, unique regardless of case. A
+  built-in that keeps its name counts with its name in the saving owner's
+  language, so no second "Other" or "Kitchen" appears beside it.
 - Stored task rows are never rewritten. A task whose key is no longer listed
   counts as `other` in the client's lists and filters. A task write
   (`PUT /tasks/{id}`, `POST /room-tasks`) accepts only a listed key and
@@ -231,6 +233,13 @@ A `label` of `null` keeps the translated name of a built-in key.
   `400 VALIDATION_ERROR` for a malformed envelope or a list that breaks a rule,
   `409 CONFLICT` when the list changed since `revision`,
   `500 TASK_CATEGORIES_ERROR`.
+
+#### GET /house/health
+Recalculates the house health as the average cleanliness of its rooms, stores
+it on the house and returns it as `{ "houseHealth": 85 }` (100 for a house
+without rooms, then nothing is stored). Members only. The app has no
+client for this route since Today replaced the Dashboard (CS-PLAN-090
+D-090-38); it stays until Release B.
 
 #### GET /house/stats
 House overview statistics for the Insights view (CS-PLAN-040).

@@ -51,6 +51,19 @@ class TaskCategoryTest extends IntegrationTestCase {
 		$this->categories()->save($houseId, 0, [['key' => 'other']]);
 	}
 
+	public function testANewNameEqualToAKeptBuiltInNameIsRefusedAndNothingIsStored(): void {
+		$houseId = $this->createHouse(self::OWNER);
+
+		try {
+			$this->categories()->save($houseId, 0, [['key' => 'kitchen'], ['label' => 'KITCHEN'], ['key' => 'other']]);
+			self::fail('a second "Kitchen" must be refused');
+		} catch (ValidationException $e) {
+			self::assertSame('Two categories cannot have the same name.', $e->getMessage());
+		}
+		\OC::$server->get(IAppConfig::class)->clearCache(true);
+		self::assertSame(0, $this->categories()->getList()['revision']);
+	}
+
 	public function testADeletedKeyLeavesTheStoredTaskAloneAndCannotBeWritten(): void {
 		$houseId = $this->createHouse(self::OWNER);
 		$roomId = $this->createRoom($houseId, $this->createFloor($houseId), 'Kitchen');

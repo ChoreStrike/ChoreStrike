@@ -151,12 +151,15 @@ export default {
 			return [...tasks].sort(props.compare)
 		})
 
+		// One label per row and pass; the template asks for each heading twice.
+		const sectionLabels = computed(() => (props.sectionLabel ? sortedTasks.value.map(props.sectionLabel) : []))
+
 		const headingAt = (index) => {
-			if (!props.sectionLabel) {
+			const labels = sectionLabels.value
+			if (labels.length === 0) {
 				return ''
 			}
-			const label = props.sectionLabel(sortedTasks.value[index])
-			return index === 0 || label !== props.sectionLabel(sortedTasks.value[index - 1]) ? label : ''
+			return index === 0 || labels[index] !== labels[index - 1] ? labels[index] : ''
 		}
 
 		const toggleExpand = async (item) => {
@@ -410,7 +413,7 @@ export default {
 	display: flex;
 	gap: 1rem;
 	padding: 1rem;
-	background: var(--color-background);
+	background: var(--color-main-background);
 	border-radius: var(--border-radius-large);
 }
 
@@ -418,7 +421,7 @@ export default {
 	width: 24px;
 	height: 24px;
 	border-radius: 50%;
-	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-main-background) 50%, var(--color-background-dark) 75%);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 }
@@ -438,7 +441,7 @@ export default {
 	width: 150px;
 	height: 16px;
 	border-radius: var(--border-radius);
-	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-main-background) 50%, var(--color-background-dark) 75%);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 }
@@ -447,7 +450,7 @@ export default {
 	width: 60px;
 	height: 20px;
 	border-radius: var(--border-radius-pill);
-	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-main-background) 50%, var(--color-background-dark) 75%);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 }
@@ -461,7 +464,7 @@ export default {
 	width: 50px;
 	height: 12px;
 	border-radius: var(--border-radius);
-	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-main-background) 50%, var(--color-background-dark) 75%);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 }

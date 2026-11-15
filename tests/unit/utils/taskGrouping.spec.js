@@ -11,6 +11,7 @@ import {
 	groupByRoom,
 	groupingFromQuery,
 	openGroupFromQuery,
+	sortByDueGroup,
 	UNASSIGNED,
 } from '../../../src/utils/taskGrouping.js'
 
@@ -74,6 +75,14 @@ describe('taskGrouping (CS-PLAN-090 WP-C)', () => {
 		it('orders a paged list by due class first, so a class is never split by an earlier date', () => {
 			// Row 5 is planned before the missed row 2 and still comes after it.
 			expect(ids([...rows].sort(compareByDueGroup('UTC')))).toEqual([2, 5, 3, 1, 6, 4])
+		})
+
+		it('sorts a whole list into the same order without touching its input', () => {
+			const input = [...rows]
+
+			expect(ids(sortByDueGroup(input, 'UTC'))).toEqual([2, 5, 3, 1, 6, 4])
+			expect(ids(input)).toEqual([1, 2, 3, 4, 5, 6])
+			expect(sortByDueGroup([], 'UTC')).toEqual([])
 		})
 	})
 

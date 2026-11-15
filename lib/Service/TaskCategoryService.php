@@ -129,7 +129,6 @@ class TaskCategoryService {
 		}
 		$listed = array_column($current, 'key');
 		$result = [];
-		$names = [];
 		foreach ($items as $item) {
 			$label = $this->label($item);
 			$key = is_array($item) ? ($item['key'] ?? null) : null;
@@ -146,16 +145,39 @@ class TaskCategoryService {
 			if ($key === self::OTHER && $label !== null) {
 				throw $this->invalid($this->l10n->t('"Other" stays the last category and keeps its name.'));
 			}
-			if ($label !== null) {
-				$folded = mb_strtolower($label);
-				if (isset($names[$folded])) {
-					throw $this->invalid($this->l10n->t('Two categories cannot have the same name.'));
-				}
-				$names[$folded] = true;
-			}
 			$result[$key] = ['key' => $key, 'label' => $label];
 		}
+		$this->assertUniqueNames($result);
 		return $this->checkedShape(array_values($result));
+	}
+
+	/**
+	 * Refuse two categories that read the same regardless of case, a kept
+	 * built-in name included, compared in the language of the saving owner.
+	 *
+	 * @param array<string, array{key: string, label: ?string}> $items
+	 */
+	private function assertUniqueNames(array $items): void {
+		$names = [];
+		foreach ($items as $item) {
+			$folded = mb_strtolower($item['label'] ?? $this->builtInName($item['key']));
+			if (isset($names[$folded])) {
+				throw $this->invalid($this->l10n->t('Two categories cannot have the same name.'));
+			}
+			$names[$folded] = true;
+		}
+	}
+
+	/** The translated name of a built-in key; only these keep a null label. */
+	private function builtInName(string $key): string {
+		return match ($key) {
+			'cleaning' => $this->l10n->t('Cleaning'),
+			'kitchen' => $this->l10n->t('Kitchen'),
+			'bathroom' => $this->l10n->t('Bathroom'),
+			'organizing' => $this->l10n->t('Organizing'),
+			'maintenance' => $this->l10n->t('Maintenance'),
+			default => $this->l10n->t('Other'),
+		};
 	}
 
 	/** The trimmed label of one item, null for a built-in name. */

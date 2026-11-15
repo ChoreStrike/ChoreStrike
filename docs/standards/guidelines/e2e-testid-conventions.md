@@ -52,7 +52,7 @@ without a stable hook is a defect.
 The Nextcloud `<NcAppNavigationItem>` component renders a single `<li>` root and
 relies on Vue 3 attribute fallthrough (`inheritAttrs` default `true`) to surface
 `data-testid` onto that `<li>`. Each nav entry in [`src/App.vue`](../../../src/App.vue)
-declares a `nav-*` testid (`nav-today`, `nav-tasks`, `nav-leaderboard`,
+declares a `nav-*` testid (`nav-today`, `nav-tasks`, `nav-insights`,
 `nav-settings`).
 
 - **Preferred selector for nav:** `page.getByRole('link', { name: 'Tasks' })` —

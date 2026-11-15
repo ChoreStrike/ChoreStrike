@@ -61,7 +61,7 @@
 			<div v-if="!isSelf" class="form-section">
 				<h4>{{ t('chorestrike', 'Daily Task Limit') }}</h4>
 				<p class="section-description">
-					{{ t('chorestrike', 'Limit how many tasks this member sees per day in My Day (1-100)') }}
+					{{ t('chorestrike', 'Limit how many tasks this member sees per day on Today (1-100)') }}
 				</p>
 				<div class="limit-row">
 					<label class="toggle-label">

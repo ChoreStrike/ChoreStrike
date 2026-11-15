@@ -62,7 +62,9 @@ describe('workflow request budgets (CS-PLAN-067 §3.5)', () => {
 	})
 
 	describe('TaskManager initialization', () => {
-		it('loads the list, whatever its grouping, with exactly ONE house-wide request', async () => {
+		// Grouping by room or person and opening a group add no read; the
+		// browser budget in workflow-request-budgets.spec.ts pins that.
+		it('loads the list with exactly ONE house-wide request', async () => {
 			const houseTasks = [houseTask(1, 10), houseTask(2, 20), houseTask(3, 30)]
 			api.get.mockImplementation((url) => {
 				if (url === '/api/v1/room-tasks') {

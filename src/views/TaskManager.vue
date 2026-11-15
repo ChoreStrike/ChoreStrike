@@ -173,7 +173,7 @@ import { logger } from '../utils/logger.js'
 import { categoryOptions } from '../utils/taskCategories.js'
 import { groupingOptions } from '../utils/taskDisplay.js'
 import { filtersFromQuery, filterTaskItems, pageFromQuery } from '../utils/taskFilters.js'
-import { compareByDueGroup, dueGroupOf, groupByDue, groupByPerson, groupByRoom, groupingFromQuery, openGroupFromQuery, UNASSIGNED } from '../utils/taskGrouping.js'
+import { compareByDueGroup, dueGroupOf, groupByDue, groupByPerson, groupByRoom, groupingFromQuery, openGroupFromQuery, sortByDueGroup, UNASSIGNED } from '../utils/taskGrouping.js'
 
 // Client-side page size of the all-tasks list (CS-PLAN-084 D-084-02).
 const PAGE_SIZE = 20
@@ -250,12 +250,12 @@ export default {
 				? this.roomTasksStore.finishedRoomTasks.map((roomTask) => this.enrich(roomTask))
 				: this.allTasks
 			// Sorted here so each page holds the next rows of the visible order.
-			return filterTaskItems(tasks, this.filters, {
+			return sortByDueGroup(filterTaskItems(tasks, this.filters, {
 				rooms: this.roomsStore.rooms,
 				actorId: this.userStore.currentUser?.nextcloudUserId,
 				timezone: this.houseStore.timezone,
 				categories: this.houseStore.taskCategories.items,
-			}).sort(this.dueOrder)
+			}), this.houseStore.timezone)
 		},
 
 		categoryChoices() {

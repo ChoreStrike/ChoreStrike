@@ -180,6 +180,24 @@ describe('RankingPanel (consent-filtered ranking, a section of Insights)', () =>
 		expect(mockFetchMedals).toHaveBeenCalled()
 	})
 
+	it('evaluates the medals while the ranking read is still running, and reads them after the evaluation', async () => {
+		let releaseRanking
+		let releaseCheck
+		mockFetchRanking.mockImplementationOnce(() => new Promise((resolve) => { releaseRanking = resolve }))
+		mockCheckMedals.mockImplementationOnce(() => new Promise((resolve) => { releaseCheck = resolve }))
+		mount(RankingPanel, { global: { plugins: [pinia] } })
+		await flushPromises()
+
+		expect(mockCheckMedals).toHaveBeenCalledTimes(1)
+		expect(mockFetchMedals).not.toHaveBeenCalled()
+
+		releaseCheck()
+		await flushPromises()
+		expect(mockFetchMedals).toHaveBeenCalledTimes(1)
+		releaseRanking()
+		await flushPromises()
+	})
+
 	it('shows the opt-in/closed state when ranking is disabled', async () => {
 		rankingState.rankingEnabled = false
 		const wrapper = await mountView()

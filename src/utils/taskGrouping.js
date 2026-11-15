@@ -85,6 +85,20 @@ export function compareByDueGroup(timezone) {
 }
 
 /**
+ * Rows in the order of the list by due date, with each row's due class
+ * worked out once: the comparator above repeats it on every comparison.
+ * @param {object[]} items Enriched rows.
+ * @param {string} timezone IANA timezone of the household.
+ * @return {object[]} A new array in list order.
+ */
+export function sortByDueGroup(items, timezone) {
+	return items
+		.map((item) => ({ item, rank: DUE_GROUPS.indexOf(dueGroupOf(item, timezone)) }))
+		.sort((a, b) => (a.rank - b.rank) || compareTaskItems(a.item, b.item))
+		.map(({ item }) => item)
+}
+
+/**
  * Rows by due class, in list order; a class without rows is left out.
  * @param {object[]} items Enriched rows.
  * @param {string} timezone IANA timezone of the household.

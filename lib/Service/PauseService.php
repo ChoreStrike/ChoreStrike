@@ -156,40 +156,51 @@ class PauseService {
 			if ($pendingPersonal && !$isOwner && $subjectUserId !== $viewerUserId) {
 				continue;
 			}
-			// RF-073-WP2-28: an EXPLICIT field whitelist, never the entity
-			// serialized wholesale. The personal reason and the
-			// retrospective-illness marker are self/owner data (plan
-			// §3.5) — an unrelated member receives only the approved
-			// neutral shared facts, in every pause state. A departed or
-			// erased subject resolves to no user id and therefore never
-			// regains personal metadata through its retained wallet.
-			$entry = [
-				'pauseGroupId' => $pause->getPauseGroupId(),
-				// The expected revision of the next command is the group's
-				// latest one, also when the group stands for an earlier one.
-				'revision' => $history[count($history) - 1]->getRevision(),
-				'scope' => $pause->getScope(),
-				'subjectWalletId' => $pause->getSubjectWalletId(),
-				'subjectUserId' => $subjectUserId,
-				'state' => $pause->getState(),
-				'startDate' => $pause->getStartDate()?->format('Y-m-d'),
-				'endDate' => $pause->getEndDate()?->format('Y-m-d'),
-				'timezone' => $pause->getTimezone(),
-				'createdAt' => $pause->getCreatedAt()?->format('c'),
-				'updatedAt' => $pause->getUpdatedAt()?->format('c'),
-			];
 			$isSelf = $subjectUserId !== null && $subjectUserId === $viewerUserId;
-			if ($pause->getScope() === Pause::SCOPE_HOUSE || $isOwner || $isSelf) {
-				$entry['reasonCode'] = $pause->getReasonCode();
-				$entry['isRetrospectiveIllness'] = $pause->getIsRetrospectiveIllness();
-			}
-			// Whether THIS viewer may delete it now: the same rule the
-			// delete command applies (D-090-22, D-090-25).
-			$entry['deletable'] = ($isOwner || $isSelf) && $this->deletionBlocker($history) === null;
-			$result[] = $entry;
+			$result[] = $this->viewerEntry($pause, $history, $subjectUserId, $isOwner || $isSelf);
 		}
 		usort($result, static fn (array $a, array $b): int => $a['pauseGroupId'] <=> $b['pauseGroupId']);
 		return $result;
+	}
+
+	/**
+	 * One group of {@see listForViewer} as the viewer may see it.
+	 *
+	 * RF-073-WP2-28: an EXPLICIT field whitelist, never the entity serialized
+	 * wholesale. The personal reason and the retrospective-illness marker are
+	 * self/owner data (plan §3.5) — an unrelated member receives only the
+	 * approved neutral shared facts, in every pause state. A departed or
+	 * erased subject resolves to no user id and therefore never regains
+	 * personal metadata through its retained wallet.
+	 *
+	 * @param list<Pause> $history The group's ordered revisions
+	 * @param bool $selfOrOwner The viewer is the subject or an owner
+	 * @return array<string, mixed>
+	 */
+	private function viewerEntry(Pause $pause, array $history, ?string $subjectUserId, bool $selfOrOwner): array {
+		$entry = [
+			'pauseGroupId' => $pause->getPauseGroupId(),
+			// The expected revision of the next command is the group's
+			// latest one, also when the group stands for an earlier one.
+			'revision' => $history[count($history) - 1]->getRevision(),
+			'scope' => $pause->getScope(),
+			'subjectWalletId' => $pause->getSubjectWalletId(),
+			'subjectUserId' => $subjectUserId,
+			'state' => $pause->getState(),
+			'startDate' => $pause->getStartDate()?->format('Y-m-d'),
+			'endDate' => $pause->getEndDate()?->format('Y-m-d'),
+			'timezone' => $pause->getTimezone(),
+			'createdAt' => $pause->getCreatedAt()?->format('c'),
+			'updatedAt' => $pause->getUpdatedAt()?->format('c'),
+		];
+		if ($pause->getScope() === Pause::SCOPE_HOUSE || $selfOrOwner) {
+			$entry['reasonCode'] = $pause->getReasonCode();
+			$entry['isRetrospectiveIllness'] = $pause->getIsRetrospectiveIllness();
+		}
+		// Whether THIS viewer may delete it now: the same rule the delete
+		// command applies (D-090-22, D-090-25).
+		$entry['deletable'] = $selfOrOwner && $this->deletionBlocker($history) === null;
+		return $entry;
 	}
 
 	/**

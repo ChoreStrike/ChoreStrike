@@ -434,7 +434,7 @@ test.describe('Canonical household journey', () => {
 				expect(afterApply!.nextDue.startsWith(houseLocalDate(0))).toBeTruthy()
 				expect(afterApply!.assignees).toEqual(['kid'])
 
-				// Calendar and My Day reconcile from the applied result.
+				// Calendar and Today reconcile from the applied result.
 				await expect(page.getByTestId('schedule-calendar')).toBeVisible()
 				await page.getByTestId('nav-calendar').click()
 				await expect(page.getByTestId('calendar-view')).toBeVisible()

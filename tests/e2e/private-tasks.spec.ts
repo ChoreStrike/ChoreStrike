@@ -6,7 +6,7 @@
  *
  * Verifies the CS-PLAN-005 Phase 3 frontend contract:
  * - Private tasks show a lock icon in the task list
- * - The "Show only my private tasks" filter works in QuickStats
+ * - The private scope of the task list (`?visibility=private`) shows only private tasks
  * - Private tasks created via the form get the correct visibility
  *
  * Requires: Docker test environment with the `family` database profile.
@@ -102,31 +102,25 @@ test.describe('Private Tasks', () => {
 	test('my-private filter shows only own private tasks', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/today')
-			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
+			// The Dashboard chip that led here went with CS-PLAN-090 WP-B; the
+			// task list keeps the private scope behind ?visibility=private
+			// (CS-PLAN-041) and its Visibility filter.
+			const stamp = Date.now()
+			const privateName = `Private Filter Probe ${stamp}`
+			const publicName = `Public Filter Probe ${stamp}`
+			await createVisibilityFixture(page, privateName, 'private')
+			await createVisibilityFixture(page, publicName, 'public')
 
-			const privateFilter = page.getByTestId('private-filter-toggle')
+			await page.goto('/apps/chorestrike/#/tasks?visibility=private')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 30000 })
+			await expect(page.getByTestId('visibility-filter')).toHaveValue('private')
 
-			if (await privateFilter.count() > 0) {
-				// CS-PLAN-041: the chip routes to the task list pre-filtered to
-				// private visibility.
-				await privateFilter.first().click()
-				await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 15000 })
-
-				const visibilityFilter = page.getByTestId('visibility-filter')
-				if (await visibilityFilter.count() > 0) {
-					await expect(visibilityFilter).toHaveValue('private')
-				}
-
-				const taskItems = page.locator('[data-testid="task-item"]')
-				const count = await taskItems.count()
-
-				for (let i = 0; i < count; i++) {
-					const item = taskItems.nth(i)
-					if (await item.isVisible()) {
-						await expect(item.locator('.visibility-icon')).toBeVisible()
-					}
-				}
+			const rows = page.getByTestId('task-item')
+			await expect(rows.filter({ hasText: privateName })).toBeVisible({ timeout: 15000 })
+			await expect(rows.filter({ hasText: publicName })).toHaveCount(0)
+			const count = await rows.count()
+			for (let i = 0; i < count; i++) {
+				await expect(rows.nth(i).getByTestId('visibility-lock-icon')).toBeVisible()
 			}
 		} finally {
 			await context.close()

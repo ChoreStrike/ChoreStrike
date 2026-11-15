@@ -420,8 +420,8 @@
   ],
   "workflow-request-budgets.spec.ts": [
     "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > SchedulingView preloads its planning candidates with ONE house-wide request",
-    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > TaskManager initialization issues ONE house-wide room-task request",
-    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > Today reads its three projections once each and no instance list (CS-PLAN-090 WP-B)"
+    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > TaskManager issues ONE house-wide room-task request for every grouping (CS-PLAN-090 WP-C)",
+    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > Today reads its two projections once each and no instance list (CS-PLAN-090 WP-B)"
   ],
   "arcade-mobile.spec.ts": [
     "arcade-mobile.spec.ts > Arcade touch controls (CS-PLAN-086) > Crumb Snake steers with the on-screen pad",

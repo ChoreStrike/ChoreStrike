@@ -5,14 +5,15 @@ import { createUserContext } from './fixtures/auth-contexts.ts'
  * Workflow request budgets over the real HTTP boundary (CS-PLAN-067 §3.5
  * D5): the TaskManager and Scheduling views must load their instance data
  * with exactly ONE house-wide GET /api/v1/room-tasks request — never the
- * per-room loop (an N+1 of requests) the house batch read replaced. Today
- * reads its own three projections once each and no instance list at all.
+ * per-room loop (an N+1 of requests) the house batch read replaced, also
+ * when the list is grouped by room or person. Today reads its own two
+ * projections once each and no instance list at all.
  *
  * Read-only spec: it only navigates and counts XHRs, so it stays in the
  * default (non-serial) Playwright pool.
  */
 test.describe('Workflow request budgets (CS-PLAN-067)', () => {
-	test('TaskManager initialization issues ONE house-wide room-task request', async ({ browser }) => {
+	test('TaskManager issues ONE house-wide room-task request for every grouping (CS-PLAN-090 WP-C)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const roomTaskRequests: string[] = []
@@ -34,6 +35,19 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 			// Give late XHRs a beat to be recorded.
 			await page.waitForLoadState('networkidle')
 
+			// Grouping by room or person and opening a group filter what was
+			// read; a group's rows render from the same house-wide list.
+			for (const grouping of ['room', 'person']) {
+				await page.getByTestId(`tasks-group-${grouping}`).click()
+				const toggle = page.getByTestId('task-group-toggle').first()
+				if (await toggle.getAttribute('aria-expanded') !== 'true') {
+					await toggle.click()
+				}
+				await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+				await expect(page.getByTestId('room-task-list').first()).toBeVisible({ timeout: 15000 })
+			}
+			await page.waitForLoadState('networkidle')
+
 			// The frozen budget: ONE active-only house-wide read, ZERO per-room reads.
 			expect(roomTaskRequests).toEqual(['house:true'])
 		} finally {
@@ -41,7 +55,7 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 		}
 	})
 
-	test('Today reads its three projections once each and no instance list (CS-PLAN-090 WP-B)', async ({ browser }) => {
+	test('Today reads its two projections once each and no instance list (CS-PLAN-090 WP-B)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const roomTaskRequests: string[] = []
@@ -61,9 +75,9 @@ test.describe('Workflow request budgets (CS-PLAN-067)', () => {
 			await page.getByTestId('today-filter-all').click()
 			await page.waitForLoadState('networkidle')
 
-			// The frozen budget: the day, the overdue work, the counters —
-			// no house-wide or per-room list, no range read for appointments.
-			expect([...roomTaskRequests].sort()).toEqual(['/due-today', '/filtered-daily', '/overdue'])
+			// The frozen budget: the day and the overdue work — no due-today
+			// count, no house-wide or per-room list, no range read.
+			expect([...roomTaskRequests].sort()).toEqual(['/filtered-daily', '/overdue'])
 		} finally {
 			await context.close()
 		}

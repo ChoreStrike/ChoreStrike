@@ -135,8 +135,8 @@ export const useGameStore = defineStore('game', {
 		 * Best-effort pre-pass before fetchMedals(): asks the backend to
 		 * evaluate and award any due weekly medals so the subsequent fetch
 		 * surfaces them (and their celebrations). A failure here must not
-		 * break the Leaderboard view — medals simply stay at their last
-		 * known state.
+		 * break the ranking section of Insights — medals simply stay at
+		 * their last known state.
 		 */
 		async checkMedals() {
 			try {

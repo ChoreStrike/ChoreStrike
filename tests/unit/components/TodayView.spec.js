@@ -242,6 +242,14 @@ describe('TodayView', () => {
 		expect(catchupSection.text()).not.toContain('Do the dishes')
 	})
 
+	it('reads the day and the overdue work, not the due-today count no part of Today shows', async () => {
+		await mountView()
+
+		expect(mockRoomTasksStore.fetchFilteredDailyTasks).toHaveBeenCalledTimes(1)
+		expect(mockRoomTasksStore.fetchOverdueTasks).toHaveBeenCalledTimes(1)
+		expect(mockRoomTasksStore.fetchDueTodayTasks).not.toHaveBeenCalled()
+	})
+
 	it('keeps completion available when names fail and retries the optional member read', async () => {
 		mockUserStore.houseUsers = []
 		mockUserStore.fetchHouseUsers.mockRejectedValueOnce(new Error('offline'))

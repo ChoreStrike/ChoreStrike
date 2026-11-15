@@ -193,6 +193,12 @@ keeps its dates.
 > recognition-time eligibility, joint suspension on any paused obligated
 > participant, concrete-arrangement validation and the pause-list whitelist.
 
+> **Amended by [ADR-020](ADR-020-absences-without-requests.md) (2026-11-10):**
+> the pause rules below on child requests, owner decisions and shortening as
+> the only way to end a pause no longer hold. Every role's absence is
+> acknowledged directly, and deleting one is a `cancelled` revision that
+> governs from the next local day.
+
 **Agreement commands** (`AgreementService`, routes `occurrence#amend /
 catch-up / restart`) are owner-recorded CommandService commands under the
 house-first lock. The receipt identity covers the **action plus every

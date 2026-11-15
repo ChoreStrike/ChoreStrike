@@ -39,8 +39,8 @@ export const useHouseStore = defineStore('house', {
 		/** @type {string|null} Error message of the activity fetch */
 		activityError: null,
 		// CS-PLAN-066 §3.3: request generations scoped per resource — a
-		// stale house read can never overwrite newer navigation, mutation,
-		// or health-refresh results, and reset() discards in-flight ones.
+		// stale house read can never overwrite newer navigation or mutation
+		// results, and reset() discards in-flight ones.
 		houseRequestSeq: 0,
 		houseRequest: null,
 		insightsRequestSeq: 0,

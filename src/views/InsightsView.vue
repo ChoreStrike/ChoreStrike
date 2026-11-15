@@ -510,7 +510,7 @@ export default {
 }
 
 .skeleton {
-	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-main-background) 50%, var(--color-background-dark) 75%);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 	border-radius: var(--border-radius-large);

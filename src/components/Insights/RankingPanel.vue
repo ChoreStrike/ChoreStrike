@@ -271,14 +271,15 @@ export default {
 			this.loadError = false
 			try {
 				await this.userStore.initializeCurrentUser()
-				// The consent-filtered server view is the sole ranking
-				// authority (D10b/C5i) — no client-side member ranking.
-				await this.rankingStore.fetchRanking()
-				// Evaluate any due weekly medals first so fetchMedals() picks
-				// up genuinely new awards (celebrations fire once, guarded by
-				// the previous snapshot inside the store).
-				await this.gameStore.checkMedals()
-				await this.gameStore.fetchMedals()
+				// The ranking and the medals do not wait for each other. The
+				// consent-filtered server view is the sole ranking authority
+				// (D10b/C5i) — no client-side member ranking. Due weekly medals
+				// are evaluated first so fetchMedals() picks up new awards
+				// (celebrations fire once, guarded by the store's snapshot).
+				await Promise.all([
+					this.rankingStore.fetchRanking(),
+					this.gameStore.checkMedals().then(() => this.gameStore.fetchMedals()),
+				])
 			} catch (error) {
 				this.loadError = true
 				logger.error('Failed to load the ranking', error, { component: 'RankingPanel', action: 'initializeRanking' })

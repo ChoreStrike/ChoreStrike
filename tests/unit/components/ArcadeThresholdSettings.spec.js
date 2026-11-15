@@ -77,6 +77,32 @@ describe('ArcadeThresholdSettings', () => {
 		expect(saveButton().attributes('disabled')).toBeDefined()
 	})
 
+	it('keeps the note of a second save for its own four seconds and leaves no timer behind', async () => {
+		jest.useFakeTimers()
+		try {
+			await mountWith()
+			api.put.mockResolvedValueOnce(catalog({ ...DEFAULTS, socks: 1 }))
+			await field('socks').setValue('1')
+			await wrapper.get('form').trigger('submit')
+			await flushPromises()
+
+			jest.advanceTimersByTime(3000)
+			api.put.mockResolvedValueOnce(catalog({ ...DEFAULTS, socks: 2 }))
+			await field('socks').setValue('2')
+			await wrapper.get('form').trigger('submit')
+			await flushPromises()
+			jest.advanceTimersByTime(2000)
+			await flushPromises()
+			expect(wrapper.find('[data-testid="arcade-thresholds-saved"]').exists()).toBe(true)
+
+			wrapper.unmount()
+			wrapper = null
+			expect(jest.getTimerCount()).toBe(0)
+		} finally {
+			jest.useRealTimers()
+		}
+	})
+
 	it.each([['501'], ['-1'], ['2.5'], ['']])('refuses %p before any request', async (value) => {
 		await mountWith()
 

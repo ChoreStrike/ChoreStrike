@@ -280,7 +280,9 @@ persisted neutral handover releases with consent evidence, follow-up
 date/catch-up validation against the **concrete** current participants
 (never the replaced revision defaults), catch-up appointments (date + zone)
 that survive participant changes and project independently of pauses,
-revisioned pause groups (personal/house; child requests pending;
+revisioned pause groups (personal/house; child requests pending until
+[ADR-020](../adr/ADR-020-absences-without-requests.md), which acknowledges
+every role directly and adds deletion;
 owner-recognized illness; acknowledged-only shortening whose superseded
 future coverage is actually removed while recognized today/past survives —
 per-group revision precedence from the persisted decision fact;

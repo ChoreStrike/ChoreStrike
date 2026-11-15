@@ -70,7 +70,7 @@ Example: `ADR-001-use-vue3-for-frontend.md`
 10. [ADR-010: Invite-Only House Membership and the Unified Task-Visibility Matrix](ADR-010-invite-only-membership-visibility-matrix.md) - **Accepted** (2026-09-03)
 11. [ADR-011: Transactional Completion and Full Undo (Effect Record)](ADR-011-transactional-completion-and-undo.md) - **Accepted** (2026-09-06)
 12. [ADR-012: Actionable Household Scheduling — Preview/Apply Aggregate](ADR-012-actionable-household-scheduling.md) - **Accepted** (2026-09-10)
-13. [ADR-013: Occurrence Agreements and Corrections (Durable Recurrence Timeline)](ADR-013-occurrence-agreements-and-corrections.md) - **Accepted** (2026-09-20)
+13. [ADR-013: Occurrence Agreements and Corrections (Durable Recurrence Timeline)](ADR-013-occurrence-agreements-and-corrections.md) - **Accepted** (2026-09-20; pause part amended by ADR-020 — see in-file note)
 14. [ADR-014: Work Accounting, Ledger and Replay (Minor Units)](ADR-014-work-accounting-ledger-and-replay.md) - **Accepted** (2026-09-27; supersedes ADR-004's currency model — coins become exact minor units on an immutable ledger, corrections close via exact wallet-union deltas)
 15. [ADR-015: Consent-Filtered Household Ranking](ADR-015-ranking-consent-and-privacy.md) - **Accepted** (2026-09-27; opt-in per membership, next-Monday activation generations, exact-rational on-time ratios over public agreed occurrences, server-side filter)
 16. [ADR-016: Opt-in Daily Digest as the Only Notification Path](ADR-016-opt-in-digest-notifications.md) - **Accepted** (2026-09-29; one `digest` subject, slot-identity daily budget, at-most-once claim, quiet hours gate only, self-only versioned preferences, supersedes the per-event bell model)

@@ -86,7 +86,7 @@ gets its own dated version heading once the deployment is verified.
   reload. Before, open tasks kept showing and paying the old value until they
   were done, and a one-time task never took the new one. Completed work keeps
   its value. After the update the timeline job aligns open tasks that were
-  changed earlier; no migration runs.
+  changed earlier; this fix needs no migration of its own.
 - **A one-time task stays done:** one edited before it was completed stayed
   active and came back with the next job pass, ready to pay again. Editing a
   task shared by several rooms no longer adds work to a room that has finished.

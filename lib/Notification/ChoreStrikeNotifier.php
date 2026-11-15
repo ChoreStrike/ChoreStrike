@@ -106,7 +106,7 @@ class ChoreStrikeNotifier implements INotifier {
 		$notification->setParsedSubject($subjectText);
 		$notification->setRichSubject($subjectText);
 		$notification->setParsedMessage(
-			$l->t('Open My Day to see the details. You receive at most one summary per day.')
+			$l->t('Open Today to see the details. You receive at most one summary per day.')
 		);
 		$notification->setLink($this->url->linkToRouteAbsolute('chorestrike.page.index'));
 

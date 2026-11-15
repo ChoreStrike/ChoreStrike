@@ -70,9 +70,8 @@
 
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useMinigameStore } from '../../store/minigame.js'
-import { logger } from '../../utils/logger.js'
 import { findGame } from './gameRegistry.js'
 
 /**
@@ -90,6 +89,7 @@ const loadFailed = ref(false)
 const saving = ref(false)
 const saved = ref(false)
 const failed = ref(false)
+let savedTimer = null
 
 const serverValues = computed(() => Object.fromEntries((store.catalog?.games ?? []).map((game) => [game.gameId, game.threshold])))
 const rows = computed(() => (store.catalog?.games ?? []).map((game) => ({
@@ -137,12 +137,14 @@ async function save() {
 		await store.saveThresholds(values)
 		Object.assign(draft, serverValues.value)
 		saved.value = true
-		setTimeout(() => {
+		// A second save restarts the note's four seconds.
+		clearTimeout(savedTimer)
+		savedTimer = setTimeout(() => {
 			saved.value = false
 		}, 4000)
-	} catch (error) {
+	} catch {
+		// The store has logged it.
 		failed.value = true
-		logger.error('Failed to save the arcade thresholds', error, { component: 'ArcadeThresholdSettings', action: 'save' })
 	} finally {
 		saving.value = false
 	}
@@ -153,6 +155,8 @@ onMounted(() => {
 		return load()
 	}
 })
+
+onBeforeUnmount(() => clearTimeout(savedTimer))
 </script>
 
 <style scoped>

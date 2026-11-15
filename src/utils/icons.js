@@ -5,14 +5,12 @@
 
 import add20Regular from '@fluentui/svg-icons/icons/add_20_regular.svg'
 import arrowClockwise20Regular from '@fluentui/svg-icons/icons/arrow_clockwise_20_regular.svg'
-import arrowLeft20Regular from '@fluentui/svg-icons/icons/arrow_left_20_regular.svg'
 import arrowSync20Regular from '@fluentui/svg-icons/icons/arrow_sync_20_regular.svg'
 import bed20Regular from '@fluentui/svg-icons/icons/bed_20_regular.svg'
 import bookOpen20Regular from '@fluentui/svg-icons/icons/book_open_20_regular.svg'
 import briefcase20Regular from '@fluentui/svg-icons/icons/briefcase_20_regular.svg'
 import building20Regular from '@fluentui/svg-icons/icons/building_20_regular.svg'
 import calendar20Regular from '@fluentui/svg-icons/icons/calendar_20_regular.svg'
-import calendarWorkWeek20Regular from '@fluentui/svg-icons/icons/calendar_work_week_20_regular.svg'
 import checkmark20Regular from '@fluentui/svg-icons/icons/checkmark_20_regular.svg'
 import checkmarkCircle20Regular from '@fluentui/svg-icons/icons/checkmark_circle_20_regular.svg'
 import chevronDown20Regular from '@fluentui/svg-icons/icons/chevron_down_20_regular.svg'
@@ -35,7 +33,6 @@ import food20Regular from '@fluentui/svg-icons/icons/food_20_regular.svg'
 import games20Regular from '@fluentui/svg-icons/icons/games_20_regular.svg'
 import gift20Regular from '@fluentui/svg-icons/icons/gift_20_regular.svg'
 import grid20Regular from '@fluentui/svg-icons/icons/grid_20_regular.svg'
-import gridDots20Regular from '@fluentui/svg-icons/icons/grid_dots_20_regular.svg'
 import home20Regular from '@fluentui/svg-icons/icons/home_20_regular.svg'
 import list20Regular from '@fluentui/svg-icons/icons/list_20_regular.svg'
 import luggage20Regular from '@fluentui/svg-icons/icons/luggage_20_regular.svg'
@@ -51,9 +48,7 @@ import settings20Regular from '@fluentui/svg-icons/icons/settings_20_regular.svg
 import showerhead20Regular from '@fluentui/svg-icons/icons/showerhead_20_regular.svg'
 import star20Regular from '@fluentui/svg-icons/icons/star_20_regular.svg'
 import storage20Regular from '@fluentui/svg-icons/icons/storage_20_regular.svg'
-import ticketDiagonal20Regular from '@fluentui/svg-icons/icons/ticket_diagonal_20_regular.svg'
 import treeDeciduous20Regular from '@fluentui/svg-icons/icons/tree_deciduous_20_regular.svg'
-import trophy20Regular from '@fluentui/svg-icons/icons/trophy_20_regular.svg'
 import tv20Regular from '@fluentui/svg-icons/icons/tv_20_regular.svg'
 import vehicleCar20Regular from '@fluentui/svg-icons/icons/vehicle_car_20_regular.svg'
 import warning20Regular from '@fluentui/svg-icons/icons/warning_20_regular.svg'
@@ -145,7 +140,6 @@ const fluentSvgIcons = {
 	Check: createFluentSvgComponent('Check', checkmark20Regular),
 	CheckCircle: createFluentSvgComponent('CheckCircle', checkmarkCircle20Regular),
 	Circle: createFluentSvgComponent('Circle', circle20Regular),
-	ArrowLeft: createFluentSvgComponent('ArrowLeft', arrowLeft20Regular),
 	ChevronDown: createFluentSvgComponent('ChevronDown', chevronDown20Regular),
 	ChevronUp: createFluentSvgComponent('ChevronUp', chevronUp20Regular),
 	ChevronLeft: createFluentSvgComponent('ChevronLeft', chevronLeft20Regular),
@@ -153,7 +147,6 @@ const fluentSvgIcons = {
 	User: createFluentSvgComponent('User', person20Regular),
 	Users: createFluentSvgComponent('Users', people20Regular),
 	Calendar: createFluentSvgComponent('Calendar', calendar20Regular),
-	CalendarWorkWeek: createFluentSvgComponent('CalendarWorkWeek', calendarWorkWeek20Regular),
 	Clock: createFluentSvgComponent('Clock', clock20Regular),
 	Trash: createFluentSvgComponent('Trash', delete20Regular),
 	Trash2: createFluentSvgComponent('Trash2', delete20Regular),
@@ -180,9 +173,7 @@ const fluentSvgIcons = {
 	Shirt: createFluentSvgComponent('Shirt', clothesHanger20Regular),
 	Star: createFluentSvgComponent('Star', star20Regular),
 	Sun: createFluentSvgComponent('Sun', weatherSunny20Regular),
-	Trophy: createFluentSvgComponent('Trophy', trophy20Regular),
 	Save: createFluentSvgComponent('Save', save20Regular),
-	LayoutGrid: createFluentSvgComponent('LayoutGrid', gridDots20Regular),
 	RotateCcw: createFluentSvgComponent('RotateCcw', arrowClockwise20Regular),
 	RefreshCw: createFluentSvgComponent('RefreshCw', arrowSync20Regular),
 	Refresh: createFluentSvgComponent('Refresh', arrowSync20Regular),
@@ -197,7 +188,6 @@ const fluentSvgIcons = {
 	// Navigation glyphs (CS-PLAN-087, CR-NAV-01)
 	DataBarVertical: createFluentSvgComponent('DataBarVertical', dataBarVertical20Regular),
 	Gift: createFluentSvgComponent('Gift', gift20Regular),
-	TicketDiagonal: createFluentSvgComponent('TicketDiagonal', ticketDiagonal20Regular),
 	Luggage: createFluentSvgComponent('Luggage', luggage20Regular),
 	Settings: createFluentSvgComponent('Settings', settings20Regular),
 }

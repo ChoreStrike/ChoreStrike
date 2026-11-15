@@ -94,3 +94,98 @@ On the reviewed tree, which the review did not change:
 None: an interim review. WP-G is open, and so are the operator's second GUI review and the
 final Full review. FEAT-UX-057 is implemented and stays `In Progress` until the release. One
 scoped review commit; no merge, push, tag or deployment.
+
+## Full Review (final) - CS-PLAN-090 Simplified Core Release A candidate
+
+**Outcome:** `PASS-WITH-FIXES`. The final Full review the plan requires before the
+qualification; the plan stays in `active/`, because the qualification, the export and the
+deployment are open.
+
+### Scope and capture
+
+- `/review-chorestrike-full` on the operator's request of 2026-11-15, after the candidate commit.
+  The whole plan: `master..022bfd55` on branch `docs/release-a-plan`, twelve commits, 404 files
+  (WP-A to WP-F, WP-H to WP-K, the runtime update RF-090-12 and the candidate of WP-G), plus
+  the plan's decisions, manifest, acceptance criteria and durable-doc integration.
+- Base HEAD `022bfd559d325a046811c9447f25d67588d7363e`, pinned worktree, 12 ahead and 0 behind
+  `master`, never pushed. Clean working tree and empty index at capture; the review changed
+  only what is listed below.
+- Owning plan CS-PLAN-090; the other active plan, CS-PLAN-080, owns none of these files.
+- Four read-only reviewers in parallel (correctness, architecture, security and data flow,
+  performance and quality), each told what the interim reviews had already settled; every
+  finding re-checked against the code before routing. A static sweep found no `console.*`,
+  `v-html`, `TODO`/`FIXME`/`HACK`, `@PublicPage` or focused test in the changed files.
+
+### Findings
+
+All in the plan's §9, fixed in this review unless noted.
+
+| ID | Sev | Track | Area | Status |
+|----|-----|-------|------|--------|
+| RF-090-41 | major | correctness, architecture | `Rewards.vue` grew from 599 to 610 lines against "No view grows" | Fixed (operator's choice): `Rewards/RewardWalletBanner.vue`, view at 565 |
+| RF-090-42 | minor | performance | no test looked at requests after grouping by room or person | Fixed (operator's choice): browser budget groups and opens groups |
+| RF-090-43 | minor | performance | Today read `/due-today` for nothing, and a failed refetch showed a refresh banner | Fixed (operator's choice) |
+| RF-090-44 | minor | performance | due-class sort worked out dates per comparison; headings four times per row | Fixed (operator's choice): `sortByDueGroup()`, computed headings |
+| RF-090-45 | minor | performance | Insights ran ranking and medal reads one after another | Fixed (operator's choice): side by side |
+| RF-090-46 | minor | correctness | a second "Other" or "Kitchen" beside a kept built-in category | Fixed (operator's choice): built-in names join the duplicate check |
+| RF-090-47 | minor | correctness | three strings still named *My Day* | Fixed: *Today* / *Heute* |
+| RF-090-48 | minor | review (main agent) | the pinned private-filter scenario did nothing since WP-B | Fixed: real checks on `#/tasks?visibility=private` |
+| RF-090-49 | minor | correctness | deployment guide and changelog said no migration runs with the update that carries step 1034 | Fixed |
+| RF-090-50 | minor | performance | skeletons used `--color-background`, which Nextcloud 35 does not define | Fixed: `--color-main-background` |
+| RF-090-51 | minor | architecture | stale size inventory, missing rows, component map and store section | Fixed: inventory re-measured in non-blank lines |
+| RF-090-52 | nit | architecture, correctness | README step 4, app description, testid standard, `GET /house/health`, ADR-013 pointer, comments, manifest | Fixed |
+| RF-090-53 | nit | architecture | orphaned CSS rules and icon imports, a repeated router assertion | Fixed |
+| RF-090-54 | nit | performance | uncleared timer and double logging in the arcade settings | Fixed |
+| RF-090-55 | nit | architecture | `PauseService::listForViewer()` about 71 lines | Fixed: `viewerEntry()` |
+| RF-090-56 | minor | security (note) | the reset route refuses user IDs with a space or an apostrophe, like the older scheduling route | User-rescoped to [BUG-API-002](../backlog.md#p3-bug-api-002--member-routes-refuse-nextcloud-user-ids-with-a-space-or-an-apostrophe) |
+
+Out of scope, to the backlog: placeholders that `translate()` escapes as HTML show entities in
+names across the app ([BUG-I18N-002](../backlog.md#p3-bug-i18n-002--names-in-translated-strings-show-html-entities));
+pause coverage regroups the whole pause history per occurrence
+([CR-SVC-66](../backlog.md#p3-cr-svc-66--pause-coverage-regroups-the-whole-pause-history-per-occurrence)).
+Both are older than this plan.
+
+Accepted without change (nits): the card style of Settings exists three times
+(`settings.css`, `Settings.vue`, `ArcadeSettings.vue`); RF-090-38 chose local card rules so
+that the form sheet keeps its scope rule, and three declarations do not justify a fourth class
+yet. Today keeps its own two-option filter beside `SegmentedSwitch`; it looks different, the
+GUI reviews accepted it, and swapping it is a design change for Release B to weigh.
+
+Checked without findings (security track): every new route is `@NoAdminRequired`, with
+membership in controller and service and `requireHouseOwner()` for categories, thresholds and
+resets; a reset target must be a member under the house-row lock; absence deletion follows the
+subject-or-owner rule before and under the lock, and the list's `deletable` uses the same
+rule; thresholds, category labels, scheme ids and absence dates are validated at the boundary;
+`coinMinor` appears only for work the viewer may see (D-090-53); the page hands over only the
+viewer's own scheme; account erasure removes both per-user values; step 1034 is data only with
+bound parameters; no `v-html`, and logs carry ids only.
+
+### Questions and decisions
+
+Four, answered by the operator on 2026-11-15 with the recommended option each: extract the
+wallet banner (RF-090-41); fix all four performance and test findings now (RF-090-42..45); fix
+the category names now (RF-090-46); move the user-ID routes to the backlog for both routes
+together (RF-090-56).
+
+### Gates
+
+On the final tree:
+
+- `npx jest` (179 suites, 2499 tests), `npm run lint`, stylelint, `l10n:check-keys` (1341 keys),
+  `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`, `npm run build`: green.
+- `composer cs:check` (456 files); PHPUnit unit 1703 / integration 716 with
+  `--fail-on-skipped` on the canonical PostgreSQL stack (Nextcloud 35.0.3, family seed). The
+  same suites ran green on the captured tree before the fixes (unit 1699 / integration 715).
+- Focused browser runs on the canonical stack, without retries: `chromium` with
+  `workflow-request-budgets`, `private-tasks` and `task-grouping` (14 tests with setup), and
+  `chromium-serial-db` with `family-rewards`, `ranking-consent`, `settings` and `arcade-games`
+  (39 tests); no failed, skipped or flaky result.
+- Not run here: the provider suites, the AIO row, the complete browser gates on both rows and
+  the package build and smoke. They are the qualification of WP-G, which follows on the
+  committed tree.
+
+### Transition
+
+None: the final Full review passed, and the plan stays in `active/` until the qualification,
+the export, the deployment and its verified record. One scoped review commit; no merge, push,
+tag or deployment.

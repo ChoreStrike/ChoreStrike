@@ -32,14 +32,8 @@ global.location = {
 
 const { routes, default: router } = require('./router.js')
 
+// The room redirect itself is pinned in tests/unit/router.spec.js.
 describe('Router room address', () => {
-	it('redirects a room address to that room in the task list grouped by room', () => {
-		const room = routes.find((route) => route.path === '/room/:id')
-		expect(room.component).toBeUndefined()
-		expect(room.redirect({ params: { id: '42' } })).toEqual({ name: 'tasks', query: { group: 'room', room: '42' } })
-		expect(routes.some((route) => route.name === 'room')).toBe(false)
-	})
-
 	it('has no route for the legacy plural room path', () => {
 		expect(routes.some((route) => route.path.startsWith('/rooms'))).toBe(false)
 	})

@@ -146,8 +146,8 @@ instance. Installation and retained-baseline adoption are separate decisions.
 3. **Create tasks** — owners and adult members add tasks per room (or from the
    template catalog), set recurrence and flexibility, write short
    instructions, and assign them; owners also maintain checklists.
-4. **Plan the week** — in *Scheduling*, select tasks, preview a fair
-   distribution across the week, adjust person/day per task, and apply.
+4. **Plan the week** — open *Calendar → Weekly plan*, select tasks, preview a
+   fair distribution across the week, adjust person/day per task, and apply.
 5. **Work through Today** — every member sees today's tasks and overdue work,
    ticks off checklist steps, and completes a task by pressing and holding
    *Done* for 0.6 seconds (a short tap only explains the hold); undo is

@@ -228,6 +228,59 @@ repeated, not only dropped.
 
 ---
 
+### [P3] BUG-API-002 — Member routes refuse Nextcloud user IDs with a space or an apostrophe
+**Status**: Backlog · **Effort**: S · **Layer**: backend, frontend · **Journey stage**: household setup
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-090 (final Full review, 2026-11-15; rescoped by the operator the same day)
+
+Two routes take a member's Nextcloud user ID in the path and restrict it to
+`[a-zA-Z0-9_.@-]+`: `PUT /scheduling/members/{userId}` (older) and
+`POST /house/members/{userId}/arcade-reset` (CS-PLAN-090 WP-J, which copied the pattern).
+Nextcloud also allows spaces and apostrophes in user IDs, so an owner can neither edit the
+planning of such a member nor reset their arcade progress; the router answers 404 before any
+check. Authorization is not affected, because the services resolve the member in the
+caller's house.
+
+- [ ] Both routes accept the character set Nextcloud allows for user IDs, and the client encodes the ID.
+- [ ] Route and integration tests with an ID that holds a space and an apostrophe.
+
+---
+
+### [P3] BUG-I18N-002 — Names in translated strings show HTML entities
+**Status**: Backlog · **Effort**: M · **Layer**: frontend · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-090 (final Full review, 2026-11-15)
+
+`translate()` of `@nextcloud/l10n` escapes placeholder values as HTML by default. Vue then
+renders the result as text, so a name such as "Bad & WC" or "Mom's room" in a string like
+"Move {category} up" reads `Bad &amp; WC` or `Mom&#39;s room`, in visible text and in
+accessible names. It affects every string that carries a member, room, category or reward name
+and is older than CS-PLAN-090; `errorToast.js` already passes `escape: false` for its one
+case. Vue's own escaping keeps the text safe, so the fix is a rule for text bindings, not a
+security change.
+
+- [ ] Strings rendered as Vue text pass their placeholders unescaped through one shared rule.
+- [ ] Jest cases with `&`, `'` and `<` in a name; no `v-html` is introduced.
+
+---
+
+### [P3] CR-SVC-66 — Pause coverage regroups the whole pause history per occurrence
+**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-090 (final Full review, 2026-11-15)
+
+`PauseProjectionService::stampSuspension()` calls `excusedWalletsOn()` once per occurrence,
+and each call runs `governingRevisionsOn()` over the house's whole pause history: it groups
+and sorts the revisions again and computes each boundary key with new time-zone objects.
+A selection read therefore costs occurrences × lifetime revisions. Since ADR-020 every
+deleted absence adds a `cancelled` revision that keeps governing, so the history only grows.
+Older than CS-PLAN-090; the household has a small history today.
+
+- [ ] The revisions are grouped and their boundary keys computed once per read, then shared by every date.
+- [ ] Projection results unchanged; a query/CPU budget test with a long history.
+
+---
+
 ### [P1] FEAT-UX-062 — Today merges My Day and the Dashboard
 **Status**: In Progress (Release A, CS-PLAN-090 WP-B; CONCEPT-002) · **Effort**: L · **Layer**: frontend · **Journey stage**: daily execution
 **Owning**: CS-PLAN-090 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —

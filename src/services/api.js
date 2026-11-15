@@ -153,8 +153,9 @@ export function updateMyColorScheme(colorScheme) {
 	return put('/api/v1/preferences/me/color-scheme', { colorScheme })
 }
 
-// Pause API (CS-PLAN-073 WP2 §3.5, consumed by the WP6 pause UI): the
-// revisioned pause lifecycle with command UUIDs and expectedRevision.
+// Pause API (CS-PLAN-073 WP2 §3.5, consumed by the Absence view since
+// CS-PLAN-090 WP-A): the revisioned pause lifecycle with command UUIDs and
+// expectedRevision.
 
 /**
  * GET the viewer-safe pause list (bounded; pending personal requests are

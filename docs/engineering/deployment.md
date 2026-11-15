@@ -265,9 +265,11 @@ verified against the local qualification run, Git and the pinned inventory.
 File and directory counts belong to one package, so before/after checks pin the
 installed and the new tree separately.
 
-**Expected data change after the first update that carries BUG-UX-014.** No
-migration runs, and the before/after comparison of the maintenance window stays
-identical. Afterwards the first `TimelineJob` pass aligns open occurrences with
+**Expected data change after the first update that carries BUG-UX-014.** That
+update is the one to `0.8.0-alpha.5`. The fix itself needs no migration: inside
+the maintenance window only the step of the next paragraph changes data, so the
+before/after comparison expects exactly that difference. Afterwards the first
+`TimelineJob` pass aligns open occurrences with
 the current energy: `occurrences.energy` and `version` change on those rows and
 `agreements` gains one `energy` row each, without an actor. Each room task logs
 `timeline_energy_aligned` at info level. Completed and covered occurrences, work

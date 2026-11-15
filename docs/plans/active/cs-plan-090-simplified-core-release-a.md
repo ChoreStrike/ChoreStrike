@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G: candidate committed 2026-11-15 (metadata, changelog, README, screenshots); the operator's second GUI review without findings 2026-11-15; final review, qualification and deployment open
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G: candidate committed 2026-11-15 (metadata, changelog, README, screenshots); the operator's second GUI review without findings 2026-11-15; final Full review `PASS-WITH-FIXES` 2026-11-15; qualification and deployment open
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -237,7 +237,7 @@ Positions taken while implementing WP-C (2026-11-11). They bind once its interim
 - **D-090-46 Units beyond the manifest:** the filter rules (`src/utils/taskFilters.js`), the
   create dialog and the pager (`TaskPager.vue`) left the view, and its switch is the shared
   `SegmentedSwitch.vue` (D-090-56). The view ends at 665 lines (660 before WP-C, 743 before
-  this plan).
+  this plan); the category filter of WP-I takes it to 672.
 
 Positions taken while implementing WP-D and WP-E (2026-11-11 and 2026-11-12). They bind once their interim
 review passes. The operator chose to build both on the uncommitted WP-C and to review the three
@@ -776,7 +776,8 @@ Each step needs its own approval.
   switch) and `TaskCreateDialog.spec.js`; `TaskManager.spec.js` for the switch, the URL, the
   room deep link, the paging rule and the two dialogs; `TaskList.spec.js` and
   `TaskListDetails.spec.js` for the headings, the order and *Date*; `router.spec.js` for the
-  redirect; `requestCounts.spec.js` for one house-wide read.
+  redirect; `requestCounts.spec.js` for one house-wide read, and the browser budget of
+  `workflow-request-budgets.spec.ts` for the groupings and an opened group (RF-090-42).
   **Scenario record (WP-C):** 327 pinned scenarios before, 327 after; no minimum count is
   lowered. `room-detail.spec.ts` becomes `task-grouping.spec.ts` with four scenarios: the
   switch with its address (new); a room heading's counts and cleanliness (successor of the
@@ -900,7 +901,7 @@ new:      src/views/AbsenceView.vue, src/components/Insights/RankingPanel.vue,
           src/components/Today/TodayStatusLine.vue, src/components/Today/TodayTaskRow.vue,
           src/components/Setup/SetupWizardEntry.vue, src/utils/todaySections.js,
           src/composables/useTaskCompletion.js, src/utils/taskGrouping.js,
-          src/utils/taskFilters.js, src/components/Tasks/TaskGroupList.vue, TaskGroupSwitch.vue,
+          src/utils/taskFilters.js, src/components/Tasks/TaskGroupList.vue,
           TaskCreateDialog.vue, TaskPager.vue, CalendarControls.vue,
           src/components/Common/SegmentedSwitch.vue, src/components/Insights/CorrectionReview.vue,
           src/components/Settings/ (SettingsCategory.vue and one file per category),
@@ -959,7 +960,7 @@ new:      lib/Service/TaskCategoryService.php, ColorSchemeService.php,
           src/composables/useColorScheme.js, src/styles/schemes.css, src/utils/taskCategories.js,
           with their tests; dependency @nextcloud/initial-state (package.json, package-lock.json)
 modified: lib/Controller/HouseController.php, PreferenceController.php, PageController.php,
-          MinigameController.php, appinfo/routes.php (five routes),
+          appinfo/routes.php (five routes),
           lib/Service/TaskService.php, TaskCreationService.php, ArcadeAccessService.php,
           RewardConfigService.php, AccountErasureService.php, TestDataService.php,
           lib/Db/WorkShareMapper.php, src/components/Tasks/TaskEditForm.vue, TaskFilterBar.vue,
@@ -977,6 +978,19 @@ modified: the fourteen component files with colour literals (D-090-72), src/App.
           fixtures/settings.ts, scripts/run-e2e-gate.js, tests/e2e/required-scenarios.json,
           docs/api/README.md, docs/user-guide.md, docs/concepts/ui-use-cases.md,
           docs/engineering/testing.md, docs/engineering/architecture.md (WP-K)
+new:      src/components/Rewards/RewardWalletBanner.vue, tests/unit/components/
+          RewardWalletBanner.spec.js (final Full review, RF-090-41)
+modified: lib/Service/TaskCategoryService.php, PauseService.php,
+          lib/Notification/ChoreStrikeNotifier.php, src/views/Rewards.vue, TodayView.vue,
+          TaskManager.vue, InsightsView.vue, SchedulingView.vue, src/components/Tasks/TaskList.vue,
+          Insights/RankingPanel.vue, Minigames/ArcadeThresholdSettings.vue, ArcadeResetList.vue,
+          Scheduling/SchedulePlanner.vue, AvailabilityEditModal.vue, src/utils/taskGrouping.js,
+          icons.js, src/styles/mobile.css, src/router.spec.js, comments in api.js, game.js and
+          house.js, their tests, tests/e2e/private-tasks.spec.ts, workflow-request-budgets.spec.ts,
+          required-scenarios.json, l10n/*, appinfo/info.xml, README.md, CHANGELOG.md,
+          docs/engineering/architecture.md, deployment.md, docs/api/README.md, docs/adr/README.md,
+          ADR-013, docs/concepts/task-model-and-sync.md, ui-use-cases.md,
+          docs/standards/guidelines/e2e-testid-conventions.md (final Full review, RF-090-41..55)
 ```
 
 ## 6. Implementation Order
@@ -1012,7 +1026,7 @@ modified: the fourteen component files with colour literals (D-090-72), src/App.
 | The step overrides a member's deliberate "off" | Certain | Operator decision D-090-16; the changelog and the handoff say so; one switch in the personal settings turns it off again |
 | A departure cancellation now ends its group's coverage | Low | Operator decision D-090-21; visible only after a rejoin with the retained wallet; ADR-020 records it; projection and integration tests pin both row shapes; the upgrade proof shows the stored pause rows unchanged |
 | CS-PLAN-080's open real-device checklist (`release-test-plan.md` §14.1, rows D1, D6, D8) and `mobile-core.spec.ts` name screens this release removes | Certain | This plan updates the checklist rows and the mobile scenarios with their surfaces, keeping the seven-scenario count; the run, its record and how CS-PLAN-080 closes stay with that plan; a record names the version it ran on |
-| Grouped lists render slowly in a large household | Low | One house-wide read; a room's rows render when it opens; request-count spec |
+| Grouped lists render slowly in a large household | Low | One house-wide read; a room's rows render when it opens; request budgets in Jest and the browser |
 | Bookmarks and the digest link break | Low | Redirects for the four old addresses; router specs |
 | The runtime check moves during the round | Medium | Rerun before the freeze; promotion is routine |
 | Docker Desktop is shared with another project | Medium | Check for its runs first; rerun the complete gate, never explain a timeout away |
@@ -1038,7 +1052,7 @@ modified: the fourteen component files with colour literals (D-090-72), src/App.
 - [ ] Insights shows key figures, fairness, ranking and a single-line activity list with coins
 - [ ] Every member gets the completion animation after the update, with or without stored preferences; sound stays as it was; reduced motion suppresses the animation; switching it off afterwards holds, also as a first save
 - [ ] Each room heading shows its open and overdue counts, a small cleanliness percentage and *Last cleaned*
-- [ ] No view touched by this plan is longer than before; the participation flow exists once
+- [x] No view touched by this plan is longer than before; the participation flow exists once
 - [ ] Every user-visible string goes through `t()`; `l10n:check-keys` is green with real German copy
 - [ ] The Rewards list does not move when the wallet arrives; PHPUnit suites load and run on a case-sensitive file system, and a CI suite that runs no test fails (WP-H)
 - [ ] Owners manage task categories with *Other* fixed; tasks accept only listed keys; a deleted key reads as *Other* without a rewrite; the task list filters by category (WP-I)
@@ -1056,7 +1070,7 @@ modified: the fourteen component files with colour literals (D-090-72), src/App.
 - [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
 - [ ] Owning backlog items updated or archived according to their actual completion state
 - [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
-- [ ] Final Full review is `PASS` or `PASS-WITH-FIXES` (the round adds a command and changes authorization for children)
+- [x] Final Full review is `PASS` or `PASS-WITH-FIXES` (the round adds a command and changes authorization for children)
 - [ ] `docs/backlog/ACTIVE_TASKS.md` updated
 
 ## 9. Review Findings (plan-owned)
@@ -1106,6 +1120,22 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-38 (minor) - WP-J, `src/components/Settings/ArcadeSettings.vue`: the category root carried `cs-settings-form`, so the shared rules of `settings.css` reached the gate switch, the threshold form and the reset list, which bring their own styles; that sheet keeps its rules away from such components, and rules of equal weight then win by load order. Fixed in the interim review: the root drops the class and styles its cards itself, as `Settings.vue` does; the Jest case pins it.
 - [x] RF-090-39 (minor) - Tests, `tests/e2e/settings.spec.ts` (from `b545c97d`, 2026-10-10): "House drafts wait for the winning read on a direct Settings load" routes the house reads and never waits for the overtaken first one. On the AIO row of this review (`run-qrPuOs`) that read was still in `route.fetch()` when the test ended, so the closing page failed the test after every check had passed; all three reads had answered 200 in the access log. "Cold structure hydration survives room reconciliation" has the same gap for its second read. Fixed in the interim review: both wait for their handlers (`page.unrouteAll({ behavior: 'wait' })`) before the page closes. A temporary hanging first fetch reproduced the failure against the old cleanup and passed with the new one.
 - [x] RF-090-40 (minor) - WP-K, `src/components/Tasks/TaskListItem.vue`: an overdue task row paints its background with `--color-error-hover`, and the energy value on it reached about 3.9:1 in the light theme: the hue of *Standard* (`#A34A00`) and of every scheme meets 4.5:1 on the ordinary backgrounds only. Older than this plan and unseen by the browser contrast spec, which passes, so the views it measures show no such row; found while computing the scheme pairs. Fixed while implementing: on an overdue row the energy takes the main text colour, as the description already does, with a Jest pin in `TaskMeta.spec.js`.
+- [x] RF-090-41 (major) - WP-H, `src/views/Rewards.vue`: the wallet wait (TECH-TEST-013) took the view from 599 to 610 lines, against "No view grows" (§2) and its acceptance criterion; no exception was recorded. Found by the final Full review. Fixed in the review (operator's choice): the wallet banner is `Rewards/RewardWalletBanner.vue` with its Jest spec, and the view has 565 lines.
+- [x] RF-090-42 (minor) - WP-C, tests: the plan names `requestCounts.spec.js` as the guard for "one house-wide read feeds every grouping", but that spec calls store actions directly and never groups or opens a room; no test looked at requests after switching the grouping. Fixed in the review (operator's choice): the browser budget in `workflow-request-budgets.spec.ts` groups by room and by person, opens a group each time and still expects the one house-wide read; the scenario is renamed in `required-scenarios.json`.
+- [x] RF-090-43 (minor) - WP-B, `src/views/TodayView.vue`: Today still read `/room-tasks/due-today`, which only the Dashboard had shown. The loaded count made every completion on Today read it again, and a failure of that read showed "Some views could not be refreshed" for data Today never displays. Fixed in the review (operator's choice): Today reads the day and the overdue work only; Jest case and the browser budget (two projections).
+- [x] RF-090-44 (minor) - WP-C, `src/views/TaskManager.vue`, `src/components/Tasks/TaskList.vue`: the list by due date sorted with a comparator that worked out both rows' due class on every comparison, about four date formats per comparison and O(n log n) per keystroke in the search, and each heading was computed four times per row. Fixed in the review (operator's choice): `sortByDueGroup()` works out each row's class once, and the headings are one computed list; Jest case.
+- [x] RF-090-45 (minor) - WP-E, `src/components/Insights/RankingPanel.vue`: as a section of Insights the ranking ran its ranking read, the medal evaluation and the medal read one after another on every visit, although the ranking does not depend on the medals. Fixed in the review (operator's choice): the ranking read and the evaluation-then-read run side by side; Jest case.
+- [x] RF-090-46 (minor) - WP-I, `lib/Service/TaskCategoryService.php`: the duplicate check compared only owner-given names, so an owner could add a second "Other" or "Kitchen" beside the built-in one that keeps its translated name, against D-090-65 and the API reference. Fixed in the review (operator's choice): a kept built-in counts with its name in the saving owner's language; unit cases, an integration case on the real l10n, API reference.
+- [x] RF-090-47 (minor) - WP-B, copy: three user-visible strings still named the retired *My Day*: the daily digest notification, the success banner of the weekly plan and the hint of the owner's daily task limit. Fixed in the review: they name *Today* (German *Heute*), catalogues regenerated; the use-case table and a browser comment follow.
+- [x] RF-090-48 (minor) - WP-B, `tests/e2e/private-tasks.spec.ts`: the pinned scenario "my-private filter shows only own private tasks" looked for the Dashboard's private chip and did nothing once WP-B removed it, so it passed without a check. Fixed in the review: it creates a private and a public probe, opens `#/tasks?visibility=private` and expects the filter, the private row with its lock and no public row, without a conditional branch.
+- [x] RF-090-49 (minor) - WP-G, `docs/engineering/deployment.md`, `CHANGELOG.md`: the expected data change of the update that carries BUG-UX-014 said that no migration runs and the maintenance-window comparison stays identical, while the next paragraph names step `1034` for the same update. Fixed in the review: the BUG-UX-014 paragraph defers to the `0.8.0-alpha.5` paragraph, and the changelog says the fix needs no migration of its own.
+- [x] RF-090-50 (minor) - `TaskList.vue`, `InsightsView.vue`, `SchedulingView.vue`: the loading skeletons used `var(--color-background)`, which Nextcloud 35 does not define (checked against the theming app of the canonical container), so they showed an empty area. Older than this plan, in files it changed. Fixed in the review: `--color-main-background`.
+- [x] RF-090-51 (minor) - Durable documentation, `docs/engineering/architecture.md`: the size inventory was stale and mixed counting methods (the rows this plan wrote used total lines), the new `AbsenceView.vue` and several older files above the guideline had no row, the component map left out most units of this release and the first step on the retained baseline, and the house store section described a health refresh WP-B had removed. Fixed in the review: the inventory is re-measured in non-blank lines with the missing rows, `CalendarView.vue` leaves it, the map and the store section follow the code.
+- [x] RF-090-52 (nit) - Documentation and comments: README step 4 sent readers to a *Scheduling* entry that left the navigation; the app description said *recognized pauses*; the testid standard named `nav-leaderboard`; `GET /house/health` had no API entry; the ADR-013 index and file did not point to ADR-020, and the task-model concept still said child requests pend; comments in `api.js`, `game.js`, `house.js` and a browser spec named removed views; the manifest listed `TaskGroupSwitch.vue` and a changed `MinigameController.php`, and D-090-46 an old line count. Fixed in the review.
+- [x] RF-090-53 (nit) - Orphans: `.room-card` and `.floor-section` in `mobile.css` and five icon imports (Trophy, CalendarWorkWeek, TicketDiagonal, LayoutGrid, ArrowLeft) lost their last consumers with the removed pages, and `src/router.spec.js` repeated the room redirect `tests/unit/router.spec.js` pins. Fixed in the review; the shared fallback shapes of three icons stay.
+- [x] RF-090-54 (nit) - WP-J, `ArcadeThresholdSettings.vue`, `ArcadeResetList.vue`: the saved note's timer was never cleared, so a second save lost its note early and the timer outlived the component, and both components logged failures the store had already logged. Fixed in the review; Jest case for the timer.
+- [x] RF-090-55 (nit) - WP-A, `lib/Service/PauseService.php`: `listForViewer()` had grown to about 71 lines with D-090-27. Fixed in the review: the viewer's entry is `viewerEntry()`, behaviour unchanged (unit and integration suites).
+- [x] RF-090-56 (minor) - WP-J, `appinfo/routes.php`: the reset route restricts the user ID to `[a-zA-Z0-9_.@-]+`, copied from the older scheduling route, so a member whose Nextcloud ID holds a space or an apostrophe cannot be reset. User-rescoped to `backlog.md` (operator, 2026-11-15): [BUG-API-002](../../backlog/backlog.md#p3-bug-api-002--member-routes-refuse-nextcloud-user-ids-with-a-space-or-an-apostrophe) fixes both routes together.
 
 ## Review Outcome
 
@@ -1322,4 +1352,25 @@ worktree, chosen by the operator because the main checkout had nothing to review
 - No transition: WP-G is open, and so are the second GUI review and the final Full review.
   Record:
   [2026-11-15 review](../../backlog/archive/CODE_REVIEW_2026-11-15.md#standard-b---cs-plan-090-wp-k-colour-schemes-interim).
+  One scoped review commit; no merge, push, tag or deployment.
+
+**Full, final, 2026-11-15: PASS-WITH-FIXES.** Scope: the whole plan, `master..022bfd55`
+(twelve commits, 404 files) with its decisions, manifest, criteria and durable docs, after the
+candidate commit and the second GUI review. Four read-only reviewers in parallel.
+
+- Base HEAD `022bfd559d325a046811c9447f25d67588d7363e`, branch `docs/release-a-plan`, pinned,
+  never pushed, 12 ahead and 0 behind `master`; clean tree and empty index at capture.
+- RF-090-41..55 fixed in the review (§9); RF-090-56 user-rescoped to BUG-API-002. Two older,
+  out-of-scope findings went to the backlog (BUG-I18N-002, CR-SVC-66); two nits were accepted
+  with reasons in the record. The operator answered four questions with the recommended
+  option each.
+- Gates on the final tree: Jest 179 suites / 2499 tests, `npm run lint`, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`,
+  `npm run build`, `composer cs:check`; PHPUnit unit 1703 / integration 716 with
+  `--fail-on-skipped` on the canonical PostgreSQL stack; focused browser runs of the affected
+  specs on `chromium` (14) and `chromium-serial-db` (39) without retries. The provider suites,
+  the AIO row, the complete browser gates and the package build and smoke are the qualification.
+- No transition: the qualification, the export, the deployment and its verified record are
+  open. Record:
+  [2026-11-15 review](../../backlog/archive/CODE_REVIEW_2026-11-15.md#full-review-final---cs-plan-090-simplified-core-release-a-candidate).
   One scoped review commit; no merge, push, tag or deployment.
