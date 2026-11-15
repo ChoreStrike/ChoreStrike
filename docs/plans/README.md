@@ -15,9 +15,11 @@ docs/plans/
 ## Lifecycle
 
 Active: [CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)](active/cs-plan-090-simplified-core-release-a.md)
-(Standard A `PASS-WITH-FIXES`, 2026-11-10; implementation not started): the first of three releases of the
-[simplified core](../concepts/simplified-core.md): screens, absence and feedback, with one
-data-only migration step.
+(Standard A `PASS-WITH-FIXES`, 2026-11-10; WP-A to WP-F and WP-H to WP-K implemented with their
+interim reviews by 2026-11-15; the release steps of WP-G are open): the first of three releases
+of the [simplified core](../concepts/simplified-core.md): screens, absence and feedback, with
+one data-only migration step, extended by task categories, arcade owner controls and colour
+schemes (D-090-60).
 
 Delivered: [CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)](done/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md)
 (final Standard B `PASS-WITH-FIXES`, 2026-11-09): the defects and everyday fixes from the

@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G: candidate committed 2026-11-15 (metadata, changelog, README, screenshots); the operator's second GUI review without findings 2026-11-15; final review, qualification and deployment open
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -267,7 +267,8 @@ together.
   that need cleaning, from the one house read Insights already makes; house health stays in
   Insights (D-090-11). The mockup shows task figures (done, on time, open, overdue); a
   household read for the on-time share does not exist in this release, so these four wait for
-  the GUI review to confirm or for Release B to supply the data.
+  the GUI review to confirm or for Release B to supply the data. The operator's second GUI
+  review kept the house figures (2026-11-15).
 - **D-090-53 Activity line:** time and day are the household's. The coins are what the
   completion paid to everyone together; an undone completion, one that paid nothing and work
   the viewer may not see show none. Every line opens on a tap, one at a time: room, frozen
@@ -426,12 +427,29 @@ Positions taken while implementing WP-K (2026-11-14). They bind once its interim
   and *Planning*. Each swatch carries `data-cs-swatch`, so it shows its scheme's accent in the
   current theme whatever scheme is active; *Standard* shows the instance accent, saved on
   `<body>` where no scheme reaches. The German working names (Ozean, Wald, Abendrot, Beere,
-  Schiefer) go to the second GUI review.
+  Schiefer) went to the second GUI review, which kept them (2026-11-15).
 - **D-090-74 Units beyond the manifest:** `src/utils/colorSchemes.js` (the list, the initial
   state, the high-contrast rule, the attribute), `tests/unit/css/colorSchemes.spec.js`,
   `tests/e2e/color-schemes.spec.ts` and `tests/e2e/fixtures/color-scheme.ts`. The Jest mapping
   of `@nextcloud/initial-state` was a stub with a default export only; it re-exports the real
   `loadState` now. `Settings.vue` grows from 314 to 323 lines.
+
+Positions taken while preparing the candidate (WP-G, 2026-11-15). They bind once the final review
+passes.
+
+- **D-090-75 What names the version when:** the candidate step changes the app metadata, the
+  README (badges, caption, requirement, status), the changelog and the plan index. The roadmap,
+  the documentation map, the installed build in the deployment guide and the release test plan
+  state what is installed, so they change with the verified deployment record, as in
+  CS-PLAN-089.
+- **D-090-76 Shape of the changelog:** one candidate section under *Unreleased*. The three
+  sections *after 0.8.0-alpha.4* stay below it and ship with it (D-090-06). All of it gets the
+  dated version heading with the deployment record.
+- **D-090-77 Screenshots:** the seven scenes stay and are recaptured from the candidate tree.
+  New scenes for the list by room, Absence or Insights are not part of this release.
+- **D-090-78 Dependabot PR #12:** `follow-redirects` 1.16.3 joins the lockfile as an in-range
+  patch of WP-H's kind. It carries no advisory and is not in the browser bundle; taking it lets
+  the push close the PR instead of carrying it into the next round.
 
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). The three
@@ -675,6 +693,33 @@ every view moves; the operator's GUI review on the development stack; final revi
 [qualification pipeline](../../standards/ai/skills/release/SKILL.md#qualification-pipeline);
 export of one selected smoke run; operator deployment; verified record in the deployment guide.
 Each step needs its own approval.
+
+- **Candidate prepared and committed 2026-11-15** (D-090-75 to D-090-78). `appinfo/info.xml`,
+  `package.json` and the lockfile name `0.8.0-alpha.5`. `min-version` is 35 (D-090-58), and with
+  it the README badge and requirement, the prerequisites of the deployment and development
+  guides, the stack line of `AGENTS.md` and the Jest pin of the metadata bounds
+  (`testRuntime.spec.js`). The changelog has its candidate section. The README names the
+  version, the absence, the grouped task list, the categories, the arcade controls and the
+  schemes, says *absences* where it said *pauses*, and corrects the energy range to 1–20, which
+  `0.8.0-alpha.4` had changed. The seven screenshots are recaptured on an owned staged row
+  (primary runtime, SQLite, `family` seed) and were compared by eye with their predecessors.
+  **Pre-freeze checks:** `test:runtime:check` reports `current`. `npm audit --omit=dev` lists
+  only what the two bounded advisories of TECH-DEPS-001 reach in the production tree
+  (`minimatch` through `webdav` under dialogs, `elliptic` through
+  `node-polyfill-webpack-plugin`). The notes of the `0.8.0-alpha.4` handoff hold no promise
+  that this round has not kept. Of the open Dependabot PRs, #5 to #7 close with the push, #8 and
+  #11 stay with TECH-DEPS-001, and #12 is taken (D-090-78).
+  **GUI review stack:** the canonical stack serves this tree with the `family` profile; its
+  kept volumes went from `0.8.0-alpha.4` to `0.8.0-alpha.5` through `occ upgrade`.
+  **Second operator GUI review (2026-11-15, implementation order step 10):** on that stack the
+  operator checked the task categories, the arcade controls and the colour schemes and
+  reported no findings; the German scheme names (D-090-73) and the key figures of Insights
+  (D-090-52) stay as built.
+  **Test record (candidate preparation):** Jest 178 suites / 2494 tests, ESLint, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`, the
+  preservation runner's `-SelfTest`, `test:runtime:canonical` and `npm run build` green. No PHP
+  changed, so PHPUnit and the browser gate did not run for this step; both run in full with
+  the qualification.
 
 ### Durable documentation
 

@@ -312,10 +312,10 @@ describe('read-only stable discovery', () => {
 })
 
 describe('frozen candidate execution', () => {
-	it('bounds candidate metadata to the approved primary/AIO majors and PHP minor, not untested old runtimes', () => {
+	it('bounds candidate metadata to the major both runtime rows run and the PHP minor, not untested old runtimes', () => {
 		const metadata = fs.readFileSync(path.resolve(__dirname, '../../../appinfo/info.xml'), 'utf8')
 		const composer = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../composer.json'), 'utf8'))
-		expect(metadata).toContain('<nextcloud min-version="34" max-version="35"/>')
+		expect(metadata).toContain('<nextcloud min-version="35" max-version="35"/>')
 		expect(metadata).toContain('<php min-version="8.4" max-version="8.4"/>')
 		expect(composer.require.php).toBe('~8.4.0')
 	})

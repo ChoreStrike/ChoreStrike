@@ -7,9 +7,9 @@
  * qualification. Replaces the manual target-JSON orchestration:
  *
  *   build-package (clean HEAD, pinned builder) → safe extraction of the
- *   manifest-verified archive → per runtime row (NC35 canonical, NC34
- *   compatibility): owned `cs082-*` Compose project up → fail-closed package
- *   target validation (separate from scripts/test-target.js's true-marker
+ *   manifest-verified archive → per runtime row (primary and AIO, as
+ *   docker/test-runtime.json names them): owned `cs082-*` Compose project
+ *   up → fail-closed package target validation (separate from scripts/test-target.js's true-marker
  *   requirements) → alias-absence proof → owner-smoke `setup` (cold first
  *   bootstrap) → `verify` (six owner cases) → evidence identity checks →
  *   owned teardown.

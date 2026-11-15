@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### App Version 0.8.0-alpha.5 — Simplified Core, Release A (candidate, 2026-11-15)
+
+The first of three releases that answer the family trial: each thing is shown
+once, an absence needs no request, and finishing a task is easier to notice.
+How due dates work does not change. The app metadata moves from
+`0.8.0-alpha.4` to `0.8.0-alpha.5` so the update is detected, and the app now
+requires Nextcloud 35. One data-only migration step runs, the first on the
+retained baseline; no table or column changes, and the 26 applied migrations
+stay unchanged. The three sections after this one ship with it. This section
+gets its own dated version heading once the deployment is verified.
+
+- **Today replaces My Day and the Dashboard:** one landing page for every
+  role. A status line shows your own work for the day against your energy, the
+  weekly goal, your streak and your Coins. Overdue work comes first in its own
+  block, then *Due today*, then *Also possible today* behind one line. The
+  Dashboard tiles, the room cards and *Next appointments* are gone; upcoming
+  work is in the calendar and house health in Insights.
+- **Tasks by due date, by room or by person:** a switch in Tasks. By room,
+  floors are headings and each room opens to its tasks, with its open and
+  overdue counts, its cleanliness and *Last cleaned*. *New* in a room heading
+  offers that room's templates, and *Date* in an opened task sets the due date
+  or *Last done*. By due date lists missed work first. The room page is gone.
+- **Eight navigation entries:** Today, Tasks, Calendar, Insights, Absence,
+  Rewards, Arcade and Settings, then Help. The weekly plan opens from the
+  calendar, the ranking is a section of Insights, and *My Requests* opens from
+  Rewards and from the personal settings. Old addresses of the Dashboard, a
+  room page and the leaderboard lead to their new place.
+- **Settings in two areas:** *Personal* and *Household*, each with categories
+  that start closed. Your own days and energy are under *Planning*. Members
+  who are not owners see the personal area only.
+- **Absence without a request:** everyone, children included, enters an
+  absence for themselves, and it counts at once. No reason is asked or shown.
+  Everyone sees all entries; you delete your own and an owner deletes any, as
+  long as it has not ended. Deleting frees the days from the next day, and what
+  the absence already excused stays excused. A request from before the update
+  can still be decided or withdrawn. The interface says *Absence* where it
+  said *Pause*.
+- **Insights at a glance:** four key figures, fairness as one bar per person,
+  the ranking, and one line per completed task with the Coins it paid. *Correct
+  split* and *Undo* open with a tap on the line.
+- **Finishing a task is easier to notice:** the completion animation is on by
+  default and sound stays opt-in. The row's check mark pops in, the message
+  names the Coins you earned, and a new title is announced. Reduced-motion
+  settings still switch animations off.
+- **The update switches the animation on for everyone, once:** also for members
+  who had switched it off, because a stored "off" cannot be told apart from a
+  value nobody chose. Switch it off again under *Settings → Personal →
+  Notifications & feedback*. Sound is not touched. This is the migration step
+  `1034Date20261111000000`: it changes the animation setting and the version
+  of each stored preference row and nothing else.
+- **Task categories:** owners add, rename, reorder and delete categories in
+  the household settings; *Other* stays. The task list filters by category. A
+  task whose category was deleted reads as *Other* until someone saves it.
+- **Arcade controls for owners:** the number of finished chores that opens each
+  game is a setting, and an owner can reset one person's progress so the games
+  unlock anew. Highscores stay.
+- **Colour schemes:** each person picks *Standard* or one of five accent
+  schemes (Ocean, Forest, Sunset, Berry, Slate) under *Settings → Personal →
+  Appearance*. The choice follows them to every device. Backgrounds and text
+  stay with Nextcloud's light or dark theme, and a high-contrast theme keeps
+  *Standard*.
+- **Fixed:** the reward list no longer moves under a tap when the balance
+  arrives; the ranking highlights your own row again; the energy value on an
+  overdue row and the details of a deferred task in the overload warning are
+  legible in the light theme.
+- **Under the hood:** `fast-xml-parser` 5.12.1 closes its advisory, and two
+  unused packages are gone. The PHP test suites load on case-sensitive file
+  systems, and a CI suite that runs no test now fails.
+- **Qualification:** gates run on the latest upstream Nextcloud (35.0.3) and on
+  the Nextcloud of the current AIO release v15.0.2 (35.0.2, Redis for sessions,
+  cache and locking).
+
 ### Fixed after 0.8.0-alpha.4
 
 - **A changed energy applies at once:** it now reaches everything still open,

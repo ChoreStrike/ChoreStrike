@@ -19,7 +19,7 @@ ChoreStrike turns household chores into a fun, cooperative game.
 Complete agreed tasks, build a steady rhythm and keep your home tidy together. Perfect for families and roommates!
     ]]></description>
 
-    <version>0.8.0-alpha.4</version>
+    <version>0.8.0-alpha.5</version>
     <licence>MIT</licence>
     <default_language>de</default_language>
     
@@ -35,11 +35,12 @@ Complete agreed tasks, build a steady rhythm and keep your home tidy together. P
     <repository type="git">https://github.com/ChoreStrike/ChoreStrike.git</repository>
     
     <dependencies>
-        <!-- CS-PLAN-082 verified baseline (Q-082-01/02): primary NC35 plus the
-             named NC34 AIO compatibility row. The local/CI test runtime is
-             pinned by docker/test-runtime.json; AIO deployment and retained
-             baseline adoption remain separate, explicitly authorized steps. -->
-        <nextcloud min-version="34" max-version="35"/>
+        <!-- Nextcloud 35 only since 0.8.0-alpha.5 (CS-PLAN-090 D-090-58): the
+             primary row and the AIO row of docker/test-runtime.json both run
+             Nextcloud 35, and no row tests Nextcloud 34 any more. AIO
+             deployment and retained baseline adoption remain separate,
+             explicitly authorized steps. -->
+        <nextcloud min-version="35" max-version="35"/>
         <php min-version="8.4" max-version="8.4"/>
     </dependencies>
     

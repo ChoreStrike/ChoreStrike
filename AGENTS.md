@@ -5,7 +5,7 @@
 ## Project Identity
 
 - **ChoreStrike** — gamified household task management as a **Nextcloud app**. MIT; everything outside `/private/` and `archive/` is public.
-- **Stack:** PHP 8.4, Nextcloud 34–35 app framework, Vue 3 (Composition API) + Pinia, Webpack 5. DB via Nextcloud abstraction (SQLite/MySQL/PostgreSQL). Tests: PHPUnit + Jest + Playwright (Docker).
+- **Stack:** PHP 8.4, Nextcloud 35 app framework, Vue 3 (Composition API) + Pinia, Webpack 5. DB via Nextcloud abstraction (SQLite/MySQL/PostgreSQL). Tests: PHPUnit + Jest + Playwright (Docker).
 
 ## Non-Negotiable Rules (detail: project-rules.md)
 

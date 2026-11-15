@@ -1259,7 +1259,7 @@ TECH-TRANSPORT-001 as unattributed.
 
 ### [P3] TECH-DEPS-001 — Major updates Dependabot cannot land
 **Status**: Backlog · **Effort**: L · **Layer**: infra · **Journey stage**: —
-**Owning**: CS-PLAN-090 WP-H (the in-range slice only; the major rows are unassigned) · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05); `fast-xml-parser` 5.11.2 advisory (2026-11-13, resolved in range)
+**Owning**: CS-PLAN-090 WP-H (the in-range slice only; the major rows are unassigned) · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05); `fast-xml-parser` 5.11.2 advisory (2026-11-13, resolved in range); Dependabot PR #12, `follow-redirects` 1.16.3, taken in range (2026-11-15, with the candidate of CS-PLAN-090)
 **Source**: Dependabot triage of 2026-11-05
 
 PR #11 groups 29 npm updates and stops at `npm ci` with ERESOLVE, so its compatible part landed
@@ -1304,7 +1304,7 @@ build and test chains:
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its CS-PLAN-089 slice finished 2026-11-09; CS-PLAN-090 activated 2026-11-10 for the `0.8.0-alpha.5` slice; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its CS-PLAN-089 slice finished 2026-11-09; CS-PLAN-090 activated 2026-11-10 for the `0.8.0-alpha.5` slice, its candidate prepared 2026-11-15 and neither qualified nor deployed yet; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
 **Owning**: CS-PLAN-090 WP-G (`0.8.0-alpha.5` release slice only); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 

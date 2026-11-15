@@ -13,8 +13,9 @@ If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md
   (24.14.0 is the first Node 24 release whose bundled npm, 11.9.0, meets the npm
   range; Node 24.13 ships npm 11.8.0, so use a newer Node or run
   `npm install -g npm@^11.8.2` first)
-- **Nextcloud 35 primary / 34 AIO compatibility row** — the promoted current-stable
-  baseline (declared in `appinfo/info.xml`; CS-PLAN-082, promoted 2026-10-06)
+- **Nextcloud 35** — the only declared major since `0.8.0-alpha.5` (`appinfo/info.xml`;
+  CS-PLAN-090 D-090-58). The primary row and the AIO row of `docker/test-runtime.json`
+  both run it
 - **Composer** for PHP dependencies
 - **Git** for version control
 

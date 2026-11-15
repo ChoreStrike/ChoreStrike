@@ -4,9 +4,9 @@
 
 [![checks](https://github.com/ChoreStrike/ChoreStrike/actions/workflows/checks.yml/badge.svg)](https://github.com/ChoreStrike/ChoreStrike/actions/workflows/checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Nextcloud 34-35](https://img.shields.io/badge/Nextcloud-34%E2%80%9335-0082c9)](https://nextcloud.com)
+[![Nextcloud 35](https://img.shields.io/badge/Nextcloud-35-0082c9)](https://nextcloud.com)
 [![PHP 8.4](https://img.shields.io/badge/PHP-8.4-777bb4)](https://www.php.net)
-[![Status: alpha 0.8.0-alpha.4](https://img.shields.io/badge/status-alpha%200.8.0--alpha.4-orange)](#project-status)
+[![Status: alpha 0.8.0-alpha.5](https://img.shields.io/badge/status-alpha%200.8.0--alpha.5-orange)](#project-status)
 
 ChoreStrike is a gamified household task management app for Nextcloud.
 Families and flatmates organize their home in floors and rooms, plan fair
@@ -31,7 +31,7 @@ first; using the reward catalog and games is optional.
   </tr>
 </table>
 
-<sub>Screenshots: seeded demo household on Nextcloud 35, version 0.8.0-alpha.4.</sub>
+<sub>Screenshots: seeded demo household on Nextcloud 35, version 0.8.0-alpha.5.</sub>
 
 New here? The [user guide](docs/user-guide.md) walks a household through
 setup, everyday use and planning.
@@ -47,39 +47,46 @@ setup, everyday use and planning.
   energy budget, adjusts it, and applies it once — nothing changes until
   the plan is applied.
 - **Recognition without pressure**: Coins reflect actual effort and shared
-  work; rhythm progress reflects on-time agreed chores. Free days and recognized
-  pauses are neutral, not missed opportunities to earn a streak.
+  work; rhythm progress reflects on-time agreed chores. Free days and absences
+  are neutral, not missed opportunities to earn a streak.
 - **Built for families**: Adults and children start on *Today*, with their
   own status, overdue work first and honest catch-up dates. Capacity checks, child
-  limits, pauses and owner-recorded handovers support realistic planning.
+  limits, absences and owner-recorded handovers support realistic planning.
 
 ## Key Features (Implemented)
 
 - **Household structure** — floors and rooms, room cleanliness tracking,
   house health, per-house timezone for correct day boundaries.
 - **Tasks** — daily/weekly/monthly recurrence with flexible windows,
-  priorities, energy cost (1–5), step-by-step instructions, sub-task
-  checklists, and per-task visibility (public / private / admins only).
+  priorities, energy cost (1–20), step-by-step instructions, sub-task
+  checklists, owner-managed categories and per-task visibility (public /
+  private / admins only). The task list groups by due date, by room or by
+  person.
 - **Weekly planner** — availability and energy budgets per member,
   preview → adjust → apply scheduling, capacity and fairness aware, with
   child daily-task limits.
 - **Execution** - Today for every member, checklists, shared-work allocation,
   targeted undo/correction that preserves later work, and agreed catch-up and
   handover flows.
+- **Absence** - everyone enters an absence for themselves without a request;
+  the household sees all entries, and the owner can delete any.
 - **Recognition** - effort-only Coins with exact shared accounting, planned-day
   rhythm streaks, medals, titles, a household weekly goal and voluntary ranking.
 - **Family rewards** - an optional owner-managed catalog, child requests with
   approval, adult requests, reserved balances, fulfillment and cancellation.
   Existing requests remain accessible when catalog browsing is hidden.
 - **Optional arcade** - five household games with per-game highscores that
-  finished chores open one by one (owners can open all); scores only, with no
-  Coins, boosts or planning advantage.
-- **Insights** — activity feed, member fairness table, and overcapacity
-  warnings before a plan is applied.
+  finished chores open one by one (owners set the thresholds and can open
+  all); scores only, with no Coins, boosts or planning advantage.
+- **Insights** — key figures, member fairness, the ranking and an activity
+  list, and overcapacity warnings before a plan is applied.
 - **Quiet defaults** - reminders and sound are off by default; the celebration
   animation is on, and each person can switch it off.
   Personal preferences control a bounded daily Nextcloud digest and quiet hours;
   reduced-motion settings override animations.
+- **Colour schemes** - each person picks one of six accent schemes, kept
+  across devices; Nextcloud's light, dark and high-contrast themes stay in
+  charge of backgrounds and text.
 - **Two languages** — English and German, fully translated.
 
 Not implemented: general chore-approval workflows, external-task/CalDAV sync
@@ -92,20 +99,22 @@ a Nextcloud instance may still have hosting costs.
 
 ### Requirements
 
-- Nextcloud 35 primary; Nextcloud 34 is the explicitly named AIO compatibility row
+- Nextcloud 35
 - PHP 8.4.x
 - MySQL/MariaDB, PostgreSQL or SQLite (via Nextcloud's database layer)
 
-ChoreStrike is a **pre-release app (`0.8.0-alpha.4`, internal alpha)**. Its
+ChoreStrike is a **pre-release app (`0.8.0-alpha.5`, internal alpha)**. Its
 first [retained baseline](docs/engineering/deployment.md#first-retained-baseline)
 was adopted on 2026-10-17: from it, updates preserve household data — the
 updates to `0.8.0-alpha.2` on 2026-10-19, `0.8.0-alpha.3` on 2026-10-29 and
 `0.8.0-alpha.4` on 2026-11-05 ran without a migration and kept every table.
-Disposable development installs remain fresh-install-only; there is no upgrade
-promise for them.
+`0.8.0-alpha.5` is a candidate that has not been deployed yet; it carries the
+first migration step on that baseline, which changes one preference and no
+table. Disposable development installs remain fresh-install-only; there is no
+upgrade promise for them.
 
-These bounds are the promoted current-stable baseline (CS-PLAN-082,
-2026-10-06), not a pending qualification candidate: fresh NC35 installations
+These bounds follow the pinned test runtime (CS-PLAN-082, 2026-10-06;
+Nextcloud 35 only since `0.8.0-alpha.5`): fresh NC35 installations
 and the complete backend suite are verified on all three providers, and the
 canonical Docker test environment provisions this pinned runtime by default
 (Nextcloud 35.0.3 / PHP 8.4.27 / PostgreSQL 18.6; frozen inventory in
@@ -159,12 +168,15 @@ instance. Installation and retained-baseline adoption are separate decisions.
 ChoreStrike is a privately maintained, non-commercial open source project,
 not a hosted service.
 
-**v0.8.0-alpha.4 — alpha pre-release.** The core household workflow (setup wizard,
+**v0.8.0-alpha.5 — alpha pre-release.** The core household workflow (setup wizard,
 invitations, tasks, scheduling, Today, completion/undo, gamification,
 insights, optional rewards and the arcade) is implemented. Cross-database
-verification and repeated browser gates have passed. The 14-day family trial
-has run on the maintainer's family instance since 2026-10-19, on this version
-since 2026-11-05; it collects the fixes from the trial's second feedback round.
+verification and repeated browser gates have passed. The family trial ran on
+the maintainer's family instance from 2026-10-19 and closed on 2026-11-09;
+`0.8.0-alpha.4` has been installed there since 2026-11-05. This version is the
+first of three [simplified-core](docs/concepts/simplified-core.md) releases
+that answer the trial's feedback, and it is a candidate that has not been
+deployed yet.
 The real-device checklist, voluntary family comprehension,
 the 14-day everyday-use evidence and the final WP9 review remain open.
 Automated passes are not a family-acceptance sign-off. The app is not yet

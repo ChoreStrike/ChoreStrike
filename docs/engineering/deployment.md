@@ -22,7 +22,7 @@
 
 ## Prerequisites
 
-- Nextcloud 34–35
+- Nextcloud 35 (the only declared major since `0.8.0-alpha.5`)
 - PHP 8.4
 - Composer in a PHP 8.4 build environment
 - MariaDB/MySQL/PostgreSQL/SQLite
