@@ -1,7 +1,7 @@
 {
-  "@fluentui/svg-icons@1.1.320": {
+  "@fluentui/svg-icons@1.1.345": {
     "file": "fluentui-svg-icons.txt",
-    "source": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/e940effc000de2521ce4cf47ef45499e921c66dc/LICENSE"
+    "source": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/9eb184e96268d3293462f9d9d19225b4c7b07774/LICENSE"
   },
   "@vue/devtools-api@6.6.4": {
     "file": "vue-devtools-api.txt",

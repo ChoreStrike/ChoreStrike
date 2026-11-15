@@ -459,7 +459,8 @@ Decisions of the qualification (operator, 2026-11-15).
   downgrade of `@vue/test-utils`.
 - **D-090-80 Requalification after RF-090-58:** that commit changes no app code (`lib/`,
   `src/`, `js/` byte-identical), so on it only the static gates and the package build and
-  smoke run again; the matrix and both browser gates count from `3031d686`.
+  smoke run again; the matrix and both browser gates count from `3031d686`. The operator
+  extended this to the licence fix of RF-090-59, on which only the package build and smoke run.
 
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). The three
@@ -1007,6 +1008,7 @@ modified: docker/package-build.json, docker/Dockerfile.package, .github/workflow
           full-matrix.yml, release-gate.yml, runtime-check.yml, test.yml, package.json,
           package-lock.json (root engines), README.md, CHANGELOG.md,
           docs/engineering/development.md, deployment.md, testing.md (qualification, RF-090-58)
+modified: docker/package-license-overrides.json (qualification, RF-090-59)
 ```
 
 ## 6. Implementation Order
@@ -1154,6 +1156,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-56 (minor) - WP-J, `appinfo/routes.php`: the reset route restricts the user ID to `[a-zA-Z0-9_.@-]+`, copied from the older scheduling route, so a member whose Nextcloud ID holds a space or an apostrophe cannot be reset. User-rescoped to `backlog.md` (operator, 2026-11-15): [BUG-API-002](../../backlog/backlog.md#p3-bug-api-002--member-routes-refuse-nextcloud-user-ids-with-a-space-or-an-apostrophe) fixes both routes together.
 - [x] RF-090-57 (major) - WP-G qualification, matrix `a5q1` on `f426d75c` (Sunday 2026-11-15): the SQLite integration suite failed two tests, `RankingConsentTest::testOnTimeRatio_CountsOnlyPublicAgreedOccurrences` and `RhythmProjectionTest::testWeeklyGoal_PercentAndAchievedFollowTheValidCompletionSet`, because the week's last day was missing. Cause, present since the occurrence model of the retained baseline: Nextcloud binds an entity's date field as `Y-m-d 00:00:00`, SQLite keeps that text, and `OccurrenceMapper` compared it with bare day keys, so `<=` and `>` put a day after itself and `=` never matched. On SQLite the daily summary missed the day's planned and agreed work, every inclusive window lost its last day, the history paging could reread its cursor day, and the interval cleanup could delete an open row of its exclusive day. PostgreSQL and MySQL store the day and were not affected. Fixed in the qualification: every day bound is half-open (`>=` the day, `<` the next day), which holds for either stored form, so no data changes. `OccurrenceDayBoundsTest` writes through the entity on fixed days and failed 4 of 4 on SQLite without the fix (control run); the testing guide names the rule.
 - [x] RF-090-58 (major) - WP-G qualification, `test:package:build --verify-reproducible` on `3031d686`: `npm ci --engine-strict` in the pinned builder (Node 24.14.0) refused `abbrev@5.0.0`, which needs Node `^24.15.0`. It arrived on `master` after `0.8.0-alpha.4` with `8dcafab6` (`@vue/test-utils` 2.5.1 → `js-beautify` 2 → `nopt` 10 → `abbrev` 5, all development tooling); no package had been built since, and every CI workflow installs the same way on 24.14.0, so the next push would have failed the remote checks too. Fixed in the qualification (D-090-79): builder inventory, `Dockerfile.package`, the five workflows, `engines.node`, README, the development, deployment and testing guides and the changelog name Node 24.15.0; the development guide says that a dependency raising a locked engine raises the minimum with it. Every locked engine range holds at 24.15.0 / npm 11.12.1; at 24.14.0 exactly these two packages fail.
+- [x] RF-090-59 (major) - WP-G qualification, `test:package:build --verify-reproducible` on `63ec9164`: past the strict install, the licence gate refused `@fluentui/svg-icons@1.1.345 (MIT)`, whose npm distribution ships no licence text. The same `8dcafab6` had moved it from 1.1.320, and `docker/package-license-overrides.json` names versions exactly. Fixed in the qualification: the override names 1.1.345 with its source pinned to the upstream tag commit `9eb184e9`; that LICENSE is byte-identical to the stored `fluentui-svg-icons.txt` (SHA-256 `69bc45dc…`), so the text stays. The entry for 1.1.320 goes, because no build reaches that version any more.
 
 ## Review Outcome
 
@@ -1418,3 +1421,8 @@ candidate commit and the second GUI review. Four read-only reviewers in parallel
 - `test:package:build --verify-reproducible` failed in the builder's strict install
   (RF-090-58). Its fix makes the next candidate; by D-090-80 the matrix and both browser gates
   above count for it.
+
+**Qualification, third attempt on `63ec9164`: package failed.** Jest 179 suites / 2499 tests,
+ESLint and stylelint green. The strict install passed on Node 24.15.0; the licence gate then
+refused `@fluentui/svg-icons@1.1.345` (RF-090-59). Its fix touches only the licence inventory
+and this plan, so D-090-80 extends to that candidate.
