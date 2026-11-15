@@ -37,6 +37,11 @@ describe('Node and npm engine contract', () => {
 		expect(satisfiesCaret(builder.node.version, engines.node)).toBe(true)
 	})
 
+	it('records the npm that the builder Node bundles, inside the declared npm range', () => {
+		expect(builder.node.npm).toMatch(/^\d+\.\d+\.\d+$/)
+		expect(satisfiesCaret(builder.node.npm, engines.npm)).toBe(true)
+	})
+
 	it('keeps the Dockerfile default image identical to the builder inventory', () => {
 		const dockerfile = read('docker/Dockerfile.package')
 		expect(dockerfile).toContain(`ARG NODE_IMAGE=${builder.node.image}@${builder.node.platformDigest}`)
@@ -57,7 +62,7 @@ describe('Node and npm engine contract', () => {
 		}
 		const text = read(`.github/workflows/${file}`)
 		for (const [, npmVersion] of text.matchAll(/test "\$\(npm --version\)" = "([\d.]+)"/g)) {
-			expect(satisfiesCaret(npmVersion, engines.npm)).toBe(true)
+			expect(npmVersion).toBe(builder.node.npm)
 		}
 		for (const [, nodeVersion] of text.matchAll(/test "\$\(node --version\)" = "v([\d.]+)"/g)) {
 			expect(nodeVersion).toBe(builder.node.version)

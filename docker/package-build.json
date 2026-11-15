@@ -3,6 +3,7 @@
   "platform": "linux/amd64",
   "node": {
     "version": "24.15.0",
+    "npm": "11.12.1",
     "image": "node:24.15.0",
     "digest": "sha256:f22d6a1f082c02f292e86929b5b0442ac2e5eaf438a5dea9b1566601c3e05940",
     "platformDigest": "sha256:da81deb96d49fc84c9813bc4f16dfdb1d4d7e3671b74cd54fd944428f1444afe"
