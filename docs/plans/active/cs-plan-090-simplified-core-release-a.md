@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G: candidate committed 2026-11-15 (metadata, changelog, README, screenshots); the operator's second GUI review without findings 2026-11-15; final Full review `PASS-WITH-FIXES` 2026-11-15; qualification and deployment open
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G: candidate committed 2026-11-15 (metadata, changelog, README, screenshots); the operator's second GUI review without findings 2026-11-15; final Full review `PASS-WITH-FIXES` 2026-11-15; qualified 2026-11-15 on `d189ce6a` after RF-090-57..59; export and deployment open
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -1077,9 +1077,9 @@ modified: docker/package-license-overrides.json (qualification, RF-090-59)
 - [ ] Owners set each game's threshold and reset one person's progress after a confirmation; highscores stay; ADR-019 amended (WP-J)
 - [ ] Each person picks one of six colour schemes, kept across devices and applied at first paint; every scheme passes contrast in both themes (WP-K)
 - [ ] The extension stores no fact and changes no table; account erasure removes the per-user values
-- [ ] `npm run test:runtime:check` reports `current` at the freeze
+- [x] `npm run test:runtime:check` reports `current` at the freeze
 - [x] Operator GUI review recorded; its findings resolved or routed
-- [ ] `0.8.0-alpha.5` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
+- [x] `0.8.0-alpha.5` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
 - [ ] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
 - [ ] `CHANGELOG.md`, README, roadmap and documentation map name the new version; screenshots recaptured
 - [ ] Build gate green (`npm test` + lint + backend tests)
@@ -1426,3 +1426,22 @@ candidate commit and the second GUI review. Four read-only reviewers in parallel
 ESLint and stylelint green. The strict install passed on Node 24.15.0; the licence gate then
 refused `@fluentui/svg-icons@1.1.345` (RF-090-59). Its fix touches only the licence inventory
 and this plan, so D-090-80 extends to that candidate.
+
+**Qualification, 2026-11-15 (WP-G): passed on `d189ce6a`.** The plan stays active for the
+export, the deployment, the record import and the final completion review.
+
+- **Candidate commit:** `d189ce6a36ed1ca6095de5808e2e2fc37e3133fe` on `docs/release-a-plan`.
+  App code (`lib/`, `src/`, `appinfo/`, `templates/`, `l10n/`, `img/`) is identical to
+  `3031d686`.
+- **Evidence (D-090-80):** runtime check, matrix `a5q2` and browser gates `run-f60Ggq` and
+  `run-XJlr3a` from the second attempt on `3031d686`; Jest 179 suites / 2499 tests, ESLint and
+  stylelint again on `63ec9164`.
+- **Package:** `test:package:build --verify-reproducible` from the clean candidate:
+  `reproducible` (run `run-mwic4r9k`, 552 files). `test:package:smoke` run `run-mwicbw0h`:
+  `package-qualified` at 2026-11-15T21:37Z on `primary@35.0.3` and `aio@35.0.2` from the same
+  extracted archive, setup and six owner cases per row, post-qualification rehash ok, owned
+  resources removed. `chorestrike.tar.gz` SHA-256
+  `39a60d74bb310c00adc9fd2188ffa65dc70d73f0d2b8d2988482e9581633fe58` (1,734,941 bytes), equal in
+  both runs.
+- The staged rows of `a5q1` and `a5q2` are removed; their reports stay under
+  `build/test-reports/`.
