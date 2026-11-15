@@ -451,6 +451,16 @@ passes.
   patch of WP-H's kind. It carries no advisory and is not in the browser bundle; taking it lets
   the push close the PR instead of carrying it into the next round.
 
+Decisions of the qualification (operator, 2026-11-15).
+
+- **D-090-79 Build toolchain minimum Node 24.15.0 (RF-090-58):** the package builder and CI
+  stay on the exact minimum, which rises from 24.14.0 to 24.15.0 (npm 11.12.1) together with
+  `engines.node`, because the locked test tooling needs it. Not the newest patch, and no
+  downgrade of `@vue/test-utils`.
+- **D-090-80 Requalification after RF-090-58:** that commit changes no app code (`lib/`,
+  `src/`, `js/` byte-identical), so on it only the static gates and the package build and
+  smoke run again; the matrix and both browser gates count from `3031d686`.
+
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). The three
 of the runtime update were answered on 2026-11-12 (D-090-57, D-090-58), and the five of the
@@ -993,6 +1003,10 @@ modified: lib/Service/TaskCategoryService.php, PauseService.php,
           docs/standards/guidelines/e2e-testid-conventions.md (final Full review, RF-090-41..55)
 modified: lib/Db/OccurrenceMapper.php, CHANGELOG.md, docs/engineering/testing.md;
 new:      tests/integration/Db/OccurrenceDayBoundsTest.php (qualification, RF-090-57)
+modified: docker/package-build.json, docker/Dockerfile.package, .github/workflows/checks.yml,
+          full-matrix.yml, release-gate.yml, runtime-check.yml, test.yml, package.json,
+          package-lock.json (root engines), README.md, CHANGELOG.md,
+          docs/engineering/development.md, deployment.md, testing.md (qualification, RF-090-58)
 ```
 
 ## 6. Implementation Order
@@ -1139,6 +1153,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-55 (nit) - WP-A, `lib/Service/PauseService.php`: `listForViewer()` had grown to about 71 lines with D-090-27. Fixed in the review: the viewer's entry is `viewerEntry()`, behaviour unchanged (unit and integration suites).
 - [x] RF-090-56 (minor) - WP-J, `appinfo/routes.php`: the reset route restricts the user ID to `[a-zA-Z0-9_.@-]+`, copied from the older scheduling route, so a member whose Nextcloud ID holds a space or an apostrophe cannot be reset. User-rescoped to `backlog.md` (operator, 2026-11-15): [BUG-API-002](../../backlog/backlog.md#p3-bug-api-002--member-routes-refuse-nextcloud-user-ids-with-a-space-or-an-apostrophe) fixes both routes together.
 - [x] RF-090-57 (major) - WP-G qualification, matrix `a5q1` on `f426d75c` (Sunday 2026-11-15): the SQLite integration suite failed two tests, `RankingConsentTest::testOnTimeRatio_CountsOnlyPublicAgreedOccurrences` and `RhythmProjectionTest::testWeeklyGoal_PercentAndAchievedFollowTheValidCompletionSet`, because the week's last day was missing. Cause, present since the occurrence model of the retained baseline: Nextcloud binds an entity's date field as `Y-m-d 00:00:00`, SQLite keeps that text, and `OccurrenceMapper` compared it with bare day keys, so `<=` and `>` put a day after itself and `=` never matched. On SQLite the daily summary missed the day's planned and agreed work, every inclusive window lost its last day, the history paging could reread its cursor day, and the interval cleanup could delete an open row of its exclusive day. PostgreSQL and MySQL store the day and were not affected. Fixed in the qualification: every day bound is half-open (`>=` the day, `<` the next day), which holds for either stored form, so no data changes. `OccurrenceDayBoundsTest` writes through the entity on fixed days and failed 4 of 4 on SQLite without the fix (control run); the testing guide names the rule.
+- [x] RF-090-58 (major) - WP-G qualification, `test:package:build --verify-reproducible` on `3031d686`: `npm ci --engine-strict` in the pinned builder (Node 24.14.0) refused `abbrev@5.0.0`, which needs Node `^24.15.0`. It arrived on `master` after `0.8.0-alpha.4` with `8dcafab6` (`@vue/test-utils` 2.5.1 → `js-beautify` 2 → `nopt` 10 → `abbrev` 5, all development tooling); no package had been built since, and every CI workflow installs the same way on 24.14.0, so the next push would have failed the remote checks too. Fixed in the qualification (D-090-79): builder inventory, `Dockerfile.package`, the five workflows, `engines.node`, README, the development, deployment and testing guides and the changelog name Node 24.15.0; the development guide says that a dependency raising a locked engine raises the minimum with it. Every locked engine range holds at 24.15.0 / npm 11.12.1; at 24.14.0 exactly these two packages fail.
 
 ## Review Outcome
 
@@ -1388,3 +1403,18 @@ candidate commit and the second GUI review. Four read-only reviewers in parallel
   all four rows, integration 716 on MySQL, PostgreSQL and the AIO row; the SQLite integration
   suite failed 2 of 716 (RF-090-57). Not rerun unchanged; the fix of RF-090-57 makes the next
   candidate, and the browser gates and the package did not run on this one.
+
+**Qualification, second attempt on `3031d686`: backend and browser green, package failed.**
+
+- `test:runtime:check` current, no drift; Jest 179 suites / 2499 tests, ESLint, stylelint and
+  `composer cs:check` green. The `a5q1` rows were removed and fresh rows staged.
+- Matrix `a5q2` on `cs082-a5q2-{mysql,pgsql,sqlite}` (primary 35.0.3, inventory
+  `121b9151…`) and `cs082-a5q2-aio` (35.0.2 with Redis, inventory `9fba5eca…`): unit 1703 and
+  integration 720 on all four rows, no failure, error or skip.
+- Browser gates, five projects each, `workers=1`, no retries: primary on the canonical stack
+  `run-f60Ggq`, AIO on `cs082-a5q2-aio` `run-XJlr3a`; 361 tests each (chromium 104,
+  chromium-serial-db 188, chromium-scheduling-owner 39, mobile-chromium 15, mobile-webkit 15),
+  none failed, skipped or flaky.
+- `test:package:build --verify-reproducible` failed in the builder's strict install
+  (RF-090-58). Its fix makes the next candidate; by D-090-80 the matrix and both browser gates
+  above count for it.

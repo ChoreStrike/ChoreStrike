@@ -119,6 +119,9 @@ gets its own dated version heading once the deployment is verified.
 - **Compatible dependency updates:** `vue` 3.5.44, `@nextcloud/auth` 2.6,
   `@nextcloud/axios` 2.6, `@nextcloud/router` 3.2 and the build and test tooling
   within their major versions. Major updates stay open as TECH-DEPS-001.
+- **Building needs Node.js 24.15:** the updated test tooling requires it, so
+  the minimum for building from source rises from 24.14 to 24.15 within 24.x.
+  The package builder and CI run on exactly that version.
 
 ## [0.8.0-alpha.4] - 2026-11-05
 

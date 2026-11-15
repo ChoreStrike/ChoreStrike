@@ -127,7 +127,7 @@ and the [runtime baseline note](docs/engineering/testing.md#runtime-baseline-cs-
 
 Use the [deployment guide](docs/engineering/deployment.md) to select a verified
 commit, build a production artifact, back up the target and enable the app.
-Build tooling requires PHP 8.4, Composer, Node.js 24.14+ within 24.x and
+Build tooling requires PHP 8.4, Composer, Node.js 24.15+ within 24.x and
 npm 11.8.2+ within 11.x. The guide's generic commands need adaptation to the
 actual AIO/container setup; they are not a complete AIO runbook.
 
