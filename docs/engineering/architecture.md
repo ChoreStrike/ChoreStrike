@@ -112,7 +112,8 @@ ChoreStrike/
 │   ├── composables/            # useCelebration (confetti + SFX), useToasts,
 │   │                           #   useStoreReset (central identity reset, WP6/WP8),
 │   │                           #   useTaskCompletion (the one completion flow with the
-│   │                           #   participation dialog, shared by every task surface)
+│   │                           #   participation dialog, shared by every task surface),
+│   │                           #   useColorScheme (the viewer's colour scheme on <body>)
 │   ├── constants/              # Shared constants (taskVisibility, titles, scheduling)
 │   ├── services/               # Shared API client (api.js — single URL prefix,
 │   │                           #   envelope unwrap, ApiError normalization)
@@ -121,7 +122,8 @@ ChoreStrike/
 │   │                           #   ranking, setup, preferences, pauses, rewards)
 │   │                           #   + userAutoInit bootstrap plugin
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css,
-│   │                           #   feedback.css (completion feedback of a row)
+│   │                           #   feedback.css (completion feedback of a row),
+│   │                           #   schemes.css (the colour scheme palettes, CS-PLAN-090 WP-K)
 │   ├── views/                  # Today (the landing page), Insights, TaskManager (the one task
 │   │                           #   list: by due date, by room or by person),
 │   │                           #   Scheduling (the weekly plan), Calendar, Settings, Rewards,
@@ -1300,7 +1302,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `components/Settings/StructureSettings.vue` | 629 | Floors and rooms, the single surface that edits the house structure, with its dialogs; one category of Settings since the split per category (CS-PLAN-090 WP-D; `Settings.vue` itself has 307 lines, was 1,238) | accepted (one cohesive editing surface; template and CSS dominant) |
+| `components/Settings/StructureSettings.vue` | 629 | Floors and rooms, the single surface that edits the house structure, with its dialogs; one category of Settings since the split per category (CS-PLAN-090 WP-D; `Settings.vue` itself has 323 lines with the categories of WP-I to WP-K, was 1,238) | accepted (one cohesive editing surface; template and CSS dominant) |
 | `components/Insights/RankingPanel.vue` | 609 | The consent-filtered ranking with its medals as a section of Insights (the Leaderboard page it was, CS-PLAN-090 WP-E), with a loading and an error state of its own | accepted (presentational; CSS dominant) |
 | `components/Setup/SetupWizard.vue` | 816 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
 | `views/TodayView.vue` | 645 | The landing page (CS-PLAN-090 WP-B): composes status line, overdue block, due and possible rows; the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |

@@ -62,6 +62,7 @@ function mockCategory(name) {
 jest.mock('../../../src/components/Settings/TitleSettings.vue', () => mockCategory('TitleSettings'))
 jest.mock('../../../src/components/Settings/NotificationPreferences.vue', () => mockCategory('NotificationPreferences'))
 jest.mock('../../../src/components/Settings/PlanningSettings.vue', () => mockCategory('PlanningSettings'))
+jest.mock('../../../src/components/Settings/AppearanceSettings.vue', () => mockCategory('AppearanceSettings'))
 jest.mock('../../../src/components/Settings/HouseSettings.vue', () => mockCategory('HouseSettings'))
 jest.mock('../../../src/components/Settings/StructureSettings.vue', () => mockCategory('StructureSettings'))
 jest.mock('../../../src/components/Settings/TaskCategorySettings.vue', () => mockCategory('TaskCategorySettings'))
@@ -70,7 +71,7 @@ jest.mock('../../../src/components/Members/MemberList.vue', () => mockCategory('
 jest.mock('../../../src/components/Rewards/RewardCatalogEditor.vue', () => mockCategory('RewardCatalogEditor'))
 jest.mock('../../../src/components/Settings/ArcadeSettings.vue', () => mockCategory('ArcadeSettings'))
 
-const PERSONAL = ['title', 'notifications', 'planning']
+const PERSONAL = ['title', 'notifications', 'appearance', 'planning']
 const HOUSEHOLD = ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger']
 // The section test ids the page had before the split stay.
 const SECTION_IDS = ['house-section', 'members-section', 'floors-section', 'task-categories-section', 'catalog-section', 'arcade-gate-section', 'danger-zone']

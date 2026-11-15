@@ -353,6 +353,28 @@ class AccountErasureTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * Erasure_DeletesTheColorScheme (CS-PLAN-090 WP-K, D-090-64): the
+	 * per-user setting goes with the account; another member's stays.
+	 */
+	public function testErasure_DeletesTheColorScheme(): void {
+		$this->seedHouseWithTarget();
+		$userConfig = \OC::$server->get(\OCP\Config\IUserConfig::class);
+		$userConfig->setValueString('ae_target', 'chorestrike', 'color_scheme', 'forest');
+		$userConfig->setValueString('ae_owner', 'chorestrike', 'color_scheme', 'berry');
+		$schemes = \OC::$server->get(\OCA\ChoreStrike\Service\ColorSchemeService::class);
+
+		try {
+			\OC::$server->get(AccountErasureService::class)->eraseAccount('ae_target');
+
+			$userConfig->clearCache('ae_target');
+			self::assertFalse($userConfig->hasKey('ae_target', 'chorestrike', 'color_scheme'));
+			self::assertSame('berry', $schemes->get('ae_owner'));
+		} finally {
+			$schemes->forget('ae_owner');
+		}
+	}
+
+	/**
 	 * Erasure_PurgesDigestRows_QueuedHistoryNeverSurvives
 	 * (CS-PLAN-070 WP5 §3.7, Q-075-01 A): seeded digest rows die with the
 	 * account's membership, including rows for OTHER houses of the same

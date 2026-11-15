@@ -8,7 +8,9 @@
  * one dedicated member through the Nextcloud theming API and restored to the
  * system default afterwards; Nextcloud's own chrome is out of scope. Because
  * axe measures text only, every view also runs the non-text probe (WCAG
- * 1.4.11, BUG-UX-006): icons, bar tracks and bar fills need 3:1.
+ * 1.4.11, BUG-UX-006): icons, bar tracks and bar fills need 3:1. Every
+ * colour scheme (CS-PLAN-090 WP-K, D-090-67) is measured on two views per
+ * theme; the full view set runs on *Standard*.
  *
  * Requires: Docker test environment with the `family` database profile.
  */
@@ -18,6 +20,7 @@ import type { Page } from '@playwright/test'
 import { AxeBuilder } from '@axe-core/playwright'
 import { setArcadeGate } from './fixtures/arcade-gate.ts'
 import { createUserContext } from './fixtures/auth-contexts.ts'
+import { COLOR_SCHEMES, setColorScheme } from './fixtures/color-scheme.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { nonTextContrastViolations } from './fixtures/non-text-contrast.ts'
 import { useTheme } from './fixtures/theme.ts'
@@ -32,6 +35,48 @@ async function firstRoomId(page: Page): Promise<number> {
 	expect(rooms.length, 'the family seed provides rooms').toBeGreaterThan(0)
 	return rooms[0].id
 }
+
+/**
+ * Open views and collect their text and non-text contrast violations.
+ * @param page - Page of the measured member.
+ */
+function contrastProbe(page: Page) {
+	const violations: string[] = []
+	// A hash route stays in its document, where `networkidle` has already
+	// fired: `collect` would measure while the view still loads, and a button
+	// leaving its loading state would be sampled mid-transition.
+	const openView = async (path: string): Promise<void> => {
+		await page.goto('about:blank')
+		await page.goto(`/apps/chorestrike/${path}`)
+	}
+	const collect = async (name: string): Promise<void> => {
+		await page.waitForLoadState('networkidle')
+		// Measure the settled UI: CSS transitions (e.g. the active navigation
+		// background) would otherwise be sampled at an intermediate color.
+		// Infinite decorative loops (e.g. the health bar shimmer) never settle.
+		await page.waitForFunction(() => document.getAnimations()
+			.filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+			.every((animation) => animation.playState !== 'running'))
+		const result = await new AxeBuilder({ page }).include('#content').withRules(['color-contrast']).analyze()
+		for (const violation of result.violations) {
+			for (const node of violation.nodes) {
+				violations.push(`${name}: ${node.target.join(' ')} — ${node.failureSummary?.split('\n').slice(-1)[0]?.trim()}`)
+			}
+		}
+		// BUG-UX-006: axe measures text only; icons and bar graphics need 3:1.
+		for (const line of await nonTextContrastViolations(page)) {
+			violations.push(`${name}: ${line}`)
+		}
+	}
+	return { violations, openView, collect }
+}
+
+// Two views with the most accent: buttons, the active navigation entry, the
+// swatches and the status line.
+const SCHEME_VIEWS = [
+	{ name: 'Today', path: '#/today', ready: 'today-view' },
+	{ name: 'Settings', path: '#/settings?category=appearance', ready: 'appearance-settings' },
+]
 
 test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 	test.use({ databaseProfile: 'family' })
@@ -53,33 +98,7 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 					{ name: 'Calendar', path: '#/calendar', ready: 'calendar-view' },
 					{ name: 'Settings', path: '#/settings?category=notifications', ready: 'notification-preferences' },
 				]
-				const violations: string[] = []
-				// A hash route stays in its document, where `networkidle` has already
-				// fired: `collect` would measure while the view still loads, and a button
-				// leaving its loading state would be sampled mid-transition.
-				const openView = async (path: string): Promise<void> => {
-					await page.goto('about:blank')
-					await page.goto(`/apps/chorestrike/${path}`)
-				}
-				const collect = async (name: string): Promise<void> => {
-					await page.waitForLoadState('networkidle')
-					// Measure the settled UI: CSS transitions (e.g. the active navigation
-					// background) would otherwise be sampled at an intermediate color.
-					// Infinite decorative loops (e.g. the health bar shimmer) never settle.
-					await page.waitForFunction(() => document.getAnimations()
-						.filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-						.every((animation) => animation.playState !== 'running'))
-					const result = await new AxeBuilder({ page }).include('#content').withRules(['color-contrast']).analyze()
-					for (const violation of result.violations) {
-						for (const node of violation.nodes) {
-							violations.push(`${name}: ${node.target.join(' ')} — ${node.failureSummary?.split('\n').slice(-1)[0]?.trim()}`)
-						}
-					}
-					// BUG-UX-006: axe measures text only; icons and bar graphics need 3:1.
-					for (const line of await nonTextContrastViolations(page)) {
-						violations.push(`${name}: ${line}`)
-					}
-				}
+				const { violations, openView, collect } = contrastProbe(page)
 				for (const view of views) {
 					await openView(view.path)
 					await expect(page.locator('body')).toHaveAttribute(`data-theme-${theme}`, '')
@@ -97,6 +116,30 @@ test.describe('Color contrast (light/dark Nextcloud themes)', () => {
 				await collect('Arcade game')
 				expect(violations, violations.join('\n')).toEqual([])
 			} finally {
+				await useTheme(page, 'default').catch(() => {})
+				await context.close()
+			}
+		})
+
+		test(`every colour scheme keeps contrast on Today and in Settings in the ${theme} theme`, async ({ browser }) => {
+			test.setTimeout(300000)
+			const { context, page } = await createUserContext(browser, USER)
+			try {
+				await useTheme(page, theme)
+				const { violations, openView, collect } = contrastProbe(page)
+				for (const scheme of COLOR_SCHEMES) {
+					await setColorScheme(page, scheme)
+					for (const view of SCHEME_VIEWS) {
+						await openView(view.path)
+						await expect(page.locator('body')).toHaveAttribute(`data-theme-${theme}`, '')
+						await expect(page.locator('body')).toHaveAttribute('data-cs-scheme', scheme)
+						await expect(page.getByTestId(view.ready)).toBeVisible({ timeout: 20000 })
+						await collect(`${scheme} ${view.name}`)
+					}
+				}
+				expect(violations, violations.join('\n')).toEqual([])
+			} finally {
+				await setColorScheme(page, 'standard').catch(() => {})
 				await useTheme(page, 'default').catch(() => {})
 				await context.close()
 			}

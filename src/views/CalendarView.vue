@@ -227,7 +227,7 @@ export default {
 
 .calendar-loading .skeleton-grid {
 	height: 300px;
-	background: var(--color-background-dark, #eee);
+	background: var(--color-background-dark);
 	border-radius: 8px;
 	animation: pulse 1.5s infinite;
 }
@@ -244,7 +244,7 @@ export default {
 .day-detail {
 	margin-top: 20px;
 	padding: 16px;
-	border: 1px solid var(--color-border, #ddd);
+	border: 1px solid var(--color-border);
 	border-radius: 8px;
 }
 
@@ -267,7 +267,7 @@ export default {
 }
 
 .task-item.overdue {
-	background: var(--color-error-hover, #fde8e8);
+	background: var(--color-error-hover);
 }
 
 .task-repeat {

@@ -143,6 +143,16 @@ export function updateMyPreferences(payload) {
 	return put('/api/v1/preferences/me', payload)
 }
 
+/**
+ * PUT the calling member's own colour scheme (CS-PLAN-090 WP-K): a plain
+ * per-user setting, the last save wins on every device.
+ * @param {string} colorScheme A listed scheme key.
+ * @return {Promise<{colorScheme: string}>} The stored scheme.
+ */
+export function updateMyColorScheme(colorScheme) {
+	return put('/api/v1/preferences/me/color-scheme', { colorScheme })
+}
+
 // Pause API (CS-PLAN-073 WP2 §3.5, consumed by the WP6 pause UI): the
 // revisioned pause lifecycle with command UUIDs and expectedRevision.
 

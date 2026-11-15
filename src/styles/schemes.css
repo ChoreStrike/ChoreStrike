@@ -1,0 +1,210 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+/*
+ * Colour schemes (CS-PLAN-090 WP-K, FEAT-UX-057, D-090-61/62/67).
+ *
+ * A person picks *Standard* or one of five schemes in Settings → Personal →
+ * Appearance. A scheme changes the accent colours inside the app only:
+ * buttons, highlights, progress, energy and celebration. Backgrounds and text
+ * stay with Nextcloud's light or dark theme, and the Nextcloud header keeps
+ * the instance colour.
+ *
+ * `useColorScheme` puts the scheme on <body> as `data-cs-scheme` (the app's
+ * dialogs are teleported there) and leaves it off for *Standard* and under a
+ * high-contrast theme. A swatch in the settings (`data-cs-swatch`) carries its
+ * scheme's palette whatever scheme is active. Three layers:
+ *
+ *  1. Palettes, one block per scheme. A role with a `-light`/`-dark` suffix
+ *     depends on the theme; `primary*` and `confetti` do not, like
+ *     Nextcloud's `--color-primary`. `tests/unit/css/colorSchemes.spec.js`
+ *     checks every pair against Nextcloud's backgrounds: 4.5:1 for text on
+ *     the accent and for the accent as text, 4.5:1 for the energy value.
+ *  2. Theme selection on <body>, keyed to Nextcloud's theme attributes like
+ *     `tokens.css`.
+ *  3. Application: Nextcloud's primary variables and the app's accent tokens,
+ *     scoped to the app content and its teleported dialogs (`Modal.vue`,
+ *     `SetupWizard.vue`). Nextcloud resolves its aliases (for example
+ *     `--color-primary-element-light`) at :root, so they are set again here.
+ */
+
+/* === 1. Palettes ====================================================== */
+
+body[data-cs-scheme="ocean"],
+[data-cs-swatch="ocean"] {
+	--cs-scheme-element-light: #006979;
+	--cs-scheme-element-dark: #00A3BC;
+	--cs-scheme-element-hover-light: #004F5B;
+	--cs-scheme-element-hover-dark: #00C2DF;
+	--cs-scheme-tint-light: #E0EDEF;
+	--cs-scheme-tint-dark: #133035;
+	--cs-scheme-tint-hover-light: #CCE1E4;
+	--cs-scheme-tint-hover-dark: #113B42;
+	--cs-scheme-tint-text-light: #005866;
+	--cs-scheme-tint-text-dark: #4BD1E5;
+	--cs-scheme-energy-light: #A74E00;
+	--cs-scheme-energy-dark: #FFA657;
+	--cs-scheme-primary: #006979;
+	--cs-scheme-primary-hover: #004F5B;
+	--cs-scheme-confetti: #3DE5FF;
+}
+
+body[data-cs-scheme="forest"],
+[data-cs-swatch="forest"] {
+	--cs-scheme-element-light: #206D2F;
+	--cs-scheme-element-dark: #31AA49;
+	--cs-scheme-element-hover-light: #195625;
+	--cs-scheme-element-hover-dark: #39C555;
+	--cs-scheme-tint-light: #E4EDE6;
+	--cs-scheme-tint-dark: #1C3120;
+	--cs-scheme-tint-hover-light: #D2E2D5;
+	--cs-scheme-tint-hover-dark: #1E3D24;
+	--cs-scheme-tint-text-light: #174F22;
+	--cs-scheme-tint-text-dark: #70D685;
+	--cs-scheme-energy-light: #955900;
+	--cs-scheme-energy-dark: #FFA825;
+	--cs-scheme-primary: #206D2F;
+	--cs-scheme-primary-hover: #195625;
+	--cs-scheme-confetti: #69D37E;
+}
+
+body[data-cs-scheme="sunset"],
+[data-cs-swatch="sunset"] {
+	--cs-scheme-element-light: #AB3815;
+	--cs-scheme-element-dark: #E9714C;
+	--cs-scheme-element-hover-light: #902F12;
+	--cs-scheme-element-hover-dark: #ED8A6C;
+	--cs-scheme-tint-light: #F5E7E3;
+	--cs-scheme-tint-dark: #3D2721;
+	--cs-scheme-tint-hover-light: #EED7D0;
+	--cs-scheme-tint-hover-dark: #4E2E25;
+	--cs-scheme-tint-text-light: #5B1E0B;
+	--cs-scheme-tint-text-dark: #F1B29E;
+	--cs-scheme-energy-light: #8D5E00;
+	--cs-scheme-energy-dark: #FDA900;
+	--cs-scheme-primary: #AB3815;
+	--cs-scheme-primary-hover: #902F12;
+	--cs-scheme-confetti: #EA7653;
+}
+
+body[data-cs-scheme="berry"],
+[data-cs-swatch="berry"] {
+	--cs-scheme-element-light: #AA2B77;
+	--cs-scheme-element-dark: #DB70B0;
+	--cs-scheme-element-hover-light: #922466;
+	--cs-scheme-element-hover-dark: #E28CC0;
+	--cs-scheme-tint-light: #F5E6EF;
+	--cs-scheme-tint-dark: #3A2733;
+	--cs-scheme-tint-hover-light: #EED5E4;
+	--cs-scheme-tint-hover-dark: #4A2E3F;
+	--cs-scheme-tint-text-light: #521439;
+	--cs-scheme-tint-text-dark: #EBAFD3;
+	--cs-scheme-energy-light: #AC4A00;
+	--cs-scheme-energy-dark: #FFA661;
+	--cs-scheme-primary: #AA2B77;
+	--cs-scheme-primary-hover: #922466;
+	--cs-scheme-confetti: #D864AA;
+}
+
+body[data-cs-scheme="slate"],
+[data-cs-swatch="slate"] {
+	--cs-scheme-element-light: #4E617A;
+	--cs-scheme-element-dark: #8296AF;
+	--cs-scheme-element-hover-light: #425268;
+	--cs-scheme-element-hover-dark: #98A8BD;
+	--cs-scheme-tint-light: #EAECEF;
+	--cs-scheme-tint-dark: #2A2E32;
+	--cs-scheme-tint-hover-light: #DCDFE4;
+	--cs-scheme-tint-hover-dark: #33383F;
+	--cs-scheme-tint-text-light: #28323E;
+	--cs-scheme-tint-text-dark: #B6C2D0;
+	--cs-scheme-energy-light: #A15204;
+	--cs-scheme-energy-dark: #FBA854;
+	--cs-scheme-primary: #4E617A;
+	--cs-scheme-primary-hover: #425268;
+	--cs-scheme-confetti: #899BB3;
+}
+
+/* === 2. Theme selection =================================================
+ * Text on the accent is white in the light theme and black in the dark one,
+ * as Nextcloud picks it for an element colour of this lightness; the
+ * primary colour carries white text in both.
+ */
+
+body[data-cs-scheme],
+[data-cs-swatch] {
+	--cs-scheme-element: var(--cs-scheme-element-light);
+	--cs-scheme-element-hover: var(--cs-scheme-element-hover-light);
+	--cs-scheme-element-text: #FFFFFF;
+	--cs-scheme-element-text-muted: #EDEDED;
+	--cs-scheme-tint: var(--cs-scheme-tint-light);
+	--cs-scheme-tint-hover: var(--cs-scheme-tint-hover-light);
+	--cs-scheme-tint-text: var(--cs-scheme-tint-text-light);
+	--cs-scheme-energy: var(--cs-scheme-energy-light);
+	--cs-scheme-primary-text: #FFFFFF;
+	--cs-scheme-invert-if-bright: no;
+	--cs-scheme-invert-if-dark: invert(100%);
+}
+
+body[data-cs-scheme][data-theme-dark],
+body[data-theme-dark] [data-cs-swatch] {
+	--cs-scheme-element: var(--cs-scheme-element-dark);
+	--cs-scheme-element-hover: var(--cs-scheme-element-hover-dark);
+	--cs-scheme-element-text: #000000;
+	--cs-scheme-element-text-muted: #121212;
+	--cs-scheme-tint: var(--cs-scheme-tint-dark);
+	--cs-scheme-tint-hover: var(--cs-scheme-tint-hover-dark);
+	--cs-scheme-tint-text: var(--cs-scheme-tint-text-dark);
+	--cs-scheme-energy: var(--cs-scheme-energy-dark);
+	--cs-scheme-invert-if-bright: invert(100%);
+	--cs-scheme-invert-if-dark: no;
+}
+
+@media (prefers-color-scheme: dark) {
+	body[data-cs-scheme][data-theme-default],
+	body[data-theme-default] [data-cs-swatch] {
+		--cs-scheme-element: var(--cs-scheme-element-dark);
+		--cs-scheme-element-hover: var(--cs-scheme-element-hover-dark);
+		--cs-scheme-element-text: #000000;
+		--cs-scheme-element-text-muted: #121212;
+		--cs-scheme-tint: var(--cs-scheme-tint-dark);
+		--cs-scheme-tint-hover: var(--cs-scheme-tint-hover-dark);
+		--cs-scheme-tint-text: var(--cs-scheme-tint-text-dark);
+		--cs-scheme-energy: var(--cs-scheme-energy-dark);
+		--cs-scheme-invert-if-bright: invert(100%);
+		--cs-scheme-invert-if-dark: no;
+	}
+}
+
+/* The instance's own accent, resolved on <body> where no scheme reaches:
+ * the *Standard* swatch shows it while another scheme is active. */
+body {
+	--cs-instance-element: var(--color-primary-element);
+	--cs-instance-element-text: var(--color-primary-element-text);
+}
+
+/* === 3. Application ===================================================== */
+
+body[data-cs-scheme] :is(#app-chorestrike-vue, .modal-overlay, .wizard-overlay) {
+	--primary-invert-if-bright: var(--cs-scheme-invert-if-bright);
+	--primary-invert-if-dark: var(--cs-scheme-invert-if-dark);
+	--color-primary: var(--cs-scheme-primary);
+	--color-primary-text: var(--cs-scheme-primary-text);
+	--color-primary-hover: var(--cs-scheme-primary-hover);
+	--color-primary-element: var(--cs-scheme-element);
+	--color-primary-element-hover: var(--cs-scheme-element-hover);
+	--color-primary-element-text: var(--cs-scheme-element-text);
+	--color-primary-element-text-dark: var(--cs-scheme-element-text-muted);
+	--color-primary-light: var(--cs-scheme-tint);
+	--color-primary-light-hover: var(--cs-scheme-tint-hover);
+	--color-primary-light-text: var(--cs-scheme-tint-text);
+	--color-primary-element-light: var(--cs-scheme-tint);
+	--color-primary-element-light-hover: var(--cs-scheme-tint-hover);
+	--color-primary-element-light-text: var(--cs-scheme-tint-text);
+	--gradient-primary-background: linear-gradient(40deg, var(--cs-scheme-primary) 0%, var(--cs-scheme-primary-hover) 100%);
+	--cs-energy: var(--cs-scheme-energy);
+	--cs-celebrate-primary: var(--cs-scheme-element);
+	--cs-celebrate-accent: var(--cs-scheme-confetti);
+}

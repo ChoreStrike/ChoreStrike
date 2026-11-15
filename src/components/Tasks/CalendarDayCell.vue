@@ -63,7 +63,7 @@ export default {
 <style scoped>
 .calendar-day-cell {
 	padding: 8px;
-	border: 1px solid var(--color-border, #ddd);
+	border: 1px solid var(--color-border);
 	border-radius: 6px;
 	cursor: pointer;
 	min-height: 60px;
@@ -75,7 +75,7 @@ export default {
 }
 
 .calendar-day-cell:hover {
-	background: var(--color-background-hover, #f5f5f5);
+	background: var(--color-background-hover);
 }
 
 .calendar-day-cell.is-today {
@@ -83,12 +83,12 @@ export default {
 }
 
 .calendar-day-cell.has-tasks {
-	background: var(--color-primary-element-light, #e8f4fd);
+	background: var(--color-primary-element-light);
 }
 
 .day-label {
 	font-size: 0.8em;
-	color: var(--color-text-maxcontrast, #767676);
+	color: var(--color-text-maxcontrast);
 }
 
 .day-count {

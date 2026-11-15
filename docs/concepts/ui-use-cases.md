@@ -414,6 +414,7 @@ and sound/animation consumers remain WP6.
 |---|---|---|---|
 | Optional combined daily task/organizational digest | Nextcloud notifications (five-minute job) | background job | WP5 implemented; opt-in only, no missed-slot catch-up or award bells |
 | Personal delivery preferences | Settings | `GET/PUT /preferences/me` | WP5 minimal self-only surface, shared-version conflict handling |
+| Pick the own colour scheme, kept on every device (every role) | Settings → Personal → Appearance (`AppearanceSettings`) | `PUT /preferences/me/color-scheme`, initial state `color-scheme` | ✅ (CS-PLAN-090 WP-K, FEAT-UX-057) |
 | Reminder settings per task | — | — | ⛔ concept exists (`task-model-and-sync.md`), no endpoint, no UI |
 | NC-Tasks sync surface | — | `POST /task-sync/*` (6 routes) | ⛔ pruned (CS-PLAN-055 — controller/service/routes deleted; design intent kept marked in [task-model-and-sync.md](task-model-and-sync.md)) |
 

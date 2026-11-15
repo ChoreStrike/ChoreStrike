@@ -431,7 +431,7 @@ export default {
 }
 
 .leaderboard-row.current-user {
-	background: rgba(var(--color-primary-rgb), 0.1);
+	background: var(--color-primary-element-light);
 	font-weight: 500;
 }
 

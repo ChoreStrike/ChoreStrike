@@ -114,6 +114,9 @@ const REQUIRED_SPECS = [
 	// Default parallel pool (read-only against the seed).
 	{ file: 'admin-only-tasks.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'calendar.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
+	// CS-PLAN-090 WP-K: contrast per theme and colour scheme, and the scheme itself.
+	{ file: 'color-contrast.spec.ts', project: 'chromium', scenarios: ['main views have no color-contrast violations in the light theme', 'main views have no color-contrast violations in the dark theme', 'every colour scheme keeps contrast on today and in settings in the light theme', 'every colour scheme keeps contrast on today and in settings in the dark theme'], minTests: 4 },
+	{ file: 'color-schemes.spec.ts', project: 'chromium', scenarios: ['a scheme chosen in settings holds after a reload', 'a high-contrast nextcloud theme keeps the standard colours'], minTests: 2 },
 	{ file: 'core-functionality.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'fast-core-tests.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	// TECH-DOCS-005 follow-up: navigation-toggle clearance (desktop + phone) and Today's status line.

@@ -39,6 +39,13 @@
 					@toggle="toggle">
 					<NotificationPreferences />
 				</SettingsCategory>
+				<SettingsCategory id="appearance"
+					:title="t('chorestrike', 'Appearance')"
+					:open="isOpen('appearance')"
+					testid="appearance-section"
+					@toggle="toggle">
+					<AppearanceSettings />
+				</SettingsCategory>
 				<SettingsCategory id="planning"
 					:title="t('chorestrike', 'Planning')"
 					:open="isOpen('planning')"
@@ -123,6 +130,7 @@ import Icon from '../components/Common/Icon.vue'
 import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
 import MemberList from '../components/Members/MemberList.vue'
 import RewardCatalogEditor from '../components/Rewards/RewardCatalogEditor.vue'
+import AppearanceSettings from '../components/Settings/AppearanceSettings.vue'
 import ArcadeSettings from '../components/Settings/ArcadeSettings.vue'
 import DangerZoneSettings from '../components/Settings/DangerZoneSettings.vue'
 import HouseSettings from '../components/Settings/HouseSettings.vue'
@@ -138,7 +146,7 @@ import { logger } from '../utils/logger.js'
 
 // Categories per area; a `?category=` link opens one of them.
 const CATEGORIES = {
-	personal: ['title', 'notifications', 'planning'],
+	personal: ['title', 'notifications', 'appearance', 'planning'],
 	household: ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger'],
 }
 
@@ -166,6 +174,7 @@ export default {
 		SettingsCategory,
 		TitleSettings,
 		NotificationPreferences,
+		AppearanceSettings,
 		PlanningSettings,
 		HouseSettings,
 		MemberList,

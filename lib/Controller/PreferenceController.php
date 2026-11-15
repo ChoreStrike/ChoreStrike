@@ -8,10 +8,12 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\ColorSchemeService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\PreferenceService;
 use OCP\AppFramework\Controller;
@@ -24,8 +26,9 @@ use OCP\IRequest;
  * (CS-PLAN-076 §3.1, C5h).
  *
  * Thin endpoint: authorization gates run here; validation and the
- * versioned update live in PreferenceService. There is deliberately no
- * route for an owner to read or write another member's preferences —
+ * versioned update live in PreferenceService, the colour scheme in
+ * ColorSchemeService (CS-PLAN-090 WP-K). There is deliberately no route
+ * for an owner to read or write another member's preferences —
  * `/preferences/me` is the only surface, children included.
  */
 class PreferenceController extends Controller {
@@ -34,6 +37,7 @@ class PreferenceController extends Controller {
 	private PreferenceService $preferenceService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private ColorSchemeService $colorSchemes;
 	private IL10N $l;
 
 	public function __construct(
@@ -41,6 +45,7 @@ class PreferenceController extends Controller {
 		PreferenceService $preferenceService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		ColorSchemeService $colorSchemes,
 		IL10N $l,
 		AppLogger $appLogger,
 	) {
@@ -48,23 +53,23 @@ class PreferenceController extends Controller {
 		$this->preferenceService = $preferenceService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->colorSchemes = $colorSchemes;
 		$this->l = $l;
 		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
 	 * The calling member's own preference payload (versioned own settings
-	 * incl. the effective ranking start).
+	 * incl. the effective ranking start, plus the colour scheme).
 	 *
 	 * @NoAdminRequired
 	 */
 	public function show(): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
+			[$houseId, $houseUser] = $this->currentMember();
 
-			$payload = $this->preferenceService->getOwnPreferences((int)$house->getId(), $houseUser);
+			$payload = $this->preferenceService->getOwnPreferences($houseId, $houseUser);
+			$payload['colorScheme'] = $this->colorSchemes->get((string)$houseUser->getNextcloudUserId());
 
 			return new JSONResponse([
 				'success' => true,
@@ -94,9 +99,7 @@ class PreferenceController extends Controller {
 	 */
 	public function update(): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
+			[$houseId, $houseUser] = $this->currentMember();
 
 			$input = $this->request->getParams();
 			unset($input['_route']);
@@ -107,7 +110,7 @@ class PreferenceController extends Controller {
 			unset($input['commandId']);
 
 			$payload = $this->preferenceService->updateOwnPreferences(
-				(int)$house->getId(),
+				$houseId,
 				$houseUser,
 				$input,
 				$commandId
@@ -134,5 +137,52 @@ class PreferenceController extends Controller {
 				]
 			], 500);
 		}
+	}
+
+	/**
+	 * Set the calling member's own colour scheme (CS-PLAN-090 WP-K,
+	 * D-090-61). A plain per-user setting outside the versioned row: the
+	 * last save wins on every device, and an unknown scheme is a 400
+	 * before any write.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function updateColorScheme(): JSONResponse {
+		try {
+			[, $houseUser] = $this->currentMember();
+
+			$scheme = $this->colorSchemes->setOwn($houseUser, $this->request->getParam('colorScheme'));
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => ['colorScheme' => $scheme],
+			]);
+		} catch (\InvalidArgumentException $e) {
+			return ControllerErrorFormatter::validation($e, 'COLOR_SCHEME_VALIDATION_ERROR');
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('updateColorScheme', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'COLOR_SCHEME_UPDATE_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * The instance house and the caller's membership in it (read-only
+	 * gate, never auto-joins).
+	 *
+	 * @return array{0: int, 1: HouseUser}
+	 * @throws ForbiddenException for a non-member
+	 */
+	private function currentMember(): array {
+		$house = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId());
+		$houseUser = $this->authService->assertHouseMember($house->getId());
+		return [(int)$house->getId(), $houseUser];
 	}
 }

@@ -125,12 +125,12 @@ export default {
 .medal-rhythm_3,
 .medal-rhythm_6,
 .medal-rhythm_12 {
-	background: linear-gradient(135deg, #ad4a42 0%, #e18d56 100%);
-	color: white;
+	background: var(--cs-medal-rhythm-gradient);
+	color: var(--cs-medal-ink);
 }
 
 .medal-weekly_milestone {
-	background: linear-gradient(135deg, #376989 0%, #6c9f9d 100%);
-	color: white;
+	background: var(--cs-medal-milestone-gradient);
+	color: var(--cs-medal-ink);
 }
 </style>

@@ -204,7 +204,7 @@ export default {
 
 .picker-tab { background: transparent; border: 1px solid var(--color-border); border-radius: 8px; padding: 0.4rem 0.75rem; cursor: pointer; }
 
-.picker-tab.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+.picker-tab.active { background: var(--color-primary); color: var(--color-primary-text); border-color: var(--color-primary); }
 
 .level-toggle { display: flex; gap: 0.25rem; }
 

@@ -68,6 +68,19 @@ describe('confetti utilities', () => {
 				expect(color.length).toBeGreaterThan(0)
 			})
 		})
+
+		it('reads the tokens on the app root, where a colour scheme sets them (CS-PLAN-090 WP-K)', () => {
+			const root = document.createElement('div')
+			root.id = 'app-chorestrike-vue'
+			root.style.setProperty('--cs-celebrate-primary', '#006979')
+			root.style.setProperty('--cs-celebrate-accent', '#3DE5FF')
+			document.body.appendChild(root)
+			try {
+				expect(getCelebrationPalette().slice(0, 2)).toEqual(['#006979', '#3DE5FF'])
+			} finally {
+				root.remove()
+			}
+		})
 	})
 
 	describe('fireConfetti', () => {

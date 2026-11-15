@@ -51,7 +51,7 @@ test.describe('Settings', () => {
 		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
 
 		await expect(page.getByTestId('settings-tab-personal')).toHaveAttribute('aria-pressed', 'true')
-		for (const category of ['title', 'notifications', 'planning']) {
+		for (const category of ['title', 'notifications', 'appearance', 'planning']) {
 			await expect(page.getByTestId(`settings-category-${category}`)).toHaveAttribute('aria-expanded', 'false')
 		}
 		await expect(page.getByTestId('settings-open-requests')).toBeVisible()

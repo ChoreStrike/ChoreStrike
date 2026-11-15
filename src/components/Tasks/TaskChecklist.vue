@@ -476,7 +476,7 @@ export default {
 	top: 1px;
 	width: 5px;
 	height: 10px;
-	border: solid white;
+	border: solid var(--color-primary-text);
 	border-width: 0 2px 2px 0;
 	transform: rotate(45deg);
 }
@@ -601,7 +601,7 @@ export default {
 
 .btn-primary {
 	background: var(--color-primary);
-	color: white;
+	color: var(--color-primary-text);
 }
 
 .btn-primary:disabled {

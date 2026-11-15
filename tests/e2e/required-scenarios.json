@@ -301,6 +301,16 @@
     "calendar.spec.ts > Calendar View > renders the task calendar grid",
     "calendar.spec.ts > Calendar View > switches to month mode"
   ],
+  "color-contrast.spec.ts": [
+    "color-contrast.spec.ts > Color contrast (light/dark Nextcloud themes) > every colour scheme keeps contrast on Today and in Settings in the dark theme",
+    "color-contrast.spec.ts > Color contrast (light/dark Nextcloud themes) > every colour scheme keeps contrast on Today and in Settings in the light theme",
+    "color-contrast.spec.ts > Color contrast (light/dark Nextcloud themes) > main views have no color-contrast violations in the dark theme",
+    "color-contrast.spec.ts > Color contrast (light/dark Nextcloud themes) > main views have no color-contrast violations in the light theme"
+  ],
+  "color-schemes.spec.ts": [
+    "color-schemes.spec.ts > Colour schemes (CS-PLAN-090 WP-K) > a high-contrast Nextcloud theme keeps the standard colours",
+    "color-schemes.spec.ts > Colour schemes (CS-PLAN-090 WP-K) > a scheme chosen in Settings holds after a reload and colours an open dialog, not the header"
+  ],
   "core-functionality.spec.ts": [
     "core-functionality.spec.ts > Core App Functionality > Filters and search work in Task Manager",
     "core-functionality.spec.ts > Core App Functionality > Navigation between main views works",

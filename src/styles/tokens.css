@@ -68,6 +68,10 @@
 	--cs-medal-silver: #B2BEC3;
 	--cs-medal-gold:   #FDCB6E;
 	--cs-medal-platinum: #74B9FF;
+	/* Medal badges (MedalBadge.vue): rhythm medals and the weekly milestone. */
+	--cs-medal-rhythm-gradient: linear-gradient(135deg, #AD4A42 0%, #E18D56 100%);
+	--cs-medal-milestone-gradient: linear-gradient(135deg, #376989 0%, #6C9F9D 100%);
+	--cs-medal-ink: #FFFFFF;
 
 	/* === Arcade board palette (CS-PLAN-086 WP-G) ======================
 	 * Colors of the five arcade games. Canvas boards read them once per
@@ -112,6 +116,10 @@
 	--cs-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
 	--cs-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
 	--cs-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+	--cs-shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.2);
+
+	/* Dimmed page behind the app's dialogs (Modal.vue, SetupWizard.vue). */
+	--cs-backdrop: rgba(0, 0, 0, 0.45);
 
 	--cs-chip-bg: var(--color-background-dark, #F4F5F7);
 	--cs-card-bg: var(--color-main-background, #FFFFFF);
@@ -174,6 +182,7 @@ body[data-theme-dark-highcontrast] {
 	--cs-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.30);
 	--cs-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.42);
 	--cs-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.50);
+	--cs-shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.50);
 	--cs-arcade-floor: #1B2A40;
 	--cs-arcade-floor-alt: #22344F;
 	--cs-arcade-grout: #101C2E;
@@ -192,6 +201,7 @@ body[data-theme-dark-highcontrast] {
 		--cs-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.30);
 		--cs-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.42);
 		--cs-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.50);
+		--cs-shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.50);
 		--cs-arcade-floor: #1B2A40;
 		--cs-arcade-floor-alt: #22344F;
 		--cs-arcade-grout: #101C2E;

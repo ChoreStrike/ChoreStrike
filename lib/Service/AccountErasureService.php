@@ -58,7 +58,8 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  *    rows (`digest_changes` queued history + `digest_slots` delivery
  *    history) — membership-keyed, never rebound,
  *  - delete the `house_users` row (scheduling preferences die with it),
- *  - CS-PLAN-090 WP-J: delete the account's arcade start point.
+ *  - CS-PLAN-090 WP-J: delete the account's arcade start point,
+ *  - CS-PLAN-090 WP-K: delete the account's colour scheme.
  *
  * Ordinary departure NEVER runs this path (decision D3): removal keeps the
  * wallet as dormant financial identity. Erasure of an already-departed
@@ -101,6 +102,7 @@ class AccountErasureService {
 		private TransactionExecutor $transactions,
 		private AppLogger $appLogger,
 		private ArcadeStartPointStore $arcadeStartPoints,
+		private ColorSchemeService $colorSchemes,
 	) {
 	}
 
@@ -172,10 +174,11 @@ class AccountErasureService {
 		// membership (a departed-only account never entered the loop
 		// above) — always sweep them by UID (CS-PLAN-071 purge matrix).
 		$this->minigameScoreMapper->deleteByUserIds([$nextcloudUserId]);
-		// CS-PLAN-090 D-090-64: the arcade start point is a per-user
-		// setting; Nextcloud deletes it with the account, this makes it
-		// explicit.
+		// CS-PLAN-090 D-090-64: the arcade start point and the colour
+		// scheme are per-user settings; Nextcloud deletes them with the
+		// account, this makes it explicit.
 		$this->arcadeStartPoints->forget($nextcloudUserId);
+		$this->colorSchemes->forget($nextcloudUserId);
 
 		if ($failedHouseIds !== [] || $failedWalletIds !== []) {
 			$this->appLogger->error('Account erasure finished with failures; manual follow-up required', [

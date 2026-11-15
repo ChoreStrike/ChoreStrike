@@ -45,6 +45,7 @@ class TestDataServiceTest extends TestCase {
 	private \OCA\ChoreStrike\Service\RewardConfigService&MockObject $rewardConfig;
 	private \OCA\ChoreStrike\Service\TaskCategoryService&MockObject $taskCategories;
 	private \OCA\ChoreStrike\Service\ArcadeStartPointStore&MockObject $arcadeStartPoints;
+	private \OCA\ChoreStrike\Service\ColorSchemeService&MockObject $colorSchemes;
 	private TestDataService $service;
 
 	protected function setUp(): void {
@@ -77,6 +78,7 @@ class TestDataServiceTest extends TestCase {
 		$this->rewardConfig = $this->createMock(\OCA\ChoreStrike\Service\RewardConfigService::class);
 		$this->taskCategories = $this->createMock(\OCA\ChoreStrike\Service\TaskCategoryService::class);
 		$this->arcadeStartPoints = $this->createMock(\OCA\ChoreStrike\Service\ArcadeStartPointStore::class);
+		$this->colorSchemes = $this->createMock(\OCA\ChoreStrike\Service\ColorSchemeService::class);
 
 		$this->service = new TestDataService(
 			$this->db,
@@ -100,6 +102,7 @@ class TestDataServiceTest extends TestCase {
 			$this->rewardConfig,
 			$this->taskCategories,
 			$this->arcadeStartPoints,
+			$this->colorSchemes,
 		);
 	}
 
@@ -457,6 +460,8 @@ class TestDataServiceTest extends TestCase {
 		// CS-PLAN-090 WP-J: nor its thresholds or reset start points.
 		$this->rewardConfig->expects($this->once())->method('resetArcadeThresholds');
 		$this->arcadeStartPoints->expects($this->once())->method('forgetAll');
+		// CS-PLAN-090 WP-K: nor a person's colour scheme.
+		$this->colorSchemes->expects($this->once())->method('forgetAll');
 		// CS-PLAN-090 WP-I: a spec's own categories never leak into the next.
 		$this->taskCategories->expects($this->once())->method('resetToDefaults');
 

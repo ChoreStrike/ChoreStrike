@@ -37,6 +37,43 @@ of every main view in the light and dark themes, and its non-text probe
 (`tests/e2e/fixtures/non-text-contrast.ts`) holds icons, progress tracks and
 fills to 3:1 (WCAG 1.4.11) — axe measures text only.
 
+**No colour literals in components** (CS-PLAN-090 WP-K). A colour is a
+Nextcloud variable or a `--cs-*` token; hex, `rgb()`/`hsl()` and the names
+`white`/`black` live only in `src/styles/tokens.css` and
+`src/styles/schemes.css`. A tint of a status or accent colour is
+`color-mix(in srgb, var(--color-element-<state>) N%, var(--color-main-background))`,
+text on `--color-primary` is `--color-primary-text`. The arcade boards keep
+their own game palette. `theme-consistency.spec.js` enforces this.
+
+### Colour schemes (FEAT-UX-057, CS-PLAN-090 WP-K)
+
+Each person picks *Standard* or one of five schemes (Ocean, Forest, Sunset,
+Berry, Slate) under Settings → Personal → Appearance; the choice is stored per
+person and follows them to every device. A scheme changes the **accent only**
+(D-090-62): Nextcloud's primary variables and the app's accent tokens
+(`--cs-energy`, `--cs-celebrate-primary`, `--cs-celebrate-accent`). Backgrounds,
+text and status colours stay with Nextcloud's theme; *Standard* keeps the
+instance colour.
+
+- **Where it applies:** `useColorScheme` sets `data-cs-scheme` on `<body>`;
+  `src/styles/schemes.css` scopes the overrides to the app content
+  (`#app-chorestrike-vue`) and the dialogs teleported to the body
+  (`.modal-overlay`, `.wizard-overlay`), so the Nextcloud header keeps the
+  instance colour. A new teleported root joins that list.
+- **Themes:** each palette has a light and a dark variant, selected by the
+  Nextcloud theme attributes on `<body>` like the tokens above. Under a
+  high-contrast theme (chosen, or the system's under the default theme) every
+  scheme yields to *Standard*, because the person chose that theme for contrast.
+- **Contrast rule:** text on the accent, the accent used as text, the tint text
+  on the tint and the energy value reach **4.5:1** against Nextcloud's main,
+  hover and dark backgrounds in both themes; graphics therefore exceed 3:1.
+  `tests/unit/css/colorSchemes.spec.js` computes every pair from the palettes;
+  `color-contrast.spec.ts` measures two views per scheme and theme, and every
+  main view on *Standard*.
+- **First paint:** the page delivers the scheme as initial state
+  (`PageController`, `@nextcloud/initial-state`), so the app never flashes the
+  instance colour.
+
 ## 3. Typography & Styling
 - **Fonts:** Inherited globally from the Nextcloud system (usually system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto). We do **not** define our own custom fonts to ensure native integration and keep things simple.
 - **Shapes:** Slightly rounded corners (border-radius: 8px to 12px) for a friendly, "game-like" look.

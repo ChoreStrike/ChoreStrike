@@ -1661,6 +1661,30 @@ digest. Awards/titles remain in-app. Timing, quiet hours, source rechecks,
 at-most-once outcome handling and the complete payload contract are documented
 in [Preferences and Digest](notifications.md).
 
+`GET /preferences/me` also returns `colorScheme`, the caller's colour scheme
+(CS-PLAN-090 WP-K): `standard`, `ocean`, `forest`, `sunset`, `berry` or
+`slate`. It is no field of the versioned row and `PUT /preferences/me` does not
+accept it.
+
+#### PUT /preferences/me/color-scheme
+
+Set the CALLING member's own colour scheme (children included). A per-user
+setting in Nextcloud's user app config, not a fact: no command UUID, no
+version, the last save wins on every device. `standard` removes the stored
+value. Account erasure and the test-mode reset delete it.
+
+**Request:** `{ "colorScheme": "forest" }`
+
+**Response `data`:** `{ "colorScheme": "forest" }`
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `COLOR_SCHEME_VALIDATION_ERROR` | anything but a listed scheme key; nothing is written |
+| 403 | `FORBIDDEN` | the caller is no member of the house |
+
+The page itself delivers the scheme as initial state `color-scheme` (read with
+`@nextcloud/initial-state`), so the app's first paint has it.
+
 ### Ranking (CS-PLAN-070 WP4)
 
 Consent-filtered weekly chore ranking — the server is the sole ranking

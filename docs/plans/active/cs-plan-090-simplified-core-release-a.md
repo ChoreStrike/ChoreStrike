@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K and WP-G not started
+> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G not started
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -390,6 +390,49 @@ time, so the release carries as much as can be built without the model change of
   accent against the background. The browser contrast spec samples two views per scheme and
   theme, and the full view set on *Standard*.
 
+Positions taken while implementing WP-K (2026-11-14). They bind once its interim review passes.
+
+- **D-090-68 Contrast target:** the accent reaches 4.5:1 against Nextcloud's main, hover and
+  dark background in both themes, not only 3:1, because the app paints text with
+  `--color-primary-element` (links, active labels, the selected filter). The tint text on the
+  tint and the energy value reach 4.5:1 too; text on the accent and on `--color-primary` as
+  planned. `tests/unit/css/colorSchemes.spec.js` computes all of it from `schemes.css`.
+- **D-090-69 The high-contrast rule lives in the client:** `applyColorScheme()` sets no
+  attribute under `data-theme-light-highcontrast` (Nextcloud's id of the light high-contrast
+  theme), `data-theme-dark-highcontrast`, or `data-theme-default` while the system asks for
+  more contrast, where Nextcloud applies its high-contrast variables by media query. A change
+  of that system preference applies at once. The stored choice stays and returns with another
+  theme.
+- **D-090-70 Storage and saving:** *Standard* is stored as no value and an unknown stored value
+  reads as *Standard*; the key is not lazy, because every page load reads it. The scheme is no
+  field of the versioned preference row: no command id and no version, the last save wins. The
+  store recolours at once, restores the previous scheme when a save fails, lets the later of
+  two quick saves win and drops the scheme of a read that started before a save
+  (client-state contract).
+- **D-090-71 What a scheme sets:** Nextcloud's thirteen primary variables, the two invert
+  filters and the primary gradient (Nextcloud resolves its aliases at `:root`, so all of them
+  are set again), `--cs-energy`, `--cs-celebrate-primary` and `--cs-celebrate-accent`. The
+  confetti reads its palette on the app root. `--color-primary` stays theme-independent with
+  white text, as Nextcloud has it.
+- **D-090-72 The literals:** fourteen component files; the plan's 18 counted the two arcade
+  boards, `board.js` and `confetti.js`, which keep the game palette. Status and accent tints
+  became `color-mix()` of Nextcloud's element colours, the dialog shadow and backdrop and the
+  medal gradients became tokens, and white text on `--color-primary` became
+  `--color-primary-text`. The ranking row's highlight used `--color-primary-rgb`, which
+  Nextcloud 35 does not define, so it showed no highlight; it now uses
+  `--color-primary-element-light`. The guard covers hex, `rgb()`/`hsl()` and the names
+  `white`/`black` in style declarations.
+- **D-090-73 Placement and swatches:** *Appearance* sits between *Notifications & feedback*
+  and *Planning*. Each swatch carries `data-cs-swatch`, so it shows its scheme's accent in the
+  current theme whatever scheme is active; *Standard* shows the instance accent, saved on
+  `<body>` where no scheme reaches. The German working names (Ozean, Wald, Abendrot, Beere,
+  Schiefer) go to the second GUI review.
+- **D-090-74 Units beyond the manifest:** `src/utils/colorSchemes.js` (the list, the initial
+  state, the high-contrast rule, the attribute), `tests/unit/css/colorSchemes.spec.js`,
+  `tests/e2e/color-schemes.spec.ts` and `tests/e2e/fixtures/color-scheme.ts`. The Jest mapping
+  of `@nextcloud/initial-state` was a stub with a default export only; it re-exports the real
+  `loadState` now. `Settings.vue` grows from 314 to 323 lines.
+
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). The three
 of the runtime update were answered on 2026-11-12 (D-090-57, D-090-58), and the five of the
@@ -597,6 +640,31 @@ the six of the scope extension on 2026-11-13 (D-090-60 to D-090-63). No question
   `PageController` provides it as initial state. `GET /preferences/me` reports it too.
 - Frontend: a personal settings category *Appearance* (`AppearanceSettings.vue`) with swatches,
   and `useColorScheme` setting the attribute at mount and after a change.
+- **Implemented 2026-11-14** (D-090-68 to D-090-74). The route lives in `PreferenceController`
+  beside the preference pair; `GET /preferences/me` adds `colorScheme` in the controller, so
+  `PreferenceService` (301 lines) does not grow. The scheme is checked against the list in
+  `ColorSchemeService::setOwn()` with the member the gate resolved, so no route names another
+  person; account erasure and the test reset delete it. `schemes.css` has three layers: one
+  palette per scheme with a light and a dark variant, the theme selection on `<body>` keyed to
+  Nextcloud's theme attributes like `tokens.css`, and the application to
+  `#app-chorestrike-vue`, `.modal-overlay` and `.wizard-overlay`. A choice in Settings recolours
+  the app at once. The in-app glossary, the user guide, the API reference, both design
+  documents, `ui-use-cases.md`, `testing.md` and `architecture.md` describe it. RF-090-40 fixed
+  while implementing.
+  **Scenario record (WP-K):** 331 pinned scenarios before, 337 after.
+  `color-contrast.spec.ts` joins the manifest with its two scenarios of every main view and two
+  new ones, every scheme on Today and in Settings per theme (minimum 4);
+  `color-schemes.spec.ts` is new with two (minimum 2); `settings.spec.ts` also checks the new
+  category closed. No minimum is lowered. `RouteMatrixTest` pins 103 routes and the self-only
+  preference surface.
+  **Test record (implementation, before the interim review):** PHPUnit unit 1699 and
+  integration 715 on the canonical stack, Jest 178 suites / 2494 tests, ESLint, stylelint,
+  `composer cs:check`, `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`,
+  `git diff --check` and `npm run build` green. On the primary row (canonical stack, Nextcloud
+  35.0.3): `color-schemes.spec.ts` (2), `color-contrast.spec.ts` (4, with the full view set on
+  *Standard* after the literal move), `settings.spec.ts` (20) and `layout-clearance.spec.ts`
+  (8) pass. The complete browser gate on both rows and the other providers belong to the
+  interim review, which ran them (see the Review Outcome).
 
 ### WP-G Release `0.8.0-alpha.5` (RELEASE-002)
 
@@ -855,6 +923,15 @@ modified: lib/Controller/HouseController.php, PreferenceController.php, PageCont
           with colour literals (WP-I to WP-K)
 modified: docs/adr/ADR-019-arcade-unlocks-from-completion-history.md,
           docs/standards/guidelines/design.md, docs/concepts/design.md
+new:      src/utils/colorSchemes.js, tests/unit/css/colorSchemes.spec.js,
+          tests/e2e/color-schemes.spec.ts, tests/e2e/fixtures/color-scheme.ts (WP-K, D-090-74)
+modified: the fourteen component files with colour literals (D-090-72), src/App.vue,
+          src/main.js, src/services/api.js, src/utils/confetti.js,
+          src/components/Tasks/TaskListItem.vue (RF-090-40), tests/unit/__mocks__/
+          nextcloud-initial-state.js, tests/e2e/color-contrast.spec.ts, fixtures/theme.ts,
+          fixtures/settings.ts, scripts/run-e2e-gate.js, tests/e2e/required-scenarios.json,
+          docs/api/README.md, docs/user-guide.md, docs/concepts/ui-use-cases.md,
+          docs/engineering/testing.md, docs/engineering/architecture.md (WP-K)
 ```
 
 ## 6. Implementation Order
@@ -983,6 +1060,7 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - [x] RF-090-37 (major) - WP-D, `src/store/scheduling.js`: Today and the planning settings both read the scheduling preferences, and the store applied every answer in arrival order. When Today's older read landed after the settings' own read, it replaced the stored budget, and the watcher of `EnergyBudgetSettings` (and of `SelfAvailabilitySettings`) reset the form, so a fresh edit was lost and *Save* stayed disabled. Found by the AIO browser gate of this review (`run-cyYpmo`, `scheduling.spec.ts`; the trace shows the two reads finishing out of order). Fixed in the interim review: the store keeps a read sequence and the read in flight, as `fetchHouse` does and the client-state contract of [`architecture.md`](../../engineering/architecture.md#client-state-contract-cs-plan-066-3233) requires; an overtaken answer is dropped and its caller waits for the winning read; an accepted save and `reset()` invalidate older reads. Three Jest cases, red against the old store.
 - [x] RF-090-38 (minor) - WP-J, `src/components/Settings/ArcadeSettings.vue`: the category root carried `cs-settings-form`, so the shared rules of `settings.css` reached the gate switch, the threshold form and the reset list, which bring their own styles; that sheet keeps its rules away from such components, and rules of equal weight then win by load order. Fixed in the interim review: the root drops the class and styles its cards itself, as `Settings.vue` does; the Jest case pins it.
 - [x] RF-090-39 (minor) - Tests, `tests/e2e/settings.spec.ts` (from `b545c97d`, 2026-10-10): "House drafts wait for the winning read on a direct Settings load" routes the house reads and never waits for the overtaken first one. On the AIO row of this review (`run-qrPuOs`) that read was still in `route.fetch()` when the test ended, so the closing page failed the test after every check had passed; all three reads had answered 200 in the access log. "Cold structure hydration survives room reconciliation" has the same gap for its second read. Fixed in the interim review: both wait for their handlers (`page.unrouteAll({ behavior: 'wait' })`) before the page closes. A temporary hanging first fetch reproduced the failure against the old cleanup and passed with the new one.
+- [x] RF-090-40 (minor) - WP-K, `src/components/Tasks/TaskListItem.vue`: an overdue task row paints its background with `--color-error-hover`, and the energy value on it reached about 3.9:1 in the light theme: the hue of *Standard* (`#A34A00`) and of every scheme meets 4.5:1 on the ordinary backgrounds only. Older than this plan and unseen by the browser contrast spec, which passes, so the views it measures show no such row; found while computing the scheme pairs. Fixed while implementing: on an overdue row the energy takes the main text colour, as the description already does, with a Jest pin in `TaskMeta.spec.js`.
 
 ## Review Outcome
 
@@ -1173,4 +1251,30 @@ set of this worktree. No subagents.
 - No transition: WP-K and WP-G are open, and so are the second GUI review and the final Full
   review. Record:
   [2026-11-14 review](../../backlog/archive/CODE_REVIEW_2026-11-14.md#standard-b---cs-plan-090-wp-j-arcade-owner-controls-interim).
+  One scoped review commit; no merge, push, tag or deployment.
+
+**Standard B, interim (WP-K), 2026-11-15: PASS.** Scope: the uncommitted WP-K change set of this
+worktree, chosen by the operator because the main checkout had nothing to review. No subagents.
+
+- Base HEAD `5c10481fc405ab93a989be1591af0ec12c9e66af`, branch `docs/release-a-plan`, pinned,
+  never pushed, 10 ahead and 0 behind `master`. Capture: empty index, 62 modified tracked files,
+  13 untracked paths; scope fingerprint (staged and unstaged binary diff, sorted untracked paths
+  with SHA-256) `8ba636907cb84dbe61c78cf79acac56abd1ce70d4096d3286fbf026d561e5947`, unchanged
+  after the gates.
+- No finding in WP-K, no fix, no new §9 entry; D-090-68 to D-090-74 bind from now on. Two
+  browser failures lie outside WP-K and went to the backlog: a tap in `mobile-webkit` that
+  opened a second page (new TECH-TEST-014) and a 14.7 s fsync of the staged PostgreSQL (folded
+  into TECH-TRANSPORT-001).
+- Gates on the reviewed tree: Jest 178 suites / 2494 tests, `npm run lint`, stylelint,
+  `l10n:check-keys`, `backlog:check`, `docs:encoding`, `agents:check`, `git diff --check`,
+  `npm run build`, `composer cs:check`, `composer validate --strict`; PHPUnit unit 1699 /
+  integration 715 on the canonical PostgreSQL stack and, with `--fail-on-skipped`, on MariaDB,
+  SQLite (Nextcloud 35.0.3) and the AIO row (Nextcloud 35.0.2 with Redis), matrix run
+  `cs090-wpk-r1`. Browser gate: the first runs lost one scenario each, both outside WP-K
+  (`run-flsDoF`, `run-O6eNGi`); the complete reruns on the same tree passed on the primary row
+  (`run-SXfzOH`) and the AIO row (`run-x6gdyU`), each 361 tests without skipped, failed or
+  flaky results. The staged targets are torn down with their volumes.
+- No transition: WP-G is open, and so are the second GUI review and the final Full review.
+  Record:
+  [2026-11-15 review](../../backlog/archive/CODE_REVIEW_2026-11-15.md#standard-b---cs-plan-090-wp-k-colour-schemes-interim).
   One scoped review commit; no merge, push, tag or deployment.

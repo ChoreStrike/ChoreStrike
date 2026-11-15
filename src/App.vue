@@ -124,6 +124,7 @@ import Icon from './components/Common/Icon.vue'
 import NotAuthorizedState from './components/Common/NotAuthorizedState.vue'
 import UndoSnackbar from './components/Common/UndoSnackbar.vue'
 import HelpEntry from './components/Help/HelpEntry.vue'
+import { useColorScheme } from './composables/useColorScheme.js'
 import { resetIdentityStores } from './composables/useStoreReset.js'
 import { useHouseStore } from './store/house.js'
 import { usePreferencesStore } from './store/preferences.js'
@@ -143,6 +144,11 @@ export default {
 		ErrorState,
 		HelpEntry,
 		Icon,
+	},
+
+	setup() {
+		// The viewer's colour scheme, before the first render (CS-PLAN-090 WP-K).
+		useColorScheme()
 	},
 
 	computed: {

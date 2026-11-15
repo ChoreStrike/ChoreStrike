@@ -326,11 +326,11 @@ watch(() => schedulingStore.memberAvailability, () => {
 }
 
 .day-header.today {
-	background: rgba(33, 150, 243, 0.1);
+	background: var(--color-primary-element-light);
 }
 
 .day-header.weekend {
-	background: rgba(255, 152, 0, 0.05);
+	background: color-mix(in srgb, var(--color-element-warning) 5%, var(--color-main-background));
 }
 
 .day-info {
@@ -373,7 +373,7 @@ watch(() => schedulingStore.memberAvailability, () => {
 	font-size: 0.75rem;
 	font-weight: 600;
 	color: var(--color-error-text);
-	background: var(--color-error-hover, #fdedec);
+	background: var(--color-error-hover);
 	border-radius: 8px;
 	padding: 0.1rem 0.4rem;
 	margin-top: 0.25rem;
@@ -418,11 +418,11 @@ watch(() => schedulingStore.memberAvailability, () => {
 }
 
 .member-day-cell.available {
-	background: rgba(76, 175, 80, 0.08);
+	background: color-mix(in srgb, var(--color-element-success) 8%, var(--color-main-background));
 }
 
 .member-day-cell.unavailable {
-	background: rgba(244, 67, 54, 0.08);
+	background: color-mix(in srgb, var(--color-element-error) 8%, var(--color-main-background));
 }
 
 .cell-energy {

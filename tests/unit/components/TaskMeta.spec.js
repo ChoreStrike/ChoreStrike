@@ -30,4 +30,13 @@ describe('TaskMeta', () => {
 		expect(source).toMatch(/\.meta-item\.energy\s*\{[^}]*color:\s*var\(--cs-energy\)/)
 		expect(tokens.match(/--cs-energy:/g)).toHaveLength(3)
 	})
+
+	it('shows the energy in the main text colour on an overdue task row (RF-090-40)', () => {
+		// The energy hues reach 4.5:1 on the ordinary backgrounds only; on the
+		// overdue row's --color-error-hover they fall to about 3.9:1 (light theme).
+		const row = readFileSync(resolve(__dirname, '../../../src/components/Tasks/TaskListItem.vue'), 'utf8')
+
+		expect(row).toMatch(/\.task-item\.overdue\s*\{[^}]*background:\s*var\(--color-error-hover\)/)
+		expect(row).toMatch(/\.task-item\.overdue :deep\(\.meta-item\.energy\)\s*\{\s*color:\s*var\(--color-main-text\);?\s*\}/)
+	})
 })

@@ -302,16 +302,35 @@ class RouteMatrixTest extends TestCase {
 	 * CS-PLAN-090 WP-J added the owner's arcade controls (PUT
 	 * /house/arcade-thresholds, POST /house/members/{userId}/arcade-reset,
 	 * GET /house/arcade-progress, consumed by the arcade settings) → 102.
+	 * CS-PLAN-090 WP-K added the caller's own colour scheme (PUT
+	 * /preferences/me/color-scheme, consumed by the appearance settings) → 103.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			102,
+			103,
 			$this->routes['routes'],
-			'Route count drifted from the pin (102 after CS-PLAN-090 WP-J) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (103 after CS-PLAN-090 WP-K) — add only with a consumer, then update deliberately'
 		);
+	}
+
+	/**
+	 * C5h and CS-PLAN-090 WP-K (D-090-61): the personal preferences stay
+	 * self-only — every preference route is under `/preferences/me`, none
+	 * names another person, and the colour scheme is the one addition.
+	 */
+	public function testPreferenceSurfaceStaysSelfOnly(): void {
+		$preferenceRoutes = array_values(array_filter(
+			array_map(static fn (array $route): string => $route['verb'] . ' ' . $route['url'] . ' ' . $route['name'], $this->routes['routes']),
+			static fn (string $route): bool => str_contains($route, 'preference#') || str_contains($route, ' /api/v1/preferences'),
+		));
+		$this->assertSame([
+			'GET /api/v1/preferences/me preference#show',
+			'PUT /api/v1/preferences/me preference#update',
+			'PUT /api/v1/preferences/me/color-scheme preference#updateColorScheme',
+		], $preferenceRoutes);
 	}
 
 	/**

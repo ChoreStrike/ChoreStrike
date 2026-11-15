@@ -19,10 +19,11 @@ jest.mock('@/utils/logger', () => ({
 
 jest.mock('../../../src/services/api.js', () => ({
 	fetchMyPreferences: jest.fn(),
+	updateMyColorScheme: jest.fn(),
 	updateMyPreferences: jest.fn(),
 }))
 
-import { fetchMyPreferences, updateMyPreferences } from '../../../src/services/api.js'
+import { fetchMyPreferences, updateMyColorScheme, updateMyPreferences } from '../../../src/services/api.js'
 import { usePreferencesStore } from '../../../src/store/preferences.js'
 
 /**
@@ -53,6 +54,7 @@ describe('preferences store', () => {
 		pinia = createPinia()
 		setActivePinia(pinia)
 		fetchMyPreferences.mockReset()
+		updateMyColorScheme.mockReset()
 		updateMyPreferences.mockReset()
 		usePreferencesStore().reset()
 	})
@@ -232,6 +234,103 @@ describe('preferences store', () => {
 			store.reset()
 
 			expect(store.loaded).toBe(false)
+		})
+	})
+
+	/**
+	 * CS-PLAN-090 WP-K: the colour scheme starts from the page, is saved on
+	 * its own route and arrives with every read; an overtaken read or save
+	 * never undoes the latest choice.
+	 */
+	describe('colour scheme', () => {
+		const deferred = () => {
+			let resolve
+			let reject
+			const promise = new Promise((res, rej) => {
+				resolve = res
+				reject = rej
+			})
+			return { promise, resolve, reject }
+		}
+
+		it('starts at Standard without an initial state and takes the scheme a read brings', async () => {
+			const store = usePreferencesStore()
+			expect(store.colorScheme).toBe('standard')
+
+			fetchMyPreferences.mockResolvedValue(serverPayload({ colorScheme: 'forest' }))
+			await store.fetchPreferences()
+
+			expect(store.colorScheme).toBe('forest')
+		})
+
+		it('keeps the scheme when a payload does not carry one (the versioned save)', async () => {
+			const store = usePreferencesStore()
+			store.colorScheme = 'berry'
+			updateMyPreferences.mockResolvedValue(serverPayload({ version: 2 }))
+
+			await store.savePreferences({ soundEnabled: true })
+
+			expect(store.colorScheme).toBe('berry')
+		})
+
+		it('recolours at once and keeps the stored scheme after the save', async () => {
+			const store = usePreferencesStore()
+			const save = deferred()
+			updateMyColorScheme.mockReturnValue(save.promise)
+
+			const saving = store.saveColorScheme('ocean')
+			expect(store.colorScheme).toBe('ocean')
+			expect(store.savingColorScheme).toBe(true)
+
+			save.resolve({ colorScheme: 'ocean' })
+			await saving
+
+			expect(updateMyColorScheme).toHaveBeenCalledWith('ocean')
+			expect(store.colorScheme).toBe('ocean')
+			expect(store.savingColorScheme).toBe(false)
+		})
+
+		it('restores the previous scheme and rethrows when the save fails', async () => {
+			const store = usePreferencesStore()
+			store.colorScheme = 'slate'
+			updateMyColorScheme.mockRejectedValue(new Error('offline'))
+
+			await expect(store.saveColorScheme('sunset')).rejects.toThrow('offline')
+
+			expect(store.colorScheme).toBe('slate')
+			expect(store.savingColorScheme).toBe(false)
+		})
+
+		it('lets the later of two quick saves win, whatever answers first', async () => {
+			const store = usePreferencesStore()
+			const first = deferred()
+			const second = deferred()
+			updateMyColorScheme.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+
+			const saveFirst = store.saveColorScheme('ocean')
+			const saveSecond = store.saveColorScheme('forest')
+			second.resolve({ colorScheme: 'forest' })
+			await saveSecond
+			first.reject(new Error('late failure'))
+			await expect(saveFirst).rejects.toThrow('late failure')
+
+			expect(store.colorScheme).toBe('forest')
+			expect(store.savingColorScheme).toBe(false)
+		})
+
+		it('drops the scheme of a read that started before a save', async () => {
+			const store = usePreferencesStore()
+			const read = deferred()
+			fetchMyPreferences.mockReturnValue(read.promise)
+			updateMyColorScheme.mockResolvedValue({ colorScheme: 'berry' })
+
+			const reading = store.fetchPreferences()
+			await store.saveColorScheme('berry')
+			read.resolve(serverPayload({ colorScheme: 'standard', soundEnabled: true }))
+			await reading
+
+			expect(store.colorScheme).toBe('berry')
+			expect(store.soundEnabled).toBe(true)
 		})
 	})
 })

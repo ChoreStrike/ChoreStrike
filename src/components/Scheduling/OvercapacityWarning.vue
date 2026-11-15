@@ -87,7 +87,7 @@ export default {
 <style scoped>
 .overcapacity-warning {
 	border: 1px solid var(--color-element-warning);
-	background: var(--color-warning-hover, #fef9e7);
+	background: var(--color-warning-hover);
 	border-radius: 8px;
 	padding: 1rem 1.25rem;
 }
@@ -113,7 +113,7 @@ export default {
 
 .overcapacity-day {
 	padding: 0.5rem 0;
-	border-top: 1px solid rgba(243, 156, 18, 0.4);
+	border-top: 1px solid color-mix(in srgb, var(--color-element-warning) 40%, transparent);
 }
 
 .day-summary {

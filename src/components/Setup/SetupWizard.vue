@@ -799,7 +799,7 @@ export default {
 .wizard-overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.5);
+	background: var(--cs-backdrop);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -810,7 +810,7 @@ export default {
 .wizard-container {
 	background: var(--color-main-background);
 	border-radius: 12px;
-	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+	box-shadow: var(--cs-shadow-dialog);
 	width: min(640px, 96vw);
 	max-height: 92vh;
 	overflow: auto;
@@ -935,7 +935,7 @@ export default {
 
 /* §3.4 touch targets: primary/secondary actions stay ≥44px tall at every
    viewport, including the mobile wizard journey. */
-.primary-button { background: var(--color-primary); color: white; border: none; border-radius: 8px; padding: 0.5rem 1rem; min-height: 44px; cursor: pointer; }
+.primary-button { background: var(--color-primary); color: var(--color-primary-text); border: none; border-radius: 8px; padding: 0.5rem 1rem; min-height: 44px; cursor: pointer; }
 
 .primary-button:disabled { opacity: 0.6; cursor: not-allowed; }
 

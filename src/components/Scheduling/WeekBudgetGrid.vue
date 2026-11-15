@@ -139,7 +139,7 @@ function setDay(key, value) {
 	border-radius: 50%;
 	background: var(--color-primary);
 	cursor: pointer;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: var(--cs-shadow-sm);
 }
 
 .energy-slider::-moz-range-thumb {
@@ -148,7 +148,7 @@ function setDay(key, value) {
 	border-radius: 50%;
 	background: var(--color-primary);
 	cursor: pointer;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: var(--cs-shadow-sm);
 	border: none;
 }
 

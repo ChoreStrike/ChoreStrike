@@ -193,7 +193,7 @@ export default {
 	background: var(--color-main-text);
 	color: var(--color-main-background);
 	border-radius: 8px;
-	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+	box-shadow: var(--cs-shadow-lg);
 	min-width: 260px;
 	max-width: min(480px, calc(100vw - 2rem));
 }
@@ -241,7 +241,7 @@ export default {
 }
 
 .snackbar-undo:hover:not(:disabled) {
-	background: rgba(255, 255, 255, 0.15);
+	background: color-mix(in srgb, currentcolor 15%, transparent);
 }
 
 .snackbar-undo:disabled {

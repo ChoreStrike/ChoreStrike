@@ -168,9 +168,17 @@ share of public tasks, and only of people who joined.
 <img src="screenshots/guide-settings.png" alt="Notification settings: daily task digest, weekly organization digest, delivery time, quiet time and feedback effects" width="720">
 
 **Settings** has two areas. *Personal* is what you decide for yourself: your
-title, notifications and feedback, your planning, and the way to your reward
-requests. *Household* is for owners: house, members, floors and rooms, rewards,
-arcade and the danger zone. Every category opens with a tap.
+title, notifications and feedback, the appearance, your planning, and the way
+to your reward requests. *Household* is for owners: house, members, floors and
+rooms, task categories, rewards, arcade and the danger zone. Every category
+opens with a tap.
+
+**Appearance** picks the accent colour of the app for you alone: *Standard*
+(the colour of your Nextcloud) or Ocean, Forest, Sunset, Berry or Slate. It
+changes buttons, highlights, progress, the energy value and the celebration,
+and follows you to every device. Backgrounds and text keep your Nextcloud
+theme, light or dark. With a high-contrast Nextcloud theme the app keeps the
+standard colours.
 
 Everything under *Notifications & feedback* is personal — owners cannot change
 it for others. The digests and sounds are off by default; the celebration

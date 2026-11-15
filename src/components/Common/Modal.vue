@@ -210,7 +210,7 @@ export default {
 .modal-overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.45);
+	background: var(--cs-backdrop);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -223,7 +223,7 @@ export default {
 	background: var(--color-main-background);
 	border: 1px solid var(--color-border);
 	border-radius: 10px;
-	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+	box-shadow: var(--cs-shadow-dialog);
 	max-width: min(640px, 96vw);
 	width: 100%;
 	max-height: 90vh;

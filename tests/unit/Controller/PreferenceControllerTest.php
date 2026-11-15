@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\ColorSchemeService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\PreferenceService;
 use OCP\IL10N;
@@ -32,6 +33,7 @@ class PreferenceControllerTest extends TestCase {
 	private PreferenceService|MockObject $preferenceService;
 	private HouseService|MockObject $houseService;
 	private AuthorizationService|MockObject $authService;
+	private ColorSchemeService|MockObject $colorSchemes;
 	private IRequest|MockObject $request;
 
 	protected function setUp(): void {
@@ -39,6 +41,7 @@ class PreferenceControllerTest extends TestCase {
 		$this->preferenceService = $this->createMock(PreferenceService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		$this->colorSchemes = $this->createMock(ColorSchemeService::class);
 		$this->request = $this->createMock(IRequest::class);
 
 		$this->controller = new PreferenceController(
@@ -46,6 +49,7 @@ class PreferenceControllerTest extends TestCase {
 			$this->preferenceService,
 			$this->houseService,
 			$this->authService,
+			$this->colorSchemes,
 			$this->createIdentityL10n(),
 			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class)
 		);
@@ -97,13 +101,14 @@ class PreferenceControllerTest extends TestCase {
 			->method('getOwnPreferences')
 			->with(1, $viewer)
 			->willReturn($payload);
+		$this->colorSchemes->expects($this->once())->method('get')->with('nc-11')->willReturn('ocean');
 
 		$response = $this->controller->show();
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
-		$this->assertSame($payload, $data['data']);
+		$this->assertSame($payload + ['colorScheme' => 'ocean'], $data['data']);
 	}
 
 	public function testUpdate_DelegatesTheSelfOnlyMutation(): void {
@@ -196,5 +201,44 @@ class PreferenceControllerTest extends TestCase {
 		$this->assertEquals(403, $response->getStatus());
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
+	}
+
+	/**
+	 * UpdateColorScheme_SetsTheCallersOwnScheme (CS-PLAN-090 WP-K): the
+	 * service gets the member the gate resolved, never a client-named
+	 * person.
+	 */
+	public function testUpdateColorScheme_SetsTheCallersOwnScheme(): void {
+		$viewer = $this->wireHouseAccess();
+		$this->request->method('getParam')->with('colorScheme')->willReturn('forest');
+		$this->colorSchemes->expects($this->once())->method('setOwn')->with($viewer, 'forest')->willReturn('forest');
+
+		$response = $this->controller->updateColorScheme();
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertSame(['success' => true, 'data' => ['colorScheme' => 'forest']], $response->getData());
+	}
+
+	public function testUpdateColorScheme_UnknownScheme_IsA400(): void {
+		$this->wireHouseAccess();
+		$this->request->method('getParam')->willReturn('neon');
+		$this->colorSchemes->method('setOwn')->willThrowException(new \InvalidArgumentException('Unknown colour scheme'));
+
+		$response = $this->controller->updateColorScheme();
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertSame('COLOR_SCHEME_VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	public function testUpdateColorScheme_NonMember_IsA403WithoutWrite(): void {
+		$this->houseService->method('getInstanceId')->willReturn('instance-1');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->house());
+		$this->authService->method('assertHouseMember')->willThrowException(new ForbiddenException('not a member'));
+		$this->colorSchemes->expects($this->never())->method('setOwn');
+
+		$response = $this->controller->updateColorScheme();
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertFalse($response->getData()['success']);
 	}
 }

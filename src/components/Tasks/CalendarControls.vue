@@ -94,7 +94,7 @@ export default {
 
 .calendar-mode-toggle {
 	display: flex;
-	border: 1px solid var(--color-border, #ddd);
+	border: 1px solid var(--color-border);
 	border-radius: 6px;
 	overflow: hidden;
 }
@@ -103,13 +103,13 @@ export default {
 	padding: 6px 14px;
 	min-height: 44px;
 	border: none;
-	background: var(--color-main-background, #fff);
+	background: var(--color-main-background);
 	cursor: pointer;
 }
 
 .toggle-btn.active {
-	background: var(--color-primary, #0082c9);
-	color: var(--color-primary-text, #fff);
+	background: var(--color-primary);
+	color: var(--color-primary-text);
 }
 
 .calendar-nav {

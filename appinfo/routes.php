@@ -134,6 +134,8 @@ return [
         // another member's preferences exists by design.
         ['name' => 'preference#show', 'url' => '/api/v1/preferences/me', 'verb' => 'GET'],
         ['name' => 'preference#update', 'url' => '/api/v1/preferences/me', 'verb' => 'PUT'],
+        // CS-PLAN-090 WP-K: the caller's own colour scheme (per-user config).
+        ['name' => 'preference#updateColorScheme', 'url' => '/api/v1/preferences/me/color-scheme', 'verb' => 'PUT'],
 
         // Reward catalog API (CS-PLAN-070 WP7, CS-PLAN-078 §3.3):
         // owner-administered catalog, optional household gate default-off.

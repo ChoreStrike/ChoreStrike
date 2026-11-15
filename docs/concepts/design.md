@@ -201,6 +201,15 @@ Critical:  #F44336 (Red)
 Chaos:     #9E9E9E (Gray)
 ```
 
+**Personal colour schemes** (FEAT-UX-057, CS-PLAN-090 WP-K): next to
+*Standard*, which keeps the colour of the Nextcloud instance, every person can
+pick one of five accent schemes (Ocean, Forest, Sunset, Berry, Slate) for
+themselves; the choice follows them to every device. A scheme recolours
+buttons, highlights, progress, the energy value and the celebration, never
+backgrounds or text, and yields to *Standard* under a high-contrast Nextcloud
+theme. The status colours above stay the same in every scheme. Rules and the
+contrast proof: [design guideline](../standards/guidelines/design.md#colour-schemes-feat-ux-057-cs-plan-090-wp-k).
+
 ### Main Screens
 
 #### 1. Dashboard/Map View

@@ -302,6 +302,9 @@ msgstr ""
 msgid "App failed to load. Check logs."
 msgstr ""
 
+msgid "Appearance"
+msgstr ""
+
 msgid "Apply bowl cleaner, let it sit, scrub with the brush, then wipe the seat and the outside from top to bottom."
 msgstr ""
 
@@ -447,6 +450,9 @@ msgid "Be the first to play!"
 msgstr ""
 
 msgid "Bedroom"
+msgstr ""
+
+msgid "Berry"
 msgstr ""
 
 msgid "Best"
@@ -681,6 +687,9 @@ msgid "Collect dirty clothes for washing."
 msgstr ""
 
 msgid "Collect paper, plastic, and glass, sort them into the right bins, and take them out."
+msgstr ""
+
+msgid "Colour scheme"
 msgstr ""
 
 msgid "Complete"
@@ -1337,6 +1346,9 @@ msgstr ""
 msgid "For the household"
 msgstr ""
 
+msgid "Forest"
+msgstr ""
+
 msgid "Former member"
 msgstr ""
 
@@ -1976,6 +1988,9 @@ msgstr ""
 msgid "Number of floors"
 msgstr ""
 
+msgid "Ocean"
+msgstr ""
+
 msgid "Office"
 msgstr ""
 
@@ -2127,6 +2142,9 @@ msgid "Personal"
 msgstr ""
 
 msgid "Pick real tasks, preview who does what on which day, then confirm once — nothing changes until you apply."
+msgstr ""
+
+msgid "Pick the accent colour of the app. It applies on all your devices; backgrounds and text follow your Nextcloud theme."
 msgstr ""
 
 msgid "Pick up items from the floor, vacuum under the bed if you can, and use the attachments for edges and corners."
@@ -2627,6 +2645,9 @@ msgstr ""
 msgid "Skipped at this level: {templates}"
 msgstr ""
 
+msgid "Slate"
+msgstr ""
+
 msgid "Smart Scheduling"
 msgstr ""
 
@@ -2687,6 +2708,9 @@ msgstr ""
 msgid "Spray glass cleaner and wipe the mirror with a lint-free cloth."
 msgstr ""
 
+msgid "Standard"
+msgstr ""
+
 msgid "Start Game"
 msgstr ""
 
@@ -2745,6 +2769,9 @@ msgid "Sun"
 msgstr ""
 
 msgid "Sunday"
+msgstr ""
+
+msgid "Sunset"
 msgstr ""
 
 msgid "Sweep and mop the bathroom floor."
@@ -2870,6 +2897,9 @@ msgstr ""
 msgid "The absence was entered."
 msgstr ""
 
+msgid "The accent colour of the app, which everyone picks for themselves under Settings → Personal → Appearance. It applies on all your devices; backgrounds and text follow your Nextcloud theme, and a high-contrast theme keeps the standard colours."
+msgstr ""
+
 msgid "The action could not be recorded."
 msgstr ""
 
@@ -2946,6 +2976,9 @@ msgid "The categories were saved."
 msgstr ""
 
 msgid "The checklist changed since it was displayed. Reload and try again."
+msgstr ""
+
+msgid "The colour scheme could not be saved. Please try again."
 msgstr ""
 
 msgid "The completer must take part in the work"
@@ -3350,6 +3383,9 @@ msgstr ""
 msgid "Unknown Task"
 msgstr ""
 
+msgid "Unknown colour scheme"
+msgstr ""
+
 msgid "Unknown field in the request"
 msgstr ""
 
@@ -3633,6 +3669,9 @@ msgid "You take part in this week's ranking."
 msgstr ""
 
 msgid "Your Best"
+msgstr ""
+
+msgid "Your Nextcloud theme uses high contrast, so the app keeps the standard colours."
 msgstr ""
 
 msgid "Your Rank"

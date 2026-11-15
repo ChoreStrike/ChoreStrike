@@ -19,6 +19,7 @@ import { logger } from './utils/logger.js'
 import { unlockAudio } from './utils/sound.js'
 
 import './styles/tokens.css'
+import './styles/schemes.css'
 import './styles/a11y.css'
 import './styles/mobile.css'
 import './styles/feedback.css'

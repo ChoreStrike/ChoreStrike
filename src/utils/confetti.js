@@ -29,7 +29,9 @@ let animationsEnabled = false
 /**
  * Read the celebration palette from the design-token CSS variables.
  * Returns the brand fallback when the tokens have not been loaded yet
- * (e.g. during unit tests that mount components in isolation).
+ * (e.g. during unit tests that mount components in isolation). The tokens
+ * are read on the app root, where a colour scheme sets its accents
+ * (CS-PLAN-090 WP-K); the page root only outside the app.
  *
  * @return {string[]} hex palette forwarded to canvas-confetti
  */
@@ -37,7 +39,7 @@ export function getCelebrationPalette() {
 	if (typeof window === 'undefined' || typeof document === 'undefined') {
 		return ['#0984E3', '#FF7675', '#FDCB6E', '#00CEC9', '#FAB1A0']
 	}
-	const style = getComputedStyle(document.documentElement)
+	const style = getComputedStyle(document.getElementById('app-chorestrike-vue') ?? document.documentElement)
 	const pick = (name, fallback) => {
 		const value = style.getPropertyValue(name).trim()
 		return value || fallback

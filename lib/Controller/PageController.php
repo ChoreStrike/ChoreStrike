@@ -10,18 +10,26 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\ColorSchemeService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
+use OCP\AppFramework\Services\IInitialState;
 use OCP\IRequest;
+use OCP\IUserSession;
 use OCP\Util;
 
 class PageController extends Controller {
 	use ControllerLoggingTrait;
 
+	public const COLOR_SCHEME_STATE = 'color-scheme';
+
 	public function __construct(
 		string $appName,
 		IRequest $request,
 		AppLogger $appLogger,
+		private IInitialState $initialState,
+		private IUserSession $userSession,
+		private ColorSchemeService $colorSchemes,
 	) {
 		parent::__construct($appName, $request);
 		$this->initializeControllerLogger($appLogger);
@@ -35,8 +43,20 @@ class PageController extends Controller {
 		Util::addScript($this->appName, 'chorestrike-main');
 
 		$this->registerPwaHeaders();
+		$this->provideColorScheme();
 
 		return new TemplateResponse($this->appName, 'main');
+	}
+
+	/**
+	 * The viewer's colour scheme travels with the page (CS-PLAN-090 WP-K,
+	 * D-090-67), so the app's first paint already has it. It is the
+	 * viewer's own setting; membership is checked by every API read.
+	 */
+	private function provideColorScheme(): void {
+		$user = $this->userSession->getUser();
+		$scheme = $user === null ? ColorSchemeService::DEFAULT : $this->colorSchemes->get($user->getUID());
+		$this->initialState->provideInitialState(self::COLOR_SCHEME_STATE, $scheme);
 	}
 
 	/**

@@ -272,7 +272,7 @@ export default {
 
 .task-item.overdue {
 	border-color: var(--color-element-error);
-	background: var(--color-error-hover, #fdf2f2);
+	background: var(--color-error-hover);
 }
 
 .task-item.completed {
@@ -351,17 +351,17 @@ export default {
 }
 
 .priority-badge.low {
-	background: var(--color-success-hover, #d5f4e6);
+	background: var(--color-success-hover);
 	color: var(--color-success-text);
 }
 
 .priority-badge.medium {
-	background: var(--color-warning-hover, #fef9e7);
+	background: var(--color-warning-hover);
 	color: var(--color-warning-text);
 }
 
 .priority-badge.high {
-	background: var(--color-error-hover, #fdedec);
+	background: var(--color-error-hover);
 	color: var(--color-error-text);
 }
 
@@ -374,6 +374,12 @@ export default {
 
 /* The muted text tone stays below 4.5:1 on the overdue background. */
 .task-item.overdue .task-description {
+	color: var(--color-main-text);
+}
+
+/* So does the energy hue, of Standard and of every colour scheme (3.9:1 in
+   the light theme, CS-PLAN-090 RF-090-40): the bolt keeps its icon. */
+.task-item.overdue :deep(.meta-item.energy) {
 	color: var(--color-main-text);
 }
 

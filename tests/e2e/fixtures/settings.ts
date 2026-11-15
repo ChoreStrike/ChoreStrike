@@ -11,7 +11,7 @@ import { expect } from '@playwright/test'
 
 const HOUSEHOLD = ['house', 'members', 'structure', 'categories', 'rewards', 'arcade', 'danger'] as const
 
-export type SettingsCategory = typeof HOUSEHOLD[number] | 'notifications' | 'planning' | 'title'
+export type SettingsCategory = typeof HOUSEHOLD[number] | 'notifications' | 'appearance' | 'planning' | 'title'
 
 /**
  * On the Settings page: show the area of a category and expand it, unless

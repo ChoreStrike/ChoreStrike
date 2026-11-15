@@ -91,6 +91,11 @@ export default {
 					text: t('chorestrike', 'An optional play area outside the daily routine. Games open with finished chores; owners set how many per game and can let a person start over, while the highscores stay. You can hide it in the Settings.'),
 				},
 				{
+					id: 'color-scheme',
+					title: t('chorestrike', 'Colour scheme'),
+					text: t('chorestrike', 'The accent colour of the app, which everyone picks for themselves under Settings → Personal → Appearance. It applies on all your devices; backgrounds and text follow your Nextcloud theme, and a high-contrast theme keeps the standard colours.'),
+				},
+				{
 					id: 'coins',
 					title: t('chorestrike', 'Coins'),
 					text: t('chorestrike', 'The household reward currency for completed work. Today shows your available balance. Available Coins can be requested; reserved Coins back open requests and are only spent on actual delivery.'),

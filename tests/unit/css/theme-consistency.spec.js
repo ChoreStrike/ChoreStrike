@@ -95,3 +95,47 @@ describe('UX-017 — Nextcloud 34/35 semantic color pairs', () => {
 		expect(tokens).not.toMatch(/:root\[data-theme-dark\]|\[data-theme-dark\] :root|:root:not\(\[data-theme-light\]\)/)
 	})
 })
+
+/**
+ * CS-PLAN-090 WP-K (D-090-67): a colour scheme reaches only what reads a
+ * token, so no component paints with a colour literal. Literals live in
+ * `tokens.css` and `schemes.css`; the arcade boards keep their own game
+ * palette (their `var()` fallbacks), like `confetti.js` (not a stylesheet).
+ */
+describe('WP-K — colour literals live in the token files', () => {
+	const ALLOWED = new Set(['styles/tokens.css', 'styles/schemes.css'])
+	const GAME_BOARDS = /^components\/Minigames\/games\//
+	const LITERAL = /#[0-9a-f]{3,8}\b|\b(rgba?|hsla?)\(|(?<![\w-])(white|black)(?![\w-])/i
+
+	/**
+	 * Declarations of a stylesheet or of a component's <style> blocks,
+	 * comments removed.
+	 * @param {string} file Path below src/.
+	 * @param {string} text File content.
+	 * @return {string[]} `property: value` strings.
+	 */
+	function declarations(file, text) {
+		const css = file.endsWith('.vue')
+			? [...text.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(match => match[1]).join('\n')
+			: text
+		return css.replace(/\/\*[\s\S]*?\*\//g, '')
+			.split(/[;{}]/)
+			.map(part => part.trim())
+			.filter(part => /^[a-z-]+\s*:/.test(part))
+	}
+
+	it('finds no colour literal outside the token files and the game boards', () => {
+		const offenders = readdirSync(SRC, { recursive: true })
+			.map(file => file.replace(/\\/g, '/'))
+			.filter(file => /\.(vue|css)$/.test(file) && !ALLOWED.has(file) && !GAME_BOARDS.test(file))
+			.flatMap(file => declarations(file, readFileSync(resolve(SRC, file), 'utf8'))
+				.filter(declaration => LITERAL.test(declaration.replace(/^[a-z-]+\s*:/, '')))
+				.map(declaration => `${file}: ${declaration}`))
+		expect(offenders).toEqual([])
+	})
+
+	it('recognises the literal forms it guards', () => {
+		const sample = declarations('x.css', 'a { color: #fff; border: solid white; box-shadow: 0 0 1px rgba(0, 0, 0, .2); background: var(--x); outline: 1px solid currentcolor; }')
+		expect(sample.filter(declaration => LITERAL.test(declaration.replace(/^[a-z-]+\s*:/, '')))).toHaveLength(3)
+	})
+})

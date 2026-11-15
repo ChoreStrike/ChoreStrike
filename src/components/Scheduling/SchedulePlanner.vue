@@ -704,17 +704,17 @@ async function apply() {
 }
 
 .status-banner.warning {
-	background: rgba(255, 152, 0, 0.12);
+	background: color-mix(in srgb, var(--color-element-warning) 12%, var(--color-main-background));
 	color: var(--color-main-text);
 }
 
 .status-banner.error {
-	background: var(--color-error-hover, #fde8e8);
+	background: var(--color-error-hover);
 	color: var(--color-error-text);
 }
 
 .status-banner.success {
-	background: rgba(76, 175, 80, 0.12);
+	background: color-mix(in srgb, var(--color-element-success) 12%, var(--color-main-background));
 	color: var(--color-main-text);
 }
 

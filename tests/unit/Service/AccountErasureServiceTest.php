@@ -48,6 +48,7 @@ class AccountErasureServiceTest extends TestCase {
 	private \OCA\ChoreStrike\Service\RewardRequestService&\PHPUnit\Framework\MockObject\MockObject $rewardRequestService;
 	private \OCA\ChoreStrike\Service\RewardService&\PHPUnit\Framework\MockObject\MockObject $rewardService;
 	private \OCA\ChoreStrike\Service\ArcadeStartPointStore&\PHPUnit\Framework\MockObject\MockObject $arcadeStartPoints;
+	private \OCA\ChoreStrike\Service\ColorSchemeService&\PHPUnit\Framework\MockObject\MockObject $colorSchemes;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
@@ -62,6 +63,7 @@ class AccountErasureServiceTest extends TestCase {
 		$this->rewardRequestService = $this->createMock(\OCA\ChoreStrike\Service\RewardRequestService::class);
 		$this->rewardService = $this->createMock(\OCA\ChoreStrike\Service\RewardService::class);
 		$this->arcadeStartPoints = $this->createMock(\OCA\ChoreStrike\Service\ArcadeStartPointStore::class);
+		$this->colorSchemes = $this->createMock(\OCA\ChoreStrike\Service\ColorSchemeService::class);
 	}
 
 	private function membership(int $id, int $houseId): HouseUser {
@@ -97,6 +99,7 @@ class AccountErasureServiceTest extends TestCase {
 			$this->transactions,
 			$this->appLogger,
 			$this->arcadeStartPoints,
+			$this->colorSchemes,
 		);
 	}
 
@@ -163,12 +166,15 @@ class AccountErasureServiceTest extends TestCase {
 		$this->houseUserMapper->method('findAllByNextcloudUserId')->willReturn([]);
 		$this->walletMapper->method('findAllByUserId')->willReturn([]);
 		$this->arcadeStartPoints->expects($this->once())->method('forget')->with('erased_user');
+		// CS-PLAN-090 WP-K: so does the colour scheme.
+		$this->colorSchemes->expects($this->once())->method('forget')->with('erased_user');
 
 		$this->service()->eraseAccount('erased_user');
 	}
 
 	public function testBlankUid_TouchesNoArcadeStartPoint(): void {
 		$this->arcadeStartPoints->expects($this->never())->method('forget');
+		$this->colorSchemes->expects($this->never())->method('forget');
 
 		$this->service()->eraseAccount('  ');
 	}
