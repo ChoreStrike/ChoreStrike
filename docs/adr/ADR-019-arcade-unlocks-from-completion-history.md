@@ -126,7 +126,7 @@ chore history, which D7d did not allow. Three properties had to hold:
 ## Related
 
 - Plan: [CS-PLAN-086](../plans/done/cs-plan-086-household-arcade-and-chore-unlocks.md);
-  amendment: [CS-PLAN-090](../plans/active/cs-plan-090-simplified-core-release-a.md) WP-J
+  amendment: [CS-PLAN-090](../plans/done/cs-plan-090-simplified-core-release-a.md) WP-J
 - Ledger attribution: [ADR-014](ADR-014-work-accounting-ledger-and-replay.md)
 - Concept: [`gamification-and-rewards.md`](../concepts/gamification-and-rewards.md),
   [`calm-core-ux.md`](../concepts/calm-core-ux.md)

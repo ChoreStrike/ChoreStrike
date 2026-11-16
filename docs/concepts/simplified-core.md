@@ -1,9 +1,10 @@
 # Simplified Core — Target Picture
 
 > **Status:** Target picture, confirmed by the operator on 2026-11-10 after the family reviewed
-> the mockups. It records the decisions of 2026-11-09 and 2026-11-10. Nothing here is
-> implemented. The shipped contracts stay binding until a reviewed plan and a new ADR replace
-> them ([what this replaces](#what-this-replaces)).
+> the mockups. It records the decisions of 2026-11-09 to 2026-11-15. Release A is implemented
+> on `master` but not deployed; B and C are not built ([delivery](#delivery)). The shipped
+> contracts stay binding until a reviewed plan and a new ADR replace them
+> ([what this replaces](#what-this-replaces)).
 > Owning item: [CONCEPT-002](../backlog/backlog.md#p1-concept-002--simplified-core-target-picture).
 
 ## Why
@@ -182,18 +183,19 @@ To be settled in the owning plans, before code:
 
 ## Delivery
 
-Three planned releases, each with its own plan and review, in two deployments. The order keeps
-the model change away from the first visible improvements.
+Three planned releases in one deployment. The order keeps the model change away from the first
+visible improvements.
 
-| Release | Content | Model change | Deployed |
-|---------|---------|--------------|----------|
-| A | Navigation, *Today*, tasks grouped by room, denser lists and Insights, absence without request, feedback defaults | none; one data-only migration step switches the animation on for everyone | on its own, as `0.8.0-alpha.5` |
-| B | Windows as derived state, first date and history editing, early completion, postpone, sleeping and bonus tasks, coin multipliers, the one form and the inline expansion | yes | together with C, as one version |
-| C | Live suggestion on *Today* and in the calendar, preferred days | scheduler | together with B |
+| Release | Content | Model change | Plan |
+|---------|---------|--------------|------|
+| A | Navigation, *Today*, tasks grouped by room, denser lists and Insights, absence without request, feedback defaults | none; one data-only migration step switches the animation on for everyone | [CS-PLAN-090](../plans/done/cs-plan-090-simplified-core-release-a.md), implemented and qualified, not deployed |
+| B | Windows as derived state, first date and history editing, early completion, postpone, sleeping and bonus tasks, coin multipliers, the one form and the inline expansion | yes | one plan for B and C |
+| C | Live suggestion on *Today* and in the calendar, preferred days | scheduler | one plan for B and C |
 
-B and C keep their names, plans and reviews and are built in this order, but reach the family
-instance as one version (operator, 2026-11-14). A deployment takes the operator time, and no
-deployed version then has to run the preview-and-apply planner on derived windows.
+A, B and C reach the family instance as one version (operator, 2026-11-15). B and C keep their
+names and are built in this order, under one plan (operator, 2026-11-15). A deployment takes the
+operator time, and no deployed version then has to run the preview-and-apply planner on derived
+windows.
 
 All of them stay alpha versions on the family instance. The `v0.9` beta starts only after they are
 built and tested there, so that outside testers meet the simplified model and no second
@@ -243,3 +245,11 @@ installation has to carry the model change
 - Release A is deployed on its own as `0.8.0-alpha.5`, as planned.
 - Releases B and C are deployed together as one version, because every deployment takes the
   operator time. Each keeps its own plan, Standard A review and superseding ADR.
+
+### One deployment (operator, 2026-11-15)
+
+- Release A is not deployed on its own. Its qualified candidate `0.8.0-alpha.5` stays
+  undeployed, and A reaches the family instance together with B and C as one version, to save
+  the operator a deployment.
+- B and C share one plan and one Standard A review. The superseded and amended contracts still
+  each get their own ADR before code.

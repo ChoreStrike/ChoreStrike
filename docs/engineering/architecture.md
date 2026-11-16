@@ -1323,7 +1323,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `Db/RoomTask.php` | 365 | Central entity: domain accessors, status computation, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1, RF-072-WP1-12/16) | accepted (entity surface; data-driven) |
 | `Db/RoomTaskMapper.php` | 508 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
 | `Db/CompletedTaskMapper.php` | 559 | Ledger SQL: stats aggregates, occurrence lookups, weekly windows, completion revisions | accepted (SQL primitive collection) |
-| `Db/OccurrenceMapper.php` | 316 | SQL primitives for the occurrence timeline (lookups by key, task, revision and house; insert-or-get; future cleanup of a revision) | accepted (SQL primitive collection) |
+| `Db/OccurrenceMapper.php` | 333 | SQL primitives for the occurrence timeline (lookups by key, task, revision and house; insert-or-get; future cleanup of a revision; half-open day bounds, RF-090-57) | accepted (SQL primitive collection) |
 | `Service/FloorService.php` | 330 | Floor domain: structure mutations and their ordering | accepted (cohesive domain) |
 
 #### Frontend (`src/`)

@@ -14,14 +14,13 @@ docs/plans/
 
 ## Lifecycle
 
-Active: [CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)](active/cs-plan-090-simplified-core-release-a.md)
-(Standard A `PASS-WITH-FIXES`, 2026-11-10; WP-A to WP-F and WP-H to WP-K implemented with their
-interim reviews by 2026-11-15; WP-G's candidate committed and its final Full review
-`PASS-WITH-FIXES` on 2026-11-15, qualified on `d189ce6a` the same day, the export and the
-deployment open): the first of three releases
-of the [simplified core](../concepts/simplified-core.md): screens, absence and feedback, with
-one data-only migration step, extended by task categories, arcade owner controls and colour
-schemes (D-090-60).
+Delivered: [CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)](done/cs-plan-090-simplified-core-release-a.md)
+(final Full review `PASS-WITH-FIXES` 2026-11-15, qualified on `d189ce6a` the same day, closing
+Standard B `PASS-WITH-FIXES` 2026-11-16): the first of three releases of the
+[simplified core](../concepts/simplified-core.md): screens, absence and feedback, with one
+data-only migration step, extended by task categories, arcade owner controls and colour schemes
+(D-090-60). On `master`, not deployed: it reaches the family instance together with Releases B
+and C as one version (D-090-81).
 
 Delivered: [CS-PLAN-089: 0.8.0-alpha.4 — Trial Defects and Everyday Fixes (Round 1)](done/cs-plan-089-alpha4-trial-defects-and-everyday-fixes.md)
 (final Standard B `PASS-WITH-FIXES`, 2026-11-09): the defects and everyday fixes from the

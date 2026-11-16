@@ -281,137 +281,6 @@ Older than CS-PLAN-090; the household has a small history today.
 
 ---
 
-### [P1] FEAT-UX-062 — Today merges My Day and the Dashboard
-**Status**: In Progress (Release A, CS-PLAN-090 WP-B; CONCEPT-002) · **Effort**: L · **Layer**: frontend · **Journey stage**: daily execution
-**Owning**: CS-PLAN-090 WP-B · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback at the close of the family trial (2026-11-09), confirmed with the mockups (2026-11-10)
-
-One landing page instead of two: a status line (energy, weekly goal, streak, coins), the
-overdue block in red, what is due today and what is already possible. The Dashboard's tiles,
-bars and room cards go; house health stays in Insights. `TodayView.vue` has 1201 lines and
-holds its row markup twice.
-
-- [x] Today shows the four sections in that order; `/dashboard` redirects to it.
-- [x] The setup wizard opens from Today for an owner with an empty house, and from Settings.
-- [x] The participation flow, which exists three times, lives in one composable.
-- [x] The Dashboard specs, fixtures and gate entries move or go with a recorded reason.
-
-Implemented 2026-11-11 (`TodayView.vue` at 645 lines; the floor list and the room cards left
-with the Dashboard, D-090-33); interim Standard B `PASS-WITH-FIXES` the same day. Until WP-C a
-room page opened by its address only (RF-090-14, closed by WP-C).
-
----
-
-### [P1] FEAT-UX-063 — Tasks grouped by due date, room or person; the room page goes
-**Status**: In Progress (Release A, CS-PLAN-090 WP-C implemented 2026-11-11, interim Standard B `PASS-WITH-FIXES` 2026-11-12 with WP-C to WP-E; CONCEPT-002) · **Effort**: L · **Layer**: frontend · **Journey stage**: task overview
-**Owning**: CS-PLAN-090 WP-C · **Depends on**: FEAT-UX-062 · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback at the close of the family trial (2026-11-09), confirmed with the mockups (2026-11-10)
-
-Floors and rooms become collapsible headings of the one task list, with their open and overdue
-counts and a small cleanliness percentage (D-090-19). The separate room page and the room
-cards go. The template picker and the dialog for
-the due date and *Last done* exist only on the room page today and need a new home.
-
-- [x] The list groups by due date, by room and by person; the choice is part of the URL.
-- [x] `/room/:id` redirects to the task list with that room open.
-- [x] Template picker, due date, *Last done* and *Last cleaned* are reachable from the list.
-- [x] One house-wide read feeds every grouping.
-
-Implemented 2026-11-11 (`TaskManager.vue` at 658 lines; the grouping and filter rules are pure
-functions, the grouped list, the pager and the create dialog components of their own; 665
-lines with the shared switch of WP-D). The
-room page, its statistics card and its rename and delete actions are gone; rename and delete
-stay in Settings. Interim Standard B `PASS-WITH-FIXES` on 2026-11-12, one review for WP-C to WP-E.
-
----
-
-### [P2] FEAT-UX-064 — Navigation with eight entries
-**Status**: In Progress (Release A, CS-PLAN-090 WP-D implemented 2026-11-12, interim Standard B `PASS-WITH-FIXES` 2026-11-12 with WP-C to WP-E; CONCEPT-002) · **Effort**: M · **Layer**: frontend · **Journey stage**: every view
-**Owning**: CS-PLAN-090 WP-D · **Depends on**: FEAT-UX-062, FEAT-UX-063 · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback at the close of the family trial (2026-11-09), confirmed with the mockups (2026-11-10)
-
-Today, Tasks, Calendar, Insights, Absence, Rewards, Arcade and Settings, instead of eleven
-entries. The ranking moves into Insights, the planning settings into Settings and *My requests*
-under Rewards. The owner's weekly plan keeps its page until the live suggestion replaces it and
-is reached from the calendar.
-
-- [x] Eight entries plus Help; the old addresses redirect.
-- [x] Everything a role could reach before stays reachable, with either reward gate closed too.
-
-Implemented 2026-11-12: `/room/:id` and `/leaderboard` redirect, `/dashboard` did since WP-B;
-the weekly plan opens from the calendar header for every role, the own days and energy are in
-*Settings → Planning*, and *My Requests* opens from Rewards and from the personal settings.
-Interim Standard B `PASS-WITH-FIXES` on 2026-11-12, one review for WP-C to WP-E.
-
----
-
-### [P1] FEAT-UX-065 — Absence as a plain period
-**Status**: In Progress (Release A, CS-PLAN-090 WP-A; CONCEPT-002) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: planning
-**Owning**: CS-PLAN-090 WP-A · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback at the close of the family trial (2026-11-09)
-
-Everyone enters an absence for themselves without a reason or a request; everyone sees the
-entries; the owner may delete any. Today a child's entry waits for the owner, a reason is asked,
-members see only their own entries, and nothing can be deleted: shortening clamps to today and
-cannot remove an absence that has not started. No schema change is needed.
-
-- [x] ADR-020 states the rule before code and amends the pause section of ADR-013.
-- [x] An entry takes effect at once for every role.
-- [x] A delete command for the subject and the owner, for absences that have not ended
-      (D-090-22); later days are free again, today and earlier stay, an absence that has not
-      started disappears; every cancelled revision is read alike (D-090-21).
-- [x] An Absence view with everyone's entries; no reason asked or shown.
-- [x] PHPUnit on all providers for the roles, the boundary and concurrency; a browser scenario.
-      (2026-11-10 interim review `PASS-WITH-FIXES`: canonical PostgreSQL, MySQL, SQLite and the
-      AIO row, browser gates on both rows; the item closes with the plan's final review.)
-
----
-
-### [P2] FEAT-UX-066 — Dense Insights with the ranking and a single-line activity list
-**Status**: In Progress (Release A, CS-PLAN-090 WP-E implemented 2026-11-12, interim Standard B `PASS-WITH-FIXES` 2026-11-12 with WP-C to WP-E; CONCEPT-002) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: review and correction
-**Owning**: CS-PLAN-090 WP-E · **Depends on**: FEAT-UX-064 · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback at the close of the family trial (2026-11-09)
-
-*Recent activity* is good but takes several lines per entry. Insights becomes a few key
-figures, compact fairness bars, the ranking and one line per activity with the coins it paid.
-The activity endpoint does not return coins today, although the API reference shows them.
-Absences and date changes join the list in Release B, when those events exist.
-
-- [x] One line per entry, grouped by day; corrections stay reachable from the row.
-- [x] The endpoint returns `coinMinor` under the existing redaction; the API reference matches.
-- [x] The ranking is a section of Insights with an error state of its own.
-
-Implemented 2026-11-12. The four key figures are house health and three room figures from the
-existing house read (D-090-52); the task figures of the mockup need data this release does not
-read, which the GUI review decides on.
-Interim Standard B `PASS-WITH-FIXES` on 2026-11-12, one review for WP-C to WP-E. The old
-Leaderboard address brings the ranking into view (RF-090-24).
-
----
-
-### [P2] FEAT-UX-067 — Feedback defaults and visible completion feedback
-**Status**: In Progress (Release A, CS-PLAN-090 WP-F; CONCEPT-002) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: completion
-**Owning**: CS-PLAN-090 WP-F · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator feedback at the close of the family trial (2026-11-09)
-
-The completion animation is on by default, sound stays an opt-in, and reduced motion keeps
-winning. Completing a task should show more than a snackbar. A stored "off" cannot be told
-apart from a value nobody chose, and a first save of one field stores the column default for
-the others, so the default needs care where preference rows are created.
-
-- [x] Every member gets the animation after the update: one data-only migration step switches
-      it on in existing preference rows too (operator decision D-090-16, the first step on the
-      retained baseline), with populated-upgrade tests on all providers. Implemented
-      2026-11-11 (`Version1034`, proof P4 of the preservation runner), interim review
-      `PASS-WITH-FIXES` the same day; it is pinned after the verified deployment (WP-G).
-- [x] Every path that creates a preference row writes the delivery fields explicitly.
-- [x] The completed row, the snackbar and a new title give visible feedback. The snackbar
-      names the coins, a new title gets its toast and a row that stays in its list highlights
-      (2026-11-11); a recurring row that leaves *Today* keeps its place with the check mark
-      for that moment since WP-B (D-090-36, interim review 2026-11-11).
-
----
-
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
@@ -705,51 +574,6 @@ window is no longer edited directly. Detail:
 
 ---
 
-### [P3] FEAT-UX-053 — Owner-managed task categories
-**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; CS-PLAN-090 WP-I implemented 2026-11-13, interim Standard B `PASS-WITH-FIXES` 2026-11-13; storage and rules D-090-65) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task creation
-**Owning**: CS-PLAN-090 WP-I · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-058 · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-3, S-4
-
-Owners manage the categories in the household settings. *Other* always exists, cannot
-be deleted, is the default and is the fallback for a deleted or unknown category.
-`tasks.category` is a free string without server validation today, with six fixed
-values in `TaskEditForm`, and it appears nowhere but the form. They therefore get a
-purpose (D-089-04): a filter in the Tasks list and an evaluation in the statistics.
-
-- [x] Decide the storage: a typed app-config list, no schema step (CS-PLAN-090 D-090-64,
-      D-090-65, 2026-11-13).
-- [x] Tasks keep stable keys; unknown values read as *Other* and nothing rewrites
-      retained rows (2026-11-13, CS-PLAN-090 WP-I, integration test on the real store).
-- [x] Filter, settings section and tests (2026-11-13; interim Standard B `PASS-WITH-FIXES`
-      2026-11-13).
-
----
-
-### [P3] FEAT-UX-054 — Personal and household settings structure
-**Status**: In Progress (Release A, CS-PLAN-090 WP-D implemented 2026-11-12, interim Standard B `PASS-WITH-FIXES` 2026-11-12 with WP-C to WP-E; included by operator decision D-090-18) · **Effort**: M · **Layer**: frontend · **Journey stage**: settings
-**Owning**: CS-PLAN-090 WP-D · **Depends on**: — · **Blocks**: — · **Folded-in**: the planning settings move into a personal category (operator, 2026-11-09, CONCEPT-002)
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-1, S-2, S-3, S-5
-
-Separate personal from household settings and group them into categories that start
-collapsed, so the page fits one screen. *Notifications* becomes one category, and
-*House Name* and *Timezone* join *Floors & Rooms* in a household category.
-
-Source-project answer (2026-11-03): collapsible sections work with two levels, not
-three, which get unwieldy on a phone: a switch *Personal | Household* on top, categories
-below. Non-owners see only *Personal*. `Settings.vue` has 1440 lines against the ~300
-guideline and is split per category along the way.
-
-- [x] Structure shown as a mockup first (a text sketch in the session, operator's choice
-      of "all closed" on 2026-11-11, D-090-47).
-- [x] Browser specs open collapsed categories through one helper
-      (`tests/e2e/fixtures/settings.ts`); `?category=` opens a target category. The help has
-      no link into Settings today.
-
-Implemented 2026-11-12: `Settings.vue` has 307 lines and one component per category.
-Interim Standard B `PASS-WITH-FIXES` on 2026-11-12, one review for WP-C to WP-E.
-
----
-
 ### [P3] FEAT-UX-055 — Icons and colours for floors and rooms
 **Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: setup
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -767,48 +591,9 @@ neither, and rooms have no colour.
 
 ---
 
-### [P3] FEAT-UX-056 — Owner controls for the arcade
-**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; CS-PLAN-090 WP-J implemented 2026-11-14, interim Standard B `PASS-WITH-FIXES` 2026-11-14; reset per person for all games D-090-63, storage D-090-66) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: arcade
-**Owning**: CS-PLAN-090 WP-J · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register S-6
-
-Owners change the unlock threshold of each game and reset a person's unlock progress
-to start a new round, only after a confirmation prompt. This amends ADR-019, which
-keeps thresholds as one constant map, treats unlocks as permanent and stores nothing.
-
-- [x] ADR-019 amended before code.
-- [x] Thresholds become typed app config, as the gate switch already is. A reset stores
-      a start point per person from which finished chores count; the work ledger stays
-      untouched and highscores stay (D-089-05).
-- [x] Owner-only checks on both layers; tests for a reset, an undo across the start
-      point and the score lock.
-
-Implemented 2026-11-14: `PUT /house/arcade-thresholds`, `POST /house/members/{userId}/arcade-reset`
-and `GET /house/arcade-progress` in `ArcadeSettingsController`; the start point lives in
-`IUserConfig` through `ArcadeStartPointStore`; *Settings → Household → Arcade* holds the gate,
-the thresholds and the reset list (`ArcadeSettings.vue`). Interim Standard B `PASS-WITH-FIXES`
-2026-11-14 (RF-090-38); the item stays `In Progress` until the release.
-
----
-
-### [P3] FEAT-UX-057 — Selectable colour schemes
-**Status**: In Progress (Release A by operator decision D-090-60, 2026-11-13; CS-PLAN-090 WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; per person across devices D-090-61, accent only D-090-62, contrast and storage D-090-67..74) · **Effort**: M · **Layer**: frontend+backend · **Journey stage**: settings
-**Owning**: CS-PLAN-090 WP-K · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register L-1
-
-About 4–6 selectable schemes, each working in the light and the dark theme. Hard-coded
-colours remain in about a dozen components outside `tokens.css`, mostly scheduling and
-the calendar, and move to tokens first.
-
-- [x] Decide personal or household scope: personal, kept across devices (operator, 2026-11-13, D-090-61).
-- [x] Colour literals moved to tokens first (fourteen component files; the arcade boards keep their game palette).
-- [x] Contrast checked per scheme and theme: every pair computed in Jest, two views per scheme and theme in the browser contrast spec.
-
----
-
 ### [P3] FEAT-UX-058 — Household statistics
 **Status**: Backlog (Round 3, D-089-01) · **Effort**: M · **Layer**: frontend · **Journey stage**: review and correction
-**Owning**: unassigned · **Depends on**: FEAT-UX-053 · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-5
 
 Which tasks get done regularly and which do not, also by category (D-089-04). The operator
@@ -1118,24 +903,24 @@ and a superseding ADR before code. Until then the shipped contracts stay binding
 The decisions are folded into the items that already own a topic (FEAT-UX-040, FEAT-UX-041,
 FEAT-UX-050, FEAT-UX-052, FEAT-UX-059). The other Round 2 items (FEAT-UX-043, FEAT-UX-051,
 FEAT-UX-053, FEAT-UX-054) keep their content, and the release plans slot them. Round 3 is not
-affected. Release A has its items since 2026-11-10 (FEAT-UX-062 to FEAT-UX-067, with
-FEAT-UX-054). The topics below belong to Release B, have no item yet and stay here until its
-plan takes them:
+affected. Release A delivered FEAT-UX-062 to FEAT-UX-067 with FEAT-UX-053, FEAT-UX-054,
+FEAT-UX-056 and FEAT-UX-057 (CS-PLAN-090, closed 2026-11-16, archived). The topics below
+belong to Release B, have no item yet and stay here until its plan takes them:
 
 - Sleeping tasks and bonus tasks.
 - A coin factor per member and bonus days (amends ADR-014).
 - Overdue as one red entry per task; the catch-up entries go.
 
 All three releases stay alpha versions; the beta follows after them (operator, 2026-11-10).
-Release A is deployed on its own as `0.8.0-alpha.5`; B and C keep their own plans and are
-deployed together as one version (operator, 2026-11-14,
-[delivery](../concepts/simplified-core.md#delivery)).
+A, B and C reach the family instance as one version: Release A, qualified as
+`0.8.0-alpha.5`, is not deployed on its own, and B and C share one plan (operator,
+2026-11-15, [delivery](../concepts/simplified-core.md#delivery)).
 
 - [x] Operator decisions of 2026-11-09 recorded in the concept.
 - [x] Mockups reviewed with the family; the operator confirms the target picture (2026-11-10).
 - [ ] The concept's open points are settled in the owning plans.
-- [ ] Plans for the releases A, B and C drafted, each with Standard A; B and C share one
-      deployment.
+- [ ] Plans drafted with Standard A: Release A (CS-PLAN-090, Standard A 2026-11-10, closed
+      2026-11-16) and one plan for B and C; all three share one deployment.
 
 ---
 
@@ -1312,7 +1097,7 @@ TECH-TRANSPORT-001 as unattributed.
 
 ### [P3] TECH-DEPS-001 — Major updates Dependabot cannot land
 **Status**: Backlog · **Effort**: L · **Layer**: infra · **Journey stage**: —
-**Owning**: CS-PLAN-090 WP-H (the in-range slice only; the major rows are unassigned) · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05); `fast-xml-parser` 5.11.2 advisory (2026-11-13, resolved in range); Dependabot PR #12, `follow-redirects` 1.16.3, taken in range (2026-11-15, with the candidate of CS-PLAN-090)
+**Owning**: unassigned (the in-range slice was delivered with CS-PLAN-090 WP-H) · **Depends on**: — · **Blocks**: — · **Folded-in**: Dependabot PRs #8 and #11 (2026-11-05); `fast-xml-parser` 5.11.2 advisory (2026-11-13, resolved in range); Dependabot PR #12, `follow-redirects` 1.16.3, taken in range (2026-11-15, with the candidate of CS-PLAN-090)
 **Source**: Dependabot triage of 2026-11-05
 
 PR #11 groups 29 npm updates and stops at `npm ci` with ERESOLVE, so its compatible part landed
@@ -1358,7 +1143,7 @@ build and test chains:
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
 **Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its CS-PLAN-089 slice finished 2026-11-09; CS-PLAN-090 activated 2026-11-10 for the `0.8.0-alpha.5` slice, its candidate prepared 2026-11-15 and neither qualified nor deployed yet; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: CS-PLAN-090 WP-G (`0.8.0-alpha.5` release slice only); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Owning**: the joint plan for Releases B and C (the `0.8.0-alpha.5` release slice of A, B and C); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;

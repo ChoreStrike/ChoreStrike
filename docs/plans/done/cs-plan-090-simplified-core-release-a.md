@@ -1,6 +1,6 @@
 # CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)
 
-> **Status:** Active - Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G: candidate committed 2026-11-15 (metadata, changelog, README, screenshots); the operator's second GUI review without findings 2026-11-15; final Full review `PASS-WITH-FIXES` 2026-11-15; qualified 2026-11-15 on `d189ce6a` after RF-090-57..59; export and deployment open
+> **Status:** Done - closing Standard B `PASS-WITH-FIXES` 2026-11-16; on `master`, not deployed: it ships with Releases B and C as one version (D-090-81). History: Standard A `PASS-WITH-FIXES` 2026-11-10; WP-A implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-10; WP-F implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-B implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-11; WP-C implemented 2026-11-11, WP-D and WP-E 2026-11-12, one interim Standard B `PASS-WITH-FIXES` for the three 2026-11-12 (operator's choice); the operator's GUI review without findings 2026-11-12; runtime update (RF-090-12) requalified 2026-11-13; scope extended by WP-H to WP-K 2026-11-13 (D-090-60), Standard A of the extension `PASS-WITH-FIXES` the same day; WP-H and WP-I implemented 2026-11-13, one interim Standard B `PASS-WITH-FIXES` for the two 2026-11-13 (operator's choice); WP-J implemented, interim Standard B `PASS-WITH-FIXES` 2026-11-14; WP-K implemented 2026-11-14, interim Standard B `PASS` 2026-11-15; WP-G: candidate committed 2026-11-15 (metadata, changelog, README, screenshots); the operator's second GUI review without findings 2026-11-15; final Full review `PASS-WITH-FIXES` 2026-11-15; qualified 2026-11-15 on `d189ce6a` after RF-090-57..59; merged and pushed 2026-11-15 (`master` `784c179d`, CI fix RF-090-60 `0638216a`); export and deployment dropped (D-090-81)
 > **Effort:** XL — about 24–30 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10); `0.8.0-alpha.4` on the retained baseline; one data-only migration step, the first on that baseline (D-090-16)
@@ -461,6 +461,14 @@ Decisions of the qualification (operator, 2026-11-15).
   `src/`, `js/` byte-identical), so on it only the static gates and the package build and
   smoke run again; the matrix and both browser gates count from `3031d686`. The operator
   extended this to the licence fix of RF-090-59, on which only the package build and smoke run.
+- **D-090-81 No deployment of its own (operator, 2026-11-15):** after the merge and push of
+  `master` (`784c179d`, CI fix `0638216a`), the qualified candidate is not exported or
+  deployed. Release A reaches the family instance together with Releases B and C as one
+  version, which keeps the number `0.8.0-alpha.5`; B and C share one plan
+  ([delivery](../../concepts/simplified-core.md#delivery)). This plan closes now after a
+  closing Standard B over RF-090-57..60. The export, the deployment, the applied-migration
+  record and the dated public presentation move to that joint plan (user-rescoped); the
+  2026-11-15 qualification stays as history, and the joint candidate is qualified anew.
 
 The four questions of the draft were answered by the operator on 2026-11-10 (D-090-16 to
 D-090-19), and the two of the Standard A review the same day (D-090-21, D-090-22). The three
@@ -1058,40 +1066,42 @@ modified: docker/package-build.json, .github/workflows/checks.yml, full-matrix.y
 
 ## 8. Acceptance Criteria
 
-- [ ] Every member, children included, enters an absence for themselves that takes effect at once; everyone sees all entries; a member deletes their own and the owner any, as long as it has not ended; an ended absence stays listed
-- [ ] Deleting frees the days from the next local day, keeps today and earlier, and removes an absence that has not started; no reason is asked or shown
-- [ ] Every cancelled revision, including a pending request a departure cancelled, ends coverage from its next local day (D-090-21), recorded in ADR-020
-- [ ] No table or column definition changes; the 26 applied migrations stay pinned; stored pause rows are unchanged by the update
-- [ ] The one new migration step switches the animation on in every existing preference row, bumps its version and changes nothing else; real app upgrades from `0.8.0-alpha.4` pass on PostgreSQL, MySQL and SQLite, and fresh and upgraded installs match
-- [ ] After the verified deployment the step is appended to `tests/migrations/applied-migrations.json` with its SHA-256, reconciled against the installed migration list of the sanitized report
-- [ ] Today is the landing page for every role and shows status line, overdue block, due today and what is already possible; `/dashboard` redirects
-- [ ] Tasks groups by due date, by room and by person; a room deep link opens its room; `/room/:id` redirects
-- [ ] Template picker, due date and *Last done*, setup wizard and *Last cleaned* are reachable from their new places
-- [ ] The navigation has eight entries plus Help; ranking, planning settings and requests are reachable for every role that could reach them before
-- [ ] Settings shows personal and household categories; a non-owner sees only personal ones
-- [ ] Insights shows key figures, fairness, ranking and a single-line activity list with coins
-- [ ] Every member gets the completion animation after the update, with or without stored preferences; sound stays as it was; reduced motion suppresses the animation; switching it off afterwards holds, also as a first save
-- [ ] Each room heading shows its open and overdue counts, a small cleanliness percentage and *Last cleaned*
+- [x] Every member, children included, enters an absence for themselves that takes effect at once; everyone sees all entries; a member deletes their own and the owner any, as long as it has not ended; an ended absence stays listed
+- [x] Deleting frees the days from the next local day, keeps today and earlier, and removes an absence that has not started; no reason is asked or shown
+- [x] Every cancelled revision, including a pending request a departure cancelled, ends coverage from its next local day (D-090-21), recorded in ADR-020
+- [x] No table or column definition changes; the 26 applied migrations stay pinned; stored pause rows are unchanged by the update
+- [x] The one new migration step switches the animation on in every existing preference row, bumps its version and changes nothing else; real app upgrades from `0.8.0-alpha.4` pass on PostgreSQL, MySQL and SQLite, and fresh and upgraded installs match
+- [x] (user-rescoped to the joint plan for Releases B and C, D-090-81) After the verified deployment the step is appended to `tests/migrations/applied-migrations.json` with its SHA-256, reconciled against the installed migration list of the sanitized report
+- [x] Today is the landing page for every role and shows status line, overdue block, due today and what is already possible; `/dashboard` redirects
+- [x] Tasks groups by due date, by room and by person; a room deep link opens its room; `/room/:id` redirects
+- [x] Template picker, due date and *Last done*, setup wizard and *Last cleaned* are reachable from their new places
+- [x] The navigation has eight entries plus Help; ranking, planning settings and requests are reachable for every role that could reach them before
+- [x] Settings shows personal and household categories; a non-owner sees only personal ones
+- [x] Insights shows key figures, fairness, ranking and a single-line activity list with coins
+- [x] Every member gets the completion animation after the update, with or without stored preferences; sound stays as it was; reduced motion suppresses the animation; switching it off afterwards holds, also as a first save
+- [x] Each room heading shows its open and overdue counts, a small cleanliness percentage and *Last cleaned*
 - [x] No view touched by this plan is longer than before; the participation flow exists once
-- [ ] Every user-visible string goes through `t()`; `l10n:check-keys` is green with real German copy
-- [ ] The Rewards list does not move when the wallet arrives; PHPUnit suites load and run on a case-sensitive file system, and a CI suite that runs no test fails (WP-H)
-- [ ] Owners manage task categories with *Other* fixed; tasks accept only listed keys; a deleted key reads as *Other* without a rewrite; the task list filters by category (WP-I)
-- [ ] Owners set each game's threshold and reset one person's progress after a confirmation; highscores stay; ADR-019 amended (WP-J)
-- [ ] Each person picks one of six colour schemes, kept across devices and applied at first paint; every scheme passes contrast in both themes (WP-K)
-- [ ] The extension stores no fact and changes no table; account erasure removes the per-user values
+- [x] Every user-visible string goes through `t()`; `l10n:check-keys` is green with real German copy
+- [x] The Rewards list does not move when the wallet arrives; PHPUnit suites load and run on a case-sensitive file system, and a CI suite that runs no test fails (WP-H)
+- [x] Owners manage task categories with *Other* fixed; tasks accept only listed keys; a deleted key reads as *Other* without a rewrite; the task list filters by category (WP-I)
+- [x] Owners set each game's threshold and reset one person's progress after a confirmation; highscores stay; ADR-019 amended (WP-J)
+- [x] Each person picks one of six colour schemes, kept across devices and applied at first paint; every scheme passes contrast in both themes (WP-K)
+- [x] The extension stores no fact and changes no table; account erasure removes the per-user values
 - [x] `npm run test:runtime:check` reports `current` at the freeze
 - [x] Operator GUI review recorded; its findings resolved or routed
 - [x] `0.8.0-alpha.5` qualified: full browser gates and PHPUnit suites on both runtime rows, SQLite and MySQL provider suites, reproducible package build and smoke
-- [ ] Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
-- [ ] `CHANGELOG.md`, README, roadmap and documentation map name the new version; screenshots recaptured
-- [ ] Build gate green (`npm test` + lint + backend tests)
-- [ ] Required tests ran without new or unapproved skips
-- [ ] All implementation decisions and review questions resolved and recorded
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
-- [ ] Owning backlog items updated or archived according to their actual completion state
-- [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
+- [x] (user-rescoped to the joint plan for Releases B and C, D-090-81) Deployed through the private exchange; the operator's sanitized report verified and imported into the deployment guide
+- [x] (user-rescoped to the joint plan for Releases B and C, D-090-81) `CHANGELOG.md`, README, roadmap and documentation map name the new version; screenshots recaptured
+- [x] Build gate green (`npm test` + lint + backend tests)
+- [x] Required tests ran without new or unapproved skips
+- [x] All implementation decisions and review questions resolved and recorded
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
+- [x] Owning backlog items updated or archived according to their actual completion state
+- [x] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
 - [x] Final Full review is `PASS` or `PASS-WITH-FIXES` (the round adds a command and changes authorization for children)
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated
+
+Evidence at the closing review (2026-11-16): the interim reviews of WP-A to WP-K, the operator's two GUI reviews, the final Full review and the qualification on `d189ce6a` (§ Review Outcome). The changelog section, README and screenshots name `0.8.0-alpha.5` already; its dated heading, the roadmap and the documentation map follow the joint deployment.
 
 ## 9. Review Findings (plan-owned)
 
@@ -1448,3 +1458,27 @@ export, the deployment, the record import and the final completion review.
   both runs.
 - The staged rows of `a5q1` and `a5q2` are removed; their reports stay under
   `build/test-reports/`.
+
+**Standard B, closing, 2026-11-16: PASS-WITH-FIXES.** Scope: the four fix commits after the
+final Full review (`3031d686`, `63ec9164`, `d189ce6a`, `0638216a`: RF-090-57..60) and the
+completion of the whole plan (manifest, criteria, test evidence, durable docs, backlog).
+
+- Base HEAD `0638216a` on `docs/release-a-plan`, equal to `master` and `origin/master`; clean
+  tree at capture.
+- Checked: the half-open day bounds in `OccurrenceMapper` (named parameters only, every bound
+  covered by `OccurrenceDayBoundsTest` on all four rows), the toolchain pins and their spec,
+  the licence override and the workflow assertions. No security-relevant change.
+- Fixed in the review: the size inventory named 316 lines for `OccurrenceMapper.php`, now 333;
+  the changelog heading still called `0.8.0-alpha.5` a candidate of its own.
+- Accepted: `OccurrenceMapper::dayAfter()` repeats `RecurrenceCalculator::dayAfter()`, so that
+  the mapper does not depend on a service class.
+- Decisions: D-090-81 (no deployment of its own; A with B and C as `0.8.0-alpha.5`; one plan
+  for B and C; this plan closes now). The concept, CONCEPT-002 and the release strategy record
+  it.
+- Gates: Jest 179 suites / 2500 tests and ESLint on `0638216a`; remote `checks` and CodeQL green
+  on `0638216a`; `backlog:check`, `docs:encoding` and `git diff --check` on the closing package.
+  The backend and browser evidence is the qualification above.
+- Transition `active/ → done/`. The owning items FEAT-UX-053, FEAT-UX-054, FEAT-UX-056,
+  FEAT-UX-057 and FEAT-UX-062 to FEAT-UX-067 move to the November archive; TECH-DEPS-001 keeps
+  its major rows, and RELEASE-002 its release slice for the joint deployment. Record:
+  [2026-11-16 review](../../backlog/archive/CODE_REVIEW_2026-11-16.md#standard-b-closing---cs-plan-090-simplified-core-release-a).

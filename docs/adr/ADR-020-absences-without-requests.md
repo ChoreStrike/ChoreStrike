@@ -112,7 +112,7 @@ Two properties of the stored data had to be respected:
 
 ## Related
 
-- Plan: [CS-PLAN-090](../plans/active/cs-plan-090-simplified-core-release-a.md)
+- Plan: [CS-PLAN-090](../plans/done/cs-plan-090-simplified-core-release-a.md)
 - Timeline and pauses: [ADR-013](ADR-013-occurrence-agreements-and-corrections.md)
 - Digest: [ADR-016](ADR-016-opt-in-digest-notifications.md)
 - Concept: [`simplified-core.md`](../concepts/simplified-core.md),

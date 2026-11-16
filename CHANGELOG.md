@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### App Version 0.8.0-alpha.5 — Simplified Core, Release A (candidate, 2026-11-15)
+### App Version 0.8.0-alpha.5 — Simplified Core, Release A (qualified 2026-11-15, not deployed; ships with Releases B and C)
 
 The first of three releases that answer the family trial: each thing is shown
 once, an absence needs no request, and finishing a task is easier to notice.
