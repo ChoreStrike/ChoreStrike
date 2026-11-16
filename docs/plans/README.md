@@ -14,6 +14,11 @@ docs/plans/
 
 ## Lifecycle
 
+Active: [CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)](active/cs-plan-091-simplified-core-releases-b-and-c.md)
+(Standard A `PASS-WITH-FIXES` 2026-11-16): derived due windows instead of stored appointments,
+early completion, postpone, history corrections, sleeping and bonus tasks, coin factors, one
+form and one row, and the live suggestion; it ships with Release A as one version (D-090-81).
+
 Delivered: [CS-PLAN-090: 0.8.0-alpha.5 — Simplified Core, Release A (Screens, Absence, Feedback)](done/cs-plan-090-simplified-core-release-a.md)
 (final Full review `PASS-WITH-FIXES` 2026-11-15, qualified on `d189ce6a` the same day, closing
 Standard B `PASS-WITH-FIXES` 2026-11-16): the first of three releases of the

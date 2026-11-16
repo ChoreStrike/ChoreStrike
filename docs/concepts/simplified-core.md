@@ -2,7 +2,9 @@
 
 > **Status:** Target picture, confirmed by the operator on 2026-11-10 after the family reviewed
 > the mockups. It records the decisions of 2026-11-09 to 2026-11-15. Release A is implemented
-> on `master` but not deployed; B and C are not built ([delivery](#delivery)). The shipped
+> on `master` but not deployed; B and C are planned in
+> [CS-PLAN-091](../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md) and not built
+> yet ([delivery](#delivery)). The shipped
 > contracts stay binding until a reviewed plan and a new ADR replace them
 > ([what this replaces](#what-this-replaces)).
 > Owning item: [CONCEPT-002](../backlog/backlog.md#p1-concept-002--simplified-core-target-picture).
@@ -167,7 +169,9 @@ populated-upgrade tests, and no applied migration is edited.
 
 ## Open points
 
-To be settled in the owning plans, before code:
+To be settled in the owning plans, before code. CS-PLAN-091 settles all seven (its decisions
+D-091-02 to D-091-20); its WP-0 writes them into this document, ADR-021 and ADR-022 before
+code:
 
 1. What "on time" means for the rhythm, the weekly goal and the ranking once windows can be
    postponed and fixed cycles can be skipped.
@@ -189,8 +193,8 @@ visible improvements.
 | Release | Content | Model change | Plan |
 |---------|---------|--------------|------|
 | A | Navigation, *Today*, tasks grouped by room, denser lists and Insights, absence without request, feedback defaults | none; one data-only migration step switches the animation on for everyone | [CS-PLAN-090](../plans/done/cs-plan-090-simplified-core-release-a.md), implemented and qualified, not deployed |
-| B | Windows as derived state, first date and history editing, early completion, postpone, sleeping and bonus tasks, coin multipliers, the one form and the inline expansion | yes | one plan for B and C |
-| C | Live suggestion on *Today* and in the calendar, preferred days | scheduler | one plan for B and C |
+| B | Windows as derived state, first date and history editing, early completion, postpone, sleeping and bonus tasks, coin multipliers, the one form and the inline expansion | yes | [CS-PLAN-091](../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md), active |
+| C | Live suggestion on *Today* and in the calendar, preferred days | scheduler | [CS-PLAN-091](../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md), active |
 
 A, B and C reach the family instance as one version (operator, 2026-11-15). B and C keep their
 names and are built in this order, under one plan (operator, 2026-11-15). A deployment takes the

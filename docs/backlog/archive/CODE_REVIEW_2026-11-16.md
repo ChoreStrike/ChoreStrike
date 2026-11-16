@@ -62,3 +62,57 @@ named parameters only, the other commits change pins, inventories, workflows, a 
 
 `active/ → done/`. One scoped review commit on `docs/release-a-plan`; no merge, push, tag or
 deployment.
+
+## Standard A - CS-PLAN-091 Simplified Core Releases B and C
+
+**Outcome:** `PASS-WITH-FIXES`. The plan moves `new/ → active/`.
+
+### Scope and capture
+
+- Tier: Standard A, one plan: `docs/plans/new/cs-plan-091-simplified-core-releases-b-and-c.md`
+  with its backlog items (FEAT-UX-068 to FEAT-UX-070 new; FEAT-UX-040, -041, -043, -050, -051,
+  -052, -059, BUG-UX-015, RELEASE-002, CONCEPT-002), `ACTIVE_TASKS.md` and the plans index.
+- Base HEAD `723a94f6` on branch `docs/release-bc-plan` in its pinned worktree, equal to the
+  local `master`; empty index, the draft and three tracking files uncommitted (fingerprint
+  `6254c02c`).
+- Checked against the code: `appinfo/routes.php`, the occurrence, agreement and
+  checklist-progress schema (`Version1031`), `AgreementService`, `DailyCapacityService`,
+  `RoomTaskService`, `RoomTaskLastDoneService`, `ChecklistService`, `DigestService`, the readers
+  of `room_tasks.next_due`, ADR-010, ADR-016 and the size inventory.
+
+### Findings
+
+| ID | Severity | Area | Issue | Resolution |
+|---|---|---|---|---|
+| A1 | high | D-091-07 | Closed cycles were to live in `chorestrike_occurrences`, whose `schedule_rev_id` and `ordinal` are not null under a unique key; sub-task progress is keyed by them | D-091-17 (operator): their own table; D-091-07, schema steps and tests rewritten |
+| A2 | high | Implementation order | WP-B1 stopped materialization while the agreement, due-date and last-done writers, preview and apply, and the capacity refusals read stored future rows until WP-B7 and WP-C | They go in WP-B1; WP-B7 and WP-C trimmed; every review commit passes the build gate |
+| A3 | medium | D-091-11 | Start-of-day stability cannot be computed without stored state | D-091-18 (operator): a daily snapshot |
+| A4 | medium | WP-B1, WP-B7 | `room_task_last_done#update` (FEAT-UX-045) re-anchors through the agreement writer and was not covered | D-091-19 (operator): the first date replaces it |
+| A5 | medium | D-091-16, WP-B2 | Recording for others on private tasks (ADR-010) unspecified | D-091-20 (operator): only members who may see the task |
+| A6 | medium | D-091-07 | "When a window closes unfulfilled" contradicted D-091-02 | Only fixed-day cycles are missed; after-completion and one-time cycles stay red until done late |
+| A7 | medium | WP-B1 | The `next_due` projection, filtered by the list queries, was kept only by the job | Every window-changing command updates it in its transaction; tested against `WindowService` |
+| A8 | medium | WP-B1, WP-B2 | Partly ticked sub-tasks (D-089-02) had no key without occurrence rows | Progress keyed by the cycle; tested |
+| A9 | medium | WP-B3 | A date correction can invalidate closed cycles after the corrected entry | It re-derives them; tested |
+| A10 | low | WP-0 | The cutover's first window per room task and existing voluntary definitions unspecified | ADR-021 content and cutover tests |
+| A11 | low | D-091-12, WP-0 | ADR-016 names agreement receipts in the digest queue | ADR-016 status note; the pause-request lines went with ADR-020 |
+| A12 | low | §6 | Interim reviews named Standard B although the packages touch migrations, routes and authorization | The tier follows the review skill |
+| A13 | low | §7 | No risk row for the oversized aggregates (`CompletionService` 1,451 lines) | Risk row; size inventory re-measured at every review commit |
+| A14 | low | §5 | Manifest missed `RoomController`, the last-done service and controller, the checklist files, `TestDataService` and eight frontend files | Added |
+| A15 | low | `backlog.md` | FEAT-UX-050 still planned a handover and a restart home (D-091-10), FEAT-UX-059 called the confirmed capacity rule proposed, RELEASE-002 called CS-PLAN-090 unqualified | Updated |
+
+No open finding; nothing routed to the backlog.
+
+### Decisions
+
+D-091-17 to D-091-20, each the recommended option, recorded in the plan. The positions
+D-091-07 to D-091-16 bind as amended.
+
+### Gates
+
+Docs-only change: `backlog:check` (including its link check of the scoped files),
+`docs:encoding`, `git diff --check` and LF endings.
+
+### Transition
+
+`new/ → active/`; owning items *In Progress*; one scoped review commit on
+`docs/release-bc-plan`. No implementation branch, merge or push yet.

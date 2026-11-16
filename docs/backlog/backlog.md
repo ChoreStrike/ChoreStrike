@@ -39,8 +39,8 @@ below.)*
 > entry states which work package it blocks (CS-PLAN-058 §2.2).
 
 ### [P2] FEAT-UX-040 — One task form for new and edit: recurrence, layout and controls
-**Status**: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-24/26; needs operator feedback on design variants before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
-**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: same mask for New Task and Edit Task with assignees and room (operator, 2026-10-26, CS-PLAN-088 feedback register #11); sub-tasks, assigned members, room picker and mode naming (operator, 2026-11-03, CS-PLAN-089 feedback register); first date, read-only next window, sleeping and bonus switches (operator, 2026-11-09, CONCEPT-002)
+**Status**: In Progress (CS-PLAN-091 WP-B6, active 2026-11-16); before: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-24/26; needs operator feedback on design variants before any implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: CS-PLAN-091 WP-B6 · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: same mask for New Task and Edit Task with assignees and room (operator, 2026-10-26, CS-PLAN-088 feedback register #11); sub-tasks, assigned members, room picker and mode naming (operator, 2026-11-03, CS-PLAN-089 feedback register); first date, read-only next window, sleeping and bonus switches (operator, 2026-11-09, CONCEPT-002)
 **Source**: Operator feedback on the New Task dialog (2026-10-24), CS-PLAN-088 feedback register #4
 
 In create mode the form opens with "Start from Template" and a "Repeat" preset
@@ -100,8 +100,8 @@ of FEAT-UX-043.
 ---
 
 ### [P2] FEAT-UX-041 — Allow completing work before its window opens
-**Status**: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: operator decision of 2026-11-09 (CONCEPT-002)
+**Status**: In Progress (CS-PLAN-091 WP-B2, active 2026-11-16); before: Backlog (alpha.2 trial feedback 2026-10-26; needs a product decision and a timeline-contract update) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
+**Owning**: CS-PLAN-091 WP-B2 · **Depends on**: — · **Blocks**: — · **Folded-in**: operator decision of 2026-11-09 (CONCEPT-002)
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #6
 
 Work is completable only inside its occurrence window. Before the window opens
@@ -135,6 +135,56 @@ completion target before the window.
       owner/child rules and the selection; a browser scenario.
 
 BUG-UX-005 covers the in-window case and ships on its own.
+
+---
+
+### [P1] FEAT-UX-068 — Derived due windows replace stored appointments
+**Status**: In Progress (CS-PLAN-091 WP-B1, active 2026-11-16) · **Effort**: XL · **Layer**: backend+frontend · **Journey stage**: daily execution
+**Owning**: CS-PLAN-091 WP-B1 · **Depends on**: — · **Blocks**: FEAT-UX-041, FEAT-UX-050, FEAT-UX-052, FEAT-UX-059 · **Folded-in**: overdue as one red entry per task, the catch-up entries go (CONCEPT-002, 2026-11-09)
+**Source**: Operator decisions of 2026-11-09 and 2026-11-10 (CONCEPT-002)
+
+What is due follows from the last completion (or a new task's first date), the rhythm and the
+flex days; future appointments are no longer stored or negotiated. Modes: after completion,
+fixed weekday, fixed day of month. One red entry per task until it is done once. Closed cycles
+stay history; the recognitions classify work at completion (D-091-02), treat absences as
+neutral (D-091-03) and keep what was earned before the update (D-091-04). Detail:
+[simplified core](../concepts/simplified-core.md#due-windows).
+
+- [ ] ADR-021 superseding ADR-013 (except its pause part) before code.
+- [ ] Window core, closed-cycle history, the cutover and the new schema steps with
+      populated-upgrade tests on all providers.
+- [ ] Tests per CS-PLAN-091 §4 (WP-B1).
+
+---
+
+### [P2] FEAT-UX-069 — Sleeping and bonus tasks
+**Status**: In Progress (CS-PLAN-091 WP-B4, active 2026-11-16) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: task setup
+**Owning**: CS-PLAN-091 WP-B4 · **Depends on**: FEAT-UX-068 · **Blocks**: — · **Folded-in**: —
+**Source**: Operator decision of 2026-11-09 (CONCEPT-002)
+
+A task can sleep, optionally until a wake date (lawn mowing in winter): no window, never
+overdue, no capacity. Bonus tasks are voluntary and always available: never due or suggested,
+at most one completion per person, task and day, energy and coins paid, outside the weekly
+goal, the rhythm and the ranking.
+
+- [ ] Sleep and wake per room task; bonus as a definition property; *Today* lists bonus tasks.
+- [ ] Tests per CS-PLAN-091 §4 (WP-B4).
+
+---
+
+### [P2] FEAT-UX-070 — Coin factor per member and bonus days
+**Status**: In Progress (CS-PLAN-091 WP-B5, active 2026-11-16) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: rewards
+**Owning**: CS-PLAN-091 WP-B5 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Operator decisions of 2026-11-09 and 2026-11-10 (CONCEPT-002)
+
+The owner sets a coin factor per member (× 1, × 2 or × 3) and starts bonus days (one to three
+days, × 1.5). Both apply to coins only, multiply with each other and are frozen with the
+completion, so undo and attribution reverse exactly what was paid. Energy and every
+recognition stay unchanged. Amends ADR-014.
+
+- [ ] ADR-014 amendment in ADR-021 before code.
+- [ ] Owner settings, frozen factors, *Today* shows a running bonus period.
+- [ ] Tests per CS-PLAN-091 §4 (WP-B5).
 
 ---
 
@@ -193,8 +243,8 @@ item and is fixed with it.
 ---
 
 ### [P3] BUG-UX-015 — An energy or flex edit drops queued agreement digest lines
-**Status**: Open · **Effort**: S · **Layer**: backend · **Journey stage**: notifications
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-091 WP-B7, active 2026-11-16); before: Open · **Effort**: S · **Layer**: backend · **Journey stage**: notifications
+**Owning**: CS-PLAN-091 WP-B7 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of BUG-UX-014, 2026-11-05
 
 `AgreementService` queues an `agreement` digest line with the occurrence version as its revision,
@@ -440,8 +490,8 @@ deactivate/reactivate by filter (cf. the CS-PLAN-042 bulk-endpoint pattern).
 ---
 
 ### [P2] FEAT-UX-043 — Templates: copy instead of shared definitions, and a simple catalog picker
-**Status**: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-26; operator feedback on a mockup before implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
-**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: *From template* in the one form (operator, 2026-11-03, CS-PLAN-089 feedback register)
+**Status**: In Progress (CS-PLAN-091 WP-B6, form part only, active 2026-11-16); before: Backlog (Round 2, D-089-01; alpha.2 trial feedback 2026-10-26; operator feedback on a mockup before implementation) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task creation
+**Owning**: CS-PLAN-091 WP-B6, form part only · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: *From template* in the one form (operator, 2026-11-03, CS-PLAN-089 feedback register)
 **Source**: Operator feedback (2026-10-26), CS-PLAN-088 feedback register #12
 
 The setup wizard creates **one** task definition per catalog template and mounts
@@ -478,8 +528,8 @@ templates today).
 ---
 
 ### [P2] FEAT-UX-050 — Postpone, direct handover and no separate details view
-**Status**: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
-**Owning**: unassigned · **Depends on**: CS-PLAN-080, FEAT-UX-040, FEAT-UX-051 · **Blocks**: — · **Folded-in**: operator decisions of 2026-11-09 (CONCEPT-002)
+**Status**: In Progress (CS-PLAN-091 WP-B3, active 2026-11-16); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily execution
+**Owning**: CS-PLAN-091 WP-B3 · **Depends on**: CS-PLAN-080, FEAT-UX-040, FEAT-UX-051 · **Blocks**: — · **Folded-in**: operator decisions of 2026-11-09 (CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-6, G-4, G-5, G-6
 
 For tasks with flex days, *Postpone* moves the due date one day later per press, up
@@ -507,20 +557,22 @@ target disappear with them. Whether *Restart* and the single-cycle handover are 
 needed is for the owning plan to settle. Detail:
 [simplified core](../concepts/simplified-core.md#due-windows).
 
-- [ ] ADR-013, the task-model concept and the API reference describe postponement
-      before code.
-- [ ] Postpone, handover button and the restart home implemented; PHPUnit for the
-      window, the limit, the target and the rights; browser scenario.
+- [ ] ADR-021 (superseding ADR-013), the task-model concept and the API reference describe
+      postponement before code.
+- [ ] Postpone implemented; no single-cycle handover and no restart home (CS-PLAN-091
+      D-091-10); PHPUnit for the window, the limit, the target and the rights; browser
+      scenario.
 - [ ] The details view goes; checklist ticking moves to FEAT-UX-051 and editing to
       FEAT-UX-040.
-- [ ] The routes without a client go: `PUT /rooms/{id}/cleanliness` and
-      `occurrence#catchUp` (D-089-09). Journal replay and read paths stay.
+- [ ] The routes without a client go: `occurrence#catchUp` with the old writers (WP-B1)
+      and `PUT /rooms/{id}/cleanliness` (WP-B7, D-089-09). Journal replay and read paths
+      stay.
 
 ---
 
 ### [P2] FEAT-UX-051 — Completion dialog: record for someone else, sub-tasks on completion
-**Status**: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
-**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-091 WP-B2, active 2026-11-16); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: completion
+**Owning**: CS-PLAN-091 WP-B2 · **Depends on**: CS-PLAN-080 · **Blocks**: FEAT-UX-050 · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register C-1, C-2
 
 Hold-to-complete stays. A short tap opens a picker for who did the task, like for
@@ -546,8 +598,8 @@ all sub-tasks as done.
 ---
 
 ### [P2] FEAT-UX-052 — Task history with owner corrections
-**Status**: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
-**Owning**: unassigned · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (CS-PLAN-091 WP-B3, active 2026-11-16); before: Backlog (Round 2, D-089-01) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: review and correction
+**Owning**: CS-PLAN-091 WP-B3 · **Depends on**: CS-PLAN-080 · **Blocks**: — · **Folded-in**: —
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-5
 
 Each task shows its next due date and all past occurrences with who completed them.
@@ -605,8 +657,8 @@ it reads the existing occurrence history.
 ---
 
 ### [P3] FEAT-UX-059 — Planned date and scheduler rules
-**Status**: Backlog (later, D-089-01; the operator wants the scheduler discussed separately) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
-**Owning**: unassigned · **Depends on**: FEAT-UX-050 · **Blocks**: — · **Folded-in**: refused assignments and date moves after creation (operator decision, 2026-11-04); live suggestion, preferred days and team placement (operator, 2026-11-09, CONCEPT-002)
+**Status**: In Progress (CS-PLAN-091 WP-C, active 2026-11-16); before: Backlog (later, D-089-01; the operator wants the scheduler discussed separately) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
+**Owning**: CS-PLAN-091 WP-C · **Depends on**: FEAT-UX-050 · **Blocks**: — · **Folded-in**: refused assignments and date moves after creation (operator decision, 2026-11-04); live suggestion, preferred days and team placement (operator, 2026-11-09, CONCEPT-002)
 **Source**: Operator trial feedback on `0.8.0-alpha.3` (2026-11-03), CS-PLAN-089 register T-7
 
 The report proposes a separate *scheduled* date per task, set by the scheduler and allowed
@@ -625,7 +677,7 @@ energy up to 20 a task can exceed a whole weekday. The operator wants both rewor
 The planner becomes a live suggestion on *Today* and in the calendar, computed on read
 and never applied. It honours a new per-member setting for preferred days, recalculates
 after every change and places team tasks by the responsible person alone. Capacity then
-shapes the suggestion instead of refusing (proposed). Detail:
+shapes the suggestion instead of refusing (confirmed by the operator, 2026-11-10). Detail:
 [simplified core](../concepts/simplified-core.md#scheduler).
 
 - [x] Scheduler discussion with the operator; the decision recorded before a plan
@@ -904,12 +956,10 @@ The decisions are folded into the items that already own a topic (FEAT-UX-040, F
 FEAT-UX-050, FEAT-UX-052, FEAT-UX-059). The other Round 2 items (FEAT-UX-043, FEAT-UX-051,
 FEAT-UX-053, FEAT-UX-054) keep their content, and the release plans slot them. Round 3 is not
 affected. Release A delivered FEAT-UX-062 to FEAT-UX-067 with FEAT-UX-053, FEAT-UX-054,
-FEAT-UX-056 and FEAT-UX-057 (CS-PLAN-090, closed 2026-11-16, archived). The topics below
-belong to Release B, have no item yet and stay here until its plan takes them:
-
-- Sleeping tasks and bonus tasks.
-- A coin factor per member and bonus days (amends ADR-014).
-- Overdue as one red entry per task; the catch-up entries go.
+FEAT-UX-056 and FEAT-UX-057 (CS-PLAN-090, closed 2026-11-16, archived). Releases B and C are planned
+together in CS-PLAN-091 (active since 2026-11-16); its new items are FEAT-UX-068 (derived windows and
+the single red entry), FEAT-UX-069 (sleeping and bonus tasks) and FEAT-UX-070 (coin factor and
+bonus days).
 
 All three releases stay alpha versions; the beta follows after them (operator, 2026-11-10).
 A, B and C reach the family instance as one version: Release A, qualified as
@@ -1142,8 +1192,8 @@ build and test chains:
 > App Store submission is explicitly deferred until stable quality is proven.
 
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
-**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its CS-PLAN-089 slice finished 2026-11-09; CS-PLAN-090 activated 2026-11-10 for the `0.8.0-alpha.5` slice, its candidate prepared 2026-11-15 and neither qualified nor deployed yet; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
-**Owning**: the joint plan for Releases B and C (the `0.8.0-alpha.5` release slice of A, B and C); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
+**Status**: In Progress (`0.8.0-alpha.4` deployed 2026-11-05 and its CS-PLAN-089 slice finished 2026-11-09; CS-PLAN-090 finished 2026-11-16 with its `0.8.0-alpha.5` candidate qualified 2026-11-15 and not deployed (D-090-81); CS-PLAN-091 active 2026-11-16 for the joint `0.8.0-alpha.5` of A, B and C; field use and later beta remain open) · **Effort**: M · **Layer**: — · **Journey stage**: release
+**Owning**: CS-PLAN-091 WP-G (the `0.8.0-alpha.5` release slice of A, B and C); CS-PLAN-080 (family evidence, alpha tags); later beta onboarding unassigned · **Depends on**: — · **Blocks**: RELEASE-003 · **Folded-in**: retained-data trial readiness and safe recovery boundary (2026-10-03 user request); concrete AIO installation handoff/runbook gaps (2026-10-07); bounded remaining build/test dependency disposition (2026-10-08 user decision); alias-free and deterministic package qualification gates (CS-PLAN-083, 2026-10-10)
 **Source**: staged release effort (roadmap); blocking-gate list fixed by CS-PLAN-058 §2.2/§3
 
 Deploy to a personal Nextcloud instance; verify no impact on other apps;
