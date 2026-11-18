@@ -1,6 +1,6 @@
 # ADR-016: Opt-in Daily Digest as the Only Notification Path
 
-**Status**: Accepted
+**Status**: Accepted; amended by [ADR-021](ADR-021-derived-due-windows.md) and [ADR-022](ADR-022-live-suggestion.md) (2026-11-16): agreement receipts leave the queue of decision 5, and the summary counts the member's suggested work for today plus their overdue tasks
 **Date**: 2026-09-29
 **Deciders**: ChoreStrike contributors (CS-PLAN-070 WP5, decisions C5a–C5m/D9, Q-076-01/02/03)
 **Implements**: CS-PLAN-070 WP5 (Preferences & Digest Delivery)

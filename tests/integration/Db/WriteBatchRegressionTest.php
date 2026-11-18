@@ -61,6 +61,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		if (!empty($this->dependentRowRoomTaskIds)) {
 			foreach ([
 				'chorestrike_chk_progress',
+				'chorestrike_cycle_progress',
 				'chorestrike_task_assignees',
 				'chorestrike_completed_tasks',
 			] as $tableName) {
@@ -132,16 +133,24 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 	}
 
 	private function insertChecklistProgress(int $roomTaskId, int $checklistItemId): void {
-		// CS-PLAN-072 WP1: progress rows key on the occurrence identity —
-		// resolve the room task's current revision and first ordinal.
-		$revision = \OC::$server->get(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class)
-			->findCurrentByRoomTask($roomTaskId);
+		// History from before the derived model (keyed by an occurrence)
+		// and a tick of the current cycle (ADR-021): both are planning state.
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_chk_progress')
 			->values([
 				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'schedule_rev_id' => $qb->createNamedParameter($revision->getId(), IQueryBuilder::PARAM_INT),
+				'schedule_rev_id' => $qb->createNamedParameter(900000 + $roomTaskId, IQueryBuilder::PARAM_INT),
 				'ordinal' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				'revision' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				'checklist_item_id' => $qb->createNamedParameter($checklistItemId, IQueryBuilder::PARAM_INT),
+				'is_checked' => $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL),
+			]);
+		$qb->executeStatement();
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('chorestrike_cycle_progress')
+			->values([
+				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
+				'cycle_key' => $qb->createNamedParameter('d2026-08-20'),
 				'revision' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
 				'checklist_item_id' => $qb->createNamedParameter($checklistItemId, IQueryBuilder::PARAM_INT),
 				'is_checked' => $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL),
@@ -233,6 +242,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		self::assertSame(2, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtA1, $rtA2]));
 		self::assertSame(1, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtA1]));
 		self::assertSame(2, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtA1]));
+		self::assertSame(2, $this->countRows('chorestrike_cycle_progress', 'room_task_id', [$rtA1]));
 
 		// Owner-only service gate (CS-PLAN-061 D4): bind the owner's session
 		// right before the call (lesson (b): the session is process-global).
@@ -246,6 +256,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		self::assertSame(2, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtA1, $rtA2]), 'the completed_tasks evidence is retained');
 		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtA1, $rtA2]), 'assignees (active-planning state) are deleted');
 		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtA1, $rtA2]), 'checklist progress (active-planning state) is deleted');
+		self::assertSame(0, $this->countRows('chorestrike_cycle_progress', 'room_task_id', [$rtA1, $rtA2]), 'checklist progress (active-planning state) is deleted');
 		self::assertSame(1, $this->countRows('chorestrike_rooms', 'id', [$roomA]), 'the room row survives as a tombstone');
 		self::assertSame(1, $this->countTombstoned('chorestrike_rooms', [$roomA]), 'the room is tombstoned');
 
@@ -259,6 +270,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		self::assertSame(1, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtB1]));
 		self::assertSame(1, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtB1]));
 		self::assertSame(1, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtB1]));
+		self::assertSame(1, $this->countRows('chorestrike_cycle_progress', 'room_task_id', [$rtB1]));
 	}
 
 	/**
@@ -293,6 +305,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		self::assertSame(1, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtDeleted]), 'the completed_tasks evidence is retained');
 		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtDeleted]), 'assignees are deleted');
 		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtDeleted]), 'checklist progress is deleted');
+		self::assertSame(0, $this->countRows('chorestrike_cycle_progress', 'room_task_id', [$rtDeleted]), 'checklist progress is deleted');
 
 		// The sibling task in the same room survives, live.
 		self::assertSame(1, $this->countRows('chorestrike_room_tasks', 'id', [$rtKept]));
@@ -334,6 +347,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		self::assertSame(1, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtGone]), 'the completed_tasks evidence is retained');
 		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtGone]), 'assignees are deleted');
 		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtGone]), 'checklist progress is deleted');
+		self::assertSame(0, $this->countRows('chorestrike_cycle_progress', 'room_task_id', [$rtGone]), 'checklist progress is deleted');
 
 		// Sibling floor with its room and task survives, live.
 		self::assertSame(1, $this->countRows('chorestrike_floors', 'id', [$floorKept]));

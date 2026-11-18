@@ -114,7 +114,6 @@ const SCHEDULING_OWNER_SPECS = [
 	/[/\\]scheduling\.spec\.ts$/,
 	/[/\\]flex-window-scheduling\.spec\.ts$/,
 	/[/\\]availability-settings-flow\.spec\.ts$/,
-	/[/\\]scheduling-apply-flow\.spec\.ts$/,
 ]
 
 // CS-PLAN-032: the member self-availability spec mutates the admin user's own

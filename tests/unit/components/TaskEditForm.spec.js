@@ -269,7 +269,7 @@ describe('TaskEditForm', () => {
 			.toBe('Only house owners can see and complete this task')
 	})
 
-	it('submits nextDue and persists flexDays within the weekly cap (CS-PLAN-063 §3.5, FEAT-UX-039)', async () => {
+	it('submits the first date and persists flexDays within the weekly cap (CS-PLAN-063 §3.5, FEAT-UX-039)', async () => {
 		const wrapper = mountForm()
 		await fillRequiredCreateFields(wrapper)
 
@@ -282,7 +282,8 @@ describe('TaskEditForm', () => {
 		await wrapper.find('form').trigger('submit')
 
 		const payload = wrapper.emitted('submit')[0][0]
-		expect(payload.nextDue).toBe('2030-05-10')
+		expect(payload.firstDate).toBe('2030-05-10')
+		expect(payload).not.toHaveProperty('nextDue')
 		expect(payload.flexDays).toBe(3)
 		expect(payload.instructions).toBe('Step 1: sweep')
 	})
@@ -333,13 +334,13 @@ describe('TaskEditForm', () => {
 		expect(wrapper.find('[data-testid="task-flex-days-fixed-note"]').text()).toContain('at most 7 days early')
 	})
 
-	it('submits nextDue null when the due date is left empty', async () => {
+	it('submits no first date when the field is left empty', async () => {
 		const wrapper = mountForm()
 		await fillRequiredCreateFields(wrapper)
 		await wrapper.find('form').trigger('submit')
 
 		const payload = wrapper.emitted('submit')[0][0]
-		expect(payload.nextDue).toBeNull()
+		expect(payload.firstDate).toBeNull()
 	})
 
 	it('renders the concise preview with room path, recurrence, due window, assignees, visibility', async () => {

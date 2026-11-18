@@ -36,6 +36,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setRankingEnabled(bool $rankingEnabled)
  * @method int getRankingGenerationSeq()
  * @method void setRankingGenerationSeq(int $rankingGenerationSeq)
+ * @method \DateTime|null getCyclesFrom()
+ * @method void setCyclesFrom(?\DateTime $cyclesFrom)
  */
 class House extends Entity implements JsonSerializable {
 	/** @var string */
@@ -93,6 +95,16 @@ class House extends Entity implements JsonSerializable {
 	 */
 	protected $rankingGenerationSeq = 0;
 
+	/**
+	 * First house-local day of the derived due windows (ADR-021 decision
+	 * 12): the recognitions read stored occurrences that end before it and
+	 * cycles from it on. NULL only until the cutover step or the creation
+	 * path set it.
+	 *
+	 * @var \DateTime|null
+	 */
+	protected $cyclesFrom;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('nextcloudInstanceId', 'string');
@@ -106,6 +118,7 @@ class House extends Entity implements JsonSerializable {
 		$this->addType('catalogEnabled', 'boolean');
 		$this->addType('rankingEnabled', 'boolean');
 		$this->addType('rankingGenerationSeq', 'integer');
+		$this->addType('cyclesFrom', 'date');
 	}
 
 	/**

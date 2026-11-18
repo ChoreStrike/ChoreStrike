@@ -42,7 +42,7 @@ jest.mock('@/store/user.js', () => ({
 jest.mock('@/components/Tasks/TaskList.vue', () => ({
 	name: 'TaskList',
 	props: ['roomTasks', 'loading', 'compact', 'compare', 'sectionLabel'],
-	emits: ['complete', 'edit', 'editDate', 'delete'],
+	emits: ['complete', 'edit', 'delete'],
 	template: '<div class="task-list-stub">tasks</div>',
 }))
 
@@ -56,15 +56,8 @@ jest.mock('@/components/Tasks/TaskEditForm.vue', () => ({
 jest.mock('@/components/Tasks/TaskGroupList.vue', () => ({
 	name: 'TaskGroupList',
 	props: ['sections', 'openKey', 'canAdd'],
-	emits: ['toggle', 'add', 'complete', 'edit', 'editDate', 'delete'],
+	emits: ['toggle', 'add', 'complete', 'edit', 'delete'],
 	template: '<div class="task-group-list-stub" />',
-}))
-
-jest.mock('@/components/Tasks/RoomTaskEditModal.vue', () => ({
-	name: 'RoomTaskEditModal',
-	props: ['roomTask', 'task'],
-	emits: ['saved', 'cancel'],
-	template: '<div class="room-task-edit-stub" />',
 }))
 
 jest.mock('@/components/Common/Modal.vue', () => ({
@@ -291,7 +284,7 @@ describe('TaskManager', () => {
 			roomId: 12,
 			assigneeUserIds: ['mom'],
 			energyCost: 2,
-			nextDue: '2030-05-10',
+			firstDate: '2030-05-10',
 		})
 		await wrapper.vm.$nextTick()
 		await wrapper.vm.$nextTick()
@@ -302,7 +295,7 @@ describe('TaskManager', () => {
 			roomId: 12,
 			task: { name: 'Dishes', energyCost: 2 },
 			assigneeUserIds: ['mom'],
-			nextDue: '2030-05-10',
+			firstDate: '2030-05-10',
 		})
 		expect(showSuccess).toHaveBeenCalled()
 		expect(wrapper.vm.addTask).toBeNull()
@@ -430,7 +423,7 @@ describe('TaskManager', () => {
 			return wrapper
 		}
 
-		it('rereads the rows, whose open occurrences changed with the definition', async () => {
+		it('rereads the rows, whose open cycles changed with the definition', async () => {
 			const wrapper = await saveEdit(() => Promise.resolve({ id: 101 }))
 			expect(mockTasksStore.updateTask).toHaveBeenCalledWith(101, { energyCost: 7 })
 			expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalledWith({ rows: true })
@@ -470,8 +463,7 @@ describe('TaskManager', () => {
 
 	it('completes a confirmed claim with its reviewed allocation, never reopening the participation dialog', async () => {
 		mockRoomTasksStore.completeRoomTask.mockResolvedValue({})
-		mockRoomTasksStore.roomTasks = [{ id: 9, taskId: 101, isActive: true,
-			proposal: { participants: [{ userId: 'dad', sharePct: 100 }] } }]
+		mockRoomTasksStore.roomTasks = [{ id: 9, taskId: 101, isActive: true, assignees: ['dad'] }]
 		const claim = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
 
 		const wrapper = await mountView()
@@ -584,7 +576,7 @@ describe('TaskManager', () => {
 		const daysFromToday = (days) => new Date(Date.now() + days * 86400000).toISOString()
 		const groupedRows = () => [
 			{ id: 1, taskId: 101, roomId: 12, assignees: ['teen'], isActive: true, nextDue: daysFromToday(2) },
-			{ id: 2, taskId: 102, roomId: 12, assignees: [], isActive: true, nextDue: daysFromToday(-2), occurrence: { classification: 'late' } },
+			{ id: 2, taskId: 102, roomId: 12, assignees: [], isActive: true, nextDue: daysFromToday(-2), cycle: { state: 'overdue', centreOn: daysFromToday(-2).slice(0, 10), windowEndOn: daysFromToday(-2).slice(0, 10) } },
 			{ id: 3, taskId: 103, roomId: 13, assignees: ['mom'], isActive: true, nextDue: daysFromToday(0) },
 		]
 		const groupList = (wrapper) => wrapper.findComponent({ name: 'TaskGroupList' })
@@ -716,29 +708,6 @@ describe('TaskManager', () => {
 
 			await wrapper.get('[data-testid="add-task-button"]').trigger('click')
 			expect(wrapper.findComponent({ name: 'TaskCreateDialog' }).props('room')).toBeNull()
-		})
-
-		it('opens the dialog for due date and "Last done" from a row, in either list (D-090-12)', async () => {
-			mockRoute = { query: { group: 'room', room: '12' } }
-			const wrapper = mountView()
-			await flushPromises()
-			const [roomTask] = mockRoomTasksStore.roomTasks
-
-			await groupList(wrapper).vm.$emit('editDate', roomTask)
-			const dialog = wrapper.findComponent({ name: 'RoomTaskEditModal' })
-			expect(dialog.props('roomTask')).toEqual(roomTask)
-
-			const roomReads = mockRoomsStore.fetchFloorsWithRooms.mock.calls.length
-			await dialog.vm.$emit('saved')
-			expect(wrapper.findComponent({ name: 'RoomTaskEditModal' }).exists()).toBe(false)
-			// "Last done" stamps the room's "Last cleaned" in the heading.
-			expect(mockRoomsStore.fetchFloorsWithRooms.mock.calls.length).toBe(roomReads + 1)
-
-			await wrapper.get('[data-testid="tasks-group-due"]').trigger('click')
-			await wrapper.findComponent({ name: 'TaskList' }).vm.$emit('editDate', roomTask)
-			await wrapper.findComponent({ name: 'RoomTaskEditModal' }).vm.$emit('cancel')
-			expect(wrapper.findComponent({ name: 'RoomTaskEditModal' }).exists()).toBe(false)
-			expect(mockRoomsStore.fetchFloorsWithRooms.mock.calls.length).toBe(roomReads + 1)
 		})
 
 		it('completes a row of a group through the shared flow', async () => {

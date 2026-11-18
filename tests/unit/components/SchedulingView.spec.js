@@ -39,7 +39,6 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const stubs = {
 	AvailabilitySettings: true,
-	SchedulePlanner: true,
 	ScheduleCalendar: true,
 	RouterLink: { props: ['to'], template: '<a :data-to="to.name"><slot /></a>' },
 }
@@ -103,20 +102,8 @@ describe('SchedulingView', () => {
 		expect(wrapper.findComponent({ name: 'AvailabilitySettings' }).exists()).toBe(false)
 	})
 
-	// CS-PLAN-065 §3.4 (RF-065-02): the task-plan preview/apply surface is
-	// owner-only.
-	it('renders the owner-only plan planner for owners', async () => {
-		const userStore = useUserStore()
-		userStore.currentUser = { id: 1, role: 'owner' }
-
-		const wrapper = mount(SchedulingView, { global: { stubs } })
-		await flushPromises()
-		await flushPromises()
-
-		expect(wrapper.findComponent({ name: 'SchedulePlanner' }).exists()).toBe(true)
-	})
-
-	it.each(['member', 'child'])('hides the plan planner for the %s role', async (role) => {
+	// ADR-022: nothing is applied as a plan any more — no role gets a planner.
+	it.each(['owner', 'member', 'child'])('offers no plan planner to the %s role', async (role) => {
 		const userStore = useUserStore()
 		userStore.currentUser = { id: 2, role }
 
@@ -124,7 +111,8 @@ describe('SchedulingView', () => {
 		await flushPromises()
 		await flushPromises()
 
-		expect(wrapper.findComponent({ name: 'SchedulePlanner' }).exists()).toBe(false)
+		expect(wrapper.find('[data-testid="schedule-planner"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="schedule-calendar"]').exists()).toBe(true)
 	})
 
 	it('initializes the scheduling store on mount', async () => {

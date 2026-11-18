@@ -18,8 +18,6 @@ jest.mock('../../../src/services/api.js', () => ({
 		put: jest.fn(),
 		post: jest.fn(),
 	},
-	amendOccurrence: jest.fn(),
-	restartOccurrence: jest.fn(),
 }))
 
 jest.mock('@/utils/logger', () => ({
@@ -49,11 +47,10 @@ describe('Scheduling Store', () => {
 			expect(store.error).toBeNull()
 			expect(store.energyBudget.monday).toBe(10)
 			expect(store.weekdayAvailability.monday).toBe(true)
-			// CS-PLAN-065: the reader-less energy counter is gone (D7); the
-			// plan aggregate starts idle (D2).
+			// CS-PLAN-065: the reader-less energy counter is gone (D7). The
+			// applied plan went with ADR-022.
 			expect(store).not.toHaveProperty('todayConsumedEnergy')
-			expect(store.planStatus).toBe('idle')
-			expect(store.planPreview).toBeNull()
+			expect(store).not.toHaveProperty('planStatus')
 			expect(store.maxDailyTasks).toBe(Infinity)
 		})
 	})
@@ -85,7 +82,10 @@ describe('Scheduling Store', () => {
 				taskId,
 				roomId: 1,
 				isActive: true,
-				nextDue: `${dateKeyInDays(offset)}T12:00:00Z`,
+				// The projection is the END of the window; the load view
+				// counts the task on its planned day.
+				nextDue: `${dateKeyInDays(offset + 2)}T00:00:00Z`,
+				cycle: { cycleKey: 'c1', expectedVersion: 0, state: 'upcoming', centreOn: dateKeyInDays(offset), windowEndOn: dateKeyInDays(offset + 2) },
 			})
 		}
 
@@ -350,187 +350,6 @@ describe('Scheduling Store', () => {
 			})
 		})
 
-		describe('previewPlan (CS-PLAN-065)', () => {
-			const input = { startDate: '2026-09-10', roomTaskIds: [11, 12] }
-
-			it('POSTs the exact normalized input and stores the preview payload', async () => {
-				const payload = {
-					previewVersion: 'abc',
-					startDate: '2026-09-10',
-					endDateExclusive: '2026-09-17',
-					timezone: 'UTC',
-					changes: [],
-					unchanged: [],
-					unplaced: [],
-					capacity: [],
-					warnings: [],
-				}
-				api.post.mockResolvedValue(payload)
-
-				const result = await store.previewPlan({ ...input })
-
-				expect(api.post).toHaveBeenCalledWith('/api/v1/scheduling/suggestions', {
-					startDate: '2026-09-10',
-					roomTaskIds: [11, 12],
-				})
-				expect(result).toEqual(payload)
-				expect(store.planPreview).toEqual(payload)
-				expect(store.planInput).toEqual({ startDate: '2026-09-10', roomTaskIds: [11, 12], overrides: {} })
-				expect(store.planStatus).toBe('ready')
-				// A fresh preview is a fresh logical command (WP2 §3.5).
-				expect(store.planCommandId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
-			})
-
-			it('requires a fresh consent attestation for every preview (RF-073-WP2-06/13)', async () => {
-				api.post.mockResolvedValue({ previewVersion: 'abc' })
-				store.planConsent = true
-
-				await store.previewPlan({ ...input })
-
-				expect(store.planConsent).toBe(false)
-
-				// The attestation is an explicit boolean decision.
-				store.setPlanConsent('yes')
-				expect(store.planConsent).toBe(false)
-				store.setPlanConsent(true)
-				expect(store.planConsent).toBe(true)
-			})
-
-			it('does not touch the shared loading flag nor the view-wide error (plan failures stay scoped)', async () => {
-				api.post.mockRejectedValue(new Error('Bad request'))
-
-				await expect(store.previewPlan({ ...input })).rejects.toThrow('Bad request')
-
-				expect(store.loading).toBe(false)
-				expect(store.planStatus).toBe('error')
-				expect(store.error).toBeNull()
-			})
-
-			it('a superseded older response never replaces newer input', async () => {
-				let resolveFirst
-				api.post.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
-				api.post.mockResolvedValueOnce({ previewVersion: 'newer' })
-
-				const first = store.previewPlan({ ...input })
-				await store.previewPlan({ ...input, roomTaskIds: [99] })
-				resolveFirst({ previewVersion: 'older' })
-				const olderResult = await first
-
-				expect(olderResult).toBeNull()
-				expect(store.planPreview).toEqual({ previewVersion: 'newer' })
-				expect(store.planInput.roomTaskIds).toEqual([99])
-			})
-		})
-
-		describe('applyPlan (CS-PLAN-065, CS-PLAN-073 WP2 §3.5)', () => {
-			const setupReady = () => {
-				store.planPreview = { previewVersion: 'abc', changes: [{ roomTaskId: 11 }] }
-				store.planInput = { startDate: '2026-09-10', roomTaskIds: [11], overrides: {} }
-				store.planStatus = 'ready'
-				store.planCommandId = '11111111-2222-4333-8444-555555555555'
-				store.planConsent = true
-			}
-
-			it('sends input + previewVersion + commandId + consent, reconciles rows, refreshes readers and reports applied', async () => {
-				setupReady()
-				api.post.mockImplementation(async (path) => {
-					if (path === '/api/v1/scheduling/apply') {
-						return { appliedCount: 1, windowStart: '2026-09-10', windowEndExclusive: '2026-09-17', roomTasks: [] }
-					}
-					return {}
-				})
-
-				const ok = await store.applyPlan()
-
-				expect(ok).toBe(true)
-				expect(api.post).toHaveBeenCalledWith('/api/v1/scheduling/apply', {
-					startDate: '2026-09-10',
-					roomTaskIds: [11],
-					overrides: {},
-					previewVersion: 'abc',
-					commandId: '11111111-2222-4333-8444-555555555555',
-					consent: true,
-				})
-				expect(store.planStatus).toBe('applied')
-			})
-
-			it('retains the same command UUID and consent across a failed attempt so a retry never repeats a transition', async () => {
-				setupReady()
-				const conflict = new Error('Conflict')
-				conflict.status = 409
-				api.post.mockRejectedValue(conflict)
-
-				await expect(store.applyPlan()).rejects.toThrow('Conflict')
-
-				// The draft keeps its command identity — a retry reuses the
-				// SAME UUID instead of minting a fresh command — and the
-				// recorded consent attestation survives the 409.
-				expect(store.planCommandId).toBe('11111111-2222-4333-8444-555555555555')
-				expect(store.planConsent).toBe(true)
-				expect(store.planStatus).toBe('stale')
-			})
-
-			it('maps a 409 to the stale state so Apply stays disabled', async () => {
-				setupReady()
-				const conflict = new Error('Conflict')
-				conflict.status = 409
-				api.post.mockRejectedValue(conflict)
-
-				await expect(store.applyPlan()).rejects.toThrow('Conflict')
-
-				expect(store.planStatus).toBe('stale')
-			})
-
-			it('reports a committed apply with a failed refresh as refreshFailed', async () => {
-				setupReady()
-				api.post.mockImplementation(async (path) => {
-					if (path === '/api/v1/scheduling/apply') {
-						return { appliedCount: 1, roomTasks: [] }
-					}
-					return Promise.reject(new Error('post failure'))
-				})
-				api.get.mockRejectedValue(new Error('refetch failed'))
-
-				const ok = await store.applyPlan()
-
-				expect(ok).toBe(true)
-				expect(store.planStatus).toBe('refreshFailed')
-			})
-
-			it('is a no-op without a confirmed preview', async () => {
-				const ok = await store.applyPlan()
-
-				expect(ok).toBe(false)
-				expect(api.post).not.toHaveBeenCalled()
-			})
-		})
-
-		describe('markPlanStale / resetPlan', () => {
-			it('markPlanStale only downgrades a ready preview', () => {
-				store.planStatus = 'ready'
-				store.markPlanStale()
-				expect(store.planStatus).toBe('stale')
-
-				store.planStatus = 'applying'
-				store.markPlanStale()
-				expect(store.planStatus).toBe('applying')
-			})
-
-			it('resetPlan clears preview state and invalidates in-flight requests', async () => {
-				store.planPreview = { previewVersion: 'x' }
-				store.planInput = { startDate: '2026-09-10', roomTaskIds: [] }
-				store.planStatus = 'ready'
-				store.planConsent = true
-
-				store.resetPlan()
-
-				expect(store.planPreview).toBeNull()
-				expect(store.planInput).toBeNull()
-				expect(store.planStatus).toBe('idle')
-				expect(store.planConsent).toBe(false)
-			})
-		})
-
 		describe('loading flag ownership', () => {
 			it('mutation actions do not toggle the shared loading flag', async () => {
 				api.put.mockResolvedValue({})
@@ -612,131 +431,6 @@ describe('Scheduling Store', () => {
 			})
 		})
 
-		// --- Occurrence agreements (CS-PLAN-070 WP6 §3.5, CS-PLAN-073 WP2 §3.5) ---
-
-		describe('occurrence agreements', () => {
-			const occurrence = {
-				occurrenceId: '12:1',
-				expectedVersion: 3,
-				selectionToken: 'token-42',
-				classification: 'late',
-				timezone: 'Europe/Berlin',
-				suspended: false,
-				fulfilled: false,
-			}
-
-			it('sends the amend command with a fresh command UUID, shown version and consent', async () => {
-				const { amendOccurrence } = require('../../../src/services/api.js')
-				amendOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
-
-				await store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true })
-
-				expect(amendOccurrence).toHaveBeenCalledWith('12:1', {
-					roomTaskId: 42,
-					commandId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
-					occurrenceId: '12:1',
-					expectedVersion: 3,
-					selectionToken: 'token-42',
-					consent: true,
-					date: '2026-10-05',
-				})
-			})
-
-			it('sends a handover with exact participants and no implicit date change', async () => {
-				const { amendOccurrence } = require('../../../src/services/api.js')
-				amendOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
-				const participants = [{ userId: 'child', role: 'responsible', sharePct: 100 }]
-				await store.amendOccurrence({ roomTaskId: 42, occurrence, participants, consent: true })
-				expect(amendOccurrence).toHaveBeenCalledWith('12:1', {
-					roomTaskId: 42,
-					commandId: expect.stringMatching(/^[0-9a-f-]{36}$/i),
-					occurrenceId: '12:1',
-					expectedVersion: 3,
-					selectionToken: 'token-42',
-					consent: true,
-					participants,
-				})
-			})
-
-			it.each([false, true])('refreshes the displayed room receipt after an agreement (conflict=%s)', async (conflict) => {
-				const { amendOccurrence } = require('../../../src/services/api.js')
-				const roomTasks = useRoomTasksStore()
-				roomTasks.roomTasks = [{ id: 42, roomId: 7, occurrence }]
-				jest.spyOn(roomTasks, 'fetchFilteredDailyTasks').mockResolvedValue([])
-				jest.spyOn(roomTasks, 'fetchOverdueTasks').mockResolvedValue([])
-				const refreshed = jest.spyOn(roomTasks, 'fetchRoomTasks').mockImplementation(async () => {
-					roomTasks.roomTasks[0].occurrence = { ...occurrence, expectedVersion: 4 }
-				})
-				if (conflict) amendOccurrence.mockRejectedValue({ status: 409 })
-				else amendOccurrence.mockResolvedValue({ expectedVersion: 4 })
-				const result = store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true })
-				if (conflict) await expect(result).rejects.toMatchObject({ status: 409 })
-				else await expect(result).resolves.toMatchObject({ refreshFailed: false })
-				expect(refreshed).toHaveBeenCalledWith(7)
-				expect(roomTasks.roomTasks[0].occurrence.expectedVersion).toBe(4)
-			})
-
-			it('does not turn a committed agreement into failure when its refresh fails', async () => {
-				const { amendOccurrence } = require('../../../src/services/api.js')
-				amendOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
-				jest.spyOn(store, 'refreshAfterApply').mockResolvedValue(false)
-				await expect(store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true }))
-					.resolves.toMatchObject({ occurrenceId: '12:1', expectedVersion: 4, refreshFailed: true })
-				expect(amendOccurrence).toHaveBeenCalledTimes(1)
-			})
-
-			it('sends the restart command for the suspended interval predecessor', async () => {
-				const { restartOccurrence } = require('../../../src/services/api.js')
-				restartOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 6 })
-
-				await store.restartOccurrence({ roomTaskId: 42, occurrence: { ...occurrence, suspended: true }, workDate: '2026-10-07', consent: true })
-
-				const [id, payload] = restartOccurrence.mock.calls[0]
-				expect(id).toBe('12:1')
-				expect(payload).toEqual(expect.objectContaining({
-					occurrenceId: '12:1',
-					expectedVersion: 3,
-					consent: true,
-					workDate: '2026-10-07',
-				}))
-			})
-
-			it('mints a FRESH command UUID per attempt (a 409 retry carries new input)', async () => {
-				const { amendOccurrence } = require('../../../src/services/api.js')
-				const conflict = new Error('Conflict')
-				conflict.status = 409
-				amendOccurrence
-					.mockRejectedValueOnce(conflict)
-					.mockResolvedValueOnce({ occurrenceId: '12:1', expectedVersion: 4 })
-
-				await expect(store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true })).rejects.toThrow('Conflict')
-				await store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true })
-
-				const first = amendOccurrence.mock.calls[0][1].commandId
-				const second = amendOccurrence.mock.calls[1][1].commandId
-				expect(first).not.toBe(second)
-			})
-
-			it('propagates a 409 untouched so the caller keeps the draft', async () => {
-				const { amendOccurrence } = require('../../../src/services/api.js')
-				const conflict = new Error('Conflict')
-				conflict.status = 409
-				amendOccurrence.mockRejectedValue(conflict)
-
-				await expect(store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: true }))
-					.rejects.toMatchObject({ status: 409 })
-			})
-
-			it('sends consent=false through unchanged (the caller gates the attestation)', async () => {
-				const { amendOccurrence } = require('../../../src/services/api.js')
-				amendOccurrence.mockResolvedValue({ occurrenceId: '12:1', expectedVersion: 4 })
-
-				await store.amendOccurrence({ roomTaskId: 42, occurrence, date: '2026-10-05', consent: false })
-
-				expect(amendOccurrence).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ consent: false }))
-			})
-		})
-
 		describe('reset', () => {
 			it('resets state to defaults', () => {
 				store.memberAvailability = [{ userId: 'user1' }]
@@ -744,8 +438,6 @@ describe('Scheduling Store', () => {
 				store.weekdayAvailability.monday = false
 				store.loading = true
 				store.error = 'Error'
-				store.planPreview = { previewVersion: 'x' }
-				store.planStatus = 'ready'
 
 				store.reset()
 
@@ -754,8 +446,6 @@ describe('Scheduling Store', () => {
 				expect(store.weekdayAvailability.monday).toBe(true)
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
-				expect(store.planPreview).toBeNull()
-				expect(store.planStatus).toBe('idle')
 			})
 		})
 	})

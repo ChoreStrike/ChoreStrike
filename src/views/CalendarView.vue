@@ -62,7 +62,6 @@
 </template>
 
 <script>
-import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { translate as t } from '@nextcloud/l10n'
 import CalendarControls from '../components/Tasks/CalendarControls.vue'
 import TaskCalendar from '../components/Tasks/TaskCalendar.vue'
@@ -139,22 +138,6 @@ export default {
 		},
 	},
 
-	mounted() {
-		// CS-PLAN-065 §3.4: a committed owner plan may have moved
-		// occurrences inside the currently visible window — refetch exactly
-		// that window (the store's sequence guard drops stale responses).
-		this.scheduleAppliedHandler = () => {
-			this.fetchData()
-		}
-		subscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
-	},
-
-	beforeUnmount() {
-		if (this.scheduleAppliedHandler) {
-			unsubscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
-		}
-	},
-
 	methods: {
 		t,
 
@@ -193,8 +176,8 @@ export default {
 		},
 
 		isOverdue(item) {
-			// CR-084-01: a day entry is overdue when its occurrence's saved
-			// window has ended without the work (server `late` mark) — a past
+			// CR-084-01: a day entry is overdue when its cycle's window has
+			// ended without the work (server `late` mark) — a past
 			// planned day inside an open flex window is still due. Entries
 			// without a mark follow the row rule of the task lists.
 			if (typeof item.late === 'boolean') {

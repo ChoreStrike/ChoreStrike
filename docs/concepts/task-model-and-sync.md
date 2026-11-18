@@ -17,7 +17,8 @@ Each task includes:
 - recurrence settings
 - definition start date; agreed occurrence due dates live on the durable
   occurrence timeline, with `RoomTask.next_due` as a derived projection
-  (CS-PLAN-072 WP1 / ADR-013)
+  (CS-PLAN-072 WP1 / ADR-013). With derived windows (ADR-021) the room task
+  carries a first date and the current window is computed on read.
 - priority
 - energy cost (1-20)
 - reminder settings (**planned — never implemented**: the column-less
@@ -117,6 +118,41 @@ caps only unassigned offers: a child's own tasks stay on Today even above it
 
 ## Recurrence and Rhythm
 
+### Derived due windows (ADR-021, CS-PLAN-091)
+
+> Replaces the timeline contract C1, the agreement contract C2 and the delivered
+> agreement surface below, which stay as the record of the history rows they
+> wrote. Built on `feat/simplified-core-bc`; the shipped contracts hold until it
+> merges ([ADR-021](../adr/ADR-021-derived-due-windows.md),
+> [simplified core](simplified-core.md#due-windows)).
+
+- **One current window per task, derived on read.** After completion: the last
+  valid completion's work date plus the interval (without one, the first date).
+  Fixed weekday or fixed day of the month: the rule's next day. One-time: the
+  first date. The window is that centre day ± the flex days; nothing in the
+  future is stored.
+- **Completion at any time, except on the day of the previous one.** Early work
+  is on time; on a fixed rule it fulfils the upcoming cycle and the day stays.
+  The client names the cycle by its key and `cycle_version`; a second
+  completion of one cycle is a conflict.
+- **One red entry per task.** An after-completion or one-time cycle stays red
+  until done late; a fixed cycle is missed once its window has ended and the
+  next window has opened. There are no catch-up entries.
+- **Postpone** (every member): up to three times per cycle by half the flex
+  days, rounded up, only before the window ends; not for tasks without flex
+  days.
+- **Sleeping tasks** have no window; completing one wakes it. **Bonus tasks**
+  are never due and pay at most once per person, task and day.
+- **Corrections:** a member changes the date of, or deletes, the latest entry of
+  a task that they recorded; the owner corrects any entry, including the
+  person. The first date replaces *last done on*.
+- **History:** closed cycles live in `chorestrike_cycles`; a completion is
+  classified `on_time`, `late` or `bonus` once, at completion. The recognitions
+  read stored occurrences for windows that ended before the house's
+  `cycles_from` day and cycles from that day on.
+
+### Before derived windows (history)
+
 - Static mode is intended for calendar schedules and uses configured weekdays
   for weekly chores; dynamic mode advances from actual completion. Current static
   daily/monthly advancement also starts from completion, so a preserved calendar
@@ -156,12 +192,10 @@ and non-punitive recovery. WP1-WP4 implement the approved rules below.
   applies from the next one, so an agreed window never shrinks (D-088-17).
   A changed energy applies at once to every occurrence still open; completed
   work keeps its energy (BUG-UX-014).
-- An adult can record when a task was last done, e.g. right after setting up
-  the house (FEAT-UX-045): the room shows that day as "Last cleaned", and a
-  task that repeats after completion is next due one interval later (never
-  before today). It is no completion: no reward, no rhythm step; a fixed
-  calendar cadence keeps its dates, and on every cadence a missed appointment
-  must be completed first ([API](../api/README.md#put-room-tasksidlast-done)).
+- Recording when a task was last done (FEAT-UX-045) is retired with ADR-021
+  (D-091-19): a new task's first date sets its window until the first
+  completion. Retained "last done" entries keep showing as "Last cleaned" in
+  the room journal.
 - Repeated misses produce one visible catch-up item per recurring chore, not an
   accumulating list of identical cards. Missed occurrences remain historical
   misses; completing once does not turn every missed occurrence into a success.
@@ -180,6 +214,9 @@ and non-punitive recovery. WP1-WP4 implement the approved rules below.
   specified below and implemented by WP1-WP2 (ADR-013).
 
 ### Approved Timeline Contract C1 (2026-09-17)
+
+> **Replaced by [derived due windows](#derived-due-windows-adr-021-cs-plan-091)
+> (ADR-021).** Its rows stay as history.
 
 > **Delivery status (2026-09-20, CS-PLAN-072 WP1):** C1 is **implemented** and
 > is now the single recurrence authority - see
@@ -219,6 +256,10 @@ The selected C2 agreement rules follow below; correction/undo (C3) and
 local-time/DST boundaries (C5) still require specification.
 
 ### Approved Agreement Contract C2 (2026-09-17)
+
+> **Replaced by [derived due windows](#derived-due-windows-adr-021-cs-plan-091)
+> (ADR-021):** postponement and date corrections instead of agreements; the
+> pause part was already replaced by ADR-020.
 
 Target rules only; completion, assignment and pause APIs are not changed here.
 
@@ -271,6 +312,9 @@ implementation default.
 
 ### Delivered agreement & pause surface (CS-PLAN-073 WP2, implemented 2026-09-24)
 
+> **Agreement part retired by ADR-021** (amend, catch-up, restart and the
+> capacity refusals go); the pause part lives on as absences (ADR-020).
+
 The C1/C2/C3 contracts above are **implemented** by the WP2 package
 (ADR-013 §WP2, corrected in the 2026-09-25 fix round): owner-recorded
 agreement commands (`amend`, `catch-up`, `restart`) under receipt identity
@@ -296,8 +340,8 @@ virtual/materialized projection parity, a viewer-safe pause list as an
 explicit field whitelist (personal reason and illness marker are
 self/owner data in every state), interval restart with exactly one linked
 successor, and departure/erasure handling per Q-073-03/§3.6. The API surface
-is `/api/v1/occurrences/{key}/{amend,catch-up,restart}` and
-`/api/v1/pauses*`; a dedicated pause-management UI remains WP6.
+was `/api/v1/occurrences/{key}/{amend,catch-up,restart}` (retired with
+ADR-021, CS-PLAN-091 WP-B1) and `/api/v1/pauses*`.
 ADR-020 (CS-PLAN-090, 2026-11-10) amends the pause part: every role is
 acknowledged directly, `DELETE /api/v1/pauses/{id}` appends a `cancelled`
 revision that governs from the next local day, and the surface is the
@@ -398,6 +442,11 @@ A task instance can be completed from:
 
 ### Completion and undo model (WP3, ADR-014 — implemented 2026-09-27)
 
+> **Amended by ADR-021 (CS-PLAN-091):** the completion targets the current
+> cycle; anyone may record it for other members who may see the task; a date
+> correction joins undo and attribution. Members correct or delete only the
+> latest entry of a task that they recorded; attribution is owner-only.
+
 > **Supersedes the CS-PLAN-064 WP5 snapshot-reversal model** (kept in
 > [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md) as the
 > historical record). The 2026-09-16 "snapshot restore is not an exact inverse"
@@ -474,6 +523,9 @@ Domain behavior of the WP0 substrate (mechanism detail in
   prior data.
 
 ### Approved Correction Contract C3 (2026-09-17)
+
+> **Amended by ADR-021 (CS-PLAN-091):** see the note on the completion and undo
+> model above.
 
 Implemented by WP3 (CS-PLAN-074, ADR-014); it supersedes the ADR-011 snapshot
 restore — see *Completion and undo model* above.

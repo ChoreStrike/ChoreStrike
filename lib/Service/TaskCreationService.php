@@ -26,8 +26,8 @@ use OCP\IL10N;
 /**
  * Owns the atomic task-creation aggregate (CS-PLAN-063 §3.2, CR-WF-03):
  * one service-owned transaction writes the task definition, the room-task
- * materialization (explicit nextDue, flex-aware idealDueDate), and the
- * initial assignee join rows — or nothing at all.
+ * materialization (its first date anchors the derived window, ADR-021), and
+ * the initial assignee join rows — or nothing at all.
  *
  * Both user-facing create paths run through {@see create()}:
  * the custom path (inline `task` definition payload) and the mount path
@@ -54,7 +54,7 @@ class TaskCreationService {
 		'name', 'description', 'energyCost', 'priority',
 		'frequencyType', 'frequencyValue', 'estimatedMinutes', 'category',
 		'scopeType', 'recurrenceMode', 'activeFrom', 'activeUntil',
-		'schedulingMode', 'fixedScheduleTime', 'fixedScheduleDays',
+		'schedulingMode', 'fixedScheduleTime', 'fixedScheduleDays', 'fixedMonthDay',
 		'flexDays', 'instructions', 'tips', 'visibilityType',
 	];
 
@@ -70,7 +70,7 @@ class TaskCreationService {
 	private TaskAccessPolicy $taskAccessPolicy;
 	private AuthorizationService $authorization;
 	private CalendarService $calendarService;
-	private OccurrenceService $occurrenceService;
+	private CycleService $cycleService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
@@ -87,7 +87,7 @@ class TaskCreationService {
 		TaskAccessPolicy $taskAccessPolicy,
 		AuthorizationService $authorization,
 		CalendarService $calendarService,
-		OccurrenceService $occurrenceService,
+		CycleService $cycleService,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
@@ -103,7 +103,7 @@ class TaskCreationService {
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->authorization = $authorization;
 		$this->calendarService = $calendarService;
-		$this->occurrenceService = $occurrenceService;
+		$this->cycleService = $cycleService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
@@ -113,20 +113,17 @@ class TaskCreationService {
 	 *
 	 * @param int $houseId The caller's house ID (scopes the target room)
 	 * @param HouseUser $actor The acting user's house membership
-	 * @param array $payload Either `{task: {...definition}, roomId, assigneeUserIds?, nextDue?}`
-	 *                       (custom) or `{taskId, roomId, assigneeUserIds?, nextDue?}` (mount)
+	 * @param array $payload Either `{task: {...definition}, roomId, assigneeUserIds?, firstDate?}`
+	 *                       (custom) or `{taskId, roomId, assigneeUserIds?, firstDate?}` (mount)
 	 * @return array{task: Task, roomTask: RoomTask, assignees: TaskAssignee[]}
 	 *
 	 * @throws ValidationException if the definition fails the closed constraint set (400)
 	 * @throws NotFoundException if the room, task, or its visibility denies the actor (404)
 	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the actor is a child or member + admin-only (403)
-	 * @throws \InvalidArgumentException on a bad payload variant, non-member assignee, invalid nextDue, or duplicate mount (400)
+	 * @throws \InvalidArgumentException on a bad payload variant, non-member assignee, invalid firstDate, or duplicate mount (400)
 	 */
 	public function create(int $houseId, HouseUser $actor, array $payload): array {
-		[$roomId, $assigneeUserIds, $nextDue] = $this->validatePayloadEnvelope(
-			$payload,
-			fn (): \DateTimeZone => $this->calendarService->getTimeZone($this->houseMapper->find($houseId)),
-		);
+		[$roomId, $assigneeUserIds, $firstDate] = $this->validatePayloadEnvelope($payload);
 
 		// Actor policy (CS-PLAN-061 D5): children execute tasks, they do not
 		// create them (frontend entry-point gating is CS-PLAN-063 D6).
@@ -155,7 +152,7 @@ class TaskCreationService {
 
 		[$visibilityType, $ownerUserId] = $this->resolveCreationVisibility($definition, $actor);
 
-		return $this->runAggregate($houseId, $actor, $roomId, $definition, $visibilityType, $ownerUserId, $assigneeUserIds, $nextDue);
+		return $this->runAggregate($houseId, $actor, $roomId, $definition, $visibilityType, $ownerUserId, $assigneeUserIds, $firstDate);
 	}
 
 	/**
@@ -199,12 +196,11 @@ class TaskCreationService {
 	}
 
 	/**
-	 * Validate the shared envelope: room id, assignee list, and nextDue.
+	 * Validate the shared envelope: room id, assignee list, and first date.
 	 *
-	 * @param \Closure():\DateTimeZone $houseTzResolver Resolves the house timezone (day-key labels only)
-	 * @return array{0: int, 1: string[], 2: \DateTime|null}
+	 * @return array{0: int, 1: string[], 2: string|null}
 	 */
-	private function validatePayloadEnvelope(array $payload, \Closure $houseTzResolver): array {
+	private function validatePayloadEnvelope(array $payload): array {
 		$roomId = $payload['roomId'] ?? null;
 		if (!is_int($roomId) || $roomId < 1) {
 			throw new \InvalidArgumentException($this->l10n->t('roomId is required'));
@@ -230,35 +226,33 @@ class TaskCreationService {
 			fn ($id) => is_string($id) && trim($id) !== ''
 		)));
 
-		return [$roomId, $assigneeUserIds, $this->parseNextDue($payload['nextDue'] ?? null, $houseTzResolver)];
+		return [$roomId, $assigneeUserIds, $this->parseFirstDate($payload['firstDate'] ?? null)];
 	}
 
+	/** How far the first date may lie from today, either way. */
+	private const FIRST_DATE_RANGE_DAYS = 366;
+
 	/**
-	 * Parse the optional creation due date (house-local date, ADR-009
-	 * semantics) — parseable strings only, never coerced (→ 400).
-	 *
-	 * A bare `Y-m-d` label denotes house-local midnight (RF-058-01:
-	 * tagging it at server-TZ midnight would land one local day early for
-	 * houses west of UTC); any other parseable datetime is an instant. The
-	 * house timezone is resolved lazily, only for day-key labels.
-	 *
-	 * @param \Closure():\DateTimeZone $houseTzResolver Resolves the owning house's timezone
+	 * The optional first date (ADR-021 decision 1): a real house-local
+	 * `Y-m-d` calendar day within a year of today, never coerced (→ 400
+	 * with a translated message). It is the centre of the first window.
 	 */
-	private function parseNextDue($nextDue, \Closure $houseTzResolver): ?\DateTime {
-		if ($nextDue === null || $nextDue === '') {
+	private function parseFirstDate($firstDate): ?string {
+		if ($firstDate === null || $firstDate === '') {
 			return null;
 		}
-		if (!is_string($nextDue)) {
-			throw new \InvalidArgumentException($this->l10n->t('Invalid value type for field: %1$s', ['nextDue']));
+		if (!is_string($firstDate)) {
+			throw new \InvalidArgumentException($this->l10n->t('Invalid value type for field: %1$s', ['firstDate']));
 		}
-		try {
-			if ($this->calendarService->isDayKey($nextDue)) {
-				return $this->calendarService->dayStartInstant($nextDue, $houseTzResolver());
-			}
-			return new \DateTime($nextDue);
-		} catch (\Exception $e) {
-			throw new \InvalidArgumentException($this->l10n->t('Invalid nextDue date format'));
+		$day = $this->calendarService->isDayKey($firstDate) ? \DateTime::createFromFormat('!Y-m-d', $firstDate, new \DateTimeZone('UTC')) : false;
+		if ($day === false || $day->format('Y-m-d') !== $firstDate) {
+			throw new \InvalidArgumentException($this->l10n->t('Invalid firstDate date format'));
 		}
+		$today = new \DateTime('today', new \DateTimeZone('UTC'));
+		if ((int)$today->diff($day)->days > self::FIRST_DATE_RANGE_DAYS) {
+			throw new \InvalidArgumentException($this->l10n->t('The first date must lie within one year of today'));
+		}
+		return $firstDate;
 	}
 
 	/**
@@ -365,13 +359,13 @@ class TaskCreationService {
 		string $visibilityType,
 		?string $ownerUserId,
 		array $assigneeUserIds,
-		?\DateTime $nextDue,
+		?string $firstDate,
 	): array {
 		$existingTaskId = $definition['__existingTaskId'] ?? null;
 		unset($definition['__existingTaskId']);
 
 		[$task, $roomTask] = $this->transactions->run(
-			function () use ($houseId, $actor, $roomId, $definition, $visibilityType, $ownerUserId, $assigneeUserIds, $nextDue, $existingTaskId) {
+			function () use ($houseId, $actor, $roomId, $definition, $visibilityType, $ownerUserId, $assigneeUserIds, $firstDate, $existingTaskId) {
 				// First lock of the documented order (house → room_task →
 				// dependents): serialize concurrent writes on the house row.
 				$this->houseMapper->findForUpdate($houseId);
@@ -401,24 +395,17 @@ class TaskCreationService {
 					$task = $this->insertDefinition($definition, $visibilityType, $ownerUserId);
 				}
 
-				$roomTask = $this->materializeRoomTask($roomId, $task, $nextDue);
+				// The first date anchors the derived window (ADR-021); no
+				// future cycle is stored. Default: tomorrow in the house zone.
+				$timeZone = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
+				$now = new \DateTime();
+				$firstDate ??= RecurrenceCalculator::dayAfter($this->calendarService->dayKey($now, $timeZone));
+				$roomTask = $this->roomTaskMapper->create($roomId, $task->getId(), $this->calendarService->dayStartInstant($firstDate, $timeZone));
 
 				foreach ($assigneeUserIds as $userId) {
 					$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $userId, $actor->getNextcloudUserId());
 				}
-
-				// CS-PLAN-072 WP1: the immutable initial schedule — revision 1
-				// plus its agreed occurrences materialize in the SAME aggregate
-				// (the timeline is the only recurrence authority).
-				$this->occurrenceService->initializeScheduleUnderLock(
-					$houseId,
-					$roomTask,
-					$task,
-					$this->calendarService->getTimeZone($this->houseMapper->find($houseId))->getName(),
-					$roomTask->getNextDue(),
-					$assigneeUserIds,
-					new \DateTime(),
-				);
+				$this->cycleService->startUnderLock($roomTask, $task, $firstDate, $timeZone, $now);
 
 				return [$task, $roomTask];
 			}
@@ -457,26 +444,8 @@ class TaskCreationService {
 			visibilityType: $visibilityType,
 			ownerUserId: $ownerUserId,
 			flexDays: (int)($definition['flexDays'] ?? 0),
+			fixedMonthDay: isset($definition['fixedMonthDay']) ? (int)$definition['fixedMonthDay'] : null,
 		);
-	}
-
-	/**
-	 * Materialize the room task: explicit nextDue (default tomorrow) and a
-	 * flex-aware idealDueDate when the definition carries a flex window.
-	 */
-	private function materializeRoomTask(int $roomId, Task $task, ?\DateTime $nextDue): RoomTask {
-		if ($nextDue === null) {
-			$nextDue = new \DateTime();
-			$nextDue->add(new \DateInterval('P1D'));
-		}
-
-		$flexDays = $task->getFlexDays();
-		$idealDueDate = null;
-		if ($flexDays > 0) {
-			$idealDueDate = (new RoomTask())->calculateIdealDueDate($nextDue, $flexDays);
-		}
-
-		return $this->roomTaskMapper->create($roomId, $task->getId(), $nextDue, null, $idealDueDate);
 	}
 
 	/** Parse a validated date string (validation guarantees parseability). */

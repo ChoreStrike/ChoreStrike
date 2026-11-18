@@ -18,14 +18,10 @@ use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
@@ -45,7 +41,7 @@ use OCP\IL10N;
  * Every aggregate runs as ONE CommandService transaction: rechecks the
  * actor/visibility/version under the WP0 house-first lock, writes the
  * immutable evidence (completion row, work_shares, completion_revs), the
- * additive wallet entries, the room journal, the occurrence/capacity
+ * additive wallet entries, the room journal, the closed cycle with its
  * projections, the dependent recognition (RhythmService valid-history
  * evaluation) and the receipt together. There is NO before-state restore
  * authority: undo and attribution re-derive every dependent projection
@@ -53,8 +49,8 @@ use OCP\IL10N;
  * scheduling previews become stale.
  *
  * Lock order (single house-first order; CommandService holds the house
- * row): room_task → room → active memberships (actor + actual/obligated
- * members, stable id) → wallets (actual shares, stable id) → occurrence/
+ * row): room_task → room → active memberships (actor + actual/responsible
+ * members, stable id) → wallets (actual shares, stable id) → cycle/
  * completion rows → their dependent rows. Lower services (WalletService,
  * RoomReplayService, RhythmService) never call this coordinator back.
  *
@@ -73,7 +69,6 @@ class CompletionService {
 	private HouseMapper $houseMapper;
 	private HouseUserMapper $houseUserMapper;
 	private WalletMapper $walletMapper;
-	private OccurrenceMemberMapper $occMemberMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private WorkShareMapper $workShareMapper;
@@ -89,7 +84,8 @@ class CompletionService {
 	private RewardConfigService $configService;
 	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
-	private OccurrenceService $occurrenceService;
+	private CycleService $cycleService;
+	private WindowService $windows;
 	private CommandService $commandService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
@@ -106,7 +102,6 @@ class CompletionService {
 		HouseMapper $houseMapper,
 		HouseUserMapper $houseUserMapper,
 		WalletMapper $walletMapper,
-		OccurrenceMemberMapper $occMemberMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		WorkShareMapper $workShareMapper,
@@ -122,7 +117,8 @@ class CompletionService {
 		RewardConfigService $configService,
 		CalendarService $calendarService,
 		TaskAccessPolicy $taskAccessPolicy,
-		OccurrenceService $occurrenceService,
+		CycleService $cycleService,
+		WindowService $windows,
 		CommandService $commandService,
 		IL10N $l10n,
 		AppLogger $appLogger,
@@ -134,7 +130,6 @@ class CompletionService {
 		$this->houseMapper = $houseMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->walletMapper = $walletMapper;
-		$this->occMemberMapper = $occMemberMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->workShareMapper = $workShareMapper;
@@ -150,47 +145,48 @@ class CompletionService {
 		$this->configService = $configService;
 		$this->calendarService = $calendarService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
-		$this->occurrenceService = $occurrenceService;
+		$this->cycleService = $cycleService;
+		$this->windows = $windows;
 		$this->commandService = $commandService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
 
 	/**
-	 * Complete one SHOWN occurrence as one transactional aggregate with a
-	 * command receipt (CS-PLAN-072 WP1 occurrence contract + WP3 actual
+	 * Complete the CURRENT cycle of a room task as one transactional
+	 * aggregate with a command receipt (ADR-021 decision 4 + WP3 actual
 	 * work).
 	 *
-	 * The client sends the shown target's occurrence receipt plus the
-	 * ACTUAL participants (`[{userId, sharePct}]`, optional). Without
-	 * explicit participants the effective concrete agreement is credited
-	 * (agreed occurrence shares, else equal wallet-order assignee shares,
-	 * else solo 100%); a deviation from it requires the explicit
-	 * `allocationReviewed` confirmation (C2a — no per-person confirmation
-	 * queue). Initial completion requires self-participation (Q-074-02);
-	 * time, rate and total work are server-owned.
+	 * The client sends the cycle key and cycle version it showed plus the
+	 * ACTUAL participants (`[{userId, sharePct}]`, optional). The target is
+	 * the current cycle at any time — before, inside or after its window —
+	 * except on the house-local day of the room task's latest valid
+	 * completion. Without explicit participants the assignees are credited
+	 * in equal shares, else the completer alone; a deviation from that
+	 * requires the explicit `allocationReviewed` confirmation. Initial
+	 * completion requires self-participation (Q-074-02); time, rate and
+	 * total work are server-owned.
 	 *
+	 * @param string|null $cycleKey The shown cycle; null for a bonus task
 	 * @param array<int, array{userId: string, sharePct: int}> $participants
 	 * @throws NotFoundException unknown/invisible room task (404 anti-enumeration)
 	 * @throws ForbiddenException non-member / non-participating actor
-	 * @throws ConflictException stale selection/version, fulfilled target, inactive task (409)
+	 * @throws ConflictException stale target, completed cycle, same day, inactive task (409)
 	 */
 	public function complete(
 		int $houseId,
 		string $userId,
 		int $roomTaskId,
 		string $commandId,
-		string $occurrenceId,
+		?string $cycleKey,
 		int $expectedVersion,
-		string $selectionToken,
 		array $participants = [],
 		bool $allocationReviewed = false,
 	): array {
-		Occurrence::parsePublicKey($occurrenceId);
 		$participants = $this->canonicalizeParticipants($participants);
 
 		$roomTask = $this->findRoomTaskScoped($roomTaskId, $houseId);
-		$task = $this->findTaskOrNotFound($roomTask->getTaskId());
+		$this->findTaskOrNotFound($roomTask->getTaskId());
 		$room = $this->findRoomOrNotFound($roomTask->getRoomId());
 		$house = $this->houseMapper->find($houseId);
 		$timeZone = $this->calendarService->getTimeZone($house);
@@ -211,16 +207,15 @@ class CompletionService {
 				'room_task.complete',
 				[
 					'roomTaskId' => $roomTaskId,
-					'occurrenceId' => $occurrenceId,
+					'cycleKey' => $cycleKey,
 					'expectedVersion' => $expectedVersion,
-					'selectionToken' => $selectionToken,
 					'participants' => $participants,
 					'allocationReviewed' => $allocationReviewed,
 				],
-				function () use ($houseId, $userId, $roomTaskId, $timeZone, $occurrenceId, $expectedVersion, $selectionToken, $participants, $allocationReviewed, &$postCommitMetadata): array {
+				function () use ($houseId, $userId, $roomTaskId, $timeZone, $cycleKey, $expectedVersion, $participants, $allocationReviewed, &$postCommitMetadata): array {
 					return $this->completeAggregate(
-						$houseId, $userId, $roomTaskId, $timeZone, $occurrenceId,
-						$expectedVersion, $selectionToken, $participants, $allocationReviewed, $postCommitMetadata
+						$houseId, $userId, $roomTaskId, $timeZone, $cycleKey,
+						$expectedVersion, $participants, $allocationReviewed, $postCommitMetadata
 					);
 				},
 			);
@@ -261,6 +256,9 @@ class CompletionService {
 			$house, $userId, $completion, $freshRoomTask,
 			$this->findRoomOrNotFound($freshRoomTask->getRoomId()), $command['replay']
 		);
+		// The fresh target rides along on a replay too: the first attempt
+		// committed, so the cycle the client showed is closed.
+		$response['cycle'] = $this->cycleBlock($freshRoomTask, $house);
 		if ($command['replay']) {
 			return $response;
 		}
@@ -270,7 +268,6 @@ class CompletionService {
 		if ($post['degraded']) {
 			$response['rewards']['degraded'] = true;
 		}
-		$response['occurrence'] = $this->selectionBlock($freshRoomTask, $house);
 		return $response;
 	}
 
@@ -286,9 +283,8 @@ class CompletionService {
 		string $userId,
 		int $roomTaskId,
 		\DateTimeZone $timeZone,
-		string $occurrenceId,
+		?string $cycleKey,
 		int $expectedVersion,
-		string $selectionToken,
 		array $participants,
 		bool $allocationReviewed,
 		array &$postCommitMetadata,
@@ -309,26 +305,19 @@ class CompletionService {
 		}
 
 		$now = new \DateTime();
-		$resolved = $this->occurrenceService->resolveForCompletionUnderLock(
-			$houseId, $roomTask, $occurrenceId, $expectedVersion, $selectionToken, $now
-		);
-		/** @var Occurrence $occurrence */
-		$occurrence = $resolved['occurrence'];
-		/** @var ScheduleRevision $revision */
-		$revision = $resolved['revision'];
-		$classification = $resolved['classification'];
+		// The current cycle at the shown version; null for a bonus task.
+		$cycle = $this->cycleService->resolveTargetUnderLock($houseId, $roomTask, $task, $cycleKey, $expectedVersion, $timeZone, $now);
+		$workDateKey = $this->calendarService->dayKey($now, $timeZone);
+		$classification = $cycle === null ? CompletedTask::CLASS_BONUS : $cycle->classify($workDateKey);
 
 		// NEXT lock: the room row (documented order: rooms BEFORE
 		// memberships/wallets — same-room completions serialize here so
 		// cleanliness cannot clobber).
 		$room = $this->roomMapper->lockForUpdate($roomTask->getRoomId());
 
-		// The effective concrete agreement (WP3 §3.2) — agreed occurrence
-		// shares first, never today's task-assignee defaults when an
-		// agreement exists.
+		// The proposal: the assignees in equal shares, else the completer.
 		$members = $this->houseUserMapper->findByHouseId($houseId);
-		$occurrenceMembers = $this->occMemberMapper->findByOccurrence((int)$occurrence->getId());
-		$proposal = $this->effectiveProposal($occurrenceMembers, $assigneeUserIds, $members, $userId);
+		$proposal = $this->effectiveProposal($assigneeUserIds, $members, $userId);
 		$explicit = $participants !== [];
 		if ($explicit) {
 			if (!$allocationReviewed && !$this->sameAllocation($participants, $proposal, $members)) {
@@ -345,29 +334,25 @@ class CompletionService {
 			throw new ForbiddenException($this->l10n->t('The completer must take part in the work'));
 		}
 
-		// Lock actual workers AND obligated non-workers in member-id order;
-		// only actual workers gain share/coin credit or private-task access.
-		$recognitionMembers = $this->lockParticipantMembers(
-			$allocation, $task, $assigneeUserIds,
-			$this->obligatedWalletIds($occurrenceMembers), $members
-		);
+		// Lock actual workers AND the responsible assignees in member-id
+		// order; only actual workers gain share/coin credit or private-task
+		// access.
+		$recognitionMembers = $this->lockParticipantMembers($allocation, $task, $assigneeUserIds, $members);
 
 		// Wallet locks in stable id order (after the memberships, before
 		// any completion write).
 		$walletsByUserId = $this->lockWallets($houseId, array_keys($allocation));
 
-		$totalEnergy = max(1, $occurrence->getEnergy());
+		// Open work is not frozen: the energy of the definition at completion.
+		$totalEnergy = max(1, (int)$task->getEnergyCost());
 		$rateMinor = EffortAllocationService::COIN_MINOR_PER_ENERGY;
 
 		// Overdue-takeover: only record a takeover when a NON-assignee
-		// completes a MISSED occurrence (`late`: its window ended in the
-		// house timezone — never work still due today, CS-PLAN-084 D-084-08).
-		// A completer the occurrence's concrete agreement obligates (an
-		// agreed handover) fulfils that agreement and takes nothing over.
+		// completes a task LATE (its window ended in the house timezone —
+		// never work still due today, CS-PLAN-084 D-084-08).
 		$takeoverClaimed = false;
 		$originalMember = null;
-		$agreedForCompleter = in_array((int)$houseUser->getWalletId(), $this->obligatedWalletIds($occurrenceMembers), true);
-		if ($classification === 'late' && !$agreedForCompleter && !in_array($userId, $assigneeUserIds, true)) {
+		if ($classification === CompletedTask::CLASS_LATE && !in_array($userId, $assigneeUserIds, true)) {
 			$originalAssignee = $assigneeUserIds[0] ?? null;
 			if ($originalAssignee !== null && $originalAssignee !== '') {
 				$roomTask->markClaimed($originalAssignee, $userId);
@@ -376,8 +361,8 @@ class CompletionService {
 			}
 		}
 
-		// The evidence row: frozen work facts + occurrence key + audit
-		// completer (Q-074-02: the audit actor stays immutable across
+		// The evidence row: frozen work facts + the cycle it fulfilled +
+		// audit completer (Q-074-02: the audit actor stays immutable across
 		// later corrections).
 		$ledgerRow = new CompletedTask();
 		$ledgerRow->setRoomTaskId($roomTaskId);
@@ -388,15 +373,14 @@ class CompletionService {
 		$ledgerRow->setCompletionVersion(0);
 		$ledgerRow->setAllocationRevision(1);
 		$ledgerRow->setCommandUuid($this->currentCommandUuid ?? '');
-		$ledgerRow->setOccurrenceDue(\DateTime::createFromInterface($occurrence->getPlannedDate()));
-
-		$savedZone = new \DateTimeZone($occurrence->getTimezone());
-		$workDateKey = $this->calendarService->dayKey($now, $savedZone);
-		$ledgerRow->setScheduleRevId($occurrence->getScheduleRevId());
-		$ledgerRow->setOccurrenceOrdinal($occurrence->getOrdinal());
 		$ledgerRow->setWorkDate(\DateTime::createFromFormat('!Y-m-d', $workDateKey));
-		$ledgerRow->setWorkZone($occurrence->getTimezone());
+		$ledgerRow->setWorkZone($timeZone->getName());
 		$ledgerRow->setCompletionClass($classification);
+		if ($cycle !== null) {
+			$ledgerRow->setCycleKey($cycle->key);
+			$ledgerRow->setWindowStartOn(RecurrenceCalculator::dayKeyToDate($cycle->startOn));
+			$ledgerRow->setWindowEndOn(RecurrenceCalculator::dayKeyToDate($cycle->endOn));
+		}
 
 		$inserted = $this->completedTaskMapper->insert($ledgerRow);
 		$completionId = (int)$inserted->getId();
@@ -459,12 +443,16 @@ class CompletionService {
 		);
 		$room = $this->roomReplayService->resyncRoomCache($room);
 
-		// Timeline effects (WP1): fulfill exactly this occurrence, cover
-		// the older catch-up miss, anchor the interval successor and
-		// refresh the derived next_due projection.
-		$this->occurrenceService->applyCompletionUnderLock(
-			$houseId, $occurrence, $revision, $roomTask, $completionId, $workDateKey, $classification, $now
-		);
+		// The cycle (ADR-021 decision 4): close exactly this one with its
+		// frozen classification, reset the postponement, end a one-time
+		// task and refresh the derived next_due projection. A bonus task
+		// has no cycle; only its last-completed mark moves.
+		if ($cycle !== null) {
+			$this->cycleService->closeUnderLock($houseId, $roomTask, $task, $cycle, $inserted, $timeZone, $now);
+		} else {
+			$roomTask->setLastCompleted($now);
+			$this->cycleService->changedUnderLock($roomTask, $task, $timeZone, $now);
+		}
 
 		// Retained recognition: re-derive streaks from valid history, then
 		// detect newly crossed title tiers on the fresh stats (never a
@@ -598,10 +586,7 @@ class CompletionService {
 				$walletIds[] = (int)$share->getWalletId();
 			}
 		}
-		$occurrence = $this->occurrenceService->occurrenceOfCompletion($completion);
-		$members = $this->lockMembersByWallets($houseId, array_merge(
-			$walletIds, $this->obligatedWalletIds($occurrence !== null ? $this->occMemberMapper->findByOccurrence((int)$occurrence->getId()) : [])
-		));
+		$members = $this->lockMembersByWallets($houseId, $walletIds, $this->assigneeMembers($houseId, (int)$roomTask->getId()));
 		$this->lockWallets($houseId, array_map(
 			static fn (HouseUser $m) => $m->getNextcloudUserId(),
 			array_values(array_filter($members, static fn (HouseUser $m): bool => in_array((int)$m->getWalletId(), $walletIds, true)))
@@ -650,16 +635,18 @@ class CompletionService {
 		// correction execution time never becomes last_cleaned).
 		$room = $this->roomReplayService->resyncRoomCache($room);
 
-		// Occurrence seam: release the recorded occurrence, restore
-		// catch-up coverage and re-derive open successors (later valid
-		// work, explicit amendments and restarts survive — §3.4).
-		if ($occurrence !== null) {
-			$this->occurrenceService->releaseCompletionUnderLock(
-				$houseId, $occurrence, $this->roomTaskMapper->find($roomTask->getId()), $completion, $now
-			);
-		}
+		// Cycle seam: the completion's done row goes, its cycle reopens and
+		// the current cycle derives again (later valid work survives — §3.4).
+		$this->cycleService->reopenUnderLock(
+			$houseId,
+			$this->roomTaskMapper->find($roomTask->getId()),
+			$this->findTaskOrNotFound($roomTask->getTaskId()),
+			$completion,
+			$this->calendarService->getTimeZone($this->houseMapper->find($houseId)),
+			$now
+		);
 
-		// Recognition re-evaluation includes absent obligated members. The
+		// Recognition re-evaluation includes responsible members who did not work. The
 		// members are RE-LOADED here: the locked entities predate the
 		// wallet/contribution writes, so their cached stats would be stale
 		// for the tier comparison.
@@ -678,8 +665,8 @@ class CompletionService {
 	/**
 	 * Correct the actual participants/shares of ONE completion (WP3 §3.4
 	 * attribution; Q-074-02): the completer or an authorized owner may
-	 * adjust the allocation while the real work time, saved zone,
-	 * occurrence, frozen total effort/rate and room event stay immutable.
+	 * adjust the allocation while the real work time, saved zone, cycle,
+	 * frozen total effort/rate and room event stay immutable.
 	 * Writes only `newAllocation - oldAllocation` for the union of
 	 * participants (removal = a new allocation of zero).
 	 *
@@ -743,7 +730,8 @@ class CompletionService {
 			$house, $actor->getNextcloudUserId(), $fresh, $freshRoomTask,
 			$this->findRoomOrNotFound($freshRoomTask->getRoomId()), $command['replay']
 		);
-		$response['occurrence'] = null;
+		// No `cycle` key: an attribution moves no cycle, and a null block
+		// would wipe the target the client holds for the room task.
 		return $response;
 	}
 
@@ -838,11 +826,11 @@ class CompletionService {
 			}
 			$newMembers[] = $member;
 		}
-		$occurrence = $this->occurrenceService->occurrenceOfCompletion($completion);
-		$recognitionMembers = $this->lockMembersByWallets($houseId, array_merge(
+		$recognitionMembers = $this->lockMembersByWallets(
+			$houseId,
 			array_keys($previousByWallet),
-			$this->obligatedWalletIds($occurrence !== null ? $this->occMemberMapper->findByOccurrence((int)$occurrence->getId()) : [])
-		), $newMembers);
+			array_merge($newMembers, $this->assigneeMembers($houseId, (int)$roomTask->getId()))
+		);
 		$newMembers = array_values(array_filter(
 			$recognitionMembers,
 			static fn (HouseUser $member): bool => isset($newAllocation[$member->getNextcloudUserId()])
@@ -911,11 +899,10 @@ class CompletionService {
 
 		$this->walletService->recalcContributionCache($unionWalletIds);
 
-		// The room event, work time, saved zone, occurrence and frozen
-		// total effort/rate stay immutable (C3f) — no room/occurrence
-		// writes here.
+		// The room event, work time, saved zone, cycle and frozen total
+		// effort/rate stay immutable (C3f) — no room/cycle writes here.
 
-		// Recompute changed workers and obligated non-workers from valid
+		// Recompute changed workers and responsible non-workers from valid
 		// history; only the new allocation above receives monetary credit.
 		// Departed wallets have no membership projection to refresh.
 		$freshUnion = array_map(
@@ -960,44 +947,27 @@ class CompletionService {
 	}
 
 	/**
-	 * The effective concrete agreement (WP3 §3.2): agreed occurrence
-	 * member shares first; without member rows the equal wallet-order
-	 * assignee shares; unassigned solo work starts at 100%.
+	 * What a completion without explicit participants credits: the
+	 * assignees in equal shares (wallet order), else the completer alone.
+	 * There is no per-cycle agreement any more (ADR-021 decision 13).
 	 *
-	 * @param OccurrenceMember[] $occurrenceMembers
 	 * @param string[] $assigneeUserIds
 	 * @param HouseUser[] $members
 	 * @return array<string, int> userId => sharePct
 	 */
-	private function effectiveProposal(array $occurrenceMembers, array $assigneeUserIds, array $members, string $actorUserId): array {
+	private function effectiveProposal(array $assigneeUserIds, array $members, string $actorUserId): array {
+		if ($assigneeUserIds === []) {
+			return [$actorUserId => 100];
+		}
 		$membersByUserId = [];
-		$userIdByWallet = [];
 		foreach ($members as $member) {
 			$membersByUserId[$member->getNextcloudUserId()] = $member;
-			if ($member->getWalletId() !== null) {
-				$userIdByWallet[(int)$member->getWalletId()] = $member->getNextcloudUserId();
-			}
 		}
-
-		// Shared derivation with the read-side proposal block (WP3 §3.2):
-		// agreed occurrence member shares first.
-		$agreed = $this->allocationService->agreementShares(
-			$occurrenceMembers,
-			$userIdByWallet
-		);
-		if ($agreed !== []) {
-			return $agreed;
+		$subjects = [];
+		foreach ($assigneeUserIds as $uid) {
+			$subjects[$uid] = ($membersByUserId[$uid] ?? null)?->getWalletId();
 		}
-
-		if ($assigneeUserIds !== []) {
-			$subjects = [];
-			foreach ($assigneeUserIds as $uid) {
-				$subjects[$uid] = $membersByUserId[$uid]?->getWalletId();
-			}
-			return $this->allocationService->equalShares($subjects);
-		}
-
-		return [$actorUserId => 100];
+		return $this->allocationService->equalShares($subjects);
 	}
 
 	/**
@@ -1045,22 +1015,17 @@ class CompletionService {
 	}
 
 	/**
-	 * Lock actual workers and current obligated members in ascending member
-	 * id order. Only actual workers are checked for task visibility.
+	 * Lock actual workers and the responsible assignees in ascending
+	 * member id order. Only actual workers are checked for task visibility.
 	 *
 	 * @param string[] $assigneeUserIds
-	 * @param int[] $obligatedWalletIds
 	 * @param HouseUser[] $all
 	 * @return HouseUser[]
 	 */
-	private function lockParticipantMembers(array $allocation, Task $task, array $assigneeUserIds, array $obligatedWalletIds, array $all): array {
+	private function lockParticipantMembers(array $allocation, Task $task, array $assigneeUserIds, array $all): array {
 		$membersByUserId = [];
-		$membersByWallet = [];
 		foreach ($all as $member) {
 			$membersByUserId[$member->getNextcloudUserId()] = $member;
-			if ($member->getWalletId() !== null) {
-				$membersByWallet[(int)$member->getWalletId()] = $member;
-			}
 		}
 
 		$ids = [];
@@ -1071,9 +1036,9 @@ class CompletionService {
 			}
 			$ids[(int)$member->getId()] = true;
 		}
-		foreach ($obligatedWalletIds as $walletId) {
-			if (isset($membersByWallet[$walletId])) {
-				$ids[(int)$membersByWallet[$walletId]->getId()] = true;
+		foreach ($assigneeUserIds as $uid) {
+			if (isset($membersByUserId[$uid])) {
+				$ids[(int)$membersByUserId[$uid]->getId()] = true;
 			}
 		}
 		ksort($ids, SORT_NUMERIC);
@@ -1086,6 +1051,17 @@ class CompletionService {
 			$locked[] = $member;
 		}
 		return $locked;
+	}
+
+	/**
+	 * The memberships of a room task's assignees: a cycle counts for them,
+	 * so their recognition is re-derived with every correction.
+	 *
+	 * @return HouseUser[]
+	 */
+	private function assigneeMembers(int $houseId, int $roomTaskId): array {
+		$userIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
+		return $userIds === [] ? [] : array_values($this->houseUserMapper->findByHouseIdAndNextcloudUserIds($houseId, $userIds));
 	}
 
 	/**
@@ -1113,17 +1089,6 @@ class CompletionService {
 			$members[] = $this->houseUserMapper->findForUpdate($id);
 		}
 		return $members;
-	}
-
-	/** @param OccurrenceMember[] $rows @return int[] */
-	private function obligatedWalletIds(array $rows): array {
-		$walletIds = [];
-		foreach ($rows as $row) {
-			if ($row->getObligated() && $row->getDisposition() === OccurrenceMember::DISPOSITION_ACTIVE) {
-				$walletIds[(int)$row->getWalletId()] = (int)$row->getWalletId();
-			}
-		}
-		return array_values($walletIds);
 	}
 
 	/**
@@ -1362,6 +1327,9 @@ class CompletionService {
 			'occurrenceId' => $completion->getScheduleRevId() !== null && $completion->getOccurrenceOrdinal() !== null
 				? $completion->getScheduleRevId() . ':' . $completion->getOccurrenceOrdinal()
 				: null,
+			'cycleKey' => $completion->getCycleKey(),
+			'windowStartOn' => $completion->getWindowStartOn()?->format('Y-m-d'),
+			'windowEndOn' => $completion->getWindowEndOn()?->format('Y-m-d'),
 			'workDate' => $completion->getWorkDate()?->format('Y-m-d'),
 			'workZone' => $completion->getWorkZone(),
 			'completionClass' => $completion->getCompletionClass(),
@@ -1458,30 +1426,24 @@ class CompletionService {
 		$response = $this->completionResponse($house, '', $completion, $roomTask, null, $replay);
 		$response['room'] = $this->findRoomOrNotFound($roomTask->getRoomId());
 		$response['undone'] = $completion->getUndoneAt() !== null;
-		$response['occurrence'] = $this->selectionBlock($roomTask, $house);
+		$response['cycle'] = $this->cycleBlock($roomTask, $house);
 		return $response;
 	}
 
 	/**
-	 * Fresh, write-free selection block of a room task's next completion
-	 * target (WP1 DTO enrichment).
+	 * Fresh, write-free `cycle` block of a room task: its next completion
+	 * target after the command.
 	 */
-	private function selectionBlock(RoomTask $roomTask, House $house): ?array {
-		$houseId = (int)$house->getId();
-		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
-		if ($selection === null) {
-			return null;
-		}
-		return $this->occurrenceService->occurrenceBlock(
-			$selection['occurrence'],
-			$selection['revision'],
-			$selection['classification'],
-			$houseId,
-			null,
-			$selection['workAppointment'] ?? null
-		) + [
-			'savedZoneDiffers' => $selection['occurrence']->getTimezone() !== $this->calendarService->getTimeZone($house)->getName(),
-		];
+	private function cycleBlock(RoomTask $roomTask, House $house): ?array {
+		$timeZone = $this->calendarService->getTimeZone($house);
+		$now = new \DateTime();
+		$task = $this->findTaskOrNotFound($roomTask->getTaskId());
+		return $this->windows->block(
+			$roomTask,
+			$task,
+			$this->cycleService->currentFor($roomTask, $task, $timeZone, $now),
+			WindowService::todayKey($now, $timeZone)
+		);
 	}
 
 	/**

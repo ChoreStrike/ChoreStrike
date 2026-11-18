@@ -21,7 +21,7 @@
 import type { Page } from '@playwright/test'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
-import { completeRoomTaskViaApi, newCommandId, postCompletionWithReceipt, resolveOccurrenceReceipt } from './fixtures/completion-api.ts'
+import { completeRoomTaskViaApi, newCommandId, postCompletionWithReceipt, resolveCycleReceipt } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 
@@ -41,10 +41,10 @@ async function openActivityLine(page: Page, completionId: number): Promise<void>
 interface RoomTaskJson {
 	id: number
 	isActive: boolean
-	nextDue: string | null
+	cycle: { cycleKey?: string } | null
 }
 
-/** Fetch an active, due-dated room task via floors/with-rooms → index. */
+/** Fetch an active room task with a current cycle via floors/with-rooms → index. */
 async function pickActiveRoomTask(page: Page): Promise<RoomTaskJson | null> {
 	const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
 		headers: { Accept: 'application/json' },
@@ -64,7 +64,7 @@ async function pickActiveRoomTask(page: Page): Promise<RoomTaskJson | null> {
 			continue
 		}
 		const tasks = ((await response.json()).data || []) as RoomTaskJson[]
-		const found = tasks.find((rt) => rt.isActive && rt.nextDue)
+		const found = tasks.find((rt) => rt.isActive && rt.cycle)
 		if (found) {
 			return found
 		}
@@ -173,7 +173,7 @@ test.describe('Release: Insights Flow', () => {
 				const created = await api.post('/apps/chorestrike/api/v1/room-tasks', {
 					data: {
 						roomId,
-						nextDue: today,
+						firstDate: today,
 						task: { name: `Overcapacity Probe ${i}`, description: '', energyCost: 5, priority: 2, frequencyType: 'daily', frequencyValue: 1 },
 					},
 					headers: { Accept: 'application/json' },
@@ -222,7 +222,7 @@ test.describe('Release: Insights Flow', () => {
 			// explicit actual-work split the participation dialog sends).
 			const roomTask = await pickActiveRoomTask(owner.page)
 			expect(roomTask).not.toBeNull()
-			const receipt = await resolveOccurrenceReceipt(owner.page, roomTask!.id)
+			const receipt = await resolveCycleReceipt(owner.page, roomTask!.id)
 			expect(receipt).not.toBeNull()
 			const complete = await postCompletionWithReceipt(owner.page, roomTask!.id, receipt!, [
 				{ userId: 'mom', sharePct: 50 },
@@ -275,7 +275,7 @@ test.describe('Release: Insights Flow', () => {
 			const page = owner.page
 			const roomTask = await pickActiveRoomTask(page)
 			expect(roomTask).not.toBeNull()
-			const receipt = await resolveOccurrenceReceipt(page, roomTask!.id)
+			const receipt = await resolveCycleReceipt(page, roomTask!.id)
 			expect(receipt).not.toBeNull()
 			const complete = await postCompletionWithReceipt(page, roomTask!.id, receipt!, [
 				{ userId: 'mom', sharePct: 50 },
@@ -367,7 +367,7 @@ test.describe('Release: Insights Flow', () => {
 			const page = owner.page
 			const roomTask = await pickActiveRoomTask(page)
 			expect(roomTask).not.toBeNull()
-			const receipt = await resolveOccurrenceReceipt(page, roomTask!.id)
+			const receipt = await resolveCycleReceipt(page, roomTask!.id)
 			expect(receipt).not.toBeNull()
 			const complete = await postCompletionWithReceipt(page, roomTask!.id, receipt!, [
 				{ userId: 'mom', sharePct: 50 },

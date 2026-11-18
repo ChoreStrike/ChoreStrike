@@ -115,7 +115,7 @@ async function waitForRequest(page: Page, scope: 'mine' | 'house', title: string
  * Fund a user through the real completion path: prefer a seeded room task
  * assigned to them, fall back to any active task with an explicit solo
  * split (Q-074-02: the completer takes part in the work). Not every
- * assigned task exposes a completable occurrence at every wall-clock
+ * assigned task exposes a completable cycle at every wall-clock
  * moment, so the helper walks the candidates.
  */
 async function fundUserViaCompletion(page: Page, seeded: { data: { roomTasks: Array<{ id: number, assignees: string[], isActive: boolean }> } }, userId: string): Promise<{ roomTaskId: number, response: APIResponse }> {

@@ -294,6 +294,19 @@ if ! occ app:list | grep -A999 '^Enabled:' | grep -q '^  - chorestrike:'; then
     exit 1
 fi
 
+# RF-091-01: Nextcloud applies an app's migration steps only when the app
+# version changes. A step added without a version bump would stay pending
+# on the kept disposable volumes, so ordinary, seeded provisioning applies
+# the app's own pending steps through the framework's migration service (a
+# current installation is left alone). Preservation mode proves the real
+# upgrade path and never migrates implicitly.
+if [ "$TEST_RUNTIME_PRESERVATION" != true ]; then
+    echo "Applying pending ChoreStrike migration steps..."
+    printf -v MIGRATE_COMMAND '%q ' php -r 'require "/var/www/html/lib/base.php";
+        (new \OC\DB\MigrationService("chorestrike", \OC::$server->get(\OC\DB\Connection::class)))->migrate();'
+    su -s /bin/bash www-data -c "$MIGRATE_COMMAND"
+fi
+
 echo "Ensuring test users based on profile..."
 PROFILE="$TEST_DB_PROFILE"
 if [ "$TEST_RUNTIME_PRESERVATION" = true ]; then

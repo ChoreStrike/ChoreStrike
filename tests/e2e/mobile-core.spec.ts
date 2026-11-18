@@ -27,7 +27,7 @@ import { openRoom } from './fixtures/rooms.ts'
 const day = (offset: number): string => houseDateOffset(offset, 'UTC')
 const API = '/apps/chorestrike/api/v1'
 
-interface ListRow { id: number, status: string, nextDue?: string | null, assignees?: string[], wasClaimed?: boolean, claimedByUser?: string, originalAssignee?: string, occurrence?: { occurrenceId: string, plannedDate?: string } | null }
+interface ListRow { id: number, status: string, nextDue?: string | null, assignees?: string[], wasClaimed?: boolean, claimedByUser?: string, originalAssignee?: string, cycle?: { cycleKey?: string, state: string, centreOn?: string } | null }
 
 /** Sign `userId` in on this project's phone (contexts do not inherit the project device). */
 async function phone(browser: Browser, userId: string, testInfo: TestInfo): Promise<{ context: BrowserContext, page: Page }> {
@@ -48,14 +48,14 @@ async function expectWithinViewport(page: Page, locator: Locator): Promise<void>
 }
 
 /** Daily Kitchen probe through the atomic aggregate; returns the room task id. */
-async function createProbe(page: Page, name: string, assignees: string[], nextDue = day(0)): Promise<number> {
+async function createProbe(page: Page, name: string, assignees: string[], firstDate = day(0)): Promise<number> {
 	const floors = await page.request.get(`${API}/floors/with-rooms`)
 	expect(floors.status()).toBe(200)
 	const kitchen = ((await floors.json()).data as Array<{ rooms: Array<{ id: number, name: string }> }>)
 		.flatMap((floor) => floor.rooms).find((room) => room.name === 'Kitchen')
 	expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
 	const response = await page.request.post(`${API}/room-tasks`, {
-		data: { roomId: kitchen!.id, assigneeUserIds: assignees, nextDue, task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
+		data: { roomId: kitchen!.id, assigneeUserIds: assignees, firstDate, task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
 	})
 	expect(response.status(), await response.text()).toBe(200)
 	return (await response.json()).data.roomTask.id as number
@@ -134,7 +134,7 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 		}
 	})
 
-	test('claim confirm: an owner takes over overdue work in one confirmation and the next occurrence stays with the assignee', async ({ browser, seededData }, testInfo) => {
+	test('claim confirm: an owner takes over overdue work in one confirmation and the next cycle stays with the assignee', async ({ browser, seededData }, testInfo) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await phone(browser, 'mom', testInfo)
 		try {
@@ -165,48 +165,41 @@ test.describe('@mobile core set (CS-PLAN-084 WP-G)', () => {
 		}
 	})
 
-	test('handover: a child completes the handed-over occurrence and the successor returns to the default owner', async ({ browser, seededData }, testInfo) => {
+	// ADR-021: there is no agreed handover of a single date any more. Anyone
+	// may record the work for someone else; the participation dialog asks who
+	// took part, and the next cycle stays with the assignees.
+	test('handover: a member records the work of someone else and the successor stays with the assignee', async ({ browser, seededData }, testInfo) => {
 		expect(seededData).not.toBeNull()
-		const owner = await phone(browser, 'mom', testInfo)
-		const child = await phone(browser, 'kid', testInfo)
+		const helper = await phone(browser, 'dad', testInfo)
 		try {
-			await openDailyLimit(owner.page, 'kid')
 			const name = `Mobile handover ${Date.now()}`
-			const roomTaskId = await createProbe(owner.page, name, ['mom'])
-			const handedOccurrence = (await listRow(owner.page, roomTaskId))?.occurrence?.occurrenceId
-			expect(handedOccurrence).toBeTruthy()
+			const roomTaskId = await createProbe(helper.page, name, ['mom'])
+			expect((await listRow(helper.page, roomTaskId))?.cycle).toMatchObject({ state: 'open', centreOn: day(0) })
 
-			await openHouseholdTasks(owner.page)
-			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
-			await row.getByRole('button', { name: 'Show details', exact: true }).tap()
-			const handover = row.getByTestId('agreement-handover')
-			await expectWithinViewport(owner.page, handover.getByTestId('agreement-handover-member'))
-			await handover.getByTestId('agreement-handover-member').selectOption('kid')
-			await row.getByTestId('agreement-consent').check()
-			const amended = owner.page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith(`/occurrences/${handedOccurrence}/amend`))
-			await handover.getByTestId('agreement-handover-submit').tap()
-			expect((await amended).status()).toBe(200)
-
-			await openMyDay(child.page)
-			const done = child.page.getByTestId(`today-complete-button-${roomTaskId}`)
-			const completed = child.page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
+			await openMyDay(helper.page)
+			// The task is mom's: it waits behind the shared view.
+			await helper.page.getByTestId('today-filter-all').click()
+			const done = helper.page.getByTestId(`today-complete-button-${roomTaskId}`)
+			await expect(done).toBeVisible({ timeout: 15000 })
+			// The one who records it names who took part: the dialog opens
+			// for work of someone else, and the confirm stays reachable.
+			const completed = helper.page.waitForResponse((response) => response.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
 			await holdToConfirm(done)
+			await expect(helper.page.getByTestId('participation-dialog')).toBeVisible()
+			await expectWithinViewport(helper.page, helper.page.getByTestId('participation-confirm'))
+			await helper.page.getByTestId('participation-confirm').tap()
 			expect((await completed).status()).toBe(200)
-			await expect(child.page.getByTestId('participation-dialog')).toHaveCount(0)
-			await expect(child.page.getByTestId(`undo-snackbar-entry-${roomTaskId}`)).toBeVisible()
+			await expect(helper.page.getByTestId(`undo-snackbar-entry-${roomTaskId}`)).toBeVisible()
 
-			const successor = await listRow(owner.page, roomTaskId)
+			const successor = await listRow(helper.page, roomTaskId)
 			expect(successor).toMatchObject({ assignees: ['mom'], wasClaimed: false })
-			// What the family sees of the successor: due tomorrow under the default
-			// owner, gone from the child's day. Its obligated members (the default
-			// owner only) are proven server-side by SuccessorOwnershipTest.
+			// What the family sees of the successor: planned tomorrow under the
+			// unchanged assignee, gone from today's open list.
+			expect(successor?.cycle).toMatchObject({ state: 'upcoming', centreOn: day(1) })
 			expect(successor?.nextDue?.slice(0, 10)).toBe(day(1))
-			await openMyDay(child.page)
-			await expect(child.page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(0)
-			await expectNoHorizontalOverflow(child.page)
+			await expectNoHorizontalOverflow(helper.page)
 		} finally {
-			await owner.context.close()
-			await child.context.close()
+			await helper.context.close()
 		}
 	})
 

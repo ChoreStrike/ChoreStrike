@@ -6,10 +6,12 @@
  * by CS-PLAN-055; re-pinned by CS-PLAN-064).
  *
  * The task-level skip/reschedule routes and the standalone deactivate route
- * were pruned in CS-PLAN-055 (no production consumer). This spec now pins
- * the surviving lifecycle surface:
- *  - due-date changes via `PUT /room-tasks/{id}/due-date` (the production
- *    path: RoomTaskEditModal persists due dates through it),
+ * were pruned in CS-PLAN-055 (no production consumer); the due-date and
+ * last-done routes and the occurrence agreement routes followed with the
+ * derived cycles (ADR-021, CS-PLAN-091). This spec now pins the surviving
+ * lifecycle surface:
+ *  - the retired routes answer 404 (nothing replaces them until the single
+ *    date form of a later work package),
  *  - the completion-undo aggregate the UI performs: ONE
  *    `POST /room-tasks/{id}/undo` (roomTasks store
  *    `undoRoomTaskCompletion`; the former split `uncomplete` + `reactivate`
@@ -29,12 +31,13 @@
 import type { Page } from '@playwright/test'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
-import { completeAsSoleParticipantViaApi, completeRoomTaskViaApi } from './fixtures/completion-api.ts'
+import { completeRoomTaskViaApi } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 
 interface RoomTaskJson {
 	id: number
 	nextDue: string | null
+	cycle: { cycleKey?: string } | null
 	isActive: boolean
 	lastCompleted?: string | null
 	assignees?: string[]
@@ -71,7 +74,7 @@ async function pickActiveRoomTask(page: Page): Promise<RoomTaskJson | null> {
 			continue
 		}
 		const tasks = ((await response.json()).data || []) as RoomTaskJson[]
-		const found = tasks.find((rt) => rt.isActive && rt.nextDue && ((rt.assignees ?? []).length === 0 || rt.assignees!.includes('mom')))
+		const found = tasks.find((rt) => rt.isActive && rt.nextDue && rt.cycle && ((rt.assignees ?? []).length === 0 || rt.assignees!.includes('mom')))
 		if (found) {
 			return found
 		}
@@ -89,26 +92,28 @@ function offsetDate(offsetDays: number): string {
 test.describe('Release: Task Lifecycle', () => {
 	test.use({ databaseProfile: 'family' })
 
-	test('updating the due date persists the requested day', async ({ browser, seededData }) => {
+	test('the retired date, last-done and occurrence routes answer 404', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const target = await pickActiveRoomTask(page)
-			expect(target, 'family seed must provide an active occurrence').not.toBeNull()
+			expect(target, 'family seed must provide an active cycle').not.toBeNull()
+			const headers = { Accept: 'application/json' }
+			const base = '/apps/chorestrike/api/v1'
 
-			const requested = offsetDate(5)
+			// ADR-021: a date moves through a later date form, never through
+			// these routes; the stored timeline they amended is gone.
+			expect((await page.request.put(`${base}/room-tasks/${target.id}/due-date`, { data: { nextDue: offsetDate(5) }, headers })).status()).toBe(404)
+			expect((await page.request.put(`${base}/room-tasks/${target.id}/last-done`, { data: { lastDone: offsetDate(-1) }, headers })).status()).toBe(404)
+			for (const action of ['amend', 'catch-up', 'restart']) {
+				expect((await page.request.post(`${base}/occurrences/1:1/${action}`, { data: {}, headers })).status(), action).toBe(404)
+			}
 
-			const response = await page.request.put(
-				`/apps/chorestrike/api/v1/room-tasks/${target.id}/due-date`,
-				{ data: { nextDue: requested }, headers: { Accept: 'application/json' } },
-			)
-
-			expect(response.status()).toBe(200)
-			const body = await response.json()
-			expect(body.success).toBe(true)
-			// The serialized nextDue is ISO-8601; its calendar day matches.
-			expect(String(body.data.nextDue).slice(0, 10)).toBe(requested)
+			// None of them moved the task: it still shows its one current cycle.
+			const rows = await (await page.request.get(`${base}/room-tasks`)).json()
+			const row = (rows.data as Array<{ id: number, nextDue: string | null }>).find((entry) => entry.id === target.id)
+			expect(row?.nextDue).toBe(target.nextDue)
 		} finally {
 			await context.close()
 		}
@@ -120,19 +125,12 @@ test.describe('Release: Task Lifecycle', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const target = await pickActiveRoomTask(page)
-			expect(target, 'family seed must provide an active occurrence').not.toBeNull()
+			expect(target, 'family seed must provide an active cycle').not.toBeNull()
 
-			// WP3 (Q-074-02): when the server proposal names someone else
-			// (or several people), the completion must carry the explicit
-			// split naming the actor; mom's own rows stay participant-less.
-			const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
-			const participants = ((rows.data ?? []) as Array<{ id: number, proposal: { participants: Array<{ userId: string }> } | null }>)
-				.find((row) => row.id === target.id)?.proposal?.participants ?? []
-			const needsSplit = participants.length > 1
-				|| (participants.length === 1 && participants[0].userId !== 'mom')
-			const completeResponse = needsSplit
-				? await completeAsSoleParticipantViaApi(page, target.id, 'mom')
-				: await completeRoomTaskViaApi(page, target.id)
+			// When the row's assignees are several people or someone else, the
+			// helper sends the explicit split naming the actor; mom's own and
+			// unassigned rows stay participant-less.
+			const completeResponse = await completeRoomTaskViaApi(page, target.id)
 			expect(completeResponse.status()).toBe(200)
 			const completed = (await completeResponse.json()).data
 			expect(completed.roomTask).toBeTruthy()
@@ -156,7 +154,8 @@ test.describe('Release: Task Lifecycle', () => {
 			expect(undone.undone).toBe(true)
 			expect(undone.roomTask.lastCompleted).toBeNull()
 			expect(undone.roomTask.isActive).toBe(target.isActive)
-			// Exact recurrence inverse: the pre-completion nextDue is back.
+			// Exact inverse: the same cycle is current again, so the projected
+			// nextDue is back.
 			expect(undone.roomTask.nextDue).toBe(target.nextDue)
 
 			// Same command replay: the idempotent receipt hit returns the

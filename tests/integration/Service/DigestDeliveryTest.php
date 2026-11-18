@@ -293,20 +293,22 @@ class DigestDeliveryTest extends IntegrationTestCase {
 		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
 	}
 
-	public function testDispatch_CurrentTaskVisibility_DropsBothTaskAndAgreementContent(): void {
+	public function testDispatch_CurrentTaskVisibility_DropsBothTaskAndTakeoverContent(): void {
 		$this->seedPref();
 		$floorId = $this->createFloor($this->houseId);
 		$roomId = $this->createRoom($this->houseId, $floorId);
 		$taskId = $this->createTask($this->houseId, 'Private work');
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'dgd-member', '2026-09-29');
-		$occurrences = \OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMapper::class)->findByRoomTask($roomTaskId);
-		$occurrence = array_values(array_filter($occurrences, static fn ($row): bool => $row->getPlannedDate()->format('Y-m-d') === '2026-09-29'))[0];
+		// A second room of the same definition carries a takeover of the
+		// member's work; the first one is the member's task planned today.
+		$otherRoomTaskId = $this->assignTaskToRoom($taskId, $this->createRoom($this->houseId, $floorId, 'Other room'), 'dgd-member', '2026-09-20');
+		$completionId = $this->insertCompletionRow($otherRoomTaskId, null, '2026-09-28 10:00:00');
 		$change = new DigestChange();
 		$change->setHouseId($this->houseId);
 		$change->setHouseUserId($this->memberId);
-		$change->setObjectType('agreement');
-		$change->setObjectId((string)$occurrence->getId());
-		$change->setObjectRevision($occurrence->getVersion());
+		$change->setObjectType('takeover');
+		$change->setObjectId((string)$completionId);
+		$change->setObjectRevision(0);
 		$change->setChangeTime(new \DateTime('2026-09-29 10:00:00 UTC'));
 		$change->setTargetSlot('2026-09-29');
 		$change->setCreatedAt(new \DateTime('2026-09-29 10:00:00 UTC'));
@@ -321,7 +323,7 @@ class DigestDeliveryTest extends IntegrationTestCase {
 		$this->scheduleService->materializeSlotsForHouse($this->houseId, new \DateTime('2026-09-29 17:00:00 UTC'));
 		$slot = $this->slotMapper->findByHouseUserAndDay($this->houseId, $this->memberId, '2026-09-29');
 		$outcome = (new \ReflectionMethod($this->digestService, 'dispatchSlot'))->invoke($this->digestService, $slot, new \DateTime('2026-09-29 18:05:00 UTC'));
-		self::assertSame('skipped', $outcome, 'the current policy excludes both counts even though old occurrence/queue rows remain');
+		self::assertSame('skipped', $outcome, 'the current policy excludes both counts even though the task and the queue row remain');
 		self::assertNull($this->slotMapper->findById((int)$slot->getId())->getDispatchedAt());
 	}
 }

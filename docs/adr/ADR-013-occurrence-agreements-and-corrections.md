@@ -1,8 +1,16 @@
 # ADR-013: Occurrence Agreements and Corrections (Durable Recurrence Timeline)
 
-**Status**: Accepted
+**Status**: Superseded by [ADR-021](ADR-021-derived-due-windows.md) (2026-11-16), except the pause part, which [ADR-020](ADR-020-absences-without-requests.md) amended
 **Date**: 2026-09-20
 **Deciders**: ChoreStrike maintainers (ratified in CS-PLAN-070 / CS-PLAN-072 WP1)
+
+> **Superseded by [ADR-021](ADR-021-derived-due-windows.md) (2026-11-16, CS-PLAN-091):**
+> windows are derived on read from the last completion or the fixed rule; no
+> future occurrence is stored, agreements, catch-up and restart are gone, and
+> closed cycles live in `chorestrike_cycles`. The stored occurrence, agreement,
+> schedule-revision and checklist-progress rows stay as read-only history, and
+> the recognitions read them for every window that ended before the house's
+> `cycles_from` day. The body below is the record of that history.
 
 > **WP2 extension (2026-09-23, CS-PLAN-073):** the agreement surface grew the
 > command-level coordinator `AgreementService` (`occurrence.amend|catch-up|restart`

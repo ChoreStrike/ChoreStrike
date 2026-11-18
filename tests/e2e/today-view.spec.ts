@@ -125,7 +125,7 @@ test.describe('Release: Today view', () => {
 			await page.getByTestId('today-filter-all').click()
 
 			// Dishes is mom's own row (direct completion); counters belongs
-			// to teen — WP3 §3.6: the foreign-agreement proposal opens the
+			// to teen — WP3 §3.6: a task of someone else opens the
 			// participation dialog, confirming it posts the explicit split.
 			await holdToConfirm(page.getByTestId(`today-complete-button-${dishesId}`))
 			const countersResponse = await completeWithOptionalDialog(
@@ -169,7 +169,7 @@ test.describe('Release: Today view', () => {
 
 			await expect(page.getByTestId('undo-snackbar')).toHaveCount(0)
 
-			// Both occurrences are restored — after a reload the view keeps
+			// Both cycles are restored — after a reload the view keeps
 			// its #/today route, and both rows are due today again (server
 			// truth, no stale caches).
 			await page.reload()

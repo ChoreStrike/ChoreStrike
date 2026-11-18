@@ -41,6 +41,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setUnlockedTitles(array $unlockedTitles)
  * @method int|null getWalletId()
  * @method void setWalletId(?int $walletId)
+ * @method int|null getStreakBase()
+ * @method void setStreakBase(?int $streakBase)
+ * @method int|null getLongestStreakBase()
+ * @method void setLongestStreakBase(?int $longestStreakBase)
  */
 class HouseUser extends Entity implements JsonSerializable {
 	/** @var int */
@@ -110,6 +114,19 @@ class HouseUser extends Entity implements JsonSerializable {
 	 */
 	protected $walletId = null;
 
+	/**
+	 * The current and longest streak the member held at the cutover to
+	 * derived windows (ADR-021 decision 12, D-091-04): the rhythm
+	 * continues from them and never evaluates an earlier week again.
+	 * NULL for a member who joined afterwards.
+	 *
+	 * @var int|null
+	 */
+	protected $streakBase;
+
+	/** @var int|null */
+	protected $longestStreakBase;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('houseId', 'integer');
@@ -125,6 +142,8 @@ class HouseUser extends Entity implements JsonSerializable {
 		$this->addType('schedulingPreferences', 'json');
 		$this->addType('unlockedTitles', 'json');
 		$this->addType('walletId', 'integer');
+		$this->addType('streakBase', 'integer');
+		$this->addType('longestStreakBase', 'integer');
 	}
 
 	/**

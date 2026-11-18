@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Service\PreferenceService;
 use OCA\ChoreStrike\Service\RankingService;
+use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\App\IAppManager;
 use OCP\IDBConnection;
@@ -22,8 +23,11 @@ use OCP\IUserSession;
 // Executable fixture of the P4 app-upgrade proof (CS-PLAN-090 WP-F). It is
 // copied next to the app, not into it, because `seed` runs on the installed
 // source build (`0.8.0-alpha.4`) and `verify`/`postcheck` on the candidate.
-// So it names app classes only where both builds have them, and compares
-// stored rows through the database layer. Owned cs082 P4 targets only.
+// So `seed` and `verify` name app classes only where both builds have them
+// and compare stored rows through the database layer; only `postcheck`
+// calls services the candidate alone has. The checks of the cutover to
+// derived due windows live in `upgrade-cycles.php` next to this file.
+// Owned cs082 P4 targets only.
 $ownedTarget = is_file('/evidence/owned') ? trim((string)file_get_contents('/evidence/owned')) : '';
 $isOwnedTarget = require __DIR__ . '/owned-target.php';
 if (PHP_SAPI !== 'cli' || getenv('CS_RECOVERY_REHEARSAL') !== 'true' || getenv('NEXTCLOUD_TEST_MODE') !== 'true'
@@ -41,9 +45,20 @@ set_error_handler(static function (int $severity, string $message, string $file,
 	throw new ErrorException($message, 0, $severity, $file, $line);
 });
 
+require __DIR__ . '/upgrade-cycles.php';
+
 const PREFS = 'chorestrike_member_prefs';
 const BEFORE = '/evidence/upgrade-before.json';
 const FIXTURE = '/evidence/upgrade-fixture.json';
+// What the update adds for derived due windows (CS-PLAN-091 WP-B1).
+const NEW_TABLES = ['chorestrike_cycle_progress', 'chorestrike_cycles'];
+const NEW_COLUMNS = [
+	'chorestrike_houses' => ['cycles_from'],
+	'chorestrike_house_users' => ['streak_base', 'longest_streak_base'],
+	'chorestrike_room_tasks' => ['anchor_on', 'cycle_key', 'postpone_count', 'postpone_days', 'cycle_version', 'sleeping_since', 'wake_on'],
+	'chorestrike_tasks' => ['fixed_month_day'],
+	'chorestrike_completed_tasks' => ['cycle_key', 'window_start_on', 'window_end_on'],
+];
 
 function check(bool $condition, string $message): void {
 	if (!$condition) {
@@ -128,12 +143,24 @@ function seedPauses(int $houseId): void {
 	check($cancelled === 2, 'The departure rule must cancel both pending rows in place');
 }
 
-/** @return array<string, list<array<string, mixed>>> Every app table and the app config, rows in a stable order. */
+/** @param list<array<string, mixed>> $rows */
+function inStableOrder(array $rows): array {
+	usort($rows, static fn (array $a, array $b): int => strcmp(json_encode($a, JSON_THROW_ON_ERROR), json_encode($b, JSON_THROW_ON_ERROR)));
+	return $rows;
+}
+
+/** The day of a stored date; SQLite may keep a midnight suffix. */
+function day(mixed $value): ?string {
+	return $value === null ? null : substr((string)$value, 0, 10);
+}
+
+/**
+ * @return array<string, list<array<string, mixed>>> Every app table of the running build and the app config, rows in a stable order.
+ */
 function snapshot(): array {
 	$db = \OC::$server->get(IDBConnection::class);
 	$tables = (new ReflectionClass(TestDataService::class))->getConstant('RESET_TABLES');
 	sort($tables);
-	check(count($tables) === 30, 'Expected the 30 app tables');
 	$result = [];
 	foreach ($tables as $table) {
 		$qb = $db->getQueryBuilder();
@@ -145,18 +172,36 @@ function snapshot(): array {
 		->where($qb->expr()->eq('appid', $qb->createNamedParameter('chorestrike')))
 		->andWhere($qb->expr()->neq('configkey', $qb->createNamedParameter('installed_version')))
 		->executeQuery()->fetchAll();
-	foreach ($result as &$rows) {
-		usort($rows, static fn (array $a, array $b): int => strcmp(json_encode($a, JSON_THROW_ON_ERROR), json_encode($b, JSON_THROW_ON_ERROR)));
-	}
 	// One representation for the stored and the fresh snapshot.
-	return json_decode(json_encode($result, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+	return json_decode(json_encode(array_map(inStableOrder(...), $result), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+}
+
+/**
+ * Room tasks on the rules the family seed lacks, created through the
+ * source build's own creation service: a fixed weekly rule, a fixed
+ * monthly rule and a one-time task. The cutover anchors a fixed rule on
+ * its revision and gives the monthly definition its day.
+ */
+function seedRules(int $houseId, int $roomId): void {
+	$mom = member($houseId, 'mom');
+	foreach ([
+		['name' => 'Upgrade proof: fixed weekly', 'frequencyType' => 'weekly', 'schedulingMode' => 'static'],
+		['name' => 'Upgrade proof: fixed monthly', 'frequencyType' => 'monthly', 'schedulingMode' => 'static'],
+		['name' => 'Upgrade proof: one-time', 'recurrenceMode' => 'once'],
+	] as $definition) {
+		\OC::$server->get(TaskCreationService::class)->create($houseId, $mom,
+			['task' => $definition, 'roomId' => $roomId, 'assigneeUserIds' => ['mom'], 'nextDue' => gmdate('Y-m-d', strtotime('2 days'))]);
+	}
 }
 
 function seed(): string {
-	$houseId = (int)\OC::$server->get(TestDataService::class)->seedFamily(true)['data']['house']['id'];
+	$family = \OC::$server->get(TestDataService::class)->seedFamily(true)['data'];
+	$houseId = (int)$family['house']['id'];
+	seedRules($houseId, (int)$family['rooms'][0]['id']);
 	seedPreferences($houseId);
 	seedPauses($houseId);
 	$before = snapshot();
+	check(count($before) === 31, 'Expected the 30 app tables of the source build and the app config');
 	check(count($before[PREFS]) === 4, 'Expected four preference rows');
 	$states = array_count_values(array_column($before['chorestrike_pauses'], 'state'));
 	check(($states['cancelled'] ?? 0) === 2 && isset($states['acknowledged'], $states['rejected'], $states['requested']),
@@ -171,18 +216,30 @@ function seed(): string {
 }
 
 /**
- * The one expected data change (D-090-16, D-090-20): the animation is on
- * in every preference row and each version is one higher. Sound, every
- * other column, every other table and the app config are identical, and
- * no preference row appeared for a member who had none.
+ * The expected changes and nothing else. The animation is on in every
+ * preference row and each version is one higher (D-090-16, D-090-20).
+ * The update adds the two empty cycle tables and the cutover columns
+ * (CS-PLAN-091 WP-B1), whose values `verifyCutover` checks. Every column
+ * the source build had, every other table and the app config are
+ * identical, and no preference row appeared for a member who had none.
  */
 function verify(): string {
 	$before = json_decode((string)file_get_contents(BEFORE), true, 512, JSON_THROW_ON_ERROR);
 	$after = snapshot();
-	check(array_keys($before) === array_keys($after), 'The set of compared tables changed');
-	foreach ($before as $table => $rows) {
-		check($table === PREFS || $rows === $after[$table], 'Stored rows changed in ' . $table);
+	check(array_values(array_diff(array_keys($after), array_keys($before))) === NEW_TABLES
+		&& array_diff(array_keys($before), array_keys($after)) === [], 'The update must add the two cycle tables and no other');
+	foreach (NEW_TABLES as $table) {
+		check($after[$table] === [], 'The update wrote rows into ' . $table);
 	}
+	foreach ($before as $table => $rows) {
+		$added = array_flip(NEW_COLUMNS[$table] ?? []);
+		foreach ($after[$table] as $row) {
+			check(count(array_intersect_key($row, $added)) === count($added), 'A cutover column is missing in ' . $table);
+		}
+		$kept = inStableOrder(array_map(static fn (array $row): array => array_diff_key($row, $added), $after[$table]));
+		check($table === PREFS || $rows === $kept, 'Stored rows changed in ' . $table);
+	}
+	$cutover = verifyCutover($before, $after);
 	$old = array_column($before[PREFS], null, 'id');
 	$new = array_column($after[PREFS], null, 'id');
 	ksort($old);
@@ -198,12 +255,14 @@ function verify(): string {
 	}
 	check($switched === 3, 'The populated source must hold three rows with the animation off');
 	return count($old) . ' preference rows on (' . $switched . ' switched), versions +1; '
-		. (count($before) - 1) . ' other row sets identical, ' . count($before['chorestrike_pauses']) . ' pause rows among them';
+		. (count($before) - 1) . ' other row sets identical in every stored column, ' . count($before['chorestrike_pauses'])
+		. ' pause rows among them; two empty cycle tables added; ' . $cutover;
 }
 
 /** Reads and writes through the candidate's services on the upgraded copy. */
 function postcheck(): string {
 	$houseId = (int)json_decode((string)file_get_contents(FIXTURE), true, 512, JSON_THROW_ON_ERROR)['houseId'];
+	$cycles = postcheckCycles($houseId);
 	$preferences = \OC::$server->get(PreferenceService::class);
 
 	// A member without a row gets the default, and switching it off as a
@@ -227,7 +286,7 @@ function postcheck(): string {
 	check($current['animationEnabled'] === true && $current['version'] === 2, 'The migrated row is not on at version 2');
 	$again = save($houseId, 'mom', 2, ['animationEnabled' => false]);
 	check($again['animationEnabled'] === false && $again['version'] === 3, 'Switching the animation off after the update did not hold');
-	return 'default on without a row; off as a first save and after the update holds; pre-update version conflicts';
+	return 'default on without a row; off as a first save and after the update holds; pre-update version conflicts; ' . $cycles;
 }
 
 $mode = $argv[1] ?? '';

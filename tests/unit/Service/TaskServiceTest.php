@@ -61,7 +61,7 @@ class TaskServiceTest extends TestCase {
 			$this->authorization,
 			$this->taskAccessPolicy,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
-			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$this->createMock(\OCA\ChoreStrike\Service\CycleService::class),
 			new \OCA\ChoreStrike\Service\CalendarService(),
 			$taskCategories,
 		);

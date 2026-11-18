@@ -49,7 +49,7 @@ class HouseService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private WalletService $walletService;
 	private RewardConfigService $rewardConfigService;
-	private OccurrenceService $occurrenceService;
+	private CycleService $cycleService;
 	private PauseService $pauseService;
 	private RoomReplayService $roomReplayService;
 	private CommandService $commandService;
@@ -79,7 +79,7 @@ class HouseService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		WalletService $walletService,
 		RewardConfigService $rewardConfigService,
-		OccurrenceService $occurrenceService,
+		CycleService $cycleService,
 		PauseService $pauseService,
 		RoomReplayService $roomReplayService,
 		CommandService $commandService,
@@ -108,7 +108,7 @@ class HouseService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->walletService = $walletService;
 		$this->rewardConfigService = $rewardConfigService;
-		$this->occurrenceService = $occurrenceService;
+		$this->cycleService = $cycleService;
 		$this->pauseService = $pauseService;
 		$this->roomReplayService = $roomReplayService;
 		$this->commandService = $commandService;
@@ -523,11 +523,10 @@ class HouseService {
 				if ($house->getTimezone() !== $timezone) {
 					$house->setTimezone($timezone);
 					$house->bumpTimezoneVersion();
-					// CS-PLAN-072 WP1 (C5k): the zone change propagates to
-					// every schedule of the house INSIDE the same house-first
-					// transaction — saved occurrences keep their zone and
-					// deadlines; only new agreements resolve in the new zone.
-					$this->occurrenceService->reviseForZoneChangeUnderLock($houseId, $timezone, new \DateTime());
+					// C5k: open windows are derived in the house zone, so they
+					// follow the change at once; closed cycles and completions
+					// keep the zone and days frozen on them (ADR-021).
+					$this->cycleService->reprojectHouseUnderLock($houseId, new \DateTimeZone($timezone), new \DateTime());
 					// CS-PLAN-070 WP5 (C5k): pending digest slots re-resolve
 					// in the new zone under the 24-elapsed-hour spacing rule.
 					$this->digestScheduleService->reviseForZoneChangeUnderLock($houseId, $timezone, new \DateTime());

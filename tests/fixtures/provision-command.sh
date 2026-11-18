@@ -13,6 +13,10 @@ case "${0##*/}" in
         if [[ "$*" == *'empty($status["needsDbUpgrade"])'* ]]; then [[ "$PROVISION_SCENARIO" == app-upgrade* ]]; exit $?; fi ;;
     su)
         case "$*" in
+            # RF-091-01: the app's pending migration steps, applied without a version bump.
+            *MigrationService*)
+                if [ "$PROVISION_SCENARIO" = app-steps-failure ]; then echo APP_STEPS_FAILED; exit 1; fi
+                echo APP_STEPS_APPLIED ;;
             *maintenance:install*) echo INSTALL_FAILED; exit 1 ;;
             *'occ status'*)
                 if [ "$PROVISION_SCENARIO" = install-failure ] || [ "$PROVISION_SCENARIO" = preserve-uninstalled ]; then exit 1; fi

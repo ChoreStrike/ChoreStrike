@@ -77,7 +77,7 @@ export async function createRoomTask(page: Page, roomId: number, label: string, 
 		return response.status
 	}, {
 		roomId,
-		...(dueToday ? { nextDue: new Date().toISOString().slice(0, 10) } : {}),
+		...(dueToday ? { firstDate: new Date().toISOString().slice(0, 10) } : {}),
 		task: { name, energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, ...(once ? { recurrenceMode: 'once' } : {}) },
 	})
 	expect(status).toBe(200)

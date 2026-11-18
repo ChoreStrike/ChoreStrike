@@ -139,7 +139,7 @@ BUG-UX-005 covers the in-window case and ships on its own.
 ---
 
 ### [P1] FEAT-UX-068 — Derived due windows replace stored appointments
-**Status**: In Progress (CS-PLAN-091 WP-B1, active 2026-11-16) · **Effort**: XL · **Layer**: backend+frontend · **Journey stage**: daily execution
+**Status**: In Progress (CS-PLAN-091 WP-B1, interim Full review `PASS-WITH-FIXES` 2026-11-18) · **Effort**: XL · **Layer**: backend+frontend · **Journey stage**: daily execution
 **Owning**: CS-PLAN-091 WP-B1 · **Depends on**: — · **Blocks**: FEAT-UX-041, FEAT-UX-050, FEAT-UX-052, FEAT-UX-059 · **Folded-in**: overdue as one red entry per task, the catch-up entries go (CONCEPT-002, 2026-11-09)
 **Source**: Operator decisions of 2026-11-09 and 2026-11-10 (CONCEPT-002)
 
@@ -150,10 +150,11 @@ stay history; the recognitions classify work at completion (D-091-02), treat abs
 neutral (D-091-03) and keep what was earned before the update (D-091-04). Detail:
 [simplified core](../concepts/simplified-core.md#due-windows).
 
-- [ ] ADR-021 superseding ADR-013 (except its pause part) before code.
-- [ ] Window core, closed-cycle history, the cutover and the new schema steps with
-      populated-upgrade tests on all providers.
-- [ ] Tests per CS-PLAN-091 §4 (WP-B1).
+- [x] ADR-021 superseding ADR-013 (except its pause part) before code.
+- [x] Window core, closed-cycle history, the cutover and the new schema steps with
+      populated-upgrade tests on all providers (interim Full review 2026-11-18; the cutover
+      starts on the update day, D-091-41).
+- [x] Tests per CS-PLAN-091 §4 (WP-B1), proof P4 on both runtime rows included.
 
 ---
 
@@ -316,18 +317,38 @@ security change.
 
 ### [P3] CR-SVC-66 — Pause coverage regroups the whole pause history per occurrence
 **Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: —
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: the same cost per window day of the recognitions (review of CS-PLAN-091 WP-B1, 2026-11-18)
 **Source**: Review of CS-PLAN-090 (final Full review, 2026-11-15)
 
-`PauseProjectionService::stampSuspension()` calls `excusedWalletsOn()` once per occurrence,
+`PauseProjectionService::stampSuspension()` called `excusedWalletsOn()` once per occurrence,
 and each call runs `governingRevisionsOn()` over the house's whole pause history: it groups
 and sorts the revisions again and computes each boundary key with new time-zone objects.
-A selection read therefore costs occurrences × lifetime revisions. Since ADR-020 every
+A selection read therefore costs occurrences × lifetime revisions. **Folded-in (review of
+CS-PLAN-091 WP-B1, 2026-11-18):** on `feat/simplified-core-bc` the stamping went with the
+occurrences, and `walletsAbsentThroughout()` runs the same regrouping once per window day of
+every recognition fact. Since ADR-020 every
 deleted absence adds a `cancelled` revision that keeps governing, so the history only grows.
 Older than CS-PLAN-090; the household has a small history today.
 
 - [ ] The revisions are grouped and their boundary keys computed once per read, then shared by every date.
 - [ ] Projection results unchanged; a query/CPU budget test with a long history.
+
+---
+
+### [P3] BUG-SEC-003 — Erasing an already-departed account leaves its links in stored appointments
+**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: —
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-091 WP-0 and WP-B1 (interim Full review, 2026-11-18)
+
+`AccountErasureService::eraseAccount()` removes an erased member's wallet links from stored
+appointments (`occMemberMapper->deleteByWalletId()`, the anonymized rule-default and agreement
+snapshots) only in its membership loop. The final sweep for an account that had already left
+every house deletes the wallet but leaves those rows naming the deleted wallet id. Older than
+CS-PLAN-091; the review fixed the same gap for the new cycle tables and the sub-task ticks.
+
+- [ ] The orphan-wallet sweep removes or anonymizes the wallet in `occ_members`, the
+  rule-default and the agreement snapshots, as the membership loop does.
+- [ ] `AccountErasureTest` covers a departed account with stored appointments.
 
 ---
 
@@ -1103,6 +1124,27 @@ candidates.
 
 - [ ] The spec reports the probe's stdout and stderr when its exit status is not 0.
 - [ ] The next occurrence is attributed and its cause fixed.
+
+---
+
+### [P3] TECH-TEST-015 — Controller integration tests leave the instance house behind
+**Status**: Backlog · **Effort**: S · **Layer**: infra · **Journey stage**: testing
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-091 WP-B1 implementation, 2026-11-18
+
+A controller test whose fixture house does not carry the instance id makes the controller
+create the instance house (`HouseService::getOrCreateHouse()`, default name *My House*)
+and nothing removes it: 19 integration classes leave one house row behind when run alone
+(for example `ArcadeSettingsControllerIntegrationTest`, `ChecklistApiTest`,
+`TaskAuthorizationTest`, `RoleGuardApiTest`, `SupportedDatabaseSchemaTest`,
+`TaskCreationAggregateTest`). A full run ends clean only because a later test resets the
+tables. The row has the lowest id, so every job-shaped pass that takes the one household
+of the instance (`HouseMapper::findOneForJobs()`) silently works on it instead of the
+fixture house; the cycle job tests therefore call the per-house pass (D-091-37).
+
+- [ ] Fixture houses of controller tests carry the instance id the controller resolves, or
+  the base test case removes an instance house a test created.
+- [ ] `FixtureCleanupTest` proves that a controller test leaves no house row.
 
 ---
 

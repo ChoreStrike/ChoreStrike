@@ -8,13 +8,13 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\ChecklistService;
+use OCA\ChoreStrike\Service\CurrentCycle;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -215,26 +215,25 @@ class ChecklistController extends Controller {
 	}
 
 	/**
-	 * Get checklist progress for one occurrence of a room task
-	 * (CS-PLAN-072 WP1). `occurrenceId` is the public
-	 * `<scheduleRevisionId>:<ordinal>` key; without it the canonical
-	 * selection target is used. The response carries each row's
-	 * occurrence identity and progress revision plus the resolved target.
+	 * Get the sub-task ticks of the current cycle of a room task
+	 * (ADR-021 decision 3). `cycleKey` is the cycle the client shows;
+	 * without it the current cycle is used. The response carries each
+	 * row's cycle key and progress revision plus the resolved cycle.
 	 *
 	 * @NoAdminRequired
 	 */
 	public function getRoomTaskProgress(int $roomTaskId): JSONResponse {
 		try {
 			$houseUser = $this->requireViewer();
-			$occurrenceKey = $this->request->getParam('occurrenceId');
-			$validationError = $this->validateOccurrenceKey($occurrenceKey);
+			$cycleKey = $this->request->getParam('cycleKey');
+			$validationError = $this->validateCycleKey($cycleKey);
 			if ($validationError !== null) {
 				return $validationError;
 			}
 
 			$result = $this->checklistService->getRoomTaskProgress(
 				$roomTaskId,
-				is_string($occurrenceKey) && $occurrenceKey !== '' ? $occurrenceKey : null,
+				is_string($cycleKey) && $cycleKey !== '' ? $cycleKey : null,
 				$this->houseId,
 				$houseUser
 			);
@@ -244,7 +243,7 @@ class ChecklistController extends Controller {
 				'data' => [
 					'items' => array_map(fn ($p) => $p->jsonSerialize(), $result['items']),
 					'stats' => $result['stats'],
-					'occurrence' => $result['occurrence']
+					'cycle' => $result['cycle']
 				]
 			]);
 		} catch (NotFoundException $e) {
@@ -258,19 +257,19 @@ class ChecklistController extends Controller {
 	}
 
 	/**
-	 * Toggle a checklist item of one occurrence of a room task
-	 * (CS-PLAN-072 WP1): `occurrenceId` targets the occurrence (default:
-	 * canonical selection), `expectedRevision` is the stale-mutation
-	 * guard — a moved-on progress state answers 409 instead of leaking
-	 * into the occurrence's checklist.
+	 * Toggle a sub-task of the current cycle of a room task (ADR-021
+	 * decision 3): `cycleKey` names the cycle the client shows (default:
+	 * the current one), `expectedRevision` is the stale-mutation guard —
+	 * a cycle or progress state that moved on answers 409 `STALE_TARGET`
+	 * instead of leaking into a later cycle.
 	 *
 	 * @NoAdminRequired
 	 */
 	public function toggleItem(int $roomTaskId, int $itemId): JSONResponse {
 		try {
 			$houseUser = $this->requireViewer();
-			$occurrenceKey = $this->request->getParam('occurrenceId');
-			$validationError = $this->validateOccurrenceKey($occurrenceKey);
+			$cycleKey = $this->request->getParam('cycleKey');
+			$validationError = $this->validateCycleKey($cycleKey);
 			if ($validationError !== null) {
 				return $validationError;
 			}
@@ -283,7 +282,7 @@ class ChecklistController extends Controller {
 
 			$result = $this->checklistService->toggleItem(
 				$roomTaskId,
-				is_string($occurrenceKey) && $occurrenceKey !== '' ? $occurrenceKey : null,
+				is_string($cycleKey) && $cycleKey !== '' ? $cycleKey : null,
 				$itemId,
 				$expectedRevision !== null ? (int)$expectedRevision : null,
 				$this->houseId,
@@ -295,7 +294,7 @@ class ChecklistController extends Controller {
 				'data' => [
 					'progress' => $result['progress']->jsonSerialize(),
 					'stats' => $result['stats'],
-					'occurrence' => $result['occurrence']
+					'cycle' => $result['cycle']
 				]
 			]);
 		} catch (NotFoundException $e) {
@@ -311,21 +310,16 @@ class ChecklistController extends Controller {
 	}
 
 	/**
-	 * Validate a supplied occurrence key at the controller boundary
-	 * (RF-072-WP1-13): a malformed public key is a clean 400, never an
-	 * exception escaping into the generic 500 handler — the completion
-	 * route applies the same contract.
+	 * Validate a supplied cycle key at the controller boundary
+	 * (RF-072-WP1-13): a malformed key is a clean 400, never an exception
+	 * escaping into the generic 500 handler — the completion route applies
+	 * the same contract.
 	 */
-	private function validateOccurrenceKey(mixed $occurrenceKey): ?JSONResponse {
-		if (!is_string($occurrenceKey) || $occurrenceKey === '') {
+	private function validateCycleKey(mixed $cycleKey): ?JSONResponse {
+		if ($cycleKey === null || $cycleKey === '' || CurrentCycle::isKey($cycleKey)) {
 			return null;
 		}
-		try {
-			Occurrence::parsePublicKey($occurrenceKey);
-		} catch (\InvalidArgumentException $e) {
-			return ControllerErrorFormatter::validation($e);
-		}
-		return null;
+		return ControllerErrorFormatter::validation(new \InvalidArgumentException($this->l->t('Invalid cycle key')));
 	}
 
 	/**

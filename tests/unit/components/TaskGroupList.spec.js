@@ -24,7 +24,7 @@ jest.mock('../../../src/store/house.js', () => ({
 jest.mock('../../../src/components/Tasks/TaskList.vue', () => ({
 	name: 'TaskList',
 	props: ['roomTasks', 'compact'],
-	emits: ['complete', 'edit', 'editDate', 'delete'],
+	emits: ['complete', 'edit', 'delete'],
 	template: '<div class="task-list-stub" />',
 }))
 
@@ -97,11 +97,9 @@ describe('TaskGroupList (CS-PLAN-090 WP-C)', () => {
 		const claim = { participants: [{ userId: 'mom', sharePct: 100 }] }
 		list.vm.$emit('complete', 1, claim)
 		list.vm.$emit('edit', { id: 1 })
-		list.vm.$emit('editDate', { id: 1 })
 		list.vm.$emit('delete', 1)
 		expect(wrapper.emitted('complete')).toEqual([[1, claim]])
 		expect(wrapper.emitted('edit')).toEqual([[{ id: 1 }]])
-		expect(wrapper.emitted('editDate')).toEqual([[{ id: 1 }]])
 		expect(wrapper.emitted('delete')).toEqual([[1]])
 	})
 

@@ -79,7 +79,6 @@
 				:sectionLabel="dueSectionLabel"
 				@complete="handleCompleteTask"
 				@edit="handleEditTask"
-				@editDate="dateTask = $event"
 				@delete="handleDeleteTask" />
 			<TaskGroupList
 				v-else
@@ -90,7 +89,6 @@
 				@add="addTask = { room: $event }"
 				@complete="handleCompleteTask"
 				@edit="handleEditTask"
-				@editDate="dateTask = $event"
 				@delete="handleDeleteTask" />
 
 			<TaskPager v-if="group === 'due' && pageCount > 1"
@@ -104,18 +102,6 @@
 			:room="addTask.room"
 			:prefill="newTaskPrefill"
 			@close="addTask = null" />
-
-		<!-- Due date and "Last done" of one row (D-090-12). -->
-		<Modal v-if="dateTask"
-			persistent
-			:aria-label="t('chorestrike', 'Edit Task')"
-			@close="dateTask = null">
-			<RoomTaskEditModal
-				:roomTask="dateTask"
-				:task="tasksStore.getTaskById(dateTask.taskId) || null"
-				@saved="handleDateSaved"
-				@cancel="dateTask = null" />
-		</Modal>
 
 		<Modal v-if="showEditTaskModal"
 			persistent
@@ -137,7 +123,6 @@
 		<ParticipationDialog
 			v-if="participation"
 			:members="participationMembers"
-			:proposal="participation.proposal ?? null"
 			:actorUserId="actorUserId"
 			@close="closeParticipation"
 			@confirm="confirmParticipation" />
@@ -154,7 +139,6 @@ import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
 import ParticipationDialog from '../components/Common/ParticipationDialog.vue'
 import SegmentedSwitch from '../components/Common/SegmentedSwitch.vue'
-import RoomTaskEditModal from '../components/Tasks/RoomTaskEditModal.vue'
 import TaskCreateDialog from '../components/Tasks/TaskCreateDialog.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import TaskFilterBar from '../components/Tasks/TaskFilterBar.vue'
@@ -190,7 +174,6 @@ export default {
 		TaskFilterBar,
 		TaskCreateDialog,
 		TaskEditForm,
-		RoomTaskEditModal,
 		Modal,
 		ConfirmDialog,
 		ErrorState,
@@ -231,7 +214,6 @@ export default {
 			// The create dialog: `{ room }`, a room when opened from its heading.
 			addTask: null,
 			// The row whose due date and "Last done" are edited.
-			dateTask: null,
 			showEditTaskModal: false,
 			editingTask: null,
 			taskToDelete: null,
@@ -523,7 +505,6 @@ export default {
 			const roomTask = this.roomTasksStore.roomTasks.find((row) => row.id === roomTaskId)
 			await this.requestCompletion({
 				roomTaskId,
-				proposal: roomTask?.proposal ?? null,
 				assignees: roomTask?.assignees ?? [],
 			}, claimAllocation)
 		},
@@ -531,13 +512,6 @@ export default {
 		handleEditTask(roomTask) {
 			this.editingTask = this.tasksStore.getTaskById(roomTask.taskId) || null
 			this.showEditTaskModal = true
-		},
-
-		/** A recorded "Last done" stamps the room's "Last cleaned": reread the room facts. */
-		handleDateSaved() {
-			this.dateTask = null
-			// The store logs a failed read; the headings then keep their last values.
-			this.roomsStore.fetchFloorsWithRooms().catch(() => {})
 		},
 
 		handleDeleteTask(roomTaskId) {
@@ -569,7 +543,7 @@ export default {
 				.then(() => {
 					this.showEditTaskModal = false
 					this.editingTask = null
-					// A saved definition changes open occurrences too (energy,
+					// A saved definition changes open cycles too (energy,
 					// flex days): without their rows, completing conflicts.
 					this.roomTasksStore.refreshDerivedProjections({ rows: true })
 				})

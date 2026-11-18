@@ -8,13 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\DigestChange;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
@@ -24,7 +21,6 @@ use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CommandService;
-use OCA\ChoreStrike\Service\PauseProjectionService;
 use OCA\ChoreStrike\Service\PauseService;
 use OCP\IL10N;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -46,7 +42,6 @@ class PauseServiceTest extends TestCase {
 	private HouseUserMapper|MockObject $houseUserMapper;
 	private WalletMapper|MockObject $walletMapper;
 	private HouseMapper|MockObject $houseMapper;
-	private OccurrenceMapper|MockObject $occurrenceMapper;
 	private IL10N|MockObject $l10n;
 	private \OCA\ChoreStrike\Db\DigestChangeMapper|MockObject $digestChangeMapper;
 	private bool $commandReplay = false;
@@ -57,15 +52,8 @@ class PauseServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->walletMapper = $this->createMock(WalletMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
-		$this->occurrenceMapper = $this->createMock(OccurrenceMapper::class);
 		$this->l10n = $this->createMock(IL10N::class);
 		$this->l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-
-		$projection = new PauseProjectionService(
-			$this->pauseMapper,
-			$this->houseUserMapper,
-			$this->createMock(OccurrenceMemberMapper::class),
-		);
 
 		// The executing command service: the aggregate runs immediately,
 		// no receipt round-trip.
@@ -85,13 +73,9 @@ class PauseServiceTest extends TestCase {
 		$this->service = new PauseService(
 			$commands,
 			$this->pauseMapper,
-			$projection,
 			$this->houseMapper,
 			$this->houseUserMapper,
 			$this->walletMapper,
-			$this->occurrenceMapper,
-			$this->createMock(OccurrenceMemberMapper::class),
-			$this->createMock(AgreementMapper::class),
 			new TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			new CalendarService(),
 			$this->digestChangeMapper = $this->createMock(\OCA\ChoreStrike\Db\DigestChangeMapper::class),
@@ -142,7 +126,6 @@ class PauseServiceTest extends TestCase {
 		$this->houseUserMapper->method('findByHouseAndUser')->willReturnOnConsecutiveCalls($actor, $fresh);
 		$this->pauseMapper->expects($this->never())->method('appendRevision');
 		$this->pauseMapper->expects($this->never())->method('update');
-		$this->occurrenceMapper->expects($this->never())->method('findOpenByHouseId');
 		$this->expectException(ForbiddenException::class);
 		match ($method) {
 			'createHousePause' => $this->service->createHousePause(7, 'dad', $this->payload()),

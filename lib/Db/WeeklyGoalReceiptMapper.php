@@ -59,28 +59,39 @@ class WeeklyGoalReceiptMapper {
 	}
 
 	/**
-	 * Saved planned-week keys in bounded pages, including old weeks that can
-	 * gain eligibility after retrospective correction. The unique receipt
-	 * protects earlier notifications when any of those weeks is revisited.
+	 * The weeks that have due work, in bounded pages: stored occurrences by
+	 * their planned week and closed cycles by the week their window ended
+	 * (ADR-021). Earlier weeks can gain eligibility after a correction; the
+	 * unique receipt protects earlier celebrations when one is revisited.
+	 * Weeks before `$fromWeek` are left out.
 	 *
 	 * @return list<string>
 	 */
-	public function plannedWeeksPage(int $houseId, string $beforeWeek, ?string $afterWeek, int $limit): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('week_start')
-			->from('chorestrike_occurrences')
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter(Occurrence::KIND_SCHEDULED, IQueryBuilder::PARAM_STR)))
-			->andWhere($qb->expr()->lt('week_start', $qb->createNamedParameter($beforeWeek, IQueryBuilder::PARAM_STR)))
-			->groupBy('week_start')
-			->orderBy('week_start', 'ASC')
-			->setMaxResults($limit);
-		if ($afterWeek !== null) {
-			$qb->andWhere($qb->expr()->gt('week_start', $qb->createNamedParameter($afterWeek, IQueryBuilder::PARAM_STR)));
+	public function plannedWeeksPage(int $houseId, string $beforeWeek, ?string $afterWeek, int $limit, string $fromWeek = '0000-00-00'): array {
+		$weeks = [];
+		foreach (['chorestrike_occurrences' => true, 'chorestrike_cycles' => false] as $table => $scheduledOnly) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('week_start')
+				->from($table)
+				->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->gte('week_start', $qb->createNamedParameter($fromWeek, IQueryBuilder::PARAM_STR)))
+				->andWhere($qb->expr()->lt('week_start', $qb->createNamedParameter($beforeWeek, IQueryBuilder::PARAM_STR)))
+				->groupBy('week_start')
+				->orderBy('week_start', 'ASC')
+				->setMaxResults($limit);
+			if ($scheduledOnly) {
+				$qb->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter(Occurrence::KIND_SCHEDULED, IQueryBuilder::PARAM_STR)));
+			}
+			if ($afterWeek !== null) {
+				$qb->andWhere($qb->expr()->gt('week_start', $qb->createNamedParameter($afterWeek, IQueryBuilder::PARAM_STR)));
+			}
+			$result = $qb->executeQuery();
+			foreach ($result->fetchAll() as $row) {
+				$weeks[substr((string)$row['week_start'], 0, 10)] = true;
+			}
+			$result->closeCursor();
 		}
-		$result = $qb->executeQuery();
-		$weeks = array_map(static fn (array $row): string => substr((string)$row['week_start'], 0, 10), $result->fetchAll());
-		$result->closeCursor();
-		return $weeks;
+		ksort($weeks, SORT_STRING);
+		return array_slice(array_keys($weeks), 0, $limit);
 	}
 }

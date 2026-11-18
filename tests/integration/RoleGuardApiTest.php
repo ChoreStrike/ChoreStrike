@@ -237,15 +237,15 @@ class RoleGuardApiTest extends IntegrationTestCase {
 	}
 
 	// -----------------------------------------------------------------
-	// CS-PLAN-073 WP2 role matrix (RF-073-WP2-10): agreement commands and
-	// pause lifecycle gates against the real DB.
+	// CS-PLAN-073 WP2 role matrix (RF-073-WP2-10): the pause lifecycle
+	// gates against the real DB (the agreement commands went with ADR-021).
 	// -----------------------------------------------------------------
 
 	/**
 	 * A dedicated WP2 house: owner + adult member + child (all with bound
 	 * wallets) and one low-energy interval task owned by the owner.
 	 *
-	 * @return array{houseId: int, roomTaskId: int, taskId: int, occurrenceKey: string, expectedVersion: int, selectionToken: string}
+	 * @return array{houseId: int, roomTaskId: int, taskId: int}
 	 */
 	private function wp2House(): array {
 		$houseId = $this->createHouse('rg2_owner', 'WP2 Role House');
@@ -261,136 +261,11 @@ class RoleGuardApiTest extends IntegrationTestCase {
 		$taskId = $this->createTask($houseId, 'Role dishes', '', 5, 2);
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'rg2_owner');
 
-		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
-		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId);
-		$selection = $occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
-		self::assertNotNull($selection);
-
-		return [
-			'houseId' => $houseId,
-			'roomTaskId' => $roomTaskId,
-			'taskId' => $taskId,
-			'occurrenceKey' => $selection['occurrence']->toPublicKey(),
-			'expectedVersion' => $selection['occurrence']->getVersion(),
-			'selectionToken' => $occurrenceService->selectionToken(
-				$selection['occurrence'],
-				$selection['revision'],
-				$selection['classification'],
-				$houseId,
-				null,
-				$selection['workAppointment']
-			),
-		];
+		return ['houseId' => $houseId, 'roomTaskId' => $roomTaskId, 'taskId' => $taskId];
 	}
 
 	private function uuid2(): string {
 		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
-	}
-
-	/**
-	 * Amend/catch-up/restart are OWNER-RECORDED agreements (plan §3.3.2):
-	 * a visible member or child is denied 403 on every one of them — before
-	 * any receipt or domain write.
-	 */
-	public function testAgreementCommands_MemberAndChild_Forbidden(): void {
-		$f = $this->wp2House();
-		$agreements = \OC::$server->get(\OCA\ChoreStrike\Service\AgreementService::class);
-
-		foreach (['rg2_member', 'rg2_child'] as $userId) {
-			try {
-				$agreements->amend($f['houseId'], $userId, $f['roomTaskId'], [
-					'commandId' => $this->uuid2(),
-					'occurrenceId' => $f['occurrenceKey'],
-					'expectedVersion' => $f['expectedVersion'],
-					'selectionToken' => $f['selectionToken'],
-					'consent' => true,
-					'date' => (new \DateTime('+1 day'))->format('Y-m-d'),
-				]);
-				self::fail($userId . ' must not record amendments');
-			} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
-				self::assertStringContainsString('Owner role required', $e->getMessage());
-			}
-			try {
-				$agreements->catchUp($f['houseId'], $userId, $f['roomTaskId'], [
-					'commandId' => $this->uuid2(),
-					'occurrenceId' => $f['occurrenceKey'],
-					'expectedVersion' => $f['expectedVersion'],
-					'selectionToken' => $f['selectionToken'],
-					'consent' => true,
-					'workDate' => (new \DateTime('+1 day'))->format('Y-m-d'),
-				]);
-				self::fail($userId . ' must not record catch-up appointments');
-			} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
-				self::assertStringContainsString('Owner role required', $e->getMessage());
-			}
-			try {
-				$agreements->restart($f['houseId'], $userId, $f['roomTaskId'], [
-					'commandId' => $this->uuid2(),
-					'occurrenceId' => $f['occurrenceKey'],
-					'expectedVersion' => $f['expectedVersion'],
-					'consent' => true,
-					'workDate' => (new \DateTime('+1 day'))->format('Y-m-d'),
-				]);
-				self::fail($userId . ' must not record restarts');
-			} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
-				self::assertStringContainsString('Owner role required', $e->getMessage());
-			}
-		}
-
-		// Zero writes: the occurrence is untouched.
-		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
-		$selection = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class)->selectionFor($roomTask, new \DateTime(), $f['houseId']);
-		self::assertSame($f['occurrenceKey'], $selection['occurrence']->toPublicKey());
-		self::assertSame($f['expectedVersion'], $selection['occurrence']->getVersion());
-	}
-
-	/**
-	 * A private task of another member is invisible even to the house
-	 * owner (D2) — the agreement command answers the 404 anti-enumeration
-	 * class, never a role 403 that would confirm the task exists.
-	 */
-	public function testAgreementCommand_PrivateTask_InvisibleToOwner_NotFound(): void {
-		$f = $this->wp2House();
-
-		// A second room task: private, created and assigned to the member.
-		$privateTaskId = $this->createTask($f['houseId'], 'Private member task', '', 5, 2);
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_tasks')
-			->set('visibility_type', $qb->createNamedParameter('private'))
-			->set('owner_user_id', $qb->createNamedParameter('rg2_member'))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($privateTaskId, IQueryBuilder::PARAM_INT)))
-			->executeStatement();
-		$floorRows = $this->db->executeQuery(
-			'SELECT id FROM *PREFIX*chorestrike_floors WHERE house_id = ?',
-			[$f['houseId']]
-		)->fetchAll();
-		$roomRows = $this->db->executeQuery(
-			'SELECT id FROM *PREFIX*chorestrike_rooms WHERE floor_id = ?',
-			[(int)$floorRows[0]['id']]
-		)->fetchAll();
-		$privateRoomTaskId = $this->assignTaskToRoom($privateTaskId, (int)$roomRows[0]['id'], 'rg2_member');
-
-		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
-		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($privateRoomTaskId);
-		$selection = $occurrenceService->selectionFor($roomTask, new \DateTime(), $f['houseId']);
-		self::assertNotNull($selection);
-
-		$this->expectException(\OCA\ChoreStrike\Exception\NotFoundException::class);
-		\OC::$server->get(\OCA\ChoreStrike\Service\AgreementService::class)->amend($f['houseId'], 'rg2_owner', $privateRoomTaskId, [
-			'commandId' => $this->uuid2(),
-			'occurrenceId' => $selection['occurrence']->toPublicKey(),
-			'expectedVersion' => $selection['occurrence']->getVersion(),
-			'selectionToken' => $occurrenceService->selectionToken(
-				$selection['occurrence'],
-				$selection['revision'],
-				$selection['classification'],
-				$f['houseId'],
-				null,
-				$selection['workAppointment']
-			),
-			'consent' => true,
-			'date' => (new \DateTime('+1 day'))->format('Y-m-d'),
-		]);
 	}
 
 	/**

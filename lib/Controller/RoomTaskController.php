@@ -8,13 +8,13 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CompletionService;
+use OCA\ChoreStrike\Service\CurrentCycle;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
@@ -193,32 +193,23 @@ class RoomTaskController extends Controller {
 	 * Serialize room tasks into the flat list shape (CS-PLAN-067 D1): the
 	 * existing `RoomTask::jsonSerialize(timezone)` fields plus a canonical
 	 * `assignees` user-ID array — one batched assignee read for the whole
-	 * set, never a per-row lookup. Each row also carries its canonical
-	 * occurrence target block (CS-PLAN-072 WP1) from ONE batched
-	 * derivation.
+	 * set, never a per-row lookup. Each row also carries its `cycle` block
+	 * (ADR-021) from ONE batched derivation.
 	 *
 	 * @param \OCA\ChoreStrike\Db\RoomTask[] $roomTasks
 	 * @param \DateTimeZone $tz House timezone for day-boundary serialization
-	 * @param int $houseId House scope for the batched occurrence derivation
+	 * @param int $houseId House scope for the batched cycle derivation
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function serializeFlatRoomTasks(array $roomTasks, \DateTimeZone $tz, int $houseId): array {
 		$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
-		$selections = $this->roomTaskReadService->occurrenceSelectionsForHouse($houseId, $roomTasks);
-		$pauseFingerprint = $this->roomTaskReadService->pauseFingerprintForHouse($houseId);
-		// WP3 §3.6: the actual-work proposal block shares the SAME batched
-		// derivation as the due-today/overdue reads — the ParticipationDialog
-		// preview never depends on the read path.
-		$proposals = $this->roomTaskReadService->proposalBlocksFor($houseId, $selections);
+		$facts = $this->roomTaskReadService->cycleFacts($houseId, $roomTasks);
 
-		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $selections, $houseId, $pauseFingerprint, $proposals) {
-			$selection = $selections[$roomTask->getId()] ?? null;
-			$data = $this->roomTaskReadService->roomTaskPayload($roomTask, $tz, $selection['classification'] ?? null);
+		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $facts) {
+			$block = $facts[$roomTask->getId()]['block'] ?? null;
+			$data = $this->roomTaskReadService->roomTaskPayload($roomTask, $tz, $block);
 			$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
-			$data['occurrence'] = $selection !== null
-				? $this->roomTaskReadService->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
-				: null;
-			$data['proposal'] = $proposals[$roomTask->getId()] ?? null;
+			$data['cycle'] = $block;
 			return $data;
 		}, $roomTasks);
 	}
@@ -228,8 +219,8 @@ class RoomTaskController extends Controller {
 	 * (CS-PLAN-063 §3.3, CR-WF-03).
 	 *
 	 * Payload variants (mutually exclusive):
-	 *  - custom create: `{ task: {definition...}, roomId, assigneeUserIds?, nextDue? }`
-	 *  - mount existing: `{ taskId, roomId, assigneeUserIds?, nextDue? }`
+	 *  - custom create: `{ task: {definition...}, roomId, assigneeUserIds?, firstDate? }`
+	 *  - mount existing: `{ taskId, roomId, assigneeUserIds?, firstDate? }`
 	 *
 	 * The whole aggregate (definition, room-task materialization, initial
 	 * assignees) commits or rolls back together; the response carries the
@@ -296,15 +287,16 @@ class RoomTaskController extends Controller {
 				$payload['assigneeUserIds'] = $assigneeUserIds;
 			}
 
-			$nextDue = $this->request->getParam('nextDue');
-			if ($nextDue !== null && $nextDue !== '') {
-				if (!is_string($nextDue)) {
+			// ADR-021: the house-local centre of the first window (`Y-m-d`).
+			$firstDate = $this->request->getParam('firstDate');
+			if ($firstDate !== null && $firstDate !== '') {
+				if (!is_string($firstDate)) {
 					return new JSONResponse([
 						'success' => false,
-						'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('Invalid nextDue date format')],
+						'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('Invalid firstDate date format')],
 					], 400);
 				}
-				$payload['nextDue'] = $nextDue;
+				$payload['firstDate'] = $firstDate;
 			}
 
 			$aggregate = $this->taskCreationService->create($house->getId(), $houseUser, $payload);
@@ -323,7 +315,7 @@ class RoomTaskController extends Controller {
 			], 404);
 		} catch (\InvalidArgumentException $e) {
 			// Service-curated messages (bad payload variant, non-member
-			// assignee, invalid nextDue, duplicate mount) — safe to surface
+			// assignee, invalid firstDate, duplicate mount) — safe to surface
 			// verbatim; safeMessage() would replace them with the generic
 			// fallback.
 			return ControllerErrorFormatter::validation($e);
@@ -359,9 +351,8 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * The payload of a room task this request just wrote (create, due date,
-	 * completion replay) with the selection status (CR-084-03), best-effort
-	 * after the commit.
+	 * The payload of a room task this request just created with the cycle
+	 * status (CR-084-03), best-effort after the commit.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -446,54 +437,13 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * Update room task due date
+	 * Complete the current cycle of a room task (ADR-021 decision 4;
+	 * CS-PLAN-070 WP3 actual work).
 	 *
-	 * @NoAdminRequired
-	 */
-	public function updateDueDate(int $id, string $nextDue): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
-
-			$roomTask = $this->roomTaskService->updateDueDate($id, $nextDue, $houseUser);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $this->writtenRoomTaskPayload($house, $roomTask, 'updateDueDate')
-			]);
-		} catch (NotFoundException $e) {
-			return ControllerErrorFormatter::notFoundResponse($e);
-		} catch (\InvalidArgumentException $e) {
-			// Curated date-format message — safe to surface verbatim.
-			return ControllerErrorFormatter::validation($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (ConflictException $e) {
-			// A refused change, no server error (BUG-UX-011).
-			return ControllerErrorFormatter::conflictResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('updateDueDate', $e, ['roomTaskId' => $id]);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'UPDATE_DUE_DATE_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Complete one shown occurrence of a room task (CS-PLAN-072 WP1
-	 * receipt contract; CS-PLAN-070 WP3 actual work).
-	 *
-	 * The body carries the shown target identity: `commandId` (client
-	 * idempotency UUID), `occurrenceId` (public
-	 * `<scheduleRevisionId>:<ordinal>` key), `expectedVersion`,
-	 * `selectionToken` and the optional ACTUAL work split:
-	 * `participants: [{userId, sharePct}]` plus `allocationReviewed`.
+	 * The body carries the shown target: `commandId` (client idempotency
+	 * UUID), `cycleKey` and `expectedVersion` from the row's `cycle` block
+	 * (`cycleKey` is absent for a bonus task) and the optional ACTUAL work
+	 * split: `participants: [{userId, sharePct}]` plus `allocationReviewed`.
 	 * Input validation is a CLOSED SET. The server owns work time and
 	 * target effort; replays of the same command return the original
 	 * completion identity without repeating effects.
@@ -523,23 +473,20 @@ class RoomTaskController extends Controller {
 				$currentUserId,
 				$id,
 				$receipt['commandId'],
-				$receipt['occurrenceId'],
+				$receipt['cycleKey'],
 				$receipt['expectedVersion'],
-				$receipt['selectionToken'],
 				$receipt['participants'],
 				$receipt['allocationReviewed'],
 			);
 
 			$data = [
-				// A replay carries no fresh selection block; resolve it.
-				'roomTask' => array_key_exists('occurrence', $result)
-					? $this->roomTaskReadService->roomTaskPayload($result['roomTask'], $this->timeZoneOf($house), $result['occurrence']['classification'] ?? null)
-					: $this->writtenRoomTaskPayload($house, $result['roomTask'], 'complete'),
+				// First run and replay both carry the fresh cycle block.
+				'roomTask' => $this->roomTaskReadService->roomTaskPayload($result['roomTask'], $this->timeZoneOf($house), $result['cycle'] ?? null),
 				'room' => $result['room']?->jsonSerialize(),
 				'task' => $result['task']->jsonSerialize(),
 				'rewards' => $result['rewards'],
 				'completionId' => $result['completionId'],
-				'occurrence' => $result['occurrence'] ?? null,
+				'cycle' => $result['cycle'] ?? null,
 				'replay' => $result['replay'],
 			];
 			return new JSONResponse(['success' => true, 'data' => $data]);
@@ -570,7 +517,7 @@ class RoomTaskController extends Controller {
 	 * Validate the completion receipt payload (closed set, parent §3.4).
 	 * Returns the validated fields or a ready-to-return 400 response.
 	 *
-	 * @return array{commandId: string, occurrenceId: string, expectedVersion: int, selectionToken: string, participants: list<array{userId: string, sharePct: int}>, allocationReviewed: bool}|JSONResponse
+	 * @return array{commandId: string, cycleKey: ?string, expectedVersion: int, participants: list<array{userId: string, sharePct: int}>, allocationReviewed: bool}|JSONResponse
 	 */
 	private function validateCompletionReceipt(array $payload): array|JSONResponse {
 		$badRequest = static fn (string $message): JSONResponse => new JSONResponse([
@@ -578,7 +525,7 @@ class RoomTaskController extends Controller {
 			'error' => ['code' => 'VALIDATION_ERROR', 'message' => $message],
 		], 400);
 
-		$allowed = ['commandId', 'occurrenceId', 'expectedVersion', 'selectionToken', 'participants', 'allocationReviewed'];
+		$allowed = ['commandId', 'cycleKey', 'expectedVersion', 'participants', 'allocationReviewed'];
 		foreach ($payload as $key => $value) {
 			if (!in_array($key, $allowed, true)) {
 				return $badRequest($this->l->t('Unknown field: %1$s', [$key]));
@@ -586,26 +533,18 @@ class RoomTaskController extends Controller {
 		}
 
 		$commandId = $payload['commandId'] ?? null;
-		$occurrenceId = $payload['occurrenceId'] ?? null;
+		$cycleKey = $payload['cycleKey'] ?? null;
 		$expectedVersion = $payload['expectedVersion'] ?? null;
-		$selectionToken = $payload['selectionToken'] ?? null;
 
 		if (!is_string($commandId) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $commandId)) {
 			return $badRequest($this->l->t('A valid commandId (UUID) is required'));
 		}
-		if (!is_string($occurrenceId) || $occurrenceId === '') {
-			return $badRequest($this->l->t('An occurrenceId is required'));
-		}
-		try {
-			Occurrence::parsePublicKey($occurrenceId);
-		} catch (\InvalidArgumentException $e) {
-			return $badRequest($e->getMessage());
+		// Absent for a bonus task, which has no cycle (ADR-021 decision 8).
+		if ($cycleKey !== null && !CurrentCycle::isKey($cycleKey)) {
+			return $badRequest($this->l->t('Invalid cycle key'));
 		}
 		if (!is_numeric($expectedVersion) || (int)$expectedVersion < 0 || (string)(int)$expectedVersion !== (string)$expectedVersion) {
 			return $badRequest($this->l->t('A valid expectedVersion is required'));
-		}
-		if (!is_string($selectionToken) || $selectionToken === '') {
-			return $badRequest($this->l->t('A selectionToken is required'));
 		}
 
 		// Actual work split (WP3 §3.6): optional explicit participants with
@@ -632,9 +571,8 @@ class RoomTaskController extends Controller {
 
 		return [
 			'commandId' => strtolower($commandId),
-			'occurrenceId' => $occurrenceId,
+			'cycleKey' => $cycleKey,
 			'expectedVersion' => (int)$expectedVersion,
-			'selectionToken' => $selectionToken,
 			'participants' => $participants,
 			'allocationReviewed' => $reviewed,
 		];
@@ -829,8 +767,8 @@ class RoomTaskController extends Controller {
 	/**
 	 * Serialize `{roomTask, task, room}` service rows into the canonical
 	 * enriched execution-row shape `{roomTask, task, room, assignees,
-	 * occurrence}` (CS-PLAN-066 D1; CS-PLAN-072 WP1 adds the occurrence
-	 * target block). One batched assignee read for the whole set — the
+	 * cycle}` (CS-PLAN-066 D1; ADR-021 adds the `cycle` block). One
+	 * batched assignee read for the whole set — the
 	 * arrays are unique, deterministically ordered Nextcloud user IDs.
 	 *
 	 * @param array<int, array{roomTask: \OCA\ChoreStrike\Db\RoomTask, task: \OCA\ChoreStrike\Db\Task, room: \OCA\ChoreStrike\Db\Room}> $rows
@@ -843,14 +781,11 @@ class RoomTaskController extends Controller {
 
 		return array_map(function (array $row) use ($tz, $assigneesByTask) {
 			return [
-				'roomTask' => $this->roomTaskReadService->roomTaskPayload($row['roomTask'], $tz, $row['occurrence']['classification'] ?? null),
+				'roomTask' => $this->roomTaskReadService->roomTaskPayload($row['roomTask'], $tz, $row['cycle'] ?? null),
 				'task' => $row['task']->jsonSerialize(),
 				'room' => $row['room']->jsonSerialize(),
 				'assignees' => $assigneesByTask[$row['roomTask']->getId()] ?? [],
-				'occurrence' => $row['occurrence'] ?? null,
-				// WP3 §3.6: the actual-work proposal block shares the
-				// ParticipationDialog preview across every read path.
-				'proposal' => $row['proposal'] ?? null,
+				'cycle' => $row['cycle'] ?? null,
 				// BUG-UX-003: My Day offers the checklist toggle only above 0.
 				'checklistItemCount' => $row['checklistItemCount'] ?? 0,
 			];
@@ -1011,15 +946,12 @@ class RoomTaskController extends Controller {
 			return new JSONResponse([
 				'success' => true,
 				'data' => array_map(fn (array $item): array => [
-					'roomTask' => $this->roomTaskReadService->roomTaskPayload($item['roomTask'], $tz, $item['occurrence']['classification'] ?? null),
+					'roomTask' => $this->roomTaskReadService->roomTaskPayload($item['roomTask'], $tz, $item['cycle'] ?? null),
 					'task' => $item['task']->jsonSerialize(),
 					'room' => $item['room']->jsonSerialize(),
 					'assignees' => $item['assignees'],
-					'occurrence' => $item['occurrence'] ?? null,
-					// WP3 §3.6: the actual-work proposal block shares the
-					// ParticipationDialog preview across every read path.
-					'proposal' => $item['proposal'] ?? null,
-					// BUG-UX-005: an open flex window without work planned today.
+					'cycle' => $item['cycle'] ?? null,
+					// BUG-UX-005: an open window whose task is planned for another day.
 					'openWindow' => $item['openWindow'] ?? false,
 					// BUG-UX-003: My Day offers the checklist toggle only above 0.
 					'checklistItemCount' => $item['checklistItemCount'] ?? 0,

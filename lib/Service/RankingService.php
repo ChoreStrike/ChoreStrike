@@ -8,20 +8,14 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MemberPreference;
 use OCA\ChoreStrike\Db\MemberPreferenceMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Db\WalletMapper;
-use OCA\ChoreStrike\Db\WorkShareMapper;
 
 /**
  * Consent-filtered chore ranking (CS-PLAN-070 WP4, C5i/C5l/D10b,
@@ -52,11 +46,8 @@ class RankingService {
 	private HouseMapper $houseMapper;
 	private HouseUserMapper $houseUserMapper;
 	private MemberPreferenceMapper $prefMapper;
-	private OccurrenceMapper $occurrenceMapper;
-	private OccurrenceMemberMapper $occMemberMapper;
-	private CompletedTaskMapper $completedTaskMapper;
+	private RecognitionFactsService $recognitionFacts;
 	private WalletMapper $walletMapper;
-	private WorkShareMapper $workShareMapper;
 	private CalendarService $calendar;
 	private TransactionExecutor $transactions;
 
@@ -64,22 +55,16 @@ class RankingService {
 		HouseMapper $houseMapper,
 		HouseUserMapper $houseUserMapper,
 		MemberPreferenceMapper $prefMapper,
-		OccurrenceMapper $occurrenceMapper,
-		OccurrenceMemberMapper $occMemberMapper,
-		CompletedTaskMapper $completedTaskMapper,
+		RecognitionFactsService $recognitionFacts,
 		WalletMapper $walletMapper,
-		WorkShareMapper $workShareMapper,
 		CalendarService $calendar,
 		TransactionExecutor $transactions,
 	) {
 		$this->houseMapper = $houseMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->prefMapper = $prefMapper;
-		$this->occurrenceMapper = $occurrenceMapper;
-		$this->occMemberMapper = $occMemberMapper;
-		$this->completedTaskMapper = $completedTaskMapper;
+		$this->recognitionFacts = $recognitionFacts;
 		$this->walletMapper = $walletMapper;
-		$this->workShareMapper = $workShareMapper;
 		$this->calendar = $calendar;
 		$this->transactions = $transactions;
 	}
@@ -256,11 +241,11 @@ class RankingService {
 	}
 
 	/**
-	 * Per-member current-week on-time facts over household-public agreed
-	 * occurrences — the SAME occurrence/completion/selected-share reads
-	 * the rhythm/goal evaluation uses (obligated, active disposition,
-	 * non-suspended, planned in the current Monday-Sunday house week,
-	 * valid CLASS_AGREED on-time completion covering the member).
+	 * Per-member current-week on-time facts over household-public work —
+	 * the SAME facts the rhythm and the weekly goal read
+	 * ({@see RecognitionFactsService}): the work a member is responsible
+	 * for in the current Monday-Sunday house week, kept when a valid
+	 * on-time completion carries a share of theirs; an absence is neutral.
 	 *
 	 * @param array<int, MemberPreference> $prefs
 	 * @param array<int, HouseUser> $members
@@ -276,75 +261,41 @@ class RankingService {
 			return [$facts, $weekOpen];
 		}
 
-		$tz = $this->calendar->getTimeZone($house);
-		$weekStart = $this->calendar->weekStart($now, $tz);
-		$fromKey = $weekStart->format('Y-m-d');
-		$toKey = (clone $weekStart)->modify('+6 days')->format('Y-m-d');
-		$rows = $this->occurrenceMapper->findByHousePlannedBetween((int)$house->getId(), $fromKey, $toKey);
-		if ($rows === []) {
-			return [$facts, $weekOpen];
-		}
-
-		// Membership id by wallet id — the occ_members linkage is wallet-
-		// keyed (persistent financial identity), the ranking is per
-		// membership.
+		// Membership id by wallet id — responsibility is wallet-keyed
+		// (persistent financial identity), the ranking is per membership.
 		$walletToMember = [];
-		$walletIds = [];
 		foreach ($members as $member) {
 			if ($member->getWalletId() !== null) {
 				$walletToMember[(int)$member->getWalletId()] = (int)$member->getId();
-				$walletIds[] = (int)$member->getWalletId();
 			}
 		}
-		if ($walletIds === []) {
+		if ($walletToMember === []) {
 			return [$facts, $weekOpen];
 		}
 
-		$ids = array_map(static fn (Occurrence $row): int => (int)$row->getId(), $rows);
-		$membersByOccurrence = $this->occMemberMapper->findByOccurrenceIds($ids);
-		$completionIds = array_values(array_unique(array_filter(array_map(
-			static fn (Occurrence $row): ?int => $row->getCompletionId(), $rows
+		$tz = $this->calendar->getTimeZone($house);
+		$weekKey = $this->calendar->weekStart($now, $tz)->setTimezone($tz)->format('Y-m-d');
+		$weekFacts = $this->recognitionFacts->factsForWeek($house, $weekKey, $now);
+		// A stored occurrence carries its visibility frozen at agreement
+		// time; a cycle is public while its definition is.
+		$public = $this->recognitionFacts->publicRoomTaskIds((int)$house->getId(), array_values(array_filter(array_map(
+			static fn (RecognitionFact $fact): ?int => $fact->roomTaskId,
+			$weekFacts
 		))));
-		$completions = $this->completedTaskMapper->findValidByIds($completionIds);
-		$shares = $this->workShareMapper->findSelectedByCompletionIds(array_keys($completions));
 
-		foreach ($rows as $occurrence) {
-			// Public-at-agreement: the classification frozen on the row at
-			// agreement time — later task reclassification never rewrites it.
-			if ($occurrence->getIsPublic() !== true) {
+		foreach ($weekFacts as $fact) {
+			if (!($fact->isPublic ?? isset($public[(int)$fact->roomTaskId]))) {
 				continue;
 			}
-			$completion = $completions[(int)($occurrence->getCompletionId() ?? 0)] ?? null;
-			$onTime = $completion !== null
-				&& $completion->isAgreedOnTime($occurrence->getWindowStart(), $occurrence->getWindowEnd());
-			$suspended = $occurrence->getSuspensionState() === Occurrence::SUSPENSION_SUSPENDED;
-			$windowEnd = $occurrence->getWindowEnd();
-			if ($windowEnd !== null && $windowEnd > $now) {
-				$weekOpen = true;
-			}
-			$wallets = [];
-			foreach ($shares[(int)($occurrence->getCompletionId() ?? 0)] ?? [] as $share) {
-				if ($share->getWalletId() !== null) {
-					$wallets[(int)$share->getWalletId()] = true;
-				}
-			}
-			foreach ($membersByOccurrence[(int)$occurrence->getId()] ?? [] as $memberRow) {
-				$houseUserId = $walletToMember[(int)$memberRow->getWalletId()] ?? null;
-				if ($houseUserId === null || !isset($facts[$houseUserId])) {
-					continue;
-				}
-				if (!$memberRow->getObligated() || $memberRow->getDisposition() !== OccurrenceMember::DISPOSITION_ACTIVE) {
-					continue;
-				}
-				$fulfilled = $onTime && isset($wallets[(int)$memberRow->getWalletId()]);
-				if ($suspended && !$fulfilled) {
-					// Recognized suspension: the unfulfilled occurrence is
-					// neutral (consumes no live planned capacity); kept
-					// work still counts.
+			$weekOpen = $weekOpen || $fact->provisional;
+			foreach ($fact->responsible as $walletId) {
+				$houseUserId = $walletToMember[$walletId] ?? null;
+				// An absence makes the unkept work neutral; kept work still counts.
+				if ($houseUserId === null || !isset($facts[$houseUserId]) || !$fact->countsFor($walletId)) {
 					continue;
 				}
 				$facts[$houseUserId]['eligible']++;
-				if ($fulfilled) {
+				if ($fact->isKeptBy($walletId)) {
 					$facts[$houseUserId]['onTime']++;
 				}
 			}

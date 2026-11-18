@@ -68,8 +68,8 @@
 
 <script>
 // CS-PLAN-070 WP3 (§3.6, C2a): the participation dialog records the ACTUAL
-// work split at completion. Without it, the server credits the effective
-// concrete agreement; a deviation from that agreement sent from here
+// work split at completion. Without it, the server credits the default
+// split (equal shares of the assignees); a deviation from it sent from here
 // carries the `allocationReviewed` confirmation (one reviewer decision, no
 // per-person confirmation queue). Exact whole-percent shares only — the
 // server enforces the 1-100 unique-membership and sum-100 invariants.
@@ -89,20 +89,8 @@ export default {
 		},
 
 		/**
-		 * Server-derived actual-work proposal (WP3 §3.6):
-		 * `{occurrenceId, basis, participants: [{userId, sharePct}]}` —
-		 * exactly what a participant-less completion would credit. The
-		 * dialog pre-fills the agreed shares; `solo` (no proposal
-		 * participants) falls back to the equal split of the candidates.
-		 */
-		proposal: {
-			type: Object,
-			default: null,
-		},
-
-		/**
 		 * The acting user (WP3 Q-074-02): the completer must take part in
-		 * the work. When the proposal names other people, the actor is
+		 * the work. When the task belongs to other people, the actor is
 		 * added to the split automatically (equal renormalized shares) —
 		 * confirming someone else's split unchanged is not an option.
 		 */
@@ -183,10 +171,9 @@ export default {
 	},
 
 	created() {
-		// Server truth first (WP3 §3.6): the agreed occurrence shares are
-		// the pre-fill; only without a proposal split does the dialog
-		// default to the equal wallet-order mirror client-side.
-		const proposed = this.proposal?.participants ?? []
+		// The pre-fill is what a participant-less completion would credit
+		// (WP3 §3.6): the equal split of the candidates, mirrored
+		// client-side in wallet order.
 		const namesByUser = {}
 		this.members.forEach((member) => {
 			namesByUser[member.userId] = member.displayName
@@ -211,15 +198,6 @@ export default {
 					sharePct: recordedByUser[member.userId] ?? 0,
 				}))
 				.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
-		} else if (proposed.length > 0) {
-			this.participants = proposed
-				.map((participant) => ({
-					userId: participant.userId,
-					displayName: namesByUser[participant.userId] ?? participant.userId,
-					active: true,
-					sharePct: participant.sharePct,
-				}))
-				.sort((a, b) => String(a.userId).localeCompare(String(b.userId)))
 		} else {
 			// Default: everyone equal, remainder split by stable user order
 			// (the wallet-order 34/33/33 shape mirrored client-side for display).
@@ -229,7 +207,7 @@ export default {
 		}
 
 		// Q-074-02: the completer must take part in the work. When the
-		// proposal names other people, the actor joins the split with an
+		// task belongs to other people, the actor joins the split with an
 		// equal renormalized share — confirming someone else's split
 		// unchanged is not an option. Not in attribution-correction mode:
 		// the correter (completer or owner) need not be a participant.

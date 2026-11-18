@@ -30,11 +30,11 @@ use OCP\IDBConnection;
  *  2. Retry-after-post-commit-failure: a sabotaged weekly-goal read must
  *     not turn the committed completion into an ambiguous failure (D7);
  *     the retried command receipt is the idempotent replay and a new
- *     command on the fulfilled occurrence conflicts — never a second
+ *     command on the closed cycle conflicts — never a second
  *     ledger row (CS-PLAN-072 WP1 replaces the day-duplicate 403).
  *  3. Concurrent undo: the loser of the under-lock revertible re-check is
  *     the idempotent zero-write no-op (D3).
- *  4. Inactive occurrence: 409 with zero writes (D4).
+ *  4. Inactive task: 409 with zero writes (D4).
  *
  * The races follow the repo's two-connection `proc_open` helper pattern and
  * prove row locking on MariaDB/PostgreSQL and write serialization on SQLite.
@@ -128,11 +128,11 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 	 *
 	 * Decision D7 on the real DB: the sabotaged weekly-goal read must not
 	 * throw past the post-commit boundary — the committed completion answers
-	 * success with `rewards.degraded = true`. CS-PLAN-072 WP1: the retry of
-	 * the SAME command receipt is the idempotent replay (original completion
-	 * identity, no repeated post-commit effects), and a NEW command on the
-	 * fulfilled occurrence conflicts 409 — neither writes a second ledger
-	 * row (occurrence validity replaces the day-duplicate 403).
+	 * success with `rewards.degraded = true`. The retry of the SAME command
+	 * receipt is the idempotent replay (original completion identity, no
+	 * repeated post-commit effects), and a NEW command on the closed cycle
+	 * conflicts 409 `ALREADY_COMPLETED` (ADR-021 decision 4) — neither
+	 * writes a second ledger row.
 	 */
 	public function testPostCommitWeeklyGoalFailure_CommittedStillSucceeds_AndRetryIsReplay(): void {
 		$houseId = $this->createHouse('cct_retry_owner', 'Retry House');
@@ -144,15 +144,15 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$completionService = $this->sabotagedWeeklyGoalCompletionService();
 
 		// First completion: commits fine, the post-commit read degrades.
-		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
-		$result = $completionService->complete($houseId, 'cct_retry_owner', $roomTaskId, $commandId, $occurrenceId, $expectedVersion, $selectionToken);
+		[$commandId, $cycleKey, $expectedVersion] = $this->completionReceiptFor($roomTaskId);
+		$result = $completionService->complete($houseId, 'cct_retry_owner', $roomTaskId, $commandId, $cycleKey, $expectedVersion);
 		self::assertTrue($result['rewards']['degraded'], 'the failed post-commit effect must flag the payload degraded');
 		self::assertNull($result['rewards']['weeklyGoal']);
 		self::assertCount(1, $this->ledgerRows($roomTaskId));
 
 		// Retry of the SAME receipt: idempotent replay — the original
 		// completion identity, no second ledger row, no repeated post-commit.
-		$retry = $completionService->complete($houseId, 'cct_retry_owner', $roomTaskId, $commandId, $occurrenceId, $expectedVersion, $selectionToken);
+		$retry = $completionService->complete($houseId, 'cct_retry_owner', $roomTaskId, $commandId, $cycleKey, $expectedVersion);
 		self::assertTrue($retry['replay'], 'the same commandId must answer the receipt replay');
 		self::assertSame($result['completionId'], $retry['completionId'], 'the replay returns the original completion identity');
 
@@ -163,13 +163,13 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 				'cct_retry_owner',
 				$roomTaskId,
 				sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
-				$occurrenceId,
-				$expectedVersion,
-				$selectionToken
+				$cycleKey,
+				$expectedVersion
 			);
-			self::fail('a new command on the fulfilled occurrence must conflict');
+			self::fail('a new command on the closed cycle must conflict');
 		} catch (ConflictException $e) {
-			self::assertSame('This occurrence is already completed', $e->getMessage());
+			self::assertSame('This task is already completed', $e->getMessage());
+			self::assertSame(ConflictException::REASON_ALREADY_COMPLETED, $e->getReason());
 		}
 
 		self::assertCount(1, $this->ledgerRows($roomTaskId), 'neither retry may write a second ledger row');
@@ -262,18 +262,20 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * InactiveOccurrence_Rejected409_ZeroWrites
+	 * InactiveTask_Rejected409_ZeroWrites
 	 *
 	 * Decision D4 on the real DB: a deactivated room task must not be
 	 * completed — 409 before any mutation, no ledger row, no cleanliness
 	 * delta, no reward, and the checklist progress stays untouched.
 	 */
-	public function testInactiveOccurrence_Rejected409_ZeroWrites(): void {
+	public function testInactiveTask_Rejected409_ZeroWrites(): void {
 		$houseId = $this->createHouse('cct_inactive_owner', 'Inactive House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'CCT inactive', '', 5, 3);
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'cct_inactive_owner');
+		// The receipt of the row as it was displayed, before the deactivation.
+		[$commandId, $cycleKey, $expectedVersion] = $this->completionReceiptFor($roomTaskId);
 
 		$qb = $this->db->getQueryBuilder();
 		$qb->update('chorestrike_room_tasks')
@@ -294,13 +296,13 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$completionService = \OC::$server->get(CompletionService::class);
 
 		try {
-			$this->completeOccurrence($completionService, $houseId, 'cct_inactive_owner', $roomTaskId);
-			self::fail('an inactive occurrence must be rejected with 409');
+			$completionService->complete($houseId, 'cct_inactive_owner', $roomTaskId, $commandId, $cycleKey, $expectedVersion);
+			self::fail('an inactive task must be rejected with 409');
 		} catch (ConflictException $e) {
 			self::assertSame('Task is not active', $e->getMessage());
 		}
 
-		self::assertSame([], $this->ledgerRows($roomTaskId), 'no ledger row for a rejected occurrence');
+		self::assertSame([], $this->ledgerRows($roomTaskId), 'no ledger row for a rejected completion');
 		self::assertSame(50, (int)$this->fetchRow('chorestrike_rooms', 'id', $roomId)['cleanliness'], 'no cleanliness write');
 		$user = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, 'cct_inactive_owner');
 		self::assertSame(0, $user->getContributionMinor(), 'no reward write');

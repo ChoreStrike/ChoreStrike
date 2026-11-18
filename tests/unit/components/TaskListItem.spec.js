@@ -79,10 +79,10 @@ describe('TaskListItem row facts (FEAT-UX-047)', () => {
 		expect(wrapper.find('.flex-window-display').exists()).toBe(false)
 	})
 
-	it('shows the frozen energy of the occurrence', () => {
-		const wrapper = mountRow({ energyCost: 5 }, { occurrence: { energy: 2, classification: 'open' } })
+	it('shows the energy of the definition: open work is not frozen (ADR-021)', () => {
+		const wrapper = mountRow({ energyCost: 5 }, { cycle: { cycleKey: 'c1', expectedVersion: 0, state: 'open' } })
 
-		expect(wrapper.get('[data-testid="task-energy"]').text()).toMatch(/ 2$/)
+		expect(wrapper.get('[data-testid="task-energy"]').text()).toMatch(/ 5$/)
 	})
 
 	it('promises no teamwork bonus for shared work', () => {
@@ -190,7 +190,7 @@ describe('TaskListItem (CS-PLAN-067 §3.4)', () => {
 
 	it('marks overdue rows and offers the claim button for eligible members', () => {
 		const overdueItem = {
-			roomTask: roomTask({ nextDue: '2000-01-01T00:00:00Z', assignees: ['someone-else'], occurrence: { classification: 'late' } }),
+			roomTask: roomTask({ nextDue: '2000-01-01T00:00:00Z', assignees: ['someone-else'], cycle: { state: 'overdue', windowEndOn: '2000-01-01', centreOn: '2000-01-01' } }),
 			task: task(),
 		}
 		const wrapper = mountItem({ item: overdueItem }, 'owner')

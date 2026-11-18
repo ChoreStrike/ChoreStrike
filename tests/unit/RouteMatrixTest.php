@@ -304,15 +304,18 @@ class RouteMatrixTest extends TestCase {
 	 * GET /house/arcade-progress, consumed by the arcade settings) → 102.
 	 * CS-PLAN-090 WP-K added the caller's own colour scheme (PUT
 	 * /preferences/me/color-scheme, consumed by the appearance settings) → 103.
+	 * CS-PLAN-091 WP-B1 (ADR-021, ADR-022) retired seven routes with the
+	 * stored occurrences: the three agreement commands, the due-date and
+	 * "last done" writers and the owner's preview and apply → 96.
 	 * New routes must land with a consumer (see the prune guards above) —
 	 * the count only moves when an expose decision updates this pin
 	 * deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			103,
+			96,
 			$this->routes['routes'],
-			'Route count drifted from the pin (103 after CS-PLAN-090 WP-K) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (96 after CS-PLAN-091 WP-B1) — add only with a consumer, then update deliberately'
 		);
 	}
 
@@ -448,6 +451,37 @@ class RouteMatrixTest extends TestCase {
 			$declared,
 			'CS-PLAN-064 pruned POST /room-tasks/{id}/reactivate — undo is correction, not reactivation'
 		);
+	}
+
+	/**
+	 * CS-PLAN-091 WP-B1 (ADR-021 decision 13, ADR-022): windows are derived
+	 * and nothing is applied as an agreement, so the writers of stored
+	 * occurrences stay gone — a request to any of them finds no route and
+	 * answers 404. Re-adding one requires a new decision.
+	 *
+	 * @dataProvider retiredOccurrenceWriterProvider
+	 */
+	public function testRetiredOccurrenceWritersAreNotReintroduced(string $verbAndUrl, string $name): void {
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+		$names = array_column($this->routes['routes'], 'name');
+
+		$this->assertNotContains($verbAndUrl, $declared, 'CS-PLAN-091 WP-B1 retired ' . $verbAndUrl);
+		$this->assertNotContains($name, $names, 'CS-PLAN-091 WP-B1 retired ' . $name);
+	}
+
+	public static function retiredOccurrenceWriterProvider(): array {
+		return [
+			'amend' => ['POST /api/v1/occurrences/{id}/amend', 'occurrence#amend'],
+			'catch-up' => ['POST /api/v1/occurrences/{id}/catch-up', 'occurrence#catchUp'],
+			'restart' => ['POST /api/v1/occurrences/{id}/restart', 'occurrence#restart'],
+			'due date' => ['PUT /api/v1/room-tasks/{id}/due-date', 'room_task#updateDueDate'],
+			'last done' => ['PUT /api/v1/room-tasks/{id}/last-done', 'room_task_last_done#update'],
+			'preview' => ['POST /api/v1/scheduling/suggestions', 'scheduling#preview'],
+			'apply' => ['POST /api/v1/scheduling/apply', 'scheduling#apply'],
+		];
 	}
 
 	/**

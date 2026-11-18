@@ -74,12 +74,15 @@ const undoFixture = (completerUserId, roomTaskId = 7) => ({
 	undone: true,
 })
 
-// CS-PLAN-072 WP1: the shown occurrence block a cached row must carry for
+// ADR-021 decision 4: the `cycle` block a cached row must carry for
 // completeRoomTask to resolve a receipt target.
-const occurrenceFixture = (overrides = {}) => ({
-	occurrenceId: '5:1',
+const cycleFixture = (overrides = {}) => ({
+	cycleKey: 'd2026-11-21',
 	expectedVersion: 0,
-	selectionToken: 'sel-token',
+	windowStartOn: '2026-11-21',
+	windowEndOn: '2026-11-21',
+	centreOn: '2026-11-21',
+	state: 'open',
 	...overrides,
 })
 
@@ -169,41 +172,21 @@ describe('RoomTasks Store', () => {
 	})
 
 	describe('Actions', () => {
-		describe('WP2 client contract (CS-PLAN-073, RF-073-WP2-12/13)', () => {
-			it('keeps paused/suspended agreed rows and their full occurrence block verbatim', async () => {
+		describe('row contract (ADR-021)', () => {
+			it('keeps every row and its cycle block verbatim, also a bonus or sleeping one', async () => {
 				const rows = [
-					{
-						id: 1,
-						roomId: 10,
-						isActive: true,
-						occurrence: occurrenceFixture({
-							suspended: true,
-							suspensionEvidence: [{ pauseGroupId: 4, revision: 2 }],
-							workDate: null,
-							workZone: null,
-						}),
-					},
-					{
-						id: 2,
-						roomId: 10,
-						isActive: true,
-						occurrence: occurrenceFixture({
-							occurrenceId: '5:2',
-							workDate: '2026-10-06',
-							workZone: 'Europe/Berlin',
-						}),
-					},
+					{ id: 1, roomId: 10, isActive: true, cycle: cycleFixture({ state: 'overdue' }) },
+					{ id: 2, roomId: 10, isActive: true, cycle: { state: 'bonus', expectedVersion: 3 } },
+					{ id: 3, roomId: 10, isActive: true, cycle: { state: 'asleep' } },
+					{ id: 4, roomId: 10, isActive: false, cycle: null },
 				]
 				api.get.mockResolvedValue(rows)
 
 				await store.fetchRoomTasks(10)
 
-				// Paused/overloaded agreed rows are never dropped or
-				// rewritten client-side — the rendered DTO travels verbatim.
+				// Rows are never dropped or rewritten client-side — the
+				// rendered DTO travels verbatim.
 				expect(store.roomTasks).toEqual(rows)
-				expect(store.roomTasks.filter((row) => row.occurrence?.suspended)).toHaveLength(1)
-				expect(store.roomTasks[1].occurrence.workDate).toBe('2026-10-06')
-				expect(store.roomTasks[1].occurrence.workZone).toBe('Europe/Berlin')
 			})
 		})
 
@@ -348,57 +331,9 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
-		describe('updateRoomTaskDueDate (RF-058-09)', () => {
-			it('preserves cached assignees when the response omits them', async () => {
-				store.roomTasks = [{
-					id: 7,
-					nextDue: '2030-05-09T00:00:00Z',
-					assignees: ['user1', 'user2'],
-				}]
-				// The due-date response is the serialized entity only — no
-				// `assignees` key.
-				api.put.mockResolvedValue({ id: 7, nextDue: '2030-05-10T00:00:00Z' })
-
-				await store.updateRoomTaskDueDate(7, '2030-05-10')
-
-				expect(api.put).toHaveBeenCalledWith(
-					'/api/v1/room-tasks/7/due-date',
-					{ nextDue: '2030-05-10' },
-				)
-				expect(store.roomTasks[0].nextDue).toBe('2030-05-10T00:00:00Z')
-				expect(store.roomTasks[0].assignees).toEqual(['user1', 'user2'])
-			})
-
-			it('adopts response assignees when the payload carries them', async () => {
-				store.roomTasks = [{ id: 7, assignees: ['user1'] }]
-				api.put.mockResolvedValue({ id: 7, assignees: ['user2'] })
-
-				await store.updateRoomTaskDueDate(7, '2030-05-10')
-
-				expect(store.roomTasks[0].assignees).toEqual(['user2'])
-			})
-		})
-
-		// FEAT-UX-045 (CS-PLAN-088 D-088-20).
-		describe('recordLastDone', () => {
-			it('sends a fresh command id with the day and merges the written row', async () => {
-				store.roomTasks = [{ id: 7, nextDue: '2030-05-09T00:00:00Z', assignees: ['user1'] }]
-				api.put.mockResolvedValue({ id: 7, nextDue: '2030-05-14T00:00:00Z' })
-
-				const row = await store.recordLastDone(7, '2030-05-07')
-
-				expect(api.put).toHaveBeenCalledWith('/api/v1/room-tasks/7/last-done', {
-					commandId: expect.stringMatching(/^[0-9a-f-]{36}$/),
-					date: '2030-05-07',
-				})
-				expect(row.nextDue).toBe('2030-05-14T00:00:00Z')
-				expect(store.roomTasks[0]).toEqual({ id: 7, nextDue: '2030-05-14T00:00:00Z', assignees: ['user1'] })
-			})
-		})
-
 		describe('completeRoomTask', () => {
 			it('completes task', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false } })
 
 				const result = await store.completeRoomTask(1, 'user1')
@@ -410,7 +345,7 @@ describe('RoomTasks Store', () => {
 			it('marks the room task as just completed and clears the mark on its own', async () => {
 				jest.useFakeTimers()
 				try {
-					store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+					store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 					api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false } })
 					expect(store.wasJustCompleted(1)).toBe(false)
 
@@ -426,7 +361,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('sets no mark when the completion fails', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				api.post.mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409 }))
 
 				await expect(store.completeRoomTask(1)).rejects.toThrow('Conflict')
@@ -435,7 +370,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('joins a concurrent completion of the same room task instead of sending twice (CS-PLAN-084 WP-E)', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				let respond
 				api.post.mockImplementation(() => new Promise(resolve => { respond = resolve }))
 
@@ -456,7 +391,7 @@ describe('RoomTasks Store', () => {
 			// CR-084-02: joining is only safe for the same split — a reviewed
 			// split must never vanish behind the plain completion's success.
 			it('refuses to join an in-flight completion with a different work split', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				let respond
 				api.post.mockImplementation(() => new Promise(resolve => { respond = resolve }))
 
@@ -476,7 +411,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('joins an in-flight completion with the same split in another order', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				let respond
 				api.post.mockImplementation(() => new Promise(resolve => { respond = resolve }))
 				const split = [{ userId: 'mom', sharePct: 60 }, { userId: 'kid', sharePct: 40 }]
@@ -492,7 +427,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('clears the in-flight mark after a failed completion so a retry can run', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				const rejected = new Error('conflict')
 				rejected.status = 409
 				api.post.mockRejectedValueOnce(rejected)
@@ -504,7 +439,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('reset() releases an in-flight completion so a new session can complete', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				let failStale
 				api.post.mockImplementationOnce(() => new Promise((resolve, reject) => { failStale = reject }))
 				const stale = store.completeRoomTask(1).catch(() => null)
@@ -513,7 +448,7 @@ describe('RoomTasks Store', () => {
 				store.reset()
 				expect(store.isCompleting(1)).toBe(false)
 
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				let respond
 				api.post.mockImplementationOnce(() => new Promise(resolve => { respond = resolve }))
 				const fresh = store.completeRoomTask(1)
@@ -529,25 +464,44 @@ describe('RoomTasks Store', () => {
 				expect(store.isCompleting(1)).toBe(false)
 			})
 
-			it('sends the occurrence receipt with a fresh commandId (CS-PLAN-072 WP1)', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture({ occurrenceId: '9:3', expectedVersion: 2, selectionToken: 'tok-abc' }) }]
+			it('sends the cycle receipt with a fresh commandId (ADR-021 decision 4)', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture({ cycleKey: 'c93', expectedVersion: 2 }) }]
 				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false } })
 
 				await store.completeRoomTask(1)
 
 				const [url, body] = api.post.mock.calls[0]
 				expect(url).toBe('/api/v1/room-tasks/1/complete')
-				expect(body.occurrenceId).toBe('9:3')
-				expect(body.expectedVersion).toBe(2)
-				expect(body.selectionToken).toBe('tok-abc')
-				expect(body.commandId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+				expect(body).toEqual({
+					commandId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+					cycleKey: 'c93',
+					expectedVersion: 2,
+				})
+			})
+
+			it('completes a cycle that has not opened yet: any time is allowed', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture({ cycleKey: 'c93', state: 'upcoming' }) }]
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true } })
+
+				await store.completeRoomTask(1)
+
+				expect(api.post.mock.calls[0][1].cycleKey).toBe('c93')
+			})
+
+			it('sends a bonus task without a cycle key', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, cycle: { state: 'bonus', expectedVersion: 4 } }]
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true } })
+
+				await store.completeRoomTask(1)
+
+				expect(api.post.mock.calls[0][1]).toEqual({ commandId: expect.any(String), expectedVersion: 4 })
 			})
 
 			it('generates a NEW commandId per logical completion command', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
-				// The real aggregate always returns a fresh selection block,
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
+				// The real aggregate always returns a fresh cycle block,
 				// so the cached row keeps a resolvable target between calls.
-				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true }, occurrence: occurrenceFixture() })
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true }, cycle: cycleFixture() })
 
 				await store.completeRoomTask(1)
 				await store.completeRoomTask(1)
@@ -558,7 +512,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('reuses the SAME commandId when an uncertain-response retry hits the same target (RF-072-WP1-07)', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				// First attempt: network failure with NO status — the server may
 				// still have committed, the response is uncertain.
 				api.post.mockRejectedValueOnce(new Error('network unreachable'))
@@ -572,7 +526,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('keeps the pending commandId on a 5xx response and replays it on retry', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				const serverError = new Error('internal error')
 				serverError.status = 503
 				api.post.mockRejectedValueOnce(serverError)
@@ -585,8 +539,8 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('clears the pending commandId after a definitive success', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
-				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true }, occurrence: occurrenceFixture() })
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true }, cycle: cycleFixture() })
 
 				await store.completeRoomTask(1)
 				expect(store.pendingCommands).toEqual({})
@@ -598,7 +552,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('clears the pending commandId on a definitive 409 so the next attempt carries a new command', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				const conflict = new Error('conflict')
 				conflict.status = 409
 				api.post.mockRejectedValue(conflict)
@@ -609,7 +563,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('reset() discards pending commands', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				api.post.mockRejectedValue(new Error('offline'))
 
 				await store.completeRoomTask(1).then(() => null, () => null)
@@ -619,26 +573,20 @@ describe('RoomTasks Store', () => {
 				expect(store.pendingCommands).toEqual({})
 			})
 
-			it('throws STALE_TARGET without a request when no occurrence block is cached', async () => {
-				store.roomTasks = [{ id: 1, isActive: true }]
+			it.each([
+				['no cycle block is cached', {}],
+				['the task has no cycle (done)', { cycle: null }],
+				['the task is asleep', { cycle: { state: 'asleep' } }],
+			])('throws STALE_TARGET without a request when %s', async (_label, row) => {
+				store.roomTasks = [{ id: 1, isActive: true, ...row }]
 				api.post.mockClear()
 
 				await expect(store.completeRoomTask(1)).rejects.toMatchObject({ code: 'STALE_TARGET' })
 				expect(api.post).not.toHaveBeenCalled()
 			})
 
-			// D-088-18: the server delivered the row without a target — its
-			// window has not opened yet; nothing is sent.
-			it('throws NOT_OPEN_YET without a request when the row has no open target', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: null }]
-				api.post.mockClear()
-
-				await expect(store.completeRoomTask(1)).rejects.toMatchObject({ code: 'NOT_OPEN_YET' })
-				expect(api.post).not.toHaveBeenCalled()
-			})
-
 			it('refreshes derived projections on a 409 stale-target conflict', async () => {
-				store.roomTasks = [{ id: 1, roomId: 12, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, roomId: 12, isActive: true, cycle: cycleFixture() }]
 				const conflict = new Error('The task changed since it was displayed. Reload and try again.')
 				conflict.status = 409
 				api.post.mockRejectedValue(conflict)
@@ -650,14 +598,14 @@ describe('RoomTasks Store', () => {
 
 			it('the attempt after a 409 carries the target of the reread row (BUG-UX-014)', async () => {
 				store.houseLoaded = true
-				store.dailyTasks = [{ roomTask: { id: 1 }, task: { id: 5 }, occurrence: occurrenceFixture({ expectedVersion: 0 }) }]
-				store.roomTasks = [{ id: 1, roomId: 12, isActive: true, occurrence: occurrenceFixture({ expectedVersion: 0 }) }]
+				store.dailyTasks = [{ roomTask: { id: 1 }, task: { id: 5 }, cycle: cycleFixture({ expectedVersion: 0 }) }]
+				store.roomTasks = [{ id: 1, roomId: 12, isActive: true, cycle: cycleFixture({ expectedVersion: 0 }) }]
 				const conflict = new Error('The task changed since it was displayed. Reload and try again.')
 				conflict.status = 409
 				api.post.mockRejectedValueOnce(conflict)
 				api.get.mockImplementation((path) => Promise.resolve(path.endsWith('filtered-daily')
-					? [{ roomTask: { id: 1 }, task: { id: 5 }, occurrence: occurrenceFixture({ expectedVersion: 1 }) }]
-					: [{ id: 1, roomId: 12, isActive: true, occurrence: occurrenceFixture({ expectedVersion: 1 }) }]))
+					? [{ roomTask: { id: 1 }, task: { id: 5 }, cycle: cycleFixture({ expectedVersion: 1 }) }]
+					: [{ id: 1, roomId: 12, isActive: true, cycle: cycleFixture({ expectedVersion: 1 }) }]))
 
 				await expect(store.completeRoomTask(1)).rejects.toBe(conflict)
 				await flushPromises()
@@ -665,18 +613,16 @@ describe('RoomTasks Store', () => {
 				expect(store._completionTargetFor(1).expectedVersion).toBe(1)
 			})
 
-			it('stores the fresh occurrence block from the completion response', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
-				store.dailyTasks = [{ roomTask: { id: 1, isActive: true }, task: { id: 5 }, room: null, occurrence: occurrenceFixture() }]
-				api.post.mockResolvedValue({
-					roomTask: { id: 1, isActive: true },
-					occurrence: occurrenceFixture({ occurrenceId: '5:2', expectedVersion: 0, selectionToken: 'next-tok' }),
-				})
+			it('stores the fresh cycle block from the completion response', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
+				store.dailyTasks = [{ roomTask: { id: 1, isActive: true }, task: { id: 5 }, room: null, cycle: cycleFixture() }]
+				const next = cycleFixture({ cycleKey: 'c52', expectedVersion: 1, state: 'upcoming' })
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true }, cycle: next })
 
 				await store.completeRoomTask(1)
 
-				expect(store.roomTasks[0].occurrence.occurrenceId).toBe('5:2')
-				expect(store.dailyTasks[0].occurrence.selectionToken).toBe('next-tok')
+				expect(store.roomTasks[0].cycle).toEqual(next)
+				expect(store.dailyTasks[0].cycle).toEqual(next)
 			})
 
 		it('reconciles every owning store BEFORE emitting task-completed (D10)', async () => {
@@ -684,7 +630,7 @@ describe('RoomTasks Store', () => {
 			const roomsStore = useRoomsStore()
 			const userStore = useUserStore()
 
-			store.roomTasks = [{ id: 1, roomId: 10, isActive: true, assignees: ['mom'], occurrence: occurrenceFixture() }]
+			store.roomTasks = [{ id: 1, roomId: 10, isActive: true, assignees: ['mom'], cycle: cycleFixture() }]
 			roomsStore.rooms = [{ id: 10, cleanliness: 70 }]
 			userStore.currentUser = { nextcloudUserId: 'mom', contributionMinor: 4000, wallet: null }
 
@@ -720,7 +666,7 @@ describe('RoomTasks Store', () => {
 		it('reconciles the dailyTasks slice and gates user side effects on completer identity', async () => {
 			const userStore = useUserStore()
 			userStore.currentUser = { nextcloudUserId: 'mom', contributionMinor: 4000, wallet: null }
-			store.roomTasks = [{ id: 1, assignees: ['mom'], occurrence: occurrenceFixture() }]
+			store.roomTasks = [{ id: 1, assignees: ['mom'], cycle: cycleFixture() }]
 			store.dailyTasks = [{ roomTask: { id: 1, isActive: true }, task: { id: 5 }, room: null }]
 			api.post.mockResolvedValue(completionFixture())
 
@@ -745,7 +691,7 @@ describe('RoomTasks Store', () => {
 
 		it('does not touch the removed scheduling energy counter (D7)', async () => {
 			const schedulingStore = useSchedulingStore()
-			store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+			store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 			api.post.mockResolvedValue({
 				roomTask: { id: 1, isActive: false },
 				rewards: { energyCost: 3 },
@@ -763,7 +709,7 @@ describe('RoomTasks Store', () => {
 				const { useGameStore } = await import('../../../src/store/game.js')
 				const gameStore = useGameStore()
 
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				api.post.mockResolvedValue({
 					roomTask: { id: 1, isActive: false },
 					rewards: {
@@ -1198,7 +1144,7 @@ describe('RoomTasks Store', () => {
 	describe('fetchRangeTasks', () => {
 			it('calls the range endpoint and stores result', async () => {
 				const mockData = {
-					scheduled: [{ roomTask: { id: 1, nextDue: '2026-07-28' }, task: { name: 'T' }, room: { name: 'R' }, flexWindow: {} }],
+					scheduled: [{ roomTask: { id: 1, nextDue: '2026-07-28' }, task: { name: 'T' }, room: { name: 'R' } }],
 					completed: [{ roomTaskId: 2, taskName: 'Done', roomName: 'R', completedAt: '2026-07-29' }],
 				}
 				api.get.mockResolvedValue(mockData)
@@ -1259,15 +1205,18 @@ describe('RoomTasks Store', () => {
 			expect(store.rangeTasksByDay).toEqual({})
 		})
 
-		it('expands recurring tasks across their occurrences', () => {
+		it('expands recurring tasks across their cycles', () => {
 			store.rangeTasks = {
 				scheduled: [
 					{
 						roomTask: { id: 1, nextDue: '2026-07-29T10:00:00' },
 						task: { name: 'Dishes', recurrenceMode: 'recurring' },
 						room: { name: 'Kitchen' },
-						flexWindow: {},
-						occurrences: ['2026-07-29', '2026-07-30', '2026-07-31'],
+						cycles: [
+							{ date: '2026-07-29', cycleKey: 'd2026-07-29', windowStartOn: '2026-07-29', windowEndOn: '2026-07-29', current: true, late: false },
+							{ date: '2026-07-30', cycleKey: null, windowStartOn: '2026-07-30', windowEndOn: '2026-07-30', current: false, late: false },
+							{ date: '2026-07-31', cycleKey: null, windowStartOn: '2026-07-31', windowEndOn: '2026-07-31', current: false, late: false },
+						],
 					},
 				],
 				completed: [],
@@ -1279,27 +1228,25 @@ describe('RoomTasks Store', () => {
 			expect(byDay['2026-07-29'].scheduled).toHaveLength(1)
 			expect(byDay['2026-07-30'].scheduled).toHaveLength(1)
 			expect(byDay['2026-07-31'].scheduled).toHaveLength(1)
-			// Each bucketed item carries the occurrence date for overdue calc.
+			// Each bucketed item carries its planned day and the server's mark.
 			expect(byDay['2026-07-30'].scheduled[0].dueDate).toBe('2026-07-30')
 			expect(byDay['2026-07-30'].scheduled[0].task.name).toBe('Dishes')
-			expect(byDay['2026-07-30'].scheduled[0].late).toBeNull()
+			expect(byDay['2026-07-30'].scheduled[0].late).toBe(false)
 		})
 
 		// CR-084-01: the overdue mark is per day entry, straight from the
-		// server's occurrence details — not "planned day < today".
-		it('carries the per-day late mark of the occurrence details', () => {
+		// server's cycles — not "planned day < today".
+		it('carries the late mark of the current cycle', () => {
 			store.rangeTasks = {
 				scheduled: [
 					{
 						roomTask: { id: 1, nextDue: '2026-07-29T00:00:00' },
 						task: { name: 'Dishes' },
 						room: { name: 'Kitchen' },
-						flexWindow: {},
-						occurrences: ['2026-07-28', '2026-07-29', '2026-07-30'],
-						occurrenceDetails: [
-							{ date: '2026-07-28', classification: 'agreed', late: true },
-							{ date: '2026-07-29', classification: 'agreed', late: false },
-							{ date: '2026-07-30', classification: 'projection', late: false },
+						cycles: [
+							{ date: '2026-07-28', cycleKey: 'd2026-07-28', current: true, late: true },
+							{ date: '2026-07-29', cycleKey: null, current: false, late: false },
+							{ date: '2026-07-30', cycleKey: null, current: false, late: false },
 						],
 					},
 				],
@@ -1314,7 +1261,7 @@ describe('RoomTasks Store', () => {
 			expect(byDay['2026-07-30'].scheduled[0]).toMatchObject({ dueDate: '2026-07-30', late: false })
 		})
 
-		it('falls back to nextDue when occurrences are absent', () => {
+		it('falls back to nextDue when the row carries no cycles', () => {
 			store.rangeTasks = {
 				scheduled: [
 					{ roomTask: { id: 1, nextDue: '2026-07-29T10:00:00' }, task: { name: 'A' }, room: { name: 'R' } },
@@ -1455,7 +1402,7 @@ describe('RoomTasks Store', () => {
 					eventOrder.push('invalidate')
 				})
 
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				api.post.mockResolvedValue({
 					roomTask: { id: 1, isActive: false },
 					rewards: { coins: 5, newTitle: { pack: 'sparkling', labelKey: 'titles.sparkling.bronze', tierIndex: 0 } },
@@ -1481,7 +1428,7 @@ describe('RoomTasks Store', () => {
 				titlesStore.lastHouseUserId = 5
 				jest.spyOn(titlesStore, 'invalidate').mockRejectedValue(new Error('offline'))
 
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				api.post.mockResolvedValue({
 					roomTask: { id: 1, isActive: false },
 					rewards: { coins: 5, newTitle: { pack: 'p', labelKey: 'k', tierIndex: 1 } },
@@ -1493,7 +1440,7 @@ describe('RoomTasks Store', () => {
 
 			it('a null newTitle emits no unlock event', async () => {
 				const { emit } = await import('@nextcloud/event-bus')
-				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, cycle: cycleFixture() }]
 				api.post.mockResolvedValue({
 					roomTask: { id: 1, isActive: false },
 					rewards: { coins: 5, newTitle: null },
@@ -1510,7 +1457,7 @@ describe('RoomTasks Store', () => {
 			it('the returned definition merges into the definitions store by its separate ID', async () => {
 				const tasksStore = useTasksStore()
 				tasksStore.tasks = [{ id: 5, name: 'Old name' }]
-				store.roomTasks = [{ id: 1, taskId: 5, isActive: true, occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, taskId: 5, isActive: true, cycle: cycleFixture() }]
 				api.post.mockResolvedValue(completionFixture())
 
 				await store.completeRoomTask(1)
@@ -1569,7 +1516,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('a refresh failure keeps the committed action, marks projections stale, and offers a refresh-only retry', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, assignees: ['mom'], occurrence: occurrenceFixture() }]
+				store.roomTasks = [{ id: 1, isActive: true, assignees: ['mom'], cycle: cycleFixture() }]
 				store.dueTodayLoaded = true
 				store.overdueLoaded = true
 				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false }, rewards: { coins: 5 } })

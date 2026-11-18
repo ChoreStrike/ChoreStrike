@@ -8,17 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\CompletedTask;
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
-use OCA\ChoreStrike\Db\WorkShareMapper;
 
 /**
  * The minimum planned-day rhythm evaluator (CS-PLAN-070 WP3, Q-074-01
@@ -28,16 +21,19 @@ use OCA\ChoreStrike\Db\WorkShareMapper;
  * never restored from a snapshot and never guarded against a stale cache
  * (a later completion may leave `currentStreak != recordedAfter`, so a
  * comparison preserves a false run; valid-history evaluation is the C3
- * requirement).
+ * requirement). The history starts at the house's first day of derived
+ * windows: what a member had earned before continues as stored
+ * (`streak_base`, D-091-04) and no earlier week is evaluated again.
  *
- * Per saved planned day, every active agreed obligation must be fulfilled
- * inside its saved window by a valid selected share for that member:
- *  - all fulfilled          → the day is a success (one streak step);
- *  - any unfulfilled, window still open or planned today → the day is
- *    pending (held, neither step nor break);
- *  - any unfulfilled with an expired window → a miss (breaks the run;
- *    a later success starts a NEW run, C1f).
- * Days without personal obligations are neutral (no step, no break).
+ * Per day a window ends on, every cycle the member is responsible for
+ * must be kept — done on time by a valid selected share of that member:
+ *  - all kept               → the day is a success (one streak step);
+ *  - any not done with its window still open → the day is pending
+ *    (held, neither step nor break);
+ *  - any not kept after its window → a miss (breaks the run; a later
+ *    success starts a NEW run, C1f).
+ * Days without own cycles are neutral (no step, no break), and so is a
+ * window that lay entirely inside an absence (D-091-03).
  *
  * A chronological scan holds later success behind the first pending day.
  * A later miss clears that hold and begins a new run on subsequent valid
@@ -55,32 +51,20 @@ class RhythmService {
 	/** A page, not a time cutoff: old valid runs must survive corrections. */
 	public const HISTORY_PAGE_SIZE = 300;
 
-	private OccurrenceMapper $occurrenceMapper;
-	private OccurrenceMemberMapper $occMemberMapper;
-	private CompletedTaskMapper $completedTaskMapper;
+	private RecognitionFactsService $facts;
 	private HouseMapper $houseMapper;
 	private HouseUserMapper $houseUserMapper;
-	private CalendarService $calendar;
-	private WorkShareMapper $workShareMapper;
 	private TransactionExecutor $transactions;
 
 	public function __construct(
-		OccurrenceMapper $occurrenceMapper,
-		OccurrenceMemberMapper $occMemberMapper,
-		CompletedTaskMapper $completedTaskMapper,
+		RecognitionFactsService $facts,
 		HouseMapper $houseMapper,
 		HouseUserMapper $houseUserMapper,
-		CalendarService $calendar,
-		WorkShareMapper $workShareMapper,
 		TransactionExecutor $transactions,
 	) {
-		$this->occurrenceMapper = $occurrenceMapper;
-		$this->occMemberMapper = $occMemberMapper;
-		$this->completedTaskMapper = $completedTaskMapper;
+		$this->facts = $facts;
 		$this->houseMapper = $houseMapper;
 		$this->houseUserMapper = $houseUserMapper;
-		$this->calendar = $calendar;
-		$this->workShareMapper = $workShareMapper;
 		$this->transactions = $transactions;
 	}
 
@@ -154,76 +138,79 @@ class RhythmService {
 	 * @return array<int, array{currentStreak: int, longestStreak: int, pending: bool}>
 	 */
 	public function evaluateForMembers(int $houseId, array $members, \DateTime $now): array {
-		$walletByMember = [];
+		$memberByWallet = [];
 		$state = [];
 		foreach ($members as $member) {
-			$state[(int)$member->getId()] = ['currentStreak' => 0, 'longestStreak' => 0, 'pending' => false];
+			// D-091-04: the streak a member held at the cutover is where the
+			// derived model continues; a member without one starts at zero.
+			$state[(int)$member->getId()] = [
+				'currentStreak' => (int)($member->getStreakBase() ?? 0),
+				'longestStreak' => (int)($member->getLongestStreakBase() ?? 0),
+				'pending' => false,
+			];
 			if ($member->getWalletId() !== null) {
-				$walletByMember[(int)$member->getWalletId()] = (int)$member->getId();
+				$memberByWallet[(int)$member->getWalletId()] = (int)$member->getId();
 			}
 		}
-		if ($walletByMember === []) {
-			return array_map(static fn (array $entry): array => ['currentStreak' => 0, 'longestStreak' => 0, 'pending' => false], $state);
+		if ($memberByWallet === []) {
+			return $state;
 		}
-		$tz = $this->calendar->getTimeZone($this->houseMapper->find($houseId));
-		$through = (new \DateTime($this->calendar->dayKey($now, $tz), $tz))->modify('+1 day')->format('Y-m-d');
-		$afterDay = null;
-		$afterId = 0;
+
+		$house = $this->houseMapper->find($houseId);
+		$absences = $this->facts->absences($houseId);
+		$open = $this->facts->openFacts($house, $now, null, null, false, $absences);
+		usort($open, static fn (RecognitionFact $a, RecognitionFact $b): int => $a->day <=> $b->day);
 		$day = null;
 		$dayOutcomes = [];
-		do {
-			$page = $this->occurrenceMapper->findPlannedPage($houseId, $through, $afterDay, $afterId, self::HISTORY_PAGE_SIZE);
-			$ids = array_map(static fn (Occurrence $row): int => (int)$row->getId(), $page);
-			$membersByOccurrence = $this->occMemberMapper->findByOccurrenceIds($ids);
-			$completionIds = array_values(array_unique(array_filter(array_map(
-				static fn (Occurrence $row): ?int => $row->getCompletionId(), $page
-			))));
-			$completions = $this->completedTaskMapper->findValidByIds($completionIds);
-			$shares = $this->workShareMapper->findSelectedByCompletionIds(array_keys($completions));
-			foreach ($page as $occurrence) {
-				$planned = $occurrence->getPlannedDate()?->format('Y-m-d');
-				if ($planned !== $day && $day !== null) {
-					$this->confirmDay($state, $dayOutcomes);
-					$dayOutcomes = [];
-				}
-				$day = $planned;
-				if ($planned === null || ($occurrence->getDayStart() !== null && $occurrence->getDayStart() > $now)) {
-					continue;
-				}
-				$completion = $completions[(int)($occurrence->getCompletionId() ?? 0)] ?? null;
-				$suspended = $occurrence->getSuspensionState() === Occurrence::SUSPENSION_SUSPENDED;
-				$wallets = [];
-				foreach ($shares[(int)($occurrence->getCompletionId() ?? 0)] ?? [] as $share) {
-					if ($share->getWalletId() !== null) {
-						$wallets[(int)$share->getWalletId()] = true;
-					}
-				}
-				$onTime = $this->onTime($occurrence, $completion);
-				foreach ($membersByOccurrence[(int)$occurrence->getId()] ?? [] as $memberRow) {
-					$memberId = $walletByMember[(int)$memberRow->getWalletId()] ?? null;
-					if ($memberId === null || !$memberRow->getObligated() || $memberRow->getDisposition() !== OccurrenceMember::DISPOSITION_ACTIVE) {
-						continue;
-					}
-					$fulfilled = $onTime && isset($wallets[(int)$memberRow->getWalletId()]);
-					if ($suspended && !$fulfilled) {
-						continue;
-					}
-					$outcome = $fulfilled ? 1 : (($occurrence->getWindowEnd() ?? (new \DateTime($planned, new \DateTimeZone($occurrence->getTimezone() ?: 'UTC')))->modify('+1 day')) <= $now ? -1 : 0);
+		$feed = function (RecognitionFact $fact) use (&$state, &$day, &$dayOutcomes, $memberByWallet): void {
+			if ($fact->day !== $day && $day !== null) {
+				$this->confirmDay($state, $dayOutcomes);
+				$dayOutcomes = [];
+			}
+			$day = $fact->day;
+			foreach ($fact->responsible as $walletId) {
+				$memberId = $memberByWallet[$walletId] ?? null;
+				$outcome = self::outcomeFor($fact, $walletId);
+				if ($memberId !== null && $outcome !== null) {
 					$dayOutcomes[$memberId] = min($dayOutcomes[$memberId] ?? 1, $outcome);
 				}
 			}
-			if ($page !== []) {
-				$last = end($page);
-				$afterDay = $last->getPlannedDate()->format('Y-m-d');
-				$afterId = (int)$last->getId();
+		};
+
+		// Closed cycles page by page, with the open ones merged in by day.
+		$afterDay = null;
+		$afterId = 0;
+		do {
+			$page = $this->facts->closedFactsPage($house, $afterDay, $afterId, self::HISTORY_PAGE_SIZE, $absences);
+			foreach ($page['facts'] as $fact) {
+				while ($open !== [] && $open[0]->day < $fact->day) {
+					$feed(array_shift($open));
+				}
+				$feed($fact);
 			}
-		} while (count($page) === self::HISTORY_PAGE_SIZE);
+			$afterDay = $page['lastDay'] ?? $afterDay;
+			$afterId = $page['lastId'];
+		} while ($page['count'] === self::HISTORY_PAGE_SIZE);
+		foreach ($open as $fact) {
+			$feed($fact);
+		}
 		$this->confirmDay($state, $dayOutcomes);
-		return array_map(static fn (array $entry): array => [
-			'currentStreak' => $entry['currentStreak'],
-			'longestStreak' => $entry['longestStreak'],
-			'pending' => $entry['pending'],
-		], $state);
+		return $state;
+	}
+
+	/**
+	 * What one fact means for a responsible member's day: 1 kept, 0 still
+	 * open, -1 a miss; null when it does not count (the window has not
+	 * opened, or it lay inside an absence).
+	 */
+	private static function outcomeFor(RecognitionFact $fact, int $walletId): ?int {
+		if ($fact->state === RecognitionFact::UPCOMING || !$fact->countsFor($walletId)) {
+			return null;
+		}
+		if ($fact->isKeptBy($walletId)) {
+			return 1;
+		}
+		return $fact->state === RecognitionFact::OPEN ? 0 : -1;
 	}
 
 	/** @param array<int, array{currentStreak: int, longestStreak: int, pending: bool}> $state */
@@ -239,10 +226,5 @@ class RhythmService {
 				$state[$memberId]['longestStreak'] = max($state[$memberId]['longestStreak'], $state[$memberId]['currentStreak']);
 			}
 		}
-	}
-
-	public function onTime(Occurrence $occurrence, ?CompletedTask $completion): bool {
-		return $completion !== null
-			&& $completion->isAgreedOnTime($occurrence->getWindowStart(), $occurrence->getWindowEnd());
 	}
 }

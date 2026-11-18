@@ -169,13 +169,16 @@ describe('API Contract — stores → routes', () => {
 		expect(usesDead).toBe(false)
 	})
 
-	it('the plan aggregate endpoints are routed and no store sends the retired taskCount advice contract (CS-PLAN-065)', () => {
-		const endpoints = extractStoreEndpoints()
-		const schedulingCalls = endpoints.filter((ep) => ep.path.includes('/scheduling/'))
-
-		// Preview + apply are both wired from the scheduling store.
-		expect(schedulingCalls.some((ep) => ep.method === 'POST' && ep.path === '/api/v1/scheduling/suggestions')).toBe(true)
-		expect(schedulingCalls.some((ep) => ep.method === 'POST' && ep.path === '/api/v1/scheduling/apply')).toBe(true)
+	it('no store calls a route that went with the occurrence timeline (ADR-021 decision 13, ADR-022)', () => {
+		const retired = [
+			'/scheduling/suggestions',
+			'/scheduling/apply',
+			'/occurrences/',
+			'/due-date',
+			'/last-done',
+		]
+		const calls = extractStoreEndpoints().filter((ep) => retired.some((fragment) => ep.path.includes(fragment)))
+		expect(calls).toEqual([])
 
 		// The removed taskCount-only contract must not reappear anywhere.
 		const schedulingSource = readdirSync(STORES_DIR)

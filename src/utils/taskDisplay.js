@@ -31,20 +31,47 @@ export function assignmentLabel(userIds = [], members = []) {
 }
 
 /**
+ * The `cycle` block of a row (ADR-021): on the row itself in the My Day
+ * reads, inside the room task in the task lists.
+ * @param {?object} item Enriched row or flat room task payload.
+ * @return {object|null|undefined} Undefined when the read carried none.
+ */
+export function cycleOf(item) {
+	return item?.cycle !== undefined ? item.cycle : item?.roomTask?.cycle
+}
+
+/**
+ * The house-local day a room task is planned for: the planned day of its
+ * current cycle. Empty for a task without a window (bonus, asleep, done);
+ * a row delivered without a cycle block falls back to the projected due
+ * instant.
+ * @param {object} item Enriched row or flat room task payload.
+ * @param {string} timezone IANA timezone of the household.
+ * @return {string} `Y-m-d` or ''.
+ */
+export function plannedDayKey(item, timezone) {
+	const cycle = cycleOf(item)
+	if (cycle !== undefined) {
+		return cycle?.centreOn ?? ''
+	}
+	return dateKeyInZone((item?.roomTask ?? item)?.nextDue, timezone)
+}
+
+/**
  * Whether the room task's current work is missed (CS-PLAN-084 D-084-08):
- * the server's occurrence classification is authoritative (`late` = the
- * window ended in the house timezone); rows without an occurrence block
- * fall back to the server-computed status. A task due today is never
- * overdue before the house-local day is over.
- * @param {object} roomTask Room task payload with isActive/occurrence/status.
+ * the server's cycle state is authoritative (`overdue` = the window ended
+ * in the house timezone); rows without a cycle block fall back to the
+ * server-computed status. A task due today is never overdue before the
+ * house-local day is over.
+ * @param {object} roomTask Room task payload with isActive/cycle/status.
  * @return {boolean}
  */
 export function isOverdue(roomTask) {
 	if (!roomTask?.isActive) {
 		return false
 	}
-	if (roomTask.occurrence) {
-		return roomTask.occurrence.classification === 'late'
+	if (roomTask.cycle) {
+		return roomTask.cycle.state === 'overdue'
 	}
 	return roomTask.status === 'overdue'
 }
@@ -106,14 +133,13 @@ export function locationLabel(room, floor) {
 }
 
 /**
- * The energy of a row: what completing its occurrence pays. An open
- * occurrence follows the definition, completed work keeps its value (ADR-013).
- * @param {object} item Enriched row with task and an occurrence block on the
- * row (My Day) or on its room task (Tasks, rooms).
+ * The energy of a row: what completing it pays. Open work follows the
+ * definition (ADR-021 decision 1), completed work keeps its value (ADR-013).
+ * @param {object} item Enriched row with its task.
  * @return {number}
  */
 export function taskEnergy(item) {
-	return item.occurrence?.energy ?? item.roomTask?.occurrence?.energy ?? item.task.energyCost
+	return item.task.energyCost
 }
 
 /**
@@ -144,18 +170,27 @@ export function matchesEnergyFilter(energy, filter) {
 }
 
 /**
- * Whole house-local days from today to the planned due day (negative = past).
- * @param {object} roomTask Room task payload with nextDue.
+ * Whole house-local days from today to a day key (negative = past).
+ * @param {string} dayKey `Y-m-d`, or '' for none.
  * @param {string} timezone IANA timezone of the household.
- * @return {?number} null without a due date
+ * @return {?number} null without a day
  */
-function dueDayOffset(roomTask, timezone) {
-	const dueKey = dateKeyInZone(roomTask.nextDue, timezone)
-	if (dueKey === '') {
+function dayOffset(dayKey, timezone) {
+	if (!dayKey) {
 		return null
 	}
 	const todayKey = todayKeyInZone(timezone)
-	return Math.round((Date.parse(`${dueKey}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86400000)
+	return Math.round((Date.parse(`${dayKey}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86400000)
+}
+
+/**
+ * Whole house-local days from today to the planned day (negative = past).
+ * @param {object} roomTask Room task payload with its cycle block.
+ * @param {string} timezone IANA timezone of the household.
+ * @return {?number} null without a planned day
+ */
+function dueDayOffset(roomTask, timezone) {
+	return dayOffset(plannedDayKey(roomTask, timezone), timezone)
 }
 
 /**
@@ -194,7 +229,8 @@ export function dueText(roomTask, timezone) {
 		return t('chorestrike', 'No due date')
 	}
 	if (isOverdue(roomTask)) {
-		const overdueDays = Math.max(1, -days)
+		// Counted from the end of the window, not from the planned day.
+		const overdueDays = Math.max(1, -(dayOffset(roomTask.cycle?.windowEndOn ?? '', timezone) ?? days))
 		return overdueDays === 1
 			? t('chorestrike', 'Overdue by 1 day')
 			: t('chorestrike', 'Overdue by {days} days', { days: overdueDays })
@@ -221,18 +257,28 @@ export function groupingOptions() {
 }
 
 /**
- * List order for enriched rows: earliest due date first (rows without a due
- * date last), then higher priority first. Shared by TaskList and the paged
- * TaskManager list so a page always holds the next rows of the visible order.
+ * List order for enriched rows: the earliest end of a window first (the
+ * server's `nextDue` projection; rows without a window last), then higher
+ * priority first. Shared by TaskList and the paged TaskManager list so a
+ * page always holds the next rows of the visible order.
  * @param {object} a Enriched row with roomTask and task.
  * @param {object} b Enriched row with roomTask and task.
  * @return {number}
  */
 export function compareTaskItems(a, b) {
-	const dueA = a.roomTask.nextDue ? new Date(a.roomTask.nextDue).getTime() : Infinity
-	const dueB = b.roomTask.nextDue ? new Date(b.roomTask.nextDue).getTime() : Infinity
+	const dueA = sortInstant(a.roomTask)
+	const dueB = sortInstant(b.roomTask)
 	if (dueA !== dueB) {
 		return dueA < dueB ? -1 : 1
 	}
 	return (b.task.priority ?? 0) - (a.task.priority ?? 0)
+}
+
+/**
+ * @param {object} roomTask Room task payload.
+ * @return {number} The projected end of its window, Infinity without one.
+ */
+function sortInstant(roomTask) {
+	const windowless = roomTask.cycle !== undefined && !roomTask.cycle?.windowEndOn
+	return windowless || !roomTask.nextDue ? Infinity : new Date(roomTask.nextDue).getTime()
 }

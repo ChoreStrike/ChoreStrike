@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Support;
 
+use OCA\ChoreStrike\Db\CycleProgressMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
@@ -35,7 +35,7 @@ class FixtureCleanupTest extends IntegrationTestCase {
 		return [
 			'completion and source-free journal' => [\OCA\ChoreStrike\Tests\Integration\Service\CompletionConcurrencyTest::class, 'testSameRoomCompletion_BlockedOnRoomLock_BuildsOnCommittedWinnerCleanliness'],
 			'worker completion' => [\OCA\ChoreStrike\Tests\Integration\Service\ConcurrentCompletionTest::class, 'testTwoUsersSameRoomConcurrentCompletions_SumOfBothDeltasLand'],
-			'house mutation' => [\OCA\ChoreStrike\Tests\Integration\Service\HouseMutationConcurrencyTest::class, 'testCompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsOccurrenceConflict409'],
+			'house mutation' => [\OCA\ChoreStrike\Tests\Integration\Service\HouseMutationConcurrencyTest::class, 'testCompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsAlreadyCompleted409'],
 			'worker mount' => [\OCA\ChoreStrike\Tests\Integration\Service\TaskCreationConcurrencyTest::class, 'testConcurrentMountRace_ExactlyOneRow_LoserGets400'],
 			'worker floor' => [\OCA\ChoreStrike\Tests\Integration\Setup\SetupApplyConcurrencyTest::class, 'testConcurrentApplyRace_ExactlyOneStructure_LoserGetsConflict'],
 			'setup controller' => [\OCA\ChoreStrike\Tests\Integration\Setup\SetupApplyConcurrencyTest::class, 'testControllerMatrix_OwnerMemberNonMemberAndAlreadySetUp'],
@@ -56,8 +56,9 @@ class FixtureCleanupTest extends IntegrationTestCase {
 				$populated = $this->snapshot();
 				foreach (['houses', 'floors', 'rooms', 'room_tasks', 'completed_tasks',
 					'work_shares', 'completion_revs', 'room_events', 'wallet_entries',
-					'wallets', 'chk_items', 'chk_progress', 'occurrences', 'occ_members',
-					'schedule_revs', 'commands', 'task_assignees'] as $suffix) {
+					'wallets', 'chk_items', 'cycles', 'cycle_progress', 'commands', 'task_assignees',
+					// What a retained deployment still carries (ADR-021 decision 12).
+					'chk_progress', 'occurrences', 'occ_members', 'schedule_revs', 'agreements'] as $suffix) {
 					$table = 'chorestrike_' . $suffix;
 					self::assertGreaterThan(count($before[$table]), count($populated[$table]), $table . ' must actually be exercised');
 				}
@@ -85,12 +86,14 @@ class FixtureCleanupTest extends IntegrationTestCase {
 			$result->closeCursor();
 		}
 		ksort($rows);
-		self::assertCount(30, $rows, 'Snapshot every app table, including rows without a house key');
+		self::assertCount(32, $rows, 'Snapshot every app table, including rows without a house key');
 		return $rows;
 	}
 
 	private function fixtureOwner(): IntegrationTestCase {
 		return new class extends IntegrationTestCase {
+			use StoredTimelineFixtures;
+
 			public function populate(?int $foreignTask = null): int {
 				parent::setUp();
 				$actor = 'fixture_cleanup_owner';
@@ -102,18 +105,23 @@ class FixtureCleanupTest extends IntegrationTestCase {
 				$taskId = $this->createTask($houseId, 'Fixture completion');
 				$roomTaskId = $this->assignTaskToRoom($taskId, $room->getId(), $actor);
 				$item = \OC::$server->get(TaskChecklistItemMapper::class)->create($taskId, 'Fixture checklist');
-				[, $occurrenceKey] = $this->completionReceiptFor($roomTaskId);
-				[$revision, $ordinal] = array_map('intval', explode(':', $occurrenceKey));
+				[, $cycleKey] = $this->completionReceiptFor($roomTaskId);
 				$member = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, $actor);
 				\OC::$server->get(TransactionExecutor::class)->run(static fn ()
-					=> \OC::$server->get(RoomTaskChecklistProgressMapper::class)->toggleLocked($roomTaskId, $revision, $ordinal, $item->getId(), $member->getId())
+					=> \OC::$server->get(CycleProgressMapper::class)->toggleLocked($roomTaskId, $cycleKey, $item->getId(), $member->getId())
 				);
+				$occurrenceId = $this->insertStoredOccurrence($houseId, $roomTaskId, '2026-09-21');
+				$this->insertStoredMember($occurrenceId, 1);
+				$this->insertStoredAgreement($occurrenceId, 'date', null, ['plannedDate' => '2026-09-21']);
+				$this->insertStoredTick($roomTaskId, $occurrenceId, $item->getId());
 				$replay = \OC::$server->get(RoomReplayService::class);
 				$replay->recordBaseline($room);
 				$replay->recordManualDelta($room->getId(), 1, '00000000-0000-4000-8000-000000000001', new \DateTime());
 				$service = \OC::$server->get(CompletionService::class);
 				$this->completeOccurrence($service, $houseId, $actor, $roomTaskId);
 				$this->undoLatestForRoomTask($service, $houseId, $actor, $roomTaskId);
+				// The second completion stays: its closed cycle is a fact to clean.
+				$this->completeOccurrence($service, $houseId, $actor, $roomTaskId);
 				if ($foreignTask !== null) {
 					$mount = \OC::$server->get(RoomTaskMapper::class)->create($room->getId(), $foreignTask, new \DateTime());
 					$this->initializeScheduleForFixture($room->getId(), $mount->getId(), $foreignTask, $actor);

@@ -2,25 +2,27 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  *
- * Family rhythm — occurrence timeline WP1 slice (CS-PLAN-072).
+ * Family rhythm — derived cycle contract (ADR-021, CS-PLAN-091).
  *
- * Browser/HTTP-seam proofs of the occurrence receipt contract the UI store
- * consumes (parent CS-PLAN-070 §3.4):
+ * Browser/HTTP-seam proofs of the cycle receipt contract the UI store
+ * consumes:
  * - A completion from the real UI carries the FULL receipt (a fresh
- *   `commandId` UUID, the shown target's public `occurrenceId` key, its
- *   `expectedVersion` and the server `selectionToken`) — the client never
- *   invents work time or target effort.
- * - A NEW command on an already-fulfilled occurrence answers 409 — the
- *   server never silently credits a different target (occurrence validity
- *   replaces the former day-duplicate guard).
+ *   `commandId` UUID, the shown cycle's `cycleKey` and its
+ *   `expectedVersion`) — the client never invents work time or target
+ *   effort, and the retired `occurrenceId` / `selectionToken` are gone.
+ * - A NEW command on an already-closed cycle answers 409 ALREADY_COMPLETED,
+ *   a receipt that drifted (a definition edit) answers 409 STALE_TARGET and
+ *   a second completion of the same room task on the same house-local day
+ *   answers 409 SAME_DAY — the server never silently credits another target.
  * - A REPLAY of the same command returns the original completion identity
  *   with `replay: true` and writes no second ledger row.
+ * - A cycle may be completed before its window opens; an absence hides and
+ *   suspends nothing; work above a child's daily limit is accepted.
  *
- * The deep enumeration / revision / catch-up / zone-change math and the
- * occurrence-isolated checklist semantics are owned by the service-level
- * `OccurrenceTimelineTest` and the `RecurrenceCalculatorTest` / store unit
- * suites; this slice pins the client-visible contract only (extend-first,
- * never duplicate the lock choreography).
+ * The window math (fixed and after-completion rules, flex, postponement) and
+ * the cycle-scoped checklist semantics are owned by the service-level
+ * `WindowService` / `CycleService` suites and the store unit suites; this
+ * slice pins the client-visible contract only.
  *
  * Seed-mutating: registered in `SEED_DEPENDENT_SPECS` (chromium-serial-db).
  * Requires: Docker test environment with the `family` database profile.
@@ -28,13 +30,14 @@
 
 import type { Page } from '@playwright/test'
 
-import { weekdayOfKey } from '../../src/utils/dateKeys.js'
 import { createUserContext } from './fixtures/auth-contexts.ts'
 import {
 	completeWithOptionalDialog,
 	newCommandId,
 	postCompletionWithReceipt,
-	resolveOccurrenceReceipt,
+	readFlatRow,
+	receiptOf,
+	resolveCycleReceipt,
 } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
@@ -42,7 +45,7 @@ import { houseDateOffset } from './fixtures/house-clock.js'
 import { openRoom } from './fixtures/rooms.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const OCCURRENCE_KEY_RE = /^\d+:\d+$/
+const CYCLE_KEY_RE = /^(d\d{4}-\d{2}-\d{2}|c\d+)$/
 
 /** Resolve the Kitchen room at runtime (the DELETE-based reset never restarts AUTO_INCREMENT). */
 async function kitchenRoom(page: Page): Promise<{ id: number }> {
@@ -57,17 +60,17 @@ async function kitchenRoom(page: Page): Promise<{ id: number }> {
 	return kitchen!
 }
 
-/** Create a daily probe task DUE TODAY (house-local), assigned to `assignees`,
- * via the atomic aggregate. The explicit `nextDue` overrides the creation
- * default (tomorrow) so the occurrence window is open and the target is
- * completable/amendable now (CS-PLAN-072 WP1). */
-async function createProbeTask(page: Page, name: string, assignees: string[], nextDue = houseDateOffset(0, 'UTC')): Promise<number> {
+/** Create a daily probe task whose first day is TODAY (house-local) unless
+ * told otherwise, assigned to `assignees`, via the atomic aggregate. The
+ * explicit `firstDate` overrides the creation default (tomorrow) so the
+ * cycle is open and completable now. */
+async function createProbeTask(page: Page, name: string, assignees: string[], firstDate = houseDateOffset(0, 'UTC')): Promise<number> {
 	const kitchen = await kitchenRoom(page)
 	const createResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 		data: {
 			roomId: kitchen.id,
 			assigneeUserIds: assignees,
-			nextDue,
+			firstDate,
 			task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
 		},
 		headers: { Accept: 'application/json' },
@@ -88,7 +91,7 @@ async function setHouseTimezone(page: Page, timezone: string): Promise<string> {
 	return house.timezone
 }
 
-test.describe('Family rhythm — occurrence timeline (WP1)', () => {
+test.describe('Family rhythm — derived cycles', () => {
 	test.use({ databaseProfile: 'family' })
 
 	test('fixed and relative schedules explain and preserve their different next dates after late work', async ({ browser, seededData }) => {
@@ -98,18 +101,22 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 			const kitchen = await kitchenRoom(page)
 			const yesterday = houseDateOffset(-1, 'UTC')
 			const weekday = new Intl.DateTimeFormat('en', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${yesterday}T12:00:00Z`)).toLowerCase()
+			// A fixed rule moves to its next rule day (the weekday of the
+			// planned day, six days after today); an after-completion rule
+			// plans one interval after the DAY OF THE WORK (seven days).
 			for (const [mode, offset] of [['static', 6], ['dynamic', 7]] as const) {
 				const name = `WP9 ${mode} weekly`
 				const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 					data: {
 						roomId: kitchen.id,
 						assigneeUserIds: ['mom'],
-						nextDue: yesterday,
+						firstDate: yesterday,
 						task: {
 							name,
 							energyCost: 1,
 							frequencyType: 'weekly',
 							frequencyValue: 1,
+							flexDays: 0,
 							schedulingMode: mode,
 							...(mode === 'static' ? { fixedScheduleTime: '00:00', fixedScheduleDays: [weekday] } : {}),
 						},
@@ -128,7 +135,12 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 				await expect(page.getByTestId('today-section-catchup').getByTestId(`today-complete-button-${id}`)).toBeVisible()
 				const response = await completeWithOptionalDialog(page, button)
 				expect(response.ok()).toBe(true)
-				expect(String((await response.json()).data.roomTask.nextDue)).toContain(houseDateOffset(offset, 'UTC'))
+				const body = (await response.json()).data
+				expect(String(body.roomTask.idealDueDate)).toContain(houseDateOffset(offset, 'UTC'))
+				expect(body.cycle).toMatchObject({ centreOn: houseDateOffset(offset, 'UTC'), state: 'upcoming' })
+				// An after-completion cycle follows the completion; a fixed
+				// one hangs on its rule day.
+				expect(body.cycle.cycleKey).toMatch(mode === 'dynamic' ? /^c\d+$/ : /^d\d{4}-\d{2}-\d{2}$/)
 				await expect(button).toHaveCount(0)
 			}
 		} finally {
@@ -136,7 +148,7 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 		}
 	})
 
-	test('a UI completion carries the full occurrence receipt', async ({ browser, seededData }) => {
+	test('a UI completion carries the full cycle receipt', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
@@ -150,55 +162,82 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 				const pathname = new URL(request.url()).pathname
 				return request.method() === 'POST' && pathname.endsWith('/complete')
 			})
-			// WP3 §3.6: a multi-person proposal opens the participation
-			// dialog — settle it so the completion fires (the helper
-			// performs the click).
+			// WP3 §3.6: a task of several people, or of someone else, opens
+			// the participation dialog — settle it so the completion fires
+			// (the helper performs the click).
 			const responsePromise = completeWithOptionalDialog(page, completeButton)
 
 			const request = await requestPromise
 			const body = request.postDataJSON() as Record<string, unknown>
-			// The closed-set receipt contract: all four fields, well-formed.
+			// The closed-set receipt contract: the cycle's key and version.
 			expect(typeof body.commandId).toBe('string')
 			expect(body.commandId as string).toMatch(UUID_RE)
-			expect(typeof body.occurrenceId).toBe('string')
-			expect(body.occurrenceId as string).toMatch(OCCURRENCE_KEY_RE)
+			expect(typeof body.cycleKey).toBe('string')
+			expect(body.cycleKey as string).toMatch(CYCLE_KEY_RE)
 			expect(Number.isInteger(body.expectedVersion)).toBe(true)
-			expect(typeof body.selectionToken).toBe('string')
-			expect((body.selectionToken as string).length).toBeGreaterThan(0)
+			// The retired occurrence receipt never rides along.
+			expect(body).not.toHaveProperty('occurrenceId')
+			expect(body).not.toHaveProperty('selectionToken')
 
 			const response = await responsePromise
 			expect(response.status()).toBe(200)
 			const receipt = (await response.json()).data
 			expect(receipt.replay).toBe(false)
-			// The response carries the fresh-selection contract key. It may be
-			// null when the next target's window is not open yet (the fulfilled
-			// occurrence never rides back as the shown target).
-			expect('occurrence' in receipt).toBe(true)
+			// The response carries the NEXT cycle (null for a finished
+			// one-time task) — never the one just closed — and no occurrence.
+			expect('cycle' in receipt).toBe(true)
+			expect(receipt.cycle?.cycleKey).not.toBe(body.cycleKey)
+			expect('occurrence' in receipt).toBe(false)
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('a new command on a fulfilled occurrence conflicts 409, never credits another target', async ({ browser, seededData }) => {
+	test('a new command on a closed cycle conflicts 409, never credits another target', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const roomTaskId = await createProbeTask(page, `Fulfilled Target ${Date.now()}`, ['mom'])
 
-			// Resolve the shown target, then fulfill it through the real contract.
-			const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
-			expect(receipt, 'the probe must expose a completable occurrence').not.toBeNull()
+			// Resolve the shown cycle, then close it through the real contract.
+			const receipt = await resolveCycleReceipt(page, roomTaskId)
+			expect(receipt, 'the probe must expose a completable cycle').not.toBeNull()
 			const first = await postCompletionWithReceipt(page, roomTaskId, receipt!)
 			expect(first.status()).toBe(200)
 			expect((await first.json()).data.replay).toBe(false)
 
-			// A NEW command on the SAME (now fulfilled) target: 409, and the
-			// server never silently credits a different occurrence.
+			// A NEW command on the SAME (now closed) cycle: 409, and the
+			// server never silently credits the next one.
 			const second = await postCompletionWithReceipt(page, roomTaskId, receipt!)
 			expect(second.status()).toBe(409)
 			const conflictBody = await second.json()
 			expect(conflictBody.success).toBe(false)
-			expect(conflictBody.error.message).toBe('This occurrence is already completed')
+			expect(conflictBody.error.code).toBe('ALREADY_COMPLETED')
+			expect(conflictBody.error.message).toBe('This task is already completed')
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('a second completion on the same day conflicts 409 SAME_DAY, even for the next cycle', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const roomTaskId = await createProbeTask(page, `Same Day ${Date.now()}`, ['mom'])
+			const receipt = await resolveCycleReceipt(page, roomTaskId)
+			expect(receipt).not.toBeNull()
+			const first = await postCompletionWithReceipt(page, roomTaskId, receipt!)
+			expect(first.status()).toBe(200)
+
+			// The response names the NEXT cycle (tomorrow's); a fresh command
+			// on it still hits the same house-local day.
+			const next = (await first.json()).data.cycle
+			expect(next.state).toBe('upcoming')
+			const second = await postCompletionWithReceipt(page, roomTaskId, receiptOf(next))
+			expect(second.status()).toBe(409)
+			const conflict = await second.json()
+			expect(conflict.error.code).toBe('SAME_DAY')
+			expect(conflict.error.message).toBe('This task was already completed today')
 		} finally {
 			await context.close()
 		}
@@ -209,8 +248,8 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const roomTaskId = await createProbeTask(page, `Replay Probe ${Date.now()}`, ['mom'])
-			const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
-			expect(receipt, 'the probe must expose a completable occurrence').not.toBeNull()
+			const receipt = await resolveCycleReceipt(page, roomTaskId)
+			expect(receipt, 'the probe must expose a completable cycle').not.toBeNull()
 
 			// One logical command, sent twice with the SAME commandId.
 			const commandId = newCommandId()
@@ -238,28 +277,107 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 		}
 	})
 
-	test('a stale receipt after a due-date move conflicts 409', async ({ browser, seededData }) => {
+	test('a stale receipt after a definition edit conflicts 409 STALE_TARGET and the fresh one pays the new energy', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const roomTaskId = await createProbeTask(page, `Stale Receipt ${Date.now()}`, ['mom'])
 
-			// Capture the shown target, then move the due date behind its back
-			// (the agreement writer amends the occurrence and bumps its version).
-			const staleReceipt = await resolveOccurrenceReceipt(page, roomTaskId)
-			expect(staleReceipt, 'the probe must expose a completable occurrence').not.toBeNull()
-
-			const moveResponse = await page.request.put(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/due-date`, {
-				data: { nextDue: '+3 days' },
+			// Capture the shown cycle, then change the open work behind its
+			// back: an energy edit applies to the current cycle at once and
+			// bumps its version (open work is not frozen).
+			const staleReceipt = await resolveCycleReceipt(page, roomTaskId)
+			expect(staleReceipt, 'the probe must expose a completable cycle').not.toBeNull()
+			const row = await readFlatRow(page, roomTaskId)
+			const edit = await page.request.put(`/apps/chorestrike/api/v1/tasks/${row!.taskId}`, {
+				data: { energyCost: 3 },
 				headers: { Accept: 'application/json' },
 			})
-			expect(moveResponse.status()).toBe(200)
+			expect(edit.status(), await edit.text()).toBe(200)
 
-			// The stale receipt no longer matches the shown target → 409; the
-			// server never silently credits the moved occurrence.
+			// The stale receipt no longer matches the shown cycle → 409; the
+			// server never silently credits the edited one.
 			const staleCompletion = await postCompletionWithReceipt(page, roomTaskId, staleReceipt!)
 			expect(staleCompletion.status()).toBe(409)
-			expect((await staleCompletion.json()).success).toBe(false)
+			const conflict = await staleCompletion.json()
+			expect(conflict.success).toBe(false)
+			expect(conflict.error.code).toBe('STALE_TARGET')
+			expect(conflict.error.message).toBe('The task changed since it was displayed. Reload and try again.')
+
+			// A reread shows the new version, and completing it pays the
+			// edited energy (the row shows and pays the definition's cost).
+			const fresh = await resolveCycleReceipt(page, roomTaskId)
+			expect(fresh!.expectedVersion).toBeGreaterThan(staleReceipt!.expectedVersion)
+			const completion = await postCompletionWithReceipt(page, roomTaskId, fresh!)
+			expect(completion.status(), await completion.text()).toBe(200)
+			expect((await completion.json()).data.rewards.completion.totalEnergy).toBe(3)
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('a wrong cycle key and the retired occurrence receipt are refused 400', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const roomTaskId = await createProbeTask(page, `Receipt Shape ${Date.now()}`, ['mom'])
+			const receipt = await resolveCycleReceipt(page, roomTaskId)
+			expect(receipt).not.toBeNull()
+			const post = (data: Record<string, unknown>) => page.request.post(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`, {
+				data: { commandId: newCommandId(), ...data },
+				headers: { Accept: 'application/json' },
+			})
+
+			// A malformed key never reaches the cycle lookup.
+			const malformed = await post({ ...receipt!, cycleKey: 'not-a-cycle-key' })
+			expect(malformed.status()).toBe(400)
+			expect((await malformed.json()).error.message).toBe('Invalid cycle key')
+
+			// The closed body rejects the old occurrence receipt fields.
+			const retired = await post({ ...receipt!, occurrenceId: '1:1', selectionToken: 'retired' })
+			expect(retired.status()).toBe(400)
+
+			// Neither refusal consumed the cycle: the real receipt still completes.
+			expect((await post({ ...receipt! })).status()).toBe(200)
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('work can be completed before its window opens and a completed overdue row is not due again today', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const kitchen = await kitchenRoom(page)
+			const createWeekly = async (name: string, firstDate: string): Promise<number> => {
+				const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+					data: {
+						roomId: kitchen.id,
+						assigneeUserIds: ['mom'],
+						firstDate,
+						task: { name, energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, flexDays: 0 },
+					},
+					headers: { Accept: 'application/json' },
+				})
+				expect(created.status(), await created.text()).toBe(200)
+				return (await created.json()).data.roomTask.id as number
+			}
+
+			// Upcoming: the window opens in five days, and the work is done now.
+			const upcomingId = await createWeekly(`Early Work ${Date.now()}`, houseDateOffset(5, 'UTC'))
+			expect((await readFlatRow(page, upcomingId))!.cycle).toMatchObject({ state: 'upcoming', centreOn: houseDateOffset(5, 'UTC') })
+			const early = await postCompletionWithReceipt(page, upcomingId, (await resolveCycleReceipt(page, upcomingId))!)
+			expect(early.status(), await early.text()).toBe(200)
+
+			// Overdue: late work counts from today, so the row is neither red
+			// nor due today after it.
+			const overdueId = await createWeekly(`Late Work ${Date.now()}`, houseDateOffset(-3, 'UTC'))
+			expect((await readFlatRow(page, overdueId))!.cycle).toMatchObject({ state: 'overdue' })
+			const late = await postCompletionWithReceipt(page, overdueId, (await resolveCycleReceipt(page, overdueId))!)
+			expect(late.status(), await late.text()).toBe(200)
+			const afterwards = await readFlatRow(page, overdueId)
+			expect(afterwards!.cycle).toMatchObject({ state: 'upcoming', centreOn: houseDateOffset(7, 'UTC') })
+			expect(afterwards!.status).toBe('upcoming')
 		} finally {
 			await context.close()
 		}
@@ -276,7 +394,7 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 				data: {
 					roomId: kitchen.id,
 					assigneeUserIds: ['mom'],
-					nextDue: houseDateOffset(1, 'UTC'),
+					firstDate: houseDateOffset(1, 'UTC'),
 					task: { name: 'Flex window probe', energyCost: 1, frequencyType: 'weekly', frequencyValue: 1, flexDays: 2 },
 				},
 				headers: { Accept: 'application/json' },
@@ -302,143 +420,37 @@ test.describe('Family rhythm — occurrence timeline (WP1)', () => {
 })
 
 /**
- * CS-PLAN-073 WP2 browser slice (RF-073-WP2-12): the delivered agreement/
- * pause contract through the real HTTP seam — owner-recorded amendments
- * keep the occurrence identity for every member, API-created pauses render
- * their NEUTRAL clarification state in the owner planner, pending child
- * requests stay effect-free and child approvals are denied, and a private
- * task stays a 404 even for the house owner. No not-yet-built pause
- * management UI is claimed — pauses travel through the frozen §3.5 API.
+ * Browser slice of the cycle contract in a household with absences and
+ * limits: a house pause or a child's absence hides and suspends nothing,
+ * work above a child's daily limit is accepted, and a private task stays a
+ * 404 even for the house owner. Pauses travel through the frozen API — no
+ * pause-management UI is claimed.
  */
-test.describe('Family rhythm — agreements & pauses (WP2)', () => {
+test.describe('Family rhythm — absences, limits & visibility', () => {
 	test.use({ databaseProfile: 'family' })
 
-	test('an owner records an agreed handover in the UI without changing future assignments', async ({ browser, seededData }) => {
-		expect(seededData).not.toBeNull()
-		const owner = await createUserContext(browser, 'mom', { viewport: { width: 390, height: 844 }, hasTouch: true })
-		const child = await createUserContext(browser, 'kid')
-		try {
-			const available = await owner.page.request.put('/apps/chorestrike/api/v1/scheduling/members/kid', {
-				data: {
-					maxDailyTasks: 10,
-					weekdayAvailability: Object.fromEntries(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => [day, true])),
-				},
-			})
-			expect(available.status(), await available.text()).toBe(200)
-			const name = 'Single occurrence handover'
-			const roomTaskId = await createProbeTask(owner.page, name, ['mom'])
-			const receipt = await resolveOccurrenceReceipt(owner.page, roomTaskId)
-			expect(receipt).not.toBeNull()
-			await openRoom(owner.page, 'Kitchen')
-			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
-			await row.getByRole('button', { name: 'Show details', exact: true }).click()
-			const handover = row.getByTestId('agreement-handover')
-			await expect(handover).toBeVisible()
-			const selectBox = await handover.getByTestId('agreement-handover-member').boundingBox()
-			expect(selectBox).not.toBeNull()
-			expect(selectBox!.height).toBeGreaterThanOrEqual(44)
-			expect(selectBox!.x + selectBox!.width).toBeLessThanOrEqual(390)
-			await handover.getByTestId('agreement-handover-member').selectOption('kid')
-			await expect(handover.getByTestId('agreement-handover-submit')).toBeDisabled()
-			await row.getByTestId('agreement-consent').check()
-			const amended = owner.page.waitForResponse((response) => response.request().method() === 'POST'
-				&& response.url().endsWith(`/occurrences/${receipt!.occurrenceId}/amend`))
-			await handover.getByTestId('agreement-handover-submit').click()
-			const response = await amended
-			expect(response.status(), await response.text()).toBe(200)
-			expect(response.request().postDataJSON()).toMatchObject({
-				...receipt,
-				consent: true,
-				participants: [{ userId: 'kid', role: 'responsible', sharePct: 100 }],
-			})
-			expect(response.request().postDataJSON()).not.toHaveProperty('date')
-			await expect(handover.getByTestId('agreement-handover-member')).toHaveValue('')
-			// The same open details must now carry the refreshed receipt, not
-			// force every subsequent agreement into a stale-version conflict.
-			await row.getByTestId('agreement-amend-date').fill(houseDateOffset(0, 'UTC'))
-			await row.getByTestId('agreement-consent').check()
-			const secondAmendment = owner.page.waitForResponse((result) => result.request().method() === 'POST'
-				&& result.url().endsWith(`/occurrences/${receipt!.occurrenceId}/amend`))
-			await row.getByTestId('agreement-amend-submit').click()
-			const second = await secondAmendment
-			expect(second.status(), await second.text()).toBe(200)
-			expect(second.request().postDataJSON().expectedVersion).toBe((await response.json()).data.expectedVersion)
-			const rows = await child.page.request.get('/apps/chorestrike/api/v1/room-tasks')
-			expect(rows.status()).toBe(200)
-			const handed = (await rows.json()).data.find((item: { id: number }) => item.id === roomTaskId)
-			expect(handed.assignees).toEqual(['mom'])
-			expect(handed.occurrence.occurrenceId).toBe(receipt!.occurrenceId)
-			expect(handed.occurrence.expectedVersion).toBeGreaterThan(receipt!.expectedVersion)
-			await owner.page.goto('/apps/chorestrike/#/today')
-			await expect(owner.page.getByTestId('today-section-today')).toBeVisible()
-			await expect(owner.page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(0)
-			await child.page.goto('/apps/chorestrike/#/today')
-			await expect(child.page.getByTestId(`today-complete-button-${roomTaskId}`)).toBeVisible()
-			const completed = child.page.waitForResponse((result) => result.url().endsWith(`/room-tasks/${roomTaskId}/complete`))
-			await holdToConfirm(child.page.getByTestId(`today-complete-button-${roomTaskId}`))
-			expect((await completed).status()).toBe(200)
-			await expect(child.page.getByTestId('participation-dialog')).toHaveCount(0)
-		} finally {
-			await owner.context.close()
-			await child.context.close()
-		}
-	})
-
-	// BUG-UX-002 (CS-PLAN-088 feedback #15): in a non-UTC house a refused
-	// move shows the server's reason and keeps the draft, and a feasible
-	// move is accepted — never a false "changed in the meantime".
-	test('an owner sees why a move is refused and then moves the occurrence in a non-UTC house', async ({ browser, seededData }) => {
+	// BUG-UX-002 (CS-PLAN-088 feedback #15): a non-UTC house hangs the first
+	// cycle on ITS day, and the work completes there.
+	test('a non-UTC house hangs the cycle on its own day and completes it', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const zone = 'Europe/Berlin'
 		const owner = await createUserContext(browser, 'mom')
 		const previousZone = await setHouseTimezone(owner.page, zone)
 		try {
-			const tomorrow = houseDateOffset(1, zone)
-			const unavailable = houseDateOffset(2, zone)
-			const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-			const preferences = await owner.page.request.put('/apps/chorestrike/api/v1/scheduling/members/mom', {
-				data: {
-					maxDailyTasks: 10,
-					weekdayAvailability: Object.fromEntries(weekdays.map((day) => [day, day !== weekdayOfKey(unavailable)])),
-				},
-			})
-			expect(preferences.status(), await preferences.text()).toBe(200)
-			const name = 'Non-UTC occurrence move'
-			const roomTaskId = await createProbeTask(owner.page, name, ['mom'], houseDateOffset(0, zone))
-			const receipt = await resolveOccurrenceReceipt(owner.page, roomTaskId)
-			expect(receipt).not.toBeNull()
-			await openRoom(owner.page, 'Kitchen')
-			const row = owner.page.getByTestId('task-item').filter({ hasText: name })
-			await row.getByRole('button', { name: 'Show details', exact: true }).click()
-			const amendResponse = () => owner.page.waitForResponse((response) => response.request().method() === 'POST'
-				&& response.url().endsWith(`/occurrences/${receipt!.occurrenceId}/amend`))
-
-			await row.getByTestId('agreement-amend-date').fill(unavailable)
-			await row.getByTestId('agreement-consent').check()
-			const refusedResponse = amendResponse()
-			await row.getByTestId('agreement-amend-submit').click()
-			const refused = await refusedResponse
-			expect(refused.status()).toBe(409)
-			expect((await refused.json()).error.code).toBe('CONFLICT')
-			await expect(row.getByTestId('agreement-refused')).toContainText('not available')
-			await expect(row.getByTestId('agreement-conflict')).toHaveCount(0)
-			await expect(row.getByTestId('agreement-amend-date')).toHaveValue(unavailable)
-
-			await row.getByTestId('agreement-amend-date').fill(tomorrow)
-			const movedResponse = amendResponse()
-			await row.getByTestId('agreement-amend-submit').click()
-			const moved = await movedResponse
-			expect(moved.status(), await moved.text()).toBe(200)
-			expect(moved.request().postDataJSON()).toMatchObject({ ...receipt, date: tomorrow, consent: true })
-			await expect(row.getByTestId('agreement-refused')).toHaveCount(0)
-			await expect(row.getByTestId('agreement-conflict')).toHaveCount(0)
+			const today = houseDateOffset(0, zone)
+			const roomTaskId = await createProbeTask(owner.page, 'Non-UTC cycle', ['mom'], today)
+			const row = await readFlatRow(owner.page, roomTaskId)
+			expect(row!.cycle).toMatchObject({ cycleKey: `d${today}`, state: 'open', centreOn: today })
+			const completion = await postCompletionWithReceipt(owner.page, roomTaskId, receiptOf(row!.cycle!))
+			expect(completion.status(), await completion.text()).toBe(200)
+			expect((await completion.json()).data.cycle).toMatchObject({ centreOn: houseDateOffset(1, zone), state: 'upcoming' })
 		} finally {
 			await setHouseTimezone(owner.page, previousZone).catch(() => {})
 			await owner.context.close()
 		}
 	})
 
-	test('My Day shows one catch-up card with its original planned date, not a duplicate today', async ({ browser, seededData }) => {
+	test('My Day shows one overdue card with its planned day, not a duplicate today', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
@@ -446,13 +458,18 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			const plannedDate = houseDateOffset(-3, 'UTC')
 			const roomTaskId = await createProbeTask(page, name, ['mom'], plannedDate)
 			await page.goto('/apps/chorestrike/#/today')
-			const card = page.getByTestId('today-section-catchup').getByTestId('today-task-item').filter({ hasText: name })
+			const block = page.getByTestId('today-section-catchup')
+			const card = block.getByTestId('today-task-item').filter({ hasText: name })
 			await expect(card).toHaveCount(1)
+			// Late work still counts: the block says so.
+			await expect(block).toContainText('Completing it now counts as late work.')
 			const dateLabel = await page.evaluate((key) => {
 				const [year, month, day] = key.split('-').map(Number)
 				return new Date(year, month - 1, day).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 			}, plannedDate)
 			await expect(card.getByTestId('catchup-planned')).toContainText(dateLabel)
+			// A daily row's window ended on its planned day: no "until".
+			await expect(card.getByTestId('catchup-planned')).not.toContainText('until')
 			await expect(page.getByTestId(`today-complete-button-${roomTaskId}`)).toHaveCount(1)
 			await expect(page.getByTestId('today-task-item').filter({ hasText: name })).toHaveCount(1)
 		} finally {
@@ -460,72 +477,17 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 		}
 	})
 
-	test('owner date amendment keeps the occurrence identity visible to the child', async ({ browser, seededData }) => {
-		expect(seededData).not.toBeNull()
-		const todayKey = houseDateOffset(0, 'UTC')
-
-		const { context: momContext, page: momPage } = await createUserContext(browser, 'mom')
-		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
-		const { context: kidContext, page: kidPage } = await createUserContext(browser, 'kid')
-		try {
-			const roomTaskId = await createProbeTask(momPage, `Amend Probe ${Date.now()}`, ['mom'])
-			const receipt = await resolveOccurrenceReceipt(momPage, roomTaskId)
-			expect(receipt, 'the probe must expose an amendable target').not.toBeNull()
-
-			// The OWNER records the amendment through the closed §3.5 payload.
-			// The agreed date re-confirms TODAY (a real owner-recorded date
-			// amendment): the occurrence keeps its identity and open window
-			// while the version and the evidence advance.
-			const amend = await dadPage.request.post(
-				`/apps/chorestrike/api/v1/occurrences/${receipt!.occurrenceId}/amend`,
-				{
-					data: {
-						roomTaskId,
-						commandId: newCommandId(),
-						expectedVersion: receipt!.expectedVersion,
-						selectionToken: receipt!.selectionToken,
-						consent: true,
-						date: todayKey,
-					},
-					headers: { Accept: 'application/json' },
-				},
-			)
-			expect(amend.status(), await amend.text()).toBe(200)
-			const amendData = (await amend.json()).data
-			expect(amendData.occurrenceId).toBe(receipt!.occurrenceId)
-			expect(amendData.expectedVersion).toBeGreaterThan(receipt!.expectedVersion)
-
-			// The child sees the SAME agreed identity with the advanced
-			// version — agreements are house-visible facts, never
-			// owner-only shadows.
-			const kidRows = await kidPage.request.get('/apps/chorestrike/api/v1/room-tasks', {
-				headers: { Accept: 'application/json' },
-			})
-			expect(kidRows.status()).toBe(200)
-			const kidRow = ((await kidRows.json()).data ?? [])
-				.find((row: { id: number }) => row.id === roomTaskId)
-			expect(kidRow, 'the amended row stays visible to the child').toBeTruthy()
-			expect(kidRow.occurrence?.occurrenceId).toBe(receipt!.occurrenceId)
-			expect(kidRow.occurrence?.expectedVersion).toBe(amendData.expectedVersion)
-			expect(typeof kidRow.occurrence?.selectionToken).toBe('string')
-			expect(kidRow.occurrence?.suspended).toBe(false)
-			expect(kidRow.occurrence?.workDate).toBe(todayKey)
-		} finally {
-			await momContext.close()
-			await dadContext.close()
-			await kidContext.close()
-		}
-	})
-
-	test('an API-created house pause renders its neutral clarification in the owner planner', async ({ browser, seededData }) => {
+	test('a house pause leaves the rows and their cycles in place', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'dad')
 		const { context: kidContext, page: kidPage } = await createUserContext(browser, 'kid')
 		try {
 			const roomTaskId = await createProbeTask(page, `Pause Probe ${Date.now()}`, ['mom'])
+			const before = await readFlatRow(kidPage, roomTaskId)
+			expect(before?.cycle, 'the probe is a live cycle first').toBeTruthy()
 
-			// The pause travels through the frozen §3.5 API — this spec
-			// claims NO pause-management UI.
+			// The pause travels through the frozen API — this spec claims NO
+			// pause-management UI.
 			const created = await page.request.post('/apps/chorestrike/api/v1/pauses', {
 				data: {
 					scope: 'house',
@@ -539,44 +501,25 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			expect(created.status(), await created.text()).toBe(200)
 			expect((await created.json()).data.state).toBe('acknowledged')
 
-			// The neutral state rides the child-visible DTO: the row stays,
-			// its open duty is released (no completable target block).
-			const kidRows = await kidPage.request.get('/apps/chorestrike/api/v1/room-tasks', {
-				headers: { Accept: 'application/json' },
-			})
-			const kidRow = ((await kidRows.json()).data ?? [])
-				.find((row: { id: number }) => row.id === roomTaskId)
-			expect(kidRow, 'a paused row is neutral, never lost').toBeTruthy()
-			expect(kidRow.occurrence).toBeNull()
-
-			// The owner planner renders the clarification: covered days show
-			// the paused member state instead of silent capacity numbers.
-			await expect(async () => {
-				await page.goto('/apps/chorestrike/#/scheduling')
-				await page.getByTestId('schedule-planner').waitFor({ state: 'visible', timeout: 15000 })
-			}).toPass({ timeout: 45000 })
-			await page.getByTestId(`planner-task-checkbox-${roomTaskId}`).check()
-			await page.getByTestId('preview-plan-button').click()
-			await expect(page.getByTestId('plan-capacity')).toBeVisible({ timeout: 15000 })
-			// Locale-independent state pin: the covered days render the
-			// paused member state (td.paused) instead of silent capacity
-			// numbers — profile users render in their own Nextcloud
-			// language, so the translated cell text is not a stable selector.
-			await expect(page.locator('[data-testid="plan-capacity"] td.paused').first()).toBeVisible({ timeout: 15000 })
+			// ADR-021 / D-091-03: an absence only makes the window neutral for
+			// the recognitions — the row and its cycle stay exactly as shown.
+			const after = await readFlatRow(kidPage, roomTaskId)
+			expect(after, 'a paused row is never lost').toBeTruthy()
+			expect(after!.cycle).toEqual(before!.cycle)
 		} finally {
 			await context.close()
 			await kidContext.close()
 		}
 	})
 
-	test('a child absence takes effect at once and deciding it stays owner-only', async ({ browser, seededData }) => {
+	test('a child absence takes effect at once, keeps the work completable and deciding it stays owner-only', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
 		const { context, page } = await createUserContext(browser, 'kid')
 		try {
 			// Task creation is adult-gated — the owner seeds the child's probe.
 			const roomTaskId = await createProbeTask(dadPage, `Absence Probe ${Date.now()}`, ['kid'])
-			expect(await resolveOccurrenceReceipt(page, roomTaskId), 'the probe is a live duty first').not.toBeNull()
+			expect(await resolveCycleReceipt(page, roomTaskId), 'the probe is a live duty first').not.toBeNull()
 
 			// ADR-020: a child's absence needs no request.
 			const created = await page.request.post('/apps/chorestrike/api/v1/pauses', {
@@ -591,8 +534,8 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			const createdData = (await created.json()).data
 			expect(createdData.state).toBe('acknowledged')
 
-			// The covered duty is released at once.
-			expect(await resolveOccurrenceReceipt(page, roomTaskId), 'the absence suspends the covered duty').toBeNull()
+			// ADR-021: the duty of an absent member stays visible.
+			expect(await resolveCycleReceipt(page, roomTaskId), 'an absence suspends nothing').not.toBeNull()
 
 			// Decisions stay owner-only, also for a child's own entry.
 			const approve = await page.request.post(
@@ -604,7 +547,7 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			)
 			expect(approve.status()).toBe(403)
 
-			// The child deletes its own absence; today stays excused.
+			// The child deletes its own absence; the duty never moved.
 			const deleted = await page.request.delete(
 				`/apps/chorestrike/api/v1/pauses/${createdData.pauseGroupId}`,
 				{
@@ -614,26 +557,31 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			)
 			expect(deleted.status(), await deleted.text()).toBe(200)
 			expect((await deleted.json()).data.state).toBe('cancelled')
-			expect(await resolveOccurrenceReceipt(page, roomTaskId), 'what today was excused stays excused').toBeNull()
+
+			// The row of an absent member stays completable.
+			const receipt = await resolveCycleReceipt(page, roomTaskId)
+			expect(receipt, 'what the absence covered is still the child\'s duty').not.toBeNull()
+			const completion = await postCompletionWithReceipt(page, roomTaskId, receipt!)
+			expect(completion.status(), await completion.text()).toBe(200)
 		} finally {
 			await context.close()
 			await dadContext.close()
 		}
 	})
 
-	test('a private task amendment stays a 404 for the house owner', async ({ browser, seededData }) => {
+	test('a private task completion stays a 404 for the house owner', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context: momContext, page: momPage } = await createUserContext(browser, 'mom')
 		const { context: dadContext, page: dadPage } = await createUserContext(browser, 'dad')
 		try {
-			// Mom creates a PRIVATE task with a live occurrence target
-			// through the aggregate contract (CS-PLAN-063 shape).
+			// Mom creates a PRIVATE task with a live cycle through the
+			// aggregate contract (CS-PLAN-063 shape).
 			const kitchen = await kitchenRoom(momPage)
 			const created = await momPage.request.post('/apps/chorestrike/api/v1/room-tasks', {
 				data: {
 					roomId: kitchen.id,
 					assigneeUserIds: ['mom'],
-					nextDue: houseDateOffset(0, 'UTC'),
+					firstDate: houseDateOffset(0, 'UTC'),
 					task: {
 						name: `Private Probe ${Date.now()}`,
 						energyCost: 1,
@@ -648,72 +596,46 @@ test.describe('Family rhythm — agreements & pauses (WP2)', () => {
 			const roomTaskId = (await created.json()).data?.roomTask?.id as number
 			expect(roomTaskId).toBeGreaterThan(0)
 
-			const receipt = await resolveOccurrenceReceipt(momPage, roomTaskId)
-			expect(receipt, 'the private target is live for its owner').not.toBeNull()
+			const receipt = await resolveCycleReceipt(momPage, roomTaskId)
+			expect(receipt, 'the private cycle is live for its creator').not.toBeNull()
 
 			// The OWNER is outside the private visibility scope (D2): the
-			// agreement command answers the 404 anti-enumeration class even
-			// with a well-formed, leaked receipt.
-			const amend = await dadPage.request.post(
-				`/apps/chorestrike/api/v1/occurrences/${receipt!.occurrenceId}/amend`,
-				{
-					data: {
-						roomTaskId,
-						commandId: newCommandId(),
-						expectedVersion: receipt!.expectedVersion,
-						selectionToken: receipt!.selectionToken,
-						consent: true,
-						date: houseDateOffset(1, 'UTC'),
-					},
-					headers: { Accept: 'application/json' },
-				},
-			)
-			expect(amend.status()).toBe(404)
+			// completion answers the 404 anti-enumeration class even with a
+			// well-formed, leaked receipt.
+			const complete = await postCompletionWithReceipt(dadPage, roomTaskId, receipt!)
+			expect(complete.status()).toBe(404)
 		} finally {
 			await momContext.close()
 			await dadContext.close()
 		}
 	})
 
-	test('an overloaded child day renders the clarification amounts in the owner planner', async ({ browser, seededData }) => {
+	test('work above a child daily limit is accepted', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'dad')
 		const { context: kidContext, page: kidPage } = await createUserContext(browser, 'kid')
 		try {
-			// The child shrinks its own daily energy budget to 1 (self
-			// settings API — no owner involvement).
-			const prefs = await kidPage.request.put('/apps/chorestrike/api/v1/scheduling/preferences', {
+			// The owner caps the child at one task per day through the
+			// member preferences, which stay.
+			const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+			const limit = await page.request.put('/apps/chorestrike/api/v1/scheduling/members/kid', {
 				data: {
-					energyBudget: {
-						monday: 1,
-						tuesday: 1,
-						wednesday: 1,
-						thursday: 1,
-						friday: 1,
-						saturday: 1,
-						sunday: 1,
-					},
+					maxDailyTasks: 1,
+					weekdayAvailability: Object.fromEntries(weekdays.map((day) => [day, true])),
 				},
-				headers: { Accept: 'application/json' },
 			})
-			expect(prefs.status(), await prefs.text()).toBe(200)
+			expect(limit.status(), await limit.text()).toBe(200)
 
-			// Two energy-1 obligations due today overload the 1-energy day.
-			const first = await createProbeTask(page, `Overload A ${Date.now()}`, ['kid'])
-			await createProbeTask(page, `Overload B ${Date.now()}`, ['kid'])
-
-			await expect(async () => {
-				await page.goto('/apps/chorestrike/#/scheduling')
-				await page.getByTestId('schedule-planner').waitFor({ state: 'visible', timeout: 15000 })
-			}).toPass({ timeout: 45000 })
-			await page.getByTestId(`planner-task-checkbox-${first}`).check()
-			await page.getByTestId('preview-plan-button').click()
-			await expect(page.getByTestId('plan-capacity')).toBeVisible({ timeout: 15000 })
-			// The overload stays visible with its amounts and the
-			// clarification flag (never silently hidden) — pinned via the
-			// locale-independent td.overloaded state class (profile users
-			// render in their own Nextcloud language).
-			await expect(page.locator('[data-testid="plan-capacity"] td.overloaded').first()).toBeVisible({ timeout: 15000 })
+			// Three obligations due today exceed the limit: the creation is
+			// no longer refused, and every row shows its cycle to the child.
+			const ids = [
+				await createProbeTask(page, `Overload A ${Date.now()}`, ['kid']),
+				await createProbeTask(page, `Overload B ${Date.now()}`, ['kid']),
+				await createProbeTask(page, `Overload C ${Date.now()}`, ['kid']),
+			]
+			for (const id of ids) {
+				expect((await readFlatRow(kidPage, id))?.cycle, 'the capacity never refuses work').toMatchObject({ state: 'open' })
+			}
 		} finally {
 			await context.close()
 			await kidContext.close()
@@ -728,18 +650,18 @@ test.describe('Family rhythm — read contract (WP4)', () => {
 		expect(seededData).not.toBeNull()
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			// One fulfilled, window-open occurrence via the real receipt
+			// One fulfilled, window-open cycle via the real receipt
 			// contract (the rhythm evaluation consumes the same facts).
 			const roomTaskId = await createProbeTask(page, `Read Contract Probe ${Date.now()}`, ['mom'])
-			const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
-			expect(receipt, 'the probe must expose a completable occurrence').not.toBeNull()
+			const receipt = await resolveCycleReceipt(page, roomTaskId)
+			expect(receipt, 'the probe must expose a completable cycle').not.toBeNull()
 			const completion = await postCompletionWithReceipt(page, roomTaskId, receipt!)
 			expect(completion.status()).toBe(200)
 
 			// CS-PLAN-070 WP4 §3.4 read contract: the pure state read exposes
 			// the caller's rhythm projection and the personal weekly-goal
-			// slice from the SAME occurrence facts — no award write happens
-			// on the GET. C1f: the just-fulfilled occurrence's window is
+			// slice from the SAME cycle facts — no award write happens
+			// on the GET. C1f: the just-fulfilled cycle's window is
 			// still open, so the day is pending-neutral — the confirmed
 			// streak has not stepped yet (confirmed == current), while the
 			// weekly goal already counts the valid on-time work and the

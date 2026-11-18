@@ -7,8 +7,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
-use OCA\ChoreStrike\Controller\RoomTaskController;
-use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -18,7 +16,7 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * Integration tests for the task lifecycle visibility matrix (CS-PLAN-056,
  * CR-053-06; unified via TaskAccessPolicy in CS-PLAN-061 §3.2).
  *
- * The lifecycle mutations (undo, updateDueDate) enforce the ONE visibility
+ * The lifecycle mutation (undo) enforces the ONE visibility
  * matrix (decision D2):
  * - private tasks: creator ∪ explicit assignees may mutate
  * - admin-only tasks: only house owners may mutate
@@ -132,65 +130,6 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	}
 
 	// ========== UpdateDueDate ==========
-
-	/**
-	 * UpdateDueDate_AdminOnlyTask_ByNonOwnerMember_Returns404
-	 */
-	public function testUpdateDueDate_AdminOnlyTask_ByNonOwnerMember_Returns404(): void {
-		$nextDueBefore = $this->fetchNextDue($this->adminOnlyRoomTaskId);
-		$controller = $this->getController(RoomTaskController::class, 'lcv_member');
-
-		$response = $controller->updateDueDate($this->adminOnlyRoomTaskId, '+3 days');
-
-		self::assertSame(404, $response->getStatus());
-		$data = $response->getData();
-		self::assertFalse($data['success']);
-		self::assertSame('RESOURCE_NOT_FOUND', $data['error']['code']);
-		self::assertSame($nextDueBefore, $this->fetchNextDue($this->adminOnlyRoomTaskId), 'the row must be unchanged');
-	}
-
-	/**
-	 * UpdateDueDate_AdminOnlyTask_ByOwner_Returns200
-	 * @dataProvider houseTimezones
-	 */
-	public function testUpdateDueDate_AdminOnlyTask_ByOwner_Returns200(string $timezone): void {
-		$mapper = \OC::$server->get(HouseMapper::class);
-		$house = $mapper->find($this->houseId);
-		$originalTimezone = $house->getTimezone();
-		try {
-			$house->setTimezone($timezone);
-			$mapper->update($house);
-			$controller = $this->getController(RoomTaskController::class, 'lcv_owner');
-			$response = $controller->updateDueDate($this->adminOnlyRoomTaskId, '+3 days');
-
-			self::assertSame(200, $response->getStatus());
-			self::assertTrue($response->getData()['success']);
-			self::assertSame(
-				(new \DateTime('+3 days'))->setTimezone(new \DateTimeZone($timezone))->format('Y-m-d'),
-				(new \DateTime((string)$this->fetchNextDue($this->adminOnlyRoomTaskId), new \DateTimeZone('UTC')))
-					->setTimezone(new \DateTimeZone($timezone))->format('Y-m-d')
-			);
-		} finally {
-			$house->setTimezone($originalTimezone);
-			$mapper->update($house);
-		}
-	}
-
-	public static function houseTimezones(): array {
-		return [['UTC'], ['Europe/Berlin']];
-	}
-
-	/**
-	 * UpdateDueDate_PrivateTask_ByCreator_Returns200
-	 */
-	public function testUpdateDueDate_PrivateTask_ByCreator_Returns200(): void {
-		$controller = $this->getController(RoomTaskController::class, 'lcv_creator');
-
-		$response = $controller->updateDueDate($this->privateRoomTaskId, '+5 days');
-
-		self::assertSame(200, $response->getStatus());
-		self::assertTrue($response->getData()['success']);
-	}
 
 	// ========== Undo of admin-only + once tasks (reactivate replacement) ==========
 
@@ -317,15 +256,6 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	private function fetchLastCompleted(int $roomTaskId): ?string {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('last_completed')
-			->from('chorestrike_room_tasks')
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId)));
-		$row = $qb->executeQuery()->fetchOne();
-		return $row === false ? null : $row;
-	}
-
-	private function fetchNextDue(int $roomTaskId): ?string {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('next_due')
 			->from('chorestrike_room_tasks')
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId)));
 		$row = $qb->executeQuery()->fetchOne();

@@ -24,6 +24,12 @@
 > the preserved historical/agreed time base the C5 target requires for the
 > timeline portion (bounded digest delivery remains a later package).
 
+> **Derived-windows amendment (2026-11-16, [ADR-021](ADR-021-derived-due-windows.md)):**
+> no schedule revision is appended any more. A house timezone edit moves the
+> open windows to the new zone's days at once
+> (`CycleService::reprojectHouseUnderLock`); closed cycles and completions keep
+> the zone frozen on them, and stored occurrences stay as they are.
+
 > **Digest-schedule amendment (2026-09-29, CS-PLAN-070 WP5 / ADR-016):**
 > `CalendarService::localTimeToInstant(dayKey, 'HH:mm', tz)` resolves
 > house-local wall times to UTC instants with the C5b DST rules (spring gap →

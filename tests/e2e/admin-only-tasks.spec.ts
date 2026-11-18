@@ -128,7 +128,7 @@ test.describe('Admin-Only Tasks', () => {
 			// non-owner — 404 anti-enumeration, never a 403 that would
 			// confirm the room-task id exists. CS-PLAN-072 WP1: the receipt
 			// is format-valid; the visibility gate fires before the
-			// occurrence is resolved.
+			// cycle is resolved.
 			expect(completeResponse.status()).toBe(404)
 		} finally {
 			await mom.context.close()

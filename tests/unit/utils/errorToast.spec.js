@@ -62,11 +62,18 @@ describe('errorToast (CS-PLAN-084 WP-F)', () => {
 		expect(showError).toHaveBeenCalledWith('This task is already being completed with another work split. Check the split once it is done.')
 	})
 
-	// D-088-18: work before its window opens is explained, not a bare failure.
-	it('explains a completion before the time window opens', () => {
-		showCompletionError(Object.assign(new Error('not open'), { code: 'NOT_OPEN_YET' }))
+	// ADR-021 decision 4: the refusals of derived windows say what happened
+	// (CS-PLAN-091 WP-B1 interim review; the window-not-open refusal is gone).
+	it('explains a completion on the day of the latest one', () => {
+		showCompletionError(new ApiError('Already today', 409, {}, 'SAME_DAY'))
 
-		expect(showError).toHaveBeenCalledWith('Not open yet — this task can be completed within its time window.')
+		expect(showError).toHaveBeenCalledWith('This task was already done today. It can be done again from tomorrow.')
+	})
+
+	it('explains a completion of a cycle that was closed meanwhile', () => {
+		showCompletionError(new ApiError('Closed', 409, {}, 'ALREADY_COMPLETED'))
+
+		expect(showError).toHaveBeenCalledWith('This task was already completed. Reload to see what is next.')
 	})
 
 	it('shows the referenced failure for any other completion error', () => {

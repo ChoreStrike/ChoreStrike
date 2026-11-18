@@ -11,13 +11,13 @@ its pruned routes or superseded write bodies are available.
 | First owner and setup | First eligible bootstrap joins the owner; Settings/setup wizard writes the complete house/floor/room/template aggregate once. Later users require invitations. |
 | Invitations and roles | Owners manage membership; members manage visible tasks; children execute tasks and their own availability but do not manage definitions. |
 | Task creation | TaskManager opens the floor/room/assignee form, a room heading of its list by room that room's templates; `POST /room-tasks` atomically creates/mounts the aggregate. Room templates use `POST /room-tasks/from-template` with an explicit catalog level. |
-| Room task editing | Due date and assignees are the narrow occurrence edit; definition edits remain a separate task form. Both forms expose member-load errors and retry without discarding input. |
-| Agreed one-occurrence handover | In the expanded room/task details, an owner chooses one member and attests agreement before recording the handover. That member takes the occurrence's full responsibility; future assignments stay unchanged. My Day follows current obligations rather than replaced defaults, while voluntary actual-work shares remain separate. Success and conflict refresh the displayed receipt. Same-occurrence conflicts preserve drafts; a replacement occurrence clears drafts and consent with an explicit warning, never silently retargeting the agreement. |
+| Room task editing | Assignees change in the expanded row; definition edits are the task form. A task's window is derived (ADR-021): until the one form of CS-PLAN-091 WP-B6 brings the first date, no dialog moves it. Both forms expose member-load errors and retry without discarding input. |
+| Handover | There is no handover of a single appointment any more (ADR-021 §13): assignees change in the task, and from CS-PLAN-091 WP-B2 on anyone may record work for someone else. |
 | Task creation readiness | Task Manager enables New Task only after the initial definition/instance/count reads succeed. A failed load requires retry first, so creation cannot race those initial snapshots or appear to disappear after a successful write. The aggregate response still renders the task without a post-create refetch. |
 | Task discovery | Task Manager defaults to the current person's assigned tasks plus unassigned work. My tasks / Unassigned / Everyone are explicit buttons; choosing a person switches to everyone-scoped filtering, and floor/room filters compose with it. Changing floors clears the room selection. Assignment names are visible without expansion. These are display filters, never authorization changes. |
 | Upcoming appointments | The calendar shows them. Today no longer lists the next agreed appointments (CS-PLAN-090 WP-B, D-090-11). |
 | Completion participation | Initial completion requires the signed-in actor to have a positive actual-work share. The dialog refuses missing identity or an excluded actor with an explanation; attribution correction intentionally does not require the correcting owner to participate. |
-| Scheduling | Owner preview is read-only, one `POST /scheduling/apply` persists the selected rows, and Today/Calendar reconcile from canonical stores. |
+| Scheduling | The view shows availability and the planned load. The owner's preview and apply are retired (ADR-022, CS-PLAN-091 WP-B1): nothing is saved as a plan; the live suggestion follows in WP-C. |
 | Completion and undo | One complete receipt freezes the work evidence and updates wallet/contribution/streak/room/checklist projections before events (WP3 minor units, ADR-014). The queued targeted undo reverses the latest selected allocation from the valid history, including after reload; medals and sent notifications are not revoked. The Insights history exposes the authorized correction (completer/owner `canCorrect`) reusing the participation form; a 409 keeps the draft. |
 | Child/mobile | The bare root lands on Today for every role. Focused member/child mobile tests retain 44px controls, role gating and checklist execution. |
 | Localization | Real Nextcloud DE and EN rendering is tested in `family-core-ux.spec.ts`; source/catalog ownership and artifacts are enforced globally. |
@@ -254,7 +254,7 @@ and the same single house read feeds all three.
 | Query | Values | Effect |
 |---|---|---|
 | `scope` | `mine`, `unassigned`, `all` | scope buttons (My tasks / Unassigned / Everyone) |
-| `status` | `active`, `overdue`, `due-today` | status filter (same rules as the select: the occurrence-based overdue boundary, D-084-08) |
+| `status` | `active`, `overdue`, `due-today` | status filter (same rules as the select: overdue once the window has ended, D-084-08) |
 | `visibility` | `private` | visibility filter on private tasks, scope `all` (CS-PLAN-041) |
 | `page` | `2`, `3`, … | page of the list by due date; a page beyond the end shows the last page |
 | `group` | `room`, `person` | grouping; omitted for the list by due date |
@@ -280,9 +280,9 @@ points:** TaskManager, TaskList (expanded row).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Edit due date | expanded row → *Date* → `RoomTaskEditModal` (CS-PLAN-090 D-090-12) | `PUT /room-tasks/{id}/due-date` | ✅ |
-| Record "last done on" (FEAT-UX-045) | expanded row → *Date* → `RoomTaskEditModal` (adults); the room heading then shows it as *Last cleaned* | `PUT /room-tasks/{id}/last-done` | ✅ |
-| Edit assignees | RoomTaskEditModal, TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
+| Edit due date | retired with ADR-021 (CS-PLAN-091 WP-B1): the window follows from the first date, the rule and the last completion; the task form's first date follows in WP-B6 | — (`PUT /room-tasks/{id}/due-date` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
+| Record "last done on" (FEAT-UX-045) | retired: the first date replaces it (D-091-19) | — (`PUT /room-tasks/{id}/last-done` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
+| Edit assignees | TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
 | Delete room task | TaskManager | `DELETE /room-tasks/{id}` | ✅ |
 | Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate`/`uncomplete` followed by CS-PLAN-064) |
 | Undo a completion (snackbar) | global `UndoSnackbar` queued list (~5 s per entry, UX-015; single tap, never a hold) | `POST /completions/{id}/undo` — targeted correction of the exact completion (WP3; replaced the CS-PLAN-064 `POST /room-tasks/{id}/undo` aggregate) | ✅ exact server-side restore: recurrence, ledger, rewards/streak, cleanliness, checklist (CS-PLAN-064/ADR-011; the CS-PLAN-041 `uncomplete`+conditional-`reactivate` chain was pruned, D5) |
@@ -322,7 +322,7 @@ Members. **Entry points:** TaskList expanded row; TodayView claim button.
 | Multi-assign via member chips (optimistic + rollback) | TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
 | Single assign / unassign actions | — | `POST /room-tasks/{id}/assign`, `POST …/unassign` | ⛔ pruned (CS-PLAN-055; `PUT /room-tasks/{id}/assignees` set-assignees remains the live single-edit path) |
 | Bulk assignment (selection bar → one call) | TaskList selection → member dropdown | `POST /room-tasks/bulk-assign` | ✅ (CS-PLAN-042, CR-SVC-61 closed; per-item isolation, partial-success toast) |
-| Claim overdue public task (dialog → complete as sole participant) | TaskList → `OverdueClaimDialog` | `GET /room-tasks` occurrence `late` + complete with the reviewed claimer allocation | ✅ (claim target ≤24 px, UX-007; no second participation dialog and no claim for work due today, CS-PLAN-084) |
+| Claim overdue public task (dialog → complete as sole participant) | TaskList → `OverdueClaimDialog` | `GET /room-tasks` cycle `overdue` + complete with the reviewed claimer allocation | ✅ (claim target ≤24 px, UX-007; no second participation dialog and no claim for work due today, CS-PLAN-084) |
 | Dedicated claimable-tasks query | — | `GET /room-tasks/overdue-claims` | ⛔ pruned (CS-PLAN-055; UI uses `/overdue` + client filter) |
 
 ## UC-10 — Planning: availability, energy, task plans
@@ -341,14 +341,9 @@ for the weekly plan, which left the navigation and opens from the calendar heade
 | Edit energy budget (weekdays/weekend) | `EnergyBudgetSettings` | `GET+PUT /scheduling/preferences` | ✅ single bulk save |
 | Set a child's daily-task limit | `AvailabilityEditModal` (owner, non-self only) | `PUT /scheduling/members/{userId}` (`maxDailyTasks`) | ✅ CS-PLAN-065 (decision D5): omitted = unchanged, `null` = unlimited, 1-100 = finite bound; the personal endpoints reject the key |
 | Capacity calendar (members × days) | `ScheduleCalendar` | `GET /scheduling/members` + client getters | ✅ |
-| Preview a real-task plan | `SchedulePlanner` (owner only) | `POST /scheduling/suggestions` (`startDate` + selected `roomTaskIds` + optional `overrides`) | ✅ CS-PLAN-065 — deterministic proposal over real room tasks with per-row before/proposed, warnings and capacity report; the retired `{ taskCount }` advice contract is rejected |
-| Adjust a proposal | `SchedulePlanner` per-row person/day selects (from the preview's `legalDates`) | edit marks the preview stale → re-preview | ✅ CS-PLAN-065 — confirmation of an edited/stale preview is disabled |
-| Exact-share labels on a proposal | `SchedulePlanner` change rows (`proposed.shares`) | preview response | ✅ CS-PLAN-073 WP2 — whole-percent wallet-order shares (e.g. 34/33/33) rendered per change row |
-| Neutral/overload capacity clarifications | `SchedulePlanner` capacity grid | preview `capacity` report | ✅ CS-PLAN-073 WP2 — `Absent`, `Away` and `{planned}/{budget} — over capacity` labels; existing overload stays visible |
-| Consent attestation before apply | `SchedulePlanner` consent checkbox (`planner-consent`) | rides `POST /scheduling/apply` as `consent: true` | ✅ CS-PLAN-073 WP2 — apply is disabled until the owner attests the agreement; a fresh preview requires a fresh attestation; the attestation survives a 409 retry with the retained draft and command UUID |
-| Apply the confirmed plan | `SchedulePlanner` Apply button (owner only) | `POST /scheduling/apply` (exact input + `previewVersion` + `commandId` + `consent`) | ✅ CS-PLAN-065/073 — one atomic CommandService batch; a stale confirmation (incl. a local-midnight crossing) is a clean 409 with zero writes; identical retries replay the receipt; Calendar and Today refresh from the reconciled stores |
-| Absence (enter, see everyone's, delete; owner: household, for someone afterwards, pending requests) | `AbsenceView` (`#/absence`) with `AbsenceOwnerPanel`. Task details: amend, handover, restart. Catch-up has no client since FEAT-UX-048 (D-089-09); a missed chore keeps its date and can be completed | `GET/POST /pauses`, `DELETE /pauses/{id}`, `POST /pauses/{id}/approve\|reject`, `POST /pauses/recognize-illness` | ✅ CS-PLAN-090 WP-A, [ADR-020](../adr/ADR-020-absences-without-requests.md) — every role acknowledged at once, no reason asked or shown, deletion as a cancelled revision; `PUT /pauses/{id}` (shorten) has no client until Release B (D-090-10) |
-| Occurrence agreements (amend/catch-up/restart) | **no dedicated UI yet (WP6)** — frozen HTTP contract | `POST /occurrences/{key}/{amend,catch-up,restart}` | ✅ API CS-PLAN-073 WP2 — owner-recorded, receipt-identity commands with version/token gates and persisted neutral releases |
+| Preview and apply a plan | retired with ADR-022 (CS-PLAN-091 WP-B1): `SchedulePlanner`, its proposal rows, capacity grid and consent attestation are gone; the live suggestion follows in WP-C | — (`POST /scheduling/suggestions` and `POST /scheduling/apply` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
+| Absence (enter, see everyone's, delete; owner: household, for someone afterwards, pending requests) | `AbsenceView` (`#/absence`) with `AbsenceOwnerPanel`. An absence writes nothing on the work: tasks stay visible and can be completed; a window inside the absence is neutral for the absent member (ADR-021 §5) | `GET/POST /pauses`, `DELETE /pauses/{id}`, `POST /pauses/{id}/approve\|reject`, `POST /pauses/recognize-illness` | ✅ CS-PLAN-090 WP-A, [ADR-020](../adr/ADR-020-absences-without-requests.md) — every role acknowledged at once, no reason asked or shown, deletion as a cancelled revision; `PUT /pauses/{id}` (shorten) has no client until Release B (D-090-10) |
+| Occurrence agreements (amend/catch-up/restart) | retired with ADR-021 (CS-PLAN-091 WP-B1); stored agreements stay as history | — (`POST /occurrences/{key}/…` removed) | ⛔ retired (CS-PLAN-091 WP-B1) |
 
 *Last verified: 2026-09-24 (CS-PLAN-073 WP2 fix round).*
 

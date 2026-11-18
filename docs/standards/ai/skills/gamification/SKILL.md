@@ -56,23 +56,30 @@ describe the WP3 model as the shipped contract.
 
 ### 3. Corrections (C3e/C3f closure)
 - `POST /completions/{id}/undo` reverses the **latest selected allocation
-  revision** exactly once (occurrence release, exact negative wallet deltas,
-  room replay, recognition recompute). Idempotent; a stale version is a 409.
-- Attribution never rewrites the frozen work facts (time, zone, occurrence,
-  total energy, rate), the room journal or the audit chain
+  revision** exactly once (the closed cycle reopens, exact negative wallet
+  deltas, room replay, recognition recompute). Idempotent; a stale version is
+  a 409.
+- Attribution never rewrites the frozen work facts (time, zone, cycle key and
+  window, total energy, rate), the room journal or the audit chain
   (`completion_revs` is append-only; a departed-not-erased actor renders as
   the localized 'Removed member' placeholder).
 
 ### 4. Rhythm recognition (valid-history derivations)
-- `currentStreak`/`longestStreak` recompute from the valid planned-day
-  history inside every aggregate: a day is fulfilled / pending-neutral /
-  expired-miss from occurrence validity + window; a correction shrinks the
-  longest record only to the corrected valid-history maximum (C3g).
-  `RhythmService` evaluations also expose the pending-hold indicator.
-- The weekly goal evaluates the union of due and validly completed room tasks
-  per house-local week at the FIXED 80% target (WP4: no config override);
-  house progress carries explicit eligible/onTime/neutral counts, and the
-  caller's personal slice derives from the same occurrence facts.
+- One reader, `RecognitionFactsService` (ADR-021 §5, §12): stored occurrences
+  for the time before the house's `cycles_from` day, closed cycles and the
+  open current cycle of every room task from it on. A cycle counts in the
+  week its final window ends and for the assignees it had when it closed;
+  the classification (`on_time`, `late`, `bonus`) is frozen at completion.
+  An absence makes a window neutral for the absent member, decided on read.
+- `currentStreak`/`longestStreak` recompute inside every aggregate from the
+  streak base held at the cutover plus the days since: kept / still open /
+  missed; a correction shrinks the longest record only to the corrected
+  maximum (C3g). `RhythmService` evaluations also expose the pending-hold
+  indicator.
+- The weekly goal evaluates the facts of one house-local week at the FIXED
+  80% target (WP4: no config override); house progress carries explicit
+  eligible/onTime/neutral counts, and the caller's personal slice derives
+  from the same facts. Bonus work counts for none of them.
 
 ### 5. Weekly Medals (recognition)
 - The old activity/combo catalog (`team_anchor`, `flow_keeper`,
@@ -96,11 +103,12 @@ describe the WP3 model as the shipped contract.
 ### 6. Energy Model
 - Each task costs 1–20 energy (~10 min per unit); `EffortAllocationService::ENERGY_MAX` is the one limit.
 - Members define daily energy budgets and presence days.
-- Owner plan placement checks capacity/availability (`DailyCapacityService`,
-  exact minor-unit shares, frozen occurrence energies — a definition edit
-  never re-prices recorded work). An energy edit applies to all open
-  occurrences at once (ADR-013, BUG-UX-014). Completion never consults the
-  evaluator; over-limit real work stays recordable.
+- Capacity refuses nothing (ADR-022): budgets and presence days shape the
+  suggestion and show overload; a child's day limit only trims the
+  unassigned work it is offered. Over-limit real work stays recordable.
+- Energy is read from the definition when the work is completed and frozen
+  with it (ADR-021 §1): an energy edit reaches all open work at once and
+  never re-prices recorded work (BUG-UX-014).
 
 ### 7. Role Titles (single series)
 - One retained series: **Family Rhythm**, signal `longestStreak`
@@ -114,8 +122,8 @@ describe the WP3 model as the shipped contract.
 - Opt-in per membership (`ranking#index/consent/withdraw`), owner-only house
   flag default off; consent activates the NEXT Monday (saved with the house
   zone, never retroactive) and withdrawal is immediate.
-- Visible entries: effective consents only, on-time ratio over public
-  agreed occurrences, exact-rational ties, neutral zero-denominators,
+- Visible entries: effective consents only, on-time ratio over the
+  recognition facts of public tasks, exact-rational ties, neutral zero-denominators,
   pending consents unranked. Consent belongs to the membership (departure/
   erasure/delete-on-disable; the house generation watermark survives).
 

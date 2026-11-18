@@ -9,24 +9,18 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\CompletedTask;
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MemberPreference;
 use OCA\ChoreStrike\Db\MemberPreferenceMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Db\WalletMapper;
-use OCA\ChoreStrike\Db\WorkShare;
-use OCA\ChoreStrike\Db\WorkShareMapper;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\RankingService;
+use OCA\ChoreStrike\Service\RecognitionFact;
+use OCA\ChoreStrike\Service\RecognitionFactsService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -40,10 +34,7 @@ class RankingServiceTest extends TestCase {
 	private HouseMapper&MockObject $houseMapper;
 	private HouseUserMapper&MockObject $houseUserMapper;
 	private MemberPreferenceMapper&MockObject $prefMapper;
-	private OccurrenceMapper&MockObject $occurrenceMapper;
-	private OccurrenceMemberMapper&MockObject $occMemberMapper;
-	private CompletedTaskMapper&MockObject $completedTaskMapper;
-	private WorkShareMapper&MockObject $workShareMapper;
+	private RecognitionFactsService&MockObject $facts;
 	private RankingService $service;
 
 	protected function setUp(): void {
@@ -51,10 +42,7 @@ class RankingServiceTest extends TestCase {
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->prefMapper = $this->createMock(MemberPreferenceMapper::class);
-		$this->occurrenceMapper = $this->createMock(OccurrenceMapper::class);
-		$this->occMemberMapper = $this->createMock(OccurrenceMemberMapper::class);
-		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-		$this->workShareMapper = $this->createMock(WorkShareMapper::class);
+		$this->facts = $this->createMock(RecognitionFactsService::class);
 
 		// Identity executor: run() executes the aggregate in-place.
 		$transactions = $this->createMock(TransactionExecutor::class);
@@ -64,11 +52,8 @@ class RankingServiceTest extends TestCase {
 			$this->houseMapper,
 			$this->houseUserMapper,
 			$this->prefMapper,
-			$this->occurrenceMapper,
-			$this->occMemberMapper,
-			$this->completedTaskMapper,
+			$this->facts,
 			$this->createMock(WalletMapper::class),
-			$this->workShareMapper,
 			new CalendarService(),
 			$transactions
 		);
@@ -105,68 +90,34 @@ class RankingServiceTest extends TestCase {
 	}
 
 	/**
-	 * Seed the occurrence seam: each row = [occurrenceId, isPublic,
-	 * windowClosed] with one obligated active participant per wallet in
-	 * `$wallets`, fulfilled when `$completionIds[occurrenceId]` is set.
+	 * Seed the week's facts ({@see RecognitionFactsService}): each row =
+	 * [roomTaskId, isPublic, windowClosed, completionId, responsible
+	 * wallets]. A row is kept when its completion id is in `$completions`,
+	 * by the wallets `$sharesByCompletion` names; visibility comes from the
+	 * definition, as for a cycle.
 	 */
 	private function seedWeek(array $rows, array $completions, array $sharesByCompletion): void {
-		$occurrences = [];
-		$membersByOccurrence = [];
+		$facts = [];
+		$public = [];
 		foreach ($rows as [$id, $isPublic, $closed, $completionId, $walletIds]) {
-			$occ = new Occurrence();
-			$occ->setId($id);
-			$occ->setHouseId(1);
-			$occ->setPlannedDate(new \DateTime('2026-09-22'));
-			$occ->setWeekStart('2026-09-21');
-			$occ->setWindowStart(new \DateTime('2026-09-22 00:00:00 UTC'));
-			// A closed window ends before the evaluation instant but still
-			// CONTAINS the 09-22 12:00 completion (on-time facts).
-			$occ->setWindowEnd($closed
-				? new \DateTime('2026-09-23 00:00:00 UTC')
-				: new \DateTime('2026-09-30 00:00:00 UTC'));
-			$occ->setIsPublic($isPublic);
-			$occ->setCompletionId($completionId);
-			$occ->setSuspensionState(Occurrence::SUSPENSION_NONE);
-			$occurrences[] = $occ;
-
-			$members = [];
-			foreach ($walletIds as $walletId) {
-				$m = new OccurrenceMember();
-				$m->setId($walletId * 10 + $id);
-				$m->setOccurrenceId($id);
-				$m->setWalletId($walletId);
-				$m->setObligated(true);
-				$m->setDisposition(OccurrenceMember::DISPOSITION_ACTIVE);
-				$members[] = $m;
+			$kept = $completionId !== null && in_array($completionId, $completions, true);
+			$facts[] = new RecognitionFact(
+				'2026-09-22',
+				'2026-09-21',
+				$kept ? RecognitionFact::KEPT : ($closed ? RecognitionFact::MISSED : RecognitionFact::OPEN),
+				$walletIds,
+				$kept ? array_fill_keys($sharesByCompletion[$completionId] ?? [], true) : [],
+				[],
+				false,
+				!$closed,
+				$id,
+			);
+			if ($isPublic) {
+				$public[$id] = true;
 			}
-			$membersByOccurrence[$id] = $members;
 		}
-		$this->occurrenceMapper->method('findByHousePlannedBetween')->willReturn($occurrences);
-		$this->occMemberMapper->method('findByOccurrenceIds')->willReturnCallback(
-			static fn (array $ids): array => array_intersect_key($membersByOccurrence, array_flip($ids))
-		);
-
-		$valid = [];
-		foreach ($completions as $id) {
-			$c = new CompletedTask();
-			$c->setId($id);
-			$c->setCompletionClass(CompletedTask::CLASS_AGREED);
-			$c->setCompletedAt(new \DateTime('2026-09-22 12:00:00 UTC'));
-			$valid[$id] = $c;
-		}
-		$this->completedTaskMapper->method('findValidByIds')->willReturnCallback(
-			static fn (array $ids): array => array_intersect_key($valid, array_flip($ids))
-		);
-
-		$shares = [];
-		foreach ($sharesByCompletion as $completionId => $walletIds) {
-			$shares[$completionId] = array_map(static function (int $walletId): WorkShare {
-				$s = new WorkShare();
-				$s->setWalletId($walletId);
-				return $s;
-			}, $walletIds);
-		}
-		$this->workShareMapper->method('findSelectedByCompletionIds')->willReturn($shares);
+		$this->facts->method('factsForWeek')->willReturn($facts);
+		$this->facts->method('publicRoomTaskIds')->willReturn($public);
 	}
 
 	public function testGetRankingView_DisabledFlag_ShowsNoEntriesAndNoConsentStates(): void {
@@ -185,7 +136,7 @@ class RankingServiceTest extends TestCase {
 		$this->house();
 		$viewer = $this->member(1, 'Alice');
 		$this->prefMapper->method('findByHouseId')->willReturn([]);
-		$this->occurrenceMapper->method('findByHousePlannedBetween')->willReturn([]);
+		$this->seedWeek([], [], []);
 
 		$view = $this->service->getRankingView(1, $viewer, new \DateTime('2026-09-23 12:00:00 UTC'));
 
@@ -236,14 +187,14 @@ class RankingServiceTest extends TestCase {
 	 * private-task work never leaks into a ratio (the viewer sees only the
 	 * consenting member's public counts).
 	 */
-	public function testGetRankingView_PrivateOccurrences_NeverEnterTheRatio(): void {
+	public function testGetRankingView_PrivateWork_NeverEntersTheRatio(): void {
 		$this->house();
 		$alice = $this->member(1, 'Alice');
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$alice]);
 		$this->prefMapper->method('findByHouseId')->willReturn([1 => $this->pref(1, '2026-09-14')]);
 
-		// One PUBLIC fulfilled occurrence (1/1) and one PRIVATE fulfilled
-		// occurrence that must be ignored (otherwise the ratio were 2/2).
+		// One PUBLIC kept cycle (1/1) and one PRIVATE kept cycle that must
+		// be ignored (otherwise the ratio were 2/2).
 		$this->seedWeek(
 			[
 				[11, true, true, 51, [901]],
@@ -266,6 +217,33 @@ class RankingServiceTest extends TestCase {
 	}
 
 	/**
+	 * ADR-021 decision 5: an absence makes unkept work neutral — it leaves
+	 * the ratio — while kept work still counts, and work a coworker kept
+	 * is not the responsible member's.
+	 */
+	public function testGetRankingView_AbsenceIsNeutral_AndOnlyOwnSharesCount(): void {
+		$this->house();
+		$alice = $this->member(1, 'Alice');
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$alice]);
+		$this->prefMapper->method('findByHouseId')->willReturn([1 => $this->pref(1, '2026-09-14')]);
+		$fact = static fn (string $state, array $workers, array $neutralFor): RecognitionFact => new RecognitionFact(
+			'2026-09-22', '2026-09-21', $state, [901], $workers, $neutralFor, false, false, 7
+		);
+		$this->facts->method('factsForWeek')->willReturn([
+			$fact(RecognitionFact::MISSED, [], [901 => true]),
+			$fact(RecognitionFact::KEPT, [901 => true], [901 => true]),
+			$fact(RecognitionFact::KEPT, [902 => true], []),
+			$fact(RecognitionFact::LATE, [901 => true], []),
+		]);
+		$this->facts->method('publicRoomTaskIds')->willReturn([7 => true]);
+
+		$view = $this->service->getRankingView(1, $alice, new \DateTime('2026-09-29 12:00:00 UTC'));
+
+		$this->assertSame(3, $view['entries'][0]['eligible'], 'the missed work inside the absence is left out');
+		$this->assertSame(1, $view['entries'][0]['onTime'], 'only work kept on time with an own share');
+	}
+
+	/**
 	 * Exact-rational ordering + standard competition ties via the public
 	 * seam: 2/3 beats 3/5 beats 1/2 = 4/8 beats 2/4.
 	 */
@@ -285,7 +263,7 @@ class RankingServiceTest extends TestCase {
 		}
 		$this->prefMapper->method('findByHouseId')->willReturn($prefs);
 
-		// Per-member outcome rows: (occurrenceId, public, closed, completionId, wallets)
+		// Per-member outcome rows: (roomTaskId, public, closed, completionId, wallets)
 		$rows = [
 			// 1: 2/3 → two public fulfilled of three public due.
 			[101, true, true, 201, [901]],
@@ -316,52 +294,13 @@ class RankingServiceTest extends TestCase {
 			[122, true, true, null, [905]],
 		];
 		$completions = [201, 202, 204, 205, 206, 209, 211, 215, 216, 217, 218];
-		$occMembers = [];
 		$shares = [];
-		$occurrences = [];
-		foreach ($rows as [$id, $isPublic, $closed, $completionId, $walletIds]) {
-			$occ = new Occurrence();
-			$occ->setId($id);
-			$occ->setHouseId(1);
-			$occ->setPlannedDate(new \DateTime('2026-09-22'));
-			$occ->setWeekStart('2026-09-21');
-			$occ->setWindowStart(new \DateTime('2026-09-22 00:00:00 UTC'));
-			$occ->setWindowEnd(new \DateTime('2026-09-23 00:00:00 UTC'));
-			$occ->setIsPublic($isPublic);
-			$occ->setCompletionId($completionId);
-			$occ->setSuspensionState(Occurrence::SUSPENSION_NONE);
-			$occurrences[] = $occ;
-
-			$walletId = $walletIds[0];
-			$m = new OccurrenceMember();
-			$m->setId($id);
-			$m->setOccurrenceId($id);
-			$m->setWalletId($walletId);
-			$m->setObligated(true);
-			$m->setDisposition(OccurrenceMember::DISPOSITION_ACTIVE);
-			$occMembers[$id] = [$m];
-
+		foreach ($rows as [, , , $completionId, $walletIds]) {
 			if ($completionId !== null) {
-				$c = new CompletedTask();
-				$c->setId($completionId);
-				$c->setCompletionClass(CompletedTask::CLASS_AGREED);
-				$c->setCompletedAt(new \DateTime('2026-09-22 12:00:00 UTC'));
-				$valid[$completionId] = $c;
-				$s = new WorkShare();
-				$s->setWalletId($walletId);
-				$shares[$completionId] = [$s];
+				$shares[$completionId] = $walletIds;
 			}
 		}
-		$this->occurrenceMapper->method('findByHousePlannedBetween')->willReturn($occurrences);
-		$this->occMemberMapper->method('findByOccurrenceIds')->willReturnCallback(
-			static fn (array $ids): array => array_intersect_key($occMembers, array_flip($ids))
-		);
-		$this->completedTaskMapper->method('findValidByIds')->willReturnCallback(
-			static fn (array $ids): array => array_intersect_key($valid, array_flip($ids))
-		);
-		$this->workShareMapper->method('findSelectedByCompletionIds')->willReturnCallback(
-			static fn (array $ids): array => array_intersect_key($shares, array_flip($ids))
-		);
+		$this->seedWeek($rows, $completions, $shares);
 
 		$view = $this->service->getRankingView(1, $members[2], new \DateTime('2026-09-23 12:00:00 UTC'));
 

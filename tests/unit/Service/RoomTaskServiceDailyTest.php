@@ -21,7 +21,6 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
-use OCP\IL10N;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -38,20 +37,26 @@ class RoomTaskServiceDailyTest extends TestCase {
 	private HouseMapper|MockObject $houseMapper;
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
-	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
+	private \OCA\ChoreStrike\Service\WindowService|MockObject $windows;
 	private \OCA\ChoreStrike\Db\TaskChecklistItemMapper|MockObject $checklistItemMapper;
 	/** @var int[]|null Room tasks with work planned today (null = all). */
 	private ?array $dueTodayIds = null;
+	/**
+	 * @var array<int, ?string> The other room tasks: `agreed` = an open
+	 *                          window planned for another day, `late` = a window that ended, absent
+	 *                          or null = no cycle.
+	 */
+	private array $classifications = [];
 
 	protected function setUp(): void {
 		$this->dueTodayIds = null;
+		$this->classifications = [];
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
-		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
 		$this->checklistItemMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class);
 		// CS-PLAN-057: day windows resolve the house timezone (UTC here, so
 		// the [start, end) bounds match the injected date's UTC calendar day).
@@ -64,19 +69,28 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->taskAccessPolicy->method('filterVisibleRoomTasks')
 			->willReturnCallback(static fn (array $roomTasks): array => $roomTasks);
 
-		// CS-PLAN-072 WP1: daily reads derive from the occurrence
-		// authority — the derivation mock answers with one agreed entry per
-		// room task unless a test narrows it.
-		$this->occurrenceService->method('agreedOccurrencesForHouseTasks')
-			->willReturnCallback(function (int $houseId, array $roomTasks, ?string $fromKey, ?string $toKey): array {
-				$result = [];
-				foreach ($roomTasks as $roomTask) {
-					if ($this->dueTodayIds === null || in_array($roomTask->getId(), $this->dueTodayIds, true)) {
-						$result[$roomTask->getId()] = [['occurrence' => null, 'revision' => null]];
-					}
+		// ADR-021: daily reads derive from the current cycle. The window
+		// derivation is stubbed (its rules are pinned in WindowServiceTest);
+		// the real `cycle` block is built on top of it.
+		$this->windows = $this->getMockBuilder(\OCA\ChoreStrike\Service\WindowService::class)
+			->setConstructorArgs([new \OCA\ChoreStrike\Service\RecurrenceCalculator(), $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class)])
+			->onlyMethods(['historiesFor', 'currentCycle'])
+			->getMock();
+		$this->windows->method('historiesFor')->willReturn([]);
+		$this->windows->method('currentCycle')->willReturnCallback(
+			function (RoomTask $roomTask, Task $task, $history, \DateTimeZone $tz, \DateTimeInterface $now): ?\OCA\ChoreStrike\Service\CurrentCycle {
+				$today = \OCA\ChoreStrike\Service\WindowService::todayKey($now, $tz);
+				$day = static fn (int $offset): string => \OCA\ChoreStrike\Service\RecurrenceCalculator::offsetDays($today, $offset);
+				if ($this->dueTodayIds === null || in_array($roomTask->getId(), $this->dueTodayIds, true)) {
+					return new \OCA\ChoreStrike\Service\CurrentCycle('d' . $today, $today, $today, $today);
 				}
-				return $result;
-			});
+				return match ($this->classifications[$roomTask->getId()] ?? null) {
+					'agreed' => new \OCA\ChoreStrike\Service\CurrentCycle('d' . $day(1), $day(1), $day(-1), $day(3)),
+					'late' => new \OCA\ChoreStrike\Service\CurrentCycle('d' . $day(-3), $day(-3), $day(-3), $day(-3)),
+					default => null,
+				};
+			}
+		);
 
 		$this->service = new RoomTaskReadService(
 			$this->roomTaskMapper,
@@ -87,39 +101,10 @@ class RoomTaskServiceDailyTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->taskAccessPolicy,
 			new CalendarService(),
-			$this->occurrenceService,
-			$this->createMock(\OCA\ChoreStrike\Service\PauseProjectionService::class),
-			$this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class),
-			$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
-			new \OCA\ChoreStrike\Service\EffortAllocationService(),
-			$this->createIdentityL10n(),
+			$this->windows,
 			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
 			$this->checklistItemMapper
 		);
-	}
-
-	private function createIdentityL10n(): IL10N {
-		$l10n = $this->createMock(IL10N::class);
-		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		return $l10n;
-	}
-
-	public function testGetDailyTasksReturnsTasks(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-02');
-
-		$roomTask = $this->createMock(RoomTask::class);
-		$roomTask->method('getId')->willReturn(1);
-
-		$this->roomTaskMapper->expects($this->once())
-			->method('findByHouse')
-			->with($houseId, true)
-			->willReturn([$roomTask]);
-
-		$result = $this->service->getDailyTasks($houseId, $date);
-
-		$this->assertCount(1, $result);
-		$this->assertSame($roomTask, $result[0]);
 	}
 
 	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
@@ -576,10 +561,10 @@ class RoomTaskServiceDailyTest extends TestCase {
 	// ------------------------------------------------------------------
 
 	/**
-	 * Wire room tasks 1..$count with shared task/room rows, and the
-	 * canonical selections of the open-window pass by classification.
+	 * Wire room tasks 1..$count with shared task/room rows, and the cycle
+	 * of every room task that is not planned today.
 	 *
-	 * @param array<int, ?string> $classifications room task id => classification (null = no target)
+	 * @param array<int, ?string> $classifications room task id => `agreed` (open window), `late` (ended), null (no cycle)
 	 * @return RoomTask[]
 	 */
 	private function wireOpenWindowHouse(int $count, array $classifications): array {
@@ -600,19 +585,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->roomTaskMapper->expects($this->once())->method('findByHouse')->willReturn($roomTasks);
 		$this->taskMapper->method('findByIds')->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
 		$this->roomMapper->method('findByIds')->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
-		$this->occurrenceService->method('selectionsForHouseTasks')
-			->willReturnCallback(function (int $houseId, array $tasks) use ($classifications): array {
-				$selections = [];
-				foreach ($tasks as $roomTask) {
-					$classification = $classifications[$roomTask->getId()] ?? null;
-					$selections[$roomTask->getId()] = $classification === null ? null : [
-						'occurrence' => new \OCA\ChoreStrike\Db\Occurrence(),
-						'revision' => new \OCA\ChoreStrike\Db\ScheduleRevision(),
-						'classification' => $classification,
-					];
-				}
-				return $selections;
-			});
+		$this->classifications = $classifications;
 		return $roomTasks;
 	}
 

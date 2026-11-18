@@ -11,9 +11,6 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -22,9 +19,6 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Exception\NotFoundException;
-use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\IL10N;
 
 /**
  * Focused owner of the room-task READ cluster (CS-PLAN-067 §3.1): batched
@@ -47,12 +41,7 @@ class RoomTaskReadService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private CalendarService $calendarService;
-	private OccurrenceService $occurrenceService;
-	private PauseProjectionService $pauseProjection;
-	private HouseUserMapper $houseUserMapper;
-	private OccurrenceMemberMapper $occMemberMapper;
-	private EffortAllocationService $allocationService;
-	private IL10N $l10n;
+	private WindowService $windows;
 	private AppLogger $logger;
 	private TaskChecklistItemMapper $checklistItemMapper;
 
@@ -65,12 +54,7 @@ class RoomTaskReadService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		TaskAccessPolicy $taskAccessPolicy,
 		CalendarService $calendarService,
-		OccurrenceService $occurrenceService,
-		PauseProjectionService $pauseProjection,
-		HouseUserMapper $houseUserMapper,
-		OccurrenceMemberMapper $occMemberMapper,
-		EffortAllocationService $allocationService,
-		IL10N $l10n,
+		WindowService $windows,
 		AppLogger $logger,
 		TaskChecklistItemMapper $checklistItemMapper,
 	) {
@@ -82,301 +66,117 @@ class RoomTaskReadService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->calendarService = $calendarService;
-		$this->occurrenceService = $occurrenceService;
-		$this->pauseProjection = $pauseProjection;
-		$this->houseUserMapper = $houseUserMapper;
-		$this->occMemberMapper = $occMemberMapper;
-		$this->allocationService = $allocationService;
-		$this->l10n = $l10n;
+		$this->windows = $windows;
 		$this->logger = $logger;
 		$this->checklistItemMapper = $checklistItemMapper;
 	}
 
 	/**
-	 * Occurrence DTO block enrichment (CS-PLAN-072 WP1): attaches the
-	 * canonical completion target (`occurrenceId`, `expectedVersion`,
-	 * `selectionToken`, classification, saved window/zone) to execution
-	 * rows — batched over the house, write-free. Tasks without a target
-	 * (all fulfilled) keep `occurrence: null`.
-	 *
-	 * @param list<array<string, mixed>> $rows Rows carrying `roomTask`
-	 * @param int $houseId House scope for the batched derivation
-	 * @return list<array<string, mixed>> Rows with an `occurrence` key
-	 */
-	public function withOccurrenceBlocks(array $rows, int $houseId): array {
-		$roomTasks = [];
-		foreach ($rows as $row) {
-			if (isset($row['roomTask']) && $row['roomTask'] instanceof RoomTask) {
-				$roomTasks[] = $row['roomTask'];
-			}
-		}
-		if ($roomTasks === []) {
-			return $rows;
-		}
-
-		$selections = $this->occurrenceSelectionsForHouse($houseId, $roomTasks);
-		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
-		$proposals = $this->buildProposalMapForSelections($houseId, $selections);
-		foreach ($rows as &$row) {
-			$roomTask = $row['roomTask'] ?? null;
-			if ($roomTask instanceof RoomTask) {
-				$selection = $selections[$roomTask->getId()] ?? null;
-				$row['occurrence'] = $selection !== null
-					? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
-					: null;
-				$row['proposal'] = $proposals[$roomTask->getId()] ?? null;
-			}
-		}
-		unset($row);
-		return $rows;
-	}
-
-	/**
-	 * Occurrence and WP3 §3.6 proposal blocks for rows whose selection map
-	 * the read path already derived (due-today, overdue and open-window
-	 * reads — one derivation per read): the ParticipationDialog preview
-	 * must not depend on the read path.
-	 *
-	 * @param list<array<string, mixed>> $rows Rows carrying `roomTask`
-	 * @param array<int, mixed> $selections The already-derived selection map
-	 * @return list<array<string, mixed>>
-	 */
-	private function withSelectionBlocks(array $rows, int $houseId, array $selections): array {
-		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
-		$proposals = $this->buildProposalMapForSelections($houseId, $selections);
-		foreach ($rows as $index => $row) {
-			$selection = $selections[$row['roomTask']->getId()] ?? null;
-			$rows[$index]['occurrence'] = $selection !== null
-				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
-				: null;
-			$rows[$index]['proposal'] = $proposals[$row['roomTask']->getId()] ?? null;
-		}
-		return $rows;
-	}
-
-	/**
-	 * The actual-work proposal map for the selected occurrences (WP3 §3.6 /
-	 * C2a, RF-074-03): what a participant-less completion of the shown
-	 * target would credit — agreed occurrence member shares first, equal
-	 * wallet-order assignee shares without an agreement, solo otherwise.
-	 *
-	 * The SAME shared derivation as the completion writer
-	 * (EffortAllocationService::agreementShares/equalShares), so the
-	 * ParticipationDialog preview can never drift from the credited
-	 * result. Query-budgeted: exactly three batched reads regardless of
-	 * the row count (members, occurrence members, assignees); rows
-	 * without a target keep `proposal: null`.
-	 *
-	 * @param int $houseId
-	 * @param array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string, workAppointment?: array{date: ?string, zone: string}}|null> $selections
-	 * @return array<int, array{occurrenceId: string, basis: string, participants: list<array{userId: string, sharePct: int}>, obligatedUserIds: ?list<string>}>
-	 */
-	public function proposalBlocksFor(int $houseId, array $selections): array {
-		return $this->buildProposalMapForSelections($houseId, $selections);
-	}
-
-	/**
-	 * @see proposalBlocksFor
-	 */
-	private function buildProposalMapForSelections(int $houseId, array $selections): array {
-		$targets = [];
-		foreach ($selections as $roomTaskId => $selection) {
-			if ($selection !== null && $selection['occurrence'] !== null) {
-				$targets[(int)$roomTaskId] = $selection;
-			}
-		}
-		if ($targets === []) {
-			return [];
-		}
-
-		$walletIdByUser = [];
-		$userIdByWallet = [];
-		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
-			$walletIdByUser[$member->getNextcloudUserId()] = $member->getWalletId();
-			if ($member->getWalletId() !== null) {
-				$userIdByWallet[(int)$member->getWalletId()] = $member->getNextcloudUserId();
-			}
-		}
-
-		$membersByOccurrence = $this->occMemberMapper->findByOccurrenceIds(array_map(
-			static fn (array $selection): int => (int)$selection['occurrence']->getId(),
-			$targets
-		));
-		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(array_keys($targets));
-
-		$proposals = [];
-		foreach ($targets as $roomTaskId => $selection) {
-			$occurrenceId = (int)$selection['occurrence']->getId();
-			$basis = 'agreement';
-			$shares = $this->allocationService->agreementShares(
-				$membersByOccurrence[$occurrenceId] ?? [],
-				$userIdByWallet
-			);
-			if ($shares === []) {
-				$assignees = $assigneesByRoomTask[$roomTaskId] ?? [];
-				if ($assignees !== []) {
-					$subjects = [];
-					foreach ($assignees as $uid) {
-						$subjects[$uid] = $walletIdByUser[$uid] ?? null;
-					}
-					$shares = $this->allocationService->equalShares($subjects);
-					$basis = 'assignees';
-				} else {
-					// Unassigned solo work: the acting user takes 100% —
-					// the client resolves the current user, no server guess.
-					$basis = 'solo';
-				}
-			}
-			$proposals[$roomTaskId] = [
-				'occurrenceId' => $selection['occurrence']->getScheduleRevId() . ':' . $selection['occurrence']->getOrdinal(),
-				'basis' => $basis,
-				'participants' => $this->sortedParticipants($shares),
-				'obligatedUserIds' => $basis === 'agreement'
-					? $this->obligatedUsers($membersByOccurrence[$occurrenceId] ?? [], $userIdByWallet)
-					: null,
-			];
-		}
-		return $proposals;
-	}
-
-	/**
-	 * Who is obligated to each persisted occurrence. Without concrete
-	 * members an occurrence has no entry, and the task's assignees stand.
-	 *
-	 * @param int[] $occurrenceIds
-	 * @return array<int, list<string>> occurrence id => Nextcloud user ids
-	 */
-	public function obligatedUsersByOccurrence(int $houseId, array $occurrenceIds): array {
-		$membersByOccurrence = $this->occMemberMapper->findByOccurrenceIds($occurrenceIds);
-		if ($membersByOccurrence === []) {
-			return [];
-		}
-		$userIdByWallet = [];
-		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
-			if ($member->getWalletId() !== null) {
-				$userIdByWallet[(int)$member->getWalletId()] = $member->getNextcloudUserId();
-			}
-		}
-		$obligated = [];
-		foreach ($membersByOccurrence as $occurrenceId => $members) {
-			$users = $this->obligatedUsers($members, $userIdByWallet);
-			if ($users !== []) {
-				$obligated[$occurrenceId] = $users;
-			}
-		}
-		return $obligated;
-	}
-
-	/**
-	 * Concrete responsibility is distinct from voluntary actual-work shares.
-	 * @param list<OccurrenceMember> $members
-	 * @param array<int, string> $userIdByWallet
-	 * @return list<string>
-	 */
-	private function obligatedUsers(array $members, array $userIdByWallet): array {
-		$users = [];
-		foreach ($members as $member) {
-			$userId = $userIdByWallet[(int)$member->getWalletId()] ?? null;
-			if ($member->getDisposition() === OccurrenceMember::DISPOSITION_ACTIVE && $member->getObligated() && $userId !== null) {
-				$users[] = $userId;
-			}
-		}
-		sort($users, SORT_STRING);
-		return $users;
-	}
-
-	/**
-	 * @param array<string, int> $shares userId => sharePct
-	 * @return list<array{userId: string, sharePct: int}>
-	 */
-	private function sortedParticipants(array $shares): array {
-		$participants = [];
-		foreach ($shares as $uid => $pct) {
-			$participants[] = ['userId' => $uid, 'sharePct' => $pct];
-		}
-		usort($participants, static fn (array $a, array $b): int => $a['userId'] <=> $b['userId']);
-		return $participants;
-	}
-
-	/**
-	 * Batched canonical selection map for a house's room tasks (thin
-	 * delegate over the occurrence authority, write-free).
+	 * The current cycle of each room task from ONE batched derivation
+	 * (CS-PLAN-091 WP-B1, ADR-021): two completion reads and at most one
+	 * definition read, whatever the row count; write-free.
 	 *
 	 * @param RoomTask[] $roomTasks
-	 * @return array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string, workAppointment?: array{date: ?string, zone: string}}|null>
+	 * @param array<int, Task>|null $tasksById Definitions the caller already loaded
+	 * @param \DateTimeInterface|null $now The instant to derive for (default: now)
+	 * @return array<int, array{cycle: ?CurrentCycle, block: ?array<string, mixed>}> By room task id
 	 */
-	public function occurrenceSelectionsForHouse(int $houseId, array $roomTasks): array {
+	public function cycleFacts(int $houseId, array $roomTasks, ?array $tasksById = null, ?\DateTimeInterface $now = null): array {
 		if ($roomTasks === []) {
 			return [];
 		}
-		return $this->occurrenceService->selectionsForHouseTasks($houseId, $roomTasks, new \DateTime());
+		$now ??= new \DateTime();
+		$tz = $this->timeZoneForHouse($houseId);
+		$today = WindowService::todayKey($now, $tz);
+		$tasksById ??= $this->tasksByIdForRoomTasks($roomTasks);
+		$histories = $this->windows->historiesFor(array_map(static fn (RoomTask $roomTask): int => (int)$roomTask->getId(), $roomTasks));
+
+		$facts = [];
+		foreach ($roomTasks as $roomTask) {
+			$id = (int)$roomTask->getId();
+			$task = $tasksById[$roomTask->getTaskId()] ?? null;
+			$cycle = $task === null ? null : $this->windows->currentCycle($roomTask, $task, $histories[$id] ?? null, $tz, $now);
+			$facts[$id] = [
+				'cycle' => $cycle,
+				'block' => $task === null ? null : $this->windows->block($roomTask, $task, $cycle, $today),
+			];
+		}
+		return $facts;
 	}
 
 	/**
-	 * The occurrence DTO block for a selection entry (thin delegate); the
-	 * house context keeps the WP2 token fingerprint consistent between
-	 * the read that shows a target and the completion that re-validates
-	 * it. `$selection` carries the derived work appointment.
+	 * `cycle` block enrichment: attaches the completion target and window
+	 * of each row (API reference, Room Tasks). A task without a cycle
+	 * keeps `cycle: null`.
 	 *
-	 * @param array{date: ?string, zone: string}|null $workAppointment
-	 * @return array<string, mixed>
+	 * @param list<array<string, mixed>> $rows Rows carrying `roomTask` and `task`
+	 * @return list<array<string, mixed>> Rows with a `cycle` key
 	 */
-	public function occurrenceBlockFor(\OCA\ChoreStrike\Db\Occurrence $occurrence, \OCA\ChoreStrike\Db\ScheduleRevision $revision, string $classification, int $houseId = 0, ?string $pauseFingerprint = null, ?array $workAppointment = null): array {
-		return $this->occurrenceService->occurrenceBlock($occurrence, $revision, $classification, $houseId, $pauseFingerprint, $workAppointment);
+	public function withCycleBlocks(array $rows, int $houseId, ?\DateTimeInterface $now = null): array {
+		$roomTasks = [];
+		$tasksById = [];
+		foreach ($rows as $row) {
+			$roomTasks[] = $row['roomTask'];
+			$tasksById[$row['roomTask']->getTaskId()] = $row['task'];
+		}
+		$facts = $this->cycleFacts($houseId, $roomTasks, $tasksById, $now);
+		foreach ($rows as $index => $row) {
+			$rows[$index]['cycle'] = $facts[(int)$row['roomTask']->getId()]['block'] ?? null;
+		}
+		return $rows;
 	}
 
 	/**
-	 * Display status under the occurrence authority (CS-PLAN-084 D-084-08):
-	 * a missed (`late`) occurrence is overdue; a past planned day whose
-	 * window is still open (flex days) is still due, never overdue.
+	 * Display status under derived windows (API reference): overdue once
+	 * the window has ended, due today while today lies inside it — never
+	 * overdue before that (CS-PLAN-084 D-084-08). A task without a window
+	 * keeps the entity's rule, which only knows inactive from active.
 	 *
-	 * @param string|null $classification Canonical selection classification, null without a selection
+	 * @param array<string, mixed>|null $block The row's `cycle` block
 	 */
-	public function statusFor(RoomTask $roomTask, \DateTimeZone $tz, ?string $classification): string {
-		$status = $roomTask->getStatus($tz);
-		if ($status === 'inactive' || $classification === null) {
-			return $status;
+	public function statusFor(RoomTask $roomTask, ?array $block): string {
+		if (!$roomTask->getIsActive()) {
+			return 'inactive';
 		}
-		if ($classification === 'late') {
-			return 'overdue';
-		}
-		return $status === 'overdue' ? 'due_today' : $status;
+		return match ($block['state'] ?? null) {
+			WindowService::STATE_OVERDUE => 'overdue',
+			WindowService::STATE_OPEN => 'due_today',
+			WindowService::STATE_UPCOMING => $roomTask->isDueWithinDays(3) ? 'due_soon' : 'upcoming',
+			default => 'upcoming',
+		};
 	}
 
 	/**
 	 * The serialized room task whose `status` follows {@see statusFor}
 	 * (CR-084-03): every response that updates a task row — list, execution,
-	 * filtered-daily, create, due-date, completion, undo, attribution and
-	 * schedule-apply — reports the same status for the same occurrence.
-	 * Without a selection the entity's house-local day rule remains the
-	 * fallback; the calendar range row keeps it too, because the per-day
-	 * `late` mark is the calendar's overdue authority (CR-084-01).
+	 * filtered-daily, create, completion, undo and attribution — reports
+	 * the same status for the same cycle.
 	 *
-	 * @param string|null $classification Canonical selection classification, null without a selection
+	 * @param array<string, mixed>|null $block The row's `cycle` block
 	 * @return array<string, mixed>
 	 */
-	public function roomTaskPayload(RoomTask $roomTask, \DateTimeZone $tz, ?string $classification): array {
+	public function roomTaskPayload(RoomTask $roomTask, \DateTimeZone $tz, ?array $block): array {
 		$data = $roomTask->jsonSerialize($tz);
-		$data['status'] = $this->statusFor($roomTask, $tz, $classification);
+		$data['status'] = $this->statusFor($roomTask, $block);
 		return $data;
 	}
 
 	/**
-	 * {@see roomTaskPayload} for a single row whose selection is not loaded
-	 * yet (create and due-date responses).
+	 * {@see roomTaskPayload} for a single row whose cycle is not loaded
+	 * yet (create and correction responses).
 	 *
 	 * @return array<string, mixed>
 	 */
 	public function selectedRoomTaskPayload(int $houseId, RoomTask $roomTask, \DateTimeZone $tz): array {
-		$selection = $this->occurrenceSelectionsForHouse($houseId, [$roomTask])[$roomTask->getId()] ?? null;
-		return $this->roomTaskPayload($roomTask, $tz, $selection['classification'] ?? null);
+		$block = $this->cycleFacts($houseId, [$roomTask])[(int)$roomTask->getId()]['block'] ?? null;
+		return $this->roomTaskPayload($roomTask, $tz, $block);
 	}
 
 	/**
 	 * {@see selectedRoomTaskPayload} for a row whose write has already
-	 * committed (create, due date, completion replay, attribution): a
-	 * failing status read degrades to the entity rule instead of an error
-	 * that would invite the client to repeat persisted work.
+	 * committed (create, completion replay, attribution): a failing status
+	 * read degrades to the entity rule instead of an error that would
+	 * invite the client to repeat persisted work.
 	 *
 	 * @param string $action Stable name of the calling action for the log
 	 * @return array<string, mixed>
@@ -390,15 +190,8 @@ class RoomTaskReadService {
 				'roomTaskId' => $roomTask->getId(),
 				'exception' => get_class($e),
 			]);
-			return $this->roomTaskPayload($roomTask, $tz, null);
+			return $roomTask->jsonSerialize($tz);
 		}
-	}
-
-	/**
-	 * The house pause-revision fingerprint (WP2 token input, one query).
-	 */
-	public function pauseFingerprintForHouse(int $houseId): string {
-		return $this->pauseProjection->housePauseFingerprint($houseId);
 	}
 
 	/**
@@ -626,185 +419,59 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * Occurrence-authority overdue set (CS-PLAN-072 WP1): every active
-	 * room task whose canonical selection is a MISSED occurrence (window
-	 * ended, unfulfilled, uncovered) — exactly one catch-up card per
-	 * chore; completing current work later covers the card instead of
-	 * fulfilling the historical miss.
-	 *
-	 * @return RoomTask[]
-	 */
-	public function getOverdueTasks(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		return $this->overdueSelectionMap($houseId, $viewer, $roomId)['tasks'];
-	}
-
-	/**
-	 * RF-072-WP1-10: ONE bounded selection derivation shared by the
-	 * overdue filter pass and the row enrichment — the rows endpoint never
-	 * re-runs the whole-house selection.
-	 *
-	 * @return array{tasks: RoomTask[], selections: array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string}|null>}
-	 */
-	private function overdueSelectionMap(int $houseId, HouseUser $viewer, ?int $roomId): array {
-		$now = new \DateTime();
-		$candidates = array_values(array_filter(
-			$this->roomTaskMapper->findByHouse($houseId, true),
-			fn (RoomTask $roomTask): bool => $roomId === null || $roomTask->getRoomId() === $roomId
-		));
-		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $candidates, $now);
-
-		$result = [];
-		foreach ($candidates as $roomTask) {
-			$selection = $selections[$roomTask->getId()] ?? null;
-			if ($selection !== null && $selection['classification'] === 'late') {
-				$result[] = $roomTask;
-			}
-		}
-		return ['tasks' => $this->visibleRoomTasks($result, $viewer), 'selections' => $selections];
-	}
-
-	/**
-	 * Occurrence-authority due-today set: viewer-visible active tasks with
-	 * an AGREED occurrence planned on the current house-local day.
-	 *
-	 * @return RoomTask[]
-	 */
-	public function getDueTodayTasks(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		$result = [];
-		foreach ($this->getDailyTasks($houseId, new \DateTime()) as $roomTask) {
-			if ($roomId === null || $roomTask->getRoomId() === $roomId) {
-				$result[] = $roomTask;
-			}
-		}
-		return $this->visibleRoomTasks($result, $viewer);
-	}
-
-	/**
-	 * Due-today execution rows with task/room details (CS-PLAN-066 §3.1 D1):
-	 * the same viewer-visible set as {@see getDueTodayTasks()}, assembled
-	 * into the canonical `{roomTask, task, room}` row shape the enriched
-	 * daily endpoint returns — one contract for every execution row consumer.
-	 * RF-072-WP1-10: the enrichment selection runs over the (small) visible
-	 * due set only, never over the whole house again.
-	 *
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
-	 */
-	public function getDueTodayTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		$now = new \DateTime();
-		$dayKey = $this->calendarService->dayKey($now, $this->timeZoneForHouse($houseId));
-		$candidates = $this->roomTaskMapper->findByHouse($houseId, true);
-		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $candidates, $dayKey, $dayKey);
-
-		$dueTasks = [];
-		foreach ($candidates as $roomTask) {
-			if (($agreedByTask[$roomTask->getId()] ?? []) !== []
-				&& ($roomId === null || $roomTask->getRoomId() === $roomId)) {
-				$dueTasks[] = $roomTask;
-			}
-		}
-		$visible = $this->visibleRoomTasks($dueTasks, $viewer);
-
-		$rows = $this->rowsForVisibleRoomTasks($visible);
-		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $visible, $now);
-		return $this->withChecklistCounts($this->withSelectionBlocks($rows, $houseId, $selections));
-	}
-
-	/**
-	 * Overdue execution rows with task/room details (CS-PLAN-066 §3.1 D1):
-	 * the same viewer-visible set as {@see getOverdueTasks()}, assembled
-	 * into the canonical `{roomTask, task, room}` row shape. Each row
-	 * carries its occurrence block — the catch-up card (CS-PLAN-072 WP1).
-	 * RF-072-WP1-10: the filter pass and the enrichment share ONE
-	 * selection map.
+	 * Overdue execution rows (CS-PLAN-066 §3.1 D1): every viewer-visible
+	 * active room task whose current window has ended — one red entry per
+	 * task, whatever the number of cycles that passed (ADR-021 decision 1).
 	 *
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
 	public function getOverdueTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		$map = $this->overdueSelectionMap($houseId, $viewer, $roomId);
-		$rows = $this->rowsForVisibleRoomTasks($map['tasks']);
-		return $this->withChecklistCounts($this->withSelectionBlocks($rows, $houseId, $map['selections']));
+		return $this->withChecklistCounts($this->rowsInState($houseId, $viewer, $roomId, WindowService::STATE_OVERDUE));
 	}
 
 	/**
-	 * Get tasks due within the next N days for a house, filtered to the
-	 * viewer's visibility.
+	 * Due-today execution rows (CS-PLAN-066 §3.1 D1): every viewer-visible
+	 * active room task whose window is open today.
 	 *
-	 * @return RoomTask[]
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
-	public function getDueWithinDaysTasks(int $houseId, int $days, HouseUser $viewer, ?int $roomId = null): array {
-		$roomTasks = $this->roomTaskMapper->findDueWithinDaysByHouse($houseId, $days, $roomId);
-		return $this->visibleRoomTasks($roomTasks, $viewer);
+	public function getDueTodayTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
+		return $this->withChecklistCounts($this->rowsInState($houseId, $viewer, $roomId, WindowService::STATE_OPEN));
 	}
 
 	/**
-	 * Occurrence-authority claimable set: overdue (a missed, uncovered
-	 * occurrence exists) + assigned to at least one member via the
-	 * canonical join table, filtered to the viewer's visibility.
+	 * Viewer-visible active rows whose cycle is in the given state, in the
+	 * mapper's canonical `next_due, created_at, id` order. Visibility
+	 * first: the one cycle derivation covers only rows the viewer may see.
 	 *
-	 * @return RoomTask[]
+	 * @return list<array<string, mixed>> Rows with their `cycle` block
 	 */
-	public function getClaimableOverdueTasks(int $houseId, HouseUser $viewer): array {
-		$overdueTasks = $this->getOverdueTasks($houseId, $viewer);
-		if ($overdueTasks === []) {
-			return [];
-		}
-
-		$assigneesByTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
-			array_map(static fn (RoomTask $task) => $task->getId(), $overdueTasks)
-		);
-
-		$claimableTasks = array_filter(
-			$overdueTasks,
-			static fn (RoomTask $task) => ($assigneesByTask[$task->getId()] ?? []) !== []
-		);
-
-		$claimable = array_values($claimableTasks);
-		return $this->visibleRoomTasks($claimable, $viewer);
+	private function rowsInState(int $houseId, HouseUser $viewer, ?int $roomId, string $state, ?\DateTimeInterface $now = null): array {
+		$candidates = array_values(array_filter(
+			$this->roomTaskMapper->findByHouse($houseId, true),
+			static fn (RoomTask $roomTask): bool => $roomId === null || $roomTask->getRoomId() === $roomId
+		));
+		$rows = $this->withCycleBlocks($this->rowsForVisibleRoomTasks($this->visibleRoomTasks($candidates, $viewer)), $houseId, $now);
+		return array_values(array_filter(
+			$rows,
+			static fn (array $row): bool => ($row['cycle']['state'] ?? null) === $state
+		));
 	}
 
 	/**
-	 * Occurrence-authority daily set (CS-PLAN-072 WP1): every ACTIVE room
-	 * task of the house with an AGREED occurrence planned on the given
-	 * house-local day — materialized rows plus virtual keys the frontier
-	 * already covers (a stopped cron never changes the answer, and reads
-	 * cause no DB writes; virtual and persisted representations share the
-	 * same public `<scheduleRevisionId>:<ordinal>` key).
+	 * The daily rows of a user: every visible room task whose window is
+	 * open on the given day, restricted for a child by eligibility,
+	 * availability and the daily limit.
 	 *
-	 * @return RoomTask[] Deterministic `next_due, created_at, id` order
-	 */
-	public function getDailyTasks(int $houseId, \DateTime $date): array {
-		return $this->dailyTasksAmong($houseId, $date, $this->roomTaskMapper->findByHouse($houseId, true));
-	}
-
-	/**
-	 * The due-today subset of already loaded active room tasks.
-	 *
-	 * @param RoomTask[] $candidates
-	 * @return RoomTask[]
-	 */
-	private function dailyTasksAmong(int $houseId, \DateTime $date, array $candidates): array {
-		$dayKey = $this->calendarService->dayKey($date, $this->timeZoneForHouse($houseId));
-		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $candidates, $dayKey, $dayKey);
-
-		$result = [];
-		foreach ($candidates as $roomTask) {
-			if (($agreedByTask[$roomTask->getId()] ?? []) !== []) {
-				$result[] = $roomTask;
-			}
-		}
-		return $result;
-	}
-
-	/**
-	 * Get filtered daily tasks for a user based on their role and scheduling
-	 * preferences, restricted to the viewer's visibility matrix.
+	 * A row planned for another day inside its flex window carries
+	 * `openWindow: true`; My Day lists those in their own group
+	 * (BUG-UX-005), and they never consume a child's slot.
 	 *
 	 * CS-PLAN-065 (decision D4): for child users the assignment eligibility
 	 * (assigned to the viewer OR unassigned — the canonical My Day "mine"
 	 * semantics) is evaluated BEFORE the availability gate and the daily
 	 * limit, so an ineligible task can never consume one of the child's
-	 * slots. Ordering is the canonical `nextDue, createdAt, id` (mapper
-	 * guarantee), and non-child users receive all visible daily tasks.
+	 * slots. Non-child users receive all visible daily tasks.
 	 *
 	 * RF-058-11: every returned row carries its canonical `assignees` set
 	 * from ONE batched read (shared with the child eligibility filter), so
@@ -817,22 +484,22 @@ class RoomTaskReadService {
 		HouseUser $viewer,
 		\DateTime $date,
 	): array {
-		// Daily tasks, already filtered through the visibility matrix and in
-		// the deterministic `nextDue, createdAt, id` order — each row
-		// enriched with the canonical occurrence target (WP1). One house
-		// read serves the due set and the open-window rows (BUG-UX-005).
-		$candidates = $this->roomTaskMapper->findByHouse($houseId, true);
-		$allTasks = $this->withOccurrenceBlocks(
-			$this->rowsForRoomTasks($this->dailyTasksAmong($houseId, $date, $candidates), $viewer),
-			$houseId
-		);
-		$openWindow = $this->openWindowRows($houseId, $viewer, $date, $candidates, $allTasks);
+		$dayKey = WindowService::todayKey($date, $this->timeZoneForHouse($houseId));
+		$dueRows = [];
+		$openWindow = [];
+		foreach ($this->rowsInState($houseId, $viewer, null, WindowService::STATE_OPEN, $date) as $row) {
+			if ($row['cycle']['centreOn'] === $dayKey) {
+				$dueRows[] = $row;
+			} else {
+				$openWindow[] = $row + ['openWindow' => true];
+			}
+		}
 
 		// Non-child users see all (visible) tasks.
 		if (!$viewer->isChild()) {
-			return $this->withChecklistCounts($this->withAssignees([...$allTasks, ...$openWindow]));
+			return $this->withChecklistCounts($this->withAssignees([...$dueRows, ...$openWindow]));
 		}
-		return $this->childDailyRows($houseId, $viewer, $date, $allTasks, $openWindow);
+		return $this->childDailyRows($houseId, $viewer, $date, $dueRows, $openWindow);
 	}
 
 	/**
@@ -871,16 +538,16 @@ class RoomTaskReadService {
 
 	/**
 	 * The daily limit caps what My Day offers, never what the child owes
-	 * (C2, BUG-UX-013): every own obligation stays visible, even above the
-	 * limit, and unassigned rows only fill the slots that remain. A hidden
-	 * obligation would turn into a silent miss.
+	 * (C2, BUG-UX-013): every own task stays visible, even above the limit,
+	 * and unassigned rows only fill the slots that remain. A hidden own
+	 * task would turn into a silent miss.
 	 *
 	 * @param list<array<string, mixed>> $eligible Eligible rows in canonical order
 	 * @param array<int, string[]> $assigneesByRoomTask
 	 * @return list<array<string, mixed>>
 	 */
 	private static function withinChildLimit(array $eligible, HouseUser $viewer, array $assigneesByRoomTask, int $maxDailyTasks): array {
-		$isOwn = static fn (array $item): bool => self::isOwnObligation($item, $viewer, $assigneesByRoomTask);
+		$isOwn = static fn (array $item): bool => self::isOwn($item, $viewer, $assigneesByRoomTask);
 		$openSlots = max(0, $maxDailyTasks - count(array_filter($eligible, $isOwn)));
 
 		return array_values(array_filter($eligible, static function (array $item) use ($isOwn, &$openSlots): bool {
@@ -889,76 +556,25 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * Whether a row is the child's: the agreed obligation when the row has
-	 * one, otherwise assigned to the child or unassigned.
+	 * Whether a row is the child's: assigned to the child or unassigned.
 	 *
 	 * @param array<string, mixed> $item
 	 * @param array<int, string[]> $assigneesByRoomTask
 	 */
 	private static function isChildEligible(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
-		if (self::isOwnObligation($item, $viewer, $assigneesByRoomTask)) {
-			return true;
-		}
-		return ($item['proposal']['obligatedUserIds'] ?? null) === null
-			&& ($assigneesByRoomTask[$item['roomTask']->getId()] ?? []) === [];
+		return self::isOwn($item, $viewer, $assigneesByRoomTask)
+			|| ($assigneesByRoomTask[$item['roomTask']->getId()] ?? []) === [];
 	}
 
 	/**
-	 * Whether the row binds the child: the agreed obligation when the row
-	 * has one, otherwise its assignment.
+	 * Whether the row is assigned to the child. The canonical assignees
+	 * decide; there is no per-cycle handover (ADR-021 decision 13).
 	 *
 	 * @param array<string, mixed> $item
 	 * @param array<int, string[]> $assigneesByRoomTask
 	 */
-	private static function isOwnObligation(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
-		$userIds = $item['proposal']['obligatedUserIds']
-			?? $assigneesByRoomTask[$item['roomTask']->getId()]
-			?? [];
-		return in_array($viewer->getNextcloudUserId(), $userIds, true);
-	}
-
-	/**
-	 * BUG-UX-005 (CS-PLAN-088 WP-A): viewer-visible active rows whose
-	 * canonical target is an open window although nothing is planned for
-	 * today — before or after the planned day, inside its flex days. They
-	 * carry `openWindow: true`; My Day lists them in their own group, and the
-	 * due-today set and its consumers stay as they are.
-	 *
-	 * @param RoomTask[] $houseRoomTasks The house's active room tasks
-	 * @param list<array<string, mixed>> $dueRows The day's rows (excluded)
-	 * @return list<array<string, mixed>>
-	 */
-	private function openWindowRows(int $houseId, HouseUser $viewer, \DateTime $date, array $houseRoomTasks, array $dueRows): array {
-		$dueIds = [];
-		foreach ($dueRows as $row) {
-			$dueIds[$row['roomTask']->getId()] = true;
-		}
-		// Visibility first: the one selection derivation covers only rows the
-		// viewer may see, and the blocks reuse it.
-		$candidates = $this->visibleRoomTasks(array_values(array_filter(
-			$houseRoomTasks,
-			static fn (RoomTask $roomTask): bool => !isset($dueIds[$roomTask->getId()])
-		)), $viewer);
-		if ($candidates === []) {
-			return [];
-		}
-		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $candidates, $date);
-
-		// 'agreed' is the open-window selection; a miss is 'late' (overdue).
-		$openSelections = array_filter($selections, static fn (?array $selection): bool => ($selection['classification'] ?? null) === 'agreed');
-		$open = array_values(array_filter(
-			$candidates,
-			static fn (RoomTask $roomTask): bool => isset($openSelections[$roomTask->getId()])
-		));
-		if ($open === []) {
-			return [];
-		}
-
-		$rows = $this->withSelectionBlocks($this->rowsForVisibleRoomTasks($open), $houseId, $openSelections);
-		foreach ($rows as $index => $row) {
-			$rows[$index]['openWindow'] = true;
-		}
-		return $rows;
+	private static function isOwn(array $item, HouseUser $viewer, array $assigneesByRoomTask): bool {
+		return in_array($viewer->getNextcloudUserId(), $assigneesByRoomTask[$item['roomTask']->getId()] ?? [], true);
 	}
 
 	/**
@@ -1003,51 +619,5 @@ class RoomTaskReadService {
 			$rows[$index]['checklistItemCount'] = $counts[(int)$row['task']->getId()] ?? 0;
 		}
 		return $rows;
-	}
-
-	/**
-	 * Get a room task with full details (execution surface extras) —
-	 * including the canonical occurrence target block (CS-PLAN-072 WP1).
-	 *
-	 * @return array{roomTask: RoomTask, task: Task, room: Room, status: string, isOverdue: bool, isDueToday: bool, daysUntilDue: int, occurrence: ?array}
-	 * @throws NotFoundException if the room task, its definition or room is gone
-	 */
-	public function getRoomTaskWithDetails(int $roomTaskId): array {
-		try {
-			$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		} catch (DoesNotExistException $e) {
-			throw new NotFoundException($this->l10n->t('Room task not found'));
-		}
-
-		try {
-			$task = $this->taskMapper->find($roomTask->getTaskId());
-		} catch (DoesNotExistException $e) {
-			throw new NotFoundException($this->l10n->t('Task not found'));
-		}
-
-		try {
-			$room = $this->roomMapper->find($roomTask->getRoomId());
-		} catch (DoesNotExistException $e) {
-			throw new NotFoundException($this->l10n->t('Room not found'));
-		}
-
-		$tz = $this->timeZoneForRoomEntity($room);
-		$houseId = $this->houseIdForRoom($room->getId());
-		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
-		$pauseFingerprint = $this->pauseFingerprintForHouse($houseId);
-		$status = $this->statusFor($roomTask, $tz, $selection['classification'] ?? null);
-
-		return [
-			'roomTask' => $roomTask,
-			'task' => $task,
-			'room' => $room,
-			'status' => $status,
-			'isOverdue' => $status === 'overdue',
-			'isDueToday' => $roomTask->isDueToday($tz),
-			'daysUntilDue' => $roomTask->getDaysUntilDue($tz),
-			'occurrence' => $selection !== null
-				? $this->occurrenceService->occurrenceBlock($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, $pauseFingerprint, $selection['workAppointment'] ?? null)
-				: null,
-		];
 	}
 }

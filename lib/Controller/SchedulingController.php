@@ -8,13 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
-use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\SchedulePlanService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -22,10 +19,10 @@ use OCP\IL10N;
 use OCP\IRequest;
 
 /**
- * API controller for scheduling preferences and the owner plan aggregate
- * (CS-PLAN-065, ADR-012): personal/member preference surface plus the
- * owner-only preview (`POST /scheduling/suggestions`) and apply
- * (`POST /scheduling/apply`) operations.
+ * API controller for the scheduling preferences: the personal and the
+ * owner's per-member availability and energy surface. The owner's preview
+ * and apply went with ADR-022 (CS-PLAN-091): nothing is applied as an
+ * agreement any more.
  */
 class SchedulingController extends Controller {
 	use ControllerLoggingTrait;
@@ -36,7 +33,6 @@ class SchedulingController extends Controller {
 	];
 
 	private SchedulingService $schedulingService;
-	private SchedulePlanService $schedulePlanService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
@@ -44,7 +40,6 @@ class SchedulingController extends Controller {
 	public function __construct(
 		IRequest $request,
 		SchedulingService $schedulingService,
-		SchedulePlanService $schedulePlanService,
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
@@ -52,7 +47,6 @@ class SchedulingController extends Controller {
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->schedulingService = $schedulingService;
-		$this->schedulePlanService = $schedulePlanService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
@@ -236,177 +230,6 @@ class SchedulingController extends Controller {
 				]
 			], 500);
 		}
-	}
-
-	/**
-	 * Preview the deterministic plan over the selected real room tasks
-	 * (owner only, CS-PLAN-065 / ADR-012).
-	 *
-	 * The retired taskCount-only advice contract is gone: a legacy payload
-	 * without `startDate`/`roomTaskIds` fails the closed shape validation
-	 * with a 400 — no compatibility fallback.
-	 *
-	 * @NoAdminRequired
-	 * @return JSONResponse
-	 */
-	public function preview(): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-
-			[$startDate, $roomTaskIds, $overrides] = $this->parsePlanRequest();
-
-			$plan = $this->schedulePlanService->preview(
-				$house->getId(),
-				$houseUser,
-				$startDate,
-				$roomTaskIds,
-				$overrides
-			);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $plan
-			]);
-		} catch (\InvalidArgumentException $e) {
-			return ControllerErrorFormatter::validation($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (NotFoundException $e) {
-			return ControllerErrorFormatter::notFoundResponse($e);
-		} catch (ConflictException $e) {
-			return ControllerErrorFormatter::conflictResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('preview', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'PLAN_PREVIEW_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Apply the confirmed plan as one all-or-nothing command (owner only).
-	 *
-	 * Request: the exact normalized preview input plus its
-	 * `previewVersion` and the client's `commandId` (WP2 plan §3.5 — one
-	 * UUID across uncertain retries, 409 keeps the draft). A stale
-	 * confirmation (including a preview that crossed local midnight,
-	 * CR-SVC-64) is a write-free 409; a confirmed no-change plan performs
-	 * zero writes.
-	 *
-	 * @NoAdminRequired
-	 * @return JSONResponse
-	 */
-	public function apply(): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-
-			[$startDate, $roomTaskIds, $overrides] = $this->parsePlanRequest();
-			$previewVersion = $this->request->getParam('previewVersion');
-			if (!is_string($previewVersion) || $previewVersion === '') {
-				throw new \InvalidArgumentException($this->l->t('previewVersion is required'));
-			}
-			$commandId = $this->request->getParam('commandId');
-			// RF-073-WP2-06 (plan §3.5): the apply command carries the
-			// owner's explicit consent attestation — a missing/false flag
-			// is a malformed request (400), never a silent apply.
-			$consent = $this->request->getParam('consent');
-
-			$result = $this->schedulePlanService->apply(
-				$house->getId(),
-				$houseUser,
-				$startDate,
-				$roomTaskIds,
-				$overrides,
-				$previewVersion,
-				is_string($commandId) ? $commandId : '',
-				$consent === true
-			);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $result
-			]);
-		} catch (\InvalidArgumentException $e) {
-			return ControllerErrorFormatter::validation($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (NotFoundException $e) {
-			return ControllerErrorFormatter::notFoundResponse($e);
-		} catch (ConflictException $e) {
-			return ControllerErrorFormatter::conflictResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('apply', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'PLAN_APPLY_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Parse the shared preview/apply request shape: `startDate`,
-	 * unique positive `roomTaskIds` (bounded), optional per-row `overrides`
-	 * and (apply only) `previewVersion`.
-	 *
-	 * @return array{0: string, 1: list<int>, 2: array<int, array{assigneeUserIds?: list<string>, date?: string}>}
-	 */
-	private function parsePlanRequest(): array {
-		$startDate = $this->request->getParam('startDate');
-		if (!is_string($startDate)) {
-			throw new \InvalidArgumentException($this->l->t('startDate must be a valid Y-m-d date'));
-		}
-
-		$rawIds = $this->request->getParam('roomTaskIds');
-		if (!is_array($rawIds)) {
-			throw new \InvalidArgumentException($this->l->t('roomTaskIds must be an array of room task IDs'));
-		}
-		$roomTaskIds = [];
-		foreach ($rawIds as $rawId) {
-			if (!is_numeric($rawId) || (int)$rawId < 1) {
-				throw new \InvalidArgumentException($this->l->t('roomTaskIds must contain positive integers'));
-			}
-			$roomTaskIds[] = (int)$rawId;
-		}
-
-		$rawOverrides = $this->request->getParam('overrides');
-		$overrides = [];
-		if ($rawOverrides !== null) {
-			if (!is_array($rawOverrides)) {
-				throw new \InvalidArgumentException($this->l->t('overrides must be an object keyed by room task ID'));
-			}
-			foreach ($rawOverrides as $overrideId => $override) {
-				if (!is_numeric($overrideId) || (int)$overrideId < 1) {
-					throw new \InvalidArgumentException($this->l->t('Overrides must reference a selected room task'));
-				}
-				if (!is_array($override)) {
-					throw new \InvalidArgumentException($this->l->t('Each override must be an object'));
-				}
-				$clean = [];
-				if (array_key_exists('assigneeUserIds', $override)) {
-					if (!is_array($override['assigneeUserIds'])) {
-						throw new \InvalidArgumentException($this->l->t('assigneeUserIds must be a non-empty array of user IDs'));
-					}
-					$clean['assigneeUserIds'] = $override['assigneeUserIds'];
-				}
-				if (array_key_exists('date', $override)) {
-					$clean['date'] = $override['date'];
-				}
-				$overrides[(int)$overrideId] = $clean;
-			}
-		}
-
-		return [$startDate, $roomTaskIds, $overrides];
 	}
 
 	/**

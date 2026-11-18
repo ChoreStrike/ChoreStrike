@@ -65,8 +65,6 @@ existing source transaction (the house lock is already held):
 
 - `CompletionService` — overdue takeover (RF-076-02: the queue write
   joins the completion transaction; a rollback leaves no queued change).
-- `AgreementService` — amend/catch-up/restart recordings, recipients =
-  affected consent subjects minus the actor.
 - `PauseService` — acknowledge/reject/shorten/delete/retrospective
   recognition/household pause; personal pauses notify the subject,
   household pauses every member. Entering or deleting one's own absence

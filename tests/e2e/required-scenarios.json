@@ -47,20 +47,21 @@
     "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > same-device logout and child login discard the prior wallet, undo queue and optional preferences"
   ],
   "family-rhythm.spec.ts": [
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > My Day shows one catch-up card with its original planned date, not a duplicate today",
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a child absence takes effect at once and deciding it stays owner-only",
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > a private task amendment stays a 404 for the house owner",
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an API-created house pause renders its neutral clarification in the owner planner",
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an overloaded child day renders the clarification amounts in the owner planner",
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an owner records an agreed handover in the UI without changing future assignments",
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > an owner sees why a move is refused and then moves the occurrence in a non-UTC house",
-    "family-rhythm.spec.ts > Family rhythm — agreements & pauses (WP2) > owner date amendment keeps the occurrence identity visible to the child",
-    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > My Day offers work inside its flex window before the planned day",
-    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a UI completion carries the full occurrence receipt",
-    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a new command on a fulfilled occurrence conflicts 409, never credits another target",
-    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a stale receipt after a due-date move conflicts 409",
-    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > fixed and relative schedules explain and preserve their different next dates after late work",
-    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > replaying the same command returns the original identity without a second effect",
+    "family-rhythm.spec.ts > Family rhythm — absences, limits & visibility > My Day shows one overdue card with its planned day, not a duplicate today",
+    "family-rhythm.spec.ts > Family rhythm — absences, limits & visibility > a child absence takes effect at once, keeps the work completable and deciding it stays owner-only",
+    "family-rhythm.spec.ts > Family rhythm — absences, limits & visibility > a house pause leaves the rows and their cycles in place",
+    "family-rhythm.spec.ts > Family rhythm — absences, limits & visibility > a non-UTC house hangs the cycle on its own day and completes it",
+    "family-rhythm.spec.ts > Family rhythm — absences, limits & visibility > a private task completion stays a 404 for the house owner",
+    "family-rhythm.spec.ts > Family rhythm — absences, limits & visibility > work above a child daily limit is accepted",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > My Day offers work inside its flex window before the planned day",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > a UI completion carries the full cycle receipt",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > a new command on a closed cycle conflicts 409, never credits another target",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > a second completion on the same day conflicts 409 SAME_DAY, even for the next cycle",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > a stale receipt after a definition edit conflicts 409 STALE_TARGET and the fresh one pays the new energy",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > a wrong cycle key and the retired occurrence receipt are refused 400",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > fixed and relative schedules explain and preserve their different next dates after late work",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > replaying the same command returns the original identity without a second effect",
+    "family-rhythm.spec.ts > Family rhythm — derived cycles > work can be completed before its window opens and a completed overdue row is not due again today",
     "family-rhythm.spec.ts > Family rhythm — read contract (WP4) > the state read carries the rhythm projection and the personal weekly slice after a completion"
   ],
   "family-reward-api.spec.ts": [
@@ -199,7 +200,7 @@
   ],
   "release-task-lifecycle.spec.ts": [
     "release-task-lifecycle.spec.ts > Release: Task Lifecycle > completing then undoing restores the room task (targeted correction)",
-    "release-task-lifecycle.spec.ts > Release: Task Lifecycle > updating the due date persists the requested day"
+    "release-task-lifecycle.spec.ts > Release: Task Lifecycle > the retired date, last-done and occurrence routes answer 404"
   ],
   "release-visibility-roles.spec.ts": [
     "release-visibility-roles.spec.ts > Release: Visibility & Roles > owner can change a role and it persists; non-owner is denied",
@@ -243,16 +244,16 @@
     "calm-core-ui.spec.ts > Calm core UI (CS-PLAN-070 WP6) > the optional arcade hides with its navigation entry when arcadeVisible is off"
   ],
   "scheduling.spec.ts": [
+    "scheduling.spec.ts > Retired planner routes > the plan preview and apply routes answer 404 while the preferences stay",
     "scheduling.spec.ts > Scheduling UI > can interact with energy slider",
     "scheduling.spec.ts > Scheduling UI > displays the scheduling header",
     "scheduling.spec.ts > Scheduling UI > loads the scheduling view with all sections",
     "scheduling.spec.ts > Scheduling UI > navigates to the weekly plan through the calendar",
+    "scheduling.spec.ts > Scheduling UI > offers no plan preview any more",
     "scheduling.spec.ts > Scheduling UI > shows availability grid with 7 day slots",
     "scheduling.spec.ts > Scheduling UI > shows energy budget number inputs",
     "scheduling.spec.ts > Scheduling UI > shows energy budget sliders for each day",
     "scheduling.spec.ts > Scheduling UI > shows schedule calendar with navigation",
-    "scheduling.spec.ts > Scheduling UI > shows the owner plan planner section (CS-PLAN-065)",
-    "scheduling.spec.ts > Scheduling UI > the plan preview stays disabled until a task is selected",
     "scheduling.spec.ts > Scheduling save flow > persists a changed energy budget with exactly one bulk PUT and restores the seed"
   ],
   "flex-window-scheduling.spec.ts": [
@@ -260,9 +261,8 @@
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar returns to current week with today button",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar shows week navigation controls",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > energy budget settings persist slider changes",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > schedule planner section is accessible",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > scheduling view loads with calendar section",
-    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the plan preview requires an explicit task selection",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the weekly plan has no schedule planner any more",
     "flex-window-scheduling.spec.ts > Flex Window Scheduling > the weekly plan opens from the calendar and leads back to it"
   ],
   "availability-settings-flow.spec.ts": [
@@ -275,16 +275,6 @@
     "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy budget inputs in edit modal",
     "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy budget settings with save button",
     "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy templates in budget settings"
-  ],
-  "scheduling-apply-flow.spec.ts": [
-    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > a stale preview answers 409 cleanly and leaves the planner usable",
-    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > an apply without the explicit consent attestation is rejected 400",
-    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > an overdue zero-flex task is reported unplaced, never rescheduled",
-    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > exit journey: owner creates a task, sets the child limit, applies the plan, and the child session sees exactly the persisted result",
-    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > member and child roles see no planner and are rejected by both plan endpoints",
-    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > the preview → apply cycle is fully keyboard-operable with visible focus",
-    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > the preview → apply cycle works on a mobile touch viewport with 44px targets",
-    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > the retired taskCount advice contract is rejected without a fallback"
   ],
   "admin-only-tasks.spec.ts": [
     "admin-only-tasks.spec.ts > Admin-Only Tasks > admin-only task shows crown icon for owner",
@@ -356,7 +346,7 @@
   "overdue-task-claiming.spec.ts": [
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > claim button opens confirmation dialog naming the assignee",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > claiming overdue task via API records takeover",
-    "overdue-task-claiming.spec.ts > Overdue Task Claiming > confirming a claim in the UI completes it once and the next occurrence returns to the assignee",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > confirming a claim in the UI completes it once and the next cycle returns to the assignee",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > non-assignee can complete overdue public task",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > overdue task assigned to another user shows claim button",
     "overdue-task-claiming.spec.ts > Overdue Task Claiming > private overdue task cannot be claimed by non-assignee",
@@ -369,8 +359,8 @@
     "private-tasks.spec.ts > Private Tasks > user can create a private task via the form"
   ],
   "task-grouping.spec.ts": [
+    "task-grouping.spec.ts > Task grouping > A completed task shows its room as Last cleaned",
     "task-grouping.spec.ts > Task grouping > A room heading shows its open tasks and its cleanliness",
-    "task-grouping.spec.ts > Task grouping > Date in an expanded row records the last done day, shown as Last cleaned",
     "task-grouping.spec.ts > Task grouping > New in a room heading opens the template picker for that room",
     "task-grouping.spec.ts > Task grouping > The switch groups by room and by person and mirrors the grouping in the address"
   ],
@@ -432,8 +422,8 @@
   ],
   "mobile-core.spec.ts": [
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > My Day hold-complete and undo: a tap explains the hold, the hold completes once, undo restores",
-    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > claim confirm: an owner takes over overdue work in one confirmation and the next occurrence stays with the assignee",
-    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > handover: a child completes the handed-over occurrence and the successor returns to the default owner",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > claim confirm: an owner takes over overdue work in one confirmation and the next cycle stays with the assignee",
+    "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > handover: a member records the work of someone else and the successor stays with the assignee",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > paged task list: 20 rows per page with collapsed filters on the phone",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > reassignment: the former assignee loses the task and the new assignee sees it",
     "mobile-core.spec.ts > @mobile core set (CS-PLAN-084 WP-G) > settings stay reachable through the phone navigation for a child",

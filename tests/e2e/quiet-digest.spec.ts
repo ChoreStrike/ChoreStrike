@@ -92,7 +92,7 @@ async function createDueWork(page: Page, name: string, assignee: string, planned
 		data: {
 			roomId: kitchen.id,
 			assigneeUserIds: [assignee],
-			nextDue: plannedDay,
+			firstDate: plannedDay,
 			task: {
 				name,
 				energyCost: 1,

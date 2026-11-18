@@ -244,8 +244,9 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 	 * (CS-PLAN-073 Q-073-03, RF-073-WP2-10): departure cancels the
 	 * departing member's PENDING personal pause requests, preserves the
 	 * already-acknowledged neutral history (state/dates survive), and
-	 * stops FUTURE personal-pause effects — the former member's personal
-	 * pause no longer suspends occurrences once they left the house.
+	 * stops FUTURE effects — the former member is responsible for nothing
+	 * that is still open, while a cycle their absence covered stays
+	 * neutral (ADR-021 decision 5).
 	 */
 	public function testRemoveHouseMember_Pauses_CancelPendingRetainHistoryStopFutureEffects(): void {
 		$fixture = $this->seedFixture();
@@ -257,16 +258,6 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		foreach (['rmr_owner_a', 'rmr_member', 'rmr_child'] as $userId) {
 			$walletService->ensureBinding($houseAId, $houseUserMapper->findByNextcloudUserId($houseAId, $userId));
 		}
-		// The fixture assignment predates the wallet binding — re-record it
-		// so the revision defaults and the occurrence member rows carry the
-		// member's wallet (the suspension derivation resolves per wallet).
-		\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class)->setAssignees(
-			$fixture['roomTaskAId'],
-			['rmr_member'],
-			$houseAId,
-			$houseUserMapper->findByNextcloudUserId($houseAId, 'rmr_owner_a')
-		);
-
 		$pauseService = \OC::$server->get(\OCA\ChoreStrike\Service\PauseService::class);
 		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
 		$range = static function (string $reason) use ($todayKey): array {
@@ -277,18 +268,16 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 			];
 		};
 
-		// The member's acknowledged personal pause suspends their task.
+		// The member's absence makes their open task neutral for them: its
+		// window lies inside the absence (ADR-021 decision 5).
 		$memberPause = $pauseService->requestForSelf($houseAId, 'rmr_member', array_merge(['commandId' => $this->uuidRmr()], $range(\OCA\ChoreStrike\Db\Pause::REASON_TRAVEL)));
 		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_ACKNOWLEDGED, $memberPause['state']);
-		$occurrenceMapper = \OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMapper::class);
-		$memberOccurrence = null;
-		foreach ($occurrenceMapper->findByRoomTask($fixture['roomTaskAId']) as $row) {
-			if ($row->getCompletionId() === null) {
-				$memberOccurrence = $row;
-			}
-		}
-		self::assertNotNull($memberOccurrence);
-		self::assertSame(\OCA\ChoreStrike\Db\Occurrence::SUSPENSION_SUSPENDED, $memberOccurrence->getSuspensionState(), 'the acknowledged pause suspends the covered obligation');
+		$memberWalletId = (int)$houseUserMapper->findByNextcloudUserId($houseAId, 'rmr_member')->getWalletId();
+		// A cycle the absence already covered: closed as missed, a fact.
+		$this->insertClosedCycle($houseAId, $fixture['roomTaskAId'], $todayKey, $todayKey, [$memberWalletId], null, 'on_time', 'd' . (new \DateTime($todayKey))->modify('-7 days')->format('Y-m-d'));
+		$open = $this->openFactFor($houseAId, $fixture['roomTaskAId']);
+		self::assertSame([$memberWalletId], $open->responsible);
+		self::assertArrayHasKey($memberWalletId, $open->neutralFor, 'the absence makes the covered window neutral');
 
 		// A child's request from before ADR-020 is still pending.
 		$childRange = $range(\OCA\ChoreStrike\Db\Pause::REASON_OTHER);
@@ -306,10 +295,24 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		self::assertSame(\OCA\ChoreStrike\Db\Pause::STATE_ACKNOWLEDGED, $this->currentPauseState($memberPause['pauseGroupId']));
 		self::assertSame($todayKey, $this->currentPauseStart($memberPause['pauseGroupId']));
 
-		// Future personal-pause effects stopped at departure: the former
-		// member's pause no longer keeps the occurrence suspended.
-		$after = $occurrenceMapper->find((int)$memberOccurrence->getId());
-		self::assertSame(\OCA\ChoreStrike\Db\Occurrence::SUSPENSION_NONE, $after->getSuspensionState(), 'the departed member\'s personal pause has no further effect');
+		// Future effects stopped at departure: the task is nobody's any
+		// more, so the absence excuses nothing that is still open.
+		self::assertSame([], $this->openFactFor($houseAId, $fixture['roomTaskAId'])->responsible, 'the departed member owes nothing further');
+		// What the absence covered while they were a member stays neutral.
+		$house = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($houseAId);
+		$closed = \OC::$server->get(\OCA\ChoreStrike\Service\RecognitionFactsService::class)->closedFactsPage($house, null, 0, 10)['facts'];
+		self::assertCount(1, $closed);
+		self::assertArrayHasKey($memberWalletId, $closed[0]->neutralFor, 'a covered cycle keeps its neutrality after the departure');
+	}
+
+	private function openFactFor(int $houseId, int $roomTaskId): \OCA\ChoreStrike\Service\RecognitionFact {
+		$house = \OC::$server->get(\OCA\ChoreStrike\Db\HouseMapper::class)->find($houseId);
+		foreach (\OC::$server->get(\OCA\ChoreStrike\Service\RecognitionFactsService::class)->openFacts($house, new \DateTime()) as $fact) {
+			if ($fact->roomTaskId === $roomTaskId) {
+				return $fact;
+			}
+		}
+		self::fail('the room task has an open cycle');
 	}
 
 	/**

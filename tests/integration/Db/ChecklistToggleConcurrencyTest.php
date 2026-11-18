@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Db;
 
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
+use OCA\ChoreStrike\Db\CycleProgressMapper;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -20,6 +20,9 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * MariaDB/PostgreSQL serialize the row; SQLite serializes database writers.
  */
 class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
+	/** Ticks are keyed by the cycle they belong to (ADR-021 decision 3). */
+	private const CYCLE_KEY = 'd2026-11-21';
+
 	private int $checklistItemId = 0;
 	private int $roomTaskId = 0;
 
@@ -28,10 +31,10 @@ class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 	}
 
 	protected function tearDown(): void {
-		// chk_progress / chk_items rows for the fixture (FK-free schema).
+		// cycle_progress / chk_items rows for the fixture (FK-free schema).
 		if ($this->roomTaskId !== 0) {
 			$qb = $this->db->getQueryBuilder();
-			$qb->delete('chorestrike_chk_progress')
+			$qb->delete('chorestrike_cycle_progress')
 				->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($this->roomTaskId, IQueryBuilder::PARAM_INT)));
 			$qb->executeStatement();
 		}
@@ -60,7 +63,7 @@ class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 		file_put_contents($helperScript, $this->buildToggleHolderScript());
 
 		$process = proc_open(
-			[PHP_BINARY, $helperScript, (string)$this->roomTaskId, (string)$this->checklistItemId, $signalFile, ...$this->fixtureOccurrenceKeyArgs()],
+			[PHP_BINARY, $helperScript, (string)$this->roomTaskId, (string)$this->checklistItemId, $signalFile, self::CYCLE_KEY],
 			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes
 		);
@@ -75,20 +78,18 @@ class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 				usleep(50000);
 			}
 
-			// T2: the insert blocks on uniq_prog_occ_item until T1 commits,
+			// T2: the insert blocks on uniq_cprog_key until T1 commits,
 			// then the unique violation is handled by re-reading and
 			// flipping.
 			// CS-PLAN-071: the mapper primitive participates in a
 			// caller-owned transaction (ChecklistService scopes it
 			// house-first in production; this race test only needs the
-			// row-level semantics). CS-PLAN-072 WP1: the toggle is keyed by
-			// the occurrence public identity.
-			$mapper = \OC::$server->get(RoomTaskChecklistProgressMapper::class);
+			// row-level semantics).
+			$mapper = \OC::$server->get(CycleProgressMapper::class);
 			$tx = \OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class);
-			[$revId, $ordinal] = $this->fixtureOccurrenceKey();
 			$tx->begin();
 			try {
-				$progress = $mapper->toggleLocked($this->roomTaskId, $revId, $ordinal, $this->checklistItemId, 77);
+				$progress = $mapper->toggleLocked($this->roomTaskId, self::CYCLE_KEY, $this->checklistItemId, 77);
 				$tx->commit();
 			} catch (\Throwable $e) {
 				$tx->rollBack();
@@ -114,7 +115,7 @@ class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 		// Exactly one row, deterministic final state.
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('is_checked')
-			->from('chorestrike_chk_progress')
+			->from('chorestrike_cycle_progress')
 			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($this->roomTaskId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('checklist_item_id', $qb->createNamedParameter($this->checklistItemId, IQueryBuilder::PARAM_INT)));
 		$result = $qb->executeQuery();
@@ -138,17 +139,16 @@ require '/var/www/html/lib/base.php';
 $roomTaskId = (int)$argv[1];
 $checklistItemId = (int)$argv[2];
 $signalFile = $argv[3];
-$revId = (int)$argv[4];
-$ordinal = (int)$argv[5];
+$cycleKey = $argv[4];
 
-$mapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper::class);
+$mapper = \OC::$server->get(\OCA\ChoreStrike\Db\CycleProgressMapper::class);
 $tx = \OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class);
 
 try {
     // CS-PLAN-071: the toggle primitive participates in a caller-owned
     // transaction (hold uncommitted to create the race).
     $tx->begin();
-    $mapper->toggleLocked($roomTaskId, $revId, $ordinal, $checklistItemId, 55);
+    $mapper->toggleLocked($roomTaskId, $cycleKey, $checklistItemId, 55);
     file_put_contents($signalFile, 'locked');
     usleep(2000000);
     $tx->commit();
@@ -164,24 +164,23 @@ PHP;
 	/** @dataProvider aggregateOutcomes */
 	public function testToggleLocked_UniqueInsertLoser_PreservesOuterAggregate(bool $rollBack): void {
 		$this->seedFixture();
-		[$revId, $ordinal] = $this->fixtureOccurrenceKey();
-		$mapper = \OC::$server->get(RoomTaskChecklistProgressMapper::class);
+		$mapper = \OC::$server->get(CycleProgressMapper::class);
 		$tx = \OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class);
-		$winner = $tx->run(fn () => $mapper->toggleLocked($this->roomTaskId, $revId, $ordinal, $this->checklistItemId, 55));
+		$winner = $tx->run(fn () => $mapper->toggleLocked($this->roomTaskId, self::CYCLE_KEY, $this->checklistItemId, 55));
 		// Force the stale absent-row read, then use real SQL for the losing
 		// insert, savepoint recovery and locked re-read on every provider.
-		$loser = $this->getMockBuilder(RoomTaskChecklistProgressMapper::class)
+		$loser = $this->getMockBuilder(CycleProgressMapper::class)
 			->setConstructorArgs([$this->db])->onlyMethods(['findForUpdate'])->getMock();
 		$reads = 0;
 		$loser->method('findForUpdate')->willReturnCallback(function (...$args) use ($mapper, &$reads) {
 			return $reads++ === 0 ? null : $mapper->findForUpdate(...$args);
 		});
 		try {
-			$tx->run(function () use ($loser, $revId, $ordinal, $rollBack): void {
+			$tx->run(function () use ($loser, $rollBack): void {
 				$qb = $this->db->getQueryBuilder();
 				$qb->update('chorestrike_room_tasks')->set('was_claimed', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL))
 					->where($qb->expr()->eq('id', $qb->createNamedParameter($this->roomTaskId, IQueryBuilder::PARAM_INT)))->executeStatement();
-				$progress = $loser->toggleLocked($this->roomTaskId, $revId, $ordinal, $this->checklistItemId, 77);
+				$progress = $loser->toggleLocked($this->roomTaskId, self::CYCLE_KEY, $this->checklistItemId, 77);
 				self::assertFalse($progress->getIsChecked());
 				self::assertSame(2, $progress->getRevision());
 				if ($rollBack) {
@@ -193,7 +192,8 @@ PHP;
 			self::assertSame('injected aggregate failure', $e->getMessage());
 		}
 		self::assertSame(2, $reads, 'the unique loser re-locks the committed winner');
-		$stored = $mapper->find($winner->getId());
+		$stored = $mapper->findByCycle($this->roomTaskId, self::CYCLE_KEY)[0];
+		self::assertSame($winner->getId(), $stored->getId());
 		self::assertSame($rollBack, $stored->getIsChecked());
 		self::assertSame($rollBack ? 1 : 2, $stored->getRevision());
 		self::assertSame(!$rollBack, \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($this->roomTaskId)->getWasClaimed());
@@ -225,23 +225,4 @@ PHP;
 		$this->checklistItemId = (int)$this->db->lastInsertId('chorestrike_chk_items');
 	}
 
-	/**
-	 * The fixture's occurrence key parts (CS-PLAN-072 WP1): the schedule
-	 * revision id and ordinal of the task's agreed occurrence.
-	 *
-	 * @return array{0: int, 1: int}
-	 */
-	private function fixtureOccurrenceKey(): array {
-		$values = $this->fixtureOccurrenceKeyArgs();
-		return [(int)$values[0], (int)$values[1]];
-	}
-
-	/**
-	 * @return array{0: string, 1: string}
-	 */
-	private function fixtureOccurrenceKeyArgs(): array {
-		$revision = \OC::$server->get(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class)
-			->findCurrentByRoomTask($this->roomTaskId);
-		return [(string)$revision->getId(), '1'];
-	}
 }

@@ -83,6 +83,12 @@ Delivered bell shape (rendered by `ChoreStrikeNotifier`):
   updates`) — no task names, no object references.
 - Link: the app's landing page, Today.
 
+> **Releases B and C (ADR-022 §7, CS-PLAN-091 on `feat/simplified-core-bc`):**
+> the planned count becomes the member's suggested work for today plus their
+> overdue tasks. Agreement recordings no longer queue household updates, and
+> retained agreement rows in the queue are skipped; absence deletions
+> (ADR-020) and takeovers still queue them.
+
 Former subjects (`task_due_today`/`task_due_tomorrow`,
 `medal_awarded`, `weekly_goal_reached`, `title_unlocked`,
 `overdue_taken_over`) are retired with their dispatch callers; the

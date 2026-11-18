@@ -17,13 +17,29 @@ import {
 
 jest.mock('@nextcloud/l10n', () => ({ translate: (app, text) => text }))
 
-const daysFromToday = (days) => new Date(Date.now() + days * 86400000).toISOString()
+const dayKey = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
+/**
+ * What a list row carries for its current cycle (ADR-021): the block and
+ * the projected end of the window. Planned `planned` days from today, the
+ * window ends `end` days from today.
+ */
+const due = (planned, end = planned) => ({
+	nextDue: `${dayKey(end)}T00:00:00Z`,
+	cycle: {
+		cycleKey: 'c1',
+		expectedVersion: 0,
+		state: end < 0 ? 'overdue' : (planned <= 0 ? 'open' : 'upcoming'),
+		centreOn: dayKey(planned),
+		windowStartOn: dayKey(planned),
+		windowEndOn: dayKey(end),
+	},
+})
 
 const row = (id, roomTask = {}, task = {}) => ({
-	roomTask: { id, roomId: 10, isActive: true, nextDue: daysFromToday(3), assignees: [], ...roomTask },
+	roomTask: { id, roomId: 10, isActive: true, ...due(3), assignees: [], ...roomTask },
 	task: { id, name: `Task ${id}`, priority: 2, ...task },
 })
-const late = { nextDue: daysFromToday(-2), occurrence: { classification: 'late' } }
+const late = due(-2)
 const ids = (rows) => rows.map((item) => item.roomTask.id)
 
 describe('taskGrouping (CS-PLAN-090 WP-C)', () => {
@@ -48,18 +64,20 @@ describe('taskGrouping (CS-PLAN-090 WP-C)', () => {
 		const rows = [
 			row(1),
 			row(2, late),
-			row(3, { nextDue: daysFromToday(0) }),
-			row(4, { isActive: false, nextDue: daysFromToday(-9) }),
+			row(3, due(0)),
+			row(4, { isActive: false, ...due(-9), cycle: null }),
 			// Planned in the past, its flex window still open: due, not missed.
-			row(5, { nextDue: daysFromToday(-3), occurrence: { classification: 'agreed' } }),
-			row(6, { nextDue: null }),
+			row(5, due(-3, 1)),
+			// A task without a window (a bonus task).
+			row(6, { nextDue: null, cycle: { state: 'bonus', expectedVersion: 0 } }),
 		]
 
 		it('groups by due class in list order and leaves out an empty class', () => {
 			const groups = groupByDue(rows, 'UTC')
 
 			expect(groups.map((group) => group.key)).toEqual(['overdue', 'today', 'upcoming', 'completed'])
-			expect(groups.map((group) => ids(group.items))).toEqual([[2], [5, 3], [1, 6], [4]])
+			// Within a class the window that ends first comes first.
+			expect(groups.map((group) => ids(group.items))).toEqual([[2], [3, 5], [1, 6], [4]])
 			expect(groupByDue([row(1)], 'UTC').map((group) => group.key)).toEqual(['upcoming'])
 			expect(groupByDue([], 'UTC')).toEqual([])
 		})
@@ -74,13 +92,13 @@ describe('taskGrouping (CS-PLAN-090 WP-C)', () => {
 
 		it('orders a paged list by due class first, so a class is never split by an earlier date', () => {
 			// Row 5 is planned before the missed row 2 and still comes after it.
-			expect(ids([...rows].sort(compareByDueGroup('UTC')))).toEqual([2, 5, 3, 1, 6, 4])
+			expect(ids([...rows].sort(compareByDueGroup('UTC')))).toEqual([2, 3, 5, 1, 6, 4])
 		})
 
 		it('sorts a whole list into the same order without touching its input', () => {
 			const input = [...rows]
 
-			expect(ids(sortByDueGroup(input, 'UTC'))).toEqual([2, 5, 3, 1, 6, 4])
+			expect(ids(sortByDueGroup(input, 'UTC'))).toEqual([2, 3, 5, 1, 6, 4])
 			expect(ids(input)).toEqual([1, 2, 3, 4, 5, 6])
 			expect(sortByDueGroup([], 'UTC')).toEqual([])
 		})
@@ -93,7 +111,7 @@ describe('taskGrouping (CS-PLAN-090 WP-C)', () => {
 			{ id: 11, floorId: 1, name: 'Hall' },
 			{ id: 20, floorId: 2, name: 'Bath' },
 		]
-		const rows = [row(1), row(2, { roomId: 20, ...late }), row(3, { roomId: 10, nextDue: daysFromToday(1) }), row(4, { roomId: 99 })]
+		const rows = [row(1), row(2, { roomId: 20, ...late }), row(3, { roomId: 10, ...due(1) }), row(4, { roomId: 99 })]
 
 		it('lists floors and rooms in their order, with a room that has no rows', () => {
 			const groups = groupByRoom(rows, floors, rooms)

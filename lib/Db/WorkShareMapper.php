@@ -81,48 +81,6 @@ class WorkShareMapper extends QBMapper {
 	}
 
 	/**
-	 * Valid selected shares joined to their non-undone completions within a
-	 * completed-instant window — the capacity seam (WP3 §3.2). One row per
-	 * participant share; each participated occurrence is counted once per
-	 * participant by the caller (occurrence-identity dedupe).
-	 *
-	 * @return array<int, array{completionId: int, walletId: int|null, energyMinor: int, completedAt: \DateTime, workDate: \DateTime|null, workZone: string|null, occurrenceKey: string|null}>
-	 */
-	public function findSelectedSharesBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('ws.completion_id', 'ws.wallet_id', 'ws.energy_minor')
-			->addSelect('ct.completed_at', 'ct.work_date', 'ct.work_zone', 'ct.schedule_rev_id', 'ct.occurrence_ordinal')
-			->from('chorestrike_work_shares', 'ws')
-			->innerJoin('ws', 'chorestrike_completed_tasks', 'ct', $qb->expr()->eq('ct.id', 'ws.completion_id'))
-			->innerJoin('ws', 'chorestrike_house_users', 'hu', $qb->expr()->eq('hu.wallet_id', 'ws.wallet_id'))
-			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('ws.allocation_revision', 'ct.allocation_revision'))
-			->andWhere($qb->expr()->isNull('ct.undone_at'))
-			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-			->orderBy('ws.id', 'ASC');
-
-		$result = $qb->executeQuery();
-		$rows = [];
-		while ($row = $result->fetch()) {
-			$revId = $row['schedule_rev_id'] !== null ? (int)$row['schedule_rev_id'] : null;
-			$ordinal = $row['occurrence_ordinal'] !== null ? (int)$row['occurrence_ordinal'] : null;
-			$rows[] = [
-				'completionId' => (int)$row['completion_id'],
-				'walletId' => $row['wallet_id'] !== null ? (int)$row['wallet_id'] : null,
-				'energyMinor' => (int)$row['energy_minor'],
-				'completedAt' => new \DateTime((string)$row['completed_at']),
-				'workDate' => $row['work_date'] !== null ? new \DateTime((string)$row['work_date']) : null,
-				'workZone' => $row['work_zone'] !== null ? (string)$row['work_zone'] : null,
-				'occurrenceKey' => $revId !== null && $ordinal !== null ? $revId . ':' . $ordinal : null,
-			];
-		}
-		$result->closeCursor();
-
-		return $rows;
-	}
-
-	/**
 	 * Sum of every participant's selected share minor units of one
 	 * completion (the caller validates conservation when writing).
 	 *

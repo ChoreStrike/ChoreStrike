@@ -8,16 +8,11 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\Agreement;
-use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\DigestChange;
 use OCA\ChoreStrike\Db\DigestChangeMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
@@ -34,11 +29,11 @@ use OCP\IL10N;
  * receipt replay per UUID): personal pause request/acknowledgment,
  * household pause, explicit owner approve/reject, explicit
  * retrospective-illness recognition, the next-day shortening and the
- * deletion (ADR-020). Every mutation then persists the derived neutral
- * suspension effects idempotently against the pause revision
- * ({@see applyPauseEffectsUnderLock}) — materialized rows carry the
- * state, the write-free projection (PauseProjectionService) keeps
- * virtual rows and stopped-cron reads consistent without writes.
+ * deletion (ADR-020). A pause writes nothing onto tasks: the recognitions
+ * decide on read whether a window lay inside an absence (ADR-021
+ * decision 5, PauseProjectionService), so an absence entered or deleted
+ * later is honoured. Stored occurrences keep the suspension facts they
+ * had at the cutover.
  *
  * Frozen rules (plan §3.4): pending/rejected requests have no execution
  * effect; expired requests stay pending until an authorized decision;
@@ -61,13 +56,9 @@ class PauseService {
 
 	private CommandService $commands;
 	private PauseMapper $pauseMapper;
-	private PauseProjectionService $projection;
 	private HouseMapper $houseMapper;
 	private HouseUserMapper $houseUserMapper;
 	private WalletMapper $walletMapper;
-	private OccurrenceMapper $occurrenceMapper;
-	private OccurrenceMemberMapper $occMemberMapper;
-	private AgreementMapper $agreementMapper;
 	private TransactionExecutor $transactions;
 	private CalendarService $calendar;
 	private DigestChangeMapper $digestChangeMapper;
@@ -77,13 +68,9 @@ class PauseService {
 	public function __construct(
 		CommandService $commands,
 		PauseMapper $pauseMapper,
-		PauseProjectionService $projection,
 		HouseMapper $houseMapper,
 		HouseUserMapper $houseUserMapper,
 		WalletMapper $walletMapper,
-		OccurrenceMapper $occurrenceMapper,
-		OccurrenceMemberMapper $occMemberMapper,
-		AgreementMapper $agreementMapper,
 		TransactionExecutor $transactions,
 		CalendarService $calendar,
 		DigestChangeMapper $digestChangeMapper,
@@ -92,13 +79,9 @@ class PauseService {
 	) {
 		$this->commands = $commands;
 		$this->pauseMapper = $pauseMapper;
-		$this->projection = $projection;
 		$this->houseMapper = $houseMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->walletMapper = $walletMapper;
-		$this->occurrenceMapper = $occurrenceMapper;
-		$this->occMemberMapper = $occMemberMapper;
-		$this->agreementMapper = $agreementMapper;
 		$this->transactions = $transactions;
 		$this->calendar = $calendar;
 		$this->digestChangeMapper = $digestChangeMapper;
@@ -234,7 +217,6 @@ class PauseService {
 				$pause->setReasonCode($validated['reasonCode']);
 				$this->applyRange($pause, $validated, $this->houseZone($houseId));
 				$pause = $this->pauseMapper->appendRevision($pause);
-				$this->applyPauseEffectsUnderLock($houseId);
 				return ['pauseGroupId' => $pause->getPauseGroupId(), 'revision' => $pause->getRevision(), 'state' => $pause->getState()];
 			},
 			$this->actorGuard($actor)
@@ -271,7 +253,6 @@ class PauseService {
 				$pause->setReasonCode($validated['reasonCode']);
 				$this->applyRange($pause, $validated, $this->houseZone($houseId));
 				$pause = $this->pauseMapper->appendRevision($pause);
-				$this->applyPauseEffectsUnderLock($houseId);
 				// WP5 (C5m): a household pause affects every member —
 				// transactional queue write for the opted-in digest.
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $pause, new \DateTime());
@@ -354,7 +335,6 @@ class PauseService {
 				$pause->setIsRetrospectiveIllness(true);
 				$this->applyRange($pause, $validated, $this->houseZone($houseId));
 				$pause = $this->pauseMapper->appendRevision($pause);
-				$this->applyPauseEffectsUnderLock($houseId);
 				// WP5 (C5m): retrospective recognition is a pause decision
 				// affecting the subject — transactional queue write.
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $pause, new \DateTime());
@@ -435,7 +415,6 @@ class PauseService {
 				$revision = $this->nextRevisionOf($current, $actor, Pause::STATE_ACKNOWLEDGED, $now);
 				$revision->setEndDate(\DateTime::createFromFormat('Y-m-d', $effectiveEnd) ?: $current->getEndDate());
 				$revision = $this->pauseMapper->appendRevision($revision);
-				$this->applyPauseEffectsUnderLock($houseId);
 				// WP5 (C5m): a shortening is a pause decision affecting the
 				// subject — transactional queue write.
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
@@ -494,7 +473,6 @@ class PauseService {
 				$revision = $this->pauseMapper->appendRevision(
 					$this->nextRevisionOf(self::standingRevision($history), $actor, Pause::STATE_CANCELLED, $now)
 				);
-				$this->applyPauseEffectsUnderLock($houseId);
 				// Someone else's absence: the subject learns it through the
 				// digest; a household absence concerns every other member.
 				$this->queuePauseChange($houseId, (int)$actor->getId(), $revision, $now);
@@ -557,91 +535,6 @@ class PauseService {
 	 */
 	public function handleMembershipRemovedUnderLock(int $houseId, int $walletId): void {
 		$this->pauseMapper->cancelPendingPersonalForSubject($houseId, $walletId);
-		$this->applyPauseEffectsUnderLock($houseId);
-	}
-
-	/**
-	 * TimelineJob entry (no fabricated actor, no receipts): converge the
-	 * persisted suspension facts with the projection after materialized
-	 * rows changed behind any mutation. Bounded by the open-row set.
-	 *
-	 * @return array{houses: int, effects: int}
-	 */
-	public function reconcilePauseEffectsForJobs(?\DateTime $now = null): array {
-		$house = $this->houseMapper->findOneForJobs();
-		if ($house === null) {
-			return ['houses' => 0, 'effects' => 0];
-		}
-		return $this->transactions->run(function () use ($house): array {
-			$this->houseMapper->findForUpdate((int)$house->getId());
-			$effects = $this->applyPauseEffectsUnderLock((int)$house->getId());
-			return ['houses' => 1, 'effects' => $effects];
-		});
-	}
-
-	/**
-	 * Persist the derived neutral-suspension facts for every open
-	 * scheduled occurrence of the house (idempotent: a diff-free pass
-	 * writes nothing; a changed occurrence records ONE KIND_PAUSE
-	 * evidence row against the covering pause). CALLER HOLDS the
-	 * house-first transaction.
-	 *
-	 * @return int Changed occurrence count
-	 */
-	public function applyPauseEffectsUnderLock(int $houseId): int {
-		$recognized = $this->projection->recognizedForHouse($houseId);
-		$currentWallets = $this->projection->currentWalletIds($houseId);
-		$changed = 0;
-
-		foreach ($this->occurrenceMapper->findOpenByHouseId($houseId) as $occurrence) {
-			$plannedKey = $occurrence->getPlannedDate()?->format('Y-m-d');
-			if ($plannedKey === null) {
-				continue;
-			}
-			$members = $this->occurrenceMembersOf($houseId, $occurrence);
-			// R3/RF-073-WP2-25: the persistent effects use the SAME
-			// recognition-eligibility decision as the virtual projection —
-			// an ordinary acknowledgment after the original exclusive
-			// deadline never neutralizes an expired miss.
-			$excused = PauseProjectionService::excusedWalletsOn($recognized, $plannedKey, $currentWallets, $occurrence->getWindowEnd());
-			$decision = PauseProjectionService::deriveSuspension($members, $excused);
-
-			$newState = $decision['suspended'] ? Occurrence::SUSPENSION_SUSPENDED : Occurrence::SUSPENSION_NONE;
-			$newEvidence = $decision['suspended'] ? array_values($decision['evidence']) : null;
-			$oldState = $occurrence->getSuspensionState();
-			$oldEvidence = $occurrence->getSuspensionEvidence();
-			if ($oldState === $newState && json_encode($oldEvidence ?? null) === json_encode($newEvidence)) {
-				continue;
-			}
-
-			$occurrence->setSuspensionState($newState);
-			$occurrence->setSuspensionEvidence($newEvidence);
-			$occurrence->setVersion($occurrence->getVersion() + 1);
-			$this->occurrenceMapper->update($occurrence);
-			$changed++;
-
-			// RF-073-WP2-18: every covering pause of a union suspension
-			// gets its OWN evidence row with its pause_ref — the union
-			// provenance is referenceable per pause, not only inside the
-			// first entry's JSON.
-			$provenance = $decision['suspended'] ? $decision['evidence'] : [];
-			if ($provenance === []) {
-				$provenance = [['pauseGroupId' => null]];
-			}
-			foreach ($provenance as $entry) {
-				$this->agreementMapper->record(
-					(int)$occurrence->getId(),
-					Agreement::KIND_PAUSE,
-					null,
-					$decision['excusedWalletIds'],
-					['suspensionState' => $oldState, 'suspensionEvidence' => $oldEvidence],
-					['suspensionState' => $newState, 'suspensionEvidence' => $newEvidence],
-					null,
-					$entry['pauseGroupId']
-				);
-			}
-		}
-		return $changed;
 	}
 
 	// ------------------------------------------------------------------
@@ -762,7 +655,6 @@ class PauseService {
 				$current->setDeciderHouseUserId((int)$actor->getId());
 				$current->setUpdatedAt(new \DateTime());
 				$this->pauseMapper->update($current);
-				$this->applyPauseEffectsUnderLock($houseId);
 				// WP5 (C5m): transactional queue write — the subject
 				// learns about the owner decision through their opted-in
 				// digest, never through a bell.
@@ -908,18 +800,5 @@ class PauseService {
 
 	private function houseZone(int $houseId): string {
 		return $this->calendar->getTimeZone($this->houseMapper->find($houseId))->getName();
-	}
-
-	/**
-	 * Member snapshot facts of one occurrence (OccurrenceMember::jsonSerialize
-	 * shapes) for the suspension derivation.
-	 *
-	 * @return list<array<string, mixed>>
-	 */
-	private function occurrenceMembersOf(int $houseId, Occurrence $occurrence): array {
-		return array_map(
-			static fn (\OCA\ChoreStrike\Db\OccurrenceMember $member): array => $member->jsonSerialize(),
-			$this->occMemberMapper->findByOccurrence((int)$occurrence->getId())
-		);
 	}
 }

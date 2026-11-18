@@ -7,17 +7,12 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 use OCA\ChoreStrike\Db\CommandReceiptMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
-use OCA\ChoreStrike\Service\AgreementService;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CommandService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\PauseService;
-use OCA\ChoreStrike\Service\SchedulePlanService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -60,7 +55,7 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 
 	public static function lostAuthorityProvider(): array {
 		$cases = [];
-		foreach (['house', 'illness', 'approve', 'reject', 'shorten', 'delete', 'apply', 'amend', 'catchUp', 'restart', 'reset'] as $action) {
+		foreach (['house', 'illness', 'approve', 'reject', 'shorten', 'delete', 'reset'] as $action) {
 			foreach ($action === 'reset' ? ['demoted', 'departed', 'replaced'] : ['demoted', 'departed'] as $loss) {
 				foreach ([false, true] as $replay) {
 					$cases[$action . ' ' . $loss . ' replay=' . (int)$replay] = [$action, $loss, $replay];
@@ -88,15 +83,6 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 				$service->resetHouse($houseId, $uuid);
 				return ['houseId' => $houseId];
 			};
-		} elseif ($action === 'apply') {
-			$floor = $this->createFloor($houseId);
-			$room = $this->createRoom($houseId, $floor);
-			$rowId = $this->assignTaskToRoom($this->createTask($houseId, 'Command task'), $room, 'cmd_auth_owner');
-			$service = clone \OC::$server->get(SchedulePlanService::class);
-			$preview = $service->preview($houseId, $actor, $today, [$rowId], []);
-			$invoke = static fn (): array => $service->apply($houseId, $actor, $today, [$rowId], [], $preview['previewVersion'], $uuid, true);
-		} elseif (in_array($action, ['amend', 'catchUp', 'restart'], true)) {
-			[$service, $invoke] = $this->agreementCommand($houseId, $action, $uuid, $today);
 		} else {
 			$service = clone \OC::$server->get(PauseService::class);
 			if (in_array($action, ['approve', 'reject'], true)) {
@@ -120,42 +106,6 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 		return [$houseId, (int)$actor->getId(), $service, $invoke];
 	}
 
-	private function agreementCommand(int $houseId, string $action, string $uuid, string $today): array {
-		$floor = $this->createFloor($houseId);
-		$room = $this->createRoom($houseId, $floor);
-		$taskId = $this->createTask($houseId, 'Agreement task');
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_tasks')->set('frequency_type', $qb->createNamedParameter('daily'))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)))->executeStatement();
-		$rowId = $this->assignTaskToRoom($taskId, $room, 'cmd_auth_owner', $today . ' 00:00:00');
-		$occurrences = \OC::$server->get(OccurrenceService::class);
-		$pending = \OC::$server->get(OccurrenceMapper::class)->findByRoomTask($rowId)[0];
-		if ($action === 'catchUp') {
-			$qb = $this->db->getQueryBuilder();
-			$qb->update('chorestrike_occurrences')->set('planned_date', $qb->createNamedParameter((new \DateTime($today))->modify('-2 days')->format('Y-m-d')))
-				->set('window_start', $qb->createNamedParameter((new \DateTime($today))->modify('-2 days')->format('Y-m-d H:i:s')))
-				->set('window_end', $qb->createNamedParameter((new \DateTime($today))->modify('-1 day')->format('Y-m-d H:i:s')))
-				->where($qb->expr()->eq('id', $qb->createNamedParameter((int)$pending->getId(), IQueryBuilder::PARAM_INT)))->executeStatement();
-		} elseif ($action === 'restart') {
-			\OC::$server->get(PauseService::class)->requestForSelf($houseId, 'cmd_auth_owner', ['commandId' => $this->uuid(),
-				'startDate' => $today, 'endDate' => (new \DateTime($today))->modify('+4 days')->format('Y-m-d'), 'reasonCode' => 'travel']);
-			$pending = \OC::$server->get(OccurrenceMapper::class)->find((int)$pending->getId());
-		}
-		$service = clone \OC::$server->get(AgreementService::class);
-		if ($action === 'restart') {
-			$payload = ['commandId' => $uuid, 'occurrenceId' => $pending->toPublicKey(), 'expectedVersion' => $pending->getVersion(),
-				'consent' => true, 'workDate' => (new \DateTime($today))->modify('+5 days')->format('Y-m-d')];
-		} else {
-			$row = \OC::$server->get(RoomTaskMapper::class)->find($rowId);
-			$selection = $occurrences->selectionFor($row, new \DateTime(), $houseId);
-			self::assertNotNull($selection);
-			$payload = ['commandId' => $uuid, 'occurrenceId' => $selection['occurrence']->toPublicKey(), 'expectedVersion' => $selection['occurrence']->getVersion(),
-				'selectionToken' => $occurrences->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, null, $selection['workAppointment']), 'consent' => true];
-			$payload[$action === 'amend' ? 'date' : 'workDate'] = (new \DateTime($today))->modify('+1 day')->format('Y-m-d');
-		}
-		return [$service, static fn (): array => $service->$action($houseId, 'cmd_auth_owner', $rowId, $payload)];
-	}
-
 	private function uuid(): string {
 		return sprintf('08100000-0000-4000-8000-%012x', random_int(0, 0xffffffffffff));
 	}
@@ -176,7 +126,7 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 
 	private function snapshot(int $houseId): array {
 		$rows = [];
-		foreach (['chorestrike_houses', 'chorestrike_rooms', 'chorestrike_room_events', 'chorestrike_pauses', 'chorestrike_commands', 'chorestrike_agreements', 'chorestrike_occurrences', 'chorestrike_schedule_revs'] as $table) {
+		foreach (['chorestrike_houses', 'chorestrike_rooms', 'chorestrike_room_events', 'chorestrike_pauses', 'chorestrike_commands'] as $table) {
 			$qb = $this->db->getQueryBuilder();
 			$qb->select('facts.*')->from($table, 'facts')->orderBy('facts.id');
 			$houseColumn = 'facts.house_id';
@@ -191,14 +141,6 @@ class OwnerCommandAuthorizationTest extends IntegrationTestCase {
 				if ($table === 'chorestrike_room_events') {
 					$qb->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'));
 				}
-				$houseColumn = 'f.house_id';
-			} elseif ($table === 'chorestrike_agreements') {
-				$qb->innerJoin('facts', 'chorestrike_occurrences', 'occ', $qb->expr()->eq('facts.occurrence_id', 'occ.id'));
-				$houseColumn = 'occ.house_id';
-			} elseif ($table === 'chorestrike_schedule_revs') {
-				$qb->innerJoin('facts', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('facts.room_task_id', 'rt.id'))
-					->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
-					->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'));
 				$houseColumn = 'f.house_id';
 			}
 			$qb->where($qb->expr()->eq($houseColumn, $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));

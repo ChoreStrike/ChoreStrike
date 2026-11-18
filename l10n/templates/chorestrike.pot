@@ -62,9 +62,6 @@ msgstr ""
 msgid "A deleted category no longer appears; its tasks count as \"Other\" until someone gives them a new category."
 msgstr ""
 
-msgid "A different occurrence is now displayed. Choose a new agreement and confirm consent again."
-msgstr ""
-
 msgid "A former member was part of this split — reassign their share. Shares must total exactly 100%."
 msgstr ""
 
@@ -83,15 +80,6 @@ msgstr ""
 msgid "A missed chore stays visible as catch-up with its original date. Completing it now covers the miss — it stays a catch-up."
 msgstr ""
 
-msgid "A paused occurrence cannot be amended"
-msgstr ""
-
-msgid "A plan may contain at most %1$s tasks"
-msgstr ""
-
-msgid "A plan may have at most %1$s participants"
-msgstr ""
-
 msgid "A quiet range needs both a start and an end"
 msgstr ""
 
@@ -99,12 +87,6 @@ msgid "A request reserves the Coins first. A child's request waits for owner app
 msgstr ""
 
 msgid "A reset locks the games again for one person: from then on only chores finished after the reset count. Highscores stay."
-msgstr ""
-
-msgid "A restart already exists for this occurrence"
-msgstr ""
-
-msgid "A selectionToken is required"
 msgstr ""
 
 msgid "A subjectUserId is required"
@@ -128,9 +110,6 @@ msgstr ""
 msgid "A valid %1$s is required"
 msgstr ""
 
-msgid "A valid commandId (UUID) and date are required"
-msgstr ""
-
 msgid "A valid commandId (UUID) is required"
 msgstr ""
 
@@ -143,9 +122,6 @@ msgstr ""
 msgid "A valid reasonCode is required"
 msgstr ""
 
-msgid "A valid roomTaskId is required"
-msgstr ""
-
 msgid "A weekly overview of catch-ups and absences."
 msgstr ""
 
@@ -153,9 +129,6 @@ msgid "Absence"
 msgstr ""
 
 msgid "Absence not found"
-msgstr ""
-
-msgid "Absent"
 msgstr ""
 
 msgid "Accounts and roles"
@@ -198,9 +171,6 @@ msgid "Add your first task to get started"
 msgstr ""
 
 msgid "Adjust"
-msgstr ""
-
-msgid "Adjust occurrence"
 msgstr ""
 
 msgid "Adjust who actually did the work. Shares must total exactly 100%."
@@ -263,9 +233,6 @@ msgstr ""
 msgid "All tasks in this room will be deleted."
 msgstr ""
 
-msgid "Already as planned"
-msgstr ""
-
 msgid "Also possible today · {count}"
 msgstr ""
 
@@ -273,15 +240,6 @@ msgid "An absence is a period in which nothing is planned for you and nothing co
 msgstr ""
 
 msgid "An absence that has ended cannot be deleted"
-msgstr ""
-
-msgid "An amendment needs a date or participants"
-msgstr ""
-
-msgid "An explicit consent attestation is required"
-msgstr ""
-
-msgid "An occurrenceId is required"
 msgstr ""
 
 msgid "An optional play area outside the daily routine. Games open with finished chores; owners set how many per game and can let a person start over, while the highscores stay. You can hide it in the Settings."
@@ -312,15 +270,6 @@ msgid "Apply cleaner to the walls and tub, scrub the grout and tiles, descale th
 msgstr ""
 
 msgid "Apply grout cleaner, scrub the lines with a small brush, rinse, and wipe the tiles dry."
-msgstr ""
-
-msgid "Apply plan"
-msgstr ""
-
-msgid "Applying the plan…"
-msgstr ""
-
-msgid "Applying…"
 msgstr ""
 
 msgid "Approve"
@@ -359,9 +308,6 @@ msgstr ""
 msgid "Are you sure you want to delete this task?"
 msgstr ""
 
-msgid "As proposed"
-msgstr ""
-
 msgid "Ask the household owner to invite you. Removed and never-invited members see this same screen."
 msgstr ""
 
@@ -381,15 +327,6 @@ msgid "Assigned to: {names}"
 msgstr ""
 
 msgid "Assignee is not a member of this house: %1$s"
-msgstr ""
-
-msgid "Assignees must be house members"
-msgstr ""
-
-msgid "Assigning this member would exceed their daily energy budget"
-msgstr ""
-
-msgid "Assigning this member would exceed their daily task limit"
 msgstr ""
 
 msgid "At least one floor is required"
@@ -417,9 +354,6 @@ msgid "Available:"
 msgstr ""
 
 msgid "Avg Daily Energy"
-msgstr ""
-
-msgid "Away"
 msgstr ""
 
 msgid "Back"
@@ -464,9 +398,6 @@ msgstr ""
 msgid "Budget Analysis"
 msgstr ""
 
-msgid "Building the plan from your tasks…"
-msgstr ""
-
 msgid "By due date"
 msgstr ""
 
@@ -501,9 +432,6 @@ msgid "Cannot demote yourself"
 msgstr ""
 
 msgid "Capacity"
-msgstr ""
-
-msgid "Capacity per day"
 msgstr ""
 
 msgid "Catch-up"
@@ -567,9 +495,6 @@ msgid "Child"
 msgstr ""
 
 msgid "Children may view and complete tasks, but not manage them"
-msgstr ""
-
-msgid "Choose a member"
 msgstr ""
 
 msgid "Choose a reason"
@@ -701,7 +626,7 @@ msgstr ""
 msgid "Completed · {count}"
 msgstr ""
 
-msgid "Completing it now covers the miss — it stays a catch-up."
+msgid "Completing it now counts as late work."
 msgstr ""
 
 msgid "Completion not found"
@@ -717,12 +642,6 @@ msgid "Confirm delivery"
 msgstr ""
 
 msgid "Confirm delivery of \"{title}\"?"
-msgstr ""
-
-msgid "Confirm the agreement before applying the plan."
-msgstr ""
-
-msgid "Confirming is disabled until you prepare a fresh plan."
 msgstr ""
 
 msgid "Continue to the app"
@@ -774,9 +693,6 @@ msgid "Could not load your planning settings"
 msgstr ""
 
 msgid "Could not load your tasks"
-msgstr ""
-
-msgid "Could not record the last done date"
 msgstr ""
 
 msgid "Could not save the correction"
@@ -840,12 +756,6 @@ msgid "Daily tasks: unlimited"
 msgstr ""
 
 msgid "Danger Zone"
-msgstr ""
-
-msgid "Date"
-msgstr ""
-
-msgid "Day"
 msgstr ""
 
 msgid "Days of Week"
@@ -932,13 +842,7 @@ msgstr ""
 msgid "Drag to reorder"
 msgstr ""
 
-msgid "Due Date"
-msgstr ""
-
 msgid "Due Today"
-msgstr ""
-
-msgid "Due date saved, but assigning members failed"
 msgstr ""
 
 msgid "Due in {days} days"
@@ -951,9 +855,6 @@ msgid "Due today · {count}"
 msgstr ""
 
 msgid "Due tomorrow"
-msgstr ""
-
-msgid "Due {date}"
 msgstr ""
 
 msgid "Duplicate"
@@ -1016,15 +917,6 @@ msgstr ""
 msgid "Each game needs a threshold from 0 to %1$s finished chores."
 msgstr ""
 
-msgid "Each override must be an object"
-msgstr ""
-
-msgid "Each override must set assigneeUserIds or date"
-msgstr ""
-
-msgid "Each participant must be an object"
-msgstr ""
-
 msgid "Each person needs an existing Nextcloud account with this email address."
 msgstr ""
 
@@ -1047,9 +939,6 @@ msgid "Edit floor"
 msgstr ""
 
 msgid "Edit reward"
-msgstr ""
-
-msgid "Edit task"
 msgstr ""
 
 msgid "Effects"
@@ -1148,16 +1037,10 @@ msgstr ""
 msgid "Everyone"
 msgstr ""
 
-msgid "Everyone affected has agreed to this plan"
-msgstr ""
-
 msgid "Everyone sees the entries. The house owner can delete any entry."
 msgstr ""
 
 msgid "Everything shines! Lots of tasks, but everything is sparkling clean in no time."
-msgstr ""
-
-msgid "Exact shares: {shares}"
 msgstr ""
 
 msgid "Exactly one of task or taskId is required"
@@ -1415,9 +1298,6 @@ msgstr ""
 msgid "Hallway & Stairs"
 msgstr ""
 
-msgid "Hand this occurrence to"
-msgstr ""
-
 msgid "Has basement"
 msgstr ""
 
@@ -1514,6 +1394,12 @@ msgstr ""
 msgid "Invalid cleaning level: %1$s"
 msgstr ""
 
+msgid "Invalid cycle key"
+msgstr ""
+
+msgid "Invalid firstDate date format"
+msgstr ""
+
 msgid "Invalid fixed schedule days"
 msgstr ""
 
@@ -1524,9 +1410,6 @@ msgid "Invalid floor definition"
 msgstr ""
 
 msgid "Invalid frequency type"
-msgstr ""
-
-msgid "Invalid nextDue date format"
 msgstr ""
 
 msgid "Invalid or missing intensity level"
@@ -1605,9 +1488,6 @@ msgid "Kitchen"
 msgstr ""
 
 msgid "Last cleaned: {date}"
-msgstr ""
-
-msgid "Last done on"
 msgstr ""
 
 msgid "Later · {count}"
@@ -1772,16 +1652,10 @@ msgstr ""
 msgid "Move the squeegee with the arrow keys, the mouse or your finger on the board. Enter launches the bubble, Space pauses."
 msgstr ""
 
-msgid "Move this occurrence to"
-msgstr ""
-
 msgid "Move {name} down"
 msgstr ""
 
 msgid "Move {name} up"
-msgstr ""
-
-msgid "Moving this task would exceed a daily task limit"
 msgstr ""
 
 msgid "My Availability"
@@ -1859,9 +1733,6 @@ msgstr ""
 msgid "No absences entered."
 msgstr ""
 
-msgid "No active tasks to schedule yet. Create tasks first."
-msgstr ""
-
 msgid "No activity in this period yet."
 msgstr ""
 
@@ -1922,9 +1793,6 @@ msgstr ""
 msgid "No title yet — keep your rhythm going to earn one!"
 msgstr ""
 
-msgid "No unfulfilled occurrence can be amended"
-msgstr ""
-
 msgid "No wallet exists for this member"
 msgstr ""
 
@@ -1955,12 +1823,6 @@ msgstr ""
 msgid "Not needed"
 msgstr ""
 
-msgid "Not open yet — this task can be completed within its time window."
-msgstr ""
-
-msgid "Not schedulable right now"
-msgstr ""
-
 msgid "Nothing due today"
 msgstr ""
 
@@ -1971,9 +1833,6 @@ msgid "Nothing is planned for anyone during this time."
 msgstr ""
 
 msgid "Nothing is planned for today."
-msgstr ""
-
-msgid "Nothing to change — the selected tasks are already scheduled as proposed."
 msgstr ""
 
 msgid "Notification preferences saved"
@@ -2003,13 +1862,7 @@ msgstr ""
 msgid "One-time task"
 msgstr ""
 
-msgid "Only a paused occurrence can be restarted"
-msgstr ""
-
 msgid "Only a pending pause request can be decided"
-msgstr ""
-
-msgid "Only adults can record when a task was last done"
 msgstr ""
 
 msgid "Only an acknowledged pause can be shortened"
@@ -2034,9 +1887,6 @@ msgid "Only house owners can set admin-only visibility"
 msgstr ""
 
 msgid "Only house owners may edit checklists"
-msgstr ""
-
-msgid "Only interval work needs an explicit restart"
 msgstr ""
 
 msgid "Only the completer or a house owner can correct a completion"
@@ -2072,9 +1922,6 @@ msgstr ""
 msgid "Optional step-by-step instructions…"
 msgstr ""
 
-msgid "Optional. Shows as \"Last cleaned\" for the room. A task that repeats after completion is then next due one interval later."
-msgstr ""
-
 msgid "Organize and declutter the basement."
 msgstr ""
 
@@ -2100,12 +1947,6 @@ msgid "Overdue · {count}"
 msgstr ""
 
 msgid "Overloaded days ahead"
-msgstr ""
-
-msgid "Override date must be a valid Y-m-d date"
-msgstr ""
-
-msgid "Overrides must reference a selected room task"
 msgstr ""
 
 msgid "Owner"
@@ -2141,9 +1982,6 @@ msgstr ""
 msgid "Personal"
 msgstr ""
 
-msgid "Pick real tasks, preview who does what on which day, then confirm once — nothing changes until you apply."
-msgstr ""
-
 msgid "Pick the accent colour of the app. It applies on all your devices; backgrounds and text follow your Nextcloud theme."
 msgstr ""
 
@@ -2151,9 +1989,6 @@ msgid "Pick up items from the floor, vacuum under the bed if you can, and use th
 msgstr ""
 
 msgid "Pick up toys first, then vacuum or sweep the whole floor, edges included."
-msgstr ""
-
-msgid "Plan the week"
 msgstr ""
 
 msgid "Planned energy ({planned}) exceeds the available capacity ({capacity})"
@@ -2189,16 +2024,10 @@ msgstr ""
 msgid "Prefill from catalog"
 msgstr ""
 
-msgid "Preparing preview…"
-msgstr ""
-
 msgid "Press and hold to confirm"
 msgstr ""
 
 msgid "Preview"
-msgstr ""
-
-msgid "Preview plan"
 msgstr ""
 
 msgid "Previous"
@@ -2226,9 +2055,6 @@ msgid "Private task"
 msgstr ""
 
 msgid "Progress, windows and rhythm"
-msgstr ""
-
-msgid "Proposed changes"
 msgstr ""
 
 msgid "Provisional — days are still open"
@@ -2310,15 +2136,6 @@ msgid "Recent Activity"
 msgstr ""
 
 msgid "Reconnect and try again"
-msgstr ""
-
-msgid "Record agreed handover"
-msgstr ""
-
-msgid "Record amendment"
-msgstr ""
-
-msgid "Record restart"
 msgstr ""
 
 msgid "Record the actual work split. Shares must total exactly 100%."
@@ -2418,9 +2235,6 @@ msgid "Reset the arcade progress of {name}"
 msgstr ""
 
 msgid "Resets all rooms to a clean state and restores house health. Setup, tasks, agreements, completion history, finances, reward requests, and achievements are kept. This cannot be undone."
-msgstr ""
-
-msgid "Restart the linked interval work on"
 msgstr ""
 
 msgid "Resume"
@@ -2588,9 +2402,6 @@ msgstr ""
 msgid "Select a room"
 msgstr ""
 
-msgid "Select at least one task to preview a plan."
-msgstr ""
-
 msgid "Select task"
 msgstr ""
 
@@ -2613,12 +2424,6 @@ msgid "Settings"
 msgstr ""
 
 msgid "Settings area"
-msgstr ""
-
-msgid "Shares must be positive whole percents"
-msgstr ""
-
-msgid "Shares must total exactly 100 percent"
 msgstr ""
 
 msgid "Short explanations of the words ChoreStrike uses — in plain family language."
@@ -2664,9 +2469,6 @@ msgid "Some balances are currently being clarified. New requests and deliveries 
 msgstr ""
 
 msgid "Some balances are currently being clarified. New requests and deliveries wait until that is resolved."
-msgstr ""
-
-msgid "Some days are already over capacity — existing overload is reported, not silently moved."
 msgstr ""
 
 msgid "Some views could not be refreshed"
@@ -2721,9 +2523,6 @@ msgid "Start from Template"
 msgstr ""
 
 msgid "Start over"
-msgstr ""
-
-msgid "Start planning on"
 msgstr ""
 
 msgid "Start with the highest surfaces and work down, hitting every room, and don't forget the ceiling fans and light fixtures."
@@ -2819,9 +2618,6 @@ msgstr ""
 msgid "Tap two socks to turn them, or move with the arrow keys and turn with Enter. Space pauses."
 msgstr ""
 
-msgid "Task"
-msgstr ""
-
 msgid "Task %1$d already exists in room %2$d"
 msgstr ""
 
@@ -2859,9 +2655,6 @@ msgid "Task not found"
 msgstr ""
 
 msgid "Task pages"
-msgstr ""
-
-msgid "Task updated"
 msgstr ""
 
 msgid "Tasks"
@@ -2915,15 +2708,6 @@ msgstr ""
 msgid "The action was completed."
 msgstr ""
 
-msgid "The affected people have agreed to this change."
-msgstr ""
-
-msgid "The agreement could not be recorded."
-msgstr ""
-
-msgid "The agreement was recorded."
-msgstr ""
-
 msgid "The animation is on by default, sounds are off. Neither is needed for the household routine."
 msgstr ""
 
@@ -2943,9 +2727,6 @@ msgid "The arcade setting could not be saved. Please try again."
 msgstr ""
 
 msgid "The arcade setting was saved."
-msgstr ""
-
-msgid "The assigned people change."
 msgstr ""
 
 msgid "The catalog changed in the meantime — the current items are shown. Your unsaved draft was kept."
@@ -2993,6 +2774,9 @@ msgstr ""
 msgid "The daily task limit must be between 1 and 100"
 msgstr ""
 
+msgid "The day of the month must be between 1 and 31"
+msgstr ""
+
 msgid "The decision could not be recorded."
 msgstr ""
 
@@ -3005,10 +2789,10 @@ msgstr ""
 msgid "The displayed item terms changed — reload before requesting"
 msgstr ""
 
-msgid "The due day moves."
+msgid "The entries changed in the meantime. Check the list and try again."
 msgstr ""
 
-msgid "The entries changed in the meantime. Check the list and try again."
+msgid "The first date must lie within one year of today"
 msgstr ""
 
 msgid "The game could not be loaded."
@@ -3038,16 +2822,10 @@ msgstr ""
 msgid "The last action did not return a result. You can safely retry it — it will not be applied twice."
 msgstr ""
 
-msgid "The last done date must be today or earlier"
-msgstr ""
-
 msgid "The list names a category that does not exist."
 msgstr ""
 
 msgid "The number of days in a row you kept your agreements. Today stays pending until the day closes."
-msgstr ""
-
-msgid "The occurrence changed in the meantime. Your entries were kept — review and send again."
 msgstr ""
 
 msgid "The optional list of family-agreed rewards. Owners enable it for the household and each person decides whether to see it — the two choices are independent. Hiding it never touches existing requests."
@@ -3059,34 +2837,10 @@ msgstr ""
 msgid "The person needs an existing Nextcloud account with this email address."
 msgstr ""
 
-msgid "The plan could not be applied."
-msgstr ""
-
-msgid "The plan could not be prepared. Please try again."
-msgstr ""
-
-msgid "The plan failed."
-msgstr ""
-
-msgid "The plan was applied, but refreshing the views failed."
-msgstr ""
-
-msgid "The plan was applied, but refreshing the views failed. Reload the page to see the result."
-msgstr ""
-
-msgid "The plan was applied."
-msgstr ""
-
-msgid "The plan was applied. Calendar and Today are up to date."
-msgstr ""
-
 msgid "The planner only places a task on a day when it fits a person's energy budget. By default that is {weekday} energy on weekdays and {weekend} at weekends."
 msgstr ""
 
 msgid "The preferences changed since they were displayed"
-msgstr ""
-
-msgid "The preview is stale."
 msgstr ""
 
 msgid "The progress could not be loaded."
@@ -3152,12 +2906,6 @@ msgstr ""
 msgid "The reward was updated."
 msgstr ""
 
-msgid "The schedule preview is no longer current. Generate a new preview."
-msgstr ""
-
-msgid "The selected occurrence is no longer valid"
-msgstr ""
-
 msgid "The setting could not be saved."
 msgstr ""
 
@@ -3180,9 +2928,6 @@ msgid "The supplied settlement reference does not match this request"
 msgstr ""
 
 msgid "The task changed since it was displayed. Reload and try again."
-msgstr ""
-
-msgid "The task has too many unreconciled occurrences to be edited safely. Run the timeline job first."
 msgstr ""
 
 msgid "The thresholds could not be saved. Please try again."
@@ -3227,24 +2972,6 @@ msgstr ""
 msgid "This is only for a reward that was marked as delivered but never actually arrived. The original {price} Coins are refunded exactly once; there is no refund for a reward that was really delivered."
 msgstr ""
 
-msgid "This member is away on that day"
-msgstr ""
-
-msgid "This member is not available on that day"
-msgstr ""
-
-msgid "This occurrence is already completed"
-msgstr ""
-
-msgid "This person takes full responsibility for this occurrence only. Future assignments stay unchanged."
-msgstr ""
-
-msgid "This preview is no longer current. Check your selection and prepare the plan again."
-msgstr ""
-
-msgid "This preview is no longer current. Prepare the plan again."
-msgstr ""
-
 msgid "This request cannot be fulfilled while the wallet is underfunded"
 msgstr ""
 
@@ -3263,10 +2990,19 @@ msgstr ""
 msgid "This score is not possible in the time played."
 msgstr ""
 
-msgid "This task has a missed appointment. Complete it first."
+msgid "This task is already being completed with another work split. Check the split once it is done."
 msgstr ""
 
-msgid "This task is already being completed with another work split. Check the split once it is done."
+msgid "This task is already completed"
+msgstr ""
+
+msgid "This task was already completed today"
+msgstr ""
+
+msgid "This task was already completed. Reload to see what is next."
+msgstr ""
+
+msgid "This task was already done today. It can be done again from tomorrow."
 msgstr ""
 
 msgid "This will be recorded as taken over from {assignee}."
@@ -3401,12 +3137,6 @@ msgstr ""
 msgid "Unknown or immutable field: %1$s"
 msgstr ""
 
-msgid "Unknown override field: %1$s"
-msgstr ""
-
-msgid "Unknown participant role: %1$s"
-msgstr ""
-
 msgid "Unknown preference field"
 msgstr ""
 
@@ -3464,9 +3194,6 @@ msgstr ""
 msgid "User is not a member of this house: %1$s"
 msgstr ""
 
-msgid "User is not eligible for this task: %1$s"
-msgstr ""
-
 msgid "User not found"
 msgstr ""
 
@@ -3510,9 +3237,6 @@ msgid "Vacuum the room"
 msgstr ""
 
 msgid "Visibility"
-msgstr ""
-
-msgid "Voluntary work needs no date amendment"
 msgstr ""
 
 msgid "Waiting for approval"
@@ -3695,9 +3419,6 @@ msgstr ""
 msgid "Your home is set up!"
 msgstr ""
 
-msgid "Your other changes were saved."
-msgstr ""
-
 msgid "Your participation starts on {monday}. Nothing is counted before then."
 msgstr ""
 
@@ -3716,9 +3437,6 @@ msgstr ""
 msgid "allocationReviewed must be a boolean"
 msgstr ""
 
-msgid "already scheduled as proposed"
-msgstr ""
-
 msgid "another member"
 msgstr ""
 
@@ -3728,25 +3446,13 @@ msgstr ""
 msgid "archived must be a boolean"
 msgstr ""
 
-msgid "assigneeUserIds must be a non-empty array of user IDs"
-msgstr ""
-
 msgid "assigneeUserIds must be an array of user IDs"
-msgstr ""
-
-msgid "assigneeUserIds must not contain duplicates"
 msgstr ""
 
 msgid "catalogEnabled must be a boolean"
 msgstr ""
 
-msgid "claimed by someone — resolve the claim first"
-msgstr ""
-
 msgid "cleanlinessChange must be between -100 and 100"
-msgstr ""
-
-msgid "date must be a valid Y-m-d date"
 msgstr ""
 
 msgid "day"
@@ -3797,40 +3503,16 @@ msgstr ""
 msgid "months"
 msgstr ""
 
-msgid "no date"
-msgstr ""
-
-msgid "no eligible person available"
-msgstr ""
-
-msgid "no free capacity on any legal day"
-msgstr ""
-
-msgid "no legal day in this window (fixed weekday or no flexibility)"
-msgstr ""
-
-msgid "overrides must be an object keyed by room task ID"
-msgstr ""
-
-msgid "participants must be a non-empty array"
-msgstr ""
-
 msgid "participants must be a non-empty array of {userId, sharePct}"
 msgstr ""
 
 msgid "participants must be an array of {userId, sharePct}"
 msgstr ""
 
-msgid "participants must not contain duplicates"
-msgstr ""
-
 msgid "planned {date}"
 msgstr ""
 
-msgid "planned {date}, until {time}"
-msgstr ""
-
-msgid "previewVersion is required"
+msgid "planned {date}, until {end}"
 msgstr ""
 
 msgid "priceMinor must be a positive whole number of hundredths"
@@ -3851,15 +3533,6 @@ msgstr ""
 msgid "roomTaskIds must be an array of room task IDs"
 msgstr ""
 
-msgid "roomTaskIds must contain positive integers"
-msgstr ""
-
-msgid "roomTaskIds must not be empty"
-msgstr ""
-
-msgid "roomTaskIds must not contain duplicates"
-msgstr ""
-
 msgid "rooms"
 msgstr ""
 
@@ -3875,9 +3548,6 @@ msgstr ""
 msgid "startDate must be a valid Y-m-d date"
 msgstr ""
 
-msgid "startDate must be today or later"
-msgstr ""
-
 msgid "startDate must not be after endDate"
 msgstr ""
 
@@ -3891,9 +3561,6 @@ msgid "tasks/day"
 msgstr ""
 
 msgid "templateId is required"
-msgstr ""
-
-msgid "the chosen day is not allowed for this task"
 msgstr ""
 
 msgid "thresholds must map game ids to whole numbers"
@@ -3920,19 +3587,10 @@ msgstr ""
 msgid "total energy/week"
 msgstr ""
 
-msgid "unassigned"
-msgstr ""
-
 msgid "week"
 msgstr ""
 
 msgid "weeks"
-msgstr ""
-
-msgid "workDate must be a valid Y-m-d date"
-msgstr ""
-
-msgid "workZone must be a valid IANA timezone"
 msgstr ""
 
 msgid "{assigned} task(s) assigned, {skipped} skipped"
@@ -3968,9 +3626,6 @@ msgstr ""
 msgid "{floors} floors, {rooms} rooms and {tasks} tasks were created"
 msgstr ""
 
-msgid "{from} → {to}"
-msgstr ""
-
 msgid "{message} ({reference})"
 msgstr ""
 
@@ -3998,19 +3653,10 @@ msgstr ""
 msgid "{n}h ago"
 msgstr ""
 
-msgid "{people}, {date}"
-msgstr ""
-
 msgid "{percent}%"
 msgstr ""
 
 msgid "{planned} of {capacity}"
-msgstr ""
-
-msgid "{planned}/{budget} — over capacity"
-msgstr ""
-
-msgid "{remaining}/{budget} left"
 msgstr ""
 
 msgid "{start} – {end}"

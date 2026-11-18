@@ -11,7 +11,7 @@ describe('useTaskCompletion', () => {
 	let onCompleted
 
 	const flow = () => useTaskCompletion({ roomTasksStore, userStore, view: 'TestView', onCompleted })
-	const target = (proposal = null, assignees = []) => ({ roomTaskId: 7, proposal, assignees })
+	const target = (...assignees) => ({ roomTaskId: 7, assignees })
 	const split = (...userIds) => ({ participants: userIds.map((userId) => ({ userId, sharePct: 100 / userIds.length })) })
 
 	beforeEach(() => {
@@ -29,7 +29,7 @@ describe('useTaskCompletion', () => {
 		onCompleted = jest.fn()
 	})
 
-	it('completes work without a proposal directly and without options', async () => {
+	it('completes unassigned work directly and without options', async () => {
 		const { requestCompletion, participation } = flow()
 
 		await requestCompletion(target())
@@ -39,21 +39,21 @@ describe('useTaskCompletion', () => {
 		expect(onCompleted).toHaveBeenCalledWith(7)
 	})
 
-	it('completes a solo agreement naming the actor directly', async () => {
+	it('completes a task that is the actor\'s alone directly', async () => {
 		const { requestCompletion, participation } = flow()
 
-		await requestCompletion(target(split('mom')))
+		await requestCompletion(target('mom'))
 
 		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7)
 		expect(participation.value).toBeNull()
 	})
 
 	it.each([
-		['several people', () => split('mom', 'teen')],
-		['someone else', () => split('teen')],
-	])('opens the dialog for work proposed for %s', async (label, proposal) => {
+		['several people', ['mom', 'teen']],
+		['someone else', ['teen']],
+	])('opens the dialog for a task of %s', async (label, assignees) => {
 		const { requestCompletion, participation } = flow()
-		const shown = target(proposal())
+		const shown = target(...assignees)
 
 		await requestCompletion(shown)
 
@@ -67,7 +67,7 @@ describe('useTaskCompletion', () => {
 		userStore.houseUsers = []
 		const { requestCompletion, participation, actorUserId } = flow()
 
-		await requestCompletion(target(split('mom')))
+		await requestCompletion(target('mom'))
 
 		expect(userStore.initializeCurrentUser).toHaveBeenCalledTimes(1)
 		expect(userStore.fetchHouseUsers).toHaveBeenCalledTimes(1)
@@ -83,16 +83,26 @@ describe('useTaskCompletion', () => {
 		userStore.fetchHouseUsers.mockRejectedValue(new Error('offline'))
 		const { requestCompletion, participation } = flow()
 
-		await requestCompletion(target(split('mom', 'teen')))
+		await requestCompletion(target('mom', 'teen'))
 
 		expect(participation.value).not.toBeNull()
+	})
+
+	it('completes unassigned work directly even while the identity is unresolved: the server credits the actor', async () => {
+		userStore.currentUser = null
+		const { requestCompletion, participation } = flow()
+
+		await requestCompletion(target())
+
+		expect(participation.value).toBeNull()
+		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7)
 	})
 
 	it('completes a confirmed claim with its reviewed split, never through the dialog', async () => {
 		const claim = { participants: [{ userId: 'mom', sharePct: 100 }], allocationReviewed: true }
 		const { requestCompletion, participation } = flow()
 
-		await requestCompletion(target(split('teen')), claim)
+		await requestCompletion(target('teen'), claim)
 
 		expect(participation.value).toBeNull()
 		expect(roomTasksStore.completeRoomTask).toHaveBeenCalledWith(7, claim)
@@ -102,7 +112,7 @@ describe('useTaskCompletion', () => {
 		const { requestCompletion, participationMembers } = flow()
 		expect(participationMembers.value).toEqual([])
 
-		await requestCompletion(target(split('mom', 'guest'), ['mom', 'guest']))
+		await requestCompletion(target('mom', 'guest'))
 
 		expect(participationMembers.value).toEqual([
 			{ userId: 'mom', displayName: 'Parent' },
@@ -110,18 +120,10 @@ describe('useTaskCompletion', () => {
 		])
 	})
 
-	it('offers the whole household for unassigned work', async () => {
-		const { requestCompletion, participationMembers } = flow()
-
-		await requestCompletion(target(split('mom', 'teen')))
-
-		expect(participationMembers.value.map((member) => member.userId)).toEqual(['mom', 'teen'])
-	})
-
 	it('completes with the confirmed split and closes the dialog first', async () => {
 		const payload = { ...split('mom', 'teen'), allocationReviewed: true }
 		const { requestCompletion, confirmParticipation, participation } = flow()
-		await requestCompletion(target(split('teen')))
+		await requestCompletion(target('teen'))
 
 		await confirmParticipation(payload)
 
@@ -132,7 +134,7 @@ describe('useTaskCompletion', () => {
 
 	it('completes nothing when the dialog is closed or confirmed without a target', async () => {
 		const { requestCompletion, confirmParticipation, closeParticipation, participation } = flow()
-		await requestCompletion(target(split('teen')))
+		await requestCompletion(target('teen'))
 
 		closeParticipation()
 		await confirmParticipation(split('mom'))

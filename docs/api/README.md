@@ -104,7 +104,26 @@ Every house payload (`GET`/`PUT /house`, `PUT /house/catalog`,
 `arcadeGateEnabled` — the household arcade unlock gate, stored in app config
 rather than on the house row (CS-PLAN-086, see `PUT /house/arcade-gate`) —
 and `taskCategories`, the household's task categories (CS-PLAN-090 WP-I, see
-`PUT /house/task-categories`).
+`PUT /house/task-categories`). **Planned (ADR-021, CS-PLAN-091 WP-B5):** it also
+carries `bonusPeriod` — the running or next bonus period
+(`{ "id": 3, "startsOn": "Y-m-d", "endsOn": "Y-m-d" }`) or `null` — and
+`cyclesFrom`, the first house-local day of derived windows. Neither is serialized yet.
+
+#### PUT /house/members/{userId}/coin-factor
+Owner only (ADR-021 §11, planned: CS-PLAN-091 WP-B5). Closed body `{ "commandId": "<uuid>", "factor": 1 }`
+with `factor` 1, 2 or 3; a non-member is `404`, another role `403`. The factor
+applies to coins of completions recorded from now on; completed work keeps the
+factors frozen on it. The member list (`GET /users`) carries each member's
+`coinFactor`.
+
+#### POST /house/bonus-periods · DELETE /house/bonus-periods/{id}
+Owner only (ADR-021 §11, planned: CS-PLAN-091 WP-B5). `POST` takes
+`{ "commandId": "<uuid>", "startsOn": "Y-m-d", "days": 1 }` (`days` 1–3,
+`startsOn` today or later, house-local) and answers `409 CONFLICT` when the
+period would overlap another one that is not cancelled. During a period every
+member's coins count × 1.5. `DELETE` cancels a period that has not ended, with
+`{ "commandId": "<uuid>" }`; an ended period answers `409 CONFLICT`. Both are
+receipt-protected.
 
 #### PUT /house
 Update house name and (owner only) timezone and ranking flag.
@@ -300,8 +319,10 @@ viewer-scoped correction flags — never mutable reward outputs
 }
 ```
 
-- `occurrenceId` names the completed occurrence (schedule revision and ordinal),
-  or is `null` for a completion from before occurrences existed.
+- `occurrenceId` names the stored occurrence (schedule revision and ordinal) of
+  a completion from the occurrence timeline; it is `null` for every completion
+  since the derived windows (ADR-021) and for one from before occurrences
+  existed.
 - `totalEnergy` is the frozen total effort; each allocation entry carries the
   exact minor units (`energyMinor = totalEnergy * sharePct`, `coinMinor` at
   the frozen rate; returned since CS-PLAN-090 WP-E, the activity list shows
@@ -328,6 +349,16 @@ mutation is a `CommandService` command: the client generates one RFC 4122 v4
 `commandId` per logical command and retains it across uncertain retries —
 an identical retry replays the stored outcome (`replay: true`) with zero
 repeated effects, a changed payload under the same UUID conflicts.
+
+> **Derived windows ([ADR-021](../adr/ADR-021-derived-due-windows.md), CS-PLAN-091 on
+> `feat/simplified-core-bc`):** the read model adds the cycle facts (`cycleKey`,
+> `windowStartOn`, `windowEndOn`, `completionClass` = `on_time` | `late` | `bonus`) from
+> WP-B1 on. **Planned:** the recorder when it differs from the people credited (WP-B2),
+> the frozen coin factors (`coinFactors`, `bonusPercent`, WP-B5) and the narrowed
+> authority of D-091-23 (WP-B3): a member who is not the owner may undo or re-date only the
+> **latest valid completion of the room task that they recorded**; attribution is
+> **owner-only**, and `canCorrect` follows these rules. Until WP-B3 the ADR-014 rights below
+> apply unchanged.
 
 #### GET /completions/{id}
 The viewer-safe read model of one completion: frozen work facts
@@ -358,8 +389,9 @@ fields 400). Authority: the recorded completer or a house owner
 (participation alone is no authority; a departed completer leaves the owner
 as the only authority). A stale `expectedVersion` → `409 CONFLICT`. The
 aggregate reverses the **latest selected allocation revision** exactly once:
-wallet union deltas (`completion_undo` ledger entries), the occurrence
-completion release, the room replay (the undone effect drops out of the
+wallet union deltas (`completion_undo` ledger entries), the reopening of the
+cycle the completion closed (its row is deleted; the window is derived again
+and `cycle.expectedVersion` moves on), the room replay (the undone effect drops out of the
 journal fold), and the personal-recognition recompute from the corrected
 valid history. Replaying the same `commandId` returns the original identity
 with no second effect; an already-undone target answers success with
@@ -374,7 +406,8 @@ unique current house members, whole percents summing to exactly 100), the
 explicit `allocationReviewed: true` confirmation of any deviation from the
 recorded allocation (an unreviewed deviation is a `409 CONFLICT`), and an
 optional bounded `reasonCode` (closed payload — unknown fields 400).
-Authority: completer or house owner only.
+Authority: completer or house owner only. The response carries no `cycle`
+block: an attribution moves no cycle, and the client keeps the target it holds.
 
 The correction rewrites the **selected allocation** and re-accounts value
 with exact wallet-union deltas: the union is keyed by **wallet id from the
@@ -382,8 +415,23 @@ share rows** — a departed participant's retained wallet is always part of the
 reversal, so a completion pays out exactly the frozen total and never more.
 The frozen work facts (`completedAt`, `workDate`, `workZone`,
 `occurrenceDue`, `totalEnergy`, `rateMinor`), the room journal and the
-occurrence identity stay immutable; personal recognition recomputes from the
+cycle facts stay immutable; personal recognition recomputes from the
 corrected valid history. `expectedVersion` staleness → `409 CONFLICT`.
+
+#### PUT /completions/{id}/date
+The date correction of one completion (ADR-021 §9, planned: CS-PLAN-091 WP-B3). Closed receipt:
+`{ "commandId": "<uuid>", "expectedVersion": 1, "date": "Y-m-d" }` — a
+house-local day, never in the future and never on or before the day of the
+room task's previous valid completion (`400 VALIDATION_ERROR`). Authority: the
+owner for any completion; any other member only for the latest valid
+completion of the room task that they recorded (`403 FORBIDDEN` otherwise).
+
+The command appends a `date` revision to the audit chain and moves the frozen
+work date. It re-derives the completion's classification against its cycle's
+window, the cycle row, the room journal replay and the weekly goal; for an
+after-completion rule also the window and classification of the cycle that
+followed it. Shares, energy and coins stay. `expectedVersion` staleness →
+`409 CONFLICT`.
 
 
 ### Floors
@@ -569,11 +617,14 @@ argument can never bind from that shape and would 500 on every real HTTP call
 > client sending it gets the generic whitelist rejection (`400 VALIDATION_ERROR`,
 > `Unknown or immutable field`).
 
-> **Energy edits (BUG-UX-014):** a changed `energyCost` applies to every open
-> occurrence of the task at once, so their `occurrence.energy`, `expectedVersion`
-> and `selectionToken` change. A client refreshes its rows after the update; a
-> completion with the older values answers 409. Completed work keeps its
-> `totalEnergy`.
+> **Edits of the rule, flex or energy (BUG-UX-014, ADR-021 §1):** open work is
+> not frozen. A changed rule, `flexDays` or `energyCost` applies to the current
+> cycle of every room the definition is mounted in at once: its window, its
+> `cycle.expectedVersion` and the `nextDue` projection follow in the same
+> transaction. A client refreshes its rows after the update; a completion with
+> the older version answers `409 STALE_TARGET`. Completed work keeps its
+> `totalEnergy`. A rule that becomes fixed, or a fixed rule whose days change,
+> counts its days from the day of the edit (D-091-28).
 
 > **Closed constraint set (CS-PLAN-063 §3.1):** every accepted update field
 > is range/type-checked — `energyCost` ∈ [1, 20], `schedulingMode` ∈ `dynamic|static`, parseable
@@ -594,11 +645,8 @@ argument can never bind from that shape and would 500 on every real HTTP call
 > against the merged definition only when `flexDays` or a rule input
 > (`frequencyType`, `frequencyValue`, `recurrenceMode`, `schedulingMode`,
 > `fixedScheduleDays`) changes, so a stored value above the cap stays valid on
-> unrelated edits. A fixed schedule agrees occurrences seven days ahead, so it
-> can be completed at most seven days early whatever its flex. Raising
-> `flexDays` also widens every saved occurrence whose window has not ended
-> (D-088-17, a `window` agreement with a version bump); lowering it applies from
-> the next generated occurrence, and a missed occurrence stays missed.
+> unrelated edits. A changed `flexDays` widens or narrows the current window at
+> once (ADR-021 §1); closed cycles keep the window they recorded.
 
 ### Room Tasks
 
@@ -610,18 +658,25 @@ initial assignee rows) in one service-owned transaction
 definitions).
 
 Two mutually exclusive payload variants:
-- **custom:** `{ roomId, task: {definition…}, assigneeUserIds?, nextDue? }`
+- **custom:** `{ roomId, task: {definition…}, assigneeUserIds?, firstDate? }`
   with an inline definition (`name`, `description`, `energyCost`, `priority`,
   `frequencyType`, `frequencyValue`, `estimatedMinutes`, `category`,
   `recurrenceMode`, `activeFrom`, `activeUntil`, `schedulingMode`,
-  `fixedScheduleTime`, `fixedScheduleDays`, `flexDays`, `instructions`,
-  `visibilityType` — the same closed constraint set as `PUT /tasks/{id}`)
-- **mount:** `{ roomId, taskId, assigneeUserIds?, nextDue? }` — reuses an
+  `fixedScheduleTime`, `fixedScheduleDays`, `fixedMonthDay` (1–31, a fixed
+  monthly rule), `flexDays`, `instructions`, `visibilityType` — the same
+  closed constraint set as `PUT /tasks/{id}`)
+- **mount:** `{ roomId, taskId, assigneeUserIds?, firstDate? }` — reuses an
   existing, actor-visible definition (duplicate mount → 400)
 
-`nextDue` (house-local `Y-m-d` label; resolved to house-local midnight,
-RF-058-01) defaults to tomorrow; `flexDays > 0`
-materializes an `idealDueDate`. The response is the unified aggregate shape:
+`firstDate` (ADR-021, D-091-19; a real house-local `Y-m-d` calendar day at most
+366 days from today, D-091-45; a translated `400 VALIDATION_ERROR` otherwise) is
+the centre of the first window and defaults to
+tomorrow; for a fixed rule it is also the day its rule days are counted from.
+It replaced `nextDue`, which is no longer read. The returned room task carries
+the projection: `nextDue` is the start of the last day of that window,
+`idealDueDate` the start of its planned day. A definition with `isVoluntary`
+is a bonus task and has no window. The response is the unified aggregate
+shape:
 
 ```json
 { "task": {…}, "roomTask": {…}, "assignees": ["mom", "dad"] }
@@ -633,6 +688,33 @@ materializes an `idealDueDate`. The response is the unified aggregate shape:
 > ordered Nextcloud **user-ID string array** (ordered by `room_task_id, user_id`).
 > The bulk-assign response embeds each returned success's persisted set, so
 > clients reconcile exactly the server result, never the requested set.
+
+#### PUT /room-tasks/{id} (edit aggregate, ADR-021, planned: CS-PLAN-091 WP-B6)
+One form save is one atomic write (not delivered yet). Body: `{ commandId, expectedVersion,
+task: {definition…}, roomId?, assigneeUserIds, firstDate?, sleeping?, wakeOn?,
+scope }`. Adults and the owner only (`403` for children). `roomId` moves the
+room task under the room-task lock; its completions, closed cycles and journal
+rows stay with their original room. `firstDate` is accepted only before the
+first completion (`409 CONFLICT` afterwards). `scope` is `thisRoom` or
+`allRooms` when the definition is mounted in several rooms: `thisRoom` splits
+off a copy of the definition for this room task, `allRooms` edits the shared
+one. The form's read-only next window comes from the response's `cycle` block.
+`PUT /tasks/{id}` and `PUT /room-tasks/{id}/assignees` lose their form client
+and go once no client is left.
+
+#### POST /room-tasks/{id}/postpone (ADR-021 §6, planned: CS-PLAN-091 WP-B3)
+Closed body `{ "commandId": "<uuid>", "cycleKey": "c88", "expectedVersion": 4 }`.
+Every member who may see the task, children included. Moves the current
+window by half the flex days, rounded up, at most three times per cycle;
+`409 NOT_POSTPONABLE` without flex days or after the third press,
+`409 WINDOW_ENDED` once the window has ended, `409 STALE_TARGET` for a key or
+version that is no longer current. The answer carries the fresh `cycle` block.
+
+#### PUT /room-tasks/{id}/sleep (ADR-021 §7, planned: CS-PLAN-091 WP-B4)
+Closed body `{ "commandId": "<uuid>", "expectedVersion": 4, "sleeping": true,
+"wakeOn": "Y-m-d" }` (`wakeOn` optional, house-local, after today). Adults and
+the owner. A sleeping task has no cycle and appears in no suggestion; on
+`wakeOn`, on `sleeping: false` or on a completion it wakes with a fresh cycle.
 
 #### GET /room-tasks/overdue · GET /room-tasks/due-today (CS-PLAN-066 §3.1)
 Complete viewer-visible overdue / due-today execution rows. Visibility,
@@ -647,10 +729,17 @@ execution-row consumer (no client-side assignee re-fetch):
     "task": { "id": 4, "name": "Take out kitchen trash", "instructions": "…" },
     "room": { "id": 2, "name": "Living Room" },
     "assignees": ["dad"],
+    "cycle": { "cycleKey": "d2026-11-16", "expectedVersion": 1, "windowStartOn": "2026-11-16",
+               "windowEndOn": "2026-11-16", "centreOn": "2026-11-16", "state": "overdue",
+               "postponeCount": 0, "canPostpone": false },
     "checklistItemCount": 0
   }
 ]
 ```
+
+`overdue` lists the rows whose cycle is `overdue` — one row per task, however
+long ago its window ended (ADR-021 §1) — and `due-today` the rows whose cycle
+is `open`.
 
 These endpoints are the authoritative count projections for the task
 counters (`totalOverdueTasks` / `totalDueTodayTasks` read the complete
@@ -708,13 +797,37 @@ broader mode):
   adds finished/deactivated instances (the TaskManager *Completed* filter).
   Deleted (tombstoned) room tasks are never listed (CS-PLAN-084 D-084-07).
 
-**`status` (CS-PLAN-084 D-084-08):** `overdue` only when the row's canonical
-occurrence is missed (`occurrence.classification = "late"`: its window ended in
-the house timezone). Work due today is `due_today` all day, and a past planned
-day whose flex window is still open stays `due_today`. Rows without an
-occurrence selection use the house-local day bucket (`RoomTask::getStatus`).
-The client's overdue badge, overdue filter and claim affordance follow the same
-classification.
+**Cycle block (ADR-021):** every room-task row and every execution row carries
+the task's one current cycle, derived on read:
+
+```json
+{ "cycleKey": "c88", "expectedVersion": 4, "windowStartOn": "2026-11-21",
+  "windowEndOn": "2026-11-23", "centreOn": "2026-11-22", "state": "open",
+  "postponeCount": 0, "canPostpone": true }
+```
+
+- `cycleKey` is `d<Y-m-d>` for a cycle that hangs on a day (the first date, a
+  fixed rule day) and `c<completionId>` for the cycle that follows a
+  completion of an after-completion rule. `cycleKey` and `expectedVersion` are
+  the receipt of `POST /room-tasks/{id}/complete`.
+- `centreOn` is the planned day, `windowStartOn`/`windowEndOn` the flex days
+  around it (house-local days, a postponement included).
+- `state` is `upcoming` (the window has not opened), `open` or `overdue` (the
+  window ended; one red entry per task). A bonus task carries only
+  `{ "state": "bonus", "expectedVersion": n }`, a sleeping task
+  `{ "state": "asleep" }`; a task without a cycle (a one-time task that is done,
+  an inactive one) carries `cycle: null`.
+- `canPostpone` is the precondition of the postpone command (WP-B3).
+
+**`status` (CS-PLAN-084 D-084-08)** derives from it: `overdue` for an `overdue`
+cycle, `due_today` for an `open` one — also when the planned day has passed
+inside an open flex window — and `due_soon`/`upcoming` before the window
+opens. The client's overdue badge, overdue filter and claim affordance follow
+the same state. The row's `nextDue` is only the projection the list queries
+sort by: the start of the window's last day.
+
+The canonical `assignees` decide who a row belongs to; there is no per-cycle
+handover.
 
 > **Authorization (CR-053-02):** house-scoped — a `roomId` from another
 > house is rejected with `404 RESOURCE_NOT_FOUND`, and the `scopeId`
@@ -730,7 +843,9 @@ classification.
     "nextDue": "2026-02-25T10:00:00Z",
     "lastCompleted": "2026-02-18T10:00:00Z",
     "isActive": true,
-    "assignees": ["mom"]
+    "status": "due_today",
+    "assignees": ["mom"],
+    "cycle": { "cycleKey": "c88", "expectedVersion": 4, "…": "…" }
   }
 ]
 ```
@@ -750,73 +865,27 @@ Mounting an existing definition uses `{ "roomId": 1, "taskId": 1,
 "assigneeUserIds": [] }` on the same atomic `POST /room-tasks` contract
 documented above. There is no snake_case multi-room create body.
 
-#### Execution Proposals and Personal Responsibility
+#### Who a row belongs to and who is credited
 
-Execution reads (daily, filtered-daily, due-today and overdue) attach a nullable
-`proposal` to the selected occurrence:
+The `proposal` block went with the agreements (ADR-021, CS-PLAN-091 WP-B1). A
+row belongs to its canonical `assignees`: Today's personal filter and the
+child's daily eligibility read them, and an unassigned row is offered to
+everyone. A completion without `participants` credits equal shares of the
+assignees, or the completer for unassigned work. Private and admin-only
+visibility is checked before any enrichment.
 
-```json
-{
-  "occurrenceId": "41:3",
-  "basis": "agreement",
-  "participants": [{ "userId": "kid", "sharePct": 100 }],
-  "obligatedUserIds": ["kid"]
-}
-```
+#### PUT /room-tasks/{id}/due-date · PUT /room-tasks/{id}/last-done — removed
 
-`participants` previews actual-work shares, including agreed voluntary helpers.
-`obligatedUserIds` separately identifies active obligated members of a concrete
-agreement in sorted user-ID order; released, excused and helper-only members are
-not obligations. For `basis: "assignees"` or `"solo"` it is `null`, so the
-canonical `assignees` defaults still determine personal task eligibility. An
-empty concrete obligation array is not an unassigned task offered to everyone.
-No selectable target means `proposal: null`.
-
-Child daily eligibility applies concrete obligations before the daily limit;
-Today uses the same field for its personal filter, including overdue rows.
-The row's `assignees` remain the future/default assignment set. A one-occurrence
-handover must not rewrite them. This projection does not expand the task
-visibility policy: private/admin-only visibility is checked before enrichment.
-
-#### PUT /room-tasks/{id}/due-date
-Update a room task's next-due date / ideal due date. Payload: `{ "nextDue": … }`.
-A bare `Y-m-d` label denotes the **house-local day** (ADR-009): the server
-persists its house-local midnight as the UTC instant (RF-058-01 — never the
-label tagged at 00:00 UTC, which would land one local day early for houses
-west of UTC). Any other parseable datetime is persisted as that instant;
-unparseable input → `400 VALIDATION_ERROR`.
-
-The edit moves the oldest open occurrence. A refusal answers `409` with its
-localized reason: `CONFLICT` when that occurrence is already missed or the new
-day exceeds a child's day limit, `STALE_TARGET` when the target changed.
-
-#### PUT /room-tasks/{id}/last-done
-Record the day a room task was last done (FEAT-UX-045, CS-PLAN-088 D-088-20).
-Closed payload: `{ "commandId": "<uuid>", "date": "Y-m-d" }` — the house-local
-day, today or earlier. Owners and adult members only (`403` for children).
-Receipt-protected: replaying the same `commandId` changes nothing.
-
-- The room's `lastCleaned` shows that day through a `last_done` journal event:
-  no cleanliness change, reward, completion fact or rhythm effect. A newer
-  entry for the same room task replaces the older one (also to an earlier
-  day); a later real completion or cleanliness change still wins. An entry recorded
-  before the latest house reset stays hidden; one recorded after it counts,
-  also for a day before the reset.
-- A completion-relative interval moves its pending occurrence to
-  `max(today, date + interval)` as a `date` agreement (version bump, C2h child
-  day limit). A fixed cadence keeps its dates (C1).
-- `409 CONFLICT` while an open appointment of the task has ended, on every
-  cadence (a miss stays a miss; complete the task first), or when the move
-  would exceed a child's day
-  limit; `400 VALIDATION_ERROR` for a malformed, impossible (e.g. `2025-02-29`)
-  or future day.
-
-**Response `data`:** the written room-task row, as for the due-date edit.
+Both went with ADR-021 (CS-PLAN-091 WP-B1, D-091-19); the routes answer `404`.
+The next window is never edited directly: the first date sets it until the
+first completion, afterwards the work itself does. Retained `last_done`
+journal events keep replaying in the room journal.
 
 #### GET /room-tasks/{id}/assignees · PUT /room-tasks/{id}/assignees
 Read / replace the multi-assignee set for a room task. Assignee mutations
-are validated for house membership server-side. A change that would exceed a
-child's day limit answers `409 CONFLICT` with its reason. (Since CS-PLAN-067 §3.4 the
+are validated for house membership server-side. Capacity never refuses an
+assignment (ADR-022): a child's day limit only trims what is offered, never
+what the child owes. The change bumps `cycle.expectedVersion`. (Since CS-PLAN-067 §3.4 the
 GET route has no frontend consumer — list rows already carry their canonical
 `assignees` arrays — but it stays available for API consumers.)
 
@@ -831,7 +900,7 @@ GET route has no frontend consumer — list rows already carry their canonical
 - **Actor gate:** the recorded completer or a house owner (masterplan decision
   D3; participation alone is no authority). A completer who left the house
   leaves the owner as the only authority.
-- **No revertible occurrence:** `200` with `undone: false` and **zero
+- **No revertible completion:** `200` with `undone: false` and **zero
   writes** — undo is idempotent, and the current state is echoed back for
   client reconciliation.
 - **Non-retractions (ADR-011, D8):** medals already awarded, the weekly-goal
@@ -841,16 +910,15 @@ GET route has no frontend consumer — list rows already carry their canonical
 Remove task from room.
 
 > **Lifecycle authorization (CS-PLAN-056, CR-053-06; unified in ADR-010 /
-> CS-PLAN-061):** the surviving lifecycle mutations —
-> `PUT /room-tasks/{id}/due-date`, `POST /room-tasks/{id}/complete`, and
-> `POST /room-tasks/{id}/undo` — enforce the ONE task-visibility matrix
+> CS-PLAN-061):** the lifecycle mutations —
+> `POST /room-tasks/{id}/complete` and `POST /completions/{id}/undo` —
+> enforce the ONE task-visibility matrix
 > via `TaskAccessPolicy` (public → any member; private → creator ∪ that room
 > task's explicit assignees; admin-only → house owner). **Visibility denials
 > return `404 RESOURCE_NOT_FOUND`** (anti-enumeration, decision D3) — never a
 > 403 that would confirm the id exists; role denials (a child actor) stay
-> `403 FORBIDDEN`. Completion additionally answers `409 CONFLICT` for inactive
-> occurrences and `403 FORBIDDEN` for the same-user day duplicate
-> (CS-PLAN-064, ADR-011).
+> `403 FORBIDDEN`. Completion additionally answers `409 CONFLICT` for an
+> inactive room task and the coded conflicts of its receipt (below).
 
 > **Full route list:** the canonical, complete route table is
 > [`appinfo/routes.php`](../../appinfo/routes.php) (70 routes spanning `house`,
@@ -865,8 +933,9 @@ Remove task from room.
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
 #### POST /room-tasks/{id}/complete
-Complete the **shown occurrence** of a room task — one transactional WP3
-aggregate (CS-PLAN-072 WP1 receipt + CS-PLAN-074 WP3 work accounting,
+
+Complete the **current cycle** of a room task — one transactional aggregate
+(ADR-021 §4 receipt + CS-PLAN-074 WP3 work accounting,
 [ADR-014](../adr/ADR-014-work-accounting-ledger-and-replay.md)). The work
 timestamp is resolved server-side. The request body is a **closed set**;
 unknown fields are a `400`:
@@ -874,9 +943,8 @@ unknown fields are a `400`:
 ```json
 {
   "commandId": "6f1e2a4c-9b7d-4e01-8a2f-3c5d6e7f8090",
-  "occurrenceId": "41:3",
-  "expectedVersion": 0,
-  "selectionToken": "9a8b7c6d5e4f3a2b1c0d",
+  "cycleKey": "c88",
+  "expectedVersion": 4,
   "participants": [
     { "userId": "mom", "sharePct": 50 },
     { "userId": "dad", "sharePct": 50 }
@@ -888,32 +956,49 @@ unknown fields are a `400`:
 - `commandId` — a fresh client RFC 4122 v4 UUID, one per logical completion
   command; replaying it returns the original identity (`replay: true`) with no
   repeated post-commit effects.
-- `occurrenceId` — the shown target's public `<scheduleRevisionId>:<ordinal>`
-  key (from the row's `occurrence` block on any read endpoint).
-- `expectedVersion` / `selectionToken` — the optimistic-concurrency version and
-  the server-computed selection hash echoed back.
+- `cycleKey` / `expectedVersion` — from the row's `cycle` block. `cycleKey` is
+  absent for a bonus task, which has no cycle; a value that is not a cycle key
+  is a `400 VALIDATION_ERROR`.
 - `participants` (optional) — the explicit actual-work split: 1–100 unique
   eligible house members with positive whole percents totaling exactly 100.
-  Absent → the server resolves the selection's default sharing (proposal
-  first, equal eligible-member mirror otherwise; assignee tasks fall back to
-  the completer-only default). The completer must take part in the work
-  (Q-074-02 self-participation: completing someone else's split unchanged is
-  rejected — the actor joins with an equal renormalized share).
+  Absent → equal shares of the assignees, or the completer for unassigned
+  work. The completer must take part in the work (Q-074-02; `403 FORBIDDEN`
+  otherwise).
 - `allocationReviewed` (optional, default `false`) — the explicit confirmation
-  when the submitted split deviates from the proposal; an unreviewed deviation
+  when the submitted split deviates from the default; an unreviewed deviation
   → `409 CONFLICT`.
 
-The transaction freezes the work evidence (occurrence identity, work
-date/zone, total energy, frozen rate), writes the allocation revision +
-work shares, posts exact wallet-union deltas to the immutable
-`wallet_entries` ledger, appends the `room_events` journal delta (the saved
-**requested** effect — the replay clamps), advances the timeline projection
-and recomputes the personal recognition of every participant — all under the
-documented lock order. Gates run before any write: inactive room task →
-`409 CONFLICT`, visibility → `404`/`403` per the standard above, receipt
-staleness → `409` ("The task changed since it was displayed…"). Post-commit
+The target is the current cycle **at any time** — before, inside or after its
+window (D-091-25). The conflicts carry a machine-readable `error.code`:
+
+| Code | When |
+|------|------|
+| `STALE_TARGET` | `cycleKey` is not the current cycle, or `expectedVersion` moved on (an edit of the rule, flex, energy, assignees or first date; another completion or undo) |
+| `ALREADY_COMPLETED` | a new command on a cycle that a valid completion already closed |
+| `SAME_DAY` | the room task already has a valid completion on this house-local day; until WP-B4 brings the per-person rule this holds for a bonus task too (D-091-42) |
+
+The transaction freezes the work evidence (the cycle key and its final window,
+the classification `on_time` — before or inside the window — `late` or
+`bonus`, work date/zone, total energy from the definition, frozen rate),
+writes the allocation revision + work shares, posts exact wallet-union deltas
+to the immutable `wallet_entries` ledger, appends the `room_events` journal
+delta (the saved **requested** effect — the replay clamps), records the closed
+cycle exactly once (`chorestrike_cycles`) — first recording as missed the fixed
+cycles that stopped being current before it and that the timeline job had not
+reached yet (D-091-43) — moves the `nextDue` projection to
+the next cycle and recomputes the personal recognition of every participant —
+all under the documented lock order. A one-time task ends with its cycle; a
+bonus task closes none. Gates run before any write: inactive room task →
+`409 CONFLICT`, visibility → `404`/`403` per the standard above. Post-commit
 effects (weekly-goal read, notification dispatches) are failure-isolated: the
 endpoint still answers `200` with `rewards.weeklyGoal = null`.
+
+> **Planned (CS-PLAN-091 WP-B2, WP-B4, WP-B5):** `participants` may leave the
+> recorder out (recording for others; every credited member must be allowed
+> to see the task), the command marks every sub-task of the cycle done, a
+> second credit of one member on a bonus task the same day answers
+> `409 BONUS_ALREADY_TODAY`, completing a sleeping task wakes it, and the
+> coin factors are frozen on the completion.
 
 **Response (WP3 evidence shape):**
 ```json
@@ -925,13 +1010,10 @@ endpoint still answers `200` with `rewards.weeklyGoal = null`.
     "task": { "id": 7, "energyCost": 3, "priority": 2 },
     "completionId": 88,
     "replay": false,
-    "occurrence": {
-      "occurrenceId": "41:4",
-      "expectedVersion": 0,
-      "selectionToken": "1f2e3d4c5b6a7988",
-      "classification": "agreed",
-      "plannedDate": "2026-02-25",
-      "fulfilled": false
+    "cycle": {
+      "cycleKey": "c88", "expectedVersion": 5, "windowStartOn": "2026-03-04",
+      "windowEndOn": "2026-03-04", "centreOn": "2026-03-04", "state": "upcoming",
+      "postponeCount": 0, "canPostpone": false
     },
     "rewards": {
       "completion": {
@@ -950,7 +1032,8 @@ endpoint still answers `200` with `rewards.weeklyGoal = null`.
 }
 ```
 
-> `occurrence` is the **fresh** selection block riding back; `completionId` +
+> `cycle` is the **next** current cycle riding back (`null` when the task has none left), on a
+> replay as well, read fresh: the first attempt committed, so the shown cycle is closed. `completionId` +
 > `replay` identify the ledger row and the idempotent replay. The
 > `rewards.wallet` / `rewards.contributionMinor` describe the **caller's own**
 > totals in exact minor units (100 coin minor = 1 Coin; no coin integers, no
@@ -960,24 +1043,19 @@ endpoint still answers `200` with `rewards.weeklyGoal = null`.
 #### GET /room-tasks/range?from=&to=
 Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.
 
-Every scheduled item carries its `assignees` (user ids). An agreed occurrence with concrete
-members also carries `obligatedUserIds`, else `null`; a client that filters by person uses that
-set first, so a handed-over appointment follows the person it was handed to. Today no longer
-lists upcoming appointments and does not read this route (CS-PLAN-090 WP-B). `flexWindow` stays in the payload,
-but no client reads it since `0.8.0-alpha.4`.
-Recurring tasks are **projected** across the window: each scheduled item carries an
-`occurrences` array of `Y-m-d` dates (one per future occurrence in `[from, to]`), so a
-daily task appears on every day it recurs. One-time tasks emit a single occurrence.
-`occurrenceDetails` carries the same days with their identity (`occurrenceId`,
-`classification` `agreed`/`projection`, `version`, `fulfilled`) and `late`: the
-occurrence's saved window has ended without the work being fulfilled, covered or
-neutrally suspended. The calendar marks exactly those days overdue — a past planned
-day inside an open flex window is still due (CR-084-01). The range row's
-`roomTask.status` keeps the entity's house-local day rule; every other response that
-serializes a room task — list, execution, filtered-daily, create, due-date,
-completion (replays included), undo, attribution and schedule apply — reports
-`status` from the occurrence selection (`overdue` only for missed work), with the day
-rule as the fallback for a row without a selection (CR-084-03).
+Every scheduled item carries its `assignees` (user ids) and its `cycles`
+inside `[from, to]`: the current cycle and the ones the rule yields after it —
+a fixed rule's next rule days, an after-completion rule's next planned days as
+if each cycle were done on its planned day. A one-time task has one cycle.
+Each entry is `{ date, cycleKey, windowStartOn, windowEndOn, current, late }`:
+`date` is the planned day, `cycleKey` is set for the current cycle only (the
+others are projections and no completion target), and `late` marks a current
+cycle whose window has ended. The calendar marks exactly those days overdue —
+a past planned day inside an open flex window is still due (CR-084-01). A
+task without a cycle planned inside the range is left out. Today does not read
+this route (CS-PLAN-090 WP-B). The range row's `roomTask` is the plain entity;
+every other response that serializes a room task reports `status` from its
+cycle (CR-084-03).
 
 **Parameters:**
 - `from` (required): Start date, `Y-m-d` format.
@@ -994,11 +1072,9 @@ rule as the fallback for a row without a selection (CR-084-03).
         "task": { "id": 5, "name": "Vacuum", "energyCost": 3 },
         "room": { "id": 2, "name": "Living Room" },
         "assignees": ["mom"],
-        "flexWindow": { "earliest": "2026-07-26", "ideal": "2026-07-28", "latest": "2026-07-30" },
-        "occurrences": ["2026-07-28", "2026-08-04", "2026-08-11"],
-        "occurrenceDetails": [
-          { "date": "2026-07-28", "occurrenceId": "41:4", "classification": "agreed", "version": 0, "fulfilled": false, "late": false },
-          { "date": "2026-08-04", "occurrenceId": null, "classification": "projection", "version": null, "fulfilled": null, "late": false }
+        "cycles": [
+          { "date": "2026-07-28", "cycleKey": "c41", "windowStartOn": "2026-07-26", "windowEndOn": "2026-07-30", "current": true, "late": false },
+          { "date": "2026-08-04", "cycleKey": null, "windowStartOn": "2026-08-02", "windowEndOn": "2026-08-06", "current": false, "late": false }
         ]
       }
     ],
@@ -1020,8 +1096,7 @@ rule as the fallback for a row without a selection (CR-084-03).
 **Errors:** `400 VALIDATION_ERROR` (unparseable date, `from > to`, span > 60 days), `403 FORBIDDEN` (non-member).
 
 > CS-PLAN-065 §3.4: the client keeps request-order protection on the range
-> reader — a scheduling apply refetches the cached window and a stale
-> in-flight response can never overwrite the refreshed results.
+> reader — a stale in-flight response can never overwrite a newer one.
 
 #### GET /room-tasks/filtered-daily
 The Today payload for the current user (CS-PLAN-057/061), now with two
@@ -1034,14 +1109,17 @@ evaluated **before** the availability gate and the daily limit. The limit caps
 offered work only: every row the child owes stays, even above the limit, and
 unassigned rows fill the slots that remain (BUG-UX-013).
 
-**Open flex windows (BUG-UX-005, CS-PLAN-088):** after the day's rows follow
-the viewer-visible rows whose canonical target is an open window although no
-work is planned for today — before or after the planned day, inside its flex
-days. They carry `openWindow: true`, pass the same child eligibility and never
-count toward the daily limit; the due-today set itself is unchanged.
+The day's rows are the rows whose cycle is `open` and planned for today
+(`cycle.centreOn`).
 
-**Response `data`:** list of `{ roomTask, task, room, assignees, occurrence,
-proposal, openWindow, checklistItemCount }` objects.
+**Open flex windows (BUG-UX-005, CS-PLAN-088):** after them follow the
+viewer-visible rows whose cycle is `open` although it is planned for another
+day — before or after the planned day, inside its flex days. They carry
+`openWindow: true`, pass the same child eligibility and never count toward the
+daily limit.
+
+**Response `data`:** list of `{ roomTask, task, room, assignees, cycle,
+openWindow, checklistItemCount }` objects.
 
 **Checklist count (BUG-UX-003, CS-PLAN-088 D-088-19):** the filtered-daily,
 due-today and overdue rows carry `checklistItemCount`, the number of checklist
@@ -1050,7 +1128,7 @@ Day offers its checklist toggle only above zero.
 
 #### GET /room-tasks/room/{roomId}/stats
 Room task statistics (CS-PLAN-040). The app has no client for this route since the
-room page went into the task list (CS-PLAN-090 D-090-10); it stays until Release B. Rejects a
+room page went into the task list (CS-PLAN-090 D-090-10); CS-PLAN-091 WP-B7 removes it. Rejects a
 cross-house `roomId` with `404 RESOURCE_NOT_FOUND`.
 
 **Response:**
@@ -1070,10 +1148,10 @@ cross-house `roomId` with `404 RESOURCE_NOT_FOUND`.
 > tasks do NOT count as completed; an empty room returns `0`.
 
 > **`overdueTasks` / `dueTodayTasks` semantics (CS-PLAN-084 RF-084-02):**
-> counted from the same `status` the `GET /room-tasks` rows carry (occurrence
-> classification: a missed occurrence is overdue; today's work and a past
-> planned day inside an open flex window are due today), so the card and the
-> rows never disagree.
+> counted from the same `status` the `GET /room-tasks` rows carry (the cycle
+> state: a window that ended is overdue; today's work and a past planned day
+> inside an open flex window are due today), so the card and the rows never
+> disagree.
 
 ### Checklists
 
@@ -1092,8 +1170,8 @@ update gate).
 | `PUT /checklists/item/{itemId}` | Relabel an item |
 | `DELETE /checklists/item/{itemId}` | Delete an item |
 | `POST /checklists/reorder` | Reorder items (`itemOrders`: item id → order map) |
-| `GET /checklists/progress/{roomTaskId}` | Progress entries + stats |
-| `POST /checklists/toggle/{roomTaskId}/{itemId}` | Toggle an item's progress (auto-creates the progress row — the pruned explicit `initialize`/`complete` pair is not needed) |
+| `GET /checklists/progress/{roomTaskId}?cycleKey=` | The ticks and stats of the current cycle |
+| `POST /checklists/toggle/{roomTaskId}/{itemId}` | Toggle a sub-task of the current cycle (auto-creates the progress row — the pruned explicit `initialize`/`complete` pair is not needed) |
 
 **Authorization notes (CR-053-01):**
 - Cross-house task/item/room-task ids → `404 RESOURCE_NOT_FOUND` on every
@@ -1106,6 +1184,22 @@ update gate).
   item ids to integer orders (`400`).
 - `toggle` verifies the item belongs to the room task's task checklist
   (`404` otherwise) — progress rows of an unrelated task cannot be flipped.
+
+**Progress per cycle (ADR-021 §3):** ticks belong to the current cycle of the
+room task and live in `chorestrike_cycle_progress`. Both endpoints answer
+`{ items | progress, stats, cycle: { cycleKey, windowStartOn, windowEndOn } }`.
+The optional `cycleKey` (query parameter of the read, body field of the
+toggle) names the cycle the client shows and `expectedRevision` (toggle body)
+the highest progress revision it has seen; a value that is not a cycle key is
+a `400 VALIDATION_ERROR`. A read for a key that is no longer current answers
+empty with `cycle: null`; a toggle for it, or with a stale revision, answers
+`409 STALE_TARGET`. Partly ticked work stays saved and the task stays open
+(D-089-02); the next cycle starts without ticks, and the ticks of a closed
+cycle stay as stored. Progress keyed by an occurrence
+(`chorestrike_chk_progress`) stays as history and is no longer written.
+
+> **Planned (CS-PLAN-091 WP-B2):** the completion command marks every sub-task
+> of its cycle done.
 
 ### Game
 
@@ -1290,100 +1384,14 @@ never other members' rows; each `{ id, score, createdAt }`.
 
 ### Scheduling
 
-#### Occurrence agreement commands (CS-PLAN-073 WP2)
-
-> `catch-up` has no client since `0.8.0-alpha.4`. Like `PUT /rooms/{id}/cleanliness`, it stays
-> until FEAT-UX-050 reworks that surface (D-089-09), and retained facts keep reading.
-
-`POST /occurrences/{id}/amend`, `POST /occurrences/{id}/catch-up`,
-`POST /occurrences/{id}/restart` — owner-recorded agreement commands over one
-occurrence (`{id}` = public occurrence key `<scheduleRevisionId>:<ordinal>`).
-Every command body carries `roomTaskId`, `commandId` (UUID, idempotent retry
-identity), `occurrenceId`, `expectedVersion`, `selectionToken` (amend/catch-up)
-and the explicit `consent: true` attestation (never a confirmation queue);
-`amend` accepts an optional `date` and/or explicit `participants`
-(`[{userId, role, sharePct}]`, active shares totaling exactly 100),
-`catch-up` requires `workDate` (`workZone`, optional `participants`),
-`restart` requires `workDate` and only accepts a neutrally suspended interval
-predecessor. A single-occurrence amendment never changes the revision's future
-defaults. Whole-day capacity of every affected participant — including
-concretely agreed helper commitments — plus the original deadline and child
-limits are enforced inside the locked aggregate; date-only amendments and
-catch-ups without a participant payload validate the **concrete current
-occurrence members** (after a handover the actual arrangement, never the
-replaced revision defaults), charging the occurrence's energy with
-the exact shares. The receipt identity covers
-the action and every normalized semantic input (date, canonical participant
-set, work appointment): an identical retry replays the original result, the
-same UUID with any changed fact or a different action conflicts. A date
-amendment moves exactly the occurrence of the submitted key; a participant
-change persists the former arrangement as a neutral `released` member row
-with consent evidence, re-derives the effective suspension from the new
-rows (an explicit feasible 100% agreement before the original deadline is
-how a suspended joint occurrence resumes — no automatic redistribution),
-and a catch-up appointment keeps its zone on the
-replaced rows. Errors: 400 malformed, 403 visible role denial, 404
-invisible/foreign target, 409 `STALE_TARGET` for a stale version/token or a
-target the shown read no longer matches (reload, keep the draft), 409
-`CONFLICT` for a passed deadline or a business refusal (member paused or not
-available, daily task limit, energy budget) whose localized `message` clients
-show as the reason (BUG-UX-002).
-
-`GET|POST /pauses`, `POST /pauses/recognize-illness`,
-`POST /pauses/{id}/approve|reject`, `PUT|DELETE /pauses/{id}` — the revisioned
-pause lifecycle; the interface calls a pause an *absence*
-([ADR-020](../adr/ADR-020-absences-without-requests.md)). `POST /pauses`
-enters a personal absence for the caller, `acknowledged` at once for every
-role, or a household absence with `scope: 'house'` (owner only); `reasonCode`
-is optional (default `other`) and the interface never sends or shows it. No
-command creates a `requested` revision any more; `approve`/`reject` remain for
-requests stored before ADR-020. `DELETE /pauses/{id}` (`commandId` and
-`expectedRevision` as query parameters or body) deletes an absence that has
-not ended: the subject an own personal one, the owner any; everyone else gets
-403, a stale revision 409 and an absence that has ended 409. It appends a
-`cancelled` revision and withdraws a pending request the same way.
-`PUT /pauses/{id}` shortens an **acknowledged** pause with the same
-next-local-day boundary of the pause's saved zone; it has no client since
-ADR-020. Within each pause group the latest acknowledged or cancelled revision
-governs every date from its decision boundary on, so a shortening or a
-deletion actually removes the superseded future coverage while today's and
-earlier recognized excuses survive it; a governing cancelled revision means
-no coverage, whatever cancelled it. Different groups compose as a union and an
-undecided/rejected shortening leaves acknowledged coverage unchanged. The
-list describes each group by the revision it stands for: its latest one,
-except that a request declined on top of an absence (a child's shortening
-from before ADR-020) leaves the absence as it stood, so the entry carries the
-latest acknowledged or cancelled revision's state and range while `revision`
-stays the group's latest (the `expectedRevision` of the next command). Groups
-that stand for a cancelled revision are left out. Each entry carries
-`deletable`: whether this viewer may delete it now (subject or owner, and not
-ended by the revision that governs today). An **ordinary** recognition excuses an
-obligation only when its decision (the acknowledgment/approval time, never a
-child's earlier request time) predates the obligation's original exclusive
-deadline — a late approval cannot erase an expired miss; only
-`POST /pauses/recognize-illness` (owner-only, 404 anti-enumeration for a
-foreign/unknown subject) carries the explicit retrospective marker that can
-neutralize a qualifying unfulfilled historical obligation. Pause rows carry
-stable `pauseGroupId` + monotonic `revision`; mutations echo
-`{pauseGroupId, revision, state}` and require `expectedRevision` for
-decisions/updates plus a `commandId`. The list is viewer-safe through an
-explicit field whitelist: pending personal requests are self/owner data, and
-the personal `reasonCode`/`isRetrospectiveIllness` metadata stays
-self/owner-only in **every** state — unrelated members receive only the
-neutral shared facts (`pauseGroupId`, `revision`, `scope`, `subjectWalletId`,
-`subjectUserId`, `state`, `startDate`, `endDate`, `timezone`,
-`createdAt`/`updatedAt`, `deletable`); house-scope pauses stay fully visible. Suspending
-an occurrence requires ANY obligated (responsible/joint) participant to be
-covered — pausing one partner of an explicit joint arrangement suspends the
-whole occurrence (retained share snapshot, zero live planned capacity) until
-an explicit feasible agreement resumes it, while a helper-only pause releases
-just that commitment (Q-073-01). Suspended obligations stay
-visible for clarification with their frozen effort snapshot but consume no
-live planned capacity and never block selection; overlapping recognized
-pauses keep their union provenance (each covering pause referenceable by its
-own `pause_ref` evidence row). Virtual (not yet materialized) occurrences
-derive the identical suspension from their saved revision's default
-participants, so a stopped cron never changes the read answer.
+> **Removed in CS-PLAN-091 WP-B1:** the occurrence agreement commands
+> (`POST /occurrences/{id}/amend`, `…/catch-up`, `…/restart`; ADR-021 §13) and
+> the owner's preview and apply (`POST /scheduling/suggestions`,
+> `POST /scheduling/apply`; ADR-022). The routes answer `404`; stored
+> agreements stay as history. No scheduling route refuses at a budget any more.
+>
+> **Planned (WP-C):** `GET /scheduling/suggestion` replaces preview and apply,
+> and the preferences gain `preferredWeekdays`.
 
 #### GET /scheduling/preferences
 Get the current user's scheduling preferences (member-gated).
@@ -1428,6 +1436,37 @@ unknown weekday key, non-bool availability, energy outside 1-20), `403 FORBIDDEN
 (non-member). Persistence is a single validated read-modify-write on one
 `house_user` JSON column — inherently atomic, no multi-statement transaction.
 
+> **Preferred days (ADR-022 §5, CS-PLAN-091 WP-C):** a third optional section
+> `preferredWeekdays` — a list of canonical weekday keys, possibly empty — joins
+> both endpoints and the owner's `PUT /scheduling/members/{userId}`. The
+> suggestion fills a member's preferred days first.
+
+#### GET /scheduling/suggestion?from=&to= (ADR-022, planned: CS-PLAN-091 WP-C)
+The live suggestion over house-local days from today, at most 14 days ahead
+(`400 VALIDATION_ERROR` otherwise). Member-gated; nothing is written except
+today's per-house snapshot on the day's first read (ADR-022 §3).
+
+**Response `data`:**
+```json
+{
+  "days": [
+    {
+      "day": "2026-11-17",
+      "entries": [
+        { "roomTaskId": 11, "cycleKey": "c88", "userIds": ["kid"], "energy": 2, "overload": false }
+      ]
+    }
+  ],
+  "members": [
+    { "userId": "kid", "day": "2026-11-17", "budget": 6, "placed": 4 }
+  ]
+}
+```
+
+Entries are filtered by task visibility (ADR-010); a team task lists every
+assignee in `userIds`. Today's entries come from the snapshot with the leave and
+join rules of ADR-022 §3; later days are computed live.
+
 #### GET /scheduling/members
 Get all member availability (house owner only). Each entry carries the
 member's `maxDailyTasks` child limit (`null` = unlimited, integer = finite
@@ -1441,114 +1480,6 @@ integer 1-100 = finite bound (`0` is a validation error — an unavailable
 weekday already expresses a day off). Errors: `400 VALIDATION_ERROR`
 (unknown field, invalid weekday, limit outside 1-100), `403 FORBIDDEN`
 (non-member/non-owner).
-
-#### POST /scheduling/suggestions
-**Owner plan preview** (CS-PLAN-065, ADR-012) over real active room tasks —
-read-only, deterministic, zero writes. The retired taskCount-only advice
-contract was replaced on this URL without a compatibility fallback: a
-legacy `{ "taskCount": … }` payload fails the closed shape validation with
-`400 VALIDATION_ERROR`.
-
-**Request:**
-```json
-{
-  "startDate": "2026-09-10",
-  "roomTaskIds": [11, 12],
-  "overrides": { "11": { "assigneeUserIds": ["mom"], "date": "2026-09-11" } }
-}
-```
-`startDate` is a strict house-local `Y-m-d` (today or later), the window is
-the seven consecutive days from `startDate`; `roomTaskIds` is a non-empty
-list of unique positive ids bounded at 100; `overrides` (optional) is keyed
-by selected room task id and may set a complete `assigneeUserIds` list
-and/or a `date` inside the window. Override values that violate the closed
-shape (unknown fields, duplicate assignees, malformed dates, non-member or
-ineligible assignees) are `400`; a syntactically valid override that
-violates the task's legal recurrence slots produces an `unplaced` row with
-reason `ILLEGAL_OVERRIDE`, not a 400.
-
-**Response `data`:**
-```json
-{
-  "previewVersion": "sha1-content-fingerprint",
-  "startDate": "2026-09-10",
-  "endDateExclusive": "2026-09-17",
-  "timezone": "Europe/Berlin",
-  "changes": [
-    {
-      "roomTaskId": 11, "taskId": 3, "taskName": "…", "roomName": "…",
-      "energyCost": 2, "priority": 2, "flexDays": 3,
-      "legalDates": ["2026-09-11", "2026-09-12"],
-      "before":  { "assignees": [], "dueDate": "2026-09-08" },
-      "proposed": { "assignees": ["mom"], "dueDate": "2026-09-11" },
-      "warnings": ["DATE_MOVED", "ASSIGNEES_CHANGED"]
-    }
-  ],
-  "unchanged": [ { "roomTaskId": 5, "reason": "UP_TO_DATE", "warnings": [] } ],
-  "unplaced":  [ { "roomTaskId": 7, "reason": "NO_CAPACITY", "warnings": [] } ],
-  "capacity":  [ { "date": "2026-09-10", "members": { "mom": { "houseUserId": 2, "available": true, "budget": 10, "planned": 3, "remaining": 7, "taskCount": 1 } } } ],
-  "warnings": ["EXISTING_OVERLOAD"]
-}
-```
-Reason/warning codes: `UP_TO_DATE`, `CLAIMED`, `NO_LEGAL_SLOT`,
-`NO_ELIGIBLE_MEMBER`, `NO_CAPACITY`, `ILLEGAL_OVERRIDE`; `DATE_MOVED`,
-`ASSIGNEES_CHANGED`, `EXISTING_OVERLOAD`.
-
-**Errors:** `400 VALIDATION_ERROR`, `403 FORBIDDEN` (non-member or
-non-owner actor), `404 RESOURCE_NOT_FOUND` (unknown, cross-house or
-invisible task), `409 CONFLICT` (inactive row).
-
-#### POST /scheduling/apply
-Apply the confirmed plan as one all-or-nothing command (owner only,
-ADR-012; CS-PLAN-073 WP2 runs it as the `scheduling.apply` CommandService
-command). The request is the **exact normalized preview input** plus its
-`previewVersion`, the client's `commandId` UUID and the owner's explicit
-`consent: true` attestation (RF-073-WP2-06):
-
-```json
-{
-  "startDate": "2026-09-10",
-  "roomTaskIds": [11, 12],
-  "overrides": {},
-  "previewVersion": "sha1-content-fingerprint",
-  "commandId": "uuid-v4",
-  "consent": true
-}
-```
-
-The client mints the UUID per preview and RETAINS it across uncertain
-retries (a 409 keeps the draft and the same UUID — a retry never repeats a
-transition with a fresh identity). The consent attestation records the
-owner's agreement with the affected people: it rides the receipt identity
-and every written `agreements` evidence row of the batch. The plan is
-recomputed under the
-documented lock order (house → room_task → task definition → house_user,
-ascending ids, then assignee writes) and any drift — assignment, date,
-definition, membership, role, preference, timezone, pause, completion or
-undo state — rejects the batch with `409 CONFLICT` and zero writes. A
-preview that crossed local midnight is stale by its fingerprint and
-yields the write-free 409 BEFORE any relative-date validation (CR-SVC-64);
-a newly malformed request stays a 400. A confirmed no-change plan performs
-zero writes and answers `appliedCount: 0`. Claimed rows are never
-rescheduled; `idealDueDate` is not rewritten by an applied move. An
-identical replay (same UUID + payload) returns the original identities plus
-the current authorized state.
-
-**Response `data`:**
-```json
-{
-  "appliedCount": 1,
-  "windowStart": "2026-09-10",
-  "windowEndExclusive": "2026-09-17",
-  "roomTasks": [ { "id": 11, "…": "full room-task payload", "assignees": ["mom"] } ]
-}
-```
-
-**Errors:** like preview, plus `409 CONFLICT` for a stale/mismatched
-`previewVersion` (retry requires a fresh preview) and `400 VALIDATION_ERROR`
-for a missing/oversized `commandId` or a missing/false `consent` attestation
-(both validated after the owner gate, so unauthorized actors still receive
-their 403).
 
 ### Users
 
@@ -1780,7 +1711,12 @@ The following stable error codes are returned by the API. **Note:** The `message
 | `USER_NOT_FOUND` | 404 | Specified Nextcloud user does not exist |
 | `FORBIDDEN` | 403 | User lacks permission for this action |
 | `CONFLICT` | 409 | Resource conflict (e.g., duplicate entry) |
-| `STALE_TARGET` | 409 | The shown occurrence target changed (version, selection token); occurrence agreement commands only — reload and retry |
+| `STALE_TARGET` | 409 | The cycle key or cycle version a completion or a sub-task toggle names is no longer current (ADR-021 §4) — reload and retry |
+| `ALREADY_COMPLETED` | 409 | ADR-021: the cycle already has a valid completion |
+| `SAME_DAY` | 409 | ADR-021: the room task was already completed on this house-local day |
+| `BONUS_ALREADY_TODAY` | 409 | ADR-021: the member was already credited on this bonus task today |
+| `NOT_POSTPONABLE` | 409 | ADR-021: the task has no flex days, or the cycle was postponed three times |
+| `WINDOW_ENDED` | 409 | ADR-021: the window has ended; a red task cannot be postponed |
 | `USERS_ERROR` | 500 | Internal error during users operation |
 | `INTERNAL_ERROR` | 500 | Generic server error |
 

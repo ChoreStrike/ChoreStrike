@@ -8,22 +8,18 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
-use OCA\ChoreStrike\Db\ScheduleRevision;
 
 /**
  * Lower pause evaluator of the WP2 pause lifecycle (CS-PLAN-073 §3.1).
  *
- * Resolves the effective recognized revisions/excuses for the timeline,
- * selection and capacity consumers. Deliberately LOW in the dependency
- * graph — mappers and pure date helpers only, never a command service —
- * so `OccurrenceService -> PauseService -> OccurrenceService` DI cycles
- * cannot exist. Merely reading a projection writes nothing.
+ * Resolves the effective recognized revisions/excuses for the
+ * recognitions and the digest. Deliberately LOW in the dependency graph —
+ * mappers and pure date helpers only, never a command service. Merely
+ * reading a projection writes nothing. Since ADR-021 a pause writes
+ * nothing onto tasks: {@see walletsAbsentThroughout} decides on read
+ * whether a window was neutral for a member.
  *
  * Frozen Q-073-02 comparison rules (Standard A 2026-09-23):
  * 1. A candidate work day D in saved zone Z is the half-open UTC interval
@@ -39,34 +35,14 @@ use OCA\ChoreStrike\Db\ScheduleRevision;
  *    inclusive saved date labels (civil comparison, no zone translation).
  */
 class PauseProjectionService {
-	private PauseMapper $pauseMapper;
-	private HouseUserMapper $houseUserMapper;
-	private OccurrenceMemberMapper $occMemberMapper;
-
 	public function __construct(
-		PauseMapper $pauseMapper,
-		HouseUserMapper $houseUserMapper,
-		OccurrenceMemberMapper $occMemberMapper,
+		private PauseMapper $pauseMapper,
 	) {
-		$this->pauseMapper = $pauseMapper;
-		$this->houseUserMapper = $houseUserMapper;
-		$this->occMemberMapper = $occMemberMapper;
 	}
 
 	// ------------------------------------------------------------------
 	// Query-backed resolution
 	// ------------------------------------------------------------------
-
-	/**
-	 * Every pause revision of the house (all states — the evaluator and
-	 * the fingerprint need the full revision history; coverage itself is
-	 * derived from the recognized subset).
-	 *
-	 * @return Pause[]
-	 */
-	public function revisionsForHouse(int $houseId): array {
-		return $this->pauseMapper->findByHouseId($houseId);
-	}
 
 	/**
 	 * The revisions of the house that can govern coverage: acknowledged
@@ -86,169 +62,6 @@ class PauseProjectionService {
 			$this->pauseMapper->findByHouseId($houseId),
 			static fn (Pause $pause): bool => self::canGovern($pause)
 		));
-	}
-
-	/**
-	 * Opaque fingerprint over every pause revision of the house — the
-	 * token/fingerprint input that invalidates selection tokens and plan
-	 * previews on any pause/consent change (plan §3.5).
-	 */
-	public function housePauseFingerprint(int $houseId): string {
-		$material = array_map(
-			static fn (Pause $pause): array => [
-				'g' => $pause->getPauseGroupId(),
-				'r' => $pause->getRevision(),
-				's' => $pause->getState(),
-				'f' => $pause->getStartDate()?->format('Y-m-d'),
-				't' => $pause->getEndDate()?->format('Y-m-d'),
-				'w' => $pause->getSubjectWalletId(),
-				'i' => $pause->getIsRetrospectiveIllness(),
-			],
-			$this->pauseMapper->findByHouseId($houseId)
-		);
-		return sha1((string)json_encode($material));
-	}
-
-	/**
-	 * The wallet ids of the house's CURRENT members (Q-073-03: future
-	 * personal-pause effects stop at departure; house pauses keep applying
-	 * to every current member).
-	 *
-	 * @return array<int, bool> walletId => true
-	 */
-	public function currentWalletIds(int $houseId): array {
-		$wallets = [];
-		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
-			if ($member->getWalletId() !== null) {
-				$wallets[(int)$member->getWalletId()] = true;
-			}
-		}
-		return $wallets;
-	}
-
-	/**
-	 * Batched suspension derivation over selection entries (write-free).
-	 * Loads the recognized pauses, the current wallets and the occurrence
-	 * member snapshots once, then stamps each occurrence IN MEMORY with
-	 * its derived suspension state/provenance (materialized and virtual
-	 * rows converge — a stopped cron never changes the read answer) and
-	 * returns the derived WORK APPOINTMENT per occurrence public key:
-	 * the first active participant's agreed work date/zone, else the
-	 * planned day in the occurrence's own saved zone (plan §1: real work
-	 * appointments in the DTO/tokens). The appointment is a DERIVATION —
-	 * it never lands on the entity's persisted fields.
-	 *
-	 * @param list<array{occurrence: Occurrence, revision: mixed}> $entries
-	 * @return array<string, array{date: ?string, zone: string}> publicKey => appointment
-	 */
-	public function stampSuspensionOnEntries(int $houseId, array $entries): array {
-		$appointments = [];
-		if ($entries === []) {
-			return $appointments;
-		}
-		$recognized = $this->recognizedForHouse($houseId);
-		$currentWallets = $this->currentWalletIds($houseId);
-
-		// RF-073-WP2-20: appointments derive from the member snapshots
-		// INDEPENDENTLY of pause presence — a persisted catch-up work
-		// appointment must reach the execution DTOs/tokens even when the
-		// house has no recognized pause at all. The member load and the
-		// stamping loop therefore always run; without recognized pauses
-		// the derivation simply stamps SUSPENSION_NONE.
-		$ids = [];
-		foreach ($entries as $entry) {
-			if ($entry['occurrence']->getId() !== null) {
-				$ids[] = (int)$entry['occurrence']->getId();
-			}
-		}
-		$membersByOccurrence = $this->occMemberMapper->findByOccurrenceIds($ids);
-
-		foreach ($entries as $entry) {
-			$occurrence = $entry['occurrence'];
-			// RF-073-WP2-26: participant facts resolve from the CONCRETE
-			// member rows for a materialized occurrence (never the current
-			// definition defaults — a concrete handover/release is
-			// authoritative) and from the associated saved revision's
-			// default snapshot for a genuinely virtual one, so both twins
-			// feed the identical suspension decision.
-			if ($occurrence->getId() !== null) {
-				$memberRows = $membersByOccurrence[(int)$occurrence->getId()] ?? [];
-				$members = array_map(
-					static fn (OccurrenceMember $member): array => $member->jsonSerialize(),
-					$memberRows
-				);
-			} else {
-				$memberRows = [];
-				$revision = $entry['revision'] ?? null;
-				$members = $revision instanceof ScheduleRevision && is_array($revision->getDefaultMembers())
-					? $revision->getDefaultMembers()
-					: [];
-			}
-			$this->stampSuspension($occurrence, $recognized, $members, $currentWallets);
-			$appointments[$occurrence->toPublicKey()] = self::deriveAppointment($occurrence, $memberRows);
-		}
-		return $appointments;
-	}
-
-	/**
-	 * The planned-day appointment of an occurrence in its own saved zone.
-	 *
-	 * @return array{date: ?string, zone: string}
-	 */
-	public static function defaultAppointment(Occurrence $occurrence): array {
-		return [
-			'date' => $occurrence->getPlannedDate()?->format('Y-m-d'),
-			'zone' => $occurrence->getTimezone(),
-		];
-	}
-
-	/**
-	 * The agreed work appointment: the first ACTIVE participant's agreed
-	 * work date/zone, else the planned day/occurrence zone.
-	 *
-	 * @param OccurrenceMember[] $members
-	 * @return array{date: ?string, zone: string}
-	 */
-	public static function deriveAppointment(Occurrence $occurrence, array $members): array {
-		foreach ($members as $member) {
-			if ($member->getDisposition() === OccurrenceMember::DISPOSITION_ACTIVE && $member->getWorkDate() !== null) {
-				return [
-					'date' => $member->getWorkDate()->format('Y-m-d'),
-					'zone' => $member->getWorkZone() ?? $occurrence->getTimezone(),
-				];
-			}
-		}
-		return self::defaultAppointment($occurrence);
-	}
-
-	/**
-	 * Stamp one occurrence in memory with its derived neutral-suspension
-	 * facts. Virtual twins (id null) derive from the caller-supplied
-	 * member snapshot.
-	 *
-	 * @param array $members OccurrenceMember::jsonSerialize() shapes
-	 * @param array<int, bool> $currentWallets
-	 */
-	public function stampSuspension(Occurrence $occurrence, array $recognized, array $members, array $currentWallets): void {
-		$plannedKey = $occurrence->getPlannedDate()?->format('Y-m-d');
-		if ($plannedKey === null || $occurrence->getKind() === Occurrence::KIND_VOLUNTARY) {
-			$occurrence->setSuspensionState(Occurrence::SUSPENSION_NONE);
-			$occurrence->setSuspensionEvidence(null);
-			return;
-		}
-		// R3/RF-073-WP2-25: an ordinary recognition excuses this
-		// occurrence only when its decision predates the ORIGINAL
-		// exclusive deadline; the explicit retrospective-illness marker is
-		// the sole exception.
-		$excused = self::excusedWalletsOn($recognized, $plannedKey, $currentWallets, $occurrence->getWindowEnd());
-		$decision = self::deriveSuspension($members, $excused);
-		if ($decision['suspended']) {
-			$occurrence->setSuspensionState(Occurrence::SUSPENSION_SUSPENDED);
-			$occurrence->setSuspensionEvidence(array_values($decision['evidence']));
-		} else {
-			$occurrence->setSuspensionState(Occurrence::SUSPENSION_NONE);
-			$occurrence->setSuspensionEvidence(null);
-		}
 	}
 
 	// ------------------------------------------------------------------
@@ -322,6 +135,45 @@ class PauseProjectionService {
 			}
 		}
 		return $excused;
+	}
+
+	/**
+	 * ADR-021 decision 5 (D-091-03): the wallets for which a window lies
+	 * entirely inside an absence — covered on every day from its first to
+	 * its last. Such a window is neutral for that member: neither kept nor
+	 * missed. Decided on read from the governing revisions, so an absence
+	 * entered or deleted later is honoured; the timeliness rule of
+	 * {@see isEffectiveFor} belonged to stored occurrences and does not
+	 * apply. Asked for the members responsible for the window, so a closed
+	 * window keeps its neutrality when the member later leaves the house.
+	 *
+	 * @param Pause[] $recognized Revision history (governing revisions are selected per day)
+	 * @param array<int, bool> $wallets The wallets asked about (walletId => true)
+	 * @return array<int, true> walletId => true
+	 */
+	public static function walletsAbsentThroughout(array $recognized, string $startOn, string $endOn, array $wallets): array {
+		if ($recognized === [] || $wallets === [] || $startOn > $endOn) {
+			return [];
+		}
+		$absent = null;
+		for ($day = $startOn; $day <= $endOn; $day = RecurrenceCalculator::dayAfter($day)) {
+			$covered = [];
+			foreach (self::governingRevisionsOn($recognized, $day) as $pause) {
+				if (!$pause->isRecognized() || !$pause->coversDate($day)) {
+					continue;
+				}
+				if ($pause->getScope() === Pause::SCOPE_HOUSE) {
+					$covered += array_fill_keys(array_keys($wallets), true);
+				} elseif ($pause->getSubjectWalletId() !== null && isset($wallets[(int)$pause->getSubjectWalletId()])) {
+					$covered[(int)$pause->getSubjectWalletId()] = true;
+				}
+			}
+			$absent = $absent === null ? $covered : array_intersect_key($absent, $covered);
+			if ($absent === []) {
+				return [];
+			}
+		}
+		return $absent ?? [];
 	}
 
 	/**
@@ -431,77 +283,6 @@ class PauseProjectionService {
 		return $decision < $dayEnd;
 	}
 
-	/**
-	 * The Q-073-01 suspension decision for one occurrence from its member
-	 * snapshot and the pause-excused wallets:
-	 *
-	 * - ANY active OBLIGATED member (responsible/joint) covered by a
-	 *   recognized pause → the whole occurrence is neutrally suspended
-	 *   until an explicit feasible agreement resumes it (plan §3.4 row 7,
-	 *   RF-073-WP2-24): agreed joint work cannot proceed while one
-	 *   obligated partner is paused, there is NO automatic redistribution
-	 *   of the paused share, and the suspended occurrence charges zero
-	 *   live planned capacity while its share snapshot is retained;
-	 * - the evidence lists the covering pause revisions (overlapping
-	 *   pauses compose as a union — all provenance retained);
-	 * - a HELPER covered by a pause → the helper's optional commitment is
-	 *   released; the responsible person's obligation and every remaining
-	 *   share stay unchanged (Q-073-01 resolved option) — a helper-only
-	 *   pause never suspends the occurrence;
-	 * - helpers alone never make an occurrence (non-)suspended.
-	 *
-	 * RF-073-WP2-03: the evidence is the frozen UNION of every covering
-	 * pause provenance of every excused member — overlapping personal and
-	 * house pauses all stay visible, none overwrites another.
-	 *
-	 * @param array $members OccurrenceMember::jsonSerialize() shapes
-	 * @param array<int, list<array{pauseGroupId: int, revision: int, reasonCode: string}>> $excused
-	 * @return array{suspended: bool, evidence: array<int, array{pauseGroupId: int, revision: int}>, excusedWalletIds: list<int>, releasedHelperWalletIds: list<int>}
-	 */
-	public static function deriveSuspension(array $members, array $excused): array {
-		$evidence = [];
-		$excusedWalletIds = [];
-		$releasedHelpers = [];
-		$obligatedExcused = 0;
-
-		foreach ($members as $member) {
-			if (!is_array($member) || !isset($member['walletId'])) {
-				continue;
-			}
-			$walletId = (int)$member['walletId'];
-			$role = (string)($member['role'] ?? OccurrenceMember::ROLE_RESPONSIBLE);
-			$obligatedFlag = (bool)($member['obligated'] ?? true);
-			// Released/excused historical rows are provenance, not live
-			// duty — they never hold an occurrence open or suspended.
-			$disposition = (string)($member['disposition'] ?? OccurrenceMember::DISPOSITION_ACTIVE);
-			if ($disposition !== OccurrenceMember::DISPOSITION_ACTIVE) {
-				continue;
-			}
-			if (!isset($excused[$walletId])) {
-				continue;
-			}
-			$excusedWalletIds[] = $walletId;
-			foreach ($excused[$walletId] as $covering) {
-				$provenance = ['pauseGroupId' => $covering['pauseGroupId'], 'revision' => $covering['revision']];
-				$evidence[$provenance['pauseGroupId'] . ':' . $provenance['revision']] = $provenance;
-			}
-			if ($role === OccurrenceMember::ROLE_HELPER) {
-				$releasedHelpers[] = $walletId;
-				continue;
-			}
-			if ($obligatedFlag) {
-				$obligatedExcused++;
-			}
-		}
-
-		return [
-			'suspended' => $obligatedExcused > 0,
-			'evidence' => array_values($evidence),
-			'excusedWalletIds' => array_values(array_unique($excusedWalletIds)),
-			'releasedHelperWalletIds' => array_values(array_unique($releasedHelpers)),
-		];
-	}
-
 	// ------------------------------------------------------------------
 	// Frozen Q-073-02 day-interval mapping (pure)
 	// ------------------------------------------------------------------
@@ -518,16 +299,5 @@ class PauseProjectionService {
 		$end = (new \DateTime($dateKey . ' 00:00:00', $tz))->modify('+1 day');
 		$utc = new \DateTimeZone('UTC');
 		return [$start->setTimezone($utc), $end->setTimezone($utc)];
-	}
-
-	/**
-	 * Whether a saved work appointment (`D_w` in zone `Z_w`) counts
-	 * against a candidate day `(D, Z)`: the two half-open day intervals
-	 * intersect (Q-073-02 rule 2).
-	 */
-	public static function appointmentIntersects(string $appointmentDateKey, string $appointmentZone, string $candidateDateKey, string $candidateZone): bool {
-		[$aStart, $aEnd] = self::candidateDayInterval($appointmentDateKey, $appointmentZone);
-		[$cStart, $cEnd] = self::candidateDayInterval($candidateDateKey, $candidateZone);
-		return $aStart < $cEnd && $cStart < $aEnd;
 	}
 }

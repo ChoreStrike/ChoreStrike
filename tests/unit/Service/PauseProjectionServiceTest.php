@@ -8,23 +8,16 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Pause;
-use OCA\ChoreStrike\Db\PauseMapper;
-use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Service\PauseProjectionService;
 use PHPUnit\Framework\TestCase;
 
 /**
  * The frozen WP2 pause-projection rules (CS-PLAN-073 Standard A 2026-09-23):
  * civil-date coverage (Q-073-02 rule 4), personal/house excusal with the
- * departure stop (Q-073-03), the sole/joint/partial/helper suspension
- * decision (Q-073-01) and the cross-zone day-interval mapping
- * (Q-073-02 rules 1-2). Deterministic — no host clock.
+ * departure stop (Q-073-03) and the day-interval mapping (Q-073-02 rule 1),
+ * plus the read-time decision of ADR-021 whether a window lay entirely
+ * inside an absence. Deterministic — no host clock.
  *
  * @covers \OCA\ChoreStrike\Service\PauseProjectionService
  */
@@ -439,137 +432,7 @@ class PauseProjectionServiceTest extends TestCase {
 
 	// -----------------------------------------------------------------
 	// Suspension decision (Q-073-01)
-	// ------------------------------------------------------------------
 
-	private function member(int $walletId, string $role = 'responsible', bool $obligated = true, int $sharePct = 100, string $disposition = 'active'): array {
-		return [
-			'walletId' => $walletId,
-			'role' => $role,
-			'obligated' => $obligated,
-			'sharePct' => $sharePct,
-			'disposition' => $disposition,
-		];
-	}
-
-	public function testDeriveSuspension_SoleResponsibilityFullyCovered_SuspendsWithEvidence(): void {
-		$members = [$this->member(11)];
-		$excused = [11 => [['pauseGroupId' => 4, 'revision' => 2, 'reasonCode' => 'illness']]];
-
-		$decision = PauseProjectionService::deriveSuspension($members, $excused);
-
-		self::assertTrue($decision['suspended']);
-		self::assertSame([['pauseGroupId' => 4, 'revision' => 2]], $decision['evidence']);
-		self::assertSame([11], $decision['excusedWalletIds']);
-	}
-
-	public function testDeriveSuspension_JointAllCovered_SuspendsWithUnionEvidence(): void {
-		$members = [$this->member(11, sharePct: 50), $this->member(12, sharePct: 50)];
-		$excused = [
-			11 => [['pauseGroupId' => 4, 'revision' => 2, 'reasonCode' => 'travel']],
-			12 => [['pauseGroupId' => 5, 'revision' => 1, 'reasonCode' => 'travel']],
-		];
-
-		$decision = PauseProjectionService::deriveSuspension($members, $excused);
-
-		self::assertTrue($decision['suspended']);
-		self::assertCount(2, $decision['evidence'], 'overlapping pause provenance composes as a union');
-	}
-
-	public function testDeriveSuspension_OneWalletUnderTwoPauses_KeepsBothProvenanceEntries(): void {
-		// RF-073-WP2-03: the evidence of a suspended sole responsibility
-		// lists EVERY covering pause revision of the covered wallet — a
-		// personal and a house pause both stay visible.
-		$members = [$this->member(11)];
-		$excused = [11 => [
-			['pauseGroupId' => 4, 'revision' => 2, 'reasonCode' => 'illness'],
-			['pauseGroupId' => 9, 'revision' => 1, 'reasonCode' => 'travel'],
-		]];
-
-		$decision = PauseProjectionService::deriveSuspension($members, $excused);
-
-		self::assertTrue($decision['suspended']);
-		self::assertSame([
-			['pauseGroupId' => 4, 'revision' => 2],
-			['pauseGroupId' => 9, 'revision' => 1],
-		], $decision['evidence']);
-	}
-
-	public function testDeriveSuspension_OnePausedJointParticipant_SuspendsTheWholeOccurrence(): void {
-		// RF-073-WP2-24 (R6, plan §3.4 row 7): explicit joint 50/50 work is
-		// suspended until an explicit feasible agreement resumes it — the
-		// paused partner's share is NEVER silently redistributed to the
-		// remaining one, and the suspension carries the covering pause's
-		// provenance.
-		$members = [$this->member(11, role: 'joint', sharePct: 50), $this->member(12, role: 'joint', sharePct: 50)];
-		$excused = [11 => [['pauseGroupId' => 4, 'revision' => 2, 'reasonCode' => 'travel']]];
-
-		$decision = PauseProjectionService::deriveSuspension($members, $excused);
-
-		self::assertTrue($decision['suspended'], 'pausing ANY obligated joint participant suspends the occurrence');
-		self::assertSame([11], $decision['excusedWalletIds']);
-		self::assertSame([['pauseGroupId' => 4, 'revision' => 2]], $decision['evidence']);
-		self::assertSame([], $decision['releasedHelperWalletIds']);
-	}
-
-	public function testDeriveSuspension_PausedResponsibleWithHelper_SuspendsAndReleasesHelperOnlyWhenCovered(): void {
-		// A responsible+helper arrangement suspends when the RESPONSIBLE
-		// is paused; the untouched helper commitment stays out of the
-		// released list.
-		$members = [
-			$this->member(11, role: 'responsible'),
-			$this->member(12, role: 'helper', obligated: false, sharePct: 30),
-		];
-		$excused = [11 => [['pauseGroupId' => 4, 'revision' => 1, 'reasonCode' => 'travel']]];
-
-		$decision = PauseProjectionService::deriveSuspension($members, $excused);
-
-		self::assertTrue($decision['suspended']);
-		self::assertSame([11], $decision['excusedWalletIds']);
-		self::assertSame([], $decision['releasedHelperWalletIds'], 'the unpaused helper is not released');
-	}
-
-	public function testDeriveSuspension_HelperPause_ReleasesOnlyTheHelperCommitment(): void {
-		$members = [
-			$this->member(11, role: 'responsible'),
-			$this->member(12, role: 'helper', obligated: false, sharePct: 50),
-		];
-		$excused = [12 => [['pauseGroupId' => 4, 'revision' => 1, 'reasonCode' => 'travel']]];
-
-		$decision = PauseProjectionService::deriveSuspension($members, $excused);
-
-		self::assertFalse($decision['suspended'], 'a helper-only pause never suspends the occurrence (Q-073-01)');
-		self::assertSame([12], $decision['releasedHelperWalletIds']);
-		self::assertSame([12], $decision['excusedWalletIds']);
-	}
-
-	public function testDeriveSuspension_ReleasedFormerMember_IsNotLiveDuty(): void {
-		// RF-073-WP2-02 interaction: a persisted RELEASED former
-		// responsible row is neutral history — it never keeps the
-		// occurrence from suspending when the ACTIVE arrangement is fully
-		// covered, and it is never counted as an obligated member.
-		$members = [
-			$this->member(11, role: 'responsible', disposition: 'released'),
-			$this->member(12, role: 'responsible', sharePct: 100),
-		];
-		$excused = [12 => [['pauseGroupId' => 4, 'revision' => 1, 'reasonCode' => 'travel']]];
-
-		$decision = PauseProjectionService::deriveSuspension($members, $excused);
-
-		self::assertTrue($decision['suspended'], 'the released row does not hold the occurrence open');
-		self::assertSame([12], $decision['excusedWalletIds']);
-	}
-
-	public function testDeriveSuspension_NoPause_Nothing(): void {
-		$members = [$this->member(11), $this->member(12, sharePct: 0)];
-
-		$decision = PauseProjectionService::deriveSuspension($members, []);
-
-		self::assertFalse($decision['suspended']);
-		self::assertSame([], $decision['excusedWalletIds']);
-	}
-
-	// -----------------------------------------------------------------
-	// Frozen Q-073-02 day-interval mapping (rules 1-2)
 	// ------------------------------------------------------------------
 
 	public function testCandidateDayInterval_HalfOpenUtcInterval(): void {
@@ -596,157 +459,68 @@ class PauseProjectionServiceTest extends TestCase {
 		self::assertFalse($instant >= $sydStart && $instant < $sydEnd, 'the same instant does not consume October 1 Sydney capacity');
 	}
 
-	public function testAppointmentIntersects_ExactDateWithinOneZone_ConservativeAcrossZones(): void {
-		self::assertTrue(PauseProjectionService::appointmentIntersects('2026-10-01', 'UTC', '2026-10-01', 'UTC'));
-		self::assertFalse(PauseProjectionService::appointmentIntersects('2026-10-02', 'UTC', '2026-10-01', 'UTC'));
-		// Berlin evening vs the UTC same label: the two day intervals
-		// overlap (the appointment counts conservatively on both boundary
-		// days).
-		self::assertTrue(PauseProjectionService::appointmentIntersects('2026-10-01', 'Europe/Berlin', '2026-10-01', 'UTC'));
-		self::assertTrue(PauseProjectionService::appointmentIntersects('2026-10-02', 'Europe/Berlin', '2026-10-01', 'UTC'), 'the 2026-10-01 UTC day reaches into the Berlin Oct 2 morning');
-	}
-
 	// -----------------------------------------------------------------
-	// Stamping: deadline eligibility and virtual/persisted parity
-	// (R3/R4, RF-073-WP2-25/26)
+	// Windows inside an absence (ADR-021 decision 5, D-091-03)
 	// ------------------------------------------------------------------
 
-	private function occurrence(?int $id, string $planned = '2026-10-05', ?string $windowEnd = '2026-10-08 00:00:00'): Occurrence {
-		$occurrence = new Occurrence();
-		if ($id !== null) {
-			$occurrence->setId($id);
-		}
-		$occurrence->setScheduleRevId(3);
-		$occurrence->setOrdinal(1);
-		$occurrence->setKind(Occurrence::KIND_SCHEDULED);
-		$occurrence->setPlannedDate(new \DateTime($planned));
-		$occurrence->setTimezone('UTC');
-		if ($windowEnd !== null) {
-			$occurrence->setWindowEnd(new \DateTime($windowEnd));
-		}
-		return $occurrence;
+	public function testWalletsAbsentThroughout_WindowEntirelyInsideAnAbsence_IsNeutral(): void {
+		$absence = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09');
+
+		self::assertSame([11 => true], PauseProjectionService::walletsAbsentThroughout([$absence], '2026-10-06', '2026-10-08', [11 => true, 12 => true]));
+		self::assertSame([11 => true], PauseProjectionService::walletsAbsentThroughout([$absence], '2026-10-05', '2026-10-09', [11 => true]), 'both ends are inclusive');
 	}
 
-	private function revisionDefaults(): ScheduleRevision {
-		$revision = new ScheduleRevision();
-		$revision->setId(3);
-		$revision->setRevision(1);
-		$revision->setDefaultMembers([
-			['walletId' => 11, 'userId' => 'kid', 'role' => OccurrenceMember::ROLE_RESPONSIBLE, 'obligated' => true, 'sharePct' => 100],
-		]);
-		return $revision;
+	public function testWalletsAbsentThroughout_WindowReachingOutOfTheAbsence_Counts(): void {
+		$absence = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09');
+
+		self::assertSame([], PauseProjectionService::walletsAbsentThroughout([$absence], '2026-10-04', '2026-10-06', [11 => true]), 'one day before the absence');
+		self::assertSame([], PauseProjectionService::walletsAbsentThroughout([$absence], '2026-10-08', '2026-10-10', [11 => true]), 'one day after the absence');
 	}
 
-	private function memberRow(int $walletId, string $role = OccurrenceMember::ROLE_RESPONSIBLE, bool $obligated = true, int $sharePct = 100, string $disposition = OccurrenceMember::DISPOSITION_ACTIVE): OccurrenceMember {
-		$member = new OccurrenceMember();
-		$member->setWalletId($walletId);
-		$member->setRole($role);
-		$member->setObligated($obligated);
-		$member->setSharePct($sharePct);
-		$member->setDisposition($disposition);
-		return $member;
+	public function testWalletsAbsentThroughout_AbsenceEnteredAfterTheWindow_IsHonoured(): void {
+		// Decided on read: the window ended on 8 October, the absence was
+		// entered on the 20th — no timeliness rule applies to derived windows.
+		$absence = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', 1, 1, 11, Pause::SCOPE_PERSONAL, '2026-10-20 09:00:00');
+
+		self::assertSame([11 => true], PauseProjectionService::walletsAbsentThroughout([$absence], '2026-10-06', '2026-10-08', [11 => true]));
 	}
 
-	private function projectionService(array $pauses, array $walletIds, array $membersByOccurrence): PauseProjectionService {
-		$pauseMapper = $this->createMock(PauseMapper::class);
-		$pauseMapper->method('findByHouseId')->willReturn($pauses);
-		$memberMapper = $this->createMock(OccurrenceMemberMapper::class);
-		$memberMapper->method('findByOccurrenceIds')->willReturn($membersByOccurrence);
-		$houseUsers = [];
-		foreach ($walletIds as $walletId) {
-			$member = new HouseUser();
-			$member->setWalletId($walletId);
-			$houseUsers[] = $member;
-		}
-		$houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$houseUserMapper->method('findByHouseId')->willReturn($houseUsers);
-		return new PauseProjectionService($pauseMapper, $houseUserMapper, $memberMapper);
+	public function testWalletsAbsentThroughout_DeletedAbsence_FreesTheDaysItNoLongerCovers(): void {
+		// Deleted on 6 October: it governs from the 7th on and covers nothing there.
+		$entered = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', 1, 1, 11, Pause::SCOPE_PERSONAL, '2026-10-01 09:00:00');
+		$deleted = $this->pause(Pause::STATE_CANCELLED, '2026-10-05', '2026-10-09', 1, 2, 11, Pause::SCOPE_PERSONAL, '2026-10-06 09:00:00');
+
+		self::assertSame([11 => true], PauseProjectionService::walletsAbsentThroughout([$entered, $deleted], '2026-10-05', '2026-10-06', [11 => true]), 'what it already excused stays');
+		self::assertSame([], PauseProjectionService::walletsAbsentThroughout([$entered, $deleted], '2026-10-06', '2026-10-08', [11 => true]));
 	}
 
-	public function testStampSuspension_LateOrdinaryAcknowledgment_LeavesExpiredMissUnsuspended(): void {
-		// RF-073-WP2-25: the occurrence's ORIGINAL exclusive deadline
-		// (window end October 6 00:00) had passed when the ordinary pause
-		// was acknowledged (October 6 12:00) — the expired miss stays.
-		$service = $this->projectionService(
-			[$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', decidedAt: '2026-10-06 12:00:00')],
-			[11],
-			[]
-		);
-		$occurrence = $this->occurrence(5, windowEnd: '2026-10-06 00:00:00');
+	public function testWalletsAbsentThroughout_TwoAbsencesBackToBack_CoverOneWindowTogether(): void {
+		$first = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-06', 1);
+		$second = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-07', '2026-10-09', 2);
 
-		$service->stampSuspension(
-			$occurrence,
-			[$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', decidedAt: '2026-10-06 12:00:00')],
-			[['walletId' => 11, 'role' => OccurrenceMember::ROLE_RESPONSIBLE, 'obligated' => true]],
-			[11 => true]
-		);
-
-		self::assertSame(Occurrence::SUSPENSION_NONE, $occurrence->getSuspensionState());
-
-		// The same pause acknowledged BEFORE the deadline suspends.
-		$timely = $this->occurrence(5, windowEnd: '2026-10-08 00:00:00');
-		$service->stampSuspension(
-			$timely,
-			[$this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', decidedAt: '2026-10-06 12:00:00')],
-			[['walletId' => 11, 'role' => OccurrenceMember::ROLE_RESPONSIBLE, 'obligated' => true]],
-			[11 => true]
-		);
-		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $timely->getSuspensionState());
+		self::assertSame([11 => true], PauseProjectionService::walletsAbsentThroughout([$first, $second], '2026-10-06', '2026-10-08', [11 => true]));
 	}
 
-	public function testStampSuspensionOnEntries_VirtualEntry_UsesSavedRevisionParticipants(): void {
-		// RF-073-WP2-26: a genuinely virtual occurrence (cron stopped, no
-		// materialized row, no member rows) derives its suspension from the
-		// associated saved revision's default snapshot — identical to its
-		// materialized twin.
-		$pause = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09');
-		$service = $this->projectionService([$pause], [11], []);
-		$virtual = $this->occurrence(null);
+	public function testWalletsAbsentThroughout_HouseAbsenceCoversEveryWalletAskedAbout(): void {
+		$house = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', 1, 1, null, Pause::SCOPE_HOUSE);
+		$other = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', 2, 1, 99);
 
-		$service->stampSuspensionOnEntries(7, [['occurrence' => $virtual, 'revision' => $this->revisionDefaults()]]);
+		$absent = PauseProjectionService::walletsAbsentThroughout([$house, $other], '2026-10-06', '2026-10-07', [11 => true, 12 => true]);
 
-		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $virtual->getSuspensionState());
-		self::assertSame([['pauseGroupId' => 1, 'revision' => 1]], $virtual->getSuspensionEvidence());
+		ksort($absent);
+		self::assertSame([11 => true, 12 => true], $absent, 'the absence of a wallet nobody asked about adds nothing');
 	}
 
-	public function testStampSuspensionOnEntries_MaterializedEntry_UsesConcreteRowsNeverRevisionDefaults(): void {
-		// R4: after a concrete handover the materialized rows are
-		// authoritative — wallet 11 (the revision default) is released,
-		// wallet 12 is the actual responsible. The pause covers 12, so the
-		// occurrence IS suspended even though the defaults name 11.
-		$pause = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', walletId: 12);
-		$service = $this->projectionService([$pause], [11, 12], [
-			5 => [
-				$this->memberRow(11, disposition: OccurrenceMember::DISPOSITION_RELEASED),
-				$this->memberRow(12),
-			],
-		]);
-		$occurrence = $this->occurrence(5);
+	public function testWalletsAbsentThroughout_NoResponsibleMember_IsNeverNeutral(): void {
+		$house = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09', 1, 1, null, Pause::SCOPE_HOUSE);
 
-		$service->stampSuspensionOnEntries(7, [['occurrence' => $occurrence, 'revision' => $this->revisionDefaults()]]);
-
-		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $occurrence->getSuspensionState(), 'the concrete arrangement decides, not the replaced defaults');
+		self::assertSame([], PauseProjectionService::walletsAbsentThroughout([$house], '2026-10-06', '2026-10-07', []));
 	}
 
-	public function testStampSuspensionOnEntries_VirtualAndMaterializedTwins_Agree(): void {
-		// R4 exit: the same occurrence before/after materialization derives
-		// the identical effective suspension and appointment facts.
-		$pause = $this->pause(Pause::STATE_ACKNOWLEDGED, '2026-10-05', '2026-10-09');
-		$service = $this->projectionService([$pause], [11], [
-			5 => [$this->memberRow(11)],
-		]);
-		$virtual = $this->occurrence(null);
-		$materialized = $this->occurrence(5);
+	public function testWalletsAbsentThroughout_PendingRequestOrNoAbsence_IsNeverNeutral(): void {
+		$pending = $this->pause(Pause::STATE_REQUESTED, '2026-10-05', '2026-10-09');
 
-		$appointments = $service->stampSuspensionOnEntries(7, [
-			['occurrence' => $virtual, 'revision' => $this->revisionDefaults()],
-			['occurrence' => $materialized, 'revision' => $this->revisionDefaults()],
-		]);
-
-		self::assertSame($virtual->getSuspensionState(), $materialized->getSuspensionState());
-		self::assertSame(Occurrence::SUSPENSION_SUSPENDED, $materialized->getSuspensionState());
-		self::assertSame($virtual->getSuspensionEvidence(), $materialized->getSuspensionEvidence());
-		self::assertSame($virtual->toPublicKey(), $materialized->toPublicKey());
-		self::assertSame(['date' => '2026-10-05', 'zone' => 'UTC'], $appointments['3:1']);
+		self::assertSame([], PauseProjectionService::walletsAbsentThroughout([$pending], '2026-10-06', '2026-10-07', [11 => true]));
+		self::assertSame([], PauseProjectionService::walletsAbsentThroughout([], '2026-10-06', '2026-10-07', [11 => true]));
 	}
 }

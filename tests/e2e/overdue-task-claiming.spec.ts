@@ -37,7 +37,7 @@ test.describe('Overdue Task Claiming', () => {
 	async function createOverdueProbe(
 		page: Page,
 		name: string,
-		options: { visibility?: string, assignees?: string[], nextDue?: string, expectedStatus?: string } = {},
+		options: { visibility?: string, assignees?: string[], firstDate?: string, expectedStatus?: string } = {},
 	): Promise<number> {
 		const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
 		expect(floorsResponse.status()).toBe(200)
@@ -50,7 +50,7 @@ test.describe('Overdue Task Claiming', () => {
 			data: {
 				roomId: kitchen.id,
 				assigneeUserIds: options.assignees ?? ['dad'],
-				nextDue: options.nextDue ?? yesterday(),
+				firstDate: options.firstDate ?? yesterday(),
 				task: {
 					name,
 					energyCost: 1,
@@ -103,7 +103,7 @@ test.describe('Overdue Task Claiming', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const probeName = `Due Today ${Date.now()}`
-			await createOverdueProbe(page, probeName, { assignees: ['dad'], nextDue: dayKey(0), expectedStatus: 'due_today' })
+			await createOverdueProbe(page, probeName, { assignees: ['dad'], firstDate: dayKey(0), expectedStatus: 'due_today' })
 
 			await page.goto('/apps/chorestrike/#/tasks')
 			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
@@ -149,7 +149,7 @@ test.describe('Overdue Task Claiming', () => {
 		}
 	})
 
-	test('confirming a claim in the UI completes it once and the next occurrence returns to the assignee', async ({ browser }) => {
+	test('confirming a claim in the UI completes it once and the next cycle returns to the assignee', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const probeName = `Claim Confirm ${Date.now()}`
@@ -173,7 +173,7 @@ test.describe('Overdue Task Claiming', () => {
 			const rows = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
 			const row = ((await rows.json()).data as Array<{ id: number, wasClaimed: boolean, claimedByUser: string, originalAssignee: string, assignees?: string[], status: string }>).find((item) => item.id === roomTaskId)
 			expect(row).toMatchObject({ wasClaimed: true, claimedByUser: 'mom', originalAssignee: 'dad' })
-			expect(row?.status, 'the claimed occurrence is done; the next one is not overdue').not.toBe('overdue')
+			expect(row?.status, 'the claimed cycle is done; the next one is not overdue').not.toBe('overdue')
 			await expect(overdueRow.getByTestId('claim-overdue-button')).toHaveCount(0)
 			await expect(overdueRow.getByTestId('task-assignees')).toContainText('Dad')
 		} finally {
@@ -238,7 +238,7 @@ test.describe('Overdue Task Claiming', () => {
 		try {
 			// CS-PLAN-072 WP1: the completion is a receipt contract, so the
 			// non-viewer posts a format-valid receipt — the visibility gate
-			// (assertCanView) fires before the occurrence is resolved.
+			// (assertCanView) fires before the cycle is resolved.
 			const completeResponse = await postCompletionWithReceipt(page, probeId, placeholderReceipt())
 
 			// A private task is invisible to non-assignees: per the ADR-010

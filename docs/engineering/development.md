@@ -293,10 +293,8 @@ isolated disposable SQLite environment.
 | `AuthorizationService::ensureHouseMember` (first-owner bootstrap) | house | house (unchanged; now also creates the wallet) |
 | `HouseSetupService::applySetup` | house | house (unchanged; now also creates wallets) |
 | `TaskCreationService::runAggregate` | house | house (unchanged, verified) |
-| `SchedulePlanService::apply` | house → room_task asc → task asc → house_user asc | unchanged (verified subsequence) |
 | `CompletionService::complete` / `undo` | room_task → room → house_user | house → room_task → room → house_user (supersedes ADR-011/012 entry order) |
 | `RoomTaskService::setAssignees` / `bulkAssignTasks` (per item) | room_task | house → room_task |
-| `RoomTaskService::updateDueDate` | room_task | house (room-task house) → room_task |
 | `RoomTaskService::deleteRoomTask` | none (auto-commit deletes) | house → room_task (tombstone) |
 | `ChecklistService::toggleItem` (via progress mapper transaction) | progress row | house → room_task → progress row |
 | `ChecklistService` definition mutations (add/update/delete/reorder items) | none | house |
@@ -388,40 +386,33 @@ class RoomTaskService {
     }
     
     /**
-     * Update the due date of a room task
-     * 
+     * Soft-delete a room task
+     *
      * @param int $roomTaskId ID of the room task
-     * @param \DateTime $nextDue The new due date
-     * @return RoomTask The updated room task
+     * @param HouseUser $viewer The acting member (visibility matrix)
      */
-    public function updateDueDate(int $roomTaskId, \DateTime $nextDue): RoomTask {
+    public function deleteRoomTask(int $roomTaskId, HouseUser $viewer): void {
         // Implementation
     }
 }
 ```
 
-> Real method: `RoomTaskService::updateDueDate()` (`lib/Service/RoomTaskService.php`).
+> Real method: `RoomTaskService::deleteRoomTask()` (`lib/Service/RoomTaskService.php`).
 > Scheduling preferences are owned by `SchedulingService`
-> (`lib/Service/SchedulingService.php`); the owner plan preview/apply
-> aggregate is `SchedulePlanService` (`lib/Service/SchedulePlanService.php`,
-> CS-PLAN-065 / ADR-012).
+> (`lib/Service/SchedulingService.php`).
 >
-> **CS-PLAN-072 WP1 / ADR-013:** recurrence authority is the durable
-> occurrence timeline owned by `OccurrenceService`
-> (`lib/Service/OccurrenceService.php`) — a facade over the
-> `lib/Service/Occurrence{RowFactory,ReconcileService,SelectionService,RevisionService,CompletionService,AgreementService}.php`
-> collaborator split (RF-072-WP1-18; behavior-neutral, one public seam);
-> `room_tasks.next_due` /
-> `ideal_due_date` / `last_completed` are **derived projections**, never the
-> source of truth. Every due-date/participant mutation must go through the
-> common agreement writers (`amendOccurrenceDateUnderLock` /
-> `amendParticipantsUnderLock`) — `updateDueDate`, `setAssignees`,
-> `replaceAssigneesUnderLock`, `SchedulePlanService::apply` and the house
-> timezone edit all do — so the occurrence is amended (identity retained,
-> `agreements` evidence recorded, version bumped) instead of a raw projection
-> write diverging from the timeline. Completion is a closed-set receipt command
-> (`commandId`/`occurrenceId`/`expectedVersion`/`selectionToken`) resolved under
-> the house-first lock; a raw `next_due` write is a defect.
+> **CS-PLAN-091 WP-B1 / ADR-021:** recurrence authority is `WindowService`
+> (`lib/Service/WindowService.php`): the one current cycle of a room task is
+> derived on read from its rule, its stored inputs and its valid completions;
+> no future appointment is stored. `room_tasks.next_due` / `ideal_due_date`
+> are **derived projections**, never the source of truth. Every command that
+> changes a window — a completion or undo, an edit of the rule, flex, energy,
+> assignees or first date, a house-zone change — ends with
+> `CycleService::changedUnderLock()`, which bumps the cycle version and
+> rewrites the projection in the same transaction; a raw `next_due` write is
+> a defect. Completion is a closed-set receipt command
+> (`commandId`/`cycleKey`/`expectedVersion`) resolved under the house-first
+> lock.
 
 ### JavaScript/Vue
 

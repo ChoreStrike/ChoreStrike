@@ -46,7 +46,7 @@ async function openArcade(page: Page): Promise<void> {
 
 /**
  * Finish `count` seeded chores as one member (the admin member by default).
- * Not every seeded task has a completable occurrence at every wall-clock
+ * Not every seeded task has a completable cycle at every wall-clock
  * moment, so walk the active ones with an explicit solo split (the
  * completer takes part, Q-074-02), each room task at most once.
  */

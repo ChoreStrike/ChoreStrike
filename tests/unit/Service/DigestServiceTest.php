@@ -20,10 +20,7 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MemberPreference;
 use OCA\ChoreStrike\Db\MemberPreferenceMapper;
-use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -57,7 +54,6 @@ class DigestServiceTest extends TestCase {
 	private DigestSlotMapper&MockObject $slotMapper;
 	private DigestChangeMapper&MockObject $changeMapper;
 	private OccurrenceMapper&MockObject $occurrenceMapper;
-	private OccurrenceMemberMapper&MockObject $occMemberMapper;
 	private NotificationService&MockObject $notificationService;
 	private DigestScheduleService&MockObject $scheduleService;
 	private AppLogger&MockObject $appLogger;
@@ -76,12 +72,10 @@ class DigestServiceTest extends TestCase {
 	private ?array $dispatched = null;
 	private ?\Throwable $dispatchThrowable = null;
 	private int $claimsWon = 1;
-	/** @var array<string, array<int, OccurrenceMember>> */
-	private array $occMembersByOccurrence = [];
-	/** Occurrences planned on the reference day (test seam). */
-	private array $plannedOccurrences = [];
-	/** Occurrences with an agreed work appointment today (test seam). */
-	private array $workDateOccurrences = [];
+	/** Assignees by room task id (test seam). */
+	private array $assignees = [];
+	/** `cycle` block by room task id (test seam); absent = no cycle. */
+	private array $cycleBlocks = [];
 	private CompletedTaskMapper&MockObject $completionMapper;
 	private RoomTaskReadService&MockObject $readService;
 	private CompletedTask $currentCompletion;
@@ -97,7 +91,6 @@ class DigestServiceTest extends TestCase {
 		$this->slotMapper = $this->createMock(DigestSlotMapper::class);
 		$this->changeMapper = $this->createMock(DigestChangeMapper::class);
 		$this->occurrenceMapper = $this->createMock(OccurrenceMapper::class);
-		$this->occMemberMapper = $this->createMock(OccurrenceMemberMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->scheduleService = $this->createMock(DigestScheduleService::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
@@ -131,7 +124,8 @@ class DigestServiceTest extends TestCase {
 		$this->dispatched = null;
 		$this->dispatchThrowable = null;
 		$this->claimsWon = 1;
-		$this->occMembersByOccurrence = [];
+		$this->assignees = [];
+		$this->cycleBlocks = [];
 
 		$this->houseUserMapper->method('find')->willReturnCallback(
 			function (int $id): HouseUser {
@@ -166,15 +160,14 @@ class DigestServiceTest extends TestCase {
 				return $this->dueSlots[0];
 			}
 		);
-		$this->occurrenceMapper->method('findByHousePlannedBetween')->willReturnCallback(
-			fn (): array => $this->plannedOccurrences
-		);
-		$this->occurrenceMapper->method('findByHouseMemberWorkDate')->willReturnCallback(
-			fn (): array => $this->workDateOccurrences
-		);
-		$this->occMemberMapper->method('findByOccurrenceIds')->willReturnCallback(
-			fn (array $ids): array => array_intersect_key($this->occMembersByOccurrence, array_flip($ids))
-		);
+		$this->readService->method('assigneesByRoomTasks')->willReturnCallback(fn (): array => $this->assignees);
+		$this->readService->method('cycleFacts')->willReturnCallback(function (int $houseId, array $roomTasks): array {
+			$facts = [];
+			foreach ($roomTasks as $roomTask) {
+				$facts[$roomTask->getId()] = ['cycle' => null, 'block' => $this->cycleBlocks[$roomTask->getId()] ?? null];
+			}
+			return $facts;
+		});
 
 		$this->scheduleService->method('materializeSlotsForJobs')->willReturn(['materialized' => 0, 'reResolved' => 0]);
 		$this->scheduleService->method('expireMissedSlots')->willReturn(['expiredSlots' => 0]);
@@ -186,7 +179,6 @@ class DigestServiceTest extends TestCase {
 			$this->slotMapper,
 			$this->changeMapper,
 			$this->occurrenceMapper,
-			$this->occMemberMapper,
 			$this->notificationService,
 			$this->scheduleService,
 			new CalendarService(),
@@ -246,13 +238,10 @@ class DigestServiceTest extends TestCase {
 		return $row;
 	}
 
-	private function obligatedMemberRow(int $walletId = 500): OccurrenceMember {
-		$row = new OccurrenceMember();
-		$row->setOccurrenceId(21);
-		$row->setWalletId($walletId);
-		$row->setObligated(true);
-		$row->setDisposition(OccurrenceMember::DISPOSITION_ACTIVE);
-		return $row;
+	/** Room task 11 is mom's, open and planned for the slot's day. */
+	private function ownWorkPlannedToday(): void {
+		$this->assignees = [11 => ['mom']];
+		$this->cycleBlocks = [11 => ['cycleKey' => 'c5', 'state' => 'open', 'centreOn' => '2026-09-29']];
 	}
 
 	// ------------------------------------------------------------------
@@ -329,19 +318,8 @@ class DigestServiceTest extends TestCase {
 		$this->queuedBySlot['7:2026-09-29'] = [$this->queuedRow(1), $this->queuedRow(2)];
 		$this->dueSlots = [$this->slot()];
 
-		// One planned occurrence today with an obligated active member row.
-		$occurrence = new Occurrence();
-		$occurrence->setId(21);
-		$occurrence->setHouseId(1);
-		$occurrence->setRoomTaskId(11);
-		$occurrence->setScheduleRevId(1);
-		$occurrence->setOrdinal(1);
-		$occurrence->setKind(Occurrence::KIND_SCHEDULED);
-		$occurrence->setPlannedDate(new \DateTime('2026-09-29'));
-		$occurrence->setTimezone('UTC');
-		$occurrence->setSuspensionState(Occurrence::SUSPENSION_NONE);
-		$this->plannedOccurrences = [$occurrence];
-		$this->occMembersByOccurrence[21] = [500 => $this->obligatedMemberRow()];
+		// One own task whose window is open and which is planned today.
+		$this->ownWorkPlannedToday();
 		$this->membersById[7]->setWalletId(500);
 
 		$this->slotMapper->expects($this->once())->method('finalizeClaim')
@@ -363,20 +341,9 @@ class DigestServiceTest extends TestCase {
 		$this->prefsByKey['1:7'] = $this->pref();
 		$this->queuedBySlot['7:2026-09-29'] = [$this->queuedRow(1)];
 		$this->dueSlots = [$this->slot()];
-		// 2026-09-29 is a Tuesday; the occurrence would be planned today —
-		// but a free day contributes NOTHING to the task content.
-		$occurrence = new Occurrence();
-		$occurrence->setId(21);
-		$occurrence->setHouseId(1);
-		$occurrence->setRoomTaskId(11);
-		$occurrence->setScheduleRevId(1);
-		$occurrence->setOrdinal(1);
-		$occurrence->setKind(Occurrence::KIND_SCHEDULED);
-		$occurrence->setPlannedDate(new \DateTime('2026-09-29'));
-		$occurrence->setTimezone('UTC');
-		$occurrence->setSuspensionState(Occurrence::SUSPENSION_NONE);
-		$this->plannedOccurrences = [$occurrence];
-		$this->occMembersByOccurrence[21] = [500 => $this->obligatedMemberRow()];
+		// 2026-09-29 is a Tuesday; the task is planned today — but a free
+		// day contributes NOTHING to the task content.
+		$this->ownWorkPlannedToday();
 
 		$stats = $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'));
 
@@ -384,76 +351,36 @@ class DigestServiceTest extends TestCase {
 		$this->assertSame(['mom', 1, 7, '2026-09-29', 0, 1], $this->dispatched, 'free day: task count is zero, only org rides along');
 	}
 
-	public function testPass_SuspendedWork_IsNeutralAndNotCounted(): void {
+	/**
+	 * ADR-021: only own work that is planned for today and whose window is
+	 * open counts — not an upcoming or overdue window, not an open window
+	 * planned for another day, not someone else's or unassigned work.
+	 *
+	 * @dataProvider irrelevantWork
+	 */
+	public function testPass_WorkThatIsNotOwnAndPlannedToday_IsNotCounted(array $assignees, ?array $block): void {
 		$this->membersById[7] = $this->member();
 		$this->membersById[7]->setWalletId(500);
 		$this->prefsByKey['1:7'] = $this->pref();
 		$this->dueSlots = [$this->slot()];
-		$occurrence = new Occurrence();
-		$occurrence->setId(21);
-		$occurrence->setHouseId(1);
-		$occurrence->setRoomTaskId(11);
-		$occurrence->setScheduleRevId(1);
-		$occurrence->setOrdinal(1);
-		$occurrence->setKind(Occurrence::KIND_SCHEDULED);
-		$occurrence->setPlannedDate(new \DateTime('2026-09-29'));
-		$occurrence->setTimezone('UTC');
-		$occurrence->setSuspensionState(Occurrence::SUSPENSION_SUSPENDED);
-		$this->plannedOccurrences = [$occurrence];
-		$this->occMembersByOccurrence[21] = [500 => $this->obligatedMemberRow()];
-
-		$stats = $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'));
+		$this->assignees = [11 => $assignees];
+		$this->cycleBlocks = $block === null ? [] : [11 => $block];
 
 		// Both categories empty → no empty summary.
-		$this->assertSame(1, $stats['skipped']);
-		$this->assertNull($this->dispatched);
-	}
-
-	public function testPass_AgreedCatchUpToday_CountsEvenWhenPlannedAnotherDay(): void {
-		$this->membersById[7] = $this->member();
-		$this->membersById[7]->setWalletId(500);
-		$this->prefsByKey['1:7'] = $this->pref();
-		$this->dueSlots = [$this->slot()];
-		$occurrence = new Occurrence();
-		$occurrence->setId(22);
-		$occurrence->setHouseId(1);
-		$occurrence->setRoomTaskId(12);
-		$occurrence->setScheduleRevId(1);
-		$occurrence->setOrdinal(1);
-		$occurrence->setKind(Occurrence::KIND_SCHEDULED);
-		$occurrence->setPlannedDate(new \DateTime('2026-09-28')); // planned yesterday
-		$occurrence->setTimezone('UTC');
-		$occurrence->setSuspensionState(Occurrence::SUSPENSION_NONE);
-		$this->workDateOccurrences = [$occurrence];
-		$this->occMembersByOccurrence[22] = [500 => $this->obligatedMemberRow()];
-
-		$stats = $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'));
-
-		$this->assertSame(1, $stats['dispatched']);
-		$this->assertSame(['mom', 1, 7, '2026-09-29', 1, 0], $this->dispatched, 'the explicitly agreed catch-up counts');
-	}
-
-	/** @dataProvider irrelevantWork */
-	public function testPass_CompletedCoveredOrRescheduledWork_IsNotCounted(?int $completionId, ?int $coveredId, ?string $workDate): void {
-		$this->membersById[7] = $this->member();
-		$this->membersById[7]->setWalletId(500);
-		$this->prefsByKey['1:7'] = $this->pref();
-		$this->dueSlots = [$this->slot()];
-		$occurrence = new Occurrence();
-		$occurrence->setId(21);
-		$occurrence->setCompletionId($completionId);
-		$occurrence->setRoomTaskId(11);
-		$occurrence->setCoveredByCompletionId($coveredId);
-		$this->plannedOccurrences = [$occurrence];
-		$row = $this->obligatedMemberRow();
-		$row->setWorkDate($workDate === null ? null : new \DateTime($workDate));
-		$this->occMembersByOccurrence[21] = [$row];
 		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
 		$this->assertNull($this->dispatched);
 	}
 
 	public static function irrelevantWork(): array {
-		return [[42, null, null], [null, 42, null], [null, null, '2026-09-30']];
+		$today = ['cycleKey' => 'c5', 'state' => 'open', 'centreOn' => '2026-09-29'];
+		return [
+			'window not open yet' => [['mom'], ['state' => 'upcoming', 'centreOn' => '2026-09-29'] + $today],
+			'window ended' => [['mom'], ['state' => 'overdue', 'centreOn' => '2026-09-27'] + $today],
+			'open, planned for another day' => [['mom'], ['centreOn' => '2026-09-30'] + $today],
+			'asleep or done: no cycle' => [['mom'], null],
+			'someone else\'s task' => [['dad'], $today],
+			'unassigned task' => [[], $today],
+		];
 	}
 
 	public function testPass_SlotMovedAfterDueScan_RechecksTheFreshSchedule(): void {
@@ -517,26 +444,18 @@ class DigestServiceTest extends TestCase {
 		$this->prefsByKey['1:7'] = $this->pref();
 		$this->queuedBySlot['7:2026-09-29'] = [$this->queuedRow(1)];
 		$this->dueSlots = [$this->slot()];
-		$occurrence = new Occurrence();
-		$occurrence->setId(21);
-		$occurrence->setRoomTaskId(11);
-		$this->plannedOccurrences = [$occurrence];
-		$this->occMembersByOccurrence[21] = [$this->obligatedMemberRow()];
+		$this->ownWorkPlannedToday();
 		$this->visibleRoomTasks = [];
 		$this->assertSame(1, $this->service->processDueSlots(new \DateTime('2026-09-29 18:05:00 UTC'))['skipped']);
 		$this->assertNull($this->dispatched);
 	}
 
-	public function testPass_PausedToday_CatchUpFromAnotherPlannedDayIsSuppressed(): void {
+	public function testPass_AbsentToday_HasNoTaskContent(): void {
 		$this->membersById[7] = $this->member();
 		$this->membersById[7]->setWalletId(500);
 		$this->prefsByKey['1:7'] = $this->pref();
 		$this->dueSlots = [$this->slot()];
-		$occurrence = new Occurrence();
-		$occurrence->setId(21);
-		$occurrence->setRoomTaskId(11);
-		$this->workDateOccurrences = [$occurrence];
-		$this->occMembersByOccurrence[21] = [$this->obligatedMemberRow()];
+		$this->ownWorkPlannedToday();
 		$pause = new Pause();
 		$pause->setPauseGroupId(1);
 		$pause->setScope(Pause::SCOPE_HOUSE);

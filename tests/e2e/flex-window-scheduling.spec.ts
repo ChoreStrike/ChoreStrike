@@ -71,23 +71,17 @@ test.describe('Flex Window Scheduling', () => {
 		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
 	})
 
-	test('schedule planner section is accessible', async ({ page }) => {
+	// CS-PLAN-091 / ADR-021: the schedule planner (preview and apply of a
+	// generated plan) is retired; the weekly plan keeps its calendar.
+	test('the weekly plan has no schedule planner any more', async ({ page }) => {
 		await expect(async () => {
 			await openWeeklyPlan(page)
 		}).toPass({ timeout: 45000 })
 
-		await expect(page.getByTestId('schedule-planner')).toBeVisible()
-		// CS-PLAN-065: the owner plan preview is opt-in per selection.
-		await expect(page.getByTestId('preview-plan-button')).toBeVisible()
-	})
-
-	test('the plan preview requires an explicit task selection', async ({ page }) => {
-		await expect(async () => {
-			await openWeeklyPlan(page)
-		}).toPass({ timeout: 45000 })
-
-		await expect(page.getByTestId('preview-plan-button')).toBeDisabled()
-		await expect(page.getByTestId('planner-task-list')).toBeVisible()
+		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
+		await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
+		await expect(page.getByTestId('preview-plan-button')).toHaveCount(0)
+		await expect(page.getByTestId('apply-plan-button')).toHaveCount(0)
 	})
 
 	test('energy budget settings persist slider changes', async ({ page }) => {

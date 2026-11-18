@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration;
 
+use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -122,6 +123,10 @@ abstract class IntegrationTestCase extends TestCase {
 				'house_health' => $qb->createNamedParameter(100),
 				'created_at' => $qb->createNamedParameter($now),
 				'updated_at' => $qb->createNamedParameter($now),
+				// ADR-021 decision 12: the derived model owns everything a
+				// fixture house does, also work dated in the past. A test of
+				// the cutover sets its own day.
+				'cycles_from' => $qb->createNamedParameter('2000-01-01'),
 			]);
 		$qb->executeStatement();
 
@@ -213,23 +218,25 @@ abstract class IntegrationTestCase extends TestCase {
 	 * table (CS-PLAN-060 WP1, D2) — the legacy assigned_to_user_id column no
 	 * longer exists.
 	 *
-	 * CS-PLAN-072 WP1: the raw row insert is followed by the immutable
-	 * initial schedule (revision 1 + agreed occurrences) through the
-	 * common OccurrenceService generator — the timeline is the only
-	 * recurrence authority, so completions against fixture rows work.
+	 * ADR-021: the raw row insert is followed by the production start of
+	 * the room task — its first date (the seeded next_due, house-local)
+	 * anchors the derived window, so completions against fixture rows work.
+	 * A room task due in the past was mounted no later than that day: no
+	 * missed cycle predates its room task (CS-PLAN-091 WP-B1 review).
 	 *
 	 * @return int The room task ID
 	 */
 	protected function assignTaskToRoom(int $taskId, int $roomId, ?string $assignedToUserId = null, ?string $nextDue = null): int {
+		$now = date('Y-m-d H:i:s');
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_room_tasks')
 			->values([
 				'room_id' => $qb->createNamedParameter($roomId),
 				'task_id' => $qb->createNamedParameter($taskId),
-				'next_due' => $qb->createNamedParameter($nextDue ?? date('Y-m-d H:i:s')),
+				'next_due' => $qb->createNamedParameter($nextDue ?? $now),
 				'is_active' => $qb->createNamedParameter(1),
 				'was_claimed' => $qb->createNamedParameter(0),
-				'created_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
+				'created_at' => $qb->createNamedParameter($nextDue !== null && $nextDue < $now ? $nextDue : $now),
 			]);
 		$qb->executeStatement();
 
@@ -253,25 +260,18 @@ abstract class IntegrationTestCase extends TestCase {
 	}
 
 	/**
-	 * Materialize the immutable initial schedule for a fixture room task
-	 * (CS-PLAN-072 WP1) through the production generator. The schedule
-	 * anchors on the seeded next_due (the fixture's chosen first date).
+	 * Start a fixture room task as creation does (ADR-021): its seeded
+	 * next_due day becomes the first date of the derived window.
 	 */
 	protected function initializeScheduleForFixture(int $roomId, int $roomTaskId, int $taskId, ?string $assignedToUserId): void {
 		$houseId = $this->houseIdForRoomId($roomId);
-		$readService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
-		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
-		$taskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\TaskMapper::class);
-		$roomTaskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
-
-		$roomTask = $roomTaskMapper->find($roomTaskId);
-		$occurrenceService->initializeSchedule(
-			$houseId,
+		$timeZone = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class)->timeZoneForHouse($houseId);
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId);
+		\OC::$server->get(\OCA\ChoreStrike\Service\CycleService::class)->startUnderLock(
 			$roomTask,
-			$taskMapper->find($taskId),
-			$readService->timeZoneForHouse($houseId)->getName(),
-			$roomTask->getNextDue(),
-			$assignedToUserId !== null ? [$assignedToUserId] : [],
+			\OC::$server->get(\OCA\ChoreStrike\Db\TaskMapper::class)->find($taskId),
+			\OCA\ChoreStrike\Service\WindowService::todayKey($roomTask->getNextDue(), $timeZone),
+			$timeZone,
 			new \DateTime(),
 		);
 	}
@@ -284,44 +284,41 @@ abstract class IntegrationTestCase extends TestCase {
 	}
 
 	/**
-	 * Build the occurrence receipt for completing a fixture room task's
-	 * CURRENT canonical target (CS-PLAN-072 WP1): resolves the selection
-	 * (public key, version, token) write-free and generates a fresh
-	 * command UUID.
+	 * Build the receipt for completing a fixture room task's CURRENT cycle
+	 * (ADR-021 decision 4): the cycle key and cycle version the row shows,
+	 * resolved write-free, plus a fresh command UUID. The key is null for
+	 * a bonus task.
 	 *
-	 * @return array{0: string, 1: string, 2: int, 3: string} [commandId, occurrenceId, expectedVersion, selectionToken]
+	 * @return array{0: string, 1: ?string, 2: int} [commandId, cycleKey, expectedVersion]
 	 */
 	protected function completionReceiptFor(int $roomTaskId): array {
-		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
-		$roomTaskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
-		$roomTask = $roomTaskMapper->find($roomTaskId);
-		$houseId = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class)
-			->houseIdForRoom($roomTask->getRoomId());
-		$selection = $occurrenceService->selectionFor($roomTask, new \DateTime(), $houseId);
-		if ($selection === null) {
-			throw new \RuntimeException('No completable occurrence target for room task ' . $roomTaskId);
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId);
+		$readService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		$block = $readService->cycleFacts($readService->houseIdForRoom($roomTask->getRoomId()), [$roomTask])[$roomTaskId]['block'] ?? null;
+		if ($block === null || !isset($block['expectedVersion'])) {
+			throw new \RuntimeException('No completable cycle for room task ' . $roomTaskId);
 		}
-		return [
-			sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
-			$selection['occurrence']->toPublicKey(),
-			$selection['occurrence']->getVersion(),
-			$occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, null, $selection['workAppointment'] ?? null),
-		];
+		return [$this->newCommandId(), $block['cycleKey'] ?? null, $block['expectedVersion']];
+	}
+
+	/** A fresh command UUID. */
+	protected function newCommandId(): string {
+		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
 	}
 
 	/**
-	 * Complete a fixture room task's current canonical occurrence target
-	 * through the full receipt contract (CS-PLAN-072 WP1).
+	 * Complete a fixture room task's current cycle through the full
+	 * receipt contract.
 	 */
 	protected function completeOccurrence(\OCA\ChoreStrike\Service\CompletionService $service, int $houseId, string $userId, int $roomTaskId): array {
-		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
-		return $service->complete($houseId, $userId, $roomTaskId, $commandId, $occurrenceId, $expectedVersion, $selectionToken);
+		[$commandId, $cycleKey, $expectedVersion] = $this->completionReceiptFor($roomTaskId);
+		return $service->complete($houseId, $userId, $roomTaskId, $commandId, $cycleKey, $expectedVersion);
 	}
 
 	/**
 	 * Complete with an EXPLICIT actual-work split (WP3 §3.6): the
 	 * participants carry the actor, `allocationReviewed` covers a
-	 * deviation from the agreed proposal.
+	 * deviation from the default split.
 	 *
 	 * @param array<int, array{userId: string, sharePct: int}> $participants
 	 */
@@ -332,8 +329,71 @@ abstract class IntegrationTestCase extends TestCase {
 		int $roomTaskId,
 		array $participants,
 	): array {
-		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
-		return $service->complete($houseId, $userId, $roomTaskId, $commandId, $occurrenceId, $expectedVersion, $selectionToken, $participants, true);
+		[$commandId, $cycleKey, $expectedVersion] = $this->completionReceiptFor($roomTaskId);
+		return $service->complete($houseId, $userId, $roomTaskId, $commandId, $cycleKey, $expectedVersion, $participants, true);
+	}
+
+	/**
+	 * Record a closed cycle with explicit days (ADR-021 decision 5), as a
+	 * completion or the timeline job leaves it: the `done` row projects the
+	 * cycle facts frozen on its completion, a `missed` row stands alone.
+	 *
+	 * @param int[] $responsible Wallet ids the cycle counts for
+	 */
+	protected function insertClosedCycle(
+		int $houseId,
+		int $roomTaskId,
+		string $startKey,
+		string $endKey,
+		array $responsible = [],
+		?int $completionId = null,
+		string $completionClass = \OCA\ChoreStrike\Db\CompletedTask::CLASS_ON_TIME,
+		?string $cycleKey = null,
+	): int {
+		$cycleKey ??= 'd' . $endKey;
+		$row = new \OCA\ChoreStrike\Db\Cycle();
+		$row->setHouseId($houseId);
+		$row->setRoomTaskId($roomTaskId);
+		$row->setCycleKey($cycleKey);
+		$row->setWindowStartOn(new \DateTime($startKey . ' 00:00:00 UTC'));
+		$row->setWindowEndOn(new \DateTime($endKey . ' 00:00:00 UTC'));
+		$row->setWeekStart(new \DateTime(\OCA\ChoreStrike\Service\RecurrenceCalculator::mondayOf($endKey) . ' 00:00:00 UTC'));
+		$row->setTimezone('UTC');
+		$row->setOutcome($completionId === null ? \OCA\ChoreStrike\Db\Cycle::OUTCOME_MISSED : \OCA\ChoreStrike\Db\Cycle::OUTCOME_DONE);
+		$row->setCompletionId($completionId);
+		$row->setCompletionClass($completionId === null ? null : $completionClass);
+		$row->setEnergy(3);
+		$row->setResponsible(array_values($responsible));
+		$row->setCreatedAt(new \DateTime());
+		$id = (int)\OC::$server->get(\OCA\ChoreStrike\Db\CycleMapper::class)->insert($row)->getId();
+		if ($completionId !== null) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update('chorestrike_completed_tasks')
+				->set('cycle_key', $qb->createNamedParameter($cycleKey))
+				->set('completion_class', $qb->createNamedParameter($completionClass))
+				->set('window_start_on', $qb->createNamedParameter($startKey))
+				->set('window_end_on', $qb->createNamedParameter($endKey))
+				->where($qb->expr()->eq('id', $qb->createNamedParameter($completionId, IQueryBuilder::PARAM_INT)))
+				->executeStatement();
+		}
+		return $id;
+	}
+
+	/**
+	 * Move the first date of a fixture room task that was never completed
+	 * (house-local `Y-m-d`), as an edit of the first date does: the
+	 * window, the cycle version and the projection follow.
+	 */
+	protected function setFirstDate(int $roomTaskId, string $dayKey): void {
+		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId);
+		$readService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		\OC::$server->get(\OCA\ChoreStrike\Service\CycleService::class)->startUnderLock(
+			$roomTask,
+			\OC::$server->get(\OCA\ChoreStrike\Db\TaskMapper::class)->find($roomTask->getTaskId()),
+			$dayKey,
+			$readService->timeZoneForHouse($readService->houseIdForRoom($roomTask->getRoomId())),
+			new \DateTime(),
+		);
 	}
 
 	/**
@@ -367,28 +427,26 @@ abstract class IntegrationTestCase extends TestCase {
 			$houseId,
 			$actor,
 			(int)$id,
-			sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
+			$this->newCommandId(),
 			$expectedVersion,
 			null
 		);
 	}
 
 	/**
-	 * Complete through a REAL controller (CS-PLAN-072 WP1): injects the
-	 * occurrence receipt into the controller's request params and calls
+	 * Complete through a REAL controller: injects the cycle receipt into
+	 * the controller's request params and calls
 	 * the endpoint action. `$participants` adds an explicit actual-work
 	 * split (WP3 §3.6 — the actor takes part; Q-074-02).
 	 *
 	 * @param array<int, array{userId: string, sharePct: int}> $participants
 	 */
 	protected function completeViaController(object $controller, int $roomTaskId, ?array $participants = null): object {
-		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
-		$params = [
-			'commandId' => $commandId,
-			'occurrenceId' => $occurrenceId,
-			'expectedVersion' => $expectedVersion,
-			'selectionToken' => $selectionToken,
-		];
+		[$commandId, $cycleKey, $expectedVersion] = $this->completionReceiptFor($roomTaskId);
+		$params = ['commandId' => $commandId, 'expectedVersion' => $expectedVersion];
+		if ($cycleKey !== null) {
+			$params['cycleKey'] = $cycleKey;
+		}
 		if ($participants !== null) {
 			$params['participants'] = $participants;
 			$params['allocationReviewed'] = true;
@@ -522,6 +580,9 @@ abstract class IntegrationTestCase extends TestCase {
 		// Baselines/manual events have no completion reference.
 		$this->deleteFixtureRows('chorestrike_room_events', 'room_id', $this->createdRoomIds);
 		$this->deleteFixtureRows('chorestrike_chk_progress', 'room_task_id', $this->createdRoomTaskIds);
+		// ADR-021: closed cycles and per-cycle ticks hang on the room task.
+		$this->deleteFixtureRows('chorestrike_cycle_progress', 'room_task_id', $this->createdRoomTaskIds);
+		$this->deleteFixtureRows('chorestrike_cycles', 'room_task_id', $this->createdRoomTaskIds);
 		$this->deleteTimelineByRoomTaskIds($this->createdRoomTaskIds);
 		$this->deleteAssigneesByRoomTaskIds($this->createdRoomTaskIds);
 		// WP2 pause/receipt facts are house-scoped — remove them before the

@@ -53,7 +53,6 @@
 						:compact="compact"
 						@complete="$emit('complete', $event)"
 						@edit="$emit('edit', $event)"
-						@editDate="$emit('editDate', $event)"
 						@delete="$emit('delete', $event)"
 						@toggleExpand="toggleExpand"
 						@toggleSelect="toggleSelected"
@@ -134,7 +133,7 @@ export default {
 		},
 	},
 
-	emits: ['complete', 'edit', 'editDate', 'delete'],
+	emits: ['complete', 'edit', 'delete'],
 
 	setup(props, { emit }) {
 		const checklistStore = useChecklistStore()

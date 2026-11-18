@@ -470,6 +470,68 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * The completion inputs of derived windows (ADR-021 decision 1) for
+	 * many room tasks in two queries: the latest valid completion of each
+	 * (highest id; a date correction never reorders completions) and the
+	 * latest rule day any valid completion fulfilled — the day of a
+	 * `d<Y-m-d>` cycle key, or the planned day of a row from before the
+	 * derived model.
+	 *
+	 * @param int[] $roomTaskIds
+	 * @return array<int, array{id: int, workDay: ?string, cycleKey: ?string, fixedCentre: ?string}>
+	 *                                                                                               Room tasks without a valid completion are absent
+	 */
+	public function findCycleAnchorsByRoomTasks(array $roomTaskIds): array {
+		$roomTaskIds = array_values(array_unique(array_map('intval', $roomTaskIds)));
+		if ($roomTaskIds === []) {
+			return [];
+		}
+
+		$anchors = [];
+		$latestIds = [];
+		foreach (array_chunk($roomTaskIds, 500) as $chunk) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('room_task_id')
+				->selectAlias($qb->func()->max('id'), 'latest_id')
+				->selectAlias($qb->func()->max('occurrence_due'), 'max_due')
+				->selectAlias($qb->func()->max('cycle_key'), 'max_key')
+				->from($this->getTableName())
+				->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_INT_ARRAY)))
+				->andWhere($qb->expr()->isNull('undone_at'))
+				->groupBy('room_task_id');
+			$result = $qb->executeQuery();
+			foreach ($result->fetchAll() as $row) {
+				// `d…` sorts after `c…`, and ISO days sort by date.
+				$keyDay = str_starts_with((string)$row['max_key'], 'd') ? substr((string)$row['max_key'], 1, 10) : null;
+				$dueDay = $row['max_due'] !== null ? substr((string)$row['max_due'], 0, 10) : null;
+				$anchors[(int)$row['room_task_id']] = [
+					'id' => (int)$row['latest_id'],
+					'workDay' => null,
+					'cycleKey' => null,
+					'fixedCentre' => max($keyDay, $dueDay),
+				];
+				$latestIds[(int)$row['latest_id']] = (int)$row['room_task_id'];
+			}
+			$result->closeCursor();
+		}
+
+		foreach (array_chunk(array_keys($latestIds), 500) as $chunk) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('id', 'work_date', 'cycle_key')
+				->from($this->getTableName())
+				->where($qb->expr()->in('id', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_INT_ARRAY)));
+			$result = $qb->executeQuery();
+			foreach ($result->fetchAll() as $row) {
+				$roomTaskId = $latestIds[(int)$row['id']];
+				$anchors[$roomTaskId]['workDay'] = $row['work_date'] !== null ? substr((string)$row['work_date'], 0, 10) : null;
+				$anchors[$roomTaskId]['cycleKey'] = $row['cycle_key'] !== null ? (string)$row['cycle_key'] : null;
+			}
+			$result->closeCursor();
+		}
+		return $anchors;
+	}
+
+	/**
 	 * Mark a ledger row undone (WP5): stamps `undone_at` so the occurrence
 	 * stops being revertible and drops out of every D11-filtered read.
 	 */

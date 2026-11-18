@@ -57,6 +57,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setWorkZone(?string $workZone)
  * @method string|null getCompletionClass()
  * @method void setCompletionClass(?string $completionClass)
+ * @method string|null getCycleKey()
+ * @method void setCycleKey(?string $cycleKey)
+ * @method \DateTime|null getWindowStartOn()
+ * @method void setWindowStartOn(?\DateTime $windowStartOn)
+ * @method \DateTime|null getWindowEndOn()
+ * @method void setWindowEndOn(?\DateTime $windowEndOn)
  */
 class CompletedTask extends Entity implements JsonSerializable {
 	/** Completion classified inside its agreed window (CS-PLAN-072 WP1). */
@@ -68,10 +74,22 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** Voluntary actionable work (no planned-day obligation). */
 	public const CLASS_VOLUNTARY = 'voluntary';
 
+	/**
+	 * Done before or inside its derived window, a postponement included
+	 * (ADR-021 decision 5, D-091-02). Rows from before the derived model
+	 * keep `agreed` and `voluntary`; `late` means the same in both.
+	 */
+	public const CLASS_ON_TIME = 'on_time';
+
+	/** A bonus task: paid, outside every recognition (ADR-021 decision 8). */
+	public const CLASS_BONUS = 'bonus';
+
 	public const COMPLETION_CLASSES = [
 		self::CLASS_AGREED,
 		self::CLASS_LATE,
 		self::CLASS_VOLUNTARY,
+		self::CLASS_ON_TIME,
+		self::CLASS_BONUS,
 	];
 
 	/** @var int */
@@ -141,6 +159,21 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var string|null self::CLASS_* */
 	protected $completionClass;
 
+	/**
+	 * The cycle this completion fulfilled (ADR-021 decisions 2 and 4),
+	 * frozen with its final window in house-local days. NULL on rows from
+	 * before the derived model, which keep their occurrence key instead.
+	 *
+	 * @var string|null
+	 */
+	protected $cycleKey;
+
+	/** @var \DateTime|null */
+	protected $windowStartOn;
+
+	/** @var \DateTime|null */
+	protected $windowEndOn;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomTaskId', 'integer');
@@ -158,6 +191,9 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('workDate', 'date');
 		$this->addType('workZone', 'string');
 		$this->addType('completionClass', 'string');
+		$this->addType('cycleKey', 'string');
+		$this->addType('windowStartOn', 'date');
+		$this->addType('windowEndOn', 'date');
 	}
 
 	/**
@@ -189,6 +225,7 @@ class CompletedTask extends Entity implements JsonSerializable {
 			'occurrenceId' => $this->scheduleRevId !== null && $this->occurrenceOrdinal !== null
 				? $this->scheduleRevId . ':' . $this->occurrenceOrdinal
 				: null,
+			'cycleKey' => $this->cycleKey,
 			'workDate' => $this->workDate?->format('Y-m-d'),
 			'completionClass' => $this->completionClass,
 		];

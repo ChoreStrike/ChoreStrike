@@ -17,15 +17,13 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
  * Real-DB correction projection proofs. Late catch-up remains useful
- * actual work but does not become an on-time success for its past planned
- * day. The currently due occurrence can still advance the run.
+ * actual work but does not become an on-time success for the day its
+ * window ended. The cycle that is open today can still advance the run.
  *
- * Fixture model: weekly dynamic tasks anchored on distinct past days
- * materialize exactly ONE pending occurrence at their anchor — the
- * canonical selection resolves it as the catch-up target. (A daily rule
- * would open the frontier at a single pending occurrence too, but
- * completing a task's occurrence COVERS the older missed chain of the
- * same task, so distinct tasks keep the planned days independent.)
+ * Fixture model: daily tasks with distinct first dates each have ONE
+ * current cycle with a one-day window (ADR-021 decision 1) — a task done
+ * late moves on from the day of the work, so distinct tasks keep the
+ * days independent.
  */
 class RhythmProjectionTest extends IntegrationTestCase {
 	private array $cleanupRoomTaskIds = [];
@@ -95,7 +93,7 @@ class RhythmProjectionTest extends IntegrationTestCase {
 	 * Streak_UndoLateCatchUp_DoesNotRemoveIndependentOnTimeWork
 	 *
 	 * Undoing an older late catch-up never erases the independent on-time
-	 * completion of today's planned occurrence.
+	 * completion of today's cycle.
 	 */
 	public function testStreak_UndoLateCatchUp_DoesNotRemoveIndependentOnTimeWork(): void {
 		$f = $this->seedStreakFixture();
@@ -195,17 +193,14 @@ class RhythmProjectionTest extends IntegrationTestCase {
 	// ========== Helpers ==========
 
 	/**
-	 * Four daily dynamic chores anchored -3/-2/-1/today: each materializes
-	 * exactly one pending occurrence at its anchor with a ONE-DAY window —
-	 * an unfulfilled past day is a miss (the correction scenario), while
-	 * today's occurrence stays pending-neutral until its window closes.
+	 * Four daily chores with first dates -3/-2/-1/today: each has one
+	 * current cycle with a ONE-DAY window — a past day that was not done
+	 * is a red, missed cycle (the correction scenario), while today's
+	 * cycle stays open until its window closes.
 	 *
 	 * @return array{houseId: int, roomTaskIds: int[]}
 	 */
 	private function seedStreakFixture(): array {
-		// See the class docblock: weekly windows stay open for the whole
-		// interval (a past day is pending, never a miss), so the streak
-		// fixture uses DAILY dynamic chores with one-day windows.
 		$houseId = $this->createHouse('rp_owner', 'Rhythm House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
@@ -237,8 +232,8 @@ class RhythmProjectionTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * The completion whose recorded occurrence is due on the given day
-	 * (the anchored weekly tasks give a 1:1 planned-day mapping).
+	 * The completion that closed the cycle whose window ended on the given
+	 * day (the distinct first dates give a 1:1 mapping).
 	 *
 	 * @param int[] $roomTaskIds
 	 * @return array<string, mixed>
@@ -249,14 +244,14 @@ class RhythmProjectionTest extends IntegrationTestCase {
 		$qb->select('*')
 			->from('chorestrike_completed_tasks')
 			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
-			->andWhere($qb->expr()->gte('occurrence_due', $qb->createNamedParameter($dueDate)))
-			->andWhere($qb->expr()->lt('occurrence_due', $qb->createNamedParameter($nextDay)))
+			->andWhere($qb->expr()->gte('window_end_on', $qb->createNamedParameter($dueDate)))
+			->andWhere($qb->expr()->lt('window_end_on', $qb->createNamedParameter($nextDay)))
 			->orderBy('id', 'DESC')
 			->setMaxResults(1);
 		$result = $qb->executeQuery();
 		$row = $result->fetch();
 		$result->closeCursor();
-		self::assertIsArray($row, "completion for occurrence_due {$dueDate} must exist");
+		self::assertIsArray($row, "completion of the cycle ending {$dueDate} must exist");
 		return $row;
 	}
 

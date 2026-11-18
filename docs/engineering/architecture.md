@@ -125,7 +125,7 @@ ChoreStrike/
 │   │   │                       #   (CS-PLAN-070 WP8), RewardWalletBanner
 │   │   └── Scheduling/         # SelfAvailabilitySettings, AvailabilitySettings, AvailabilityEditModal,
 │   │                           #   EnergyBudgetSettings, BudgetAnalysis, WeekBudgetGrid,
-│   │                           #   SchedulePlanner, ScheduleCalendar, OvercapacityWarning
+│   │                           #   ScheduleCalendar, OvercapacityWarning
 │   ├── composables/            # useCelebration (confetti + SFX), useToasts,
 │   │                           #   useStoreReset (central identity reset, WP6/WP8),
 │   │                           #   useTaskCompletion (the one completion flow with the
@@ -247,15 +247,15 @@ generic message. All Pinia stores import `api` instead of calling
 ### Example: Completing a Task
 
 1. **User clicks "Complete" button** → `TaskList.vue`
-2. **Component dispatches store action** → `useRoomTasksStore.completeRoomTask(roomTaskId)`; the store resolves the shown occurrence receipt (`commandId` UUID + the cached row's `occurrence` block) and posts it (CS-PLAN-072 WP1)
+2. **Component dispatches store action** → `useRoomTasksStore.completeRoomTask(roomTaskId)`; the store resolves the receipt of the current cycle (`commandId` UUID + `cycleKey` and `expectedVersion` from the cached row's `cycle` block) and posts it (ADR-021 §4)
 3. **API request** → `POST /apps/chorestrike/api/v1/room-tasks/{id}/complete` with the closed-set receipt body
 4. **Controller** → `RoomTaskController::complete()` (validates the receipt closed set)
-5. **Service logic** → `CompletionService::complete()` (WP3 transaction aggregate, ADR-014) authorizes, executes-or-replays the `commandId` via `CommandService`, then under the documented lock order (house → room_task → room → memberships → wallets → completion rows): resolves the target via `OccurrenceService::resolveForCompletionUnderLock` (version + canonical-selection + `selectionToken` check), freezes the work evidence (`completed_tasks.work_*`, `total_energy`, `rate_minor`), writes the selected allocation (`work_shares` + `allocation_reviewed`), posts the exact wallet-union deltas to `wallet_entries` (`WalletService::postEntries`), appends the requested `room_events` delta, applies the timeline effects (`applyCompletionUnderLock`) and recomputes the personal recognition of every participant (`RhythmService` / `WeeklyGoalService`). `OccurrenceService` (ADR-013) is the single recurrence authority; `next_due`/`ideal_due_date`/`last_completed` are derived projections. Internally the authority is a facade over cohesive collaborators (RF-072-WP1-18): `OccurrenceRowFactory` (row drafts/windows), `OccurrenceReconcileService` (frontier/materialization/job), `OccurrenceSelectionService` (write-free selection derivation/DTO block), `OccurrenceRevisionService` (revision lifecycle), `OccurrenceCompletionService` (completion/undo seam) and `OccurrenceAgreementService` (C2 amendments/capacity).
+5. **Service logic** → `CompletionService::complete()` (WP3 transaction aggregate, ADR-014) authorizes, executes-or-replays the `commandId` via `CommandService`, then under the documented lock order (house → room_task → room → memberships → wallets → completion rows): resolves the target via `CycleService::resolveTargetUnderLock` (the current cycle derived by `WindowService`, its key and the cycle version; `STALE_TARGET`, `ALREADY_COMPLETED` or `SAME_DAY` otherwise), freezes the work evidence (`completed_tasks.work_*`, the cycle key and its final window, the classification, `total_energy` from the definition, `rate_minor`), writes the selected allocation (`work_shares` + `allocation_reviewed`), posts the exact wallet-union deltas to `wallet_entries` (`WalletService::postEntries`), appends the requested `room_events` delta, closes the cycle (`CycleService::closeUnderLock`: one `chorestrike_cycles` row, the `next_due` projection of the next cycle) and recomputes the personal recognition of every participant (`RhythmService` / `WeeklyGoalService`). `WindowService` (ADR-021) is the single recurrence authority; nothing stores a future appointment.
    - Exact minor-unit math throughout (`E * P` energy minor, `10 * E * P` coin minor at the frozen rate) — no coin integers, no combo/team-spark/boost dimensions (legacy economy retired, ADR-014)
    - The room cleanliness/monster change is the **saved requested effect**; the replayed cache clamps (`RoomReplayService`)
    - Medals are NOT awarded here — they stay read-triggered via `MedalService::checkAndAwardMedals`
 6. **Database update** → Multiple mappers (atomic within the transaction)
-7. **Response** → Updated task, the fresh selection `occurrence` block, `completionId`/`replay`, the frozen completion evidence + selected allocation, the caller's own wallet totals in minor units, the weekly-goal projection
+7. **Response** → Updated task, the `cycle` block of the next current cycle, `completionId`/`replay`, the frozen completion evidence + selected allocation, the caller's own wallet totals in minor units, the weekly-goal projection
 8. **Store update** → Every owning store reconciles from the one authoritative payload before any event fires (CS-PLAN-066 D10); a `409` triggers `refreshDerivedProjections()` instead of a blind retry
 9. **UI updates** → Room cleanliness/monster and wallet/contribution readouts update from the reconciled stores (no confetti coin mint; the WP3 cutover retired the reward-celebration payload)
 
@@ -273,6 +273,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `nextcloud_instance_id` (string) — multi-instance support
 - `name` (string)
 - `house_health` (int, 0-100)
+- `cycles_from` (date, nullable) — the first house-local day of the derived windows (ADR-021 §12): set at creation, or by the cutover step for a house from before it. Recognitions read stored occurrences before it and cycles from it on
 - `created_at`, `updated_at` (datetime)
 
 #### `chorestrike_wgoal_receipts`
@@ -307,7 +308,8 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `category` (string) — the DB-backed `is_template` column was removed (CS-PLAN-027 D7); catalog templates now live in `lib/Templates/`
 - `visibility_type` (string, default `public`) — `public` | `private` | `admin-only` (CS-PLAN-005); the sole visibility representation — the former `is_private` shim column was folded out (CS-PLAN-060 WP1 D1)
 - `owner_user_id` (string, nullable) — creator of private/admin-only tasks (Nextcloud UID)
-- `flex_days` (int), scheduling/recurrence fields, `created_at` (datetime)
+- `flex_days` (int), scheduling/recurrence fields, `fixed_month_day` (smallint 1–31, nullable: the day a fixed monthly rule runs on), `created_at` (datetime)
+- `is_voluntary` (boolean) — a bonus task: no window, no cycle (ADR-021 §8)
 - Index `idx_tasks_visibility` on `(visibility_type, owner_user_id)`
 
 > **Visibility matrix:** `public` = visible to all house members; `private` = visible only to `owner_user_id`; `admin-only` = visible only to house owners. Enforced in `TaskMapper::findVisibleByHouse()`, `TaskController::index()`/`show()`/`complete()`, and on mutation in `TaskService::deleteTask()`/`updateTask()` (service-side matrix, CS-PLAN-031 CR-SVC-17) with controller gates in `TaskController::delete()`/`update()` (anti-enumeration 404s).
@@ -315,17 +317,22 @@ summary below covers the core tables. Column types map to the entity PHP type
 #### `chorestrike_room_tasks` (task instances scheduled into a room)
 - `id` (bigint, PK)
 - `room_id` (bigint, FK), `task_id` (bigint, FK)
-- `next_due` (datetime), `last_completed` (datetime, nullable)
+- `next_due` (datetime), `last_completed` (datetime, nullable) — `next_due` is a **projection** of the current window's last day for the list queries that sort and filter by it; every command that changes a window updates it in its own transaction and the timeline job repairs what the passing of time changes (ADR-021 §3)
+- `anchor_on` (date, nullable) — the first date of an after-completion or one-time task until a valid completion anchors it, and the day a fixed rule counts from
+- `cycle_key` (string 40, nullable), `postpone_count` (smallint), `postpone_days` (int) — the postponement of the cycle named by `cycle_key` (written from WP-B3 on)
+- `cycle_version` (bigint) — bumps with every change of the current cycle; the staleness guard of the completion receipt
+- `sleeping_since` (datetime, nullable), `wake_on` (date, nullable) — sleeping tasks (written from WP-B4 on)
 - `is_active` (boolean), `created_at` (datetime)
 - claim fields (`claimed_by_user`, `was_claimed`, `original_assignee`, `claimed_at`) — the live overdue-takeover/claim feature; the legacy single-assignee column (`assigned_to_user_id`) and the abandoned group-assignment remnants (`assignment_type`, `assigned_to_group`, `assigned_by_user_id`, `assigned_at`) were folded out — `chorestrike_task_assignees` is the canonical assignee store (CS-PLAN-060 WP1 D2/D9)
-- `ideal_due_date` (datetime, nullable) — drives the early-completion bonus
+- `ideal_due_date` (datetime, nullable) — projection of the planned day of the current window
 
 #### `chorestrike_house_users` (membership + gamification state)
 - `id` (bigint, PK)
 - `house_id` (bigint, FK), `nextcloud_user_id` (string), `display_name` (string)
 - `role` (string: `owner`/`member`/`child`), `joined_at`, `last_activity` (datetime, nullable)
 - `contribution_minor` (bigint) — lifetime work in exact minor units (100 per energy); leaderboard/fairness/title signal
-- `current_streak` (int), `longest_streak` (int) — derived records recomputed from the valid planned-day history (WP3 `RhythmService`, ADR-014)
+- `current_streak` (int), `longest_streak` (int) — derived records: the base below plus the cycles since the cutover (`RhythmService`, ADR-014, ADR-021 §12)
+- `streak_base`, `longest_streak_base` (int, nullable) — the streaks a member held when the derived windows started (D-091-04)
 - `scheduling_preferences` (json) — weekday availability etc.
 - `selected_title_pack` (string, nullable), `unlocked_titles` (json) — role-title state (CS-PLAN-006)
 - `wallet_id` (bigint, nullable) — the member's wallet binding (WP0/WP3)
@@ -341,9 +348,10 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `id` (bigint, PK)
 - `room_task_id` (bigint, FK), `user_id` (bigint, FK) — the completer house user (immutable audit)
 - `completed_at` (datetime, immutable), `undone_at` (datetime, nullable)
-- `schedule_rev_id`, `occurrence_ordinal` — the attributed occurrence identity (ADR-013)
+- `cycle_key` (string 40, nullable), `window_start_on`, `window_end_on` (date, nullable) — the cycle the completion closed and its final window, frozen (ADR-021 §3); null for bonus work and for completions from before the derived windows
+- `completion_class` (string) — frozen at completion: `on_time`, `late` or `bonus`; `agreed`, `late`, `voluntary` on completions of the occurrence timeline
+- `schedule_rev_id`, `occurrence_ordinal`, `occurrence_due` — the occurrence identity and planned date of a completion from the occurrence timeline (ADR-013); not written any more
 - `work_date` (date), `work_zone` (string) — house-local date + zone
-- `occurrence_due` (date) — the occurrence's planned date
 - `total_energy` (int, frozen at completion), `rate_minor` (int — coin minor per energy, frozen)
 - `completion_version` (int), `allocation_revision` (int) — optimistic concurrency + selected allocation pointer
 - Corrections never rewrite these facts: attribution appends a new allocation
@@ -363,7 +371,9 @@ summary below covers the core tables. Column types map to the entity PHP type
 |-------|---------|--------|
 | `chorestrike_minigame_scores` | Minigame scores (play-only economy since WP3 — no boosts) | `MinigameScore` |
 | `chorestrike_chk_items` | Task checklist template items (Version1005 name) | `TaskChecklistItem` |
-| `chorestrike_chk_progress` | Per-occurrence checklist progress keyed by `(schedule_rev_id, ordinal, item_id)` (WP1) | `RoomTaskChecklistProgress` |
+| `chorestrike_cycles` | Closed cycles (ADR-021 §3, D-091-17): one row per room task and cycle key under a unique key — `done` (projects the cycle facts of its completion; an undo deletes it) or `missed` (a fixed-day cycle whose window ended, written once by the timeline job); final window, week, outcome, class, energy and the wallets it counted for | `Cycle` |
+| `chorestrike_cycle_progress` | Sub-task ticks per cycle, unique `(room_task_id, cycle_key, checklist_item_id)`; the ticks of a closed cycle stay | `CycleProgress` |
+| `chorestrike_chk_progress` | Checklist progress keyed by an occurrence `(schedule_rev_id, ordinal, item_id)` — history; no writer since ADR-021 | `RoomTaskChecklistProgress` |
 | `chorestrike_task_assignees` | Canonical multi-assignee join table (room-task ↔ Nextcloud user) (CS-PLAN-002; sole assignee store since CS-PLAN-060 WP1 D2) | `TaskAssignee` |
 | `chorestrike_commands` | CommandService command log (house, actor, UUID, action, payload hash, result refs) — the execute-or-replay/conflict authority (WP3 generalized the receipt to every mutation) | `CommandReceipt` |
 | `chorestrike_wallets` | Persistent per-house work wallets (WP0/WP3: one per member, binding under lock; survive departure, never re-bind erased facts; cached booked/reserved/available + funding-hold watermark) | `Wallet` |
@@ -371,10 +381,10 @@ summary below covers the core tables. Column types map to the entity PHP type
 | `chorestrike_work_shares` | Per-completion allocation revisions (wallet, share pct, energy/coin minor, actor, allocation_reviewed) — every selected revision auditable | `WorkShare` |
 | `chorestrike_completion_revs` | Append-only completion audit chain (revision counters, actor house-user id, action complete/attribution/undo, bounded reason_code) | `CompletionRevision` |
 | `chorestrike_room_events` | Journaled room truth (baseline/requested-delta/manual-delta/absolute-reset, command UUID, `(effective_at, id)` order, saved baselines; the room cache is a replayed projection) | `RoomEvent` |
-| `chorestrike_schedule_revs` | Immutable schedule revisions (cadence/window defaults, agreed frontier) — WP1 timeline authority | `ScheduleRevision` |
-| `chorestrike_occurrences` | Durable occurrence rows (public key `rev:ordinal`, saved windows, energy: current while open, frozen once completed, suspension state/evidence, restart links) | `Occurrence` |
-| `chorestrike_occ_members` | Per-occurrence participant facts (role, obligation, exact share, agreed work appointment, active/released/excused disposition) | `OccurrenceMember` |
-| `chorestrike_agreements` | Agreement evidence log (kind, actor, old/new state, consent, pause_ref) | `Agreement` |
+| `chorestrike_schedule_revs` | Schedule revisions of the occurrence timeline (cadence/window defaults, agreed frontier) — history; no writer since ADR-021, read by the cutover step | `ScheduleRevision` |
+| `chorestrike_occurrences` | Stored occurrences (public key `rev:ordinal`, saved windows, energy, suspension state/evidence) — history; no writer since ADR-021. The recognitions read them for the time before `houses.cycles_from` | `Occurrence` |
+| `chorestrike_occ_members` | Per-occurrence participant facts (role, obligation, exact share, disposition) — history, read with the stored occurrences | `OccurrenceMember` |
+| `chorestrike_agreements` | Agreement evidence log (kind, actor, old/new state, consent, pause_ref) — history; no writer since ADR-021, still anonymized on account erasure | `Agreement` |
 | `chorestrike_pauses` | Revisioned pause groups (personal/house scope, requested/acknowledged/rejected/cancelled states, ranges, illness flag) | `Pause` |
 | `chorestrike_reward_items` | Owner-administered catalog wishes (WP7: title/description CONTENT, positive `price_minor`, archived flag, optimistic version, nullable creator membership/wallet provenance; archived, never deleted) | `RewardItem` |
 | `chorestrike_reward_requests` | C4 request lifecycle (WP7: requester wallet identity, frozen title/description/price snapshot, state, version, approval provenance incl. role revision, stored settlement/refund entry references) | `RewardRequest` |
@@ -714,17 +724,12 @@ does not mark that result as ready.
     weekdayAvailability: {},  // current user's weekly availability
     maxDailyTasks: Infinity,  // null (unset) from the API → Infinity (unlimited, D5)
     loading: false,
-    error: null,
-    planStatus: 'idle',       // idle|loading|ready|applying|applied|refreshFailed|stale|error
-    planPreview: null,        // last preview payload (changes/unchanged/unplaced/capacity/warnings)
-    planInput: null,          // the exact normalized input the preview was computed from
-    planCommandId: null,      // receipt UUID: minted per preview, RETAINED across apply retries (WP2 §3.5)
-    planConsent: false        // explicit owner consent attestation; reset per fresh preview, kept across 409 retries (WP2 §3.3.2)
+    error: null
   },
   getters: {
     totalWeeklyEnergy(),
     getCapacityForDay(),
-    plannedEnergyForDay(),
+    plannedEnergyForDay(),         // energy of the cycles planned for a day (cycle.centreOn)
     overcapacityDays()
   },
   actions: {
@@ -732,12 +737,6 @@ does not mark that result as ready.
     saveWeeklyPreferences(),       // personal bulk PUT — cannot change maxDailyTasks (D5)
     fetchMemberAvailability(),
     updateMemberPreferences(),     // owner member PUT (optionally maxDailyTasks)
-    previewPlan(),                 // POST /scheduling/suggestions (read-only, sequenced)
-    markPlanStale(),
-    setPlanConsent(),              // records/clears the consent attestation for the current preview
-    applyPlan(),                   // POST /scheduling/apply (input + previewVersion + commandId + consent) + reconciliation + refresh
-    refreshAfterApply(),
-    resetPlan(),
     initializeScheduling(),
     clearError(),
     reset()
@@ -745,17 +744,11 @@ does not mark that result as ready.
 }
 ```
 
-> Plan-failure state is deliberately scoped: `previewPlan`/`applyPlan` never
-> set the shared view-wide `error` (SchedulingView replaces its whole content
-> on that field; the own days and energy left that page for *Settings → Planning*,
-> where a failed read or save is reported in place, CS-PLAN-090 WP-D) — the planner component carries its own status banner and
-> toasts (CS-PLAN-065 §3.4). After a committed apply, the store reconciles
-> the returned room tasks into `useRoomTasksStore` caches, refetches the
-> filtered-daily/overdue slices and the cached range window, then emits
-> `chorestrike:schedule-applied` for TodayView/CalendarView local reloads.
-> The room-task store keeps per-resource request sequences on the
-> filtered-daily and range readers so a pre-apply response can never
-> overwrite post-apply refreshed results.
+> The owner's preview and apply went with ADR-022 (CS-PLAN-091 WP-B1): nothing
+> is saved as a plan. The store keeps the preferences and the load view; the
+> live suggestion of WP-C reads them. The room-task store keeps per-resource
+> request sequences on the filtered-daily and range readers so an older
+> response can never overwrite a newer one.
 
 ## Notifications (Nextcloud bell + mobile push)
 
@@ -793,7 +786,7 @@ without shifting the slot. The organizational queue
 (`chorestrike_digest_changes`) coalesces per
 (membership, object, target slot) with identity rows written inside the
 source transactions (`CompletionService` takeover,
-`AgreementService` recordings, `PauseService` decisions).
+`PauseService` decisions).
 
 ### Daily job pass
 
@@ -1015,42 +1008,68 @@ on; the domain behavior stays dormant until its owning package lands.
   placeholder; a recreated same-UID account gets fresh ids and cannot
   rebind prior data.
 
-### Aggregate Idiom: Scheduling Preview/Apply (CS-PLAN-065, ADR-012)
+### Aggregate Idiom: Derived Due Windows (CS-PLAN-091 WP-B1, ADR-021)
 
-`SchedulePlanService` owns the owner-only plan aggregate: a deterministic,
-write-free **preview** (`POST /scheduling/suggestions`) whose content
-fingerprint (`previewVersion`, SHA-1 over canonically sorted request + row
-state + member roles/preferences + timezone + capacity rows + proposal) is
-confirmed by **apply** (`POST /scheduling/apply`).
+Every room task has **one current cycle**, computed on read from its rule and
+a few stored inputs. Nothing materializes a future appointment; the owner's
+preview/apply plan (ADR-012) and the occurrence agreements (ADR-013) are
+retired, their tables stay as history.
 
-- **Lock order (a subsequence of the single house-first order, CS-PLAN-071 —
-  supersedes the ADR-011/012 two-family split):** `house → room_task
-  (ascending ids) → task definition (ascending ids) → house_user (ascending
-  ids) → assignee writes`. All writers — including completion/undo, now
-  `house → room_task → room → house_user` — enter through the house lock and
+- **`WindowService`** — the single recurrence authority, pure reads. From
+  the definition (`CycleRule`: after completion, fixed weekdays, fixed day of
+  the month, one-time, bonus; interval, flex days, bounds), the room task
+  (`anchor_on`, postponement, sleep state) and its valid completions
+  (`CycleHistory`, one grouped query per batch) it derives the `CurrentCycle`:
+  key, planned day and window in house-local days. An after-completion or
+  one-time cycle hangs on its first date (`d<Y-m-d>`) until a valid completion
+  fulfils it, then on the latest valid completion (`c<completionId>`, the
+  highest id, D-091-26). A fixed rule yields its rule days from the anchor;
+  a cycle stays current until it is done, or until its window has ended and
+  the next one has opened. It also builds the `cycle` block of every row and
+  the cycles of a calendar range. Lists, Today, the calendar, the completion
+  and the job read windows only through it.
+- **`CycleService`** — the writers, all under the caller's house-first locks:
+  `resolveTargetUnderLock` (the completion's receipt check; it first records
+  the fixed cycles that stopped being current and the job had not reached,
+  D-091-43), `closeUnderLock` / `reopenUnderLock` (the `done` row of a
+  completion and its removal by an undo, which records a fixed cycle that does
+  not become current again as missed), `startUnderLock` (the first date),
+  `ruleChangedUnderLock` (the anchor policy of a rule edit, D-091-44: a fixed
+  rule whose days change is anchored on the centre of the replaced rule's
+  current cycle, so parity and the monthly day stay) and `changedUnderLock`,
+  which every window-changing command ends with: it bumps
+  `cycle_version`, ends a task that has no cycle left and projects `next_due`
+  (last day of the window) and `ideal_due_date` (planned day).
+  `advanceHouse()` is the timeline job's pass: a write-free batch check finds
+  the room tasks that need work; each gets its own house-first transaction
+  that records the fixed-day cycles that stopped being current as `missed` —
+  `CycleMapper::insertIfAbsent` under the unique key, so concurrent passes
+  write each cycle once — and repairs the projection. An after-completion
+  task is never missed: it stays one red, overdue cycle until it is done.
+- **`RecognitionFactsService`** — the one reader of what the weekly goal, the
+  rhythm and the ranking count (`RecognitionFact`), from two sources split at
+  the house's `cycles_from` day so nothing counts twice: stored occurrences
+  whose window ended before it (read as stored), and from it on the closed
+  cycles plus the open current cycle of every active room task. A cycle
+  counts in the week its final window ends and for the assignees it had when
+  it closed; an open red cycle counts as missed while it is open. The rhythm
+  continues from `streak_base` (D-091-04).
+- **Lock order (the single house-first order, CS-PLAN-071):** `house →
+  room_task (ascending ids) → task definition (ascending ids) → house_user
+  (ascending ids) → assignee writes`; completion/undo take `house → room_task
+  → room → house_user`. All writers enter through the house lock and
   serialize; no ordering cycle can form.
-- **Never apply against drifted state:** apply recomputes the identical plan
-  from freshly locked rows; any fingerprint mismatch is a `409 CONFLICT`
-  with zero writes. Two applies of one preview serialize into one commit and
-  one clean conflict.
-- **Planning rules** (contract detail in [ADR-012](../adr/ADR-012-actionable-household-scheduling.md)
-  and [`docs/api/README.md`](../api/README.md)): legal recurrence/flex slots
-  first, eligibility before capacity, availability/energy/child limits as
-  hard constraints, claimed rows untouched. WP2 (CS-PLAN-073) refined the
-  capacity rules: preserved/overridden JOINT sets are validated as the full
-  proposed exact-share vector (every member with their own share), a
-  same-day replacement removes exactly the row's old allocation before the
-  check, and apply is a CommandService command carrying the receipt
-  `commandId` and the owner's explicit `consent: true` attestation (fingerprint
-  v2 additionally covers the house pause/agreement facts and the house-local
-  evaluation day — CR-SVC-64 midnight crossings are a write-free 409 before
-  the relative-date rejection).
 - **Mapper lock primitives:** `RoomTaskMapper::lockForUpdate` /
   `HouseUserMapper::findForUpdate` / `HouseMapper::findForUpdate` exist as
   the MySQL/PostgreSQL `FOR UPDATE` + SQLite self-assignment pattern;
   `TaskMapper::lockForUpdate` follows the same shape. Any new writer that
   targets rows these aggregates lock must be audited against the order
   above before it ships.
+- **Cutover (`Version1036`, data only):** a populated installation gets
+  `cycles_from` = the house-local day of the update (D-091-41), the streak
+  bases, the anchor of every room task with a live schedule (none where a
+  valid completion anchors, D-091-27) and the monthly day of fixed monthly
+  definitions. It rewrites no stored fact and only fills empty columns.
 
 ### Aggregate Idiom: Work Accounting, Corrections & Replay (CS-PLAN-074 WP3, ADR-014)
 
@@ -1070,17 +1089,17 @@ replay.
   repeated effects, a changed payload under the same UUID conflicts (CR-SVC-64).
 - **`CompletionService`** — the completion/undo/attribution aggregates.
   Completion freezes the work evidence (`completed_tasks.work_*`,
-  `total_energy`, `rate_minor`, occurrence identity) and writes the selected
+  `total_energy`, `rate_minor`, the cycle facts) and writes the selected
   allocation (`work_shares` per revision, `allocation_reviewed` evidence).
   **Undo** reverses the latest selected allocation revision exactly once —
-  wallet union deltas keyed by wallet id, the occurrence completion release,
+  wallet union deltas keyed by wallet id, the reopening of the closed cycle,
   the room replay and the recognition recompute. **Attribution**
   (`PUT /completions/{id}/attribution`) rewrites the selected allocation for
   completer/owner authority with the explicit deviation confirmation; the
   union is built from the **share rows by wallet id**, so a departed
   participant's retained wallet is always part of the reversal and a
   completion pays out exactly the frozen total. The frozen work facts, the
-  room journal and the occurrence identity stay immutable under correction;
+  room journal and the cycle facts stay immutable under correction;
   the audit chain (`completion_revs`) is append-only and a departed-not-erased
   actor renders as a localized placeholder.
 - **`WalletService`** — the money seam: one wallet per member (binding under
@@ -1097,12 +1116,12 @@ replay.
   (the correction execution time never becomes `last_cleaned`); a later reset
   stays authoritative over earlier corrections; the room cache columns are
   derived projections (`resyncRoomCache`), never the source of truth.
-- **`RhythmService` + `WeeklyGoalService`** — the recognition projections:
-  streaks recompute from the valid planned-day history (per-day outcomes:
-  fulfilled / pending-neutral / expired-miss; a correction shrinks the
-  longest record only to the corrected valid-history maximum), the weekly
-  goal evaluates the union of due and validly completed room tasks per
-  house-local week. No cached increment/decrement corrections anywhere.
+- **`RhythmService` + `WeeklyGoalService`** — the recognition projections
+  over `RecognitionFactsService`: streaks recompute from the streak base and
+  the per-day outcomes of the cycles since the cutover (kept / still open /
+  missed; a correction shrinks the longest record only to the corrected
+  maximum), the weekly goal evaluates the facts of one house-local week. No
+  cached increment/decrement corrections anywhere.
 - **`EffortAllocationService` / `TaskAccessPolicy`** — exact minor-unit share
   math (`E * P` energy minor, `10 * E * P` coin minor at the frozen rate) and
   the viewer-scoped authorization matrix reused by every aggregate.
@@ -1111,9 +1130,9 @@ replay.
 - **`RoomTaskReadService`** — the batched instance-read/enrichment cluster:
   house-/room-/scope-wide fetches, the visibility matrix (batched task +
   assignee reads), `{roomTask, task, room}` row assembly (the single owner of
-  the daily enrichment), filtered-daily ("My Day"), due-today/overdue rows and
-  the house timezone resolution (CS-PLAN-066 D1 one-owner rule; unchanged by
-  WP3).
+  the daily enrichment), the batched `cycle` blocks and the status derived
+  from them, filtered-daily ("My Day"), due-today/overdue rows and the house
+  timezone resolution (CS-PLAN-066 D1 one-owner rule).
 - **`CompletionPostCommitService`** — the guarded post-commit boundary:
   weekly-goal read and notification dispatches; failures are logged and
   failure-isolated, never failing a committed aggregate.
@@ -1130,69 +1149,34 @@ keeps the draft); `UndoSnackbar` remains the completion-state restore surface
 from TodayView; `src/utils/minorUnits.js` renders exact minor units (no Coin
 column anywhere).
 
-### Aggregate Idiom: Agreements, Pauses & Capacity (CS-PLAN-073 WP2, ADR-013 §WP2)
+### Aggregate Idiom: Absences (CS-PLAN-073 WP2, ADR-020, ADR-021 §5)
 
-The WP2 surfaces keep the single house-first lock order and the CommandService
-receipt convention; every command authorizes BEFORE the receipt replay and
-commits domain facts, versions, evidence and the receipt in ONE transaction:
+The absence commands keep the single house-first lock order and the
+CommandService receipt convention; every command authorizes BEFORE the receipt
+replay and commits domain facts, versions and the receipt in ONE transaction.
 
-- **`AgreementService`** — the owner-recorded agreement command aggregate
-  (`occurrence#amend / catch-up / restart`): closed payload validation,
-  receipt identity over the ACTION plus every normalized semantic input
-  (date, canonical participant set, work appointment), the command-boundary
-  staleness gates (unfulfilled target → expected version → recomputed
-  authoritative `selectionToken` → effective projection-stamped suspension)
-  and the whole-day capacity gates. Capacity/consent validation follows the
-  arrangement the writer will actually persist: date-only amendments and
-  catch-ups without a participant payload resolve the CONCRETE active
-  occurrence members under the lock (`assertArrangedDayCapacity`,
-  RF-073-WP2-27 — revision defaults remain the basis only for virtual
-  derivations and the restart successor), and a participant write re-derives
-  the effective suspension from the new rows so an explicit feasible
-  agreement resumes a suspended occurrence with persisted facts agreeing
-  (RF-073-WP2-24). Date amendments move EXACTLY the resolved
-  occurrence (`amendOccurrenceDateForTargetUnderLock`) and report the
-  resulting version; the self-selecting writer variant remains for the
-  planner's "next obligation" semantics.
-- **`OccurrenceAgreementService`** — the writer set: participant amendments
-  persist neutral releases (former active members keep a `released` row with
-  their role/share snapshot, obligation dropped — one row per wallet) and
-  derive the evidence kind from the actual responsibility change
-  (`handover` only when the active responsible set changes); catch-up
-  appointments (date + zone) ride the replaced rows; every writer bumps the
-  occurrence version and records `agreements` evidence with the consent
-  attestation.
-- **`PauseService` + `PauseProjectionService`** — revisioned pause groups and
-  the projection math: only recognized (acknowledged) revisions have effects,
-  resolved with PER-GROUP PRECEDENCE — the latest acknowledged revision
-  governs every date from its next-local-day decision boundary (derived from
-  the persisted `updated_at` decision fact), so shortenings remove their
-  superseded future coverage (RF-073-WP2-23) while pending/rejected
-  revisions govern nothing; an ordinary recognition excuses only when its
-  decision predates the obligation's original exclusive deadline
-  (RF-073-WP2-25 — the retrospective-illness marker is the sole exception,
-  and reads, command writes and job materialization apply the same gate).
-  Pauses of different groups compose as a union with full per-pause
-  provenance (each covering pause owns an evidence row with its
-  `pause_ref`); suspension triggers when ANY active obligated participant is
-  covered — joint work suspends as a whole until an explicit feasible
-  agreement resumes it, while a helper-only pause releases just that
-  commitment (RF-073-WP2-24). Materialized occurrences resolve participants
-  from their concrete member rows and virtual twins from the saved revision
-  defaults, deriving identical facts (RF-073-WP2-26); work-appointment
-  derivation runs over the member snapshots INDEPENDENTLY of pause presence.
-  The viewer list is an explicit field whitelist — personal reason and
-  illness marker are self/owner data in every state (RF-073-WP2-28).
-  Departure cancels pending personal
-  requests and stops future personal effects (Q-073-03).
-- **`DailyCapacityService`** — the whole-day minor-unit evaluator shared by
-  the planner, the agreement gates and the pause projection: exact shares,
-  occurrence-identity dedupe, frozen energies from the SAVED occurrence
-  (INNER join — no mutable-definition fallback), saved-zone time basis,
-  suspended-consumes-nothing, helper commitments included, and
-  `assertCommitmentsFit(..., $replacedOccurrence)` which removes the replaced
-  allocation before testing new commitments. `withSharedCollection()` scopes
-  ONE batched collection per evaluation pass (no cross-pass memo staleness).
+- **`PauseService`** — revisioned pause groups (personal and house scope):
+  enter, approve/reject a request from before ADR-020, shorten, delete and
+  retrospective illness. An absence writes nothing on the work: no window
+  moves, no cycle version changes, and the work stays possible. The viewer
+  list is an explicit field whitelist — personal reason and illness marker
+  are self/owner data in every state (RF-073-WP2-28). Departure cancels
+  pending personal requests (Q-073-03).
+- **`PauseProjectionService`** — the projection math: only recognized
+  (acknowledged) revisions have effects, resolved with PER-GROUP PRECEDENCE —
+  the latest acknowledged revision governs every date from its next-local-day
+  decision boundary, so a shortening or deletion frees the following days
+  while today's recognized excuse stays (RF-073-WP2-23). For derived windows
+  `walletsAbsentThroughout` decides **on read**: a window that lies entirely
+  inside the absence of a responsible member is neutral for that member —
+  neither kept nor missed (D-091-03) — also when the absence was entered
+  after the window ended. It is asked for the members the window counted
+  for, so a closed cycle keeps its neutrality after a departure (D-091-33).
+  `excusedWalletsOn` keeps the timeliness rule for the digest's day view.
+- **Capacity** refuses nothing (ADR-022): the day limit of a child only trims
+  the unassigned work it is offered. The scheduling view shows the planned
+  energy of the current cycles against the budgets until WP-C replaces it
+  with the live suggestion (D-091-29).
 
 ### Aggregate Idiom: Reward Catalog & Request Lifecycle (CS-PLAN-070 WP7, ADR-017)
 
@@ -1276,6 +1260,15 @@ collaborators). Re-measured in full on 2026-11-15 on the `0.8.0-alpha.5`
 candidate (CS-PLAN-090 final Full review): every row in non-blank lines, also
 the rows CS-PLAN-090 had written in total lines; `CalendarView.vue` fell below
 the guideline, and the files that had crossed it without a row got one.
+Re-measured on 2026-11-18 after CS-PLAN-091 WP-B1 (derived windows): the
+occurrence timeline, the agreement commands, the plan aggregate and the
+capacity evaluator left with ten service files and the planner component;
+`PauseProjectionService`, `TaskListDetails.vue` and `TodayTaskRow.vue` fell
+below the guideline; `CycleService`, `RecognitionFactsService` and
+`RecurrenceCalculator` crossed it. The interim Full review of the same day
+re-measured the files its fixes touched; `CycleService` grew with the
+missed-cycle recording and the anchor policy of rule edits and is a
+remainder now (its job pass is the extraction candidate, RF-091-05).
 
 Dispositions: **accepted** (cohesive unit or static/data surface — splitting
 would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
@@ -1285,45 +1278,38 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `Controller/RoomTaskController.php` | 963 | Room-task route surface (selector modes, lifecycle, stats, range, WP1 occurrence/receipt seam); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
-| `Controller/SchedulingController.php` | 466 | Scheduling route surface (preferences, preview, apply incl. the WP2 consent attestation); thin methods | accepted (endpoint breadth, no logic depth) |
+| `Controller/RoomTaskController.php` | 898 | Room-task route surface (selector modes, lifecycle, stats, range, the cycle receipt of the completion); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
+| `Controller/SchedulingController.php` | 301 | Scheduling route surface (own preferences, member availability); thin methods | accepted (endpoint breadth, no logic depth) |
 | `Controller/UserController.php` | 367 | Member/profile route surface; thin methods (persistence delegated to HouseService, RF-058-04) | accepted (endpoint breadth) |
 | `Controller/HouseController.php` | 419 | House route surface (read, settings, the catalog and arcade gates, stats, activity, health, reset); every stored house payload adds the app-config arcade flag and the task categories; thin methods | accepted (endpoint breadth) |
 | `Controller/RoomController.php` | 338 | Room route surface incl. the WP3 journal/manual-delta/reset seam; thin methods | accepted (endpoint breadth) |
-| `Controller/ChecklistController.php` | 307 | Checklist route surface incl. the WP1 occurrence-identity progress/toggle endpoints; thin methods | accepted (endpoint breadth) |
-| `Service/SchedulePlanService.php` | 1260 | WP6 preview/apply aggregate: fingerprint revalidation, capacity check, lock order, member-day writes (WP1: capacity from the occurrence authority; WP2: exact-share joint placement, replacement-first capacity, consent attestation, injected-clock seam) | **named** (CS-PLAN-067 §3.5: cohesive fingerprint/capacity aggregate; budgets only, no optimizer rewrite) |
-| `Service/CompletionService.php` | 1451 | WP3 completion/undo/attribution aggregate plus WP5 transactional takeover queue: frozen work evidence, exact wallet-union deltas, recognition and journal writes | **named** (CS-PLAN-067 §3.5 / ADR-014: one visible ordered aggregate; further splitting would hide the lock/order contract) |
-| `Service/RoomTaskService.php` | 888 | Room-task mutations, bulk-assign partial-success semantics, room stats, calendar-range projection (WP1: agreement-writer seam) | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
-| `Service/RoomTaskReadService.php` | 971 | Batched read/enrichment cluster (house/room/scope/daily/due/claimable + timezone); WP8 product; WP1 occurrence-block enrichment; WP2 batched pause-fingerprint reads | accepted (read-surface breadth, one owner per D1) |
-| `Service/TaskCreationService.php` | 453 | WP4 atomic creation aggregate (custom/mount/template, one transaction; WP1: initial schedule revision) | accepted (transaction aggregate) |
-| `Service/HouseSetupService.php` | 511 | WP3 first-run setup transaction aggregate (first-run gate, structure, invites; WP1: schedule initialization) | accepted (transaction aggregate) |
-| `Service/TaskService.php` | 580 | Task-definition CRUD + validation set (WP1: definition edits revise schedules) | **remainder** (CR-SVC-15: `createTask` 24 positional params → param object) |
-| `Service/HouseService.php` | 676 | House aggregate: membership, stats, timezone revision passes, ranking flag and consent-only reset, membership-keyed preference/digest cleanup | accepted (cohesive aggregate) |
-| `Service/ChecklistService.php` | 452 | Checklist domain: occurrence-scoped progress derivation, toggles, reset/restore seam (WP1) | accepted (cohesive checklist domain) |
+| `Controller/ChecklistController.php` | 301 | Checklist route surface incl. the per-cycle progress/toggle endpoints; thin methods | accepted (endpoint breadth) |
+| `Service/CompletionService.php` | 1417 | WP3 completion/undo/attribution aggregate plus WP5 transactional takeover queue: frozen work evidence, exact wallet-union deltas, recognition and journal writes | **named** (CS-PLAN-067 §3.5 / ADR-014: one visible ordered aggregate; further splitting would hide the lock/order contract) |
+| `Service/RoomTaskService.php` | 716 | Room-task mutations, bulk-assign partial-success semantics, room stats, calendar-range projection of the cycles | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
+| `Service/RoomTaskReadService.php` | 573 | Batched read/enrichment cluster (house/room/scope/daily/due + timezone); WP8 product; batched cycle blocks and the status derived from them | accepted (read-surface breadth, one owner per D1) |
+| `Service/TaskCreationService.php` | 425 | WP4 atomic creation aggregate (custom/mount/template, one transaction; the first date starts the first window, ADR-021) | accepted (transaction aggregate) |
+| `Service/HouseSetupService.php` | 500 | WP3 first-run setup transaction aggregate (first-run gate, structure, invites; first windows of the seeded tasks, ADR-021) | accepted (transaction aggregate) |
+| `Service/TaskService.php` | 578 | Task-definition CRUD + validation set (a rule, flex or energy edit moves the current cycle of every mounted room task) | **remainder** (CR-SVC-15: `createTask` 24 positional params → param object) |
+| `Service/HouseService.php` | 675 | House aggregate: membership, stats, timezone revision passes, ranking flag and consent-only reset, membership-keyed preference/digest cleanup | accepted (cohesive aggregate) |
+| `Service/ChecklistService.php` | 402 | Checklist domain: definition items, per-cycle ticks and toggles (ADR-021 §3) | accepted (cohesive checklist domain) |
 | `Service/SchedulingService.php` | 320 | Scheduling preferences/availability domain surface | accepted (cohesive domain) |
 | `Service/TemplateService.php` | 314 | Task catalog templates + level presets | accepted (catalog surface) |
 | `Service/RewardConfigService.php` | — | Static reward configuration registry — the WP4 retirement of the weekly-goal/threshold override keys dropped it BELOW the guideline (164 non-blank lines); entry retired | removed from the inventory (2026-09-27) |
-| `Service/MedalService.php` | 316 | Retained rhythm/weekly recognition, correction reconciliation and in-app weekly receipt; WP5 removes external award bells | accepted (cohesive recognition domain, one award writer) |
-| `Service/RoomService.php` | 361 | Room domain: structure mutations, cleanliness manual-delta command and reset through the WP3 room journal, derived cache updates | accepted (cohesive room domain + the journal writer seam) |
-| `Service/RankingService.php` | 426 | Consent-filtered exact-ratio ranking and next-Monday generations; WP5 preserves delivery settings through every in-place consent transition | accepted (cohesive ranking authority, ADR-015) |
-| `Service/TestDataService.php` | 674 | Test-only seeding/reset tooling, including the WP5 digest table inventory | accepted (test tooling, explicitly classified) |
-| `Service/DigestService.php` | 378 | WP5 five-minute pass, current-source/visibility relevance, house-first claim, commit-before-notify and outcome bookkeeping | accepted (one visible at-most-once delivery choreography; scheduling and persistence remain in their existing owners) |
-| `Service/OccurrenceService.php` | 482 | Single-recurrence-authority facade: stable public seam, constants and transaction convention over the six collaborators below (CS-PLAN-072 WP1, RF-072-WP1-18 split; WP3 completion-resolution delegation) | accepted (delegation-only facade — the one authority every consumer talks to) |
-| `Service/OccurrenceSelectionService.php` | 554 | Write-free selection/read derivation, occurrence DTO block, selection token, projections (WP2: neutral-suspension stamp, agreed work appointment, token fact set) | accepted (cohesive collaborator of the occurrence authority) |
-| `Service/OccurrenceReconcileService.php` | 498 | Frontier, reconciliation, materialization, interval pending, end-of-life, `next_due` projection, timeline-job pass (WP2: command-boundary stamp persistence) | accepted (cohesive collaborator of the occurrence authority) |
+| `Service/CycleService.php` | 441 | Writers of the derived windows: completion target check with the misses the job had not reached, closing and reopening a cycle, first date, the anchor policy of rule edits, the `next_due` projection after every window change and the timeline job's per-house pass (ADR-021) | **remainder** (RF-091-05: the job pass moves into its own collaborator; the lock order stays visible) |
+| `Service/RecognitionFactsService.php` | 319 | The one reader of what the recognitions count: stored occurrences before the cutover, closed and open cycles after it, absences neutral on read (ADR-021 §5, §12) | accepted (cohesive read model; splitting the two sources would hide the no-double-count rule) |
+| `Service/RecurrenceCalculator.php` | 317 | Pure calendar math: interval steps, fixed weekdays and month days with clamping, day-key helpers; the enumeration of stored revisions goes with CS-PLAN-091 WP-B7 | accepted (pure functions, data-driven) |
+| `Service/MedalService.php` | 320 | Retained rhythm/weekly recognition, correction reconciliation and in-app weekly receipt; WP5 removes external award bells | accepted (cohesive recognition domain, one award writer) |
+| `Service/RoomService.php` | 366 | Room domain: structure mutations, cleanliness manual-delta command and reset through the WP3 room journal, derived cache updates | accepted (cohesive room domain + the journal writer seam) |
+| `Service/RankingService.php` | 378 | Consent-filtered exact-ratio ranking and next-Monday generations; WP5 preserves delivery settings through every in-place consent transition | accepted (cohesive ranking authority, ADR-015) |
+| `Service/TestDataService.php` | 677 | Test-only seeding/reset tooling, including the WP5 digest table inventory | accepted (test tooling, explicitly classified) |
+| `Service/DigestService.php` | 345 | WP5 five-minute pass, current-source/visibility relevance, house-first claim, commit-before-notify and outcome bookkeeping | accepted (one visible at-most-once delivery choreography; scheduling and persistence remain in their existing owners) |
 | `Service/RewardRequestService.php` | 974 | WP7 C4 request lifecycle: one ordered lock/authorization/receipt/effect/queue sequence per command, the role/departure/erasure hooks and the viewer-safe serialization |
 | `Service/RewardService.php` | 409 | WP7 catalog owner: item CRUD with strict terms, the household-gate command and the scope matrix |
-| `Service/OccurrenceRevisionService.php` | 387 | Rule inputs, revision-1 creation, edit/zone/tombstone revision lifecycle | accepted (cohesive collaborator of the occurrence authority) |
-| `Service/OccurrenceCompletionService.php` | 392 | Completion resolution (key/version/token), timeline effects, undo seam (WP3: share-row resolution for the correction aggregates) | accepted (cohesive collaborator of the occurrence authority) |
-| `Service/OccurrenceAgreementService.php` | 749 | C2 date/participant amendments + the shared whole-day child-capacity counter (WP2: explicit-target date writer, persisted neutral releases, appointment-carrying catch-up, derived evidence kinds) | accepted (cohesive collaborator of the occurrence authority — the single writer set for occurrence agreements; splitting would spread one lock choreography across files) |
-| `Service/AgreementService.php` | 831 | WP2 agreement command aggregate: closed validation, authorization/receipt/staleness/capacity gates, suspension restamp and WP5 transactional queue writes | accepted (D2-style visible ordered transaction choreography) |
-| `Service/PauseService.php` | 872 | Revisioned pause lifecycle with the ADR-020 deletion, viewer projection, deadline-aware effects, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/effect/queue sequence per command) |
-| `Service/PauseProjectionService.php` | 505 | WP2 projection derivation: per-group revision precedence + decision-boundary math (RF-073-WP2-23), recognition-eligibility gate (RF-073-WP2-25), recognized coverage union, suspension decision (any-obligated rule, RF-073-WP2-24), virtual/materialized participant resolution (RF-073-WP2-26), work-appointment derivation, frozen zone-intersection math | accepted (cohesive projection math, single owner of the Q-073-02 rules) |
-| `Service/DailyCapacityService.php` | 529 | WP2 whole-day capacity evaluator: exact minor-unit shares, occurrence-identity dedupe, saved-zone time basis, commitment gates with replacement removal, shared-collection pass | accepted (cohesive evaluator — one owner of the §3.2 accounting rules) |
-| `Db/RoomTask.php` | 365 | Central entity: domain accessors, status computation, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1, RF-072-WP1-12/16) | accepted (entity surface; data-driven) |
+| `Service/PauseService.php` | 758 | Revisioned pause lifecycle with the ADR-020 deletion, viewer projection, departure and WP5 transactional decision queue writes | accepted (one ordered lock/revision/queue sequence per command) |
+| `Db/RoomTask.php` | 410 | Central entity: domain accessors, the stored inputs of the derived window, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1; its ideal-date helpers go with CS-PLAN-091 WP-B7) | accepted (entity surface; data-driven) |
 | `Db/RoomTaskMapper.php` | 508 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
-| `Db/CompletedTaskMapper.php` | 559 | Ledger SQL: stats aggregates, occurrence lookups, weekly windows, completion revisions | accepted (SQL primitive collection) |
-| `Db/OccurrenceMapper.php` | 333 | SQL primitives for the occurrence timeline (lookups by key, task, revision and house; insert-or-get; future cleanup of a revision; half-open day bounds, RF-090-57) | accepted (SQL primitive collection) |
+| `Db/CompletedTaskMapper.php` | 618 | Ledger SQL: stats aggregates, occurrence lookups of old rows, cycle anchors, weekly windows, completion revisions | accepted (SQL primitive collection) |
+| `Db/OccurrenceMapper.php` | 333 | SQL primitives for the stored occurrences (lookups by key, task, revision and house; half-open day bounds, RF-090-57); its writer primitives go with CS-PLAN-091 WP-B7 | accepted (SQL primitive collection) |
 | `Service/FloorService.php` | 330 | Floor domain: structure mutations and their ordering | accepted (cohesive domain) |
 
 #### Frontend (`src/`)
@@ -1333,37 +1319,33 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Settings/StructureSettings.vue` | 574 | Floors and rooms, the single surface that edits the house structure, with its dialogs; one category of Settings since the split per category (CS-PLAN-090 WP-D; `Settings.vue` itself has 296 lines with the categories of WP-I to WP-K, was 1,238) | accepted (one cohesive editing surface; template and CSS dominant) |
 | `components/Insights/RankingPanel.vue` | 540 | The consent-filtered ranking with its medals as a section of Insights (the Leaderboard page it was, CS-PLAN-090 WP-E), with a loading and an error state of its own | accepted (presentational; CSS dominant) |
 | `components/Setup/SetupWizard.vue` | 872 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
-| `views/TodayView.vue` | 580 | The landing page (CS-PLAN-090 WP-B): composes status line, overdue block, due and possible rows; the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |
-| `components/Today/TodayTaskRow.vue` | 306 | One row of Today with its execute-only checklist: the task facts, the planned and overdue labels, the completion feedback, scoped CSS | accepted (row surface, like `TaskListItem.vue`) |
+| `views/TodayView.vue` | 561 | The landing page (CS-PLAN-090 WP-B): composes status line, overdue block, due and possible rows; the rows, the status line, the section rules (`utils/todaySections.js`) and the completion flow (`useTaskCompletion`) are extracted units (was 1,084) | accepted (composition root; template and CSS dominant) |
 | `components/Tasks/TaskEditForm.vue` | 953 | Unified create/edit form contract (UX-001): field validation surface | accepted (one form contract; field breadth) |
 | `components/Tasks/TaskChecklist.vue` | 538 | Checklist surface: lazy discovery, toggles, sub-tasks | accepted (cohesive checklist domain) |
-| `components/Tasks/TaskListItem.vue` | 422 | WP8 row unit: status/content/controls/a11y incl. scoped CSS | accepted (row surface) |
-| `components/Tasks/TaskList.vue` | 428 | WP8 orchestrator: sorting, bulk selection, expansion (was ~1,160) | accepted (orchestrator, extracted units carry the rest) |
-| `components/Common/ParticipationDialog.vue` | 347 | The actual-work split form (WP3 §3.7 reuse: completion proposal pre-fill + attribution-correction mode, validation surface) | accepted (one form contract across both flows) |
-| `components/Scheduling/SchedulePlanner.vue` | 795 | WP6 planning surface (member grids, preview/apply, dialogs); WP2: exact-share labels, consent attestation, neutral/overload capacity clarifications | accepted (planning composition root) |
+| `components/Tasks/TaskListItem.vue` | 421 | WP8 row unit: status/content/controls/a11y incl. scoped CSS | accepted (row surface) |
+| `components/Tasks/TaskList.vue` | 427 | WP8 orchestrator: sorting, bulk selection, expansion (was ~1,160) | accepted (orchestrator, extracted units carry the rest) |
+| `components/Common/ParticipationDialog.vue` | 326 | The actual-work split form (WP3 §3.7 reuse: completion proposal pre-fill + attribution-correction mode, validation surface) | accepted (one form contract across both flows) |
 | `components/Scheduling/AvailabilityEditModal.vue` | 474 | Owner availability grid editor | accepted (grid editor surface) |
 | `components/Scheduling/ScheduleCalendar.vue` | 399 | Week grid + capacity/overcapacity display | accepted (presentational grid) |
 | `components/Members/MemberList.vue` | 416 | Member management surface | accepted (template+CSS dominant) |
 | `components/Profile/TitlePicker.vue` | — | Title pack/tier picker — retired with the CS-PLAN-070 WP4 single-series cutover | removed from the inventory (2026-09-27; archived under the gitignored `archive/`) |
 | `components/Minigames/SnakeGame.vue`, `SnakeLeaderboard.vue` | — | Single-game Snake and its board — replaced by the shared game shell (CS-PLAN-086 WP-A) | removed from the inventory (2026-10-17; archived under the gitignored `archive/`) |
 | `components/Minigames/GameShell.vue` | 579 | Shared frame of every arcade game: loop, shell-bound input (directions, taps, a paddle's held keys and pointer), responsive canvas or a game's DOM board, overlays, live region with a game's own end copy, result save, the event effects (sounds through `useGameEffects`, the board's `effectsLayer`, the overlay's Sound/Effects switches; WP-G); the score header lives in `GameShellHeader.vue` | accepted (one frame for all games; ~45 lines scoped CSS) |
-| `views/TaskManager.vue` | 606 | The one task list (CS-PLAN-090 WP-C): composes filter bar, stats bar, grouping switch, the list by due date or the grouped list, and the dialogs; the grouping and filter rules (`utils/taskGrouping.js`, `utils/taskFilters.js`), the grouped list, the pager and the create dialog are extracted units | accepted (composition root) |
+| `views/TaskManager.vue` | 582 | The one task list (CS-PLAN-090 WP-C): composes filter bar, stats bar, grouping switch, the list by due date or the grouped list, and the dialogs; the grouping and filter rules (`utils/taskGrouping.js`, `utils/taskFilters.js`), the grouped list, the pager and the create dialog are extracted units | accepted (composition root) |
 | `views/CalendarView.vue` | — | Calendar composition; its header controls moved to `Tasks/CalendarControls.vue` (CS-PLAN-090 WP-D), which took it BELOW the guideline (244 non-blank lines); entry retired | removed from the inventory (2026-11-15) |
 | `views/AbsenceView.vue` | 352 | The Absence page (CS-PLAN-090 WP-A): every absence with its delete action; the range form and the owner panel are `Absence/AbsenceRangeForm.vue` and `Absence/AbsenceOwnerPanel.vue` | accepted (composition root; template and CSS dominant) |
 | `views/Rewards.vue` | 510 | The reward catalog (CS-PLAN-070 WP8): both gates, the list and the request dialog with its frozen terms; the wallet banner is `Rewards/RewardWalletBanner.vue` (CS-PLAN-090) | accepted (one page contract; template and CSS dominant) |
 | `components/Rewards/RewardCatalogEditor.vue` | 624 | Owner catalog editor in Settings (CS-PLAN-070 WP8): strict terms, archive, 409 draft retention | accepted (one form contract) |
 | `components/Rewards/RewardRequestList.vue` | 499 | The own requests and, for owners, the decision queue (CS-PLAN-070 WP8) | accepted (one list surface; template and CSS dominant) |
 | `components/Rewards/RewardRequestDetails.vue` | 691 | One request with its lifecycle actions and corrections (CS-PLAN-070 WP8) | accepted (one detail surface; template and CSS dominant) |
-| `components/Tasks/TaskListDetails.vue` | 504 | The expanded row of the task list: assignees, checklist and the owner agreement entry points (CS-PLAN-067 §3.4, CS-PLAN-070 WP6) | accepted (row detail surface) |
 | `components/Tasks/TaskFilterBar.vue` | 347 | The filters of the task list: scope buttons and the collapsible panel (CS-PLAN-084 WP-D) | accepted (one form surface) |
-| `components/Tasks/RoomTaskEditModal.vue` | 320 | The due date and *Last done* dialog of a task row | accepted (one form contract) |
 | `components/Settings/NotificationPreferences.vue` | 323 | The personal notification and feedback settings (digests and their time, quiet hours, sound, animation, catalog and arcade visibility) | accepted (one form contract) |
-| `services/api.js` | 333 | The shared API client: one URL prefix, envelope unwrap, ApiError normalization and the named endpoint helpers | accepted (one client surface) |
+| `services/api.js` | 312 | The shared API client: one URL prefix, envelope unwrap, ApiError normalization and the named endpoint helpers | accepted (one client surface) |
 | `store/rewards.js` | 587 | Catalog and request state with the WP8 command receipts | accepted (cohesive store) |
 | `store/user.js` | 330 | The current user, the house members and the own wallet | accepted (cohesive store) |
 | `views/InsightsView.vue` | 496 | Insights composition root (CS-PLAN-090 WP-E: key figures, fairness bars, the ranking section and the activity list; the correction review is `Insights/CorrectionReview.vue`) + the WP3 §3.6 history-correction session (feed action, reused dialog, 409 draft retention) | accepted (composition root) |
-| `store/roomTasks.js` | 1275 | Canonical instance store: projections, generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache; WP3 completion correction actions | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
-| `store/scheduling.js` | 691 | Scheduling state: preferences, capacity/overcapacity getters | accepted (cohesive store) |
+| `store/roomTasks.js` | 1184 | Canonical instance store: projections, generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache; WP3 completion correction actions | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
+| `store/scheduling.js` | 378 | Scheduling state: preferences, capacity/overcapacity getters | accepted (cohesive store) |
 | `store/house.js` | 399 | House state: the house payload with its gates, insights, the activity feed, the reset receipt | accepted (cohesive store) |
 | `store/rooms.js` | 340 | Floor/room state (WP3 journal receipt flows) | accepted (cohesive store) |
 | `utils/icons.js` | 580 | Static icon registry | accepted (static data table — not split to meet a physical target) |

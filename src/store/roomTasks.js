@@ -35,20 +35,18 @@ function generateCommandId() {
 
 /**
  * The calendar days of one range row with the server's per-day `late` mark
- * (CR-084-01): the occurrence details when present, else the bare
- * `occurrences` keys or the nextDue instant without a mark (`late: null`).
+ * (CR-084-01): the planned day of the current cycle and of the cycles the
+ * rule yields after it (ADR-021), else the projected due instant without a
+ * mark (`late: null`).
  * @param {object} item Range row from GET /room-tasks/range.
  * @param {string} timezone IANA timezone of the household.
  * @return {Array<{date: string, late: ?boolean}>}
  */
 function rangeDays(item, timezone) {
-	if (Array.isArray(item.occurrenceDetails) && item.occurrenceDetails.length) {
-		return item.occurrenceDetails.map((detail) => ({ date: detail.date, late: detail.late === true }))
+	if (Array.isArray(item.cycles) && item.cycles.length) {
+		return item.cycles.map((cycle) => ({ date: cycle.date, late: cycle.late === true }))
 	}
-	const dates = Array.isArray(item.occurrences) && item.occurrences.length
-		? item.occurrences
-		: [dateKeyInZone(item.roomTask?.nextDue, timezone)]
-	return dates.map((date) => ({ date, late: null }))
+	return [{ date: dateKeyInZone(item.roomTask?.nextDue, timezone), late: null }]
 }
 
 /**
@@ -57,7 +55,7 @@ function rangeDays(item, timezone) {
  * the payload carries it (with participants). '' = the default split.
  * @param {object} [options] Completion options (see completeRoomTask).
  * @param {Array<{userId: string, sharePct: number}>} [options.participants] Explicit actual participants.
- * @param {boolean} [options.allocationReviewed] Reviewed deviation from the agreement.
+ * @param {boolean} [options.allocationReviewed] Reviewed deviation from the default split.
  * @return {string}
  */
 function completionSplitKey({ participants, allocationReviewed } = {}) {
@@ -131,8 +129,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// §3.3): a finishing request may only clear the shared loading state
 		// when it is the LAST in-flight one.
 		pendingReads: 0,
-		// CS-PLAN-072 WP1 (RF-072-WP1-07): pending completion commands keyed
-		// by `<roomTaskId>:<occurrenceId>:<expectedVersion>` → commandId.
+		// RF-072-WP1-07: pending completion commands keyed by
+		// `<roomTaskId>:<cycleKey>:<expectedVersion>` → commandId.
 		// An uncertain-response retry (network failure, 5xx) reuses the SAME
 		// command UUID so the server replays the original receipt instead of
 		// conflicting on a new command against the fulfilled target. The
@@ -180,7 +178,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		// CS-PLAN-066 (D2): the counters read the dedicated endpoint-backed
 		// projections. Inactive rows are filtered defensively so a projection
-		// never counts a completed occurrence between refreshes.
+		// never counts completed work between refreshes.
 		totalOverdueTasks: (state) => {
 			return state.overdueTasks.filter((item) => item.roomTask?.isActive).length
 		},
@@ -191,8 +189,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Group rangeTasks.scheduled by the house-local YYYY-MM-DD day key
-		 * (CS-PLAN-057), expanding each task across its projected
-		 * occurrences. Backend `occurrences` entries are already house-local
+		 * (CS-PLAN-057), expanding each task across its current and
+		 * projected cycles. Backend `cycles` entries are already house-local
 		 * day keys (service-side bucketing); fallback nextDue instants are
 		 * converted via dateKeyInZone.
 		 * @param {object} state Pinia state
@@ -202,10 +200,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			const houseStore = useHouseStore()
 			const byDay = {}
 			for (const item of state.rangeTasks.scheduled) {
-				// Recurrence projection (D2): when the backend supplies an
-				// `occurrences` list, the task appears on each of those days
-				// (house-local keys straight from the backend). Fall back to
-				// the single nextDue instant, bucketed in the house TZ.
+				// Recurrence projection (D2): the task appears on the planned
+				// day of each cycle the backend supplies (house-local keys).
+				// Fall back to the single nextDue instant, bucketed in the
+				// house TZ.
 				const days = rangeDays(item, houseStore.timezone)
 
 				for (const { date, late } of days) {
@@ -295,7 +293,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * no partial-success reporting anymore. The aggregate response
 		 * `{task, roomTask, assignees}` updates both stores and is returned
 		 * to the caller.
-		 * @param {object} payload { roomId, task|taskId, assigneeUserIds?, nextDue? }
+		 * @param {object} payload { roomId, task|taskId, assigneeUserIds?, firstDate? }
 		 * @return {Promise<object>} The creation aggregate
 		 */
 		async createTaskAggregate(payload) {
@@ -477,96 +475,23 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Update room task due date
-		 * @param {number} roomTaskId Room task identifier to update.
-		 * @param {string} nextDue ISO date string for the next due date.
-		 */
-		async updateRoomTaskDueDate(roomTaskId, nextDue) {
-			if (!nextDue) {
-				throw new Error('Next due date is required')
-			}
-
-			this._beginRead()
-			this.error = null
-
-			try {
-				const data = await api.put(`/api/v1/room-tasks/${roomTaskId}/due-date`, { nextDue })
-				this._mergeWrittenRoomTask(roomTaskId, data)
-				this.onInstanceMutated()
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to update room task due date', error, { store: 'roomTasks', action: 'updateRoomTaskDueDate', roomTaskId })
-				throw error
-			} finally {
-				this._endRead()
-			}
-		},
-
-		/**
-		 * Record the day a room task was last done (FEAT-UX-045, CS-PLAN-088
-		 * D-088-20): the server stamps the room's "Last cleaned" and moves
-		 * the next due date of a task that repeats after completion.
-		 * @param {number} roomTaskId Room task identifier.
-		 * @param {string} date House-local `Y-m-d`, today or earlier.
-		 * @return {Promise<object>} The written room task row.
-		 */
-		async recordLastDone(roomTaskId, date) {
-			this._beginRead()
-			this.error = null
-			try {
-				const data = await api.put(`/api/v1/room-tasks/${roomTaskId}/last-done`, { commandId: generateCommandId(), date })
-				this._mergeWrittenRoomTask(roomTaskId, data)
-				this.onInstanceMutated()
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to record last done', error, { store: 'roomTasks', action: 'recordLastDone', roomTaskId })
-				throw error
-			} finally {
-				this._endRead()
-			}
-		},
-
-		/**
-		 * Merge a single-row write response into the cached room-task list.
-		 * The response carries the serialized entity only — keep the cached
-		 * canonical assignees when the payload omits them, so assignee chips
-		 * and My Day "mine" filtering stay intact until the next enriched
-		 * read (RF-058-09).
-		 * @param {number} roomTaskId Room task identifier.
-		 * @param {object} data The written row.
-		 */
-		_mergeWrittenRoomTask(roomTaskId, data) {
-			const roomTaskIndex = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
-			if (roomTaskIndex >= 0) {
-				this.roomTasks[roomTaskIndex] = {
-					...this.roomTasks[roomTaskIndex],
-					...data,
-					...(data.assignees === undefined
-						? { assignees: this.roomTasks[roomTaskIndex].assignees }
-						: {}),
-				}
-			}
-		},
-
-		/**
-		 * Complete the SHOWN occurrence of a room task (CS-PLAN-072 WP1):
-		 * one transactional aggregate carrying the occurrence receipt
-		 * contract — `commandId` (fresh client UUID per logical command),
-		 * `occurrenceId`, `expectedVersion` and `selectionToken` resolved
-		 * from the cached row's occurrence block. The server owns work
-		 * time and target effort; a 409 means the shown target moved on —
-		 * derived projections are refreshed so the next attempt uses the
-		 * current target. The response reconciles every owning store
+		 * Complete the current cycle of a room task (ADR-021 decision 4):
+		 * one transactional aggregate carrying the receipt — `commandId`
+		 * (fresh client UUID per logical command) plus the `cycleKey` and
+		 * `expectedVersion` of the cached row's `cycle` block; a bonus
+		 * task has no cycle key. The server owns work time and effort; a
+		 * 409 means the shown cycle moved on (or the task was already done
+		 * today) — derived projections are refreshed so the next attempt
+		 * uses the current one. The response reconciles every owning store
 		 * BEFORE any celebration event is emitted (decision D10), and
 		 * replays (`replay: true`) reconcile without repeating effects.
 		 * @param {number} roomTaskId Room task identifier to complete.
 		 * @param {object} [options] Actual work split (WP3 §3.6).
 		 * @param {Array<{userId: string, sharePct: number}>} [options.participants]
-		 *   Explicit actual participants; omitted = credit the effective
-		 *   agreement (server-side default).
+		 *   Explicit actual participants; omitted = credit the default
+		 *   split (server-side: equal shares of the assignees).
 		 * @param {boolean} [options.allocationReviewed] Confirmation that a
-		 *   deviation from the effective agreement was reviewed.
+		 *   deviation from the default split was reviewed.
 		 * @return {Promise<object>} The completion aggregate
 		 */
 		completeRoomTask(roomTaskId, options = {}) {
@@ -607,7 +532,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @param {number} roomTaskId Room task identifier to complete.
 		 * @param {object} [options] Actual work split (see completeRoomTask).
 		 * @param {Array<{userId: string, sharePct: number}>} [options.participants] Explicit actual participants.
-		 * @param {boolean} [options.allocationReviewed] Reviewed deviation from the agreement.
+		 * @param {boolean} [options.allocationReviewed] Reviewed deviation from the default split.
 		 * @return {Promise<object>} The completion aggregate
 		 */
 		async _submitCompletion(roomTaskId, { participants, allocationReviewed } = {}) {
@@ -617,22 +542,17 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			try {
 				const target = this._completionTargetFor(roomTaskId)
 				if (!target) {
-					// D-088-18: a row the server delivered with `occurrence: null`
-					// has no open window yet — not a stale read.
-					const notOpen = this._deliveredWithoutTarget(roomTaskId)
-					const error = new Error(notOpen
-						? 'The task cannot be completed before its time window opens.'
-						: 'The task changed since it was displayed. Reload and try again.')
-					error.code = notOpen ? 'NOT_OPEN_YET' : 'STALE_TARGET'
+					const error = new Error('The task changed since it was displayed. Reload and try again.')
+					error.code = 'STALE_TARGET'
 					throw error
 				}
 
 				// RF-072-WP1-07: one logical command per shown target — a
-				// retry of the same (roomTaskId, occurrenceId, expectedVersion)
+				// retry of the same (roomTaskId, cycleKey, expectedVersion)
 				// reuses the pending command UUID so an uncertain first
 				// response replays the original receipt instead of 409ing on
 				// a new command against the now-fulfilled target.
-				const commandKey = `${roomTaskId}:${target.occurrenceId}:${target.expectedVersion}`
+				const commandKey = `${roomTaskId}:${target.cycleKey ?? 'bonus'}:${target.expectedVersion}`
 				let commandId = this.pendingCommands[commandKey]
 				if (!commandId) {
 					commandId = generateCommandId()
@@ -640,15 +560,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 
 				try {
-					const payload = {
-						commandId,
-						occurrenceId: target.occurrenceId,
-						expectedVersion: target.expectedVersion,
-						selectionToken: target.selectionToken,
+					const payload = { commandId, expectedVersion: target.expectedVersion }
+					if (target.cycleKey) {
+						payload.cycleKey = target.cycleKey
 					}
 					// WP3: the actual work split rides the receipt only when
 					// the user reviewed an allocation different from the
-					// effective agreement.
+					// default split.
 					if (participants && participants.length > 0) {
 						payload.participants = participants
 						payload.allocationReviewed = Boolean(allocationReviewed)
@@ -682,7 +600,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						try {
 							await useTitlesStore().invalidate()
 						} catch (titlesError) {
-							logger.warn('Titles re-sync after unlock failed; store stays stale until next fetch', titlesError, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
+							logger.warn('Titles re-sync after unlock failed; store stays stale until next fetch', { store: 'roomTasks', action: 'completeRoomTask', roomTaskId, error: titlesError })
 						}
 						emit('chorestrike:title-unlocked', {
 							pack: rewards.newTitle.pack,
@@ -703,7 +621,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					// KEEPS the pending UUID so the retry replays the original
 					// receipt (RF-072-WP1-07).
 					if (error?.status === undefined || error?.status >= 500) {
-						logger.warn('Completion command stays pending for retry', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId, commandKey })
+						logger.warn('Completion command stays pending for retry', { store: 'roomTasks', action: 'completeRoomTask', roomTaskId, commandKey, error })
 					} else {
 						delete this.pendingCommands[commandKey]
 					}
@@ -712,9 +630,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to complete room task', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
-				// A 409 (stale selection/version/target) means the shown
-				// target is gone: refresh the projections and the rows so
-				// the next attempt carries the current target.
+				// A 409 (stale version or cycle, already done) means the
+				// shown cycle is gone: refresh the projections and the rows
+				// so the next attempt carries the current one.
 				if (error?.status === 409) {
 					this.refreshDerivedProjections({ rows: true, roomId: this.roomTasks.find((row) => row.id === roomTaskId)?.roomId })
 				}
@@ -726,12 +644,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Resolve the shown completion target of a room task from any
-		 * cached slice (CS-PLAN-072 WP1): the row's `occurrence` block
-		 * carrying the public occurrence key, expected version and
-		 * selection token. Returns null when no occurrence target is
-		 * cached (stale UI state — caller surfaces a reload hint).
+		 * cached slice: the row's `cycle` block with the cycle key (none
+		 * for a bonus task) and the cycle version. Returns null when no
+		 * completable block is cached — a task that is done, asleep or
+		 * shown from stale state (the caller surfaces a reload hint).
 		 * @param {number} roomTaskId Room task identifier.
-		 * @return {?object} `{ occurrenceId, expectedVersion, selectionToken }`
+		 * @return {?object} `{ cycleKey?, expectedVersion, state }`
 		 */
 		_completionTargetFor(roomTaskId) {
 			const sources = [
@@ -742,26 +660,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			]
 			for (const slice of sources) {
 				const row = slice.find((item) => (item.roomTask?.id ?? item.id) === roomTaskId)
-				const occurrence = row?.occurrence ?? row?.roomTask?.occurrence
-				if (occurrence?.occurrenceId && occurrence?.selectionToken) {
-					return occurrence
+				const cycle = row?.cycle ?? row?.roomTask?.cycle
+				if (Number.isInteger(cycle?.expectedVersion) && (cycle.cycleKey || cycle.state === 'bonus')) {
+					return cycle
 				}
 			}
 			return null
-		},
-
-		/**
-		 * Whether a cached row of the room task carries an explicit
-		 * `occurrence: null` — the server found no open window or miss to
-		 * complete (D-088-18), as opposed to a row without a block at all.
-		 * @param {number} roomTaskId Room task identifier.
-		 * @return {boolean}
-		 */
-		_deliveredWithoutTarget(roomTaskId) {
-			return [this.dailyTasks, this.dueTodayTasks, this.overdueTasks, this.roomTasks].some((slice) => slice.some((item) => {
-				const row = item.roomTask && 'occurrence' in item.roomTask ? item.roomTask : item
-				return (item.roomTask?.id ?? item.id) === roomTaskId && 'occurrence' in row && row.occurrence === null
-			}))
 		},
 
 		/**
@@ -952,12 +856,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				useRoomsStore().reconcileRoom(data.room)
 			}
 
-			// CS-PLAN-072 WP1: the fresh selection target rides along the
-			// completion/undo response — update every cached row's
-			// occurrence block so an immediate follow-up attempt carries
-			// the CURRENT target instead of the fulfilled one.
-			if ('occurrence' in data) {
-				this._replaceOccurrenceInState(roomTaskId, data.occurrence)
+			// The fresh cycle rides along the completion/undo response —
+			// update every cached row's `cycle` block so an immediate
+			// follow-up attempt carries the CURRENT cycle instead of the
+			// closed one.
+			if ('cycle' in data) {
+				this._replaceCycleInState(roomTaskId, data.cycle)
 			}
 
 			const rewards = data.rewards
@@ -1019,19 +923,18 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Replace the occurrence block of a room task in every cached
-		 * slice (CS-PLAN-072 WP1): completion/undo responses carry the
-		 * fresh canonical target; flat roomTask rows carry their block
-		 * inside the roomTask entity.
+		 * Replace the `cycle` block of a room task in every cached slice:
+		 * completion/undo responses carry the fresh one; flat roomTask
+		 * rows carry their block inside the roomTask entity.
 		 * @param {number} roomTaskId Room task identifier.
-		 * @param {?object} occurrence Fresh occurrence block (nullable).
+		 * @param {?object} cycle Fresh cycle block (nullable).
 		 */
-		_replaceOccurrenceInState(roomTaskId, occurrence) {
+		_replaceCycleInState(roomTaskId, cycle) {
 			const index = this.roomTasks.findIndex((rt) => rt.id === roomTaskId)
 			if (index >= 0) {
 				this.roomTasks[index] = {
 					...this.roomTasks[index],
-					occurrence: occurrence ?? null,
+					cycle: cycle ?? null,
 				}
 			}
 			for (const slice of ['dailyTasks', 'dueTodayTasks', 'overdueTasks']) {
@@ -1039,7 +942,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				if (sliceIndex >= 0) {
 					this[slice][sliceIndex] = {
 						...this[slice][sliceIndex],
-						occurrence: occurrence ?? null,
+						cycle: cycle ?? null,
 					}
 				}
 			}
@@ -1167,7 +1070,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * read-only re-run of this method.
 		 * @param {object} [options] What else to refresh.
 		 * @param {boolean} [options.rows] Also reread the loaded row lists, which
-		 * carry the completion targets: the server changed occurrences behind
+		 * carry the completion targets: the server changed the cycles behind
 		 * them (a saved definition edit, a conflict after someone else's edit).
 		 * @param {?number} [options.roomId] The room to reread when the house
 		 * list is not loaded.
@@ -1281,8 +1184,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this._beginRead()
 			this.error = null
 
-			// CS-PLAN-065 §3.4: only the latest request may land — a stale
-			// in-flight response must not overwrite post-apply state.
+			// CS-PLAN-065 §3.4: only the latest request may land — a
+			// superseded in-flight read must not overwrite a newer one.
 			const seq = ++this.dailyRequestSeq
 
 			try {
@@ -1324,8 +1227,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		async fetchRangeTasks(from, to) {
 			this.error = null
 
-			// CS-PLAN-065 §3.4: a pre-apply range response must not overwrite
-			// the post-apply refreshed window.
+			// CS-PLAN-065 §3.4: a superseded in-flight range read must not
+			// overwrite a newer one.
 			const seq = ++this.rangeRequestSeq
 
 			try {

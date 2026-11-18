@@ -1,6 +1,6 @@
 # ADR-014: Work Accounting, Ledger and Replay (Minor Units)
 
-**Status**: Accepted
+**Status**: Accepted; amended by [ADR-021](ADR-021-derived-due-windows.md) (2026-11-16)
 **Date**: 2026-09-27
 **Deciders**: ChoreStrike maintainers (ratified in CS-PLAN-070 WP3)
 
@@ -14,6 +14,16 @@
 > (100 energy minor = 1 energy, 100 coin minor = 1 Coin, 1000 coin minor per
 > frozen energy unit at the fixed 10-Coins rate) booked through an immutable
 > ledger. Combo/team-spark multipliers and the boost economy are retired.
+
+> **Amended by [ADR-021](ADR-021-derived-due-windows.md) (2026-11-16, CS-PLAN-091):**
+> a completion may credit others without the recorder (Q-074-02 reversed),
+> only members who may see the task; a date correction is a new audited
+> correction kind; members correct or delete only the latest entry of a task
+> that they recorded, and attribution becomes owner-only. Exactly two coin
+> multipliers return, a coin factor per member and bonus periods, both frozen
+> on the completion (`coin_factors`, `bonus_percent`) and never seen by energy
+> or any recognition. The recognitions read closed cycles instead of agreed
+> occurrences from the house's `cycles_from` day on.
 
 ## Context
 

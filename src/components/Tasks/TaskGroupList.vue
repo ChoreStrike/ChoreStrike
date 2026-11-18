@@ -56,7 +56,6 @@
 						:compact="true"
 						@complete="(...args) => $emit('complete', ...args)"
 						@edit="$emit('edit', $event)"
-						@editDate="$emit('editDate', $event)"
 						@delete="$emit('delete', $event)" />
 				</div>
 			</div>
@@ -106,7 +105,7 @@ export default {
 		},
 	},
 
-	emits: ['toggle', 'add', 'complete', 'edit', 'editDate', 'delete'],
+	emits: ['toggle', 'add', 'complete', 'edit', 'delete'],
 
 	setup() {
 		return { houseStore: useHouseStore() }

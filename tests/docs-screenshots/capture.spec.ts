@@ -41,19 +41,6 @@ async function jsonOf(response: APIResponse) {
 
 /** Steps after the scene's view is ready. */
 const ACTION_STEPS: Record<string, (page: Page) => Promise<void>> = {
-	async planPreview(page) {
-		// All tasks: the planner only proposes changes where the plan differs
-		// (the seed's unassigned tasks).
-		const tasks = page.locator('[data-testid^="planner-task-checkbox-"]')
-		await expect(tasks.first()).toBeVisible({ timeout: 30000 })
-		for (const task of await tasks.all()) {
-			await task.check()
-		}
-		await page.getByTestId('preview-plan-button').click()
-		const changes = page.getByTestId('plan-changes')
-		await expect(changes).toBeVisible({ timeout: 30000 })
-		await changes.evaluate((list) => list.parentElement!.scrollIntoView({ block: 'start' }))
-	},
 	async notificationSettings(page) {
 		const section = page.getByTestId('notifications-section')
 		await expect(section).toBeVisible({ timeout: 30000 })
@@ -78,7 +65,7 @@ test('the target is the seeded demo household', async ({ browser, baseURL }) => 
 		expect(members.map((member) => member.nextcloudUserId).sort()).toEqual([...SEEDED_ROLES, 'admin'].sort())
 
 		// Present the household: the seed's test-only admin member leaves
-		// (the planner would otherwise assign to "Admin"), the name reads
+		// (the member lists would otherwise show "Admin"), the name reads
 		// like a family's, and a small catalog exists.
 		const admin = members.find((member) => member.nextcloudUserId === 'admin')!
 		expect((await page.request.delete(`${API}/users/${admin.id}`)).ok()).toBe(true)

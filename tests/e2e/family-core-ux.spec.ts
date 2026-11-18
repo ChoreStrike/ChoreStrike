@@ -45,12 +45,6 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 					await session.page.getByTestId('nav-tasks').click()
 					await expect(session.page.getByTestId('task-manager-view').getByRole('heading', { level: 1 })).toHaveText(tasks)
 					await session.page.getByTestId('tasks-filter-all').click()
-					const row = session.page.getByTestId('task-item').filter({ hasText: 'Wipe kitchen counters' }).first()
-					await row.getByRole('button', { name: language === 'de' ? 'Details anzeigen' : 'Show details', exact: true }).click()
-					const handover = row.getByTestId('agreement-handover')
-					await expect(handover).toContainText(language === 'de' ? 'Diesen Termin übergeben an' : 'Hand this occurrence to')
-					await expect(handover.getByTestId('agreement-handover-submit')).toHaveText(language === 'de' ? 'Vereinbarte Übergabe festhalten' : 'Record agreed handover')
-					await expect(handover).toContainText(language === 'de' ? 'Künftige Zuweisungen bleiben unverändert.' : 'Future assignments stay unchanged.')
 				} finally {
 					await session.context.close()
 				}
@@ -74,7 +68,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const kitchen = kitchenFloor.rooms.find((room) => room.name === 'Kitchen')
 			for (const [name, assignees] of [['Own filter probe', ['mom']], ['Unassigned filter probe', []], ['Other filter probe', ['teen']]] as const) {
 				const created = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
-					data: { roomId: kitchen.id, assigneeUserIds: assignees, nextDue: utcDayKey(0), task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
+					data: { roomId: kitchen.id, assigneeUserIds: assignees, firstDate: utcDayKey(0), task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 } },
 				})
 				expect(created.ok()).toBe(true)
 			}
@@ -134,7 +128,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			const kitchen = structure.flatMap((entry) => entry.rooms).find((room) => room.name === 'Kitchen')
 			const createTask = async (name: string, extra: Record<string, unknown> = {}) => {
 				const response = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
-					data: { roomId: kitchen.id, assigneeUserIds: ['mom'], nextDue: utcDayKey(0), task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1, ...extra } },
+					data: { roomId: kitchen.id, assigneeUserIds: ['mom'], firstDate: utcDayKey(0), task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1, ...extra } },
 				})
 				expect(response.ok()).toBe(true)
 				return (await response.json()).data.roomTask.id as number
@@ -354,7 +348,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await page.getByTestId('today-filter-all').click()
 
 			// Complete teen's counters task (owner may complete any row) —
-			// WP3 §3.6: the foreign-agreement proposal opens the
+			// WP3 §3.6: a task of someone else opens the
 			// participation dialog; confirming it posts the explicit split.
 			// The daily-recurring row leaves Today, and the coordinated D3
 			// refresh updates the overdue/due counts in place.
@@ -363,11 +357,12 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				page.getByTestId(`today-complete-button-${countersRoomTask.id}`),
 			)
 			expect(completeResponse.ok()).toBeTruthy()
-			// Daily recurring task: the occurrence advances to tomorrow —
+			// Daily recurring task: the next cycle hangs on tomorrow —
 			// that is what removes the row from Today (isActive stays true).
 			const completedBody = await completeResponse.json()
 			expect(completedBody.data.roomTask.isActive).toBe(true)
 			expect(String(completedBody.data.roomTask.nextDue)).toContain(utcDayKey(1))
+			expect(completedBody.data.cycle).toMatchObject({ centreOn: utcDayKey(1), state: 'upcoming' })
 
 			// No reload happened (same page still shows My Day), the row is
 			// reconciled away and the undo queue offers the restore.
@@ -566,7 +561,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 				})
 			})
 			// Direct hash navigation: the app navigation collapses behind the
-			// mobile header at this width (scheduling-apply-flow precedent).
+			// mobile header at this width (the phone specs' precedent).
 			await page.goto('/apps/chorestrike/#/today')
 			await page.getByTestId('today-view').waitFor({ state: 'visible' })
 
@@ -592,7 +587,7 @@ test.describe('Family core UX (CS-PLAN-066)', () => {
 			await expect(page.getByTestId(`today-complete-button-${countersRoomTask.id}-hint`)).toHaveText('Press and hold to confirm')
 			expect(completeRequests).toEqual([])
 
-			// WP3 §3.6: the held Done opens the foreign-agreement participation
+			// WP3 §3.6: the held Done of someone else's task opens the participation
 			// dialog — settle it (tap-friendly confirm).
 			await holdToConfirm(page.getByTestId(`today-complete-button-${countersRoomTask.id}`))
 			await expect(page.getByTestId('participation-dialog')).toBeVisible()

@@ -1,6 +1,5 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import CalendarView from '../../../src/views/CalendarView.vue'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 
@@ -115,11 +114,9 @@ describe('CalendarView', () => {
 				roomTask: { id: 1, isActive: true, nextDue: missedDay + 'T00:00:00', status: 'overdue' },
 				task: { name: 'Dishes', recurrenceMode: 'recurring' },
 				room: { name: 'Kitchen' },
-				flexWindow: {},
-				occurrences: [missedDay, openDay],
-				occurrenceDetails: [
-					{ date: missedDay, classification: 'agreed', late: true },
-					{ date: openDay, classification: 'agreed', late: false },
+				cycles: [
+					{ date: missedDay, cycleKey: `d${missedDay}`, current: true, late: true },
+					{ date: openDay, cycleKey: null, current: false, late: false },
 				],
 			}],
 			completed: [],
@@ -141,53 +138,6 @@ describe('CalendarView', () => {
 		const roomTask = { isActive: true, nextDue: '2000-01-01T00:00:00', status: 'due_today' }
 		expect(wrapper.vm.isOverdue({ roomTask, dueDate: '2000-01-01', late: null })).toBe(false)
 		expect(wrapper.vm.isOverdue({ roomTask: { ...roomTask, status: 'overdue' }, dueDate: '2000-01-01', late: null })).toBe(true)
-	})
-
-	// CS-PLAN-065 §3.4 (RF-065-02): a committed owner plan may have moved
-	// occurrences inside the visible window — the mounted calendar must
-	// refetch exactly that window on the `schedule-applied` event.
-	describe('schedule-applied reconciliation', () => {
-		const appliedHandler = () => {
-			const call = subscribe.mock.calls.find(
-				([event]) => event === 'chorestrike:schedule-applied',
-			)
-			expect(call).toBeDefined()
-			return call[1]
-		}
-
-		it('subscribes on mount and refetches the visible range on the event', async () => {
-			const store = useRoomTasksStore()
-			const fetchSpy = jest.spyOn(store, 'fetchRangeTasks').mockResolvedValue(undefined)
-
-			const wrapper = mount(CalendarView, {
-				global: { stubs: { TaskCalendar: true, RouterLink: true } },
-			})
-			await wrapper.vm.$nextTick()
-
-			// The immediate range watcher already fetched once on mount.
-			expect(fetchSpy).toHaveBeenCalledTimes(1)
-			const [from, to] = fetchSpy.mock.calls[0]
-			expect(from).toBe(wrapper.vm.rangeStart)
-			expect(to).toBe(wrapper.vm.rangeEnd)
-
-			fetchSpy.mockClear()
-			await appliedHandler()({})
-			expect(fetchSpy).toHaveBeenCalledTimes(1)
-			expect(fetchSpy).toHaveBeenCalledWith(from, to)
-		})
-
-		it('unsubscribes the handler on unmount', async () => {
-			const store = useRoomTasksStore()
-			jest.spyOn(store, 'fetchRangeTasks').mockResolvedValue(undefined)
-
-			const wrapper = mount(CalendarView, {
-				global: { stubs: { TaskCalendar: true, RouterLink: true } },
-			})
-			const handler = appliedHandler()
-
-			wrapper.unmount()
-			expect(unsubscribe).toHaveBeenCalledWith('chorestrike:schedule-applied', handler)
-		})
 	})
 
 	// CS-PLAN-090 D-090-14: the weekly plan left the navigation and is

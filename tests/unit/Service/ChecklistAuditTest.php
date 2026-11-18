@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\CycleProgressMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskChecklistItem;
@@ -17,8 +17,9 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\ChecklistService;
-use OCA\ChoreStrike\Service\OccurrenceService;
+use OCA\ChoreStrike\Service\CycleService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IDBConnection;
@@ -73,10 +74,10 @@ class ChecklistAuditTest extends TestCase {
 		);
 		$language = $this->createMock(IL10N::class);
 		$language->method('t')->willReturnCallback(static fn (string $message): string => $message);
-		$service = new ChecklistService($items, $this->createMock(RoomTaskChecklistProgressMapper::class),
+		$service = new ChecklistService($items, $this->createMock(CycleProgressMapper::class),
 			$this->createMock(RoomTaskMapper::class), $tasks, $this->createMock(HouseMapper::class),
 			new TransactionExecutor($db), $this->createMock(RoomTaskService::class),
-			$this->createMock(OccurrenceService::class), $language, $logger, $authorization, $policy);
+			$this->createMock(CycleService::class), new CalendarService(), $language, $logger, $authorization, $policy);
 		if ($mode !== 'commit') {
 			$db->expects($this->once())->method('rollBack');
 			if ($mode !== 'rollback') {
@@ -136,9 +137,9 @@ class ChecklistAuditTest extends TestCase {
 		$policy = $this->createMock(TaskAccessPolicy::class);
 		$policy->expects($this->exactly(2))->method('canViewTask')->with($task, $owner)->willReturn(true);
 		$language = $this->createMock(IL10N::class);
-		$service = new ChecklistService($items, $this->createMock(RoomTaskChecklistProgressMapper::class),
+		$service = new ChecklistService($items, $this->createMock(CycleProgressMapper::class),
 			$rooms, $tasks, $this->createMock(HouseMapper::class), new TransactionExecutor($db),
-			$this->createMock(RoomTaskService::class), $this->createMock(OccurrenceService::class),
+			$this->createMock(RoomTaskService::class), $this->createMock(CycleService::class), new CalendarService(),
 			$language, $this->createMock(AppLogger::class), $authorization, $policy);
 		$service->reorderTaskItems($orders, 1, $owner);
 	}

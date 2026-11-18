@@ -1,225 +1,224 @@
 <?php
 
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
 declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\CompletedTask;
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
-use OCA\ChoreStrike\Db\WorkShare;
-use OCA\ChoreStrike\Db\WorkShareMapper;
-use OCA\ChoreStrike\Service\CalendarService;
+use OCA\ChoreStrike\Service\RecognitionFact;
+use OCA\ChoreStrike\Service\RecognitionFactsService;
 use OCA\ChoreStrike\Service\RhythmService;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * The rhythm over the recognition facts (CS-PLAN-091 WP-B1, ADR-021
+ * decisions 5 and 12): the streak continues from what a member held at
+ * the cutover, steps once per day whose cycles were all kept, holds
+ * behind an open window, breaks on a miss and ignores absences.
+ */
 class RhythmServiceTest extends TestCase {
-	private OccurrenceMapper $occurrences;
-	private OccurrenceMemberMapper $members;
-	private CompletedTaskMapper $completions;
-	private WorkShareMapper $shares;
-	private HouseUserMapper $houseUsers;
-	private HouseMapper $houses;
-	private TransactionExecutor $transactions;
+	private const WALLET = 500;
+
+	private RecognitionFactsService&MockObject $facts;
+	private HouseUserMapper&MockObject $houseUsers;
+	private HouseMapper&MockObject $houses;
 	private RhythmService $service;
+	/** @var list<RecognitionFact> Closed cycles in window-end order. */
+	private array $closed = [];
+	/** @var list<RecognitionFact> */
+	private array $open = [];
 
 	protected function setUp(): void {
-		$this->occurrences = $this->createMock(OccurrenceMapper::class);
-		$this->members = $this->createMock(OccurrenceMemberMapper::class);
-		$this->completions = $this->createMock(CompletedTaskMapper::class);
-		$this->shares = $this->createMock(WorkShareMapper::class);
+		$this->facts = $this->createMock(RecognitionFactsService::class);
 		$this->houseUsers = $this->createMock(HouseUserMapper::class);
 		$this->houses = $this->createMock(HouseMapper::class);
-		$this->transactions = $this->createMock(TransactionExecutor::class);
-		$this->transactions->method('run')->willReturnCallback(static fn (callable $fn): mixed => $fn());
+		$transactions = $this->createMock(TransactionExecutor::class);
+		$transactions->method('run')->willReturnCallback(static fn (callable $fn): mixed => $fn());
 		$house = new House();
 		$house->setId(1);
 		$house->setTimezone('UTC');
 		$this->houses->method('find')->willReturn($house);
-		$this->service = new RhythmService($this->occurrences, $this->members, $this->completions,
-			$this->houses, $this->houseUsers, new CalendarService(), $this->shares, $this->transactions);
+		$this->houses->method('findOneForJobs')->willReturn($house);
+		$this->houses->method('findForUpdate')->willReturn($house);
+
+		$this->closed = [];
+		$this->open = [];
+		// The cursor: pages of the service's size, keyed by the row index.
+		$this->facts->method('closedFactsPage')->willReturnCallback(function (House $house, ?string $afterDay, int $afterId, int $limit): array {
+			$page = array_slice($this->closed, $afterId, $limit);
+			$last = $page === [] ? null : $page[count($page) - 1];
+			return ['facts' => $page, 'lastDay' => $last?->day, 'lastId' => $afterId + count($page), 'count' => count($page)];
+		});
+		$this->facts->method('openFacts')->willReturnCallback(fn (): array => $this->open);
+		$this->service = new RhythmService($this->facts, $this->houses, $this->houseUsers, $transactions);
 	}
 
-	private function user(int $id, int $walletId): HouseUser {
+	private function user(int $id = 7, ?int $walletId = self::WALLET, ?int $base = null, ?int $longestBase = null): HouseUser {
 		$user = new HouseUser();
 		$user->setId($id);
 		$user->setWalletId($walletId);
 		$user->setCurrentStreak(0);
 		$user->setLongestStreak(0);
+		$user->setStreakBase($base);
+		$user->setLongestStreakBase($longestBase);
 		return $user;
 	}
 
-	private function occurrence(int $id, string $day, ?int $completionId, ?string $end = null, bool $suspended = false): Occurrence {
-		$row = new Occurrence();
-		$row->setId($id);
-		$row->setKind(Occurrence::KIND_SCHEDULED);
-		$row->setPlannedDate(new \DateTime($day));
-		$row->setDayStart(new \DateTime($day . ' 00:00:00 UTC'));
-		$row->setWindowStart(new \DateTime($day . ' 00:00:00 UTC'));
-		$row->setWindowEnd(new \DateTime($end ?? $day . ' +1 day'));
-		$row->setCompletionId($completionId);
-		$row->setSuspensionState($suspended ? Occurrence::SUSPENSION_SUSPENDED : Occurrence::SUSPENSION_NONE);
-		return $row;
-	}
-
-	private function obligation(int $id, int $walletId): OccurrenceMember {
-		$row = new OccurrenceMember();
-		$row->setOccurrenceId($id);
-		$row->setWalletId($walletId);
-		$row->setObligated(true);
-		$row->setDisposition(OccurrenceMember::DISPOSITION_ACTIVE);
-		return $row;
-	}
-
-	private function completed(int $id, string $day, string $class = CompletedTask::CLASS_AGREED): CompletedTask {
-		$row = new CompletedTask();
-		$row->setId($id);
-		$row->setCompletedAt(new \DateTime($day . ' 12:00:00 UTC'));
-		$row->setCompletionClass($class);
-		return $row;
-	}
-
-	private function share(int $walletId): WorkShare {
-		$share = new WorkShare();
-		$share->setWalletId($walletId);
-		return $share;
-	}
-
-	/** @param Occurrence[] $rows */
-	private function seed(array $rows, array $members, array $completions, array $shares): void {
-		$this->occurrences->method('findPlannedPage')->willReturnCallback(
-			static function (int $houseId, string $through, ?string $afterDay, int $afterId, int $size) use ($rows): array {
-				$remaining = array_values(array_filter($rows, static fn (Occurrence $row): bool
-					=> $row->getPlannedDate()->format('Y-m-d') <= $through
-					&& ($afterDay === null || $row->getPlannedDate()->format('Y-m-d') > $afterDay
-						|| ($row->getPlannedDate()->format('Y-m-d') === $afterDay && $row->getId() > $afterId))));
-				return array_slice($remaining, 0, $size);
-			}
-		);
-		$this->occurrences->expects($this->never())->method('findByHouseId');
-		$this->members->method('findByOccurrenceIds')->willReturnCallback(
-			static fn (array $ids): array => array_intersect_key($members, array_flip($ids))
-		);
-		$this->members->expects($this->never())->method('findByOccurrence');
-		$this->completions->method('findValidByIds')->willReturnCallback(
-			static fn (array $ids): array => array_intersect_key($completions, array_flip($ids))
-		);
-		$this->completions->expects($this->never())->method('isValidCompletion');
-		$this->shares->method('findSelectedByCompletionIds')->willReturnCallback(
-			static fn (array $ids): array => array_intersect_key($shares, array_flip($ids))
+	/**
+	 * @param list<int> $workers Wallets with a share of the completion
+	 * @param list<int> $neutralFor Wallets absent throughout the window
+	 */
+	private function fact(string $day, string $state, array $workers = [], array $neutralFor = [], array $responsible = [self::WALLET]): RecognitionFact {
+		return new RecognitionFact(
+			$day,
+			'2026-11-16',
+			$state,
+			$responsible,
+			array_fill_keys($workers, true),
+			array_fill_keys($neutralFor, true),
+			false,
+			in_array($state, [RecognitionFact::OPEN, RecognitionFact::UPCOMING], true),
+			11,
 		);
 	}
 
-	public function testRecomputeForMembers_AbsentAssignee_DoesNotReceiveCoworkerSuccess(): void {
-		$this->seed([$this->occurrence(1, '2026-09-24', 11)], [1 => [
-			$this->obligation(1, 100), $this->obligation(1, 200),
-		]], [11 => $this->completed(11, '2026-09-24')], [11 => [$this->share(100)]]);
-		$alice = $this->user(1, 100);
-		$bob = $this->user(2, 200);
-		$result = $this->service->recomputeForMembers(1, [$alice, $bob], new \DateTime('2026-09-25 12:00:00 UTC'));
-		self::assertSame(1, $result[1]['currentStreak']);
-		self::assertSame(0, $result[2]['currentStreak']);
+	private function kept(string $day): RecognitionFact {
+		return $this->fact($day, RecognitionFact::KEPT, [self::WALLET]);
 	}
 
-	public function testRecomputeForMembers_PendingEarlierDay_HoldsLaterStepsUntilDeadline(): void {
-		$this->seed([
-			$this->occurrence(1, '2026-09-20', 11),
-			$this->occurrence(2, '2026-09-21', null, '2026-09-27 00:00:00 UTC'),
-			$this->occurrence(3, '2026-09-22', 13),
-			$this->occurrence(4, '2026-09-23', 14),
-		], [1 => [$this->obligation(1, 100)], 2 => [$this->obligation(2, 100)],
-			3 => [$this->obligation(3, 100)], 4 => [$this->obligation(4, 100)]], [
-				11 => $this->completed(11, '2026-09-20'),
-				13 => $this->completed(13, '2026-09-22'),
-				14 => $this->completed(14, '2026-09-23'),
-			], [11 => [$this->share(100)], 13 => [$this->share(100)], 14 => [$this->share(100)]]);
-		$user = $this->user(1, 100);
-		// WP4 §3.4: the evaluation also exposes the pending-hold indicator —
-		// the confirmed streak stays 1 while the 09-21 day is still open.
-		self::assertSame(['currentStreak' => 1, 'longestStreak' => 1, 'pending' => true],
-			$this->service->recomputeForMembers(1, [$user], new \DateTime('2026-09-25 12:00:00 UTC'))[1]);
-		self::assertSame(['currentStreak' => 2, 'longestStreak' => 2, 'pending' => false],
-			$this->service->recomputeForMembers(1, [$user], new \DateTime('2026-09-28 12:00:00 UTC'))[1]);
+	private function evaluate(HouseUser $user): array {
+		return $this->service->evaluateForMembers(1, [$user], new \DateTime('2026-11-20 12:00:00 UTC'))[(int)$user->getId()];
 	}
 
-	public function testRecomputeForMembers_RecognizedSuspension_IsNeutral(): void {
-		$this->seed([$this->occurrence(1, '2026-09-22', 11),
-			$this->occurrence(2, '2026-09-23', null, null, true),
-			$this->occurrence(3, '2026-09-24', 13)],
-			[1 => [$this->obligation(1, 100)], 2 => [$this->obligation(2, 100)], 3 => [$this->obligation(3, 100)]],
-			[11 => $this->completed(11, '2026-09-22'), 13 => $this->completed(13, '2026-09-24')],
-			[11 => [$this->share(100)], 13 => [$this->share(100)]]);
-		self::assertSame(2, $this->service->recomputeForMembers(1, [$this->user(1, 100)],
-			new \DateTime('2026-09-25 12:00:00 UTC'))[1]['currentStreak']);
+	public function testEvaluate_ContinuesFromTheStreakHeldAtTheCutover(): void {
+		$this->closed = [$this->kept('2026-11-17'), $this->kept('2026-11-18')];
+
+		self::assertSame(
+			['currentStreak' => 6, 'longestStreak' => 9, 'pending' => false],
+			$this->evaluate($this->user(base: 4, longestBase: 9)),
+			'no week from before the derived model is evaluated again (D-091-04)'
+		);
+		self::assertSame(['currentStreak' => 2, 'longestStreak' => 2, 'pending' => false], $this->evaluate($this->user()), 'a member without a base starts at zero');
 	}
 
-	public function testRecomputeForMembers_LateCatchUp_NeverCountsAsOnTime(): void {
-		$this->seed([$this->occurrence(1, '2026-09-20', 11)], [1 => [$this->obligation(1, 100)]],
-			[11 => $this->completed(11, '2026-09-24', CompletedTask::CLASS_LATE)], [11 => [$this->share(100)]]);
-		self::assertSame(0, $this->service->recomputeForMembers(1, [$this->user(1, 100)],
-			new \DateTime('2026-09-25 12:00:00 UTC'))[1]['longestStreak']);
+	public function testEvaluate_AMissBreaksTheRunAndALaterKeptDayStartsANewOne(): void {
+		$this->closed = [
+			$this->kept('2026-11-16'),
+			$this->kept('2026-11-17'),
+			$this->fact('2026-11-18', RecognitionFact::MISSED),
+			$this->kept('2026-11-19'),
+		];
+
+		self::assertSame(['currentStreak' => 1, 'longestStreak' => 4, 'pending' => false], $this->evaluate($this->user(base: 2, longestBase: 2)));
 	}
 
-	public function testRecomputeForMembers_SuspendedLateVoluntaryWork_DoesNotCreateMiss(): void {
-		$this->seed([$this->occurrence(1, '2026-09-19', 10),
-			$this->occurrence(2, '2026-09-20', 11, null, true),
-			$this->occurrence(3, '2026-09-22', 13)],
-			[1 => [$this->obligation(1, 100)], 2 => [$this->obligation(2, 100)], 3 => [$this->obligation(3, 100)]],
-			[10 => $this->completed(10, '2026-09-19'),
-				11 => $this->completed(11, '2026-09-24', CompletedTask::CLASS_LATE),
-				13 => $this->completed(13, '2026-09-22')],
-			[10 => [$this->share(100)], 11 => [$this->share(100)], 13 => [$this->share(100)]]);
-		self::assertSame(2, $this->service->recomputeForMembers(1, [$this->user(1, 100)],
-			new \DateTime('2026-09-25 12:00:00 UTC'))[1]['currentStreak']);
+	public function testEvaluate_LateWorkAndWorkKeptBySomeoneElse_AreNotTheMembersSuccess(): void {
+		$this->closed = [$this->kept('2026-11-16'), $this->fact('2026-11-17', RecognitionFact::LATE, [self::WALLET])];
+		self::assertSame(0, $this->evaluate($this->user())['currentStreak'], 'done late stays not kept');
+
+		$this->closed = [$this->kept('2026-11-16'), $this->fact('2026-11-17', RecognitionFact::KEPT, [501])];
+		self::assertSame(0, $this->evaluate($this->user())['currentStreak'], 'a coworker\'s share is not the responsible member\'s');
 	}
 
-	public function testRecomputeForMembers_EarlyWork_WaitsForItsPlannedDay(): void {
-		$occurrence = $this->occurrence(1, '2026-09-26', 11);
-		$occurrence->setWindowStart(new \DateTime('2026-09-25 00:00:00 UTC'));
-		$this->seed([$occurrence], [1 => [$this->obligation(1, 100)]],
-			[11 => $this->completed(11, '2026-09-25')], [11 => [$this->share(100)]]);
-		$user = $this->user(1, 100);
-		self::assertSame(0, $this->service->recomputeForMembers(1, [$user], new \DateTime('2026-09-25 12:00:00 UTC'))[1]['currentStreak']);
-		self::assertSame(1, $this->service->recomputeForMembers(1, [$user], new \DateTime('2026-09-26 12:00:00 UTC'))[1]['currentStreak']);
+	public function testEvaluate_AnOpenWindowHoldsTheDayAndEverythingAfterIt(): void {
+		$this->closed = [$this->kept('2026-11-18'), $this->kept('2026-11-20')];
+		$this->open = [$this->fact('2026-11-19', RecognitionFact::OPEN)];
+
+		self::assertSame(
+			['currentStreak' => 1, 'longestStreak' => 1, 'pending' => true],
+			$this->evaluate($this->user()),
+			'the open cycle is merged in by its day: the kept day after it waits'
+		);
 	}
 
-	public function testRecomputeForMembers_OlderThanOnePage_RetainsIndependentLifetimeRun(): void {
-		$rows = $members = $completions = $shares = [];
-		for ($id = 1; $id <= 303; $id++) {
-			$day = (new \DateTime('2025-01-01 UTC'))->modify('+' . $id . ' days')->format('Y-m-d');
-			$rows[] = $this->occurrence($id, $day, $id + 1000);
-			$members[$id] = [$this->obligation($id, 100)];
-			$completions[$id + 1000] = $this->completed($id + 1000, $day);
-			$shares[$id + 1000] = [$this->share(100)];
+	public function testEvaluate_AnOpenRedCycleIsAMissWhileItIsOpen(): void {
+		$this->closed = [$this->kept('2026-11-17')];
+		$this->open = [$this->fact('2026-11-18', RecognitionFact::MISSED)];
+
+		self::assertSame(['currentStreak' => 0, 'longestStreak' => 1, 'pending' => false], $this->evaluate($this->user()));
+	}
+
+	public function testEvaluate_AbsenceAndWindowsNotYetOpenAreNeutral(): void {
+		$this->closed = [
+			$this->kept('2026-11-16'),
+			$this->fact('2026-11-17', RecognitionFact::MISSED, [], [self::WALLET]),
+			$this->kept('2026-11-18'),
+		];
+		$this->open = [$this->fact('2026-11-25', RecognitionFact::UPCOMING)];
+
+		self::assertSame(['currentStreak' => 2, 'longestStreak' => 2, 'pending' => false], $this->evaluate($this->user()), 'neither a step nor a break');
+	}
+
+	public function testEvaluate_WorkKeptDuringAnAbsenceStillCounts(): void {
+		$this->closed = [$this->fact('2026-11-17', RecognitionFact::KEPT, [self::WALLET], [self::WALLET])];
+
+		self::assertSame(1, $this->evaluate($this->user())['currentStreak']);
+	}
+
+	public function testEvaluate_SeveralCyclesOnOneDay_StepOnceAndBreakOnAnyMiss(): void {
+		$this->closed = [$this->kept('2026-11-17'), $this->kept('2026-11-17'), $this->kept('2026-11-18'), $this->fact('2026-11-18', RecognitionFact::MISSED)];
+
+		self::assertSame(['currentStreak' => 0, 'longestStreak' => 1, 'pending' => false], $this->evaluate($this->user()));
+	}
+
+	public function testEvaluate_SomeoneElsesAndUnassignedCycles_DoNotTouchTheMember(): void {
+		$this->closed = [
+			$this->kept('2026-11-17'),
+			$this->fact('2026-11-18', RecognitionFact::MISSED, [], [], [501]),
+			$this->fact('2026-11-18', RecognitionFact::MISSED, [], [], []),
+		];
+
+		self::assertSame(1, $this->evaluate($this->user())['currentStreak']);
+	}
+
+	public function testEvaluate_HistoryLongerThanOnePage_IsReadToItsEnd(): void {
+		$day = new \DateTimeImmutable('2025-01-01');
+		for ($i = 0; $i < RhythmService::HISTORY_PAGE_SIZE + 5; $i++) {
+			$this->closed[] = $this->kept($day->modify('+' . $i . ' days')->format('Y-m-d'));
 		}
-		$this->seed($rows, $members, $completions, $shares);
-		$result = $this->service->recomputeForMembers(1, [$this->user(1, 100)], new \DateTime('2026-09-25 12:00:00 UTC'));
-		self::assertSame(303, $result[1]['longestStreak']);
+
+		self::assertSame(RhythmService::HISTORY_PAGE_SIZE + 5, $this->evaluate($this->user())['currentStreak']);
 	}
 
-	public function testRefreshForJobs_ExpiredDeadlineWithoutMutation_ResetsPersistedStreak(): void {
-		$this->seed([$this->occurrence(1, '2026-09-24', null)], [1 => [$this->obligation(1, 100)]], [], []);
-		$user = $this->user(1, 100);
-		$user->setCurrentStreak(2);
-		$user->setLongestStreak(2);
-		$house = new House();
-		$house->setId(1);
-		$this->houses->method('findOneForJobs')->willReturn($house);
-		$this->houses->expects($this->once())->method('findForUpdate')->with(1)->willReturn($house);
-		$this->houseUsers->method('findByHouseId')->with(1)->willReturn([$user]);
-		$this->houseUsers->expects($this->once())->method('findForUpdate')->with(1)->willReturn($user);
-		$this->houseUsers->expects($this->once())->method('update')->with($user);
+	public function testEvaluate_MemberWithoutAWallet_KeepsOnlyTheBase(): void {
+		$this->facts->expects(self::never())->method('closedFactsPage');
 
-		$this->service->refreshForJobs(new \DateTime('2026-09-25 12:00:00 UTC'));
-		self::assertSame(0, $user->getCurrentStreak());
-		self::assertSame(0, $user->getLongestStreak());
+		self::assertSame(['currentStreak' => 3, 'longestStreak' => 5, 'pending' => false], $this->evaluate($this->user(walletId: null, base: 3, longestBase: 5)));
+	}
+
+	public function testRecomputeForMembers_PersistsOnlyAChangedProjection(): void {
+		$this->closed = [$this->kept('2026-11-17')];
+		$changed = $this->user(7);
+		$unchanged = $this->user(8, 501);
+		$this->houseUsers->expects(self::once())->method('update')->with($changed);
+
+		$this->service->recomputeForMembers(1, [$changed, $unchanged], new \DateTime('2026-11-20 12:00:00 UTC'));
+
+		self::assertSame([1, 1], [$changed->getCurrentStreak(), $changed->getLongestStreak()]);
+	}
+
+	public function testRefreshForJobs_AnExpiredWindowWithoutAnyCommand_ResetsThePersistedStreak(): void {
+		$user = $this->user();
+		$user->setCurrentStreak(4);
+		$user->setLongestStreak(4);
+		$user->setStreakBase(4);
+		$user->setLongestStreakBase(4);
+		$this->houseUsers->method('findByHouseId')->willReturn([$user]);
+		$this->houseUsers->method('findForUpdate')->willReturn($user);
+		$this->open = [$this->fact('2026-11-19', RecognitionFact::MISSED)];
+		$this->houseUsers->expects(self::once())->method('update')->with($user);
+
+		$this->service->refreshForJobs(new \DateTime('2026-11-20 00:05:00 UTC'));
+
+		self::assertSame([0, 4], [$user->getCurrentStreak(), $user->getLongestStreak()]);
 	}
 }

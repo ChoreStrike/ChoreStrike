@@ -110,7 +110,7 @@ test.describe('family membership hardening (CS-PLAN-081 H3)', () => {
 					}
 				}
 				const rows = await dataOf(await a.page.request.get(`${API}/room-tasks`))
-				const completable = rows.find((row: { id: number, occurrence?: { occurrenceId?: string } }) => row.occurrence?.occurrenceId)
+				const completable = rows.find((row: { id: number, cycle?: { expectedVersion?: number } | null }) => row.cycle)
 				expect(completable).toBeTruthy()
 				await dataOf(await completeAsSoleParticipantViaApi(a.page, completable.id, uids[0]))
 			} finally {

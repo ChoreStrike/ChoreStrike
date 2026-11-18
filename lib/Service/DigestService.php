@@ -17,10 +17,7 @@ use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MemberPreferenceMapper;
-use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Pause;
 use OCA\ChoreStrike\Db\PauseMapper;
 use OCA\ChoreStrike\Db\RewardRequestMapper;
@@ -68,7 +65,6 @@ class DigestService {
 		private DigestSlotMapper $slotMapper,
 		private DigestChangeMapper $changeMapper,
 		private OccurrenceMapper $occurrenceMapper,
-		private OccurrenceMemberMapper $occMemberMapper,
 		private NotificationService $notificationService,
 		private DigestScheduleService $scheduleService,
 		private CalendarService $calendar,
@@ -182,12 +178,13 @@ class DigestService {
 					return ['outcome' => 'quiet'];
 				}
 
+				$visibleRoomTasks = $this->roomTaskReadService->getHouseRoomTasks((int)$house->getId(), $member);
 				$visibleRoomTaskIds = array_fill_keys(array_map(
 					static fn (\OCA\ChoreStrike\Db\RoomTask $row): int => (int)$row->getId(),
-					$this->roomTaskReadService->getHouseRoomTasks((int)$house->getId(), $member)
+					$visibleRoomTasks
 				), true);
 				$taskCount = $pref->getTaskDigestEnabled()
-					? $this->countRelevantTasks($house, $member, $now, $visibleRoomTaskIds)
+					? $this->countRelevantTasks($house, $member, $now, $visibleRoomTasks)
 					: 0;
 				$orgRows = $pref->getOrgDigestEnabled()
 					? $this->relevantOrgRows($slot, $member, $visibleRoomTaskIds)
@@ -272,14 +269,16 @@ class DigestService {
 	}
 
 	/**
-	 * Dispatch-time task relevance (§3.4 (c)): the member's obligated,
-	 * active, unfulfilled, non-suspended occurrences PLANNED today plus
-	 * the explicitly agreed catch-up work appointed for today. Nothing on
-	 * free (weekday-unavailable) or recognized-paused days; no backlog,
-	 * offers or future work; private tasks never leak (the member is a
-	 * participant of every counted row; only a count is rendered).
+	 * Dispatch-time task relevance (§3.4 (c)): the member's assigned,
+	 * active tasks whose current cycle is planned for today and whose
+	 * window is open (ADR-021). Nothing on free (weekday-unavailable) days
+	 * or during an absence; no backlog, offers or future work; private
+	 * tasks never leak (the member is assigned to every counted task;
+	 * only a count is rendered).
+	 *
+	 * @param \OCA\ChoreStrike\Db\RoomTask[] $visibleRoomTasks Room tasks the member may see
 	 */
-	private function countRelevantTasks(\OCA\ChoreStrike\Db\House $house, HouseUser $member, \DateTime $now, array $visibleRoomTaskIds): int {
+	private function countRelevantTasks(\OCA\ChoreStrike\Db\House $house, HouseUser $member, \DateTime $now, array $visibleRoomTasks): int {
 		$tz = $this->calendar->getTimeZone($house);
 		$todayKey = $this->calendar->dayKey($now, $tz);
 		$dayName = strtolower(\DateTime::createFromInterface($now)->setTimezone($tz)->format('l'));
@@ -292,58 +291,24 @@ class DigestService {
 		}
 
 		$walletId = $member->getWalletId();
-		if ($walletId === null) {
-			return 0;
-		}
-		$excused = PauseProjectionService::excusedWalletsOn(
-			$this->pauseMapper->findByHouseId((int)$house->getId()), $todayKey, [(int)$walletId => true]
-		);
-		if (isset($excused[(int)$walletId])) {
-			return 0;
-		}
-
-		$candidates = [];
-		foreach ($this->occurrenceMapper->findByHousePlannedBetween((int)$house->getId(), $todayKey, $todayKey) as $occurrence) {
-			$candidates[(int)$occurrence->getId()] = $occurrence;
-		}
-		// Explicitly agreed catch-up for today (work appointment moved to
-		// today regardless of the planned date).
-		foreach ($this->occurrenceMapper->findByHouseMemberWorkDate((int)$house->getId(), (int)$walletId, $todayKey) as $occurrence) {
-			$candidates[(int)$occurrence->getId()] = $occurrence;
-		}
-		if ($candidates === []) {
-			return 0;
+		if ($walletId !== null) {
+			$excused = PauseProjectionService::excusedWalletsOn(
+				$this->pauseMapper->findByHouseId((int)$house->getId()), $todayKey, [(int)$walletId => true]
+			);
+			if (isset($excused[(int)$walletId])) {
+				return 0;
+			}
 		}
 
-		$membersByOccurrence = $this->occMemberMapper->findByOccurrenceIds(array_map(
-			static fn (Occurrence $occurrence): int => (int)$occurrence->getId(),
-			array_values($candidates)
+		$assignees = $this->roomTaskReadService->assigneesByRoomTasks($visibleRoomTasks);
+		$own = array_values(array_filter(
+			$visibleRoomTasks,
+			static fn (\OCA\ChoreStrike\Db\RoomTask $roomTask): bool => in_array($member->getNextcloudUserId(), $assignees[$roomTask->getId()] ?? [], true)
 		));
-
 		$count = 0;
-		foreach ($candidates as $occurrence) {
-			if (!isset($visibleRoomTaskIds[(int)$occurrence->getRoomTaskId()])) {
-				continue;
-			}
-			if ($occurrence->getCompletionId() !== null || $occurrence->getCoveredByCompletionId() !== null) {
-				continue;
-			}
-			if ($occurrence->getSuspensionState() === Occurrence::SUSPENSION_SUSPENDED) {
-				// Recognized-paused work is neutral, never a threat.
-				continue;
-			}
-			foreach ($membersByOccurrence[(int)$occurrence->getId()] ?? [] as $memberRow) {
-				if ((int)$memberRow->getWalletId() !== (int)$walletId) {
-					continue;
-				}
-				if (!$memberRow->getObligated() || $memberRow->getDisposition() !== OccurrenceMember::DISPOSITION_ACTIVE) {
-					continue;
-				}
-				if ($memberRow->getWorkDate() !== null && $memberRow->getWorkDate()->format('Y-m-d') !== $todayKey) {
-					continue;
-				}
+		foreach ($this->roomTaskReadService->cycleFacts((int)$house->getId(), $own, null, $now) as $fact) {
+			if (($fact['block']['state'] ?? null) === WindowService::STATE_OPEN && $fact['block']['centreOn'] === $todayKey) {
 				$count++;
-				break;
 			}
 		}
 		return $count;

@@ -52,7 +52,8 @@ class RoomTaskServiceTest extends TestCase {
 	private TaskAccessPolicy $taskAccessPolicy;
 	private AuthorizationService $authorization;
 	/** Occurrence agreement writer (CS-PLAN-072 WP1). */
-	private \OCA\ChoreStrike\Service\OccurrenceService $occurrenceService;
+	private \OCA\ChoreStrike\Service\CycleService $cycleService;
+	private \OCA\ChoreStrike\Service\WindowService $windows;
 	/** House returned by houseMapper->find (tz-resolution, swappable per test). */
 	private House $houseForTz;
 
@@ -74,7 +75,8 @@ class RoomTaskServiceTest extends TestCase {
 			->disableArgumentCloning()
 			->getMock();
 		$this->authorization = $this->createMock(AuthorizationService::class);
-		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
+		$this->cycleService = $this->createMock(\OCA\ChoreStrike\Service\CycleService::class);
+		$this->windows = new \OCA\ChoreStrike\Service\WindowService(new \OCA\ChoreStrike\Service\RecurrenceCalculator(), $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class));
 		// CS-PLAN-057: day-window methods resolve the house timezone.
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
@@ -98,12 +100,7 @@ class RoomTaskServiceTest extends TestCase {
 				$this->taskAssigneeMapper,
 				$this->taskAccessPolicy,
 				new CalendarService(),
-				$this->occurrenceService,
-				$this->createMock(\OCA\ChoreStrike\Service\PauseProjectionService::class),
-				$this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class),
-				$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
-				new \OCA\ChoreStrike\Service\EffortAllocationService(),
-				$this->createIdentityL10n(),
+				$this->windows,
 				$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
 				$this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class)
 			),
@@ -116,8 +113,8 @@ class RoomTaskServiceTest extends TestCase {
 			$this->createMock(AppLogger::class),
 			$this->taskAccessPolicy,
 			$this->authorization,
-			new CalendarService(),
-			$this->occurrenceService
+			$this->cycleService,
+			$this->windows
 		);
 	}
 
@@ -224,175 +221,12 @@ class RoomTaskServiceTest extends TestCase {
 		$this->service->validateRoomTaskOwnership(1, 1);
 	}
 
-	/**
-	 * UpdateDueDate_TombstonedRoomTask_Yields404
-	 *
-	 * Q-70-01: lifecycle mutations never land on deleted planning state.
-	 */
-	public function testUpdateDueDate_TombstonedRoomTask_Yields404(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setRoomId(5);
-		$roomTask->setDeletedAt(new \DateTime());
-
-		$this->stubTaskDefinition($this->createTask());
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-		$this->occurrenceService->expects($this->never())->method('amendOccurrenceDateUnderLock');
-
-		$this->expectException(NotFoundException::class);
-		$this->expectExceptionMessage('Room task not found');
-
-		$this->service->updateDueDate(1, '+1 day', $this->createHouseUser());
-	}
-
-	/**
-	 * UpdateDueDate_ExistingTask_UpdatesDueDate
-	 */
-	public function testUpdateDueDate_ExistingTask_UpdatesDueDate(): void {
-		$roomTaskId = 1;
-		$newDue = new \DateTime('+3 days');
-
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setTaskId(1);
-		$roomTask->setRoomId(5);
-		$roomTask->setNextDue($newDue);
-
-		$this->stubTaskDefinition($this->createTask());
-		$this->roomTaskMapper
-			->expects($this->exactly(2))
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
-
-		// CS-PLAN-071: the owning house resolves via room → floor → house.
-		$utcRoom = new \OCA\ChoreStrike\Db\Room();
-		$utcRoom->setId(5);
-		$utcRoom->setFloorId(9);
-		$utcFloor = new \OCA\ChoreStrike\Db\Floor();
-		$utcFloor->setId(9);
-		$utcFloor->setHouseId(1);
-		$this->roomMapper->method('find')->with(5)->willReturn($utcRoom);
-		$this->floorMapper->method('find')->with(9)->willReturn($utcFloor);
-
-		// CS-PLAN-072 WP1: due-date edits are AGREED amendments — the
-		// agreement writer moves the target occurrence (identity retained).
-		$this->roomTaskMapper->method('lockForUpdate')->willReturn($roomTask);
-		$this->occurrenceService
-			->expects($this->once())
-			->method('amendOccurrenceDateUnderLock')
-			->with(
-				$this->callback(static fn (RoomTask $rt): bool => $rt->getId() === $roomTaskId),
-				null,
-				null,
-				$this->callback(static fn (string $dayKey): bool => $dayKey === (new \DateTime('+3 days'))->format('Y-m-d')),
-				$this->isInstanceOf(\DateTime::class)
-			)
-			->willReturn(new \OCA\ChoreStrike\Db\Occurrence());
-
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-
-		$result = $this->service->updateDueDate($roomTaskId, '+3 days', $this->createHouseUser());
-
-		$this->assertSame($roomTask, $result);
-	}
-
-	/**
-	 * UpdateDueDate_DayKeyLabel_ResolvesHouseLocalMidnight (RF-058-01)
-	 *
-	 * A bare `Y-m-d` label denotes house-local midnight (ADR-009): for a
-	 * UTC house '2030-05-10' persists as 2030-05-10T00:00:00Z; tagging the
-	 * label at server-TZ midnight would land one local day early for
-	 * houses west of UTC.
-	 */
-	public function testUpdateDueDate_DayKeyLabel_ResolvesHouseLocalMidnight(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setRoomId(5);
-
-		$this->stubTaskDefinition($this->createTask());
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-
-		// Room 5 belongs to a Pacific/Honolulu (UTC-10) house: house-local
-		// midnight of 2030-05-10 is 2030-05-10T10:00:00Z — NOT 00:00Z.
-		$honoluluHouse = new House();
-		$honoluluHouse->setTimezone('Pacific/Honolulu');
-		$this->houseForTz = $honoluluHouse;
-		$honoluluRoom = new \OCA\ChoreStrike\Db\Room();
-		$honoluluRoom->setId(5);
-		$honoluluRoom->setFloorId(9);
-		$honoluluFloor = new \OCA\ChoreStrike\Db\Floor();
-		$honoluluFloor->setId(9);
-		$honoluluFloor->setHouseId(3);
-		$this->roomMapper->method('find')->with(5)->willReturn($honoluluRoom);
-		$this->floorMapper->method('find')->with(9)->willReturn($honoluluFloor);
-
-		$captured = null;
-		$this->roomTaskMapper->method('lockForUpdate')->willReturn($roomTask);
-		$this->occurrenceService
-			->expects($this->once())
-			->method('amendOccurrenceDateUnderLock')
-			->willReturnCallback(static function ($rt, $actor, $wallets, string $dayKey, $now) use (&$captured): \OCA\ChoreStrike\Db\Occurrence {
-				$captured = $dayKey;
-				return new \OCA\ChoreStrike\Db\Occurrence();
-			});
-
-		$this->service->updateDueDate(1, '2030-05-10', $this->createHouseUser());
-
-		// The HOUSE-LOCAL day label is what the agreement moves (the saved
-		// zone resolves the window boundaries server-side).
-		$this->assertSame('2030-05-10', $captured);
-	}
-
-	/**
-	 * UpdateDueDate_UnparseableInput_ThrowsValidation (RF-058-01)
-	 */
-	public function testUpdateDueDate_UnparseableInput_ThrowsValidation(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-
-		$this->stubTaskDefinition($this->createTask());
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-
-		$this->occurrenceService->expects($this->never())->method('amendOccurrenceDateUnderLock');
-
-		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Invalid nextDue date format');
-		$this->service->updateDueDate(1, 'not-a-date', $this->createHouseUser());
-	}
-
 	// CS-PLAN-056 (CR-053-06): lifecycle mutations enforce the same visibility
 	// matrix as the completion path (updateDueDate since CS-PLAN-064 WP5 —
 	// uncompleteTask/reactivateTask/completeTask moved to the
 	// CompletionService undo/complete aggregates). Since CS-PLAN-061 the
 	// matrix runs through TaskAccessPolicy and a denial is the 404
 	// anti-enumeration NotFoundException (D2/D3).
-
-	/**
-	 * UpdateDueDate_AdminOnlyTask_NonOwnerMember_ThrowsNotFound
-	 */
-	public function testUpdateDueDate_AdminOnlyTask_NonOwnerMember_ThrowsNotFound(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-
-		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_ADMIN_ONLY));
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-		$this->taskAccessPolicy->method('assertCanView')
-			->willThrowException(new NotFoundException('Task not found'));
-
-		$this->occurrenceService->expects($this->never())->method('amendOccurrenceDateUnderLock');
-
-		$this->expectException(NotFoundException::class);
-		$this->service->updateDueDate(1, '+1 day', $this->createHouseUser('memberUser'));
-	}
 
 	/**
 	 * DeleteRoomTask_ExistingTask_TombstonesAndCleansPlanningState
@@ -592,13 +426,20 @@ class RoomTaskServiceTest extends TestCase {
 		$house->setTimezone('UTC');
 		$this->houseMapper->method('find')->willReturn($house);
 
+		// A weekly task whose window ended three days ago: overdue (ADR-021).
+		$definition = new Task();
+		$definition->setId(9);
+		$this->taskMapper->method('findByIds')->willReturn([9 => $definition]);
 		$activeTask = new RoomTask();
 		$activeTask->setId(1);
+		$activeTask->setTaskId(9);
 		$activeTask->setIsActive(true);
-		$activeTask->setNextDue(new \DateTime('-1 day'));
+		$activeTask->setAnchorOn(new \DateTime('-3 days'));
+		$activeTask->setNextDue(new \DateTime('-3 days'));
 
 		$inactiveTask = new RoomTask();
 		$inactiveTask->setId(2);
+		$inactiveTask->setTaskId(9);
 		$inactiveTask->setIsActive(false);
 
 		$this->roomTaskMapper
@@ -1150,6 +991,10 @@ class RoomTaskServiceTest extends TestCase {
 				return $assignee;
 			});
 		$this->taskAssigneeMapper->method('findByRoomTask')->with($roomTaskId)->willReturn([$assignee]);
+		// ADR-021: the assignees belong to the current cycle — its version
+		// bumps and the projection follows in the same transaction.
+		$this->cycleService->expects($this->once())->method('changedUnderLock')
+			->with($this->identicalTo($roomTask), $this->isInstanceOf(Task::class), $this->isInstanceOf(\DateTimeZone::class), $this->isInstanceOf(\DateTime::class));
 
 		$result = $this->service->setAssignees($roomTaskId, ['user-a', 'user-b'], $houseId, $actor);
 

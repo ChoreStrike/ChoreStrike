@@ -17,17 +17,11 @@ first; using the reward catalog and games is optional.
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/my-day.png" alt="Today: a teenager's agreed tasks for today, each with a Done button and an optional checklist"></td>
-    <td width="50%"><img src="docs/screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks, each adjustable by person and day, and the tasks that stay as planned"></td>
+    <td width="50%"><img src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
   </tr>
   <tr>
     <td align="center"><b>Today</b>: your status and today's agreed tasks</td>
-    <td align="center"><b>Weekly planner</b>: a preview, applied only once agreed</td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><img width="50%" src="docs/screenshots/reward-catalog.png" alt="Reward catalog: family rewards with Coin prices and a Request button"></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><b>Rewards</b>: an optional family catalog</td>
+    <td align="center"><b>Rewards</b>: an optional family catalog</td>
   </tr>
 </table>
 

@@ -9,16 +9,16 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Db;
 
+use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Service\WeeklyGoalService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
  * Raw completion timestamps use half-open week windows (CS-PLAN-060 WP1
- * §3.6), while the weekly goal follows the agreed occurrence's planned
- * week and counts only valid work inside its saved window (C1e/C2g).
+ * §3.6), while the weekly goal follows the week a cycle's window ends
+ * in and counts only work classified on time (ADR-021 decision 5).
  */
 class WeekWindowBoundaryTest extends IntegrationTestCase {
 	private CompletedTaskMapper $completedTaskMapper;
@@ -84,44 +84,26 @@ class WeekWindowBoundaryTest extends IntegrationTestCase {
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($lateTaskId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
 		$lateRoomTaskId = $this->assignTaskToRoom($lateTaskId, $roomId, 'week_member2', $previousMidWeek->format('Y-m-d H:i:s'));
-		$houseUserId = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
-			->findByNextcloudUserId($houseId, 'week_member2')->getId();
+		$member = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
+			->findByNextcloudUserId($houseId, 'week_member2');
+		$wallets = [(int)$member->getWalletId()];
+		$midKey = $midWeek->format('Y-m-d');
+		$previousKey = $previousMidWeek->format('Y-m-d');
+		$workAt = $midWeek->format('Y-m-d 12:00:00');
 
-		$this->recordOccurrenceCompletion($onTimeRoomTaskId, $houseUserId, $midWeek, $midWeek->format('Y-m-d'), 'agreed');
-		$this->recordOccurrenceCompletion($lateRoomTaskId, $houseUserId, $midWeek, $previousMidWeek->format('Y-m-d'), 'late');
+		$this->insertClosedCycle($houseId, $onTimeRoomTaskId, $midKey, $midKey, $wallets, $this->insertCompletionRow($onTimeRoomTaskId, $member->getId(), $workAt));
+		$this->insertClosedCycle($houseId, $lateRoomTaskId, $previousKey, $previousKey, $wallets, $this->insertCompletionRow($lateRoomTaskId, $member->getId(), $workAt), CompletedTask::CLASS_LATE);
 
 		$goal = \OC::$server->get(WeeklyGoalService::class);
 		$reference = (clone $midWeek)->modify('+1 day');
 		$current = $goal->progressForWeek($house, $reference);
 		$previous = $goal->progressForPlannedWeek($house, (clone $weekStart)->modify('-7 days')->format('Y-m-d'), $reference);
-		self::assertSame(1, $current['dueCount'], 'only this week\'s agreed occurrence is due this week');
+		self::assertSame(1, $current['dueCount'], 'only the cycle whose window ends this week is due this week');
 		self::assertSame(1, $current['completedCount'], 'its off-boundary, on-time work counts once');
-		self::assertSame(1, $previous['dueCount'], 'the older occurrence stays in its planned week');
+		self::assertSame(1, $previous['dueCount'], 'the older cycle stays in the week its window ended');
 		self::assertSame(0, $previous['completedCount'], 'late work does not repair last week or move to this week');
 		self::assertTrue($current['provisional']);
 		self::assertFalse($current['achieved'], 'the current week has not finalized');
-	}
-
-	private function recordOccurrenceCompletion(int $roomTaskId, int $houseUserId, \DateTime $at, string $plannedKey, string $class): void {
-		$mapper = \OC::$server->get(OccurrenceMapper::class);
-		$occurrence = null;
-		foreach ($mapper->findByRoomTask($roomTaskId) as $row) {
-			if ($row->getPlannedDate()->format('Y-m-d') === $plannedKey) {
-				$occurrence = $row;
-				break;
-			}
-		}
-		self::assertNotNull($occurrence, 'the saved planned occurrence must exist');
-		$completionId = $this->insertCompletionRow($roomTaskId, $houseUserId, $at->format('Y-m-d 12:00:00'), 3, $plannedKey);
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_completed_tasks')
-			->set('completion_class', $qb->createNamedParameter($class))
-			->set('schedule_rev_id', $qb->createNamedParameter($occurrence->getScheduleRevId(), IQueryBuilder::PARAM_INT))
-			->set('occurrence_ordinal', $qb->createNamedParameter($occurrence->getOrdinal(), IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($completionId, IQueryBuilder::PARAM_INT)))
-			->executeStatement();
-		$occurrence->setCompletionId($completionId);
-		$mapper->update($occurrence);
 	}
 
 	/**

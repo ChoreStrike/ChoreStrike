@@ -52,7 +52,7 @@ class SupportedDatabaseSchemaTest extends IntegrationTestCase {
 			$class = 'OCA\\ChoreStrike\\Migration\\' . $name;
 			$versions[] = substr($name, strlen('Version'));
 			if ((new \ReflectionMethod($class, 'changeSchema'))->getDeclaringClass()->getName() === SimpleMigrationStep::class) {
-				// A data-only step (Version1034) adds nothing to the schema.
+				// A data-only step (Version1034, Version1036) adds nothing to the schema.
 				continue;
 			}
 			self::assertNotNull(\OC::$server->get($class)->changeSchema($output, static fn (): ISchemaWrapper => $expected, []), $name);
@@ -63,7 +63,7 @@ class SupportedDatabaseSchemaTest extends IntegrationTestCase {
 		$actual = $this->db->createSchema();
 		$prefix = \OC::$server->get(IConfig::class)->getSystemValue('dbtableprefix', 'oc_');
 		$actualTables = array_filter($actual->getTables(), static fn (Table $table): bool => str_starts_with($table->getName(), $prefix . 'chorestrike_'));
-		self::assertCount(30, $expected->getTables(), 'the complete WP0-WP8 chain');
+		self::assertCount(32, $expected->getTables(), 'the complete chain: WP0-WP8 plus the cycle tables of ADR-021');
 		self::assertEqualsCanonicalizing(
 			array_map(static fn (Table $table): string => $table->getName(), $expected->getTables()),
 			array_map(static fn (Table $table): string => $table->getName(), array_values($actualTables))

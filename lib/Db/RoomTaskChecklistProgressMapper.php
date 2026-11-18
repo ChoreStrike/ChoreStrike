@@ -262,4 +262,13 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
 	}
+
+	/** Account erasure: the retained ticks stay, the member who ticked goes. */
+	public function anonymizeChecker(int $houseUserId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('checked_by_user_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+			->where($qb->expr()->eq('checked_by_user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
 }

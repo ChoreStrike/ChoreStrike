@@ -1,7 +1,7 @@
 import type { APIResponse, Locator } from '@playwright/test'
 
 import { userStatePath } from './fixtures/auth-contexts.ts'
-import { completeRoomTaskViaApi, newCommandId, resolveOccurrenceReceipt } from './fixtures/completion-api.ts'
+import { completeRoomTaskViaApi, newCommandId, resolveCycleReceipt } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
 import { openSettings, openSettingsCategory } from './fixtures/settings.ts'
@@ -371,24 +371,15 @@ test.describe('Settings', () => {
 			data: {
 				roomId,
 				assigneeUserIds: ['mom'],
-				nextDue: houseDateOffset(0, 'UTC'),
-				task: { name: 'Retained agreement probe', energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
+				firstDate: houseDateOffset(0, 'UTC'),
+				task: { name: 'Retained cycle probe', energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
 			},
 		}))
 		const roomTaskId = probe.roomTask.id as number
-		const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
-		expect(receipt).not.toBeNull()
-		await dataOf(await page.request.post(`${API}/occurrences/${receipt!.occurrenceId}/amend`, {
-			data: {
-				roomTaskId,
-				commandId: newCommandId(),
-				...receipt,
-				consent: true,
-				date: houseDateOffset(0, 'UTC'),
-			},
-		}))
+		const receipt = await resolveCycleReceipt(page, roomTaskId)
+		expect(receipt).toEqual({ cycleKey: `d${houseDateOffset(0, 'UTC')}`, expectedVersion: expect.any(Number) })
 		const rows = await dataOf(await page.request.get(`${API}/room-tasks`))
-		const earningTask = rows.find((row: { id: number, assignees: string[], occurrence?: object }) => row.id !== roomTaskId && row.assignees.includes('mom') && row.occurrence)
+		const earningTask = rows.find((row: { id: number, assignees: string[], cycle?: object | null }) => row.id !== roomTaskId && row.assignees.includes('mom') && row.cycle)
 		expect(earningTask).toBeTruthy()
 		const completion = await dataOf(await completeRoomTaskViaApi(page, earningTask.id))
 		const house = await dataOf(await page.request.get(`${API}/house`))
@@ -437,12 +428,12 @@ test.describe('Settings', () => {
 					rooms: entry.rooms.map((room) => ({ id: room.id, floorId: room.floorId, name: room.name, icon: room.icon, roomType: room.roomType })).sort((a, b) => a.id - b.id),
 				})),
 				tasks: await dataOf(await page.request.get(`${API}/tasks`)),
-				planning: taskRows.map((row: { id: number, roomId: number, taskId: number, assignees: string[], occurrence?: { occurrenceId: string, expectedVersion: number, workDate: string } }) => ({
+				planning: taskRows.map((row: { id: number, roomId: number, taskId: number, assignees: string[], cycle?: { cycleKey?: string, expectedVersion: number, state: string, centreOn?: string } | null }) => ({
 					id: row.id,
 					roomId: row.roomId,
 					taskId: row.taskId,
 					assignees: row.assignees,
-					occurrence: row.occurrence ? { occurrenceId: row.occurrence.occurrenceId, expectedVersion: row.occurrence.expectedVersion, workDate: row.occurrence.workDate } : null,
+					cycle: row.cycle ? { cycleKey: row.cycle.cycleKey, expectedVersion: row.cycle.expectedVersion, state: row.cycle.state, centreOn: row.cycle.centreOn } : null,
 				})),
 				history: await dataOf(await page.request.get(`${API}/completions/${completion.completionId}`)),
 				member: await dataOf(await page.request.get(`${API}/users/current`)),
@@ -459,7 +450,7 @@ test.describe('Settings', () => {
 		expect(before.history.id).toBe(completion.completionId)
 		expect(before.history.allocation.length).toBeGreaterThan(0)
 		expect(before.achievements.length).toBeGreaterThan(0)
-		expect(before.planning.find((row) => row.id === roomTaskId)?.occurrence?.expectedVersion).toBeGreaterThan(receipt!.expectedVersion)
+		expect(before.planning.find((row) => row.id === roomTaskId)?.cycle).toMatchObject({ cycleKey: receipt!.cycleKey, expectedVersion: receipt!.expectedVersion })
 		await openSettings(page, 'danger')
 		await page.reload()
 		await expect(page.getByTestId('settings-view')).toBeVisible()

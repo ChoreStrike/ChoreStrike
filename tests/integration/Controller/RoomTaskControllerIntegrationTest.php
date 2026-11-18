@@ -155,14 +155,14 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	public function testComplete_ExistingRoomTask_ReturnsSuccessWithCompletion(): void {
 		$roomTaskId = 1;
 		// CompletionService::complete returns array with roomTask, room,
-		// task, rewards plus the occurrence receipt surface (WP1).
+		// task, rewards plus the next `cycle` block.
 		$completedData = [
 			'roomTask' => $this->createMockRoomTask($roomTaskId, 1, 1),
 			'room' => $this->createMockRoom(1, 'Living Room', 1, 85),
 			'task' => $this->createMockTask(1, 'Test Task'),
 			'rewards' => ['coinsEarned' => 10],
 			'completionId' => 7,
-			'occurrence' => null,
+			'cycle' => null,
 			'replay' => false,
 		];
 
@@ -173,12 +173,11 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->roomTaskService->method('validateRoomTaskOwnership');
 		$this->completionService->method('complete')
 			->willReturn($completedData);
-		// The receipt contract (CS-PLAN-072 WP1) rides the request params.
+		// The receipt contract (ADR-021 decision 4) rides the request params.
 		$this->request->method('getParams')->willReturn([
 			'commandId' => '11111111-2222-4333-8444-555555555555',
-			'occurrenceId' => '1:1',
+			'cycleKey' => 'c41',
 			'expectedVersion' => 0,
-			'selectionToken' => 'token',
 		]);
 
 		$response = $this->controller->complete($roomTaskId);

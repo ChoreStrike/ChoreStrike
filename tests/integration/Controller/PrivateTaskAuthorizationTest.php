@@ -143,30 +143,18 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		$viewer = $houseUserMapper->findByNextcloudUserId($this->houseId, $userId);
 
 		$roomTasks = $service->{$method}(...array_merge([$this->houseId, $viewer], $args));
-		return array_map(fn ($rt) => $rt->getId(), $roomTasks);
+		return array_map(static fn ($rt): int => is_array($rt) ? $rt['roomTask']->getId() : $rt->getId(), $roomTasks);
 	}
 
 	public function testOverdueReadHidesPrivateTasksFromNonViewers(): void {
-		// Make the private room tasks overdue (CS-PLAN-072 WP1: a miss is
-		// an expired occurrence window, not a stale next_due projection).
-		$missedIds = [$this->privateRoomTaskId, $this->assigneeRoomTaskId];
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_room_tasks')
-			->set('next_due', $qb->createNamedParameter('2020-01-01 00:00:00'))
-			->where($qb->expr()->in('id', $qb->createNamedParameter($missedIds, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
-		$qb->executeStatement();
-
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_occurrences')
-			->set('planned_date', $qb->createNamedParameter('2020-01-01'))
-			->set('day_start', $qb->createNamedParameter('2020-01-01 00:00:00'))
-			->set('window_start', $qb->createNamedParameter('2020-01-01 00:00:00'))
-			->set('window_end', $qb->createNamedParameter('2020-01-02 00:00:00'))
-			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($missedIds, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
-		$qb->executeStatement();
+		// Make the private room tasks overdue (ADR-021: the window of a
+		// task that was never done ended long ago).
+		foreach ([$this->privateRoomTaskId, $this->assigneeRoomTaskId] as $roomTaskId) {
+			$this->setFirstDate($roomTaskId, '2020-01-01');
+		}
 
 		// The child is not creator/assignee: neither private room task leaks.
-		$childIds = $this->visibleRoomTaskIds('priv_child', 'getOverdueTasks');
+		$childIds = $this->visibleRoomTaskIds('priv_child', 'getOverdueTaskRows');
 		self::assertNotContains($this->privateRoomTaskId, $childIds);
 		self::assertNotContains($this->assigneeRoomTaskId, $childIds);
 
@@ -175,27 +163,25 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		// exactly their own assignment, not another member's chore
 		// instance (D2 — the assignee branch is keyed on the room task's
 		// own join-table rows).
-		$ownerIds = $this->visibleRoomTaskIds('priv_owner', 'getOverdueTasks');
+		$ownerIds = $this->visibleRoomTaskIds('priv_owner', 'getOverdueTaskRows');
 		self::assertContains($this->privateRoomTaskId, $ownerIds);
 		self::assertContains($this->assigneeRoomTaskId, $ownerIds);
 
-		$memberIds = $this->visibleRoomTaskIds('priv_member', 'getOverdueTasks');
+		$memberIds = $this->visibleRoomTaskIds('priv_member', 'getOverdueTaskRows');
 		self::assertContains($this->assigneeRoomTaskId, $memberIds);
 		self::assertNotContains($this->privateRoomTaskId, $memberIds);
 	}
 
 	public function testDueTodayReadHidesPrivateTasksFromNonViewers(): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_room_tasks')
-			->set('next_due', $qb->createNamedParameter(date('Y-m-d 12:00:00')))
-			->where($qb->expr()->in('id', $qb->createNamedParameter([$this->privateRoomTaskId, $this->assigneeRoomTaskId], \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
-		$qb->executeStatement();
+		foreach ([$this->privateRoomTaskId, $this->assigneeRoomTaskId] as $roomTaskId) {
+			$this->setFirstDate($roomTaskId, gmdate('Y-m-d'));
+		}
 
-		$childIds = $this->visibleRoomTaskIds('priv_child', 'getDueTodayTasks');
+		$childIds = $this->visibleRoomTaskIds('priv_child', 'getDueTodayTaskRows');
 		self::assertNotContains($this->privateRoomTaskId, $childIds);
 		self::assertNotContains($this->assigneeRoomTaskId, $childIds);
 
-		$memberIds = $this->visibleRoomTaskIds('priv_member', 'getDueTodayTasks');
+		$memberIds = $this->visibleRoomTaskIds('priv_member', 'getDueTodayTaskRows');
 		self::assertContains($this->assigneeRoomTaskId, $memberIds);
 	}
 

@@ -8,24 +8,24 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\Floor;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\CalendarService;
+use OCA\ChoreStrike\Service\RecurrenceCalculator;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
-use OCP\IL10N;
+use OCA\ChoreStrike\Service\WindowService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -42,9 +42,8 @@ class RoomTaskReadServiceTest extends TestCase {
 	private HouseMapper|MockObject $houseMapper;
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
-	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
-	private HouseUserMapper|MockObject $houseUserMapper;
-	private OccurrenceMemberMapper|MockObject $occMemberMapper;
+	private CompletedTaskMapper|MockObject $completions;
+	private TaskChecklistItemMapper|MockObject $checklistItems;
 	private \OCA\ChoreStrike\Service\AppLogger|MockObject $logger;
 
 	protected function setUp(): void {
@@ -55,9 +54,8 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
-		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
-		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$this->occMemberMapper = $this->createMock(OccurrenceMemberMapper::class);
+		$this->completions = $this->createMock(CompletedTaskMapper::class);
+		$this->checklistItems = $this->createMock(TaskChecklistItemMapper::class);
 		$this->logger = $this->createMock(\OCA\ChoreStrike\Service\AppLogger::class);
 
 		$utcHouse = new House();
@@ -73,21 +71,11 @@ class RoomTaskReadServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->taskAccessPolicy,
 			new CalendarService(),
-			$this->occurrenceService,
-			$this->createMock(\OCA\ChoreStrike\Service\PauseProjectionService::class),
-			$this->houseUserMapper,
-			$this->occMemberMapper,
-			new \OCA\ChoreStrike\Service\EffortAllocationService(),
-			$this->createIdentityL10n(),
+			// The real derivation over a mocked completion read.
+			new WindowService(new RecurrenceCalculator(), $this->completions),
 			$this->logger,
-			$this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class)
+			$this->checklistItems
 		);
-	}
-
-	private function createIdentityL10n(): IL10N {
-		$l10n = $this->createMock(IL10N::class);
-		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		return $l10n;
 	}
 
 	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
@@ -287,156 +275,6 @@ class RoomTaskReadServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetOverdueTasks_ReturnsOverdueTasks — occurrence-authority edition
-	 * (CS-PLAN-072 WP1): a task is overdue when its canonical selection is
-	 * a MISSED occurrence (the catch-up card), not when next_due < now.
-	 */
-	public function testGetOverdueTasks_ReturnsOverdueTasks(): void {
-		$houseId = 1;
-		$roomId = 2;
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setRoomId($roomId);
-		$roomTask->setNextDue(new \DateTime('-1 day'));
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByHouse')
-			->with($houseId, true)
-			->willReturn([$roomTask]);
-
-		$this->occurrenceService->method('selectionsForHouseTasks')
-			->willReturnCallback(static fn (int $houseId, array $tasks, \DateTime $now): array => [1 => ['occurrence' => null, 'revision' => null, 'classification' => 'late']]);
-
-		$this->taskMapper->method('findByIds')->willReturn([]);
-		$this->stubPolicyPassthrough();
-
-		$result = $this->service->getOverdueTasks($houseId, $this->createHouseUser(), $roomId);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * GetDueTodayTasks_ReturnsDueTodayTasks — occurrence-authority edition:
-	 * a task is due today when an AGREED occurrence is planned on the
-	 * current house-local day.
-	 */
-	public function testGetDueTodayTasks_ReturnsDueTodayTasks(): void {
-		$houseId = 1;
-		$roomId = 2;
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setRoomId($roomId);
-		$roomTask->setNextDue(new \DateTime());
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByHouse')
-			->with($houseId, true)
-			->willReturn([$roomTask]);
-
-		$this->occurrenceService->method('agreedOccurrencesForHouseTasks')
-			->willReturnCallback(static fn (int $houseId, array $tasks, ?string $fromKey, ?string $toKey): array => [1 => [['occurrence' => null, 'revision' => null]]]);
-
-		$this->taskMapper->method('findByIds')->willReturn([]);
-		$this->stubPolicyPassthrough();
-
-		$result = $this->service->getDueTodayTasks($houseId, $this->createHouseUser(), $roomId);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * GetDueWithinDaysTasks_ReturnsTasksWithinRange
-	 */
-	public function testGetDueWithinDaysTasks_ReturnsTasksWithinRange(): void {
-		$houseId = 1;
-		$days = 7;
-		$roomId = 2;
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setNextDue(new \DateTime('+3 days'));
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findDueWithinDaysByHouse')
-			->with($houseId, $days, $roomId)
-			->willReturn([$roomTask]);
-
-		$this->taskMapper->method('findByIds')->willReturn([]);
-		$this->stubPolicyPassthrough();
-
-		$result = $this->service->getDueWithinDaysTasks($houseId, $days, $this->createHouseUser(), $roomId);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * GetRoomTaskWithDetails_WithData_ReturnsCompleteDetails
-	 */
-	public function testGetRoomTaskWithDetails_WithData_ReturnsCompleteDetails(): void {
-		$roomTaskId = 1;
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Test Task');
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Test Room');
-		$room->setFloorId(7);
-
-		$floor = new Floor();
-		$floor->setId(7);
-		$floor->setHouseId(99);
-		$this->floorMapper->method('find')->willReturn($floor);
-
-		$house = new House();
-		$house->setTimezone('UTC');
-		$this->houseMapper->method('find')->willReturn($house);
-
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setTaskId(1);
-		$roomTask->setRoomId(1);
-		$roomTask->setNextDue(new \DateTime('+1 day'));
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('find')
-			->with(1)
-			->willReturn($task);
-
-		$this->roomMapper
-			->expects($this->atMost(2))
-			->method('find')
-			->with(1)
-			->willReturn($room);
-
-		$result = $this->service->getRoomTaskWithDetails($roomTaskId);
-
-		$this->assertSame($roomTask, $result['roomTask']);
-		$this->assertSame($task, $result['task']);
-		$this->assertSame($room, $result['room']);
-		$this->assertEquals('due_soon', $result['status']);
-		// CS-PLAN-072 WP1: the detail row carries the canonical occurrence
-		// target block (null when no target is completable).
-		$this->assertArrayHasKey('occurrence', $result);
-	}
-
-	/**
 	 * AssigneesByRoomTasks_BatchesInOneQuery
 	 */
 	public function testAssigneesByRoomTasks_BatchesInOneQuery(): void {
@@ -458,228 +296,150 @@ class RoomTaskReadServiceTest extends TestCase {
 	}
 
 	// ------------------------------------------------------------------
-	// Actual-work proposal blocks (WP3 §3.6, RF-074-03)
+	// Cycle blocks and status (CS-PLAN-091 WP-B1, ADR-021)
 	// ------------------------------------------------------------------
 
-	/**
-	 * The shared member/wallet fixtures for the proposal tests.
-	 * @return list<HouseUser>
-	 */
-	private function proposalMembers(): array {
-		$dad = new HouseUser();
-		$dad->setId(11);
-		$dad->setNextcloudUserId('dad');
-		$dad->setWalletId(101);
-		$mom = new HouseUser();
-		$mom->setId(12);
-		$mom->setNextcloudUserId('mom');
-		$mom->setWalletId(102);
-		return [$dad, $mom];
+	/** A weekly after-completion definition. */
+	private function definition(int $id = 9, int $flexDays = 0, bool $bonus = false): Task {
+		$task = new Task();
+		$task->setId($id);
+		$task->setFlexDays($flexDays);
+		$task->setIsVoluntary($bonus);
+		return $task;
 	}
 
-	private function proposalOccurrence(int $id): \OCA\ChoreStrike\Db\Occurrence {
-		$occurrence = new \OCA\ChoreStrike\Db\Occurrence();
-		$occurrence->setId($id);
-		$occurrence->setScheduleRevId(3);
-		$occurrence->setOrdinal(7);
-		return $occurrence;
-	}
-
-	private function proposalSelection(\OCA\ChoreStrike\Db\Occurrence $occurrence): array {
-		$revision = new \OCA\ChoreStrike\Db\ScheduleRevision();
-		$revision->setId((int)$occurrence->getScheduleRevId());
-		return ['occurrence' => $occurrence, 'revision' => $revision, 'classification' => 'agreed'];
-	}
-
-	/**
-	 * WithOccurrenceBlocks_AgreementShares_ExposeTheEffectiveProposal
-	 *
-	 * The dialog preview must show the agreed occurrence member shares —
-	 * exactly what a participant-less completion would credit (shared
-	 * derivation with CompletionService, RF-074-03).
-	 */
-	public function testWithOccurrenceBlocks_AgreementShares_ExposeTheEffectiveProposal(): void {
+	/** An active room task whose first date lies `$anchor` from today (UTC house). */
+	private function roomTaskAnchored(int $id, string $anchor, int $taskId = 9): RoomTask {
 		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$occurrence = $this->proposalOccurrence(50);
-
-		$this->occurrenceService->method('selectionsForHouseTasks')
-			->willReturn([1 => $this->proposalSelection($occurrence)]);
-		$this->occurrenceService->method('occurrenceBlock')->willReturn(['occurrenceId' => '3:7']);
-		$this->houseUserMapper->method('findByHouseId')->willReturn($this->proposalMembers());
-
-		$memberRow = new \OCA\ChoreStrike\Db\OccurrenceMember();
-		$memberRow->setOccurrenceId(50);
-		$memberRow->setWalletId(101);
-		$memberRow->setSharePct(70);
-		$memberRow->setObligated(true);
-		$memberRow->setDisposition(\OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_ACTIVE);
-		$withdrawn = new \OCA\ChoreStrike\Db\OccurrenceMember();
-		$withdrawn->setOccurrenceId(50);
-		$withdrawn->setWalletId(102);
-		$withdrawn->setSharePct(30);
-		$withdrawn->setObligated(true);
-		$withdrawn->setDisposition(\OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_RELEASED);
-		$this->occMemberMapper->method('findByOccurrenceIds')->willReturn([50 => [$memberRow, $withdrawn]]);
-
-		$rows = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1);
-
-		$proposal = $rows[0]['proposal'];
-		$this->assertSame('3:7', $proposal['occurrenceId']);
-		$this->assertSame('agreement', $proposal['basis']);
-		// Only the ACTIVE member share — a withdrawn row is not proposed.
-		$this->assertSame([['userId' => 'dad', 'sharePct' => 70]], $proposal['participants']);
-		$this->assertSame(['dad'], $proposal['obligatedUserIds']);
-		$memberRow->setObligated(false);
-		$helperProposal = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1)[0]['proposal'];
-		$this->assertSame([], $helperProposal['obligatedUserIds'], 'voluntary shares never create obligations');
-		$this->assertSame($proposal['participants'], $helperProposal['participants']);
+		$roomTask->setId($id);
+		$roomTask->setTaskId($taskId);
+		$roomTask->setRoomId(4);
+		$roomTask->setIsActive(true);
+		$roomTask->setCycleVersion(3);
+		$roomTask->setAnchorOn(new \DateTime($anchor, new \DateTimeZone('UTC')));
+		$roomTask->setNextDue(new \DateTime($anchor, new \DateTimeZone('UTC')));
+		$roomTask->setCreatedAt(new \DateTime('2026-01-01 08:00:00 UTC'));
+		return $roomTask;
 	}
 
-	/** D-089-12: an appointment names the people who owe it, nobody else. */
-	public function testObligatedUsersByOccurrence_NamesActiveObligationsOnly(): void {
-		$this->houseUserMapper->method('findByHouseId')->willReturn($this->proposalMembers());
-		$member = static function (int $occurrenceId, bool $obligated, string $disposition): \OCA\ChoreStrike\Db\OccurrenceMember {
-			$row = new \OCA\ChoreStrike\Db\OccurrenceMember();
-			$row->setOccurrenceId($occurrenceId);
-			$row->setWalletId(101);
-			$row->setObligated($obligated);
-			$row->setDisposition($disposition);
-			return $row;
-		};
-		$active = \OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_ACTIVE;
-		$released = \OCA\ChoreStrike\Db\OccurrenceMember::DISPOSITION_RELEASED;
-		$this->occMemberMapper->method('findByOccurrenceIds')->with([50, 51, 52])->willReturn([
-			50 => [$member(50, true, $active)],
-			51 => [$member(51, false, $active)],
-			52 => [$member(52, true, $released)],
+	private function day(string $relative): string {
+		return (new \DateTime($relative, new \DateTimeZone('UTC')))->format('Y-m-d');
+	}
+
+	public function testCycleFacts_DerivesEveryRowFromOneBatchedCompletionRead(): void {
+		$open = $this->roomTaskAnchored(1, 'today');
+		$overdue = $this->roomTaskAnchored(2, '-3 days');
+		$upcoming = $this->roomTaskAnchored(3, '+5 days');
+		$done = $this->roomTaskAnchored(4, '-10 days');
+		$this->taskMapper->expects($this->once())->method('findByIds')->with([9])->willReturn([9 => $this->definition()]);
+		$this->completions->expects($this->once())->method('findCycleAnchorsByRoomTasks')->with([1, 2, 3, 4])->willReturn([
+			4 => ['id' => 77, 'workDay' => $this->day('-2 days'), 'cycleKey' => 'd' . $this->day('-10 days'), 'fixedCentre' => null],
 		]);
 
-		$this->assertSame([50 => ['dad']], $this->service->obligatedUsersByOccurrence(1, [50, 51, 52]));
-	}
+		$facts = $this->service->cycleFacts(1, [$open, $overdue, $upcoming, $done]);
 
-	/**
-	 * WithOccurrenceBlocks_NoAgreement_EqualWalletOrderAssigneeProposal
-	 */
-	public function testWithOccurrenceBlocks_NoAgreement_EqualWalletOrderAssigneeProposal(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$occurrence = $this->proposalOccurrence(51);
-
-		$this->occurrenceService->method('selectionsForHouseTasks')
-			->willReturn([1 => $this->proposalSelection($occurrence)]);
-		$this->occurrenceService->method('occurrenceBlock')->willReturn(['occurrenceId' => '3:7']);
-		$this->houseUserMapper->method('findByHouseId')->willReturn($this->proposalMembers());
-		$this->occMemberMapper->method('findByOccurrenceIds')->willReturn([]);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturn([1 => ['dad', 'mom']]);
-
-		$rows = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1);
-
-		$proposal = $rows[0]['proposal'];
-		$this->assertSame('assignees', $proposal['basis']);
-		$this->assertNull($proposal['obligatedUserIds']);
-		// Equal split via immutable wallet order (101 before 102).
+		$this->assertSame(
+			[1 => 'open', 2 => 'overdue', 3 => 'upcoming', 4 => 'upcoming'],
+			array_map(static fn (array $fact): string => $fact['block']['state'], $facts)
+		);
 		$this->assertSame([
-			['userId' => 'dad', 'sharePct' => 50],
-			['userId' => 'mom', 'sharePct' => 50],
-		], $proposal['participants']);
+			'cycleKey' => 'd' . $this->day('today'),
+			'expectedVersion' => 3,
+			'windowStartOn' => $this->day('today'),
+			'windowEndOn' => $this->day('today'),
+			'centreOn' => $this->day('today'),
+			'state' => 'open',
+			'postponeCount' => 0,
+			'canPostpone' => false,
+		], $facts[1]['block']);
+		$this->assertSame(['c77', $this->day('+5 days')], [$facts[4]['block']['cycleKey'], $facts[4]['block']['centreOn']], 'the next window follows the latest completion');
+		$this->assertSame('c77', $facts[4]['cycle']->key);
+	}
+
+	public function testCycleFacts_EmptySet_IssuesNoQuery(): void {
+		$this->houseMapper->expects($this->never())->method('find');
+		$this->completions->expects($this->never())->method('findCycleAnchorsByRoomTasks');
+
+		$this->assertSame([], $this->service->cycleFacts(1, []));
+	}
+
+	public function testCycleFacts_PostponedWindow_ShowsItsMovedCentreAndWhetherItCanMoveAgain(): void {
+		$roomTask = $this->roomTaskAnchored(1, 'today');
+		$roomTask->setCycleKey('d' . $this->day('today'));
+		$roomTask->setPostponeCount(3);
+		$roomTask->setPostponeDays(3);
+		$flexible = $this->roomTaskAnchored(2, 'today');
+
+		$block = $this->service->cycleFacts(1, [$roomTask, $flexible], [9 => $this->definition(9, 2)]);
+
+		$this->assertSame([$this->day('+3 days'), $this->day('+1 day'), $this->day('+5 days'), 3, false], [
+			$block[1]['block']['centreOn'], $block[1]['block']['windowStartOn'], $block[1]['block']['windowEndOn'],
+			$block[1]['block']['postponeCount'], $block[1]['block']['canPostpone'],
+		]);
+		$this->assertTrue($block[2]['block']['canPostpone'], 'flex days and fewer than three postponements');
+	}
+
+	public function testCycleFacts_BonusSleepingAndEndedTasks_HaveNoWindow(): void {
+		$bonus = $this->roomTaskAnchored(1, 'today', 10);
+		$asleep = $this->roomTaskAnchored(2, 'today');
+		$asleep->setSleepingSince(new \DateTime('-1 day'));
+		$ended = $this->roomTaskAnchored(3, 'today');
+		$ended->setIsActive(false);
+		$orphan = $this->roomTaskAnchored(4, 'today', 404);
+
+		$facts = $this->service->cycleFacts(1, [$bonus, $asleep, $ended, $orphan], [9 => $this->definition(), 10 => $this->definition(10, 0, true)]);
+
+		$this->assertSame(['state' => 'bonus', 'expectedVersion' => 3], $facts[1]['block']);
+		$this->assertSame(['state' => 'asleep'], $facts[2]['block']);
+		$this->assertNull($facts[3]['block']);
+		$this->assertNull($facts[4]['block'], 'a row without its definition has no cycle');
+	}
+
+	public function testWithCycleBlocks_ReusesTheDefinitionsOfTheRows(): void {
+		$this->taskMapper->expects($this->never())->method('findByIds');
+		$rows = [['roomTask' => $this->roomTaskAnchored(1, '-3 days'), 'task' => $this->definition(), 'room' => new Room()]];
+
+		$rows = $this->service->withCycleBlocks($rows, 1);
+
+		$this->assertSame('overdue', $rows[0]['cycle']['state']);
 	}
 
 	/**
-	 * WithOccurrenceBlocks_UnassignedSoloWork_NoServerGuess
+	 * API reference: `overdue` once the window has ended, `due_today`
+	 * while today lies inside it — never overdue before that (D-084-08).
 	 */
-	public function testWithOccurrenceBlocks_UnassignedSoloWork_NoServerGuess(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$occurrence = $this->proposalOccurrence(52);
+	public function testStatusFor_FollowsTheCycleState(): void {
+		$roomTask = $this->roomTaskAnchored(1, '+10 days');
+		$soon = $this->roomTaskAnchored(2, '+2 days');
+		$inactive = $this->roomTaskAnchored(3, '-3 days');
+		$inactive->setIsActive(false);
 
-		$this->occurrenceService->method('selectionsForHouseTasks')
-			->willReturn([1 => $this->proposalSelection($occurrence)]);
-		$this->occurrenceService->method('occurrenceBlock')->willReturn(['occurrenceId' => '3:7']);
-		$this->houseUserMapper->method('findByHouseId')->willReturn($this->proposalMembers());
-		$this->occMemberMapper->method('findByOccurrenceIds')->willReturn([]);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturn([1 => []]);
-
-		$rows = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1);
-
-		$proposal = $rows[0]['proposal'];
-		$this->assertSame('solo', $proposal['basis']);
-		$this->assertNull($proposal['obligatedUserIds']);
-		$this->assertSame([], $proposal['participants']);
+		$this->assertSame('overdue', $this->service->statusFor($roomTask, ['state' => 'overdue']));
+		$this->assertSame('due_today', $this->service->statusFor($roomTask, ['state' => 'open']));
+		$this->assertSame('upcoming', $this->service->statusFor($roomTask, ['state' => 'upcoming']));
+		$this->assertSame('due_soon', $this->service->statusFor($soon, ['state' => 'upcoming']));
+		$this->assertSame('upcoming', $this->service->statusFor($roomTask, ['state' => 'bonus']), 'a bonus task is never due');
+		$this->assertSame('upcoming', $this->service->statusFor($roomTask, null));
+		$this->assertSame('inactive', $this->service->statusFor($inactive, ['state' => 'overdue']));
 	}
 
-	/**
-	 * WithOccurrenceBlocks_NoSelectableTarget_PropIsNull
-	 */
-	public function testWithOccurrenceBlocks_NoSelectableTarget_PropIsNull(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-
-		$this->occurrenceService->method('selectionsForHouseTasks')
-			->willReturn([1 => null]);
-		// No batched proposal reads fire without a target.
-		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
-		$this->occMemberMapper->expects($this->never())->method('findByOccurrenceIds');
-
-		$rows = $this->service->withOccurrenceBlocks([['roomTask' => $roomTask]], 1);
-
-		$this->assertNull($rows[0]['proposal']);
-	}
-
-	/**
-	 * CS-PLAN-084 D-084-08: the displayed status follows the occurrence
-	 * authority — a missed (`late`) occurrence is overdue, a past planned
-	 * day inside an open flex window stays due, and rows without a
-	 * selection keep the entity's house-local status.
-	 */
-	public function testStatusFor_FollowsOccurrenceClassification(): void {
+	public function testRoomTaskPayload_CarriesTheCycleStatus(): void {
 		$utc = new \DateTimeZone('UTC');
-		$roomTask = new RoomTask();
-		$roomTask->setIsActive(true);
-		$roomTask->setNextDue((new \DateTime('yesterday', $utc))->setTime(0, 0, 0));
+		// The stored projection alone would read "overdue"; the open window decides.
+		$roomTask = $this->roomTaskAnchored(7, '-1 day');
 
-		$this->assertSame('overdue', $this->service->statusFor($roomTask, $utc, 'late'));
-		$this->assertSame('due_today', $this->service->statusFor($roomTask, $utc, 'agreed'), 'open flex window: still due');
-		$this->assertSame('overdue', $this->service->statusFor($roomTask, $utc, null), 'no selection: entity status');
+		$payload = $this->service->roomTaskPayload($roomTask, $utc, ['state' => 'open']);
 
-		$roomTask->setNextDue((new \DateTime('today', $utc))->setTime(0, 0, 0));
-		$this->assertSame('due_today', $this->service->statusFor($roomTask, $utc, 'agreed'));
-
-		$roomTask->setIsActive(false);
-		$this->assertSame('inactive', $this->service->statusFor($roomTask, $utc, 'late'));
-	}
-
-	/**
-	 * CR-084-03: the serialized room task carries the {@see statusFor}
-	 * status, so single-row responses agree with the list rows.
-	 */
-	public function testRoomTaskPayload_CarriesTheOccurrenceStatus(): void {
-		$utc = new \DateTimeZone('UTC');
-		$roomTask = new RoomTask();
-		$roomTask->setId(7);
-		$roomTask->setIsActive(true);
-		$roomTask->setNextDue((new \DateTime('yesterday', $utc))->setTime(0, 0, 0));
-
-		$this->assertSame('overdue', $roomTask->jsonSerialize($utc)['status'], 'precondition: the entity day rule');
-		$payload = $this->service->roomTaskPayload($roomTask, $utc, 'agreed');
-		$this->assertSame('due_today', $payload['status'], 'open flex window: still due');
+		$this->assertSame('due_today', $payload['status']);
 		$this->assertSame(7, $payload['id']);
-		$this->assertSame('overdue', $this->service->roomTaskPayload($roomTask, $utc, 'late')['status']);
-		$this->assertSame('overdue', $this->service->roomTaskPayload($roomTask, $utc, null)['status'], 'no selection: entity fallback');
 	}
 
-	public function testSelectedRoomTaskPayload_ResolvesTheSelectionOfTheRow(): void {
-		$utc = new \DateTimeZone('UTC');
-		$roomTask = new RoomTask();
-		$roomTask->setId(7);
-		$roomTask->setIsActive(true);
-		$roomTask->setNextDue((new \DateTime('yesterday', $utc))->setTime(0, 0, 0));
+	public function testSelectedRoomTaskPayload_ResolvesTheCycleOfTheRow(): void {
+		$this->taskMapper->method('findByIds')->willReturn([9 => $this->definition()]);
 
-		$this->occurrenceService->expects($this->once())->method('selectionsForHouseTasks')
-			->with(3, [$roomTask], $this->isInstanceOf(\DateTime::class))
-			->willReturn([7 => ['occurrence' => null, 'revision' => null, 'classification' => 'agreed']]);
+		$payload = $this->service->selectedRoomTaskPayload(3, $this->roomTaskAnchored(7, '-3 days'), new \DateTimeZone('UTC'));
 
-		$this->assertSame('due_today', $this->service->selectedRoomTaskPayload(3, $roomTask, $utc)['status']);
+		$this->assertSame('overdue', $payload['status']);
 	}
 
 	/**
@@ -689,20 +449,62 @@ class RoomTaskReadServiceTest extends TestCase {
 	 */
 	public function testCommittedRoomTaskPayload_DegradesToTheEntityStatusOnFailure(): void {
 		$utc = new \DateTimeZone('UTC');
-		$roomTask = new RoomTask();
-		$roomTask->setId(7);
-		$roomTask->setIsActive(true);
-		$roomTask->setNextDue((new \DateTime('yesterday', $utc))->setTime(0, 0, 0));
-		$this->occurrenceService->method('selectionsForHouseTasks')
-			->willThrowException(new \RuntimeException('selection failed'));
+		$roomTask = $this->roomTaskAnchored(7, '-1 day');
+		$this->taskMapper->method('findByIds')->willReturn([9 => $this->definition()]);
+		$this->completions->method('findCycleAnchorsByRoomTasks')
+			->willThrowException(new \RuntimeException('read failed'));
 		$this->logger->expects($this->once())->method('warning')
 			->with('Room task status read failed after a committed write', [
-				'action' => 'updateDueDate', 'roomTaskId' => 7, 'exception' => \RuntimeException::class,
+				'action' => 'create', 'roomTaskId' => 7, 'exception' => \RuntimeException::class,
 			]);
 
-		$payload = $this->service->committedRoomTaskPayload(3, $roomTask, $utc, 'updateDueDate');
+		$payload = $this->service->committedRoomTaskPayload(3, $roomTask, $utc, 'create');
 
 		$this->assertSame('overdue', $payload['status'], 'entity day rule fallback');
 		$this->assertSame(7, $payload['id']);
+	}
+
+	// ------------------------------------------------------------------
+	// Execution rows
+	// ------------------------------------------------------------------
+
+	private function wireHouseRows(array $roomTasks): void {
+		$this->roomTaskMapper->method('findByHouse')->with(1, true)->willReturn($roomTasks);
+		$this->taskMapper->method('findByIds')->willReturn([9 => $this->definition()]);
+		$room = new Room();
+		$room->setId(4);
+		$this->roomMapper->method('findByIds')->willReturn([4 => $room]);
+		$this->checklistItems->method('countByTaskIds')->willReturn([9 => 2]);
+	}
+
+	public function testGetOverdueTaskRows_OneRedEntryPerTaskWhoseWindowEnded(): void {
+		$this->stubPolicyPassthrough();
+		$this->wireHouseRows([$this->roomTaskAnchored(1, '-30 days'), $this->roomTaskAnchored(2, 'today'), $this->roomTaskAnchored(3, '+2 days')]);
+
+		$rows = $this->service->getOverdueTaskRows(1, $this->createHouseUser());
+
+		$this->assertCount(1, $rows, 'however many periods passed');
+		$this->assertSame(1, $rows[0]['roomTask']->getId());
+		$this->assertSame(['overdue', 2], [$rows[0]['cycle']['state'], $rows[0]['checklistItemCount']]);
+	}
+
+	public function testGetDueTodayTaskRows_EveryOpenWindowOfTheRoom(): void {
+		$this->stubPolicyPassthrough();
+		$other = $this->roomTaskAnchored(5, 'today');
+		$other->setRoomId(8);
+		$this->wireHouseRows([$this->roomTaskAnchored(1, '-30 days'), $this->roomTaskAnchored(2, 'today'), $other]);
+
+		$rows = $this->service->getDueTodayTaskRows(1, $this->createHouseUser(), 4);
+
+		$this->assertSame([2], array_map(static fn (array $row): int => $row['roomTask']->getId(), $rows));
+		$this->assertSame('open', $rows[0]['cycle']['state']);
+	}
+
+	public function testGetOverdueTaskRows_InvisibleTasksNeverReachTheDerivation(): void {
+		$this->taskAccessPolicy->method('filterVisibleRoomTasks')->willReturn([]);
+		$this->wireHouseRows([$this->roomTaskAnchored(1, '-30 days')]);
+		$this->completions->expects($this->never())->method('findCycleAnchorsByRoomTasks');
+
+		$this->assertSame([], $this->service->getOverdueTaskRows(1, $this->createHouseUser()));
 	}
 }

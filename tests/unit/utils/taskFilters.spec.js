@@ -8,10 +8,26 @@ import { filtersFromQuery, filterTaskItems, pageFromQuery } from '../../../src/u
 
 jest.mock('@nextcloud/l10n', () => ({ translate: (app, text) => text }))
 
-const daysFromToday = (days) => new Date(Date.now() + days * 86400000).toISOString()
+const dayKey = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
+/**
+ * What a list row carries for its current cycle (ADR-021): the block and
+ * the projected end of the window. Planned `planned` days from today, the
+ * window ends `end` days from today.
+ */
+const due = (planned, end = planned) => ({
+	nextDue: `${dayKey(end)}T00:00:00Z`,
+	cycle: {
+		cycleKey: 'c1',
+		expectedVersion: 0,
+		state: end < 0 ? 'overdue' : (planned <= 0 ? 'open' : 'upcoming'),
+		centreOn: dayKey(planned),
+		windowStartOn: dayKey(planned),
+		windowEndOn: dayKey(end),
+	},
+})
 
 const row = (id, roomTask = {}, task = {}) => ({
-	roomTask: { id, roomId: 10, isActive: true, nextDue: daysFromToday(3), assignees: [], ...roomTask },
+	roomTask: { id, roomId: 10, isActive: true, ...due(3), assignees: [], ...roomTask },
 	task: { id, name: `Task ${id}`, priority: 2, energyCost: 2, ...task },
 })
 const rooms = [{ id: 10, floorId: 1 }, { id: 20, floorId: 2 }]
@@ -77,15 +93,17 @@ describe('taskFilters', () => {
 
 		it('narrows by status with the rules of the row badge', () => {
 			const statusRows = [
-				row(1, { nextDue: daysFromToday(-2), occurrence: { classification: 'late' } }),
-				row(2, { nextDue: daysFromToday(0) }),
-				row(3, { isActive: false }),
+				row(1, due(-2)),
+				row(2, due(0)),
+				row(3, { isActive: false, cycle: null }),
 				row(4),
+				// Planned yesterday, the flex window still open: due, not missed.
+				row(5, due(-1, 1)),
 			]
 
 			expect(filtered(statusRows, { status: 'overdue' })).toEqual([1])
-			expect(filtered(statusRows, { status: 'due-today' })).toEqual([2])
-			expect(filtered(statusRows, { status: 'active' })).toEqual([1, 2, 4])
+			expect(filtered(statusRows, { status: 'due-today' })).toEqual([2, 5])
+			expect(filtered(statusRows, { status: 'active' })).toEqual([1, 2, 4, 5])
 		})
 
 		it('narrows by priority, energy, visibility and name', () => {

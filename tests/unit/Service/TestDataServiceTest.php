@@ -91,12 +91,12 @@ class TestDataServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->taskAssigneeMapper,
 			$this->walletMapper,
-			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$this->createMock(\OCA\ChoreStrike\Service\CycleService::class),
 			new \OCA\ChoreStrike\Service\CalendarService(),
 			// WP3 §3.5: seeds journal room baselines through the replay
 			// service (mocked — the journal SQL is integration territory).
 			$this->createMock(\OCA\ChoreStrike\Service\RoomReplayService::class),
-			$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Db\CycleMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Db\WorkShareMapper::class),
 			$this->rewardConfig,

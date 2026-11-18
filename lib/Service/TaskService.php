@@ -39,7 +39,7 @@ class TaskService {
 		'frequencyType', 'frequencyValue', 'estimatedMinutes',
 		'category', 'scopeType', 'scopeLabel', 'recurrenceMode',
 		'activeFrom', 'activeUntil', 'isVoluntary',
-		'schedulingMode', 'fixedScheduleTime', 'fixedScheduleDays',
+		'schedulingMode', 'fixedScheduleTime', 'fixedScheduleDays', 'fixedMonthDay',
 		'instructions', 'tips', 'estimatedMinutesMin', 'estimatedMinutesMax',
 		'visibilityType', 'ownerUserId', 'flexDays',
 	];
@@ -65,7 +65,7 @@ class TaskService {
 	private AuthorizationService $authorization;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private TransactionExecutor $transactions;
-	private OccurrenceService $occurrenceService;
+	private CycleService $cycleService;
 	private CalendarService $calendarService;
 	private TaskCategoryService $categories;
 
@@ -77,7 +77,7 @@ class TaskService {
 		AuthorizationService $authorization,
 		TaskAccessPolicy $taskAccessPolicy,
 		TransactionExecutor $transactions,
-		OccurrenceService $occurrenceService,
+		CycleService $cycleService,
 		CalendarService $calendarService,
 		TaskCategoryService $categories,
 	) {
@@ -89,7 +89,7 @@ class TaskService {
 		$this->authorization = $authorization;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->transactions = $transactions;
-		$this->occurrenceService = $occurrenceService;
+		$this->cycleService = $cycleService;
 		$this->calendarService = $calendarService;
 	}
 
@@ -228,12 +228,10 @@ class TaskService {
 		// house row first, then the task-definition row — on the FRESH
 		// entity.
 		//
-		// CS-PLAN-072 WP1: when a rule-relevant definition input changed,
-		// every mounted room task's schedule is revised in the SAME
-		// house-first transaction (reconcile elapsed old agreements, close
-		// the old revision, append the new one) — definition edits never
-		// become a second authority beside the occurrence rows, and agreed
-		// history keeps its identity, zone and deadlines.
+		// ADR-021 decision 1: open work is not frozen. When a rule-relevant
+		// definition input changed, every mounted room task's current cycle
+		// follows in the SAME house-first transaction; completed work keeps
+		// what it recorded.
 		return $this->transactions->run(function () use ($taskId, $updates, $actor): Task {
 			$this->houseMapper->findForUpdate($actor->getHouseId());
 			$task = $this->taskMapper->lockForUpdate($taskId);
@@ -251,35 +249,24 @@ class TaskService {
 	}
 
 	/**
-	 * Revise every mounted room task after a rule-relevant edit (CS-PLAN-072
-	 * WP1). D-088-17: widened flex days also widen the windows of the work
-	 * already planned, so the change applies at once; a narrower flex
-	 * applies from the next occurrence on. BUG-UX-014: a changed energy
-	 * applies to all open work at once.
+	 * Move every mounted room task's current cycle after a rule-relevant
+	 * edit: the changed rule, flex or energy shows at once, the cycle
+	 * version bumps and `next_due` follows. The anchor policy of a rule
+	 * change (D-091-28) belongs to {@see CycleService::ruleChangedUnderLock()}.
 	 */
 	private function reviseMountedRoomTasksUnderLock(int $taskId, Task $before, Task $updated, HouseUser $actor): void {
 		$mounted = $this->roomTaskMapper->findByTaskIdScopedToHouse($taskId, (int)$actor->getHouseId());
 		if ($mounted === []) {
 			return;
 		}
-		$house = $this->houseMapper->find((int)$actor->getHouseId());
-		$timezoneId = $this->calendarService->getTimeZone($house)->getName();
+		$timeZone = $this->calendarService->getTimeZone($this->houseMapper->find((int)$actor->getHouseId()));
 		$now = new \DateTime();
-		$revised = [];
 		foreach ($mounted as $roomTask) {
 			$lockedRoomTask = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
 			if ($lockedRoomTask->getDeletedAt() !== null) {
 				continue;
 			}
-			$this->occurrenceService->reviseUnderLock((int)$actor->getHouseId(), $lockedRoomTask, $updated, $timezoneId, null, $now);
-			$revised[] = $lockedRoomTask;
-		}
-		if ((int)$updated->getFlexDays() > (int)$before->getFlexDays()) {
-			$flexDays = min(FlexDaysPolicy::SANITY_MAX, (int)$updated->getFlexDays());
-			$this->occurrenceService->widenOpenWindowsUnderLock($revised, $flexDays, $actor->getId(), $now);
-		}
-		if ((int)$updated->getEnergyCost() !== (int)$before->getEnergyCost()) {
-			$this->occurrenceService->alignOpenEnergyUnderLock($revised, (int)$updated->getEnergyCost(), $actor->getId());
+			$this->cycleService->ruleChangedUnderLock($lockedRoomTask, $before, $updated, $timeZone, $now);
 		}
 	}
 
@@ -295,6 +282,7 @@ class TaskService {
 			|| $before->getEnergyCost() !== $after->getEnergyCost()
 			|| $before->getFixedScheduleTime()?->format('H:i') !== $after->getFixedScheduleTime()?->format('H:i')
 			|| $before->getFixedScheduleDays() !== $after->getFixedScheduleDays()
+			|| $before->getFixedMonthDay() !== $after->getFixedMonthDay()
 			|| $before->getActiveFrom()?->format('Y-m-d') !== $after->getActiveFrom()?->format('Y-m-d')
 			|| $before->getActiveUntil()?->format('Y-m-d') !== $after->getActiveUntil()?->format('Y-m-d')
 			|| $before->getIsVoluntary() !== $after->getIsVoluntary()
@@ -518,7 +506,7 @@ class TaskService {
 
 	/**
 	 * Fixed-schedule validation: fixedScheduleTime must be a parseable time
-	 * string; fixedScheduleDays must be a weekday list (PHP array or its
+	 * string; fixedMonthDay a day 1–31; fixedScheduleDays must be a weekday list (PHP array or its
 	 * canonical JSON string form) over the closed {@see WEEKDAYS} set.
 	 *
 	 * @param array $taskData The task data to validate
@@ -535,6 +523,17 @@ class TaskService {
 				} catch (\Exception $e) {
 					$errors[] = $this->l10n->t('Invalid fixed schedule time');
 				}
+			}
+		}
+
+		// ADR-021 decision 1: the day of a fixed monthly rule; a shorter
+		// month uses its last day.
+		$monthDay = $taskData['fixedMonthDay'] ?? null;
+		if ($monthDay !== null) {
+			if (!is_int($monthDay)) {
+				$errors[] = $this->typeError('fixedMonthDay');
+			} elseif ($monthDay < 1 || $monthDay > 31) {
+				$errors[] = $this->l10n->t('The day of the month must be between 1 and 31');
 			}
 		}
 

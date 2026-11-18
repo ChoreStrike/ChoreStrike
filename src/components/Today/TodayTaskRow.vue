@@ -82,10 +82,10 @@ import { useHouseStore } from '../../store/house.js'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useUserStore } from '../../store/user.js'
-import { dateKeyInZone, daysBetweenKeys, formatDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
+import { daysBetweenKeys, formatDayKey, todayKeyInZone } from '../../utils/dateKeys.js'
 import { showErrorWithReference } from '../../utils/errorToast.js'
 import { logger } from '../../utils/logger.js'
-import { assignmentLabel, daysLabel, locationLabel, recurrenceLabel, taskEnergy } from '../../utils/taskDisplay.js'
+import { assignmentLabel, cycleOf, daysLabel, locationLabel, recurrenceLabel, taskEnergy } from '../../utils/taskDisplay.js'
 
 /**
  * One task row of Today with its execute-only checklist (CS-PLAN-090
@@ -98,7 +98,7 @@ import { assignmentLabel, daysLabel, locationLabel, recurrenceLabel, taskEnergy 
  * moment (D-090-30).
  */
 const props = defineProps({
-	/** Enriched row `{ roomTask, task, room, assignees, occurrence, … }`. */
+	/** Enriched row `{ roomTask, task, room, assignees, cycle, … }`. */
 	item: { type: Object, required: true },
 	/** Section of the row: `due`, `overdue` or `possible`. */
 	variant: { type: String, default: 'due' },
@@ -117,45 +117,41 @@ const expanded = ref(false)
 const id = computed(() => props.item.roomTask.id)
 const justCompleted = computed(() => roomTasksStore.wasJustCompleted(id.value))
 const done = computed(() => !props.item.roomTask.isActive || justCompleted.value)
-const occurrence = computed(() => props.item.occurrence ?? props.item.roomTask.occurrence ?? null)
+const cycle = computed(() => cycleOf(props.item) ?? null)
 
 const location = computed(() => locationLabel(props.item.room, roomsStore.getFloorById(props.item.room?.floorId)))
-// The people this occurrence obliges, before the task's standing assignees.
 const assignees = computed(() => assignmentLabel(
-	props.item.proposal?.obligatedUserIds ?? props.item.assignees ?? props.item.roomTask.assignees,
+	props.item.assignees ?? props.item.roomTask.assignees,
 	userStore.houseUsers,
 ))
 // Household text: the template renders it as plain escaped text.
 const instructions = computed(() => props.item.task.instructions || props.item.task.description || '')
 
 /**
- * The planned date of work that is not simply due today, straight from
- * the occurrence block and never recomputed here: the missed date with
- * the end of its window (C1c), or the day a still-open window belongs to.
+ * The planned day of work that is not simply due today, straight from the
+ * cycle block and never recomputed here: the missed day with the end of
+ * its window where that is a later day (C1c), or the day a still-open
+ * window belongs to.
  */
 const plannedLabel = computed(() => {
-	const planned = occurrence.value?.plannedDate
+	const planned = cycle.value?.centreOn
 	if (props.variant === 'due' || !planned) {
 		return ''
 	}
 	const date = formatDayKey(planned)
-	const windowEnd = props.variant === 'overdue' ? timeLabel(occurrence.value.windowEnd) : ''
-	return windowEnd
-		? t('chorestrike', 'planned {date}, until {time}', { date, time: windowEnd })
+	const end = cycle.value.windowEndOn
+	return props.variant === 'overdue' && end && end !== planned
+		? t('chorestrike', 'planned {date}, until {end}', { date, end: formatDayKey(end) })
 		: t('chorestrike', 'planned {date}', { date })
 })
 const plannedTestId = computed(() => (props.variant === 'overdue' ? 'catchup-planned' : `today-open-window-planned-${id.value}`))
 
-/** Whole house-local days since the missed window ended; 0 on the same day. */
+/** Whole house-local days since the window ended; 0 on the same day. */
 const overdueDays = computed(() => {
-	if (props.variant !== 'overdue' || !occurrence.value) {
+	if (props.variant !== 'overdue' || !cycle.value?.windowEndOn) {
 		return 0
 	}
-	const timezone = houseStore.timezone
-	const endKey = occurrence.value.windowEnd
-		? dateKeyInZone(occurrence.value.windowEnd, timezone)
-		: occurrence.value.plannedDate
-	return daysBetweenKeys(endKey, todayKeyInZone(timezone)) ?? 0
+	return daysBetweenKeys(cycle.value.windowEndOn, todayKeyInZone(houseStore.timezone)) ?? 0
 })
 
 const checklistSummary = computed(() => {
@@ -167,25 +163,14 @@ const checklistSummary = computed(() => {
 	return t('chorestrike', 'Checklist ({done}/{total})', { done: checked, total: items.length })
 })
 
-// The server resets the checklist with the occurrence (CS-PLAN-064 D6):
-// an open checklist reads its progress again. Optional, the next expand
-// reads it anyway.
+// The next cycle starts without ticks (ADR-021 decision 3): an open
+// checklist reads its progress again. Optional, the next expand reads it
+// anyway.
 watch(justCompleted, (completed) => {
 	if (completed && expanded.value) {
 		checklistStore.fetchRoomTaskProgress(id.value).catch(() => {})
 	}
 })
-
-/**
- * @param {?string} iso Instant of the window end.
- * @return {string} Local time, or empty without a valid instant.
- */
-function timeLabel(iso) {
-	const date = iso ? new Date(iso) : null
-	return date && !Number.isNaN(date.getTime())
-		? date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-		: ''
-}
 
 async function toggleExpand() {
 	if (expanded.value) {

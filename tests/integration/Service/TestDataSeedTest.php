@@ -200,11 +200,16 @@ class TestDataSeedTest extends IntegrationTestCase {
 		$member = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)->findByHouseAndUser($houseId, 'mom');
 		$weekStart = new \DateTime('monday last week 00:00:00', new \DateTimeZone('UTC'));
 		self::assertLessThanOrEqual($weekStart->getTimestamp(), $member->getJoinedAt()->getTimestamp());
-		$overdue = \OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMapper::class)
-			->findByRoomTask($result['data']['roomTasks'][2]['id'])[0];
-		self::assertLessThan($weekStart->format('Y-m-d'), $overdue->getPlannedDate()->format('Y-m-d'));
-		self::assertNull($overdue->getCompletionId(), 'the overdue example is not fabricated success');
-		self::assertSame('none', $overdue->getSuspensionState(), 'the overdue example has no invented pause');
+		// The overdue example is one red, open cycle whose window ended
+		// before the closed week (ADR-021 decision 1) — no closed row, no
+		// completion, no absence.
+		$overdueId = (int)$result['data']['roomTasks'][2]['id'];
+		$readService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		$overdue = $readService->cycleFacts($houseId, [\OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($overdueId)])[$overdueId]['block'];
+		self::assertSame(\OCA\ChoreStrike\Service\WindowService::STATE_OVERDUE, $overdue['state']);
+		self::assertLessThan($weekStart->format('Y-m-d'), $overdue['windowEndOn']);
+		self::assertNull(\OC::$server->get(\OCA\ChoreStrike\Db\CycleMapper::class)->findByKey($overdueId, $overdue['cycleKey']), 'the overdue example is not fabricated success');
+		self::assertSame([], \OC::$server->get(\OCA\ChoreStrike\Db\PauseMapper::class)->findByHouseId($houseId), 'the overdue example has no invented absence');
 		$medals = \OC::$server->get(\OCA\ChoreStrike\Service\MedalService::class);
 		$medals->checkAndAwardMedals($houseId);
 		$awards = $medals->getMedals($houseId);

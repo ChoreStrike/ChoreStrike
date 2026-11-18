@@ -63,7 +63,8 @@ export function showErrorWithReference(message, error) {
  * The failure toast of a completion attempt. A refused join behind an
  * in-flight completion with another work split (CR-084-02) gets its own
  * hint: the first completion usually succeeds, only the split is not used.
- * Work whose time window has not opened yet says so (D-088-18).
+ * The refusals of derived windows (ADR-021 decision 4) say what happened:
+ * done today already, or the cycle was closed meanwhile.
  * @param {unknown} error The caught error.
  */
 export function showCompletionError(error) {
@@ -71,8 +72,12 @@ export function showCompletionError(error) {
 		showError(t('chorestrike', 'This task is already being completed with another work split. Check the split once it is done.'))
 		return
 	}
-	if (error?.code === 'NOT_OPEN_YET') {
-		showError(t('chorestrike', 'Not open yet — this task can be completed within its time window.'))
+	if (error?.code === 'SAME_DAY') {
+		showError(t('chorestrike', 'This task was already done today. It can be done again from tomorrow.'))
+		return
+	}
+	if (error?.code === 'ALREADY_COMPLETED') {
+		showError(t('chorestrike', 'This task was already completed. Reload to see what is next.'))
 		return
 	}
 	showErrorWithReference(t('chorestrike', 'Could not complete the task'), error)

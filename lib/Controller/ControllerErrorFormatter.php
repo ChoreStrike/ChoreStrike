@@ -11,7 +11,6 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
-use OCA\ChoreStrike\Exception\StaleTargetException;
 use OCP\AppFramework\Http\JSONResponse;
 
 /**
@@ -110,15 +109,16 @@ final class ControllerErrorFormatter {
 	/**
 	 * Build the standard 409 response for a {@see ConflictException}
 	 * (state-conflict shape, CS-PLAN-064 decision D4: an inactive occurrence
-	 * answers 409, distinct from the 403 "forbidden"). A drifted shown
-	 * target ({@see StaleTargetException}) carries `STALE_TARGET` instead
-	 * of `CONFLICT` (BUG-UX-002).
+	 * answers 409, distinct from the 403 "forbidden"). The code is the
+	 * exception's stable reason: `CONFLICT` unless the refusal is one a
+	 * client tells apart, such as `STALE_TARGET` for a drifted shown
+	 * target (BUG-UX-002) or `SAME_DAY` (ADR-021).
 	 */
 	public static function conflictResponse(ConflictException $e): JSONResponse {
 		return new JSONResponse([
 			'success' => false,
 			'error' => [
-				'code' => $e instanceof StaleTargetException ? 'STALE_TARGET' : 'CONFLICT',
+				'code' => $e->getReason(),
 				'message' => self::safeMessage($e),
 			],
 		], 409);

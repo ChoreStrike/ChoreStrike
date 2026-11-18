@@ -403,8 +403,8 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 			$participants[] = ['userId' => $userId, 'sharePct' => 1];
 		}
 		$service = \OC::$server->get(CompletionService::class);
-		[$completeUuid, $occurrenceId, $version, $token] = $this->completionReceiptFor($f['roomTaskId']);
-		$first = $service->complete($f['houseId'], 'cc_owner', $f['roomTaskId'], $completeUuid, $occurrenceId, $version, $token, $participants, true);
+		[$completeUuid, $cycleKey, $version] = $this->completionReceiptFor($f['roomTaskId']);
+		$first = $service->complete($f['houseId'], 'cc_owner', $f['roomTaskId'], $completeUuid, $cycleKey, $version, $participants, true);
 		self::assertCount(100, $first['rewards']['participants']);
 		self::assertSame(['completionId' => $first['completionId']], $this->commandResultRefs($completeUuid));
 		self::assertArrayNotHasKey('bookedMinor', $first['rewards']['participants'][0]);
@@ -419,7 +419,7 @@ class CompletionCorrectionTest extends IntegrationTestCase {
 		self::assertCount(1, $attributed['rewards']['participants']);
 		self::assertSame(3000, $attributed['rewards']['wallet']['bookedMinor']);
 
-		$replayed = $service->complete($f['houseId'], 'cc_owner', $f['roomTaskId'], $completeUuid, $occurrenceId, $version, $token, $participants, true);
+		$replayed = $service->complete($f['houseId'], 'cc_owner', $f['roomTaskId'], $completeUuid, $cycleKey, $version, $participants, true);
 		self::assertTrue($replayed['replay']);
 		self::assertSame($first['completionId'], $replayed['completionId']);
 		self::assertCount(1, $replayed['rewards']['participants'], 'replay returns the selected correction, not stale original shares');

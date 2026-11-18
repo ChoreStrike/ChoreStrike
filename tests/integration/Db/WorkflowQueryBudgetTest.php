@@ -9,10 +9,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Db;
 
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
 
@@ -33,61 +31,41 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
  *   the batched assignee fetch it performs. CONSTANT in the row count —
  *   Q(100) = Q(10) within one chunk (no N+1, D2).
  * - Empty set: exactly 1 query — the mapper fetch; NO enrichment query.
- * - updateDueDate: 19 observed statements — gate reads (room task,
- *   definition, assignees) plus the owning-house resolution for the
- *   house-first lock (room → floor → house, CS-PLAN-071), BEGIN, the house
- *   FOR UPDATE, the room-task FOR UPDATE, the AGREEMENT-writer tail
- *   (CS-PLAN-072 WP1: timeline read, occurrence amendment, agreement
- *   evidence insert, projection update), COMMIT and exactly ONE
- *   authoritative after-commit re-read that becomes the response.
- * - complete(): see the measured WP3 budget below for the whole aggregate —
- *   the receipt resolution (timeline reads + selection), the command
- *   receipt read/insert, occurrence gates, the house-first locked entity
- *   reads (house → room_task → room → house_user, CS-PLAN-071 —
- *   supersedes the ADR-011 entry order) plus the reward phase
- *   findForUpdate, the checklist reads, the reward window fetch,
- *   transaction control, the single ledger INSERT, the timeline effects
- *   (fulfill, catch-up cover, successor anchor, projection) and the
- *   guarded post-commit weekly-goal cluster + response selection block.
- *   Per-class rule: at most two enrichment reads, exactly one ledger
- *   insert with a complete effect record (D1).
- * - undo(): see the measured WP3 budget below — same house-first gate/lock structure
- *   plus the effect-record restore (ledger read), the timeline release
- *   (occurrence reopen, successor deletion, projection re-derivation),
- *   transaction control and the post-commit weekly-goal read.
+ * - complete(): see the measured budget below for the whole aggregate —
+ *   the receipt resolution (the fixture reads the current cycle), the
+ *   command receipt read/insert, the house-first locked entity reads
+ *   (house → room_task → room → house_user, CS-PLAN-071), the cycle target
+ *   check under the lock (ADR-021 decision 4), the reward phase,
+ *   transaction control, the single ledger INSERT, the closed-cycle row
+ *   and the `next_due` projection, and the guarded post-commit weekly-goal
+ *   cluster + response block. Per-class rule: at most two enrichment
+ *   reads, exactly one ledger insert with a complete effect record (D1).
+ * - undo(): see the measured budget below — same house-first gate/lock
+ *   structure plus the effect-record restore (ledger read), the cycle
+ *   reopen (closed row deleted, projection re-derived), transaction
+ *   control and the post-commit weekly-goal read.
  */
 class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	private const HOUSE_READ_BUDGET = 3;
-	private const UPDATE_DUE_DATE_BUDGET = 19;
-	// CS-PLAN-073 WP2: the completion re-validation re-resolves the canonical
-	// selection WITH the pause-projection stamp (pauses, current wallets,
-	// member snapshots) and re-fingerprints the pause inputs inside the token
-	// — a bounded +13 batched queries (measured 58 in the two-member house).
-	// RF-073-WP2-20 fix round: the stamping pass derives the agreed work
-	// appointment INDEPENDENTLY of pause presence, so each of the three
-	// stamp passes in this flow now always runs its ONE batched member-
-	// snapshot read.
-	// CS-PLAN-070 WP3 cutover: the aggregate additionally writes the work
-	// evidence/shares/audit trio, posts wallet entries with lazily ensured
-	// bindings, recalcs the derived contribution cache, replays the room
-	// journal, and re-derives rhythm + title tiers on re-loaded members.
-	// Correction safety adds under-lock membership/obligation reads; erasure
-	// provenance resolves the actor wallet; bounded room replay and selected
-	// work-share validity add one batch each. The compact receipt requires an
-	// after-commit viewer-safe read. Measured 94 on the fresh family profile;
-	// the share/occurrence lookups are batched rather than per participant.
-	private const COMPLETE_BUDGET = 94;
-	// CS-PLAN-070 WP3 cutover: the targeted undo is a full correction
-	// aggregate — under-lock completion re-read, wallet/member locking of
-	// the selected allocation, negative ledger entries, work-share-driven
-	// contribution recache, journal replay, rhythm re-derivation and the
-	// pause-stamped detail row (CS-PLAN-073 WP2), plus the under-lock
-	// completion re-read (the room-task lock is the serialization point).
-	// Under-lock re-authorization, obligated-member selection, actor-wallet
-	// provenance, reset-bounded journal replay and compact-response hydration
-	// bring the fresh family-profile measurement to 82. BUG-UX-014 adds one
-	// read of the open work to align its energy: 83. These are one batched
-	// read per concern, not one query per historical event or work share.
+	// The aggregate writes the work evidence/shares/audit trio, posts wallet
+	// entries with lazily ensured bindings, recalcs the derived contribution
+	// cache, replays the room journal, closes the cycle (a savepoint-guarded
+	// insert-if-absent, ADR-021 decision 5) and re-derives the rhythm on
+	// re-loaded members. Correction safety adds under-lock
+	// membership/obligation reads; the compact receipt requires an
+	// after-commit viewer-safe read. Measured 91 on the fresh family profile
+	// (94 before the derived windows replaced the occurrence timeline); the
+	// share and cycle lookups are batched rather than per participant.
+	private const COMPLETE_BUDGET = 91;
+	// The targeted undo is a full correction aggregate — under-lock
+	// completion re-read, wallet/member locking of the selected allocation,
+	// negative ledger entries, work-share-driven contribution recache,
+	// journal replay, the cycle reopen and the rhythm re-derivation over
+	// both recognition sources. Under-lock re-authorization, actor-wallet
+	// provenance, reset-bounded journal replay and compact-response
+	// hydration bring the fresh family-profile measurement to 83. These are
+	// one batched read per concern, not one query per historical event or
+	// work share.
 	private const UNDO_BUDGET = 83;
 
 	/**
@@ -172,85 +150,10 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * UpdateDueDate_WritesUnderLock_SingleAuthoritativeReread
-	 *
-	 * CS-PLAN-067 §3.3 + CS-PLAN-072 WP1: the due-date edit writes under
-	 * the house-first lock through the agreement writer (occurrence
-	 * amendment + evidence + projection); the response is ONE authoritative
-	 * after-commit re-read of the persisted row — no other query follows.
-	 */
-	public function testUpdateDueDate_WritesUnderLock_SingleAuthoritativeReread(): void {
-		$ownerId = 'wqb_due_owner';
-		$this->actingAs($ownerId);
-		$houseId = $this->createHouse($ownerId, 'WQB Due');
-		$floorId = $this->createFloor($houseId);
-		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
-		$taskId = $this->createTask($houseId, 'WQB due task');
-		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId);
-		$viewer = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, $ownerId);
-
-		$service = \OC::$server->get(RoomTaskService::class);
-		$newDue = '+3 days';
-
-		$counter = QueryCounter::attach($this->db);
-		try {
-			$counter->mark();
-			$response = $service->updateDueDate($roomTaskId, $newDue, $viewer);
-		} finally {
-			$counter->detach();
-		}
-
-		// Response state equality: the returned entity carries the new date.
-		// CS-PLAN-072 WP1: next_due is the derived projection of the amended
-		// occurrence — the house-local day start, not the parsed instant.
-		$expectedDue = (new \DateTime('+3 days'))->format('Y-m-d') . ' 00:00:00';
-		self::assertSame(
-			$expectedDue,
-			$response->getNextDue()?->format('Y-m-d H:i:s'),
-			'the in-transaction response must carry the new due date'
-		);
-
-		// And the DB row agrees (no write/read divergence).
-		$mapper = \OC::$server->get(RoomTaskMapper::class);
-		self::assertSame(
-			$response->getNextDue()?->format('Y-m-d H:i:s'),
-			$mapper->find($roomTaskId)->getNextDue()?->format('Y-m-d H:i:s')
-		);
-
-		// The frozen budget: gate reads (room task, definition, assignees) +
-		// the owning-house resolution (room → floor → house, CS-PLAN-071) +
-		// BEGIN + house FOR UPDATE + room-task FOR UPDATE + the agreement
-		// writer (timeline read, occurrence amendment, agreement evidence,
-		// projection refresh) + COMMIT + the single authoritative re-read.
-		// The counter observes transaction-control statements too, hence 19.
-		$this->assertPortableWriteBudget($counter, self::UPDATE_DUE_DATE_BUDGET, 2, 1);
-
-		// CS-PLAN-072 WP1: the transaction ends with the occurrence reload
-		// and the derived-projection update; exactly ONE authoritative
-		// re-read follows COMMIT (the response entity) — nothing else.
-		// RF-072-WP1-09: the projection refresh follows ONE indexed row
-		// query (the earliest open scheduled occurrence), not a full
-		// occurrence-history load.
-		$statements = $counter->sqlStatements();
-		$commitIndex = array_search('"COMMIT"', $statements, true);
-		self::assertNotFalse($commitIndex, 'the transaction committed');
-		$transactionTail = array_slice($statements, $commitIndex - 2, 2);
-		self::assertSame(
-			[
-				'SELECT * FROM `oc_chorestrike_occurrences` WHERE (`room_task_id` = :dcValue1) AND (`completion_id` IS NULL) AND (`covered_by_completion_id` IS NULL) AND (`kind` = :dcValue2) ORDER BY `day_start` ASC, `schedule_rev_id` ASC, `ordinal` ASC LIMIT 1',
-				'UPDATE `oc_chorestrike_room_tasks` SET `next_due` = :dcValue1, `ideal_due_date` = :dcValue2 WHERE `id` = :dcValue3',
-			],
-			array_map(static fn (string $sql): string => str_replace('"', '`', $sql), $transactionTail),
-			'the transaction ends with the timeline reload and the projection update'
-		);
-		self::assertCount($commitIndex + 2, $statements, 'exactly one authoritative re-read runs after commit');
-	}
-
-	/**
 	 * Completion_TransactionalPhaseWithinBudget_LedgerExactlyOnce
 	 *
 	 * Per-class rule: at most two enrichment reads, exactly ONE ledger
-	 * insert with a complete effect record (occurrence_due, before_state,
+	 * insert with a complete effect record (cycle facts, before_state,
 	 * deltas — D1).
 	 */
 	public function testCompletion_TransactionalPhaseWithinBudget_LedgerExactlyOnce(): void {
@@ -279,7 +182,8 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		// facts, ONE selected work share and ONE audit revision.
 		$ledgerRows = $this->ledgerRows($roomTaskId);
 		self::assertCount(1, $ledgerRows, 'exactly one evidence row per completion');
-		self::assertNotNull($ledgerRows[0]['occurrence_due'], 'the evidence row carries occurrence_due');
+		self::assertMatchesRegularExpression('/^d\d{4}-\d{2}-\d{2}$/', (string)$ledgerRows[0]['cycle_key'], 'the evidence row carries the cycle it closed');
+		self::assertNotNull($ledgerRows[0]['window_end_on'], 'and the final window, frozen');
 		self::assertGreaterThan(0, (int)$ledgerRows[0]['total_energy']);
 		$shares = $this->rowsBy('chorestrike_work_shares', 'completion_id', (int)$ledgerRows[0]['id']);
 		self::assertCount(1, $shares, 'exactly one selected work share (solo completion)');
@@ -290,7 +194,7 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		// house → room_task → room, then the member + wallet locks of the
 		// reward phase (including a lazily ensured wallet binding) inside
 		// the same locked section.
-		$this->assertPortableWriteBudget($counter, self::COMPLETE_BUDGET, 7, 8);
+		$this->assertPortableWriteBudget($counter, self::COMPLETE_BUDGET, 7, 7);
 	}
 
 	/**

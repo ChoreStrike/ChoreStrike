@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Tests\Integration\Support\StoredTimelineFixtures;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
@@ -36,6 +37,8 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  *    placeholder.
  */
 class AccountErasureTest extends IntegrationTestCase {
+	use StoredTimelineFixtures;
+
 	/** @var int[] */
 	private array $cleanupWalletIds = [];
 	/** @var int[] */
@@ -449,16 +452,26 @@ class AccountErasureTest extends IntegrationTestCase {
 	 * RF-072-WP1-04): agreement evidence rows survive as anonymous facts,
 	 * but the member snapshots inside old_state/new_state must lose the
 	 * erased account's userId binding — exactly like the schedule_revs
-	 * rule-default snapshots.
+	 * rule-default snapshots. Nothing writes agreements any more (ADR-021
+	 * decision 12); the rows a retained deployment carries are still
+	 * scrubbed.
 	 */
 	public function testErasure_ScrubsUserIdsFromAgreementMemberSnapshots(): void {
 		$f = $this->seedHouseWithTarget();
 
-		// The agreement writer records member snapshots carrying plain
-		// Nextcloud userIds (participant amendment on the pending target).
-		$actor = $this->houseUserFor($f['houseId'], 'ae_owner');
-		\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class)
-			->setAssignees($f['roomTaskId'], ['ae_target', 'ae_owner'], $f['houseId'], $actor);
+		// Stored evidence of a participant amendment: member snapshots
+		// carrying plain Nextcloud userIds.
+		$ownerWalletId = (int)$this->houseUserFor($f['houseId'], 'ae_owner')->getWalletId();
+		$occurrenceId = $this->insertStoredOccurrence($f['houseId'], $f['roomTaskId'], '2026-09-21');
+		$this->insertStoredAgreement(
+			$occurrenceId,
+			'share',
+			['members' => [['userId' => 'ae_target', 'walletId' => $f['walletId'], 'sharePct' => 100]]],
+			['members' => [
+				['userId' => 'ae_target', 'walletId' => $f['walletId'], 'sharePct' => 50],
+				['userId' => 'ae_owner', 'walletId' => $ownerWalletId, 'sharePct' => 50],
+			]]
+		);
 
 		$statesBefore = $this->fetchAgreementStates($f['roomTaskId']);
 		self::assertNotSame([], $statesBefore, 'the participant amendment recorded agreement evidence');
@@ -486,6 +499,61 @@ class AccountErasureTest extends IntegrationTestCase {
 			}
 		}
 		self::assertTrue($scrubbedWalletFact, "the erased wallet's member snapshot survived as an anonymous fact");
+	}
+
+	/**
+	 * Erasure_ForgetsTheWalletInClosedCycles (ADR-021 decision 3): a closed
+	 * cycle is a shared fact of the household and stays; it only stops
+	 * naming the erased wallet among the members it counted for.
+	 */
+	public function testErasure_ForgetsTheWalletInClosedCycles(): void {
+		$f = $this->seedHouseWithTarget();
+		$ownerWalletId = (int)$this->houseUserFor($f['houseId'], 'ae_owner')->getWalletId();
+		$shared = $this->insertClosedCycle($f['houseId'], $f['roomTaskId'], '2026-09-21', '2026-09-21', [$f['walletId'], $ownerWalletId]);
+		$own = $this->insertClosedCycle($f['houseId'], $f['roomTaskId'], '2026-09-22', '2026-09-22', [$f['walletId']]);
+
+		\OC::$server->get(AccountErasureService::class)->eraseAccount('ae_target');
+
+		$cycles = \OC::$server->get(\OCA\ChoreStrike\Db\CycleMapper::class);
+		$rows = [];
+		foreach ($cycles->findByHouseEndingBetween($f['houseId'], '2026-09-21', '2026-09-22') as $row) {
+			$rows[(int)$row->getId()] = [$row->getOutcome(), $row->responsibleWalletIds()];
+		}
+		self::assertSame([
+			$shared => [\OCA\ChoreStrike\Db\Cycle::OUTCOME_MISSED, [$ownerWalletId]],
+			$own => [\OCA\ChoreStrike\Db\Cycle::OUTCOME_MISSED, []],
+		], $rows, 'both cycles stay, neither names the erased wallet');
+	}
+
+	/**
+	 * Review regression (CS-PLAN-091 WP-B1 interim Full review): sub-task
+	 * ticks stay as shared facts but stop naming the erased member, in the
+	 * per-cycle table and in the retained per-occurrence one.
+	 */
+	public function testErasure_AnonymizesTheMemberWhoTickedSubTasks(): void {
+		$f = $this->seedHouseWithTarget();
+		$targetId = $this->houseUserFor($f['houseId'], 'ae_target')->getId();
+		$cycleTick = $this->insertTickRow('chorestrike_cycle_progress', ['cycle_key' => 'd2026-09-21'], $f['roomTaskId'], (int)$targetId);
+		$storedTick = $this->insertTickRow('chorestrike_chk_progress', ['schedule_rev_id' => 1, 'ordinal' => 1], $f['roomTaskId'], (int)$targetId);
+
+		\OC::$server->get(AccountErasureService::class)->eraseAccount('ae_target');
+
+		foreach (['chorestrike_cycle_progress' => $cycleTick, 'chorestrike_chk_progress' => $storedTick] as $table => $id) {
+			$qb = $this->db->getQueryBuilder();
+			$row = $qb->select('is_checked', 'checked_by_user_id')->from($table)
+				->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+				->executeQuery()->fetch();
+			self::assertNotFalse($row, $table . ': the tick stays');
+			self::assertNull($row['checked_by_user_id'], $table . ': the member who ticked is gone');
+		}
+	}
+
+	/** A ticked sub-task row of the given progress table. */
+	private function insertTickRow(string $table, array $key, int $roomTaskId, int $houseUserId): int {
+		$qb = $this->db->getQueryBuilder();
+		$values = ['room_task_id' => $roomTaskId, 'checklist_item_id' => 1, 'is_checked' => true, 'checked_at' => '2026-09-21 10:00:00', 'checked_by_user_id' => $houseUserId] + $key;
+		$qb->insert($table)->values(array_map(static fn ($value) => $qb->createNamedParameter($value, is_int($value) ? IQueryBuilder::PARAM_INT : (is_bool($value) ? IQueryBuilder::PARAM_BOOL : IQueryBuilder::PARAM_STR)), $values))->executeStatement();
+		return $qb->getLastInsertId();
 	}
 
 	/**
@@ -530,31 +598,17 @@ class AccountErasureTest extends IntegrationTestCase {
 		$todayKey = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d');
 		$uuid = static fn (): string => sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
 
-		// An owner-recorded handover onto the target — the consent evidence
-		// binds the target's userId + wallet. Recorded BEFORE the pauses so
-		// the target is not yet suspended (a paused member cannot take a
-		// new commitment).
-		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
-		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
-		$selection = $occurrenceService->selectionFor($roomTask, new \DateTime(), $f['houseId']);
-		self::assertNotNull($selection);
-		\OC::$server->get(\OCA\ChoreStrike\Service\AgreementService::class)->amend($f['houseId'], 'ae_owner', $f['roomTaskId'], [
-			'commandId' => $uuid(),
-			'occurrenceId' => $selection['occurrence']->toPublicKey(),
-			'expectedVersion' => $selection['occurrence']->getVersion(),
-			'selectionToken' => $occurrenceService->selectionToken(
-				$selection['occurrence'],
-				$selection['revision'],
-				$selection['classification'],
-				$f['houseId'],
-				null,
-				$selection['workAppointment']
-			),
-			'consent' => true,
-			'participants' => [
-				['userId' => 'ae_target', 'role' => 'responsible', 'sharePct' => 100],
-			],
-		]);
+		// Stored evidence of an owner-recorded handover onto the target —
+		// the consent binds the target's userId + wallet (written by the
+		// agreement commands that ADR-021 retired).
+		$occurrenceId = $this->insertStoredOccurrence($f['houseId'], $f['roomTaskId'], '2026-09-21');
+		$this->insertStoredAgreement(
+			$occurrenceId,
+			'handover',
+			null,
+			null,
+			['attestedBy' => $this->findHouseUserId($f['houseId'], 'ae_owner'), 'subjects' => [['userId' => 'ae_target', 'walletId' => $f['walletId']]]]
+		);
 		$consentBefore = $this->fetchConsents($f['roomTaskId']);
 		self::assertStringContainsString('ae_target', json_encode($consentBefore), 'the pre-erasure consent binds the target userId');
 
@@ -669,10 +723,19 @@ class AccountErasureTest extends IntegrationTestCase {
 		$erasureService->eraseAccount('ae_dep_member');
 		self::assertSame(0, $this->countIntBy('chorestrike_wallets', 'id', (int)$firstWalletId), 'erasure removes the wallet');
 
-		// Erasure of an ALREADY-DEPARTED account sweeps the orphan wallet too.
+		// Erasure of an ALREADY-DEPARTED account sweeps the orphan wallet too,
+		// and closed cycles stop naming it (review regression, ADR-021).
 		$orphanWalletId = $this->createWallet($houseId, 'ae_orphan');
+		$roomTaskId = $this->assignTaskToRoom(
+			$this->createTask($houseId, 'AE swept task'),
+			$this->createRoom($houseId, $this->createFloor($houseId, 'AE Floor', 1), 'AE Room'),
+			'ae_dep_owner'
+		);
+		$this->insertClosedCycle($houseId, $roomTaskId, '2026-09-21', '2026-09-21', [$orphanWalletId]);
 		$erasureService->eraseAccount('ae_orphan');
 		self::assertSame(0, $this->countIntBy('chorestrike_wallets', 'id', $orphanWalletId), 'erasure of a departed account sweeps the preserved wallet');
+		$swept = \OC::$server->get(\OCA\ChoreStrike\Db\CycleMapper::class)->findByHouseEndingBetween($houseId, '2026-09-21', '2026-09-21');
+		self::assertSame([[]], array_map(static fn ($row): array => $row->responsibleWalletIds(), $swept), 'the closed cycle stays and no longer names the swept wallet');
 	}
 
 	/**

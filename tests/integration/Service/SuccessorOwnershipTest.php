@@ -10,11 +10,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
-use OCA\ChoreStrike\Service\AgreementService;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Service\CompletionService;
-use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\WalletService;
@@ -22,13 +19,13 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
- * Successor ownership across the three ways work changes hands
- * (CS-PLAN-084 WP-G, TECH-TEST-005): an overdue takeover and a
- * one-occurrence handover never change who owns the NEXT occurrence — it
- * returns to the default responsible — while a reassignment moves the open
- * and every following occurrence to the new assignee and removes the task
- * from the former assignee's day. Asserted on the persisted occurrence
- * members and on the same daily read the My Day view renders.
+ * Who owns the next cycle when work changes hands (CS-PLAN-084 WP-G,
+ * TECH-TEST-005): an overdue takeover never changes who the task belongs
+ * to — the next cycle is the assignee's again — while a reassignment moves
+ * the open and every following cycle to the new assignee and removes the
+ * task from the former assignee's day. The one-occurrence handover went
+ * with the agreement commands (ADR-021 decision 13). Asserted on the
+ * assignment and on the same daily read the My Day view renders.
  */
 class SuccessorOwnershipTest extends IntegrationTestCase {
 	private const OWNER = 'so_owner';
@@ -36,19 +33,17 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	private const OTHER_KID = 'so_other_kid';
 
 	private CompletionService $completionService;
-	private OccurrenceMapper $occurrenceMapper;
 	private RoomTaskReadService $readService;
 	private HouseUserMapper $houseUserMapper;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->completionService = \OC::$server->get(CompletionService::class);
-		$this->occurrenceMapper = \OC::$server->get(OccurrenceMapper::class);
 		$this->readService = \OC::$server->get(RoomTaskReadService::class);
 		$this->houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 	}
 
-	public function testOverdueTakeover_SuccessorReturnsToOriginalAssignee(): void {
+	public function testOverdueTakeover_NextCycleStaysWithTheAssignee(): void {
 		$f = $this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00');
 
 		$this->completeOccurrenceWithParticipants($this->completionService, $f['houseId'], self::OTHER_KID, $f['roomTaskId'],
@@ -58,30 +53,13 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 		self::assertSame(1, (int)$claim['was_claimed'], 'the overdue takeover is recorded');
 		self::assertSame(self::OTHER_KID, $claim['claimed_by_user']);
 		self::assertSame(self::KID, $claim['original_assignee']);
-		self::assertSame([$this->walletIdOf($f['houseId'], self::KID)], $this->obligatedWallets($this->openSuccessor($f['roomTaskId'])),
-			'the next occurrence belongs to the original assignee again');
-		$next = $this->successorDate($f['roomTaskId']);
+		self::assertSame([self::KID], $this->assignees($f['roomTaskId']), 'the task still belongs to the original assignee');
+		$next = $this->nextCycleDate($f);
 		self::assertTrue($this->visibleTo($f, self::KID, $next));
-		self::assertFalse($this->visibleTo($f, self::OTHER_KID, $next), 'the taker does not inherit the following occurrence');
+		self::assertFalse($this->visibleTo($f, self::OTHER_KID, $next), 'the taker does not inherit the following cycle');
 	}
 
-	public function testHandoverThenCompletion_SuccessorReturnsToDefaultResponsible(): void {
-		$f = $this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00');
-		$this->handOver($f, self::OTHER_KID);
-		self::assertFalse($this->visibleTo($f, self::KID, new \DateTime()), 'the handed-over occurrence leaves the default assignee\'s day');
-		self::assertTrue($this->visibleTo($f, self::OTHER_KID, new \DateTime()));
-
-		$this->completeOccurrence($this->completionService, $f['houseId'], self::OTHER_KID, $f['roomTaskId']);
-
-		self::assertSame([$this->walletIdOf($f['houseId'], self::KID)], $this->obligatedWallets($this->openSuccessor($f['roomTaskId'])),
-			'a one-occurrence handover never changes the following occurrence');
-		$next = $this->successorDate($f['roomTaskId']);
-		self::assertTrue($this->visibleTo($f, self::KID, $next));
-		self::assertFalse($this->visibleTo($f, self::OTHER_KID, $next));
-		self::assertSame(0, (int)$this->roomTaskRow($f['roomTaskId'])['was_claimed'], 'an agreed handover is not a takeover');
-	}
-
-	public function testReassignment_MovesOpenAndFollowingOccurrencesToNewAssignee(): void {
+	public function testReassignment_MovesOpenAndFollowingCyclesToNewAssignee(): void {
 		$f = $this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00');
 		$actor = $this->houseUserMapper->findByHouseAndUser($f['houseId'], self::OWNER);
 		\OC::$server->get(RoomTaskService::class)->setAssignees($f['roomTaskId'], [self::OTHER_KID], $f['houseId'], $actor);
@@ -91,9 +69,8 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 
 		$this->completeOccurrence($this->completionService, $f['houseId'], self::OTHER_KID, $f['roomTaskId']);
 
-		self::assertSame([$this->walletIdOf($f['houseId'], self::OTHER_KID)], $this->obligatedWallets($this->openSuccessor($f['roomTaskId'])),
-			'a reassignment owns every following occurrence');
-		$next = $this->successorDate($f['roomTaskId']);
+		self::assertSame([self::OTHER_KID], $this->assignees($f['roomTaskId']), 'a reassignment owns every following cycle');
+		$next = $this->nextCycleDate($f);
 		self::assertTrue($this->visibleTo($f, self::OTHER_KID, $next));
 		self::assertFalse($this->visibleTo($f, self::KID, $next));
 	}
@@ -113,37 +90,24 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * An agreed handover of a MISSED occurrence fulfils the agreement: the
-	 * obligated completer takes nothing over even though the work is late.
-	 */
-	public function testAgreedHandoverOfMissedOccurrence_IsNoTakeover(): void {
-		$f = $this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00');
-		$this->handOver($f, self::OTHER_KID);
-
-		$this->completeOccurrence($this->completionService, $f['houseId'], self::OTHER_KID, $f['roomTaskId']);
-
-		self::assertSame(0, (int)$this->roomTaskRow($f['roomTaskId'])['was_claimed']);
-		self::assertSame(0, $this->takeoverNoticeCount($f['houseId']));
-	}
-
-	/**
 	 * The list status the TaskManager renders (controller serializer path:
-	 * batched selection + statusFor) follows the occurrence boundary.
+	 * batched cycle blocks + statusFor) follows the end of the window.
 	 */
-	public function testListStatus_FollowsHouseLocalOccurrenceBoundary(): void {
+	public function testListStatus_FollowsHouseLocalWindowBoundary(): void {
 		$today = $this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00');
-		self::assertSame(['due_today', 'agreed'], $this->listStatus($today));
+		self::assertSame(['due_today', 'open'], $this->listStatus($today));
 
 		$missed = $this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00');
-		self::assertSame(['overdue', 'late'], $this->listStatus($missed));
+		self::assertSame(['overdue', 'overdue'], $this->listStatus($missed));
 
 		$flex = $this->fixture((new \DateTime('-1 day'))->format('Y-m-d') . ' 00:00:00', 2);
-		self::assertSame(['due_today', 'agreed'], $this->listStatus($flex), 'an open flex window is still due, not overdue');
+		self::assertSame(['due_today', 'open'], $this->listStatus($flex), 'an open flex window is still due, not overdue');
 	}
 
 	/**
-	 * The RoomDetail stats card counts like the rows (RF-084-02): a missed
-	 * occurrence is overdue, today's work and an open flex window are due.
+	 * The RoomDetail stats card counts like the rows (RF-084-02): a cycle
+	 * whose window ended is overdue, today's work and an open flex window
+	 * are due.
 	 */
 	public function testRoomStats_FollowTheListRowBoundary(): void {
 		$cases = [
@@ -160,9 +124,9 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * CR-084-03: single-row payloads (create, due-date, completion, execution
-	 * rows) report the list status — an open flex window after the planned
-	 * day is due although the entity's day rule says overdue.
+	 * CR-084-03: single-row payloads (create, completion, execution rows)
+	 * report the list status — an open flex window after the planned day is
+	 * due.
 	 */
 	public function testRoomTaskPayload_ReportsTheListStatus(): void {
 		$cases = [
@@ -172,7 +136,6 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 		foreach ($cases as $label => [$f, $expected]) {
 			$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
 			$tz = $this->readService->timeZoneForHouse($f['houseId']);
-			self::assertSame('overdue', $roomTask->jsonSerialize($tz)['status'], $label . ': precondition, entity day rule');
 			$status = $this->readService->selectedRoomTaskPayload($f['houseId'], $roomTask, $tz)['status'];
 			self::assertSame($expected, $status, $label);
 			self::assertSame($this->listStatus($f)[0], $status, $label . ': equals the list row');
@@ -181,7 +144,7 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 
 	/**
 	 * CR-084-01: the calendar marks a day entry overdue only when its
-	 * occurrence's window has ended — a past planned day inside an open flex
+	 * cycle's window has ended — a past planned day inside an open flex
 	 * window is not late.
 	 */
 	public function testRangeRead_MarksOnlyEndedWindowsLate(): void {
@@ -196,31 +159,18 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 				$f['houseId'], new \DateTime('-3 days'), new \DateTime('+1 day'), $owner);
 			$rows = array_values(array_filter($range['scheduled'], static fn (array $row): bool => $row['roomTask']['id'] === $f['roomTaskId']));
 			self::assertCount(1, $rows, $label);
-			$days = array_values(array_filter($rows[0]['occurrenceDetails'], static fn (array $detail): bool => $detail['date'] === $yesterday));
+			$days = array_values(array_filter($rows[0]['cycles'], static fn (array $cycle): bool => $cycle['date'] === $yesterday));
 			self::assertCount(1, $days, $label . ': the planned day is in the range');
+			self::assertTrue($days[0]['current'], $label);
 			self::assertSame($late, $days[0]['late'], $label);
 		}
 	}
 
-	/** D-089-12: the range read names who an appointment was handed to. */
-	public function testRange_NamesWhoAnAppointmentWasHandedTo(): void {
-		$f = $this->fixture((new \DateTime())->format('Y-m-d') . ' 00:00:00', 2);
-		$this->handOver($f, self::OTHER_KID);
-
-		$owner = $this->houseUserMapper->findByNextcloudUserId($f['houseId'], self::OWNER);
-		$range = \OC::$server->get(RoomTaskService::class)->getRangeTasks(
-			$f['houseId'], new \DateTime('-1 day'), new \DateTime('+3 days'), $owner);
-		$rows = array_values(array_filter($range['scheduled'], static fn (array $row): bool => $row['roomTask']['id'] === $f['roomTaskId']));
-
-		self::assertContains([self::OTHER_KID], array_column($rows[0]['occurrenceDetails'], 'obligatedUserIds'));
-	}
-
-	/** @return array{0: string, 1: ?string} [status, classification] as the list endpoint serializes them */
+	/** @return array{0: string, 1: ?string} [status, cycle state] as the list endpoint serializes them */
 	private function listStatus(array $f): array {
 		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
-		$classification = $this->readService->occurrenceSelectionsForHouse($f['houseId'], [$roomTask])[$f['roomTaskId']]['classification'] ?? null;
-		$tz = $this->readService->timeZoneForHouse($f['houseId']);
-		return [$this->readService->statusFor($roomTask, $tz, $classification), $classification];
+		$block = $this->readService->cycleFacts($f['houseId'], [$roomTask])[$f['roomTaskId']]['block'];
+		return [$this->readService->statusFor($roomTask, $block), $block['state'] ?? null];
 	}
 
 	private function takeoverNoticeCount(int $houseId): int {
@@ -238,8 +188,8 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 	/**
 	 * Adult owner (the acting parent) plus two children with bound wallets
 	 * and one daily interval task (energy 2, within a child's daily budget)
-	 * assigned to the first child from the given anchor. Children see only
-	 * the tasks they are obligated to, which makes "who sees it" observable.
+	 * assigned to the first child from the given first date. Children see
+	 * only the tasks they are assigned, which makes "who sees it" observable.
 	 *
 	 * @return array{houseId: int, roomTaskId: int}
 	 */
@@ -264,60 +214,17 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 		return ['houseId' => $houseId, 'roomTaskId' => $this->assignTaskToRoom($taskId, $roomId, self::KID, $anchor)];
 	}
 
-	/**
-	 * One-occurrence handover through the public agreement commands: an
-	 * open occurrence is amended; a missed (`late`) one is rescheduled as
-	 * catch-up work for today with the new participant.
-	 */
-	private function handOver(array $f, string $userId): void {
-		$occurrenceService = \OC::$server->get(OccurrenceService::class);
+	/** The planned day of the cycle after the completion, at noon. */
+	private function nextCycleDate(array $f): \DateTime {
 		$roomTask = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($f['roomTaskId']);
-		$selection = $occurrenceService->selectionFor($roomTask, new \DateTime(), $f['houseId']);
-		self::assertNotNull($selection);
-		$payload = [
-			'commandId' => sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
-			'occurrenceId' => $selection['occurrence']->toPublicKey(),
-			'expectedVersion' => $selection['occurrence']->getVersion(),
-			'selectionToken' => $occurrenceService->selectionToken($selection['occurrence'], $selection['revision'],
-				$selection['classification'], $f['houseId'], null, $selection['workAppointment']),
-			'consent' => true,
-			'participants' => [['userId' => $userId, 'role' => 'responsible', 'sharePct' => 100]],
-		];
-		$agreements = \OC::$server->get(AgreementService::class);
-		if ($selection['classification'] === 'late') {
-			$agreements->catchUp($f['houseId'], self::OWNER, $f['roomTaskId'], $payload + ['workDate' => (new \DateTime())->format('Y-m-d')]);
-			return;
-		}
-		$agreements->amend($f['houseId'], self::OWNER, $f['roomTaskId'], $payload);
+		$block = $this->readService->cycleFacts($f['houseId'], [$roomTask])[$f['roomTaskId']]['block'];
+		self::assertStringStartsWith('c', (string)$block['cycleKey'], 'the next cycle follows the completion');
+		return new \DateTime($block['centreOn'] . ' 12:00:00');
 	}
 
-	/** The single open (unfulfilled, uncovered) occurrence after the last completion. */
-	private function openSuccessor(int $roomTaskId): Occurrence {
-		$open = array_values(array_filter(
-			$this->occurrenceMapper->findByRoomTask($roomTaskId),
-			static fn (Occurrence $o): bool => $o->getCompletionId() === null && $o->getCoveredByCompletionId() === null
-		));
-		self::assertCount(1, $open, 'an interval task owns exactly one open successor');
-		return $open[0];
-	}
-
-	private function successorDate(int $roomTaskId): \DateTime {
-		return new \DateTime($this->openSuccessor($roomTaskId)->getPlannedDate()->format('Y-m-d') . ' 12:00:00');
-	}
-
-	/** @return list<int> sorted wallet ids actively obligated on the occurrence */
-	private function obligatedWallets(Occurrence $occurrence): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('wallet_id')
-			->from('chorestrike_occ_members')
-			->where($qb->expr()->eq('occurrence_id', $qb->createNamedParameter($occurrence->getId(), IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('disposition', $qb->createNamedParameter('active')))
-			->andWhere($qb->expr()->eq('obligated', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)));
-		$result = $qb->executeQuery();
-		$wallets = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
-		$result->closeCursor();
-		sort($wallets);
-		return $wallets;
+	/** @return list<string> */
+	private function assignees(int $roomTaskId): array {
+		return \OC::$server->get(TaskAssigneeMapper::class)->findUserIdsByRoomTask($roomTaskId);
 	}
 
 	/** Whether the child's daily read (the My Day list) contains the task on the date. */
@@ -330,13 +237,6 @@ class SuccessorOwnershipTest extends IntegrationTestCase {
 			}
 		}
 		return false;
-	}
-
-	private function walletIdOf(int $houseId, string $userId): int {
-		$member = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
-		self::assertNotNull($member);
-		self::assertNotNull($member->getWalletId());
-		return (int)$member->getWalletId();
 	}
 
 	private function roomTaskRow(int $roomTaskId): array {

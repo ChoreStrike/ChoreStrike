@@ -2,24 +2,40 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  *
- * Occurrence-receipt completion helpers (CS-PLAN-072 WP1).
+ * Cycle-receipt completion helpers (ADR-021, CS-PLAN-091).
  *
- * The completion endpoint is a CLOSED-SET receipt contract: the body must
- * carry `commandId` (a fresh client idempotency UUID), `occurrenceId` (the
- * shown target's public `<scheduleRevisionId>:<ordinal>` key),
- * `expectedVersion` and `selectionToken`. Direct-API specs resolve the
- * receipt of the CURRENT canonical selection from the house-wide index
- * (the same block the UI store consumes) and post it unchanged.
+ * The completion endpoint is a CLOSED-SET receipt contract: the body carries
+ * `commandId` (a fresh client idempotency UUID), `expectedVersion` and — for
+ * every task but a bonus one — the `cycleKey` of the shown cycle. Direct-API
+ * specs resolve the receipt of the CURRENT cycle from the house-wide index
+ * (the same `cycle` block the UI store consumes) and post it unchanged.
  */
 
 import type { APIResponse, Locator, Page, Response } from '@playwright/test'
 
 import { holdToConfirm } from './hold-to-confirm.ts'
 
-export interface OccurrenceReceipt {
-	occurrenceId: string
+export interface CycleReceipt {
+	/** Absent for a bonus (voluntary) task. */
+	cycleKey?: string
 	expectedVersion: number
-	selectionToken: string
+}
+
+/** The `cycle` block of a room-task row (ADR-021 decision 4). */
+export interface CycleBlock extends CycleReceipt {
+	windowStartOn?: string
+	windowEndOn?: string
+	centreOn?: string
+	state: 'upcoming' | 'open' | 'overdue' | 'bonus'
+	postponeCount?: number
+	canPostpone?: boolean
+}
+
+export interface FlatRow {
+	id: number
+	assignees?: string[]
+	cycle?: CycleBlock | null
+	[key: string]: unknown
 }
 
 /** A fresh RFC 4122 v4 command id (one per logical completion command). */
@@ -31,39 +47,46 @@ export function newCommandId(): string {
 	})
 }
 
-/**
- * Resolve the shown occurrence receipt of a room task from the house-wide
- * index. Returns null when the row is invisible to this user or carries no
- * completable target (the read block mirrors the UI store's source).
- */
-export async function resolveOccurrenceReceipt(page: Page, roomTaskId: number): Promise<OccurrenceReceipt | null> {
+/** The flat row of one room task from the house-wide index (null when invisible). */
+export async function readFlatRow(page: Page, roomTaskId: number): Promise<FlatRow | null> {
 	const response = await page.request.get('/apps/chorestrike/api/v1/room-tasks', {
 		headers: { Accept: 'application/json' },
 	})
 	if (response.status() !== 200) {
 		return null
 	}
-	const rows = ((await response.json()).data ?? []) as Array<{ id: number, occurrence?: OccurrenceReceipt | null }>
-	const occurrence = rows.find((row) => row.id === roomTaskId)?.occurrence
-	if (!occurrence?.occurrenceId || !occurrence?.selectionToken) {
-		return null
+	const rows = ((await response.json()).data ?? []) as FlatRow[]
+	return rows.find((row) => row.id === roomTaskId) ?? null
+}
+
+/** The receipt a cycle block names (`cycleKey` stays absent for a bonus task). */
+export function receiptOf(cycle: CycleBlock): CycleReceipt {
+	const receipt: CycleReceipt = { expectedVersion: cycle.expectedVersion }
+	if (cycle.cycleKey) {
+		receipt.cycleKey = cycle.cycleKey
 	}
-	return {
-		occurrenceId: occurrence.occurrenceId,
-		expectedVersion: occurrence.expectedVersion,
-		selectionToken: occurrence.selectionToken,
-	}
+	return receipt
+}
+
+/**
+ * Resolve the shown cycle receipt of a room task from the house-wide index.
+ * Returns null when the row is invisible to this user or carries no cycle
+ * (a finished one-time task, an inactive one).
+ */
+export async function resolveCycleReceipt(page: Page, roomTaskId: number): Promise<CycleReceipt | null> {
+	const cycle = (await readFlatRow(page, roomTaskId))?.cycle
+	return cycle ? receiptOf(cycle) : null
 }
 
 /**
  * Post a completion with an explicit receipt and a fresh command id.
- * `$participants` adds the WP3 §3.6 explicit actual-work split (the actor
- * takes part, Q-074-02) for non-assignee completions.
+ * `participants` adds the explicit actual-work split (the actor takes part)
+ * a completer outside the assignees must send.
  */
 export async function postCompletionWithReceipt(
 	page: Page,
 	roomTaskId: number,
-	receipt: OccurrenceReceipt,
+	receipt: CycleReceipt,
 	participants?: Array<{ userId: string, sharePct: number }>,
 ): Promise<APIResponse> {
 	const data: Record<string, unknown> = { commandId: newCommandId(), ...receipt }
@@ -78,31 +101,38 @@ export async function postCompletionWithReceipt(
 }
 
 /**
- * Complete the room task's CURRENT shown occurrence as this page's user:
- * resolve the live receipt, then post it. Throws when no completable target
- * is visible (a stale/invisible row is a test-setup error, never a silent
- * completion of another occurrence).
+ * Whether the UI asks "who took part" for these assignees: several people,
+ * or one person who is not the actor. Unassigned work and the actor's own
+ * task complete directly (the same rule as `useTaskCompletion`).
+ */
+export function needsParticipantSplit(assignees: string[], userId: string | null): boolean {
+	if (assignees.length === 1) {
+		return userId !== null && assignees[0] !== userId
+	}
+	return assignees.length > 1
+}
+
+/**
+ * Complete the room task's CURRENT shown cycle as this page's user: resolve
+ * the live receipt, then post it. Throws when no cycle is visible (a stale
+ * or invisible row is a test-setup error, never a silent completion of
+ * something else).
  *
- * WP3 (Q-074-02): when the row's server proposal names someone else (or
- * several people), the request carries the explicit solo split naming the
- * actor — exactly what the participation dialog sends in the UI.
+ * When the row's assignees are several people, or one other person, the
+ * request carries the explicit solo split naming the actor — exactly what
+ * the participation dialog sends in the UI.
  */
 export async function completeRoomTaskViaApi(page: Page, roomTaskId: number): Promise<APIResponse> {
-	const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
-	if (!receipt) {
-		throw new Error(`No completable occurrence visible for room task ${roomTaskId}`)
+	const row = await readFlatRow(page, roomTaskId)
+	if (!row?.cycle) {
+		throw new Error(`No completable cycle visible for room task ${roomTaskId}`)
 	}
 	const userId = await currentPageUserId(page)
-	const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
-	const participants = ((rows.data ?? []) as Array<{ id: number, proposal: { participants: Array<{ userId: string }> } | null }>)
-		.find((row) => row.id === roomTaskId)?.proposal?.participants ?? []
-	const needsSplit = participants.length > 1
-		|| (participants.length === 1 && userId !== null && participants[0].userId !== userId)
 	return postCompletionWithReceipt(
 		page,
 		roomTaskId,
-		receipt,
-		needsSplit && userId !== null ? [{ userId, sharePct: 100 }] : undefined,
+		receiptOf(row.cycle),
+		needsParticipantSplit(row.assignees ?? [], userId) && userId !== null ? [{ userId, sharePct: 100 }] : undefined,
 	)
 }
 
@@ -120,23 +150,22 @@ async function currentPageUserId(page: Page): Promise<string | null> {
 }
 
 /**
- * Complete with an EXPLICIT solo split for a NON-assignee actor (WP3
- * Q-074-02: the completer must take part in the work — a takeover names
+ * Complete with an EXPLICIT solo split for a completer outside the
+ * assignees (the completer must take part in the work — a takeover names
  * the helper).
  */
 export async function completeAsSoleParticipantViaApi(page: Page, roomTaskId: number, userId: string): Promise<APIResponse> {
-	const receipt = await resolveOccurrenceReceipt(page, roomTaskId)
+	const receipt = await resolveCycleReceipt(page, roomTaskId)
 	if (!receipt) {
-		throw new Error(`No completable occurrence visible for room task ${roomTaskId}`)
+		throw new Error(`No completable cycle visible for room task ${roomTaskId}`)
 	}
 	return postCompletionWithReceipt(page, roomTaskId, receipt, [{ userId, sharePct: 100 }])
 }
 
 /**
  * Hold a UI Done button until it confirms (CS-PLAN-084 WP-E) and settle
- * the WP3 §3.6 participation dialog when the server proposal opens one
- * (multi-person work, or an agreement naming someone else). Resolves with
- * the completion response.
+ * the participation dialog when the task's assignees open one (several
+ * people, or one other person). Resolves with the completion response.
  */
 export async function completeWithOptionalDialog(page: Page, button: Locator): Promise<Response> {
 	// Registered before the hold, so an earlier completion still in flight
@@ -167,9 +196,9 @@ export async function completeWithOptionalDialog(page: Page, button: Locator): P
 /**
  * A syntactically valid placeholder receipt for AUTHORIZATION-denial proofs:
  * the visibility gate (assertCanView → 404 anti-enumeration) fires before the
- * occurrence is resolved, so a non-viewer is denied on the format-valid
- * receipt without the test depending on a real visible target.
+ * cycle is resolved, so a non-viewer is denied on the format-valid receipt
+ * without the test depending on a real visible target.
  */
-export function placeholderReceipt(): OccurrenceReceipt {
-	return { occurrenceId: '1:1', expectedVersion: 0, selectionToken: 'placeholder-selection-token' }
+export function placeholderReceipt(): CycleReceipt {
+	return { cycleKey: 'd2000-01-01', expectedVersion: 0 }
 }

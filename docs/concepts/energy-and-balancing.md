@@ -87,6 +87,29 @@ The current confirmed-preview workflow and hard constraints are described in
 4. Assign tasks to members with the highest remaining energy capacity for that day.
 5. Roll excess tasks to nearest valid day within configurable tolerance.
 
+## Live Suggestion (ADR-022, CS-PLAN-091)
+
+> Replaces the plan preview and apply below (ADR-012) and every capacity
+> refusal after creation. Built on `feat/simplified-core-bc`; the shipped
+> planner holds until it merges ([ADR-022](../adr/ADR-022-live-suggestion.md)).
+
+- The suggestion is computed on read over 14 house-local days from the open
+  windows ([ADR-021](../adr/ADR-021-derived-due-windows.md)), each member's
+  energy per weekday, their preferred weekdays and their absences. Nothing is
+  applied or stored as an agreement.
+- Earliest window end first (ties: higher energy, then room-task id). A cycle
+  goes to its assignee, or with several assignees or none to the eligible
+  member with the most remaining energy; then to that member's preferred day
+  with the most remaining energy, else any available day, else the window's
+  last day as overload. Team tasks use the chosen person's budget only.
+- A child's `maxDailyTasks` caps how many cycles are placed on the child's
+  day; *Today* never offers more.
+- Today's list is stored once per house and day on its first read: during the
+  day work only leaves it (done, postponed, asleep) or joins it (created today
+  and due); everything else moves from tomorrow on.
+- **Capacity shows overload and never refuses** an assignment, a new task, an
+  edit or a postponement (settles D-089-13).
+
 ## Overcapacity Policy (Locked)
 
 If total due energy exceeds available capacity:

@@ -8,19 +8,19 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\CycleProgressMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskChecklistItem;
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
-use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\StaleTargetException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 
@@ -43,13 +43,14 @@ use OCP\IL10N;
  */
 class ChecklistService {
 	private TaskChecklistItemMapper $checklistItemMapper;
-	private RoomTaskChecklistProgressMapper $progressMapper;
+	private CycleProgressMapper $progressMapper;
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private HouseMapper $houseMapper;
 	private TransactionExecutor $transactions;
 	private RoomTaskService $roomTaskService;
-	private OccurrenceService $occurrenceService;
+	private CycleService $cycleService;
+	private CalendarService $calendarService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private AuthorizationService $authorization;
@@ -57,13 +58,14 @@ class ChecklistService {
 
 	public function __construct(
 		TaskChecklistItemMapper $checklistItemMapper,
-		RoomTaskChecklistProgressMapper $progressMapper,
+		CycleProgressMapper $progressMapper,
 		RoomTaskMapper $roomTaskMapper,
 		TaskMapper $taskMapper,
 		HouseMapper $houseMapper,
 		TransactionExecutor $transactions,
 		RoomTaskService $roomTaskService,
-		OccurrenceService $occurrenceService,
+		CycleService $cycleService,
+		CalendarService $calendarService,
 		IL10N $l10n,
 		AppLogger $appLogger,
 		AuthorizationService $authorization,
@@ -76,7 +78,8 @@ class ChecklistService {
 		$this->houseMapper = $houseMapper;
 		$this->transactions = $transactions;
 		$this->roomTaskService = $roomTaskService;
-		$this->occurrenceService = $occurrenceService;
+		$this->cycleService = $cycleService;
+		$this->calendarService = $calendarService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->authorization = $authorization;
@@ -304,52 +307,36 @@ class ChecklistService {
 	}
 
 	/**
-	 * Get checklist progress entries and stats for one OCCURRENCE of a
-	 * room task (CS-PLAN-072 WP1). A GET causes no DB writes: a virtual
-	 * agreed key derives its (still empty) progress write-free; the
-	 * canonical selection target is used when no occurrence key is given.
-	 * Each row carries its occurrence id and progress revision.
+	 * Get the sub-task ticks and stats of the CURRENT cycle of a room task
+	 * (ADR-021 decision 3). A GET causes no DB writes. Each row carries its
+	 * cycle key and progress revision. A key that is no longer current, or
+	 * a task without a cycle, answers empty.
 	 *
-	 * @param string|null $occurrenceKey Public `<scheduleRevisionId>:<ordinal>` key (null = canonical selection)
-	 * @return array{items: array, stats: array, occurrence: ?array}
+	 * @param string|null $cycleKey The cycle the client shows (null = the current one)
+	 * @return array{items: array, stats: array, cycle: ?array}
 	 */
-	public function getRoomTaskProgress(int $roomTaskId, ?string $occurrenceKey, int $houseId, HouseUser $viewer): array {
+	public function getRoomTaskProgress(int $roomTaskId, ?string $cycleKey, int $houseId, HouseUser $viewer): array {
 		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
 		$itemCount = count($this->checklistItemMapper->findByTaskId($roomTask->getTaskId()));
 
-		$target = $this->resolveProgressTarget($roomTask, $houseId, $occurrenceKey);
-		if ($target === null) {
-			return ['items' => [], 'stats' => $this->emptyStats($itemCount), 'occurrence' => null];
+		$cycle = $this->currentCycle($roomTask, $houseId);
+		if ($cycle === null || ($cycleKey !== null && $cycleKey !== '' && $cycleKey !== $cycle->key)) {
+			return ['items' => [], 'stats' => $this->emptyStats($itemCount), 'cycle' => null];
 		}
 
-		$occurrence = $target['occurrence'];
-		$rows = $this->progressMapper->findByOccurrence(
-			$roomTaskId,
-			$occurrence->getScheduleRevId(),
-			$occurrence->getOrdinal()
-		);
-
 		return [
-			'items' => $rows,
-			'stats' => $this->progressMapper->getOccurrenceProgressStats(
-				$roomTaskId,
-				$occurrence->getScheduleRevId(),
-				$occurrence->getOrdinal(),
-				$itemCount
-			),
-			'occurrence' => [
-				'occurrenceId' => $occurrence->toPublicKey(),
-				'plannedDate' => $occurrence->getPlannedDate()?->format('Y-m-d'),
-			],
+			'items' => $this->progressMapper->findByCycle($roomTaskId, $cycle->key),
+			'stats' => $this->progressMapper->progressStats($roomTaskId, $cycle->key, $itemCount),
+			'cycle' => ['cycleKey' => $cycle->key, 'windowStartOn' => $cycle->startOn, 'windowEndOn' => $cycle->endOn],
 		];
 	}
 
 	/**
-	 * Toggle a checklist item of one OCCURRENCE; the item must belong to
-	 * that room task's task checklist. Virtual agreed progress
-	 * materializes through the same resolver (a mutation may write; a
-	 * stale progress revision conflicts with 409 instead of leaking into
-	 * a later occurrence).
+	 * Toggle a sub-task of the CURRENT cycle; the item must belong to that
+	 * room task's task checklist. Ticking only some sub-tasks leaves the
+	 * task open and the ticks saved (D-089-02). A stale cycle key or
+	 * progress revision conflicts with 409 instead of leaking into a later
+	 * cycle.
 	 *
 	 * CS-PLAN-071 WP0: the toggle runs in one house-first transaction —
 	 * the house row lock, then the room-task row lock, then the locked
@@ -357,95 +344,54 @@ class ChecklistService {
 	 * serialize; a concurrent completion or member removal now serializes
 	 * with the toggle instead of interleaving.
 	 *
-	 * @param string|null $occurrenceKey Public occurrence key (null = canonical selection)
+	 * @param string|null $cycleKey The cycle the client shows (null = the current one)
 	 * @param int|null $expectedRevision Stale-mutation guard (409 when the row moved on)
-	 * @return array{progress: \OCA\ChoreStrike\Db\RoomTaskChecklistProgress, stats: array, occurrence: array}
+	 * @return array{progress: \OCA\ChoreStrike\Db\CycleProgress, stats: array, cycle: array}
 	 */
-	public function toggleItem(int $roomTaskId, ?string $occurrenceKey, int $itemId, ?int $expectedRevision, int $houseId, HouseUser $viewer): array {
+	public function toggleItem(int $roomTaskId, ?string $cycleKey, int $itemId, ?int $expectedRevision, int $houseId, HouseUser $viewer): array {
 		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
 		$this->assertItemBelongsToTask($itemId, $roomTask->getTaskId());
 		$itemCount = count($this->checklistItemMapper->findByTaskId($roomTask->getTaskId()));
 
-		$result = $this->transactions->run(function () use ($roomTask, $occurrenceKey, $itemId, $expectedRevision, $houseId, $viewer, $itemCount) {
+		return $this->transactions->run(function () use ($roomTask, $cycleKey, $itemId, $expectedRevision, $houseId, $viewer, $itemCount) {
 			// FIRST locks of the documented order: house → room_task.
 			$this->houseMapper->findForUpdate($houseId);
-			$this->roomTaskMapper->lockForUpdate($roomTask->getId());
+			$locked = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
 
-			// Resolve the agreed occurrence. Progress rows key on the
-			// public occurrence identity, so a virtual agreed target needs
-			// no materialization here — the row key IS the occurrence key.
-			$target = $this->resolveProgressTarget($roomTask, $houseId, $occurrenceKey);
-			if ($target === null) {
+			$cycle = $this->currentCycle($locked, $houseId);
+			if ($cycle === null) {
 				throw new NotFoundException($this->l10n->t('Room task not found'));
 			}
-			$occurrence = $target['occurrence'];
-
-			if ($expectedRevision !== null) {
+			$stale = $cycleKey !== null && $cycleKey !== '' && $cycleKey !== $cycle->key;
+			if (!$stale && $expectedRevision !== null) {
 				$maxRevision = 0;
-				foreach ($this->progressMapper->findByOccurrence(
-					$roomTask->getId(),
-					$occurrence->getScheduleRevId(),
-					$occurrence->getOrdinal()
-				) as $row) {
+				foreach ($this->progressMapper->findByCycle((int)$locked->getId(), $cycle->key) as $row) {
 					$maxRevision = max($maxRevision, $row->getRevision());
 				}
-				if ($maxRevision !== $expectedRevision) {
-					throw new ConflictException(
-						$this->l10n->t('The checklist changed since it was displayed. Reload and try again.')
-					);
-				}
+				$stale = $maxRevision !== $expectedRevision;
 			}
-
-			$progress = $this->progressMapper->toggleLocked(
-				$roomTask->getId(),
-				$occurrence->getScheduleRevId(),
-				$occurrence->getOrdinal(),
-				$itemId,
-				$viewer->getId()
-			);
+			if ($stale) {
+				throw new StaleTargetException(
+					$this->l10n->t('The checklist changed since it was displayed. Reload and try again.')
+				);
+			}
 
 			return [
-				'progress' => $progress,
-				'stats' => $this->progressMapper->getOccurrenceProgressStats(
-					$roomTask->getId(),
-					$occurrence->getScheduleRevId(),
-					$occurrence->getOrdinal(),
-					$itemCount
-				),
-				'occurrence' => [
-					'occurrenceId' => $occurrence->toPublicKey(),
-					'plannedDate' => $occurrence->getPlannedDate()?->format('Y-m-d'),
-				],
+				'progress' => $this->progressMapper->toggleLocked((int)$locked->getId(), $cycle->key, $itemId, $viewer->getId()),
+				'stats' => $this->progressMapper->progressStats((int)$locked->getId(), $cycle->key, $itemCount),
+				'cycle' => ['cycleKey' => $cycle->key, 'windowStartOn' => $cycle->startOn, 'windowEndOn' => $cycle->endOn],
 			];
 		});
-
-		return $result;
 	}
 
-	/**
-	 * Resolve the progress target occurrence: the given public key when
-	 * provided, otherwise the canonical selection. Purely read-side —
-	 * no materialization (progress rows key on the public occurrence
-	 * identity, not on an occurrences.id surrogate).
-	 *
-	 * @return array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision}|null
-	 */
-	private function resolveProgressTarget(RoomTask $roomTask, int $houseId, ?string $occurrenceKey) {
-		$now = new \DateTime();
-		if ($occurrenceKey !== null && $occurrenceKey !== '') {
-			try {
-				return $this->occurrenceService->resolveAgreedKeyUnderLock(
-					$houseId,
-					$roomTask,
-					$occurrenceKey,
-					$now,
-					false
-				);
-			} catch (ConflictException $e) {
-				return null;
-			}
-		}
-		return $this->occurrenceService->selectionFor($roomTask, $now);
+	/** The cycle ticks belong to: the current one of the room task (write-free). */
+	private function currentCycle(RoomTask $roomTask, int $houseId): ?CurrentCycle {
+		return $this->cycleService->currentFor(
+			$roomTask,
+			$this->taskMapper->find($roomTask->getTaskId()),
+			$this->calendarService->getTimeZone($this->houseMapper->find($houseId)),
+			new \DateTime()
+		);
 	}
 
 	/**

@@ -1,6 +1,6 @@
 # CS-PLAN-091: 0.8.0-alpha.5 — Simplified Core, Releases B and C (Derived Windows, Trust, Live Suggestion)
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; next: WP-0 on the branch `feat/simplified-core-bc`)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-11-16; WP-0 written 2026-11-16 and WP-B1 implemented 2026-11-18 on `feat/simplified-core-bc`; interim Full review of WP-0 and WP-B1 `PASS-WITH-FIXES` 2026-11-18 with the review commit, D-091-41 to D-091-45 decided, RF-091-02 to RF-091-06 open; next: WP-B2 and WP-B3)
 > **Effort:** XL — about 40–55 engineering days, plus the operator's GUI review and the release steps, each with its own approval
 > **Priority:** P1
 > **Depends on:** the confirmed [simplified-core target picture](../../concepts/simplified-core.md) (operator, 2026-11-10) and its mockups (reviewed with the family, kept outside the repository); Release A on `master` ([CS-PLAN-090](../done/cs-plan-090-simplified-core-release-a.md), closed 2026-11-16, not deployed, D-090-81); `0.8.0-alpha.4` on the retained baseline in production
@@ -76,7 +76,8 @@ releasable meanwhile.
   goal and ranking. When the window ends, the task turns red as usual. Settles open point 2.
 - **D-091-04 Cutover keeps what was earned (2026-11-15):** current and longest streaks and every
   claimed weekly goal stay as stored. The new rules apply from the first house-local day after
-  the update and continue the stored streak; no past week is evaluated again.
+  the update and continue the stored streak; no past week is evaluated again. *Amended by
+  D-091-41: the derived model starts on the house-local day of the update itself.*
 - **D-091-05 Scope (2026-11-15):** FEAT-UX-051 (recording for someone else, sub-tasks on
   completion) and the form part of FEAT-UX-043 (a template only fills the form; a definition
   shared by several rooms splits on edit) join; the catalog content of FEAT-UX-043 stays in the
@@ -95,8 +96,114 @@ releasable meanwhile.
   latest entry moves it. The `last-done` route (FEAT-UX-045, D-088-20) and its service go;
   retained `last_done` journal events keep replaying.
 - **D-091-20 Recording for others keeps ADR-010 visibility (2026-11-16, Standard A):** only
-  members who may see a task can be credited on it, so a private task credits only its owner;
-  the server refuses anyone else. ADR-010 stays unchanged.
+  members who may see a task can be credited on it, so a private task credits only its creator
+  and the room task's assignees (ADR-010's matrix; WP-0 corrected "only its owner"); the server
+  refuses anyone else. ADR-010 stays unchanged.
+- **D-091-21 Postpone only before the window ends (2026-11-16, WP-0):** postponing works
+  before and inside the window; a red task cannot be postponed, so a miss stays a miss.
+- **D-091-22 Completing a sleeping task wakes it (2026-11-16, WP-0):** the completion is
+  recorded, the task wakes and its rhythm continues from that day.
+- **D-091-23 Own entries as the concept table (2026-11-16, WP-0):** members change the date of,
+  or delete, only the latest entry of a task that they recorded; changing the person becomes
+  owner-only. This narrows the completer rights of ADR-014.
+
+### Implementation decisions (WP-B1, for the interim review)
+
+Taken while implementing; each is open to the interim review of WP-0 and WP-B1. The interim
+Full review of 2026-11-18 accepted them, with D-091-28 refined by D-091-44, D-091-31 by
+D-091-42 and D-091-38 extended by RF-091-06.
+
+- **D-091-24 Two steps for the window core:** `Version1035` adds the schema (room-task cycle
+  state, `tasks.fixed_month_day`, the completion's cycle facts, `houses.cycles_from`, the
+  streak bases, `chorestrike_cycles`, `chorestrike_cycle_progress`), `Version1036` is the
+  data-only cutover of ADR-021 decision 12. The coin-factor and bonus-period columns and
+  table of decision 11 come with WP-B5 in a step of their own.
+- **D-091-25 The completion targets the current cycle from WP-B1 on:** without stored
+  occurrences there is no "inside the window" target left, so the command takes
+  `{commandId, cycleKey, expectedVersion}` and the any-time and same-day rules of ADR-021
+  decision 4 in WP-B1. WP-B2 keeps recording for others, the picker and the sub-tasks
+  inside the command.
+- **D-091-26 The latest valid completion is the one with the highest id:** a date correction
+  may never move an entry past its neighbours (WP-B3 enforces it), so one grouped query
+  finds the anchor of every room task.
+- **D-091-27 No stored anchor where a completion anchors:** the cutover leaves `anchor_on`
+  empty for an after-completion or one-time task that has a valid completion; if every
+  completion is undone later, the window falls back to the day the room task was created.
+- **D-091-28 A fixed rule never starts before its anchor:** rule days are counted from
+  `anchor_on`, which also is the floor for cycles, so a rule-mode edit or a wake day sets
+  a new anchor on a rule day and keeps the parity.
+- **D-091-29 The capacity service goes whole:** every reader of `DailyCapacityService` read
+  stored future rows or refused at a budget, so the service, its selected-share window read
+  and their tests go in WP-B1; WP-C rebuilds the load view on the live suggestion. Until then
+  the scheduling view shows the planned energy of the current cycles against the budgets.
+- **D-091-30 Ticks of an appointment that was open at the cutover are not carried over:**
+  they stay in `chorestrike_chk_progress` as history; the first derived cycle starts without
+  ticks. Copying them would need a cycle key for a window that the old model never named.
+- **D-091-31 A bonus task completes without a cycle from WP-B1 on:** `cycleKey` is absent,
+  the class is `bonus` and no cycle row is written. The once-per-person-and-day rule and the
+  bonus coins come with WP-B4 and WP-B5.
+- **D-091-32 Stored occurrences are never rewritten:** an undo of a completion from before
+  the cutover invalidates the completion only; the readers ignore an undone completion, so
+  its stored appointment reads as missed, as it would have in the old model.
+- **D-091-33 Neutrality is asked for the members a window counted for:** a closed cycle keeps
+  its neutrality when the absent member later leaves the house (the old model had stored
+  it on the appointment). Future effects stop at a departure because the member is
+  responsible for nothing that is still open.
+- **D-091-34 Who is asked "who took part" follows the assignees:** without agreements there
+  is no server `proposal`. The dialog opens for a task of several people or of someone else;
+  the default split is equal shares of the assignees. WP-B2 replaces the dialog.
+- **D-091-35 Payload names:** creation takes `firstDate` (a `nextDue` key is ignored), the
+  range read lists `cycles` (`date`, `cycleKey` for the current one, the window, `current`,
+  `late`) in place of `occurrences`, `occurrenceDetails` and `flexWindow`, and the definition
+  accepts `fixedMonthDay`.
+- **D-091-36 No date edit between WP-B1 and WP-B6:** the date dialog went with its two
+  writers. An existing task's window moves by its completion, an edit of its rule or flex,
+  and from WP-B6 on by the form's first date (D-091-19).
+- **D-091-37 The job pass is per house:** `CycleService::advanceHouse()` records the missed
+  fixed-day cycles of one house and repairs its projection; the job hands it the one
+  household of the instance. Tests call it for their own fixture house.
+- **D-091-38 What WP-B1 leaves for WP-B7:** code that lost its last caller but belongs to
+  the retained read model of old rows or to a surface WP-B7 retires — the writer methods of
+  `AgreementMapper`, `OccurrenceMapper`, `OccurrenceMemberMapper`, `ScheduleRevisionMapper`
+  and `RoomTaskChecklistProgressMapper`, `RecurrenceCalculator::enumerate()`, the ideal-date
+  helpers of `RoomTask`, `RoomReplayService::recordLastDone()`, and the help, glossary and
+  digest wording about agreements and catch-up.
+- **D-091-39 The planner screenshot goes with the planner:** the documentation scene
+  `weekly-planner.png` has nothing left to capture, and the drift test allows no shown image
+  without a scene. The README shows *Today* and the reward catalog, the user guide's
+  *Planning the week* describes availability, budgets and the capacity overview. The other
+  planner wording of the README (WP-G) and of help and glossary (WP-B7) stays with those
+  packages.
+- **D-091-40 Proof P4 covers the cutover:** the upgrade fixture compares every column the
+  source build had and checks the cutover values of the new ones against the stored rows
+  (`tests/recovery/upgrade-cycles.php`). Its source is populated with a fixed weekly, a fixed
+  monthly and a one-time room task through the source build's creation service, because the
+  family seed holds after-completion rules only.
+
+### Review decisions (interim Full review of WP-0 and WP-B1, 2026-11-18)
+
+The operator chose the recommended option of each question.
+
+- **D-091-41 The derived model starts on the update day:** `Version1036` sets
+  `houses.cycles_from` to the house-local day of the update. Stored occurrences can no longer be
+  fulfilled once the update runs, so work done that day after the update would otherwise count
+  as missed for windows ending that day. Streaks and claimed weeks stay as stored and no past
+  week is evaluated again; amends D-091-04.
+- **D-091-42 Bonus tasks keep the day rule until WP-B4:** a bonus task takes one completion per
+  house-local day (`409 SAME_DAY`), so the branch never pays bonus work without a limit; WP-B4
+  replaces it with the once-per-credited-person rule of ADR-021 decision 8. Refines D-091-31.
+- **D-091-43 A miss is recorded by the command that would lose it:** a completion first records
+  the fixed cycles that stopped being current before its own and that the timeline job had not
+  reached; an undo of an older fixed completion records its cycle as missed when the cycle does
+  not become current again; no window that ended before its room task was created counts as
+  missed (a past first date).
+- **D-091-44 A rule edit anchors on a day of the rule it replaces:** a fixed rule whose days
+  change is anchored on the centre of the replaced rule's current cycle (the edit day when the
+  replaced rule was not fixed), so a fortnightly rule keeps its parity and a monthly rule its
+  day; a change between recurring and bounded alone keeps the anchor. The policy lives in
+  `CycleService::ruleChangedUnderLock()`. Refines D-091-28.
+- **D-091-45 A first date is a real day within a year:** `firstDate` must be a calendar day at
+  most 366 days from today, refused with a translated `400`.
 
 ### Positions for the Standard A review
 
@@ -255,8 +362,9 @@ These settle the remaining open points of the concept. They bind once Standard A
 
 ### WP-B7 Retiring the rest of the old surface
 
-- Route goes: `PUT /rooms/{id}/cleanliness` (`RoomController`, D-089-09); its retained journal
-  entries keep replaying.
+- Routes go: `PUT /rooms/{id}/cleanliness` (`RoomController`, D-089-09), whose retained
+  journal entries keep replaying, and `room_task#roomStats`, which has had no client since
+  D-090-10.
 - Digest: the agreement lines and their relevance check go; their queue writes went with the
   writers in WP-B1, and retained agreement rows are skipped (D-091-12, BUG-UX-015).
 - Help, glossary and user guide drop catch-up, agreements, *last done on* and the applied plan.
@@ -295,7 +403,7 @@ approval.
   route matrix pins it, old rows still read; populated-upgrade tests from the `0.8.0-alpha.4`
   shape for every new step on PostgreSQL, MySQL and SQLite, and proof P4 on both runtime rows.
 - **WP-B2:** early completion on every mode, the same-day refusal, a fixed day keeping its day;
-  recording for others and undo, a private task crediting only its owner (D-091-20), a takeover
+  recording for others and undo, a private task crediting only who may see it (D-091-20), a takeover
   keeping its digest receipt; concurrent completions of one cycle (`ConcurrentCompletionTest`
   extended); Jest for tap and hold with keyboard parity; browser scenario.
 - **WP-B3:** postpone limits, rights and the next cycle; each correction across coins, rhythm,
@@ -391,7 +499,7 @@ and re-measures the size inventory of the files it touched.
 
 ## 8. Acceptance Criteria
 
-- [ ] ADR-021 and ADR-022 accepted before code; the superseded ADRs carry status notes; concepts and API reference match the code
+- [ ] ADR-021 accepted before WP-B1 code and ADR-022 before WP-C code; the superseded and amended ADRs carry status notes; concepts and API reference match the code
 - [ ] Every task shows one derived window per its mode and flex; the next window is never edited directly; a new task's first date stays editable until its first completion
 - [ ] Open work is not frozen: a changed rhythm, flex or energy applies at once to the current window; completed work keeps what it recorded
 - [ ] Early completion works at any time except on the same local day as the previous one; a fixed day keeps its day
@@ -399,7 +507,7 @@ and re-measures the size inventory of the files it touched.
 - [ ] Every member postpones up to three times per cycle by half the flex days; tasks without flex days cannot be postponed
 - [ ] Completions are classified at completion and frozen (D-091-02); absences are neutral (D-091-03); stored streaks and claimed weeks survive the update (D-091-04)
 - [ ] A completion fulfils exactly one cycle under concurrency and replay
-- [ ] Every member records for others, on a private task only for its owner (D-091-20); tap and hold work with keyboard parity; sub-tasks are marked inside the completion, and partly ticked progress stays saved per cycle
+- [ ] Every member records for others, on a private task only for who may see it (D-091-20); tap and hold work with keyboard parity; sub-tasks are marked inside the completion, and partly ticked progress stays saved per cycle
 - [ ] Members change or delete their own latest entry; the owner corrects any entry; recent activity shows postponements, date changes, deletions and absences
 - [ ] Sleeping tasks have no window and take no capacity; bonus tasks pay once per person, task and day and stay outside the recognitions
 - [ ] Coin factors and bonus days apply to coins only, are frozen with the completion and reverse exactly on undo and attribution
@@ -429,7 +537,58 @@ Findings **within this plan's scope** from implementation rounds or reviews
 rescoping to `backlog.md` needs explicit user approval. Out-of-scope findings
 go directly to `backlog.md` (or fold into an existing item) instead.
 
-- [ ] (none yet; the Standard A findings were fixed in the plan, see the Review Outcome)
+- [x] **RF-091-01 New steps are not applied on kept test volumes** (WP-B1, test
+  environment): `docker/test-entrypoint.sh` ran `occ upgrade` only for an app version bump
+  (TECH-TEST-006). The version stays `0.8.0-alpha.5` (D-091-06), so `Version1035` and
+  `Version1036` stayed pending on the kept canonical volumes and the integration suite
+  failed on the missing tables. **Fixed 2026-11-18:** ordinary (seeded) provisioning applies
+  the app's pending steps through `OC\DB\MigrationService::migrate()` once the app is
+  enabled and before the seed; preservation mode never migrates outside the upgrade path
+  (`TestEnvironmentProvisioningTest`: order, failure and preservation cases).
+
+Routed by the interim Full review of WP-0 and WP-B1 (2026-11-18); every verified defect of
+that review was fixed in it, these are the deferred work it found (operator decision: fix
+the defects now, route refactors, performance and the recovery tooling to WP-B2).
+
+- [ ] **RF-091-02 The recovery fixture still seeds the retired model** (WP-B1, tests):
+  `tests/recovery/fixture.php` imports `AgreementService` and `OccurrenceService`, calls the
+  occurrence receipt of `CompletionService::complete()` and `ChecklistService::toggleItem()`,
+  and `snapshot()` requires rows in `occurrences`, `occ_members`, `agreements`,
+  `schedule_revs` and `chk_progress` that the derived model no longer writes, so proofs P1 to
+  P3 fail at the seed (P4 seeds on the source build and is green). Rewrite the seed against
+  the `cycle` block and require the cycle tables; run P1 to P3 once. Due before the WP-G
+  qualification, best in the WP-B2 round.
+- [ ] **RF-091-03 The recognitions rebuild the open cycles per week** (WP-B1, performance):
+  `RecognitionFactsService::factsForWeek()` loads every active room task, its definition,
+  the completion anchors, members and assignees on each call, and `MedalService`
+  reconciles every week since `cycles_from` on each 5-minute job run (plus three full
+  evaluations in `GameController::state`). Load the open facts and absences once per pass
+  and filter them per week; take the week key from `CalendarService::weekStart()`.
+- [ ] **RF-091-04 Read-path redundancies of the window core** (WP-B1, performance):
+  `RoomTaskReadService::cycleFacts()` re-reads the house and the definitions the list
+  already holds; the checklist reads run `findByCycle()` twice and re-read task and house;
+  a definition edit runs the history aggregate once per mounted room task;
+  `findCycleAnchorsByRoomTasks()` aggregates the whole valid history per room task;
+  `WindowService::cyclesThrough()` walks from the current cycle for a far range and a
+  bounded fixed rule past its end walks its whole sequence; `WorkflowQueryBudgetTest` does
+  not pin the list read with its cycle derivation (D-091-09 makes these budgets the trigger
+  for a cache).
+- [ ] **RF-091-05 Structure of the window core** (WP-B1, architecture): `CycleService`
+  (441 non-blank lines) moves its job pass into its own collaborator; the three resolutions
+  of the responsible wallets (`CycleService`, `RecognitionFactsService`,
+  `CompletionService`) become one; the day-key and weekday helpers of `WindowService` and
+  `CycleRule` reuse `CalendarService` and `TaskService`'s weekday list and get unit
+  constants of their own instead of `ScheduleRevision::UNIT_*`;
+  `CompletionService::cycleBlock()` uses `RoomTaskReadService`; the creation-day rule of
+  `cycles_from` moves from `HouseMapper` into the house service.
+- [ ] **RF-091-06 Code without a caller beyond D-091-38** (WP-B1, cleanup; extends D-091-38
+  for WP-B7): `RoomTaskMapper::findActiveDueUpToByHouse()` and `findDueWithinDaysByHouse()`,
+  `CompletedTaskMapper::findUndoStateByRoomTasks()`, `RoomTaskReadService::rowsForRoomTasks()`
+  and `timeZoneForRoom()`, `Occurrence::parsePublicKey()` and `suspensionFacts()`, and the
+  readers of the history mappers that lost every production caller (`OccurrenceMapper`,
+  `ScheduleRevisionMapper`, `RoomTaskChecklistProgressMapper`, `OccurrenceMemberMapper`,
+  `AgreementMapper::hasExplicitAgreementFor()`), each kept only where `RecognitionFactsService`
+  or `DigestService` still reads old rows.
 
 ## Review Outcome
 
@@ -470,3 +629,24 @@ Decisions: D-091-17 to D-091-20 (operator, the recommended options). Positions D
 D-091-16 bind as amended. Gates for this docs-only change: `backlog:check` (including its link
 check of the scoped files), `docs:encoding`, `git diff --check` and LF endings. Status set to
 active, the owning items to *In Progress*, and the plan moved `new/ → active/`.
+
+**Interim Full review of WP-0 and WP-B1, 2026-11-18: `PASS-WITH-FIXES`.** Scope: the whole
+uncommitted package on `feat/simplified-core-bc` (base `2b9efaf2`, 253 paths, fingerprint
+`67c30a11…a991e`), four reviewer tracks plus the main agent. Record:
+[CODE_REVIEW_2026-11-18](../../backlog/archive/CODE_REVIEW_2026-11-18.md#full-interim---cs-plan-091-wp-0-and-wp-b1-derived-due-windows).
+
+Fixed in the review: a lock-out after two early completions before a future first date
+(block); update-day work counted as missed (D-091-41); fixed misses lost behind a later
+completion or an undo, and misses before a room task's creation (D-091-43); rule edits that
+broke parity and the monthly day (D-091-44); unlimited bonus completions (D-091-42); the
+deleted pause races (restored as `PauseConcurrencyTest`); erasure of the tick authors and of
+swept wallets in closed cycles; `firstDate` validation (D-091-45); active bounds west of UTC;
+restart successors at the cutover; `cycle: null` responses; the refusal toasts; the missing
+index and the undo's table scan; stale API, ADR and guide passages. Routed: RF-091-02 to
+RF-091-06, RF-080-18, BUG-SEC-003, CR-SVC-66 (folded in). Decisions D-091-41 to D-091-45
+(operator, the recommended options); D-091-24 to D-091-40 accepted.
+
+Gates: Jest 177 suites / 2438 tests, ESLint, stylelint; PHPUnit unit 1616 and integration 629 on
+PostgreSQL (canonical), MariaDB, SQLite and the AIO row (matrix `r91irv`); proof P4 on all four;
+focused browser specs (completion, Insights, Today, rhythm) 38 passed; l10n, php-cs-fixer,
+adapter, docs and backlog checks. Interim review: the plan stays in `active/`.

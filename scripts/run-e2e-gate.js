@@ -65,8 +65,8 @@ const REQUIRED_SPECS = [
 	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['overcapacity warning appears when a day exceeds its capacity', 'owner corrects a recorded work split'], minTests: 4 },
 	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: ['child: my day hides manage controls and executes the checklist', 'core task filters show own and unassigned work'], minTests: 8 },
 	{ file: 'workflow-state-reconciliation.spec.ts', project: 'chromium-serial-db', scenarios: ['same-device logout and child login'], minTests: 4 },
-	// CS-PLAN-072 WP1: the occurrence-timeline client-contract slice.
-	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full occurrence receipt', 'an owner records an agreed handover in the ui', 'my day shows one catch-up card', 'fixed and relative schedules explain'], minTests: 13 },
+	// CS-PLAN-091 WP-B1: the derived-cycle client-contract slice.
+	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full cycle receipt', 'a second completion on the same day conflicts 409 same_day', 'my day shows one overdue card', 'fixed and relative schedules explain'], minTests: 16 },
 	// CS-PLAN-070 WP7 (CS-PLAN-078): the reward catalog/request browser
 	// contract — gate flip, catalog scopes, full request lifecycle.
 	{ file: 'family-reward-api.spec.ts', project: 'chromium-serial-db', scenarios: ['the catalog gate is owner-controlled, versioned and denied for members', 'child request lifecycle: frozen terms, approve, fulfill, exact debit, exact refund'], minTests: 3 },
@@ -110,7 +110,6 @@ const REQUIRED_SPECS = [
 	{ file: 'scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
 	{ file: 'flex-window-scheduling.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
 	{ file: 'availability-settings-flow.spec.ts', project: 'chromium-scheduling-owner', scenarios: [], minTests: 1 },
-	{ file: 'scheduling-apply-flow.spec.ts', project: 'chromium-scheduling-owner', scenarios: ['exit journey'], minTests: 7 },
 	// Default parallel pool (read-only against the seed).
 	{ file: 'admin-only-tasks.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },
 	{ file: 'calendar.spec.ts', project: 'chromium', scenarios: [], minTests: 1 },

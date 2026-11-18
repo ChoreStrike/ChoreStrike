@@ -27,11 +27,10 @@ const PHONE = { width: 390, height: 844 }
 
 /** Steps before navigation (`prepare`) and after the ready view (`action`). */
 const PREPARES = ['emptyHousehold']
-const ACTIONS = ['planPreview', 'notificationSettings', 'completeTask']
+const ACTIONS = ['notificationSettings', 'completeTask']
 
 const SCENES = [
 	{ output: 'my-day.png', role: 'teen', route: '/today', ready: 'today-view', viewport: DESKTOP },
-	{ output: 'weekly-planner.png', role: 'mom', route: '/scheduling', ready: 'scheduling-view', viewport: DESKTOP, action: 'planPreview' },
 	{ output: 'reward-catalog.png', role: 'teen', route: '/rewards', ready: 'rewards-view', viewport: DESKTOP },
 	{ output: 'guide-settings.png', role: 'teen', route: '/settings', ready: 'settings-view', viewport: DESKTOP, action: 'notificationSettings' },
 	{ output: 'guide-my-day-phone.png', role: 'teen', route: '/today', ready: 'today-view', viewport: PHONE },

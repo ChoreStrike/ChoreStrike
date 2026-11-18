@@ -119,6 +119,70 @@ class RecurrenceCalculator {
 	}
 
 	/**
+	 * The first rule day of a fixed rule on or after `$fromKey` (ADR-021
+	 * decision 1), computed without walking the sequence from its anchor.
+	 * The sequence is the one {@see enumerate()} yields: day and whole-week
+	 * steps from the anchor, named weekdays in cadence weeks counted from
+	 * the anchor's Monday, and the fixed day of the month clamped to the
+	 * month's last day. No rule day lies before the anchor or outside the
+	 * rule's bounds.
+	 *
+	 * @param string $anchorKey The parity anchor (`Y-m-d`)
+	 * @return string|null Null when the rule has no day left inside its bounds
+	 */
+	public function firstFixedDayOnOrAfter(CycleRule $rule, string $anchorKey, string $fromKey): ?string {
+		$from = max($fromKey, $anchorKey, $rule->activeFrom ?? $anchorKey);
+		if ($rule->unit === ScheduleRevision::UNIT_MONTH) {
+			$day = $this->monthDayOnOrAfter($anchorKey, $rule->interval, $rule->monthDay ?? (int)substr($anchorKey, 8, 2), $from);
+		} elseif ($rule->unit === ScheduleRevision::UNIT_WEEK && $rule->weekdays !== []) {
+			$day = $this->weekdayOnOrAfter($anchorKey, $rule->interval, $rule->weekdays, $from);
+		} else {
+			$step = $rule->unit === ScheduleRevision::UNIT_WEEK ? $rule->interval * 7 : $rule->interval;
+			$day = self::offsetDays($anchorKey, intdiv(self::daysBetween($anchorKey, $from) + $step - 1, $step) * $step);
+		}
+		return $rule->activeUntil !== null && $day > $rule->activeUntil ? null : $day;
+	}
+
+	/**
+	 * @param list<int> $weekdays ISO weekdays, ascending
+	 */
+	private function weekdayOnOrAfter(string $anchorKey, int $interval, array $weekdays, string $from): string {
+		$firstMonday = self::mondayOf($anchorKey);
+		$period = $interval * 7;
+		$week = intdiv(self::daysBetween($firstMonday, $from), $period);
+		foreach ([$week, $week + 1] as $cadenceWeek) {
+			foreach ($weekdays as $weekday) {
+				$day = self::offsetDays($firstMonday, $cadenceWeek * $period + $weekday - 1);
+				if ($day >= $from) {
+					return $day;
+				}
+			}
+		}
+		// Unreachable: the following cadence week always holds a day on or after $from.
+		return self::offsetDays($firstMonday, ($week + 1) * $period + $weekdays[0] - 1);
+	}
+
+	private function monthDayOnOrAfter(string $anchorKey, int $interval, int $monthDay, string $from): string {
+		$anchorMonth = (int)substr($anchorKey, 0, 4) * 12 + (int)substr($anchorKey, 5, 2) - 1;
+		$fromMonth = (int)substr($from, 0, 4) * 12 + (int)substr($from, 5, 2) - 1;
+		$slot = intdiv($fromMonth - $anchorMonth + $interval - 1, $interval);
+		do {
+			$total = $anchorMonth + $slot * $interval;
+			$year = intdiv($total, 12);
+			$month = $total % 12 + 1;
+			$day = sprintf('%04d-%02d-%02d', $year, $month, min($monthDay, self::daysInMonth($year, $month)));
+			$slot++;
+		} while ($day < $from);
+		return $day;
+	}
+
+	/** Whole calendar days from one local day key to a later one. */
+	public static function daysBetween(string $fromKey, string $toKey): int {
+		$utc = new \DateTimeZone('UTC');
+		return intdiv((new \DateTimeImmutable($toKey, $utc))->getTimestamp() - (new \DateTimeImmutable($fromKey, $utc))->getTimestamp(), 86400);
+	}
+
+	/**
 	 * Monday of the given local date's ISO week (`Y-m-d`).
 	 */
 	public static function mondayOf(string $dateKey): string {

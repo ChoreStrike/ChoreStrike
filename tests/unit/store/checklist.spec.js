@@ -94,16 +94,16 @@ describe('checklist store', () => {
 			expect(store.progress[10]).toEqual(rows)
 		})
 
-		it('fetchRoomTaskProgress caches the occurrence identity + max revision (CS-PLAN-072 WP1)', async () => {
+		it('fetchRoomTaskProgress caches the cycle key + max revision (ADR-021 decision 3)', async () => {
 			const rows = [
 				{ id: 1, checklistItemId: 5, isChecked: false, revision: 3 },
 				{ id: 2, checklistItemId: 6, isChecked: true, revision: 1 },
 			]
-			api.get.mockResolvedValue({ items: rows, stats: {}, occurrence: { occurrenceId: '7:2' } })
+			api.get.mockResolvedValue({ items: rows, stats: {}, cycle: { cycleKey: 'c72' } })
 
 			await store.fetchRoomTaskProgress(10)
 
-			expect(store.progressMeta[10]).toEqual({ occurrenceId: '7:2', revision: 3 })
+			expect(store.progressMeta[10]).toEqual({ cycleKey: 'c72', revision: 3 })
 		})
 
 		it('addItem posts the label contract and appends the item', async () => {
@@ -162,24 +162,24 @@ describe('checklist store', () => {
 
 			await store.toggleItem(10, 5)
 
-			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/toggle/10/5', { occurrenceId: null, expectedRevision: null })
+			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/toggle/10/5', { cycleKey: null, expectedRevision: null })
 			expect(store.progress[10]).toEqual([row])
 		})
 
-		it('toggleItem sends the cached occurrence identity + expectedRevision (CS-PLAN-072 WP1)', async () => {
+		it('toggleItem sends the cached cycle key + expectedRevision (ADR-021 decision 3)', async () => {
 			const row = { id: 3, roomTaskId: 10, checklistItemId: 5, isChecked: true, revision: 4 }
-			api.post.mockResolvedValue({ progress: row, stats: {}, occurrence: { occurrenceId: '7:2' } })
+			api.post.mockResolvedValue({ progress: row, stats: {}, cycle: { cycleKey: 'c72' } })
 			store.progress = { 10: [{ id: 3, roomTaskId: 10, checklistItemId: 5, isChecked: false, revision: 3 }] }
-			store.progressMeta = { 10: { occurrenceId: '7:2', revision: 3 } }
+			store.progressMeta = { 10: { cycleKey: 'c72', revision: 3 } }
 
 			await store.toggleItem(10, 5)
 
-			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/toggle/10/5', { occurrenceId: '7:2', expectedRevision: 3 })
+			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/toggle/10/5', { cycleKey: 'c72', expectedRevision: 3 })
 			// The response refreshes the cached meta from the upserted rows.
-			expect(store.progressMeta[10]).toEqual({ occurrenceId: '7:2', revision: 4 })
+			expect(store.progressMeta[10]).toEqual({ cycleKey: 'c72', revision: 4 })
 		})
 
-		it('toggleItem refetches the occurrence progress on a 409 stale revision', async () => {
+		it('toggleItem refetches the progress on a 409 (closed cycle or stale revision)', async () => {
 			const stale = new Error('stale')
 			stale.status = 409
 			api.post.mockRejectedValue(stale)
@@ -218,7 +218,7 @@ describe('checklist store', () => {
 		it('reset clears all state', () => {
 			store.items = { 5: [{ id: 1 }] }
 			store.progress = { 10: [{ id: 1 }] }
-			store.progressMeta = { 10: { occurrenceId: '7:2', revision: 3 } }
+			store.progressMeta = { 10: { cycleKey: 'c72', revision: 3 } }
 			store.loading = true
 			store.error = 'something'
 

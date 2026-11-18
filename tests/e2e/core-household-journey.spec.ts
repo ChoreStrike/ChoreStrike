@@ -11,15 +11,14 @@
  * real UI. Browser API reads capture before/after snapshots and responses
  * only — they never create memberships, schedule, complete, undo or repair
  * the state under test. API-driven negative/fault-injection proofs stay in
- * the focused specs (scheduling-apply-flow, validation, error-handling,
- * family-core-ux, workflow-state-reconciliation), which pin duplicate
- * requests, removed membership, stale previews and failure recovery.
+ * the focused specs (validation, error-handling, family-core-ux,
+ * workflow-state-reconciliation), which pin duplicate requests, removed
+ * membership, stale targets and failure recovery.
  *
  * Deterministic regardless of the run's weekday: the candidate task is
- * created with its first due day in the future inside a valid flex window
- * and the owner explicitly moves it to house-local TODAY and assigns it to
- * the child through the scheduling UI, so My Day is provably executable on
- * any calendar day.
+ * created with its first day set to house-local TODAY (ADR-021: the first
+ * date hangs the first window on that day) and assigned to the child in the
+ * same form, so My Day is provably executable on any calendar day.
  *
  * Requires: Docker test environment, test mode on (family NC accounts from
  * auth.setup survive the `emptyhouse` reset).
@@ -73,6 +72,7 @@ test.describe('Canonical household journey', () => {
 		let baselineCleanliness = 0
 		let kitchenRoomId = 0
 		let flexRoomTaskId = 0
+		let cycleKeyBefore = ''
 		let completionIdForUndo = 0
 
 		// ----------------------------------------------------------------
@@ -154,8 +154,8 @@ test.describe('Canonical household journey', () => {
 				expect(floors).toHaveLength(1)
 				const roomNames = floors[0].rooms.map((room: { name: string }) => room.name)
 				expect(roomNames.sort()).toEqual(['Bedroom', 'Kitchen'])
-				const occurrences = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
-				expect((await occurrences.json()).data).toHaveLength(13)
+				const roomTaskRows = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
+				expect((await roomTaskRows.json()).data).toHaveLength(13)
 
 				// Wizard invite step: dad joins as a member.
 				await page.getByTestId('wizard-invite-email-0').fill(DAD_EMAIL)
@@ -269,12 +269,11 @@ test.describe('Canonical household journey', () => {
 				// Weekly: flex 3 fits its cap of 4; a daily rule caps at 1
 				// (FEAT-UX-039, half the period rounded up).
 				await page.getByTestId('task-frequency-type').selectOption('weekly')
-				// The flex candidate starts on a FUTURE day inside a valid
-				// flex window (due +2, flex 3) — movable to house-local today.
-				await page.getByTestId('task-next-due-input').fill(houseLocalDate(2))
-				// Deliberately UNASSIGNED: the owner assigns the child through
-				// the scheduling UI in phase 5 (plan §3.3) — the preview needs
-				// an unplaced candidate to propose a placement for.
+				// The candidate's first window hangs on house-local TODAY
+				// (flex 3 gives it a ± 3 day window) and it is assigned to
+				// the child right here, so the child's My Day shows it.
+				await page.getByTestId('task-next-due-input').fill(houseLocalDate(0))
+				await page.getByTestId('assignee-chip-kid').click()
 				await page.getByTestId('task-flex-days-input').fill('3')
 				await page.getByTestId('save-task-button').click()
 				await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 20000 })
@@ -328,13 +327,26 @@ test.describe('Canonical household journey', () => {
 					id: number
 					taskId: number
 					assignees: string[]
+					idealDueDate: string
 					nextDue: string
+					cycle: { cycleKey: string, state: string, centreOn: string, windowStartOn: string, windowEndOn: string }
 				}>
 				const custom = roomTasks.find((roomTask) => roomTask.taskId === definition!.id)
 				expect(custom, 'the submitted aggregate materialized the room task').toBeDefined()
 				flexRoomTaskId = custom!.id
-				expect(custom!.assignees).toEqual([])
-				expect(custom!.nextDue.startsWith(houseLocalDate(2))).toBeTruthy()
+				expect(custom!.assignees).toEqual(['kid'])
+				// ADR-021: the cycle hangs on the first day; ± 3 flex days make
+				// its window, and `nextDue` only projects the window's last day.
+				expect(custom!.cycle).toMatchObject({
+					cycleKey: `d${houseLocalDate(0)}`,
+					state: 'open',
+					centreOn: houseLocalDate(0),
+					windowStartOn: houseLocalDate(-3),
+					windowEndOn: houseLocalDate(3),
+				})
+				expect(custom!.idealDueDate.startsWith(houseLocalDate(0))).toBeTruthy()
+				expect(custom!.nextDue.startsWith(houseLocalDate(3))).toBeTruthy()
+				cycleKeyBefore = custom!.cycle.cycleKey
 
 				await page.reload()
 				await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 20000 })
@@ -364,18 +376,20 @@ test.describe('Canonical household journey', () => {
 		})
 
 		// ----------------------------------------------------------------
-		// Phase 5 — Scheduling: preview (no writes) → explicit overrides → apply
+		// Phase 5 — Planning: the child's availability and limit, the weekly
+		// calendar (ADR-021: the plan preview/apply step is retired)
 		// ----------------------------------------------------------------
-		await test.step('owner previews, moves the candidate to house-local today for the child, and applies', async () => {
+		await test.step('owner sets the child availability and limit, and the calendar shows the candidate for today', async () => {
 			const { context, page } = await createUserContext(browser, 'mom')
 			try {
 				await page.goto('/apps/chorestrike/#/scheduling')
 				await expect(page.getByTestId('scheduling-view')).toBeVisible({ timeout: 20000 })
-				await expect(page.getByTestId('schedule-planner')).toBeVisible({ timeout: 20000 })
+				await expect(page.getByTestId('schedule-calendar')).toBeVisible({ timeout: 20000 })
+				await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
 
-				// Configure sufficient availability + child limit through the
-				// existing owner controls first: the Kid card gets an explicit
-				// 2-tasks/day limit and an explicit full-week budget.
+				// Configure availability + child limit through the owner
+				// controls: the Kid card gets an explicit 2-tasks/day limit
+				// and an explicit full-week budget.
 				const kidCard = page.locator('.member-card', { hasText: 'Kid' }).first()
 				await expect(kidCard).toBeVisible({ timeout: 15000 })
 				await kidCard.getByTestId('edit-availability-button').click()
@@ -392,50 +406,16 @@ test.describe('Canonical household journey', () => {
 				expect((await availabilityResponse).ok()).toBeTruthy()
 				await expect(page.getByTestId('edit-availability-modal')).toHaveCount(0)
 
-				// Select the candidate and preview.
-				const taskCheckbox = page.getByTestId(`planner-task-checkbox-${flexRoomTaskId}`)
-				await expect(taskCheckbox).toBeAttached({ timeout: 15000 })
-				await taskCheckbox.check()
-				await page.getByTestId('preview-plan-button').click()
-				await expect(page.getByTestId('plan-preview')).toBeVisible({ timeout: 20000 })
-				const changeRow = page.getByTestId(`plan-change-${flexRoomTaskId}`)
-				await expect(changeRow).toBeVisible()
+				// The range read names the candidate's cycle on its day.
+				const rangeResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks/range?from=${houseLocalDate(0)}&to=${houseLocalDate(0)}`)
+				expect(rangeResponse.status()).toBe(200)
+				const range = (await rangeResponse.json()).data.scheduled as Array<{ roomTask: { id: number }, cycles: Array<{ date: string, cycleKey: string, current: boolean }> }>
+				const scheduled = range.find((row) => row.roomTask.id === flexRoomTaskId)
+				expect(scheduled?.cycles, 'the candidate is scheduled for today').toEqual([
+					expect.objectContaining({ date: houseLocalDate(0), cycleKey: cycleKeyBefore, current: true }),
+				])
 
-				// No writes during preview: the room task still carries its
-				// future due date and the pre-preview assignee set.
-				const beforeApplyResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`)
-				const beforeApply = ((await beforeApplyResponse.json()).data as Array<{ id: number, nextDue: string, assignees: string[] }>)
-					.find((roomTask) => roomTask.id === flexRoomTaskId)
-				expect(beforeApply!.nextDue.startsWith(houseLocalDate(2))).toBeTruthy()
-				expect(beforeApply!.assignees).toEqual([])
-
-				// Explicit overrides: move to house-local TODAY, assign Kid.
-				// Any override edit invalidates the preview (stale gate) — the
-				// UI requires a fresh preview before the apply unlocks.
-				await changeRow.getByTestId(`planner-assignee-${flexRoomTaskId}`).selectOption('kid')
-				await changeRow.getByTestId(`planner-date-${flexRoomTaskId}`).selectOption(houseLocalDate(0))
-				await page.getByTestId('preview-plan-button').click()
-				await expect(page.getByTestId('plan-preview')).toBeVisible({ timeout: 20000 })
-
-				// WP2 (CS-PLAN-073): every fresh preview requires the owner's
-				// explicit consent attestation before apply unlocks.
-				await page.getByTestId('planner-consent').check()
-
-				const applyResponse = page.waitForResponse((response) => response.request().method() === 'POST'
-					&& response.url().includes('/api/v1/scheduling/apply'))
-				await page.getByTestId('apply-plan-button').click()
-				expect((await applyResponse).ok()).toBeTruthy()
-				await expect(page.getByTestId('plan-applied')).toBeVisible({ timeout: 20000 })
-
-				// The APPLIED result: due today, assigned to the child.
-				const afterApplyResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`)
-				const afterApply = ((await afterApplyResponse.json()).data as Array<{ id: number, nextDue: string, assignees: string[] }>)
-					.find((roomTask) => roomTask.id === flexRoomTaskId)
-				expect(afterApply!.nextDue.startsWith(houseLocalDate(0))).toBeTruthy()
-				expect(afterApply!.assignees).toEqual(['kid'])
-
-				// Calendar and Today reconcile from the applied result.
-				await expect(page.getByTestId('schedule-calendar')).toBeVisible()
+				// The calendar shows the candidate on today.
 				await page.getByTestId('nav-calendar').click()
 				await expect(page.getByTestId('calendar-view')).toBeVisible()
 				await page.getByTestId(`calendar-day-${clock.today}`).click()
@@ -464,7 +444,7 @@ test.describe('Canonical household journey', () => {
 				await expect(row).toContainText('Kitchen')
 				await expect(row).toContainText('Rinse everything, then load the racks.')
 
-				// Checklist progress is usable and persists per occurrence; the
+				// Checklist progress is usable and persists per cycle; the
 				// checkbox input is visually hidden — click its label.
 				await kidPreview.page.getByTestId(`today-checklist-toggle-${flexRoomTaskId}`).click()
 				const checklistItem = kidPreview.page.locator('[data-testid^="checklist-item-"]').first()
@@ -513,6 +493,10 @@ test.describe('Canonical household journey', () => {
 				expect(rewards.completion.undoneAt).toBeNull()
 				expect(receipt.data.room.cleanliness).toBe(Math.min(100, baselineCleanliness + 20))
 				completionIdForUndo = receipt.data.completionId
+				// ADR-021: the receipt names the NEXT cycle, not the one closed.
+				expect(receipt.data.cycle).not.toBeNull()
+				expect(receipt.data.cycle.cycleKey).not.toBe(cycleKeyBefore)
+				expect(receipt.data.occurrence).toBeUndefined()
 			} catch (err) {
 				await kidSession.context.close()
 				kidSession = null
@@ -559,7 +543,7 @@ test.describe('Canonical household journey', () => {
 
 			// …and after a RELOAD the authoritative state still matches the
 			// pre-completion baseline (persisted inverse, not a client trick):
-			// wallet, contribution, streak, cleanliness and the occurrence.
+			// wallet, contribution, streak, cleanliness and the cycle.
 			const kidAgain = await createUserContext(browser, 'kid')
 			try {
 				await kidAgain.page.goto('/apps/chorestrike/')
@@ -570,11 +554,13 @@ test.describe('Canonical household journey', () => {
 				expect(await walletOf(browser)).toBe(baselineCoins)
 				expect(await kitchenCleanliness(browser)).toBe(baselineCleanliness)
 				const roomTasksResponse = await kidAgain.page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchenRoomId}`)
-				const restored = ((await roomTasksResponse.json()).data as Array<{ id: number, lastCompleted: string | null, isActive: boolean, nextDue: string }>)
+				const restored = ((await roomTasksResponse.json()).data as Array<{ id: number, lastCompleted: string | null, isActive: boolean, idealDueDate: string, cycle: { cycleKey: string, state: string } }>)
 					.find((roomTask) => roomTask.id === flexRoomTaskId)
 				expect(restored!.isActive).toBe(true)
 				expect(restored!.lastCompleted).toBeNull()
-				expect(restored!.nextDue.startsWith(houseLocalDate(0))).toBeTruthy()
+				// The undone completion reopens the very same cycle.
+				expect(restored!.cycle).toMatchObject({ cycleKey: cycleKeyBefore, state: 'open' })
+				expect(restored!.idealDueDate.startsWith(houseLocalDate(0))).toBeTruthy()
 				await kidAgain.page.getByTestId(`today-checklist-toggle-${flexRoomTaskId}`).click()
 				const progress = kidAgain.page.locator('[data-testid^="checklist-item-"] input[type="checkbox"]')
 				await expect(progress).toHaveCount(2)
@@ -614,7 +600,7 @@ test.describe('Canonical household journey', () => {
 			}
 
 			// Child: the candidate is STILL scheduled for today (the undone
-			// completion restored — never recalculated — its occurrence).
+			// completion restored — never recalculated — its cycle).
 			const child = await createUserContext(browser, 'kid')
 			try {
 				await child.page.goto('/apps/chorestrike/')

@@ -170,30 +170,31 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 	public function testConcurrentTaskCompletion(): void {
 		$ids = $this->familyHouseFixture();
 
-		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($ids['dailyRoomTaskId']);
-		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], $commandId, $occurrenceId, $expectedVersion, $selectionToken);
+		[$commandId, $cycleKey, $expectedVersion] = $this->completionReceiptFor($ids['dailyRoomTaskId']);
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], $commandId, $cycleKey, $expectedVersion);
 		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
 
 		// Replaying the SAME command is the idempotent receipt hit: the
 		// original completion identity, no second reward.
-		$replay = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], $commandId, $occurrenceId, $expectedVersion, $selectionToken);
+		$replay = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], $commandId, $cycleKey, $expectedVersion);
 		self::assertTrue($replay['replay']);
 
 		// A NEW command on the fulfilled target conflicts.
 		try {
-			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], self::uuid(), $occurrenceId, $expectedVersion, $selectionToken);
+			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], self::uuid(), $cycleKey, $expectedVersion);
 			self::fail('a second completion of the same target must be rejected');
 		} catch (ConflictException $e) {
-			self::assertSame('This occurrence is already completed', $e->getMessage());
+			self::assertSame('This task is already completed', $e->getMessage());
+			self::assertSame(ConflictException::REASON_ALREADY_COMPLETED, $e->getReason());
 		}
 
-		// The one-time occurrence is inactive after its completion → 409.
-		[$onceCommand, $onceOccurrence, $onceVersion, $onceToken] = $this->completionReceiptFor($ids['onceRoomTaskId']);
-		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId'], $onceCommand, $onceOccurrence, $onceVersion, $onceToken);
+		// The one-time task is inactive after its completion → 409.
+		[$onceCommand, $onceCycleKey, $onceVersion] = $this->completionReceiptFor($ids['onceRoomTaskId']);
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId'], $onceCommand, $onceCycleKey, $onceVersion);
 		$this->ledgerRoomTaskIds[] = $ids['onceRoomTaskId'];
 		try {
-			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId'], self::uuid(), $onceOccurrence, $onceVersion, $onceToken);
-			self::fail('a deactivated occurrence must be rejected');
+			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId'], self::uuid(), $onceCycleKey, $onceVersion);
+			self::fail('a deactivated task must be rejected');
 		} catch (ConflictException $e) {
 			self::assertSame('Task is not active', $e->getMessage());
 		}

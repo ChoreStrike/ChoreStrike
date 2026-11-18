@@ -93,7 +93,7 @@ describe('TaskCreateDialog (CS-PLAN-090 WP-C)', () => {
 		mockRoomTasksStore.createTaskAggregate.mockResolvedValue({})
 		const wrapper = mount(TaskCreateDialog)
 
-		await form(wrapper).vm.$emit('submit', { name: 'Dishes', roomId: 12, assigneeUserIds: ['mom'], energyCost: 2, nextDue: '2030-05-10' })
+		await form(wrapper).vm.$emit('submit', { name: 'Dishes', roomId: 12, assigneeUserIds: ['mom'], energyCost: 2, firstDate: '2030-05-10' })
 		await flushPromises()
 
 		expect(mockRoomTasksStore.createTaskAggregate).toHaveBeenCalledTimes(1)
@@ -101,7 +101,7 @@ describe('TaskCreateDialog (CS-PLAN-090 WP-C)', () => {
 			roomId: 12,
 			task: { name: 'Dishes', energyCost: 2 },
 			assigneeUserIds: ['mom'],
-			nextDue: '2030-05-10',
+			firstDate: '2030-05-10',
 		})
 		expect(showSuccess).toHaveBeenCalledWith('Task created')
 		expect(wrapper.emitted('close')).toHaveLength(1)
@@ -119,7 +119,7 @@ describe('TaskCreateDialog (CS-PLAN-090 WP-C)', () => {
 			roomId: 12,
 			task: { name: 'Dishes' },
 			assigneeUserIds: [],
-			nextDue: null,
+			firstDate: null,
 		})
 	})
 

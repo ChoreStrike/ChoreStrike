@@ -118,7 +118,6 @@
 			:members="userStore.houseUsers || []"
 			:assigneeDraft="assigneeDraft"
 			:assigneeRefusal="assigneeRefusal"
-			@editDate="$emit('editDate', $event)"
 			@toggleAssignee="(...args) => $emit('toggleAssignee', ...args)" />
 	</div>
 </template>
@@ -203,7 +202,7 @@ export default {
 		},
 	},
 
-	emits: ['complete', 'edit', 'editDate', 'delete', 'toggleExpand', 'toggleSelect', 'claim', 'toggleAssignee'],
+	emits: ['complete', 'edit', 'delete', 'toggleExpand', 'toggleSelect', 'claim', 'toggleAssignee'],
 
 	setup(props) {
 		const userStore = useUserStore()

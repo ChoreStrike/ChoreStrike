@@ -1,6 +1,6 @@
 # ADR-015: Consent-filtered household ranking
 
-- **Status:** Accepted (2026-09-27)
+- **Status:** Accepted (2026-09-27); amended by [ADR-021](ADR-021-derived-due-windows.md) (2026-11-16): from the house's `cycles_from` day on, the on-time ratios count closed and open cycles instead of agreed occurrences, absences are neutral, and bonus work counts for nothing
 - **Deciders:** Household product decision CS-PLAN-070 WP4 (C5i/C5l/D10b, Q-075-01 A, Q-075-02 A)
 - **Supersedes:** the informal "leaderboard from the raw member list" behavior described before the WP3/WP4 cutovers (the pruned test-only `GET /game/leaderboard` and the `getLeaderboard` store getter)
 

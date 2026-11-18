@@ -1,8 +1,14 @@
 # ADR-012: Actionable Household Scheduling — Preview/Apply Aggregate
 
-**Status**: Accepted
+**Status**: Superseded by [ADR-022](ADR-022-live-suggestion.md) (2026-11-16)
 **Date**: 2026-09-10
 **Deciders**: ChoreStrike maintainers (ratified in CS-PLAN-065 Standard A review)
+
+> **Superseded by [ADR-022](ADR-022-live-suggestion.md) (2026-11-16, CS-PLAN-091):**
+> preview and apply are gone. A suggestion computed on read places the open
+> cycles of [ADR-021](ADR-021-derived-due-windows.md) over 14 days, and capacity
+> shows overload instead of refusing. The server-side *Today* eligibility (D4)
+> and the owner-only `maxDailyTasks` setting (D5) stay.
 
 ## Context
 

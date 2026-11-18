@@ -144,11 +144,15 @@ class MedalService {
 	public function reconcileClosedWeeksForHouse(int $houseId, \DateTime $now): void {
 		$house = $this->houseMapper->find($houseId);
 		$before = $this->weeklyGoalService->progressForWeek($house, $now)['weekKey'];
+		// D-091-04: a week that closed before the house's first day of
+		// derived windows keeps what it earned and is not evaluated again.
+		$cyclesFrom = $house->getCyclesFrom()?->format('Y-m-d');
+		$from = $cyclesFrom === null ? '0000-00-00' : RecurrenceCalculator::mondayOf($cyclesFrom);
 		$users = $this->houseUserMapper->findByHouseId($houseId);
 		$existing = $this->medalMapper->findByUserIds(array_map(static fn (HouseUser $user): int => (int)$user->getId(), $users));
 		$after = null;
 		do {
-			$weeks = $this->weeklyGoalReceiptMapper->plannedWeeksPage($houseId, $before, $after, 50);
+			$weeks = $this->weeklyGoalReceiptMapper->plannedWeeksPage($houseId, $before, $after, 50, $from);
 			$claimed = $this->weeklyGoalReceiptMapper->claimedWeeks($houseId, $weeks);
 			foreach ($weeks as $key) {
 				$progress = $this->weeklyGoalService->progressForPlannedWeek($house, $key, $now);

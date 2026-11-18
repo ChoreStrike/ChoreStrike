@@ -1,6 +1,6 @@
 # ADR-011: Transactional Completion and Full Undo (Effect Record)
 
-**Status**: Accepted — snapshot reversal superseded by ADR-014 (2026-09-27)
+**Status**: Accepted — snapshot reversal superseded by ADR-014 (2026-09-27); completion target amended by [ADR-021](ADR-021-derived-due-windows.md) (2026-11-16)
 **Date**: 2026-09-06  
 **Deciders**: ChoreStrike maintainers (ratified in the CS-PLAN-064 Standard A review, decisions D1–D12)  
 **Source**: [CS-PLAN-058](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP5 · [CS-PLAN-064](https://github.com/ChoreStrike/ChoreStrike/blob/c03e940d071251ed62cedbe9ef4a7a2640d0f294/docs/plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) · refines [ADR-007](ADR-007-concurrency-safe-task-completion.md)
@@ -14,6 +14,11 @@
 > and attribution (`PUT /completions/{id}/attribution`) corrects any live
 > completion by completer/owner authority. The body below remains the
 > historical record of the seam and the targeted-undo target contract.
+>
+> **Derived-window amendment (2026-11-16, [ADR-021](ADR-021-derived-due-windows.md)):**
+> the completion target is the current cycle, named by its cycle key and the
+> room task's `cycle_version`; the house-first lock and the command receipt
+> stay. Undo deletes the cycle row of its completion and so reopens the cycle.
 
 ## Context
 

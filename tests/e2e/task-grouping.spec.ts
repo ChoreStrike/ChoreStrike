@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test'
+import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { createRoomTask, expectRoomOpen, listRooms, openRoom, roomGroup } from './fixtures/rooms.ts'
 
 /**
  * E2E test: the task list grouped by due date, by room or by person
  * (CS-PLAN-090 WP-C). The room page went into the list by room; this spec
  * took over its scenarios (room facts, *New* with the template picker) and
- * adds the switch and the date dialog, which lost its page with the room
- * view. The family seed guarantees floors, rooms and tasks.
+ * adds the switch and the "Last cleaned" stamp. The family seed guarantees
+ * floors, rooms and tasks.
  */
 
 test.describe('Task grouping', () => {
@@ -78,32 +79,23 @@ test.describe('Task grouping', () => {
 		await expect(page.getByTestId('room-picker-locked')).toBeVisible()
 	})
 
-	// D-090-12: the dialog for the due date and "Last done" opens from the
-	// expanded row, and the room heading shows "Last cleaned".
-	test('Date in an expanded row records the last done day, shown as Last cleaned', async ({ page }) => {
+	// D-090-12 (CS-PLAN-091): the date dialog is gone; the room heading
+	// still shows "Last cleaned", and a completed task is what stamps it.
+	test('A completed task shows its room as Last cleaned', async ({ page }) => {
 		const rooms = await listRooms(page)
 		// The last room: the pool's other specs work in the first ones.
 		const room = rooms[rooms.length - 1]
-		const name = await createRoomTask(page, room.id, 'Grouping Date Probe')
+		const name = await createRoomTask(page, room.id, 'Grouping Cleaned Probe', { once: true, dueToday: true })
 
 		await page.goto(`/apps/chorestrike/#/tasks?group=room&room=${room.id}`)
 		await expectRoomOpen(page, room)
 		const row = roomGroup(page, room).getByTestId('task-item').filter({ hasText: name })
 		await expect(row).toBeVisible({ timeout: 15000 })
-		await row.getByRole('button', { name: 'Show details', exact: true }).click()
-		await row.getByTestId('task-date-button').click()
+		await holdToConfirm(row.getByTestId('complete-task-button'))
+		await expect(row).toHaveClass(/completed/, { timeout: 15000 })
 
-		const dialog = page.getByTestId('room-task-edit-modal')
-		await expect(dialog).toBeVisible({ timeout: 15000 })
-		await expect(dialog.getByTestId('room-task-due-input')).toBeVisible()
-		const today = new Date().toISOString().slice(0, 10)
-		await dialog.getByTestId('room-task-last-done-input').fill(today)
-		const recorded = page.waitForResponse((response) => response.request().method() === 'PUT'
-			&& new URL(response.url()).pathname.endsWith('/last-done'))
-		await dialog.getByTestId('room-task-edit-save').click()
-		expect((await recorded).status()).toBe(200)
-
-		await expect(dialog).toHaveCount(0, { timeout: 15000 })
+		await page.reload()
+		await expectRoomOpen(page, room)
 		await expect(roomGroup(page, room).getByTestId('room-last-cleaned')).toContainText('Last cleaned', { timeout: 15000 })
 	})
 })

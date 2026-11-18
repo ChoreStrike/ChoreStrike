@@ -44,6 +44,20 @@ use OCP\AppFramework\Db\Entity;
  * @method void setDeletedAt(?\DateTime $deletedAt)
  * @method int getDeletedToken()
  * @method void setDeletedToken(int $deletedToken)
+ * @method \DateTime|null getAnchorOn()
+ * @method void setAnchorOn(?\DateTime $anchorOn)
+ * @method string|null getCycleKey()
+ * @method void setCycleKey(?string $cycleKey)
+ * @method int getPostponeCount()
+ * @method void setPostponeCount(int $postponeCount)
+ * @method int getPostponeDays()
+ * @method void setPostponeDays(int $postponeDays)
+ * @method int getCycleVersion()
+ * @method void setCycleVersion(int $cycleVersion)
+ * @method \DateTime|null getSleepingSince()
+ * @method void setSleepingSince(?\DateTime $sleepingSince)
+ * @method \DateTime|null getWakeOn()
+ * @method void setWakeOn(?\DateTime $wakeOn)
  */
 class RoomTask extends Entity implements JsonSerializable {
 	/** @var int */
@@ -91,6 +105,33 @@ class RoomTask extends Entity implements JsonSerializable {
 	/** @var int Tombstone token: 0 = live, = own id once tombstoned (D4). */
 	protected $deletedToken = 0;
 
+	/**
+	 * Stored inputs of the current cycle (ADR-021 decision 3). The window
+	 * itself is derived on read and never stored.
+	 *
+	 * @var \DateTime|null First date of an after-completion or one-time
+	 *                     task, parity anchor of a fixed rule (house-local day).
+	 */
+	protected $anchorOn;
+
+	/** @var string|null The cycle the postponement below belongs to. */
+	protected $cycleKey;
+
+	/** @var int Postponements of that cycle (at most three). */
+	protected $postponeCount = 0;
+
+	/** @var int Days that cycle's window moved. */
+	protected $postponeDays = 0;
+
+	/** @var int Bumps with every change of the current cycle. */
+	protected $cycleVersion = 0;
+
+	/** @var \DateTime|null Set while the task sleeps; it has no cycle then. */
+	protected $sleepingSince;
+
+	/** @var \DateTime|null House-local day a sleeping task wakes by itself. */
+	protected $wakeOn;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomId', 'integer');
@@ -108,6 +149,18 @@ class RoomTask extends Entity implements JsonSerializable {
 		$this->addType('idealDueDate', 'datetime');
 		$this->addType('deletedAt', 'datetime');
 		$this->addType('deletedToken', 'integer');
+		$this->addType('anchorOn', 'date');
+		$this->addType('cycleKey', 'string');
+		$this->addType('postponeCount', 'integer');
+		$this->addType('postponeDays', 'integer');
+		$this->addType('cycleVersion', 'integer');
+		$this->addType('sleepingSince', 'datetime');
+		$this->addType('wakeOn', 'date');
+	}
+
+	/** The cycle changed: clients that still show the old one are stale. */
+	public function bumpCycleVersion(): void {
+		$this->setCycleVersion($this->getCycleVersion() + 1);
 	}
 
 	/**

@@ -11,14 +11,10 @@ use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMember;
-use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
@@ -34,13 +30,15 @@ use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CommandService;
 use OCA\ChoreStrike\Service\CompletionPostCommitService;
 use OCA\ChoreStrike\Service\CompletionService;
+use OCA\ChoreStrike\Service\CurrentCycle;
+use OCA\ChoreStrike\Service\CycleService;
 use OCA\ChoreStrike\Service\EffortAllocationService;
-use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\RhythmService;
 use OCA\ChoreStrike\Service\RoomReplayService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\WalletService;
+use OCA\ChoreStrike\Service\WindowService;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -50,8 +48,8 @@ use PHPUnit\Framework\TestCase;
  * (CS-PLAN-070 §3.3): frozen evidence writes, exact wallet credit, room
  * journal, house state version bump, terminal-before-version undo
  * ordering, the one-time reversal of the latest selected allocation and
- * the exact union-delta attribution. Occurrence/timeline effects delegate
- * to a mocked OccurrenceService (real behavior is covered by the Docker
+ * the exact union-delta attribution. Cycle targeting and closing delegate
+ * to a mocked CycleService (real behavior is covered by the Docker
  * integration suites).
  */
 class CompletionServiceTest extends TestCase {
@@ -62,7 +60,6 @@ class CompletionServiceTest extends TestCase {
 	private HouseMapper $houseMapper;
 	private HouseUserMapper $houseUserMapper;
 	private WalletMapper $walletMapper;
-	private OccurrenceMemberMapper $occMemberMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private WorkShareMapper $workShareMapper;
@@ -74,7 +71,8 @@ class CompletionServiceTest extends TestCase {
 	private RewardConfigService $configService;
 	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
-	private OccurrenceService $occurrenceService;
+	private CycleService $cycleService;
+	private WindowService $windows;
 	private CommandService $commandService;
 	private AppLogger $appLogger;
 	private CompletionService $service;
@@ -84,8 +82,7 @@ class CompletionServiceTest extends TestCase {
 	private RoomTask $roomTask;
 	private Room $room;
 	private Task $task;
-	private Occurrence $occurrence;
-	private ScheduleRevision $revision;
+	private CurrentCycle $cycle;
 	private House $house;
 	/** The completion row `CompletedTaskMapper::find` resolves (test seam). */
 	private ?CompletedTask $completionToFind = null;
@@ -95,7 +92,8 @@ class CompletionServiceTest extends TestCase {
 	private array $houseMembers = [];
 	/** Wallets resolvable by id (test seam). */
 	private array $walletsById = [];
-	private array $occurrenceMembers = [];
+	/** The room task's assignees (test seam). */
+	private array $assigneeUserIds = ['mom'];
 	private array $lockedMemberIds = [];
 	private ?HouseUser $liveActor;
 	private ?\Closure $beforeCommand = null;
@@ -111,7 +109,6 @@ class CompletionServiceTest extends TestCase {
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->walletMapper = $this->createMock(WalletMapper::class);
-		$this->occMemberMapper = $this->createMock(OccurrenceMemberMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->workShareMapper = $this->createMock(WorkShareMapper::class);
@@ -126,7 +123,9 @@ class CompletionServiceTest extends TestCase {
 		$this->configService = $this->createMock(RewardConfigService::class);
 		$this->calendarService = $this->createMock(CalendarService::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
-		$this->occurrenceService = $this->createMock(OccurrenceService::class);
+		$this->cycleService = $this->createMock(CycleService::class);
+		$this->windows = $this->createMock(WindowService::class);
+		$this->assigneeUserIds = ['mom'];
 		$this->commandService = $this->createMock(CommandService::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 
@@ -194,18 +193,8 @@ class CompletionServiceTest extends TestCase {
 		$this->roomTask->setTaskId(5);
 		$this->roomTask->setIsActive(true);
 
-		$this->revision = new ScheduleRevision();
-		$this->revision->setId(1);
-		$this->revision->setRoomTaskId(11);
-
-		$this->occurrence = new Occurrence();
-		$this->occurrence->setId(21);
-		$this->occurrence->setRoomTaskId(11);
-		$this->occurrence->setScheduleRevId(1);
-		$this->occurrence->setOrdinal(1);
-		$this->occurrence->setEnergy(3);
-		$this->occurrence->setTimezone('UTC');
-		$this->occurrence->setPlannedDate(new \DateTime('2026-09-25'));
+		// The shown cycle: a one-day window far ahead, so today's work is early (on time).
+		$this->cycle = new CurrentCycle('d2099-01-05', '2099-01-05', '2099-01-04', '2099-01-06');
 
 		$this->postCommitService->method('runForCompletion')->willReturn(['weeklyGoal' => [], 'degraded' => false]);
 		$this->postCommitService->method('runForUndo')->willReturn(['weeklyGoal' => [], 'degraded' => false]);
@@ -222,7 +211,6 @@ class CompletionServiceTest extends TestCase {
 			$this->houseMapper,
 			$this->houseUserMapper,
 			$this->walletMapper,
-			$this->occMemberMapper,
 			$this->taskAssigneeMapper,
 			$this->completedTaskMapper,
 			$this->workShareMapper,
@@ -238,7 +226,8 @@ class CompletionServiceTest extends TestCase {
 			$this->configService,
 			$this->calendarService,
 			$this->taskAccessPolicy,
-			$this->occurrenceService,
+			$this->cycleService,
+			$this->windows,
 			$this->commandService,
 			$this->createIdentityL10n(),
 			$this->appLogger,
@@ -249,6 +238,11 @@ class CompletionServiceTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 		return $l10n;
+	}
+
+	/** The cycle the target resolution answers; a test may return null (bonus task). */
+	private function resolvedCycle(): ?CurrentCycle {
+		return $this->cycle;
 	}
 
 	/**
@@ -279,7 +273,13 @@ class CompletionServiceTest extends TestCase {
 		$this->houseUserMapper->method('findByWalletId')->willReturn($this->actor);
 		$this->houseMembers = [$this->actor];
 		$this->membersById = [7 => $this->actor];
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['mom']);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturnCallback(fn (): array => $this->assigneeUserIds);
+		$this->houseUserMapper->method('findByHouseIdAndNextcloudUserIds')->willReturnCallback(
+			fn (int $houseId, array $userIds): array => array_values(array_filter(
+				$this->houseMembers,
+				static fn (HouseUser $member): bool => in_array($member->getNextcloudUserId(), $userIds, true)
+			))
+		);
 		$this->walletMapper->method('findForUpdate')->willReturnCallback(
 			fn (int $id): Wallet => $this->walletsById[$id] ?? $this->wallet
 		);
@@ -296,13 +296,8 @@ class CompletionServiceTest extends TestCase {
 		$this->walletService->method('serializeOwnWallet')->willReturn(
 			['bookedMinor' => 0, 'reservedMinor' => 0, 'availableMinor' => 0, 'fundingHold' => false]
 		);
-		$this->occMemberMapper->method('findByOccurrence')->willReturnCallback(fn (): array => $this->occurrenceMembers);
-		$this->occurrenceService->method('resolveForCompletionUnderLock')->willReturn([
-			'occurrence' => $this->occurrence,
-			'revision' => $this->revision,
-			'classification' => 'agreed',
-		]);
-		$this->occurrenceService->method('selectionFor')->willReturn(null);
+		$this->cycleService->method('resolveTargetUnderLock')->willReturnCallback(fn (): ?CurrentCycle => $this->resolvedCycle());
+		$this->cycleService->method('currentFor')->willReturn(null);
 
 		$insertedIds = 99;
 		$this->completedTaskMapper->method('insert')->willReturnCallback(
@@ -380,11 +375,27 @@ class CompletionServiceTest extends TestCase {
 		// The house state version bumps so previews become stale.
 		$this->houseMapper->expects($this->atLeastOnce())->method('update');
 
-		$result = $this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', '1:1', 0, 'token');
+		// ADR-021 decision 4: the completion targets the shown cycle and
+		// closes exactly that one in the same transaction.
+		$this->cycleService->expects($this->once())->method('resolveTargetUnderLock')
+			->with(1, $this->roomTask, $this->task, 'd2099-01-05', 0, $this->isInstanceOf(\DateTimeZone::class), $this->isInstanceOf(\DateTime::class));
+		$this->cycleService->expects($this->once())->method('closeUnderLock')
+			->with(1, $this->roomTask, $this->task, $this->cycle, $this->isInstanceOf(CompletedTask::class), $this->isInstanceOf(\DateTimeZone::class), $this->isInstanceOf(\DateTime::class));
 
-		// Frozen evidence: total effort/rate from the occurrence, version 0,
-		// allocation revision 1, the command receipt and the audit completer.
+		$result = $this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', 'd2099-01-05', 0);
+
+		// Frozen evidence: the definition's energy at completion and the
+		// rate, version 0, allocation revision 1, the command receipt, the
+		// audit completer — and the cycle with its window and classification.
 		$this->assertNotNull($insertedCompletion);
+		$this->assertSame(
+			['d2099-01-05', '2099-01-04', '2099-01-06', CompletedTask::CLASS_ON_TIME, 'UTC'],
+			[
+				$insertedCompletion->getCycleKey(), $insertedCompletion->getWindowStartOn()->format('Y-m-d'),
+				$insertedCompletion->getWindowEndOn()->format('Y-m-d'), $insertedCompletion->getCompletionClass(), $insertedCompletion->getWorkZone(),
+			]
+		);
+		$this->assertNull($insertedCompletion->getScheduleRevId(), 'no occurrence key on a completion of the derived model');
 		$this->assertSame(3, $insertedCompletion->getTotalEnergy());
 		$this->assertSame(1000, $insertedCompletion->getRateMinor());
 		$this->assertSame(0, $insertedCompletion->getCompletionVersion());
@@ -417,10 +428,70 @@ class CompletionServiceTest extends TestCase {
 		$this->walletService->expects($this->once())->method('postEntries')
 			->with(1, WalletService::SOURCE_COMPLETION, 99, 1, [500 => 3000], WalletService::REASON_COMPLETION, 7);
 
-		$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', '1:1', 0, 'token', [['userId' => 'mom', 'sharePct' => 100]], true);
+		$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', 'd2099-01-05', 0, [['userId' => 'mom', 'sharePct' => 100]], true);
 
 		$this->assertSame([7, 8], $this->lockedMemberIds);
 		$this->assertSame(0, $absent->getCurrentStreak());
+	}
+
+	public function testComplete_AfterItsWindow_IsLateAndANonAssigneeTakesItOver(): void {
+		$this->soloCompletionContext();
+		$this->cycle = new CurrentCycle('c41', '2026-09-01', '2026-09-01', '2026-09-02');
+		$this->assigneeUserIds = ['dad'];
+		$inserted = null;
+		$this->completedTaskMapper->method('insert')->willReturnCallback(function (CompletedTask $row) use (&$inserted): CompletedTask {
+			$inserted = $row;
+			$row->setId(99);
+			return $row;
+		});
+
+		$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', 'c41', 0, [['userId' => 'mom', 'sharePct' => 100]], true);
+
+		$this->assertSame(CompletedTask::CLASS_LATE, $inserted->getCompletionClass(), 'classified once, against the end of the window');
+		$this->assertTrue($this->roomTask->getWasClaimed());
+		$this->assertSame(['dad', 'mom', 99], [$this->roomTask->getOriginalAssignee(), $this->roomTask->getClaimedByUser(), $this->roomTask->getClaimedSourceCompletionId()]);
+	}
+
+	public function testComplete_BonusTask_HasNoCycleAndClosesNone(): void {
+		$this->soloCompletionContext();
+		$bonus = $this->createMock(CycleService::class);
+		$bonus->method('resolveTargetUnderLock')->willReturn(null);
+		$bonus->method('currentFor')->willReturn(null);
+		$bonus->expects($this->never())->method('closeUnderLock');
+		$bonus->expects($this->once())->method('changedUnderLock')->with($this->roomTask, $this->task);
+		$inserted = null;
+		$this->completedTaskMapper->method('insert')->willReturnCallback(function (CompletedTask $row) use (&$inserted): CompletedTask {
+			$inserted = $row;
+			$row->setId(99);
+			return $row;
+		});
+		$property = new \ReflectionProperty(CompletionService::class, 'cycleService');
+		$property->setAccessible(true);
+		$property->setValue($this->service, $bonus);
+
+		$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', null, 0);
+
+		$this->assertSame([CompletedTask::CLASS_BONUS, null, null], [$inserted->getCompletionClass(), $inserted->getCycleKey(), $inserted->getWindowEndOn()]);
+		$this->assertNotNull($this->roomTask->getLastCompleted());
+	}
+
+	public function testComplete_RefusedTarget_WritesNothing(): void {
+		$this->soloCompletionContext();
+		$refusing = $this->createMock(CycleService::class);
+		$refusing->method('resolveTargetUnderLock')
+			->willThrowException(new ConflictException('This task was already completed today', ConflictException::REASON_SAME_DAY));
+		$property = new \ReflectionProperty(CompletionService::class, 'cycleService');
+		$property->setAccessible(true);
+		$property->setValue($this->service, $refusing);
+		$this->completedTaskMapper->expects($this->never())->method('insert');
+		$this->walletService->expects($this->never())->method('postEntries');
+
+		try {
+			$this->service->complete(1, 'mom', 11, '11111111-2222-4333-8444-555555555555', 'd2099-01-05', 0);
+			$this->fail('the same-day refusal must surface');
+		} catch (ConflictException $e) {
+			$this->assertSame('SAME_DAY', $e->getReason());
+		}
 	}
 
 	public function testComplete_DeviatingSharesWithoutReview_Conflict(): void {
@@ -430,7 +501,7 @@ class CompletionServiceTest extends TestCase {
 		$this->service->complete(
 			1, 'mom', 11,
 			'11111111-2222-4333-8444-555555555555',
-			'1:1', 0, 'token',
+			'd2099-01-05', 0,
 			[['userId' => 'mom', 'sharePct' => 60], ['userId' => 'dad', 'sharePct' => 40]],
 			false,
 		);
@@ -451,7 +522,7 @@ class CompletionServiceTest extends TestCase {
 		$this->service->complete(
 			1, 'mom', 11,
 			'11111111-2222-4333-8444-555555555555',
-			'1:1', 0, 'token',
+			'd2099-01-05', 0,
 			[['userId' => 'dad', 'sharePct' => 100]],
 			true,
 		);
@@ -464,7 +535,7 @@ class CompletionServiceTest extends TestCase {
 		$this->service->complete(
 			1, 'mom', 11,
 			'11111111-2222-4333-8444-555555555555',
-			'1:1', 0, 'token',
+			'd2099-01-05', 0,
 			[['userId' => 'mom', 'sharePct' => 50], ['userId' => 'mom', 'sharePct' => 50]],
 			true,
 		);
@@ -529,7 +600,6 @@ class CompletionServiceTest extends TestCase {
 		$share->setEnergyMinor(300);
 		$share->setCoinMinor(3000);
 		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$share]);
-		$this->occurrenceService->method('occurrenceOfCompletion')->willReturn(null);
 
 		// The mapper UPDATE marks the row undone — reflect it on the seam
 		// row so the aggregate's final read sees the corrected state.
@@ -655,10 +725,11 @@ class CompletionServiceTest extends TestCase {
 		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([]);
 		$this->houseMembers = [$this->actor];
 
-		// No room replay or occurrence write may happen on attribution —
-		// the work time, saved zone, occurrence and room event stay put.
+		// No room replay or cycle write may happen on attribution — the
+		// work time, saved zone, cycle and room event stay put.
 		$this->roomReplayService->expects($this->never())->method('recordCompletion');
-		$this->occurrenceService->expects($this->never())->method('releaseCompletionUnderLock');
+		$this->cycleService->expects($this->never())->method('reopenUnderLock');
+		$this->cycleService->expects($this->never())->method('closeUnderLock');
 		$this->completedTaskMapper->expects($this->never())->method('markUndone');
 
 		$this->service->attribute(
@@ -694,7 +765,6 @@ class CompletionServiceTest extends TestCase {
 		$previous->setSharePct(100);
 		$previous->setCoinMinor(3000);
 		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([$previous]);
-		$this->occurrenceService->method('occurrenceOfCompletion')->willReturn($this->occurrence);
 		$this->rhythmService->expects($this->once())->method('recomputeForMembers')
 			->willReturnCallback(function (int $houseId, array $members) use ($absent): array {
 				$this->assertSame([7, 8], array_map(static fn (HouseUser $m): int => (int)$m->getId(), $members));
@@ -721,12 +791,8 @@ class CompletionServiceTest extends TestCase {
 		$absent->setWalletId(501);
 		$this->houseMembers[] = $absent;
 		$this->membersById[8] = $absent;
-		$obligation = new OccurrenceMember();
-		$obligation->setWalletId(501);
-		$obligation->setObligated(true);
-		$obligation->setDisposition(OccurrenceMember::DISPOSITION_ACTIVE);
-		$obligation->setSharePct(100);
-		$this->occurrenceMembers = [$obligation];
+		// Responsible for the task without working on it.
+		$this->assigneeUserIds = ['mom', 'dad'];
 		return $absent;
 	}
 
@@ -822,7 +888,6 @@ class CompletionServiceTest extends TestCase {
 		$this->roomTask->setClaimedSourceCompletionId(10);
 		$this->roomTaskMapper->expects($this->never())->method('update');
 		$this->workShareMapper->method('findByCompletionAndRevision')->willReturn([]);
-		$this->occurrenceService->method('occurrenceOfCompletion')->willReturn(null);
 
 		$this->service->undo(1, $this->actor, 9, '11111111-2222-4333-8444-555555555555', 0, null);
 

@@ -212,9 +212,8 @@ class RoomTaskControllerTest extends TestCase {
 		// filtered by the controller).
 		$this->request->method('getParams')->willReturn([
 			'commandId' => '11111111-2222-4333-8444-555555555555',
-			'occurrenceId' => '1:1',
+			'cycleKey' => 'c41',
 			'expectedVersion' => 0,
-			'selectionToken' => 'token',
 			'id' => 1,
 		]);
 
@@ -230,9 +229,8 @@ class RoomTaskControllerTest extends TestCase {
 				'user1',
 				1,
 				'11111111-2222-4333-8444-555555555555',
-				'1:1',
-				0,
-				'token'
+				'c41',
+				0
 			)
 			->willReturn([
 				'roomTask' => $roomTask,
@@ -240,12 +238,12 @@ class RoomTaskControllerTest extends TestCase {
 				'task' => $task,
 				'rewards' => [],
 				'completionId' => 5,
-				'occurrence' => ['classification' => 'agreed'],
+				'cycle' => ['cycleKey' => 'c42', 'state' => 'open'],
 				'replay' => false,
 			]);
-		// CR-084-03: the row status follows the fresh occurrence block.
+		// CR-084-03: the row status follows the fresh cycle block.
 		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
-			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), 'agreed')
+			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), ['cycleKey' => 'c42', 'state' => 'open'])
 			->willReturn(['id' => 1, 'status' => 'due_today']);
 
 		$response = $this->controller->complete(1);
@@ -296,9 +294,8 @@ class RoomTaskControllerTest extends TestCase {
 		$this->roomTaskService->method('validateRoomTaskOwnership');
 		$this->request->method('getParams')->willReturn([
 			'commandId' => '11111111-2222-4333-8444-555555555555',
-			'occurrenceId' => '1:1',
+			'cycleKey' => 'c41',
 			'expectedVersion' => 0,
-			'selectionToken' => 'token',
 			'boosts' => ['double_points'],
 		]);
 
@@ -309,6 +306,91 @@ class RoomTaskControllerTest extends TestCase {
 		$this->assertInstanceOf(JSONResponse::class, $response);
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertStringContainsString('Unknown field', $response->getData()['error']['message']);
+	}
+
+	/**
+	 * A cycle key that is not one never reaches the service (ADR-021
+	 * decision 2): the retired occurrence identity, a wrong date shape and
+	 * a non-string are all validation errors.
+	 *
+	 * @dataProvider malformedCycleKeys
+	 */
+	public function testComplete_MalformedCycleKey_Answers400(mixed $cycleKey): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+		$this->request->method('getParams')->willReturn([
+			'commandId' => '11111111-2222-4333-8444-555555555555',
+			'cycleKey' => $cycleKey,
+			'expectedVersion' => 0,
+		]);
+
+		$this->completionService->expects($this->never())->method('complete');
+
+		$response = $this->controller->complete(1);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+		$this->assertSame('Invalid cycle key', $response->getData()['error']['message']);
+	}
+
+	/** @return array<string, array{mixed}> */
+	public static function malformedCycleKeys(): array {
+		return [
+			'the retired occurrence identity' => ['12:3'],
+			'a projected cycle' => ['p2026-11-21'],
+			'a date without its day' => ['d2026-11'],
+			'a completion id of zero' => ['c0'],
+			'trailing input' => ["c41\n"],
+			'an empty string' => [''],
+			'a number' => [41],
+			'an array' => [['c41']],
+		];
+	}
+
+	/**
+	 * A bonus task has no cycle (ADR-021 decision 8): the receipt carries
+	 * no cycle key and the service receives none.
+	 */
+	public function testComplete_WithoutCycleKey_PassesNoneToTheService(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setTimezone('UTC');
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+		$this->request->method('getParams')->willReturn([
+			'commandId' => '11111111-2222-4333-8444-555555555555',
+			'expectedVersion' => 3,
+		]);
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$this->completionService->expects($this->once())
+			->method('complete')
+			->with(1, 'user1', 1, '11111111-2222-4333-8444-555555555555', null, 3)
+			->willReturn([
+				'roomTask' => $roomTask,
+				'room' => new Room(),
+				'task' => new Task(),
+				'rewards' => [],
+				'completionId' => 5,
+				'cycle' => ['state' => 'bonus', 'expectedVersion' => 3],
+				'replay' => false,
+			]);
+		$this->roomTaskReadService->method('roomTaskPayload')->willReturn(['id' => 1, 'status' => 'pending']);
+
+		$response = $this->controller->complete(1);
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertTrue($response->getData()['success']);
 	}
 
 	/**
@@ -327,9 +409,8 @@ class RoomTaskControllerTest extends TestCase {
 		$this->roomTaskService->method('validateRoomTaskOwnership');
 		$this->request->method('getParams')->willReturn([
 			'commandId' => '11111111-2222-4333-8444-555555555555',
-			'occurrenceId' => '1:1',
+			'cycleKey' => 'c41',
 			'expectedVersion' => 0,
-			'selectionToken' => 'token',
 			'participants' => [['userId' => 'mom', 'share' => 50]],
 		]);
 
@@ -695,12 +776,12 @@ class RoomTaskControllerTest extends TestCase {
 		$this->roomTaskReadService->expects($this->once())
 			->method('getDueTodayTaskRows')
 			->with(1, $this->identicalTo($houseUser), 3)
-			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room, 'occurrence' => ['classification' => 'late']]]);
+			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room, 'cycle' => ['cycleKey' => 'c9', 'state' => 'overdue']]]);
 		$this->roomTaskReadService->method('assigneesByRoomTasks')
 			->willReturn([12 => []]);
-		// CR-084-03: an execution row's status follows its own occurrence block.
+		// CR-084-03: an execution row's status follows its own cycle block.
 		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
-			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), 'late')
+			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), ['cycleKey' => 'c9', 'state' => 'overdue'])
 			->willReturn(['id' => 12, 'status' => 'overdue']);
 
 		$response = $this->controller->dueToday(3);
@@ -760,29 +841,6 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->assertSame(409, $response->getStatus());
 		$this->assertSame(['code' => 'CONFLICT', 'message' => 'Over the day limit'], $response->getData()['error']);
-	}
-
-	public function testUpdateDueDate_RefusedChange_Is409WithTheReason(): void {
-		$this->wireRoomTaskAction();
-		$this->appLogger->expects($this->never())->method('logException');
-		$this->roomTaskService->method('updateDueDate')
-			->willThrowException(new \OCA\ChoreStrike\Exception\ConflictException('A missed appointment'));
-
-		$response = $this->controller->updateDueDate(5, '2026-10-20');
-
-		$this->assertSame(409, $response->getStatus());
-		$this->assertSame(['code' => 'CONFLICT', 'message' => 'A missed appointment'], $response->getData()['error']);
-	}
-
-	public function testUpdateDueDate_StaleTarget_KeepsItsCode(): void {
-		$this->wireRoomTaskAction();
-		$this->roomTaskService->method('updateDueDate')
-			->willThrowException(new \OCA\ChoreStrike\Exception\StaleTargetException('Changed since it was displayed'));
-
-		$response = $this->controller->updateDueDate(5, '2026-10-20');
-
-		$this->assertSame(409, $response->getStatus());
-		$this->assertSame('STALE_TARGET', $response->getData()['error']['code']);
 	}
 
 	private function wireRoomTaskAction(): void {
@@ -863,33 +921,12 @@ class RoomTaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * CR-084-03: the due date is saved before the status read, so the
-	 * response resolves the selection best-effort for the committed row.
+	 * CR-084-03 and the CS-PLAN-091 WP-B1 interim review: a replayed
+	 * completion carries the fresh cycle block like the first run, so the
+	 * client never keeps the closed cycle as its target and the row status
+	 * follows the block.
 	 */
-	public function testUpdateDueDate_ReportsTheCommittedSelectionStatus(): void {
-		$house = new House();
-		$house->setId(1);
-		$roomTask = new RoomTask();
-		$roomTask->setId(5);
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
-		$this->roomTaskService->method('updateDueDate')->willReturn($roomTask);
-		$this->roomTaskReadService->expects($this->once())->method('committedRoomTaskPayload')
-			->with(1, $roomTask, $this->isInstanceOf(\DateTimeZone::class), 'updateDueDate')
-			->willReturn(['id' => 5, 'status' => 'due_today']);
-
-		$response = $this->controller->updateDueDate(5, '2026-10-20');
-
-		$this->assertSame(200, $response->getStatus());
-		$this->assertSame(['id' => 5, 'status' => 'due_today'], $response->getData()['data']);
-	}
-
-	/**
-	 * CR-084-03: a replayed completion carries no fresh selection block, so
-	 * its row resolves the selection instead of the entity day rule.
-	 */
-	public function testComplete_ReplayResolvesTheSelectionStatus(): void {
+	public function testComplete_ReplayCarriesTheFreshCycleBlock(): void {
 		$house = new House();
 		$house->setId(1);
 		$house->setTimezone('UTC');
@@ -898,24 +935,25 @@ class RoomTaskControllerTest extends TestCase {
 		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 		$this->request->method('getParams')->willReturn([
 			'commandId' => '11111111-2222-4333-8444-555555555555',
-			'occurrenceId' => '1:1',
+			'cycleKey' => 'c41',
 			'expectedVersion' => 0,
-			'selectionToken' => 'token',
 		]);
 		$roomTask = new RoomTask();
 		$roomTask->setId(1);
+		$block = ['cycleKey' => 'c42', 'expectedVersion' => 3, 'state' => 'upcoming'];
 		$this->completionService->method('complete')->willReturn([
 			'roomTask' => $roomTask, 'room' => new Room(), 'task' => new Task(),
-			'rewards' => [], 'completionId' => 5, 'replay' => true,
+			'rewards' => [], 'completionId' => 5, 'replay' => true, 'cycle' => $block,
 		]);
-		$this->roomTaskReadService->expects($this->never())->method('roomTaskPayload');
-		$this->roomTaskReadService->expects($this->once())->method('committedRoomTaskPayload')
-			->with(1, $roomTask, $this->isInstanceOf(\DateTimeZone::class), 'complete')
-			->willReturn(['id' => 1, 'status' => 'due_today']);
+		$this->roomTaskReadService->expects($this->never())->method('committedRoomTaskPayload');
+		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
+			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), $block)
+			->willReturn(['id' => 1, 'status' => 'upcoming']);
 
 		$response = $this->controller->complete(1);
 
 		$this->assertSame(200, $response->getStatus());
-		$this->assertSame(['id' => 1, 'status' => 'due_today'], $response->getData()['data']['roomTask']);
+		$this->assertSame(['id' => 1, 'status' => 'upcoming'], $response->getData()['data']['roomTask']);
+		$this->assertSame($block, $response->getData()['data']['cycle']);
 	}
 }

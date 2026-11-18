@@ -12,8 +12,8 @@ use PHPUnit\Framework\TestCase;
  * Unit tests for room task entity behavior. The legacy recurrence engine
  * (markCompleted / projectOccurrences) was retired with CS-PLAN-072 WP1
  * (RF-072-WP1-12/-16) — recurrence enumeration coverage lives in
- * RecurrenceCalculatorTest and the OccurrenceTimelineTest integration
- * suite; the flex-window display helpers stay.
+ * RecurrenceCalculatorTest, WindowServiceTest and the CycleTimelineTest
+ * integration suite; the flex-window display helpers stay.
  */
 class RoomTaskTest extends TestCase {
 	/**

@@ -68,6 +68,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setVisibilityType(string $visibilityType)
  * @method string|null getOwnerUserId()
  * @method void setOwnerUserId(?string $ownerUserId)
+ * @method int|null getFixedMonthDay()
+ * @method void setFixedMonthDay(?int $fixedMonthDay)
  */
 class Task extends Entity implements JsonSerializable {
 	public const VISIBILITY_PUBLIC = 'public';
@@ -187,6 +189,14 @@ class Task extends Entity implements JsonSerializable {
 	/** @var string|null */
 	protected $ownerUserId;
 
+	/**
+	 * Day 1–31 of a fixed monthly rule (ADR-021 decision 1); a month that
+	 * is shorter uses its last day.
+	 *
+	 * @var int|null
+	 */
+	protected $fixedMonthDay;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('name', 'string');
@@ -216,6 +226,7 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('flexDays', 'integer');
 		$this->addType('visibilityType', 'string');
 		$this->addType('ownerUserId', 'string');
+		$this->addType('fixedMonthDay', 'integer');
 	}
 
 	/**
@@ -245,6 +256,7 @@ class Task extends Entity implements JsonSerializable {
 			'schedulingMode' => $this->schedulingMode,
 			'fixedScheduleTime' => $this->fixedScheduleTime?->format('H:i:s'),
 			'fixedScheduleDays' => $this->fixedScheduleDays,
+			'fixedMonthDay' => $this->fixedMonthDay,
 			'allowTeamwork' => $this->allowTeamwork,
 			'maxParticipants' => $this->maxParticipants,
 			'flexDays' => $this->flexDays,

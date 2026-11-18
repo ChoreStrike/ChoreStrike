@@ -265,7 +265,7 @@ describe('TaskList', () => {
 
 		it('does not mark work still due (open window) overdue from its past timestamp alone (D-084-08)', () => {
 			const yesterday = new Date(Date.now() - 86400000).toISOString()
-			const tasks = [mockTask({ roomTask: { nextDue: yesterday, isActive: true, occurrence: { classification: 'agreed' } } })]
+			const tasks = [mockTask({ roomTask: { nextDue: yesterday, isActive: true, cycle: { state: 'open' } } })]
 			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
 
 			expect(wrapper.find('.task-item').classes()).not.toContain('overdue')
@@ -301,7 +301,7 @@ describe('TaskList', () => {
 			userStore.houseUsers = []
 			const tasks = [mockTask({
 				task: { visibilityType: 'public' },
-				roomTask: { assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), occurrence: { classification: 'late' } },
+				roomTask: { assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), cycle: { state: 'overdue' } },
 			})]
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: tasks },
@@ -323,7 +323,7 @@ describe('TaskList', () => {
 			userStore.houseUsers = [{ nextcloudUserId: 'dad', displayName: 'Dad' }]
 			const tasks = [mockTask({
 				task: { visibilityType: 'public' },
-				roomTask: { id: 77, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), occurrence: { classification: 'late' } },
+				roomTask: { id: 77, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), cycle: { state: 'overdue' } },
 			})]
 			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
 
@@ -344,7 +344,7 @@ describe('TaskList', () => {
 			userStore.houseUsers = []
 			const tasks = [mockTask({
 				task: { visibilityType: 'public' },
-				roomTask: { id: 78, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), occurrence: { classification: 'late' } },
+				roomTask: { id: 78, assignees: ['dad'], nextDue: new Date(Date.now() - 86400000).toISOString(), cycle: { state: 'overdue' } },
 			})]
 			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: tasks } })
 
@@ -587,14 +587,6 @@ describe('TaskList', () => {
 
 			expect(headings(wrapper)).toEqual(['Overdue · 1', 'Later · 2'])
 			expect(wrapper.find('.task-items').element.firstElementChild.textContent.trim()).toBe('Overdue · 1')
-		})
-
-		it('passes the request for the date dialog on', async () => {
-			const wrapper = mount(TaskList, { props: { loading: false, roomTasks: rows() } })
-			const item = wrapper.findComponent({ name: 'TaskListItem' })
-
-			item.vm.$emit('editDate', item.props('item').roomTask)
-			expect(wrapper.emitted('editDate')).toEqual([[item.props('item').roomTask]])
 		})
 	})
 })

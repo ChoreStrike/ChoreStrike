@@ -1,12 +1,13 @@
 # Simplified Core — Target Picture
 
 > **Status:** Target picture, confirmed by the operator on 2026-11-10 after the family reviewed
-> the mockups. It records the decisions of 2026-11-09 to 2026-11-15. Release A is implemented
+> the mockups. It records the decisions of 2026-11-09 to 2026-11-16. Release A is implemented
 > on `master` but not deployed; B and C are planned in
-> [CS-PLAN-091](../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md) and not built
-> yet ([delivery](#delivery)). The shipped
-> contracts stay binding until a reviewed plan and a new ADR replace them
-> ([what this replaces](#what-this-replaces)).
+> [CS-PLAN-091](../plans/active/cs-plan-091-simplified-core-releases-b-and-c.md) and built on
+> `feat/simplified-core-bc` ([delivery](#delivery)). Their contracts are
+> [ADR-021](../adr/ADR-021-derived-due-windows.md) and
+> [ADR-022](../adr/ADR-022-live-suggestion.md), accepted 2026-11-16; the shipped contracts stay
+> binding until that branch reaches `master` ([what this replaces](#what-this-replaces)).
 > Owning item: [CONCEPT-002](../backlog/backlog.md#p1-concept-002--simplified-core-target-picture).
 
 ## Why
@@ -58,10 +59,11 @@ inside the window is on time.
   entry ends when the next cycle's window opens.
 - **Postpone** is open to every member, children included: up to three times per cycle, each
   press shifting the current window by half the flex days, rounded up. A postponed window still
-  counts as on time. Tasks without flex days cannot be postponed. The next cycle is
-  not affected.
+  counts as on time. Tasks without flex days cannot be postponed, and neither can a task that is
+  already red. The next cycle is not affected.
 - **Sleeping tasks.** A task can be put to sleep, optionally until a wake date (lawn mowing in
-  winter). While asleep it has no window, is never overdue and takes no capacity.
+  winter). While asleep it has no window, is never overdue and takes no capacity. Completing it
+  wakes it, and its rhythm continues from that day.
 - **Bonus tasks** are voluntary and always available (cooking, emptying the dishwasher). They are
   never due, never overdue and never scheduled. They pay energy and coins, at most once per
   person, task and day, and count neither for nor against the weekly goal, the rhythm or the
@@ -75,7 +77,7 @@ inside the window is on time.
 | Complete a task, also early and also for someone else | yes | yes | yes |
 | Postpone | yes | yes | yes |
 | Enter or delete an own absence | yes | yes | yes |
-| Change the date of, or delete, one's own latest entry of a task | yes | yes | yes |
+| Change the date of, or delete, the latest entry of a task that one recorded | yes | yes | yes |
 | Create and edit tasks: rhythm, energy, assignees, room, sleeping, bonus | no | yes | yes |
 | Correct any history entry: date, person, delete | no | no | yes |
 | Delete anyone's absence; enter a whole-household absence | no | no | yes |
@@ -143,7 +145,9 @@ They are kept outside the repository.
 ## What this replaces
 
 Accepted ADRs are immutable, so each row needs a new ADR that supersedes or amends the old one,
-written with the owning plan.
+written with the owning plan. [ADR-020](../adr/ADR-020-absences-without-requests.md) (Release A),
+[ADR-021](../adr/ADR-021-derived-due-windows.md) and [ADR-022](../adr/ADR-022-live-suggestion.md)
+(Releases B and C) cover every row.
 
 | Shipped contract | Source | Becomes |
 |------------------|--------|---------|
@@ -157,7 +161,7 @@ written with the owning plan.
 | Sound and animation are off by default | calm core UX | Animation on by default, sound opt-in |
 | My Day is the landing page, the Dashboard a second overview | calm core UX | One *Today* |
 | History corrections are undo and attribution, by completer or owner | ADR-014 | Plus a date correction; own latest entry for members, everything for the owner |
-| Rhythm, weekly goal and ranking count agreed occurrences | ADR-014, [ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md) | The same recognitions over windows (definition open) |
+| Rhythm, weekly goal and ranking count agreed occurrences | ADR-014, [ADR-015](../adr/ADR-015-ranking-consent-and-privacy.md) | The same recognitions over cycles, classified at completion, absences neutral ([ADR-021](../adr/ADR-021-derived-due-windows.md)) |
 
 ## Data retention
 
@@ -167,23 +171,29 @@ occurrence, agreement, schedule-revision and pause rows stay as history; nothing
 reset. Existing pauses stay valid as absences. Schema changes come as new ordered steps with
 populated-upgrade tests, and no applied migration is edited.
 
-## Open points
+## Settled points
 
-To be settled in the owning plans, before code. CS-PLAN-091 settles all seven (its decisions
-D-091-02 to D-091-20); its WP-0 writes them into this document, ADR-021 and ADR-022 before
-code:
+The seven open points of this picture were settled in CS-PLAN-091 (operator, 2026-11-15 and
+2026-11-16) and are binding in ADR-021 and ADR-022:
 
-1. What "on time" means for the rhythm, the weekly goal and the ranking once windows can be
-   postponed and fixed cycles can be skipped.
-2. Whether a window that falls entirely into an absence is neutral for those recognitions.
-3. What is stored for the current window (postpone count and shift), whether calendar reads need
-   a derived cache, and how a completion names its window so that concurrent and repeated
-   requests stay exactly-once (ADR-007, ADR-011).
-4. Handing a single cycle to someone else: keep it, or leave it to the assignees in the form.
-5. The scheduler's horizon, its tie-breaks and the exact stability rule.
-6. The digest notifications that refer to agreements and pause requests today.
-7. How Release B is integrated while C is not built: `master` stays releasable, so B either keeps
-   the planner working or waits with C on a shared branch.
+1. **On time** is decided once, at completion: early, or inside the window including a
+   postponement, is on time; after the window is late. A cycle counts in the house-local week its
+   window ends; a fixed cycle never done counts as missed once the next window opens.
+2. **Absences are neutral:** a window entirely inside a person's absence is neither on time nor
+   missed for that person. The red entry still shows.
+3. **What is stored:** only the inputs of the current window (first date, postponement, sleep)
+   and the closed cycles, in their own table. Calendar reads compute windows; a cache would be its
+   own reviewed step. A completion names its cycle by a key and the room task's version, so
+   concurrent and repeated requests stay exactly-once.
+4. **No single-cycle handover and no restart:** assignees change in the form, and anyone may
+   record a completion for someone else.
+5. **Scheduler:** 14 days ahead, earliest window end first, ties by energy and then room task;
+   today's list is stored on its first read and changes during the day only when work is done,
+   postponed, put to sleep or created.
+6. **Daily summary:** the agreement lines go; it counts today's suggested work plus overdue tasks.
+   The pause-request lines already went with ADR-020.
+7. **Integration:** B and C are built on one branch, `feat/simplified-core-bc`, which reaches
+   `master` once, after the final review. `master` keeps Release A releasable meanwhile.
 
 ## Delivery
 

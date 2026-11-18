@@ -217,30 +217,6 @@ export function deletePause(id, payload) {
 	return del(`/api/v1/pauses/${id}`, { params: payload })
 }
 
-// Occurrence agreement API (CS-PLAN-073 WP2 §3.5, consumed by the WP6
-// entry points): owner-recorded single-occurrence agreements. `{id}` is
-// the public occurrence key `<scheduleRevisionId>:<ordinal>`.
-
-/**
- * POST the owner-recorded single-occurrence amendment (date/handover).
- * @param {string} id Public occurrence key.
- * @param {object} payload {roomTaskId, commandId, occurrenceId, expectedVersion, selectionToken, consent, date?, participants?}.
- * @return {Promise<object>} Identity refs {occurrenceId, expectedVersion}.
- */
-export function amendOccurrence(id, payload) {
-	return post(`/api/v1/occurrences/${id}/amend`, payload)
-}
-
-/**
- * POST the linked restart of a neutrally suspended interval predecessor.
- * @param {string} id Public occurrence key.
- * @param {object} payload {roomTaskId, commandId, occurrenceId, expectedVersion, consent, workDate}.
- * @return {Promise<object>} Identity refs.
- */
-export function restartOccurrence(id, payload) {
-	return post(`/api/v1/occurrences/${id}/restart`, payload)
-}
-
 export default api
 
 // Reward catalog & request API (CS-PLAN-070 WP8 on the delivered WP7

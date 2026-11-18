@@ -58,6 +58,25 @@ reward merely to manufacture equal rankings is not an agreed requirement.
 > early bonus, combo, streak freezes, teamwork bonus, boosts) were retired
 > with the WP3 cutover — the rows below are the surviving mechanics.
 
+> **Derived windows ([ADR-021](../adr/ADR-021-derived-due-windows.md), CS-PLAN-091,
+> built on `feat/simplified-core-bc`):**
+>
+> - **Two coin multipliers, coins only.** The owner sets a coin factor of × 1,
+>   × 2 or × 3 per member and starts bonus periods of one to three days with
+>   × 1.5. A share's coins are `10 × E × P × factor × bonusPercent / 100` coin
+>   minor, rounded down once; both factors are frozen on the completion, so
+>   undo and attribution reverse exactly what was paid. Energy, contribution,
+>   the weekly goal, the rhythm, the ranking and the arcade never see them.
+> - **Recording for others.** The recorder need not take part (Q-074-02
+>   reversed); only members who may see the task can be credited.
+> - **Bonus tasks** pay energy and coins at most once per person, task and day
+>   and count for no recognition.
+> - **Recognitions over cycles.** From the house's `cycles_from` day on, the
+>   weekly goal, the rhythm and the ranking count cycles where they counted
+>   agreed occurrences: on time when done before or inside the (postponed)
+>   window, counted in the week the window ends, absences neutral. Stored
+>   streaks and claimed weeks stay; the rhythm continues from them.
+
 | Mechanic | Behaviour | Config key (default) |
 |----------|-----------|----------------------|
 | **Coins (minor-unit wallet)** | Exact derivations of the frozen work evidence: `coinMinor = 10 × totalEnergy × sharePct` at the frozen `rate_minor` (1000 coin minor per energy). Booked through the immutable `wallet_entries` ledger (`(wallet, source-kind, source-id, source-revision)` idempotency identity); cached balance maintained transactionally, safe-integer envelope enforced. Corrections move value between wallets with exact union deltas — a completion pays out exactly the frozen total. | frozen `rate_minor` at completion |

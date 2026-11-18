@@ -10,14 +10,14 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\Cycle;
+use OCA\ChoreStrike\Db\CycleMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Occurrence;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -76,6 +76,10 @@ class TestDataService {
 	 * leak across seeded tests (the dispatch pass is instance-global and
 	 * would otherwise see stale slots).
 	 *
+	 * CS-PLAN-091 WP-B1 (ADR-021): closed cycles and per-cycle sub-task
+	 * ticks clear with the checklist progress, before `room_tasks` and
+	 * `completed_tasks`.
+	 *
 	 * CS-PLAN-070 WP7 (CS-PLAN-078 §3.1): the reward tables clear before
 	 * the wallet block in dependency order — `request_events` →
 	 * `reward_requests` → `reward_items` — so reserved/settled promise
@@ -86,6 +90,8 @@ class TestDataService {
 	private const RESET_TABLES = [
 		'chorestrike_task_assignees',
 		'chorestrike_chk_progress',
+		'chorestrike_cycle_progress',
+		'chorestrike_cycles',
 		'chorestrike_agreements',
 		'chorestrike_pauses',
 		'chorestrike_member_prefs',
@@ -126,10 +132,10 @@ class TestDataService {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private WalletMapper $walletMapper;
-	private OccurrenceService $occurrenceService;
+	private CycleService $cycleService;
 	private CalendarService $calendarService;
 	private RoomReplayService $roomReplayService;
-	private OccurrenceMapper $occurrenceMapper;
+	private CycleMapper $cycleMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private WorkShareMapper $workShareMapper;
 	private RewardConfigService $rewardConfig;
@@ -154,10 +160,10 @@ class TestDataService {
 		RoomTaskMapper $roomTaskMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		WalletMapper $walletMapper,
-		OccurrenceService $occurrenceService,
+		CycleService $cycleService,
 		CalendarService $calendarService,
 		RoomReplayService $roomReplayService,
-		OccurrenceMapper $occurrenceMapper,
+		CycleMapper $cycleMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		WorkShareMapper $workShareMapper,
 		RewardConfigService $rewardConfig,
@@ -175,10 +181,10 @@ class TestDataService {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->walletMapper = $walletMapper;
-		$this->occurrenceService = $occurrenceService;
+		$this->cycleService = $cycleService;
 		$this->calendarService = $calendarService;
 		$this->roomReplayService = $roomReplayService;
-		$this->occurrenceMapper = $occurrenceMapper;
+		$this->cycleMapper = $cycleMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->workShareMapper = $workShareMapper;
 		$this->rewardConfig = $rewardConfig;
@@ -346,6 +352,7 @@ class TestDataService {
 		$house->setHouseHealth(100);
 		$house->setCreatedAt(new \DateTime());
 		$house->setUpdatedAt(new \DateTime());
+		$house->setCyclesFrom(new \DateTime('today', new \DateTimeZone('UTC')));
 		$house = $this->houseMapper->insert($house);
 
 		// Create floor
@@ -416,6 +423,9 @@ class TestDataService {
 		$house->setHouseHealth(100);
 		$house->setCreatedAt(new \DateTime());
 		$house->setUpdatedAt(new \DateTime());
+		// Derived windows own everything this profile seeds, including the
+		// overdue example and the closed week before it (ADR-021).
+		$house->setCyclesFrom(new \DateTime('monday last week -7 days', new \DateTimeZone('UTC')));
 		$house = $this->houseMapper->insert($house);
 
 		// Create floors
@@ -591,15 +601,13 @@ class TestDataService {
 			if ($data['assignedTo'] !== null) {
 				$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $data['assignedTo']);
 			}
-			// CS-PLAN-072 WP1: every seed creation path routes through the
-			// common timeline (immutable initial schedule per room task).
-			$this->occurrenceService->initializeSchedule(
-				$house->getId(),
+			// The seeded due day is the first date of the derived window.
+			$timeZone = $this->calendarService->getTimeZone($house);
+			$this->cycleService->startUnderLock(
 				$roomTask,
 				$tasks[$data['task']],
-				$this->calendarService->getTimeZone($house)->getName(),
-				$data['due'],
-				$data['assignedTo'] !== null ? [$data['assignedTo']] : [],
+				$this->calendarService->dayKey($data['due'], $timeZone),
+				$timeZone,
 				new \DateTime(),
 			);
 			$roomTasks[] = $roomTask;
@@ -631,33 +639,13 @@ class TestDataService {
 
 	/** Seed linked past-week work for notification and retention E2E. */
 	private function seedClosedWeeklyGoal(House $house, HouseUser $member, RoomTask $roomTask): void {
-		$revision = $this->occurrenceMapper->findByRoomTask($roomTask->getId())[0] ?? null;
-		if ($revision === null) {
-			throw new \LogicException('Family seed must materialize an occurrence first');
-		}
 		$weekStart = new \DateTime('monday last week 00:00:00', new \DateTimeZone('UTC'));
 		// A historical performer must already have belonged to the household;
 		// this also makes the fixture eligible for quiet weekly recognition.
 		$member->setJoinedAt(clone $weekStart);
 		$this->houseUserMapper->update($member);
 		$completedAt = (clone $weekStart)->modify('+12 hours');
-		$occurrence = new Occurrence();
-		$occurrence->setHouseId($house->getId());
-		$occurrence->setRoomTaskId($roomTask->getId());
-		$occurrence->setScheduleRevId($revision->getScheduleRevId());
-		$occurrence->setOrdinal(Occurrence::MAX_ORDINAL);
-		$occurrence->setKind(Occurrence::KIND_SCHEDULED);
-		$occurrence->setPlannedDate(clone $weekStart);
-		$occurrence->setWeekStart(clone $weekStart);
-		$occurrence->setTimezone('UTC');
-		$occurrence->setDayStart(clone $weekStart);
-		$occurrence->setWindowStart(clone $weekStart);
-		$occurrence->setWindowEnd((clone $weekStart)->modify('+1 day'));
-		$occurrence->setEnergy(3);
-		$occurrence->setIsPublic(true);
-		$occurrence->setVersion(0);
-		$occurrence->setCreatedAt(clone $completedAt);
-		$occurrence = $this->occurrenceMapper->insert($occurrence);
+		$cycleKey = 'd' . $weekStart->format('Y-m-d');
 
 		$completion = new CompletedTask();
 		$completion->setRoomTaskId($roomTask->getId());
@@ -668,15 +656,31 @@ class TestDataService {
 		$completion->setCompletionVersion(0);
 		$completion->setAllocationRevision(1);
 		$completion->setCommandUuid('11111111-1111-4111-8111-111111111111');
-		$completion->setOccurrenceDue(clone $weekStart);
-		$completion->setScheduleRevId($occurrence->getScheduleRevId());
-		$completion->setOccurrenceOrdinal($occurrence->getOrdinal());
 		$completion->setWorkDate(clone $weekStart);
 		$completion->setWorkZone('UTC');
-		$completion->setCompletionClass(CompletedTask::CLASS_AGREED);
+		$completion->setCompletionClass(CompletedTask::CLASS_ON_TIME);
+		$completion->setCycleKey($cycleKey);
+		$completion->setWindowStartOn(clone $weekStart);
+		$completion->setWindowEndOn(clone $weekStart);
 		$completion = $this->completedTaskMapper->insert($completion);
-		$occurrence->setCompletionId($completion->getId());
-		$this->occurrenceMapper->update($occurrence);
+
+		// The closed cycle of that completion (ADR-021): a one-day window
+		// on the Monday, kept by its assignee.
+		$cycle = new Cycle();
+		$cycle->setHouseId($house->getId());
+		$cycle->setRoomTaskId($roomTask->getId());
+		$cycle->setCycleKey($cycleKey);
+		$cycle->setWindowStartOn(clone $weekStart);
+		$cycle->setWindowEndOn(clone $weekStart);
+		$cycle->setWeekStart(clone $weekStart);
+		$cycle->setTimezone('UTC');
+		$cycle->setOutcome(Cycle::OUTCOME_DONE);
+		$cycle->setCompletionId($completion->getId());
+		$cycle->setCompletionClass(CompletedTask::CLASS_ON_TIME);
+		$cycle->setEnergy(3);
+		$cycle->setResponsible([(int)$member->getWalletId()]);
+		$cycle->setCreatedAt(clone $completedAt);
+		$this->cycleMapper->insert($cycle);
 
 		$share = new WorkShare();
 		$share->setCompletionId($completion->getId());

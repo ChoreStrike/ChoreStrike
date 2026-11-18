@@ -8,10 +8,11 @@ import { logger } from '../utils/logger.js'
 
 /**
  * The completion flow every task surface shares (WP3 §3.6, Q-074-02): a
- * solo agreement naming the actor completes directly; work for several
- * people, or an agreement naming someone else, first opens the
- * participation dialog with the server proposal. A failure is a visible
- * toast, never a logger-only line (CS-PLAN-066 §3.5).
+ * task that is the actor's alone, or nobody's, completes directly; a task
+ * of several people, or of someone else, first opens the participation
+ * dialog with the split the server would credit by default — equal shares
+ * of the assignees. A failure is a visible toast, never a logger-only line
+ * (CS-PLAN-066 §3.5).
  *
  * The calling view renders `ParticipationDialog` while `participation` is
  * set and passes the stores it already holds.
@@ -24,14 +25,14 @@ import { logger } from '../utils/logger.js'
  * @return {object} The dialog state and the flow's entry points.
  */
 export function useTaskCompletion({ roomTasksStore, userStore, view, onCompleted }) {
-	// The dialog target while open: `{ roomTaskId, proposal, assignees }`.
+	// The dialog target while open: `{ roomTaskId, assignees }`.
 	const participation = ref(null)
 
 	const actorUserId = computed(() => userStore.currentUser?.nextcloudUserId ?? null)
 
 	/**
-	 * Candidates of the open dialog: the task's canonical assignees, or
-	 * the whole household for unassigned work. Names fall back to user ids.
+	 * Candidates of the open dialog: the task's assignees (the dialog never
+	 * opens for unassigned work). Names fall back to user ids.
 	 */
 	const participationMembers = computed(() => {
 		if (!participation.value) {
@@ -41,25 +42,22 @@ export function useTaskCompletion({ roomTasksStore, userStore, view, onCompleted
 		;(userStore.houseUsers ?? []).forEach((member) => {
 			namesByUser[member.nextcloudUserId] = member.displayName
 		})
-		const assignees = participation.value.assignees ?? []
-		const userIds = assignees.length > 0 ? assignees : Object.keys(namesByUser)
-		return userIds.map((userId) => ({ userId, displayName: namesByUser[userId] ?? userId }))
+		return (participation.value.assignees ?? []).map((userId) => ({ userId, displayName: namesByUser[userId] ?? userId }))
 	})
 
 	/**
-	 * More than one proposed participant, or a sole one who is not the
-	 * acting user. An unresolved identity opens the dialog too: the safe
-	 * default never fires a participant-less completion into someone
-	 * else's work.
-	 * @param {?object} proposal The server proposal block.
+	 * More than one assignee, or a sole one who is not the acting user. An
+	 * unresolved identity opens the dialog too: the safe default never
+	 * fires a participant-less completion into someone else's work.
+	 * Unassigned work is the actor's.
+	 * @param {string[]} assignees The task's assignees.
 	 * @return {boolean}
 	 */
-	function needsParticipationDialog(proposal) {
-		const participants = proposal?.participants ?? []
-		if (participants.length === 1) {
-			return actorUserId.value === null || participants[0].userId !== actorUserId.value
+	function needsParticipationDialog(assignees) {
+		if (assignees.length === 1) {
+			return actorUserId.value === null || assignees[0] !== actorUserId.value
 		}
-		return participants.length > 1
+		return assignees.length > 1
 	}
 
 	/**
@@ -80,7 +78,7 @@ export function useTaskCompletion({ roomTasksStore, userStore, view, onCompleted
 	async function performComplete(roomTaskId, options = {}) {
 		try {
 			// A participant-less completion omits the options: the server
-			// credits the effective agreement.
+			// credits the default split.
 			if (Object.keys(options).length > 0) {
 				await roomTasksStore.completeRoomTask(roomTaskId, options)
 			} else {
@@ -95,7 +93,7 @@ export function useTaskCompletion({ roomTasksStore, userStore, view, onCompleted
 
 	/**
 	 * Complete a task, through the dialog where the work needs a review.
-	 * @param {{roomTaskId: number, proposal: ?object, assignees: string[]}} target The shown row.
+	 * @param {{roomTaskId: number, assignees: string[]}} target The shown row.
 	 * @param {?object} [claimAllocation] A confirmed overdue claim: its reviewed sole-participant split completes directly.
 	 */
 	async function requestCompletion(target, claimAllocation = null) {
@@ -103,7 +101,7 @@ export function useTaskCompletion({ roomTasksStore, userStore, view, onCompleted
 			await performComplete(target.roomTaskId, claimAllocation)
 			return
 		}
-		if (needsParticipationDialog(target.proposal ?? null)) {
+		if (needsParticipationDialog(target.assignees ?? [])) {
 			await openParticipation(target)
 			return
 		}

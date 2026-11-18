@@ -19,7 +19,7 @@ test.describe('Scheduling UI', () => {
 	test('loads the scheduling view with all sections', async ({ page }) => {
 		await expect(page.getByTestId('scheduling-view')).toBeVisible()
 		await expect(page.getByTestId('availability-settings')).toBeVisible()
-		await expect(page.getByTestId('schedule-planner')).toBeVisible()
+		await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
 		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
 		// The own days and energy moved to the personal settings (WP-D).
 		await expect(page.getByTestId('energy-budget-settings')).toHaveCount(0)
@@ -73,15 +73,10 @@ test.describe('Scheduling UI', () => {
 		await expect(page.getByTestId('today-button')).toBeVisible()
 	})
 
-	test('shows the owner plan planner section (CS-PLAN-065)', async ({ page }) => {
-		await expect(page.getByTestId('schedule-planner')).toBeVisible()
-		// The real-task plan preview is opt-in per selection.
-		await expect(page.getByTestId('preview-plan-button')).toBeVisible()
-		await expect(page.getByTestId('planner-task-list')).toBeVisible()
-	})
-
-	test('the plan preview stays disabled until a task is selected', async ({ page }) => {
-		await expect(page.getByTestId('preview-plan-button')).toBeDisabled()
+	// CS-PLAN-091 / ADR-021: the plan preview and its apply step are retired.
+	test('offers no plan preview any more', async ({ page }) => {
+		await expect(page.getByTestId('preview-plan-button')).toHaveCount(0)
+		await expect(page.getByTestId('planner-task-list')).toHaveCount(0)
 	})
 })
 
@@ -143,5 +138,48 @@ test.describe('Scheduling save flow', () => {
 				}
 			}
 		}
+	})
+})
+
+// CS-PLAN-091 / ADR-021: the plan preview/apply pair is gone with the
+// stored timeline. The preferences and member routes stay; the owner's own
+// session proves the retired pair is not just hidden in the UI.
+test.describe('Retired planner routes', () => {
+	test('the plan preview and apply routes answer 404 while the preferences stay', async ({ page }) => {
+		test.setTimeout(90000)
+		await page.goto('/apps/chorestrike/#/today')
+		await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 30000 })
+
+		const headers = { Accept: 'application/json' }
+		const preview = await page.request.post('/apps/chorestrike/api/v1/scheduling/suggestions', {
+			data: { startDate: '2026-11-18', roomTaskIds: [1], overrides: {} },
+			headers,
+		})
+		expect(preview.status()).toBe(404)
+		const apply = await page.request.post('/apps/chorestrike/api/v1/scheduling/apply', {
+			data: {
+				startDate: '2026-11-18',
+				roomTaskIds: [1],
+				overrides: {},
+				previewVersion: 'retired',
+				commandId: 'c0ffee00-0000-4000-8000-000000000001',
+				consent: true,
+			},
+			headers,
+		})
+		expect(apply.status()).toBe(404)
+
+		// The preferences read is a CSRF-checked route: read it the way the
+		// app does, with the page's request token.
+		const preferencesStatus = await page.evaluate(async () => {
+			const response = await fetch('/apps/chorestrike/api/v1/scheduling/preferences', {
+				headers: {
+					Accept: 'application/json',
+					requesttoken: (window as unknown as { OC: { requestToken: string } }).OC.requestToken,
+				},
+			})
+			return response.status
+		})
+		expect(preferencesStatus).toBe(200)
 	})
 })

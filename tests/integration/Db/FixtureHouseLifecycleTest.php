@@ -45,20 +45,19 @@ class FixtureHouseLifecycleTest extends IntegrationTestCase {
 			$floorId = $this->createFloor($houseId, 'Ground Floor');
 			$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 			$taskId = $this->createTask($houseId, 'Wash dishes ' . $round);
-			// assignTaskToRoom drives the WP1 schedule-initialization seam
-			// (houseIdForRoomId → timeZoneForHouse → initializeSchedule).
+			// assignTaskToRoom starts the room task as creation does
+			// (houseIdForRoomId → timeZoneForHouse → CycleService).
 			$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'fx_owner_' . $round);
 
 			self::assertGreaterThan(0, $roomTaskId, "$round lifecycle must materialize its room task");
 
-			// The schedule was initialized through the production generator:
-			// a completion receipt is resolvable for the fixture room task.
-			[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
+			// The room task has a current cycle: a completion receipt is
+			// resolvable for the fixture room task.
+			[$commandId, $cycleKey, $expectedVersion] = $this->completionReceiptFor($roomTaskId);
 			self::assertNotEmpty($commandId);
-			self::assertNotEmpty($occurrenceId);
+			self::assertMatchesRegularExpression('/^d\d{4}-\d{2}-\d{2}$/', $cycleKey);
 			self::assertIsInt($expectedVersion);
 			self::assertGreaterThanOrEqual(0, $expectedVersion);
-			self::assertNotEmpty($selectionToken);
 		}
 	}
 

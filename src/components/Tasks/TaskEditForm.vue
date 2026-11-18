@@ -115,12 +115,12 @@
 		<div class="form-section">
 			<h3>{{ t('chorestrike', 'Schedule & Recurrence') }}</h3>
 
-			<!-- Creation due date (CS-PLAN-063 §3.5): the explicit first due
-			     date, house-local calendar day. Empty = tomorrow default. -->
+			<!-- First date (CS-PLAN-063 §3.5, ADR-021): the house-local day
+			     the first window hangs on. Empty = tomorrow default. -->
 			<div v-if="!isEditing" class="form-group">
 				<label for="nextDue">{{ t('chorestrike', 'First due date') }}</label>
 				<input id="nextDue"
-					v-model="nextDue"
+					v-model="firstDate"
 					type="date"
 					class="form-input"
 					data-testid="task-next-due-input">
@@ -491,9 +491,9 @@ export default {
 			form.category = formCategory(form.category)
 		})
 
-		// Creation-only due date (kept out of the editable-definition form
+		// Creation-only first date (kept out of the editable-definition form
 		// payload — it is a room-task property, CS-PLAN-063 §3.5).
-		const nextDue = ref('')
+		const firstDate = ref('')
 
 		const selectedWeekdays = ref([])
 		const selectedRoomId = ref(props.presetRoomId ?? props.initialRoomId)
@@ -697,7 +697,7 @@ export default {
 		})
 
 		const previewDueWindow = computed(() => {
-			const due = nextDue.value || t('chorestrike', 'tomorrow')
+			const due = firstDate.value || t('chorestrike', 'tomorrow')
 			if (form.flexDays > 0) {
 				return t('chorestrike', '{due} (±{days} days)', { due, days: form.flexDays })
 			}
@@ -721,7 +721,7 @@ export default {
 			if (!isEditing.value) {
 				data.roomId = selectedRoomId.value
 				data.assigneeUserIds = [...assigneeUserIds.value]
-				data.nextDue = nextDue.value || null
+				data.firstDate = firstDate.value || null
 			}
 			emit('submit', data)
 		}
@@ -729,7 +729,7 @@ export default {
 		return {
 			form,
 			categoryChoices,
-			nextDue,
+			firstDate,
 			isEditing,
 			isOwner,
 			houseMembers,

@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Service\CycleRule;
 use OCA\ChoreStrike\Service\RecurrenceCalculator;
 use PHPUnit\Framework\TestCase;
 
@@ -266,5 +267,67 @@ class RecurrenceCalculatorTest extends TestCase {
 	public function testReversedWindow_ReturnsNothing(): void {
 		$revision = $this->buildRevision(['anchor' => '2026-09-01']);
 		self::assertSame([], $this->dates($revision, '2026-10-01', '2026-09-01'));
+	}
+
+	/**
+	 * ADR-021 decision 1: a fixed rule's days are the ones the enumeration
+	 * yields. The direct lookup must agree with it day by day, bounds
+	 * included.
+	 *
+	 * @dataProvider fixedRuleProvider
+	 */
+	public function testFirstFixedDayOnOrAfter_AgreesWithTheEnumeration(array $shape, ?int $monthDay): void {
+		$revision = $this->buildRevision($shape);
+		$weekdays = array_map(
+			static fn (string $name): int => (int)array_search($name, ['', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'], true),
+			$shape['weekdays'] ?? []
+		);
+		sort($weekdays);
+		$rule = new CycleRule(true, false, false, $shape['cadenceUnit'], $shape['cadenceInterval'] ?? 1, $weekdays, $monthDay, 0, $shape['activeFrom'] ?? null, $shape['activeUntil'] ?? null);
+
+		$anchor = $shape['anchor'];
+		$expected = $this->dates($revision, $anchor, '2028-03-31');
+		self::assertNotEmpty($expected);
+
+		$walked = [];
+		$day = $this->calculator->firstFixedDayOnOrAfter($rule, $anchor, '2020-01-01');
+		while ($day !== null && $day <= '2028-03-31') {
+			$walked[] = $day;
+			$day = $this->calculator->firstFixedDayOnOrAfter($rule, $anchor, RecurrenceCalculator::dayAfter($day));
+		}
+		self::assertSame($expected, $walked);
+
+		// Every day of the range resolves to the next enumerated day.
+		for ($probe = $anchor; $probe <= '2027-03-31'; $probe = RecurrenceCalculator::dayAfter($probe)) {
+			$next = null;
+			foreach ($expected as $date) {
+				if ($date >= $probe) {
+					$next = $date;
+					break;
+				}
+			}
+			self::assertSame($next, $this->calculator->firstFixedDayOnOrAfter($rule, $anchor, $probe), 'from ' . $probe);
+		}
+	}
+
+	public static function fixedRuleProvider(): array {
+		return [
+			'every day' => [['cadenceUnit' => ScheduleRevision::UNIT_DAY, 'anchor' => '2026-10-20'], null],
+			'every third day' => [['cadenceUnit' => ScheduleRevision::UNIT_DAY, 'cadenceInterval' => 3, 'anchor' => '2026-10-20'], null],
+			'whole weeks without weekdays' => [['cadenceUnit' => ScheduleRevision::UNIT_WEEK, 'cadenceInterval' => 2, 'anchor' => '2026-10-21'], null],
+			'two weekdays, anchored mid-week' => [['cadenceUnit' => ScheduleRevision::UNIT_WEEK, 'weekdays' => ['monday', 'thursday'], 'anchor' => '2026-10-21'], null],
+			'fortnightly on the anchor parity' => [['cadenceUnit' => ScheduleRevision::UNIT_WEEK, 'cadenceInterval' => 2, 'weekdays' => ['saturday'], 'anchor' => '2026-12-26'], null],
+			'monthly on the 31st' => [['cadenceUnit' => ScheduleRevision::UNIT_MONTH, 'anchor' => '2026-10-31'], 31],
+			'every second month on the 30th' => [['cadenceUnit' => ScheduleRevision::UNIT_MONTH, 'cadenceInterval' => 2, 'anchor' => '2026-12-30'], 30],
+			'bounded weekdays' => [['cadenceUnit' => ScheduleRevision::UNIT_WEEK, 'weekdays' => ['tuesday'], 'anchor' => '2026-10-20', 'lifetime' => Task::RECURRENCE_BOUNDED, 'activeFrom' => '2026-11-10', 'activeUntil' => '2027-01-31'], null],
+		];
+	}
+
+	public function testFirstFixedDayOnOrAfter_MonthDayAheadOfTheAnchorDayStartsInTheAnchorMonth(): void {
+		$rule = new CycleRule(true, false, false, ScheduleRevision::UNIT_MONTH, 1, [], 20, 0, null, null);
+
+		self::assertSame('2026-11-20', $this->calculator->firstFixedDayOnOrAfter($rule, '2026-11-05', '2026-11-05'));
+		self::assertSame('2026-12-20', $this->calculator->firstFixedDayOnOrAfter($rule, '2026-11-25', '2026-11-25'), 'never before the anchor');
+		self::assertSame(44, RecurrenceCalculator::daysBetween('2026-10-20', '2026-12-03'), 'across the end of summer time');
 	}
 }

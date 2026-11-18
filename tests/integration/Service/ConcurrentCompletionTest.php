@@ -526,17 +526,15 @@ while (!file_exists($goFile)) {
 
 try {
     $service = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class);
-    // CS-PLAN-072 WP1: the occurrence receipt of the current canonical
-    // target (public key, version, selection token) plus a fresh command
-    // UUID per helper run.
-    $occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
+    // The receipt of the current cycle as a row shows it (ADR-021
+    // decision 4) plus a fresh command UUID per helper run.
     $roomTaskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
     $readService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
     $roomTask = $roomTaskMapper->find($roomTaskId);
     $houseId = $readService->houseIdForRoom($roomTask->getRoomId());
-    $selection = $occurrenceService->selectionFor($roomTask, new DateTime(), $houseId);
-    if ($selection === null) {
-        throw new RuntimeException('no completable occurrence for room task ' . $roomTaskId);
+    $block = $readService->cycleFacts($houseId, [$roomTask])[$roomTaskId]['block'] ?? null;
+    if ($block === null) {
+        throw new RuntimeException('no completable cycle for room task ' . $roomTaskId);
     }
     $barrier = \OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::attach(
         \OC::$server->get(\OCP\IDBConnection::class), $goFile . '.locked', '/^"COMMIT"$/', true
@@ -546,9 +544,8 @@ try {
         $userId,
         $roomTaskId,
         sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
-        $selection['occurrence']->toPublicKey(),
-        $selection['occurrence']->getVersion(),
-        $occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'], $houseId, null, $selection['workAppointment'] ?? null)
+        $block['cycleKey'],
+        $block['expectedVersion']
     );
     if (!$barrier->wasReached()) {
         throw new \RuntimeException('The real completion never reached its commit barrier.');

@@ -141,6 +141,11 @@ class TestEnvironmentProvisioningTest extends TestCase {
 				self::assertLessThan(strpos($output, 'CONFIG_MUTATION'), strpos($output, 'App discovery:'));
 				self::assertLessThan(strpos($output, 'SEED_SUCCEEDED'), strpos($output, 'App discovery:'));
 				self::assertLessThan(strpos($output, 'READY_MARKER'), strpos($output, 'SEED_SUCCEEDED'));
+				// RF-091-01: the app's pending steps are applied once the app
+				// is enabled and before anything is seeded against the schema.
+				self::assertSame(1, substr_count($output, 'APP_STEPS_APPLIED'));
+				self::assertLessThan(strpos($output, 'APP_STEPS_APPLIED'), strpos($output, 'Enabling chorestrike app'));
+				self::assertLessThan(strpos($output, 'SEED_SUCCEEDED'), strpos($output, 'APP_STEPS_APPLIED'));
 			} else {
 				self::assertStringNotContainsString('READY_MARKER', $output);
 				self::assertStringNotContainsString('Setup Complete', $output);
@@ -180,6 +185,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 			['app-upgrade', 0, 'App-only upgrade pending on the kept disposable volumes'],
 			['app-upgrade-failure', 1, 'UPGRADE_FAILED'],
 			['app-upgrade-unfrozen', 0, 'Setup Complete'],
+			['app-steps-failure', 1, 'APP_STEPS_FAILED'],
 		];
 	}
 
@@ -220,6 +226,7 @@ class TestEnvironmentProvisioningTest extends TestCase {
 				self::assertStringNotContainsString('UPGRADE_RAN', $output);
 			}
 			self::assertStringNotContainsString('SEED_SUCCEEDED', $output);
+			self::assertStringNotContainsString('APP_STEPS_APPLIED', $output, 'preservation mode never migrates outside the upgrade path');
 			self::assertStringNotContainsString('Creating family users', $output);
 			self::assertStringNotContainsString('Installing Composer dependencies', $output);
 			self::assertStringNotContainsString('Running initial Nextcloud installation', $output);

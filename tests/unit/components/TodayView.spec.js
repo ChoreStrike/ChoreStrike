@@ -35,8 +35,20 @@ const utcTodayIso = (hour) => {
 	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour)).toISOString()
 }
 
+const dayKey = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
+/** The cycle block of a row (ADR-021): planned `planned` days from today, the window ends `end` days from today. */
+const cycle = (planned, end = planned, over = {}) => ({
+	cycleKey: 'c1',
+	expectedVersion: 0,
+	state: end < 0 ? 'overdue' : (planned > 0 && end === planned ? 'upcoming' : 'open'),
+	centreOn: dayKey(planned),
+	windowStartOn: dayKey(Math.min(planned, 0)),
+	windowEndOn: dayKey(end),
+	...over,
+})
+
 // CS-PLAN-066 (D1): today and overdue rows are the enriched canonical
-// execution-row shape `{roomTask, task, room, assignees}` from the
+// execution-row shape `{roomTask, task, room, assignees, cycle}` from the
 // dedicated endpoints.
 const todayFixture = () => ([
 	{
@@ -45,18 +57,21 @@ const todayFixture = () => ([
 		room: { id: 1, name: 'Kitchen' },
 		assignees: [],
 		checklistItemCount: 1,
+		cycle: cycle(0),
 	},
 	{
 		roomTask: { id: 12, taskId: 2, roomId: 1, isActive: true, nextDue: utcTodayIso(9) },
 		task: { id: 2, name: 'Wipe kitchen counters', energyCost: 2 },
 		room: { id: 1, name: 'Kitchen' },
 		assignees: ['mom'],
+		cycle: cycle(0),
 	},
 	{
 		roomTask: { id: 13, taskId: 3, roomId: 2, isActive: true, nextDue: utcTodayIso(10) },
 		task: { id: 3, name: 'Tidy up toys', energyCost: 1 },
 		room: { id: 2, name: 'Living Room' },
 		assignees: ['teen'],
+		cycle: cycle(0),
 	},
 ])
 
@@ -66,21 +81,15 @@ const overdueFixture = () => ([
 		task: { id: 4, name: 'Take out trash', energyCost: 2 },
 		room: { id: 2, name: 'Living Room' },
 		assignees: ['dad'],
-		// WP2/WP6: the overdue read carries the occurrence block of the
-		// shown miss — the catch-up card renders its planned date/window.
-		occurrence: {
-			occurrenceId: '12:1',
+		// The overdue read carries the cycle whose window ended — the row
+		// renders its planned day.
+		cycle: {
+			cycleKey: 'd2026-08-18',
 			expectedVersion: 3,
-			selectionToken: 'token-30',
-			classification: 'late',
-			kind: 'scheduled',
-			plannedDate: '2026-08-18',
-			workDate: '2026-08-18',
-			windowStart: '2026-08-18T06:00:00+00:00',
-			windowEnd: '2026-08-18T20:00:00+00:00',
-			suspended: false,
-			fulfilled: false,
-			covered: false,
+			state: 'overdue',
+			centreOn: '2026-08-18',
+			windowStartOn: '2026-08-18',
+			windowEndOn: '2026-08-18',
 		},
 	},
 ])
@@ -164,11 +173,10 @@ describe('TodayView', () => {
 					return { roomTask: { id: 11, taskId: 1, roomId: 1, isActive: false }, rewards: { coins: 10 } }
 				}
 				if (roomTaskId === 30) {
+					// Late work: the next cycle counts from today and is not due today.
 					const row = mockRoomTasksStore.overdueTasks.find(item => item.roomTask.id === 30)
 					mockRoomTasksStore.overdueTasks = mockRoomTasksStore.overdueTasks.filter(item => item.roomTask.id !== 30)
-					const moved = { ...row, roomTask: { ...row.roomTask, nextDue: new Date().toISOString() } }
-					mockRoomTasksStore.dailyTasks = [...mockRoomTasksStore.dailyTasks, moved]
-					return { roomTask: moved.roomTask, rewards: {} }
+					return { roomTask: row.roomTask, rewards: {} }
 				}
 				return { roomTask: { id: roomTaskId, isActive: false }, rewards: {} }
 			}),
@@ -264,18 +272,17 @@ describe('TodayView', () => {
 		expect(mockRoomTasksStore.fetchFilteredDailyTasks).toHaveBeenCalledTimes(1)
 	})
 
-	it('renders ONE catch-up card per chore with the attributed planned date and cover semantics (C5f, C1c)', async () => {
+	it('renders ONE overdue row per chore with its planned day and says what completing it means (C5f, C1c)', async () => {
 		const wrapper = await mountView()
 		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
 
 		const catchup = wrapper.find('[data-testid="today-section-catchup"]')
-		// The occurrence block's planned date stays visible on the card…
+		// The cycle's planned day stays visible on the row…
 		expect(catchup.find('[data-testid="catchup-planned"]').exists()).toBe(true)
 		expect(catchup.text()).toContain('Aug 18')
-		// …and the C1d cover hint is honest: completing covers without
-		// relabeling the miss as on time.
-		expect(catchup.text()).toContain('covers the miss')
-		// Exactly ONE card per chore (the overdue read resolves one miss).
+		// …and the hint is honest: done now, the work is late, never on time.
+		expect(catchup.text()).toContain('counts as late work')
+		// Exactly ONE row per chore (ADR-021 decision 1: one red entry).
 		expect(catchup.findAll('[data-testid="today-task-item"]')).toHaveLength(1)
 	})
 
@@ -380,15 +387,15 @@ describe('TodayView', () => {
 
 	// BUG-UX-005 (CS-PLAN-088 feedback #5): work whose flex window is open
 	// although it is planned for another day can be completed from Today.
-	function openWindowRow(occurrence) {
-		const tomorrowKey = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+	function openWindowRow(over = {}) {
 		return {
-			roomTask: { id: 41, taskId: 7, roomId: 1, isActive: true, nextDue: `${tomorrowKey}T00:00:00+00:00` },
+			roomTask: { id: 41, taskId: 7, roomId: 1, isActive: true, nextDue: `${dayKey(2)}T00:00:00+00:00` },
 			task: { id: 7, name: 'Clean the oven', energyCost: 2 },
 			room: { id: 1, name: 'Kitchen' },
 			assignees: [],
 			openWindow: true,
-			occurrence: { occurrenceId: '15:3', classification: 'agreed', plannedDate: tomorrowKey, ...occurrence },
+			// Planned tomorrow, the window reaches from today to the day after.
+			cycle: cycle(1, 2, over),
 		}
 	}
 
@@ -413,8 +420,8 @@ describe('TodayView', () => {
 		expect(mockRoomTasksStore.completeRoomTask).toHaveBeenCalledWith(41)
 	})
 
-	it('drops an open-window row once its next target is no longer an open window', async () => {
-		mockRoomTasksStore.dailyTasks = [openWindowRow({ classification: 'late' })]
+	it('drops an open-window row once its cycle is no longer open', async () => {
+		mockRoomTasksStore.dailyTasks = [openWindowRow({ state: 'upcoming' })]
 		mockRoomTasksStore.overdueTasks = []
 
 		const wrapper = await mountView()
@@ -438,9 +445,9 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
 	})
 
-	it('adds up the energy the rows show, so a saved occurrence keeps its value in the overload note', async () => {
+	it('adds up the energy of the definitions: an edit of the energy shows in the status at once', async () => {
 		mockSchedulingStore.getOwnCapacityForDay = () => 4
-		mockRoomTasksStore.dailyTasks = [{ ...todayFixture()[0], task: { id: 1, name: 'Do the dishes', energyCost: 9 }, occurrence: { energy: 3 } }]
+		mockRoomTasksStore.dailyTasks = [{ ...todayFixture()[0], task: { id: 1, name: 'Do the dishes', energyCost: 3 } }]
 		mockRoomTasksStore.overdueTasks = []
 		const wrapper = await mountView()
 
@@ -453,12 +460,11 @@ describe('TodayView', () => {
 			...todayFixture()[0],
 			task: { id: 1, name: 'Do the dishes', energyCost: 5, frequencyType: 'daily', frequencyValue: 3, flexDays: 2 },
 			room: { id: 1, name: 'Kitchen', floorId: 3 },
-			occurrence: { energy: 2, plannedDate: '2026-08-18' },
 		}]
 		const wrapper = await mountView()
 		const row = wrapper.get('[data-testid="today-task-item"]')
 
-		expect(row.get('[data-testid="task-energy"]').text()).toMatch(/ 2$/)
+		expect(row.get('[data-testid="task-energy"]').text()).toMatch(/ 5$/)
 		expect(row.get('[data-testid="task-recurrence"]').text()).toContain('Every 3 days ±2')
 		expect(row.get('[data-testid="task-location"]').text()).toBe('Upstairs · Kitchen')
 	})
@@ -533,22 +539,6 @@ describe('TodayView', () => {
 		expect(wrapper.text()).toContain('Take out trash')
 	})
 
-	it('uses current occurrence obligations for My Day, not future defaults or voluntary shares', async () => {
-		mockRoomTasksStore.dailyTasks[1].proposal = {
-			basis: 'agreement', obligatedUserIds: ['teen'], participants: [{ userId: 'teen', sharePct: 100 }],
-		}
-		mockRoomTasksStore.dailyTasks[2].proposal = {
-			basis: 'agreement', obligatedUserIds: ['mom'], participants: [{ userId: 'mom', sharePct: 100 }],
-		}
-		mockRoomTasksStore.overdueTasks[0].proposal = {
-			basis: 'agreement', obligatedUserIds: [], participants: [{ userId: 'mom', sharePct: 100 }],
-		}
-		const wrapper = await mountView()
-		expect(wrapper.text()).not.toContain('Wipe kitchen counters')
-		expect(wrapper.text()).toContain('Tidy up toys')
-		expect(wrapper.text()).not.toContain('Take out trash')
-	})
-
 	it('completing a task calls the store and marks the row completed', async () => {
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()
@@ -562,12 +552,12 @@ describe('TodayView', () => {
 	})
 
 	it('holds a just-completed recurring row in place with its feedback, then lets it go (D-090-30)', async () => {
-		const tomorrow = new Date(Date.now() + 86400000).toISOString()
 		mockRoomTasksStore.completeRoomTask.mockImplementation(async (roomTaskId) => {
-			// The store reconciles the read and marks the row in one step.
+			// The store reconciles the read and marks the row in one step:
+			// the next cycle is planned for tomorrow.
 			const index = mockRoomTasksStore.dailyTasks.findIndex(item => item.roomTask.id === roomTaskId)
 			const row = mockRoomTasksStore.dailyTasks[index]
-			mockRoomTasksStore.dailyTasks[index] = { ...row, roomTask: { ...row.roomTask, nextDue: tomorrow } }
+			mockRoomTasksStore.dailyTasks[index] = { ...row, cycle: cycle(1) }
 			mockRoomTasksStore.justCompletedIds = { [roomTaskId]: true }
 			return { roomTask: mockRoomTasksStore.dailyTasks[index].roomTask, rewards: {} }
 		})
@@ -591,17 +581,17 @@ describe('TodayView', () => {
 		expect(names()).toEqual(['Wipe kitchen counters'])
 	})
 
-	it('holds a completed miss in the overdue block instead of showing it twice', async () => {
+	it('holds a completed overdue row in the overdue block until its feedback is over', async () => {
 		mockRoomTasksStore.completeRoomTask.mockImplementation(async (roomTaskId) => {
-			// The miss is covered and the task is due again today.
+			// The window is closed late; the overdue read no longer lists the task.
 			const row = mockRoomTasksStore.overdueTasks.find(item => item.roomTask.id === roomTaskId)
 			mockRoomTasksStore.overdueTasks = []
-			mockRoomTasksStore.dailyTasks = [...mockRoomTasksStore.dailyTasks, { ...row, roomTask: { ...row.roomTask, nextDue: new Date().toISOString() } }]
 			mockRoomTasksStore.justCompletedIds = { [roomTaskId]: true }
 			return { roomTask: row.roomTask, rewards: {} }
 		})
+		// The viewer's own task: it completes without the participation dialog.
+		mockRoomTasksStore.overdueTasks[0].assignees = ['mom']
 		const wrapper = await mountView()
-		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
 
 		await confirmHold(wrapper, '[data-testid="today-complete-button-30"]')
 
@@ -613,12 +603,13 @@ describe('TodayView', () => {
 		await wrapper.vm.$nextTick()
 
 		expect(wrapper.find('[data-testid="today-section-catchup"]').exists()).toBe(false)
-		expect(wrapper.find('[data-testid="today-complete-button-30"]').exists()).toBe(true)
+		expect(wrapper.text()).not.toContain('Take out trash')
 	})
 
-	it('asks who took part before completing work agreed for someone else (WP3 §3.6)', async () => {
-		mockRoomTasksStore.dailyTasks[0].proposal = { participants: [{ userId: 'teen', sharePct: 100 }] }
+	it('asks who took part before completing a task that belongs to someone else (WP3 §3.6)', async () => {
+		mockRoomTasksStore.dailyTasks[0].assignees = ['teen']
 		const wrapper = await mountView()
+		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
 
 		await confirmHold(wrapper, '[data-testid="today-complete-button-11"]')
 
@@ -646,15 +637,10 @@ describe('TodayView', () => {
 		expect(button().attributes('aria-busy')).toBe('true')
 	})
 
-	it('completing a recurring task removes it from the list once its next due moves away', async () => {
-		const tomorrow = new Date()
-		tomorrow.setDate(tomorrow.getDate() + 1)
+	it('completing a recurring task removes it from the list once its next cycle is planned for another day', async () => {
 		mockRoomTasksStore.completeRoomTask.mockImplementation(async (roomTaskId) => {
 			const index = mockRoomTasksStore.dailyTasks.findIndex(item => item.roomTask.id === roomTaskId)
-			mockRoomTasksStore.dailyTasks[index] = {
-				...mockRoomTasksStore.dailyTasks[index],
-				roomTask: { ...mockRoomTasksStore.dailyTasks[index].roomTask, nextDue: tomorrow.toISOString() },
-			}
+			mockRoomTasksStore.dailyTasks[index] = { ...mockRoomTasksStore.dailyTasks[index], cycle: cycle(1) }
 			return { roomTask: mockRoomTasksStore.dailyTasks[index].roomTask, rewards: {} }
 		})
 		const wrapper = await mountView()
@@ -665,18 +651,15 @@ describe('TodayView', () => {
 		expect(wrapper.text()).not.toContain('Do the dishes')
 	})
 
-	it('completing a recurring overdue task moves it to Today when its next occurrence is today', async () => {
+	it('completing an overdue task empties the overdue block: its next cycle counts from today', async () => {
+		mockRoomTasksStore.overdueTasks[0].assignees = ['mom']
 		const wrapper = await mountView()
-		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
 
 		await confirmHold(wrapper, '[data-testid="today-complete-button-30"]')
 		await flushAsync()
 
-		// Catch-up section emptied out…
 		expect(wrapper.find('[data-testid="today-section-catchup"]').exists()).toBe(false)
-		// …and the row re-rendered as an active Today row (not dropped).
-		expect(wrapper.text()).toContain('Take out trash')
-		expect(wrapper.find('[data-testid="today-complete-button-30"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="today-complete-button-30"]').exists()).toBe(false)
 	})
 
 	it('renders a friendly empty state when nothing is due', async () => {

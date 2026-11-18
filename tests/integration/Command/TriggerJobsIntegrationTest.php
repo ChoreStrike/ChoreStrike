@@ -93,33 +93,17 @@ class TriggerJobsIntegrationTest extends IntegrationTestCase {
 		$pref->setUpdatedAt(new \DateTime('2026-09-29 10:00:00 UTC'));
 		$prefMapper->insertOrGet($pref);
 
-		// Materialize today's slot for 18:00 (UTC house) and queue one
-		// organizational update so the summary is non-empty (no empty
+		// Materialize today's slot for 18:00 (UTC house). The member's own
+		// task planned for today makes the summary non-empty (no empty
 		// summary is ever sent, C5c).
 		$scheduleService = \OC::$server->get(\OCA\ChoreStrike\Service\DigestScheduleService::class);
 		$stats = $scheduleService->materializeSlotsForHouse($houseId, new \DateTime('2026-09-29 17:30:00 UTC'));
 		self::assertGreaterThanOrEqual(1, $stats['materialized'], 'today/tomorrow slots are materialized for the opted-in member');
 
-		$changeMapper = \OC::$server->get(\OCA\ChoreStrike\Db\DigestChangeMapper::class);
 		$todayKey = '2026-09-29';
 		$floorId = $this->createFloor($houseId);
 		$roomId = $this->createRoom($houseId, $floorId);
-		$roomTaskId = $this->assignTaskToRoom($this->createTask($houseId, 'Digest source'), $roomId, 'dg-member', $todayKey);
-		$source = \OC::$server->get(\OCA\ChoreStrike\Db\OccurrenceMapper::class)->findByRoomTask($roomTaskId)[0];
-		$change = new \OCA\ChoreStrike\Db\DigestChange();
-		$change->setHouseId($houseId);
-		$change->setHouseUserId((int)$member->getId());
-		$change->setObjectType('agreement');
-		$change->setObjectId((string)$source->getId());
-		$change->setObjectRevision($source->getVersion());
-		$change->setCategory(\OCA\ChoreStrike\Db\DigestChange::CATEGORY_ORG);
-		$change->setChangeTime(new \DateTime('2026-09-29 10:00:00 UTC'));
-		$change->setTargetSlot($todayKey);
-		$change->setDisposition(\OCA\ChoreStrike\Db\DigestChange::DISPOSITION_QUEUED);
-		$change->setCreatedAt(new \DateTime('2026-09-29 10:00:00 UTC'));
-		$change->setUpdatedAt(new \DateTime('2026-09-29 10:00:00 UTC'));
-		$changeMapper->queueOrCoalesce($change);
-		self::assertCount(1, $changeMapper->findBySlot((int)$member->getId(), $todayKey), 'the fixture change is queued for today');
+		$this->assignTaskToRoom($this->createTask($houseId, 'Digest source'), $roomId, 'dg-member', $todayKey);
 
 		$notificationTester = new CommandTester(\OC::$server->get(TriggerJobs::class));
 		$this->assertSame(

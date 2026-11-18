@@ -675,7 +675,7 @@ function Invoke-AppUpgradeProof {
     }
     # The fixture lives next to the app: it runs on both builds.
     $null = Invoke-Docker @('exec', $container, 'mkdir', '-p', '/opt/cs-upgrade')
-    foreach ($file in @('upgrade-fixture.php', 'owned-target.php')) {
+    foreach ($file in @('upgrade-fixture.php', 'upgrade-cycles.php', 'owned-target.php')) {
         $null = Invoke-Docker @('cp', (Join-Path $repo "tests\recovery\$file"), "${container}:/opt/cs-upgrade/$file")
     }
     $seed = Invoke-UpgradeFixture $container 'seed'

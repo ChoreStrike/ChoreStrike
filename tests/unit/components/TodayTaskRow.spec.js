@@ -59,19 +59,19 @@ describe('TodayTaskRow', () => {
 	const mountRow = (props = {}) => mount(TodayTaskRow, { props: { item: item(), ...props } })
 
 	it('shows the same facts as a task list: name, energy, recurrence, floor and room, people', () => {
-		const wrapper = mountRow({ item: item({ occurrence: { energy: 2 }, task: { ...item().task, instructions: 'Rinse first.' } }) })
+		const wrapper = mountRow({ item: item({ task: { ...item().task, instructions: 'Rinse first.' } }) })
 
 		expect(wrapper.get('.task-name').text()).toBe('Do the dishes')
-		expect(wrapper.get('[data-testid="task-energy"]').text()).toMatch(/ 2$/)
+		expect(wrapper.get('[data-testid="task-energy"]').text()).toMatch(/ 3$/)
 		expect(wrapper.get('[data-testid="task-recurrence"]').text()).toContain('Every 3 days ±2')
 		expect(wrapper.get('[data-testid="task-location"]').text()).toBe('Upstairs · Kitchen')
 		expect(wrapper.get('[data-testid="task-assignees"]').text()).toContain('Assigned to: Parent')
 		expect(wrapper.get('.task-instructions').text()).toBe('Rinse first.')
 	})
 
-	it('names the people the occurrence obliges before the standing assignees', () => {
+	it('names the assignees of the row before those of its room task', () => {
 		mockUserStore.houseUsers.push({ nextcloudUserId: 'teen', displayName: 'Teen' })
-		const wrapper = mountRow({ item: item({ proposal: { obligatedUserIds: ['teen'] } }) })
+		const wrapper = mountRow({ item: item({ assignees: ['teen'], roomTask: { id: 11, isActive: true, assignees: ['mom'] } }) })
 
 		expect(wrapper.get('[data-testid="task-assignees"]').text()).toContain('Assigned to: Teen')
 	})
@@ -129,43 +129,48 @@ describe('TodayTaskRow', () => {
 		expect(wrapper.find('[data-testid="today-complete-button-11"]').exists()).toBe(true)
 	})
 
-	describe('an overdue row', () => {
-		const overdue = (occurrence) => mountRow({ variant: 'overdue', item: item({ occurrence }) })
+	/** The cycle block of a row planned `planned` days from today whose window ends `end` days from today. */
+	const cycle = (planned, end = planned) => ({
+		cycleKey: 'c1',
+		expectedVersion: 0,
+		state: end < 0 ? 'overdue' : 'open',
+		centreOn: dayKey(planned),
+		windowStartOn: dayKey(planned),
+		windowEndOn: dayKey(end),
+	})
 
-		it('shows the missed date with the end of its window and the days since', () => {
-			const wrapper = overdue({ plannedDate: dayKey(-3), windowEnd: `${dayKey(-3)}T20:00:00+00:00` })
+	describe('an overdue row', () => {
+		const overdue = (block) => mountRow({ variant: 'overdue', item: item({ cycle: block }) })
+
+		it('shows the planned day and the days since its window ended', () => {
+			const wrapper = overdue(cycle(-3))
 
 			expect(wrapper.get('[data-testid="today-task-item"]').classes()).toContain('overdue')
-			expect(wrapper.get('[data-testid="catchup-planned"]').text()).toMatch(/^planned .+, until .+/)
+			expect(wrapper.get('[data-testid="catchup-planned"]').text()).toMatch(/^planned /)
+			expect(wrapper.get('[data-testid="catchup-planned"]').text()).not.toContain('until')
 			expect(wrapper.get('[data-testid="today-overdue-days"]').text()).toBe('3 days')
 		})
 
-		it('counts from the end of a window that reached past the planned day', () => {
-			const wrapper = overdue({ plannedDate: dayKey(-3), windowEnd: `${dayKey(-1)}T20:00:00+00:00` })
+		it('names the end of a window that reached past the planned day and counts from it', () => {
+			const wrapper = overdue(cycle(-3, -1))
 
+			expect(wrapper.get('[data-testid="catchup-planned"]').text()).toMatch(/^planned .+, until .+/)
 			expect(wrapper.get('[data-testid="today-overdue-days"]').text()).toBe('1 day')
 		})
 
-		it('counts from the planned day without a window end and then names no time', () => {
-			const wrapper = overdue({ plannedDate: dayKey(-2) })
-
-			expect(wrapper.get('[data-testid="catchup-planned"]').text()).not.toContain('until')
-			expect(wrapper.get('[data-testid="today-overdue-days"]').text()).toBe('2 days')
-		})
-
 		it('shows no day count for a window that ended today', () => {
-			const wrapper = overdue({ plannedDate: dayKey(0), windowEnd: `${dayKey(0)}T00:00:01+00:00` })
+			const wrapper = overdue(cycle(0))
 
 			expect(wrapper.find('[data-testid="today-overdue-days"]').exists()).toBe(false)
 		})
 
-		it('reads the occurrence from the room task when the row carries none', () => {
-			const wrapper = mountRow({ variant: 'overdue', item: item({ roomTask: { id: 11, isActive: true, occurrence: { plannedDate: dayKey(-2) } } }) })
+		it('reads the cycle from the room task when the row carries none', () => {
+			const wrapper = mountRow({ variant: 'overdue', item: item({ roomTask: { id: 11, isActive: true, cycle: cycle(-2) } }) })
 
 			expect(wrapper.get('[data-testid="today-overdue-days"]').text()).toBe('2 days')
 		})
 
-		it('shows neither line nor count without an occurrence block', () => {
+		it('shows neither line nor count without a cycle block', () => {
 			const wrapper = mountRow({ variant: 'overdue' })
 
 			expect(wrapper.find('[data-testid="catchup-planned"]').exists()).toBe(false)
@@ -174,9 +179,9 @@ describe('TodayTaskRow', () => {
 	})
 
 	it('names the planned day of a row that is only possible today, and no day for a due row', () => {
-		const occurrence = { plannedDate: dayKey(1), windowEnd: `${dayKey(2)}T20:00:00+00:00` }
-		const possible = mountRow({ variant: 'possible', item: item({ occurrence }) })
-		const due = mountRow({ item: item({ occurrence }) })
+		const block = cycle(1, 2)
+		const possible = mountRow({ variant: 'possible', item: item({ cycle: block }) })
+		const due = mountRow({ item: item({ cycle: block }) })
 
 		expect(possible.get('[data-testid="today-open-window-planned-11"]').text()).toMatch(/^planned /)
 		expect(possible.get('[data-testid="today-open-window-planned-11"]').text()).not.toContain('until')

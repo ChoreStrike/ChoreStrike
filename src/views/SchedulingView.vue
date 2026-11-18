@@ -35,12 +35,6 @@
 				<AvailabilitySettings data-testid="availability-settings" />
 			</section>
 
-			<!-- CS-PLAN-065: owner-only. The own days and energy are in the
-			     personal settings (CS-PLAN-090 WP-D). -->
-			<section v-if="userStore.isHouseOwner" class="scheduling-section">
-				<SchedulePlanner data-testid="schedule-planner" />
-			</section>
-
 			<section class="scheduling-section">
 				<ScheduleCalendar data-testid="schedule-calendar" />
 			</section>
@@ -55,7 +49,6 @@ import HelpEntry from '../components/Help/HelpEntry.vue'
 import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
 import OvercapacityWarning from '../components/Scheduling/OvercapacityWarning.vue'
 import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
-import SchedulePlanner from '../components/Scheduling/SchedulePlanner.vue'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useSchedulingStore } from '../store/scheduling.js'
@@ -77,12 +70,12 @@ onMounted(async () => {
 	} catch (error) {
 		logger.error('Failed to initialize scheduling', error, { view: 'SchedulingView', action: 'initializeScheduling' })
 	}
-	// Best-effort: preload tasks so the preview/suggestions sections have
-	// data. Failures are non-fatal (those sections show their empty states).
+	// Best-effort: preload tasks so the load view has their energy.
+	// Failures are non-fatal (the sections show their empty states).
 	try {
 		await tasksStore.fetchTasks()
 	} catch (error) {
-		logger.warn('Could not preload tasks for scheduling preview', { view: 'SchedulingView', error })
+		logger.warn('Could not preload tasks for the scheduling view', { view: 'SchedulingView', error })
 	}
 	// Best-effort: room tasks feed the overcapacity warning. A failure
 	// must not break the scheduling view (warning simply stays empty).

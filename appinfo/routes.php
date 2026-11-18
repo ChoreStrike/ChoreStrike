@@ -76,9 +76,10 @@ return [
         // exclusively through POST /completions/{id}/undo (exact
         // completion targeting; the latest-by-room-task route is gone
         // without a compatibility alias).
-        ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
-        // FEAT-UX-045 (CS-PLAN-088 D-088-20): "last done on" per room task.
-        ['name' => 'room_task_last_done#update', 'url' => '/api/v1/room-tasks/{id}/last-done', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // Pruned 2026-11-17 (CS-PLAN-091 WP-B1, ADR-021): `room_task#updateDueDate`
+        // (PUT /room-tasks/{id}/due-date) and `room_task_last_done#update`
+        // (PUT /room-tasks/{id}/last-done) — the next window is derived and never
+        // edited directly; the first date replaces "last done on" (D-091-19).
         ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET', 'requirements' => ['roomId' => '\d+']],
 
         // Completion correction API (CS-PLAN-070 WP3 §3.6): versioned,
@@ -161,18 +162,15 @@ return [
         ['name' => 'scheduling#updatePreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'PUT'],
         ['name' => 'scheduling#getMemberAvailability', 'url' => '/api/v1/scheduling/members', 'verb' => 'GET'],
         ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT', 'requirements' => ['userId' => '[a-zA-Z0-9_.@-]+']],
-        // CS-PLAN-065 (ADR-012): the taskCount-only advice contract was
-        // replaced on the same URL by the real-task owner preview; apply is
-        // the one atomic confirmation. No legacy fallback.
-        ['name' => 'scheduling#preview', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
-        ['name' => 'scheduling#apply', 'url' => '/api/v1/scheduling/apply', 'verb' => 'POST'],
+        // Pruned 2026-11-17 (CS-PLAN-091 WP-B1, ADR-022): `scheduling#preview`
+        // (POST /scheduling/suggestions) and `scheduling#apply`
+        // (POST /scheduling/apply) — nothing is applied as an agreement any more;
+        // the live suggestion (WP-C) replaces them.
 
-        // Occurrence agreement API (CS-PLAN-073 WP2 §3.5): owner-recorded
-        // amendments, catch-up and restart as CommandService commands.
-        // `{id}` is the public occurrence key `<scheduleRevisionId>:<ordinal>`.
-        ['name' => 'occurrence#amend', 'url' => '/api/v1/occurrences/{id}/amend', 'verb' => 'POST', 'requirements' => ['id' => '\d+:\d+']],
-        ['name' => 'occurrence#catchUp', 'url' => '/api/v1/occurrences/{id}/catch-up', 'verb' => 'POST', 'requirements' => ['id' => '\d+:\d+']],
-        ['name' => 'occurrence#restart', 'url' => '/api/v1/occurrences/{id}/restart', 'verb' => 'POST', 'requirements' => ['id' => '\d+:\d+']],
+        // Pruned 2026-11-17 (CS-PLAN-091 WP-B1, ADR-021): the occurrence agreement
+        // API — `occurrence#amend`, `occurrence#catchUp` and `occurrence#restart`
+        // (POST /occurrences/{id}/…). Windows are derived; stored agreements stay
+        // readable as history.
 
         // Pause API (CS-PLAN-073 WP2 §3.4/§3.5): revisioned pause lifecycle.
         ['name' => 'pause#index', 'url' => '/api/v1/pauses', 'verb' => 'GET'],

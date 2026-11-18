@@ -8,12 +8,9 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\OccurrenceMember;
-
 /**
  * The ONE pure share-validation/allocation implementation (CS-PLAN-070
- * WP3 §3.2) — moved (not copied) from the WP2 planner arithmetic and now
- * shared by planned shares (SchedulePlanService) and actual shares
+ * WP3 §3.2) for the actual shares of a completion
  * (CompletionService).
  *
  * Exact integer hundredths: for total energy `E` and percentage `P`,
@@ -42,6 +39,9 @@ class EffortAllocationService {
 	/** Energy minor units per whole energy unit. */
 	public const ENERGY_MINOR_PER_UNIT = 100;
 
+	/** Maximum positive whole-percent participants of one completion. */
+	public const MAX_PARTICIPANTS = 100;
+
 	/** The JSON money boundary: every minor-unit value must stay within. */
 	public const JS_SAFE_INTEGER_MAX = 9007199254740991;
 
@@ -54,7 +54,7 @@ class EffortAllocationService {
 	 */
 	public function validateShares(array $shares): void {
 		$count = count($shares);
-		if ($count < 1 || $count > DailyCapacityService::MAX_PARTICIPANTS) {
+		if ($count < 1 || $count > self::MAX_PARTICIPANTS) {
 			throw new \InvalidArgumentException('A completion requires between 1 and 100 participants');
 		}
 		$total = 0;
@@ -129,31 +129,5 @@ class EffortAllocationService {
 		if ($value > self::JS_SAFE_INTEGER_MAX || $value < -self::JS_SAFE_INTEGER_MAX) {
 			throw new \InvalidArgumentException($field . ' exceeds the safe integer range');
 		}
-	}
-
-	/**
-	 * The effective concrete agreement shares (WP3 §3.2) as ONE shared
-	 * derivation: ACTIVE occurrence member rows with a resolvable wallet
-	 * map to their share (clamped to at least 1 so a legacy zero row can
-	 * not silently drop a participant). Used by the completion writer AND
-	 * the read-side proposal block — the preview can never drift from
-	 * what a participant-less completion would credit.
-	 *
-	 * @param OccurrenceMember[] $memberRows
-	 * @param array<int, string> $userIdByWallet walletId => userId
-	 * @return array<string, int> userId => sharePct (empty = no agreement)
-	 */
-	public function agreementShares(array $memberRows, array $userIdByWallet): array {
-		$agreed = [];
-		foreach ($memberRows as $memberRow) {
-			if ($memberRow->getDisposition() !== OccurrenceMember::DISPOSITION_ACTIVE) {
-				continue;
-			}
-			$uid = $userIdByWallet[(int)$memberRow->getWalletId()] ?? null;
-			if ($uid !== null) {
-				$agreed[$uid] = max(1, $memberRow->getSharePct());
-			}
-		}
-		return $agreed;
 	}
 }

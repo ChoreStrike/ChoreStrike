@@ -20,6 +20,7 @@
 import type { Page } from '@playwright/test'
 
 import { createUserContext } from './fixtures/auth-contexts.ts'
+import { needsParticipantSplit } from './fixtures/completion-api.ts'
 import { expect, test } from './fixtures/database-fixtures.ts'
 import { holdToConfirm } from './fixtures/hold-to-confirm.ts'
 import { houseDateOffset } from './fixtures/house-clock.js'
@@ -41,10 +42,9 @@ async function openKitchen(page: Page): Promise<void> {
 }
 
 /**
- * The Kitchen room task whose server proposal lets `userId` complete
- * DIRECTLY (WP3 Q-074-02): no proposal (solo work) or a sole agreement
- * naming the user — rows agreed to someone else would open the
- * participation dialog instead.
+ * The Kitchen room task `userId` completes DIRECTLY (no participation
+ * dialog): unassigned work or the user's own — rows of someone else, or of
+ * several people, would open the participation dialog instead.
  */
 async function ownKitchenTask(page: Page, userId: string): Promise<{ id: number, name: string }> {
 	const rows = await (await page.request.get('/apps/chorestrike/api/v1/room-tasks')).json()
@@ -53,13 +53,10 @@ async function ownKitchenTask(page: Page, userId: string): Promise<{ id: number,
 		id: number
 		roomId: number
 		taskId: number
-		occurrence: unknown
-		proposal: { participants: Array<{ userId: string }> } | null
-	}>).filter((row) => row.roomId === kitchen.id && row.occurrence)
-	const own = candidates.find((row) => {
-		const participants = row.proposal?.participants ?? []
-		return participants.length === 0 || (participants.length === 1 && participants[0].userId === userId)
-	})
+		assignees: string[]
+		cycle: unknown
+	}>).filter((row) => row.roomId === kitchen.id && row.cycle)
+	const own = candidates.find((row) => !needsParticipantSplit(row.assignees ?? [], userId))
 	expect(own, 'the family seed always provides a Kitchen task the user may complete directly').toBeTruthy()
 
 	const tasks = await (await page.request.get('/apps/chorestrike/api/v1/tasks')).json()
@@ -134,9 +131,9 @@ test.describe('Task Completion Full Flow', () => {
 				const probe = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 					data: {
 						roomId: kitchen.id,
-						// CS-PLAN-072 WP1: due TODAY so the occurrence window is
-						// open and the UI completion resolves a shown target.
-						nextDue: houseDateOffset(0, 'UTC'),
+						// First day TODAY so the cycle is open and the UI
+						// completion resolves a shown target.
+						firstDate: houseDateOffset(0, 'UTC'),
 						task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
 					},
 				})
@@ -241,7 +238,7 @@ test.describe('Task Completion Full Flow', () => {
 			await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
 
 			// Unconditional: the completed task no longer offers a complete
-			// button (deactivated occurrence or completed projection).
+			// button (deactivated task or completed projection).
 			const completedTaskItem = page.locator('[data-testid="task-item"]').filter({ hasText: String(taskName) }).first()
 			await expect(completedTaskItem.locator('[data-testid="complete-task-button"]')).toHaveCount(0, { timeout: 15000 })
 		} finally {
@@ -263,9 +260,9 @@ test.describe('Task Completion Full Flow', () => {
 				data: {
 					roomId: kitchen.id,
 					assigneeUserIds: ['mom'],
-					// CS-PLAN-072 WP1: due TODAY so the once occurrence window
-					// is open and the UI completion resolves a shown target.
-					nextDue: houseDateOffset(0, 'UTC'),
+					// First day TODAY so the one-time cycle is open and the UI
+					// completion resolves a shown target.
+					firstDate: houseDateOffset(0, 'UTC'),
 					task: {
 						name: 'WP5 Undo Proof',
 						energyCost: 2,

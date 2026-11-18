@@ -39,11 +39,10 @@ class TaskMapper extends QBMapper {
 	/**
 	 * Find a task definition by ID and acquire an exclusive lock on its row.
 	 *
-	 * Scheduling-apply lock primitive (ADR-012): the apply aggregate locks
-	 * capacity-relevant task definitions (ascending IDs, after the
-	 * room-task locks) so a concurrent definition edit (energy, priority,
-	 * recurrence, flex, active bounds) serializes against the applied plan
-	 * instead of committing between the fingerprint read and the writes.
+	 * Definition-edit lock under the house-first order: a rule, flex or
+	 * energy edit locks the definition before it moves the current cycle
+	 * of every mounted room task (ADR-021 decision 1), so two edits
+	 * serialize instead of interleaving.
 	 * Mirrors RoomTaskMapper::lockForUpdate — MySQL/PostgreSQL take a true
 	 * `SELECT … FOR UPDATE`; SQLite uses the no-op self-assignment UPDATE
 	 * that writes the column's own current value (never pre-read data) to
@@ -155,6 +154,7 @@ class TaskMapper extends QBMapper {
 		string $visibilityType = 'public',
 		?string $ownerUserId = null,
 		int $flexDays = 0,
+		?int $fixedMonthDay = null,
 	): Task {
 		$task = new Task();
 		$task->setName($name);
@@ -181,6 +181,7 @@ class TaskMapper extends QBMapper {
 		$task->setVisibilityType($visibilityType);
 		$task->setOwnerUserId($ownerUserId);
 		$task->setFlexDays($flexDays);
+		$task->setFixedMonthDay($fixedMonthDay);
 		$task->setCreatedAt(new \DateTime());
 
 		return $this->insert($task);

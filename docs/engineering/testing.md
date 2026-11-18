@@ -318,6 +318,14 @@ upgrade, runs `occ upgrade` before configuration and seed, and then reseeds as
 usual. The core version check above still applies first, so this never updates
 Nextcloud itself. Preservation mode never upgrades implicitly.
 
+A migration step added **without** an app version bump would stay pending on
+kept volumes, because Nextcloud applies an app's steps only when its version
+changes (CS-PLAN-091 RF-091-01). Ordinary, seeded provisioning therefore
+applies the app's own pending steps through the framework's migration service
+once the app is enabled and before the seed; an installation that is current
+is left alone. Preservation mode never does this: it proves the real upgrade
+path.
+
 All three GitHub Actions browser workflows build application assets before provisioning.
 Their canonical startup awaits the app/seed readiness healthcheck and verifies
 the frozen runtime before mutation. The companion profile/browser matrix uses
@@ -628,15 +636,27 @@ the pinned migrations, and populates it through that build's own services:
 preference rows in every state (an "off" nobody chose, an "on" with sound, a
 deliberate "off", a row created by ranking consent, members without a row) and
 pause rows in every stored state, the two the departure rule cancels in place
-included. Then it replaces the files with the candidate under maintenance mode
+included, and next to the family seed room tasks on a fixed weekly, a fixed
+monthly and a one-time rule. Then it replaces the files with the candidate under maintenance mode
 and runs `occ upgrade`, as a deployment does. `tests/recovery/upgrade-fixture.php`
 sits next to the app because it runs on both builds. It must fail on the state
-before the update, and afterwards find the one expected change and nothing
-else: all 30 app tables and the app config (except `installed_version`) are
-compared row by row. A second `occ upgrade` finds no work and changes nothing,
+before the update, and afterwards find the expected changes and nothing else:
+the 30 app tables of the source build and the app config (except
+`installed_version`) are compared row by row in every column that build had.
+The expected changes are the animation default (CS-PLAN-090) and the cutover
+to derived due windows (CS-PLAN-091 WP-B1, `upgrade-cycles.php`): two new,
+empty cycle tables, and the new columns holding exactly the cutover values
+worked out from the stored rows — the day of the update per house, the
+streak bases, the anchor of every room task by its rule and the day of a
+fixed monthly rule; completions carry no cycle facts and every other new
+column its default. A second `occ upgrade` finds no work and changes nothing,
 the read-only schema parity cases pass on the upgraded database, and the
 candidate's services read the default, take a first save that switches the
-animation off and reject a version from before the update. P4 supports
+animation off and reject a version from before the update. They also read a
+first window for every room task that had a schedule, evaluate the week of
+the cutover, and take one completion that closes exactly its cycle while the
+stored occurrences, members, agreements, revisions and ticks keep every row.
+P4 supports
 `mysql`, `pgsql` and `sqlite` on the primary row, and `pgsql` on the AIO row's
 Nextcloud and PHP image, there without the Redis peer. Move `$UpgradeSource`
 with every verified deployment. A candidate that still carries the installed
@@ -831,10 +851,11 @@ accounts; new-account provisioning and reuse therefore exercise different paths.
 
 Concurrency helpers must prove successful commit **and normal exit** before
 parent cleanup or final assertions. A pre-commit readiness signal proves only
-that the worker reached that point. `SchedulePlanConcurrencyTest` covers real
-apply, early conflict, aborted commit and stalled-worker rejection with one
-parent-selected target day; an aborted independent row-holder transaction does
-not explain disappearance of other tests' house/member fixtures.
+that the worker reached that point. `OwnerCommandAuthorizationTest` and
+`HouseMutationConcurrencyTest` hold a second connection at a query barrier;
+`CycleTimelineTest` starts two job workers on one go signal and adds up what
+each of them wrote. An aborted independent row-holder transaction does not
+explain disappearance of other tests' house/member fixtures.
 
 Time-sensitive tests should use existing explicit-clock seams and fixed
 expectations. At Sunday 22:30 UTC in summer (23:30 in winter), Berlin and UTC
@@ -1121,9 +1142,8 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage — the arcade is its own opt-in surface under `#/arcade` (CS-PLAN-070 WP6), no longer a Dashboard section |
 | `calm-core-ui.spec.ts` | Calm core UI (CS-PLAN-070 WP6, CS-PLAN-090 WP-B): every role lands on Today and the old `#/dashboard` address leads there, Today shows the own Coins and no arcade, catalog or ranking surface, the optional arcade hiding together with its navigation entry while `arcadeVisible` is off, and the absence journey of ADR-020 (a child enters an absence, everyone sees it, the owner deletes it). Runs in `chromium-serial-db` (preference/pause state is seed-mutating) |
-| `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Smart Scheduling UI — availability grid, energy budget, capacity calendar, owner-plan preview gating (revived by CS-PLAN-016; plan preview/apply contract by CS-PLAN-065) |
-| `scheduling-apply-flow.spec.ts` | Owner plan exit journey (CS-PLAN-065): preview → adjust → apply over real seeded tasks, applied-assignment verification in My Day + calendar, stale-preview 409, unplaced overdue zero-flex row, retired taskCount contract rejection |
-| `family-rhythm.spec.ts` | Occurrence-timeline client contract (CS-PLAN-072 WP1, ADR-013): a UI completion carries the full receipt (`commandId`/`occurrenceId`/`expectedVersion`/`selectionToken`), a new command on a fulfilled occurrence is a 409 (never credits another target), a replayed `commandId` returns the original identity, and a stale receipt after a due-date move is a 409; in a Europe/Berlin house a move onto an unavailable day shows the server's reason (`CONFLICT`, draft kept) and a feasible move is accepted (BUG-UX-002). Runs in `chromium-serial-db` (seed-mutating). The deep enumeration/revision/catch-up math stays owned by the service-level `OccurrenceTimelineTest` |
+| `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Scheduling UI — availability grid, energy budget, capacity calendar; no planner, preview or apply any more, and the retired preview and apply routes answer 404 while the preferences stay (CS-PLAN-091 WP-B1, ADR-022) |
+| `family-rhythm.spec.ts` | Derived-cycle client contract (CS-PLAN-091 WP-B1, ADR-021): a UI completion carries the full receipt (`commandId`/`cycleKey`/`expectedVersion`) and the answer the next cycle; a closed cycle, a second completion the same day (`SAME_DAY`) and a stale receipt after a definition edit (`STALE_TARGET`) conflict 409 without a second effect, a replay returns the original identity, a wrong key and the retired occurrence fields are a 400; work completes before its window opens and after it ended; one overdue card per task on My Day; a non-UTC house; an absence and a house pause leave rows and cycles in place; work above a child's daily limit is accepted; private-task 404; the rhythm read contract |
 | `self-availability-member.spec.ts` | Non-owner scheduling surface: "My Availability" self-service toggles, hidden owner grid, persist/reload round-trip (CS-PLAN-032; runs in default `chromium` as `admin`, ignored by firefox/webkit) |
 | `color-contrast.spec.ts` | WCAG AA text contrast (axe) and the non-text probe (3:1) in the light and dark Nextcloud themes: every main view on *Standard*, and two views (Today, Settings → Appearance) per colour scheme and theme (CS-PLAN-090 WP-K). The palettes' pairs are computed by `tests/unit/css/colorSchemes.spec.js` |
 | `color-schemes.spec.ts` | A colour scheme chosen in Settings holds after a reload (initial state), colours a dialog teleported to the body and leaves the Nextcloud header alone; a high-contrast Nextcloud theme keeps the standard colours (CS-PLAN-090 WP-K; runs as `grandma`, whom no other spec of the parallel pool uses) |
@@ -1298,7 +1318,7 @@ Repository status (CS-PLAN-068 refresh):
   (`chromium-serial-db`, `emptyhouse` profile): one test with named
   `test.step` phases covering first owner bootstrap, wizard setup,
   invitations (adult + child), custom/template task creation with
-  instructions/checklist/assignees, scheduling preview→override→apply,
+  instructions/checklist/assignees, the capacity overview,
   child execution on My Day, completion receipts with exact credited
   deltas, queued undo (live + after reload) and identity/visibility
   authority on re-entry. The retired `gui-scratch-flow` spec is archived
@@ -1354,73 +1374,65 @@ Repository status:
 - Coverage includes controller, API, family, and extended room-task service scenarios.
 - Controller integration tests require the Docker/Nextcloud environment.
 
-#### WP2 agreement/pause/capacity test surface (CS-PLAN-073)
+#### Derived windows and absences test surface (CS-PLAN-091 WP-B1, ADR-021)
 
-The WP2 package added dedicated, canonical proof surfaces — extend these
-instead of duplicating their lock choreography elsewhere:
+The canonical proof surfaces — extend these instead of duplicating their
+fixtures or lock choreography elsewhere:
 
-- `tests/unit/Service/DailyCapacityServiceTest.php` — the whole-day
-  evaluator directly: exact minor-unit share vectors, occurrence-identity
-  dedupe, the frozen Q-073-02 saved-zone time basis, work appointments on
-  their actual (cross-zone) day, neutral suspension, helper-only release,
-  child limits/overload reasons, the commitment gates and the
-  replacement-removal rule (`assertCommitmentsFit(..., $replacedOccurrence)`).
-- `tests/unit/Service/{PauseService,PauseProjectionService}Test.php` —
-  pause lifecycle gates and the projection math (union provenance, helper
-  release, appointment intersection vectors). The 2026-09-25 fix round
-  added: per-group revision precedence over the FULL persisted history
-  (multi-shortening boundaries, pending/rejected govern nothing, saved-zone
-  midnight/DST boundaries, group independence — RF-073-WP2-23), the
-  recognition-eligibility gate (late ordinary acknowledgment vs original
-  deadline, decision time = approval, retrospective marker, day-level rule
-  — RF-073-WP2-25), joint suspension on ANY paused obligated participant
-  (RF-073-WP2-24), virtual/materialized participant parity
-  (RF-073-WP2-26) and the viewer-projection field whitelist
-  (RF-073-WP2-28).
-- `tests/integration/Service/PauseAgreementTest.php` — DB-backed pause ↔
-  occurrence agreement facts (suspension, catch-up appointments, union
-  provenance per `pause_ref`, shortening/illness/role gates). Fix round:
-  full-history shortening with inert job replay, pending child shortening
-  until owner acknowledgment, expired-miss eligibility (ordinary vs
-  retrospective), request-before/approval-after-expiry, and the joint
-  suspension → capacity-zero → explicit feasible resumption chain with
-  over-budget/after-deadline/no-consent zero-write rejections.
-- `tests/integration/Service/PauseAgreementConcurrencyTest.php` — REAL
-  two-connection races (second bootstrapped Nextcloud process via
-  `proc_open`, file barriers): plan-vs-pause serialization, duplicate
-  restarts (exactly one successor), same-revision shortening (one stale
-  conflict), replayed receipt UUIDs across connections (single effect) and
-  an injected failure after the pause insertion rolling back pause +
-  effects + receipt. Sequential calls never count as concurrency evidence.
-- `tests/integration/Service/OccurrenceTimelineTest.php` — the WP2 fix-round
-  agreement regressions: explicit-target amendments, persisted neutral
-  handover releases with consent evidence, appointment-carrying catch-ups,
-  receipt identity (semantic inputs + action), stale-token/zero-write
-  conflicts, derived suspension at the command boundary and helper capacity.
-  The 2026-09-25 fix round added: date-only/catch-up follow-ups after a
-  handover validating the CONCRETE arrangement in both directions (released
-  default paused → move succeeds; concrete participant paused → conflict,
-  RF-073-WP2-27) and the stopped-cron parity proof (write-free virtual GET
-  with revision-derived suspension, rejected completion, job materialization
-  converging to the same key/state/provenance/appointment,
-  RF-073-WP2-26).
+- `tests/unit/Service/WindowServiceTest.php` — the window math directly:
+  every rule mode, flex, month-end clamping, the first date, one-time and
+  bonus tasks, time zones and DST, the fixed-cycle walk and the projected
+  cycles of a range. `RecurrenceCalculatorTest` pins the calendar helpers.
+- `tests/integration/Service/CycleTimelineTest.php` — the real services on the
+  real database: the first cycle and the facts a completion freezes, late
+  work, the coded conflicts of a stale or repeated receipt, rule/flex edits
+  that move the open cycle, the `next_due` projection after **every**
+  window-changing command (creation, assignees, rule, flex, first date,
+  completion, undo, house zone, job pass), missed fixed-day cycles written
+  exactly once — repeated and concurrent job passes — never before the
+  cutover day and never for an after-completion rule, sub-task ticks per
+  cycle with partly ticked work kept, and bonus tasks without a cycle.
+- `tests/integration/Db/CycleCutoverStepTest.php` — the data step
+  `Version1036` on rows as the occurrence timeline left them (raw fixtures
+  from `Support/StoredTimelineFixtures`): the anchor of every situation, the
+  cutover day per house zone, the streak bases, nothing stored moves, the
+  step is safe to repeat, and the first window of each room task read
+  through `CycleService`. Like `AnimationDefaultStepTest` it runs the
+  whole-table step inside a transaction it rolls back.
+- `tests/integration/Service/RecognitionSourcesTest.php` — the week before,
+  of and after the cutover read from stored occurrences, cycles or both
+  without a double count, and the rhythm continuing from the streak base.
+- `tests/unit/Service/{PauseService,PauseProjectionService}Test.php` — the
+  absence lifecycle gates and the projection math: per-group revision
+  precedence over the FULL persisted history (multi-shortening boundaries,
+  pending/rejected govern nothing, saved-zone midnight/DST boundaries, group
+  independence — RF-073-WP2-23), windows entirely inside an absence
+  (`walletsAbsentThroughout`: entered later, deleted, back to back, house
+  scope) and the viewer-projection field whitelist (RF-073-WP2-28).
+- `tests/integration/Service/PauseAbsenceTest.php` — DB-backed absences and
+  what they mean for the work: neutral on read for the absent member only,
+  nothing written on the work, pending and rejected requests without effect,
+  shortening and deletion freeing the following days while today stays
+  excused, an absence entered after a window ended, the role gates and the
+  revision-staleness conflicts.
+- `tests/integration/Service/EnergyEditTest.php` and
+  `SuccessorOwnershipTest.php` — an energy, rule or flex edit reaching open
+  work at once while completed work keeps its value; who owns the next cycle
+  after a takeover or a reassignment, and the list/stats/range status rules.
 - `tests/integration/RoleGuardApiTest.php` — the role/visibility matrix on
   the real HTTP surface; fix round: the pinned `GET /pauses` wire response
   proving the field whitelist (personal reason/illness marker are
   self/owner-only in every state, unrelated adults and children receive
   neutral facts only, RF-073-WP2-28). A mocked-controller test cannot prove
   field filtering.
-- `tests/integration/Service/SchedulePlanAggregateTest.php` — the CR-SVC-64
-  local-midnight proof via the injected `SchedulePlanService::setClock()`
-  seam (preview before midnight, apply after → write-free 409; malformed
-  input stays 400) and the joint/replacement placement rules.
 - Query-budget pins: `WorkflowQueryBudgetTest` (the completion flow budget
   includes the pause-independent appointment stamping, RF-073-WP2-20).
-- Browser layer: `family-rhythm.spec.ts` describe *"Family rhythm —
-  agreements & pauses (WP2)"* (API-created pauses rendering neutral/overload
-  clarifications, child-visible agreement identity, denied child approvals,
-  owner 404 on private tasks) and `scheduling-apply-flow.spec.ts`
-  (shares/consent/draft retention, consent-less apply 400). Titles are pinned
+- Browser layer: `family-rhythm.spec.ts`, describes *"Family rhythm —
+  derived cycles"* (the receipt and its coded conflicts) and *"Family rhythm
+  — absences, limits & visibility"* (absences and a house pause leaving the
+  work in place, denied child approvals, a child's limit refusing nothing,
+  owner 404 on private tasks); `release-task-lifecycle.spec.ts` and
+  `scheduling.spec.ts` pin the 404 of the retired routes. Titles are pinned
   in `tests/e2e/required-scenarios.json`.
 
 #### WP3 work-accounting test surface (CS-PLAN-074, ADR-014)
@@ -1796,16 +1808,13 @@ doctrine/deprecations is inert unless explicitly enabled) and `detach()` in a
 |---|---|---|
 | House-wide instance read | 3 | house-scoped fetch + batched task definitions + batched assignees; CONSTANT in row count (Q(100) = Q(10)) |
 | Empty house read | 1 | mapper fetch only — no enrichment |
-| `updateDueDate` | 19 | 3 gate reads + owning-house resolution (room → floor → house, CS-PLAN-071) + BEGIN + house/room-task FOR UPDATE + the CS-PLAN-072 WP1 agreement-writer tail (timeline read, occurrence amendment, `agreements` evidence INSERT, derived-projection UPDATE) + COMMIT + exactly ONE authoritative after-commit re-read |
-| `complete()` | 45 | receipt resolution (timeline reads + selection) + command receipt read/INSERT + occurrence gates + ADR-011/071 house-first locks (house → room_task → room → house_user) + reward-phase `findForUpdate` + checklist + reward window + single ledger INSERT with frozen occurrence evidence + timeline effects (fulfill, catch-up cover, successor anchor, projection) + post-commit weekly-goal cluster + response selection block |
-| `undo()` | 36 | same house-first gate/lock structure + effect-record restore (ledger read) + the CS-PLAN-072 WP1 timeline release (occurrence reopen, successor deletion, projection re-derivation) + transaction control + post-commit weekly-goal read |
+| `complete()` | 91 | command receipt read/INSERT + ADR-011/071 house-first locks (house → room_task → room → house_user → wallets) + the current cycle derived under lock (ADR-021) + the work evidence/shares/audit trio + wallet entries and contribution recache + room journal replay + the cycle close (savepoint-guarded insert-if-absent, version bump, `next_due` projection) + rhythm re-derivation on re-loaded members + post-commit weekly-goal cluster + response `cycle` block |
+| `undo()` | 83 | same house-first gate/lock structure + under-lock completion re-read and re-authorization + negative ledger entries + work-share-driven contribution recache + journal replay + the cycle reopen (closed row deleted, projection re-derived) + rhythm re-derivation over both recognition sources + compact-response hydration |
 
-> **CS-PLAN-072 WP1 note:** the occurrence timeline (ADR-013) moved recurrence
-> authority off the mutable `next_due` column, so `updateDueDate` now writes
-> through the agreement writer and `complete()`/`undo()` resolve/release durable
-> occurrences. The budgets grew accordingly and were re-measured on the canonical
-> Docker stack; `updateDueDate`'s former "nothing runs after COMMIT" proof became
-> "exactly one authoritative re-read after COMMIT" (the response entity).
+> **CS-PLAN-091 WP-B1 note:** derived windows (ADR-021) replaced the occurrence
+> timeline: `complete()` closes and `undo()` reopens one cycle row, and the
+> retired `updateDueDate` route took its budget with it. Both budgets were
+> re-measured on the canonical Docker stack (fresh family profile).
 
 **Rules:** every budget test also asserts exact result IDs or state (a lower
 count must never be bought with wrong data); budgets are re-measured on the
@@ -1972,7 +1981,7 @@ zero newly skipped core-workflow tests (CR-WF-05).
 | `chromium` | all specs | seed-dependent + scheduling-owner spec lists | Default parallel pool, admin storageState; part of the blocking release gate. |
 | `firefox` / `webkit` | all specs | seed-dependent + scheduling-owner + self-availability spec lists | Full browser matrix (advisory; weekly full-matrix run). |
 | `chromium-serial-db` | seed-dependent spec list (incl. `core-household-journey.spec.ts`) | — | `fullyParallel: false`, `workers: 1`; reset-owning pool; blocking gate. |
-| `chromium-scheduling-owner` | scheduling-owner spec list | — | `workers: 1`, runs as `dad` (owner storageState); reset-owning pool (`scheduling-apply-flow` seeds); blocking gate. |
+| `chromium-scheduling-owner` | scheduling-owner spec list | — | `workers: 1`, runs as `dad` (owner storageState); reset-owning pool (its specs reseed); blocking gate. |
 
 Reset-owning pools are exactly `chromium-serial-db` and
 `chromium-scheduling-owner`, and they run SEQUENTIALLY behind the gate. The
@@ -2007,8 +2016,8 @@ journey is `core-household-journey.spec.ts` (`chromium-serial-db`,
 Playwright inventory above for its phase list. Focused specs at the WP9
 boundary: setup wizard (`release-setup-wizard`, `setup-wizard-journey`),
 task creation/assignment (`task-manager`, `task-grouping`), scheduling
-(`scheduling`, `flex-window-scheduling`, `availability-settings-flow`,
-`scheduling-apply-flow` in `chromium-scheduling-owner`), My Day
+(`scheduling`, `flex-window-scheduling`, `availability-settings-flow`
+in `chromium-scheduling-owner`), My Day
 (`today-view`), completion/undo (`task-completion`,
 `task-completion-full-flow` with the strengthened exact-receipt
 assertions), lifecycle (`release-task-lifecycle`), members/roles
@@ -2016,9 +2025,9 @@ assertions), lifecycle (`release-task-lifecycle`), members/roles
 — controlled per-day capacity), checklist (`task-checklist-and-features`).
 `ScheduleCalendar.spec.js` fixes Saturday/Sunday/Monday clocks and uses the
 same `house-clock.js` fixture date helper and actual planned-energy store.
-`SchedulePlanAggregateTest::clockBoundaries` covers midnight, positive and
-negative extreme offsets and both Berlin DST transitions; a stale plan's
-start key is computed once and shared by preview/apply.
+`WindowServiceTest` covers the day boundary in zones east and west of UTC and
+both Berlin DST transitions; `CalendarServiceTest` pins the bucketing
+primitives underneath.
 
 The canonical journey selects exact wizard room types/level, compares
 preview/persisted counts, pins template materialization, proves preview

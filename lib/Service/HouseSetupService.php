@@ -56,7 +56,7 @@ class HouseSetupService {
 	private HouseUserMapper $houseUserMapper;
 	private WalletService $walletService;
 	private TemplateService $templateService;
-	private OccurrenceService $occurrenceService;
+	private CycleService $cycleService;
 	private CalendarService $calendarService;
 	private RoomReplayService $roomReplayService;
 	private TransactionExecutor $transactions;
@@ -74,7 +74,7 @@ class HouseSetupService {
 		HouseUserMapper $houseUserMapper,
 		WalletService $walletService,
 		TemplateService $templateService,
-		OccurrenceService $occurrenceService,
+		CycleService $cycleService,
 		CalendarService $calendarService,
 		RoomReplayService $roomReplayService,
 		TransactionExecutor $transactions,
@@ -91,7 +91,7 @@ class HouseSetupService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->walletService = $walletService;
 		$this->templateService = $templateService;
-		$this->occurrenceService = $occurrenceService;
+		$this->cycleService = $cycleService;
 		$this->calendarService = $calendarService;
 		$this->roomReplayService = $roomReplayService;
 		$this->transactions = $transactions;
@@ -126,10 +126,7 @@ class HouseSetupService {
 		// list / task-materialization pass as the user-defined rooms.
 		$this->injectAutoRooms($floors, $options);
 
-		$nextDue = new \DateTime();
-		$nextDue->add(new \DateInterval('P1D'));
-
-		$outcome = $this->transactions->run(function () use ($houseId, $floors, $level, $houseName, $nextDue, &$actorId): array {
+		$outcome = $this->transactions->run(function () use ($houseId, $floors, $level, $houseName, &$actorId): array {
 			// First lock of the documented order (house → room_task →
 			// task/assignee/reward): serialize concurrent applies on the
 			// house row before the first-run gate recheck (CS-PLAN-062 §3.1).
@@ -175,8 +172,12 @@ class HouseSetupService {
 			// FEAT-UX-044: the first-run gate guarantees no live room yet, so
 			// only the plan's own rooms can collide.
 			$roomNames = [];
-			$timezoneId = $this->calendarService->getTimeZone($house)->getName();
+			// Every task of the setup starts tomorrow in the house zone; its
+			// first date anchors the derived window (ADR-021).
+			$timeZone = $this->calendarService->getTimeZone($house);
 			$now = new \DateTime();
+			$firstDate = RecurrenceCalculator::dayAfter($this->calendarService->dayKey($now, $timeZone));
+			$nextDue = $this->calendarService->dayStartInstant($firstDate, $timeZone);
 
 			foreach ($floors as $floorIndex => $floor) {
 				$floorEntity = $this->floorMapper->create($houseId, $floor['name'], $floorIndex);
@@ -248,26 +249,13 @@ class HouseSetupService {
 							$taskId,
 							$nextDue
 						);
-						$assigneeUserIds = [];
 						if (!empty($room['assigneeUserId'])) {
 							$this->taskAssigneeMapper->addAssignee(
 								$roomTask->getId(),
 								$room['assigneeUserId']
 							);
-							$assigneeUserIds[] = (string)$room['assigneeUserId'];
 						}
-						// CS-PLAN-072 WP1: setup inserts room tasks directly,
-						// so the immutable initial schedule is materialized
-						// here, in the same aggregate transaction.
-						$this->occurrenceService->initializeScheduleUnderLock(
-							$houseId,
-							$roomTask,
-							$taskEntities[$taskId],
-							$timezoneId,
-							$nextDue,
-							$assigneeUserIds,
-							$now,
-						);
+						$this->cycleService->startUnderLock($roomTask, $taskEntities[$taskId], $firstDate, $timeZone, $now);
 						$roomTaskCount++;
 					}
 				}

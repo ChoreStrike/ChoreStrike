@@ -12,6 +12,8 @@ use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\CommandReceiptMapper;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\CompletionRevisionMapper;
+use OCA\ChoreStrike\Db\CycleMapper;
+use OCA\ChoreStrike\Db\CycleProgressMapper;
 use OCA\ChoreStrike\Db\DigestChangeMapper;
 use OCA\ChoreStrike\Db\DigestSlotMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
@@ -22,6 +24,7 @@ use OCA\ChoreStrike\Db\MemberPreferenceMapper;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
 use OCA\ChoreStrike\Db\PauseMapper;
+use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
@@ -89,6 +92,9 @@ class AccountErasureService {
 		private CommandReceiptMapper $commandReceiptMapper,
 		private CompletedTaskMapper $completedTaskMapper,
 		private OccurrenceMemberMapper $occMemberMapper,
+		private CycleMapper $cycleMapper,
+		private CycleProgressMapper $cycleProgressMapper,
+		private RoomTaskChecklistProgressMapper $checklistProgressMapper,
 		private ScheduleRevisionMapper $scheduleRevisionMapper,
 		private AgreementMapper $agreementMapper,
 		private PauseMapper $pauseMapper,
@@ -157,6 +163,9 @@ class AccountErasureService {
 					$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
 					$this->walletEntryMapper->anonymizeActorWallet((int)$wallet->getId());
 					$this->workShareMapper->anonymizeWallet((int)$wallet->getId());
+					// ADR-021: closed cycles of an already-departed account stop
+					// naming its wallet too.
+					$this->cycleMapper->forgetWallet((int)$wallet->getHouseId(), (int)$wallet->getId());
 					$this->walletMapper->delete($wallet);
 				});
 			} catch (\Throwable $e) {
@@ -236,6 +245,9 @@ class AccountErasureService {
 				$this->occMemberMapper->deleteByWalletId((int)$wallet->getId());
 				$this->scheduleRevisionMapper->anonymizeDefaultMembers($houseId, (int)$wallet->getId());
 				$this->agreementMapper->anonymizeMemberSnapshots($houseId, (int)$wallet->getId());
+				// ADR-021: closed cycles stay as shared facts and stop
+				// naming the erased wallet among their responsible members.
+				$this->cycleMapper->forgetWallet($houseId, (int)$wallet->getId());
 				// CS-PLAN-073 WP2 (§3.6): personal pause rows of the wallet
 				// go; shared pause facts keep their non-reidentifiable
 				// content and lose the account references below.
@@ -262,6 +274,10 @@ class AccountErasureService {
 
 			// Retain the anonymous shared work facts, lose the actor.
 			$this->completedTaskMapper->anonymizeActor($houseUserId);
+			// Sub-task ticks stay; the member who ticked them goes (both the
+			// per-cycle rows of ADR-021 and the retained per-occurrence rows).
+			$this->cycleProgressMapper->anonymizeChecker($houseUserId);
+			$this->checklistProgressMapper->anonymizeChecker($houseUserId);
 
 			// CS-PLAN-070 WP3 (§3.6): the new evidence tables anonymize
 			// their actor references too — correction audit rows lose the

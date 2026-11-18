@@ -55,12 +55,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 				$taskAssigneeMapper,
 				$this->createMock(TaskAccessPolicy::class),
 				new \OCA\ChoreStrike\Service\CalendarService(),
-				$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
-				$this->createMock(\OCA\ChoreStrike\Service\PauseProjectionService::class),
-				$this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class),
-				$this->createMock(\OCA\ChoreStrike\Db\OccurrenceMemberMapper::class),
-				new \OCA\ChoreStrike\Service\EffortAllocationService(),
-				$this->createIdentityL10n(),
+				new \OCA\ChoreStrike\Service\WindowService(new \OCA\ChoreStrike\Service\RecurrenceCalculator(), $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class)),
 				$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
 				$this->createMock(\OCA\ChoreStrike\Db\TaskChecklistItemMapper::class)
 			),
@@ -73,8 +68,8 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$appLogger,
 			$this->createMock(TaskAccessPolicy::class),
 			$this->createMock(AuthorizationService::class),
-			new \OCA\ChoreStrike\Service\CalendarService(),
-			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class)
+			$this->createMock(\OCA\ChoreStrike\Service\CycleService::class),
+			new \OCA\ChoreStrike\Service\WindowService(new \OCA\ChoreStrike\Service\RecurrenceCalculator(), $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class))
 		);
 	}
 

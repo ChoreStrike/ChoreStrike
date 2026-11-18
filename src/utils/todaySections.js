@@ -2,20 +2,18 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  */
-import { dateKeyInZone, todayKeyInZone } from './dateKeys.js'
-import { taskEnergy } from './taskDisplay.js'
+import { todayKeyInZone } from './dateKeys.js'
+import { cycleOf, plannedDayKey, taskEnergy } from './taskDisplay.js'
 
 /**
- * Whether a room task's next due day is today in the house's time zone.
- * @param {?object} roomTask Room task payload.
+ * Whether a row is planned for today in the house's time zone: the planned
+ * day of its current cycle (ADR-021).
+ * @param {?object} item Enriched row with its cycle block.
  * @param {string} timezone IANA zone of the household.
  * @return {boolean}
  */
-export function isDueToday(roomTask, timezone) {
-	if (!roomTask?.nextDue) {
-		return false
-	}
-	return dateKeyInZone(roomTask.nextDue, timezone) === todayKeyInZone(timezone)
+export function isDueToday(item, timezone) {
+	return item ? plannedDayKey(item, timezone) === todayKeyInZone(timezone) : false
 }
 
 /**
@@ -24,7 +22,7 @@ export function isDueToday(roomTask, timezone) {
  * Server visibility, eligibility and child limits stay authoritative; this
  * only applies the house-local day and the viewer's filter.
  *
- * - `overdue`: active rows with an unfulfilled miss that are not due today.
+ * - `overdue`: active rows whose window ended, that are not due today.
  * - `due`: rows due today; a completed row stays for its queued undo.
  * - `possible`: rows whose flex window is open although they are planned
  *   for another day (BUG-UX-005, server flag `openWindow`).
@@ -42,7 +40,7 @@ export function isDueToday(roomTask, timezone) {
  * @return {{overdue: object[], due: object[], possible: object[]}}
  */
 export function buildTodaySections({ daily, overdue, timezone, isVisible, held = [] }) {
-	const dueToday = (item) => isDueToday(item.roomTask, timezone)
+	const dueToday = (item) => isDueToday(item, timezone)
 	const dueTodayIds = new Set(daily
 		.filter((item) => !item.openWindow && item.roomTask.isActive && dueToday(item))
 		.map((item) => item.roomTask.id))
@@ -53,7 +51,7 @@ export function buildTodaySections({ daily, overdue, timezone, isVisible, held =
 		overdue: shown(overdue.filter((item) => item.roomTask.isActive && !dueTodayIds.has(item.roomTask.id))),
 		due: shown(daily.filter((item) => !item.openWindow && (!item.roomTask.isActive || dueToday(item)))),
 		possible: shown(daily.filter((item) => item.openWindow
-			&& (!item.roomTask.isActive || item.occurrence?.classification === 'agreed'))),
+			&& (!item.roomTask.isActive || cycleOf(item)?.state === 'open'))),
 	}
 	// Ascending, so an earlier insert never shifts a later one's place.
 	for (const entry of [...held].sort((a, b) => a.index - b.index)) {

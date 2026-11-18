@@ -17,8 +17,9 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
 /**
  * BUG-UX-013: the daily limit never hides what a child owes. Runs the real
- * creation path, because that path accepts a task for a child on a full day
- * while a later assignment is refused.
+ * creation and assignment paths: neither refuses a task for a child on a
+ * full day (the capacity refusals went with ADR-021), so the limit only
+ * ever trims what nobody owns.
  */
 class ChildDailyLimitTest extends IntegrationTestCase {
 	private const OWNER = 'cdl_owner';
@@ -73,13 +74,14 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 		self::assertSame(['Own', 'Unassigned'], $this->myDayNames());
 	}
 
-	public function testLaterAssignmentOnAFullDay_IsStillRefused(): void {
+	public function testLaterAssignmentOnAFullDay_IsAcceptedAndShown(): void {
 		$this->setChildLimit(1);
 		$this->createTaskDueToday('Own', [self::KID]);
-		$unassigned = $this->createTaskDueToday('Unassigned', []);
+		$unassigned = $this->createTaskDueToday('Assigned later', []);
 
-		$this->expectException(\OCA\ChoreStrike\Exception\ConflictException::class);
 		\OC::$server->get(RoomTaskService::class)->setAssignees($unassigned, [self::KID], $this->houseId, $this->actor);
+
+		self::assertSame(['Own', 'Assigned later'], $this->myDayNames(), 'an assignment on a full day is accepted and never hidden');
 	}
 
 	/**
@@ -90,7 +92,7 @@ class ChildDailyLimitTest extends IntegrationTestCase {
 			'roomId' => $this->roomId,
 			'task' => ['name' => $name, 'frequencyType' => 'weekly', 'frequencyValue' => 1],
 			'assigneeUserIds' => $assignees,
-			'nextDue' => (new \DateTime())->format('Y-m-d'),
+			'firstDate' => (new \DateTime())->format('Y-m-d'),
 		]);
 		$this->registerCreatedTask((int)$result['task']->getId());
 		return (int)$result['roomTask']->getId();

@@ -74,19 +74,21 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * CustomCreate_PersistsFullAggregate_WithExplicitDueAndFlexWindow
+	 * CustomCreate_PersistsFullAggregate_WithFirstDateAndFlexWindow
 	 */
-	public function testCustomCreate_PersistsFullAggregate_WithExplicitDueAndFlexWindow(): void {
+	public function testCustomCreate_PersistsFullAggregate_WithFirstDateAndFlexWindow(): void {
 		$houseId = $this->createHouse('agg_owner1', 'Aggregate House 1');
 		$this->addHouseMember($houseId, 'agg_member1', 'Member', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor');
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+		// Relative to today: a first date lies within a year of it.
+		$firstDate = (new \DateTime('today', new \DateTimeZone('UTC')))->modify('+30 days');
 
 		$aggregate = $this->service->create($houseId, $this->actor($houseId, 'agg_owner1'), [
 			'roomId' => $roomId,
 			'task' => $this->validTaskPayload(['flexDays' => 3]),
 			'assigneeUserIds' => ['agg_member1'],
-			'nextDue' => '2030-05-10',
+			'firstDate' => $firstDate->format('Y-m-d'),
 		]);
 
 		// One aggregate response shape for both paths (D1).
@@ -103,8 +105,11 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 		$roomTask = \OC::$server->get(RoomTaskMapper::class)->find($aggregate['roomTask']->getId());
 		self::assertSame($roomId, $roomTask->getRoomId());
 		self::assertSame($task->getId(), $roomTask->getTaskId());
-		self::assertSame('2030-05-10', $roomTask->getNextDue()->format('Y-m-d'), 'the explicit creation due date persists');
-		self::assertNotNull($roomTask->getIdealDueDate(), 'a flex window materializes an idealDueDate');
+		// ADR-021 decision 3: the first date anchors the window; the stored
+		// projection carries its last day and its planned day.
+		self::assertSame($firstDate->format('Y-m-d'), $roomTask->getAnchorOn()->format('Y-m-d'), 'the first date persists as the anchor');
+		self::assertSame((clone $firstDate)->modify('+3 days')->format('Y-m-d'), $roomTask->getNextDue()->format('Y-m-d'), 'next_due projects the last day of the flex window');
+		self::assertSame($firstDate->format('Y-m-d'), $roomTask->getIdealDueDate()->format('Y-m-d'), 'the planned day is the centre of the window');
 
 		$taskRow = \OC::$server->get(TaskMapper::class)->find($task->getId());
 		self::assertSame(3, $taskRow->getFlexDays());

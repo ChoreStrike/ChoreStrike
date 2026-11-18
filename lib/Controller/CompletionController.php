@@ -112,11 +112,11 @@ class CompletionController extends Controller {
 				$payload['expectedVersion'],
 				$payload['reasonCode'],
 			);
-			// CR-084-03: the row status follows the fresh selection block.
+			// CR-084-03: the row status follows the fresh cycle block.
 			$result['roomTask'] = $this->roomTaskReadService->roomTaskPayload(
 				$result['roomTask'],
 				$this->roomTaskReadService->timeZoneForHouse((int)$house->getId()),
-				$result['occurrence']['classification'] ?? null
+				$result['cycle'] ?? null
 			);
 
 			return new JSONResponse(['success' => true, 'data' => $result]);
@@ -142,7 +142,7 @@ class CompletionController extends Controller {
 
 	/**
 	 * Correct the actual participants/shares of one completion. Never
-	 * accepts time/energy/occurrence edits — the closed payload carries
+	 * accepts time/energy/cycle edits — the closed payload carries
 	 * only the receipt identity, participants, review flag and reason.
 	 *
 	 * @NoAdminRequired
@@ -171,7 +171,7 @@ class CompletionController extends Controller {
 				$payload['allocationReviewed'],
 				$payload['reasonCode'],
 			);
-			// CR-084-03: an attribution carries no selection block; the
+			// CR-084-03: an attribution carries no cycle block; the
 			// committed correction resolves the row status best-effort.
 			$houseId = (int)$house->getId();
 			$result['roomTask'] = $this->roomTaskReadService->committedRoomTaskPayload(

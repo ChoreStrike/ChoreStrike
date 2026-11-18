@@ -19,7 +19,7 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 /**
  * WP5 exit gate (CS-PLAN-064 §4): a full completion → undo roundtrip must
  * restore EXACT persisted domain state across every persisted row the
- * completion touches ” room_tasks, rooms, house_users and chk_progress ”
+ * completion touches — room_tasks, rooms, house_users and cycle_progress —
  * for the recurrence permutations (once / recurring-dynamic / recurring-
  * static / recurring-flex), an overdue-takeover completion (claim fields),
  * and the D11 duplicate-guard roundtrip (complete → undo → same-day
@@ -27,8 +27,12 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * equal to the initial snapshot).
  *
  * The reward-side equality additionally proves the title LIFO interplay:
- * an undo removes only the title ids its OWN occurrence added ” a title
- * unlocked before the undone occurrence (or by a later one) survives.
+ * an undo removes only the title ids its OWN completion added — a title
+ * unlocked before the undone completion (or by a later one) survives.
+ *
+ * The cycle version is the one column that never returns (ADR-021
+ * decision 4): it rises with every change of the window, so a row
+ * displayed before the roundtrip is stale after it.
  */
 class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	/** @var int[] Room task ids whose ledger rows need explicit cleanup */
@@ -37,7 +41,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	private array $progressRoomTaskIds = [];
 
 	protected function tearDown(): void {
-		foreach (['chorestrike_completed_tasks' => $this->ledgerRoomTaskIds, 'chorestrike_chk_progress' => $this->progressRoomTaskIds] as $table => $ids) {
+		foreach (['chorestrike_completed_tasks' => $this->ledgerRoomTaskIds, 'chorestrike_cycle_progress' => $this->progressRoomTaskIds] as $table => $ids) {
 			if ($ids !== []) {
 				$qb = $this->db->getQueryBuilder();
 				$qb->delete($table)
@@ -79,9 +83,8 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	 * Complete_InPermutation_ThenUndo_RestoresExactPersistedState
 	 *
 	 * The WP5 exit gate: every persisted domain row is byte-identical after
-	 * the undo (the occurrence-scoped checklist evidence survives both legs
-	 * untouched, and the ledger carries exactly the completed occurrence,
-	 * marked undone).
+	 * the undo (the ticks of the cycle survive both legs untouched, and the
+	 * ledger carries exactly the one completion, marked undone).
 	 *
 	 * @dataProvider recurrencePermutations
 	 * @param array<string, mixed> $taskColumns
@@ -101,15 +104,15 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 
 		// Sanity: the completion actually mutated the domain rows (the
 		// recurrence advance happened; for `once` the row deactivated).
-		// CS-PLAN-072 WP1 occurrence-scoped checklist: the fulfilled
-		// occurrence KEEPS its checked evidence ” completion no longer
-		// resets progress; the next occurrence derives fresh state.
+		// Ticks belong to their cycle (ADR-021 decision 3): the closed
+		// cycle keeps them, the next cycle starts without any.
 		self::assertNotSame($before['roomTask'], $afterCompletion['roomTask'], 'completion must advance the recurrence state');
-		self::assertSame($before['progress'], $afterCompletion['progress'], 'completion must not touch the fulfilled occurrence\'s checklist evidence');
+		self::assertSame($before['progress'], $afterCompletion['progress'], 'completion must not touch the ticks of the cycle it closes');
 		$ledger = $this->ledgerRows($ids['roomTaskId']);
 		self::assertCount(1, $ledger);
 		self::assertNull($ledger[0]['undone_at'], 'a fresh completion is revertible');
-		self::assertNotNull($ledger[0]['occurrence_due'], 'the ledger row records occurrence_due');
+		self::assertSame($ids['cycleKey'], $ledger[0]['cycle_key'], 'the ledger row records the cycle it closed');
+		self::assertGreaterThan($before['cycleVersion'], $afterCompletion['cycleVersion'], 'the completion moves the cycle version on');
 		// WP3 §3.1: the evidence row carries frozen work facts, not a
 		// serialized effect blob.
 		self::assertGreaterThan(0, (int)$ledger[0]['total_energy']);
@@ -125,8 +128,10 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		self::assertSame($before['room'], $afterUndo['room'], 'room cleanliness/last_cleaned must be exactly restored');
 		self::assertSame($before['users'], $afterUndo['users'], 'completer reward state must be exactly restored');
 		self::assertSame($before['progress'], $afterUndo['progress'], 'checklist progress must be exactly restored');
+		self::assertGreaterThan($afterCompletion['cycleVersion'], $afterUndo['cycleVersion'], 'the undo moves the cycle version on, never back');
+		self::assertSame([], $this->fetchRowsBy('chorestrike_cycles', 'room_task_id', $ids['roomTaskId']), 'the closed cycle reopened');
 
-		// The undone occurrence is not a completion anywhere (D11): the
+		// The undone completion is not a completion anywhere (D11): the
 		// history row stays, but nothing is revertible anymore.
 		$ledger = $this->ledgerRows($ids['roomTaskId']);
 		self::assertCount(1, $ledger);
@@ -144,9 +149,8 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	 */
 	public function testTakeoverCompletion_UndoRestoresClaimFields_AndExactState(): void {
 		// Overdue: the recorded claim precondition for a non-assignee.
-		// CS-PLAN-072 WP1: the anchor is seeded BEFORE the schedule exists —
-		// a raw next_due move afterwards would diverge from the timeline
-		// (the undo re-derives the projection from the occurrences).
+		// The first date is seeded with the room task: the undo re-derives
+		// the projection from it.
 		$yesterday = (new \DateTime('-1 day'))->format('Y-m-d 00:00:00');
 		$ids = $this->seedPermutationFixture([], $yesterday);
 
@@ -238,31 +242,31 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 
 		$before = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 
-		// 1st occurrence.
+		// 1st completion.
 		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 		self::assertCount(1, $this->revertibleLedgerRows($ids['roomTaskId']));
 
 		$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 		self::assertSame([], $this->revertibleLedgerRows($ids['roomTaskId']), 'after the undo nothing is revertible');
-		self::assertSame($before, $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']));
+		self::assertSame($this->withoutVersion($before), $this->withoutVersion($this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])));
 
-		// 2nd occurrence on the SAME day ” the D11 duplicate-guard proof:
-		// the undone 1st row must not trigger the day-duplicate 403.
+		// 2nd completion on the SAME day — the D11 duplicate-guard proof:
+		// the undone 1st row must not trigger the same-day conflict.
 		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
 		$ledger = $this->ledgerRows($ids['roomTaskId']);
 		self::assertCount(2, $ledger, 'the re-completion writes its own fresh ledger row');
-		self::assertCount(1, $this->revertibleLedgerRows($ids['roomTaskId']), 'exactly the newest occurrence is revertible');
+		self::assertCount(1, $this->revertibleLedgerRows($ids['roomTaskId']), 'exactly the newest completion is revertible');
 		self::assertSame(
-			$ledger[0]['occurrence_due'],
-			$ledger[1]['occurrence_due'],
-			'both occurrences record the same house-local occurrence day (the undo restored nextDue)'
+			$ledger[0]['cycle_key'],
+			$ledger[1]['cycle_key'],
+			'both completions closed the same cycle (the undo reopened it under its key)'
 		);
 
 		$this->undoLatestForRoomTask($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
 		self::assertSame([], $this->revertibleLedgerRows($ids['roomTaskId']));
-		self::assertSame($before, $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']), 'the roundtrip must land on the exact initial state');
+		self::assertSame($this->withoutVersion($before), $this->withoutVersion($this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId'])), 'the roundtrip must land on the exact initial state');
 	}
 
 	/**
@@ -281,7 +285,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$this->progressRoomTaskIds[] = $ids['roomTaskId'];
 
 		// Seed a STALE marker + stats cache the real history cannot support
-		// (no valid occurrences exist yet): the completion aggregate must
+		// (no valid completion exists yet): the completion aggregate must
 		// recompute both from real facts.
 		$memberId = $this->houseUser('ueq_owner', $ids['houseId'])->getId();
 		$qb = $this->db->getQueryBuilder();
@@ -330,14 +334,12 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	/**
 	 * Seed house/floor/room/task/room-task/checklist; the task definition is
 	 * updated with the permutation columns BEFORE the assignment so the
-	 * initial schedule revision freezes the permuted inputs. The owner owns
-	 * an assigned, CHECKED checklist row keyed to the first occurrence of
-	 * the initial revision (CS-PLAN-072 WP1 occurrence scoping); a second
-	 * member exists for the takeover test. `$nextDue` seeds the schedule
-	 * anchor (the timeline normalizes the row projection to it).
+	 * room task starts under the permuted rule. The owner owns a CHECKED
+	 * tick of the current cycle (ADR-021 decision 3); a second member
+	 * exists for the takeover test. `$nextDue` seeds the first date.
 	 *
 	 * @param array<string, mixed> $taskColumns
-	 * @return array{houseId: int, floorId: int, roomId: int, taskId: int, roomTaskId: int}
+	 * @return array{houseId: int, floorId: int, roomId: int, taskId: int, roomTaskId: int, cycleKey: string}
 	 */
 	private function seedPermutationFixture(array $taskColumns, ?string $nextDue = null): array {
 		$houseId = $this->createHouse('ueq_owner', 'UEQ House');
@@ -359,13 +361,10 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'ueq_owner', $nextDue);
 		$this->progressRoomTaskIds[] = $roomTaskId;
 
-		// One checklist item with a CHECKED progress row owned by the owner,
-		// keyed to the FIRST occurrence of the initial revision ” the
-		// occurrence-scoped evidence subject (CS-PLAN-072 WP1: a fulfilled
-		// occurrence keeps its checklist state; nothing is reset/restored).
-		$scheduleRevId = \OC::$server->get(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class)
-			->findCurrentByRoomTask($roomTaskId)
-			->getId();
+		// One checklist item with a CHECKED tick owned by the owner, keyed
+		// to the current cycle: a closed cycle keeps its ticks; nothing is
+		// reset or restored.
+		$cycleKey = (string)$this->completionReceiptFor($roomTaskId)[1];
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_chk_items')
 			->values([
@@ -379,11 +378,10 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 
 		$owner = $this->houseUser('ueq_owner', $houseId);
 		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_chk_progress')
+		$qb->insert('chorestrike_cycle_progress')
 			->values([
 				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'schedule_rev_id' => $qb->createNamedParameter($scheduleRevId, IQueryBuilder::PARAM_INT),
-				'ordinal' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				'cycle_key' => $qb->createNamedParameter($cycleKey),
 				'revision' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
 				'checklist_item_id' => $qb->createNamedParameter($checklistItemId, IQueryBuilder::PARAM_INT),
 				'is_checked' => $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL),
@@ -398,6 +396,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 			'roomId' => $roomId,
 			'taskId' => $taskId,
 			'roomTaskId' => $roomTaskId,
+			'cycleKey' => $cycleKey,
 		];
 	}
 
@@ -425,14 +424,17 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 
 	/**
 	 * Raw-row snapshot of every persisted domain row the completion/undo
-	 * aggregate touches. chk_progress rows are compared semantically (the
-	 * undo re-inserts them, so the auto id differs by design).
+	 * aggregate touches. The cycle version is kept apart: it only rises.
 	 *
-	 * @return array{roomTask: array<string, mixed>, room: array<string, mixed>, users: array<int, array<string, mixed>>, progress: array<int, array<string, mixed>>}
+	 * @return array{roomTask: array<string, mixed>, cycleVersion: int, room: array<string, mixed>, users: array<int, array<string, mixed>>, progress: array<int, array<string, mixed>>}
 	 */
 	private function snapshotDomainState(int $houseId, int $roomId, int $roomTaskId): array {
+		$roomTask = $this->fetchRow('chorestrike_room_tasks', 'id', $roomTaskId);
+		$cycleVersion = (int)$roomTask['cycle_version'];
+		unset($roomTask['cycle_version']);
 		return [
-			'roomTask' => $this->fetchRow('chorestrike_room_tasks', 'id', $roomTaskId),
+			'roomTask' => $roomTask,
+			'cycleVersion' => $cycleVersion,
 			'room' => $this->fetchRow('chorestrike_rooms', 'id', $roomId),
 			// WP3: the wallet binding is durable account identity — the
 			// completion lazily ensures it and the undo must NOT unbind.
@@ -445,9 +447,18 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 				$this->fetchRowsBy('chorestrike_house_users', 'house_id', $houseId)
 			),
 			'progress' => $this->normalizeProgressRows(
-				$this->fetchRowsBy('chorestrike_chk_progress', 'room_task_id', $roomTaskId)
+				$this->fetchRowsBy('chorestrike_cycle_progress', 'room_task_id', $roomTaskId)
 			),
 		];
+	}
+
+	/**
+	 * @param array<string, mixed> $snapshot
+	 * @return array<string, mixed>
+	 */
+	private function withoutVersion(array $snapshot): array {
+		unset($snapshot['cycleVersion']);
+		return $snapshot;
 	}
 
 	/**

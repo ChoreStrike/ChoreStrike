@@ -81,10 +81,10 @@ export default {
 		 * partial success, no orphan definition). The store reconciles the
 		 * response into the instance and definition stores, so no re-fetch
 		 * follows (CS-PLAN-067 §3.4).
-		 * @param {object} taskData Form payload: definition + roomId + assigneeUserIds + nextDue.
+		 * @param {object} taskData Form payload: definition + roomId + assigneeUserIds + firstDate.
 		 */
 		async handleAddTask(taskData) {
-			const { roomId, assigneeUserIds, nextDue, ...definition } = taskData
+			const { roomId, assigneeUserIds, firstDate, ...definition } = taskData
 			const targetRoomId = this.room ? this.room.id : roomId
 			this.creating = true
 			try {
@@ -92,7 +92,7 @@ export default {
 					roomId: targetRoomId,
 					task: definition,
 					assigneeUserIds: assigneeUserIds || [],
-					nextDue: nextDue || null,
+					firstDate: firstDate || null,
 				})
 				showSuccess(t('chorestrike', 'Task created'))
 				this.$emit('close')

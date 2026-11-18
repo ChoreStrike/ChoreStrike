@@ -33,7 +33,7 @@ const mountDialog = (props = {}) => mount(ParticipationDialog, {
 })
 
 describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
-	it('defaults to the equal wallet-order split without a proposal', () => {
+	it('pre-fills the equal split of the candidates in wallet order — what the server credits by default', () => {
 		const wrapper = mountDialog()
 
 		const shares = wrapper.vm.participants.map(p => p.sharePct)
@@ -42,39 +42,11 @@ describe('ParticipationDialog (WP3 §3.6 actual-work split)', () => {
 		expect(wrapper.find('[data-testid="participation-confirm"]').attributes('disabled')).toBeUndefined()
 	})
 
-	it('pre-fills the server proposal (the effective concrete agreement)', () => {
-		const wrapper = mountDialog({
-			proposal: {
-				occurrenceId: '3:7',
-				basis: 'agreement',
-				participants: [
-					{ userId: 'mom', sharePct: 70 },
-					{ userId: 'dad', sharePct: 30 },
-				],
-			},
-		})
+	it('adds an actor outside the candidates to the split, named by the raw user id', () => {
+		const wrapper = mountDialog({ actorUserId: 'grandma' })
 
-		expect(wrapper.vm.participants.map(p => [p.userId, p.sharePct])).toEqual([
-			['dad', 30],
-			['mom', 70],
-		])
-		// Display names resolve through the member list.
-		expect(wrapper.vm.participants[0].displayName).toBe('Dad')
-	})
-
-	it('falls back to raw user ids for proposal participants outside the member list', () => {
-		const wrapper = mountDialog({
-			actorUserId: 'grandma',
-			proposal: {
-				occurrenceId: '3:7',
-				basis: 'agreement',
-				participants: [{ userId: 'grandma', sharePct: 100 }],
-			},
-		})
-
-		expect(wrapper.vm.participants).toHaveLength(1)
-		expect(wrapper.vm.participants[0].displayName).toBe('grandma')
-		expect(wrapper.vm.participants[0].sharePct).toBe(100)
+		expect(wrapper.vm.participants.map(p => p.userId)).toEqual(['dad', 'grandma', 'kid', 'mom'])
+		expect(wrapper.vm.participants[1]).toMatchObject({ displayName: 'grandma', active: true })
 	})
 
 	it('disables confirmation while the shares do not total exactly 100', async () => {

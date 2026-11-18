@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\CycleProgressMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
@@ -39,6 +40,7 @@ class RoomService {
 	private HouseMapper $houseMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private RoomTaskChecklistProgressMapper $checklistProgressMapper;
+	private CycleProgressMapper $cycleProgressMapper;
 	private TransactionExecutor $transactions;
 	private RoomReplayService $roomReplayService;
 	private CommandService $commandService;
@@ -54,6 +56,7 @@ class RoomService {
 		HouseMapper $houseMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		RoomTaskChecklistProgressMapper $checklistProgressMapper,
+		CycleProgressMapper $cycleProgressMapper,
 		TransactionExecutor $transactions,
 		RoomReplayService $roomReplayService,
 		CommandService $commandService,
@@ -68,6 +71,7 @@ class RoomService {
 		$this->houseMapper = $houseMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->checklistProgressMapper = $checklistProgressMapper;
+		$this->cycleProgressMapper = $cycleProgressMapper;
 		$this->transactions = $transactions;
 		$this->roomReplayService = $roomReplayService;
 		$this->commandService = $commandService;
@@ -305,6 +309,7 @@ class RoomService {
 	 */
 	public function deleteRoomTaskPlanningState(array $roomTaskIds): void {
 		$this->checklistProgressMapper->deleteByRoomTaskIds($roomTaskIds);
+		$this->cycleProgressMapper->deleteByRoomTaskIds($roomTaskIds);
 		$this->taskAssigneeMapper->deleteByRoomTasks($roomTaskIds);
 	}
 

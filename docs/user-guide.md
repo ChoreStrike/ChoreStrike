@@ -113,27 +113,17 @@ step as you go. Owners edit the steps in the task.
 ## Planning the week
 
 Under **Settings → Planning**, everyone sets **My Availability** (the days you
-can help) and an energy budget for a day. Owners then plan the week: open the
-**Calendar** and choose **Weekly plan**.
+can help) and an energy budget for a day. Nobody applies a plan any more: what
+is due follows from each task's rhythm and from when it was last done.
 
-<img src="screenshots/weekly-planner.png" alt="Weekly planner preview: proposed assignments for unassigned tasks, each adjustable by person and day" width="720">
-
-1. **Plan the week** — pick the start day and the tasks to plan.
-2. **Preview plan** — ChoreStrike proposes who does what on which day, based
-   on availability, energy budgets and fairness. Tasks without a possible day
-   in this window are listed separately.
-3. **Adjust** — change *Person* or *Day* of any proposal.
-4. **Agree and apply** — tick *Everyone affected has agreed to this plan* and
-   choose **Apply plan**. Nothing changes before that.
-
-The capacity overview shows each day's planned load against everyone's budget,
-and *Overloaded days ahead* warns early. An owner can give a child a **daily
-task limit**; it caps the unassigned tasks a child is offered on *Today*, never
-their own.
+Open the **Calendar** and choose **Weekly plan** for the capacity overview: it
+shows each day's planned load against everyone's budget, and *Overloaded days
+ahead* warns early. A full day refuses nothing; work can always be recorded.
+An owner can give a child a **daily task limit**; it caps the unassigned tasks
+a child is offered on *Today*, never their own.
 
 Each unit of **energy** stands for about 10 minutes of work. The task dialog
-lists 1 to 5; **Longer task** takes up to 20. The planner only places a task on
-a day when it fits a person's energy budget. A changed energy applies at once
+lists 1 to 5; **Longer task** takes up to 20. A changed energy applies at once
 to everything still open, overdue tasks included. Completed work keeps its value.
 
 ## Optional features

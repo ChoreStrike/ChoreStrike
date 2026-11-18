@@ -58,6 +58,9 @@ class TaskCreationServiceTest extends TestCase {
 	/** Value returned by houseUserMapper->findByHouseAndUser (null = miss). */
 	private ?HouseUser $memberUnderLock = null;
 
+	/** @var \OCA\ChoreStrike\Service\CycleService&\PHPUnit\Framework\MockObject\MockObject */
+	private $cycleService;
+
 	/** Value returned by roomTaskMapper->exists for the mount guard. */
 	private bool $mountExists = false;
 
@@ -79,6 +82,7 @@ class TaskCreationServiceTest extends TestCase {
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$this->authorization = $this->createMock(AuthorizationService::class);
+		$this->cycleService = $this->createMock(\OCA\ChoreStrike\Service\CycleService::class);
 
 		$l10n = $this->createIdentityL10n();
 
@@ -98,7 +102,7 @@ class TaskCreationServiceTest extends TestCase {
 			$this->authorization,
 			$this->taskAccessPolicy,
 			new TransactionExecutor($this->createMock(IDBConnection::class)),
-			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$this->createMock(\OCA\ChoreStrike\Service\CycleService::class),
 			new CalendarService(),
 			$taskCategories,
 		);
@@ -119,7 +123,7 @@ class TaskCreationServiceTest extends TestCase {
 			$this->taskAccessPolicy,
 			$this->authorization,
 			new CalendarService(),
-			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$this->cycleService,
 			$l10n,
 			$this->createMock(AppLogger::class),
 		);
@@ -164,8 +168,8 @@ class TaskCreationServiceTest extends TestCase {
 	private function stubAggregateHappyPath(): void {
 		$house = new House();
 		$this->houseMapper->method('findForUpdate')->willReturn($house);
-		// RF-058-01: creation resolves the house timezone for `Y-m-d`
-		// nextDue labels; default to a UTC house.
+		// Creation resolves the house timezone for the first date;
+		// default to a UTC house.
 		$this->houseMapper->method('find')->willReturn($house);
 
 		$member = new HouseUser();
@@ -318,54 +322,67 @@ class TaskCreationServiceTest extends TestCase {
 	}
 
 	/**
-	 * Create_CustomPath_ExplicitNextDueAndFlexWindow_Persisted
+	 * Create_CustomPath_ExplicitFirstDate_AnchorsTheWindow
 	 *
-	 * The explicit creation due date round-trips and a flexDays > 0 window
-	 * materializes an idealDueDate (previously dead at creation, §1.4).
+	 * ADR-021: the explicit first date is the centre of the first window.
+	 * It anchors the room task through the cycle service in the same
+	 * aggregate; no future cycle and no ideal date is stored at creation.
 	 */
-	public function testCreate_CustomPath_ExplicitNextDueAndFlexWindow_Persisted(): void {
+	public function testCreate_CustomPath_ExplicitFirstDate_AnchorsTheWindow(): void {
 		$this->stubAggregateHappyPath();
 		$flexTask = new Task();
 		$flexTask->setId(42);
 		$flexTask->setFlexDays(3);
 		$this->willPersistTask($flexTask);
+		// Relative to today: a first date must lie within a year of it.
+		$firstDate = (new \DateTime('today', new \DateTimeZone('UTC')))->modify('-5 days')->format('Y-m-d');
+		$this->cycleService->expects($this->once())->method('startUnderLock')
+			->with(
+				$this->isInstanceOf(RoomTask::class),
+				$this->identicalTo($flexTask),
+				$firstDate,
+				$this->callback(static fn (\DateTimeZone $zone): bool => $zone->getName() === 'UTC'),
+				$this->isInstanceOf(\DateTime::class)
+			);
 
 		$this->service->create(10, $this->createHouseUser(), [
 			'roomId' => 5,
 			'task' => $this->validTaskPayload(['flexDays' => 3]),
-			'nextDue' => '2026-09-10',
+			'firstDate' => $firstDate,
 		]);
 
 		$this->assertCount(1, $this->roomTaskInserts);
-		[$roomId, $taskId, $nextDue, $scopeId, $idealDueDate] = $this->roomTaskInserts[0];
+		[$roomId, $taskId, $nextDue] = $this->roomTaskInserts[0];
 		$this->assertSame(5, $roomId);
 		$this->assertSame(42, $taskId);
-		$this->assertSame('2026-09-10', $nextDue->format('Y-m-d'), 'the explicit creation due date persists');
-		$this->assertNull($scopeId);
-		$this->assertInstanceOf(\DateTime::class, $idealDueDate, 'a flex window materializes an idealDueDate');
+		$this->assertSame($firstDate, $nextDue->format('Y-m-d'), 'the row starts on its first date until the cycle projects it');
 	}
 
 	/**
-	 * Create_DefaultsToTomorrowWithoutNextDue
+	 * Create_DefaultsToTomorrowWithoutFirstDate
 	 *
-	 * No nextDue payload falls back to the established tomorrow default.
+	 * No firstDate payload falls back to the established tomorrow default
+	 * (house-local).
 	 */
-	public function testCreate_DefaultsToTomorrowWithoutNextDue(): void {
+	public function testCreate_DefaultsToTomorrowWithoutFirstDate(): void {
 		$this->stubAggregateHappyPath();
+
+		$tomorrow = (new \DateTime('now', new \DateTimeZone('UTC')))->modify('+1 day')->format('Y-m-d');
+		$this->cycleService->expects($this->once())->method('startUnderLock')
+			->with($this->anything(), $this->anything(), $tomorrow, $this->anything(), $this->anything());
 
 		$this->service->create(10, $this->createHouseUser(), [
 			'roomId' => 5,
 			'task' => $this->validTaskPayload(),
 		]);
 
-		$tomorrow = (new \DateTime())->add(new \DateInterval('P1D'))->format('Y-m-d');
 		$this->assertSame($tomorrow, $this->roomTaskInserts[0][2]->format('Y-m-d'));
 	}
 
 	/**
-	 * Create_InvalidNextDue_Throws
+	 * Create_InvalidFirstDate_Throws: only a house-local `Y-m-d` day is a first date.
 	 */
-	public function testCreate_InvalidNextDue_Throws(): void {
+	public function testCreate_InvalidFirstDate_Throws(): void {
 		$this->roomTaskMapper->expects($this->never())->method('create');
 
 		$this->expectException(\InvalidArgumentException::class);
@@ -373,8 +390,38 @@ class TaskCreationServiceTest extends TestCase {
 		$this->service->create(10, $this->createHouseUser(), [
 			'roomId' => 5,
 			'task' => $this->validTaskPayload(),
-			'nextDue' => 'not-a-date',
+			'firstDate' => '2026-09-10T08:00:00Z',
 		]);
+	}
+
+	/**
+	 * Review regression (CS-PLAN-091 WP-B1 interim Full review): a
+	 * day-shaped value that is no calendar day, or one more than a year
+	 * away, is a translated 400 before anything is written.
+	 *
+	 * @dataProvider unusableFirstDates
+	 */
+	public function testCreate_UnusableFirstDate_ThrowsTranslatedMessage(string $firstDate, string $message): void {
+		$this->roomTaskMapper->expects($this->never())->method('create');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage($message);
+
+		$this->service->create(10, $this->createHouseUser(), [
+			'roomId' => 5,
+			'task' => $this->validTaskPayload(),
+			'firstDate' => $firstDate,
+		]);
+	}
+
+	/** @return array<string, array{0: string, 1: string}> */
+	public static function unusableFirstDates(): array {
+		$today = new \DateTime('today', new \DateTimeZone('UTC'));
+		return [
+			'no calendar day' => ['2026-02-31', 'Invalid firstDate date format'],
+			'far in the past' => [(clone $today)->modify('-400 days')->format('Y-m-d'), 'The first date must lie within one year of today'],
+			'far in the future' => ['9999-12-31', 'The first date must lie within one year of today'],
+		];
 	}
 
 	/**

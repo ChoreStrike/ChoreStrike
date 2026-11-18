@@ -11,7 +11,6 @@ namespace OCA\ChoreStrike\Tests\Integration\Service;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MedalMapper;
-use OCA\ChoreStrike\Db\OccurrenceMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Db\WeeklyGoalReceiptMapper;
 use OCA\ChoreStrike\Service\AppLogger;
@@ -55,20 +54,15 @@ class WeeklyGoalClosureTest extends IntegrationTestCase {
 		$planned = (new \DateTime('monday last week UTC'))->modify('+2 days');
 		$weekKey = (clone $planned)->modify('monday this week')->format('Y-m-d');
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'weekly_closure_owner', $planned->format('Y-m-d H:i:s'));
-		$mapper = \OC::$server->get(OccurrenceMapper::class);
-		$occurrences = $mapper->findByRoomTask($roomTaskId);
-		self::assertCount(1, $occurrences);
-		$occurrence = $occurrences[0];
-		self::assertSame($planned->format('Y-m-d'), $occurrence->getPlannedDate()->format('Y-m-d'));
+		$plannedKey = $planned->format('Y-m-d');
 		$user = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, 'weekly_closure_owner');
 		$user->setJoinedAt((clone $planned)->modify('-2 days'));
 		\OC::$server->get(HouseUserMapper::class)->update($user);
 		$this->medalUserId = $user->getId();
-		$completionId = $this->insertCompletionRow(
-			$roomTaskId, $user->getId(), $planned->format('Y-m-d 12:00:00'), 3, $planned->format('Y-m-d')
-		);
-		$occurrence->setCompletionId($completionId);
-		$mapper->update($occurrence);
+		$walletId = (int)\OC::$server->get(\OCA\ChoreStrike\Service\WalletService::class)->ensureBinding($houseId, $user)->getWalletId();
+		// The cycle of last week, closed on time (ADR-021 decision 5).
+		$completionId = $this->insertCompletionRow($roomTaskId, $user->getId(), $planned->format('Y-m-d 12:00:00'));
+		$this->insertClosedCycle($houseId, $roomTaskId, $plannedKey, $plannedKey, [$walletId], $completionId);
 
 		// Q-076-02: the weekly-goal bell is retired — the receipt claim
 		// below IS the once-only celebration; no notification mock is
@@ -90,13 +84,22 @@ class WeeklyGoalClosureTest extends IntegrationTestCase {
 		self::assertSame([$weekKey => true], $receipt->claimedWeeks($houseId, [$weekKey]));
 		self::assertFalse($receipt->claim($houseId, $weekKey, $closedAt), 'a retry cannot claim the same planned week');
 
-		$occurrence->setCompletionId(null);
-		$mapper->update($occurrence);
+		// The work is undone: the cycle reopens and is red.
+		\OC::$server->get(\OCA\ChoreStrike\Db\CycleMapper::class)->deleteByCompletionId($roomTaskId, $completionId);
+		$this->setUndone($completionId, $closedAt->format('Y-m-d H:i:s'));
 		$service->reconcileClosedWeeksForHouse($houseId, $closedAt);
 		self::assertSame([], $service->getMedals($houseId), 'unsupported weekly recognition is hidden');
-		$occurrence->setCompletionId($completionId);
-		$mapper->update($occurrence);
+		$this->setUndone($completionId, null);
+		$this->insertClosedCycle($houseId, $roomTaskId, $plannedKey, $plannedKey, [$walletId], $completionId);
 		$service->reconcileClosedWeeksForHouse($houseId, $closedAt);
 		self::assertCount(1, $service->getMedals($houseId), 'the original award reactivates without another bell');
+	}
+
+	private function setUndone(int $completionId, ?string $undoneAt): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_completed_tasks')
+			->set('undone_at', $qb->createNamedParameter($undoneAt))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($completionId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
 	}
 }

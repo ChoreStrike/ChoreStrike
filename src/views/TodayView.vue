@@ -90,13 +90,13 @@
 				</button>
 			</div>
 
-			<!-- Overdue (C1c/C1d): ONE row per chore with an unfulfilled
-			     miss, always first and allowed to be loud. Completing the
-			     shown occurrence covers the miss without relabeling it. -->
+			<!-- Overdue (C1c/C1d, ADR-021 decision 1): ONE row per chore
+			     whose window ended, always first and allowed to be loud.
+			     Completing it is late work; the rhythm restarts from it. -->
 			<section v-if="sections.overdue.length > 0" class="overdue-block" data-testid="today-section-catchup">
 				<h2>{{ t('chorestrike', 'Overdue · {count}', { count: sections.overdue.length }) }}</h2>
 				<p class="overdue-hint">
-					{{ t('chorestrike', 'Completing it now covers the miss — it stays a catch-up.') }}
+					{{ t('chorestrike', 'Completing it now counts as late work.') }}
 				</p>
 				<TodayTaskRow
 					v-for="item in sections.overdue"
@@ -160,7 +160,6 @@
 		<ParticipationDialog
 			v-if="participation"
 			:members="participationMembers"
-			:proposal="participation.proposal ?? null"
 			:actorUserId="actorUserId"
 			@close="closeParticipation"
 			@confirm="confirmParticipation" />
@@ -168,7 +167,6 @@
 </template>
 
 <script>
-import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { translate as t } from '@nextcloud/l10n'
 import ErrorState from '../components/Common/ErrorState.vue'
 import ExpandChevron from '../components/Common/ExpandChevron.vue'
@@ -300,20 +298,8 @@ export default {
 	},
 
 	async mounted() {
-		// CS-PLAN-065 §3.4: a committed owner plan may have moved today's or
-		// overdue rows — refresh from the reconciled stores.
-		this.scheduleAppliedHandler = () => {
-			this.load()
-		}
-		subscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
 		this.loadStructure()
 		await this.load()
-	},
-
-	beforeUnmount() {
-		if (this.scheduleAppliedHandler) {
-			unsubscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
-		}
 	},
 
 	methods: {
@@ -331,14 +317,9 @@ export default {
 
 		isMine(item) {
 			// Unknown user (store not resolved yet): show everything rather
-			// than an empty list. The people this occurrence obliges come
-			// before the task's standing assignees.
+			// than an empty list.
 			if (!this.myUserId) {
 				return true
-			}
-			const obligated = item.proposal?.obligatedUserIds
-			if (Array.isArray(obligated)) {
-				return obligated.includes(this.myUserId)
 			}
 			const assignees = item.assignees ?? item.roomTask.assignees ?? []
 			return assignees.length === 0 || assignees.includes(this.myUserId)
@@ -420,7 +401,6 @@ export default {
 			this.held = { ...stillHeld, [id]: { section, index, item } }
 			await this.requestCompletion({
 				roomTaskId: id,
-				proposal: item.proposal ?? null,
 				assignees: item.assignees ?? [],
 			})
 		},

@@ -132,14 +132,14 @@ class CompletionControllerTest extends TestCase {
 
 		$roomTask = new \OCA\ChoreStrike\Db\RoomTask();
 		$result = ['completionId' => 9, 'completionVersion' => 1, 'undone' => true,
-			'roomTask' => $roomTask, 'occurrence' => ['classification' => 'late']];
+			'roomTask' => $roomTask, 'cycle' => ['cycleKey' => 'c7', 'state' => 'overdue']];
 		$this->completionService->expects($this->once())
 			->method('undo')
 			->with(1, $this->isInstanceOf(HouseUser::class), 9, self::UUID, 0, 'wrong_person')
 			->willReturn($result);
-		// CR-084-03: the row status follows the fresh selection block.
+		// CR-084-03: the row status follows the fresh cycle block.
 		$this->roomTaskReadService->expects($this->once())->method('roomTaskPayload')
-			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), 'late')
+			->with($roomTask, $this->isInstanceOf(\DateTimeZone::class), ['cycleKey' => 'c7', 'state' => 'overdue'])
 			->willReturn(['id' => 4, 'status' => 'overdue']);
 
 		$response = $this->controller->undo(9);
@@ -245,7 +245,7 @@ class CompletionControllerTest extends TestCase {
 
 		$roomTask = new \OCA\ChoreStrike\Db\RoomTask();
 		$result = ['completionId' => 9, 'completionVersion' => 2, 'allocationRevision' => 2,
-			'roomTask' => $roomTask, 'occurrence' => null];
+			'roomTask' => $roomTask, 'cycle' => null];
 		$this->completionService->expects($this->once())
 			->method('attribute')
 			->with(1, $this->isInstanceOf(HouseUser::class), 9, self::UUID, 1, $participants, true, 'wrong_split')

@@ -15,9 +15,9 @@ export const useChecklistStore = defineStore('checklist', {
 	state: () => ({
 		items: {}, // taskId -> items[]
 		progress: {}, // roomTaskId -> progress[]
-		// CS-PLAN-072 WP1: occurrence identity + progress revision of the
-		// cached progress read — the toggle's stale-mutation guard.
-		progressMeta: {}, // roomTaskId -> { occurrenceId, revision }
+		// Cycle key + progress revision of the cached progress read — the
+		// toggle's stale-mutation guard (ADR-021 decision 3).
+		progressMeta: {}, // roomTaskId -> { cycleKey, revision }
 		loading: false,
 		error: null,
 	}),
@@ -55,13 +55,12 @@ export const useChecklistStore = defineStore('checklist', {
 		},
 
 		/**
-		 * Fetch progress for a room task's CURRENT occurrence
-		 * (CS-PLAN-072 WP1).
+		 * Fetch the sub-task ticks of a room task's CURRENT cycle.
 		 *
-		 * The endpoint returns `{ items, stats, occurrence }`: rows are
-		 * occurrence-scoped and carry `occurrenceId` + `revision`; the
-		 * resolved target block is cached as the toggle target. A GET is
-		 * write-free — virtual agreed occurrences derive empty progress.
+		 * The endpoint returns `{ items, stats, cycle }`: rows belong to
+		 * the cycle and carry its `cycleKey` + `revision`; the cycle key is
+		 * cached as the toggle target. A GET is write-free — a new cycle
+		 * starts without ticks.
 		 *
 		 * @param {number} roomTaskId The room task ID
 		 */
@@ -73,7 +72,7 @@ export const useChecklistStore = defineStore('checklist', {
 				const data = await api.get(`/api/v1/checklists/progress/${roomTaskId}`)
 				this.progress[roomTaskId] = data.items || []
 				this.progressMeta[roomTaskId] = {
-					occurrenceId: data.occurrence?.occurrenceId ?? null,
+					cycleKey: data.cycle?.cycleKey ?? null,
 					revision: this.progress[roomTaskId].reduce((max, row) => Math.max(max, row.revision ?? 0), 0),
 				}
 				return this.progress[roomTaskId]
@@ -187,15 +186,14 @@ export const useChecklistStore = defineStore('checklist', {
 		},
 
 		/**
-		 * Toggle a checklist item's completion status on the room task's
-		 * CURRENT occurrence (CS-PLAN-072 WP1).
+		 * Toggle a sub-task of the room task's CURRENT cycle.
 		 *
-		 * The request carries the cached occurrence identity and progress
-		 * revision (stale-mutation guard); the endpoint returns
-		 * `{ progress, stats, occurrence }` and the progress row is
-		 * upserted into the cached list by its `checklistItemId`. A 409
-		 * (stale revision) refetches the occurrence progress so the next
-		 * toggle uses the current state.
+		 * The request carries the cached cycle key and progress revision
+		 * (stale-mutation guard); the endpoint returns
+		 * `{ progress, stats, cycle }` and the progress row is upserted
+		 * into the cached list by its `checklistItemId`. A 409 (the cycle
+		 * closed or the revision moved on) refetches the progress so the
+		 * next toggle uses the current state.
 		 *
 		 * @param {number} roomTaskId The room task ID
 		 * @param {number} itemId The item ID
@@ -205,9 +203,9 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const meta = this.progressMeta[roomTaskId] ?? { occurrenceId: null, revision: null }
+				const meta = this.progressMeta[roomTaskId] ?? { cycleKey: null, revision: null }
 				const data = await api.post(`/api/v1/checklists/toggle/${roomTaskId}/${itemId}`, {
-					occurrenceId: meta.occurrenceId,
+					cycleKey: meta.cycleKey,
 					expectedRevision: meta.revision,
 				})
 
@@ -225,7 +223,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 
 				this.progressMeta[roomTaskId] = {
-					occurrenceId: data?.occurrence?.occurrenceId ?? meta.occurrenceId,
+					cycleKey: data?.cycle?.cycleKey ?? meta.cycleKey,
 					revision: this.progress[roomTaskId].reduce((max, entry) => Math.max(max, entry.revision ?? 0), 0),
 				}
 
@@ -233,13 +231,13 @@ export const useChecklistStore = defineStore('checklist', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to toggle checklist item', error, { store: 'checklist', action: 'toggleItem', roomTaskId, itemId })
-				// Stale occurrence progress (409): refetch so the next
+				// Stale progress (409): refetch so the next
 				// attempt carries the current revision.
 				if (error?.status === 409) {
 					try {
 						await this.fetchRoomTaskProgress(roomTaskId)
 					} catch (refetchError) {
-						logger.warn('Checklist progress refetch after 409 failed', refetchError, { store: 'checklist', action: 'toggleItem', roomTaskId })
+						logger.warn('Checklist progress refetch after 409 failed', { store: 'checklist', action: 'toggleItem', roomTaskId, error: refetchError })
 					}
 				}
 				throw error

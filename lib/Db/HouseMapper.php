@@ -79,6 +79,12 @@ class HouseMapper extends QBMapper {
 			$now = new \DateTime();
 			$house->setCreatedAt($now);
 			$house->setUpdatedAt($now);
+			// ADR-021 decision 12: a new house has no stored occurrences;
+			// derived windows start on its creation day.
+			$house->setCyclesFrom(\DateTime::createFromFormat(
+				'!Y-m-d',
+				\DateTime::createFromInterface($now)->setTimezone(new \DateTimeZone($timezone))->format('Y-m-d')
+			));
 			try {
 				return $this->insert($house);
 			} catch (\OCP\DB\Exception $insertException) {

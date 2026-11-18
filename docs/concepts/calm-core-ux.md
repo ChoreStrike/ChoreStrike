@@ -48,7 +48,20 @@
   *Set up your home* stays on Today and under *Floors & Rooms* in the
   Settings while the house is empty (D-090-12).
 
+> **Releases B and C (CS-PLAN-091, built on `feat/simplified-core-bc`):** *Today*
+> shows the live suggestion ([ADR-022](../adr/ADR-022-live-suggestion.md))
+> instead of *Due today*, a section for bonus tasks and a running bonus period.
+> The overdue block keeps one red entry per task with the end of its window;
+> there are no catch-up entries ([ADR-021](../adr/ADR-021-derived-due-windows.md)).
+> A short tap on *Done* opens the picker for who did it and which sub-tasks are
+> finished; holding completes everything. The overload line no longer invites
+> the owner to replan: capacity only shows overload.
+
 ## Catch-up is honest
+
+> **Replaced by ADR-021:** a missed chore is one red entry until it is done;
+> doing it late counts as late, never as on time. The text below describes the
+> stored catch-up entries of the earlier model.
 
 A missed chore stays visible as catch-up with its original date and
 window. Completing the shown occurrence **covers the miss without

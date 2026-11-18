@@ -106,16 +106,15 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * CompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsOccurrenceConflict409
+	 * CompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsAlreadyCompleted409
 	 *
 	 * T1 holds the house lock and commits the winner's completion of the
-	 * SAME occurrence target; T2's completion (already past its
-	 * pre-transaction probe, carrying the pre-commit receipt) must hit the
-	 * under-lock occurrence re-check → 409 (CS-PLAN-072 WP1: occurrence
-	 * validity replaces the day-duplicate 403) and write no second ledger
-	 * row.
+	 * SAME cycle; T2's completion (already past its pre-transaction probe,
+	 * carrying the pre-commit receipt) must hit the under-lock target
+	 * check → 409 `ALREADY_COMPLETED` (ADR-021 decision 4) and write no
+	 * second ledger row.
 	 */
-	public function testCompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsOccurrenceConflict409(): void {
+	public function testCompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsAlreadyCompleted409(): void {
 		$houseId = $this->createHouse('hmc_dup_owner', 'HMC Duplicate House');
 		$this->addHouseMember($houseId, 'hmc_dup_completer', 'HMC Dup Completer', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
@@ -125,21 +124,15 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		$completerHouseUserId = $this->findHouseUserId($houseId, 'hmc_dup_completer');
 
 		// T2's receipt is resolved BEFORE the winner commits — the shown
-		// target both racers aim at.
-		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
-		$selection = $occurrenceService->selectionFor(
-			\OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId),
-			new \DateTime()
-		);
-		self::assertNotNull($selection, 'the fixture must expose a completable occurrence');
-		$target = $selection['occurrence'];
+		// cycle both racers aim at.
+		[$commandId, $cycleKey, $expectedVersion] = $this->completionReceiptFor($roomTaskId);
 
 		$signalFile = sys_get_temp_dir() . '/cs-hmc-dup-locked-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-hmc-dup-winner-' . uniqid() . '.php';
 		file_put_contents($helperScript, $this->buildDuplicateWinnerHolderScript());
 
 		$process = proc_open(
-			[PHP_BINARY, $helperScript, (string)$roomTaskId, (string)$completerHouseUserId, (string)$target->getId(), $signalFile, (string)$houseId],
+			[PHP_BINARY, $helperScript, (string)$roomTaskId, (string)$completerHouseUserId, (string)$cycleKey, $signalFile, (string)$houseId],
 			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes
 		);
@@ -156,22 +149,22 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			}
 
 			// T2: the receipt probe passed pre-transaction, the completion
-			// blocks at the house lock, and the under-lock re-check finds
-			// T1's committed fulfillment of the SAME target → 409.
+			// blocks at the house lock, and the under-lock check finds
+			// T1's committed closing of the SAME cycle → 409.
 			$completionService = \OC::$server->get(CompletionService::class);
 			try {
 				$completionService->complete(
 					$houseId,
 					'hmc_dup_completer',
 					$roomTaskId,
-					sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
-					$target->toPublicKey(),
-					$target->getVersion(),
-					$occurrenceService->selectionToken($target, $selection['revision'], $selection['classification'])
+					$commandId,
+					$cycleKey,
+					$expectedVersion
 				);
-				self::fail('a second completion of the same occurrence must be rejected with 409');
+				self::fail('a second completion of the same cycle must be rejected with 409');
 			} catch (ConflictException $e) {
-				self::assertSame('This occurrence is already completed', $e->getMessage());
+				self::assertSame('This task is already completed', $e->getMessage());
+				self::assertSame(ConflictException::REASON_ALREADY_COMPLETED, $e->getReason());
 			}
 			self::assertTrue($barrier->wasReached());
 			QueryBarrier::finish($process, $pipes);
@@ -586,7 +579,7 @@ require '/var/www/html/custom_apps/chorestrike/tests/integration/Support/QueryBa
 
 $roomTaskId = (int)$argv[1];
 $houseUserId = (int)$argv[2];
-$occurrenceId = (int)$argv[3];
+$cycleKey = $argv[3];
 $signalFile = $argv[4];
 $houseId = (int)$argv[5];
 
@@ -597,19 +590,19 @@ $db->beginTransaction();
 
 \OCA\ChoreStrike\Tests\Integration\Support\QueryBarrier::hold($signalFile);
 
+$today = date('Y-m-d');
 $db->executeStatement(
-    'INSERT INTO *PREFIX*chorestrike_completed_tasks (room_task_id, user_id, completed_at, total_energy, rate_minor, completion_version, allocation_revision, occurrence_due, work_date, work_zone, completion_class) VALUES (:rtid, :uid, :now, 3, 1000, 0, 1, :due, :work, \'UTC\', \'agreed\')',
-    ['rtid' => $roomTaskId, 'uid' => $houseUserId, 'now' => date('Y-m-d H:i:s'), 'due' => date('Y-m-d'), 'work' => date('Y-m-d')],
-    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'uid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'now' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'due' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'work' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR]
+    'INSERT INTO *PREFIX*chorestrike_completed_tasks (room_task_id, user_id, completed_at, total_energy, rate_minor, completion_version, allocation_revision, work_date, work_zone, completion_class, cycle_key, window_start_on, window_end_on) VALUES (:rtid, :uid, :now, 3, 1000, 0, 1, :work, \'UTC\', \'on_time\', :key, :work, :work)',
+    ['rtid' => $roomTaskId, 'uid' => $houseUserId, 'now' => date('Y-m-d H:i:s'), 'work' => $today, 'key' => $cycleKey],
+    ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'uid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
-// CS-PLAN-072 WP1: the winner FULFILLS the shared occurrence target — the
-// loser's under-lock re-check reads this committed fulfillment (occurrence
-// validity replaces the day-duplicate guard).
+// The winner CLOSES the shared cycle — the loser's under-lock check reads
+// this committed row (ADR-021 decision 5).
 $ledgerId = (int)$db->lastInsertId('chorestrike_completed_tasks');
 $db->executeStatement(
-    'UPDATE *PREFIX*chorestrike_occurrences SET completion_id = :cid, version = version + 1 WHERE id = :oid',
-    ['cid' => $ledgerId, 'oid' => $occurrenceId],
-    ['cid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'oid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
+    'INSERT INTO *PREFIX*chorestrike_cycles (house_id, room_task_id, cycle_key, window_start_on, window_end_on, week_start, timezone, outcome, completion_id, completion_class, energy, created_at) VALUES (:hid, :rtid, :key, :work, :work, :work, \'UTC\', \'done\', :cid, \'on_time\', 3, :now)',
+    ['hid' => $houseId, 'rtid' => $roomTaskId, 'key' => $cycleKey, 'work' => $today, 'cid' => $ledgerId, 'now' => date('Y-m-d H:i:s')],
+    ['hid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'cid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
 $db->commit();
 PHP;
